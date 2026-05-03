@@ -1,0 +1,125 @@
+<!DOCTYPE html>
+<html>
+<head>
+  <!--
+    If you are serving your web app in a path other than the root, change the
+    href value below to reflect the base path you are serving from.
+
+    The path provided below has to start and end with a slash "/" in order for
+    it to work correctly.
+
+    For more details:
+    * https://developer.mozilla.org/en-US/docs/Web/HTML/Element/base
+
+    This is a placeholder for base href that will be replaced by the value of
+    the `--base-href` argument provided to `flutter build`.
+  -->
+  <base href="$FLUTTER_BASE_HREF">
+
+  <meta charset="UTF-8">
+  <meta content="IE=Edge" http-equiv="X-UA-Compatible">
+  <meta name="description" content="Simpulx - Omnichannel WhatsApp Business Platform for Modern Teams">
+
+  <!-- iOS meta tags & icons -->
+  <meta name="mobile-web-app-capable" content="yes">
+  <meta name="apple-mobile-web-app-status-bar-style" content="black">
+  <meta name="apple-mobile-web-app-title" content="Simpulx">
+  <link rel="apple-touch-icon" href="icons/Icon-192.png">
+
+  <!-- Favicon -->
+  <link rel="icon" type="image/png" href="favicon.png"/>
+
+  <title>Simpulx</title>
+  <link rel="manifest" href="manifest.json">
+</head>
+<body>
+  <!-- Facebook SDK for Embedded Signup -->
+  <script async defer crossorigin="anonymous" src="https://connect.facebook.net/en_US/sdk.js"></script>
+  <script>
+    window.fbAsyncInit = function() {
+      FB.init({
+        appId: '844651915316113',
+        autoLogAppEvents: true,
+        xfbml: true,
+        version: 'v21.0'
+      });
+    };
+
+    // Capture session data from Embedded Signup message events
+    window._simpulxEmbeddedSignupData = null;
+    window.addEventListener('message', function(event) {
+      if (!event.origin || event.origin.indexOf('facebook.com') === -1) return;
+      try {
+        var data = JSON.parse(event.data);
+        if (data.type === 'WA_EMBEDDED_SIGNUP' && data.data && data.data.phone_number_id) {
+          window._simpulxEmbeddedSignupData = data.data;
+        }
+      } catch(e) {}
+    });
+
+    // Launch Embedded Signup flow — returns Promise<JSON string>
+    window.launchWhatsAppSignup = function(configId) {
+      return new Promise(function(resolve, reject) {
+        window._simpulxEmbeddedSignupData = null;
+        if (typeof FB === 'undefined') {
+          reject('Facebook SDK not loaded');
+          return;
+        }
+        FB.login(function(response) {
+          if (response.authResponse) {
+            var code = response.authResponse.code;
+            // Give message event time to arrive
+            setTimeout(function() {
+              var signupData = window._simpulxEmbeddedSignupData;
+              resolve(JSON.stringify({
+                code: code,
+                phoneNumberId: signupData ? signupData.phone_number_id : null,
+                wabaId: signupData ? signupData.waba_id : null
+              }));
+            }, 500);
+          } else {
+            reject('cancelled');
+          }
+        }, {
+          config_id: configId,
+          response_type: 'code',
+          override_default_response_type: true,
+          extras: { setup: {} }
+        });
+      });
+    };
+
+    // Launch Meta (Instagram / Messenger) OAuth login — returns Promise<JSON string with code>
+    window.launchMetaLogin = function() {
+      return new Promise(function(resolve, reject) {
+        if (typeof FB === 'undefined') {
+          reject('Facebook SDK not loaded');
+          return;
+        }
+        FB.login(function(response) {
+          if (response.authResponse && response.authResponse.code) {
+            resolve(JSON.stringify({ code: response.authResponse.code }));
+          } else {
+            reject('cancelled');
+          }
+        }, {
+          response_type: 'code',
+          override_default_response_type: true,
+          scope: 'pages_show_list,pages_messaging,instagram_basic,instagram_manage_messages,pages_read_engagement'
+        });
+      });
+    };
+  </script>
+
+  <!-- Unregister any stale service workers -->
+  <script>
+    if ('serviceWorker' in navigator) {
+      navigator.serviceWorker.getRegistrations().then(function(registrations) {
+        for (var r of registrations) { r.unregister(); }
+      });
+    }
+  </script>
+
+  <script src="flutter_bootstrap.js" async></script>
+</body>
+</html>

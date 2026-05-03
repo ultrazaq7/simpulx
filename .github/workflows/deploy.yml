@@ -1,0 +1,85 @@
+name: Deploy Simpulx
+
+on:
+  push:
+    branches:
+      - main
+  workflow_dispatch:
+
+concurrency:
+  group: simpulx-production
+  cancel-in-progress: false
+
+jobs:
+  verify-backend:
+    name: Verify Backend
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v6
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v6
+        with:
+          node-version: 20
+          cache: npm
+          cache-dependency-path: backend/package-lock.json
+
+      - name: Install dependencies
+        working-directory: backend
+        run: npm ci
+
+      - name: Build backend
+        working-directory: backend
+        run: npm run build
+
+      - name: Validate Docker Compose config
+        run: docker compose --env-file .env.compose.example config
+
+  deploy:
+    name: Deploy To VPS
+    needs: verify-backend
+    runs-on: ubuntu-latest
+    if: github.ref == 'refs/heads/main'
+
+    steps:
+      - name: Deploy over SSH
+        uses: appleboy/ssh-action@v1.2.0
+        with:
+          host: ${{ secrets.VPS_HOST }}
+          username: ${{ secrets.VPS_USER }}
+          key: ${{ secrets.VPS_SSH_KEY }}
+          port: ${{ secrets.VPS_SSH_PORT || 22 }}
+          timeout: 60s
+          command_timeout: 30m
+          script: |
+            set -euo pipefail
+            APP_DIR=/opt/simpulx
+            REPO=git@github.com:ultrazaq7/simpulx.git
+            BRANCH=main
+            SSH_COMMAND="ssh -i /root/.ssh/simpulx_github_deploy -o IdentitiesOnly=yes -o StrictHostKeyChecking=accept-new"
+
+            if [ -d "$APP_DIR/.git" ]; then
+              cd "$APP_DIR"
+              git config core.sshCommand "$SSH_COMMAND"
+              git fetch origin "$BRANCH" || true
+              if git rev-parse --verify "origin/$BRANCH" >/dev/null 2>&1 && git merge-base --is-ancestor HEAD "origin/$BRANCH" >/dev/null 2>&1; then
+                git checkout "$BRANCH"
+                git pull --ff-only origin "$BRANCH"
+              else
+                TS="$(date +%Y%m%d-%H%M%S)"
+                mkdir -p /var/backups/simpulx
+                cd /
+                mv "$APP_DIR" "/var/backups/simpulx/${TS}-opt-simpulx-before-fresh-main"
+                GIT_SSH_COMMAND="$SSH_COMMAND" git clone --branch "$BRANCH" "$REPO" "$APP_DIR"
+              fi
+            else
+              GIT_SSH_COMMAND="$SSH_COMMAND" git clone --branch "$BRANCH" "$REPO" "$APP_DIR"
+            fi
+
+            cd "$APP_DIR"
+            git config core.sshCommand "$SSH_COMMAND"
+            export DEPLOY_BRANCH=main
+            export SIMPULX_ENV_FILE=/etc/simpulx/backend.env
+            bash /opt/simpulx/scripts/deploy-vps.sh

@@ -1,0 +1,56 @@
+# Secrets
+backend/.env
+.env
+*.env
+!.env.example
+.env.compose
+firebase-service-account.json
+firebase-service-account*.json
+gcp-key.json
+gcp-key*.json
+purge-cache.sh
+nginx-*.local.conf
+deploy/local-secrets/*
+!deploy/local-secrets/.gitkeep
+frontend/android/key.properties
+frontend/android/local.properties
+*.jks
+
+# User-uploaded data
+uploads/
+backups/
+releases/
+
+# Node
+node_modules/
+dist/
+backend/dist/
+*.log
+npm-debug.log*
+
+# Flutter / Dart
+.dart_tool/
+.flutter-plugins
+.flutter-plugins-dependencies
+build/
+frontend/build/
+frontend/web_build/
+frontend/web_build_old/
+.pub-cache/
+.pub/
+frontend/.idea/
+frontend/*.iml
+frontend/assets/AssetManifest.*
+frontend/assets/FontManifest.json
+frontend/assets/NOTICES
+frontend/assets/assets/
+frontend/assets/fonts/
+frontend/assets/packages/
+frontend/assets/shaders/
+
+# OS
+.DS_Store
+Thumbs.db
+
+# Android build artifacts (use GitHub Releases instead)
+*.apk
