@@ -33,31 +33,31 @@ export class PendingLead {
   @Column({ name: 'contact_id' })
   contactId: string;
 
-  @Column({ name: 'source_conversation_id', nullable: true })
+  @Column({ name: 'source_conversation_id', type: 'uuid', nullable: true })
   sourceConversationId: string | null;
 
-  @Column({ name: 'target_conversation_id', nullable: true })
+  @Column({ name: 'target_conversation_id', type: 'uuid', nullable: true })
   targetConversationId: string | null;
 
-  @Column({ name: 'automation_rule_id', nullable: true })
+  @Column({ name: 'automation_rule_id', type: 'uuid', nullable: true })
   automationRuleId: string | null;
 
-  @Column({ name: 'ad_id', nullable: true, length: 255 })
+  @Column({ name: 'ad_id', type: 'varchar', nullable: true, length: 255 })
   adId: string | null;
 
-  @Column({ name: 'source_type', nullable: true, length: 50 })
+  @Column({ name: 'source_type', type: 'varchar', nullable: true, length: 50 })
   sourceType: string | null;
 
-  @Column({ name: 'target_agent_id', nullable: true })
+  @Column({ name: 'target_agent_id', type: 'uuid', nullable: true })
   targetAgentId: string | null;
 
-  @Column({ name: 'target_department_id', nullable: true })
+  @Column({ name: 'target_department_id', type: 'uuid', nullable: true })
   targetDepartmentId: string | null;
 
-  @Column({ length: 30, default: 'pending' })
+  @Column({ type: 'varchar', length: 30, default: 'pending' })
   status: PendingLeadStatus;
 
-  @Column({ nullable: true, length: 80 })
+  @Column({ type: 'varchar', nullable: true, length: 80 })
   reason: string | null;
 
   @Column({ default: 0 })

@@ -126,7 +126,7 @@ export class Conversation {
   @Column({ name: 'closed_at', nullable: true })
   closedAt: Date;
 
-  @Column({ name: 'closed_reason', nullable: true, length: 80 })
+  @Column({ name: 'closed_reason', type: 'varchar', nullable: true, length: 80 })
   closedReason: string | null;
 
   @Column({ name: 'auto_close_at', type: 'timestamptz', nullable: true })
@@ -147,7 +147,7 @@ export class Conversation {
   @Column({ name: 'hsm_count', default: 0 })
   hsmCount: number;
 
-  @Column({ name: 'ai_stage', nullable: true, length: 30 })
+  @Column({ name: 'ai_stage', type: 'varchar', nullable: true, length: 30 })
   aiStage: string | null;
 
   @Column({ name: 'ai_confidence', type: 'numeric', precision: 5, scale: 4, nullable: true })
@@ -162,10 +162,10 @@ export class Conversation {
   @Column({ name: 'snoozed_until', type: 'timestamp', nullable: true })
   snoozedUntil: Date | null;
 
-  @Column({ name: 'routing_automation_rule_id', nullable: true })
+  @Column({ name: 'routing_automation_rule_id', type: 'uuid', nullable: true })
   routingAutomationRuleId: string | null;
 
-  @Column({ name: 'routed_ad_id', nullable: true, length: 255 })
+  @Column({ name: 'routed_ad_id', type: 'varchar', nullable: true, length: 255 })
   routedAdId: string | null;
 
   // ── Omnichannel Source ────────────────────────────────
