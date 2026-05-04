@@ -622,6 +622,7 @@ class _InlineAudioPlayer extends StatefulWidget {
 
 class _InlineAudioPlayerState extends State<_InlineAudioPlayer> {
   bool _isPlaying = false;
+  bool _hasError = false;
   double _position = 0; // 0..1
   Duration _duration = Duration.zero;
   Duration _current = Duration.zero;
@@ -648,6 +649,14 @@ class _InlineAudioPlayerState extends State<_InlineAudioPlayer> {
       }));
       _subs.add(_webHelper!.playingStream.listen((playing) {
         if (mounted) setState(() => _isPlaying = playing);
+      }));
+      _subs.add(_webHelper!.errorStream.listen((_) {
+        if (mounted) {
+          setState(() {
+            _hasError = true;
+            _isPlaying = false;
+          });
+        }
       }));
     } else {
       _nativePlayer = ja.AudioPlayer();
@@ -684,7 +693,9 @@ class _InlineAudioPlayerState extends State<_InlineAudioPlayer> {
           });
         }
       }));
-    } catch (_) {}
+    } catch (_) {
+      if (mounted) setState(() => _hasError = true);
+    }
   }
 
   @override
@@ -697,24 +708,40 @@ class _InlineAudioPlayerState extends State<_InlineAudioPlayer> {
     super.dispose();
   }
 
-  void _togglePlay() {
+  Future<void> _togglePlay() async {
+    if (_hasError) {
+      await _openAudioExternally();
+      return;
+    }
     if (kIsWeb) {
       if (_webHelper == null) {
-        launchUrl(Uri.parse(widget.url), mode: LaunchMode.externalApplication);
+        await _openAudioExternally();
         return;
       }
       if (_isPlaying) {
         _webHelper!.pause();
       } else {
-        _webHelper!.play();
+        final started = await _webHelper!.play();
+        if (!started && mounted) setState(() => _hasError = true);
       }
     } else {
       if (_nativePlayer == null) return;
       if (_isPlaying) {
         _nativePlayer!.pause();
       } else {
-        _nativePlayer!.play();
+        try {
+          await _nativePlayer!.play();
+        } catch (_) {
+          if (mounted) setState(() => _hasError = true);
+        }
       }
+    }
+  }
+
+  Future<void> _openAudioExternally() async {
+    final uri = Uri.parse(widget.url);
+    if (await canLaunchUrl(uri)) {
+      await launchUrl(uri, mode: LaunchMode.externalApplication);
     }
   }
 
@@ -738,9 +765,13 @@ class _InlineAudioPlayerState extends State<_InlineAudioPlayer> {
       children: [
         // Play/Pause button
         GestureDetector(
-          onTap: _togglePlay,
+          onTap: () => _togglePlay(),
           child: Icon(
-            _isPlaying ? Icons.pause_rounded : Icons.play_arrow_rounded,
+            _hasError
+                ? Icons.open_in_new_rounded
+                : _isPlaying
+                    ? Icons.pause_rounded
+                    : Icons.play_arrow_rounded,
             color: accent,
             size: 32,
           ),
@@ -767,22 +798,26 @@ class _InlineAudioPlayerState extends State<_InlineAudioPlayer> {
                 ),
                 child: Slider(
                   value: _position.clamp(0.0, 1.0),
-                  onChanged: (v) {
-                    if (kIsWeb) {
-                      _webHelper?.seek(v);
-                    } else if (_nativePlayer != null &&
-                        _duration.inMilliseconds > 0) {
-                      _nativePlayer!.seek(Duration(
-                          milliseconds:
-                              (v * _duration.inMilliseconds).round()));
-                    }
-                  },
+                  onChanged: _hasError
+                      ? null
+                      : (v) {
+                          if (kIsWeb) {
+                            _webHelper?.seek(v);
+                          } else if (_nativePlayer != null &&
+                              _duration.inMilliseconds > 0) {
+                            _nativePlayer!.seek(Duration(
+                                milliseconds:
+                                    (v * _duration.inMilliseconds).round()));
+                          }
+                        },
                 ),
               ),
               Padding(
                 padding: const EdgeInsets.symmetric(horizontal: 8),
                 child: Text(
-                  '${_formatDuration(_current)} / ${_formatDuration(_duration)}',
+                  _hasError
+                      ? 'Audio unavailable'
+                      : '${_formatDuration(_current)} / ${_formatDuration(_duration)}',
                   style: TextStyle(
                     fontSize: 11,
                     color: fg.withValues(alpha: 0.55),

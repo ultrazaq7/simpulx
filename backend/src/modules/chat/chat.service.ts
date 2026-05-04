@@ -5,6 +5,7 @@ import {
   BadRequestException,
   ForbiddenException,
   Injectable,
+  InternalServerErrorException,
   Logger,
   NotFoundException,
 } from "@nestjs/common";
@@ -602,7 +603,8 @@ export class ChatService {
       }
       fs.writeFileSync(absPath, file.buffer);
     } catch (err) {
-      this.logger.warn(`Failed to persist upload locally: ${(err as Error).message}`);
+      this.logger.error(`Failed to persist upload locally: ${(err as Error).message}`);
+      throw new InternalServerErrorException('Could not store uploaded media');
     }
     const localUrl = `/uploads/${storedName}`;
 
