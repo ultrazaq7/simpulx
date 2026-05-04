@@ -4,7 +4,8 @@
 import 'dart:async';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart' show Clipboard, ClipboardData;
-import 'package:flutter/foundation.dart' show kIsWeb, defaultTargetPlatform, TargetPlatform;
+import 'package:flutter/foundation.dart'
+    show kIsWeb, defaultTargetPlatform, TargetPlatform;
 import 'package:simpulx/core/widgets/app_snackbar.dart';
 import 'package:url_launcher/url_launcher.dart';
 import 'package:just_audio/just_audio.dart' as ja;
@@ -76,12 +77,13 @@ class _MessageBubbleState extends State<MessageBubble> {
     final screenWidth = MediaQuery.of(context).size.width;
     final resolvedUrl = _resolveMediaUrl();
     final type = message.type;
+    final displayContent = _displayContent();
     final hasMedia = type != 'text' && resolvedUrl != null;
     final isImageType = type == 'image' || type == 'sticker';
-    final hasCaption = message.content != null &&
-        message.content!.isNotEmpty &&
-        !(type == 'document' && message.content == message.mediaFilename) &&
-        !(type == 'audio' && message.content == message.mediaFilename);
+    final hasCaption = displayContent != null &&
+        displayContent.isNotEmpty &&
+        !(type == 'document' && displayContent == message.mediaFilename) &&
+        !(type == 'audio' && displayContent == message.mediaFilename);
 
     final timeStr = _formatTime12h(message.createdAt);
 
@@ -154,7 +156,7 @@ class _MessageBubbleState extends State<MessageBubble> {
                     spacing: 4,
                     children: [
                       _selectableText(
-                        message.content!,
+                        displayContent!,
                         TextStyle(
                           color: isOutbound
                               ? Colors.white
@@ -203,7 +205,7 @@ class _MessageBubbleState extends State<MessageBubble> {
                           crossAxisAlignment: CrossAxisAlignment.start,
                           children: [
                             _selectableText(
-                              message.content!,
+                              displayContent!,
                               TextStyle(
                                 color: isOutbound
                                     ? Colors.white
@@ -277,7 +279,7 @@ class _MessageBubbleState extends State<MessageBubble> {
   }
 
   Future<void> _copyMessageText(BuildContext context) async {
-    final text = message.content;
+    final text = _displayContent();
     if (text == null || text.isEmpty) return;
     await Clipboard.setData(ClipboardData(text: text));
     if (!context.mounted) return;
@@ -291,6 +293,15 @@ class _MessageBubbleState extends State<MessageBubble> {
     final child = Text(text, style: style);
     if (_isDesktop) return SelectionArea(child: child);
     return child;
+  }
+
+  String? _displayContent() {
+    final content = message.content;
+    if (content == null) return null;
+    if (content.startsWith('[Unsupported:')) {
+      return 'Unsupported WhatsApp message';
+    }
+    return content;
   }
 
   Widget _buildImage(BuildContext context, String url, bool isOutbound) {
@@ -375,7 +386,8 @@ class _MessageBubbleState extends State<MessageBubble> {
     required String url,
     required bool isOutbound,
   }) {
-    final fg = isOutbound ? Colors.white : Theme.of(context).colorScheme.onSurface;
+    final fg =
+        isOutbound ? Colors.white : Theme.of(context).colorScheme.onSurface;
     final bg = isOutbound
         ? Colors.white.withValues(alpha: 0.14)
         : Theme.of(context).colorScheme.primary.withValues(alpha: 0.08);
@@ -456,7 +468,8 @@ class _MessageBubbleState extends State<MessageBubble> {
     return Container(
       padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
       decoration: BoxDecoration(
-        color: (isOutbound ? Colors.white : Colors.black).withValues(alpha: 0.08),
+        color:
+            (isOutbound ? Colors.white : Colors.black).withValues(alpha: 0.08),
         borderRadius: BorderRadius.circular(8),
       ),
       child: Row(
@@ -554,8 +567,7 @@ class _MessageBubbleState extends State<MessageBubble> {
       ));
     }
 
-    final timeStr =
-        '${message.createdAt.month.toString().padLeft(2, '0')}/'
+    final timeStr = '${message.createdAt.month.toString().padLeft(2, '0')}/'
         '${message.createdAt.day.toString().padLeft(2, '0')}/'
         '${message.createdAt.year} '
         '${_formatTime12h(message.createdAt)}';
@@ -677,7 +689,9 @@ class _InlineAudioPlayerState extends State<_InlineAudioPlayer> {
 
   @override
   void dispose() {
-    for (final sub in _subs) { sub.cancel(); }
+    for (final sub in _subs) {
+      sub.cancel();
+    }
     _webHelper?.dispose();
     _nativePlayer?.dispose();
     super.dispose();
@@ -756,8 +770,11 @@ class _InlineAudioPlayerState extends State<_InlineAudioPlayer> {
                   onChanged: (v) {
                     if (kIsWeb) {
                       _webHelper?.seek(v);
-                    } else if (_nativePlayer != null && _duration.inMilliseconds > 0) {
-                      _nativePlayer!.seek(Duration(milliseconds: (v * _duration.inMilliseconds).round()));
+                    } else if (_nativePlayer != null &&
+                        _duration.inMilliseconds > 0) {
+                      _nativePlayer!.seek(Duration(
+                          milliseconds:
+                              (v * _duration.inMilliseconds).round()));
                     }
                   },
                 ),

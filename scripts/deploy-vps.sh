@@ -27,6 +27,14 @@ export SIMPULX_CONFIG_DIR="${SIMPULX_CONFIG_DIR:-/etc/simpulx}"
 export UPLOADS_VOLUME="${UPLOADS_VOLUME:-/var/lib/simpulx/uploads}"
 export POSTGRES_VOLUME="${POSTGRES_VOLUME:-simpulx_postgres_data}"
 export REDIS_VOLUME="${REDIS_VOLUME:-simpulx_redis_data}"
+export SIMPULX_API_UID="${SIMPULX_API_UID:-100}"
+export SIMPULX_API_GID="${SIMPULX_API_GID:-101}"
+
+if [[ "$UPLOADS_VOLUME" = /* ]]; then
+  mkdir -p "$UPLOADS_VOLUME"
+  chown -R "$SIMPULX_API_UID:$SIMPULX_API_GID" "$UPLOADS_VOLUME"
+  chmod -R u+rwX,g+rwX,o+rX "$UPLOADS_VOLUME"
+fi
 
 if docker ps -a --format '{{.Names}}' | grep -qx 'simpulx-api'; then
   project="$(docker inspect -f '{{ index .Config.Labels "com.docker.compose.project" }}' simpulx-api 2>/dev/null || true)"

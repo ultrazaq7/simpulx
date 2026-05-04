@@ -188,7 +188,7 @@ export class WebhookController {
         messageData.content = waMessage.reaction?.emoji || '';
         break;
       default:
-        messageData.content = `[Unsupported: ${waMessage.type}]`;
+        messageData.content = this.formatUnsupportedMessage(waMessage);
     }
 
     // Queue message for async processing (BullMQ)
@@ -225,7 +225,18 @@ export class WebhookController {
     return typeMap[waType] || MessageType.TEXT;
   }
 
-  // ── Verify Meta Webhook Signature ─────────────────────
+  // Keep unsupported WhatsApp payloads readable in the chat UI.
+  private formatUnsupportedMessage(waMessage: any): string {
+    const reason =
+      waMessage.errors?.[0]?.title ||
+      waMessage.errors?.[0]?.message ||
+      waMessage.errors?.[0]?.details;
+    return reason
+      ? `Unsupported WhatsApp message: ${reason}`
+      : 'Unsupported WhatsApp message';
+  }
+
+  // Verify Meta Webhook Signature
   private verifySignature(req: RawBodyRequest<Request>) {
     const appSecret = this.configService.get('WHATSAPP_APP_SECRET');
     if (!appSecret) return; // Skip in dev
