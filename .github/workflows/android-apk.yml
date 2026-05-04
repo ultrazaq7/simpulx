@@ -1,0 +1,56 @@
+name: Build Android APK
+
+on:
+  workflow_dispatch:
+
+jobs:
+  build-apk:
+    name: Build APK
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v6
+
+      - name: Setup Flutter
+        uses: subosito/flutter-action@v2
+        with:
+          flutter-version: 3.41.9
+          channel: stable
+          cache: true
+
+      - name: Write Firebase Android config
+        env:
+          ANDROID_GOOGLE_SERVICES_JSON: ${{ secrets.ANDROID_GOOGLE_SERVICES_JSON }}
+        run: |
+          set -euo pipefail
+          if [ -z "$ANDROID_GOOGLE_SERVICES_JSON" ]; then
+            echo "Missing ANDROID_GOOGLE_SERVICES_JSON repository secret." >&2
+            exit 1
+          fi
+          printf '%s' "$ANDROID_GOOGLE_SERVICES_JSON" > frontend/android/app/google-services.json
+
+      - name: Write optional Android signing config
+        env:
+          ANDROID_KEYSTORE_BASE64: ${{ secrets.ANDROID_KEYSTORE_BASE64 }}
+          ANDROID_KEY_PROPERTIES: ${{ secrets.ANDROID_KEY_PROPERTIES }}
+        run: |
+          set -euo pipefail
+          if [ -n "$ANDROID_KEYSTORE_BASE64" ] && [ -n "$ANDROID_KEY_PROPERTIES" ]; then
+            printf '%s' "$ANDROID_KEYSTORE_BASE64" | base64 --decode > frontend/android/app/upload-keystore.jks
+            printf '%s' "$ANDROID_KEY_PROPERTIES" > frontend/android/key.properties
+          else
+            echo "Android signing secrets are not set; Gradle will use the debug signing fallback configured by the project."
+          fi
+
+      - name: Build release APK
+        working-directory: frontend
+        run: |
+          flutter pub get
+          flutter build apk --release
+
+      - name: Upload APK artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: simpulx-release-apk
+          path: frontend/build/app/outputs/flutter-apk/app-release.apk

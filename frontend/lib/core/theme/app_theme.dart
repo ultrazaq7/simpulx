@@ -94,7 +94,7 @@ class AppTheme {
   // Brand Colors
   static const Color _primaryColor = AppColors.primary;
   static const Color _secondaryColor = AppColors.brandGreenDark;
-  static const Color _accentColor = AppColors.brandBlue;
+  static const Color _accentColor = AppColors.brandAmber;
 
   // Light Theme Surface Colors
   static const Color _lightBg = Color(0xFFF4F8F6);

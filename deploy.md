@@ -18,9 +18,9 @@ Flutter + NestJS + PostgreSQL + Redis
         | git push
         v
 GitHub
-GitHub Actions verify + deploy backend, Flutter web, and landing
+GitHub Actions verify, build API image, build Flutter web, and deploy artifacts
         |
-        | SSH deploy
+        | SCP artifacts + SSH deploy
         v
 VPS
 Docker Compose
@@ -51,6 +51,9 @@ Create these repository secrets before enabling auto deploy:
 - `VPS_USER`: `root`
 - `VPS_SSH_KEY`: private SSH key allowed to access the VPS
 - `VPS_SSH_PORT`: optional, defaults to `22`
+- `ANDROID_GOOGLE_SERVICES_JSON`: Android Firebase `google-services.json` content for manual APK builds
+- `ANDROID_KEYSTORE_BASE64`: optional base64 Android release keystore for signed APK builds
+- `ANDROID_KEY_PROPERTIES`: optional Android `key.properties` content for signed APK builds
 
 The VPS checkout at `/opt/simpulx` must also be able to pull from GitHub, usually with a deploy key.
 
@@ -102,25 +105,29 @@ bash scripts/adopt-compose-vps.sh
 After adoption, normal deploys use:
 
 ```bash
-bash scripts/deploy-vps.sh
+git push origin main
 ```
 
-`scripts/deploy-vps.sh` now deploys the API, builds Flutter web, syncs the landing page, validates Nginx, and runs health checks.
+GitHub Actions builds the API Docker image and Flutter web app, uploads those artifacts to the VPS, then runs `scripts/deploy-vps.sh`. The VPS loads the API image, starts Compose without building, syncs the Flutter web artifact and landing page, validates Nginx, and runs health checks.
+
+`scripts/deploy-vps.sh` intentionally refuses to build the API or Flutter web on the VPS unless an emergency manual deploy explicitly sets:
+
+```bash
+SIMPULX_ALLOW_VPS_API_BUILD=1
+SIMPULX_ALLOW_VPS_FLUTTER_BUILD=1
+```
+
+This keeps the VPS as a runtime/deploy host instead of a build machine.
 
 ## Manual Frontend Web Deploy
 
-Use this only for emergency manual deploys outside GitHub Actions:
+Use this only for emergency manual deploys outside GitHub Actions. Normal deploys should use `git push` and GitHub Actions.
 
 ```bash
 ssh root@76.13.18.144
 cd /opt/simpulx
 git pull --ff-only origin main
-cd frontend
-flutter pub get
-flutter build web --release --base-href "/"
-rm -rf /var/www/simpulx/app/*
-cp -a build/web/. /var/www/simpulx/app/
-nginx -t && systemctl reload nginx
+SIMPULX_ALLOW_VPS_API_BUILD=1 SIMPULX_ALLOW_VPS_FLUTTER_BUILD=1 bash scripts/deploy-vps.sh
 ```
 
 ## Manual Landing Deploy
@@ -158,3 +165,5 @@ The legacy Firebase config files are intentionally not tracked. Before building 
 
 - `frontend/android/app/google-services.json`
 - `frontend/ios/Runner/GoogleService-Info.plist`
+
+For GitHub-hosted APK builds, open **Actions -> Build Android APK -> Run workflow** after setting `ANDROID_GOOGLE_SERVICES_JSON`. The APK is uploaded as a GitHub Actions artifact. Release signing can be added with `ANDROID_KEYSTORE_BASE64` and `ANDROID_KEY_PROPERTIES`.

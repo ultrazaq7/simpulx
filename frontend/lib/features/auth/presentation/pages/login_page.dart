@@ -7,6 +7,7 @@ import 'package:go_router/go_router.dart';
 import 'package:simpulx/core/theme/app_style.dart';
 import 'package:simpulx/core/widgets/app_snackbar.dart';
 import 'package:simpulx/core/widgets/simpulx_logo.dart';
+import 'package:simpulx/core/widgets/simpulx_wordmark.dart';
 import 'package:simpulx/features/auth/presentation/bloc/auth_bloc.dart';
 
 class LoginPage extends StatefulWidget {
@@ -95,30 +96,7 @@ class _LoginPageState extends State<LoginPage>
                             mainAxisSize: MainAxisSize.min,
                             children: [
                               const _BrandHeader(),
-                              const SizedBox(height: 42),
-                              Text(
-                                'Welcome back',
-                                textAlign: TextAlign.center,
-                                style: Theme.of(context)
-                                    .textTheme
-                                    .headlineMedium
-                                    ?.copyWith(
-                                      color: Colors.white,
-                                      fontWeight: FontWeight.w800,
-                                      letterSpacing: -0.8,
-                                    ),
-                              ),
-                              const SizedBox(height: 8),
-                              Text(
-                                'Sign in to your Simpulx workspace',
-                                textAlign: TextAlign.center,
-                                style: TextStyle(
-                                  color: Colors.white.withValues(alpha: 0.46),
-                                  fontSize: 15,
-                                  height: 1.5,
-                                ),
-                              ),
-                              const SizedBox(height: 34),
+                              const SizedBox(height: 58),
                               _buildLabel('Email'),
                               const SizedBox(height: 8),
                               TextFormField(
@@ -203,7 +181,7 @@ class _LoginPageState extends State<LoginPage>
                                 builder: (context, state) {
                                   final isLoading = state is AuthLoading;
                                   return SizedBox(
-                                    height: 52,
+                                    height: 58,
                                     child: _GradientButton(
                                       onPressed: isLoading ? null : _onLogin,
                                       isLoading: isLoading,
@@ -213,7 +191,7 @@ class _LoginPageState extends State<LoginPage>
                               ),
                               const SizedBox(height: 36),
                               Text(
-                                '(c) ${DateTime.now().year} Simpulx. All rights reserved.',
+                                '\u00A9 ${DateTime.now().year} Simpulx. All rights reserved.',
                                 textAlign: TextAlign.center,
                                 style: TextStyle(
                                   color: Colors.white.withValues(alpha: 0.20),
@@ -239,7 +217,7 @@ class _LoginPageState extends State<LoginPage>
         text,
         style: TextStyle(
           color: Colors.white.withValues(alpha: 0.56),
-          fontSize: 13,
+          fontSize: 14,
           fontWeight: FontWeight.w600,
         ),
       );
@@ -254,15 +232,15 @@ class _LoginPageState extends State<LoginPage>
       prefixIcon:
           Icon(icon, size: 20, color: Colors.white.withValues(alpha: 0.34)),
       filled: true,
-      fillColor: Colors.white.withValues(alpha: 0.055),
-      contentPadding: const EdgeInsets.symmetric(horizontal: 18, vertical: 17),
+      fillColor: AppColors.brandInk.withValues(alpha: 0.86),
+      contentPadding: const EdgeInsets.symmetric(horizontal: 18, vertical: 18),
       border: OutlineInputBorder(
         borderRadius: BorderRadius.circular(16),
-        borderSide: BorderSide(color: Colors.white.withValues(alpha: 0.11)),
+        borderSide: BorderSide(color: Colors.white.withValues(alpha: 0.10)),
       ),
       enabledBorder: OutlineInputBorder(
         borderRadius: BorderRadius.circular(16),
-        borderSide: BorderSide(color: Colors.white.withValues(alpha: 0.11)),
+        borderSide: BorderSide(color: Colors.white.withValues(alpha: 0.10)),
       ),
       focusedBorder: OutlineInputBorder(
         borderRadius: BorderRadius.circular(16),
@@ -290,28 +268,32 @@ class _BrandHeader extends StatelessWidget {
   Widget build(BuildContext context) {
     return Column(
       children: [
-        const SimpulxLogo(size: 68, onDark: true),
-        const SizedBox(height: 18),
-        ShaderMask(
-          shaderCallback: (bounds) => AppGradients.logo.createShader(bounds),
-          child: const Text(
-            'Simpulx',
-            style: TextStyle(
-              color: Colors.white,
-              fontSize: 34,
-              fontWeight: FontWeight.w900,
-              letterSpacing: -1.0,
-            ),
+        DecoratedBox(
+          decoration: BoxDecoration(
+            borderRadius: BorderRadius.circular(24),
+            boxShadow: [
+              BoxShadow(
+                color: AppColors.brandGreenSoft.withValues(alpha: 0.30),
+                blurRadius: 52,
+                spreadRadius: 6,
+              ),
+            ],
           ),
+          child: const SimpulxLogo(size: 92, onDark: true),
         ),
-        const SizedBox(height: 10),
+        const SizedBox(height: 26),
+        const Center(
+          child: SimpulxWordmark(fontSize: 38, onDark: true),
+        ),
+        const SizedBox(height: 14),
         Text(
-          'Your team messaging hub.',
+          'Sign in to your account',
           textAlign: TextAlign.center,
           style: TextStyle(
             color: Colors.white.withValues(alpha: 0.42),
-            fontSize: 15,
-            height: 1.55,
+            fontSize: 20,
+            fontWeight: FontWeight.w500,
+            height: 1.2,
           ),
         ),
       ],
@@ -342,9 +324,9 @@ class _GradientButton extends StatelessWidget {
         boxShadow: enabled
             ? [
                 BoxShadow(
-                  color: AppColors.brandGreen.withValues(alpha: 0.30),
-                  blurRadius: 24,
-                  offset: const Offset(0, 10),
+                  color: AppColors.brandGreenSoft.withValues(alpha: 0.26),
+                  blurRadius: 30,
+                  offset: const Offset(0, 12),
                 ),
               ]
             : null,
@@ -369,7 +351,7 @@ class _GradientButton extends StatelessWidget {
                     'Sign In',
                     style: TextStyle(
                       color: Colors.white,
-                      fontSize: 15,
+                      fontSize: 16,
                       fontWeight: FontWeight.w700,
                     ),
                   ),
@@ -385,37 +367,37 @@ class _LoginBackground extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    return DecoratedBox(
-      decoration: const BoxDecoration(
-        gradient: LinearGradient(
-          begin: Alignment.topLeft,
-          end: Alignment.bottomRight,
+    return const DecoratedBox(
+      decoration: BoxDecoration(
+        gradient: RadialGradient(
+          center: Alignment(0, -0.18),
+          radius: 0.88,
           colors: [
+            Color(0xFF12322B),
             AppColors.brandBlack,
-            Color(0xFF07120F),
-            Color(0xFF0D241D),
+            Color(0xFF061312),
           ],
+          stops: [0, 0.48, 1],
         ),
       ),
       child: Stack(
         children: [
-          Positioned.fill(child: CustomPaint(painter: _GridPainter())),
-          const Positioned(
-            top: -110,
-            left: -80,
+          Positioned(
+            top: 120,
+            left: -90,
             child: _GlowOrb(
-              size: 340,
-              color: AppColors.brandBlue,
-              opacity: 0.14,
+              size: 360,
+              color: AppColors.brandGreenSoft,
+              opacity: 0.13,
             ),
           ),
-          const Positioned(
-            right: -90,
-            bottom: -120,
+          Positioned(
+            right: -120,
+            bottom: 120,
             child: _GlowOrb(
-              size: 380,
-              color: AppColors.brandGreenSoft,
-              opacity: 0.18,
+              size: 420,
+              color: AppColors.brandGreen,
+              opacity: 0.15,
             ),
           ),
         ],
@@ -448,23 +430,4 @@ class _GlowOrb extends StatelessWidget {
       ),
     );
   }
-}
-
-class _GridPainter extends CustomPainter {
-  @override
-  void paint(Canvas canvas, Size size) {
-    final paint = Paint()
-      ..color = Colors.white.withValues(alpha: 0.024)
-      ..strokeWidth = 1;
-    const spacing = 48.0;
-    for (double x = 0; x <= size.width; x += spacing) {
-      canvas.drawLine(Offset(x, 0), Offset(x, size.height), paint);
-    }
-    for (double y = 0; y <= size.height; y += spacing) {
-      canvas.drawLine(Offset(0, y), Offset(size.width, y), paint);
-    }
-  }
-
-  @override
-  bool shouldRepaint(covariant CustomPainter oldDelegate) => false;
 }

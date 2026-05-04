@@ -13,12 +13,14 @@ class AppColors {
   AppColors._();
 
   // Brand tokens, aligned with the landing page.
-  static const Color brandBlack = Color(0xFF060608);
-  static const Color brandInk = Color(0xFF0F172A);
+  static const Color brandBlack = Color(0xFF0A1A1A);
+  static const Color brandInk = Color(0xFF0F2625);
   static const Color brandBlue = Color(0xFF60A5FA);
-  static const Color brandGreen = Color(0xFF25D366);
-  static const Color brandGreenSoft = Color(0xFF34D399);
-  static const Color brandGreenDark = Color(0xFF128C7E);
+  static const Color brandGreen = Color(0xFF2D8B73);
+  static const Color brandGreenSoft = Color(0xFF3AA88D);
+  static const Color brandGreenDark = Color(0xFF236F5D);
+  static const Color brandAmber = Color(0xFFF5A623);
+  static const Color brandAmberSoft = Color(0xFFFFBE4F);
 
   // Brand / semantic
   static const Color primary = brandGreen;
@@ -54,13 +56,13 @@ class AppGradients {
   AppGradients._();
 
   static const LinearGradient logo = LinearGradient(
-    colors: [AppColors.brandBlue, AppColors.brandGreenSoft],
+    colors: [AppColors.textInverse, AppColors.brandAmber],
   );
 
   static const LinearGradient action = LinearGradient(
     begin: Alignment.centerLeft,
     end: Alignment.centerRight,
-    colors: [AppColors.brandGreen, AppColors.brandGreenDark],
+    colors: [AppColors.brandGreenSoft, AppColors.brandGreen],
   );
 }
 

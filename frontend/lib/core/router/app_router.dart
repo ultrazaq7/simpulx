@@ -35,6 +35,7 @@ import 'package:simpulx/features/audit_log/presentation/pages/audit_log_page.dar
 import 'package:simpulx/features/settings/presentation/pages/mobile_profile_page.dart';
 import 'package:simpulx/core/theme/app_style.dart';
 import 'package:simpulx/core/widgets/app_snackbar.dart';
+import 'package:simpulx/core/widgets/simpulx_wordmark.dart';
 
 Widget _webTitle(String title, Widget child) {
   if (kIsWeb) {
@@ -915,18 +916,7 @@ class _PremiumSideNavState extends State<_PremiumSideNav>
         children: [
           logo,
           const SizedBox(width: 10),
-          ShaderMask(
-            shaderCallback: (bounds) => AppGradients.logo.createShader(bounds),
-            child: const Text(
-              'Simpulx',
-              style: TextStyle(
-                fontSize: 20,
-                fontWeight: FontWeight.w800,
-                color: Colors.white,
-                letterSpacing: -0.5,
-              ),
-            ),
-          ),
+          const SimpulxWordmark(fontSize: 20, onDark: true),
           const Spacer(),
           _buildCollapseButton(),
         ],

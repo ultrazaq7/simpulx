@@ -44,6 +44,52 @@ jobs:
     if: github.ref == 'refs/heads/main'
 
     steps:
+      - name: Checkout
+        uses: actions/checkout@v6
+
+      - name: Setup Flutter
+        uses: subosito/flutter-action@v2
+        with:
+          flutter-version: 3.41.9
+          channel: stable
+          cache: true
+
+      - name: Build Flutter web
+        working-directory: frontend
+        run: |
+          flutter pub get
+          flutter build web --release --base-href "/" --no-wasm-dry-run
+
+      - name: Package Flutter web artifact
+        run: tar -C frontend/build/web -czf "$RUNNER_TEMP/simpulx-web.tar.gz" .
+
+      - name: Build API image artifact
+        run: |
+          docker build -t simpulx-api:latest backend
+          docker save simpulx-api:latest | gzip -c > "$RUNNER_TEMP/simpulx-api.tar.gz"
+
+      - name: Prepare SSH upload
+        env:
+          VPS_SSH_KEY: ${{ secrets.VPS_SSH_KEY }}
+        run: |
+          set -euo pipefail
+          key_file="$RUNNER_TEMP/vps_key"
+          printf '%s\n' "$VPS_SSH_KEY" > "$key_file"
+          chmod 600 "$key_file"
+          echo "VPS_KEY=$key_file" >> "$GITHUB_ENV"
+          echo "WEB_ARTIFACT=/tmp/simpulx-web-${GITHUB_SHA}.tar.gz" >> "$GITHUB_ENV"
+          echo "API_IMAGE_ARTIFACT=/tmp/simpulx-api-${GITHUB_SHA}.tar.gz" >> "$GITHUB_ENV"
+
+      - name: Upload deploy artifacts to VPS
+        env:
+          VPS_HOST: ${{ secrets.VPS_HOST }}
+          VPS_USER: ${{ secrets.VPS_USER }}
+          VPS_SSH_PORT: ${{ secrets.VPS_SSH_PORT || 22 }}
+        run: |
+          set -euo pipefail
+          scp -i "$VPS_KEY" -P "$VPS_SSH_PORT" -o IdentitiesOnly=yes -o StrictHostKeyChecking=accept-new "$RUNNER_TEMP/simpulx-web.tar.gz" "${VPS_USER}@${VPS_HOST}:${WEB_ARTIFACT}"
+          scp -i "$VPS_KEY" -P "$VPS_SSH_PORT" -o IdentitiesOnly=yes -o StrictHostKeyChecking=accept-new "$RUNNER_TEMP/simpulx-api.tar.gz" "${VPS_USER}@${VPS_HOST}:${API_IMAGE_ARTIFACT}"
+
       - name: Deploy over SSH
         uses: appleboy/ssh-action@v1.2.0
         with:
@@ -82,4 +128,7 @@ jobs:
             git config core.sshCommand "$SSH_COMMAND"
             export DEPLOY_BRANCH=main
             export SIMPULX_ENV_FILE=/etc/simpulx/backend.env
+            export SIMPULX_WEB_ARTIFACT="/tmp/simpulx-web-${{ github.sha }}.tar.gz"
+            export SIMPULX_API_IMAGE_ARTIFACT="/tmp/simpulx-api-${{ github.sha }}.tar.gz"
+            export SIMPULX_CLEAN_ARTIFACTS=1
             bash /opt/simpulx/scripts/deploy-vps.sh

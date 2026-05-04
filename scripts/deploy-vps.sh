@@ -6,6 +6,9 @@ BRANCH="${DEPLOY_BRANCH:-main}"
 ENV_FILE="${SIMPULX_ENV_FILE:-/etc/simpulx/backend.env}"
 APP_WEB_ROOT="${APP_WEB_ROOT:-/var/www/simpulx/app}"
 LANDING_ROOT="${LANDING_ROOT:-/var/www/simpulx/landing}"
+API_IMAGE_ARTIFACT="${SIMPULX_API_IMAGE_ARTIFACT:-}"
+WEB_ARTIFACT="${SIMPULX_WEB_ARTIFACT:-}"
+CLEAN_ARTIFACTS="${SIMPULX_CLEAN_ARTIFACTS:-0}"
 
 cd "$APP_DIR"
 
@@ -43,7 +46,27 @@ for name in simpulx-db simpulx-redis; do
   fi
 done
 
-docker compose up -d --build postgres redis api
+if [ -n "$API_IMAGE_ARTIFACT" ]; then
+  if [ ! -f "$API_IMAGE_ARTIFACT" ]; then
+    echo "API image artifact missing: $API_IMAGE_ARTIFACT" >&2
+    exit 1
+  fi
+  echo "Loading CI-built API image..."
+  if command -v gzip >/dev/null 2>&1; then
+    gzip -dc "$API_IMAGE_ARTIFACT" | docker load
+  else
+    docker load -i "$API_IMAGE_ARTIFACT"
+  fi
+  [ "$CLEAN_ARTIFACTS" = "1" ] && rm -f -- "$API_IMAGE_ARTIFACT"
+  docker compose up -d --no-build postgres redis api
+elif [ "${SIMPULX_ALLOW_VPS_API_BUILD:-0}" = "1" ]; then
+  echo "Building API image on VPS because SIMPULX_ALLOW_VPS_API_BUILD=1..."
+  docker compose up -d --build postgres redis api
+else
+  echo "No CI-built API image artifact provided. Refusing to build API on VPS." >&2
+  echo "Set SIMPULX_API_IMAGE_ARTIFACT or explicitly set SIMPULX_ALLOW_VPS_API_BUILD=1 for emergency manual builds." >&2
+  exit 1
+fi
 docker compose ps
 
 curl --fail --silent --show-error --retry 20 --retry-delay 2 --retry-all-errors http://127.0.0.1:3002/docs >/dev/null
@@ -66,12 +89,36 @@ sync_static_dir() {
   fi
 }
 
-if command -v flutter >/dev/null 2>&1; then
-  echo "Building Flutter web..."
+if [ -n "$WEB_ARTIFACT" ]; then
+  if [ ! -f "$WEB_ARTIFACT" ]; then
+    echo "Flutter web artifact missing: $WEB_ARTIFACT" >&2
+    exit 1
+  fi
+  web_tmp="$(mktemp -d)"
+  cleanup_web_tmp() {
+    rm -rf -- "$web_tmp"
+  }
+  trap cleanup_web_tmp EXIT
+
+  echo "Extracting CI-built Flutter web artifact..."
+  tar -xzf "$WEB_ARTIFACT" -C "$web_tmp"
+  if [ ! -f "$web_tmp/index.html" ]; then
+    echo "Flutter web artifact is invalid: missing index.html" >&2
+    exit 1
+  fi
+  sync_static_dir "$web_tmp" "$APP_WEB_ROOT"
+  [ "$CLEAN_ARTIFACTS" = "1" ] && rm -f -- "$WEB_ARTIFACT"
+elif [ "${SIMPULX_ALLOW_VPS_FLUTTER_BUILD:-0}" = "1" ]; then
+  if ! command -v flutter >/dev/null 2>&1; then
+    echo "Flutter is not installed on this host." >&2
+    exit 1
+  fi
+  echo "Building Flutter web on VPS because SIMPULX_ALLOW_VPS_FLUTTER_BUILD=1..."
   (cd "$APP_DIR/frontend" && flutter pub get && flutter build web --release --base-href "/" --no-wasm-dry-run)
   sync_static_dir "$APP_DIR/frontend/build/web" "$APP_WEB_ROOT"
 else
-  echo "Flutter is not installed on this host; skipping Flutter web deploy." >&2
+  echo "No CI-built Flutter web artifact provided. Refusing to build Flutter on VPS." >&2
+  echo "Set SIMPULX_WEB_ARTIFACT or explicitly set SIMPULX_ALLOW_VPS_FLUTTER_BUILD=1 for emergency manual builds." >&2
   exit 1
 fi
 
