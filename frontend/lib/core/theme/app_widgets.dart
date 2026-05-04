@@ -9,7 +9,7 @@
 //   AppCard             - Bordered white surface with soft shadow
 //   AppSearchField      - Consistent rounded search input (pill)
 //   AppFilterPill       - Small dropdown-style filter chip
-//   AppPrimaryButton    - Filled blue CTA button
+//   AppPrimaryButton    - Filled brand CTA button
 //   AppGhostButton      - Transparent link-style button
 //   AppStatusBadge      - Pill badge for status / role tags
 //   AppTable            - Consistent table with sticky header row
@@ -120,11 +120,14 @@ class AppSearchField extends StatelessWidget {
         decoration: InputDecoration(
           hintText: hintText,
           hintStyle: const TextStyle(color: AppColors.textMuted, fontSize: 13),
-          prefixIcon: const Icon(Icons.search_rounded, size: 18, color: AppColors.textMuted),
-          prefixIconConstraints: const BoxConstraints(minWidth: 40, minHeight: 40),
+          prefixIcon: const Icon(Icons.search_rounded,
+              size: 18, color: AppColors.textMuted),
+          prefixIconConstraints:
+              const BoxConstraints(minWidth: 40, minHeight: 40),
           suffixIcon: onClear != null && (controller?.text.isNotEmpty ?? false)
               ? IconButton(
-                  icon: const Icon(Icons.close_rounded, size: 16, color: AppColors.textMuted),
+                  icon: const Icon(Icons.close_rounded,
+                      size: 16, color: AppColors.textMuted),
                   onPressed: onClear,
                 )
               : null,
@@ -177,7 +180,9 @@ class AppFilterPill extends StatelessWidget {
         child: Container(
           padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
           decoration: BoxDecoration(
-            color: active ? AppColors.primary.withOpacity(0.05) : AppColors.surface,
+            color: active
+                ? AppColors.primary.withOpacity(0.05)
+                : AppColors.surface,
             borderRadius: BorderRadius.circular(AppRadius.pill),
             border: Border.all(color: border, width: 1),
           ),
@@ -188,7 +193,9 @@ class AppFilterPill extends StatelessWidget {
                 Icon(icon, size: 14, color: fg),
                 const SizedBox(width: 6),
               ],
-              Text(label, style: TextStyle(fontSize: 12, color: fg, fontWeight: FontWeight.w600)),
+              Text(label,
+                  style: TextStyle(
+                      fontSize: 12, color: fg, fontWeight: FontWeight.w600)),
               const SizedBox(width: 4),
               Icon(Icons.keyboard_arrow_down_rounded, size: 16, color: fg),
             ],
@@ -223,11 +230,16 @@ class AppPrimaryButton extends StatelessWidget {
         foregroundColor: AppColors.textInverse,
         disabledBackgroundColor: AppColors.primary.withOpacity(0.5),
         padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 10),
-        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(AppRadius.md)),
+        shape: RoundedRectangleBorder(
+            borderRadius: BorderRadius.circular(AppRadius.md)),
         textStyle: AppText.button,
       ),
       icon: loading
-          ? const SizedBox(width: 14, height: 14, child: CircularProgressIndicator(strokeWidth: 2, color: Colors.white))
+          ? const SizedBox(
+              width: 14,
+              height: 14,
+              child: CircularProgressIndicator(
+                  strokeWidth: 2, color: Colors.white))
           : (icon != null ? Icon(icon, size: 16) : const SizedBox.shrink()),
       label: Text(label),
     );
@@ -240,7 +252,8 @@ class AppGhostButton extends StatelessWidget {
   final IconData? icon;
   final VoidCallback? onPressed;
 
-  const AppGhostButton({super.key, required this.label, this.icon, this.onPressed});
+  const AppGhostButton(
+      {super.key, required this.label, this.icon, this.onPressed});
 
   @override
   Widget build(BuildContext context) {
@@ -249,7 +262,8 @@ class AppGhostButton extends StatelessWidget {
       style: TextButton.styleFrom(
         foregroundColor: AppColors.textSecondary,
         padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
-        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(AppRadius.md)),
+        shape: RoundedRectangleBorder(
+            borderRadius: BorderRadius.circular(AppRadius.md)),
         textStyle: AppText.button,
       ),
       icon: icon != null ? Icon(icon, size: 16) : const SizedBox.shrink(),
@@ -361,31 +375,37 @@ class AppTable extends StatelessWidget {
               padding: contentPadding,
               decoration: const BoxDecoration(
                 color: AppColors.surfaceAlt,
-                border: Border(bottom: BorderSide(color: AppColors.border, width: 1)),
+                border: Border(
+                    bottom: BorderSide(color: AppColors.border, width: 1)),
               ),
               child: Row(children: [
-                for (final col in columns) _cell(col, Text(col.label, style: AppText.label)),
+                for (final col in columns)
+                  _cell(col, Text(col.label, style: AppText.label)),
               ]),
             ),
             // Rows
             ...rows.asMap().entries.map((entry) {
               final idx = entry.key;
               final row = entry.value;
-              final bg = striped && idx.isOdd ? AppColors.surfaceAlt : AppColors.surface;
+              final bg = striped && idx.isOdd
+                  ? AppColors.surfaceAlt
+                  : AppColors.surface;
               return Container(
                 constraints: BoxConstraints(minHeight: rowHeight),
                 padding: contentPadding.copyWith(top: 8, bottom: 8),
                 decoration: BoxDecoration(
                   color: bg,
                   border: idx < rows.length - 1
-                      ? const Border(bottom: BorderSide(color: AppColors.border, width: 1))
+                      ? const Border(
+                          bottom: BorderSide(color: AppColors.border, width: 1))
                       : null,
                 ),
                 child: Row(
                   crossAxisAlignment: CrossAxisAlignment.center,
                   children: [
                     for (int i = 0; i < columns.length; i++)
-                      _cell(columns[i], i < row.length ? row[i] : const SizedBox.shrink()),
+                      _cell(columns[i],
+                          i < row.length ? row[i] : const SizedBox.shrink()),
                   ],
                 ),
               );
@@ -428,7 +448,8 @@ class AppPagination extends StatelessWidget {
       padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 14),
       child: Row(
         children: [
-          Text('$currentPage / $totalPages $itemLabel', style: AppText.bodyMuted),
+          Text('$currentPage / $totalPages $itemLabel',
+              style: AppText.bodyMuted),
           const Spacer(),
           Row(children: [
             _navBtn(Icons.keyboard_double_arrow_left_rounded,
@@ -436,10 +457,16 @@ class AppPagination extends StatelessWidget {
             _navBtn(Icons.chevron_left_rounded,
                 currentPage > 1 ? () => onPageChanged(currentPage - 1) : null),
             ..._pageNumbers().map((p) => _pageBtn(p)),
-            _navBtn(Icons.chevron_right_rounded,
-                currentPage < totalPages ? () => onPageChanged(currentPage + 1) : null),
-            _navBtn(Icons.keyboard_double_arrow_right_rounded,
-                currentPage < totalPages ? () => onPageChanged(totalPages) : null),
+            _navBtn(
+                Icons.chevron_right_rounded,
+                currentPage < totalPages
+                    ? () => onPageChanged(currentPage + 1)
+                    : null),
+            _navBtn(
+                Icons.keyboard_double_arrow_right_rounded,
+                currentPage < totalPages
+                    ? () => onPageChanged(totalPages)
+                    : null),
           ]),
         ],
       ),
@@ -463,9 +490,13 @@ class AppPagination extends StatelessWidget {
           onTap: onTap,
           borderRadius: BorderRadius.circular(AppRadius.sm),
           child: SizedBox(
-            width: 30, height: 30,
-            child: Icon(icon, size: 16,
-                color: enabled ? AppColors.textSecondary : AppColors.textMuted.withOpacity(0.4)),
+            width: 30,
+            height: 30,
+            child: Icon(icon,
+                size: 16,
+                color: enabled
+                    ? AppColors.textSecondary
+                    : AppColors.textMuted.withOpacity(0.4)),
           ),
         ),
       ),
@@ -483,13 +514,15 @@ class AppPagination extends StatelessWidget {
           onTap: active ? null : () => onPageChanged(page),
           borderRadius: BorderRadius.circular(AppRadius.sm),
           child: Container(
-            width: 30, height: 30,
+            width: 30,
+            height: 30,
             alignment: Alignment.center,
             child: Text('$page',
                 style: TextStyle(
                   fontSize: 12,
                   fontWeight: FontWeight.w700,
-                  color: active ? AppColors.textInverse : AppColors.textSecondary,
+                  color:
+                      active ? AppColors.textInverse : AppColors.textSecondary,
                 )),
           ),
         ),
@@ -521,7 +554,8 @@ class AppEmptyState extends StatelessWidget {
         mainAxisSize: MainAxisSize.min,
         children: [
           Container(
-            width: 64, height: 64,
+            width: 64,
+            height: 64,
             decoration: BoxDecoration(
               color: AppColors.surfaceAlt,
               borderRadius: BorderRadius.circular(AppRadius.xl),
@@ -533,7 +567,8 @@ class AppEmptyState extends StatelessWidget {
           Text(title, style: AppText.sectionTitle),
           if (message != null) ...[
             const SizedBox(height: 6),
-            Text(message!, style: AppText.bodyMuted, textAlign: TextAlign.center),
+            Text(message!,
+                style: AppText.bodyMuted, textAlign: TextAlign.center),
           ],
           if (action != null) ...[
             const SizedBox(height: 16),

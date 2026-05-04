@@ -33,13 +33,14 @@ import 'package:simpulx/features/automation/presentation/pages/flow_builder_page
 import 'package:simpulx/features/drip_campaigns/presentation/pages/drip_campaigns_page.dart';
 import 'package:simpulx/features/audit_log/presentation/pages/audit_log_page.dart';
 import 'package:simpulx/features/settings/presentation/pages/mobile_profile_page.dart';
+import 'package:simpulx/core/theme/app_style.dart';
 import 'package:simpulx/core/widgets/app_snackbar.dart';
 
 Widget _webTitle(String title, Widget child) {
   if (kIsWeb) {
     return Title(
       title: title,
-      color: const Color(0xFF1A73E8),
+      color: AppColors.primary,
       child: child,
     );
   }
@@ -62,7 +63,11 @@ class AppRouter {
         final authState = authBloc.state;
         // Don't redirect while auth is still resolving
         if (authState is AuthInitial || authState is AuthLoading) {
-          final publicRoutes = ['/login', '/forgot-password', '/reset-password'];
+          final publicRoutes = [
+            '/login',
+            '/forgot-password',
+            '/reset-password'
+          ];
           final isPublicRoute = publicRoutes.any(
             (r) => state.matchedLocation.startsWith(r),
           );
@@ -130,19 +135,22 @@ class AppRouter {
         GoRoute(
           path: '/login',
           name: 'login',
-          builder: (context, state) => _webTitle('Login - Simpulx', LoginPage()),
+          builder: (context, state) =>
+              _webTitle('Login - Simpulx', LoginPage()),
         ),
         GoRoute(
           path: '/forgot-password',
           name: 'forgot-password',
-          builder: (context, state) => _webTitle('Forgot Password - Simpulx', ForgotPasswordPage()),
+          builder: (context, state) =>
+              _webTitle('Forgot Password - Simpulx', ForgotPasswordPage()),
         ),
         GoRoute(
           path: '/reset-password',
           name: 'reset-password',
           builder: (context, state) {
             final token = state.uri.queryParameters['token'] ?? '';
-            return _webTitle('Reset Password - Simpulx', ResetPasswordPage(token: token));
+            return _webTitle(
+                'Reset Password - Simpulx', ResetPasswordPage(token: token));
           },
         ),
 
@@ -152,12 +160,13 @@ class AppRouter {
           name: 'automation-flow',
           builder: (context, state) {
             final ruleId = state.pathParameters['id'] ?? '';
-            final ruleName =
-                state.uri.queryParameters['name'] ?? 'Automation';
-            return _webTitle('Flow Builder - Simpulx', FlowBuilderPage(
-                ruleId: ruleId,
-                ruleName: ruleName,
-              ));
+            final ruleName = state.uri.queryParameters['name'] ?? 'Automation';
+            return _webTitle(
+                'Flow Builder - Simpulx',
+                FlowBuilderPage(
+                  ruleId: ruleId,
+                  ruleName: ruleName,
+                ));
           },
         ),
 
@@ -174,7 +183,8 @@ class AppRouter {
             GoRoute(
               path: '/dashboard',
               name: 'dashboard',
-              builder: (context, state) => _webTitle('Dashboard - Simpulx', DashboardPage()),
+              builder: (context, state) =>
+                  _webTitle('Dashboard - Simpulx', DashboardPage()),
             ),
             GoRoute(
               path: '/chat',
@@ -191,7 +201,8 @@ class AppRouter {
                     final id = state.pathParameters['conversationId']!;
                     return NoTransitionPage(
                       key: state.pageKey,
-                      child: _webTitle('Chat - Simpulx', ChatShellPage(selectedConversationId: id)),
+                      child: _webTitle('Chat - Simpulx',
+                          ChatShellPage(selectedConversationId: id)),
                     );
                   },
                 ),
@@ -200,12 +211,14 @@ class AppRouter {
             GoRoute(
               path: '/contacts',
               name: 'contacts',
-              builder: (context, state) => _webTitle('Contacts - Simpulx', ContactsPage()),
+              builder: (context, state) =>
+                  _webTitle('Contacts - Simpulx', ContactsPage()),
             ),
             GoRoute(
               path: '/profile',
               name: 'profile',
-              builder: (context, state) => _webTitle('Profile - Simpulx', const MobileProfilePage()),
+              builder: (context, state) =>
+                  _webTitle('Profile - Simpulx', const MobileProfilePage()),
             ),
             // Mobile Settings tab - reuses MobileProfilePage
             GoRoute(
@@ -221,7 +234,8 @@ class AppRouter {
             GoRoute(
               path: '/quick-replies',
               name: 'quick-replies-standalone',
-              builder: (context, state) => _webTitle('Quick Replies - Simpulx', QuickRepliesPage()),
+              builder: (context, state) =>
+                  _webTitle('Quick Replies - Simpulx', QuickRepliesPage()),
             ),
             // ── Settings Shell with Sub-routes ──────────
             ShellRoute(
@@ -236,84 +250,100 @@ class AppRouter {
                 GoRoute(
                   path: '/settings/profile',
                   name: 'settings-profile',
-                  builder: (context, state) => _webTitle('Profile - Simpulx', ProfileSettingsPage()),
+                  builder: (context, state) =>
+                      _webTitle('Profile - Simpulx', ProfileSettingsPage()),
                 ),
                 GoRoute(
                   path: '/settings/organization',
                   name: 'settings-organization',
-                  builder: (context, state) => _webTitle('Organization - Simpulx', OrganizationSettingsPage()),
+                  builder: (context, state) => _webTitle(
+                      'Organization - Simpulx', OrganizationSettingsPage()),
                 ),
                 GoRoute(
                   path: '/settings/departments',
                   name: 'settings-departments',
-                  builder: (context, state) => _webTitle('Departments - Simpulx', DepartmentsSettingsPage()),
+                  builder: (context, state) => _webTitle(
+                      'Departments - Simpulx', DepartmentsSettingsPage()),
                 ),
                 GoRoute(
                   path: '/settings/whatsapp',
                   name: 'settings-whatsapp',
-                  builder: (context, state) => _webTitle('Channels - Simpulx', ChannelsSettingsPage()),
+                  builder: (context, state) =>
+                      _webTitle('Channels - Simpulx', ChannelsSettingsPage()),
                 ),
                 GoRoute(
                   path: '/settings/templates',
                   name: 'settings-templates',
-                  builder: (context, state) => _webTitle('Templates - Simpulx', TemplatesSettingsPage()),
+                  builder: (context, state) =>
+                      _webTitle('Templates - Simpulx', TemplatesSettingsPage()),
                 ),
                 GoRoute(
                   path: '/settings/team',
                   name: 'settings-team',
-                  builder: (context, state) => _webTitle('Team - Simpulx', TeamSettingsPage()),
+                  builder: (context, state) =>
+                      _webTitle('Team - Simpulx', TeamSettingsPage()),
                 ),
                 GoRoute(
                   path: '/settings/roles',
                   name: 'settings-roles',
-                  builder: (context, state) => _webTitle('Roles & Permissions - Simpulx', RolesSettingsPage()),
+                  builder: (context, state) => _webTitle(
+                      'Roles & Permissions - Simpulx', RolesSettingsPage()),
                 ),
                 GoRoute(
                   path: '/settings/quick-replies',
                   name: 'settings-quick-replies',
-                  builder: (context, state) => _webTitle('Quick Replies - Simpulx', QuickRepliesPage()),
+                  builder: (context, state) =>
+                      _webTitle('Quick Replies - Simpulx', QuickRepliesPage()),
                 ),
                 GoRoute(
                   path: '/settings/contact-fields',
                   name: 'settings-contact-fields',
-                  builder: (context, state) => _webTitle('Contact Fields - Simpulx', ContactFieldsSettingsPage()),
+                  builder: (context, state) => _webTitle(
+                      'Contact Fields - Simpulx', ContactFieldsSettingsPage()),
                 ),
                 GoRoute(
                   path: '/settings/stages',
                   name: 'settings-stages',
-                  builder: (context, state) => _webTitle('Stages - Simpulx', const StagesSettingsPage()),
+                  builder: (context, state) =>
+                      _webTitle('Stages - Simpulx', const StagesSettingsPage()),
                 ),
                 GoRoute(
                   path: '/settings/notifications',
                   name: 'settings-notifications',
-                  builder: (context, state) => _webTitle('Notifications - Simpulx', NotificationsSettingsPage()),
+                  builder: (context, state) => _webTitle(
+                      'Notifications - Simpulx', NotificationsSettingsPage()),
                 ),
                 GoRoute(
                   path: '/settings/security',
                   name: 'settings-security',
-                  builder: (context, state) => _webTitle('Security - Simpulx', SecuritySettingsPage()),
+                  builder: (context, state) =>
+                      _webTitle('Security - Simpulx', SecuritySettingsPage()),
                 ),
               ],
             ),
             GoRoute(
               path: '/broadcasts',
               name: 'broadcasts',
-              builder: (context, state) => _webTitle('Broadcasts - Simpulx', BroadcastsPage()),
+              builder: (context, state) =>
+                  _webTitle('Broadcasts - Simpulx', BroadcastsPage()),
             ),
             GoRoute(
               path: '/automation',
               name: 'automation',
-              builder: (context, state) => _webTitle('Automation - Simpulx', AutomationPage()),
+              builder: (context, state) =>
+                  _webTitle('Automation - Simpulx', AutomationPage()),
             ),
             GoRoute(
               path: '/drip-campaigns',
               name: 'drip-campaigns',
-              builder: (context, state) => _webTitle('Drip Campaigns - Simpulx', DripCampaignsPage()),
+              builder: (context, state) =>
+                  _webTitle('Drip Campaigns - Simpulx', DripCampaignsPage()),
             ),
             GoRoute(
               path: '/audit-log',
               name: 'audit-log',
-              builder: (context, state) => _webTitle('System Log - Simpulx', AuditLogPage()),
+              builder: (context, state) =>
+                  _webTitle('System Log - Simpulx', AuditLogPage()),
             ),
           ],
         ),
@@ -426,7 +456,8 @@ class _AppShellState extends State<AppShell>
           ? '/chat'
           : widget.currentPath.startsWith('/contacts')
               ? '/contacts'
-              : (widget.currentPath.startsWith('/settings') || widget.currentPath.startsWith('/quick-replies'))
+              : (widget.currentPath.startsWith('/settings') ||
+                      widget.currentPath.startsWith('/quick-replies'))
                   ? '/settings'
                   : widget.currentPath.startsWith('/dashboard')
                       ? '/dashboard'
@@ -434,25 +465,25 @@ class _AppShellState extends State<AppShell>
       final mobileIndex = mobileRoutes.indexOf(matchedMobile);
 
       return Container(
-          decoration: BoxDecoration(
-            color: Colors.white,
-            border: Border(
-              top: BorderSide(
-                color: theme.dividerColor.withOpacity(0.55),
-                width: 0.5,
-              ),
+        decoration: BoxDecoration(
+          color: Colors.white,
+          border: Border(
+            top: BorderSide(
+              color: theme.dividerColor.withOpacity(0.55),
+              width: 0.5,
             ),
-            boxShadow: [
-              BoxShadow(
-                color: Colors.black.withOpacity(0.06),
-                blurRadius: 12,
-                offset: const Offset(0, -2),
-              ),
-            ],
           ),
-          child: SafeArea(
-            top: false,
-            child: Theme(
+          boxShadow: [
+            BoxShadow(
+              color: Colors.black.withOpacity(0.06),
+              blurRadius: 12,
+              offset: const Offset(0, -2),
+            ),
+          ],
+        ),
+        child: SafeArea(
+          top: false,
+          child: Theme(
             data: theme.copyWith(
               navigationBarTheme: theme.navigationBarTheme.copyWith(
                 labelTextStyle:
@@ -481,15 +512,13 @@ class _AppShellState extends State<AppShell>
                   elevation: 0,
                   indicatorColor: theme.colorScheme.primary.withOpacity(0.12),
                   height: 58,
-                  labelBehavior:
-                      NavigationDestinationLabelBehavior.alwaysShow,
+                  labelBehavior: NavigationDestinationLabelBehavior.alwaysShow,
                   destinations: [
                     NavigationDestination(
                       icon: Icon(
                         Icons.dashboard_outlined,
                         size: 21,
-                        color:
-                            theme.colorScheme.onSurface.withOpacity(0.45),
+                        color: theme.colorScheme.onSurface.withOpacity(0.45),
                       ),
                       selectedIcon: Icon(
                         Icons.dashboard_rounded,
@@ -515,8 +544,7 @@ class _AppShellState extends State<AppShell>
                       icon: Icon(
                         Icons.people_outline_rounded,
                         size: 21,
-                        color:
-                            theme.colorScheme.onSurface.withOpacity(0.45),
+                        color: theme.colorScheme.onSurface.withOpacity(0.45),
                       ),
                       selectedIcon: Icon(
                         Icons.people_rounded,
@@ -529,8 +557,7 @@ class _AppShellState extends State<AppShell>
                       icon: Icon(
                         Icons.settings_outlined,
                         size: 21,
-                        color:
-                            theme.colorScheme.onSurface.withOpacity(0.45),
+                        color: theme.colorScheme.onSurface.withOpacity(0.45),
                       ),
                       selectedIcon: Icon(
                         Icons.settings_rounded,
@@ -544,16 +571,11 @@ class _AppShellState extends State<AppShell>
               },
             ),
           ),
-          ),
+        ),
       );
     }
 
-    final routes = [
-      '/dashboard',
-      '/chat',
-      '/contacts',
-      '/settings'
-    ];
+    final routes = ['/dashboard', '/chat', '/contacts', '/settings'];
     final matchedPath = widget.currentPath.startsWith('/chat')
         ? '/chat'
         : widget.currentPath.startsWith('/settings')
@@ -607,9 +629,7 @@ class _AppShellState extends State<AppShell>
     required int unreadCount,
   }) {
     final icon = Icon(
-      selected
-          ? Icons.chat_bubble_rounded
-          : Icons.chat_bubble_outline_rounded,
+      selected ? Icons.chat_bubble_rounded : Icons.chat_bubble_outline_rounded,
       size: 21,
       color: selected
           ? theme.colorScheme.primary
@@ -682,12 +702,12 @@ class _PremiumSideNavState extends State<_PremiumSideNav>
   static const double _collapsedWidth = 60;
   static const double _expandedWidth = 220;
 
-  static const Color _navBg = Color(0xFF1A2236);
-  static const Color _navBgSubtle = Color(0xFF222B40);
-  static const Color _navAccent = Color(0xFF2563EB);
-  static const Color _navTextMuted = Color(0xFF8A95A8);
-  static const Color _navText = Color(0xFFE6EAF2);
-  static const Color _navDivider = Color(0xFF2A344C);
+  static const Color _navBg = AppColors.brandBlack;
+  static const Color _navBgSubtle = Color(0xFF102019);
+  static const Color _navAccent = AppColors.brandGreenDark;
+  static const Color _navTextMuted = Color(0xFF8AA39A);
+  static const Color _navText = Color(0xFFEAFBF3);
+  static const Color _navDivider = Color(0xFF183027);
 
   @override
   void initState() {
@@ -769,101 +789,93 @@ class _PremiumSideNavState extends State<_PremiumSideNav>
                       crossAxisAlignment: CrossAxisAlignment.stretch,
                       children: [
                         const SizedBox(height: 8),
-                          if (canViewDashboard)
-                            _buildNavItem(
-                                context,
-                                Icons.grid_view_rounded,
-                                Icons.grid_view_rounded,
-                                'Dashboard',
-                                '/dashboard'),
+                        if (canViewDashboard)
                           _buildNavItem(
                               context,
-                              Icons.chat_bubble_outline_rounded,
-                              Icons.chat_bubble_rounded,
-                              'Chats',
-                              '/chat'),
-                          if (canViewContacts)
+                              Icons.grid_view_rounded,
+                              Icons.grid_view_rounded,
+                              'Dashboard',
+                              '/dashboard'),
+                        _buildNavItem(
+                            context,
+                            Icons.chat_bubble_outline_rounded,
+                            Icons.chat_bubble_rounded,
+                            'Chats',
+                            '/chat'),
+                        if (canViewContacts)
+                          _buildNavItem(context, Icons.people_outline_rounded,
+                              Icons.people_rounded, 'Contacts', '/contacts'),
+                        if (showMarketing) ...[
+                          const SizedBox(height: 6),
+                          Container(
+                            height: 1,
+                            margin: const EdgeInsets.symmetric(horizontal: 8),
+                            color: _navDivider,
+                          ),
+                          const SizedBox(height: 6),
+                          if (canViewBroadcasts)
                             _buildNavItem(
                                 context,
-                                Icons.people_outline_rounded,
-                                Icons.people_rounded,
-                                'Contacts',
-                                '/contacts'),
-                          if (showMarketing) ...[
-                            const SizedBox(height: 6),
-                            Container(
-                              height: 1,
-                              margin: const EdgeInsets.symmetric(horizontal: 8),
-                              color: _navDivider,
-                            ),
-                            const SizedBox(height: 6),
-                            if (canViewBroadcasts)
-                              _buildNavItem(
-                                  context,
-                                  Icons.campaign_outlined,
-                                  Icons.campaign_rounded,
-                                  'Broadcasts',
-                                  '/broadcasts'),
-                            if (canViewAutomation)
-                              _buildNavItem(
-                                  context,
-                                  Icons.auto_awesome_outlined,
-                                  Icons.auto_awesome_rounded,
-                                  'Automation',
-                                  '/automation'),
-                            if (canViewDripCampaigns)
-                              _buildNavItem(
-                                  context,
-                                  Icons.water_drop_outlined,
-                                  Icons.water_drop_rounded,
-                                  'Drip Campaigns',
-                                  '/drip-campaigns'),
-                          ],
-                          if (showInsights) ...[
-                            const SizedBox(height: 6),
-                            Container(
-                              height: 1,
-                              margin: const EdgeInsets.symmetric(horizontal: 8),
-                              color: _navDivider,
-                            ),
-                            const SizedBox(height: 6),
-                            if (canViewAuditLog)
-                              _buildNavItem(
-                                  context,
-                                  Icons.history_rounded,
-                                  Icons.history_rounded,
-                                  'System Log',
-                                  '/audit-log'),
-                          ],
+                                Icons.campaign_outlined,
+                                Icons.campaign_rounded,
+                                'Broadcasts',
+                                '/broadcasts'),
+                          if (canViewAutomation)
+                            _buildNavItem(
+                                context,
+                                Icons.auto_awesome_outlined,
+                                Icons.auto_awesome_rounded,
+                                'Automation',
+                                '/automation'),
+                          if (canViewDripCampaigns)
+                            _buildNavItem(
+                                context,
+                                Icons.water_drop_outlined,
+                                Icons.water_drop_rounded,
+                                'Drip Campaigns',
+                                '/drip-campaigns'),
                         ],
-                      ),
-                    ),
-                  ),
-                  Padding(
-                    padding: const EdgeInsets.fromLTRB(10, 8, 10, 10),
-                    child: Column(
-                      children: [
-                        if (canViewSettings)
-                          _buildNavItem(
-                              context,
-                              Icons.settings_outlined,
-                              Icons.settings_rounded,
-                              'Settings',
-                              '/settings'),
-                        const SizedBox(height: 8),
-                        Container(
-                          height: 1,
-                          color: _navDivider,
-                        ),
-                        const SizedBox(height: 8),
-                        _buildUserTile(context, theme),
+                        if (showInsights) ...[
+                          const SizedBox(height: 6),
+                          Container(
+                            height: 1,
+                            margin: const EdgeInsets.symmetric(horizontal: 8),
+                            color: _navDivider,
+                          ),
+                          const SizedBox(height: 6),
+                          if (canViewAuditLog)
+                            _buildNavItem(
+                                context,
+                                Icons.history_rounded,
+                                Icons.history_rounded,
+                                'System Log',
+                                '/audit-log'),
+                        ],
                       ],
                     ),
                   ),
-                ],
-              ),
+                ),
+                Padding(
+                  padding: const EdgeInsets.fromLTRB(10, 8, 10, 10),
+                  child: Column(
+                    children: [
+                      if (canViewSettings)
+                        _buildNavItem(context, Icons.settings_outlined,
+                            Icons.settings_rounded, 'Settings', '/settings'),
+                      const SizedBox(height: 8),
+                      Container(
+                        height: 1,
+                        color: _navDivider,
+                      ),
+                      const SizedBox(height: 8),
+                      _buildUserTile(context, theme),
+                    ],
+                  ),
+                ),
+              ],
             ),
-          );
+          ),
+        );
       },
     );
   }
@@ -904,9 +916,7 @@ class _PremiumSideNavState extends State<_PremiumSideNav>
           logo,
           const SizedBox(width: 10),
           ShaderMask(
-            shaderCallback: (bounds) => const LinearGradient(
-              colors: [Color(0xFF2563EB), Color(0xFF10B981)],
-            ).createShader(bounds),
+            shaderCallback: (bounds) => AppGradients.logo.createShader(bounds),
             child: const Text(
               'Simpulx',
               style: TextStyle(
@@ -991,9 +1001,8 @@ class _PremiumSideNavState extends State<_PremiumSideNav>
             : _navText;
 
     final content = Row(
-      mainAxisAlignment: _isExpanded
-          ? MainAxisAlignment.start
-          : MainAxisAlignment.center,
+      mainAxisAlignment:
+          _isExpanded ? MainAxisAlignment.start : MainAxisAlignment.center,
       children: [
         Icon(
           isSelected ? selectedIcon : icon,
@@ -1019,8 +1028,7 @@ class _PremiumSideNavState extends State<_PremiumSideNav>
                 color: _navTextMuted.withValues(alpha: 0.18),
                 borderRadius: BorderRadius.circular(4),
               ),
-              padding:
-                  const EdgeInsets.symmetric(horizontal: 6, vertical: 1),
+              padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 1),
               child: const Text(
                 'Soon',
                 style: TextStyle(
@@ -1089,8 +1097,8 @@ class _PremiumSideNavState extends State<_PremiumSideNav>
         builder: (ctx) => AlertDialog(
           title: const Text('Logout'),
           content: const Text('Are you sure you want to sign out?'),
-          shape: RoundedRectangleBorder(
-              borderRadius: BorderRadius.circular(16)),
+          shape:
+              RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
           actions: [
             TextButton(
               onPressed: () => Navigator.pop(ctx),

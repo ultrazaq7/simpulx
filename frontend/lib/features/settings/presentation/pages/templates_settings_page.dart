@@ -2,6 +2,7 @@
 // Templates Settings Page - WhatsApp Message Templates
 // ============================================================
 import 'package:flutter/material.dart';
+import 'package:simpulx/core/theme/app_style.dart';
 import 'package:simpulx/core/di/injection_container.dart' as di;
 import 'package:simpulx/core/network/dio_client.dart';
 import 'package:simpulx/core/constants/api_constants.dart';
@@ -157,8 +158,8 @@ class _TemplatesSettingsPageState extends State<TemplatesSettingsPage> {
       _loadTemplates();
     } catch (e) {
       if (!mounted) return;
-      AppSnackbar.error(context,
-          'Failed: ${e.toString().replaceFirst('Exception: ', '')}');
+      AppSnackbar.error(
+          context, 'Failed: ${e.toString().replaceFirst('Exception: ', '')}');
     }
   }
 
@@ -224,8 +225,8 @@ class _TemplatesSettingsPageState extends State<TemplatesSettingsPage> {
                     : const Icon(Icons.sync_rounded, size: 18),
                 label: Text(_syncing ? 'Syncing...' : 'Sync from Meta'),
                 style: OutlinedButton.styleFrom(
-                  padding: const EdgeInsets.symmetric(
-                      horizontal: 18, vertical: 14),
+                  padding:
+                      const EdgeInsets.symmetric(horizontal: 18, vertical: 14),
                   shape: RoundedRectangleBorder(
                     borderRadius: BorderRadius.circular(10),
                   ),
@@ -241,8 +242,8 @@ class _TemplatesSettingsPageState extends State<TemplatesSettingsPage> {
                 style: FilledButton.styleFrom(
                   backgroundColor: theme.colorScheme.primary,
                   foregroundColor: Colors.white,
-                  padding: const EdgeInsets.symmetric(
-                      horizontal: 18, vertical: 14),
+                  padding:
+                      const EdgeInsets.symmetric(horizontal: 18, vertical: 14),
                   shape: RoundedRectangleBorder(
                     borderRadius: BorderRadius.circular(10),
                   ),
@@ -281,13 +282,11 @@ class _TemplatesSettingsPageState extends State<TemplatesSettingsPage> {
                     DropdownMenuItem(value: 'ALL', child: Text('All')),
                     DropdownMenuItem(
                         value: 'APPROVED', child: Text('Approved')),
-                    DropdownMenuItem(
-                        value: 'PENDING', child: Text('Pending')),
+                    DropdownMenuItem(value: 'PENDING', child: Text('Pending')),
                     DropdownMenuItem(
                         value: 'REJECTED', child: Text('Rejected')),
                   ],
-                  onChanged: (v) =>
-                      setState(() => _statusFilter = v ?? 'ALL'),
+                  onChanged: (v) => setState(() => _statusFilter = v ?? 'ALL'),
                 ),
               ),
               const SizedBox(width: 12),
@@ -327,8 +326,7 @@ class _TemplatesSettingsPageState extends State<TemplatesSettingsPage> {
       isDense: true,
       filled: true,
       fillColor: theme.colorScheme.surface.withValues(alpha: 0.45),
-      contentPadding:
-          const EdgeInsets.symmetric(vertical: 12, horizontal: 16),
+      contentPadding: const EdgeInsets.symmetric(vertical: 12, horizontal: 16),
       border: OutlineInputBorder(
         borderRadius: BorderRadius.circular(10),
         borderSide: BorderSide(color: theme.dividerColor),
@@ -356,8 +354,7 @@ class _TemplatesSettingsPageState extends State<TemplatesSettingsPage> {
             DataColumn(label: Text('')),
           ],
           rows: templates.map((t) {
-            final status =
-                (t['status'] ?? 'PENDING').toString().toUpperCase();
+            final status = (t['status'] ?? 'PENDING').toString().toUpperCase();
             final id = t['id']?.toString() ?? '';
             final name = t['name']?.toString() ?? '';
             final deptIds = t['departmentIds'] is List
@@ -367,8 +364,8 @@ class _TemplatesSettingsPageState extends State<TemplatesSettingsPage> {
               cells: [
                 DataCell(Text(name,
                     style: const TextStyle(fontWeight: FontWeight.w600))),
-                DataCell(_CategoryChip(
-                    category: t['category']?.toString() ?? '')),
+                DataCell(
+                    _CategoryChip(category: t['category']?.toString() ?? '')),
                 DataCell(Text(t['language']?.toString() ?? 'en')),
                 DataCell(_StatusBadge(status: status)),
                 DataCell(
@@ -380,7 +377,8 @@ class _TemplatesSettingsPageState extends State<TemplatesSettingsPage> {
                       child: deptIds.isEmpty
                           ? Text('All',
                               style: theme.textTheme.bodySmall?.copyWith(
-                                color: theme.colorScheme.onSurface.withValues(alpha: 0.5),
+                                color: theme.colorScheme.onSurface
+                                    .withValues(alpha: 0.5),
                                 fontStyle: FontStyle.italic,
                               ))
                           : Wrap(
@@ -409,8 +407,7 @@ class _TemplatesSettingsPageState extends State<TemplatesSettingsPage> {
                 DataCell(Text(
                   _formatDate(t['lastSyncedAt']?.toString()),
                   style: theme.textTheme.bodySmall?.copyWith(
-                    color: theme.colorScheme.onSurface
-                        .withValues(alpha: 0.6),
+                    color: theme.colorScheme.onSurface.withValues(alpha: 0.6),
                   ),
                 )),
                 DataCell(Row(
@@ -421,7 +418,7 @@ class _TemplatesSettingsPageState extends State<TemplatesSettingsPage> {
                       tooltip: 'Preview',
                       onPressed: () => _showPreviewDialog(t),
                       style: IconButton.styleFrom(
-                        foregroundColor: const Color(0xFF3B82F6),
+                        foregroundColor: AppColors.brandGreenDark,
                       ),
                     ),
                     IconButton(
@@ -446,8 +443,8 @@ class _TemplatesSettingsPageState extends State<TemplatesSettingsPage> {
   void _showPreviewDialog(Map<String, dynamic> template) {
     final components = template['components'];
     final compList = components is List
-        ? List<Map<String, dynamic>>.from(
-            components.map((c) => c is Map ? Map<String, dynamic>.from(c) : <String, dynamic>{}))
+        ? List<Map<String, dynamic>>.from(components.map((c) =>
+            c is Map ? Map<String, dynamic>.from(c) : <String, dynamic>{}))
         : <Map<String, dynamic>>[];
 
     String headerText = '';
@@ -468,8 +465,8 @@ class _TemplatesSettingsPageState extends State<TemplatesSettingsPage> {
           break;
         case 'BUTTONS':
           if (c['buttons'] is List) {
-            buttons = List<Map<String, dynamic>>.from(
-                (c['buttons'] as List).map((b) => Map<String, dynamic>.from(b as Map)));
+            buttons = List<Map<String, dynamic>>.from((c['buttons'] as List)
+                .map((b) => Map<String, dynamic>.from(b as Map)));
           }
           break;
       }
@@ -487,9 +484,8 @@ class _TemplatesSettingsPageState extends State<TemplatesSettingsPage> {
                   overflow: TextOverflow.ellipsis),
             ),
             _StatusBadge(
-                status: (template['status'] ?? 'PENDING')
-                    .toString()
-                    .toUpperCase()),
+                status:
+                    (template['status'] ?? 'PENDING').toString().toUpperCase()),
           ],
         ),
         shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
@@ -504,8 +500,7 @@ class _TemplatesSettingsPageState extends State<TemplatesSettingsPage> {
         ),
         actions: [
           TextButton(
-              onPressed: () => Navigator.pop(ctx),
-              child: const Text('Close')),
+              onPressed: () => Navigator.pop(ctx), child: const Text('Close')),
         ],
       ),
     );
@@ -539,7 +534,8 @@ class _TemplatesSettingsPageState extends State<TemplatesSettingsPage> {
           builder: (ctx, setDialogState) {
             return AlertDialog(
               title: Text('Assign Departments - ${template['name']}'),
-              shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
+              shape: RoundedRectangleBorder(
+                  borderRadius: BorderRadius.circular(16)),
               content: SizedBox(
                 width: 380,
                 child: Column(
@@ -549,8 +545,11 @@ class _TemplatesSettingsPageState extends State<TemplatesSettingsPage> {
                     Text(
                       'Select which departments can use this template. Leave empty for all departments.',
                       style: Theme.of(context).textTheme.bodySmall?.copyWith(
-                        color: Theme.of(context).colorScheme.onSurface.withValues(alpha: 0.6),
-                      ),
+                            color: Theme.of(context)
+                                .colorScheme
+                                .onSurface
+                                .withValues(alpha: 0.6),
+                          ),
                     ),
                     const SizedBox(height: 16),
                     if (_departments.isEmpty)
@@ -598,7 +597,8 @@ class _TemplatesSettingsPageState extends State<TemplatesSettingsPage> {
     try {
       final dio = di.sl<DioClient>().dio;
       await dio.patch(
-        ApiConstants.channelTemplateDepartments(_selectedChannelId!, templateId),
+        ApiConstants.channelTemplateDepartments(
+            _selectedChannelId!, templateId),
         data: {'departmentIds': result.toList()},
       );
       if (!mounted) return;
@@ -606,8 +606,8 @@ class _TemplatesSettingsPageState extends State<TemplatesSettingsPage> {
       _loadTemplates();
     } catch (e) {
       if (!mounted) return;
-      AppSnackbar.error(context,
-          'Failed: ${e.toString().replaceFirst('Exception: ', '')}');
+      AppSnackbar.error(
+          context, 'Failed: ${e.toString().replaceFirst('Exception: ', '')}');
     }
   }
 
@@ -666,8 +666,7 @@ class _TemplatesSettingsPageState extends State<TemplatesSettingsPage> {
                 color: theme.colorScheme.onSurface.withValues(alpha: 0.5),
               )),
           const SizedBox(height: 8),
-          Text(
-              'Click "Create Template" or "Sync from Meta" to get started.',
+          Text('Click "Create Template" or "Sync from Meta" to get started.',
               style: theme.textTheme.bodySmall?.copyWith(
                 color: theme.colorScheme.onSurface.withValues(alpha: 0.4),
               )),
@@ -833,8 +832,7 @@ class _CreateTemplateDialogState extends State<_CreateTemplateDialog> {
       Navigator.pop(context, true);
     } catch (e) {
       if (!mounted) return;
-      AppSnackbar.error(context,
-          e.toString().replaceFirst('Exception: ', ''));
+      AppSnackbar.error(context, e.toString().replaceFirst('Exception: ', ''));
     } finally {
       if (mounted) setState(() => _submitting = false);
     }
@@ -904,8 +902,7 @@ class _CreateTemplateDialogState extends State<_CreateTemplateDialog> {
             Container(
               padding: const EdgeInsets.fromLTRB(24, 20, 16, 16),
               decoration: BoxDecoration(
-                border:
-                    Border(bottom: BorderSide(color: theme.dividerColor)),
+                border: Border(bottom: BorderSide(color: theme.dividerColor)),
               ),
               child: Row(
                 children: [
@@ -1000,8 +997,7 @@ class _CreateTemplateDialogState extends State<_CreateTemplateDialog> {
                                               child: Icon(Icons.person,
                                                   size: 16,
                                                   color: Colors.white
-                                                      .withValues(
-                                                          alpha: 0.8)),
+                                                      .withValues(alpha: 0.8)),
                                             ),
                                             const SizedBox(width: 8),
                                             const Expanded(
@@ -1049,20 +1045,16 @@ class _CreateTemplateDialogState extends State<_CreateTemplateDialog> {
                                         child: Container(
                                           color: const Color(0xFFECE5DD),
                                           child: SingleChildScrollView(
-                                            padding:
-                                                const EdgeInsets.all(10),
+                                            padding: const EdgeInsets.all(10),
                                             child: _WhatsAppPreview(
-                                              headerText:
-                                                  _headerType == 'TEXT'
-                                                      ? _headerCtrl.text
-                                                      : '',
+                                              headerText: _headerType == 'TEXT'
+                                                  ? _headerCtrl.text
+                                                  : '',
                                               bodyText: _bodyCtrl.text,
                                               footerText: _footerCtrl.text,
                                               buttons: _buttons
                                                   .where((b) =>
-                                                      b.text
-                                                          .trim()
-                                                          .isNotEmpty)
+                                                      b.text.trim().isNotEmpty)
                                                   .map((b) => {
                                                         'type': b.type,
                                                         'text': b.text,
@@ -1081,8 +1073,7 @@ class _CreateTemplateDialogState extends State<_CreateTemplateDialog> {
                                           children: [
                                             Icon(Icons.add,
                                                 size: 20,
-                                                color:
-                                                    Colors.grey.shade600),
+                                                color: Colors.grey.shade600),
                                             const SizedBox(width: 4),
                                             Expanded(
                                               child: Container(
@@ -1090,28 +1081,22 @@ class _CreateTemplateDialogState extends State<_CreateTemplateDialog> {
                                                 decoration: BoxDecoration(
                                                   color: Colors.white,
                                                   borderRadius:
-                                                      BorderRadius.circular(
-                                                          14),
+                                                      BorderRadius.circular(14),
                                                 ),
                                               ),
                                             ),
                                             const SizedBox(width: 4),
-                                            Icon(
-                                                Icons.camera_alt_outlined,
+                                            Icon(Icons.camera_alt_outlined,
                                                 size: 17,
-                                                color:
-                                                    Colors.grey.shade600),
+                                                color: Colors.grey.shade600),
                                             const SizedBox(width: 6),
-                                            Icon(
-                                                Icons.attach_file_rounded,
+                                            Icon(Icons.attach_file_rounded,
                                                 size: 17,
-                                                color:
-                                                    Colors.grey.shade600),
+                                                color: Colors.grey.shade600),
                                             const SizedBox(width: 6),
                                             Icon(Icons.mic_none_rounded,
                                                 size: 17,
-                                                color:
-                                                    Colors.grey.shade600),
+                                                color: Colors.grey.shade600),
                                           ],
                                         ),
                                       ),
@@ -1147,8 +1132,7 @@ class _CreateTemplateDialogState extends State<_CreateTemplateDialog> {
             Container(
               padding: const EdgeInsets.fromLTRB(24, 12, 24, 16),
               decoration: BoxDecoration(
-                border:
-                    Border(top: BorderSide(color: theme.dividerColor)),
+                border: Border(top: BorderSide(color: theme.dividerColor)),
               ),
               child: Row(
                 mainAxisAlignment: MainAxisAlignment.end,
@@ -1168,9 +1152,8 @@ class _CreateTemplateDialogState extends State<_CreateTemplateDialog> {
                                 strokeWidth: 2, color: Colors.white),
                           )
                         : const Icon(Icons.send_rounded, size: 18),
-                    label: Text(_submitting
-                        ? 'Submitting...'
-                        : 'Submit For Approval'),
+                    label: Text(
+                        _submitting ? 'Submitting...' : 'Submit For Approval'),
                     style: FilledButton.styleFrom(
                       backgroundColor: theme.colorScheme.primary,
                       foregroundColor: Colors.white,
@@ -1216,8 +1199,7 @@ class _CreateTemplateDialogState extends State<_CreateTemplateDialog> {
                       value: 'MARKETING', child: Text('Marketing')),
                   DropdownMenuItem(value: 'UTILITY', child: Text('Utility')),
                   DropdownMenuItem(
-                      value: 'AUTHENTICATION',
-                      child: Text('Authentication')),
+                      value: 'AUTHENTICATION', child: Text('Authentication')),
                 ],
                 onChanged: (v) => setState(() => _category = v!),
               ),
@@ -1228,8 +1210,8 @@ class _CreateTemplateDialogState extends State<_CreateTemplateDialog> {
                 value: _language,
                 decoration: const InputDecoration(labelText: 'Language'),
                 items: _languages.entries
-                    .map((e) => DropdownMenuItem(
-                        value: e.key, child: Text(e.value)))
+                    .map((e) =>
+                        DropdownMenuItem(value: e.key, child: Text(e.value)))
                     .toList(),
                 onChanged: (v) => setState(() => _language = v!),
               ),
@@ -1278,12 +1260,12 @@ class _CreateTemplateDialogState extends State<_CreateTemplateDialog> {
           ),
           child: Row(
             children: [
-              _fmtBtn(
-                  context, 'B', FontWeight.w700, false, false, () => _insertFormatting('*')),
-              _fmtBtn(
-                  context, 'I', FontWeight.w500, true, false, () => _insertFormatting('_')),
-              _fmtBtn(
-                  context, 'S', FontWeight.w500, false, true, () => _insertFormatting('~')),
+              _fmtBtn(context, 'B', FontWeight.w700, false, false,
+                  () => _insertFormatting('*')),
+              _fmtBtn(context, 'I', FontWeight.w500, true, false,
+                  () => _insertFormatting('_')),
+              _fmtBtn(context, 'S', FontWeight.w500, false, true,
+                  () => _insertFormatting('~')),
               const SizedBox(width: 2),
               IconButton(
                 onPressed: null,
@@ -1333,12 +1315,10 @@ class _CreateTemplateDialogState extends State<_CreateTemplateDialog> {
             itemBuilder: (ctx) => const [
               PopupMenuItem(value: 'QUICK_REPLY', child: Text('Quick Reply')),
               PopupMenuItem(value: 'URL', child: Text('URL Button')),
-              PopupMenuItem(
-                  value: 'PHONE_NUMBER', child: Text('Phone Number')),
+              PopupMenuItem(value: 'PHONE_NUMBER', child: Text('Phone Number')),
             ],
             child: Container(
-              padding:
-                  const EdgeInsets.symmetric(horizontal: 14, vertical: 10),
+              padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 10),
               decoration: BoxDecoration(
                 border: Border.all(color: theme.dividerColor),
                 borderRadius: BorderRadius.circular(8),
@@ -1348,21 +1328,21 @@ class _CreateTemplateDialogState extends State<_CreateTemplateDialog> {
                 children: [
                   Icon(Icons.add,
                       size: 16,
-                      color: theme.colorScheme.onSurface
-                          .withValues(alpha: 0.7)),
+                      color:
+                          theme.colorScheme.onSurface.withValues(alpha: 0.7)),
                   const SizedBox(width: 6),
                   Text('Add a button',
                       style: TextStyle(
                         fontSize: 13,
                         fontWeight: FontWeight.w600,
-                        color: theme.colorScheme.onSurface
-                            .withValues(alpha: 0.7),
+                        color:
+                            theme.colorScheme.onSurface.withValues(alpha: 0.7),
                       )),
                   const SizedBox(width: 4),
                   Icon(Icons.arrow_drop_down,
                       size: 18,
-                      color: theme.colorScheme.onSurface
-                          .withValues(alpha: 0.5)),
+                      color:
+                          theme.colorScheme.onSurface.withValues(alpha: 0.5)),
                 ],
               ),
             ),
@@ -1387,8 +1367,8 @@ class _CreateTemplateDialogState extends State<_CreateTemplateDialog> {
                 Container(
                   padding: const EdgeInsets.fromLTRB(14, 10, 8, 8),
                   decoration: BoxDecoration(
-                    border: Border(
-                        bottom: BorderSide(color: theme.dividerColor)),
+                    border:
+                        Border(bottom: BorderSide(color: theme.dividerColor)),
                   ),
                   child: Row(
                     children: [
@@ -1397,12 +1377,10 @@ class _CreateTemplateDialogState extends State<_CreateTemplateDialog> {
                               fontWeight: FontWeight.w700, fontSize: 13)),
                       const Spacer(),
                       PopupMenuButton<String>(
-                        onSelected: (type) =>
-                            setState(() => b.type = type),
+                        onSelected: (type) => setState(() => b.type = type),
                         itemBuilder: (ctx) => const [
                           PopupMenuItem(
-                              value: 'QUICK_REPLY',
-                              child: Text('Quick Reply')),
+                              value: 'QUICK_REPLY', child: Text('Quick Reply')),
                           PopupMenuItem(
                               value: 'URL', child: Text('URL Button')),
                           PopupMenuItem(
@@ -1430,17 +1408,19 @@ class _CreateTemplateDialogState extends State<_CreateTemplateDialog> {
                           const SizedBox(width: 4),
                           Expanded(
                             child: TextField(
-                              onChanged: (v) =>
-                                  setState(() => b.text = v),
+                              onChanged: (v) => setState(() => b.text = v),
                               decoration: InputDecoration(
                                 labelText: 'Button Text',
                                 counterText: '${b.text.length}/25',
                                 isDense: true,
                               ),
                               maxLength: 25,
-                              buildCounter: (_, {required currentLength, maxLength, required isFocused}) => null,
-                              controller:
-                                  TextEditingController.fromValue(
+                              buildCounter: (_,
+                                      {required currentLength,
+                                      maxLength,
+                                      required isFocused}) =>
+                                  null,
+                              controller: TextEditingController.fromValue(
                                 TextEditingValue(
                                     text: b.text,
                                     selection: TextSelection.collapsed(
@@ -1450,10 +1430,8 @@ class _CreateTemplateDialogState extends State<_CreateTemplateDialog> {
                           ),
                           IconButton(
                             onPressed: () => _removeButton(i),
-                            icon: const Icon(
-                                Icons.delete_outline_rounded,
-                                color: Color(0xFFEF4444),
-                                size: 20),
+                            icon: const Icon(Icons.delete_outline_rounded,
+                                color: Color(0xFFEF4444), size: 20),
                             tooltip: 'Remove',
                             visualDensity: VisualDensity.compact,
                           ),
@@ -1462,15 +1440,13 @@ class _CreateTemplateDialogState extends State<_CreateTemplateDialog> {
                       if (b.type == 'URL') ...[
                         const SizedBox(height: 8),
                         TextField(
-                          onChanged: (v) =>
-                              setState(() => b.url = v),
+                          onChanged: (v) => setState(() => b.url = v),
                           decoration: const InputDecoration(
                             labelText: 'URL',
                             hintText: 'https://example.com/{{1}}',
                             isDense: true,
                           ),
-                          controller:
-                              TextEditingController.fromValue(
+                          controller: TextEditingController.fromValue(
                             TextEditingValue(
                                 text: b.url,
                                 selection: TextSelection.collapsed(
@@ -1481,15 +1457,13 @@ class _CreateTemplateDialogState extends State<_CreateTemplateDialog> {
                       if (b.type == 'PHONE_NUMBER') ...[
                         const SizedBox(height: 8),
                         TextField(
-                          onChanged: (v) =>
-                              setState(() => b.phone = v),
+                          onChanged: (v) => setState(() => b.phone = v),
                           decoration: const InputDecoration(
                             labelText: 'Phone Number',
                             hintText: '+6281234567890',
                             isDense: true,
                           ),
-                          controller:
-                              TextEditingController.fromValue(
+                          controller: TextEditingController.fromValue(
                             TextEditingValue(
                                 text: b.phone,
                                 selection: TextSelection.collapsed(
@@ -1524,7 +1498,8 @@ class _CreateTemplateDialogState extends State<_CreateTemplateDialog> {
             fontSize: 15,
             fontStyle: italic ? FontStyle.italic : FontStyle.normal,
             decoration: strike ? TextDecoration.lineThrough : null,
-            color: Theme.of(context).colorScheme.onSurface.withValues(alpha: 0.7),
+            color:
+                Theme.of(context).colorScheme.onSurface.withValues(alpha: 0.7),
           ),
         ),
       ),
@@ -1614,8 +1589,7 @@ class _WhatsAppPreview extends StatelessWidget {
                     ),
                   ),
                 ),
-              if (bodyText.isNotEmpty)
-                _buildBodyWithVariables(bodyText),
+              if (bodyText.isNotEmpty) _buildBodyWithVariables(bodyText),
               if (footerText.isNotEmpty)
                 Padding(
                   padding: const EdgeInsets.only(top: 8),
@@ -1634,8 +1608,7 @@ class _WhatsAppPreview extends StatelessWidget {
                   padding: const EdgeInsets.only(top: 4),
                   child: Text(
                     '12:00',
-                    style: TextStyle(
-                        fontSize: 11, color: Colors.grey.shade400),
+                    style: TextStyle(fontSize: 11, color: Colors.grey.shade400),
                   ),
                 ),
               ),
@@ -1660,8 +1633,7 @@ class _WhatsAppPreview extends StatelessWidget {
             }
             return Container(
               margin: const EdgeInsets.only(top: 4),
-              padding:
-                  const EdgeInsets.symmetric(vertical: 10, horizontal: 12),
+              padding: const EdgeInsets.symmetric(vertical: 10, horizontal: 12),
               decoration: BoxDecoration(
                 color: Colors.white,
                 borderRadius: BorderRadius.circular(10),
@@ -1768,8 +1740,8 @@ class _StatusBadge extends StatelessWidget {
       ),
       child: Text(
         status,
-        style: TextStyle(
-            fontSize: 10, fontWeight: FontWeight.w700, color: color),
+        style:
+            TextStyle(fontSize: 10, fontWeight: FontWeight.w700, color: color),
       ),
     );
   }
@@ -1806,8 +1778,7 @@ class _CategoryChip extends StatelessWidget {
         const SizedBox(width: 5),
         Text(
           category.isNotEmpty
-              ? category[0].toUpperCase() +
-                  category.substring(1).toLowerCase()
+              ? category[0].toUpperCase() + category.substring(1).toLowerCase()
               : '-',
           style: theme.textTheme.bodySmall?.copyWith(
             color: theme.colorScheme.onSurface.withValues(alpha: 0.6),

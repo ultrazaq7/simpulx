@@ -5,6 +5,7 @@ import 'dart:convert';
 import 'package:flutter/material.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
 import 'package:http/http.dart' as http;
+import 'package:simpulx/core/theme/app_style.dart';
 import 'package:simpulx/features/auth/presentation/bloc/auth_bloc.dart';
 import 'package:simpulx/core/constants/api_constants.dart';
 import 'package:simpulx/core/widgets/app_snackbar.dart';
@@ -84,8 +85,7 @@ class _ProfileSettingsPageState extends State<ProfileSettingsPage> {
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
     final authState = context.watch<AuthBloc>().state;
-    final session =
-        authState is AuthAuthenticated ? authState.session : null;
+    final session = authState is AuthAuthenticated ? authState.session : null;
     final role = session?.user.role ?? 'agent';
     final initials = (session?.user.fullName.isNotEmpty ?? false)
         ? session!.user.fullName[0].toUpperCase()
@@ -260,8 +260,7 @@ class _ProfileSettingsPageState extends State<ProfileSettingsPage> {
                       if (_editing) ...[
                         TextButton(
                           onPressed: () {
-                            _nameController.text =
-                                session?.user.fullName ?? '';
+                            _nameController.text = session?.user.fullName ?? '';
                             setState(() {
                               _editing = false;
                               _dirty = false;
@@ -338,7 +337,8 @@ class _ProfileSettingsPageState extends State<ProfileSettingsPage> {
             color: theme.colorScheme.primary.withValues(alpha: 0.08),
             borderRadius: BorderRadius.circular(8),
           ),
-          child: Icon(icon, size: 15,
+          child: Icon(icon,
+              size: 15,
               color: theme.colorScheme.primary.withValues(alpha: 0.7)),
         ),
         const SizedBox(width: 12),
@@ -402,7 +402,7 @@ class _ProfileSettingsPageState extends State<ProfileSettingsPage> {
       case 'owner':
         return const Color(0xFFE17055);
       case 'admin':
-        return const Color(0xFF3B82F6);
+        return AppColors.brandGreenDark;
       case 'manager':
         return const Color(0xFF10B981);
       case 'supervisor':

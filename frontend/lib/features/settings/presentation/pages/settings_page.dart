@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
 import 'package:go_router/go_router.dart';
 import 'package:intl/intl.dart';
+import 'package:simpulx/core/theme/app_style.dart';
 import 'package:simpulx/core/di/injection_container.dart' as di;
 import 'package:simpulx/features/audit_log/data/datasources/audit_log_remote_datasource.dart';
 import 'package:simpulx/features/audit_log/data/models/audit_log_models.dart';
@@ -596,30 +597,40 @@ class _SettingsPageState extends State<SettingsPage> {
                     child: Column(
                       crossAxisAlignment: CrossAxisAlignment.start,
                       children: [
-                        Text('WhatsApp Channels', style: theme.textTheme.titleLarge?.copyWith(fontWeight: FontWeight.bold)),
+                        Text('WhatsApp Channels',
+                            style: theme.textTheme.titleLarge
+                                ?.copyWith(fontWeight: FontWeight.bold)),
                         const SizedBox(height: 6),
                         Text(
                           '${_channels.length} channel(s) configured. Manage your WhatsApp Cloud API connections.',
-                          style: theme.textTheme.bodySmall?.copyWith(color: theme.colorScheme.onSurface.withValues(alpha: 0.5)),
+                          style: theme.textTheme.bodySmall?.copyWith(
+                              color: theme.colorScheme.onSurface
+                                  .withValues(alpha: 0.5)),
                         ),
                       ],
                     ),
                   ),
-                  IconButton(onPressed: _loadChannels, tooltip: 'Refresh', icon: const Icon(Icons.refresh_rounded)),
+                  IconButton(
+                      onPressed: _loadChannels,
+                      tooltip: 'Refresh',
+                      icon: const Icon(Icons.refresh_rounded)),
                   if (_canManageAccounts) ...[
                     const SizedBox(width: 8),
                     ElevatedButton.icon(
                       onPressed: () => _showChannelDialog(),
                       icon: const Icon(Icons.add_rounded, size: 18),
                       label: const Text('Connect Channel'),
-                      style: ElevatedButton.styleFrom(backgroundColor: const Color(0xFF25D366)),
+                      style: ElevatedButton.styleFrom(
+                          backgroundColor: const Color(0xFF25D366)),
                     ),
                   ],
                 ],
               ),
               const SizedBox(height: 16),
               _buildSettingsCard(context, [
-                _buildReadOnlyField(label: 'Webhook URL', value: 'https://app.simpulx.com/api/v1/webhook/whatsapp'),
+                _buildReadOnlyField(
+                    label: 'Webhook URL',
+                    value: 'https://app.simpulx.com/api/v1/webhook/whatsapp'),
                 _buildReadOnlyField(label: 'Environment', value: 'Production'),
               ]),
             ],
@@ -632,10 +643,22 @@ class _SettingsPageState extends State<SettingsPage> {
                 return const Center(child: CircularProgressIndicator());
               }
               if (_channelsError != null && _channels.isEmpty) {
-                return _buildStateMessage(context, icon: Icons.wifi_off_rounded, title: 'Could not load channels', description: _channelsError!, actionLabel: 'Retry', onAction: _loadChannels);
+                return _buildStateMessage(context,
+                    icon: Icons.wifi_off_rounded,
+                    title: 'Could not load channels',
+                    description: _channelsError!,
+                    actionLabel: 'Retry',
+                    onAction: _loadChannels);
               }
               if (_channels.isEmpty) {
-                return _buildStateMessage(context, icon: Icons.chat_rounded, title: 'No WhatsApp channels connected', description: 'Connect your first WhatsApp Cloud API channel to start receiving messages.', actionLabel: _canManageAccounts ? 'Connect Channel' : null, onAction: _canManageAccounts ? () => _showChannelDialog() : null);
+                return _buildStateMessage(context,
+                    icon: Icons.chat_rounded,
+                    title: 'No WhatsApp channels connected',
+                    description:
+                        'Connect your first WhatsApp Cloud API channel to start receiving messages.',
+                    actionLabel: _canManageAccounts ? 'Connect Channel' : null,
+                    onAction:
+                        _canManageAccounts ? () => _showChannelDialog() : null);
               }
               return ListView.separated(
                 padding: const EdgeInsets.all(28),
@@ -644,7 +667,11 @@ class _SettingsPageState extends State<SettingsPage> {
                 itemBuilder: (context, index) {
                   final ch = _channels[index];
                   final status = ch['status'] ?? 'disconnected';
-                  final statusColor = status == 'connected' ? const Color(0xFF25D366) : status == 'pending' ? const Color(0xFFF59E0B) : const Color(0xFFEF4444);
+                  final statusColor = status == 'connected'
+                      ? const Color(0xFF25D366)
+                      : status == 'pending'
+                          ? const Color(0xFFF59E0B)
+                          : const Color(0xFFEF4444);
                   final deptName = ch['department']?['name'];
                   return Container(
                     padding: const EdgeInsets.all(20),
@@ -659,10 +686,12 @@ class _SettingsPageState extends State<SettingsPage> {
                         Container(
                           padding: const EdgeInsets.all(14),
                           decoration: BoxDecoration(
-                            color: const Color(0xFF25D366).withValues(alpha: 0.12),
+                            color:
+                                const Color(0xFF25D366).withValues(alpha: 0.12),
                             borderRadius: BorderRadius.circular(14),
                           ),
-                          child: const Icon(Icons.chat_rounded, color: Color(0xFF25D366), size: 22),
+                          child: const Icon(Icons.chat_rounded,
+                              color: Color(0xFF25D366), size: 22),
                         ),
                         const SizedBox(width: 16),
                         Expanded(
@@ -671,8 +700,15 @@ class _SettingsPageState extends State<SettingsPage> {
                             children: [
                               Row(
                                 children: [
-                                  Expanded(child: Text(ch['name'] ?? 'Unnamed', style: theme.textTheme.titleMedium?.copyWith(fontWeight: FontWeight.w700))),
-                                  _buildBadge(context, label: status.toString().toUpperCase(), color: statusColor),
+                                  Expanded(
+                                      child: Text(ch['name'] ?? 'Unnamed',
+                                          style: theme.textTheme.titleMedium
+                                              ?.copyWith(
+                                                  fontWeight:
+                                                      FontWeight.w700))),
+                                  _buildBadge(context,
+                                      label: status.toString().toUpperCase(),
+                                      color: statusColor),
                                 ],
                               ),
                               const SizedBox(height: 8),
@@ -680,10 +716,21 @@ class _SettingsPageState extends State<SettingsPage> {
                                 spacing: 10,
                                 runSpacing: 10,
                                 children: [
-                                  _buildMetaChip(context, icon: Icons.phone_rounded, label: ch['phoneNumber'] ?? 'N/A'),
-                                  _buildMetaChip(context, icon: Icons.fingerprint_rounded, label: 'ID: ${ch['phoneNumberId'] ?? 'N/A'}'),
-                                  if (deptName != null) _buildMetaChip(context, icon: Icons.account_tree_rounded, label: deptName),
-                                  if (ch['isActive'] == false) _buildMetaChip(context, icon: Icons.pause_circle_rounded, label: 'Inactive'),
+                                  _buildMetaChip(context,
+                                      icon: Icons.phone_rounded,
+                                      label: ch['phoneNumber'] ?? 'N/A'),
+                                  _buildMetaChip(context,
+                                      icon: Icons.fingerprint_rounded,
+                                      label:
+                                          'ID: ${ch['phoneNumberId'] ?? 'N/A'}'),
+                                  if (deptName != null)
+                                    _buildMetaChip(context,
+                                        icon: Icons.account_tree_rounded,
+                                        label: deptName),
+                                  if (ch['isActive'] == false)
+                                    _buildMetaChip(context,
+                                        icon: Icons.pause_circle_rounded,
+                                        label: 'Inactive'),
                                 ],
                               ),
                             ],
@@ -694,17 +741,23 @@ class _SettingsPageState extends State<SettingsPage> {
                           IconButton(
                             onPressed: () => _testChannel(ch['id']),
                             tooltip: 'Test Connection',
-                            icon: Icon(Icons.wifi_find_rounded, color: theme.colorScheme.primary, size: 20),
+                            icon: Icon(Icons.wifi_find_rounded,
+                                color: theme.colorScheme.primary, size: 20),
                           ),
                           IconButton(
                             onPressed: () => _showChannelDialog(channel: ch),
                             tooltip: 'Edit',
-                            icon: Icon(Icons.edit_rounded, size: 20, color: theme.colorScheme.onSurface.withValues(alpha: 0.5)),
+                            icon: Icon(Icons.edit_rounded,
+                                size: 20,
+                                color: theme.colorScheme.onSurface
+                                    .withValues(alpha: 0.5)),
                           ),
                           IconButton(
-                            onPressed: () => _deleteChannel(ch['id'], ch['name'] ?? ''),
+                            onPressed: () =>
+                                _deleteChannel(ch['id'], ch['name'] ?? ''),
                             tooltip: 'Remove',
-                            icon: Icon(Icons.delete_outline_rounded, size: 20, color: theme.colorScheme.error),
+                            icon: Icon(Icons.delete_outline_rounded,
+                                size: 20, color: theme.colorScheme.error),
                           ),
                         ],
                       ],
@@ -1202,7 +1255,8 @@ class _SettingsPageState extends State<SettingsPage> {
             padding: const EdgeInsets.all(20),
             decoration: BoxDecoration(
               borderRadius: BorderRadius.circular(16),
-              border: Border.all(color: const Color(0xFFEF4444).withOpacity(0.3)),
+              border:
+                  Border.all(color: const Color(0xFFEF4444).withOpacity(0.3)),
             ),
             child: Row(
               children: [
@@ -1443,7 +1497,8 @@ class _SettingsPageState extends State<SettingsPage> {
       ),
       child: Row(
         children: [
-          const Icon(Icons.error_outline_rounded, color: const Color(0xFFEF4444)),
+          const Icon(Icons.error_outline_rounded,
+              color: const Color(0xFFEF4444)),
           const SizedBox(width: 10),
           Expanded(
             child: Text(
@@ -2011,7 +2066,10 @@ class _SettingsPageState extends State<SettingsPage> {
   }
 
   Future<void> _loadChannels() async {
-    setState(() { _isLoadingChannels = true; _channelsError = null; });
+    setState(() {
+      _isLoadingChannels = true;
+      _channelsError = null;
+    });
     try {
       final dio = di.sl<DioClient>().dio;
       final response = await dio.get(ApiConstants.channels);
@@ -2039,9 +2097,11 @@ class _SettingsPageState extends State<SettingsPage> {
       final status = response.data['status'] ?? 'unknown';
       if (!mounted) return;
       if (status == 'connected') {
-        _showSuccess('Channel connected successfully! Quality: ${response.data['qualityRating'] ?? 'N/A'}');
+        _showSuccess(
+            'Channel connected successfully! Quality: ${response.data['qualityRating'] ?? 'N/A'}');
       } else {
-        _showError('Connection failed: ${response.data['message'] ?? 'Unknown error'}');
+        _showError(
+            'Connection failed: ${response.data['message'] ?? 'Unknown error'}');
       }
       await _loadChannels();
     } catch (error) {
@@ -2054,9 +2114,12 @@ class _SettingsPageState extends State<SettingsPage> {
       context: context,
       builder: (ctx) => AlertDialog(
         title: const Text('Remove Channel'),
-        content: Text('Are you sure you want to remove "$name"? This cannot be undone.'),
+        content: Text(
+            'Are you sure you want to remove "$name"? This cannot be undone.'),
         actions: [
-          TextButton(onPressed: () => Navigator.pop(ctx, false), child: const Text('Cancel')),
+          TextButton(
+              onPressed: () => Navigator.pop(ctx, false),
+              child: const Text('Cancel')),
           ElevatedButton(
             onPressed: () => Navigator.pop(ctx, true),
             style: ElevatedButton.styleFrom(backgroundColor: Colors.red),
@@ -2080,18 +2143,24 @@ class _SettingsPageState extends State<SettingsPage> {
     final isEditing = channel != null;
     final theme = Theme.of(context);
     final nameCtrl = TextEditingController(text: channel?['name'] ?? '');
-    final phoneCtrl = TextEditingController(text: channel?['phoneNumber'] ?? '');
-    final phoneIdCtrl = TextEditingController(text: channel?['phoneNumberId'] ?? '');
-    final businessIdCtrl = TextEditingController(text: channel?['businessAccountId'] ?? '');
-    final tokenCtrl = TextEditingController(text: channel?['accessToken'] ?? '');
-    String? selectedDeptId = channel?['departmentId'] ?? channel?['department']?['id'];
+    final phoneCtrl =
+        TextEditingController(text: channel?['phoneNumber'] ?? '');
+    final phoneIdCtrl =
+        TextEditingController(text: channel?['phoneNumberId'] ?? '');
+    final businessIdCtrl =
+        TextEditingController(text: channel?['businessAccountId'] ?? '');
+    final tokenCtrl =
+        TextEditingController(text: channel?['accessToken'] ?? '');
+    String? selectedDeptId =
+        channel?['departmentId'] ?? channel?['department']?['id'];
     var isSaving = false;
 
     await showDialog<void>(
       context: context,
       builder: (ctx) => StatefulBuilder(
         builder: (ctx, setDialogState) => Dialog(
-          shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(20)),
+          shape:
+              RoundedRectangleBorder(borderRadius: BorderRadius.circular(20)),
           child: Container(
             width: 520,
             padding: const EdgeInsets.all(28),
@@ -2105,22 +2174,27 @@ class _SettingsPageState extends State<SettingsPage> {
                       Container(
                         padding: const EdgeInsets.all(10),
                         decoration: BoxDecoration(
-                          color: const Color(0xFF25D366).withValues(alpha: 0.12),
+                          color:
+                              const Color(0xFF25D366).withValues(alpha: 0.12),
                           borderRadius: BorderRadius.circular(10),
                         ),
-                        child: const Icon(Icons.chat_rounded, color: Color(0xFF25D366), size: 22),
+                        child: const Icon(Icons.chat_rounded,
+                            color: Color(0xFF25D366), size: 22),
                       ),
                       const SizedBox(width: 14),
                       Text(
                         isEditing ? 'Edit Channel' : 'Connect WhatsApp Channel',
-                        style: theme.textTheme.titleLarge?.copyWith(fontWeight: FontWeight.bold),
+                        style: theme.textTheme.titleLarge
+                            ?.copyWith(fontWeight: FontWeight.bold),
                       ),
                     ],
                   ),
                   const SizedBox(height: 8),
                   Text(
                     'Enter your Meta WhatsApp Cloud API credentials.',
-                    style: theme.textTheme.bodySmall?.copyWith(color: theme.colorScheme.onSurface.withValues(alpha: 0.5)),
+                    style: theme.textTheme.bodySmall?.copyWith(
+                        color:
+                            theme.colorScheme.onSurface.withValues(alpha: 0.5)),
                   ),
                   const SizedBox(height: 24),
                   TextField(
@@ -2176,57 +2250,85 @@ class _SettingsPageState extends State<SettingsPage> {
                       prefixIcon: Icon(Icons.account_tree_rounded, size: 20),
                     ),
                     items: [
-                      const DropdownMenuItem<String?>(value: null, child: Text('No department')),
-                      ..._departments.map((d) => DropdownMenuItem<String?>(value: d.id, child: Text(d.name))),
+                      const DropdownMenuItem<String?>(
+                          value: null, child: Text('No department')),
+                      ..._departments.map((d) => DropdownMenuItem<String?>(
+                          value: d.id, child: Text(d.name))),
                     ],
-                    onChanged: isSaving ? null : (v) => setDialogState(() => selectedDeptId = v),
+                    onChanged: isSaving
+                        ? null
+                        : (v) => setDialogState(() => selectedDeptId = v),
                   ),
                   const SizedBox(height: 28),
                   Row(
                     mainAxisAlignment: MainAxisAlignment.end,
                     children: [
-                      TextButton(onPressed: isSaving ? null : () => Navigator.pop(ctx), child: const Text('Cancel')),
+                      TextButton(
+                          onPressed: isSaving ? null : () => Navigator.pop(ctx),
+                          child: const Text('Cancel')),
                       const SizedBox(width: 12),
                       ElevatedButton(
-                        onPressed: isSaving ? null : () async {
-                          if (nameCtrl.text.trim().isEmpty || phoneCtrl.text.trim().isEmpty ||
-                              phoneIdCtrl.text.trim().isEmpty || tokenCtrl.text.trim().isEmpty) {
-                            _showError('Name, phone, phone number ID, and access token are required.');
-                            return;
-                          }
-                          setDialogState(() => isSaving = true);
-                          try {
-                            final dio = di.sl<DioClient>().dio;
-                            final body = {
-                              'name': nameCtrl.text.trim(),
-                              'phoneNumber': phoneCtrl.text.trim(),
-                              'phoneNumberId': phoneIdCtrl.text.trim(),
-                              'accessToken': tokenCtrl.text.trim(),
-                              if (businessIdCtrl.text.trim().isNotEmpty) 'businessAccountId': businessIdCtrl.text.trim(),
-                              if (selectedDeptId != null) 'departmentId': selectedDeptId,
-                            };
-                            if (isEditing) {
-                              await dio.patch(ApiConstants.channel(channel['id']), data: {
-                                'name': nameCtrl.text.trim(),
-                                if (tokenCtrl.text.trim().isNotEmpty) 'accessToken': tokenCtrl.text.trim(),
-                                if (selectedDeptId != null) 'departmentId': selectedDeptId,
-                              });
-                              _showSuccess('Channel updated.');
-                            } else {
-                              await dio.post(ApiConstants.channels, data: body);
-                              _showSuccess('Channel connected! Use "Test" to verify.');
-                            }
-                            if (ctx.mounted) Navigator.pop(ctx);
-                            await _loadChannels();
-                          } catch (error) {
-                            setDialogState(() => isSaving = false);
-                            _showError(_formatError(error));
-                          }
-                        },
-                        style: ElevatedButton.styleFrom(backgroundColor: const Color(0xFF25D366)),
+                        onPressed: isSaving
+                            ? null
+                            : () async {
+                                if (nameCtrl.text.trim().isEmpty ||
+                                    phoneCtrl.text.trim().isEmpty ||
+                                    phoneIdCtrl.text.trim().isEmpty ||
+                                    tokenCtrl.text.trim().isEmpty) {
+                                  _showError(
+                                      'Name, phone, phone number ID, and access token are required.');
+                                  return;
+                                }
+                                setDialogState(() => isSaving = true);
+                                try {
+                                  final dio = di.sl<DioClient>().dio;
+                                  final body = {
+                                    'name': nameCtrl.text.trim(),
+                                    'phoneNumber': phoneCtrl.text.trim(),
+                                    'phoneNumberId': phoneIdCtrl.text.trim(),
+                                    'accessToken': tokenCtrl.text.trim(),
+                                    if (businessIdCtrl.text.trim().isNotEmpty)
+                                      'businessAccountId':
+                                          businessIdCtrl.text.trim(),
+                                    if (selectedDeptId != null)
+                                      'departmentId': selectedDeptId,
+                                  };
+                                  if (isEditing) {
+                                    await dio.patch(
+                                        ApiConstants.channel(channel['id']),
+                                        data: {
+                                          'name': nameCtrl.text.trim(),
+                                          if (tokenCtrl.text.trim().isNotEmpty)
+                                            'accessToken':
+                                                tokenCtrl.text.trim(),
+                                          if (selectedDeptId != null)
+                                            'departmentId': selectedDeptId,
+                                        });
+                                    _showSuccess('Channel updated.');
+                                  } else {
+                                    await dio.post(ApiConstants.channels,
+                                        data: body);
+                                    _showSuccess(
+                                        'Channel connected! Use "Test" to verify.');
+                                  }
+                                  if (ctx.mounted) Navigator.pop(ctx);
+                                  await _loadChannels();
+                                } catch (error) {
+                                  setDialogState(() => isSaving = false);
+                                  _showError(_formatError(error));
+                                }
+                              },
+                        style: ElevatedButton.styleFrom(
+                            backgroundColor: const Color(0xFF25D366)),
                         child: isSaving
-                            ? const SizedBox(width: 20, height: 20, child: CircularProgressIndicator(strokeWidth: 2, color: Colors.white))
-                            : Text(isEditing ? 'Save Changes' : 'Connect Channel', style: const TextStyle(color: Colors.white)),
+                            ? const SizedBox(
+                                width: 20,
+                                height: 20,
+                                child: CircularProgressIndicator(
+                                    strokeWidth: 2, color: Colors.white))
+                            : Text(
+                                isEditing ? 'Save Changes' : 'Connect Channel',
+                                style: const TextStyle(color: Colors.white)),
                       ),
                     ],
                   ),
@@ -2558,7 +2660,8 @@ class _SettingsPageState extends State<SettingsPage> {
                         subtitle: Text(
                           'Include this member in automatic round-robin assignment',
                           style: theme.textTheme.bodySmall?.copyWith(
-                            color: theme.colorScheme.onSurface.withValues(alpha: 0.5),
+                            color: theme.colorScheme.onSurface
+                                .withValues(alpha: 0.5),
                           ),
                         ),
                         value: roundRobin,
@@ -2818,7 +2921,7 @@ class _SettingsPageState extends State<SettingsPage> {
       case 'owner':
         return const Color(0xFFE17055);
       case 'admin':
-        return const Color(0xFF3B82F6);
+        return AppColors.brandGreenDark;
       case 'manager':
         return const Color(0xFF10B981);
       case 'supervisor':

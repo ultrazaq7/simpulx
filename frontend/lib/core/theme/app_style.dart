@@ -12,10 +12,18 @@ import 'package:flutter/material.dart';
 class AppColors {
   AppColors._();
 
+  // Brand tokens, aligned with the landing page.
+  static const Color brandBlack = Color(0xFF060608);
+  static const Color brandInk = Color(0xFF0F172A);
+  static const Color brandBlue = Color(0xFF60A5FA);
+  static const Color brandGreen = Color(0xFF25D366);
+  static const Color brandGreenSoft = Color(0xFF34D399);
+  static const Color brandGreenDark = Color(0xFF128C7E);
+
   // Brand / semantic
-  static const Color primary = Color(0xFF3B82F6); // blue
-  static const Color primaryDark = Color(0xFF2563EB);
-  static const Color success = Color(0xFF10B981); // green
+  static const Color primary = brandGreen;
+  static const Color primaryDark = brandGreenDark;
+  static const Color success = brandGreen;
   static const Color danger = Color(0xFFEF4444); // red
   static const Color warning = Color(0xFFF59E0B); // amber
   static const Color purple = Color(0xFF8B5CF6);
@@ -40,6 +48,20 @@ class AppColors {
   static const Color instagram = Color(0xFFE4405F);
   static const Color tiktok = Color(0xFF000000);
   static const Color google = Color(0xFFEA4335);
+}
+
+class AppGradients {
+  AppGradients._();
+
+  static const LinearGradient logo = LinearGradient(
+    colors: [AppColors.brandBlue, AppColors.brandGreenSoft],
+  );
+
+  static const LinearGradient action = LinearGradient(
+    begin: Alignment.centerLeft,
+    end: Alignment.centerRight,
+    colors: [AppColors.brandGreen, AppColors.brandGreenDark],
+  );
 }
 
 class AppSpacing {

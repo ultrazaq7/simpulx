@@ -3,11 +3,13 @@
 // ============================================================
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:simpulx/core/theme/app_style.dart';
 import 'package:simpulx/features/automation/presentation/providers/automation_providers.dart';
 import 'package:simpulx/core/widgets/app_snackbar.dart';
 
 /// Top-level function so it can be called from anywhere with a BuildContext.
-void showEditAutomationDialog(BuildContext context, {Map<String, dynamic>? rule}) {
+void showEditAutomationDialog(BuildContext context,
+    {Map<String, dynamic>? rule}) {
   showDialog(
     context: context,
     builder: (_) => _EditAutomationDialog(rule: rule),
@@ -73,7 +75,8 @@ class _EditAutomationDialogState extends ConsumerState<_EditAutomationDialog> {
     _isActive = r?['isActive'] ?? true;
 
     _selectedTrigger = r?['triggerType'] ?? 'new_message';
-    if (!_triggers.containsKey(_selectedTrigger)) _selectedTrigger = 'new_message';
+    if (!_triggers.containsKey(_selectedTrigger))
+      _selectedTrigger = 'new_message';
 
     _selectedChannelId =
         (r?['triggerConditions']?['channelId'] ?? '').toString();
@@ -129,8 +132,9 @@ class _EditAutomationDialogState extends ConsumerState<_EditAutomationDialog> {
 
     final actionParams = <String, dynamic>{};
     if (_needsMessage) {
-      actionParams[_selectedAction == 'send_template' ? 'templateName' : 'message'] =
-          _messageCtrl.text.trim();
+      actionParams[_selectedAction == 'send_template'
+          ? 'templateName'
+          : 'message'] = _messageCtrl.text.trim();
     }
     if (_needsWebhookUrl) {
       actionParams['url'] = _messageCtrl.text.trim();
@@ -207,11 +211,11 @@ class _EditAutomationDialogState extends ConsumerState<_EditAutomationDialog> {
                       children: [
                         Text(
                           _isEditing ? 'Edit Automation' : 'New Automation',
-                          style: theme.textTheme.titleLarge
-                              ?.copyWith(
-                                fontWeight: FontWeight.w700,
-                                color: theme.colorScheme.onSurface.withValues(alpha: 0.96),
-                              ),
+                          style: theme.textTheme.titleLarge?.copyWith(
+                            fontWeight: FontWeight.w700,
+                            color: theme.colorScheme.onSurface
+                                .withValues(alpha: 0.96),
+                          ),
                         ),
                         const SizedBox(height: 2),
                         Text(
@@ -284,8 +288,9 @@ class _EditAutomationDialogState extends ConsumerState<_EditAutomationDialog> {
                     .map((e) =>
                         DropdownMenuItem(value: e.key, child: Text(e.value)))
                     .toList(),
-                onChanged:
-                    _isSaving ? null : (v) => setState(() => _selectedTrigger = v!),
+                onChanged: _isSaving
+                    ? null
+                    : (v) => setState(() => _selectedTrigger = v!),
               ),
               if (_needsKeywords) ...[
                 const SizedBox(height: 16),
@@ -295,7 +300,8 @@ class _EditAutomationDialogState extends ConsumerState<_EditAutomationDialog> {
                     labelText: 'Keywords (comma-separated)',
                     hintText: 'e.g. promo, harga, booking',
                     labelStyle: TextStyle(
-                      color: theme.colorScheme.onSurface.withValues(alpha: 0.86),
+                      color:
+                          theme.colorScheme.onSurface.withValues(alpha: 0.86),
                     ),
                     hintStyle: TextStyle(
                       color: theme.colorScheme.onSurface.withValues(alpha: 0.7),
@@ -303,7 +309,8 @@ class _EditAutomationDialogState extends ConsumerState<_EditAutomationDialog> {
                     prefixIcon: Icon(
                       Icons.text_fields_rounded,
                       size: 20,
-                      color: theme.colorScheme.onSurface.withValues(alpha: 0.82),
+                      color:
+                          theme.colorScheme.onSurface.withValues(alpha: 0.82),
                     ),
                   ),
                 ),
@@ -333,8 +340,7 @@ class _EditAutomationDialogState extends ConsumerState<_EditAutomationDialog> {
                         ...channels.map((ch) {
                           final id = (ch['id'] ?? '').toString();
                           final name = (ch['name'] ?? '').toString();
-                          final phone =
-                              (ch['phoneNumber'] ?? '').toString();
+                          final phone = (ch['phoneNumber'] ?? '').toString();
                           return DropdownMenuItem(
                             value: id,
                             child: Text(
@@ -367,8 +373,8 @@ class _EditAutomationDialogState extends ConsumerState<_EditAutomationDialog> {
                         items: items,
                         onChanged: _isSaving
                             ? null
-                            : (v) => setState(
-                                () => _selectedChannelId = v ?? ''),
+                            : (v) =>
+                                setState(() => _selectedChannelId = v ?? ''),
                       );
                     },
                   );
@@ -396,8 +402,9 @@ class _EditAutomationDialogState extends ConsumerState<_EditAutomationDialog> {
                     .map((e) =>
                         DropdownMenuItem(value: e.key, child: Text(e.value)))
                     .toList(),
-                onChanged:
-                    _isSaving ? null : (v) => setState(() => _selectedAction = v!),
+                onChanged: _isSaving
+                    ? null
+                    : (v) => setState(() => _selectedAction = v!),
               ),
               if (_needsMessage) ...[
                 const SizedBox(height: 16),
@@ -409,12 +416,14 @@ class _EditAutomationDialogState extends ConsumerState<_EditAutomationDialog> {
                         ? 'Template Name'
                         : 'Reply Message',
                     labelStyle: TextStyle(
-                      color: theme.colorScheme.onSurface.withValues(alpha: 0.86),
+                      color:
+                          theme.colorScheme.onSurface.withValues(alpha: 0.86),
                     ),
                     prefixIcon: Icon(
                       Icons.message_rounded,
                       size: 20,
-                      color: theme.colorScheme.onSurface.withValues(alpha: 0.82),
+                      color:
+                          theme.colorScheme.onSurface.withValues(alpha: 0.82),
                     ),
                   ),
                 ),
@@ -427,7 +436,8 @@ class _EditAutomationDialogState extends ConsumerState<_EditAutomationDialog> {
                     labelText: 'Webhook URL',
                     hintText: 'https://...',
                     labelStyle: TextStyle(
-                      color: theme.colorScheme.onSurface.withValues(alpha: 0.86),
+                      color:
+                          theme.colorScheme.onSurface.withValues(alpha: 0.86),
                     ),
                     hintStyle: TextStyle(
                       color: theme.colorScheme.onSurface.withValues(alpha: 0.7),
@@ -435,7 +445,8 @@ class _EditAutomationDialogState extends ConsumerState<_EditAutomationDialog> {
                     prefixIcon: Icon(
                       Icons.link_rounded,
                       size: 20,
-                      color: theme.colorScheme.onSurface.withValues(alpha: 0.82),
+                      color:
+                          theme.colorScheme.onSurface.withValues(alpha: 0.82),
                     ),
                   ),
                 ),
@@ -446,9 +457,8 @@ class _EditAutomationDialogState extends ConsumerState<_EditAutomationDialog> {
                 const SizedBox(height: 20),
                 SwitchListTile(
                   value: _isActive,
-                  onChanged: _isSaving
-                      ? null
-                      : (v) => setState(() => _isActive = v),
+                  onChanged:
+                      _isSaving ? null : (v) => setState(() => _isActive = v),
                   title: const Text('Active',
                       style: TextStyle(fontWeight: FontWeight.w600)),
                   subtitle: Text(
@@ -480,7 +490,7 @@ class _EditAutomationDialogState extends ConsumerState<_EditAutomationDialog> {
                   ElevatedButton(
                     onPressed: _isSaving ? null : _save,
                     style: ElevatedButton.styleFrom(
-                      backgroundColor: const Color(0xFF3B82F6),
+                      backgroundColor: AppColors.primary,
                       padding: const EdgeInsets.symmetric(
                         horizontal: 24,
                         vertical: 12,

@@ -2,6 +2,7 @@
 // Drip Campaigns Page - Full Step Editor
 // ============================================================
 import 'package:flutter/material.dart';
+import 'package:simpulx/core/theme/app_style.dart';
 import 'package:simpulx/core/di/injection_container.dart' as di;
 import 'package:simpulx/core/network/dio_client.dart';
 import 'package:simpulx/core/widgets/app_snackbar.dart';
@@ -30,11 +31,16 @@ class _DripCampaignsPageState extends State<DripCampaignsPage> {
       final response = await dio.get('/drip-campaigns');
       final data = response.data;
       setState(() {
-        _campaigns = data is List ? List<dynamic>.from(data) : List<dynamic>.from(data['data'] ?? []);
+        _campaigns = data is List
+            ? List<dynamic>.from(data)
+            : List<dynamic>.from(data['data'] ?? []);
         _loading = false;
       });
     } catch (e) {
-      setState(() { _campaigns = []; _loading = false; });
+      setState(() {
+        _campaigns = [];
+        _loading = false;
+      });
     }
   }
 
@@ -43,13 +49,16 @@ class _DripCampaignsPageState extends State<DripCampaignsPage> {
       context: context,
       builder: (ctx) => AlertDialog(
         shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
-        title: const Text('Delete Campaign', style: TextStyle(fontWeight: FontWeight.w700)),
+        title: const Text('Delete Campaign',
+            style: TextStyle(fontWeight: FontWeight.w700)),
         content: Text('Delete "$name"? This cannot be undone.'),
         actions: [
-          TextButton(onPressed: () => Navigator.pop(ctx, false), child: const Text('Cancel')),
+          TextButton(
+              onPressed: () => Navigator.pop(ctx, false),
+              child: const Text('Cancel')),
           FilledButton(
             onPressed: () => Navigator.pop(ctx, true),
-            style: FilledButton.styleFrom(backgroundColor: Colors.red),
+            style: FilledButton.styleFrom(backgroundColor: AppColors.danger),
             child: const Text('Delete'),
           ),
         ],
@@ -73,7 +82,9 @@ class _DripCampaignsPageState extends State<DripCampaignsPage> {
       final dio = di.sl<DioClient>().dio;
       await dio.put('/drip-campaigns/${c['id']}', data: {'status': newStatus});
       _loadCampaigns();
-      if (mounted) AppSnackbar.success(context, 'Campaign ${newStatus == 'active' ? 'activated' : 'paused'}');
+      if (mounted)
+        AppSnackbar.success(context,
+            'Campaign ${newStatus == 'active' ? 'activated' : 'paused'}');
     } catch (e) {
       if (mounted) AppSnackbar.error(context, 'Failed: $e');
     }
@@ -81,9 +92,9 @@ class _DripCampaignsPageState extends State<DripCampaignsPage> {
 
   Color _getStatusColor(String status) {
     return switch (status) {
-      'active' => const Color(0xFF42B72A),
+      'active' => AppColors.success,
       'paused' => const Color(0xFFF59E0B),
-      'completed' => const Color(0xFF3B82F6),
+      'completed' => AppColors.brandGreenDark,
       _ => const Color(0xFF9CA3AF),
     };
   }
@@ -108,7 +119,9 @@ class _DripCampaignsPageState extends State<DripCampaignsPage> {
               children: [
                 IconButton(
                   onPressed: _loadCampaigns,
-                  icon: Icon(Icons.refresh_rounded, color: theme.colorScheme.onSurface.withValues(alpha: 0.5)),
+                  icon: Icon(Icons.refresh_rounded,
+                      color:
+                          theme.colorScheme.onSurface.withValues(alpha: 0.5)),
                   tooltip: 'Refresh',
                 ),
                 const SizedBox(width: 8),
@@ -117,10 +130,12 @@ class _DripCampaignsPageState extends State<DripCampaignsPage> {
                   icon: const Icon(Icons.add_rounded, size: 18),
                   label: const Text('New Campaign'),
                   style: FilledButton.styleFrom(
-                    backgroundColor: const Color(0xFF3B82F6),
+                    backgroundColor: AppColors.primary,
                     foregroundColor: Colors.white,
-                    padding: const EdgeInsets.symmetric(horizontal: 18, vertical: 14),
-                    shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
+                    padding: const EdgeInsets.symmetric(
+                        horizontal: 18, vertical: 14),
+                    shape: RoundedRectangleBorder(
+                        borderRadius: BorderRadius.circular(10)),
                   ),
                 ),
               ],
@@ -147,15 +162,25 @@ class _DripCampaignsPageState extends State<DripCampaignsPage> {
         children: [
           Container(
             padding: const EdgeInsets.all(28),
-            decoration: BoxDecoration(shape: BoxShape.circle, color: const Color(0xFF3B82F6).withValues(alpha: 0.1)),
-            child: const Icon(Icons.water_drop_rounded, size: 52, color: Color(0xFF3B82F6)),
+            decoration: BoxDecoration(
+              shape: BoxShape.circle,
+              color: AppColors.primary.withValues(alpha: 0.1),
+            ),
+            child: const Icon(
+              Icons.water_drop_rounded,
+              size: 52,
+              color: AppColors.primary,
+            ),
           ),
           const SizedBox(height: 24),
-          Text('No drip campaigns yet', style: theme.textTheme.titleLarge?.copyWith(fontWeight: FontWeight.w700)),
+          Text('No drip campaigns yet',
+              style: theme.textTheme.titleLarge
+                  ?.copyWith(fontWeight: FontWeight.w700)),
           const SizedBox(height: 8),
           Text(
             'Automate time-sequenced messages to nurture your contacts',
-            style: theme.textTheme.bodyMedium?.copyWith(color: theme.colorScheme.onSurface.withValues(alpha: 0.5)),
+            style: theme.textTheme.bodyMedium?.copyWith(
+                color: theme.colorScheme.onSurface.withValues(alpha: 0.5)),
           ),
           const SizedBox(height: 24),
           FilledButton.icon(
@@ -163,10 +188,11 @@ class _DripCampaignsPageState extends State<DripCampaignsPage> {
             icon: const Icon(Icons.add_rounded, size: 18),
             label: const Text('Create First Campaign'),
             style: FilledButton.styleFrom(
-              backgroundColor: const Color(0xFF3B82F6),
+              backgroundColor: AppColors.primary,
               foregroundColor: Colors.white,
               padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 14),
-              shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
+              shape: RoundedRectangleBorder(
+                  borderRadius: BorderRadius.circular(10)),
             ),
           ),
         ],
@@ -194,7 +220,12 @@ class _DripCampaignsPageState extends State<DripCampaignsPage> {
             color: theme.colorScheme.surface,
             borderRadius: BorderRadius.circular(16),
             border: Border.all(color: theme.dividerColor),
-            boxShadow: [BoxShadow(color: Colors.black.withValues(alpha: 0.03), blurRadius: 8, offset: const Offset(0, 2))],
+            boxShadow: [
+              BoxShadow(
+                  color: Colors.black.withValues(alpha: 0.03),
+                  blurRadius: 8,
+                  offset: const Offset(0, 2))
+            ],
           ),
           child: Column(
             children: [
@@ -203,38 +234,71 @@ class _DripCampaignsPageState extends State<DripCampaignsPage> {
                 child: Row(
                   children: [
                     Container(
-                      width: 44, height: 44,
+                      width: 44,
+                      height: 44,
                       decoration: BoxDecoration(
-                        color: const Color(0xFF3B82F6).withValues(alpha: 0.1),
+                        color: AppColors.primary.withValues(alpha: 0.1),
                         borderRadius: BorderRadius.circular(12),
                       ),
-                      child: const Icon(Icons.water_drop_rounded, color: Color(0xFF3B82F6), size: 22),
+                      child: const Icon(
+                        Icons.water_drop_rounded,
+                        color: AppColors.primary,
+                        size: 22,
+                      ),
                     ),
                     const SizedBox(width: 16),
                     Expanded(
                       child: Column(
                         crossAxisAlignment: CrossAxisAlignment.start,
                         children: [
-                          Text(name, style: const TextStyle(fontWeight: FontWeight.w700, fontSize: 15)),
+                          Text(name,
+                              style: const TextStyle(
+                                  fontWeight: FontWeight.w700, fontSize: 15)),
                           const SizedBox(height: 4),
-                          if (c['description'] != null && (c['description'] as String).isNotEmpty)
+                          if (c['description'] != null &&
+                              (c['description'] as String).isNotEmpty)
                             Padding(
                               padding: const EdgeInsets.only(bottom: 4),
-                              child: Text(c['description'], style: TextStyle(fontSize: 12, color: theme.colorScheme.onSurface.withValues(alpha: 0.5))),
+                              child: Text(c['description'],
+                                  style: TextStyle(
+                                      fontSize: 12,
+                                      color: theme.colorScheme.onSurface
+                                          .withValues(alpha: 0.5))),
                             ),
                           Row(
                             children: [
-                              Icon(Icons.linear_scale_rounded, size: 13, color: theme.colorScheme.onSurface.withValues(alpha: 0.4)),
+                              Icon(Icons.linear_scale_rounded,
+                                  size: 13,
+                                  color: theme.colorScheme.onSurface
+                                      .withValues(alpha: 0.4)),
                               const SizedBox(width: 4),
-                              Text('$steps step${steps == 1 ? '' : 's'}', style: TextStyle(fontSize: 12, color: theme.colorScheme.onSurface.withValues(alpha: 0.5))),
+                              Text('$steps step${steps == 1 ? '' : 's'}',
+                                  style: TextStyle(
+                                      fontSize: 12,
+                                      color: theme.colorScheme.onSurface
+                                          .withValues(alpha: 0.5))),
                               const SizedBox(width: 14),
-                              Icon(Icons.people_rounded, size: 13, color: theme.colorScheme.onSurface.withValues(alpha: 0.4)),
+                              Icon(Icons.people_rounded,
+                                  size: 13,
+                                  color: theme.colorScheme.onSurface
+                                      .withValues(alpha: 0.4)),
                               const SizedBox(width: 4),
-                              Text('$enrolled enrolled', style: TextStyle(fontSize: 12, color: theme.colorScheme.onSurface.withValues(alpha: 0.5))),
+                              Text('$enrolled enrolled',
+                                  style: TextStyle(
+                                      fontSize: 12,
+                                      color: theme.colorScheme.onSurface
+                                          .withValues(alpha: 0.5))),
                               const SizedBox(width: 14),
-                              Icon(Icons.check_circle_outline_rounded, size: 13, color: theme.colorScheme.onSurface.withValues(alpha: 0.4)),
+                              Icon(Icons.check_circle_outline_rounded,
+                                  size: 13,
+                                  color: theme.colorScheme.onSurface
+                                      .withValues(alpha: 0.4)),
                               const SizedBox(width: 4),
-                              Text('$completed completed', style: TextStyle(fontSize: 12, color: theme.colorScheme.onSurface.withValues(alpha: 0.5))),
+                              Text('$completed completed',
+                                  style: TextStyle(
+                                      fontSize: 12,
+                                      color: theme.colorScheme.onSurface
+                                          .withValues(alpha: 0.5))),
                             ],
                           ),
                         ],
@@ -242,19 +306,31 @@ class _DripCampaignsPageState extends State<DripCampaignsPage> {
                     ),
                     const SizedBox(width: 12),
                     Container(
-                      padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
-                      decoration: BoxDecoration(color: statusColor.withValues(alpha: 0.1), borderRadius: BorderRadius.circular(8)),
-                      child: Text(status.toString().toUpperCase(), style: TextStyle(fontSize: 11, fontWeight: FontWeight.w600, color: statusColor)),
+                      padding: const EdgeInsets.symmetric(
+                          horizontal: 10, vertical: 4),
+                      decoration: BoxDecoration(
+                          color: statusColor.withValues(alpha: 0.1),
+                          borderRadius: BorderRadius.circular(8)),
+                      child: Text(status.toString().toUpperCase(),
+                          style: TextStyle(
+                              fontSize: 11,
+                              fontWeight: FontWeight.w600,
+                              color: statusColor)),
                     ),
                     const SizedBox(width: 8),
                     // Activate/pause toggle
                     if (status != 'completed')
                       Tooltip(
-                        message: isActive ? 'Pause campaign' : 'Activate campaign',
+                        message:
+                            isActive ? 'Pause campaign' : 'Activate campaign',
                         child: IconButton(
                           icon: Icon(
-                            isActive ? Icons.pause_circle_rounded : Icons.play_circle_rounded,
-                            color: isActive ? const Color(0xFFF59E0B) : const Color(0xFF42B72A),
+                            isActive
+                                ? Icons.pause_circle_rounded
+                                : Icons.play_circle_rounded,
+                            color: isActive
+                                ? const Color(0xFFF59E0B)
+                                : const Color(0xFF42B72A),
                             size: 22,
                           ),
                           onPressed: () => _toggleCampaignStatus(c),
@@ -267,7 +343,8 @@ class _DripCampaignsPageState extends State<DripCampaignsPage> {
                       onPressed: () => _showStepEditor(c),
                     ),
                     IconButton(
-                      icon: Icon(Icons.delete_outline_rounded, size: 18, color: theme.colorScheme.error),
+                      icon: Icon(Icons.delete_outline_rounded,
+                          size: 18, color: theme.colorScheme.error),
                       tooltip: 'Delete',
                       onPressed: () => _deleteCampaign(c['id'], name),
                     ),
@@ -305,8 +382,13 @@ class _DripCampaignsPageState extends State<DripCampaignsPage> {
         if (steps.length > 4)
           Container(
             padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
-            decoration: BoxDecoration(color: theme.dividerColor, borderRadius: BorderRadius.circular(6)),
-            child: Text('+${steps.length - 4} more', style: TextStyle(fontSize: 11, color: theme.colorScheme.onSurface.withValues(alpha: 0.5))),
+            decoration: BoxDecoration(
+                color: theme.dividerColor,
+                borderRadius: BorderRadius.circular(6)),
+            child: Text('+${steps.length - 4} more',
+                style: TextStyle(
+                    fontSize: 11,
+                    color: theme.colorScheme.onSurface.withValues(alpha: 0.5))),
           ),
       ],
     );
@@ -314,11 +396,27 @@ class _DripCampaignsPageState extends State<DripCampaignsPage> {
 
   Widget _stepBadge(ThemeData theme, String type, dynamic config) {
     final (icon, color, label) = switch (type) {
-      'delay' => (Icons.timer_rounded, const Color(0xFFF59E0B), 'Wait ${(config as Map?)?['delayMinutes'] ?? '?'}m'),
-      'message' => (Icons.chat_bubble_rounded, const Color(0xFF3B82F6), 'Message'),
-      'template' => (Icons.view_module_rounded, const Color(0xFF8B5CF6), 'Template'),
-      'tag' => (Icons.label_rounded, const Color(0xFF42B72A), '${(config as Map?)?['action'] == 'add' ? '+' : '-'}Tag'),
-      'condition' => (Icons.call_split_rounded, const Color(0xFF9CA3AF), 'Condition'),
+      'delay' => (
+          Icons.timer_rounded,
+          const Color(0xFFF59E0B),
+          'Wait ${(config as Map?)?['delayMinutes'] ?? '?'}m'
+        ),
+      'message' => (Icons.chat_bubble_rounded, AppColors.primary, 'Message'),
+      'template' => (
+          Icons.view_module_rounded,
+          const Color(0xFF8B5CF6),
+          'Template'
+        ),
+      'tag' => (
+          Icons.label_rounded,
+          const Color(0xFF42B72A),
+          '${(config as Map?)?['action'] == 'add' ? '+' : '-'}Tag'
+        ),
+      'condition' => (
+          Icons.call_split_rounded,
+          const Color(0xFF9CA3AF),
+          'Condition'
+        ),
       _ => (Icons.circle, const Color(0xFF9CA3AF), type),
     };
 
@@ -334,7 +432,9 @@ class _DripCampaignsPageState extends State<DripCampaignsPage> {
         children: [
           Icon(icon, size: 12, color: color),
           const SizedBox(width: 4),
-          Text(label, style: TextStyle(fontSize: 11, fontWeight: FontWeight.w600, color: color)),
+          Text(label,
+              style: TextStyle(
+                  fontSize: 11, fontWeight: FontWeight.w600, color: color)),
         ],
       ),
     );
@@ -360,45 +460,71 @@ class _DripCampaignsPageState extends State<DripCampaignsPage> {
                 children: [
                   Container(
                     padding: const EdgeInsets.all(8),
-                    decoration: BoxDecoration(color: const Color(0xFF3B82F6).withValues(alpha: 0.1), borderRadius: BorderRadius.circular(10)),
-                    child: const Icon(Icons.water_drop_rounded, color: Color(0xFF3B82F6), size: 20),
+                    decoration: BoxDecoration(
+                      color: AppColors.primary.withValues(alpha: 0.1),
+                      borderRadius: BorderRadius.circular(10),
+                    ),
+                    child: const Icon(
+                      Icons.water_drop_rounded,
+                      color: AppColors.primary,
+                      size: 20,
+                    ),
                   ),
                   const SizedBox(width: 12),
-                  const Expanded(child: Text('New Drip Campaign', style: TextStyle(fontWeight: FontWeight.w700, fontSize: 17))),
-                  IconButton(onPressed: () => Navigator.pop(ctx), icon: const Icon(Icons.close_rounded)),
+                  const Expanded(
+                      child: Text('New Drip Campaign',
+                          style: TextStyle(
+                              fontWeight: FontWeight.w700, fontSize: 17))),
+                  IconButton(
+                      onPressed: () => Navigator.pop(ctx),
+                      icon: const Icon(Icons.close_rounded)),
                 ],
               ),
               const SizedBox(height: 24),
-              const Text('Campaign Name', style: TextStyle(fontWeight: FontWeight.w600, fontSize: 13)),
+              const Text('Campaign Name',
+                  style: TextStyle(fontWeight: FontWeight.w600, fontSize: 13)),
               const SizedBox(height: 8),
               TextField(
                 controller: nameCtrl,
                 autofocus: true,
                 decoration: InputDecoration(
                   hintText: 'e.g., New User Onboarding',
-                  border: OutlineInputBorder(borderRadius: BorderRadius.circular(10)),
+                  border: OutlineInputBorder(
+                      borderRadius: BorderRadius.circular(10)),
                 ),
               ),
               const SizedBox(height: 16),
-              const Text('Description (optional)', style: TextStyle(fontWeight: FontWeight.w600, fontSize: 13)),
+              const Text('Description (optional)',
+                  style: TextStyle(fontWeight: FontWeight.w600, fontSize: 13)),
               const SizedBox(height: 8),
               TextField(
                 controller: descCtrl,
                 maxLines: 2,
                 decoration: InputDecoration(
                   hintText: 'What is this campaign for?',
-                  border: OutlineInputBorder(borderRadius: BorderRadius.circular(10)),
+                  border: OutlineInputBorder(
+                      borderRadius: BorderRadius.circular(10)),
                 ),
               ),
               const SizedBox(height: 8),
               Container(
                 padding: const EdgeInsets.all(12),
-                decoration: BoxDecoration(color: const Color(0xFF3B82F6).withValues(alpha: 0.06), borderRadius: BorderRadius.circular(8)),
+                decoration: BoxDecoration(
+                  color: AppColors.primary.withValues(alpha: 0.06),
+                  borderRadius: BorderRadius.circular(8),
+                ),
                 child: const Row(
                   children: [
-                    Icon(Icons.info_outline_rounded, color: Color(0xFF3B82F6), size: 16),
+                    Icon(
+                      Icons.info_outline_rounded,
+                      color: AppColors.primary,
+                      size: 16,
+                    ),
                     SizedBox(width: 8),
-                    Expanded(child: Text('You can add steps after creating the campaign.', style: TextStyle(fontSize: 12))),
+                    Expanded(
+                        child: Text(
+                            'You can add steps after creating the campaign.',
+                            style: TextStyle(fontSize: 12))),
                   ],
                 ),
               ),
@@ -431,7 +557,10 @@ class _DripCampaignsPageState extends State<DripCampaignsPage> {
                         if (mounted) AppSnackbar.error(context, 'Failed: $e');
                       }
                     },
-                    style: FilledButton.styleFrom(backgroundColor: const Color(0xFF3B82F6), foregroundColor: Colors.white),
+                    style: FilledButton.styleFrom(
+                      backgroundColor: AppColors.primary,
+                      foregroundColor: Colors.white,
+                    ),
                     child: const Text('Create & Add Steps'),
                   ),
                 ],
@@ -510,7 +639,10 @@ class _StepEditorDialogState extends State<_StepEditorDialog> {
       builder: (ctx) => _AddStepDialog(
         campaignId: widget.campaign['id'],
         sortOrder: _steps.length,
-        onAdded: () { _refreshSteps(); widget.onChanged(); },
+        onAdded: () {
+          _refreshSteps();
+          widget.onChanged();
+        },
       ),
     );
   }
@@ -533,19 +665,28 @@ class _StepEditorDialogState extends State<_StepEditorDialog> {
               padding: const EdgeInsets.fromLTRB(24, 20, 16, 18),
               decoration: BoxDecoration(
                 color: theme.colorScheme.surface,
-                borderRadius: const BorderRadius.vertical(top: Radius.circular(20)),
+                borderRadius:
+                    const BorderRadius.vertical(top: Radius.circular(20)),
                 border: Border(bottom: BorderSide(color: theme.dividerColor)),
               ),
               child: Row(
                 children: [
-                  const Icon(Icons.water_drop_rounded, color: Color(0xFF3B82F6), size: 22),
+                  const Icon(
+                    Icons.water_drop_rounded,
+                    color: AppColors.primary,
+                    size: 22,
+                  ),
                   const SizedBox(width: 10),
                   Expanded(
                     child: Column(
                       crossAxisAlignment: CrossAxisAlignment.start,
                       children: [
-                        Text(name, style: const TextStyle(fontWeight: FontWeight.w700, fontSize: 16)),
-                        const Text('Step Editor', style: TextStyle(fontSize: 12, color: Color(0xFF9CA3AF))),
+                        Text(name,
+                            style: const TextStyle(
+                                fontWeight: FontWeight.w700, fontSize: 16)),
+                        const Text('Step Editor',
+                            style: TextStyle(
+                                fontSize: 12, color: Color(0xFF9CA3AF))),
                       ],
                     ),
                   ),
@@ -554,15 +695,20 @@ class _StepEditorDialogState extends State<_StepEditorDialog> {
                     icon: const Icon(Icons.add_rounded, size: 16),
                     label: const Text('Add Step'),
                     style: FilledButton.styleFrom(
-                      backgroundColor: const Color(0xFF3B82F6),
+                      backgroundColor: AppColors.primary,
                       foregroundColor: Colors.white,
-                      padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 10),
-                      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
+                      padding: const EdgeInsets.symmetric(
+                          horizontal: 14, vertical: 10),
+                      shape: RoundedRectangleBorder(
+                          borderRadius: BorderRadius.circular(8)),
                     ),
                   ),
                   const SizedBox(width: 8),
                   IconButton(
-                    onPressed: () { Navigator.pop(context); widget.onChanged(); },
+                    onPressed: () {
+                      Navigator.pop(context);
+                      widget.onChanged();
+                    },
                     icon: const Icon(Icons.close_rounded),
                   ),
                 ],
@@ -578,7 +724,8 @@ class _StepEditorDialogState extends State<_StepEditorDialog> {
                       : ListView.builder(
                           padding: const EdgeInsets.all(20),
                           itemCount: _steps.length,
-                          itemBuilder: (ctx, i) => _buildStepCard(theme, _steps[i], i),
+                          itemBuilder: (ctx, i) =>
+                              _buildStepCard(theme, _steps[i], i),
                         ),
             ),
           ],
@@ -592,11 +739,17 @@ class _StepEditorDialogState extends State<_StepEditorDialog> {
       child: Column(
         mainAxisAlignment: MainAxisAlignment.center,
         children: [
-          Icon(Icons.linear_scale_rounded, size: 40, color: theme.colorScheme.onSurface.withValues(alpha: 0.2)),
+          Icon(Icons.linear_scale_rounded,
+              size: 40,
+              color: theme.colorScheme.onSurface.withValues(alpha: 0.2)),
           const SizedBox(height: 16),
-          Text('No steps yet', style: theme.textTheme.titleSmall?.copyWith(fontWeight: FontWeight.w600)),
+          Text('No steps yet',
+              style: theme.textTheme.titleSmall
+                  ?.copyWith(fontWeight: FontWeight.w600)),
           const SizedBox(height: 6),
-          Text('Add steps to define the message sequence.', style: theme.textTheme.bodySmall?.copyWith(color: theme.colorScheme.onSurface.withValues(alpha: 0.5))),
+          Text('Add steps to define the message sequence.',
+              style: theme.textTheme.bodySmall?.copyWith(
+                  color: theme.colorScheme.onSurface.withValues(alpha: 0.5))),
           const SizedBox(height: 20),
           OutlinedButton.icon(
             onPressed: _showAddStepDialog,
@@ -621,7 +774,7 @@ class _StepEditorDialogState extends State<_StepEditorDialog> {
         ),
       'message' => (
           Icons.chat_bubble_rounded,
-          const Color(0xFF3B82F6),
+          AppColors.primary,
           'Send Message',
           (config['content']?.toString() ?? 'No content').length > 60
               ? '${(config['content'] ?? '').toString().substring(0, 60)}...'
@@ -657,9 +810,17 @@ class _StepEditorDialogState extends State<_StepEditorDialog> {
           Column(
             children: [
               Container(
-                width: 32, height: 32,
-                decoration: BoxDecoration(color: color.withValues(alpha: 0.15), shape: BoxShape.circle),
-                child: Center(child: Text('${index + 1}', style: TextStyle(fontSize: 13, fontWeight: FontWeight.w700, color: color))),
+                width: 32,
+                height: 32,
+                decoration: BoxDecoration(
+                    color: color.withValues(alpha: 0.15),
+                    shape: BoxShape.circle),
+                child: Center(
+                    child: Text('${index + 1}',
+                        style: TextStyle(
+                            fontSize: 13,
+                            fontWeight: FontWeight.w700,
+                            color: color))),
               ),
               if (index < _steps.length - 1)
                 Container(width: 2, height: 20, color: theme.dividerColor),
@@ -678,7 +839,9 @@ class _StepEditorDialogState extends State<_StepEditorDialog> {
                 children: [
                   Container(
                     padding: const EdgeInsets.all(8),
-                    decoration: BoxDecoration(color: color.withValues(alpha: 0.1), borderRadius: BorderRadius.circular(8)),
+                    decoration: BoxDecoration(
+                        color: color.withValues(alpha: 0.1),
+                        borderRadius: BorderRadius.circular(8)),
                     child: Icon(icon, size: 18, color: color),
                   ),
                   const SizedBox(width: 12),
@@ -686,14 +849,21 @@ class _StepEditorDialogState extends State<_StepEditorDialog> {
                     child: Column(
                       crossAxisAlignment: CrossAxisAlignment.start,
                       children: [
-                        Text(title, style: const TextStyle(fontWeight: FontWeight.w600, fontSize: 13)),
+                        Text(title,
+                            style: const TextStyle(
+                                fontWeight: FontWeight.w600, fontSize: 13)),
                         const SizedBox(height: 2),
-                        Text(subtitle, style: TextStyle(fontSize: 12, color: theme.colorScheme.onSurface.withValues(alpha: 0.5))),
+                        Text(subtitle,
+                            style: TextStyle(
+                                fontSize: 12,
+                                color: theme.colorScheme.onSurface
+                                    .withValues(alpha: 0.5))),
                       ],
                     ),
                   ),
                   IconButton(
-                    icon: Icon(Icons.delete_outline_rounded, size: 18, color: theme.colorScheme.error),
+                    icon: Icon(Icons.delete_outline_rounded,
+                        size: 18, color: theme.colorScheme.error),
                     onPressed: () => _deleteStep(step['id']),
                     tooltip: 'Remove step',
                   ),
@@ -715,7 +885,10 @@ class _AddStepDialog extends StatefulWidget {
   final int sortOrder;
   final VoidCallback onAdded;
 
-  const _AddStepDialog({required this.campaignId, required this.sortOrder, required this.onAdded});
+  const _AddStepDialog(
+      {required this.campaignId,
+      required this.sortOrder,
+      required this.onAdded});
 
   @override
   State<_AddStepDialog> createState() => _AddStepDialogState();
@@ -765,14 +938,24 @@ class _AddStepDialogState extends State<_AddStepDialog> {
             setState(() => _saving = false);
             return;
           }
-          config = {'templateName': _templateNameCtrl.text.trim(), 'languageCode': 'en_US'};
+          config = {
+            'templateName': _templateNameCtrl.text.trim(),
+            'languageCode': 'en_US'
+          };
         case 'tag':
           if (_tagCtrl.text.trim().isEmpty) {
             AppSnackbar.error(context, 'Tag is required');
             setState(() => _saving = false);
             return;
           }
-          config = {'action': _tagAction, 'tags': _tagCtrl.text.split(',').map((t) => t.trim()).where((t) => t.isNotEmpty).toList()};
+          config = {
+            'action': _tagAction,
+            'tags': _tagCtrl.text
+                .split(',')
+                .map((t) => t.trim())
+                .where((t) => t.isNotEmpty)
+                .toList()
+          };
       }
 
       await dio.post('/drip-campaigns/${widget.campaignId}/steps', data: {
@@ -795,9 +978,14 @@ class _AddStepDialogState extends State<_AddStepDialog> {
     final theme = Theme.of(context);
 
     final types = [
-      ('message', Icons.chat_bubble_rounded, 'Send Message', const Color(0xFF3B82F6)),
+      ('message', Icons.chat_bubble_rounded, 'Send Message', AppColors.primary),
       ('delay', Icons.timer_rounded, 'Wait / Delay', const Color(0xFFF59E0B)),
-      ('template', Icons.view_module_rounded, 'Send Template', const Color(0xFF8B5CF6)),
+      (
+        'template',
+        Icons.view_module_rounded,
+        'Send Template',
+        const Color(0xFF8B5CF6)
+      ),
       ('tag', Icons.label_rounded, 'Add/Remove Tag', const Color(0xFF42B72A)),
     ];
 
@@ -812,15 +1000,20 @@ class _AddStepDialogState extends State<_AddStepDialog> {
           children: [
             Row(
               children: [
-                const Text('Add Step', style: TextStyle(fontWeight: FontWeight.w700, fontSize: 17)),
+                const Text('Add Step',
+                    style:
+                        TextStyle(fontWeight: FontWeight.w700, fontSize: 17)),
                 const Spacer(),
-                IconButton(onPressed: () => Navigator.pop(context), icon: const Icon(Icons.close_rounded)),
+                IconButton(
+                    onPressed: () => Navigator.pop(context),
+                    icon: const Icon(Icons.close_rounded)),
               ],
             ),
             const SizedBox(height: 16),
 
             // Type selector
-            const Text('Step Type', style: TextStyle(fontWeight: FontWeight.w600, fontSize: 13)),
+            const Text('Step Type',
+                style: TextStyle(fontWeight: FontWeight.w600, fontSize: 13)),
             const SizedBox(height: 10),
             Wrap(
               spacing: 8,
@@ -831,18 +1024,32 @@ class _AddStepDialogState extends State<_AddStepDialog> {
                 return GestureDetector(
                   onTap: () => setState(() => _selectedType = value),
                   child: Container(
-                    padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+                    padding:
+                        const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
                     decoration: BoxDecoration(
-                      color: selected ? color.withValues(alpha: 0.1) : theme.colorScheme.surface,
-                      border: Border.all(color: selected ? color : theme.dividerColor, width: selected ? 2 : 1),
+                      color: selected
+                          ? color.withValues(alpha: 0.1)
+                          : theme.colorScheme.surface,
+                      border: Border.all(
+                          color: selected ? color : theme.dividerColor,
+                          width: selected ? 2 : 1),
                       borderRadius: BorderRadius.circular(8),
                     ),
                     child: Row(
                       mainAxisSize: MainAxisSize.min,
                       children: [
-                        Icon(icon, size: 15, color: selected ? color : theme.colorScheme.onSurface.withValues(alpha: 0.5)),
+                        Icon(icon,
+                            size: 15,
+                            color: selected
+                                ? color
+                                : theme.colorScheme.onSurface
+                                    .withValues(alpha: 0.5)),
                         const SizedBox(width: 6),
-                        Text(label, style: TextStyle(fontSize: 12, fontWeight: FontWeight.w600, color: selected ? color : null)),
+                        Text(label,
+                            style: TextStyle(
+                                fontSize: 12,
+                                fontWeight: FontWeight.w600,
+                                color: selected ? color : null)),
                       ],
                     ),
                   ),
@@ -858,13 +1065,22 @@ class _AddStepDialogState extends State<_AddStepDialog> {
             Row(
               mainAxisAlignment: MainAxisAlignment.end,
               children: [
-                OutlinedButton(onPressed: () => Navigator.pop(context), child: const Text('Cancel')),
+                OutlinedButton(
+                    onPressed: () => Navigator.pop(context),
+                    child: const Text('Cancel')),
                 const SizedBox(width: 12),
                 FilledButton(
                   onPressed: _saving ? null : _addStep,
-                  style: FilledButton.styleFrom(backgroundColor: const Color(0xFF3B82F6), foregroundColor: Colors.white),
+                  style: FilledButton.styleFrom(
+                    backgroundColor: AppColors.primary,
+                    foregroundColor: Colors.white,
+                  ),
                   child: _saving
-                      ? const SizedBox(width: 16, height: 16, child: CircularProgressIndicator(strokeWidth: 2, color: Colors.white))
+                      ? const SizedBox(
+                          width: 16,
+                          height: 16,
+                          child: CircularProgressIndicator(
+                              strokeWidth: 2, color: Colors.white))
                       : const Text('Add Step'),
                 ),
               ],
@@ -880,14 +1096,16 @@ class _AddStepDialogState extends State<_AddStepDialog> {
       'message' => Column(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
-            const Text('Message Content', style: TextStyle(fontWeight: FontWeight.w600, fontSize: 13)),
+            const Text('Message Content',
+                style: TextStyle(fontWeight: FontWeight.w600, fontSize: 13)),
             const SizedBox(height: 8),
             TextField(
               controller: _messageCtrl,
               maxLines: 4,
               decoration: InputDecoration(
                 hintText: 'Enter the message to send...',
-                border: OutlineInputBorder(borderRadius: BorderRadius.circular(10)),
+                border:
+                    OutlineInputBorder(borderRadius: BorderRadius.circular(10)),
               ),
             ),
           ],
@@ -895,7 +1113,8 @@ class _AddStepDialogState extends State<_AddStepDialog> {
       'delay' => Column(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
-            const Text('Wait Duration', style: TextStyle(fontWeight: FontWeight.w600, fontSize: 13)),
+            const Text('Wait Duration',
+                style: TextStyle(fontWeight: FontWeight.w600, fontSize: 13)),
             const SizedBox(height: 8),
             Row(
               children: [
@@ -911,12 +1130,17 @@ class _AddStepDialogState extends State<_AddStepDialog> {
                 ),
                 const SizedBox(width: 12),
                 Container(
-                  padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+                  padding:
+                      const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
                   decoration: BoxDecoration(
                     color: const Color(0xFFF59E0B).withValues(alpha: 0.1),
                     borderRadius: BorderRadius.circular(8),
                   ),
-                  child: Text(_formatDelay(_delayMinutes), style: const TextStyle(fontWeight: FontWeight.w700, color: Color(0xFFF59E0B), fontSize: 13)),
+                  child: Text(_formatDelay(_delayMinutes),
+                      style: const TextStyle(
+                          fontWeight: FontWeight.w700,
+                          color: Color(0xFFF59E0B),
+                          fontSize: 13)),
                 ),
               ],
             ),
@@ -924,13 +1148,14 @@ class _AddStepDialogState extends State<_AddStepDialog> {
               children: [
                 const SizedBox(width: 16),
                 ...[30, 60, 1440, 10080].map((m) => Padding(
-                  padding: const EdgeInsets.only(right: 8),
-                  child: ActionChip(
-                    label: Text(_formatDelay(m), style: const TextStyle(fontSize: 11)),
-                    onPressed: () => setState(() => _delayMinutes = m),
-                    padding: EdgeInsets.zero,
-                  ),
-                )),
+                      padding: const EdgeInsets.only(right: 8),
+                      child: ActionChip(
+                        label: Text(_formatDelay(m),
+                            style: const TextStyle(fontSize: 11)),
+                        onPressed: () => setState(() => _delayMinutes = m),
+                        padding: EdgeInsets.zero,
+                      ),
+                    )),
               ],
             ),
           ],
@@ -938,13 +1163,15 @@ class _AddStepDialogState extends State<_AddStepDialog> {
       'template' => Column(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
-            const Text('Template Name', style: TextStyle(fontWeight: FontWeight.w600, fontSize: 13)),
+            const Text('Template Name',
+                style: TextStyle(fontWeight: FontWeight.w600, fontSize: 13)),
             const SizedBox(height: 8),
             TextField(
               controller: _templateNameCtrl,
               decoration: InputDecoration(
                 hintText: 'e.g., welcome_message',
-                border: OutlineInputBorder(borderRadius: BorderRadius.circular(10)),
+                border:
+                    OutlineInputBorder(borderRadius: BorderRadius.circular(10)),
                 prefixIcon: const Icon(Icons.view_module_rounded),
               ),
             ),
@@ -953,7 +1180,8 @@ class _AddStepDialogState extends State<_AddStepDialog> {
       'tag' => Column(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
-            const Text('Tag Action', style: TextStyle(fontWeight: FontWeight.w600, fontSize: 13)),
+            const Text('Tag Action',
+                style: TextStyle(fontWeight: FontWeight.w600, fontSize: 13)),
             const SizedBox(height: 8),
             Row(
               children: [
@@ -963,15 +1191,24 @@ class _AddStepDialogState extends State<_AddStepDialog> {
                     child: Container(
                       padding: const EdgeInsets.all(12),
                       decoration: BoxDecoration(
-                        color: _tagAction == 'add' ? const Color(0xFF42B72A).withValues(alpha: 0.1) : null,
-                        border: Border.all(color: _tagAction == 'add' ? const Color(0xFF42B72A) : theme.dividerColor, width: _tagAction == 'add' ? 2 : 1),
+                        color: _tagAction == 'add'
+                            ? const Color(0xFF42B72A).withValues(alpha: 0.1)
+                            : null,
+                        border: Border.all(
+                            color: _tagAction == 'add'
+                                ? const Color(0xFF42B72A)
+                                : theme.dividerColor,
+                            width: _tagAction == 'add' ? 2 : 1),
                         borderRadius: BorderRadius.circular(8),
                       ),
                       child: const Column(
                         children: [
-                          Icon(Icons.add_circle_rounded, color: Color(0xFF42B72A)),
+                          Icon(Icons.add_circle_rounded,
+                              color: Color(0xFF42B72A)),
                           SizedBox(height: 4),
-                          Text('Add Tag', style: TextStyle(fontSize: 12, fontWeight: FontWeight.w600)),
+                          Text('Add Tag',
+                              style: TextStyle(
+                                  fontSize: 12, fontWeight: FontWeight.w600)),
                         ],
                       ),
                     ),
@@ -984,15 +1221,27 @@ class _AddStepDialogState extends State<_AddStepDialog> {
                     child: Container(
                       padding: const EdgeInsets.all(12),
                       decoration: BoxDecoration(
-                        color: _tagAction == 'remove' ? Colors.red.withValues(alpha: 0.1) : null,
-                        border: Border.all(color: _tagAction == 'remove' ? Colors.red : theme.dividerColor, width: _tagAction == 'remove' ? 2 : 1),
+                        color: _tagAction == 'remove'
+                            ? AppColors.danger.withValues(alpha: 0.1)
+                            : null,
+                        border: Border.all(
+                          color: _tagAction == 'remove'
+                              ? AppColors.danger
+                              : theme.dividerColor,
+                          width: _tagAction == 'remove' ? 2 : 1,
+                        ),
                         borderRadius: BorderRadius.circular(8),
                       ),
                       child: const Column(
                         children: [
-                          Icon(Icons.remove_circle_rounded, color: Colors.red),
+                          Icon(
+                            Icons.remove_circle_rounded,
+                            color: AppColors.danger,
+                          ),
                           SizedBox(height: 4),
-                          Text('Remove Tag', style: TextStyle(fontSize: 12, fontWeight: FontWeight.w600)),
+                          Text('Remove Tag',
+                              style: TextStyle(
+                                  fontSize: 12, fontWeight: FontWeight.w600)),
                         ],
                       ),
                     ),
@@ -1001,13 +1250,15 @@ class _AddStepDialogState extends State<_AddStepDialog> {
               ],
             ),
             const SizedBox(height: 12),
-            const Text('Tags (comma-separated)', style: TextStyle(fontWeight: FontWeight.w600, fontSize: 13)),
+            const Text('Tags (comma-separated)',
+                style: TextStyle(fontWeight: FontWeight.w600, fontSize: 13)),
             const SizedBox(height: 8),
             TextField(
               controller: _tagCtrl,
               decoration: InputDecoration(
                 hintText: 'e.g., interested, premium',
-                border: OutlineInputBorder(borderRadius: BorderRadius.circular(10)),
+                border:
+                    OutlineInputBorder(borderRadius: BorderRadius.circular(10)),
                 prefixIcon: const Icon(Icons.label_rounded),
               ),
             ),

@@ -15,6 +15,16 @@ final channelsProvider =
   return ref.read(automationRepoProvider).getChannels();
 });
 
+String _readableAutomationError(Object error) {
+  final message = error.toString();
+  if (message.contains('XMLHttpRequest') ||
+      message.contains('connection error') ||
+      message.contains('DioException')) {
+    return 'Could not reach the automation service. Refresh the page, then sign in again if the session is stale.';
+  }
+  return message.replaceFirst('Exception: ', '');
+}
+
 // ══════════════════════════════════════════════════════════
 // Dashboard - list of automation rules
 // ══════════════════════════════════════════════════════════
@@ -86,7 +96,10 @@ class DashboardNotifier extends StateNotifier<DashboardState> {
       final rules = await _repo.getRules();
       state = state.copyWith(rules: rules, loading: false);
     } catch (e) {
-      state = state.copyWith(loading: false, error: e.toString());
+      state = state.copyWith(
+        loading: false,
+        error: _readableAutomationError(e),
+      );
     }
   }
 
@@ -344,7 +357,10 @@ class FlowNotifier extends StateNotifier<FlowState> {
         redoStack: const [],
       );
     } catch (e) {
-      state = state.copyWith(loading: false, error: e.toString());
+      state = state.copyWith(
+        loading: false,
+        error: _readableAutomationError(e),
+      );
     }
   }
 
@@ -358,7 +374,10 @@ class FlowNotifier extends StateNotifier<FlowState> {
       );
       state = state.copyWith(saving: false, dirty: false);
     } catch (e) {
-      state = state.copyWith(saving: false, error: e.toString());
+      state = state.copyWith(
+        saving: false,
+        error: _readableAutomationError(e),
+      );
     }
   }
 
@@ -421,7 +440,8 @@ class FlowNotifier extends StateNotifier<FlowState> {
       }
     }
     if (original == null) return;
-    final newId = '${original.type.name}_${DateTime.now().microsecondsSinceEpoch}';
+    final newId =
+        '${original.type.name}_${DateTime.now().microsecondsSinceEpoch}';
     final newNode = NodeModel(
       id: newId,
       type: original.type,

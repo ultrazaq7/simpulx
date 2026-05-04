@@ -4,13 +4,14 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
 import 'package:intl/intl.dart';
+import 'package:simpulx/core/theme/app_style.dart';
 import 'package:simpulx/core/di/injection_container.dart' as di;
 import 'package:simpulx/features/auth/presentation/bloc/auth_bloc.dart';
 import 'package:simpulx/features/settings/data/datasources/settings_remote_datasource.dart';
 import 'package:simpulx/features/settings/data/models/settings_models.dart';
 import 'package:simpulx/core/widgets/app_snackbar.dart';
 import 'package:simpulx/features/settings/presentation/pages/team_export.dart'
-  as team_export;
+    as team_export;
 
 class TeamSettingsPage extends StatefulWidget {
   const TeamSettingsPage({super.key});
@@ -144,7 +145,7 @@ class _TeamSettingsPageState extends State<TeamSettingsPage> {
                   icon: const Icon(Icons.add_rounded, size: 18),
                   label: const Text('Add Member'),
                   style: FilledButton.styleFrom(
-                    backgroundColor: const Color(0xFF3B82F6),
+                    backgroundColor: AppColors.primary,
                     foregroundColor: Colors.white,
                     padding: const EdgeInsets.symmetric(
                         horizontal: 18, vertical: 12),
@@ -187,7 +188,8 @@ class _TeamSettingsPageState extends State<TeamSettingsPage> {
                     ),
                     prefixIcon: Icon(Icons.search_rounded,
                         size: 20,
-                        color: theme.colorScheme.onSurface.withValues(alpha: 0.4)),
+                        color:
+                            theme.colorScheme.onSurface.withValues(alpha: 0.4)),
                     isDense: true,
                     filled: false,
                     border: OutlineInputBorder(
@@ -208,13 +210,15 @@ class _TeamSettingsPageState extends State<TeamSettingsPage> {
                 children: [
                   Icon(Icons.filter_list_rounded,
                       size: 18,
-                      color: theme.colorScheme.onSurface.withValues(alpha: 0.5)),
+                      color:
+                          theme.colorScheme.onSurface.withValues(alpha: 0.5)),
                   const SizedBox(width: 6),
                   Text('Filter By',
                       style: TextStyle(
                         fontSize: 13,
                         fontWeight: FontWeight.w600,
-                        color: theme.colorScheme.onSurface.withValues(alpha: 0.6),
+                        color:
+                            theme.colorScheme.onSurface.withValues(alpha: 0.6),
                       )),
                 ],
               ),
@@ -458,7 +462,7 @@ class _TeamSettingsPageState extends State<TeamSettingsPage> {
                             child: Row(
                               children: [
                                 Icon(Icons.edit_rounded,
-                                    size: 18, color: Color(0xFF3B82F6)),
+                                    size: 18, color: AppColors.primary),
                                 SizedBox(width: 10),
                                 Text('Edit'),
                               ],
@@ -494,8 +498,8 @@ class _TeamSettingsPageState extends State<TeamSettingsPage> {
                                       size: 18, color: Color(0xFFEF4444)),
                                   SizedBox(width: 10),
                                   Text('Delete',
-                                      style: TextStyle(
-                                          color: Color(0xFFEF4444))),
+                                      style:
+                                          TextStyle(color: Color(0xFFEF4444))),
                                 ],
                               ),
                             ),
@@ -550,8 +554,7 @@ class _TeamSettingsPageState extends State<TeamSettingsPage> {
         mainAxisAlignment: MainAxisAlignment.center,
         children: [
           IconButton(
-            onPressed:
-                _page > 1 ? () => _loadMembers(page: _page - 1) : null,
+            onPressed: _page > 1 ? () => _loadMembers(page: _page - 1) : null,
             icon: const Icon(Icons.chevron_left_rounded, size: 22),
           ),
           ...List.generate(
@@ -578,9 +581,8 @@ class _TeamSettingsPageState extends State<TeamSettingsPage> {
                     height: 34,
                     alignment: Alignment.center,
                     decoration: BoxDecoration(
-                      color: curr
-                          ? theme.colorScheme.primary
-                          : Colors.transparent,
+                      color:
+                          curr ? theme.colorScheme.primary : Colors.transparent,
                       borderRadius: BorderRadius.circular(8),
                     ),
                     child: Text(
@@ -591,8 +593,7 @@ class _TeamSettingsPageState extends State<TeamSettingsPage> {
                             ? Colors.white
                             : theme.colorScheme.onSurface
                                 .withValues(alpha: 0.6),
-                        fontWeight:
-                            curr ? FontWeight.w700 : FontWeight.normal,
+                        fontWeight: curr ? FontWeight.w700 : FontWeight.normal,
                       ),
                     ),
                   ),
@@ -610,8 +611,7 @@ class _TeamSettingsPageState extends State<TeamSettingsPage> {
           Text('Page $_page of $_totalPages',
               style: TextStyle(
                   fontSize: 12,
-                  color: theme.colorScheme.onSurface
-                      .withValues(alpha: 0.45))),
+                  color: theme.colorScheme.onSurface.withValues(alpha: 0.45))),
         ],
       ),
     );
@@ -621,50 +621,74 @@ class _TeamSettingsPageState extends State<TeamSettingsPage> {
 
   int _roleLevel(String r) {
     switch (r) {
-      case 'owner': return 5;
-      case 'admin': return 4;
-      case 'manager': return 3;
-      case 'supervisor': return 2;
-      case 'agent': return 1;
-      default: return 0;
+      case 'owner':
+        return 5;
+      case 'admin':
+        return 4;
+      case 'manager':
+        return 3;
+      case 'supervisor':
+        return 2;
+      case 'agent':
+        return 1;
+      default:
+        return 0;
     }
   }
 
   String _roleLabel(String r) {
     switch (r) {
-      case 'owner': return 'Owner';
-      case 'admin': return 'Admin';
-      case 'manager': return 'Manager';
-      case 'supervisor': return 'Supervisor';
-      case 'agent': return 'Agent';
-      default: return r;
+      case 'owner':
+        return 'Owner';
+      case 'admin':
+        return 'Admin';
+      case 'manager':
+        return 'Manager';
+      case 'supervisor':
+        return 'Supervisor';
+      case 'agent':
+        return 'Agent';
+      default:
+        return r;
     }
   }
 
   String _statusLabel(String s) {
     switch (s) {
-      case 'active': return 'Active';
-      case 'inactive': return 'Inactive';
-      case 'invited': return 'Invited';
-      default: return s;
+      case 'active':
+        return 'Active';
+      case 'inactive':
+        return 'Inactive';
+      case 'invited':
+        return 'Invited';
+      default:
+        return s;
     }
   }
 
   Color _roleColor(String r) {
     switch (r) {
-      case 'owner': return const Color(0xFFE17055);
-      case 'admin': return const Color(0xFF3B82F6);
-      case 'manager': return const Color(0xFF10B981);
-      case 'supervisor': return const Color(0xFFF59E0B);
-      default: return const Color(0xFF3498DB);
+      case 'owner':
+        return const Color(0xFFE17055);
+      case 'admin':
+        return AppColors.brandGreenDark;
+      case 'manager':
+        return const Color(0xFF10B981);
+      case 'supervisor':
+        return const Color(0xFFF59E0B);
+      default:
+        return const Color(0xFF3498DB);
     }
   }
 
   Color _statusColor(String s) {
     switch (s) {
-      case 'active': return const Color(0xFF25D366);
-      case 'invited': return const Color(0xFFFDCB6E);
-      default: return const Color(0xFF95A5A6);
+      case 'active':
+        return const Color(0xFF25D366);
+      case 'invited':
+        return const Color(0xFFFDCB6E);
+      default:
+        return const Color(0xFF95A5A6);
     }
   }
 
@@ -729,7 +753,9 @@ class _TeamSettingsPageState extends State<TeamSettingsPage> {
           member.availableForRoundRobin ? 'Yes' : 'No',
           member.isOnline ? 'Yes' : 'No',
           member.createdAt != null ? _dateFormat.format(member.createdAt!) : '',
-          member.lastSeenAt != null ? _dateFormat.format(member.lastSeenAt!) : '',
+          member.lastSeenAt != null
+              ? _dateFormat.format(member.lastSeenAt!)
+              : '',
         ],
       ),
     ];
@@ -748,8 +774,7 @@ class _TeamSettingsPageState extends State<TeamSettingsPage> {
     final ok = await showDialog<bool>(
       context: context,
       builder: (ctx) => AlertDialog(
-        title:
-            Text(reactivate ? 'Reactivate account?' : 'Deactivate account?'),
+        title: Text(reactivate ? 'Reactivate account?' : 'Deactivate account?'),
         content: Text(reactivate
             ? 'This will restore ${m.fullName} to active status.'
             : '${m.fullName} will lose access until the account is reactivated.'),
@@ -829,7 +854,9 @@ class _TeamSettingsPageState extends State<TeamSettingsPage> {
     final passwordCtrl = TextEditingController();
     final chatCtrl =
         TextEditingController(text: '${member?.maxConcurrentChats ?? 10}');
-    final selectedRoles = <String>{if (member != null) member.role else if (roles.isNotEmpty) roles.last};
+    final selectedRoles = <String>{
+      if (member != null) member.role else if (roles.isNotEmpty) roles.last
+    };
     final selectedDeptIds = <String>{};
     if (member?.department != null) {
       selectedDeptIds.add(member!.department!.id);
@@ -844,9 +871,8 @@ class _TeamSettingsPageState extends State<TeamSettingsPage> {
         builder: (ctx, setDlg) {
           final theme = Theme.of(ctx);
           final showSup = selectedRoles.contains('agent');
-          final eligible = _supervisorCandidates
-              .where((c) => c.id != member?.id)
-              .toList();
+          final eligible =
+              _supervisorCandidates.where((c) => c.id != member?.id).toList();
 
           // Build role items for the tag selector
           final roleItems = {
@@ -876,9 +902,9 @@ class _TeamSettingsPageState extends State<TeamSettingsPage> {
                           ? 'Update role, routing, and workload settings.'
                           : 'A temporary password will be emailed to the new team member.',
                       style: theme.textTheme.bodySmall?.copyWith(
-                            color: theme.colorScheme.onSurface
-                                .withValues(alpha: 0.5),
-                          ),
+                        color:
+                            theme.colorScheme.onSurface.withValues(alpha: 0.5),
+                      ),
                     ),
                     const SizedBox(height: 22),
                     TextField(
@@ -936,10 +962,9 @@ class _TeamSettingsPageState extends State<TeamSettingsPage> {
                         labelFn: (r) => r.label,
                         idFn: (r) => r.value,
                         hintText: 'Search and add role...',
-                        onChanged: (ids) =>
-                            setDlg(() => selectedRoles
-                              ..clear()
-                              ..addAll(ids)),
+                        onChanged: (ids) => setDlg(() => selectedRoles
+                          ..clear()
+                          ..addAll(ids)),
                       ),
                     const SizedBox(height: 18),
                     Text('Department',
@@ -952,10 +977,9 @@ class _TeamSettingsPageState extends State<TeamSettingsPage> {
                       labelFn: (d) => d.name,
                       idFn: (d) => d.id,
                       hintText: 'Search and add department...',
-                      onChanged: (ids) =>
-                          setDlg(() => selectedDeptIds
-                            ..clear()
-                            ..addAll(ids)),
+                      onChanged: (ids) => setDlg(() => selectedDeptIds
+                        ..clear()
+                        ..addAll(ids)),
                     ),
                     if (showSup) ...[
                       const SizedBox(height: 14),
@@ -972,9 +996,8 @@ class _TeamSettingsPageState extends State<TeamSettingsPage> {
                           ...eligible.map((c) => DropdownMenuItem<String?>(
                               value: c.id, child: Text(c.fullName))),
                         ],
-                        onChanged: saving
-                            ? null
-                            : (v) => setDlg(() => supId = v),
+                        onChanged:
+                            saving ? null : (v) => setDlg(() => supId = v),
                       ),
                     ],
                     const SizedBox(height: 14),
@@ -993,8 +1016,8 @@ class _TeamSettingsPageState extends State<TeamSettingsPage> {
                       subtitle: Text(
                         'Include this member in automatic round-robin assignment',
                         style: theme.textTheme.bodySmall?.copyWith(
-                          color:
-                              theme.colorScheme.onSurface.withValues(alpha: 0.5),
+                          color: theme.colorScheme.onSurface
+                              .withValues(alpha: 0.5),
                         ),
                       ),
                       value: roundRobin,
@@ -1006,8 +1029,7 @@ class _TeamSettingsPageState extends State<TeamSettingsPage> {
                       mainAxisAlignment: MainAxisAlignment.end,
                       children: [
                         TextButton(
-                          onPressed:
-                              saving ? null : () => Navigator.pop(ctx),
+                          onPressed: saving ? null : () => Navigator.pop(ctx),
                           child: const Text('Cancel'),
                         ),
                         const SizedBox(width: 12),
@@ -1035,8 +1057,7 @@ class _TeamSettingsPageState extends State<TeamSettingsPage> {
                                         fullName: nameCtrl.text.trim(),
                                         role: roleToSave,
                                         departmentId: deptId,
-                                        supervisorId:
-                                            showSup ? supId : null,
+                                        supervisorId: showSup ? supId : null,
                                         maxConcurrentChats: int.tryParse(
                                                 chatCtrl.text.trim()) ??
                                             member.maxConcurrentChats,
@@ -1048,14 +1069,14 @@ class _TeamSettingsPageState extends State<TeamSettingsPage> {
                                         fullName: nameCtrl.text.trim(),
                                         role: roleToSave,
                                         departmentId: deptId,
-                                        supervisorId:
-                                            showSup ? supId : null,
-                                        password: passwordCtrl.text.trim().isEmpty
-                                            ? null
-                                            : passwordCtrl.text.trim(),
-                                        maxConcurrentChats:
-                                            int.tryParse(chatCtrl.text.trim()) ??
-                                                10,
+                                        supervisorId: showSup ? supId : null,
+                                        password:
+                                            passwordCtrl.text.trim().isEmpty
+                                                ? null
+                                                : passwordCtrl.text.trim(),
+                                        maxConcurrentChats: int.tryParse(
+                                                chatCtrl.text.trim()) ??
+                                            10,
                                         availableForRoundRobin: roundRobin,
                                       );
                                     }
@@ -1074,9 +1095,8 @@ class _TeamSettingsPageState extends State<TeamSettingsPage> {
                                   height: 20,
                                   child: CircularProgressIndicator(
                                       strokeWidth: 2, color: Colors.white))
-                              : Text(isEdit
-                                  ? 'Save Changes'
-                                  : 'Create Account'),
+                              : Text(
+                                  isEdit ? 'Save Changes' : 'Create Account'),
                         ),
                       ],
                     ),
@@ -1143,8 +1163,7 @@ class _TeamTagSelectorState<T> extends State<_TeamTagSelector<T>> {
     final available = widget.items
         .where((item) => !widget.selectedIds.contains(widget.idFn(item)))
         .where((item) =>
-            query.isEmpty ||
-            widget.labelFn(item).toLowerCase().contains(query))
+            query.isEmpty || widget.labelFn(item).toLowerCase().contains(query))
         .toList();
     final selectedItems = widget.items
         .where((item) => widget.selectedIds.contains(widget.idFn(item)))
@@ -1167,8 +1186,7 @@ class _TeamTagSelectorState<T> extends State<_TeamTagSelector<T>> {
                     color: theme.colorScheme.primary.withValues(alpha: 0.08),
                     borderRadius: BorderRadius.circular(8),
                     border: Border.all(
-                      color:
-                          theme.colorScheme.primary.withValues(alpha: 0.15),
+                      color: theme.colorScheme.primary.withValues(alpha: 0.15),
                     ),
                   ),
                   child: Row(
@@ -1209,11 +1227,13 @@ class _TeamTagSelectorState<T> extends State<_TeamTagSelector<T>> {
             prefixIcon: const Icon(Icons.search_rounded, size: 18),
             border: OutlineInputBorder(
               borderRadius: BorderRadius.circular(10),
-              borderSide: BorderSide(color: theme.dividerColor.withValues(alpha: 0.3)),
+              borderSide:
+                  BorderSide(color: theme.dividerColor.withValues(alpha: 0.3)),
             ),
             enabledBorder: OutlineInputBorder(
               borderRadius: BorderRadius.circular(10),
-              borderSide: BorderSide(color: theme.dividerColor.withValues(alpha: 0.3)),
+              borderSide:
+                  BorderSide(color: theme.dividerColor.withValues(alpha: 0.3)),
             ),
             contentPadding:
                 const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
@@ -1226,7 +1246,8 @@ class _TeamTagSelectorState<T> extends State<_TeamTagSelector<T>> {
             decoration: BoxDecoration(
               color: theme.colorScheme.surface,
               borderRadius: BorderRadius.circular(10),
-              border: Border.all(color: theme.dividerColor.withValues(alpha: 0.2)),
+              border:
+                  Border.all(color: theme.dividerColor.withValues(alpha: 0.2)),
               boxShadow: [
                 BoxShadow(
                   color: Colors.black.withValues(alpha: 0.06),

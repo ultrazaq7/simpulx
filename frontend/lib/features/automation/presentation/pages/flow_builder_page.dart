@@ -6,6 +6,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
+import 'package:simpulx/core/theme/app_style.dart';
 import 'package:simpulx/core/di/injection_container.dart' as di;
 import 'package:simpulx/core/network/dio_client.dart';
 import 'package:simpulx/core/constants/api_constants.dart';
@@ -127,7 +128,8 @@ class _FlowBuilderPageState extends ConsumerState<FlowBuilderPage> {
         final channelId = ch['id']?.toString() ?? '';
         if (channelId.isEmpty) continue;
         try {
-          final tplResp = await dio.get(ApiConstants.channelTemplates(channelId));
+          final tplResp =
+              await dio.get(ApiConstants.channelTemplates(channelId));
           final templates = tplResp.data as List? ?? [];
           for (final t in templates) {
             if (t['status'] != 'APPROVED') continue;
@@ -450,208 +452,219 @@ class _FlowBuilderPageState extends ConsumerState<FlowBuilderPage> {
         return KeyEventResult.ignored;
       },
       child: Scaffold(
-      backgroundColor: _builderBackground(Theme.of(context)),
-      body: Column(
-        children: [
-          _BuilderToolbar(
-            ruleName: ruleName,
-            triggerLabel: _flowTriggerLabel(flow),
-            dirty: flow.dirty,
-            saving: flow.saving,
-            nodeCount: flow.nodes.length,
-            edgeCount: flow.edges.length,
-            canUndo: flow.canUndo,
-            canRedo: flow.canRedo,
-            showPalette: _showPalette,
-            onBack: () => context.go('/automation'),
-            onSave: notifier.saveFlow,
-            onUndo: notifier.undo,
-            onRedo: notifier.redo,
-            onClear: notifier.clearAll,
-            onTogglePalette: () => setState(() => _showPalette = !_showPalette),
-            onExport: () => _exportFlow(flow),
-            onImport: () => _importFlow(notifier),
-          ),
-          Expanded(
-            child: AnimatedSwitcher(
-              duration: const Duration(milliseconds: 180),
-              child: flow.loading
-                  ? const _FlowStateView(
-                      key: ValueKey('flow_loading'),
-                      icon: Icons.hourglass_top_rounded,
-                      title: 'Loading automation builder',
-                      subtitle: 'Opening the canvas and saved flow settings.',
-                      isLoading: true,
-                    )
-                  : flow.error != null
-                      ? _FlowStateView(
-                          key: const ValueKey('flow_error'),
-                          icon: Icons.error_outline_rounded,
-                          title: 'Unable to open this automation',
-                          subtitle: flow.error!,
-                          actionLabel: 'Retry',
-                          onAction: () => notifier.loadFlow(
-                            widget.ruleId,
-                            widget.ruleName,
-                          ),
-                        )
-                      : LayoutBuilder(
-                          key: const ValueKey('flow_canvas'),
-                          builder: (context, constraints) {
-                            final compact = constraints.maxWidth < 1120;
-                            final paletteVisible = _showPalette && !compact;
-                            final inspectorVisible =
-                                selectedNode != null && !compact;
+        backgroundColor: _builderBackground(Theme.of(context)),
+        body: Column(
+          children: [
+            _BuilderToolbar(
+              ruleName: ruleName,
+              triggerLabel: _flowTriggerLabel(flow),
+              dirty: flow.dirty,
+              saving: flow.saving,
+              nodeCount: flow.nodes.length,
+              edgeCount: flow.edges.length,
+              canUndo: flow.canUndo,
+              canRedo: flow.canRedo,
+              showPalette: _showPalette,
+              onBack: () => context.go('/automation'),
+              onSave: notifier.saveFlow,
+              onUndo: notifier.undo,
+              onRedo: notifier.redo,
+              onClear: notifier.clearAll,
+              onTogglePalette: () =>
+                  setState(() => _showPalette = !_showPalette),
+              onExport: () => _exportFlow(flow),
+              onImport: () => _importFlow(notifier),
+            ),
+            Expanded(
+              child: AnimatedSwitcher(
+                duration: const Duration(milliseconds: 180),
+                child: flow.loading
+                    ? const _FlowStateView(
+                        key: ValueKey('flow_loading'),
+                        icon: Icons.hourglass_top_rounded,
+                        title: 'Loading automation builder',
+                        subtitle: 'Opening the canvas and saved flow settings.',
+                        isLoading: true,
+                      )
+                    : flow.error != null
+                        ? _FlowStateView(
+                            key: const ValueKey('flow_error'),
+                            icon: Icons.error_outline_rounded,
+                            title: 'Unable to open this automation',
+                            subtitle: flow.error!,
+                            actionLabel: 'Retry',
+                            onAction: () => notifier.loadFlow(
+                              widget.ruleId,
+                              widget.ruleName,
+                            ),
+                          )
+                        : LayoutBuilder(
+                            key: const ValueKey('flow_canvas'),
+                            builder: (context, constraints) {
+                              final compact = constraints.maxWidth < 1120;
+                              final paletteVisible = _showPalette && !compact;
+                              final inspectorVisible =
+                                  selectedNode != null && !compact;
 
-                            return Stack(
-                              children: [
-                                Row(
-                                  children: [
-                                    AnimatedContainer(
-                                      duration:
-                                          const Duration(milliseconds: 180),
-                                      width: paletteVisible ? 286 : 0,
-                                      child: ClipRect(
-                                        child: _NodePalette(
-                                          onAdd: _addNode,
-                                          catalog: _catalog,
-                                          isActive: _isActive,
-                                          onToggleActive: _toggleActive,
+                              return Stack(
+                                children: [
+                                  Row(
+                                    children: [
+                                      AnimatedContainer(
+                                        duration:
+                                            const Duration(milliseconds: 180),
+                                        width: paletteVisible ? 286 : 0,
+                                        child: ClipRect(
+                                          child: _NodePalette(
+                                            onAdd: _addNode,
+                                            catalog: _catalog,
+                                            isActive: _isActive,
+                                            onToggleActive: _toggleActive,
+                                          ),
                                         ),
                                       ),
-                                    ),
-                                    Expanded(
-                                      child: Stack(
-                                        children: [
-                                          _FlowCanvas(
-                                            transformCtrl: _transformCtrl,
-                                            flow: flow,
-                                            notifier: notifier,
-                                            onCutEdge: notifier.removeEdge,
-                                            wireDragSourceId: _wireDragSourceId,
-                                            wireDragEdgeId: _wireDragEdgeId,
-                                            wireDragPoint: _wireDragPoint,
-                                            onWireDragStart:
-                                                (nodeId, scenePoint) =>
-                                                    _startWireDrag(
-                                              nodeId,
-                                              scenePoint,
-                                              notifier,
-                                            ),
-                                            onEdgeRewireStart:
-                                                (edge, scenePoint) =>
-                                                    _startEdgeRewire(
-                                              edge,
-                                              scenePoint,
-                                              notifier,
-                                            ),
-                                            onWireDragUpdate: _updateWireDrag,
-                                            onWireDragEnd: () =>
-                                                _finishWireDrag(
-                                              flow,
-                                              notifier,
-                                            ),
-                                            onWireDragCancel: () =>
-                                                _cancelWireDrag(notifier),
-                                            multiSelected: _multiSelected,
-                                            onNodeTap: (nodeId, ctrlHeld) {
-                                              if (ctrlHeld) {
-                                                setState(() {
-                                                  if (_multiSelected.contains(nodeId)) {
-                                                    _multiSelected.remove(nodeId);
-                                                  } else {
-                                                    _multiSelected.add(nodeId);
-                                                  }
-                                                });
-                                              } else {
-                                                setState(() => _multiSelected.clear());
-                                                notifier.selectNode(nodeId);
-                                              }
-                                            },
-                                            onNodeDrag: (nodeId, delta) {
-                                              if (_multiSelected.contains(nodeId)) {
-                                                for (final id in _multiSelected) {
-                                                  notifier.moveNode(id, delta);
+                                      Expanded(
+                                        child: Stack(
+                                          children: [
+                                            _FlowCanvas(
+                                              transformCtrl: _transformCtrl,
+                                              flow: flow,
+                                              notifier: notifier,
+                                              onCutEdge: notifier.removeEdge,
+                                              wireDragSourceId:
+                                                  _wireDragSourceId,
+                                              wireDragEdgeId: _wireDragEdgeId,
+                                              wireDragPoint: _wireDragPoint,
+                                              onWireDragStart:
+                                                  (nodeId, scenePoint) =>
+                                                      _startWireDrag(
+                                                nodeId,
+                                                scenePoint,
+                                                notifier,
+                                              ),
+                                              onEdgeRewireStart:
+                                                  (edge, scenePoint) =>
+                                                      _startEdgeRewire(
+                                                edge,
+                                                scenePoint,
+                                                notifier,
+                                              ),
+                                              onWireDragUpdate: _updateWireDrag,
+                                              onWireDragEnd: () =>
+                                                  _finishWireDrag(
+                                                flow,
+                                                notifier,
+                                              ),
+                                              onWireDragCancel: () =>
+                                                  _cancelWireDrag(notifier),
+                                              multiSelected: _multiSelected,
+                                              onNodeTap: (nodeId, ctrlHeld) {
+                                                if (ctrlHeld) {
+                                                  setState(() {
+                                                    if (_multiSelected
+                                                        .contains(nodeId)) {
+                                                      _multiSelected
+                                                          .remove(nodeId);
+                                                    } else {
+                                                      _multiSelected
+                                                          .add(nodeId);
+                                                    }
+                                                  });
+                                                } else {
+                                                  setState(() =>
+                                                      _multiSelected.clear());
+                                                  notifier.selectNode(nodeId);
                                                 }
-                                              } else {
-                                                notifier.moveNode(nodeId, delta);
-                                              }
-                                            },
-                                            onCanvasTap: () {
-                                              if (_wireDragSourceId != null) {
-                                                _cancelWireDrag(notifier);
-                                              } else if (flow
-                                                      .connectingFromId !=
-                                                  null) {
-                                                notifier.cancelConnecting();
-                                              } else {
-                                                setState(() => _multiSelected.clear());
-                                                notifier.selectNode(null);
-                                              }
-                                            },
-                                          ),
-                                          Positioned(
-                                            right: 18,
-                                            bottom: 18,
-                                            child: _CanvasControls(
-                                              onFit: () => _fitToContent(flow),
-                                              onZoomIn: () => _zoomBy(1.12),
-                                              onZoomOut: () => _zoomBy(0.88),
+                                              },
+                                              onNodeDrag: (nodeId, delta) {
+                                                if (_multiSelected
+                                                    .contains(nodeId)) {
+                                                  for (final id
+                                                      in _multiSelected) {
+                                                    notifier.moveNode(
+                                                        id, delta);
+                                                  }
+                                                } else {
+                                                  notifier.moveNode(
+                                                      nodeId, delta);
+                                                }
+                                              },
+                                              onCanvasTap: () {
+                                                if (_wireDragSourceId != null) {
+                                                  _cancelWireDrag(notifier);
+                                                } else if (flow
+                                                        .connectingFromId !=
+                                                    null) {
+                                                  notifier.cancelConnecting();
+                                                } else {
+                                                  setState(() =>
+                                                      _multiSelected.clear());
+                                                  notifier.selectNode(null);
+                                                }
+                                              },
                                             ),
-                                          ),
-                                          if (flow.connectingFromId != null)
                                             Positioned(
-                                              left: 0,
-                                              right: 0,
-                                              bottom: 22,
-                                              child: Center(
-                                                child: _ConnectionBanner(
-                                                  onCancel:
-                                                      notifier.cancelConnecting,
-                                                ),
+                                              right: 18,
+                                              bottom: 18,
+                                              child: _CanvasControls(
+                                                onFit: () =>
+                                                    _fitToContent(flow),
+                                                onZoomIn: () => _zoomBy(1.12),
+                                                onZoomOut: () => _zoomBy(0.88),
                                               ),
                                             ),
-
-                                        ],
-                                      ),
-                                    ),
-                                    AnimatedContainer(
-                                      duration:
-                                          const Duration(milliseconds: 180),
-                                      width: inspectorVisible ? 408 : 0,
-                                      child: ClipRect(
-                                        child: _NodeInspector(
-                                          node: selectedNode,
-                                          notifier: notifier,
-                                          catalog: _catalog,
-                                          onClose: () =>
-                                              notifier.selectNode(null),
+                                            if (flow.connectingFromId != null)
+                                              Positioned(
+                                                left: 0,
+                                                right: 0,
+                                                bottom: 22,
+                                                child: Center(
+                                                  child: _ConnectionBanner(
+                                                    onCancel: notifier
+                                                        .cancelConnecting,
+                                                  ),
+                                                ),
+                                              ),
+                                          ],
                                         ),
                                       ),
-                                    ),
-                                  ],
-                                ),
-                                if (flow.nodes.isEmpty)
-                                  Positioned.fill(
-                                    child: _FlowStateView(
-                                      icon: Icons.account_tree_rounded,
-                                      title: 'Start with a trigger',
-                                      subtitle:
-                                          'Add a trigger or action to begin shaping this automation.',
-                                      actionLabel: 'Add Trigger',
-                                      onAction: () =>
-                                          _addNode(NodeType.trigger),
-                                    ),
+                                      AnimatedContainer(
+                                        duration:
+                                            const Duration(milliseconds: 180),
+                                        width: inspectorVisible ? 408 : 0,
+                                        child: ClipRect(
+                                          child: _NodeInspector(
+                                            node: selectedNode,
+                                            notifier: notifier,
+                                            catalog: _catalog,
+                                            onClose: () =>
+                                                notifier.selectNode(null),
+                                          ),
+                                        ),
+                                      ),
+                                    ],
                                   ),
-                              ],
-                            );
-                          },
-                        ),
+                                  if (flow.nodes.isEmpty)
+                                    Positioned.fill(
+                                      child: _FlowStateView(
+                                        icon: Icons.account_tree_rounded,
+                                        title: 'Start with a trigger',
+                                        subtitle:
+                                            'Add a trigger or action to begin shaping this automation.',
+                                        actionLabel: 'Add Trigger',
+                                        onAction: () =>
+                                            _addNode(NodeType.trigger),
+                                      ),
+                                    ),
+                                ],
+                              );
+                            },
+                          ),
+              ),
             ),
-          ),
-        ],
+          ],
+        ),
       ),
-    ),
     );
   }
 }
@@ -798,7 +811,7 @@ class _BuilderToolbar extends StatelessWidget {
                               _ToolbarStatusChip(
                                 icon: Icons.account_tree_rounded,
                                 label: '$nodeCount nodes',
-                                color: const Color(0xFF3B82F6),
+                                color: AppColors.primary,
                               ),
                               const SizedBox(width: 8),
                               _ToolbarStatusChip(
@@ -857,7 +870,7 @@ class _BuilderToolbar extends StatelessWidget {
                     : const Icon(Icons.save_rounded, size: 18),
                 label: Text(saving ? 'Saving' : 'Save'),
                 style: FilledButton.styleFrom(
-                  backgroundColor: const Color(0xFF3B82F6),
+                  backgroundColor: AppColors.primary,
                   foregroundColor: Colors.white,
                   padding: const EdgeInsets.symmetric(
                     horizontal: 18,
@@ -900,8 +913,8 @@ class _ToolbarIconButton extends StatelessWidget {
         : disabled
             ? theme.colorScheme.onSurface.withValues(alpha: 0.28)
             : selected
-            ? Colors.white
-            : theme.colorScheme.onSurface.withValues(alpha: 0.84);
+                ? Colors.white
+                : theme.colorScheme.onSurface.withValues(alpha: 0.84);
 
     return Tooltip(
       message: tooltip,
@@ -1460,13 +1473,14 @@ class _FlowCanvasState extends State<_FlowCanvas> {
                       if (widget.flow.connectingFromId != null) {
                         widget.notifier.finishConnecting(node.id);
                       } else {
-                        final isCtrl = HardwareKeyboard.instance.isControlPressed;
+                        final isCtrl =
+                            HardwareKeyboard.instance.isControlPressed;
                         widget.onNodeTap(node.id, isCtrl);
                       }
                     },
                     onDrag: (delta) {
                       final scale =
-                        widget.transformCtrl.value.getMaxScaleOnAxis();
+                          widget.transformCtrl.value.getMaxScaleOnAxis();
                       widget.onNodeDrag(node.id, delta / scale);
                     },
                     onDragStart: widget.notifier.beginNodeMove,
@@ -1815,7 +1829,8 @@ class _FlowNode extends StatelessWidget {
                         : multiSelected
                             ? color.withValues(alpha: 0.7)
                             : connecting
-                                ? theme.colorScheme.primary.withValues(alpha: 0.45)
+                                ? theme.colorScheme.primary
+                                    .withValues(alpha: 0.45)
                                 : theme.dividerColor.withValues(alpha: 0.95),
                     width: selected || multiSelected ? 2 : 1,
                   ),
@@ -1975,7 +1990,6 @@ class _FlowNode extends StatelessWidget {
                   ),
                 ),
               ),
-
             ],
           ),
         ),
@@ -2008,9 +2022,7 @@ class _NodePort extends StatelessWidget {
           BoxShadow(color: color.withValues(alpha: 0.28), blurRadius: 10),
         ],
       ),
-      child: icon == null
-          ? null
-          : Icon(icon, color: Colors.white, size: 13),
+      child: icon == null ? null : Icon(icon, color: Colors.white, size: 13),
     );
   }
 }
@@ -2432,13 +2444,26 @@ class _NodeInspectorState extends State<_NodeInspector> {
           onChanged: (option) => _setValue('interactiveType', option.id),
         ),
         const SizedBox(height: 14),
-        _textField(theme, label: 'Header (optional)', keyName: 'header', hint: 'Short header text'),
+        _textField(theme,
+            label: 'Header (optional)',
+            keyName: 'header',
+            hint: 'Short header text'),
         const SizedBox(height: 14),
-        _textField(theme, label: 'Body', keyName: 'body', hint: 'Message body text', maxLines: 3),
+        _textField(theme,
+            label: 'Body',
+            keyName: 'body',
+            hint: 'Message body text',
+            maxLines: 3),
         const SizedBox(height: 14),
-        _textField(theme, label: 'Footer (optional)', keyName: 'footer', hint: 'Small footer text'),
+        _textField(theme,
+            label: 'Footer (optional)',
+            keyName: 'footer',
+            hint: 'Small footer text'),
         const SizedBox(height: 18),
-        if (iType == 'button') _interactiveButtonsBuilder(theme) else _interactiveListBuilder(theme),
+        if (iType == 'button')
+          _interactiveButtonsBuilder(theme)
+        else
+          _interactiveListBuilder(theme),
       ],
     );
   }
@@ -2462,14 +2487,21 @@ class _NodeInspectorState extends State<_NodeInspector> {
               children: [
                 Expanded(
                   child: TextField(
-                    controller: TextEditingController(text: btn['title']?.toString() ?? ''),
+                    controller: TextEditingController(
+                        text: btn['title']?.toString() ?? ''),
                     onChanged: (v) {
                       final updated = List<Map<String, dynamic>>.from(buttons);
-                      updated[i] = {...updated[i], 'title': v, 'id': 'btn_${i + 1}'};
+                      updated[i] = {
+                        ...updated[i],
+                        'title': v,
+                        'id': 'btn_${i + 1}'
+                      };
                       _setValue('buttons', updated);
                     },
-                    style: theme.textTheme.bodyMedium?.copyWith(fontWeight: FontWeight.w600),
-                    decoration: _fieldDecoration(theme, 'Button ${i + 1} title (max 20 chars)'),
+                    style: theme.textTheme.bodyMedium
+                        ?.copyWith(fontWeight: FontWeight.w600),
+                    decoration: _fieldDecoration(
+                        theme, 'Button ${i + 1} title (max 20 chars)'),
                     maxLength: 20,
                   ),
                 ),
@@ -2479,7 +2511,9 @@ class _NodeInspectorState extends State<_NodeInspector> {
                   onPressed: buttons.length <= 1
                       ? null
                       : () {
-                          final updated = List<Map<String, dynamic>>.from(buttons)..removeAt(i);
+                          final updated =
+                              List<Map<String, dynamic>>.from(buttons)
+                                ..removeAt(i);
                           _setValue('buttons', updated);
                         },
                 ),
@@ -2509,7 +2543,10 @@ class _NodeInspectorState extends State<_NodeInspector> {
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
-        _textField(theme, label: 'Menu Button Label', keyName: 'buttonText', hint: 'e.g. Menu'),
+        _textField(theme,
+            label: 'Menu Button Label',
+            keyName: 'buttonText',
+            hint: 'e.g. Menu'),
         const SizedBox(height: 14),
         _FieldLabel(label: 'Sections'),
         const SizedBox(height: 7),
@@ -2534,13 +2571,16 @@ class _NodeInspectorState extends State<_NodeInspector> {
                   children: [
                     Expanded(
                       child: TextField(
-                        controller: TextEditingController(text: section['title']?.toString() ?? ''),
+                        controller: TextEditingController(
+                            text: section['title']?.toString() ?? ''),
                         onChanged: (v) {
-                          final updated = List<Map<String, dynamic>>.from(sections);
+                          final updated =
+                              List<Map<String, dynamic>>.from(sections);
                           updated[si] = {...updated[si], 'title': v};
                           _setValue('sections', updated);
                         },
-                        style: theme.textTheme.bodyMedium?.copyWith(fontWeight: FontWeight.w700),
+                        style: theme.textTheme.bodyMedium
+                            ?.copyWith(fontWeight: FontWeight.w700),
                         decoration: _fieldDecoration(theme, 'Section title'),
                       ),
                     ),
@@ -2549,7 +2589,9 @@ class _NodeInspectorState extends State<_NodeInspector> {
                       onPressed: sections.length <= 1
                           ? null
                           : () {
-                              final updated = List<Map<String, dynamic>>.from(sections)..removeAt(si);
+                              final updated =
+                                  List<Map<String, dynamic>>.from(sections)
+                                    ..removeAt(si);
                               _setValue('sections', updated);
                             },
                     ),
@@ -2567,30 +2609,52 @@ class _NodeInspectorState extends State<_NodeInspector> {
                           child: Column(
                             children: [
                               TextField(
-                                controller: TextEditingController(text: row['title']?.toString() ?? ''),
+                                controller: TextEditingController(
+                                    text: row['title']?.toString() ?? ''),
                                 onChanged: (v) {
-                                  final updatedRows = List<Map<String, dynamic>>.from(rows);
-                                  updatedRows[ri] = {...updatedRows[ri], 'title': v, 'id': 'row_${si}_$ri'};
-                                  final updatedSections = List<Map<String, dynamic>>.from(sections);
-                                  updatedSections[si] = {...updatedSections[si], 'rows': updatedRows};
+                                  final updatedRows =
+                                      List<Map<String, dynamic>>.from(rows);
+                                  updatedRows[ri] = {
+                                    ...updatedRows[ri],
+                                    'title': v,
+                                    'id': 'row_${si}_$ri'
+                                  };
+                                  final updatedSections =
+                                      List<Map<String, dynamic>>.from(sections);
+                                  updatedSections[si] = {
+                                    ...updatedSections[si],
+                                    'rows': updatedRows
+                                  };
                                   _setValue('sections', updatedSections);
                                 },
-                                style: theme.textTheme.bodySmall?.copyWith(fontWeight: FontWeight.w600),
-                                decoration: _fieldDecoration(theme, 'Row title (max 24)'),
+                                style: theme.textTheme.bodySmall
+                                    ?.copyWith(fontWeight: FontWeight.w600),
+                                decoration: _fieldDecoration(
+                                    theme, 'Row title (max 24)'),
                                 maxLength: 24,
                               ),
                               const SizedBox(height: 4),
                               TextField(
-                                controller: TextEditingController(text: row['description']?.toString() ?? ''),
+                                controller: TextEditingController(
+                                    text: row['description']?.toString() ?? ''),
                                 onChanged: (v) {
-                                  final updatedRows = List<Map<String, dynamic>>.from(rows);
-                                  updatedRows[ri] = {...updatedRows[ri], 'description': v};
-                                  final updatedSections = List<Map<String, dynamic>>.from(sections);
-                                  updatedSections[si] = {...updatedSections[si], 'rows': updatedRows};
+                                  final updatedRows =
+                                      List<Map<String, dynamic>>.from(rows);
+                                  updatedRows[ri] = {
+                                    ...updatedRows[ri],
+                                    'description': v
+                                  };
+                                  final updatedSections =
+                                      List<Map<String, dynamic>>.from(sections);
+                                  updatedSections[si] = {
+                                    ...updatedSections[si],
+                                    'rows': updatedRows
+                                  };
                                   _setValue('sections', updatedSections);
                                 },
                                 style: theme.textTheme.bodySmall,
-                                decoration: _fieldDecoration(theme, 'Description (optional)'),
+                                decoration: _fieldDecoration(
+                                    theme, 'Description (optional)'),
                                 maxLength: 72,
                               ),
                             ],
@@ -2601,9 +2665,15 @@ class _NodeInspectorState extends State<_NodeInspector> {
                           onPressed: rows.length <= 1
                               ? null
                               : () {
-                                  final updatedRows = List<Map<String, dynamic>>.from(rows)..removeAt(ri);
-                                  final updatedSections = List<Map<String, dynamic>>.from(sections);
-                                  updatedSections[si] = {...updatedSections[si], 'rows': updatedRows};
+                                  final updatedRows =
+                                      List<Map<String, dynamic>>.from(rows)
+                                        ..removeAt(ri);
+                                  final updatedSections =
+                                      List<Map<String, dynamic>>.from(sections);
+                                  updatedSections[si] = {
+                                    ...updatedSections[si],
+                                    'rows': updatedRows
+                                  };
                                   _setValue('sections', updatedSections);
                                 },
                         ),
@@ -2616,9 +2686,17 @@ class _NodeInspectorState extends State<_NodeInspector> {
                   label: const Text('Add Row', style: TextStyle(fontSize: 12)),
                   onPressed: () {
                     final updatedRows = List<Map<String, dynamic>>.from(rows)
-                      ..add({'id': 'row_${si}_${rows.length}', 'title': '', 'description': ''});
-                    final updatedSections = List<Map<String, dynamic>>.from(sections);
-                    updatedSections[si] = {...updatedSections[si], 'rows': updatedRows};
+                      ..add({
+                        'id': 'row_${si}_${rows.length}',
+                        'title': '',
+                        'description': ''
+                      });
+                    final updatedSections =
+                        List<Map<String, dynamic>>.from(sections);
+                    updatedSections[si] = {
+                      ...updatedSections[si],
+                      'rows': updatedRows
+                    };
                     _setValue('sections', updatedSections);
                   },
                 ),
@@ -2634,7 +2712,11 @@ class _NodeInspectorState extends State<_NodeInspector> {
               ..add({
                 'title': 'Section ${sections.length + 1}',
                 'rows': [
-                  {'id': 'row_${sections.length}_0', 'title': '', 'description': ''}
+                  {
+                    'id': 'row_${sections.length}_0',
+                    'title': '',
+                    'description': ''
+                  }
                 ],
               });
             _setValue('sections', updated);
@@ -2665,11 +2747,16 @@ class _NodeInspectorState extends State<_NodeInspector> {
 
     return _InspectorSection(
       title: 'Google Sheets',
-      description: 'Append a row to a Google Sheets spreadsheet. Make sure the sheet is shared with the service account.',
+      description:
+          'Append a row to a Google Sheets spreadsheet. Make sure the sheet is shared with the service account.',
       children: [
-        _textField(theme, label: 'Spreadsheet ID', keyName: 'spreadsheetId', hint: 'From the spreadsheet URL'),
+        _textField(theme,
+            label: 'Spreadsheet ID',
+            keyName: 'spreadsheetId',
+            hint: 'From the spreadsheet URL'),
         const SizedBox(height: 14),
-        _textField(theme, label: 'Sheet Name', keyName: 'sheetName', hint: 'e.g. Sheet1'),
+        _textField(theme,
+            label: 'Sheet Name', keyName: 'sheetName', hint: 'e.g. Sheet1'),
         const SizedBox(height: 18),
         _FieldLabel(label: 'Columns (one per cell)'),
         const SizedBox(height: 7),
@@ -2684,7 +2771,8 @@ class _NodeInspectorState extends State<_NodeInspector> {
                   width: 24,
                   child: Text(
                     String.fromCharCode(65 + i),
-                    style: theme.textTheme.labelMedium?.copyWith(fontWeight: FontWeight.w700),
+                    style: theme.textTheme.labelMedium
+                        ?.copyWith(fontWeight: FontWeight.w700),
                   ),
                 ),
                 Expanded(
@@ -2705,7 +2793,9 @@ class _NodeInspectorState extends State<_NodeInspector> {
                   onPressed: columns.length <= 1
                       ? null
                       : () {
-                          final updated = List<Map<String, dynamic>>.from(columns)..removeAt(i);
+                          final updated =
+                              List<Map<String, dynamic>>.from(columns)
+                                ..removeAt(i);
                           _setValue('columns', updated);
                         },
                 ),
@@ -2728,14 +2818,16 @@ class _NodeInspectorState extends State<_NodeInspector> {
           decoration: BoxDecoration(
             color: const Color(0xFF0F9D58).withValues(alpha: 0.08),
             borderRadius: BorderRadius.circular(8),
-            border: Border.all(color: const Color(0xFF0F9D58).withValues(alpha: 0.2)),
+            border: Border.all(
+                color: const Color(0xFF0F9D58).withValues(alpha: 0.2)),
           ),
           child: Column(
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
               Row(
                 children: [
-                  Icon(Icons.info_outline, size: 16, color: const Color(0xFF0F9D58)),
+                  Icon(Icons.info_outline,
+                      size: 16, color: const Color(0xFF0F9D58)),
                   const SizedBox(width: 8),
                   Text(
                     'Share the spreadsheet with:',
@@ -2750,12 +2842,14 @@ class _NodeInspectorState extends State<_NodeInspector> {
               GestureDetector(
                 onTap: () {
                   Clipboard.setData(const ClipboardData(
-                    text: 'colabsheetsbot@glassy-rush-469006-p4.iam.gserviceaccount.com',
+                    text:
+                        'colabsheetsbot@glassy-rush-469006-p4.iam.gserviceaccount.com',
                   ));
                   AppSnackbar.info(context, 'Copied to clipboard');
                 },
                 child: Container(
-                  padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 6),
+                  padding:
+                      const EdgeInsets.symmetric(horizontal: 8, vertical: 6),
                   decoration: BoxDecoration(
                     color: theme.colorScheme.onSurface.withValues(alpha: 0.05),
                     borderRadius: BorderRadius.circular(6),
@@ -2768,13 +2862,16 @@ class _NodeInspectorState extends State<_NodeInspector> {
                           style: theme.textTheme.bodySmall?.copyWith(
                             fontSize: 11,
                             fontWeight: FontWeight.w600,
-                            color: theme.colorScheme.onSurface.withValues(alpha: 0.85),
+                            color: theme.colorScheme.onSurface
+                                .withValues(alpha: 0.85),
                           ),
                         ),
                       ),
                       const SizedBox(width: 6),
-                      Icon(Icons.copy_rounded, size: 14,
-                        color: theme.colorScheme.onSurface.withValues(alpha: 0.45)),
+                      Icon(Icons.copy_rounded,
+                          size: 14,
+                          color: theme.colorScheme.onSurface
+                              .withValues(alpha: 0.45)),
                     ],
                   ),
                 ),
@@ -3083,16 +3180,16 @@ class _SearchSelect extends StatelessWidget {
           child: InkWell(
             onTap: hasOptions
                 ? () async {
-              final picked = await showDialog<_PickerOption>(
-                context: context,
-                builder: (_) => _OptionPickerDialog(
-                  title: label,
-                  options: options,
-                  selectedId: value,
-                ),
-              );
-              if (picked != null) onChanged(picked);
-            }
+                    final picked = await showDialog<_PickerOption>(
+                      context: context,
+                      builder: (_) => _OptionPickerDialog(
+                        title: label,
+                        options: options,
+                        selectedId: value,
+                      ),
+                    );
+                    if (picked != null) onChanged(picked);
+                  }
                 : null,
             borderRadius: BorderRadius.circular(8),
             child: Container(
@@ -3786,7 +3883,7 @@ class _ConnectionBanner extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return Material(
-      color: const Color(0xFF3B82F6),
+      color: AppColors.primary,
       elevation: 10,
       borderRadius: BorderRadius.circular(8),
       child: Padding(
@@ -4208,7 +4305,9 @@ String _configSummary(NodeModel node) {
     case NodeType.sendMessage:
       if (config['messageType'] == 'template') {
         final tplName = config['templateName']?.toString() ?? '';
-        return tplName.isNotEmpty ? 'Template: $tplName' : 'No template selected';
+        return tplName.isNotEmpty
+            ? 'Template: $tplName'
+            : 'No template selected';
       }
       final message = config['message']?.toString().trim() ?? '';
       return message.isEmpty ? 'Message text is empty' : message;
@@ -4250,7 +4349,9 @@ String _configSummary(NodeModel node) {
       return 'List - ${config['buttonText'] ?? 'Menu'}';
     case NodeType.googleSheets:
       final sid = config['spreadsheetId']?.toString() ?? '';
-      return sid.isEmpty ? 'No spreadsheet configured' : 'Sheet: ${config['sheetName'] ?? 'Sheet1'}';
+      return sid.isEmpty
+          ? 'No spreadsheet configured'
+          : 'Sheet: ${config['sheetName'] ?? 'Sheet1'}';
   }
 }
 
@@ -4303,7 +4404,9 @@ List<String> _nodeWarnings(NodeModel node) {
       }
       if (config['interactiveType'] == 'button') {
         final buttons = config['buttons'] as List? ?? [];
-        if (buttons.isEmpty || (buttons.first as Map?)?['title']?.toString().trim().isEmpty == true) {
+        if (buttons.isEmpty ||
+            (buttons.first as Map?)?['title']?.toString().trim().isEmpty ==
+                true) {
           return ['Add at least one button.'];
         }
       }
@@ -4318,7 +4421,7 @@ List<String> _nodeWarnings(NodeModel node) {
 List<_ChipData> _nodeChips(NodeModel node) {
   switch (node.type) {
     case NodeType.trigger:
-      return const [_ChipData('Trigger', Color(0xFF3B82F6))];
+      return const [_ChipData('Trigger', AppColors.primary)];
     case NodeType.criteriaRouter:
       return const [_ChipData('Rules', Color(0xFFF59E0B))];
     case NodeType.sendMessage:
@@ -4337,7 +4440,7 @@ List<_ChipData> _nodeChips(NodeModel node) {
           node.config['departmentName']?.toString().isNotEmpty == true
               ? node.config['departmentName'].toString()
               : 'Assignment',
-          const Color(0xFF3B82F6),
+          AppColors.brandGreenDark,
         ),
       ];
     case NodeType.assignTeam:
@@ -4355,12 +4458,16 @@ List<_ChipData> _nodeChips(NodeModel node) {
       return const [_ChipData('New Thread', Color(0xFF8B5CF6))];
     case NodeType.setContactAttribute:
       final fl = node.config['fieldLabel']?.toString() ?? '';
-      return [_ChipData(fl.isNotEmpty ? fl : 'Attribute', const Color(0xFFF59E0B))];
+      return [
+        _ChipData(fl.isNotEmpty ? fl : 'Attribute', const Color(0xFFF59E0B))
+      ];
     case NodeType.interactiveMessage:
-      return [_ChipData(
-        node.config['interactiveType'] == 'list' ? 'List' : 'Buttons',
-        const Color(0xFF00CEC9),
-      )];
+      return [
+        _ChipData(
+          node.config['interactiveType'] == 'list' ? 'List' : 'Buttons',
+          const Color(0xFF00CEC9),
+        )
+      ];
     case NodeType.googleSheets:
       return const [_ChipData('Sheets', Color(0xFF0F9D58))];
   }
@@ -4407,7 +4514,7 @@ String _nodeDescription(NodeType type) {
 Color _nodeColor(NodeType type) {
   switch (type) {
     case NodeType.trigger:
-      return const Color(0xFF3B82F6);
+      return AppColors.primary;
     case NodeType.criteriaRouter:
       return const Color(0xFFF59E0B);
     case NodeType.sendMessage:
@@ -4417,7 +4524,7 @@ Color _nodeColor(NodeType type) {
     case NodeType.removeTag:
       return const Color(0xFFE17055);
     case NodeType.assignAgent:
-      return const Color(0xFF3B82F6);
+      return AppColors.brandGreenDark;
     case NodeType.assignTeam:
       return const Color(0xFF9B51E0);
     case NodeType.closeConversation:

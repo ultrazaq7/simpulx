@@ -1,20 +1,13 @@
 // ============================================================
-// Login Page - Aligned with Landing Page Dark Design
+// Login Page - Mobile-style brand layout for all screen sizes
 // ============================================================
 import 'package:flutter/material.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
 import 'package:go_router/go_router.dart';
-import 'package:simpulx/features/auth/presentation/bloc/auth_bloc.dart';
+import 'package:simpulx/core/theme/app_style.dart';
 import 'package:simpulx/core/widgets/app_snackbar.dart';
 import 'package:simpulx/core/widgets/simpulx_logo.dart';
-
-// Landing-page color tokens
-const _kBg = Color(0xFF060608);
-const _kBlue = Color(0xFF60A5FA);
-const _kGreen = Color(0xFF34D399);
-const _kPurple = Color(0xFFA78BFA);
-const _kPrimary = Color(0xFF3B82F6);
-const _kPrimaryDark = Color(0xFF0D47A1);
+import 'package:simpulx/features/auth/presentation/bloc/auth_bloc.dart';
 
 class LoginPage extends StatefulWidget {
   const LoginPage({super.key});
@@ -29,22 +22,25 @@ class _LoginPageState extends State<LoginPage>
   final _emailController = TextEditingController();
   final _passwordController = TextEditingController();
   bool _obscurePassword = true;
-  late AnimationController _animController;
-  late Animation<double> _fadeAnim;
-  late Animation<Offset> _slideAnim;
+
+  late final AnimationController _animController;
+  late final Animation<double> _fadeAnim;
+  late final Animation<Offset> _slideAnim;
 
   @override
   void initState() {
     super.initState();
     _animController = AnimationController(
       vsync: this,
-      duration: const Duration(milliseconds: 900),
+      duration: const Duration(milliseconds: 850),
     );
     _fadeAnim = CurvedAnimation(parent: _animController, curve: Curves.easeOut);
     _slideAnim = Tween<Offset>(
-      begin: const Offset(0, 0.05),
+      begin: const Offset(0, 0.04),
       end: Offset.zero,
-    ).animate(CurvedAnimation(parent: _animController, curve: Curves.easeOutCubic));
+    ).animate(
+      CurvedAnimation(parent: _animController, curve: Curves.easeOutCubic),
+    );
     _animController.forward();
   }
 
@@ -58,167 +54,36 @@ class _LoginPageState extends State<LoginPage>
 
   void _onLogin() {
     if (_formKey.currentState!.validate()) {
-      context.read<AuthBloc>().add(LoginEvent(
-            email: _emailController.text.trim(),
-            password: _passwordController.text,
-          ));
+      context.read<AuthBloc>().add(
+            LoginEvent(
+              email: _emailController.text.trim(),
+              password: _passwordController.text,
+            ),
+          );
     }
   }
 
   @override
   Widget build(BuildContext context) {
-    final size = MediaQuery.of(context).size;
-    final isDesktop = size.width >= 900;
-
     return Scaffold(
-      backgroundColor: _kBg,
+      backgroundColor: AppColors.brandBlack,
       body: BlocListener<AuthBloc, AuthState>(
         listener: (context, state) {
           if (state is AuthAuthenticated) context.go('/dashboard');
           if (state is AuthError) AppSnackbar.error(context, state.message);
         },
-        child: Row(
+        child: Stack(
           children: [
-            // ── Left branding panel (Desktop only) ──
-            if (isDesktop)
-              Expanded(
-                child: Container(
-                  decoration: const BoxDecoration(
-                    gradient: LinearGradient(
-                      begin: Alignment.topLeft,
-                      end: Alignment.bottomRight,
-                      colors: [
-                        Color(0xFF060608),
-                        Color(0xFF0A1628),
-                        Color(0xFF0D2B5A),
-                      ],
-                    ),
+            const Positioned.fill(child: _LoginBackground()),
+            SafeArea(
+              child: Center(
+                child: SingleChildScrollView(
+                  padding: const EdgeInsets.symmetric(
+                    horizontal: 28,
+                    vertical: 40,
                   ),
-                  child: Stack(
-                    children: [
-                      // Grid
-                      Positioned.fill(child: CustomPaint(painter: _GridPainter())),
-                      // Blue glow top-left
-                      Positioned(
-                        top: size.height * 0.08,
-                        left: -80,
-                        child: Container(
-                          width: 420,
-                          height: 420,
-                          decoration: const BoxDecoration(
-                            shape: BoxShape.circle,
-                            gradient: RadialGradient(
-                              colors: [Color(0x281877F2), Colors.transparent],
-                            ),
-                          ),
-                        ),
-                      ),
-                      // Green glow bottom-right
-                      Positioned(
-                        bottom: size.height * 0.08,
-                        right: -80,
-                        child: Container(
-                          width: 300,
-                          height: 300,
-                          decoration: const BoxDecoration(
-                            shape: BoxShape.circle,
-                            gradient: RadialGradient(
-                              colors: [Color(0x1A34D399), Colors.transparent],
-                            ),
-                          ),
-                        ),
-                      ),
-                      // Content
-                      Center(
-                        child: FadeTransition(
-                          opacity: _fadeAnim,
-                          child: Padding(
-                            padding: const EdgeInsets.symmetric(horizontal: 52),
-                            child: Column(
-                              mainAxisAlignment: MainAxisAlignment.center,
-                              crossAxisAlignment: CrossAxisAlignment.start,
-                              children: [
-                                // Logo row
-                                Row(
-                                  children: [
-                                    const SimpulxLogo(size: 44, onDark: true),
-                                    const SizedBox(width: 12),
-                                    ShaderMask(
-                                      shaderCallback: (bounds) =>
-                                          const LinearGradient(
-                                        colors: [_kBlue, _kGreen],
-                                      ).createShader(bounds),
-                                      child: const Text(
-                                        'Simpulx',
-                                        style: TextStyle(
-                                          color: Colors.white,
-                                          fontSize: 26,
-                                          fontWeight: FontWeight.w700,
-                                          letterSpacing: -0.5,
-                                        ),
-                                      ),
-                                    ),
-                                  ],
-                                ),
-                                const SizedBox(height: 52),
-                                // Headline
-                                const Text(
-                                  'Your team\nmessaging hub.',
-                                  style: TextStyle(
-                                    color: Colors.white,
-                                    fontSize: 34,
-                                    fontWeight: FontWeight.w700,
-                                    letterSpacing: -1.0,
-                                    height: 1.15,
-                                  ),
-                                ),
-                                const SizedBox(height: 14),
-                                Text(
-                                  'Omnichannel WhatsApp platform\nfor modern support teams.',
-                                  style: TextStyle(
-                                    color: Colors.white.withOpacity(0.42),
-                                    fontSize: 15,
-                                    height: 1.65,
-                                  ),
-                                ),
-                                const SizedBox(height: 44),
-                                // Feature pills
-                                ...[
-                                  (_kBlue, '💬', 'Multi-channel messaging'),
-                                  (_kGreen, '🏢', 'Department management'),
-                                  (_kPurple, '🤖', 'Smart automation'),
-                                  (_kBlue, '📊', 'Real-time analytics'),
-                                ].map(
-                                  (item) => Padding(
-                                    padding: const EdgeInsets.only(bottom: 10),
-                                    child: _FeaturePill(
-                                      color: item.$1,
-                                      emoji: item.$2,
-                                      label: item.$3,
-                                    ),
-                                  ),
-                                ),
-                              ],
-                            ),
-                          ),
-                        ),
-                      ),
-                    ],
-                  ),
-                ),
-              ),
-
-            // ── Right: login form ──
-            SizedBox(
-              width: isDesktop ? 480 : size.width,
-              child: Container(
-                color: _kBg,
-                child: Center(
-                  child: SingleChildScrollView(
-                    padding: EdgeInsets.symmetric(
-                      horizontal: isDesktop ? 52 : 28,
-                      vertical: 48,
-                    ),
+                  child: ConstrainedBox(
+                    constraints: const BoxConstraints(maxWidth: 430),
                     child: SlideTransition(
                       position: _slideAnim,
                       child: FadeTransition(
@@ -226,77 +91,73 @@ class _LoginPageState extends State<LoginPage>
                         child: Form(
                           key: _formKey,
                           child: Column(
-                            mainAxisAlignment: MainAxisAlignment.center,
                             crossAxisAlignment: CrossAxisAlignment.stretch,
+                            mainAxisSize: MainAxisSize.min,
                             children: [
-                              // Mobile logo
-                              if (!isDesktop) ...[
-                                const Center(
-                                    child: SimpulxLogo(size: 56, onDark: true)),
-                                const SizedBox(height: 24),
-                              ],
-
-                              // Header
+                              const _BrandHeader(),
+                              const SizedBox(height: 42),
                               Text(
                                 'Welcome back',
-                                textAlign: isDesktop
-                                    ? TextAlign.left
-                                    : TextAlign.center,
-                                style: const TextStyle(
-                                  color: Colors.white,
-                                  fontSize: 26,
-                                  fontWeight: FontWeight.w700,
-                                  letterSpacing: -0.5,
-                                ),
+                                textAlign: TextAlign.center,
+                                style: Theme.of(context)
+                                    .textTheme
+                                    .headlineMedium
+                                    ?.copyWith(
+                                      color: Colors.white,
+                                      fontWeight: FontWeight.w800,
+                                      letterSpacing: -0.8,
+                                    ),
                               ),
                               const SizedBox(height: 8),
                               Text(
-                                'Sign in to your account',
-                                textAlign: isDesktop
-                                    ? TextAlign.left
-                                    : TextAlign.center,
+                                'Sign in to your Simpulx workspace',
+                                textAlign: TextAlign.center,
                                 style: TextStyle(
-                                  color: Colors.white.withOpacity(0.4),
+                                  color: Colors.white.withValues(alpha: 0.46),
                                   fontSize: 15,
+                                  height: 1.5,
                                 ),
                               ),
-                              const SizedBox(height: 36),
-
-                              // Email
+                              const SizedBox(height: 34),
                               _buildLabel('Email'),
                               const SizedBox(height: 8),
                               TextFormField(
                                 controller: _emailController,
                                 keyboardType: TextInputType.emailAddress,
                                 style: const TextStyle(
-                                    color: Colors.white, fontSize: 14),
+                                  color: Colors.white,
+                                  fontSize: 14,
+                                ),
                                 decoration: _inputDecoration(
                                   hint: 'you@company.com',
                                   icon: Icons.mail_outline_rounded,
                                 ),
-                                validator: (v) => v == null || v.isEmpty
-                                    ? 'Enter your email'
-                                    : null,
+                                validator: (value) =>
+                                    value == null || value.trim().isEmpty
+                                        ? 'Enter your email'
+                                        : null,
                               ),
                               const SizedBox(height: 20),
-
-                              // Password
                               Row(
                                 mainAxisAlignment:
                                     MainAxisAlignment.spaceBetween,
                                 children: [
                                   _buildLabel('Password'),
-                                  MouseRegion(
-                                    cursor: SystemMouseCursors.click,
-                                    child: GestureDetector(
-                                      onTap: () =>
-                                          context.push('/forgot-password'),
-                                      child: const Text(
+                                  InkWell(
+                                    onTap: () =>
+                                        context.push('/forgot-password'),
+                                    borderRadius: BorderRadius.circular(6),
+                                    child: const Padding(
+                                      padding: EdgeInsets.symmetric(
+                                        horizontal: 2,
+                                        vertical: 4,
+                                      ),
+                                      child: Text(
                                         'Forgot password?',
                                         style: TextStyle(
-                                          color: _kBlue,
+                                          color: AppColors.brandGreenSoft,
                                           fontSize: 13,
-                                          fontWeight: FontWeight.w500,
+                                          fontWeight: FontWeight.w600,
                                         ),
                                       ),
                                     ),
@@ -310,9 +171,11 @@ class _LoginPageState extends State<LoginPage>
                                 textInputAction: TextInputAction.go,
                                 onFieldSubmitted: (_) => _onLogin(),
                                 style: const TextStyle(
-                                    color: Colors.white, fontSize: 14),
+                                  color: Colors.white,
+                                  fontSize: 14,
+                                ),
                                 decoration: _inputDecoration(
-                                  hint: '••••••••',
+                                  hint: 'Password',
                                   icon: Icons.lock_outline_rounded,
                                 ).copyWith(
                                   suffixIcon: IconButton(
@@ -320,25 +183,27 @@ class _LoginPageState extends State<LoginPage>
                                       _obscurePassword
                                           ? Icons.visibility_off_outlined
                                           : Icons.visibility_outlined,
+                                      color:
+                                          Colors.white.withValues(alpha: 0.34),
                                       size: 20,
-                                      color: Colors.white.withOpacity(0.3),
                                     ),
-                                    onPressed: () => setState(() =>
-                                        _obscurePassword = !_obscurePassword),
+                                    onPressed: () => setState(
+                                      () =>
+                                          _obscurePassword = !_obscurePassword,
+                                    ),
                                   ),
                                 ),
-                                validator: (v) => v == null || v.length < 6
-                                    ? 'Min 6 characters'
-                                    : null,
+                                validator: (value) =>
+                                    value == null || value.length < 6
+                                        ? 'Min 6 characters'
+                                        : null,
                               ),
-                              const SizedBox(height: 32),
-
-                              // Sign-in button
+                              const SizedBox(height: 30),
                               BlocBuilder<AuthBloc, AuthState>(
                                 builder: (context, state) {
                                   final isLoading = state is AuthLoading;
                                   return SizedBox(
-                                    height: 50,
+                                    height: 52,
                                     child: _GradientButton(
                                       onPressed: isLoading ? null : _onLogin,
                                       isLoading: isLoading,
@@ -346,15 +211,13 @@ class _LoginPageState extends State<LoginPage>
                                   );
                                 },
                               ),
-
                               const SizedBox(height: 36),
-                              Center(
-                                child: Text(
-                                  '© ${DateTime.now().year} Simpulx. All rights reserved.',
-                                  style: TextStyle(
-                                    color: Colors.white.withOpacity(0.18),
-                                    fontSize: 12,
-                                  ),
+                              Text(
+                                '(c) ${DateTime.now().year} Simpulx. All rights reserved.',
+                                textAlign: TextAlign.center,
+                                style: TextStyle(
+                                  color: Colors.white.withValues(alpha: 0.20),
+                                  fontSize: 12,
                                 ),
                               ),
                             ],
@@ -375,97 +238,139 @@ class _LoginPageState extends State<LoginPage>
   Widget _buildLabel(String text) => Text(
         text,
         style: TextStyle(
+          color: Colors.white.withValues(alpha: 0.56),
           fontSize: 13,
-          fontWeight: FontWeight.w500,
-          color: Colors.white.withOpacity(0.5),
+          fontWeight: FontWeight.w600,
         ),
       );
 
-  InputDecoration _inputDecoration(
-      {required String hint, required IconData icon}) {
+  InputDecoration _inputDecoration({
+    required String hint,
+    required IconData icon,
+  }) {
     return InputDecoration(
       hintText: hint,
-      hintStyle: TextStyle(color: Colors.white.withOpacity(0.2)),
+      hintStyle: TextStyle(color: Colors.white.withValues(alpha: 0.26)),
       prefixIcon:
-          Icon(icon, size: 20, color: Colors.white.withOpacity(0.3)),
+          Icon(icon, size: 20, color: Colors.white.withValues(alpha: 0.34)),
       filled: true,
-      fillColor: const Color(0x0DFFFFFF), // rgba(255,255,255,.05)
-      contentPadding:
-          const EdgeInsets.symmetric(horizontal: 16, vertical: 16),
+      fillColor: Colors.white.withValues(alpha: 0.055),
+      contentPadding: const EdgeInsets.symmetric(horizontal: 18, vertical: 17),
       border: OutlineInputBorder(
-        borderRadius: BorderRadius.circular(12),
-        borderSide: const BorderSide(color: Color(0x1AFFFFFF)),
+        borderRadius: BorderRadius.circular(16),
+        borderSide: BorderSide(color: Colors.white.withValues(alpha: 0.11)),
       ),
       enabledBorder: OutlineInputBorder(
-        borderRadius: BorderRadius.circular(12),
-        borderSide: const BorderSide(color: Color(0x1AFFFFFF)),
+        borderRadius: BorderRadius.circular(16),
+        borderSide: BorderSide(color: Colors.white.withValues(alpha: 0.11)),
       ),
       focusedBorder: OutlineInputBorder(
-        borderRadius: BorderRadius.circular(12),
-        borderSide: const BorderSide(color: _kBlue, width: 1.5),
+        borderRadius: BorderRadius.circular(16),
+        borderSide: const BorderSide(
+          color: AppColors.brandGreenSoft,
+          width: 1.5,
+        ),
       ),
       errorBorder: OutlineInputBorder(
-        borderRadius: BorderRadius.circular(12),
-        borderSide: const BorderSide(color: Color(0xFFEF4444)),
+        borderRadius: BorderRadius.circular(16),
+        borderSide: const BorderSide(color: AppColors.danger),
       ),
       focusedErrorBorder: OutlineInputBorder(
-        borderRadius: BorderRadius.circular(12),
-        borderSide: const BorderSide(color: Color(0xFFEF4444), width: 1.5),
+        borderRadius: BorderRadius.circular(16),
+        borderSide: const BorderSide(color: AppColors.danger, width: 1.5),
       ),
     );
   }
 }
 
-// ── Gradient sign-in button ──
+class _BrandHeader extends StatelessWidget {
+  const _BrandHeader();
+
+  @override
+  Widget build(BuildContext context) {
+    return Column(
+      children: [
+        const SimpulxLogo(size: 68, onDark: true),
+        const SizedBox(height: 18),
+        ShaderMask(
+          shaderCallback: (bounds) => AppGradients.logo.createShader(bounds),
+          child: const Text(
+            'Simpulx',
+            style: TextStyle(
+              color: Colors.white,
+              fontSize: 34,
+              fontWeight: FontWeight.w900,
+              letterSpacing: -1.0,
+            ),
+          ),
+        ),
+        const SizedBox(height: 10),
+        Text(
+          'Your team messaging hub.',
+          textAlign: TextAlign.center,
+          style: TextStyle(
+            color: Colors.white.withValues(alpha: 0.42),
+            fontSize: 15,
+            height: 1.55,
+          ),
+        ),
+      ],
+    );
+  }
+}
+
 class _GradientButton extends StatelessWidget {
   final VoidCallback? onPressed;
   final bool isLoading;
 
-  const _GradientButton({required this.onPressed, required this.isLoading});
+  const _GradientButton({
+    required this.onPressed,
+    required this.isLoading,
+  });
 
   @override
   Widget build(BuildContext context) {
+    final enabled = onPressed != null;
     return DecoratedBox(
       decoration: BoxDecoration(
-        gradient: onPressed == null
-            ? const LinearGradient(
-                colors: [Color(0xFF2A2A2A), Color(0xFF1A1A1A)])
+        gradient: enabled
+            ? AppGradients.action
             : const LinearGradient(
-                colors: [_kPrimary, _kPrimaryDark],
-                begin: Alignment.centerLeft,
-                end: Alignment.centerRight,
+                colors: [Color(0xFF2A2A2A), Color(0xFF1A1A1A)],
               ),
-        borderRadius: BorderRadius.circular(12),
-        boxShadow: onPressed == null
-            ? null
-            : [
+        borderRadius: BorderRadius.circular(16),
+        boxShadow: enabled
+            ? [
                 BoxShadow(
-                  color: _kPrimary.withOpacity(0.35),
-                  blurRadius: 20,
-                  offset: const Offset(0, 6),
+                  color: AppColors.brandGreen.withValues(alpha: 0.30),
+                  blurRadius: 24,
+                  offset: const Offset(0, 10),
                 ),
-              ],
+              ]
+            : null,
       ),
       child: Material(
         color: Colors.transparent,
-        borderRadius: BorderRadius.circular(12),
+        borderRadius: BorderRadius.circular(16),
         child: InkWell(
-          borderRadius: BorderRadius.circular(12),
           onTap: onPressed,
+          borderRadius: BorderRadius.circular(16),
           child: Center(
             child: isLoading
                 ? const SizedBox(
                     width: 22,
                     height: 22,
                     child: CircularProgressIndicator(
-                        strokeWidth: 2, color: Colors.white),
+                      strokeWidth: 2,
+                      color: Colors.white,
+                    ),
                   )
                 : const Text(
                     'Sign In',
                     style: TextStyle(
                       color: Colors.white,
                       fontSize: 15,
-                      fontWeight: FontWeight.w600,
+                      fontWeight: FontWeight.w700,
                     ),
                   ),
           ),
@@ -475,35 +380,42 @@ class _GradientButton extends StatelessWidget {
   }
 }
 
-// ── Feature pill (left panel) ──
-class _FeaturePill extends StatelessWidget {
-  final Color color;
-  final String emoji;
-  final String label;
-
-  const _FeaturePill(
-      {required this.color, required this.emoji, required this.label});
+class _LoginBackground extends StatelessWidget {
+  const _LoginBackground();
 
   @override
   Widget build(BuildContext context) {
-    return Container(
-      padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 10),
-      decoration: BoxDecoration(
-        color: color.withOpacity(0.06),
-        borderRadius: BorderRadius.circular(30),
-        border: Border.all(color: color.withOpacity(0.15)),
+    return DecoratedBox(
+      decoration: const BoxDecoration(
+        gradient: LinearGradient(
+          begin: Alignment.topLeft,
+          end: Alignment.bottomRight,
+          colors: [
+            AppColors.brandBlack,
+            Color(0xFF07120F),
+            Color(0xFF0D241D),
+          ],
+        ),
       ),
-      child: Row(
-        mainAxisSize: MainAxisSize.min,
+      child: Stack(
         children: [
-          Text(emoji, style: const TextStyle(fontSize: 15)),
-          const SizedBox(width: 10),
-          Text(
-            label,
-            style: TextStyle(
-              color: Colors.white.withOpacity(0.55),
-              fontSize: 13,
-              fontWeight: FontWeight.w400,
+          Positioned.fill(child: CustomPaint(painter: _GridPainter())),
+          const Positioned(
+            top: -110,
+            left: -80,
+            child: _GlowOrb(
+              size: 340,
+              color: AppColors.brandBlue,
+              opacity: 0.14,
+            ),
+          ),
+          const Positioned(
+            right: -90,
+            bottom: -120,
+            child: _GlowOrb(
+              size: 380,
+              color: AppColors.brandGreenSoft,
+              opacity: 0.18,
             ),
           ),
         ],
@@ -512,19 +424,43 @@ class _FeaturePill extends StatelessWidget {
   }
 }
 
-// ── Subtle grid background ──
+class _GlowOrb extends StatelessWidget {
+  final double size;
+  final Color color;
+  final double opacity;
+
+  const _GlowOrb({
+    required this.size,
+    required this.color,
+    required this.opacity,
+  });
+
+  @override
+  Widget build(BuildContext context) {
+    return Container(
+      width: size,
+      height: size,
+      decoration: BoxDecoration(
+        shape: BoxShape.circle,
+        gradient: RadialGradient(
+          colors: [color.withValues(alpha: opacity), Colors.transparent],
+        ),
+      ),
+    );
+  }
+}
+
 class _GridPainter extends CustomPainter {
   @override
   void paint(Canvas canvas, Size size) {
     final paint = Paint()
-      ..color = Colors.white.withOpacity(0.025)
+      ..color = Colors.white.withValues(alpha: 0.024)
       ..strokeWidth = 1;
-
-    const spacing = 40.0;
-    for (double x = 0; x < size.width; x += spacing) {
+    const spacing = 48.0;
+    for (double x = 0; x <= size.width; x += spacing) {
       canvas.drawLine(Offset(x, 0), Offset(x, size.height), paint);
     }
-    for (double y = 0; y < size.height; y += spacing) {
+    for (double y = 0; y <= size.height; y += spacing) {
       canvas.drawLine(Offset(0, y), Offset(size.width, y), paint);
     }
   }

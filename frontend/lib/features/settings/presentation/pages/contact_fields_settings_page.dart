@@ -2,6 +2,7 @@
 // Contact Fields Settings Page - Custom Field Definitions
 // ============================================================
 import 'package:flutter/material.dart';
+import 'package:simpulx/core/theme/app_style.dart';
 import 'package:simpulx/core/di/injection_container.dart' as di;
 import 'package:simpulx/core/network/dio_client.dart';
 import 'package:simpulx/core/constants/api_constants.dart';
@@ -88,15 +89,15 @@ class _ContactFieldsSettingsPageState extends State<ContactFieldsSettingsPage> {
     return Column(
       crossAxisAlignment: CrossAxisAlignment.stretch,
       children: [
-          _buildHeader(theme),
-          Expanded(
-            child: _loading
-                ? const Center(child: CircularProgressIndicator())
-                : filtered.isEmpty
-                    ? _buildEmpty(theme)
-                    : _buildTable(theme, filtered),
-          ),
-        ],
+        _buildHeader(theme),
+        Expanded(
+          child: _loading
+              ? const Center(child: CircularProgressIndicator())
+              : filtered.isEmpty
+                  ? _buildEmpty(theme)
+                  : _buildTable(theme, filtered),
+        ),
+      ],
     );
   }
 
@@ -163,8 +164,7 @@ class _ContactFieldsSettingsPageState extends State<ContactFieldsSettingsPage> {
           children: [
             // Header row
             Container(
-              padding:
-                  const EdgeInsets.symmetric(horizontal: 20, vertical: 14),
+              padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 14),
               decoration: BoxDecoration(
                 color: theme.colorScheme.primary.withValues(alpha: 0.04),
                 borderRadius:
@@ -255,19 +255,15 @@ class _ContactFieldsSettingsPageState extends State<ContactFieldsSettingsPage> {
                         children: [
                           IconButton(
                             icon: Icon(Icons.edit_rounded,
-                                size: 18,
-                                color: const Color(0xFF3B82F6)),
-                            onPressed: () =>
-                                _showFieldDialog(field: field),
+                                size: 18, color: AppColors.primary),
+                            onPressed: () => _showFieldDialog(field: field),
                             tooltip: 'Edit',
                           ),
                           IconButton(
                             icon: Icon(Icons.delete_rounded,
-                                size: 18,
-                                color: const Color(0xFFEF4444)),
+                                size: 18, color: const Color(0xFFEF4444)),
                             onPressed: () => _deleteField(
-                                field['id']?.toString() ?? '',
-                                name.toString()),
+                                field['id']?.toString() ?? '', name.toString()),
                             tooltip: 'Delete',
                           ),
                         ],
@@ -341,17 +337,15 @@ class _ContactFieldsSettingsPageState extends State<ContactFieldsSettingsPage> {
               children: [
                 TextField(
                   controller: nameCtrl,
-                  decoration:
-                      const InputDecoration(labelText: 'Field Name'),
+                  decoration: const InputDecoration(labelText: 'Field Name'),
                 ),
                 const SizedBox(height: 16),
                 DropdownButtonFormField<String>(
                   value: selectedType,
-                  decoration:
-                      const InputDecoration(labelText: 'Field Type'),
+                  decoration: const InputDecoration(labelText: 'Field Type'),
                   items: _fieldTypes.entries
-                      .map((e) => DropdownMenuItem(
-                          value: e.key, child: Text(e.value)))
+                      .map((e) =>
+                          DropdownMenuItem(value: e.key, child: Text(e.value)))
                       .toList(),
                   onChanged: (v) =>
                       setDialogState(() => selectedType = v ?? 'text'),
@@ -426,7 +420,8 @@ class _ContactFieldsSettingsPageState extends State<ContactFieldsSettingsPage> {
       context: context,
       builder: (ctx) => AlertDialog(
         title: const Text('Delete Field'),
-        content: Text('Delete "$name"? Existing contact data for this field will be kept.'),
+        content: Text(
+            'Delete "$name"? Existing contact data for this field will be kept.'),
         shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
         actions: [
           TextButton(

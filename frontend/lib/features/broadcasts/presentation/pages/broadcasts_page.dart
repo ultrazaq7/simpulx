@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:simpulx/core/theme/app_style.dart';
 import 'package:simpulx/core/di/injection_container.dart' as di;
 import 'package:simpulx/core/network/dio_client.dart';
 import 'package:simpulx/core/constants/api_constants.dart';
@@ -27,10 +28,14 @@ class _BroadcastsPageState extends State<BroadcastsPage> {
   }
 
   Future<void> _loadBroadcasts() async {
-    setState(() { _loading = true; _error = null; });
+    setState(() {
+      _loading = true;
+      _error = null;
+    });
     try {
       final dio = di.sl<DioClient>().dio;
-      final response = await dio.get(ApiConstants.broadcasts, queryParameters: {'page': _page, 'limit': 20});
+      final response = await dio.get(ApiConstants.broadcasts,
+          queryParameters: {'page': _page, 'limit': 20});
       final data = response.data;
       setState(() {
         _broadcasts = data['data'] ?? [];
@@ -39,7 +44,10 @@ class _BroadcastsPageState extends State<BroadcastsPage> {
         _loading = false;
       });
     } catch (e) {
-      setState(() { _error = e.toString(); _loading = false; });
+      setState(() {
+        _error = e.toString();
+        _loading = false;
+      });
     }
   }
 
@@ -48,13 +56,17 @@ class _BroadcastsPageState extends State<BroadcastsPage> {
       context: context,
       builder: (ctx) => AlertDialog(
         shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
-        title: const Text('Send Broadcast', style: TextStyle(fontWeight: FontWeight.w700)),
-        content: const Text('This will send messages to all your contacts. This action cannot be undone.'),
+        title: const Text('Send Broadcast',
+            style: TextStyle(fontWeight: FontWeight.w700)),
+        content: const Text(
+            'This will send messages to all your contacts. This action cannot be undone.'),
         actions: [
-          TextButton(onPressed: () => Navigator.pop(ctx, false), child: const Text('Cancel')),
+          TextButton(
+              onPressed: () => Navigator.pop(ctx, false),
+              child: const Text('Cancel')),
           FilledButton(
             onPressed: () => Navigator.pop(ctx, true),
-            style: FilledButton.styleFrom(backgroundColor: const Color(0xFF3B82F6)),
+            style: FilledButton.styleFrom(backgroundColor: AppColors.primary),
             child: const Text('Send Now'),
           ),
         ],
@@ -77,13 +89,16 @@ class _BroadcastsPageState extends State<BroadcastsPage> {
       context: context,
       builder: (ctx) => AlertDialog(
         shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
-        title: const Text('Delete Broadcast', style: TextStyle(fontWeight: FontWeight.w700)),
+        title: const Text('Delete Broadcast',
+            style: TextStyle(fontWeight: FontWeight.w700)),
         content: Text('Delete "$name"? This cannot be undone.'),
         actions: [
-          TextButton(onPressed: () => Navigator.pop(ctx, false), child: const Text('Cancel')),
+          TextButton(
+              onPressed: () => Navigator.pop(ctx, false),
+              child: const Text('Cancel')),
           FilledButton(
             onPressed: () => Navigator.pop(ctx, true),
-            style: FilledButton.styleFrom(backgroundColor: Colors.red),
+            style: FilledButton.styleFrom(backgroundColor: AppColors.danger),
             child: const Text('Delete'),
           ),
         ],
@@ -102,10 +117,10 @@ class _BroadcastsPageState extends State<BroadcastsPage> {
 
   Color _getStatusColor(String status) {
     return switch (status) {
-      'sent' => const Color(0xFF42B72A),
-      'sending' => const Color(0xFF3B82F6),
+      'sent' => AppColors.success,
+      'sending' => AppColors.brandGreenDark,
       'scheduled' => const Color(0xFFF59E0B),
-      'failed' => Colors.red,
+      'failed' => AppColors.danger,
       _ => const Color(0xFF9CA3AF),
     };
   }
@@ -137,25 +152,29 @@ class _BroadcastsPageState extends State<BroadcastsPage> {
             child: Row(
               mainAxisAlignment: MainAxisAlignment.end,
               children: [
-                    IconButton(
-                      onPressed: _loadBroadcasts,
-                      icon: Icon(Icons.refresh_rounded, color: theme.colorScheme.onSurface.withValues(alpha: 0.5)),
-                      tooltip: 'Refresh',
-                    ),
-                    const SizedBox(width: 8),
-                    FilledButton.icon(
-                      onPressed: () => _showCreateWizard(),
-                      icon: const Icon(Icons.campaign_rounded, size: 18),
-                      label: const Text('New Broadcast'),
-                      style: FilledButton.styleFrom(
-                        backgroundColor: const Color(0xFF3B82F6),
-                        foregroundColor: Colors.white,
-                        padding: const EdgeInsets.symmetric(horizontal: 18, vertical: 14),
-                        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
-                      ),
-                    ),
-                  ],
+                IconButton(
+                  onPressed: _loadBroadcasts,
+                  icon: Icon(Icons.refresh_rounded,
+                      color:
+                          theme.colorScheme.onSurface.withValues(alpha: 0.5)),
+                  tooltip: 'Refresh',
                 ),
+                const SizedBox(width: 8),
+                FilledButton.icon(
+                  onPressed: () => _showCreateWizard(),
+                  icon: const Icon(Icons.campaign_rounded, size: 18),
+                  label: const Text('New Broadcast'),
+                  style: FilledButton.styleFrom(
+                    backgroundColor: AppColors.primary,
+                    foregroundColor: Colors.white,
+                    padding: const EdgeInsets.symmetric(
+                        horizontal: 18, vertical: 14),
+                    shape: RoundedRectangleBorder(
+                        borderRadius: BorderRadius.circular(10)),
+                  ),
+                ),
+              ],
+            ),
           ),
 
           // Content
@@ -181,7 +200,11 @@ class _BroadcastsPageState extends State<BroadcastsPage> {
       child: Column(
         mainAxisAlignment: MainAxisAlignment.center,
         children: [
-          const Icon(Icons.error_outline_rounded, size: 40, color: Colors.red),
+          const Icon(
+            Icons.error_outline_rounded,
+            size: 40,
+            color: AppColors.danger,
+          ),
           const SizedBox(height: 12),
           Text('Failed to load broadcasts', style: theme.textTheme.bodyMedium),
           const SizedBox(height: 8),
@@ -200,16 +223,23 @@ class _BroadcastsPageState extends State<BroadcastsPage> {
             padding: const EdgeInsets.all(28),
             decoration: BoxDecoration(
               shape: BoxShape.circle,
-              color: const Color(0xFF3B82F6).withValues(alpha: 0.1),
+              color: AppColors.primary.withValues(alpha: 0.1),
             ),
-            child: const Icon(Icons.campaign_rounded, size: 52, color: Color(0xFF3B82F6)),
+            child: const Icon(
+              Icons.campaign_rounded,
+              size: 52,
+              color: AppColors.primary,
+            ),
           ),
           const SizedBox(height: 24),
-          Text('No broadcasts yet', style: theme.textTheme.titleLarge?.copyWith(fontWeight: FontWeight.w700)),
+          Text('No broadcasts yet',
+              style: theme.textTheme.titleLarge
+                  ?.copyWith(fontWeight: FontWeight.w700)),
           const SizedBox(height: 8),
           Text(
             'Send bulk messages to all your contacts at once',
-            style: theme.textTheme.bodyMedium?.copyWith(color: theme.colorScheme.onSurface.withValues(alpha: 0.5)),
+            style: theme.textTheme.bodyMedium?.copyWith(
+                color: theme.colorScheme.onSurface.withValues(alpha: 0.5)),
           ),
           const SizedBox(height: 24),
           FilledButton.icon(
@@ -217,10 +247,11 @@ class _BroadcastsPageState extends State<BroadcastsPage> {
             icon: const Icon(Icons.add_rounded, size: 18),
             label: const Text('Create First Broadcast'),
             style: FilledButton.styleFrom(
-              backgroundColor: const Color(0xFF3B82F6),
+              backgroundColor: AppColors.primary,
               foregroundColor: Colors.white,
               padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 14),
-              shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
+              shape: RoundedRectangleBorder(
+                  borderRadius: BorderRadius.circular(10)),
             ),
           ),
         ],
@@ -239,7 +270,8 @@ class _BroadcastsPageState extends State<BroadcastsPage> {
         final statusColor = _getStatusColor(status);
         final statusIcon = _getStatusIcon(status);
         final isTemplate = b['broadcastType'] == 'template';
-        final createdAt = b['createdAt'] != null ? DateTime.tryParse(b['createdAt']) : null;
+        final createdAt =
+            b['createdAt'] != null ? DateTime.tryParse(b['createdAt']) : null;
 
         return Container(
           padding: const EdgeInsets.all(20),
@@ -247,7 +279,12 @@ class _BroadcastsPageState extends State<BroadcastsPage> {
             color: theme.colorScheme.surface,
             borderRadius: BorderRadius.circular(16),
             border: Border.all(color: theme.dividerColor),
-            boxShadow: [BoxShadow(color: Colors.black.withValues(alpha: 0.03), blurRadius: 8, offset: const Offset(0, 2))],
+            boxShadow: [
+              BoxShadow(
+                  color: Colors.black.withValues(alpha: 0.03),
+                  blurRadius: 8,
+                  offset: const Offset(0, 2))
+            ],
           ),
           child: Column(
             crossAxisAlignment: CrossAxisAlignment.start,
@@ -255,7 +292,8 @@ class _BroadcastsPageState extends State<BroadcastsPage> {
               Row(
                 children: [
                   Container(
-                    width: 44, height: 44,
+                    width: 44,
+                    height: 44,
                     decoration: BoxDecoration(
                       color: statusColor.withValues(alpha: 0.1),
                       borderRadius: BorderRadius.circular(12),
@@ -269,16 +307,24 @@ class _BroadcastsPageState extends State<BroadcastsPage> {
                       children: [
                         Row(
                           children: [
-                            Text(b['name'] ?? 'Untitled', style: const TextStyle(fontWeight: FontWeight.w700, fontSize: 15)),
+                            Text(b['name'] ?? 'Untitled',
+                                style: const TextStyle(
+                                    fontWeight: FontWeight.w700, fontSize: 15)),
                             const SizedBox(width: 8),
                             if (isTemplate)
                               Container(
-                                padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 2),
+                                padding: const EdgeInsets.symmetric(
+                                    horizontal: 8, vertical: 2),
                                 decoration: BoxDecoration(
-                                  color: const Color(0xFF8B5CF6).withValues(alpha: 0.12),
+                                  color: const Color(0xFF8B5CF6)
+                                      .withValues(alpha: 0.12),
                                   borderRadius: BorderRadius.circular(6),
                                 ),
-                                child: const Text('Template', style: TextStyle(fontSize: 10, fontWeight: FontWeight.w600, color: Color(0xFF8B5CF6))),
+                                child: const Text('Template',
+                                    style: TextStyle(
+                                        fontSize: 10,
+                                        fontWeight: FontWeight.w600,
+                                        color: Color(0xFF8B5CF6))),
                               ),
                           ],
                         ),
@@ -286,8 +332,18 @@ class _BroadcastsPageState extends State<BroadcastsPage> {
                         Text(
                           isTemplate
                               ? (b['templateName'] ?? 'No template selected')
-                              : (() { final msg = b['message']?.toString() ?? ''; return msg.length > 100 ? '${msg.substring(0, 100)}...' : msg.isEmpty ? 'No message' : msg; })(),
-                          style: TextStyle(fontSize: 12, color: theme.colorScheme.onSurface.withValues(alpha: 0.5)),
+                              : (() {
+                                  final msg = b['message']?.toString() ?? '';
+                                  return msg.length > 100
+                                      ? '${msg.substring(0, 100)}...'
+                                      : msg.isEmpty
+                                          ? 'No message'
+                                          : msg;
+                                })(),
+                          style: TextStyle(
+                              fontSize: 12,
+                              color: theme.colorScheme.onSurface
+                                  .withValues(alpha: 0.5)),
                         ),
                       ],
                     ),
@@ -297,21 +353,28 @@ class _BroadcastsPageState extends State<BroadcastsPage> {
                     crossAxisAlignment: CrossAxisAlignment.end,
                     children: [
                       Container(
-                        padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
+                        padding: const EdgeInsets.symmetric(
+                            horizontal: 10, vertical: 4),
                         decoration: BoxDecoration(
                           color: statusColor.withValues(alpha: 0.1),
                           borderRadius: BorderRadius.circular(8),
                         ),
                         child: Text(
                           status.toString().toUpperCase(),
-                          style: TextStyle(color: statusColor, fontSize: 11, fontWeight: FontWeight.w600),
+                          style: TextStyle(
+                              color: statusColor,
+                              fontSize: 11,
+                              fontWeight: FontWeight.w600),
                         ),
                       ),
                       if (createdAt != null) ...[
                         const SizedBox(height: 4),
                         Text(
                           DateFormat('MMM d, yyyy').format(createdAt),
-                          style: TextStyle(fontSize: 11, color: theme.colorScheme.onSurface.withValues(alpha: 0.4)),
+                          style: TextStyle(
+                              fontSize: 11,
+                              color: theme.colorScheme.onSurface
+                                  .withValues(alpha: 0.4)),
                         ),
                       ],
                     ],
@@ -321,16 +384,26 @@ class _BroadcastsPageState extends State<BroadcastsPage> {
               const SizedBox(height: 16),
               Row(
                 children: [
-                  _statChip(theme, Icons.people_rounded, '${b['totalRecipients'] ?? 0}', 'Recipients'),
+                  _statChip(theme, Icons.people_rounded,
+                      '${b['totalRecipients'] ?? 0}', 'Recipients'),
                   const SizedBox(width: 16),
-                  _statChip(theme, Icons.send_rounded, '${b['sentCount'] ?? 0}', 'Sent'),
+                  _statChip(theme, Icons.send_rounded, '${b['sentCount'] ?? 0}',
+                      'Sent'),
                   const SizedBox(width: 16),
-                  _statChip(theme, Icons.done_all_rounded, '${b['deliveredCount'] ?? 0}', 'Delivered'),
+                  _statChip(theme, Icons.done_all_rounded,
+                      '${b['deliveredCount'] ?? 0}', 'Delivered'),
                   const SizedBox(width: 16),
-                  _statChip(theme, Icons.visibility_rounded, '${b['readCount'] ?? 0}', 'Read'),
+                  _statChip(theme, Icons.visibility_rounded,
+                      '${b['readCount'] ?? 0}', 'Read'),
                   if ((b['failedCount'] ?? 0) > 0) ...[
                     const SizedBox(width: 16),
-                    _statChip(theme, Icons.error_outline_rounded, '${b['failedCount']}', 'Failed', color: Colors.red),
+                    _statChip(
+                      theme,
+                      Icons.error_outline_rounded,
+                      '${b['failedCount']}',
+                      'Failed',
+                      color: AppColors.danger,
+                    ),
                   ],
                   const Spacer(),
                   if (status == 'draft' || status == 'scheduled') ...[
@@ -339,17 +412,21 @@ class _BroadcastsPageState extends State<BroadcastsPage> {
                       icon: const Icon(Icons.send_rounded, size: 15),
                       label: const Text('Send Now'),
                       style: OutlinedButton.styleFrom(
-                        foregroundColor: const Color(0xFF3B82F6),
-                        side: const BorderSide(color: Color(0xFF3B82F6)),
-                        padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 10),
-                        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
+                        foregroundColor: AppColors.brandGreenDark,
+                        side: const BorderSide(color: AppColors.brandGreenDark),
+                        padding: const EdgeInsets.symmetric(
+                            horizontal: 14, vertical: 10),
+                        shape: RoundedRectangleBorder(
+                            borderRadius: BorderRadius.circular(8)),
                       ),
                     ),
                     const SizedBox(width: 8),
                   ],
                   IconButton(
-                    onPressed: () => _deleteBroadcast(b['id'], b['name'] ?? 'Untitled'),
-                    icon: Icon(Icons.delete_outline_rounded, size: 18, color: theme.colorScheme.error),
+                    onPressed: () =>
+                        _deleteBroadcast(b['id'], b['name'] ?? 'Untitled'),
+                    icon: Icon(Icons.delete_outline_rounded,
+                        size: 18, color: theme.colorScheme.error),
                     tooltip: 'Delete',
                   ),
                 ],
@@ -361,16 +438,25 @@ class _BroadcastsPageState extends State<BroadcastsPage> {
     );
   }
 
-  Widget _statChip(ThemeData theme, IconData icon, String value, String label, {Color? color}) {
+  Widget _statChip(ThemeData theme, IconData icon, String value, String label,
+      {Color? color}) {
     final c = color ?? theme.colorScheme.onSurface.withValues(alpha: 0.5);
     return Row(
       mainAxisSize: MainAxisSize.min,
       children: [
         Icon(icon, size: 13, color: c),
         const SizedBox(width: 4),
-        Text(value, style: TextStyle(fontSize: 12, fontWeight: FontWeight.w600, color: color ?? theme.colorScheme.onSurface.withValues(alpha: 0.7))),
+        Text(value,
+            style: TextStyle(
+                fontSize: 12,
+                fontWeight: FontWeight.w600,
+                color: color ??
+                    theme.colorScheme.onSurface.withValues(alpha: 0.7))),
         const SizedBox(width: 3),
-        Text(label, style: TextStyle(fontSize: 11, color: theme.colorScheme.onSurface.withValues(alpha: 0.4))),
+        Text(label,
+            style: TextStyle(
+                fontSize: 11,
+                color: theme.colorScheme.onSurface.withValues(alpha: 0.4))),
       ],
     );
   }
@@ -386,12 +472,22 @@ class _BroadcastsPageState extends State<BroadcastsPage> {
         mainAxisAlignment: MainAxisAlignment.center,
         children: [
           IconButton(
-            onPressed: _page > 1 ? () { setState(() => _page--); _loadBroadcasts(); } : null,
+            onPressed: _page > 1
+                ? () {
+                    setState(() => _page--);
+                    _loadBroadcasts();
+                  }
+                : null,
             icon: const Icon(Icons.chevron_left_rounded),
           ),
           Text('Page $_page of $_totalPages', style: theme.textTheme.bodySmall),
           IconButton(
-            onPressed: _page < _totalPages ? () { setState(() => _page++); _loadBroadcasts(); } : null,
+            onPressed: _page < _totalPages
+                ? () {
+                    setState(() => _page++);
+                    _loadBroadcasts();
+                  }
+                : null,
             icon: const Icon(Icons.chevron_right_rounded),
           ),
         ],
@@ -425,7 +521,8 @@ class _BroadcastWizardDialog extends StatefulWidget {
 }
 
 class _BroadcastWizardDialogState extends State<_BroadcastWizardDialog> {
-  int _step = 0; // 0: name, 1: type & channel, 2: audience, 3: message/template, 4: review
+  int _step =
+      0; // 0: name, 1: type & channel, 2: audience, 3: message/template, 4: review
 
   final _nameCtrl = TextEditingController();
   final _contactSearchCtrl = TextEditingController();
@@ -479,9 +576,14 @@ class _BroadcastWizardDialogState extends State<_BroadcastWizardDialog> {
     setState(() => _loadingTags = true);
     try {
       final dio = di.sl<DioClient>().dio;
-      final res = await dio.get(ApiConstants.contacts, queryParameters: {'page': 1, 'limit': 200});
+      final res = await dio.get(ApiConstants.contacts,
+          queryParameters: {'page': 1, 'limit': 200});
       final data = res.data;
-      final contacts = data is List ? data : (data['contacts'] is List ? data['contacts'] : (data['data'] ?? []));
+      final contacts = data is List
+          ? data
+          : (data['contacts'] is List
+              ? data['contacts']
+              : (data['data'] ?? []));
       final tagSet = <String>{};
       for (final c in contacts) {
         final tags = c['tags'];
@@ -504,7 +606,9 @@ class _BroadcastWizardDialogState extends State<_BroadcastWizardDialog> {
   int get _estimatedRecipients {
     if (_audienceMode == 'selected') return _selectedContactIds.length;
     if (_filterTags.isEmpty) {
-      return _contacts.where((c) => (c['phone']?.toString().trim().isNotEmpty ?? false)).length;
+      return _contacts
+          .where((c) => (c['phone']?.toString().trim().isNotEmpty ?? false))
+          .length;
     }
     return _contacts.where((c) {
       final phone = c['phone']?.toString().trim() ?? '';
@@ -541,7 +645,10 @@ class _BroadcastWizardDialogState extends State<_BroadcastWizardDialog> {
   }
 
   Future<void> _loadTemplates(String channelId) async {
-    setState(() { _loadingTemplates = true; _templates = []; });
+    setState(() {
+      _loadingTemplates = true;
+      _templates = [];
+    });
     try {
       final dio = di.sl<DioClient>().dio;
       final res = await dio.get(ApiConstants.channelTemplates(channelId));
@@ -569,7 +676,9 @@ class _BroadcastWizardDialogState extends State<_BroadcastWizardDialog> {
       final data = res.data;
       final contacts = data is List
           ? data
-          : (data['contacts'] is List ? data['contacts'] : (data['data'] ?? []));
+          : (data['contacts'] is List
+              ? data['contacts']
+              : (data['data'] ?? []));
 
       setState(() {
         _contacts = contacts;
@@ -587,7 +696,9 @@ class _BroadcastWizardDialogState extends State<_BroadcastWizardDialog> {
 
   List<dynamic> get _testCandidates {
     final source = _audienceMode == 'selected'
-        ? _contacts.where((c) => _selectedContactIds.contains(c['id']?.toString())).toList()
+        ? _contacts
+            .where((c) => _selectedContactIds.contains(c['id']?.toString()))
+            .toList()
         : _contacts;
 
     return source
@@ -604,15 +715,15 @@ class _BroadcastWizardDialogState extends State<_BroadcastWizardDialog> {
   String _selectedTemplateBody() {
     if (_selectedTemplateName == null) return '';
     final match = _templates.cast<dynamic>().firstWhere(
-      (t) => t != null && t['name']?.toString() == _selectedTemplateName,
-      orElse: () => null,
-    );
+          (t) => t != null && t['name']?.toString() == _selectedTemplateName,
+          orElse: () => null,
+        );
     if (match == null) return '';
     final components = match['components'] as List? ?? [];
     final bodyComp = components.cast<dynamic>().firstWhere(
-      (c) => c != null && c['type']?.toString().toUpperCase() == 'BODY',
-      orElse: () => null,
-    );
+          (c) => c != null && c['type']?.toString().toUpperCase() == 'BODY',
+          orElse: () => null,
+        );
     return bodyComp?['text']?.toString() ?? '';
   }
 
@@ -629,8 +740,10 @@ class _BroadcastWizardDialogState extends State<_BroadcastWizardDialog> {
           'channelId': _selectedChannelId,
           'contactId': _testContactId,
           if (_broadcastType == 'text') 'message': _textMessage.trim(),
-          if (_broadcastType == 'template') 'templateName': _selectedTemplateName,
-          if (_broadcastType == 'template') 'languageCode': _selectedLanguageCode ?? 'en_US',
+          if (_broadcastType == 'template')
+            'templateName': _selectedTemplateName,
+          if (_broadcastType == 'template')
+            'languageCode': _selectedLanguageCode ?? 'en_US',
         },
       );
 
@@ -660,7 +773,8 @@ class _BroadcastWizardDialogState extends State<_BroadcastWizardDialog> {
       final candidates = _testCandidates;
       if (candidates.isEmpty) {
         _testContactId = null;
-      } else if (_testContactId == null || !candidates.any((x) => x['id']?.toString() == _testContactId)) {
+      } else if (_testContactId == null ||
+          !candidates.any((x) => x['id']?.toString() == _testContactId)) {
         _testContactId = candidates.first['id']?.toString();
       }
     });
@@ -679,7 +793,9 @@ class _BroadcastWizardDialogState extends State<_BroadcastWizardDialog> {
       0 => _nameCtrl.text.trim().isNotEmpty,
       1 => _selectedChannelId != null,
       2 => _audienceMode == 'selected' ? _selectedContactIds.isNotEmpty : true,
-      3 => _broadcastType == 'template' ? _selectedTemplateName != null : _textMessage.trim().isNotEmpty,
+      3 => _broadcastType == 'template'
+          ? _selectedTemplateName != null
+          : _textMessage.trim().isNotEmpty,
       _ => true,
     };
   }
@@ -694,9 +810,13 @@ class _BroadcastWizardDialogState extends State<_BroadcastWizardDialog> {
         'channelId': _selectedChannelId,
         'recipientFilter': _audienceMode == 'selected'
             ? {'mode': 'selected', 'contactIds': _selectedContactIds.toList()}
-            : {'mode': 'all', if (_filterTags.isNotEmpty) 'tags': _filterTags.toList()},
+            : {
+                'mode': 'all',
+                if (_filterTags.isNotEmpty) 'tags': _filterTags.toList()
+              },
         if (_broadcastType == 'template') 'templateName': _selectedTemplateName,
-        if (_broadcastType == 'template') 'languageCode': _selectedLanguageCode ?? 'en_US',
+        if (_broadcastType == 'template')
+          'languageCode': _selectedLanguageCode ?? 'en_US',
         if (_broadcastType == 'text') 'message': _textMessage.trim(),
       };
       final res = await dio.post(ApiConstants.broadcasts, data: body);
@@ -729,7 +849,8 @@ class _BroadcastWizardDialogState extends State<_BroadcastWizardDialog> {
               padding: const EdgeInsets.fromLTRB(28, 24, 20, 20),
               decoration: BoxDecoration(
                 color: theme.colorScheme.surface,
-                borderRadius: const BorderRadius.vertical(top: Radius.circular(20)),
+                borderRadius:
+                    const BorderRadius.vertical(top: Radius.circular(20)),
                 border: Border(bottom: BorderSide(color: theme.dividerColor)),
               ),
               child: Row(
@@ -737,22 +858,35 @@ class _BroadcastWizardDialogState extends State<_BroadcastWizardDialog> {
                   Container(
                     padding: const EdgeInsets.all(8),
                     decoration: BoxDecoration(
-                      color: const Color(0xFF3B82F6).withValues(alpha: 0.1),
+                      color: AppColors.primary.withValues(alpha: 0.1),
                       borderRadius: BorderRadius.circular(10),
                     ),
-                    child: const Icon(Icons.campaign_rounded, color: Color(0xFF3B82F6), size: 20),
+                    child: const Icon(
+                      Icons.campaign_rounded,
+                      color: AppColors.primary,
+                      size: 20,
+                    ),
                   ),
                   const SizedBox(width: 12),
                   Expanded(
                     child: Column(
                       crossAxisAlignment: CrossAxisAlignment.start,
                       children: [
-                        const Text('New Broadcast', style: TextStyle(fontWeight: FontWeight.w700, fontSize: 17)),
-                        Text('Step ${_step + 1} of ${steps.length}: ${steps[_step]}', style: TextStyle(fontSize: 12, color: theme.colorScheme.onSurface.withValues(alpha: 0.5))),
+                        const Text('New Broadcast',
+                            style: TextStyle(
+                                fontWeight: FontWeight.w700, fontSize: 17)),
+                        Text(
+                            'Step ${_step + 1} of ${steps.length}: ${steps[_step]}',
+                            style: TextStyle(
+                                fontSize: 12,
+                                color: theme.colorScheme.onSurface
+                                    .withValues(alpha: 0.5))),
                       ],
                     ),
                   ),
-                  IconButton(onPressed: () => Navigator.pop(context), icon: const Icon(Icons.close_rounded)),
+                  IconButton(
+                      onPressed: () => Navigator.pop(context),
+                      icon: const Icon(Icons.close_rounded)),
                 ],
               ),
             ),
@@ -768,26 +902,36 @@ class _BroadcastWizardDialogState extends State<_BroadcastWizardDialog> {
                     child: Row(
                       children: [
                         Container(
-                          width: 28, height: 28,
+                          width: 28,
+                          height: 28,
                           decoration: BoxDecoration(
                             shape: BoxShape.circle,
                             color: done
-                                ? const Color(0xFF42B72A)
+                                ? AppColors.success
                                 : active
-                                    ? const Color(0xFF3B82F6)
+                                    ? AppColors.primary
                                     : theme.dividerColor,
                           ),
                           child: Center(
                             child: done
-                                ? const Icon(Icons.check, size: 14, color: Colors.white)
-                                : Text('${i + 1}', style: TextStyle(fontSize: 12, fontWeight: FontWeight.w700, color: active ? Colors.white : theme.colorScheme.onSurface.withValues(alpha: 0.4))),
+                                ? const Icon(Icons.check,
+                                    size: 14, color: Colors.white)
+                                : Text('${i + 1}',
+                                    style: TextStyle(
+                                        fontSize: 12,
+                                        fontWeight: FontWeight.w700,
+                                        color: active
+                                            ? Colors.white
+                                            : theme.colorScheme.onSurface
+                                                .withValues(alpha: 0.4))),
                           ),
                         ),
                         if (i < steps.length - 1)
                           Expanded(
                             child: Container(
                               height: 2,
-                              color: done ? const Color(0xFF42B72A) : theme.dividerColor,
+                              color:
+                                  done ? AppColors.success : theme.dividerColor,
                             ),
                           ),
                       ],
@@ -810,7 +954,8 @@ class _BroadcastWizardDialogState extends State<_BroadcastWizardDialog> {
               padding: const EdgeInsets.fromLTRB(28, 16, 28, 20),
               decoration: BoxDecoration(
                 color: theme.colorScheme.surface,
-                borderRadius: const BorderRadius.vertical(bottom: Radius.circular(20)),
+                borderRadius:
+                    const BorderRadius.vertical(bottom: Radius.circular(20)),
                 border: Border(top: BorderSide(color: theme.dividerColor)),
               ),
               child: Row(
@@ -819,20 +964,25 @@ class _BroadcastWizardDialogState extends State<_BroadcastWizardDialog> {
                     OutlinedButton(
                       onPressed: () => setState(() => _step--),
                       style: OutlinedButton.styleFrom(
-                        padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 12),
-                        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
+                        padding: const EdgeInsets.symmetric(
+                            horizontal: 20, vertical: 12),
+                        shape: RoundedRectangleBorder(
+                            borderRadius: BorderRadius.circular(10)),
                       ),
                       child: const Text('Back'),
                     ),
                   const Spacer(),
                   if (_step < steps.length - 1)
                     FilledButton(
-                      onPressed: _canProceed ? () => setState(() => _step++) : null,
+                      onPressed:
+                          _canProceed ? () => setState(() => _step++) : null,
                       style: FilledButton.styleFrom(
-                        backgroundColor: const Color(0xFF3B82F6),
+                        backgroundColor: AppColors.primary,
                         foregroundColor: Colors.white,
-                        padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 12),
-                        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
+                        padding: const EdgeInsets.symmetric(
+                            horizontal: 24, vertical: 12),
+                        shape: RoundedRectangleBorder(
+                            borderRadius: BorderRadius.circular(10)),
                       ),
                       child: const Text('Continue'),
                     )
@@ -840,13 +990,21 @@ class _BroadcastWizardDialogState extends State<_BroadcastWizardDialog> {
                     FilledButton(
                       onPressed: _saving ? null : _submit,
                       style: FilledButton.styleFrom(
-                        backgroundColor: _sendNow ? const Color(0xFF3B82F6) : const Color(0xFF9CA3AF),
+                        backgroundColor: _sendNow
+                            ? AppColors.primary
+                            : const Color(0xFF9CA3AF),
                         foregroundColor: Colors.white,
-                        padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 12),
-                        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
+                        padding: const EdgeInsets.symmetric(
+                            horizontal: 24, vertical: 12),
+                        shape: RoundedRectangleBorder(
+                            borderRadius: BorderRadius.circular(10)),
                       ),
                       child: _saving
-                          ? const SizedBox(width: 18, height: 18, child: CircularProgressIndicator(strokeWidth: 2, color: Colors.white))
+                          ? const SizedBox(
+                              width: 18,
+                              height: 18,
+                              child: CircularProgressIndicator(
+                                  strokeWidth: 2, color: Colors.white))
                           : Text(_sendNow ? 'Create & Send' : 'Save as Draft'),
                     ),
                 ],
@@ -872,9 +1030,13 @@ class _BroadcastWizardDialogState extends State<_BroadcastWizardDialog> {
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
-        Text('Broadcast Name', style: theme.textTheme.titleSmall?.copyWith(fontWeight: FontWeight.w600)),
+        Text('Broadcast Name',
+            style: theme.textTheme.titleSmall
+                ?.copyWith(fontWeight: FontWeight.w600)),
         const SizedBox(height: 4),
-        Text('Give your broadcast a recognizable name for internal reference.', style: theme.textTheme.bodySmall?.copyWith(color: theme.colorScheme.onSurface.withValues(alpha: 0.5))),
+        Text('Give your broadcast a recognizable name for internal reference.',
+            style: theme.textTheme.bodySmall?.copyWith(
+                color: theme.colorScheme.onSurface.withValues(alpha: 0.5))),
         const SizedBox(height: 16),
         TextField(
           controller: _nameCtrl,
@@ -894,31 +1056,48 @@ class _BroadcastWizardDialogState extends State<_BroadcastWizardDialog> {
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
-        Text('Message Type', style: theme.textTheme.titleSmall?.copyWith(fontWeight: FontWeight.w600)),
+        Text('Message Type',
+            style: theme.textTheme.titleSmall
+                ?.copyWith(fontWeight: FontWeight.w600)),
         const SizedBox(height: 12),
         Row(
           children: [
-            Expanded(child: _typeOption(theme, 'template', Icons.view_module_rounded, 'WhatsApp Template', 'Use pre-approved templates')),
+            Expanded(
+                child: _typeOption(theme, 'template', Icons.view_module_rounded,
+                    'WhatsApp Template', 'Use pre-approved templates')),
             const SizedBox(width: 12),
-            Expanded(child: _typeOption(theme, 'text', Icons.chat_bubble_rounded, 'Text Message', 'Send a plain text message')),
+            Expanded(
+                child: _typeOption(theme, 'text', Icons.chat_bubble_rounded,
+                    'Text Message', 'Send a plain text message')),
           ],
         ),
         const SizedBox(height: 24),
-        Text('WhatsApp Channel', style: theme.textTheme.titleSmall?.copyWith(fontWeight: FontWeight.w600)),
+        Text('WhatsApp Channel',
+            style: theme.textTheme.titleSmall
+                ?.copyWith(fontWeight: FontWeight.w600)),
         const SizedBox(height: 4),
-        Text('Select the WhatsApp number to send from.', style: theme.textTheme.bodySmall?.copyWith(color: theme.colorScheme.onSurface.withValues(alpha: 0.5))),
+        Text('Select the WhatsApp number to send from.',
+            style: theme.textTheme.bodySmall?.copyWith(
+                color: theme.colorScheme.onSurface.withValues(alpha: 0.5))),
         const SizedBox(height: 12),
         if (_loadingChannels)
-          const Center(child: Padding(padding: EdgeInsets.all(16), child: CircularProgressIndicator()))
+          const Center(
+              child: Padding(
+                  padding: EdgeInsets.all(16),
+                  child: CircularProgressIndicator()))
         else if (_channels.isEmpty)
           Container(
             padding: const EdgeInsets.all(16),
-            decoration: BoxDecoration(color: Colors.orange.withValues(alpha: 0.1), borderRadius: BorderRadius.circular(10)),
+            decoration: BoxDecoration(
+                color: Colors.orange.withValues(alpha: 0.1),
+                borderRadius: BorderRadius.circular(10)),
             child: const Row(
               children: [
                 Icon(Icons.warning_rounded, color: Colors.orange, size: 18),
                 SizedBox(width: 8),
-                Expanded(child: Text('No WhatsApp channels configured.', style: TextStyle(fontSize: 13))),
+                Expanded(
+                    child: Text('No WhatsApp channels configured.',
+                        style: TextStyle(fontSize: 13))),
               ],
             ),
           )
@@ -942,24 +1121,51 @@ class _BroadcastWizardDialogState extends State<_BroadcastWizardDialog> {
                 padding: const EdgeInsets.all(14),
                 decoration: BoxDecoration(
                   borderRadius: BorderRadius.circular(10),
-                  border: Border.all(color: selected ? const Color(0xFF3B82F6) : theme.dividerColor, width: selected ? 2 : 1),
-                  color: selected ? const Color(0xFF3B82F6).withValues(alpha: 0.06) : theme.colorScheme.surface,
+                  border: Border.all(
+                    color: selected ? AppColors.primary : theme.dividerColor,
+                    width: selected ? 2 : 1,
+                  ),
+                  color: selected
+                      ? AppColors.primary.withValues(alpha: 0.06)
+                      : theme.colorScheme.surface,
                 ),
                 child: Row(
                   children: [
-                    Icon(Icons.phone_android_rounded, color: selected ? const Color(0xFF3B82F6) : theme.colorScheme.onSurface.withValues(alpha: 0.4), size: 20),
+                    Icon(
+                      Icons.phone_android_rounded,
+                      color: selected
+                          ? AppColors.primary
+                          : theme.colorScheme.onSurface.withValues(alpha: 0.4),
+                      size: 20,
+                    ),
                     const SizedBox(width: 12),
                     Expanded(
                       child: Column(
                         crossAxisAlignment: CrossAxisAlignment.start,
                         children: [
-                          Text(name, style: TextStyle(fontWeight: FontWeight.w600, fontSize: 14, color: selected ? const Color(0xFF3B82F6) : null)),
+                          Text(
+                            name,
+                            style: TextStyle(
+                              fontWeight: FontWeight.w600,
+                              fontSize: 14,
+                              color: selected ? AppColors.primary : null,
+                            ),
+                          ),
                           if (phone != null && phone != name)
-                            Text(phone, style: TextStyle(fontSize: 11, color: theme.colorScheme.onSurface.withValues(alpha: 0.5))),
+                            Text(phone,
+                                style: TextStyle(
+                                    fontSize: 11,
+                                    color: theme.colorScheme.onSurface
+                                        .withValues(alpha: 0.5))),
                         ],
                       ),
                     ),
-                    if (selected) const Icon(Icons.check_circle_rounded, color: Color(0xFF3B82F6), size: 20),
+                    if (selected)
+                      const Icon(
+                        Icons.check_circle_rounded,
+                        color: AppColors.primary,
+                        size: 20,
+                      ),
                   ],
                 ),
               ),
@@ -969,28 +1175,54 @@ class _BroadcastWizardDialogState extends State<_BroadcastWizardDialog> {
     );
   }
 
-  Widget _typeOption(ThemeData theme, String value, IconData icon, String title, String subtitle) {
+  Widget _typeOption(ThemeData theme, String value, IconData icon, String title,
+      String subtitle) {
     final selected = _broadcastType == value;
     return GestureDetector(
       onTap: () {
-        setState(() { _broadcastType = value; _selectedTemplateName = null; });
-        if (value == 'template' && _selectedChannelId != null) _loadTemplates(_selectedChannelId!);
+        setState(() {
+          _broadcastType = value;
+          _selectedTemplateName = null;
+        });
+        if (value == 'template' && _selectedChannelId != null)
+          _loadTemplates(_selectedChannelId!);
       },
       child: Container(
         padding: const EdgeInsets.all(14),
         decoration: BoxDecoration(
           borderRadius: BorderRadius.circular(10),
-          border: Border.all(color: selected ? const Color(0xFF3B82F6) : theme.dividerColor, width: selected ? 2 : 1),
-          color: selected ? const Color(0xFF3B82F6).withValues(alpha: 0.06) : theme.colorScheme.surface,
+          border: Border.all(
+            color: selected ? AppColors.primary : theme.dividerColor,
+            width: selected ? 2 : 1,
+          ),
+          color: selected
+              ? AppColors.primary.withValues(alpha: 0.06)
+              : theme.colorScheme.surface,
         ),
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
-            Icon(icon, color: selected ? const Color(0xFF3B82F6) : theme.colorScheme.onSurface.withValues(alpha: 0.4), size: 24),
+            Icon(
+              icon,
+              color: selected
+                  ? AppColors.primary
+                  : theme.colorScheme.onSurface.withValues(alpha: 0.4),
+              size: 24,
+            ),
             const SizedBox(height: 8),
-            Text(title, style: TextStyle(fontWeight: FontWeight.w600, fontSize: 13, color: selected ? const Color(0xFF3B82F6) : null)),
+            Text(
+              title,
+              style: TextStyle(
+                fontWeight: FontWeight.w600,
+                fontSize: 13,
+                color: selected ? AppColors.primary : null,
+              ),
+            ),
             const SizedBox(height: 2),
-            Text(subtitle, style: TextStyle(fontSize: 11, color: theme.colorScheme.onSurface.withValues(alpha: 0.5))),
+            Text(subtitle,
+                style: TextStyle(
+                    fontSize: 11,
+                    color: theme.colorScheme.onSurface.withValues(alpha: 0.5))),
           ],
         ),
       ),
@@ -1002,9 +1234,13 @@ class _BroadcastWizardDialogState extends State<_BroadcastWizardDialog> {
       return Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          Text('Message Content', style: theme.textTheme.titleSmall?.copyWith(fontWeight: FontWeight.w600)),
+          Text('Message Content',
+              style: theme.textTheme.titleSmall
+                  ?.copyWith(fontWeight: FontWeight.w600)),
           const SizedBox(height: 4),
-          Text('Write your broadcast message and send a test first.', style: theme.textTheme.bodySmall?.copyWith(color: theme.colorScheme.onSurface.withValues(alpha: 0.5))),
+          Text('Write your broadcast message and send a test first.',
+              style: theme.textTheme.bodySmall?.copyWith(
+                  color: theme.colorScheme.onSurface.withValues(alpha: 0.5))),
           const SizedBox(height: 16),
           TextField(
             autofocus: true,
@@ -1012,14 +1248,17 @@ class _BroadcastWizardDialogState extends State<_BroadcastWizardDialog> {
             onChanged: (v) => setState(() => _textMessage = v),
             decoration: InputDecoration(
               hintText: 'Type your message here...',
-              border: OutlineInputBorder(borderRadius: BorderRadius.circular(10)),
+              border:
+                  OutlineInputBorder(borderRadius: BorderRadius.circular(10)),
             ),
           ),
           const SizedBox(height: 16),
           _buildDevicePreview(
             theme,
             title: 'Live Preview',
-            content: _textMessage.trim().isEmpty ? 'Your message preview will appear here.' : _textMessage.trim(),
+            content: _textMessage.trim().isEmpty
+                ? 'Your message preview will appear here.'
+                : _textMessage.trim(),
           ),
           const SizedBox(height: 16),
           _buildTestSection(theme),
@@ -1028,22 +1267,35 @@ class _BroadcastWizardDialogState extends State<_BroadcastWizardDialog> {
     }
 
     // Template picker
-    final approvedTemplates = _templates.where((t) => (t['status'] ?? '').toString().toLowerCase() == 'approved').toList();
+    final approvedTemplates = _templates
+        .where(
+            (t) => (t['status'] ?? '').toString().toLowerCase() == 'approved')
+        .toList();
 
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
-        Text('Select Template', style: theme.textTheme.titleSmall?.copyWith(fontWeight: FontWeight.w600)),
+        Text('Select Template',
+            style: theme.textTheme.titleSmall
+                ?.copyWith(fontWeight: FontWeight.w600)),
         const SizedBox(height: 4),
-        Text('Choose a pre-approved WhatsApp template to send.', style: theme.textTheme.bodySmall?.copyWith(color: theme.colorScheme.onSurface.withValues(alpha: 0.5))),
+        Text('Choose a pre-approved WhatsApp template to send.',
+            style: theme.textTheme.bodySmall?.copyWith(
+                color: theme.colorScheme.onSurface.withValues(alpha: 0.5))),
         const SizedBox(height: 16),
         if (_loadingTemplates)
-          const Center(child: Padding(padding: EdgeInsets.all(16), child: CircularProgressIndicator()))
+          const Center(
+              child: Padding(
+                  padding: EdgeInsets.all(16),
+                  child: CircularProgressIndicator()))
         else if (approvedTemplates.isEmpty)
           Container(
             padding: const EdgeInsets.all(16),
-            decoration: BoxDecoration(color: Colors.orange.withValues(alpha: 0.1), borderRadius: BorderRadius.circular(10)),
-            child: const Text('No approved templates found for this channel.', style: TextStyle(fontSize: 13)),
+            decoration: BoxDecoration(
+                color: Colors.orange.withValues(alpha: 0.1),
+                borderRadius: BorderRadius.circular(10)),
+            child: const Text('No approved templates found for this channel.',
+                style: TextStyle(fontSize: 13)),
           )
         else
           ...(approvedTemplates.map((t) {
@@ -1067,8 +1319,13 @@ class _BroadcastWizardDialogState extends State<_BroadcastWizardDialog> {
                 padding: const EdgeInsets.all(14),
                 decoration: BoxDecoration(
                   borderRadius: BorderRadius.circular(10),
-                  border: Border.all(color: selected ? const Color(0xFF3B82F6) : theme.dividerColor, width: selected ? 2 : 1),
-                  color: selected ? const Color(0xFF3B82F6).withValues(alpha: 0.06) : theme.colorScheme.surface,
+                  border: Border.all(
+                    color: selected ? AppColors.primary : theme.dividerColor,
+                    width: selected ? 2 : 1,
+                  ),
+                  color: selected
+                      ? AppColors.primary.withValues(alpha: 0.06)
+                      : theme.colorScheme.surface,
                 ),
                 child: Row(
                   crossAxisAlignment: CrossAxisAlignment.start,
@@ -1079,26 +1336,48 @@ class _BroadcastWizardDialogState extends State<_BroadcastWizardDialog> {
                         children: [
                           Row(
                             children: [
-                              Expanded(child: Text(tName, style: const TextStyle(fontWeight: FontWeight.w600, fontSize: 13))),
+                              Expanded(
+                                  child: Text(tName,
+                                      style: const TextStyle(
+                                          fontWeight: FontWeight.w600,
+                                          fontSize: 13))),
                               Container(
-                                padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
-                                decoration: BoxDecoration(color: const Color(0xFF42B72A).withValues(alpha: 0.12), borderRadius: BorderRadius.circular(4)),
-                                child: Text(lang, style: const TextStyle(fontSize: 10, fontWeight: FontWeight.w600, color: Color(0xFF42B72A))),
+                                padding: const EdgeInsets.symmetric(
+                                    horizontal: 6, vertical: 2),
+                                decoration: BoxDecoration(
+                                    color: const Color(0xFF42B72A)
+                                        .withValues(alpha: 0.12),
+                                    borderRadius: BorderRadius.circular(4)),
+                                child: Text(lang,
+                                    style: const TextStyle(
+                                        fontSize: 10,
+                                        fontWeight: FontWeight.w600,
+                                        color: Color(0xFF42B72A))),
                               ),
                             ],
                           ),
                           if (body.isNotEmpty) ...[
                             const SizedBox(height: 6),
                             Text(
-                              body.length > 120 ? '${body.substring(0, 120)}...' : body,
-                              style: TextStyle(fontSize: 12, color: theme.colorScheme.onSurface.withValues(alpha: 0.5)),
+                              body.length > 120
+                                  ? '${body.substring(0, 120)}...'
+                                  : body,
+                              style: TextStyle(
+                                  fontSize: 12,
+                                  color: theme.colorScheme.onSurface
+                                      .withValues(alpha: 0.5)),
                             ),
                           ],
                         ],
                       ),
                     ),
                     const SizedBox(width: 8),
-                    if (selected) const Icon(Icons.check_circle_rounded, color: Color(0xFF3B82F6), size: 20),
+                    if (selected)
+                      const Icon(
+                        Icons.check_circle_rounded,
+                        color: AppColors.primary,
+                        size: 20,
+                      ),
                   ],
                 ),
               ),
@@ -1111,8 +1390,8 @@ class _BroadcastWizardDialogState extends State<_BroadcastWizardDialog> {
           content: _selectedTemplateName == null
               ? 'Select a template to preview it here.'
               : (_selectedTemplateBody().trim().isEmpty
-                    ? 'Template: ${_selectedTemplateName!}'
-                    : _selectedTemplateBody().trim()),
+                  ? 'Template: ${_selectedTemplateName!}'
+                  : _selectedTemplateBody().trim()),
           footer: _selectedTemplateName == null
               ? null
               : 'Template • ${_selectedTemplateName!} (${_selectedLanguageCode ?? 'en_US'})',
@@ -1127,9 +1406,14 @@ class _BroadcastWizardDialogState extends State<_BroadcastWizardDialog> {
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
-        Text('Audience', style: theme.textTheme.titleSmall?.copyWith(fontWeight: FontWeight.w600)),
+        Text('Audience',
+            style: theme.textTheme.titleSmall
+                ?.copyWith(fontWeight: FontWeight.w600)),
         const SizedBox(height: 4),
-        Text('Choose whether this broadcast targets all contacts or specific contacts only.', style: theme.textTheme.bodySmall?.copyWith(color: theme.colorScheme.onSurface.withValues(alpha: 0.5))),
+        Text(
+            'Choose whether this broadcast targets all contacts or specific contacts only.',
+            style: theme.textTheme.bodySmall?.copyWith(
+                color: theme.colorScheme.onSurface.withValues(alpha: 0.5))),
         const SizedBox(height: 12),
         Row(
           children: [
@@ -1158,17 +1442,30 @@ class _BroadcastWizardDialogState extends State<_BroadcastWizardDialog> {
         // -- All Contacts: Filter by Tags --
         if (_audienceMode == 'all') ...[
           const SizedBox(height: 20),
-          Text('Filter by Tags (optional)', style: theme.textTheme.titleSmall?.copyWith(fontWeight: FontWeight.w600, fontSize: 13)),
+          Text('Filter by Tags (optional)',
+              style: theme.textTheme.titleSmall
+                  ?.copyWith(fontWeight: FontWeight.w600, fontSize: 13)),
           const SizedBox(height: 4),
-          Text('Only send to contacts that have any of the selected tags. Leave empty to send to all.', style: theme.textTheme.bodySmall?.copyWith(color: theme.colorScheme.onSurface.withValues(alpha: 0.5))),
+          Text(
+              'Only send to contacts that have any of the selected tags. Leave empty to send to all.',
+              style: theme.textTheme.bodySmall?.copyWith(
+                  color: theme.colorScheme.onSurface.withValues(alpha: 0.5))),
           const SizedBox(height: 10),
           if (_loadingTags)
-            const Padding(padding: EdgeInsets.all(12), child: Center(child: CircularProgressIndicator(strokeWidth: 2)))
+            const Padding(
+                padding: EdgeInsets.all(12),
+                child: Center(child: CircularProgressIndicator(strokeWidth: 2)))
           else if (_availableTags.isEmpty)
             Container(
               padding: const EdgeInsets.all(12),
-              decoration: BoxDecoration(borderRadius: BorderRadius.circular(8), color: theme.dividerColor.withValues(alpha: 0.3)),
-              child: Text('No tags found across contacts.', style: TextStyle(fontSize: 12, color: theme.colorScheme.onSurface.withValues(alpha: 0.5))),
+              decoration: BoxDecoration(
+                  borderRadius: BorderRadius.circular(8),
+                  color: theme.dividerColor.withValues(alpha: 0.3)),
+              child: Text('No tags found across contacts.',
+                  style: TextStyle(
+                      fontSize: 12,
+                      color:
+                          theme.colorScheme.onSurface.withValues(alpha: 0.5))),
             )
           else
             Wrap(
@@ -1179,11 +1476,15 @@ class _BroadcastWizardDialogState extends State<_BroadcastWizardDialog> {
                 return FilterChip(
                   label: Text(tag),
                   selected: active,
-                  selectedColor: const Color(0xFF3B82F6).withValues(alpha: 0.15),
-                  checkmarkColor: const Color(0xFF3B82F6),
+                  selectedColor: AppColors.primary.withValues(alpha: 0.15),
+                  checkmarkColor: AppColors.primary,
                   onSelected: (v) {
                     setState(() {
-                      if (v) { _filterTags.add(tag); } else { _filterTags.remove(tag); }
+                      if (v) {
+                        _filterTags.add(tag);
+                      } else {
+                        _filterTags.remove(tag);
+                      }
                     });
                   },
                 );
@@ -1193,7 +1494,11 @@ class _BroadcastWizardDialogState extends State<_BroadcastWizardDialog> {
             const SizedBox(height: 8),
             Text(
               '${_filterTags.length} tag${_filterTags.length == 1 ? '' : 's'} selected - ~$_estimatedRecipients recipients',
-              style: TextStyle(fontSize: 12, fontWeight: FontWeight.w500, color: const Color(0xFF3B82F6)),
+              style: const TextStyle(
+                fontSize: 12,
+                fontWeight: FontWeight.w500,
+                color: AppColors.primary,
+              ),
             ),
           ],
         ],
@@ -1207,12 +1512,16 @@ class _BroadcastWizardDialogState extends State<_BroadcastWizardDialog> {
             decoration: InputDecoration(
               hintText: 'Search by name, phone, or email',
               prefixIcon: const Icon(Icons.search_rounded),
-              border: OutlineInputBorder(borderRadius: BorderRadius.circular(10)),
+              border:
+                  OutlineInputBorder(borderRadius: BorderRadius.circular(10)),
             ),
           ),
           const SizedBox(height: 12),
           if (_loadingContacts)
-            const Center(child: Padding(padding: EdgeInsets.all(18), child: CircularProgressIndicator()))
+            const Center(
+                child: Padding(
+                    padding: EdgeInsets.all(18),
+                    child: CircularProgressIndicator()))
           else if (_contacts.isEmpty)
             Container(
               padding: const EdgeInsets.all(16),
@@ -1220,7 +1529,8 @@ class _BroadcastWizardDialogState extends State<_BroadcastWizardDialog> {
                 borderRadius: BorderRadius.circular(10),
                 color: Colors.orange.withValues(alpha: 0.1),
               ),
-              child: const Text('No contacts found.', style: TextStyle(fontSize: 13)),
+              child: const Text('No contacts found.',
+                  style: TextStyle(fontSize: 13)),
             )
           else
             Container(
@@ -1232,12 +1542,14 @@ class _BroadcastWizardDialogState extends State<_BroadcastWizardDialog> {
               child: ListView.separated(
                 shrinkWrap: true,
                 itemCount: _contacts.length,
-                separatorBuilder: (_, __) => Divider(height: 1, color: theme.dividerColor),
+                separatorBuilder: (_, __) =>
+                    Divider(height: 1, color: theme.dividerColor),
                 itemBuilder: (_, i) {
                   final c = _contacts[i];
                   final id = c['id']?.toString();
                   final phone = c['phone']?.toString().trim() ?? '';
-                  final selected = id != null && _selectedContactIds.contains(id);
+                  final selected =
+                      id != null && _selectedContactIds.contains(id);
                   final canSelect = phone.isNotEmpty;
 
                   return ListTile(
@@ -1247,17 +1559,26 @@ class _BroadcastWizardDialogState extends State<_BroadcastWizardDialog> {
                       value: selected,
                       onChanged: canSelect ? (_) => _toggleContact(c) : null,
                     ),
-                    title: Text(_displayContactName(c), style: const TextStyle(fontWeight: FontWeight.w600, fontSize: 13)),
+                    title: Text(_displayContactName(c),
+                        style: const TextStyle(
+                            fontWeight: FontWeight.w600, fontSize: 13)),
                     subtitle: Text(
                       phone.isEmpty ? 'No phone number' : phone,
                       style: TextStyle(
                         fontSize: 12,
                         color: phone.isEmpty
                             ? theme.colorScheme.error
-                            : theme.colorScheme.onSurface.withValues(alpha: 0.5),
+                            : theme.colorScheme.onSurface
+                                .withValues(alpha: 0.5),
                       ),
                     ),
-                    trailing: canSelect ? null : const Icon(Icons.block_rounded, size: 16, color: Colors.red),
+                    trailing: canSelect
+                        ? null
+                        : const Icon(
+                            Icons.block_rounded,
+                            size: 16,
+                            color: AppColors.danger,
+                          ),
                   );
                 },
               ),
@@ -1271,7 +1592,8 @@ class _BroadcastWizardDialogState extends State<_BroadcastWizardDialog> {
             label: const Text('Import Phone Numbers'),
             style: OutlinedButton.styleFrom(
               padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 10),
-              shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
+              shape: RoundedRectangleBorder(
+                  borderRadius: BorderRadius.circular(8)),
             ),
           ),
           const SizedBox(height: 12),
@@ -1280,30 +1602,34 @@ class _BroadcastWizardDialogState extends State<_BroadcastWizardDialog> {
               spacing: 8,
               runSpacing: 8,
               children: _contacts
-                  .where((c) => _selectedContactIds.contains(c['id']?.toString()))
+                  .where(
+                      (c) => _selectedContactIds.contains(c['id']?.toString()))
                   .map((c) {
-                    final id = c['id']?.toString() ?? '';
-                    return Chip(
-                      label: Text(_displayContactName(c)),
-                      onDeleted: () {
-                        setState(() {
-                          _selectedContactIds.remove(id);
-                          final candidates = _testCandidates;
-                          if (candidates.isEmpty) {
-                            _testContactId = null;
-                          } else if (_testContactId == null || !candidates.any((x) => x['id']?.toString() == _testContactId)) {
-                            _testContactId = candidates.first['id']?.toString();
-                          }
-                        });
-                      },
-                    );
-                  })
-                  .toList(),
+                final id = c['id']?.toString() ?? '';
+                return Chip(
+                  label: Text(_displayContactName(c)),
+                  onDeleted: () {
+                    setState(() {
+                      _selectedContactIds.remove(id);
+                      final candidates = _testCandidates;
+                      if (candidates.isEmpty) {
+                        _testContactId = null;
+                      } else if (_testContactId == null ||
+                          !candidates.any(
+                              (x) => x['id']?.toString() == _testContactId)) {
+                        _testContactId = candidates.first['id']?.toString();
+                      }
+                    });
+                  },
+                );
+              }).toList(),
             ),
           const SizedBox(height: 8),
           Text(
             '${_selectedContactIds.length} contact${_selectedContactIds.length == 1 ? '' : 's'} selected',
-            style: TextStyle(fontSize: 12, color: theme.colorScheme.onSurface.withValues(alpha: 0.5)),
+            style: TextStyle(
+                fontSize: 12,
+                color: theme.colorScheme.onSurface.withValues(alpha: 0.5)),
           ),
         ],
       ],
@@ -1318,9 +1644,14 @@ class _BroadcastWizardDialogState extends State<_BroadcastWizardDialog> {
         shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
         title: const Row(
           children: [
-            Icon(Icons.upload_file_rounded, color: Color(0xFF3B82F6), size: 20),
+            Icon(
+              Icons.upload_file_rounded,
+              color: AppColors.primary,
+              size: 20,
+            ),
             SizedBox(width: 8),
-            Text('Import Phone Numbers', style: TextStyle(fontWeight: FontWeight.w700, fontSize: 16)),
+            Text('Import Phone Numbers',
+                style: TextStyle(fontWeight: FontWeight.w700, fontSize: 16)),
           ],
         ),
         content: SizedBox(
@@ -1331,7 +1662,9 @@ class _BroadcastWizardDialogState extends State<_BroadcastWizardDialog> {
             children: [
               Text(
                 'Paste phone numbers separated by commas, newlines, or spaces. Contacts matching these numbers will be automatically selected.',
-                style: TextStyle(fontSize: 12, color: theme.colorScheme.onSurface.withValues(alpha: 0.5)),
+                style: TextStyle(
+                    fontSize: 12,
+                    color: theme.colorScheme.onSurface.withValues(alpha: 0.5)),
               ),
               const SizedBox(height: 12),
               TextField(
@@ -1339,14 +1672,16 @@ class _BroadcastWizardDialogState extends State<_BroadcastWizardDialog> {
                 maxLines: 6,
                 decoration: InputDecoration(
                   hintText: '+628123456789, +628987654321\nor one per line...',
-                  border: OutlineInputBorder(borderRadius: BorderRadius.circular(10)),
+                  border: OutlineInputBorder(
+                      borderRadius: BorderRadius.circular(10)),
                 ),
               ),
             ],
           ),
         ),
         actions: [
-          TextButton(onPressed: () => Navigator.pop(ctx), child: const Text('Cancel')),
+          TextButton(
+              onPressed: () => Navigator.pop(ctx), child: const Text('Cancel')),
           FilledButton(
             onPressed: () {
               final input = _importPhonesCtrl.text;
@@ -1368,7 +1703,12 @@ class _BroadcastWizardDialogState extends State<_BroadcastWizardDialog> {
                 final cPhone = c['phone']?.toString().trim() ?? '';
                 if (cPhone.isEmpty) continue;
                 final normalized = cPhone.replaceAll(RegExp(r'[^0-9+]'), '');
-                if (phones.any((p) => normalized.endsWith(p.length > 5 ? p.substring(p.length - 8) : p) || p.endsWith(normalized.length > 5 ? normalized.substring(normalized.length - 8) : normalized))) {
+                if (phones.any((p) =>
+                    normalized.endsWith(
+                        p.length > 5 ? p.substring(p.length - 8) : p) ||
+                    p.endsWith(normalized.length > 5
+                        ? normalized.substring(normalized.length - 8)
+                        : normalized))) {
                   final id = c['id']?.toString();
                   if (id != null) {
                     _selectedContactIds.add(id);
@@ -1379,10 +1719,11 @@ class _BroadcastWizardDialogState extends State<_BroadcastWizardDialog> {
 
               Navigator.pop(ctx);
               setState(() {});
-              AppSnackbar.success(context, '$matched contact${matched == 1 ? '' : 's'} matched from ${phones.length} phone numbers');
+              AppSnackbar.success(context,
+                  '$matched contact${matched == 1 ? '' : 's'} matched from ${phones.length} phone numbers');
             },
             style: FilledButton.styleFrom(
-              backgroundColor: const Color(0xFF3B82F6),
+              backgroundColor: AppColors.primary,
               foregroundColor: Colors.white,
             ),
             child: const Text('Import & Match'),
@@ -1417,11 +1758,11 @@ class _BroadcastWizardDialogState extends State<_BroadcastWizardDialog> {
         decoration: BoxDecoration(
           borderRadius: BorderRadius.circular(10),
           border: Border.all(
-            color: selected ? const Color(0xFF3B82F6) : theme.dividerColor,
+            color: selected ? AppColors.primary : theme.dividerColor,
             width: selected ? 2 : 1,
           ),
           color: selected
-              ? const Color(0xFF3B82F6).withValues(alpha: 0.06)
+              ? AppColors.primary.withValues(alpha: 0.06)
               : theme.colorScheme.surface,
         ),
         child: Row(
@@ -1429,16 +1770,29 @@ class _BroadcastWizardDialogState extends State<_BroadcastWizardDialog> {
             Icon(
               icon,
               size: 20,
-              color: selected ? const Color(0xFF3B82F6) : theme.colorScheme.onSurface.withValues(alpha: 0.5),
+              color: selected
+                  ? AppColors.primary
+                  : theme.colorScheme.onSurface.withValues(alpha: 0.5),
             ),
             const SizedBox(width: 10),
             Expanded(
               child: Column(
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
-                  Text(title, style: TextStyle(fontWeight: FontWeight.w600, fontSize: 13, color: selected ? const Color(0xFF3B82F6) : null)),
+                  Text(
+                    title,
+                    style: TextStyle(
+                      fontWeight: FontWeight.w600,
+                      fontSize: 13,
+                      color: selected ? AppColors.primary : null,
+                    ),
+                  ),
                   const SizedBox(height: 2),
-                  Text(subtitle, style: TextStyle(fontSize: 11, color: theme.colorScheme.onSurface.withValues(alpha: 0.5))),
+                  Text(subtitle,
+                      style: TextStyle(
+                          fontSize: 11,
+                          color: theme.colorScheme.onSurface
+                              .withValues(alpha: 0.5))),
                 ],
               ),
             ),
@@ -1450,7 +1804,8 @@ class _BroadcastWizardDialogState extends State<_BroadcastWizardDialog> {
 
   Widget _buildTestSection(ThemeData theme) {
     final candidates = _testCandidates;
-    final selectedExists = _testContactId != null && candidates.any((c) => c['id']?.toString() == _testContactId);
+    final selectedExists = _testContactId != null &&
+        candidates.any((c) => c['id']?.toString() == _testContactId);
     final currentValue = selectedExists ? _testContactId : null;
 
     return Container(
@@ -1463,11 +1818,14 @@ class _BroadcastWizardDialogState extends State<_BroadcastWizardDialog> {
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          const Text('Test Message', style: TextStyle(fontWeight: FontWeight.w700, fontSize: 14)),
+          const Text('Test Message',
+              style: TextStyle(fontWeight: FontWeight.w700, fontSize: 14)),
           const SizedBox(height: 4),
           Text(
             'Send a test to one contact before launching the full broadcast.',
-            style: TextStyle(fontSize: 12, color: theme.colorScheme.onSurface.withValues(alpha: 0.5)),
+            style: TextStyle(
+                fontSize: 12,
+                color: theme.colorScheme.onSurface.withValues(alpha: 0.5)),
           ),
           const SizedBox(height: 12),
           DropdownButtonFormField<String>(
@@ -1475,7 +1833,8 @@ class _BroadcastWizardDialogState extends State<_BroadcastWizardDialog> {
             isExpanded: true,
             decoration: InputDecoration(
               labelText: 'Test contact',
-              border: OutlineInputBorder(borderRadius: BorderRadius.circular(10)),
+              border:
+                  OutlineInputBorder(borderRadius: BorderRadius.circular(10)),
             ),
             items: candidates.map((c) {
               final id = c['id']?.toString() ?? '';
@@ -1486,7 +1845,9 @@ class _BroadcastWizardDialogState extends State<_BroadcastWizardDialog> {
                 child: Text('$name • $phone', overflow: TextOverflow.ellipsis),
               );
             }).toList(),
-            onChanged: candidates.isEmpty ? null : (v) => setState(() => _testContactId = v),
+            onChanged: candidates.isEmpty
+                ? null
+                : (v) => setState(() => _testContactId = v),
           ),
           const SizedBox(height: 12),
           SizedBox(
@@ -1494,9 +1855,13 @@ class _BroadcastWizardDialogState extends State<_BroadcastWizardDialog> {
             child: OutlinedButton.icon(
               onPressed: _canSendTest ? _sendTestMessage : null,
               icon: _sendingTest
-                  ? const SizedBox(width: 14, height: 14, child: CircularProgressIndicator(strokeWidth: 2))
+                  ? const SizedBox(
+                      width: 14,
+                      height: 14,
+                      child: CircularProgressIndicator(strokeWidth: 2))
                   : const Icon(Icons.send_rounded, size: 16),
-              label: Text(_sendingTest ? 'Sending Test...' : 'Send Test Message'),
+              label:
+                  Text(_sendingTest ? 'Sending Test...' : 'Send Test Message'),
             ),
           ),
           if (candidates.isEmpty) ...[
@@ -1522,7 +1887,8 @@ class _BroadcastWizardDialogState extends State<_BroadcastWizardDialog> {
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
-        Text(title, style: const TextStyle(fontWeight: FontWeight.w700, fontSize: 14)),
+        Text(title,
+            style: const TextStyle(fontWeight: FontWeight.w700, fontSize: 14)),
         const SizedBox(height: 12),
         Center(
           child: Container(
@@ -1567,36 +1933,50 @@ class _BroadcastWizardDialogState extends State<_BroadcastWizardDialog> {
                     children: [
                       // WhatsApp header bar
                       Container(
-                        padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 8),
+                        padding: const EdgeInsets.symmetric(
+                            horizontal: 10, vertical: 8),
                         decoration: const BoxDecoration(
                           color: Color(0xFF075E54),
-                          borderRadius: BorderRadius.vertical(top: Radius.circular(20)),
+                          borderRadius:
+                              BorderRadius.vertical(top: Radius.circular(20)),
                         ),
                         child: Row(
                           children: [
-                            const Icon(Icons.arrow_back_rounded, color: Colors.white, size: 16),
+                            const Icon(Icons.arrow_back_rounded,
+                                color: Colors.white, size: 16),
                             const SizedBox(width: 6),
                             Container(
-                              width: 26, height: 26,
+                              width: 26,
+                              height: 26,
                               decoration: const BoxDecoration(
                                 shape: BoxShape.circle,
                                 color: Color(0xFF128C7E),
                               ),
-                              child: const Icon(Icons.person_rounded, color: Colors.white, size: 16),
+                              child: const Icon(Icons.person_rounded,
+                                  color: Colors.white, size: 16),
                             ),
                             const SizedBox(width: 8),
                             const Expanded(
                               child: Column(
                                 crossAxisAlignment: CrossAxisAlignment.start,
                                 children: [
-                                  Text('Contact', style: TextStyle(color: Colors.white, fontSize: 12, fontWeight: FontWeight.w600)),
-                                  Text('online', style: TextStyle(color: Color(0xAAFFFFFF), fontSize: 9)),
+                                  Text('Contact',
+                                      style: TextStyle(
+                                          color: Colors.white,
+                                          fontSize: 12,
+                                          fontWeight: FontWeight.w600)),
+                                  Text('online',
+                                      style: TextStyle(
+                                          color: Color(0xAAFFFFFF),
+                                          fontSize: 9)),
                                 ],
                               ),
                             ),
-                            const Icon(Icons.videocam_rounded, color: Colors.white, size: 16),
+                            const Icon(Icons.videocam_rounded,
+                                color: Colors.white, size: 16),
                             const SizedBox(width: 10),
-                            const Icon(Icons.call_rounded, color: Colors.white, size: 15),
+                            const Icon(Icons.call_rounded,
+                                color: Colors.white, size: 15),
                           ],
                         ),
                       ),
@@ -1634,20 +2014,31 @@ class _BroadcastWizardDialogState extends State<_BroadcastWizardDialog> {
                                 mainAxisSize: MainAxisSize.min,
                                 children: [
                                   Text(
-                                    content.length > 300 ? '${content.substring(0, 300)}...' : content,
-                                    style: const TextStyle(fontSize: 12, height: 1.4, color: Color(0xFF303030)),
+                                    content.length > 300
+                                        ? '${content.substring(0, 300)}...'
+                                        : content,
+                                    style: const TextStyle(
+                                        fontSize: 12,
+                                        height: 1.4,
+                                        color: Color(0xFF303030)),
                                   ),
-                                  if (footer != null && footer.trim().isNotEmpty) ...[
+                                  if (footer != null &&
+                                      footer.trim().isNotEmpty) ...[
                                     const SizedBox(height: 6),
                                     Container(
-                                      padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
+                                      padding: const EdgeInsets.symmetric(
+                                          horizontal: 6, vertical: 2),
                                       decoration: BoxDecoration(
-                                        color: const Color(0xFF075E54).withValues(alpha: 0.08),
+                                        color: const Color(0xFF075E54)
+                                            .withValues(alpha: 0.08),
                                         borderRadius: BorderRadius.circular(4),
                                       ),
                                       child: Text(
                                         footer,
-                                        style: const TextStyle(fontSize: 9.5, color: Color(0xFF075E54), fontWeight: FontWeight.w500),
+                                        style: const TextStyle(
+                                            fontSize: 9.5,
+                                            color: Color(0xFF075E54),
+                                            fontWeight: FontWeight.w500),
                                       ),
                                     ),
                                   ],
@@ -1658,10 +2049,13 @@ class _BroadcastWizardDialogState extends State<_BroadcastWizardDialog> {
                                     children: [
                                       Text(
                                         '${DateTime.now().hour}:${DateTime.now().minute.toString().padLeft(2, '0')}',
-                                        style: const TextStyle(fontSize: 9, color: Color(0xFF8D9A9E)),
+                                        style: const TextStyle(
+                                            fontSize: 9,
+                                            color: Color(0xFF8D9A9E)),
                                       ),
                                       const SizedBox(width: 3),
-                                      const Icon(Icons.done_all_rounded, size: 12, color: Color(0xFF53BDEB)),
+                                      const Icon(Icons.done_all_rounded,
+                                          size: 12, color: Color(0xFF53BDEB)),
                                     ],
                                   ),
                                 ],
@@ -1672,34 +2066,45 @@ class _BroadcastWizardDialogState extends State<_BroadcastWizardDialog> {
                       ),
                       // Input bar
                       Container(
-                        padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 6),
+                        padding: const EdgeInsets.symmetric(
+                            horizontal: 6, vertical: 6),
                         decoration: const BoxDecoration(
                           color: Color(0xFFF0F0F0),
-                          borderRadius: BorderRadius.vertical(bottom: Radius.circular(20)),
+                          borderRadius: BorderRadius.vertical(
+                              bottom: Radius.circular(20)),
                         ),
                         child: Row(
                           children: [
-                            const Icon(Icons.emoji_emotions_outlined, color: Color(0xFF8D9A9E), size: 18),
+                            const Icon(Icons.emoji_emotions_outlined,
+                                color: Color(0xFF8D9A9E), size: 18),
                             const SizedBox(width: 6),
                             Expanded(
                               child: Container(
                                 height: 28,
-                                padding: const EdgeInsets.symmetric(horizontal: 10),
+                                padding:
+                                    const EdgeInsets.symmetric(horizontal: 10),
                                 decoration: BoxDecoration(
                                   color: Colors.white,
                                   borderRadius: BorderRadius.circular(14),
                                 ),
                                 child: const Align(
                                   alignment: Alignment.centerLeft,
-                                  child: Text('Type a message', style: TextStyle(fontSize: 11, color: Color(0xFFB0B6BA))),
+                                  child: Text('Type a message',
+                                      style: TextStyle(
+                                          fontSize: 11,
+                                          color: Color(0xFFB0B6BA))),
                                 ),
                               ),
                             ),
                             const SizedBox(width: 6),
                             Container(
-                              width: 28, height: 28,
-                              decoration: const BoxDecoration(shape: BoxShape.circle, color: Color(0xFF075E54)),
-                              child: const Icon(Icons.mic_rounded, color: Colors.white, size: 15),
+                              width: 28,
+                              height: 28,
+                              decoration: const BoxDecoration(
+                                  shape: BoxShape.circle,
+                                  color: Color(0xFF075E54)),
+                              child: const Icon(Icons.mic_rounded,
+                                  color: Colors.white, size: 15),
                             ),
                           ],
                         ),
@@ -1744,7 +2149,9 @@ class _BroadcastWizardDialogState extends State<_BroadcastWizardDialog> {
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
-        Text('Review & Confirm', style: theme.textTheme.titleSmall?.copyWith(fontWeight: FontWeight.w600)),
+        Text('Review & Confirm',
+            style: theme.textTheme.titleSmall
+                ?.copyWith(fontWeight: FontWeight.w600)),
         const SizedBox(height: 16),
         Container(
           padding: const EdgeInsets.all(16),
@@ -1757,9 +2164,15 @@ class _BroadcastWizardDialogState extends State<_BroadcastWizardDialog> {
             children: [
               _reviewRow(theme, 'Name', _nameCtrl.text.trim()),
               _reviewDivider(theme),
-              _reviewRow(theme, 'Type', _broadcastType == 'template' ? 'WhatsApp Template' : 'Text Message'),
+              _reviewRow(
+                  theme,
+                  'Type',
+                  _broadcastType == 'template'
+                      ? 'WhatsApp Template'
+                      : 'Text Message'),
               _reviewDivider(theme),
-              _reviewRow(theme, 'Channel', _selectedChannelName ?? 'Not selected'),
+              _reviewRow(
+                  theme, 'Channel', _selectedChannelName ?? 'Not selected'),
               _reviewDivider(theme),
               _reviewRow(theme, 'Audience', audienceLabel),
               if (_broadcastType == 'template') ...[
@@ -1768,7 +2181,12 @@ class _BroadcastWizardDialogState extends State<_BroadcastWizardDialog> {
               ],
               if (_broadcastType == 'text') ...[
                 _reviewDivider(theme),
-                _reviewRow(theme, 'Message', _textMessage.length > 80 ? '${_textMessage.substring(0, 80)}...' : _textMessage),
+                _reviewRow(
+                    theme,
+                    'Message',
+                    _textMessage.length > 80
+                        ? '${_textMessage.substring(0, 80)}...'
+                        : _textMessage),
               ],
             ],
           ),
@@ -1781,26 +2199,34 @@ class _BroadcastWizardDialogState extends State<_BroadcastWizardDialog> {
           decoration: BoxDecoration(
             borderRadius: BorderRadius.circular(10),
             color: const Color(0xFFFFF8E1),
-            border: Border.all(color: const Color(0xFFFFD54F).withValues(alpha: 0.5)),
+            border: Border.all(
+                color: const Color(0xFFFFD54F).withValues(alpha: 0.5)),
           ),
           child: Row(
             children: [
-              const Icon(Icons.monetization_on_rounded, color: Color(0xFFF9A825), size: 22),
+              const Icon(Icons.monetization_on_rounded,
+                  color: Color(0xFFF9A825), size: 22),
               const SizedBox(width: 10),
               Expanded(
                 child: Column(
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
-                    const Text('Estimated Cost', style: TextStyle(fontWeight: FontWeight.w700, fontSize: 13)),
+                    const Text('Estimated Cost',
+                        style: TextStyle(
+                            fontWeight: FontWeight.w700, fontSize: 13)),
                     const SizedBox(height: 2),
                     Text(
                       _costEstimate,
-                      style: const TextStyle(fontSize: 12, fontWeight: FontWeight.w500, color: Color(0xFFF57F17)),
+                      style: const TextStyle(
+                          fontSize: 12,
+                          fontWeight: FontWeight.w500,
+                          color: Color(0xFFF57F17)),
                     ),
                     const SizedBox(height: 2),
                     Text(
                       'Based on Meta WhatsApp Business API pricing. Actual cost may vary.',
-                      style: TextStyle(fontSize: 10, color: Colors.brown.shade300),
+                      style:
+                          TextStyle(fontSize: 10, color: Colors.brown.shade300),
                     ),
                   ],
                 ),
@@ -1813,13 +2239,17 @@ class _BroadcastWizardDialogState extends State<_BroadcastWizardDialog> {
         Container(
           padding: const EdgeInsets.all(14),
           decoration: BoxDecoration(
-            color: const Color(0xFF3B82F6).withValues(alpha: 0.06),
+            color: AppColors.primary.withValues(alpha: 0.06),
             borderRadius: BorderRadius.circular(10),
-            border: Border.all(color: const Color(0xFF3B82F6).withValues(alpha: 0.2)),
+            border: Border.all(color: AppColors.primary.withValues(alpha: 0.2)),
           ),
           child: Row(
             children: [
-              const Icon(Icons.info_outline_rounded, color: Color(0xFF3B82F6), size: 18),
+              const Icon(
+                Icons.info_outline_rounded,
+                color: AppColors.primary,
+                size: 18,
+              ),
               const SizedBox(width: 10),
               Expanded(
                 child: Text(
@@ -1846,14 +2276,24 @@ class _BroadcastWizardDialogState extends State<_BroadcastWizardDialog> {
         const SizedBox(height: 20),
         Row(
           children: [
-            Switch(value: _sendNow, onChanged: (v) => setState(() => _sendNow = v), activeThumbColor: const Color(0xFF3B82F6)),
+            Switch(
+              value: _sendNow,
+              onChanged: (v) => setState(() => _sendNow = v),
+              activeThumbColor: AppColors.primary,
+            ),
             const SizedBox(width: 10),
             Expanded(
               child: Column(
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
-                  const Text('Send immediately', style: TextStyle(fontWeight: FontWeight.w600, fontSize: 14)),
-                  Text('Toggle off to save as draft first', style: TextStyle(fontSize: 12, color: theme.colorScheme.onSurface.withValues(alpha: 0.5))),
+                  const Text('Send immediately',
+                      style:
+                          TextStyle(fontWeight: FontWeight.w600, fontSize: 14)),
+                  Text('Toggle off to save as draft first',
+                      style: TextStyle(
+                          fontSize: 12,
+                          color: theme.colorScheme.onSurface
+                              .withValues(alpha: 0.5))),
                 ],
               ),
             ),
@@ -1869,9 +2309,18 @@ class _BroadcastWizardDialogState extends State<_BroadcastWizardDialog> {
       child: Row(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          SizedBox(width: 80, child: Text(label, style: TextStyle(fontSize: 13, color: theme.colorScheme.onSurface.withValues(alpha: 0.5)))),
+          SizedBox(
+              width: 80,
+              child: Text(label,
+                  style: TextStyle(
+                      fontSize: 13,
+                      color:
+                          theme.colorScheme.onSurface.withValues(alpha: 0.5)))),
           const SizedBox(width: 12),
-          Expanded(child: Text(value, style: const TextStyle(fontSize: 13, fontWeight: FontWeight.w600))),
+          Expanded(
+              child: Text(value,
+                  style: const TextStyle(
+                      fontSize: 13, fontWeight: FontWeight.w600))),
         ],
       ),
     );
@@ -1881,4 +2330,3 @@ class _BroadcastWizardDialogState extends State<_BroadcastWizardDialog> {
     return Divider(color: theme.dividerColor, height: 1);
   }
 }
-

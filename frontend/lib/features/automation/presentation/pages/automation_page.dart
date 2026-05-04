@@ -5,6 +5,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 import 'package:intl/intl.dart';
+import 'package:simpulx/core/theme/app_style.dart';
 import 'package:simpulx/features/automation/presentation/providers/automation_providers.dart';
 import 'package:simpulx/features/automation/presentation/widgets/edit_automation_dialog.dart';
 
@@ -201,8 +202,7 @@ class _AutomationPageState extends ConsumerState<AutomationPage> {
                   : (constraints.maxWidth >= 600 ? 2 : 1);
               final spacing = 16.0;
               final totalSpacing = spacing * (cols - 1) + 48;
-              final cardWidth =
-                  (constraints.maxWidth - totalSpacing) / cols;
+              final cardWidth = (constraints.maxWidth - totalSpacing) / cols;
 
               // Group into rows for IntrinsicHeight
               final rows = <List<Map<String, dynamic>>>[];
@@ -255,8 +255,7 @@ class _AutomationPageState extends ConsumerState<AutomationPage> {
                 Text(
                   'Showing ${start + 1}–$end of ${rules.length}',
                   style: theme.textTheme.bodySmall?.copyWith(
-                    color: theme.colorScheme.onSurface
-                        .withValues(alpha: 0.6),
+                    color: theme.colorScheme.onSurface.withValues(alpha: 0.6),
                   ),
                 ),
                 Row(
@@ -350,7 +349,11 @@ class _AutomationPageState extends ConsumerState<AutomationPage> {
       child: Column(
         mainAxisAlignment: MainAxisAlignment.center,
         children: [
-          const Icon(Icons.error_outline_rounded, size: 40, color: Colors.red),
+          const Icon(
+            Icons.error_outline_rounded,
+            size: 40,
+            color: AppColors.danger,
+          ),
           const SizedBox(height: 12),
           Text('Error loading automations', style: theme.textTheme.bodySmall),
           const SizedBox(height: 4),
@@ -366,7 +369,10 @@ class _AutomationPageState extends ConsumerState<AutomationPage> {
               ),
             ),
           ),
-          TextButton(onPressed: notifier.load, child: const Text('Retry')),
+          TextButton(
+            onPressed: notifier.load,
+            child: const Text('Retry'),
+          ),
         ],
       ),
     );
@@ -391,12 +397,12 @@ class _AutomationPageState extends ConsumerState<AutomationPage> {
             padding: const EdgeInsets.all(28),
             decoration: BoxDecoration(
               shape: BoxShape.circle,
-              color: const Color(0xFF42B72A).withValues(alpha: 0.1),
+              color: AppColors.primary.withValues(alpha: 0.1),
             ),
             child: const Icon(
               Icons.auto_fix_high_rounded,
               size: 52,
-              color: Color(0xFF42B72A),
+              color: AppColors.primary,
             ),
           ),
           const SizedBox(height: 24),
@@ -461,11 +467,9 @@ class _AutomationCard extends ConsumerWidget {
     final name = rule['name'] ?? 'Untitled';
 
     // Channel info from triggerConditions
-    final conditions =
-        rule['triggerConditions'] as Map<String, dynamic>? ?? {};
+    final conditions = rule['triggerConditions'] as Map<String, dynamic>? ?? {};
     final channelId = (conditions['channelId'] ?? '').toString();
-    final channelName =
-        channelId.isNotEmpty ? channelMap[channelId] : null;
+    final channelName = channelId.isNotEmpty ? channelMap[channelId] : null;
 
     // Date formatting
     final dateFmt = DateFormat('MM/dd/yyyy, hh:mm:ss a');
@@ -481,121 +485,121 @@ class _AutomationCard extends ConsumerWidget {
         },
         borderRadius: BorderRadius.circular(14),
         child: Container(
-      decoration: BoxDecoration(
-        color: theme.colorScheme.surface,
-        borderRadius: BorderRadius.circular(14),
-        border: Border.all(
-          color: theme.dividerColor.withValues(alpha: 0.6),
-        ),
-        boxShadow: [
-          BoxShadow(
-            color: Colors.black.withValues(alpha: 0.04),
-            blurRadius: 10,
-            offset: const Offset(0, 2),
-          ),
-        ],
-      ),
-      padding: const EdgeInsets.fromLTRB(22, 20, 20, 22),
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          // Top row: brand mark + action buttons
-          Row(
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: [
-              Icon(
-                Icons.account_tree_rounded,
-                size: 28,
-                color: isActive
-                    ? const Color(0xFF1E1B4B)
-                    : theme.colorScheme.onSurface.withValues(alpha: 0.35),
-              ),
-              const Spacer(),
-              _cardAction(
-                context,
-                Icons.edit_rounded,
-                const Color(0xFF3B82F6),
-                'Edit',
-                () => showEditAutomationDialog(context, rule: rule),
-              ),
-              _cardAction(
-                context,
-                isActive ? Icons.pause_rounded : Icons.play_arrow_rounded,
-                isActive ? const Color(0xFF3B82F6) : const Color(0xFF42B72A),
-                isActive ? 'Pause' : 'Resume',
-                () => notifier.toggleRule(rule['id'], isActive),
-              ),
-              _cardAction(
-                context,
-                Icons.delete_rounded,
-                const Color(0xFFEF4444),
-                'Delete',
-                () => _confirmDelete(context, notifier, rule['id']),
-              ),
-              _cardAction(
-                context,
-                Icons.content_copy_rounded,
-                const Color(0xFF3B82F6),
-                'Duplicate',
-                () => _confirmDuplicate(context, notifier, rule),
+          decoration: BoxDecoration(
+            color: theme.colorScheme.surface,
+            borderRadius: BorderRadius.circular(14),
+            border: Border.all(
+              color: theme.dividerColor.withValues(alpha: 0.6),
+            ),
+            boxShadow: [
+              BoxShadow(
+                color: Colors.black.withValues(alpha: 0.04),
+                blurRadius: 10,
+                offset: const Offset(0, 2),
               ),
             ],
           ),
-
-          const SizedBox(height: 18),
-
-          // Title
-          Text(
-            name,
-            style: TextStyle(
-              fontWeight: FontWeight.w700,
-              fontSize: 16,
-              color: theme.colorScheme.onSurface,
-              height: 1.3,
-            ),
-            maxLines: 2,
-            overflow: TextOverflow.ellipsis,
-          ),
-
-          // Channel info
-          if (channelName != null) ...[
-            const SizedBox(height: 6),
-            Text(
-              channelName,
-              style: TextStyle(
-                fontSize: 13,
-                color: theme.colorScheme.onSurface.withValues(alpha: 0.55),
-                fontWeight: FontWeight.w400,
+          padding: const EdgeInsets.fromLTRB(22, 20, 20, 22),
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              // Top row: brand mark + action buttons
+              Row(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Icon(
+                    Icons.account_tree_rounded,
+                    size: 28,
+                    color: isActive
+                        ? AppColors.brandGreenDark
+                        : theme.colorScheme.onSurface.withValues(alpha: 0.35),
+                  ),
+                  const Spacer(),
+                  _cardAction(
+                    context,
+                    Icons.edit_rounded,
+                    AppColors.brandGreenDark,
+                    'Edit',
+                    () => showEditAutomationDialog(context, rule: rule),
+                  ),
+                  _cardAction(
+                    context,
+                    isActive ? Icons.pause_rounded : Icons.play_arrow_rounded,
+                    isActive ? AppColors.brandGreenDark : AppColors.primary,
+                    isActive ? 'Pause' : 'Resume',
+                    () => notifier.toggleRule(rule['id'], isActive),
+                  ),
+                  _cardAction(
+                    context,
+                    Icons.delete_rounded,
+                    AppColors.danger,
+                    'Delete',
+                    () => _confirmDelete(context, notifier, rule['id']),
+                  ),
+                  _cardAction(
+                    context,
+                    Icons.content_copy_rounded,
+                    AppColors.brandGreenDark,
+                    'Duplicate',
+                    () => _confirmDuplicate(context, notifier, rule),
+                  ),
+                ],
               ),
-              maxLines: 1,
-              overflow: TextOverflow.ellipsis,
-            ),
-          ],
 
-          const SizedBox(height: 16),
+              const SizedBox(height: 18),
 
-          // Event trigger
-          Text(
-            'Event: ${triggers[triggerType] ?? triggerType.toString().replaceAll('_', ' ')}',
-            style: TextStyle(
-              fontSize: 13,
-              color: theme.colorScheme.onSurface.withValues(alpha: 0.8),
-              fontWeight: FontWeight.w600,
-            ),
-            overflow: TextOverflow.ellipsis,
+              // Title
+              Text(
+                name,
+                style: TextStyle(
+                  fontWeight: FontWeight.w700,
+                  fontSize: 16,
+                  color: theme.colorScheme.onSurface,
+                  height: 1.3,
+                ),
+                maxLines: 2,
+                overflow: TextOverflow.ellipsis,
+              ),
+
+              // Channel info
+              if (channelName != null) ...[
+                const SizedBox(height: 6),
+                Text(
+                  channelName,
+                  style: TextStyle(
+                    fontSize: 13,
+                    color: theme.colorScheme.onSurface.withValues(alpha: 0.55),
+                    fontWeight: FontWeight.w400,
+                  ),
+                  maxLines: 1,
+                  overflow: TextOverflow.ellipsis,
+                ),
+              ],
+
+              const SizedBox(height: 16),
+
+              // Event trigger
+              Text(
+                'Event: ${triggers[triggerType] ?? triggerType.toString().replaceAll('_', ' ')}',
+                style: TextStyle(
+                  fontSize: 13,
+                  color: theme.colorScheme.onSurface.withValues(alpha: 0.8),
+                  fontWeight: FontWeight.w600,
+                ),
+                overflow: TextOverflow.ellipsis,
+              ),
+
+              const Spacer(),
+
+              // Dates
+              const SizedBox(height: 16),
+              if (createdAt != null)
+                _dateRow(theme, 'Created At', dateFmt.format(createdAt)),
+              if (updatedAt != null)
+                _dateRow(theme, 'UpdatedAt', dateFmt.format(updatedAt)),
+            ],
           ),
-
-          const Spacer(),
-
-          // Dates
-          const SizedBox(height: 16),
-          if (createdAt != null)
-            _dateRow(theme, 'Created At', dateFmt.format(createdAt)),
-          if (updatedAt != null)
-            _dateRow(theme, 'UpdatedAt', dateFmt.format(updatedAt)),
-        ],
-      ),
-    ),
+        ),
       ),
     );
   }
@@ -645,7 +649,7 @@ class _AutomationCard extends ConsumerWidget {
               Navigator.pop(c);
               notifier.deleteRule(id);
             },
-            style: ElevatedButton.styleFrom(backgroundColor: Colors.red),
+            style: ElevatedButton.styleFrom(backgroundColor: AppColors.danger),
             child: const Text('Delete', style: TextStyle(color: Colors.white)),
           ),
         ],

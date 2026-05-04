@@ -3,6 +3,7 @@
 // ============================================================
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
+import 'package:simpulx/core/theme/app_style.dart';
 import 'package:simpulx/core/di/injection_container.dart' as di;
 import 'package:simpulx/core/network/dio_client.dart';
 import 'package:simpulx/core/network/facebook_signup.dart';
@@ -102,8 +103,7 @@ class _ChannelsSettingsPageState extends State<ChannelsSettingsPage> {
             (p['slug'] ?? '').toString().toLowerCase().contains(q);
       }).toList();
     }
-    final source =
-        _view == _ChannelView.whatsapp ? _channels : _metaChannels;
+    final source = _view == _ChannelView.whatsapp ? _channels : _metaChannels;
     if (_search.isEmpty) return source;
     final q = _search.toLowerCase();
     return source.where((ch) {
@@ -128,19 +128,19 @@ class _ChannelsSettingsPageState extends State<ChannelsSettingsPage> {
     return Column(
       crossAxisAlignment: CrossAxisAlignment.stretch,
       children: [
-          _buildHeader(theme),
-          Expanded(
-            child: _loading
-                ? const Center(child: CircularProgressIndicator())
-                : _error != null
-                    ? _buildError(theme)
-                    : _view == _ChannelView.integrations
-                        ? _buildIntegrationsView(theme)
-                        : channels.isEmpty
-                            ? _buildEmpty(theme)
-                            : _buildList(theme, channels),
-          ),
-        ],
+        _buildHeader(theme),
+        Expanded(
+          child: _loading
+              ? const Center(child: CircularProgressIndicator())
+              : _error != null
+                  ? _buildError(theme)
+                  : _view == _ChannelView.integrations
+                      ? _buildIntegrationsView(theme)
+                      : channels.isEmpty
+                          ? _buildEmpty(theme)
+                          : _buildList(theme, channels),
+        ),
+      ],
     );
   }
 
@@ -162,17 +162,17 @@ class _ChannelsSettingsPageState extends State<ChannelsSettingsPage> {
                     color: theme.colorScheme.onSurface.withValues(alpha: 0.8)),
               ),
               const SizedBox(width: 8),
-              if (!isIntegrations) ...
-              [
+              if (!isIntegrations) ...[
                 FilledButton.icon(
-                  onPressed: isWhatsapp ? _startEmbeddedSignup : _startMetaSignup,
+                  onPressed:
+                      isWhatsapp ? _startEmbeddedSignup : _startMetaSignup,
                   icon: const Icon(Icons.facebook_rounded, size: 18),
                   label: const Text('Connect via Facebook'),
                   style: FilledButton.styleFrom(
-                    backgroundColor: const Color(0xFF1877F2),
+                    backgroundColor: AppColors.primary,
                     foregroundColor: Colors.white,
-                    padding:
-                        const EdgeInsets.symmetric(horizontal: 18, vertical: 14),
+                    padding: const EdgeInsets.symmetric(
+                        horizontal: 18, vertical: 14),
                     shape: RoundedRectangleBorder(
                       borderRadius: BorderRadius.circular(10),
                     ),
@@ -188,15 +188,14 @@ class _ChannelsSettingsPageState extends State<ChannelsSettingsPage> {
                   style: FilledButton.styleFrom(
                     backgroundColor: theme.colorScheme.primary,
                     foregroundColor: Colors.white,
-                    padding:
-                        const EdgeInsets.symmetric(horizontal: 18, vertical: 14),
+                    padding: const EdgeInsets.symmetric(
+                        horizontal: 18, vertical: 14),
                     shape: RoundedRectangleBorder(
                       borderRadius: BorderRadius.circular(10),
                     ),
                   ),
                 ),
-              ]
-              else
+              ] else
                 FilledButton.icon(
                   onPressed: _addPublisher,
                   icon: const Icon(Icons.add_rounded, size: 18),
@@ -204,8 +203,8 @@ class _ChannelsSettingsPageState extends State<ChannelsSettingsPage> {
                   style: FilledButton.styleFrom(
                     backgroundColor: theme.colorScheme.primary,
                     foregroundColor: Colors.white,
-                    padding:
-                        const EdgeInsets.symmetric(horizontal: 18, vertical: 14),
+                    padding: const EdgeInsets.symmetric(
+                        horizontal: 18, vertical: 14),
                     shape: RoundedRectangleBorder(
                       borderRadius: BorderRadius.circular(10),
                     ),
@@ -222,7 +221,10 @@ class _ChannelsSettingsPageState extends State<ChannelsSettingsPage> {
                 count: _channels.length,
                 selected: isWhatsapp,
                 activeColor: const Color(0xFF25D366),
-                onTap: () => setState(() { _view = _ChannelView.whatsapp; _search = ''; }),
+                onTap: () => setState(() {
+                  _view = _ChannelView.whatsapp;
+                  _search = '';
+                }),
               ),
               const SizedBox(width: 10),
               _ChannelTypeChip(
@@ -230,8 +232,11 @@ class _ChannelsSettingsPageState extends State<ChannelsSettingsPage> {
                 icon: Icons.alternate_email_rounded,
                 count: _metaChannels.length,
                 selected: isMeta,
-                activeColor: const Color(0xFF1877F2),
-                onTap: () => setState(() { _view = _ChannelView.meta; _search = ''; }),
+                activeColor: AppColors.primary,
+                onTap: () => setState(() {
+                  _view = _ChannelView.meta;
+                  _search = '';
+                }),
               ),
               const SizedBox(width: 10),
               _ChannelTypeChip(
@@ -240,7 +245,10 @@ class _ChannelsSettingsPageState extends State<ChannelsSettingsPage> {
                 count: _publishers.length,
                 selected: isIntegrations,
                 activeColor: const Color(0xFF8B5CF6),
-                onTap: () => setState(() { _view = _ChannelView.integrations; _search = ''; }),
+                onTap: () => setState(() {
+                  _view = _ChannelView.integrations;
+                  _search = '';
+                }),
               ),
             ],
           ),
@@ -324,7 +332,8 @@ class _ChannelsSettingsPageState extends State<ChannelsSettingsPage> {
         mainAxisSize: MainAxisSize.min,
         children: [
           Icon(Icons.cell_tower_rounded,
-              size: 56, color: theme.colorScheme.onSurface.withValues(alpha: 0.2)),
+              size: 56,
+              color: theme.colorScheme.onSurface.withValues(alpha: 0.2)),
           const SizedBox(height: 16),
           Text('No channels configured',
               style: theme.textTheme.titleMedium?.copyWith(
@@ -345,13 +354,14 @@ class _ChannelsSettingsPageState extends State<ChannelsSettingsPage> {
             icon: const Icon(Icons.facebook_rounded, size: 20),
             label: const Text('Connect via Facebook'),
             style: FilledButton.styleFrom(
-              backgroundColor: const Color(0xFF1877F2),
+              backgroundColor: AppColors.primary,
               foregroundColor: Colors.white,
               padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 16),
               shape: RoundedRectangleBorder(
                 borderRadius: BorderRadius.circular(10),
               ),
-              textStyle: const TextStyle(fontSize: 15, fontWeight: FontWeight.w600),
+              textStyle:
+                  const TextStyle(fontSize: 15, fontWeight: FontWeight.w600),
             ),
           ),
         ],
@@ -366,14 +376,20 @@ class _ChannelsSettingsPageState extends State<ChannelsSettingsPage> {
         child: Column(
           mainAxisSize: MainAxisSize.min,
           children: [
-            Icon(Icons.webhook_rounded, size: 64, color: const Color(0xFF8B5CF6).withValues(alpha: 0.3)),
+            Icon(Icons.webhook_rounded,
+                size: 64,
+                color: const Color(0xFF8B5CF6).withValues(alpha: 0.3)),
             const SizedBox(height: 16),
-            Text('No integrations yet', style: theme.textTheme.titleMedium?.copyWith(
-              fontWeight: FontWeight.w600, color: theme.colorScheme.onSurface.withValues(alpha: 0.5),
-            )),
+            Text('No integrations yet',
+                style: theme.textTheme.titleMedium?.copyWith(
+                  fontWeight: FontWeight.w600,
+                  color: theme.colorScheme.onSurface.withValues(alpha: 0.5),
+                )),
             const SizedBox(height: 8),
-            Text('Connect external systems to automatically capture leads via API.',
-              style: theme.textTheme.bodySmall?.copyWith(color: theme.colorScheme.onSurface.withValues(alpha: 0.4)),
+            Text(
+              'Connect external systems to automatically capture leads via API.',
+              style: theme.textTheme.bodySmall?.copyWith(
+                  color: theme.colorScheme.onSurface.withValues(alpha: 0.4)),
             ),
             const SizedBox(height: 24),
             FilledButton.icon(
@@ -383,8 +399,10 @@ class _ChannelsSettingsPageState extends State<ChannelsSettingsPage> {
               style: FilledButton.styleFrom(
                 backgroundColor: const Color(0xFF8B5CF6),
                 foregroundColor: Colors.white,
-                padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 16),
-                shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
+                padding:
+                    const EdgeInsets.symmetric(horizontal: 24, vertical: 16),
+                shape: RoundedRectangleBorder(
+                    borderRadius: BorderRadius.circular(10)),
               ),
             ),
           ],
@@ -411,47 +429,70 @@ class _ChannelsSettingsPageState extends State<ChannelsSettingsPage> {
           ),
           child: Padding(
             padding: const EdgeInsets.all(16),
-            child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
+            child:
+                Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
               Row(children: [
                 CircleAvatar(
                   radius: 18,
                   backgroundColor: isActive
                       ? const Color(0xFF8B5CF6).withValues(alpha: 0.1)
                       : Colors.grey.withValues(alpha: 0.1),
-                  child: Icon(Icons.webhook_rounded, size: 18,
+                  child: Icon(Icons.webhook_rounded,
+                      size: 18,
                       color: isActive ? const Color(0xFF8B5CF6) : Colors.grey),
                 ),
                 const SizedBox(width: 12),
-                Expanded(child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
-                  Text(item['name'] ?? '', style: TextStyle(
-                    fontWeight: FontWeight.w600,
-                    color: isActive ? null : theme.colorScheme.onSurface.withValues(alpha: 0.4),
-                  )),
-                  if (item['slug'] != null)
-                    Text('slug: ${item['slug']}', style: TextStyle(
-                      fontSize: 11, color: theme.colorScheme.onSurface.withValues(alpha: 0.4),
-                    )),
-                ])),
-                Switch(value: isActive, onChanged: (_) => _togglePublisher(item)),
-                IconButton(icon: const Icon(Icons.edit_rounded, size: 18), onPressed: () => _editPublisher(item)),
+                Expanded(
+                    child: Column(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: [
+                      Text(item['name'] ?? '',
+                          style: TextStyle(
+                            fontWeight: FontWeight.w600,
+                            color: isActive
+                                ? null
+                                : theme.colorScheme.onSurface
+                                    .withValues(alpha: 0.4),
+                          )),
+                      if (item['slug'] != null)
+                        Text('slug: ${item['slug']}',
+                            style: TextStyle(
+                              fontSize: 11,
+                              color: theme.colorScheme.onSurface
+                                  .withValues(alpha: 0.4),
+                            )),
+                    ])),
+                Switch(
+                    value: isActive, onChanged: (_) => _togglePublisher(item)),
                 IconButton(
-                  icon: Icon(Icons.delete_rounded, size: 18, color: theme.colorScheme.error),
+                    icon: const Icon(Icons.edit_rounded, size: 18),
+                    onPressed: () => _editPublisher(item)),
+                IconButton(
+                  icon: Icon(Icons.delete_rounded,
+                      size: 18, color: theme.colorScheme.error),
                   onPressed: () => _deletePublisher(item),
                 ),
               ]),
               const SizedBox(height: 10),
               Container(
-                padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
+                padding:
+                    const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
                 decoration: BoxDecoration(
-                  color: theme.colorScheme.surfaceContainerHighest.withValues(alpha: 0.3),
+                  color: theme.colorScheme.surfaceContainerHighest
+                      .withValues(alpha: 0.3),
                   borderRadius: BorderRadius.circular(6),
                 ),
                 child: Row(children: [
-                  const Icon(Icons.key_rounded, size: 14, color: Color(0xFF9CA3AF)),
+                  const Icon(Icons.key_rounded,
+                      size: 14, color: Color(0xFF9CA3AF)),
                   const SizedBox(width: 6),
-                  Expanded(child: Text(
+                  Expanded(
+                      child: Text(
                     '${apiKey.substring(0, apiKey.length > 8 ? 8 : apiKey.length)}${'•' * 24}',
-                    style: const TextStyle(fontFamily: 'monospace', fontSize: 12, color: Color(0xFF6B7280)),
+                    style: const TextStyle(
+                        fontFamily: 'monospace',
+                        fontSize: 12,
+                        color: Color(0xFF6B7280)),
                   )),
                   IconButton(
                     icon: const Icon(Icons.copy_rounded, size: 14),
@@ -460,24 +501,30 @@ class _ChannelsSettingsPageState extends State<ChannelsSettingsPage> {
                       AppSnackbar.success(context, 'API key copied');
                     },
                     tooltip: 'Copy API Key',
-                    constraints: const BoxConstraints(minWidth: 28, minHeight: 28),
+                    constraints:
+                        const BoxConstraints(minWidth: 28, minHeight: 28),
                     padding: EdgeInsets.zero,
                   ),
                   IconButton(
                     icon: const Icon(Icons.refresh_rounded, size: 14),
                     onPressed: () => _regenPublisherKey(item),
                     tooltip: 'Regenerate Key',
-                    constraints: const BoxConstraints(minWidth: 28, minHeight: 28),
+                    constraints:
+                        const BoxConstraints(minWidth: 28, minHeight: 28),
                     padding: EdgeInsets.zero,
                   ),
                 ]),
               ),
               const SizedBox(height: 6),
               Wrap(spacing: 8, runSpacing: 4, children: [
-                if (deptName != null) _infoChip(Icons.business_rounded, 'Dept: $deptName', theme),
-                if (item['autoTemplateName'] != null && (item['autoTemplateName'] as String).isNotEmpty)
-                  _infoChip(Icons.article_rounded, 'Template: ${item['autoTemplateName']}', theme),
-                if (item['webhookUrl'] != null && (item['webhookUrl'] as String).isNotEmpty)
+                if (deptName != null)
+                  _infoChip(Icons.business_rounded, 'Dept: $deptName', theme),
+                if (item['autoTemplateName'] != null &&
+                    (item['autoTemplateName'] as String).isNotEmpty)
+                  _infoChip(Icons.article_rounded,
+                      'Template: ${item['autoTemplateName']}', theme),
+                if (item['webhookUrl'] != null &&
+                    (item['webhookUrl'] as String).isNotEmpty)
                   _infoChip(Icons.webhook_rounded, 'Webhook', theme),
               ]),
             ]),
@@ -497,7 +544,11 @@ class _ChannelsSettingsPageState extends State<ChannelsSettingsPage> {
       child: Row(mainAxisSize: MainAxisSize.min, children: [
         Icon(icon, size: 12, color: theme.colorScheme.primary),
         const SizedBox(width: 4),
-        Text(label, style: TextStyle(fontSize: 11, color: theme.colorScheme.primary, fontWeight: FontWeight.w500)),
+        Text(label,
+            style: TextStyle(
+                fontSize: 11,
+                color: theme.colorScheme.primary,
+                fontWeight: FontWeight.w500)),
       ]),
     );
   }
@@ -518,7 +569,10 @@ class _ChannelsSettingsPageState extends State<ChannelsSettingsPage> {
     final result = await _showPublisherDialog(context, item: item);
     if (result == null || !mounted) return;
     try {
-      await di.sl<DioClient>().dio.patch(ApiConstants.publisher(item['id']), data: result);
+      await di
+          .sl<DioClient>()
+          .dio
+          .patch(ApiConstants.publisher(item['id']), data: result);
       AppSnackbar.success(context, 'Integration updated');
       _load();
     } catch (e) {
@@ -531,9 +585,12 @@ class _ChannelsSettingsPageState extends State<ChannelsSettingsPage> {
       context: context,
       builder: (ctx) => AlertDialog(
         title: const Text('Delete Integration'),
-        content: Text('Delete "${item['name']}"? This action cannot be undone.'),
+        content:
+            Text('Delete "${item['name']}"? This action cannot be undone.'),
         actions: [
-          TextButton(onPressed: () => Navigator.pop(ctx, false), child: const Text('Cancel')),
+          TextButton(
+              onPressed: () => Navigator.pop(ctx, false),
+              child: const Text('Cancel')),
           FilledButton(
             onPressed: () => Navigator.pop(ctx, true),
             style: FilledButton.styleFrom(backgroundColor: Colors.red),
@@ -571,14 +628,21 @@ class _ChannelsSettingsPageState extends State<ChannelsSettingsPage> {
         title: const Text('Regenerate API Key'),
         content: const Text('This will invalidate the current key. Continue?'),
         actions: [
-          TextButton(onPressed: () => Navigator.pop(ctx, false), child: const Text('Cancel')),
-          FilledButton(onPressed: () => Navigator.pop(ctx, true), child: const Text('Regenerate')),
+          TextButton(
+              onPressed: () => Navigator.pop(ctx, false),
+              child: const Text('Cancel')),
+          FilledButton(
+              onPressed: () => Navigator.pop(ctx, true),
+              child: const Text('Regenerate')),
         ],
       ),
     );
     if (confirm != true || !mounted) return;
     try {
-      await di.sl<DioClient>().dio.post(ApiConstants.publisherRegenKey(item['id']));
+      await di
+          .sl<DioClient>()
+          .dio
+          .post(ApiConstants.publisherRegenKey(item['id']));
       AppSnackbar.success(context, 'API key regenerated');
       _load();
     } catch (e) {
@@ -586,10 +650,12 @@ class _ChannelsSettingsPageState extends State<ChannelsSettingsPage> {
     }
   }
 
-  Future<Map<String, dynamic>?> _showPublisherDialog(BuildContext context, {Map<String, dynamic>? item}) async {
+  Future<Map<String, dynamic>?> _showPublisherDialog(BuildContext context,
+      {Map<String, dynamic>? item}) async {
     final nameCtrl = TextEditingController(text: item?['name'] ?? '');
     final slugCtrl = TextEditingController(text: item?['slug'] ?? '');
-    final templateCtrl = TextEditingController(text: item?['autoTemplateName'] ?? '');
+    final templateCtrl =
+        TextEditingController(text: item?['autoTemplateName'] ?? '');
     final webhookCtrl = TextEditingController(text: item?['webhookUrl'] ?? '');
     String? selectedDeptId = item?['autoAssignDeptId'];
     final isEdit = item != null;
@@ -601,38 +667,61 @@ class _ChannelsSettingsPageState extends State<ChannelsSettingsPage> {
           title: Text(isEdit ? 'Edit Integration' : 'New Integration'),
           content: SizedBox(
             width: 460,
-            child: SingleChildScrollView(child: Column(mainAxisSize: MainAxisSize.min, children: [
+            child: SingleChildScrollView(
+                child: Column(mainAxisSize: MainAxisSize.min, children: [
               const SizedBox(height: 8),
-              TextField(controller: nameCtrl, decoration: const InputDecoration(labelText: 'Name'), autofocus: true),
+              TextField(
+                  controller: nameCtrl,
+                  decoration: const InputDecoration(labelText: 'Name'),
+                  autofocus: true),
               const SizedBox(height: 12),
-              TextField(controller: slugCtrl, decoration: const InputDecoration(labelText: 'Slug (optional)', hintText: 'auto-generated from name')),
+              TextField(
+                  controller: slugCtrl,
+                  decoration: const InputDecoration(
+                      labelText: 'Slug (optional)',
+                      hintText: 'auto-generated from name')),
               const SizedBox(height: 12),
               DropdownButtonFormField<String?>(
                 value: selectedDeptId,
-                decoration: const InputDecoration(labelText: 'Auto-assign Department'),
+                decoration:
+                    const InputDecoration(labelText: 'Auto-assign Department'),
                 items: [
                   const DropdownMenuItem(value: null, child: Text('None')),
-                  ..._departments.map((d) => DropdownMenuItem(value: d['id'] as String, child: Text(d['name'] ?? ''))),
+                  ..._departments.map((d) => DropdownMenuItem(
+                      value: d['id'] as String, child: Text(d['name'] ?? ''))),
                 ],
                 onChanged: (v) => setDialogState(() => selectedDeptId = v),
               ),
               const SizedBox(height: 12),
-              TextField(controller: templateCtrl, decoration: const InputDecoration(labelText: 'Auto Template Name (optional)')),
+              TextField(
+                  controller: templateCtrl,
+                  decoration: const InputDecoration(
+                      labelText: 'Auto Template Name (optional)')),
               const SizedBox(height: 12),
-              TextField(controller: webhookCtrl, decoration: const InputDecoration(labelText: 'Webhook URL (optional)')),
+              TextField(
+                  controller: webhookCtrl,
+                  decoration: const InputDecoration(
+                      labelText: 'Webhook URL (optional)')),
             ])),
           ),
           actions: [
-            TextButton(onPressed: () => Navigator.pop(ctx), child: const Text('Cancel')),
+            TextButton(
+                onPressed: () => Navigator.pop(ctx),
+                child: const Text('Cancel')),
             FilledButton(
               onPressed: () {
                 if (nameCtrl.text.trim().isEmpty) return;
                 Navigator.pop(ctx, {
                   'name': nameCtrl.text.trim(),
-                  if (slugCtrl.text.trim().isNotEmpty) 'slug': slugCtrl.text.trim(),
+                  if (slugCtrl.text.trim().isNotEmpty)
+                    'slug': slugCtrl.text.trim(),
                   'autoAssignDeptId': selectedDeptId,
-                  'autoTemplateName': templateCtrl.text.trim().isEmpty ? null : templateCtrl.text.trim(),
-                  'webhookUrl': webhookCtrl.text.trim().isEmpty ? null : webhookCtrl.text.trim(),
+                  'autoTemplateName': templateCtrl.text.trim().isEmpty
+                      ? null
+                      : templateCtrl.text.trim(),
+                  'webhookUrl': webhookCtrl.text.trim().isEmpty
+                      ? null
+                      : webhookCtrl.text.trim(),
                 });
               },
               child: Text(isEdit ? 'Save' : 'Create'),
@@ -646,7 +735,8 @@ class _ChannelsSettingsPageState extends State<ChannelsSettingsPage> {
   String _extractError(dynamic e) {
     try {
       final data = (e as dynamic).response?.data;
-      if (data is Map && data['message'] != null) return data['message'].toString();
+      if (data is Map && data['message'] != null)
+        return data['message'].toString();
     } catch (_) {}
     return e.toString();
   }
@@ -779,8 +869,7 @@ class _ChannelsSettingsPageState extends State<ChannelsSettingsPage> {
         text: channel?['phoneNumberId']?.toString() ?? '');
     final businessCtrl = TextEditingController(
         text: channel?['businessAccountId']?.toString() ?? '');
-    final tokenCtrl =
-        TextEditingController(text: isEdit ? '' : '');
+    final tokenCtrl = TextEditingController(text: isEdit ? '' : '');
 
     final saved = await showDialog<bool>(
       context: context,
@@ -797,7 +886,8 @@ class _ChannelsSettingsPageState extends State<ChannelsSettingsPage> {
                 children: [
                   TextField(
                     controller: nameCtrl,
-                    decoration: const InputDecoration(labelText: 'Channel Name'),
+                    decoration:
+                        const InputDecoration(labelText: 'Channel Name'),
                   ),
                   const SizedBox(height: 12),
                   TextField(
@@ -819,10 +909,9 @@ class _ChannelsSettingsPageState extends State<ChannelsSettingsPage> {
                   ),
                   const SizedBox(height: 12),
                   DropdownButtonFormField<String?>(
-                    value: _departments.any(
-                            (department) =>
-                                department['id']?.toString() ==
-                                selectedDepartmentId)
+                    value: _departments.any((department) =>
+                            department['id']?.toString() ==
+                            selectedDepartmentId)
                         ? selectedDepartmentId
                         : null,
                     decoration: const InputDecoration(
@@ -890,8 +979,8 @@ class _ChannelsSettingsPageState extends State<ChannelsSettingsPage> {
                       'accessToken': tokenCtrl.text.trim(),
                   };
                   if (isEdit) {
-                    await dio.patch(
-                        ApiConstants.channel(channel['id']), data: body);
+                    await dio.patch(ApiConstants.channel(channel['id']),
+                        data: body);
                   } else {
                     await dio.post(ApiConstants.channels, data: body);
                   }
@@ -934,8 +1023,8 @@ class _ChannelsSettingsPageState extends State<ChannelsSettingsPage> {
     );
     final tokenCtrl = TextEditingController();
     final verifyTokenCtrl = TextEditingController(
-      text: channel?['webhookVerifyToken']?.toString() ??
-          _defaultMetaVerifyToken,
+      text:
+          channel?['webhookVerifyToken']?.toString() ?? _defaultMetaVerifyToken,
     );
 
     final saved = await showDialog<bool>(
@@ -975,7 +1064,8 @@ class _ChannelsSettingsPageState extends State<ChannelsSettingsPage> {
                     const SizedBox(height: 12),
                     TextField(
                       controller: nameCtrl,
-                      decoration: const InputDecoration(labelText: 'Channel Name'),
+                      decoration:
+                          const InputDecoration(labelText: 'Channel Name'),
                     ),
                     const SizedBox(height: 12),
                     TextField(
@@ -1017,10 +1107,9 @@ class _ChannelsSettingsPageState extends State<ChannelsSettingsPage> {
                     ),
                     const SizedBox(height: 12),
                     DropdownButtonFormField<String?>(
-                      value: _departments.any(
-                              (department) =>
-                                  department['id']?.toString() ==
-                                  selectedDepartmentId)
+                      value: _departments.any((department) =>
+                              department['id']?.toString() ==
+                              selectedDepartmentId)
                           ? selectedDepartmentId
                           : null,
                       decoration: const InputDecoration(
@@ -1049,15 +1138,16 @@ class _ChannelsSettingsPageState extends State<ChannelsSettingsPage> {
                       width: double.infinity,
                       padding: const EdgeInsets.all(12),
                       decoration: BoxDecoration(
-                        color: const Color(0xFF1877F2).withValues(alpha: 0.06),
+                        color: AppColors.primary.withValues(alpha: 0.06),
                         borderRadius: BorderRadius.circular(12),
                         border: Border.all(
-                          color: const Color(0xFF1877F2).withValues(alpha: 0.14),
+                          color: AppColors.primary.withValues(alpha: 0.14),
                         ),
                       ),
                       child: const Text(
                         'Use the same verify token you configured in Meta Dashboard. For Instagram, make sure the connected business account belongs to this Facebook Page.',
-                        style: TextStyle(fontSize: 12.5, fontWeight: FontWeight.w500),
+                        style: TextStyle(
+                            fontSize: 12.5, fontWeight: FontWeight.w500),
                       ),
                     ),
                   ],
@@ -1199,8 +1289,8 @@ class _ChannelsSettingsPageState extends State<ChannelsSettingsPage> {
 
           return AlertDialog(
             title: const Text('Connect Meta Page'),
-            shape: RoundedRectangleBorder(
-                borderRadius: BorderRadius.circular(16)),
+            shape:
+                RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
             content: SizedBox(
               width: 520,
               child: SingleChildScrollView(
@@ -1214,13 +1304,13 @@ class _ChannelsSettingsPageState extends State<ChannelsSettingsPage> {
                     const SizedBox(height: 8),
                     ...pages.map((p) {
                       final ig = (p['instagramAccountId'] ?? '').toString();
-                      final igUser =
-                          (p['instagramUsername'] ?? '').toString();
+                      final igUser = (p['instagramUsername'] ?? '').toString();
                       final isSelected = selectedPage?['pageId'] == p['pageId'];
                       return GestureDetector(
                         onTap: () => setDs(() {
                           selectedPage = p;
-                          selectedPlatform = ig.isNotEmpty ? 'instagram' : 'messenger';
+                          selectedPlatform =
+                              ig.isNotEmpty ? 'instagram' : 'messenger';
                           if (nameCtrl.text.isEmpty) {
                             nameCtrl.text = p['pageName'] ?? '';
                           }
@@ -1230,11 +1320,11 @@ class _ChannelsSettingsPageState extends State<ChannelsSettingsPage> {
                           padding: const EdgeInsets.all(12),
                           decoration: BoxDecoration(
                             color: isSelected
-                                ? const Color(0xFF1877F2).withValues(alpha: 0.08)
+                                ? AppColors.primary.withValues(alpha: 0.08)
                                 : theme.colorScheme.surface,
                             border: Border.all(
                               color: isSelected
-                                  ? const Color(0xFF1877F2)
+                                  ? AppColors.primary
                                   : theme.dividerColor,
                               width: isSelected ? 1.5 : 1,
                             ),
@@ -1243,13 +1333,11 @@ class _ChannelsSettingsPageState extends State<ChannelsSettingsPage> {
                           child: Row(
                             children: [
                               Icon(Icons.pages_rounded,
-                                  size: 20,
-                                  color: const Color(0xFF1877F2)),
+                                  size: 20, color: AppColors.primary),
                               const SizedBox(width: 10),
                               Expanded(
                                 child: Column(
-                                  crossAxisAlignment:
-                                      CrossAxisAlignment.start,
+                                  crossAxisAlignment: CrossAxisAlignment.start,
                                   children: [
                                     Text(p['pageName'] ?? '',
                                         style: theme.textTheme.bodyMedium
@@ -1266,7 +1354,7 @@ class _ChannelsSettingsPageState extends State<ChannelsSettingsPage> {
                               ),
                               if (isSelected)
                                 const Icon(Icons.check_circle_rounded,
-                                    color: Color(0xFF1877F2), size: 20),
+                                    color: AppColors.primary, size: 20),
                             ],
                           ),
                         ),
@@ -1278,8 +1366,8 @@ class _ChannelsSettingsPageState extends State<ChannelsSettingsPage> {
                       if (hasIg)
                         DropdownButtonFormField<String>(
                           value: selectedPlatform,
-                          decoration: const InputDecoration(
-                              labelText: 'Platform'),
+                          decoration:
+                              const InputDecoration(labelText: 'Platform'),
                           items: const [
                             DropdownMenuItem(
                                 value: 'instagram',
@@ -1288,20 +1376,18 @@ class _ChannelsSettingsPageState extends State<ChannelsSettingsPage> {
                                 value: 'messenger',
                                 child: Text('Facebook Messenger')),
                           ],
-                          onChanged: (v) =>
-                              setDs(() => selectedPlatform = v),
+                          onChanged: (v) => setDs(() => selectedPlatform = v),
                         ),
                       if (hasIg) const SizedBox(height: 12),
                       TextField(
                         controller: nameCtrl,
-                        decoration: const InputDecoration(
-                            labelText: 'Channel Name'),
+                        decoration:
+                            const InputDecoration(labelText: 'Channel Name'),
                       ),
                       const SizedBox(height: 12),
                       DropdownButtonFormField<String?>(
                         value: _departments.any((d) =>
-                                d['id']?.toString() ==
-                                selectedDepartmentId)
+                                d['id']?.toString() == selectedDepartmentId)
                             ? selectedDepartmentId
                             : null,
                         decoration: const InputDecoration(
@@ -1311,12 +1397,10 @@ class _ChannelsSettingsPageState extends State<ChannelsSettingsPage> {
                               value: null, child: Text('No department')),
                           ..._departments.map((d) => DropdownMenuItem<String?>(
                                 value: d['id']?.toString(),
-                                child: Text(
-                                    d['name']?.toString() ?? 'Unnamed'),
+                                child: Text(d['name']?.toString() ?? 'Unnamed'),
                               )),
                         ],
-                        onChanged: (v) =>
-                            setDs(() => selectedDepartmentId = v),
+                        onChanged: (v) => setDs(() => selectedDepartmentId = v),
                       ),
                     ],
                   ],
@@ -1383,7 +1467,8 @@ class _ChannelsSettingsPageState extends State<ChannelsSettingsPage> {
 
       if (result.phoneNumberId == null || result.wabaId == null) {
         if (!mounted) return;
-        AppSnackbar.error(context, 'Signup incomplete - missing WABA or phone number data');
+        AppSnackbar.error(
+            context, 'Signup incomplete - missing WABA or phone number data');
         return;
       }
 
@@ -1412,7 +1497,8 @@ class _ChannelsSettingsPageState extends State<ChannelsSettingsPage> {
       if (Navigator.of(context).canPop()) Navigator.of(context).pop();
       final msg = e.toString();
       if (!msg.contains('cancelled')) {
-        AppSnackbar.error(context, 'Signup failed: ${msg.replaceFirst("Exception: ", "")}');
+        AppSnackbar.error(
+            context, 'Signup failed: ${msg.replaceFirst("Exception: ", "")}');
       }
     }
   }
@@ -1448,14 +1534,12 @@ class _ChannelTypeChip extends StatelessWidget {
         duration: const Duration(milliseconds: 180),
         padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 10),
         decoration: BoxDecoration(
-          color: selected
-              ? primary.withValues(alpha: 0.08)
-              : Colors.transparent,
+          color:
+              selected ? primary.withValues(alpha: 0.08) : Colors.transparent,
           borderRadius: BorderRadius.circular(10),
           border: Border.all(
-            color: selected
-                ? primary.withValues(alpha: 0.30)
-                : theme.dividerColor,
+            color:
+                selected ? primary.withValues(alpha: 0.30) : theme.dividerColor,
           ),
         ),
         child: Row(
@@ -1473,8 +1557,7 @@ class _ChannelTypeChip extends StatelessWidget {
                 fontWeight: FontWeight.w600,
                 color: selected
                     ? primary
-                    : theme.colorScheme.onSurface
-                        .withValues(alpha: 0.75),
+                    : theme.colorScheme.onSurface.withValues(alpha: 0.75),
               ),
             ),
             const SizedBox(width: 8),
@@ -1492,8 +1575,7 @@ class _ChannelTypeChip extends StatelessWidget {
                   fontWeight: FontWeight.w600,
                   color: selected
                       ? primary
-                      : theme.colorScheme.onSurface
-                          .withValues(alpha: 0.6),
+                      : theme.colorScheme.onSurface.withValues(alpha: 0.6),
                 ),
               ),
             ),
@@ -1576,7 +1658,8 @@ class _ChannelCard extends StatelessWidget {
                     Text(
                       'Whatsapp',
                       style: theme.textTheme.bodySmall?.copyWith(
-                        color: theme.colorScheme.onSurface.withValues(alpha: 0.5),
+                        color:
+                            theme.colorScheme.onSurface.withValues(alpha: 0.5),
                       ),
                     ),
                   ],
@@ -1585,7 +1668,8 @@ class _ChannelCard extends StatelessWidget {
               Row(
                 mainAxisSize: MainAxisSize.min,
                 children: [
-                  _StatusBadge(label: status.toUpperCase(), connected: isConnected),
+                  _StatusBadge(
+                      label: status.toUpperCase(), connected: isConnected),
                   const SizedBox(width: 8),
                   IconButton(
                     onPressed: onTest,
@@ -1593,8 +1677,7 @@ class _ChannelCard extends StatelessWidget {
                     tooltip: 'Test Connection',
                     style: IconButton.styleFrom(
                       foregroundColor: const Color(0xFF6B7280),
-                      backgroundColor:
-                          const Color(0xFFF3F4F6),
+                      backgroundColor: const Color(0xFFF3F4F6),
                     ),
                   ),
                   const SizedBox(width: 4),
@@ -1604,8 +1687,7 @@ class _ChannelCard extends StatelessWidget {
                     tooltip: 'Edit',
                     style: IconButton.styleFrom(
                       foregroundColor: const Color(0xFF6B7280),
-                      backgroundColor:
-                          const Color(0xFFF3F4F6),
+                      backgroundColor: const Color(0xFFF3F4F6),
                     ),
                   ),
                   const SizedBox(width: 4),
@@ -1615,8 +1697,7 @@ class _ChannelCard extends StatelessWidget {
                     tooltip: 'Delete',
                     style: IconButton.styleFrom(
                       foregroundColor: const Color(0xFF6B7280),
-                      backgroundColor:
-                          const Color(0xFFF3F4F6),
+                      backgroundColor: const Color(0xFFF3F4F6),
                     ),
                   ),
                 ],
@@ -1683,9 +1764,8 @@ class _MetaChannelCard extends StatelessWidget {
     final status = (channel['status'] ?? 'pending').toString();
     final isConnected = status == 'connected';
     final instagramAccountId = (channel['instagramAccountId'] ?? '').toString();
-    final accent = platform == 'instagram'
-        ? const Color(0xFFE4405F)
-        : const Color(0xFF1877F2);
+    final accent =
+        platform == 'instagram' ? const Color(0xFFE4405F) : AppColors.primary;
     final platformLabel =
         platform == 'instagram' ? 'Instagram DM' : 'Facebook Messenger';
 
@@ -1733,7 +1813,8 @@ class _MetaChannelCard extends StatelessWidget {
                     Text(
                       platformLabel,
                       style: theme.textTheme.bodySmall?.copyWith(
-                        color: theme.colorScheme.onSurface.withValues(alpha: 0.5),
+                        color:
+                            theme.colorScheme.onSurface.withValues(alpha: 0.5),
                       ),
                     ),
                   ],
@@ -1742,7 +1823,8 @@ class _MetaChannelCard extends StatelessWidget {
               Row(
                 mainAxisSize: MainAxisSize.min,
                 children: [
-                  _StatusBadge(label: status.toUpperCase(), connected: isConnected),
+                  _StatusBadge(
+                      label: status.toUpperCase(), connected: isConnected),
                   const SizedBox(width: 8),
                   IconButton(
                     onPressed: onTest,
@@ -1759,9 +1841,9 @@ class _MetaChannelCard extends StatelessWidget {
                     icon: const Icon(Icons.edit_rounded, size: 18),
                     tooltip: 'Edit',
                     style: IconButton.styleFrom(
-                      foregroundColor: const Color(0xFF3B82F6),
+                      foregroundColor: AppColors.brandGreenDark,
                       backgroundColor:
-                          const Color(0xFF3B82F6).withValues(alpha: 0.08),
+                          AppColors.primary.withValues(alpha: 0.08),
                     ),
                   ),
                   const SizedBox(width: 4),
@@ -1833,8 +1915,7 @@ class _MetaInfoPill extends StatelessWidget {
             TextSpan(
               text: '$label: ',
               style: const TextStyle(
-                  fontWeight: FontWeight.w500,
-                  color: Color(0xFF6B7280)),
+                  fontWeight: FontWeight.w500, color: Color(0xFF6B7280)),
             ),
             TextSpan(
               text: value,

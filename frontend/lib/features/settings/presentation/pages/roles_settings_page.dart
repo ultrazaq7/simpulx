@@ -3,6 +3,7 @@
 // ============================================================
 import 'package:flutter/material.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
+import 'package:simpulx/core/theme/app_style.dart';
 import 'package:simpulx/core/di/injection_container.dart' as di;
 import 'package:simpulx/core/network/dio_client.dart';
 import 'package:simpulx/core/constants/api_constants.dart';
@@ -19,7 +20,13 @@ class RolesSettingsPage extends StatefulWidget {
 }
 
 class _RolesSettingsPageState extends State<RolesSettingsPage> {
-  static const _builtInRoles = ['owner', 'admin', 'manager', 'supervisor', 'agent'];
+  static const _builtInRoles = [
+    'owner',
+    'admin',
+    'manager',
+    'supervisor',
+    'agent'
+  ];
 
   late List<String> _roles;
   late Map<String, String> _customRoleLabels; // key → display label
@@ -127,7 +134,9 @@ class _RolesSettingsPageState extends State<RolesSettingsPage> {
         for (final role in _roles) {
           updatedPerms[role] = Map<String, bool>.from(_matrix[role] ?? {});
         }
-        context.read<AuthBloc>().add(UpdatePermissionsEvent(rolePermissions: updatedPerms));
+        context
+            .read<AuthBloc>()
+            .add(UpdatePermissionsEvent(rolePermissions: updatedPerms));
       }
     } catch (e) {
       if (mounted) AppSnackbar.error(context, 'Failed to save permissions');
@@ -213,7 +222,8 @@ class _RolesSettingsPageState extends State<RolesSettingsPage> {
               onPressed: () {
                 final name = nameCtrl.text.trim();
                 if (name.isEmpty) return;
-                final key = name.toLowerCase().replaceAll(RegExp(r'[^a-z0-9]'), '_');
+                final key =
+                    name.toLowerCase().replaceAll(RegExp(r'[^a-z0-9]'), '_');
                 if (_roles.contains(key)) {
                   AppSnackbar.error(context, 'Role "$name" already exists');
                   return;
@@ -239,7 +249,8 @@ class _RolesSettingsPageState extends State<RolesSettingsPage> {
       context: context,
       builder: (ctx) => AlertDialog(
         title: const Text('Delete Role'),
-        content: Text('Are you sure you want to delete "$label"? This cannot be undone.'),
+        content: Text(
+            'Are you sure you want to delete "$label"? This cannot be undone.'),
         actions: [
           TextButton(
             onPressed: () => Navigator.pop(ctx),
@@ -302,8 +313,10 @@ class _RolesSettingsPageState extends State<RolesSettingsPage> {
             Padding(
               padding: const EdgeInsets.only(right: 16),
               child: SizedBox(
-                width: 18, height: 18,
-                child: CircularProgressIndicator(strokeWidth: 2, color: theme.colorScheme.primary),
+                width: 18,
+                height: 18,
+                child: CircularProgressIndicator(
+                    strokeWidth: 2, color: theme.colorScheme.primary),
               ),
             ),
           FilledButton.icon(
@@ -313,8 +326,7 @@ class _RolesSettingsPageState extends State<RolesSettingsPage> {
             style: FilledButton.styleFrom(
               backgroundColor: theme.colorScheme.primary,
               foregroundColor: Colors.white,
-              padding:
-                  const EdgeInsets.symmetric(horizontal: 18, vertical: 14),
+              padding: const EdgeInsets.symmetric(horizontal: 18, vertical: 14),
               shape: RoundedRectangleBorder(
                 borderRadius: BorderRadius.circular(10),
               ),
@@ -373,7 +385,8 @@ class _RolesSettingsPageState extends State<RolesSettingsPage> {
                                   Flexible(
                                     child: Text(
                                       _roleLabel(role),
-                                      style: theme.textTheme.labelSmall?.copyWith(
+                                      style:
+                                          theme.textTheme.labelSmall?.copyWith(
                                         fontWeight: FontWeight.w600,
                                         color: theme.colorScheme.onSurface
                                             .withValues(alpha: 0.65),
@@ -401,8 +414,7 @@ class _RolesSettingsPageState extends State<RolesSettingsPage> {
           ),
           ...perms.map((perm) {
             return Container(
-              padding:
-                  const EdgeInsets.symmetric(horizontal: 20, vertical: 4),
+              padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 4),
               decoration: BoxDecoration(
                 border: Border(
                     bottom: BorderSide(
@@ -415,8 +427,8 @@ class _RolesSettingsPageState extends State<RolesSettingsPage> {
                       perm.label,
                       style: theme.textTheme.bodySmall?.copyWith(
                         fontWeight: FontWeight.w500,
-                        color: theme.colorScheme.onSurface
-                            .withValues(alpha: 0.8),
+                        color:
+                            theme.colorScheme.onSurface.withValues(alpha: 0.8),
                       ),
                     ),
                   ),
@@ -474,7 +486,7 @@ class _RolesSettingsPageState extends State<RolesSettingsPage> {
       case 'admin':
         return const Color(0xFFEF4444);
       case 'manager':
-        return const Color(0xFF3B82F6);
+        return AppColors.brandGreenDark;
       case 'supervisor':
         return const Color(0xFFF59E0B);
       case 'agent':
