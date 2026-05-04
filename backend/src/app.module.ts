@@ -25,6 +25,7 @@ import { ConversionsModule } from './modules/conversions/conversions.module';
 import { FollowUpsModule } from './modules/follow-ups/follow-ups.module';
 import { CtaEventsModule } from './modules/cta-events/cta-events.module';
 import { ScheduleModule } from '@nestjs/schedule';
+import { HealthController } from './health.controller';
 
 @Module({
   imports: [
@@ -87,5 +88,6 @@ import { ScheduleModule } from '@nestjs/schedule';
     CtaEventsModule,
     ScheduleModule.forRoot(),
   ],
+  controllers: [HealthController],
 })
 export class AppModule {}

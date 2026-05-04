@@ -1,5 +1,5 @@
 import { NestFactory } from '@nestjs/core';
-import { ValidationPipe } from '@nestjs/common';
+import { RequestMethod, ValidationPipe } from '@nestjs/common';
 import { ConfigService } from '@nestjs/config';
 import { SwaggerModule, DocumentBuilder } from '@nestjs/swagger';
 import { NestExpressApplication } from '@nestjs/platform-express';
@@ -46,7 +46,10 @@ async function bootstrap() {
   // Global prefix
   const apiPrefix = configService.get<string>('API_PREFIX', 'api/v1');
   app.setGlobalPrefix(apiPrefix, {
-    exclude: ['webhook/whatsapp'], // Webhook has no prefix
+    exclude: [
+      'webhook/whatsapp', // Webhook has no prefix
+      { path: 'health', method: RequestMethod.GET },
+    ],
   });
 
   // Global validation pipe

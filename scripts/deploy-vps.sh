@@ -75,6 +75,19 @@ run_db_migrations() {
   done
 }
 
+check_api_health() {
+  local retries="${1:-30}"
+  if curl --fail --silent --show-error --retry "$retries" --retry-delay 2 --retry-all-errors http://127.0.0.1:3002/health >/dev/null; then
+    return 0
+  fi
+
+  echo "API healthcheck failed. Last container status:" >&2
+  docker compose ps >&2 || true
+  echo "Last API logs:" >&2
+  docker compose logs --no-color --tail=200 api >&2 || true
+  return 1
+}
+
 if [ -n "$API_IMAGE_ARTIFACT" ]; then
   if [ ! -f "$API_IMAGE_ARTIFACT" ]; then
     echo "API image artifact missing: $API_IMAGE_ARTIFACT" >&2
@@ -102,7 +115,7 @@ else
 fi
 docker compose ps
 
-curl --fail --silent --show-error --retry 20 --retry-delay 2 --retry-all-errors http://127.0.0.1:3002/docs >/dev/null
+check_api_health 60
 
 sync_static_dir() {
   local source_dir="$1"
@@ -163,7 +176,7 @@ if command -v nginx >/dev/null 2>&1; then
   systemctl reload nginx || true
 fi
 
-curl --fail --silent --show-error --retry 10 --retry-delay 2 --retry-all-errors http://127.0.0.1:3002/docs >/dev/null
+check_api_health 10
 curl --fail --silent --show-error --retry 10 --retry-delay 2 --retry-all-errors --insecure --resolve app.simpulx.com:443:127.0.0.1 https://app.simpulx.com/ >/dev/null
 curl --fail --silent --show-error --retry 10 --retry-delay 2 --retry-all-errors --insecure --resolve simpulx.com:443:127.0.0.1 https://simpulx.com/ >/dev/null
 
