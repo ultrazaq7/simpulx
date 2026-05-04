@@ -4,7 +4,7 @@ import 'package:simpulx/core/di/injection_container.dart' as di;
 import 'package:simpulx/core/network/dio_client.dart';
 import 'package:simpulx/core/constants/api_constants.dart';
 import 'package:simpulx/core/widgets/app_snackbar.dart';
-import 'package:intl/intl.dart';
+import 'package:simpulx/core/utils/app_datetime.dart';
 
 class BroadcastsPage extends StatefulWidget {
   const BroadcastsPage({super.key});
@@ -270,8 +270,7 @@ class _BroadcastsPageState extends State<BroadcastsPage> {
         final statusColor = _getStatusColor(status);
         final statusIcon = _getStatusIcon(status);
         final isTemplate = b['broadcastType'] == 'template';
-        final createdAt =
-            b['createdAt'] != null ? DateTime.tryParse(b['createdAt']) : null;
+        final createdAt = AppDateTime.parseLocal(b['createdAt']);
 
         return Container(
           padding: const EdgeInsets.all(20),
@@ -370,7 +369,7 @@ class _BroadcastsPageState extends State<BroadcastsPage> {
                       if (createdAt != null) ...[
                         const SizedBox(height: 4),
                         Text(
-                          DateFormat('MMM d, yyyy').format(createdAt),
+                          AppDateTime.mediumDate(createdAt),
                           style: TextStyle(
                               fontSize: 11,
                               color: theme.colorScheme.onSurface

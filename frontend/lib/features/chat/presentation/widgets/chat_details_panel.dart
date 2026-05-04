@@ -8,12 +8,12 @@ import 'package:simpulx/features/chat/presentation/widgets/assignment_controls.d
 import 'package:simpulx/core/constants/api_constants.dart';
 import 'package:simpulx/core/network/dio_client.dart';
 import 'package:simpulx/core/di/injection_container.dart' as di;
+import 'package:simpulx/core/utils/app_datetime.dart';
 import 'package:simpulx/core/utils/source_channel.dart' as src;
 import 'package:simpulx/core/utils/avatar_colors.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
 import 'package:url_launcher/url_launcher.dart';
-import 'package:intl/intl.dart';
 
 class ChatDetailsPanel extends StatelessWidget {
   final String conversationId;
@@ -248,7 +248,8 @@ class _ConversationDetails extends StatelessWidget {
                     label: 'Chat on WhatsApp',
                     color: const Color(0xFF25D366),
                     onTap: () {
-                      launchUrl(Uri.parse('https://wa.me/$whatsappId'), mode: LaunchMode.externalApplication);
+                      launchUrl(Uri.parse('https://wa.me/$whatsappId'),
+                          mode: LaunchMode.externalApplication);
                       _logCta(
                         type: 'whatsapp',
                         conversationId: conversation.id,
@@ -378,11 +379,7 @@ class _ConversationDetails extends StatelessWidget {
   }
 
   static String _formatDateTime(DateTime dateTime) {
-    final date =
-        '${dateTime.day.toString().padLeft(2, '0')}/${dateTime.month.toString().padLeft(2, '0')}/${dateTime.year}';
-    final time =
-        '${dateTime.hour.toString().padLeft(2, '0')}:${dateTime.minute.toString().padLeft(2, '0')}';
-    return '$date $time';
+    return AppDateTime.shortDateTime(dateTime);
   }
 
   // ── CTA Tracking ─────────────────────────────────────
@@ -398,7 +395,8 @@ class _ConversationDetails extends StatelessWidget {
     if (!kIsWeb && Platform.isAndroid) {
       try {
         // Step 1: Request permission first and WAIT for user response
-        final granted = await _callChannel.invokeMethod<bool>('requestPermission') ?? false;
+        final granted =
+            await _callChannel.invokeMethod<bool>('requestPermission') ?? false;
 
         if (granted) {
           // Step 2: Start listener BEFORE launching call
@@ -421,12 +419,12 @@ class _ConversationDetails extends StatelessWidget {
             durationSeconds: durationSeconds == -1 ? null : durationSeconds,
           );
 
-          if (context.mounted && durationSeconds != null && durationSeconds >= 0) {
+          if (context.mounted &&
+              durationSeconds != null &&
+              durationSeconds >= 0) {
             final mins = durationSeconds ~/ 60;
             final secs = durationSeconds % 60;
-            final label = mins > 0
-                ? '$mins min $secs sec'
-                : '$secs sec';
+            final label = mins > 0 ? '$mins min $secs sec' : '$secs sec';
             AppSnackbar.success(context, 'Call ended - $label');
           }
         } else {
@@ -627,22 +625,28 @@ class _InfoRow extends StatelessWidget {
                           onTap: onAction,
                           borderRadius: BorderRadius.circular(6),
                           child: Container(
-                            padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+                            padding: const EdgeInsets.symmetric(
+                                horizontal: 8, vertical: 4),
                             decoration: BoxDecoration(
-                              color: (actionColor ?? theme.colorScheme.primary).withValues(alpha: 0.10),
+                              color: (actionColor ?? theme.colorScheme.primary)
+                                  .withValues(alpha: 0.10),
                               borderRadius: BorderRadius.circular(6),
                             ),
                             child: Row(
                               mainAxisSize: MainAxisSize.min,
                               children: [
-                                Icon(actionIcon, size: 14, color: actionColor ?? theme.colorScheme.primary),
+                                Icon(actionIcon,
+                                    size: 14,
+                                    color: actionColor ??
+                                        theme.colorScheme.primary),
                                 const SizedBox(width: 4),
                                 Text(
                                   actionTooltip ?? '',
                                   style: TextStyle(
                                     fontSize: 11,
                                     fontWeight: FontWeight.w700,
-                                    color: actionColor ?? theme.colorScheme.primary,
+                                    color: actionColor ??
+                                        theme.colorScheme.primary,
                                   ),
                                 ),
                               ],
@@ -883,8 +887,8 @@ class _ClickableAgentRow extends StatelessWidget {
                   Text(
                     'Assigned agent',
                     style: theme.textTheme.labelSmall?.copyWith(
-                      color: theme.colorScheme.onSurface
-                          .withValues(alpha: 0.46),
+                      color:
+                          theme.colorScheme.onSurface.withValues(alpha: 0.46),
                       fontWeight: FontWeight.w700,
                     ),
                   ),
@@ -896,15 +900,14 @@ class _ClickableAgentRow extends StatelessWidget {
                     style: theme.textTheme.bodySmall?.copyWith(
                       color: hasAgent
                           ? theme.colorScheme.primary
-                          : theme.colorScheme.onSurface
-                              .withValues(alpha: 0.76),
+                          : theme.colorScheme.onSurface.withValues(alpha: 0.76),
                       fontWeight: FontWeight.w600,
                       height: 1.35,
                       decoration: hasAgent
                           ? TextDecoration.underline
                           : TextDecoration.none,
-                      decorationColor: theme.colorScheme.primary
-                          .withValues(alpha: 0.4),
+                      decorationColor:
+                          theme.colorScheme.primary.withValues(alpha: 0.4),
                     ),
                   ),
                 ],
@@ -1095,13 +1098,14 @@ class _StageDropdownState extends State<_StageDropdown> {
   Future<void> _setStage(Map<String, dynamic>? stage) async {
     if (_saving) return;
     setState(() => _saving = true);
-    final error = await context.read<ConversationCubit>().updateConversationStage(
-          conversationId: widget.conversation.id,
-          stageId: stage?['id'] as String?,
-          stageName: stage?['name'] as String?,
-          stageColor: stage?['color'] as String?,
-          stageCategory: stage?['category'] as String?,
-        );
+    final error =
+        await context.read<ConversationCubit>().updateConversationStage(
+              conversationId: widget.conversation.id,
+              stageId: stage?['id'] as String?,
+              stageName: stage?['name'] as String?,
+              stageColor: stage?['color'] as String?,
+              stageCategory: stage?['category'] as String?,
+            );
     if (!mounted) return;
     setState(() => _saving = false);
     if (error != null) {
@@ -1112,8 +1116,9 @@ class _StageDropdownState extends State<_StageDropdown> {
   }
 
   Map<String, dynamic>? _nextProgressing(String? currentId) {
-    final progressing =
-        _stages.where((s) => (s['category'] ?? 'progressing') == 'progressing').toList();
+    final progressing = _stages
+        .where((s) => (s['category'] ?? 'progressing') == 'progressing')
+        .toList();
     if (progressing.isEmpty) return null;
     if (currentId == null) return progressing.first;
     final idx = progressing.indexWhere((s) => s['id'] == currentId);
@@ -1162,8 +1167,7 @@ class _StageDropdownState extends State<_StageDropdown> {
                   shape: RoundedRectangleBorder(
                       borderRadius: BorderRadius.circular(12)),
                   elevation: 3,
-                  constraints:
-                      BoxConstraints(minWidth: constraints.maxWidth),
+                  constraints: BoxConstraints(minWidth: constraints.maxWidth),
                   onSelected: _setStage,
                   itemBuilder: (context) => _buildMenuItems(theme),
                   child: _StageChip(
@@ -1333,9 +1337,8 @@ class _StageChip extends StatelessWidget {
     final border = isEmpty
         ? theme.colorScheme.onSurface.withValues(alpha: 0.10)
         : color!.withValues(alpha: 0.45);
-    final fg = isEmpty
-        ? theme.colorScheme.onSurface.withValues(alpha: 0.55)
-        : color!;
+    final fg =
+        isEmpty ? theme.colorScheme.onSurface.withValues(alpha: 0.55) : color!;
 
     return Container(
       height: 38,
@@ -1413,8 +1416,7 @@ class _InterestLevelDropdown extends StatelessWidget {
               Text(
                 'Interest Level',
                 style: theme.textTheme.labelSmall?.copyWith(
-                  color:
-                      theme.colorScheme.onSurface.withValues(alpha: 0.46),
+                  color: theme.colorScheme.onSurface.withValues(alpha: 0.46),
                   fontWeight: FontWeight.w700,
                 ),
               ),
@@ -1423,94 +1425,115 @@ class _InterestLevelDropdown extends StatelessWidget {
           const SizedBox(height: 6),
           LayoutBuilder(
             builder: (context, constraints) {
-            return SizedBox(
-            width: double.infinity,
-            child: PopupMenuButton<String?>(
-              position: PopupMenuPosition.under,
-              shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
-              elevation: 3,
-              constraints: BoxConstraints(minWidth: constraints.maxWidth),
-              onSelected: (val) async {
-                final error = await context
-                    .read<ConversationCubit>()
-                    .updateInterestLevel(
-                      conversationId: conversation.id,
-                      interestLevel: val,
-                    );
-                if (context.mounted) {
-                  if (error != null) {
-                    AppSnackbar.error(context, error);
-                  } else {
-                    final label = val != null
-                        ? _levels.firstWhere((l) => l.value == val, orElse: () => _levels.first).label
-                        : 'None';
-                    AppSnackbar.success(context, 'Interest level set to $label');
-                  }
-                }
-              },
-              itemBuilder: (context) => [
-                PopupMenuItem<String?>(
-                  value: null,
-                  child: Text(
-                    'None',
-                    style: theme.textTheme.bodySmall?.copyWith(
-                      color: theme.colorScheme.onSurface.withValues(alpha: 0.42),
-                      fontWeight: FontWeight.w600,
-                    ),
-                  ),
-                ),
-                ..._levels.map((l) => PopupMenuItem<String?>(
-                      value: l.value,
-                      child: Row(
-                        children: [
-                          Icon(Icons.circle, size: 10, color: l.color),
-                          const SizedBox(width: 8),
-                          Text(
-                            l.label,
-                            style: theme.textTheme.bodySmall?.copyWith(
-                              fontWeight: FontWeight.w600,
-                            ),
-                          ),
-                        ],
-                      ),
-                    )),
-              ],
-              child: Container(
-                height: 38,
-                padding: const EdgeInsets.symmetric(horizontal: 12),
-                decoration: BoxDecoration(
-                  color: theme.colorScheme.surfaceContainerHighest.withValues(alpha: 0.35),
-                  borderRadius: BorderRadius.circular(8),
-                  border: Border.all(
-                    color: theme.colorScheme.onSurface.withValues(alpha: 0.10),
-                  ),
-                ),
-                child: Row(
-                  children: [
-                    if (current != null) ...[
-                      Icon(Icons.circle, size: 10, color: _levels.firstWhere((l) => l.value == current, orElse: () => _levels.first).color),
-                      const SizedBox(width: 8),
-                    ],
-                    Expanded(
+              return SizedBox(
+                width: double.infinity,
+                child: PopupMenuButton<String?>(
+                  position: PopupMenuPosition.under,
+                  shape: RoundedRectangleBorder(
+                      borderRadius: BorderRadius.circular(12)),
+                  elevation: 3,
+                  constraints: BoxConstraints(minWidth: constraints.maxWidth),
+                  onSelected: (val) async {
+                    final error = await context
+                        .read<ConversationCubit>()
+                        .updateInterestLevel(
+                          conversationId: conversation.id,
+                          interestLevel: val,
+                        );
+                    if (context.mounted) {
+                      if (error != null) {
+                        AppSnackbar.error(context, error);
+                      } else {
+                        final label = val != null
+                            ? _levels
+                                .firstWhere((l) => l.value == val,
+                                    orElse: () => _levels.first)
+                                .label
+                            : 'None';
+                        AppSnackbar.success(
+                            context, 'Interest level set to $label');
+                      }
+                    }
+                  },
+                  itemBuilder: (context) => [
+                    PopupMenuItem<String?>(
+                      value: null,
                       child: Text(
-                        current != null
-                            ? _levels.firstWhere((l) => l.value == current, orElse: () => _levels.first).label
-                            : 'None',
+                        'None',
                         style: theme.textTheme.bodySmall?.copyWith(
-                          color: current != null
-                              ? theme.colorScheme.onSurface.withValues(alpha: 0.76)
-                              : theme.colorScheme.onSurface.withValues(alpha: 0.42),
+                          color: theme.colorScheme.onSurface
+                              .withValues(alpha: 0.42),
                           fontWeight: FontWeight.w600,
                         ),
                       ),
                     ),
-                    Icon(Icons.unfold_more_rounded, size: 16, color: theme.colorScheme.onSurface.withValues(alpha: 0.4)),
+                    ..._levels.map((l) => PopupMenuItem<String?>(
+                          value: l.value,
+                          child: Row(
+                            children: [
+                              Icon(Icons.circle, size: 10, color: l.color),
+                              const SizedBox(width: 8),
+                              Text(
+                                l.label,
+                                style: theme.textTheme.bodySmall?.copyWith(
+                                  fontWeight: FontWeight.w600,
+                                ),
+                              ),
+                            ],
+                          ),
+                        )),
                   ],
+                  child: Container(
+                    height: 38,
+                    padding: const EdgeInsets.symmetric(horizontal: 12),
+                    decoration: BoxDecoration(
+                      color: theme.colorScheme.surfaceContainerHighest
+                          .withValues(alpha: 0.35),
+                      borderRadius: BorderRadius.circular(8),
+                      border: Border.all(
+                        color:
+                            theme.colorScheme.onSurface.withValues(alpha: 0.10),
+                      ),
+                    ),
+                    child: Row(
+                      children: [
+                        if (current != null) ...[
+                          Icon(Icons.circle,
+                              size: 10,
+                              color: _levels
+                                  .firstWhere((l) => l.value == current,
+                                      orElse: () => _levels.first)
+                                  .color),
+                          const SizedBox(width: 8),
+                        ],
+                        Expanded(
+                          child: Text(
+                            current != null
+                                ? _levels
+                                    .firstWhere((l) => l.value == current,
+                                        orElse: () => _levels.first)
+                                    .label
+                                : 'None',
+                            style: theme.textTheme.bodySmall?.copyWith(
+                              color: current != null
+                                  ? theme.colorScheme.onSurface
+                                      .withValues(alpha: 0.76)
+                                  : theme.colorScheme.onSurface
+                                      .withValues(alpha: 0.42),
+                              fontWeight: FontWeight.w600,
+                            ),
+                          ),
+                        ),
+                        Icon(Icons.unfold_more_rounded,
+                            size: 16,
+                            color: theme.colorScheme.onSurface
+                                .withValues(alpha: 0.4)),
+                      ],
+                    ),
+                  ),
                 ),
-              ),
-            ),
-          );
-          },
+              );
+            },
           ),
         ],
       ),
@@ -1531,10 +1554,7 @@ class _FollowUpInfoRow extends StatelessWidget {
     bool isOverdue = false;
 
     if (snoozedUntil != null) {
-      final local = snoozedUntil.toLocal();
-      final d = '${local.day.toString().padLeft(2, '0')}/${local.month.toString().padLeft(2, '0')}/${local.year}';
-      final t = '${local.hour.toString().padLeft(2, '0')}:${local.minute.toString().padLeft(2, '0')}';
-      displayValue = '$d $t';
+      displayValue = AppDateTime.shortDateTime(snoozedUntil);
       isOverdue = snoozedUntil.isBefore(DateTime.now());
       if (isOverdue) displayValue = '$displayValue (Overdue)';
     }
@@ -1573,8 +1593,10 @@ class _FollowUpInfoRow extends StatelessWidget {
                     color: isOverdue
                         ? const Color(0xFFEF4444)
                         : snoozedUntil != null
-                            ? theme.colorScheme.onSurface.withValues(alpha: 0.76)
-                            : theme.colorScheme.onSurface.withValues(alpha: 0.42),
+                            ? theme.colorScheme.onSurface
+                                .withValues(alpha: 0.76)
+                            : theme.colorScheme.onSurface
+                                .withValues(alpha: 0.42),
                     fontWeight: FontWeight.w600,
                     height: 1.35,
                   ),
@@ -1757,8 +1779,7 @@ class _NoteTile extends StatelessWidget {
                 Icon(
                   Icons.person_outline_rounded,
                   size: 13,
-                  color:
-                      theme.colorScheme.onSurface.withValues(alpha: 0.46),
+                  color: theme.colorScheme.onSurface.withValues(alpha: 0.46),
                 ),
                 const SizedBox(width: 4),
                 Expanded(
@@ -1776,8 +1797,7 @@ class _NoteTile extends StatelessWidget {
                 Text(
                   time,
                   style: theme.textTheme.labelSmall?.copyWith(
-                    color: theme.colorScheme.onSurface
-                        .withValues(alpha: 0.38),
+                    color: theme.colorScheme.onSurface.withValues(alpha: 0.38),
                     fontSize: 10,
                   ),
                 ),
@@ -1788,8 +1808,7 @@ class _NoteTile extends StatelessWidget {
                   child: Icon(
                     Icons.close_rounded,
                     size: 14,
-                    color: theme.colorScheme.onSurface
-                        .withValues(alpha: 0.36),
+                    color: theme.colorScheme.onSurface.withValues(alpha: 0.36),
                   ),
                 ),
               ],

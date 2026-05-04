@@ -1,6 +1,7 @@
 import 'dart:async';
 
 import 'package:simpulx/core/theme/app_theme.dart';
+import 'package:simpulx/core/utils/app_datetime.dart';
 import 'package:simpulx/core/utils/avatar_colors.dart';
 import 'package:simpulx/core/utils/source_channel.dart' as src;
 import 'package:simpulx/features/chat/domain/entities/chat_entities.dart';
@@ -15,7 +16,8 @@ Color _stageHexToColor(String? hex) {
   return Color(0xFF000000 | value);
 }
 
-String _sourceChannelLabel(String code) => src.prettySourceChannel(code, fallback: code);
+String _sourceChannelLabel(String code) =>
+    src.prettySourceChannel(code, fallback: code);
 
 Widget _statusTick(String? status, ThemeData theme) {
   switch (status) {
@@ -93,7 +95,8 @@ class _ConversationListWidgetState extends State<ConversationListWidget> {
     context.read<ConversationCubit>().filterByStatus(status);
   }
 
-  void _showFilterBottomSheet(BuildContext context, ConversationListState state) {
+  void _showFilterBottomSheet(
+      BuildContext context, ConversationListState state) {
     showModalBottomSheet(
       context: context,
       isScrollControlled: true,
@@ -216,14 +219,16 @@ class _ConversationHeader extends StatelessWidget {
                 child: SizedBox(
                   height: 40,
                   child: TextField(
-                    onChanged: (q) => context.read<ConversationCubit>().search(q),
+                    onChanged: (q) =>
+                        context.read<ConversationCubit>().search(q),
                     style: theme.textTheme.bodyMedium,
                     decoration: InputDecoration(
                       hintText: 'Search conversations',
                       prefixIcon: Icon(
                         Icons.search_rounded,
                         size: 20,
-                        color: theme.colorScheme.onSurface.withValues(alpha: 0.48),
+                        color:
+                            theme.colorScheme.onSurface.withValues(alpha: 0.48),
                       ),
                       filled: true,
                       isDense: true,
@@ -409,16 +414,17 @@ class _ConversationFilterPanelState extends State<_ConversationFilterPanel> {
   void didUpdateWidget(covariant _ConversationFilterPanel oldWidget) {
     super.didUpdateWidget(oldWidget);
     // Reseed draft when an external reset clears filters (e.g. from header).
-    final externalChange = widget.state.sortOrder != oldWidget.state.sortOrder ||
-        widget.state.assignmentFilter != oldWidget.state.assignmentFilter ||
-        widget.state.agentId != oldWidget.state.agentId ||
-        widget.state.departmentId != oldWidget.state.departmentId ||
-        widget.state.channelId != oldWidget.state.channelId ||
-        widget.state.lastMessageBy != oldWidget.state.lastMessageBy ||
-        widget.state.tag != oldWidget.state.tag ||
-        widget.state.stageId != oldWidget.state.stageId ||
-        widget.state.interestLevel != oldWidget.state.interestLevel ||
-        widget.state.sourceChannel != oldWidget.state.sourceChannel;
+    final externalChange =
+        widget.state.sortOrder != oldWidget.state.sortOrder ||
+            widget.state.assignmentFilter != oldWidget.state.assignmentFilter ||
+            widget.state.agentId != oldWidget.state.agentId ||
+            widget.state.departmentId != oldWidget.state.departmentId ||
+            widget.state.channelId != oldWidget.state.channelId ||
+            widget.state.lastMessageBy != oldWidget.state.lastMessageBy ||
+            widget.state.tag != oldWidget.state.tag ||
+            widget.state.stageId != oldWidget.state.stageId ||
+            widget.state.interestLevel != oldWidget.state.interestLevel ||
+            widget.state.sourceChannel != oldWidget.state.sourceChannel;
     if (externalChange) {
       _syncFromState(widget.state);
       final tagText = _tag ?? '';
@@ -561,8 +567,7 @@ class _ConversationFilterPanelState extends State<_ConversationFilterPanel> {
                         child: _FilterPillButton(
                           label: 'Latest',
                           selected: _sortOrder == 'latest',
-                          onTap: () =>
-                              setState(() => _sortOrder = 'latest'),
+                          onTap: () => setState(() => _sortOrder = 'latest'),
                         ),
                       ),
                       const SizedBox(width: 8),
@@ -570,8 +575,7 @@ class _ConversationFilterPanelState extends State<_ConversationFilterPanel> {
                         child: _FilterPillButton(
                           label: 'Oldest',
                           selected: _sortOrder == 'oldest',
-                          onTap: () =>
-                              setState(() => _sortOrder = 'oldest'),
+                          onTap: () => setState(() => _sortOrder = 'oldest'),
                         ),
                       ),
                     ],
@@ -724,8 +728,7 @@ class _ConversationFilterPanelState extends State<_ConversationFilterPanel> {
                         ),
                       ),
                     ],
-                    onChanged: (value) =>
-                        setState(() => _departmentId = value),
+                    onChanged: (value) => setState(() => _departmentId = value),
                   ),
                 ),
                 _FilterCheckbox(
@@ -748,8 +751,7 @@ class _ConversationFilterPanelState extends State<_ConversationFilterPanel> {
                       _FilterCheckbox(
                         label: 'Customer',
                         value: _lastByCustomer,
-                        onChanged: (v) =>
-                            setState(() => _lastByCustomer = v),
+                        onChanged: (v) => setState(() => _lastByCustomer = v),
                       ),
                       _FilterCheckbox(
                         label: 'Bot',
@@ -775,8 +777,7 @@ class _ConversationFilterPanelState extends State<_ConversationFilterPanel> {
                           icon: _iconForChannel(channel.label),
                           count: channel.count,
                           selected: _channelId == channel.id,
-                          onTap: () =>
-                              setState(() => _channelId = channel.id),
+                          onTap: () => setState(() => _channelId = channel.id),
                         ),
                       ),
                     ],
@@ -897,7 +898,6 @@ class _ConversationFilterPanelState extends State<_ConversationFilterPanel> {
     if (lower.contains('sms')) return Icons.sms_rounded;
     return Icons.forum_rounded;
   }
-
 }
 
 class _FilterPillButton extends StatelessWidget {
@@ -1117,8 +1117,7 @@ class _TagAutocompleteFieldState extends State<_TagAutocompleteField> {
             TextSelection.collapsed(offset: widget.controller.text.length);
         widget.onChanged(value);
       },
-      fieldViewBuilder:
-          (context, textController, focusNode, onFieldSubmitted) {
+      fieldViewBuilder: (context, textController, focusNode, onFieldSubmitted) {
         return TextField(
           controller: textController,
           focusNode: focusNode,
@@ -1133,8 +1132,7 @@ class _TagAutocompleteFieldState extends State<_TagAutocompleteField> {
               color: theme.colorScheme.onSurface.withValues(alpha: 0.48),
             ),
             filled: true,
-            fillColor:
-                theme.colorScheme.onSurface.withValues(alpha: 0.04),
+            fillColor: theme.colorScheme.onSurface.withValues(alpha: 0.04),
             contentPadding:
                 const EdgeInsets.symmetric(horizontal: 12, vertical: 12),
             border: OutlineInputBorder(
@@ -1157,8 +1155,7 @@ class _TagAutocompleteFieldState extends State<_TagAutocompleteField> {
             elevation: 6,
             borderRadius: BorderRadius.circular(8),
             child: ConstrainedBox(
-              constraints:
-                  const BoxConstraints(maxHeight: 220, maxWidth: 260),
+              constraints: const BoxConstraints(maxHeight: 220, maxWidth: 260),
               child: ListView.builder(
                 padding: EdgeInsets.zero,
                 shrinkWrap: true,
@@ -1254,8 +1251,7 @@ class _ChannelTile extends StatelessWidget {
                   child: Icon(
                     icon,
                     size: 16,
-                    color:
-                        selected ? primary : const Color(0xFF128C56),
+                    color: selected ? primary : const Color(0xFF128C56),
                   ),
                 ),
                 const SizedBox(width: 10),
@@ -1267,8 +1263,7 @@ class _ChannelTile extends StatelessWidget {
                     style: theme.textTheme.bodySmall?.copyWith(
                       color:
                           theme.colorScheme.onSurface.withValues(alpha: 0.84),
-                      fontWeight:
-                          selected ? FontWeight.w700 : FontWeight.w600,
+                      fontWeight: selected ? FontWeight.w700 : FontWeight.w600,
                     ),
                   ),
                 ),
@@ -1277,8 +1272,8 @@ class _ChannelTile extends StatelessWidget {
                   Text(
                     '$count',
                     style: theme.textTheme.labelSmall?.copyWith(
-                      color: theme.colorScheme.onSurface
-                          .withValues(alpha: 0.48),
+                      color:
+                          theme.colorScheme.onSurface.withValues(alpha: 0.48),
                       fontWeight: FontWeight.w700,
                     ),
                   ),
@@ -1398,7 +1393,8 @@ class _ConversationTileState extends State<_ConversationTile>
   @override
   void didUpdateWidget(covariant _ConversationTile oldWidget) {
     super.didUpdateWidget(oldWidget);
-    if (widget.conversation.lastMessageAt != oldWidget.conversation.lastMessageAt) {
+    if (widget.conversation.lastMessageAt !=
+        oldWidget.conversation.lastMessageAt) {
       _startCountdown();
     }
   }
@@ -1430,12 +1426,7 @@ class _ConversationTileState extends State<_ConversationTile>
   }
 
   String _formatTimestamp(DateTime dt) {
-    final h = dt.hour;
-    final m = dt.minute.toString().padLeft(2, '0');
-    final sec = dt.second.toString().padLeft(2, '0');
-    final ampm = h >= 12 ? 'PM' : 'AM';
-    final h12 = h == 0 ? 12 : (h > 12 ? h - 12 : h);
-    return '$h12:$m:$sec $ampm';
+    return AppDateTime.timeWithSeconds(dt);
   }
 
   /// Strip lightweight markdown/system-message formatting for list previews.
@@ -1445,12 +1436,15 @@ class _ConversationTileState extends State<_ConversationTile>
     s = s.replaceAllMapped(RegExp(r'\*\*(.+?)\*\*'), (m) => m.group(1) ?? '');
     s = s.replaceAllMapped(RegExp(r'__(.+?)__'), (m) => m.group(1) ?? '');
     // Italic *text* or _text_ → text (simple)
-    s = s.replaceAllMapped(RegExp(r'(?<!\*)\*(?!\s)([^*\n]+?)\*(?!\*)'), (m) => m.group(1) ?? '');
-    s = s.replaceAllMapped(RegExp(r'(?<!_)_(?!\s)([^_\n]+?)_(?!_)'), (m) => m.group(1) ?? '');
+    s = s.replaceAllMapped(
+        RegExp(r'(?<!\*)\*(?!\s)([^*\n]+?)\*(?!\*)'), (m) => m.group(1) ?? '');
+    s = s.replaceAllMapped(
+        RegExp(r'(?<!_)_(?!\s)([^_\n]+?)_(?!_)'), (m) => m.group(1) ?? '');
     // Inline code `text` → text
     s = s.replaceAllMapped(RegExp(r'`([^`]+)`'), (m) => m.group(1) ?? '');
     // Markdown link [label](url) → label
-    s = s.replaceAllMapped(RegExp(r'\[([^\]]+)\]\([^)]+\)'), (m) => m.group(1) ?? '');
+    s = s.replaceAllMapped(
+        RegExp(r'\[([^\]]+)\]\([^)]+\)'), (m) => m.group(1) ?? '');
     // Strip leading @bot mention (system bot messages)
     s = s.replaceFirst(RegExp(r'^@bot\s+'), '');
     return s.trim();
@@ -1469,8 +1463,8 @@ class _ConversationTileState extends State<_ConversationTile>
 
     // Determine if we show live countdown or static time
     final lastAt = conversation.lastMessageAt;
-    final isToday = lastAt != null &&
-        DateTime.now().difference(lastAt).inHours < 24;
+    final isToday =
+        lastAt != null && DateTime.now().difference(lastAt).inHours < 24;
 
     final agentName = conversation.assignedAgent?.fullName;
     final deptName = conversation.departmentName;
@@ -1508,7 +1502,8 @@ class _ConversationTileState extends State<_ConversationTile>
                           child: Text(
                             contactName,
                             style: theme.textTheme.bodyMedium?.copyWith(
-                              fontWeight: hasUnread ? FontWeight.w700 : FontWeight.w700,
+                              fontWeight:
+                                  hasUnread ? FontWeight.w700 : FontWeight.w700,
                               fontSize: 14,
                             ),
                             overflow: TextOverflow.ellipsis,
@@ -1521,7 +1516,9 @@ class _ConversationTileState extends State<_ConversationTile>
                               ? _LiveCountdownBadge(
                                   elapsed: _elapsed,
                                   text: _formatElapsed(_elapsed),
-                                  isFromContact: conversation.lastMessageSenderType == 'contact',
+                                  isFromContact:
+                                      conversation.lastMessageSenderType ==
+                                          'contact',
                                 )
                               : Text(
                                   _formatTimestamp(lastAt),
@@ -1542,7 +1539,8 @@ class _ConversationTileState extends State<_ConversationTile>
                     // Row 2: Last message preview
                     Row(
                       children: [
-                        if (conversation.lastMessageDirection == 'outbound') ...[
+                        if (conversation.lastMessageDirection ==
+                            'outbound') ...[
                           _statusTick(
                             conversation.lastMessageStatus,
                             theme,
@@ -1554,9 +1552,12 @@ class _ConversationTileState extends State<_ConversationTile>
                             lastMsg,
                             style: theme.textTheme.bodySmall?.copyWith(
                               color: hasUnread
-                                  ? theme.colorScheme.onSurface.withValues(alpha: 0.7)
-                                  : theme.colorScheme.onSurface.withValues(alpha: 0.45),
-                              fontWeight: hasUnread ? FontWeight.w600 : FontWeight.w400,
+                                  ? theme.colorScheme.onSurface
+                                      .withValues(alpha: 0.7)
+                                  : theme.colorScheme.onSurface
+                                      .withValues(alpha: 0.45),
+                              fontWeight:
+                                  hasUnread ? FontWeight.w600 : FontWeight.w400,
                               fontSize: 12.5,
                             ),
                             overflow: TextOverflow.ellipsis,
@@ -1585,8 +1586,10 @@ class _ConversationTileState extends State<_ConversationTile>
                               color: theme.colorScheme.primary,
                             ),
                           ),
-                        if (agentName != null && agentName.isNotEmpty &&
-                            deptName != null && deptName.isNotEmpty)
+                        if (agentName != null &&
+                            agentName.isNotEmpty &&
+                            deptName != null &&
+                            deptName.isNotEmpty)
                           const SizedBox(width: 6),
                         if (deptName != null && deptName.isNotEmpty)
                           Flexible(
@@ -1601,7 +1604,8 @@ class _ConversationTileState extends State<_ConversationTile>
                           _InfoBadge(
                             icon: Icons.person_off_rounded,
                             label: 'Unassigned',
-                            color: theme.colorScheme.onSurface.withValues(alpha: 0.4),
+                            color: theme.colorScheme.onSurface
+                                .withValues(alpha: 0.4),
                           ),
                       ],
                     ),

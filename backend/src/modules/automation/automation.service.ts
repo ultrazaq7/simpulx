@@ -89,6 +89,9 @@ export class AutomationService {
       if (!triggerTypes.includes(AutomationTrigger.KEYWORD_MATCH)) triggerTypes.push(AutomationTrigger.KEYWORD_MATCH);
       if (!triggerTypes.includes(AutomationTrigger.NEW_MESSAGE)) triggerTypes.push(AutomationTrigger.NEW_MESSAGE);
       if (!triggerTypes.includes(AutomationTrigger.NEW_CONVERSATION)) triggerTypes.push(AutomationTrigger.NEW_CONVERSATION);
+      if (data.metadata?.sourceId && data.metadata?.sourceType === 'ad') {
+        triggerTypes.push(AutomationTrigger.AD_CLICK);
+      }
     }
 
     const rules = await this.ruleRepo.find({
@@ -167,6 +170,22 @@ export class AutomationService {
       if (!matched) return false;
     }
 
+    // CTWA / ad click filters. Use exact unique IDs, not message text.
+    if (rule.triggerType === AutomationTrigger.AD_CLICK) {
+      const sourceId = context.metadata?.sourceId || context.metadata?.referral?.sourceId;
+      if (!sourceId) return false;
+      if (conditions.sourceIds?.length && !conditions.sourceIds.includes(sourceId)) {
+        return false;
+      }
+      if (conditions.sourceId && conditions.sourceId !== sourceId) {
+        return false;
+      }
+      const sourceType = context.metadata?.sourceType || context.metadata?.referral?.sourceType;
+      if (conditions.sourceType && conditions.sourceType !== sourceType) {
+        return false;
+      }
+    }
+
     // Channel filter (supports both 'channel' and 'channelId' condition keys)
     if (conditions.channelId && conversation.whatsappChannelId !== conditions.channelId) {
       return false;
@@ -235,6 +254,7 @@ export class AutomationService {
               const sysMsg = msgRepo.create({
                 organizationId: context.orgId,
                 conversationId: conversation.id,
+                senderType: 'bot',
                 direction: 'outbound',
                 type: 'text',
                 content: action.params.message,
@@ -288,10 +308,10 @@ export class AutomationService {
             break;
 
           case AutomationAction.CLOSE_CONVERSATION:
-            await this.chatService.updateStatus(
+            await this.chatService.closeConversationBySystem(
               context.orgId,
               conversation.id,
-              'closed' as any,
+              action.params?.reason || 'automation_closed',
             );
             break;
 
@@ -346,6 +366,12 @@ export class AutomationService {
       let matched = false;
       if (event === 'message_text_includes_keywords' && keywords.length) {
         matched = keywords.some((kw: string) => content.includes(kw.toLowerCase()));
+      } else if (event === 'ad_click' || event === 'ctwa_referral') {
+        const sourceId = context.metadata?.sourceId || context.metadata?.referral?.sourceId;
+        const configuredIds: string[] = config.sourceIds || [];
+        matched = !!sourceId && (
+          configuredIds.length === 0 || configuredIds.includes(sourceId)
+        );
       } else if (event === 'all_messages' || event === 'new_conversation') {
         matched = true;
       }
@@ -570,6 +596,13 @@ export class AutomationService {
         return (contact?.tags || []).join(', ');
       case 'channel':
         return conversation.channel || '';
+      case 'ad.id':
+      case 'ad.source_id':
+        return context.metadata?.sourceId || context.metadata?.referral?.sourceId || '';
+      case 'ad.headline':
+        return context.metadata?.headline || context.metadata?.referral?.headline || '';
+      case 'ad.ctwa_clid':
+        return context.metadata?.ctwaClid || context.metadata?.referral?.ctwaClid || '';
       case 'last_message.text':
         return context.metadata?.content || '';
       default:

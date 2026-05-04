@@ -93,7 +93,10 @@ class _MobileProfilePageState extends State<MobileProfilePage> {
       await dio.patch('/auth/profile', data: {'fullName': name});
       if (mounted) {
         context.read<AuthBloc>().add(CheckAuthStatusEvent());
-        setState(() { _editingName = false; _savingName = false; });
+        setState(() {
+          _editingName = false;
+          _savingName = false;
+        });
         AppSnackbar.success(context, 'Name updated');
       }
     } catch (e) {
@@ -118,7 +121,8 @@ class _MobileProfilePageState extends State<MobileProfilePage> {
       return;
     }
     if (!RegExp(r'^(?=.*[A-Z])(?=.*\d).{8,}$').hasMatch(newPw)) {
-      AppSnackbar.error(context, 'Password must be 8+ chars with uppercase and number');
+      AppSnackbar.error(
+          context, 'Password must be 8+ chars with uppercase and number');
       return;
     }
 
@@ -133,7 +137,10 @@ class _MobileProfilePageState extends State<MobileProfilePage> {
         _currentPwController.clear();
         _newPwController.clear();
         _confirmPwController.clear();
-        setState(() { _showChangePw = false; _savingPw = false; });
+        setState(() {
+          _showChangePw = false;
+          _savingPw = false;
+        });
         AppSnackbar.success(context, 'Password changed successfully');
       }
     } catch (e) {
@@ -172,15 +179,15 @@ class _MobileProfilePageState extends State<MobileProfilePage> {
         return Container(
           color: const Color(0xFFF8F9FC),
           child: ListView(
-              controller: _scrollController,
-              keyboardDismissBehavior: ScrollViewKeyboardDismissBehavior.onDrag,
-              padding: EdgeInsets.fromLTRB(
-                20,
-                8,
-                20,
-                MediaQuery.of(context).padding.bottom + 32,
-              ),
-              children: [
+            controller: _scrollController,
+            keyboardDismissBehavior: ScrollViewKeyboardDismissBehavior.onDrag,
+            padding: EdgeInsets.fromLTRB(
+              20,
+              8,
+              20,
+              MediaQuery.of(context).padding.bottom + 32,
+            ),
+            children: [
               const SizedBox(height: 8),
 
               // ── Avatar + Name + Email + Role ──
@@ -218,7 +225,7 @@ class _MobileProfilePageState extends State<MobileProfilePage> {
                           initials,
                           style: const TextStyle(
                             color: Colors.white,
-                            fontSize: 28,
+                            fontSize: 24,
                             fontWeight: FontWeight.w700,
                           ),
                         ),
@@ -240,7 +247,8 @@ class _MobileProfilePageState extends State<MobileProfilePage> {
                     ),
                     const SizedBox(height: 8),
                     Container(
-                      padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 4),
+                      padding: const EdgeInsets.symmetric(
+                          horizontal: 12, vertical: 4),
                       decoration: BoxDecoration(
                         color: theme.colorScheme.primary.withOpacity(0.1),
                         borderRadius: BorderRadius.circular(20),
@@ -277,9 +285,10 @@ class _MobileProfilePageState extends State<MobileProfilePage> {
                     trailing: _editingName
                         ? null
                         : IconButton(
-                            onPressed: () => setState(() => _editingName = true),
-                            icon: Icon(Icons.edit_outlined, size: 18,
-                                color: theme.colorScheme.primary),
+                            onPressed: () =>
+                                setState(() => _editingName = true),
+                            icon: Icon(Icons.edit_outlined,
+                                size: 18, color: theme.colorScheme.primary),
                             style: IconButton.styleFrom(
                               minimumSize: const Size(32, 32),
                               padding: EdgeInsets.zero,
@@ -299,7 +308,8 @@ class _MobileProfilePageState extends State<MobileProfilePage> {
                         color: theme.colorScheme.onSurface.withOpacity(0.5),
                         fontSize: 13,
                       ),
-                      prefixIcon: Icon(Icons.person_outline_rounded, size: 20,
+                      prefixIcon: Icon(Icons.person_outline_rounded,
+                          size: 20,
                           color: theme.colorScheme.onSurface.withOpacity(0.4)),
                       border: OutlineInputBorder(
                         borderRadius: BorderRadius.circular(12),
@@ -311,9 +321,11 @@ class _MobileProfilePageState extends State<MobileProfilePage> {
                       ),
                       disabledBorder: OutlineInputBorder(
                         borderRadius: BorderRadius.circular(12),
-                        borderSide: BorderSide(color: theme.dividerColor.withOpacity(0.3)),
+                        borderSide: BorderSide(
+                            color: theme.dividerColor.withOpacity(0.3)),
                       ),
-                      contentPadding: const EdgeInsets.symmetric(horizontal: 14, vertical: 12),
+                      contentPadding: const EdgeInsets.symmetric(
+                          horizontal: 14, vertical: 12),
                       filled: !_editingName,
                       fillColor: theme.colorScheme.onSurface.withOpacity(0.03),
                     ),
@@ -333,13 +345,15 @@ class _MobileProfilePageState extends State<MobileProfilePage> {
                         color: theme.colorScheme.onSurface.withOpacity(0.4),
                         fontSize: 13,
                       ),
-                      prefixIcon: Icon(Icons.email_outlined, size: 20,
+                      prefixIcon: Icon(Icons.email_outlined,
+                          size: 20,
                           color: theme.colorScheme.onSurface.withOpacity(0.3)),
                       border: OutlineInputBorder(
                         borderRadius: BorderRadius.circular(12),
                         borderSide: BorderSide.none,
                       ),
-                      contentPadding: const EdgeInsets.symmetric(horizontal: 14, vertical: 12),
+                      contentPadding: const EdgeInsets.symmetric(
+                          horizontal: 14, vertical: 12),
                       filled: true,
                       fillColor: theme.colorScheme.onSurface.withOpacity(0.03),
                     ),
@@ -350,7 +364,8 @@ class _MobileProfilePageState extends State<MobileProfilePage> {
                       children: [
                         Expanded(
                           child: OutlinedButton(
-                            onPressed: () => setState(() => _editingName = false),
+                            onPressed: () =>
+                                setState(() => _editingName = false),
                             style: OutlinedButton.styleFrom(
                               shape: RoundedRectangleBorder(
                                 borderRadius: BorderRadius.circular(10),
@@ -371,8 +386,11 @@ class _MobileProfilePageState extends State<MobileProfilePage> {
                               padding: const EdgeInsets.symmetric(vertical: 12),
                             ),
                             child: _savingName
-                                ? const SizedBox(width: 18, height: 18,
-                                    child: CircularProgressIndicator(strokeWidth: 2, color: Colors.white))
+                                ? const SizedBox(
+                                    width: 18,
+                                    height: 18,
+                                    child: CircularProgressIndicator(
+                                        strokeWidth: 2, color: Colors.white))
                                 : const Text('Save'),
                           ),
                         ),
@@ -404,8 +422,10 @@ class _MobileProfilePageState extends State<MobileProfilePage> {
                     borderRadius: BorderRadius.circular(8),
                     child: Row(
                       children: [
-                        Icon(Icons.lock_outline_rounded, size: 20,
-                            color: theme.colorScheme.onSurface.withOpacity(0.6)),
+                        Icon(Icons.lock_outline_rounded,
+                            size: 20,
+                            color:
+                                theme.colorScheme.onSurface.withOpacity(0.6)),
                         const SizedBox(width: 12),
                         Expanded(
                           child: Text(
@@ -416,7 +436,9 @@ class _MobileProfilePageState extends State<MobileProfilePage> {
                           ),
                         ),
                         Icon(
-                          _showChangePw ? Icons.expand_less_rounded : Icons.expand_more_rounded,
+                          _showChangePw
+                              ? Icons.expand_less_rounded
+                              : Icons.expand_more_rounded,
                           color: theme.colorScheme.onSurface.withOpacity(0.4),
                         ),
                       ],
@@ -428,21 +450,24 @@ class _MobileProfilePageState extends State<MobileProfilePage> {
                       controller: _currentPwController,
                       label: 'Current Password',
                       obscure: _obscureCurrent,
-                      onToggle: () => setState(() => _obscureCurrent = !_obscureCurrent),
+                      onToggle: () =>
+                          setState(() => _obscureCurrent = !_obscureCurrent),
                     ),
                     const SizedBox(height: 10),
                     _PasswordField(
                       controller: _newPwController,
                       label: 'New Password',
                       obscure: _obscureNew,
-                      onToggle: () => setState(() => _obscureNew = !_obscureNew),
+                      onToggle: () =>
+                          setState(() => _obscureNew = !_obscureNew),
                     ),
                     const SizedBox(height: 10),
                     _PasswordField(
                       controller: _confirmPwController,
                       label: 'Confirm New Password',
                       obscure: _obscureConfirm,
-                      onToggle: () => setState(() => _obscureConfirm = !_obscureConfirm),
+                      onToggle: () =>
+                          setState(() => _obscureConfirm = !_obscureConfirm),
                     ),
                     const SizedBox(height: 6),
                     Text(
@@ -464,8 +489,11 @@ class _MobileProfilePageState extends State<MobileProfilePage> {
                           padding: const EdgeInsets.symmetric(vertical: 12),
                         ),
                         child: _savingPw
-                            ? const SizedBox(width: 18, height: 18,
-                                child: CircularProgressIndicator(strokeWidth: 2, color: Colors.white))
+                            ? const SizedBox(
+                                width: 18,
+                                height: 18,
+                                child: CircularProgressIndicator(
+                                    strokeWidth: 2, color: Colors.white))
                             : const Text('Update Password'),
                       ),
                     ),
@@ -537,19 +565,22 @@ class _SectionHeader extends StatelessWidget {
   final IconData icon;
   final String title;
   final Widget? trailing;
-  const _SectionHeader({required this.icon, required this.title, this.trailing});
+  const _SectionHeader(
+      {required this.icon, required this.title, this.trailing});
 
   @override
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
     return Row(
       children: [
-        Icon(icon, size: 20, color: theme.colorScheme.onSurface.withOpacity(0.6)),
+        Icon(icon,
+            size: 20, color: theme.colorScheme.onSurface.withOpacity(0.6)),
         const SizedBox(width: 12),
         Expanded(
-          child: Text(title, style: theme.textTheme.bodyLarge?.copyWith(
-            fontWeight: FontWeight.w600,
-          )),
+          child: Text(title,
+              style: theme.textTheme.bodyLarge?.copyWith(
+                fontWeight: FontWeight.w600,
+              )),
         ),
         if (trailing != null) trailing!,
       ],
@@ -579,14 +610,15 @@ class _PasswordField extends StatelessWidget {
       decoration: InputDecoration(
         labelText: label,
         labelStyle: TextStyle(
-          color: theme.colorScheme.onSurface.withOpacity(0.5), fontSize: 13),
-        prefixIcon: Icon(Icons.lock_outline_rounded, size: 20,
-            color: theme.colorScheme.onSurface.withOpacity(0.4)),
+            color: theme.colorScheme.onSurface.withOpacity(0.5), fontSize: 13),
+        prefixIcon: Icon(Icons.lock_outline_rounded,
+            size: 20, color: theme.colorScheme.onSurface.withOpacity(0.4)),
         suffixIcon: IconButton(
           onPressed: onToggle,
           icon: Icon(
             obscure ? Icons.visibility_off_outlined : Icons.visibility_outlined,
-            size: 20, color: theme.colorScheme.onSurface.withOpacity(0.4),
+            size: 20,
+            color: theme.colorScheme.onSurface.withOpacity(0.4),
           ),
         ),
         border: OutlineInputBorder(
@@ -597,7 +629,8 @@ class _PasswordField extends StatelessWidget {
           borderRadius: BorderRadius.circular(12),
           borderSide: BorderSide(color: theme.dividerColor),
         ),
-        contentPadding: const EdgeInsets.symmetric(horizontal: 14, vertical: 12),
+        contentPadding:
+            const EdgeInsets.symmetric(horizontal: 14, vertical: 12),
       ),
     );
   }

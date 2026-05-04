@@ -7,6 +7,8 @@ import 'package:flutter_bloc/flutter_bloc.dart';
 import 'package:http/http.dart' as http;
 import 'package:simpulx/features/auth/presentation/bloc/auth_bloc.dart';
 import 'package:simpulx/core/constants/api_constants.dart';
+import 'package:simpulx/core/theme/app_style.dart';
+import 'package:simpulx/core/utils/app_datetime.dart';
 import 'package:simpulx/core/widgets/app_snackbar.dart';
 
 class OrganizationSettingsPage extends StatefulWidget {
@@ -158,7 +160,7 @@ class _OrganizationSettingsPageState extends State<OrganizationSettingsPage> {
     }
 
     return SingleChildScrollView(
-      padding: const EdgeInsets.all(28),
+      padding: const EdgeInsets.all(24),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
@@ -192,7 +194,7 @@ class _OrganizationSettingsPageState extends State<OrganizationSettingsPage> {
                 ),
             ],
           ),
-          const SizedBox(height: 28),
+          const SizedBox(height: 20),
 
           // ── Editable fields ──────────────
           _buildSettingsCard(theme, [
@@ -242,20 +244,43 @@ class _OrganizationSettingsPageState extends State<OrganizationSettingsPage> {
               value: _timezone,
               decoration: const InputDecoration(
                 labelText: 'Timezone',
-                helperText: 'Timezone used for timestamps and scheduling.',
+                helperText:
+                    'Timestamps follow each user device. Scheduling uses this workspace default.',
               ),
               items: const [
-                DropdownMenuItem(value: 'Asia/Jakarta', child: Text('WIB - Asia/Jakarta (UTC+7)')),
-                DropdownMenuItem(value: 'Asia/Makassar', child: Text('WITA - Asia/Makassar (UTC+8)')),
-                DropdownMenuItem(value: 'Asia/Jayapura', child: Text('WIT - Asia/Jayapura (UTC+9)')),
-                DropdownMenuItem(value: 'Asia/Singapore', child: Text('SGT - Asia/Singapore (UTC+8)')),
-                DropdownMenuItem(value: 'Asia/Tokyo', child: Text('JST - Asia/Tokyo (UTC+9)')),
-                DropdownMenuItem(value: 'Asia/Shanghai', child: Text('CST - Asia/Shanghai (UTC+8)')),
-                DropdownMenuItem(value: 'Asia/Kolkata', child: Text('IST - Asia/Kolkata (UTC+5:30)')),
-                DropdownMenuItem(value: 'Asia/Dubai', child: Text('GST - Asia/Dubai (UTC+4)')),
-                DropdownMenuItem(value: 'Europe/London', child: Text('GMT - Europe/London (UTC+0)')),
-                DropdownMenuItem(value: 'America/New_York', child: Text('EST - America/New_York (UTC-5)')),
-                DropdownMenuItem(value: 'America/Los_Angeles', child: Text('PST - America/Los_Angeles (UTC-8)')),
+                DropdownMenuItem(
+                    value: 'Asia/Jakarta',
+                    child: Text('WIB - Asia/Jakarta (UTC+7)')),
+                DropdownMenuItem(
+                    value: 'Asia/Makassar',
+                    child: Text('WITA - Asia/Makassar (UTC+8)')),
+                DropdownMenuItem(
+                    value: 'Asia/Jayapura',
+                    child: Text('WIT - Asia/Jayapura (UTC+9)')),
+                DropdownMenuItem(
+                    value: 'Asia/Singapore',
+                    child: Text('SGT - Asia/Singapore (UTC+8)')),
+                DropdownMenuItem(
+                    value: 'Asia/Tokyo',
+                    child: Text('JST - Asia/Tokyo (UTC+9)')),
+                DropdownMenuItem(
+                    value: 'Asia/Shanghai',
+                    child: Text('CST - Asia/Shanghai (UTC+8)')),
+                DropdownMenuItem(
+                    value: 'Asia/Kolkata',
+                    child: Text('IST - Asia/Kolkata (UTC+5:30)')),
+                DropdownMenuItem(
+                    value: 'Asia/Dubai',
+                    child: Text('GST - Asia/Dubai (UTC+4)')),
+                DropdownMenuItem(
+                    value: 'Europe/London',
+                    child: Text('GMT - Europe/London (UTC+0)')),
+                DropdownMenuItem(
+                    value: 'America/New_York',
+                    child: Text('EST - America/New_York (UTC-5)')),
+                DropdownMenuItem(
+                    value: 'America/Los_Angeles',
+                    child: Text('PST - America/Los_Angeles (UTC-8)')),
                 DropdownMenuItem(value: 'UTC', child: Text('UTC (UTC+0)')),
               ],
               onChanged: (v) {
@@ -268,6 +293,11 @@ class _OrganizationSettingsPageState extends State<OrganizationSettingsPage> {
               },
             ),
           ]),
+          const SizedBox(height: 8),
+          Text(
+            'Your device timezone: ${AppDateTime.deviceTimezoneLabel()}',
+            style: AppText.caption.copyWith(color: AppColors.textSecondary),
+          ),
         ],
       ),
     );
@@ -282,7 +312,7 @@ class _OrganizationSettingsPageState extends State<OrganizationSettingsPage> {
     required String value,
   }) =>
       Padding(
-        padding: const EdgeInsets.symmetric(vertical: 2),
+        padding: const EdgeInsets.symmetric(vertical: 1),
         child: Row(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
@@ -313,7 +343,7 @@ class _OrganizationSettingsPageState extends State<OrganizationSettingsPage> {
 
   static Widget _buildSettingsCard(ThemeData theme, List<Widget> children) {
     return Container(
-      padding: const EdgeInsets.all(20),
+      padding: const EdgeInsets.all(18),
       decoration: BoxDecoration(
         color: theme.colorScheme.surface,
         borderRadius: BorderRadius.circular(12),

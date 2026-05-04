@@ -3,7 +3,7 @@
 // ============================================================
 import 'package:flutter/material.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
-import 'package:intl/intl.dart';
+import 'package:simpulx/core/utils/app_datetime.dart';
 import 'package:simpulx/core/di/injection_container.dart' as di;
 import 'package:simpulx/features/auth/presentation/bloc/auth_bloc.dart';
 import 'package:simpulx/features/settings/data/datasources/settings_remote_datasource.dart';
@@ -22,7 +22,6 @@ class DepartmentsSettingsPage extends StatefulWidget {
 
 class _DepartmentsSettingsPageState extends State<DepartmentsSettingsPage> {
   late final SettingsRemoteDataSource _ds;
-  final _dateFormat = DateFormat('dd MMM yyyy');
 
   bool _loading = false;
   String? _error;
@@ -181,108 +180,103 @@ class _DepartmentsSettingsPageState extends State<DepartmentsSettingsPage> {
       child: SizedBox(
         width: double.infinity,
         child: DataTable(
-          dataRowMinHeight: 60,
-          dataRowMaxHeight: 68,
+          dataRowMinHeight: 52,
+          dataRowMaxHeight: 60,
           columns: [
             DataColumn(label: Text('Name')),
             DataColumn(label: Text('Agents')),
             DataColumn(label: Text('Channel')),
-            if (_canManage)
-              DataColumn(label: Text('Actions')),
+            if (_canManage) DataColumn(label: Text('Actions')),
           ],
-              rows: _departments.map((dept) {
-                final agents = _allUsers
-                    .where((u) => u.department?.id == dept.id)
-                    .toList();
-                final channels = _allChannels
-                    .where((ch) => ch['departmentId'] == dept.id)
-                    .toList();
-                return DataRow(
-                  cells: [
-                    DataCell(Text(dept.name,
-                        style: const TextStyle(
-                            fontWeight: FontWeight.w600, fontSize: 13))),
-                    DataCell(agents.isEmpty
-                        ? Text('-',
-                            style: TextStyle(
-                                fontSize: 13,
-                                color: theme.colorScheme.onSurface
-                                    .withValues(alpha: 0.4)))
-                        : Wrap(
-                            spacing: 4,
-                            runSpacing: 4,
-                            children: agents
-                                .map((a) => Chip(
-                                      label: Text(a.fullName,
-                                          style: const TextStyle(
-                                              fontSize: 12)),
-                                      visualDensity: VisualDensity.compact,
-                                      padding: EdgeInsets.zero,
-                                      materialTapTargetSize:
-                                          MaterialTapTargetSize.shrinkWrap,
-                                    ))
-                                .toList(),
-                          )),
-                    DataCell(channels.isEmpty
-                        ? Text('-',
-                            style: TextStyle(
-                                fontSize: 13,
-                                color: theme.colorScheme.onSurface
-                                    .withValues(alpha: 0.4)))
-                        : Wrap(
-                            spacing: 4,
-                            runSpacing: 4,
-                            children: channels
-                                .map((ch) => Chip(
-                                      avatar: const Icon(Icons.phone_android,
-                                          size: 14),
-                                      label: Text(
-                                          ch['name']?.toString() ??
-                                              ch['phoneNumber']?.toString() ??
-                                              '?',
-                                          style: const TextStyle(
-                                              fontSize: 12)),
-                                      visualDensity: VisualDensity.compact,
-                                      padding: EdgeInsets.zero,
-                                      materialTapTargetSize:
-                                          MaterialTapTargetSize.shrinkWrap,
-                                    ))
-                                .toList(),
-                          )),
-                    if (_canManage)
-                      DataCell(Row(
-                        mainAxisSize: MainAxisSize.min,
-                        children: [
-                          IconButton(
-                            onPressed: () =>
-                                _showDepartmentDialog(department: dept),
-                            tooltip: 'Edit',
-                            icon: Icon(Icons.edit_outlined,
-                                size: 18,
-                                color: theme.colorScheme.onSurface
-                                    .withValues(alpha: 0.45)),
-                          ),
-                          IconButton(
-                            onPressed: () => _confirmDelete(dept),
-                            tooltip: 'Delete',
-                            icon: Icon(Icons.delete_outline_rounded,
-                                size: 18,
-                                color: theme.colorScheme.onSurface
-                                    .withValues(alpha: 0.45)),
-                          ),
-                        ],
+          rows: _departments.map((dept) {
+            final agents =
+                _allUsers.where((u) => u.department?.id == dept.id).toList();
+            final channels = _allChannels
+                .where((ch) => ch['departmentId'] == dept.id)
+                .toList();
+            return DataRow(
+              cells: [
+                DataCell(Text(dept.name,
+                    style: const TextStyle(
+                        fontWeight: FontWeight.w600, fontSize: 13))),
+                DataCell(agents.isEmpty
+                    ? Text('-',
+                        style: TextStyle(
+                            fontSize: 13,
+                            color: theme.colorScheme.onSurface
+                                .withValues(alpha: 0.4)))
+                    : Wrap(
+                        spacing: 4,
+                        runSpacing: 4,
+                        children: agents
+                            .map((a) => Chip(
+                                  label: Text(a.fullName,
+                                      style: const TextStyle(fontSize: 12)),
+                                  visualDensity: VisualDensity.compact,
+                                  padding: EdgeInsets.zero,
+                                  materialTapTargetSize:
+                                      MaterialTapTargetSize.shrinkWrap,
+                                ))
+                            .toList(),
                       )),
-                  ],
-                );
-              }).toList(),
-            ),
-          ),
-        );
+                DataCell(channels.isEmpty
+                    ? Text('-',
+                        style: TextStyle(
+                            fontSize: 13,
+                            color: theme.colorScheme.onSurface
+                                .withValues(alpha: 0.4)))
+                    : Wrap(
+                        spacing: 4,
+                        runSpacing: 4,
+                        children: channels
+                            .map((ch) => Chip(
+                                  avatar:
+                                      const Icon(Icons.phone_android, size: 14),
+                                  label: Text(
+                                      ch['name']?.toString() ??
+                                          ch['phoneNumber']?.toString() ??
+                                          '?',
+                                      style: const TextStyle(fontSize: 12)),
+                                  visualDensity: VisualDensity.compact,
+                                  padding: EdgeInsets.zero,
+                                  materialTapTargetSize:
+                                      MaterialTapTargetSize.shrinkWrap,
+                                ))
+                            .toList(),
+                      )),
+                if (_canManage)
+                  DataCell(Row(
+                    mainAxisSize: MainAxisSize.min,
+                    children: [
+                      IconButton(
+                        onPressed: () =>
+                            _showDepartmentDialog(department: dept),
+                        tooltip: 'Edit',
+                        icon: Icon(Icons.edit_outlined,
+                            size: 18,
+                            color: theme.colorScheme.onSurface
+                                .withValues(alpha: 0.45)),
+                      ),
+                      IconButton(
+                        onPressed: () => _confirmDelete(dept),
+                        tooltip: 'Delete',
+                        icon: Icon(Icons.delete_outline_rounded,
+                            size: 18,
+                            color: theme.colorScheme.onSurface
+                                .withValues(alpha: 0.45)),
+                      ),
+                    ],
+                  )),
+              ],
+            );
+          }).toList(),
+        ),
+      ),
+    );
   }
 
   Widget _statusBadge(ThemeData theme, bool isActive) {
-    final color =
-        isActive ? const Color(0xFF25D366) : const Color(0xFFEF4444);
+    final color = isActive ? const Color(0xFF25D366) : const Color(0xFFEF4444);
     return Container(
       padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
       decoration: BoxDecoration(
@@ -295,8 +289,7 @@ class _DepartmentsSettingsPageState extends State<DepartmentsSettingsPage> {
     );
   }
 
-  String _fmtDate(DateTime? v) =>
-      v == null ? '-' : _dateFormat.format(v.toLocal());
+  String _fmtDate(DateTime? v) => v == null ? '-' : AppDateTime.mediumDate(v);
 
   Future<void> _confirmDelete(SettingsDepartmentModel dept) async {
     final ok = await showDialog<bool>(
@@ -312,8 +305,8 @@ class _DepartmentsSettingsPageState extends State<DepartmentsSettingsPage> {
               child: const Text('Cancel')),
           FilledButton(
             onPressed: () => Navigator.pop(ctx, true),
-            style:
-                FilledButton.styleFrom(backgroundColor: const Color(0xFFEF4444)),
+            style: FilledButton.styleFrom(
+                backgroundColor: const Color(0xFFEF4444)),
             child: const Text('Delete'),
           ),
         ],
@@ -335,8 +328,7 @@ class _DepartmentsSettingsPageState extends State<DepartmentsSettingsPage> {
       {SettingsDepartmentModel? department}) async {
     final isEdit = department != null;
     final nameCtrl = TextEditingController(text: department?.name ?? '');
-    final descCtrl =
-        TextEditingController(text: department?.description ?? '');
+    final descCtrl = TextEditingController(text: department?.description ?? '');
     var saving = false;
 
     // Pre-select agents already in this department
@@ -362,8 +354,8 @@ class _DepartmentsSettingsPageState extends State<DepartmentsSettingsPage> {
         builder: (ctx, setDialogState) {
           final theme = Theme.of(ctx);
           return Dialog(
-            shape: RoundedRectangleBorder(
-                borderRadius: BorderRadius.circular(20)),
+            shape:
+                RoundedRectangleBorder(borderRadius: BorderRadius.circular(20)),
             child: Container(
               width: 560,
               padding: const EdgeInsets.all(28),
@@ -381,8 +373,8 @@ class _DepartmentsSettingsPageState extends State<DepartmentsSettingsPage> {
                           ? 'Update department info, agents, and channels.'
                           : 'Create a department and assign agents & channels.',
                       style: theme.textTheme.bodySmall?.copyWith(
-                        color: theme.colorScheme.onSurface
-                            .withValues(alpha: 0.5),
+                        color:
+                            theme.colorScheme.onSurface.withValues(alpha: 0.5),
                       ),
                     ),
                     const SizedBox(height: 22),
@@ -414,10 +406,9 @@ class _DepartmentsSettingsPageState extends State<DepartmentsSettingsPage> {
                       labelFn: (u) => u.fullName,
                       idFn: (u) => u.id,
                       hintText: 'Search and add agents...',
-                      onChanged: (ids) =>
-                          setDialogState(() => selectedAgentIds
-                            ..clear()
-                            ..addAll(ids)),
+                      onChanged: (ids) => setDialogState(() => selectedAgentIds
+                        ..clear()
+                        ..addAll(ids)),
                     ),
                     const SizedBox(height: 20),
                     // Channels tag field
@@ -447,8 +438,7 @@ class _DepartmentsSettingsPageState extends State<DepartmentsSettingsPage> {
                       mainAxisAlignment: MainAxisAlignment.end,
                       children: [
                         TextButton(
-                          onPressed:
-                              saving ? null : () => Navigator.pop(ctx),
+                          onPressed: saving ? null : () => Navigator.pop(ctx),
                           child: const Text('Cancel'),
                         ),
                         const SizedBox(width: 12),
@@ -532,8 +522,7 @@ class _DepartmentsSettingsPageState extends State<DepartmentsSettingsPage> {
                                   } catch (e) {
                                     setDialogState(() => saving = false);
                                     if (ctx.mounted) {
-                                      AppSnackbar.error(
-                                          ctx, 'Failed: $e');
+                                      AppSnackbar.error(ctx, 'Failed: $e');
                                     }
                                   }
                                 },
@@ -603,8 +592,7 @@ class _TagSelectorState<T> extends State<_TagSelector<T>> {
     final available = widget.items
         .where((item) => !widget.selectedIds.contains(widget.idFn(item)))
         .where((item) =>
-            query.isEmpty ||
-            widget.labelFn(item).toLowerCase().contains(query))
+            query.isEmpty || widget.labelFn(item).toLowerCase().contains(query))
         .toList();
     final selectedItems = widget.items
         .where((item) => widget.selectedIds.contains(widget.idFn(item)))
@@ -628,8 +616,7 @@ class _TagSelectorState<T> extends State<_TagSelector<T>> {
                     color: theme.colorScheme.primary.withValues(alpha: 0.08),
                     borderRadius: BorderRadius.circular(8),
                     border: Border.all(
-                      color:
-                          theme.colorScheme.primary.withValues(alpha: 0.15),
+                      color: theme.colorScheme.primary.withValues(alpha: 0.15),
                     ),
                   ),
                   child: Row(
@@ -671,7 +658,8 @@ class _TagSelectorState<T> extends State<_TagSelector<T>> {
             prefixIcon: const Icon(Icons.search_rounded, size: 18),
             border: OutlineInputBorder(
               borderRadius: BorderRadius.circular(10),
-              borderSide: BorderSide(color: theme.dividerColor.withValues(alpha: 0.3)),
+              borderSide:
+                  BorderSide(color: theme.dividerColor.withValues(alpha: 0.3)),
             ),
             contentPadding:
                 const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
@@ -685,7 +673,8 @@ class _TagSelectorState<T> extends State<_TagSelector<T>> {
             decoration: BoxDecoration(
               color: theme.colorScheme.surface,
               borderRadius: BorderRadius.circular(10),
-              border: Border.all(color: theme.dividerColor.withValues(alpha: 0.2)),
+              border:
+                  Border.all(color: theme.dividerColor.withValues(alpha: 0.2)),
               boxShadow: [
                 BoxShadow(
                   color: Colors.black.withValues(alpha: 0.06),

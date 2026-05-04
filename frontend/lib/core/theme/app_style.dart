@@ -95,7 +95,7 @@ class AppText {
 
   /// Page title (e.g., "Dashboard").
   static const TextStyle titleLg = TextStyle(
-    fontSize: 20,
+    fontSize: 18,
     fontWeight: FontWeight.w700,
     color: AppColors.textPrimary,
     letterSpacing: -0.2,
@@ -148,7 +148,7 @@ class AppText {
 
   /// Big number (stat card).
   static const TextStyle statValue = TextStyle(
-    fontSize: 24,
+    fontSize: 22,
     fontWeight: FontWeight.w700,
     color: AppColors.textPrimary,
     letterSpacing: -0.3,

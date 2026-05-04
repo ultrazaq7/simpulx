@@ -6,6 +6,7 @@ import 'package:simpulx/core/theme/app_style.dart';
 import 'package:simpulx/core/di/injection_container.dart' as di;
 import 'package:simpulx/core/network/dio_client.dart';
 import 'package:simpulx/core/constants/api_constants.dart';
+import 'package:simpulx/core/utils/app_datetime.dart';
 import 'package:simpulx/core/widgets/app_snackbar.dart';
 
 class TemplatesSettingsPage extends StatefulWidget {
@@ -677,17 +678,8 @@ class _TemplatesSettingsPageState extends State<TemplatesSettingsPage> {
 
   String _formatDate(String? dateStr) {
     if (dateStr == null || dateStr.isEmpty) return '-';
-    try {
-      final date = DateTime.parse(dateStr).toLocal();
-      final d = date.day.toString().padLeft(2, '0');
-      final m = date.month.toString().padLeft(2, '0');
-      final y = date.year;
-      final h = date.hour.toString().padLeft(2, '0');
-      final min = date.minute.toString().padLeft(2, '0');
-      return '$d/$m/$y $h:$min';
-    } catch (_) {
-      return '-';
-    }
+    final date = AppDateTime.parseLocal(dateStr);
+    return date == null ? '-' : AppDateTime.shortDateTime(date);
   }
 }
 

@@ -1,3 +1,5 @@
+import 'package:simpulx/core/utils/app_datetime.dart';
+
 class SettingsDepartmentModel {
   final String id;
   final String name;
@@ -20,7 +22,7 @@ class SettingsDepartmentModel {
       description: json['description'] as String?,
       isActive: json['isActive'] as bool? ?? true,
       createdAt: json['createdAt'] != null
-          ? DateTime.tryParse(json['createdAt'] as String)
+          ? AppDateTime.parseLocal(json['createdAt'])
           : null,
     );
   }
@@ -100,10 +102,10 @@ class SettingsTeamMemberModel {
       maxConcurrentChats: (json['maxConcurrentChats'] as num?)?.toInt() ?? 0,
       availableForRoundRobin: json['availableForRoundRobin'] as bool? ?? true,
       createdAt: json['createdAt'] != null
-          ? DateTime.tryParse(json['createdAt'] as String)
+          ? AppDateTime.parseLocal(json['createdAt'])
           : null,
       lastSeenAt: json['lastSeenAt'] != null
-          ? DateTime.tryParse(json['lastSeenAt'] as String)
+          ? AppDateTime.parseLocal(json['lastSeenAt'])
           : null,
       department: json['department'] is Map<String, dynamic>
           ? SettingsDepartmentRef.fromJson(

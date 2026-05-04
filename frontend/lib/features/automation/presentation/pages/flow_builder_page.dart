@@ -4026,6 +4026,10 @@ const _triggerOptions = [
     'Message text include any of keywords',
   ),
   _PickerOption(
+    'ad_click',
+    'Ad Click / CTWA Referral',
+  ),
+  _PickerOption(
     'individual_chat_received',
     'Message received in Individual Chat',
   ),
@@ -4061,6 +4065,9 @@ const _contactAttributeOptions = [
   _PickerOption('city', 'city', 'City'),
   _PickerOption('tags', 'tags', 'Contact tags'),
   _PickerOption('channel', 'channel', 'Conversation channel'),
+  _PickerOption('ad.source_id', 'ad.source_id', 'Meta referral source ID'),
+  _PickerOption('ad.headline', 'ad.headline', 'Ad headline'),
+  _PickerOption('ad.ctwa_clid', 'ad.ctwa_clid', 'CTWA click ID'),
   _PickerOption('last_message.text', 'last_message.text', 'Last message text'),
 ];
 

@@ -5,6 +5,7 @@ import 'package:simpulx/features/auth/presentation/bloc/auth_bloc.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
 import 'package:go_router/go_router.dart';
+import 'package:simpulx/core/theme/app_style.dart';
 
 class SettingsShell extends StatelessWidget {
   final Widget child;
@@ -18,16 +19,25 @@ class SettingsShell extends StatelessWidget {
 
   static const _allSections = [
     _Section('Profile', Icons.person_rounded, '/settings/profile', null),
-    _Section('Organization', Icons.business_rounded, '/settings/organization', 'view_settings'),
-    _Section('Departments', Icons.account_tree_rounded, '/settings/departments', 'manage_departments'),
-    _Section('Channels', Icons.hub_rounded, '/settings/whatsapp', 'manage_channels'),
-    _Section('Templates', Icons.description_rounded, '/settings/templates', 'manage_channels'),
+    _Section('Organization', Icons.business_rounded, '/settings/organization',
+        'view_settings'),
+    _Section('Departments', Icons.account_tree_rounded, '/settings/departments',
+        'manage_departments'),
+    _Section(
+        'Channels', Icons.hub_rounded, '/settings/whatsapp', 'manage_channels'),
+    _Section('Templates', Icons.description_rounded, '/settings/templates',
+        'manage_channels'),
     _Section('Team', Icons.group_rounded, '/settings/team', 'manage_team'),
-    _Section('Roles & Permissions', Icons.admin_panel_settings_rounded, '/settings/roles', 'manage_roles'),
-    _Section('Quick Replies', Icons.quickreply_rounded, '/settings/quick-replies', 'manage_quick_replies'),
-    _Section('Stages', Icons.layers_rounded, '/settings/stages', 'view_settings'),
-    _Section('Contact Fields', Icons.contact_page_rounded, '/settings/contact-fields', 'manage_contact_fields'),
-    _Section('Notifications', Icons.notifications_rounded, '/settings/notifications', null),
+    _Section('Roles & Permissions', Icons.admin_panel_settings_rounded,
+        '/settings/roles', 'manage_roles'),
+    _Section('Quick Replies', Icons.quickreply_rounded,
+        '/settings/quick-replies', 'manage_quick_replies'),
+    _Section(
+        'Stages', Icons.layers_rounded, '/settings/stages', 'view_settings'),
+    _Section('Contact Fields', Icons.contact_page_rounded,
+        '/settings/contact-fields', 'manage_contact_fields'),
+    _Section('Notifications', Icons.notifications_rounded,
+        '/settings/notifications', null),
     _Section('Security', Icons.security_rounded, '/settings/security', null),
   ];
 
@@ -49,7 +59,7 @@ class SettingsShell extends StatelessWidget {
     if (isWide) {
       return Row(
         children: [
-          SizedBox(width: 260, child: _buildSidebar(context, theme)),
+          SizedBox(width: 240, child: _buildSidebar(context, theme)),
           VerticalDivider(width: 1, color: theme.dividerColor),
           Expanded(child: child),
         ],
@@ -70,12 +80,10 @@ class SettingsShell extends StatelessWidget {
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
           Padding(
-            padding: const EdgeInsets.all(24),
+            padding: const EdgeInsets.fromLTRB(20, 18, 20, 14),
             child: Text(
               'Settings',
-              style: theme.textTheme.headlineSmall?.copyWith(
-                fontWeight: FontWeight.bold,
-              ),
+              style: AppText.titleLg,
             ),
           ),
           Expanded(
@@ -92,12 +100,12 @@ class SettingsShell extends StatelessWidget {
                     color: isSelected
                         ? theme.colorScheme.primary
                         : theme.colorScheme.onSurface.withValues(alpha: 0.5),
-                    size: 22,
+                    size: 20,
                   ),
                   title: Text(
                     section.label,
-                    style: TextStyle(
-                      fontSize: 14,
+                    style: AppText.body.copyWith(
+                      fontSize: 13.5,
                       fontWeight:
                           isSelected ? FontWeight.w600 : FontWeight.w400,
                       color: isSelected
@@ -108,11 +116,14 @@ class SettingsShell extends StatelessWidget {
                   selected: isSelected,
                   selectedTileColor:
                       theme.colorScheme.primary.withValues(alpha: 0.08),
+                  dense: true,
+                  minLeadingWidth: 28,
+                  visualDensity: const VisualDensity(vertical: -2),
                   shape: RoundedRectangleBorder(
                     borderRadius: BorderRadius.circular(12),
                   ),
                   contentPadding:
-                      const EdgeInsets.symmetric(horizontal: 20, vertical: 2),
+                      const EdgeInsets.symmetric(horizontal: 18, vertical: 0),
                   onTap: () => context.go(section.route),
                 );
               }).toList(),

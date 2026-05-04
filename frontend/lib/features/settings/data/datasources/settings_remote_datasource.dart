@@ -171,6 +171,16 @@ class SettingsRemoteDataSource {
     }
   }
 
+  Future<String> deleteUserPermanent(String id) async {
+    try {
+      final response =
+          await _client.dio.delete(ApiConstants.deleteUserPermanent(id));
+      return response.data['message'] as String? ?? 'User permanently deleted';
+    } catch (e) {
+      throw ServerException(message: _extractErrorMessage(e));
+    }
+  }
+
   Future<String> reactivateUser(String id) async {
     try {
       final response = await _client.dio.patch(ApiConstants.reactivateUser(id));

@@ -31,6 +31,7 @@ import { MetaChannel } from "../../common/entities/meta-channel.entity";
 import { Department } from "../../common/entities/department.entity";
 import { InternalNote } from "../../common/entities/internal-note.entity";
 import { Stage } from "../../common/entities/stage.entity";
+import { PendingLead } from "../../common/entities/pending-lead.entity";
 import { ChatGateway } from "./chat.gateway";
 import { PushNotificationService } from "./push-notification.service";
 import { WhatsappService } from "../webhook/whatsapp.service";
@@ -63,6 +64,8 @@ export class ChatService {
     private stageRepo: Repository<Stage>,
     @InjectRepository(MetaChannel)
     private metaChannelRepo: Repository<MetaChannel>,
+    @InjectRepository(PendingLead)
+    private pendingLeadRepo: Repository<PendingLead>,
     private chatGateway: ChatGateway,
     private pushNotificationService: PushNotificationService,
     private whatsappService: WhatsappService,
@@ -75,6 +78,46 @@ export class ChatService {
       this.configService.get<string>('UPLOAD_DIR') ??
       this.configService.get<string>('UPLOADS_DIR', '/var/lib/simpulx/uploads')
     );
+  }
+
+  private addHours(date: Date, hours: number): Date {
+    return new Date(date.getTime() + hours * 60 * 60 * 1000);
+  }
+
+  private addDays(date: Date, days: number): Date {
+    return this.addHours(date, days * 24);
+  }
+
+  private isWhatsAppConversation(conversation: Conversation): boolean {
+    return conversation.channel === ConversationChannel.WHATSAPP;
+  }
+
+  private assertWhatsAppWindowOpen(conversation: Conversation) {
+    if (!this.isWhatsAppConversation(conversation)) return;
+    if (!conversation.windowExpiresAt) return;
+    if (conversation.windowExpiresAt.getTime() >= Date.now()) return;
+
+    throw new BadRequestException(
+      'WhatsApp 24-hour window has expired. Send an approved template message to continue this conversation.',
+    );
+  }
+
+  private isGhostedConversation(conversation: Conversation, now = new Date()): boolean {
+    if (conversation.status !== ConversationStatus.OPEN) return false;
+    if (conversation.aiStage === 'CLOSING' || conversation.aiStage === 'HOT_LEAD') {
+      return false;
+    }
+
+    const lastContactAt = conversation.lastContactMessageAt || conversation.lastMessageAt;
+    if (!lastContactAt) return false;
+
+    const contactSilentForMs = now.getTime() - lastContactAt.getTime();
+    const ghostedForThreeDays = contactSilentForMs >= 3 * 24 * 60 * 60 * 1000;
+    const windowExpired = conversation.windowExpiresAt
+      ? conversation.windowExpiresAt.getTime() < now.getTime()
+      : false;
+
+    return windowExpired && ghostedForThreeDays;
   }
 
   private extFromMime(mime: string): string {
@@ -491,6 +534,7 @@ export class ChatService {
     if (!conversation) {
       throw new NotFoundException("Conversation not found");
     }
+    this.assertWhatsAppWindowOpen(conversation);
 
     // Create message record
     const message = this.msgRepo.create({
@@ -508,6 +552,7 @@ export class ChatService {
     // Update conversation
     const convUpdates: Partial<Conversation> = {
       lastMessageAt: new Date(),
+      lastAgentMessageAt: new Date(),
       lastMessagePreview: body.content?.substring(0, 150),
       lastMessageSenderType: 'agent',
       status: ConversationStatus.OPEN,
@@ -584,6 +629,7 @@ export class ChatService {
       relations: ["contact", "whatsappChannel", "metaChannel"],
     });
     if (!conversation) throw new NotFoundException("Conversation not found");
+    this.assertWhatsAppWindowOpen(conversation);
 
     // Determine media type from MIME
     const mime = file.mimetype;
@@ -626,6 +672,7 @@ export class ChatService {
 
     const mediaConvUpdates: Partial<Conversation> = {
       lastMessageAt: new Date(),
+      lastAgentMessageAt: new Date(),
       lastMessagePreview: `📎 ${file.originalname}`,
       lastMessageSenderType: 'agent',
       status: ConversationStatus.OPEN,
@@ -754,10 +801,13 @@ export class ChatService {
     // Update conversation
     await this.convRepo.update(conversationId, {
       lastMessageAt: new Date(),
+      lastAgentMessageAt: new Date(),
       lastMessagePreview: previewText.substring(0, 150),
       lastMessageSenderType: 'agent',
       status: ConversationStatus.OPEN,
-    });
+      hsmSentAt: new Date(),
+      hsmCount: () => 'hsm_count + 1',
+    } as any);
 
     // Send via WhatsApp API
     try {
@@ -990,8 +1040,38 @@ export class ChatService {
     const adSetId = referral?.sourceId || null;
     const channelId = channel?.id || null;
     const metaChId = metaChannel?.id || null;
+    const inboundAt = messageData.timestamp || new Date();
+    const windowExpiresAt = this.addHours(inboundAt, 24);
     let conversation: Conversation | null = null;
+    let pendingSourceConversation: Conversation | null = null;
     let isNewConversation = false;
+
+    if (adSetId) {
+      const activeQb = this.convRepo
+        .createQueryBuilder("c")
+        .where("c.organizationId = :orgId", { orgId })
+        .andWhere("c.contactId = :contactId", { contactId: contactRecord.id })
+        .andWhere("c.status IN (:...statuses)", { statuses: [ConversationStatus.OPEN, ConversationStatus.PENDING] })
+        .andWhere("c.channel = :channel", { channel: convChannel })
+        .andWhere("c.referralAdSetId IS DISTINCT FROM :adSetId", { adSetId })
+        .orderBy("c.lastMessageAt", "DESC", "NULLS LAST");
+
+      if (channelId) activeQb.andWhere("c.whatsappChannelId = :channelId", { channelId });
+      if (metaChId) activeQb.andWhere("c.metaChannelId = :metaChId", { metaChId });
+
+      const activeDifferentConversation = await activeQb.getOne();
+      if (activeDifferentConversation) {
+        if (this.isGhostedConversation(activeDifferentConversation)) {
+          await this.closeConversationBySystem(
+            orgId,
+            activeDifferentConversation.id,
+            'ghosted_new_ad_click',
+          );
+        } else {
+          pendingSourceConversation = activeDifferentConversation;
+        }
+      }
+    }
 
     const conversationQb = this.convRepo
       .createQueryBuilder("c")
@@ -1032,12 +1112,30 @@ export class ChatService {
         organizationId: orgId,
         contactId: contactRecord.id,
         channel: convChannel,
-        status: ConversationStatus.OPEN,
+        status: pendingSourceConversation
+          ? ConversationStatus.PENDING
+          : ConversationStatus.OPEN,
+        snoozedUntil: pendingSourceConversation
+          ? this.addHours(inboundAt, 1)
+          : undefined,
         whatsappChannelId: channel?.id || undefined,
         metaChannelId: metaChannel?.id || undefined,
         departmentId: channel?.departmentId || metaChannel?.departmentId || undefined,
         sourceChannel: detectedSource.channel,
         crossChannelGroupId: contactRecord.crossChannelGroupId || contactRecord.id,
+        lastContactMessageAt: inboundAt,
+        windowExpiresAt,
+        autoCloseAt: this.addDays(inboundAt, 7),
+        routedAdId: adSetId || undefined,
+        metadata: pendingSourceConversation
+          ? {
+              pendingLead: {
+                sourceConversationId: pendingSourceConversation.id,
+                adId: adSetId,
+                reason: 'active_conversation_exists',
+              },
+            }
+          : {},
         ...(referral && {
           referralAdSetId: adSetId || undefined,
           referralCampaignId: referral.ctwaClid || undefined,
@@ -1047,6 +1145,17 @@ export class ChatService {
       });
       await this.convRepo.save(conversation);
       isNewConversation = true;
+      if (pendingSourceConversation) {
+        await this.queuePendingLead(
+          orgId,
+          contactRecord.id,
+          pendingSourceConversation.id,
+          conversation.id,
+          adSetId,
+          referral?.sourceType,
+          referral,
+        );
+      }
     } else if (conversation.status === ConversationStatus.PENDING) {
       // Auto-reopen snoozed conversation on customer reply
       await this.convRepo.update(conversation.id, {
@@ -1121,7 +1230,11 @@ export class ChatService {
 
     // Update conversation
     await this.convRepo.update(conversation.id, {
-      lastMessageAt: new Date(),
+      lastMessageAt: inboundAt,
+      lastContactMessageAt: inboundAt,
+      windowExpiresAt,
+      autoCloseAt: this.addDays(inboundAt, 7),
+      hsmCount: 0,
       lastMessagePreview:
         messageData.content?.substring(0, 150) || `[${messageData.type}]`,
       lastMessageSenderType: 'contact',
@@ -1284,36 +1397,44 @@ export class ChatService {
     }
 
     const updates: Partial<Conversation> = {};
+    let assignedAgent: User | null = null;
+    let effectiveDepartmentId: string | null | undefined = hasDepartment
+      ? (assignment.departmentId || null)
+      : undefined;
 
     if (hasAgent) {
       if (assignment.agentId) {
-        const agent = await this.userRepo.findOne({
+        assignedAgent = await this.userRepo.findOne({
           where: { id: assignment.agentId, organizationId: orgId },
         });
 
-        if (!agent) {
+        if (!assignedAgent) {
           throw new NotFoundException("Agent not found");
         }
 
         if (
           ![UserRole.AGENT, UserRole.SUPERVISOR, UserRole.MANAGER].includes(
-            agent.role,
+            assignedAgent.role,
           )
         ) {
           throw new BadRequestException(
             "Conversation can only be assigned to a team member",
           );
         }
+
+        if (!hasDepartment) {
+          effectiveDepartmentId = assignedAgent.departmentId || null;
+        }
       }
 
       updates.assignedAgentId = (assignment.agentId || null) as any;
     }
 
-    if (hasDepartment) {
-      if (assignment.departmentId) {
+    if (effectiveDepartmentId !== undefined) {
+      if (effectiveDepartmentId) {
         const department = await this.departmentRepo.findOne({
           where: {
-            id: assignment.departmentId,
+            id: effectiveDepartmentId,
             organizationId: orgId,
             isActive: true,
           },
@@ -1324,13 +1445,31 @@ export class ChatService {
         }
       }
 
-      updates.departmentId = (assignment.departmentId || null) as any;
+      updates.departmentId = (effectiveDepartmentId || null) as any;
     }
 
     await this.convRepo.update(
       { id: conversationId, organizationId: orgId },
       updates,
     );
+
+    if (conversation.status === ConversationStatus.PENDING) {
+      await this.pendingLeadRepo.update(
+        {
+          organizationId: orgId,
+          targetConversationId: conversationId,
+          status: 'pending',
+        },
+        {
+          targetAgentId: hasAgent
+            ? (assignment.agentId || null)
+            : conversation.assignedAgentId,
+          targetDepartmentId: effectiveDepartmentId !== undefined
+            ? effectiveDepartmentId
+            : conversation.departmentId,
+        },
+      );
+    }
 
     // Insert a system timeline message so the UI shows who assigned whom
     const parts: string[] = [];
@@ -1346,9 +1485,9 @@ export class ChatService {
       parts.push('unassigned this contact');
     }
 
-    if (hasDepartment && assignment.departmentId) {
+    if (effectiveDepartmentId) {
       const dept = await this.departmentRepo.findOne({
-        where: { id: assignment.departmentId },
+        where: { id: effectiveDepartmentId },
         select: ['id', 'name'],
       });
       parts.push(`moved to **${dept?.name || 'a department'}**`);
@@ -1395,6 +1534,97 @@ export class ChatService {
   }
 
   // ── Update Conversation Status ────────────────────────
+  private async queuePendingLead(
+    orgId: string,
+    contactId: string,
+    sourceConversationId: string,
+    targetConversationId: string,
+    adId: string | null,
+    sourceType?: string,
+    referral?: Record<string, any>,
+  ) {
+    const existing = await this.pendingLeadRepo.findOne({
+      where: {
+        organizationId: orgId,
+        targetConversationId,
+        status: 'pending',
+      },
+    });
+    if (existing) return existing;
+
+    const lead = this.pendingLeadRepo.create({
+      organizationId: orgId,
+      contactId,
+      sourceConversationId,
+      targetConversationId,
+      adId,
+      sourceType: sourceType || null,
+      status: 'pending',
+      reason: 'active_conversation_exists',
+      metadata: { referral: referral || null },
+      expiresAt: this.addDays(new Date(), 7),
+    });
+    return this.pendingLeadRepo.save(lead);
+  }
+
+  private async activatePendingLeadsForConversation(
+    orgId: string,
+    sourceConversationId: string,
+  ) {
+    const pendingLeads = await this.pendingLeadRepo.find({
+      where: {
+        organizationId: orgId,
+        sourceConversationId,
+        status: 'pending',
+      },
+    });
+
+    for (const lead of pendingLeads) {
+      if (!lead.targetConversationId) continue;
+
+      await this.convRepo.update(
+        { id: lead.targetConversationId, organizationId: orgId },
+        {
+          status: ConversationStatus.OPEN,
+          snoozedUntil: null,
+        },
+      );
+      await this.pendingLeadRepo.update(lead.id, {
+        status: 'activated',
+        triggeredAt: new Date(),
+        resolvedAt: new Date(),
+      });
+      this.chatGateway.broadcastConversationUpdate(orgId, lead.targetConversationId, {
+        status: ConversationStatus.OPEN,
+        pendingLeadActivated: true,
+      });
+    }
+  }
+
+  async closeConversationBySystem(
+    orgId: string,
+    conversationId: string,
+    reason = 'system_closed',
+  ) {
+    await this.convRepo.update(
+      { id: conversationId, organizationId: orgId },
+      {
+        status: ConversationStatus.CLOSED,
+        closedAt: new Date(),
+        closedReason: reason,
+        snoozedUntil: null,
+      },
+    );
+
+    await this.activatePendingLeadsForConversation(orgId, conversationId);
+    this.chatGateway.broadcastConversationUpdate(orgId, conversationId, {
+      status: ConversationStatus.CLOSED,
+      closedReason: reason,
+    });
+
+    return { success: true, status: ConversationStatus.CLOSED, reason };
+  }
+
   async updateStatus(
     orgId: string,
     conversationId: string,
@@ -1438,6 +1668,10 @@ export class ChatService {
       { id: conversationId, organizationId: orgId },
       updates,
     );
+
+    if (finalStatus === ConversationStatus.CLOSED) {
+      await this.activatePendingLeadsForConversation(orgId, conversationId);
+    }
 
     this.chatGateway.broadcastConversationUpdate(orgId, conversationId, {
       status: finalStatus,
@@ -1491,6 +1725,38 @@ export class ChatService {
   }
 
   // ── Update Conversation Field (stage, interest level) ──
+  async autoCloseInactiveConversations() {
+    const now = new Date();
+    const fallbackCutoff = this.addDays(now, -7);
+
+    const expired = await this.convRepo
+      .createQueryBuilder('c')
+      .where('c.status = :status', { status: ConversationStatus.OPEN })
+      .andWhere(`
+        (
+          (c.autoCloseAt IS NOT NULL AND c.autoCloseAt <= :now)
+          OR
+          (c.lastContactMessageAt IS NOT NULL AND c.lastContactMessageAt <= :fallbackCutoff)
+        )
+      `, { now, fallbackCutoff })
+      .andWhere('(c.aiStage IS NULL OR c.aiStage NOT IN (:...protectedStages))', {
+        protectedStages: ['HOT_LEAD', 'CLOSING'],
+      })
+      .getMany();
+
+    let closed = 0;
+    for (const conv of expired) {
+      await this.closeConversationBySystem(
+        conv.organizationId,
+        conv.id,
+        'no_response_auto_close',
+      );
+      closed += 1;
+    }
+
+    return { closed };
+  }
+
   async updateConversationField(
     orgId: string,
     conversationId: string,

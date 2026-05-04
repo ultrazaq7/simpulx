@@ -15,6 +15,7 @@ import { Organization } from './organization.entity';
 export enum AutomationTrigger {
   NEW_CONVERSATION = 'new_conversation',
   NEW_MESSAGE = 'new_message',
+  AD_CLICK = 'ad_click',
   CONVERSATION_IDLE = 'conversation_idle',
   KEYWORD_MATCH = 'keyword_match',
   CONTACT_TAG = 'contact_tag',

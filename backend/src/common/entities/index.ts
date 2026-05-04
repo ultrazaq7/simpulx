@@ -2,6 +2,7 @@ export { Organization } from './organization.entity';
 export { User, UserRole, UserStatus } from './user.entity';
 export { Contact, SourceChannel } from './contact.entity';
 export { Conversation, ConversationStatus, ConversationChannel } from './conversation.entity';
+export { PendingLead } from './pending-lead.entity';
 export { ChannelInteraction, InteractionType } from './channel-interaction.entity';
 export { ConversionEvent } from './conversion-event.entity';
 export { ConversionFunnel } from './conversion-funnel.entity';

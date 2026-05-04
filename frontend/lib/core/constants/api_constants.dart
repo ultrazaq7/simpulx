@@ -40,6 +40,9 @@ class ApiConstants {
   static const String stagesActive = '/stages/active';
   static String stage(String id) => '/stages/$id';
 
+  // Dispositions (legacy settings screen still uses this endpoint)
+  static const String dispositions = '/dispositions';
+
   // Contacts
   static const String contacts = '/contacts';
   static String contact(String id) => '/contacts/$id';
@@ -51,6 +54,7 @@ class ApiConstants {
   // Users
   static const String users = '/users';
   static String user(String id) => '/users/$id';
+  static String deleteUserPermanent(String id) => '/users/$id/permanent';
   static String reactivateUser(String id) => '/users/$id/reactivate';
 
   // Audit Logs
@@ -76,7 +80,7 @@ class ApiConstants {
   static const String broadcasts = '/broadcasts';
   static String broadcast(String id) => '/broadcasts/$id';
   static String broadcastSend(String id) => '/broadcasts/$id/send';
-    static const String broadcastTestSend = '/broadcasts/test-send';
+  static const String broadcastTestSend = '/broadcasts/test-send';
 
   // Quick Replies
   static const String quickReplies = '/quick-replies';
@@ -94,7 +98,8 @@ class ApiConstants {
       '/channels/$channelId/templates/sync';
   static String channelTemplate(String channelId, String templateId) =>
       '/channels/$channelId/templates/$templateId';
-  static String channelTemplateDepartments(String channelId, String templateId) =>
+  static String channelTemplateDepartments(
+          String channelId, String templateId) =>
       '/channels/$channelId/templates/$templateId/departments';
 
   // Meta Channels
@@ -109,5 +114,6 @@ class ApiConstants {
   // Publishers
   static const String publishers = '/publishers';
   static String publisher(String id) => '/publishers/$id';
-  static String publisherRegenKey(String id) => '/publishers/$id/regenerate-key';
+  static String publisherRegenKey(String id) =>
+      '/publishers/$id/regenerate-key';
 }

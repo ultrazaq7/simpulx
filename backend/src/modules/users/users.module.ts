@@ -241,6 +241,128 @@ export class UsersService {
     return { message: 'User deactivated' };
   }
 
+  async deletePermanent(
+    orgId: string,
+    userId: string,
+    requesterRole: UserRole,
+    requesterId?: string,
+    requesterName?: string,
+  ) {
+    const user = await this.userRepo.findOne({
+      where: { id: userId, organizationId: orgId },
+    });
+    if (!user) throw new NotFoundException('User not found');
+    if (user.id === requesterId) throw new ForbiddenException('Cannot permanently delete your own account');
+    if (user.role === UserRole.OWNER) throw new ForbiddenException('Cannot permanently delete owner');
+
+    // Hard delete is intentionally stricter than deactivate.
+    if (getRoleLevel(requesterRole) <= getRoleLevel(user.role)) {
+      throw new ForbiddenException('Cannot permanently delete a user with an equal or higher role');
+    }
+
+    const runIfTableExists = async (
+      manager: any,
+      tableName: string,
+      sql: string,
+      params: any[],
+    ) => {
+      const rows = await manager.query('SELECT to_regclass($1) AS table_name', [
+        `public.${tableName}`,
+      ]);
+      if (rows[0]?.table_name) {
+        await manager.query(sql, params);
+      }
+    };
+
+    await this.userRepo.manager.transaction(async (manager) => {
+      await runIfTableExists(
+        manager,
+        'users',
+        'UPDATE users SET supervisor_id = NULL WHERE organization_id = $1 AND supervisor_id = $2',
+        [orgId, user.id],
+      );
+      await runIfTableExists(
+        manager,
+        'departments',
+        'UPDATE departments SET last_round_robin_agent_id = NULL WHERE organization_id = $1 AND last_round_robin_agent_id = $2',
+        [orgId, user.id],
+      );
+      await runIfTableExists(
+        manager,
+        'conversations',
+        'UPDATE conversations SET assigned_agent_id = NULL WHERE organization_id = $1 AND assigned_agent_id = $2',
+        [orgId, user.id],
+      );
+      await runIfTableExists(
+        manager,
+        'pending_leads',
+        'UPDATE pending_leads SET target_agent_id = NULL WHERE organization_id = $1 AND target_agent_id = $2',
+        [orgId, user.id],
+      );
+      await runIfTableExists(
+        manager,
+        'broadcasts',
+        'UPDATE broadcasts SET created_by_id = NULL WHERE organization_id = $1 AND created_by_id = $2',
+        [orgId, user.id],
+      );
+      await runIfTableExists(
+        manager,
+        'quick_replies',
+        'UPDATE quick_replies SET created_by = NULL WHERE organization_id = $1 AND created_by = $2',
+        [orgId, user.id],
+      );
+      await runIfTableExists(
+        manager,
+        'audit_logs',
+        'UPDATE audit_logs SET user_id = NULL WHERE organization_id = $1 AND user_id = $2',
+        [orgId, user.id],
+      );
+      await runIfTableExists(
+        manager,
+        'messages',
+        "UPDATE messages SET sender_id = NULL WHERE organization_id = $1 AND sender_id = $2 AND sender_type IN ('agent', 'bot', 'system')",
+        [orgId, user.id],
+      );
+      await runIfTableExists(
+        manager,
+        'cta_events',
+        'UPDATE cta_events SET agent_id = NULL WHERE organization_id = $1 AND agent_id = $2',
+        [orgId, user.id],
+      );
+      await runIfTableExists(
+        manager,
+        'follow_ups',
+        'DELETE FROM follow_ups WHERE organization_id = $1 AND agent_id = $2',
+        [orgId, user.id],
+      );
+      await runIfTableExists(
+        manager,
+        'internal_notes',
+        'DELETE FROM internal_notes WHERE organization_id = $1 AND agent_id = $2',
+        [orgId, user.id],
+      );
+
+      await manager.delete(User, { id: user.id, organizationId: orgId });
+    });
+
+    await this.auditLogService.log({
+      organizationId: orgId,
+      category: AuditCategory.USER,
+      action: 'user.account_deleted',
+      userId: requesterId,
+      userName: requesterName,
+      targetId: user.id,
+      targetType: 'user',
+      metadata: {
+        fullName: user.fullName,
+        email: user.email,
+        role: user.role,
+      },
+    });
+
+    return { message: 'User permanently deleted' };
+  }
+
   async reactivate(
     orgId: string,
     userId: string,
@@ -404,6 +526,20 @@ export class UsersController {
   @ApiOperation({ summary: 'Deactivate user (Manager+ only)' })
   deactivate(@Request() req, @Param('id') id: string) {
     return this.service.deactivate(
+      req.user.orgId,
+      id,
+      req.user.role,
+      req.user.sub,
+      req.user.fullName,
+    );
+  }
+
+  @Delete(':id/permanent')
+  @UseGuards(RolesGuard)
+  @MinRole(UserRole.ADMIN)
+  @ApiOperation({ summary: 'Permanently delete user (Admin+ only)' })
+  deletePermanent(@Request() req, @Param('id') id: string) {
+    return this.service.deletePermanent(
       req.user.orgId,
       id,
       req.user.role,

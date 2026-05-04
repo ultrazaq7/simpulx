@@ -1,6 +1,7 @@
 // ============================================================
 // Contact Model (JSON Serializable)
 // ============================================================
+import 'package:simpulx/core/utils/app_datetime.dart';
 import 'package:simpulx/features/contacts/domain/entities/contact_entity.dart';
 
 class ContactModel extends ContactEntity {
@@ -41,17 +42,17 @@ class ContactModel extends ContactEntity {
       isBlocked: json['isBlocked'] ?? json['is_blocked'] ?? false,
       sourceChannel: json['sourceChannel'] ?? json['source_channel'],
       firstSeenAt: json['firstSeenAt'] != null
-          ? DateTime.parse(json['firstSeenAt'])
+          ? AppDateTime.parseLocal(json['firstSeenAt'])
           : null,
       lastSeenAt: json['lastSeenAt'] != null
-          ? DateTime.parse(json['lastSeenAt'])
+          ? AppDateTime.parseLocal(json['lastSeenAt'])
           : (json['last_seen_at'] != null
-              ? DateTime.parse(json['last_seen_at'])
+              ? AppDateTime.parseLocal(json['last_seen_at'])
               : null),
       createdAt: json['createdAt'] != null
-          ? DateTime.parse(json['createdAt'])
+          ? AppDateTime.parseLocalOrNow(json['createdAt'])
           : (json['created_at'] != null
-              ? DateTime.parse(json['created_at'])
+              ? AppDateTime.parseLocalOrNow(json['created_at'])
               : DateTime.now()),
     );
   }

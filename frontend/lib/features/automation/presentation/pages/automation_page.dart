@@ -4,8 +4,8 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
-import 'package:intl/intl.dart';
 import 'package:simpulx/core/theme/app_style.dart';
+import 'package:simpulx/core/utils/app_datetime.dart';
 import 'package:simpulx/features/automation/presentation/providers/automation_providers.dart';
 import 'package:simpulx/features/automation/presentation/widgets/edit_automation_dialog.dart';
 
@@ -23,6 +23,7 @@ class _AutomationPageState extends ConsumerState<AutomationPage> {
   static const _triggers = {
     'new_conversation': 'New Conversation',
     'new_message': 'New Message Received',
+    'ad_click': 'Ad Click / CTWA Referral',
     'conversation_idle': 'Conversation Idle',
     'keyword_match': 'Keyword Match',
     'contact_tag': 'Contact Tag Added',
@@ -471,8 +472,6 @@ class _AutomationCard extends ConsumerWidget {
     final channelId = (conditions['channelId'] ?? '').toString();
     final channelName = channelId.isNotEmpty ? channelMap[channelId] : null;
 
-    // Date formatting
-    final dateFmt = DateFormat('MM/dd/yyyy, hh:mm:ss a');
     final createdAt = _parseDate(rule['createdAt']);
     final updatedAt = _parseDate(rule['updatedAt']);
 
@@ -594,9 +593,11 @@ class _AutomationCard extends ConsumerWidget {
               // Dates
               const SizedBox(height: 16),
               if (createdAt != null)
-                _dateRow(theme, 'Created At', dateFmt.format(createdAt)),
+                _dateRow(
+                    theme, 'Created At', AppDateTime.shortDateTime(createdAt)),
               if (updatedAt != null)
-                _dateRow(theme, 'UpdatedAt', dateFmt.format(updatedAt)),
+                _dateRow(
+                    theme, 'Updated At', AppDateTime.shortDateTime(updatedAt)),
             ],
           ),
         ),
@@ -701,8 +702,8 @@ class _AutomationCard extends ConsumerWidget {
 
   static DateTime? _parseDate(dynamic value) {
     if (value == null) return null;
-    if (value is DateTime) return value;
-    return DateTime.tryParse(value.toString());
+    if (value is DateTime) return value.toLocal();
+    return AppDateTime.parseLocal(value);
   }
 }
 

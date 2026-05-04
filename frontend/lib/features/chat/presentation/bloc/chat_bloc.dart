@@ -7,6 +7,7 @@ import 'package:flutter_bloc/flutter_bloc.dart';
 import 'package:simpulx/features/chat/domain/entities/chat_entities.dart';
 import 'package:simpulx/features/chat/domain/repositories/chat_repository.dart';
 import 'package:simpulx/core/network/websocket_service.dart';
+import 'package:simpulx/core/utils/app_datetime.dart';
 import 'package:simpulx/features/chat/presentation/bloc/web_helpers.dart';
 import 'package:simpulx/features/auth/presentation/bloc/auth_bloc.dart';
 import 'package:simpulx/core/di/injection_container.dart' as di;
@@ -108,8 +109,12 @@ class ConversationListState extends Equatable {
       sortOrder: sortOrder ?? this.sortOrder,
       tag: tag == _kNoFilter ? null : (tag ?? this.tag),
       stageId: stageId == _kNoFilter ? null : (stageId ?? this.stageId),
-      interestLevel: interestLevel == _kNoFilter ? null : (interestLevel ?? this.interestLevel),
-      sourceChannel: sourceChannel == _kNoFilter ? null : (sourceChannel ?? this.sourceChannel),
+      interestLevel: interestLevel == _kNoFilter
+          ? null
+          : (interestLevel ?? this.interestLevel),
+      sourceChannel: sourceChannel == _kNoFilter
+          ? null
+          : (sourceChannel ?? this.sourceChannel),
       filterOptions: filterOptions ?? this.filterOptions,
       isLoadingFilterOptions:
           isLoadingFilterOptions ?? this.isLoadingFilterOptions,
@@ -227,7 +232,8 @@ class ConversationCubit extends Cubit<ConversationListState> {
         lastMessagePreview:
             content.isNotEmpty ? content : old.lastMessagePreview,
         lastMessageSenderType: old.lastMessageSenderType,
-        lastMessageStatus: msgData['status'] as String? ?? old.lastMessageStatus,
+        lastMessageStatus:
+            msgData['status'] as String? ?? old.lastMessageStatus,
         lastMessageDirection: direction,
         unreadCount: isInbound ? old.unreadCount + 1 : old.unreadCount,
         referralAdSetId: old.referralAdSetId,
@@ -257,8 +263,8 @@ class ConversationCubit extends Cubit<ConversationListState> {
       if (isInbound) {
         // Only show popup notification to the assigned agent
         final assignedAgentId = data['assignedAgentId'] as String?;
-        final shouldNotify = assignedAgentId == null ||
-            assignedAgentId == _currentUserId;
+        final shouldNotify =
+            assignedAgentId == null || assignedAgentId == _currentUserId;
         if (shouldNotify) {
           BrowserNotification.show(
             title: old.contact?.displayName ?? 'New message',
@@ -340,7 +346,7 @@ class ConversationCubit extends Cubit<ConversationListState> {
             sourceChannel: old.sourceChannel,
             snoozedUntil: updates.containsKey('snoozedUntil')
                 ? (updates['snoozedUntil'] is String
-                    ? DateTime.tryParse(updates['snoozedUntil'] as String)
+                    ? AppDateTime.parseLocal(updates['snoozedUntil'])
                     : null)
                 : old.snoozedUntil,
             contact: old.contact,
@@ -435,10 +441,12 @@ class ConversationCubit extends Cubit<ConversationListState> {
     final effectiveTag = tag == _kNoFilter ? null : (tag ?? state.tag);
     final effectiveStageId =
         stageId == _kNoFilter ? null : (stageId ?? state.stageId);
-    final effectiveInterestLevel =
-        interestLevel == _kNoFilter ? null : (interestLevel ?? state.interestLevel);
-    final effectiveSourceChannel =
-        sourceChannel == _kNoFilter ? null : (sourceChannel ?? state.sourceChannel);
+    final effectiveInterestLevel = interestLevel == _kNoFilter
+        ? null
+        : (interestLevel ?? state.interestLevel);
+    final effectiveSourceChannel = sourceChannel == _kNoFilter
+        ? null
+        : (sourceChannel ?? state.sourceChannel);
 
     emit(state.copyWith(
       isLoading: true,
@@ -446,17 +454,18 @@ class ConversationCubit extends Cubit<ConversationListState> {
       searchQuery: search ?? state.searchQuery,
       agentId: agentId == _kNoFilter ? _kNoFilter : effectiveAgentId,
       assignmentFilter: effectiveAssignment,
-      lastMessageBy: lastMessageBy == _kNoFilter
-          ? _kNoFilter
-          : effectiveLastMessageBy,
+      lastMessageBy:
+          lastMessageBy == _kNoFilter ? _kNoFilter : effectiveLastMessageBy,
       channelId: channelId == _kNoFilter ? _kNoFilter : effectiveChannelId,
       departmentId:
           departmentId == _kNoFilter ? _kNoFilter : effectiveDepartmentId,
       sortOrder: effectiveSort,
       tag: tag == _kNoFilter ? _kNoFilter : effectiveTag,
       stageId: stageId == _kNoFilter ? _kNoFilter : effectiveStageId,
-      interestLevel: interestLevel == _kNoFilter ? _kNoFilter : effectiveInterestLevel,
-      sourceChannel: sourceChannel == _kNoFilter ? _kNoFilter : effectiveSourceChannel,
+      interestLevel:
+          interestLevel == _kNoFilter ? _kNoFilter : effectiveInterestLevel,
+      sourceChannel:
+          sourceChannel == _kNoFilter ? _kNoFilter : effectiveSourceChannel,
     ));
 
     final result = await _chatRepository.getConversations(
@@ -577,7 +586,8 @@ class ConversationCubit extends Cubit<ConversationListState> {
     return result.fold(
       (failure) => failure.message,
       (_) {
-        final conversations = List<ConversationEntity>.from(state.conversations);
+        final conversations =
+            List<ConversationEntity>.from(state.conversations);
         final idx = conversations.indexWhere((c) => c.id == conversationId);
 
         if (idx >= 0) {
@@ -611,7 +621,7 @@ class ConversationCubit extends Cubit<ConversationListState> {
             firstReplyAt: old.firstReplyAt,
             sourceChannel: old.sourceChannel,
             snoozedUntil: status == 'pending' && snoozedUntil != null
-                ? DateTime.tryParse(snoozedUntil)
+                ? AppDateTime.parseLocal(snoozedUntil)
                 : null,
             contact: old.contact,
             assignedAgent: old.assignedAgent,
@@ -646,7 +656,8 @@ class ConversationCubit extends Cubit<ConversationListState> {
     return result.fold(
       (failure) => failure.message,
       (_) {
-        final conversations = List<ConversationEntity>.from(state.conversations);
+        final conversations =
+            List<ConversationEntity>.from(state.conversations);
         final idx = conversations.indexWhere((c) => c.id == conversationId);
         if (idx >= 0) {
           final old = conversations[idx];
@@ -699,7 +710,8 @@ class ConversationCubit extends Cubit<ConversationListState> {
     return result.fold(
       (failure) => failure.message,
       (_) {
-        final conversations = List<ConversationEntity>.from(state.conversations);
+        final conversations =
+            List<ConversationEntity>.from(state.conversations);
         final idx = conversations.indexWhere((c) => c.id == conversationId);
         if (idx >= 0) {
           final old = conversations[idx];
@@ -741,7 +753,8 @@ class ConversationCubit extends Cubit<ConversationListState> {
     );
   }
 
-  Future<List<InternalNoteEntity>> getInternalNotes(String conversationId) async {
+  Future<List<InternalNoteEntity>> getInternalNotes(
+      String conversationId) async {
     final result =
         await _chatRepository.getInternalNotes(conversationId: conversationId);
     return result.fold((_) => <InternalNoteEntity>[], (notes) => notes);
@@ -1056,7 +1069,7 @@ class ChatBloc extends Bloc<ChatEvent, ChatState> {
             mediaUrl: msg['mediaUrl'],
             status: msg['status'] ?? 'delivered',
             createdAt: msg['createdAt'] != null
-                ? DateTime.parse(msg['createdAt'])
+                ? AppDateTime.parseLocalOrNow(msg['createdAt'])
                 : DateTime.now(),
           ),
         ));

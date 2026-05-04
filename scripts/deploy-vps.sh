@@ -54,6 +54,27 @@ for name in simpulx-db simpulx-redis; do
   fi
 done
 
+run_db_migrations() {
+  echo "Applying Simpulx DB migrations..."
+  local db_user="${DB_USERNAME:-simpulx}"
+  local db_name="${DB_DATABASE:-simpulx_crm}"
+  for _ in $(seq 1 30); do
+    if docker compose exec -T postgres pg_isready -U "$db_user" -d "$db_name" >/dev/null 2>&1; then
+      break
+    fi
+    sleep 2
+  done
+  docker compose exec -T postgres pg_isready -U "$db_user" -d "$db_name" >/dev/null
+  for migration in "$APP_DIR"/backend/src/database/migration-v10-*.sql; do
+    [ -f "$migration" ] || continue
+    echo "Applying $(basename "$migration")"
+    docker compose exec -T postgres psql \
+      -v ON_ERROR_STOP=1 \
+      -U "$db_user" \
+      -d "$db_name" < "$migration"
+  done
+}
+
 if [ -n "$API_IMAGE_ARTIFACT" ]; then
   if [ ! -f "$API_IMAGE_ARTIFACT" ]; then
     echo "API image artifact missing: $API_IMAGE_ARTIFACT" >&2
@@ -66,10 +87,14 @@ if [ -n "$API_IMAGE_ARTIFACT" ]; then
     docker load -i "$API_IMAGE_ARTIFACT"
   fi
   [ "$CLEAN_ARTIFACTS" = "1" ] && rm -f -- "$API_IMAGE_ARTIFACT"
-  docker compose up -d --no-build postgres redis api
+  docker compose up -d --no-build postgres redis
+  run_db_migrations
+  docker compose up -d --no-build api
 elif [ "${SIMPULX_ALLOW_VPS_API_BUILD:-0}" = "1" ]; then
   echo "Building API image on VPS because SIMPULX_ALLOW_VPS_API_BUILD=1..."
-  docker compose up -d --build postgres redis api
+  docker compose up -d --build postgres redis
+  run_db_migrations
+  docker compose up -d --build api
 else
   echo "No CI-built API image artifact provided. Refusing to build API on VPS." >&2
   echo "Set SIMPULX_API_IMAGE_ARTIFACT or explicitly set SIMPULX_ALLOW_VPS_API_BUILD=1 for emergency manual builds." >&2

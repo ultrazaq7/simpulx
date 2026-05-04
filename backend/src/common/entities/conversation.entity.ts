@@ -86,6 +86,15 @@ export class Conversation {
   @Column({ name: 'last_message_at', nullable: true })
   lastMessageAt: Date;
 
+  @Column({ name: 'last_contact_message_at', type: 'timestamptz', nullable: true })
+  lastContactMessageAt: Date | null;
+
+  @Column({ name: 'last_agent_message_at', type: 'timestamptz', nullable: true })
+  lastAgentMessageAt: Date | null;
+
+  @Column({ name: 'window_expires_at', type: 'timestamptz', nullable: true })
+  windowExpiresAt: Date | null;
+
   @Column({ name: 'last_message_preview', nullable: true, type: 'text' })
   lastMessagePreview: string;
 
@@ -117,6 +126,12 @@ export class Conversation {
   @Column({ name: 'closed_at', nullable: true })
   closedAt: Date;
 
+  @Column({ name: 'closed_reason', nullable: true, length: 80 })
+  closedReason: string | null;
+
+  @Column({ name: 'auto_close_at', type: 'timestamptz', nullable: true })
+  autoCloseAt: Date | null;
+
   @Column({ name: 'stage_id', nullable: true })
   stageId: string;
 
@@ -126,8 +141,32 @@ export class Conversation {
   @Column({ name: 'first_reply_at', nullable: true })
   firstReplyAt: Date;
 
+  @Column({ name: 'hsm_sent_at', type: 'timestamptz', nullable: true })
+  hsmSentAt: Date | null;
+
+  @Column({ name: 'hsm_count', default: 0 })
+  hsmCount: number;
+
+  @Column({ name: 'ai_stage', nullable: true, length: 30 })
+  aiStage: string | null;
+
+  @Column({ name: 'ai_confidence', type: 'numeric', precision: 5, scale: 4, nullable: true })
+  aiConfidence: string | null;
+
+  @Column({ name: 'ai_reason', nullable: true, type: 'text' })
+  aiReason: string | null;
+
+  @Column({ name: 'ai_analyzed_at', type: 'timestamptz', nullable: true })
+  aiAnalyzedAt: Date | null;
+
   @Column({ name: 'snoozed_until', type: 'timestamp', nullable: true })
   snoozedUntil: Date | null;
+
+  @Column({ name: 'routing_automation_rule_id', nullable: true })
+  routingAutomationRuleId: string | null;
+
+  @Column({ name: 'routed_ad_id', nullable: true, length: 255 })
+  routedAdId: string | null;
 
   // ── Omnichannel Source ────────────────────────────────
   @Column({

@@ -1,6 +1,7 @@
 // ============================================================
 // Quick Reply Model (JSON Serializable)
 // ============================================================
+import 'package:simpulx/core/utils/app_datetime.dart';
 import 'package:simpulx/features/quick_replies/domain/entities/quick_reply_entity.dart';
 
 class QuickReplyModel extends QuickReplyEntity {
@@ -20,7 +21,8 @@ class QuickReplyModel extends QuickReplyEntity {
   factory QuickReplyModel.fromJson(Map<String, dynamic> json) {
     String? createdByName;
     if (json['createdBy'] is Map) {
-      createdByName = json['createdBy']['fullName'] ?? json['createdBy']['full_name'];
+      createdByName =
+          json['createdBy']['fullName'] ?? json['createdBy']['full_name'];
     }
 
     return QuickReplyModel(
@@ -32,8 +34,8 @@ class QuickReplyModel extends QuickReplyEntity {
       isGlobal: json['isGlobal'] ?? json['is_global'] ?? true,
       departmentId: json['departmentId'] ?? json['department_id'],
       createdByName: createdByName,
-      createdAt: json['createdAt'] != null ? DateTime.parse(json['createdAt']) : DateTime.now(),
-      updatedAt: json['updatedAt'] != null ? DateTime.parse(json['updatedAt']) : DateTime.now(),
+      createdAt: AppDateTime.parseLocalOrNow(json['createdAt']),
+      updatedAt: AppDateTime.parseLocalOrNow(json['updatedAt']),
     );
   }
 }

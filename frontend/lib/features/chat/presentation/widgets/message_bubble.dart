@@ -9,6 +9,7 @@ import 'package:flutter/foundation.dart'
 import 'package:simpulx/core/widgets/app_snackbar.dart';
 import 'package:url_launcher/url_launcher.dart';
 import 'package:just_audio/just_audio.dart' as ja;
+import 'package:simpulx/core/utils/app_datetime.dart';
 import 'package:simpulx/features/chat/presentation/widgets/web_download_stub.dart'
     if (dart.library.html) 'package:simpulx/features/chat/presentation/widgets/web_download_web.dart';
 import 'package:simpulx/features/chat/domain/entities/chat_entities.dart';
@@ -85,7 +86,7 @@ class _MessageBubbleState extends State<MessageBubble> {
         !(type == 'document' && displayContent == message.mediaFilename) &&
         !(type == 'audio' && displayContent == message.mediaFilename);
 
-    final timeStr = _formatTime12h(message.createdAt);
+    final timeStr = AppDateTime.time(message.createdAt);
 
     // Timestamp + status row (inside bubble)
     Widget timestampRow = Row(
@@ -570,7 +571,7 @@ class _MessageBubbleState extends State<MessageBubble> {
     final timeStr = '${message.createdAt.month.toString().padLeft(2, '0')}/'
         '${message.createdAt.day.toString().padLeft(2, '0')}/'
         '${message.createdAt.year} '
-        '${_formatTime12h(message.createdAt)}';
+        '${AppDateTime.time(message.createdAt)}';
 
     return Align(
       alignment: Alignment.center,
@@ -597,13 +598,6 @@ class _MessageBubbleState extends State<MessageBubble> {
         ),
       ),
     );
-  }
-
-  String _formatTime12h(DateTime dt) {
-    final hour = dt.hour % 12 == 0 ? 12 : dt.hour % 12;
-    final minute = dt.minute.toString().padLeft(2, '0');
-    final period = dt.hour >= 12 ? 'PM' : 'AM';
-    return '$hour:$minute $period';
   }
 }
 

@@ -17,11 +17,12 @@ import { Stage } from '../../common/entities/stage.entity';
 import { InternalNote } from '../../common/entities/internal-note.entity';
 import { ChannelInteraction } from '../../common/entities/channel-interaction.entity';
 import { MetaChannel } from '../../common/entities/meta-channel.entity';
+import { PendingLead } from '../../common/entities/pending-lead.entity';
 import { WebhookModule } from '../webhook/webhook.module';
 
 @Module({
   imports: [
-    TypeOrmModule.forFeature([Conversation, Message, Contact, User, WhatsappChannel, WhatsappTemplate, Department, Stage, InternalNote, ChannelInteraction, MetaChannel]),
+    TypeOrmModule.forFeature([Conversation, Message, Contact, User, WhatsappChannel, WhatsappTemplate, Department, Stage, InternalNote, ChannelInteraction, MetaChannel, PendingLead]),
     JwtModule.registerAsync({
       imports: [ConfigModule],
       inject: [ConfigService],
@@ -52,6 +53,16 @@ export class ChatModule implements OnModuleInit {
         this.logger.error(`Snooze cron error: ${(err as Error).message}`);
       }
     }, 60_000);
+    setInterval(async () => {
+      try {
+        const result = await this.chatService.autoCloseInactiveConversations();
+        if (result.closed > 0) {
+          this.logger.log(`Auto-close cron: closed ${result.closed} inactive conversations`);
+        }
+      } catch (err) {
+        this.logger.error(`Auto-close cron error: ${(err as Error).message}`);
+      }
+    }, 15 * 60_000);
     this.logger.log('⏰ Snooze cron registered (every 60s)');
   }
 }

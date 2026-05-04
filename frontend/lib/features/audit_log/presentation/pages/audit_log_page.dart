@@ -1,14 +1,13 @@
 // ============================================================
 // System Log Page -- 4 Tabs
 // ============================================================
-import 'dart:convert';
 import 'package:dio/dio.dart';
 import 'package:flutter/material.dart';
 import 'package:data_table_2/data_table_2.dart';
 import 'package:simpulx/features/audit_log/presentation/pages/csv_download_stub.dart'
     if (dart.library.html) 'package:simpulx/features/audit_log/presentation/pages/csv_download_web.dart';
-import 'package:intl/intl.dart' hide TextDirection;
 import 'package:simpulx/core/di/injection_container.dart' as di;
+import 'package:simpulx/core/utils/app_datetime.dart';
 import 'package:simpulx/core/widgets/app_snackbar.dart';
 import 'package:simpulx/features/audit_log/data/datasources/audit_log_remote_datasource.dart';
 import 'package:simpulx/features/audit_log/data/models/audit_log_models.dart';
@@ -153,7 +152,8 @@ class _MessageHistoryTabState extends State<_MessageHistoryTab>
         direction: _direction,
         statuses: _statuses.isEmpty ? null : _statuses.toList(),
         departmentIds: _departmentIds.isEmpty ? null : _departmentIds.toList(),
-        sourceChannels: _sourceChannels.isEmpty ? null : _sourceChannels.toList(),
+        sourceChannels:
+            _sourceChannels.isEmpty ? null : _sourceChannels.toList(),
         tags: _tags.isEmpty ? null : _tags.toList(),
         dateFrom: _dateRange?.start.toIso8601String(),
         dateTo: _dateRange?.end.toIso8601String(),
@@ -218,9 +218,12 @@ class _MessageHistoryTabState extends State<_MessageHistoryTab>
                         controller: _searchCtrl,
                         decoration: InputDecoration(
                           hintText: 'Search messages...',
-                          prefixIcon: const Icon(Icons.search_rounded, size: 20),
-                          border: OutlineInputBorder(borderRadius: BorderRadius.circular(8)),
-                          contentPadding: const EdgeInsets.symmetric(horizontal: 12),
+                          prefixIcon:
+                              const Icon(Icons.search_rounded, size: 20),
+                          border: OutlineInputBorder(
+                              borderRadius: BorderRadius.circular(8)),
+                          contentPadding:
+                              const EdgeInsets.symmetric(horizontal: 12),
                           isDense: true,
                         ),
                         onSubmitted: (_) {
@@ -280,7 +283,9 @@ class _MessageHistoryTabState extends State<_MessageHistoryTab>
                     ),
                     _MultiFilterChip(
                       label: 'Tag',
-                      options: _tagOptions.map((t) => {'id': t, 'label': t}).toList(),
+                      options: _tagOptions
+                          .map((t) => {'id': t, 'label': t})
+                          .toList(),
                       selected: _tags,
                       onChanged: () {
                         _page = 1;
@@ -303,7 +308,8 @@ class _MessageHistoryTabState extends State<_MessageHistoryTab>
                 onPressed: _exporting ? null : _export,
                 icon: _exporting
                     ? const SizedBox(
-                        width: 16, height: 16,
+                        width: 16,
+                        height: 16,
                         child: CircularProgressIndicator(strokeWidth: 2))
                     : const Icon(Icons.download_rounded, size: 18),
                 label: const Text('Export CSV'),
@@ -322,21 +328,17 @@ class _MessageHistoryTabState extends State<_MessageHistoryTab>
                       mainAxisSize: MainAxisSize.min,
                       children: [
                         Icon(Icons.error_outline,
-                            size: 48,
-                            color: theme.colorScheme.error),
+                            size: 48, color: theme.colorScheme.error),
                         const SizedBox(height: 8),
                         Text(_error!,
-                            style: TextStyle(
-                                color: theme.colorScheme.error)),
+                            style: TextStyle(color: theme.colorScheme.error)),
                         const SizedBox(height: 12),
                         OutlinedButton(
-                            onPressed: _load,
-                            child: const Text('Retry')),
+                            onPressed: _load, child: const Text('Retry')),
                       ],
                     ))
                   : _result == null || _result!.data.isEmpty
-                      ? const Center(
-                          child: Text('No messages found'))
+                      ? const Center(child: Text('No messages found'))
                       : _buildTable(theme),
         ),
         // Pagination
@@ -382,17 +384,15 @@ class _MessageHistoryTabState extends State<_MessageHistoryTab>
           DataColumn2(label: Text('Content'), size: ColumnSize.L),
         ],
         rows: rows.map((m) {
-          final date = m['createdAt'] != null
-              ? DateFormat('dd MMM yy HH:mm')
-                  .format(DateTime.parse(m['createdAt']))
-              : '-';
+          final createdAt = AppDateTime.parseLocal(m['createdAt']);
+          final date =
+              createdAt != null ? AppDateTime.shortDateTime(createdAt) : '-';
           return DataRow(cells: [
             DataCell(Text(date, style: const TextStyle(fontSize: 12))),
             DataCell(_DirectionBadge(m['direction'] ?? '')),
-            DataCell(Text(m['type'] ?? '-',
-                style: const TextStyle(fontSize: 12))),
-            DataCell(Text(
-                m['contactName'] ?? m['contactPhone'] ?? '-',
+            DataCell(
+                Text(m['type'] ?? '-', style: const TextStyle(fontSize: 12))),
+            DataCell(Text(m['contactName'] ?? m['contactPhone'] ?? '-',
                 style: const TextStyle(fontSize: 12))),
             DataCell(Text(m['channelName'] ?? '-',
                 style: const TextStyle(fontSize: 12))),
@@ -481,7 +481,8 @@ class _ConversationsTabState extends State<_ConversationsTab>
         search: _searchCtrl.text.isNotEmpty ? _searchCtrl.text : null,
         statuses: _statuses.isEmpty ? null : _statuses.toList(),
         departmentIds: _departmentIds.isEmpty ? null : _departmentIds.toList(),
-        sourceChannels: _sourceChannels.isEmpty ? null : _sourceChannels.toList(),
+        sourceChannels:
+            _sourceChannels.isEmpty ? null : _sourceChannels.toList(),
         tags: _tags.isEmpty ? null : _tags.toList(),
         dateFrom: _dateRange?.start.toIso8601String(),
         dateTo: _dateRange?.end.toIso8601String(),
@@ -544,9 +545,12 @@ class _ConversationsTabState extends State<_ConversationsTab>
                         controller: _searchCtrl,
                         decoration: InputDecoration(
                           hintText: 'Search conversations...',
-                          prefixIcon: const Icon(Icons.search_rounded, size: 20),
-                          border: OutlineInputBorder(borderRadius: BorderRadius.circular(8)),
-                          contentPadding: const EdgeInsets.symmetric(horizontal: 12),
+                          prefixIcon:
+                              const Icon(Icons.search_rounded, size: 20),
+                          border: OutlineInputBorder(
+                              borderRadius: BorderRadius.circular(8)),
+                          contentPadding:
+                              const EdgeInsets.symmetric(horizontal: 12),
                           isDense: true,
                         ),
                         onSubmitted: (_) {
@@ -590,7 +594,9 @@ class _ConversationsTabState extends State<_ConversationsTab>
                     ),
                     _MultiFilterChip(
                       label: 'Tag',
-                      options: _tagOptions.map((t) => {'id': t, 'label': t}).toList(),
+                      options: _tagOptions
+                          .map((t) => {'id': t, 'label': t})
+                          .toList(),
                       selected: _tags,
                       onChanged: () {
                         _page = 1;
@@ -613,7 +619,8 @@ class _ConversationsTabState extends State<_ConversationsTab>
                 onPressed: _exporting ? null : _export,
                 icon: _exporting
                     ? const SizedBox(
-                        width: 16, height: 16,
+                        width: 16,
+                        height: 16,
                         child: CircularProgressIndicator(strokeWidth: 2))
                     : const Icon(Icons.download_rounded, size: 18),
                 label: const Text('Export CSV'),
@@ -631,21 +638,17 @@ class _ConversationsTabState extends State<_ConversationsTab>
                       mainAxisSize: MainAxisSize.min,
                       children: [
                         Icon(Icons.error_outline,
-                            size: 48,
-                            color: theme.colorScheme.error),
+                            size: 48, color: theme.colorScheme.error),
                         const SizedBox(height: 8),
                         Text(_error!,
-                            style: TextStyle(
-                                color: theme.colorScheme.error)),
+                            style: TextStyle(color: theme.colorScheme.error)),
                         const SizedBox(height: 12),
                         OutlinedButton(
-                            onPressed: _load,
-                            child: const Text('Retry')),
+                            onPressed: _load, child: const Text('Retry')),
                       ],
                     ))
                   : _result == null || _result!.data.isEmpty
-                      ? const Center(
-                          child: Text('No conversations found'))
+                      ? const Center(child: Text('No conversations found'))
                       : _buildTable(theme),
         ),
         if (_result != null && _result!.totalPages > 1)
@@ -700,23 +703,24 @@ class _ConversationsTabState extends State<_ConversationsTab>
           DataColumn2(label: Text('Closed At'), size: ColumnSize.M),
         ],
         rows: rows.map((c) {
-          final created = c['createdAt'] != null
-              ? DateFormat('dd MMM yy HH:mm')
-                  .format(DateTime.parse(c['createdAt']))
-              : '-';
-          final closed = c['closedAt'] != null
-              ? DateFormat('dd MMM yy HH:mm')
-                  .format(DateTime.parse(c['closedAt']))
-              : '-';
-          final snoozed = c['snoozedUntil'] != null
-              ? DateFormat('dd MMM yy HH:mm')
-                  .format(DateTime.parse(c['snoozedUntil']))
+          final createdAt = AppDateTime.parseLocal(c['createdAt']);
+          final closedAt = AppDateTime.parseLocal(c['closedAt']);
+          final snoozedUntil = AppDateTime.parseLocal(c['snoozedUntil']);
+          final created =
+              createdAt != null ? AppDateTime.shortDateTime(createdAt) : '-';
+          final closed =
+              closedAt != null ? AppDateTime.shortDateTime(closedAt) : '-';
+          final snoozed = snoozedUntil != null
+              ? AppDateTime.shortDateTime(snoozedUntil)
               : '-';
           final firstReplySec = c['firstReplySeconds'];
           final firstReplyStr = firstReplySec != null
-              ? _fmtDuration(firstReplySec is int ? firstReplySec : int.tryParse('$firstReplySec') ?? 0)
+              ? _fmtDuration(firstReplySec is int
+                  ? firstReplySec
+                  : int.tryParse('$firstReplySec') ?? 0)
               : '-';
-          final source = src.prettySourceChannel(c['sourceChannel']?.toString(), fallback: '-');
+          final source = src.prettySourceChannel(c['sourceChannel']?.toString(),
+              fallback: '-');
           final callCount = (c['callCount'] as num?)?.toInt() ?? 0;
           final callDurSec = (c['callDurationSeconds'] as num?)?.toInt() ?? 0;
           final waClicks = (c['whatsappClickCount'] as num?)?.toInt() ?? 0;
@@ -724,25 +728,38 @@ class _ConversationsTabState extends State<_ConversationsTab>
             DataCell(Text(created, style: const TextStyle(fontSize: 12))),
             DataCell(Text(c['contactName'] ?? c['contactPhone'] ?? '-',
                 style: const TextStyle(fontSize: 12))),
-            DataCell(Text(c['agentName'] ?? '-', style: const TextStyle(fontSize: 12))),
-            DataCell(Text(c['departmentName'] ?? '-', style: const TextStyle(fontSize: 12))),
-            DataCell(Text(c['channelName'] ?? '-', style: const TextStyle(fontSize: 12))),
+            DataCell(Text(c['agentName'] ?? '-',
+                style: const TextStyle(fontSize: 12))),
+            DataCell(Text(c['departmentName'] ?? '-',
+                style: const TextStyle(fontSize: 12))),
+            DataCell(Text(c['channelName'] ?? '-',
+                style: const TextStyle(fontSize: 12))),
             DataCell(Text(source, style: const TextStyle(fontSize: 12))),
             DataCell(_StatusBadge(c['status'] ?? '')),
             DataCell(_InterestBadge(c['interestLevel'])),
             DataCell(Icon(
-              c['replied'] == true ? Icons.check_circle_rounded : Icons.remove_circle_outline_rounded,
+              c['replied'] == true
+                  ? Icons.check_circle_rounded
+                  : Icons.remove_circle_outline_rounded,
               size: 16,
-              color: c['replied'] == true ? const Color(0xFF10B981) : const Color(0xFFD1D5DB),
+              color: c['replied'] == true
+                  ? const Color(0xFF10B981)
+                  : const Color(0xFFD1D5DB),
             )),
             DataCell(Text(firstReplyStr, style: const TextStyle(fontSize: 12))),
-            DataCell(Text(c['stageName'] ?? '-', style: const TextStyle(fontSize: 12))),
-            DataCell(Text('${c['messageCount'] ?? 0}', style: const TextStyle(fontSize: 12))),
-            DataCell(Text(callCount > 0 ? '$callCount' : '-', style: const TextStyle(fontSize: 12))),
-            DataCell(Text(callDurSec > 0 ? _fmtDuration(callDurSec) : '-', style: const TextStyle(fontSize: 12))),
-            DataCell(Text(waClicks > 0 ? '$waClicks' : '-', style: const TextStyle(fontSize: 12))),
+            DataCell(Text(c['stageName'] ?? '-',
+                style: const TextStyle(fontSize: 12))),
+            DataCell(Text('${c['messageCount'] ?? 0}',
+                style: const TextStyle(fontSize: 12))),
+            DataCell(Text(callCount > 0 ? '$callCount' : '-',
+                style: const TextStyle(fontSize: 12))),
+            DataCell(Text(callDurSec > 0 ? _fmtDuration(callDurSec) : '-',
+                style: const TextStyle(fontSize: 12))),
+            DataCell(Text(waClicks > 0 ? '$waClicks' : '-',
+                style: const TextStyle(fontSize: 12))),
             DataCell(Text(snoozed,
-                style: const TextStyle(fontSize: 12, color: Color(0xFF6B7280)))),
+                style:
+                    const TextStyle(fontSize: 12, color: Color(0xFF6B7280)))),
             DataCell(Text(closed, style: const TextStyle(fontSize: 12))),
           ]);
         }).toList(),
@@ -815,8 +832,7 @@ class _UserActivityTabState extends State<_UserActivityTab>
         child: Column(
           mainAxisSize: MainAxisSize.min,
           children: [
-            Icon(Icons.error_outline,
-                size: 48, color: theme.colorScheme.error),
+            Icon(Icons.error_outline, size: 48, color: theme.colorScheme.error),
             const SizedBox(height: 8),
             Text(_error!, style: TextStyle(color: theme.colorScheme.error)),
             const SizedBox(height: 12),
@@ -839,15 +855,13 @@ class _UserActivityTabState extends State<_UserActivityTab>
             itemBuilder: (context, i) {
               final log = _result!.logs[i];
               final time = log.createdAt != null
-                  ? DateFormat('dd MMM yy HH:mm').format(log.createdAt!)
+                  ? AppDateTime.shortDateTime(log.createdAt!)
                   : '';
               return ListTile(
                 dense: true,
                 leading: _categoryIcon(log.category),
-                title: Text(log.action,
-                    style: const TextStyle(fontSize: 13)),
-                subtitle: Text(
-                    '${log.userName ?? 'System'} - $time',
+                title: Text(log.action, style: const TextStyle(fontSize: 13)),
+                subtitle: Text('${log.userName ?? 'System'} - $time',
                     style: TextStyle(
                         fontSize: 11,
                         color: theme.colorScheme.onSurface
@@ -919,16 +933,14 @@ class _DownloadsTab extends StatelessWidget {
             'Use the Export CSV buttons in Message History\nor Conversations tabs to download data.',
             textAlign: TextAlign.center,
             style: theme.textTheme.bodyMedium?.copyWith(
-                color:
-                    theme.colorScheme.onSurface.withValues(alpha: 0.5)),
+                color: theme.colorScheme.onSurface.withValues(alpha: 0.5)),
           ),
           const SizedBox(height: 24),
           Text(
             'Downloaded files will appear in your browser\ndownloads folder automatically.',
             textAlign: TextAlign.center,
             style: theme.textTheme.bodySmall?.copyWith(
-                color:
-                    theme.colorScheme.onSurface.withValues(alpha: 0.4)),
+                color: theme.colorScheme.onSurface.withValues(alpha: 0.4)),
           ),
         ],
       ),
@@ -990,8 +1002,11 @@ class _MultiFilterChipState extends State<_MultiFilterChip> {
           child: StatefulBuilder(
             builder: (c, sb) {
               final filtered = widget.options
-                  .where((o) => _search.isEmpty ||
-                      (o['label'] ?? '').toLowerCase().contains(_search.toLowerCase()))
+                  .where((o) =>
+                      _search.isEmpty ||
+                      (o['label'] ?? '')
+                          .toLowerCase()
+                          .contains(_search.toLowerCase()))
                   .toList();
               final active = widget.selected.isNotEmpty;
               return SizedBox(
@@ -1009,9 +1024,12 @@ class _MultiFilterChipState extends State<_MultiFilterChip> {
                           isDense: true,
                           hintText: 'Search ${widget.label.toLowerCase()}...',
                           hintStyle: const TextStyle(fontSize: 13),
-                          prefixIcon: const Icon(Icons.search_rounded, size: 18),
-                          prefixIconConstraints: const BoxConstraints(minWidth: 32, minHeight: 32),
-                          contentPadding: const EdgeInsets.symmetric(horizontal: 8, vertical: 8),
+                          prefixIcon:
+                              const Icon(Icons.search_rounded, size: 18),
+                          prefixIconConstraints:
+                              const BoxConstraints(minWidth: 32, minHeight: 32),
+                          contentPadding: const EdgeInsets.symmetric(
+                              horizontal: 8, vertical: 8),
                           border: OutlineInputBorder(
                             borderRadius: BorderRadius.circular(6),
                             borderSide: BorderSide(color: theme.dividerColor),
@@ -1031,7 +1049,8 @@ class _MultiFilterChipState extends State<_MultiFilterChip> {
                           ? const Padding(
                               padding: EdgeInsets.symmetric(vertical: 16),
                               child: Center(
-                                child: Text('No results', style: TextStyle(fontSize: 13)),
+                                child: Text('No results',
+                                    style: TextStyle(fontSize: 13)),
                               ),
                             )
                           : ListView.builder(
@@ -1040,7 +1059,8 @@ class _MultiFilterChipState extends State<_MultiFilterChip> {
                               itemCount: filtered.length,
                               itemBuilder: (_, i) {
                                 final o = filtered[i];
-                                final checked = widget.selected.contains(o['id']);
+                                final checked =
+                                    widget.selected.contains(o['id']);
                                 return InkWell(
                                   onTap: () {
                                     if (checked) {
@@ -1060,7 +1080,8 @@ class _MultiFilterChipState extends State<_MultiFilterChip> {
                                         Icon(
                                           checked
                                               ? Icons.check_box_rounded
-                                              : Icons.check_box_outline_blank_rounded,
+                                              : Icons
+                                                  .check_box_outline_blank_rounded,
                                           size: 18,
                                           color: checked
                                               ? theme.colorScheme.primary
@@ -1071,7 +1092,8 @@ class _MultiFilterChipState extends State<_MultiFilterChip> {
                                         Expanded(
                                           child: Text(
                                             o['label'] ?? '',
-                                            style: const TextStyle(fontSize: 13),
+                                            style:
+                                                const TextStyle(fontSize: 13),
                                             overflow: TextOverflow.ellipsis,
                                           ),
                                         ),
@@ -1134,7 +1156,9 @@ class _MultiFilterChipState extends State<_MultiFilterChip> {
         height: 40,
         padding: const EdgeInsets.symmetric(horizontal: 12),
         decoration: BoxDecoration(
-          color: active ? theme.colorScheme.primary.withValues(alpha: 0.08) : theme.colorScheme.surface,
+          color: active
+              ? theme.colorScheme.primary.withValues(alpha: 0.08)
+              : theme.colorScheme.surface,
           borderRadius: BorderRadius.circular(8),
           border: Border.all(
             color: active
@@ -1178,9 +1202,8 @@ class _DateRangeFilterChip extends StatelessWidget {
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
     final active = value != null;
-    final label = !active
-        ? 'Date'
-        : '${_fmt(value!.start)} – ${_fmt(value!.end)}';
+    final label =
+        !active ? 'Date' : '${_fmt(value!.start)} – ${_fmt(value!.end)}';
 
     Future<void> pickPreset(String preset) async {
       final now = DateTime.now();
@@ -1194,10 +1217,12 @@ class _DateRangeFilterChip extends StatelessWidget {
           onChanged(DateTimeRange(start: y, end: y));
           break;
         case 'last7':
-          onChanged(DateTimeRange(start: today.subtract(const Duration(days: 6)), end: today));
+          onChanged(DateTimeRange(
+              start: today.subtract(const Duration(days: 6)), end: today));
           break;
         case 'last30':
-          onChanged(DateTimeRange(start: today.subtract(const Duration(days: 29)), end: today));
+          onChanged(DateTimeRange(
+              start: today.subtract(const Duration(days: 29)), end: today));
           break;
         case 'custom':
           final picked = await showDateRangePicker(
@@ -1229,7 +1254,9 @@ class _DateRangeFilterChip extends StatelessWidget {
         height: 40,
         padding: const EdgeInsets.symmetric(horizontal: 12),
         decoration: BoxDecoration(
-          color: active ? theme.colorScheme.primary.withValues(alpha: 0.08) : theme.colorScheme.surface,
+          color: active
+              ? theme.colorScheme.primary.withValues(alpha: 0.08)
+              : theme.colorScheme.surface,
           borderRadius: BorderRadius.circular(8),
           border: Border.all(
             color: active
@@ -1242,7 +1269,9 @@ class _DateRangeFilterChip extends StatelessWidget {
           children: [
             Icon(Icons.event_outlined,
                 size: 16,
-                color: active ? theme.colorScheme.primary : theme.colorScheme.onSurface.withValues(alpha: 0.6)),
+                color: active
+                    ? theme.colorScheme.primary
+                    : theme.colorScheme.onSurface.withValues(alpha: 0.6)),
             const SizedBox(width: 6),
             Text(
               label,
@@ -1370,11 +1399,9 @@ class _StatusBadge extends StatelessWidget {
         borderRadius: BorderRadius.circular(12),
       ),
       child: Text(
-        status.isNotEmpty
-            ? status[0].toUpperCase() + status.substring(1)
-            : '-',
-        style: TextStyle(
-            fontSize: 11, fontWeight: FontWeight.w600, color: color),
+        status.isNotEmpty ? status[0].toUpperCase() + status.substring(1) : '-',
+        style:
+            TextStyle(fontSize: 11, fontWeight: FontWeight.w600, color: color),
       ),
     );
   }
@@ -1386,7 +1413,8 @@ class _InterestBadge extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    if (level == null || level!.isEmpty) return const Text('-', style: TextStyle(fontSize: 12));
+    if (level == null || level!.isEmpty)
+      return const Text('-', style: TextStyle(fontSize: 12));
     Color color;
     switch (level!.toLowerCase()) {
       case 'hot':
@@ -1409,7 +1437,8 @@ class _InterestBadge extends StatelessWidget {
       ),
       child: Text(
         level![0].toUpperCase() + level!.substring(1),
-        style: TextStyle(fontSize: 11, fontWeight: FontWeight.w600, color: color),
+        style:
+            TextStyle(fontSize: 11, fontWeight: FontWeight.w600, color: color),
       ),
     );
   }
@@ -1426,9 +1455,7 @@ class _DirectionBadge extends StatelessWidget {
       mainAxisSize: MainAxisSize.min,
       children: [
         Icon(
-          isInbound
-              ? Icons.call_received_rounded
-              : Icons.call_made_rounded,
+          isInbound ? Icons.call_received_rounded : Icons.call_made_rounded,
           size: 14,
           color: isInbound ? const Color(0xFF3B82F6) : const Color(0xFF10B981),
         ),
@@ -1437,7 +1464,8 @@ class _DirectionBadge extends StatelessWidget {
           isInbound ? 'In' : 'Out',
           style: TextStyle(
             fontSize: 12,
-            color: isInbound ? const Color(0xFF3B82F6) : const Color(0xFF10B981),
+            color:
+                isInbound ? const Color(0xFF3B82F6) : const Color(0xFF10B981),
             fontWeight: FontWeight.w600,
           ),
         ),
@@ -1474,13 +1502,11 @@ class _PaginationBar extends StatelessWidget {
             iconSize: 20,
           ),
           const SizedBox(width: 8),
-          Text('Page $page of $totalPages',
-              style: theme.textTheme.bodySmall),
+          Text('Page $page of $totalPages', style: theme.textTheme.bodySmall),
           const SizedBox(width: 8),
           IconButton(
             icon: const Icon(Icons.chevron_right_rounded),
-            onPressed:
-                page < totalPages ? () => onPageChanged(page + 1) : null,
+            onPressed: page < totalPages ? () => onPageChanged(page + 1) : null,
             iconSize: 20,
           ),
         ],

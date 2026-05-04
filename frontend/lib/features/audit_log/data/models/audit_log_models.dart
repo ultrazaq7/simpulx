@@ -1,3 +1,5 @@
+import 'package:simpulx/core/utils/app_datetime.dart';
+
 class AuditLogModel {
   final String id;
   final String category;
@@ -35,7 +37,7 @@ class AuditLogModel {
       metadata: (json['metadata'] as Map<String, dynamic>?) ?? const {},
       ipAddress: json['ipAddress'] as String?,
       createdAt: json['createdAt'] != null
-          ? DateTime.tryParse(json['createdAt'] as String)
+          ? AppDateTime.parseLocal(json['createdAt'])
           : null,
     );
   }

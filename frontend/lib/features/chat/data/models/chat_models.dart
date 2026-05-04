@@ -2,6 +2,7 @@
 // Chat Data Models (JSON Serializable)
 // ============================================================
 import 'package:simpulx/features/chat/domain/entities/chat_entities.dart';
+import 'package:simpulx/core/utils/app_datetime.dart';
 
 class ConversationModel extends ConversationEntity {
   const ConversationModel({
@@ -49,8 +50,7 @@ class ConversationModel extends ConversationEntity {
       departmentId: json['departmentId'] ?? json['department_id'],
       whatsappChannelId:
           json['whatsappChannelId'] ?? json['whatsapp_channel_id'],
-      metaChannelId:
-          json['metaChannelId'] ?? json['meta_channel_id'],
+      metaChannelId: json['metaChannelId'] ?? json['meta_channel_id'],
       channel: json['channel'] as String? ?? 'whatsapp',
       channelName: json['channelName'] ??
           json['channel_name'] ??
@@ -65,7 +65,7 @@ class ConversationModel extends ConversationEntity {
       status: json['status'] as String? ?? 'open',
       subject: json['subject'] as String?,
       lastMessageAt: json['lastMessageAt'] != null
-          ? DateTime.parse(json['lastMessageAt'])
+          ? AppDateTime.parseLocal(json['lastMessageAt'])
           : null,
       lastMessagePreview: json['lastMessagePreview'] as String?,
       lastMessageSenderType: json['lastMessageSenderType'] as String?,
@@ -78,24 +78,18 @@ class ConversationModel extends ConversationEntity {
       referralHeadline: json['referralHeadline'] ?? json['referral_headline'],
       stageId: json['stageId'] ?? json['stage_id'],
       stageName: json['stageName'] ??
-          (stage is Map<String, dynamic>
-              ? stage['name'] as String?
-              : null),
+          (stage is Map<String, dynamic> ? stage['name'] as String? : null),
       stageColor: json['stageColor'] ??
-          (stage is Map<String, dynamic>
-              ? stage['color'] as String?
-              : null),
+          (stage is Map<String, dynamic> ? stage['color'] as String? : null),
       stageCategory: json['stageCategory'] ??
-          (stage is Map<String, dynamic>
-              ? stage['category'] as String?
-              : null),
+          (stage is Map<String, dynamic> ? stage['category'] as String? : null),
       interestLevel: json['interestLevel'] as String?,
       firstReplyAt: json['firstReplyAt'] != null
-          ? DateTime.parse(json['firstReplyAt'])
+          ? AppDateTime.parseLocal(json['firstReplyAt'])
           : null,
       sourceChannel: json['sourceChannel'] ?? json['source_channel'],
       snoozedUntil: json['snoozedUntil'] != null
-          ? DateTime.tryParse(json['snoozedUntil'])
+          ? AppDateTime.parseLocal(json['snoozedUntil'])
           : null,
       contact: json['contact'] != null
           ? ContactModel.fromJson(json['contact'])
@@ -137,7 +131,7 @@ class MessageModel extends MessageEntity {
       status: json['status'] as String? ?? 'sent',
       replyToId: json['replyToId'] ?? json['reply_to_id'],
       createdAt: json['createdAt'] != null
-          ? DateTime.parse(json['createdAt'])
+          ? AppDateTime.parseLocal(json['createdAt']) ?? DateTime.now()
           : DateTime.now(),
     );
   }
@@ -182,7 +176,7 @@ class ContactModel extends ContactEntity {
 
   static DateTime? _parseDate(dynamic value) {
     if (value == null) return null;
-    return DateTime.tryParse(value.toString());
+    return AppDateTime.parseLocal(value);
   }
 }
 
@@ -306,7 +300,7 @@ class InternalNoteModel extends InternalNoteEntity {
       agentName: json['agentName'] ?? json['agent_name'] ?? '',
       content: json['content'] as String? ?? '',
       createdAt: json['createdAt'] != null
-          ? DateTime.parse(json['createdAt'])
+          ? AppDateTime.parseLocal(json['createdAt']) ?? DateTime.now()
           : DateTime.now(),
     );
   }

@@ -29,6 +29,7 @@ class _EditAutomationDialogState extends ConsumerState<_EditAutomationDialog> {
   static const _triggers = {
     'new_conversation': 'New Conversation',
     'new_message': 'New Message Received',
+    'ad_click': 'Ad Click / CTWA Referral',
     'conversation_idle': 'Conversation Idle',
     'keyword_match': 'Keyword Match',
     'contact_tag': 'Contact Tag Added',
@@ -51,6 +52,7 @@ class _EditAutomationDialogState extends ConsumerState<_EditAutomationDialog> {
   late final TextEditingController _nameCtrl;
   late final TextEditingController _descCtrl;
   late final TextEditingController _keywordsCtrl;
+  late final TextEditingController _sourceIdsCtrl;
   late final TextEditingController _messageCtrl;
 
   late String _selectedTrigger;
@@ -72,11 +74,18 @@ class _EditAutomationDialogState extends ConsumerState<_EditAutomationDialog> {
               ?.join(', ') ??
           '',
     );
+    final sourceIds = r?['triggerConditions']?['sourceIds'] as List<dynamic>?;
+    _sourceIdsCtrl = TextEditingController(
+      text: sourceIds?.join(', ') ??
+          r?['triggerConditions']?['sourceId']?.toString() ??
+          '',
+    );
     _isActive = r?['isActive'] ?? true;
 
     _selectedTrigger = r?['triggerType'] ?? 'new_message';
-    if (!_triggers.containsKey(_selectedTrigger))
+    if (!_triggers.containsKey(_selectedTrigger)) {
       _selectedTrigger = 'new_message';
+    }
 
     _selectedChannelId =
         (r?['triggerConditions']?['channelId'] ?? '').toString();
@@ -102,11 +111,13 @@ class _EditAutomationDialogState extends ConsumerState<_EditAutomationDialog> {
     _nameCtrl.dispose();
     _descCtrl.dispose();
     _keywordsCtrl.dispose();
+    _sourceIdsCtrl.dispose();
     _messageCtrl.dispose();
     super.dispose();
   }
 
   bool get _needsKeywords => _selectedTrigger == 'keyword_match';
+  bool get _needsSourceIds => _selectedTrigger == 'ad_click';
   bool get _needsMessage =>
       _selectedAction == 'send_message' || _selectedAction == 'send_template';
   bool get _needsWebhookUrl => _selectedAction == 'webhook_notify';
@@ -128,6 +139,14 @@ class _EditAutomationDialogState extends ConsumerState<_EditAutomationDialog> {
           .map((k) => k.trim())
           .where((k) => k.isNotEmpty)
           .toList();
+    }
+    if (_needsSourceIds && _sourceIdsCtrl.text.trim().isNotEmpty) {
+      triggerConditions['sourceIds'] = _sourceIdsCtrl.text
+          .split(',')
+          .map((id) => id.trim())
+          .where((id) => id.isNotEmpty)
+          .toList();
+      triggerConditions['sourceType'] = 'ad';
     }
 
     final actionParams = <String, dynamic>{};
@@ -312,6 +331,31 @@ class _EditAutomationDialogState extends ConsumerState<_EditAutomationDialog> {
                       color:
                           theme.colorScheme.onSurface.withValues(alpha: 0.82),
                     ),
+                  ),
+                ),
+              ],
+              if (_needsSourceIds) ...[
+                const SizedBox(height: 16),
+                TextField(
+                  controller: _sourceIdsCtrl,
+                  decoration: InputDecoration(
+                    labelText: 'Ad source IDs (comma-separated)',
+                    hintText: 'e.g. 120212345678900, AD_001',
+                    labelStyle: TextStyle(
+                      color:
+                          theme.colorScheme.onSurface.withValues(alpha: 0.86),
+                    ),
+                    hintStyle: TextStyle(
+                      color: theme.colorScheme.onSurface.withValues(alpha: 0.7),
+                    ),
+                    prefixIcon: Icon(
+                      Icons.ads_click_rounded,
+                      size: 20,
+                      color:
+                          theme.colorScheme.onSurface.withValues(alpha: 0.82),
+                    ),
+                    helperText:
+                        'Matches Meta referral.source_id / unique ad ID. Leave empty to match every ad click.',
                   ),
                 ),
               ],

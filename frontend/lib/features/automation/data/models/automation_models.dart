@@ -3,6 +3,8 @@
 // ============================================================
 import 'dart:ui';
 
+import 'package:simpulx/core/utils/app_datetime.dart';
+
 // ── Automation Model (Dashboard level) ─────────────────────
 class AutomationModel {
   final String id;
@@ -77,8 +79,8 @@ class AutomationModel {
         (s) => s.name == json['status'],
         orElse: () => AutomationStatus.active,
       ),
-      createdAt: DateTime.tryParse(json['createdAt'] ?? '') ?? DateTime.now(),
-      updatedAt: DateTime.tryParse(json['updatedAt'] ?? '') ?? DateTime.now(),
+      createdAt: AppDateTime.parseLocalOrNow(json['createdAt']),
+      updatedAt: AppDateTime.parseLocalOrNow(json['updatedAt']),
       isFallback: json['isFallback'] ?? false,
       disableOnAssignment: json['disableOnAssignment'] ?? false,
     );

@@ -3,8 +3,8 @@
 // ============================================================
 import 'package:flutter/material.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
-import 'package:intl/intl.dart';
 import 'package:simpulx/core/theme/app_style.dart';
+import 'package:simpulx/core/utils/app_datetime.dart';
 import 'package:simpulx/core/di/injection_container.dart' as di;
 import 'package:simpulx/features/auth/presentation/bloc/auth_bloc.dart';
 import 'package:simpulx/features/settings/data/datasources/settings_remote_datasource.dart';
@@ -23,7 +23,6 @@ class TeamSettingsPage extends StatefulWidget {
 class _TeamSettingsPageState extends State<TeamSettingsPage> {
   late final SettingsRemoteDataSource _ds;
   final _searchCtrl = TextEditingController();
-  final _dateFormat = DateFormat('dd MMM yyyy');
 
   bool _loading = false;
   String? _error;
@@ -344,8 +343,8 @@ class _TeamSettingsPageState extends State<TeamSettingsPage> {
       child: SizedBox(
         width: double.infinity,
         child: DataTable(
-          dataRowMinHeight: 64,
-          dataRowMaxHeight: 72,
+          dataRowMinHeight: 54,
+          dataRowMaxHeight: 62,
           columns: const [
             DataColumn(label: Text('Full Name')),
             DataColumn(label: Text('Roles')),
@@ -488,8 +487,10 @@ class _TeamSettingsPageState extends State<TeamSettingsPage> {
                               ],
                             ),
                           ),
-                          if (_currentRole == 'owner' ||
-                              _currentRole == 'admin')
+                          if ((_currentRole == 'owner' ||
+                                  _currentRole == 'admin') &&
+                              m.id != _currentUserId &&
+                              m.role != 'owner')
                             const PopupMenuItem(
                               value: 'delete',
                               child: Row(
@@ -752,9 +753,11 @@ class _TeamSettingsPageState extends State<TeamSettingsPage> {
           member.maxConcurrentChats.toString(),
           member.availableForRoundRobin ? 'Yes' : 'No',
           member.isOnline ? 'Yes' : 'No',
-          member.createdAt != null ? _dateFormat.format(member.createdAt!) : '',
+          member.createdAt != null
+              ? AppDateTime.mediumDate(member.createdAt!)
+              : '',
           member.lastSeenAt != null
-              ? _dateFormat.format(member.lastSeenAt!)
+              ? AppDateTime.mediumDate(member.lastSeenAt!)
               : '',
         ],
       ),
@@ -809,6 +812,12 @@ class _TeamSettingsPageState extends State<TeamSettingsPage> {
   }
 
   Future<void> _confirmDeleteUser(SettingsTeamMemberModel m) async {
+    if (m.id == _currentUserId) {
+      AppSnackbar.error(
+          context, 'You cannot permanently delete your own account.');
+      return;
+    }
+
     final ok = await showDialog<bool>(
       context: context,
       builder: (ctx) => AlertDialog(
@@ -831,7 +840,7 @@ class _TeamSettingsPageState extends State<TeamSettingsPage> {
     );
     if (ok != true) return;
     try {
-      final msg = await _ds.deactivateUser(m.id);
+      final msg = await _ds.deleteUserPermanent(m.id);
       if (!mounted) return;
       AppSnackbar.success(context, msg);
       _loadAll();

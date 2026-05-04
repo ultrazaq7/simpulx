@@ -51,7 +51,15 @@ export class IncomingMessageProcessor extends WorkerHost {
         conversationId: result.conversation.id,
         messageId: result.message.id,
         contactId: result.contact.id,
-        metadata: { content: data.content, type: data.type },
+        metadata: {
+          content: data.content,
+          type: data.type,
+          referral: data.referral,
+          sourceId: data.referral?.sourceId,
+          sourceType: data.referral?.sourceType,
+          ctwaClid: data.referral?.ctwaClid,
+          headline: data.referral?.headline,
+        },
         pushNotification: {
           contactName: result.contact?.name || result.contact?.phone || 'Customer',
           contactPhone: result.contact?.phone,

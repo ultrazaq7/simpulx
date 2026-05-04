@@ -1,8 +1,8 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
 import 'package:go_router/go_router.dart';
-import 'package:intl/intl.dart';
 import 'package:simpulx/core/theme/app_style.dart';
+import 'package:simpulx/core/utils/app_datetime.dart';
 import 'package:simpulx/core/di/injection_container.dart' as di;
 import 'package:simpulx/features/audit_log/data/datasources/audit_log_remote_datasource.dart';
 import 'package:simpulx/features/audit_log/data/models/audit_log_models.dart';
@@ -29,7 +29,6 @@ class _SettingsPageState extends State<SettingsPage> {
   final _currentPasswordController = TextEditingController();
   final _newPasswordController = TextEditingController();
   final _confirmPasswordController = TextEditingController();
-  final _dateFormat = DateFormat('dd MMM yyyy, HH:mm');
 
   bool _isLoadingDepartments = false;
   String? _departmentsError;
@@ -289,7 +288,7 @@ class _SettingsPageState extends State<SettingsPage> {
                         ? session!.user.fullName[0].toUpperCase()
                         : '?',
                     style: TextStyle(
-                      fontSize: 32,
+                      fontSize: 28,
                       fontWeight: FontWeight.bold,
                       color: theme.colorScheme.primary,
                     ),
@@ -2948,7 +2947,7 @@ class _SettingsPageState extends State<SettingsPage> {
     if (value == null) {
       return 'Unavailable';
     }
-    return _dateFormat.format(value.toLocal());
+    return AppDateTime.shortDateTime(value);
   }
 
   String _formatError(Object error) {
