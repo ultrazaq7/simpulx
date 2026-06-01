@@ -194,6 +194,13 @@ func main() {
 	mux.HandleFunc("DELETE /api/sequences/{id}", s.requireAuth(s.handleDeleteSequence))
 	mux.HandleFunc("POST /api/uploads", s.requireAuth(s.handleUpload))
 
+	// Proxy media directly to minio
+	mux.HandleFunc("GET /simpulx-media/", func(w http.ResponseWriter, r *http.Request) {
+		target, _ := url.Parse(config.Get("S3_ENDPOINT", "http://minio:9000"))
+		proxy := httputil.NewSingleHostReverseProxy(target)
+		proxy.ServeHTTP(w, r)
+	})
+
 
 	port := config.Get("PORT", "8080")
 	srv := &http.Server{
