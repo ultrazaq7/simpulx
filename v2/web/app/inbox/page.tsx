@@ -271,6 +271,10 @@ export default function InboxPage() {
   function notify(msg: string, severity: Toast["severity"] = "success") { setToast({ msg, severity }); }
 
   async function submit() {
+    if (pendingFile) {
+      await confirmSendFile();
+      return;
+    }
     if (!draft.trim() || !activeId) return;
     if (tab === 1) {
       await api.addNote(activeId, draft.trim()); setDraft("");
@@ -688,15 +692,23 @@ export default function InboxPage() {
                               ...(out ? { bgcolor: "primary.main", color: "#fff", borderBottomRightRadius: "4px" } : { bgcolor: "background.paper", border: "1px solid", borderColor: "divider", borderBottomLeftRadius: "4px" }),
                               boxShadow: "0 1px 2px rgba(0,0,0,0.04)",
                             }}>
-                              {m.media_url && m.type === "image" && <Box onClick={() => setPreviewMedia({ url: m.media_url!, type: m.type })} component="img" src={m.media_url} sx={{ maxHeight: 240, maxWidth: 260, borderRadius: "8px", display: "block", mb: m.body ? 1 : 0, cursor: "pointer" }} />}
-                              {m.media_url && m.type === "audio" && <Box component="audio" controls src={m.media_url} sx={{ width: 240, mb: m.body ? 1 : 0 }} />}
-                              {m.media_url && m.type === "video" && <Box component="video" controls src={m.media_url} sx={{ maxHeight: 240, maxWidth: 260, borderRadius: "8px", mb: m.body ? 1 : 0 }} />}
-                              {m.media_url && !["image", "audio", "video", "text"].includes(m.type) && (
-                                <Box onClick={() => setPreviewMedia({ url: m.media_url!, type: m.type })} sx={{ display: "flex", alignItems: "center", gap: 1, p: 1.5, borderRadius: "8px", bgcolor: out ? "rgba(255,255,255,0.15)" : "rgba(0,0,0,0.04)", mb: m.body ? 1 : 0, cursor: "pointer" }}>
-                                  <InsertDriveFileOutlinedIcon sx={{ fontSize: 20, color: out ? "#fff" : "primary.main" }} />
-                                  <Box><Typography sx={{ fontSize: 12, fontWeight: 600, color: out ? "#fff" : "text.primary" }}>Attachment</Typography><Typography sx={{ fontSize: 11, color: out ? "rgba(255,255,255,0.7)" : "text.secondary" }}>Tap to view</Typography></Box>
-                                </Box>
-                              )}
+                              {(() => {
+                                if (!m.media_url) return null;
+                                let url = m.media_url;
+                                if (typeof window !== "undefined" && window.location.hostname === "localhost" && url.includes("ngrok-free.dev")) {
+                                  url = url.replace(/https?:\/\/[^\/]+/, "http://localhost:8080");
+                                }
+                                if (m.type === "image") return <Box onClick={() => setPreviewMedia({ url, type: m.type })} component="img" src={url} sx={{ maxHeight: 240, maxWidth: 260, borderRadius: "8px", display: "block", mb: m.body ? 1 : 0, cursor: "pointer" }} />;
+                                if (m.type === "audio") return <Box component="audio" controls src={url} sx={{ width: 240, mb: m.body ? 1 : 0 }} />;
+                                if (m.type === "video") return <Box component="video" controls src={url} sx={{ maxHeight: 240, maxWidth: 260, borderRadius: "8px", mb: m.body ? 1 : 0 }} />;
+                                if (!["image", "audio", "video", "text"].includes(m.type)) return (
+                                  <Box onClick={() => setPreviewMedia({ url, type: m.type })} sx={{ display: "flex", alignItems: "center", gap: 1, p: 1.5, borderRadius: "8px", bgcolor: out ? "rgba(255,255,255,0.15)" : "rgba(0,0,0,0.04)", mb: m.body ? 1 : 0, cursor: "pointer" }}>
+                                    <InsertDriveFileOutlinedIcon sx={{ fontSize: 20, color: out ? "#fff" : "primary.main" }} />
+                                    <Box><Typography sx={{ fontSize: 12, fontWeight: 600, color: out ? "#fff" : "text.primary" }}>Attachment</Typography><Typography sx={{ fontSize: 11, color: out ? "rgba(255,255,255,0.7)" : "text.secondary" }}>Tap to view</Typography></Box>
+                                  </Box>
+                                );
+                                return null;
+                              })()}
                               {m.body && <Typography variant="body2" sx={{ color: "inherit", whiteSpace: "pre-wrap", wordBreak: "break-word" }}>{m.body}</Typography>}
                             </Box>
                             <Box sx={{ display: "flex", alignItems: "center", gap: 0.5, mt: 0.25, px: 0.5 }}>
