@@ -44,6 +44,7 @@ type server struct {
 	appSecret       string // META_APP_SECRET for webhook signature verification
 	jwtSecret       string
 	jwtTTL          time.Duration
+	refreshTTL      time.Duration
 	conversationURL string
 	knowledgeURL    string
 	aiAgentURL      string
@@ -108,6 +109,7 @@ func main() {
 		appSecret:       config.Get("META_APP_SECRET", ""),
 		jwtSecret:       config.Get("JWT_SECRET", "dev_change_me_in_prod"),
 		jwtTTL:          time.Duration(config.GetInt("JWT_ACCESS_TTL", 900)) * time.Second,
+		refreshTTL:      time.Duration(config.GetInt("REFRESH_TTL", 2592000)) * time.Second, // 30d
 		conversationURL: config.Get("CONVERSATION_URL", "http://conversation:8083"),
 		knowledgeURL:    config.Get("KNOWLEDGE_URL", "http://knowledge:8001"),
 		aiAgentURL:      config.Get("AI_AGENT_URL", "http://ai-agent:8000"),
@@ -159,6 +161,8 @@ func main() {
 	mux.HandleFunc("POST /auth/login", authRL(s.handleLogin))
 	mux.HandleFunc("POST /auth/forgot-password", authRL(s.handleForgotPassword))
 	mux.HandleFunc("POST /auth/reset-password", authRL(s.handleResetPassword))
+	mux.HandleFunc("POST /auth/refresh", authRL(s.handleRefresh))
+	mux.HandleFunc("POST /auth/logout", authRL(s.handleLogout))
 
 	// ── Public Web API lead ingest (API-key auth, no JWT) ──
 	mux.HandleFunc("POST /v1/leads", leadsRL(s.handleIngestLead))

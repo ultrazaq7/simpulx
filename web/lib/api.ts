@@ -13,13 +13,19 @@ export function getUser(): User | null {
   const raw = localStorage.getItem("simpulx_user");
   return raw ? (JSON.parse(raw) as User) : null;
 }
-export function setSession(token: string, user: User) {
+export function getRefreshToken(): string | null {
+  if (typeof window === "undefined") return null;
+  return localStorage.getItem("simpulx_refresh");
+}
+export function setSession(token: string, user: User, refresh?: string) {
   localStorage.setItem("simpulx_token", token);
   localStorage.setItem("simpulx_user", JSON.stringify(user));
+  if (refresh) localStorage.setItem("simpulx_refresh", refresh);
 }
 export function clearSession() {
   localStorage.removeItem("simpulx_token");
   localStorage.removeItem("simpulx_user");
+  localStorage.removeItem("simpulx_refresh");
 }
 // App UI language. Single source for now (English); wire to real i18n later.
 export function getAppLang(): string {
@@ -27,7 +33,40 @@ export function getAppLang(): string {
   return localStorage.getItem("simpulx_lang") || "en";
 }
 
-async function req<T>(path: string, opts: RequestInit = {}): Promise<T> {
+// Single-flight access-token refresh: when the short-lived access token expires
+// many in-flight requests can 401 at once; they all await the same /auth/refresh
+// call (rotating the refresh token), then retry — so the user is never bounced
+// to /login mid-session. Only a hard refresh failure clears the session.
+let refreshing: Promise<boolean> | null = null;
+
+async function refreshAccessToken(): Promise<boolean> {
+  const rt = getRefreshToken();
+  if (!rt) return false;
+  if (!refreshing) {
+    refreshing = (async () => {
+      try {
+        const res = await fetch(API + "/auth/refresh", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ refresh_token: rt }),
+        });
+        if (!res.ok) return false;
+        const data = await res.json();
+        if (!data?.token) return false;
+        localStorage.setItem("simpulx_token", data.token);
+        if (data.refresh_token) localStorage.setItem("simpulx_refresh", data.refresh_token);
+        return true;
+      } catch {
+        return false;
+      } finally {
+        refreshing = null;
+      }
+    })();
+  }
+  return refreshing;
+}
+
+async function req<T>(path: string, opts: RequestInit = {}, retried = false): Promise<T> {
   const token = getToken();
   const res = await fetch(API + path, {
     cache: "no-store",
@@ -39,6 +78,10 @@ async function req<T>(path: string, opts: RequestInit = {}): Promise<T> {
     },
   });
   if (res.status === 401) {
+    // Access token likely expired — try one silent refresh + retry before giving up.
+    if (!retried && (await refreshAccessToken())) {
+      return req<T>(path, opts, true);
+    }
     clearSession();
     if (typeof window !== "undefined") window.location.href = "/login";
     throw new Error("unauthorized");
@@ -49,7 +92,7 @@ async function req<T>(path: string, opts: RequestInit = {}): Promise<T> {
 }
 
 export const api = {
-  async login(email: string, password: string): Promise<{ token: string; user: User }> {
+  async login(email: string, password: string): Promise<{ token: string; refresh_token: string; user: User }> {
     const res = await fetch(API + "/auth/login", {
       method: "POST",
       headers: { "Content-Type": "application/json" },
@@ -57,6 +100,17 @@ export const api = {
     });
     if (!res.ok) throw new Error("Incorrect email or password");
     return res.json();
+  },
+  async logout(): Promise<void> {
+    const rt = getRefreshToken();
+    if (!rt) return;
+    try {
+      await fetch(API + "/auth/logout", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ refresh_token: rt }),
+      });
+    } catch { /* best effort: server-side revoke */ }
   },
   async forgotPassword(email: string): Promise<{ message: string }> {
     const res = await fetch(API + "/auth/forgot-password", {

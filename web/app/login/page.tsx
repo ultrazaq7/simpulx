@@ -16,8 +16,8 @@ export default function LoginPage() {
     e.preventDefault();
     setError(""); setLoading(true);
     try {
-      const { token, user } = await api.login(email, password);
-      setSession(token, user);
+      const { token, refresh_token, user } = await api.login(email, password);
+      setSession(token, user, refresh_token);
       router.replace("/dashboard");
     } catch (err: any) {
       setError(err.message || "Login failed");

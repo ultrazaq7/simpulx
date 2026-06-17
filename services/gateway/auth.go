@@ -3,8 +3,10 @@ package main
 import (
 	"context"
 	"crypto/rand"
+	"crypto/sha256"
 	"crypto/subtle"
 	"encoding/base64"
+	"encoding/hex"
 	"encoding/json"
 	"errors"
 	"fmt"
@@ -162,6 +164,11 @@ func (s *server) handleLogin(w http.ResponseWriter, r *http.Request) {
 		http.Error(w, "token error", http.StatusInternalServerError)
 		return
 	}
+	refresh, err := s.issueRefreshToken(r.Context(), id)
+	if err != nil {
+		http.Error(w, "token error", http.StatusInternalServerError)
+		return
+	}
 	// Logging in marks the user online (presence), distinct from the account
 	// lifecycle `status` (active/inactive) which gates login above. Capture the
 	// prior presence so we log an online transition only on offline -> online.
@@ -174,9 +181,89 @@ func (s *server) handleLogin(w http.ResponseWriter, r *http.Request) {
 		s.logUserActivity(r.Context(), orgID, id, id, "presence", "online", map[string]any{"via": "login"})
 	}
 	writeJSON(w, map[string]any{
-		"token": token,
-		"user":  map[string]any{"id": id, "org_id": orgID, "role": role, "name": name, "email": body.Email, "is_online": true},
+		"token":         token,
+		"refresh_token": refresh,
+		"user":          map[string]any{"id": id, "org_id": orgID, "role": role, "name": name, "email": body.Email, "is_online": true},
 	})
+}
+
+// ── Refresh tokens (opaque, DB-backed, rotating) ────────────
+// The access JWT stays short-lived; the client silently exchanges this refresh
+// token at /auth/refresh for a new access token, so a session never ends mid-use.
+// Only the SHA-256 hash is stored (a DB leak can't replay it), and tokens are
+// revocable — logout, rotation, or an inactive account all invalidate them.
+
+func hashToken(raw string) string {
+	sum := sha256.Sum256([]byte(raw))
+	return hex.EncodeToString(sum[:])
+}
+
+// issueRefreshToken mints a new opaque refresh token, persisting only its hash.
+func (s *server) issueRefreshToken(ctx context.Context, userID string) (string, error) {
+	buf := make([]byte, 32)
+	if _, err := rand.Read(buf); err != nil {
+		return "", err
+	}
+	raw := base64.RawURLEncoding.EncodeToString(buf)
+	if _, err := s.pool.Exec(ctx,
+		`INSERT INTO refresh_tokens (user_id, token_hash, expires_at) VALUES ($1, $2, $3)`,
+		userID, hashToken(raw), time.Now().Add(s.refreshTTL)); err != nil {
+		return "", err
+	}
+	return raw, nil
+}
+
+// handleRefresh exchanges a valid refresh token for a fresh access token and
+// rotates the refresh token (the presented one is revoked, a new one issued).
+// A revoked/expired/unknown token or an inactive account returns 401.
+func (s *server) handleRefresh(w http.ResponseWriter, r *http.Request) {
+	var body struct {
+		RefreshToken string `json:"refresh_token"`
+	}
+	if err := json.NewDecoder(r.Body).Decode(&body); err != nil || body.RefreshToken == "" {
+		http.Error(w, "refresh_token required", http.StatusBadRequest)
+		return
+	}
+	var rtID, userID, orgID, role, name, status string
+	err := s.pool.QueryRow(r.Context(),
+		`SELECT rt.id, u.id, u.organization_id, u.role, u.full_name, u.status
+		   FROM refresh_tokens rt JOIN users u ON u.id = rt.user_id
+		  WHERE rt.token_hash = $1 AND rt.revoked_at IS NULL AND rt.expires_at > now()`,
+		hashToken(body.RefreshToken),
+	).Scan(&rtID, &userID, &orgID, &role, &name, &status)
+	if err != nil || status != "active" {
+		http.Error(w, "invalid refresh token", http.StatusUnauthorized)
+		return
+	}
+	// Rotate: revoke the presented token, mint a fresh one.
+	_, _ = s.pool.Exec(r.Context(),
+		`UPDATE refresh_tokens SET revoked_at = now(), last_used_at = now() WHERE id = $1`, rtID)
+	refresh, err := s.issueRefreshToken(r.Context(), userID)
+	if err != nil {
+		http.Error(w, "token error", http.StatusInternalServerError)
+		return
+	}
+	token, err := s.issueToken(userID, orgID, role, name)
+	if err != nil {
+		http.Error(w, "token error", http.StatusInternalServerError)
+		return
+	}
+	writeJSON(w, map[string]any{"token": token, "refresh_token": refresh})
+}
+
+// handleLogout revokes the presented refresh token (best effort); the short-lived
+// access token is left to expire on its own.
+func (s *server) handleLogout(w http.ResponseWriter, r *http.Request) {
+	var body struct {
+		RefreshToken string `json:"refresh_token"`
+	}
+	_ = json.NewDecoder(r.Body).Decode(&body)
+	if body.RefreshToken != "" {
+		_, _ = s.pool.Exec(r.Context(),
+			`UPDATE refresh_tokens SET revoked_at = now() WHERE token_hash = $1 AND revoked_at IS NULL`,
+			hashToken(body.RefreshToken))
+	}
+	writeJSON(w, map[string]any{"status": "ok"})
 }
 
 // bootstrapDemoPassword (DEV) menetapkan password argon2id untuk user yang masih

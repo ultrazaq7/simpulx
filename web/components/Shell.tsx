@@ -192,7 +192,7 @@ export function Shell({ children }: { children: ReactNode }) {
   }, [metaTitle]);
 
 
-  function logout() { clearSession(); router.replace("/login"); }
+  async function logout() { await api.logout().catch(() => {}); clearSession(); router.replace("/login"); }
 
   const pageInfo = Object.entries(PAGE_TITLES).find(([k]) => pathname.startsWith(k))?.[1]
     || { category: "", title: "Simpulx" };
