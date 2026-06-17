@@ -1,8 +1,7 @@
 "use client";
 import { useEffect, useMemo, useState } from "react";
 import {
-  Plus, RefreshCw, Pencil, Trash2, CheckCircle, Play, GitBranch,
-  Shield, Users, Network, Lock, Loader2, X,
+  Plus, RefreshCw, Pencil, Trash2, CheckCircle, Lock, Loader2, X,
 } from "lucide-react";
 import ChannelIcon, { CHANNEL_CATALOG, channelMeta, type ChannelMeta } from "@/components/ChannelIcon";
 import { api } from "@/lib/api";
@@ -265,16 +264,6 @@ function TestingPanel({ loading, channels, onAdd, onEdit, onTest, onToggle, onDe
   onAdd: () => void; onEdit: (c: Channel) => void; onTest: (c: Channel) => void;
   onToggle: (c: Channel) => void; onDelete: (c: Channel) => void; onRefresh: () => void;
 }) {
-  const points = [
-    { Icon: Shield,  title: "Risk-free environment", body: "Simulate actions and flows without impacting real customers." },
-    { Icon: Users,   title: "Testing for teams",     body: "Each team member can run tests individually under the same workspace." },
-    { Icon: Network, title: "Real channel behavior",  body: "See how workflows behave under real channel conditions." },
-  ];
-  const tests = [
-    { Icon: Play,      title: "Test Inbox conversations", body: "Simulate a customer chat to see how the Inbox supports collaboration, assignment, and contact management.", cta: "Start a simulated chat", href: "/inbox" },
-    { Icon: GitBranch, title: "Test automation",          body: "Trigger an incoming message and watch your automation rules and AI agent respond end to end.", cta: "Open automation", href: "/inbox" },
-  ];
-
   return (
     <div className="max-w-[880px] mx-auto">
       {/* Hero */}
@@ -283,7 +272,7 @@ function TestingPanel({ loading, channels, onAdd, onEdit, onTest, onToggle, onDe
         <div className="flex-1 min-w-0">
           <h2 className="text-xl font-bold text-foreground">Testing channel</h2>
           <p className="text-[13.5px] text-muted-foreground mt-1 max-w-[600px]">
-            Experiment with Simpulx features in a safe space. Connect a sandbox WhatsApp number here to trigger real workflows without affecting your official channels.
+            A sandbox WhatsApp number for testing flows without touching your live channels.
           </p>
         </div>
         <PrimaryButton onClick={onAdd} className="whitespace-nowrap shrink-0">
@@ -291,21 +280,8 @@ function TestingPanel({ loading, channels, onAdd, onEdit, onTest, onToggle, onDe
         </PrimaryButton>
       </div>
 
-      {/* Feature points */}
-      <div className="flex gap-5 mt-5">
-        {points.map((p) => (
-          <div key={p.title} className="flex-1">
-            <div className="w-9 h-9 rounded-lg grid place-items-center bg-primary/10 text-primary mb-2">
-              <p.Icon className="w-5 h-5" />
-            </div>
-            <p className="text-[13.5px] font-bold text-foreground">{p.title}</p>
-            <p className="text-[12.5px] text-muted-foreground mt-0.5">{p.body}</p>
-          </div>
-        ))}
-      </div>
-
       {/* Sandbox accounts */}
-      <div className="mt-8">
+      <div className="mt-6">
         <div className="flex items-center mb-3">
           <p className="text-[11px] font-bold tracking-wider text-muted-foreground uppercase">Sandbox accounts</p>
           <div className="flex-1" />
@@ -336,23 +312,6 @@ function TestingPanel({ loading, channels, onAdd, onEdit, onTest, onToggle, onDe
         )}
       </div>
 
-      {/* All tests */}
-      <p className="text-[15px] font-bold text-foreground mt-7 mb-3">All tests</p>
-      <div className="flex gap-4">
-        {tests.map((t) => (
-          <div key={t.title} className="flex-1 p-4 rounded-lg bg-card border border-border shadow-xs flex flex-col">
-            <t.Icon className="w-[26px] h-[26px] text-muted-foreground" />
-            <p className="text-[15px] font-bold text-foreground mt-3">{t.title}</p>
-            <p className="text-[12.5px] text-muted-foreground mt-1 mb-4 flex-1">{t.body}</p>
-            <a
-              href={t.href}
-              className="inline-flex items-center gap-2 px-4 py-2 bg-primary text-white rounded-md text-sm font-semibold hover:bg-primary-dark shadow-sm hover:shadow-brand-md transition-all outline-none w-fit"
-            >
-              <t.Icon className="w-[18px] h-[18px]" />{t.cta}
-            </a>
-          </div>
-        ))}
-      </div>
     </div>
   );
 }

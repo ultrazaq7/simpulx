@@ -37,7 +37,7 @@ const GROUPS: { titleKey: string; items: NavItem[] }[] = [
   {
     titleKey: "settings.channels",
     items: [
-      { key: "campaigns", labelKey: "settings.channels", icon: Store, href: "/settings/campaigns", perm: "manage_campaigns" },
+      { key: "campaigns", labelKey: "settings.campaigns", icon: Store, href: "/settings/campaigns", perm: "manage_campaigns" },
       { key: "templates", labelKey: "settings.templates", icon: FileText, href: "/settings/templates", perm: "view_settings" },
       { key: "automation", labelKey: "settings.automations", icon: GitBranch, href: "/settings/automation", perm: "view_automation" },
       { key: "channels", labelKey: "settings.channels", icon: Radio, href: "/settings/channels", perm: "manage_channels" },

@@ -118,8 +118,8 @@ export default function PeopleSettingsPage() {
                       <span className="inline-flex px-2 py-0.5 rounded-md text-[10.5px] font-bold capitalize"
                         style={{ backgroundColor: rc + "1a", color: rc }}>{u.role}</span>
                     </td>
-                    <td className="px-4 py-2.5"><CellChips items={u.department_names} empty="\u2014" /></td>
-                    <td className="px-4 py-2.5"><CellChips items={u.campaign_names} empty="\u2014" /></td>
+                    <td className="px-4 py-2.5"><CellChips items={u.department_names} empty="-" /></td>
+                    <td className="px-4 py-2.5"><CellChips items={u.campaign_names} empty="-" /></td>
                     <td className="px-4 py-2.5">
                       <div className="inline-flex items-center gap-1.5">
                         <span className={cn("w-[7px] h-[7px] rounded-full", u.status === "active" ? "bg-success" : "bg-muted-foreground/40")} />
