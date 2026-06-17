@@ -11,6 +11,7 @@ import (
 	"os"
 	"os/signal"
 	"syscall"
+	"time"
 
 	"github.com/simpulx/v2/libs/go/broker"
 	"github.com/simpulx/v2/libs/go/config"
@@ -49,7 +50,7 @@ func main() {
 	defer bus.Close()
 
 	a := &app{
-		st:  &store{pool: pool},
+		st:  &store{pool: pool, bus: bus},
 		bus: bus,
 		snd: newSender(config.GetBool("WA_MOCK", true), config.Get("WA_GRAPH_BASE", "https://graph.facebook.com/v21.0")),
 		log: log,
@@ -75,6 +76,10 @@ func main() {
 		mux.HandleFunc("/healthz", func(w http.ResponseWriter, r *http.Request) { w.WriteHeader(200); _, _ = w.Write([]byte("ok")) })
 		_ = http.ListenAndServe(":8081", mux)
 	}()
+
+	go a.runOutboxRelay(ctx)
+	go a.runFollowUpCron(ctx)
+	go a.runAggressiveNotifications(ctx)
 
 	stop := make(chan os.Signal, 1)
 	signal.Notify(stop, syscall.SIGINT, syscall.SIGTERM)
@@ -132,11 +137,31 @@ func (a *app) onReceived(env events.Envelope) error {
 		a.log.Error("getOrCreateConversation failed", "org", env.OrgID, "contact", contactID, "err", err)
 		return err
 	}
+
+	// 3.1 Multi-Touch Attribution Schema: Selalu simpan jejak klik iklan!
+	if e.Referral != "" {
+		if err := a.st.recordAttribution(ctx, env.OrgID, conv.ID, campaignID, e.Referral); err != nil {
+			a.log.Warn("recordAttribution failed", "conv", conv.ID, "err", err)
+		}
+	}
 	// CTWA ad opener (referral) is template pre-fill, not genuinely typed -> not
 	// genuine, so the lead classifier ignores it (avoids biasing every ad lead).
-	genuine := e.Referral == ""
-	msgID, err := a.st.insertInbound(ctx, env.OrgID, conv.ID, e.Message.Type, body, e.Message.MediaURL, e.Message.ExternalID, genuine, mediaPreview(e.Message.Type, body))
+	// "unsupported" juga bukan konten asli (Meta tak mengirim isinya) -> not genuine.
+	genuine := e.Referral == "" && e.Message.Type != "unsupported"
+	// Simpan payload webhook mentah untuk pesan "unsupported" agar bisa diinspeksi
+	// dari DB (messages.metadata.raw_webhook) -- konten asli tak pernah hilang lagi.
+	meta := ""
+	if e.Message.Type == "unsupported" && len(e.Raw) > 0 {
+		if b, mErr := json.Marshal(map[string]json.RawMessage{"raw_webhook": e.Raw}); mErr == nil {
+			meta = string(b)
+		}
+	}
+	msgID, err := a.st.insertInbound(ctx, env.OrgID, conv.ID, e.Message.Type, body, e.Message.MediaURL, e.Message.ExternalID, genuine, mediaPreview(e.Message.Type, body), meta)
 	if err != nil {
+		if err.Error() == "duplicate message" {
+			a.log.Info("duplicate message dropped", "ext", e.Message.ExternalID)
+			return nil // ACK NATS
+		}
 		a.log.Error("insertInbound failed", "conv", conv.ID, "err", err)
 		return err
 	}
@@ -144,21 +169,18 @@ func (a *app) onReceived(env events.Envelope) error {
 	// Enroll the conversation into matching drip/follow-up sequences (idempotent).
 	a.st.enrollSequences(ctx, env.OrgID, conv.ID, contactID)
 
-	persisted := events.MessagePersisted{
-		ConversationID: conv.ID,
-		ContactID:      contactID,
-		MessageID:      msgID,
-		Direction:      "inbound",
-		SenderType:     "contact",
-		Type:           e.Message.Type,
-		Body:           body,
-		MediaURL:       e.Message.MediaURL,
-		Preview:        mediaPreview(e.Message.Type, body),
+	a.log.Info("inbound persisted (outbox created)", "conv", conv.ID, "msg", msgID)
+
+	// Broadcast CTA click: a tapped template button carries a "bc_<recipient_id>"
+	// payload -> mark that broadcast recipient as clicked (report conversions).
+	if e.Message.ButtonPayload != "" {
+		a.trackBroadcastClick(ctx, e.Message.ButtonPayload)
 	}
-	a.log.Info("inbound persisted", "conv", conv.ID, "msg", msgID)
-	if err := a.bus.Publish(events.SubjectMessagePersisted, env.OrgID, persisted); err != nil {
-		return err
-	}
+
+	// Run user-configured automations (keyword reply, auto-tag, auto-assign,
+	// button_click, ...). Deterministic rules, not the AI assistant. Best-effort,
+	// never blocks ingest.
+	a.runAutomations(ctx, env.OrgID, conv.ID, contactID, ch.ID, body, e.Message.ButtonPayload)
 
 	// Decision #2: a brand-new contact whose first message carried no campaign
 	// signal (no CTWA referral, no keyword) cannot be attributed to a dealer. Ask
@@ -231,21 +253,23 @@ func (a *app) onOutbound(env events.Envelope) error {
 	}
 	msgID, err2 := a.st.insertOutbound(ctx, env.OrgID, convID, e.SenderType, e.SenderID, e.Type, e.Body, e.MediaURL, externalID, status, mediaPreview(e.Type, e.Body))
 	if err2 != nil {
+		if err2.Error() == "duplicate message" {
+			a.log.Info("duplicate outbound message dropped", "ext", externalID)
+			return nil
+		}
 		return err2
 	}
 
-	persisted := events.MessagePersisted{
-		ConversationID: convID,
-		MessageID:      msgID,
-		Direction:      "outbound",
-		SenderType:     e.SenderType,
-		Type:           e.Type,
-		Body:           e.Body,
-		MediaURL:       e.MediaURL,
-		Preview:        mediaPreview(e.Type, e.Body),
+	// Broadcast: tautkan message ini ke baris broadcast_recipients agar laporan
+	// bisa membaca status delivered/read langsung (bukan tebakan time-window).
+	if e.BroadcastRecipientID != "" {
+		if err := a.st.linkBroadcastRecipient(ctx, e.BroadcastRecipientID, msgID); err != nil {
+			a.log.Warn("link broadcast recipient failed", "recip", e.BroadcastRecipientID, "err", err)
+		}
 	}
-	a.log.Info("outbound persisted", "conv", convID, "msg", msgID, "status", status)
-	return a.bus.Publish(events.SubjectMessagePersisted, env.OrgID, persisted)
+
+	a.log.Info("outbound persisted (outbox created)", "conv", convID, "msg", msgID, "status", status)
+	return nil
 }
 
 // onStatusUpdated: handle Meta delivery/read receipts
@@ -293,7 +317,157 @@ func mediaPreview(msgType, body string) string {
 		return "[video]"
 	case "document":
 		return "[document]"
+	case "sticker":
+		return "[sticker]"
+	case "interactive", "button":
+		return "[button message]"
+	case "template":
+		return "[template message]"
+	case "unsupported":
+		return "[unsupported message]"
 	default:
 		return ""
+	}
+}
+
+// ── Outbox Relay Worker ──
+
+func (a *app) runOutboxRelay(ctx context.Context) {
+	ticker := time.NewTicker(500 * time.Millisecond)
+	defer ticker.Stop()
+	for {
+		select {
+		case <-ctx.Done():
+			return
+		case <-ticker.C:
+			a.processOutbox(ctx)
+		}
+	}
+}
+
+func (a *app) processOutbox(ctx context.Context) {
+	rows, err := a.st.pool.Query(ctx, 
+		`SELECT id, organization_id, topic, payload FROM outbox_events WHERE status = 'pending' ORDER BY created_at LIMIT 100`)
+	if err != nil {
+		return
+	}
+	defer rows.Close()
+
+	for rows.Next() {
+		var id string
+		var orgID string
+		var topic string
+		var payload []byte
+		if err := rows.Scan(&id, &orgID, &topic, &payload); err != nil {
+			continue
+		}
+		
+		var p events.MessagePersisted
+		if err := json.Unmarshal(payload, &p); err == nil {
+			if err := a.bus.Publish(topic, orgID, p); err == nil {
+				_, _ = a.st.pool.Exec(ctx, `UPDATE outbox_events SET status = 'published', published_at = now() WHERE id = $1`, id)
+			} else {
+				a.log.Error("outbox publish failed", "topic", topic, "err", err)
+			}
+		} else {
+			a.log.Error("outbox unmarshal failed", "topic", topic, "err", err)
+		}
+	}
+}
+
+// ── Background Cron Workers ──
+
+func (a *app) runFollowUpCron(ctx context.Context) {
+	ticker := time.NewTicker(15 * time.Minute)
+	defer ticker.Stop()
+	for {
+		select {
+		case <-ctx.Done():
+			return
+		case <-ticker.C:
+			a.triggerFollowUps(ctx)
+		}
+	}
+}
+
+func (a *app) triggerFollowUps(ctx context.Context) {
+	rows, err := a.st.pool.Query(ctx, `
+		SELECT id::text, organization_id::text
+		FROM conversations
+		WHERE is_bot_active = true
+		  AND status = 'open'
+		  AND last_contact_message_at IS NOT NULL
+		  AND last_contact_message_at < NOW() - INTERVAL '4 hours'
+		  AND (last_agent_message_at IS NULL OR last_agent_message_at < last_contact_message_at)
+		  AND followup_count < 3
+		  AND NOT classification_locked
+	`)
+	if err != nil {
+		a.log.Warn("failed to fetch followups", "err", err)
+		return
+	}
+	defer rows.Close()
+
+	var toTrigger []struct{ convID, orgID string }
+	for rows.Next() {
+		var c, o string
+		if err := rows.Scan(&c, &o); err == nil {
+			toTrigger = append(toTrigger, struct{ convID, orgID string }{c, o})
+		}
+	}
+	rows.Close()
+
+	for _, t := range toTrigger {
+		_, err := a.st.pool.Exec(ctx, `UPDATE conversations SET followup_count = followup_count + 1 WHERE id = $1`, t.convID)
+		if err != nil {
+			continue
+		}
+		
+		payload := events.CmdAIDraftFollowup{ConversationID: t.convID}
+		if err := a.bus.Publish(events.SubjectCmdAIDraftFollowup, t.orgID, payload); err != nil {
+			a.log.Warn("failed to trigger ai followup", "err", err, "conv", t.convID)
+		}
+	}
+}
+
+func (a *app) runAggressiveNotifications(ctx context.Context) {
+	ticker := time.NewTicker(5 * time.Minute)
+	defer ticker.Stop()
+	for {
+		select {
+		case <-ctx.Done():
+			return
+		case <-ticker.C:
+			a.triggerNotifications(ctx)
+		}
+	}
+}
+
+func (a *app) triggerNotifications(ctx context.Context) {
+	rows, err := a.st.pool.Query(ctx, `
+		SELECT id::text, organization_id::text
+		FROM conversations 
+		WHERE is_bot_active = false 
+		  AND status = 'open'
+		  AND last_contact_message_at < NOW() - INTERVAL '15 minutes'
+		  AND (last_agent_message_at IS NULL OR last_agent_message_at < last_contact_message_at)
+	`)
+	if err != nil {
+		a.log.Warn("failed to fetch unreplied leads for notif", "err", err)
+		return
+	}
+	defer rows.Close()
+
+	for rows.Next() {
+		var convID, orgID string
+		if err := rows.Scan(&convID, &orgID); err == nil {
+			payload := map[string]any{
+				"type":            "alert",
+				"title":           "Lead Pending Reply",
+				"body":            "A lead has been waiting for a reply for over 15 minutes!",
+				"conversation_id": convID,
+			}
+			_ = a.bus.Publish("events.notification.alert", orgID, payload)
+		}
 	}
 }

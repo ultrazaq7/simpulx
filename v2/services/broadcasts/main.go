@@ -103,20 +103,37 @@ func (a *app) onBroadcast(env events.Envelope) error {
 	}
 
 	a.log.Info("broadcast mulai", "id", b.ID, "recipients", len(recips))
+	sent := 0
 	for _, r := range recips {
+		// Claim FIRST: only the winner of the atomic pending->sent transition
+		// publishes. Guarantees exactly-once send even if this event is
+		// redelivered or processed concurrently.
+		won, err := a.st.claimRecipient(ctx, r.ID)
+		if err != nil {
+			a.log.Error("claim recipient failed", "recip", r.ID, "err", err)
+			continue
+		}
+		if !won {
+			continue // already sent by a prior/concurrent delivery
+		}
 		out := events.MessageOutbound{
-			ContactID:  r.ContactID,
-			ChannelID:  channelID,
-			SenderType: "system",
-			Type:       "text",
-			Body:       b.Body,
+			ContactID:            r.ContactID,
+			ChannelID:            channelID,
+			SenderType:           "system",
+			Type:                 "text",
+			Body:                 b.Body,
+			BroadcastRecipientID: r.ID,
+			// Unique per-recipient CTA callback. On a real Meta template send this
+			// is attached as each quick-reply button's payload, so a tap maps back
+			// to this recipient (see broadcast click tracking).
+			CallbackID: "bc_" + r.ID,
 		}
 		if err := a.bus.Publish(events.SubjectMessageOutbound, b.OrgID, out); err != nil {
 			a.log.Error("publish outbound failed", "recip", r.ID, "err", err)
 			continue
 		}
-		_ = a.st.markRecipientSent(ctx, r.ID)
 		_ = a.st.bumpSent(ctx, b.ID)
+		sent++
 		// throttle (rate limit) agar tidak membanjiri channel/Meta
 		time.Sleep(time.Duration(a.rateMS) * time.Millisecond)
 	}
@@ -124,6 +141,6 @@ func (a *app) onBroadcast(env events.Envelope) error {
 	if err := a.st.complete(ctx, b.ID); err != nil {
 		return err
 	}
-	a.log.Info("broadcast selesai", "id", b.ID, "sent", len(recips))
+	a.log.Info("broadcast selesai", "id", b.ID, "sent", sent)
 	return nil
 }

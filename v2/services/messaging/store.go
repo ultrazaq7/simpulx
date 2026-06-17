@@ -2,14 +2,21 @@ package main
 
 import (
 	"context"
+	"encoding/json"
 	"errors"
 	"strings"
 
 	"github.com/jackc/pgx/v5"
 	"github.com/jackc/pgx/v5/pgxpool"
+
+	"github.com/simpulx/v2/libs/go/broker"
+	"github.com/simpulx/v2/libs/go/events"
 )
 
-type store struct{ pool *pgxpool.Pool }
+type store struct {
+	pool *pgxpool.Pool
+	bus  *broker.Broker
+}
 
 type channelInfo struct {
 	ID            string
@@ -89,9 +96,32 @@ type convInfo struct {
 // TANPA sinyal campaign (decision #1: attach ke lead instance terakhir aktif).
 // Mengembalikan created=true bila percakapan baru dibuat (lead no-signal benar2
 // baru) -- caller memakai ini untuk decision #2 (kirim prompt pilih campaign).
+//
+// Uses pg_advisory_xact_lock to serialize concurrent calls for the same
+// (org, contact) pair, preventing duplicate conversation creation.
 func (s *store) getOrCreateConversation(ctx context.Context, orgID, contactID, channel, channelID string) (convInfo, bool, error) {
+	tx, err := s.pool.Begin(ctx)
+	if err != nil {
+		return convInfo{}, false, err
+	}
+	defer tx.Rollback(ctx)
+
+	// Advisory lock on hash of orgID+contactID — serializes concurrent webhooks
+	// for the same contact. Released automatically on tx.Commit/Rollback.
+	_, err = tx.Exec(ctx, `SELECT pg_advisory_xact_lock(hashtext($1 || $2))`, orgID, contactID)
+	if err != nil {
+		return convInfo{}, false, err
+	}
+
+	// 3.2 Lead Re-entry: Auto-close dormant threads (>30 days) to allow fresh prompt
+	_, _ = tx.Exec(ctx,
+		`UPDATE conversations SET status='closed', closed_reason='dormant_30d', closed_at=now(), updated_at=now()
+		 WHERE organization_id=$1 AND contact_id=$2 AND status<>'closed' 
+		   AND last_message_at < now() - interval '30 days'`,
+		orgID, contactID)
+
 	var ci convInfo
-	err := s.pool.QueryRow(ctx,
+	err = tx.QueryRow(ctx,
 		`SELECT id, is_bot_active, ai_agent_id
 		   FROM conversations
 		  WHERE organization_id = $1 AND contact_id = $2 AND status <> 'closed'
@@ -100,35 +130,60 @@ func (s *store) getOrCreateConversation(ctx context.Context, orgID, contactID, c
 		orgID, contactID,
 	).Scan(&ci.ID, &ci.IsBotActive, &ci.AIAgentID)
 	if err == nil {
+		_ = tx.Commit(ctx)
 		return ci, false, nil
 	}
 	if !errors.Is(err, pgx.ErrNoRows) {
 		return ci, false, err
 	}
 	// buat baru (lead no-signal baru, belum ter-attribute ke campaign manapun)
-	err = s.pool.QueryRow(ctx,
+	err = tx.QueryRow(ctx,
 		`INSERT INTO conversations (organization_id, contact_id, channel, channel_id, status, is_bot_active, ai_agent_id)
 		 VALUES ($1, $2, $3, NULLIF($4,'')::uuid, 'open', true,
 		         (SELECT id FROM ai_agents WHERE organization_id = $1 AND is_active ORDER BY created_at LIMIT 1))
 		 RETURNING id, is_bot_active, ai_agent_id`,
 		orgID, contactID, channel, channelID,
 	).Scan(&ci.ID, &ci.IsBotActive, &ci.AIAgentID)
-	return ci, err == nil, err
+	if err != nil {
+		return ci, false, err
+	}
+	_ = tx.Commit(ctx)
+	return ci, true, nil
 }
 
 // insertInbound menyimpan pesan masuk + reset window WA 24 jam.
-func (s *store) insertInbound(ctx context.Context, orgID, convID, msgType, body, mediaURL, externalID string, genuine bool, previewText string) (string, error) {
-	var msgID string
-	err := s.pool.QueryRow(ctx,
-		`INSERT INTO messages (organization_id, conversation_id, direction, sender_type, type, body, media_url, external_id, status, genuine)
-		 VALUES ($1, $2, 'inbound', 'contact', $3, $4, NULLIF($5,''), $6, 'delivered', $7)
-		 RETURNING id`,
-		orgID, convID, msgType, body, mediaURL, externalID, genuine,
-	).Scan(&msgID)
+// Memakai Transaction untuk Idempotency dan Outbox pattern.
+func (s *store) insertInbound(ctx context.Context, orgID, convID, msgType, body, mediaURL, externalID string, genuine bool, previewText, metaJSON string) (string, error) {
+	tx, err := s.pool.Begin(ctx)
 	if err != nil {
 		return "", err
 	}
-	_, err = s.pool.Exec(ctx,
+	defer tx.Rollback(ctx)
+
+	var msgID string
+	if externalID != "" {
+		var exists string
+		err = tx.QueryRow(ctx, "SELECT id FROM messages WHERE organization_id = $1 AND external_id = $2 LIMIT 1", orgID, externalID).Scan(&exists)
+		if err == nil {
+			return "", errors.New("duplicate message")
+		} else if !errors.Is(err, pgx.ErrNoRows) {
+			return "", err
+		}
+	}
+
+	err = tx.QueryRow(ctx,
+		`INSERT INTO messages (organization_id, conversation_id, direction, sender_type, type, body, media_url, external_id, status, genuine, metadata)
+		 VALUES ($1, $2, 'inbound', 'contact', $3, $4, NULLIF($5,''), $6, 'delivered', $7, COALESCE(NULLIF($8,'')::jsonb,'{}'))
+		 RETURNING id`,
+		orgID, convID, msgType, body, mediaURL, externalID, genuine, metaJSON,
+	).Scan(&msgID)
+
+	if err != nil {
+		return "", err
+	}
+
+	var assignedAgentID *string
+	err = tx.QueryRow(ctx,
 		`UPDATE conversations
 		    SET last_message_at = now(),
 		        last_contact_message_at = now(),
@@ -136,38 +191,115 @@ func (s *store) insertInbound(ctx context.Context, orgID, convID, msgType, body,
 		        last_message_preview = LEFT($2, 200),
 		        unread_count = unread_count + 1,
 		        updated_at = now()
-		  WHERE id = $1`,
+		  WHERE id = $1 RETURNING assigned_agent_id`,
 		convID, previewText,
+	).Scan(&assignedAgentID)
+	if err != nil {
+		return "", err
+	}
+
+	payload := map[string]interface{}{
+		"conversation_id":   convID,
+		"message_id":        msgID,
+		"direction":         "inbound",
+		"sender_type":       "contact",
+		"type":              msgType,
+		"body":              body,
+		"media_url":         mediaURL,
+		"preview":           previewText,
+		"assigned_agent_id": assignedAgentID,
+	}
+	payloadBytes, _ := json.Marshal(payload)
+	_, err = tx.Exec(ctx,
+		`INSERT INTO outbox_events (organization_id, topic, payload) VALUES ($1, 'events.message.persisted', $2)`,
+		orgID, payloadBytes,
 	)
-	return msgID, err
+	if err != nil {
+		return "", err
+	}
+
+	return msgID, tx.Commit(ctx)
 }
 
 // insertOutbound menyimpan pesan keluar (bot/agent).
 func (s *store) insertOutbound(ctx context.Context, orgID, convID, senderType, senderID, msgType, body, mediaURL, externalID, status string, previewText string) (string, error) {
+	tx, err := s.pool.Begin(ctx)
+	if err != nil {
+		return "", err
+	}
+	defer tx.Rollback(ctx)
+
 	var msgID string
 	var sid any
 	if senderID != "" {
 		sid = senderID
 	}
-	err := s.pool.QueryRow(ctx,
+	
+	if externalID != "" {
+		var exists string
+		err = tx.QueryRow(ctx, "SELECT id FROM messages WHERE organization_id = $1 AND external_id = $2 LIMIT 1", orgID, externalID).Scan(&exists)
+		if err == nil {
+			return "", errors.New("duplicate message")
+		} else if !errors.Is(err, pgx.ErrNoRows) {
+			return "", err
+		}
+	}
+
+	err = tx.QueryRow(ctx,
 		`INSERT INTO messages (organization_id, conversation_id, direction, sender_type, sender_id, type, body, media_url, external_id, status)
 		 VALUES ($1, $2, 'outbound', $3, $4, $5, $6, NULLIF($7,''), NULLIF($8,''), $9)
 		 RETURNING id`,
 		orgID, convID, senderType, sid, msgType, body, mediaURL, externalID, status,
 	).Scan(&msgID)
+	
 	if err != nil {
 		return "", err
 	}
-	_, err = s.pool.Exec(ctx,
+
+	var assignedAgentID *string
+	err = tx.QueryRow(ctx,
 		`UPDATE conversations
 		    SET last_message_at = now(),
 		        last_agent_message_at = now(),
 		        last_message_preview = LEFT($2, 200),
 		        updated_at = now()
-		  WHERE id = $1`,
+		  WHERE id = $1 RETURNING assigned_agent_id`,
 		convID, previewText,
+	).Scan(&assignedAgentID)
+	if err != nil {
+		return "", err
+	}
+
+	payload := map[string]interface{}{
+		"conversation_id":   convID,
+		"message_id":        msgID,
+		"direction":         "outbound",
+		"sender_type":       senderType,
+		"type":              msgType,
+		"body":              body,
+		"media_url":         mediaURL,
+		"preview":           previewText,
+		"assigned_agent_id": assignedAgentID,
+	}
+	payloadBytes, _ := json.Marshal(payload)
+	_, err = tx.Exec(ctx,
+		`INSERT INTO outbox_events (organization_id, topic, payload) VALUES ($1, 'events.message.persisted', $2)`,
+		orgID, payloadBytes,
 	)
-	return msgID, err
+	if err != nil {
+		return "", err
+	}
+
+	return msgID, tx.Commit(ctx)
+}
+
+// linkBroadcastRecipient menautkan baris broadcast_recipients ke message yang
+// baru dibuat, agar laporan broadcast membaca status delivered/read langsung
+// dari messages via FK (bukan join time-window).
+func (s *store) linkBroadcastRecipient(ctx context.Context, recipID, msgID string) error {
+	_, err := s.pool.Exec(ctx,
+		`UPDATE broadcast_recipients SET message_id=$2 WHERE id=$1`, recipID, msgID)
+	return err
 }
 
 // getOrCreateThread mendukung MULTI-THREAD: satu contact bisa punya beberapa
@@ -175,15 +307,39 @@ func (s *store) insertOutbound(ctx context.Context, orgID, convID, senderType, s
 // memetakan ke campaign — buka/lanjutkan thread khusus campaign itu (tidak
 // menimpa thread campaign lain milik contact yang sama). Thread baru langsung
 // di-assign round-robin ke agent campaign.
+//
+// Uses pg_advisory_xact_lock to serialize concurrent calls for the same
+// (org, contact, campaign) triple, preventing duplicate thread creation.
 func (s *store) getOrCreateThread(ctx context.Context, orgID, contactID, channel, channelID, campaignID string) (convInfo, error) {
+	tx, err := s.pool.Begin(ctx)
+	if err != nil {
+		return convInfo{}, err
+	}
+	defer tx.Rollback(ctx)
+
+	// Advisory lock on hash of orgID+contactID+campaignID — serializes concurrent
+	// webhooks for the same contact+campaign. Released on tx.Commit/Rollback.
+	_, err = tx.Exec(ctx, `SELECT pg_advisory_xact_lock(hashtext($1 || $2 || $3))`, orgID, contactID, campaignID)
+	if err != nil {
+		return convInfo{}, err
+	}
+
+	// 3.2 Lead Re-entry: Auto-close dormant threads (>30 days) to allow fresh instance
+	_, _ = tx.Exec(ctx,
+		`UPDATE conversations SET status='closed', closed_reason='dormant_30d', closed_at=now(), updated_at=now()
+		 WHERE organization_id=$1 AND contact_id=$2 AND status<>'closed' 
+		   AND last_message_at < now() - interval '30 days'`,
+		orgID, contactID)
+
 	var ci convInfo
 	// 1) Reuse an open thread already tied to THIS campaign.
-	err := s.pool.QueryRow(ctx,
+	err = tx.QueryRow(ctx,
 		`SELECT id, is_bot_active, ai_agent_id FROM conversations
 		  WHERE organization_id=$1 AND contact_id=$2 AND status<>'closed' AND campaign_id=$3
 		  ORDER BY last_message_at DESC NULLS LAST LIMIT 1`,
 		orgID, contactID, campaignID).Scan(&ci.ID, &ci.IsBotActive, &ci.AIAgentID)
 	if err == nil {
+		_ = tx.Commit(ctx)
 		return ci, nil
 	}
 	if !errors.Is(err, pgx.ErrNoRows) {
@@ -191,12 +347,13 @@ func (s *store) getOrCreateThread(ctx context.Context, orgID, contactID, channel
 	}
 	// 2) Adopt an existing open thread that has NO campaign yet (e.g. a generic
 	// opener that arrived before any keyword) instead of splitting it off.
-	err = s.pool.QueryRow(ctx,
+	err = tx.QueryRow(ctx,
 		`SELECT id, is_bot_active, ai_agent_id FROM conversations
 		  WHERE organization_id=$1 AND contact_id=$2 AND status<>'closed' AND campaign_id IS NULL
 		  ORDER BY last_message_at DESC NULLS LAST LIMIT 1`,
 		orgID, contactID).Scan(&ci.ID, &ci.IsBotActive, &ci.AIAgentID)
 	if err == nil {
+		_ = tx.Commit(ctx)
 		s.routeToCampaign(ctx, campaignID, ci.ID) // tag campaign + round-robin assign
 		return ci, nil
 	}
@@ -204,7 +361,7 @@ func (s *store) getOrCreateThread(ctx context.Context, orgID, contactID, channel
 		return ci, err
 	}
 	// 3) No reusable thread -> create a fresh one for this campaign.
-	err = s.pool.QueryRow(ctx,
+	err = tx.QueryRow(ctx,
 		`INSERT INTO conversations (organization_id, contact_id, channel, channel_id, status, is_bot_active, ai_agent_id)
 		 VALUES ($1, $2, $3, NULLIF($4,'')::uuid, 'open', true,
 		         (SELECT id FROM ai_agents WHERE organization_id = $1 AND is_active ORDER BY created_at LIMIT 1))
@@ -213,6 +370,7 @@ func (s *store) getOrCreateThread(ctx context.Context, orgID, contactID, channel
 	if err != nil {
 		return ci, err
 	}
+	_ = tx.Commit(ctx)
 	s.routeToCampaign(ctx, campaignID, ci.ID) // set campaign_id + round-robin assign
 	return ci, nil
 }
@@ -228,6 +386,20 @@ func (s *store) resolveCampaignByReferral(ctx context.Context, orgID, referral s
 		  WHERE organization_id=$1 AND status='active' AND $2 = ANY(ad_source_ids) LIMIT 1`,
 		orgID, referral).Scan(&id)
 	return id, err == nil
+}
+
+// recordAttribution menyimpan jejak klik iklan (referral) ke dalam multi-touch attribution.
+func (s *store) recordAttribution(ctx context.Context, orgID, convID, campaignID, referral string) error {
+	var cid any
+	if campaignID != "" {
+		cid = campaignID
+	}
+	_, err := s.pool.Exec(ctx,
+		`INSERT INTO conversation_attributions (organization_id, conversation_id, campaign_id, referral_source)
+		 VALUES ($1, $2, $3, NULLIF($4, ''))`,
+		orgID, convID, cid, referral,
+	)
+	return err
 }
 
 // activeCampaignChoices returns a short, comma-separated sample of keywords from
@@ -274,21 +446,80 @@ func (s *store) resolveCampaignByKeyword(ctx context.Context, orgID, text string
 // Counter (rr_cursor, lead_count) hanya naik bila percakapan benar-benar baru
 // di-route (UPDATE mengenai 1 baris). Tanpa guard ini, rr_cursor ikut naik walau
 // conversation sudah ter-attribute -> agent ke-skip & assignment jadi tak akurat.
-func (s *store) routeToCampaign(ctx context.Context, campaignID, convID string) {
-	tag, err := s.pool.Exec(ctx,
-		`WITH agents AS (SELECT user_id FROM campaign_agents WHERE campaign_id=$1 ORDER BY user_id),
-		      pick AS (SELECT user_id FROM agents
-		               OFFSET (SELECT rr_cursor % GREATEST((SELECT count(*) FROM agents),1) FROM campaigns WHERE id=$1)
-		               LIMIT 1)
-		 UPDATE conversations SET campaign_id=$1,
-		        assigned_agent_id = COALESCE((SELECT user_id FROM pick), assigned_agent_id),
-		        updated_at=now()
-		  WHERE id=$2 AND campaign_id IS NULL`,
-		campaignID, convID)
-	if err != nil || tag.RowsAffected() == 0 {
-		return // already attributed or failed -> don't advance the round-robin
+func (s *store) routeToCampaign(ctx context.Context, campaignID string, convID string) {
+	if campaignID == "" {
+		return
 	}
-	_, _ = s.pool.Exec(ctx, `UPDATE campaigns SET rr_cursor=rr_cursor+1, lead_count=lead_count+1 WHERE id=$1`, campaignID)
+	
+	tx, err := s.pool.Begin(ctx)
+	if err != nil {
+		return
+	}
+	defer tx.Rollback(ctx)
+
+	// Lock the conversation to check its current state safely
+	var currAgent *string
+	var orgID string
+	err = tx.QueryRow(ctx, `SELECT assigned_agent_id, organization_id FROM conversations WHERE id = $1 FOR UPDATE`, convID).Scan(&currAgent, &orgID)
+	if err != nil {
+		return
+	}
+
+	// 4.1 Round-Robin Bypass: If the lead already has an agent (e.g. adopted open generic thread),
+	// just tag the campaign but DO NOT advance the RR cursor! Unfair distribution prevented.
+	if currAgent != nil {
+		_, _ = tx.Exec(ctx, `UPDATE conversations SET campaign_id = $1, updated_at = now() WHERE id = $2 AND campaign_id IS NULL`, campaignID, convID)
+		_ = tx.Commit(ctx)
+		return
+	}
+
+	// 4.1 Concurrency Locks: Lock the campaign to safely increment the rr_cursor
+	var cursor int
+	err = tx.QueryRow(ctx, `SELECT rr_cursor FROM campaigns WHERE id = $1 FOR UPDATE`, campaignID).Scan(&cursor)
+	if err != nil {
+		return
+	}
+
+	// Pick the agent using the safely acquired cursor
+	var assignedAgent string
+	err = tx.QueryRow(ctx,
+		`WITH agents AS (SELECT user_id FROM campaign_agents WHERE campaign_id=$1 ORDER BY user_id)
+		 SELECT user_id FROM agents OFFSET ($2 % GREATEST((SELECT count(*) FROM agents), 1)) LIMIT 1`,
+		campaignID, cursor).Scan(&assignedAgent)
+	
+	if err == nil && assignedAgent != "" {
+		tag, err := tx.Exec(ctx,
+			`UPDATE conversations 
+			 SET campaign_id = $1, assigned_agent_id = $2, updated_at = now() 
+			 WHERE id = $3 AND campaign_id IS NULL`,
+			campaignID, assignedAgent, convID)
+		
+		// Only advance cursor if we actually updated the row (i.e. campaign_id was NULL)
+		if err == nil && tag.RowsAffected() > 0 {
+			_, _ = tx.Exec(ctx, `UPDATE campaigns SET rr_cursor = rr_cursor + 1, lead_count = lead_count + 1 WHERE id = $1`, campaignID)
+			
+			// 6.1 Audit Trail Event Sourcing
+			_, _ = tx.Exec(ctx, `
+				INSERT INTO conversation_events (organization_id, conversation_id, type, actor_type, detail)
+				SELECT organization_id, id, 'assigned', 'system', jsonb_build_object('assigned_agent_id', $1::uuid, 'campaign_id', $2::uuid)
+				FROM conversations WHERE id = $3
+			`, assignedAgent, campaignID, convID)
+
+			if s.bus != nil {
+				_ = s.bus.Publish(events.SubjectAuditCreated, orgID, events.AuditCreated{
+					ConversationID: convID,
+					Type:           "assigned",
+					ActorType:      "system",
+					Detail: map[string]any{
+						"assigned_agent_id": assignedAgent,
+						"campaign_id":       campaignID,
+					},
+				})
+			}
+		}
+	}
+
+	_ = tx.Commit(ctx)
 }
 
 // enrollSequences mendaftarkan percakapan ke semua sequence aktif yang cocok

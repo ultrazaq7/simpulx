@@ -1,5 +1,10 @@
 package main
 
+import (
+	"encoding/json"
+	"fmt"
+)
+
 // Struktur payload webhook WhatsApp Cloud API (subset yang dipakai).
 type waWebhook struct {
 	Object string    `json:"object"`
@@ -50,10 +55,14 @@ type waMessage struct {
 	Text      struct {
 		Body string `json:"body"`
 	} `json:"text"`
-	Image    *waMedia `json:"image"`
-	Audio    *waMedia `json:"audio"`
-	Video    *waMedia `json:"video"`
-	Document *waMedia `json:"document"`
+	Image       *waMedia       `json:"image"`
+	Audio       *waMedia       `json:"audio"`
+	Video       *waMedia       `json:"video"`
+	Document    *waMedia       `json:"document"`
+	Sticker     *waMedia       `json:"sticker"`
+	Button      *waButton      `json:"button"`
+	Interactive *waInteractive `json:"interactive"`
+	Template    *waTemplate    `json:"template"`
 	// Present when the contact came from a Click-to-WhatsApp ad.
 	Referral *struct {
 		SourceID   string `json:"source_id"`
@@ -61,6 +70,60 @@ type waMessage struct {
 		SourceURL  string `json:"source_url"`
 		CtwaClid   string `json:"ctwa_clid"`
 	} `json:"referral"`
+	// Errors hadir saat Meta tidak bisa men-decode pesan (type "unsupported",
+	// mis. kode 131051). PENTING: dalam kasus ini Meta TIDAK menyertakan konten
+	// asli pesan, hanya alasan error.
+	Errors []struct {
+		Code      int    `json:"code"`
+		Title     string `json:"title"`
+		Message   string `json:"message"`
+		ErrorData struct {
+			Details string `json:"details"`
+		} `json:"error_data"`
+	} `json:"errors"`
+	// raw menyimpan JSON asli pesan apa adanya (diisi UnmarshalJSON), agar field
+	// di luar struct (errors, tipe baru) tidak hilang saat decode.
+	raw json.RawMessage `json:"-"`
+}
+
+// UnmarshalJSON menyimpan byte JSON asli pesan sebelum decode ke struct, supaya
+// payload mentah tetap utuh untuk inspeksi (mis. pesan "unsupported").
+func (m *waMessage) UnmarshalJSON(b []byte) error {
+	type alias waMessage // hindari rekursi: alias tidak punya UnmarshalJSON
+	var a alias
+	if err := json.Unmarshal(b, &a); err != nil {
+		return err
+	}
+	*m = waMessage(a)
+	m.raw = append(json.RawMessage(nil), b...)
+	return nil
+}
+
+// rawJSON mengembalikan JSON asli pesan; fallback ke marshal struct bila kosong
+// (mis. pesan dibuat manual di test tanpa lewat UnmarshalJSON).
+func (m waMessage) rawJSON() json.RawMessage {
+	if len(m.raw) > 0 {
+		return m.raw
+	}
+	b, _ := json.Marshal(m)
+	return b
+}
+
+// errorSummary merangkai alasan singkat dari array errors Meta (pesan
+// "unsupported"), mis. "131051 Message type unknown".
+func (m waMessage) errorSummary() string {
+	if len(m.Errors) == 0 {
+		return ""
+	}
+	e := m.Errors[0]
+	switch {
+	case e.Title != "":
+		return fmt.Sprintf("%d %s", e.Code, e.Title)
+	case e.Message != "":
+		return fmt.Sprintf("%d %s", e.Code, e.Message)
+	default:
+		return fmt.Sprintf("code %d", e.Code)
+	}
 }
 
 // referralSourceID returns the CTWA ad source_id when present.
@@ -76,6 +139,29 @@ type waMedia struct {
 	MimeType string `json:"mime_type"`
 	Caption  string `json:"caption"`
 	Link     string `json:"link"` // direct URL when available (test payloads); real Meta uses ID
+	Animated bool   `json:"animated"` // for stickers
+}
+
+type waButton struct {
+	Payload string `json:"payload"`
+	Text    string `json:"text"`
+}
+
+type waInteractive struct {
+	Type        string `json:"type"`
+	ButtonReply struct {
+		ID    string `json:"id"`
+		Title string `json:"title"`
+	} `json:"button_reply"`
+	ListReply struct {
+		ID          string `json:"id"`
+		Title       string `json:"title"`
+		Description string `json:"description"`
+	} `json:"list_reply"`
+}
+
+type waTemplate struct {
+	Name string `json:"name"`
 }
 
 // extractMediaURL returns a direct media URL when the payload provides one.
@@ -97,6 +183,10 @@ func (m waMessage) extractMediaURL() string {
 	case "document":
 		if m.Document != nil {
 			return m.Document.Link
+		}
+	case "sticker":
+		if m.Sticker != nil {
+			return m.Sticker.Link
 		}
 	}
 	return ""
@@ -122,6 +212,10 @@ func (m waMessage) mediaID() string {
 		if m.Document != nil {
 			return m.Document.ID
 		}
+	case "sticker":
+		if m.Sticker != nil {
+			return m.Sticker.ID
+		}
 	}
 	return ""
 }
@@ -142,6 +236,61 @@ func (m waMessage) extractText() string {
 	case "document":
 		if m.Document != nil {
 			return m.Document.Caption
+		}
+	case "button":
+		if m.Button != nil {
+			// Authentication/OTP template: kode OTP ada di Payload,
+			// sementara Text hanya label tombol (mis. "Copy code").
+			// Tampilkan payload (kode OTP) agar terbaca di inbox.
+			if m.Button.Payload != "" && m.Button.Text != "" && m.Button.Payload != m.Button.Text {
+				return m.Button.Text + "\n" + m.Button.Payload
+			}
+			if m.Button.Payload != "" {
+				return m.Button.Payload
+			}
+			return m.Button.Text
+		}
+	case "interactive":
+		if m.Interactive != nil {
+			if m.Interactive.Type == "button_reply" {
+				return m.Interactive.ButtonReply.Title
+			}
+			if m.Interactive.Type == "list_reply" {
+				return m.Interactive.ListReply.Title
+			}
+		}
+	case "template":
+		if m.Template != nil {
+			return m.Template.Name
+		}
+	case "unsupported":
+		// Meta tidak bisa men-decode pesan ini; konten asli TIDAK dikirim.
+		// Tampilkan penanda (+ alasan) agar tidak blank "No messages yet".
+		if r := m.errorSummary(); r != "" {
+			return "[unsupported message: " + r + "]"
+		}
+		return "[unsupported message]"
+	}
+	return ""
+}
+
+// buttonPayload returns the callback id behind a tapped quick-reply / template
+// button (interactive button_reply id, or a legacy button payload). This is the
+// unique id a broadcast can generate per recipient; empty for normal messages.
+func (m waMessage) buttonPayload() string {
+	switch m.Type {
+	case "interactive":
+		if m.Interactive != nil {
+			if m.Interactive.Type == "button_reply" && m.Interactive.ButtonReply.ID != "" {
+				return m.Interactive.ButtonReply.ID
+			}
+			if m.Interactive.Type == "list_reply" && m.Interactive.ListReply.ID != "" {
+				return m.Interactive.ListReply.ID
+			}
+		}
+	case "button":
+		if m.Button != nil {
+			return m.Button.Payload
 		}
 	}
 	return ""

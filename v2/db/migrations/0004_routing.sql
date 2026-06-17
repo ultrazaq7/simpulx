@@ -1,3 +1,5 @@
+-- +goose Up
+
 -- ============================================================
 -- Simpulx v2 — Fase 2: routing & lifecycle percakapan.
 -- agent<->department, dispositions, stages, audit conversation_events.

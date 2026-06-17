@@ -3,13 +3,6 @@
 **Start here.** This is the orientation doc for any engineer or AI agent picking up
 Simpulx v2.
 
-## What this is
-
-Simpulx v2 — a multi-tenant, AI-assisted omnichannel WhatsApp **sales** platform for
-automotive dealer networks (customer: OTO). Event-driven Go + Python microservices,
-Next.js dashboard, Postgres/pgvector + Redis + NATS + MinIO. Lives in the `v2/` directory.
-v1 (NestJS + Flutter) is a separate, still-live product — don't confuse them.
-
 ## Read order
 
 1. **[01-project-brief.md](01-project-brief.md)** — what & why.
@@ -42,22 +35,38 @@ v1 (NestJS + Flutter) is a separate, still-live product — don't confuse them.
 | 18 | roadmap | sequenced next steps |
 | 19 | current-state | honest status snapshot |
 | 20 | handoff | this file |
+| 21 | whatsapp-calling | WhatsApp Business Calling API scope (real calls + auto duration) |
 
-## The five things that will bite you
+## The six things that will bite you
 
 1. **`go.mod` must be `go 1.22`+** or every `/api` + `/auth` route 404s (method routing).
-2. **Migrations don't auto-apply** to a running DB; some columns were applied by hand. Check
-   the live schema, not just the SQL files. The team edits `0001_core.sql` in place.
+2. **Migrations auto-apply via goose on gateway startup**, over the migrations **embedded in
+   the binary** (`db/migrations/embed.go`). A new `NNNN_*.sql` MUST begin with `-- +goose Up`
+   (else goose fails to parse and the gateway crash-loops), be **idempotent**, and only takes
+   effect after a gateway **rebuild** (embedded, not read from disk). Still verify the live
+   schema, not just the SQL.
 3. **The AI does NOT auto-reply** to customers (BR-17). It classifies, extracts, drafts
    follow-ups. Don't "add back" a chatbot.
 4. **Multi-thread + round-robin invariant:** resolve campaign before picking a
-   conversation; only advance `rr_cursor` on a real route ([14](14-fair-distribution-engine.md)). 
-5. **Role visibility is enforced (BR-20) but the role permission MATRIX is not** — it's
-   config-only. Don't assume a checked box gates anything yet.
+   conversation; only advance `rr_cursor` on a real route ([14](14-fair-distribution-engine.md)).
+5. ~~**WebSocket auth is NOT implemented**~~ — **FIXED (2026-06-03).** `realtime/main.go`
+   now validates JWT tokens (`?token=` param); in dev mode (default `JWT_SECRET`), it also
+   accepts the legacy `?org=` param for backward compat. Production rejects connections
+   without a valid token. See `parseWSToken` + `wsClaims` in `realtime/main.go`.
+6. **Ownership is human-only** (BR-27). No auto-unassign, no bulk reassign. When an agent
+   is deactivated, notify the manager for manual reassignment.
+7. **Web is Tailwind v3.4 — never write v4-only classes** (`ring-3`, `rounded-4xl`, `size-3!`,
+   `has-data-*`, `oklch color-mix`). They compile silently but generate no CSS, so the UI looks
+   half-broken with a green build. The `components/ui/*` + `components/inbox/*` parallel kit is
+   v4/base-ui and is the cautionary example; the active inbox is `app/(app)/inbox/components/*`.
 
 ## Conventions
 
 - Tenant-scope every query by `organization_id`. Unauthorized resource → 404, not 403.
+- **Branding: never use the word "AI" anywhere user-facing.** This is a *Customer Engagement
+  Platform*. The reasoning assistant is named **Simpuler**. User-facing data fields are neutral
+  (`lead_summary`, `suggested_action`, `lead_score`), not `ai_*`. Internal DB/code `ai_*` names
+  (e.g. `ai_stage`, `ai_runs`) are fine — they aren't shown to users.
 - UI: English, **no em dashes**, no per-page title/description headers, tables+pagination
   for growth-prone lists, use theme tokens.
 - Trust `tsc --noEmit` over mid-edit IDE diagnostics.
@@ -79,5 +88,39 @@ build gotcha.
 
 ## Immediate next steps
 
-See [18-roadmap.md](18-roadmap.md) "Now": enforce the role matrix, build the SLA
-dashboard, reconcile classifier stages to the action funnel, improve follow-up content.
+- **Enterprise UI/UX overhaul (FR-29) — IN PROGRESS (2026-06-04).** Direction "total radikal",
+  flagship-first = Inbox. **DONE + verified (tsc + build green):** token foundation
+  (`globals.css` + `tailwind.config.js`), entire **Inbox**, the **app frame** (Shell + Login +
+  forgot/reset), **Dashboard (FR-30)**, **Contacts**, and **Broadcasts** (full v1-parity 5-step
+  wizard + real audience targeting + test-send, deployed live — see [19](19-current-state.md)).
+  **NEXT in order:** Settings routes. **Parallel epic:** v1-parity **Automation flow builder**
+  (owner wants v2 automation + broadcast to match v1 Flutter UI/UX + functionality in v2 tokens;
+  needs a backend automation **executor** — none exists yet, `automations.go` is CRUD-only).
+  **Foundation rule (do not violate): stay Tailwind v3.4** — the parallel `components/ui/*` +
+  `components/inbox/*` kit is a v4/base-ui kit whose classes don't generate on v3 (it's why some
+  screens looked broken); normalize to v3 when touched, the unwired `components/inbox/*` set is
+  dead code. Full spec in [07-design-system.md](07-design-system.md) + [19](19-current-state.md).
+- **Lead Intelligence engine (workstream #1)** is built and model trained ([19](19-current-state.md)):
+  `make dev` to apply migrations `0026`/`0027`/`0028` + deploy the new ai-agent image; then
+  end-to-end webhook burst test. The CatBoost model (`models/lead_score.cbm`) was trained on
+  200 hand-labeled threads (ROC-AUC 0.857, free — no API cost). Labeling was done by an agent
+  reading each transcript against a rubric (labeled.jsonl). To improve: label more threads
+  from `threads_dump.jsonl` (400 total, 200 done) and retrain; or retrain on real dispositions
+  once production logs won/lost outcomes.
+- **Inbox decomposition DONE (2026-06-03 evening):** `ChatPanel.tsx` extracted, left panel
+  swapped to `<ConversationList/>` (multi-select filters + quick toggles + sort modes),
+  dead code cleaned. `page.tsx` reduced 741→~260 lines. `inbox/components/` is 100%
+  Tailwind + Lucide. MUI Snackbar/Alert remains as page-level toast (extract in WS#11).
+- Then [18-roadmap.md](18-roadmap.md): workstream #2 (Premium Inbox) = ~~in-conversation
+  message search (Ctrl+F)~~ DONE, ~~highlight cards (lead_summary + suggested_action in
+  DetailsPanel)~~ DONE, ~~WhatsApp 24h window indicator~~ DONE (card chip + composer
+  banner), animated UI polish remaining. **WS#3 Call Tracking**: ~~manual call button~~
+  DONE (Composer Phone icon + wa.me redirect + API log), ~~blinking call indicator~~
+  DONE (ConversationCard). **WhatsApp Media Styling**: ~~WhatsApp-style rich document icons, video/image timestamp overlays, full-screen media preview modal~~ DONE. Plus MVP items (role matrix, SLA dashboard, classifier/funnel).
+- **MUI removal: COMPLETE (2026-06-03).** Zero `@mui` imports in any active source file.
+  All settings pages (roles, integrations, campaigns, templates, automation list + flow
+  editor, channels) + inbox toast migrated to Tailwind + Lucide. Only `flow_backup.txt`
+  (inactive backup) retains old MUI references. Pattern: native HTML + Tailwind classes +
+  Lucide icons; settings use `_shared.tsx` (`useToast`/`PageBody`/`SectionLabel`).
+- **Removed pages:** `/knowledge`, `/settings/ai`, `/sequences` — all backend-only now.
+  APIs still exist (`/api/knowledge`, `/api/ai-agent`, `/api/sequences`), just no UI.

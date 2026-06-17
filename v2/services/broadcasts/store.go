@@ -55,10 +55,17 @@ func (s *store) markSending(ctx context.Context, id string) error {
 	return err
 }
 
-func (s *store) markRecipientSent(ctx context.Context, recipID string) error {
-	_, err := s.pool.Exec(ctx,
-		`UPDATE broadcast_recipients SET status='sent', sent_at=now() WHERE id=$1`, recipID)
-	return err
+// claimRecipient atomically transitions a recipient pending->sent and reports
+// whether THIS call won the claim. Idempotent: a redelivered or concurrent
+// broadcast event can never send the same recipient twice.
+func (s *store) claimRecipient(ctx context.Context, recipID string) (bool, error) {
+	ct, err := s.pool.Exec(ctx,
+		`UPDATE broadcast_recipients SET status='sent', sent_at=now()
+		   WHERE id=$1 AND status='pending'`, recipID)
+	if err != nil {
+		return false, err
+	}
+	return ct.RowsAffected() == 1, nil
 }
 
 func (s *store) bumpSent(ctx context.Context, broadcastID string) error {

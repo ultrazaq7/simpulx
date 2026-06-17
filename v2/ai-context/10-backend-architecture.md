@@ -55,12 +55,19 @@ groups) for at-least-once delivery; handlers return false to NAK + redeliver.
   404** while `/healthz` works. (This bit us once — see [16-security.md](16-security.md)/handoff.)
 - Auth: argon2id (`auth.go`), JWT HS256 with org/role/name claims, `requireAuth`
   middleware. `last_login_at` stamped on login.
-- Crons: `runFollowUpCron` (15m, smart follow-up), `runAggressiveNotifications` (5m,
-  unreplied-lead alerts) in `cron.go`.
+- Crons: **moved to messaging** (not gateway). See messaging internals below.
 - Files: `api.go` (conversations, stages, stats, knowledge proxy, notes, contacts,
   uploads), `users.go`, `roles.go`, `campaigns.go`, `channels.go`, `templates.go`,
   `automation`, `sequences.go`, `organization.go`, `webhook`/`whatsapp.go`,
   `password_reset.go`, `mail.go`, `export.go`, `web_api.go`.
+
+## realtime internals (`main.go`)
+
+- **WS JWT auth implemented (2026-06-03).** The `/ws` endpoint now parses JWT from
+  `?token=<jwt>` and derives orgID from claims. In dev mode (when `JWT_SECRET` equals
+  the default `dev_change_me_in_prod`), the legacy `?org=` fallback is still accepted.
+  In production with a real secret, `?org=` is rejected with 401.
+  `CheckOrigin` still allows all — restrict to known origins in prod (P2).
 
 ## messaging internals (`store.go`, `main.go`)
 
@@ -69,6 +76,8 @@ groups) for at-least-once delivery; handlers return false to NAK + redeliver.
   `resolveCampaignByReferral`, `resolveCampaignByKeyword`, `routeToCampaign`
   (round-robin; cursor only advances on real route), `insertInbound`/`insertOutbound`,
   `enrollSequences`, `updateMessageStatus`.
+- Crons: `runFollowUpCron` (15m, smart follow-up), `runAggressiveNotifications` (5m,
+  unreplied-lead alerts). Both run in messaging, not gateway.
 - Inbound order: resolve campaign FIRST, then pick/open the right conversation (so
   cross-campaign messages don't bleed — BR-8).
 

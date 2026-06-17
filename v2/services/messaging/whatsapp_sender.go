@@ -7,6 +7,7 @@ import (
 	"fmt"
 	"io"
 	"net/http"
+	"net/url"
 	"time"
 
 	"github.com/google/uuid"
@@ -47,6 +48,13 @@ func (s *sender) sendMedia(ctx context.Context, t sendTarget, msgType, mediaURL,
 	obj := map[string]string{"link": mediaURL}
 	if caption != "" && msgType != "audio" { // audio tidak punya caption
 		obj["caption"] = caption
+	}
+	if msgType == "document" {
+		if parsed, err := url.Parse(mediaURL); err == nil {
+			if name := parsed.Query().Get("name"); name != "" {
+				obj["filename"] = name
+			}
+		}
 	}
 	return s.post(ctx, t, map[string]any{
 		"messaging_product": "whatsapp",

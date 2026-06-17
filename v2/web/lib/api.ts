@@ -1,4 +1,4 @@
-import type { Agent, AIAgent, Analytics, AuditEntry, Automation, AutomationAction, AutomationDetail, AutomationFlow, Broadcast, Campaign, CampaignAnalyticsRow, CampaignDetail, Channel, Contact, Conversation, Department, InternalNote, KnowledgeSource, Message, Organization, OrgSettings, QuickReply, RolePermissions, Sequence, SequenceDetail, SequenceStep, Stats, Template, TemplateButton, User, UserAccount, WebApiSource } from "./types";
+import type { Agent, AIAgent, Analytics, AuditEntry, Automation, AutomationAction, AutomationDetail, AutomationFlow, Broadcast, Campaign, CampaignAnalyticsRow, CampaignDetail, Channel, Contact, Conversation, Department, InternalNote, KnowledgeSource, Message, Organization, OrgSettings, QuickReply, RolePermissions, Sequence, SequenceDetail, SequenceStep, Stats, DashboardCards, Template, TemplateButton, User, UserAccount, UserActivity, WebApiSource } from "./types";
 
 const API = process.env.NEXT_PUBLIC_API_URL || "http://localhost:8080";
 export const WS_URL = process.env.NEXT_PUBLIC_WS_URL || "ws://localhost:8082";
@@ -21,10 +21,16 @@ export function clearSession() {
   localStorage.removeItem("simpulx_token");
   localStorage.removeItem("simpulx_user");
 }
+// App UI language. Single source for now (English); wire to real i18n later.
+export function getAppLang(): string {
+  if (typeof window === "undefined") return "en";
+  return localStorage.getItem("simpulx_lang") || "en";
+}
 
 async function req<T>(path: string, opts: RequestInit = {}): Promise<T> {
   const token = getToken();
   const res = await fetch(API + path, {
+    cache: "no-store",
     ...opts,
     headers: {
       "Content-Type": "application/json",
@@ -70,6 +76,39 @@ export const api = {
     if (!res.ok) throw new Error((await res.text()) || "Reset failed");
     return res.json();
   },
+  // Stream an on-demand AI briefing (SSE). Calls onChunk for each token; resolves when done.
+  async streamSummary(convId: string, onChunk: (text: string) => void, signal?: AbortSignal): Promise<void> {
+    const token = getToken();
+    const res = await fetch(`${API}/api/conversations/${convId}/summary?lang=${encodeURIComponent(getAppLang())}`, {
+      method: "POST",
+      headers: {
+        "Content-Type": "application/json",
+        ...(token ? { Authorization: `Bearer ${token}` } : {}),
+      },
+      signal,
+    });
+    if (!res.ok || !res.body) throw new Error((await res.text().catch(() => "")) || "Summary failed");
+    const reader = res.body.getReader();
+    const decoder = new TextDecoder();
+    let buf = "";
+    for (;;) {
+      const { done, value } = await reader.read();
+      if (done) break;
+      buf += decoder.decode(value, { stream: true });
+      const lines = buf.split("\n");
+      buf = lines.pop() || ""; // keep the trailing partial line for the next chunk
+      for (const line of lines) {
+        const t = line.trim();
+        if (!t.startsWith("data:")) continue;
+        const data = t.slice(5).trim();
+        if (!data) continue;
+        let evt: { text?: string; error?: string; done?: boolean };
+        try { evt = JSON.parse(data); } catch { continue; }
+        if (evt.error) throw new Error(evt.error);
+        if (typeof evt.text === "string") onChunk(evt.text);
+      }
+    }
+  },
   me: () => req<User>("/api/me"),
   listConversations: (status = "") =>
     req<Conversation[]>(`/api/conversations${status ? `?status=${status}` : ""}`),
@@ -79,6 +118,8 @@ export const api = {
     if (cursor) params.append("cursor", cursor);
     return req<{ data: Message[]; next_cursor: string | null }>(`/api/conversations/${id}/messages?${params.toString()}`);
   },
+  searchMessages: (id: string, query: string) =>
+    req<{ data: Message[] }>(`/api/conversations/${id}/messages/search?q=${encodeURIComponent(query)}`),
   sendMessage: (id: string, body: string) =>
     req(`/api/conversations/${id}/messages`, { method: "POST", body: JSON.stringify({ body }) }),
   sendMedia: (id: string, type: string, mediaUrl: string, caption: string) =>
@@ -110,8 +151,9 @@ export const api = {
   updateAIAgent: (patch: Partial<AIAgent>) =>
     req<AIAgent>("/api/ai-agent", { method: "PUT", body: JSON.stringify(patch) }),
   listLLMModels: () => req<{ id: string; name: string }[]>("/api/llm-models"),
-  getStats: () => req<Stats>("/api/stats"),
-  getAnalytics: () => req<Analytics>("/api/analytics"),
+  getStats: (campaignId?: string) => req<Stats>(`/api/stats${campaignId ? `?campaign_id=${campaignId}` : ""}`),
+  getDashboardCards: () => req<DashboardCards>("/api/dashboard/cards"),
+  getAnalytics: (campaignId?: string) => req<Analytics>(`/api/analytics${campaignId ? `?campaign_id=${campaignId}` : ""}`),
   listQuickReplies: () => req<QuickReply[]>("/api/quick-replies"),
   createQuickReply: (shortcut: string, title: string, body: string) =>
     req("/api/quick-replies", { method: "POST", body: JSON.stringify({ shortcut, title, body }) }),
@@ -124,9 +166,22 @@ export const api = {
   patchConversation: (id: string, patch: { stage_id?: string; disposition_id?: string; interest_level?: string; unread_count?: number }) =>
     req(`/api/conversations/${id}`, { method: "PATCH", body: JSON.stringify(patch) }),
   listContacts: () => req<Contact[]>("/api/contacts"),
+  createContact: (body: { full_name?: string; phone?: string; tags?: string[] }) =>
+    req<Contact>("/api/contacts", { method: "POST", body: JSON.stringify(body) }),
+  updateContact: (id: string, body: { full_name?: string; phone?: string; tags?: string[] }) =>
+    req<void>(`/api/contacts/${id}`, { method: "PATCH", body: JSON.stringify(body) }),
   listBroadcasts: () => req<Broadcast[]>("/api/broadcasts"),
-  createBroadcast: (input: { name: string; body?: string; template_id?: string; scheduled_at?: string; audience?: string }) =>
-    req<{ id: string; total_recipients: number; status: string }>("/api/broadcasts", { method: "POST", body: JSON.stringify(input) }),
+  createBroadcast: (input: {
+    name: string; body?: string; template_id?: string; scheduled_at?: string;
+    channel_id?: string; audience?: string; tags?: string[]; contact_ids?: string[]; send_now?: boolean;
+  }) => req<{ id: string; total_recipients: number; status: string }>("/api/broadcasts", { method: "POST", body: JSON.stringify(input) }),
+  getBroadcast: (id: string) => req<import("./types").BroadcastDetail>(`/api/broadcasts/${id}`),
+  listBroadcastRecipients: (id: string) => req<import("./types").BroadcastRecipient[]>(`/api/broadcasts/${id}/recipients`),
+  sendBroadcast: (id: string) => req<{ status: string }>(`/api/broadcasts/${id}/send`, { method: "POST" }),
+  retryBroadcast: (id: string) => req<{ status: string; retried: number }>(`/api/broadcasts/${id}/retry`, { method: "POST" }),
+  deleteBroadcast: (id: string) => req<void>(`/api/broadcasts/${id}`, { method: "DELETE" }),
+  testSendBroadcast: (input: { channel_id?: string; contact_id: string; body?: string; template_id?: string }) =>
+    req<{ status: string }>("/api/broadcasts/test-send", { method: "POST", body: JSON.stringify(input) }),
   // ── Templates (WhatsApp HSM) ──
   listTemplates: () => req<Template[]>("/api/templates"),
   createTemplate: (input: {
@@ -145,6 +200,17 @@ export const api = {
     req<{ id: string }>("/api/users", { method: "POST", body: JSON.stringify(input) }),
   updateUser: (id: string, patch: { full_name?: string; email?: string; role?: string; status?: string; password?: string }) =>
     req(`/api/users/${id}`, { method: "PATCH", body: JSON.stringify(patch) }),
+  // Self presence (online/offline). Writes is_online only; never the account status.
+  setPresence: (online: boolean) =>
+    req<{ is_online: boolean }>("/api/users/me/presence", { method: "PATCH", body: JSON.stringify({ online }) }),
+  // Agent-performance + billing metrics from the activity log (self, or privileged for any user).
+  getUserActivity: (id: string, from?: string, to?: string) => {
+    const q = new URLSearchParams();
+    if (from) q.set("from", from);
+    if (to) q.set("to", to);
+    const qs = q.toString();
+    return req<UserActivity>(`/api/users/${id}/activity${qs ? `?${qs}` : ""}`);
+  },
   deleteUser: (id: string) => req(`/api/users/${id}`, { method: "DELETE" }),
   // ── Role permissions ──
   getRolePermissions: () => req<RolePermissions>("/api/role-permissions"),
@@ -181,9 +247,9 @@ export const api = {
     req(`/api/sequences/${id}`, { method: "PATCH", body: JSON.stringify(patch) }),
   deleteSequence: (id: string) => req(`/api/sequences/${id}`, { method: "DELETE" }),
   getCampaign: (id: string) => req<CampaignDetail>(`/api/campaigns/${id}`),
-  createCampaign: (input: { name: string; dealer_name?: string; routing_strategy?: string; ad_source_ids?: string[]; keywords?: string[]; agent_ids?: string[] }) =>
+  createCampaign: (input: { name: string; dealer_name?: string; routing_strategy?: string; channel_id?: string; ad_source_ids?: string[]; keywords?: string[]; agent_ids?: string[] }) =>
     req<{ id: string }>("/api/campaigns", { method: "POST", body: JSON.stringify(input) }),
-  updateCampaign: (id: string, patch: { name?: string; dealer_name?: string; status?: string; routing_strategy?: string; ad_source_ids?: string[]; keywords?: string[]; agent_ids?: string[] }) =>
+  updateCampaign: (id: string, patch: { name?: string; dealer_name?: string; status?: string; routing_strategy?: string; channel_id?: string; ad_source_ids?: string[]; keywords?: string[]; agent_ids?: string[] }) =>
     req(`/api/campaigns/${id}`, { method: "PATCH", body: JSON.stringify(patch) }),
   deleteCampaign: (id: string) => req(`/api/campaigns/${id}`, { method: "DELETE" }),
   // ── Channels ──

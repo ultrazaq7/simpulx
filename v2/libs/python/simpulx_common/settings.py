@@ -14,7 +14,9 @@ class Settings:
     # LLM
     llm_provider: str = os.getenv("LLM_PROVIDER", "mock")  # anthropic | mock
     anthropic_api_key: str = os.getenv("ANTHROPIC_API_KEY", "")
-    llm_model: str = os.getenv("LLM_MODEL", "claude-opus-4-8")
+    # Routine extraction/summary runs on every eligible message, so default to
+    # Sonnet (not Opus) for cost. Per-agent ai_agents.model can still override.
+    llm_model: str = os.getenv("LLM_MODEL", "claude-sonnet-4-6")
 
     # Embeddings
     embed_provider: str = os.getenv("EMBED_PROVIDER", "local")  # local | openai

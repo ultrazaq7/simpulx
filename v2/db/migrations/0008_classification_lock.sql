@@ -1,3 +1,5 @@
+-- +goose Up
+
 -- ============================================================
 -- Simpulx v2 - Manual override lock for AI classification.
 -- Once a human sets stage/disposition/interest, the AI stops

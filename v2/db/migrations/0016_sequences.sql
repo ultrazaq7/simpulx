@@ -1,3 +1,5 @@
+-- +goose Up
+
 -- ============================================================
 -- 0016_sequences — drip / follow-up sequences. A sequence is an
 -- ordered set of timed steps. A conversation is enrolled (once) and

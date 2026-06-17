@@ -1,3 +1,5 @@
+-- +goose Up
+
 -- ============================================================
 -- 0009_channels — enrich channels for multi-platform management
 -- (WhatsApp + Meta Instagram/Messenger + future Telegram/SMS/...)

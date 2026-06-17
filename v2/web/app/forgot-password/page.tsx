@@ -1,10 +1,7 @@
 "use client";
 import { useState } from "react";
 import { useRouter } from "next/navigation";
-import { Box, Button, TextField, Typography, Alert, CircularProgress, InputAdornment } from "@mui/material";
-import EmailOutlinedIcon from "@mui/icons-material/EmailOutlined";
-import ArrowBackRoundedIcon from "@mui/icons-material/ArrowBackRounded";
-import MarkEmailReadRoundedIcon from "@mui/icons-material/MarkEmailReadRounded";
+import { Mail, ArrowLeft, MailCheck, Loader2 } from "lucide-react";
 import { api } from "@/lib/api";
 
 export default function ForgotPasswordPage() {
@@ -26,77 +23,86 @@ export default function ForgotPasswordPage() {
   }
 
   return (
-    <Box sx={{
-      minHeight: "100vh", display: "flex", flexDirection: "column", alignItems: "center", justifyContent: "center",
-      background: "linear-gradient(160deg, #0a1f1d 0%, #122c28 30%, #1a3d35 60%, #0f2420 100%)",
-      position: "relative", overflow: "hidden", px: 2,
-    }}>
-      <Box sx={{ mb: 3, position: "relative", zIndex: 1 }}>
-        <Box sx={{ width: 80, height: 80, borderRadius: "8px", mx: "auto", mb: 2, overflow: "hidden" }}>
-          <img src="/simpulx_logo.png" alt="Simpulx" style={{ width: "100%", height: "100%", objectFit: "contain" }} />
-        </Box>
-        <Typography sx={{ fontSize: 32, fontWeight: 800, textAlign: "center", letterSpacing: "-0.02em", color: "#fff" }}>
-          Simpul<span style={{ color: "#F5A623" }}>x</span>
-        </Typography>
-      </Box>
+    <div className="min-h-screen flex flex-col items-center justify-center bg-background px-6 relative overflow-hidden">
+      {/* Logo */}
+      <div className="mb-7 flex items-center gap-2.5 animate-fade-in">
+        <div className="w-10 h-10 rounded-lg overflow-hidden shadow-md">
+          <img src="/simpulx_logo.png" alt="Simpulx" className="w-full h-full object-cover" />
+        </div>
+        <span className="text-[20px] font-extrabold tracking-tight text-foreground">
+          Simpul<span className="text-amber">x</span>
+        </span>
+      </div>
 
-      <Box sx={{ width: "100%", maxWidth: 400, px: 4, position: "relative", zIndex: 1 }}>
+      <div className="w-full max-w-[380px] animate-fade-in">
         {sent ? (
-          <Box sx={{ textAlign: "center" }}>
-            <Box sx={{ width: 72, height: 72, borderRadius: "20px", mx: "auto", mb: 3, display: "grid", placeItems: "center", bgcolor: "rgba(16,185,129,0.12)" }}>
-              <MarkEmailReadRoundedIcon sx={{ fontSize: 34, color: "#10B981" }} />
-            </Box>
-            <Typography sx={{ fontSize: 20, fontWeight: 700, color: "#fff", mb: 1 }}>Check your email</Typography>
-            <Typography sx={{ fontSize: 14, color: "rgba(255,255,255,0.5)", lineHeight: 1.6, mb: 4 }}>
-              If an account exists for <b style={{ color: "rgba(255,255,255,0.75)" }}>{email}</b>, we have sent a link to reset your password.
-            </Typography>
-            <Button fullWidth variant="outlined" onClick={() => router.push("/login")}
-              sx={{ py: 1.25, borderRadius: "8px", textTransform: "none", fontWeight: 600, color: "#fff", borderColor: "rgba(255,255,255,0.2)", "&:hover": { borderColor: "rgba(255,255,255,0.4)", bgcolor: "rgba(255,255,255,0.04)" } }}>
-              Back to Sign In
-            </Button>
-          </Box>
+          <div className="bg-card p-8 rounded-xl border border-border shadow-lg text-center">
+            <div className="w-14 h-14 rounded-xl mx-auto mb-5 grid place-items-center bg-primary/10 text-primary">
+              <MailCheck className="w-7 h-7" />
+            </div>
+            <h2 className="text-xl font-bold text-foreground mb-2">Check your email</h2>
+            <p className="text-muted-foreground text-[13px] leading-relaxed mb-7">
+              If an account exists for <b className="text-foreground">{email}</b>, we have sent a link to reset your password.
+            </p>
+            <button
+              onClick={() => router.push("/login")}
+              className="w-full h-11 inline-flex items-center justify-center gap-2 rounded-lg border border-border bg-card text-foreground/80 font-semibold text-[13.5px] hover:bg-muted transition-colors outline-none"
+            >
+              <ArrowLeft className="w-4 h-4" /> Back to sign in
+            </button>
+          </div>
         ) : (
           <>
-            <Typography sx={{ fontSize: 20, fontWeight: 700, color: "#fff", textAlign: "center", mb: 1 }}>Reset password</Typography>
-            <Typography sx={{ fontSize: 14, color: "rgba(255,255,255,0.5)", textAlign: "center", lineHeight: 1.6, mb: 3 }}>
-              Enter your email and we will send you a link to reset your password.
-            </Typography>
-            {error && <Alert severity="error" sx={{ mb: 2, borderRadius: "8px" }}>{error}</Alert>}
-            <Box component="form" onSubmit={submit} sx={{ display: "flex", flexDirection: "column", gap: 2.5 }}>
-              <TextField
-                type="email" value={email} onChange={(e) => setEmail(e.target.value)}
-                fullWidth required autoFocus placeholder="you@company.com"
-                slotProps={{ input: {
-                  startAdornment: <InputAdornment position="start"><EmailOutlinedIcon sx={{ fontSize: 18, color: "rgba(255,255,255,0.3)" }} /></InputAdornment>,
-                }}}
-                sx={{
-                  "& .MuiOutlinedInput-root": {
-                    bgcolor: "rgba(255,255,255,0.06)", borderRadius: "8px",
-                    "& fieldset": { borderColor: "rgba(255,255,255,0.1)" },
-                    "&:hover fieldset": { borderColor: "rgba(255,255,255,0.2)" },
-                    "&.Mui-focused fieldset": { borderColor: "#2D8B73" },
-                  },
-                  "& .MuiInputBase-input": { color: "#fff", fontSize: 14 },
-                  "& .MuiInputBase-input::placeholder": { color: "rgba(255,255,255,0.3)", opacity: 1 },
-                }}
-              />
-              <Button type="submit" variant="contained" size="large" fullWidth disabled={loading}
-                sx={{
-                  py: 1.5, fontWeight: 700, fontSize: 15, borderRadius: "8px",
-                  background: "linear-gradient(135deg, #2D8B73 0%, #3AA88D 100%)",
-                  boxShadow: "0 4px 16px rgba(45,139,115,0.3)",
-                  "&:hover": { background: "linear-gradient(135deg, #257a65 0%, #2D8B73 100%)" },
-                }}>
-                {loading ? <CircularProgress size={22} color="inherit" /> : "Send Reset Link"}
-              </Button>
-            </Box>
-            <Box onClick={() => router.push("/login")} sx={{ display: "flex", alignItems: "center", justifyContent: "center", gap: 0.5, mt: 3, cursor: "pointer", color: "rgba(255,255,255,0.5)", "&:hover": { color: "rgba(255,255,255,0.8)" } }}>
-              <ArrowBackRoundedIcon sx={{ fontSize: 16 }} />
-              <Typography sx={{ fontSize: 13, fontWeight: 600 }}>Back to Sign In</Typography>
-            </Box>
+            <div className="mb-6">
+              <h1 className="text-[24px] font-bold tracking-tight text-foreground">Reset password</h1>
+              <p className="mt-1 text-[14px] text-muted-foreground">Enter your email and we'll send you a reset link.</p>
+            </div>
+
+            {error && (
+              <div className="mb-5 px-3.5 py-2.5 rounded-lg bg-red-50 border border-red-200 text-red-600 text-[13px] font-medium animate-scale-in">
+                {error}
+              </div>
+            )}
+
+            <form onSubmit={submit} className="flex flex-col gap-4">
+              <div className="space-y-1.5">
+                <label className="text-[12px] font-bold text-foreground/80">Email address</label>
+                <div className="relative">
+                  <Mail className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-muted-foreground pointer-events-none" />
+                  <input
+                    type="email"
+                    value={email}
+                    onChange={(e) => setEmail(e.target.value)}
+                    required
+                    autoFocus
+                    placeholder="you@company.com"
+                    className="w-full h-11 pl-10 pr-3 rounded-lg border border-input bg-card text-[13.5px] text-foreground placeholder:text-muted-foreground/70 outline-none transition-shadow focus:border-primary focus:ring-2 focus:ring-primary/20"
+                  />
+                </div>
+              </div>
+
+              <button
+                type="submit"
+                disabled={loading}
+                className="w-full h-11 mt-1 inline-flex items-center justify-center rounded-lg bg-primary hover:bg-primary-dark text-white font-bold text-[13.5px] shadow-sm hover:shadow-brand-md transition-all disabled:opacity-60 outline-none"
+              >
+                {loading ? <Loader2 className="w-4 h-4 animate-spin" /> : "Send reset link"}
+              </button>
+            </form>
+
+            <button
+              onClick={() => router.push("/login")}
+              className="flex items-center justify-center gap-2 mt-5 w-full text-muted-foreground hover:text-primary transition-colors text-[13px] font-medium outline-none"
+            >
+              <ArrowLeft className="w-4 h-4" /> Back to sign in
+            </button>
           </>
         )}
-      </Box>
-    </Box>
+
+        <p className="text-center mt-8 text-[11px] text-muted-foreground/60 font-medium uppercase tracking-[0.18em]">
+          Simpulx OS
+        </p>
+      </div>
+    </div>
   );
 }

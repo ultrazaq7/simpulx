@@ -3,76 +3,75 @@ import { useEffect, useState, useRef, type ReactNode } from "react";
 import { usePathname, useRouter } from "next/navigation";
 import Link from "next/link";
 import {
-  Box, Tooltip, Avatar, IconButton, Typography, Badge, Menu, MenuItem,
-  Divider, ListItemIcon, ListItemText, Popover, Dialog, DialogContent, TextField, InputAdornment, Snackbar, Button
-} from "@mui/material";
-import DashboardRoundedIcon from "@mui/icons-material/DashboardRounded";
-import ChatBubbleOutlineRoundedIcon from "@mui/icons-material/ChatBubbleOutlineRounded";
-import PeopleAltOutlinedIcon from "@mui/icons-material/PeopleAltOutlined";
-import CampaignOutlinedIcon from "@mui/icons-material/CampaignOutlined";
-import CellTowerRoundedIcon from "@mui/icons-material/CellTowerRounded";
-import AccountTreeRoundedIcon from "@mui/icons-material/AccountTreeRounded";
-import ChevronLeftRoundedIcon from "@mui/icons-material/ChevronLeftRounded";
-import ChevronRightRoundedIcon from "@mui/icons-material/ChevronRightRounded";
-import ArticleOutlinedIcon from "@mui/icons-material/ArticleOutlined";
-import HubOutlinedIcon from "@mui/icons-material/HubOutlined";
-import StorefrontOutlinedIcon from "@mui/icons-material/StorefrontOutlined";
-import ScheduleSendOutlinedIcon from "@mui/icons-material/ScheduleSendOutlined";
-import MenuBookOutlinedIcon from "@mui/icons-material/MenuBookOutlined";
-import AutoAwesomeOutlinedIcon from "@mui/icons-material/AutoAwesomeOutlined";
-import SettingsOutlinedIcon from "@mui/icons-material/SettingsOutlined";
-import SearchRoundedIcon from "@mui/icons-material/SearchRounded";
-import NotificationsNoneRoundedIcon from "@mui/icons-material/NotificationsNoneRounded";
-import LogoutRoundedIcon from "@mui/icons-material/LogoutRounded";
-import PersonOutlineRoundedIcon from "@mui/icons-material/PersonOutlineRounded";
+  LayoutGrid, MessageCircle, Megaphone, Settings,
+  ChevronLeft, ChevronRight, Bell, LogOut, User as UserIcon,
+  CheckCircle2, Loader2, ChevronDown, Activity, MessagesSquare, Users, Sparkles, SlidersHorizontal, Share2, Wrench, Globe
+} from "lucide-react";
 import { WS_URL } from "@/lib/api";
-import CheckCircleOutlineRoundedIcon from "@mui/icons-material/CheckCircleOutlineRounded";
-import { api, clearSession, getToken, getUser } from "@/lib/api";
-import { initials } from "@/lib/utils";
+import { api, clearSession, getToken, getUser, setSession } from "@/lib/api";
+import { initials, cn } from "@/lib/utils";
+import { Tip } from "@/components/ui/tooltip";
+import { usePermissions } from "@/lib/permissions";
 import type { User } from "@/lib/types";
+import { useI18n } from "@/lib/i18n";
 
 const NAV_TOP = [
-  { href: "/dashboard", icon: DashboardRoundedIcon, label: "Dashboard" },
-  { href: "/inbox", icon: ChatBubbleOutlineRoundedIcon, label: "Inbox" },
-  { href: "/contacts", icon: PeopleAltOutlinedIcon, label: "Contacts" },
-  { href: "/broadcasts", icon: CampaignOutlinedIcon, label: "Broadcasts" },
-  { href: "/sequences", icon: ScheduleSendOutlinedIcon, label: "Follow-ups" },
+  { href: "/dashboard", icon: LayoutGrid, labelKey: "nav.dashboard", perm: "menu_dashboard" },
+  { href: "/inbox", icon: MessageCircle, labelKey: "nav.inbox", perm: "menu_chats" },
+  { href: "/contacts", icon: Users, labelKey: "nav.contacts", perm: "menu_contacts" },
+  { href: "/broadcasts", icon: Megaphone, labelKey: "nav.broadcasts", perm: "menu_broadcasts" },
 ];
 
 const NAV_BOTTOM = [
-  { href: "/settings", icon: SettingsOutlinedIcon, label: "Settings" },
+  { href: "/settings", icon: Settings, labelKey: "nav.settings", perm: "menu_settings" },
 ];
 
 const SIDEBAR_W = 72;
 
 const PAGE_TITLES: Record<string, { category: string; title: string }> = {
   "/dashboard": { category: "OVERVIEW", title: "Dashboard" },
-  "/inbox": { category: "INBOX", title: "Conversations" },
+  "/inbox": { category: "INBOX", title: "My Inbox" },
   "/contacts": { category: "GROUPS", title: "Contacts" },
   "/campaigns": { category: "CAMPAIGNS", title: "Campaigns" },
   "/broadcasts": { category: "OUTREACH", title: "Broadcasts" },
   "/templates": { category: "OUTREACH", title: "Message Templates" },
   "/automation": { category: "AUTOMATION", title: "Automation" },
-  "/sequences": { category: "AUTOMATION", title: "Follow-ups" },
   "/channels": { category: "SETUP", title: "Channels" },
   "/integrations": { category: "SETUP", title: "Web API" },
-  "/settings": { category: "", title: "Settings" },
+  "/settings": { category: "PREFERENCES", title: "Settings" },
+  "/account": { category: "ACCOUNT", title: "Account Settings" },
 };
 
-export default function Shell({ children }: { children: ReactNode }) {
+const CATEGORY_ICONS: Record<string, any> = {
+  "OVERVIEW": Activity,
+  "INBOX": MessagesSquare,
+  "GROUPS": Users,
+  "CAMPAIGNS": Sparkles,
+  "OUTREACH": Share2,
+  "AUTOMATION": Sparkles,
+  "SETUP": Wrench,
+  "PREFERENCES": SlidersHorizontal,
+  "ACCOUNT": UserIcon,
+};
+
+export function Shell({ children }: { children: ReactNode }) {
   const router = useRouter();
   const pathname = usePathname();
   const [user, setUser] = useState<User | null>(null);
   const [sidebarOpen, setSidebarOpen] = useState(false);
-  const [userMenu, setUserMenu] = useState<null | HTMLElement>(null);
-  const [notifAnchor, setNotifAnchor] = useState<null | HTMLElement>(null);
-  const [searchOpen, setSearchOpen] = useState(false);
-  const [searchQuery, setSearchQuery] = useState("");
+  const [userMenuOpen, setUserMenuOpen] = useState(false);
+  const [notifOpen, setNotifOpen] = useState(false);
   const [brand, setBrand] = useState("Simpulx");
+  const { can } = usePermissions();
+  const { t, setLang, lang } = useI18n();
   const [metaTitle, setMetaTitle] = useState("");
-  const [sidebarHovered, setSidebarHovered] = useState(false);
   const [orgSettings, setOrgSettings] = useState<any>({});
   const orgSettingsRef = useRef<any>({});
+  
+  const [unreadCount, setUnreadCount] = useState(0);
+  const [hasNotifs, setHasNotifs] = useState(false);
+  const [alerts, setAlerts] = useState<{ id: string; title: string; body: string; time: Date }[]>([]);
+  const [langOpen, setLangOpen] = useState(false);
 
   useEffect(() => {
     orgSettingsRef.current = orgSettings;
@@ -83,8 +82,6 @@ export default function Shell({ children }: { children: ReactNode }) {
     setUser(getUser());
   }, [router]);
 
-
-  // Load workspace branding (page/meta title) once.
   useEffect(() => {
     if (!getToken()) return;
     api.getOrganization()
@@ -92,12 +89,12 @@ export default function Shell({ children }: { children: ReactNode }) {
         setBrand(o.settings?.branding?.page_title || "Simpulx");
         setMetaTitle(o.settings?.branding?.meta_title || "");
         setOrgSettings(o.settings || {});
+        // Adopt the workspace default language unless this device already chose one.
+        const orgLocale = (o.settings as any)?.locale;
+        if (orgLocale && !localStorage.getItem("simpulx_lang")) setLang(orgLocale);
       })
       .catch(() => {});
-      
   }, []);
-
-  const [unreadCount, setUnreadCount] = useState(0);
 
   const refreshUnread = () => {
     api.listConversations().then((convs) => {
@@ -123,16 +120,14 @@ export default function Shell({ children }: { children: ReactNode }) {
     }
 
     const connect = () => {
-      ws = new WebSocket(`${WS_URL}/ws?org=${u.org_id}`);
+      ws = new WebSocket(`${WS_URL}/ws?token=${getToken()}&org=${u.org_id}`);
       ws.onopen = () => { attempt = 0; };
       ws.onmessage = (e) => {
         try {
           const ev = JSON.parse(e.data);
-          // Dispatch event so other pages (like inbox) can react
           window.dispatchEvent(new CustomEvent("ws_message", { detail: ev }));
 
           const prefs = orgSettingsRef.current?.notifications || { sound: true, newMessages: true, newConversations: true };
-          // ev.data may be a JSON string (RawMessage) or already parsed object
           let payload = ev.data || ev;
           if (typeof payload === "string") { try { payload = JSON.parse(payload); } catch {} }
 
@@ -153,17 +148,17 @@ export default function Shell({ children }: { children: ReactNode }) {
           if (ev.type === "alert" || ev.type === "notification.alert") {
             if (prefs.sound !== false) playBeep(1200, 0.3);
             if (prefs.newMessages !== false && "Notification" in window && Notification.permission === "granted") {
-              new Notification(payload.title || "Urgent", { body: payload.body || "Check your inbox", requireInteraction: true });
+              new Notification(payload.title || "Alert", { body: payload.body || "You have a new notification", requireInteraction: true });
             }
+            setAlerts(prev => [{ id: Math.random().toString(), title: payload.title || "Alert", body: payload.body || "You have a new notification", time: new Date() }, ...prev]);
+            setHasNotifs(true);
           } else if (ev.type === "message.persisted") {
-            refreshUnread();
-            // Only notify for INBOUND messages, not our own outbounds
-            if (payload.direction === "inbound") {
-              if (prefs.sound !== false) playBeep(880, 0.15);
-              if (prefs.newMessages !== false && "Notification" in window && Notification.permission === "granted") {
-                new Notification("New Message", { body: payload.preview || payload.body || "You have received a new chat message." });
+            if (prefs.sound !== false && payload.direction === "inbound") {
+              if (!payload.assigned_agent_id || payload.assigned_agent_id === u.id) {
+                playBeep(880, 0.15);
               }
             }
+            refreshUnread();
           }
         } catch (err) {}
       };
@@ -183,14 +178,12 @@ export default function Shell({ children }: { children: ReactNode }) {
     };
   }, []);
 
-  // Browser tab title: "{Page} - {brand}".
   useEffect(() => {
     const info = Object.entries(PAGE_TITLES).find(([k]) => pathname.startsWith(k))?.[1];
     const base = info?.title ? `${info.title} - ${brand}` : brand;
     document.title = unreadCount > 0 ? `(${unreadCount}) ${base}` : base;
   }, [pathname, brand, unreadCount]);
 
-  // Meta description tag.
   useEffect(() => {
     if (!metaTitle) return;
     let m = document.querySelector('meta[name="description"]');
@@ -198,15 +191,6 @@ export default function Shell({ children }: { children: ReactNode }) {
     m.setAttribute("content", metaTitle);
   }, [metaTitle]);
 
-  // Ctrl+K shortcut
-  useEffect(() => {
-    function onKey(e: KeyboardEvent) {
-      if ((e.ctrlKey || e.metaKey) && e.key === "k") { e.preventDefault(); setSearchOpen(true); }
-      if (e.key === "Escape") setSearchOpen(false);
-    }
-    window.addEventListener("keydown", onKey);
-    return () => window.removeEventListener("keydown", onKey);
-  }, []);
 
   function logout() { clearSession(); router.replace("/login"); }
 
@@ -214,211 +198,286 @@ export default function Shell({ children }: { children: ReactNode }) {
     || { category: "", title: "Simpulx" };
 
   if (!user) return (
-    <Box sx={{ display: "grid", placeItems: "center", height: "100vh", color: "text.secondary", fontSize: 14 }}>
-      Loading...
-    </Box>
+    <div className="grid place-items-center h-screen bg-background text-muted-foreground text-sm">
+      <Loader2 className="w-5 h-5 animate-spin text-primary" />
+    </div>
   );
+
+  // Presence: undefined (legacy session) is treated as online; only an explicit false is offline.
+  const online = user.is_online !== false;
 
   function NavItem({ href, icon: Icon, label }: { href: string; icon: any; label: string }) {
     const active = pathname.startsWith(href);
-    return (
-      <Tooltip title={!sidebarOpen ? label : ""} placement="right">
-        <Link href={href} style={{ textDecoration: "none", width: "100%", padding: "0 14px" }}>
-          <Box sx={{
-            width: "100%", height: 44, borderRadius: "8px", display: "flex", alignItems: "center",
-            justifyContent: "flex-start",
-            color: active ? "#fff" : "rgba(180,200,195,0.6)",
-            bgcolor: active ? "rgba(255,255,255,0.07)" : "transparent",
-            "&:hover": { bgcolor: active ? "rgba(255,255,255,0.1)" : "rgba(255,255,255,0.04)", color: "#fff" },
-            transition: "all 0.15s", overflow: "hidden",
-          }}>
-            <Box sx={{ width: 44, height: 44, display: "flex", alignItems: "center", justifyContent: "center", flexShrink: 0 }}>
-              <Badge badgeContent={href === "/inbox" && unreadCount > 0 ? (unreadCount > 99 ? "99+" : unreadCount) : 0} color="error" sx={{ "& .MuiBadge-badge": { fontSize: 9, height: 16, minWidth: 16 } }}>
-                <Icon sx={{ fontSize: 22 }} />
-              </Badge>
-            </Box>
-            <Typography sx={{ 
-              ml: 0.5, fontSize: 13, fontWeight: 600, whiteSpace: "nowrap",
-              opacity: sidebarOpen ? 1 : 0, transition: "opacity 0.2s",
-            }}>
+    const item = (
+      <Link
+        href={href}
+        className={cn("group relative w-full block outline-none", sidebarOpen ? "px-2.5" : "px-2")}
+      >
+        <div className={cn(
+          "h-10 rounded-lg flex items-center transition-colors duration-200",
+          sidebarOpen ? "w-full justify-start" : "w-10 mx-auto justify-center",
+          active ? "bg-white/[0.15]" : "hover:bg-white/[0.06]"
+        )}>
+          <div className="relative w-10 h-10 shrink-0 flex items-center justify-center">
+            {href === "/inbox" && unreadCount > 0 && (
+              <span className="absolute top-0.5 right-0 min-w-[15px] h-[15px] rounded-full bg-red-500 text-white text-[9px] font-bold flex items-center justify-center px-0.5 z-10 pointer-events-none shadow-sm">
+                {unreadCount > 99 ? "99+" : unreadCount}
+              </span>
+            )}
+            <Icon
+              fill={active ? "currentColor" : "none"}
+              strokeWidth={active ? 2 : 1.75}
+              className={cn(
+                "w-[21px] h-[21px] transition-colors duration-200",
+                active ? "text-white" : "text-white/35 group-hover:text-white/90"
+              )}
+            />
+          </div>
+          {sidebarOpen && (
+            <span className={cn(
+              "text-[13px] font-semibold whitespace-nowrap",
+              active ? "text-white" : "text-white/55 group-hover:text-white/90",
+            )}>
               {label}
-            </Typography>
-          </Box>
-        </Link>
-      </Tooltip>
+            </span>
+          )}
+        </div>
+      </Link>
     );
+    // Collapsed rail shows the label as a portaled tooltip (managed by Base UI —
+    // closes on click/navigation, so it never gets stuck).
+    return sidebarOpen ? item : <Tip side="right" label={label}>{item}</Tip>;
   }
 
   return (
-    <Box sx={{ display: "flex", height: "100vh", overflow: "hidden" }}>
-      {/* ── Sidebar ── */}
-      <Box 
-        sx={{
-          width: sidebarOpen ? 240 : SIDEBAR_W, 
-          flexShrink: 0, display: "flex", flexDirection: "column",
-          py: 2, gap: 0.5,
-          background: "#0d1b16",
-          transition: "width 0.2s cubic-bezier(0.4, 0, 0.2, 1)",
-          zIndex: 50, position: "relative",
-          overflowX: "hidden",
-      }}>
-        <Box sx={{ display: "flex", alignItems: "center", px: "13px", mb: 2.5, height: 46 }}>
-          <Link href="/dashboard" style={{ textDecoration: "none", overflow: "hidden", display: "flex", alignItems: "center" }}>
-            <Box sx={{
-              width: 36, height: 36, borderRadius: "8px", overflow: "hidden", flexShrink: 0,
-              boxShadow: "0 2px 8px rgba(0,0,0,0.3)",
-            }}>
-              <img src="/simpulx_logo.png" alt="Simpulx" style={{ width: "100%", height: "100%", objectFit: "cover" }} />
-            </Box>
-            <Typography sx={{
-              ml: 1.5, fontSize: 20, fontWeight: 800, letterSpacing: "-0.02em", color: "#fff",
-              opacity: sidebarOpen ? 1 : 0, transition: "opacity 0.2s", whiteSpace: "nowrap"
-            }}>
-              Simpul<span style={{ color: "#F5A623" }}>x</span>
-            </Typography>
+    <div className="flex h-screen overflow-hidden bg-background text-foreground">
+      {/* Sidebar */}
+      <div
+        className="shrink-0 flex flex-col py-4 gap-1 bg-sidebar-gradient border-r border-sidebar-border transition-all duration-200 ease-out z-50 relative overflow-x-hidden"
+        style={{ width: sidebarOpen ? 240 : SIDEBAR_W }}
+      >
+        <div className={cn("flex items-center mb-5 h-[46px]", sidebarOpen ? "px-3.5" : "justify-center")}>
+          <Link href="/dashboard" className="flex items-center outline-none">
+            <div className={cn(
+              "rounded-lg overflow-hidden shrink-0 shadow-md transition-all duration-200",
+              sidebarOpen ? "w-9 h-9" : "w-8 h-8",
+            )}>
+              <img src="/simpulx_logo.png" alt="Simpulx" className="w-full h-full object-cover" />
+            </div>
+            {sidebarOpen && (
+              <span className="ml-3 text-[20px] font-extrabold tracking-tight text-white whitespace-nowrap">
+                Simpul<span className="text-[#F5A623]">x</span>
+              </span>
+            )}
           </Link>
-        </Box>
+        </div>
 
-        {/* Top nav */}
-        {NAV_TOP.map((n) => <NavItem key={n.href} {...n} />)}
+        {NAV_TOP.filter((n) => can(n.perm)).map((n) => <NavItem key={n.href} href={n.href} icon={n.icon} label={t(n.labelKey)} />)}
+        <div className="flex-1" />
 
-        <Box sx={{ flex: 1 }} />
+        <div className={cn("px-4 pb-4 flex", sidebarOpen ? "justify-end" : "justify-center")}>
+          <button 
+            onClick={() => setSidebarOpen(!sidebarOpen)}
+            className="p-1 rounded-md text-white/40 border border-white/10 hover:text-white hover:bg-white/10 hover:border-white/20 transition-all outline-none"
+          >
+            {sidebarOpen ? <ChevronLeft className="w-[18px] h-[18px]" /> : <ChevronRight className="w-[18px] h-[18px]" />}
+          </button>
+        </div>
+        {NAV_BOTTOM.filter((n) => can(n.perm)).map((n) => <NavItem key={n.href} href={n.href} icon={n.icon} label={t(n.labelKey)} />)}
+      </div>
 
-        {/* ── Toggle Sidebar ── */}
-        <Box sx={{ px: 2, pb: 2, display: "flex", justifyContent: sidebarOpen ? "flex-end" : "center" }}>
-          <IconButton size="small" onClick={() => setSidebarOpen(!sidebarOpen)} sx={{ color: "rgba(255,255,255,0.4)", border: "1px solid rgba(255,255,255,0.1)", "&:hover": { color: "#fff", bgcolor: "rgba(255,255,255,0.1)", borderColor: "rgba(255,255,255,0.2)" } }}>
-             {sidebarOpen ? <ChevronLeftRoundedIcon fontSize="small" /> : <ChevronRightRoundedIcon fontSize="small" />}
-          </IconButton>
-        </Box>
-
-        {/* Bottom nav */}
-        {NAV_BOTTOM.map((n) => <NavItem key={n.href} {...n} />)}
-      </Box>
-
-      {/* ── Main content ── */}
-      <Box sx={{ flex: 1, display: "flex", flexDirection: "column", minWidth: 0, minHeight: 0 }}>
-        {/* Top Header Bar */}
-        <Box sx={{
-          height: 56, flexShrink: 0, display: "flex", alignItems: "center", px: 2, gap: 2,
-          bgcolor: "background.paper", borderBottom: "1px solid", borderColor: "divider",
-        }}>
-          <Box sx={{ flex: 1 }}>
-            <Typography variant="caption" sx={{ fontSize: 10, fontWeight: 700, letterSpacing: "0.08em", color: "text.secondary", textTransform: "uppercase" }}>
-              {pageInfo.category}
-            </Typography>
-            <Typography variant="h6" sx={{ fontSize: 16, fontWeight: 700, lineHeight: 1.2, mt: -0.25 }}>
+      {/* Main content */}
+      <div className="flex-1 flex flex-col min-w-0 min-h-0 bg-background">
+        {/* Top Header */}
+        <div className="h-16 shrink-0 flex items-center px-5 gap-3 bg-card border-b border-border">
+          <div className="min-w-0">
+            <p className="text-[10px] font-bold tracking-[0.12em] text-muted-foreground uppercase leading-none mb-1">
+              {pageInfo.category || " "}
+            </p>
+            <h1 className="text-[19px] font-bold leading-normal truncate text-foreground flex items-center gap-2">
+              {(() => {
+                const Icon = CATEGORY_ICONS[pageInfo.category] || Activity;
+                return <Icon key={pathname} className="w-[18px] h-[18px] text-primary animate-pop-icon shrink-0" />;
+              })()}
               {pageInfo.title}
-            </Typography>
-          </Box>
+            </h1>
+          </div>
 
-          {/* Search (Functional) */}
-          <Box onClick={() => setSearchOpen(true)} sx={{
-            display: "flex", alignItems: "center", gap: 1, px: 1.5, py: 0.75, borderRadius: "8px",
-            border: "1px solid", borderColor: "divider", bgcolor: "background.default",
-            minWidth: 220, cursor: "pointer",
-            "&:hover": { borderColor: "rgba(0,0,0,0.2)" }, transition: "border-color 0.15s",
-          }}>
-            <SearchRoundedIcon sx={{ fontSize: 18, color: "text.secondary" }} />
-            <Typography sx={{ fontSize: 13, color: "text.disabled", flex: 1 }}>Search</Typography>
-            <Box sx={{
-              display: "flex", alignItems: "center", gap: 0.25, px: 0.75, py: 0.25,
-              borderRadius: "4px", bgcolor: "rgba(0,0,0,0.06)", fontSize: 11, fontWeight: 600, color: "text.secondary",
-            }}>
-              Ctrl K
-            </Box>
-          </Box>
+          <div className="flex-1" />
 
           {/* Notifications */}
-          <Tooltip title="Notifications">
-            <IconButton size="small" sx={{ color: "text.secondary" }} onClick={(e) => setNotifAnchor(e.currentTarget)}>
-              <Badge variant="dot" color="error" invisible>
-                <NotificationsNoneRoundedIcon sx={{ fontSize: 22 }} />
-              </Badge>
-            </IconButton>
-          </Tooltip>
+          <Tip label="Notifications" side="bottom">
+            <button onClick={() => { setNotifOpen(!notifOpen); setHasNotifs(false); }} className="p-2 rounded-lg text-muted-foreground hover:bg-muted hover:text-foreground transition-colors relative outline-none">
+              <Bell className="w-[20px] h-[20px]" />
+              {hasNotifs && <span className="absolute top-1.5 right-1.5 w-2 h-2 bg-red-500 rounded-full ring-2 ring-card" />}
+            </button>
+          </Tip>
 
-          {/* User Avatar (clickable with menu) */}
-          <Box onClick={(e) => setUserMenu(e.currentTarget)} sx={{
-            display: "flex", alignItems: "center", gap: 1, cursor: "pointer", borderRadius: "8px", px: 1, py: 0.5,
-            "&:hover": { bgcolor: "action.hover" }, transition: "background 0.15s",
-          }}>
-            <Avatar sx={{ width: 32, height: 32, fontSize: 12, fontWeight: 700, bgcolor: "primary.main" }}>
+          {/* Avatar + name + chevron */}
+          <button onClick={() => setUserMenuOpen(!userMenuOpen)} className="flex items-center gap-2 pl-1 pr-2 h-10 rounded-lg hover:bg-muted transition-colors outline-none relative">
+            <div className="w-8 h-8 rounded-full bg-brand-gradient text-white flex items-center justify-center text-xs font-bold shrink-0 shadow-sm">
               {initials(user.name)}
-            </Avatar>
-            <Typography sx={{ fontSize: 13, fontWeight: 600, display: { xs: "none", md: "block" } }}>
+            </div>
+            <span className="text-[13px] font-semibold hidden md:block truncate max-w-[120px] text-foreground/90">
               {user.name}
-            </Typography>
-          </Box>
-        </Box>
+            </span>
+            <ChevronDown className="w-4 h-4 text-muted-foreground hidden md:block shrink-0" />
+          </button>
+        </div>
 
-        {/* Content */}
-        <Box sx={{ flex: 1, minHeight: 0, overflow: "auto", position: "relative" }}>
-          {children}
-        </Box>
+        {/* Content — instant page switches (no fade/slide), matching enterprise apps */}
+        <div className="flex-1 min-h-0 relative overflow-y-auto overflow-x-hidden">
+          <div className="h-full">
+            {children}
+          </div>
+        </div>
+      </div>
+      
+      {/* Modals / Popovers (simulated simply) */}
+      {userMenuOpen && (
+        <>
+          <div className="fixed inset-0 z-40" onClick={() => { setUserMenuOpen(false); setLangOpen(false); }} />
+          <div className="absolute top-16 right-4 w-[280px] bg-popover border border-border shadow-xl rounded-xl z-50 flex flex-col animate-scale-in origin-top-right overflow-hidden">
+            {/* Header: avatar + name + email */}
+            <div className="px-5 pt-5 pb-4 flex items-center gap-3 border-b border-border">
+              <div className="w-11 h-11 rounded-full bg-brand-gradient text-white flex items-center justify-center text-sm font-bold shrink-0 shadow-sm">
+                {initials(user.name)}
+              </div>
+              <div className="min-w-0">
+                <p className="text-[14px] font-bold text-foreground truncate">{user.name}</p>
+                <p className="text-[12px] text-muted-foreground truncate">{user.email || user.role}</p>
+              </div>
+            </div>
 
-      </Box>
-      {/* ── User Menu ── */}
-      <Menu anchorEl={userMenu} open={!!userMenu} onClose={() => setUserMenu(null)}
-        anchorOrigin={{ vertical: "bottom", horizontal: "right" }}
-        transformOrigin={{ vertical: "top", horizontal: "right" }}
-        slotProps={{ paper: { sx: { minWidth: 200, mt: 1 } } }}
-      >
-        <Box sx={{ px: 2, py: 1.5 }}>
-          <Typography sx={{ fontSize: 14, fontWeight: 600 }}>{user.name}</Typography>
-          <Typography variant="caption" sx={{ color: "text.secondary" }}>{user.email || user.role}</Typography>
-        </Box>
-        <Divider />
-        <MenuItem onClick={() => { setUserMenu(null); router.push("/settings"); }}>
-          <ListItemIcon><PersonOutlineRoundedIcon fontSize="small" /></ListItemIcon>
-          <ListItemText slotProps={{ primary: { sx: { fontSize: 13 } } }}>Profile</ListItemText>
-        </MenuItem>
-        <MenuItem onClick={() => { setUserMenu(null); logout(); }}>
-          <ListItemIcon><LogoutRoundedIcon fontSize="small" /></ListItemIcon>
-          <ListItemText slotProps={{ primary: { sx: { fontSize: 13 } } }}>Sign out</ListItemText>
-        </MenuItem>
-      </Menu>
+            {/* Manage Account CTA */}
+            <div className="px-4 py-3 border-b border-border">
+              <Link
+                href="/account"
+                onClick={() => setUserMenuOpen(false)}
+                className="w-full h-9 rounded-lg border border-primary text-primary text-[13px] font-semibold flex items-center justify-center hover:bg-primary/5 transition-colors"
+              >
+                {t("menu.manage_account")}
+              </Link>
+            </div>
 
-      {/* ── Notifications Popover ── */}
-      <Popover open={!!notifAnchor} anchorEl={notifAnchor} onClose={() => setNotifAnchor(null)}
-        anchorOrigin={{ vertical: "bottom", horizontal: "right" }}
-        transformOrigin={{ vertical: "top", horizontal: "right" }}
-        slotProps={{ paper: { sx: { width: 340, mt: 1, borderRadius: "8px" } } }}
-      >
-        <Box sx={{ p: 2.5, borderBottom: "1px solid", borderColor: "divider" }}>
-          <Typography sx={{ fontWeight: 700, fontSize: 15 }}>Notifications</Typography>
-        </Box>
-        <Box sx={{ p: 4, textAlign: "center" }}>
-          <CheckCircleOutlineRoundedIcon sx={{ fontSize: 40, color: "divider", mb: 1 }} />
-          <Typography sx={{ fontSize: 13, color: "text.secondary" }}>All caught up!</Typography>
-          <Typography variant="caption" sx={{ color: "text.disabled" }}>No new notifications</Typography>
-        </Box>
-      </Popover>
+            {/* PREFERENCES section */}
+            <div className="py-2 border-b border-border">
+              <p className="px-4 pt-1 pb-2 text-[10px] font-bold uppercase tracking-wider text-muted-foreground">{t("menu.preferences")}</p>
+              {/* Presence — current state + toggle switch */}
+              <button
+                type="button"
+                onClick={() => {
+                  const next = !online;
+                  const updated = { ...user, is_online: next };
+                  setUser(updated as any);
+                  setSession(getToken()!, updated as any);
+                  api.setPresence(next).catch(() => {
+                    // revert on failure so the dot never lies about real state
+                    setUser(user);
+                    setSession(getToken()!, user);
+                  });
+                }}
+                className="w-full flex items-center gap-3 px-4 py-2.5 hover:bg-muted text-left transition-colors"
+              >
+                <span className="relative flex w-2 h-2 shrink-0">
+                  {online && <span className="absolute inline-flex h-full w-full rounded-full bg-emerald-500 opacity-75 animate-ping" />}
+                  <span className={cn("relative inline-flex w-2 h-2 rounded-full", online ? "bg-emerald-500" : "bg-muted-foreground/50")} />
+                </span>
+                <span className="flex-1 text-[13px] font-medium text-foreground/85">
+                  {online ? t("menu.online") : t("menu.offline")}
+                </span>
+                <span className={cn("relative w-9 h-5 rounded-full transition-colors shrink-0", online ? "bg-emerald-500" : "bg-muted")}>
+                  <span className={cn("absolute top-0.5 left-0.5 w-4 h-4 rounded-full bg-white shadow-sm transition-transform", online && "translate-x-4")} />
+                </span>
+              </button>
 
-      {/* ── Search Dialog (Ctrl+K) ── */}
-      <Dialog open={searchOpen} onClose={() => { setSearchOpen(false); setSearchQuery(""); }}
-        maxWidth="sm" fullWidth
-        slotProps={{ paper: { sx: { borderRadius: "8px", mt: -10 } } }}
-      >
-        <DialogContent sx={{ p: 0 }}>
-          <TextField
-            autoFocus fullWidth placeholder="Search conversations, contacts, settings..."
-            value={searchQuery} onChange={(e) => setSearchQuery(e.target.value)}
-            slotProps={{ input: {
-              startAdornment: <InputAdornment position="start"><SearchRoundedIcon sx={{ color: "text.secondary" }} /></InputAdornment>,
-            }}}
-            sx={{
-              "& .MuiOutlinedInput-root": { borderRadius: "8px", "& fieldset": { border: "none" } },
-              "& .MuiInputBase-input": { py: 2, fontSize: 15 },
-            }}
-          />
-          <Divider />
-          <Box sx={{ p: 2, textAlign: "center" }}>
-            <Typography sx={{ fontSize: 13, color: "text.disabled" }}>
-              {searchQuery ? `No results for "${searchQuery}"` : "Start typing to search..."}
-            </Typography>
-          </Box>
-        </DialogContent>
-      </Dialog>
-    </Box>
+              {/* Language — inline expand on click */}
+              <button
+                type="button"
+                onClick={() => setLangOpen((v) => !v)}
+                className={cn(
+                  "w-full flex items-center gap-3 px-4 py-2.5 text-left transition-colors",
+                  langOpen ? "bg-muted/60" : "hover:bg-muted",
+                )}
+              >
+                <Globe className="w-4 h-4 text-muted-foreground shrink-0" />
+                <span className="text-[13px] font-medium text-foreground/85 flex-1">{t("menu.language")}</span>
+                <span className="text-[11px] font-semibold text-muted-foreground">{lang === "id" ? "Indonesia" : "English"}</span>
+                <ChevronDown className={cn("w-4 h-4 text-muted-foreground transition-transform", langOpen && "rotate-180")} />
+              </button>
+              {langOpen && (
+                <div className="animate-fade-in">
+                  {[{ code: "en", label: "English" }, { code: "id", label: "Indonesia" }].map((opt) => {
+                    const active = lang === opt.code;
+                    return (
+                      <button
+                        key={opt.code}
+                        type="button"
+                        onClick={() => {
+                          setOrgSettings((prev: any) => ({ ...prev, locale: opt.code }));
+                          api.updateOrganization({ settings: { ...orgSettingsRef.current, locale: opt.code } }).catch(() => {});
+                          setLang(opt.code);
+                          setLangOpen(false);
+                        }}
+                        className={cn(
+                          "w-full flex items-center py-2 pl-11 pr-4 text-[13px] font-medium text-left transition-colors",
+                          active ? "bg-primary/10 text-primary" : "text-foreground/75 hover:bg-muted",
+                        )}
+                      >
+                        {opt.label}
+                        {active && <CheckCircle2 className="w-4 h-4 ml-auto" />}
+                      </button>
+                    );
+                  })}
+                </div>
+              )}
+            </div>
+
+            {/* GENERAL section */}
+            <div className="py-1">
+              <button onClick={logout} className="w-full flex items-center gap-3 px-4 py-2.5 hover:bg-muted text-left transition-colors">
+                <LogOut className="w-4 h-4 text-muted-foreground shrink-0" />
+                <span className="text-[13px] font-medium text-foreground/85">{t("menu.sign_out")}</span>
+              </button>
+            </div>
+          </div>
+        </>
+      )}
+
+      {notifOpen && (
+        <>
+          <div className="fixed inset-0 z-40" onClick={() => setNotifOpen(false)} />
+          <div className="absolute top-16 right-20 w-80 bg-popover border border-border shadow-xl rounded-lg z-50 flex flex-col max-h-[400px] animate-scale-in origin-top-right">
+            <div className="p-4 border-b border-border flex items-center justify-between">
+              <h3 className="font-bold text-[15px] text-foreground">Notifications</h3>
+              {alerts.length > 0 && <button onClick={() => setAlerts([])} className="text-xs text-muted-foreground hover:text-foreground font-semibold">Clear</button>}
+            </div>
+            <div className="overflow-y-auto flex-1 p-2">
+              {alerts.length === 0 ? (
+                <div className="p-8 flex flex-col items-center justify-center text-center">
+                  <div className="w-11 h-11 rounded-xl bg-muted grid place-items-center mb-2.5">
+                    <CheckCircle2 className="w-6 h-6 text-primary/50" />
+                  </div>
+                  <p className="text-[13px] text-foreground font-semibold">All caught up</p>
+                  <p className="text-xs text-muted-foreground">No new notifications</p>
+                </div>
+              ) : (
+                <div className="flex flex-col gap-1">
+                  {alerts.map(a => (
+                    <div key={a.id} className="p-3 rounded-md hover:bg-muted transition-colors border-l-2 border-primary/40">
+                      <p className="text-[13px] font-bold text-foreground mb-0.5">{a.title}</p>
+                      <p className="text-xs text-muted-foreground leading-snug">{a.body}</p>
+                    </div>
+                  ))}
+                </div>
+              )}
+            </div>
+          </div>
+        </>
+      )}
+
+    </div>
   );
 }
+
+export default Shell;

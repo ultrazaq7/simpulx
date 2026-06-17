@@ -1,6 +1,5 @@
 "use client";
-import { Box, Typography, Button, Paper, Alert } from "@mui/material";
-import DownloadRoundedIcon from "@mui/icons-material/DownloadRounded";
+import { Download } from "lucide-react";
 import Shell from "@/components/Shell";
 import { getToken } from "@/lib/api";
 
@@ -22,48 +21,46 @@ export default function ExportPage() {
 
   return (
     <Shell>
-      <Box sx={{ p: 2, maxWidth: 800, mx: "auto" }}>
-        <Typography variant="h5" sx={{ fontWeight: 800, mb: 1 }}>Export Data</Typography>
-        <Typography variant="body2" sx={{ color: "text.secondary", mb: 4 }}>
+      <div className="px-6 pt-6 pb-8 max-w-[800px] mx-auto">
+        <h1 className="text-2xl font-black text-slate-900 tracking-tight mb-2">Export Data</h1>
+        <p className="text-sm font-medium text-slate-500 mb-8">
           Download historical data in CSV format for offline reporting and analytics.
-        </Typography>
+        </p>
 
-        <Box sx={{ display: "flex", flexDirection: "column", gap: 3 }}>
-          <Paper elevation={0} sx={{ p: 2, border: "1px solid", borderColor: "divider", borderRadius: "8px", display: "flex", alignItems: "center", justifyContent: "space-between" }}>
-            <Box>
-              <Typography variant="h6" sx={{ fontWeight: 700, fontSize: 16, mb: 0.5 }}>Campaign History</Typography>
-              <Typography variant="body2" sx={{ color: "text.secondary", maxWidth: 500 }}>
+        <div className="flex flex-col gap-4">
+          <div className="p-6 rounded-xl bg-white border border-slate-200 shadow-sm flex items-center justify-between gap-6 transition-shadow hover:shadow-md">
+            <div>
+              <h2 className="text-base font-bold text-slate-900 mb-1.5">Campaign History</h2>
+              <p className="text-sm font-medium text-slate-500 leading-relaxed max-w-[500px]">
                 Export campaign performance data including leads generated, messages sent, engagement metrics, and conversion rates for all campaigns.
-              </Typography>
-            </Box>
-            <Button
-              variant="contained"
-              startIcon={<DownloadRoundedIcon />}
+              </p>
+            </div>
+            <button
               onClick={() => handleExport("campaigns")}
-              sx={{ fontWeight: 600, textTransform: "none", borderRadius: "8px" }}
+              className="flex items-center gap-2 px-5 py-2.5 bg-indigo-600 hover:bg-indigo-700 text-white text-sm font-bold rounded-lg shadow-sm transition-colors shrink-0 whitespace-nowrap"
             >
+              <Download className="w-4 h-4" />
               Export CSV
-            </Button>
-          </Paper>
+            </button>
+          </div>
 
-          <Paper elevation={0} sx={{ p: 2, border: "1px solid", borderColor: "divider", borderRadius: "8px", display: "flex", alignItems: "center", justifyContent: "space-between" }}>
-            <Box>
-              <Typography variant="h6" sx={{ fontWeight: 700, fontSize: 16, mb: 0.5 }}>Chat History & SLA Metrics</Typography>
-              <Typography variant="body2" sx={{ color: "text.secondary", maxWidth: 500 }}>
+          <div className="p-6 rounded-xl bg-white border border-slate-200 shadow-sm flex items-center justify-between gap-6 transition-shadow hover:shadow-md">
+            <div>
+              <h2 className="text-base font-bold text-slate-900 mb-1.5">Chat History & SLA Metrics</h2>
+              <p className="text-sm font-medium text-slate-500 leading-relaxed max-w-[500px]">
                 Export detailed chat records including SLA tracking (response times), follow-up activity, pipeline stages, lead qualifications, and call attempts.
-              </Typography>
-            </Box>
-            <Button
-              variant="contained"
-              startIcon={<DownloadRoundedIcon />}
+              </p>
+            </div>
+            <button
               onClick={() => handleExport("chats")}
-              sx={{ fontWeight: 600, textTransform: "none", borderRadius: "8px" }}
+              className="flex items-center gap-2 px-5 py-2.5 bg-indigo-600 hover:bg-indigo-700 text-white text-sm font-bold rounded-lg shadow-sm transition-colors shrink-0 whitespace-nowrap"
             >
+              <Download className="w-4 h-4" />
               Export CSV
-            </Button>
-          </Paper>
-        </Box>
-      </Box>
+            </button>
+          </div>
+        </div>
+      </div>
     </Shell>
   );
 }

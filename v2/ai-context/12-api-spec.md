@@ -50,8 +50,10 @@ All `/api/conversations/{id}/*` pass through `guardConversation` (role check).
 |---|---|---|
 | GET | `/api/users` | enriched: department_names[], campaign_names[], last_login_at, open_chats |
 | POST | `/api/users` | `{email,full_name,role?,password?}` |
-| PATCH | `/api/users/{id}` | `{full_name?,email?,role?,status?,password?}` — email/role/status/other-user-password require admin/owner |
-| DELETE | `/api/users/{id}` | cannot delete self |
+| PATCH | `/api/users/me/presence` | `{online}` → self presence (is_online); ungated; logs a presence transition |
+| GET | `/api/users/{id}/activity` | `?from&to` → presence metrics (online time / availability / sessions) + billing active-span from the activity log; self or admin/owner/manager |
+| PATCH | `/api/users/{id}` | `{full_name?,email?,role?,status?,password?}` — email/role/status/other-user-password require admin/owner; status syncs is_inactive + logs lifecycle |
+| DELETE | `/api/users/{id}` | cannot delete self; soft delete (tombstone), reassigns leads, logs lifecycle |
 | POST | `/api/users/fcm-token` | `{token,platform}` |
 | GET | `/api/role-permissions` | `{matrix, custom_roles}` |
 | PUT | `/api/role-permissions` | admin/owner only; owner/admin dropped before save |
@@ -98,6 +100,12 @@ notifications, role_permissions).
 `GET /api/stats`, `GET /api/analytics`, `GET /api/audit-log`,
 `GET /api/export/campaigns`, `GET /api/export/chats`, `POST /api/uploads` (multipart
 `file` → S3/MinIO URL).
+`GET /api/dashboard/cards` — agent action-center counts `{open, hot, follow_up, need_call,
+unread}` for the role-aware dashboard. Role-scoped like stats/analytics (agent=own,
+manager=own campaigns, admin=org). Optional `?campaign_id=`.
+`POST /api/contacts` — manually create a contact `{full_name?, phone?}` (sets
+`source_channel='manual'`). `PATCH /api/contacts/{id}` — edit `{full_name?, phone?}`,
+tenant-scoped, 404 IDOR guard. (Interest/stage are conversation-derived, not editable here.)
 
 ## ai-agent service (internal, :8000)
 `POST /followup` `{conversation_id, org_id}`, `POST /debug/classify`, `GET /healthz`.

@@ -1,3 +1,5 @@
+-- +goose Up
+
 -- ============================================================
 -- 0013_web_api — Web API lead sources (ad attribution).
 -- External systems / ad platforms POST leads with an API key;

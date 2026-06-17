@@ -44,20 +44,35 @@ Two layers, both enforced server-side:
 ## Transport / webhook
 
 - Meta webhook GET verification via `META_VERIFY_TOKEN`. POST signature verification
-  (`META_APP_SECRET`) should be enforced before prod if not already.
+  via `META_APP_SECRET` HMAC-SHA256 of `X-Hub-Signature-256` header — **implemented
+  2026-06-03** (`gateway/main.go`, `verifyWebhookSignature` middleware). Skipped when
+  `META_APP_SECRET` is empty (dev mode).
 - Web API lead ingest (`/v1/leads`) uses per-source **API keys** (`X-API-Key`), stored
   per `web_api_sources`, copy/regenerate from the UI.
 
-## Known hardening TODOs (before production)
+## Known hardening TODOs (before production) — audit-confirmed
 
-- **Realtime WS auth:** `realtime` currently takes `org` from the query and
-  `CheckOrigin` allows all. Derive org from the JWT and restrict origins before prod.
-- **Enforce the role permission matrix** (currently config-only).
-- **Rate limiting** on `/auth/*` and `/v1/leads`.
-- **Secrets management:** no secrets in git (`.env` is local; PII working data lives in
+> These are not hypothetical. The audit (2026-06-03) confirmed each one against code.
+
+- **~~P0 — Realtime WS auth:~~ ✅ DONE (2026-06-03).** `realtime/main.go` now parses
+  JWT from `?token=`, derives org from claims. Dev fallback (`?org=`) only when
+  `JWT_SECRET` is the default. `CheckOrigin` still allows all (P2).
+- **~~P0 — Meta webhook signature verification:~~ ✅ DONE (2026-06-03).** `gateway/main.go`
+  now verifies `X-Hub-Signature-256` via HMAC-SHA256 using `META_APP_SECRET`. Skipped
+  when env var is empty (dev).
+- **~~P0 — Rate limiting:~~ ✅ DONE (2026-06-03).** `gateway/ratelimit.go` provides
+  IP-based token bucket: auth 5/s, webhooks 100/s, leads 10/s. Background cleanup
+  every 5 min.
+- **~~P0 — Race condition:~~ ✅ DONE (2026-06-03).** `messaging/store.go`
+  `getOrCreateConversation` and `getOrCreateThread` now use `pg_advisory_xact_lock`
+  to serialize concurrent calls for the same (org, contact) pair.
+- **P1 — Enforce the role permission matrix** (currently config-only, stored but not
+  enforced — an agent with restricted permissions can still access all API endpoints).
+- **P2 — CORS:** gateway `cors()` allows `*` for dev; lock to known origins in prod.
+- **P2 — Secrets management:** no secrets in git (`.env` is local; PII working data lives in
   gitignored `v2/data/`). Production secrets via the VPS env files / a secret store.
-- **CORS:** gateway `cors()` allows `*` for dev; lock to known origins in prod.
-- **HTTPS/TLS** terminated at the edge (host Nginx on the VPS).
+- **P2 — JWT rotation:** HS256 with static `JWT_SECRET`, no rotation mechanism.
+- **P2 — HTTPS/TLS** terminated at the edge (host Nginx on the VPS).
 
 ## Data protection
 

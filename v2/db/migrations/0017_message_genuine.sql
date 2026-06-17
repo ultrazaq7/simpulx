@@ -1,3 +1,5 @@
+-- +goose Up
+
 -- ============================================================
 -- 0017_message_genuine — mark non-genuine inbound messages so the lead
 -- classifier ignores them. CTWA ad opener (referral pre-fill) and Web API

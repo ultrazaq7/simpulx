@@ -1,3 +1,5 @@
+-- +goose Up
+
 -- ============================================================
 -- Simpulx v2 — AI-first layer (LLM agents, RAG, jejak/audit AI)
 -- Catatan: kolom embedding berdimensi 1536 (cocok untuk

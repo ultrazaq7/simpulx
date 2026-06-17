@@ -6,13 +6,15 @@ Live dashboard updates are delivered by the **realtime** service (`:8082`). Sour
 ## Connection
 
 ```
-ws://<realtime>/ws?org=<organization_id>
+ws://<realtime>/ws?token=<JWT>                # production (implemented 2026-06-03)
+ws://<realtime>/ws?org=<organization_id>      # dev fallback (only when JWT_SECRET is default)
 ```
-- Dev slice: org comes from the query param. **Production: derive org from the JWT claim**
-  (current `CheckOrigin` allows all and trusts the query — tighten before prod, see
-  [16-security.md](16-security.md)).
-- The web client (`Shell.tsx`) connects on mount, auto-reconnects with exponential backoff
-  (cap 30s), and closes cleanly on unmount.
+- **JWT auth implemented.** The `/ws` endpoint parses JWT from `?token=`, extracts
+  `org` from claims. In dev mode (default `JWT_SECRET`), `?org=` is still accepted.
+  In production with a real secret, `?org=` is rejected with 401.
+- `CheckOrigin` still allows all — restrict to known origins in prod (P2).
+- The web client (`Shell.tsx`) connects with `?token=${getToken()}&org=${org_id}` on
+  mount, auto-reconnects with exponential backoff (cap 30s), and closes on unmount.
 
 ## Fan-out architecture
 

@@ -20,8 +20,6 @@ services:
       - "127.0.0.1:5442:5432"
     volumes:
       - v2_pgdata:/var/lib/postgresql/data
-      # migrasi dijalankan berurutan saat init pertama
-      - ../../db/migrations:/docker-entrypoint-initdb.d:ro
     healthcheck:
       test: ["CMD-SHELL", "pg_isready -U ${POSTGRES_USER:-simpulx} -d ${POSTGRES_DB:-simpulx_v2}"]
       interval: 5s

@@ -1,3 +1,5 @@
+-- +goose Up
+
 -- ============================================================
 -- 0011_templates — WhatsApp message templates (HSM) + broadcast
 -- template/scheduling support. Mirrors the Meta Cloud API template

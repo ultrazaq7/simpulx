@@ -1,3 +1,5 @@
+-- +goose Up
+
 -- ============================================================
 -- 0019_password_reset — password reset tokens for forgot-password.
 -- A token is emailed to the user (SMTP); only its SHA-256 hash is

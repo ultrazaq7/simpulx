@@ -1,3 +1,9 @@
+-- +goose Up
+
+CREATE EXTENSION IF NOT EXISTS pgcrypto;
+CREATE EXTENSION IF NOT EXISTS vector;
+CREATE EXTENSION IF NOT EXISTS pg_trgm;
+
 -- ============================================================
 -- Simpulx v2 — Core schema (multi-tenant omnichannel + CRM)
 -- Mempertahankan domain v1: organizations, users, contacts,

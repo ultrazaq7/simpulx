@@ -78,27 +78,41 @@ No campaign match → `getOrCreateConversation` (latest open thread).
 ## Step 3 — Round-robin assignment
 
 `routeToCampaign(campaignID, convID)`:
-```sql
-WITH agents AS (SELECT user_id FROM campaign_agents WHERE campaign_id=$1 ORDER BY user_id),
-     pick AS (SELECT user_id FROM agents
-              OFFSET (SELECT rr_cursor % GREATEST((SELECT count(*) FROM agents),1)
-                        FROM campaigns WHERE id=$1)
-              LIMIT 1)
-UPDATE conversations
-   SET campaign_id=$1,
-       assigned_agent_id = COALESCE((SELECT user_id FROM pick), assigned_agent_id),
-       updated_at=now()
- WHERE id=$2 AND campaign_id IS NULL;     -- only routes an UNtagged conversation
--- then, ONLY IF a row was affected:
-UPDATE campaigns SET rr_cursor=rr_cursor+1, lead_count=lead_count+1 WHERE id=$1;
+```go
+tx, _ := s.pool.Begin(ctx)
+var currAgent *string
+_ = tx.QueryRow(ctx, `SELECT assigned_agent_id FROM conversations WHERE id = $1 FOR UPDATE`, convID).Scan(&currAgent)
+
+// Round-Robin Bypass: if already assigned, tag campaign only, NO cursor increment.
+if currAgent != nil {
+    _, _ = tx.Exec(ctx, `UPDATE conversations SET campaign_id = $1...`, campaignID)
+    _ = tx.Commit(ctx)
+    return
+}
+
+// Concurrency lock on campaign cursor
+var cursor int
+_ = tx.QueryRow(ctx, `SELECT rr_cursor FROM campaigns WHERE id = $1 FOR UPDATE`, campaignID).Scan(&cursor)
+
+var assignedAgent string
+_ = tx.QueryRow(ctx,
+    `WITH agents AS (SELECT user_id FROM campaign_agents WHERE campaign_id=$1 ORDER BY user_id)
+     SELECT user_id FROM agents OFFSET ($2 % GREATEST((SELECT count(*) FROM agents), 1)) LIMIT 1`,
+    campaignID, cursor).Scan(&assignedAgent)
+
+tag, _ := tx.Exec(ctx, `UPDATE conversations SET campaign_id=$1, assigned_agent_id=$2...`, campaignID, assignedAgent)
+if tag.RowsAffected() > 0 {
+    _, _ = tx.Exec(ctx, `UPDATE campaigns SET rr_cursor=rr_cursor+1...`, campaignID)
+}
+tx.Commit(ctx)
 ```
 
 ### The critical invariant (BR-12)
 
 The cursor/lead-count bump runs **only when the UPDATE affected a row**
-(`tag.RowsAffected() > 0`). Without this guard, re-attribution attempts on an
-already-tagged conversation would still advance `rr_cursor`, **skipping agents** and
-breaking fairness. This was a real bug; keep the guard.
+(`tag.RowsAffected() > 0`), and is **hard-bypassed** if `assigned_agent_id` is already populated. 
+Without this guard, re-attribution attempts on an already-assigned conversation would still advance `rr_cursor`, **skipping agents** and breaking fairness.
+Additionally, `SELECT ... FOR UPDATE` row locks are applied on both the conversation and the campaign to prevent race conditions during concurrent incoming webhooks.
 
 - Agents are ordered deterministically by `user_id` so the cursor is stable.
 - `GREATEST(count,1)` avoids divide-by-zero when a campaign has no agents (assignment
@@ -115,6 +129,16 @@ breaking fairness. This was a real bug; keep the guard.
 - **No agents on a campaign:** lead stays unassigned (manager/admin can claim).
 - **Manual routing strategy:** `campaigns.routing_strategy` exists; only `round_robin`
   is implemented today.
-- **Weighting / availability:** future — skip offline agents, weight by load
-  (`open_chats`), or shift-based availability. Today it is pure round-robin.
-- **Re-balancing:** no auto-reassignment when an agent goes offline; future enhancement.
+- **Eligibility & presence (DECIDED 2026-06-17):** an agent is eligible for distribution
+  iff `status='active' AND is_deleted=false`. **Presence (`is_online`) intentionally does NOT
+  affect distribution** — online/offline is an agent-performance-metric signal (availability /
+  online time), not a routing factor. `pickAgent` (the
+  department-scoped least-loaded picker) orders by open-chat load, then `last_seen_at` as a
+  deterministic tiebreaker; it no longer sorts by `is_online`.
+- **Weighting / availability:** future — weight by load (`open_chats`) or shift-based
+  availability. (Presence is deliberately out of scope per the rule above.)
+- **Agent deactivation / deletion:** deactivating (`status→inactive`) or deleting an agent now
+  **auto-unassigns their open leads** (`status ≠ closed → assigned_agent_id = NULL`), writes an
+  `unassigned` conversation_event (`reason: agent_deactivated` / `agent_deleted`), and publishes
+  `AgentDeactivated` to kick their realtime sessions. Delete is a soft tombstone (see
+  [09-database-design](09-database-design.md)).

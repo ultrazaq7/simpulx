@@ -63,6 +63,13 @@ v2/extract.js
 v2/extract.py
 v2/data-train/
 v2/data/train_out/
+v2/recover*.js
+v2/find_transcripts.js
+v2/fix_jsx.js
+v2/recovered_shell.txt
+v2/shell_*.txt
+v2/test_stats.go
+flow_backup.txt
 
 # Archived v1 (kept local only; recoverable from git history + codex/repo-recovery branch)
 legacy-v1/

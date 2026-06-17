@@ -93,3 +93,19 @@
 ## UI copy
 
 - **BR-24** UI is **English by default**. **Never use an em dash** in UI copy.
+
+## Notifications & email
+
+- **BR-25** Notifications are **in-app only**: toast with sound + bell icon (stored).
+  There is NO email notification for leads, messages, or assignments. Email is used
+  **exclusively** for sending credentials and forgot-password links.
+- **BR-26** Notification sound and display respect org settings
+  (`organizations.settings.notifications`: `sound`, `newMessages`, `newConversations`).
+  Only **inbound** messages trigger notifications (never the dashboard's own outbounds).
+
+## Ownership & reassignment
+
+- **BR-27** Conversation ownership changes are **always human-initiated**. When an agent
+  is deactivated, the system **notifies the manager** for manual reassignment. There is
+  **no auto-unassign** and **no bulk reassign**. The conversation stays assigned to the
+  deactivated agent until a manager explicitly reassigns it.

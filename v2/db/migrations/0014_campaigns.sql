@@ -1,3 +1,5 @@
+-- +goose Up
+
 -- ============================================================
 -- 0014_campaigns — Campaign as a first-class entity (per dealer on
 -- the shared OTO WhatsApp number). A campaign owns assigned agents +

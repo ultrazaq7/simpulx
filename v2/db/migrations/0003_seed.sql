@@ -1,3 +1,5 @@
+-- +goose Up
+
 -- ============================================================
 -- Seed dev: satu org + agent AI + channel WA + knowledge FAQ.
 -- ID tetap (deterministik) supaya mudah dipakai di smoke test.
@@ -10,7 +12,7 @@ INSERT INTO ai_agents (id, organization_id, name, system_prompt, mode, handoff_t
 VALUES (
     '00000000-0000-0000-0000-0000000000b1',
     '00000000-0000-0000-0000-0000000000a1',
-    'Demo Support Bot',
+    'Simpuler',
     'Kamu adalah asisten customer support Simpulx. Jawab singkat, ramah, dalam Bahasa Indonesia. Gunakan konteks pengetahuan bila tersedia. Bila tidak yakin atau pertanyaan butuh manusia, katakan akan dialihkan ke agen.',
     'auto',
     0.55

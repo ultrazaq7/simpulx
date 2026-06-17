@@ -8,6 +8,7 @@ from typing import Awaitable, Callable
 
 import nats
 from nats.js import JetStreamContext
+from nats.js.api import ConsumerConfig
 
 
 class Broker:
@@ -53,8 +54,12 @@ class Broker:
             else:
                 await msg.nak()
 
+        config = ConsumerConfig(
+            ack_wait=30.0,
+            max_deliver=3,
+        )
         await self.js.subscribe(
-            subject, durable=durable, queue=durable, cb=cb, manual_ack=True
+            subject, durable=durable, queue=durable, cb=cb, manual_ack=True, config=config
         )
 
     async def close(self) -> None:

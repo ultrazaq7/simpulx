@@ -162,10 +162,20 @@ func (s *server) handleLogin(w http.ResponseWriter, r *http.Request) {
 		http.Error(w, "token error", http.StatusInternalServerError)
 		return
 	}
-	_, _ = s.pool.Exec(r.Context(), `UPDATE users SET last_login_at = now() WHERE id = $1`, id)
+	// Logging in marks the user online (presence), distinct from the account
+	// lifecycle `status` (active/inactive) which gates login above. Capture the
+	// prior presence so we log an online transition only on offline -> online.
+	var wasOnline bool
+	if qErr := s.pool.QueryRow(r.Context(),
+		`WITH prev AS (SELECT is_online FROM users WHERE id = $1 FOR UPDATE)
+		 UPDATE users u SET last_login_at = now(), is_online = true, last_seen_at = now()
+		 FROM prev WHERE u.id = $1
+		 RETURNING prev.is_online`, id).Scan(&wasOnline); qErr == nil && !wasOnline {
+		s.logUserActivity(r.Context(), orgID, id, id, "presence", "online", map[string]any{"via": "login"})
+	}
 	writeJSON(w, map[string]any{
 		"token": token,
-		"user":  map[string]any{"id": id, "org_id": orgID, "role": role, "name": name, "email": body.Email},
+		"user":  map[string]any{"id": id, "org_id": orgID, "role": role, "name": name, "email": body.Email, "is_online": true},
 	})
 }
 

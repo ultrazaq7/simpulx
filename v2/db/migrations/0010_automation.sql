@@ -1,3 +1,5 @@
+-- +goose Up
+
 -- ============================================================
 -- 0010_automation — rule-based automations + visual flow graph
 -- An automation = a trigger (+ conditions) that runs either a simple

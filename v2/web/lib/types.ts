@@ -4,6 +4,8 @@ export interface User {
   role: string;
   name: string;
   email?: string;
+  status?: string;
+  is_online?: boolean;
 }
 
 export interface Conversation {
@@ -14,6 +16,7 @@ export interface Conversation {
   unread_count: number;
   last_message_at: string | null;
   last_message_preview: string | null;
+  last_message_direction: "agent" | "contact";
   contact_name: string | null;
   contact_phone: string | null;
   assigned_agent_id: string | null;
@@ -31,17 +34,37 @@ export interface Conversation {
   city: string | null;
   purchase_timeframe: string | null;
   lost_reason: string | null;
+  lead_summary: string | null;
+  suggested_action: string | null;
+  suggested_action_reason: string | null;
+  suggested_action_confidence: number | null;
+  lead_score: number | null;
+  call_attempts: number | null;
+  calling_enabled?: boolean;
+  contact_id?: string | null;
+  tags?: string[] | null;
+}
+
+export interface DashboardCards {
+  open: number;
+  hot: number;
+  follow_up: number;
+  need_call: number;
+  unread: number;
 }
 
 export interface Stage { id: string; name: string }
 export interface Disposition { id: string; name: string; category: string | null }
 
 export interface Analytics {
-  funnel: { total: number; replied: number; intent: number; strong_intent: number; hot: number; warm: number; cold: number; unknown: number; followups: number; call_attempts: number; call_duration_sec: number };
+  // replied = AGENT responded; engaged = lead/customer responded; won/lost = disposition category
+  funnel: { total: number; replied: number; engaged: number; intent: number; hot: number; warm: number; cold: number; unknown: number; won: number; lost: number; followups: number; call_attempts: number; call_duration_sec: number };
+  // Real pipeline funnel: cumulative "reached this stage or beyond"
+  funnel_stages?: { name: string; system_key: string; sort_order: number; reached: number }[];
   stages: { name: string; system_key: string; sort_order: number; count: number }[];
   categories: { category: string; count: number }[];
   tiers: { cold: number; lukewarm: number; warm: number; engaged: number; hot: number };
-  agents: { agent: string; leads: number; replied: number; intent: number; strong: number; won: number; median_rt_min: number; avg_first_rt_min?: number; avg_rt_min?: number; within_5_pct: number }[];
+  agents: { agent: string; leads: number; replied: number; hot: number; won: number; median_rt_min: number; avg_rt_min: number; within_5_pct: number; followups?: number; call_attempts?: number; call_duration_sec?: number }[];
   daily: { day: string; leads: number; replied: number }[];
   response_time: {
     median_min: number; avg_min: number; within_5_min_pct: number; within_1_hr_pct: number; leads_with_rt: number;
@@ -98,7 +121,9 @@ export interface Stats {
 export interface Broadcast {
   id: string;
   name: string;
-  status: string;
+  status: string;          // draft | scheduled | queued | sending | completed | failed
+  audience: string | null; // all | tags | selected
+  body: string | null;
   total_recipients: number;
   sent_count: number;
   failed_count: number;
@@ -106,6 +131,46 @@ export interface Broadcast {
   completed_at: string | null;
   scheduled_at: string | null;
   template_name: string | null;
+}
+
+export interface BroadcastDetail {
+  id: string;
+  name: string;
+  status: string;
+  audience: string | null;
+  body: string | null;
+  total_recipients: number;
+  sent_count: number;
+  failed_count: number;
+  pending_count: number;
+  responses: number;
+  read_count: number;
+  delivered_count: number;
+  clicks: number;
+  created_at: string;
+  started_at: string | null;
+  completed_at: string | null;
+  scheduled_at: string | null;
+  template_name: string | null;
+  template_language: string | null;
+  channel_name: string | null;
+  channel_display: string | null;
+  created_by_name: string | null;
+}
+
+export interface BroadcastRecipient {
+  id: string;
+  contact_id: string;
+  contact_name: string | null;
+  phone: string | null;
+  send_status: string;   // pending | sent | failed
+  read_status: string;   // pending | sent | delivered | read
+  type: string;
+  error: string | null;
+  sent_at: string | null;
+  responded: boolean | null;
+  clicked: boolean | null;
+  clicked_button: string | null;
 }
 
 export interface TemplateButton {
@@ -157,6 +222,12 @@ export interface Contact {
   stage_name: string | null;
   last_message_at: string | null;
   created_at: string;
+  ai_summary?: string | null;
+  tags?: string[] | null;
+  assigned_agent_id?: string | null;
+  agent_name?: string | null;
+  campaign_id?: string | null;
+  campaign_name?: string | null;
 }
 
 export interface Channel {
@@ -170,6 +241,7 @@ export interface Channel {
   display_id: string | null;
   config: Record<string, unknown> | null;
   has_token: boolean;
+  calling_enabled?: boolean;
   connected_at: string | null;
   created_at: string;
 }
@@ -188,6 +260,8 @@ export interface Campaign {
   agent_count: number;
   agent_names: string[] | null;
   conversations: number;
+  channel_id: string | null;
+  channel_name?: string | null;
   created_at: string;
 }
 export interface CampaignDetail extends Campaign { agent_ids: string[]; }
@@ -257,8 +331,11 @@ export interface UserAccount {
   full_name: string;
   email: string;
   role: string;          // owner | admin | manager | agent
-  status: string;        // active | inactive
-  is_online: boolean;
+  status: string;        // active | inactive (operational gate)
+  is_online: boolean;    // presence (cosmetic)
+  is_inactive?: boolean;        // billing: account paused
+  inactive_since?: string | null; // billing: when it was paused
+  is_deleted?: boolean;         // billing: tombstoned
   last_seen_at: string | null;
   last_login_at: string | null;
   created_at: string;
@@ -266,6 +343,26 @@ export interface UserAccount {
   department_names: string[] | null;
   campaign_names: string[] | null;
   open_chats: number;
+}
+
+export interface UserActivity {
+  user_id: string;
+  from: string;
+  to: string;
+  presence: {
+    currently_online: boolean;
+    online_seconds: number;
+    online_hours: number;
+    availability_pct: number;
+    sessions: number;
+    last_online_at: string | null;
+  };
+  billing: {
+    active_seconds: number;
+    active_days: number;
+    is_inactive: boolean;
+    is_deleted: boolean;
+  };
 }
 
 export interface RolePermissions {

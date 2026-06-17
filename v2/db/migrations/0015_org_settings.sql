@@ -1,3 +1,5 @@
+-- +goose Up
+
 -- ============================================================
 -- 0015_org_settings — per-organization settings (notifications +
 -- branding: dashboard page title / meta title). Stored as jsonb.

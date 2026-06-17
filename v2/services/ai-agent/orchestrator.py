@@ -1,24 +1,30 @@
-"""Orkestrasi AI agent. AI di Simpulx TIDAK membalas chat otomatis (smart-reply
-dihapus). Pada pesan masuk, AI hanya: (1) meng-klasifikasi lead via rule
-classifier (interest hot/warm/cold + stage), dan (2) mengekstrak field prospek
-(brand/model/kota/timeframe/lost_reason) untuk kualifikasi & analitik. Pembuatan
-pesan follow-up ditangani handle_followup (dipicu cron berbasis waktu).
+"""Orkestrasi engagement assistant. TIDAK membalas chat otomatis. Pada pesan
+masuk: (1) klasifikasi lead via rule classifier (0 token, tiap pesan),
+(2) skor potensi beli (CatBoost, tiap pesan), (3) ekstraksi field + ringkasan +
+saran follow-up via LLM - tapi HANYA saat ada perubahan berarti (hemat token).
+Pesan follow-up ditangani handle_followup (cron berbasis waktu).
 """
 from __future__ import annotations
 
 import json
-from typing import List
+from datetime import datetime, timezone
+from typing import List, Optional
 
 from simpulx_common import llm
 
-from classifier import classify
+from classifier import classify, is_trivial, STRONG_INTENT, detect_junk
+import lead_score
 
 SUBJECT_OUTBOUND = "events.message.outbound"
 
+COOLDOWN_SEC = 45          # burst debounce: max ~1 LLM analyze per conversation / 45s
+JUNK_CONF = 0.7            # min detect_junk() confidence to auto-set spam/lost (FR-34/BR-44)
+GHOST_FOLLOWUPS = 2        # >= this many follow-ups with no genuine reply -> ghosted (FR-34)
+_ENTITY_CATS = {"Model/Brand Interest", "Price/Financing", "Visit/Showroom"}
+
 
 async def handle_inbound(broker, pool, env: dict, data: dict, log) -> None:
-    """Proses satu pesan masuk: klasifikasi lead + ekstraksi field prospek.
-    Tidak ada auto-reply. Raise pada error transien (agar di-redeliver)."""
+    """Proses satu pesan masuk. Raise pada error transien (agar di-redeliver)."""
     org_id = env["org_id"]
     conv_id = data["conversation_id"]
     message_id = data.get("message_id")
@@ -26,30 +32,33 @@ async def handle_inbound(broker, pool, env: dict, data: dict, log) -> None:
     if not body:
         return  # no text to process (e.g. media without caption)
 
-    # Classify the lead from the conversation (auto-CRM): interest level,
-    # pipeline stage, and off-topic disposition - reps rarely set these by hand.
-    await classify_and_update(pool, org_id, conv_id, log)
+    # (1) Rules classifier (0 token) + (2) buy-potential score (CatBoost). Both
+    # run for EVERY inbound and keep the CRM live even when the LLM is skipped.
+    cr = await classify_and_update(pool, org_id, conv_id, log)
+    await lead_score.score_and_update(pool, conv_id, log)
 
     async with pool.acquire() as conn:
         conv = await conn.fetchrow(
-            """SELECT cv.is_bot_active, cv.ai_agent_id, a.system_prompt, a.model
+            """SELECT cv.ai_agent_id, cv.ai_extracted_at,
+                      cv.car_brand, cv.car_model, cv.city, cv.purchase_timeframe,
+                      a.system_prompt, a.model
                  FROM conversations cv
                  LEFT JOIN ai_agents a ON a.id = cv.ai_agent_id
                 WHERE cv.id = $1""",
             conv_id,
         )
-
     if conv is None or conv["ai_agent_id"] is None:
-        return  # belum punya agent AI -> tidak ada ekstraksi
+        return  # belum punya assistant -> tidak ada ekstraksi
 
-    system_prompt = conv["system_prompt"] or "You are a helpful support assistant."
+    # (3) Gate the expensive LLM call: only on meaningful change.
+    run, reason = _should_analyze(cr, conv, body)
+    if not run:
+        log.info("llm skipped", extra={"conv": conv_id, "reason": reason})
+        return
 
-    # LLM extraction of prospect fields for qualification + lost analytics.
-    # SMART-REPLY REMOVED: the AI never sends a reply to the customer here. We
-    # only mine the chat for structured fields (no RAG needed). interest_level
-    # stays owned by the free rule classifier above (hot/warm/cold).
+    system_prompt = conv["system_prompt"] or "You are a helpful sales assistant."
     history = await _load_history(pool, conv_id, message_id)
-    result = await llm.generate(system_prompt, [], history, body, model=conv["model"])
+    result = await llm.analyze(system_prompt, history, body, model=conv["model"])
 
     ptf = result.get("purchase_timeframe")
     ptf_str = f"{ptf} days" if ptf is not None else None
@@ -61,60 +70,115 @@ async def handle_inbound(broker, pool, env: dict, data: dict, log) -> None:
                  car_model = COALESCE($3, car_model),
                  city = COALESCE($4, city),
                  purchase_timeframe = COALESCE($5, purchase_timeframe),
-                 lost_reason = COALESCE($6, lost_reason)
+                 lost_reason = COALESCE($6, lost_reason),
+                 -- Advisory summary/next-step (latest message wins; null keeps prior).
+                 lead_summary = COALESCE($7, lead_summary),
+                 lead_priority = COALESCE($8, lead_priority),
+                 suggested_action = COALESCE($9, suggested_action),
+                 suggested_action_reason = COALESCE($10, suggested_action_reason),
+                 suggested_action_confidence = COALESCE($11, suggested_action_confidence),
+                 ai_extracted_at = now()
                WHERE id = $1""",
             conv_id,
-            result.get("car_brand"),
-            result.get("car_model"),
-            result.get("city"),
-            ptf_str,
-            result.get("lost_reason"),
+            result.get("car_brand"), result.get("car_model"), result.get("city"),
+            ptf_str, result.get("lost_reason"),
+            result.get("summary"), result.get("priority"),
+            result.get("recommended_action"), result.get("action_reason"),
+            result.get("action_confidence"),
         )
-    log.info("lead extracted", extra={"conv": conv_id})
+    log.info("lead analyzed", extra={"conv": conv_id, "reason": reason})
+
+
+def _should_analyze(cr: Optional[dict], conv, body: str) -> tuple[bool, str]:
+    """Decide whether to spend an LLM call. Skip filler/off-topic/no-change, and
+    debounce message bursts via the cooldown."""
+    if cr is None:
+        return False, "no_signal"        # only ad/template opener so far
+    if cr.get("is_junk"):
+        return False, "junk"             # spam/abusive/off-topic -> don't spend an LLM call
+    if cr["off_topic"]:
+        return False, "off_topic"
+    if is_trivial(body):
+        return False, "trivial"
+    last = conv["ai_extracted_at"]
+    if last is None:
+        return True, "first"             # never analyzed -> do it
+    if (datetime.now(timezone.utc) - last).total_seconds() < COOLDOWN_SEC:
+        return False, "cooldown"
+    if cr["changed"]:
+        return True, "changed"
+    if cr["new_strong_intent"]:
+        return True, "new_strong_intent"
+    missing = any(conv[f] is None for f in ("car_brand", "car_model", "city", "purchase_timeframe"))
+    if missing and any(c in _ENTITY_CATS for c in cr["categories"]):
+        return True, "fill_fields"
+    return False, "no_change"
 
 
 async def handle_followup(broker, pool, org_id: str, conv_id: str, log) -> None:
-    """Proses pembuatan auto-followup message jika idle 4 jam."""
+    """Buat satu pesan auto-followup jika idle 4 jam."""
     async with pool.acquire() as conn:
         conv = await conn.fetchrow(
-            """SELECT cv.is_bot_active, cv.ai_agent_id,
+            """SELECT cv.is_bot_active, cv.ai_agent_id, cv.followup_count,
                       a.system_prompt, a.model
                  FROM conversations cv
                  LEFT JOIN ai_agents a ON a.id = cv.ai_agent_id
                 WHERE cv.id = $1""",
             conv_id,
         )
-
     if conv is None or not conv["is_bot_active"] or conv["ai_agent_id"] is None:
         return
 
-    system_prompt = conv["system_prompt"] or "You are a helpful support assistant."
-    system_prompt += "\n\nINSTRUKSI KHUSUS: Ini adalah AUTO FOLLOW-UP. Buatkan pesan follow-up yang natural, singkat, tidak memaksa, dan ramah seperti sales mobil profesional yang menanyakan kelanjutan ketertarikan lead. Tanya apakah ada pertanyaan lebih lanjut."
+    # Ghost / non-responder (FR-34): after >= GHOST_FOLLOWUPS follow-ups with NO genuine
+    # customer reply, this was never a real lead -> quarantine as spam/ghosted + stop the
+    # bot. Reversible; keeps a human-set disposition; respects classification_locked.
+    if (conv["followup_count"] or 0) >= GHOST_FOLLOWUPS:
+        async with pool.acquire() as conn:
+            genuine = await conn.fetchval(
+                """SELECT count(*) FROM messages
+                    WHERE conversation_id = $1 AND direction = 'inbound'
+                      AND sender_type = 'contact' AND COALESCE(genuine, true)
+                      AND body IS NOT NULL AND body <> ''""",
+                conv_id,
+            )
+        if genuine == 0:
+            async with pool.acquire() as conn:
+                spam_id = await conn.fetchval(
+                    "SELECT id FROM dispositions WHERE organization_id = $1 AND system_key = 'spam'",
+                    org_id,
+                )
+                await conn.execute(
+                    """UPDATE conversations SET
+                         disposition_id = COALESCE(disposition_id, $2),
+                         lost_reason = COALESCE(lost_reason, 'ghosted'),
+                         interest_level = 'cold', is_bot_active = false, updated_at = now()
+                       WHERE id = $1 AND classification_locked = false""",
+                    conv_id, spam_id,
+                )
+            log.info("lead ghosted (no genuine reply)", extra={"conv": conv_id})
+            return
 
+    system_prompt = conv["system_prompt"] or "You are a helpful sales assistant."
     history = await _load_history(pool, conv_id, None)
-    result = await llm.generate(
-        system_prompt, [], history,
+    reply = await llm.draft_followup(
+        system_prompt, history,
         "Tolong buatkan pesan follow-up untuk customer ini.",
         model=conv["model"],
     )
-
-    reply = (result.get("reply") or "").strip()
     if reply:
         await broker.publish(SUBJECT_OUTBOUND, org_id, {
-            "conversation_id": conv_id,
-            "sender_type": "bot",
-            "type": "text",
-            "body": reply,
+            "conversation_id": conv_id, "sender_type": "bot",
+            "type": "text", "body": reply,
         })
-        # The outbound path (insertOutbound) stamps last_agent_message_at=now()
-        # for this bot message, so the 4h cron rule won't re-fire until the
-        # customer replies again. No extra write needed here.
-        log.info("ai followup sent", extra={"conv": conv_id})
+        # Outbound path stamps last_agent_message_at=now(), so the 4h cron won't
+        # re-fire until the customer replies again.
+        log.info("followup sent", extra={"conv": conv_id})
 
 
-async def classify_and_update(pool, org_id: str, conv_id: str, log) -> None:
-    """Run the rules-based lead classifier over all the customer's messages and
-    write interest level + stage + (off-topic) disposition onto the conversation."""
+async def classify_and_update(pool, org_id: str, conv_id: str, log) -> Optional[dict]:
+    """Rules classifier over the customer's messages -> writes interest/stage/
+    disposition. Returns {interest, stage_key, categories, off_topic, changed,
+    new_strong_intent} so the caller can gate the LLM (None if no genuine msg)."""
     async with pool.acquire() as conn:
         rows = await conn.fetch(
             """SELECT body FROM messages
@@ -126,19 +190,44 @@ async def classify_and_update(pool, org_id: str, conv_id: str, log) -> None:
         )
     msgs = [r["body"] for r in rows]
     if not msgs:
-        return
+        return None
 
-    c = classify(msgs)
+    async with pool.acquire() as conn:
+        ad_clicks = await conn.fetchval(
+            "SELECT count(*) FROM conversation_attributions WHERE conversation_id = $1", conv_id
+        )
+        prev = await conn.fetchrow(
+            "SELECT interest_level, ai_stage, (metadata->'intent_categories') AS cats "
+            "FROM conversations WHERE id = $1", conv_id,
+        )
+
+    c = classify(msgs, ad_clicks)
+    junk = detect_junk(msgs)
+    is_junk = junk["is_junk"] and junk["confidence"] >= JUNK_CONF
+
+    # Junk override (FR-34/BR-44): high-precision rules -> cold + spam disposition +
+    # lost_reason. COALESCE keeps any human-set disposition/lost_reason; reversible via UI.
+    interest = "cold" if is_junk else c["interest"]
+    disp_key = "spam" if is_junk else c["disposition_key"]
+    reason = junk["reason"] if is_junk else c["reason"]
+    confidence = junk["confidence"] if is_junk else c["confidence"]
+    lost_reason = junk["lost_reason"] if is_junk else None
+
+    # Diff vs stored classification -> drives the LLM gate.
+    prev_cats = _as_list(prev["cats"]) if prev else []
+    changed = (prev is None or prev["interest_level"] != interest
+               or prev["ai_stage"] != c["stage_key"])
+    new_strong_intent = any(cat in STRONG_INTENT and cat not in prev_cats for cat in c["categories"])
 
     async with pool.acquire() as conn:
         stage_id = await conn.fetchval(
             "SELECT id FROM stages WHERE organization_id = $1 AND system_key = $2", org_id, c["stage_key"]
         )
         disp_id = None
-        if c["disposition_key"]:
+        if disp_key:
             disp_id = await conn.fetchval(
                 "SELECT id FROM dispositions WHERE organization_id = $1 AND system_key = $2",
-                org_id, c["disposition_key"],
+                org_id, disp_key,
             )
         await conn.execute(
             """UPDATE conversations SET
@@ -146,16 +235,34 @@ async def classify_and_update(pool, org_id: str, conv_id: str, log) -> None:
                  ai_stage = $3,
                  stage_id = COALESCE($4, stage_id),
                  disposition_id = COALESCE(disposition_id, $5),  -- keep human-set disposition
+                 lost_reason = COALESCE(lost_reason, $9),        -- junk reason; never overwrite
                  ai_reason = $6,
                  ai_confidence = $7,
                  ai_analyzed_at = now(),
                  metadata = metadata || jsonb_build_object('intent_categories', $8::jsonb),
                  updated_at = now()
                WHERE id = $1 AND classification_locked = false""",
-            conv_id, c["interest"], c["stage_key"], stage_id, disp_id,
-            c["reason"], c["confidence"], json.dumps(c["categories"]),
+            conv_id, interest, c["stage_key"], stage_id, disp_id,
+            reason, confidence, json.dumps(c["categories"]), lost_reason,
         )
-    log.info("lead classified", extra={"conv": conv_id, "interest": c["interest"], "stage": c["stage_key"]})
+    log.info("lead classified", extra={"conv": conv_id, "interest": interest,
+                                       "stage": c["stage_key"], "junk": is_junk})
+    return {
+        "interest": interest, "stage_key": c["stage_key"], "categories": c["categories"],
+        "off_topic": c["off_topic"], "is_junk": is_junk, "changed": changed,
+        "new_strong_intent": new_strong_intent,
+    }
+
+
+def _as_list(v) -> list:
+    if not v:
+        return []
+    if isinstance(v, list):
+        return v
+    try:
+        return json.loads(v)
+    except Exception:  # noqa: BLE001
+        return []
 
 
 async def _load_history(pool, conv_id: str, exclude_message_id) -> List[dict]:
@@ -164,7 +271,7 @@ async def _load_history(pool, conv_id: str, exclude_message_id) -> List[dict]:
             """SELECT direction, body FROM messages
                 WHERE conversation_id = $1 AND ($2::uuid IS NULL OR id <> $2::uuid)
                   AND body IS NOT NULL AND body <> ''
-                ORDER BY created_at DESC LIMIT 10""",
+                ORDER BY created_at DESC LIMIT 8""",
             conv_id, exclude_message_id,
         )
     msgs = []

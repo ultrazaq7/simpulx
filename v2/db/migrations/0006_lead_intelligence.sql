@@ -1,3 +1,5 @@
+-- +goose Up
+
 -- ============================================================
 -- Simpulx v2 - AI Lead Intelligence.
 -- Auto-classification writes interest level + pipeline stage +
@@ -22,8 +24,7 @@ INSERT INTO stages (organization_id, name, sort_order, system_key) VALUES
     ('00000000-0000-0000-0000-0000000000a1', 'Qualified',   3, 'qualified'),
     ('00000000-0000-0000-0000-0000000000a1', 'Appointment', 4, 'appointment'),
     ('00000000-0000-0000-0000-0000000000a1', 'Test Drive',  5, 'test_drive'),
-    ('00000000-0000-0000-0000-0000000000a1', 'SPK',         6, 'spk'),
-    ('00000000-0000-0000-0000-0000000000a1', 'Delivered',   7, 'delivered');
+    ('00000000-0000-0000-0000-0000000000a1', 'Booking',     6, 'booking');
 
 INSERT INTO dispositions (organization_id, name, category, is_terminal, sort_order, system_key) VALUES
     ('00000000-0000-0000-0000-0000000000a1', 'Hot',   'won',      false, 1, 'hot'),

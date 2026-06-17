@@ -33,7 +33,9 @@ type agent struct {
 }
 
 // pickAgent memilih agen paling sedikit beban (round-robin least-loaded),
-// mengutamakan yang online, dalam scope department bila ada.
+// dalam scope department bila ada. Hanya status akun (active) yang menentukan
+// kelayakan distribusi lead; presence (is_online) bersifat kosmetik dan sengaja
+// TIDAK memengaruhi pembagian lead.
 func (s *store) pickAgent(ctx context.Context, orgID string, departmentID *string) (agent, bool, error) {
 	var a agent
 	var dept any
@@ -46,11 +48,11 @@ func (s *store) pickAgent(ctx context.Context, orgID string, departmentID *strin
 		  WHERE u.organization_id = $1
 		    AND u.role IN ('agent','admin')
 		    AND u.status = 'active'
+		    AND u.is_deleted = false
 		    AND ($2::uuid IS NULL OR EXISTS (
 		          SELECT 1 FROM agent_departments ad
 		           WHERE ad.user_id = u.id AND ad.department_id = $2::uuid))
-		  ORDER BY u.is_online DESC,
-		           (SELECT count(*) FROM conversations c
+		  ORDER BY (SELECT count(*) FROM conversations c
 		              WHERE c.assigned_agent_id = u.id AND c.status <> 'closed') ASC,
 		           u.last_seen_at ASC NULLS FIRST
 		  LIMIT 1`,

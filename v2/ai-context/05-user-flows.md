@@ -42,7 +42,7 @@ Agent opens /inbox
 ## Flow C — Smart auto follow-up (no human, no AI chat)
 
 ```
-gateway.runFollowUpCron (every 15 min)
+messaging.runFollowUpCron (every 15 min)
   → SELECT conversations WHERE is_bot_active AND status='open'
        AND last_contact_message_at < now()-4h
        AND (last_agent_message_at IS NULL OR < last_contact_message_at)
@@ -90,9 +90,107 @@ Reset:  /reset-password?token=... → POST /auth/reset-password
 
 ```
 Any of: message.persisted | conversation.assigned | conversation.closed |
-        conversation.handoff
+        conversation.handoff | export.progress
   → realtime (NATS queue group) forwards to Redis rt:events:{org}
   → every realtime instance PSUBSCRIBEs rt:events:* → broadcasts to local
     WebSocket clients of that org
   → web Shell ws handler: play sound + browser notification + invalidate queries
+```
+
+## Flow H — Call Customer (dual-mode)
+
+```
+Agent in /inbox, viewing a conversation → clicks 📞 call button (next to attachment)
+  → gateway checks channel capabilities (WA Cloud API calling available?)
+
+  Path A — API Call (WA Cloud API calling available):
+    → POST /api/conversations/{id}/calls { call_type: 'api' }
+    → gateway sends WA Business call request (interactive message)
+    → customer receives "Business call request" → Accept / Deny
+    → if accepted → VoIP call initiated via WA Cloud API
+    → call events logged automatically: started_at, ended_at, duration_sec
+    → call_logs entry: call_type='api', status='completed'
+
+  Path B — Manual Call (WA calling not available or fallback):
+    → browser opens wa.me/{phone} (mobile) or tel:{phone} (desktop)
+    → after call, agent sees dialog: "Log your call" (duration input + notes)
+    → POST /api/conversations/{id}/calls { call_type: 'manual', duration_sec, notes }
+    → call_logs entry: call_type='manual', status='completed'
+
+Blinking indicator logic (ConversationCard):
+  if interest_level='hot' AND total_messages ≥ 3 AND call_attempts = 0
+    → phone icon blinks on the card (CSS animation)
+    → signal to agent: "this lead is engaged, consider calling"
+```
+
+## Flow I — System Logs
+
+```
+Manager/Admin → /logs (sidebar: 📋 Logs)
+  → tab bar: Messages | Conversations | User Activity | System | Calls
+  → each tab → GET /api/logs?category={tab}&from=&to=&page=&limit=
+  → paginated table with:
+       date range picker, search bar, column sorting
+       Messages tab columns:   Direction, Agent, Contact, Message Type, Status,
+                                Source URL/ID, Created At
+       Conversations tab:      Contact, Agent, 1st RT, Avg RT, Total Msgs,
+                                Follow-ups, Calls, Interest, Stage, Campaign
+       Calls tab:              Agent, Contact, Call Type (API/Manual), Duration,
+                                Status, Notes, Created At
+  → click "Export" button →
+       POST /api/exports { type: category, filters: { from, to, search } }
+       → toast: "Export started. Track progress in Downloads."
+```
+
+## Flow J — Downloads (Export tracking)
+
+```
+User → /downloads (sidebar: ⬇️ Downloads)
+  → GET /api/exports → table of export jobs:
+       File name | Exporter | Date | Status | Progress | Size | Actions
+  → Status chips:
+       Queued (gray) → Processing (blue, animated progress bar) →
+       Completed (green, Download button enabled) → Failed (red)
+  → real-time: WS event `export.progress` { id, progress, status }
+       → progress bar updates live, no polling
+  → click Download → GET /api/exports/{id}/download → file stream
+
+Background (gateway/export.go):
+  → goroutine picks up 'queued' jobs
+  → streams rows to CSV file, updates progress 0→100
+  → publishes events.export.progress to NATS → realtime → WS → client
+  → on completion: sets file_url, file_size, status='completed'
+```
+
+## Flow K — WhatsApp Flows (lead form / booking / survey)
+
+```
+Path A — Agent-triggered:
+  Agent in /inbox → clicks "Send Form" button (composer) → picks flow template
+    → POST /api/conversations/{id}/flows { flow_id }
+    → gateway sends WA interactive message (type=flow) to customer
+    → customer receives form in WhatsApp → fills fields → submits
+    → Meta sends flow response webhook → POST /webhook/whatsapp
+    → gateway parses flow_response payload:
+         structured data → conversations.custom_fields (merge, don't overwrite)
+         auto-set: stage, interest, extracted fields based on answers
+         insert message (type='flow_response', body=structured card)
+    → publish events.flow.completed (NATS)
+    → triggers any automation with trigger_type='flow_response'
+
+Path B — Automation-triggered:
+  Automation fires (e.g. "new lead from campaign X") →
+    action: send_flow { flow_id } → same as Path A from "gateway sends" onward
+
+  Automation on flow response:
+    trigger: flow_response { flow_id, conditions: { budget > 500jt } }
+    actions: [
+      update_fields { interest: 'hot' },
+      assign_agent { department: 'senior_sales' },
+      notify { channel: 'in_app', message: 'High-value lead submitted form' }
+    ]
+
+Flow templates managed in:
+  /settings → Flows (new settings section) → CRUD flow templates
+  Each template links to a Meta WA Flow ID or custom JSON schema
 ```

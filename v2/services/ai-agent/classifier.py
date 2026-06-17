@@ -59,6 +59,73 @@ OFF_TOPIC = [r"\bjadi driver\b", r"\bjadi sopir\b", r"\bmau jadi driver\b", r"\b
 _COMPILED = {cat: re.compile("|".join(pats)) for cat, pats in INTENT_CATEGORIES.items()}
 _OFF_TOPIC_RE = re.compile("|".join(OFF_TOPIC))
 
+# Filler / non-informative customer turns ("ya", "ok", emoji, ack). Ported from
+# distill_kb.py. Used to skip the expensive LLM analyze on throwaway messages.
+_FILLER_RE = re.compile(
+    r"^(ya+|iya+|oke?|ok|ku|baik|siap|sip|halo+|hai|hi|pagi|siang|sore|malam|"
+    r"terima kasih|makasih|thanks?|sama2|sama-sama|mantap|noted|pak|bu|kak|min|"
+    r"ditunggu|monggo|silahkan|silakan|y|ya pak|ok pak|oke pak)$",
+    re.IGNORECASE,
+)
+_EMOJI_PUNCT_RE = re.compile(r"^[\W\d\s]+$")  # only emoji/punctuation/digits
+
+
+def is_trivial(text: str) -> bool:
+    """True for filler/ack/emoji-only messages not worth an LLM call."""
+    t = (text or "").strip()
+    if len(t) < 3:
+        return True
+    if _EMOJI_PUNCT_RE.match(t):
+        return True
+    return bool(_FILLER_RE.match(t))
+
+
+# ---- Lost Analysis & Junk Detection (FR-34) ----------------
+# Structured lost_reason enum. `did_purchase=true` for the first group (we lost the
+# deal but the customer DID buy — competitive/product loss); the rest are no-buy or junk.
+LOST_REASONS = [
+    # lost, did_purchase=true
+    "bought_other_brand", "bought_used_car", "bought_elsewhere", "competitor_promo",
+    # lost, did_purchase=false
+    "out_of_area", "price_too_high", "financing_rejected", "no_budget", "postponed",
+    "wrong_product", "changed_mind", "trade_in_issue",
+    # spam / junk (never a real lead)
+    "spam_junk", "job_seeker", "abusive", "ghosted", "duplicate", "wrong_number",
+]
+
+# Conservative (high-precision) profanity — a customer being abusive, word-boundary.
+_ABUSIVE = [r"\banjing\b", r"\bbangsat\b", r"\bkontol\b", r"\bmemek\b", r"\bgoblok\b",
+            r"\btolol\b", r"\bbabi\b", r"\bngentot\b", r"\basu\b", r"\bjancok\b",
+            r"\bkampret\b", r"\bbrengsek\b", r"\bbgst\b", r"\bbangke\b"]
+_ABUSIVE_RE = re.compile("|".join(_ABUSIVE), re.IGNORECASE)
+_URL_RE = re.compile(r"(https?://|www\.|wa\.me/|fb\.me/|t\.me/|bit\.ly/)", re.IGNORECASE)
+
+
+def detect_junk(customer_messages: List[str]) -> dict:
+    """Rules-only junk / lost-reason early detection (free, HIGH-PRECISION on purpose:
+    a false positive = a lost real lead). Returns {is_junk, category, lost_reason,
+    confidence, reason}. category is 'spam' (never a real lead -> excluded from
+    conversion math) or 'off_topic'. Caller must confidence-gate and NEVER override a
+    human-set disposition; auto-set is reversible (BR-44). Ghost/non-responder is a
+    TIME signal (no genuine reply after follow-up) -> handled at the orchestrator/cron,
+    not here."""
+    msgs = [m for m in customer_messages if (m or "").strip()]
+    low = "\n".join(msgs).lower()
+
+    if _OFF_TOPIC_RE.search(low):
+        return {"is_junk": True, "category": "off_topic", "lost_reason": "job_seeker",
+                "confidence": 0.85, "reason": "Job-seeker / driver-recruitment, not a buyer."}
+    if _ABUSIVE_RE.search(low):
+        return {"is_junk": True, "category": "spam", "lost_reason": "abusive",
+                "confidence": 0.80, "reason": "Abusive language detected."}
+    urls = len(_URL_RE.findall(low))
+    norm = [re.sub(r"\s+", " ", m.strip().lower()) for m in msgs]
+    repeated_blast = len(norm) >= 3 and len(set(norm)) == 1
+    if urls >= 2 or repeated_blast:
+        return {"is_junk": True, "category": "spam", "lost_reason": "spam_junk",
+                "confidence": 0.70, "reason": "Spam pattern (multiple links / repeated blast)."}
+    return {"is_junk": False, "category": None, "lost_reason": None, "confidence": 0.0, "reason": ""}
+
 
 class Classification(TypedDict):
     interest: str | None      # hot | warm | cold | None
@@ -70,7 +137,7 @@ class Classification(TypedDict):
     reason: str
 
 
-def classify(customer_messages: List[str]) -> Classification:
+def classify(customer_messages: List[str], ad_clicks: int = 0) -> Classification:
     reply_count = len(customer_messages)
     blob = "\n".join(customer_messages).lower()
 
@@ -94,9 +161,9 @@ def classify(customer_messages: List[str]) -> Classification:
     # ---- interest level ----
     if off_topic:
         interest = "cold"
-    elif has_strong or reply_count >= 5:
+    elif has_strong or reply_count >= 5 or ad_clicks >= 3:
         interest = "hot"
-    elif has_intent or reply_count >= 2:
+    elif has_intent or reply_count >= 2 or ad_clicks >= 1:
         interest = "warm"
     elif reply_count >= 1:
         interest = "cold"

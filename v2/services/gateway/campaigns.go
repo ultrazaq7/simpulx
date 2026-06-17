@@ -18,12 +18,14 @@ func (s *server) handleListCampaigns(w http.ResponseWriter, r *http.Request) {
 		`SELECT c.id::text AS id, c.name, c.dealer_name, c.status, c.routing_strategy,
 		        to_jsonb(c.ad_source_ids) AS ad_source_ids, to_jsonb(c.keywords) AS keywords,
 		        c.lead_count, c.created_at,
+		        c.channel_id::text AS channel_id, ch.name AS channel_name,
 		        (SELECT count(*) FROM campaign_agents ca WHERE ca.campaign_id = c.id) AS agent_count,
 		        COALESCE((SELECT jsonb_agg(u.full_name ORDER BY u.full_name)
 		                    FROM campaign_agents ca JOIN users u ON u.id = ca.user_id
 		                   WHERE ca.campaign_id = c.id), '[]'::jsonb) AS agent_names,
 		        (SELECT count(*) FROM conversations cv WHERE cv.campaign_id = c.id) AS conversations
 		   FROM campaigns c
+		   LEFT JOIN channels ch ON ch.id = c.channel_id
 		  WHERE c.organization_id = $1
 		  ORDER BY c.created_at DESC`,
 		a.OrgID,
@@ -66,7 +68,7 @@ func (s *server) handleGetCampaign(w http.ResponseWriter, r *http.Request) {
 	rows, err := s.queryMaps(r.Context(),
 		`SELECT c.id::text AS id, c.name, c.dealer_name, c.status, c.routing_strategy,
 		        to_jsonb(c.ad_source_ids) AS ad_source_ids, to_jsonb(c.keywords) AS keywords,
-		        c.lead_count,
+		        c.lead_count, c.channel_id::text AS channel_id,
 		        COALESCE((SELECT jsonb_agg(ca.user_id::text) FROM campaign_agents ca WHERE ca.campaign_id = c.id), '[]'::jsonb) AS agent_ids
 		   FROM campaigns c WHERE c.id = $1 AND c.organization_id = $2`,
 		r.PathValue("id"), a.OrgID,
@@ -87,6 +89,7 @@ type campaignInput struct {
 	DealerName      string   `json:"dealer_name"`
 	Status          string   `json:"status"`
 	RoutingStrategy string   `json:"routing_strategy"`
+	ChannelID       string   `json:"channel_id"`
 	AdSourceIDs     []string `json:"ad_source_ids"`
 	Keywords        []string `json:"keywords"`
 	AgentIDs        []string `json:"agent_ids"`
@@ -105,9 +108,9 @@ func (s *server) handleCreateCampaign(w http.ResponseWriter, r *http.Request) {
 	}
 	var id string
 	err := s.pool.QueryRow(r.Context(),
-		`INSERT INTO campaigns (organization_id, name, dealer_name, routing_strategy, ad_source_ids, keywords)
-		 VALUES ($1,$2,NULLIF($3,''),$4,$5,$6) RETURNING id::text`,
-		a.OrgID, b.Name, b.DealerName, b.RoutingStrategy, b.AdSourceIDs, b.Keywords,
+		`INSERT INTO campaigns (organization_id, name, dealer_name, routing_strategy, ad_source_ids, keywords, channel_id)
+		 VALUES ($1,$2,NULLIF($3,''),$4,$5,$6,NULLIF($7,'')::uuid) RETURNING id::text`,
+		a.OrgID, b.Name, b.DealerName, b.RoutingStrategy, b.AdSourceIDs, b.Keywords, b.ChannelID,
 	).Scan(&id)
 	if err != nil {
 		http.Error(w, err.Error(), http.StatusInternalServerError)
@@ -137,10 +140,11 @@ func (s *server) handleUpdateCampaign(w http.ResponseWriter, r *http.Request) {
 		   routing_strategy = COALESCE(NULLIF($6,''), routing_strategy),
 		   ad_source_ids = COALESCE($7, ad_source_ids),
 		   keywords = COALESCE($8, keywords),
+		   channel_id = NULLIF($9,'')::uuid,
 		   updated_at = now()
 		 WHERE id=$1 AND organization_id=$2`,
 		r.PathValue("id"), a.OrgID, b.Name, b.DealerName, b.Status, b.RoutingStrategy,
-		nilIfEmptySlice(b.AdSourceIDs), nilIfEmptySlice(b.Keywords),
+		nilIfEmptySlice(b.AdSourceIDs), nilIfEmptySlice(b.Keywords), b.ChannelID,
 	)
 	if err != nil {
 		http.Error(w, err.Error(), http.StatusInternalServerError)

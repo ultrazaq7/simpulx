@@ -17,9 +17,14 @@ const (
 	SubjectConversationAssigned = "events.conversation.assigned"
 	SubjectConversationClosed   = "events.conversation.closed"
 	SubjectBroadcastRequested   = "events.broadcast.requested"
+	SubjectAgentDeactivated     = "events.agent.deactivated"
+	SubjectAuditCreated         = "events.audit.created"
 
 	StreamName     = "EVENTS"
 	StreamSubjects = "events.>"
+
+	// Commands (stream COMMANDS, subjects cmd.>)
+	SubjectCmdAIDraftFollowup = "cmd.ai.draft_followup"
 )
 
 // Envelope adalah amplop umum semua event.
@@ -38,6 +43,11 @@ type InboundMessage struct {
 	Type       string `json:"type"`
 	Text       string `json:"text"`
 	MediaURL   string `json:"media_url,omitempty"`
+	// ButtonPayload carries the quick-reply / interactive button callback id
+	// (e.g. a broadcast-generated callback) when the contact taps a template
+	// button. Empty for normal messages. Drives the button_click automation
+	// trigger + broadcast click tracking.
+	ButtonPayload string `json:"button_payload,omitempty"`
 }
 
 type MessageReceived struct {
@@ -60,8 +70,9 @@ type MessagePersisted struct {
 	SenderType     string `json:"sender_type"`
 	Type           string `json:"type"`
 	Body           string `json:"body"`
-	MediaURL       string `json:"media_url,omitempty"`
-	Preview        string `json:"preview"`
+	MediaURL        string  `json:"media_url,omitempty"`
+	Preview         string  `json:"preview"`
+	AssignedAgentID *string `json:"assigned_agent_id,omitempty"`
 }
 
 type MessageStatusUpdated struct {
@@ -82,6 +93,13 @@ type MessageOutbound struct {
 	Type       string `json:"type"`
 	Body       string `json:"body"`
 	MediaURL   string `json:"media_url,omitempty"`
+	// Broadcast: id baris broadcast_recipients, agar messaging menautkan message
+	// yang dibuat kembali ke penerima (laporan delivered/read yang akurat).
+	BroadcastRecipientID string `json:"broadcast_recipient_id,omitempty"`
+	// CallbackID: payload unik untuk tombol quick-reply template (mis.
+	// "bc_<recipient_id>"). Pada pengiriman template asli ke Meta, dipasang sebagai
+	// payload tiap tombol sehingga klik balasan bisa dilacak ke penerima broadcast.
+	CallbackID string `json:"callback_id,omitempty"`
 }
 
 type BroadcastRequested struct {
@@ -104,4 +122,20 @@ type ConversationAssigned struct {
 type ConversationClosed struct {
 	ConversationID string `json:"conversation_id"`
 	Reason         string `json:"reason"`
+}
+
+type CmdAIDraftFollowup struct {
+	ConversationID string `json:"conversation_id"`
+}
+
+type AgentDeactivated struct {
+	AgentID string `json:"agent_id"`
+}
+
+type AuditCreated struct {
+	ConversationID string         `json:"conversation_id"`
+	Type           string         `json:"type"`
+	ActorType      string         `json:"actor_type"`
+	ActorID        *string        `json:"actor_id,omitempty"`
+	Detail         map[string]any `json:"detail"`
 }
