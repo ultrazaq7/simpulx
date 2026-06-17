@@ -1,75 +1,52 @@
-# Secrets
-backend/.env
+# ── Secrets ──
 .env
 *.env
+*.local
 !.env.example
-.env.compose
-firebase-service-account.json
+!*.env.example
 firebase-service-account*.json
-gcp-key.json
 gcp-key*.json
-purge-cache.sh
-nginx-*.local.conf
-deploy/local-secrets/*
-!deploy/local-secrets/.gitkeep
-frontend/android/key.properties
-frontend/android/local.properties
-*.jks
 
-# User-uploaded data
-uploads/
-backups/
-releases/
+# ── Go ──
+/bin/
+*.test
+vendor/
 
-# Node
+# ── Python ──
+__pycache__/
+*.pyc
+.venv/
+.pytest_cache/
+
+# ── Node / Next ──
 node_modules/
+.next/
+out/
 dist/
-backend/dist/
-*.log
-npm-debug.log*
 
-# Flutter / Dart
-.dart_tool/
-.flutter-plugins
-.flutter-plugins-dependencies
-build/
-frontend/build/
-frontend/web_build/
-frontend/web_build_old/
-.pub-cache/
-.pub/
-frontend/.idea/
-frontend/*.iml
-frontend/assets/AssetManifest.*
-frontend/assets/FontManifest.json
-frontend/assets/NOTICES
-frontend/assets/assets/
-frontend/assets/fonts/
-frontend/assets/packages/
-frontend/assets/shaders/
-
-# OS
-.DS_Store
-Thumbs.db
-
-# Android build artifacts (use GitHub Releases instead)
-*.apk
-
-# ── v2: local build artifacts & scratch (regenerable; built in Docker) ──
+# ── Build artifacts & local scratch (regenerable; built in Docker) ──
 *.exe
 *_recovered.tsx
 *_last_edit.json
-v2/extract.js
-v2/extract.py
-v2/data-train/
-v2/data/train_out/
-v2/recover*.js
-v2/find_transcripts.js
-v2/fix_jsx.js
-v2/recovered_shell.txt
-v2/shell_*.txt
-v2/test_stats.go
+old_page.tsx
+temp_old_page.tsx
+extract.js
+extract.py
+recover*.js
+find_transcripts.js
+fix_jsx.js
+recovered_shell.txt
+shell_*.txt
+test_stats.go
 flow_backup.txt
+data-train/
+data/train_out/
+.build_ai.log
 
-# Archived v1 (kept local only; recoverable from git history + codex/repo-recovery branch)
-legacy-v1/
+# ── OS ──
+.DS_Store
+Thumbs.db
+*.log
+
+# ── Mobile (Flutter) artifacts ──
+*.apk

@@ -1,6 +1,0 @@
-# Holds the trained buy-potential Lead Score model + card, produced by
-# scripts/train_lead_score.py:
-#   lead_score.cbm   - CatBoost model, loaded by lead_score.py at serve time
-#   model_card.json  - version, metrics, feature order, categorical features
-# Committing the artifact ships it inside the ai-agent image (see Dockerfile).
-# Until a model exists here, lead_score.py is a graceful no-op.

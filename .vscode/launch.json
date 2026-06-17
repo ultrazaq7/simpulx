@@ -1,0 +1,23 @@
+{
+  "version": "0.2.0",
+  "configurations": [
+    {
+      "name": "Simpulx Mobile (Windows)",
+      "request": "launch",
+      "type": "dart",
+      "program": "mobile/lib/main.dart",
+      "cwd": "mobile",
+      "flutterMode": "debug",
+      "deviceId": "windows"
+    },
+    {
+      "name": "Simpulx Mobile (Web)",
+      "request": "launch",
+      "type": "dart",
+      "program": "mobile/lib/main.dart",
+      "cwd": "mobile",
+      "flutterMode": "debug",
+      "deviceId": "chrome"
+    }
+  ]
+}

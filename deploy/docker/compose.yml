@@ -1,0 +1,197 @@
+name: simpulx-v2
+
+# Semua service dibuild & dijalankan dalam container — host hanya butuh Docker.
+# Context build = repo root (../../ relatif terhadap file ini).
+
+x-go-build: &go-build
+  context: ../..
+  dockerfile: deploy/docker/go.Dockerfile
+
+services:
+  postgres:
+    image: pgvector/pgvector:pg16
+    container_name: simpulx-v2-db
+    restart: unless-stopped
+    environment:
+      POSTGRES_USER: ${POSTGRES_USER:-simpulx}
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:-simpulx_secret}
+      POSTGRES_DB: ${POSTGRES_DB:-simpulx_v2}
+    ports:
+      - "127.0.0.1:5442:5432"
+    volumes:
+      - v2_pgdata:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U ${POSTGRES_USER:-simpulx} -d ${POSTGRES_DB:-simpulx_v2}"]
+      interval: 5s
+      timeout: 5s
+      retries: 20
+    networks: [simpulx]
+
+  redis:
+    image: redis:7-alpine
+    container_name: simpulx-v2-redis
+    restart: unless-stopped
+    command: ["redis-server", "--appendonly", "yes"]
+    ports:
+      - "127.0.0.1:6390:6379"
+    healthcheck:
+      test: ["CMD", "redis-cli", "ping"]
+      interval: 5s
+      timeout: 3s
+      retries: 20
+    networks: [simpulx]
+
+  nats:
+    image: nats:2.10-alpine
+    container_name: simpulx-v2-nats
+    restart: unless-stopped
+    command: ["-js", "-m", "8222"]
+    ports:
+      - "127.0.0.1:4232:4222"
+    healthcheck:
+      test: ["CMD", "wget", "-q", "-O-", "http://localhost:8222/healthz"]
+      interval: 5s
+      timeout: 3s
+      retries: 20
+    networks: [simpulx]
+
+  minio:
+    image: minio/minio:latest
+    container_name: simpulx-v2-minio
+    restart: unless-stopped
+    command: ["server", "/data", "--console-address", ":9001"]
+    environment:
+      MINIO_ROOT_USER: ${S3_ACCESS_KEY:-simpulx}
+      MINIO_ROOT_PASSWORD: ${S3_SECRET_KEY:-simpulx_secret}
+    ports:
+      - "127.0.0.1:9010:9000"
+      - "127.0.0.1:9011:9001"
+    volumes:
+      - v2_minio:/data
+    networks: [simpulx]
+
+  gateway:
+    build:
+      <<: *go-build
+      args:
+        SERVICE: gateway
+    container_name: simpulx-v2-gateway
+    restart: unless-stopped
+    env_file: [../../.env]
+    environment:
+      PORT: 8080
+      CONVERSATION_URL: http://conversation:8083
+      KNOWLEDGE_URL: http://knowledge:8001
+      AI_AGENT_URL: http://ai-agent:8000
+      BOOTSTRAP_DEMO_PASSWORD: ${BOOTSTRAP_DEMO_PASSWORD:-demo1234}
+      S3_ENDPOINT: http://minio:9000
+      S3_ACCESS_KEY: ${S3_ACCESS_KEY:-simpulx}
+      S3_SECRET_KEY: ${S3_SECRET_KEY:-simpulx_secret}
+      S3_BUCKET: ${S3_BUCKET:-simpulx-media}
+      MEDIA_PUBLIC_BASE: https://antitoxic-urban-prepay.ngrok-free.dev/simpulx-media
+    depends_on:
+      nats: { condition: service_healthy }
+      postgres: { condition: service_healthy }
+      minio: { condition: service_started }
+    ports:
+      - "8080:8080"
+    networks: [simpulx]
+
+  messaging:
+    build:
+      <<: *go-build
+      args:
+        SERVICE: messaging
+    container_name: simpulx-v2-messaging
+    restart: unless-stopped
+    env_file: [../../.env]
+    depends_on:
+      nats: { condition: service_healthy }
+      postgres: { condition: service_healthy }
+    networks: [simpulx]
+
+  conversation:
+    build:
+      <<: *go-build
+      args:
+        SERVICE: conversation
+    container_name: simpulx-v2-conversation
+    restart: unless-stopped
+    env_file: [../../.env]
+    environment:
+      PORT: 8083
+    ports:
+      - "127.0.0.1:8083:8083"
+    depends_on:
+      nats: { condition: service_healthy }
+      postgres: { condition: service_healthy }
+    networks: [simpulx]
+
+  broadcasts:
+    build:
+      <<: *go-build
+      args:
+        SERVICE: broadcasts
+    container_name: simpulx-v2-broadcasts
+    restart: unless-stopped
+    env_file: [../../.env]
+    depends_on:
+      nats: { condition: service_healthy }
+      postgres: { condition: service_healthy }
+    networks: [simpulx]
+
+  realtime:
+    build:
+      <<: *go-build
+      args:
+        SERVICE: realtime
+    container_name: simpulx-v2-realtime
+    restart: unless-stopped
+    env_file: [../../.env]
+    environment:
+      PORT: 8082
+    ports:
+      - "8082:8082"
+    depends_on:
+      nats: { condition: service_healthy }
+      redis: { condition: service_healthy }
+    networks: [simpulx]
+
+  ai-agent:
+    build:
+      context: ../..
+      dockerfile: services/ai-agent/Dockerfile
+    container_name: simpulx-v2-ai-agent
+    restart: unless-stopped
+    env_file: [../../.env]
+    environment:
+      PORT: 8000
+    ports:
+      - "127.0.0.1:8000:8000"
+    depends_on:
+      nats: { condition: service_healthy }
+      postgres: { condition: service_healthy }
+    networks: [simpulx]
+
+  knowledge:
+    build:
+      context: ../..
+      dockerfile: services/knowledge/Dockerfile
+    container_name: simpulx-v2-knowledge
+    restart: unless-stopped
+    env_file: [../../.env]
+    environment:
+      PORT: 8001
+    ports:
+      - "127.0.0.1:8001:8001"
+    depends_on:
+      postgres: { condition: service_healthy }
+    networks: [simpulx]
+
+networks:
+  simpulx:
+    name: simpulx-v2
+
+volumes:
+  v2_pgdata:
+  v2_minio:

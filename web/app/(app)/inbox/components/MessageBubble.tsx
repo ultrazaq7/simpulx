@@ -1,0 +1,488 @@
+"use client";
+import { memo, useState, useRef, useEffect } from "react";
+import { createPortal } from "react-dom";
+import {
+  Sparkles, Check, CheckCheck, Clock, AlertCircle, Play, Pause, Mic, User,
+  FileText, FileSpreadsheet, FileImage, FileArchive, FileCode,
+  File, Download, MoreHorizontal, Copy, ClipboardPaste, Link2, Megaphone, Forward,
+} from "lucide-react";
+import { initials, fmtTime, channelColor, cn } from "@/lib/utils";
+import type { Conversation, Message } from "@/lib/types";
+
+/* ── Status ticks (WhatsApp style) ─────────────────────────── */
+function StatusIcon({ status }: { status: string }) {
+  switch (status) {
+    case "sent": return <Check className="w-3.5 h-3.5 text-slate-400" />;
+    case "delivered": return <CheckCheck className="w-3.5 h-3.5 text-slate-400" />;
+    case "read": return <CheckCheck className="w-3.5 h-3.5 text-[#53BDEB]" />;
+    case "failed": return <AlertCircle className="w-3.5 h-3.5 text-[#EF4444]" />;
+    default: return <Clock className="w-3.5 h-3.5 text-slate-300" />;
+  }
+}
+
+/* ── File-type helpers ─────────────────────────────────────── */
+function extFromUrl(url: string): string {
+  try {
+    const path = new URL(url).pathname;
+    const dot = path.lastIndexOf(".");
+    return dot >= 0 ? path.slice(dot + 1).toLowerCase() : "";
+  } catch { return ""; }
+}
+
+function filenameFromUrl(urlStr: string): string {
+  try {
+    const u = new URL(urlStr);
+    if (u.searchParams.has("name")) return u.searchParams.get("name")!;
+    const parts = u.pathname.split("/");
+    const last = parts[parts.length - 1] || "file";
+    // Strip standard UUID v4 prefix (e.g. 123e4567-e89b-12d3-a456-426614174000-)
+    return decodeURIComponent(last).replace(/^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}-/i, "") || "Document";
+  } catch { return "Document"; }
+}
+
+type DocStyle = { icon: React.ReactNode; bg: string; accent: string; label: string };
+
+function docStyle(ext: string, out: boolean): DocStyle {
+  const iconCls = "w-6 h-6";
+  switch (ext) {
+    case "pdf":
+      return { icon: <FileText className={cn(iconCls, "text-[#E53935]")} />, bg: out ? "bg-white/15" : "bg-[#FDECEC]", accent: "#E53935", label: "PDF" };
+    case "doc": case "docx":
+      return { icon: <FileText className={cn(iconCls, "text-[#1976D2]")} />, bg: out ? "bg-white/15" : "bg-[#E3F2FD]", accent: "#1976D2", label: "DOC" };
+    case "xls": case "xlsx": case "csv":
+      return { icon: <FileSpreadsheet className={cn(iconCls, "text-[#2E7D32]")} />, bg: out ? "bg-white/15" : "bg-[#E8F5E9]", accent: "#2E7D32", label: "XLS" };
+    case "ppt": case "pptx":
+      return { icon: <FileText className={cn(iconCls, "text-[#E65100]")} />, bg: out ? "bg-white/15" : "bg-[#FFF3E0]", accent: "#E65100", label: "PPT" };
+    case "zip": case "rar": case "7z": case "tar": case "gz":
+      return { icon: <FileArchive className={cn(iconCls, "text-[#6D4C41]")} />, bg: out ? "bg-white/15" : "bg-[#EFEBE9]", accent: "#6D4C41", label: ext.toUpperCase() };
+    case "png": case "jpg": case "jpeg": case "gif": case "webp": case "svg":
+      return { icon: <FileImage className={cn(iconCls, "text-[#7B1FA2]")} />, bg: out ? "bg-white/15" : "bg-[#F3E5F5]", accent: "#7B1FA2", label: ext.toUpperCase() };
+    case "js": case "ts": case "py": case "go": case "json": case "xml": case "html": case "css":
+      return { icon: <FileCode className={cn(iconCls, "text-[#455A64]")} />, bg: out ? "bg-white/15" : "bg-[#ECEFF1]", accent: "#455A64", label: ext.toUpperCase() };
+    default:
+      return { icon: <File className={cn(iconCls, out ? "text-white/80" : "text-[#78909C]")} />, bg: out ? "bg-white/15" : "bg-[#F5F5F5]", accent: "#78909C", label: ext.toUpperCase() || "FILE" };
+  }
+}
+
+/* ── Local dev: rewrite ngrok → localhost ───────────────────── */
+function rewriteLocalMedia(url: string): string {
+  if (typeof window !== "undefined" && window.location.hostname === "localhost" && url.includes("ngrok-free.dev")) {
+    return url.replace(/https?:\/\/[^/]+/, "http://localhost:8080");
+  }
+  return url;
+}
+
+/* ── formatFileSize ────────────────────────────────────────── */
+function formatSize(bytes?: number): string {
+  if (!bytes) return "";
+  if (bytes < 1024) return `${bytes} B`;
+  if (bytes < 1048576) return `${(bytes / 1024).toFixed(0)} KB`;
+  return `${(bytes / 1048576).toFixed(1)} MB`;
+}
+
+/* ── CustomAudioPlayer ─────────────────────────────────────── */
+function formatDuration(sec: number) {
+  if (isNaN(sec) || !isFinite(sec)) return "0:00";
+  const m = Math.floor(sec / 60);
+  const s = Math.floor(sec % 60);
+  return `${m}:${s.toString().padStart(2, "0")}`;
+}
+
+const waveCache = new Map<string, number[]>();
+
+// Deterministic, natural-looking waveform from the URL — used as the initial render
+// and the fallback when decodeAudioData fails (opus/CORS), so it NEVER shows flat dots.
+function pseudoWave(seed: string, n = 40): number[] {
+  let h = 2166136261;
+  for (let i = 0; i < seed.length; i++) h = Math.imul(h ^ seed.charCodeAt(i), 16777619) >>> 0;
+  const out: number[] = [];
+  for (let i = 0; i < n; i++) {
+    h = (Math.imul(h, 1103515245) + 12345) >>> 0;
+    const r = (h % 1000) / 1000;                 // 0..1 pseudo-random
+    const env = Math.sin((i / (n - 1)) * Math.PI); // fade-in/out envelope
+    out.push(Math.max(2, Math.round((0.3 + 0.7 * r) * env * 10)));
+  }
+  return out;
+}
+
+function CustomAudioPlayer({ url, out }: { url: string; out: boolean }) {
+  const audioRef = useRef<HTMLAudioElement>(null);
+  const [playing, setPlaying] = useState(false);
+  const [progress, setProgress] = useState(0);
+  const [duration, setDuration] = useState(0);
+  const [waveform, setWaveform] = useState<number[]>(() => waveCache.get(url) || pseudoWave(url));
+
+  useEffect(() => {
+    const a = audioRef.current;
+    if (!a) return;
+    const updateTime = () => setProgress(a.currentTime);
+    const updateDur = () => setDuration(a.duration);
+    const onEnd = () => { setPlaying(false); setProgress(0); };
+    a.addEventListener("timeupdate", updateTime);
+    a.addEventListener("loadedmetadata", updateDur);
+    a.addEventListener("ended", onEnd);
+    return () => {
+      a.removeEventListener("timeupdate", updateTime);
+      a.removeEventListener("loadedmetadata", updateDur);
+      a.removeEventListener("ended", onEnd);
+    };
+  }, []);
+
+  // Generate actual waveform
+  useEffect(() => {
+    if (waveCache.has(url)) return;
+    let isMounted = true;
+    const AudioContextClass = window.AudioContext || (window as any).webkitAudioContext;
+    if (!AudioContextClass) return;
+    
+    // Add ngrok-skip-browser-warning to prevent HTML warning page interception
+    fetch(url, { headers: { "ngrok-skip-browser-warning": "1" } })
+      .then(res => {
+        if (!res.ok) throw new Error("HTTP " + res.status);
+        return res.arrayBuffer();
+      })
+      .then(buf => {
+        const ctx = new AudioContextClass();
+        return ctx.decodeAudioData(buf);
+      })
+      .then(audioBuffer => {
+        if (!isMounted) return;
+        const channelData = audioBuffer.getChannelData(0);
+        const samples = 40;
+        const blockSize = Math.floor(channelData.length / samples);
+        const peaks = [];
+        for (let i = 0; i < samples; i++) {
+          let maxPeak = 0;
+          for (let j = 0; j < blockSize; j++) {
+            const val = Math.abs(channelData[i * blockSize + j]);
+            if (val > maxPeak) maxPeak = val;
+          }
+          peaks.push(maxPeak);
+        }
+        const highest = Math.max(...peaks, 0.01);
+        const normalized = peaks.map(p => Math.max(1, Math.round((p / highest) * 10)));
+        waveCache.set(url, normalized);
+        setWaveform(normalized);
+      })
+      .catch(() => {
+        // opus/CORS decode failure -> keep a natural pseudo waveform, never flat dots.
+        if (isMounted) setWaveform(pseudoWave(url));
+      });
+
+    return () => { isMounted = false; };
+  }, [url]);
+
+  const toggle = () => {
+    if (audioRef.current) {
+      if (playing) audioRef.current.pause();
+      else audioRef.current.play();
+      setPlaying(!playing);
+    }
+  };
+
+  const seek = (e: React.ChangeEvent<HTMLInputElement>) => {
+    if (audioRef.current) {
+      audioRef.current.currentTime = Number(e.target.value);
+      setProgress(Number(e.target.value));
+    }
+  };
+
+  const percent = duration > 0 ? progress / duration : 0;
+  const activeColor = out ? "bg-white" : "bg-[#53BDEB]";
+  const inactiveColor = out ? "bg-white/40" : "bg-black/20";
+
+  return (
+    <div className="flex items-center gap-3 w-[260px] pl-1 pr-3 py-1.5">
+      <audio ref={audioRef} src={url} preload="metadata" />
+      
+      <div className="relative shrink-0">
+        <div className={cn("w-[42px] h-[42px] rounded-full flex items-center justify-center", out ? "bg-white/20 text-white" : "bg-muted text-muted-foreground")}>
+          <User className="w-6 h-6" />
+        </div>
+        <div className={cn("absolute -bottom-0.5 -right-0.5 w-[18px] h-[18px] rounded-full flex items-center justify-center", out ? "bg-[#2D8B73]" : "bg-white")}>
+          <Mic className={cn("w-3 h-3", out ? "text-[#53BDEB]" : "text-[#53BDEB]")} />
+        </div>
+      </div>
+
+      <button onClick={toggle} className="shrink-0 outline-none">
+        {playing ? <Pause className="w-6 h-6" fill="currentColor" /> : <Play className="w-6 h-6" fill="currentColor" />}
+      </button>
+
+      <div className="flex-1 flex flex-col justify-center pt-2">
+        <div className="relative h-6 flex items-center w-full">
+          {/* Waveform bars */}
+          <div className="absolute inset-0 flex items-center justify-between pointer-events-none gap-[1px]">
+            {waveform.map((val, i) => {
+              const isActive = (i / waveform.length) <= percent;
+              return (
+                <div 
+                  key={i} 
+                  className={cn("w-[3px] rounded-full transition-colors", isActive ? activeColor : inactiveColor)}
+                  style={{ height: `${val * 10}%` }}
+                />
+              );
+            })}
+          </div>
+          {/* Invisible range input for interaction */}
+          <input 
+            type="range" 
+            min={0} 
+            max={duration || 100} 
+            value={progress} 
+            onChange={seek}
+            className="absolute inset-0 w-full h-full opacity-0 cursor-pointer m-0"
+          />
+        </div>
+        <div className="flex items-center justify-between mt-1.5 text-[11px] opacity-80 font-medium">
+          <span>{formatDuration(progress)}</span>
+          <span>{formatDuration(duration)}</span>
+        </div>
+      </div>
+    </div>
+  );
+}
+
+/* ── Message "..." menu (Copy / Copy to composer / Copy link) ─ */
+function MessageMenu({ out, text, link, onCopyText, onUseInComposer, onForward }: {
+  out: boolean; text?: string; link?: string;
+  onCopyText?: (t: string) => void; onUseInComposer?: (t: string) => void; onForward?: (t: string) => void;
+}) {
+  const [open, setOpen] = useState(false);
+  const btnRef = useRef<HTMLButtonElement>(null);
+  const [pos, setPos] = useState({ top: 0, left: 0, flipUp: false });
+
+  const handleOpen = () => {
+    if (!open && btnRef.current) {
+      const rect = btnRef.current.getBoundingClientRect();
+      const spaceBelow = window.innerHeight - rect.bottom;
+      const flipUp = spaceBelow < 200;
+      const menuW = 224; // w-56
+      setPos({
+        top: flipUp ? rect.top - 4 : rect.bottom + 4,
+        left: out ? rect.right - menuW : rect.left,
+        flipUp,
+      });
+    }
+    setOpen((v) => !v);
+  };
+
+  const Item = ({ icon: Icon, label, onClick }: { icon: any; label: string; onClick: () => void }) => (
+    <button onClick={() => { onClick(); setOpen(false); }} className="w-full flex items-center gap-2.5 px-3 py-2 text-[13px] text-foreground/90 hover:bg-muted text-left outline-none">
+      <Icon className="w-4 h-4 text-muted-foreground shrink-0" />{label}
+    </button>
+  );
+  return (
+    <div className="relative self-center shrink-0">
+      <button
+        ref={btnRef}
+        onClick={handleOpen}
+        className={cn("p-1 rounded-md text-muted-foreground hover:bg-muted hover:text-foreground transition-opacity outline-none", open ? "opacity-100" : "opacity-0 group-hover:opacity-100")}
+      >
+        <MoreHorizontal className="w-4 h-4" />
+      </button>
+      {open && createPortal(
+        <>
+          <div className="fixed inset-0 z-[60]" onClick={() => setOpen(false)} />
+          <div
+            className="fixed z-[70] w-56 rounded-lg border border-border bg-popover shadow-xl py-1"
+            style={{
+              top: pos.top,
+              left: pos.left,
+              transform: pos.flipUp ? "translateY(-100%)" : undefined,
+            }}
+          >
+            {text && <Item icon={Copy} label="Copy message" onClick={() => onCopyText?.(text)} />}
+            {text && <Item icon={ClipboardPaste} label="Copy to message text box" onClick={() => onUseInComposer?.(text)} />}
+            {text && onForward && <Item icon={Forward} label="Forward" onClick={() => onForward(text)} />}
+            {link && <Item icon={Link2} label="Copy link to message" onClick={() => onCopyText?.(link)} />}
+          </div>
+        </>,
+        document.body,
+      )}
+    </div>
+  );
+}
+
+/* ── MessageBubble ─────────────────────────────────────────── */
+interface MessageBubbleProps {
+  m: Message;
+  active: Conversation;
+  onPreviewMedia: (url: string, type: string) => void;
+  conversationId?: string | null;
+  onCopyText?: (t: string) => void;
+  onUseInComposer?: (t: string) => void;
+  onForward?: (t: string) => void;
+}
+
+const MessageBubble = memo(function MessageBubble({ m, active, onPreviewMedia, conversationId, onCopyText, onUseInComposer, onForward }: MessageBubbleProps) {
+  const msgLink = conversationId && typeof window !== "undefined" ? `${window.location.origin}/inbox?c=${conversationId}` : undefined;
+  const out = m.direction === "outbound";
+  const bot = m.sender_type === "bot";
+  // Broadcasts are stored as sender_type 'system' (outbound). Show them as a sent
+  // message on the right, marked as a Broadcast — not a centered system pill.
+  const broadcast = m.sender_type === "system";
+  const who = !out ? (active.contact_name || "Customer") : broadcast ? "Broadcast" : bot ? "Simpuler" : (active.agent_name || "Agent");
+  const url = m.media_url ? rewriteLocalMedia(m.media_url) : "";
+  const ext = url ? extFromUrl(url) : "";
+  const isSticker = m.type === "sticker";
+  const isImage = m.type === "image" || (!isSticker && ["jpg","jpeg","png","gif","webp","svg"].includes(ext));
+  const isVideo = m.type === "video" || ["mp4","mov","webm","avi","mkv"].includes(ext);
+  const isAudio = m.type === "audio" || ["ogg","mp3","wav","aac","m4a","opus"].includes(ext);
+  const isDoc = url && !isImage && !isVideo && !isAudio && !isSticker;
+
+  const fname = url ? filenameFromUrl(url) : "";
+  const ds = isDoc ? docStyle(ext, out) : null;
+
+  return (
+    <div className={cn("group flex items-start gap-1", out ? "justify-end" : "justify-start")}>
+      {!out && (
+        <div
+          className="w-7 h-7 rounded-full mr-2 mt-2 flex items-center justify-center text-[10px] font-bold shrink-0"
+          style={{ backgroundColor: channelColor(active.channel) + "20", color: channelColor(active.channel) }}
+        >
+          {initials(active.contact_name || active.contact_phone)}
+        </div>
+      )}
+      {out && (m.body || msgLink) && <MessageMenu out={out} text={m.body ?? undefined} link={msgLink} onCopyText={onCopyText} onUseInComposer={onUseInComposer} onForward={onForward} />}
+      <div className={cn("max-w-[66%] flex flex-col", out ? "items-end" : "items-start")}>
+        {/* Sender label */}
+        <p className={cn("text-[10px] font-semibold mb-0.5 px-0.5 inline-flex items-center gap-0.5", bot ? "text-violet-600" : broadcast ? "text-amber-700" : "text-muted-foreground")}>
+          {who} {bot && <Sparkles className="w-2.5 h-2.5" />}{broadcast && <Megaphone className="w-2.5 h-2.5" />}
+        </p>
+
+        <div
+          className={cn(
+            isSticker ? "" : "rounded-lg overflow-hidden shadow-sm",
+            isSticker ? "" : (out ? "bg-primary text-primary-foreground rounded-br-[4px]" : "bg-card text-foreground border border-border rounded-bl-[4px]"),
+            // No padding when media-only (image/video fill the bubble)
+            (isImage || isVideo) && !m.body && !isSticker ? "" : "",
+          )}
+        >
+          {/* ── Sticker ── */}
+          {url && isSticker && (
+            <div className="relative cursor-pointer group">
+              <img
+                src={url}
+                className="w-36 h-36 object-contain"
+                loading="lazy"
+              />
+              <div className="absolute bottom-0 right-0 flex items-center gap-1 bg-black/20 rounded-full px-1.5 py-0.5">
+                <span className="text-[9px] text-white/90 drop-shadow-sm">{fmtTime(m.created_at)}</span>
+                {out && <StatusIcon status={m.status} />}
+              </div>
+            </div>
+          )}
+          {/* ── Image ── */}
+          {url && isImage && (
+            <div
+              className="relative cursor-pointer group"
+              onClick={() => onPreviewMedia(url, "image")}
+            >
+              <img
+                src={url}
+                className="max-h-[280px] min-w-[180px] max-w-[320px] object-cover block"
+                loading="lazy"
+              />
+              {/* WhatsApp-style gradient overlay at bottom with time */}
+              <div className="absolute inset-x-0 bottom-0 h-8 bg-gradient-to-t from-black/40 to-transparent pointer-events-none" />
+              {!m.body && (
+                <div className="absolute bottom-1 right-2 flex items-center gap-1">
+                  <span className="text-[10px] text-white/90 drop-shadow-sm">{fmtTime(m.created_at)}</span>
+                  {out && <StatusIcon status={m.status} />}
+                </div>
+              )}
+            </div>
+          )}
+
+          {/* ── Video ── */}
+          {url && isVideo && (
+            <div
+              className="relative cursor-pointer group"
+              onClick={() => onPreviewMedia(url, "video")}
+            >
+              <video
+                src={url}
+                preload="metadata"
+                className="max-h-[280px] min-w-[180px] max-w-[320px] object-cover block"
+                muted
+              />
+              {/* Play button overlay */}
+              <div className="absolute inset-0 flex items-center justify-center">
+                <div className="w-12 h-12 rounded-full bg-black/50 flex items-center justify-center backdrop-blur-sm group-hover:bg-black/60 transition-colors">
+                  <Play className="w-6 h-6 text-white ml-0.5" fill="white" />
+                </div>
+              </div>
+              {/* Bottom gradient with time */}
+              <div className="absolute inset-x-0 bottom-0 h-8 bg-gradient-to-t from-black/40 to-transparent pointer-events-none" />
+              {!m.body && (
+                <div className="absolute bottom-1 right-2 flex items-center gap-1">
+                  <span className="text-[10px] text-white/90 drop-shadow-sm">{fmtTime(m.created_at)}</span>
+                  {out && <StatusIcon status={m.status} />}
+                </div>
+              )}
+            </div>
+          )}
+
+          {/* ── Audio ── */}
+          {url && isAudio && (
+            <CustomAudioPlayer url={url} out={out} />
+          )}
+
+          {/* ── Document card (WhatsApp style) ── */}
+          {isDoc && ds && (
+            <div
+              className={cn("flex items-center gap-3 mx-1 my-1 px-3 py-2.5 rounded-lg cursor-pointer transition-colors", ds.bg, out ? "hover:bg-white/20" : "hover:bg-black/[0.06]")}
+              onClick={() => onPreviewMedia(url, m.type || "document")}
+            >
+              {/* File type icon */}
+              {ds.icon}
+              {/* File info */}
+              <div className="flex-1 min-w-0">
+                <p className={cn("text-[13px] font-semibold truncate", out ? "text-white" : "text-slate-900")}>
+                  {fname}
+                </p>
+                <p className={cn("text-[11px]", out ? "text-white/60" : "text-muted-foreground")}>
+                  {ds.label}
+                </p>
+              </div>
+              {/* Download indicator */}
+              <Download className={cn("w-4 h-4 shrink-0", out ? "text-white/50" : "text-slate-400")} />
+            </div>
+          )}
+
+          {/* ── Text body ── */}
+          {m.body && (
+            <div className="px-2.5 py-1.5 pb-2">
+              <span className="whitespace-pre-wrap break-words text-[13px] leading-[1.4] text-inherit align-top">{m.body}</span>
+              <span className="inline-flex items-center gap-1 ml-5 float-right translate-y-[5px]">
+                <span className={cn("text-[10px]", out ? "text-white/70" : "text-muted-foreground")}>{fmtTime(m.created_at)}</span>
+                {out && <StatusIcon status={m.status} />}
+              </span>
+              {/* Clearfix for the float */}
+              <div className="clear-both" />
+            </div>
+          )}
+
+          {/* ── Time/status when there is media but NO body ── */}
+          {(!m.body && (isAudio || isDoc)) && (
+            <div className={cn("flex items-center justify-end gap-1 pb-1.5 pr-2 pt-0 mt-[-4px]")}>
+              <span className={cn("text-[10px]", out ? "text-white/70" : "text-muted-foreground")}>{fmtTime(m.created_at)}</span>
+              {out && <StatusIcon status={m.status} />}
+            </div>
+          )}
+        </div>
+
+        {/* External time row: only for media-only (no body) that isn't image/video (those have overlay) */}
+        {!m.body && !isImage && !isVideo && !isAudio && (
+          <div className="flex items-center gap-1 mt-0.5 px-0.5">
+            <span className="text-[10px] text-muted-foreground">{fmtTime(m.created_at)}</span>
+            {out && <StatusIcon status={m.status} />}
+          </div>
+        )}
+      </div>
+      {!out && (m.body || msgLink) && <MessageMenu out={out} text={m.body ?? undefined} link={msgLink} onCopyText={onCopyText} onUseInComposer={onUseInComposer} onForward={onForward} />}
+    </div>
+  );
+});
+
+export default MessageBubble;
