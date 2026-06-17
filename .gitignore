@@ -54,3 +54,15 @@ Thumbs.db
 
 # Android build artifacts (use GitHub Releases instead)
 *.apk
+
+# ── v2: local build artifacts & scratch (regenerable; built in Docker) ──
+*.exe
+*_recovered.tsx
+*_last_edit.json
+v2/extract.js
+v2/extract.py
+v2/data-train/
+v2/data/train_out/
+
+# Archived v1 (kept local only; recoverable from git history + codex/repo-recovery branch)
+legacy-v1/
