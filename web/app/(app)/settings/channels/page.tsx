@@ -333,6 +333,7 @@ function ChannelDialog({ state, onClose, onSaved, onError }: {
   const [pageId, setPageId] = useState("");
   const [igId, setIgId] = useState("");
   const [token, setToken] = useState("");
+  const [callingEnabled, setCallingEnabled] = useState(false);
   const [saving, setSaving] = useState(false);
 
   // Reset fields whenever the dialog (re)opens.
@@ -345,6 +346,7 @@ function ChannelDialog({ state, onClose, onSaved, onError }: {
     setPageId((cfg.page_id as string) ?? "");
     setIgId((cfg.instagram_account_id as string) ?? "");
     setToken("");
+    setCallingEnabled(editing?.calling_enabled ?? false);
   }, [state.open]); // eslint-disable-line react-hooks/exhaustive-deps
 
   const isWa = type === "whatsapp" || type === "testing";
@@ -364,6 +366,7 @@ function ChannelDialog({ state, onClose, onSaved, onError }: {
           name: name.trim(), display_id: displayId.trim(),
           ...(token.trim() ? { access_token: token.trim() } : {}),
           config,
+          ...(isWa ? { calling_enabled: callingEnabled } : {}),
         });
         onSaved("Channel updated");
       } else {
@@ -408,6 +411,15 @@ function ChannelDialog({ state, onClose, onSaved, onError }: {
             <Field label={isIg ? "Display handle" : "Page name"} value={displayId} onChange={setDisplayId} placeholder={isIg ? "@yourbrand" : "Your Page"} />
           </>}
           <Field label={isEdit ? "Access token (leave blank to keep)" : "Access token"} value={token} onChange={setToken} type="password" />
+          {isWa && isEdit && (
+            <div className="flex items-center justify-between gap-3 rounded-lg border border-border p-3">
+              <div className="min-w-0">
+                <p className="text-[13px] font-semibold text-foreground">WhatsApp calling</p>
+                <p className="text-[11.5px] text-muted-foreground mt-0.5">Show a call button in the inbox (opens WhatsApp and logs the attempt).</p>
+              </div>
+              <Toggle checked={callingEnabled} onChange={() => setCallingEnabled((v) => !v)} />
+            </div>
+          )}
         </div>
 
         {/* Actions */}

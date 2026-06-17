@@ -78,11 +78,12 @@ func (s *server) handlePatchChannel(w http.ResponseWriter, r *http.Request) {
 	a, _ := authFrom(r.Context())
 	id := r.PathValue("id")
 	var b struct {
-		Name        *string        `json:"name"`
-		IsActive    *bool          `json:"is_active"`
-		AccessToken *string        `json:"access_token"`
-		DisplayID   *string        `json:"display_id"`
-		Config      map[string]any `json:"config"`
+		Name           *string        `json:"name"`
+		IsActive       *bool          `json:"is_active"`
+		AccessToken    *string        `json:"access_token"`
+		DisplayID      *string        `json:"display_id"`
+		Config         map[string]any `json:"config"`
+		CallingEnabled *bool          `json:"calling_enabled"`
 	}
 	if err := json.NewDecoder(r.Body).Decode(&b); err != nil {
 		http.Error(w, "bad request", http.StatusBadRequest)
@@ -99,9 +100,10 @@ func (s *server) handlePatchChannel(w http.ResponseWriter, r *http.Request) {
 		   access_token = COALESCE(NULLIF($5,''), access_token),
 		   display_id = COALESCE($6, display_id),
 		   config = COALESCE($7::jsonb, config),
+		   calling_enabled = COALESCE($8, calling_enabled),
 		   updated_at = now()
 		 WHERE id = $1 AND organization_id = $2`,
-		id, a.OrgID, b.Name, b.IsActive, derefStr(b.AccessToken), b.DisplayID, nullableJSON(cfg))
+		id, a.OrgID, b.Name, b.IsActive, derefStr(b.AccessToken), b.DisplayID, nullableJSON(cfg), b.CallingEnabled)
 	if err != nil {
 		http.Error(w, err.Error(), http.StatusInternalServerError)
 		return

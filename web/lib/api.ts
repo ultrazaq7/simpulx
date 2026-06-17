@@ -313,7 +313,7 @@ export const api = {
     phone_number_id?: string; waba_id?: string; access_token?: string;
     display_id?: string; config?: Record<string, unknown>;
   }) => req<{ id: string; status: string }>("/api/channels", { method: "POST", body: JSON.stringify(input) }),
-  updateChannel: (id: string, patch: { name?: string; is_active?: boolean; display_id?: string; access_token?: string; config?: Record<string, unknown> }) =>
+  updateChannel: (id: string, patch: { name?: string; is_active?: boolean; display_id?: string; access_token?: string; config?: Record<string, unknown>; calling_enabled?: boolean }) =>
     req(`/api/channels/${id}`, { method: "PATCH", body: JSON.stringify(patch) }),
   deleteChannel: (id: string) => req(`/api/channels/${id}`, { method: "DELETE" }),
   testChannel: (id: string) => req<{ status: string }>(`/api/channels/${id}/test`, { method: "POST" }),
