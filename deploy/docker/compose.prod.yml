@@ -1,0 +1,53 @@
+# Production overlay. Use together with the base compose:
+#   docker compose -f deploy/docker/compose.yml -f deploy/docker/compose.prod.yml up -d --build
+#
+# Adds the Next.js web app + Caddy edge, and stops publishing the dev ports
+# (Caddy reaches every service over the internal `simpulx` network by name).
+name: simpulx-v2
+
+services:
+  # Backend API: no public port in prod (Caddy proxies it); fix the media base URL.
+  # !reset clears the base compose's published port (Compose otherwise MERGES them).
+  gateway:
+    ports: !reset []
+    environment:
+      MEDIA_PUBLIC_BASE: https://app.simpulx.com/simpulx-media
+
+  # WebSocket: no public port in prod (Caddy proxies /ws).
+  realtime:
+    ports: !reset []
+
+  # Next.js web app (NEXT_PUBLIC_* are baked at build time).
+  web:
+    build:
+      context: ../../web
+      dockerfile: Dockerfile
+      args:
+        NEXT_PUBLIC_API_URL: https://app.simpulx.com
+        NEXT_PUBLIC_WS_URL: wss://app.simpulx.com
+    image: simpulx-web:latest
+    container_name: simpulx-v2-web
+    restart: unless-stopped
+    depends_on: [gateway]
+    networks: [simpulx]
+
+  # Edge: TLS termination (Cloudflare Origin Cert) + routing.
+  caddy:
+    image: caddy:2-alpine
+    container_name: simpulx-v2-caddy
+    restart: unless-stopped
+    ports:
+      - "80:80"
+      - "443:443"
+    volumes:
+      - ./Caddyfile:/etc/caddy/Caddyfile:ro
+      - ./certs:/etc/caddy/certs:ro
+      - ./landing:/srv/landing:ro
+      - v2_caddy_data:/data
+      - v2_caddy_config:/config
+    depends_on: [web, gateway, realtime]
+    networks: [simpulx]
+
+volumes:
+  v2_caddy_data:
+  v2_caddy_config:

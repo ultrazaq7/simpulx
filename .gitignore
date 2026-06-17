@@ -4,6 +4,8 @@
 *.local
 !.env.example
 !*.env.example
+*.pem
+*.key
 firebase-service-account*.json
 gcp-key*.json
 
@@ -42,6 +44,10 @@ flow_backup.txt
 data-train/
 data/train_out/
 .build_ai.log
+
+# ── Deploy: Cloudflare Origin cert (private key = secret) ──
+deploy/docker/certs/*
+!deploy/docker/certs/.gitkeep
 
 # ── OS ──
 .DS_Store

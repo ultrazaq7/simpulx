@@ -1,0 +1,5 @@
+# Cloudflare Origin Certificate goes here (NOT committed):
+#   origin.pem   (certificate)
+#   origin.key   (private key)
+# Generate in Cloudflare dashboard: SSL/TLS -> Origin Server -> Create Certificate
+# Hostnames: simpulx.com, *.simpulx.com

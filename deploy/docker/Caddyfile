@@ -1,0 +1,40 @@
+{
+	admin off
+}
+
+# ── Main web app ──
+# Cloudflare terminates client TLS at the edge (proxied/orange); CF -> origin
+# uses HTTPS with the Cloudflare Origin Certificate below (SSL mode: Full strict).
+app.simpulx.com {
+	tls /etc/caddy/certs/origin.pem /etc/caddy/certs/origin.key
+
+	# Backend API + auth + webhooks + web-api leads + media -> gateway
+	@backend path /api/* /auth/* /webhook/* /v1/* /simpulx-media/*
+	handle @backend {
+		reverse_proxy gateway:8080
+	}
+
+	# WebSocket (realtime) -> realtime service
+	handle /ws* {
+		reverse_proxy realtime:8082
+	}
+
+	# Everything else -> Next.js web app
+	handle {
+		reverse_proxy web:3000
+	}
+}
+
+# ── Landing (slot ready; drop your HTML into deploy/docker/landing/) ──
+simpulx.com {
+	tls /etc/caddy/certs/origin.pem /etc/caddy/certs/origin.key
+	root * /srv/landing
+	file_server
+	try_files {path} /index.html
+}
+
+# www -> apex
+www.simpulx.com {
+	tls /etc/caddy/certs/origin.pem /etc/caddy/certs/origin.key
+	redir https://simpulx.com{uri} permanent
+}
