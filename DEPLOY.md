@@ -104,11 +104,20 @@ chmod 600 .env
 4. Cloudflare → **SSL/TLS → Overview → Full (strict)**.
 
 ## 6. Build & start
+> **Always pass `--env-file .env`.** Compose resolves `${VAR}` interpolation
+> (e.g. `POSTGRES_PASSWORD`) from the *compose-file* directory, not the repo root,
+> so without this flag Postgres initialises with the default password while the
+> services read the real one from `env_file` → `password authentication failed`.
+> Define it once so every command is consistent:
 ```bash
-docker compose -f deploy/docker/compose.yml -f deploy/docker/compose.prod.yml up -d --build
-docker compose -f deploy/docker/compose.yml -f deploy/docker/compose.prod.yml ps
+DC="docker compose --env-file .env -f deploy/docker/compose.yml -f deploy/docker/compose.prod.yml"
+$DC up -d --build
+$DC ps
 ```
 First build takes a few minutes (Go + Next.js compile natively on ARM).
+> If you ever change `POSTGRES_PASSWORD` after the first start, the existing
+> `simpulx-v2_v2_pgdata` volume keeps the old one — recreate it:
+> `$DC down && docker volume rm simpulx-v2_v2_pgdata && $DC up -d`.
 
 ## 7. Repoint Cloudflare DNS (from old VPS → AWS)
 In Cloudflare → DNS, edit the **A** records (all **Proxied / orange**):
@@ -129,8 +138,9 @@ curl -sI https://app.simpulx.com/api/...   # gateway reachable
 ---
 
 ## Ops
-- **Update:** `git pull && docker compose -f deploy/docker/compose.yml -f deploy/docker/compose.prod.yml up -d --build`
-- **Logs:** `docker compose -f deploy/docker/compose.yml -f deploy/docker/compose.prod.yml logs -f caddy gateway web`
+> All commands assume `DC` from step 6 (`docker compose --env-file .env -f … -f …`).
+- **Update:** `git pull && $DC up -d --build`
+- **Logs:** `$DC logs -f caddy gateway web`
 - **DB backup (cron):** `0 3 * * * docker exec simpulx-v2-db sh -c 'pg_dump -U "$POSTGRES_USER" -d "$POSTGRES_DB"' | gzip > /opt/backups/db_$(date +\%F).sql.gz` (rotate with `find -mtime +14 -delete`).
 - **Landing:** drop your HTML/assets into `deploy/docker/landing/` (served at simpulx.com); no rebuild needed (volume-mounted), just place files.
 - **Single box = no HA.** Snapshot the EBS volume periodically.
