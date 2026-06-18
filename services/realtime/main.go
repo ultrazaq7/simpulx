@@ -89,6 +89,7 @@ func main() {
 		{events.SubjectConversationHandoff, "realtime-handoff"},
 		{events.SubjectAgentDeactivated, "realtime-deactivated"},
 		{events.SubjectAuditCreated, "realtime-audit"},
+		{events.SubjectCallUpdated, "realtime-call"},
 	}
 	for _, s := range subs {
 		if err := bus.Subscribe(s.subject, s.durable, forward); err != nil {

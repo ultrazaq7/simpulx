@@ -22,11 +22,15 @@ type waChange struct {
 }
 
 type waValue struct {
-	MessagingProduct string       `json:"messaging_product"`
-	Metadata         waMetadata   `json:"metadata"`
-	Contacts         []waContact  `json:"contacts"`
-	Messages         []waMessage  `json:"messages"`
-	Statuses         []waStatus   `json:"statuses"`
+	MessagingProduct string          `json:"messaging_product"`
+	Metadata         waMetadata      `json:"metadata"`
+	Contacts         []waContact     `json:"contacts"`
+	Messages         []waMessage     `json:"messages"`
+	Statuses         []waStatus      `json:"statuses"`
+	// Calls carries the raw "calls" array from the WhatsApp Business Calling API
+	// webhook (field == "calls"). Kept raw so the call processor can decode the
+	// full lifecycle shape (connect/terminate, SDP, direction, duration).
+	Calls json.RawMessage `json:"calls"`
 }
 
 type waStatus struct {

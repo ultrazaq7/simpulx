@@ -142,14 +142,21 @@ type AuditCreated struct {
 }
 
 // CallUpdated is broadcast whenever a call's state changes (permission
-// granted, SDP answer received, call connected/ended, etc). The realtime
-// service relays this to the agent's WebSocket so the browser UI can react.
+// granted, SDP answer received, call connected/ended, an inbound call ringing,
+// etc). The realtime service relays this to the agent's WebSocket so the browser
+// UI can react. For inbound (user-initiated) calls it also carries the SDP offer
+// and the target agent so only the assigned agent's browser rings.
 type CallUpdated struct {
 	CallID           string `json:"call_id"`
 	ConversationID   string `json:"conversation_id"`
+	Direction        string `json:"direction,omitempty"` // inbound | outbound
+	AgentID          string `json:"agent_id,omitempty"`  // inbound: assigned agent to ring (empty = any campaign agent)
+	ContactName      string `json:"contact_name,omitempty"`
+	ContactPhone     string `json:"contact_phone,omitempty"`
 	PermissionStatus string `json:"permission_status"`
 	CallStatus       string `json:"call_status"`
-	SDPAnswer        string `json:"sdp_answer,omitempty"`
+	SDPOffer         string `json:"sdp_offer,omitempty"`  // inbound: customer's WebRTC offer
+	SDPAnswer        string `json:"sdp_answer,omitempty"` // outbound: customer's WebRTC answer
 	EndReason        string `json:"end_reason,omitempty"`
 	DurationSeconds  int    `json:"duration_seconds,omitempty"`
 }

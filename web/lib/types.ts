@@ -194,6 +194,7 @@ export interface Template {
   meta_template_id: string | null;
   rejected_reason: string | null;
   channel_id: string | null;
+  campaign_ids: string[] | null;   // campaigns this template is limited to ([] / null = all)
   created_at: string;
   updated_at: string;
 }
@@ -406,8 +407,13 @@ export interface AIAgent {
 export interface Call {
   call_id: string;
   conversation_id: string;
+  direction?: 'inbound' | 'outbound';
+  agent_id?: string;
+  contact_name?: string;
+  contact_phone?: string;
   permission_status: 'pending' | 'granted' | 'denied' | 'expired';
-  call_status: 'idle' | 'requesting' | 'ringing' | 'connected' | 'ended' | 'failed';
+  call_status: 'idle' | 'requesting' | 'ringing' | 'incoming' | 'connecting' | 'connected' | 'ended' | 'failed';
+  sdp_offer?: string;
   sdp_answer?: string;
   external_call_id?: string;
   duration_seconds: number;

@@ -14,6 +14,7 @@ import { Tip } from "@/components/ui/tooltip";
 import { usePermissions } from "@/lib/permissions";
 import type { User } from "@/lib/types";
 import { useI18n } from "@/lib/i18n";
+import IncomingCallListener from "@/components/IncomingCallListener";
 
 const NAV_TOP = [
   { href: "/dashboard", icon: LayoutGrid, labelKey: "nav.dashboard", perm: "menu_dashboard" },
@@ -476,6 +477,8 @@ export function Shell({ children }: { children: ReactNode }) {
         </>
       )}
 
+      {/* Global inbound WhatsApp call ringer (rings the assigned agent anywhere) */}
+      <IncomingCallListener />
     </div>
   );
 }
