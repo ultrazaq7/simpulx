@@ -1,17 +1,16 @@
 name: Deploy Simpulx
 
 # Auto-deploy the Go + Next.js compose stack to the AWS Graviton box on every
-# push to main (or manually via "Run workflow"). The runner SSHes into the box,
-# fast-forwards /opt/simpulx to origin/main, and rebuilds the stack. DB schema is
-# applied automatically — the gateway runs goose.Up() from db/migrations on boot.
+# push to main (or manually). Uses AWS Systems Manager (SSM) Run Command over
+# GitHub OIDC: no inbound SSH port is opened and no long-lived AWS keys are
+# stored — the runner assumes an IAM role via a short-lived OIDC token and tells
+# SSM to run the deploy script on the instance. DB schema applies automatically
+# (gateway runs goose.Up from db/migrations on boot).
 #
-# Required GitHub repo secrets (Settings → Secrets and variables → Actions):
-#   SSH_HOST  -> 108.136.155.65            (the EC2 Elastic IP)
-#   SSH_USER  -> ubuntu                    (login user on the box)
-#   SSH_KEY   -> private key whose PUBLIC half is in the box's
-#                ~/.ssh/authorized_keys  (this is the runner→box key; it is NOT
-#                the repo "deploy key", which only lets the box pull from GitHub)
-#   SSH_PORT  -> optional, defaults to 22
+# AWS resources backing this (already provisioned):
+#   - IAM role  simpulx-gha-deploy  (trust: repo ultrazaq7/simpulx @ refs/heads/main; perms: ssm:SendCommand on the one instance)
+#   - IAM role  simpulx-ssm-role + instance profile on i-070b5297fbc58bb8c (AmazonSSMManagedInstanceCore)
+#   - GitHub OIDC provider in the account
 
 on:
   push:
@@ -22,46 +21,75 @@ concurrency:
   group: simpulx-production
   cancel-in-progress: false
 
+permissions:
+  id-token: write
+  contents: read
+
+env:
+  AWS_REGION: ap-southeast-3
+  INSTANCE_ID: i-070b5297fbc58bb8c
+  DEPLOY_ROLE: arn:aws:iam::825621302344:role/simpulx-gha-deploy
+
 jobs:
   deploy:
-    name: Deploy to AWS (simpulx-prod)
+    name: Deploy to AWS (simpulx-prod via SSM)
     runs-on: ubuntu-latest
     steps:
-      - name: Deploy over SSH
-        uses: appleboy/ssh-action@v1.2.0
+      - name: Configure AWS credentials (OIDC)
+        uses: aws-actions/configure-aws-credentials@v4
         with:
-          host: ${{ secrets.SSH_HOST }}
-          username: ${{ secrets.SSH_USER }}
-          key: ${{ secrets.SSH_KEY }}
-          port: ${{ secrets.SSH_PORT || 22 }}
-          command_timeout: 30m
-          script: |
-            set -euo pipefail
-            APP_DIR=/opt/simpulx
-            cd "$APP_DIR"
+          role-to-assume: ${{ env.DEPLOY_ROLE }}
+          aws-region: ${{ env.AWS_REGION }}
 
-            echo "── Syncing repo to origin/main ──"
-            git fetch origin main
-            git reset --hard origin/main      # untracked .env / certs are kept
-            git rev-parse --short HEAD
+      - name: Deploy via SSM Run Command
+        run: |
+          set -euo pipefail
 
-            DC="docker compose --env-file .env -f deploy/docker/compose.yml -f deploy/docker/compose.prod.yml"
+          # SSM runs as root; run the actual deploy as 'ubuntu' via a login shell
+          # so HOME/.ssh (git deploy key) and the docker group are correct.
+          # NOTE: SSM runs this with /bin/sh (dash) — no `pipefail` here. The
+          # actual deploy runs under bash via `runuser -s /bin/bash`.
+          read -r -d '' SCRIPT <<'REMOTE' || true
+          set -eu
+          runuser -l ubuntu -s /bin/bash -c 'set -euo pipefail; cd /opt/simpulx && echo "-- sync origin/main --" && git fetch origin main && git reset --hard origin/main && git rev-parse --short HEAD && DC="docker compose --env-file .env -f deploy/docker/compose.yml -f deploy/docker/compose.prod.yml" && echo "-- build + restart --" && $DC up -d --build && (docker image prune -f >/dev/null 2>&1 || true) && echo "-- status --" && $DC ps'
+          REMOTE
 
-            echo "── Building + restarting stack ──"
-            $DC up -d --build
-            docker image prune -f >/dev/null 2>&1 || true
+          jq -n --arg s "$SCRIPT" '{commands:[$s], executionTimeout:["3600"]}' > params.json
 
-            echo "── Status ──"
-            $DC ps
+          CMD_ID=$(aws ssm send-command \
+            --instance-ids "$INSTANCE_ID" \
+            --document-name AWS-RunShellScript \
+            --comment "GHA deploy ${GITHUB_SHA:0:7}" \
+            --timeout-seconds 600 \
+            --parameters file://params.json \
+            --query 'Command.CommandId' --output text)
+          echo "SSM CommandId: $CMD_ID"
+
+          FAILED=0
+          while true; do
+            sleep 10
+            STATUS=$(aws ssm get-command-invocation --command-id "$CMD_ID" --instance-id "$INSTANCE_ID" --query 'Status' --output text 2>/dev/null || echo Pending)
+            echo "status: $STATUS"
+            case "$STATUS" in
+              Success) break ;;
+              Failed|Cancelled|TimedOut) FAILED=1; break ;;
+            esac
+          done
+
+          echo "──────── remote stdout ────────"
+          aws ssm get-command-invocation --command-id "$CMD_ID" --instance-id "$INSTANCE_ID" --query 'StandardOutputContent' --output text || true
+          echo "──────── remote stderr ────────"
+          aws ssm get-command-invocation --command-id "$CMD_ID" --instance-id "$INSTANCE_ID" --query 'StandardErrorContent' --output text || true
+
+          if [ "$FAILED" = "1" ]; then echo "::error::SSM deploy failed"; exit 1; fi
 
       - name: Health check
         run: |
-          set -e
           for i in $(seq 1 10); do
             code=$(curl -sS -o /dev/null -w "%{http_code}" --max-time 15 https://app.simpulx.com/ || echo 000)
             echo "attempt $i: app.simpulx.com -> $code"
             [ "$code" = "200" ] && exit 0
             sleep 12
           done
-          echo "app did not return 200 after deploy" >&2
+          echo "::error::app did not return 200 after deploy" >&2
           exit 1
