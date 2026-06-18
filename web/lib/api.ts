@@ -1,4 +1,4 @@
-import type { Agent, AIAgent, Analytics, AuditEntry, Automation, AutomationAction, AutomationDetail, AutomationFlow, Broadcast, Campaign, CampaignAnalyticsRow, CampaignDetail, Channel, Contact, Conversation, Department, InternalNote, KnowledgeSource, Message, Organization, OrgSettings, QuickReply, RolePermissions, Sequence, SequenceDetail, SequenceStep, Stats, DashboardCards, Template, TemplateButton, User, UserAccount, UserActivity, WebApiSource } from "./types";
+import type { Agent, AIAgent, Analytics, AuditEntry, Automation, AutomationAction, AutomationDetail, AutomationFlow, Broadcast, Campaign, CampaignAnalyticsRow, CampaignDetail, Channel, Contact, Conversation, Department, InternalNote, KnowledgeSource, Message, Organization, OrgSettings, QuickReply, RolePermissions, Sequence, SequenceDetail, SequenceStep, Stats, DashboardCards, Template, TemplateButton, TemplateComponents, User, UserAccount, UserActivity, WebApiSource } from "./types";
 
 const API = process.env.NEXT_PUBLIC_API_URL || "http://localhost:8080";
 export const WS_URL = process.env.NEXT_PUBLIC_WS_URL || "ws://localhost:8082";
@@ -247,12 +247,12 @@ export const api = {
   createTemplate: (input: {
     name: string; category: string; language: string; header_type?: string; header_text?: string;
     body: string; footer?: string; buttons?: TemplateButton[]; variables?: string[];
-    channel_id?: string; campaign_ids?: string[];
+    channel_id?: string; campaign_ids?: string[]; template_type?: string; components?: TemplateComponents;
   }) => req<{ id: string; status: string }>("/api/templates", { method: "POST", body: JSON.stringify(input) }),
   updateTemplate: (id: string, patch: {
     name?: string; category?: string; language?: string; header_type?: string; header_text?: string;
     body?: string; footer?: string; buttons?: TemplateButton[]; variables?: string[];
-    channel_id?: string; campaign_ids?: string[];
+    channel_id?: string; campaign_ids?: string[]; template_type?: string; components?: TemplateComponents;
   }) => req(`/api/templates/${id}`, { method: "PATCH", body: JSON.stringify(patch) }),
   deleteTemplate: (id: string) => req(`/api/templates/${id}`, { method: "DELETE" }),
   submitTemplate: (id: string) => req<{ status: string; simulated: boolean }>(`/api/templates/${id}/submit`, { method: "POST" }),

@@ -26,6 +26,7 @@ func (s *server) handleListTemplates(w http.ResponseWriter, r *http.Request) {
 		`SELECT t.id::text AS id, t.name, t.category, t.language, t.header_type, t.header_text,
 		        t.body, t.footer, t.buttons, t.variables, t.status, t.meta_template_id,
 		        t.rejected_reason, t.channel_id::text AS channel_id,
+		        t.template_type, t.components,
 		        COALESCE(array_agg(tc.campaign_id::text) FILTER (WHERE tc.campaign_id IS NOT NULL), '{}') AS campaign_ids,
 		        t.created_at, t.updated_at
 		   FROM message_templates t
@@ -76,6 +77,10 @@ type templateInput struct {
 	Buttons     json.RawMessage `json:"buttons"`
 	Variables   json.RawMessage `json:"variables"`
 	ChannelID   string          `json:"channel_id"`
+	// TemplateType: standard | carousel | call_permission | request_contact.
+	TemplateType string          `json:"template_type"`
+	// Components: structured extras (e.g. carousel cards) that don't fit the flat columns.
+	Components   json.RawMessage `json:"components"`
 	// CampaignIDs scopes the template to specific campaigns. nil = leave as-is
 	// (on update) / none (on create); [] = clear all links (visible to all).
 	CampaignIDs *[]string `json:"campaign_ids"`
@@ -98,17 +103,23 @@ func (s *server) handleCreateTemplate(w http.ResponseWriter, r *http.Request) {
 	if b.HeaderType == "" {
 		b.HeaderType = "NONE"
 	}
+	if b.TemplateType == "" {
+		b.TemplateType = "standard"
+	}
 	var id string
 	err := s.pool.QueryRow(r.Context(),
 		`INSERT INTO message_templates (organization_id, name, category, language, header_type,
-		        header_text, body, footer, buttons, variables, channel_id, created_by, status)
+		        header_text, body, footer, buttons, variables, channel_id, created_by, status,
+		        template_type, components)
 		 VALUES ($1,$2,$3,$4,$5,NULLIF($6,''),$7,NULLIF($8,''),
 		        COALESCE($9::jsonb,'[]'::jsonb), COALESCE($10::jsonb,'[]'::jsonb),
-		        NULLIF($11,'')::uuid, $12, 'DRAFT')
+		        NULLIF($11,'')::uuid, $12, 'DRAFT',
+		        $13, COALESCE($14::jsonb,'{}'::jsonb))
 		 RETURNING id::text`,
 		a.OrgID, b.Name, b.Category, b.Language, b.HeaderType,
 		b.HeaderText, b.Body, b.Footer, rawOrNil(b.Buttons), rawOrNil(b.Variables),
 		b.ChannelID, a.UserID,
+		b.TemplateType, rawOrNil(b.Components),
 	).Scan(&id)
 	if err != nil {
 		http.Error(w, err.Error(), http.StatusInternalServerError)
@@ -141,12 +152,15 @@ func (s *server) handleUpdateTemplate(w http.ResponseWriter, r *http.Request) {
 		   footer      = $9,
 		   buttons     = COALESCE($10::jsonb, buttons),
 		   variables   = COALESCE($11::jsonb, variables),
+		   template_type = COALESCE(NULLIF($12,''), template_type),
+		   components  = COALESCE($13::jsonb, components),
 		   status      = 'DRAFT',
 		   meta_template_id = NULL,
 		   updated_at  = now()
 		 WHERE id=$1 AND organization_id=$2`,
 		r.PathValue("id"), a.OrgID, b.Name, b.Category, b.Language, b.HeaderType,
 		b.HeaderText, b.Body, b.Footer, rawOrNil(b.Buttons), rawOrNil(b.Variables),
+		b.TemplateType, rawOrNil(b.Components),
 	)
 	if err != nil {
 		http.Error(w, err.Error(), http.StatusInternalServerError)

@@ -195,8 +195,20 @@ export interface Template {
   rejected_reason: string | null;
   channel_id: string | null;
   campaign_ids: string[] | null;   // campaigns this template is limited to ([] / null = all)
+  template_type?: string;          // standard | carousel | call_permission | request_contact
+  components?: TemplateComponents | null;
   created_at: string;
   updated_at: string;
+}
+
+export interface CarouselCard {
+  media_type: "IMAGE" | "VIDEO";
+  media_url?: string;
+  body: string;
+  buttons: TemplateButton[];
+}
+export interface TemplateComponents {
+  cards?: CarouselCard[];
 }
 
 export interface QuickReply {
