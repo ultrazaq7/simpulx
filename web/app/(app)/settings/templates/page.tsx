@@ -79,7 +79,7 @@ export default function TemplatesPage() {
   }
   async function remove(t: Template) {
     if (!confirm(`Delete template "${t.name}"?`)) return;
-    try { await api.deleteTemplate(t.id); notify("Template deleted"); load(); }
+    try { const r = await api.deleteTemplate(t.id); notify(r.warning || "Template deleted", r.warning ? "info" : "success"); load(); }
     catch (e) { notify(String(e), "error"); }
   }
 

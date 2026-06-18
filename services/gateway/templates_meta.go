@@ -51,19 +51,8 @@ func (s *server) submitTemplateToMeta(ctx context.Context, orgID, templateID str
 		return "", "", fmt.Errorf("%s templates can't be auto-registered with Meta yet; keep it as a draft", templateType)
 	}
 
-	// Resolve the WABA channel (the template's channel, else the org's first active one).
-	var wabaID, token string
-	if channelID.Valid && channelID.String != "" {
-		err = s.pool.QueryRow(ctx,
-			`SELECT COALESCE(waba_id,''), COALESCE(access_token,'') FROM channels WHERE id=$1 AND organization_id=$2`,
-			channelID.String, orgID).Scan(&wabaID, &token)
-	} else {
-		err = s.pool.QueryRow(ctx,
-			`SELECT COALESCE(waba_id,''), COALESCE(access_token,'') FROM channels
-			  WHERE organization_id=$1 AND is_active AND waba_id IS NOT NULL AND waba_id<>''
-			  ORDER BY created_at LIMIT 1`, orgID).Scan(&wabaID, &token)
-	}
-	if err != nil || wabaID == "" || token == "" {
+	wabaID, token, err := s.templateWABA(ctx, orgID, channelID.String)
+	if err != nil {
 		return "", "", fmt.Errorf("no WhatsApp channel with a WABA id + access token to submit to (assign a channel to this template)")
 	}
 
@@ -94,6 +83,44 @@ func (s *server) submitTemplateToMeta(ctx context.Context, orgID, templateID str
 		status = "PENDING"
 	}
 	return status, out.ID, nil
+}
+
+// templateWABA resolves the WABA id + access token for a template: its own
+// channel if set, otherwise the org's first active channel that has a WABA id.
+func (s *server) templateWABA(ctx context.Context, orgID, channelID string) (string, string, error) {
+	var waba, token string
+	var err error
+	if channelID != "" {
+		err = s.pool.QueryRow(ctx,
+			`SELECT COALESCE(waba_id,''), COALESCE(access_token,'') FROM channels WHERE id=$1 AND organization_id=$2`,
+			channelID, orgID).Scan(&waba, &token)
+	} else {
+		err = s.pool.QueryRow(ctx,
+			`SELECT COALESCE(waba_id,''), COALESCE(access_token,'') FROM channels
+			  WHERE organization_id=$1 AND is_active AND waba_id IS NOT NULL AND waba_id<>''
+			  ORDER BY created_at LIMIT 1`, orgID).Scan(&waba, &token)
+	}
+	if err != nil || waba == "" || token == "" {
+		return "", "", fmt.Errorf("no WhatsApp channel with a WABA id + access token")
+	}
+	return waba, token, nil
+}
+
+// deleteTemplateFromMeta removes a template (all languages) from the WABA by name.
+func (s *server) deleteTemplateFromMeta(ctx context.Context, wabaID, token, name string) error {
+	u := fmt.Sprintf("%s/%s/message_templates?name=%s", graphBase, wabaID, url.QueryEscape(name))
+	req, _ := http.NewRequestWithContext(ctx, http.MethodDelete, u, nil)
+	req.Header.Set("Authorization", "Bearer "+token)
+	resp, err := s.httpClient.Do(req)
+	if err != nil {
+		return err
+	}
+	defer resp.Body.Close()
+	b, _ := io.ReadAll(resp.Body)
+	if resp.StatusCode >= 300 {
+		return fmt.Errorf("meta delete %d: %s", resp.StatusCode, string(b))
+	}
+	return nil
 }
 
 // buildMetaComponents maps our flat template fields into Meta's components array.
