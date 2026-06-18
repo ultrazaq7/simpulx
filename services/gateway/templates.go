@@ -4,6 +4,7 @@ import (
 	"context"
 	"encoding/json"
 	"net/http"
+	"strings"
 
 	"github.com/simpulx/v2/libs/go/config"
 )
@@ -181,10 +182,37 @@ func (s *server) handleUpdateTemplate(w http.ResponseWriter, r *http.Request) {
 }
 
 // DELETE /api/templates/{id}
+// If the template was registered on Meta (has a real meta_template_id), delete it
+// there first (best-effort) so Simpulx and Meta stay in sync. The local row is
+// removed regardless; a warning is returned if the Meta delete failed.
 func (s *server) handleDeleteTemplate(w http.ResponseWriter, r *http.Request) {
 	a, _ := authFrom(r.Context())
+	id := r.PathValue("id")
+
+	var metaID, name, channelID string
+	err := s.pool.QueryRow(r.Context(),
+		`SELECT COALESCE(meta_template_id,''), name, COALESCE(channel_id::text,'')
+		   FROM message_templates WHERE id=$1 AND organization_id=$2`,
+		id, a.OrgID).Scan(&metaID, &name, &channelID)
+	if err != nil {
+		http.Error(w, "not found", http.StatusNotFound)
+		return
+	}
+
+	warning := ""
+	if !config.GetBool("WA_MOCK", true) && metaID != "" && !strings.HasPrefix(metaID, "mock-") {
+		if waba, token, werr := s.templateWABA(r.Context(), a.OrgID, channelID); werr == nil {
+			if derr := s.deleteTemplateFromMeta(r.Context(), waba, token, name); derr != nil {
+				warning = "Removed from Simpulx, but Meta delete failed (delete it in WhatsApp Manager): " + derr.Error()
+				s.log.Warn("meta template delete failed", "name", name, "err", derr)
+			}
+		} else {
+			warning = "Removed from Simpulx, but no WABA channel to delete it from Meta."
+		}
+	}
+
 	tag, err := s.pool.Exec(r.Context(),
-		`DELETE FROM message_templates WHERE id=$1 AND organization_id=$2`, r.PathValue("id"), a.OrgID)
+		`DELETE FROM message_templates WHERE id=$1 AND organization_id=$2`, id, a.OrgID)
 	if err != nil {
 		http.Error(w, err.Error(), http.StatusInternalServerError)
 		return
@@ -193,7 +221,11 @@ func (s *server) handleDeleteTemplate(w http.ResponseWriter, r *http.Request) {
 		http.Error(w, "not found", http.StatusNotFound)
 		return
 	}
-	writeJSON(w, map[string]any{"status": "deleted"})
+	resp := map[string]any{"status": "deleted"}
+	if warning != "" {
+		resp["warning"] = warning
+	}
+	writeJSON(w, resp)
 }
 
 // POST /api/templates/{id}/submit — submit to Meta for approval.

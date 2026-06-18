@@ -254,7 +254,7 @@ export const api = {
     header_media_url?: string; body?: string; footer?: string; buttons?: TemplateButton[]; variables?: string[];
     channel_id?: string; campaign_ids?: string[]; template_type?: string; components?: TemplateComponents;
   }) => req(`/api/templates/${id}`, { method: "PATCH", body: JSON.stringify(patch) }),
-  deleteTemplate: (id: string) => req(`/api/templates/${id}`, { method: "DELETE" }),
+  deleteTemplate: (id: string) => req<{ status: string; warning?: string }>(`/api/templates/${id}`, { method: "DELETE" }),
   submitTemplate: (id: string) => req<{ status: string; simulated: boolean }>(`/api/templates/${id}/submit`, { method: "POST" }),
   // ── Users (org accounts) ──
   listUsers: () => req<UserAccount[]>("/api/users"),
