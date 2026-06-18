@@ -245,7 +245,10 @@ func (s *server) handleSubmitTemplate(w http.ResponseWriter, r *http.Request) {
 	} else {
 		st, mid, err := s.submitTemplateToMeta(r.Context(), a.OrgID, id)
 		if err != nil {
-			http.Error(w, err.Error(), http.StatusBadGateway)
+			// 422 (not 502) so Cloudflare passes the real Meta error through to
+			// the UI instead of masking it with a branded 502 page.
+			s.log.Error("submit template to meta failed", "template", id, "err", err)
+			http.Error(w, err.Error(), http.StatusUnprocessableEntity)
 			return
 		}
 		newStatus = st
