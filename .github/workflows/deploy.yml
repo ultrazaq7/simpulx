@@ -51,7 +51,7 @@ jobs:
           # actual deploy runs under bash via `runuser -s /bin/bash`.
           read -r -d '' SCRIPT <<'REMOTE' || true
           set -eu
-          runuser -l ubuntu -s /bin/bash -c 'set -euo pipefail; cd /opt/simpulx && echo "-- sync origin/main --" && git fetch origin main && git reset --hard origin/main && git rev-parse --short HEAD && DC="docker compose --env-file .env -f deploy/docker/compose.yml -f deploy/docker/compose.prod.yml" && echo "-- build + restart --" && $DC up -d --build && (docker image prune -f >/dev/null 2>&1 || true) && echo "-- status --" && $DC ps'
+          runuser -l ubuntu -s /bin/bash -c 'set -euo pipefail; cd /opt/simpulx && echo "-- sync origin/main --" && git fetch origin main && git reset --hard origin/main && git rev-parse --short HEAD && DC="docker compose --env-file .env -f deploy/docker/compose.yml -f deploy/docker/compose.prod.yml" && echo "-- build + restart --" && $DC up -d --build && echo "-- refresh caddy (re-resolve recreated upstreams) --" && $DC restart caddy && (docker image prune -f >/dev/null 2>&1 || true) && echo "-- status --" && $DC ps'
           REMOTE
 
           jq -n --arg s "$SCRIPT" '{commands:[$s], executionTimeout:["3600"]}' > params.json
