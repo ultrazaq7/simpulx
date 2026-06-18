@@ -3,7 +3,7 @@ import { useEffect, useMemo, useRef, useState } from "react";
 import {
   Search, Plus, Pencil, Trash2, Send, RefreshCw, Loader2, X, ChevronLeft,
   Phone, Bold, Italic, Strikethrough, Smile, Info, Image as ImageIcon, Video,
-  UserRound, LibraryBig, Terminal,
+  UserRound, LibraryBig, Terminal, Upload,
 } from "lucide-react";
 import { api } from "@/lib/api";
 import { Select } from "@/components/Select";
@@ -194,8 +194,12 @@ function PhonePreview({ headerType, headerText, body, footer, buttons, vars, car
             <div className="flex gap-2 overflow-x-auto pb-1">
               {(cards.length ? cards : [{ media_type: "IMAGE", body: "", buttons: [] } as CarouselCard]).map((c, i) => (
                 <div key={i} className="bg-white rounded-lg p-1.5 shadow-sm shrink-0 w-[150px]">
-                  <div className="h-20 rounded-md bg-[#D1D7DB] grid place-items-center text-[#5A6B73]">
-                    {c.media_type === "VIDEO" ? <Video className="w-6 h-6" /> : <ImageIcon className="w-6 h-6" />}
+                  <div className="h-20 rounded-md bg-[#D1D7DB] grid place-items-center text-[#5A6B73] overflow-hidden">
+                    {c.media_url && c.media_type === "IMAGE"
+                      ? <img src={c.media_url} alt="" className="w-full h-full object-cover" />
+                      : c.media_url && c.media_type === "VIDEO"
+                      ? <video src={c.media_url} className="w-full h-full object-cover" />
+                      : c.media_type === "VIDEO" ? <Video className="w-6 h-6" /> : <ImageIcon className="w-6 h-6" />}
                   </div>
                   {c.body && <p className="text-[11.5px] text-[#111B21] mt-1 whitespace-pre-wrap">{renderBody(c.body, vars)}</p>}
                   {c.buttons?.map((b, j) => (
@@ -375,6 +379,7 @@ function TemplateForm({ editing, prefill, channels, campaigns, onClose, onSaved,
   const [campaignIds, setCampaignIds] = useState<string[]>(editing?.campaign_ids ?? []);
   const [saving, setSaving] = useState(false);
   const [emojiOpen, setEmojiOpen] = useState(false);
+  const [uploading, setUploading] = useState(false);
   const bodyRef = useRef<HTMLTextAreaElement>(null);
 
   // Keep type valid for the chosen category; ensure carousel has >=1 card.
@@ -415,6 +420,12 @@ function TemplateForm({ editing, prefill, channels, campaigns, onClose, onSaved,
   function addCard() { if (cards.length < 10) { setCards([...cards, { media_type: "IMAGE", media_url: "", body: "", buttons: [] }]); setActiveCard(cards.length); } }
   const setCard = (i: number, c: CarouselCard) => setCards(cards.map((x, idx) => (idx === i ? c : x)));
   function removeCard(i: number) { const next = cards.filter((_, idx) => idx !== i); setCards(next); setActiveCard(Math.max(0, Math.min(activeCard, next.length - 1))); }
+  async function uploadCardMedia(i: number, file: File) {
+    setUploading(true);
+    try { const { url } = await api.uploadFile(file); setCard(i, { ...cards[i], media_url: url }); }
+    catch (e) { onError(String(e)); }
+    finally { setUploading(false); }
+  }
 
   const supportsButtons = ttype === "standard";
   const supportsHeader = ttype === "standard";
@@ -580,6 +591,7 @@ function TemplateForm({ editing, prefill, channels, campaigns, onClose, onSaved,
                   </div>
                   <div>
                     <p className="text-[12px] font-semibold text-foreground mb-1">Media</p>
+                    <p className="text-[11px] text-muted-foreground mb-1.5">Upload either an image or video.</p>
                     <div className="flex items-center gap-4 mb-2 text-[12.5px]">
                       {(["IMAGE", "VIDEO"] as const).map((mt) => (
                         <label key={mt} className="flex items-center gap-1.5 cursor-pointer">
@@ -588,8 +600,19 @@ function TemplateForm({ editing, prefill, channels, campaigns, onClose, onSaved,
                         </label>
                       ))}
                     </div>
+                    <div className="flex items-center gap-2 mb-2">
+                      <label className={cn("inline-flex items-center gap-1.5 h-8 px-3 rounded-md text-[12.5px] font-semibold cursor-pointer outline-none text-white", uploading ? "bg-primary/60" : "bg-primary hover:bg-primary/90")}>
+                        {uploading ? <Loader2 className="w-3.5 h-3.5 animate-spin" /> : <Upload className="w-3.5 h-3.5" />}
+                        Choose file
+                        <input type="file" accept={cards[activeCard].media_type === "VIDEO" ? "video/*" : "image/*"} className="hidden"
+                          onChange={(e) => { const f = e.target.files?.[0]; if (f) uploadCardMedia(activeCard, f); e.target.value = ""; }} />
+                      </label>
+                      {cards[activeCard].media_url
+                        ? <span className="inline-flex items-center gap-1 text-[11.5px] text-emerald-600 font-medium truncate max-w-[170px]"><ImageIcon className="w-3.5 h-3.5 shrink-0" />Uploaded</span>
+                        : <span className="text-[11.5px] text-muted-foreground">Sample {cards[activeCard].media_type.toLowerCase()} required</span>}
+                    </div>
                     <input value={cards[activeCard].media_url ?? ""} onChange={(e) => setCard(activeCard, { ...cards[activeCard], media_url: e.target.value })}
-                      placeholder="Sample media URL (https://...)" className={cn(INPUT_CLASS, "h-8")} />
+                      placeholder="...or paste a media URL (https://...)" className={cn(INPUT_CLASS, "h-8")} />
                   </div>
                   <div>
                     <p className="text-[12px] font-semibold text-foreground mb-1">Card content (optional)</p>
