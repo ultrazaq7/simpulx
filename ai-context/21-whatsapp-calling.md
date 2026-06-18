@@ -47,18 +47,35 @@ get **repurposed**: instead of the manual `duration:0` log, the **webhook** writ
 - `/api/conversations` returns `calling_enabled` (campaign→channel); the inbox **call button only
   shows when the channel has calling enabled**. So nothing is built/broken visibly until OTO's
   channel is turned on (`UPDATE channels SET calling_enabled=true WHERE id=<oto channel>` + assign
-  that channel to the campaign). The remaining phases below light up the actual calling.
+  that channel to the campaign).
 
-## Phasing (each shippable)
-1. **Enablement + verification (no code, needs owner/Meta access):** confirm Calling API enabled on
-   the WABA + ID region, messaging limit ≥2000, `calls` webhook subscribable; decide direct vs BSP.
-2. **Webhook ingest (backend):** gateway handles the `calls` lifecycle events; persist real duration
-   to `call_logs` + `total_call_duration`. Gives accurate duration for ANY WA call once enabled.
-3. **Outbound call control (backend):** business-initiated call init/accept/terminate via Graph API +
-   the consent/permission flow.
-4. **In-browser WebRTC client (frontend):** the call button opens a real call panel —
-   RTCPeerConnection negotiated with Meta's SDP, mic audio, live timer, hang up. (Biggest FE piece.)
-5. **Call UX:** ringing/connected/ended states, per-conversation call history with real duration.
+## BUILT (2026-06-18): full both-direction calling, end-to-end
+- **`calls` table** (mig `0039`) + **`calls.direction`** (mig `0040`, default `outbound`).
+- **realtime fix:** the service now forwards `events.call.updated` to browsers (it was missing, so
+  the whole WS-based signaling was dead — overlay just span). Frontend listens to the app-wide WS
+  (Shell `ws_message`), not a second socket.
+- **OUTBOUND** (gateway `calls.go`): request-permission → initiate (browser SDP offer → Meta
+  `/calls` connect) → webhook `connect` returns the customer's SDP answer → browser completes WebRTC.
+  `CallOverlay.tsx` drives requesting→granted→ringing→connected→ended.
+- **INBOUND** (the part the owner asked for): webhook `connect` with `direction=USER_INITIATED`
+  (or `sdp_type=offer`) → `handleInboundCall` finds the conversation, creates an inbound `calls`
+  row, and **rings the conversation's ASSIGNED agent** (broadcast carries `agent_id` + the SDP
+  offer; unassigned → rings all, first-to-answer wins via an atomic `WHERE call_status='incoming'`
+  claim). `IncomingCallListener.tsx` (mounted in `Shell`) rings the agent anywhere in the app and
+  opens `CallOverlay` in inbound mode → Accept builds the SDP answer → `POST /api/calls/{id}/accept`
+  (Meta `action: accept`); Reject → `/reject`.
+- **Duration:** webhook `terminate` uses Meta's authoritative `duration`; rolled into
+  `conversations.call_attempts` + `total_call_duration` (`persistCallDuration`).
+- **Routes:** `POST /api/calls/{request-permission,initiate,{id}/accept,{id}/reject,{id}/end}`,
+  `GET /api/calls/{id}`.
+
+### Still TODO before live (needs Meta/owner, not code)
+- Confirm Calling API enabled on the WABA + ID region, messaging limit ≥2000, `calls` webhook
+  subscribed; decide direct vs BSP. Everything above runs in `WA_MOCK` until real creds exist.
+- The exact Meta interactive/permission payload + accept/reject body shapes are best-effort from
+  docs (⚠️) — verify against the live WABA and adjust `sendCallPermissionRequest` /
+  `postMetaCallAcceptReject` / `postMetaCallInitiate` if Meta's shape differs.
+- TURN server: only STUN is configured; real calls behind strict NAT will need TURN.
 
 ## Open items to verify before build (⚠️)
 - Calling API actually enabled on our WABA + our number's provisioning (direct Cloud API vs BSP).

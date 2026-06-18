@@ -237,14 +237,22 @@ export const api = {
   testSendBroadcast: (input: { channel_id?: string; contact_id: string; body?: string; template_id?: string }) =>
     req<{ status: string }>("/api/broadcasts/test-send", { method: "POST", body: JSON.stringify(input) }),
   // ── Templates (WhatsApp HSM) ──
-  listTemplates: () => req<Template[]>("/api/templates"),
+  listTemplates: (filters?: { channel_id?: string; campaign_id?: string }) => {
+    const qs = new URLSearchParams();
+    if (filters?.channel_id) qs.set("channel_id", filters.channel_id);
+    if (filters?.campaign_id) qs.set("campaign_id", filters.campaign_id);
+    const q = qs.toString();
+    return req<Template[]>(`/api/templates${q ? `?${q}` : ""}`);
+  },
   createTemplate: (input: {
     name: string; category: string; language: string; header_type?: string; header_text?: string;
-    body: string; footer?: string; buttons?: TemplateButton[]; variables?: string[]; channel_id?: string;
+    body: string; footer?: string; buttons?: TemplateButton[]; variables?: string[];
+    channel_id?: string; campaign_ids?: string[];
   }) => req<{ id: string; status: string }>("/api/templates", { method: "POST", body: JSON.stringify(input) }),
   updateTemplate: (id: string, patch: {
     name?: string; category?: string; language?: string; header_type?: string; header_text?: string;
     body?: string; footer?: string; buttons?: TemplateButton[]; variables?: string[];
+    channel_id?: string; campaign_ids?: string[];
   }) => req(`/api/templates/${id}`, { method: "PATCH", body: JSON.stringify(patch) }),
   deleteTemplate: (id: string) => req(`/api/templates/${id}`, { method: "DELETE" }),
   submitTemplate: (id: string) => req<{ status: string; simulated: boolean }>(`/api/templates/${id}/submit`, { method: "POST" }),
@@ -335,6 +343,10 @@ export const api = {
     req<{ call_id: string; status: string }>("/api/calls/request-permission", { method: "POST", body: JSON.stringify({ conversation_id: conversationId }) }),
   initiateCall: (callId: string, sdpOffer: string) =>
     req<{ call_id: string; status: string }>("/api/calls/initiate", { method: "POST", body: JSON.stringify({ call_id: callId, sdp_offer: sdpOffer }) }),
+  acceptCall: (callId: string, sdpAnswer: string) =>
+    req<{ call_id: string; status: string }>(`/api/calls/${callId}/accept`, { method: "POST", body: JSON.stringify({ sdp_answer: sdpAnswer }) }),
+  rejectCall: (callId: string) =>
+    req<{ status: string }>(`/api/calls/${callId}/reject`, { method: "POST" }),
   endCall: (callId: string) =>
     req<{ status: string; duration_seconds: number }>(`/api/calls/${callId}/end`, { method: "POST" }),
   getCall: (callId: string) =>

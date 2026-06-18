@@ -1,6 +1,7 @@
 package main
 
 import (
+	"context"
 	"encoding/json"
 	"net/http"
 
@@ -12,16 +13,32 @@ import (
 // with real WABA credentials this is where the Graph API call goes.
 
 // GET /api/templates
+// Optional query filters:
+//   ?channel_id=<uuid>   templates bound to that channel (plus channel-agnostic ones)
+//   ?campaign_id=<uuid>  templates VISIBLE to that campaign:
+//                          - explicitly linked to it, OR
+//                          - unlinked (= all campaigns) and on a matching/any channel.
 func (s *server) handleListTemplates(w http.ResponseWriter, r *http.Request) {
 	a, _ := authFrom(r.Context())
+	channelID := r.URL.Query().Get("channel_id")
+	campaignID := r.URL.Query().Get("campaign_id")
 	rows, err := s.queryMaps(r.Context(),
-		`SELECT id::text AS id, name, category, language, header_type, header_text,
-		        body, footer, buttons, variables, status, meta_template_id,
-		        rejected_reason, channel_id::text AS channel_id, created_at, updated_at
-		   FROM message_templates
-		  WHERE organization_id=$1
-		  ORDER BY updated_at DESC`,
-		a.OrgID,
+		`SELECT t.id::text AS id, t.name, t.category, t.language, t.header_type, t.header_text,
+		        t.body, t.footer, t.buttons, t.variables, t.status, t.meta_template_id,
+		        t.rejected_reason, t.channel_id::text AS channel_id,
+		        COALESCE(array_agg(tc.campaign_id::text) FILTER (WHERE tc.campaign_id IS NOT NULL), '{}') AS campaign_ids,
+		        t.created_at, t.updated_at
+		   FROM message_templates t
+		   LEFT JOIN template_campaigns tc ON tc.template_id = t.id
+		  WHERE t.organization_id=$1
+		    AND ($2 = '' OR t.channel_id = $2::uuid OR t.channel_id IS NULL)
+		    AND ($3 = '' OR
+		         EXISTS (SELECT 1 FROM template_campaigns x WHERE x.template_id = t.id AND x.campaign_id = $3::uuid)
+		         OR (NOT EXISTS (SELECT 1 FROM template_campaigns x WHERE x.template_id = t.id)
+		             AND (t.channel_id IS NULL OR t.channel_id = (SELECT channel_id FROM campaigns WHERE id = $3::uuid))))
+		  GROUP BY t.id
+		  ORDER BY t.updated_at DESC`,
+		a.OrgID, channelID, campaignID,
 	)
 	if err != nil {
 		http.Error(w, err.Error(), http.StatusInternalServerError)
@@ -30,17 +47,38 @@ func (s *server) handleListTemplates(w http.ResponseWriter, r *http.Request) {
 	writeJSON(w, rows)
 }
 
+// setTemplateCampaigns replaces the campaign links for a template.
+func (s *server) setTemplateCampaigns(ctx context.Context, templateID string, campaignIDs []string) error {
+	if _, err := s.pool.Exec(ctx, `DELETE FROM template_campaigns WHERE template_id=$1`, templateID); err != nil {
+		return err
+	}
+	for _, cid := range campaignIDs {
+		if cid == "" {
+			continue
+		}
+		if _, err := s.pool.Exec(ctx,
+			`INSERT INTO template_campaigns (template_id, campaign_id) VALUES ($1,$2::uuid)
+			 ON CONFLICT DO NOTHING`, templateID, cid); err != nil {
+			return err
+		}
+	}
+	return nil
+}
+
 type templateInput struct {
-	Name       string          `json:"name"`
-	Category   string          `json:"category"`
-	Language   string          `json:"language"`
-	HeaderType string          `json:"header_type"`
-	HeaderText string          `json:"header_text"`
-	Body       string          `json:"body"`
-	Footer     string          `json:"footer"`
-	Buttons    json.RawMessage `json:"buttons"`
-	Variables  json.RawMessage `json:"variables"`
-	ChannelID  string          `json:"channel_id"`
+	Name        string          `json:"name"`
+	Category    string          `json:"category"`
+	Language    string          `json:"language"`
+	HeaderType  string          `json:"header_type"`
+	HeaderText  string          `json:"header_text"`
+	Body        string          `json:"body"`
+	Footer      string          `json:"footer"`
+	Buttons     json.RawMessage `json:"buttons"`
+	Variables   json.RawMessage `json:"variables"`
+	ChannelID   string          `json:"channel_id"`
+	// CampaignIDs scopes the template to specific campaigns. nil = leave as-is
+	// (on update) / none (on create); [] = clear all links (visible to all).
+	CampaignIDs *[]string `json:"campaign_ids"`
 }
 
 // POST /api/templates — saved as DRAFT until submitted.
@@ -75,6 +113,11 @@ func (s *server) handleCreateTemplate(w http.ResponseWriter, r *http.Request) {
 	if err != nil {
 		http.Error(w, err.Error(), http.StatusInternalServerError)
 		return
+	}
+	if b.CampaignIDs != nil {
+		if err := s.setTemplateCampaigns(r.Context(), id, *b.CampaignIDs); err != nil {
+			s.log.Error("set template campaigns failed", "err", err)
+		}
 	}
 	writeJSON(w, map[string]any{"id": id, "status": "DRAFT"})
 }
@@ -112,6 +155,11 @@ func (s *server) handleUpdateTemplate(w http.ResponseWriter, r *http.Request) {
 	if tag.RowsAffected() == 0 {
 		http.Error(w, "not found", http.StatusNotFound)
 		return
+	}
+	if b.CampaignIDs != nil {
+		if err := s.setTemplateCampaigns(r.Context(), r.PathValue("id"), *b.CampaignIDs); err != nil {
+			s.log.Error("set template campaigns failed", "err", err)
+		}
 	}
 	writeJSON(w, map[string]any{"status": "updated"})
 }
