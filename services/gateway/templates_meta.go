@@ -47,8 +47,12 @@ func (s *server) submitTemplateToMeta(ctx context.Context, orgID, templateID str
 		return "", "", fmt.Errorf("template not found")
 	}
 
-	if templateType != "" && templateType != "standard" {
-		return "", "", fmt.Errorf("%s templates can't be auto-registered with Meta yet; keep it as a draft", templateType)
+	if templateType == "carousel" {
+		return "", "", fmt.Errorf("carousel templates can't be auto-registered with Meta yet; keep it as a draft")
+	}
+	// Meta requires call-permission requests to be MARKETING templates.
+	if templateType == "call_permission" {
+		category = "MARKETING"
 	}
 
 	wabaID, token, err := s.templateWABA(ctx, orgID, channelID.String)
@@ -61,7 +65,7 @@ func (s *server) submitTemplateToMeta(ctx context.Context, orgID, templateID str
 	var variables []string
 	_ = json.Unmarshal(orEmptyJSON(variablesRaw), &variables)
 
-	comps, err := s.buildMetaComponents(ctx, token, headerType, headerText.String, headerMediaURL.String, body, footer.String, buttons, variables)
+	comps, err := s.buildMetaComponents(ctx, token, headerType, headerText.String, headerMediaURL.String, body, footer.String, buttons, variables, templateType)
 	if err != nil {
 		return "", "", err
 	}
@@ -124,7 +128,7 @@ func (s *server) deleteTemplateFromMeta(ctx context.Context, wabaID, token, name
 }
 
 // buildMetaComponents maps our flat template fields into Meta's components array.
-func (s *server) buildMetaComponents(ctx context.Context, token, headerType, headerText, headerMediaURL, body, footer string, buttons []templateButtonJSON, variables []string) ([]map[string]any, error) {
+func (s *server) buildMetaComponents(ctx context.Context, token, headerType, headerText, headerMediaURL, body, footer string, buttons []templateButtonJSON, variables []string, templateType string) ([]map[string]any, error) {
 	var comps []map[string]any
 
 	switch strings.ToUpper(headerType) {
@@ -163,23 +167,33 @@ func (s *server) buildMetaComponents(ctx context.Context, token, headerType, hea
 		comps = append(comps, map[string]any{"type": "FOOTER", "text": footer})
 	}
 
-	if len(buttons) > 0 {
-		var btns []map[string]any
-		for _, b := range buttons {
-			if b.Text == "" {
-				continue
+	switch templateType {
+	case "call_permission":
+		// A dedicated top-level component; Meta renders the Allow / Don't allow UI.
+		comps = append(comps, map[string]any{"type": "CALL_PERMISSION_REQUEST"})
+	case "request_contact":
+		comps = append(comps, map[string]any{"type": "BUTTONS", "buttons": []map[string]any{
+			{"type": "REQUEST_CONTACT_INFO", "text": "Share contact info"},
+		}})
+	default:
+		if len(buttons) > 0 {
+			var btns []map[string]any
+			for _, b := range buttons {
+				if b.Text == "" {
+					continue
+				}
+				switch strings.ToUpper(b.Type) {
+				case "URL":
+					btns = append(btns, map[string]any{"type": "URL", "text": b.Text, "url": b.URL})
+				case "PHONE_NUMBER":
+					btns = append(btns, map[string]any{"type": "PHONE_NUMBER", "text": b.Text, "phone_number": b.Phone})
+				default:
+					btns = append(btns, map[string]any{"type": "QUICK_REPLY", "text": b.Text})
+				}
 			}
-			switch strings.ToUpper(b.Type) {
-			case "URL":
-				btns = append(btns, map[string]any{"type": "URL", "text": b.Text, "url": b.URL})
-			case "PHONE_NUMBER":
-				btns = append(btns, map[string]any{"type": "PHONE_NUMBER", "text": b.Text, "phone_number": b.Phone})
-			default:
-				btns = append(btns, map[string]any{"type": "QUICK_REPLY", "text": b.Text})
+			if len(btns) > 0 {
+				comps = append(comps, map[string]any{"type": "BUTTONS", "buttons": btns})
 			}
-		}
-		if len(btns) > 0 {
-			comps = append(comps, map[string]any{"type": "BUTTONS", "buttons": btns})
 		}
 	}
 	return comps, nil
