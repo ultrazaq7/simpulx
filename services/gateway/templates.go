@@ -26,7 +26,7 @@ func (s *server) handleListTemplates(w http.ResponseWriter, r *http.Request) {
 		`SELECT t.id::text AS id, t.name, t.category, t.language, t.header_type, t.header_text,
 		        t.body, t.footer, t.buttons, t.variables, t.status, t.meta_template_id,
 		        t.rejected_reason, t.channel_id::text AS channel_id,
-		        t.template_type, t.components,
+		        t.template_type, t.components, t.header_media_url,
 		        COALESCE(array_agg(tc.campaign_id::text) FILTER (WHERE tc.campaign_id IS NOT NULL), '{}') AS campaign_ids,
 		        t.created_at, t.updated_at
 		   FROM message_templates t
@@ -72,6 +72,7 @@ type templateInput struct {
 	Language    string          `json:"language"`
 	HeaderType  string          `json:"header_type"`
 	HeaderText  string          `json:"header_text"`
+	HeaderMediaURL string       `json:"header_media_url"`
 	Body        string          `json:"body"`
 	Footer      string          `json:"footer"`
 	Buttons     json.RawMessage `json:"buttons"`
@@ -110,16 +111,16 @@ func (s *server) handleCreateTemplate(w http.ResponseWriter, r *http.Request) {
 	err := s.pool.QueryRow(r.Context(),
 		`INSERT INTO message_templates (organization_id, name, category, language, header_type,
 		        header_text, body, footer, buttons, variables, channel_id, created_by, status,
-		        template_type, components)
+		        template_type, components, header_media_url)
 		 VALUES ($1,$2,$3,$4,$5,NULLIF($6,''),$7,NULLIF($8,''),
 		        COALESCE($9::jsonb,'[]'::jsonb), COALESCE($10::jsonb,'[]'::jsonb),
 		        NULLIF($11,'')::uuid, $12, 'DRAFT',
-		        $13, COALESCE($14::jsonb,'{}'::jsonb))
+		        $13, COALESCE($14::jsonb,'{}'::jsonb), NULLIF($15,''))
 		 RETURNING id::text`,
 		a.OrgID, b.Name, b.Category, b.Language, b.HeaderType,
 		b.HeaderText, b.Body, b.Footer, rawOrNil(b.Buttons), rawOrNil(b.Variables),
 		b.ChannelID, a.UserID,
-		b.TemplateType, rawOrNil(b.Components),
+		b.TemplateType, rawOrNil(b.Components), b.HeaderMediaURL,
 	).Scan(&id)
 	if err != nil {
 		http.Error(w, err.Error(), http.StatusInternalServerError)
@@ -154,13 +155,14 @@ func (s *server) handleUpdateTemplate(w http.ResponseWriter, r *http.Request) {
 		   variables   = COALESCE($11::jsonb, variables),
 		   template_type = COALESCE(NULLIF($12,''), template_type),
 		   components  = COALESCE($13::jsonb, components),
+		   header_media_url = $14,
 		   status      = 'DRAFT',
 		   meta_template_id = NULL,
 		   updated_at  = now()
 		 WHERE id=$1 AND organization_id=$2`,
 		r.PathValue("id"), a.OrgID, b.Name, b.Category, b.Language, b.HeaderType,
 		b.HeaderText, b.Body, b.Footer, rawOrNil(b.Buttons), rawOrNil(b.Variables),
-		b.TemplateType, rawOrNil(b.Components),
+		b.TemplateType, rawOrNil(b.Components), b.HeaderMediaURL,
 	)
 	if err != nil {
 		http.Error(w, err.Error(), http.StatusInternalServerError)
@@ -195,22 +197,34 @@ func (s *server) handleDeleteTemplate(w http.ResponseWriter, r *http.Request) {
 }
 
 // POST /api/templates/{id}/submit — submit to Meta for approval.
-// Real WABA: POST to Graph API /{waba_id}/message_templates -> PENDING,
-// then a webhook updates status. In dev/mock mode we auto-approve.
+// Real WABA: POST to Graph API /{waba_id}/message_templates -> PENDING, then the
+// message_template_status_update webhook flips APPROVED/REJECTED. In mock mode we
+// auto-approve.
 func (s *server) handleSubmitTemplate(w http.ResponseWriter, r *http.Request) {
 	a, _ := authFrom(r.Context())
+	id := r.PathValue("id")
 	mock := config.GetBool("WA_MOCK", true)
-	newStatus := "PENDING"
+
+	var newStatus string
 	var metaID any
 	if mock {
 		newStatus = "APPROVED"
-		metaID = "mock-" + r.PathValue("id")
+		metaID = "mock-" + id
+	} else {
+		st, mid, err := s.submitTemplateToMeta(r.Context(), a.OrgID, id)
+		if err != nil {
+			http.Error(w, err.Error(), http.StatusBadGateway)
+			return
+		}
+		newStatus = st
+		metaID = mid
 	}
+
 	tag, err := s.pool.Exec(r.Context(),
 		`UPDATE message_templates
 		    SET status=$3, meta_template_id=COALESCE($4, meta_template_id), rejected_reason=NULL, updated_at=now()
 		  WHERE id=$1 AND organization_id=$2`,
-		r.PathValue("id"), a.OrgID, newStatus, metaID)
+		id, a.OrgID, newStatus, metaID)
 	if err != nil {
 		http.Error(w, err.Error(), http.StatusInternalServerError)
 		return
@@ -219,6 +233,6 @@ func (s *server) handleSubmitTemplate(w http.ResponseWriter, r *http.Request) {
 		http.Error(w, "not found", http.StatusNotFound)
 		return
 	}
-	s.audit(r.Context(), a, "submitted", "template", r.PathValue("id"), map[string]any{"status": newStatus})
+	s.audit(r.Context(), a, "submitted", "template", id, map[string]any{"status": newStatus})
 	writeJSON(w, map[string]any{"status": newStatus, "simulated": mock})
 }

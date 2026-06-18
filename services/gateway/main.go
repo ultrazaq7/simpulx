@@ -392,6 +392,12 @@ func (s *server) ingest(ctx context.Context, p waWebhook) {
 				}
 			}
 
+			// ── Template approval status (Meta reviews submitted templates) ──
+			if change.Field == "message_template_status_update" {
+				s.processTemplateStatusWebhook(ctx, val)
+				continue
+			}
+
 			// ── Call events (WhatsApp Business Calling API) ──
 			if change.Field == "calls" {
 				orgID, err := s.resolveOrg(ctx, val.Metadata.PhoneNumberID)

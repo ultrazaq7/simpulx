@@ -186,6 +186,7 @@ export interface Template {
   language: string;
   header_type: string | null;  // NONE | TEXT | IMAGE | VIDEO | DOCUMENT
   header_text: string | null;
+  header_media_url?: string | null;  // sample media for IMAGE/VIDEO/DOCUMENT headers
   body: string;
   footer: string | null;
   buttons: TemplateButton[] | null;

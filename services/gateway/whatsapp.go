@@ -31,6 +31,13 @@ type waValue struct {
 	// webhook (field == "calls"). Kept raw so the call processor can decode the
 	// full lifecycle shape (connect/terminate, SDP, direction, duration).
 	Calls json.RawMessage `json:"calls"`
+
+	// message_template_status_update webhook fields (field == that name).
+	Event                   string      `json:"event"`
+	MessageTemplateID       json.Number `json:"message_template_id"`
+	MessageTemplateName     string      `json:"message_template_name"`
+	MessageTemplateLanguage string      `json:"message_template_language"`
+	Reason                  string      `json:"reason"`
 }
 
 type waStatus struct {
