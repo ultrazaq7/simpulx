@@ -12,7 +12,7 @@ import { fmtDate, cn } from "@/lib/utils";
 import { Tip } from "@/components/ui/tooltip";
 import type { Template, TemplateButton, CarouselCard, Channel, Campaign } from "@/lib/types";
 import {
-  TEMPLATE_LIBRARY, TEMPLATE_TYPES, TYPES_BY_CATEGORY, TEMPLATE_TOPICS,
+  TEMPLATE_LIBRARY, TEMPLATE_TYPES, TYPES_BY_CATEGORY, TEMPLATE_TOPICS, LIBRARY_LANGS, localizeLibrary,
   type TemplateType, type LibraryTemplate,
 } from "./library";
 import { useToast, PageBody, SettingsCard, FieldLabel, INPUT_CLASS, PrimaryButton, GhostButton } from "../_shared";
@@ -52,6 +52,7 @@ export default function TemplatesPage() {
   const [flow, setFlow] = useState<"" | "chooser" | "library" | "form">("");
   const [editing, setEditing] = useState<Template | null>(null);
   const [prefill, setPrefill] = useState<LibraryTemplate | null>(null);
+  const [prefillLang, setPrefillLang] = useState("en");
 
   async function load() {
     setLoading(true);
@@ -82,7 +83,7 @@ export default function TemplatesPage() {
     catch (e) { notify(String(e), "error"); }
   }
 
-  function openNew() { setEditing(null); setPrefill(null); setFlow("chooser"); }
+  function openNew() { setEditing(null); setPrefill(null); setPrefillLang("en"); setFlow("chooser"); }
   function openEdit(t: Template) { setEditing(t); setPrefill(null); setFlow("form"); }
   function closeFlow() { setFlow(""); setEditing(null); setPrefill(null); }
 
@@ -160,10 +161,10 @@ export default function TemplatesPage() {
       )}
       {flow === "library" && (
         <TemplateLibrary onClose={closeFlow} onBack={() => setFlow("chooser")}
-          onPick={(item) => { setPrefill(item); setFlow("form"); }} />
+          onPick={(item, lang) => { setPrefill(item); setPrefillLang(lang); setFlow("form"); }} />
       )}
       {flow === "form" && (
-        <TemplateForm editing={editing} prefill={prefill} channels={channels} campaigns={campaigns}
+        <TemplateForm editing={editing} prefill={prefill} prefillLang={prefillLang} channels={channels} campaigns={campaigns}
           onClose={closeFlow} onSaved={(m) => { closeFlow(); notify(m); load(); }} onError={(m) => notify(m, "error")} />
       )}
     </PageBody>
@@ -270,7 +271,7 @@ function ChooserCard({ onClick, accent, Icon, title, desc, cta }: { onClick: () 
 }
 
 // ──────────────────────────── Template library modal ────────────────────────
-function TemplateLibrary({ onClose, onBack, onPick }: { onClose: () => void; onBack: () => void; onPick: (t: LibraryTemplate) => void }) {
+function TemplateLibrary({ onClose, onBack, onPick }: { onClose: () => void; onBack: () => void; onPick: (t: LibraryTemplate, lang: string) => void }) {
   const [q, setQ] = useState("");
   const [lang, setLang] = useState("en");
   const [cats, setCats] = useState<string[]>([]);
@@ -306,7 +307,7 @@ function TemplateLibrary({ onClose, onBack, onPick }: { onClose: () => void; onB
             <input value={q} onChange={(e) => setQ(e.target.value)} placeholder="Search templates..."
               className="w-full h-9 pl-9 pr-3 rounded-md border border-input bg-background text-sm outline-none focus:border-primary" />
           </div>
-          <div className="w-[150px]"><Select value={lang} onChange={setLang} options={LANGS} /></div>
+          <div className="w-[150px]"><Select value={lang} onChange={setLang} options={LIBRARY_LANGS} /></div>
           <button onClick={onClose} className="p-1 rounded-md text-muted-foreground hover:bg-muted outline-none"><X className="w-[18px] h-[18px]" /></button>
         </div>
       }
@@ -337,17 +338,20 @@ function TemplateLibrary({ onClose, onBack, onPick }: { onClose: () => void; onB
         <div className="flex-1 overflow-y-auto p-4" style={{ backgroundColor: "#F0F6F2" }}>
           <p className="text-[12.5px] text-muted-foreground mb-3">Showing {results.length} result{results.length !== 1 ? "s" : ""}</p>
           <div className="grid grid-cols-3 gap-3">
-            {results.map((t) => (
-              <button key={t.id} onClick={() => onPick(t)} className="text-left bg-transparent outline-none group">
-                <div className="bg-[#E5DDD5] rounded-lg p-3 h-[150px] flex items-start" style={{ backgroundImage: "radial-gradient(rgba(0,0,0,0.04) 1px,transparent 1px)", backgroundSize: "12px 12px" }}>
-                  <div className="bg-white rounded-lg rounded-tl-none p-2 shadow-sm w-full group-hover:shadow-md transition-shadow">
-                    <p className="text-[11.5px] text-[#111B21] line-clamp-5 whitespace-pre-wrap">{t.body}</p>
-                    {t.buttons[0] && <p className="text-[11px] text-[#1DA1F2] font-semibold mt-1 border-t border-[#E9EDEF] pt-1 text-center">{t.buttons[0].text}</p>}
+            {results.map((t) => {
+              const lt = localizeLibrary(t, lang);
+              return (
+                <button key={t.id} onClick={() => onPick(lt, lang)} className="text-left bg-transparent outline-none group">
+                  <div className="bg-[#E5DDD5] rounded-lg p-3 h-[150px] flex items-start" style={{ backgroundImage: "radial-gradient(rgba(0,0,0,0.04) 1px,transparent 1px)", backgroundSize: "12px 12px" }}>
+                    <div className="bg-white rounded-lg rounded-tl-none p-2 shadow-sm w-full group-hover:shadow-md transition-shadow">
+                      <p className="text-[11.5px] text-[#111B21] line-clamp-5 whitespace-pre-wrap">{lt.body}</p>
+                      {lt.buttons[0] && <p className="text-[11px] text-[#1DA1F2] font-semibold mt-1 border-t border-[#E9EDEF] pt-1 text-center">{lt.buttons[0].text}</p>}
+                    </div>
                   </div>
-                </div>
-                <p className="text-[12px] font-semibold text-foreground mt-1.5 truncate">{t.name}</p>
-              </button>
-            ))}
+                  <p className="text-[12px] font-semibold text-foreground mt-1.5 truncate">{t.name}</p>
+                </button>
+              );
+            })}
           </div>
         </div>
       </div>
@@ -356,14 +360,14 @@ function TemplateLibrary({ onClose, onBack, onPick }: { onClose: () => void; onB
 }
 
 // ─────────────────────── Step: Create Message Template ──────────────────────
-function TemplateForm({ editing, prefill, channels, campaigns, onClose, onSaved, onError }: {
-  editing: Template | null; prefill: LibraryTemplate | null; channels: Channel[]; campaigns: Campaign[];
+function TemplateForm({ editing, prefill, prefillLang, channels, campaigns, onClose, onSaved, onError }: {
+  editing: Template | null; prefill: LibraryTemplate | null; prefillLang?: string; channels: Channel[]; campaigns: Campaign[];
   onClose: () => void; onSaved: (m: string) => void; onError: (m: string) => void;
 }) {
   const isEdit = !!editing;
   const init = editing ?? prefill;
   const [name, setName] = useState(init?.name ?? "");
-  const [language, setLanguage] = useState((editing?.language) ?? "en");
+  const [language, setLanguage] = useState((editing?.language) ?? prefillLang ?? "en");
   const [category, setCategory] = useState<typeof CATEGORIES[number]>(
     (CATEGORIES.includes((init?.category ?? "") as typeof CATEGORIES[number]) ? init!.category : "UTILITY") as typeof CATEGORIES[number]);
   const [ttype, setTtype] = useState<TemplateType>((editing?.template_type as TemplateType) ?? prefill?.type ?? "standard");
