@@ -246,12 +246,12 @@ export const api = {
   },
   createTemplate: (input: {
     name: string; category: string; language: string; header_type?: string; header_text?: string;
-    body: string; footer?: string; buttons?: TemplateButton[]; variables?: string[];
+    header_media_url?: string; body: string; footer?: string; buttons?: TemplateButton[]; variables?: string[];
     channel_id?: string; campaign_ids?: string[]; template_type?: string; components?: TemplateComponents;
   }) => req<{ id: string; status: string }>("/api/templates", { method: "POST", body: JSON.stringify(input) }),
   updateTemplate: (id: string, patch: {
     name?: string; category?: string; language?: string; header_type?: string; header_text?: string;
-    body?: string; footer?: string; buttons?: TemplateButton[]; variables?: string[];
+    header_media_url?: string; body?: string; footer?: string; buttons?: TemplateButton[]; variables?: string[];
     channel_id?: string; campaign_ids?: string[]; template_type?: string; components?: TemplateComponents;
   }) => req(`/api/templates/${id}`, { method: "PATCH", body: JSON.stringify(patch) }),
   deleteTemplate: (id: string) => req(`/api/templates/${id}`, { method: "DELETE" }),

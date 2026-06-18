@@ -172,8 +172,8 @@ export default function TemplatesPage() {
 }
 
 // ─────────────────────────────── Phone preview ──────────────────────────────
-function PhonePreview({ headerType, headerText, body, footer, buttons, vars, cards, ttype }: {
-  headerType: string; headerText: string; body: string; footer: string;
+function PhonePreview({ headerType, headerText, headerMediaUrl, body, footer, buttons, vars, cards, ttype }: {
+  headerType: string; headerText: string; headerMediaUrl?: string; body: string; footer: string;
   buttons: TemplateButton[]; vars: string[]; cards: CarouselCard[]; ttype: TemplateType;
 }) {
   const effButtons = ttype === "call_permission" ? [{ type: "QUICK_REPLY", text: "Allow" } as TemplateButton, { type: "QUICK_REPLY", text: "Don't allow" } as TemplateButton]
@@ -215,7 +215,11 @@ function PhonePreview({ headerType, headerText, body, footer, buttons, vars, car
             <div className="bg-white rounded-lg rounded-tl-none p-2.5 shadow-sm max-w-[210px]">
               {headerType === "TEXT" && headerText && <p className="text-[13px] font-bold mb-1">{renderBody(headerText, vars)}</p>}
               {headerType !== "NONE" && headerType !== "TEXT" && (
-                <div className="h-20 rounded-md bg-[#D1D7DB] grid place-items-center mb-1.5 text-[#5A6B73] text-[11px]">{headerType}</div>
+                <div className="h-20 rounded-md bg-[#D1D7DB] grid place-items-center mb-1.5 text-[#5A6B73] text-[11px] overflow-hidden">
+                  {headerMediaUrl && headerType === "IMAGE" ? <img src={headerMediaUrl} alt="" className="w-full h-full object-cover" />
+                    : headerMediaUrl && headerType === "VIDEO" ? <video src={headerMediaUrl} className="w-full h-full object-cover" />
+                    : headerType}
+                </div>
               )}
               <p className="text-[13px] whitespace-pre-wrap text-[#111B21]">{renderBody(body, vars) || "Your message body will appear here."}</p>
               {footer && <p className="text-[10.5px] text-[#667781] mt-1.5">{footer}</p>}
@@ -373,6 +377,7 @@ function TemplateForm({ editing, prefill, prefillLang, channels, campaigns, onCl
   const [ttype, setTtype] = useState<TemplateType>((editing?.template_type as TemplateType) ?? prefill?.type ?? "standard");
   const [headerType, setHeaderType] = useState(init?.header_type ?? "NONE");
   const [headerText, setHeaderText] = useState((editing?.header_text) ?? prefill?.header_text ?? "");
+  const [headerMediaUrl, setHeaderMediaUrl] = useState(editing?.header_media_url ?? "");
   const [body, setBody] = useState(init?.body ?? "");
   const [footer, setFooter] = useState((editing?.footer) ?? prefill?.footer ?? "");
   const [buttons, setButtons] = useState<TemplateButton[]>(init?.buttons ?? []);
@@ -430,14 +435,22 @@ function TemplateForm({ editing, prefill, prefillLang, channels, campaigns, onCl
     catch (e) { onError(String(e)); }
     finally { setUploading(false); }
   }
+  async function uploadHeaderMedia(file: File) {
+    setUploading(true);
+    try { const { url } = await api.uploadFile(file); setHeaderMediaUrl(url); }
+    catch (e) { onError(String(e)); }
+    finally { setUploading(false); }
+  }
 
   const supportsButtons = ttype === "standard";
   const supportsHeader = ttype === "standard";
 
   function buildPayload() {
+    const mediaHeader = supportsHeader && ["IMAGE", "VIDEO", "DOCUMENT"].includes(headerType);
     return {
       name: name.trim(), category, language, header_type: supportsHeader ? headerType : "NONE",
       header_text: supportsHeader && headerType === "TEXT" ? headerText : "",
+      header_media_url: mediaHeader ? headerMediaUrl : "",
       body, footer, buttons: supportsButtons ? buttons : [], variables: vars,
       channel_id: channelId, campaign_ids: campaignIds,
       template_type: ttype, components: ttype === "carousel" ? { cards } : {},
@@ -523,13 +536,33 @@ function TemplateForm({ editing, prefill, prefillLang, channels, campaigns, onCl
           )}
 
           {supportsHeader && (
-            <div className="flex gap-3">
-              <div className="w-[160px]">
-                <FieldLabel>Header</FieldLabel>
-                <Select value={headerType} onChange={setHeaderType} options={["NONE", "TEXT", "IMAGE", "VIDEO", "DOCUMENT"].map((h) => ({ value: h, label: h }))} />
+            <>
+              <div className="flex gap-3">
+                <div className="w-[160px]">
+                  <FieldLabel>Header</FieldLabel>
+                  <Select value={headerType} onChange={setHeaderType} options={["NONE", "TEXT", "IMAGE", "VIDEO", "DOCUMENT"].map((h) => ({ value: h, label: h }))} />
+                </div>
+                {headerType === "TEXT" && <div className="flex-1"><FieldLabel>Header text</FieldLabel><input value={headerText} onChange={(e) => setHeaderText(e.target.value)} className={INPUT_CLASS} /></div>}
               </div>
-              {headerType === "TEXT" && <div className="flex-1"><FieldLabel>Header text</FieldLabel><input value={headerText} onChange={(e) => setHeaderText(e.target.value)} className={INPUT_CLASS} /></div>}
-            </div>
+              {["IMAGE", "VIDEO", "DOCUMENT"].includes(headerType) && (
+                <div>
+                  <FieldLabel>Sample {headerType.toLowerCase()} (required by Meta)</FieldLabel>
+                  <div className="flex items-center gap-2 mb-2">
+                    <label className={cn("inline-flex items-center gap-1.5 h-8 px-3 rounded-md text-[12.5px] font-semibold cursor-pointer outline-none text-white", uploading ? "bg-primary/60" : "bg-primary hover:bg-primary/90")}>
+                      {uploading ? <Loader2 className="w-3.5 h-3.5 animate-spin" /> : <Upload className="w-3.5 h-3.5" />}
+                      Choose file
+                      <input type="file" className="hidden"
+                        accept={headerType === "VIDEO" ? "video/*" : headerType === "DOCUMENT" ? "application/pdf" : "image/*"}
+                        onChange={(e) => { const f = e.target.files?.[0]; if (f) uploadHeaderMedia(f); e.target.value = ""; }} />
+                    </label>
+                    {headerMediaUrl
+                      ? <span className="inline-flex items-center gap-1 text-[11.5px] text-emerald-600 font-medium truncate max-w-[180px]"><ImageIcon className="w-3.5 h-3.5 shrink-0" />Uploaded</span>
+                      : <span className="text-[11.5px] text-muted-foreground">No sample yet</span>}
+                  </div>
+                  <input value={headerMediaUrl} onChange={(e) => setHeaderMediaUrl(e.target.value)} placeholder="...or paste a media URL (https://...)" className={cn(INPUT_CLASS, "h-8")} />
+                </div>
+              )}
+            </>
           )}
 
           {/* Body + toolbar */}
@@ -667,7 +700,7 @@ function TemplateForm({ editing, prefill, prefillLang, channels, campaigns, onCl
         {/* Preview */}
         <div className="w-[320px] shrink-0 border-l border-border bg-muted/30 overflow-y-auto px-5 py-5">
           <p className="text-center text-[13px] font-bold text-foreground mb-3">Preview</p>
-          <PhonePreview headerType={headerType} headerText={headerText} body={body} footer={footer} buttons={buttons} vars={vars} cards={cards} ttype={ttype} />
+          <PhonePreview headerType={headerType} headerText={headerText} headerMediaUrl={headerMediaUrl} body={body} footer={footer} buttons={buttons} vars={vars} cards={cards} ttype={ttype} />
         </div>
       </div>
 
