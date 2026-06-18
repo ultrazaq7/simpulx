@@ -17,6 +17,7 @@ func (s *server) handleListChannels(w http.ResponseWriter, r *http.Request) {
 		`SELECT id::text AS id, type, name, status, is_active,
 		        phone_number_id, waba_id, display_id, config,
 		        (access_token IS NOT NULL AND access_token <> '') AS has_token,
+		        calling_enabled,
 		        connected_at, created_at
 		   FROM channels
 		  WHERE organization_id = $1

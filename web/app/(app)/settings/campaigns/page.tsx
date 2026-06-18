@@ -1,6 +1,6 @@
 "use client";
 import { useEffect, useState } from "react";
-import { Search, Plus, Pencil, Trash2, Megaphone, Loader2, X, Phone } from "lucide-react";
+import { Search, Plus, Pencil, Trash2, Megaphone, Loader2, X, Phone, PhoneOff } from "lucide-react";
 import { api } from "@/lib/api";
 import { cn } from "@/lib/utils";
 import { Tip } from "@/components/ui/tooltip";
@@ -158,6 +158,7 @@ function CampaignDialog({ dlg, users, channels, onClose, onSaved, onError }: {
   const [adSources, setAdSources] = useState("");
   const [keywords, setKeywords] = useState("");
   const [agentIds, setAgentIds] = useState<string[]>([]);
+  const [callingEnabled, setCallingEnabled] = useState(true);
   const [saving, setSaving] = useState(false);
 
   useEffect(() => {
@@ -165,11 +166,11 @@ function CampaignDialog({ dlg, users, channels, onClose, onSaved, onError }: {
     if (dlg.id) {
       api.getCampaign(dlg.id).then((c) => {
         setName(c.name); setDealer(c.dealer_name ?? ""); setStatus(c.status); setRouting(c.routing_strategy);
-        setChannelId(c.channel_id ?? "");
+        setChannelId(c.channel_id ?? ""); setCallingEnabled(c.calling_enabled ?? true);
         setAdSources((c.ad_source_ids ?? []).join(", ")); setKeywords((c.keywords ?? []).join(", "));
         setAgentIds(c.agent_ids ?? []);
       }).catch((e) => onError(String(e)));
-    } else { setName(""); setDealer(""); setStatus("active"); setRouting("round_robin"); setChannelId(""); setAdSources(""); setKeywords(""); setAgentIds([]); }
+    } else { setName(""); setDealer(""); setStatus("active"); setRouting("round_robin"); setChannelId(""); setCallingEnabled(true); setAdSources(""); setKeywords(""); setAgentIds([]); }
   }, [dlg.open, dlg.id]); // eslint-disable-line react-hooks/exhaustive-deps
 
   function csv(s: string) { return s.split(",").map((x) => x.trim()).filter(Boolean); }
@@ -177,7 +178,7 @@ function CampaignDialog({ dlg, users, channels, onClose, onSaved, onError }: {
   async function save() {
     if (!name.trim()) { onError("Campaign name is required"); return; }
     setSaving(true);
-    const payload = { name: name.trim(), dealer_name: dealer.trim(), status, routing_strategy: routing, channel_id: channelId, ad_source_ids: csv(adSources), keywords: csv(keywords), agent_ids: agentIds };
+    const payload = { name: name.trim(), dealer_name: dealer.trim(), status, routing_strategy: routing, channel_id: channelId, ad_source_ids: csv(adSources), keywords: csv(keywords), agent_ids: agentIds, calling_enabled: callingEnabled };
     try {
       if (isEdit) { await api.updateCampaign(dlg.id!, payload); onSaved("Campaign updated"); }
       else { await api.createCampaign(payload); onSaved("Campaign created"); }
@@ -220,7 +221,19 @@ function CampaignDialog({ dlg, users, channels, onClose, onSaved, onError }: {
               options={[{ value: "", label: "No channel" }, ...channels.map((ch) => ({ value: ch.id, label: ch.name + (ch.calling_enabled ? "  (calling enabled)" : "") }))]}
             />
             {channelId && channels.find((c) => c.id === channelId)?.calling_enabled && (
-              <p className="mt-1 inline-flex items-center gap-1 text-[11px] text-success font-medium"><Phone className="w-3 h-3" /> WhatsApp calling available on this channel</p>
+              <div className="flex items-center justify-between gap-3 mt-2 rounded-lg border border-border p-3">
+                <div className="min-w-0">
+                  <p className="text-[13px] font-semibold text-foreground flex items-center gap-1.5">{callingEnabled ? <Phone className="w-3.5 h-3.5 text-success" /> : <PhoneOff className="w-3.5 h-3.5 text-muted-foreground" />} Enable calling</p>
+                  <p className="text-[11.5px] text-muted-foreground mt-0.5">Show a call button in the inbox for leads in this campaign.</p>
+                </div>
+                <button type="button" role="switch" aria-checked={callingEnabled} onClick={() => setCallingEnabled((v) => !v)}
+                  className={`relative inline-flex h-5 w-9 shrink-0 cursor-pointer rounded-full transition-colors duration-200 outline-none ${callingEnabled ? "bg-primary" : "bg-muted"}`}>
+                  <span className={`pointer-events-none inline-block h-4 w-4 rounded-full bg-white shadow-sm transform transition-transform duration-200 mt-0.5 ${callingEnabled ? "translate-x-[18px] ml-0.5" : "translate-x-0.5"}`} />
+                </button>
+              </div>
+            )}
+            {channelId && !channels.find((c) => c.id === channelId)?.calling_enabled && (
+              <p className="mt-1 inline-flex items-center gap-1 text-[11px] text-muted-foreground"><PhoneOff className="w-3 h-3" /> Calling not available — enable it on the channel first</p>
             )}
             {!channelId && <p className="mt-1 text-[11px] text-amber-600">No channel set. Leads won't route until a channel is assigned.</p>}
           </Field>

@@ -356,7 +356,9 @@ function ChannelDialog({ state, onClose, onSaved, onError }: {
   async function save() {
     if (!name.trim()) { onError("Channel name is required"); return; }
     setSaving(true);
-    const config: Record<string, unknown> = {};
+    // Start from the channel's existing config so an edit never drops keys it
+    // doesn't manage (e.g. is_sandbox, which classifies a Testing channel).
+    const config: Record<string, unknown> = { ...cfg };
     if (isMsgr || isIg) config.page_id = pageId.trim();
     if (isIg) config.instagram_account_id = igId.trim();
     if (type === "testing") config.is_sandbox = true;

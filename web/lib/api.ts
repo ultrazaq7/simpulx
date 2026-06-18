@@ -301,9 +301,9 @@ export const api = {
     req(`/api/sequences/${id}`, { method: "PATCH", body: JSON.stringify(patch) }),
   deleteSequence: (id: string) => req(`/api/sequences/${id}`, { method: "DELETE" }),
   getCampaign: (id: string) => req<CampaignDetail>(`/api/campaigns/${id}`),
-  createCampaign: (input: { name: string; dealer_name?: string; routing_strategy?: string; channel_id?: string; ad_source_ids?: string[]; keywords?: string[]; agent_ids?: string[] }) =>
+  createCampaign: (input: { name: string; dealer_name?: string; routing_strategy?: string; channel_id?: string; ad_source_ids?: string[]; keywords?: string[]; agent_ids?: string[]; calling_enabled?: boolean }) =>
     req<{ id: string }>("/api/campaigns", { method: "POST", body: JSON.stringify(input) }),
-  updateCampaign: (id: string, patch: { name?: string; dealer_name?: string; status?: string; routing_strategy?: string; channel_id?: string; ad_source_ids?: string[]; keywords?: string[]; agent_ids?: string[] }) =>
+  updateCampaign: (id: string, patch: { name?: string; dealer_name?: string; status?: string; routing_strategy?: string; channel_id?: string; ad_source_ids?: string[]; keywords?: string[]; agent_ids?: string[]; calling_enabled?: boolean }) =>
     req(`/api/campaigns/${id}`, { method: "PATCH", body: JSON.stringify(patch) }),
   deleteCampaign: (id: string) => req(`/api/campaigns/${id}`, { method: "DELETE" }),
   // ── Channels ──

@@ -262,6 +262,7 @@ export interface Campaign {
   conversations: number;
   channel_id: string | null;
   channel_name?: string | null;
+  calling_enabled?: boolean;
   created_at: string;
 }
 export interface CampaignDetail extends Campaign { agent_ids: string[]; }
