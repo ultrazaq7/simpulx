@@ -402,3 +402,15 @@ export interface AIAgent {
   handoff_threshold: number;
   is_active: boolean;
 }
+
+export interface Call {
+  call_id: string;
+  conversation_id: string;
+  permission_status: 'pending' | 'granted' | 'denied' | 'expired';
+  call_status: 'idle' | 'requesting' | 'ringing' | 'connected' | 'ended' | 'failed';
+  sdp_answer?: string;
+  external_call_id?: string;
+  duration_seconds: number;
+  end_reason?: string;
+  created_at?: string;
+}

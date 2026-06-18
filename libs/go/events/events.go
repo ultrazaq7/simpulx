@@ -19,6 +19,7 @@ const (
 	SubjectBroadcastRequested   = "events.broadcast.requested"
 	SubjectAgentDeactivated     = "events.agent.deactivated"
 	SubjectAuditCreated         = "events.audit.created"
+	SubjectCallUpdated          = "events.call.updated"
 
 	StreamName     = "EVENTS"
 	StreamSubjects = "events.>"
@@ -138,4 +139,17 @@ type AuditCreated struct {
 	ActorType      string         `json:"actor_type"`
 	ActorID        *string        `json:"actor_id,omitempty"`
 	Detail         map[string]any `json:"detail"`
+}
+
+// CallUpdated is broadcast whenever a call's state changes (permission
+// granted, SDP answer received, call connected/ended, etc). The realtime
+// service relays this to the agent's WebSocket so the browser UI can react.
+type CallUpdated struct {
+	CallID           string `json:"call_id"`
+	ConversationID   string `json:"conversation_id"`
+	PermissionStatus string `json:"permission_status"`
+	CallStatus       string `json:"call_status"`
+	SDPAnswer        string `json:"sdp_answer,omitempty"`
+	EndReason        string `json:"end_reason,omitempty"`
+	DurationSeconds  int    `json:"duration_seconds,omitempty"`
 }

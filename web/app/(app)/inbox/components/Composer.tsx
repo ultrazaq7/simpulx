@@ -27,6 +27,7 @@ interface ComposerProps {
   phone?: string | null;       // Contact phone for call button
   conversationId?: string | null; // For call tracking API
   callingEnabled?: boolean;    // channel has WhatsApp calling enabled -> show call button
+  onRequestCall?: () => void;  // WhatsApp Business Calling API: request call permission
   // Simpuler (AI) briefing — last persisted text seeds the popover; regenerated on demand.
   aiSummary?: string | null;
 }
@@ -34,7 +35,7 @@ interface ComposerProps {
 export default function Composer({
   draft, setDraft, tab, setTab, quickReplies,
   pendingFiles, pendingPreviews, fileRef, onFile, cancelSendFile, removePendingFile,
-  busy, onSubmit, notify, onSendVoice, windowExpired, phone, conversationId, callingEnabled,
+  busy, onSubmit, notify, onSendVoice, windowExpired, phone, conversationId, callingEnabled, onRequestCall,
   aiSummary,
 }: ComposerProps) {
   const [showQR, setShowQR] = useState(false);
@@ -452,17 +453,7 @@ export default function Composer({
             <Tip label="Call via WhatsApp">
               <button
                 onClick={() => {
-                  const clean = phone.replace(/\D/g, "");
-                  window.open(`https://wa.me/${clean}`, "_blank");
-                  // Log call attempt
-                  if (conversationId) {
-                    fetch(`/api/conversations/${conversationId}/calls`, {
-                      method: "POST",
-                      headers: { "Content-Type": "application/json" },
-                      body: JSON.stringify({ duration_seconds: 0 }),
-                    }).catch(() => {});
-                  }
-                  notify("Call opened in WhatsApp", "info");
+                  if (onRequestCall) onRequestCall();
                 }}
                 className="p-1.5 rounded-md text-muted-foreground hover:bg-muted hover:text-primary outline-none transition-colors"
               >

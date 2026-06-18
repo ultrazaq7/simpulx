@@ -174,6 +174,10 @@ func main() {
 	mux.HandleFunc("GET /api/conversations/{id}/messages/search", s.requireAuth(s.handleSearchMessages))
 	mux.HandleFunc("PATCH /api/conversations/{id}", s.requireAuth(s.handlePatchConversation))
 	mux.HandleFunc("POST /api/conversations/{id}/calls", s.requireAuth(s.handleTrackCall))
+	mux.HandleFunc("POST /api/calls/request-permission", s.requireAuth(s.handleRequestCallPermission))
+	mux.HandleFunc("POST /api/calls/initiate", s.requireAuth(s.handleInitiateCall))
+	mux.HandleFunc("POST /api/calls/{id}/end", s.requireAuth(s.handleEndCall))
+	mux.HandleFunc("GET /api/calls/{id}", s.requireAuth(s.handleGetCall))
 	mux.HandleFunc("POST /api/conversations/{id}/summary", s.requireAuth(s.handleSummaryStream))
 	mux.HandleFunc("GET /api/stages", s.requireAuth(s.handleListStages))
 	mux.HandleFunc("GET /api/dispositions", s.requireAuth(s.handleListDispositions))
@@ -384,6 +388,30 @@ func (s *server) ingest(ctx context.Context, p waWebhook) {
 						s.log.Info("meta message.status.updated published", "org", orgID, "status", st.Status)
 					}
 				}
+			}
+
+			// ── Call events (WhatsApp Business Calling API) ──
+			if change.Field == "calls" {
+				orgID, err := s.resolveOrg(ctx, val.Metadata.PhoneNumberID)
+				if err != nil {
+					s.log.Warn("unknown phone_number_id for call event", "pnid", val.Metadata.PhoneNumberID, "err", err)
+				} else {
+					// Re-marshal the value to pass the raw calls array
+					if raw, err := json.Marshal(val.Messages); err == nil && len(val.Messages) == 0 {
+						// Calls come in the value object itself, re-encode the whole value
+						if rawVal, err2 := json.Marshal(change.Value); err2 == nil {
+							var callVal struct {
+								Calls json.RawMessage `json:"calls"`
+							}
+							if json.Unmarshal(rawVal, &callVal) == nil && len(callVal.Calls) > 0 {
+								s.processCallWebhook(ctx, orgID, callVal.Calls)
+							}
+						}
+					} else {
+						_ = raw // suppress unused
+					}
+				}
+				continue
 			}
 
 			if len(val.Messages) == 0 {

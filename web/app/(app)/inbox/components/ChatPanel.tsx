@@ -1,5 +1,5 @@
 "use client";
-import { useState, useEffect } from "react";
+import { useState, useEffect, useCallback } from "react";
 import {
   MessageSquare, ChevronRight, Check, Copy, X, Search,
   CheckCircle, RotateCcw, PanelRight, Lock, ChevronUp, ChevronDown,
@@ -13,6 +13,8 @@ import type { UseInfiniteQueryResult } from "@tanstack/react-query";
 import MessageBubble from "./MessageBubble";
 import Composer from "./Composer";
 import LostReasonDialog from "./LostReasonDialog";
+import CallOverlay from "./CallOverlay";
+import { api } from "@/lib/api";
 
 // --- Timeline types (shared with page.tsx) ---
 export type Item =
@@ -177,6 +179,23 @@ export default function ChatPanel({
 }: ChatPanelProps) {
   const [previewMedia, setPreviewMedia] = useState<{ url: string; type: string } | null>(null);
   const [outcomeOpen, setOutcomeOpen] = useState(false);
+  const [activeCallId, setActiveCallId] = useState<string | null>(null);
+
+  // ── WhatsApp Business Calling API ──
+  const handleRequestCall = useCallback(async () => {
+    if (!active) return;
+    try {
+      const res = await api.requestCallPermission(active.id);
+      setActiveCallId(res.call_id);
+      notify("Call permission request sent", "info");
+    } catch (err: unknown) {
+      const msg = err instanceof Error ? err.message : "Failed to request call";
+      notify(msg, "error");
+    }
+  }, [active, notify]);
+
+  // Clear call when switching conversations
+  useEffect(() => { setActiveCallId(null); }, [active?.id]);
 
   // ── In-conversation search (Ctrl+F) ──
   const [searchOpen, setSearchOpen] = useState(false);
@@ -494,6 +513,7 @@ export default function ChatPanel({
               phone={active?.contact_phone}
               conversationId={active?.id}
               callingEnabled={active?.calling_enabled}
+              onRequestCall={handleRequestCall}
               aiSummary={active?.lead_summary}
             />
           </>
@@ -522,6 +542,18 @@ export default function ChatPanel({
 
       {/* ── Media Preview Modal ── */}
       {previewMedia && <MediaPreview media={previewMedia} onClose={() => setPreviewMedia(null)} />}
+
+      {/* ── WhatsApp Business Call Overlay ── */}
+      {activeCallId && active && (
+        <CallOverlay
+          callId={activeCallId}
+          conversationId={active.id}
+          contactName={active.contact_name}
+          contactPhone={active.contact_phone}
+          onClose={() => setActiveCallId(null)}
+          notify={notify}
+        />
+      )}
     </>
   );
 }

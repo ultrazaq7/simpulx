@@ -330,4 +330,13 @@ export const api = {
     actions?: AutomationAction[]; flow?: AutomationFlow; is_active?: boolean;
   }) => req(`/api/automations/${id}`, { method: "PATCH", body: JSON.stringify(patch) }),
   deleteAutomation: (id: string) => req(`/api/automations/${id}`, { method: "DELETE" }),
+  // ── WhatsApp Business Calling API ──
+  requestCallPermission: (conversationId: string) =>
+    req<{ call_id: string; status: string }>("/api/calls/request-permission", { method: "POST", body: JSON.stringify({ conversation_id: conversationId }) }),
+  initiateCall: (callId: string, sdpOffer: string) =>
+    req<{ call_id: string; status: string }>("/api/calls/initiate", { method: "POST", body: JSON.stringify({ call_id: callId, sdp_offer: sdpOffer }) }),
+  endCall: (callId: string) =>
+    req<{ status: string; duration_seconds: number }>(`/api/calls/${callId}/end`, { method: "POST" }),
+  getCall: (callId: string) =>
+    req<Record<string, unknown>>(`/api/calls/${callId}`),
 };
