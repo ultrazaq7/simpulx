@@ -63,7 +63,7 @@
     "web_api": "Web API Sources",
     "ai_agent": "AI Agent",
     "ads": "Ad Performance",
-    "audit": "Audit Log"
+    "audit": "System Logs"
   },
   "common": {
     "save": "Save",
