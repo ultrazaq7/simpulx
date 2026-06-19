@@ -329,7 +329,7 @@ export const api = {
 
   // Ad performance
   listAdAccounts: () => req<import("./types").AdAccount[]>("/api/ad-accounts"),
-  createAdAccount: (input: { platform: string; external_account_id: string; name?: string; access_token: string }) =>
+  createAdAccount: (input: { platform: string; external_account_id: string; name?: string; access_token: string; config?: Record<string, unknown> }) =>
     req<{ id: string; sync_error?: string }>("/api/ad-accounts", { method: "POST", body: JSON.stringify(input) }),
   deleteAdAccount: (id: string) => req<void>(`/api/ad-accounts/${id}`, { method: "DELETE" }),
   syncAdAccount: (id: string) => req<{ ok: boolean }>(`/api/ad-accounts/${id}/sync`, { method: "POST" }),
