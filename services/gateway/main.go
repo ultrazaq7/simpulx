@@ -445,9 +445,6 @@ func (s *server) ingest(ctx context.Context, p waWebhook) {
 					s.log.Warn("unsupported inbound message captured",
 						"from", m.From, "wamid", m.ID, "reason", m.errorSummary(), "raw", string(raw))
 				}
-				if m.Type == "interactive" {
-					s.log.Info("interactive inbound raw", "from", m.From, "raw", string(raw))
-				}
 				// Real Meta media arrives as an id (no link) — download + re-host.
 				mediaURL := m.extractMediaURL()
 				if mediaURL == "" {

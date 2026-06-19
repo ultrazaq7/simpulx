@@ -51,20 +51,34 @@ func (s *server) callConvID(ctx context.Context, callID string) string {
 }
 
 // callSummaryText renders the in-chat voice-call summary (always shown on end).
-func callSummaryText(dur int) string {
+func callSummaryText(direction string, dur int) string {
+	inbound := direction == "inbound"
 	if dur > 0 {
-		return fmt.Sprintf("📞 Voice call · %d:%02d", dur/60, dur%60)
+		label := "Voice call"
+		if inbound {
+			label = "Incoming call"
+		}
+		return fmt.Sprintf("%s · %d:%02d", label, dur/60, dur%60)
 	}
-	return "📞 Voice call · no answer"
+	if inbound {
+		return "Missed call"
+	}
+	return "Voice call · No answer"
 }
 
-func (s *server) insertCallMessage(ctx context.Context, orgID, convID, body string) {
+// insertCallSummary writes the voice-call entry as a dedicated type='call' message
+// (rendered as a call bubble), aligned by direction.
+func (s *server) insertCallSummary(ctx context.Context, orgID, convID, direction string, dur int) {
 	if convID == "" {
 		return
 	}
+	if direction != "inbound" {
+		direction = "outbound"
+	}
+	body := callSummaryText(direction, dur)
 	_, _ = s.pool.Exec(ctx,
 		`INSERT INTO messages (organization_id, conversation_id, direction, sender_type, type, body, preview)
-		 VALUES ($1, $2, 'outbound', 'system', 'text', $3, $3)`, orgID, convID, body)
+		 VALUES ($1, $2, $3, 'system', 'call', $4, $4)`, orgID, convID, direction, body)
 }
 
 // applyCallPermissionReply flips the pending outbound call when the customer
@@ -463,7 +477,7 @@ func (s *server) handleEndCall(w http.ResponseWriter, r *http.Request) {
 	var dur int
 	_ = s.pool.QueryRow(r.Context(), `SELECT duration_seconds FROM calls WHERE id=$1`, callID).Scan(&dur)
 	s.persistCallDuration(r.Context(), convID, dur)
-	s.insertCallMessage(r.Context(), a.OrgID, convID, callSummaryText(dur))
+	s.insertCallSummary(r.Context(), a.OrgID, convID, direction, dur)
 
 	s.broadcastCall(r.Context(), a.OrgID, events.CallUpdated{
 		CallID: callID, ConversationID: convID, Direction: direction,
@@ -608,7 +622,8 @@ func (s *server) processCallWebhook(ctx context.Context, orgID, phoneNumberID st
 			// Skip the summary message if the agent already ended it (avoids a
 			// duplicate when our own hangup triggers Meta's terminate webhook).
 			var alreadyEnded bool
-			_ = s.pool.QueryRow(ctx, `SELECT call_status='ended' FROM calls WHERE id=$1`, callID).Scan(&alreadyEnded)
+			var callDir string
+			_ = s.pool.QueryRow(ctx, `SELECT call_status='ended', direction FROM calls WHERE id=$1`, callID).Scan(&alreadyEnded, &callDir)
 			// Prefer Meta's authoritative duration; fall back to connected_at.
 			dur := ce.Duration
 			if dur > 0 {
@@ -628,7 +643,7 @@ func (s *server) processCallWebhook(ctx context.Context, orgID, phoneNumberID st
 			}
 			s.persistCallDuration(ctx, convID, dur)
 			if !alreadyEnded {
-				s.insertCallMessage(ctx, orgID, convID, callSummaryText(dur))
+				s.insertCallSummary(ctx, orgID, convID, callDir, dur)
 			}
 			s.broadcastCall(ctx, orgID, events.CallUpdated{
 				CallID: callID, ConversationID: convID,

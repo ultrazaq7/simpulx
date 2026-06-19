@@ -5,6 +5,7 @@ import {
   Sparkles, Check, CheckCheck, Clock, AlertCircle, Play, Pause, Mic, User,
   FileText, FileSpreadsheet, FileImage, FileArchive, FileCode,
   File, Download, MoreHorizontal, Copy, ClipboardPaste, Link2, Megaphone, Forward,
+  PhoneOutgoing, PhoneIncoming, PhoneMissed,
 } from "lucide-react";
 import { initials, fmtTime, channelColor, cn } from "@/lib/utils";
 import type { Conversation, Message } from "@/lib/types";
@@ -332,6 +333,33 @@ const MessageBubble = memo(function MessageBubble({ m, active, onPreviewMedia, c
 
   const fname = url ? filenameFromUrl(url) : "";
   const ds = isDoc ? docStyle(ext, out) : null;
+
+  // ── Voice call entry (Qontak/WhatsApp-style call bubble) ──
+  if (m.type === "call") {
+    const cout = m.direction === "outbound";
+    const missed = /missed|no answer|declined/i.test(m.body || "");
+    const CallIcon = missed ? PhoneMissed : cout ? PhoneOutgoing : PhoneIncoming;
+    const text = (m.body || "Voice call").replace(/^📞\s*/, "");
+    return (
+      <div className={cn("group flex items-start gap-1", cout ? "justify-end" : "justify-start")}>
+        {!cout && (
+          <div className="w-7 h-7 rounded-full mr-2 mt-2 flex items-center justify-center text-[10px] font-bold shrink-0"
+            style={{ backgroundColor: channelColor(active.channel) + "20", color: channelColor(active.channel) }}>
+            {initials(active.contact_name || active.contact_phone)}
+          </div>
+        )}
+        <div className={cn("max-w-[66%] flex flex-col", cout ? "items-end" : "items-start")}>
+          <div className={cn("rounded-lg shadow-sm border px-3 py-2 flex items-center gap-2.5", cout ? "bg-primary/10 border-primary/20" : "bg-card border-border")}>
+            <span className={cn("w-9 h-9 rounded-full grid place-items-center shrink-0", missed ? "bg-red-500/15 text-red-500" : "bg-emerald-500/15 text-emerald-600")}>
+              <CallIcon className="w-[18px] h-[18px]" />
+            </span>
+            <p className="text-[13px] font-semibold text-foreground leading-tight">{text}</p>
+            <span className="text-[10px] text-muted-foreground self-end ml-1">{fmtTime(m.created_at)}</span>
+          </div>
+        </div>
+      </div>
+    );
+  }
 
   return (
     <div className={cn("group flex items-start gap-1", out ? "justify-end" : "justify-start")}>
