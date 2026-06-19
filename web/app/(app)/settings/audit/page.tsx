@@ -131,10 +131,10 @@ export default function SystemLogsPage() {
   return (
     <div className="h-full flex flex-col px-6 py-5 min-h-0 overflow-hidden">
       {/* Tabs */}
-      <div className="flex items-center gap-1 border-b border-border shrink-0 overflow-x-auto">
+      <div className="flex items-center border-b border-border shrink-0">
         {TABS.map((t) => (
           <button key={t.key} onClick={() => setTab(t.key)}
-            className={cn("px-4 py-2.5 text-sm font-semibold whitespace-nowrap border-b-2 -mb-px transition-colors outline-none",
+            className={cn("px-3 py-2.5 text-sm font-semibold whitespace-nowrap border-b-2 -mb-px transition-colors outline-none",
               tab === t.key ? "border-primary text-primary" : "border-transparent text-muted-foreground hover:text-foreground")}>
             {t.label}
           </button>
