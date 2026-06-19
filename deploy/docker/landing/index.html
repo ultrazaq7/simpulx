@@ -45,6 +45,8 @@
             background: linear-gradient(120deg, var(--green-light), var(--amber-light));
             -webkit-background-clip: text; background-clip: text; -webkit-text-fill-color: transparent;
         }
+        .type-cursor { color: var(--amber); font-weight: 700; margin-left: 2px; animation: blink .8s step-end infinite; }
+        @keyframes blink { 50% { opacity: 0; } }
 
         .glow { position: absolute; border-radius: 50%; filter: blur(120px); opacity: 0.5; z-index: 0; pointer-events: none; }
         .glow.g1 { width: 520px; height: 520px; background: rgba(45,139,115,0.4); top: -180px; left: 50%; transform: translateX(-60%); }
@@ -211,7 +213,7 @@
     <div class="glow g1"></div><div class="glow g2"></div>
     <div class="container">
         <div class="badge"><span class="dot"></span>WhatsApp Business Platform</div>
-        <h1>Every conversation,<br>every <span class="grad-text">call</span>, one inbox</h1>
+        <h1>Every conversation,<br>every <span class="grad-text" id="typed">call</span><span class="type-cursor" aria-hidden="true">|</span>, one inbox</h1>
         <p class="sub">Simpulx turns WhatsApp into your sales and support engine - a shared team inbox, in-app voice calling, broadcasts, templates, automation and analytics, all in one place.</p>
         <div class="hero-actions">
             <a href="https://app.simpulx.com" class="btn btn-primary">Sign in to dashboard</a>
@@ -396,6 +398,26 @@
     window.addEventListener('scroll', function(){ nav.classList.toggle('scrolled', window.scrollY > 10); });
     var io = new IntersectionObserver(function(es){ es.forEach(function(e){ if(e.isIntersecting){ e.target.classList.add('in'); io.unobserve(e.target); } }); }, { threshold: 0.12 });
     document.querySelectorAll('.reveal').forEach(function(el){ io.observe(el); });
+
+    // Hero typewriter: type/delete the highlighted word.
+    (function(){
+        var el = document.getElementById('typed'); if(!el) return;
+        var words = ['call','chat','broadcast','follow-up','voice call'];
+        var wi = 0, ci = words[0].length, deleting = false;
+        function tick(){
+            var w = words[wi];
+            if(!deleting){
+                ci++;
+                if(ci >= w.length){ el.textContent = w; deleting = true; setTimeout(tick, 1500); return; }
+            } else {
+                ci--;
+                if(ci <= 0){ ci = 0; deleting = false; wi = (wi + 1) % words.length; }
+            }
+            el.textContent = words[wi].substring(0, ci);
+            setTimeout(tick, deleting ? 55 : 110);
+        }
+        setTimeout(tick, 1600);
+    })();
 </script>
 </body>
 </html>
