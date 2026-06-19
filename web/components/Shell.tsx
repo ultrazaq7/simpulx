@@ -5,7 +5,7 @@ import Link from "next/link";
 import {
   MessageCircle, Settings,
   ChevronLeft, ChevronRight, Bell, LogOut, User as UserIcon,
-  CheckCircle2, Loader2, ChevronDown, Activity, LayoutDashboard, MessagesSquare, Users, Sparkles, SlidersHorizontal, Share2, Wrench, Globe,
+  CheckCircle2, Loader2, ChevronDown, Activity, LayoutDashboard, MessagesSquare, Users, Sparkles, SlidersHorizontal, Megaphone, Wrench, Globe,
   ScrollText, BarChart3, Building2, ShieldCheck, FileText, Radio, GitBranch, Plug
 } from "lucide-react";
 import { WS_URL } from "@/lib/api";
@@ -21,7 +21,7 @@ const NAV_TOP = [
   { href: "/dashboard", icon: LayoutDashboard, labelKey: "nav.dashboard", perm: "menu_dashboard" },
   { href: "/inbox", icon: MessageCircle, labelKey: "nav.inbox", perm: "menu_chats" },
   { href: "/contacts", icon: Users, labelKey: "nav.contacts", perm: "menu_contacts" },
-  { href: "/broadcasts", icon: Share2, labelKey: "nav.broadcasts", perm: "menu_broadcasts" },
+  { href: "/broadcasts", icon: Megaphone, labelKey: "nav.broadcasts", perm: "menu_broadcasts" },
 ];
 
 const NAV_BOTTOM = [
@@ -61,7 +61,7 @@ const CATEGORY_ICONS: Record<string, any> = {
   "INBOX": MessagesSquare,
   "GROUPS": Users,
   "CAMPAIGNS": Sparkles,
-  "OUTREACH": Share2,
+  "OUTREACH": Megaphone,
   "AUTOMATION": GitBranch,
   "SETUP": Wrench,
   "PREFERENCES": SlidersHorizontal,
