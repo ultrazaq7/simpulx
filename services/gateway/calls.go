@@ -76,9 +76,16 @@ func (s *server) insertCallSummary(ctx context.Context, orgID, convID, direction
 		direction = "outbound"
 	}
 	body := callSummaryText(direction, dur)
+	if _, err := s.pool.Exec(ctx,
+		`INSERT INTO messages (organization_id, conversation_id, direction, sender_type, type, body)
+		 VALUES ($1, $2, $3, 'system', 'call', $4)`, orgID, convID, direction, body); err != nil {
+		s.log.Error("insert call summary failed", "conv", convID, "err", err)
+		return
+	}
+	// Reflect the call as the conversation's last message in the inbox list.
 	_, _ = s.pool.Exec(ctx,
-		`INSERT INTO messages (organization_id, conversation_id, direction, sender_type, type, body, preview)
-		 VALUES ($1, $2, $3, 'system', 'call', $4, $4)`, orgID, convID, direction, body)
+		`UPDATE conversations SET last_message_at=now(), last_message_preview=LEFT($2,200), updated_at=now() WHERE id=$1`,
+		convID, body)
 }
 
 // applyCallPermissionReply flips the pending outbound call when the customer
@@ -182,9 +189,9 @@ func (s *server) handleRequestCallPermission(w http.ResponseWriter, r *http.Requ
 		`UPDATE calls SET permission_msg_id = $2 WHERE id = $1`, callID, wamid)
 
 	_, _ = s.pool.Exec(r.Context(),
-		`INSERT INTO messages (organization_id, conversation_id, direction, sender_type, type, body, preview)
+		`INSERT INTO messages (organization_id, conversation_id, direction, sender_type, type, body)
 		 VALUES ($1, $2, 'outbound', 'system', 'text',
-		         'Call permission request sent, awaiting customer approval', 'Call permission request sent')`,
+		         'Call permission request sent, awaiting customer approval')`,
 		a.OrgID, body.ConversationID)
 
 	s.broadcastCall(r.Context(), a.OrgID, events.CallUpdated{
@@ -415,8 +422,8 @@ func (s *server) handleRejectCall(w http.ResponseWriter, r *http.Request) {
 	}
 
 	_, _ = s.pool.Exec(r.Context(),
-		`INSERT INTO messages (organization_id, conversation_id, direction, sender_type, type, body, preview)
-		 VALUES ($1, $2, 'inbound', 'system', 'text', 'Missed or declined call', 'Call declined')`,
+		`INSERT INTO messages (organization_id, conversation_id, direction, sender_type, type, body)
+		 VALUES ($1, $2, 'inbound', 'system', 'text', 'Missed or declined call')`,
 		a.OrgID, convID)
 
 	s.broadcastCall(r.Context(), a.OrgID, events.CallUpdated{
@@ -594,8 +601,8 @@ func (s *server) processCallWebhook(ctx context.Context, orgID, phoneNumberID st
 				PermissionStatus: "granted", CallStatus: "idle",
 			})
 			_, _ = s.pool.Exec(ctx,
-				`INSERT INTO messages (organization_id, conversation_id, direction, sender_type, type, body, preview)
-				 VALUES ($1, $2, 'inbound', 'system', 'text', 'Customer allowed the call', 'Call permission granted')`,
+				`INSERT INTO messages (organization_id, conversation_id, direction, sender_type, type, body)
+				 VALUES ($1, $2, 'inbound', 'system', 'text', 'Customer allowed the call')`,
 				orgID, convID)
 
 		case "permission_denied", "call_permission_denied":
@@ -685,8 +692,8 @@ func (s *server) handleInboundCall(ctx context.Context, orgID, phoneNumberID str
 	}
 
 	_, _ = s.pool.Exec(ctx,
-		`INSERT INTO messages (organization_id, conversation_id, direction, sender_type, type, body, preview)
-		 VALUES ($1, $2, 'inbound', 'contact', 'text', 'Incoming WhatsApp call', 'Incoming call')`,
+		`INSERT INTO messages (organization_id, conversation_id, direction, sender_type, type, body)
+		 VALUES ($1, $2, 'inbound', 'contact', 'text', 'Incoming WhatsApp call')`,
 		orgID, convID)
 
 	s.broadcastCall(ctx, orgID, events.CallUpdated{
