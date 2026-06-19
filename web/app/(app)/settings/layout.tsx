@@ -126,7 +126,7 @@ export default function SettingsLayout({ children }: { children: ReactNode }) {
 
       {/* Page content — only this remounts on navigation */}
       <div className="flex-1 min-w-0 overflow-y-auto bg-background">
-        <div className="animate-fade-in">
+        <div className="animate-fade-in h-full">
           {children}
         </div>
       </div>

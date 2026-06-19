@@ -5,7 +5,8 @@ import Link from "next/link";
 import {
   LayoutGrid, MessageCircle, Megaphone, Settings,
   ChevronLeft, ChevronRight, Bell, LogOut, User as UserIcon,
-  CheckCircle2, Loader2, ChevronDown, Activity, MessagesSquare, Users, Sparkles, SlidersHorizontal, Share2, Wrench, Globe
+  CheckCircle2, Loader2, ChevronDown, Activity, MessagesSquare, Users, Sparkles, SlidersHorizontal, Share2, Wrench, Globe,
+  ScrollText, BarChart3, Building2, ShieldCheck, FileText, Radio, GitBranch, Plug
 } from "lucide-react";
 import { WS_URL } from "@/lib/api";
 import { api, clearSession, getToken, getUser, setSession } from "@/lib/api";
@@ -39,6 +40,18 @@ const PAGE_TITLES: Record<string, { category: string; title: string }> = {
   "/automation": { category: "AUTOMATION", title: "Automation" },
   "/channels": { category: "SETUP", title: "Channels" },
   "/integrations": { category: "SETUP", title: "Web API" },
+  // Settings sub-pages (more specific than "/settings" so each gets its own title + icon).
+  "/settings/general": { category: "PREFERENCES", title: "General" },
+  "/settings/people": { category: "TEAM", title: "Team Members" },
+  "/settings/roles": { category: "ROLES", title: "Roles & Permissions" },
+  "/settings/departments": { category: "DEPARTMENTS", title: "Departments" },
+  "/settings/campaigns": { category: "CAMPAIGNS", title: "Campaigns" },
+  "/settings/templates": { category: "TEMPLATES", title: "Message Templates" },
+  "/settings/automation": { category: "AUTOMATION", title: "Automation" },
+  "/settings/channels": { category: "CHANNELS", title: "Channels" },
+  "/settings/ads": { category: "ANALYTICS", title: "Ad Performance" },
+  "/settings/integrations": { category: "INTEGRATIONS", title: "Web API Sources" },
+  "/settings/audit": { category: "SYSTEM", title: "System Logs" },
   "/settings": { category: "PREFERENCES", title: "Settings" },
   "/account": { category: "ACCOUNT", title: "Account Settings" },
 };
@@ -49,11 +62,27 @@ const CATEGORY_ICONS: Record<string, any> = {
   "GROUPS": Users,
   "CAMPAIGNS": Sparkles,
   "OUTREACH": Share2,
-  "AUTOMATION": Sparkles,
+  "AUTOMATION": GitBranch,
   "SETUP": Wrench,
   "PREFERENCES": SlidersHorizontal,
   "ACCOUNT": UserIcon,
+  "TEAM": Users,
+  "ROLES": ShieldCheck,
+  "DEPARTMENTS": Building2,
+  "TEMPLATES": FileText,
+  "CHANNELS": Radio,
+  "ANALYTICS": BarChart3,
+  "INTEGRATIONS": Plug,
+  "SYSTEM": ScrollText,
 };
+
+// Resolve the page title/category by the most specific (longest) matching prefix,
+// so /settings/audit wins over /settings.
+function resolvePageInfo(pathname: string) {
+  return Object.entries(PAGE_TITLES)
+    .filter(([k]) => pathname.startsWith(k))
+    .sort((a, b) => b[0].length - a[0].length)[0]?.[1];
+}
 
 export function Shell({ children }: { children: ReactNode }) {
   const router = useRouter();
@@ -201,7 +230,7 @@ export function Shell({ children }: { children: ReactNode }) {
   }, []);
 
   useEffect(() => {
-    const info = Object.entries(PAGE_TITLES).find(([k]) => pathname.startsWith(k))?.[1];
+    const info = resolvePageInfo(pathname);
     const base = info?.title ? `${info.title} - ${brand}` : brand;
     document.title = unreadCount > 0 ? `(${unreadCount}) ${base}` : base;
   }, [pathname, brand, unreadCount]);
@@ -216,8 +245,7 @@ export function Shell({ children }: { children: ReactNode }) {
 
   async function logout() { await api.logout().catch(() => {}); clearSession(); router.replace("/login"); }
 
-  const pageInfo = Object.entries(PAGE_TITLES).find(([k]) => pathname.startsWith(k))?.[1]
-    || { category: "", title: "Simpulx" };
+  const pageInfo = resolvePageInfo(pathname) || { category: "", title: "Simpulx" };
 
   if (!user) return (
     <div className="grid place-items-center h-screen bg-background text-muted-foreground text-sm">
