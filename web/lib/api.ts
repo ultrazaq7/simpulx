@@ -290,6 +290,15 @@ export const api = {
     req<Organization>("/api/organization", { method: "PATCH", body: JSON.stringify(patch) }),
   // ── Audit log ──
   listAuditLog: () => req<AuditEntry[]>("/api/audit-log"),
+  systemLog: <T,>(kind: "messages" | "conversations" | "calls", p: { limit?: number; offset?: number; from?: string; to?: string }) => {
+    const q = new URLSearchParams();
+    if (p.limit != null) q.set("limit", String(p.limit));
+    if (p.offset != null) q.set("offset", String(p.offset));
+    if (p.from) q.set("from", p.from);
+    if (p.to) q.set("to", p.to);
+    const qs = q.toString();
+    return req<import("./types").LogPage<T>>(`/api/system-logs/${kind}${qs ? "?" + qs : ""}`);
+  },
   // ── Web API lead sources ──
   listWebApiSources: () => req<WebApiSource[]>("/api/web-api-sources"),
   createWebApiSource: (input: { name: string; slug?: string; auto_assign_dept_id?: string; auto_template_name?: string; webhook_url?: string }) =>

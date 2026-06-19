@@ -379,6 +379,27 @@ export interface WebApiSource {
   created_at: string;
 }
 
+export interface LogPage<T> { rows: T[]; total: number; }
+export interface LogMessage {
+  created_at: string; direction: string; message_type: string; message: string | null;
+  file_url: string | null; status: string; message_id: string;
+  conversation_id: string; channel_id: string | null; channel_name: string | null;
+  contact_id: string | null; contact_name: string | null; contact_phone: string | null;
+  agent_name: string | null; agent_email: string | null;
+  source_id: string | null; source_url: string | null;
+}
+export interface LogConversation {
+  agent_name: string | null; email: string | null; department_name: string | null;
+  customer_name: string | null; disposition: string | null; contact_number: string | null;
+  assigned_at: string | null; closed_at: string | null; first_response_sec: number; closing_sec: number;
+  agent_messages: number; status: string; chat_initiation: string | null; id: string;
+}
+export interface LogCall {
+  direction: string | null; name: string | null; phone: string | null; duration_seconds: number;
+  received_at: string | null; ended_at: string | null; call_status: string | null; end_reason: string | null;
+  agent: string | null; id: string;
+}
+
 export interface AuditEntry {
   id: string;
   actor_name: string | null;
