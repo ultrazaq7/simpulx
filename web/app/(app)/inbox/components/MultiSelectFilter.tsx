@@ -37,7 +37,7 @@ export default function MultiSelectFilter({
     onChange(selected.includes(value) ? selected.filter((v) => v !== value) : [...selected, value]);
   }, [selected, onChange]);
 
-  const showSearch = options.length > 3;
+  const showSearch = options.length > 0;
 
   // ── Shared: searchable, checkable option list ──
   const OptionList = (
