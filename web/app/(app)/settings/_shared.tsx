@@ -46,7 +46,11 @@ export function PageHeader({ left, right }: { left?: ReactNode; right?: ReactNod
 }
 
 // Standard scroll container + padding for a settings page body.
-export function PageBody({ children, maxWidth }: { children: ReactNode; maxWidth?: number }) {
+export function PageBody({ children, maxWidth, fill }: { children: ReactNode; maxWidth?: number; fill?: boolean }) {
+  // fill = stretch to full height (for list/table pages so the card doesn't hang).
+  if (fill) {
+    return <div className="px-6 py-6 w-full h-full flex flex-col min-h-0">{children}</div>;
+  }
   return (
     <div className="px-6 py-6 mx-auto w-full" style={{ maxWidth: maxWidth ?? 1040 }}>
       {children}

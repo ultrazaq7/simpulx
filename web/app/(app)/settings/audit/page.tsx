@@ -32,9 +32,9 @@ export default function AuditSettingsPage() {
   useEffect(() => { api.listAuditLog().then(setRows).catch(() => {}).finally(() => setLoading(false)); }, []);
 
   return (
-    <PageBody>
-      <SettingsCard className="overflow-hidden">
-        <div className="overflow-x-auto">
+    <PageBody fill>
+      <SettingsCard className="overflow-hidden flex-1 min-h-0 flex flex-col">
+        <div className="overflow-auto flex-1 min-h-0">
           <table className="w-full text-sm">
             <thead>
               <tr className="border-b border-border bg-muted/40">

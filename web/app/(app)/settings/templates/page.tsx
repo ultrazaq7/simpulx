@@ -88,9 +88,9 @@ export default function TemplatesPage() {
   function closeFlow() { setFlow(""); setEditing(null); setPrefill(null); }
 
   return (
-    <PageBody>
+    <PageBody fill>
       {ToastHost}
-      <div className="flex items-center gap-3 mb-5 flex-wrap">
+      <div className="flex items-center gap-3 mb-5 flex-wrap shrink-0">
         <div className="relative w-[240px]">
           <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-muted-foreground pointer-events-none" />
           <input type="text" placeholder="Search templates" value={query} onChange={(e) => setQuery(e.target.value)}
@@ -107,7 +107,8 @@ export default function TemplatesPage() {
         <PrimaryButton onClick={openNew}><Plus className="w-4 h-4" />New template</PrimaryButton>
       </div>
 
-      <SettingsCard className="overflow-hidden">
+      <SettingsCard className="overflow-hidden flex-1 min-h-0 flex flex-col">
+        <div className="overflow-auto flex-1 min-h-0">
         <table className="w-full text-sm">
           <thead>
             <tr className="border-b border-border bg-muted/40">
@@ -154,6 +155,7 @@ export default function TemplatesPage() {
             })}
           </tbody>
         </table>
+        </div>
       </SettingsCard>
 
       {flow === "chooser" && (

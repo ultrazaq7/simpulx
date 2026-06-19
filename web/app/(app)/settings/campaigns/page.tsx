@@ -44,9 +44,9 @@ export default function CampaignsPage() {
   useEffect(() => { setPage(0); }, [search]);
 
   return (
-    <div className="px-6 pt-6 pb-6 max-w-[1180px] mx-auto">
-      <div className="bg-card rounded-lg border border-border shadow-xs overflow-hidden">
-        <div className="p-3 flex items-center gap-3 border-b border-border flex-wrap">
+    <div className="px-6 pt-6 pb-6 max-w-[1180px] mx-auto w-full h-full flex flex-col min-h-0">
+      <div className="bg-card rounded-lg border border-border shadow-xs overflow-hidden flex-1 min-h-0 flex flex-col">
+        <div className="p-3 flex items-center gap-3 border-b border-border flex-wrap shrink-0">
           <div className="relative w-[320px] max-w-[45vw]">
             <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-muted-foreground pointer-events-none" />
             <input type="text" placeholder="Search campaigns or dealers" value={search} onChange={(e) => setSearch(e.target.value)}
@@ -59,7 +59,7 @@ export default function CampaignsPage() {
           </button>
         </div>
 
-        <div className="overflow-x-auto">
+        <div className="overflow-auto flex-1 min-h-0">
           <table className="w-full text-sm min-w-[920px]">
             <thead>
               <tr className="border-b border-border bg-muted/40">

@@ -90,10 +90,10 @@ export default function DepartmentsSettingsPage() {
   const filtered = rows.filter((d) => d.name.toLowerCase().includes(search.toLowerCase()));
 
   return (
-    <PageBody>
+    <PageBody fill>
       {ToastHost}
-      <SettingsCard className="overflow-hidden">
-        <div className="p-3 flex items-center gap-4 border-b border-border">
+      <SettingsCard className="overflow-hidden flex-1 min-h-0 flex flex-col">
+        <div className="p-3 flex items-center gap-4 border-b border-border shrink-0">
           <div className="relative w-[340px]">
             <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-muted-foreground pointer-events-none" />
             <input
@@ -110,7 +110,7 @@ export default function DepartmentsSettingsPage() {
           </PrimaryButton>
         </div>
 
-        <div className="overflow-x-auto">
+        <div className="overflow-auto flex-1 min-h-0">
           <table className="w-full text-sm">
             <thead>
               <tr className="border-b border-border bg-muted/40">
