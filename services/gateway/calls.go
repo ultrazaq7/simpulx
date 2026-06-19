@@ -109,7 +109,7 @@ func (s *server) handleRequestCallPermission(w http.ResponseWriter, r *http.Requ
 		s.log.Error("send call permission failed", "err", err)
 		_, _ = s.pool.Exec(r.Context(),
 			`UPDATE calls SET call_status = 'failed', end_reason = $2 WHERE id = $1`, callID, err.Error())
-		http.Error(w, "failed to send permission request: "+err.Error(), http.StatusBadGateway)
+		http.Error(w, "failed to send permission request: "+err.Error(), http.StatusUnprocessableEntity)
 		return
 	}
 
@@ -145,10 +145,7 @@ func (s *server) sendCallPermissionRequest(ctx context.Context, phoneNumberID, t
 			"body": map[string]string{
 				"text": "Kami ingin menghubungi Anda melalui WhatsApp. Apakah Anda bersedia menerima panggilan?",
 			},
-			"action": map[string]any{
-				"name":       "call_permission_request",
-				"parameters": map[string]any{"call_context": callID},
-			},
+			"action": map[string]any{"name": "call_permission_request"},
 		},
 	}
 	respBody, err := s.metaPost(ctx, fmt.Sprintf("%s/%s/messages", graphBase, phoneNumberID), token, payload)
@@ -211,7 +208,7 @@ func (s *server) handleInitiateCall(w http.ResponseWriter, r *http.Request) {
 			CallID: body.CallID, ConversationID: convID, Direction: "outbound",
 			PermissionStatus: "granted", CallStatus: "failed", EndReason: err.Error(),
 		})
-		http.Error(w, "call initiation failed: "+err.Error(), http.StatusBadGateway)
+		http.Error(w, "call initiation failed: "+err.Error(), http.StatusUnprocessableEntity)
 		return
 	}
 
@@ -308,7 +305,7 @@ func (s *server) handleAcceptCall(w http.ResponseWriter, r *http.Request) {
 			CallID: callID, ConversationID: convID, Direction: "inbound",
 			CallStatus: "failed", EndReason: err.Error(),
 		})
-		http.Error(w, "call accept failed: "+err.Error(), http.StatusBadGateway)
+		http.Error(w, "call accept failed: "+err.Error(), http.StatusUnprocessableEntity)
 		return
 	}
 
@@ -512,8 +509,18 @@ func (s *server) processCallWebhook(ctx context.Context, orgID, phoneNumberID st
 			s.handleInboundCall(ctx, orgID, phoneNumberID, ce)
 			continue
 		}
+		// Permission grant/deny carries no call_context — match the most recent
+		// pending outbound permission request for that customer's number.
+		if callID == "" && strings.Contains(ce.Event, "permission") && ce.From != "" {
+			_ = s.pool.QueryRow(ctx,
+				`SELECT id::text FROM calls
+				  WHERE organization_id=$1 AND direction='outbound' AND permission_status='pending'
+				    AND regexp_replace(contact_phone,'\D','','g') = regexp_replace($2,'\D','','g')
+				  ORDER BY created_at DESC LIMIT 1`,
+				orgID, ce.From).Scan(&callID)
+		}
 		if callID == "" {
-			s.log.Warn("call webhook: no matching call record", "ext_id", ce.ID)
+			s.log.Warn("call webhook: no matching call record", "ext_id", ce.ID, "event", ce.Event)
 			continue
 		}
 
