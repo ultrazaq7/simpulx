@@ -1,6 +1,6 @@
 "use client";
 import { useEffect, useState } from "react";
-import { Plus, RefreshCw, Pencil, Trash2, Copy, RotateCw, Plug, Key, Loader2, X } from "lucide-react";
+import { Plus, RefreshCw, Pencil, Trash2, Copy, RotateCw, Plug, Key, Loader2, X, Search } from "lucide-react";
 import { api } from "@/lib/api";
 import { Select } from "@/components/Select";
 import { cn } from "@/lib/utils";
@@ -16,6 +16,8 @@ export default function IntegrationsPage() {
   const [depts, setDepts] = useState<Department[]>([]);
   const [loading, setLoading] = useState(true);
   const [dlg, setDlg] = useState<{ open: boolean; editing: WebApiSource | null }>({ open: false, editing: null });
+  const [query, setQuery] = useState("");
+  const filtered = rows.filter((p) => !query || p.name.toLowerCase().includes(query.toLowerCase()) || (p.slug ?? "").toLowerCase().includes(query.toLowerCase()));
 
   async function load() {
     setLoading(true);
@@ -42,19 +44,25 @@ export default function IntegrationsPage() {
   }
 
   return (
-    <PageBody maxWidth={1000}>
+    <PageBody fill>
       {ToastHost}
-      <div className="flex items-center gap-3 mb-5">
-        <span className="text-[13px] text-muted-foreground">{rows.length} API source{rows.length === 1 ? "" : "s"}</span>
-        <button onClick={load} className="p-1 rounded-md hover:bg-muted transition-colors outline-none">
+      <div className="bg-card border border-border rounded-lg shadow-xs overflow-hidden flex-1 min-h-0 flex flex-col">
+      <div className="p-3 flex items-center gap-3 border-b border-border flex-wrap shrink-0">
+        <div className="relative w-[300px]">
+          <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-muted-foreground pointer-events-none" />
+          <input type="text" placeholder="Search API sources" value={query} onChange={(e) => setQuery(e.target.value)}
+            className="w-full h-9 pl-9 pr-3 rounded-md border border-input bg-muted text-sm text-foreground placeholder:text-muted-foreground/70 outline-none transition-shadow focus:border-primary" />
+        </div>
+        <Tip label="Refresh"><button onClick={load} className="p-1.5 rounded-md hover:bg-muted transition-colors outline-none">
           <RefreshCw className="w-[18px] h-[18px] text-muted-foreground" />
-        </button>
+        </button></Tip>
         <div className="flex-1" />
         <PrimaryButton onClick={() => setDlg({ open: true, editing: null })}>
           <Plus className="w-4 h-4" />Add API source
         </PrimaryButton>
       </div>
 
+      <div className="overflow-auto flex-1 min-h-0 p-4">
       {/* How it works */}
       <div className="p-5 mb-5 rounded-lg bg-muted/50 border border-border">
         <p className="text-[13.5px] font-bold text-foreground mb-1">Capture leads via API</p>
@@ -71,7 +79,7 @@ export default function IntegrationsPage() {
       {/* List */}
       {loading ? (
         [0, 1].map((i) => <div key={i} className="h-24 mb-3 rounded-lg skeleton" />)
-      ) : rows.length === 0 ? (
+      ) : filtered.length === 0 ? (
         <div className="text-center py-16 border border-dashed border-border rounded-lg bg-card">
           <Plug className="w-11 h-11 text-muted-foreground/30 mx-auto mb-2" />
           <p className="font-bold text-foreground mb-1">No API sources yet</p>
@@ -80,7 +88,7 @@ export default function IntegrationsPage() {
             <Plus className="w-4 h-4" />Add API source
           </PrimaryButton>
         </div>
-      ) : rows.map((p) => (
+      ) : filtered.map((p) => (
         <SettingsCard key={p.id} className={cn("p-5 mb-3", !p.is_active && "opacity-65")}>
           <div className="flex items-center gap-3">
             <div className="w-10 h-10 rounded-lg grid place-items-center bg-[#8B5CF6]/[0.12] text-[#8B5CF6] shrink-0">
@@ -107,6 +115,8 @@ export default function IntegrationsPage() {
           </div>
         </SettingsCard>
       ))}
+      </div>
+      </div>
 
       <WebApiDialog state={dlg} depts={depts}
         onClose={() => setDlg({ open: false, editing: null })}
