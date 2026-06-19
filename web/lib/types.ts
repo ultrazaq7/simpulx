@@ -252,6 +252,46 @@ export interface Contact {
   source_url?: string | null;         // CTWA / referral ad URL
 }
 
+export interface AdAccount {
+  id: string;
+  platform: string;                    // meta | tiktok | google
+  external_account_id: string;
+  name: string;
+  status: string;                      // connected | error
+  currency: string | null;
+  has_token: boolean;
+  last_synced_at: string | null;
+  last_error: string | null;
+  campaign_count: number;
+  created_at: string;
+}
+export interface AdCampaignRow {
+  id: string;
+  platform: string;
+  external_id: string;
+  name: string;
+  campaign_id: string | null;          // mapped to OUR campaign
+  campaign_name: string | null;
+  account_name: string | null;
+  spend: number;
+  impressions: number;
+}
+export interface AdPerfCampaign {
+  campaign_id: string;
+  campaign_name: string;
+  spend: number; impressions: number; reach: number; clicks: number; results: number;
+  leads: number; sales: number;
+}
+export interface AdPerfDaily {
+  date: string;
+  impressions: number; reach: number; clicks: number; results: number; spend: number;
+}
+export interface AdPerformance {
+  from: string; to: string;
+  campaigns: AdPerfCampaign[];
+  daily: AdPerfDaily[];
+}
+
 export interface Channel {
   id: string;
   type: string;            // whatsapp | messenger | instagram | telegram | ...

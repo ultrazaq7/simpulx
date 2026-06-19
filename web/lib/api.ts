@@ -326,6 +326,22 @@ export const api = {
     req(`/api/channels/${id}`, { method: "PATCH", body: JSON.stringify(patch) }),
   deleteChannel: (id: string) => req(`/api/channels/${id}`, { method: "DELETE" }),
   testChannel: (id: string) => req<{ status: string }>(`/api/channels/${id}/test`, { method: "POST" }),
+
+  // Ad performance
+  listAdAccounts: () => req<import("./types").AdAccount[]>("/api/ad-accounts"),
+  createAdAccount: (input: { platform: string; external_account_id: string; name?: string; access_token: string }) =>
+    req<{ id: string; sync_error?: string }>("/api/ad-accounts", { method: "POST", body: JSON.stringify(input) }),
+  deleteAdAccount: (id: string) => req<void>(`/api/ad-accounts/${id}`, { method: "DELETE" }),
+  syncAdAccount: (id: string) => req<{ ok: boolean }>(`/api/ad-accounts/${id}/sync`, { method: "POST" }),
+  listAdCampaigns: () => req<import("./types").AdCampaignRow[]>("/api/ad-campaigns"),
+  mapAdCampaign: (id: string, campaign_id: string | null) =>
+    req<{ ok: boolean }>(`/api/ad-campaigns/${id}`, { method: "PATCH", body: JSON.stringify({ campaign_id }) }),
+  adPerformance: (from?: string, to?: string, campaign_id?: string) => {
+    const q = new URLSearchParams();
+    if (from) q.set("from", from); if (to) q.set("to", to); if (campaign_id) q.set("campaign_id", campaign_id);
+    const qs = q.toString();
+    return req<import("./types").AdPerformance>(`/api/ad-performance${qs ? "?" + qs : ""}`);
+  },
   // ── Automations ──
   listAutomations: () => req<Automation[]>("/api/automations"),
   getAutomation: (id: string) => req<AutomationDetail>(`/api/automations/${id}`),
