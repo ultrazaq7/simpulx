@@ -9,7 +9,7 @@ import Link from "next/link";
 import { usePathname } from "next/navigation";
 import {
   Settings, Type, Bell, Users, Building2, ShieldCheck,
-  Store, FileText, GitBranch, Radio, Plug, Clock,
+  Store, FileText, GitBranch, Radio, Plug, Clock, BarChart3,
 } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { usePermissions } from "@/lib/permissions";
@@ -41,6 +41,7 @@ const GROUPS: { titleKey: string; items: NavItem[] }[] = [
       { key: "templates", labelKey: "settings.templates", icon: FileText, href: "/settings/templates", perm: "view_settings" },
       { key: "automation", labelKey: "settings.automations", icon: GitBranch, href: "/settings/automation", perm: "view_automation" },
       { key: "channels", labelKey: "settings.channels", icon: Radio, href: "/settings/channels", perm: "manage_channels" },
+      { key: "ads", labelKey: "settings.ads", icon: BarChart3, href: "/settings/ads", perm: "manage_channels" },
       { key: "integrations", labelKey: "settings.web_api", icon: Plug, href: "/settings/integrations", perm: "view_settings" },
     ],
   },
