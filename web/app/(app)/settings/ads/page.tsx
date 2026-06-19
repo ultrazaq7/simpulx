@@ -1,7 +1,7 @@
 "use client";
 import { useEffect, useMemo, useState } from "react";
 import {
-  Plus, RefreshCw, Trash2, X, Loader2, BarChart3, TrendingUp, AlertTriangle, Link2,
+  Plus, RefreshCw, Trash2, X, Loader2, BarChart3, TrendingUp, AlertTriangle, Link2, Search,
 } from "lucide-react";
 import { api } from "@/lib/api";
 import { Select } from "@/components/Select";
@@ -33,6 +33,12 @@ export default function AdsPage() {
   const [syncing, setSyncing] = useState<string | null>(null);
   const [connectOpen, setConnectOpen] = useState(false);
   const [toast, setToast] = useState<string | null>(null);
+  const [search, setSearch] = useState("");
+  const [platformFilter, setPlatformFilter] = useState("");
+  const [accountFilter, setAccountFilter] = useState("");
+  const [dailyPage, setDailyPage] = useState(0);
+  const [mapPage, setMapPage] = useState(0);
+  const DAILY_PER = 12, MAP_PER = 10;
 
   const currency = accounts.find((a) => a.currency)?.currency || "";
 
@@ -82,6 +88,23 @@ export default function AdsPage() {
   const totalLeads = camps.reduce((a, c) => a + c.leads, 0);
   const totalSales = camps.reduce((a, c) => a + c.sales, 0);
 
+  // Filters
+  const platformOptions = useMemo(() => [{ value: "", label: "All platforms" }, ...Array.from(new Set(accounts.map((a) => a.platform))).map((p) => ({ value: p, label: PLATFORMS[p]?.label || p }))], [accounts]);
+  const accountOptions = useMemo(() => [{ value: "", label: "All accounts" }, ...accounts.map((a) => ({ value: a.id, label: a.name || a.external_account_id }))], [accounts]);
+  const q = search.trim().toLowerCase();
+  const filteredCamps = useMemo(() => camps.filter((c) => !q || c.campaign_name.toLowerCase().includes(q)), [camps, q]);
+  const filteredMap = useMemo(() => adCampaigns.filter((ac) =>
+    (!platformFilter || ac.platform === platformFilter) &&
+    (!accountFilter || (ac.account_name && accounts.find((a) => a.id === accountFilter)?.name === ac.account_name)) &&
+    (!q || ac.name.toLowerCase().includes(q) || (ac.campaign_name || "").toLowerCase().includes(q))
+  ), [adCampaigns, platformFilter, accountFilter, accounts, q]);
+  const dailyPaged = daily.slice(dailyPage * DAILY_PER, dailyPage * DAILY_PER + DAILY_PER);
+  const dailyPages = Math.max(1, Math.ceil(daily.length / DAILY_PER));
+  const mapPaged = filteredMap.slice(mapPage * MAP_PER, mapPage * MAP_PER + MAP_PER);
+  const mapPages = Math.max(1, Math.ceil(filteredMap.length / MAP_PER));
+  useEffect(() => { setDailyPage(0); }, [daily.length]);
+  useEffect(() => { setMapPage(0); }, [platformFilter, accountFilter, q]);
+
   const TH = ({ children, className }: { children?: React.ReactNode; className?: string }) =>
     <th className={cn("px-4 py-2.5 text-left text-[11px] font-bold uppercase tracking-wider text-muted-foreground whitespace-nowrap", className)}>{children}</th>;
   const Stat = ({ label, value, icon: Icon }: { label: string; value: string; icon: any }) => (
@@ -94,13 +117,17 @@ export default function AdsPage() {
   return (
     <div className="h-full overflow-y-auto">
       <div className="px-6 py-6 max-w-[1280px] mx-auto w-full space-y-6">
-        {/* Header */}
-        <div className="flex items-center gap-3 flex-wrap">
-          <div className="flex-1 min-w-0">
-            <h1 className="text-xl font-bold text-foreground">Ad Performance</h1>
-            <p className="text-sm text-muted-foreground">Pull ad results per campaign and tie spend to leads and sales.</p>
+        {/* Toolbar */}
+        <div className="flex items-center gap-2.5 flex-wrap">
+          <div className="relative w-[260px] max-w-[45vw]">
+            <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-muted-foreground pointer-events-none" />
+            <input type="text" placeholder="Search campaigns" value={search} onChange={(e) => setSearch(e.target.value)}
+              className="w-full h-9 pl-9 pr-3 rounded-md border border-input bg-card text-sm text-foreground placeholder:text-muted-foreground/70 outline-none transition-shadow focus:border-primary focus:ring-2 focus:ring-primary/20" />
           </div>
+          {accounts.length > 0 && <Select value={platformFilter} onChange={setPlatformFilter} options={platformOptions} className="min-w-[150px]" />}
+          {accounts.length > 1 && <Select value={accountFilter} onChange={setAccountFilter} options={accountOptions} className="min-w-[160px]" />}
           <Select value={range} onChange={setRange} options={RANGES} className="w-[150px]" searchable={false} />
+          <div className="flex-1" />
           <button onClick={() => setConnectOpen(true)} className="inline-flex items-center gap-2 px-3.5 h-9 bg-primary text-white rounded-md text-sm font-semibold hover:bg-primary-dark shadow-sm transition-all outline-none">
             <Plus className="w-4 h-4" />Connect ad account
           </button>
@@ -158,9 +185,9 @@ export default function AdsPage() {
                     <TH className="text-right">Cost/Lead</TH><TH className="text-right">Cost/Sale</TH><TH className="text-right">Impressions</TH><TH className="text-right">Clicks</TH><TH className="text-right">Results</TH>
                   </tr></thead>
                   <tbody>
-                    {camps.length === 0 ? (
+                    {filteredCamps.length === 0 ? (
                       <tr><td colSpan={9} className="text-center py-10 text-muted-foreground text-sm">No data yet. Map ad campaigns below, then sync.</td></tr>
-                    ) : camps.map((c) => (
+                    ) : filteredCamps.map((c) => (
                       <tr key={c.campaign_id} className="border-b border-border/60 hover:bg-muted/40">
                         <td className="px-4 py-2.5 font-semibold text-foreground">{c.campaign_name}</td>
                         <td className="px-4 py-2.5 text-right tabular-nums">{currency ? currency + " " : ""}{fmtMoney(c.spend)}</td>
@@ -181,15 +208,15 @@ export default function AdsPage() {
             {/* Daily performance */}
             <div className="bg-card border border-border rounded-lg shadow-xs overflow-hidden">
               <div className="px-4 py-3 border-b border-border"><p className="font-bold text-[14px] text-foreground">Daily performance</p></div>
-              <div className="overflow-x-auto max-h-[420px] overflow-y-auto">
+              <div className="overflow-x-auto">
                 <table className="w-full text-sm">
-                  <thead className="sticky top-0 bg-muted z-10"><tr className="border-b border-border">
+                  <thead className="bg-muted/40"><tr className="border-b border-border">
                     <TH>Day</TH><TH className="text-right">Impressions</TH><TH className="text-right">Reach</TH><TH className="text-right">Link clicks</TH><TH className="text-right">Results</TH><TH className="text-right">CTR</TH><TH className="text-right">CPC</TH><TH className="text-right">Spend</TH>
                   </tr></thead>
                   <tbody>
                     {daily.length === 0 ? (
                       <tr><td colSpan={8} className="text-center py-10 text-muted-foreground text-sm">No metrics for this range.</td></tr>
-                    ) : daily.map((d) => (
+                    ) : dailyPaged.map((d) => (
                       <tr key={d.date} className="border-b border-border/60 hover:bg-muted/40">
                         <td className="px-4 py-2.5 font-medium text-foreground whitespace-nowrap">{new Date(d.date).toLocaleDateString(undefined, { day: "numeric", month: "short", year: "numeric" })}</td>
                         <td className="px-4 py-2.5 text-right tabular-nums">{fmtNum(d.impressions)}</td>
@@ -204,6 +231,13 @@ export default function AdsPage() {
                   </tbody>
                 </table>
               </div>
+              {daily.length > DAILY_PER && (
+                <div className="flex items-center justify-end gap-2 px-4 py-2.5 border-t border-border text-sm">
+                  <span className="text-muted-foreground mx-2 tabular-nums">Page {dailyPage + 1} of {dailyPages}</span>
+                  <button disabled={dailyPage <= 0} onClick={() => setDailyPage(dailyPage - 1)} className="px-2.5 h-7 rounded-md border border-border text-xs font-semibold disabled:opacity-30 hover:bg-muted outline-none transition-colors">Prev</button>
+                  <button disabled={dailyPage >= dailyPages - 1} onClick={() => setDailyPage(dailyPage + 1)} className="px-2.5 h-7 rounded-md border border-border text-xs font-semibold disabled:opacity-30 hover:bg-muted outline-none transition-colors">Next</button>
+                </div>
+              )}
             </div>
 
             {/* Mapping */}
@@ -216,9 +250,9 @@ export default function AdsPage() {
                 <table className="w-full text-sm">
                   <thead><tr className="border-b border-border bg-muted/40"><TH>Ad campaign</TH><TH>Account</TH><TH className="text-right">Spend</TH><TH className="text-right">Impressions</TH><TH>Mapped to</TH></tr></thead>
                   <tbody>
-                    {adCampaigns.length === 0 ? (
+                    {filteredMap.length === 0 ? (
                       <tr><td colSpan={5} className="text-center py-10 text-muted-foreground text-sm">No ad campaigns yet. Connect an account and sync.</td></tr>
-                    ) : adCampaigns.map((ac) => (
+                    ) : mapPaged.map((ac) => (
                       <tr key={ac.id} className="border-b border-border/60 hover:bg-muted/40">
                         <td className="px-4 py-2.5 font-medium text-foreground"><span className="inline-flex items-center gap-1.5"><Link2 className="w-3.5 h-3.5 text-muted-foreground" />{ac.name}</span></td>
                         <td className="px-4 py-2.5 text-muted-foreground">{ac.account_name}</td>
@@ -230,6 +264,13 @@ export default function AdsPage() {
                   </tbody>
                 </table>
               </div>
+              {filteredMap.length > MAP_PER && (
+                <div className="flex items-center justify-end gap-2 px-4 py-2.5 border-t border-border text-sm">
+                  <span className="text-muted-foreground mx-2 tabular-nums">Page {mapPage + 1} of {mapPages}</span>
+                  <button disabled={mapPage <= 0} onClick={() => setMapPage(mapPage - 1)} className="px-2.5 h-7 rounded-md border border-border text-xs font-semibold disabled:opacity-30 hover:bg-muted outline-none transition-colors">Prev</button>
+                  <button disabled={mapPage >= mapPages - 1} onClick={() => setMapPage(mapPage + 1)} className="px-2.5 h-7 rounded-md border border-border text-xs font-semibold disabled:opacity-30 hover:bg-muted outline-none transition-colors">Next</button>
+                </div>
+              )}
             </div>
           </>
         )}
