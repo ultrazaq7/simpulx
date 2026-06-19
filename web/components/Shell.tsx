@@ -68,6 +68,8 @@ export function Shell({ children }: { children: ReactNode }) {
   const [metaTitle, setMetaTitle] = useState("");
   const [orgSettings, setOrgSettings] = useState<any>({});
   const orgSettingsRef = useRef<any>({});
+  const convNamesRef = useRef<Map<string, string>>(new Map());
+  const notifiedRef = useRef<Set<string>>(new Set());
   
   const [unreadCount, setUnreadCount] = useState(0);
   const [hasNotifs, setHasNotifs] = useState(false);
@@ -100,6 +102,8 @@ export function Shell({ children }: { children: ReactNode }) {
   const refreshUnread = () => {
     api.listConversations().then((convs) => {
       setUnreadCount(convs.reduce((acc, c) => acc + (c.unread_count || 0), 0));
+      // Cache id -> name so message notifications can show the contact's name.
+      convs.forEach((c) => { if (c.id) convNamesRef.current.set(c.id, c.contact_name || c.contact_phone || "New message"); });
     }).catch(() => {});
   };
 
@@ -146,17 +150,34 @@ export function Shell({ children }: { children: ReactNode }) {
             } catch {}
           };
 
+          // Aggressive OS notification (stays until dismissed, click opens the chat).
+          const showNotif = (title: string, body: string, convId?: string) => {
+            if (prefs.newMessages === false) return;
+            if (!("Notification" in window) || Notification.permission !== "granted") return;
+            try {
+              const n = new Notification(title, { body, requireInteraction: true, tag: convId || undefined, icon: "/simpulx_logo.png" });
+              n.onclick = () => { window.focus(); if (convId) router.push(`/inbox?c=${convId}`); n.close(); };
+            } catch {}
+          };
+
           if (ev.type === "alert" || ev.type === "notification.alert") {
             if (prefs.sound !== false) playBeep(1200, 0.3);
-            if (prefs.newMessages !== false && "Notification" in window && Notification.permission === "granted") {
-              new Notification(payload.title || "Alert", { body: payload.body || "You have a new notification", requireInteraction: true });
-            }
+            showNotif(payload.title || "Alert", payload.body || "You have a new notification");
             setAlerts(prev => [{ id: Math.random().toString(), title: payload.title || "Alert", body: payload.body || "You have a new notification", time: new Date() }, ...prev]);
             setHasNotifs(true);
           } else if (ev.type === "message.persisted") {
-            if (prefs.sound !== false && payload.direction === "inbound") {
-              if (!payload.assigned_agent_id || payload.assigned_agent_id === u.id) {
-                playBeep(880, 0.15);
+            const mine = !payload.assigned_agent_id || payload.assigned_agent_id === u.id;
+            if (payload.direction === "inbound" && mine) {
+              const convId: string | undefined = payload.conversation_id;
+              const mid = String(payload.message_id || `${convId}:${payload.preview}`);
+              // Skip only when you are actively viewing that conversation.
+              const onThisConv = document.visibilityState === "visible" && !!convId && window.location.search.includes(`c=${convId}`);
+              if (!notifiedRef.current.has(mid) && !onThisConv) {
+                notifiedRef.current.add(mid);
+                if (notifiedRef.current.size > 300) notifiedRef.current.clear();
+                if (prefs.sound !== false) playBeep(880, 0.15);
+                const name = (convId && convNamesRef.current.get(convId)) || "New message";
+                showNotif(name, payload.preview || payload.body || "New message", convId);
               }
             }
             refreshUnread();
