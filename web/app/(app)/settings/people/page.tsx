@@ -62,10 +62,10 @@ export default function PeopleSettingsPage() {
   useEffect(() => { setPage(0); }, [search, roleFilter]);
 
   return (
-    <PageBody maxWidth={1180}>
+    <PageBody fill>
       {ToastHost}
-      <SettingsCard className="overflow-hidden">
-        <div className="p-3 flex items-center gap-3 border-b border-border flex-wrap">
+      <SettingsCard className="overflow-hidden flex-1 min-h-0 flex flex-col">
+        <div className="p-3 flex items-center gap-3 border-b border-border flex-wrap shrink-0">
           <div className="relative w-[300px]">
             <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-muted-foreground pointer-events-none" />
             <input type="text" placeholder="Search by name or email" value={search} onChange={(e) => setSearch(e.target.value)}
@@ -81,7 +81,7 @@ export default function PeopleSettingsPage() {
           )}
         </div>
 
-        <div className="overflow-x-auto">
+        <div className="overflow-auto flex-1 min-h-0">
           <table className="w-full text-sm min-w-[920px]">
             <thead>
               <tr className="border-b border-border bg-muted/40">
