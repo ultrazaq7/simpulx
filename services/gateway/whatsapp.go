@@ -146,6 +146,14 @@ func (m waMessage) referralSourceID() string {
 	return ""
 }
 
+// referralSourceURL returns the CTWA ad source URL (real ad link) when present.
+func (m waMessage) referralSourceURL() string {
+	if m.Referral != nil {
+		return m.Referral.SourceURL
+	}
+	return ""
+}
+
 type waMedia struct {
 	ID       string `json:"id"`
 	MimeType string `json:"mime_type"`

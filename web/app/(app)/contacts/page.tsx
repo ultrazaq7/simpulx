@@ -8,7 +8,7 @@ import {
 import { api, getUser } from "@/lib/api";
 import { usePermissions } from "@/lib/permissions";
 import { initials, channelColor, fmtDate, cn } from "@/lib/utils";
-import type { Contact, Agent, Campaign, Message } from "@/lib/types";
+import type { Contact, Agent, Campaign, Message, Stage } from "@/lib/types";
 import { Tip } from "@/components/ui/tooltip";
 import MultiSelectFilter from "@/app/(app)/inbox/components/MultiSelectFilter";
 import { Select } from "@/components/Select";
@@ -25,6 +25,7 @@ export default function ContactsPage() {
   const [contacts, setContacts] = useState<Contact[]>([]);
   const [agents, setAgents] = useState<Agent[]>([]);
   const [campaigns, setCampaigns] = useState<Campaign[]>([]);
+  const [stages, setStages] = useState<Stage[]>([]);
   const [loading, setLoading] = useState(true);
   const [query, setQuery] = useState("");
   const [filterTags, setFilterTags] = useState<string[]>([]);
@@ -55,7 +56,17 @@ export default function ContactsPage() {
       showCampaignFilter ? api.listCampaigns().catch(() => []) : Promise.resolve([]),
     ]).then(([c, a, cm]) => { setContacts(c as Contact[]); setAgents(a as Agent[]); setCampaigns(cm as Campaign[]); setLoading(false); });
   }, []); // eslint-disable-line react-hooks/exhaustive-deps
+  useEffect(() => { api.listStages().then((s) => setStages(s || [])).catch(() => {}); }, []);
   useEffect(() => { if (!toast) return; const t = setTimeout(() => setToast(null), 2500); return () => clearTimeout(t); }, [toast]);
+
+  const stageOptions = useMemo(() => [{ value: "", label: "No status" }, ...stages.map((s) => ({ value: s.id, label: s.name }))], [stages]);
+  async function setStage(c: Contact, stageId: string) {
+    if (!c.conversation_id) { setToast("No conversation yet for this contact"); return; }
+    const name = stages.find((s) => s.id === stageId)?.name ?? null;
+    setContacts((p) => p.map((x) => (x.id === c.id ? { ...x, stage_id: stageId || null, stage_name: name } : x)));
+    try { await api.patchConversation(c.conversation_id, { stage_id: stageId }); }
+    catch { setToast("Could not update status"); }
+  }
   // Close row / add menus on outside click.
   useEffect(() => {
     const onDoc = () => { setMenuId(null); setAddMenuOpen(false); };
@@ -189,15 +200,15 @@ export default function ContactsPage() {
             <thead className="sticky top-0 z-10">
               <tr className="border-b border-border bg-muted">
                 <TH className="w-10"><input type="checkbox" className="rounded border-input accent-primary" /></TH>
-                <TH>Contact name</TH><TH>Channel</TH><TH>Phone</TH><TH>Source</TH><TH>Source Id</TH><TH>Source Url</TH>
+                <TH>Contact name</TH><TH>Channel</TH><TH>Phone</TH><TH>Status</TH><TH>Source</TH><TH>Source Id</TH><TH>Source Url</TH>
                 <TH>Labels</TH><TH>Created</TH><TH>Updated</TH><TH>Blacklisted</TH><TH className="text-right">Actions</TH>
               </tr>
             </thead>
             <tbody>
               {loading ? Array(8).fill(0).map((_, i) => (
-                <tr key={i}><td colSpan={12} className="px-4 py-2.5"><div className="h-9 skeleton rounded-md" /></td></tr>
+                <tr key={i}><td colSpan={13} className="px-4 py-2.5"><div className="h-9 skeleton rounded-md" /></td></tr>
               )) : paged.length === 0 ? (
-                <tr><td colSpan={12} className="text-center py-16">
+                <tr><td colSpan={13} className="text-center py-16">
                   <div className="w-12 h-12 rounded-xl bg-muted grid place-items-center mx-auto mb-3"><Users className="w-6 h-6 text-muted-foreground/50" /></div>
                   <p className="font-semibold text-foreground mb-0.5">No contacts found</p>
                   <p className="text-sm text-muted-foreground">{query || activeFilters ? "Try different filters." : "New contacts will appear here."}</p>
@@ -221,11 +232,18 @@ export default function ContactsPage() {
                     </span>
                   </td>
                   <td className="px-4 py-2.5 font-medium text-foreground/90 tabular-nums whitespace-nowrap">{c.phone || "-"}</td>
+                  <td className="px-4 py-2.5 whitespace-nowrap">
+                    {canEdit && c.conversation_id ? (
+                      <Select value={c.stage_id || ""} onChange={(v) => setStage(c, v)} options={stageOptions} className="w-[150px]" />
+                    ) : c.stage_name ? (
+                      <span className="inline-flex px-2 py-0.5 rounded-md text-[11px] font-semibold bg-primary/10 text-primary">{c.stage_name}</span>
+                    ) : <span className="text-muted-foreground">-</span>}
+                  </td>
                   <td className="px-4 py-2.5 capitalize text-foreground/80 whitespace-nowrap">{sourceLabel(c)}</td>
                   <td className="px-4 py-2.5 text-foreground/70 tabular-nums text-[12px] max-w-[160px] truncate" title={c.source_id || ""}>{c.source_id || "-"}</td>
                   <td className="px-4 py-2.5">
-                    {c.source_id ? (
-                      <a href={`https://fb.me/${c.source_id}`} target="_blank" rel="noreferrer" className="inline-flex items-center gap-1 text-primary text-[12px] font-medium hover:underline"><ExternalLink className="w-3.5 h-3.5" />Link</a>
+                    {c.source_url ? (
+                      <a href={c.source_url} target="_blank" rel="noreferrer" className="inline-flex items-center gap-1 text-primary text-[12px] font-medium hover:underline"><ExternalLink className="w-3.5 h-3.5" />Link</a>
                     ) : <span className="text-muted-foreground">-</span>}
                   </td>
                   <td className="px-4 py-2.5">

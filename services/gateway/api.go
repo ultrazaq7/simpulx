@@ -1381,11 +1381,11 @@ func (s *server) handleListContacts(w http.ResponseWriter, r *http.Request) {
 	query := fmt.Sprintf(`SELECT ct.id::text AS id, ct.full_name, ct.phone, ct.source_channel, ct.created_at,
 		        ct.updated_at, ct.blacklisted, ct.web_api_source_id::text AS web_api_source_id,
 		        COALESCE(ct.tags, '{}') AS tags,
-		        lc.interest_level, ls.name AS stage_name, lc.last_message_at, lc.ai_summary,
+		        lc.interest_level, lc.stage_id::text AS stage_id, ls.name AS stage_name, lc.last_message_at, lc.ai_summary,
 		        lc.assigned_agent_id::text AS assigned_agent_id, lu.full_name AS agent_name,
 		        lc.campaign_id::text AS campaign_id, lcmp.name AS campaign_name,
 		        lc.conversation_id::text AS conversation_id, lch.name AS channel_name,
-		        was.name AS web_api_source_name, att.referral_source AS source_id
+		        was.name AS web_api_source_name, att.referral_source AS source_id, att.referral_url AS source_url
 		   FROM contacts ct
 		   LEFT JOIN LATERAL (
 		     SELECT id AS conversation_id, interest_level, stage_id, last_message_at, ai_reason AS ai_summary,
@@ -1399,7 +1399,7 @@ func (s *server) handleListContacts(w http.ResponseWriter, r *http.Request) {
 		   LEFT JOIN channels lch ON lch.id = lc.channel_id
 		   LEFT JOIN web_api_sources was ON was.id = ct.web_api_source_id
 		   LEFT JOIN LATERAL (
-		     SELECT referral_source FROM conversation_attributions
+		     SELECT referral_source, referral_url FROM conversation_attributions
 		      WHERE conversation_id = lc.conversation_id AND referral_source IS NOT NULL
 		      ORDER BY created_at DESC LIMIT 1
 		   ) att ON true
