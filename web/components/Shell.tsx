@@ -3,7 +3,7 @@ import { useEffect, useState, useRef, type ReactNode } from "react";
 import { usePathname, useRouter } from "next/navigation";
 import Link from "next/link";
 import {
-  LayoutGrid, MessageCircle, Megaphone, Settings,
+  MessageCircle, Settings,
   ChevronLeft, ChevronRight, Bell, LogOut, User as UserIcon,
   CheckCircle2, Loader2, ChevronDown, Activity, MessagesSquare, Users, Sparkles, SlidersHorizontal, Share2, Wrench, Globe,
   ScrollText, BarChart3, Building2, ShieldCheck, FileText, Radio, GitBranch, Plug
@@ -18,10 +18,10 @@ import { useI18n } from "@/lib/i18n";
 import IncomingCallListener from "@/components/IncomingCallListener";
 
 const NAV_TOP = [
-  { href: "/dashboard", icon: LayoutGrid, labelKey: "nav.dashboard", perm: "menu_dashboard" },
+  { href: "/dashboard", icon: Activity, labelKey: "nav.dashboard", perm: "menu_dashboard" },
   { href: "/inbox", icon: MessageCircle, labelKey: "nav.inbox", perm: "menu_chats" },
   { href: "/contacts", icon: Users, labelKey: "nav.contacts", perm: "menu_contacts" },
-  { href: "/broadcasts", icon: Megaphone, labelKey: "nav.broadcasts", perm: "menu_broadcasts" },
+  { href: "/broadcasts", icon: Share2, labelKey: "nav.broadcasts", perm: "menu_broadcasts" },
 ];
 
 const NAV_BOTTOM = [
