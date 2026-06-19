@@ -46,10 +46,11 @@ func (s *server) handleListAdAccounts(w http.ResponseWriter, r *http.Request) {
 func (s *server) handleCreateAdAccount(w http.ResponseWriter, r *http.Request) {
 	a, _ := authFrom(r.Context())
 	var b struct {
-		Platform          string `json:"platform"`
-		ExternalAccountID string `json:"external_account_id"`
-		Name              string `json:"name"`
-		AccessToken       string `json:"access_token"`
+		Platform          string         `json:"platform"`
+		ExternalAccountID string         `json:"external_account_id"`
+		Name              string         `json:"name"`
+		AccessToken       string         `json:"access_token"`
+		Config            map[string]any `json:"config"`
 	}
 	if err := json.NewDecoder(r.Body).Decode(&b); err != nil {
 		http.Error(w, "bad request", http.StatusBadRequest)
@@ -60,31 +61,52 @@ func (s *server) handleCreateAdAccount(w http.ResponseWriter, r *http.Request) {
 	if b.Platform == "" {
 		b.Platform = "meta"
 	}
+	if b.Platform == "google" {
+		// Google customer ids are digits only (strip dashes).
+		b.ExternalAccountID = strings.Map(func(r rune) rune { if r >= '0' && r <= '9' { return r }; return -1 }, b.ExternalAccountID)
+	}
 	if b.ExternalAccountID == "" || b.AccessToken == "" {
 		http.Error(w, "account id and access token are required", http.StatusBadRequest)
 		return
 	}
+	if b.Config == nil {
+		b.Config = map[string]any{}
+	}
+	cfg, _ := json.Marshal(b.Config)
 	var id string
 	err := s.pool.QueryRow(r.Context(),
-		`INSERT INTO ad_accounts (organization_id, platform, external_account_id, name, access_token)
-		 VALUES ($1,$2,$3,$4,$5)
+		`INSERT INTO ad_accounts (organization_id, platform, external_account_id, name, access_token, config)
+		 VALUES ($1,$2,$3,$4,$5,$6)
 		 ON CONFLICT (organization_id, platform, external_account_id)
-		 DO UPDATE SET access_token = EXCLUDED.access_token, name = COALESCE(NULLIF(EXCLUDED.name,''), ad_accounts.name), status='connected', last_error=NULL
+		 DO UPDATE SET access_token = EXCLUDED.access_token, name = COALESCE(NULLIF(EXCLUDED.name,''), ad_accounts.name),
+		               config = EXCLUDED.config, status='connected', last_error=NULL
 		 RETURNING id::text`,
-		a.OrgID, b.Platform, b.ExternalAccountID, b.Name, b.AccessToken).Scan(&id)
+		a.OrgID, b.Platform, b.ExternalAccountID, b.Name, b.AccessToken, cfg).Scan(&id)
 	if err != nil {
 		http.Error(w, err.Error(), http.StatusInternalServerError)
 		return
 	}
 	s.audit(r.Context(), a, "connected", "ad_account", id, map[string]any{"platform": b.Platform, "account": b.ExternalAccountID})
 	// Best-effort first sync so the dashboard isn't empty.
-	if b.Platform == "meta" {
-		if err := s.syncMetaAccount(r.Context(), id, a.OrgID); err != nil {
-			writeJSON(w, map[string]any{"id": id, "sync_error": err.Error()})
-			return
-		}
+	if err := s.syncAccount(r.Context(), id, a.OrgID, b.Platform); err != nil {
+		writeJSON(w, map[string]any{"id": id, "sync_error": err.Error()})
+		return
 	}
 	writeJSON(w, map[string]any{"id": id})
+}
+
+// syncAccount dispatches to the right platform fetcher.
+func (s *server) syncAccount(ctx context.Context, accountID, orgID, platform string) error {
+	switch platform {
+	case "meta":
+		return s.syncMetaAccount(ctx, accountID, orgID)
+	case "tiktok":
+		return s.syncTikTokAccount(ctx, accountID, orgID)
+	case "google":
+		return s.syncGoogleAccount(ctx, accountID, orgID)
+	default:
+		return fmt.Errorf("%s sync is not supported", platform)
+	}
 }
 
 // DELETE /api/ad-accounts/{id}
@@ -115,14 +137,8 @@ func (s *server) handleSyncAdAccount(w http.ResponseWriter, r *http.Request) {
 		http.Error(w, "not found", http.StatusNotFound)
 		return
 	}
-	switch platform {
-	case "meta":
-		if err := s.syncMetaAccount(r.Context(), id, a.OrgID); err != nil {
-			http.Error(w, err.Error(), http.StatusBadGateway)
-			return
-		}
-	default:
-		http.Error(w, platform+" sync is not available yet (Meta is live; TikTok and Google are coming)", http.StatusNotImplemented)
+	if err := s.syncAccount(r.Context(), id, a.OrgID, platform); err != nil {
+		http.Error(w, err.Error(), http.StatusBadGateway)
 		return
 	}
 	writeJSON(w, map[string]any{"ok": true})
@@ -410,4 +426,316 @@ func atoiSafe(s string) int64 {
 func atofSafe(s string) float64 {
 	f, _ := strconv.ParseFloat(strings.TrimSpace(s), 64)
 	return f
+}
+
+func cfgStr(cfg map[string]any, key string) string {
+	if v, ok := cfg[key].(string); ok {
+		return strings.TrimSpace(v)
+	}
+	return ""
+}
+
+func (s *server) loadAdAccount(ctx context.Context, accountID, orgID string) (extID, token string, cfg map[string]any, err error) {
+	var raw []byte
+	err = s.pool.QueryRow(ctx,
+		`SELECT external_account_id, COALESCE(access_token,''), COALESCE(config,'{}'::jsonb)
+		   FROM ad_accounts WHERE id=$1 AND organization_id=$2`, accountID, orgID).Scan(&extID, &token, &raw)
+	if err != nil {
+		return "", "", nil, err
+	}
+	cfg = map[string]any{}
+	_ = json.Unmarshal(raw, &cfg)
+	if token == "" {
+		return extID, token, cfg, fmt.Errorf("no access token on file")
+	}
+	return extID, token, cfg, nil
+}
+
+// ── TikTok Marketing API fetcher ─────────────────────────────
+
+func (s *server) syncTikTokAccount(ctx context.Context, accountID, orgID string) error {
+	advertiserID, token, _, err := s.loadAdAccount(ctx, accountID, orgID)
+	if err != nil {
+		return err
+	}
+	until := time.Now().Format("2006-01-02")
+	since := time.Now().AddDate(0, 0, -90).Format("2006-01-02")
+	for page := 1; page <= 25; page++ {
+		q := url.Values{}
+		q.Set("advertiser_id", advertiserID)
+		q.Set("report_type", "BASIC")
+		q.Set("data_level", "AUCTION_CAMPAIGN")
+		q.Set("dimensions", `["campaign_id","stat_time_day"]`)
+		q.Set("metrics", `["campaign_name","spend","impressions","reach","clicks","conversion"]`)
+		q.Set("start_date", since)
+		q.Set("end_date", until)
+		q.Set("page", strconv.Itoa(page))
+		q.Set("page_size", "1000")
+		u := "https://business-api.tiktok.com/open_api/v1.3/report/integrated/get/?" + q.Encode()
+
+		var out struct {
+			Code    int    `json:"code"`
+			Message string `json:"message"`
+			Data    struct {
+				List []struct {
+					Dimensions map[string]any `json:"dimensions"`
+					Metrics    map[string]any `json:"metrics"`
+				} `json:"list"`
+				PageInfo struct {
+					TotalPage int `json:"total_page"`
+				} `json:"page_info"`
+			} `json:"data"`
+		}
+		if err := httpGetJSON(ctx, u, map[string]string{"Access-Token": token}, &out); err != nil {
+			s.markAdAccountError(ctx, accountID, err.Error())
+			return err
+		}
+		if out.Code != 0 {
+			s.markAdAccountError(ctx, accountID, out.Message)
+			return fmt.Errorf("tiktok: %s", out.Message)
+		}
+		for _, row := range out.Data.List {
+			extCampID := anyStr(row.Dimensions["campaign_id"])
+			day := anyStr(row.Dimensions["stat_time_day"])
+			if len(day) >= 10 {
+				day = day[:10]
+			}
+			if extCampID == "" || day == "" {
+				continue
+			}
+			acID, err := s.upsertAdCampaignP(ctx, orgID, accountID, "tiktok", extCampID, anyStr(row.Metrics["campaign_name"]))
+			if err != nil {
+				continue
+			}
+			s.upsertAdMetricRaw(ctx, orgID, accountID, acID, day,
+				int64(anyFloat(row.Metrics["impressions"])), int64(anyFloat(row.Metrics["reach"])),
+				int64(anyFloat(row.Metrics["clicks"])), int64(anyFloat(row.Metrics["conversion"])),
+				anyFloat(row.Metrics["spend"]), "")
+		}
+		if page >= out.Data.PageInfo.TotalPage {
+			break
+		}
+	}
+	_, _ = s.pool.Exec(ctx, `UPDATE ad_accounts SET last_synced_at=now(), status='connected', last_error=NULL WHERE id=$1`, accountID)
+	return nil
+}
+
+// ── Google Ads API fetcher ───────────────────────────────────
+// access_token field holds the OAuth refresh token; config carries
+// {developer_token, client_id, client_secret, login_customer_id}.
+
+func (s *server) syncGoogleAccount(ctx context.Context, accountID, orgID string) error {
+	customerID, refreshToken, cfg, err := s.loadAdAccount(ctx, accountID, orgID)
+	if err != nil {
+		return err
+	}
+	devToken := cfgStr(cfg, "developer_token")
+	clientID := cfgStr(cfg, "client_id")
+	clientSecret := cfgStr(cfg, "client_secret")
+	loginCID := strings.ReplaceAll(cfgStr(cfg, "login_customer_id"), "-", "")
+	if devToken == "" || clientID == "" || clientSecret == "" {
+		err := fmt.Errorf("google requires developer_token, client_id and client_secret")
+		s.markAdAccountError(ctx, accountID, err.Error())
+		return err
+	}
+
+	// 1. refresh -> access token
+	form := url.Values{}
+	form.Set("client_id", clientID)
+	form.Set("client_secret", clientSecret)
+	form.Set("refresh_token", refreshToken)
+	form.Set("grant_type", "refresh_token")
+	req, _ := http.NewRequestWithContext(ctx, http.MethodPost, "https://oauth2.googleapis.com/token", strings.NewReader(form.Encode()))
+	req.Header.Set("Content-Type", "application/x-www-form-urlencoded")
+	resp, err := adHTTP.Do(req)
+	if err != nil {
+		s.markAdAccountError(ctx, accountID, err.Error())
+		return err
+	}
+	var tok struct {
+		AccessToken string `json:"access_token"`
+		Error       string `json:"error_description"`
+	}
+	_ = json.NewDecoder(resp.Body).Decode(&tok)
+	resp.Body.Close()
+	if tok.AccessToken == "" {
+		msg := tok.Error
+		if msg == "" {
+			msg = "could not refresh google token"
+		}
+		s.markAdAccountError(ctx, accountID, msg)
+		return fmt.Errorf("google: %s", msg)
+	}
+
+	// 2. GAQL searchStream (campaign metrics by day)
+	until := time.Now().Format("2006-01-02")
+	since := time.Now().AddDate(0, 0, -90).Format("2006-01-02")
+	gaql := fmt.Sprintf(`{"query":"SELECT campaign.id, campaign.name, segments.date, metrics.impressions, metrics.clicks, metrics.cost_micros, metrics.conversions FROM campaign WHERE segments.date BETWEEN '%s' AND '%s'"}`, since, until)
+	u := fmt.Sprintf("https://googleads.googleapis.com/v17/customers/%s/googleAds:searchStream", customerID)
+	greq, _ := http.NewRequestWithContext(ctx, http.MethodPost, u, strings.NewReader(gaql))
+	greq.Header.Set("Authorization", "Bearer "+tok.AccessToken)
+	greq.Header.Set("developer-token", devToken)
+	if loginCID != "" {
+		greq.Header.Set("login-customer-id", loginCID)
+	}
+	greq.Header.Set("Content-Type", "application/json")
+	gresp, err := adHTTP.Do(greq)
+	if err != nil {
+		s.markAdAccountError(ctx, accountID, err.Error())
+		return err
+	}
+	defer gresp.Body.Close()
+	// searchStream returns an array of result batches.
+	var batches []struct {
+		Results []struct {
+			Campaign struct {
+				ID   string `json:"id"`
+				Name string `json:"name"`
+			} `json:"campaign"`
+			Segments struct {
+				Date string `json:"date"`
+			} `json:"segments"`
+			Metrics struct {
+				Impressions string  `json:"impressions"`
+				Clicks      string  `json:"clicks"`
+				CostMicros  string  `json:"costMicros"`
+				Conversions float64 `json:"conversions"`
+			} `json:"metrics"`
+		} `json:"results"`
+		Error *struct {
+			Message string `json:"message"`
+		} `json:"error"`
+	}
+	if err := json.NewDecoder(gresp.Body).Decode(&batches); err != nil {
+		s.markAdAccountError(ctx, accountID, "google: "+err.Error())
+		return err
+	}
+	for _, b := range batches {
+		if b.Error != nil {
+			s.markAdAccountError(ctx, accountID, b.Error.Message)
+			return fmt.Errorf("google: %s", b.Error.Message)
+		}
+		for _, r := range b.Results {
+			acID, err := s.upsertAdCampaignP(ctx, orgID, accountID, "google", r.Campaign.ID, r.Campaign.Name)
+			if err != nil {
+				continue
+			}
+			s.upsertAdMetricRaw(ctx, orgID, accountID, acID, r.Segments.Date,
+				atoiSafe(r.Metrics.Impressions), 0, atoiSafe(r.Metrics.Clicks), int64(r.Metrics.Conversions),
+				atofSafe(r.Metrics.CostMicros)/1e6, "")
+		}
+	}
+	_, _ = s.pool.Exec(ctx, `UPDATE ad_accounts SET last_synced_at=now(), status='connected', last_error=NULL WHERE id=$1`, accountID)
+	return nil
+}
+
+// ── shared upsert / http helpers ─────────────────────────────
+
+func (s *server) upsertAdCampaignP(ctx context.Context, orgID, accountID, platform, extID, name string) (string, error) {
+	var id string
+	err := s.pool.QueryRow(ctx,
+		`INSERT INTO ad_campaigns (organization_id, ad_account_id, platform, external_id, name)
+		 VALUES ($1,$2,$3,$4,$5)
+		 ON CONFLICT (ad_account_id, external_id)
+		 DO UPDATE SET name = EXCLUDED.name
+		 RETURNING id::text`,
+		orgID, accountID, platform, extID, name).Scan(&id)
+	return id, err
+}
+
+func (s *server) upsertAdMetricRaw(ctx context.Context, orgID, accountID, adCampaignID, date string, impressions, reach, clicks, results int64, spend float64, currency string) {
+	if date == "" {
+		return
+	}
+	_, _ = s.pool.Exec(ctx,
+		`INSERT INTO ad_metrics (organization_id, ad_account_id, ad_campaign_id, date, impressions, reach, clicks, results, spend, currency)
+		 VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,NULLIF($10,''))
+		 ON CONFLICT (ad_campaign_id, date)
+		 DO UPDATE SET impressions=EXCLUDED.impressions, reach=EXCLUDED.reach, clicks=EXCLUDED.clicks,
+		               results=EXCLUDED.results, spend=EXCLUDED.spend, currency=EXCLUDED.currency`,
+		orgID, accountID, adCampaignID, date, impressions, reach, clicks, results, spend, currency)
+}
+
+func httpGetJSON(ctx context.Context, u string, headers map[string]string, out any) error {
+	req, err := http.NewRequestWithContext(ctx, http.MethodGet, u, nil)
+	if err != nil {
+		return err
+	}
+	for k, v := range headers {
+		req.Header.Set(k, v)
+	}
+	resp, err := adHTTP.Do(req)
+	if err != nil {
+		return err
+	}
+	defer resp.Body.Close()
+	return json.NewDecoder(resp.Body).Decode(out)
+}
+
+func anyStr(v any) string {
+	switch t := v.(type) {
+	case string:
+		return t
+	case float64:
+		return strconv.FormatFloat(t, 'f', -1, 64)
+	}
+	return ""
+}
+func anyFloat(v any) float64 {
+	switch t := v.(type) {
+	case float64:
+		return t
+	case string:
+		return atofSafe(t)
+	}
+	return 0
+}
+
+// ── Daily auto-sync cron ─────────────────────────────────────
+// Hourly tick; syncs any account whose metrics are older than ~20h, giving a
+// daily refresh that also self-heals after deploys without re-pulling fresh data.
+
+func (s *server) startAdSyncCron(ctx context.Context) {
+	go func() {
+		// Small startup delay so a deploy isn't immediately hammered.
+		t := time.NewTimer(2 * time.Minute)
+		defer t.Stop()
+		for {
+			select {
+			case <-ctx.Done():
+				return
+			case <-t.C:
+				s.syncStaleAdAccounts(ctx)
+				t.Reset(time.Hour)
+			}
+		}
+	}()
+}
+
+func (s *server) syncStaleAdAccounts(ctx context.Context) {
+	rows, err := s.pool.Query(ctx,
+		`SELECT id::text, organization_id::text, platform
+		   FROM ad_accounts
+		  WHERE status <> 'error'
+		    AND (last_synced_at IS NULL OR last_synced_at < now() - interval '20 hours')`)
+	if err != nil {
+		s.log.Warn("ad sync cron query failed", "err", err)
+		return
+	}
+	type acct struct{ id, org, platform string }
+	var list []acct
+	for rows.Next() {
+		var a acct
+		if err := rows.Scan(&a.id, &a.org, &a.platform); err == nil {
+			list = append(list, a)
+		}
+	}
+	rows.Close()
+	for _, a := range list {
+		if err := s.syncAccount(ctx, a.id, a.org, a.platform); err != nil {
+			s.log.Warn("ad auto-sync failed", "account", a.id, "platform", a.platform, "err", err)
+		} else {
+			s.log.Info("ad auto-sync ok", "account", a.id, "platform", a.platform)
+		}
+	}
 }

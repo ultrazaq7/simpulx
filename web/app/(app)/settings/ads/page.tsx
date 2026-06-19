@@ -10,8 +10,8 @@ import type { AdAccount, AdCampaignRow, AdPerformance, Campaign } from "@/lib/ty
 
 const PLATFORMS: Record<string, { label: string; live: boolean }> = {
   meta: { label: "Meta (Facebook/Instagram)", live: true },
-  tiktok: { label: "TikTok", live: false },
-  google: { label: "Google Ads", live: false },
+  tiktok: { label: "TikTok", live: true },
+  google: { label: "Google Ads", live: true },
 };
 const RANGES = [
   { value: "7", label: "Last 7 days" },
@@ -246,16 +246,33 @@ function ConnectModal({ onClose, onConnected }: { onClose: () => void; onConnect
   const [accountId, setAccountId] = useState("");
   const [name, setName] = useState("");
   const [token, setToken] = useState("");
+  // Google-only extras.
+  const [devToken, setDevToken] = useState("");
+  const [loginCid, setLoginCid] = useState("");
+  const [clientId, setClientId] = useState("");
+  const [clientSecret, setClientSecret] = useState("");
   const [saving, setSaving] = useState(false);
   const [err, setErr] = useState("");
-  const live = PLATFORMS[platform]?.live;
   const INP = "w-full h-10 px-3 rounded-md border border-input bg-background text-[13.5px] text-foreground placeholder:text-muted-foreground/70 outline-none focus:border-primary focus:ring-2 focus:ring-primary/20";
+
+  const accountLabel = platform === "meta" ? "Ad account id (act_…)" : platform === "tiktok" ? "Advertiser id" : "Customer id";
+  const accountPlaceholder = platform === "meta" ? "e.g. 1234567890 (without act_)" : platform === "tiktok" ? "TikTok advertiser id" : "e.g. 123-456-7890";
+  const tokenLabel = platform === "google" ? "OAuth refresh token" : "Access token";
+  const tokenHint = platform === "meta" ? "A long-lived token (or system-user token) with the ads_read permission."
+    : platform === "tiktok" ? "A TikTok for Business access token with reporting access."
+      : "An OAuth refresh token for an account with access to this customer.";
 
   async function save() {
     if (!accountId.trim() || !token.trim()) { setErr("Account id and access token are required."); return; }
+    if (platform === "google" && (!devToken.trim() || !clientId.trim() || !clientSecret.trim())) {
+      setErr("Google needs a developer token, client id and client secret."); return;
+    }
     setSaving(true); setErr("");
     try {
-      const r = await api.createAdAccount({ platform, external_account_id: accountId.trim(), name: name.trim() || undefined, access_token: token.trim() });
+      const config = platform === "google"
+        ? { developer_token: devToken.trim(), login_customer_id: loginCid.trim(), client_id: clientId.trim(), client_secret: clientSecret.trim() }
+        : undefined;
+      const r = await api.createAdAccount({ platform, external_account_id: accountId.trim(), name: name.trim() || undefined, access_token: token.trim(), config });
       onConnected(r?.sync_error ? `Connected, but sync failed: ${r.sync_error}` : "Ad account connected");
     } catch (e: any) { setErr(e?.message || "Failed to connect"); setSaving(false); }
   }
@@ -273,22 +290,30 @@ function ConnectModal({ onClose, onConnected }: { onClose: () => void; onConnect
           <div className="space-y-1.5">
             <label className="text-[12px] font-bold text-foreground/80">Platform</label>
             <Select value={platform} onChange={setPlatform} searchable={false}
-              options={Object.entries(PLATFORMS).map(([v, p]) => ({ value: v, label: p.label + (p.live ? "" : " (coming soon)") }))} className="w-full" />
-            {!live && <p className="text-[12px] text-amber-600">{PLATFORMS[platform]?.label} sync isn't live yet. You can store the account now; metrics arrive once the connector ships.</p>}
+              options={Object.entries(PLATFORMS).map(([v, p]) => ({ value: v, label: p.label }))} className="w-full" />
           </div>
           <div className="space-y-1.5">
-            <label className="text-[12px] font-bold text-foreground/80">{platform === "meta" ? "Ad account id (act_…)" : "Account / advertiser id"}</label>
-            <input value={accountId} onChange={(e) => setAccountId(e.target.value)} placeholder={platform === "meta" ? "e.g. 1234567890 (without act_)" : "advertiser id"} className={INP} />
+            <label className="text-[12px] font-bold text-foreground/80">{accountLabel}</label>
+            <input value={accountId} onChange={(e) => setAccountId(e.target.value)} placeholder={accountPlaceholder} className={INP} />
           </div>
           <div className="space-y-1.5">
             <label className="text-[12px] font-bold text-foreground/80">Display name <span className="font-normal text-muted-foreground">(optional)</span></label>
             <input value={name} onChange={(e) => setName(e.target.value)} placeholder="e.g. Main ad account" className={INP} />
           </div>
           <div className="space-y-1.5">
-            <label className="text-[12px] font-bold text-foreground/80">Access token</label>
-            <input value={token} onChange={(e) => setToken(e.target.value)} type="password" placeholder="System user / long-lived token with ads_read" className={INP} />
-            <p className="text-[11.5px] text-muted-foreground">Meta: a long-lived token (or system-user token) with the ads_read permission.</p>
+            <label className="text-[12px] font-bold text-foreground/80">{tokenLabel}</label>
+            <input value={token} onChange={(e) => setToken(e.target.value)} type="password" placeholder={tokenLabel} className={INP} />
+            <p className="text-[11.5px] text-muted-foreground">{tokenHint}</p>
           </div>
+          {platform === "google" && (
+            <div className="space-y-3 pt-1 border-t border-border">
+              <p className="text-[12px] font-bold text-foreground/80 pt-2">Google Ads credentials</p>
+              <input value={devToken} onChange={(e) => setDevToken(e.target.value)} placeholder="Developer token" className={INP} />
+              <input value={clientId} onChange={(e) => setClientId(e.target.value)} placeholder="OAuth client id" className={INP} />
+              <input value={clientSecret} onChange={(e) => setClientSecret(e.target.value)} type="password" placeholder="OAuth client secret" className={INP} />
+              <input value={loginCid} onChange={(e) => setLoginCid(e.target.value)} placeholder="Login customer id (manager account, optional)" className={INP} />
+            </div>
+          )}
         </div>
         <div className="flex items-center justify-end gap-2 px-5 py-3 border-t border-border">
           <button onClick={onClose} className="px-3 py-1.5 rounded-md text-sm font-semibold text-foreground/70 hover:bg-muted outline-none">Cancel</button>
