@@ -276,9 +276,9 @@ func (m waMessage) extractText() string {
 			case "call_permission_reply":
 				switch strings.ToLower(m.Interactive.CallPermissionReply.Response) {
 				case "accept", "allow", "approved", "granted":
-					return "✅ Allowed WhatsApp call"
+					return "Allowed WhatsApp call"
 				case "reject", "deny", "declined", "decline":
-					return "🚫 Declined WhatsApp call"
+					return "Declined WhatsApp call"
 				default:
 					return "Call permission reply"
 				}

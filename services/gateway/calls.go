@@ -184,7 +184,7 @@ func (s *server) handleRequestCallPermission(w http.ResponseWriter, r *http.Requ
 	_, _ = s.pool.Exec(r.Context(),
 		`INSERT INTO messages (organization_id, conversation_id, direction, sender_type, type, body, preview)
 		 VALUES ($1, $2, 'outbound', 'system', 'text',
-		         '📞 Business call request sent — Awaiting customer approval', '📞 Call request sent')`,
+		         'Call permission request sent, awaiting customer approval', 'Call permission request sent')`,
 		a.OrgID, body.ConversationID)
 
 	s.broadcastCall(r.Context(), a.OrgID, events.CallUpdated{
@@ -416,7 +416,7 @@ func (s *server) handleRejectCall(w http.ResponseWriter, r *http.Request) {
 
 	_, _ = s.pool.Exec(r.Context(),
 		`INSERT INTO messages (organization_id, conversation_id, direction, sender_type, type, body, preview)
-		 VALUES ($1, $2, 'inbound', 'system', 'text', '📞 Missed / declined call', '📞 Call declined')`,
+		 VALUES ($1, $2, 'inbound', 'system', 'text', 'Missed or declined call', 'Call declined')`,
 		a.OrgID, convID)
 
 	s.broadcastCall(r.Context(), a.OrgID, events.CallUpdated{
@@ -595,7 +595,7 @@ func (s *server) processCallWebhook(ctx context.Context, orgID, phoneNumberID st
 			})
 			_, _ = s.pool.Exec(ctx,
 				`INSERT INTO messages (organization_id, conversation_id, direction, sender_type, type, body, preview)
-				 VALUES ($1, $2, 'inbound', 'system', 'text', '✅ Customer approved call request', '✅ Call approved')`,
+				 VALUES ($1, $2, 'inbound', 'system', 'text', 'Customer allowed the call', 'Call permission granted')`,
 				orgID, convID)
 
 		case "permission_denied", "call_permission_denied":
@@ -686,7 +686,7 @@ func (s *server) handleInboundCall(ctx context.Context, orgID, phoneNumberID str
 
 	_, _ = s.pool.Exec(ctx,
 		`INSERT INTO messages (organization_id, conversation_id, direction, sender_type, type, body, preview)
-		 VALUES ($1, $2, 'inbound', 'contact', 'text', '📞 Incoming WhatsApp call', '📞 Incoming call')`,
+		 VALUES ($1, $2, 'inbound', 'contact', 'text', 'Incoming WhatsApp call', 'Incoming call')`,
 		orgID, convID)
 
 	s.broadcastCall(ctx, orgID, events.CallUpdated{
