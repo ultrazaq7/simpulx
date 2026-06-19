@@ -5,7 +5,7 @@ import Link from "next/link";
 import {
   MessageCircle, Settings,
   ChevronLeft, ChevronRight, Bell, LogOut, User as UserIcon,
-  CheckCircle2, Loader2, ChevronDown, Activity, MessagesSquare, Users, Sparkles, SlidersHorizontal, Share2, Wrench, Globe,
+  CheckCircle2, Loader2, ChevronDown, Activity, Gauge, MessagesSquare, Users, Sparkles, SlidersHorizontal, Share2, Wrench, Globe,
   ScrollText, BarChart3, Building2, ShieldCheck, FileText, Radio, GitBranch, Plug
 } from "lucide-react";
 import { WS_URL } from "@/lib/api";
@@ -18,7 +18,7 @@ import { useI18n } from "@/lib/i18n";
 import IncomingCallListener from "@/components/IncomingCallListener";
 
 const NAV_TOP = [
-  { href: "/dashboard", icon: Activity, labelKey: "nav.dashboard", perm: "menu_dashboard" },
+  { href: "/dashboard", icon: Gauge, labelKey: "nav.dashboard", perm: "menu_dashboard" },
   { href: "/inbox", icon: MessageCircle, labelKey: "nav.inbox", perm: "menu_chats" },
   { href: "/contacts", icon: Users, labelKey: "nav.contacts", perm: "menu_contacts" },
   { href: "/broadcasts", icon: Share2, labelKey: "nav.broadcasts", perm: "menu_broadcasts" },
@@ -57,7 +57,7 @@ const PAGE_TITLES: Record<string, { category: string; title: string }> = {
 };
 
 const CATEGORY_ICONS: Record<string, any> = {
-  "OVERVIEW": Activity,
+  "OVERVIEW": Gauge,
   "INBOX": MessagesSquare,
   "GROUPS": Users,
   "CAMPAIGNS": Sparkles,
