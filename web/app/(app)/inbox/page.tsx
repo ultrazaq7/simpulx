@@ -127,12 +127,8 @@ export default function InboxPage() {
     api.listChannels().then(res => setChannels(res || [])).catch(() => { });
   }, []);
 
-  // --- Title with unread count ---
-  useEffect(() => {
-    if (!convs) return;
-    const totalUnread = convs.reduce((acc, c) => acc + (c.unread_count || 0), 0);
-    document.title = totalUnread > 0 ? `(${totalUnread}) Inbox - Simpulx` : `Inbox - Simpulx`;
-  }, [convs]);
+  // Tab title (with unread count) is owned solely by Shell to avoid two effects
+  // fighting over document.title on the inbox.
 
   // --- Mark active as read and Esc to close ---
   useEffect(() => {
