@@ -1,16 +1,25 @@
 "use client";
-import { useEffect, useMemo, useState } from "react";
-import { Search, UserPlus, Download, Pencil, ChevronsLeft, ChevronsRight, ChevronLeft, ChevronRight, Users, X, Loader2, Tag as TagIcon } from "lucide-react";
+import { useEffect, useMemo, useRef, useState } from "react";
+import {
+  Search, UserPlus, Download, Pencil, ChevronsLeft, ChevronsRight, ChevronLeft, ChevronRight,
+  Users, X, Loader2, Tag as TagIcon, MoreVertical, MessageSquare, Trash2, Upload, ChevronDown, Send, ExternalLink,
+} from "lucide-react";
 
 import { api, getUser } from "@/lib/api";
 import { usePermissions } from "@/lib/permissions";
-import { initials, channelColor, interestColor, fmtDate, cn } from "@/lib/utils";
-import type { Contact, Agent, Campaign } from "@/lib/types";
+import { initials, channelColor, fmtDate, cn } from "@/lib/utils";
+import type { Contact, Agent, Campaign, Message } from "@/lib/types";
 import { Tip } from "@/components/ui/tooltip";
 import MultiSelectFilter from "@/app/(app)/inbox/components/MultiSelectFilter";
 import { Select } from "@/components/Select";
 
 type ModalState = { mode: "add" } | { mode: "edit"; contact: Contact } | null;
+
+function sourceLabel(c: Contact): string {
+  if (c.source_id) return "Ad";
+  if (c.web_api_source_name) return c.web_api_source_name;
+  return c.source_channel || "Direct";
+}
 
 export default function ContactsPage() {
   const [contacts, setContacts] = useState<Contact[]>([]);
@@ -24,7 +33,11 @@ export default function ContactsPage() {
   const [page, setPage] = useState(1);
   const [rowsPerPage, setRowsPerPage] = useState(100);
   const [modal, setModal] = useState<ModalState>(null);
+  const [chatContact, setChatContact] = useState<Contact | null>(null);
+  const [menuId, setMenuId] = useState<string | null>(null);
+  const [addMenuOpen, setAddMenuOpen] = useState(false);
   const [toast, setToast] = useState<string | null>(null);
+  const importRef = useRef<HTMLInputElement>(null);
 
   const { can } = usePermissions();
   const role = getUser()?.role;
@@ -43,8 +56,13 @@ export default function ContactsPage() {
     ]).then(([c, a, cm]) => { setContacts(c as Contact[]); setAgents(a as Agent[]); setCampaigns(cm as Campaign[]); setLoading(false); });
   }, []); // eslint-disable-line react-hooks/exhaustive-deps
   useEffect(() => { if (!toast) return; const t = setTimeout(() => setToast(null), 2500); return () => clearTimeout(t); }, [toast]);
+  // Close row / add menus on outside click.
+  useEffect(() => {
+    const onDoc = () => { setMenuId(null); setAddMenuOpen(false); };
+    window.addEventListener("click", onDoc);
+    return () => window.removeEventListener("click", onDoc);
+  }, []);
 
-  // Filter options
   const tagOptions = useMemo(() => {
     const set = new Set<string>();
     contacts.forEach((c) => (c.tags || []).forEach((t) => set.add(t)));
@@ -55,7 +73,7 @@ export default function ContactsPage() {
 
   const filtered = useMemo(() => {
     let list = contacts;
-    if (query) list = list.filter((c) => (c.full_name || c.phone || "").toLowerCase().includes(query.toLowerCase()));
+    if (query) list = list.filter((c) => (c.full_name || c.phone || "").toLowerCase().includes(query.toLowerCase()) || (c.phone || "").includes(query));
     if (filterTags.length) list = list.filter((c) => (c.tags || []).some((t) => filterTags.includes(t)));
     if (filterAgents.length) list = list.filter((c) => filterAgents.includes(c.assigned_agent_id || "__unassigned__"));
     if (filterCampaigns.length) list = list.filter((c) => c.campaign_id && filterCampaigns.includes(c.campaign_id));
@@ -72,8 +90,8 @@ export default function ContactsPage() {
   function exportCsv() {
     if (filtered.length === 0) { setToast("Nothing to export"); return; }
     const esc = (v: any) => `"${String(v ?? "").replace(/"/g, '""')}"`;
-    const head = ["Name", "Phone", "Channel", "Interest", "Stage", "Labels", "Created"];
-    const lines = filtered.map((c) => [c.full_name, c.phone, c.source_channel, c.interest_level, c.stage_name, (c.tags || []).join("; "), c.created_at].map(esc).join(","));
+    const head = ["Name", "Phone", "Channel", "Source", "Source Id", "Labels", "Blacklisted", "Created", "Updated"];
+    const lines = filtered.map((c) => [c.full_name, c.phone, c.channel_name, sourceLabel(c), c.source_id, (c.tags || []).join("; "), c.blacklisted ? "Yes" : "No", c.created_at, c.updated_at].map(esc).join(","));
     const csv = [head.join(","), ...lines].join("\n");
     const url = URL.createObjectURL(new Blob([csv], { type: "text/csv;charset=utf-8" }));
     const a = document.createElement("a");
@@ -82,126 +100,163 @@ export default function ContactsPage() {
     setToast(`Exported ${filtered.length} contact${filtered.length === 1 ? "" : "s"}`);
   }
 
+  async function importCsv(file: File) {
+    const text = await file.text();
+    const rows = text.split(/\r?\n/).map((l) => l.trim()).filter(Boolean);
+    if (rows.length === 0) { setToast("Empty file"); return; }
+    // Detect header; map name/phone columns.
+    const header = rows[0].toLowerCase();
+    const hasHeader = /name|phone|nama|telepon|nomor/.test(header);
+    const cols = hasHeader ? rows[0].split(",").map((h) => h.trim().toLowerCase()) : [];
+    const nameIdx = cols.findIndex((h) => /name|nama/.test(h));
+    const phoneIdx = cols.findIndex((h) => /phone|telepon|nomor|wa/.test(h));
+    const dataRows = hasHeader ? rows.slice(1) : rows;
+    let ok = 0;
+    setToast("Importing...");
+    for (const line of dataRows) {
+      const parts = line.split(",").map((p) => p.trim().replace(/^"|"$/g, ""));
+      const full_name = nameIdx >= 0 ? parts[nameIdx] : (parts.length > 1 ? parts[0] : "");
+      const phone = phoneIdx >= 0 ? parts[phoneIdx] : (parts.length > 1 ? parts[1] : parts[0]);
+      if (!full_name && !phone) continue;
+      try { await api.createContact({ full_name: full_name || undefined, phone: (phone || "").replace(/[^\d+]/g, "") || undefined }); ok++; } catch { /* skip dup/invalid */ }
+    }
+    await reload();
+    setToast(`Imported ${ok} contact${ok === 1 ? "" : "s"}`);
+  }
+
+  async function remove(c: Contact) {
+    if (!confirm(`Delete "${c.full_name || c.phone}"? This also removes its conversations.`)) return;
+    try { await api.deleteContact(c.id); setContacts((p) => p.filter((x) => x.id !== c.id)); setToast("Contact deleted"); }
+    catch (e: any) { setToast(e?.message || "Delete failed"); }
+  }
+  async function toggleBlacklist(c: Contact) {
+    const next = !c.blacklisted;
+    setContacts((p) => p.map((x) => (x.id === c.id ? { ...x, blacklisted: next } : x)));
+    try { await api.updateContact(c.id, { blacklisted: next }); setToast(next ? "Contact blacklisted" : "Removed from blacklist"); }
+    catch { setContacts((p) => p.map((x) => (x.id === c.id ? { ...x, blacklisted: !next } : x))); setToast("Update failed"); }
+  }
+
+  const TH = ({ children, className }: { children?: React.ReactNode; className?: string }) =>
+    <th className={cn("px-4 py-2.5 text-left text-[11px] font-bold uppercase tracking-wider text-muted-foreground whitespace-nowrap", className)}>{children}</th>;
+
   return (
-    <div className="px-4 pt-4 pb-6">
-      <div className="bg-card rounded-lg border border-border shadow-xs overflow-hidden flex flex-col">
+    <div className="h-full flex flex-col px-4 pt-4 pb-4 min-h-0">
+      <div className="bg-card rounded-lg border border-border shadow-xs overflow-hidden flex flex-col flex-1 min-h-0">
         {/* Toolbar */}
-        <div className="p-3 flex items-center gap-3 border-b border-border">
+        <div className="p-3 flex items-center gap-3 border-b border-border shrink-0">
           <div className="relative w-[320px] max-w-[45vw]">
             <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-muted-foreground pointer-events-none" />
-            <input
-              type="text"
-              placeholder="Search name or phone"
-              value={query}
-              onChange={(e) => setQuery(e.target.value)}
-              className="w-full h-9 pl-9 pr-3 rounded-md border border-input bg-background text-sm text-foreground placeholder:text-muted-foreground/70 outline-none transition-shadow focus:border-primary focus:ring-2 focus:ring-primary/20"
-            />
+            <input type="text" placeholder="Search name or phone" value={query} onChange={(e) => setQuery(e.target.value)}
+              className="w-full h-9 pl-9 pr-3 rounded-md border border-input bg-background text-sm text-foreground placeholder:text-muted-foreground/70 outline-none transition-shadow focus:border-primary focus:ring-2 focus:ring-primary/20" />
           </div>
           <div className="flex-1" />
-          {canExport && (
-            <button onClick={exportCsv} className="inline-flex items-center gap-1.5 px-3 h-9 border border-border rounded-md text-sm font-semibold text-foreground/80 hover:bg-muted transition-colors outline-none">
-              <Download className="w-4 h-4" />
-              Export
-            </button>
-          )}
           {canCreate && (
-            <button onClick={() => setModal({ mode: "add" })} className="inline-flex items-center gap-2 px-3.5 h-9 bg-primary text-white rounded-md text-sm font-semibold hover:bg-primary-dark shadow-sm hover:shadow-brand-md transition-all outline-none">
-              <UserPlus className="w-4 h-4" />
-              Add contact
-            </button>
+            <div className="relative inline-flex" onClick={(e) => e.stopPropagation()}>
+              <button onClick={() => setModal({ mode: "add" })} className="inline-flex items-center gap-2 px-3.5 h-9 bg-primary text-white rounded-l-md text-sm font-semibold hover:bg-primary-dark shadow-sm transition-all outline-none">
+                <UserPlus className="w-4 h-4" />Add contact
+              </button>
+              <button onClick={() => setAddMenuOpen((o) => !o)} className="px-2 h-9 bg-primary text-white rounded-r-md border-l border-white/20 hover:bg-primary-dark outline-none transition-colors">
+                <ChevronDown className="w-4 h-4" />
+              </button>
+              {addMenuOpen && (
+                <div className="absolute right-0 top-full mt-1 w-44 bg-popover border border-border rounded-lg shadow-xl z-50 py-1 animate-scale-in origin-top-right">
+                  <button onClick={() => { setAddMenuOpen(false); importRef.current?.click(); }} className="w-full flex items-center gap-2 px-3 py-2 text-[13px] text-foreground hover:bg-muted outline-none">
+                    <Upload className="w-4 h-4 text-muted-foreground" />Import CSV
+                  </button>
+                  {canExport && (
+                    <button onClick={() => { setAddMenuOpen(false); exportCsv(); }} className="w-full flex items-center gap-2 px-3 py-2 text-[13px] text-foreground hover:bg-muted outline-none">
+                      <Download className="w-4 h-4 text-muted-foreground" />Export
+                    </button>
+                  )}
+                </div>
+              )}
+            </div>
           )}
+          <input ref={importRef} type="file" accept=".csv,text/csv" className="hidden" onChange={(e) => { const f = e.target.files?.[0]; if (f) importCsv(f); e.target.value = ""; }} />
         </div>
 
         {/* Filter row */}
-        <div className="px-3 py-2 flex items-center gap-1.5 flex-wrap border-b border-border/70 bg-muted/30">
+        <div className="px-3 py-2 flex items-center gap-1.5 flex-wrap border-b border-border/70 bg-muted/30 shrink-0">
           <MultiSelectFilter label="Labels" options={tagOptions} selected={filterTags} onChange={setFilterTags} />
           {showAgentFilter && <MultiSelectFilter label="Agent" options={agentOptions} selected={filterAgents} onChange={setFilterAgents} />}
           {showCampaignFilter && <MultiSelectFilter label="Campaign" options={campaignOptions} selected={filterCampaigns} onChange={setFilterCampaigns} />}
-          {activeFilters > 0 && (
-            <button onClick={clearFilters} className="text-[11px] font-semibold text-primary hover:underline outline-none ml-1">Clear</button>
-          )}
+          {activeFilters > 0 && <button onClick={clearFilters} className="text-[11px] font-semibold text-primary hover:underline outline-none ml-1">Clear</button>}
         </div>
 
-        {/* Table */}
-        <div className="overflow-x-auto">
+        {/* Table (fills remaining height) */}
+        <div className="overflow-auto flex-1 min-h-0">
           <table className="w-full text-sm">
-            <thead>
-              <tr className="border-b border-border bg-muted/40">
-                <th className="w-10 px-4 py-2.5"><input type="checkbox" className="rounded border-input accent-primary" /></th>
-                {["Contact name", "Channel", "Phone", "Interest", "Stage", "Labels", ""].map((h, i) => (
-                  <th key={i} className="px-4 py-2.5 text-left text-[11px] font-bold uppercase tracking-wider text-muted-foreground">{h}</th>
-                ))}
+            <thead className="sticky top-0 z-10">
+              <tr className="border-b border-border bg-muted">
+                <TH className="w-10"><input type="checkbox" className="rounded border-input accent-primary" /></TH>
+                <TH>Contact name</TH><TH>Channel</TH><TH>Phone</TH><TH>Source</TH><TH>Source Id</TH><TH>Source Url</TH>
+                <TH>Labels</TH><TH>Created</TH><TH>Updated</TH><TH>Blacklisted</TH><TH className="text-right">Actions</TH>
               </tr>
             </thead>
             <tbody>
-              {loading ? Array(6).fill(0).map((_, i) => (
-                <tr key={i}><td colSpan={8} className="px-4 py-2.5"><div className="h-9 skeleton rounded-md" /></td></tr>
+              {loading ? Array(8).fill(0).map((_, i) => (
+                <tr key={i}><td colSpan={12} className="px-4 py-2.5"><div className="h-9 skeleton rounded-md" /></td></tr>
               )) : paged.length === 0 ? (
-                <tr>
-                  <td colSpan={8} className="text-center py-16">
-                    <div className="w-12 h-12 rounded-xl bg-muted grid place-items-center mx-auto mb-3">
-                      <Users className="w-6 h-6 text-muted-foreground/50" />
-                    </div>
-                    <p className="font-semibold text-foreground mb-0.5">No contacts found</p>
-                    <p className="text-sm text-muted-foreground">{query || activeFilters ? "Try different filters." : "New contacts will appear here."}</p>
-                  </td>
-                </tr>
+                <tr><td colSpan={12} className="text-center py-16">
+                  <div className="w-12 h-12 rounded-xl bg-muted grid place-items-center mx-auto mb-3"><Users className="w-6 h-6 text-muted-foreground/50" /></div>
+                  <p className="font-semibold text-foreground mb-0.5">No contacts found</p>
+                  <p className="text-sm text-muted-foreground">{query || activeFilters ? "Try different filters." : "New contacts will appear here."}</p>
+                </td></tr>
               ) : paged.map((c) => (
                 <tr key={c.id} className="border-b border-border/60 hover:bg-muted/50 transition-colors">
                   <td className="px-4 py-2.5"><input type="checkbox" className="rounded border-input accent-primary" /></td>
                   <td className="px-4 py-2.5">
                     <div className="flex items-center gap-3">
-                      <div className="relative shrink-0">
-                        <div className="w-9 h-9 rounded-full grid place-items-center text-xs font-bold ring-1 ring-inset ring-black/5"
-                          style={{ backgroundColor: channelColor(c.source_channel) + "1A", color: channelColor(c.source_channel) }}>
-                          {initials(c.full_name || c.phone)}
-                        </div>
-                        <span className="absolute -bottom-0.5 -right-0.5 w-3 h-3 rounded-full ring-2 ring-card" style={{ backgroundColor: channelColor(c.source_channel) }} />
+                      <div className="w-9 h-9 rounded-full grid place-items-center text-xs font-bold ring-1 ring-inset ring-black/5 shrink-0"
+                        style={{ backgroundColor: channelColor(c.source_channel) + "1A", color: channelColor(c.source_channel) }}>
+                        {initials(c.full_name || c.phone)}
                       </div>
-                      <div className="min-w-0">
-                        <p className="font-semibold text-[13px] text-foreground truncate">{c.full_name || c.phone || "Unknown"}</p>
-                        <p className="text-[11px] text-muted-foreground">{fmtDate(c.created_at)}</p>
-                      </div>
+                      <p className="font-semibold text-[13px] text-foreground truncate max-w-[180px]">{c.full_name || c.phone || "Unknown"}</p>
                     </div>
                   </td>
-                  <td className="px-4 py-2.5">
-                    <span className="inline-flex px-2 py-0.5 rounded-md text-[11px] font-semibold capitalize"
+                  <td className="px-4 py-2.5 whitespace-nowrap">
+                    <span className="inline-flex px-2 py-0.5 rounded-md text-[11px] font-semibold"
                       style={{ backgroundColor: channelColor(c.source_channel) + "15", color: channelColor(c.source_channel) }}>
-                      {c.source_channel || "Unknown"}
+                      {c.channel_name || c.source_channel || "Unknown"}
                     </span>
                   </td>
-                  <td className="px-4 py-2.5 font-medium text-foreground/90 tabular-nums">{c.phone || "-"}</td>
+                  <td className="px-4 py-2.5 font-medium text-foreground/90 tabular-nums whitespace-nowrap">{c.phone || "-"}</td>
+                  <td className="px-4 py-2.5 capitalize text-foreground/80 whitespace-nowrap">{sourceLabel(c)}</td>
+                  <td className="px-4 py-2.5 text-foreground/70 tabular-nums text-[12px] max-w-[160px] truncate" title={c.source_id || ""}>{c.source_id || "-"}</td>
                   <td className="px-4 py-2.5">
-                    {c.interest_level ? (
-                      <div className="flex items-center gap-1.5">
-                        <span className="w-2 h-2 rounded-full shrink-0" style={{ backgroundColor: interestColor(c.interest_level) }} />
-                        <span className="capitalize font-medium text-foreground/90">{c.interest_level}</span>
-                      </div>
-                    ) : <span className="text-muted-foreground">-</span>}
-                  </td>
-                  <td className="px-4 py-2.5">
-                    {c.stage_name ? (
-                      <span className="inline-flex px-2 py-0.5 rounded-md text-[11px] font-semibold bg-primary/10 text-primary">{c.stage_name}</span>
+                    {c.source_id ? (
+                      <a href={`https://fb.me/${c.source_id}`} target="_blank" rel="noreferrer" className="inline-flex items-center gap-1 text-primary text-[12px] font-medium hover:underline"><ExternalLink className="w-3.5 h-3.5" />Link</a>
                     ) : <span className="text-muted-foreground">-</span>}
                   </td>
                   <td className="px-4 py-2.5">
                     {(c.tags && c.tags.length) ? (
-                      <div className="flex flex-wrap gap-1 max-w-[200px]">
-                        {c.tags.slice(0, 3).map((t) => (
+                      <div className="flex flex-wrap gap-1 max-w-[160px]">
+                        {c.tags.slice(0, 2).map((t) => (
                           <span key={t} className="inline-flex items-center gap-1 px-1.5 py-0.5 rounded-md bg-amber-50 text-amber-700 text-[10px] font-semibold"><TagIcon className="w-2.5 h-2.5" />{t}</span>
                         ))}
-                        {c.tags.length > 3 && <span className="text-[10px] text-muted-foreground font-semibold">+{c.tags.length - 3}</span>}
+                        {c.tags.length > 2 && <span className="text-[10px] text-muted-foreground font-semibold">+{c.tags.length - 2}</span>}
                       </div>
                     ) : <span className="text-muted-foreground">-</span>}
                   </td>
+                  <td className="px-4 py-2.5 text-muted-foreground text-[12px] whitespace-nowrap">{fmtDate(c.created_at)}</td>
+                  <td className="px-4 py-2.5 text-muted-foreground text-[12px] whitespace-nowrap">{c.updated_at ? fmtDate(c.updated_at) : "-"}</td>
                   <td className="px-4 py-2.5">
-                    {canEdit && (
-                      <Tip label="Edit contact">
-                        <button onClick={() => setModal({ mode: "edit", contact: c })} className="p-1.5 border border-border rounded-md hover:bg-muted transition-colors outline-none text-muted-foreground hover:text-foreground">
-                          <Pencil className="w-4 h-4" />
-                        </button>
-                      </Tip>
-                    )}
+                    <span className={cn("inline-flex px-2 py-0.5 rounded-md text-[11px] font-semibold", c.blacklisted ? "bg-red-50 text-red-600" : "bg-muted text-muted-foreground")}>
+                      {c.blacklisted ? "Yes" : "No"}
+                    </span>
+                  </td>
+                  <td className="px-4 py-2.5 text-right">
+                    <div className="relative inline-block" onClick={(e) => e.stopPropagation()}>
+                      <button onClick={() => setMenuId(menuId === c.id ? null : c.id)} className="p-1.5 rounded-md hover:bg-muted text-muted-foreground hover:text-foreground outline-none transition-colors"><MoreVertical className="w-4 h-4" /></button>
+                      {menuId === c.id && (
+                        <div className="absolute right-0 top-full mt-1 w-40 bg-popover border border-border rounded-lg shadow-xl z-20 py-1 animate-scale-in origin-top-right">
+                          {canEdit && <button onClick={() => { setMenuId(null); setModal({ mode: "edit", contact: c }); }} className="w-full flex items-center gap-2 px-3 py-2 text-[13px] text-foreground hover:bg-muted outline-none"><Pencil className="w-4 h-4 text-muted-foreground" />Edit</button>}
+                          <button disabled={!c.conversation_id} onClick={() => { setMenuId(null); setChatContact(c); }} className="w-full flex items-center gap-2 px-3 py-2 text-[13px] text-foreground hover:bg-muted outline-none disabled:opacity-40 disabled:cursor-not-allowed"><MessageSquare className="w-4 h-4 text-muted-foreground" />Chat</button>
+                          {canEdit && <button onClick={() => { setMenuId(null); toggleBlacklist(c); }} className="w-full flex items-center gap-2 px-3 py-2 text-[13px] text-foreground hover:bg-muted outline-none"><Users className="w-4 h-4 text-muted-foreground" />{c.blacklisted ? "Unblacklist" : "Blacklist"}</button>}
+                          {canEdit && <button onClick={() => { setMenuId(null); remove(c); }} className="w-full flex items-center gap-2 px-3 py-2 text-[13px] text-destructive hover:bg-muted outline-none"><Trash2 className="w-4 h-4" />Delete</button>}
+                        </div>
+                      )}
+                    </div>
                   </td>
                 </tr>
               ))}
@@ -210,34 +265,29 @@ export default function ContactsPage() {
         </div>
 
         {/* Pagination */}
-        <div className="flex items-center py-3 px-4 border-t border-border">
+        <div className="flex items-center py-3 px-4 border-t border-border shrink-0">
           <span className="text-[13px] font-semibold text-muted-foreground tabular-nums">{filtered.length} contact{filtered.length === 1 ? "" : "s"}</span>
           <div className="flex-1 flex justify-center items-center gap-1">
-            <button disabled={page <= 1} onClick={() => setPage(1)} className="p-1 rounded-md text-muted-foreground hover:bg-muted hover:text-foreground disabled:opacity-30 disabled:cursor-not-allowed outline-none transition-colors"><ChevronsLeft className="w-[18px] h-[18px]" /></button>
-            <button disabled={page <= 1} onClick={() => setPage(page - 1)} className="p-1 rounded-md text-muted-foreground hover:bg-muted hover:text-foreground disabled:opacity-30 disabled:cursor-not-allowed outline-none transition-colors"><ChevronLeft className="w-[18px] h-[18px]" /></button>
+            <button disabled={page <= 1} onClick={() => setPage(1)} className="p-1 rounded-md text-muted-foreground hover:bg-muted disabled:opacity-30 outline-none"><ChevronsLeft className="w-[18px] h-[18px]" /></button>
+            <button disabled={page <= 1} onClick={() => setPage(page - 1)} className="p-1 rounded-md text-muted-foreground hover:bg-muted disabled:opacity-30 outline-none"><ChevronLeft className="w-[18px] h-[18px]" /></button>
             <span className="px-3 py-1 rounded-md border border-primary/40 text-primary text-[13px] font-bold min-w-[32px] text-center tabular-nums">{page}</span>
             <span className="text-[13px] text-muted-foreground tabular-nums">/ {totalPages}</span>
-            <button disabled={page >= totalPages} onClick={() => setPage(page + 1)} className="p-1 rounded-md text-muted-foreground hover:bg-muted hover:text-foreground disabled:opacity-30 disabled:cursor-not-allowed outline-none transition-colors"><ChevronRight className="w-[18px] h-[18px]" /></button>
-            <button disabled={page >= totalPages} onClick={() => setPage(totalPages)} className="p-1 rounded-md text-muted-foreground hover:bg-muted hover:text-foreground disabled:opacity-30 disabled:cursor-not-allowed outline-none transition-colors"><ChevronsRight className="w-[18px] h-[18px]" /></button>
+            <button disabled={page >= totalPages} onClick={() => setPage(page + 1)} className="p-1 rounded-md text-muted-foreground hover:bg-muted disabled:opacity-30 outline-none"><ChevronRight className="w-[18px] h-[18px]" /></button>
+            <button disabled={page >= totalPages} onClick={() => setPage(totalPages)} className="p-1 rounded-md text-muted-foreground hover:bg-muted disabled:opacity-30 outline-none"><ChevronsRight className="w-[18px] h-[18px]" /></button>
           </div>
           <div className="flex items-center gap-2">
             <span className="text-[13px] text-muted-foreground">Per page</span>
-            <Select
-              value={String(rowsPerPage)}
-              onChange={(v) => { setRowsPerPage(Number(v)); setPage(1); }}
-              options={[50, 100, 200].map((n) => ({ value: String(n), label: String(n) }))}
-              className="w-[80px]"
-              align="right"
-            />
+            <Select value={String(rowsPerPage)} onChange={(v) => { setRowsPerPage(Number(v)); setPage(1); }}
+              options={[50, 100, 200, 500].map((n) => ({ value: String(n), label: String(n) }))} className="w-[88px]" align="right" searchable={false} />
           </div>
         </div>
       </div>
 
       {modal && (
         <ContactModal state={modal} allTags={tagOptions.map((t) => t.value)}
-          onClose={() => setModal(null)}
-          onSaved={(msg) => { setModal(null); reload(); setToast(msg); }} />
+          onClose={() => setModal(null)} onSaved={(msg) => { setModal(null); reload(); setToast(msg); }} />
       )}
+      {chatContact && <ChatPopup contact={chatContact} onClose={() => setChatContact(null)} />}
 
       {toast && (
         <div className="fixed bottom-6 left-6 z-[110] animate-scale-in">
@@ -248,13 +298,73 @@ export default function ContactsPage() {
   );
 }
 
+// ── Chat popup (read the conversation + reply) ──────────────────────────────
+function ChatPopup({ contact, onClose }: { contact: Contact; onClose: () => void }) {
+  const convId = contact.conversation_id!;
+  const [messages, setMessages] = useState<Message[]>([]);
+  const [loading, setLoading] = useState(true);
+  const [draft, setDraft] = useState("");
+  const [sending, setSending] = useState(false);
+  const bodyRef = useRef<HTMLDivElement>(null);
+
+  const load = () => api.getMessages(convId).then((m) => setMessages(m || [])).catch(() => {}).finally(() => setLoading(false));
+  useEffect(() => { load(); }, [convId]); // eslint-disable-line react-hooks/exhaustive-deps
+  useEffect(() => { if (bodyRef.current) bodyRef.current.scrollTop = bodyRef.current.scrollHeight; }, [messages]);
+
+  async function send() {
+    if (!draft.trim()) return;
+    setSending(true);
+    try { await api.sendMessage(convId, draft.trim()); setDraft(""); await load(); }
+    catch { /* ignore */ } finally { setSending(false); }
+  }
+
+  return (
+    <div className="fixed inset-0 z-[100] flex items-center justify-center p-4">
+      <div className="absolute inset-0 bg-black/40 backdrop-blur-[2px] animate-fade-in" onClick={onClose} />
+      <div className="relative w-[480px] max-w-full h-[600px] max-h-[88vh] rounded-xl border border-border bg-card shadow-2xl animate-scale-in flex flex-col overflow-hidden">
+        <div className="flex items-center gap-3 px-4 py-3 border-b border-border bg-primary text-white shrink-0">
+          <div className="w-9 h-9 rounded-full bg-white/20 grid place-items-center text-xs font-bold">{initials(contact.full_name || contact.phone)}</div>
+          <div className="min-w-0 flex-1">
+            <p className="font-bold text-[14px] truncate">{contact.full_name || contact.phone || "Unknown"}</p>
+            <p className="text-[11.5px] text-white/70 tabular-nums">{contact.phone}</p>
+          </div>
+          <button onClick={onClose} className="p-1 rounded-md hover:bg-white/15 outline-none"><X className="w-[18px] h-[18px]" /></button>
+        </div>
+
+        <div ref={bodyRef} className="flex-1 overflow-y-auto p-4 space-y-2" style={{ backgroundColor: "#E5DDD5", backgroundImage: "radial-gradient(rgba(0,0,0,0.04) 1px,transparent 1px)", backgroundSize: "16px 16px" }}>
+          {loading ? (
+            <div className="h-full grid place-items-center"><Loader2 className="w-6 h-6 animate-spin text-primary" /></div>
+          ) : messages.length === 0 ? (
+            <p className="text-center text-[13px] text-[#54656F] py-8">No messages yet.</p>
+          ) : messages.map((m) => {
+            const out = m.direction === "outbound";
+            return (
+              <div key={m.id} className={cn("flex", out ? "justify-end" : "justify-start")}>
+                <div className={cn("max-w-[78%] px-3 py-2 rounded-lg shadow-sm text-[13px] whitespace-pre-wrap break-words", out ? "bg-[#D9FDD3] text-[#111B21] rounded-br-[4px]" : "bg-white text-[#111B21] rounded-bl-[4px]")}>
+                  {m.type === "call" ? <span className="italic text-[#54656F]">{m.body}</span> : (m.body || (m.media_url ? "[media]" : ""))}
+                  <span className="block text-[10px] text-[#8696A0] text-right mt-0.5">{fmtDate(m.created_at)}</span>
+                </div>
+              </div>
+            );
+          })}
+        </div>
+
+        <div className="flex items-center gap-2 p-3 border-t border-border shrink-0">
+          <input value={draft} onChange={(e) => setDraft(e.target.value)} onKeyDown={(e) => { if (e.key === "Enter") send(); }}
+            placeholder="Type your message here" className="flex-1 h-10 px-3 rounded-md border border-input bg-background text-sm outline-none focus:border-primary focus:ring-2 focus:ring-primary/20" />
+          <button onClick={send} disabled={sending || !draft.trim()} className="w-10 h-10 grid place-items-center rounded-md bg-primary text-white hover:bg-primary-dark disabled:opacity-50 outline-none transition-colors">
+            {sending ? <Loader2 className="w-4 h-4 animate-spin" /> : <Send className="w-4 h-4" />}
+          </button>
+        </div>
+      </div>
+    </div>
+  );
+}
+
 const INPUT_CLS = "w-full h-10 px-3 rounded-md border border-input bg-background text-[13.5px] text-foreground placeholder:text-muted-foreground/70 outline-none transition-shadow focus:border-primary focus:ring-2 focus:ring-primary/20";
 
 function ContactModal({ state, allTags, onClose, onSaved }: {
-  state: Exclude<ModalState, null>;
-  allTags: string[];
-  onClose: () => void;
-  onSaved: (msg: string) => void;
+  state: Exclude<ModalState, null>; allTags: string[]; onClose: () => void; onSaved: (msg: string) => void;
 }) {
   const editing = state.mode === "edit";
   const [name, setName] = useState(editing ? state.contact.full_name ?? "" : "");
@@ -264,11 +374,7 @@ function ContactModal({ state, allTags, onClose, onSaved }: {
   const [saving, setSaving] = useState(false);
   const [err, setErr] = useState("");
 
-  const addTag = (raw: string) => {
-    const t = raw.trim().replace(/,$/, "");
-    if (t && !tags.includes(t)) setTags((p) => [...p, t]);
-    setTagDraft("");
-  };
+  const addTag = (raw: string) => { const t = raw.trim().replace(/,$/, ""); if (t && !tags.includes(t)) setTags((p) => [...p, t]); setTagDraft(""); };
   const suggestions = allTags.filter((t) => !tags.includes(t) && t.toLowerCase().includes(tagDraft.toLowerCase()) && tagDraft.trim()).slice(0, 6);
 
   async function save() {
@@ -307,22 +413,13 @@ function ContactModal({ state, allTags, onClose, onSaved }: {
                   <button onClick={() => setTags((p) => p.filter((x) => x !== t))} className="hover:text-amber-900 outline-none"><X className="w-3 h-3" /></button>
                 </span>
               ))}
-              <input
-                value={tagDraft}
-                onChange={(e) => setTagDraft(e.target.value)}
-                onKeyDown={(e) => {
-                  if ((e.key === "Enter" || e.key === ",") && tagDraft.trim()) { e.preventDefault(); addTag(tagDraft); }
-                  else if (e.key === "Backspace" && !tagDraft && tags.length) setTags((p) => p.slice(0, -1));
-                }}
-                placeholder={tags.length ? "" : "Add a label and press Enter"}
-                className="flex-1 min-w-[100px] h-6 bg-transparent text-[13px] text-foreground placeholder:text-muted-foreground/70 outline-none"
-              />
+              <input value={tagDraft} onChange={(e) => setTagDraft(e.target.value)}
+                onKeyDown={(e) => { if ((e.key === "Enter" || e.key === ",") && tagDraft.trim()) { e.preventDefault(); addTag(tagDraft); } else if (e.key === "Backspace" && !tagDraft && tags.length) setTags((p) => p.slice(0, -1)); }}
+                placeholder={tags.length ? "" : "Add a label and press Enter"} className="flex-1 min-w-[100px] h-6 bg-transparent text-[13px] text-foreground placeholder:text-muted-foreground/70 outline-none" />
             </div>
             {suggestions.length > 0 && (
               <div className="flex flex-wrap gap-1 pt-1">
-                {suggestions.map((s) => (
-                  <button key={s} onClick={() => addTag(s)} className="px-2 py-0.5 rounded-md border border-border text-[11px] text-foreground/70 hover:bg-muted outline-none">{s}</button>
-                ))}
+                {suggestions.map((s) => (<button key={s} onClick={() => addTag(s)} className="px-2 py-0.5 rounded-md border border-border text-[11px] text-foreground/70 hover:bg-muted outline-none">{s}</button>))}
               </div>
             )}
           </div>
@@ -330,8 +427,7 @@ function ContactModal({ state, allTags, onClose, onSaved }: {
         <div className="flex items-center justify-end gap-2 px-5 py-3 border-t border-border">
           <button onClick={onClose} className="px-3 py-1.5 rounded-md text-sm font-semibold text-foreground/70 hover:bg-muted outline-none">Cancel</button>
           <button onClick={save} disabled={saving} className="px-4 py-1.5 rounded-md text-sm font-semibold text-white bg-primary hover:bg-primary-dark disabled:opacity-60 outline-none inline-flex items-center gap-2 transition-colors">
-            {saving && <Loader2 className="w-4 h-4 animate-spin" />}
-            {editing ? "Save changes" : "Add contact"}
+            {saving && <Loader2 className="w-4 h-4 animate-spin" />}{editing ? "Save changes" : "Add contact"}
           </button>
         </div>
       </div>

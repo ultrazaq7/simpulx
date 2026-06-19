@@ -24,7 +24,8 @@ export function Select({
   const ref = useRef<HTMLDivElement>(null);
 
   const current = options.find((o) => o.value === value);
-  const showSearch = searchable ?? options.length > 6;
+  // Search box on for every dropdown (opt out with searchable={false}).
+  const showSearch = searchable ?? true;
   const filtered = q ? options.filter((o) => o.label.toLowerCase().includes(q.toLowerCase())) : options;
 
   useEffect(() => {

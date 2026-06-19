@@ -1379,21 +1379,32 @@ func (s *server) handleListContacts(w http.ResponseWriter, r *http.Request) {
 	}
 
 	query := fmt.Sprintf(`SELECT ct.id::text AS id, ct.full_name, ct.phone, ct.source_channel, ct.created_at,
+		        ct.updated_at, ct.blacklisted, ct.web_api_source_id::text AS web_api_source_id,
 		        COALESCE(ct.tags, '{}') AS tags,
 		        lc.interest_level, ls.name AS stage_name, lc.last_message_at, lc.ai_summary,
 		        lc.assigned_agent_id::text AS assigned_agent_id, lu.full_name AS agent_name,
-		        lc.campaign_id::text AS campaign_id, lcmp.name AS campaign_name
+		        lc.campaign_id::text AS campaign_id, lcmp.name AS campaign_name,
+		        lc.conversation_id::text AS conversation_id, lch.name AS channel_name,
+		        was.name AS web_api_source_name, att.referral_source AS source_id
 		   FROM contacts ct
 		   LEFT JOIN LATERAL (
-		     SELECT interest_level, stage_id, last_message_at, ai_reason AS ai_summary, assigned_agent_id, campaign_id
+		     SELECT id AS conversation_id, interest_level, stage_id, last_message_at, ai_reason AS ai_summary,
+		            assigned_agent_id, campaign_id, channel_id
 		       FROM conversations WHERE contact_id=ct.id
 		      ORDER BY last_message_at DESC NULLS LAST LIMIT 1
 		   ) lc ON true
 		   LEFT JOIN stages ls ON ls.id = lc.stage_id
 		   LEFT JOIN users lu ON lu.id = lc.assigned_agent_id
 		   LEFT JOIN campaigns lcmp ON lcmp.id = lc.campaign_id
+		   LEFT JOIN channels lch ON lch.id = lc.channel_id
+		   LEFT JOIN web_api_sources was ON was.id = ct.web_api_source_id
+		   LEFT JOIN LATERAL (
+		     SELECT referral_source FROM conversation_attributions
+		      WHERE conversation_id = lc.conversation_id AND referral_source IS NOT NULL
+		      ORDER BY created_at DESC LIMIT 1
+		   ) att ON true
 		  %s
-		  ORDER BY ct.created_at DESC LIMIT 200`, filter)
+		  ORDER BY ct.created_at DESC LIMIT 500`, filter)
 
 	rows, err := s.queryMaps(r.Context(), query, args...)
 	if err != nil {
@@ -1442,9 +1453,10 @@ func (s *server) handleUpdateContact(w http.ResponseWriter, r *http.Request) {
 	a, _ := authFrom(r.Context())
 	id := r.PathValue("id")
 	var body struct {
-		FullName *string   `json:"full_name"`
-		Phone    *string   `json:"phone"`
-		Tags     *[]string `json:"tags"`
+		FullName    *string   `json:"full_name"`
+		Phone       *string   `json:"phone"`
+		Tags        *[]string `json:"tags"`
+		Blacklisted *bool     `json:"blacklisted"`
 	}
 	if err := json.NewDecoder(r.Body).Decode(&body); err != nil {
 		http.Error(w, "bad request", http.StatusBadRequest)
@@ -1452,11 +1464,13 @@ func (s *server) handleUpdateContact(w http.ResponseWriter, r *http.Request) {
 	}
 	tag, err := s.pool.Exec(r.Context(),
 		`UPDATE contacts SET
-		     full_name = COALESCE($3, full_name),
-		     phone     = COALESCE($4, phone),
-		     tags      = COALESCE($5, tags)
+		     full_name   = COALESCE($3, full_name),
+		     phone       = COALESCE($4, phone),
+		     tags        = COALESCE($5, tags),
+		     blacklisted = COALESCE($6, blacklisted),
+		     updated_at  = now()
 		   WHERE id=$1 AND organization_id=$2`,
-		id, a.OrgID, body.FullName, body.Phone, body.Tags)
+		id, a.OrgID, body.FullName, body.Phone, body.Tags, body.Blacklisted)
 	if err != nil {
 		http.Error(w, err.Error(), http.StatusInternalServerError)
 		return
@@ -1465,6 +1479,27 @@ func (s *server) handleUpdateContact(w http.ResponseWriter, r *http.Request) {
 		http.Error(w, "not found", http.StatusNotFound) // IDOR guard
 		return
 	}
+	w.WriteHeader(http.StatusNoContent)
+}
+
+// ── DELETE /api/contacts/{id} — remove a contact + its conversations ──
+func (s *server) handleDeleteContact(w http.ResponseWriter, r *http.Request) {
+	a, _ := authFrom(r.Context())
+	id := r.PathValue("id")
+	// Verify the contact belongs to the org (IDOR guard) before deleting.
+	var exists string
+	if err := s.pool.QueryRow(r.Context(),
+		`SELECT id::text FROM contacts WHERE id=$1 AND organization_id=$2`, id, a.OrgID).Scan(&exists); err != nil {
+		http.Error(w, "not found", http.StatusNotFound)
+		return
+	}
+	// Remove the contact's conversations first (messages cascade), then the contact.
+	_, _ = s.pool.Exec(r.Context(), `DELETE FROM conversations WHERE contact_id=$1 AND organization_id=$2`, id, a.OrgID)
+	if _, err := s.pool.Exec(r.Context(), `DELETE FROM contacts WHERE id=$1 AND organization_id=$2`, id, a.OrgID); err != nil {
+		http.Error(w, err.Error(), http.StatusInternalServerError)
+		return
+	}
+	s.audit(r.Context(), a, "deleted", "contact", id, nil)
 	w.WriteHeader(http.StatusNoContent)
 }
 

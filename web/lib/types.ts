@@ -242,6 +242,12 @@ export interface Contact {
   agent_name?: string | null;
   campaign_id?: string | null;
   campaign_name?: string | null;
+  updated_at?: string | null;
+  blacklisted?: boolean | null;
+  channel_name?: string | null;       // real channel name (e.g. "Test Channel")
+  conversation_id?: string | null;    // latest conversation (for the Chat popup)
+  web_api_source_name?: string | null;
+  source_id?: string | null;          // CTWA / referral source id
 }
 
 export interface Channel {

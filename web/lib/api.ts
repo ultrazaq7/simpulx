@@ -222,8 +222,9 @@ export const api = {
   listContacts: () => req<Contact[]>("/api/contacts"),
   createContact: (body: { full_name?: string; phone?: string; tags?: string[] }) =>
     req<Contact>("/api/contacts", { method: "POST", body: JSON.stringify(body) }),
-  updateContact: (id: string, body: { full_name?: string; phone?: string; tags?: string[] }) =>
+  updateContact: (id: string, body: { full_name?: string; phone?: string; tags?: string[]; blacklisted?: boolean }) =>
     req<void>(`/api/contacts/${id}`, { method: "PATCH", body: JSON.stringify(body) }),
+  deleteContact: (id: string) => req<void>(`/api/contacts/${id}`, { method: "DELETE" }),
   listBroadcasts: () => req<Broadcast[]>("/api/broadcasts"),
   createBroadcast: (input: {
     name: string; body?: string; template_id?: string; scheduled_at?: string;
