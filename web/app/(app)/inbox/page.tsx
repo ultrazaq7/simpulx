@@ -111,7 +111,14 @@ export default function InboxPage() {
   });
 
   // --- Data loaders ---
-  const loadConvs = useCallback(async () => { try { setConvs((await api.listConversations()) || []); } catch { } }, []);
+  const loadConvs = useCallback(async () => {
+    try {
+      const list = (await api.listConversations()) || [];
+      const aid = activeIdRef.current;
+      // The conversation you're viewing is always read - never show its badge.
+      setConvs(aid ? list.map((c) => (c.id === aid ? { ...c, unread_count: 0 } : c)) : list);
+    } catch { }
+  }, []);
 
   useEffect(() => { loadConvs(); }, [loadConvs]);
   // Polling fallback: refresh every 15s as safety net
@@ -158,9 +165,17 @@ export default function InboxPage() {
     const handleWSMessage = (e: any) => {
       const ev = e.detail;
       if (!ev) return;
+      const aid = activeIdRef.current;
+      const data = ev.data || ev;
+      // New message for the conversation you're viewing -> keep it read server-side
+      // too, so the unread badge/count doesn't creep back up.
+      if (aid && ev.type === "message.persisted" && data && data.conversation_id === aid) {
+        api.patchConversation(aid, { unread_count: 0 })
+          .then(() => window.dispatchEvent(new CustomEvent("refreshUnread")))
+          .catch(() => { });
+      }
       loadConvs();
-      const c = activeIdRef.current;
-      if (c) queryClient.invalidateQueries({ queryKey: ["messages", c] });
+      if (aid) queryClient.invalidateQueries({ queryKey: ["messages", aid] });
     };
     window.addEventListener("ws_message", handleWSMessage);
     return () => window.removeEventListener("ws_message", handleWSMessage);
