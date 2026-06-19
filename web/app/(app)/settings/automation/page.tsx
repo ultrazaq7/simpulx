@@ -46,14 +46,15 @@ export default function AutomationPage() {
   }
 
   return (
-    <PageBody>
+    <PageBody fill>
       {ToastHost}
+      <div className="bg-card border border-border rounded-lg shadow-xs overflow-hidden flex-1 min-h-0 flex flex-col">
       {/* Toolbar */}
-      <div className="flex items-center gap-3 mb-5 flex-wrap">
+      <div className="p-3 flex items-center gap-3 border-b border-border flex-wrap shrink-0">
         <div className="relative w-[300px]">
           <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-muted-foreground pointer-events-none" />
           <input type="text" placeholder="Search automations" value={query} onChange={(e) => setQuery(e.target.value)}
-            className="w-full h-9 pl-9 pr-3 rounded-md border border-input bg-card text-sm text-foreground placeholder:text-muted-foreground/70 outline-none transition-shadow focus:border-primary" />
+            className="w-full h-9 pl-9 pr-3 rounded-md border border-input bg-muted text-sm text-foreground placeholder:text-muted-foreground/70 outline-none transition-shadow focus:border-primary" />
         </div>
         <Select value={triggerFilter} onChange={setTriggerFilter} placeholder="All triggers" className="min-w-[180px]"
           options={[{ value: "", label: "All triggers" }, ...TRIGGER_KEYS.map((k) => ({ value: k, label: TRIGGERS[k].label }))]} />
@@ -66,6 +67,7 @@ export default function AutomationPage() {
         )}
       </div>
 
+      <div className="overflow-auto flex-1 min-h-0 p-4">
       {/* Grid */}
       {loading ? (
         <div className="grid grid-cols-[repeat(auto-fill,minmax(320px,1fr))] gap-4">
@@ -126,6 +128,8 @@ export default function AutomationPage() {
           ))}
         </div>
       )}
+      </div>
+      </div>
 
       <EditDialog open={dialogOpen} editing={editing} channels={channels}
         onClose={() => setDialogOpen(false)}
