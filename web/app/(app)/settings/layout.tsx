@@ -131,8 +131,9 @@ export default function SettingsLayout({ children }: { children: ReactNode }) {
         </div>
       </div>
 
-      {/* Page content — only this remounts on navigation */}
-      <div className="flex-1 min-w-0 overflow-y-auto bg-background">
+      {/* Page content — only this remounts on navigation. overflow-hidden so the
+          area never shows its own scrollbar; each page scrolls internally. */}
+      <div className="flex-1 min-w-0 overflow-hidden bg-background">
         <div className="animate-fade-in h-full">
           {children}
         </div>
