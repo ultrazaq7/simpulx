@@ -50,6 +50,57 @@ func (s *server) callConvID(ctx context.Context, callID string) string {
 	return convID
 }
 
+// callSummaryText renders the in-chat voice-call summary (always shown on end).
+func callSummaryText(dur int) string {
+	if dur > 0 {
+		return fmt.Sprintf("📞 Voice call · %d:%02d", dur/60, dur%60)
+	}
+	return "📞 Voice call · no answer"
+}
+
+func (s *server) insertCallMessage(ctx context.Context, orgID, convID, body string) {
+	if convID == "" {
+		return
+	}
+	_, _ = s.pool.Exec(ctx,
+		`INSERT INTO messages (organization_id, conversation_id, direction, sender_type, type, body, preview)
+		 VALUES ($1, $2, 'outbound', 'system', 'text', $3, $3)`, orgID, convID, body)
+}
+
+// applyCallPermissionReply flips the pending outbound call when the customer
+// replies to a call-permission request via an interactive message.
+func (s *server) applyCallPermissionReply(ctx context.Context, orgID, fromPhone, response string) {
+	r := strings.ToLower(response)
+	granted := strings.Contains(r, "accept") || strings.Contains(r, "allow") || strings.Contains(r, "grant") || strings.Contains(r, "approv")
+	denied := strings.Contains(r, "reject") || strings.Contains(r, "deny") || strings.Contains(r, "declin")
+	if !granted && !denied {
+		return // unknown response — leave it as a displayed message only
+	}
+	var callID, convID string
+	err := s.pool.QueryRow(ctx,
+		`SELECT id::text, conversation_id::text FROM calls
+		  WHERE organization_id=$1 AND direction='outbound' AND permission_status='pending'
+		    AND regexp_replace(contact_phone,'\D','','g') = regexp_replace($2,'\D','','g')
+		  ORDER BY created_at DESC LIMIT 1`,
+		orgID, fromPhone).Scan(&callID, &convID)
+	if err != nil {
+		return
+	}
+	if granted {
+		_, _ = s.pool.Exec(ctx, `UPDATE calls SET permission_status='granted', permission_granted_at=now() WHERE id=$1`, callID)
+		s.broadcastCall(ctx, orgID, events.CallUpdated{
+			CallID: callID, ConversationID: convID, Direction: "outbound",
+			PermissionStatus: "granted", CallStatus: "idle",
+		})
+	} else {
+		_, _ = s.pool.Exec(ctx, `UPDATE calls SET permission_status='denied', call_status='ended', end_reason='permission_denied' WHERE id=$1`, callID)
+		s.broadcastCall(ctx, orgID, events.CallUpdated{
+			CallID: callID, ConversationID: convID, Direction: "outbound",
+			PermissionStatus: "denied", CallStatus: "ended", EndReason: "permission_denied",
+		})
+	}
+}
+
 // ── Request Call Permission (outbound) ──────────────────────────────────────
 
 // POST /api/calls/request-permission   Body: { "conversation_id": "..." }
@@ -412,13 +463,7 @@ func (s *server) handleEndCall(w http.ResponseWriter, r *http.Request) {
 	var dur int
 	_ = s.pool.QueryRow(r.Context(), `SELECT duration_seconds FROM calls WHERE id=$1`, callID).Scan(&dur)
 	s.persistCallDuration(r.Context(), convID, dur)
-
-	if dur > 0 {
-		_, _ = s.pool.Exec(r.Context(),
-			`INSERT INTO messages (organization_id, conversation_id, direction, sender_type, type, body, preview)
-			 VALUES ($1, $2, 'outbound', 'system', 'text', $3, $3)`,
-			a.OrgID, convID, fmt.Sprintf("📞 Voice call ended — %d:%02d", dur/60, dur%60))
-	}
+	s.insertCallMessage(r.Context(), a.OrgID, convID, callSummaryText(dur))
 
 	s.broadcastCall(r.Context(), a.OrgID, events.CallUpdated{
 		CallID: callID, ConversationID: convID, Direction: direction,
@@ -560,6 +605,10 @@ func (s *server) processCallWebhook(ctx context.Context, orgID, phoneNumberID st
 			}
 
 		case "terminate", "CALL_ENDED", "ended":
+			// Skip the summary message if the agent already ended it (avoids a
+			// duplicate when our own hangup triggers Meta's terminate webhook).
+			var alreadyEnded bool
+			_ = s.pool.QueryRow(ctx, `SELECT call_status='ended' FROM calls WHERE id=$1`, callID).Scan(&alreadyEnded)
 			// Prefer Meta's authoritative duration; fall back to connected_at.
 			dur := ce.Duration
 			if dur > 0 {
@@ -578,6 +627,9 @@ func (s *server) processCallWebhook(ctx context.Context, orgID, phoneNumberID st
 				_ = s.pool.QueryRow(ctx, `SELECT duration_seconds FROM calls WHERE id=$1`, callID).Scan(&dur)
 			}
 			s.persistCallDuration(ctx, convID, dur)
+			if !alreadyEnded {
+				s.insertCallMessage(ctx, orgID, convID, callSummaryText(dur))
+			}
 			s.broadcastCall(ctx, orgID, events.CallUpdated{
 				CallID: callID, ConversationID: convID,
 				CallStatus: "ended", EndReason: "remote_hangup", DurationSeconds: dur,
