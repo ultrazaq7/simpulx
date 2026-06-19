@@ -290,7 +290,7 @@ export const api = {
     req<Organization>("/api/organization", { method: "PATCH", body: JSON.stringify(patch) }),
   // ── Audit log ──
   listAuditLog: () => req<AuditEntry[]>("/api/audit-log"),
-  systemLog: <T,>(kind: "messages" | "conversations" | "calls", p: { limit?: number; offset?: number; from?: string; to?: string }) => {
+  systemLog: <T,>(kind: "messages" | "conversations" | "calls" | "activity", p: { limit?: number; offset?: number; from?: string; to?: string }) => {
     const q = new URLSearchParams();
     if (p.limit != null) q.set("limit", String(p.limit));
     if (p.offset != null) q.set("offset", String(p.offset));

@@ -258,6 +258,7 @@ func main() {
 	mux.HandleFunc("GET /api/system-logs/messages", s.requireAuth(s.handleLogMessages))
 	mux.HandleFunc("GET /api/system-logs/conversations", s.requireAuth(s.handleLogConversations))
 	mux.HandleFunc("GET /api/system-logs/calls", s.requireAuth(s.handleLogCalls))
+	mux.HandleFunc("GET /api/system-logs/activity", s.requireAuth(s.handleLogActivity))
 	mux.HandleFunc("GET /api/organization", s.requireAuth(s.handleGetOrganization))
 	mux.HandleFunc("PATCH /api/organization", s.requireAuth(s.handleUpdateOrganization))
 	mux.HandleFunc("GET /api/web-api-sources", s.requireAuth(s.handleListWebAPISources))
