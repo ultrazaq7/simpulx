@@ -15,6 +15,7 @@ import {
 import { cn } from "@/lib/utils";
 import { usePermissions } from "@/lib/permissions";
 import { useI18n } from "@/lib/i18n";
+import { Tip } from "@/components/ui/tooltip";
 
 // perm = permission key gating this section. Items without a dedicated perm in
 // the matrix fall back to "view_settings" (anyone who can open Settings).
@@ -78,50 +79,56 @@ export default function SettingsLayout({ children }: { children: ReactNode }) {
     <div className="flex h-full min-h-0">
       {/* Settings sidebar — mounted once, persists across child navigation */}
       <div className={cn(
-        "shrink-0 border-r border-border bg-card py-3 overflow-y-auto overflow-x-hidden transition-[width] duration-200",
+        "shrink-0 border-r border-border bg-card flex flex-col transition-[width] duration-200",
         collapsed ? "w-[64px]" : "w-[260px]",
       )}>
-        {/* Collapse toggle */}
-        <div className={cn("flex items-center mb-3 px-3", collapsed ? "justify-center" : "justify-end")}>
-          <button onClick={toggle} title={collapsed ? "Expand" : "Collapse"}
-            className="p-1.5 rounded-md text-muted-foreground hover:bg-muted hover:text-foreground outline-none transition-colors">
-            {collapsed ? <PanelLeftOpen className="w-[18px] h-[18px]" /> : <PanelLeftClose className="w-[18px] h-[18px]" />}
-          </button>
-        </div>
-        {groups.map((g, gi) => (
-          <div key={g.titleKey} className="mb-5">
-            {!collapsed && (
-              <p className="px-5 mb-2.5 text-[11px] font-bold uppercase tracking-wider text-muted-foreground">
-                {t(g.titleKey)}
-              </p>
-            )}
-            <div className="space-y-0.5">
-              {g.items.map((s) => {
-                const Icon = s.icon;
-                const sel = s.href === activeHref;
-                return (
-                  <Link
-                    key={s.key}
-                    href={s.href}
-                    scroll={false}
-                    title={collapsed ? t(s.labelKey) : undefined}
-                    className={cn(
-                      "rounded-md py-2.5 flex items-center text-left outline-none transition-colors",
-                      collapsed ? "mx-2 px-0 justify-center" : "mx-3 px-3.5 gap-3",
-                      sel
-                        ? "bg-muted text-foreground"
-                        : "text-muted-foreground hover:bg-muted/60 hover:text-foreground",
-                    )}
-                  >
-                    <Icon className={cn("w-[18px] h-[18px] shrink-0", sel ? "text-foreground" : "text-muted-foreground")} />
-                    {!collapsed && <span className={cn("text-[13.5px]", sel ? "font-semibold" : "font-medium")}>{t(s.labelKey)}</span>}
-                  </Link>
-                );
-              })}
+        <div className="flex-1 overflow-y-auto overflow-x-hidden py-3 min-h-0">
+          {groups.map((g, gi) => (
+            <div key={g.titleKey} className="mb-5">
+              {!collapsed && (
+                <p className="px-5 mb-2.5 text-[11px] font-bold uppercase tracking-wider text-muted-foreground">
+                  {t(g.titleKey)}
+                </p>
+              )}
+              <div className="space-y-0.5">
+                {g.items.map((s) => {
+                  const Icon = s.icon;
+                  const sel = s.href === activeHref;
+                  const link = (
+                    <Link
+                      href={s.href}
+                      scroll={false}
+                      className={cn(
+                        "rounded-md py-2.5 flex items-center text-left outline-none transition-colors",
+                        collapsed ? "mx-2 px-0 justify-center" : "mx-3 px-3.5 gap-3",
+                        sel
+                          ? "bg-muted text-foreground"
+                          : "text-muted-foreground hover:bg-muted/60 hover:text-foreground",
+                      )}
+                    >
+                      <Icon className={cn("w-[18px] h-[18px] shrink-0", sel ? "text-foreground" : "text-muted-foreground")} />
+                      {!collapsed && <span className={cn("text-[13.5px]", sel ? "font-semibold" : "font-medium")}>{t(s.labelKey)}</span>}
+                    </Link>
+                  );
+                  return collapsed
+                    ? <Tip key={s.key} label={t(s.labelKey)} side="right">{link}</Tip>
+                    : <div key={s.key}>{link}</div>;
+                })}
+              </div>
+              {!collapsed && gi < groups.length - 1 && <div className="mx-5 mt-5 border-t border-border/50" />}
             </div>
-            {!collapsed && gi < groups.length - 1 && <div className="mx-5 mt-5 border-t border-border/50" />}
-          </div>
-        ))}
+          ))}
+        </div>
+
+        {/* Collapse toggle — pinned at the bottom */}
+        <div className={cn("shrink-0 border-t border-border p-2 flex", collapsed ? "justify-center" : "justify-end")}>
+          <Tip label={collapsed ? "Expand" : "Collapse"} side={collapsed ? "right" : "top"}>
+            <button onClick={toggle}
+              className="p-1.5 rounded-md text-muted-foreground hover:bg-muted hover:text-foreground outline-none transition-colors">
+              {collapsed ? <PanelLeftOpen className="w-[18px] h-[18px]" /> : <PanelLeftClose className="w-[18px] h-[18px]" />}
+            </button>
+          </Tip>
+        </div>
       </div>
 
       {/* Page content — only this remounts on navigation */}
