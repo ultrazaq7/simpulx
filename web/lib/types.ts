@@ -399,6 +399,10 @@ export interface LogCall {
   received_at: string | null; ended_at: string | null; call_status: string | null; end_reason: string | null;
   agent: string | null; id: string;
 }
+export interface LogActivity {
+  agent_name: string | null; agent_email: string | null;
+  kind: string; event: string; detail: Record<string, unknown> | null; action_at: string;
+}
 
 export interface AuditEntry {
   id: string;

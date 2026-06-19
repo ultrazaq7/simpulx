@@ -116,6 +116,29 @@ func (s *server) handleLogConversations(w http.ResponseWriter, r *http.Request) 
 	s.countAndRespond(w, r, "SELECT count(*) "+base, rows, args)
 }
 
+// GET /api/system-logs/activity — agent presence / lifecycle events.
+func (s *server) handleLogActivity(w http.ResponseWriter, r *http.Request) {
+	a, _ := authFrom(r.Context())
+	p := parseLogParams(r)
+	args := []any{a.OrgID}
+	df, args := dateFilter("ev.at", p, args)
+
+	base := `FROM user_activity_events ev
+	          JOIN users u ON u.id = ev.user_id
+	         WHERE ev.organization_id = $1` + df
+
+	q := `SELECT u.full_name AS agent_name, u.email AS agent_email,
+	             ev.kind, ev.event, ev.detail, ev.at AS action_at
+	      ` + base + fmt.Sprintf(" ORDER BY ev.at DESC LIMIT %d OFFSET %d", p.limit, p.offset)
+
+	rows, err := s.queryMaps(r.Context(), q, args...)
+	if err != nil {
+		http.Error(w, err.Error(), http.StatusInternalServerError)
+		return
+	}
+	s.countAndRespond(w, r, "SELECT count(*) "+base, rows, args)
+}
+
 // GET /api/system-logs/calls
 func (s *server) handleLogCalls(w http.ResponseWriter, r *http.Request) {
 	a, _ := authFrom(r.Context())
