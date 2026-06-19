@@ -47,8 +47,9 @@ func (s *server) handleGetRolePermissions(w http.ResponseWriter, r *http.Request
 // Admin/owner only. owner/admin entries are dropped before saving (always full).
 func (s *server) handleUpdateRolePermissions(w http.ResponseWriter, r *http.Request) {
 	a, _ := authFrom(r.Context())
-	if a.Role != "admin" && a.Role != "owner" {
-		http.Error(w, "forbidden", http.StatusForbidden)
+	// owner/admin always pass; a custom role can edit only if granted manage_roles.
+	if !s.hasPerm(r.Context(), a, "manage_roles") {
+		http.Error(w, "forbidden: missing permission 'manage_roles'", http.StatusForbidden)
 		return
 	}
 	var doc rolePermissionsDoc

@@ -105,7 +105,7 @@ export default function SystemLogsPage() {
   const cols: Record<TabKey, number> = { messages: 8, conversations: 9, activity: 1, system: 5, calls: 8, downloads: 1 };
 
   return (
-    <div className="h-full flex flex-col px-6 py-5 min-h-0">
+    <div className="h-full flex flex-col px-6 py-5 min-h-0 overflow-hidden">
       {/* Tabs */}
       <div className="flex items-center gap-1 border-b border-border shrink-0 overflow-x-auto">
         {TABS.map((t) => (

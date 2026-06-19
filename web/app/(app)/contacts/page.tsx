@@ -46,6 +46,7 @@ export default function ContactsPage() {
   const showCampaignFilter = role === "admin" || role === "owner";
   const canCreate = can("create_contacts");
   const canEdit = can("edit_contacts");
+  const canDelete = can("delete_contacts");
   const canExport = can("export_contacts");
 
   const reload = () => api.listContacts().then(setContacts).catch(() => {});
@@ -271,7 +272,7 @@ export default function ContactsPage() {
                           {canEdit && <button onClick={() => { setMenuId(null); setModal({ mode: "edit", contact: c }); }} className="w-full flex items-center gap-2 px-3 py-2 text-[13px] text-foreground hover:bg-muted outline-none"><Pencil className="w-4 h-4 text-muted-foreground" />Edit</button>}
                           <button disabled={!c.conversation_id} onClick={() => { setMenuId(null); setChatContact(c); }} className="w-full flex items-center gap-2 px-3 py-2 text-[13px] text-foreground hover:bg-muted outline-none disabled:opacity-40 disabled:cursor-not-allowed"><MessageSquare className="w-4 h-4 text-muted-foreground" />Chat</button>
                           {canEdit && <button onClick={() => { setMenuId(null); toggleBlacklist(c); }} className="w-full flex items-center gap-2 px-3 py-2 text-[13px] text-foreground hover:bg-muted outline-none"><Users className="w-4 h-4 text-muted-foreground" />{c.blacklisted ? "Unblacklist" : "Blacklist"}</button>}
-                          {canEdit && <button onClick={() => { setMenuId(null); remove(c); }} className="w-full flex items-center gap-2 px-3 py-2 text-[13px] text-destructive hover:bg-muted outline-none"><Trash2 className="w-4 h-4" />Delete</button>}
+                          {canDelete && <button onClick={() => { setMenuId(null); remove(c); }} className="w-full flex items-center gap-2 px-3 py-2 text-[13px] text-destructive hover:bg-muted outline-none"><Trash2 className="w-4 h-4" />Delete</button>}
                         </div>
                       )}
                     </div>
