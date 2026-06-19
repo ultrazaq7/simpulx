@@ -240,7 +240,7 @@ export default function ContactsPage() {
       )}
 
       {toast && (
-        <div className="fixed bottom-6 left-1/2 -translate-x-1/2 z-[110] animate-scale-in">
+        <div className="fixed bottom-6 left-6 z-[110] animate-scale-in">
           <div className="px-4 py-2.5 rounded-lg bg-[#2D8B73] text-white text-sm font-semibold shadow-xl">{toast}</div>
         </div>
       )}

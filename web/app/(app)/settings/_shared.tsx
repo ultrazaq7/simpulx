@@ -19,7 +19,7 @@ export function useToast() {
   }, [toast]);
 
   const ToastHost = toast ? (
-    <div className="fixed bottom-6 left-1/2 -translate-x-1/2 z-[110] animate-scale-in">
+    <div className="fixed bottom-6 left-6 z-[110] animate-scale-in">
       <div className={cn(
         "flex items-center gap-2 px-4 py-2.5 rounded-lg shadow-xl text-sm font-semibold text-white max-w-[460px]",
         toast.severity === "error" ? "bg-destructive" : "bg-primary",

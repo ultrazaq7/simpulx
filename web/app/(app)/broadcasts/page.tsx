@@ -158,7 +158,7 @@ export default function BroadcastsPage() {
       )}
 
       {toast && (
-        <div className="fixed bottom-6 left-1/2 -translate-x-1/2 z-[120] animate-scale-in">
+        <div className="fixed bottom-6 left-6 z-[120] animate-scale-in">
           <div className={cn("px-4 py-2.5 rounded-lg text-sm font-semibold shadow-xl text-white",
             toast.sev === "error" ? "bg-[#DC2626]" : "bg-[#2D8B73]")}>
             {toast.msg}

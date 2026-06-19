@@ -15,7 +15,7 @@ function useToast() {
   useEffect(() => { if (!toast) return; const t = setTimeout(() => setToast(null), 3000); return () => clearTimeout(t); }, [toast]);
   const notify = (msg: string, ok = true) => setToast({ msg, ok });
   const Host = toast ? (
-    <div className="fixed bottom-6 left-1/2 -translate-x-1/2 z-[110] animate-scale-in">
+    <div className="fixed bottom-6 left-6 z-[110] animate-scale-in">
       <div className={cn("flex items-center gap-2 px-4 py-2.5 rounded-lg shadow-xl text-sm font-semibold text-white", toast.ok ? "bg-primary" : "bg-destructive")}>
         {toast.msg}
       </div>

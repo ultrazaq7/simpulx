@@ -284,7 +284,7 @@ function Builder() {
       </div>
 
       {toast && (
-        <div className="fixed bottom-6 left-1/2 -translate-x-1/2 z-[120] animate-scale-in">
+        <div className="fixed bottom-6 left-6 z-[120] animate-scale-in">
           <div className="px-4 py-2.5 rounded-lg bg-foreground text-background text-sm font-semibold shadow-xl">{toast}</div>
         </div>
       )}

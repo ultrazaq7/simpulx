@@ -135,7 +135,7 @@ export default function CampaignsPage() {
         onError={(m) => setToast({ msg: m, sev: "error" })} />
 
       {toast && (
-        <div className="fixed bottom-6 left-1/2 -translate-x-1/2 z-[110] animate-scale-in">
+        <div className="fixed bottom-6 left-6 z-[110] animate-scale-in">
           <div className={cn("flex items-center gap-2 px-4 py-2.5 rounded-lg shadow-xl text-sm font-semibold text-white", toast.sev === "error" ? "bg-[#DC2626]" : "bg-[#2D8B73]")}>
             {toast.msg}<button onClick={() => setToast(null)} className="p-0.5 outline-none"><X className="w-4 h-4" /></button>
           </div>
