@@ -3,6 +3,7 @@ package main
 import (
 	"encoding/json"
 	"fmt"
+	"strings"
 )
 
 // Struktur payload webhook WhatsApp Cloud API (subset yang dipakai).
@@ -169,6 +170,10 @@ type waInteractive struct {
 		Title       string `json:"title"`
 		Description string `json:"description"`
 	} `json:"list_reply"`
+	// Customer's reply to a call-permission request (taps Allow / Don't allow).
+	CallPermissionReply struct {
+		Response string `json:"response"` // accept | reject (best-effort)
+	} `json:"call_permission_reply"`
 }
 
 type waTemplate struct {
@@ -263,11 +268,22 @@ func (m waMessage) extractText() string {
 		}
 	case "interactive":
 		if m.Interactive != nil {
-			if m.Interactive.Type == "button_reply" {
+			switch m.Interactive.Type {
+			case "button_reply":
 				return m.Interactive.ButtonReply.Title
-			}
-			if m.Interactive.Type == "list_reply" {
+			case "list_reply":
 				return m.Interactive.ListReply.Title
+			case "call_permission_reply":
+				switch strings.ToLower(m.Interactive.CallPermissionReply.Response) {
+				case "accept", "allow", "approved", "granted":
+					return "✅ Allowed WhatsApp call"
+				case "reject", "deny", "declined", "decline":
+					return "🚫 Declined WhatsApp call"
+				default:
+					return "Call permission reply"
+				}
+			case "nfm_reply":
+				return "Form submitted"
 			}
 		}
 	case "template":
