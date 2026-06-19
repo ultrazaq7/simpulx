@@ -59,6 +59,8 @@ type MessageReceived struct {
 	// Referral carries the CTWA ad source_id when the contact arrived from a
 	// click-to-WhatsApp ad. Used for campaign attribution. Empty otherwise.
 	Referral string         `json:"referral,omitempty"`
+	// ReferralURL is the CTWA ad's source URL (the real ad link), when present.
+	ReferralURL string     `json:"referral_url,omitempty"`
 	Message  InboundMessage `json:"message"`
 	Raw      json.RawMessage `json:"raw,omitempty"`
 }

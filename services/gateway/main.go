@@ -465,6 +465,7 @@ func (s *server) ingest(ctx context.Context, p waWebhook) {
 					From:          m.From,
 					ContactName:   contactName,
 					Referral:      m.referralSourceID(),
+					ReferralURL:   m.referralSourceURL(),
 					Message: events.InboundMessage{
 						ExternalID:    m.ID,
 						Type:          m.Type,

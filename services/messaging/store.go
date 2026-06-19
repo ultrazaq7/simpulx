@@ -389,15 +389,15 @@ func (s *store) resolveCampaignByReferral(ctx context.Context, orgID, referral s
 }
 
 // recordAttribution menyimpan jejak klik iklan (referral) ke dalam multi-touch attribution.
-func (s *store) recordAttribution(ctx context.Context, orgID, convID, campaignID, referral string) error {
+func (s *store) recordAttribution(ctx context.Context, orgID, convID, campaignID, referral, referralURL string) error {
 	var cid any
 	if campaignID != "" {
 		cid = campaignID
 	}
 	_, err := s.pool.Exec(ctx,
-		`INSERT INTO conversation_attributions (organization_id, conversation_id, campaign_id, referral_source)
-		 VALUES ($1, $2, $3, NULLIF($4, ''))`,
-		orgID, convID, cid, referral,
+		`INSERT INTO conversation_attributions (organization_id, conversation_id, campaign_id, referral_source, referral_url)
+		 VALUES ($1, $2, $3, NULLIF($4, ''), NULLIF($5, ''))`,
+		orgID, convID, cid, referral, referralURL,
 	)
 	return err
 }

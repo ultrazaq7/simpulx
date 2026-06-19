@@ -233,6 +233,7 @@ export interface Contact {
   phone: string | null;
   source_channel: string | null;
   interest_level: string | null;
+  stage_id?: string | null;
   stage_name: string | null;
   last_message_at: string | null;
   created_at: string;
@@ -248,6 +249,7 @@ export interface Contact {
   conversation_id?: string | null;    // latest conversation (for the Chat popup)
   web_api_source_name?: string | null;
   source_id?: string | null;          // CTWA / referral source id
+  source_url?: string | null;         // CTWA / referral ad URL
 }
 
 export interface Channel {
