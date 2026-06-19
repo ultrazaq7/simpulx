@@ -47,6 +47,8 @@ export default function TemplatesPage() {
   const [statusFilter, setStatusFilter] = useState("");
   const [channelFilter, setChannelFilter] = useState("");
   const [campaignFilter, setCampaignFilter] = useState("");
+  const [page, setPage] = useState(0);
+  const [rowsPerPage, setRowsPerPage] = useState(10);
 
   // Create/edit flow: "" | chooser | library | form
   const [flow, setFlow] = useState<"" | "chooser" | "library" | "form">("");
@@ -72,6 +74,9 @@ export default function TemplatesPage() {
     (!query || t.name.toLowerCase().includes(query.toLowerCase())) &&
     (!statusFilter || t.status === statusFilter)
   ), [rows, query, statusFilter]);
+  const totalPages = Math.max(1, Math.ceil(filtered.length / rowsPerPage));
+  const paged = filtered.slice(page * rowsPerPage, page * rowsPerPage + rowsPerPage);
+  useEffect(() => { setPage(0); }, [query, statusFilter, channelFilter, campaignFilter]);
 
   async function submit(t: Template) {
     try { const r = await api.submitTemplate(t.id); notify(r.simulated ? "Submitted - auto-approved (mock mode)" : "Submitted to Meta for review"); load(); }
@@ -90,24 +95,24 @@ export default function TemplatesPage() {
   return (
     <PageBody fill>
       {ToastHost}
-      <div className="flex items-center gap-3 mb-5 flex-wrap shrink-0">
-        <div className="relative w-[240px]">
-          <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-muted-foreground pointer-events-none" />
-          <input type="text" placeholder="Search templates" value={query} onChange={(e) => setQuery(e.target.value)}
-            className="w-full h-9 pl-9 pr-3 rounded-md border border-input bg-card text-sm text-foreground placeholder:text-muted-foreground/70 outline-none transition-shadow focus:border-primary" />
-        </div>
-        <Select value={statusFilter} onChange={setStatusFilter} placeholder="All statuses" className="min-w-[140px]"
-          options={[{ value: "", label: "All statuses" }, ...Object.keys(STATUS_COLOR).map((s) => ({ value: s, label: s }))]} />
-        <Select value={channelFilter} onChange={(v) => { setChannelFilter(v); setCampaignFilter(""); }} placeholder="All channels" className="min-w-[150px]"
-          options={[{ value: "", label: "All channels" }, ...channels.map((c) => ({ value: c.id, label: c.name }))]} />
-        <Select value={campaignFilter} onChange={setCampaignFilter} placeholder="All campaigns" className="min-w-[160px]"
-          options={[{ value: "", label: "All campaigns" }, ...filterCampaigns.map((c) => ({ value: c.id, label: c.name }))]} />
-        <Tip label="Refresh"><button onClick={load} className="p-1.5 rounded-md hover:bg-muted outline-none transition-colors"><RefreshCw className="w-[18px] h-[18px] text-muted-foreground" /></button></Tip>
-        <div className="flex-1" />
-        <PrimaryButton onClick={openNew}><Plus className="w-4 h-4" />New template</PrimaryButton>
-      </div>
-
       <SettingsCard className="overflow-hidden flex-1 min-h-0 flex flex-col">
+        <div className="p-3 flex items-center gap-3 border-b border-border flex-wrap shrink-0">
+          <div className="relative w-[240px]">
+            <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-muted-foreground pointer-events-none" />
+            <input type="text" placeholder="Search templates" value={query} onChange={(e) => setQuery(e.target.value)}
+              className="w-full h-9 pl-9 pr-3 rounded-md border border-input bg-muted text-sm text-foreground placeholder:text-muted-foreground/70 outline-none transition-shadow focus:border-primary" />
+          </div>
+          <Select value={statusFilter} onChange={setStatusFilter} placeholder="All statuses" className="min-w-[140px]"
+            options={[{ value: "", label: "All statuses" }, ...Object.keys(STATUS_COLOR).map((s) => ({ value: s, label: s }))]} />
+          <Select value={channelFilter} onChange={(v) => { setChannelFilter(v); setCampaignFilter(""); }} placeholder="All channels" className="min-w-[150px]"
+            options={[{ value: "", label: "All channels" }, ...channels.map((c) => ({ value: c.id, label: c.name }))]} />
+          <Select value={campaignFilter} onChange={setCampaignFilter} placeholder="All campaigns" className="min-w-[160px]"
+            options={[{ value: "", label: "All campaigns" }, ...filterCampaigns.map((c) => ({ value: c.id, label: c.name }))]} />
+          <Tip label="Refresh"><button onClick={load} className="p-1.5 rounded-md hover:bg-muted outline-none transition-colors"><RefreshCw className="w-[18px] h-[18px] text-muted-foreground" /></button></Tip>
+          <div className="flex-1" />
+          <PrimaryButton onClick={openNew}><Plus className="w-4 h-4" />New template</PrimaryButton>
+        </div>
+
         <div className="overflow-auto flex-1 min-h-0">
         <table className="w-full text-sm">
           <thead>
@@ -125,7 +130,7 @@ export default function TemplatesPage() {
                 <p className="font-semibold text-foreground mb-1">No templates yet</p>
                 <p className="text-xs text-muted-foreground">Create a WhatsApp template and submit it for approval.</p>
               </td></tr>
-            ) : filtered.map((t) => {
+            ) : paged.map((t) => {
               const sc = STATUS_COLOR[t.status] ?? STATUS_COLOR.DRAFT;
               const cc = CAT_COLOR[t.category] ?? "#64748B";
               const nCamp = t.campaign_ids?.length ?? 0;
@@ -155,6 +160,18 @@ export default function TemplatesPage() {
             })}
           </tbody>
         </table>
+        </div>
+
+        {/* Pagination */}
+        <div className="flex items-center justify-between px-4 py-2.5 border-t border-border text-sm shrink-0">
+          <span className="text-muted-foreground tabular-nums">{filtered.length} total</span>
+          <div className="flex items-center gap-2">
+            <Select value={String(rowsPerPage)} onChange={(v) => { setRowsPerPage(Number(v)); setPage(0); }} align="right" className="w-[72px]"
+              options={[10, 25, 50].map((n) => ({ value: String(n), label: String(n) }))} />
+            <span className="text-muted-foreground mx-2 tabular-nums">Page {page + 1} of {totalPages}</span>
+            <button disabled={page <= 0} onClick={() => setPage(page - 1)} className="px-2.5 h-7 rounded-md border border-border text-xs font-semibold disabled:opacity-30 hover:bg-muted outline-none transition-colors">Prev</button>
+            <button disabled={page >= totalPages - 1} onClick={() => setPage(page + 1)} className="px-2.5 h-7 rounded-md border border-border text-xs font-semibold disabled:opacity-30 hover:bg-muted outline-none transition-colors">Next</button>
+          </div>
         </div>
       </SettingsCard>
 

@@ -4,12 +4,13 @@
 // scroll position) never remounts — fixing the scroll-jump that the old per-page
 // SettingsLayout had. Active section is derived from the pathname, so the URL is
 // always the source of truth (no more ?section= facade).
-import { type ReactNode } from "react";
+import { type ReactNode, useState, useEffect } from "react";
 import Link from "next/link";
 import { usePathname } from "next/navigation";
 import {
   Settings, Type, Bell, Users, Building2, ShieldCheck,
   Store, FileText, GitBranch, Radio, Plug, Clock, BarChart3,
+  PanelLeftClose, PanelLeftOpen,
 } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { usePermissions } from "@/lib/permissions";
@@ -57,6 +58,9 @@ export default function SettingsLayout({ children }: { children: ReactNode }) {
   const pathname = usePathname() || "";
   const { can } = usePermissions();
   const { t } = useI18n();
+  const [collapsed, setCollapsed] = useState(false);
+  useEffect(() => { setCollapsed(localStorage.getItem("simpulx_settings_collapsed") === "1"); }, []);
+  const toggle = () => setCollapsed((c) => { const n = !c; localStorage.setItem("simpulx_settings_collapsed", n ? "1" : "0"); return n; });
 
   // Hide sections the role can't access; drop groups that become empty.
   const groups = GROUPS
@@ -73,12 +77,24 @@ export default function SettingsLayout({ children }: { children: ReactNode }) {
   return (
     <div className="flex h-full min-h-0">
       {/* Settings sidebar — mounted once, persists across child navigation */}
-      <div className="w-[260px] shrink-0 border-r border-border bg-card py-5 overflow-y-auto">
+      <div className={cn(
+        "shrink-0 border-r border-border bg-card py-3 overflow-y-auto overflow-x-hidden transition-[width] duration-200",
+        collapsed ? "w-[64px]" : "w-[260px]",
+      )}>
+        {/* Collapse toggle */}
+        <div className={cn("flex items-center mb-3 px-3", collapsed ? "justify-center" : "justify-end")}>
+          <button onClick={toggle} title={collapsed ? "Expand" : "Collapse"}
+            className="p-1.5 rounded-md text-muted-foreground hover:bg-muted hover:text-foreground outline-none transition-colors">
+            {collapsed ? <PanelLeftOpen className="w-[18px] h-[18px]" /> : <PanelLeftClose className="w-[18px] h-[18px]" />}
+          </button>
+        </div>
         {groups.map((g, gi) => (
           <div key={g.titleKey} className="mb-5">
-            <p className="px-5 mb-2.5 text-[11px] font-bold uppercase tracking-wider text-muted-foreground">
-              {t(g.titleKey)}
-            </p>
+            {!collapsed && (
+              <p className="px-5 mb-2.5 text-[11px] font-bold uppercase tracking-wider text-muted-foreground">
+                {t(g.titleKey)}
+              </p>
+            )}
             <div className="space-y-0.5">
               {g.items.map((s) => {
                 const Icon = s.icon;
@@ -88,20 +104,22 @@ export default function SettingsLayout({ children }: { children: ReactNode }) {
                     key={s.key}
                     href={s.href}
                     scroll={false}
+                    title={collapsed ? t(s.labelKey) : undefined}
                     className={cn(
-                      "mx-3 rounded-md py-2.5 px-3.5 flex items-center gap-3 text-left outline-none transition-colors",
+                      "rounded-md py-2.5 flex items-center text-left outline-none transition-colors",
+                      collapsed ? "mx-2 px-0 justify-center" : "mx-3 px-3.5 gap-3",
                       sel
                         ? "bg-muted text-foreground"
                         : "text-muted-foreground hover:bg-muted/60 hover:text-foreground",
                     )}
                   >
                     <Icon className={cn("w-[18px] h-[18px] shrink-0", sel ? "text-foreground" : "text-muted-foreground")} />
-                    <span className={cn("text-[13.5px]", sel ? "font-semibold" : "font-medium")}>{t(s.labelKey)}</span>
+                    {!collapsed && <span className={cn("text-[13.5px]", sel ? "font-semibold" : "font-medium")}>{t(s.labelKey)}</span>}
                   </Link>
                 );
               })}
             </div>
-            {gi < groups.length - 1 && <div className="mx-5 mt-5 border-t border-border/50" />}
+            {!collapsed && gi < groups.length - 1 && <div className="mx-5 mt-5 border-t border-border/50" />}
           </div>
         ))}
       </div>

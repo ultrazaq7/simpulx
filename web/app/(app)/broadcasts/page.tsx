@@ -80,10 +80,10 @@ export default function BroadcastsPage() {
   }
 
   return (
-    <div className="px-4 pt-4 pb-6">
-      <div className="bg-card rounded-lg border border-border shadow-xs overflow-hidden flex flex-col">
+    <div className="px-4 pt-4 pb-4 h-full flex flex-col min-h-0">
+      <div className="bg-card rounded-lg border border-border shadow-xs overflow-hidden flex flex-col flex-1 min-h-0">
         {/* Toolbar */}
-        <div className="p-3 flex items-center gap-3 border-b border-border">
+        <div className="p-3 flex items-center gap-3 border-b border-border shrink-0">
           <div className="relative w-[300px] max-w-[45vw]">
             <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-muted-foreground pointer-events-none" />
             <input value={query} onChange={(e) => setQuery(e.target.value)} placeholder="Search broadcasts"
@@ -102,7 +102,7 @@ export default function BroadcastsPage() {
         </div>
 
         {/* Table */}
-        <div className="overflow-x-auto">
+        <div className="overflow-auto flex-1 min-h-0">
           <table className="w-full text-sm">
             <thead>
               <tr className="border-b border-border bg-muted/40">
@@ -132,7 +132,7 @@ export default function BroadcastsPage() {
         </div>
 
         {/* Pagination */}
-        <div className="flex items-center py-3 px-4 border-t border-border">
+        <div className="flex items-center py-3 px-4 border-t border-border shrink-0">
           <span className="text-[13px] font-semibold text-muted-foreground tabular-nums">{filtered.length} broadcast{filtered.length === 1 ? "" : "s"}</span>
           <div className="flex-1 flex justify-center items-center gap-1">
             <button disabled={page <= 1} onClick={() => setPage(1)} className="p-1 rounded-md text-muted-foreground hover:bg-muted hover:text-foreground disabled:opacity-30 disabled:cursor-not-allowed outline-none transition-colors"><ChevronsLeft className="w-[18px] h-[18px]" /></button>
