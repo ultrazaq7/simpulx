@@ -51,9 +51,13 @@ export function PageBody({ children, maxWidth, fill }: { children: ReactNode; ma
   if (fill) {
     return <div className="px-6 py-6 w-full h-full flex flex-col min-h-0">{children}</div>;
   }
+  // Non-fill pages scroll inside themselves (the content area is overflow-hidden),
+  // so long settings pages still scroll but never add a second outer scrollbar.
   return (
-    <div className="px-6 py-6 mx-auto w-full" style={{ maxWidth: maxWidth ?? 1040 }}>
-      {children}
+    <div className="h-full overflow-y-auto">
+      <div className="px-6 py-6 mx-auto w-full" style={{ maxWidth: maxWidth ?? 1040 }}>
+        {children}
+      </div>
     </div>
   );
 }
