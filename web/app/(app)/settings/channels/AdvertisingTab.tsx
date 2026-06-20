@@ -4,12 +4,13 @@
 // ad campaigns to our campaigns for cost-per-lead / cost-per-sale.
 import { useEffect, useMemo, useState } from "react";
 import {
-  Plus, RefreshCw, Trash2, X, Loader2, BarChart3, TrendingUp, AlertTriangle, Link2, Search,
+  Plus, RefreshCw, Trash2, Loader2, BarChart3, TrendingUp, AlertTriangle, Link2, Search,
 } from "lucide-react";
 import { api } from "@/lib/api";
 import { Select } from "@/components/Select";
 import { cn } from "@/lib/utils";
 import type { AdAccount, AdCampaignRow, AdPerformance, Campaign } from "@/lib/types";
+import { AdWizard } from "./AdWizard";
 
 const PLATFORMS: Record<string, { label: string; live: boolean }> = {
   meta: { label: "Meta (Facebook/Instagram)", live: true },
@@ -279,91 +280,8 @@ export function AdvertisingTab() {
         )}
       </div>
 
-      {connectOpen && <ConnectModal onClose={() => setConnectOpen(false)} onConnected={(msg) => { setConnectOpen(false); setToast(msg); loadAll(); }} />}
+      {connectOpen && <AdWizard onClose={() => setConnectOpen(false)} onConnected={(msg) => { setConnectOpen(false); setToast(msg); loadAll(); }} />}
       {toast && <div className="fixed bottom-6 left-6 z-[110] animate-scale-in"><div className="px-4 py-2.5 rounded-lg bg-[#2D8B73] text-white text-sm font-semibold shadow-xl">{toast}</div></div>}
-    </div>
-  );
-}
-
-function ConnectModal({ onClose, onConnected }: { onClose: () => void; onConnected: (msg: string) => void }) {
-  const [platform, setPlatform] = useState("meta");
-  const [accountId, setAccountId] = useState("");
-  const [name, setName] = useState("");
-  const [token, setToken] = useState("");
-  // Google-only extras.
-  const [devToken, setDevToken] = useState("");
-  const [loginCid, setLoginCid] = useState("");
-  const [clientId, setClientId] = useState("");
-  const [clientSecret, setClientSecret] = useState("");
-  const [saving, setSaving] = useState(false);
-  const [err, setErr] = useState("");
-  const INP = "w-full h-10 px-3 rounded-md border border-input bg-background text-[13.5px] text-foreground placeholder:text-muted-foreground/70 outline-none focus:border-primary focus:ring-2 focus:ring-primary/20";
-
-  const accountLabel = platform === "meta" ? "Ad account id (act_…)" : platform === "tiktok" ? "Advertiser id" : "Customer id";
-  const accountPlaceholder = platform === "meta" ? "e.g. 1234567890 (without act_)" : platform === "tiktok" ? "TikTok advertiser id" : "e.g. 123-456-7890";
-  const tokenLabel = platform === "google" ? "OAuth refresh token" : "Access token";
-  const tokenHint = platform === "meta" ? "A long-lived token (or system-user token) with the ads_read permission."
-    : platform === "tiktok" ? "A TikTok for Business access token with reporting access."
-      : "An OAuth refresh token for an account with access to this customer.";
-
-  async function save() {
-    if (!accountId.trim() || !token.trim()) { setErr("Account id and access token are required."); return; }
-    if (platform === "google" && (!devToken.trim() || !clientId.trim() || !clientSecret.trim())) {
-      setErr("Google needs a developer token, client id and client secret."); return;
-    }
-    setSaving(true); setErr("");
-    try {
-      const config = platform === "google"
-        ? { developer_token: devToken.trim(), login_customer_id: loginCid.trim(), client_id: clientId.trim(), client_secret: clientSecret.trim() }
-        : undefined;
-      const r = await api.createAdAccount({ platform, external_account_id: accountId.trim(), name: name.trim() || undefined, access_token: token.trim(), config });
-      onConnected(r?.sync_error ? `Connected, but sync failed: ${r.sync_error}` : "Ad account connected");
-    } catch (e: any) { setErr(e?.message || "Failed to connect"); setSaving(false); }
-  }
-
-  return (
-    <div className="fixed inset-0 z-[100] flex items-center justify-center p-4">
-      <div className="absolute inset-0 bg-black/40 backdrop-blur-[2px] animate-fade-in" onClick={onClose} />
-      <div className="relative w-[460px] rounded-lg border border-border bg-card shadow-2xl animate-scale-in">
-        <div className="flex items-center px-5 py-3.5 border-b border-border">
-          <p className="font-bold text-[15px] text-foreground flex-1">Connect ad account</p>
-          <button onClick={onClose} className="p-1 rounded-md text-muted-foreground hover:bg-muted hover:text-foreground outline-none"><X className="w-[18px] h-[18px]" /></button>
-        </div>
-        <div className="p-5 space-y-4">
-          {err && <div className="px-3 py-2 rounded-md bg-red-50 border border-red-200 text-red-600 text-[13px] font-medium">{err}</div>}
-          <div className="space-y-1.5">
-            <label className="text-[12px] font-bold text-foreground/80">Platform</label>
-            <Select value={platform} onChange={setPlatform} searchable={false}
-              options={Object.entries(PLATFORMS).map(([v, p]) => ({ value: v, label: p.label }))} className="w-full" />
-          </div>
-          <div className="space-y-1.5">
-            <label className="text-[12px] font-bold text-foreground/80">{accountLabel}</label>
-            <input value={accountId} onChange={(e) => setAccountId(e.target.value)} placeholder={accountPlaceholder} className={INP} />
-          </div>
-          <div className="space-y-1.5">
-            <label className="text-[12px] font-bold text-foreground/80">Display name <span className="font-normal text-muted-foreground">(optional)</span></label>
-            <input value={name} onChange={(e) => setName(e.target.value)} placeholder="e.g. Main ad account" className={INP} />
-          </div>
-          <div className="space-y-1.5">
-            <label className="text-[12px] font-bold text-foreground/80">{tokenLabel}</label>
-            <input value={token} onChange={(e) => setToken(e.target.value)} type="password" placeholder={tokenLabel} className={INP} />
-            <p className="text-[11.5px] text-muted-foreground">{tokenHint}</p>
-          </div>
-          {platform === "google" && (
-            <div className="space-y-3 pt-1 border-t border-border">
-              <p className="text-[12px] font-bold text-foreground/80 pt-2">Google Ads credentials</p>
-              <input value={devToken} onChange={(e) => setDevToken(e.target.value)} placeholder="Developer token" className={INP} />
-              <input value={clientId} onChange={(e) => setClientId(e.target.value)} placeholder="OAuth client id" className={INP} />
-              <input value={clientSecret} onChange={(e) => setClientSecret(e.target.value)} type="password" placeholder="OAuth client secret" className={INP} />
-              <input value={loginCid} onChange={(e) => setLoginCid(e.target.value)} placeholder="Login customer id (manager account, optional)" className={INP} />
-            </div>
-          )}
-        </div>
-        <div className="flex items-center justify-end gap-2 px-5 py-3 border-t border-border">
-          <button onClick={onClose} className="px-3 py-1.5 rounded-md text-sm font-semibold text-foreground/70 hover:bg-muted outline-none">Cancel</button>
-          <button onClick={save} disabled={saving} className="px-4 py-1.5 rounded-md text-sm font-semibold text-white bg-primary hover:bg-primary-dark disabled:opacity-60 outline-none inline-flex items-center gap-2"> {saving && <Loader2 className="w-4 h-4 animate-spin" />}Connect</button>
-        </div>
-      </div>
     </div>
   );
 }

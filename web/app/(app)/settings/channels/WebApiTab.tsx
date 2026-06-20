@@ -10,6 +10,7 @@ import { cn } from "@/lib/utils";
 import { Tip } from "@/components/ui/tooltip";
 import type { WebApiSource, Department } from "@/lib/types";
 import { useToast, SettingsCard, FieldLabel, INPUT_CLASS, PrimaryButton, GhostButton } from "../_shared";
+import { WebApiWizard } from "./WebApiWizard";
 
 const API = process.env.NEXT_PUBLIC_API_URL || "http://localhost:8080";
 
@@ -19,6 +20,7 @@ export function WebApiTab() {
   const [depts, setDepts] = useState<Department[]>([]);
   const [loading, setLoading] = useState(true);
   const [dlg, setDlg] = useState<{ open: boolean; editing: WebApiSource | null }>({ open: false, editing: null });
+  const [wizardOpen, setWizardOpen] = useState(false);
   const [query, setQuery] = useState("");
   const filtered = rows.filter((p) => !query || p.name.toLowerCase().includes(query.toLowerCase()) || (p.slug ?? "").toLowerCase().includes(query.toLowerCase()));
 
@@ -60,7 +62,7 @@ export function WebApiTab() {
             <RefreshCw className="w-[18px] h-[18px] text-muted-foreground" />
           </button></Tip>
           <div className="flex-1" />
-          <PrimaryButton onClick={() => setDlg({ open: true, editing: null })}>
+          <PrimaryButton onClick={() => setWizardOpen(true)}>
             <Plus className="w-4 h-4" />Add API source
           </PrimaryButton>
         </div>
@@ -125,6 +127,12 @@ export function WebApiTab() {
         onClose={() => setDlg({ open: false, editing: null })}
         onSaved={(m) => { setDlg({ open: false, editing: null }); notify(m); load(); }}
         onError={(m) => notify(m, "error")} />
+
+      {wizardOpen && (
+        <WebApiWizard depts={depts}
+          onClose={() => setWizardOpen(false)}
+          onCreated={(m) => { setWizardOpen(false); notify(m); load(); }} />
+      )}
     </div>
   );
 }
