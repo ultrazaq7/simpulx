@@ -1,8 +1,9 @@
 "use client";
 import { useEffect, useMemo, useRef, useState } from "react";
+import { useRouter } from "next/navigation";
 import {
   Search, UserPlus, Download, Pencil, ChevronsLeft, ChevronsRight, ChevronLeft, ChevronRight,
-  Users, X, Loader2, Tag as TagIcon, MoreVertical, MessageSquare, Trash2, Upload, ChevronDown, Send, ExternalLink,
+  Users, X, Loader2, Tag as TagIcon, MoreVertical, MessageSquare, Trash2, Upload, ChevronDown, Send, Eye,
 } from "lucide-react";
 
 import { api, getUser } from "@/lib/api";
@@ -40,6 +41,7 @@ export default function ContactsPage() {
   const [toast, setToast] = useState<string | null>(null);
   const importRef = useRef<HTMLInputElement>(null);
 
+  const router = useRouter();
   const { can } = usePermissions();
   const role = getUser()?.role;
   const showAgentFilter = role !== "agent";
@@ -207,15 +209,15 @@ export default function ContactsPage() {
             <thead className="sticky top-0 z-10">
               <tr className="border-b border-border bg-muted">
                 <TH className="w-10"><input type="checkbox" className="rounded border-input accent-primary" /></TH>
-                <TH>Contact name</TH><TH>Channel</TH><TH>Phone</TH><TH>Status</TH><TH>Source</TH><TH>Source Id</TH><TH>Source Url</TH>
+                <TH>Contact name</TH><TH>Channel</TH><TH>Phone</TH><TH>Status</TH><TH>Source</TH>
                 <TH>Labels</TH><TH>Created</TH><TH>Updated</TH><TH>Blacklisted</TH><TH className="text-right">Actions</TH>
               </tr>
             </thead>
             <tbody>
               {loading ? Array(8).fill(0).map((_, i) => (
-                <tr key={i}><td colSpan={13} className="px-4 py-2.5"><div className="h-9 skeleton rounded-md" /></td></tr>
+                <tr key={i}><td colSpan={11} className="px-4 py-2.5"><div className="h-9 skeleton rounded-md" /></td></tr>
               )) : paged.length === 0 ? (
-                <tr><td colSpan={13} className="text-center py-16">
+                <tr><td colSpan={11} className="text-center py-16">
                   <div className="w-12 h-12 rounded-xl bg-muted grid place-items-center mx-auto mb-3"><Users className="w-6 h-6 text-muted-foreground/50" /></div>
                   <p className="font-semibold text-foreground mb-0.5">No contacts found</p>
                   <p className="text-sm text-muted-foreground">{query || activeFilters ? "Try different filters." : "New contacts will appear here."}</p>
@@ -229,7 +231,7 @@ export default function ContactsPage() {
                         style={{ backgroundColor: channelColor(c.source_channel) + "1A", color: channelColor(c.source_channel) }}>
                         {initials(c.full_name || c.phone)}
                       </div>
-                      <p className="font-semibold text-[13px] text-foreground truncate max-w-[180px]">{c.full_name || c.phone || "Unknown"}</p>
+                      <button onClick={() => router.push(`/contacts/${c.id}`)} className="font-semibold text-[13px] text-foreground truncate max-w-[180px] text-left hover:text-primary hover:underline outline-none">{c.full_name || c.phone || "Unknown"}</button>
                     </div>
                   </td>
                   <td className="px-4 py-2.5 whitespace-nowrap">
@@ -247,12 +249,6 @@ export default function ContactsPage() {
                     ) : <span className="text-muted-foreground">-</span>}
                   </td>
                   <td className="px-4 py-2.5 capitalize text-foreground/80 whitespace-nowrap">{sourceLabel(c)}</td>
-                  <td className="px-4 py-2.5 text-foreground/70 tabular-nums text-[12px] max-w-[160px] truncate" title={c.source_id || ""}>{c.source_id || "-"}</td>
-                  <td className="px-4 py-2.5">
-                    {c.source_url ? (
-                      <a href={c.source_url} target="_blank" rel="noreferrer" className="inline-flex items-center gap-1 text-primary text-[12px] font-medium hover:underline"><ExternalLink className="w-3.5 h-3.5" />Link</a>
-                    ) : <span className="text-muted-foreground">-</span>}
-                  </td>
                   <td className="px-4 py-2.5">
                     {(c.tags && c.tags.length) ? (
                       <div className="flex flex-wrap gap-1 max-w-[160px]">
@@ -275,6 +271,7 @@ export default function ContactsPage() {
                       <button onClick={() => setMenuId(menuId === c.id ? null : c.id)} className="p-1.5 rounded-md hover:bg-muted text-muted-foreground hover:text-foreground outline-none transition-colors"><MoreVertical className="w-4 h-4" /></button>
                       {menuId === c.id && (
                         <div className="absolute right-0 top-full mt-1 w-40 bg-popover border border-border rounded-lg shadow-xl z-20 py-1 animate-scale-in origin-top-right">
+                          <button onClick={() => { setMenuId(null); router.push(`/contacts/${c.id}`); }} className="w-full flex items-center gap-2 px-3 py-2 text-[13px] text-foreground hover:bg-muted outline-none"><Eye className="w-4 h-4 text-muted-foreground" />View details</button>
                           {canEdit && <button onClick={() => { setMenuId(null); setModal({ mode: "edit", contact: c }); }} className="w-full flex items-center gap-2 px-3 py-2 text-[13px] text-foreground hover:bg-muted outline-none"><Pencil className="w-4 h-4 text-muted-foreground" />Edit</button>}
                           <button disabled={!c.conversation_id} onClick={() => { setMenuId(null); setChatContact(c); }} className="w-full flex items-center gap-2 px-3 py-2 text-[13px] text-foreground hover:bg-muted outline-none disabled:opacity-40 disabled:cursor-not-allowed"><MessageSquare className="w-4 h-4 text-muted-foreground" />Chat</button>
                           {canEdit && <button onClick={() => { setMenuId(null); toggleBlacklist(c); }} className="w-full flex items-center gap-2 px-3 py-2 text-[13px] text-foreground hover:bg-muted outline-none"><Users className="w-4 h-4 text-muted-foreground" />{c.blacklisted ? "Unblacklist" : "Blacklist"}</button>}

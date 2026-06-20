@@ -119,14 +119,14 @@ export function AdvertisingTab() {
   );
 
   return (
-    <div className="h-full overflow-y-auto">
-      <div className="px-6 py-6 max-w-[1280px] mx-auto w-full space-y-6">
+    <div className="px-6 py-6 w-full h-full flex flex-col min-h-0">
+      <div className="bg-card border border-border rounded-lg shadow-xs overflow-hidden flex-1 min-h-0 flex flex-col">
         {/* Toolbar */}
-        <div className="flex items-center gap-2.5 flex-wrap">
+        <div className="p-3 flex items-center gap-2.5 border-b border-border flex-wrap shrink-0">
           <div className="relative w-[260px] max-w-[45vw]">
             <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-muted-foreground pointer-events-none" />
             <input type="text" placeholder="Search campaigns" value={search} onChange={(e) => setSearch(e.target.value)}
-              className="w-full h-9 pl-9 pr-3 rounded-md border border-input bg-card text-sm text-foreground placeholder:text-muted-foreground/70 outline-none transition-shadow focus:border-primary focus:ring-2 focus:ring-primary/20" />
+              className="w-full h-9 pl-9 pr-3 rounded-md border border-input bg-muted text-sm text-foreground placeholder:text-muted-foreground/70 outline-none transition-shadow focus:border-primary focus:ring-2 focus:ring-primary/20" />
           </div>
           {accounts.length > 0 && <Select value={platformFilter} onChange={setPlatformFilter} options={platformOptions} className="min-w-[150px]" />}
           {accounts.length > 1 && <Select value={accountFilter} onChange={setAccountFilter} options={accountOptions} className="min-w-[160px]" />}
@@ -137,6 +137,7 @@ export function AdvertisingTab() {
           </button>
         </div>
 
+        <div className="overflow-auto flex-1 min-h-0 p-4 space-y-6">
         {loading ? (
           <div className="h-40 grid place-items-center"><Loader2 className="w-6 h-6 animate-spin text-primary" /></div>
         ) : accounts.length === 0 ? (
@@ -278,6 +279,7 @@ export function AdvertisingTab() {
             </div>
           </>
         )}
+        </div>
       </div>
 
       {connectOpen && <AdWizard onClose={() => setConnectOpen(false)} onConnected={(msg) => { setConnectOpen(false); setToast(msg); loadAll(); }} />}

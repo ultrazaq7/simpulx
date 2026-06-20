@@ -46,7 +46,8 @@ export function PageHeader({ left, right }: { left?: ReactNode; right?: ReactNod
 }
 
 // Standard scroll container + padding for a settings page body.
-export function PageBody({ children, maxWidth, fill }: { children: ReactNode; maxWidth?: number; fill?: boolean }) {
+// wide = use the full available width (no centered max-width) while keeping scroll.
+export function PageBody({ children, maxWidth, fill, wide }: { children: ReactNode; maxWidth?: number; fill?: boolean; wide?: boolean }) {
   // fill = stretch to full height (for list/table pages so the card doesn't hang).
   if (fill) {
     return <div className="px-6 py-6 w-full h-full flex flex-col min-h-0">{children}</div>;
@@ -55,7 +56,7 @@ export function PageBody({ children, maxWidth, fill }: { children: ReactNode; ma
   // so long settings pages still scroll but never add a second outer scrollbar.
   return (
     <div className="h-full overflow-y-auto">
-      <div className="px-6 py-6 mx-auto w-full" style={{ maxWidth: maxWidth ?? 1040 }}>
+      <div className={cn("px-6 py-6 w-full", !wide && "mx-auto")} style={wide ? undefined : { maxWidth: maxWidth ?? 1040 }}>
         {children}
       </div>
     </div>

@@ -164,7 +164,7 @@ export default function RolesSettingsPage() {
   if (loading) return <PageBody><div className="flex justify-center py-20"><Loader2 className="w-6 h-6 animate-spin text-muted-foreground" /></div></PageBody>;
 
   return (
-    <PageBody maxWidth={1180}>
+    <PageBody wide>
       {ToastHost}
       <div className="flex items-center gap-3 mb-4">
         <div className="flex-1" />
@@ -186,14 +186,14 @@ export default function RolesSettingsPage() {
 
       <SettingsCard className="overflow-hidden">
         <div ref={scrollRef} onScroll={updateArrows} className="overflow-x-auto [scrollbar-width:none] [&::-webkit-scrollbar]:hidden">
-          <div className="min-w-full w-max">
+          <div className="min-w-full">
             {/* Header row */}
             <div className="flex min-w-full bg-muted border-b border-border">
               <div className="w-[240px] shrink-0 sticky left-0 z-10 bg-muted px-4 py-3">
                 <p className="text-[11px] font-semibold text-muted-foreground uppercase tracking-wider">Permission</p>
               </div>
               {roles.map((r) => (
-                <div key={r} className="w-[104px] shrink-0 flex items-center justify-center gap-1 py-3">
+                <div key={r} className="flex-1 min-w-[104px] flex items-center justify-center gap-1 py-3">
                   <span className="text-[12.5px] font-semibold capitalize text-foreground">{roleLabel(r)}</span>
                   {LOCKED.includes(r) && <Lock className="w-3 h-3 text-muted-foreground" />}
                   {customRoles[r] && canEdit && (
@@ -219,7 +219,7 @@ export default function RolesSettingsPage() {
                     {roles.map((r) => {
                       const locked = LOCKED.includes(r) || !canEdit;
                       return (
-                        <div key={r} className="w-[104px] shrink-0 flex justify-center py-2.5">
+                        <div key={r} className="flex-1 min-w-[104px] flex justify-center py-2.5">
                           <input
                             type="checkbox"
                             checked={!!matrix[r]?.[p.key]}

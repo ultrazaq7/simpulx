@@ -6,6 +6,7 @@ import { useEffect, useMemo, useState } from "react";
 import Link from "next/link";
 import {
   Plus, RefreshCw, Pencil, Trash2, CheckCircle, Loader2, X, Search, MoreVertical, FileText, Power,
+  ChevronLeft, ChevronRight, ChevronsLeft, ChevronsRight,
 } from "lucide-react";
 import ChannelIcon, { CHANNEL_CATALOG, channelMeta } from "@/components/ChannelIcon";
 import { api } from "@/lib/api";
@@ -51,6 +52,8 @@ export function ChannelsTab() {
   const [filter, setFilter] = useState("all");
   const [wizardOpen, setWizardOpen] = useState(false);
   const [editing, setEditing] = useState<Channel | null>(null);
+  const [page, setPage] = useState(1);
+  const perPage = 12;
 
   async function load() {
     setLoading(true);
@@ -59,6 +62,7 @@ export function ChannelsTab() {
     finally { setLoading(false); }
   }
   useEffect(() => { load(); }, []);
+  useEffect(() => { setPage(1); }, [query, filter]);
 
   async function test(c: Channel) {
     try { await api.testChannel(c.id); notify("Connection verified"); load(); }
@@ -88,17 +92,19 @@ export function ChannelsTab() {
     if (q && !c.name.toLowerCase().includes(q) && !(c.display_id ?? "").toLowerCase().includes(q) && !(c.phone_number_id ?? "").toLowerCase().includes(q)) return false;
     return true;
   });
+  const totalPages = Math.max(1, Math.ceil(visible.length / perPage));
+  const paged = visible.slice((page - 1) * perPage, page * perPage);
 
   return (
-    <div className="h-full overflow-y-auto">
+    <div className="px-6 py-6 w-full h-full flex flex-col min-h-0">
       {ToastHost}
-      <div className="px-6 py-6 max-w-[1080px] mx-auto w-full">
+      <div className="bg-card border border-border rounded-lg shadow-xs overflow-hidden flex-1 min-h-0 flex flex-col">
         {/* Toolbar */}
-        <div className="flex items-center gap-2.5 flex-wrap mb-4">
+        <div className="p-3 flex items-center gap-3 border-b border-border flex-wrap shrink-0">
           <div className="relative w-[300px] max-w-[50vw]">
             <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-muted-foreground pointer-events-none" />
             <input type="text" placeholder="Search channels" value={query} onChange={(e) => setQuery(e.target.value)}
-              className="w-full h-9 pl-9 pr-3 rounded-md border border-input bg-card text-sm text-foreground placeholder:text-muted-foreground/70 outline-none transition-shadow focus:border-primary" />
+              className="w-full h-9 pl-9 pr-3 rounded-md border border-input bg-muted text-sm text-foreground placeholder:text-muted-foreground/70 outline-none transition-shadow focus:border-primary" />
           </div>
           <Tip label="Refresh"><button onClick={load} className="p-1.5 rounded-md hover:bg-muted transition-colors outline-none">
             <RefreshCw className="w-[18px] h-[18px] text-muted-foreground" />
@@ -111,7 +117,7 @@ export function ChannelsTab() {
 
         {/* Platform filter chips */}
         {platforms.length > 0 && (
-          <div className="flex items-center gap-2 mb-5 flex-wrap">
+          <div className="px-3 py-2 flex items-center gap-2 flex-wrap border-b border-border/70 bg-muted/30 shrink-0">
             <Chip label="All" active={filter === "all"} onClick={() => setFilter("all")} />
             {platforms.map((m) => (
               <Chip key={m.type} label={m.type === "testing" ? "Testing" : m.name} active={filter === m.type} onClick={() => setFilter(m.type)} />
@@ -120,20 +126,37 @@ export function ChannelsTab() {
         )}
 
         {/* List */}
-        {loading ? (
-          <div className="grid grid-cols-1 md:grid-cols-2 gap-3">{[0, 1, 2, 3].map((i) => <div key={i} className="h-[132px] rounded-xl skeleton" />)}</div>
-        ) : visible.length === 0 ? (
-          <div className="text-center py-16 border border-dashed border-border rounded-xl bg-card">
-            <div className="inline-flex mb-3 opacity-80"><ChannelIcon type="whatsapp" size={56} radius={16} /></div>
-            <p className="font-bold text-foreground mb-1">{channels.length === 0 ? "No channels connected yet" : "No channels match your filters"}</p>
-            <p className="text-[13px] text-muted-foreground mb-4">{channels.length === 0 ? "Connect WhatsApp, Messenger, Instagram, Viber and more." : "Try a different search or filter."}</p>
-            {channels.length === 0 && <PrimaryButton onClick={() => setWizardOpen(true)}><Plus className="w-4 h-4" />Create channel</PrimaryButton>}
-          </div>
-        ) : (
-          <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
-            {visible.map((c) => (
-              <ChannelCard key={c.id} c={c} onTest={test} onToggle={toggleActive} onEdit={setEditing} onDelete={remove} />
-            ))}
+        <div className="overflow-auto flex-1 min-h-0 p-4">
+          {loading ? (
+            <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-3">{[0, 1, 2, 3].map((i) => <div key={i} className="h-[132px] rounded-xl skeleton" />)}</div>
+          ) : visible.length === 0 ? (
+            <div className="text-center py-16 border border-dashed border-border rounded-xl bg-card">
+              <div className="inline-flex mb-3 opacity-80"><ChannelIcon type="whatsapp" size={56} radius={16} /></div>
+              <p className="font-bold text-foreground mb-1">{channels.length === 0 ? "No channels connected yet" : "No channels match your filters"}</p>
+              <p className="text-[13px] text-muted-foreground mb-4">{channels.length === 0 ? "Connect WhatsApp, Messenger, Instagram, Viber and more." : "Try a different search or filter."}</p>
+              {channels.length === 0 && <PrimaryButton onClick={() => setWizardOpen(true)}><Plus className="w-4 h-4" />Create channel</PrimaryButton>}
+            </div>
+          ) : (
+            <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-3">
+              {paged.map((c) => (
+                <ChannelCard key={c.id} c={c} onTest={test} onToggle={toggleActive} onEdit={setEditing} onDelete={remove} />
+              ))}
+            </div>
+          )}
+        </div>
+
+        {/* Pagination */}
+        {visible.length > perPage && (
+          <div className="flex items-center py-2.5 px-4 border-t border-border shrink-0">
+            <span className="text-[13px] font-semibold text-muted-foreground tabular-nums">{visible.length} channel{visible.length === 1 ? "" : "s"}</span>
+            <div className="flex-1 flex justify-center items-center gap-1">
+              <button disabled={page <= 1} onClick={() => setPage(1)} className="p-1 rounded-md text-muted-foreground hover:bg-muted disabled:opacity-30 outline-none"><ChevronsLeft className="w-[18px] h-[18px]" /></button>
+              <button disabled={page <= 1} onClick={() => setPage(page - 1)} className="p-1 rounded-md text-muted-foreground hover:bg-muted disabled:opacity-30 outline-none"><ChevronLeft className="w-[18px] h-[18px]" /></button>
+              <span className="px-3 py-1 rounded-md border border-primary/40 text-primary text-[13px] font-bold min-w-[32px] text-center tabular-nums">{page}</span>
+              <span className="text-[13px] text-muted-foreground tabular-nums">/ {totalPages}</span>
+              <button disabled={page >= totalPages} onClick={() => setPage(page + 1)} className="p-1 rounded-md text-muted-foreground hover:bg-muted disabled:opacity-30 outline-none"><ChevronRight className="w-[18px] h-[18px]" /></button>
+              <button disabled={page >= totalPages} onClick={() => setPage(totalPages)} className="p-1 rounded-md text-muted-foreground hover:bg-muted disabled:opacity-30 outline-none"><ChevronsRight className="w-[18px] h-[18px]" /></button>
+            </div>
           </div>
         )}
       </div>
