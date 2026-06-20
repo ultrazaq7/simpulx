@@ -4,7 +4,7 @@
 // its own coverage, ad sources and agents. Leads route by ad source to a branch,
 // else fall back to the campaign's default agents.
 import { useEffect, useState } from "react";
-import { Plus, Trash2, Loader2, Phone, PhoneOff, Megaphone, Building2, MapPin } from "lucide-react";
+import { Plus, Trash2, Loader2, Phone, PhoneOff, Sparkles, Building2, MapPin } from "lucide-react";
 import { api } from "@/lib/api";
 import type { UserAccount, Channel, WebApiSource } from "@/lib/types";
 import { Select } from "@/components/Select";
@@ -108,7 +108,7 @@ export function CampaignWizard({ campaignId, users, channels, onClose, onDone, o
   const channel = channels.find((c) => c.id === channelId);
 
   return (
-    <WizardModal title={isEdit ? "Edit campaign" : "New campaign"} icon={<Megaphone className="w-5 h-5" />} steps={STEPS} step={step} onClose={onClose} footer={footer} maxWidth={820}>
+    <WizardModal title={isEdit ? "Edit campaign" : "New campaign"} icon={<Sparkles className="w-5 h-5" />} steps={STEPS} step={step} onClose={onClose} footer={footer} maxWidth={820}>
       {/* Step 0 — Campaign */}
       {step === 0 && (
         <div className="flex flex-col gap-4">

@@ -7,7 +7,7 @@
 //   - Messenger / Instagram / Testing: createChannel with the right config.
 import { useState } from "react";
 import {
-  X, Check, ArrowLeft, Loader2, Copy, Lock, LogIn as FbIcon, KeyRound, CheckCircle2, Sparkles,
+  X, Check, ArrowLeft, Loader2, Copy, Lock, LogIn as FbIcon, KeyRound, CheckCircle2, Radio,
 } from "lucide-react";
 import ChannelIcon, { CHANNEL_CATALOG, channelMeta } from "@/components/ChannelIcon";
 import { api } from "@/lib/api";
@@ -43,7 +43,7 @@ export function ChannelWizard({ onClose, onDone, onError }: {
       <div className="relative w-full max-w-[760px] max-h-[88vh] rounded-xl border border-border bg-card shadow-2xl animate-scale-in flex flex-col">
         {/* Header */}
         <div className="flex items-center gap-3 px-6 py-4 border-b border-border shrink-0">
-          <div className="w-9 h-9 rounded-lg bg-primary/10 text-primary grid place-items-center"><Sparkles className="w-5 h-5" /></div>
+          <div className="w-9 h-9 rounded-lg bg-primary/10 text-primary grid place-items-center"><Radio className="w-5 h-5" /></div>
           <div className="flex-1 min-w-0">
             <p className="font-bold text-[16px] text-foreground leading-tight">Create channel</p>
             <p className="text-[12px] text-muted-foreground">Step {step + 1} of {STEPS.length}: {STEPS[step]}</p>
