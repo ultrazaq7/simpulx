@@ -418,6 +418,21 @@ export interface LogActivity {
   kind: string; event: string; detail: Record<string, unknown> | null; action_at: string;
 }
 
+export interface ExportJob {
+  id: string;
+  kind: string;
+  date_from: string | null;
+  date_to: string | null;
+  status: string;            // queued | processing | completed | failed
+  row_count: number | null;
+  file_url: string | null;
+  error: string | null;
+  expires_at: string | null;
+  created_at: string;
+  completed_at: string | null;
+  requested_by: string | null;
+}
+
 export interface AuditEntry {
   id: string;
   actor_name: string | null;

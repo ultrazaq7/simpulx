@@ -356,6 +356,9 @@ export const api = {
     const qs = q.toString();
     return req<import("./types").LogPage<T>>(`/api/system-logs/${kind}${qs ? "?" + qs : ""}`);
   },
+  createExport: (kind: "messages" | "conversations" | "calls" | "activity", from?: string, to?: string) =>
+    req<{ id: string; status: string }>("/api/exports", { method: "POST", body: JSON.stringify({ kind, from: from || "", to: to || "" }) }),
+  listExports: () => req<import("./types").ExportJob[]>("/api/exports"),
   // ── Web API lead sources ──
   listWebApiSources: () => req<WebApiSource[]>("/api/web-api-sources"),
   createWebApiSource: (input: { name: string; slug?: string; auto_assign_dept_id?: string; auto_template_name?: string; webhook_url?: string; campaign_id?: string }) =>

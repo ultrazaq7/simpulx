@@ -1,10 +1,12 @@
 "use client";
 import { useEffect, useState, useCallback } from "react";
-import { Loader2, Download, PhoneIncoming, PhoneOutgoing, MessageSquare, MessagesSquare, Phone, Activity, FileText } from "lucide-react";
+import { Loader2, Download, PhoneIncoming, PhoneOutgoing, MessageSquare, MessagesSquare, Phone, Activity, CheckCircle2, Clock, XCircle, AlertTriangle } from "lucide-react";
 import { api } from "@/lib/api";
 import { cn } from "@/lib/utils";
-import type { AuditEntry, LogMessage, LogConversation, LogCall, LogActivity } from "@/lib/types";
+import type { AuditEntry, LogMessage, LogConversation, LogCall, LogActivity, ExportJob } from "@/lib/types";
 import { Select } from "@/components/Select";
+import { useToast } from "../_shared";
+import { rewriteLocalMedia } from "@/app/(app)/inbox/components/MessageBubble";
 
 type TabKey = "messages" | "conversations" | "activity" | "system" | "calls" | "downloads";
 const TABS: { key: TabKey; label: string }[] = [
@@ -41,6 +43,21 @@ function activityLabel(a: LogActivity): string {
 }
 const activityReason = (a: LogActivity) => (a.detail && typeof (a.detail as any).reason === "string") ? (a.detail as any).reason : "-";
 
+function StatusBadge({ status }: { status: string }) {
+  const map: Record<string, { c: string; Icon: any; label: string }> = {
+    completed: { c: "#16A34A", Icon: CheckCircle2, label: "Completed" },
+    processing: { c: "#2563EB", Icon: Loader2, label: "Processing" },
+    queued: { c: "#E67E22", Icon: Clock, label: "Queued" },
+    failed: { c: "#DC2626", Icon: XCircle, label: "Failed" },
+  };
+  const s = map[status] || map.queued;
+  return (
+    <span className="inline-flex items-center gap-1.5 px-2 py-0.5 rounded-md text-[11px] font-bold" style={{ color: s.c, backgroundColor: s.c + "1a" }}>
+      <s.Icon className={cn("w-3 h-3", status === "processing" && "animate-spin")} />{s.label}
+    </span>
+  );
+}
+
 function fromDate(range: string) { if (!range) return ""; const d = new Date(); d.setDate(d.getDate() - Number(range)); return d.toISOString().slice(0, 10); }
 function downloadCsv(name: string, header: string[], rows: (string | number | null | undefined)[][]) {
   const esc = (v: any) => `"${String(v ?? "").replace(/"/g, '""')}"`;
@@ -63,12 +80,15 @@ export default function SystemLogsPage() {
   const [calls, setCalls] = useState<LogCall[]>([]);
   const [activity, setActivity] = useState<LogActivity[]>([]);
   const [audit, setAudit] = useState<AuditEntry[]>([]);
+  const [err, setErr] = useState("");
+  const [exports, setExports] = useState<ExportJob[]>([]);
+  const { notify, ToastHost } = useToast();
 
   const from = fromDate(range);
   const to = range ? new Date().toISOString().slice(0, 10) : "";
 
   const fetchTab = useCallback(async () => {
-    setLoading(true);
+    setLoading(true); setErr("");
     try {
       if (tab === "messages") { const r = await api.systemLog<LogMessage>("messages", { limit: PAGE, offset: page * PAGE, from, to }); setMessages(r.rows); setTotal(r.total); }
       else if (tab === "conversations") { const r = await api.systemLog<LogConversation>("conversations", { limit: PAGE, offset: page * PAGE, from, to }); setConvs(r.rows); setTotal(r.total); }
@@ -76,39 +96,37 @@ export default function SystemLogsPage() {
       else if (tab === "activity") { const r = await api.systemLog<LogActivity>("activity", { limit: PAGE, offset: page * PAGE, from, to }); setActivity(r.rows); setTotal(r.total); }
       else if (tab === "system") { const a = await api.listAuditLog(); setAudit(a); setTotal(a.length); }
       else setTotal(0);
-    } catch { /* keep prev */ } finally { setLoading(false); }
+    } catch (e) { setErr(e instanceof Error ? e.message : String(e)); } finally { setLoading(false); }
   }, [tab, page, from, to]);
   useEffect(() => { fetchTab(); }, [fetchTab]);
   useEffect(() => { setPage(0); }, [tab, range]);
 
-  async function exportData(kind: ExportKind) {
+  // Async exports: queue a job; the worker generates the full CSV and the
+  // Downloads tab polls for live status.
+  const fetchExports = useCallback(() => { api.listExports().then(setExports).catch(() => {}); }, []);
+  useEffect(() => { if (tab === "downloads") fetchExports(); }, [tab, fetchExports]);
+  useEffect(() => {
+    if (tab !== "downloads") return;
+    if (!exports.some((e) => e.status === "queued" || e.status === "processing")) return;
+    const iv = setInterval(fetchExports, 2500);
+    return () => clearInterval(iv);
+  }, [tab, exports, fetchExports]);
+
+  async function startExport(kind: ExportKind) {
+    if (kind === "system") {
+      // Audit log is small + already loaded; export it directly.
+      downloadCsv("system-logs.csv", ["When", "Actor", "Action", "Entity", "Detail"],
+        audit.map((a) => [csvDT(a.created_at), a.actor_name, a.action, `${a.entity_type} ${a.entity_id ?? ""}`, detailText(a.detail)]));
+      return;
+    }
     setExporting(kind);
     try {
-      if (kind === "messages") {
-        const r = await api.systemLog<LogMessage>("messages", { limit: 5000, offset: 0, from, to });
-        downloadCsv("messages.csv",
-          ["File Name", "Channel Id", "Contact ID", "Contact Name", "Sender/Agent Name", "Agent Email", "Direction", "Call Duration (in sec)", "Error Message", "Billable", "Cost Currency", "Message Cost", "AI Credits", "Created At", "Updated At", "Call ID", "Recording Url", "Connect Status", "Call Status", "Message Type", "Message ID", "Message", "File Url", "File Caption", "Read Status", "Sent Status", "Contact Phone Number", "Contact Email", "Source Url", "Source Id", "Source Type"],
-          r.rows.map((m) => ["", m.channel_id, m.contact_id, m.contact_name, m.agent_name || m.contact_name, m.agent_email, dirLabel(m.direction), "", "", "False", "", "", "", csvDT(m.created_at), csvDT(m.created_at), "", "", "", "", m.message_type, m.message_id, m.message, m.file_url, "", m.status, m.status, m.contact_phone, "", m.source_url, m.source_id, ""]));
-      } else if (kind === "conversations") {
-        const r = await api.systemLog<LogConversation>("conversations", { limit: 5000, offset: 0, from, to });
-        downloadCsv("conversations.csv",
-          ["Agent Name", "Email", "Department Name", "Customer Name", "Disposition", "Contact Number", "Assigned At", "Closed At", "First Reponse Time (sec)", "Average Reponse Time (sec)", "Closing Time (sec)", "Total Messages Sent By Agent", "Current Conversation Status", "Chat Initiation Time", "Has Abandonment", "Has Dropped", "Conversation Url", "Customer Satisfaction Rating", "Customer Satisfaction Review"],
-          r.rows.map((c) => [c.agent_name, c.email, c.department_name, c.customer_name, c.disposition, c.contact_number, csvDT(c.assigned_at), csvDT(c.closed_at), c.first_response_sec, 0, c.closing_sec, c.agent_messages, c.status, csvDT(c.chat_initiation), "false", "false", `${location.origin}/inbox?c=${c.id}`, "", ""]));
-      } else if (kind === "calls") {
-        const r = await api.systemLog<LogCall>("calls", { limit: 5000, offset: 0, from, to });
-        downloadCsv("calls.csv",
-          ["Type", "Name", "Phone Number", "Duration (sec)", "Received At", "Ended At", "Agent", "Status"],
-          r.rows.map((c) => [dirLabel(c.direction), c.name, c.phone, c.duration_seconds, csvDT(c.received_at), csvDT(c.ended_at), c.agent, c.call_status]));
-      } else if (kind === "activity") {
-        const r = await api.systemLog<LogActivity>("activity", { limit: 5000, offset: 0, from, to });
-        downloadCsv("user-activity.csv",
-          ["Agent Name", "Agent Email", "Agent Activity", "Offline Reason", "Action At"],
-          r.rows.map((a) => [a.agent_name, a.agent_email, activityLabel(a), activityReason(a), csvDT(a.action_at)]));
-      } else if (kind === "system") {
-        downloadCsv("system-logs.csv", ["When", "Actor", "Action", "Entity", "Detail"],
-          audit.map((a) => [csvDT(a.created_at), a.actor_name, a.action, `${a.entity_type} ${a.entity_id ?? ""}`, detailText(a.detail)]));
-      }
-    } finally { setExporting(null); }
+      await api.createExport(kind, from || undefined, to || undefined);
+      notify("Export queued. Track it in the Downloads tab.");
+      setTab("downloads");
+      setTimeout(fetchExports, 400);
+    } catch (e) { notify(e instanceof Error ? e.message : "Export failed", "error"); }
+    finally { setExporting(null); }
   }
 
   const totalPages = Math.max(1, Math.ceil(total / PAGE));
@@ -146,7 +164,7 @@ export default function SystemLogsPage() {
         {showRange && <Select value={range} onChange={setRange} options={RANGES} className="w-[150px]" searchable={false} />}
         <div className="flex-1" />
         {showExportBtn && (
-          <button onClick={() => exportData(tab as ExportKind)} disabled={!!exporting}
+          <button onClick={() => startExport(tab as ExportKind)} disabled={!!exporting}
             className="inline-flex items-center gap-2 px-3.5 h-9 rounded-md border border-border text-sm font-semibold text-foreground hover:bg-muted disabled:opacity-50 outline-none transition-colors">
             {exporting ? <Loader2 className="w-4 h-4 animate-spin" /> : <Download className="w-4 h-4" />}Export
           </button>
@@ -157,21 +175,52 @@ export default function SystemLogsPage() {
       <div className="bg-card border border-border rounded-lg shadow-xs overflow-hidden flex-1 min-h-0 flex flex-col">
         {tab === "downloads" ? (
           <div className="overflow-auto flex-1 min-h-0 p-5">
-            <p className="text-[13px] text-muted-foreground mb-4">Download log data as CSV{range ? ` for the ${RANGES.find((r) => r.value === range)?.label.toLowerCase()}` : ""}. Message and Conversation files match the training column layout.</p>
-            <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 max-w-[760px]">
+            <p className="text-[13px] font-semibold text-foreground mb-1">Request an export</p>
+            <p className="text-[12px] text-muted-foreground mb-3">Generates the full dataset{range ? ` for the ${RANGES.find((r) => r.value === range)?.label.toLowerCase()}` : ""} as a CSV in the background. Track progress in the history below.</p>
+            <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-3 mb-6">
               {DL.map((d) => (
-                <div key={d.kind} className="flex items-center gap-3 p-4 rounded-lg border border-border bg-card">
-                  <div className="w-10 h-10 rounded-lg bg-primary/10 grid place-items-center shrink-0"><d.icon className="w-5 h-5 text-primary" /></div>
+                <button key={d.kind} onClick={() => startExport(d.kind)} disabled={exporting === d.kind}
+                  className="flex items-center gap-3 p-3.5 rounded-lg border border-border bg-card hover:border-primary/40 hover:bg-muted/40 transition-colors text-left disabled:opacity-60 outline-none">
+                  <div className="w-9 h-9 rounded-lg bg-primary/10 grid place-items-center shrink-0"><d.icon className="w-[18px] h-[18px] text-primary" /></div>
                   <div className="min-w-0 flex-1">
-                    <p className="font-semibold text-[13.5px] text-foreground">{d.label}</p>
-                    <p className="text-[12px] text-muted-foreground truncate">{d.desc}</p>
+                    <p className="font-semibold text-[13px] text-foreground">{d.label}</p>
+                    <p className="text-[11.5px] text-muted-foreground truncate">{d.desc}</p>
                   </div>
-                  <button onClick={() => exportData(d.kind)} disabled={!!exporting}
-                    className="inline-flex items-center gap-1.5 px-3 h-8 rounded-md border border-border text-[13px] font-semibold text-foreground hover:bg-muted disabled:opacity-50 outline-none transition-colors shrink-0">
-                    {exporting === d.kind ? <Loader2 className="w-3.5 h-3.5 animate-spin" /> : <Download className="w-3.5 h-3.5" />}CSV
-                  </button>
-                </div>
+                  {exporting === d.kind ? <Loader2 className="w-4 h-4 animate-spin text-primary shrink-0" /> : <Download className="w-4 h-4 text-muted-foreground shrink-0" />}
+                </button>
               ))}
+            </div>
+
+            <p className="text-[13px] font-semibold text-foreground mb-2">Export history</p>
+            <div className="rounded-lg border border-border overflow-hidden">
+              <table className="w-full text-sm">
+                <thead><tr className="border-b border-border bg-muted/40">
+                  {["Data", "Requested by", "Date range", "Rows", "Status", "Created", "Action"].map((h, i) => (
+                    <th key={h} className={cn("px-4 py-2.5 text-[11px] font-bold uppercase tracking-wider text-muted-foreground", i === 6 ? "text-right" : "text-left")}>{h}</th>
+                  ))}
+                </tr></thead>
+                <tbody>
+                  {exports.length === 0 ? (
+                    <tr><td colSpan={7} className="text-center py-10 text-muted-foreground">No exports yet</td></tr>
+                  ) : exports.map((e) => (
+                    <tr key={e.id} className="border-b border-border/60 hover:bg-muted/40">
+                      <td className="px-4 py-2.5 font-semibold text-foreground capitalize">{e.kind}</td>
+                      <td className="px-4 py-2.5 text-foreground/80">{e.requested_by || "-"}</td>
+                      <td className="px-4 py-2.5 text-muted-foreground text-[12px] whitespace-nowrap">{e.date_from ? `${e.date_from} to ${e.date_to || "now"}` : "All time"}</td>
+                      <td className="px-4 py-2.5 tabular-nums text-muted-foreground">{e.row_count ?? "-"}</td>
+                      <td className="px-4 py-2.5"><StatusBadge status={e.status} /></td>
+                      <td className="px-4 py-2.5 text-muted-foreground text-[12px] whitespace-nowrap">{fmtDT(e.created_at)}</td>
+                      <td className="px-4 py-2.5 text-right">
+                        {e.status === "completed" && e.file_url
+                          ? <a href={rewriteLocalMedia(e.file_url)} download target="_blank" rel="noreferrer" className="inline-flex items-center gap-1.5 text-primary text-[13px] font-semibold hover:underline"><Download className="w-4 h-4" />Download</a>
+                          : e.status === "failed"
+                            ? <span className="text-[12px] text-destructive" title={e.error || ""}>Failed</span>
+                            : <span className="text-[12px] text-muted-foreground">Preparing</span>}
+                      </td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
             </div>
           </div>
         ) : (
@@ -189,6 +238,11 @@ export default function SystemLogsPage() {
               <tbody>
                 {loading ? (
                   <tr><td colSpan={cols[tab]} className="text-center py-16"><Loader2 className="w-6 h-6 animate-spin text-primary mx-auto" /></td></tr>
+                ) : err ? (
+                  <tr><td colSpan={cols[tab]} className="text-center py-12">
+                    <div className="inline-flex items-center gap-2 text-destructive text-[13px] font-medium"><AlertTriangle className="w-4 h-4" />Could not load data: {err}</div>
+                    <div className="mt-2"><button onClick={fetchTab} className="text-[12px] font-semibold text-primary hover:underline outline-none">Retry</button></div>
+                  </td></tr>
                 ) : rowsLen === 0 ? (
                   <tr><td colSpan={cols[tab]} className="text-center py-16 text-muted-foreground">No data found</td></tr>
                 ) : <>
@@ -272,6 +326,7 @@ export default function SystemLogsPage() {
           </div>
         )}
       </div>
+      {ToastHost}
     </div>
   );
 }
