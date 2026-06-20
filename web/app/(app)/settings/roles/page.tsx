@@ -167,7 +167,6 @@ export default function RolesSettingsPage() {
     <PageBody maxWidth={1180}>
       {ToastHost}
       <div className="flex items-center gap-3 mb-4">
-        <p className="text-[13px] text-muted-foreground">Control which menus and actions each role can access. Owner and Admin always have full access.</p>
         <div className="flex-1" />
         {(canLeft || canRight) && (
           <div className="flex items-center gap-1 mr-1">

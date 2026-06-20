@@ -83,6 +83,8 @@ export default function InboxPage() {
   const fileRef = useRef<HTMLInputElement>(null);
   const activeIdRef = useRef<string | null>(null);
   activeIdRef.current = activeId;
+  const showDetailsRef = useRef(false); // so the Esc handler reads the latest value without re-binding
+  showDetailsRef.current = showDetails;
 
   const active = convs.find((c) => c.id === activeId) || null;
 
@@ -160,6 +162,8 @@ export default function InboxPage() {
         
       const handleEsc = (e: KeyboardEvent) => {
         if (e.key === "Escape") {
+          // Close the right details panel first; only close the conversation once it's hidden.
+          if (showDetailsRef.current) { setShowDetails(false); return; }
           setActiveId(null);
         }
       };

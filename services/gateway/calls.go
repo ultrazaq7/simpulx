@@ -150,6 +150,39 @@ func (s *server) handleRequestCallPermission(w http.ResponseWriter, r *http.Requ
 		return
 	}
 
+	// If the customer already granted call permission recently, reuse it instead
+	// of sending another request. Meta rate-limits permission requests (1/24h), but
+	// a live grant lets the agent place the call right away. The new call row
+	// inherits the original grant time so the validity window stays honest.
+	var grantedAt time.Time
+	hasGranted := s.pool.QueryRow(r.Context(),
+		`SELECT permission_granted_at FROM calls
+		  WHERE conversation_id = $1 AND permission_status = 'granted'
+		    AND permission_granted_at > now() - interval '7 days'
+		  ORDER BY permission_granted_at DESC LIMIT 1`,
+		body.ConversationID,
+	).Scan(&grantedAt) == nil
+	if hasGranted {
+		reuseID := uuid.NewString()
+		if _, err = s.pool.Exec(r.Context(),
+			`INSERT INTO calls (id, organization_id, conversation_id, channel_id, agent_id, contact_phone,
+			                    direction, permission_status, call_status, permission_granted_at)
+			 VALUES ($1,$2,$3,$4::uuid,$5::uuid,$6,'outbound','granted','idle',$7)`,
+			reuseID, a.OrgID, body.ConversationID, channelID, a.UserID, contactPhone, grantedAt,
+		); err != nil {
+			s.log.Error("insert reused-permission call failed", "err", err)
+			http.Error(w, "internal error", http.StatusInternalServerError)
+			return
+		}
+		s.broadcastCall(r.Context(), a.OrgID, events.CallUpdated{
+			CallID: reuseID, ConversationID: body.ConversationID, Direction: "outbound",
+			PermissionStatus: "granted", CallStatus: "idle",
+		})
+		w.Header().Set("Content-Type", "application/json")
+		json.NewEncoder(w).Encode(map[string]string{"call_id": reuseID, "status": "granted"})
+		return
+	}
+
 	// Rate limit: max 1 permission request per 24h per conversation.
 	var recentCount int
 	_ = s.pool.QueryRow(r.Context(),

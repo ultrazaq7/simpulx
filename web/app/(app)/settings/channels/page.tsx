@@ -32,8 +32,7 @@ function ChannelsIntegrations() {
     <div className="flex flex-col h-full min-h-0">
       {/* Title + tabs */}
       <div className="px-6 pt-5 shrink-0 border-b border-border bg-card">
-        <h1 className="text-[19px] font-bold text-foreground">{t("settings.channels_integrations")}</h1>
-        <p className="text-[13px] text-muted-foreground mt-0.5 mb-3">Connect messaging channels, lead-capture APIs and ad accounts.</p>
+        <h1 className="text-[19px] font-bold text-foreground mb-3">{t("settings.channels_integrations")}</h1>
         <div className="flex items-center gap-1">
           {TABS.map((x) => {
             const Icon = x.icon; const sel = active === x.key;

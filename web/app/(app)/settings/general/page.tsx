@@ -175,7 +175,6 @@ export default function GeneralSettingsPage() {
                 </>
               )}
             </div>
-            <p className="text-[11px] text-muted-foreground/70 mt-1.5">Sets the default language for your workspace.</p>
           </div>
 
           {/* Timezone */}
@@ -227,7 +226,6 @@ export default function GeneralSettingsPage() {
                 </>
               )}
             </div>
-            <p className="text-[11px] text-muted-foreground/70 mt-1.5">Used for scheduling broadcasts and reports.</p>
           </div>
         </div>
       </SettingsCard>

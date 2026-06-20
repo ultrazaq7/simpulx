@@ -260,6 +260,7 @@ export default function ChatPanel({
   const [previewMediaId, setPreviewMediaId] = useState<string | null>(null);
   const [outcomeOpen, setOutcomeOpen] = useState(false);
   const [activeCallId, setActiveCallId] = useState<string | null>(null);
+  const [activeCallStatus, setActiveCallStatus] = useState<string>("requesting");
 
   // All media messages in this conversation, in timeline order, for the slideable gallery.
   const mediaMessages = useMemo(
@@ -272,8 +273,9 @@ export default function ChatPanel({
     if (!active) return;
     try {
       const res = await api.requestCallPermission(active.id);
+      setActiveCallStatus(res.status === "granted" ? "granted" : "requesting");
       setActiveCallId(res.call_id);
-      notify("Call permission request sent", "info");
+      notify(res.status === "granted" ? "Customer already allowed calls, you can call now" : "Call permission request sent", "info");
     } catch (err: unknown) {
       const msg = err instanceof Error ? err.message : "Failed to request call";
       notify(msg, "error");
@@ -648,6 +650,7 @@ export default function ChatPanel({
           contactPhone={active.contact_phone}
           onClose={() => setActiveCallId(null)}
           notify={notify}
+          initialStatus={activeCallStatus}
         />
       )}
     </>

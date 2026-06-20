@@ -199,7 +199,13 @@ export const api = {
   me: () => req<User>("/api/me"),
   listConversations: (status = "") =>
     req<Conversation[]>(`/api/conversations${status ? `?status=${status}` : ""}`),
-  getMessages: (id: string) => req<Message[]>(`/api/conversations/${id}/messages`),
+  // The endpoint returns a paginated { data, next_cursor }; tolerate both shapes
+  // so callers that just want the latest messages (e.g. the contacts chat popup)
+  // always get an array instead of crashing on `.map`.
+  getMessages: async (id: string): Promise<Message[]> => {
+    const r = await req<Message[] | { data: Message[] }>(`/api/conversations/${id}/messages`);
+    return Array.isArray(r) ? r : (r?.data ?? []);
+  },
   getMessagesPaginated: (id: string, cursor?: string, limit = 50) => {
     const params = new URLSearchParams({ limit: limit.toString() });
     if (cursor) params.append("cursor", cursor);

@@ -64,9 +64,15 @@ export default function ContactsPage() {
   async function setStage(c: Contact, stageId: string) {
     if (!c.conversation_id) { setToast("No conversation yet for this contact"); return; }
     const name = stages.find((s) => s.id === stageId)?.name ?? null;
+    const prevStageId = c.stage_id, prevName = c.stage_name;
     setContacts((p) => p.map((x) => (x.id === c.id ? { ...x, stage_id: stageId || null, stage_name: name } : x)));
-    try { await api.patchConversation(c.conversation_id, { stage_id: stageId }); }
-    catch { setToast("Could not update status"); }
+    try {
+      await api.patchConversation(c.conversation_id, { stage_id: stageId });
+      setToast(name ? `Status updated to ${name}` : "Status cleared");
+    } catch {
+      setContacts((p) => p.map((x) => (x.id === c.id ? { ...x, stage_id: prevStageId, stage_name: prevName } : x)));
+      setToast("Could not update status");
+    }
   }
   // Close row / add menus on outside click.
   useEffect(() => {
