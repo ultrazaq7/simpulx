@@ -421,7 +421,7 @@ function ManagerControlTower() {
             <div className="py-12 text-center text-sm text-muted-foreground">No active agents</div>
           ) : (
             <div className="py-1">
-              {(agents.length ? agents.map((a) => ({ name: a.agent, won: a.won, within5: a.within_5_pct })) : Array.from(load.keys()).map((name) => ({ name, won: 0, within5: 0 })))
+              {(agents.length ? Array.from(agents.reduce((m, a) => { const e = m.get(a.agent) || { name: a.agent, won: 0, within5: 0 }; e.won += a.won; e.within5 = Math.max(e.within5, a.within_5_pct); return m.set(a.agent, e); }, new Map<string, { name: string; won: number; within5: number }>()).values()) : Array.from(load.keys()).map((name) => ({ name, won: 0, within5: 0 })))
                 .map((a) => {
                   const lv = load.get(a.name) || { open: 0, waiting: 0, oldest: 0 };
                   const pct5 = a.within5 <= 1 ? Math.round(a.within5 * 100) : Math.round(a.within5);
@@ -581,67 +581,13 @@ function ManagerDashboard() {
           </Card>
         </div>
 
-        {/* Agent performance — team SLA summary + per-agent breakdown */}
-        <Card title="Agent follow-up performance" subtitle="Team SLA summary and per-agent breakdown">
-          <div className="p-4 grid grid-cols-2 md:grid-cols-3 lg:grid-cols-6 gap-4 border-b border-border">
-            {[
-              { label: "Follow-ups sent", value: funnel?.followups || 0 },
-              { label: "Call attempts", value: funnel?.call_attempts || 0 },
-              { label: "Call duration", value: fmtDuration((funnel?.call_duration_sec || 0) / 60) },
-              { label: "Median first response", value: fmtDuration(analytics?.response_time?.median_min) },
-              { label: "Avg first response", value: fmtDuration(analytics?.response_time?.avg_min) },
-              { label: "Agent replied", value: funnel?.replied || 0 },
-            ].map(sla => (
-              <div key={sla.label} className="flex flex-col gap-1">
-                <span className="text-[11px] text-muted-foreground font-medium">{sla.label}</span>
-                <span className="text-xl font-extrabold text-foreground tabular-nums">{sla.value}</span>
-              </div>
-            ))}
-          </div>
-          <div className="overflow-x-auto">
-            <table className="w-full text-sm">
-              <thead>
-                <tr className="border-b border-border bg-muted/40">
-                  <th className="px-4 py-2.5 text-left text-[11px] font-bold uppercase tracking-wider text-muted-foreground">Agent</th>
-                  <th className="px-4 py-2.5 text-right text-[11px] font-bold uppercase tracking-wider text-muted-foreground">Leads</th>
-                  <th className="px-4 py-2.5 text-right text-[11px] font-bold uppercase tracking-wider text-muted-foreground">Replied</th>
-                  <th className="px-4 py-2.5 text-right text-[11px] font-bold uppercase tracking-wider text-muted-foreground">Avg first response</th>
-                  <th className="px-4 py-2.5 text-right text-[11px] font-bold uppercase tracking-wider text-muted-foreground">Within 5 min</th>
-                  <th className="px-4 py-2.5 text-right text-[11px] font-bold uppercase tracking-wider text-muted-foreground">Hot</th>
-                  <th className="px-4 py-2.5 text-right text-[11px] font-bold uppercase tracking-wider text-muted-foreground">Won</th>
-                </tr>
-              </thead>
-              <tbody>
-                {agents.length === 0 ? (
-                  <tr><td colSpan={7} className="text-center py-12 text-muted-foreground">No data yet</td></tr>
-                ) : agents.map((a) => {
-                  const pct5 = a.within_5_pct <= 1 ? a.within_5_pct : a.within_5_pct / 100;
-                  return (
-                    <tr key={a.agent} className="border-b border-border/60 hover:bg-muted/50 transition-colors">
-                      <td className="px-4 py-2.5 font-semibold text-foreground">{a.agent}</td>
-                      <td className="px-4 py-2.5 text-right tabular-nums">{a.leads}</td>
-                      <td className="px-4 py-2.5 text-right">
-                        <Badge label={a.leads > 0 ? `${Math.round((a.replied / a.leads) * 100)}%` : "-"} bg="#E8F5E9" text="#2E7D32" />
-                      </td>
-                      <td className="px-4 py-2.5 text-right tabular-nums">{fmtDuration(a.avg_rt_min)}</td>
-                      <td className="px-4 py-2.5 text-right">
-                        {a.leads > 0 ? (
-                          <Badge
-                            label={`${a.within_5_pct <= 1 ? Math.round(a.within_5_pct * 100) : Math.round(a.within_5_pct)}%`}
-                            bg={pct5 >= 0.8 ? "#E8F5E9" : pct5 >= 0.5 ? "#FFF3E0" : "#FFEBEE"}
-                            text={pct5 >= 0.8 ? "#2E7D32" : pct5 >= 0.5 ? "#E65100" : "#C62828"}
-                          />
-                        ) : <span className="text-muted-foreground">-</span>}
-                      </td>
-                      <td className="px-4 py-2.5 text-right font-bold text-[#EF4444] tabular-nums">{a.hot || 0}</td>
-                      <td className="px-4 py-2.5 text-right font-bold text-[#059669] tabular-nums">{a.won}</td>
-                    </tr>
-                  );
-                })}
-              </tbody>
-            </table>
-          </div>
-        </Card>
+        {/* Agent performance — activity + pipeline, per agent x branch */}
+        <PerfTables label="Agent" showBranch rows={agents.map((a) => ({
+          name: a.agent, branch: a.branch, leads: a.leads, total_chat: a.total_chat, replied: a.replied,
+          avg_rt_min: a.avg_rt_min, avg_resp_min: a.avg_resp_min, within_5_pct: a.within_5_pct,
+          call_attempts: a.call_attempts, call_duration_sec: a.call_duration_sec,
+          updated: a.updated, contacted: a.contacted, qualified: a.qualified, appointment: a.appointment, negotiation: a.negotiation, purchase: a.purchase,
+        }))} />
 
         {/* Lost Analysis */}
         <div className="grid grid-cols-1 md:grid-cols-2 gap-4 mt-5">
@@ -698,6 +644,78 @@ function ManagerDashboard() {
       </div>
       )}
     </>
+  );
+}
+
+// ── Shared agent / campaign performance: two tables (activity + pipeline) ──────
+type PerfRow = {
+  name: string; branch?: string; leads: number; total_chat: number; replied: number;
+  avg_rt_min: number; avg_resp_min: number; within_5_pct: number;
+  call_attempts: number; call_duration_sec: number;
+  updated: number; contacted: number; qualified: number; appointment: number; negotiation: number; purchase: number;
+};
+const TH2 = ({ children, right }: { children: React.ReactNode; right?: boolean }) =>
+  <th className={cn("px-3 py-2.5 text-[11px] font-bold uppercase tracking-wider text-muted-foreground whitespace-nowrap", right ? "text-right" : "text-left")}>{children}</th>;
+const pctOf = (n: number, d: number) => d > 0 ? `${Math.round((n / d) * 100)}%` : "-";
+
+function PerfTables({ rows, label, showBranch }: { rows: PerfRow[]; label: string; showBranch?: boolean }) {
+  if (rows.length === 0) return <Card title={`${label} performance`}><div className="py-12 text-center text-sm text-muted-foreground">No data yet</div></Card>;
+  return (
+    <div className="space-y-4">
+      <Card title={`${label} activity and SLA`}>
+        <div className="overflow-x-auto">
+          <table className="w-full text-sm">
+            <thead><tr className="border-b border-border bg-muted/40">
+              <TH2>{label}</TH2>{showBranch && <TH2>Branch</TH2>}
+              <TH2 right>Leads</TH2><TH2 right>Replied</TH2><TH2 right>Avg 1st resp</TH2><TH2 right>Avg resp</TH2><TH2 right>Within 5m</TH2><TH2 right>Total chat</TH2><TH2 right>Call attempts</TH2><TH2 right>Call duration</TH2>
+            </tr></thead>
+            <tbody>
+              {rows.map((r, i) => (
+                <tr key={i} className="border-b border-border/60 hover:bg-muted/40">
+                  <td className="px-3 py-2.5 font-semibold text-foreground whitespace-nowrap">{r.name}</td>
+                  {showBranch && <td className="px-3 py-2.5 text-muted-foreground whitespace-nowrap">{r.branch || "-"}</td>}
+                  <td className="px-3 py-2.5 text-right tabular-nums">{r.leads}</td>
+                  <td className="px-3 py-2.5 text-right tabular-nums">{r.replied}</td>
+                  <td className="px-3 py-2.5 text-right tabular-nums">{r.avg_rt_min > 0 ? fmtDuration(r.avg_rt_min) : "-"}</td>
+                  <td className="px-3 py-2.5 text-right tabular-nums">{r.avg_resp_min > 0 ? fmtDuration(r.avg_resp_min) : "-"}</td>
+                  <td className="px-3 py-2.5 text-right tabular-nums">{Math.round(r.within_5_pct)}%</td>
+                  <td className="px-3 py-2.5 text-right tabular-nums">{r.total_chat}</td>
+                  <td className="px-3 py-2.5 text-right tabular-nums">{r.call_attempts}</td>
+                  <td className="px-3 py-2.5 text-right tabular-nums">{fmtDuration(r.call_duration_sec / 60)}</td>
+                </tr>
+              ))}
+            </tbody>
+          </table>
+        </div>
+      </Card>
+      <Card title={`${label} pipeline`}>
+        <div className="overflow-x-auto">
+          <table className="w-full text-sm">
+            <thead><tr className="border-b border-border bg-muted/40">
+              <TH2>{label}</TH2>{showBranch && <TH2>Branch</TH2>}
+              <TH2 right>Leads</TH2><TH2 right>Updated</TH2><TH2 right>% Updated</TH2><TH2 right>Contacted</TH2><TH2 right>Qualified</TH2><TH2 right>Appointment</TH2><TH2 right>Negotiation</TH2><TH2 right>Purchase</TH2><TH2 right>% Purchase</TH2>
+            </tr></thead>
+            <tbody>
+              {rows.map((r, i) => (
+                <tr key={i} className="border-b border-border/60 hover:bg-muted/40">
+                  <td className="px-3 py-2.5 font-semibold text-foreground whitespace-nowrap">{r.name}</td>
+                  {showBranch && <td className="px-3 py-2.5 text-muted-foreground whitespace-nowrap">{r.branch || "-"}</td>}
+                  <td className="px-3 py-2.5 text-right tabular-nums">{r.leads}</td>
+                  <td className="px-3 py-2.5 text-right tabular-nums">{r.updated}</td>
+                  <td className="px-3 py-2.5 text-right"><Badge label={pctOf(r.updated, r.total_chat)} bg="#EEF2FF" text="#4338CA" /></td>
+                  <td className="px-3 py-2.5 text-right tabular-nums">{r.contacted}</td>
+                  <td className="px-3 py-2.5 text-right tabular-nums">{r.qualified}</td>
+                  <td className="px-3 py-2.5 text-right tabular-nums">{r.appointment}</td>
+                  <td className="px-3 py-2.5 text-right tabular-nums">{r.negotiation}</td>
+                  <td className="px-3 py-2.5 text-right font-bold text-[#16A34A] tabular-nums">{r.purchase}</td>
+                  <td className="px-3 py-2.5 text-right"><Badge label={pctOf(r.purchase, r.total_chat)} bg="#E8F5E9" text="#2E7D32" /></td>
+                </tr>
+              ))}
+            </tbody>
+          </table>
+        </div>
+      </Card>
+    </div>
   );
 }
 
@@ -894,17 +912,13 @@ function CampaignsAnalytics() {
   useEffect(() => { api.getCampaignAnalytics().then(setRows).catch(() => {}).finally(() => setLoading(false)); }, []);
 
   const totals = rows.reduce((t, r) => ({
-    conversations: t.conversations + r.conversations,
-    replied: t.replied + r.replied,
-    strong: t.strong + r.strong,
-    won: t.won + r.won,
-  }), { conversations: 0, replied: 0, strong: 0, won: 0 });
-
+    leads: t.leads + r.leads, total_chat: t.total_chat + r.total_chat, purchase: t.purchase + r.purchase,
+  }), { leads: 0, total_chat: 0, purchase: 0 });
   const cards = [
     { label: "Campaigns", value: rows.length, color: "#6366F1" },
-    { label: "Conversations", value: totals.conversations, color: "#2D8B73" },
-    { label: "Strong intent", value: totals.strong, color: "#EF4444" },
-    { label: "Won", value: totals.won, color: "#059669" },
+    { label: "Leads", value: totals.leads, color: "#2D8B73" },
+    { label: "Total chat", value: totals.total_chat, color: "#0EA5E9" },
+    { label: "Purchase", value: totals.purchase, color: "#16A34A" },
   ];
 
   return (
@@ -918,42 +932,14 @@ function CampaignsAnalytics() {
         ))}
       </div>
 
-      <Card title="Campaign performance">
-        <div className="overflow-x-auto">
-          <table className="w-full text-sm">
-            <thead>
-              <tr className="border-b border-border bg-muted/40">
-                {["Campaign", "Dealer", "Agents", "Leads", "Conversations", "Replied", "Strong intent", "Won", "Status"].map((h, idx) => (
-                  <th key={h} className={cn("px-4 py-2.5 text-[11px] font-bold uppercase tracking-wider text-muted-foreground", idx >= 2 && idx <= 7 ? "text-right" : "text-left")}>{h}</th>
-                ))}
-              </tr>
-            </thead>
-            <tbody>
-              {loading ? (
-                <tr><td colSpan={9} className="p-4"><Skeleton className="h-7" /></td></tr>
-              ) : rows.length === 0 ? (
-                <tr><td colSpan={9} className="text-center py-12 text-muted-foreground">No campaigns yet</td></tr>
-              ) : rows.map((r) => (
-                <tr key={r.id} className="border-b border-border/60 hover:bg-muted/50 transition-colors">
-                  <td className="px-4 py-2.5 font-semibold text-foreground">{r.name}</td>
-                  <td className="px-4 py-2.5 text-muted-foreground">{r.dealer_name || "-"}</td>
-                  <td className="px-4 py-2.5 text-right tabular-nums">{r.agents}</td>
-                  <td className="px-4 py-2.5 text-right tabular-nums">{r.lead_count}</td>
-                  <td className="px-4 py-2.5 text-right tabular-nums">{r.conversations}</td>
-                  <td className="px-4 py-2.5 text-right">
-                    <Badge label={r.conversations > 0 ? `${Math.round((r.replied / r.conversations) * 100)}%` : "-"} bg="#E8F5E9" text="#2E7D32" />
-                  </td>
-                  <td className="px-4 py-2.5 text-right font-bold text-primary tabular-nums">{r.strong}</td>
-                  <td className="px-4 py-2.5 text-right font-bold text-[#059669] tabular-nums">{r.won}</td>
-                  <td className="px-4 py-2.5">
-                    <Badge label={r.status} bg={r.status === "active" ? "#DCFCE7" : "#F1F5F9"} text={r.status === "active" ? "#15803D" : "#64748B"} />
-                  </td>
-                </tr>
-              ))}
-            </tbody>
-          </table>
-        </div>
-      </Card>
+      {loading ? <Skeleton className="h-40" /> : (
+        <PerfTables label="Campaign" rows={rows.map((r) => ({
+          name: r.name, leads: r.leads, total_chat: r.total_chat, replied: r.replied,
+          avg_rt_min: r.avg_rt_min, avg_resp_min: r.avg_resp_min, within_5_pct: r.within_5_pct,
+          call_attempts: r.call_attempts, call_duration_sec: r.call_duration_sec,
+          updated: r.updated, contacted: r.contacted, qualified: r.qualified, appointment: r.appointment, negotiation: r.negotiation, purchase: r.purchase,
+        }))} />
+      )}
     </div>
   );
 }

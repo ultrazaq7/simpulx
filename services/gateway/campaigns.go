@@ -41,18 +41,48 @@ func (s *server) handleListCampaigns(w http.ResponseWriter, r *http.Request) {
 func (s *server) handleCampaignAnalytics(w http.ResponseWriter, r *http.Request) {
 	a, _ := authFrom(r.Context())
 	rows, err := s.queryMaps(r.Context(),
-		`SELECT c.id::text AS id, c.name, c.dealer_name, c.status, c.lead_count,
+		`WITH fr AS (
+		   SELECT conversation_id, min(created_at) AS t_c FROM messages
+		    WHERE organization_id=$1 AND direction='inbound' AND sender_type='contact'
+		    GROUP BY conversation_id),
+		 rt AS (
+		   SELECT fr.conversation_id, EXTRACT(EPOCH FROM (min(m.created_at)-fr.t_c))/60.0 AS rt_min
+		     FROM fr JOIN messages m ON m.conversation_id=fr.conversation_id
+		            AND m.direction='outbound' AND m.sender_type='agent'
+		            AND m.created_at>fr.t_c AND m.organization_id=$1
+		    GROUP BY fr.conversation_id, fr.t_c),
+		 ar AS (
+		   SELECT conversation_id, avg(gap) AS avg_gap FROM (
+		     SELECT conversation_id, sender_type,
+		            EXTRACT(EPOCH FROM (created_at - lag(created_at) OVER (PARTITION BY conversation_id ORDER BY created_at)))/60.0 AS gap,
+		            lag(sender_type) OVER (PARTITION BY conversation_id ORDER BY created_at) AS prev_type
+		       FROM messages WHERE organization_id=$1) z
+		    WHERE sender_type='agent' AND prev_type='contact' AND gap >= 0
+		    GROUP BY conversation_id)
+		 SELECT c.id::text AS id, c.name,
 		        (SELECT count(*) FROM campaign_agents ca WHERE ca.campaign_id = c.id) AS agents,
-		        count(cv.id) AS conversations,
-		        count(cv.id) FILTER (WHERE cv.last_contact_message_at IS NOT NULL) AS replied,
-		        count(cv.id) FILTER (WHERE cv.interest_level IN ('warm','hot')) AS intent,
-		        count(cv.id) FILTER (WHERE cv.ai_stage IN ('high_intent','closing')) AS strong,
-		        count(cv.id) FILTER (WHERE cv.ai_stage = 'won') AS won
+		        count(DISTINCT cv.contact_id) AS leads,
+		        count(cv.id) AS total_chat,
+		        count(cv.id) FILTER (WHERE cv.last_agent_message_at IS NOT NULL) AS replied,
+		        COALESCE(avg(rt.rt_min),0)::float8 AS avg_rt_min,
+		        COALESCE(avg(ar.avg_gap),0)::float8 AS avg_resp_min,
+		        COALESCE(avg(CASE WHEN rt.rt_min<=5 THEN 100.0 ELSE 0 END) FILTER (WHERE rt.rt_min IS NOT NULL),0)::float8 AS within_5_pct,
+		        COALESCE(sum(cv.call_attempts), 0)::int AS call_attempts,
+		        COALESCE(sum(cv.total_call_duration), 0)::int AS call_duration_sec,
+		        count(cv.id) FILTER (WHERE st.sort_order > 1) AS updated,
+		        count(cv.id) FILTER (WHERE st.system_key='contacted') AS contacted,
+		        count(cv.id) FILTER (WHERE st.system_key='qualified') AS qualified,
+		        count(cv.id) FILTER (WHERE st.system_key='appointment') AS appointment,
+		        count(cv.id) FILTER (WHERE st.system_key='test_drive') AS negotiation,
+		        count(cv.id) FILTER (WHERE st.system_key='booking') AS purchase
 		   FROM campaigns c
 		   LEFT JOIN conversations cv ON cv.campaign_id = c.id
+		   LEFT JOIN stages st ON st.id=cv.stage_id
+		   LEFT JOIN rt ON rt.conversation_id=cv.id
+		   LEFT JOIN ar ON ar.conversation_id=cv.id
 		  WHERE c.organization_id = $1
-		  GROUP BY c.id
-		  ORDER BY conversations DESC, c.created_at DESC`,
+		  GROUP BY c.id, c.name
+		  ORDER BY leads DESC, c.created_at DESC`,
 		a.OrgID,
 	)
 	if err != nil {

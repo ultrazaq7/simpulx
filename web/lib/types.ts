@@ -64,7 +64,7 @@ export interface Analytics {
   stages: { name: string; system_key: string; sort_order: number; count: number }[];
   categories: { category: string; count: number }[];
   tiers: { cold: number; lukewarm: number; warm: number; engaged: number; hot: number };
-  agents: { agent: string; leads: number; replied: number; hot: number; won: number; median_rt_min: number; avg_rt_min: number; within_5_pct: number; followups?: number; call_attempts?: number; call_duration_sec?: number }[];
+  agents: { agent: string; branch: string; leads: number; total_chat: number; replied: number; hot: number; won: number; avg_rt_min: number; avg_resp_min: number; within_5_pct: number; call_attempts: number; call_duration_sec: number; updated: number; contacted: number; qualified: number; appointment: number; negotiation: number; purchase: number }[];
   daily: { day: string; leads: number; replied: number }[];
   response_time: {
     median_min: number; avg_min: number; within_5_min_pct: number; within_1_hr_pct: number; leads_with_rt: number;
@@ -343,15 +343,21 @@ export interface CampaignDetail extends Campaign { agent_ids: string[]; }
 export interface CampaignAnalyticsRow {
   id: string;
   name: string;
-  dealer_name: string | null;
-  status: string;
-  lead_count: number;
   agents: number;
-  conversations: number;
+  leads: number;
+  total_chat: number;
   replied: number;
-  intent: number;
-  strong: number;
-  won: number;
+  avg_rt_min: number;
+  avg_resp_min: number;
+  within_5_pct: number;
+  call_attempts: number;
+  call_duration_sec: number;
+  updated: number;
+  contacted: number;
+  qualified: number;
+  appointment: number;
+  negotiation: number;
+  purchase: number;
 }
 
 export interface SequenceStep { delay_minutes: number; body: string; }

@@ -833,24 +833,43 @@ func (s *server) handleAnalytics(w http.ResponseWriter, r *http.Request) {
 		     FROM fr JOIN messages m ON m.conversation_id=fr.conversation_id
 		            AND m.direction='outbound' AND m.sender_type='agent'
 		            AND m.created_at>fr.t_c AND m.organization_id=$1
-		    GROUP BY fr.conversation_id, fr.t_c)
+		    GROUP BY fr.conversation_id, fr.t_c),
+		 ar AS (
+		   SELECT conversation_id, avg(gap) AS avg_gap FROM (
+		     SELECT conversation_id, sender_type,
+		            EXTRACT(EPOCH FROM (created_at - lag(created_at) OVER (PARTITION BY conversation_id ORDER BY created_at)))/60.0 AS gap,
+		            lag(sender_type) OVER (PARTITION BY conversation_id ORDER BY created_at) AS prev_type
+		       FROM messages WHERE organization_id=$1) z
+		    WHERE sender_type='agent' AND prev_type='contact' AND gap >= 0
+		    GROUP BY conversation_id)
 		 SELECT u.full_name AS agent,
-		        count(cv.id) AS leads,
+		        COALESCE(b.name, cmp.name, 'Unassigned') AS branch,
+		        count(DISTINCT cv.contact_id) AS leads,
+		        count(cv.id) AS total_chat,
 		        count(cv.id) FILTER (WHERE cv.last_agent_message_at IS NOT NULL) AS replied,
 		        count(cv.id) FILTER (WHERE cv.interest_level='hot') AS hot,
 		        count(cv.id) FILTER (WHERE st.sort_order = (SELECT max(sort_order) FROM stages WHERE organization_id=$1)) AS won,
-		        COALESCE(percentile_cont(0.5) WITHIN GROUP (ORDER BY rt.rt_min),0)::float8 AS median_rt_min,
 		        COALESCE(avg(rt.rt_min),0)::float8 AS avg_rt_min,
+		        COALESCE(avg(ar.avg_gap),0)::float8 AS avg_resp_min,
 		        COALESCE(avg(CASE WHEN rt.rt_min<=5 THEN 100.0 ELSE 0 END) FILTER (WHERE rt.rt_min IS NOT NULL),0)::float8 AS within_5_pct,
-		        COALESCE(sum(cv.followup_count), 0)::int AS followups,
 		        COALESCE(sum(cv.call_attempts), 0)::int AS call_attempts,
-		        COALESCE(sum(cv.total_call_duration), 0)::int AS call_duration_sec
+		        COALESCE(sum(cv.total_call_duration), 0)::int AS call_duration_sec,
+		        count(cv.id) FILTER (WHERE st.sort_order > 1) AS updated,
+		        count(cv.id) FILTER (WHERE st.system_key='contacted') AS contacted,
+		        count(cv.id) FILTER (WHERE st.system_key='qualified') AS qualified,
+		        count(cv.id) FILTER (WHERE st.system_key='appointment') AS appointment,
+		        count(cv.id) FILTER (WHERE st.system_key='test_drive') AS negotiation,
+		        count(cv.id) FILTER (WHERE st.system_key='booking') AS purchase
 		   FROM users u
 		   LEFT JOIN conversations cv ON cv.assigned_agent_id=u.id AND cv.organization_id=$1%s
 		   LEFT JOIN stages st ON st.id=cv.stage_id
+		   LEFT JOIN campaign_branches b ON b.id=cv.branch_id
+		   LEFT JOIN campaigns cmp ON cmp.id=cv.campaign_id
 		   LEFT JOIN rt ON rt.conversation_id=cv.id
-		  WHERE u.organization_id=$1 AND u.role IN ('agent','admin', 'manager')
-		  GROUP BY u.id, u.full_name ORDER BY leads DESC`, campFilterCv), args...)
+		   LEFT JOIN ar ON ar.conversation_id=cv.id
+		  WHERE u.organization_id=$1 AND u.role IN ('agent','admin','manager')
+		  GROUP BY u.id, u.full_name, COALESCE(b.name, cmp.name, 'Unassigned')
+		  ORDER BY leads DESC`, campFilterCv), args...)
 
 	// Per-day: new leads vs how many got an AGENT reply.
 	daily, _ := s.queryMaps(ctx,
