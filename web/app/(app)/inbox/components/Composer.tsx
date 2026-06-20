@@ -1,6 +1,6 @@
 "use client";
 import { useState, useRef, useEffect, useCallback } from "react";
-import { Smile, Paperclip, Zap, Send, Lock, X, FileText, Loader2, Clock, Phone, Mic, Trash2, Pause, Play, Sparkles, RefreshCw } from "lucide-react";
+import { Smile, Paperclip, Zap, Send, Lock, X, FileText, Loader2, Clock, Phone, Mic, Trash2, Pause, Play, Sparkles, RefreshCw, Check } from "lucide-react";
 import EmojiPicker from "emoji-picker-react";
 import { cn } from "@/lib/utils";
 import { api } from "@/lib/api";
@@ -28,56 +28,96 @@ interface ComposerProps {
   conversationId?: string | null; // For call tracking API
   callingEnabled?: boolean;    // channel has WhatsApp calling enabled -> show call button
   onRequestCall?: () => void;  // WhatsApp Business Calling API: request call permission
-  // Simpuler (AI) briefing — last persisted text seeds the popover; regenerated on demand.
+  // Simpuler (AI) briefing — last persisted text seeds the summary; regenerated on demand.
   aiSummary?: string | null;
+  uploadProgress?: number | null; // 0-100 while an attachment uploads
+  onAddNote?: (body: string) => Promise<void>; // AI Smart Summary -> Confirm posts a note
 }
 
 export default function Composer({
   draft, setDraft, tab, setTab, quickReplies,
   pendingFiles, pendingPreviews, fileRef, onFile, cancelSendFile, removePendingFile,
   busy, onSubmit, notify, onSendVoice, windowExpired, phone, conversationId, callingEnabled, onRequestCall,
-  aiSummary,
+  aiSummary, uploadProgress, onAddNote,
 }: ComposerProps) {
   const [showQR, setShowQR] = useState(false);
   const [emojiOpen, setEmojiOpen] = useState(false);
 
-  // ── AI Smart Summary (on-demand, streamed) ──
-  const [summaryOpen, setSummaryOpen] = useState(false);
-  const [summaryText, setSummaryText] = useState(aiSummary || "");
-  const [summaryState, setSummaryState] = useState<"idle" | "streaming" | "done" | "error">(aiSummary ? "done" : "idle");
-  const summaryAbortRef = useRef<AbortController | null>(null);
+  // ── Contextual AI assist: Reply tab -> Smart Reply, Internal note tab -> Smart Summary ──
+  const aiMode: "reply" | "summary" = tab === 1 ? "summary" : "reply";
+  const [aiOpen, setAiOpen] = useState(false);
+  const [aiText, setAiText] = useState("");
+  const [aiState, setAiState] = useState<"idle" | "streaming" | "done" | "error">("idle");
+  const [aiConfirmed, setAiConfirmed] = useState(false); // drives the submit gesture
+  const aiAbortRef = useRef<AbortController | null>(null);
 
-  // Re-seed when switching conversations; abort any in-flight stream.
+  // Switching conversation resets the assistant + aborts any in-flight stream.
   useEffect(() => {
-    summaryAbortRef.current?.abort();
-    setSummaryOpen(false);
-    setSummaryText(aiSummary || "");
-    setSummaryState(aiSummary ? "done" : "idle");
+    aiAbortRef.current?.abort();
+    setAiOpen(false); setAiText(""); setAiState("idle"); setAiConfirmed(false);
   }, [conversationId]); // eslint-disable-line react-hooks/exhaustive-deps
-  useEffect(() => () => summaryAbortRef.current?.abort(), []);
+  // Switching mode (reply <-> note) clears the previous draft/summary.
+  useEffect(() => {
+    aiAbortRef.current?.abort();
+    setAiText(""); setAiState("idle"); setAiConfirmed(false);
+  }, [aiMode]); // eslint-disable-line react-hooks/exhaustive-deps
+  useEffect(() => () => aiAbortRef.current?.abort(), []);
 
-  const generateSummary = useCallback(async () => {
+  const generateAI = useCallback(async () => {
     if (!conversationId) return;
-    summaryAbortRef.current?.abort();
+    aiAbortRef.current?.abort();
     const ctrl = new AbortController();
-    summaryAbortRef.current = ctrl;
-    setSummaryText("");
-    setSummaryState("streaming");
+    aiAbortRef.current = ctrl;
+    setAiText(""); setAiState("streaming"); setAiConfirmed(false);
+    const stream = aiMode === "summary" ? api.streamSummary : api.streamDraftReply;
     try {
-      await api.streamSummary(conversationId, (t) => setSummaryText((p) => p + t), ctrl.signal);
-      setSummaryState("done");
+      await stream(conversationId, (t) => setAiText((p) => p + t), ctrl.signal);
+      setAiState("done");
     } catch {
       if (ctrl.signal.aborted) return;
-      setSummaryState("error");
+      setAiState("error");
     }
-  }, [conversationId]);
+  }, [conversationId, aiMode]);
 
-  const toggleSummary = () => {
-    const next = !summaryOpen;
-    setSummaryOpen(next);
-    if (next && summaryState === "idle" && !summaryText) generateSummary();
+  const openAI = () => {
+    const next = !aiOpen;
+    setAiOpen(next);
+    if (!next || aiText || aiState === "streaming") return;
+    // Summary reuses the last persisted briefing (saves a call); reply always fresh.
+    if (aiMode === "summary" && aiSummary) { setAiText(aiSummary); setAiState("done"); }
+    else generateAI();
   };
-  
+
+  // UI copy rule: never show em/en dashes.
+  const cleanReply = (t: string) => t.replace(/\s*[—–]\s*/g, ", ").trim();
+  const summaryBullets = (t: string) => t
+    .replace(/\s*[—–]\s*/g, ", ")
+    .split("\n")
+    .map((l) => l.replace(/^\s*[-•*]\s*/, "").trim())
+    .filter(Boolean);
+
+  const confirmAI = async () => {
+    if (aiState !== "done" || !aiText.trim()) return;
+    if (aiMode === "reply") {
+      const text = cleanReply(aiText);
+      if (!text) return;
+      setAiConfirmed(true);
+      setDraft((d) => (d.trim() ? d.trimEnd() + "\n" + text : text));
+      setTimeout(() => { setAiOpen(false); setAiConfirmed(false); }, 420);
+    } else {
+      const body = summaryBullets(aiText).map((b) => "• " + b).join("\n");
+      if (!body) return;
+      setAiConfirmed(true);
+      try {
+        if (onAddNote) await onAddNote(body);
+        setTimeout(() => { setAiOpen(false); setAiConfirmed(false); }, 420);
+      } catch {
+        setAiConfirmed(false);
+        notify("Could not add note", "error");
+      }
+    }
+  };
+
   // Voice recording state
   const [isRecording, setIsRecording] = useState(false);
   const [isPaused, setIsPaused] = useState(false);
@@ -273,97 +313,104 @@ export default function Composer({
 
           <div className="flex-1" />
 
-          {/* AI Smart Summary — generates a fresh briefing on click, streamed token-by-token */}
-          <div className="relative pb-1">
-            <button
-              type="button"
-              onClick={toggleSummary}
-              className={cn(
-                "inline-flex items-center gap-1.5 h-6 px-2 rounded-md text-[12px] font-semibold outline-none transition-colors",
-                summaryOpen ? "bg-primary/10 text-primary" : "text-primary/90 hover:bg-primary/10",
-              )}
-            >
-              <Sparkles className={cn("w-3.5 h-3.5", summaryState === "streaming" && "animate-pulse")} />
-              AI Smart Summary
-            </button>
-            {summaryOpen && (
-              <>
-                <div className="fixed inset-0 z-40" onClick={() => setSummaryOpen(false)} />
-                <div className="absolute bottom-full right-0 mb-2 z-50 w-[360px] rounded-xl border border-border bg-popover shadow-xl p-3.5 animate-scale-in origin-bottom-right">
-                  <div className="flex items-center gap-1.5 mb-2.5">
-                    <Sparkles className="w-4 h-4 text-primary" />
-                    <p className="text-[13px] font-bold text-foreground">AI Smart Summary</p>
-                    <div className="ml-auto flex items-center gap-0.5">
-                      {summaryState !== "streaming" && (
-                        <Tip label="Regenerate">
-                          <button onClick={generateSummary} className="p-1 rounded text-muted-foreground hover:bg-muted hover:text-foreground outline-none">
-                            <RefreshCw className="w-3.5 h-3.5" />
-                          </button>
-                        </Tip>
-                      )}
-                      <button onClick={() => setSummaryOpen(false)} className="p-1 rounded text-muted-foreground hover:bg-muted hover:text-foreground outline-none">
-                        <X className="w-4 h-4" />
-                      </button>
-                    </div>
-                  </div>
+          {/* Contextual AI assist — label + action follow the active tab */}
+          <button
+            type="button"
+            onClick={openAI}
+            className={cn(
+              "inline-flex items-center gap-1.5 h-6 px-2 mb-1 rounded-md text-[12px] font-semibold outline-none transition-colors",
+              note
+                ? (aiOpen ? "bg-amber-100 text-amber-800" : "text-amber-700 hover:bg-amber-100")
+                : (aiOpen ? "bg-primary/10 text-primary" : "text-primary/90 hover:bg-primary/10"),
+            )}
+          >
+            <Sparkles className={cn("w-3.5 h-3.5", aiState === "streaming" && "animate-pulse")} />
+            {aiMode === "summary" ? "AI Smart Summary" : "AI Smart Reply"}
+          </button>
+        </div>
 
-                  {summaryState === "streaming" && !summaryText ? (
-                    <div className="py-1">
-                      <div className="flex items-center gap-1.5 text-primary mb-2.5">
-                        <Sparkles className="w-3.5 h-3.5 animate-pulse" />
-                        <span className="text-[12px] font-semibold">AI is writing…</span>
-                      </div>
-                      <div className="space-y-2">
-                        <div className="h-2.5 rounded skeleton w-[92%]" />
-                        <div className="h-2.5 rounded skeleton w-full" />
-                        <div className="h-2.5 rounded skeleton w-[76%]" />
-                      </div>
-                    </div>
-                  ) : summaryState === "error" ? (
-                    <div className="py-3 text-center">
-                      <p className="text-xs text-muted-foreground mb-2">Could not generate a summary.</p>
-                      <button onClick={generateSummary} className="text-[12px] font-semibold text-primary hover:underline outline-none">Try again</button>
-                    </div>
-                  ) : (() => {
-                    const bullets = summaryText
-                      .replace(/\s*[—–]\s*/g, ", ") // never show em/en dashes
-                      .split("\n")
-                      .map((l) => l.replace(/^\s*[-•*]\s*/, "").trim())
-                      .filter(Boolean);
-                    return (
-                      <ul className="space-y-1.5">
-                        {bullets.map((line, i) => {
-                          const last = i === bullets.length - 1;
-                          // Last point is always the recommended next action — highlight it
-                          // once the stream settles (avoids flicker mid-stream).
-                          const isAction = last && summaryState !== "streaming";
-                          return (
-                            <li
-                              key={i}
-                              className="flex gap-2 text-xs leading-relaxed text-foreground/90 animate-bullet-in"
-                              style={{ animationDelay: summaryState === "streaming" ? "0ms" : `${Math.min(i, 6) * 45}ms` }}
-                            >
-                              <span className={cn(
-                                "mt-[6px] w-1.5 h-1.5 rounded-full shrink-0 transition-shadow duration-300",
-                                isAction ? "bg-amber-500 shadow-[0_0_0_3px_rgba(245,166,35,0.18)]" : "bg-primary/60",
-                              )} />
-                              <span>
-                                {line}
-                                {summaryState === "streaming" && last && (
-                                  <span className="inline-block w-[2px] h-3.5 ml-0.5 bg-primary/70 align-middle animate-pulse" />
-                                )}
-                              </span>
-                            </li>
-                          );
-                        })}
-                      </ul>
-                    );
-                  })()}
+        {/* AI assistant card (streams a draft; Confirm submits with a gesture) */}
+        {aiOpen && (
+          <div className={cn(
+            "mx-3 mt-2 rounded-xl border bg-card shadow-sm overflow-hidden transition-all duration-300 origin-bottom",
+            note ? "border-amber-200" : "border-primary/30",
+            aiConfirmed ? "opacity-0 -translate-y-2 scale-[0.97]" : "animate-scale-in",
+          )}>
+            <div className={cn("flex items-center gap-1.5 px-3 py-2 border-b", note ? "border-amber-200 bg-amber-50" : "border-border bg-primary/[0.04]")}>
+              <Sparkles className={cn("w-4 h-4", note ? "text-amber-700" : "text-primary")} />
+              <p className="text-[13px] font-bold text-foreground">{aiMode === "summary" ? "AI Smart Summary" : "AI Smart Reply"}</p>
+              <div className="ml-auto flex items-center gap-0.5">
+                {aiState !== "streaming" && (
+                  <Tip label="Regenerate">
+                    <button onClick={generateAI} className="p-1 rounded text-muted-foreground hover:bg-muted hover:text-foreground outline-none">
+                      <RefreshCw className="w-3.5 h-3.5" />
+                    </button>
+                  </Tip>
+                )}
+                <button onClick={() => setAiOpen(false)} className="p-1 rounded text-muted-foreground hover:bg-muted hover:text-foreground outline-none">
+                  <X className="w-4 h-4" />
+                </button>
+              </div>
+            </div>
+
+            <div className="px-3.5 py-3 max-h-[200px] overflow-auto">
+              {aiState === "streaming" && !aiText ? (
+                <div>
+                  <div className="flex items-center gap-1.5 text-primary mb-2.5">
+                    <Sparkles className="w-3.5 h-3.5 animate-pulse" />
+                    <span className="text-[12px] font-semibold">{aiMode === "summary" ? "Summarizing the conversation…" : "Drafting a reply…"}</span>
+                  </div>
+                  <div className="space-y-2">
+                    <div className="h-2.5 rounded skeleton w-[92%]" />
+                    <div className="h-2.5 rounded skeleton w-full" />
+                    <div className="h-2.5 rounded skeleton w-[76%]" />
+                  </div>
                 </div>
-              </>
+              ) : aiState === "error" ? (
+                <div className="py-2 text-center">
+                  <p className="text-xs text-muted-foreground mb-2">{aiMode === "summary" ? "Could not generate a summary." : "Could not draft a reply."}</p>
+                  <button onClick={generateAI} className="text-[12px] font-semibold text-primary hover:underline outline-none">Try again</button>
+                </div>
+              ) : aiMode === "summary" ? (
+                <ul className="space-y-1.5">
+                  {summaryBullets(aiText).map((line, i, arr) => {
+                    const last = i === arr.length - 1;
+                    const isAction = last && aiState !== "streaming";
+                    return (
+                      <li key={i} className="flex gap-2 text-xs leading-relaxed text-foreground/90 animate-bullet-in"
+                        style={{ animationDelay: aiState === "streaming" ? "0ms" : `${Math.min(i, 6) * 45}ms` }}>
+                        <span className={cn("mt-[6px] w-1.5 h-1.5 rounded-full shrink-0 transition-shadow duration-300",
+                          isAction ? "bg-amber-500 shadow-[0_0_0_3px_rgba(245,166,35,0.18)]" : "bg-primary/60")} />
+                        <span>{line}{aiState === "streaming" && last && <span className="inline-block w-[2px] h-3.5 ml-0.5 bg-primary/70 align-middle animate-pulse" />}</span>
+                      </li>
+                    );
+                  })}
+                </ul>
+              ) : (
+                <p className="text-[13px] leading-relaxed text-foreground/90 whitespace-pre-line">
+                  {cleanReply(aiText)}
+                  {aiState === "streaming" && <span className="inline-block w-[2px] h-3.5 ml-0.5 bg-primary/70 align-middle animate-pulse" />}
+                </p>
+              )}
+            </div>
+
+            {aiState === "done" && aiText.trim() && (
+              <div className="flex items-center gap-2 px-3 py-2 border-t border-border bg-muted/30">
+                <button onClick={() => { setAiText(""); setAiState("idle"); setAiOpen(false); }}
+                  className="text-[12px] font-semibold text-muted-foreground hover:text-foreground outline-none">
+                  Clear
+                </button>
+                <div className="flex-1" />
+                <button onClick={confirmAI}
+                  className={cn("inline-flex items-center gap-1.5 h-7 px-3 rounded-md text-[12px] font-bold text-white outline-none transition-colors shadow-sm",
+                    note ? "bg-amber hover:bg-amber/90" : "bg-primary hover:bg-primary-dark")}>
+                  <Check className="w-3.5 h-3.5" />
+                  {aiMode === "summary" ? "Add as note" : "Use this reply"}
+                </button>
+              </div>
             )}
           </div>
-        </div>
+        )}
 
         {/* 24h window warning */}
         {windowExpired && tab === 0 && (
@@ -378,11 +425,22 @@ export default function Composer({
         {/* Pending Files */}
         {pendingFiles && pendingFiles.length > 0 && (
           <div className="px-4 pt-4 flex gap-3 overflow-x-auto">
-            {pendingFiles.map((file, i) => (
+            {pendingFiles.map((file, i) => {
+              const isVid = file.type.startsWith("video/");
+              const mb = file.size / (1024 * 1024);
+              const sizeLabel = mb >= 1 ? `${mb.toFixed(1)} MB` : `${(file.size / 1024).toFixed(0)} KB`;
+              return (
               <div key={i} className="flex-shrink-0 relative group flex items-center gap-3 p-3 bg-muted border border-border rounded-lg pr-12 min-w-[200px] max-w-[280px]">
                 {pendingPreviews[i] ? (
-                  <div className="w-10 h-10 rounded-md bg-card border border-border flex-shrink-0 flex items-center justify-center overflow-hidden">
-                    <img src={pendingPreviews[i]!} className="max-w-full max-h-full object-cover" alt="" />
+                  <div className="w-10 h-10 rounded-md bg-card border border-border flex-shrink-0 flex items-center justify-center overflow-hidden relative">
+                    {isVid ? (
+                      <>
+                        <video src={pendingPreviews[i]! + "#t=0.1"} preload="metadata" className="w-full h-full object-cover" />
+                        <Play className="w-4 h-4 text-white absolute drop-shadow" fill="white" />
+                      </>
+                    ) : (
+                      <img src={pendingPreviews[i]!} className="max-w-full max-h-full object-cover" alt="" />
+                    )}
                   </div>
                 ) : (
                   <div className="w-10 h-10 rounded-md bg-card border border-border flex items-center justify-center flex-shrink-0 text-muted-foreground">
@@ -391,17 +449,25 @@ export default function Composer({
                 )}
                 <div className="flex-1 min-w-0">
                   <p className="text-[13px] font-semibold text-foreground truncate">{file.name}</p>
-                  <p className="text-[11px] text-muted-foreground tabular-nums">{(file.size / 1024).toFixed(1)} KB</p>
+                  <p className="text-[11px] text-muted-foreground tabular-nums">{sizeLabel}</p>
+                  {busy && typeof uploadProgress === "number" && (
+                    <div className="mt-1.5 h-1 rounded-full bg-border overflow-hidden">
+                      <div className="h-full bg-primary transition-[width] duration-150" style={{ width: `${uploadProgress}%` }} />
+                    </div>
+                  )}
                 </div>
-                <button
-                  type="button"
-                  onClick={() => removePendingFile(i)}
-                  className="absolute right-2 top-1/2 -translate-y-1/2 p-1.5 bg-red-50 text-red-500 hover:bg-red-100 rounded-md transition-colors outline-none"
-                >
-                  <X className="w-[18px] h-[18px]" />
-                </button>
+                {!busy && (
+                  <button
+                    type="button"
+                    onClick={() => removePendingFile(i)}
+                    className="absolute right-2 top-1/2 -translate-y-1/2 p-1.5 bg-red-50 text-red-500 hover:bg-red-100 rounded-md transition-colors outline-none"
+                  >
+                    <X className="w-[18px] h-[18px]" />
+                  </button>
+                )}
               </div>
-            ))}
+              );
+            })}
           </div>
         )}
 

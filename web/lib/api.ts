@@ -163,6 +163,39 @@ export const api = {
       }
     }
   },
+  // Stream a fresh customer-facing reply draft (SSE). Mirrors streamSummary.
+  async streamDraftReply(convId: string, onChunk: (text: string) => void, signal?: AbortSignal): Promise<void> {
+    const token = getToken();
+    const res = await fetch(`${API}/api/conversations/${convId}/draft-reply?lang=${encodeURIComponent(getAppLang())}`, {
+      method: "POST",
+      headers: {
+        "Content-Type": "application/json",
+        ...(token ? { Authorization: `Bearer ${token}` } : {}),
+      },
+      signal,
+    });
+    if (!res.ok || !res.body) throw new Error((await res.text().catch(() => "")) || "Draft failed");
+    const reader = res.body.getReader();
+    const decoder = new TextDecoder();
+    let buf = "";
+    for (;;) {
+      const { done, value } = await reader.read();
+      if (done) break;
+      buf += decoder.decode(value, { stream: true });
+      const lines = buf.split("\n");
+      buf = lines.pop() || "";
+      for (const line of lines) {
+        const t = line.trim();
+        if (!t.startsWith("data:")) continue;
+        const data = t.slice(5).trim();
+        if (!data) continue;
+        let evt: { text?: string; error?: string; done?: boolean };
+        try { evt = JSON.parse(data); } catch { continue; }
+        if (evt.error) throw new Error(evt.error);
+        if (typeof evt.text === "string") onChunk(evt.text);
+      }
+    }
+  },
   me: () => req<User>("/api/me"),
   listConversations: (status = "") =>
     req<Conversation[]>(`/api/conversations${status ? `?status=${status}` : ""}`),
@@ -178,16 +211,34 @@ export const api = {
     req(`/api/conversations/${id}/messages`, { method: "POST", body: JSON.stringify({ body }) }),
   sendMedia: (id: string, type: string, mediaUrl: string, caption: string) =>
     req(`/api/conversations/${id}/messages`, { method: "POST", body: JSON.stringify({ type, media_url: mediaUrl, body: caption }) }),
-  async uploadFile(file: File): Promise<{ url: string; type: string; name: string }> {
-    const fd = new FormData();
-    fd.append("file", file);
-    const res = await fetch(API + "/api/uploads", {
-      method: "POST",
-      headers: { ...(getToken() ? { Authorization: `Bearer ${getToken()}` } : {}) },
-      body: fd,
+  // Upload via XHR so we can surface progress + a timeout + the server's error text
+  // (a big file on a slow link otherwise looks like an infinite spinner).
+  uploadFile(file: File, onProgress?: (pct: number) => void): Promise<{ url: string; type: string; name: string }> {
+    return new Promise((resolve, reject) => {
+      const fd = new FormData();
+      fd.append("file", file);
+      const xhr = new XMLHttpRequest();
+      xhr.open("POST", API + "/api/uploads");
+      const tok = getToken();
+      if (tok) xhr.setRequestHeader("Authorization", `Bearer ${tok}`);
+      xhr.timeout = 180000; // 3 min ceiling so it never hangs forever
+      xhr.upload.onprogress = (e) => {
+        if (onProgress && e.lengthComputable) onProgress(Math.round((e.loaded / e.total) * 100));
+      };
+      xhr.onload = () => {
+        if (xhr.status >= 200 && xhr.status < 300) {
+          try { resolve(JSON.parse(xhr.responseText)); }
+          catch { reject(new Error("Invalid upload response")); }
+        } else if (xhr.status === 413) {
+          reject(new Error("File too large for the server"));
+        } else {
+          reject(new Error((xhr.responseText || "").trim() || `Upload failed (${xhr.status})`));
+        }
+      };
+      xhr.onerror = () => reject(new Error("Network error during upload"));
+      xhr.ontimeout = () => reject(new Error("Upload timed out. Try a smaller file or a faster connection"));
+      xhr.send(fd);
     });
-    if (!res.ok) throw new Error((await res.text()) || "upload failed");
-    return res.json();
   },
   assign: (id: string, agentId?: string) =>
     req(`/api/conversations/${id}/assign`, { method: "POST", body: JSON.stringify(agentId ? { agent_id: agentId } : {}) }),

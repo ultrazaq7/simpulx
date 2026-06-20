@@ -4,6 +4,7 @@ import (
 	"bytes"
 	"context"
 	"encoding/json"
+	"errors"
 	"fmt"
 	"io"
 	"net/http"
@@ -309,7 +310,17 @@ func (s *server) handleUpload(w http.ResponseWriter, r *http.Request) {
 		http.Error(w, "storage not configured", http.StatusServiceUnavailable)
 		return
 	}
+	// Hard-cap the request body so a huge upload returns a clean 413 instead of
+	// spooling unbounded to disk / appearing to hang. 110MB covers WhatsApp's
+	// largest media (documents up to 100MB) with headroom.
+	const maxUpload = 110 << 20
+	r.Body = http.MaxBytesReader(w, r.Body, maxUpload)
 	if err := r.ParseMultipartForm(25 << 20); err != nil {
+		var mbe *http.MaxBytesError
+		if errors.As(err, &mbe) {
+			http.Error(w, "file too large (max 100MB)", http.StatusRequestEntityTooLarge)
+			return
+		}
 		http.Error(w, "upload too large or malformed", http.StatusBadRequest)
 		return
 	}

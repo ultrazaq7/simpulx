@@ -66,7 +66,7 @@ function docStyle(ext: string, out: boolean): DocStyle {
 }
 
 /* ── Local dev: rewrite ngrok → localhost ───────────────────── */
-function rewriteLocalMedia(url: string): string {
+export function rewriteLocalMedia(url: string): string {
   if (typeof window !== "undefined" && window.location.hostname === "localhost" && url.includes("ngrok-free.dev")) {
     return url.replace(/https?:\/\/[^/]+/, "http://localhost:8080");
   }
@@ -308,7 +308,7 @@ function MessageMenu({ out, text, link, onCopyText, onUseInComposer, onForward }
 interface MessageBubbleProps {
   m: Message;
   active: Conversation;
-  onPreviewMedia: (url: string, type: string) => void;
+  onPreviewMedia: (messageId: string) => void;
   conversationId?: string | null;
   onCopyText?: (t: string) => void;
   onUseInComposer?: (t: string) => void;
@@ -404,7 +404,7 @@ const MessageBubble = memo(function MessageBubble({ m, active, onPreviewMedia, c
           {url && isImage && (
             <div
               className="relative cursor-pointer group"
-              onClick={() => onPreviewMedia(url, "image")}
+              onClick={() => onPreviewMedia(m.id)}
             >
               <img
                 src={url}
@@ -426,7 +426,7 @@ const MessageBubble = memo(function MessageBubble({ m, active, onPreviewMedia, c
           {url && isVideo && (
             <div
               className="relative cursor-pointer group"
-              onClick={() => onPreviewMedia(url, "video")}
+              onClick={() => onPreviewMedia(m.id)}
             >
               <video
                 src={url}
@@ -460,7 +460,7 @@ const MessageBubble = memo(function MessageBubble({ m, active, onPreviewMedia, c
           {isDoc && ds && (
             <div
               className={cn("flex items-center gap-3 mx-1 my-1 px-3 py-2.5 rounded-lg cursor-pointer transition-colors", ds.bg, out ? "hover:bg-white/20" : "hover:bg-black/[0.06]")}
-              onClick={() => onPreviewMedia(url, m.type || "document")}
+              onClick={() => onPreviewMedia(m.id)}
             >
               {/* File type icon */}
               {ds.icon}

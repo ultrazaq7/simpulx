@@ -85,7 +85,7 @@ const ConversationCard = memo(function ConversationCard({
     <div
       onClick={onClick}
       className={cn(
-        "group relative flex gap-3 pl-4 pr-3 py-3 cursor-pointer border-b border-border/50 transition-colors duration-100",
+        "group relative flex gap-2.5 pl-3.5 pr-3 py-2 cursor-pointer border-b border-border/50 transition-colors duration-100",
         isActive ? "bg-primary/[0.08]" : "hover:bg-muted/60",
       )}
     >
@@ -95,14 +95,14 @@ const ConversationCard = memo(function ConversationCard({
       {/* Avatar + channel dot */}
       <div className="relative shrink-0 self-start mt-0.5">
         <div
-          className="w-11 h-11 rounded-full grid place-items-center text-[13px] font-bold ring-1 ring-inset ring-black/5"
+          className="w-9 h-9 rounded-full grid place-items-center text-[12px] font-bold ring-1 ring-inset ring-black/5"
           style={{ backgroundColor: channelColor(c.channel) + "1A", color: channelColor(c.channel) }}
         >
           {initials(c.contact_name || c.contact_phone)}
         </div>
         <Tip label={channelName || c.channel} side="top">
           <span
-            className="absolute -bottom-0.5 -right-0.5 w-3.5 h-3.5 rounded-full ring-2 ring-card"
+            className="absolute -bottom-0.5 -right-0.5 w-3 h-3 rounded-full ring-2 ring-card"
             style={{ backgroundColor: channelColor(c.channel) }}
           />
         </Tip>
@@ -112,7 +112,7 @@ const ConversationCard = memo(function ConversationCard({
         {/* Line 1: name + time */}
         <div className="flex items-center gap-2">
           <p className={cn(
-            "flex-1 truncate text-[15px] leading-tight",
+            "flex-1 truncate text-[14px] leading-tight",
             unread ? "font-bold text-foreground" : "font-semibold text-foreground/90",
           )}>
             {c.contact_name || c.contact_phone || "Unknown"}
@@ -131,11 +131,11 @@ const ConversationCard = memo(function ConversationCard({
         {/* Line 2: preview + unread count */}
         <div className="flex items-center gap-2 mt-0.5">
           <span className={cn(
-            "flex-1 min-w-0 truncate flex items-center gap-1 text-[13px]",
+            "flex-1 min-w-0 truncate flex items-center gap-1 text-[12.5px]",
             unread ? "text-foreground/80 font-medium" : "text-muted-foreground",
           )}>
             {media ? (
-              <><media.icon className="w-4 h-4 shrink-0" /> {media.label}</>
+              <><media.icon className="w-3.5 h-3.5 shrink-0" /> {media.label}</>
             ) : (
               c.last_message_preview || <span className="italic text-muted-foreground/60">No messages yet</span>
             )}
@@ -149,7 +149,7 @@ const ConversationCard = memo(function ConversationCard({
 
         {/* Line 3: signal tags (single line, no wrap) */}
         {(showAgent || needsFollowUp || needsCall || windowExpired || c.interest_level || c.campaign_name) && (
-          <div className="flex items-center gap-1 mt-1.5 overflow-hidden">
+          <div className="flex items-center gap-1 mt-1 overflow-hidden">
             {showAgent && (
               c.agent_name
                 ? <span className={cn("inline-flex items-center gap-1 h-[18px] px-2 rounded-full text-slate-600 text-[10px] font-semibold shrink-0 max-w-[110px] truncate", isActive ? "bg-white" : "bg-slate-100")}><User className="w-2.5 h-2.5 shrink-0" />{c.agent_name}</span>

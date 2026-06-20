@@ -1,16 +1,16 @@
 "use client";
-import { useState, useEffect, useCallback } from "react";
+import { useState, useEffect, useCallback, useMemo } from "react";
 import {
-  MessageSquare, ChevronRight, Check, Copy, X, Search,
+  MessageSquare, ChevronRight, ChevronLeft, Check, Copy, X, Search,
   CheckCircle, RotateCcw, PanelRight, Lock, ChevronUp, ChevronDown,
-  Download, XCircle, User,
+  Download, XCircle, User, FileText, Video,
 } from "lucide-react";
 import { cn, fmtTime } from "@/lib/utils";
 import { Tip } from "@/components/ui/tooltip";
 import type { Conversation, Disposition, InternalNote, QuickReply, Stage, Message } from "@/lib/types";
 import type { Virtualizer } from "@tanstack/react-virtual";
 import type { UseInfiniteQueryResult } from "@tanstack/react-query";
-import MessageBubble from "./MessageBubble";
+import MessageBubble, { rewriteLocalMedia } from "./MessageBubble";
 import Composer from "./Composer";
 import LostReasonDialog from "./LostReasonDialog";
 import CallOverlay from "./CallOverlay";
@@ -92,38 +92,115 @@ function StageMenu({
   );
 }
 
-// --- Media Preview Modal ---
-function MediaPreview({ media, onClose }: { media: { url: string; type: string }; onClose: () => void }) {
-  const isImage = media.type === "image" || ["jpg", "jpeg", "png", "gif", "webp", "svg"].some(ext => media.url.toLowerCase().endsWith(ext));
-  const isVideo = media.type === "video" || ["mp4", "mov", "webm", "avi", "mkv"].some(ext => media.url.toLowerCase().endsWith(ext));
+// --- Media kind helper (shared by the gallery + the media list) ---
+function mediaKind(m: Message): "image" | "video" | "document" | null {
+  if (!m.media_url) return null;
+  if (m.type === "sticker" || m.type === "audio" || m.type === "call") return null;
+  const ext = (m.media_url.split("?")[0].split(".").pop() || "").toLowerCase();
+  if (["ogg", "mp3", "wav", "aac", "m4a", "opus"].includes(ext)) return null;
+  if (m.type === "image" || ["jpg", "jpeg", "png", "gif", "webp", "svg"].includes(ext)) return "image";
+  if (m.type === "video" || ["mp4", "mov", "webm", "avi", "mkv"].includes(ext)) return "video";
+  return "document";
+}
 
-  if (!isImage && !isVideo) {
-    window.open(media.url, "_blank");
-    onClose();
-    return null;
-  }
+// --- WhatsApp-style media gallery: slide through all media in the conversation ---
+function MediaGallery({ messages, currentId, active, onClose, onNavigate }: {
+  messages: Message[]; currentId: string; active: Conversation | null;
+  onClose: () => void; onNavigate: (id: string) => void;
+}) {
+  const index = messages.findIndex((m) => m.id === currentId);
+  useEffect(() => {
+    const h = (e: KeyboardEvent) => {
+      if (e.key === "Escape") onClose();
+      else if (e.key === "ArrowLeft" && index > 0) onNavigate(messages[index - 1].id);
+      else if (e.key === "ArrowRight" && index < messages.length - 1) onNavigate(messages[index + 1].id);
+    };
+    window.addEventListener("keydown", h);
+    return () => window.removeEventListener("keydown", h);
+  }, [index, messages, onClose, onNavigate]);
+
+  const cur = messages[index];
+  if (!cur) return null;
+  const url = rewriteLocalMedia(cur.media_url || "");
+  const kind = mediaKind(cur);
+  const who = cur.direction === "inbound" ? (active?.contact_name || active?.contact_phone || "Contact") : "You";
 
   return (
-    <div className="fixed inset-0 z-50 flex items-center justify-center bg-[#0B141A]/95 animate-fade-in" onClick={onClose}>
-      <div className="absolute top-0 left-0 right-0 h-16 bg-gradient-to-b from-black/60 to-transparent flex items-center justify-end px-4 gap-2 z-10" onClick={(e) => e.stopPropagation()}>
-        <Tip label="Download" side="bottom">
-          <a href={media.url} download target="_blank" rel="noreferrer" className="p-2 rounded-full text-white hover:bg-white/10 transition-colors outline-none">
-            <Download className="w-5 h-5" />
-          </a>
-        </Tip>
-        <Tip label="Close" side="bottom">
-          <button onClick={onClose} className="p-2 rounded-full text-white hover:bg-white/10 transition-colors outline-none">
-            <X className="w-6 h-6" />
-          </button>
-        </Tip>
+    <div className="fixed inset-0 z-[60] flex flex-col bg-[#0B141A]/96 backdrop-blur-sm animate-fade-in">
+      {/* Top bar */}
+      <div className="absolute top-0 inset-x-0 z-20 flex items-center justify-between px-5 py-3 bg-gradient-to-b from-black/60 to-transparent">
+        <div className="min-w-0">
+          <p className="text-white text-[13px] font-semibold truncate">{who}</p>
+          <p className="text-white/55 text-[11px]">{fmtTime(cur.created_at)} · {index + 1} of {messages.length}</p>
+        </div>
+        <div className="flex items-center gap-1">
+          <Tip label="Download" side="bottom">
+            <a href={url} download target="_blank" rel="noreferrer" className="p-2 rounded-full text-white/80 hover:text-white hover:bg-white/10 transition-colors outline-none">
+              <Download className="w-5 h-5" />
+            </a>
+          </Tip>
+          <Tip label="Close" side="bottom">
+            <button onClick={onClose} className="p-2 rounded-full text-white/80 hover:text-white hover:bg-white/10 transition-colors outline-none">
+              <X className="w-6 h-6" />
+            </button>
+          </Tip>
+        </div>
       </div>
-      <div className="w-full h-full flex items-center justify-center p-4 md:p-12" onClick={(e) => e.stopPropagation()}>
-        {isImage ? (
-          <img src={media.url} className="max-w-full max-h-full object-contain select-none rounded-md" alt="Preview" />
-        ) : (
-          <video src={media.url} controls autoPlay className="max-w-full max-h-full object-contain outline-none rounded-md" />
+
+      {/* Main viewer */}
+      <div className="flex-1 min-h-0 flex items-center justify-center px-16 pt-16 pb-28 relative" onClick={onClose}>
+        {index > 0 && (
+          <button onClick={(e) => { e.stopPropagation(); onNavigate(messages[index - 1].id); }}
+            className="absolute left-4 top-1/2 -translate-y-1/2 p-2.5 rounded-full bg-black/40 hover:bg-black/70 text-white z-10 transition-colors">
+            <ChevronLeft className="w-7 h-7" />
+          </button>
+        )}
+        <div className="max-w-full max-h-full flex items-center justify-center" onClick={(e) => e.stopPropagation()}>
+          {kind === "image" ? (
+            <img src={url} className="max-w-full max-h-[80vh] object-contain rounded-md select-none" alt="Preview" />
+          ) : kind === "video" ? (
+            <video key={url} src={url} controls autoPlay className="max-w-full max-h-[80vh] object-contain rounded-md outline-none" />
+          ) : (
+            <div className="w-[min(90vw,900px)] h-[80vh] bg-white rounded-lg overflow-hidden">
+              <iframe src={url} className="w-full h-full border-none" title="Document preview" />
+            </div>
+          )}
+        </div>
+        {index < messages.length - 1 && (
+          <button onClick={(e) => { e.stopPropagation(); onNavigate(messages[index + 1].id); }}
+            className="absolute right-4 top-1/2 -translate-y-1/2 p-2.5 rounded-full bg-black/40 hover:bg-black/70 text-white z-10 transition-colors">
+            <ChevronRight className="w-7 h-7" />
+          </button>
         )}
       </div>
+
+      {/* Thumbnail strip */}
+      {messages.length > 1 && (
+        <div className="absolute bottom-0 inset-x-0 z-20 bg-black/40 backdrop-blur-md py-3 flex justify-center">
+          <div className="flex gap-2 overflow-x-auto max-w-full px-4 [scrollbar-width:none] [&::-webkit-scrollbar]:hidden">
+            {messages.map((m) => {
+              const k = mediaKind(m);
+              const tUrl = rewriteLocalMedia(m.media_url || "");
+              const sel = m.id === currentId;
+              return (
+                <button key={m.id} onClick={() => onNavigate(m.id)}
+                  className={cn("w-14 h-14 shrink-0 rounded-lg overflow-hidden border-2 transition-all", sel ? "border-primary scale-105" : "border-transparent opacity-55 hover:opacity-100")}>
+                  {k === "image" ? (
+                    <img src={tUrl} className="w-full h-full object-cover" alt="" />
+                  ) : k === "video" ? (
+                    <div className="relative w-full h-full bg-black">
+                      <video src={tUrl + "#t=0.1"} preload="metadata" className="w-full h-full object-cover" />
+                      <Video className="w-3.5 h-3.5 text-white absolute bottom-1 left-1 drop-shadow" />
+                    </div>
+                  ) : (
+                    <div className="w-full h-full bg-slate-100 grid place-items-center"><FileText className="w-5 h-5 text-slate-500" /></div>
+                  )}
+                </button>
+              );
+            })}
+          </div>
+        </div>
+      )}
     </div>
   );
 }
@@ -167,6 +244,8 @@ export interface ChatPanelProps {
   onSendVoice: (blob: Blob) => Promise<void>;
   showAgent?: boolean; // manager/admin: show assigned agent in the header
   onForward?: (text: string) => void;
+  uploadProgress?: number | null; // 0-100 while an attachment uploads
+  onAddNote?: (body: string) => Promise<void>; // post an internal note (AI Smart Summary -> Confirm)
 }
 
 export default function ChatPanel({
@@ -176,10 +255,17 @@ export default function ChatPanel({
   draft, setDraft, tab, setTab, quickReplies,
   pendingFiles, pendingPreviews, fileRef, onFile, cancelSendFile, removePendingFile,
   busy, onSubmit, onSendVoice, showDetails, onToggleDetails, notify, showAgent, onForward,
+  uploadProgress, onAddNote,
 }: ChatPanelProps) {
-  const [previewMedia, setPreviewMedia] = useState<{ url: string; type: string } | null>(null);
+  const [previewMediaId, setPreviewMediaId] = useState<string | null>(null);
   const [outcomeOpen, setOutcomeOpen] = useState(false);
   const [activeCallId, setActiveCallId] = useState<string | null>(null);
+
+  // All media messages in this conversation, in timeline order, for the slideable gallery.
+  const mediaMessages = useMemo(
+    () => timeline.filter((i): i is Extract<Item, { kind: "msg" }> => i.kind === "msg" && !!mediaKind(i.m)).map((i) => i.m),
+    [timeline],
+  );
 
   // ── WhatsApp Business Calling API ──
   const handleRequestCall = useCallback(async () => {
@@ -469,7 +555,7 @@ export default function ChatPanel({
                           <Lock className="w-3 h-3 text-amber-700" />
                           <span className="text-[10px] font-bold uppercase tracking-wider text-amber-700">Internal note</span>
                         </div>
-                        <p className="text-sm text-foreground">{it.n.body}</p>
+                        <p className="text-sm text-foreground whitespace-pre-line">{it.n.body}</p>
                         <p className="text-xs text-muted-foreground mt-1">{it.n.author || "Unknown"} - {fmtTime(it.n.created_at)}</p>
                       </div>
                     );
@@ -477,7 +563,7 @@ export default function ChatPanel({
                       <MessageBubble
                         m={it.m}
                         active={active}
-                        onPreviewMedia={(url, type) => setPreviewMedia({ url, type })}
+                        onPreviewMedia={(id) => setPreviewMediaId(id)}
                         conversationId={active.id}
                         onCopyText={onCopyText}
                         onUseInComposer={(t) => setDraft(t)}
@@ -515,6 +601,8 @@ export default function ChatPanel({
               callingEnabled={active?.calling_enabled}
               onRequestCall={handleRequestCall}
               aiSummary={active?.lead_summary}
+              uploadProgress={uploadProgress}
+              onAddNote={onAddNote}
             />
           </>
         )}
@@ -540,8 +628,16 @@ export default function ChatPanel({
         }}
       />
 
-      {/* ── Media Preview Modal ── */}
-      {previewMedia && <MediaPreview media={previewMedia} onClose={() => setPreviewMedia(null)} />}
+      {/* ── Media Gallery (WhatsApp-style slideable preview) ── */}
+      {previewMediaId && mediaMessages.length > 0 && (
+        <MediaGallery
+          messages={mediaMessages}
+          currentId={previewMediaId}
+          active={active}
+          onClose={() => setPreviewMediaId(null)}
+          onNavigate={setPreviewMediaId}
+        />
+      )}
 
       {/* ── WhatsApp Business Call Overlay ── */}
       {activeCallId && active && (

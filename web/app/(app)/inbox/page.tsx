@@ -16,6 +16,18 @@ import DetailsPanel from "./components/DetailsPanel";
 type Toast = { msg: string; severity: "success" | "info" | "warning" | "error" };
 const TOAST_BG: Record<string, string> = { error: "bg-[#DC2626]", warning: "bg-[#F59E0B]", info: "bg-[#2D8B73]", success: "bg-[#2D8B73]" };
 
+// WhatsApp Cloud API media caps. Reject oversize on the client so the user gets an
+// instant, specific reason instead of a request that spins and silently fails.
+function fileTooLargeMessage(f: File): string | null {
+  const mb = f.size / (1024 * 1024);
+  let max = 100, label = "File"; // documents / other
+  if (f.type.startsWith("image/")) { max = 5; label = "Image"; }
+  else if (f.type.startsWith("video/")) { max = 16; label = "Video"; }
+  else if (f.type.startsWith("audio/")) { max = 16; label = "Audio"; }
+  if (mb > max) return `${label} too large (${mb.toFixed(1)} MB). Max ${max} MB.`;
+  return null;
+}
+
 // -
 // MAIN PAGE
 // -
@@ -30,6 +42,7 @@ export default function InboxPage() {
   const [quickReplies, setQuickReplies] = useState<QuickReply[]>([]);
   const [pendingFiles, setPendingFiles] = useState<File[]>([]);
   const [pendingPreviews, setPendingPreviews] = useState<(string | null)[]>([]);
+  const [uploadProgress, setUploadProgress] = useState<number | null>(null);
   const [stages, setStages] = useState<Stage[]>([]);
   const [dispositions, setDispositions] = useState<Disposition[]>([]);
   const [agents, setAgents] = useState<Agent[]>([]);
@@ -233,29 +246,47 @@ export default function InboxPage() {
   }
 
   async function onFile(e: React.ChangeEvent<HTMLInputElement>) {
-    const files = Array.from(e.target.files || []); if (files.length === 0 || !activeId) return;
-    // Append to existing
-    const newFiles = [...pendingFiles, ...files];
-    setPendingFiles(newFiles);
-    setPendingPreviews(newFiles.map(f => f.type.startsWith("image/") ? URL.createObjectURL(f) : null));
-    if (fileRef.current) fileRef.current.value = "";
+    const files = Array.from(e.target.files || []);
+    if (fileRef.current) fileRef.current.value = ""; // allow re-picking the same file
+    if (files.length === 0 || !activeId) return;
+    // Reject oversize files up front with a specific reason (no silent spinner).
+    const accepted: File[] = [];
+    for (const f of files) {
+      const tooBig = fileTooLargeMessage(f);
+      if (tooBig) { notify(tooBig, "warning"); continue; }
+      accepted.push(f);
+    }
+    if (accepted.length === 0) return;
+    setPendingFiles(prev => [...prev, ...accepted]);
+    setPendingPreviews(prev => [
+      ...prev,
+      ...accepted.map(f => (f.type.startsWith("image/") || f.type.startsWith("video/")) ? URL.createObjectURL(f) : null),
+    ]);
   }
 
   async function confirmSendFile() {
     if (pendingFiles.length === 0 || !activeId) return;
     setBusy(true);
+    setUploadProgress(0);
     try {
-      const uploads = await Promise.all(pendingFiles.map(f => api.uploadFile(f)));
+      // Sequential so the progress bar tracks one file at a time and a failure
+      // points at the file that failed.
+      const uploads: { url: string; type: string; name: string }[] = [];
+      for (const f of pendingFiles) {
+        uploads.push(await api.uploadFile(f, (pct) => setUploadProgress(pct)));
+      }
       for (let i = 0; i < uploads.length; i++) {
         // Send draft caption with the first attachment, others empty
         await api.sendMedia(activeId, uploads[i].type, uploads[i].url, i === 0 ? draft.trim() : "");
       }
-      setDraft(""); setPendingFiles([]); setPendingPreviews([]);
       pendingPreviews.forEach(p => p && URL.revokeObjectURL(p));
+      setDraft(""); setPendingFiles([]); setPendingPreviews([]);
       queryClient.invalidateQueries({ queryKey: ["messages", activeId] }); loadConvs();
       notify(uploads.length > 1 ? "Files sent" : "File sent");
-    } catch { notify("Upload failed", "error"); }
-    finally { setBusy(false); }
+    } catch (err) {
+      notify(err instanceof Error ? err.message : "Upload failed", "error");
+    }
+    finally { setBusy(false); setUploadProgress(null); }
   }
 
   function cancelSendFile() {
@@ -380,6 +411,13 @@ export default function InboxPage() {
           notify={notify}
           showAgent={showAgent}
           onForward={(t) => setForwardText(t)}
+          uploadProgress={uploadProgress}
+          onAddNote={async (body) => {
+            if (!activeId) return;
+            await api.addNote(activeId, body);
+            setNotes((await api.getNotes(activeId)) || []);
+            notify("Note added");
+          }}
         />
 
         {/* ── RIGHT: Details Panel ── */}

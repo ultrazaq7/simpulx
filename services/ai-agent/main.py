@@ -143,3 +143,39 @@ async def summary_stream(req: SummaryReq):
         media_type="text/event-stream",
         headers={"Cache-Control": "no-cache", "X-Accel-Buffering": "no"},
     )
+
+
+@app.post("/reply/stream")
+async def reply_stream(req: SummaryReq):
+    """On-demand draft of the next reply to SEND to the customer, streamed as SSE.
+    Triggered from the inbox composer ('AI Smart Reply'). One-shot suggestion, not
+    persisted; the agent edits/sends it manually."""
+    pool = state["pool"]
+    async with pool.acquire() as conn:
+        conv = await conn.fetchrow(
+            """SELECT a.system_prompt, a.model
+                 FROM conversations cv
+                 LEFT JOIN ai_agents a ON a.id = cv.ai_agent_id
+                WHERE cv.id = $1""",
+            req.conversation_id,
+        )
+    system_prompt = (conv["system_prompt"] if conv and conv["system_prompt"]
+                     else "You are a helpful sales assistant.")
+    model = conv["model"] if conv else None
+    history = await orchestrator._load_history(pool, req.conversation_id, None)
+
+    async def gen():
+        try:
+            async for chunk in llm.stream_reply(system_prompt, history, model=model, app_lang=req.app_lang):
+                yield f"data: {json.dumps({'text': chunk})}\n\n"
+        except Exception:  # noqa: BLE001
+            log.exception("reply stream failed")
+            yield f"data: {json.dumps({'error': 'generation failed'})}\n\n"
+            return
+        yield f"data: {json.dumps({'done': True})}\n\n"
+
+    return StreamingResponse(
+        gen(),
+        media_type="text/event-stream",
+        headers={"Cache-Control": "no-cache", "X-Accel-Buffering": "no"},
+    )
