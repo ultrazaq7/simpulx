@@ -301,9 +301,9 @@ export const api = {
   },
   // ── Web API lead sources ──
   listWebApiSources: () => req<WebApiSource[]>("/api/web-api-sources"),
-  createWebApiSource: (input: { name: string; slug?: string; auto_assign_dept_id?: string; auto_template_name?: string; webhook_url?: string }) =>
+  createWebApiSource: (input: { name: string; slug?: string; auto_assign_dept_id?: string; auto_template_name?: string; webhook_url?: string; campaign_id?: string }) =>
     req<{ id: string }>("/api/web-api-sources", { method: "POST", body: JSON.stringify(input) }),
-  updateWebApiSource: (id: string, patch: { name?: string; slug?: string; auto_assign_dept_id?: string; auto_template_name?: string; webhook_url?: string; is_active?: boolean }) =>
+  updateWebApiSource: (id: string, patch: { name?: string; slug?: string; auto_assign_dept_id?: string; auto_template_name?: string; webhook_url?: string; is_active?: boolean; campaign_id?: string }) =>
     req(`/api/web-api-sources/${id}`, { method: "PATCH", body: JSON.stringify(patch) }),
   regenerateWebApiKey: (id: string) => req<{ api_key: string }>(`/api/web-api-sources/${id}/regenerate-key`, { method: "POST" }),
   deleteWebApiSource: (id: string) => req(`/api/web-api-sources/${id}`, { method: "DELETE" }),

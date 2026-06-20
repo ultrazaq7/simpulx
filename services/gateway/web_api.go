@@ -17,9 +17,11 @@ func (s *server) handleListWebAPISources(w http.ResponseWriter, r *http.Request)
 	rows, err := s.queryMaps(r.Context(),
 		`SELECT s.id::text AS id, s.name, s.slug, s.api_key, s.webhook_url,
 		        s.auto_assign_dept_id::text AS auto_assign_dept_id, d.name AS department,
-		        s.auto_template_name, s.is_active, s.lead_count, s.created_at
+		        s.auto_template_name, s.is_active, s.lead_count, s.created_at,
+		        s.campaign_id::text AS campaign_id, c.name AS campaign_name
 		   FROM web_api_sources s
 		   LEFT JOIN departments d ON d.id = s.auto_assign_dept_id
+		   LEFT JOIN campaigns c ON c.id = s.campaign_id
 		  WHERE s.organization_id = $1
 		  ORDER BY s.created_at`,
 		a.OrgID,
@@ -41,6 +43,7 @@ type webAPISourceInput struct {
 	AutoAssignDeptID string `json:"auto_assign_dept_id"`
 	AutoTemplateName string `json:"auto_template_name"`
 	WebhookURL       string `json:"webhook_url"`
+	CampaignID       string `json:"campaign_id"`
 }
 
 // POST /api/web-api-sources
@@ -56,9 +59,9 @@ func (s *server) handleCreateWebAPISource(w http.ResponseWriter, r *http.Request
 	}
 	var id string
 	err := s.pool.QueryRow(r.Context(),
-		`INSERT INTO web_api_sources (organization_id, name, slug, api_key, auto_assign_dept_id, auto_template_name, webhook_url)
-		 VALUES ($1,$2,$3,$4,NULLIF($5,'')::uuid,NULLIF($6,''),NULLIF($7,'')) RETURNING id::text`,
-		a.OrgID, b.Name, b.Slug, newAPIKey(), b.AutoAssignDeptID, b.AutoTemplateName, b.WebhookURL,
+		`INSERT INTO web_api_sources (organization_id, name, slug, api_key, auto_assign_dept_id, auto_template_name, webhook_url, campaign_id)
+		 VALUES ($1,$2,$3,$4,NULLIF($5,'')::uuid,NULLIF($6,''),NULLIF($7,''),NULLIF($8,'')::uuid) RETURNING id::text`,
+		a.OrgID, b.Name, b.Slug, newAPIKey(), b.AutoAssignDeptID, b.AutoTemplateName, b.WebhookURL, b.CampaignID,
 	).Scan(&id)
 	if err != nil {
 		http.Error(w, err.Error(), http.StatusInternalServerError)
@@ -78,6 +81,7 @@ func (s *server) handleUpdateWebAPISource(w http.ResponseWriter, r *http.Request
 		AutoTemplateName *string `json:"auto_template_name"`
 		WebhookURL       *string `json:"webhook_url"`
 		IsActive         *bool   `json:"is_active"`
+		CampaignID       *string `json:"campaign_id"`
 	}
 	if err := json.NewDecoder(r.Body).Decode(&b); err != nil {
 		http.Error(w, "bad request", http.StatusBadRequest)
@@ -91,10 +95,11 @@ func (s *server) handleUpdateWebAPISource(w http.ResponseWriter, r *http.Request
 		   auto_template_name = COALESCE($6, auto_template_name),
 		   webhook_url = COALESCE($7, webhook_url),
 		   is_active = COALESCE($8, is_active),
+		   campaign_id = CASE WHEN $9::text IS NULL THEN campaign_id ELSE NULLIF($9,'')::uuid END,
 		   updated_at = now()
 		 WHERE id=$1 AND organization_id=$2`,
 		r.PathValue("id"), a.OrgID, derefStr(b.Name), derefStr(b.Slug), derefStr(b.AutoAssignDeptID),
-		b.AutoTemplateName, b.WebhookURL, b.IsActive)
+		b.AutoTemplateName, b.WebhookURL, b.IsActive, b.CampaignID)
 	if err != nil {
 		http.Error(w, err.Error(), http.StatusInternalServerError)
 		return

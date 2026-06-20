@@ -374,6 +374,8 @@ export interface WebApiSource {
   auto_assign_dept_id: string | null;
   department: string | null;
   auto_template_name: string | null;
+  campaign_id: string | null;
+  campaign_name: string | null;
   is_active: boolean;
   lead_count: number;
   created_at: string;

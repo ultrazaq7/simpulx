@@ -6,7 +6,7 @@ import { useState } from "react";
 import { Plug, Loader2, Copy, Check, CheckCircle2, Key } from "lucide-react";
 import { api } from "@/lib/api";
 import { Select } from "@/components/Select";
-import type { Department } from "@/lib/types";
+import type { Department, Campaign } from "@/lib/types";
 import { WizardModal, WizardCard, WizardField, BackButton, ContinueButton } from "./WizardModal";
 import { FieldLabel, PrimaryButton } from "../_shared";
 
@@ -40,14 +40,15 @@ function CopyField({ label, value, mono }: { label: string; value: string; mono?
   );
 }
 
-export function WebApiWizard({ depts, onClose, onCreated }: {
-  depts: Department[]; onClose: () => void; onCreated: (msg: string) => void;
+export function WebApiWizard({ depts, campaigns, onClose, onCreated }: {
+  depts: Department[]; campaigns: Campaign[]; onClose: () => void; onCreated: (msg: string) => void;
 }) {
   const [step, setStep] = useState(0);
   const [preset, setPreset] = useState("");
   const [name, setName] = useState("");
   const [slug, setSlug] = useState("");
   const [deptId, setDeptId] = useState("");
+  const [campaignId, setCampaignId] = useState("");
   const [template, setTemplate] = useState("");
   const [webhook, setWebhook] = useState("");
   const [saving, setSaving] = useState(false);
@@ -66,6 +67,7 @@ export function WebApiWizard({ depts, onClose, onCreated }: {
       const r = await api.createWebApiSource({
         name: name.trim(), slug: slug.trim() || undefined, auto_assign_dept_id: deptId || undefined,
         auto_template_name: template.trim() || undefined, webhook_url: webhook.trim() || undefined,
+        campaign_id: campaignId || undefined,
       });
       // The create response carries only the id; fetch the row to reveal its key.
       const all = await api.listWebApiSources().catch(() => []);
@@ -102,6 +104,12 @@ export function WebApiWizard({ depts, onClose, onCreated }: {
           {err && <div className="px-3 py-2 rounded-md bg-destructive/10 border border-destructive/20 text-destructive text-[13px] font-medium">{err}</div>}
           <WizardField label="Name" value={name} onChange={setName} placeholder="e.g. Meta Ads" autoFocus />
           <WizardField label="Slug (optional)" value={slug} onChange={setSlug} placeholder="auto-generated from name" />
+          <div>
+            <FieldLabel>Route to campaign (optional)</FieldLabel>
+            <Select value={campaignId} onChange={setCampaignId} placeholder="No campaign"
+              options={[{ value: "", label: "No campaign" }, ...campaigns.map((c) => ({ value: c.id, label: c.name }))]} />
+            <p className="text-[11.5px] text-muted-foreground mt-1">Leads from this source are attributed to the campaign and round-robin assigned to its agents.</p>
+          </div>
           <div>
             <FieldLabel>Auto-assign department (optional)</FieldLabel>
             <Select value={deptId} onChange={setDeptId} placeholder="None"
