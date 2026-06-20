@@ -103,13 +103,15 @@ func (s *server) runExport(jobID, orgID, kind, from, to, campaignID, channelID, 
 		return
 	}
 
+	loc := s.orgLocation(ctx, orgID) // render timestamps in the workspace timezone
+
 	var buf bytes.Buffer
 	cw := csv.NewWriter(&buf)
 	_ = cw.Write(cols)
 	for _, row := range rows {
 		rec := make([]string, len(cols))
 		for i, c := range cols {
-			rec[i] = csvVal(row[c])
+			rec[i] = csvVal(row[c], loc)
 		}
 		_ = cw.Write(rec)
 	}
@@ -134,17 +136,34 @@ func (s *server) failExport(ctx context.Context, jobID, msg string) {
 	_, _ = s.pool.Exec(ctx, `UPDATE export_jobs SET status='failed', error=$2, completed_at=now() WHERE id=$1`, jobID, msg)
 }
 
-func csvVal(v any) string {
+func csvVal(v any, loc *time.Location) string {
 	switch x := v.(type) {
 	case nil:
 		return ""
 	case time.Time:
-		return x.Format(time.RFC3339)
+		if x.IsZero() {
+			return ""
+		}
+		return x.In(loc).Format("2006-01-02 15:04:05")
 	case string:
 		return x
 	default:
 		return fmt.Sprintf("%v", x)
 	}
+}
+
+// orgLocation resolves the workspace timezone (organizations.settings.timezone,
+// e.g. "Asia/Jakarta") so exported timestamps read in local time, not UTC.
+func (s *server) orgLocation(ctx context.Context, orgID string) *time.Location {
+	var tz string
+	_ = s.pool.QueryRow(ctx, `SELECT COALESCE(settings->>'timezone','') FROM organizations WHERE id=$1`, orgID).Scan(&tz)
+	if tz == "" {
+		tz = "Asia/Jakarta"
+	}
+	if loc, err := time.LoadLocation(tz); err == nil {
+		return loc
+	}
+	return time.UTC
 }
 
 func exportDateCol(kind string) string {

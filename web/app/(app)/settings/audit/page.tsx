@@ -197,11 +197,11 @@ export default function SystemLogsPage() {
       {/* Body */}
       <div className="bg-card border border-border rounded-lg shadow-xs overflow-hidden flex-1 min-h-0 flex flex-col">
         {tab === "downloads" ? (
-          <div className="overflow-y-auto flex-1 min-h-0 p-5">
-            <p className="text-[13px] text-muted-foreground mb-3">Exports you request from each section&apos;s Export button land here. Files are generated in the background (the full dataset with your filters) and kept for 30 days.</p>
-            <div className="rounded-lg border border-border overflow-x-auto">
+          <div className="flex flex-col flex-1 min-h-0 p-5">
+            <p className="text-[13px] text-muted-foreground mb-3 shrink-0">Exports you request from each section&apos;s Export button land here. Files are generated in the background (the full dataset with your filters) and kept for 30 days.</p>
+            <div className="rounded-lg border border-border overflow-auto flex-1 min-h-0">
               <table className="w-full text-sm">
-                <thead><tr className="border-b border-border bg-muted/40">
+                <thead className="sticky top-0 z-10"><tr className="border-b border-border bg-muted">
                   {["Data", "Requested by", "Date range", "Filters", "Rows", "Status", "Created", "Action"].map((h, i) => (
                     <th key={h} className={cn("px-4 py-2.5 text-[11px] font-bold uppercase tracking-wider text-muted-foreground whitespace-nowrap", i === 7 ? "text-right" : "text-left")}>{h}</th>
                   ))}
