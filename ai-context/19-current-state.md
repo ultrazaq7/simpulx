@@ -27,8 +27,11 @@ pages, behaviour unchanged). Old left-rail catalog removed.
   `POST /api/channels/viber/connect` verifies it via Viber `get_account_info`, registers
   `PUBLIC_API_URL/webhook/viber/{id}`, saves the channel. Inbound handler `viber_webhook.go` mirrors
   `meta_webhook.go`; routes by **channel id in the path** (Viber payloads omit the PA id), so
-  `messaging/store.go resolveChannel` was extended with `OR id::text = $1`. **Outbound Viber send is
-  NOT built yet** (messaging only ships `whatsapp_sender.go`) — inbound works, replies don't.
+  `messaging/store.go resolveChannel` was extended with `OR id::text = $1`. **Outbound now works too**
+  (`messaging/viber_sender.go`): `onOutbound` dispatches by `sendTarget.ChannelType`; `sendTarget`
+  now also returns channel type/name + the contact psid (Viber user id) and posts to Viber
+  `send_message`. Text + images send natively; video/audio/document go out as a link (Viber requires
+  a file size we don't track). Mock-gated by `WA_MOCK`.
 
 **New routes:** `POST /api/channels/embedded-signup`, `POST /api/channels/viber/connect` (both
 gated `manage_channels`), `POST|GET /webhook/viber/{id}` (unauthenticated, like `/webhook/meta`).

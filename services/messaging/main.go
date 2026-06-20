@@ -21,10 +21,11 @@ import (
 )
 
 type app struct {
-	st  *store
-	bus *broker.Broker
-	snd *sender
-	log interface {
+	st   *store
+	bus  *broker.Broker
+	snd  *sender
+	vsnd *viberSender
+	log  interface {
 		Info(string, ...any)
 		Error(string, ...any)
 		Warn(string, ...any)
@@ -50,10 +51,11 @@ func main() {
 	defer bus.Close()
 
 	a := &app{
-		st:  &store{pool: pool, bus: bus},
-		bus: bus,
-		snd: newSender(config.GetBool("WA_MOCK", true), config.Get("WA_GRAPH_BASE", "https://graph.facebook.com/v21.0")),
-		log: log,
+		st:   &store{pool: pool, bus: bus},
+		bus:  bus,
+		snd:  newSender(config.GetBool("WA_MOCK", true), config.Get("WA_GRAPH_BASE", "https://graph.facebook.com/v21.0")),
+		vsnd: newViberSender(config.GetBool("WA_MOCK", true)),
+		log:  log,
 	}
 
 	if err := bus.Subscribe(events.SubjectMessageReceived, "messaging-inbound", a.onReceived); err != nil {
@@ -241,6 +243,8 @@ func (a *app) onOutbound(env events.Envelope) error {
 	}
 	var externalID string
 	switch {
+	case target.ChannelType == "viber":
+		externalID, err = a.vsnd.send(ctx, target, e.Type, e.Body, e.MediaURL)
 	case e.MediaURL != "" && (e.Type == "image" || e.Type == "audio" || e.Type == "video" || e.Type == "document"):
 		externalID, err = a.snd.sendMedia(ctx, target, e.Type, e.MediaURL, e.Body)
 	default:
@@ -248,7 +252,7 @@ func (a *app) onOutbound(env events.Envelope) error {
 	}
 	status := "sent"
 	if err != nil {
-		a.log.Error("wa send failed", "err", err)
+		a.log.Error("outbound send failed", "channel", target.ChannelType, "err", err)
 		status = "failed"
 	}
 	msgID, err2 := a.st.insertOutbound(ctx, env.OrgID, convID, e.SenderType, e.SenderID, e.Type, e.Body, e.MediaURL, externalID, status, mediaPreview(e.Type, e.Body))

@@ -543,25 +543,32 @@ func (s *store) enrollSequences(ctx context.Context, orgID, convID, contactID st
 		orgID, convID, contactID)
 }
 
-// sendTarget mengambil data yang diperlukan untuk mengirim outbound ke WA.
+// sendTarget mengambil data yang diperlukan untuk mengirim outbound. ChannelType
+// memilih sender (whatsapp vs viber); ExternalID = psid/Viber user id untuk
+// channel non-WhatsApp (kontak Viber tidak punya nomor telepon).
 type sendTarget struct {
 	OrgID         string
 	ContactPhone  string
 	PhoneNumberID string
 	AccessToken   string
+	ChannelType   string
+	ChannelName   string
+	ExternalID    string
 }
 
 func (s *store) sendTarget(ctx context.Context, convID string) (sendTarget, error) {
 	var t sendTarget
 	err := s.pool.QueryRow(ctx,
-		`SELECT cv.organization_id, ct.phone,
-		        COALESCE(ch.phone_number_id,''), COALESCE(ch.access_token,'')
+		`SELECT cv.organization_id, COALESCE(ct.phone,''),
+		        COALESCE(ch.phone_number_id,''), COALESCE(ch.access_token,''),
+		        COALESCE(ch.type,''), COALESCE(ch.name,''),
+		        COALESCE(ct.external_ids->>'psid','')
 		   FROM conversations cv
 		   JOIN contacts ct ON ct.id = cv.contact_id
 		   LEFT JOIN channels ch ON ch.id = cv.channel_id
 		  WHERE cv.id = $1`,
 		convID,
-	).Scan(&t.OrgID, &t.ContactPhone, &t.PhoneNumberID, &t.AccessToken)
+	).Scan(&t.OrgID, &t.ContactPhone, &t.PhoneNumberID, &t.AccessToken, &t.ChannelType, &t.ChannelName, &t.ExternalID)
 	return t, err
 }
 
