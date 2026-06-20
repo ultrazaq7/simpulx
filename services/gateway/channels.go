@@ -1,8 +1,16 @@
 package main
 
 import (
+	"context"
+	"crypto/rand"
 	"encoding/json"
+	"fmt"
+	"math/big"
 	"net/http"
+	"net/url"
+	"strings"
+
+	"github.com/simpulx/v2/libs/go/config"
 )
 
 // ── Channels (omnichannel connections per org) ──────────────
@@ -158,4 +166,243 @@ func nullableJSON(b []byte) any {
 		return nil
 	}
 	return string(b)
+}
+
+// ── WhatsApp Embedded Signup (real Meta provisioning) ──────────────────────
+// POST /api/channels/embedded-signup
+//
+// The frontend runs Meta's Embedded Signup popup (Facebook JS SDK) which returns
+// a short-lived OAuth `code` plus the selected `waba_id` / `phone_number_id`. We
+// finish provisioning server-side: exchange the code for a business token,
+// subscribe our app to the WABA so webhooks flow, and register the phone number.
+// The result is a fully connected WhatsApp channel with no manual steps.
+//
+// Dev-safe: when META_APP_ID / META_APP_SECRET are unset we skip the live Graph
+// calls and store the channel as `pending` (so the Test button can finish it),
+// returning a warning instead of a 500.
+func (s *server) handleEmbeddedSignup(w http.ResponseWriter, r *http.Request) {
+	a, _ := authFrom(r.Context())
+	var b struct {
+		Code          string `json:"code"`
+		WabaID        string `json:"waba_id"`
+		PhoneNumberID string `json:"phone_number_id"`
+		Name          string `json:"name"`
+	}
+	if err := json.NewDecoder(r.Body).Decode(&b); err != nil || b.Code == "" || b.WabaID == "" || b.PhoneNumberID == "" {
+		http.Error(w, "code, waba_id and phone_number_id are required", http.StatusBadRequest)
+		return
+	}
+
+	appID := config.Get("META_APP_ID", "")
+	appSecret := config.Get("META_APP_SECRET", "")
+	name := strings.TrimSpace(b.Name)
+	if name == "" {
+		name = "WhatsApp Business"
+	}
+
+	status := "connected"
+	warning := ""
+	token := ""
+
+	if appID == "" || appSecret == "" {
+		// No credentials on the server — store what the popup gave us and let the
+		// agent finish via Test once env is configured.
+		status = "pending"
+		warning = "META_APP_ID / META_APP_SECRET not configured on the server; channel saved as pending."
+	} else {
+		// 1) Exchange the code for a business integration system-user token.
+		tok, err := s.metaExchangeCode(r.Context(), appID, appSecret, b.Code)
+		if err != nil {
+			http.Error(w, "code exchange failed: "+err.Error(), http.StatusBadGateway)
+			return
+		}
+		token = tok
+		// 2) Subscribe our app to the WABA so inbound webhooks are delivered.
+		if _, err := s.metaPost(r.Context(), fmt.Sprintf("%s/%s/subscribed_apps", graphBase, b.WabaID), token, map[string]any{}); err != nil {
+			warning = "subscribed_apps: " + err.Error()
+		}
+		// 3) Register the phone number (best-effort — may already be registered).
+		pin := randomPIN()
+		if _, err := s.metaPost(r.Context(), fmt.Sprintf("%s/%s/register", graphBase, b.PhoneNumberID), token,
+			map[string]any{"messaging_product": "whatsapp", "pin": pin}); err != nil {
+			if warning != "" {
+				warning += "; "
+			}
+			warning += "register: " + err.Error()
+		}
+	}
+
+	cfg, _ := json.Marshal(map[string]any{"provisioned_via": "embedded_signup"})
+	var id string
+	err := s.pool.QueryRow(r.Context(),
+		`INSERT INTO channels (organization_id, type, name, phone_number_id, waba_id,
+		                       access_token, config, status, connected_at)
+		 VALUES ($1,'whatsapp',$2,NULLIF($3,''),NULLIF($4,''),NULLIF($5,''),$6,$7,
+		         CASE WHEN $7='connected' THEN now() ELSE NULL END)
+		 RETURNING id::text`,
+		a.OrgID, name, b.PhoneNumberID, b.WabaID, token, cfg, status,
+	).Scan(&id)
+	if err != nil {
+		http.Error(w, err.Error(), http.StatusInternalServerError)
+		return
+	}
+	s.audit(r.Context(), a, "created", "channel", id, map[string]any{"name": name, "type": "whatsapp", "via": "embedded_signup"})
+	writeJSON(w, map[string]any{"id": id, "status": status, "warning": warning})
+}
+
+// metaExchangeCode swaps the Embedded Signup OAuth code for an access token.
+func (s *server) metaExchangeCode(ctx context.Context, appID, appSecret, code string) (string, error) {
+	q := url.Values{}
+	q.Set("client_id", appID)
+	q.Set("client_secret", appSecret)
+	q.Set("code", code)
+	var out struct {
+		AccessToken string `json:"access_token"`
+		Error       *struct {
+			Message string `json:"message"`
+		} `json:"error"`
+	}
+	if err := metaGet(ctx, fmt.Sprintf("%s/oauth/access_token?%s", graphBase, q.Encode()), &out); err != nil {
+		return "", err
+	}
+	if out.Error != nil {
+		return "", fmt.Errorf("meta: %s", out.Error.Message)
+	}
+	if out.AccessToken == "" {
+		return "", fmt.Errorf("no access_token in response")
+	}
+	return out.AccessToken, nil
+}
+
+// randomPIN returns a 6-digit two-step verification PIN for number registration.
+func randomPIN() string {
+	n, err := rand.Int(rand.Reader, big.NewInt(1000000))
+	if err != nil {
+		return "000000"
+	}
+	return fmt.Sprintf("%06d", n.Int64())
+}
+
+// ── Viber (real connect) ───────────────────────────────────────────────────
+// POST /api/channels/viber/connect   Body: { auth_token, name }
+//
+// Verifies the Public Account auth token against Viber's REST API, registers our
+// inbound webhook, then stores the channel. Inbound messages arrive at
+// /webhook/viber and open conversations like Messenger / Instagram.
+func (s *server) handleConnectViber(w http.ResponseWriter, r *http.Request) {
+	a, _ := authFrom(r.Context())
+	var b struct {
+		AuthToken string `json:"auth_token"`
+		Name      string `json:"name"`
+	}
+	if err := json.NewDecoder(r.Body).Decode(&b); err != nil || strings.TrimSpace(b.AuthToken) == "" {
+		http.Error(w, "auth_token is required", http.StatusBadRequest)
+		return
+	}
+	token := strings.TrimSpace(b.AuthToken)
+
+	// 1) Verify the token + read the account identity (real Viber call).
+	info, err := viberGetAccountInfo(r.Context(), token)
+	if err != nil {
+		http.Error(w, "Viber rejected the token: "+err.Error(), http.StatusBadGateway)
+		return
+	}
+	name := strings.TrimSpace(b.Name)
+	if name == "" {
+		name = info.Name
+	}
+	if name == "" {
+		name = "Viber"
+	}
+
+	// 2) Store the channel first so we can register a per-channel webhook URL. A
+	// Viber message payload doesn't carry the Public Account id, so we route by
+	// the channel id embedded in the callback path (/webhook/viber/{id}).
+	cfg, _ := json.Marshal(map[string]any{"viber_sender": info.ID, "viber_uri": info.URI})
+	var id string
+	err = s.pool.QueryRow(r.Context(),
+		`INSERT INTO channels (organization_id, type, name, access_token, display_id, config, status, connected_at)
+		 VALUES ($1,'viber',$2,$3,NULLIF($4,''),$5,'connected',now())
+		 RETURNING id::text`,
+		a.OrgID, name, token, info.ID, cfg,
+	).Scan(&id)
+	if err != nil {
+		http.Error(w, err.Error(), http.StatusInternalServerError)
+		return
+	}
+
+	// 3) Register the inbound webhook (best-effort — localhost won't be reachable in dev).
+	warning := ""
+	hook := strings.TrimRight(config.Get("PUBLIC_API_URL", "http://localhost:8080"), "/") + "/webhook/viber/" + id
+	if err := viberSetWebhook(r.Context(), token, hook); err != nil {
+		warning = "webhook registration failed (set PUBLIC_API_URL to a public https URL): " + err.Error()
+	}
+
+	s.audit(r.Context(), a, "created", "channel", id, map[string]any{"name": name, "type": "viber"})
+	writeJSON(w, map[string]any{"id": id, "status": "connected", "warning": warning})
+}
+
+type viberAccount struct {
+	ID   string
+	Name string
+	URI  string
+}
+
+// viberGetAccountInfo calls Viber's get_account_info to validate the token.
+func viberGetAccountInfo(ctx context.Context, token string) (viberAccount, error) {
+	var out struct {
+		Status        int    `json:"status"`
+		StatusMessage string `json:"status_message"`
+		ID            string `json:"id"`
+		Name          string `json:"name"`
+		URI           string `json:"uri"`
+	}
+	if err := viberPost(ctx, token, "https://chatapi.viber.com/pa/get_account_info", map[string]any{}, &out); err != nil {
+		return viberAccount{}, err
+	}
+	if out.Status != 0 {
+		return viberAccount{}, fmt.Errorf("%s", out.StatusMessage)
+	}
+	return viberAccount{ID: out.ID, Name: out.Name, URI: out.URI}, nil
+}
+
+// viberSetWebhook registers our inbound endpoint with Viber.
+func viberSetWebhook(ctx context.Context, token, callbackURL string) error {
+	var out struct {
+		Status        int    `json:"status"`
+		StatusMessage string `json:"status_message"`
+	}
+	body := map[string]any{
+		"url":         callbackURL,
+		"event_types": []string{"message", "subscribed", "conversation_started"},
+		"send_name":   true,
+		"send_photo":  false,
+	}
+	if err := viberPost(ctx, token, "https://chatapi.viber.com/pa/set_webhook", body, &out); err != nil {
+		return err
+	}
+	if out.Status != 0 {
+		return fmt.Errorf("%s", out.StatusMessage)
+	}
+	return nil
+}
+
+// viberPost performs an authenticated Viber REST call and decodes the response.
+func viberPost(ctx context.Context, token, endpoint string, payload, out any) error {
+	buf, _ := json.Marshal(payload)
+	req, err := http.NewRequestWithContext(ctx, http.MethodPost, endpoint, strings.NewReader(string(buf)))
+	if err != nil {
+		return err
+	}
+	req.Header.Set("X-Viber-Auth-Token", token)
+	req.Header.Set("Content-Type", "application/json")
+	resp, err := adHTTP.Do(req)
+	if err != nil {
+		return err
+	}
+	defer resp.Body.Close()
+	if resp.StatusCode >= 300 {
+		return fmt.Errorf("viber http %d", resp.StatusCode)
+	}
+	return json.NewDecoder(resp.Body).Decode(out)
 }

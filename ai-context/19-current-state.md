@@ -2,6 +2,44 @@
 
 Snapshot as of **2026-06-17**. This is the honest "what actually works right now" doc.
 
+## Channel & Integrations merge + real Create-Channel wizard (2026-06-20)
+
+Merged three settings nav items — **Channels**, **Web API Sources**, **Ad Performance** — into
+one section **Channel & Integrations** at `/settings/channels`, with **top tabs**
+(`?tab=channels|webapi|advertising`, URL-driven). The old `/settings/integrations` and
+`/settings/ads` routes are now thin client redirects to the right tab (bookmarks survive). Nav
+relabelled via new locale key `settings.channels_integrations` (+ `tab_web_api`, `tab_advertising`).
+
+**Channels tab** is a clean enterprise card grid (search + platform filter chips); platform
+selection moved into a real **3-step Create Channel wizard** (`ChannelWizard.tsx`: Select channel →
+Channel details → Setting up). Page split into `ChannelsTab.tsx` / `WebApiTab.tsx` /
+`AdvertisingTab.tsx` under `settings/channels/` (Web API + Advertising are straight ports of the old
+pages, behaviour unchanged). Old left-rail catalog removed.
+
+**Real wiring (no stubs):**
+- **WhatsApp — Embedded Signup (full auto-provision):** real Facebook JS SDK popup
+  (`lib/fbSignup.ts`) returns code + waba_id + phone_number_id → `POST /api/channels/embedded-signup`
+  (`gateway/channels.go`) exchanges the code (`META_APP_ID`/`META_APP_SECRET`), subscribes the app
+  to the WABA, registers the number, saves the channel `connected`. Dev-safe: with creds blank it
+  saves `pending` + warning. Also a **Direct Cloud API** manual path (shows webhook URL + verify
+  token, collects system-user token / WABA / phone-number id → existing `createChannel`).
+- **Viber (now `available: true`):** wizard collects the Public Account auth token →
+  `POST /api/channels/viber/connect` verifies it via Viber `get_account_info`, registers
+  `PUBLIC_API_URL/webhook/viber/{id}`, saves the channel. Inbound handler `viber_webhook.go` mirrors
+  `meta_webhook.go`; routes by **channel id in the path** (Viber payloads omit the PA id), so
+  `messaging/store.go resolveChannel` was extended with `OR id::text = $1`. **Outbound Viber send is
+  NOT built yet** (messaging only ships `whatsapp_sender.go`) — inbound works, replies don't.
+
+**New routes:** `POST /api/channels/embedded-signup`, `POST /api/channels/viber/connect` (both
+gated `manage_channels`), `POST|GET /webhook/viber/{id}` (unauthenticated, like `/webhook/meta`).
+
+**New env (gateway `.env`):** `META_APP_ID`, `META_CONFIG_ID`, `PUBLIC_API_URL`. **Web build args**
+(`web/Dockerfile` + `compose.prod.yml`, baked at build): `NEXT_PUBLIC_META_APP_ID`,
+`NEXT_PUBLIC_META_CONFIG_ID`, `NEXT_PUBLIC_META_VERIFY_TOKEN` (display-only). In prod
+`PUBLIC_API_URL=https://app.simpulx.com` (Caddy already proxies `/webhook/*` → gateway). Verified:
+`go build`/`go vet` gateway+messaging clean, `npm run build` clean (27 routes). **User still needs to
+paste their Meta App ID + Embedded Signup config_id into `.env` for the FB button to appear.**
+
 ## Account-state model + presence/billing (2026-06-17)
 
 Locked the user-account state model into **3 independent axes** (was previously conflated, which

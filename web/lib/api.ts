@@ -335,6 +335,13 @@ export const api = {
     req(`/api/channels/${id}`, { method: "PATCH", body: JSON.stringify(patch) }),
   deleteChannel: (id: string) => req(`/api/channels/${id}`, { method: "DELETE" }),
   testChannel: (id: string) => req<{ status: string }>(`/api/channels/${id}/test`, { method: "POST" }),
+  // Real Meta Embedded Signup: the FB popup returns code + ids, the gateway
+  // exchanges the code, subscribes the app to the WABA and registers the number.
+  embeddedSignup: (input: { code: string; waba_id: string; phone_number_id: string; name?: string }) =>
+    req<{ id: string; status: string; warning?: string }>("/api/channels/embedded-signup", { method: "POST", body: JSON.stringify(input) }),
+  // Viber: verify the Public Account token + register the inbound webhook.
+  connectViber: (input: { auth_token: string; name?: string }) =>
+    req<{ id: string; status: string; warning?: string }>("/api/channels/viber/connect", { method: "POST", body: JSON.stringify(input) }),
 
   // Ad performance
   listAdAccounts: () => req<import("./types").AdAccount[]>("/api/ad-accounts"),

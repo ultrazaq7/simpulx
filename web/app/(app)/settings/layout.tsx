@@ -9,7 +9,7 @@ import Link from "next/link";
 import { usePathname } from "next/navigation";
 import {
   Settings, Type, Bell, Users, Building2, ShieldCheck,
-  Sparkles, FileText, GitBranch, Radio, Plug, Clock, BarChart3,
+  Sparkles, FileText, GitBranch, Radio, Clock,
   PanelLeftClose, PanelLeftOpen,
 } from "lucide-react";
 import { cn } from "@/lib/utils";
@@ -42,9 +42,8 @@ const GROUPS: { titleKey: string; items: NavItem[] }[] = [
       { key: "campaigns", labelKey: "settings.campaigns", icon: Sparkles, href: "/settings/campaigns", perm: "manage_campaigns" },
       { key: "templates", labelKey: "settings.templates", icon: FileText, href: "/settings/templates", perm: "view_settings" },
       { key: "automation", labelKey: "settings.automations", icon: GitBranch, href: "/settings/automation", perm: "view_automation" },
-      { key: "channels", labelKey: "settings.channels", icon: Radio, href: "/settings/channels", perm: "manage_channels" },
-      { key: "ads", labelKey: "settings.ads", icon: BarChart3, href: "/settings/ads", perm: "manage_channels" },
-      { key: "integrations", labelKey: "settings.web_api", icon: Plug, href: "/settings/integrations", perm: "view_settings" },
+      // Channel & Integrations merges messaging channels, Web API lead sources and ad accounts.
+      { key: "channels", labelKey: "settings.channels_integrations", icon: Radio, href: "/settings/channels", perm: "manage_channels" },
     ],
   },
   {

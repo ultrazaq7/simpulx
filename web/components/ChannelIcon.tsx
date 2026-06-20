@@ -81,9 +81,9 @@ export const CHANNEL_CATALOG: ChannelMeta[] = [
   },
   {
     type: "viber", name: "Viber", color: "#7360F2", icon: MessageCircle,
-    blurb: "Business messages",
-    description: "Reach customers on Viber with a connected business account.",
-    available: false,
+    blurb: "Public Account",
+    description: "Connect a Viber Public Account with its auth token to receive and reply to Viber messages in the shared inbox.",
+    available: true,
   },
 ];
 

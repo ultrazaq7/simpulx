@@ -1,0 +1,298 @@
+"use client";
+// Channels tab — the enterprise card list of connected messaging accounts plus
+// the Create Channel wizard. Platform selection lives inside the wizard (Step 1),
+// so this view is a clean, searchable, filterable list of real connections.
+import { useEffect, useMemo, useState } from "react";
+import Link from "next/link";
+import {
+  Plus, RefreshCw, Pencil, Trash2, CheckCircle, Loader2, X, Search, MoreVertical, FileText, Power,
+} from "lucide-react";
+import ChannelIcon, { CHANNEL_CATALOG, channelMeta } from "@/components/ChannelIcon";
+import { api } from "@/lib/api";
+import { cn, fmtDate } from "@/lib/utils";
+import { Tip } from "@/components/ui/tooltip";
+import type { Channel } from "@/lib/types";
+import { useToast, FieldLabel, INPUT_CLASS, PrimaryButton, GhostButton } from "../_shared";
+import { ChannelWizard } from "./ChannelWizard";
+
+const STATUS: Record<string, { label: string; color: string; bg: string }> = {
+  connected:    { label: "Connected",     color: "text-success",          bg: "bg-success" },
+  pending:      { label: "Pending setup", color: "text-warning",          bg: "bg-warning" },
+  disconnected: { label: "Disconnected",  color: "text-muted-foreground", bg: "bg-muted-foreground/40" },
+  error:        { label: "Error",         color: "text-destructive",      bg: "bg-destructive" },
+};
+
+function isSandbox(c: Channel) { return c.type === "whatsapp" && Boolean((c.config as Record<string, any>)?.is_sandbox); }
+
+function StatusDot({ status }: { status: string }) {
+  const s = STATUS[status] ?? STATUS.disconnected;
+  return (
+    <span className="inline-flex items-center gap-1.5">
+      <span className={cn("w-[7px] h-[7px] rounded-full", s.bg)} />
+      <span className={cn("text-xs font-semibold", s.color)}>{s.label}</span>
+    </span>
+  );
+}
+
+function Toggle({ checked, onChange }: { checked: boolean; onChange: () => void }) {
+  return (
+    <button type="button" role="switch" aria-checked={checked} onClick={onChange}
+      className={cn("relative inline-flex h-5 w-9 shrink-0 cursor-pointer rounded-full transition-colors duration-200 outline-none", checked ? "bg-primary" : "bg-muted")}>
+      <span className={cn("pointer-events-none inline-block h-4 w-4 rounded-full bg-white shadow-sm transform transition-transform duration-200 mt-0.5", checked ? "translate-x-[18px] ml-0.5" : "translate-x-0.5")} />
+    </button>
+  );
+}
+
+export function ChannelsTab() {
+  const { notify, ToastHost } = useToast();
+  const [channels, setChannels] = useState<Channel[]>([]);
+  const [loading, setLoading] = useState(true);
+  const [query, setQuery] = useState("");
+  const [filter, setFilter] = useState("all");
+  const [wizardOpen, setWizardOpen] = useState(false);
+  const [editing, setEditing] = useState<Channel | null>(null);
+
+  async function load() {
+    setLoading(true);
+    try { setChannels(await api.listChannels()); }
+    catch { /* unauthenticated handled in api */ }
+    finally { setLoading(false); }
+  }
+  useEffect(() => { load(); }, []);
+
+  async function test(c: Channel) {
+    try { await api.testChannel(c.id); notify("Connection verified"); load(); }
+    catch (e) { notify(String(e), "error"); }
+  }
+  async function toggleActive(c: Channel) {
+    try { await api.updateChannel(c.id, { is_active: !c.is_active }); load(); }
+    catch (e) { notify(String(e), "error"); }
+  }
+  async function remove(c: Channel) {
+    if (!confirm(`Delete "${c.name}"? This cannot be undone.`)) return;
+    try { await api.deleteChannel(c.id); notify("Channel deleted"); load(); }
+    catch (e) { notify(String(e), "error"); }
+  }
+
+  // Filter chips: platforms that have at least one channel, plus Testing.
+  const platforms = useMemo(() => {
+    const present = new Set<string>();
+    channels.forEach((c) => present.add(isSandbox(c) ? "testing" : c.type));
+    return CHANNEL_CATALOG.filter((m) => present.has(m.type));
+  }, [channels]);
+
+  const q = query.trim().toLowerCase();
+  const visible = channels.filter((c) => {
+    const key = isSandbox(c) ? "testing" : c.type;
+    if (filter !== "all" && key !== filter) return false;
+    if (q && !c.name.toLowerCase().includes(q) && !(c.display_id ?? "").toLowerCase().includes(q) && !(c.phone_number_id ?? "").toLowerCase().includes(q)) return false;
+    return true;
+  });
+
+  return (
+    <div className="h-full overflow-y-auto">
+      {ToastHost}
+      <div className="px-6 py-6 max-w-[1080px] mx-auto w-full">
+        {/* Toolbar */}
+        <div className="flex items-center gap-2.5 flex-wrap mb-4">
+          <div className="relative w-[300px] max-w-[50vw]">
+            <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-muted-foreground pointer-events-none" />
+            <input type="text" placeholder="Search channels" value={query} onChange={(e) => setQuery(e.target.value)}
+              className="w-full h-9 pl-9 pr-3 rounded-md border border-input bg-card text-sm text-foreground placeholder:text-muted-foreground/70 outline-none transition-shadow focus:border-primary" />
+          </div>
+          <Tip label="Refresh"><button onClick={load} className="p-1.5 rounded-md hover:bg-muted transition-colors outline-none">
+            <RefreshCw className="w-[18px] h-[18px] text-muted-foreground" />
+          </button></Tip>
+          <div className="flex-1" />
+          <PrimaryButton onClick={() => setWizardOpen(true)}>
+            <Plus className="w-4 h-4" />Create channel
+          </PrimaryButton>
+        </div>
+
+        {/* Platform filter chips */}
+        {platforms.length > 0 && (
+          <div className="flex items-center gap-2 mb-5 flex-wrap">
+            <Chip label="All" active={filter === "all"} onClick={() => setFilter("all")} />
+            {platforms.map((m) => (
+              <Chip key={m.type} label={m.type === "testing" ? "Testing" : m.name} active={filter === m.type} onClick={() => setFilter(m.type)} />
+            ))}
+          </div>
+        )}
+
+        {/* List */}
+        {loading ? (
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-3">{[0, 1, 2, 3].map((i) => <div key={i} className="h-[132px] rounded-xl skeleton" />)}</div>
+        ) : visible.length === 0 ? (
+          <div className="text-center py-16 border border-dashed border-border rounded-xl bg-card">
+            <div className="inline-flex mb-3 opacity-80"><ChannelIcon type="whatsapp" size={56} radius={16} /></div>
+            <p className="font-bold text-foreground mb-1">{channels.length === 0 ? "No channels connected yet" : "No channels match your filters"}</p>
+            <p className="text-[13px] text-muted-foreground mb-4">{channels.length === 0 ? "Connect WhatsApp, Messenger, Instagram, Viber and more." : "Try a different search or filter."}</p>
+            {channels.length === 0 && <PrimaryButton onClick={() => setWizardOpen(true)}><Plus className="w-4 h-4" />Create channel</PrimaryButton>}
+          </div>
+        ) : (
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
+            {visible.map((c) => (
+              <ChannelCard key={c.id} c={c} onTest={test} onToggle={toggleActive} onEdit={setEditing} onDelete={remove} />
+            ))}
+          </div>
+        )}
+      </div>
+
+      {wizardOpen && (
+        <ChannelWizard
+          onClose={() => setWizardOpen(false)}
+          onDone={(msg) => { setWizardOpen(false); notify(msg); load(); }}
+          onError={(msg) => notify(msg, "error")}
+        />
+      )}
+      {editing && (
+        <EditChannelDialog channel={editing}
+          onClose={() => setEditing(null)}
+          onSaved={(msg) => { setEditing(null); notify(msg); load(); }}
+          onError={(msg) => notify(msg, "error")} />
+      )}
+    </div>
+  );
+}
+
+function Chip({ label, active, onClick }: { label: string; active: boolean; onClick: () => void }) {
+  return (
+    <button onClick={onClick}
+      className={cn("px-3 h-8 rounded-full text-[12.5px] font-semibold transition-colors outline-none border",
+        active ? "bg-primary text-white border-primary" : "bg-card text-muted-foreground border-border hover:bg-muted/60 hover:text-foreground")}>
+      {label}
+    </button>
+  );
+}
+
+// ── Enterprise channel card ────────────────────────────────────────────────
+function ChannelCard({ c, onTest, onToggle, onEdit, onDelete }: {
+  c: Channel; onTest: (c: Channel) => void; onToggle: (c: Channel) => void; onEdit: (c: Channel) => void; onDelete: (c: Channel) => void;
+}) {
+  const sandbox = isSandbox(c);
+  const iconType = sandbox ? "testing" : c.type;
+  const typeLabel = sandbox ? "Testing channel" : channelMeta(c.type).name;
+  const ref = c.display_id || c.phone_number_id;
+  const [menu, setMenu] = useState(false);
+
+  return (
+    <div className={cn("rounded-xl bg-card border border-border shadow-xs p-4 flex flex-col gap-3 transition-opacity", !c.is_active && "opacity-60")}>
+      {/* Header */}
+      <div className="flex items-start gap-3">
+        <ChannelIcon type={iconType} size={44} />
+        <div className="min-w-0 flex-1">
+          <p className="text-[14px] font-bold text-foreground truncate">{c.name}</p>
+          <p className="text-[12px] text-muted-foreground truncate">{typeLabel}</p>
+        </div>
+        <StatusDot status={c.status} />
+      </div>
+
+      {/* Reference badge */}
+      <div className="flex items-center gap-2 flex-wrap">
+        {ref ? (
+          <span className="inline-flex items-center px-2.5 h-7 rounded-full border border-success/40 bg-success/[0.07] text-[12px] font-semibold text-success font-mono">{ref}</span>
+        ) : (
+          <span className="inline-flex items-center px-2.5 h-7 rounded-full border border-border bg-muted/50 text-[12px] font-medium text-muted-foreground">Not configured</span>
+        )}
+        {c.connected_at && <span className="text-[11.5px] text-muted-foreground">since {fmtDate(c.connected_at)}</span>}
+      </div>
+
+      {/* Actions */}
+      <div className="flex items-center gap-2 pt-1 border-t border-border/60 mt-1">
+        <button onClick={() => onTest(c)} className="inline-flex items-center gap-1.5 px-2.5 h-8 rounded-md border border-border text-[12.5px] font-semibold text-foreground hover:bg-muted transition-colors outline-none">
+          <CheckCircle className="w-3.5 h-3.5" />Test
+        </button>
+        <Link href="/settings/templates" className="inline-flex items-center gap-1.5 px-2.5 h-8 rounded-md border border-border text-[12.5px] font-semibold text-foreground hover:bg-muted transition-colors outline-none">
+          <FileText className="w-3.5 h-3.5" />Templates
+        </Link>
+        <div className="flex-1" />
+        <Tip label={c.is_active ? "Active" : "Disabled"}><span><Toggle checked={c.is_active} onChange={() => onToggle(c)} /></span></Tip>
+        <div className="relative">
+          <button onClick={() => setMenu((m) => !m)} className="p-1.5 rounded-md hover:bg-muted outline-none transition-colors">
+            <MoreVertical className="w-[18px] h-[18px] text-muted-foreground" />
+          </button>
+          {menu && (
+            <>
+              <div className="fixed inset-0 z-10" onClick={() => setMenu(false)} />
+              <div className="absolute right-0 top-9 z-20 w-40 rounded-lg border border-border bg-card shadow-xl py-1 animate-scale-in">
+                <MenuItem icon={Pencil} label="Edit" onClick={() => { setMenu(false); onEdit(c); }} />
+                <MenuItem icon={Power} label={c.is_active ? "Disable" : "Enable"} onClick={() => { setMenu(false); onToggle(c); }} />
+                <div className="my-1 border-t border-border/60" />
+                <MenuItem icon={Trash2} label="Delete" danger onClick={() => { setMenu(false); onDelete(c); }} />
+              </div>
+            </>
+          )}
+        </div>
+      </div>
+    </div>
+  );
+}
+
+function MenuItem({ icon: Icon, label, onClick, danger }: { icon: any; label: string; onClick: () => void; danger?: boolean }) {
+  return (
+    <button onClick={onClick}
+      className={cn("w-full flex items-center gap-2.5 px-3 py-2 text-[13px] font-medium text-left hover:bg-muted transition-colors outline-none",
+        danger ? "text-destructive" : "text-foreground")}>
+      <Icon className="w-4 h-4" />{label}
+    </button>
+  );
+}
+
+// ── Edit dialog (name / display / token / WA calling) ──────────────────────
+function EditChannelDialog({ channel, onClose, onSaved, onError }: {
+  channel: Channel; onClose: () => void; onSaved: (m: string) => void; onError: (m: string) => void;
+}) {
+  const isWa = channel.type === "whatsapp";
+  const [name, setName] = useState(channel.name ?? "");
+  const [displayId, setDisplayId] = useState(channel.display_id ?? "");
+  const [token, setToken] = useState("");
+  const [calling, setCalling] = useState(channel.calling_enabled ?? false);
+  const [saving, setSaving] = useState(false);
+
+  async function save() {
+    if (!name.trim()) { onError("Channel name is required"); return; }
+    setSaving(true);
+    try {
+      await api.updateChannel(channel.id, {
+        name: name.trim(), display_id: displayId.trim(),
+        ...(token.trim() ? { access_token: token.trim() } : {}),
+        ...(isWa ? { calling_enabled: calling } : {}),
+      });
+      onSaved("Channel updated");
+    } catch (e) { onError(String(e)); }
+    finally { setSaving(false); }
+  }
+
+  return (
+    <div className="fixed inset-0 z-[100] flex items-center justify-center p-4">
+      <div className="absolute inset-0 bg-black/40 backdrop-blur-[2px] animate-fade-in" onClick={onClose} />
+      <div className="relative bg-card rounded-lg border border-border shadow-2xl w-full max-w-lg animate-scale-in">
+        <div className="flex items-center gap-3 px-5 py-3.5 border-b border-border">
+          <ChannelIcon type={isSandbox(channel) ? "testing" : channel.type} size={32} />
+          <h2 className="text-[15px] font-bold text-foreground flex-1">Edit {channel.name}</h2>
+          <button onClick={onClose} className="p-1 rounded-md text-muted-foreground hover:bg-muted hover:text-foreground outline-none transition-colors"><X className="w-[18px] h-[18px]" /></button>
+        </div>
+        <div className="px-5 py-5 flex flex-col gap-4">
+          <div><FieldLabel>Channel name</FieldLabel><input value={name} onChange={(e) => setName(e.target.value)} className={INPUT_CLASS} autoFocus /></div>
+          <div><FieldLabel>Display number / handle</FieldLabel><input value={displayId} onChange={(e) => setDisplayId(e.target.value)} className={INPUT_CLASS} placeholder="+62 812 3456 7890" /></div>
+          <div><FieldLabel>Access token (leave blank to keep)</FieldLabel><input type="password" value={token} onChange={(e) => setToken(e.target.value)} className={INPUT_CLASS} /></div>
+          {isWa && (
+            <div className="flex items-center justify-between gap-3 rounded-lg border border-border p-3">
+              <div className="min-w-0">
+                <p className="text-[13px] font-semibold text-foreground">WhatsApp calling</p>
+                <p className="text-[11.5px] text-muted-foreground mt-0.5">Show a call button in the inbox (opens WhatsApp and logs the attempt).</p>
+              </div>
+              <Toggle checked={calling} onChange={() => setCalling((v) => !v)} />
+            </div>
+          )}
+        </div>
+        <div className="flex justify-end gap-2 px-5 py-3.5 border-t border-border">
+          <GhostButton onClick={onClose}>Cancel</GhostButton>
+          <PrimaryButton onClick={save} disabled={saving}>
+            {saving ? <Loader2 className="w-4 h-4 animate-spin" /> : null}Save
+          </PrimaryButton>
+        </div>
+      </div>
+    </div>
+  );
+}

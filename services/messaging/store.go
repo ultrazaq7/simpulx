@@ -25,7 +25,8 @@ type channelInfo struct {
 }
 
 // resolveChannel mengambil channel berdasarkan external ref: phone_number_id
-// untuk WhatsApp, atau config.page_id / config.instagram_account_id untuk Meta.
+// untuk WhatsApp, config.page_id / config.instagram_account_id untuk Meta, atau
+// channel id (UUID) untuk Viber yang routing-nya lewat path /webhook/viber/{id}.
 func (s *store) resolveChannel(ctx context.Context, externalRef string) (channelInfo, error) {
 	var c channelInfo
 	err := s.pool.QueryRow(ctx,
@@ -34,7 +35,8 @@ func (s *store) resolveChannel(ctx context.Context, externalRef string) (channel
 		  WHERE is_active
 		    AND (phone_number_id = $1
 		         OR config->>'page_id' = $1
-		         OR config->>'instagram_account_id' = $1)
+		         OR config->>'instagram_account_id' = $1
+		         OR id::text = $1)
 		  LIMIT 1`,
 		externalRef,
 	).Scan(&c.ID, &c.PhoneNumberID, &c.AccessToken)

@@ -13,8 +13,18 @@ COPY --from=deps /app/node_modules ./node_modules
 COPY . .
 ARG NEXT_PUBLIC_API_URL
 ARG NEXT_PUBLIC_WS_URL
+# WhatsApp Embedded Signup (Channels > Create Channel > Login with Facebook).
+# Public values, safe to inline; the gateway holds the App Secret server-side.
+ARG NEXT_PUBLIC_META_APP_ID
+ARG NEXT_PUBLIC_META_CONFIG_ID
+# Display-only: shown in the Direct Cloud API path so users can configure Meta's
+# webhook. Must equal META_VERIFY_TOKEN on the gateway.
+ARG NEXT_PUBLIC_META_VERIFY_TOKEN
 ENV NEXT_PUBLIC_API_URL=$NEXT_PUBLIC_API_URL \
     NEXT_PUBLIC_WS_URL=$NEXT_PUBLIC_WS_URL \
+    NEXT_PUBLIC_META_APP_ID=$NEXT_PUBLIC_META_APP_ID \
+    NEXT_PUBLIC_META_CONFIG_ID=$NEXT_PUBLIC_META_CONFIG_ID \
+    NEXT_PUBLIC_META_VERIFY_TOKEN=$NEXT_PUBLIC_META_VERIFY_TOKEN \
     NEXT_TELEMETRY_DISABLED=1
 RUN npm run build
 

@@ -149,6 +149,8 @@ func main() {
 	})
 	mux.HandleFunc("/webhook/whatsapp", webhookRL(s.verifyWebhookSignature(s.handleWhatsApp)))
 	mux.HandleFunc("/webhook/meta", webhookRL(s.verifyWebhookSignature(s.handleMeta)))
+	// Viber routes inbound by channel id in the path (its payload omits the PA id).
+	mux.HandleFunc("/webhook/viber/{id}", webhookRL(s.handleViber))
 
 	// Proxy media to MinIO so Meta can download it via the Gateway's public URL
 	mux.HandleFunc("/simpulx-media/", func(w http.ResponseWriter, r *http.Request) {
@@ -218,6 +220,8 @@ func main() {
 	mux.HandleFunc("DELETE /api/contacts/{id}", s.requireAuth(s.gate("delete_contacts", s.handleDeleteContact)))
 	mux.HandleFunc("GET /api/channels", s.requireAuth(s.handleListChannels))
 	mux.HandleFunc("POST /api/channels", s.requireAuth(s.gate("manage_channels", s.handleCreateChannel)))
+	mux.HandleFunc("POST /api/channels/embedded-signup", s.requireAuth(s.gate("manage_channels", s.handleEmbeddedSignup)))
+	mux.HandleFunc("POST /api/channels/viber/connect", s.requireAuth(s.gate("manage_channels", s.handleConnectViber)))
 	mux.HandleFunc("PATCH /api/channels/{id}", s.requireAuth(s.gate("manage_channels", s.handlePatchChannel)))
 	mux.HandleFunc("DELETE /api/channels/{id}", s.requireAuth(s.gate("manage_channels", s.handleDeleteChannel)))
 	mux.HandleFunc("POST /api/channels/{id}/test", s.requireAuth(s.gate("manage_channels", s.handleTestChannel)))

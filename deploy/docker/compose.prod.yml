@@ -12,6 +12,9 @@ services:
     ports: !reset []
     environment:
       MEDIA_PUBLIC_BASE: https://app.simpulx.com/simpulx-media
+      # Public origin of this gateway (Caddy proxies /webhook/* here). Used to
+      # register the Viber inbound webhook as https://app.simpulx.com/webhook/viber/{id}.
+      PUBLIC_API_URL: https://app.simpulx.com
 
   # WebSocket: no public port in prod (Caddy proxies /ws).
   realtime:
@@ -25,6 +28,10 @@ services:
       args:
         NEXT_PUBLIC_API_URL: https://app.simpulx.com
         NEXT_PUBLIC_WS_URL: wss://app.simpulx.com
+        # WhatsApp Embedded Signup config (resolved from repo-root .env via --env-file).
+        NEXT_PUBLIC_META_APP_ID: ${META_APP_ID:-}
+        NEXT_PUBLIC_META_CONFIG_ID: ${META_CONFIG_ID:-}
+        NEXT_PUBLIC_META_VERIFY_TOKEN: ${META_VERIFY_TOKEN:-}
     image: simpulx-web:latest
     container_name: simpulx-v2-web
     restart: unless-stopped
