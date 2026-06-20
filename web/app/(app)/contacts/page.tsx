@@ -3,15 +3,17 @@ import { useEffect, useMemo, useRef, useState } from "react";
 import { useRouter } from "next/navigation";
 import {
   Search, UserPlus, Download, Pencil, ChevronsLeft, ChevronsRight, ChevronLeft, ChevronRight,
-  Users, X, Loader2, Tag as TagIcon, MoreVertical, MessageSquare, Trash2, Upload, ChevronDown, Send, Eye,
+  Users, X, Loader2, Tag as TagIcon, MoreVertical, MessageSquare, Trash2, Upload, ChevronDown, Eye,
 } from "lucide-react";
 
 import { api, getUser } from "@/lib/api";
 import { usePermissions } from "@/lib/permissions";
 import { initials, channelColor, fmtDate, cn } from "@/lib/utils";
-import type { Contact, Agent, Campaign, Message, Stage } from "@/lib/types";
+import type { Contact, Agent, Campaign, Message, Stage, Conversation } from "@/lib/types";
 import { Tip } from "@/components/ui/tooltip";
 import MultiSelectFilter from "@/app/(app)/inbox/components/MultiSelectFilter";
+import MessageBubble, { rewriteLocalMedia } from "@/app/(app)/inbox/components/MessageBubble";
+import Composer from "@/app/(app)/inbox/components/Composer";
 import { Select } from "@/components/Select";
 
 type ModalState = { mode: "add" } | { mode: "edit"; contact: Contact } | null;
@@ -163,12 +165,16 @@ export default function ContactsPage() {
     <div className="h-full flex flex-col px-4 pt-4 pb-4 min-h-0">
       <div className="bg-card rounded-lg border border-border shadow-xs overflow-hidden flex flex-col flex-1 min-h-0">
         {/* Toolbar */}
-        <div className="p-3 flex items-center gap-3 border-b border-border shrink-0">
-          <div className="relative w-[320px] max-w-[45vw]">
+        <div className="p-3 flex items-center gap-2 border-b border-border shrink-0 flex-wrap">
+          <div className="relative w-[280px] max-w-[45vw]">
             <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-muted-foreground pointer-events-none" />
             <input type="text" placeholder="Search name or phone" value={query} onChange={(e) => setQuery(e.target.value)}
               className="w-full h-9 pl-9 pr-3 rounded-md border border-input bg-background text-sm text-foreground placeholder:text-muted-foreground/70 outline-none transition-shadow focus:border-primary focus:ring-2 focus:ring-primary/20" />
           </div>
+          <MultiSelectFilter label="Labels" options={tagOptions} selected={filterTags} onChange={setFilterTags} />
+          {showAgentFilter && <MultiSelectFilter label="Agent" options={agentOptions} selected={filterAgents} onChange={setFilterAgents} />}
+          {showCampaignFilter && <MultiSelectFilter label="Campaign" options={campaignOptions} selected={filterCampaigns} onChange={setFilterCampaigns} />}
+          {activeFilters > 0 && <button onClick={clearFilters} className="text-[11px] font-semibold text-primary hover:underline outline-none">Clear</button>}
           <div className="flex-1" />
           {canCreate && (
             <div className="relative inline-flex" onClick={(e) => e.stopPropagation()}>
@@ -193,14 +199,6 @@ export default function ContactsPage() {
             </div>
           )}
           <input ref={importRef} type="file" accept=".csv,text/csv" className="hidden" onChange={(e) => { const f = e.target.files?.[0]; if (f) importCsv(f); e.target.value = ""; }} />
-        </div>
-
-        {/* Filter row */}
-        <div className="px-3 py-2 flex items-center gap-1.5 flex-wrap border-b border-border/70 bg-muted/30 shrink-0">
-          <MultiSelectFilter label="Labels" options={tagOptions} selected={filterTags} onChange={setFilterTags} />
-          {showAgentFilter && <MultiSelectFilter label="Agent" options={agentOptions} selected={filterAgents} onChange={setFilterAgents} />}
-          {showCampaignFilter && <MultiSelectFilter label="Campaign" options={campaignOptions} selected={filterCampaigns} onChange={setFilterCampaigns} />}
-          {activeFilters > 0 && <button onClick={clearFilters} className="text-[11px] font-semibold text-primary hover:underline outline-none ml-1">Clear</button>}
         </div>
 
         {/* Table (fills remaining height) */}
@@ -309,7 +307,7 @@ export default function ContactsPage() {
         <ContactModal state={modal} allTags={tagOptions.map((t) => t.value)}
           onClose={() => setModal(null)} onSaved={(msg) => { setModal(null); reload(); setToast(msg); }} />
       )}
-      {chatContact && <ChatPopup contact={chatContact} onClose={() => setChatContact(null)} />}
+      {chatContact && <ChatPopup contact={chatContact} onClose={() => setChatContact(null)} notify={(m) => setToast(m)} />}
 
       {toast && (
         <div className="fixed bottom-6 left-6 z-[110] animate-scale-in">
@@ -320,65 +318,165 @@ export default function ContactsPage() {
   );
 }
 
-// ── Chat popup (read the conversation + reply) ──────────────────────────────
-function ChatPopup({ contact, onClose }: { contact: Contact; onClose: () => void }) {
+// ── Full inbox-grade chat popup ─────────────────────────────────────────────
+// Reuses the inbox MessageBubble + Composer and listens to the app-wide WebSocket
+// so the contacts quick-chat behaves exactly like the inbox (media, voice, calls,
+// AI assist, attachments, live updates) instead of a stripped-down clone.
+function ChatPopup({ contact, onClose, notify }: {
+  contact: Contact; onClose: () => void; notify: (m: string, s?: "success" | "info" | "warning" | "error") => void;
+}) {
   const convId = contact.conversation_id!;
+  const [active, setActive] = useState<Conversation | null>(null);
   const [messages, setMessages] = useState<Message[]>([]);
   const [loading, setLoading] = useState(true);
   const [draft, setDraft] = useState("");
-  const [sending, setSending] = useState(false);
+  const [tab, setTab] = useState(0);
+  const [busy, setBusy] = useState(false);
+  const [pendingFiles, setPendingFiles] = useState<File[]>([]);
+  const [pendingPreviews, setPendingPreviews] = useState<(string | null)[]>([]);
+  const [uploadProgress, setUploadProgress] = useState<number | null>(null);
+  const [previewId, setPreviewId] = useState<string | null>(null);
+  const fileRef = useRef<HTMLInputElement>(null);
   const bodyRef = useRef<HTMLDivElement>(null);
 
-  const load = () => api.getMessages(convId).then((m) => setMessages(m || [])).catch(() => {}).finally(() => setLoading(false));
-  useEffect(() => { load(); }, [convId]); // eslint-disable-line react-hooks/exhaustive-deps
+  const reload = () => api.getMessages(convId).then((m) => setMessages(m || [])).catch(() => {}).finally(() => setLoading(false));
+  useEffect(() => {
+    reload();
+    api.listConversations().then((l) => setActive((l || []).find((c) => c.id === convId) ?? null)).catch(() => {});
+  }, [convId]); // eslint-disable-line react-hooks/exhaustive-deps
+  // Live updates: the app-wide WebSocket (Shell) dispatches "ws_message" on the window.
+  useEffect(() => {
+    const onWS = (e: Event) => {
+      const ev = (e as CustomEvent).detail; const data = ev?.data || ev;
+      if (data?.conversation_id === convId || ev?.conversation_id === convId) reload();
+    };
+    window.addEventListener("ws_message", onWS);
+    return () => window.removeEventListener("ws_message", onWS);
+  }, [convId]); // eslint-disable-line react-hooks/exhaustive-deps
   useEffect(() => { if (bodyRef.current) bodyRef.current.scrollTop = bodyRef.current.scrollHeight; }, [messages]);
 
-  async function send() {
-    if (!draft.trim()) return;
-    setSending(true);
-    try { await api.sendMessage(convId, draft.trim()); setDraft(""); await load(); }
-    catch { /* ignore */ } finally { setSending(false); }
+  const activeConv = (active || ({ id: convId, contact_name: contact.full_name, contact_phone: contact.phone, channel: contact.source_channel, status: "open" } as unknown)) as Conversation;
+
+  function fileTooBig(f: File): string | null {
+    const mb = f.size / (1024 * 1024);
+    let max = 100, label = "File";
+    if (f.type.startsWith("image/")) { max = 5; label = "Image"; }
+    else if (f.type.startsWith("video/")) { max = 16; label = "Video"; }
+    else if (f.type.startsWith("audio/")) { max = 16; label = "Audio"; }
+    return mb > max ? `${label} too large (${mb.toFixed(1)} MB). Max ${max} MB.` : null;
   }
+  function onFile(e: React.ChangeEvent<HTMLInputElement>) {
+    const files = Array.from(e.target.files || []);
+    if (fileRef.current) fileRef.current.value = "";
+    if (!files.length) return;
+    const ok: File[] = [];
+    for (const f of files) { const t = fileTooBig(f); if (t) { notify(t, "warning"); continue; } ok.push(f); }
+    if (!ok.length) return;
+    setPendingFiles((p) => [...p, ...ok]);
+    setPendingPreviews((p) => [...p, ...ok.map((f) => (f.type.startsWith("image/") || f.type.startsWith("video/")) ? URL.createObjectURL(f) : null)]);
+  }
+  function removePendingFile(i: number) {
+    setPendingFiles((p) => p.filter((_, x) => x !== i));
+    setPendingPreviews((p) => { const c = [...p]; if (c[i]) URL.revokeObjectURL(c[i]!); c.splice(i, 1); return c; });
+  }
+  function cancelSendFile() {
+    pendingPreviews.forEach((p) => p && URL.revokeObjectURL(p));
+    setPendingFiles([]); setPendingPreviews([]);
+  }
+  async function confirmSendFile() {
+    if (!pendingFiles.length) return;
+    setBusy(true); setUploadProgress(0);
+    try {
+      const ups: { url: string; type: string; name: string }[] = [];
+      for (const f of pendingFiles) ups.push(await api.uploadFile(f, (pct) => setUploadProgress(pct)));
+      for (let i = 0; i < ups.length; i++) await api.sendMedia(convId, ups[i].type, ups[i].url, i === 0 ? draft.trim() : "");
+      pendingPreviews.forEach((p) => p && URL.revokeObjectURL(p));
+      setDraft(""); setPendingFiles([]); setPendingPreviews([]); await reload();
+    } catch (err) { notify(err instanceof Error ? err.message : "Upload failed", "error"); }
+    finally { setBusy(false); setUploadProgress(null); }
+  }
+  async function submit() {
+    if (pendingFiles.length) { await confirmSendFile(); return; }
+    if (!draft.trim()) return;
+    if (tab === 1) { try { await api.addNote(convId, draft.trim()); setDraft(""); notify("Note added"); } catch { notify("Could not add note", "error"); } return; }
+    setBusy(true);
+    try { await api.sendMessage(convId, draft.trim()); setDraft(""); await reload(); }
+    catch { notify("Failed to send", "error"); } finally { setBusy(false); }
+  }
+  async function sendVoice(blob: Blob) {
+    setBusy(true);
+    try {
+      const file = new File([blob], "voice_message.webm", { type: "audio/webm" });
+      const up = await api.uploadFile(file);
+      await api.sendMedia(convId, "audio", up.url, "");
+      await reload();
+    } catch (err) { notify("Voice error: " + (err instanceof Error ? err.message : "Unknown"), "error"); }
+    finally { setBusy(false); }
+  }
+
+  const previewMsg = messages.find((m) => m.id === previewId);
+  const previewUrl = previewMsg?.media_url ? rewriteLocalMedia(previewMsg.media_url) : "";
+  const previewIsVideo = !!previewMsg && (previewMsg.type === "video" || /\.(mp4|mov|webm|avi|mkv)$/i.test(previewMsg.media_url || ""));
 
   return (
     <div className="fixed inset-0 z-[100] flex items-center justify-center p-4">
       <div className="absolute inset-0 bg-black/40 backdrop-blur-[2px] animate-fade-in" onClick={onClose} />
-      <div className="relative w-[480px] max-w-full h-[600px] max-h-[88vh] rounded-xl border border-border bg-card shadow-2xl animate-scale-in flex flex-col overflow-hidden">
-        <div className="flex items-center gap-3 px-4 py-3 border-b border-border bg-primary text-white shrink-0">
-          <div className="w-9 h-9 rounded-full bg-white/20 grid place-items-center text-xs font-bold">{initials(contact.full_name || contact.phone)}</div>
-          <div className="min-w-0 flex-1">
-            <p className="font-bold text-[14px] truncate">{contact.full_name || contact.phone || "Unknown"}</p>
-            <p className="text-[11.5px] text-white/70 tabular-nums">{contact.phone}</p>
+      <div className="relative w-[540px] max-w-full h-[660px] max-h-[90vh] rounded-xl border border-border bg-card shadow-2xl animate-scale-in flex flex-col overflow-hidden">
+        {/* Header */}
+        <div className="flex items-center gap-3 px-4 py-3 border-b border-border bg-card shrink-0">
+          <div className="w-9 h-9 rounded-full grid place-items-center text-xs font-bold ring-1 ring-inset ring-black/5"
+            style={{ backgroundColor: channelColor(contact.source_channel) + "1A", color: channelColor(contact.source_channel) }}>
+            {initials(contact.full_name || contact.phone)}
           </div>
-          <button onClick={onClose} className="p-1 rounded-md hover:bg-white/15 outline-none"><X className="w-[18px] h-[18px]" /></button>
+          <div className="min-w-0 flex-1">
+            <p className="font-bold text-[14px] text-foreground truncate">{contact.full_name || contact.phone || "Unknown"}</p>
+            <p className="text-[11.5px] text-muted-foreground tabular-nums">{contact.phone}</p>
+          </div>
+          <button onClick={onClose} className="p-1.5 rounded-md text-muted-foreground hover:bg-muted hover:text-foreground outline-none"><X className="w-[18px] h-[18px]" /></button>
         </div>
 
-        <div ref={bodyRef} className="flex-1 overflow-y-auto p-4 space-y-2" style={{ backgroundColor: "#E5DDD5", backgroundImage: "radial-gradient(rgba(0,0,0,0.04) 1px,transparent 1px)", backgroundSize: "16px 16px" }}>
+        {/* Messages */}
+        <div ref={bodyRef} className="flex-1 overflow-y-auto px-3 py-3 bg-muted/30">
           {loading ? (
             <div className="h-full grid place-items-center"><Loader2 className="w-6 h-6 animate-spin text-primary" /></div>
           ) : messages.length === 0 ? (
-            <p className="text-center text-[13px] text-[#54656F] py-8">No messages yet.</p>
-          ) : messages.map((m) => {
-            const out = m.direction === "outbound";
-            return (
-              <div key={m.id} className={cn("flex", out ? "justify-end" : "justify-start")}>
-                <div className={cn("max-w-[78%] px-3 py-2 rounded-lg shadow-sm text-[13px] whitespace-pre-wrap break-words", out ? "bg-[#D9FDD3] text-[#111B21] rounded-br-[4px]" : "bg-white text-[#111B21] rounded-bl-[4px]")}>
-                  {m.type === "call" ? <span className="italic text-[#54656F]">{m.body}</span> : (m.body || (m.media_url ? "[media]" : ""))}
-                  <span className="block text-[10px] text-[#8696A0] text-right mt-0.5">{fmtDate(m.created_at)}</span>
-                </div>
-              </div>
-            );
-          })}
+            <p className="text-center text-[13px] text-muted-foreground py-8">No messages yet.</p>
+          ) : (
+            <div className="space-y-1">
+              {messages.map((m) => (
+                <MessageBubble key={m.id} m={m} active={activeConv} conversationId={convId}
+                  onPreviewMedia={(id) => setPreviewId(id)}
+                  onCopyText={(t) => { navigator.clipboard.writeText(t); notify("Copied to clipboard", "info"); }}
+                  onUseInComposer={(t) => setDraft(t)} />
+              ))}
+            </div>
+          )}
         </div>
 
-        <div className="flex items-center gap-2 p-3 border-t border-border shrink-0">
-          <input value={draft} onChange={(e) => setDraft(e.target.value)} onKeyDown={(e) => { if (e.key === "Enter") send(); }}
-            placeholder="Type your message here" className="flex-1 h-10 px-3 rounded-md border border-input bg-background text-sm outline-none focus:border-primary focus:ring-2 focus:ring-primary/20" />
-          <button onClick={send} disabled={sending || !draft.trim()} className="w-10 h-10 grid place-items-center rounded-md bg-primary text-white hover:bg-primary-dark disabled:opacity-50 outline-none transition-colors">
-            {sending ? <Loader2 className="w-4 h-4 animate-spin" /> : <Send className="w-4 h-4" />}
-          </button>
-        </div>
+        {/* Composer (the real inbox composer) */}
+        <Composer
+          draft={draft} setDraft={setDraft}
+          tab={tab} setTab={setTab}
+          quickReplies={[]}
+          pendingFiles={pendingFiles} pendingPreviews={pendingPreviews}
+          fileRef={fileRef} onFile={onFile} cancelSendFile={cancelSendFile} removePendingFile={removePendingFile}
+          busy={busy} onSubmit={submit} onSendVoice={sendVoice} notify={notify}
+          windowExpired={activeConv?.channel === "whatsapp" && !!activeConv?.last_message_at && (Date.now() - new Date(activeConv.last_message_at).getTime() > 24 * 60 * 60 * 1000)}
+          phone={contact.phone} conversationId={convId}
+          aiSummary={activeConv?.lead_summary}
+          uploadProgress={uploadProgress}
+          onAddNote={async (body) => { await api.addNote(convId, body); notify("Note added"); }}
+        />
       </div>
+
+      {/* Media preview */}
+      {previewMsg && previewUrl && (
+        <div className="fixed inset-0 z-[110] flex items-center justify-center bg-black/90 animate-fade-in" onClick={() => setPreviewId(null)}>
+          {previewIsVideo
+            ? <video src={previewUrl} controls autoPlay className="max-w-[90vw] max-h-[85vh] rounded-md" onClick={(e) => e.stopPropagation()} />
+            : <img src={previewUrl} className="max-w-[90vw] max-h-[85vh] object-contain rounded-md" onClick={(e) => e.stopPropagation()} alt="" />}
+        </div>
+      )}
     </div>
   );
 }
