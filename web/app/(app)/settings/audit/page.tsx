@@ -90,10 +90,10 @@ export default function SystemLogsPage() {
   const fetchTab = useCallback(async () => {
     setLoading(true); setErr("");
     try {
-      if (tab === "messages") { const r = await api.systemLog<LogMessage>("messages", { limit: PAGE, offset: page * PAGE, from, to }); setMessages(r.rows); setTotal(r.total); }
-      else if (tab === "conversations") { const r = await api.systemLog<LogConversation>("conversations", { limit: PAGE, offset: page * PAGE, from, to }); setConvs(r.rows); setTotal(r.total); }
-      else if (tab === "calls") { const r = await api.systemLog<LogCall>("calls", { limit: PAGE, offset: page * PAGE, from, to }); setCalls(r.rows); setTotal(r.total); }
-      else if (tab === "activity") { const r = await api.systemLog<LogActivity>("activity", { limit: PAGE, offset: page * PAGE, from, to }); setActivity(r.rows); setTotal(r.total); }
+      if (tab === "messages") { const r = await api.systemLog("messages", { limit: PAGE, offset: page * PAGE, from, to }); setMessages(r.rows as unknown as LogMessage[]); setTotal(r.total); }
+      else if (tab === "conversations") { const r = await api.systemLog("conversations", { limit: PAGE, offset: page * PAGE, from, to }); setConvs(r.rows as unknown as LogConversation[]); setTotal(r.total); }
+      else if (tab === "calls") { const r = await api.systemLog("calls", { limit: PAGE, offset: page * PAGE, from, to }); setCalls(r.rows as unknown as LogCall[]); setTotal(r.total); }
+      else if (tab === "activity") { const r = await api.systemLog("activity", { limit: PAGE, offset: page * PAGE, from, to }); setActivity(r.rows as unknown as LogActivity[]); setTotal(r.total); }
       else if (tab === "system") { const a = await api.listAuditLog(); setAudit(a); setTotal(a.length); }
       else setTotal(0);
     } catch (e) { setErr(e instanceof Error ? e.message : String(e)); } finally { setLoading(false); }

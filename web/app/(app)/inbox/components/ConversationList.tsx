@@ -83,7 +83,7 @@ function SortMenu({ sort, onSortChange }: { sort: SortMode; onSortChange: (s: So
           type="button"
           onClick={() => setOpen((o) => !o)}
           className={cn(
-            "w-9 h-9 rounded-md grid place-items-center border transition-colors outline-none",
+            "w-8 h-9 rounded-md grid place-items-center border transition-colors outline-none",
             open ? "bg-primary/10 text-primary border-primary/40" : "bg-background text-muted-foreground border-input hover:bg-muted hover:text-foreground",
           )}
         >
@@ -299,7 +299,7 @@ export default function ConversationList({
     <div className="w-[276px] shrink-0 flex flex-col border-r border-border bg-card relative">
       {/* Header: search + sort + filter (SleekFlow layout) — height matches the chat header */}
       <div className="shrink-0 h-14 px-2 flex items-center border-b border-border">
-        <div className="flex items-center gap-1.5 w-full min-w-0">
+        <div className="flex items-center gap-1 w-full min-w-0">
           <div className="relative flex-1 flex items-center h-9 rounded-md border border-input bg-background transition-colors focus-within:border-primary overflow-visible">
             <SearchModeMenu mode={searchMode} onChange={setSearchMode} />
             <input
@@ -325,7 +325,7 @@ export default function ConversationList({
               type="button"
               onClick={() => setFilterOpen((v) => !v)}
               className={cn(
-                "shrink-0 w-9 h-9 rounded-md grid place-items-center border transition-colors outline-none relative",
+                "shrink-0 w-8 h-9 rounded-md grid place-items-center border transition-colors outline-none relative",
                 filterOpen ? "bg-primary/10 text-primary border-primary/40" : "bg-background text-muted-foreground border-input hover:bg-muted hover:text-foreground",
               )}
             >
