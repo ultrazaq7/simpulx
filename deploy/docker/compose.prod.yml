@@ -15,6 +15,8 @@ services:
       # Public origin of this gateway (Caddy proxies /webhook/* here). Used to
       # register the Viber inbound webhook as https://app.simpulx.com/webhook/viber/{id}.
       PUBLIC_API_URL: https://app.simpulx.com
+      # Migrations are run as a dedicated deploy step (MIGRATE_ONLY), not on boot.
+      RUN_MIGRATIONS_ON_BOOT: "false"
 
   # WebSocket: no public port in prod (Caddy proxies /ws).
   realtime:

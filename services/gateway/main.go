@@ -68,23 +68,32 @@ func main() {
 	}
 	defer pool.Close()
 
-	// ── Automated DB Migrations (Goose) ──
-	goose.SetBaseFS(migrations.FS)
-	if err := goose.SetDialect("postgres"); err != nil {
-		log.Error("goose dialect failed", "err", err)
-	}
-	// Extract standard sql.DB from the same URL (goose needs database/sql)
-	stdDB, err := sql.Open("pgx", config.Get("DATABASE_URL", ""))
-	if err == nil {
+	// ── DB Migrations (Goose) ──
+	// Decoupled from normal boot: the deploy pipeline runs a dedicated MIGRATE_ONLY
+	// pass before starting the apps. RUN_MIGRATIONS_ON_BOOT (default true) keeps
+	// local dev auto-migrating; prod sets it false so app boot never migrates.
+	migrateOnly := config.GetBool("MIGRATE_ONLY", false)
+	if migrateOnly || config.GetBool("RUN_MIGRATIONS_ON_BOOT", true) {
+		goose.SetBaseFS(migrations.FS)
+		if err := goose.SetDialect("postgres"); err != nil {
+			log.Error("goose dialect failed", "err", err)
+		}
+		// Extract standard sql.DB from the same URL (goose needs database/sql)
+		stdDB, err := sql.Open("pgx", config.Get("DATABASE_URL", ""))
+		if err != nil {
+			log.Error("sql open failed for migrations", "err", err)
+			os.Exit(1)
+		}
 		if err := goose.Up(stdDB, "."); err != nil {
 			log.Error("goose migrations failed", "err", err)
 			os.Exit(1)
 		}
 		stdDB.Close()
 		log.Info("goose migrations applied successfully")
-	} else {
-		log.Error("sql open failed for migrations", "err", err)
-		os.Exit(1)
+	}
+	if migrateOnly {
+		log.Info("MIGRATE_ONLY set; exiting after migrations")
+		os.Exit(0)
 	}
 
 	bus, err := broker.Connect(config.Get("NATS_URL", "nats://nats:4222"))
