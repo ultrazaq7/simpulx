@@ -12,8 +12,9 @@ import (
 // data drops straight into the training pipeline.
 
 type logParams struct {
-	limit, offset int
-	from, to      string
+	limit, offset                int
+	from, to                     string
+	campaignID, channelID, label string
 }
 
 func parseLogParams(r *http.Request) logParams {
@@ -26,7 +27,24 @@ func parseLogParams(r *http.Request) logParams {
 	}
 	p.from = r.URL.Query().Get("from")
 	p.to = r.URL.Query().Get("to")
+	p.campaignID = r.URL.Query().Get("campaign_id")
+	p.channelID = r.URL.Query().Get("channel_id")
+	p.label = r.URL.Query().Get("label")
 	return p
+}
+
+// convFilter appends campaign/channel filters on the given conversations alias.
+func convFilter(alias string, p logParams, args []any) (string, []any) {
+	clause := ""
+	if p.campaignID != "" {
+		args = append(args, p.campaignID)
+		clause += fmt.Sprintf(" AND %s.campaign_id = $%d::uuid", alias, len(args))
+	}
+	if p.channelID != "" {
+		args = append(args, p.channelID)
+		clause += fmt.Sprintf(" AND %s.channel_id = $%d::uuid", alias, len(args))
+	}
+	return clause, args
 }
 
 // dateFilter appends a created_at range on the given column, growing args.
@@ -57,6 +75,12 @@ func (s *server) handleLogMessages(w http.ResponseWriter, r *http.Request) {
 	p := parseLogParams(r)
 	args := []any{a.OrgID}
 	df, args := dateFilter("m.created_at", p, args)
+	cf, args := convFilter("cv", p, args)
+	lf := ""
+	if p.label != "" {
+		args = append(args, p.label)
+		lf = fmt.Sprintf(" AND $%d = ANY(ct.tags)", len(args))
+	}
 
 	base := `FROM messages m
 	          JOIN conversations cv ON cv.id = m.conversation_id
@@ -67,7 +91,7 @@ func (s *server) handleLogMessages(w http.ResponseWriter, r *http.Request) {
 	            SELECT referral_source, referral_url FROM conversation_attributions
 	             WHERE conversation_id = cv.id ORDER BY created_at DESC LIMIT 1
 	          ) att ON true
-	         WHERE m.organization_id = $1` + df
+	         WHERE m.organization_id = $1` + df + cf + lf
 
 	q := `SELECT m.created_at, m.direction, m.type AS message_type, m.body AS message,
 	             m.media_url AS file_url, m.status, COALESCE(m.external_id, m.id::text) AS message_id,
@@ -91,13 +115,14 @@ func (s *server) handleLogConversations(w http.ResponseWriter, r *http.Request) 
 	p := parseLogParams(r)
 	args := []any{a.OrgID}
 	df, args := dateFilter("cv.created_at", p, args)
+	cf, args := convFilter("cv", p, args)
 
 	base := `FROM conversations cv
 	          LEFT JOIN users u ON u.id = cv.assigned_agent_id
 	          LEFT JOIN departments d ON d.id = cv.department_id
 	          LEFT JOIN contacts ct ON ct.id = cv.contact_id
 	          LEFT JOIN dispositions disp ON disp.id = cv.disposition_id
-	         WHERE cv.organization_id = $1` + df
+	         WHERE cv.organization_id = $1` + df + cf
 
 	q := `SELECT u.full_name AS agent_name, u.email AS email, d.name AS department_name,
 	             ct.full_name AS customer_name, disp.name AS disposition, ct.phone AS contact_number,
@@ -145,12 +170,13 @@ func (s *server) handleLogCalls(w http.ResponseWriter, r *http.Request) {
 	p := parseLogParams(r)
 	args := []any{a.OrgID}
 	df, args := dateFilter("c.created_at", p, args)
+	cf, args := convFilter("cv", p, args)
 
 	base := `FROM calls c
 	          LEFT JOIN conversations cv ON cv.id = c.conversation_id
 	          LEFT JOIN contacts ct ON ct.id = cv.contact_id
 	          LEFT JOIN users u ON u.id = c.agent_id
-	         WHERE c.organization_id = $1` + df
+	         WHERE c.organization_id = $1` + df + cf
 
 	q := `SELECT c.direction, ct.full_name AS name, c.contact_phone AS phone,
 	             c.duration_seconds, c.created_at AS received_at, c.call_ended_at AS ended_at,

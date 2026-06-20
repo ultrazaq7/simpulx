@@ -1,9 +1,9 @@
 "use client";
 import { useEffect, useState, useCallback } from "react";
-import { Loader2, Download, PhoneIncoming, PhoneOutgoing, MessageSquare, MessagesSquare, Phone, Activity, CheckCircle2, Clock, XCircle, AlertTriangle } from "lucide-react";
+import { Loader2, Download, PhoneIncoming, PhoneOutgoing, CheckCircle2, Clock, XCircle, AlertTriangle } from "lucide-react";
 import { api } from "@/lib/api";
 import { cn } from "@/lib/utils";
-import type { AuditEntry, LogMessage, LogConversation, LogCall, LogActivity, ExportJob } from "@/lib/types";
+import type { AuditEntry, LogMessage, LogConversation, LogCall, LogActivity, ExportJob, Campaign, Channel } from "@/lib/types";
 import { Select } from "@/components/Select";
 import { useToast } from "../_shared";
 import { rewriteLocalMedia } from "@/app/(app)/inbox/components/MessageBubble";
@@ -27,6 +27,7 @@ const PAGE = 50;
 const ACTION_COLOR: Record<string, string> = { created: "#16A34A", deleted: "#DC2626", updated: "#2563EB", submitted: "#7C3AED", tested: "#0891B2", connected: "#16A34A", disconnected: "#DC2626" };
 
 const fmtDT = (iso?: string | null) => iso ? new Date(iso).toLocaleString(undefined, { day: "2-digit", month: "short", year: "numeric", hour: "2-digit", minute: "2-digit" }) : "-";
+const fmtDay = (iso?: string | null) => iso ? new Date(iso).toLocaleDateString(undefined, { day: "2-digit", month: "short", year: "numeric" }) : "-";
 function csvDT(iso?: string | null) {
   if (!iso) return "";
   const d = new Date(iso);
@@ -83,23 +84,35 @@ export default function SystemLogsPage() {
   const [err, setErr] = useState("");
   const [exports, setExports] = useState<ExportJob[]>([]);
   const { notify, ToastHost } = useToast();
+  // Filters (campaign + channel on log tabs; label on messages only).
+  const [fCampaign, setFCampaign] = useState("");
+  const [fChannel, setFChannel] = useState("");
+  const [fLabel, setFLabel] = useState("");
+  const [campaigns, setCampaigns] = useState<Campaign[]>([]);
+  const [channels, setChannels] = useState<Channel[]>([]);
+  useEffect(() => {
+    api.listCampaigns().then((c) => setCampaigns(c || [])).catch(() => {});
+    api.listChannels().then((c) => setChannels(c || [])).catch(() => {});
+  }, []);
 
   const from = fromDate(range);
   const to = range ? new Date().toISOString().slice(0, 10) : "";
+  const logFilters = { campaign_id: fCampaign || undefined, channel_id: fChannel || undefined, label: fLabel || undefined };
 
   const fetchTab = useCallback(async () => {
     setLoading(true); setErr("");
     try {
-      if (tab === "messages") { const r = await api.systemLog("messages", { limit: PAGE, offset: page * PAGE, from, to }); setMessages(r.rows as unknown as LogMessage[]); setTotal(r.total); }
-      else if (tab === "conversations") { const r = await api.systemLog("conversations", { limit: PAGE, offset: page * PAGE, from, to }); setConvs(r.rows as unknown as LogConversation[]); setTotal(r.total); }
-      else if (tab === "calls") { const r = await api.systemLog("calls", { limit: PAGE, offset: page * PAGE, from, to }); setCalls(r.rows as unknown as LogCall[]); setTotal(r.total); }
+      const flt = { campaign_id: fCampaign || undefined, channel_id: fChannel || undefined, label: fLabel || undefined };
+      if (tab === "messages") { const r = await api.systemLog("messages", { limit: PAGE, offset: page * PAGE, from, to, ...flt }); setMessages(r.rows as unknown as LogMessage[]); setTotal(r.total); }
+      else if (tab === "conversations") { const r = await api.systemLog("conversations", { limit: PAGE, offset: page * PAGE, from, to, ...flt }); setConvs(r.rows as unknown as LogConversation[]); setTotal(r.total); }
+      else if (tab === "calls") { const r = await api.systemLog("calls", { limit: PAGE, offset: page * PAGE, from, to, ...flt }); setCalls(r.rows as unknown as LogCall[]); setTotal(r.total); }
       else if (tab === "activity") { const r = await api.systemLog("activity", { limit: PAGE, offset: page * PAGE, from, to }); setActivity(r.rows as unknown as LogActivity[]); setTotal(r.total); }
       else if (tab === "system") { const a = await api.listAuditLog(); setAudit(a); setTotal(a.length); }
       else setTotal(0);
     } catch (e) { setErr(e instanceof Error ? e.message : String(e)); } finally { setLoading(false); }
-  }, [tab, page, from, to]);
+  }, [tab, page, from, to, fCampaign, fChannel, fLabel]);
   useEffect(() => { fetchTab(); }, [fetchTab]);
-  useEffect(() => { setPage(0); }, [tab, range]);
+  useEffect(() => { setPage(0); }, [tab, range, fCampaign, fChannel, fLabel]);
 
   // Async exports: queue a job; the worker generates the full CSV and the
   // Downloads tab polls for live status.
@@ -121,7 +134,7 @@ export default function SystemLogsPage() {
     }
     setExporting(kind);
     try {
-      await api.createExport(kind, from || undefined, to || undefined);
+      await api.createExport(kind, from || undefined, to || undefined, { campaign_id: fCampaign || undefined, channel_id: fChannel || undefined, label: kind === "messages" ? (fLabel || undefined) : undefined });
       notify("Export queued. Track it in the Downloads tab.");
       setTab("downloads");
       setTimeout(fetchExports, 400);
@@ -133,18 +146,13 @@ export default function SystemLogsPage() {
   const auditPaged = audit.slice(page * PAGE, page * PAGE + PAGE);
   const showExportBtn = tab !== "downloads";
   const showRange = tab !== "system";
+  const showConvFilters = tab === "messages" || tab === "conversations" || tab === "calls";
+  const showLabel = tab === "messages";
 
   const TH = ({ children, className }: { children?: React.ReactNode; className?: string }) =>
     <th className={cn("px-4 py-2.5 text-left text-[11px] font-bold uppercase tracking-wider text-muted-foreground whitespace-nowrap", className)}>{children}</th>;
   const cols: Record<TabKey, number> = { messages: 8, conversations: 9, activity: 5, system: 5, calls: 8, downloads: 1 };
   const rowsLen = tab === "messages" ? messages.length : tab === "conversations" ? convs.length : tab === "calls" ? calls.length : tab === "activity" ? activity.length : auditPaged.length;
-
-  const DL = [
-    { kind: "messages" as const, label: "Message History", desc: "All inbound + outbound messages", icon: MessageSquare },
-    { kind: "conversations" as const, label: "Conversations", desc: "Conversation summaries + response times", icon: MessagesSquare },
-    { kind: "calls" as const, label: "Call Logs", desc: "Voice calls with durations", icon: Phone },
-    { kind: "activity" as const, label: "User Activity", desc: "Agent login / presence events", icon: Activity },
-  ];
 
   return (
     <div className="h-full flex flex-col px-6 py-5 min-h-0 overflow-hidden">
@@ -160,8 +168,23 @@ export default function SystemLogsPage() {
       </div>
 
       {/* Toolbar */}
-      <div className="flex items-center gap-3 py-3 shrink-0">
+      <div className="flex items-center gap-2 py-3 shrink-0 flex-wrap">
         {showRange && <Select value={range} onChange={setRange} options={RANGES} className="w-[150px]" searchable={false} />}
+        {showConvFilters && (
+          <>
+            <Select value={fCampaign} onChange={setFCampaign} className="w-[160px]"
+              options={[{ value: "", label: "All campaigns" }, ...campaigns.map((c) => ({ value: c.id, label: c.name }))]} />
+            <Select value={fChannel} onChange={setFChannel} className="w-[150px]"
+              options={[{ value: "", label: "All channels" }, ...channels.map((c) => ({ value: c.id, label: c.name }))]} />
+          </>
+        )}
+        {showLabel && (
+          <input value={fLabel} onChange={(e) => setFLabel(e.target.value)} placeholder="Label"
+            className="w-[140px] h-9 px-3 rounded-md border border-input bg-background text-sm text-foreground placeholder:text-muted-foreground/70 outline-none focus:border-primary" />
+        )}
+        {showConvFilters && (fCampaign || fChannel || fLabel) && (
+          <button onClick={() => { setFCampaign(""); setFChannel(""); setFLabel(""); }} className="text-[12px] font-semibold text-primary hover:underline outline-none">Clear</button>
+        )}
         <div className="flex-1" />
         {showExportBtn && (
           <button onClick={() => startExport(tab as ExportKind)} disabled={!!exporting}
@@ -174,51 +197,43 @@ export default function SystemLogsPage() {
       {/* Body */}
       <div className="bg-card border border-border rounded-lg shadow-xs overflow-hidden flex-1 min-h-0 flex flex-col">
         {tab === "downloads" ? (
-          <div className="overflow-auto flex-1 min-h-0 p-5">
-            <p className="text-[13px] font-semibold text-foreground mb-1">Request an export</p>
-            <p className="text-[12px] text-muted-foreground mb-3">Generates the full dataset{range ? ` for the ${RANGES.find((r) => r.value === range)?.label.toLowerCase()}` : ""} as a CSV in the background. Track progress in the history below.</p>
-            <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-3 mb-6">
-              {DL.map((d) => (
-                <button key={d.kind} onClick={() => startExport(d.kind)} disabled={exporting === d.kind}
-                  className="flex items-center gap-3 p-3.5 rounded-lg border border-border bg-card hover:border-primary/40 hover:bg-muted/40 transition-colors text-left disabled:opacity-60 outline-none">
-                  <div className="w-9 h-9 rounded-lg bg-primary/10 grid place-items-center shrink-0"><d.icon className="w-[18px] h-[18px] text-primary" /></div>
-                  <div className="min-w-0 flex-1">
-                    <p className="font-semibold text-[13px] text-foreground">{d.label}</p>
-                    <p className="text-[11.5px] text-muted-foreground truncate">{d.desc}</p>
-                  </div>
-                  {exporting === d.kind ? <Loader2 className="w-4 h-4 animate-spin text-primary shrink-0" /> : <Download className="w-4 h-4 text-muted-foreground shrink-0" />}
-                </button>
-              ))}
-            </div>
-
-            <p className="text-[13px] font-semibold text-foreground mb-2">Export history</p>
-            <div className="rounded-lg border border-border overflow-hidden">
+          <div className="overflow-y-auto flex-1 min-h-0 p-5">
+            <p className="text-[13px] text-muted-foreground mb-3">Exports you request from each section&apos;s Export button land here. Files are generated in the background (the full dataset with your filters) and kept for 30 days.</p>
+            <div className="rounded-lg border border-border overflow-x-auto">
               <table className="w-full text-sm">
                 <thead><tr className="border-b border-border bg-muted/40">
-                  {["Data", "Requested by", "Date range", "Rows", "Status", "Created", "Action"].map((h, i) => (
-                    <th key={h} className={cn("px-4 py-2.5 text-[11px] font-bold uppercase tracking-wider text-muted-foreground", i === 6 ? "text-right" : "text-left")}>{h}</th>
+                  {["Data", "Requested by", "Date range", "Filters", "Rows", "Status", "Created", "Action"].map((h, i) => (
+                    <th key={h} className={cn("px-4 py-2.5 text-[11px] font-bold uppercase tracking-wider text-muted-foreground whitespace-nowrap", i === 7 ? "text-right" : "text-left")}>{h}</th>
                   ))}
                 </tr></thead>
                 <tbody>
                   {exports.length === 0 ? (
-                    <tr><td colSpan={7} className="text-center py-10 text-muted-foreground">No exports yet</td></tr>
-                  ) : exports.map((e) => (
-                    <tr key={e.id} className="border-b border-border/60 hover:bg-muted/40">
-                      <td className="px-4 py-2.5 font-semibold text-foreground capitalize">{e.kind}</td>
-                      <td className="px-4 py-2.5 text-foreground/80">{e.requested_by || "-"}</td>
-                      <td className="px-4 py-2.5 text-muted-foreground text-[12px] whitespace-nowrap">{e.date_from ? `${e.date_from} to ${e.date_to || "now"}` : "All time"}</td>
-                      <td className="px-4 py-2.5 tabular-nums text-muted-foreground">{e.row_count ?? "-"}</td>
-                      <td className="px-4 py-2.5"><StatusBadge status={e.status} /></td>
-                      <td className="px-4 py-2.5 text-muted-foreground text-[12px] whitespace-nowrap">{fmtDT(e.created_at)}</td>
-                      <td className="px-4 py-2.5 text-right">
-                        {e.status === "completed" && e.file_url
-                          ? <a href={rewriteLocalMedia(e.file_url)} download target="_blank" rel="noreferrer" className="inline-flex items-center gap-1.5 text-primary text-[13px] font-semibold hover:underline"><Download className="w-4 h-4" />Download</a>
-                          : e.status === "failed"
-                            ? <span className="text-[12px] text-destructive" title={e.error || ""}>Failed</span>
-                            : <span className="text-[12px] text-muted-foreground">Preparing</span>}
-                      </td>
-                    </tr>
-                  ))}
+                    <tr><td colSpan={8} className="text-center py-12 text-muted-foreground">No exports yet. Use the Export button on any tab.</td></tr>
+                  ) : exports.map((e) => {
+                    const chips = [e.campaign_name, e.channel_name, e.label].filter(Boolean) as string[];
+                    return (
+                      <tr key={e.id} className="border-b border-border/60 hover:bg-muted/40">
+                        <td className="px-4 py-2.5 font-semibold text-foreground capitalize whitespace-nowrap">{e.kind}</td>
+                        <td className="px-4 py-2.5 text-foreground/80 whitespace-nowrap">{e.requested_by || "-"}</td>
+                        <td className="px-4 py-2.5 text-muted-foreground text-[12px] whitespace-nowrap">{e.date_from ? `${fmtDay(e.date_from)} - ${e.date_to ? fmtDay(e.date_to) : "now"}` : "All time"}</td>
+                        <td className="px-4 py-2.5">
+                          {chips.length === 0 ? <span className="text-muted-foreground text-[12px]">-</span> : (
+                            <div className="flex flex-wrap gap-1">{chips.map((c) => <span key={c} className="inline-flex px-1.5 py-0.5 rounded-md bg-muted text-[10.5px] font-medium text-foreground/80">{c}</span>)}</div>
+                          )}
+                        </td>
+                        <td className="px-4 py-2.5 tabular-nums text-muted-foreground">{e.row_count ?? "-"}</td>
+                        <td className="px-4 py-2.5"><StatusBadge status={e.status} /></td>
+                        <td className="px-4 py-2.5 text-muted-foreground text-[12px] whitespace-nowrap">{fmtDT(e.created_at)}</td>
+                        <td className="px-4 py-2.5 text-right whitespace-nowrap">
+                          {e.status === "completed" && e.file_url
+                            ? <a href={rewriteLocalMedia(e.file_url)} download target="_blank" rel="noreferrer" className="inline-flex items-center gap-1.5 text-primary text-[13px] font-semibold hover:underline"><Download className="w-4 h-4" />Download</a>
+                            : e.status === "failed"
+                              ? <span className="text-[12px] text-destructive" title={e.error || ""}>Failed</span>
+                              : <span className="text-[12px] text-muted-foreground">Preparing</span>}
+                        </td>
+                      </tr>
+                    );
+                  })}
                 </tbody>
               </table>
             </div>

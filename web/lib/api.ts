@@ -358,17 +358,23 @@ export const api = {
     req<Organization>("/api/organization", { method: "PATCH", body: JSON.stringify(patch) }),
   // ── Audit log ──
   listAuditLog: () => req<AuditEntry[]>("/api/audit-log"),
-  systemLog: (kind: "messages" | "conversations" | "calls" | "activity", p: { limit?: number; offset?: number; from?: string; to?: string }) => {
+  systemLog: (kind: "messages" | "conversations" | "calls" | "activity", p: { limit?: number; offset?: number; from?: string; to?: string; campaign_id?: string; channel_id?: string; label?: string }) => {
     const q = new URLSearchParams();
     if (p.limit != null) q.set("limit", String(p.limit));
     if (p.offset != null) q.set("offset", String(p.offset));
     if (p.from) q.set("from", p.from);
     if (p.to) q.set("to", p.to);
+    if (p.campaign_id) q.set("campaign_id", p.campaign_id);
+    if (p.channel_id) q.set("channel_id", p.channel_id);
+    if (p.label) q.set("label", p.label);
     const qs = q.toString();
-    return req<import("./types").LogPage<Record<string, unknown>>>(`/api/system-logs/${kind}${qs ? "?" + qs : ""}`);
+    // NOTE: no type arg on req() here on purpose — a nested generic type arg
+    // (LogPage<Record<...>>) mis-transpiled in the prod build ("Record is not
+    // defined"). Cast the result instead.
+    return req(`/api/system-logs/${kind}${qs ? "?" + qs : ""}`) as Promise<{ rows: unknown[]; total: number }>;
   },
-  createExport: (kind: "messages" | "conversations" | "calls" | "activity", from?: string, to?: string) =>
-    req<{ id: string; status: string }>("/api/exports", { method: "POST", body: JSON.stringify({ kind, from: from || "", to: to || "" }) }),
+  createExport: (kind: "messages" | "conversations" | "calls" | "activity", from?: string, to?: string, filters?: { campaign_id?: string; channel_id?: string; label?: string }) =>
+    req<{ id: string; status: string }>("/api/exports", { method: "POST", body: JSON.stringify({ kind, from: from || "", to: to || "", campaign_id: filters?.campaign_id || "", channel_id: filters?.channel_id || "", label: filters?.label || "" }) }),
   listExports: () => req<import("./types").ExportJob[]>("/api/exports"),
   // ── Web API lead sources ──
   listWebApiSources: () => req<WebApiSource[]>("/api/web-api-sources"),

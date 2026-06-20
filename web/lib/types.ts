@@ -437,6 +437,11 @@ export interface ExportJob {
   created_at: string;
   completed_at: string | null;
   requested_by: string | null;
+  campaign_id: string | null;
+  channel_id: string | null;
+  label: string | null;
+  campaign_name: string | null;
+  channel_name: string | null;
 }
 
 export interface AuditEntry {

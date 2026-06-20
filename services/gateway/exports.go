@@ -23,9 +23,12 @@ var exportKinds = map[string]bool{"messages": true, "conversations": true, "call
 func (s *server) handleCreateExport(w http.ResponseWriter, r *http.Request) {
 	a, _ := authFrom(r.Context())
 	var b struct {
-		Kind string `json:"kind"`
-		From string `json:"from"`
-		To   string `json:"to"`
+		Kind       string `json:"kind"`
+		From       string `json:"from"`
+		To         string `json:"to"`
+		CampaignID string `json:"campaign_id"`
+		ChannelID  string `json:"channel_id"`
+		Label      string `json:"label"`
 	}
 	if err := json.NewDecoder(r.Body).Decode(&b); err != nil || !exportKinds[b.Kind] {
 		http.Error(w, "valid kind required", http.StatusBadRequest)
@@ -37,13 +40,13 @@ func (s *server) handleCreateExport(w http.ResponseWriter, r *http.Request) {
 	}
 	jobID := uuid.NewString()
 	if _, err := s.pool.Exec(r.Context(),
-		`INSERT INTO export_jobs (id, organization_id, requested_by, kind, date_from, date_to, status)
-		 VALUES ($1,$2,$3::uuid,$4, NULLIF($5,'')::date, NULLIF($6,'')::date, 'queued')`,
-		jobID, a.OrgID, a.UserID, b.Kind, b.From, b.To); err != nil {
+		`INSERT INTO export_jobs (id, organization_id, requested_by, kind, date_from, date_to, campaign_id, channel_id, label, status)
+		 VALUES ($1,$2,$3::uuid,$4, NULLIF($5,'')::date, NULLIF($6,'')::date, NULLIF($7,'')::uuid, NULLIF($8,'')::uuid, NULLIF($9,''), 'queued')`,
+		jobID, a.OrgID, a.UserID, b.Kind, b.From, b.To, b.CampaignID, b.ChannelID, b.Label); err != nil {
 		http.Error(w, "internal error", http.StatusInternalServerError)
 		return
 	}
-	go s.runExport(jobID, a.OrgID, b.Kind, b.From, b.To)
+	go s.runExport(jobID, a.OrgID, b.Kind, b.From, b.To, b.CampaignID, b.ChannelID, b.Label)
 
 	w.Header().Set("Content-Type", "application/json")
 	json.NewEncoder(w).Encode(map[string]string{"id": jobID, "status": "queued"})
@@ -54,8 +57,13 @@ func (s *server) handleListExports(w http.ResponseWriter, r *http.Request) {
 	a, _ := authFrom(r.Context())
 	rows, err := s.queryMaps(r.Context(),
 		`SELECT e.id::text, e.kind, e.date_from, e.date_to, e.status, e.row_count, e.file_url,
-		        e.error, e.expires_at, e.created_at, e.completed_at, u.full_name AS requested_by
-		   FROM export_jobs e LEFT JOIN users u ON u.id = e.requested_by
+		        e.error, e.expires_at, e.created_at, e.completed_at, u.full_name AS requested_by,
+		        e.campaign_id::text AS campaign_id, e.channel_id::text AS channel_id, e.label,
+		        cmp.name AS campaign_name, ch.name AS channel_name
+		   FROM export_jobs e
+		   LEFT JOIN users u ON u.id = e.requested_by
+		   LEFT JOIN campaigns cmp ON cmp.id = e.campaign_id
+		   LEFT JOIN channels ch ON ch.id = e.channel_id
 		  WHERE e.organization_id = $1 ORDER BY e.created_at DESC LIMIT 100`, a.OrgID)
 	if err != nil {
 		http.Error(w, err.Error(), http.StatusInternalServerError)
@@ -65,7 +73,7 @@ func (s *server) handleListExports(w http.ResponseWriter, r *http.Request) {
 }
 
 // runExport generates the full CSV for the job and flips its status (background).
-func (s *server) runExport(jobID, orgID, kind, from, to string) {
+func (s *server) runExport(jobID, orgID, kind, from, to, campaignID, channelID, label string) {
 	ctx := context.Background()
 	_, _ = s.pool.Exec(ctx, `UPDATE export_jobs SET status='processing' WHERE id=$1`, jobID)
 
@@ -74,9 +82,20 @@ func (s *server) runExport(jobID, orgID, kind, from, to string) {
 		s.failExport(ctx, jobID, "unknown export kind")
 		return
 	}
+	p := logParams{from: from, to: to, campaignID: campaignID, channelID: channelID, label: label}
 	args := []any{orgID}
-	df, args := dateFilter(exportDateCol(kind), logParams{from: from, to: to}, args)
-	q = fmt.Sprintf(q, df)
+	df, args := dateFilter(exportDateCol(kind), p, args)
+	filter := df
+	if kind != "activity" { // activity has no conversation join
+		cf, a2 := convFilter("cv", p, args)
+		args = a2
+		filter += cf
+	}
+	if kind == "messages" && label != "" {
+		args = append(args, label)
+		filter += fmt.Sprintf(" AND $%d = ANY(ct.tags)", len(args))
+	}
+	q = fmt.Sprintf(q, filter)
 
 	rows, err := s.queryMaps(ctx, q, args...)
 	if err != nil {
