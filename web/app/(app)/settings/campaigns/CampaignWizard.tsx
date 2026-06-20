@@ -4,7 +4,7 @@
 // its own coverage, ad sources and agents. Leads route by ad source to a branch,
 // else fall back to the campaign's default agents.
 import { useEffect, useState } from "react";
-import { Plus, Trash2, Loader2, Phone, PhoneOff, Sparkles, Building2, MapPin } from "lucide-react";
+import { Plus, Trash2, Loader2, Phone, PhoneOff, Sparkles, Building2 } from "lucide-react";
 import { api } from "@/lib/api";
 import type { UserAccount, Channel, WebApiSource } from "@/lib/types";
 import { Select } from "@/components/Select";
@@ -17,12 +17,12 @@ const STEPS = ["Campaign", "Branches", "Review"];
 
 type LocalBranch = {
   key: string; id?: string;
-  name: string; coverage: string; adSources: string;
+  name: string; adSources: string;
   agentIds: string[]; webSourceIds: string[];
 };
 
 let keySeq = 0;
-const newBranch = (): LocalBranch => ({ key: `b${++keySeq}`, name: "", coverage: "", adSources: "", agentIds: [], webSourceIds: [] });
+const newBranch = (): LocalBranch => ({ key: `b${++keySeq}`, name: "", adSources: "", agentIds: [], webSourceIds: [] });
 const csv = (s: string) => s.split(",").map((x) => x.trim()).filter(Boolean);
 
 export function CampaignWizard({ campaignId, users, channels, onClose, onDone, onError }: {
@@ -62,7 +62,7 @@ export function CampaignWizard({ campaignId, users, channels, onClose, onDone, o
           setDefaultAgents(c.agent_ids ?? []); setKeywords((c.keywords ?? []).join(", "));
           setAdSources((c.ad_source_ids ?? []).join(", "));
           setBranches((brs as any[]).map((b) => ({
-            key: `b${++keySeq}`, id: b.id, name: b.name, coverage: b.coverage ?? "",
+            key: `b${++keySeq}`, id: b.id, name: b.name,
             adSources: (b.ad_source_ids ?? []).join(", "), agentIds: b.agent_ids ?? [], webSourceIds: b.web_source_ids ?? [],
           })));
         })
@@ -94,7 +94,7 @@ export function CampaignWizard({ campaignId, users, channels, onClose, onDone, o
 
       for (const id of removed) await api.deleteBranch(id);
       for (const b of branches) {
-        const input = { name: b.name.trim(), coverage: b.coverage.trim(), ad_source_ids: csv(b.adSources), agent_ids: b.agentIds, web_source_ids: b.webSourceIds };
+        const input = { name: b.name.trim(), ad_source_ids: csv(b.adSources), agent_ids: b.agentIds, web_source_ids: b.webSourceIds };
         if (b.id) await api.updateBranch(b.id, input);
         else await api.createBranch(cid!, input);
       }
@@ -161,17 +161,10 @@ export function CampaignWizard({ campaignId, users, channels, onClose, onDone, o
                   className="flex-1 h-9 px-3 rounded-md border border-input bg-background text-sm font-semibold outline-none focus:border-primary" />
                 <button type="button" onClick={() => removeBranch(b)} className="p-1.5 rounded-md hover:bg-destructive/10 text-destructive outline-none"><Trash2 className="w-4 h-4" /></button>
               </div>
-              <div className="grid grid-cols-2 gap-3">
-                <div>
-                  <FieldLabel><span className="inline-flex items-center gap-1"><MapPin className="w-3 h-3" />Coverage (optional)</span></FieldLabel>
-                  <input value={b.coverage} onChange={(e) => patchBranch(b.key, { coverage: e.target.value })} placeholder="e.g. Bekasi, Cikarang"
-                    className="w-full h-9 px-3 rounded-md border border-input bg-background text-sm outline-none focus:border-primary" />
-                </div>
-                <div>
-                  <FieldLabel>CTWA ad source IDs (comma separated)</FieldLabel>
-                  <input value={b.adSources} onChange={(e) => patchBranch(b.key, { adSources: e.target.value })} placeholder="ad_umc_bekasi"
-                    className="w-full h-9 px-3 rounded-md border border-input bg-background text-sm outline-none focus:border-primary" />
-                </div>
+              <div>
+                <FieldLabel>CTWA ad source IDs (comma separated)</FieldLabel>
+                <input value={b.adSources} onChange={(e) => patchBranch(b.key, { adSources: e.target.value })} placeholder="ad_umc_bekasi"
+                  className="w-full h-9 px-3 rounded-md border border-input bg-background text-sm outline-none focus:border-primary" />
               </div>
               <div>
                 <FieldLabel>Web API sources</FieldLabel>
@@ -210,7 +203,7 @@ export function CampaignWizard({ campaignId, users, channels, onClose, onDone, o
                   <div key={b.key} className="rounded-lg border border-border p-3 flex items-center gap-3">
                     <Building2 className="w-4 h-4 text-primary shrink-0" />
                     <div className="min-w-0 flex-1">
-                      <p className="text-[13.5px] font-semibold text-foreground truncate">{b.name || "(unnamed)"}{b.coverage ? <span className="text-muted-foreground font-normal"> · {b.coverage}</span> : null}</p>
+                      <p className="text-[13.5px] font-semibold text-foreground truncate">{b.name || "(unnamed)"}</p>
                       <p className="text-[11.5px] text-muted-foreground truncate">{b.agentIds.length} agent{b.agentIds.length === 1 ? "" : "s"} · {csv(b.adSources).length + b.webSourceIds.length} ad source{csv(b.adSources).length + b.webSourceIds.length === 1 ? "" : "s"}</p>
                     </div>
                   </div>

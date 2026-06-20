@@ -19,7 +19,7 @@ import (
 func (s *server) handleListBranches(w http.ResponseWriter, r *http.Request) {
 	a, _ := authFrom(r.Context())
 	rows, err := s.queryMaps(r.Context(),
-		`SELECT b.id::text AS id, b.name, b.coverage,
+		`SELECT b.id::text AS id, b.name,
 		        to_jsonb(b.ad_source_ids) AS ad_source_ids, b.lead_count,
 		        COALESCE((SELECT jsonb_agg(ba.user_id::text) FROM branch_agents ba WHERE ba.branch_id=b.id), '[]'::jsonb) AS agent_ids,
 		        COALESCE((SELECT jsonb_agg(ws.id::text) FROM web_api_sources ws WHERE ws.branch_id=b.id), '[]'::jsonb) AS web_source_ids
@@ -37,7 +37,6 @@ func (s *server) handleListBranches(w http.ResponseWriter, r *http.Request) {
 
 type branchInput struct {
 	Name         string   `json:"name"`
-	Coverage     string   `json:"coverage"`
 	AdSourceIDs  []string `json:"ad_source_ids"`
 	AgentIDs     []string `json:"agent_ids"`
 	WebSourceIDs []string `json:"web_source_ids"`
@@ -58,11 +57,11 @@ func (s *server) handleCreateBranch(w http.ResponseWriter, r *http.Request) {
 	}
 	var id string
 	err := s.pool.QueryRow(r.Context(),
-		`INSERT INTO campaign_branches (organization_id, campaign_id, name, coverage, ad_source_ids)
-		 SELECT $1, $2, $3, $4, $5
+		`INSERT INTO campaign_branches (organization_id, campaign_id, name, ad_source_ids)
+		 SELECT $1, $2, $3, $4
 		  WHERE EXISTS (SELECT 1 FROM campaigns WHERE id=$2 AND organization_id=$1)
 		 RETURNING id::text`,
-		a.OrgID, campaignID, b.Name, b.Coverage, adSrc,
+		a.OrgID, campaignID, b.Name, adSrc,
 	).Scan(&id)
 	if errors.Is(err, pgx.ErrNoRows) {
 		http.Error(w, "campaign not found", http.StatusNotFound)
@@ -96,11 +95,10 @@ func (s *server) handleUpdateBranch(w http.ResponseWriter, r *http.Request) {
 	tag, err := s.pool.Exec(r.Context(),
 		`UPDATE campaign_branches SET
 		   name = COALESCE(NULLIF($3,''), name),
-		   coverage = $4,
-		   ad_source_ids = COALESCE($5, ad_source_ids),
+		   ad_source_ids = COALESCE($4, ad_source_ids),
 		   updated_at = now()
 		 WHERE id=$1 AND organization_id=$2`,
-		id, a.OrgID, b.Name, b.Coverage, nilIfEmptySlice(b.AdSourceIDs),
+		id, a.OrgID, b.Name, nilIfEmptySlice(b.AdSourceIDs),
 	)
 	if err != nil {
 		http.Error(w, err.Error(), http.StatusInternalServerError)
