@@ -2,6 +2,32 @@
 
 Snapshot as of **2026-06-17**. This is the honest "what actually works right now" doc.
 
+## CI/CD Level 1: build in CI -> ECR -> EC2 pulls + migrations off-boot (2026-06-20)
+
+Deploys no longer build on the prod EC2. **GitHub Actions builds all 8 images natively on
+`ubuntu-24.04-arm`, pushes `:<sha>` + `:latest` to ECR** (`825621302344.dkr.ecr.ap-southeast-3
+.amazonaws.com/simpulx/*`, 8 repos), cache `type=gha`. The **deploy** job SSMs the box to:
+ECR-login (instance role `simpulx-ssm-role` has `ecr-pull`), `docker compose pull`, run the
+**dedicated migrate step**, `up -d`, restart caddy — **prod never builds**. Verified end-to-end:
+cold first run ~6 min, app 200.
+
+- **Migrations decoupled from boot** (`gateway/main.go`): `MIGRATE_ONLY=true` runs goose then
+  exits (used by the deploy step); `RUN_MIGRATIONS_ON_BOOT` (default true for dev) is **false**
+  in prod (`compose.prod.yml`) so app boot never migrates. Going forward use expand/contract.
+- **Rollback** = run the `Deploy Simpulx` workflow via `workflow_dispatch` with an older
+  `image_tag` (build is skipped; deploy pulls that tag). Images are immutable per SHA in ECR.
+- IAM: OIDC role `simpulx-gha-deploy` got inline `ecr-push`; instance role got `ecr-pull`
+  (both scoped to `repository/simpulx/*`). Web build args come from GitHub repo **variables**
+  (`NEXT_PUBLIC_META_*`); `META_APP_SECRET` stays a runtime `.env` secret.
+- `compose.prod.yml` services now `image: .../simpulx/<svc>:${IMAGE_TAG:-latest}` (pull);
+  base `compose.yml` keeps `build:` for local dev. Dockerfiles gained cache layers
+  (`go.Dockerfile`: go.mod download layer + BuildKit cache mounts; `web/Dockerfile`: npm +
+  `.next/cache` mounts). Old build-on-box path replaced in `.github/workflows/deploy.yml`.
+- **Next steps (Level 2, later):** staging env + e2e gating + manual approval + zero-downtime
+  (blue-green/rolling). A `paths-filter` to skip building unchanged images is a cheap refinement.
+
+
+
 ## Campaigns with branches (group -> sub-units) + enterprise wizard (2026-06-20)
 
 A campaign is now a **group** (e.g. "UMC") that can contain many **branches** (sub-units:
