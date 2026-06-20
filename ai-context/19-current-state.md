@@ -27,9 +27,12 @@ cold first run ~6 min, app 200.
   source changed; unchanged ones are re-tagged `latest -> :sha` via `ecr put-image` (no rebuild),
   so every commit still has a full set of immutable `:sha` tags. Verified: workflow-only push
   re-tagged all 8, zero builds, ~1m15s. Measured: cold ~6m, warm ~1.5m (was ~8m on-box).
+- **No-op skip (done):** the `changes` job emits `any`; build runs only if a service changed,
+  and deploy runs only on a rollback dispatch or when build actually ran. A push that touches no
+  service (docs/workflow) does just the ~9s `changes` job — no build, no deploy. Manual dispatch
+  without a tag force-rebuilds all; dispatch with a tag rolls back.
 - **Next steps (Level 2, later):** staging env + e2e gating + manual approval + zero-downtime
-  (blue-green/rolling); optionally skip the deploy job when nothing changed. Use expand/contract
-  for schema changes.
+  (blue-green/rolling). Use expand/contract for schema changes.
 
 
 
