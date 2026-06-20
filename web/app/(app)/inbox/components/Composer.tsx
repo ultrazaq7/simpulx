@@ -5,6 +5,7 @@ import EmojiPicker from "emoji-picker-react";
 import { cn } from "@/lib/utils";
 import { api } from "@/lib/api";
 import { Tip } from "@/components/ui/tooltip";
+import TemplateWizard from "./TemplateWizard";
 import type { QuickReply, Template } from "@/lib/types";
 
 interface ComposerProps {
@@ -46,13 +47,6 @@ export default function Composer({
   const [showTemplates, setShowTemplates] = useState(false);
   const [templates, setTemplates] = useState<Template[]>([]);
   useEffect(() => { api.listTemplates().then((t) => setTemplates((t || []).filter((x) => x.status === "APPROVED"))).catch(() => {}); }, []);
-  const insertTemplate = (t: Template) => {
-    const parts = [t.header_text, t.body, t.footer].filter(Boolean) as string[];
-    setDraft(parts.join("\n\n"));
-    setShowTemplates(false);
-    setTab(0); // templates go out as a reply, not an internal note
-    notify(`Template "${t.name}" inserted`, "info");
-  };
   // Focus the message box when a conversation opens (cursor ready to type).
   const textareaRef = useRef<HTMLTextAreaElement>(null);
   useEffect(() => {
@@ -314,25 +308,11 @@ export default function Composer({
           </div>
         )}
 
-        {/* WhatsApp templates */}
+        {/* WhatsApp template wizard */}
         {showTemplates && (
-          <div className="max-h-[240px] overflow-auto border-b border-border">
-            {templates.length === 0 ? (
-              <p className="p-4 text-sm text-muted-foreground text-center">No approved templates yet</p>
-            ) : (
-              templates.map((t) => (
-                <div key={t.id} onClick={() => insertTemplate(t)}
-                  className="px-4 py-3 cursor-pointer border-b border-border/60 hover:bg-muted">
-                  <div className="flex items-center gap-2">
-                    <span className="px-1.5 py-0.5 rounded-md text-[10px] font-bold bg-primary/10 text-primary uppercase">{t.language}</span>
-                    <span className="text-xs font-semibold text-foreground truncate">{t.name}</span>
-                    <span className="text-[10px] text-muted-foreground capitalize ml-auto shrink-0">{t.category?.toLowerCase()}</span>
-                  </div>
-                  <p className="text-xs text-muted-foreground mt-0.5 line-clamp-2">{t.body}</p>
-                </div>
-              ))
-            )}
-          </div>
+          <TemplateWizard templates={templates}
+            onClose={() => setShowTemplates(false)}
+            onUse={(text) => { setDraft(text); setShowTemplates(false); setTab(0); notify("Template inserted, review and send", "info"); }} />
         )}
 
         {/* Tabs */}
