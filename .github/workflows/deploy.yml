@@ -1,14 +1,12 @@
 name: Deploy Simpulx
 
 # Build images in CI (native ARM runner) -> push to ECR -> the EC2 box just PULLS
-# and restarts. Prod never builds. Rollback = run this workflow (workflow_dispatch)
-# with an older image_tag. SSM Run Command over GitHub OIDC (no inbound SSH).
+# and restarts. Prod never builds. Only services whose source changed are rebuilt;
+# unchanged ones are re-tagged (latest -> :sha) so every commit has a full set of
+# :sha tags (immutable; rollback = run with an older image_tag).
 #
-# AWS resources backing this (already provisioned):
-#   - IAM role  simpulx-gha-deploy  (OIDC trust: ultrazaq7/simpulx @ refs/heads/main;
-#                                    perms: ssm:SendCommand + ecr-push to simpulx/*)
-#   - IAM role  simpulx-ssm-role    (instance profile on i-070b...; + ecr-pull to simpulx/*)
-#   - ECR repos simpulx/{gateway,messaging,conversation,broadcasts,realtime,web,ai-agent,knowledge}
+# AWS backing (provisioned): IAM role simpulx-gha-deploy (OIDC + ssm:SendCommand +
+# ecr-push to simpulx/*); instance role simpulx-ssm-role (+ ecr-pull); 8 ECR repos.
 
 on:
   push:
@@ -35,22 +33,67 @@ env:
   ECR: 825621302344.dkr.ecr.ap-southeast-3.amazonaws.com/simpulx
 
 jobs:
+  # Which services changed? (skipped on a rollback dispatch with an explicit tag)
+  changes:
+    if: github.event_name == 'push' || github.event.inputs.image_tag == ''
+    runs-on: ubuntu-latest
+    outputs:
+      changed: ${{ steps.set.outputs.changed }}
+    steps:
+      - uses: actions/checkout@v4
+      - uses: dorny/paths-filter@v3
+        id: f
+        with:
+          filters: |
+            go: &go
+              - 'libs/go/**'
+              - 'go.mod'
+              - 'go.sum'
+              - 'deploy/docker/go.Dockerfile'
+            gateway:
+              - *go
+              - 'services/gateway/**'
+              - 'db/migrations/**'
+            messaging:
+              - *go
+              - 'services/messaging/**'
+            conversation:
+              - *go
+              - 'services/conversation/**'
+            broadcasts:
+              - *go
+              - 'services/broadcasts/**'
+            realtime:
+              - *go
+              - 'services/realtime/**'
+            web:
+              - 'web/**'
+            aiagent:
+              - 'services/ai-agent/**'
+              - 'libs/python/**'
+            knowledge:
+              - 'services/knowledge/**'
+              - 'libs/python/**'
+      - id: set
+        run: |
+          echo 'changed={"gateway":"${{ steps.f.outputs.gateway }}","messaging":"${{ steps.f.outputs.messaging }}","conversation":"${{ steps.f.outputs.conversation }}","broadcasts":"${{ steps.f.outputs.broadcasts }}","realtime":"${{ steps.f.outputs.realtime }}","web":"${{ steps.f.outputs.web }}","ai-agent":"${{ steps.f.outputs.aiagent }}","knowledge":"${{ steps.f.outputs.knowledge }}"}' >> "$GITHUB_OUTPUT"
+
   build:
-    name: Build & push images (ARM -> ECR)
-    # Skip building on a rollback dispatch (image_tag given); otherwise build the commit.
+    name: Build/retag ${{ matrix.name }}
+    needs: changes
     if: github.event_name == 'push' || github.event.inputs.image_tag == ''
     runs-on: ubuntu-24.04-arm
     strategy:
       fail-fast: false
       matrix:
         include:
-          - { name: gateway,      dockerfile: deploy/docker/go.Dockerfile,       context: ., buildargs: "SERVICE=gateway" }
-          - { name: messaging,    dockerfile: deploy/docker/go.Dockerfile,       context: ., buildargs: "SERVICE=messaging" }
-          - { name: conversation, dockerfile: deploy/docker/go.Dockerfile,       context: ., buildargs: "SERVICE=conversation" }
-          - { name: broadcasts,   dockerfile: deploy/docker/go.Dockerfile,       context: ., buildargs: "SERVICE=broadcasts" }
-          - { name: realtime,     dockerfile: deploy/docker/go.Dockerfile,       context: ., buildargs: "SERVICE=realtime" }
-          - { name: ai-agent,     dockerfile: services/ai-agent/Dockerfile,      context: ., buildargs: "" }
-          - { name: knowledge,    dockerfile: services/knowledge/Dockerfile,     context: ., buildargs: "" }
+          - { name: gateway,      dockerfile: deploy/docker/go.Dockerfile,   context: ., buildargs: "SERVICE=gateway" }
+          - { name: messaging,    dockerfile: deploy/docker/go.Dockerfile,   context: ., buildargs: "SERVICE=messaging" }
+          - { name: conversation, dockerfile: deploy/docker/go.Dockerfile,   context: ., buildargs: "SERVICE=conversation" }
+          - { name: broadcasts,   dockerfile: deploy/docker/go.Dockerfile,   context: ., buildargs: "SERVICE=broadcasts" }
+          - { name: realtime,     dockerfile: deploy/docker/go.Dockerfile,   context: ., buildargs: "SERVICE=realtime" }
+          - { name: ai-agent,     dockerfile: services/ai-agent/Dockerfile,  context: ., buildargs: "" }
+          - { name: knowledge,    dockerfile: services/knowledge/Dockerfile, context: ., buildargs: "" }
           - name: web
             dockerfile: web/Dockerfile
             context: web
@@ -61,14 +104,20 @@ jobs:
               NEXT_PUBLIC_META_CONFIG_ID=${{ vars.NEXT_PUBLIC_META_CONFIG_ID }}
               NEXT_PUBLIC_META_VERIFY_TOKEN=${{ vars.NEXT_PUBLIC_META_VERIFY_TOKEN }}
     steps:
-      - uses: actions/checkout@v4
       - uses: aws-actions/configure-aws-credentials@v4
         with:
           role-to-assume: ${{ env.DEPLOY_ROLE }}
           aws-region: ${{ env.AWS_REGION }}
-      - uses: aws-actions/amazon-ecr-login@v2
-      - uses: docker/setup-buildx-action@v3
+
+      # ── Changed: build & push a fresh image ──
+      - if: ${{ fromJson(needs.changes.outputs.changed)[matrix.name] == 'true' }}
+        uses: aws-actions/amazon-ecr-login@v2
+      - if: ${{ fromJson(needs.changes.outputs.changed)[matrix.name] == 'true' }}
+        uses: actions/checkout@v4
+      - if: ${{ fromJson(needs.changes.outputs.changed)[matrix.name] == 'true' }}
+        uses: docker/setup-buildx-action@v3
       - name: Build & push ${{ matrix.name }}
+        if: ${{ fromJson(needs.changes.outputs.changed)[matrix.name] == 'true' }}
         uses: docker/build-push-action@v6
         with:
           context: ${{ matrix.context }}
@@ -81,6 +130,18 @@ jobs:
           cache-from: type=gha,scope=${{ matrix.name }}
           cache-to: type=gha,mode=max,scope=${{ matrix.name }}
           provenance: false
+
+      # ── Unchanged: re-tag the existing :latest as :sha (no rebuild) ──
+      - name: Re-tag latest -> sha (${{ matrix.name }})
+        if: ${{ fromJson(needs.changes.outputs.changed)[matrix.name] != 'true' }}
+        run: |
+          set -euo pipefail
+          M=$(aws ecr batch-get-image --region "$AWS_REGION" --repository-name "simpulx/${{ matrix.name }}" \
+                --image-ids imageTag=latest --query 'images[0].imageManifest' --output text)
+          if [ -z "$M" ] || [ "$M" = "None" ]; then echo "no :latest for ${{ matrix.name }}; nothing to retag"; exit 0; fi
+          aws ecr put-image --region "$AWS_REGION" --repository-name "simpulx/${{ matrix.name }}" \
+                --image-tag "${{ github.sha }}" --image-manifest "$M" >/dev/null 2>&1 || true
+          echo "re-tagged simpulx/${{ matrix.name }}:latest -> :${{ github.sha }}"
 
   deploy:
     name: Deploy to EC2 (pull from ECR via SSM)
