@@ -80,12 +80,13 @@ const ConversationCard = memo(function ConversationCard({
   const accent = needsFollowUp ? "bg-amber" : needsCall ? "bg-info" : "";
 
   const media = c.last_message_preview ? PREVIEW_MEDIA[c.last_message_preview] : undefined;
+  const previewText = media ? media.label : (c.last_message_preview || "No messages yet");
 
   return (
     <div
       onClick={onClick}
       className={cn(
-        "group relative flex gap-2.5 pl-3.5 pr-3 py-2 cursor-pointer border-b border-border/50 transition-colors duration-100",
+        "group relative flex gap-2.5 pl-3.5 pr-3 py-2.5 cursor-pointer border-b border-border/50 transition-colors duration-100",
         isActive ? "bg-primary/[0.08]" : "hover:bg-muted/60",
       )}
     >
@@ -129,17 +130,19 @@ const ConversationCard = memo(function ConversationCard({
         </div>
 
         {/* Line 2: preview + unread count */}
-        <div className="flex items-center gap-2 mt-0.5">
-          <span className={cn(
-            "flex-1 min-w-0 truncate flex items-center gap-1 text-[12.5px]",
-            unread ? "text-foreground/80 font-medium" : "text-muted-foreground",
-          )}>
-            {media ? (
-              <><media.icon className="w-3.5 h-3.5 shrink-0" /> {media.label}</>
-            ) : (
-              c.last_message_preview || <span className="italic text-muted-foreground/60">No messages yet</span>
-            )}
-          </span>
+        <div className="flex items-center gap-2 mt-1">
+          <Tip label={previewText} side="top">
+            <span className={cn(
+              "flex-1 min-w-0 truncate flex items-center gap-1 text-[12px]",
+              unread ? "text-foreground/85 font-medium" : "text-foreground/65",
+            )}>
+              {media ? (
+                <><media.icon className="w-3.5 h-3.5 shrink-0" /> {media.label}</>
+              ) : (
+                c.last_message_preview || <span className="italic text-muted-foreground/55">No messages yet</span>
+              )}
+            </span>
+          </Tip>
           {unread && (
             <span className="shrink-0 min-w-[18px] h-[18px] px-1.5 rounded-full bg-primary text-primary-foreground text-[10px] font-bold grid place-items-center tabular-nums">
               {c.unread_count > 99 ? "99+" : c.unread_count}
@@ -149,7 +152,7 @@ const ConversationCard = memo(function ConversationCard({
 
         {/* Line 3: signal tags (single line, no wrap) */}
         {(showAgent || needsFollowUp || needsCall || windowExpired || c.interest_level || c.campaign_name) && (
-          <div className="flex items-center gap-1 mt-1 overflow-hidden">
+          <div className="flex items-center gap-1 mt-1.5 overflow-hidden">
             {showAgent && (
               c.agent_name
                 ? <span className={cn("inline-flex items-center gap-1 h-[18px] px-2 rounded-full text-slate-600 text-[10px] font-semibold shrink-0 max-w-[110px] truncate", isActive ? "bg-white" : "bg-slate-100")}><User className="w-2.5 h-2.5 shrink-0" />{c.agent_name}</span>

@@ -1,93 +1,92 @@
-import * as React from "react"
-import { Check, ChevronsUpDown, Search } from "lucide-react"
-import { Popover, PopoverContent, PopoverTrigger } from "./popover"
-import { cn } from "@/lib/utils"
+"use client";
+import { useState, useRef, useEffect, useMemo } from "react";
+import { ChevronDown, Search, Check } from "lucide-react";
+import { cn } from "@/lib/utils";
 
-export interface Option {
-  label: string;
-  value: string;
-}
-
+export interface Option { label: string; value: string; }
 export interface MultiSelectProps {
-  options: Option[]
-  value: string[]
-  onChange: (value: string[]) => void
-  placeholder?: string
-  className?: string
+  options: Option[];
+  value: string[];
+  onChange: (value: string[]) => void;
+  placeholder?: string;
+  className?: string;
 }
 
+// Searchable multi-select. Uses an inline (non-portaled) dropdown like Select so
+// it renders correctly inside modals/dialogs instead of opening behind them.
 export function MultiSelect({ options, value, onChange, placeholder = "Select...", className }: MultiSelectProps) {
-  const [open, setOpen] = React.useState(false)
-  const [search, setSearch] = React.useState("")
+  const [open, setOpen] = useState(false);
+  const [q, setQ] = useState("");
+  const ref = useRef<HTMLDivElement>(null);
 
-  const filtered = options.filter(o => o.label.toLowerCase().includes(search.toLowerCase()))
+  useEffect(() => {
+    if (!open) return;
+    const onDoc = (e: MouseEvent) => { if (ref.current && !ref.current.contains(e.target as Node)) { setOpen(false); setQ(""); } };
+    document.addEventListener("mousedown", onDoc);
+    return () => document.removeEventListener("mousedown", onDoc);
+  }, [open]);
 
-  const handleSelect = (val: string) => {
-    if (value.includes(val)) {
-      onChange(value.filter(v => v !== val))
-    } else {
-      onChange([...value, val])
-    }
-  }
+  const filtered = useMemo(() => {
+    const s = q.trim().toLowerCase();
+    return s ? options.filter((o) => o.label.toLowerCase().includes(s)) : options;
+  }, [options, q]);
 
-  const selectedLabels = value.map(v => options.find(o => o.value === v)?.label || v)
-  const display = selectedLabels.length > 0 ? (selectedLabels.length > 2 ? `${selectedLabels.length} selected` : selectedLabels.join(", ")) : placeholder
+  const toggle = (val: string) => onChange(value.includes(val) ? value.filter((v) => v !== val) : [...value, val]);
+  const allSelected = options.length > 0 && value.length === options.length;
+  const selectedLabels = value.map((v) => options.find((o) => o.value === v)?.label || v);
+  const display = selectedLabels.length === 0 ? placeholder
+    : selectedLabels.length > 2 ? `${selectedLabels.length} selected` : selectedLabels.join(", ");
 
   return (
-    <Popover open={open} onOpenChange={setOpen}>
-      <PopoverTrigger
-        className={cn("flex h-8 w-full items-center justify-between rounded-md border border-slate-200 bg-white px-3 py-2 text-xs ring-offset-background placeholder:text-muted-foreground focus:outline-none focus:ring-2 focus:ring-amber-500 disabled:cursor-not-allowed disabled:opacity-50", className)}
+    <div ref={ref} className={cn("relative", className)}>
+      <button
+        type="button"
+        onClick={() => setOpen((v) => !v)}
+        className={cn(
+          "w-full h-9 px-3 flex items-center gap-2 rounded-md border bg-background text-[13px] text-left outline-none transition-shadow",
+          open ? "border-primary ring-2 ring-primary/20" : "border-input hover:border-muted-foreground/30",
+        )}
       >
-        <span className="truncate">{display}</span>
-        <ChevronsUpDown className="ml-2 h-3 w-3 shrink-0 opacity-50" />
-      </PopoverTrigger>
-      <PopoverContent className="w-[220px] p-0 shadow-lg border border-slate-200" align="start">
-        <div className="flex items-center border-b px-3">
-          <Search className="mr-2 h-3.5 w-3.5 shrink-0 opacity-50" />
-          <input
-            className="flex h-9 w-full rounded-md bg-transparent py-3 text-sm outline-none border-none focus:outline-none focus:ring-0 placeholder:text-slate-400"
-            placeholder="Search..."
-            value={search}
-            onChange={e => setSearch(e.target.value)}
-          />
-        </div>
-        <div className="max-h-[220px] overflow-y-auto p-1">
-          {options.length > 0 && (
-            <div
-              className="flex items-center justify-between px-2 py-1.5 mb-1 border-b border-slate-100 text-xs text-slate-500 cursor-pointer hover:bg-slate-50"
-              onClick={() => {
-                if (value.length === options.length) {
-                  onChange([])
-                } else {
-                  onChange(options.map(o => o.value))
-                }
-              }}
-            >
-              <span className="font-medium text-amber-700">{value.length === options.length ? "Clear All" : "Select All"}</span>
+        <span className={cn("flex-1 truncate", selectedLabels.length === 0 && "text-muted-foreground/70")}>{display}</span>
+        <ChevronDown className={cn("w-4 h-4 text-muted-foreground shrink-0 transition-transform", open && "rotate-180")} />
+      </button>
+
+      {open && (
+        <div className="absolute top-full left-0 mt-1.5 z-50 min-w-full w-max max-w-[280px] rounded-lg border border-border bg-popover shadow-xl overflow-hidden animate-scale-in origin-top-left max-h-[320px] flex flex-col">
+          {options.length > 6 && (
+            <div className="p-2 border-b border-border shrink-0">
+              <div className="relative">
+                <Search className="absolute left-2.5 top-1/2 -translate-y-1/2 w-4 h-4 text-muted-foreground pointer-events-none" />
+                <input autoFocus value={q} onChange={(e) => setQ(e.target.value)} placeholder="Search..."
+                  className="w-full h-9 pl-9 pr-3 rounded-md border border-input bg-background text-[13px] text-foreground placeholder:text-muted-foreground/70 outline-none focus:border-primary focus:ring-2 focus:ring-primary/20" />
+              </div>
             </div>
           )}
-          {filtered.length === 0 ? (
-            <p className="p-2 text-center text-sm text-slate-500">No results found.</p>
-          ) : (
-            filtered.map((option) => {
-              const isSelected = value.includes(option.value)
+          <div className="overflow-auto py-1">
+            {options.length > 0 && (
+              <button type="button" onClick={() => onChange(allSelected ? [] : options.map((o) => o.value))}
+                className="w-full px-3 py-1.5 mb-1 border-b border-border/60 text-[12px] font-semibold text-primary hover:bg-muted text-left outline-none">
+                {allSelected ? "Clear all" : "Select all"}
+              </button>
+            )}
+            {filtered.length === 0 ? (
+              <p className="text-center text-xs text-muted-foreground py-4">No results</p>
+            ) : filtered.map((o) => {
+              const sel = value.includes(o.value);
               return (
-                <div
-                  key={option.value}
-                  className={cn(
-                    "relative flex cursor-pointer select-none items-center rounded-sm px-2 py-1.5 text-sm outline-none hover:bg-slate-100",
-                    isSelected ? "bg-slate-50 text-amber-700 font-medium" : "text-slate-700"
-                  )}
-                  onClick={() => handleSelect(option.value)}
-                >
-                  <Check className={cn("mr-2 h-4 w-4", isSelected ? "opacity-100" : "opacity-0")} />
-                  {option.label}
-                </div>
-              )
-            })
-          )}
+                <button key={o.value} type="button" onClick={() => toggle(o.value)}
+                  className={cn("w-full flex items-center gap-2 px-3 py-2 text-[13px] text-left outline-none transition-colors hover:bg-muted",
+                    sel ? "text-primary font-semibold" : "text-foreground/90")}>
+                  <span className={cn("grid place-items-center w-4 h-4 rounded border shrink-0", sel ? "bg-primary border-primary text-white" : "border-input")}>
+                    {sel && <Check className="w-3 h-3" />}
+                  </span>
+                  <span className="flex-1 truncate">{o.label}</span>
+                </button>
+              );
+            })}
+          </div>
         </div>
-      </PopoverContent>
-    </Popover>
-  )
+      )}
+    </div>
+  );
 }

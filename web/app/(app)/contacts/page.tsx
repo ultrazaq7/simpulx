@@ -11,10 +11,10 @@ import { usePermissions } from "@/lib/permissions";
 import { initials, channelColor, fmtDate, cn } from "@/lib/utils";
 import type { Contact, Agent, Campaign, Message, Stage, Conversation } from "@/lib/types";
 import { Tip } from "@/components/ui/tooltip";
-import MultiSelectFilter from "@/app/(app)/inbox/components/MultiSelectFilter";
 import MessageBubble, { rewriteLocalMedia } from "@/app/(app)/inbox/components/MessageBubble";
 import Composer from "@/app/(app)/inbox/components/Composer";
 import { Select } from "@/components/Select";
+import { MultiSelect } from "@/components/ui/multi-select";
 
 type ModalState = { mode: "add" } | { mode: "edit"; contact: Contact } | null;
 
@@ -171,9 +171,9 @@ export default function ContactsPage() {
             <input type="text" placeholder="Search name or phone" value={query} onChange={(e) => setQuery(e.target.value)}
               className="w-full h-9 pl-9 pr-3 rounded-md border border-input bg-background text-sm text-foreground placeholder:text-muted-foreground/70 outline-none transition-shadow focus:border-primary focus:ring-2 focus:ring-primary/20" />
           </div>
-          <MultiSelectFilter label="Labels" options={tagOptions} selected={filterTags} onChange={setFilterTags} />
-          {showAgentFilter && <MultiSelectFilter label="Agent" options={agentOptions} selected={filterAgents} onChange={setFilterAgents} />}
-          {showCampaignFilter && <MultiSelectFilter label="Campaign" options={campaignOptions} selected={filterCampaigns} onChange={setFilterCampaigns} />}
+          <MultiSelect value={filterTags} onChange={setFilterTags} placeholder="All labels" options={tagOptions} className="w-[150px]" />
+          {showAgentFilter && <MultiSelect value={filterAgents} onChange={setFilterAgents} placeholder="All agents" options={agentOptions} className="w-[150px]" />}
+          {showCampaignFilter && <MultiSelect value={filterCampaigns} onChange={setFilterCampaigns} placeholder="All campaigns" options={campaignOptions} className="w-[160px]" />}
           {activeFilters > 0 && <button onClick={clearFilters} className="text-[11px] font-semibold text-primary hover:underline outline-none">Clear</button>}
           <div className="flex-1" />
           {canCreate && (
