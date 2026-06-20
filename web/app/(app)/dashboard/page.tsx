@@ -1,5 +1,5 @@
 "use client";
-import { useEffect, useState } from "react";
+import { useEffect, useState, useMemo } from "react";
 import Link from "next/link";
 import {
   AreaChart, Area, XAxis, YAxis, CartesianGrid, Tooltip as RechartsTooltip,
@@ -9,10 +9,12 @@ import {
   BarChart3, MessageSquare, Inbox, Flame, Timer,
   TrendingDown, ChevronRight, Zap, Phone, Mail, Reply, Trophy,
   Clock, ArrowRight, CheckCircle2, Activity, Users, Radio,
+  CircleDollarSign, MousePointerClick, Megaphone, Target, Eye,
 } from "lucide-react";
 
 import { api, getUser } from "@/lib/api";
-import type { Stats, Analytics, CampaignAnalyticsRow, DashboardCards, Conversation } from "@/lib/types";
+import { Select } from "@/components/Select";
+import type { Stats, Analytics, CampaignAnalyticsRow, DashboardCards, Conversation, AdPerformance } from "@/lib/types";
 import { cn, initials, fmtDuration } from "@/lib/utils";
 
 type Metric = {
@@ -457,7 +459,7 @@ function ManagerControlTower() {
 function ManagerDashboard() {
   const [stats, setStats] = useState<Stats | null>(null);
   const [analytics, setAnalytics] = useState<Analytics | null>(null);
-  const [tab, setTab] = useState<"overview" | "campaigns">("overview");
+  const [tab, setTab] = useState<"overview" | "marketing" | "campaigns">("overview");
 
   useEffect(() => {
     api.getStats().then(setStats).catch(() => {});
@@ -481,7 +483,7 @@ function ManagerDashboard() {
       {/* Tabs */}
       <div className="px-4 pt-4">
         <div className="flex border-b border-border">
-          {(["overview", "campaigns"] as const).map((t) => (
+          {(["overview", "marketing", "campaigns"] as const).map((t) => (
             <button
               key={t}
               onClick={() => setTab(t)}
@@ -496,7 +498,7 @@ function ManagerDashboard() {
         </div>
       </div>
 
-      {tab === "campaigns" ? <CampaignsAnalytics /> : (
+      {tab === "campaigns" ? <CampaignsAnalytics /> : tab === "marketing" ? <MarketingAnalytics /> : (
       <div className="p-4">
         {/* ── Metric Strip ── */}
         <div className="flex flex-wrap bg-card rounded-lg border border-border shadow-xs mb-5 overflow-hidden">
@@ -674,6 +676,192 @@ function ManagerDashboard() {
       </div>
       )}
     </>
+  );
+}
+
+// ── Marketing ROI sub-tab: ad spend tied to leads (chats) -> conversions ──────
+const fmtMoney = (n: number) => (n || 0).toLocaleString(undefined, { minimumFractionDigits: 0, maximumFractionDigits: 0 });
+const fmtInt = (n: number) => Math.round(n || 0).toLocaleString();
+
+function MarketingAnalytics() {
+  const [range, setRange] = useState("30");
+  const [campaignFilter, setCampaignFilter] = useState("");
+  const [perf, setPerf] = useState<AdPerformance | null>(null);
+  const [currency, setCurrency] = useState("");
+  const [hasAccounts, setHasAccounts] = useState<boolean | null>(null);
+  const [loading, setLoading] = useState(true);
+
+  useEffect(() => {
+    setLoading(true);
+    const to = new Date().toISOString().slice(0, 10);
+    const from = new Date(Date.now() - Number(range) * 86400000).toISOString().slice(0, 10);
+    Promise.all([
+      api.adPerformance(from, to).catch(() => null),
+      api.listAdAccounts().catch(() => []),
+    ]).then(([p, accts]) => {
+      setPerf(p as AdPerformance | null);
+      const a = (accts as { currency?: string | null }[]) || [];
+      setHasAccounts(a.length > 0);
+      setCurrency(a.find((x) => x.currency)?.currency || "");
+    }).finally(() => setLoading(false));
+  }, [range]);
+
+  const campaigns = perf?.campaigns || [];
+  const campaignOptions = useMemo(() => [{ value: "", label: "All campaigns" }, ...campaigns.map((c) => ({ value: c.campaign_id, label: c.campaign_name }))], [campaigns]);
+  const shown = campaignFilter ? campaigns.filter((c) => c.campaign_id === campaignFilter) : campaigns;
+  const t = shown.reduce((a, c) => ({
+    spend: a.spend + c.spend, leads: a.leads + c.leads, sales: a.sales + c.sales,
+    clicks: a.clicks + c.clicks, impressions: a.impressions + c.impressions, results: a.results + c.results,
+  }), { spend: 0, leads: 0, sales: 0, clicks: 0, impressions: 0, results: 0 });
+  const cpl = t.leads > 0 ? t.spend / t.leads : 0;
+  const cpa = t.sales > 0 ? t.spend / t.sales : 0;
+  const convRate = t.leads > 0 ? (t.sales / t.leads) * 100 : 0;
+  const money = (n: number) => `${currency ? currency + " " : ""}${fmtMoney(n)}`;
+
+  if (loading) return <div className="p-4"><Skeleton className="h-20 mb-4" /><Skeleton className="h-[300px]" /></div>;
+
+  if (!hasAccounts || campaigns.length === 0) {
+    return (
+      <div className="p-4">
+        <div className="bg-card border border-border rounded-lg shadow-xs py-16 text-center">
+          <div className="w-12 h-12 rounded-xl bg-muted grid place-items-center mx-auto mb-3"><Megaphone className="w-6 h-6 text-muted-foreground/50" /></div>
+          <p className="font-semibold text-foreground mb-0.5">{hasAccounts ? "No ad data for this range" : "No ad account connected"}</p>
+          <p className="text-sm text-muted-foreground mb-4">Connect a Meta ad account to see spend, cost per lead and cost per conversion.</p>
+          <Link href="/settings/channels?tab=advertising" className="inline-flex items-center gap-2 px-4 h-9 bg-primary text-white rounded-md text-sm font-semibold hover:bg-primary-dark shadow-sm outline-none">
+            <CircleDollarSign className="w-4 h-4" />Connect ad account
+          </Link>
+        </div>
+      </div>
+    );
+  }
+
+  const roiCards = [
+    { label: "Ad spend", value: money(t.spend), Icon: CircleDollarSign, color: "#F59E0B" },
+    { label: "Leads (chats)", value: fmtInt(t.leads), Icon: MessageSquare, color: "#2D8B73" },
+    { label: "Cost / lead", value: money(cpl), Icon: Target, color: "#6366F1" },
+    { label: "Conversions", value: fmtInt(t.sales), Icon: Trophy, color: "#059669" },
+    { label: "Cost / conversion", value: money(cpa), Icon: CircleDollarSign, color: "#0EA5E9" },
+    { label: "Lead to won", value: `${convRate.toFixed(1)}%`, Icon: Target, color: "#EF4444" },
+  ];
+
+  const funnel = [
+    { label: "Impressions", value: t.impressions, color: "#94A3B8", Icon: Eye },
+    { label: "Clicks", value: t.clicks, color: "#0EA5E9", Icon: MousePointerClick },
+    { label: "Leads (chats)", value: t.leads, color: "#2D8B73", Icon: MessageSquare },
+    { label: "Conversions", value: t.sales, color: "#059669", Icon: Trophy },
+  ];
+  const fTop = Math.max(funnel[0].value, 1);
+
+  const daily = (perf?.daily || []).map((d) => {
+    const dt = new Date(d.date);
+    return { date: isNaN(dt.getTime()) ? d.date : `${String(dt.getDate()).padStart(2, "0")}/${String(dt.getMonth() + 1).padStart(2, "0")}`, spend: d.spend || 0 };
+  });
+
+  return (
+    <div className="p-4">
+      {/* Toolbar */}
+      <div className="flex items-center gap-2 mb-4 flex-wrap">
+        <p className="text-[13px] text-muted-foreground">Ad spend tied to the leads it produced and their conversions.</p>
+        <div className="flex-1" />
+        <Select value={campaignFilter} onChange={setCampaignFilter} options={campaignOptions} className="w-[180px]" />
+        <Select value={range} onChange={setRange} searchable={false} className="w-[150px]"
+          options={[{ value: "7", label: "Last 7 days" }, { value: "30", label: "Last 30 days" }, { value: "90", label: "Last 90 days" }]} />
+      </div>
+
+      {/* ROI cards */}
+      <div className="flex flex-wrap bg-card rounded-lg border border-border shadow-xs mb-5 overflow-hidden">
+        {roiCards.map((c, i) => (
+          <div key={c.label} className={cn("flex-1 min-w-[150px] flex items-center gap-3 px-4 py-3.5", i < roiCards.length - 1 && "border-r border-border")}>
+            <div className="w-9 h-9 rounded-lg grid place-items-center shrink-0" style={{ backgroundColor: c.color + "14" }}><c.Icon className="w-[18px] h-[18px]" style={{ color: c.color }} /></div>
+            <div className="min-w-0">
+              <p className="text-[10px] font-semibold text-muted-foreground uppercase tracking-wide leading-tight truncate">{c.label}</p>
+              <p className="text-[20px] font-extrabold text-foreground leading-none tabular-nums mt-1 whitespace-nowrap">{c.value}</p>
+            </div>
+          </div>
+        ))}
+      </div>
+
+      <div className="grid grid-cols-1 lg:grid-cols-5 gap-4 mb-5">
+        {/* Marketing funnel */}
+        <Card title="Marketing funnel" subtitle="Impression to click to chat to conversion" className="lg:col-span-2">
+          <div className="p-4 space-y-2.5">
+            {funnel.map((s, i) => {
+              const pct = (s.value / fTop) * 100;
+              const rate = i === 0 ? null : (funnel[i - 1].value > 0 ? (s.value / funnel[i - 1].value) * 100 : 0);
+              return (
+                <div key={s.label}>
+                  <div className="flex items-center justify-between mb-1">
+                    <span className="flex items-center gap-1.5 text-[13px] font-medium text-foreground/90"><s.Icon className="w-3.5 h-3.5" style={{ color: s.color }} />{s.label}</span>
+                    <div className="flex items-center gap-2">
+                      {rate !== null && <span className="text-[11px] tabular-nums text-muted-foreground">{rate.toFixed(1)}%</span>}
+                      <span className="text-[13px] font-bold tabular-nums text-foreground min-w-[3rem] text-right">{fmtInt(s.value)}</span>
+                    </div>
+                  </div>
+                  <div className="h-6 rounded-md bg-muted/50 overflow-hidden"><div className="h-full rounded-md transition-all duration-500" style={{ width: `${Math.max(pct, 3)}%`, backgroundColor: s.color }} /></div>
+                </div>
+              );
+            })}
+          </div>
+        </Card>
+
+        {/* Daily spend trend */}
+        <Card title="Spend trend" subtitle="Daily ad spend" className="lg:col-span-3">
+          <div className="px-4 py-4">
+            {daily.length === 0 ? <div className="h-[260px] grid place-items-center text-sm text-muted-foreground">No daily data</div> : (
+              <ResponsiveContainer width="100%" height={260}>
+                <AreaChart data={daily} margin={{ top: 10, right: 10, left: -20, bottom: 0 }}>
+                  <defs><linearGradient id="spend" x1="0" y1="0" x2="0" y2="1"><stop offset="0%" stopColor="#F59E0B" stopOpacity={0.28} /><stop offset="100%" stopColor="#F59E0B" stopOpacity={0.02} /></linearGradient></defs>
+                  <CartesianGrid strokeDasharray="3 3" stroke="rgba(0,0,0,0.06)" vertical={false} />
+                  <XAxis dataKey="date" tick={{ fontSize: 11, fill: "#9CA3AF" }} axisLine={false} tickLine={false} />
+                  <YAxis tick={{ fontSize: 11, fill: "#9CA3AF" }} axisLine={false} tickLine={false} />
+                  <RechartsTooltip content={<CustomTooltip />} cursor={{ stroke: "rgba(0,0,0,0.08)" }} />
+                  <Area type="monotone" dataKey="spend" name="Spend" stroke="#F59E0B" strokeWidth={2.5} fill="url(#spend)" dot={false} activeDot={{ r: 5, fill: "#F59E0B", stroke: "#fff", strokeWidth: 2 }} />
+                </AreaChart>
+              </ResponsiveContainer>
+            )}
+          </div>
+        </Card>
+      </div>
+
+      {/* Per-campaign ROI table */}
+      <Card title="Campaign ROI" subtitle="Spend to leads to conversions, per campaign">
+        <div className="overflow-x-auto">
+          <table className="w-full text-sm">
+            <thead>
+              <tr className="border-b border-border bg-muted/40">
+                {["Campaign", "Spend", "Impressions", "Clicks", "Leads", "Cost / lead", "Conversions", "Cost / conv", "Lead to won"].map((h, idx) => (
+                  <th key={h} className={cn("px-4 py-2.5 text-[11px] font-bold uppercase tracking-wider text-muted-foreground", idx === 0 ? "text-left" : "text-right")}>{h}</th>
+                ))}
+              </tr>
+            </thead>
+            <tbody>
+              {shown.length === 0 ? (
+                <tr><td colSpan={9} className="text-center py-12 text-muted-foreground">No campaigns in range</td></tr>
+              ) : shown.slice().sort((a, b) => b.spend - a.spend).map((c) => {
+                const ccpl = c.leads > 0 ? c.spend / c.leads : 0;
+                const ccpa = c.sales > 0 ? c.spend / c.sales : 0;
+                const cr = c.leads > 0 ? (c.sales / c.leads) * 100 : 0;
+                return (
+                  <tr key={c.campaign_id} className="border-b border-border/60 hover:bg-muted/50 transition-colors">
+                    <td className="px-4 py-2.5 font-semibold text-foreground">{c.campaign_name}</td>
+                    <td className="px-4 py-2.5 text-right tabular-nums">{money(c.spend)}</td>
+                    <td className="px-4 py-2.5 text-right tabular-nums text-muted-foreground">{fmtInt(c.impressions)}</td>
+                    <td className="px-4 py-2.5 text-right tabular-nums text-muted-foreground">{fmtInt(c.clicks)}</td>
+                    <td className="px-4 py-2.5 text-right tabular-nums font-semibold text-primary">{fmtInt(c.leads)}</td>
+                    <td className="px-4 py-2.5 text-right tabular-nums">{c.leads > 0 ? money(ccpl) : "-"}</td>
+                    <td className="px-4 py-2.5 text-right tabular-nums font-bold text-[#059669]">{fmtInt(c.sales)}</td>
+                    <td className="px-4 py-2.5 text-right tabular-nums">{c.sales > 0 ? money(ccpa) : "-"}</td>
+                    <td className="px-4 py-2.5 text-right">
+                      <Badge label={c.leads > 0 ? `${cr.toFixed(1)}%` : "-"} bg={cr >= 20 ? "#E8F5E9" : cr > 0 ? "#FFF3E0" : "#F1F5F9"} text={cr >= 20 ? "#2E7D32" : cr > 0 ? "#E65100" : "#64748B"} />
+                    </td>
+                  </tr>
+                );
+              })}
+            </tbody>
+          </table>
+        </div>
+      </Card>
+    </div>
   );
 }
 
