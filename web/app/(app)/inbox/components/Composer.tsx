@@ -1,6 +1,6 @@
 "use client";
 import { useState, useRef, useEffect, useCallback } from "react";
-import { Smile, Paperclip, Zap, Send, Lock, X, FileText, Loader2, Clock, Phone, Mic, Trash2, Pause, Play, Sparkles, RefreshCw, Check } from "lucide-react";
+import { Smile, Paperclip, Zap, Send, Lock, X, FileText, Loader2, Clock, Phone, Mic, Trash2, Pause, Play, Sparkles, RefreshCw, Check, Plus } from "lucide-react";
 import EmojiPicker from "emoji-picker-react";
 import { cn } from "@/lib/utils";
 import { api } from "@/lib/api";
@@ -47,6 +47,25 @@ export default function Composer({
   const [showTemplates, setShowTemplates] = useState(false);
   const [templates, setTemplates] = useState<Template[]>([]);
   useEffect(() => { api.listTemplates().then((t) => setTemplates((t || []).filter((x) => x.status === "APPROVED"))).catch(() => {}); }, []);
+
+  // Per-account quick replies (shortcuts). Each user manages their own set.
+  const [qrList, setQrList] = useState<QuickReply[]>(quickReplies);
+  const loadQR = useCallback(() => { api.listQuickReplies().then((r) => setQrList(r || [])).catch(() => {}); }, []);
+  useEffect(() => { loadQR(); }, [loadQR]);
+  const [qrForm, setQrForm] = useState<{ shortcut: string; title: string; body: string } | null>(null);
+  async function saveQR() {
+    if (!qrForm || !qrForm.shortcut.trim() || !qrForm.body.trim()) { notify("Shortcut and message are required", "warning"); return; }
+    const sc = qrForm.shortcut.trim().startsWith("/") ? qrForm.shortcut.trim() : "/" + qrForm.shortcut.trim();
+    try { await api.createQuickReply(sc, qrForm.title.trim() || sc, qrForm.body.trim()); setQrForm(null); loadQR(); notify("Shortcut saved"); }
+    catch (e) { notify(e instanceof Error ? e.message : "Could not save", "error"); }
+  }
+  // Inline "/code" autocomplete: the last token starting with "/" filters shortcuts.
+  const slashMatch = draft.match(/(?:^|\s)(\/[^\s]*)$/)?.[1] || null;
+  const slashResults = slashMatch !== null ? qrList.filter((q) => q.shortcut.toLowerCase().startsWith(slashMatch.toLowerCase())) : [];
+  const applySlash = (q: QuickReply) => {
+    setDraft((d) => { const m = d.match(/(?:^|\s)(\/[^\s]*)$/); return m ? d.slice(0, d.length - m[1].length) + q.body : d + q.body; });
+    setTimeout(() => textareaRef.current?.focus(), 0);
+  };
   // Focus the message box when a conversation opens (cursor ready to type).
   const textareaRef = useRef<HTMLTextAreaElement>(null);
   useEffect(() => {
@@ -285,26 +304,54 @@ export default function Composer({
             : "border-border bg-card",
         )}
       >
-        {/* Quick replies */}
+        {/* Quick replies (per-account shortcuts) */}
         {showQR && (
-          <div className="max-h-[200px] overflow-auto border-b border-border">
-            {quickReplies.length === 0 ? (
-              <p className="p-4 text-sm text-muted-foreground text-center">No quick replies yet</p>
-            ) : (
-              quickReplies.map((q) => (
-                <div
-                  key={q.id}
-                  onClick={() => { setDraft(q.body); setShowQR(false); notify(`Quick reply "${q.shortcut}" inserted`, "info"); }}
-                  className="px-4 py-3 cursor-pointer border-b border-border/60 hover:bg-muted"
-                >
-                  <div className="flex items-center gap-2">
-                    <span className="px-1.5 py-0.5 rounded-md text-[10px] font-bold bg-primary/10 text-primary">{q.shortcut}</span>
-                    <span className="text-xs font-semibold text-foreground">{q.title}</span>
+          <div className="border-b border-border">
+            <div className="max-h-[200px] overflow-auto">
+              {qrList.length === 0 ? (
+                <p className="px-4 py-3 text-[13px] text-muted-foreground text-center">No shortcuts yet, add one below.</p>
+              ) : qrList.map((q) => (
+                <div key={q.id} className="group/qr flex items-start gap-2 px-4 py-2.5 border-b border-border/60 hover:bg-muted">
+                  <div className="flex-1 min-w-0 cursor-pointer" onClick={() => { setDraft(q.body); setShowQR(false); notify(`"${q.shortcut}" inserted`, "info"); }}>
+                    <div className="flex items-center gap-2">
+                      <span className="px-1.5 py-0.5 rounded-md text-[10px] font-bold bg-primary/10 text-primary">{q.shortcut}</span>
+                      <span className="text-xs font-semibold text-foreground truncate">{q.title}</span>
+                    </div>
+                    <p className="text-xs text-muted-foreground mt-0.5 truncate">{q.body}</p>
                   </div>
-                  <p className="text-xs text-muted-foreground mt-0.5 truncate">{q.body}</p>
+                  <button onClick={() => api.deleteQuickReply(q.id).then(loadQR).catch(() => {})} className="p-1 rounded text-muted-foreground hover:text-destructive opacity-0 group-hover/qr:opacity-100 outline-none shrink-0"><Trash2 className="w-3.5 h-3.5" /></button>
                 </div>
-              ))
+              ))}
+            </div>
+            {qrForm ? (
+              <div className="p-3 bg-muted/40 border-t border-border space-y-2">
+                <div className="flex gap-2">
+                  <input value={qrForm.shortcut} onChange={(e) => setQrForm({ ...qrForm, shortcut: e.target.value })} placeholder="/shortcut" className="w-28 h-8 px-2 rounded-md border border-input bg-background text-[12px] outline-none focus:border-primary" />
+                  <input value={qrForm.title} onChange={(e) => setQrForm({ ...qrForm, title: e.target.value })} placeholder="Title (optional)" className="flex-1 h-8 px-2 rounded-md border border-input bg-background text-[12px] outline-none focus:border-primary" />
+                </div>
+                <textarea value={qrForm.body} onChange={(e) => setQrForm({ ...qrForm, body: e.target.value })} placeholder="Message text" rows={2} className="w-full px-2 py-1.5 rounded-md border border-input bg-background text-[12px] outline-none focus:border-primary resize-none" />
+                <div className="flex justify-end gap-2">
+                  <button onClick={() => setQrForm(null)} className="px-2.5 h-7 rounded-md text-[12px] font-semibold text-muted-foreground hover:bg-muted outline-none">Cancel</button>
+                  <button onClick={saveQR} className="px-3 h-7 rounded-md text-[12px] font-bold text-white bg-primary hover:bg-primary-dark outline-none">Save</button>
+                </div>
+              </div>
+            ) : (
+              <button onClick={() => setQrForm({ shortcut: "", title: "", body: "" })} className="w-full flex items-center gap-1.5 px-4 py-2.5 text-[12px] font-semibold text-primary hover:bg-muted outline-none border-t border-border">
+                <Plus className="w-3.5 h-3.5" />New shortcut
+              </button>
             )}
+          </div>
+        )}
+
+        {/* "/code" autocomplete (shows while typing a slash command) */}
+        {slashResults.length > 0 && (
+          <div className="absolute bottom-full left-2 right-2 mb-1 z-50 max-h-[220px] overflow-auto rounded-lg border border-border bg-popover shadow-xl">
+            {slashResults.map((q) => (
+              <button key={q.id} onClick={() => applySlash(q)} className="w-full text-left px-3 py-2 border-b border-border/60 last:border-0 hover:bg-muted outline-none">
+                <div className="flex items-center gap-2"><span className="px-1.5 py-0.5 rounded text-[10px] font-bold bg-primary/10 text-primary">{q.shortcut}</span><span className="text-xs font-semibold text-foreground truncate">{q.title}</span></div>
+                <p className="text-xs text-muted-foreground mt-0.5 truncate">{q.body}</p>
+              </button>
+            ))}
           </div>
         )}
 

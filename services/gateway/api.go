@@ -1323,7 +1323,7 @@ func (s *server) handleListQuickReplies(w http.ResponseWriter, r *http.Request) 
 	a, _ := authFrom(r.Context())
 	rows, err := s.queryMaps(r.Context(),
 		`SELECT id::text AS id, shortcut, title, body, created_at
-		   FROM quick_replies WHERE organization_id=$1 ORDER BY shortcut`, a.OrgID)
+		   FROM quick_replies WHERE organization_id=$1 AND created_by=$2 ORDER BY shortcut`, a.OrgID, a.UserID)
 	if err != nil {
 		http.Error(w, err.Error(), http.StatusInternalServerError)
 		return
@@ -1346,7 +1346,7 @@ func (s *server) handleCreateQuickReply(w http.ResponseWriter, r *http.Request) 
 	err := s.pool.QueryRow(r.Context(),
 		`INSERT INTO quick_replies (organization_id, shortcut, title, body, created_by)
 		 VALUES ($1,$2,$3,$4,$5)
-		 ON CONFLICT (organization_id, shortcut) DO UPDATE SET title=EXCLUDED.title, body=EXCLUDED.body
+		 ON CONFLICT (organization_id, created_by, shortcut) DO UPDATE SET title=EXCLUDED.title, body=EXCLUDED.body
 		 RETURNING id::text`,
 		a.OrgID, b.Shortcut, b.Title, b.Body, a.UserID).Scan(&id)
 	if err != nil {
@@ -1359,7 +1359,7 @@ func (s *server) handleCreateQuickReply(w http.ResponseWriter, r *http.Request) 
 func (s *server) handleDeleteQuickReply(w http.ResponseWriter, r *http.Request) {
 	a, _ := authFrom(r.Context())
 	_, err := s.pool.Exec(r.Context(),
-		`DELETE FROM quick_replies WHERE id=$1 AND organization_id=$2`, r.PathValue("id"), a.OrgID)
+		`DELETE FROM quick_replies WHERE id=$1 AND organization_id=$2 AND created_by=$3`, r.PathValue("id"), a.OrgID, a.UserID)
 	if err != nil {
 		http.Error(w, err.Error(), http.StatusInternalServerError)
 		return
