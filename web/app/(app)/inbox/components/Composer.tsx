@@ -42,6 +42,13 @@ export default function Composer({
 }: ComposerProps) {
   const [showQR, setShowQR] = useState(false);
   const [emojiOpen, setEmojiOpen] = useState(false);
+  // Focus the message box when a conversation opens (cursor ready to type).
+  const textareaRef = useRef<HTMLTextAreaElement>(null);
+  useEffect(() => {
+    if (!conversationId) return;
+    const t = setTimeout(() => textareaRef.current?.focus(), 120);
+    return () => clearTimeout(t);
+  }, [conversationId]);
 
   // ── Contextual AI assist: Reply tab -> Smart Reply, Internal note tab -> Smart Summary ──
   const aiMode: "reply" | "summary" = tab === 1 ? "summary" : "reply";
@@ -475,6 +482,7 @@ export default function Composer({
           <>
         {/* Textarea */}
         <textarea
+          ref={textareaRef}
           value={draft}
           onChange={(e) => setDraft(e.target.value)}
           onKeyDown={(e) => { if (e.key === "Enter" && !e.shiftKey) { e.preventDefault(); onSubmit(); } }}

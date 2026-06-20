@@ -445,9 +445,9 @@ function ManagerControlTower() {
         </Card>
       </div>
 
-      {/* ── Pulse (secondary): interest + 7-day ── */}
+      {/* ── Pulse (secondary): funnel + 7-day ── */}
       <div className="grid grid-cols-1 lg:grid-cols-3 gap-4">
-        <Card title="Interest mix" className="lg:col-span-1"><InterestSplit funnel={analytics?.funnel} /></Card>
+        <Card title="Lead funnel" subtitle="Reached each stage" className="lg:col-span-1"><LeadFunnel stages={analytics?.funnel_stages} /></Card>
         <Card title="Activity" subtitle="Last 7 days" className="lg:col-span-2">
           <div className="px-4 py-4"><OverviewChart data={buildChartData(analytics)} /></div>
         </Card>
@@ -555,9 +555,9 @@ function ManagerDashboard() {
           </Card>
         </div>
 
-        {/* SLA Monitoring */}
-        <Card title="SLA & activity monitoring" className="mb-5">
-          <div className="p-4 grid grid-cols-2 md:grid-cols-3 lg:grid-cols-6 gap-4">
+        {/* Agent performance — team SLA summary + per-agent breakdown */}
+        <Card title="Agent follow-up performance" subtitle="Team SLA summary and per-agent breakdown">
+          <div className="p-4 grid grid-cols-2 md:grid-cols-3 lg:grid-cols-6 gap-4 border-b border-border">
             {[
               { label: "Follow-ups sent", value: funnel?.followups || 0 },
               { label: "Call attempts", value: funnel?.call_attempts || 0 },
@@ -567,15 +567,11 @@ function ManagerDashboard() {
               { label: "Agent replied", value: funnel?.replied || 0 },
             ].map(sla => (
               <div key={sla.label} className="flex flex-col gap-1">
-                <span className="text-xs text-muted-foreground font-medium">{sla.label}</span>
-                <span className="text-2xl font-extrabold text-foreground tabular-nums">{sla.value}</span>
+                <span className="text-[11px] text-muted-foreground font-medium">{sla.label}</span>
+                <span className="text-xl font-extrabold text-foreground tabular-nums">{sla.value}</span>
               </div>
             ))}
           </div>
-        </Card>
-
-        {/* Agent Performance */}
-        <Card title="Agent follow-up performance">
           <div className="overflow-x-auto">
             <table className="w-full text-sm">
               <thead>

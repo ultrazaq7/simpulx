@@ -202,7 +202,7 @@ function GeneralTab({ d, cost, responseRate, isTemplate }: { d: BroadcastDetail;
                 </div>
               </div>
               {/* Conversation area */}
-              <div className="flex-1 min-h-[460px] p-3 flex flex-col items-start" style={{ background: "#ECE5DD", backgroundImage: "radial-gradient(rgba(0,0,0,0.035) 1px,transparent 1px)", backgroundSize: "14px 14px" }}>
+              <div className="flex-1 min-h-[200px] p-3 flex flex-col items-start" style={{ background: "#ECE5DD", backgroundImage: "radial-gradient(rgba(0,0,0,0.035) 1px,transparent 1px)", backgroundSize: "14px 14px" }}>
                 <div className="max-w-[210px] rounded-lg rounded-tl-sm bg-white px-3 pt-2 pb-1.5 shadow-sm">
                   <p className="text-[11.5px] leading-relaxed text-[#303030] whitespace-pre-wrap break-words">{d.body || "(no message)"}</p>
                   <p className="text-right text-[8.5px] text-[#8D9A9E] mt-1">11:44</p>

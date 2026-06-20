@@ -130,7 +130,7 @@ export function ChannelsTab() {
           {loading ? (
             <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-3">{[0, 1, 2, 3].map((i) => <div key={i} className="h-[132px] rounded-xl skeleton" />)}</div>
           ) : visible.length === 0 ? (
-            <div className="text-center py-16 border border-dashed border-border rounded-xl bg-card">
+            <div className="text-center py-16">
               <div className="inline-flex mb-3 opacity-80"><ChannelIcon type="whatsapp" size={56} radius={16} /></div>
               <p className="font-bold text-foreground mb-1">{channels.length === 0 ? "No channels connected yet" : "No channels match your filters"}</p>
               <p className="text-[13px] text-muted-foreground mb-4">{channels.length === 0 ? "Connect WhatsApp, Messenger, Instagram, Viber and more." : "Try a different search or filter."}</p>

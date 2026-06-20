@@ -141,7 +141,7 @@ export function AdvertisingTab() {
         {loading ? (
           <div className="h-40 grid place-items-center"><Loader2 className="w-6 h-6 animate-spin text-primary" /></div>
         ) : accounts.length === 0 ? (
-          <div className="bg-card border border-border rounded-lg shadow-xs py-16 text-center">
+          <div className="py-16 text-center">
             <div className="w-12 h-12 rounded-xl bg-muted grid place-items-center mx-auto mb-3"><BarChart3 className="w-6 h-6 text-muted-foreground/50" /></div>
             <p className="font-semibold text-foreground mb-0.5">No ad account connected</p>
             <p className="text-sm text-muted-foreground mb-4">Connect a Meta ad account to see spend, results and cost per lead/sale.</p>

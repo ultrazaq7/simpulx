@@ -129,11 +129,12 @@ const ConversationCard = memo(function ConversationCard({
           )}
         </div>
 
-        {/* Line 2: preview + unread count */}
-        <div className="flex items-center gap-2 mt-1">
-          <Tip label={previewText} side="top">
+        {/* Line 2: preview (2 lines, ellipsis) + unread count */}
+        <div className="flex items-start gap-2 mt-1">
+          <Tip label={<span className="block max-w-[300px] whitespace-pre-wrap leading-snug text-left">{previewText}</span>} side="right">
             <span className={cn(
-              "flex-1 min-w-0 truncate flex items-center gap-1 text-[12px]",
+              "flex-1 min-w-0 text-[12px] leading-snug",
+              media ? "truncate flex items-center gap-1" : "line-clamp-2",
               unread ? "text-foreground/85 font-medium" : "text-foreground/65",
             )}>
               {media ? (
@@ -152,7 +153,7 @@ const ConversationCard = memo(function ConversationCard({
 
         {/* Line 3: signal tags (single line, no wrap) */}
         {(showAgent || needsFollowUp || needsCall || windowExpired || c.interest_level || c.campaign_name) && (
-          <div className="flex items-center gap-1 mt-1.5 overflow-hidden">
+          <div className="flex flex-wrap items-center gap-1 mt-1.5">
             {showAgent && (
               c.agent_name
                 ? <span className={cn("inline-flex items-center gap-1 h-[18px] px-2 rounded-full text-slate-600 text-[10px] font-semibold shrink-0 max-w-[110px] truncate", isActive ? "bg-white" : "bg-slate-100")}><User className="w-2.5 h-2.5 shrink-0" />{c.agent_name}</span>
@@ -168,7 +169,7 @@ const ConversationCard = memo(function ConversationCard({
               </span>
             )}
             {c.campaign_name && (
-              <span className={cn("ml-auto inline-flex items-center h-[18px] px-2 rounded-md text-primary text-[10px] font-semibold shrink-0 max-w-[120px] truncate", isActive ? "bg-white" : "bg-primary/10")}>
+              <span className={cn("inline-flex items-center h-[18px] px-2 rounded-md text-primary text-[10px] font-semibold shrink-0 max-w-[150px] truncate", isActive ? "bg-white" : "bg-primary/10")}>
                 {c.campaign_name}
               </span>
             )}
