@@ -23,8 +23,13 @@ cold first run ~6 min, app 200.
   base `compose.yml` keeps `build:` for local dev. Dockerfiles gained cache layers
   (`go.Dockerfile`: go.mod download layer + BuildKit cache mounts; `web/Dockerfile`: npm +
   `.next/cache` mounts). Old build-on-box path replaced in `.github/workflows/deploy.yml`.
+- **paths-filter (done):** a `changes` job (dorny/paths-filter) builds only the services whose
+  source changed; unchanged ones are re-tagged `latest -> :sha` via `ecr put-image` (no rebuild),
+  so every commit still has a full set of immutable `:sha` tags. Verified: workflow-only push
+  re-tagged all 8, zero builds, ~1m15s. Measured: cold ~6m, warm ~1.5m (was ~8m on-box).
 - **Next steps (Level 2, later):** staging env + e2e gating + manual approval + zero-downtime
-  (blue-green/rolling). A `paths-filter` to skip building unchanged images is a cheap refinement.
+  (blue-green/rolling); optionally skip the deploy job when nothing changed. Use expand/contract
+  for schema changes.
 
 
 
