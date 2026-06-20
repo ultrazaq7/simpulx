@@ -91,6 +91,17 @@ async function req<T>(path: string, opts: RequestInit = {}, retried = false): Pr
   return (ct.includes("json") ? res.json() : (res.text() as unknown)) as Promise<T>;
 }
 
+// Build the ?campaign_id&channel_id&agent_id query string for analytics endpoints.
+function analyticsQs(f?: { campaign_id?: string; channel_id?: string; agent_id?: string }): string {
+  if (!f) return "";
+  const q = new URLSearchParams();
+  if (f.campaign_id) q.set("campaign_id", f.campaign_id);
+  if (f.channel_id) q.set("channel_id", f.channel_id);
+  if (f.agent_id) q.set("agent_id", f.agent_id);
+  const qs = q.toString();
+  return qs ? "?" + qs : "";
+}
+
 export const api = {
   async login(email: string, password: string): Promise<{ token: string; refresh_token: string; user: User }> {
     const res = await fetch(API + "/auth/login", {
@@ -262,9 +273,9 @@ export const api = {
   updateAIAgent: (patch: Partial<AIAgent>) =>
     req<AIAgent>("/api/ai-agent", { method: "PUT", body: JSON.stringify(patch) }),
   listLLMModels: () => req<{ id: string; name: string }[]>("/api/llm-models"),
-  getStats: (campaignId?: string) => req<Stats>(`/api/stats${campaignId ? `?campaign_id=${campaignId}` : ""}`),
+  getStats: (f?: { campaign_id?: string; channel_id?: string; agent_id?: string }) => req<Stats>(`/api/stats${analyticsQs(f)}`),
   getDashboardCards: () => req<DashboardCards>("/api/dashboard/cards"),
-  getAnalytics: (campaignId?: string) => req<Analytics>(`/api/analytics${campaignId ? `?campaign_id=${campaignId}` : ""}`),
+  getAnalytics: (f?: { campaign_id?: string; channel_id?: string; agent_id?: string }) => req<Analytics>(`/api/analytics${analyticsQs(f)}`),
   listQuickReplies: () => req<QuickReply[]>("/api/quick-replies"),
   createQuickReply: (shortcut: string, title: string, body: string) =>
     req("/api/quick-replies", { method: "POST", body: JSON.stringify({ shortcut, title, body }) }),

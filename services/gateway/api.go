@@ -646,6 +646,14 @@ func (s *server) handleStats(w http.ResponseWriter, r *http.Request) {
 		args = append(args, a.UserID)
 		campFilter += fmt.Sprintf(" AND campaign_id IN (SELECT campaign_id FROM campaign_agents WHERE user_id = $%d)", len(args))
 	}
+	if ch := r.URL.Query().Get("channel_id"); ch != "" {
+		args = append(args, ch)
+		campFilter += fmt.Sprintf(" AND channel_id = $%d::uuid", len(args))
+	}
+	if ag := r.URL.Query().Get("agent_id"); ag != "" {
+		args = append(args, ag)
+		campFilter += fmt.Sprintf(" AND assigned_agent_id = $%d::uuid", len(args))
+	}
 
 	query := fmt.Sprintf(`SELECT
 		   (SELECT count(*) FROM conversations WHERE organization_id=$1%s AND status<>'closed') AS active,
@@ -732,6 +740,16 @@ func (s *server) handleAnalytics(w http.ResponseWriter, r *http.Request) {
 		args = append(args, a.UserID)
 		campFilterCv += fmt.Sprintf(" AND cv.campaign_id IN (SELECT campaign_id FROM campaign_agents WHERE user_id = $%d)", len(args))
 		campFilter += fmt.Sprintf(" AND campaign_id IN (SELECT campaign_id FROM campaign_agents WHERE user_id = $%d)", len(args))
+	}
+	if ch := r.URL.Query().Get("channel_id"); ch != "" {
+		args = append(args, ch)
+		campFilterCv += fmt.Sprintf(" AND cv.channel_id = $%d::uuid", len(args))
+		campFilter += fmt.Sprintf(" AND channel_id = $%d::uuid", len(args))
+	}
+	if ag := r.URL.Query().Get("agent_id"); ag != "" {
+		args = append(args, ag)
+		campFilterCv += fmt.Sprintf(" AND cv.assigned_agent_id = $%d::uuid", len(args))
+		campFilter += fmt.Sprintf(" AND assigned_agent_id = $%d::uuid", len(args))
 	}
 
 	// Accurate, unambiguous definitions:

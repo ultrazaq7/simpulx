@@ -9,12 +9,12 @@ import {
   BarChart3, MessageSquare, Inbox, Flame, Timer,
   TrendingDown, ChevronRight, Zap, Phone, Mail, Reply, Trophy,
   Clock, ArrowRight, CheckCircle2, Activity, Users, Radio,
-  CircleDollarSign, MousePointerClick, Megaphone, Target, Eye,
+  CircleDollarSign, MousePointerClick, Megaphone, Target, Eye, Filter as FilterIcon,
 } from "lucide-react";
 
 import { api, getUser } from "@/lib/api";
 import { Select } from "@/components/Select";
-import type { Stats, Analytics, CampaignAnalyticsRow, DashboardCards, Conversation, AdPerformance } from "@/lib/types";
+import type { Stats, Analytics, CampaignAnalyticsRow, DashboardCards, Conversation, AdPerformance, Channel, Campaign, Agent } from "@/lib/types";
 import { cn, initials, fmtDuration } from "@/lib/utils";
 
 type Metric = {
@@ -460,11 +460,23 @@ function ManagerDashboard() {
   const [stats, setStats] = useState<Stats | null>(null);
   const [analytics, setAnalytics] = useState<Analytics | null>(null);
   const [tab, setTab] = useState<"overview" | "marketing" | "campaigns">("overview");
+  const [fChannel, setFChannel] = useState("");
+  const [fCampaign, setFCampaign] = useState("");
+  const [fAgent, setFAgent] = useState("");
+  const [channels, setChannels] = useState<Channel[]>([]);
+  const [campaigns, setCampaigns] = useState<Campaign[]>([]);
+  const [agentList, setAgentList] = useState<Agent[]>([]);
 
   useEffect(() => {
-    api.getStats().then(setStats).catch(() => {});
-    api.getAnalytics().then(setAnalytics).catch(() => {});
+    api.listChannels().then((c) => setChannels(c || [])).catch(() => {});
+    api.listCampaigns().then((c) => setCampaigns(c || [])).catch(() => {});
+    api.listAgents().then((a) => setAgentList(a || [])).catch(() => {});
   }, []);
+  useEffect(() => {
+    const f = { campaign_id: fCampaign || undefined, channel_id: fChannel || undefined, agent_id: fAgent || undefined };
+    api.getStats(f).then(setStats).catch(() => {});
+    api.getAnalytics(f).then(setAnalytics).catch(() => {});
+  }, [fChannel, fCampaign, fAgent]);
 
   if (!stats) return (
     <div className="p-4">
@@ -500,6 +512,20 @@ function ManagerDashboard() {
 
       {tab === "campaigns" ? <CampaignsAnalytics /> : tab === "marketing" ? <MarketingAnalytics /> : (
       <div className="p-4">
+        {/* ── Filters ── */}
+        <div className="flex items-center gap-2 mb-4 flex-wrap">
+          <FilterIcon className="w-4 h-4 text-muted-foreground" />
+          <Select value={fChannel} onChange={setFChannel} className="w-[160px]"
+            options={[{ value: "", label: "All channels" }, ...channels.map((c) => ({ value: c.id, label: c.name }))]} />
+          <Select value={fCampaign} onChange={setFCampaign} className="w-[180px]"
+            options={[{ value: "", label: "All campaigns" }, ...campaigns.map((c) => ({ value: c.id, label: c.name }))]} />
+          <Select value={fAgent} onChange={setFAgent} className="w-[160px]"
+            options={[{ value: "", label: "All agents" }, ...agentList.map((a) => ({ value: a.id, label: a.full_name }))]} />
+          {(fChannel || fCampaign || fAgent) && (
+            <button onClick={() => { setFChannel(""); setFCampaign(""); setFAgent(""); }} className="text-[12px] font-semibold text-primary hover:underline outline-none">Clear</button>
+          )}
+        </div>
+
         {/* ── Metric Strip ── */}
         <div className="flex flex-wrap bg-card rounded-lg border border-border shadow-xs mb-5 overflow-hidden">
           {METRICS.map((m, i) => {
