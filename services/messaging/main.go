@@ -126,12 +126,21 @@ func (a *app) onReceived(env events.Envelope) error {
 	// unassigned conversation and we prompt them to pick a campaign (decision #2).
 	var conv convInfo
 	var createdNoSignal bool
-	campaignID, matched := a.st.resolveCampaignByReferral(ctx, env.OrgID, e.Referral)
+	// Dealer's ad source is more specific than a campaign's -> check it first.
+	campaignID, dealerID := "", ""
+	matched := false
+	if dID, cID, ok := a.st.resolveDealerByReferral(ctx, env.OrgID, e.Referral); ok {
+		dealerID, campaignID, matched = dID, cID, true
+	} else if cID, ok := a.st.resolveCampaignByReferral(ctx, env.OrgID, e.Referral); ok {
+		campaignID, matched = cID, true
+	}
 	if !matched {
-		campaignID, matched = a.st.resolveCampaignByKeyword(ctx, env.OrgID, body)
+		if cID, ok := a.st.resolveCampaignByKeyword(ctx, env.OrgID, body); ok {
+			campaignID, matched = cID, true
+		}
 	}
 	if matched {
-		conv, err = a.st.getOrCreateThread(ctx, env.OrgID, contactID, e.Channel, ch.ID, campaignID)
+		conv, err = a.st.getOrCreateThread(ctx, env.OrgID, contactID, e.Channel, ch.ID, campaignID, dealerID)
 	} else {
 		conv, createdNoSignal, err = a.st.getOrCreateConversation(ctx, env.OrgID, contactID, e.Channel, ch.ID)
 	}

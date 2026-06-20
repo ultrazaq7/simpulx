@@ -222,3 +222,22 @@ func (s *server) routeToCampaign(ctx context.Context, campaignID, convID string)
 		campaignID, convID)
 	_, _ = s.pool.Exec(ctx, `UPDATE campaigns SET rr_cursor=rr_cursor+1, lead_count=lead_count+1 WHERE id=$1`, campaignID)
 }
+
+// routeToDealer attributes a conversation to a dealer (and its parent campaign)
+// and round-robin assigns the next agent from that dealer's roster. Mirrors
+// routeToCampaign but on campaign_dealers.rr_cursor + dealer_agents.
+func (s *server) routeToDealer(ctx context.Context, dealerID, convID string) {
+	_, _ = s.pool.Exec(ctx,
+		`WITH d AS (SELECT campaign_id, rr_cursor FROM campaign_dealers WHERE id=$1),
+		      agents AS (SELECT user_id FROM dealer_agents WHERE dealer_id=$1 ORDER BY user_id),
+		      pick AS (SELECT user_id FROM agents
+		               OFFSET ((SELECT rr_cursor FROM d) % GREATEST((SELECT count(*) FROM agents),1))
+		               LIMIT 1)
+		 UPDATE conversations SET dealer_id=$1,
+		        campaign_id = (SELECT campaign_id FROM d),
+		        assigned_agent_id = COALESCE((SELECT user_id FROM pick), assigned_agent_id),
+		        updated_at=now()
+		  WHERE id=$2 AND campaign_id IS NULL`,
+		dealerID, convID)
+	_, _ = s.pool.Exec(ctx, `UPDATE campaign_dealers SET rr_cursor=rr_cursor+1, lead_count=lead_count+1 WHERE id=$1`, dealerID)
+}

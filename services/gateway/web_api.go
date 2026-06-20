@@ -166,11 +166,12 @@ func (s *server) handleIngestLead(w http.ResponseWriter, r *http.Request) {
 	}
 	ctx := r.Context()
 
-	var orgID, srcID, deptID, campaignID string
+	var orgID, srcID, deptID, campaignID, dealerID string
 	var slug string
 	err := s.pool.QueryRow(ctx,
-		`SELECT organization_id::text, id::text, slug, COALESCE(auto_assign_dept_id::text,''), COALESCE(campaign_id::text,'')
-		   FROM web_api_sources WHERE api_key=$1 AND is_active`, key).Scan(&orgID, &srcID, &slug, &deptID, &campaignID)
+		`SELECT organization_id::text, id::text, slug, COALESCE(auto_assign_dept_id::text,''),
+		        COALESCE(campaign_id::text,''), COALESCE(dealer_id::text,'')
+		   FROM web_api_sources WHERE api_key=$1 AND is_active`, key).Scan(&orgID, &srcID, &slug, &deptID, &campaignID, &dealerID)
 	if err != nil {
 		http.Error(w, "invalid api key", http.StatusUnauthorized)
 		return
@@ -226,9 +227,13 @@ func (s *server) handleIngestLead(w http.ResponseWriter, r *http.Request) {
 	}
 	_, _ = s.pool.Exec(ctx, `UPDATE web_api_sources SET lead_count=lead_count+1 WHERE id=$1`, srcID)
 
-	// Source mapped to a campaign -> attribute + round-robin assign.
-	if campaignID != "" && convID != "" {
-		s.routeToCampaign(ctx, campaignID, convID)
+	// Source mapped to a dealer (preferred) or campaign -> attribute + round-robin assign.
+	if convID != "" {
+		if dealerID != "" {
+			s.routeToDealer(ctx, dealerID, convID)
+		} else if campaignID != "" {
+			s.routeToCampaign(ctx, campaignID, convID)
+		}
 	}
 
 	writeJSON(w, map[string]any{"status": "captured", "contact_id": contactID, "conversation_id": convID})
