@@ -1,57 +1,81 @@
-# Simpulx v2 — AI-First Omnichannel Platform
+# Simpulx — AI-assisted omnichannel sales platform
 
-Rewrite Simpulx ke arsitektur **AI-first**: AI agent (LLM + RAG + tool-calling)
-menangani percakapan otomatis dengan handoff mulus ke agen manusia, di atas fondasi
-omnichannel + CRM multi-tenant.
+Multi-tenant, AI-assisted **omnichannel WhatsApp sales platform** for automotive dealer
+networks (initial customer: **OTO**). It turns inbound leads — most arriving via
+Click-to-WhatsApp (CTWA) ads into one shared WhatsApp Business number — into tracked,
+qualified, **fairly-distributed** sales conversations, with SLA and conversion visibility
+across many dealers.
+
+Live in production at **https://app.simpulx.com**. Deep design docs live in
+[`ai-context/`](ai-context/) (start at [19-current-state.md](ai-context/19-current-state.md));
+production runbook in [DEPLOY.md](DEPLOY.md).
+
+## What it does
+
+- **Omnichannel inbox** — WhatsApp (Cloud API), Facebook Messenger, Instagram DMs, Viber;
+  shared inbox with role-based visibility, assignment, internal notes, WA-call tracking.
+- **Channel & Integrations** — connect channels via a real wizard (WhatsApp **Embedded
+  Signup**/Direct Cloud API, Viber), capture leads via **Web API** sources, and connect
+  **ad accounts** (Meta/TikTok/Google) for spend → cost-per-lead/sale.
+- **Campaigns + branches** — a campaign (dealer group) holds branches; a lead routes **by
+  ad source** to the right branch, then **round-robin** to that branch's agents
+  (fair-distribution engine; one contact can hold parallel conversations per campaign).
+- **Lead intelligence** — rules classifier (interest hot/warm/cold) + LLM field extraction
+  (brand/model/city/timeframe) + buy-potential scoring; **smart 4h follow-up** (not a
+  realtime chatbot). SLA metrics (first/avg response, follow-ups, conversion).
+- **Broadcasts, templates, automations, follow-up sequences, quick replies, knowledge base.**
+- **Admin** — teams, roles & permissions, departments, audit logs, branding.
 
 ## Stack
 
-| Layer            | Teknologi                                              |
-|------------------|--------------------------------------------------------|
-| Core services    | **Go** (gateway, messaging, conversation, realtime)    |
-| AI services      | **Python / FastAPI** (ai-agent, knowledge/RAG)         |
-| Web dashboard    | **Next.js** (React + TypeScript)                       |
-| Mobile           | **Native** — Kotlin (Android), Swift (iOS)             |
-| Datastore        | PostgreSQL + **pgvector** (RAG), Redis, MinIO/S3        |
-| Event bus        | **NATS JetStream** (kontrak event JSON; gRPC menyusul) |
+| Layer | Tech |
+|---|---|
+| Core services | **Go** — gateway, messaging, conversation, realtime, broadcasts |
+| AI services | **Python / FastAPI** — ai-agent (LLM + lead scoring), knowledge (RAG) |
+| Web dashboard | **Next.js** (App Router) + React + TypeScript |
+| Mobile | Native — Kotlin (Android), Swift (iOS) [planned] |
+| Data | PostgreSQL + **pgvector**, Redis, MinIO/S3 |
+| Event bus | **NATS JetStream** (JSON event contracts) |
+| Edge / infra | Caddy + Cloudflare on a single AWS Graviton EC2 |
 
-## Struktur
+## Repo layout
 
 ```
-v2/
-  proto/            kontrak event (JSON schema) + (nanti) gRPC .proto
-  db/migrations/    schema SQL (dijalankan berurutan saat boot postgres)
-  libs/go/          shared Go: config, log, db, broker, tenant
-  libs/python/      shared Python: settings, db, embeddings, llm
-  services/
-    gateway/        (Go)     webhook ingest, auth, ACK cepat -> publish event
-    messaging/      (Go)     normalize inbound, persist, outbound sender
-    realtime/       (Go)     WebSocket hub + Redis pub/sub
-    ai-agent/       (Python) orkestrasi LLM, RAG retrieve, tool-call, handoff
-    knowledge/      (Python) ingest -> chunk -> embed -> pgvector
-  web/              (Next.js) dashboard agen   [Fase 3]
-  mobile/           Kotlin + Swift             [Fase 5]
-  deploy/docker/    compose dev (semua via container — host tak perlu Go/Python)
+services/
+  gateway/        (Go)     webhook ingest, auth, REST API, lead routing, calls
+  messaging/      (Go)     normalize inbound, persist, outbound senders (WA/Viber)
+  conversation/   (Go)     conversation/thread + SLA logic
+  realtime/       (Go)     WebSocket hub + Redis pub/sub
+  broadcasts/     (Go)     bulk template sends + delivery tracking
+  ai-agent/       (Python) lead classify/score, field extraction, follow-up drafting
+  knowledge/      (Python) ingest -> chunk -> embed -> pgvector (RAG)
+web/              (Next.js) dashboard
+mobile/           Kotlin + Swift [planned]
+libs/{go,python}/ shared libraries (config, db, broker, events, embeddings, llm)
+db/migrations/    goose SQL migrations
+deploy/docker/    compose (dev builds locally; prod pulls images from ECR)
+ai-context/       product + architecture docs (source of truth)
 ```
 
-## Menjalankan (dev)
+## Run locally (dev)
 
-Host hanya butuh **Docker**. Semua service dibuild & dijalankan dalam container.
+Host only needs **Docker** — every service builds & runs in a container.
 
 ```bash
-cd v2
-cp .env.example .env          # isi ANTHROPIC_API_KEY bila ingin LLM asli (opsional)
-make dev                      # up: postgres, redis, nats, minio, + semua service
-make logs                     # ikuti log
-make smoke                    # kirim webhook WA simulasi + cek end-to-end
-make down                     # stop
+cp .env.example .env     # set ANTHROPIC_API_KEY for real LLM (optional; mock works offline)
+make dev                 # build + start postgres, redis, nats, minio + all services
+make logs                # follow logs
+make psql                # psql into the dev DB
+make down                # stop
 ```
 
-Tanpa API key, AI layer memakai **provider fallback lokal** (embedder deterministik +
-LLM mock) sehingga slice tetap bisa diverifikasi end-to-end offline. Set `ANTHROPIC_API_KEY`
-(dan `EMBED_PROVIDER=openai` + `OPENAI_API_KEY`) untuk mengaktifkan model asli.
+Without an API key the AI layer uses local fallbacks (deterministic embedder + mock LLM)
+so the stack still runs end-to-end offline. Migrations apply automatically on gateway boot
+in dev (`RUN_MIGRATIONS_ON_BOOT=true`).
 
-## Status
+## Production / CI-CD
 
-Fase 0 (fondasi) + Fase 1 (vertical slice: WA inbound → AI balas ber-RAG → realtime) — lihat
-roadmap di plan. Fase berikutnya: conversation/routing, dashboard, CRM, mobile, migrasi+cutover.
+Push to `main` → **GitHub Actions** builds the changed service images natively on an ARM
+runner, pushes `:<sha>` to **ECR**; the EC2 box just **pulls** and restarts (it never
+builds). DB migrations run as a dedicated deploy step, not on boot. Rollback = run the
+`Deploy Simpulx` workflow with an older `image_tag`. Details in [DEPLOY.md](DEPLOY.md).

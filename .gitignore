@@ -25,6 +25,7 @@ node_modules/
 .next/
 out/
 dist/
+*.tsbuildinfo
 
 # ── Build artifacts & local scratch (regenerable; built in Docker) ──
 *.exe
