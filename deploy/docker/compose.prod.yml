@@ -1,14 +1,17 @@
 # Production overlay. Use together with the base compose:
-#   docker compose -f deploy/docker/compose.yml -f deploy/docker/compose.prod.yml up -d --build
+#   docker compose --env-file .env -f deploy/docker/compose.yml -f deploy/docker/compose.prod.yml pull
+#   docker compose --env-file .env -f deploy/docker/compose.yml -f deploy/docker/compose.prod.yml up -d
 #
-# Adds the Next.js web app + Caddy edge, and stops publishing the dev ports
-# (Caddy reaches every service over the internal `simpulx` network by name).
+# Prod PULLS pre-built images from ECR (built & pushed by CI); it does NOT build.
+# IMAGE_TAG (set by the deploy step) selects the version -> rollback = an older tag.
+# The base compose.yml keeps `build:` for local dev.
 name: simpulx-v2
 
 services:
-  # Backend API: no public port in prod (Caddy proxies it); fix the media base URL.
+  # Backend API: pull from ECR; no public port in prod (Caddy proxies it).
   # !reset clears the base compose's published port (Compose otherwise MERGES them).
   gateway:
+    image: 825621302344.dkr.ecr.ap-southeast-3.amazonaws.com/simpulx/gateway:${IMAGE_TAG:-latest}
     ports: !reset []
     environment:
       MEDIA_PUBLIC_BASE: https://app.simpulx.com/simpulx-media
@@ -18,23 +21,25 @@ services:
       # Migrations are run as a dedicated deploy step (MIGRATE_ONLY), not on boot.
       RUN_MIGRATIONS_ON_BOOT: "false"
 
-  # WebSocket: no public port in prod (Caddy proxies /ws).
+  messaging:
+    image: 825621302344.dkr.ecr.ap-southeast-3.amazonaws.com/simpulx/messaging:${IMAGE_TAG:-latest}
+  conversation:
+    image: 825621302344.dkr.ecr.ap-southeast-3.amazonaws.com/simpulx/conversation:${IMAGE_TAG:-latest}
+  broadcasts:
+    image: 825621302344.dkr.ecr.ap-southeast-3.amazonaws.com/simpulx/broadcasts:${IMAGE_TAG:-latest}
+  ai-agent:
+    image: 825621302344.dkr.ecr.ap-southeast-3.amazonaws.com/simpulx/ai-agent:${IMAGE_TAG:-latest}
+  knowledge:
+    image: 825621302344.dkr.ecr.ap-southeast-3.amazonaws.com/simpulx/knowledge:${IMAGE_TAG:-latest}
+
+  # WebSocket: pull from ECR; no public port in prod (Caddy proxies /ws).
   realtime:
+    image: 825621302344.dkr.ecr.ap-southeast-3.amazonaws.com/simpulx/realtime:${IMAGE_TAG:-latest}
     ports: !reset []
 
-  # Next.js web app (NEXT_PUBLIC_* are baked at build time).
+  # Next.js web app (image built in CI; NEXT_PUBLIC_* baked there from repo variables).
   web:
-    build:
-      context: ../../web
-      dockerfile: Dockerfile
-      args:
-        NEXT_PUBLIC_API_URL: https://app.simpulx.com
-        NEXT_PUBLIC_WS_URL: wss://app.simpulx.com
-        # WhatsApp Embedded Signup config (resolved from repo-root .env via --env-file).
-        NEXT_PUBLIC_META_APP_ID: ${META_APP_ID:-}
-        NEXT_PUBLIC_META_CONFIG_ID: ${META_CONFIG_ID:-}
-        NEXT_PUBLIC_META_VERIFY_TOKEN: ${META_VERIFY_TOKEN:-}
-    image: simpulx-web:latest
+    image: 825621302344.dkr.ecr.ap-southeast-3.amazonaws.com/simpulx/web:${IMAGE_TAG:-latest}
     container_name: simpulx-v2-web
     restart: unless-stopped
     depends_on: [gateway]
