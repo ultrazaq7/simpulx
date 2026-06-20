@@ -23,15 +23,21 @@ export type Item =
   | { kind: "note"; key: string; n: InternalNote };
 
 // --- Stage color map (semantic data colors) ---
+// Sales funnel colors (must match the dashboard's FUNNEL_COLORS order):
+// New Lead -> Contacted -> Qualified -> Appointment -> Negotiation -> Purchase.
 const stageColorMap: Record<string, string> = {
-  new_lead: "#EF4444", "new lead": "#EF4444",
-  contacted: "#FF9800", qualified: "#F5A623",
-  pending_payment: "#2196F3", "pending payment": "#2196F3",
-  customer: "#2D8B73", won: "#2E7D32",
-  lost: "#9C27B0", no_reply: "#6366F1", "no reply": "#6366F1",
+  new_lead: "#6366F1", "new lead": "#6366F1",
+  contacted: "#0EA5E9",
+  qualified: "#14B8A6",
+  appointment: "#8B5CF6",
+  negotiation: "#F59E0B",
+  purchase: "#16A34A",
+  // legacy aliases (pre-rename) so old data still colors sensibly
+  test_drive: "#F59E0B", "test drive": "#F59E0B",
+  booking: "#16A34A",
 };
 function getDotColor(name: string): string {
-  return stageColorMap[name.toLowerCase()] || stageColorMap[name.toLowerCase().replace(/\s+/g, "_")] || "#FF9800";
+  return stageColorMap[name.toLowerCase()] || stageColorMap[name.toLowerCase().replace(/\s+/g, "_")] || "#64748B";
 }
 
 // --- Stage menu (custom dropdown, no MUI) ---

@@ -92,7 +92,7 @@ export default function BroadcastDetailPage() {
       </div>
 
       {/* Body */}
-      <div className="flex-1 overflow-auto p-4">
+      <div className={cn("flex-1 min-h-0", tab === "messages" ? "p-4 flex flex-col" : "overflow-auto p-4")}>
         {tab === "general"
           ? <GeneralTab d={d} cost={cost} responseRate={responseRate} isTemplate={isTemplate} />
           : <MessagesTab recipients={recipients} name={d.name} />}
@@ -189,14 +189,22 @@ function GeneralTab({ d, cost, responseRate, isTemplate }: { d: BroadcastDetail;
             </div>
           ))}
         </div>
-        <div className="rounded-lg border border-border bg-card shadow-xs p-4">
-          <p className="text-[13px] font-bold text-foreground mb-3 text-center">Preview</p>
-          <div className="rounded-[24px] border-[3px] border-[#2D2D44] bg-[#1A1A2E] p-1.5 shadow-xl">
-            <div className="rounded-[16px] overflow-hidden bg-[#ECE5DD]">
-              <div className="h-8 bg-[#075E54]" />
-              <div className="min-h-[170px] p-3 flex flex-col items-start" style={{ background: "#ECE5DD" }}>
-                <div className="max-w-[200px] rounded-lg rounded-tl-sm bg-white px-3 pt-2 pb-1.5 shadow-sm">
-                  <p className="text-[11.5px] leading-relaxed text-[#303030] whitespace-pre-wrap break-words">{(d.body || "(no message)").slice(0, 360)}</p>
+        <div className="rounded-lg border border-border bg-card shadow-xs p-4 flex flex-col">
+          <p className="text-[13px] font-bold text-foreground mb-3 text-center shrink-0">Preview</p>
+          <div className="rounded-[28px] border-[4px] border-[#2D2D44] bg-[#1A1A2E] p-1.5 shadow-xl flex-1 flex flex-col">
+            <div className="rounded-[22px] overflow-hidden bg-[#ECE5DD] flex-1 flex flex-col">
+              {/* WhatsApp chat header */}
+              <div className="h-12 bg-[#075E54] flex items-center px-3 gap-2.5 shrink-0">
+                <div className="w-7 h-7 rounded-full bg-white/25 shrink-0" />
+                <div className="min-w-0">
+                  <div className="h-2 w-24 rounded bg-white/40" />
+                  <div className="h-1.5 w-14 rounded bg-white/20 mt-1.5" />
+                </div>
+              </div>
+              {/* Conversation area */}
+              <div className="flex-1 min-h-[460px] p-3 flex flex-col items-start" style={{ background: "#ECE5DD", backgroundImage: "radial-gradient(rgba(0,0,0,0.035) 1px,transparent 1px)", backgroundSize: "14px 14px" }}>
+                <div className="max-w-[210px] rounded-lg rounded-tl-sm bg-white px-3 pt-2 pb-1.5 shadow-sm">
+                  <p className="text-[11.5px] leading-relaxed text-[#303030] whitespace-pre-wrap break-words">{d.body || "(no message)"}</p>
                   <p className="text-right text-[8.5px] text-[#8D9A9E] mt-1">11:44</p>
                 </div>
               </div>
@@ -261,9 +269,9 @@ function MessagesTab({ recipients, name }: { recipients: BroadcastRecipient[]; n
   ];
 
   return (
-    <div>
+    <div className="flex flex-col h-full min-h-0">
       {/* toolbar */}
-      <div className="flex items-center gap-2 mb-3 flex-wrap">
+      <div className="flex items-center gap-2 mb-3 flex-wrap shrink-0">
         <div className="flex items-center gap-1">
           {FILTERS.map((f) => (
             <button key={f.key} onClick={() => setFilter(f.key)}
@@ -285,11 +293,11 @@ function MessagesTab({ recipients, name }: { recipients: BroadcastRecipient[]; n
       </div>
 
       {/* table */}
-      <div className="rounded-lg border border-border bg-card shadow-xs overflow-hidden">
-        <div className="overflow-x-auto">
+      <div className="rounded-lg border border-border bg-card shadow-xs overflow-hidden flex flex-col flex-1 min-h-0">
+        <div className="overflow-auto flex-1 min-h-0">
           <table className="w-full text-sm">
-            <thead>
-              <tr className="border-b border-border bg-muted/40">
+            <thead className="sticky top-0 z-10">
+              <tr className="border-b border-border bg-muted">
                 {["Customer", "Number", "Send status", "Read status", "Type", "CTA", "Responded"].map((h) => (
                   <th key={h} className="px-4 py-2.5 text-left text-[11px] font-bold uppercase tracking-wider text-muted-foreground">{h}</th>
                 ))}
@@ -322,7 +330,7 @@ function MessagesTab({ recipients, name }: { recipients: BroadcastRecipient[]; n
         </div>
 
         {/* pagination */}
-        <div className="flex items-center py-3 px-4 border-t border-border">
+        <div className="flex items-center py-3 px-4 border-t border-border shrink-0">
           <span className="text-[13px] font-semibold text-muted-foreground tabular-nums">{filtered.length} recipient{filtered.length === 1 ? "" : "s"}</span>
           <div className="flex-1 flex justify-center items-center gap-1">
             <button disabled={page <= 1} onClick={() => setPage(1)} className="p-1 rounded-md text-muted-foreground hover:bg-muted hover:text-foreground disabled:opacity-30 disabled:cursor-not-allowed outline-none transition-colors"><ChevronsLeft className="w-[18px] h-[18px]" /></button>

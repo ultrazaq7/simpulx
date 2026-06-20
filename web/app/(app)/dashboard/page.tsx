@@ -177,7 +177,9 @@ function InterestSplit({ funnel }: { funnel: Analytics["funnel"] | undefined }) 
 
 // Real lead funnel: cumulative "reached this stage or beyond" along the actual sales
 // pipeline, with stage-to-stage conversion %. Driven by analytics.funnel_stages.
-const FUNNEL_COLORS = ["#2D8B73", "#10B981", "#0EA5E9", "#6366F1", "#8B5CF6", "#F59E0B", "#059669"];
+// Per-stage funnel colors, aligned with the inbox stage chips
+// (New Lead -> Contacted -> Qualified -> Appointment -> Negotiation -> Purchase).
+const FUNNEL_COLORS = ["#6366F1", "#0EA5E9", "#14B8A6", "#8B5CF6", "#F59E0B", "#16A34A", "#059669"];
 function LeadFunnel({ stages }: { stages?: Analytics["funnel_stages"] }) {
   if (!stages || stages.length === 0) {
     return <div className="py-10 text-center text-sm text-muted-foreground">No pipeline data yet</div>;
