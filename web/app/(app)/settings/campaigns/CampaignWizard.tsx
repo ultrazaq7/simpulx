@@ -41,6 +41,7 @@ export function CampaignWizard({ campaignId, users, channels, onClose, onDone, o
   const [channelId, setChannelId] = useState("");
   const [callingEnabled, setCallingEnabled] = useState(true);
   const [defaultAgents, setDefaultAgents] = useState<string[]>([]);
+  const [adSources, setAdSources] = useState("");
   const [keywords, setKeywords] = useState("");
 
   // Branches
@@ -59,6 +60,7 @@ export function CampaignWizard({ campaignId, users, channels, onClose, onDone, o
           setName(c.name); setCompany(c.dealer_name ?? ""); setStatus(c.status); setRouting(c.routing_strategy);
           setChannelId(c.channel_id ?? ""); setCallingEnabled(c.calling_enabled ?? true);
           setDefaultAgents(c.agent_ids ?? []); setKeywords((c.keywords ?? []).join(", "));
+          setAdSources((c.ad_source_ids ?? []).join(", "));
           setBranches((brs as any[]).map((b) => ({
             key: `b${++keySeq}`, id: b.id, name: b.name, coverage: b.coverage ?? "",
             adSources: (b.ad_source_ids ?? []).join(", "), agentIds: b.agent_ids ?? [], webSourceIds: b.web_source_ids ?? [],
@@ -83,7 +85,8 @@ export function CampaignWizard({ campaignId, users, channels, onClose, onDone, o
     try {
       const payload = {
         name: name.trim(), dealer_name: company.trim(), status, routing_strategy: routing,
-        channel_id: channelId, keywords: csv(keywords), agent_ids: defaultAgents, calling_enabled: callingEnabled,
+        channel_id: channelId, ad_source_ids: csv(adSources), keywords: csv(keywords),
+        agent_ids: defaultAgents, calling_enabled: callingEnabled,
       };
       let cid = campaignId;
       if (isEdit) await api.updateCampaign(cid!, payload);
@@ -139,6 +142,7 @@ export function CampaignWizard({ campaignId, users, channels, onClose, onDone, o
             <FieldLabel>Default agents (used when no branch matches)</FieldLabel>
             <AgentMultiSelect options={agentOptions} selected={defaultAgents} onChange={setDefaultAgents} />
           </div>
+          <WizardField label="CTWA ad source IDs (used when no branch matches)" value={adSources} onChange={setAdSources} placeholder="ad_honda_brio_2026" hint="Per-branch ad sources are set in step 2. These campaign-level IDs route leads when no branch matches." />
           <WizardField label="Keywords in first message (comma separated)" value={keywords} onChange={setKeywords} placeholder="brio, honda" />
         </div>
       )}
