@@ -5,7 +5,7 @@ import EmojiPicker from "emoji-picker-react";
 import { cn } from "@/lib/utils";
 import { api } from "@/lib/api";
 import { Tip } from "@/components/ui/tooltip";
-import type { QuickReply } from "@/lib/types";
+import type { QuickReply, Template } from "@/lib/types";
 
 interface ComposerProps {
   draft: string;
@@ -42,6 +42,17 @@ export default function Composer({
 }: ComposerProps) {
   const [showQR, setShowQR] = useState(false);
   const [emojiOpen, setEmojiOpen] = useState(false);
+  // WhatsApp templates (approved only) the agent can drop into the message box.
+  const [showTemplates, setShowTemplates] = useState(false);
+  const [templates, setTemplates] = useState<Template[]>([]);
+  useEffect(() => { api.listTemplates().then((t) => setTemplates((t || []).filter((x) => x.status === "APPROVED"))).catch(() => {}); }, []);
+  const insertTemplate = (t: Template) => {
+    const parts = [t.header_text, t.body, t.footer].filter(Boolean) as string[];
+    setDraft(parts.join("\n\n"));
+    setShowTemplates(false);
+    setTab(0); // templates go out as a reply, not an internal note
+    notify(`Template "${t.name}" inserted`, "info");
+  };
   // Focus the message box when a conversation opens (cursor ready to type).
   const textareaRef = useRef<HTMLTextAreaElement>(null);
   useEffect(() => {
@@ -303,6 +314,27 @@ export default function Composer({
           </div>
         )}
 
+        {/* WhatsApp templates */}
+        {showTemplates && (
+          <div className="max-h-[240px] overflow-auto border-b border-border">
+            {templates.length === 0 ? (
+              <p className="p-4 text-sm text-muted-foreground text-center">No approved templates yet</p>
+            ) : (
+              templates.map((t) => (
+                <div key={t.id} onClick={() => insertTemplate(t)}
+                  className="px-4 py-3 cursor-pointer border-b border-border/60 hover:bg-muted">
+                  <div className="flex items-center gap-2">
+                    <span className="px-1.5 py-0.5 rounded-md text-[10px] font-bold bg-primary/10 text-primary uppercase">{t.language}</span>
+                    <span className="text-xs font-semibold text-foreground truncate">{t.name}</span>
+                    <span className="text-[10px] text-muted-foreground capitalize ml-auto shrink-0">{t.category?.toLowerCase()}</span>
+                  </div>
+                  <p className="text-xs text-muted-foreground mt-0.5 line-clamp-2">{t.body}</p>
+                </div>
+              ))
+            )}
+          </div>
+        )}
+
         {/* Tabs */}
         <div className="flex items-center gap-4 px-3 pt-1.5">
           <button
@@ -519,8 +551,13 @@ export default function Composer({
             </button>
           </Tip>
           <Tip label="Quick replies">
-            <button onClick={() => setShowQR((v) => !v)} className={cn("p-1.5 rounded-md hover:bg-muted outline-none transition-colors", showQR ? "text-primary" : "text-muted-foreground hover:text-foreground")}>
+            <button onClick={() => { setShowQR((v) => !v); setShowTemplates(false); }} className={cn("p-1.5 rounded-md hover:bg-muted outline-none transition-colors", showQR ? "text-primary" : "text-muted-foreground hover:text-foreground")}>
               <Zap className="w-[18px] h-[18px]" />
+            </button>
+          </Tip>
+          <Tip label="Send template">
+            <button onClick={() => { setShowTemplates((v) => !v); setShowQR(false); }} className={cn("p-1.5 rounded-md hover:bg-muted outline-none transition-colors", showTemplates ? "text-primary" : "text-muted-foreground hover:text-foreground")}>
+              <FileText className="w-[18px] h-[18px]" />
             </button>
           </Tip>
           {phone && !note && callingEnabled && (
