@@ -2,10 +2,10 @@
 
 **The customer engagement platform built for sales teams.**
 
-Multi-tenant omnichannel WhatsApp sales platform for automotive dealer networks (initial
-customer: OTO). It turns inbound leads, most arriving via Click-to-WhatsApp (CTWA) ads into
-one shared WhatsApp Business number, into tracked, qualified, **fairly-distributed** sales
-conversations, with SLA and conversion visibility across many dealers.
+Multi-tenant omnichannel WhatsApp sales platform. It turns inbound leads, most arriving via
+Click-to-WhatsApp (CTWA) ads into one shared WhatsApp Business number, into tracked,
+qualified, **fairly-distributed** sales conversations, with SLA and conversion visibility
+across teams.
 
 Live in production at **https://app.simpulx.com**. Design docs live in
 [`ai-context/`](ai-context/) (start at [19-current-state.md](ai-context/19-current-state.md));
@@ -18,7 +18,7 @@ production runbook in [DEPLOY.md](DEPLOY.md).
 - **Channel & Integrations:** connect channels via a real wizard (WhatsApp Embedded
   Signup or Direct Cloud API, Viber), capture leads via **Web API** sources, and connect
   **ad accounts** (Meta/TikTok/Google) for spend to cost-per-lead/sale.
-- **Campaigns + branches:** a campaign (dealer group) holds branches; a lead routes by ad
+- **Campaigns + branches:** a campaign (a group) holds branches; a lead routes by ad
   source to the right branch, then **round-robin** to that branch's agents
   (fair-distribution engine; one contact can hold parallel conversations per campaign).
 - **Lead intelligence:** rules classifier (interest hot/warm/cold), structured field
