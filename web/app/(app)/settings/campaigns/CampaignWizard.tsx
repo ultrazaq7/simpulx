@@ -1,0 +1,221 @@
+"use client";
+// Enterprise campaign wizard: Campaign basics -> Branches -> Review. A campaign
+// is a group (e.g. "UMC"); branches are its sub-units (offices/stores), each with
+// its own coverage, ad sources and agents. Leads route by ad source to a branch,
+// else fall back to the campaign's default agents.
+import { useEffect, useState } from "react";
+import { Plus, Trash2, Loader2, Phone, PhoneOff, Megaphone, Building2, MapPin } from "lucide-react";
+import { api } from "@/lib/api";
+import type { UserAccount, Channel, WebApiSource } from "@/lib/types";
+import { Select } from "@/components/Select";
+import { AgentMultiSelect } from "@/components/AgentMultiSelect";
+import MultiSelectFilter from "@/app/(app)/inbox/components/MultiSelectFilter";
+import { WizardModal, WizardField, BackButton, ContinueButton } from "../channels/WizardModal";
+import { FieldLabel, PrimaryButton } from "../_shared";
+
+const STEPS = ["Campaign", "Branches", "Review"];
+
+type LocalBranch = {
+  key: string; id?: string;
+  name: string; coverage: string; adSources: string;
+  agentIds: string[]; webSourceIds: string[];
+};
+
+let keySeq = 0;
+const newBranch = (): LocalBranch => ({ key: `b${++keySeq}`, name: "", coverage: "", adSources: "", agentIds: [], webSourceIds: [] });
+const csv = (s: string) => s.split(",").map((x) => x.trim()).filter(Boolean);
+
+export function CampaignWizard({ campaignId, users, channels, onClose, onDone, onError }: {
+  campaignId: string | null; users: UserAccount[]; channels: Channel[];
+  onClose: () => void; onDone: (msg: string) => void; onError: (msg: string) => void;
+}) {
+  const isEdit = !!campaignId;
+  const [step, setStep] = useState(0);
+  const [saving, setSaving] = useState(false);
+
+  // Campaign basics
+  const [name, setName] = useState("");
+  const [company, setCompany] = useState("");
+  const [status, setStatus] = useState("active");
+  const [routing, setRouting] = useState("round_robin");
+  const [channelId, setChannelId] = useState("");
+  const [callingEnabled, setCallingEnabled] = useState(true);
+  const [defaultAgents, setDefaultAgents] = useState<string[]>([]);
+  const [keywords, setKeywords] = useState("");
+
+  // Branches
+  const [branches, setBranches] = useState<LocalBranch[]>([]);
+  const [removed, setRemoved] = useState<string[]>([]);
+  const [webSources, setWebSources] = useState<WebApiSource[]>([]);
+
+  const agentOptions = users.map((u) => ({ id: u.id, name: u.full_name }));
+  const webSourceOptions = webSources.map((s) => ({ value: s.id, label: s.name }));
+
+  useEffect(() => {
+    api.listWebApiSources().then(setWebSources).catch(() => {});
+    if (campaignId) {
+      Promise.all([api.getCampaign(campaignId), api.listCampaignBranches(campaignId).catch(() => [])])
+        .then(([c, brs]) => {
+          setName(c.name); setCompany(c.dealer_name ?? ""); setStatus(c.status); setRouting(c.routing_strategy);
+          setChannelId(c.channel_id ?? ""); setCallingEnabled(c.calling_enabled ?? true);
+          setDefaultAgents(c.agent_ids ?? []); setKeywords((c.keywords ?? []).join(", "));
+          setBranches((brs as any[]).map((b) => ({
+            key: `b${++keySeq}`, id: b.id, name: b.name, coverage: b.coverage ?? "",
+            adSources: (b.ad_source_ids ?? []).join(", "), agentIds: b.agent_ids ?? [], webSourceIds: b.web_source_ids ?? [],
+          })));
+        })
+        .catch((e) => onError(String(e)));
+    }
+  }, [campaignId]); // eslint-disable-line react-hooks/exhaustive-deps
+
+  function patchBranch(key: string, patch: Partial<LocalBranch>) {
+    setBranches((bs) => bs.map((b) => (b.key === key ? { ...b, ...patch } : b)));
+  }
+  function removeBranch(b: LocalBranch) {
+    if (b.id) setRemoved((r) => [...r, b.id!]);
+    setBranches((bs) => bs.filter((x) => x.key !== b.key));
+  }
+
+  async function submit() {
+    if (!name.trim()) { setStep(0); onError("Campaign name is required"); return; }
+    if (branches.some((b) => !b.name.trim())) { onError("Every branch needs a name"); return; }
+    setSaving(true);
+    try {
+      const payload = {
+        name: name.trim(), dealer_name: company.trim(), status, routing_strategy: routing,
+        channel_id: channelId, keywords: csv(keywords), agent_ids: defaultAgents, calling_enabled: callingEnabled,
+      };
+      let cid = campaignId;
+      if (isEdit) await api.updateCampaign(cid!, payload);
+      else cid = (await api.createCampaign(payload)).id;
+
+      for (const id of removed) await api.deleteBranch(id);
+      for (const b of branches) {
+        const input = { name: b.name.trim(), coverage: b.coverage.trim(), ad_source_ids: csv(b.adSources), agent_ids: b.agentIds, web_source_ids: b.webSourceIds };
+        if (b.id) await api.updateBranch(b.id, input);
+        else await api.createBranch(cid!, input);
+      }
+      onDone(isEdit ? "Campaign updated" : "Campaign created");
+    } catch (e) { onError(String(e)); setSaving(false); }
+  }
+
+  const footer =
+    step === 0 ? (<><div className="flex-1" /><ContinueButton onClick={() => name.trim() && setStep(1)} disabled={!name.trim()} /></>)
+    : step === 1 ? (<><BackButton onClick={() => setStep(0)} /><div className="flex-1" /><ContinueButton onClick={() => setStep(2)} /></>)
+    : (<><BackButton onClick={() => setStep(1)} /><div className="flex-1" />
+        <PrimaryButton onClick={submit} disabled={saving}>{saving ? <Loader2 className="w-4 h-4 animate-spin" /> : null}{isEdit ? "Save campaign" : "Create campaign"}</PrimaryButton></>);
+
+  const channel = channels.find((c) => c.id === channelId);
+
+  return (
+    <WizardModal title={isEdit ? "Edit campaign" : "New campaign"} icon={<Megaphone className="w-5 h-5" />} steps={STEPS} step={step} onClose={onClose} footer={footer} maxWidth={820}>
+      {/* Step 0 — Campaign */}
+      {step === 0 && (
+        <div className="flex flex-col gap-4">
+          <div className="grid grid-cols-2 gap-4">
+            <WizardField label="Campaign name" value={name} onChange={setName} placeholder="e.g. UMC" autoFocus />
+            <WizardField label="Company / group (optional)" value={company} onChange={setCompany} placeholder="e.g. United Motors" />
+          </div>
+          <div className="grid grid-cols-2 gap-4">
+            <div><FieldLabel>Status</FieldLabel><Select value={status} onChange={setStatus} options={[{ value: "active", label: "Active" }, { value: "paused", label: "Paused" }]} /></div>
+            <div><FieldLabel>Routing</FieldLabel><Select value={routing} onChange={setRouting} options={[{ value: "round_robin", label: "Round-robin" }, { value: "manual", label: "Manual" }]} /></div>
+          </div>
+          <div>
+            <FieldLabel>Channel</FieldLabel>
+            <Select value={channelId} onChange={setChannelId} placeholder="No channel"
+              options={[{ value: "", label: "No channel" }, ...channels.map((ch) => ({ value: ch.id, label: ch.name + (ch.calling_enabled ? "  (calling enabled)" : "") }))]} />
+            {channelId && channel?.calling_enabled && (
+              <div className="flex items-center justify-between gap-3 mt-2 rounded-lg border border-border p-3">
+                <p className="text-[13px] font-semibold text-foreground inline-flex items-center gap-1.5">{callingEnabled ? <Phone className="w-3.5 h-3.5 text-success" /> : <PhoneOff className="w-3.5 h-3.5 text-muted-foreground" />} Enable calling</p>
+                <button type="button" onClick={() => setCallingEnabled((v) => !v)}
+                  className={`relative inline-flex h-5 w-9 shrink-0 rounded-full transition-colors outline-none ${callingEnabled ? "bg-primary" : "bg-muted"}`}>
+                  <span className={`inline-block h-4 w-4 rounded-full bg-white shadow-sm transform transition-transform mt-0.5 ${callingEnabled ? "translate-x-[18px] ml-0.5" : "translate-x-0.5"}`} />
+                </button>
+              </div>
+            )}
+            {!channelId && <p className="mt-1 text-[11px] text-amber-600">No channel set. Leads won&apos;t route until a channel is assigned.</p>}
+          </div>
+          <div>
+            <FieldLabel>Default agents (used when no branch matches)</FieldLabel>
+            <AgentMultiSelect options={agentOptions} selected={defaultAgents} onChange={setDefaultAgents} />
+          </div>
+          <WizardField label="Keywords in first message (comma separated)" value={keywords} onChange={setKeywords} placeholder="brio, honda" />
+        </div>
+      )}
+
+      {/* Step 1 — Branches */}
+      {step === 1 && (
+        <div className="flex flex-col gap-3">
+          <p className="text-[13px] text-muted-foreground">
+            Branches are sub-units of this campaign (offices, stores, locations). Each has its own ad sources and agents; leads route by ad source to the matching branch. Skip this to route everything to the campaign&apos;s default agents.
+          </p>
+          {branches.map((b, i) => (
+            <div key={b.key} className="rounded-lg border border-border p-4 flex flex-col gap-3 bg-muted/20">
+              <div className="flex items-center gap-2">
+                <Building2 className="w-4 h-4 text-primary shrink-0" />
+                <input value={b.name} onChange={(e) => patchBranch(b.key, { name: e.target.value })} placeholder={`Branch ${i + 1} name (e.g. Bekasi)`}
+                  className="flex-1 h-9 px-3 rounded-md border border-input bg-background text-sm font-semibold outline-none focus:border-primary" />
+                <button type="button" onClick={() => removeBranch(b)} className="p-1.5 rounded-md hover:bg-destructive/10 text-destructive outline-none"><Trash2 className="w-4 h-4" /></button>
+              </div>
+              <div className="grid grid-cols-2 gap-3">
+                <div>
+                  <FieldLabel><span className="inline-flex items-center gap-1"><MapPin className="w-3 h-3" />Coverage (optional)</span></FieldLabel>
+                  <input value={b.coverage} onChange={(e) => patchBranch(b.key, { coverage: e.target.value })} placeholder="e.g. Bekasi, Cikarang"
+                    className="w-full h-9 px-3 rounded-md border border-input bg-background text-sm outline-none focus:border-primary" />
+                </div>
+                <div>
+                  <FieldLabel>CTWA ad source IDs (comma separated)</FieldLabel>
+                  <input value={b.adSources} onChange={(e) => patchBranch(b.key, { adSources: e.target.value })} placeholder="ad_umc_bekasi"
+                    className="w-full h-9 px-3 rounded-md border border-input bg-background text-sm outline-none focus:border-primary" />
+                </div>
+              </div>
+              <div>
+                <FieldLabel>Web API sources</FieldLabel>
+                <MultiSelectFilter variant="field" label="Web sources" options={webSourceOptions} selected={b.webSourceIds} onChange={(v) => patchBranch(b.key, { webSourceIds: v })} />
+              </div>
+              <div>
+                <FieldLabel>Agents</FieldLabel>
+                <AgentMultiSelect options={agentOptions} selected={b.agentIds} onChange={(v) => patchBranch(b.key, { agentIds: v })} />
+              </div>
+            </div>
+          ))}
+          <button type="button" onClick={() => setBranches((bs) => [...bs, newBranch()])}
+            className="inline-flex items-center justify-center gap-2 h-10 rounded-lg border border-dashed border-border text-sm font-semibold text-foreground/80 hover:border-primary/40 hover:bg-muted/40 transition-colors outline-none">
+            <Plus className="w-4 h-4" />Add branch
+          </button>
+        </div>
+      )}
+
+      {/* Step 2 — Review */}
+      {step === 2 && (
+        <div className="flex flex-col gap-4">
+          <div className="rounded-lg border border-border p-4">
+            <p className="text-[11px] font-bold uppercase tracking-wider text-muted-foreground mb-2">Campaign</p>
+            <p className="text-[15px] font-bold text-foreground">{name || "(unnamed)"}{company ? <span className="text-muted-foreground font-medium"> · {company}</span> : null}</p>
+            <p className="text-[12.5px] text-muted-foreground mt-1">
+              {status} · {routing.replace("_", " ")} · {channel ? channel.name : "no channel"} · {defaultAgents.length} default agent{defaultAgents.length === 1 ? "" : "s"}
+            </p>
+          </div>
+          <div>
+            <p className="text-[11px] font-bold uppercase tracking-wider text-muted-foreground mb-2">{branches.length} branch{branches.length === 1 ? "" : "es"}</p>
+            {branches.length === 0 ? (
+              <p className="text-[13px] text-muted-foreground">No branches. Leads route to the campaign&apos;s default agents.</p>
+            ) : (
+              <div className="flex flex-col gap-2">
+                {branches.map((b) => (
+                  <div key={b.key} className="rounded-lg border border-border p-3 flex items-center gap-3">
+                    <Building2 className="w-4 h-4 text-primary shrink-0" />
+                    <div className="min-w-0 flex-1">
+                      <p className="text-[13.5px] font-semibold text-foreground truncate">{b.name || "(unnamed)"}{b.coverage ? <span className="text-muted-foreground font-normal"> · {b.coverage}</span> : null}</p>
+                      <p className="text-[11.5px] text-muted-foreground truncate">{b.agentIds.length} agent{b.agentIds.length === 1 ? "" : "s"} · {csv(b.adSources).length + b.webSourceIds.length} ad source{csv(b.adSources).length + b.webSourceIds.length === 1 ? "" : "s"}</p>
+                    </div>
+                  </div>
+                ))}
+              </div>
+            )}
+          </div>
+        </div>
+      )}
+    </WizardModal>
+  );
+}

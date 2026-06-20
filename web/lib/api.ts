@@ -324,6 +324,13 @@ export const api = {
   updateCampaign: (id: string, patch: { name?: string; dealer_name?: string; status?: string; routing_strategy?: string; channel_id?: string; ad_source_ids?: string[]; keywords?: string[]; agent_ids?: string[]; calling_enabled?: boolean }) =>
     req(`/api/campaigns/${id}`, { method: "PATCH", body: JSON.stringify(patch) }),
   deleteCampaign: (id: string) => req(`/api/campaigns/${id}`, { method: "DELETE" }),
+  // ── Branches (sub-units of a campaign) ──
+  listCampaignBranches: (campaignId: string) => req<import("./types").Branch[]>(`/api/campaigns/${campaignId}/branches`),
+  createBranch: (campaignId: string, input: { name: string; coverage?: string; ad_source_ids?: string[]; agent_ids?: string[]; web_source_ids?: string[] }) =>
+    req<{ id: string }>(`/api/campaigns/${campaignId}/branches`, { method: "POST", body: JSON.stringify(input) }),
+  updateBranch: (id: string, patch: { name?: string; coverage?: string; ad_source_ids?: string[]; agent_ids?: string[]; web_source_ids?: string[] }) =>
+    req(`/api/branches/${id}`, { method: "PATCH", body: JSON.stringify(patch) }),
+  deleteBranch: (id: string) => req(`/api/branches/${id}`, { method: "DELETE" }),
   // ── Channels ──
   listChannels: () => req<Channel[]>("/api/channels"),
   createChannel: (input: {

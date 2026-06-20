@@ -2,6 +2,34 @@
 
 Snapshot as of **2026-06-17**. This is the honest "what actually works right now" doc.
 
+## Campaigns with branches (group -> sub-units) + enterprise wizard (2026-06-20)
+
+A campaign is now a **group** (e.g. "UMC") that can contain many **branches** (sub-units:
+offices/stores; generic, not automotive-only). Each branch has its own coverage, ad sources
+and agents. A lead routes **by ad source** to the matching branch, then round-robin among
+that branch's agents; with no matching branch it falls back to the campaign's default agents.
+Branches are **optional + backward compatible** (a campaign with zero branches behaves exactly
+as before). Verified end-to-end on prod (web lead via a branch's source → conv.branch_id +
+campaign_id + the branch's agent; per-branch rr_cursor).
+
+**Backend (migrations 0048 + 0049):** `campaign_branches` (name, coverage, ad_source_ids[],
+rr_cursor, lead_count), `branch_agents`, `conversations.branch_id`, `web_api_sources.branch_id`.
+(0048 first shipped as "dealer"; 0049 renames dealer→branch in place since Simpulx is not
+automotive-only — pre-existing `campaigns.dealer_name` untouched.) Routing: gateway
+`routeToBranch` (handleIngestLead uses web source's branch_id) + messaging `routeToBranch` /
+`resolveBranchByReferral` (CTWA, checked before campaign; mirrors the fair-distribution locks);
+`getOrCreateThread` now keyed per-branch. Branch CRUD: `gateway/branches.go` under
+`/api/campaigns/{id}/branches` + `/api/branches/{id}` (gated manage_campaigns).
+
+**Frontend:** `CampaignWizard.tsx` (Campaign → Branches → Review) replaces the old campaign
+dialog, reusing the shared `WizardModal`. New polished `components/AgentMultiSelect.tsx`
+(avatar chips, search, select-all, removable pills) used per branch + for campaign default
+agents. `lib/api.ts`: listCampaignBranches/createBranch/updateBranch/deleteBranch; `Branch` type.
+Wizard create/edit diffs branches (create/update/delete). The old `dealer` field is relabeled
+"Company / group" in the UI (still maps to `dealer_name`).
+
+
+
 ## Channel & Integrations merge + real Create-Channel wizard (2026-06-20)
 
 Merged three settings nav items — **Channels**, **Web API Sources**, **Ad Performance** — into

@@ -1,12 +1,12 @@
 "use client";
 import { useEffect, useState } from "react";
-import { Search, Plus, Pencil, Trash2, Megaphone, Loader2, X, Phone, PhoneOff } from "lucide-react";
+import { Search, Plus, Pencil, Trash2, Megaphone, Loader2, X } from "lucide-react";
 import { api } from "@/lib/api";
 import { cn } from "@/lib/utils";
 import { Tip } from "@/components/ui/tooltip";
 import type { Campaign, UserAccount, Channel } from "@/lib/types";
-import MultiSelectFilter from "@/app/(app)/inbox/components/MultiSelectFilter";
 import { Select } from "@/components/Select";
+import { CampaignWizard } from "./CampaignWizard";
 
 type Toast = { msg: string; sev: "success" | "error" } | null;
 
@@ -49,7 +49,7 @@ export default function CampaignsPage() {
         <div className="p-3 flex items-center gap-3 border-b border-border flex-wrap shrink-0">
           <div className="relative w-[320px] max-w-[45vw]">
             <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-muted-foreground pointer-events-none" />
-            <input type="text" placeholder="Search campaigns or dealers" value={search} onChange={(e) => setSearch(e.target.value)}
+            <input type="text" placeholder="Search campaigns" value={search} onChange={(e) => setSearch(e.target.value)}
               className="w-full h-9 pl-9 pr-3 rounded-md border border-input bg-background text-sm text-foreground placeholder:text-muted-foreground/70 outline-none transition-shadow focus:border-primary focus:ring-2 focus:ring-primary/20" />
           </div>
           <div className="flex-1" />
@@ -75,13 +75,13 @@ export default function CampaignsPage() {
                 <tr><td colSpan={9} className="text-center py-16">
                   <div className="w-12 h-12 rounded-xl bg-muted grid place-items-center mx-auto mb-3"><Megaphone className="w-6 h-6 text-muted-foreground/50" /></div>
                   <p className="font-semibold text-foreground mb-0.5">{search ? "No matching campaigns" : "No campaigns yet"}</p>
-                  <p className="text-[13px] text-muted-foreground">Create a campaign for a dealer to start routing their leads.</p>
+                  <p className="text-[13px] text-muted-foreground">Create a campaign to start routing its leads.</p>
                 </td></tr>
               ) : paged.map((c) => (
                 <tr key={c.id} className={cn("border-b border-border/60 hover:bg-muted/50 transition-colors", c.status !== "active" && "opacity-65")}>
                   <td className="px-4 py-2.5">
                     <p className="text-[13px] font-semibold text-foreground truncate">{c.name}</p>
-                    <p className="text-xs text-muted-foreground truncate">{c.dealer_name || "No dealer set"}</p>
+                    <p className="text-xs text-muted-foreground truncate">{c.dealer_name || "No company set"}</p>
                   </td>
                   <td className="px-4 py-2.5">
                     <span className={cn("inline-flex px-2 py-0.5 rounded-md text-[10px] font-bold capitalize", c.status === "active" ? "bg-success/10 text-success" : "bg-muted text-muted-foreground")}>{c.status}</span>
@@ -129,10 +129,12 @@ export default function CampaignsPage() {
         </div>
       </div>
 
-      <CampaignDialog dlg={dlg} users={users} channels={channels}
-        onClose={() => setDlg({ open: false, id: null })}
-        onSaved={(m) => { setDlg({ open: false, id: null }); setToast({ msg: m, sev: "success" }); load(); }}
-        onError={(m) => setToast({ msg: m, sev: "error" })} />
+      {dlg.open && (
+        <CampaignWizard campaignId={dlg.id} users={users} channels={channels}
+          onClose={() => setDlg({ open: false, id: null })}
+          onDone={(m) => { setDlg({ open: false, id: null }); setToast({ msg: m, sev: "success" }); load(); }}
+          onError={(m) => setToast({ msg: m, sev: "error" })} />
+      )}
 
       {toast && (
         <div className="fixed bottom-6 left-6 z-[110] animate-scale-in">
@@ -141,145 +143,6 @@ export default function CampaignsPage() {
           </div>
         </div>
       )}
-    </div>
-  );
-}
-
-function CampaignDialog({ dlg, users, channels, onClose, onSaved, onError }: {
-  dlg: { open: boolean; id: string | null }; users: UserAccount[]; channels: Channel[];
-  onClose: () => void; onSaved: (m: string) => void; onError: (m: string) => void;
-}) {
-  const isEdit = !!dlg.id;
-  const [name, setName] = useState("");
-  const [dealer, setDealer] = useState("");
-  const [status, setStatus] = useState("active");
-  const [routing, setRouting] = useState("round_robin");
-  const [channelId, setChannelId] = useState("");
-  const [adSources, setAdSources] = useState("");
-  const [keywords, setKeywords] = useState("");
-  const [agentIds, setAgentIds] = useState<string[]>([]);
-  const [callingEnabled, setCallingEnabled] = useState(true);
-  const [saving, setSaving] = useState(false);
-
-  useEffect(() => {
-    if (!dlg.open) return;
-    if (dlg.id) {
-      api.getCampaign(dlg.id).then((c) => {
-        setName(c.name); setDealer(c.dealer_name ?? ""); setStatus(c.status); setRouting(c.routing_strategy);
-        setChannelId(c.channel_id ?? ""); setCallingEnabled(c.calling_enabled ?? true);
-        setAdSources((c.ad_source_ids ?? []).join(", ")); setKeywords((c.keywords ?? []).join(", "));
-        setAgentIds(c.agent_ids ?? []);
-      }).catch((e) => onError(String(e)));
-    } else { setName(""); setDealer(""); setStatus("active"); setRouting("round_robin"); setChannelId(""); setCallingEnabled(true); setAdSources(""); setKeywords(""); setAgentIds([]); }
-  }, [dlg.open, dlg.id]); // eslint-disable-line react-hooks/exhaustive-deps
-
-  function csv(s: string) { return s.split(",").map((x) => x.trim()).filter(Boolean); }
-
-  async function save() {
-    if (!name.trim()) { onError("Campaign name is required"); return; }
-    setSaving(true);
-    const payload = { name: name.trim(), dealer_name: dealer.trim(), status, routing_strategy: routing, channel_id: channelId, ad_source_ids: csv(adSources), keywords: csv(keywords), agent_ids: agentIds, calling_enabled: callingEnabled };
-    try {
-      if (isEdit) { await api.updateCampaign(dlg.id!, payload); onSaved("Campaign updated"); }
-      else { await api.createCampaign(payload); onSaved("Campaign created"); }
-    } catch (e) { onError(String(e)); }
-    finally { setSaving(false); }
-  }
-
-  if (!dlg.open) return null;
-
-  const agentOptions = users.map((u) => ({ value: u.id, label: u.full_name }));
-
-  return (
-    <div className="fixed inset-0 z-[100] flex items-center justify-center p-4">
-      <div className="absolute inset-0 bg-black/40 backdrop-blur-[2px] animate-fade-in" onClick={onClose} />
-      <div className="relative bg-card rounded-lg border border-border shadow-2xl w-full max-w-lg animate-scale-in">
-        <div className="flex items-center justify-between px-5 py-3.5 border-b border-border">
-          <h2 className="text-[15px] font-bold text-foreground">{isEdit ? "Edit campaign" : "New campaign"}</h2>
-          <button onClick={onClose} className="p-1 rounded-md text-muted-foreground hover:bg-muted hover:text-foreground outline-none"><X className="w-[18px] h-[18px]" /></button>
-        </div>
-        <div className="px-5 py-5 flex flex-col gap-4 max-h-[70vh] overflow-y-auto">
-          <div className="flex gap-4">
-            <Field label="Campaign name" className="flex-1"><input type="text" value={name} onChange={(e) => setName(e.target.value)} placeholder="e.g. Honda Brio - Jakarta" autoFocus className={INPUT} /></Field>
-            <Field label="Dealer" className="flex-1"><input type="text" value={dealer} onChange={(e) => setDealer(e.target.value)} placeholder="Dealer name" className={INPUT} /></Field>
-          </div>
-          <div className="flex gap-4">
-            <Field label="Status" className="flex-1">
-              <Select value={status} onChange={setStatus} options={[{ value: "active", label: "Active" }, { value: "paused", label: "Paused" }]} />
-            </Field>
-            <Field label="Routing" className="flex-1">
-              <Select value={routing} onChange={setRouting} options={[{ value: "round_robin", label: "Round-robin" }, { value: "manual", label: "Manual" }]} />
-            </Field>
-          </div>
-
-          {/* Channel — the campaign's leads flow through this channel (dependency) */}
-          <Field label="Channel">
-            <Select
-              value={channelId}
-              onChange={setChannelId}
-              placeholder="No channel"
-              options={[{ value: "", label: "No channel" }, ...channels.map((ch) => ({ value: ch.id, label: ch.name + (ch.calling_enabled ? "  (calling enabled)" : "") }))]}
-            />
-            {channelId && channels.find((c) => c.id === channelId)?.calling_enabled && (
-              <div className="flex items-center justify-between gap-3 mt-2 rounded-lg border border-border p-3">
-                <div className="min-w-0">
-                  <p className="text-[13px] font-semibold text-foreground flex items-center gap-1.5">{callingEnabled ? <Phone className="w-3.5 h-3.5 text-success" /> : <PhoneOff className="w-3.5 h-3.5 text-muted-foreground" />} Enable calling</p>
-                  <p className="text-[11.5px] text-muted-foreground mt-0.5">Show a call button in the inbox for leads in this campaign.</p>
-                </div>
-                <button type="button" role="switch" aria-checked={callingEnabled} onClick={() => setCallingEnabled((v) => !v)}
-                  className={`relative inline-flex h-5 w-9 shrink-0 cursor-pointer rounded-full transition-colors duration-200 outline-none ${callingEnabled ? "bg-primary" : "bg-muted"}`}>
-                  <span className={`pointer-events-none inline-block h-4 w-4 rounded-full bg-white shadow-sm transform transition-transform duration-200 mt-0.5 ${callingEnabled ? "translate-x-[18px] ml-0.5" : "translate-x-0.5"}`} />
-                </button>
-              </div>
-            )}
-            {channelId && !channels.find((c) => c.id === channelId)?.calling_enabled && (
-              <p className="mt-1 inline-flex items-center gap-1 text-[11px] text-muted-foreground"><PhoneOff className="w-3 h-3" /> Calling not available — enable it on the channel first</p>
-            )}
-            {!channelId && <p className="mt-1 text-[11px] text-amber-600">No channel set. Leads won't route until a channel is assigned.</p>}
-          </Field>
-
-          {/* Agents — multi-select dropdown with search */}
-          <Field label="Agents">
-            <MultiSelectFilter label="Select agents" options={agentOptions} selected={agentIds} onChange={setAgentIds} />
-            {agentIds.length > 0 && (
-              <div className="flex flex-wrap gap-1 mt-2">
-                {agentIds.map((id) => {
-                  const u = users.find((x) => x.id === id);
-                  if (!u) return null;
-                  return (
-                    <span key={id} className="inline-flex items-center gap-1 px-2 py-0.5 rounded-md bg-primary/10 text-primary text-[11px] font-medium">
-                      {u.full_name}
-                      <button onClick={() => setAgentIds((p) => p.filter((x) => x !== id))} className="hover:text-primary-dark outline-none"><X className="w-3 h-3" /></button>
-                    </span>
-                  );
-                })}
-              </div>
-            )}
-          </Field>
-
-          <div className="border-t border-border pt-3"><p className="text-[10px] font-bold text-muted-foreground uppercase tracking-wider mb-3">Attribution</p></div>
-          <Field label="CTWA ad source IDs (comma separated)"><input type="text" value={adSources} onChange={(e) => setAdSources(e.target.value)} placeholder="ad_honda_brio_2026" className={INPUT} /></Field>
-          <Field label="Keywords in first message (comma separated)"><input type="text" value={keywords} onChange={(e) => setKeywords(e.target.value)} placeholder="brio, honda" className={INPUT} /></Field>
-        </div>
-        <div className="flex justify-end gap-2 px-5 py-3.5 border-t border-border">
-          <button onClick={onClose} className="px-4 py-2 rounded-md text-sm font-semibold text-foreground/70 hover:bg-muted transition-colors outline-none">Cancel</button>
-          <button onClick={save} disabled={saving}
-            className="inline-flex items-center gap-2 px-4 py-2 bg-primary text-white rounded-md text-sm font-semibold hover:bg-primary-dark disabled:opacity-50 transition-colors outline-none">
-            {saving ? <Loader2 className="w-4 h-4 animate-spin" /> : null}{isEdit ? "Save" : "Create"}
-          </button>
-        </div>
-      </div>
-    </div>
-  );
-}
-
-const INPUT = "w-full h-9 px-3 rounded-md border border-input bg-background text-sm text-foreground placeholder:text-muted-foreground/70 outline-none transition-shadow focus:border-primary focus:ring-2 focus:ring-primary/20";
-
-function Field({ label, children, className }: { label: string; children: React.ReactNode; className?: string }) {
-  return (
-    <div className={className}>
-      <label className="block text-[12px] font-bold text-foreground/80 mb-1">{label}</label>
-      {children}
     </div>
   );
 }

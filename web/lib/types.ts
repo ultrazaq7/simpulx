@@ -310,6 +310,18 @@ export interface Channel {
 
 export interface Department { id: string; name: string; members: number; }
 
+// A branch is a sub-unit of a campaign (office / store / dealer) with its own
+// coverage, ad sources and agents. Leads route by ad source to the branch.
+export interface Branch {
+  id: string;
+  name: string;
+  coverage: string;
+  ad_source_ids: string[];
+  lead_count: number;
+  agent_ids: string[];
+  web_source_ids: string[];
+}
+
 export interface Campaign {
   id: string;
   name: string;
