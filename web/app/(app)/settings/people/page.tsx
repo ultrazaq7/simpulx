@@ -5,7 +5,7 @@ import { api, getUser } from "@/lib/api";
 import { Select } from "@/components/Select";
 const cap = (s: string) => s ? s[0].toUpperCase() + s.slice(1) : s;
 import { fmtDate, cn } from "@/lib/utils";
-import type { UserAccount, UserActivity } from "@/lib/types";
+import type { UserAccount, UserActivity, Department } from "@/lib/types";
 import { useToast, PageBody, SettingsCard, FieldLabel, INPUT_CLASS, PrimaryButton, GhostButton, ROLES, ROLE_COLOR, initials } from "../_shared";
 
 function relativeTime(iso: string | null): string {
@@ -341,11 +341,15 @@ function UserDialog({ state, isPrivileged, onClose, onSaved, onError }: {
   const [password, setPassword] = useState("");
   const [showPw, setShowPw] = useState(false);
   const [saving, setSaving] = useState(false);
+  const [allDepts, setAllDepts] = useState<Department[]>([]);
+  const [deptIds, setDeptIds] = useState<string[]>([]);
 
   useEffect(() => {
     if (!state.open) return;
     const u = state.editing;
     setEmail(u?.email ?? ""); setName(u?.full_name ?? ""); setRole(u?.role ?? "agent"); setPassword(""); setShowPw(false);
+    setDeptIds(u?.department_ids ?? []);
+    if (isPrivileged) api.listDepartments().then(setAllDepts).catch(() => {});
   }, [state.open]); // eslint-disable-line react-hooks/exhaustive-deps
 
   async function save() {
@@ -353,8 +357,8 @@ function UserDialog({ state, isPrivileged, onClose, onSaved, onError }: {
     setSaving(true);
     try {
       if (isEdit) {
-        const patch: { full_name: string; email?: string; role?: string; password?: string } = { full_name: name.trim() };
-        if (isPrivileged) { patch.email = email.trim(); patch.role = role; if (password.trim()) patch.password = password.trim(); }
+        const patch: { full_name: string; email?: string; role?: string; password?: string; department_ids?: string[] } = { full_name: name.trim() };
+        if (isPrivileged) { patch.email = email.trim(); patch.role = role; if (password.trim()) patch.password = password.trim(); patch.department_ids = deptIds; }
         await api.updateUser(state.editing!.id, patch);
         onSaved("User updated");
       } else {
@@ -404,6 +408,28 @@ function UserDialog({ state, isPrivileged, onClose, onSaved, onError }: {
                 </button>
               </div>
               <p className="text-xs text-muted-foreground/70 mt-1">{isEdit ? "Leave blank to keep current password" : "Defaults to changeme123 if left blank"}</p>
+            </div>
+          )}
+          {isPrivileged && isEdit && (
+            <div>
+              <FieldLabel>Departments</FieldLabel>
+              {allDepts.length === 0 ? (
+                <p className="text-xs text-muted-foreground/70">No departments yet. Create them in Settings &rarr; Departments.</p>
+              ) : (
+                <div className="flex flex-wrap gap-1.5">
+                  {allDepts.map((d) => {
+                    const on = deptIds.includes(d.id);
+                    return (
+                      <button type="button" key={d.id}
+                        onClick={() => setDeptIds((p) => on ? p.filter((x) => x !== d.id) : [...p, d.id])}
+                        className={cn("px-2.5 h-7 rounded-md text-[12px] font-semibold border transition-colors outline-none",
+                          on ? "bg-primary text-white border-primary" : "border-border text-muted-foreground hover:bg-muted")}>
+                        {d.name}
+                      </button>
+                    );
+                  })}
+                </div>
+              )}
             </div>
           )}
         </div>

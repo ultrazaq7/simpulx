@@ -318,7 +318,7 @@ export const api = {
   listUsers: () => req<UserAccount[]>("/api/users"),
   createUser: (input: { email: string; full_name: string; role?: string; password?: string }) =>
     req<{ id: string }>("/api/users", { method: "POST", body: JSON.stringify(input) }),
-  updateUser: (id: string, patch: { full_name?: string; email?: string; role?: string; status?: string; password?: string }) =>
+  updateUser: (id: string, patch: { full_name?: string; email?: string; role?: string; status?: string; password?: string; department_ids?: string[] }) =>
     req(`/api/users/${id}`, { method: "PATCH", body: JSON.stringify(patch) }),
   // Self presence (online/offline). Writes is_online only; never the account status.
   setPresence: (online: boolean) =>

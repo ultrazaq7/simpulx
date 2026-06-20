@@ -443,6 +443,7 @@ export interface UserAccount {
   created_at: string;
   departments: number;
   department_names: string[] | null;
+  department_ids: string[] | null;
   campaign_names: string[] | null;
   open_chats: number;
 }

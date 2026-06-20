@@ -46,6 +46,8 @@ func (s *server) handleListUsers(w http.ResponseWriter, r *http.Request) {
 		        COALESCE((SELECT array_agg(d.name ORDER BY d.name)
 		                    FROM agent_departments ad JOIN departments d ON d.id = ad.department_id
 		                   WHERE ad.user_id = u.id), '{}') AS department_names,
+		        COALESCE((SELECT array_agg(ad.department_id::text)
+		                    FROM agent_departments ad WHERE ad.user_id = u.id), '{}') AS department_ids,
 		        COALESCE((SELECT array_agg(c.name ORDER BY c.name)
 		                    FROM campaign_agents ca JOIN campaigns c ON c.id = ca.campaign_id
 		                   WHERE ca.user_id = u.id), '{}') AS campaign_names,
@@ -109,11 +111,12 @@ func (s *server) handleUpdateUser(w http.ResponseWriter, r *http.Request) {
 	a, _ := authFrom(r.Context())
 	targetID := r.PathValue("id")
 	var b struct {
-		FullName *string `json:"full_name"`
-		Email    *string `json:"email"`
-		Role     *string `json:"role"`
-		Status   *string `json:"status"`
-		Password *string `json:"password"`
+		FullName      *string   `json:"full_name"`
+		Email         *string   `json:"email"`
+		Role          *string   `json:"role"`
+		Status        *string   `json:"status"`
+		Password      *string   `json:"password"`
+		DepartmentIDs *[]string `json:"department_ids"`
 	}
 	if err := json.NewDecoder(r.Body).Decode(&b); err != nil {
 		http.Error(w, "bad request", http.StatusBadRequest)
@@ -208,6 +211,19 @@ func (s *server) handleUpdateUser(w http.ResponseWriter, r *http.Request) {
 			AgentID: targetID,
 		})
 	}
+	// Replace the user's department memberships (privileged only). nil = leave as is.
+	if isPrivileged && b.DepartmentIDs != nil {
+		if _, derr := s.pool.Exec(r.Context(), `DELETE FROM agent_departments WHERE user_id=$1::uuid`, targetID); derr == nil && len(*b.DepartmentIDs) > 0 {
+			if _, ierr := s.pool.Exec(r.Context(),
+				`INSERT INTO agent_departments (user_id, department_id)
+				 SELECT $1::uuid, d.id FROM departments d
+				  WHERE d.organization_id=$2 AND d.id::text = ANY($3)`,
+				targetID, a.OrgID, *b.DepartmentIDs); ierr != nil {
+				s.log.Error("sync agent_departments failed", "err", ierr)
+			}
+		}
+	}
+
 	detail := map[string]any{}
 	if b.Email != nil && *b.Email != "" {
 		detail["email_changed"] = true
