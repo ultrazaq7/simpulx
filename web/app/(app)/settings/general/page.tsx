@@ -1,21 +1,45 @@
 "use client";
 import { useEffect, useMemo, useState } from "react";
-import { Loader2, ChevronDown, Globe, Clock, Building2, Copy, Check } from "lucide-react";
+import { Loader2, Globe, Clock, Building2, Copy, Check, Phone, CalendarDays, Hash } from "lucide-react";
 import { api } from "@/lib/api";
+import { Select } from "@/components/Select";
 import type { OrgSettings } from "@/lib/types";
-import { useToast, PageBody, SectionLabel, SettingsCard, FieldLabel, INPUT_CLASS, PrimaryButton } from "../_shared";
-import { cn } from "@/lib/utils";
+import { useToast, PageBody, SettingsCard, FieldLabel, PrimaryButton, initials } from "../_shared";
 import { useI18n } from "@/lib/i18n";
 
 const LANGUAGES = [
-  { code: "en", label: "English" },
-  { code: "id", label: "Indonesia" },
+  { value: "en", label: "English" },
+  { value: "id", label: "Indonesia" },
 ];
 
-// ── Timezone list ──
+const COUNTRY_CODES = [
+  { value: "62", label: "Indonesia (+62)" },
+  { value: "60", label: "Malaysia (+60)" },
+  { value: "65", label: "Singapore (+65)" },
+  { value: "63", label: "Philippines (+63)" },
+  { value: "66", label: "Thailand (+66)" },
+  { value: "84", label: "Vietnam (+84)" },
+  { value: "1", label: "United States / Canada (+1)" },
+  { value: "44", label: "United Kingdom (+44)" },
+  { value: "91", label: "India (+91)" },
+];
+
 function getTimezones() {
   try { return Intl.supportedValuesOf("timeZone"); }
   catch { return ["Asia/Jakarta", "Asia/Singapore", "America/New_York", "America/Los_Angeles", "Europe/London", "UTC"]; }
+}
+
+// Card with a titled header bar (enterprise look).
+function Panel({ icon: Icon, title, children, className }: { icon: any; title: string; children: React.ReactNode; className?: string }) {
+  return (
+    <SettingsCard className={`overflow-hidden ${className ?? ""}`}>
+      <div className="px-5 py-3 border-b border-border flex items-center gap-2.5 bg-muted/30">
+        <Icon className="w-[18px] h-[18px] text-primary" />
+        <p className="font-bold text-[14px] text-foreground">{title}</p>
+      </div>
+      <div className="p-5">{children}</div>
+    </SettingsCard>
+  );
 }
 
 export default function GeneralSettingsPage() {
@@ -29,51 +53,40 @@ export default function GeneralSettingsPage() {
   const [saving, setSaving] = useState(false);
   const [copied, setCopied] = useState(false);
 
-  // Locale
   const [locale, setLocale] = useState("en");
   const [origLocale, setOrigLocale] = useState("en");
-  const [langOpen, setLangOpen] = useState(false);
-
-  // Timezone
   const [timezone, setTimezone] = useState(Intl.DateTimeFormat().resolvedOptions().timeZone);
   const [origTimezone, setOrigTimezone] = useState(Intl.DateTimeFormat().resolvedOptions().timeZone);
-  const [tzOpen, setTzOpen] = useState(false);
-  const [tzSearch, setTzSearch] = useState("");
+  const [country, setCountry] = useState("62");
+  const [origCountry, setOrigCountry] = useState("62");
 
-  const timezones = useMemo(() => getTimezones(), []);
-  const filteredTz = useMemo(() => {
-    if (!tzSearch.trim()) return timezones;
-    const q = tzSearch.toLowerCase();
-    return timezones.filter((tz) => tz.toLowerCase().includes(q));
-  }, [timezones, tzSearch]);
+  const tzOptions = useMemo(() => getTimezones().map((tz) => ({ value: tz, label: tz })), []);
 
   useEffect(() => {
     api.getOrganization().then((o) => {
       setOrgId(o.id);
-      setName(o.name || "");
-      setOrigName(o.name || "");
+      setName(o.name || ""); setOrigName(o.name || "");
       const s = o.settings ?? {};
       setSettings(s);
-      const l = (s as any).locale || "en";
+      const l = (s as Record<string, string>).locale || "en";
       setLocale(l); setOrigLocale(l);
-      const t = (s as any).timezone || Intl.DateTimeFormat().resolvedOptions().timeZone;
+      const t = (s as Record<string, string>).timezone || Intl.DateTimeFormat().resolvedOptions().timeZone;
       setTimezone(t); setOrigTimezone(t);
+      const c = (s as Record<string, string>).country_code || "62";
+      setCountry(c); setOrigCountry(c);
     }).catch(() => {}).finally(() => setLoading(false));
   }, []);
 
-  const dirty = name.trim() !== origName || locale !== origLocale || timezone !== origTimezone;
+  const dirty = name.trim() !== origName || locale !== origLocale || timezone !== origTimezone || country !== origCountry;
 
   async function save() {
     if (!name.trim()) { notify("Workspace name is required", "error"); return; }
     setSaving(true);
     try {
-      const nextSettings = { ...settings, locale, timezone };
+      const nextSettings = { ...settings, locale, timezone, country_code: country };
       await api.updateOrganization({ name: name.trim(), settings: nextSettings });
-      setOrigName(name.trim());
-      setOrigLocale(locale);
-      setOrigTimezone(timezone);
+      setOrigName(name.trim()); setOrigLocale(locale); setOrigTimezone(timezone); setOrigCountry(country);
       setSettings(nextSettings);
-      // Apply the new default language to the live UI immediately.
       setLang(locale);
       notify("Settings saved");
     } catch (e) { notify(String(e), "error"); }
@@ -86,156 +99,86 @@ export default function GeneralSettingsPage() {
     setTimeout(() => setCopied(false), 2000);
   }
 
+  // Live regional preview (honest: derived from the chosen locale + timezone).
+  const now = new Date();
+  const safeFmt = (fn: () => string) => { try { return fn(); } catch { return "—"; } };
+  const dateEx = safeFmt(() => new Intl.DateTimeFormat(locale, { timeZone: timezone, dateStyle: "medium" }).format(now));
+  const timeEx = safeFmt(() => new Intl.DateTimeFormat(locale, { timeZone: timezone, timeStyle: "short" }).format(now));
+  const numEx = safeFmt(() => new Intl.NumberFormat(locale).format(1234567.89));
+
   if (loading) return (
-    <PageBody>
-      <div className="flex justify-center py-20">
-        <Loader2 className="w-6 h-6 animate-spin text-muted-foreground" />
-      </div>
-    </PageBody>
+    <PageBody><div className="flex justify-center py-20"><Loader2 className="w-6 h-6 animate-spin text-muted-foreground" /></div></PageBody>
   );
 
   return (
-    <PageBody maxWidth={720}>
+    <PageBody maxWidth={1120}>
       {ToastHost}
 
-      {/* ── Workspace ── */}
-      <SectionLabel>Workspace</SectionLabel>
-      <SettingsCard className="p-6 mb-8">
-        <div className="flex items-start gap-4 mb-6">
-          <div className="w-10 h-10 rounded-lg bg-primary/10 grid place-items-center shrink-0">
-            <Building2 className="w-5 h-5 text-primary" />
-          </div>
-          <div className="flex-1 min-w-0">
-            <FieldLabel>Workspace name</FieldLabel>
-            <input
-              type="text"
-              value={name}
-              onChange={(e) => setName(e.target.value)}
-              placeholder="Your company or workspace name"
-              className={INPUT_CLASS}
-            />
-            <p className="text-[11px] text-muted-foreground/70 mt-1.5">Shown across the dashboard and in team invitations.</p>
-          </div>
-        </div>
-
-        <div className="border-t border-border pt-4">
-          <div className="flex items-center justify-between">
-            <div>
-              <p className="text-[11px] font-bold uppercase tracking-wider text-muted-foreground mb-0.5">Workspace ID</p>
-              <p className="text-[13px] font-mono text-foreground/80">{orgId || "—"}</p>
-            </div>
-            <button
-              onClick={copyOrgId}
-              className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-md text-[12px] font-semibold text-muted-foreground hover:text-foreground hover:bg-muted transition-colors outline-none"
-            >
-              {copied ? <><Check className="w-3.5 h-3.5 text-primary" /> Copied</> : <><Copy className="w-3.5 h-3.5" /> Copy</>}
-            </button>
-          </div>
-        </div>
-      </SettingsCard>
-
-      {/* ── Locale ── */}
-      <SectionLabel>Locale</SectionLabel>
-      <SettingsCard className="p-6 mb-8">
-        <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-          {/* Language */}
-          <div>
-            <div className="flex items-center gap-2 mb-1.5">
-              <Globe className="w-4 h-4 text-muted-foreground" />
-              <FieldLabel className="mb-0">Default language</FieldLabel>
-            </div>
-            <div className="relative">
-              <button
-                type="button"
-                onClick={() => setLangOpen(!langOpen)}
-                className={cn(INPUT_CLASS, "flex items-center justify-between text-left cursor-pointer")}
-              >
-                <span className="truncate">{LANGUAGES.find((l) => l.code === locale)?.label ?? "English"}</span>
-                <ChevronDown className={cn("w-4 h-4 text-muted-foreground shrink-0 transition-transform", langOpen && "rotate-180")} />
-              </button>
-              {langOpen && (
-                <>
-                  <div className="fixed inset-0 z-40" onClick={() => setLangOpen(false)} />
-                  <div className="absolute left-0 right-0 top-full mt-1 bg-popover border border-border rounded-lg shadow-xl z-50 py-1 animate-scale-in origin-top">
-                    {LANGUAGES.map((l) => (
-                      <button
-                        key={l.code}
-                        type="button"
-                        onClick={() => { setLocale(l.code); setLangOpen(false); }}
-                        className={cn(
-                          "w-full flex items-center justify-between px-3 py-2 text-[13px] font-medium text-left transition-colors",
-                          l.code === locale ? "bg-primary/10 text-primary" : "text-foreground/80 hover:bg-muted",
-                        )}
-                      >
-                        {l.label}
-                        {l.code === locale && <Check className="w-4 h-4" />}
-                      </button>
-                    ))}
-                  </div>
-                </>
-              )}
-            </div>
-          </div>
-
-          {/* Timezone */}
-          <div>
-            <div className="flex items-center gap-2 mb-1.5">
-              <Clock className="w-4 h-4 text-muted-foreground" />
-              <FieldLabel className="mb-0">Default timezone</FieldLabel>
-            </div>
-            <div className="relative">
-              <button
-                type="button"
-                onClick={() => setTzOpen(!tzOpen)}
-                className={cn(INPUT_CLASS, "flex items-center justify-between text-left cursor-pointer")}
-              >
-                <span className="truncate">{timezone}</span>
-                <ChevronDown className={cn("w-4 h-4 text-muted-foreground shrink-0 transition-transform", tzOpen && "rotate-180")} />
-              </button>
-              {tzOpen && (
-                <>
-                  <div className="fixed inset-0 z-40" onClick={() => setTzOpen(false)} />
-                  <div className="absolute left-0 right-0 top-full mt-1 bg-popover border border-border rounded-lg shadow-xl z-50 max-h-[260px] flex flex-col overflow-hidden animate-scale-in origin-top">
-                    <div className="p-2 border-b border-border shrink-0">
-                      <input
-                        autoFocus
-                        value={tzSearch}
-                        onChange={(e) => setTzSearch(e.target.value)}
-                        placeholder="Search timezone..."
-                        className="w-full h-8 px-3 rounded-md border border-input bg-background text-[13px] outline-none focus:border-primary"
-                      />
-                    </div>
-                    <div className="overflow-y-auto flex-1 p-1">
-                      {filteredTz.length === 0 ? (
-                        <p className="text-center text-xs text-muted-foreground py-4">No matches</p>
-                      ) : filteredTz.map((tz) => (
-                        <button
-                          key={tz}
-                          type="button"
-                          onClick={() => { setTimezone(tz); setTzOpen(false); setTzSearch(""); }}
-                          className={cn(
-                            "w-full text-left px-3 py-1.5 rounded-md text-[13px] font-medium transition-colors outline-none",
-                            tz === timezone ? "bg-primary/10 text-primary" : "text-foreground/80 hover:bg-muted",
-                          )}
-                        >
-                          {tz}
-                        </button>
-                      ))}
-                    </div>
-                  </div>
-                </>
-              )}
-            </div>
-          </div>
-        </div>
-      </SettingsCard>
-
-      {/* ── Save ── */}
-      <div className="flex justify-end">
+      <div className="flex items-center justify-end mb-4">
         <PrimaryButton onClick={save} disabled={saving || !dirty}>
           {saving ? <Loader2 className="w-4 h-4 animate-spin" /> : dirty ? "Save changes" : "Saved"}
         </PrimaryButton>
       </div>
+
+      <div className="grid grid-cols-1 lg:grid-cols-2 gap-5">
+        {/* ── Workspace ── */}
+        <Panel icon={Building2} title="Workspace">
+          <div className="flex items-center gap-4 mb-5">
+            <div className="w-14 h-14 rounded-xl bg-primary/10 text-primary grid place-items-center text-lg font-bold shrink-0">
+              {initials(name) || <Building2 className="w-6 h-6" />}
+            </div>
+            <div className="flex-1 min-w-0">
+              <FieldLabel>Workspace name</FieldLabel>
+              <input type="text" value={name} onChange={(e) => setName(e.target.value)} placeholder="Your company or workspace name"
+                className="w-full h-9 px-3 rounded-md border border-input bg-background text-[13.5px] text-foreground placeholder:text-muted-foreground/70 outline-none transition-shadow focus:border-primary focus:ring-2 focus:ring-primary/20" />
+            </div>
+          </div>
+          <div className="border-t border-border pt-4 flex items-center justify-between gap-3">
+            <div className="min-w-0">
+              <p className="text-[11px] font-bold uppercase tracking-wider text-muted-foreground mb-0.5">Workspace ID</p>
+              <p className="text-[13px] font-mono text-foreground/80 truncate">{orgId || "—"}</p>
+            </div>
+            <button onClick={copyOrgId} className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-md text-[12px] font-semibold text-muted-foreground hover:text-foreground hover:bg-muted transition-colors outline-none shrink-0">
+              {copied ? <><Check className="w-3.5 h-3.5 text-primary" /> Copied</> : <><Copy className="w-3.5 h-3.5" /> Copy</>}
+            </button>
+          </div>
+        </Panel>
+
+        {/* ── Localization ── */}
+        <Panel icon={Globe} title="Localization">
+          <div className="space-y-4">
+            <div>
+              <div className="flex items-center gap-2 mb-1.5"><Globe className="w-4 h-4 text-muted-foreground" /><FieldLabel className="mb-0">Default language</FieldLabel></div>
+              <Select value={locale} onChange={setLocale} options={LANGUAGES} searchable={false} />
+            </div>
+            <div>
+              <div className="flex items-center gap-2 mb-1.5"><Clock className="w-4 h-4 text-muted-foreground" /><FieldLabel className="mb-0">Default timezone</FieldLabel></div>
+              <Select value={timezone} onChange={setTimezone} options={tzOptions} placeholder="Select timezone" />
+            </div>
+            <div>
+              <div className="flex items-center gap-2 mb-1.5"><Phone className="w-4 h-4 text-muted-foreground" /><FieldLabel className="mb-0">Default country code</FieldLabel></div>
+              <Select value={country} onChange={setCountry} options={COUNTRY_CODES} />
+              <p className="text-[11px] text-muted-foreground/70 mt-1.5">Primary country dialing code for this workspace.</p>
+            </div>
+          </div>
+        </Panel>
+      </div>
+
+      {/* ── Regional preview (live, read-only) ── */}
+      <Panel icon={CalendarDays} title="Regional preview" className="mt-5">
+        <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
+          {[
+            { icon: CalendarDays, label: "Date", value: dateEx },
+            { icon: Clock, label: "Time", value: timeEx },
+            { icon: Hash, label: "Number", value: numEx },
+          ].map((p) => (
+            <div key={p.label} className="rounded-lg border border-border bg-muted/30 p-4">
+              <div className="flex items-center gap-1.5 text-muted-foreground mb-1.5"><p.icon className="w-3.5 h-3.5" /><span className="text-[11px] font-bold uppercase tracking-wider">{p.label}</span></div>
+              <p className="text-[16px] font-bold text-foreground tabular-nums">{p.value}</p>
+            </div>
+          ))}
+        </div>
+      </Panel>
     </PageBody>
   );
 }
