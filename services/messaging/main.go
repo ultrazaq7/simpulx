@@ -126,11 +126,11 @@ func (a *app) onReceived(env events.Envelope) error {
 	// unassigned conversation and we prompt them to pick a campaign (decision #2).
 	var conv convInfo
 	var createdNoSignal bool
-	// Dealer's ad source is more specific than a campaign's -> check it first.
-	campaignID, dealerID := "", ""
+	// Branch's ad source is more specific than a campaign's -> check it first.
+	campaignID, branchID := "", ""
 	matched := false
-	if dID, cID, ok := a.st.resolveDealerByReferral(ctx, env.OrgID, e.Referral); ok {
-		dealerID, campaignID, matched = dID, cID, true
+	if dID, cID, ok := a.st.resolveBranchByReferral(ctx, env.OrgID, e.Referral); ok {
+		branchID, campaignID, matched = dID, cID, true
 	} else if cID, ok := a.st.resolveCampaignByReferral(ctx, env.OrgID, e.Referral); ok {
 		campaignID, matched = cID, true
 	}
@@ -140,7 +140,7 @@ func (a *app) onReceived(env events.Envelope) error {
 		}
 	}
 	if matched {
-		conv, err = a.st.getOrCreateThread(ctx, env.OrgID, contactID, e.Channel, ch.ID, campaignID, dealerID)
+		conv, err = a.st.getOrCreateThread(ctx, env.OrgID, contactID, e.Channel, ch.ID, campaignID, branchID)
 	} else {
 		conv, createdNoSignal, err = a.st.getOrCreateConversation(ctx, env.OrgID, contactID, e.Channel, ch.ID)
 	}
@@ -194,7 +194,7 @@ func (a *app) onReceived(env events.Envelope) error {
 	a.runAutomations(ctx, env.OrgID, conv.ID, contactID, ch.ID, body, e.Message.ButtonPayload)
 
 	// Decision #2: a brand-new contact whose first message carried no campaign
-	// signal (no CTWA referral, no keyword) cannot be attributed to a dealer. Ask
+	// signal (no CTWA referral, no keyword) cannot be attributed to a branch. Ask
 	// them which car/campaign they are interested in, ONCE, so a keyword in their
 	// reply routes them. The conversation stays unassigned (manager/admin queue)
 	// until then, so no agent sees an un-attributable lead.

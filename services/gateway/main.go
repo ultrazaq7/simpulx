@@ -276,11 +276,11 @@ func main() {
 	mux.HandleFunc("GET /api/campaigns/{id}", s.requireAuth(s.handleGetCampaign))
 	mux.HandleFunc("PATCH /api/campaigns/{id}", s.requireAuth(s.gate("manage_campaigns", s.handleUpdateCampaign)))
 	mux.HandleFunc("DELETE /api/campaigns/{id}", s.requireAuth(s.gate("manage_campaigns", s.handleDeleteCampaign)))
-	// Dealers (sub-units of a campaign / dealer-group).
-	mux.HandleFunc("GET /api/campaigns/{id}/dealers", s.requireAuth(s.handleListDealers))
-	mux.HandleFunc("POST /api/campaigns/{id}/dealers", s.requireAuth(s.gate("manage_campaigns", s.handleCreateDealer)))
-	mux.HandleFunc("PATCH /api/dealers/{id}", s.requireAuth(s.gate("manage_campaigns", s.handleUpdateDealer)))
-	mux.HandleFunc("DELETE /api/dealers/{id}", s.requireAuth(s.gate("manage_campaigns", s.handleDeleteDealer)))
+	// Branches (sub-units of a campaign / branch-group).
+	mux.HandleFunc("GET /api/campaigns/{id}/branches", s.requireAuth(s.handleListBranches))
+	mux.HandleFunc("POST /api/campaigns/{id}/branches", s.requireAuth(s.gate("manage_campaigns", s.handleCreateBranch)))
+	mux.HandleFunc("PATCH /api/branches/{id}", s.requireAuth(s.gate("manage_campaigns", s.handleUpdateBranch)))
+	mux.HandleFunc("DELETE /api/branches/{id}", s.requireAuth(s.gate("manage_campaigns", s.handleDeleteBranch)))
 	mux.HandleFunc("GET /api/sequences", s.requireAuth(s.handleListSequences))
 	mux.HandleFunc("POST /api/sequences", s.requireAuth(s.handleCreateSequence))
 	mux.HandleFunc("GET /api/sequences/{id}", s.requireAuth(s.handleGetSequence))

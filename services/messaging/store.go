@@ -312,7 +312,7 @@ func (s *store) linkBroadcastRecipient(ctx context.Context, recipID, msgID strin
 //
 // Uses pg_advisory_xact_lock to serialize concurrent calls for the same
 // (org, contact, campaign) triple, preventing duplicate thread creation.
-func (s *store) getOrCreateThread(ctx context.Context, orgID, contactID, channel, channelID, campaignID, dealerID string) (convInfo, error) {
+func (s *store) getOrCreateThread(ctx context.Context, orgID, contactID, channel, channelID, campaignID, branchID string) (convInfo, error) {
 	tx, err := s.pool.Begin(ctx)
 	if err != nil {
 		return convInfo{}, err
@@ -334,13 +334,13 @@ func (s *store) getOrCreateThread(ctx context.Context, orgID, contactID, channel
 		orgID, contactID)
 
 	var ci convInfo
-	// 1) Reuse an open thread already tied to THIS dealer (if any) else THIS campaign.
+	// 1) Reuse an open thread already tied to THIS branch (if any) else THIS campaign.
 	err = tx.QueryRow(ctx,
 		`SELECT id, is_bot_active, ai_agent_id FROM conversations
 		  WHERE organization_id=$1 AND contact_id=$2 AND status<>'closed'
-		    AND CASE WHEN $4 <> '' THEN dealer_id = NULLIF($4,'')::uuid ELSE campaign_id = $3 END
+		    AND CASE WHEN $4 <> '' THEN branch_id = NULLIF($4,'')::uuid ELSE campaign_id = $3 END
 		  ORDER BY last_message_at DESC NULLS LAST LIMIT 1`,
-		orgID, contactID, campaignID, dealerID).Scan(&ci.ID, &ci.IsBotActive, &ci.AIAgentID)
+		orgID, contactID, campaignID, branchID).Scan(&ci.ID, &ci.IsBotActive, &ci.AIAgentID)
 	if err == nil {
 		_ = tx.Commit(ctx)
 		return ci, nil
@@ -357,7 +357,7 @@ func (s *store) getOrCreateThread(ctx context.Context, orgID, contactID, channel
 		orgID, contactID).Scan(&ci.ID, &ci.IsBotActive, &ci.AIAgentID)
 	if err == nil {
 		_ = tx.Commit(ctx)
-		s.routeThread(ctx, campaignID, dealerID, ci.ID) // tag dealer/campaign + round-robin assign
+		s.routeThread(ctx, campaignID, branchID, ci.ID) // tag branch/campaign + round-robin assign
 		return ci, nil
 	}
 	if !errors.Is(err, pgx.ErrNoRows) {
@@ -374,7 +374,7 @@ func (s *store) getOrCreateThread(ctx context.Context, orgID, contactID, channel
 		return ci, err
 	}
 	_ = tx.Commit(ctx)
-	s.routeThread(ctx, campaignID, dealerID, ci.ID) // set dealer/campaign + round-robin assign
+	s.routeThread(ctx, campaignID, branchID, ci.ID) // set branch/campaign + round-robin assign
 	return ci, nil
 }
 
@@ -525,37 +525,37 @@ func (s *store) routeToCampaign(ctx context.Context, campaignID string, convID s
 	_ = tx.Commit(ctx)
 }
 
-// routeThread routes a conversation to a dealer when one is given, else to the
-// campaign. Dealer is the more specific routing unit (its own agents + cursor).
-func (s *store) routeThread(ctx context.Context, campaignID, dealerID, convID string) {
-	if dealerID != "" {
-		s.routeToDealer(ctx, dealerID, convID)
+// routeThread routes a conversation to a branch when one is given, else to the
+// campaign. Branch is the more specific routing unit (its own agents + cursor).
+func (s *store) routeThread(ctx context.Context, campaignID, branchID, convID string) {
+	if branchID != "" {
+		s.routeToBranch(ctx, branchID, convID)
 		return
 	}
 	s.routeToCampaign(ctx, campaignID, convID)
 }
 
-// resolveDealerByReferral maps a CTWA ad source_id to an active dealer, returning
-// the dealer + its parent campaign. Checked before resolveCampaignByReferral so a
-// dealer's ad source wins over a campaign-level one.
-func (s *store) resolveDealerByReferral(ctx context.Context, orgID, referral string) (dealerID, campaignID string, ok bool) {
+// resolveBranchByReferral maps a CTWA ad source_id to an active branch, returning
+// the branch + its parent campaign. Checked before resolveCampaignByReferral so a
+// branch's ad source wins over a campaign-level one.
+func (s *store) resolveBranchByReferral(ctx context.Context, orgID, referral string) (branchID, campaignID string, ok bool) {
 	if referral == "" {
 		return "", "", false
 	}
 	err := s.pool.QueryRow(ctx,
 		`SELECT d.id::text, d.campaign_id::text
-		   FROM campaign_dealers d JOIN campaigns c ON c.id = d.campaign_id
+		   FROM campaign_branches d JOIN campaigns c ON c.id = d.campaign_id
 		  WHERE d.organization_id=$1 AND c.status='active' AND $2 = ANY(d.ad_source_ids)
 		  LIMIT 1`,
-		orgID, referral).Scan(&dealerID, &campaignID)
-	return dealerID, campaignID, err == nil
+		orgID, referral).Scan(&branchID, &campaignID)
+	return branchID, campaignID, err == nil
 }
 
-// routeToDealer mirrors routeToCampaign's fair-distribution logic (locked
-// rr_cursor + per-unit agents) but on a dealer. It also tags the dealer's parent
+// routeToBranch mirrors routeToCampaign's fair-distribution logic (locked
+// rr_cursor + per-unit agents) but on a branch. It also tags the branch's parent
 // campaign on the conversation so campaign-level reporting still works.
-func (s *store) routeToDealer(ctx context.Context, dealerID string, convID string) {
-	if dealerID == "" {
+func (s *store) routeToBranch(ctx context.Context, branchID string, convID string) {
+	if branchID == "" {
 		return
 	}
 	tx, err := s.pool.Begin(ctx)
@@ -571,42 +571,42 @@ func (s *store) routeToDealer(ctx context.Context, dealerID string, convID strin
 		return
 	}
 
-	// Lock the dealer to read its parent campaign + advance rr_cursor safely.
+	// Lock the branch to read its parent campaign + advance rr_cursor safely.
 	var campaignID string
 	var cursor int
-	err = tx.QueryRow(ctx, `SELECT campaign_id::text, rr_cursor FROM campaign_dealers WHERE id = $1 FOR UPDATE`, dealerID).Scan(&campaignID, &cursor)
+	err = tx.QueryRow(ctx, `SELECT campaign_id::text, rr_cursor FROM campaign_branches WHERE id = $1 FOR UPDATE`, branchID).Scan(&campaignID, &cursor)
 	if err != nil {
 		return
 	}
 
 	// Already assigned (e.g. adopted an open generic thread) -> tag only, no RR advance.
 	if currAgent != nil {
-		_, _ = tx.Exec(ctx, `UPDATE conversations SET dealer_id = $1, campaign_id = $2, updated_at = now() WHERE id = $3 AND campaign_id IS NULL`, dealerID, campaignID, convID)
+		_, _ = tx.Exec(ctx, `UPDATE conversations SET branch_id = $1, campaign_id = $2, updated_at = now() WHERE id = $3 AND campaign_id IS NULL`, branchID, campaignID, convID)
 		_ = tx.Commit(ctx)
 		return
 	}
 
 	var assignedAgent string
 	err = tx.QueryRow(ctx,
-		`WITH agents AS (SELECT user_id FROM dealer_agents WHERE dealer_id=$1 ORDER BY user_id)
+		`WITH agents AS (SELECT user_id FROM branch_agents WHERE branch_id=$1 ORDER BY user_id)
 		 SELECT user_id FROM agents OFFSET ($2 % GREATEST((SELECT count(*) FROM agents), 1)) LIMIT 1`,
-		dealerID, cursor).Scan(&assignedAgent)
+		branchID, cursor).Scan(&assignedAgent)
 
 	if err == nil && assignedAgent != "" {
 		tag, err := tx.Exec(ctx,
 			`UPDATE conversations
-			 SET dealer_id = $1, campaign_id = $2, assigned_agent_id = $3, updated_at = now()
+			 SET branch_id = $1, campaign_id = $2, assigned_agent_id = $3, updated_at = now()
 			 WHERE id = $4 AND campaign_id IS NULL`,
-			dealerID, campaignID, assignedAgent, convID)
+			branchID, campaignID, assignedAgent, convID)
 
 		if err == nil && tag.RowsAffected() > 0 {
-			_, _ = tx.Exec(ctx, `UPDATE campaign_dealers SET rr_cursor = rr_cursor + 1, lead_count = lead_count + 1 WHERE id = $1`, dealerID)
+			_, _ = tx.Exec(ctx, `UPDATE campaign_branches SET rr_cursor = rr_cursor + 1, lead_count = lead_count + 1 WHERE id = $1`, branchID)
 
 			_, _ = tx.Exec(ctx, `
 				INSERT INTO conversation_events (organization_id, conversation_id, type, actor_type, detail)
-				SELECT organization_id, id, 'assigned', 'system', jsonb_build_object('assigned_agent_id', $1::uuid, 'campaign_id', $2::uuid, 'dealer_id', $3::uuid)
+				SELECT organization_id, id, 'assigned', 'system', jsonb_build_object('assigned_agent_id', $1::uuid, 'campaign_id', $2::uuid, 'branch_id', $3::uuid)
 				FROM conversations WHERE id = $4
-			`, assignedAgent, campaignID, dealerID, convID)
+			`, assignedAgent, campaignID, branchID, convID)
 
 			if s.bus != nil {
 				_ = s.bus.Publish(events.SubjectAuditCreated, orgID, events.AuditCreated{
@@ -616,7 +616,7 @@ func (s *store) routeToDealer(ctx context.Context, dealerID string, convID strin
 					Detail: map[string]any{
 						"assigned_agent_id": assignedAgent,
 						"campaign_id":       campaignID,
-						"dealer_id":         dealerID,
+						"branch_id":         branchID,
 					},
 				})
 			}
