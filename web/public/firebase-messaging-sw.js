@@ -15,13 +15,18 @@ firebase.initializeApp({
 
 const messaging = firebase.messaging();
 
+// Data-only messages: render here. If a tab is open (even unfocused) the in-app
+// handler shows it, so skip to avoid a duplicate; only show when no tab is open.
 messaging.onBackgroundMessage((payload) => {
-  const n = payload.notification || {};
-  self.registration.showNotification(n.title || "Simpulx", {
-    body: n.body || "",
-    icon: "/simpulx_logo.png",
-    tag: (payload.data && payload.data.conversationId) || undefined,
-    data: payload.data || {},
+  const d = payload.data || {};
+  return self.clients.matchAll({ type: "window", includeUncontrolled: true }).then((wins) => {
+    if (wins.length > 0) return;
+    return self.registration.showNotification(d.title || "Simpulx", {
+      body: d.body || "",
+      icon: "/simpulx_logo.png",
+      tag: d.conversationId || undefined,
+      data: d,
+    });
   });
 });
 

@@ -106,7 +106,8 @@ func (s *server) handleListConversations(w http.ResponseWriter, r *http.Request)
 		        cv.disposition_id::text AS disposition_id, d.name AS disposition_name,
 		        cv.campaign_id::text AS campaign_id, cmp.name AS campaign_name,
 		        COALESCE(ch.calling_enabled, false) AND COALESCE(cmp.calling_enabled, true) AS calling_enabled,
-		        cv.contact_id::text AS contact_id, COALESCE(ct.tags, '{}') AS tags
+		        cv.contact_id::text AS contact_id, COALESCE(ct.tags, '{}') AS tags,
+		        cv.snoozed_until
 		   FROM conversations cv
 		   JOIN contacts ct ON ct.id = cv.contact_id
 		   LEFT JOIN users u ON u.id = cv.assigned_agent_id

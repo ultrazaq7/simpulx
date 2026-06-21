@@ -43,6 +43,7 @@ export interface Conversation {
   calling_enabled?: boolean;
   contact_id?: string | null;
   tags?: string[] | null;
+  snoozed_until?: string | null;
 }
 
 export interface DashboardCards {

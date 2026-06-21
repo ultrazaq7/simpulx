@@ -121,20 +121,18 @@ func (s *server) initFCMPush(ctx context.Context) {
 		}
 
 		// Send via FCM
+		// Data-only (no Notification payload): the service worker renders it once.
+		// A Notification payload would be auto-shown AND re-shown by the SW (double).
 		pushMsg := &messaging.MulticastMessage{
 			Tokens: tokens,
-			Notification: &messaging.Notification{
-				Title: contactName,
-				Body:  bodyText,
-			},
 			Data: map[string]string{
+				"title":          contactName,
+				"body":           bodyText,
 				"conversationId": msg.ConversationID,
 				"contactId":      msg.ContactID,
 				"type":           "new_message",
 			},
-			Android: &messaging.AndroidConfig{
-				Priority: "high",
-			},
+			Android: &messaging.AndroidConfig{Priority: "high"},
 		}
 
 		resp, err := fcmClient.SendEachForMulticast(ctx, pushMsg)
@@ -167,10 +165,9 @@ func (s *server) initFCMPush(ctx context.Context) {
 			return nil
 		}
 		_, err := fcmClient.SendEachForMulticast(ctx, &messaging.MulticastMessage{
-			Tokens:       tokens,
-			Notification: &messaging.Notification{Title: n.Title, Body: n.Body},
-			Data:         map[string]string{"conversationId": n.ConversationID, "type": "notification"},
-			Android:      &messaging.AndroidConfig{Priority: "high"},
+			Tokens:  tokens,
+			Data:    map[string]string{"title": n.Title, "body": n.Body, "conversationId": n.ConversationID, "type": "notification"},
+			Android: &messaging.AndroidConfig{Priority: "high"},
 		})
 		if err != nil {
 			s.log.Error("FCM notification send error", "err", err)

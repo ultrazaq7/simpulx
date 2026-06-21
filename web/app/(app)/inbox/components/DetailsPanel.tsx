@@ -226,7 +226,10 @@ export default function DetailsPanel({ active, onClose, copyText, notes, onAddNo
               <DetailRow icon={Hash} label="Channel" value={active.channel || "Unknown"} />
               {active.campaign_name && <DetailRow icon={Hash} label="Campaign" value={active.campaign_name} />}
               <DetailRow icon={MessageSquare} label="Status" value={active.status} />
-              <DetailRow icon={Clock} label="Last message" value={fmtDate(active.last_message_at) || "No messages"} />
+              <DetailRow icon={Clock} label="Last message" value={active.last_message_at ? `${fmtDate(active.last_message_at)} ${fmtTime(active.last_message_at)}` : "No messages"} />
+              {active.status === "snoozed" && active.snoozed_until && (
+                <DetailRow icon={Clock} label="Snoozed until" value={`${fmtDate(active.snoozed_until)} ${fmtTime(active.snoozed_until)}`} />
+              )}
             </div>
 
             <p className="text-[10px] font-bold uppercase tracking-wider text-muted-foreground mb-1">Lead qualification</p>
