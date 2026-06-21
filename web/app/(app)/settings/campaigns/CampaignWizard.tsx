@@ -82,6 +82,17 @@ export function CampaignWizard({ campaignId, users, channels, onClose, onDone, o
   async function submit() {
     if (!name.trim()) { setStep(0); onError("Campaign name is required"); return; }
     if (branches.some((b) => !b.name.trim())) { onError("Every branch needs a name"); return; }
+    // One ad source ID must belong to a single branch: the same ID in two branches
+    // misroutes leads (one arbitrary branch wins) and breaks per-branch reporting.
+    const seenAd = new Map<string, string>(); // ad id -> branch key
+    for (const b of branches) {
+      for (const id of csv(b.adSources)) {
+        const key = id.toLowerCase();
+        const prev = seenAd.get(key);
+        if (prev && prev !== b.key) { setStep(1); onError(`Ad source ID "${id}" is in more than one branch. Each ad ID must belong to a single branch.`); return; }
+        if (!prev) seenAd.set(key, b.key);
+      }
+    }
     setSaving(true);
     try {
       const payload = {

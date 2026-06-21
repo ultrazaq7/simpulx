@@ -57,6 +57,10 @@ func (s *server) handleCreateBranch(w http.ResponseWriter, r *http.Request) {
 	if adSrc == nil {
 		adSrc = []string{}
 	}
+	if dup := s.adSourcesConflict(r.Context(), a.OrgID, campaignID, "", b.AdSourceIDs); dup != "" {
+		http.Error(w, "Ad source \""+dup+"\" is already used by another branch in this campaign", http.StatusConflict)
+		return
+	}
 	var id string
 	err := s.pool.QueryRow(r.Context(),
 		`INSERT INTO campaign_branches (organization_id, campaign_id, name, ad_source_ids)
@@ -93,6 +97,14 @@ func (s *server) handleUpdateBranch(w http.ResponseWriter, r *http.Request) {
 	if err := json.NewDecoder(r.Body).Decode(&b); err != nil {
 		http.Error(w, "bad request", http.StatusBadRequest)
 		return
+	}
+	if b.AdSourceIDs != nil {
+		var campaignID string
+		_ = s.pool.QueryRow(r.Context(), `SELECT campaign_id::text FROM campaign_branches WHERE id=$1 AND organization_id=$2`, id, a.OrgID).Scan(&campaignID)
+		if dup := s.adSourcesConflict(r.Context(), a.OrgID, campaignID, id, b.AdSourceIDs); dup != "" {
+			http.Error(w, "Ad source \""+dup+"\" is already used by another branch in this campaign", http.StatusConflict)
+			return
+		}
 	}
 	tag, err := s.pool.Exec(r.Context(),
 		`UPDATE campaign_branches SET
@@ -140,6 +152,29 @@ func (s *server) handleDeleteBranch(w http.ResponseWriter, r *http.Request) {
 	}
 	s.audit(r.Context(), a, "deleted", "branch", r.PathValue("id"), nil)
 	writeJSON(w, map[string]any{"status": "deleted"})
+}
+
+// adSourcesConflict returns the first ad source id already claimed by a DIFFERENT
+// branch in the same campaign (empty when none). Enforces one-ad-per-branch so a
+// CTWA referral maps to a single branch (resolveBranchByReferral picks one row).
+func (s *server) adSourcesConflict(ctx context.Context, orgID, campaignID, selfBranchID string, ids []string) string {
+	if len(ids) == 0 || campaignID == "" {
+		return ""
+	}
+	var dup string
+	err := s.pool.QueryRow(ctx,
+		`SELECT x FROM unnest($1::text[]) AS x
+		  WHERE x <> '' AND EXISTS (
+		    SELECT 1 FROM campaign_branches cb
+		     WHERE cb.organization_id=$2 AND cb.campaign_id=$3
+		       AND ($4='' OR cb.id <> $4::uuid)
+		       AND x = ANY(cb.ad_source_ids))
+		  LIMIT 1`,
+		ids, orgID, campaignID, selfBranchID).Scan(&dup)
+	if err != nil {
+		return "" // best effort; the wizard already guards this
+	}
+	return dup
 }
 
 // syncBranchAgents rewrites a branch roster: agentIDs are in the round-robin
