@@ -69,7 +69,7 @@ export default function LostReasonDialog({ open, onClose, onSubmit }: LostReason
             <p className="font-bold text-[15px] text-foreground">Why is this lead lost?</p>
             <p className="text-xs text-muted-foreground">Pick the closest reason.</p>
           </div>
-          <button onClick={close} className="p-1 rounded-md text-muted-foreground hover:bg-muted hover:text-foreground outline-none">
+          <button aria-label="Close" onClick={close} className="p-1 rounded-md text-muted-foreground hover:bg-muted hover:text-foreground outline-none">
             <X className="w-[18px] h-[18px]" />
           </button>
         </div>

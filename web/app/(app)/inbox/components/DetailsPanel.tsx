@@ -128,7 +128,7 @@ export default function DetailsPanel({ active, onClose, copyText, notes, onAddNo
       {/* Header */}
       <div className="h-14 shrink-0 px-4 flex items-center border-b border-border">
         <p className="font-bold text-sm flex-1 text-foreground">Details</p>
-        <button onClick={onClose} className="p-1 rounded-md text-muted-foreground hover:bg-muted hover:text-foreground outline-none">
+        <button aria-label="Close details" onClick={onClose} className="p-1 rounded-md text-muted-foreground hover:bg-muted hover:text-foreground outline-none">
           <X className="w-[18px] h-[18px]" />
         </button>
       </div>
@@ -155,7 +155,7 @@ export default function DetailsPanel({ active, onClose, copyText, notes, onAddNo
             {active.contact_phone && (
               <div className="flex items-center gap-1">
                 <span className="text-xs text-muted-foreground tabular-nums">{active.contact_phone}</span>
-                <button onClick={() => copyText(active.contact_phone!)} className="p-0.5 rounded hover:bg-muted outline-none text-primary/70 hover:text-primary">
+                <button aria-label="Copy phone number" onClick={() => copyText(active.contact_phone!)} className="p-0.5 rounded hover:bg-muted outline-none text-primary/70 hover:text-primary">
                   <Copy className="w-[11px] h-[11px]" />
                 </button>
               </div>

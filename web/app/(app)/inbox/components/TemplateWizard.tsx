@@ -33,7 +33,7 @@ export default function TemplateWizard({ templates, contactName, onClose, onUse 
         <div className="flex items-center gap-2 px-5 py-3.5 border-b border-border shrink-0">
           <FileText className="w-[18px] h-[18px] text-primary" />
           <p className="font-bold text-[15px] text-foreground flex-1">Send template</p>
-          <button onClick={onClose} className="p-1 rounded-md text-muted-foreground hover:bg-muted hover:text-foreground outline-none"><X className="w-[18px] h-[18px]" /></button>
+          <button aria-label="Close" onClick={onClose} className="p-1 rounded-md text-muted-foreground hover:bg-muted hover:text-foreground outline-none"><X className="w-[18px] h-[18px]" /></button>
         </div>
 
         <div className="flex-1 min-h-0 grid grid-cols-1 md:grid-cols-[1fr_300px] overflow-hidden">

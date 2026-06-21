@@ -387,7 +387,7 @@ export default function Composer({
               "inline-flex items-center gap-1.5 h-6 px-2 mb-1 rounded-md text-[12px] font-semibold outline-none transition-colors",
               note
                 ? (aiOpen ? "bg-amber-100 text-amber-800" : "text-amber-700 hover:bg-amber-100")
-                : (aiOpen ? "bg-primary/10 text-primary" : "text-primary/90 hover:bg-primary/10"),
+                : (aiOpen ? "bg-primary/10 text-primary" : "text-primary hover:bg-primary/10"),
             )}
           >
             <Sparkles className={cn("w-3.5 h-3.5", aiState === "streaming" && "animate-pulse")} />

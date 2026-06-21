@@ -533,10 +533,10 @@ function ForwardPicker({ text, convs, onClose, onSend }: {
   return (
     <div className="fixed inset-0 z-[120] flex items-center justify-center p-4">
       <div className="absolute inset-0 bg-black/40 backdrop-blur-[2px] animate-fade-in" onClick={onClose} />
-      <div className="relative w-[440px] max-h-[80vh] flex flex-col rounded-lg border border-border bg-card shadow-2xl animate-scale-in">
+      <div role="dialog" aria-modal="true" aria-label="Forward message" className="relative w-[440px] max-h-[80vh] flex flex-col rounded-lg border border-border bg-card shadow-2xl animate-scale-in">
         <div className="px-5 py-3.5 border-b border-border flex items-center">
           <p className="font-bold text-[15px] text-foreground flex-1">Forward message</p>
-          <button onClick={onClose} className="p-1 rounded-md text-muted-foreground hover:bg-muted hover:text-foreground outline-none"><X className="w-[18px] h-[18px]" /></button>
+          <button aria-label="Close" onClick={onClose} className="p-1 rounded-md text-muted-foreground hover:bg-muted hover:text-foreground outline-none"><X className="w-[18px] h-[18px]" /></button>
         </div>
         <div className="p-3 border-b border-border">
           <p className="text-[12px] text-muted-foreground mb-2 px-1 line-clamp-2 italic">&ldquo;{text}&rdquo;</p>

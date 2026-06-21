@@ -84,7 +84,12 @@ function Tip({
   // triggers, borrow the (string) label as aria-label unless one already exists.
   // This gives every Tip-wrapped icon button a name for free (WCAG 4.1.2).
   let trigger = children
-  if (typeof label === "string" && !(children.props as Record<string, unknown>)?.["aria-label"]) {
+  const tag = typeof children.type === "string" ? children.type : ""
+  const childProps = (children.props ?? {}) as Record<string, unknown>
+  // Only name INTERACTIVE triggers (button/link/role). Adding aria-label to a plain
+  // decorative <span> (e.g. a status dot) is aria-prohibited.
+  const interactive = tag === "button" || tag === "a" || !!childProps.onClick || !!childProps.role || childProps.tabIndex !== undefined
+  if (typeof label === "string" && interactive && !childProps["aria-label"]) {
     trigger = React.cloneElement(children, { "aria-label": label } as React.Attributes)
   }
   return (
