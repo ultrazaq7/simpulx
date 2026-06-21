@@ -121,6 +121,138 @@ func (s *server) handleChangePassword(w http.ResponseWriter, r *http.Request) {
 	writeJSON(w, map[string]any{"message": "Password updated"})
 }
 
+// ── Verified email change ────────────────────────────────────────────────────
+
+func validEmail(e string) bool {
+	at := strings.IndexByte(e, '@')
+	if at <= 0 || at == len(e)-1 {
+		return false
+	}
+	dot := strings.LastIndexByte(e, '.')
+	return dot > at+1 && dot < len(e)-1 && !strings.ContainsAny(e, " \t\r\n")
+}
+
+// handleRequestEmailChange (auth) emails a single-use confirmation link to the
+// NEW address. The account email is not touched until that link is used.
+// POST /api/account/email {new_email}
+func (s *server) handleRequestEmailChange(w http.ResponseWriter, r *http.Request) {
+	a, _ := authFrom(r.Context())
+	var body struct {
+		NewEmail string `json:"new_email"`
+	}
+	if err := json.NewDecoder(r.Body).Decode(&body); err != nil {
+		http.Error(w, "bad request", http.StatusBadRequest)
+		return
+	}
+	newEmail := strings.ToLower(strings.TrimSpace(body.NewEmail))
+	if !validEmail(newEmail) {
+		http.Error(w, "Enter a valid email address", http.StatusBadRequest)
+		return
+	}
+
+	var name, curEmail string
+	if err := s.pool.QueryRow(r.Context(),
+		`SELECT full_name, email FROM users WHERE id=$1`, a.UserID).Scan(&name, &curEmail); err != nil {
+		http.Error(w, "user not found", http.StatusNotFound)
+		return
+	}
+	if strings.EqualFold(newEmail, curEmail) {
+		http.Error(w, "That is already your email address", http.StatusBadRequest)
+		return
+	}
+	var taken bool
+	_ = s.pool.QueryRow(r.Context(),
+		`SELECT EXISTS(SELECT 1 FROM users WHERE lower(email)=$1 AND id<>$2)`, newEmail, a.UserID).Scan(&taken)
+	if taken {
+		http.Error(w, "That email is already in use", http.StatusConflict)
+		return
+	}
+
+	raw := make([]byte, 32)
+	if _, err := rand.Read(raw); err != nil {
+		http.Error(w, "server error", http.StatusInternalServerError)
+		return
+	}
+	token := base64.RawURLEncoding.EncodeToString(raw)
+
+	// Supersede any earlier pending requests, then store the new one.
+	_, _ = s.pool.Exec(r.Context(),
+		`UPDATE email_change_tokens SET used_at=now() WHERE user_id=$1 AND used_at IS NULL`, a.UserID)
+	if _, err := s.pool.Exec(r.Context(),
+		`INSERT INTO email_change_tokens (user_id, new_email, token_hash, expires_at)
+		 VALUES ($1, $2, $3, now() + $4::interval)`,
+		a.UserID, newEmail, hashResetToken(token), resetTokenTTL.String()); err != nil {
+		s.log.Error("email change token insert failed", "err", err)
+		http.Error(w, "server error", http.StatusInternalServerError)
+		return
+	}
+
+	base := strings.TrimRight(config.Get("APP_BASE_URL", "http://localhost:3000"), "/")
+	link := base + "/verify-email?token=" + token
+	sent, mailErr := s.sendMail(newEmail, "Confirm your new Simpulx email", emailChangeHTML(name, link, newEmail))
+	if mailErr != nil {
+		s.log.Error("email change send failed", "err", mailErr)
+	}
+	if !sent {
+		s.log.Info("email change link (email not sent)", "email", newEmail, "link", link)
+	}
+	writeJSON(w, map[string]any{"message": "Verification link sent to " + newEmail})
+}
+
+// handleVerifyEmailChange consumes a valid token and swaps the account email.
+// POST /auth/verify-email {token}
+func (s *server) handleVerifyEmailChange(w http.ResponseWriter, r *http.Request) {
+	var body struct {
+		Token string `json:"token"`
+	}
+	if err := json.NewDecoder(r.Body).Decode(&body); err != nil || strings.TrimSpace(body.Token) == "" {
+		http.Error(w, "invalid or expired link", http.StatusBadRequest)
+		return
+	}
+
+	var tokenID, userID, newEmail string
+	err := s.pool.QueryRow(r.Context(),
+		`SELECT id, user_id, new_email FROM email_change_tokens
+		  WHERE token_hash=$1 AND used_at IS NULL AND expires_at > now()`,
+		hashResetToken(body.Token),
+	).Scan(&tokenID, &userID, &newEmail)
+	if err != nil {
+		http.Error(w, "This link is invalid or has expired", http.StatusBadRequest)
+		return
+	}
+
+	var taken bool
+	_ = s.pool.QueryRow(r.Context(),
+		`SELECT EXISTS(SELECT 1 FROM users WHERE lower(email)=$1 AND id<>$2)`, newEmail, userID).Scan(&taken)
+	if taken {
+		http.Error(w, "That email is now in use by another account", http.StatusConflict)
+		return
+	}
+
+	tx, err := s.pool.Begin(r.Context())
+	if err != nil {
+		http.Error(w, "server error", http.StatusInternalServerError)
+		return
+	}
+	defer tx.Rollback(r.Context())
+
+	if _, err := tx.Exec(r.Context(),
+		`UPDATE users SET email=$1, updated_at=now() WHERE id=$2`, newEmail, userID); err != nil {
+		http.Error(w, "server error", http.StatusInternalServerError)
+		return
+	}
+	if _, err := tx.Exec(r.Context(),
+		`UPDATE email_change_tokens SET used_at=now() WHERE user_id=$1 AND used_at IS NULL`, userID); err != nil {
+		http.Error(w, "server error", http.StatusInternalServerError)
+		return
+	}
+	if err := tx.Commit(r.Context()); err != nil {
+		http.Error(w, "server error", http.StatusInternalServerError)
+		return
+	}
+	writeJSON(w, map[string]any{"message": "Email updated", "email": newEmail})
+}
+
 // handleResetPassword consumes a valid token and sets the new password.
 func (s *server) handleResetPassword(w http.ResponseWriter, r *http.Request) {
 	var body struct {

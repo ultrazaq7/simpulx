@@ -141,6 +141,16 @@ export const api = {
     if (!res.ok) throw new Error((await res.text()) || "Reset failed");
     return res.json();
   },
+  // Confirm an email change from the link sent to the new address (no auth; token is the proof).
+  async verifyEmailChange(token: string): Promise<{ message: string; email: string }> {
+    const res = await fetch(API + "/auth/verify-email", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ token }),
+    });
+    if (!res.ok) throw new Error((await res.text()) || "Verification failed");
+    return res.json();
+  },
   // Stream an on-demand AI briefing (SSE). Calls onChunk for each token; resolves when done.
   async streamSummary(convId: string, onChunk: (text: string) => void, signal?: AbortSignal): Promise<void> {
     const token = getToken();
@@ -334,6 +344,9 @@ export const api = {
   // Self-service password change (proves the current password; no email round-trip).
   changePassword: (current_password: string, new_password: string) =>
     req<{ message: string }>("/api/account/password", { method: "POST", body: JSON.stringify({ current_password, new_password }) }),
+  // Request an email change: emails a confirmation link to the NEW address.
+  requestEmailChange: (new_email: string) =>
+    req<{ message: string }>("/api/account/email", { method: "POST", body: JSON.stringify({ new_email }) }),
   // Self presence (online/offline). Writes is_online only; never the account status.
   setPresence: (online: boolean) =>
     req<{ is_online: boolean }>("/api/users/me/presence", { method: "PATCH", body: JSON.stringify({ online }) }),

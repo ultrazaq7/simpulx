@@ -21,6 +21,8 @@ export function Select({
 }) {
   const [open, setOpen] = useState(false);
   const [q, setQ] = useState("");
+  // Where the menu opens and how tall it can be, decided from viewport space.
+  const [menu, setMenu] = useState<{ up: boolean; maxH: number }>({ up: false, maxH: 320 });
   const ref = useRef<HTMLDivElement>(null);
 
   const current = options.find((o) => o.value === value);
@@ -33,6 +35,25 @@ export function Select({
     const onDoc = (e: MouseEvent) => { if (ref.current && !ref.current.contains(e.target as Node)) { setOpen(false); setQ(""); } };
     document.addEventListener("mousedown", onDoc);
     return () => document.removeEventListener("mousedown", onDoc);
+  }, [open]);
+
+  // On open, measure free space below vs above the trigger and flip if the menu
+  // would be clipped; also cap its height to whatever room is available.
+  useEffect(() => {
+    if (!open || !ref.current) return;
+    const decide = () => {
+      const r = ref.current!.getBoundingClientRect();
+      const gap = 8, desired = 320, minH = 180;
+      const below = window.innerHeight - r.bottom - gap;
+      const above = r.top - gap;
+      const up = below < Math.min(desired, minH) && above > below;
+      const maxH = Math.max(140, Math.min(desired, up ? above : below));
+      setMenu({ up, maxH });
+    };
+    decide();
+    window.addEventListener("resize", decide);
+    window.addEventListener("scroll", decide, true);
+    return () => { window.removeEventListener("resize", decide); window.removeEventListener("scroll", decide, true); };
   }, [open]);
 
   return (
@@ -51,10 +72,16 @@ export function Select({
       </button>
 
       {open && (
-        <div className={cn(
-          "absolute top-full mt-1.5 z-50 min-w-full rounded-lg border border-border bg-popover shadow-xl overflow-hidden animate-scale-in max-h-[320px] flex flex-col",
-          align === "right" ? "right-0 origin-top-right" : "left-0 origin-top-left",
-        )}>
+        <div
+          style={{ maxHeight: menu.maxH }}
+          className={cn(
+            "absolute z-50 min-w-full rounded-lg border border-border bg-popover shadow-xl overflow-hidden animate-scale-in flex flex-col",
+            menu.up ? "bottom-full mb-1.5" : "top-full mt-1.5",
+            align === "right"
+              ? (menu.up ? "right-0 origin-bottom-right" : "right-0 origin-top-right")
+              : (menu.up ? "left-0 origin-bottom-left" : "left-0 origin-top-left"),
+          )}
+        >
           {showSearch && (
             <div className="p-2 border-b border-border shrink-0">
               <div className="relative">
@@ -69,7 +96,7 @@ export function Select({
               </div>
             </div>
           )}
-          <div className="overflow-auto py-1">
+          <div className="overflow-auto py-1 flex-1 min-h-0">
             {filtered.length === 0 ? (
               <p className="text-center text-xs text-muted-foreground py-4">No results</p>
             ) : filtered.map((o) => (

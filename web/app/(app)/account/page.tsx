@@ -2,12 +2,13 @@
 import { useEffect, useMemo, useState } from "react";
 import { useRouter } from "next/navigation";
 import {
-  Loader2, Bell, Mail, MessageSquare, Volume2, ChevronDown, ArrowLeft,
+  Loader2, Bell, Mail, MessageSquare, Volume2, ArrowLeft, MailCheck,
 } from "lucide-react";
 import { api, getUser, getToken, setSession } from "@/lib/api";
 import type { OrgSettings } from "@/lib/types";
 import { cn, initials } from "@/lib/utils";
 import { useI18n } from "@/lib/i18n";
+import { Select } from "@/components/Select";
 
 // ── Toast ──
 function useToast() {
@@ -62,10 +63,6 @@ function tzOffset(tz: string): string {
     return "";
   }
 }
-function tzLabel(tz: string): string {
-  const off = tzOffset(tz);
-  return off ? `${tz} (${off})` : tz;
-}
 
 export default function AccountPage() {
   const router = useRouter();
@@ -85,8 +82,12 @@ export default function AccountPage() {
   const [settings, setSettings] = useState<OrgSettings>({});
   const [prefs, setPrefs] = useState<Record<string, boolean>>(NOTIF_DEFAULTS);
   const [timezone, setTimezone] = useState(Intl.DateTimeFormat().resolvedOptions().timeZone);
-  const [tzSearch, setTzSearch] = useState("");
-  const [tzOpen, setTzOpen] = useState(false);
+
+  // Email change (requires verifying the new address)
+  const origEmail = user?.email || "";
+  const [email, setEmail] = useState(origEmail);
+  const [emailSaving, setEmailSaving] = useState(false);
+  const [pendingEmail, setPendingEmail] = useState("");
 
   // Change password
   const [curPw, setCurPw] = useState("");
@@ -95,14 +96,11 @@ export default function AccountPage() {
   const [pwSaving, setPwSaving] = useState(false);
 
   const timezones = useMemo(() => getTimezones(), []);
-  // Precompute each zone's offset once so search can match "UTC+7" as well as the name.
-  const tzData = useMemo(() => timezones.map((tz) => ({ tz, off: tzOffset(tz) })), [timezones]);
-  const filteredTz = useMemo(() => {
-    const norm = (s: string) => s.toLowerCase().replace(/\s+/g, "").replace("gmt", "utc");
-    const q = norm(tzSearch);
-    if (!q) return tzData;
-    return tzData.filter(({ tz, off }) => norm(tz).includes(q) || norm(off).includes(q));
-  }, [tzData, tzSearch]);
+  // Build "Zone (UTC+offset)" labels so the shared Select can search either part.
+  const tzSelectOptions = useMemo(
+    () => timezones.map((tz) => { const off = tzOffset(tz); return { value: tz, label: off ? `${tz} (${off})` : tz }; }),
+    [timezones],
+  );
 
   useEffect(() => {
     api.getOrganization().then((o) => {
@@ -148,6 +146,18 @@ export default function AccountPage() {
     } catch (e) { notify(String(e), false); }
   }
 
+  async function sendEmailVerification() {
+    const next = email.trim();
+    if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(next)) { notify("Enter a valid email address", false); return; }
+    setEmailSaving(true);
+    try {
+      await api.requestEmailChange(next);
+      setPendingEmail(next);
+      notify("Verification link sent to " + next);
+    } catch (e) { notify(String(e).replace(/^Error:\s*/, ""), false); }
+    finally { setEmailSaving(false); }
+  }
+
   async function changePassword() {
     if (newPw.length < 8) { notify("New password must be at least 8 characters", false); return; }
     if (newPw !== confirmPw) { notify("New passwords do not match", false); return; }
@@ -167,6 +177,8 @@ export default function AccountPage() {
   );
 
   const dirty = name.trim() !== origName;
+  const emailChanged = email.trim().toLowerCase() !== origEmail.toLowerCase();
+  const emailValid = /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email.trim());
 
   return (
     <div className="h-full overflow-y-auto bg-background">
@@ -216,7 +228,7 @@ export default function AccountPage() {
             {/* Personal info form */}
             <h3 className="text-[16px] font-bold text-foreground mb-5">{tr("account.tab_profile")}</h3>
 
-            <div className="space-y-5">
+            <div className="bg-card border border-border rounded-xl p-5 space-y-5">
               <div>
                 <label className="block text-[11px] font-bold uppercase tracking-wider text-muted-foreground mb-1.5">{tr("account.name")}</label>
                 <input
@@ -229,12 +241,35 @@ export default function AccountPage() {
 
               <div>
                 <label className="block text-[11px] font-bold uppercase tracking-wider text-muted-foreground mb-1.5">{tr("account.email")}</label>
-                <input
-                  type="text"
-                  value={user?.email || "—"}
-                  readOnly
-                  className="w-full h-11 px-4 rounded-lg border border-input bg-muted/30 text-[14px] text-foreground/60 outline-none cursor-not-allowed"
-                />
+                <div className="flex gap-2">
+                  <input
+                    type="email"
+                    autoComplete="email"
+                    value={email}
+                    onChange={(e) => { setEmail(e.target.value); setPendingEmail(""); }}
+                    className="flex-1 min-w-0 h-11 px-4 rounded-lg border border-input bg-muted/30 text-[14px] text-foreground outline-none transition-all focus:border-primary focus:bg-background"
+                  />
+                  {emailChanged && (
+                    <button
+                      onClick={sendEmailVerification}
+                      disabled={emailSaving || !emailValid}
+                      className={cn(
+                        "inline-flex items-center gap-1.5 px-4 rounded-lg text-[13px] font-semibold transition-all outline-none shrink-0",
+                        !emailSaving && emailValid ? "bg-primary text-white hover:bg-primary-dark shadow-sm" : "bg-muted text-muted-foreground cursor-not-allowed",
+                      )}
+                    >
+                      {emailSaving ? <Loader2 className="w-4 h-4 animate-spin" /> : <><MailCheck className="w-4 h-4" /> Verify</>}
+                    </button>
+                  )}
+                </div>
+                {pendingEmail ? (
+                  <p className="text-[11px] text-amber-600 mt-1.5 flex items-start gap-1">
+                    <MailCheck className="w-3.5 h-3.5 mt-px shrink-0" />
+                    <span>Verification link sent to <b>{pendingEmail}</b>. Confirm it from your inbox to activate the new email.</span>
+                  </p>
+                ) : emailChanged ? (
+                  <p className="text-[11px] text-muted-foreground/70 mt-1.5">We will email a verification link to the new address. The change applies only after you confirm it.</p>
+                ) : null}
               </div>
 
               <div>
@@ -246,21 +281,21 @@ export default function AccountPage() {
                   className="w-full h-11 px-4 rounded-lg border border-input bg-muted/30 text-[14px] text-foreground/60 outline-none cursor-not-allowed capitalize"
                 />
               </div>
-            </div>
 
-            <div className="flex justify-end mt-6">
-              <button
-                onClick={saveProfile}
-                disabled={saving || !dirty}
-                className={cn(
-                  "inline-flex items-center gap-2 px-5 py-2.5 rounded-lg text-[13px] font-semibold transition-all outline-none",
-                  dirty
-                    ? "bg-primary text-white hover:bg-primary-dark shadow-sm"
-                    : "bg-muted text-muted-foreground cursor-not-allowed",
-                )}
-              >
-                {saving ? <Loader2 className="w-4 h-4 animate-spin" /> : dirty ? tr("account.save") : tr("common.save")}
-              </button>
+              <div className="flex justify-end pt-1">
+                <button
+                  onClick={saveProfile}
+                  disabled={saving || !dirty}
+                  className={cn(
+                    "inline-flex items-center gap-2 px-5 py-2.5 rounded-lg text-[13px] font-semibold transition-all outline-none",
+                    dirty
+                      ? "bg-primary text-white hover:bg-primary-dark shadow-sm"
+                      : "bg-muted text-muted-foreground cursor-not-allowed",
+                  )}
+                >
+                  {saving ? <Loader2 className="w-4 h-4 animate-spin" /> : dirty ? tr("account.save") : tr("common.save")}
+                </button>
+              </div>
             </div>
 
             {/* Change password */}
@@ -319,50 +354,7 @@ export default function AccountPage() {
             <h3 className="text-[16px] font-bold text-foreground mt-10 mb-5">{tr("account.system_pref")}</h3>
             <div className="bg-card border border-border rounded-xl p-5">
               <label className="block text-[11px] font-bold uppercase tracking-wider text-muted-foreground mb-1.5">{tr("account.your_timezone")}</label>
-              <div className="relative">
-                <button
-                  type="button"
-                  onClick={() => setTzOpen(!tzOpen)}
-                  className="w-full h-11 px-4 rounded-lg border border-input bg-muted/30 text-[14px] text-foreground text-left flex items-center justify-between outline-none transition-all hover:border-primary"
-                >
-                  <span className="truncate">{tzLabel(timezone)}</span>
-                  <ChevronDown className={cn("w-4 h-4 text-muted-foreground transition-transform shrink-0", tzOpen && "rotate-180")} />
-                </button>
-                {tzOpen && (
-                  <>
-                    <div className="fixed inset-0 z-40" onClick={() => setTzOpen(false)} />
-                    <div className="absolute left-0 right-0 top-full mt-1 bg-popover border border-border rounded-lg shadow-xl z-50 max-h-[280px] flex flex-col overflow-hidden animate-scale-in origin-top">
-                      <div className="p-2 border-b border-border shrink-0">
-                        <input
-                          autoFocus
-                          value={tzSearch}
-                          onChange={(e) => setTzSearch(e.target.value)}
-                          placeholder="Search timezone..."
-                          className="w-full h-8 px-3 rounded-md border border-input bg-background text-[13px] outline-none focus:border-primary"
-                        />
-                      </div>
-                      <div className="overflow-y-auto flex-1 p-1">
-                        {filteredTz.length === 0 ? (
-                          <p className="text-center text-xs text-muted-foreground py-4">No matches</p>
-                        ) : filteredTz.map(({ tz, off }) => (
-                          <button
-                            key={tz}
-                            type="button"
-                            onClick={() => { saveTimezone(tz); setTzOpen(false); setTzSearch(""); }}
-                            className={cn(
-                              "w-full text-left px-3 py-2 rounded-md text-[13px] font-medium transition-colors outline-none flex items-center justify-between gap-3",
-                              tz === timezone ? "bg-primary/10 text-primary" : "text-foreground/80 hover:bg-muted",
-                            )}
-                          >
-                            <span className="truncate">{tz}</span>
-                            <span className="text-[11px] text-muted-foreground shrink-0">{off}</span>
-                          </button>
-                        ))}
-                      </div>
-                    </div>
-                  </>
-                )}
-              </div>
+              <Select value={timezone} options={tzSelectOptions} onChange={saveTimezone} placeholder="Select timezone" />
               <p className="text-[11px] text-muted-foreground/70 mt-1.5">{tr("account.your_timezone_desc")}</p>
             </div>
           </div>

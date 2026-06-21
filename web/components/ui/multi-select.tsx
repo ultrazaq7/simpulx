@@ -17,6 +17,7 @@ export interface MultiSelectProps {
 export function MultiSelect({ options, value, onChange, placeholder = "Select...", className }: MultiSelectProps) {
   const [open, setOpen] = useState(false);
   const [q, setQ] = useState("");
+  const [menu, setMenu] = useState<{ up: boolean; maxH: number }>({ up: false, maxH: 320 });
   const ref = useRef<HTMLDivElement>(null);
 
   useEffect(() => {
@@ -24,6 +25,23 @@ export function MultiSelect({ options, value, onChange, placeholder = "Select...
     const onDoc = (e: MouseEvent) => { if (ref.current && !ref.current.contains(e.target as Node)) { setOpen(false); setQ(""); } };
     document.addEventListener("mousedown", onDoc);
     return () => document.removeEventListener("mousedown", onDoc);
+  }, [open]);
+
+  // Open upward when there isn't room below; cap height to the available space.
+  useEffect(() => {
+    if (!open || !ref.current) return;
+    const decide = () => {
+      const r = ref.current!.getBoundingClientRect();
+      const gap = 8, desired = 320, minH = 180;
+      const below = window.innerHeight - r.bottom - gap;
+      const above = r.top - gap;
+      const up = below < Math.min(desired, minH) && above > below;
+      setMenu({ up, maxH: Math.max(140, Math.min(desired, up ? above : below)) });
+    };
+    decide();
+    window.addEventListener("resize", decide);
+    window.addEventListener("scroll", decide, true);
+    return () => { window.removeEventListener("resize", decide); window.removeEventListener("scroll", decide, true); };
   }, [open]);
 
   const filtered = useMemo(() => {
@@ -52,7 +70,13 @@ export function MultiSelect({ options, value, onChange, placeholder = "Select...
       </button>
 
       {open && (
-        <div className="absolute top-full left-0 mt-1.5 z-50 min-w-full w-max max-w-[280px] rounded-lg border border-border bg-popover shadow-xl overflow-hidden animate-scale-in origin-top-left max-h-[320px] flex flex-col">
+        <div
+          style={{ maxHeight: menu.maxH }}
+          className={cn(
+            "absolute left-0 z-50 min-w-full w-max max-w-[280px] rounded-lg border border-border bg-popover shadow-xl overflow-hidden animate-scale-in flex flex-col",
+            menu.up ? "bottom-full mb-1.5 origin-bottom-left" : "top-full mt-1.5 origin-top-left",
+          )}
+        >
           {options.length > 6 && (
             <div className="p-2 border-b border-border shrink-0">
               <div className="relative">
@@ -62,7 +86,7 @@ export function MultiSelect({ options, value, onChange, placeholder = "Select...
               </div>
             </div>
           )}
-          <div className="overflow-auto py-1">
+          <div className="overflow-auto py-1 flex-1 min-h-0">
             {options.length > 0 && (
               <button type="button" onClick={() => onChange(allSelected ? [] : options.map((o) => o.value))}
                 className="w-full px-3 py-1.5 mb-1 border-b border-border/60 text-[12px] font-semibold text-primary hover:bg-muted text-left outline-none">
