@@ -285,6 +285,7 @@ export default function ChatPanel({
   uploadProgress, onAddNote,
 }: ChatPanelProps) {
   const [assignOpen, setAssignOpen] = useState(false);
+  const [assignQuery, setAssignQuery] = useState("");
   const [statusOpen, setStatusOpen] = useState(false);
   const [snoozeOpen, setSnoozeOpen] = useState(false);
   const [customSnooze, setCustomSnooze] = useState("");
@@ -481,32 +482,44 @@ export default function ChatPanel({
                   {assignOpen && (
                     <>
                       <div className="fixed inset-0 z-40" onClick={() => setAssignOpen(false)} />
-                      <div className="absolute right-0 top-full mt-1 z-50 w-56 max-h-[320px] overflow-auto rounded-lg border border-border bg-popover shadow-xl py-1 animate-scale-in">
-                        <p className="px-3 py-1.5 text-[10px] font-bold uppercase tracking-wider text-muted-foreground">Assign to</p>
-                        {(agents || []).map((ag) => (
-                          <button
-                            key={ag.id}
-                            type="button"
-                            onClick={() => { onReassign?.(ag.id); setAssignOpen(false); }}
-                            className={cn("w-full flex items-center gap-2 px-3 py-1.5 text-[13px] text-left hover:bg-muted outline-none", ag.id === active.assigned_agent_id ? "text-primary font-semibold" : "text-foreground/90")}
-                          >
-                            <User className="w-3.5 h-3.5 shrink-0 opacity-70" />
-                            <span className="flex-1 truncate">{ag.full_name}</span>
-                            {ag.id === active.assigned_agent_id && <Check className="w-3.5 h-3.5 shrink-0" />}
-                          </button>
-                        ))}
-                        {active.assigned_agent_id && (
-                          <>
-                            <div className="my-1 border-t border-border" />
+                      <div className="absolute right-0 top-full mt-1 z-50 w-60 max-h-[340px] flex flex-col rounded-lg border border-border bg-popover shadow-xl animate-scale-in">
+                        <div className="p-2 border-b border-border shrink-0">
+                          <div className="relative">
+                            <Search className="absolute left-2.5 top-1/2 -translate-y-1/2 w-3.5 h-3.5 text-muted-foreground pointer-events-none" />
+                            <input autoFocus value={assignQuery} onChange={(e) => setAssignQuery(e.target.value)} placeholder="Search agent..."
+                              className="w-full h-8 pl-8 pr-2 rounded-md border border-input bg-background text-[13px] outline-none focus:border-primary" />
+                          </div>
+                        </div>
+                        <div className="overflow-auto py-1 flex-1 min-h-0">
+                          <p className="px-3 py-1 text-[10px] font-bold uppercase tracking-wider text-muted-foreground">Assign to</p>
+                          {(agents || []).filter((ag) => ag.full_name.toLowerCase().includes(assignQuery.toLowerCase())).map((ag) => (
                             <button
+                              key={ag.id}
                               type="button"
-                              onClick={() => { onUnassign?.(); setAssignOpen(false); }}
-                              className="w-full flex items-center gap-2 px-3 py-1.5 text-[13px] text-left text-amber-700 hover:bg-amber-50 outline-none"
+                              onClick={() => { onReassign?.(ag.id); setAssignOpen(false); setAssignQuery(""); }}
+                              className={cn("w-full flex items-center gap-2 px-3 py-1.5 text-[13px] text-left hover:bg-muted outline-none", ag.id === active.assigned_agent_id ? "text-primary font-semibold" : "text-foreground/90")}
                             >
-                              <XCircle className="w-3.5 h-3.5 shrink-0" />Unassign
+                              <User className="w-3.5 h-3.5 shrink-0 opacity-70" />
+                              <span className="flex-1 truncate">{ag.full_name}</span>
+                              {ag.id === active.assigned_agent_id && <Check className="w-3.5 h-3.5 shrink-0" />}
                             </button>
-                          </>
-                        )}
+                          ))}
+                          {(agents || []).filter((ag) => ag.full_name.toLowerCase().includes(assignQuery.toLowerCase())).length === 0 && (
+                            <p className="text-center text-xs text-muted-foreground py-3">No agents</p>
+                          )}
+                          {active.assigned_agent_id && (
+                            <>
+                              <div className="my-1 border-t border-border" />
+                              <button
+                                type="button"
+                                onClick={() => { onUnassign?.(); setAssignOpen(false); setAssignQuery(""); }}
+                                className="w-full flex items-center gap-2 px-3 py-1.5 text-[13px] text-left text-amber-700 hover:bg-amber-50 outline-none"
+                              >
+                                <XCircle className="w-3.5 h-3.5 shrink-0" />Unassign
+                              </button>
+                            </>
+                          )}
+                        </div>
                       </div>
                     </>
                   )}

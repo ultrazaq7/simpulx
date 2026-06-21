@@ -2,6 +2,7 @@ package main
 
 import (
 	"context"
+	"encoding/base64"
 	"encoding/json"
 
 	firebase "firebase.google.com/go/v4"
@@ -17,6 +18,11 @@ func (s *server) initFCMPush(ctx context.Context) {
 	// service-account JSON inline, preferred for our .env deploy) or a file path.
 	keyFile := config.Get("GOOGLE_APPLICATION_CREDENTIALS", "")
 	credJSON := config.Get("FCM_CREDENTIALS_JSON", "")
+	if b64 := config.Get("FCM_CREDENTIALS_JSON_B64", ""); b64 != "" {
+		if dec, err := base64.StdEncoding.DecodeString(b64); err == nil {
+			credJSON = string(dec)
+		}
+	}
 	mockMode := config.Get("FCM_MOCK", "true") == "true"
 
 	var app *firebase.App

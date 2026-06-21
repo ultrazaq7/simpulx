@@ -199,7 +199,7 @@ export default function ConversationList({
 
   const statusOptions: FilterOption[] = [
     { value: "open", label: "Open" },
-    { value: "pending", label: "Pending" },
+    { value: "snoozed", label: "Snoozed" },
     { value: "closed", label: "Closed" },
   ];
 
