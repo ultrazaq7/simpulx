@@ -23,7 +23,11 @@ module.exports = {
           foreground: "hsl(var(--primary-foreground))",
           light: "hsl(var(--primary-light))",
           dark: "hsl(var(--primary-dark))",
+          text: "hsl(var(--primary-text))",
         },
+        cold: { DEFAULT: "hsl(var(--cold))", bg: "hsl(var(--cold-bg))" },
+        warm: { DEFAULT: "hsl(var(--warm))", bg: "hsl(var(--warm-bg))" },
+        hot: { DEFAULT: "hsl(var(--hot))", bg: "hsl(var(--hot-bg))" },
         amber: {
           DEFAULT: "hsl(var(--amber))",
           foreground: "hsl(var(--amber-foreground))",

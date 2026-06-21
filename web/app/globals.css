@@ -32,7 +32,7 @@
     --secondary: 210 40% 96%;
     --secondary-foreground: 218 33% 18%;
     --muted: 213 32% 96%;
-    --muted-foreground: 218 12% 52%;    /* softer gray, easy on the eyes */
+    --muted-foreground: 218 13% 46%;    /* deepened to pass WCAG AA at 11-13px */
     --accent: 210 40% 96%;
     --accent-foreground: 218 33% 18%;
 
@@ -45,6 +45,19 @@
     --info-foreground: 0 0% 100%;
     --destructive: 0 84% 60%;           /* #EF4444 */
     --destructive-foreground: 0 0% 100%;
+
+    /* Lead temperature (heat) — a semantic scale, distinct from brand + status,
+       so "Cold" never renders as brand green. Text tokens pass AA on their bg. */
+    --cold: 211 28% 38%;                /* slate-blue */
+    --cold-bg: 210 38% 94%;
+    --warm: 35 96% 31%;                 /* deep amber */
+    --warm-bg: 41 82% 91%;
+    --hot: 4 74% 42%;                   /* red-700 */
+    --hot-bg: 5 78% 95%;
+
+    /* Brand for TEXT/links on light surfaces (AA >= 4.5:1). --primary stays the
+       fill color for buttons/active so the brand button is unchanged. */
+    --primary-text: 162 58% 27%;
 
     /* Lines & controls */
     --border: 216 28% 93%;
@@ -225,11 +238,11 @@ input, textarea, select, button { font-family: inherit; }
 /* Soft brand glow used on primary surfaces / active states */
 .ring-brand-soft { box-shadow: 0 0 0 1px hsl(var(--primary) / 0.12), 0 1px 2px hsl(var(--primary) / 0.08); }
 
-/* ---- Enterprise-flat focus: subtle primary border, no ring/glow ---- */
-/* Double-specificity to beat Tailwind utility classes like .focus\:ring-2:focus */
+/* ---- Focus: flat on the mouse, clearly visible on the keyboard (WCAG 2.4.7) ----
+   Text controls get a solid brand border + a faint 3px ring (Stripe/Linear style):
+   subtle enough to feel flat, strong enough to be a real focus indicator. */
 input:focus,
 input:focus-visible,
-input:focus-within,
 textarea:focus,
 textarea:focus-visible,
 select:focus,
@@ -241,11 +254,11 @@ select:focus-visible,
 input[class]:focus,
 textarea[class]:focus,
 select[class]:focus {
-  border-color: hsl(161 51% 36% / 0.4) !important;
+  border-color: hsl(var(--primary)) !important;
   --tw-ring-offset-shadow: 0 0 #0000 !important;
   --tw-ring-shadow: 0 0 #0000 !important;
   --tw-ring-color: transparent !important;
-  box-shadow: none !important;
+  box-shadow: 0 0 0 3px hsl(var(--primary) / 0.12) !important;
   outline: none !important;
 }
 
@@ -254,4 +267,31 @@ select[class]:focus {
   --tw-ring-offset-shadow: 0 0 #0000 !important;
   --tw-ring-shadow: 0 0 #0000 !important;
   --tw-ring-color: transparent !important;
+}
+
+/* Actionable controls: a keyboard-only ring. :focus-visible does not match a
+   mouse click on buttons/links, so the UI stays flat for mouse users while
+   keyboard users always get a visible indicator. */
+button:focus-visible,
+a:focus-visible,
+[role="button"]:focus-visible,
+[role="tab"]:focus-visible,
+[role="menuitem"]:focus-visible,
+[role="option"]:focus-visible,
+[tabindex]:focus-visible {
+  outline: 2px solid hsl(var(--primary) / 0.6);
+  outline-offset: 2px;
+  border-radius: var(--radius);
+}
+button:focus:not(:focus-visible),
+a:focus:not(:focus-visible) { outline: none; }
+
+/* Respect users who ask for less motion (accessibility). */
+@media (prefers-reduced-motion: reduce) {
+  *, *::before, *::after {
+    animation-duration: 0.01ms !important;
+    animation-iteration-count: 1 !important;
+    transition-duration: 0.01ms !important;
+    scroll-behavior: auto !important;
+  }
 }
