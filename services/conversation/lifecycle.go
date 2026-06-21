@@ -17,6 +17,7 @@ func (a *app) runLifecycle(ctx context.Context, interval time.Duration, idleHour
 			return
 		case <-t.C:
 			a.sweepIdle(ctx, idleHours)
+			a.sweepSnoozed(ctx)
 			a.sendDueDrips(ctx)
 		}
 	}
@@ -45,4 +46,27 @@ func (a *app) sweepIdle(ctx context.Context, idleHours int) int {
 		a.log.Info("auto-closed idle conversations", "count", n)
 	}
 	return n
+}
+
+// sweepSnoozed reopens snoozed conversations whose timer elapsed and drops a bell
+// notification on the assigned agent so they remember to follow up.
+func (a *app) sweepSnoozed(ctx context.Context) {
+	due, err := a.st.dueSnoozes(ctx)
+	if err != nil {
+		a.log.Error("snooze sweep query failed", "err", err)
+		return
+	}
+	for _, d := range due {
+		if err := a.st.reopenSnoozed(ctx, d.ConvID); err != nil {
+			a.log.Error("snooze reopen failed", "conv", d.ConvID, "err", err)
+			continue
+		}
+		if d.AgentID != nil && *d.AgentID != "" {
+			a.st.addNotification(ctx, d.OrgID, *d.AgentID, "snooze_due",
+				"Snooze ended", "Follow up with "+d.Contact, d.ConvID)
+		}
+	}
+	if len(due) > 0 {
+		a.log.Info("reopened snoozed conversations", "count", len(due))
+	}
 }

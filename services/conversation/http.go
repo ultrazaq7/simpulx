@@ -15,6 +15,7 @@ func (a *app) routes() http.Handler {
 		_, _ = w.Write([]byte("ok"))
 	})
 	mux.HandleFunc("POST /conversations/{id}/assign", a.handleAssign)
+	mux.HandleFunc("POST /conversations/{id}/snooze", a.handleSnooze)
 	mux.HandleFunc("POST /conversations/{id}/close", a.handleClose)
 	mux.HandleFunc("POST /debug/sweep", a.handleSweep)
 	return mux
@@ -69,6 +70,31 @@ func (a *app) handleAssign(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	writeJSON(w, map[string]any{"status": "assigned", "agent_id": ag.ID})
+}
+
+// POST /conversations/{id}/snooze  {"until": "RFC3339", "actor_id": "..."}
+func (a *app) handleSnooze(w http.ResponseWriter, r *http.Request) {
+	convID := r.PathValue("id")
+	var body struct {
+		Until   string `json:"until"`
+		ActorID string `json:"actor_id"`
+	}
+	_ = json.NewDecoder(r.Body).Decode(&body)
+	if body.Until == "" {
+		http.Error(w, "until required", http.StatusBadRequest)
+		return
+	}
+	ctx := r.Context()
+	meta, err := a.st.conversationMeta(ctx, convID)
+	if err != nil {
+		http.Error(w, "conversation not found", http.StatusNotFound)
+		return
+	}
+	if err := a.st.snooze(ctx, meta.OrgID, convID, body.ActorID, body.Until); err != nil {
+		http.Error(w, err.Error(), http.StatusInternalServerError)
+		return
+	}
+	writeJSON(w, map[string]any{"status": "snoozed"})
 }
 
 // POST /conversations/{id}/close  {"reason": "resolved"}

@@ -3,7 +3,7 @@ import { useState, useEffect, useCallback, useMemo } from "react";
 import {
   MessageSquare, ChevronRight, ChevronLeft, Check, Copy, X, Search,
   CheckCircle, RotateCcw, PanelRight, Lock, ChevronUp, ChevronDown,
-  Download, XCircle, User, FileText, Video,
+  Download, XCircle, User, FileText, Video, Clock,
 } from "lucide-react";
 import { cn, fmtTime } from "@/lib/utils";
 import { Tip } from "@/components/ui/tooltip";
@@ -15,6 +15,20 @@ import Composer from "./Composer";
 import LostReasonDialog from "./LostReasonDialog";
 import CallOverlay from "./CallOverlay";
 import { api } from "@/lib/api";
+
+// Snooze quick presets, computed at click time.
+function snoozePresets(): { label: string; until: Date }[] {
+  const now = new Date();
+  const plus = (h: number) => new Date(now.getTime() + h * 3600 * 1000);
+  const tomorrow9 = new Date(now); tomorrow9.setDate(now.getDate() + 1); tomorrow9.setHours(9, 0, 0, 0);
+  const nextMon = new Date(now); const add = ((8 - nextMon.getDay()) % 7) || 7; nextMon.setDate(now.getDate() + add); nextMon.setHours(9, 0, 0, 0);
+  return [
+    { label: "1 hour", until: plus(1) },
+    { label: "3 hours", until: plus(3) },
+    { label: "Tomorrow 9:00", until: tomorrow9 },
+    { label: "Next Monday", until: nextMon },
+  ];
+}
 
 // --- Timeline types (shared with page.tsx) ---
 export type Item =
@@ -214,6 +228,7 @@ function MediaGallery({ messages, currentId, active, onClose, onNavigate }: {
 const STATUS_CHIP: Record<string, string> = {
   open: "bg-success/10 text-success",
   pending: "bg-warning/15 text-amber-700",
+  snoozed: "bg-amber-100 text-amber-700",
   closed: "bg-muted text-muted-foreground",
 };
 
@@ -253,6 +268,7 @@ export interface ChatPanelProps {
   canAssign?: boolean; // owner/admin/manager: may (re)assign / unassign
   onReassign?: (agentId: string) => void;
   onUnassign?: () => void;
+  onSnooze?: (untilISO: string) => void;
   onForward?: (text: string) => void;
   uploadProgress?: number | null; // 0-100 while an attachment uploads
   onAddNote?: (body: string) => Promise<void>; // post an internal note (AI Smart Summary -> Confirm)
@@ -265,10 +281,16 @@ export default function ChatPanel({
   draft, setDraft, tab, setTab, quickReplies,
   pendingFiles, pendingPreviews, fileRef, onFile, cancelSendFile, removePendingFile,
   busy, onSubmit, onSendVoice, showDetails, onToggleDetails, notify, showAgent, onForward,
-  agents, canAssign, onReassign, onUnassign,
+  agents, canAssign, onReassign, onUnassign, onSnooze,
   uploadProgress, onAddNote,
 }: ChatPanelProps) {
   const [assignOpen, setAssignOpen] = useState(false);
+  const [statusOpen, setStatusOpen] = useState(false);
+  const [snoozeOpen, setSnoozeOpen] = useState(false);
+  const [customSnooze, setCustomSnooze] = useState("");
+  const [closeStageOpen, setCloseStageOpen] = useState(false);
+  const [closeStageId, setCloseStageId] = useState("");
+  const doSnooze = (d: Date) => { onSnooze?.(d.toISOString()); setSnoozeOpen(false); };
   const [previewMediaId, setPreviewMediaId] = useState<string | null>(null);
   const [outcomeOpen, setOutcomeOpen] = useState(false);
   const [activeCallId, setActiveCallId] = useState<string | null>(null);
@@ -496,32 +518,87 @@ export default function ChatPanel({
                 </span>
               ))}
 
-              {/* Status chip */}
-              <span className={cn("inline-flex items-center px-2.5 h-6 rounded-md text-[11px] font-semibold capitalize", STATUS_CHIP[active.status] ?? STATUS_CHIP.closed)}>
-                {active.status}
-              </span>
-
-              {/* Reopen if closed */}
-              {active.status === "closed" && (
+              {/* Status action dropdown: Open / Snooze / Closed */}
+              <div className="relative">
                 <button
-                  onClick={onReopen}
-                  className="inline-flex items-center gap-1 px-2.5 h-8 rounded-md border border-border text-xs font-semibold text-foreground/80 hover:bg-muted outline-none transition-colors"
+                  type="button"
+                  onClick={() => setStatusOpen((v) => !v)}
+                  className={cn("inline-flex items-center gap-1 px-2.5 h-7 rounded-md text-[11px] font-semibold capitalize outline-none transition-opacity hover:opacity-90", STATUS_CHIP[active.status] ?? STATUS_CHIP.closed)}
                 >
-                  <RotateCcw className="w-4 h-4" />
-                  Reopen
+                  {active.status}
+                  <ChevronDown className={cn("w-3 h-3 transition-transform", statusOpen && "rotate-180")} />
                 </button>
+                {statusOpen && (
+                  <>
+                    <div className="fixed inset-0 z-40" onClick={() => setStatusOpen(false)} />
+                    <div className="absolute right-0 top-full mt-1 z-50 w-40 rounded-lg border border-border bg-popover shadow-xl py-1 animate-scale-in">
+                      <button type="button" onClick={() => { setStatusOpen(false); if (active.status !== "open") onReopen(); }}
+                        className="w-full flex items-center gap-2 px-3 py-1.5 text-[13px] text-left hover:bg-muted outline-none">
+                        <RotateCcw className="w-3.5 h-3.5 text-primary" />Open
+                      </button>
+                      <button type="button" onClick={() => { setStatusOpen(false); setSnoozeOpen(true); }}
+                        className="w-full flex items-center gap-2 px-3 py-1.5 text-[13px] text-left hover:bg-muted outline-none">
+                        <Clock className="w-3.5 h-3.5 text-amber-600" />Snooze
+                      </button>
+                      <button type="button" onClick={() => { setStatusOpen(false); setCloseStageId(active.stage_id || ""); setCloseStageOpen(true); }}
+                        className="w-full flex items-center gap-2 px-3 py-1.5 text-[13px] text-left hover:bg-muted outline-none">
+                        <CheckCircle className="w-3.5 h-3.5 text-success" />Closed
+                      </button>
+                    </div>
+                  </>
+                )}
+              </div>
+
+              {/* Snooze picker */}
+              {snoozeOpen && (
+                <div className="fixed inset-0 z-[60] grid place-items-center">
+                  <div className="absolute inset-0 bg-black/40 backdrop-blur-[2px] animate-fade-in" onClick={() => setSnoozeOpen(false)} />
+                  <div className="relative bg-card rounded-xl border border-border shadow-2xl w-full max-w-xs p-5 animate-scale-in">
+                    <div className="flex items-center justify-between mb-4">
+                      <h3 className="text-[15px] font-bold text-foreground flex items-center gap-2"><Clock className="w-4 h-4 text-amber-600" />Snooze until</h3>
+                      <button onClick={() => setSnoozeOpen(false)} className="p-1 rounded-md text-muted-foreground hover:bg-muted outline-none"><X className="w-4 h-4" /></button>
+                    </div>
+                    <div className="grid grid-cols-2 gap-2 mb-4">
+                      {snoozePresets().map((p) => (
+                        <button key={p.label} onClick={() => doSnooze(p.until)}
+                          className="px-3 py-2 rounded-lg border border-border text-[13px] font-medium text-foreground/90 hover:border-primary/40 hover:bg-muted outline-none transition-colors">{p.label}</button>
+                      ))}
+                    </div>
+                    <label className="block text-[11px] font-bold uppercase tracking-wider text-muted-foreground mb-1.5">Custom date &amp; time</label>
+                    <div className="flex gap-2">
+                      <input type="datetime-local" value={customSnooze} onChange={(e) => setCustomSnooze(e.target.value)}
+                        className="flex-1 min-w-0 h-9 px-3 rounded-md border border-input bg-background text-[13px] outline-none focus:border-primary" />
+                      <button disabled={!customSnooze} onClick={() => { if (customSnooze) doSnooze(new Date(customSnooze)); }}
+                        className="px-3 h-9 rounded-md bg-primary text-white text-[13px] font-semibold disabled:opacity-50 outline-none">Set</button>
+                    </div>
+                  </div>
+                </div>
               )}
 
-              {/* Resolve */}
-              {active.status !== "closed" && (
-                <Tip label="Resolve conversation">
-                  <button
-                    onClick={onResolve}
-                    className="p-1.5 rounded-md text-success hover:bg-success/10 outline-none transition-colors"
-                  >
-                    <CheckCircle className="w-5 h-5" />
-                  </button>
-                </Tip>
+              {/* Force final stage before closing */}
+              {closeStageOpen && (
+                <div className="fixed inset-0 z-[60] grid place-items-center">
+                  <div className="absolute inset-0 bg-black/40 backdrop-blur-[2px] animate-fade-in" onClick={() => setCloseStageOpen(false)} />
+                  <div className="relative bg-card rounded-xl border border-border shadow-2xl w-full max-w-sm p-5 animate-scale-in">
+                    <h3 className="text-[15px] font-bold text-foreground mb-1">Close conversation</h3>
+                    <p className="text-[12.5px] text-muted-foreground mb-4">Pick the final stage for this lead before closing.</p>
+                    <div className="space-y-1.5 max-h-[260px] overflow-auto mb-4">
+                      {stages.map((st) => (
+                        <button key={st.id} onClick={() => setCloseStageId(st.id)}
+                          className={cn("w-full flex items-center gap-2 px-3 py-2 rounded-lg border text-[13px] text-left outline-none transition-colors",
+                            closeStageId === st.id ? "border-primary bg-primary/5 text-foreground font-semibold" : "border-border hover:bg-muted text-foreground/90")}>
+                          <span className="flex-1 truncate">{st.name}</span>
+                          {closeStageId === st.id && <Check className="w-4 h-4 text-primary shrink-0" />}
+                        </button>
+                      ))}
+                    </div>
+                    <div className="flex justify-end gap-2">
+                      <button onClick={() => setCloseStageOpen(false)} className="px-4 h-9 rounded-md border border-border text-[13px] font-semibold text-foreground/80 hover:bg-muted outline-none">Cancel</button>
+                      <button disabled={!closeStageId} onClick={() => { onStageChange(closeStageId); onResolve(); setCloseStageOpen(false); }}
+                        className="px-4 h-9 rounded-md bg-primary text-white text-[13px] font-semibold disabled:opacity-50 outline-none inline-flex items-center gap-1.5"><CheckCircle className="w-4 h-4" />Close</button>
+                    </div>
+                  </div>
+                </div>
               )}
 
               {/* Search messages */}

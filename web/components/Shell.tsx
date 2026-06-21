@@ -13,9 +13,17 @@ import { api, clearSession, getToken, getUser, setSession } from "@/lib/api";
 import { initials, cn } from "@/lib/utils";
 import { Tip } from "@/components/ui/tooltip";
 import { usePermissions } from "@/lib/permissions";
-import type { User } from "@/lib/types";
+import type { AppNotification, User } from "@/lib/types";
 import { useI18n } from "@/lib/i18n";
 import IncomingCallListener from "@/components/IncomingCallListener";
+
+function relAgo(iso: string): string {
+  const s = Math.floor((Date.now() - new Date(iso).getTime()) / 1000);
+  if (s < 60) return "now";
+  if (s < 3600) return `${Math.floor(s / 60)}m`;
+  if (s < 86400) return `${Math.floor(s / 3600)}h`;
+  return `${Math.floor(s / 86400)}d`;
+}
 
 const NAV_TOP = [
   { href: "/dashboard", icon: LayoutDashboard, labelKey: "nav.dashboard", perm: "menu_dashboard" },
@@ -103,6 +111,18 @@ export function Shell({ children }: { children: ReactNode }) {
   const [unreadCount, setUnreadCount] = useState(0);
   const [hasNotifs, setHasNotifs] = useState(false);
   const [alerts, setAlerts] = useState<{ id: string; title: string; body: string; time: Date }[]>([]);
+  const [notifs, setNotifs] = useState<AppNotification[]>([]);
+  const [notifUnread, setNotifUnread] = useState(0);
+
+  const loadNotifs = () => {
+    if (!getToken()) return;
+    api.listNotifications().then((r) => { setNotifs(r.notifications || []); setNotifUnread(r.unread || 0); }).catch(() => {});
+  };
+  useEffect(() => {
+    loadNotifs();
+    const t = setInterval(loadNotifs, 30000); // poll; realtime push lands in a follow-up
+    return () => clearInterval(t);
+  }, []);
   const [langOpen, setLangOpen] = useState(false);
 
   useEffect(() => {
@@ -367,9 +387,13 @@ export function Shell({ children }: { children: ReactNode }) {
 
           {/* Notifications */}
           <Tip label="Notifications" side="bottom">
-            <button onClick={() => { setNotifOpen(!notifOpen); setHasNotifs(false); }} className="p-2 rounded-lg text-muted-foreground hover:bg-muted hover:text-foreground transition-colors relative outline-none">
+            <button onClick={() => { const next = !notifOpen; setNotifOpen(next); setHasNotifs(false); if (next) loadNotifs(); }} className="p-2 rounded-lg text-muted-foreground hover:bg-muted hover:text-foreground transition-colors relative outline-none">
               <Bell className="w-[20px] h-[20px]" />
-              {hasNotifs && <span className="absolute top-1.5 right-1.5 w-2 h-2 bg-red-500 rounded-full ring-2 ring-card" />}
+              {notifUnread > 0 ? (
+                <span className="absolute -top-0.5 -right-0.5 min-w-[16px] h-4 px-1 grid place-items-center text-[10px] font-bold text-white bg-red-500 rounded-full ring-2 ring-card">{notifUnread > 9 ? "9+" : notifUnread}</span>
+              ) : hasNotifs ? (
+                <span className="absolute top-1.5 right-1.5 w-2 h-2 bg-red-500 rounded-full ring-2 ring-card" />
+              ) : null}
             </button>
           </Tip>
 
@@ -510,10 +534,15 @@ export function Shell({ children }: { children: ReactNode }) {
           <div className="absolute top-16 right-20 w-80 bg-popover border border-border shadow-xl rounded-lg z-50 flex flex-col max-h-[400px] animate-scale-in origin-top-right">
             <div className="p-4 border-b border-border flex items-center justify-between">
               <h3 className="font-bold text-[15px] text-foreground">Notifications</h3>
-              {alerts.length > 0 && <button onClick={() => setAlerts([])} className="text-xs text-muted-foreground hover:text-foreground font-semibold">Clear</button>}
+              {notifUnread > 0 && (
+                <button
+                  onClick={() => { api.markNotificationsRead().catch(() => {}); setNotifs((ns) => ns.map((n) => ({ ...n, read_at: n.read_at || new Date().toISOString() }))); setNotifUnread(0); }}
+                  className="text-xs text-muted-foreground hover:text-foreground font-semibold"
+                >Mark all read</button>
+              )}
             </div>
             <div className="overflow-y-auto flex-1 p-2">
-              {alerts.length === 0 ? (
+              {notifs.length === 0 ? (
                 <div className="p-8 flex flex-col items-center justify-center text-center">
                   <div className="w-11 h-11 rounded-xl bg-muted grid place-items-center mb-2.5">
                     <CheckCircle2 className="w-6 h-6 text-primary/50" />
@@ -523,11 +552,23 @@ export function Shell({ children }: { children: ReactNode }) {
                 </div>
               ) : (
                 <div className="flex flex-col gap-1">
-                  {alerts.map(a => (
-                    <div key={a.id} className="p-3 rounded-md hover:bg-muted transition-colors border-l-2 border-primary/40">
-                      <p className="text-[13px] font-bold text-foreground mb-0.5">{a.title}</p>
-                      <p className="text-xs text-muted-foreground leading-snug">{a.body}</p>
-                    </div>
+                  {notifs.map((n) => (
+                    <button
+                      key={n.id}
+                      onClick={() => {
+                        if (!n.read_at) { api.markNotificationsRead(n.id).catch(() => {}); setNotifs((ns) => ns.map((x) => x.id === n.id ? { ...x, read_at: new Date().toISOString() } : x)); setNotifUnread((u) => Math.max(0, u - 1)); }
+                        setNotifOpen(false);
+                        if (n.conversation_id) router.push(`/inbox?c=${n.conversation_id}`);
+                      }}
+                      className={cn("w-full text-left p-3 rounded-md hover:bg-muted transition-colors border-l-2", n.read_at ? "border-transparent opacity-70" : "border-primary")}
+                    >
+                      <div className="flex items-center gap-1.5 mb-0.5">
+                        {!n.read_at && <span className="w-1.5 h-1.5 rounded-full bg-primary shrink-0" />}
+                        <p className="text-[13px] font-bold text-foreground flex-1 truncate">{n.title}</p>
+                        <span className="text-[10px] text-muted-foreground shrink-0">{relAgo(n.created_at)}</span>
+                      </div>
+                      {n.body && <p className="text-xs text-muted-foreground leading-snug">{n.body}</p>}
+                    </button>
                   ))}
                 </div>
               )}

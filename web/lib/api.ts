@@ -1,4 +1,4 @@
-import type { Agent, AIAgent, Analytics, AuditEntry, Automation, AutomationAction, AutomationDetail, AutomationFlow, Broadcast, Campaign, CampaignAnalyticsRow, CampaignDetail, Channel, Contact, Conversation, Department, InternalNote, KnowledgeSource, Message, Organization, OrgSettings, QuickReply, RolePermissions, Sequence, SequenceDetail, SequenceStep, Stats, DashboardCards, Template, TemplateButton, TemplateComponents, User, UserAccount, UserActivity, WebApiSource } from "./types";
+import type { Agent, AIAgent, Analytics, AppNotification, AuditEntry, Automation, AutomationAction, AutomationDetail, AutomationFlow, Broadcast, Campaign, CampaignAnalyticsRow, CampaignDetail, Channel, Contact, Conversation, Department, InternalNote, KnowledgeSource, Message, Organization, OrgSettings, QuickReply, RolePermissions, Sequence, SequenceDetail, SequenceStep, Stats, DashboardCards, Template, TemplateButton, TemplateComponents, User, UserAccount, UserActivity, WebApiSource } from "./types";
 
 const API = process.env.NEXT_PUBLIC_API_URL || "http://localhost:8080";
 export const WS_URL = process.env.NEXT_PUBLIC_WS_URL || "ws://localhost:8082";
@@ -271,6 +271,11 @@ export const api = {
     req(`/api/conversations/${id}/assign`, { method: "POST", body: JSON.stringify(agentId ? { agent_id: agentId } : {}) }),
   unassign: (id: string) =>
     req(`/api/conversations/${id}/assign`, { method: "POST", body: JSON.stringify({ unassign: true }) }),
+  snooze: (id: string, until: string) =>
+    req(`/api/conversations/${id}/snooze`, { method: "POST", body: JSON.stringify({ until }) }),
+  listNotifications: () => req<{ notifications: AppNotification[]; unread: number }>("/api/notifications"),
+  markNotificationsRead: (id?: string) =>
+    req("/api/notifications/read", { method: "POST", body: JSON.stringify(id ? { id } : {}) }),
   close: (id: string, reason = "resolved") =>
     req(`/api/conversations/${id}/close`, { method: "POST", body: JSON.stringify({ reason }) }),
   toggleBot: (id: string, active: boolean) =>

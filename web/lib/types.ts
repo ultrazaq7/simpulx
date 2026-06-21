@@ -75,6 +75,16 @@ export interface Analytics {
   lost_reasons?: { reason: string; count: number }[];
 }
 
+export interface AppNotification {
+  id: string;
+  type: string;
+  title: string;
+  body: string | null;
+  conversation_id: string | null;
+  read_at: string | null;
+  created_at: string;
+}
+
 export interface Message {
   id: string;
   direction: "inbound" | "outbound";

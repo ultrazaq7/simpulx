@@ -166,7 +166,7 @@ func (s *store) closeConversation(ctx context.Context, orgID, convID, reason str
 func (s *store) idleConversations(ctx context.Context, idleHours int) ([]idleConv, error) {
 	rows, err := s.pool.Query(ctx,
 		`SELECT id, organization_id FROM conversations
-		  WHERE status <> 'closed'
+		  WHERE status NOT IN ('closed', 'snoozed')
 		    AND last_message_at IS NOT NULL
 		    AND last_message_at < now() - make_interval(hours => $1)`,
 		idleHours,
@@ -189,4 +189,70 @@ func (s *store) idleConversations(ctx context.Context, idleHours int) ([]idleCon
 type idleConv struct {
 	ID    string
 	OrgID string
+}
+
+// snooze parks a conversation until `until`; the lifecycle ticker reopens it.
+func (s *store) snooze(ctx context.Context, orgID, convID, actorID string, until string) error {
+	tx, err := s.pool.Begin(ctx)
+	if err != nil {
+		return err
+	}
+	defer tx.Rollback(ctx)
+	if _, err = tx.Exec(ctx,
+		`UPDATE conversations SET status='snoozed', snoozed_until=$2::timestamptz, updated_at=now() WHERE id=$1`,
+		convID, until); err != nil {
+		return err
+	}
+	if _, err = tx.Exec(ctx,
+		`INSERT INTO conversation_events (organization_id, conversation_id, type, actor_type, actor_id, detail)
+		 VALUES ($1,$2,'snoozed','agent',NULLIF($3,'')::uuid, jsonb_build_object('until',$4::text))`,
+		orgID, convID, actorID, until); err != nil {
+		return err
+	}
+	return tx.Commit(ctx)
+}
+
+type dueSnooze struct {
+	ConvID, OrgID string
+	AgentID       *string
+	Contact       string
+}
+
+// dueSnoozes returns snoozed conversations whose timer has elapsed.
+func (s *store) dueSnoozes(ctx context.Context) ([]dueSnooze, error) {
+	rows, err := s.pool.Query(ctx,
+		`SELECT cv.id, cv.organization_id, cv.assigned_agent_id::text,
+		        COALESCE(ct.full_name, ct.phone, 'a contact')
+		   FROM conversations cv LEFT JOIN contacts ct ON ct.id = cv.contact_id
+		  WHERE cv.status='snoozed' AND cv.snoozed_until IS NOT NULL AND cv.snoozed_until <= now()
+		  LIMIT 200`)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+	var out []dueSnooze
+	for rows.Next() {
+		var d dueSnooze
+		if err := rows.Scan(&d.ConvID, &d.OrgID, &d.AgentID, &d.Contact); err != nil {
+			return nil, err
+		}
+		out = append(out, d)
+	}
+	return out, rows.Err()
+}
+
+// reopenSnoozed flips a due snooze back to open.
+func (s *store) reopenSnoozed(ctx context.Context, convID string) error {
+	_, err := s.pool.Exec(ctx,
+		`UPDATE conversations SET status='open', snoozed_until=NULL, updated_at=now()
+		  WHERE id=$1 AND status='snoozed'`, convID)
+	return err
+}
+
+// addNotification inserts a bell notification for a user.
+func (s *store) addNotification(ctx context.Context, orgID, userID, typ, title, body, convID string) {
+	_, _ = s.pool.Exec(ctx,
+		`INSERT INTO notifications (organization_id, user_id, type, title, body, conversation_id)
+		 VALUES ($1,$2::uuid,$3,$4,NULLIF($5,''),NULLIF($6,'')::uuid)`,
+		orgID, userID, typ, title, body, convID)
 }

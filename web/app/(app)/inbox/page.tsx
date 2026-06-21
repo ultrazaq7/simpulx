@@ -418,6 +418,7 @@ export default function InboxPage() {
           canAssign={showAgent}
           onReassign={(agentId) => doAction(() => api.assign(active!.id, agentId), "Conversation reassigned")}
           onUnassign={() => doAction(() => api.unassign(active!.id), "Conversation unassigned")}
+          onSnooze={(until) => doAction(() => api.snooze(active!.id, until), "Conversation snoozed")}
           onForward={(t) => setForwardText(t)}
           uploadProgress={uploadProgress}
           onAddNote={async (body) => {

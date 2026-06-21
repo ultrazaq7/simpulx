@@ -219,6 +219,8 @@ func (s *store) insertInbound(ctx context.Context, orgID, convID, msgType, body,
 		        window_expires_at = now() + interval '24 hours',
 		        last_message_preview = LEFT($2, 200),
 		        unread_count = unread_count + 1,
+		        status = CASE WHEN status = 'snoozed' THEN 'open' ELSE status END,
+		        snoozed_until = CASE WHEN status = 'snoozed' THEN NULL ELSE snoozed_until END,
 		        updated_at = now()
 		  WHERE id = $1 RETURNING assigned_agent_id`,
 		convID, previewText,
