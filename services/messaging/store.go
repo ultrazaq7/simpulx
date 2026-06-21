@@ -93,6 +93,11 @@ type convInfo struct {
 	AIAgentID   *string
 }
 
+// reopenWindow: a thread closed within this window (except the 30-day dormant
+// auto-close) is revived on the contact's next message instead of spawning a new
+// lead instance — a customer continuing soon after a close is the same lead.
+const reopenWindow = "7 days"
+
 // getOrCreateConversation menemukan percakapan open milik contact (lead instance
 // paling baru aktif, lintas campaign), atau membuat baru. Dipakai untuk pesan
 // TANPA sinyal campaign (decision #1: attach ke lead instance terakhir aktif).
@@ -130,6 +135,28 @@ func (s *store) getOrCreateConversation(ctx context.Context, orgID, contactID, c
 		  ORDER BY last_message_at DESC NULLS LAST
 		  LIMIT 1`,
 		orgID, contactID,
+	).Scan(&ci.ID, &ci.IsBotActive, &ci.AIAgentID)
+	if err == nil {
+		_ = tx.Commit(ctx)
+		return ci, false, nil
+	}
+	if !errors.Is(err, pgx.ErrNoRows) {
+		return ci, false, err
+	}
+	// Re-entry within the reopen window: revive the most recent recently-closed
+	// thread (not the 30-day dormant close) rather than splitting off a new
+	// instance, so a quick continuation stays in the same conversation.
+	err = tx.QueryRow(ctx,
+		`UPDATE conversations
+		    SET status='open', closed_at=NULL, closed_reason=NULL, updated_at=now()
+		  WHERE id = (
+		      SELECT id FROM conversations
+		       WHERE organization_id=$1 AND contact_id=$2 AND status='closed'
+		         AND closed_reason IS DISTINCT FROM 'dormant_30d'
+		         AND closed_at > now() - $3::interval
+		       ORDER BY last_message_at DESC NULLS LAST LIMIT 1)
+		  RETURNING id, is_bot_active, ai_agent_id`,
+		orgID, contactID, reopenWindow,
 	).Scan(&ci.ID, &ci.IsBotActive, &ci.AIAgentID)
 	if err == nil {
 		_ = tx.Commit(ctx)
@@ -358,6 +385,28 @@ func (s *store) getOrCreateThread(ctx context.Context, orgID, contactID, channel
 	if err == nil {
 		_ = tx.Commit(ctx)
 		s.routeThread(ctx, campaignID, branchID, ci.ID) // tag branch/campaign + round-robin assign
+		return ci, nil
+	}
+	if !errors.Is(err, pgx.ErrNoRows) {
+		return ci, err
+	}
+	// 2.5) Re-entry within the reopen window: revive a recently-closed thread for
+	// THIS branch/campaign (not the 30-day dormant close) instead of creating a new
+	// instance. Keeps the existing agent assignment and campaign tagging.
+	err = tx.QueryRow(ctx,
+		`UPDATE conversations
+		    SET status='open', closed_at=NULL, closed_reason=NULL, updated_at=now()
+		  WHERE id = (
+		      SELECT id FROM conversations
+		       WHERE organization_id=$1 AND contact_id=$2 AND status='closed'
+		         AND closed_reason IS DISTINCT FROM 'dormant_30d'
+		         AND closed_at > now() - $5::interval
+		         AND CASE WHEN $4 <> '' THEN branch_id = NULLIF($4,'')::uuid ELSE campaign_id = $3 END
+		       ORDER BY last_message_at DESC NULLS LAST LIMIT 1)
+		  RETURNING id, is_bot_active, ai_agent_id`,
+		orgID, contactID, campaignID, branchID, reopenWindow).Scan(&ci.ID, &ci.IsBotActive, &ci.AIAgentID)
+	if err == nil {
+		_ = tx.Commit(ctx)
 		return ci, nil
 	}
 	if !errors.Is(err, pgx.ErrNoRows) {
