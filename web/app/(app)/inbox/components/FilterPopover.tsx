@@ -30,10 +30,11 @@ interface FilterPopoverProps {
 // SleekFlow-style master-detail filter: categories on the left, the selected
 // category's searchable options on the right.
 export default function FilterPopover({ categories, toggles, activeCount, onClearAll, onClose }: FilterPopoverProps) {
-  const [activeKey, setActiveKey] = useState(categories[0]?.key ?? "");
+  const [activeKey, setActiveKey] = useState("");
   const [search, setSearch] = useState("");
 
-  const activeCat = categories.find((c) => c.key === activeKey) ?? categories[0];
+  // No category open by default; the detail panel reveals on hover (or click).
+  const activeCat = categories.find((c) => c.key === activeKey);
 
   const filteredOptions = useMemo(() => {
     if (!activeCat) return [];
@@ -65,6 +66,7 @@ export default function FilterPopover({ categories, toggles, activeCount, onClea
                 <button
                   key={c.key}
                   type="button"
+                  onMouseEnter={() => { setActiveKey(c.key); setSearch(""); }}
                   onClick={() => { setActiveKey(c.key); setSearch(""); }}
                   className={cn(
                     "w-full flex items-center gap-2 pl-4 pr-3 py-2.5 text-[13px] font-medium outline-none transition-colors",
@@ -109,8 +111,13 @@ export default function FilterPopover({ categories, toggles, activeCount, onClea
           </button>
         </div>
 
-        {/* ── Right: options for the active category ── */}
+        {/* ── Right: options for the hovered category ── */}
         <div className="flex-1 min-w-0 flex flex-col max-h-[420px]">
+          {!activeCat && (
+            <div className="flex-1 grid place-items-center px-6 text-center min-h-[180px]">
+              <p className="text-[13px] text-muted-foreground">Hover a filter on the left to see its options</p>
+            </div>
+          )}
           {activeCat && (
             <>
               <div className="flex items-center justify-between px-4 pt-3 pb-2">
@@ -142,7 +149,6 @@ export default function FilterPopover({ categories, toggles, activeCount, onClea
                 <div className="relative">
                   <Search className="absolute left-2.5 top-1/2 -translate-y-1/2 w-4 h-4 text-muted-foreground pointer-events-none" />
                   <input
-                    autoFocus
                     value={search}
                     onChange={(e) => setSearch(e.target.value)}
                     placeholder={`Search ${activeCat.label.toLowerCase()}`}

@@ -1,7 +1,7 @@
 "use client";
 import { memo } from "react";
 import {
-  Image as ImageIcon, Video, FileText, Headset, Zap, Clock, Phone, Sticker, Mic,
+  Image as ImageIcon, Video, FileText, Headset, Zap, Clock, Phone, Sticker, Mic, User,
 } from "lucide-react";
 import { initials, channelColor, channelTextColor, relTime, cn } from "@/lib/utils";
 import { Tip } from "@/components/ui/tooltip";
@@ -26,10 +26,9 @@ const PREVIEW_MEDIA: Record<string, { icon: any; label: string }> = {
   "[audio]": { icon: Mic, label: "Voice message" },
 };
 
-// Lead temperature -> a small semantic dot (never brand green), shown only as a
-// last-resort signal for hot/warm leads that have no more urgent flag.
-const TEMP_DOT: Record<string, string> = { hot: "bg-hot", warm: "bg-warm" };
-const TEMP_LABEL: Record<string, string> = { hot: "Hot lead", warm: "Warm lead" };
+// Lead temperature -> the avatar status dot (replaces the channel dot).
+const TEMP_DOT: Record<string, string> = { hot: "bg-hot", warm: "bg-warm", cold: "bg-cold" };
+const TEMP_LABEL: Record<string, string> = { hot: "Hot lead", warm: "Warm lead", cold: "Cold lead" };
 
 const ConversationCard = memo(function ConversationCard({
   conv: c, isActive, onClick, messages, showAgent, channelName, dense,
@@ -53,11 +52,11 @@ const ConversationCard = memo(function ConversationCard({
 
   // One left accent, by priority: unread > call > follow-up.
   const accent = unread ? "bg-primary" : needsCall ? "bg-info" : needsFollowUp ? "bg-warm" : "";
-  // Temperature dot only as a fallback signal for hot/warm.
-  const temp = (c.interest_level === "hot" || c.interest_level === "warm") ? c.interest_level : null;
+  const temp = c.interest_level && TEMP_DOT[c.interest_level] ? c.interest_level : null;
 
   const media = c.last_message_preview ? PREVIEW_MEDIA[c.last_message_preview] : undefined;
   const cc = channelColor(c.channel);
+  const hasMeta = !!c.campaign_name || (showAgent && !!c.agent_name);
 
   return (
     <div
@@ -70,20 +69,21 @@ const ConversationCard = memo(function ConversationCard({
     >
       {accent && <span aria-hidden className={cn("absolute left-0 top-1.5 bottom-1.5 w-[3px] rounded-r-full", accent)} />}
 
-      {/* Avatar + channel dot */}
+      {/* Avatar (channel tint) + temperature dot */}
       <div className="relative shrink-0 self-center">
-        <div
-          className="w-9 h-9 rounded-full grid place-items-center text-[13px] font-semibold"
-          style={{ backgroundColor: cc + "14", color: channelTextColor(c.channel) }}
-        >
-          {initials(c.contact_name || c.contact_phone)}
-        </div>
         <Tip label={channelName || c.channel} side="top">
-          <span
-            className="absolute -bottom-0.5 -right-0.5 w-[11px] h-[11px] rounded-full ring-[2.5px] ring-card"
-            style={{ backgroundColor: cc }}
-          />
+          <div
+            className="w-9 h-9 rounded-full grid place-items-center text-[13px] font-semibold"
+            style={{ backgroundColor: cc + "14", color: channelTextColor(c.channel) }}
+          >
+            {initials(c.contact_name || c.contact_phone)}
+          </div>
         </Tip>
+        {temp && (
+          <Tip label={TEMP_LABEL[temp]} side="top">
+            <span className={cn("absolute -bottom-0.5 -right-0.5 w-[11px] h-[11px] rounded-full ring-[2.5px] ring-card", TEMP_DOT[temp])} />
+          </Tip>
+        )}
       </div>
 
       {/* Text */}
@@ -106,7 +106,7 @@ const ConversationCard = memo(function ConversationCard({
           )}
         </div>
 
-        {/* Line 2: preview + one signal + unread count */}
+        {/* Line 2: preview + one urgent signal + unread count */}
         <div className={cn("flex items-center gap-1.5", dense ? "mt-0.5" : "mt-1")}>
           <span className={cn(
             "flex-1 min-w-0 truncate text-[13px] leading-snug",
@@ -125,8 +125,6 @@ const ConversationCard = memo(function ConversationCard({
             <Tip label="Follow up now" side="top"><Zap className="w-3.5 h-3.5 text-warm shrink-0" /></Tip>
           ) : windowExpired ? (
             <Tip label="24h window closed" side="top"><Clock className="w-3.5 h-3.5 text-hot shrink-0" /></Tip>
-          ) : temp ? (
-            <Tip label={TEMP_LABEL[temp]} side="top"><span className={cn("w-1.5 h-1.5 rounded-full shrink-0", TEMP_DOT[temp])} /></Tip>
           ) : null}
           {unread && (
             <span className="shrink-0 min-w-[18px] h-[18px] px-1.5 rounded-full bg-primary text-primary-foreground text-[10px] font-semibold grid place-items-center tabular-nums">
@@ -134,16 +132,27 @@ const ConversationCard = memo(function ConversationCard({
             </span>
           )}
         </div>
-      </div>
 
-      {/* Assignee (managers/admins): a subtle avatar on the right edge */}
-      {showAgent && c.agent_name && (
-        <Tip label={`Assigned: ${c.agent_name}`} side="top">
-          <span className="self-center shrink-0 w-5 h-5 rounded-full bg-muted text-muted-foreground text-[9px] font-semibold grid place-items-center">
-            {initials(c.agent_name)}
-          </span>
-        </Tip>
-      )}
+        {/* Line 3: full campaign + agent name */}
+        {hasMeta && (
+          <div className={cn("flex items-center gap-1.5 min-w-0", dense ? "mt-1" : "mt-1.5")}>
+            {c.campaign_name && (
+              <Tip label={c.campaign_name} side="top">
+                <span className="inline-flex items-center h-[19px] px-2 rounded-md bg-primary/[0.08] text-primary-text text-[11px] font-medium truncate min-w-0 max-w-[62%]">
+                  {c.campaign_name}
+                </span>
+              </Tip>
+            )}
+            {showAgent && c.agent_name && (
+              <Tip label={`Assigned: ${c.agent_name}`} side="top">
+                <span className="inline-flex items-center gap-1 h-[19px] px-1.5 rounded-md bg-muted text-foreground/70 text-[11px] font-medium truncate shrink-0 max-w-[44%]">
+                  <User className="w-2.5 h-2.5 shrink-0 opacity-70" />{c.agent_name}
+                </span>
+              </Tip>
+            )}
+          </div>
+        )}
+      </div>
     </div>
   );
 });

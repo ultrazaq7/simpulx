@@ -326,7 +326,6 @@ export default function ConversationList({
   ];
 
   const filterToggles: FilterToggle[] = [
-    { key: "followup", label: "Follow up", active: followUpOnly, onToggle: onFollowUpToggle },
     { key: "unread", label: "Unread", active: unreadOnly, onToggle: onUnreadToggle },
     { key: "needsreply", label: "Needs reply", active: needsReplyOnly, onToggle: onNeedsReplyToggle },
   ];

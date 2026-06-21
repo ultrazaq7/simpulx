@@ -420,13 +420,13 @@ export default function ChatPanel({
             {/* ── Chat Header ── */}
             <div className="h-14 shrink-0 flex items-center px-3 gap-2 border-b border-border bg-card">
               {/* Contact name + phone (left) */}
-              <div className="min-w-0 mr-1">
-                <p className="text-sm font-bold text-foreground truncate leading-tight">
+              <div className="min-w-0 mr-2">
+                <p className="text-[16px] font-bold text-foreground truncate leading-tight">
                   {active.contact_name || active.contact_phone || "Unknown"}
                 </p>
                 {active.contact_phone && (
-                  <div className="flex items-center gap-1">
-                    <span className="text-[11px] text-muted-foreground tabular-nums">{active.contact_phone}</span>
+                  <div className="flex items-center gap-1 mt-0.5">
+                    <span className="text-[12.5px] text-muted-foreground tabular-nums">{active.contact_phone}</span>
                     <button aria-label="Copy phone number" onClick={() => onCopyText(active.contact_phone!)} className="p-0.5 outline-none text-primary/70 hover:text-primary">
                       <Copy className="w-[11px] h-[11px]" />
                     </button>
@@ -435,7 +435,6 @@ export default function ChatPanel({
               </div>
 
               {/* Stage chip + advance */}
-              <span className="hidden lg:inline text-[10px] font-bold uppercase tracking-wider text-muted-foreground mr-0.5">Stage</span>
               <div className="flex items-center border border-border rounded-md h-8 bg-background shrink-0">
                 <StageMenu
                   stages={stages}
@@ -537,7 +536,6 @@ export default function ChatPanel({
               ))}
 
               {/* Status action dropdown: Open / Snooze / Closed */}
-              <span className="hidden lg:inline text-[10px] font-bold uppercase tracking-wider text-muted-foreground">Status</span>
               <div className="relative">
                 <button
                   type="button"
