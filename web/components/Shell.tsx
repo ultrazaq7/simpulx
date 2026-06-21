@@ -219,6 +219,9 @@ export function Shell({ children }: { children: ReactNode }) {
           // Aggressive OS notification (stays until dismissed, click opens the chat).
           const showNotif = (title: string, body: string, convId?: string) => {
             if (prefs.newMessages === false) return;
+            // Only show the in-app popup when this tab is visible; when it's hidden
+            // the FCM service worker shows the OS notification (avoids a duplicate).
+            if (document.visibilityState !== "visible") return;
             if (!("Notification" in window) || Notification.permission !== "granted") return;
             try {
               const n = new Notification(title, { body, requireInteraction: true, tag: convId || undefined, icon: "/simpulx_logo.png" });

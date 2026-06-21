@@ -15,12 +15,13 @@ firebase.initializeApp({
 
 const messaging = firebase.messaging();
 
-// Data-only messages: render here. If a tab is open (even unfocused) the in-app
-// handler shows it, so skip to avoid a duplicate; only show when no tab is open.
+// Data-only messages: render the OS notification here. onBackgroundMessage only
+// fires when the page isn't focused, so show it; skip only if a tab is actually
+// focused (the in-app handler covers that case) to avoid a duplicate.
 messaging.onBackgroundMessage((payload) => {
   const d = payload.data || {};
   return self.clients.matchAll({ type: "window", includeUncontrolled: true }).then((wins) => {
-    if (wins.length > 0) return;
+    if (wins.some((w) => w.focused)) return;
     return self.registration.showNotification(d.title || "Simpulx", {
       body: d.body || "",
       icon: "/simpulx_logo.png",
