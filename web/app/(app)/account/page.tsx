@@ -52,6 +52,21 @@ function getTimezones() {
   }
 }
 
+// Current UTC offset for an IANA zone, e.g. "UTC+7" / "UTC-5:30".
+function tzOffset(tz: string): string {
+  try {
+    const parts = new Intl.DateTimeFormat("en-US", { timeZone: tz, timeZoneName: "shortOffset" }).formatToParts(new Date());
+    const name = parts.find((p) => p.type === "timeZoneName")?.value || "";
+    return name.replace("GMT", "UTC").replace(/^UTC$/, "UTC+0");
+  } catch {
+    return "";
+  }
+}
+function tzLabel(tz: string): string {
+  const off = tzOffset(tz);
+  return off ? `${tz} (${off})` : tz;
+}
+
 export default function AccountPage() {
   const router = useRouter();
   const { notify, Host } = useToast();
@@ -72,6 +87,12 @@ export default function AccountPage() {
   const [timezone, setTimezone] = useState(Intl.DateTimeFormat().resolvedOptions().timeZone);
   const [tzSearch, setTzSearch] = useState("");
   const [tzOpen, setTzOpen] = useState(false);
+
+  // Change password
+  const [curPw, setCurPw] = useState("");
+  const [newPw, setNewPw] = useState("");
+  const [confirmPw, setConfirmPw] = useState("");
+  const [pwSaving, setPwSaving] = useState(false);
 
   const timezones = useMemo(() => getTimezones(), []);
   const filteredTz = useMemo(() => {
@@ -122,6 +143,18 @@ export default function AccountPage() {
       await api.updateOrganization({ settings: nextSettings });
       notify("Timezone updated");
     } catch (e) { notify(String(e), false); }
+  }
+
+  async function changePassword() {
+    if (newPw.length < 8) { notify("New password must be at least 8 characters", false); return; }
+    if (newPw !== confirmPw) { notify("New passwords do not match", false); return; }
+    setPwSaving(true);
+    try {
+      await api.changePassword(curPw, newPw);
+      setCurPw(""); setNewPw(""); setConfirmPw("");
+      notify("Password updated");
+    } catch (e) { notify(String(e).replace(/^Error:\s*/, ""), false); }
+    finally { setPwSaving(false); }
   }
 
   if (loading) return (
@@ -226,6 +259,109 @@ export default function AccountPage() {
                 {saving ? <Loader2 className="w-4 h-4 animate-spin" /> : dirty ? tr("account.save") : tr("common.save")}
               </button>
             </div>
+
+            {/* Change password */}
+            <h3 className="text-[16px] font-bold text-foreground mt-10 mb-5">Password</h3>
+            <div className="bg-card border border-border rounded-xl p-5 space-y-4">
+              <div>
+                <label className="block text-[11px] font-bold uppercase tracking-wider text-muted-foreground mb-1.5">Current password</label>
+                <input
+                  type="password"
+                  autoComplete="current-password"
+                  value={curPw}
+                  onChange={(e) => setCurPw(e.target.value)}
+                  className="w-full h-11 px-4 rounded-lg border border-input bg-muted/30 text-[14px] text-foreground outline-none transition-all focus:border-primary focus:bg-background"
+                />
+              </div>
+              <div className="grid sm:grid-cols-2 gap-4">
+                <div>
+                  <label className="block text-[11px] font-bold uppercase tracking-wider text-muted-foreground mb-1.5">New password</label>
+                  <input
+                    type="password"
+                    autoComplete="new-password"
+                    value={newPw}
+                    onChange={(e) => setNewPw(e.target.value)}
+                    className="w-full h-11 px-4 rounded-lg border border-input bg-muted/30 text-[14px] text-foreground outline-none transition-all focus:border-primary focus:bg-background"
+                  />
+                </div>
+                <div>
+                  <label className="block text-[11px] font-bold uppercase tracking-wider text-muted-foreground mb-1.5">Confirm new password</label>
+                  <input
+                    type="password"
+                    autoComplete="new-password"
+                    value={confirmPw}
+                    onChange={(e) => setConfirmPw(e.target.value)}
+                    className="w-full h-11 px-4 rounded-lg border border-input bg-muted/30 text-[14px] text-foreground outline-none transition-all focus:border-primary focus:bg-background"
+                  />
+                </div>
+              </div>
+              <div className="flex items-center justify-between gap-4">
+                <p className="text-[11px] text-muted-foreground/70">Use at least 8 characters.</p>
+                <button
+                  onClick={changePassword}
+                  disabled={pwSaving || !curPw || !newPw || !confirmPw}
+                  className={cn(
+                    "inline-flex items-center gap-2 px-5 py-2.5 rounded-lg text-[13px] font-semibold transition-all outline-none shrink-0",
+                    !pwSaving && curPw && newPw && confirmPw
+                      ? "bg-primary text-white hover:bg-primary-dark shadow-sm"
+                      : "bg-muted text-muted-foreground cursor-not-allowed",
+                  )}
+                >
+                  {pwSaving ? <Loader2 className="w-4 h-4 animate-spin" /> : "Update password"}
+                </button>
+              </div>
+            </div>
+
+            {/* System preference (timezone) */}
+            <h3 className="text-[16px] font-bold text-foreground mt-10 mb-5">{tr("account.system_pref")}</h3>
+            <div className="bg-card border border-border rounded-xl p-5">
+              <label className="block text-[11px] font-bold uppercase tracking-wider text-muted-foreground mb-1.5">{tr("account.your_timezone")}</label>
+              <div className="relative">
+                <button
+                  type="button"
+                  onClick={() => setTzOpen(!tzOpen)}
+                  className="w-full h-11 px-4 rounded-lg border border-input bg-muted/30 text-[14px] text-foreground text-left flex items-center justify-between outline-none transition-all hover:border-primary"
+                >
+                  <span className="truncate">{tzLabel(timezone)}</span>
+                  <ChevronDown className={cn("w-4 h-4 text-muted-foreground transition-transform shrink-0", tzOpen && "rotate-180")} />
+                </button>
+                {tzOpen && (
+                  <>
+                    <div className="fixed inset-0 z-40" onClick={() => setTzOpen(false)} />
+                    <div className="absolute left-0 right-0 top-full mt-1 bg-popover border border-border rounded-lg shadow-xl z-50 max-h-[280px] flex flex-col overflow-hidden animate-scale-in origin-top">
+                      <div className="p-2 border-b border-border shrink-0">
+                        <input
+                          autoFocus
+                          value={tzSearch}
+                          onChange={(e) => setTzSearch(e.target.value)}
+                          placeholder="Search timezone..."
+                          className="w-full h-8 px-3 rounded-md border border-input bg-background text-[13px] outline-none focus:border-primary"
+                        />
+                      </div>
+                      <div className="overflow-y-auto flex-1 p-1">
+                        {filteredTz.length === 0 ? (
+                          <p className="text-center text-xs text-muted-foreground py-4">No matches</p>
+                        ) : filteredTz.map((tz) => (
+                          <button
+                            key={tz}
+                            type="button"
+                            onClick={() => { saveTimezone(tz); setTzOpen(false); setTzSearch(""); }}
+                            className={cn(
+                              "w-full text-left px-3 py-2 rounded-md text-[13px] font-medium transition-colors outline-none flex items-center justify-between gap-3",
+                              tz === timezone ? "bg-primary/10 text-primary" : "text-foreground/80 hover:bg-muted",
+                            )}
+                          >
+                            <span className="truncate">{tz}</span>
+                            <span className="text-[11px] text-muted-foreground shrink-0">{tzOffset(tz)}</span>
+                          </button>
+                        ))}
+                      </div>
+                    </div>
+                  </>
+                )}
+              </div>
+              <p className="text-[11px] text-muted-foreground/70 mt-1.5">{tr("account.your_timezone_desc")}</p>
+            </div>
           </div>
         )}
 
@@ -259,58 +395,6 @@ export default function AccountPage() {
               })}
             </div>
 
-            {/* Timezone */}
-            <h3 className="text-[16px] font-bold text-foreground mb-5">{tr("account.system_pref")}</h3>
-
-            <div className="bg-card border border-border rounded-xl p-5">
-              <label className="block text-[11px] font-bold uppercase tracking-wider text-muted-foreground mb-1.5">{tr("account.your_timezone")}</label>
-              <div className="relative">
-                <button
-                  type="button"
-                  onClick={() => setTzOpen(!tzOpen)}
-                  className="w-full h-11 px-4 rounded-lg border border-input bg-muted/30 text-[14px] text-foreground text-left flex items-center justify-between outline-none transition-all hover:border-primary"
-                >
-                  <span className="truncate">{timezone}</span>
-                  <ChevronDown className={cn("w-4 h-4 text-muted-foreground transition-transform shrink-0", tzOpen && "rotate-180")} />
-                </button>
-                {tzOpen && (
-                  <>
-                    <div className="fixed inset-0 z-40" onClick={() => setTzOpen(false)} />
-                    {/* Opens upward: this card sits at the bottom of the scroll area, so a
-                        downward menu would be clipped by the overflow container. */}
-                    <div className="absolute left-0 right-0 bottom-full mb-1 bg-popover border border-border rounded-lg shadow-xl z-50 max-h-[280px] flex flex-col overflow-hidden animate-scale-in origin-bottom">
-                      <div className="p-2 border-b border-border shrink-0">
-                        <input
-                          autoFocus
-                          value={tzSearch}
-                          onChange={(e) => setTzSearch(e.target.value)}
-                          placeholder="Search timezone..."
-                          className="w-full h-8 px-3 rounded-md border border-input bg-background text-[13px] outline-none focus:border-primary"
-                        />
-                      </div>
-                      <div className="overflow-y-auto flex-1 p-1">
-                        {filteredTz.length === 0 ? (
-                          <p className="text-center text-xs text-muted-foreground py-4">No matches</p>
-                        ) : filteredTz.map((tz) => (
-                          <button
-                            key={tz}
-                            type="button"
-                            onClick={() => { saveTimezone(tz); setTzOpen(false); setTzSearch(""); }}
-                            className={cn(
-                              "w-full text-left px-3 py-2 rounded-md text-[13px] font-medium transition-colors outline-none",
-                              tz === timezone ? "bg-primary/10 text-primary" : "text-foreground/80 hover:bg-muted",
-                            )}
-                          >
-                            {tz}
-                          </button>
-                        ))}
-                      </div>
-                    </div>
-                  </>
-                )}
-              </div>
-              <p className="text-[11px] text-muted-foreground/70 mt-1.5">{tr("account.your_timezone_desc")}</p>
-            </div>
           </div>
         )}
       </div>

@@ -331,6 +331,9 @@ export const api = {
     req<{ id: string }>("/api/users", { method: "POST", body: JSON.stringify(input) }),
   updateUser: (id: string, patch: { full_name?: string; email?: string; role?: string; status?: string; password?: string; department_ids?: string[] }) =>
     req(`/api/users/${id}`, { method: "PATCH", body: JSON.stringify(patch) }),
+  // Self-service password change (proves the current password; no email round-trip).
+  changePassword: (current_password: string, new_password: string) =>
+    req<{ message: string }>("/api/account/password", { method: "POST", body: JSON.stringify({ current_password, new_password }) }),
   // Self presence (online/offline). Writes is_online only; never the account status.
   setPresence: (online: boolean) =>
     req<{ is_online: boolean }>("/api/users/me/presence", { method: "PATCH", body: JSON.stringify({ online }) }),

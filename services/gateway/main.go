@@ -181,6 +181,7 @@ func main() {
 
 	// ── Dashboard API (semua butuh JWT, scoped per org) ──
 	mux.HandleFunc("GET /api/me", s.requireAuth(s.handleMe))
+	mux.HandleFunc("POST /api/account/password", s.requireAuth(s.handleChangePassword))
 	mux.HandleFunc("GET /api/conversations", s.requireAuth(s.handleListConversations))
 	mux.HandleFunc("GET /api/conversations/{id}/messages", s.requireAuth(s.handleGetMessages))
 	mux.HandleFunc("GET /api/conversations/{id}/messages/search", s.requireAuth(s.handleSearchMessages))
