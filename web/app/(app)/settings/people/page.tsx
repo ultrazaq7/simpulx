@@ -86,7 +86,7 @@ export default function PeopleSettingsPage() {
             <thead>
               <tr className="border-b border-border bg-muted/40">
                 {["User", "Role", "Departments", "Campaigns", "Status", "Last login", "Created", ""].map((h) => (
-                  <th key={h} className={cn("px-4 py-2.5 text-[11px] font-bold uppercase tracking-wider text-muted-foreground", h === "" ? "text-right w-12" : "text-left")}>{h}</th>
+                  <th key={h} className={cn("px-4 py-2.5 text-[11px] font-bold uppercase tracking-wider text-muted-foreground", h === "" ? "text-right w-12" : "text-left")}>{h || <span className="sr-only">Actions</span>}</th>
                 ))}
               </tr>
             </thead>

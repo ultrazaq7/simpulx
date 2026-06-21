@@ -107,7 +107,7 @@ export default function BroadcastsPage() {
             <thead>
               <tr className="border-b border-border bg-muted/40">
                 {["Broadcast", "Status", "Audience", "Delivery", "Created", ""].map((h, i) => (
-                  <th key={i} className="px-4 py-2.5 text-left text-[11px] font-bold uppercase tracking-wider text-muted-foreground">{h}</th>
+                  <th key={i} className="px-4 py-2.5 text-left text-[11px] font-bold uppercase tracking-wider text-muted-foreground">{h || <span className="sr-only">Actions</span>}</th>
                 ))}
               </tr>
             </thead>

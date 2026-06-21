@@ -35,7 +35,7 @@ function Panel({ icon: Icon, title, children, className }: { icon: any; title: s
     <SettingsCard className={`overflow-hidden ${className ?? ""}`}>
       <div className="px-5 py-3 border-b border-border flex items-center gap-2.5 bg-muted/30">
         <Icon className="w-[18px] h-[18px] text-primary" />
-        <p className="font-bold text-[14px] text-foreground">{title}</p>
+        <h2 className="font-bold text-[14px] text-foreground">{title}</h2>
       </div>
       <div className="p-5">{children}</div>
     </SettingsCard>

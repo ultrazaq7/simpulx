@@ -206,7 +206,7 @@ export default function ContactsPage() {
           <table className="w-full text-sm">
             <thead className="sticky top-0 z-10">
               <tr className="border-b border-border bg-muted">
-                <TH className="w-10"><input type="checkbox" aria-label="Select all contacts" className="rounded border-input accent-primary" /></TH>
+                <TH className="w-10"><span className="sr-only">Select</span><input type="checkbox" aria-label="Select all contacts" className="rounded border-input accent-primary" /></TH>
                 <TH>Contact name</TH><TH>Channel</TH><TH>Phone</TH><TH>Status</TH><TH>Source</TH>
                 <TH>Labels</TH><TH>Created</TH><TH>Updated</TH><TH>Blacklisted</TH><TH className="text-right">Actions</TH>
               </tr>
