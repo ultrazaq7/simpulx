@@ -15,6 +15,7 @@ interface ConversationCardProps {
   messages?: Message[]; // only for active conv to determine last responder
   showAgent?: boolean;  // manager/admin: show the assigned agent
   channelName?: string; // display name of the channel (e.g. "Simpulx Test Channel")
+  dense?: boolean;      // compact density mode (tighter rows)
 }
 
 const PREVIEW_MEDIA: Record<string, { icon: any; label: string }> = {
@@ -30,7 +31,7 @@ const TEMP_DOT: Record<string, string> = { hot: "bg-hot", warm: "bg-warm", cold:
 const TEMP_LABEL: Record<string, string> = { hot: "Hot lead", warm: "Warm lead", cold: "Cold lead" };
 
 const ConversationCard = memo(function ConversationCard({
-  conv: c, isActive, onClick, messages, showAgent, channelName,
+  conv: c, isActive, onClick, messages, showAgent, channelName, dense,
 }: ConversationCardProps) {
   // Last responder: agent reply vs awaiting us
   const agentReplied = (() => {
@@ -63,7 +64,8 @@ const ConversationCard = memo(function ConversationCard({
     <div
       onClick={onClick}
       className={cn(
-        "group relative flex gap-2.5 pl-3.5 pr-3 py-2.5 cursor-pointer border-b border-border/60 transition-colors duration-100",
+        "group relative flex gap-2.5 pl-3.5 pr-3 cursor-pointer border-b border-border/60 transition-colors duration-100",
+        dense ? "py-1.5" : "py-2.5",
         isActive ? "bg-primary/[0.07]" : "hover:bg-muted/50",
       )}
     >
@@ -118,7 +120,7 @@ const ConversationCard = memo(function ConversationCard({
         </div>
 
         {/* Line 2: preview + one urgent signal + unread count */}
-        <div className="flex items-center gap-2 mt-1">
+        <div className={cn("flex items-center gap-2", dense ? "mt-0.5" : "mt-1")}>
           <span className={cn(
             "flex-1 min-w-0 truncate text-[12.5px] leading-snug",
             unread ? "text-foreground/80 font-medium" : "text-muted-foreground",

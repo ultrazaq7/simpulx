@@ -1,7 +1,7 @@
 "use client";
-import { useMemo, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import {
-  MessageSquare, X, Filter, User, Phone, ChevronDown, Check, ArrowUpDown,
+  MessageSquare, X, Filter, User, Phone, ChevronDown, Check, ArrowUpDown, Rows3,
 } from "lucide-react";
 
 import { type FilterOption } from "./MultiSelectFilter";
@@ -170,6 +170,12 @@ export default function ConversationList({
 }: ConversationListProps) {
   const [filterOpen, setFilterOpen] = useState(false);
   const [searchMode, setSearchMode] = useState<SearchMode>("name");
+  const [dense, setDense] = useState(false);
+  const searchInputRef = useRef<HTMLInputElement>(null);
+  const shownRef = useRef<Conversation[]>([]);
+
+  useEffect(() => { setDense(localStorage.getItem("inboxDense") === "1"); }, []);
+  const toggleDense = () => setDense((d) => { localStorage.setItem("inboxDense", d ? "0" : "1"); return !d; });
 
   const stageOptions: FilterOption[] = useMemo(
     () => stages.map((s) => ({ value: s.id, label: s.name })),
@@ -263,6 +269,36 @@ export default function ConversationList({
     return sorted;
   }, [convs, query, searchMode, filterStatuses, filterStages, filterCampaigns, filterInterests, filterAgents, filterChannels, channels, followUpOnly, unreadOnly, needsReplyOnly, sort]);
 
+  shownRef.current = shown;
+
+  // Keyboard speed layer: j/k (or arrows) move the selection, "/" focuses search.
+  useEffect(() => {
+    const onKey = (e: KeyboardEvent) => {
+      const el = document.activeElement as HTMLElement | null;
+      const typing = !!el && (el.tagName === "INPUT" || el.tagName === "TEXTAREA" || el.isContentEditable);
+      if (e.key === "/" && !typing) { e.preventDefault(); searchInputRef.current?.focus(); return; }
+      if (typing || e.metaKey || e.ctrlKey || e.altKey) return;
+      const list = shownRef.current;
+      if (list.length === 0) return;
+      if (e.key === "j" || e.key === "ArrowDown") {
+        e.preventDefault();
+        const i = list.findIndex((c) => c.id === activeId);
+        onSelect(list[i < 0 ? 0 : Math.min(i + 1, list.length - 1)].id);
+      } else if (e.key === "k" || e.key === "ArrowUp") {
+        e.preventDefault();
+        const i = list.findIndex((c) => c.id === activeId);
+        onSelect(list[i < 0 ? 0 : Math.max(i - 1, 0)].id);
+      }
+    };
+    window.addEventListener("keydown", onKey);
+    return () => window.removeEventListener("keydown", onKey);
+  }, [activeId, onSelect]);
+
+  // Keep the selected row in view when moved by keyboard.
+  useEffect(() => {
+    if (activeId) document.getElementById(`conv-row-${activeId}`)?.scrollIntoView({ block: "nearest" });
+  }, [activeId]);
+
   const activeFiltersCount =
     filterStages.length + filterCampaigns.length + filterInterests.length + filterStatuses.length + filterAgents.length + filterChannels.length +
     (followUpOnly ? 1 : 0) + (unreadOnly ? 1 : 0) + (needsReplyOnly ? 1 : 0) + (query ? 1 : 0);
@@ -303,6 +339,7 @@ export default function ConversationList({
           <div className="relative flex-1 min-w-0 flex items-center h-9 rounded-md border border-input bg-background transition-colors focus-within:border-primary overflow-visible">
             <SearchModeMenu mode={searchMode} onChange={setSearchMode} />
             <input
+              ref={searchInputRef}
               value={query}
               onChange={(e) => onQueryChange(e.target.value)}
               placeholder={searchMode === "messages" ? "Search messages" : `Search by ${searchMode}`}
@@ -333,6 +370,19 @@ export default function ConversationList({
               {activeFiltersCount > 0 && !filterOpen && (
                 <span className="absolute -top-1 -right-1 w-4 h-4 rounded-full bg-primary text-white text-[9px] font-bold grid place-items-center">{activeFiltersCount}</span>
               )}
+            </button>
+          </Tip>
+
+          <Tip label={dense ? "Comfortable rows" : "Compact rows"} side="bottom">
+            <button
+              type="button"
+              onClick={toggleDense}
+              className={cn(
+                "shrink-0 w-8 h-9 rounded-md grid place-items-center border transition-colors outline-none",
+                dense ? "bg-primary/10 text-primary border-primary/40" : "bg-background text-muted-foreground border-input hover:bg-muted hover:text-foreground",
+              )}
+            >
+              <Rows3 className="w-4 h-4" />
             </button>
           </Tip>
         </div>
@@ -384,16 +434,18 @@ export default function ConversationList({
           </div>
         ) : (
           shown.map((c) => (
-            <ConversationCard
-              key={c.id}
-              conv={c}
-              isActive={c.id === activeId}
-              onClick={() => onSelect(c.id)}
-              onCopy={onCopy}
-              messages={c.id === activeId ? activeMessages : undefined}
-              showAgent={showAgent}
-              channelName={channelNameMap.get(c.channel)}
-            />
+            <div id={`conv-row-${c.id}`} key={c.id}>
+              <ConversationCard
+                conv={c}
+                isActive={c.id === activeId}
+                onClick={() => onSelect(c.id)}
+                onCopy={onCopy}
+                messages={c.id === activeId ? activeMessages : undefined}
+                showAgent={showAgent}
+                channelName={channelNameMap.get(c.channel)}
+                dense={dense}
+              />
+            </div>
           ))
         )}
       </div>
