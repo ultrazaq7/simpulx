@@ -435,6 +435,7 @@ export default function ChatPanel({
               </div>
 
               {/* Stage chip + advance */}
+              <span className="hidden lg:inline text-[10px] font-bold uppercase tracking-wider text-muted-foreground mr-0.5">Stage</span>
               <div className="flex items-center border border-border rounded-md h-8 bg-background shrink-0">
                 <StageMenu
                   stages={stages}
@@ -536,6 +537,7 @@ export default function ChatPanel({
               ))}
 
               {/* Status action dropdown: Open / Snooze / Closed */}
+              <span className="hidden lg:inline text-[10px] font-bold uppercase tracking-wider text-muted-foreground">Status</span>
               <div className="relative">
                 <button
                   type="button"
