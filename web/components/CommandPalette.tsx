@@ -100,11 +100,12 @@ export default function CommandPalette({ open, onClose }: { open: boolean; onClo
   return (
     <div className="fixed inset-0 z-[200] flex items-start justify-center pt-[14vh] px-4" onClick={onClose}>
       <div className="absolute inset-0 bg-foreground/30 backdrop-blur-[2px] animate-fade-in" />
-      <div className="relative w-full max-w-[600px] bg-card rounded-xl border border-border shadow-2xl overflow-hidden animate-scale-in" onClick={(e) => e.stopPropagation()}>
+      <div role="dialog" aria-modal="true" aria-label="Command palette" className="relative w-full max-w-[600px] bg-card rounded-xl border border-border shadow-2xl overflow-hidden animate-scale-in" onClick={(e) => e.stopPropagation()}>
         <div className="flex items-center gap-2.5 px-4 h-14 border-b border-border">
           <Search className="w-[18px] h-[18px] text-muted-foreground shrink-0" />
           <input
             ref={inputRef}
+            aria-label="Search conversations or jump to a section"
             value={query}
             onChange={(e) => setQuery(e.target.value)}
             placeholder="Search conversations or jump to..."

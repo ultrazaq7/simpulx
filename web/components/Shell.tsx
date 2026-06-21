@@ -448,6 +448,7 @@ export function Shell({ children }: { children: ReactNode }) {
 
         <div className={cn("px-4 pb-4 flex", sidebarOpen ? "justify-end" : "justify-center")}>
           <button
+            aria-label={sidebarOpen ? "Collapse sidebar" : "Expand sidebar"}
             onClick={() => setSidebarOpen(!sidebarOpen)}
             className="p-1 rounded-md text-muted-foreground border border-border hover:text-foreground hover:bg-foreground/5 transition-all outline-none"
           >
@@ -488,7 +489,7 @@ export function Shell({ children }: { children: ReactNode }) {
 
           {/* Notifications */}
           <Tip label="Notifications" side="bottom">
-            <button onClick={() => { const next = !notifOpen; setNotifOpen(next); setHasNotifs(false); if (next) loadNotifs(); }} className="p-2 rounded-lg text-muted-foreground hover:bg-muted hover:text-foreground transition-colors relative outline-none">
+            <button aria-label="Notifications" onClick={() => { const next = !notifOpen; setNotifOpen(next); setHasNotifs(false); if (next) loadNotifs(); }} className="p-2 rounded-lg text-muted-foreground hover:bg-muted hover:text-foreground transition-colors relative outline-none">
               <Bell className="w-[20px] h-[20px]" />
               {notifUnread > 0 ? (
                 <span className="absolute -top-0.5 -right-0.5 min-w-[16px] h-4 px-1 grid place-items-center text-[10px] font-bold text-white bg-red-500 rounded-full ring-2 ring-card">{notifUnread > 9 ? "9+" : notifUnread}</span>

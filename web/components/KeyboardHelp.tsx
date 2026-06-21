@@ -26,7 +26,7 @@ export default function KeyboardHelp({ open, onClose }: { open: boolean; onClose
   return (
     <div className="fixed inset-0 z-[210] flex items-center justify-center p-4" onClick={onClose}>
       <div className="absolute inset-0 bg-foreground/30 backdrop-blur-[2px] animate-fade-in" />
-      <div className="relative w-full max-w-[460px] bg-card rounded-xl border border-border shadow-2xl overflow-hidden animate-scale-in" onClick={(e) => e.stopPropagation()}>
+      <div role="dialog" aria-modal="true" aria-label="Keyboard shortcuts" className="relative w-full max-w-[460px] bg-card rounded-xl border border-border shadow-2xl overflow-hidden animate-scale-in" onClick={(e) => e.stopPropagation()}>
         <div className="flex items-center justify-between px-5 py-3.5 border-b border-border">
           <p className="font-bold text-[15px] text-foreground">Keyboard shortcuts</p>
           <button onClick={onClose} className="p-1 rounded-md text-muted-foreground hover:bg-muted hover:text-foreground outline-none"><X className="w-[18px] h-[18px]" /></button>

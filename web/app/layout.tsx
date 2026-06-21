@@ -15,7 +15,7 @@ export default function RootLayout({ children }: { children: React.ReactNode }) 
   }));
 
   return (
-    <html lang="id" className={cn("font-sans")}>
+    <html lang="en" className={cn("font-sans")}>
       <head>
         <meta charSet="utf-8" />
         <title>Simpulx</title>

@@ -340,6 +340,7 @@ export default function ConversationList({
             <SearchModeMenu mode={searchMode} onChange={setSearchMode} />
             <input
               ref={searchInputRef}
+              aria-label="Search conversations"
               value={query}
               onChange={(e) => onQueryChange(e.target.value)}
               placeholder={searchMode === "messages" ? "Search messages" : `Search by ${searchMode}`}
@@ -360,6 +361,7 @@ export default function ConversationList({
           <Tip label="Filter" side="bottom">
             <button
               type="button"
+              aria-label="Filter conversations"
               onClick={() => setFilterOpen((v) => !v)}
               className={cn(
                 "shrink-0 w-8 h-9 rounded-md grid place-items-center border transition-colors outline-none relative",
@@ -376,6 +378,7 @@ export default function ConversationList({
           <Tip label={dense ? "Comfortable rows" : "Compact rows"} side="bottom">
             <button
               type="button"
+              aria-label={dense ? "Comfortable row density" : "Compact row density"}
               onClick={toggleDense}
               className={cn(
                 "shrink-0 w-8 h-9 rounded-md grid place-items-center border transition-colors outline-none",

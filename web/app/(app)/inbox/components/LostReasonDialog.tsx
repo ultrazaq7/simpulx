@@ -62,7 +62,7 @@ export default function LostReasonDialog({ open, onClose, onSubmit }: LostReason
   return (
     <div className="fixed inset-0 z-[100] flex items-center justify-center p-4">
       <div className="absolute inset-0 bg-black/40 backdrop-blur-[2px] animate-fade-in" onClick={close} />
-      <div className="relative w-[460px] max-h-[85vh] flex flex-col rounded-lg border border-border bg-card shadow-2xl animate-scale-in">
+      <div role="dialog" aria-modal="true" aria-label="Why is this lead lost" className="relative w-[460px] max-h-[85vh] flex flex-col rounded-lg border border-border bg-card shadow-2xl animate-scale-in">
         {/* Header */}
         <div className="flex items-center px-5 py-3.5 border-b border-border">
           <div className="flex-1">
