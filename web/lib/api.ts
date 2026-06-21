@@ -92,12 +92,14 @@ async function req<T>(path: string, opts: RequestInit = {}, retried = false): Pr
 }
 
 // Build the ?campaign_id&channel_id&agent_id query string for analytics endpoints.
-function analyticsQs(f?: { campaign_id?: string; channel_id?: string; agent_id?: string }): string {
+function analyticsQs(f?: { campaign_id?: string; channel_id?: string; agent_id?: string; from?: string; to?: string }): string {
   if (!f) return "";
   const q = new URLSearchParams();
   if (f.campaign_id) q.set("campaign_id", f.campaign_id);
   if (f.channel_id) q.set("channel_id", f.channel_id);
   if (f.agent_id) q.set("agent_id", f.agent_id);
+  if (f.from) q.set("from", f.from);
+  if (f.to) q.set("to", f.to);
   const qs = q.toString();
   return qs ? "?" + qs : "";
 }
@@ -292,9 +294,9 @@ export const api = {
   updateAIAgent: (patch: Partial<AIAgent>) =>
     req<AIAgent>("/api/ai-agent", { method: "PUT", body: JSON.stringify(patch) }),
   listLLMModels: () => req<{ id: string; name: string }[]>("/api/llm-models"),
-  getStats: (f?: { campaign_id?: string; channel_id?: string; agent_id?: string }) => req<Stats>(`/api/stats${analyticsQs(f)}`),
+  getStats: (f?: { campaign_id?: string; channel_id?: string; agent_id?: string; from?: string; to?: string }) => req<Stats>(`/api/stats${analyticsQs(f)}`),
   getDashboardCards: () => req<DashboardCards>("/api/dashboard/cards"),
-  getAnalytics: (f?: { campaign_id?: string; channel_id?: string; agent_id?: string }) => req<Analytics>(`/api/analytics${analyticsQs(f)}`),
+  getAnalytics: (f?: { campaign_id?: string; channel_id?: string; agent_id?: string; from?: string; to?: string }) => req<Analytics>(`/api/analytics${analyticsQs(f)}`),
   listQuickReplies: () => req<QuickReply[]>("/api/quick-replies"),
   createQuickReply: (shortcut: string, title: string, body: string) =>
     req("/api/quick-replies", { method: "POST", body: JSON.stringify({ shortcut, title, body }) }),

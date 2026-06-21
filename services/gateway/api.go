@@ -772,6 +772,17 @@ func (s *server) handleAnalytics(w http.ResponseWriter, r *http.Request) {
 		campFilterCv += fmt.Sprintf(" AND cv.assigned_agent_id = $%d::uuid", len(args))
 		campFilter += fmt.Sprintf(" AND assigned_agent_id = $%d::uuid", len(args))
 	}
+	// Custom date range on lead creation (inclusive of the 'to' day).
+	if from := r.URL.Query().Get("from"); from != "" {
+		args = append(args, from)
+		campFilterCv += fmt.Sprintf(" AND cv.created_at >= $%d::date", len(args))
+		campFilter += fmt.Sprintf(" AND created_at >= $%d::date", len(args))
+	}
+	if to := r.URL.Query().Get("to"); to != "" {
+		args = append(args, to)
+		campFilterCv += fmt.Sprintf(" AND cv.created_at < ($%d::date + 1)", len(args))
+		campFilter += fmt.Sprintf(" AND created_at < ($%d::date + 1)", len(args))
+	}
 
 	// Accurate, unambiguous definitions:
 	//  replied = the AGENT responded at least once (last_agent_message_at)

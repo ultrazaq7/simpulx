@@ -14,7 +14,7 @@ import {
 
 import { api, getUser } from "@/lib/api";
 import { Select } from "@/components/Select";
-import type { Stats, Analytics, CampaignAnalyticsRow, DashboardCards, Conversation, AdPerformance, Channel, Campaign, Agent } from "@/lib/types";
+import type { Stats, Analytics, DashboardCards, Conversation, AdPerformance, Channel, Campaign, Agent } from "@/lib/types";
 import { cn, initials, fmtDuration } from "@/lib/utils";
 
 type Metric = {
@@ -85,7 +85,7 @@ function Badge({ label, bg, text }: { label: string; bg: string; text: string })
   );
 }
 
-// Card shell — crisp, layered, enterprise
+// Card shell â€” crisp, layered, enterprise
 function Card({ title, subtitle, icon: Icon, iconColor, children, className }: {
   title?: string; subtitle?: string; icon?: any; iconColor?: string;
   children: React.ReactNode; className?: string;
@@ -240,7 +240,7 @@ function LeadFunnel({ stages }: { stages?: Analytics["funnel_stages"] }) {
   );
 }
 
-// ── Agent dashboard: action-center (essentials only, no org analytics, no lead score) ──
+// â”€â”€ Agent dashboard: action-center (essentials only, no org analytics, no lead score) â”€â”€
 const AGENT_CARDS = [
   { key: "open", label: "My open", sub: "Active conversations", Icon: MessageSquare, color: "#2D8B73", href: "/inbox" },
   { key: "hot", label: "Hot leads", sub: "High buying intent", Icon: Flame, color: "#EF4444", href: "/inbox?interest=hot" },
@@ -354,7 +354,7 @@ export default function DashboardPage() {
   return <ManagerHome />;
 }
 
-// ── Manager home: Live ops (Control Tower) ⟷ Reports (deep analytics) ──
+// â”€â”€ Manager home: Live ops (Control Tower) âŸ· Reports (deep analytics) â”€â”€
 function ManagerHome() {
   const [view, setView] = useState<"live" | "reports">("live");
   return (
@@ -466,18 +466,18 @@ function ManagerControlTower() {
 
   return (
     <div className="p-4 space-y-4">
-      {/* ── Status band (mission control) ── */}
+      {/* â”€â”€ Status band (mission control) â”€â”€ */}
       <div className="flex flex-wrap bg-card rounded-lg border border-border shadow-xs overflow-hidden divide-x divide-border">
-        <StatusCell label="Open queue" tone="idle" value={loading ? "—" : open.length} hint={`${waiting.length} awaiting reply`} />
-        <StatusCell label="Unassigned" tone={unassigned.length ? "warn" : "good"} value={loading ? "—" : unassigned.length} hint={unassigned.length ? "needs owner" : "all owned"} />
-        <StatusCell label="Longest wait" tone={longest > SLA_BREACH_MIN ? "bad" : longest > 0 ? "warn" : "good"} value={loading ? "—" : fmtDuration(longest)} hint={`SLA ${SLA_BREACH_MIN}m`} />
-        <StatusCell label="SLA breaching" tone={breaching.length ? "bad" : "good"} value={loading ? "—" : breaching.length} hint={breaching.length ? "act now" : "on track"} />
-        <StatusCell label="Hot waiting" tone={hotWaiting.length ? "bad" : "good"} value={loading ? "—" : hotWaiting.length} hint="high intent" />
-        <StatusCell label="Agents active" tone={agentsActive ? "good" : "idle"} value={loading ? "—" : agentsActive} hint="on the floor" />
+        <StatusCell label="Open queue" tone="idle" value={loading ? "â€”" : open.length} hint={`${waiting.length} awaiting reply`} />
+        <StatusCell label="Unassigned" tone={unassigned.length ? "warn" : "good"} value={loading ? "â€”" : unassigned.length} hint={unassigned.length ? "needs owner" : "all owned"} />
+        <StatusCell label="Longest wait" tone={longest > SLA_BREACH_MIN ? "bad" : longest > 0 ? "warn" : "good"} value={loading ? "â€”" : fmtDuration(longest)} hint={`SLA ${SLA_BREACH_MIN}m`} />
+        <StatusCell label="SLA breaching" tone={breaching.length ? "bad" : "good"} value={loading ? "â€”" : breaching.length} hint={breaching.length ? "act now" : "on track"} />
+        <StatusCell label="Hot waiting" tone={hotWaiting.length ? "bad" : "good"} value={loading ? "â€”" : hotWaiting.length} hint="high intent" />
+        <StatusCell label="Agents active" tone={agentsActive ? "good" : "idle"} value={loading ? "â€”" : agentsActive} hint="on the floor" />
       </div>
 
       <div className="grid grid-cols-1 lg:grid-cols-5 gap-4">
-        {/* ── Needs attention (the spine) ── */}
+        {/* â”€â”€ Needs attention (the spine) â”€â”€ */}
         <Card title="Needs attention" subtitle="Act on these first" icon={Radio} iconColor="hsl(var(--primary))" className="lg:col-span-3">
           {loading ? (
             <div className="p-4 space-y-2">{[0, 1, 2].map((i) => <div key={i} className="skeleton h-12 rounded-md" />)}</div>
@@ -492,7 +492,7 @@ function ManagerControlTower() {
           )}
         </Card>
 
-        {/* ── Floor: live agent load ── */}
+        {/* â”€â”€ Floor: live agent load â”€â”€ */}
         <Card title="Floor" subtitle="Live agent load" icon={Users} iconColor="hsl(var(--primary))" className="lg:col-span-2">
           {agents.length === 0 && load.size === 0 ? (
             <div className="py-12 text-center text-sm text-muted-foreground">No active agents</div>
@@ -512,7 +512,7 @@ function ManagerControlTower() {
                         <span className="text-[12px] font-bold tabular-nums w-5 text-right text-foreground">{lv.open}</span>
                       </div>
                       {lv.waiting > 0
-                        ? <span className="text-[10px] font-bold text-amber-700 bg-amber-50 rounded px-1.5 py-0.5 tabular-nums shrink-0">{lv.waiting}·{fmtDuration(lv.oldest)}</span>
+                        ? <span className="text-[10px] font-bold text-amber-700 bg-amber-50 rounded px-1.5 py-0.5 tabular-nums shrink-0">{lv.waiting}Â·{fmtDuration(lv.oldest)}</span>
                         : <span className="text-[10px] font-semibold text-muted-foreground/60 w-12 text-center shrink-0">clear</span>}
                     </div>
                   );
@@ -522,7 +522,7 @@ function ManagerControlTower() {
         </Card>
       </div>
 
-      {/* ── Pulse (secondary): funnel + 7-day ── */}
+      {/* â”€â”€ Pulse (secondary): funnel + 7-day â”€â”€ */}
       <div className="grid grid-cols-1 lg:grid-cols-3 gap-4">
         <Card title="Lead funnel" subtitle="Reached each stage" className="lg:col-span-1"><LeadFunnel stages={analytics?.funnel_stages} /></Card>
         <Card title="Activity" subtitle="Last 7 days" className="lg:col-span-2">
@@ -536,10 +536,12 @@ function ManagerControlTower() {
 function ManagerDashboard() {
   const [stats, setStats] = useState<Stats | null>(null);
   const [analytics, setAnalytics] = useState<Analytics | null>(null);
-  const [tab, setTab] = useState<"overview" | "marketing" | "campaigns">("overview");
+  const [tab, setTab] = useState<"overview" | "marketing">("overview");
   const [fChannel, setFChannel] = useState("");
   const [fCampaign, setFCampaign] = useState("");
   const [fAgent, setFAgent] = useState("");
+  const [fFrom, setFFrom] = useState("");
+  const [fTo, setFTo] = useState("");
   const [channels, setChannels] = useState<Channel[]>([]);
   const [campaigns, setCampaigns] = useState<Campaign[]>([]);
   const [agentList, setAgentList] = useState<Agent[]>([]);
@@ -550,10 +552,10 @@ function ManagerDashboard() {
     api.listAgents().then((a) => setAgentList(a || [])).catch(() => {});
   }, []);
   useEffect(() => {
-    const f = { campaign_id: fCampaign || undefined, channel_id: fChannel || undefined, agent_id: fAgent || undefined };
+    const f = { campaign_id: fCampaign || undefined, channel_id: fChannel || undefined, agent_id: fAgent || undefined, from: fFrom || undefined, to: fTo || undefined };
     api.getStats(f).then(setStats).catch(() => {});
     api.getAnalytics(f).then(setAnalytics).catch(() => {});
-  }, [fChannel, fCampaign, fAgent]);
+  }, [fChannel, fCampaign, fAgent, fFrom, fTo]);
 
   if (!stats) return (
     <div className="p-4">
@@ -572,7 +574,7 @@ function ManagerDashboard() {
       {/* Tabs */}
       <div className="px-4 pt-4">
         <div className="flex border-b border-border">
-          {(["overview", "marketing", "campaigns"] as const).map((t) => (
+          {(["overview", "marketing"] as const).map((t) => (
             <button
               key={t}
               onClick={() => setTab(t)}
@@ -587,9 +589,9 @@ function ManagerDashboard() {
         </div>
       </div>
 
-      {tab === "campaigns" ? <CampaignsAnalytics /> : tab === "marketing" ? <MarketingAnalytics /> : (
+      {tab === "marketing" ? <MarketingAnalytics /> : (
       <div className="p-4">
-        {/* ── Filters ── */}
+        {/* â”€â”€ Filters â”€â”€ */}
         <div className="flex items-center gap-2 mb-4 flex-wrap">
           <FilterIcon className="w-4 h-4 text-muted-foreground" />
           <Select value={fChannel} onChange={setFChannel} className="w-[160px]"
@@ -598,12 +600,19 @@ function ManagerDashboard() {
             options={[{ value: "", label: "All campaigns" }, ...campaigns.map((c) => ({ value: c.id, label: c.name }))]} />
           <Select value={fAgent} onChange={setFAgent} className="w-[160px]"
             options={[{ value: "", label: "All agents" }, ...agentList.map((a) => ({ value: a.id, label: a.full_name }))]} />
-          {(fChannel || fCampaign || fAgent) && (
-            <button onClick={() => { setFChannel(""); setFCampaign(""); setFAgent(""); }} className="text-[12px] font-semibold text-primary hover:underline outline-none">Clear</button>
+          <div className="flex items-center gap-1.5 text-[12px] text-muted-foreground">
+            <input type="date" value={fFrom} max={fTo || undefined} onChange={(e) => setFFrom(e.target.value)}
+              className="h-9 px-2 rounded-md border border-input bg-background text-[13px] text-foreground outline-none focus:border-primary" />
+            <span>to</span>
+            <input type="date" value={fTo} min={fFrom || undefined} onChange={(e) => setFTo(e.target.value)}
+              className="h-9 px-2 rounded-md border border-input bg-background text-[13px] text-foreground outline-none focus:border-primary" />
+          </div>
+          {(fChannel || fCampaign || fAgent || fFrom || fTo) && (
+            <button onClick={() => { setFChannel(""); setFCampaign(""); setFAgent(""); setFFrom(""); setFTo(""); }} className="text-[12px] font-semibold text-primary hover:underline outline-none">Clear</button>
           )}
         </div>
 
-        {/* ── Metric Strip ── */}
+        {/* â”€â”€ Metric Strip â”€â”€ */}
         <div className="flex flex-wrap bg-card rounded-lg border border-border shadow-xs mb-5 overflow-hidden">
           {METRICS.map((m, i) => {
             let val: number;
@@ -641,24 +650,24 @@ function ManagerDashboard() {
           })}
         </div>
 
-        {/* ── Area Chart (real, last 7 days) ── */}
+        {/* â”€â”€ Area Chart (real, last 7 days) â”€â”€ */}
         <Card title="Overview" subtitle="Last 7 days" className="mb-5">
           <div className="px-4 py-4"><OverviewChart data={chartData} /></div>
         </Card>
 
         <div className="grid grid-cols-1 md:grid-cols-2 gap-4 mb-5">
-          {/* Real lead funnel — pipeline conversion */}
+          {/* Real lead funnel â€” pipeline conversion */}
           <Card title="Lead funnel" subtitle="Reached each stage and beyond">
             <LeadFunnel stages={analytics?.funnel_stages} />
           </Card>
 
-          {/* Interest Level — clickable rows deep-link to filtered inbox */}
+          {/* Interest Level â€” clickable rows deep-link to filtered inbox */}
           <Card title="Interest level">
             <InterestSplit funnel={funnel} />
           </Card>
         </div>
 
-        {/* Agent performance — activity + pipeline, per agent x branch */}
+        {/* Agent performance â€” activity + pipeline, per agent x branch */}
         <PerfTables label="Agent" showBranch rows={agents.map((a) => ({
           name: a.agent, branch: a.branch, leads: a.leads, total_chat: a.total_chat, replied: a.replied,
           avg_rt_min: a.avg_rt_min, avg_resp_min: a.avg_resp_min, within_5_pct: a.within_5_pct,
@@ -724,7 +733,7 @@ function ManagerDashboard() {
   );
 }
 
-// ── Shared agent / campaign performance: two tables (activity + pipeline) ──────
+// â”€â”€ Shared agent / campaign performance: two tables (activity + pipeline) â”€â”€â”€â”€â”€â”€
 type PerfRow = {
   name: string; branch?: string; leads: number; total_chat: number; replied: number;
   avg_rt_min: number; avg_resp_min: number; within_5_pct: number;
@@ -796,7 +805,7 @@ function PerfTables({ rows, label, showBranch }: { rows: PerfRow[]; label: strin
   );
 }
 
-// ── Marketing ROI sub-tab: ad spend tied to leads (chats) -> conversions ──────
+// â”€â”€ Marketing ROI sub-tab: ad spend tied to leads (chats) -> conversions â”€â”€â”€â”€â”€â”€
 const fmtMoney = (n: number) => (n || 0).toLocaleString(undefined, { minimumFractionDigits: 0, maximumFractionDigits: 0 });
 const fmtInt = (n: number) => Math.round(n || 0).toLocaleString();
 
@@ -978,45 +987,6 @@ function MarketingAnalytics() {
           </table>
         </div>
       </Card>
-    </div>
-  );
-}
-
-// ── Campaigns analytics sub-tab ──────────────────────────────
-function CampaignsAnalytics() {
-  const [rows, setRows] = useState<CampaignAnalyticsRow[]>([]);
-  const [loading, setLoading] = useState(true);
-  useEffect(() => { api.getCampaignAnalytics().then(setRows).catch(() => {}).finally(() => setLoading(false)); }, []);
-
-  const totals = rows.reduce((t, r) => ({
-    leads: t.leads + r.leads, total_chat: t.total_chat + r.total_chat, purchase: t.purchase + r.purchase,
-  }), { leads: 0, total_chat: 0, purchase: 0 });
-  const cards = [
-    { label: "Campaigns", value: rows.length, color: "#6366F1" },
-    { label: "Leads", value: totals.leads, color: "#2D8B73" },
-    { label: "Total chat", value: totals.total_chat, color: "#0EA5E9" },
-    { label: "Purchase", value: totals.purchase, color: "#16A34A" },
-  ];
-
-  return (
-    <div className="p-4">
-      <div className="flex flex-wrap bg-card rounded-lg border border-border shadow-xs mb-5 overflow-hidden">
-        {cards.map((c, i) => (
-          <div key={c.label} className={cn("flex-1 min-w-[150px] px-5 py-4", i < cards.length - 1 && "border-r border-border")}>
-            <p className="text-[10px] font-semibold text-muted-foreground uppercase tracking-wide">{c.label}</p>
-            <p className="text-2xl font-extrabold leading-tight tabular-nums mt-1" style={{ color: c.color }}>{c.value}</p>
-          </div>
-        ))}
-      </div>
-
-      {loading ? <Skeleton className="h-40" /> : (
-        <PerfTables label="Campaign" rows={rows.map((r) => ({
-          name: r.name, leads: r.leads, total_chat: r.total_chat, replied: r.replied,
-          avg_rt_min: r.avg_rt_min, avg_resp_min: r.avg_resp_min, within_5_pct: r.within_5_pct,
-          call_attempts: r.call_attempts, call_duration_sec: r.call_duration_sec,
-          updated: r.updated, contacted: r.contacted, qualified: r.qualified, appointment: r.appointment, negotiation: r.negotiation, purchase: r.purchase,
-        }))} />
-      )}
     </div>
   );
 }
