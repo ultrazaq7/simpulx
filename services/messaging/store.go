@@ -95,8 +95,8 @@ type convInfo struct {
 
 // reopenWindow: a thread closed within this window (except the 30-day dormant
 // auto-close) is revived on the contact's next message instead of spawning a new
-// lead instance — a customer continuing soon after a close is the same lead.
-const reopenWindow = "7 days"
+// lead instance. A customer returning within the month is the same lead.
+const reopenWindow = "30 days"
 
 // getOrCreateConversation menemukan percakapan open milik contact (lead instance
 // paling baru aktif, lintas campaign), atau membuat baru. Dipakai untuk pesan
