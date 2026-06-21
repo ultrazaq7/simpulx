@@ -6,7 +6,7 @@ import {
   MessageCircle, Settings,
   ChevronLeft, ChevronRight, Bell, LogOut, User as UserIcon,
   CheckCircle2, Loader2, ChevronDown, Activity, LayoutDashboard, MessagesSquare, Users, Sparkles, SlidersHorizontal, Megaphone, Wrench, Globe,
-  ScrollText, BarChart3, Building2, ShieldCheck, FileText, Radio, GitBranch, Plug
+  ScrollText, BarChart3, Building2, ShieldCheck, FileText, Radio, GitBranch, Plug, Search
 } from "lucide-react";
 import { WS_URL } from "@/lib/api";
 import { api, clearSession, getToken, getUser, setSession } from "@/lib/api";
@@ -16,6 +16,7 @@ import { usePermissions } from "@/lib/permissions";
 import type { AppNotification, User } from "@/lib/types";
 import { useI18n } from "@/lib/i18n";
 import IncomingCallListener from "@/components/IncomingCallListener";
+import CommandPalette from "@/components/CommandPalette";
 import { registerPush } from "@/lib/push";
 
 function relAgo(iso: string): string {
@@ -124,6 +125,7 @@ export function Shell({ children }: { children: ReactNode }) {
   const pathname = usePathname();
   const [user, setUser] = useState<User | null>(null);
   const [sidebarOpen, setSidebarOpen] = useState(true);
+  const [cmdOpen, setCmdOpen] = useState(false);
   const [userMenuOpen, setUserMenuOpen] = useState(false);
   const [notifOpen, setNotifOpen] = useState(false);
   const [brand, setBrand] = useState("Simpulx");
@@ -152,6 +154,18 @@ export function Shell({ children }: { children: ReactNode }) {
     window.addEventListener("pointerdown", unlock);
     window.addEventListener("keydown", unlock);
     return () => { window.removeEventListener("pointerdown", unlock); window.removeEventListener("keydown", unlock); };
+  }, []);
+
+  // Cmd/Ctrl-K opens the command palette from anywhere.
+  useEffect(() => {
+    const onKey = (e: KeyboardEvent) => {
+      if ((e.metaKey || e.ctrlKey) && (e.key === "k" || e.key === "K")) {
+        e.preventDefault();
+        setCmdOpen((v) => !v);
+      }
+    };
+    window.addEventListener("keydown", onKey);
+    return () => window.removeEventListener("keydown", onKey);
   }, []);
 
   // Remember the sidebar collapsed/expanded choice across reloads.
@@ -439,6 +453,16 @@ export function Shell({ children }: { children: ReactNode }) {
 
           <div className="flex-1" />
 
+          {/* Command palette trigger */}
+          <button
+            onClick={() => setCmdOpen(true)}
+            className="hidden sm:flex items-center gap-2 h-9 pl-2.5 pr-2 rounded-lg border border-border bg-muted/40 text-muted-foreground hover:bg-muted hover:text-foreground transition-colors outline-none"
+          >
+            <Search className="w-4 h-4" />
+            <span className="text-[13px]">Search</span>
+            <kbd className="text-[10px] font-semibold bg-card border border-border rounded px-1 py-0.5 leading-none">{"⌘"} K</kbd>
+          </button>
+
           {/* Notifications */}
           <Tip label="Notifications" side="bottom">
             <button onClick={() => { const next = !notifOpen; setNotifOpen(next); setHasNotifs(false); if (next) loadNotifs(); }} className="p-2 rounded-lg text-muted-foreground hover:bg-muted hover:text-foreground transition-colors relative outline-none">
@@ -633,6 +657,9 @@ export function Shell({ children }: { children: ReactNode }) {
 
       {/* Global inbound WhatsApp call ringer (rings the assigned agent anywhere) */}
       <IncomingCallListener />
+
+      {/* Cmd/Ctrl-K command palette */}
+      <CommandPalette open={cmdOpen} onClose={() => setCmdOpen(false)} />
     </div>
   );
 }
