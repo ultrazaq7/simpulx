@@ -136,7 +136,8 @@ export const ROLE_PERMS: Record<string, string> = {
   manager: "Manage conversations, broadcasts and view analytics",
   agent: "Handle assigned conversations and contacts",
 };
-export const ROLE_COLOR: Record<string, string> = { owner: "#7C3AED", admin: "#2563EB", manager: "#0891B2", agent: "#64748B" };
+// Darkened so each color passes WCAG AA (4.5:1) as text on its own 10% tint.
+export const ROLE_COLOR: Record<string, string> = { owner: "#6D28D9", admin: "#1D4ED8", manager: "#0E7490", agent: "#475569" };
 
 export function initials(name: string) {
   return (name || "")

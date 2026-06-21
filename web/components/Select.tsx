@@ -80,7 +80,7 @@ export function Select({
           open ? "border-primary ring-2 ring-primary/20" : "border-input hover:border-muted-foreground/30",
         )}
       >
-        <span className={cn("flex-1 truncate", current ? "text-foreground" : "text-muted-foreground/70")}>{current?.label || placeholder}</span>
+        <span className={cn("flex-1 truncate", current ? "text-foreground" : "text-muted-foreground")}>{current?.label || placeholder}</span>
         <ChevronDown className={cn("w-4 h-4 text-muted-foreground shrink-0 transition-transform", open && "rotate-180")} />
       </button>
 
@@ -102,7 +102,7 @@ export function Select({
                   value={q}
                   onChange={(e) => setQ(e.target.value)}
                   placeholder="Search..."
-                  className="w-full h-9 pl-9 pr-3 rounded-md border border-input bg-background text-[13px] text-foreground placeholder:text-muted-foreground/70 outline-none focus:border-primary focus:ring-2 focus:ring-primary/20"
+                  className="w-full h-9 pl-9 pr-3 rounded-md border border-input bg-background text-[13px] text-foreground placeholder:text-muted-foreground outline-none focus:border-primary focus:ring-2 focus:ring-primary/20"
                 />
               </div>
             </div>

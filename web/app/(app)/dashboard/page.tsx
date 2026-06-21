@@ -534,7 +534,7 @@ function ManagerControlTower() {
                       </div>
                       {lv.waiting > 0
                         ? <span className="text-[10px] font-bold text-amber-700 bg-amber-50 rounded px-1.5 py-0.5 tabular-nums shrink-0">{lv.waiting}Â·{fmtDuration(lv.oldest)}</span>
-                        : <span className="text-[10px] font-semibold text-muted-foreground/60 w-12 text-center shrink-0">clear</span>}
+                        : <span className="text-[10px] font-semibold text-muted-foreground w-12 text-center shrink-0">clear</span>}
                     </div>
                   );
                 })}

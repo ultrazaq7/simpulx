@@ -38,7 +38,7 @@
     --accent-foreground: 218 33% 18%;
 
     /* Semantic */
-    --success: 152 56% 36%;             /* #15803D-ish won/active */
+    --success: 152 60% 29%;             /* deepened so success-as-text passes AA on its tint */
     --success-foreground: 0 0% 100%;
     --warning: 38 92% 50%;              /* #F59E0B */
     --warning-foreground: 26 84% 16%;

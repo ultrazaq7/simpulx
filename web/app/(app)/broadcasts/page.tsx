@@ -135,12 +135,12 @@ export default function BroadcastsPage() {
         <div className="flex items-center py-3 px-4 border-t border-border shrink-0">
           <span className="text-[13px] font-semibold text-muted-foreground tabular-nums">{filtered.length} broadcast{filtered.length === 1 ? "" : "s"}</span>
           <div className="flex-1 flex justify-center items-center gap-1">
-            <button disabled={page <= 1} onClick={() => setPage(1)} className="p-1 rounded-md text-muted-foreground hover:bg-muted hover:text-foreground disabled:opacity-30 disabled:cursor-not-allowed outline-none transition-colors"><ChevronsLeft className="w-[18px] h-[18px]" /></button>
-            <button disabled={page <= 1} onClick={() => setPage(page - 1)} className="p-1 rounded-md text-muted-foreground hover:bg-muted hover:text-foreground disabled:opacity-30 disabled:cursor-not-allowed outline-none transition-colors"><ChevronLeft className="w-[18px] h-[18px]" /></button>
+            <button aria-label="First page" disabled={page <= 1} onClick={() => setPage(1)} className="p-1 rounded-md text-muted-foreground hover:bg-muted hover:text-foreground disabled:opacity-30 disabled:cursor-not-allowed outline-none transition-colors"><ChevronsLeft className="w-[18px] h-[18px]" /></button>
+            <button aria-label="Previous page" disabled={page <= 1} onClick={() => setPage(page - 1)} className="p-1 rounded-md text-muted-foreground hover:bg-muted hover:text-foreground disabled:opacity-30 disabled:cursor-not-allowed outline-none transition-colors"><ChevronLeft className="w-[18px] h-[18px]" /></button>
             <span className="px-3 py-1 rounded-md border border-primary/40 text-primary text-[13px] font-bold min-w-[32px] text-center tabular-nums">{page}</span>
             <span className="text-[13px] text-muted-foreground tabular-nums">/ {totalPages}</span>
-            <button disabled={page >= totalPages} onClick={() => setPage(page + 1)} className="p-1 rounded-md text-muted-foreground hover:bg-muted hover:text-foreground disabled:opacity-30 disabled:cursor-not-allowed outline-none transition-colors"><ChevronRight className="w-[18px] h-[18px]" /></button>
-            <button disabled={page >= totalPages} onClick={() => setPage(totalPages)} className="p-1 rounded-md text-muted-foreground hover:bg-muted hover:text-foreground disabled:opacity-30 disabled:cursor-not-allowed outline-none transition-colors"><ChevronsRight className="w-[18px] h-[18px]" /></button>
+            <button aria-label="Next page" disabled={page >= totalPages} onClick={() => setPage(page + 1)} className="p-1 rounded-md text-muted-foreground hover:bg-muted hover:text-foreground disabled:opacity-30 disabled:cursor-not-allowed outline-none transition-colors"><ChevronRight className="w-[18px] h-[18px]" /></button>
+            <button aria-label="Last page" disabled={page >= totalPages} onClick={() => setPage(totalPages)} className="p-1 rounded-md text-muted-foreground hover:bg-muted hover:text-foreground disabled:opacity-30 disabled:cursor-not-allowed outline-none transition-colors"><ChevronsRight className="w-[18px] h-[18px]" /></button>
           </div>
           <div className="flex items-center gap-2">
             <span className="text-[13px] text-muted-foreground">Per page</span>
@@ -204,7 +204,7 @@ function BroadcastRow({ b, busy, canManage, onOpen, onSend, onDelete }: { b: Bro
           <div className="min-w-0">
             <div className="flex items-center gap-2">
               <p className="font-semibold text-[13px] text-foreground truncate max-w-[260px]">{b.name}</p>
-              {isTemplate && <span className="inline-flex px-1.5 py-0.5 rounded bg-secondary/15 text-secondary text-[9px] font-bold uppercase tracking-wide shrink-0">Template</span>}
+              {isTemplate && <span className="inline-flex px-1.5 py-0.5 rounded bg-muted text-muted-foreground text-[9px] font-bold uppercase tracking-wide shrink-0">Template</span>}
             </div>
             <p className="text-[11.5px] text-muted-foreground truncate max-w-[300px]">{preview}</p>
           </div>

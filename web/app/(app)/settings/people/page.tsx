@@ -195,7 +195,7 @@ function UserRowMenu({ u, isOpen, onToggle, onClose, onEdit, onViewActivity, onT
 
   return (
     <>
-      <button ref={btnRef} onClick={handleToggle}
+      <button ref={btnRef} aria-label="Member actions" onClick={handleToggle}
         className="p-1 border border-border rounded-md hover:bg-muted transition-colors outline-none">
         <MoreHorizontal className="w-[18px] h-[18px] text-muted-foreground" />
       </button>

@@ -124,7 +124,7 @@ export default function GeneralSettingsPage() {
         {/* ── Workspace ── */}
         <Panel icon={Building2} title="Workspace">
           <div className="flex items-center gap-4 mb-5">
-            <div className="w-14 h-14 rounded-xl bg-primary/10 text-primary grid place-items-center text-lg font-bold shrink-0">
+            <div className="w-14 h-14 rounded-xl bg-primary/10 text-primary-text grid place-items-center text-lg font-bold shrink-0">
               {initials(name) || <Building2 className="w-6 h-6" />}
             </div>
             <div className="flex-1 min-w-0">

@@ -207,7 +207,7 @@ export default function RolesSettingsPage() {
               <div key={g.group}>
                 <div className="flex">
                   <div className="w-[240px] shrink-0 sticky left-0 z-10 bg-card px-4 pt-4 pb-1.5">
-                    <p className="text-[11px] font-semibold text-muted-foreground/70 uppercase tracking-wider">{g.group}</p>
+                    <p className="text-[11px] font-semibold text-muted-foreground uppercase tracking-wider">{g.group}</p>
                   </div>
                   <div className="flex-1" />
                 </div>
@@ -222,6 +222,7 @@ export default function RolesSettingsPage() {
                         <div key={r} className="flex-1 min-w-[104px] flex justify-center py-2.5">
                           <input
                             type="checkbox"
+                            aria-label={`${p.label} for ${r}`}
                             checked={!!matrix[r]?.[p.key]}
                             disabled={locked}
                             onChange={() => toggle(r, p.key)}

@@ -181,7 +181,7 @@ export default function ContactsPage() {
               <button onClick={() => setModal({ mode: "add" })} className="inline-flex items-center gap-2 px-3.5 h-9 bg-primary text-white rounded-l-md text-sm font-semibold hover:bg-primary-dark shadow-sm transition-all outline-none">
                 <UserPlus className="w-4 h-4" />Add contact
               </button>
-              <button onClick={() => setAddMenuOpen((o) => !o)} className="px-2 h-9 bg-primary text-white rounded-r-md border-l border-white/20 hover:bg-primary-dark outline-none transition-colors">
+              <button aria-label="More add options" onClick={() => setAddMenuOpen((o) => !o)} className="px-2 h-9 bg-primary text-white rounded-r-md border-l border-white/20 hover:bg-primary-dark outline-none transition-colors">
                 <ChevronDown className="w-4 h-4" />
               </button>
               {addMenuOpen && (
@@ -206,7 +206,7 @@ export default function ContactsPage() {
           <table className="w-full text-sm">
             <thead className="sticky top-0 z-10">
               <tr className="border-b border-border bg-muted">
-                <TH className="w-10"><input type="checkbox" className="rounded border-input accent-primary" /></TH>
+                <TH className="w-10"><input type="checkbox" aria-label="Select all contacts" className="rounded border-input accent-primary" /></TH>
                 <TH>Contact name</TH><TH>Channel</TH><TH>Phone</TH><TH>Status</TH><TH>Source</TH>
                 <TH>Labels</TH><TH>Created</TH><TH>Updated</TH><TH>Blacklisted</TH><TH className="text-right">Actions</TH>
               </tr>
@@ -222,7 +222,7 @@ export default function ContactsPage() {
                 </td></tr>
               ) : paged.map((c) => (
                 <tr key={c.id} className="border-b border-border/60 hover:bg-muted/50 transition-colors">
-                  <td className="px-4 py-2.5"><input type="checkbox" className="rounded border-input accent-primary" /></td>
+                  <td className="px-4 py-2.5"><input type="checkbox" aria-label={`Select ${c.full_name || c.phone || "contact"}`} className="rounded border-input accent-primary" /></td>
                   <td className="px-4 py-2.5">
                     <div className="flex items-center gap-3">
                       <div className="w-9 h-9 rounded-full grid place-items-center text-xs font-bold ring-1 ring-inset ring-black/5 shrink-0"
@@ -266,7 +266,7 @@ export default function ContactsPage() {
                   </td>
                   <td className="px-4 py-2.5 text-right">
                     <div className="relative inline-block" onClick={(e) => e.stopPropagation()}>
-                      <button onClick={() => setMenuId(menuId === c.id ? null : c.id)} className="p-1.5 rounded-md hover:bg-muted text-muted-foreground hover:text-foreground outline-none transition-colors"><MoreVertical className="w-4 h-4" /></button>
+                      <button aria-label="Contact actions" onClick={() => setMenuId(menuId === c.id ? null : c.id)} className="p-1.5 rounded-md hover:bg-muted text-muted-foreground hover:text-foreground outline-none transition-colors"><MoreVertical className="w-4 h-4" /></button>
                       {menuId === c.id && (
                         <div className="absolute right-0 top-full mt-1 w-40 bg-popover border border-border rounded-lg shadow-xl z-20 py-1 animate-scale-in origin-top-right">
                           <button onClick={() => { setMenuId(null); router.push(`/contacts/${c.id}`); }} className="w-full flex items-center gap-2 px-3 py-2 text-[13px] text-foreground hover:bg-muted outline-none"><Eye className="w-4 h-4 text-muted-foreground" />View details</button>
@@ -288,12 +288,12 @@ export default function ContactsPage() {
         <div className="flex items-center py-3 px-4 border-t border-border shrink-0">
           <span className="text-[13px] font-semibold text-muted-foreground tabular-nums">{filtered.length} contact{filtered.length === 1 ? "" : "s"}</span>
           <div className="flex-1 flex justify-center items-center gap-1">
-            <button disabled={page <= 1} onClick={() => setPage(1)} className="p-1 rounded-md text-muted-foreground hover:bg-muted disabled:opacity-30 outline-none"><ChevronsLeft className="w-[18px] h-[18px]" /></button>
-            <button disabled={page <= 1} onClick={() => setPage(page - 1)} className="p-1 rounded-md text-muted-foreground hover:bg-muted disabled:opacity-30 outline-none"><ChevronLeft className="w-[18px] h-[18px]" /></button>
+            <button aria-label="First page" disabled={page <= 1} onClick={() => setPage(1)} className="p-1 rounded-md text-muted-foreground hover:bg-muted disabled:opacity-30 outline-none"><ChevronsLeft className="w-[18px] h-[18px]" /></button>
+            <button aria-label="Previous page" disabled={page <= 1} onClick={() => setPage(page - 1)} className="p-1 rounded-md text-muted-foreground hover:bg-muted disabled:opacity-30 outline-none"><ChevronLeft className="w-[18px] h-[18px]" /></button>
             <span className="px-3 py-1 rounded-md border border-primary/40 text-primary text-[13px] font-bold min-w-[32px] text-center tabular-nums">{page}</span>
             <span className="text-[13px] text-muted-foreground tabular-nums">/ {totalPages}</span>
-            <button disabled={page >= totalPages} onClick={() => setPage(page + 1)} className="p-1 rounded-md text-muted-foreground hover:bg-muted disabled:opacity-30 outline-none"><ChevronRight className="w-[18px] h-[18px]" /></button>
-            <button disabled={page >= totalPages} onClick={() => setPage(totalPages)} className="p-1 rounded-md text-muted-foreground hover:bg-muted disabled:opacity-30 outline-none"><ChevronsRight className="w-[18px] h-[18px]" /></button>
+            <button aria-label="Next page" disabled={page >= totalPages} onClick={() => setPage(page + 1)} className="p-1 rounded-md text-muted-foreground hover:bg-muted disabled:opacity-30 outline-none"><ChevronRight className="w-[18px] h-[18px]" /></button>
+            <button aria-label="Last page" disabled={page >= totalPages} onClick={() => setPage(totalPages)} className="p-1 rounded-md text-muted-foreground hover:bg-muted disabled:opacity-30 outline-none"><ChevronsRight className="w-[18px] h-[18px]" /></button>
           </div>
           <div className="flex items-center gap-2">
             <span className="text-[13px] text-muted-foreground">Per page</span>

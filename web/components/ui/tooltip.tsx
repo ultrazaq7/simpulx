@@ -88,7 +88,9 @@ function Tip({
   const childProps = (children.props ?? {}) as Record<string, unknown>
   // Only name INTERACTIVE triggers (button/link/role). Adding aria-label to a plain
   // decorative <span> (e.g. a status dot) is aria-prohibited.
-  const interactive = tag === "button" || tag === "a" || !!childProps.onClick || !!childProps.role || childProps.tabIndex !== undefined
+  // Note: Next.js <Link> has a non-string type, so also detect href/onClick/role
+  // (a collapsed sidebar <Link> only renders an icon and otherwise has no name).
+  const interactive = tag === "button" || tag === "a" || !!childProps.href || !!childProps.onClick || !!childProps.role || childProps.tabIndex !== undefined
   if (typeof label === "string" && interactive && !childProps["aria-label"]) {
     trigger = React.cloneElement(children, { "aria-label": label } as React.Attributes)
   }
