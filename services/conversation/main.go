@@ -65,6 +65,7 @@ func main() {
 	// Lifecycle ticker (auto-close idle).
 	interval := time.Duration(config.GetInt("LIFECYCLE_INTERVAL_MIN", 15)) * time.Minute
 	go a.runLifecycle(ctx, interval, a.idleHours)
+	go a.runSnoozeSweeper(ctx, time.Minute) // snoozes need ~1-min granularity + run-on-start
 
 	// HTTP REST + health.
 	port := config.Get("PORT", "8083")

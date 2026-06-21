@@ -17,8 +17,24 @@ func (a *app) runLifecycle(ctx context.Context, interval time.Duration, idleHour
 			return
 		case <-t.C:
 			a.sweepIdle(ctx, idleHours)
-			a.sweepSnoozed(ctx)
 			a.sendDueDrips(ctx)
+		}
+	}
+}
+
+// runSnoozeSweeper reopens due snoozes on its own fast cadence (snoozes need finer
+// granularity than the idle sweep) and runs once on startup so a service restart
+// doesn't leave an already-due snooze parked until the next tick.
+func (a *app) runSnoozeSweeper(ctx context.Context, interval time.Duration) {
+	a.sweepSnoozed(ctx)
+	t := time.NewTicker(interval)
+	defer t.Stop()
+	for {
+		select {
+		case <-ctx.Done():
+			return
+		case <-t.C:
+			a.sweepSnoozed(ctx)
 		}
 	}
 }
