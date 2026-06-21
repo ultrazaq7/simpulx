@@ -536,7 +536,7 @@ func (s *store) routeToCampaign(ctx context.Context, campaignID string, convID s
 	var assignedAgent string
 	err = tx.QueryRow(ctx,
 		`WITH agents AS (SELECT ca.user_id FROM campaign_agents ca JOIN users u ON u.id=ca.user_id
-		                 WHERE ca.campaign_id=$1 AND u.is_deleted=false AND u.status='active' ORDER BY ca.user_id)
+		                 WHERE ca.campaign_id=$1 AND ca.in_rotation AND u.is_deleted=false AND u.status='active' ORDER BY ca.user_id)
 		 SELECT user_id FROM agents OFFSET ($2 % GREATEST((SELECT count(*) FROM agents), 1)) LIMIT 1`,
 		campaignID, cursor).Scan(&assignedAgent)
 	
@@ -639,7 +639,7 @@ func (s *store) routeToBranch(ctx context.Context, branchID string, convID strin
 	var assignedAgent string
 	err = tx.QueryRow(ctx,
 		`WITH agents AS (SELECT ba.user_id FROM branch_agents ba JOIN users u ON u.id=ba.user_id
-		                 WHERE ba.branch_id=$1 AND u.is_deleted=false AND u.status='active' ORDER BY ba.user_id)
+		                 WHERE ba.branch_id=$1 AND ba.in_rotation AND u.is_deleted=false AND u.status='active' ORDER BY ba.user_id)
 		 SELECT user_id FROM agents OFFSET ($2 % GREATEST((SELECT count(*) FROM agents), 1)) LIMIT 1`,
 		branchID, cursor).Scan(&assignedAgent)
 

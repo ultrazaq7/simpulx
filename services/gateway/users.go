@@ -350,7 +350,11 @@ func (s *server) handleUserActivity(w http.ResponseWriter, r *http.Request) {
 				`SELECT EXISTS (
 				   SELECT 1 FROM campaign_agents ca
 				    WHERE ca.user_id = $1
-				      AND ca.campaign_id IN (SELECT campaign_id FROM campaign_agents WHERE user_id = $2))`,
+				      AND ca.campaign_id IN (SELECT campaign_id FROM campaign_agents WHERE user_id = $2))
+				   OR EXISTS (
+				   SELECT 1 FROM branch_agents ba
+				    WHERE ba.user_id = $1
+				      AND ba.branch_id IN (SELECT branch_id FROM branch_agents WHERE user_id = $2))`,
 				targetID, a.UserID).Scan(&shared)
 			if !shared {
 				http.Error(w, "forbidden", http.StatusForbidden)

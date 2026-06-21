@@ -99,7 +99,8 @@ func (s *server) handleGetCampaign(w http.ResponseWriter, r *http.Request) {
 		`SELECT c.id::text AS id, c.name, c.dealer_name, c.status, c.routing_strategy,
 		        to_jsonb(c.ad_source_ids) AS ad_source_ids, to_jsonb(c.keywords) AS keywords,
 		        c.lead_count, c.channel_id::text AS channel_id, c.calling_enabled,
-		        COALESCE((SELECT jsonb_agg(ca.user_id::text) FROM campaign_agents ca WHERE ca.campaign_id = c.id), '[]'::jsonb) AS agent_ids
+		        COALESCE((SELECT jsonb_agg(ca.user_id::text) FROM campaign_agents ca WHERE ca.campaign_id = c.id AND ca.in_rotation), '[]'::jsonb) AS agent_ids,
+		        COALESCE((SELECT jsonb_agg(ca.user_id::text) FROM campaign_agents ca WHERE ca.campaign_id = c.id AND NOT ca.in_rotation), '[]'::jsonb) AS supervisor_ids
 		   FROM campaigns c WHERE c.id = $1 AND c.organization_id = $2`,
 		r.PathValue("id"), a.OrgID,
 	)
@@ -123,6 +124,7 @@ type campaignInput struct {
 	AdSourceIDs     []string `json:"ad_source_ids"`
 	Keywords        []string `json:"keywords"`
 	AgentIDs        []string `json:"agent_ids"`
+	SupervisorIDs   []string `json:"supervisor_ids"` // members for oversight only (no round-robin)
 	CallingEnabled  *bool    `json:"calling_enabled"`
 }
 
@@ -147,7 +149,7 @@ func (s *server) handleCreateCampaign(w http.ResponseWriter, r *http.Request) {
 		http.Error(w, err.Error(), http.StatusInternalServerError)
 		return
 	}
-	if err := s.syncCampaignAgents(r.Context(), id, b.AgentIDs); err != nil {
+	if err := s.syncCampaignAgents(r.Context(), id, b.AgentIDs, b.SupervisorIDs); err != nil {
 		http.Error(w, err.Error(), http.StatusInternalServerError)
 		return
 	}
@@ -186,8 +188,8 @@ func (s *server) handleUpdateCampaign(w http.ResponseWriter, r *http.Request) {
 		http.Error(w, "not found", http.StatusNotFound)
 		return
 	}
-	if b.AgentIDs != nil {
-		if err := s.syncCampaignAgents(r.Context(), r.PathValue("id"), b.AgentIDs); err != nil {
+	if b.AgentIDs != nil || b.SupervisorIDs != nil {
+		if err := s.syncCampaignAgents(r.Context(), r.PathValue("id"), b.AgentIDs, b.SupervisorIDs); err != nil {
 			http.Error(w, err.Error(), http.StatusInternalServerError)
 			return
 		}
@@ -211,21 +213,30 @@ func (s *server) handleDeleteCampaign(w http.ResponseWriter, r *http.Request) {
 	writeJSON(w, map[string]any{"status": "deleted"})
 }
 
-func (s *server) syncCampaignAgents(ctx context.Context, campaignID string, agentIDs []string) error {
+// syncCampaignAgents rewrites a campaign's roster: agentIDs join the round-robin
+// rotation (in_rotation=true), supervisorIDs are oversight-only (in_rotation=false,
+// they see the campaign but never get assigned leads). Agents win if listed twice.
+func (s *server) syncCampaignAgents(ctx context.Context, campaignID string, agentIDs, supervisorIDs []string) error {
 	if _, err := s.pool.Exec(ctx, `DELETE FROM campaign_agents WHERE campaign_id=$1`, campaignID); err != nil {
 		return err
 	}
-	for _, uid := range agentIDs {
-		if uid == "" {
-			continue
+	ins := func(ids []string, rotation bool) error {
+		for _, uid := range ids {
+			if uid == "" {
+				continue
+			}
+			if _, err := s.pool.Exec(ctx,
+				`INSERT INTO campaign_agents (campaign_id, user_id, in_rotation) VALUES ($1,$2::uuid,$3) ON CONFLICT DO NOTHING`,
+				campaignID, uid, rotation); err != nil {
+				return err
+			}
 		}
-		if _, err := s.pool.Exec(ctx,
-			`INSERT INTO campaign_agents (campaign_id, user_id) VALUES ($1,$2::uuid) ON CONFLICT DO NOTHING`,
-			campaignID, uid); err != nil {
-			return err
-		}
+		return nil
 	}
-	return nil
+	if err := ins(agentIDs, true); err != nil {
+		return err
+	}
+	return ins(supervisorIDs, false)
 }
 
 // nilIfEmptySlice lets COALESCE keep the existing array when the client
@@ -242,7 +253,7 @@ func nilIfEmptySlice(s []string) any {
 func (s *server) routeToCampaign(ctx context.Context, campaignID, convID string) {
 	_, _ = s.pool.Exec(ctx,
 		`WITH agents AS (SELECT ca.user_id FROM campaign_agents ca JOIN users u ON u.id=ca.user_id
-		                 WHERE ca.campaign_id=$1 AND u.is_deleted=false AND u.status='active' ORDER BY ca.user_id),
+		                 WHERE ca.campaign_id=$1 AND ca.in_rotation AND u.is_deleted=false AND u.status='active' ORDER BY ca.user_id),
 		      pick AS (SELECT user_id FROM agents
 		               OFFSET (SELECT rr_cursor % GREATEST((SELECT count(*) FROM agents),1) FROM campaigns WHERE id=$1)
 		               LIMIT 1)
@@ -261,7 +272,7 @@ func (s *server) routeToBranch(ctx context.Context, branchID, convID string) {
 	_, _ = s.pool.Exec(ctx,
 		`WITH d AS (SELECT campaign_id, rr_cursor FROM campaign_branches WHERE id=$1),
 		      agents AS (SELECT ba.user_id FROM branch_agents ba JOIN users u ON u.id=ba.user_id
-		                 WHERE ba.branch_id=$1 AND u.is_deleted=false AND u.status='active' ORDER BY ba.user_id),
+		                 WHERE ba.branch_id=$1 AND ba.in_rotation AND u.is_deleted=false AND u.status='active' ORDER BY ba.user_id),
 		      pick AS (SELECT user_id FROM agents
 		               OFFSET ((SELECT rr_cursor FROM d) % GREATEST((SELECT count(*) FROM agents),1))
 		               LIMIT 1)

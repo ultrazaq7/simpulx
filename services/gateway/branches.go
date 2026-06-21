@@ -21,7 +21,8 @@ func (s *server) handleListBranches(w http.ResponseWriter, r *http.Request) {
 	rows, err := s.queryMaps(r.Context(),
 		`SELECT b.id::text AS id, b.name,
 		        to_jsonb(b.ad_source_ids) AS ad_source_ids, b.lead_count,
-		        COALESCE((SELECT jsonb_agg(ba.user_id::text) FROM branch_agents ba WHERE ba.branch_id=b.id), '[]'::jsonb) AS agent_ids,
+		        COALESCE((SELECT jsonb_agg(ba.user_id::text) FROM branch_agents ba WHERE ba.branch_id=b.id AND ba.in_rotation), '[]'::jsonb) AS agent_ids,
+		        COALESCE((SELECT jsonb_agg(ba.user_id::text) FROM branch_agents ba WHERE ba.branch_id=b.id AND NOT ba.in_rotation), '[]'::jsonb) AS supervisor_ids,
 		        COALESCE((SELECT jsonb_agg(ws.id::text) FROM web_api_sources ws WHERE ws.branch_id=b.id), '[]'::jsonb) AS web_source_ids
 		   FROM campaign_branches b
 		  WHERE b.campaign_id=$1 AND b.organization_id=$2
@@ -36,10 +37,11 @@ func (s *server) handleListBranches(w http.ResponseWriter, r *http.Request) {
 }
 
 type branchInput struct {
-	Name         string   `json:"name"`
-	AdSourceIDs  []string `json:"ad_source_ids"`
-	AgentIDs     []string `json:"agent_ids"`
-	WebSourceIDs []string `json:"web_source_ids"`
+	Name          string   `json:"name"`
+	AdSourceIDs   []string `json:"ad_source_ids"`
+	AgentIDs      []string `json:"agent_ids"`
+	SupervisorIDs []string `json:"supervisor_ids"` // branch oversight only (no round-robin)
+	WebSourceIDs  []string `json:"web_source_ids"`
 }
 
 // POST /api/campaigns/{id}/branches
@@ -71,7 +73,7 @@ func (s *server) handleCreateBranch(w http.ResponseWriter, r *http.Request) {
 		http.Error(w, err.Error(), http.StatusInternalServerError)
 		return
 	}
-	if err := s.syncBranchAgents(r.Context(), id, b.AgentIDs); err != nil {
+	if err := s.syncBranchAgents(r.Context(), id, b.AgentIDs, b.SupervisorIDs); err != nil {
 		http.Error(w, err.Error(), http.StatusInternalServerError)
 		return
 	}
@@ -108,8 +110,8 @@ func (s *server) handleUpdateBranch(w http.ResponseWriter, r *http.Request) {
 		http.Error(w, "not found", http.StatusNotFound)
 		return
 	}
-	if b.AgentIDs != nil {
-		if err := s.syncBranchAgents(r.Context(), id, b.AgentIDs); err != nil {
+	if b.AgentIDs != nil || b.SupervisorIDs != nil {
+		if err := s.syncBranchAgents(r.Context(), id, b.AgentIDs, b.SupervisorIDs); err != nil {
 			http.Error(w, err.Error(), http.StatusInternalServerError)
 			return
 		}
@@ -140,21 +142,29 @@ func (s *server) handleDeleteBranch(w http.ResponseWriter, r *http.Request) {
 	writeJSON(w, map[string]any{"status": "deleted"})
 }
 
-func (s *server) syncBranchAgents(ctx context.Context, branchID string, agentIDs []string) error {
+// syncBranchAgents rewrites a branch roster: agentIDs are in the round-robin
+// (in_rotation=true); supervisorIDs see the branch's leads but never get assigned.
+func (s *server) syncBranchAgents(ctx context.Context, branchID string, agentIDs, supervisorIDs []string) error {
 	if _, err := s.pool.Exec(ctx, `DELETE FROM branch_agents WHERE branch_id=$1`, branchID); err != nil {
 		return err
 	}
-	for _, uid := range agentIDs {
-		if uid == "" {
-			continue
+	ins := func(ids []string, rotation bool) error {
+		for _, uid := range ids {
+			if uid == "" {
+				continue
+			}
+			if _, err := s.pool.Exec(ctx,
+				`INSERT INTO branch_agents (branch_id, user_id, in_rotation) VALUES ($1,$2::uuid,$3) ON CONFLICT DO NOTHING`,
+				branchID, uid, rotation); err != nil {
+				return err
+			}
 		}
-		if _, err := s.pool.Exec(ctx,
-			`INSERT INTO branch_agents (branch_id, user_id) VALUES ($1,$2::uuid) ON CONFLICT DO NOTHING`,
-			branchID, uid); err != nil {
-			return err
-		}
+		return nil
 	}
-	return nil
+	if err := ins(agentIDs, true); err != nil {
+		return err
+	}
+	return ins(supervisorIDs, false)
 }
 
 // syncBranchWebSources points the selected Web API sources at this branch and

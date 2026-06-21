@@ -77,7 +77,8 @@ func (s *server) handleListConversations(w http.ResponseWriter, r *http.Request)
 		// no extra filter
 	case "manager":
 		visibility = ` AND (cv.assigned_agent_id IS NULL
-		                     OR cv.campaign_id IN (SELECT campaign_id FROM campaign_agents WHERE user_id = $3))`
+		                     OR cv.campaign_id IN (SELECT campaign_id FROM campaign_agents WHERE user_id = $3)
+		                     OR cv.branch_id IN (SELECT branch_id FROM branch_agents WHERE user_id = $3))`
 	default: // agent (and any unknown role) -> own conversations only
 		visibility = ` AND cv.assigned_agent_id = $3`
 	}
@@ -139,12 +140,12 @@ func (s *server) handleListConversations(w http.ResponseWriter, r *http.Request)
 // caller may not touch it (-> 403, also surfaced as 404 to avoid leaking existence).
 func (s *server) canAccessConversation(ctx context.Context, a authInfo, convID string) (allowed, found bool) {
 	var assignedAgent *string
-	var campaignID *string
+	var campaignID, branchID *string
 	err := s.pool.QueryRow(ctx,
-		`SELECT assigned_agent_id::text, campaign_id::text
+		`SELECT assigned_agent_id::text, campaign_id::text, branch_id::text
 		   FROM conversations WHERE id = $1 AND organization_id = $2`,
 		convID, a.OrgID,
-	).Scan(&assignedAgent, &campaignID)
+	).Scan(&assignedAgent, &campaignID, &branchID)
 	if err != nil {
 		return false, false // not found in this org
 	}
@@ -155,18 +156,30 @@ func (s *server) canAccessConversation(ctx context.Context, a authInfo, convID s
 		if assignedAgent == nil {
 			return true, true // unassigned is visible to managers
 		}
-		if campaignID == nil {
-			return false, true
-		}
-		var inCampaign bool
+		// Visible if the manager belongs to the conversation's campaign or its branch.
+		var ok bool
 		_ = s.pool.QueryRow(ctx,
-			`SELECT true FROM campaign_agents WHERE campaign_id = $1::uuid AND user_id = $2`,
-			*campaignID, a.UserID,
-		).Scan(&inCampaign)
-		return inCampaign, true
+			`SELECT EXISTS(SELECT 1 FROM campaign_agents WHERE user_id=$1 AND campaign_id=$2::uuid)
+			     OR EXISTS(SELECT 1 FROM branch_agents WHERE user_id=$1 AND branch_id=$3::uuid)`,
+			a.UserID, campaignID, branchID,
+		).Scan(&ok)
+		return ok, true
 	default: // agent
 		return assignedAgent != nil && *assignedAgent == a.UserID, true
 	}
+}
+
+// managerScope returns the SQL predicate limiting a manager to conversations in
+// the campaigns (campaign_agents) and branches (branch_agents) they belong to.
+// alias is the conversations table alias ("" for none, e.g. "cv" or "lc"); idx is
+// the positional placeholder holding the manager's user id (referenced twice).
+func managerScope(alias string, idx int) string {
+	p := ""
+	if alias != "" {
+		p = alias + "."
+	}
+	return fmt.Sprintf("(%scampaign_id IN (SELECT campaign_id FROM campaign_agents WHERE user_id = $%d)"+
+		" OR %sbranch_id IN (SELECT branch_id FROM branch_agents WHERE user_id = $%d))", p, idx, p, idx)
 }
 
 // guardConversation runs canAccessConversation and writes the appropriate error
@@ -520,7 +533,10 @@ func (s *server) handleListAgents(w http.ResponseWriter, r *http.Request) {
 	args := []any{a.OrgID}
 
 	if a.Role == "manager" {
-		query += ` AND u.id IN (SELECT user_id FROM campaign_agents WHERE campaign_id IN (SELECT campaign_id FROM campaign_agents WHERE user_id = $2))`
+		query += ` AND u.id IN (
+		    SELECT user_id FROM campaign_agents WHERE campaign_id IN (SELECT campaign_id FROM campaign_agents WHERE user_id = $2)
+		    UNION
+		    SELECT user_id FROM branch_agents WHERE branch_id IN (SELECT branch_id FROM branch_agents WHERE user_id = $2))`
 		args = append(args, a.UserID)
 	} else if a.Role == "agent" {
 		query += ` AND u.id = $2`
@@ -648,7 +664,7 @@ func (s *server) handleStats(w http.ResponseWriter, r *http.Request) {
 		campFilter += fmt.Sprintf(" AND assigned_agent_id = $%d", len(args))
 	} else if a.Role == "manager" {
 		args = append(args, a.UserID)
-		campFilter += fmt.Sprintf(" AND campaign_id IN (SELECT campaign_id FROM campaign_agents WHERE user_id = $%d)", len(args))
+		campFilter += " AND " + managerScope("", len(args))
 	}
 	if ch := r.URL.Query().Get("channel_id"); ch != "" {
 		args = append(args, ch)
@@ -699,7 +715,7 @@ func (s *server) handleDashboardCards(w http.ResponseWriter, r *http.Request) {
 		campFilter += fmt.Sprintf(" AND assigned_agent_id = $%d", len(args))
 	} else if a.Role == "manager" {
 		args = append(args, a.UserID)
-		campFilter += fmt.Sprintf(" AND campaign_id IN (SELECT campaign_id FROM campaign_agents WHERE user_id = $%d)", len(args))
+		campFilter += " AND " + managerScope("", len(args))
 	}
 
 	query := fmt.Sprintf(`SELECT
@@ -742,8 +758,8 @@ func (s *server) handleAnalytics(w http.ResponseWriter, r *http.Request) {
 		campFilter += fmt.Sprintf(" AND assigned_agent_id = $%d", len(args))
 	} else if a.Role == "manager" {
 		args = append(args, a.UserID)
-		campFilterCv += fmt.Sprintf(" AND cv.campaign_id IN (SELECT campaign_id FROM campaign_agents WHERE user_id = $%d)", len(args))
-		campFilter += fmt.Sprintf(" AND campaign_id IN (SELECT campaign_id FROM campaign_agents WHERE user_id = $%d)", len(args))
+		campFilterCv += " AND " + managerScope("cv", len(args))
+		campFilter += " AND " + managerScope("", len(args))
 	}
 	if ch := r.URL.Query().Get("channel_id"); ch != "" {
 		args = append(args, ch)
@@ -1429,7 +1445,7 @@ func (s *server) handleListContacts(w http.ResponseWriter, r *http.Request) {
 		filter += fmt.Sprintf(" AND lc.assigned_agent_id = $%d", len(args))
 	} else if a.Role == "manager" {
 		args = append(args, a.UserID)
-		filter += fmt.Sprintf(" AND lc.campaign_id IN (SELECT campaign_id FROM campaign_agents WHERE user_id = $%d)", len(args))
+		filter += " AND " + managerScope("lc", len(args))
 	}
 
 	query := fmt.Sprintf(`SELECT ct.id::text AS id, ct.full_name, ct.phone, ct.source_channel, ct.created_at,

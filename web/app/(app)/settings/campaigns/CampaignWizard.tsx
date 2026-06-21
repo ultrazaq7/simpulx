@@ -18,11 +18,11 @@ const STEPS = ["Campaign", "Branches", "Review"];
 type LocalBranch = {
   key: string; id?: string;
   name: string; adSources: string;
-  agentIds: string[]; webSourceIds: string[];
+  agentIds: string[]; supervisorIds: string[]; webSourceIds: string[];
 };
 
 let keySeq = 0;
-const newBranch = (): LocalBranch => ({ key: `b${++keySeq}`, name: "", adSources: "", agentIds: [], webSourceIds: [] });
+const newBranch = (): LocalBranch => ({ key: `b${++keySeq}`, name: "", adSources: "", agentIds: [], supervisorIds: [], webSourceIds: [] });
 const csv = (s: string) => s.split(",").map((x) => x.trim()).filter(Boolean);
 
 export function CampaignWizard({ campaignId, users, channels, onClose, onDone, onError }: {
@@ -41,6 +41,7 @@ export function CampaignWizard({ campaignId, users, channels, onClose, onDone, o
   const [channelId, setChannelId] = useState("");
   const [callingEnabled, setCallingEnabled] = useState(true);
   const [defaultAgents, setDefaultAgents] = useState<string[]>([]);
+  const [supervisors, setSupervisors] = useState<string[]>([]);
   const [adSources, setAdSources] = useState("");
   const [keywords, setKeywords] = useState("");
 
@@ -59,11 +60,11 @@ export function CampaignWizard({ campaignId, users, channels, onClose, onDone, o
         .then(([c, brs]) => {
           setName(c.name); setCompany(c.dealer_name ?? ""); setStatus(c.status); setRouting(c.routing_strategy);
           setChannelId(c.channel_id ?? ""); setCallingEnabled(c.calling_enabled ?? true);
-          setDefaultAgents(c.agent_ids ?? []); setKeywords((c.keywords ?? []).join(", "));
+          setDefaultAgents(c.agent_ids ?? []); setSupervisors(c.supervisor_ids ?? []); setKeywords((c.keywords ?? []).join(", "));
           setAdSources((c.ad_source_ids ?? []).join(", "));
           setBranches((brs as any[]).map((b) => ({
             key: `b${++keySeq}`, id: b.id, name: b.name,
-            adSources: (b.ad_source_ids ?? []).join(", "), agentIds: b.agent_ids ?? [], webSourceIds: b.web_source_ids ?? [],
+            adSources: (b.ad_source_ids ?? []).join(", "), agentIds: b.agent_ids ?? [], supervisorIds: b.supervisor_ids ?? [], webSourceIds: b.web_source_ids ?? [],
           })));
         })
         .catch((e) => onError(String(e)));
@@ -86,7 +87,7 @@ export function CampaignWizard({ campaignId, users, channels, onClose, onDone, o
       const payload = {
         name: name.trim(), dealer_name: company.trim(), status, routing_strategy: routing,
         channel_id: channelId, ad_source_ids: csv(adSources), keywords: csv(keywords),
-        agent_ids: defaultAgents, calling_enabled: callingEnabled,
+        agent_ids: defaultAgents, supervisor_ids: supervisors, calling_enabled: callingEnabled,
       };
       let cid = campaignId;
       if (isEdit) await api.updateCampaign(cid!, payload);
@@ -94,7 +95,7 @@ export function CampaignWizard({ campaignId, users, channels, onClose, onDone, o
 
       for (const id of removed) await api.deleteBranch(id);
       for (const b of branches) {
-        const input = { name: b.name.trim(), ad_source_ids: csv(b.adSources), agent_ids: b.agentIds, web_source_ids: b.webSourceIds };
+        const input = { name: b.name.trim(), ad_source_ids: csv(b.adSources), agent_ids: b.agentIds, supervisor_ids: b.supervisorIds, web_source_ids: b.webSourceIds };
         if (b.id) await api.updateBranch(b.id, input);
         else await api.createBranch(cid!, input);
       }
@@ -139,8 +140,13 @@ export function CampaignWizard({ campaignId, users, channels, onClose, onDone, o
             {!channelId && <p className="mt-1 text-[11px] text-amber-600">No channel set. Leads won&apos;t route until a channel is assigned.</p>}
           </div>
           <div>
-            <FieldLabel>Default agents (used when no branch matches)</FieldLabel>
+            <FieldLabel>Default agents (round-robin, used when no branch matches)</FieldLabel>
             <AgentMultiSelect options={agentOptions} selected={defaultAgents} onChange={setDefaultAgents} />
+          </div>
+          <div>
+            <FieldLabel>Supervisors (view only, no leads)</FieldLabel>
+            <AgentMultiSelect options={agentOptions} selected={supervisors} onChange={setSupervisors} />
+            <p className="mt-1 text-[11px] text-muted-foreground">Managers/SPV who can see this campaign&apos;s leads but are never assigned in the rotation.</p>
           </div>
           <WizardField label="CTWA ad source IDs (used when no branch matches)" value={adSources} onChange={setAdSources} placeholder="ad_honda_brio_2026" hint="Per-branch ad sources are set in step 2. These campaign-level IDs route leads when no branch matches." />
           <WizardField label="Keywords in first message (comma separated)" value={keywords} onChange={setKeywords} placeholder="brio, honda" />
@@ -171,8 +177,12 @@ export function CampaignWizard({ campaignId, users, channels, onClose, onDone, o
                 <MultiSelectFilter variant="field" label="Web sources" options={webSourceOptions} selected={b.webSourceIds} onChange={(v) => patchBranch(b.key, { webSourceIds: v })} />
               </div>
               <div>
-                <FieldLabel>Agents</FieldLabel>
+                <FieldLabel>Agents (round-robin)</FieldLabel>
                 <AgentMultiSelect options={agentOptions} selected={b.agentIds} onChange={(v) => patchBranch(b.key, { agentIds: v })} />
+              </div>
+              <div>
+                <FieldLabel>Supervisors (view only, no leads)</FieldLabel>
+                <AgentMultiSelect options={agentOptions} selected={b.supervisorIds} onChange={(v) => patchBranch(b.key, { supervisorIds: v })} />
               </div>
             </div>
           ))}

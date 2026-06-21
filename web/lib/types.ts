@@ -319,6 +319,7 @@ export interface Branch {
   ad_source_ids: string[];
   lead_count: number;
   agent_ids: string[];
+  supervisor_ids?: string[];
   web_source_ids: string[];
 }
 
@@ -339,7 +340,7 @@ export interface Campaign {
   calling_enabled?: boolean;
   created_at: string;
 }
-export interface CampaignDetail extends Campaign { agent_ids: string[]; }
+export interface CampaignDetail extends Campaign { agent_ids: string[]; supervisor_ids?: string[]; }
 export interface CampaignAnalyticsRow {
   id: string;
   name: string;
