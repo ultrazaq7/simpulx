@@ -95,11 +95,14 @@ export default function AccountPage() {
   const [pwSaving, setPwSaving] = useState(false);
 
   const timezones = useMemo(() => getTimezones(), []);
+  // Precompute each zone's offset once so search can match "UTC+7" as well as the name.
+  const tzData = useMemo(() => timezones.map((tz) => ({ tz, off: tzOffset(tz) })), [timezones]);
   const filteredTz = useMemo(() => {
-    if (!tzSearch.trim()) return timezones;
-    const q = tzSearch.toLowerCase();
-    return timezones.filter((tz) => tz.toLowerCase().includes(q));
-  }, [timezones, tzSearch]);
+    const norm = (s: string) => s.toLowerCase().replace(/\s+/g, "").replace("gmt", "utc");
+    const q = norm(tzSearch);
+    if (!q) return tzData;
+    return tzData.filter(({ tz, off }) => norm(tz).includes(q) || norm(off).includes(q));
+  }, [tzData, tzSearch]);
 
   useEffect(() => {
     api.getOrganization().then((o) => {
@@ -341,7 +344,7 @@ export default function AccountPage() {
                       <div className="overflow-y-auto flex-1 p-1">
                         {filteredTz.length === 0 ? (
                           <p className="text-center text-xs text-muted-foreground py-4">No matches</p>
-                        ) : filteredTz.map((tz) => (
+                        ) : filteredTz.map(({ tz, off }) => (
                           <button
                             key={tz}
                             type="button"
@@ -352,7 +355,7 @@ export default function AccountPage() {
                             )}
                           >
                             <span className="truncate">{tz}</span>
-                            <span className="text-[11px] text-muted-foreground shrink-0">{tzOffset(tz)}</span>
+                            <span className="text-[11px] text-muted-foreground shrink-0">{off}</span>
                           </button>
                         ))}
                       </div>
