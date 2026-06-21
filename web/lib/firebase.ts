@@ -15,9 +15,8 @@ const firebaseConfig = {
   measurementId: "G-F3TEV9FR9Z",
 };
 
-// TODO: fill from Firebase console > Cloud Messaging > Web Push certificates.
-// Empty disables token registration (push stays off until this is set).
-export const VAPID_KEY = "";
+// Web Push public key (Firebase console > Cloud Messaging > Web Push certificates).
+export const VAPID_KEY = "BLzgR8gfe4XgX9qffaC6PNbUtMArVWJdS55KtLI30S3eNK1ULfKWfzc2xAnpoCvQv-wzWgGRN2jrGbzDvvraDsc";
 
 export function firebaseApp(): FirebaseApp {
   return getApps().length ? getApp() : initializeApp(firebaseConfig);

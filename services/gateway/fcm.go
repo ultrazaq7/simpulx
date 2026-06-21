@@ -13,17 +13,21 @@ import (
 )
 
 func (s *server) initFCMPush(ctx context.Context) {
-	// Initialize Firebase app
+	// Initialize Firebase app. Credentials come from FCM_CREDENTIALS_JSON (the
+	// service-account JSON inline, preferred for our .env deploy) or a file path.
 	keyFile := config.Get("GOOGLE_APPLICATION_CREDENTIALS", "")
+	credJSON := config.Get("FCM_CREDENTIALS_JSON", "")
 	mockMode := config.Get("FCM_MOCK", "true") == "true"
-	
+
 	var app *firebase.App
 	var fcmClient *messaging.Client
 	var err error
-	
+
 	if !mockMode {
 		var opts []option.ClientOption
-		if keyFile != "" {
+		if credJSON != "" {
+			opts = append(opts, option.WithCredentialsJSON([]byte(credJSON)))
+		} else if keyFile != "" {
 			opts = append(opts, option.WithCredentialsFile(keyFile))
 		}
 		app, err = firebase.NewApp(ctx, nil, opts...)
