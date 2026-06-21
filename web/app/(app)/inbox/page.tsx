@@ -113,8 +113,11 @@ export default function InboxPage() {
 
   // --- Timeline computation ---
   const timeline = useMemo<Item[]>(() => {
+    // Hide the legacy "Incoming WhatsApp call" system text: it duplicated the call
+    // summary card. The insert was removed, but old rows linger in the thread.
+    const visibleMsgs = messages.filter((m) => !(m.type === "text" && m.body === "Incoming WhatsApp call"));
     const raw = [
-      ...messages.map((m) => ({ t: m.created_at, kind: "msg" as const, m })),
+      ...visibleMsgs.map((m) => ({ t: m.created_at, kind: "msg" as const, m })),
       ...(notes || []).map((n) => ({ t: n.created_at, kind: "note" as const, n })),
     ].sort((a, b) => new Date(a.t).getTime() - new Date(b.t).getTime());
     const out: Item[] = []; let lastDay = "";
