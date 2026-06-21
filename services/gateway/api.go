@@ -53,7 +53,11 @@ func (s *server) queryMaps(ctx context.Context, sql string, args ...any) ([]map[
 // ── GET /api/me ─────────────────────────────────────────────
 func (s *server) handleMe(w http.ResponseWriter, r *http.Request) {
 	a, _ := authFrom(r.Context())
-	writeJSON(w, map[string]any{"id": a.UserID, "org_id": a.OrgID, "role": a.Role, "name": a.Name})
+	// Read name/email live from the DB so a verified email change (or a renamed
+	// profile) shows up without needing a fresh login; the JWT claims can be stale.
+	name, email := a.Name, ""
+	_ = s.pool.QueryRow(r.Context(), `SELECT full_name, email FROM users WHERE id=$1`, a.UserID).Scan(&name, &email)
+	writeJSON(w, map[string]any{"id": a.UserID, "org_id": a.OrgID, "role": a.Role, "name": name, "email": email})
 }
 
 // ── GET /api/conversations?status= ──────────────────────────

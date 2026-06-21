@@ -84,8 +84,8 @@ export default function AccountPage() {
   const [timezone, setTimezone] = useState(Intl.DateTimeFormat().resolvedOptions().timeZone);
 
   // Email change (requires verifying the new address)
-  const origEmail = user?.email || "";
-  const [email, setEmail] = useState(origEmail);
+  const [origEmail, setOrigEmail] = useState(user?.email || "");
+  const [email, setEmail] = useState(user?.email || "");
   const [emailSaving, setEmailSaving] = useState(false);
   const [pendingEmail, setPendingEmail] = useState("");
 
@@ -109,6 +109,19 @@ export default function AccountPage() {
       setPrefs({ ...NOTIF_DEFAULTS, ...(s.notifications ?? {}) });
       if (s.timezone) setTimezone(s.timezone as string);
     }).catch(() => {}).finally(() => setLoading(false));
+  }, []);
+
+  // Pull live name/email from the server so a verified email change shows up
+  // (localStorage still holds the old address until the next login). Also refresh
+  // the cached session so the rest of the app reflects it.
+  useEffect(() => {
+    api.me().then((me) => {
+      if (me.name) { setName(me.name); setOrigName(me.name); }
+      if (me.email) { setEmail(me.email); setOrigEmail(me.email); }
+      const token = getToken();
+      if (token && user) setSession(token, { ...user, name: me.name ?? user.name, email: me.email ?? user.email } as any);
+    }).catch(() => {});
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
   async function saveProfile() {
