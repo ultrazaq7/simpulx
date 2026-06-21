@@ -64,6 +64,10 @@ func (a *app) sweepSnoozed(ctx context.Context) {
 		if d.AgentID != nil && *d.AgentID != "" {
 			a.st.addNotification(ctx, d.OrgID, *d.AgentID, "snooze_due",
 				"Snooze ended", "Follow up with "+d.Contact, d.ConvID)
+			// Push to the agent's browser (FCM) via the gateway.
+			_ = a.bus.Publish(events.SubjectNotificationCreated, d.OrgID, events.NotificationCreated{
+				UserID: *d.AgentID, Title: "Snooze ended", Body: "Follow up with " + d.Contact, ConversationID: d.ConvID,
+			})
 		}
 		// Relayed to the org's websockets so the agent's bell refreshes instantly.
 		_ = a.bus.Publish(events.SubjectAuditCreated, d.OrgID, events.AuditCreated{

@@ -149,4 +149,35 @@ func (s *server) initFCMPush(ctx context.Context) {
 	if err != nil {
 		s.log.Error("Failed to subscribe to FCM push", "err", err)
 	}
+
+	// Push bell notifications (snooze-due, assignment, ...) to the recipient's browser.
+	err = s.bus.Subscribe(events.SubjectNotificationCreated, "gateway-fcm-notif", func(env events.Envelope) error {
+		var n events.NotificationCreated
+		if err := json.Unmarshal(env.Data, &n); err != nil || n.UserID == "" {
+			return err
+		}
+		rows, _ := s.queryMaps(ctx, `SELECT token FROM fcm_tokens WHERE user_id=$1`, n.UserID)
+		tokens := make([]string, 0, len(rows))
+		for _, r := range rows {
+			if t, ok := r["token"].(string); ok && t != "" {
+				tokens = append(tokens, t)
+			}
+		}
+		if len(tokens) == 0 || mockMode || fcmClient == nil {
+			return nil
+		}
+		_, err := fcmClient.SendEachForMulticast(ctx, &messaging.MulticastMessage{
+			Tokens:       tokens,
+			Notification: &messaging.Notification{Title: n.Title, Body: n.Body},
+			Data:         map[string]string{"conversationId": n.ConversationID, "type": "notification"},
+			Android:      &messaging.AndroidConfig{Priority: "high"},
+		})
+		if err != nil {
+			s.log.Error("FCM notification send error", "err", err)
+		}
+		return nil
+	})
+	if err != nil {
+		s.log.Error("Failed to subscribe to FCM notif push", "err", err)
+	}
 }

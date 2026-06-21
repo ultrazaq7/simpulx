@@ -20,6 +20,7 @@ const (
 	SubjectAgentDeactivated     = "events.agent.deactivated"
 	SubjectAuditCreated         = "events.audit.created"
 	SubjectCallUpdated          = "events.call.updated"
+	SubjectNotificationCreated  = "events.notification.created"
 
 	StreamName     = "EVENTS"
 	StreamSubjects = "events.>"
@@ -141,6 +142,15 @@ type AuditCreated struct {
 	ActorType      string         `json:"actor_type"`
 	ActorID        *string        `json:"actor_id,omitempty"`
 	Detail         map[string]any `json:"detail"`
+}
+
+// NotificationCreated is published when a bell notification is written, so the
+// gateway can also push it to the recipient's browser via FCM.
+type NotificationCreated struct {
+	UserID         string `json:"user_id"`
+	Title          string `json:"title"`
+	Body           string `json:"body"`
+	ConversationID string `json:"conversation_id"`
 }
 
 // CallUpdated is broadcast whenever a call's state changes (permission
