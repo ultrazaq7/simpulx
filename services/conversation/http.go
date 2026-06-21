@@ -37,6 +37,12 @@ func (a *app) handleAssign(w http.ResponseWriter, r *http.Request) {
 
 	var ag agent
 	if body.AgentID != "" {
+		// Manual assign must target an active, non-deleted user in this workspace
+		// (prevents re-orphaning to a disabled agent or a cross-org id).
+		if !a.st.isAssignableAgent(ctx, meta.OrgID, body.AgentID) {
+			http.Error(w, "agent is not active in this workspace", http.StatusBadRequest)
+			return
+		}
 		ag = agent{ID: body.AgentID}
 	} else {
 		picked, found, err := a.st.pickAgent(ctx, meta.OrgID, meta.DepartmentID)

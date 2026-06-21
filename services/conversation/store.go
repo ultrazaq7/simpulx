@@ -67,6 +67,16 @@ func (s *store) pickAgent(ctx context.Context, orgID string, departmentID *strin
 	return a, true, nil
 }
 
+// isAssignableAgent reports whether agentID is an active, non-deleted user in the
+// org — the minimum bar for a manual assign target.
+func (s *store) isAssignableAgent(ctx context.Context, orgID, agentID string) bool {
+	var ok bool
+	_ = s.pool.QueryRow(ctx,
+		`SELECT true FROM users WHERE id=$1::uuid AND organization_id=$2 AND is_deleted=false AND status='active'`,
+		agentID, orgID).Scan(&ok)
+	return ok
+}
+
 // assign menetapkan agen ke percakapan + mencatat audit. Idempoten secara aman.
 func (s *store) assign(ctx context.Context, orgID, convID, agentID string) error {
 	tx, err := s.pool.Begin(ctx)

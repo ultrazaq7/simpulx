@@ -155,6 +155,9 @@ func (a *app) onReceived(env events.Envelope) error {
 			a.log.Warn("recordAttribution failed", "conv", conv.ID, "err", err)
 		}
 	}
+	// If the thread is routed (has a campaign/branch) but still unassigned (e.g. no
+	// agent was eligible at first touch), pick it up now on this fresh message.
+	a.st.ensureAssigned(ctx, conv.ID)
 	// CTWA ad opener (referral) is template pre-fill, not genuinely typed -> not
 	// genuine, so the lead classifier ignores it (avoids biasing every ad lead).
 	// "unsupported" juga bukan konten asli (Meta tak mengirim isinya) -> not genuine.

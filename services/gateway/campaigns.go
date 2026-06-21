@@ -128,6 +128,28 @@ type campaignInput struct {
 	CallingEnabled  *bool    `json:"calling_enabled"`
 }
 
+// keywordsConflict returns the first keyword already claimed by ANOTHER campaign
+// in the org (empty if none). A keyword maps a first message to a single campaign,
+// so sharing it misroutes (resolveCampaignByKeyword picks one arbitrary campaign).
+func (s *server) keywordsConflict(ctx context.Context, orgID, selfCampaignID string, keywords []string) string {
+	if len(keywords) == 0 {
+		return ""
+	}
+	var dup string
+	err := s.pool.QueryRow(ctx,
+		`SELECT x FROM unnest($1::text[]) AS x
+		  WHERE x <> '' AND EXISTS (
+		    SELECT 1 FROM campaigns c
+		     WHERE c.organization_id=$2 AND ($3='' OR c.id <> $3::uuid)
+		       AND lower(x) IN (SELECT lower(k) FROM unnest(c.keywords) k))
+		  LIMIT 1`,
+		keywords, orgID, selfCampaignID).Scan(&dup)
+	if err != nil {
+		return ""
+	}
+	return dup
+}
+
 // POST /api/campaigns
 func (s *server) handleCreateCampaign(w http.ResponseWriter, r *http.Request) {
 	a, _ := authFrom(r.Context())
@@ -138,6 +160,10 @@ func (s *server) handleCreateCampaign(w http.ResponseWriter, r *http.Request) {
 	}
 	if b.RoutingStrategy == "" {
 		b.RoutingStrategy = "round_robin"
+	}
+	if dup := s.keywordsConflict(r.Context(), a.OrgID, "", b.Keywords); dup != "" {
+		http.Error(w, "Keyword \""+dup+"\" is already used by another campaign", http.StatusConflict)
+		return
 	}
 	var id string
 	err := s.pool.QueryRow(r.Context(),
@@ -164,6 +190,12 @@ func (s *server) handleUpdateCampaign(w http.ResponseWriter, r *http.Request) {
 	if err := json.NewDecoder(r.Body).Decode(&b); err != nil {
 		http.Error(w, "bad request", http.StatusBadRequest)
 		return
+	}
+	if b.Keywords != nil {
+		if dup := s.keywordsConflict(r.Context(), a.OrgID, r.PathValue("id"), b.Keywords); dup != "" {
+			http.Error(w, "Keyword \""+dup+"\" is already used by another campaign", http.StatusConflict)
+			return
+		}
 	}
 	tag, err := s.pool.Exec(r.Context(),
 		`UPDATE campaigns SET
@@ -252,11 +284,11 @@ func nilIfEmptySlice(s []string) any {
 // next agent round-robin. Shared shape with messaging.routeToCampaign.
 func (s *server) routeToCampaign(ctx context.Context, campaignID, convID string) {
 	_, _ = s.pool.Exec(ctx,
-		`WITH agents AS (SELECT ca.user_id FROM campaign_agents ca JOIN users u ON u.id=ca.user_id
-		                 WHERE ca.campaign_id=$1 AND ca.in_rotation AND u.is_deleted=false AND u.status='active' ORDER BY ca.user_id),
-		      pick AS (SELECT user_id FROM agents
-		               OFFSET (SELECT rr_cursor % GREATEST((SELECT count(*) FROM agents),1) FROM campaigns WHERE id=$1)
-		               LIMIT 1)
+		`WITH pick AS (
+		         SELECT ca.user_id FROM campaign_agents ca JOIN users u ON u.id=ca.user_id
+		          WHERE ca.campaign_id=$1 AND ca.in_rotation AND u.is_deleted=false AND u.status='active'
+		          ORDER BY (SELECT count(*) FROM conversations cc WHERE cc.assigned_agent_id=ca.user_id AND cc.status<>'closed') ASC, ca.user_id
+		          LIMIT 1)
 		 UPDATE conversations SET campaign_id=$1,
 		        assigned_agent_id = COALESCE((SELECT user_id FROM pick), assigned_agent_id),
 		        updated_at=now()
@@ -270,12 +302,12 @@ func (s *server) routeToCampaign(ctx context.Context, campaignID, convID string)
 // routeToCampaign but on campaign_branches.rr_cursor + branch_agents.
 func (s *server) routeToBranch(ctx context.Context, branchID, convID string) {
 	_, _ = s.pool.Exec(ctx,
-		`WITH d AS (SELECT campaign_id, rr_cursor FROM campaign_branches WHERE id=$1),
-		      agents AS (SELECT ba.user_id FROM branch_agents ba JOIN users u ON u.id=ba.user_id
-		                 WHERE ba.branch_id=$1 AND ba.in_rotation AND u.is_deleted=false AND u.status='active' ORDER BY ba.user_id),
-		      pick AS (SELECT user_id FROM agents
-		               OFFSET ((SELECT rr_cursor FROM d) % GREATEST((SELECT count(*) FROM agents),1))
-		               LIMIT 1)
+		`WITH d AS (SELECT campaign_id FROM campaign_branches WHERE id=$1),
+		      pick AS (
+		         SELECT ba.user_id FROM branch_agents ba JOIN users u ON u.id=ba.user_id
+		          WHERE ba.branch_id=$1 AND ba.in_rotation AND u.is_deleted=false AND u.status='active'
+		          ORDER BY (SELECT count(*) FROM conversations cc WHERE cc.assigned_agent_id=ba.user_id AND cc.status<>'closed') ASC, ba.user_id
+		          LIMIT 1)
 		 UPDATE conversations SET branch_id=$1,
 		        campaign_id = (SELECT campaign_id FROM d),
 		        assigned_agent_id = COALESCE((SELECT user_id FROM pick), assigned_agent_id),

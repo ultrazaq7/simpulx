@@ -494,6 +494,29 @@ func (s *store) resolveCampaignByKeyword(ctx context.Context, orgID, text string
 	return id, err == nil
 }
 
+// ensureAssigned picks up an UNASSIGNED but already-routed conversation (it has a
+// campaign or branch) and assigns it to the least-loaded eligible agent. No-op if
+// it already has an agent, isn't routed yet, or no agent qualifies. This lets a
+// lead that was left unassigned at first touch (e.g. every agent was inactive)
+// get an owner on the contact's next message instead of sitting forever.
+func (s *store) ensureAssigned(ctx context.Context, convID string) {
+	_, _ = s.pool.Exec(ctx,
+		`WITH c AS (
+		     SELECT organization_id, campaign_id, branch_id FROM conversations
+		      WHERE id=$1 AND assigned_agent_id IS NULL AND status<>'closed'
+		        AND (campaign_id IS NOT NULL OR branch_id IS NOT NULL)
+		 ), pick AS (
+		     SELECT u.id AS user_id FROM users u, c
+		      WHERE u.organization_id=c.organization_id AND u.is_deleted=false AND u.status='active'
+		        AND ( (c.branch_id IS NOT NULL AND u.id IN (SELECT user_id FROM branch_agents WHERE branch_id=c.branch_id AND in_rotation))
+		           OR (c.branch_id IS NULL AND u.id IN (SELECT user_id FROM campaign_agents WHERE campaign_id=c.campaign_id AND in_rotation)) )
+		      ORDER BY (SELECT count(*) FROM conversations cc WHERE cc.assigned_agent_id=u.id AND cc.status<>'closed') ASC, u.id
+		      LIMIT 1)
+		 UPDATE conversations SET assigned_agent_id=(SELECT user_id FROM pick), updated_at=now()
+		  WHERE id=$1 AND assigned_agent_id IS NULL AND EXISTS (SELECT 1 FROM pick)`,
+		convID)
+}
+
 // routeToCampaign: set campaign + assign agent berikutnya secara round-robin.
 // Counter (rr_cursor, lead_count) hanya naik bila percakapan benar-benar baru
 // di-route (UPDATE mengenai 1 baris). Tanpa guard ini, rr_cursor ikut naik walau
@@ -525,20 +548,20 @@ func (s *store) routeToCampaign(ctx context.Context, campaignID string, convID s
 		return
 	}
 
-	// 4.1 Concurrency Locks: Lock the campaign to safely increment the rr_cursor
-	var cursor int
-	err = tx.QueryRow(ctx, `SELECT rr_cursor FROM campaigns WHERE id = $1 FOR UPDATE`, campaignID).Scan(&cursor)
-	if err != nil {
+	// Lock the campaign row to serialize concurrent picks for fair distribution.
+	if _, err = tx.Exec(ctx, `SELECT 1 FROM campaigns WHERE id = $1 FOR UPDATE`, campaignID); err != nil {
 		return
 	}
 
-	// Pick the agent using the safely acquired cursor
+	// Workload-aware: assign to the eligible agent with the fewest OPEN chats
+	// (tiebreak by id for stability), so load stays balanced instead of pure RR.
 	var assignedAgent string
 	err = tx.QueryRow(ctx,
-		`WITH agents AS (SELECT ca.user_id FROM campaign_agents ca JOIN users u ON u.id=ca.user_id
-		                 WHERE ca.campaign_id=$1 AND ca.in_rotation AND u.is_deleted=false AND u.status='active' ORDER BY ca.user_id)
-		 SELECT user_id FROM agents OFFSET ($2 % GREATEST((SELECT count(*) FROM agents), 1)) LIMIT 1`,
-		campaignID, cursor).Scan(&assignedAgent)
+		`SELECT ca.user_id FROM campaign_agents ca JOIN users u ON u.id=ca.user_id
+		  WHERE ca.campaign_id=$1 AND ca.in_rotation AND u.is_deleted=false AND u.status='active'
+		  ORDER BY (SELECT count(*) FROM conversations cc WHERE cc.assigned_agent_id=ca.user_id AND cc.status<>'closed') ASC, ca.user_id
+		  LIMIT 1`,
+		campaignID).Scan(&assignedAgent)
 	
 	if err == nil && assignedAgent != "" {
 		tag, err := tx.Exec(ctx,
@@ -621,10 +644,9 @@ func (s *store) routeToBranch(ctx context.Context, branchID string, convID strin
 		return
 	}
 
-	// Lock the branch to read its parent campaign + advance rr_cursor safely.
+	// Lock the branch (read its parent campaign) to serialize concurrent picks.
 	var campaignID string
-	var cursor int
-	err = tx.QueryRow(ctx, `SELECT campaign_id::text, rr_cursor FROM campaign_branches WHERE id = $1 FOR UPDATE`, branchID).Scan(&campaignID, &cursor)
+	err = tx.QueryRow(ctx, `SELECT campaign_id::text FROM campaign_branches WHERE id = $1 FOR UPDATE`, branchID).Scan(&campaignID)
 	if err != nil {
 		return
 	}
@@ -638,10 +660,11 @@ func (s *store) routeToBranch(ctx context.Context, branchID string, convID strin
 
 	var assignedAgent string
 	err = tx.QueryRow(ctx,
-		`WITH agents AS (SELECT ba.user_id FROM branch_agents ba JOIN users u ON u.id=ba.user_id
-		                 WHERE ba.branch_id=$1 AND ba.in_rotation AND u.is_deleted=false AND u.status='active' ORDER BY ba.user_id)
-		 SELECT user_id FROM agents OFFSET ($2 % GREATEST((SELECT count(*) FROM agents), 1)) LIMIT 1`,
-		branchID, cursor).Scan(&assignedAgent)
+		`SELECT ba.user_id FROM branch_agents ba JOIN users u ON u.id=ba.user_id
+		  WHERE ba.branch_id=$1 AND ba.in_rotation AND u.is_deleted=false AND u.status='active'
+		  ORDER BY (SELECT count(*) FROM conversations cc WHERE cc.assigned_agent_id=ba.user_id AND cc.status<>'closed') ASC, ba.user_id
+		  LIMIT 1`,
+		branchID).Scan(&assignedAgent)
 
 	if err == nil && assignedAgent != "" {
 		tag, err := tx.Exec(ctx,
