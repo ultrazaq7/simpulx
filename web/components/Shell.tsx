@@ -235,23 +235,20 @@ export function Shell({ children }: { children: ReactNode }) {
             setAlerts(prev => [{ id: Math.random().toString(), title: payload.title || "Alert", body: payload.body || "You have a new notification", time: new Date() }, ...prev]);
             setHasNotifs(true);
           } else if (ev.type === "audit.created" && payload.type === "snooze_due") {
-            // A snoozed conversation just reopened -> beep + OS notification + bell refresh.
+            // Snooze reopened: beep + bell. The OS popup is owned by FCM (push.ts
+            // foreground / service worker background) to avoid a duplicate.
             if (prefs.sound !== false) playBeep(1000, 0.25);
-            showNotif("Snooze ended", "A snoozed conversation reopened", payload.conversation_id);
             loadNotifs();
           } else if (ev.type === "message.persisted") {
             const mine = !payload.assigned_agent_id || payload.assigned_agent_id === u.id;
             if (payload.direction === "inbound" && mine) {
               const convId: string | undefined = payload.conversation_id;
               const mid = String(payload.message_id || `${convId}:${payload.preview}`);
-              // Skip only when you are actively viewing that conversation.
               const onThisConv = document.visibilityState === "visible" && !!convId && window.location.search.includes(`c=${convId}`);
               if (!notifiedRef.current.has(mid) && !onThisConv) {
                 notifiedRef.current.add(mid);
                 if (notifiedRef.current.size > 300) notifiedRef.current.clear();
                 if (prefs.sound !== false) playBeep(880, 0.15);
-                const name = (convId && convNamesRef.current.get(convId)) || "New message";
-                showNotif(name, payload.preview || payload.body || "New message", convId);
               }
             }
             refreshUnread();

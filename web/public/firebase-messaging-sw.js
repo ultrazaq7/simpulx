@@ -13,6 +13,11 @@ firebase.initializeApp({
   appId: "1:1077409983428:web:9950dd86dfd773dae35291",
 });
 
+// Activate a new service worker immediately so updates don't require closing all
+// tabs (the previous version got stuck waiting).
+self.addEventListener("install", () => self.skipWaiting());
+self.addEventListener("activate", (event) => event.waitUntil(self.clients.claim()));
+
 const messaging = firebase.messaging();
 
 // Data-only messages: render the OS notification here. onBackgroundMessage only
