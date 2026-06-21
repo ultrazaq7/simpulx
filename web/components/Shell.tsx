@@ -123,7 +123,7 @@ export function Shell({ children }: { children: ReactNode }) {
   const router = useRouter();
   const pathname = usePathname();
   const [user, setUser] = useState<User | null>(null);
-  const [sidebarOpen, setSidebarOpen] = useState(false);
+  const [sidebarOpen, setSidebarOpen] = useState(true);
   const [userMenuOpen, setUserMenuOpen] = useState(false);
   const [notifOpen, setNotifOpen] = useState(false);
   const [brand, setBrand] = useState("Simpulx");
@@ -153,6 +153,13 @@ export function Shell({ children }: { children: ReactNode }) {
     window.addEventListener("keydown", unlock);
     return () => { window.removeEventListener("pointerdown", unlock); window.removeEventListener("keydown", unlock); };
   }, []);
+
+  // Remember the sidebar collapsed/expanded choice across reloads.
+  useEffect(() => {
+    const v = localStorage.getItem("sidebarOpen");
+    if (v !== null) setSidebarOpen(v === "1");
+  }, []);
+  useEffect(() => { localStorage.setItem("sidebarOpen", sidebarOpen ? "1" : "0"); }, [sidebarOpen]);
 
   // Clicking a background (service worker) notification posts here -> open the chat.
   useEffect(() => {
@@ -340,30 +347,30 @@ export function Shell({ children }: { children: ReactNode }) {
         href={href}
         className={cn("group relative w-full block outline-none", sidebarOpen ? "px-2.5" : "px-2")}
       >
+        {active && <span aria-hidden className="absolute left-0 top-1/2 -translate-y-1/2 h-5 w-[3px] rounded-r-full bg-primary" />}
         <div className={cn(
           "h-10 rounded-lg flex items-center transition-colors duration-200",
           sidebarOpen ? "w-full justify-start" : "w-10 mx-auto justify-center",
-          active ? "bg-white/[0.15]" : "hover:bg-white/[0.06]"
+          active ? "bg-primary/[0.09]" : "hover:bg-foreground/[0.04]"
         )}>
           <div className="relative w-10 h-10 shrink-0 flex items-center justify-center">
             {href === "/inbox" && unreadCount > 0 && (
-              <span className="absolute top-0.5 right-0 min-w-[15px] h-[15px] rounded-full bg-red-500 text-white text-[9px] font-bold flex items-center justify-center px-0.5 z-10 pointer-events-none shadow-sm">
+              <span className="absolute top-0.5 right-0 min-w-[15px] h-[15px] rounded-full bg-destructive text-white text-[9px] font-bold flex items-center justify-center px-0.5 z-10 pointer-events-none shadow-sm">
                 {unreadCount > 99 ? "99+" : unreadCount}
               </span>
             )}
             <Icon
-              fill={active ? "currentColor" : "none"}
               strokeWidth={active ? 2 : 1.75}
               className={cn(
-                "w-[21px] h-[21px] transition-colors duration-200",
-                active ? "text-white" : "text-white/35 group-hover:text-white/90"
+                "w-[20px] h-[20px] transition-colors duration-200",
+                active ? "text-primary" : "text-muted-foreground group-hover:text-foreground"
               )}
             />
           </div>
           {sidebarOpen && (
             <span className={cn(
               "text-[13px] font-semibold whitespace-nowrap",
-              active ? "text-white" : "text-white/55 group-hover:text-white/90",
+              active ? "text-primary-text" : "text-muted-foreground group-hover:text-foreground",
             )}>
               {label}
             </span>
@@ -380,7 +387,7 @@ export function Shell({ children }: { children: ReactNode }) {
     <div className="flex h-screen overflow-hidden bg-background text-foreground">
       {/* Sidebar */}
       <div
-        className="shrink-0 flex flex-col py-4 gap-1 bg-sidebar-gradient border-r border-sidebar-border transition-all duration-200 ease-out z-50 relative overflow-x-hidden"
+        className="shrink-0 flex flex-col py-4 gap-0.5 bg-muted border-r border-border transition-all duration-200 ease-out z-50 relative overflow-x-hidden"
         style={{ width: sidebarOpen ? 240 : SIDEBAR_W }}
       >
         <div className={cn("flex items-center mb-5 h-[46px]", sidebarOpen ? "px-3.5" : "justify-center")}>
@@ -392,8 +399,8 @@ export function Shell({ children }: { children: ReactNode }) {
               <img src="/simpulx_logo.png" alt="Simpulx" className="w-full h-full object-cover" />
             </div>
             {sidebarOpen && (
-              <span className="ml-3 text-[20px] font-extrabold tracking-tight text-white whitespace-nowrap">
-                Simpul<span className="text-[#F5A623]">x</span>
+              <span className="ml-3 text-[20px] font-extrabold tracking-tight text-foreground whitespace-nowrap">
+                Simpul<span className="text-amber">x</span>
               </span>
             )}
           </Link>
@@ -403,9 +410,9 @@ export function Shell({ children }: { children: ReactNode }) {
         <div className="flex-1" />
 
         <div className={cn("px-4 pb-4 flex", sidebarOpen ? "justify-end" : "justify-center")}>
-          <button 
+          <button
             onClick={() => setSidebarOpen(!sidebarOpen)}
-            className="p-1 rounded-md text-white/40 border border-white/10 hover:text-white hover:bg-white/10 hover:border-white/20 transition-all outline-none"
+            className="p-1 rounded-md text-muted-foreground border border-border hover:text-foreground hover:bg-foreground/5 transition-all outline-none"
           >
             {sidebarOpen ? <ChevronLeft className="w-[18px] h-[18px]" /> : <ChevronRight className="w-[18px] h-[18px]" />}
           </button>
