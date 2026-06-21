@@ -31,12 +31,21 @@ func (s *server) initFCMPush(ctx context.Context) {
 
 	if !mockMode {
 		var opts []option.ClientOption
+		var cfg *firebase.Config
 		if credJSON != "" {
 			opts = append(opts, option.WithCredentialsJSON([]byte(credJSON)))
+			// Pin the project from the service account so Messaging can resolve it
+			// (auto-detection from inline JSON creds is unreliable).
+			var sa struct {
+				ProjectID string `json:"project_id"`
+			}
+			if json.Unmarshal([]byte(credJSON), &sa) == nil && sa.ProjectID != "" {
+				cfg = &firebase.Config{ProjectID: sa.ProjectID}
+			}
 		} else if keyFile != "" {
 			opts = append(opts, option.WithCredentialsFile(keyFile))
 		}
-		app, err = firebase.NewApp(ctx, nil, opts...)
+		app, err = firebase.NewApp(ctx, cfg, opts...)
 		if err != nil {
 			s.log.Warn("Failed to init firebase app", "err", err)
 		} else {
