@@ -617,6 +617,7 @@ export default function Composer({
 
           <button
             onClick={onSubmit}
+            aria-label={note ? "Add internal note" : "Send message"}
             disabled={busy || (!draft.trim() && pendingFiles.length === 0)}
             className={cn(
               "w-10 h-10 rounded-full flex items-center justify-center text-white transition-all disabled:opacity-50",

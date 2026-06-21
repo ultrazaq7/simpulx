@@ -7,7 +7,7 @@ import {
   File, Download, MoreHorizontal, Copy, ClipboardPaste, Link2, Megaphone, Forward,
   PhoneOutgoing, PhoneIncoming, PhoneMissed,
 } from "lucide-react";
-import { initials, fmtTime, channelColor, cn } from "@/lib/utils";
+import { initials, fmtTime, channelColor, channelTextColor, cn } from "@/lib/utils";
 import type { Conversation, Message } from "@/lib/types";
 
 /* ── Status ticks (WhatsApp style) ─────────────────────────── */
@@ -277,6 +277,7 @@ function MessageMenu({ out, text, link, onCopyText, onUseInComposer, onForward }
       <button
         ref={btnRef}
         onClick={handleOpen}
+        aria-label="Message actions"
         className={cn("p-1 rounded-md text-muted-foreground hover:bg-muted hover:text-foreground transition-opacity outline-none", open ? "opacity-100" : "opacity-0 group-hover:opacity-100")}
       >
         <MoreHorizontal className="w-4 h-4" />
@@ -345,7 +346,7 @@ const MessageBubble = memo(function MessageBubble({ m, active, onPreviewMedia, c
         <span className="inline-flex items-center gap-2 px-3 py-1 rounded-full bg-muted/70 text-[12px] font-medium">
           <CallIcon className={cn("w-3.5 h-3.5", missed ? "text-hot" : "text-foreground/45")} />
           <span className={missed ? "text-hot" : "text-foreground/70"}>{text}</span>
-          <span className="text-[11px] text-muted-foreground/70 tabular-nums">{fmtTime(m.created_at)}</span>
+          <span className="text-[11px] text-muted-foreground tabular-nums">{fmtTime(m.created_at)}</span>
         </span>
       </div>
     );
@@ -356,7 +357,7 @@ const MessageBubble = memo(function MessageBubble({ m, active, onPreviewMedia, c
       {!out && (
         <div
           className="w-7 h-7 rounded-full mr-2 mt-2 flex items-center justify-center text-[10px] font-bold shrink-0"
-          style={{ backgroundColor: channelColor(active.channel) + "20", color: channelColor(active.channel) }}
+          style={{ backgroundColor: channelColor(active.channel) + "20", color: channelTextColor(active.channel) }}
         >
           {initials(active.contact_name || active.contact_phone)}
         </div>

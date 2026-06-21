@@ -3,7 +3,7 @@ import { memo } from "react";
 import {
   Image as ImageIcon, Video, FileText, Headset, Zap, Clock, Phone, Sticker, Mic,
 } from "lucide-react";
-import { initials, channelColor, relTime, cn } from "@/lib/utils";
+import { initials, channelColor, channelTextColor, relTime, cn } from "@/lib/utils";
 import { Tip } from "@/components/ui/tooltip";
 import type { Conversation, Message } from "@/lib/types";
 
@@ -75,7 +75,7 @@ const ConversationCard = memo(function ConversationCard({
       <div className="relative shrink-0 self-center">
         <div
           className="w-9 h-9 rounded-full grid place-items-center text-[12px] font-bold ring-1 ring-inset ring-black/5"
-          style={{ backgroundColor: channelColor(c.channel) + "1A", color: channelColor(c.channel) }}
+          style={{ backgroundColor: channelColor(c.channel) + "1A", color: channelTextColor(c.channel) }}
         >
           {initials(c.contact_name || c.contact_phone)}
         </div>

@@ -18,8 +18,9 @@
     --popover: 0 0% 100%;
     --popover-foreground: 218 33% 18%;
 
-    /* Brand green */
-    --primary: 161 51% 36%;             /* #2D8B73 */
+    /* Brand green — deepened so white-on-primary and primary-as-text both pass
+       WCAG AA 4.5:1 (was #2D8B73 at 4.17). */
+    --primary: 163 52% 32%;             /* ~#277C66 */
     --primary-foreground: 0 0% 100%;
     --primary-light: 162 49% 45%;       /* #3AA88D */
     --primary-dark: 162 51% 28%;        /* #236F5D */
@@ -32,7 +33,7 @@
     --secondary: 210 40% 96%;
     --secondary-foreground: 218 33% 18%;
     --muted: 213 32% 96%;
-    --muted-foreground: 218 13% 46%;    /* deepened to pass WCAG AA at 11-13px */
+    --muted-foreground: 218 14% 43%;    /* AA at 11-13px on white AND on muted bg */
     --accent: 210 40% 96%;
     --accent-foreground: 218 33% 18%;
 
@@ -62,7 +63,7 @@
     /* Lines & controls */
     --border: 216 28% 93%;
     --input: 216 24% 89%;
-    --ring: 161 51% 36%;
+    --ring: 163 52% 32%;
 
     /* Dark app rail (Shell sidebar) */
     --sidebar: 156 36% 8%;              /* #0d1b16 */

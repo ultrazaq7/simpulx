@@ -83,6 +83,19 @@ export function interestColor(val: string | undefined | null): string {
   return map[val.toLowerCase()] || "#6B7280";
 }
 
+// Darker channel color for TEXT on a light channel tint (the avatar pattern).
+// The bright channelColor on its own 10% tint fails AA (e.g. WhatsApp green ~1.7);
+// these dark variants clear 4.5:1 while keeping the channel identity.
+export function channelTextColor(channel: string | undefined | null): string {
+  if (!channel) return "#475569";
+  const map: Record<string, string> = {
+    whatsapp: "#0A6E40", messenger: "#0064D1", instagram: "#B01D5E",
+    telegram: "#1675A3", sms: "#475569", line: "#04792F",
+    viber: "#5A3FC0", testing: "#1F6B58",
+  };
+  return map[channel.toLowerCase()] || "#475569";
+}
+
 // Proper display casing for channel keys ("whatsapp" -> "WhatsApp"). CSS
 // `capitalize` only fixes the first letter, so it produces "Whatsapp".
 export function channelLabel(channel: string | undefined | null): string {

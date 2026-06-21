@@ -2,7 +2,7 @@
 import { useEffect, useState } from "react";
 import { X, Copy, User, Phone, Hash, MessageSquare, Clock, StickyNote, Tag as TagIcon, Plus, Paperclip, Download, FileText, Image as ImageIcon, Video, Mic } from "lucide-react";
 import { api } from "@/lib/api";
-import { initials, channelColor, channelLabel, fmtDate, fmtTime, cn } from "@/lib/utils";
+import { initials, channelColor, channelTextColor, channelLabel, fmtDate, fmtTime, cn } from "@/lib/utils";
 import { Tip } from "@/components/ui/tooltip";
 import type { Conversation, InternalNote, Message } from "@/lib/types";
 
@@ -139,7 +139,7 @@ export default function DetailsPanel({ active, onClose, copyText, notes, onAddNo
           <div className="relative shrink-0">
             <div
               className="w-12 h-12 rounded-xl grid place-items-center text-lg font-bold ring-1 ring-inset ring-black/5"
-              style={{ backgroundColor: channelColor(active.channel) + "1A", color: channelColor(active.channel) }}
+              style={{ backgroundColor: channelColor(active.channel) + "1A", color: channelTextColor(active.channel) }}
             >
               {initials(active.contact_name || active.contact_phone)}
             </div>

@@ -427,7 +427,7 @@ export default function ChatPanel({
                 {active.contact_phone && (
                   <div className="flex items-center gap-1">
                     <span className="text-[11px] text-muted-foreground tabular-nums">{active.contact_phone}</span>
-                    <button onClick={() => onCopyText(active.contact_phone!)} className="p-0.5 outline-none text-primary/70 hover:text-primary">
+                    <button aria-label="Copy phone number" onClick={() => onCopyText(active.contact_phone!)} className="p-0.5 outline-none text-primary/70 hover:text-primary">
                       <Copy className="w-[11px] h-[11px]" />
                     </button>
                   </div>

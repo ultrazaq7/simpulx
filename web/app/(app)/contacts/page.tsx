@@ -8,7 +8,7 @@ import {
 
 import { api, getUser } from "@/lib/api";
 import { usePermissions } from "@/lib/permissions";
-import { initials, channelColor, channelLabel, fmtDate, cn } from "@/lib/utils";
+import { initials, channelColor, channelTextColor, channelLabel, fmtDate, cn } from "@/lib/utils";
 import type { Contact, Agent, Campaign, Message, Stage, Conversation } from "@/lib/types";
 import { Tip } from "@/components/ui/tooltip";
 import MessageBubble, { rewriteLocalMedia } from "@/app/(app)/inbox/components/MessageBubble";
@@ -226,7 +226,7 @@ export default function ContactsPage() {
                   <td className="px-4 py-2.5">
                     <div className="flex items-center gap-3">
                       <div className="w-9 h-9 rounded-full grid place-items-center text-xs font-bold ring-1 ring-inset ring-black/5 shrink-0"
-                        style={{ backgroundColor: channelColor(c.source_channel) + "1A", color: channelColor(c.source_channel) }}>
+                        style={{ backgroundColor: channelColor(c.source_channel) + "1A", color: channelTextColor(c.source_channel) }}>
                         {initials(c.full_name || c.phone)}
                       </div>
                       <button onClick={() => router.push(`/contacts/${c.id}`)} className="font-semibold text-[13px] text-foreground truncate max-w-[180px] text-left hover:text-primary hover:underline outline-none">{c.full_name || c.phone || "Unknown"}</button>
@@ -234,7 +234,7 @@ export default function ContactsPage() {
                   </td>
                   <td className="px-4 py-2.5 whitespace-nowrap">
                     <span className="inline-flex px-2 py-0.5 rounded-md text-[11px] font-semibold"
-                      style={{ backgroundColor: channelColor(c.source_channel) + "15", color: channelColor(c.source_channel) }}>
+                      style={{ backgroundColor: channelColor(c.source_channel) + "15", color: channelTextColor(c.source_channel) }}>
                       {c.channel_name || channelLabel(c.source_channel)}
                     </span>
                   </td>
@@ -425,7 +425,7 @@ function ChatPopup({ contact, onClose, notify }: {
         {/* Header */}
         <div className="flex items-center gap-3 px-4 py-3 border-b border-border bg-card shrink-0">
           <div className="w-9 h-9 rounded-full grid place-items-center text-xs font-bold ring-1 ring-inset ring-black/5"
-            style={{ backgroundColor: channelColor(contact.source_channel) + "1A", color: channelColor(contact.source_channel) }}>
+            style={{ backgroundColor: channelColor(contact.source_channel) + "1A", color: channelTextColor(contact.source_channel) }}>
             {initials(contact.full_name || contact.phone)}
           </div>
           <div className="min-w-0 flex-1">

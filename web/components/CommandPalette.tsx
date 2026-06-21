@@ -5,7 +5,7 @@ import {
   Search, LayoutDashboard, MessageCircle, Users, Megaphone, Settings, CornerDownLeft, ArrowUp, ArrowDown,
 } from "lucide-react";
 import { api } from "@/lib/api";
-import { cn, initials, channelColor } from "@/lib/utils";
+import { cn, initials, channelColor, channelTextColor } from "@/lib/utils";
 import type { Conversation } from "@/lib/types";
 
 interface CmdItem {
@@ -14,7 +14,7 @@ interface CmdItem {
   label: string;
   sub?: string;
   icon?: any;
-  avatar?: { text: string; color: string };
+  avatar?: { text: string; color: string; textColor: string };
   run: () => void;
 }
 
@@ -58,7 +58,7 @@ export default function CommandPalette({ open, onClose }: { open: boolean; onClo
       group: "Conversations",
       label: c.contact_name || c.contact_phone || "Unknown",
       sub: c.last_message_preview || c.contact_phone || undefined,
-      avatar: { text: initials(c.contact_name || c.contact_phone), color: channelColor(c.channel) },
+      avatar: { text: initials(c.contact_name || c.contact_phone), color: channelColor(c.channel), textColor: channelTextColor(c.channel) },
       run: () => {
         router.push(`/inbox?c=${c.id}`);
         window.dispatchEvent(new CustomEvent("inbox:open", { detail: c.id }));
@@ -128,7 +128,7 @@ export default function CommandPalette({ open, onClose }: { open: boolean; onClo
                   className={cn("w-full flex items-center gap-3 px-4 py-2 text-left outline-none", i === active && "bg-primary/[0.08]")}
                 >
                   {it.avatar ? (
-                    <span className="w-7 h-7 rounded-full grid place-items-center text-[10px] font-bold shrink-0" style={{ backgroundColor: it.avatar.color + "1A", color: it.avatar.color }}>{it.avatar.text}</span>
+                    <span className="w-7 h-7 rounded-full grid place-items-center text-[10px] font-bold shrink-0" style={{ backgroundColor: it.avatar.color + "1A", color: it.avatar.textColor }}>{it.avatar.text}</span>
                   ) : it.icon ? (
                     <span className={cn("w-7 h-7 grid place-items-center shrink-0", i === active ? "text-primary" : "text-muted-foreground")}><it.icon className="w-[18px] h-[18px]" /></span>
                   ) : null}

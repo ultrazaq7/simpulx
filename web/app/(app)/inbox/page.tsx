@@ -3,7 +3,7 @@ import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { useInfiniteQuery, useQueryClient } from "@tanstack/react-query";
 import { useVirtualizer } from "@tanstack/react-virtual";
 import { X, Search, MessageSquare } from "lucide-react";
-import { cn, channelColor, initials } from "@/lib/utils";
+import { cn, channelColor, channelTextColor, initials } from "@/lib/utils";
 
 import { api, getUser, WS_URL } from "@/lib/api";
 import { dateLabel } from "@/lib/utils";
@@ -552,7 +552,7 @@ function ForwardPicker({ text, convs, onClose, onSend }: {
           ) : shown.map((c) => (
             <button key={c.id} onClick={() => onSend(c.id)} className="w-full flex items-center gap-3 px-2.5 py-2 rounded-lg hover:bg-muted text-left outline-none transition-colors">
               <div className="w-9 h-9 rounded-full grid place-items-center text-xs font-bold shrink-0 ring-1 ring-inset ring-black/5"
-                style={{ backgroundColor: channelColor(c.channel) + "1A", color: channelColor(c.channel) }}>
+                style={{ backgroundColor: channelColor(c.channel) + "1A", color: channelTextColor(c.channel) }}>
                 {initials(c.contact_name || c.contact_phone)}
               </div>
               <div className="flex-1 min-w-0">

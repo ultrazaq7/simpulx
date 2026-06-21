@@ -424,6 +424,8 @@ export function Shell({ children }: { children: ReactNode }) {
     <div className="flex h-screen overflow-hidden bg-background text-foreground">
       {/* Sidebar */}
       <div
+        role="navigation"
+        aria-label="Main"
         className="shrink-0 flex flex-col py-4 gap-0.5 bg-muted border-r border-border transition-all duration-200 ease-out z-50 relative overflow-x-hidden"
         style={{ width: sidebarOpen ? 240 : SIDEBAR_W }}
       >
@@ -461,7 +463,7 @@ export function Shell({ children }: { children: ReactNode }) {
       {/* Main content */}
       <div className="flex-1 flex flex-col min-w-0 min-h-0 bg-background">
         {/* Top Header */}
-        <div className="h-16 shrink-0 flex items-center px-5 gap-3 bg-card border-b border-border">
+        <div role="banner" className="h-16 shrink-0 flex items-center px-5 gap-3 bg-card border-b border-border">
           <div className="min-w-0">
             <p className="text-[10px] font-bold tracking-[0.12em] text-muted-foreground uppercase leading-none mb-1">
               {pageInfo.category || " "}
@@ -512,11 +514,11 @@ export function Shell({ children }: { children: ReactNode }) {
         </div>
 
         {/* Content — instant page switches (no fade/slide), matching enterprise apps */}
-        <div className="flex-1 min-h-0 relative overflow-y-auto overflow-x-hidden">
+        <main role="main" className="flex-1 min-h-0 relative overflow-y-auto overflow-x-hidden">
           <div className="h-full">
             {children}
           </div>
-        </div>
+        </main>
       </div>
       
       {/* Modals / Popovers (simulated simply) */}
