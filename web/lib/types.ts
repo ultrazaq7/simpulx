@@ -99,6 +99,7 @@ export interface Message {
 export interface Agent {
   id: string;
   full_name: string;
+  email?: string;
   is_online: boolean;
   open_count: number;
 }

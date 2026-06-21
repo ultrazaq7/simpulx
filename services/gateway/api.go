@@ -524,7 +524,7 @@ func derefStr(p *string) string {
 func (s *server) handleListAgents(w http.ResponseWriter, r *http.Request) {
 	a, _ := authFrom(r.Context())
 	
-	query := `SELECT u.id::text AS id, u.full_name, u.is_online,
+	query := `SELECT u.id::text AS id, u.full_name, u.email, u.is_online,
 		        (SELECT count(*) FROM conversations c
 		           WHERE c.assigned_agent_id = u.id AND c.status <> 'closed') AS open_count
 		   FROM users u
