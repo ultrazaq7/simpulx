@@ -214,16 +214,29 @@ export default function InboxPage() {
     const len = messages.length + (notes || []).length;
     const switchedConv = activeId !== prevActiveIdRef.current;
 
-    if (switchedConv) {
-      if (timeline.length > 0) setTimeout(() => rowVirtualizer.scrollToIndex(timeline.length - 1, { align: "end" }), 50);
-    } else if (len > prevLenRef.current) {
-      if (prevLenRef.current === 0 || (bodyRef.current && (bodyRef.current.scrollHeight - bodyRef.current.scrollTop - bodyRef.current.clientHeight < 250))) {
-        setTimeout(() => rowVirtualizer.scrollToIndex(timeline.length - 1, { align: "end" }), 50);
-      }
-    }
+    // Robustly jump to the latest message: the virtualizer re-measures dynamic row
+    // heights and messages load async, so a single scroll lands mid-list. Retry
+    // across a few frames and also pin the container to the very bottom.
+    const jumpToEnd = () => {
+      const idx = timeline.length - 1;
+      if (idx < 0) return;
+      [0, 60, 180, 360].forEach((d) => setTimeout(() => {
+        rowVirtualizer.scrollToIndex(idx, { align: "end" });
+        if (bodyRef.current) bodyRef.current.scrollTop = bodyRef.current.scrollHeight;
+      }, d));
+    };
 
+    if (switchedConv) {
+      prevActiveIdRef.current = activeId;
+      prevLenRef.current = 0; // treat the new conversation's load as fresh -> scroll
+      jumpToEnd();            // covers an already-cached (instant) conversation
+      return;
+    }
+    if (len > prevLenRef.current) {
+      const nearBottom = bodyRef.current && (bodyRef.current.scrollHeight - bodyRef.current.scrollTop - bodyRef.current.clientHeight < 250);
+      if (prevLenRef.current === 0 || nearBottom) jumpToEnd();
+    }
     prevLenRef.current = len;
-    prevActiveIdRef.current = activeId;
   }, [messages.length, notes, rowVirtualizer, timeline.length, activeId]);
 
   // --- Action helpers ---
