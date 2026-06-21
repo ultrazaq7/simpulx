@@ -241,7 +241,8 @@ func nilIfEmptySlice(s []string) any {
 // next agent round-robin. Shared shape with messaging.routeToCampaign.
 func (s *server) routeToCampaign(ctx context.Context, campaignID, convID string) {
 	_, _ = s.pool.Exec(ctx,
-		`WITH agents AS (SELECT user_id FROM campaign_agents WHERE campaign_id=$1 ORDER BY user_id),
+		`WITH agents AS (SELECT ca.user_id FROM campaign_agents ca JOIN users u ON u.id=ca.user_id
+		                 WHERE ca.campaign_id=$1 AND u.is_deleted=false AND u.status='active' ORDER BY ca.user_id),
 		      pick AS (SELECT user_id FROM agents
 		               OFFSET (SELECT rr_cursor % GREATEST((SELECT count(*) FROM agents),1) FROM campaigns WHERE id=$1)
 		               LIMIT 1)
@@ -259,7 +260,8 @@ func (s *server) routeToCampaign(ctx context.Context, campaignID, convID string)
 func (s *server) routeToBranch(ctx context.Context, branchID, convID string) {
 	_, _ = s.pool.Exec(ctx,
 		`WITH d AS (SELECT campaign_id, rr_cursor FROM campaign_branches WHERE id=$1),
-		      agents AS (SELECT user_id FROM branch_agents WHERE branch_id=$1 ORDER BY user_id),
+		      agents AS (SELECT ba.user_id FROM branch_agents ba JOIN users u ON u.id=ba.user_id
+		                 WHERE ba.branch_id=$1 AND u.is_deleted=false AND u.status='active' ORDER BY ba.user_id),
 		      pick AS (SELECT user_id FROM agents
 		               OFFSET ((SELECT rr_cursor FROM d) % GREATEST((SELECT count(*) FROM agents),1))
 		               LIMIT 1)
