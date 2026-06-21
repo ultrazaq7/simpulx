@@ -753,10 +753,9 @@ func (s *server) handleInboundCall(ctx context.Context, orgID, phoneNumberID str
 		return
 	}
 
-	_, _ = s.pool.Exec(ctx,
-		`INSERT INTO messages (organization_id, conversation_id, direction, sender_type, type, body)
-		 VALUES ($1, $2, 'inbound', 'contact', 'text', 'Incoming WhatsApp call')`,
-		orgID, convID)
+	// No "Incoming WhatsApp call" text message here: the call summary card
+	// (insertCallSummary, on end) is the single canonical thread event for a call,
+	// so inserting this too would duplicate every call in the timeline.
 
 	s.broadcastCall(ctx, orgID, events.CallUpdated{
 		CallID: callID, ConversationID: convID, Direction: "inbound",

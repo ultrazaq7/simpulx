@@ -227,8 +227,7 @@ function MediaGallery({ messages, currentId, active, onClose, onNavigate }: {
 
 const STATUS_CHIP: Record<string, string> = {
   open: "bg-success/10 text-success",
-  pending: "bg-warning/15 text-amber-700",
-  snoozed: "bg-amber-100 text-amber-700",
+  snoozed: "bg-warm-bg text-warm",
   closed: "bg-muted text-muted-foreground",
 };
 
