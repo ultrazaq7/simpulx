@@ -7,7 +7,7 @@ import {
 } from "recharts";
 import {
   BarChart3, MessageSquare, Inbox, Flame, Timer,
-  TrendingDown, ChevronRight, Zap, Phone, Mail, Reply, Trophy,
+  TrendingDown, ChevronRight, Zap, Mail, Reply, Trophy,
   Clock, ArrowRight, CheckCircle2, Activity, Users, Radio,
   CircleDollarSign, MousePointerClick, Megaphone, Target, Eye, Filter as FilterIcon,
 } from "lucide-react";
@@ -29,15 +29,16 @@ const METRICS: Metric[] = [
   { key: "active", label: "Active", Icon: MessageSquare, color: "#2D8B73", href: "/inbox?status=open" },
   { key: "unassigned", label: "Unassigned", Icon: Inbox, color: "#E67E22", href: "/inbox" },
   { key: "replied", label: "Replied", Icon: Reply, color: "#0284C7" },
-  { key: "won", label: "Won", Icon: Trophy, color: "#059669" },
+  { key: "won", label: "Purchase", Icon: Trophy, color: "#059669" },
   { key: "avg_rt", label: "Avg first response", Icon: Timer, color: "#7C3AED", fmt: fmtDuration },
 ];
 
-// Real 7-day series from analytics.daily (no fabrication). Returns [] when absent.
-function buildChartData(analytics: Analytics | null) {
+// Real daily series from analytics.daily (no fabrication). Returns [] when absent.
+// Pass all=true to plot every day instead of just the last 7.
+function buildChartData(analytics: Analytics | null, all = false) {
   const daily = analytics?.daily;
   if (!daily || daily.length === 0) return [];
-  return daily.slice(-7).map((d) => {
+  return (all ? daily : daily.slice(-7)).map((d) => {
     const dt = new Date(d.day);
     const label = isNaN(dt.getTime())
       ? d.day
@@ -177,6 +178,30 @@ function InterestSplit({ funnel }: { funnel: Analytics["funnel"] | undefined }) 
   );
 }
 
+// Stage split rows: leads by pipeline stage, colored to match the funnel chips.
+function StageSplit({ stages }: { stages?: Analytics["stages"] }) {
+  if (!stages || stages.length === 0) {
+    return <div className="py-10 text-center text-sm text-muted-foreground">No pipeline data yet</div>;
+  }
+  const ordered = [...stages].sort((a, b) => a.sort_order - b.sort_order);
+  const total = ordered.reduce((s, x) => s + (x.count || 0), 0);
+  return (
+    <div className="p-2">
+      {ordered.map((s, i) => {
+        const color = FUNNEL_COLORS[i % FUNNEL_COLORS.length];
+        return (
+          <div key={s.system_key || s.name} className="flex items-center gap-3 px-2 py-2">
+            <span className="w-2.5 h-2.5 rounded-full shrink-0" style={{ backgroundColor: color }} />
+            <span className="text-sm font-medium flex-1 text-foreground/90">{s.name}</span>
+            <div className="flex-[2]"><ProgressBar value={total > 0 ? (s.count / total) * 100 : 0} color={color} /></div>
+            <span className="text-sm font-bold min-w-[28px] text-right tabular-nums" style={{ color }}>{s.count}</span>
+          </div>
+        );
+      })}
+    </div>
+  );
+}
+
 // Real lead funnel: cumulative "reached this stage or beyond" along the actual sales
 // pipeline, with stage-to-stage conversion %. Driven by analytics.funnel_stages.
 // Per-stage funnel colors, aligned with the inbox stage chips
@@ -220,8 +245,9 @@ const AGENT_CARDS = [
   { key: "open", label: "My open", sub: "Active conversations", Icon: MessageSquare, color: "#2D8B73", href: "/inbox" },
   { key: "hot", label: "Hot leads", sub: "High buying intent", Icon: Flame, color: "#EF4444", href: "/inbox?interest=hot" },
   { key: "follow_up", label: "Follow up now", sub: "Hot/warm and unread", Icon: Zap, color: "#F59E0B", href: "/inbox?followup=1" },
-  { key: "need_call", label: "Need to call", sub: "Hot, not called yet", Icon: Phone, color: "#0284C7", href: "/inbox?interest=hot" },
   { key: "unread", label: "Unread", sub: "Waiting on you", Icon: Mail, color: "#6366F1", href: "/inbox?unread=1" },
+  { key: "purchase", label: "Purchased", sub: "Reached purchase", Icon: CircleDollarSign, color: "#059669", href: "" },
+  { key: "lost", label: "Lost", sub: "Marked lost", Icon: TrendingDown, color: "#EF4444", href: "" },
 ] as const;
 
 function AgentDashboard() {
@@ -232,39 +258,90 @@ function AgentDashboard() {
     api.getDashboardCards().then(setCards).catch(() => setCards({ open: 0, hot: 0, follow_up: 0, need_call: 0, unread: 0 }));
     api.getAnalytics().then(setAnalytics).catch(() => {});
   }, []);
-  const chartData = buildChartData(analytics);
+  const funnel = analytics?.funnel;
 
   return (
     <div className="p-4">
       {/* Action cards */}
-      <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-5 gap-3 mb-5">
+      <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-6 gap-3 mb-5">
         {AGENT_CARDS.map((c) => {
-          const v = cards ? (cards as any)[c.key] as number : null;
-          return (
-            <Link key={c.key} href={c.href} className="group bg-card rounded-lg border border-border shadow-xs p-4 hover:shadow-md hover:border-primary/30 transition-all">
+          const v = c.key === "purchase" ? (funnel?.won ?? null)
+            : c.key === "lost" ? (analytics?.lost ?? null)
+            : cards ? ((cards as any)[c.key] as number) : null;
+          const body = (
+            <>
               <div className="flex items-center justify-between mb-3">
                 <div className="w-10 h-10 rounded-lg grid place-items-center" style={{ backgroundColor: c.color + "14" }}>
                   <c.Icon className="w-5 h-5" style={{ color: c.color }} />
                 </div>
-                <ChevronRight className="w-4 h-4 text-muted-foreground/40 group-hover:text-primary group-hover:translate-x-0.5 transition-all" />
+                {c.href && <ChevronRight className="w-4 h-4 text-muted-foreground/40 group-hover:text-primary group-hover:translate-x-0.5 transition-all" />}
               </div>
               {v === null
                 ? <div className="skeleton rounded h-7 w-12" />
                 : <p className="text-[28px] font-extrabold text-foreground leading-none tabular-nums">{v}</p>}
               <p className="text-[13px] font-bold text-foreground mt-2">{c.label}</p>
               <p className="text-[11px] text-muted-foreground">{c.sub}</p>
-            </Link>
+            </>
           );
+          const cls = "group bg-card rounded-lg border border-border shadow-xs p-4 hover:shadow-md hover:border-primary/30 transition-all";
+          return c.href
+            ? <Link key={c.key} href={c.href} className={cls}>{body}</Link>
+            : <div key={c.key} className={cls}>{body}</div>;
         })}
       </div>
 
       {/* Personal activity */}
       <div className="grid grid-cols-1 lg:grid-cols-3 gap-4">
-        <Card title="Your last 7 days" subtitle="Leads and replies" className="lg:col-span-2">
-          <div className="px-4 py-4"><OverviewChart data={chartData} /></div>
+        <Card title="Your activity" subtitle="Daily leads and replies" className="lg:col-span-2">
+          <div className="px-4 py-4"><OverviewChart data={buildChartData(analytics, true)} /></div>
         </Card>
-        <Card title="Your interest split">
-          <InterestSplit funnel={analytics?.funnel} />
+        <Card title="Your stages" subtitle="Leads by pipeline stage">
+          <StageSplit stages={analytics?.stages} />
+        </Card>
+      </div>
+
+      {/* Lost analysis */}
+      <div className="grid grid-cols-1 md:grid-cols-2 gap-4 mt-4">
+        <Card title="Lost analysis" icon={TrendingDown} iconColor="#EF4444">
+          <div className="p-4">
+            <div className="flex items-baseline gap-2 mb-4">
+              <span className="text-4xl font-extrabold text-[#EF4444] leading-none tabular-nums">{analytics?.lost ?? 0}</span>
+              <span className="text-sm text-muted-foreground font-medium">total lost leads</span>
+            </div>
+            {funnel && (
+              <div className="flex gap-3">
+                <div className="flex-1 p-3 rounded-lg bg-red-50 text-center">
+                  <p className="text-xl font-extrabold text-[#EF4444] tabular-nums">{funnel.total > 0 ? Math.round(((analytics?.lost ?? 0) / funnel.total) * 100) : 0}%</p>
+                  <p className="text-xs text-[#991B1B] font-semibold">Loss rate</p>
+                </div>
+                <div className="flex-1 p-3 rounded-lg bg-green-50 text-center">
+                  <p className="text-xl font-extrabold text-[#059669] tabular-nums">{funnel.total > 0 ? Math.round(((funnel.won ?? 0) / funnel.total) * 100) : 0}%</p>
+                  <p className="text-xs text-[#065F46] font-semibold">Purchase rate</p>
+                </div>
+              </div>
+            )}
+          </div>
+        </Card>
+
+        <Card title="Lost reasons">
+          <div className="p-4">
+            {(analytics?.lost_reasons && analytics.lost_reasons.length > 0) ? (
+              analytics.lost_reasons.map((r, i) => {
+                const maxCount = Math.max(...analytics.lost_reasons!.map((x) => x.count), 1);
+                return (
+                  <div key={r.reason} className="mb-4 last:mb-0">
+                    <div className="flex justify-between mb-1">
+                      <span className="text-sm font-medium text-foreground/80">{r.reason}</span>
+                      <span className="text-sm font-bold text-[#EF4444] tabular-nums">{r.count}</span>
+                    </div>
+                    <ProgressBar value={(r.count / maxCount) * 100} color={i === 0 ? "#EF4444" : i === 1 ? "#F97316" : "#FBBF24"} height={6} />
+                  </div>
+                );
+              })
+            ) : (
+              <div className="py-8 text-center"><p className="text-sm text-muted-foreground">No lost reason data available</p></div>
+            )}
+          </div>
         </Card>
       </div>
     </div>
@@ -611,7 +688,7 @@ function ManagerDashboard() {
                     <p className="text-xl font-extrabold text-[#059669] tabular-nums">
                       {funnel.total > 0 ? Math.round(((funnel.won ?? 0) / funnel.total) * 100) : 0}%
                     </p>
-                    <p className="text-xs text-[#065F46] font-semibold">Won rate</p>
+                    <p className="text-xs text-[#065F46] font-semibold">Purchase rate</p>
                   </div>
                 </div>
               )}
@@ -781,7 +858,7 @@ function MarketingAnalytics() {
     { label: "Cost / lead", value: money(cpl), Icon: Target, color: "#6366F1" },
     { label: "Conversions", value: fmtInt(t.sales), Icon: Trophy, color: "#059669" },
     { label: "Cost / conversion", value: money(cpa), Icon: CircleDollarSign, color: "#0EA5E9" },
-    { label: "Lead to won", value: `${convRate.toFixed(1)}%`, Icon: Target, color: "#EF4444" },
+    { label: "Lead to purchase", value: `${convRate.toFixed(1)}%`, Icon: Target, color: "#EF4444" },
   ];
 
   const funnel = [
@@ -869,7 +946,7 @@ function MarketingAnalytics() {
           <table className="w-full text-sm">
             <thead>
               <tr className="border-b border-border bg-muted/40">
-                {["Campaign", "Spend", "Impressions", "Clicks", "Leads", "Cost / lead", "Conversions", "Cost / conv", "Lead to won"].map((h, idx) => (
+                {["Campaign", "Spend", "Impressions", "Clicks", "Leads", "Cost / lead", "Conversions", "Cost / conv", "Lead to purchase"].map((h, idx) => (
                   <th key={h} className={cn("px-4 py-2.5 text-[11px] font-bold uppercase tracking-wider text-muted-foreground", idx === 0 ? "text-left" : "text-right")}>{h}</th>
                 ))}
               </tr>

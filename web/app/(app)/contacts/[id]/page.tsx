@@ -129,7 +129,7 @@ export default function ContactDetailsPage() {
           </div>
 
           <Section title="Activity">
-            <Row icon={Calendar} label="Joined" value={fmtDate(c.created_at)} />
+            <Row icon={Calendar} label="Created" value={fmtDate(c.created_at)} />
             <Row icon={Clock} label="Last message" value={c.last_message_at ? relTime(c.last_message_at) : "No messages"} />
             {c.interest_level && (
               <Row icon={Radio} label="Interest" value={

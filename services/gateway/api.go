@@ -876,11 +876,13 @@ func (s *server) handleAnalytics(w http.ResponseWriter, r *http.Request) {
 		  ORDER BY leads DESC`, campFilterCv), args...)
 
 	// Per-day: new leads vs how many got an AGENT reply.
+	// All days (one point per active day). The admin view trims to the last 7 in
+	// the client; the agent view plots the full history.
 	daily, _ := s.queryMaps(ctx,
 		fmt.Sprintf(`SELECT to_char(date_trunc('day', created_at),'YYYY-MM-DD') AS day,
 		        count(*) AS leads,
 		        count(*) FILTER (WHERE last_agent_message_at IS NOT NULL) AS replied
-		   FROM conversations WHERE organization_id=$1%s AND created_at > now() - interval '14 days'
+		   FROM conversations WHERE organization_id=$1%s
 		  GROUP BY 1 ORDER BY 1`, campFilter), args...)
 
 	rt, _ := s.queryMaps(ctx,

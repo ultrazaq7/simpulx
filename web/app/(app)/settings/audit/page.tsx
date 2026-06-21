@@ -246,7 +246,7 @@ export default function SystemLogsPage() {
                   {tab === "messages" && <><TH>Created</TH><TH>Direction</TH><TH>Contact</TH><TH>Phone</TH><TH>Agent</TH><TH>Type</TH><TH>Message</TH><TH>Status</TH></>}
                   {tab === "conversations" && <><TH>Agent</TH><TH>Department</TH><TH>Customer</TH><TH>Contact</TH><TH>Status</TH><TH className="text-right">First resp (s)</TH><TH className="text-right">Closing (s)</TH><TH className="text-right">Agent msgs</TH><TH>Initiated</TH></>}
                   {tab === "activity" && <><TH>Agent Name</TH><TH>Agent Email</TH><TH>Agent Activity</TH><TH>Offline Reason</TH><TH>Action At</TH></>}
-                  {tab === "calls" && <><TH>Type</TH><TH>Name</TH><TH>Phone Number</TH><TH className="text-right">Duration</TH><TH>Received At</TH><TH>Ended At</TH><TH>Agent</TH><TH>Status</TH></>}
+                  {tab === "calls" && <><TH>Type</TH><TH>Name</TH><TH>Phone Number</TH><TH className="text-right">Duration</TH><TH>Started At</TH><TH>Ended At</TH><TH>Agent</TH><TH>Status</TH></>}
                   {tab === "system" && <><TH>When</TH><TH>Actor</TH><TH>Action</TH><TH>Entity</TH><TH>Detail</TH></>}
                 </tr>
               </thead>

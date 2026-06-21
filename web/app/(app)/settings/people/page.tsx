@@ -85,7 +85,7 @@ export default function PeopleSettingsPage() {
           <table className="w-full text-sm min-w-[920px]">
             <thead>
               <tr className="border-b border-border bg-muted/40">
-                {["User", "Role", "Departments", "Campaigns", "Status", "Last login", "Joined", ""].map((h) => (
+                {["User", "Role", "Departments", "Campaigns", "Status", "Last login", "Created", ""].map((h) => (
                   <th key={h} className={cn("px-4 py-2.5 text-[11px] font-bold uppercase tracking-wider text-muted-foreground", h === "" ? "text-right w-12" : "text-left")}>{h}</th>
                 ))}
               </tr>
