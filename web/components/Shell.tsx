@@ -119,6 +119,20 @@ export function Shell({ children }: { children: ReactNode }) {
     if (!getToken()) return;
     api.listNotifications().then((r) => { setNotifs(r.notifications || []); setNotifUnread(r.unread || 0); }).catch(() => {});
   };
+  // Clicking a background (service worker) notification posts here -> open the chat.
+  useEffect(() => {
+    if (!("serviceWorker" in navigator)) return;
+    const onMsg = (e: MessageEvent) => {
+      const d = e.data;
+      if (d && d.type === "open-conversation" && d.convId) {
+        router.push(`/inbox?c=${d.convId}`);
+        window.dispatchEvent(new CustomEvent("inbox:open", { detail: d.convId }));
+      }
+    };
+    navigator.serviceWorker.addEventListener("message", onMsg);
+    return () => navigator.serviceWorker.removeEventListener("message", onMsg);
+  }, [router]);
+
   useEffect(() => {
     loadNotifs();
     registerPush(loadNotifs); // FCM device-token registration (no-op until VAPID is set)

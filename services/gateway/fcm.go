@@ -71,13 +71,20 @@ func (s *server) initFCMPush(ctx context.Context) {
 		}
 		
 		var assignedAgentID *string
-		var contactName string
-		
-		_ = s.pool.QueryRow(ctx, `SELECT assigned_agent_id::text FROM conversations WHERE id=$1`, msg.ConversationID).Scan(&assignedAgentID)
-		_ = s.pool.QueryRow(ctx, `SELECT full_name FROM contacts WHERE id=$1`, msg.ContactID).Scan(&contactName)
-		
+		var contactName, contactPhone string
+
+		// Resolve via the conversation (its contact), not the event's ContactID which
+		// can be empty — otherwise the title falls back to a generic "New Contact".
+		_ = s.pool.QueryRow(ctx,
+			`SELECT cv.assigned_agent_id::text, COALESCE(ct.full_name,''), COALESCE(ct.phone,'')
+			   FROM conversations cv LEFT JOIN contacts ct ON ct.id = cv.contact_id
+			  WHERE cv.id=$1`, msg.ConversationID).Scan(&assignedAgentID, &contactName, &contactPhone)
+
 		if contactName == "" {
-			contactName = "New Contact"
+			contactName = contactPhone
+		}
+		if contactName == "" {
+			contactName = "New message"
 		}
 
 		// Get tokens

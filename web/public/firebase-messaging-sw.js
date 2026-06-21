@@ -39,10 +39,18 @@ messaging.onBackgroundMessage((payload) => {
 self.addEventListener("notificationclick", (event) => {
   event.notification.close();
   const convId = event.notification.data && event.notification.data.conversationId;
-  const url = convId ? `/inbox?c=${convId}` : "/";
+  const url = convId ? `/inbox?c=${convId}` : "/inbox";
   event.waitUntil(
     clients.matchAll({ type: "window", includeUncontrolled: true }).then((wins) => {
-      for (const w of wins) { if ("focus" in w) { w.focus(); w.navigate && w.navigate(url); return; } }
+      // Reuse an open tab: focus it and tell the app to open the conversation
+      // (an in-app message switches it even when already on /inbox).
+      for (const w of wins) {
+        if ("focus" in w) {
+          w.focus();
+          if (convId && "postMessage" in w) w.postMessage({ type: "open-conversation", convId });
+          return;
+        }
+      }
       return clients.openWindow(url);
     })
   );
