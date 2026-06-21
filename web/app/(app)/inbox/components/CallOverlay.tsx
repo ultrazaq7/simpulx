@@ -1,6 +1,6 @@
 "use client";
 import { useState, useEffect, useRef, useCallback } from "react";
-import { Phone, PhoneOff, PhoneIncoming, Mic, MicOff, X, Loader2, Minus, GripHorizontal, ChevronUp } from "lucide-react";
+import { Phone, PhoneOff, PhoneIncoming, Mic, MicOff, X, Loader2, Minus, GripHorizontal, ChevronUp, Download } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { api } from "@/lib/api";
 
@@ -43,6 +43,13 @@ function waitForIce(pc: RTCPeerConnection): Promise<void> {
     setTimeout(resolve, 2000);
   });
 }
+function pickRecMime(): string {
+  if (typeof MediaRecorder === "undefined") return "";
+  for (const m of ["audio/webm;codecs=opus", "audio/webm", "audio/ogg;codecs=opus", "audio/ogg"]) {
+    if (MediaRecorder.isTypeSupported(m)) return m;
+  }
+  return "";
+}
 
 export default function CallOverlay({
   callId, conversationId, contactName, contactPhone, onClose, notify,
@@ -67,27 +74,77 @@ export default function CallOverlay({
   const streamRef = useRef<MediaStream | null>(null);
   const timerRef = useRef<NodeJS.Timeout | null>(null);
 
+  // ── Call recording: mix local mic + remote audio, record, offer a download ──
+  const remoteStreamRef = useRef<MediaStream | null>(null);
+  const recorderRef = useRef<MediaRecorder | null>(null);
+  const recChunksRef = useRef<Blob[]>([]);
+  const mixCtxRef = useRef<AudioContext | null>(null);
+  const [recUrl, setRecUrl] = useState<string | null>(null);
+  const [recording, setRecording] = useState(false);
+
+  const stopRecording = useCallback(() => {
+    setRecording(false);
+    const rec = recorderRef.current;
+    recorderRef.current = null;
+    if (rec && rec.state !== "inactive") { try { rec.stop(); } catch { /* ignore */ } }
+  }, []);
+
+  const startRecording = useCallback(() => {
+    if (recorderRef.current || typeof MediaRecorder === "undefined") return;
+    const local = streamRef.current, remote = remoteStreamRef.current;
+    if (!local || !remote) return;
+    try {
+      const Ctx = window.AudioContext || (window as unknown as { webkitAudioContext: typeof AudioContext }).webkitAudioContext;
+      const ctx = new Ctx(); mixCtxRef.current = ctx;
+      if (ctx.state === "suspended") void ctx.resume();
+      // Mix both sides into one stream; route only to the recorder (not speakers) so
+      // there is no echo. The remote side is heard via its own <audio> element.
+      const dest = ctx.createMediaStreamDestination();
+      ctx.createMediaStreamSource(local).connect(dest);
+      ctx.createMediaStreamSource(remote).connect(dest);
+      const mime = pickRecMime();
+      const rec = new MediaRecorder(dest.stream, mime ? { mimeType: mime } : undefined);
+      recChunksRef.current = [];
+      rec.ondataavailable = (e) => { if (e.data && e.data.size > 0) recChunksRef.current.push(e.data); };
+      rec.onstop = () => {
+        const blob = new Blob(recChunksRef.current, { type: rec.mimeType || "audio/webm" });
+        if (blob.size > 0) setRecUrl(URL.createObjectURL(blob));
+        if (mixCtxRef.current) { mixCtxRef.current.close().catch(() => {}); mixCtxRef.current = null; }
+      };
+      rec.start(1000);
+      recorderRef.current = rec;
+      setRecording(true);
+    } catch { /* recording unsupported -> skip silently */ }
+  }, []);
+
   useEffect(() => {
     setPos({ x: window.innerWidth - 320 - 24, y: window.innerHeight - 440 });
     setPlaced(true);
   }, []);
 
   const cleanup = useCallback(() => {
+    stopRecording();
     if (timerRef.current) clearInterval(timerRef.current);
     if (streamRef.current) { streamRef.current.getTracks().forEach((t) => t.stop()); streamRef.current = null; }
     if (pcRef.current) { pcRef.current.close(); pcRef.current = null; }
-  }, []);
+    remoteStreamRef.current = null;
+  }, [stopRecording]);
   useEffect(() => () => cleanup(), [cleanup]);
+  useEffect(() => () => { if (recUrl) URL.revokeObjectURL(recUrl); }, [recUrl]);
 
   const wirePeer = useCallback((pc: RTCPeerConnection) => {
-    pc.ontrack = (event) => { const a = new Audio(); a.srcObject = event.streams[0]; a.play().catch(() => {}); };
+    pc.ontrack = (event) => {
+      remoteStreamRef.current = event.streams[0];
+      const a = new Audio(); a.srcObject = event.streams[0]; a.play().catch(() => {});
+      startRecording();
+    };
     pc.onconnectionstatechange = () => {
       if (pc.connectionState === "connected") setCallStatus("connected");
       if (pc.connectionState === "failed" || pc.connectionState === "disconnected") {
         setCallStatus("ended"); setEndReason("Connection lost"); cleanup();
       }
     };
-  }, [cleanup]);
+  }, [cleanup, startRecording]);
 
   useEffect(() => {
     const onWS = (e: Event) => {
@@ -247,6 +304,7 @@ export default function CallOverlay({
         <span className="flex items-center gap-1.5 text-[11px] font-bold uppercase tracking-wider">
           <span className={cn("w-2 h-2 rounded-full", dotColor, !isEnded && "animate-pulse")} />
           <span className={cn(callStatus === "connected" || callStatus === "incoming" ? "text-emerald-400" : "text-white/60")}>{statusLabel}</span>
+          {recording && <span className="flex items-center gap-1 text-[10px] font-bold text-red-400"><span className="w-1.5 h-1.5 rounded-full bg-red-500 animate-pulse" />REC</span>}
         </span>
         <span className="absolute left-1/2 -translate-x-1/2 text-white/20"><GripHorizontal className="w-4 h-4" /></span>
         <span className="flex items-center gap-0.5">
@@ -334,6 +392,15 @@ export default function CallOverlay({
                endReason === "rejected" || endReason === "declined" ? "Call declined" :
                endReason || "Call ended"}
             </p>
+            {recUrl && (
+              <a
+                href={recUrl}
+                download={`call-${(contactName || contactPhone || "recording").replace(/[^\w.-]+/g, "_")}-${new Date().toISOString().slice(0, 16).replace(/[:T]/g, "-")}.webm`}
+                className="mt-2 inline-flex items-center gap-1.5 px-3 py-1.5 rounded-md text-[12px] font-semibold bg-emerald-500/15 text-emerald-400 hover:bg-emerald-500/25 outline-none"
+              >
+                <Download className="w-3.5 h-3.5" />Download recording
+              </a>
+            )}
             <button onClick={onClose} className="mt-2 px-4 py-1.5 rounded-md text-[12px] font-semibold text-emerald-400 hover:bg-white/10 outline-none">Dismiss</button>
           </div>
         )}
