@@ -7,7 +7,7 @@ import {
 } from "lucide-react";
 import { cn, fmtTime } from "@/lib/utils";
 import { Tip } from "@/components/ui/tooltip";
-import type { Conversation, Disposition, InternalNote, QuickReply, Stage, Message } from "@/lib/types";
+import type { Agent, Conversation, Disposition, InternalNote, QuickReply, Stage, Message } from "@/lib/types";
 import type { Virtualizer } from "@tanstack/react-virtual";
 import type { UseInfiniteQueryResult } from "@tanstack/react-query";
 import MessageBubble, { rewriteLocalMedia } from "./MessageBubble";
@@ -249,6 +249,10 @@ export interface ChatPanelProps {
   notify: (msg: string, severity?: "success" | "info" | "warning" | "error") => void;
   onSendVoice: (blob: Blob) => Promise<void>;
   showAgent?: boolean; // manager/admin: show assigned agent in the header
+  agents?: Agent[]; // roster for the (re)assign dropdown
+  canAssign?: boolean; // owner/admin/manager: may (re)assign / unassign
+  onReassign?: (agentId: string) => void;
+  onUnassign?: () => void;
   onForward?: (text: string) => void;
   uploadProgress?: number | null; // 0-100 while an attachment uploads
   onAddNote?: (body: string) => Promise<void>; // post an internal note (AI Smart Summary -> Confirm)
@@ -261,8 +265,10 @@ export default function ChatPanel({
   draft, setDraft, tab, setTab, quickReplies,
   pendingFiles, pendingPreviews, fileRef, onFile, cancelSendFile, removePendingFile,
   busy, onSubmit, onSendVoice, showDetails, onToggleDetails, notify, showAgent, onForward,
+  agents, canAssign, onReassign, onUnassign,
   uploadProgress, onAddNote,
 }: ChatPanelProps) {
+  const [assignOpen, setAssignOpen] = useState(false);
   const [previewMediaId, setPreviewMediaId] = useState<string | null>(null);
   const [outcomeOpen, setOutcomeOpen] = useState(false);
   const [activeCallId, setActiveCallId] = useState<string | null>(null);
@@ -438,13 +444,57 @@ export default function ChatPanel({
 
               <div className="flex-1" />
 
-              {/* Assigned agent (manager/admin) */}
-              {showAgent && (
+              {/* Assigned agent (manager/admin) — clickable to (re)assign / unassign */}
+              {showAgent && (canAssign ? (
+                <div className="relative">
+                  <button
+                    type="button"
+                    onClick={() => setAssignOpen((v) => !v)}
+                    className={cn("inline-flex items-center gap-1 px-2 h-6 rounded-md text-[11px] font-semibold max-w-[170px] outline-none transition-colors", active.agent_name ? "bg-muted text-muted-foreground hover:bg-muted/70" : "bg-amber-50 text-amber-700 hover:bg-amber-100")}
+                  >
+                    <User className="w-3 h-3 shrink-0" />
+                    <span className="truncate">{active.agent_name || "Unassigned"}</span>
+                    <ChevronDown className={cn("w-3 h-3 shrink-0 opacity-60 transition-transform", assignOpen && "rotate-180")} />
+                  </button>
+                  {assignOpen && (
+                    <>
+                      <div className="fixed inset-0 z-40" onClick={() => setAssignOpen(false)} />
+                      <div className="absolute right-0 top-full mt-1 z-50 w-56 max-h-[320px] overflow-auto rounded-lg border border-border bg-popover shadow-xl py-1 animate-scale-in">
+                        <p className="px-3 py-1.5 text-[10px] font-bold uppercase tracking-wider text-muted-foreground">Assign to</p>
+                        {(agents || []).map((ag) => (
+                          <button
+                            key={ag.id}
+                            type="button"
+                            onClick={() => { onReassign?.(ag.id); setAssignOpen(false); }}
+                            className={cn("w-full flex items-center gap-2 px-3 py-1.5 text-[13px] text-left hover:bg-muted outline-none", ag.id === active.assigned_agent_id ? "text-primary font-semibold" : "text-foreground/90")}
+                          >
+                            <User className="w-3.5 h-3.5 shrink-0 opacity-70" />
+                            <span className="flex-1 truncate">{ag.full_name}</span>
+                            {ag.id === active.assigned_agent_id && <Check className="w-3.5 h-3.5 shrink-0" />}
+                          </button>
+                        ))}
+                        {active.assigned_agent_id && (
+                          <>
+                            <div className="my-1 border-t border-border" />
+                            <button
+                              type="button"
+                              onClick={() => { onUnassign?.(); setAssignOpen(false); }}
+                              className="w-full flex items-center gap-2 px-3 py-1.5 text-[13px] text-left text-amber-700 hover:bg-amber-50 outline-none"
+                            >
+                              <XCircle className="w-3.5 h-3.5 shrink-0" />Unassign
+                            </button>
+                          </>
+                        )}
+                      </div>
+                    </>
+                  )}
+                </div>
+              ) : (
                 <span className={cn("inline-flex items-center gap-1 px-2 h-6 rounded-md text-[11px] font-semibold max-w-[150px]", active.agent_name ? "bg-muted text-muted-foreground" : "bg-amber-50 text-amber-700")}>
                   <User className="w-3 h-3 shrink-0" />
                   <span className="truncate">{active.agent_name || "Unassigned"}</span>
                 </span>
-              )}
+              ))}
 
               {/* Status chip */}
               <span className={cn("inline-flex items-center px-2.5 h-6 rounded-md text-[11px] font-semibold capitalize", STATUS_CHIP[active.status] ?? STATUS_CHIP.closed)}>

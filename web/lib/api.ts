@@ -269,6 +269,8 @@ export const api = {
   },
   assign: (id: string, agentId?: string) =>
     req(`/api/conversations/${id}/assign`, { method: "POST", body: JSON.stringify(agentId ? { agent_id: agentId } : {}) }),
+  unassign: (id: string) =>
+    req(`/api/conversations/${id}/assign`, { method: "POST", body: JSON.stringify({ unassign: true }) }),
   close: (id: string, reason = "resolved") =>
     req(`/api/conversations/${id}/close`, { method: "POST", body: JSON.stringify({ reason }) }),
   toggleBot: (id: string, active: boolean) =>

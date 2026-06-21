@@ -24,7 +24,9 @@ func (a *app) routes() http.Handler {
 func (a *app) handleAssign(w http.ResponseWriter, r *http.Request) {
 	convID := r.PathValue("id")
 	var body struct {
-		AgentID string `json:"agent_id"`
+		AgentID  string `json:"agent_id"`
+		Unassign bool   `json:"unassign"`
+		ActorID  string `json:"actor_id"`
 	}
 	_ = json.NewDecoder(r.Body).Decode(&body)
 	ctx := r.Context()
@@ -32,6 +34,16 @@ func (a *app) handleAssign(w http.ResponseWriter, r *http.Request) {
 	meta, err := a.st.conversationMeta(ctx, convID)
 	if err != nil {
 		http.Error(w, "conversation not found", http.StatusNotFound)
+		return
+	}
+
+	// Manager/admin sending the lead back to the unassigned queue.
+	if body.Unassign {
+		if err := a.st.unassign(ctx, meta.OrgID, convID, body.ActorID); err != nil {
+			http.Error(w, err.Error(), http.StatusInternalServerError)
+			return
+		}
+		writeJSON(w, map[string]any{"status": "unassigned"})
 		return
 	}
 

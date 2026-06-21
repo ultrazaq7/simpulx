@@ -414,6 +414,10 @@ export default function InboxPage() {
           showDetails={showDetails} onToggleDetails={() => setShowDetails((v) => !v)}
           notify={notify}
           showAgent={showAgent}
+          agents={agents}
+          canAssign={showAgent}
+          onReassign={(agentId) => doAction(() => api.assign(active!.id, agentId), "Conversation reassigned")}
+          onUnassign={() => doAction(() => api.unassign(active!.id), "Conversation unassigned")}
           onForward={(t) => setForwardText(t)}
           uploadProgress={uploadProgress}
           onAddNote={async (body) => {

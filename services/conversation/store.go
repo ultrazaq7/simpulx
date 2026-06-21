@@ -108,6 +108,28 @@ func (s *store) assign(ctx context.Context, orgID, convID, agentID string) error
 	return tx.Commit(ctx)
 }
 
+// unassign releases a conversation (assigned_agent_id -> NULL) + audit. Used by a
+// manager/admin to send a lead back to the unassigned queue.
+func (s *store) unassign(ctx context.Context, orgID, convID, actorID string) error {
+	tx, err := s.pool.Begin(ctx)
+	if err != nil {
+		return err
+	}
+	defer tx.Rollback(ctx)
+
+	if _, err = tx.Exec(ctx,
+		`UPDATE conversations SET assigned_agent_id = NULL, updated_at = now() WHERE id = $1`, convID); err != nil {
+		return err
+	}
+	if _, err = tx.Exec(ctx,
+		`INSERT INTO conversation_events (organization_id, conversation_id, type, actor_type, actor_id, detail)
+		 VALUES ($1, $2, 'unassigned', 'agent', NULLIF($3,'')::uuid, '{}')`,
+		orgID, convID, actorID); err != nil {
+		return err
+	}
+	return tx.Commit(ctx)
+}
+
 // closeConversation menutup percakapan + audit.
 func (s *store) closeConversation(ctx context.Context, orgID, convID, reason string) error {
 	tx, err := s.pool.Begin(ctx)

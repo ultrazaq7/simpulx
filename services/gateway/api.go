@@ -1575,11 +1575,27 @@ func (s *server) handleDeleteContact(w http.ResponseWriter, r *http.Request) {
 
 // ── Proxy assign/close ke conversation service ──────────────
 func (s *server) handleAssign(w http.ResponseWriter, r *http.Request) {
+	a, _ := authFrom(r.Context())
 	convID := r.PathValue("id")
 	if !s.guardConversation(w, r, convID) {
 		return
 	}
+	// Manual (re)assign / unassign is a supervisory action: owner/admin/manager only.
+	if a.Role != "owner" && a.Role != "admin" && a.Role != "manager" {
+		http.Error(w, "forbidden", http.StatusForbidden)
+		return
+	}
+	// Inject the actor so the conversation service can attribute the audit event.
+	var body map[string]any
 	bodyBytes, _ := io.ReadAll(r.Body)
+	if len(bodyBytes) > 0 {
+		_ = json.Unmarshal(bodyBytes, &body)
+	}
+	if body == nil {
+		body = map[string]any{}
+	}
+	body["actor_id"] = a.UserID
+	bodyBytes, _ = json.Marshal(body)
 	s.proxyJSON(w, r.Context(), http.MethodPost, s.conversationURL+"/conversations/"+convID+"/assign", bodyBytes)
 }
 
