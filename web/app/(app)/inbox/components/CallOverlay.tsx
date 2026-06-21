@@ -1,6 +1,6 @@
 "use client";
 import { useState, useEffect, useRef, useCallback } from "react";
-import { Phone, PhoneOff, PhoneIncoming, Mic, MicOff, X, Loader2, Minus, GripHorizontal, ChevronUp, Download } from "lucide-react";
+import { Phone, PhoneOff, PhoneIncoming, Mic, MicOff, X, Loader2, Minus, GripHorizontal, ChevronUp } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { api } from "@/lib/api";
 
@@ -79,6 +79,8 @@ export default function CallOverlay({
   const recorderRef = useRef<MediaRecorder | null>(null);
   const recChunksRef = useRef<Blob[]>([]);
   const mixCtxRef = useRef<AudioContext | null>(null);
+  const recBlobRef = useRef<Blob | null>(null);
+  const uploadedRef = useRef(false);
   const [recUrl, setRecUrl] = useState<string | null>(null);
   const [recording, setRecording] = useState(false);
 
@@ -108,7 +110,7 @@ export default function CallOverlay({
       rec.ondataavailable = (e) => { if (e.data && e.data.size > 0) recChunksRef.current.push(e.data); };
       rec.onstop = () => {
         const blob = new Blob(recChunksRef.current, { type: rec.mimeType || "audio/webm" });
-        if (blob.size > 0) setRecUrl(URL.createObjectURL(blob));
+        if (blob.size > 0) { recBlobRef.current = blob; setRecUrl(URL.createObjectURL(blob)); }
         if (mixCtxRef.current) { mixCtxRef.current.close().catch(() => {}); mixCtxRef.current = null; }
       };
       rec.start(1000);
@@ -131,6 +133,18 @@ export default function CallOverlay({
   }, [stopRecording]);
   useEffect(() => () => cleanup(), [cleanup]);
   useEffect(() => () => { if (recUrl) URL.revokeObjectURL(recUrl); }, [recUrl]);
+
+  // Persist the recording to storage so it shows in Call Logs (download later).
+  useEffect(() => {
+    if (!recUrl || uploadedRef.current || !recBlobRef.current) return;
+    uploadedRef.current = true;
+    const blob = recBlobRef.current;
+    const ext = blob.type.includes("ogg") ? "ogg" : "webm";
+    const file = new File([blob], `call-${callId}.${ext}`, { type: blob.type || "audio/webm" });
+    api.uploadFile(file)
+      .then((res) => { if (res?.url) return api.saveCallRecording(callId, res.url); })
+      .catch(() => { /* best effort: a failed upload just means no Call Logs entry */ });
+  }, [recUrl, callId]);
 
   const wirePeer = useCallback((pc: RTCPeerConnection) => {
     pc.ontrack = (event) => {
@@ -392,15 +406,7 @@ export default function CallOverlay({
                endReason === "rejected" || endReason === "declined" ? "Call declined" :
                endReason || "Call ended"}
             </p>
-            {recUrl && (
-              <a
-                href={recUrl}
-                download={`call-${(contactName || contactPhone || "recording").replace(/[^\w.-]+/g, "_")}-${new Date().toISOString().slice(0, 16).replace(/[:T]/g, "-")}.webm`}
-                className="mt-2 inline-flex items-center gap-1.5 px-3 py-1.5 rounded-md text-[12px] font-semibold bg-emerald-500/15 text-emerald-400 hover:bg-emerald-500/25 outline-none"
-              >
-                <Download className="w-3.5 h-3.5" />Download recording
-              </a>
-            )}
+            {recUrl && <p className="mt-1 text-[11px] text-emerald-400/80">Recording saved to Call Logs</p>}
             <button onClick={onClose} className="mt-2 px-4 py-1.5 rounded-md text-[12px] font-semibold text-emerald-400 hover:bg-white/10 outline-none">Dismiss</button>
           </div>
         )}

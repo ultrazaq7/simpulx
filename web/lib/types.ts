@@ -436,7 +436,7 @@ export interface LogConversation {
 export interface LogCall {
   direction: string | null; name: string | null; phone: string | null; duration_seconds: number;
   received_at: string | null; ended_at: string | null; call_status: string | null; end_reason: string | null;
-  agent: string | null; id: string;
+  agent: string | null; id: string; recording_url: string | null;
 }
 export interface LogActivity {
   agent_name: string | null; agent_email: string | null;

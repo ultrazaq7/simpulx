@@ -560,6 +560,35 @@ func (s *server) handleGetCall(w http.ResponseWriter, r *http.Request) {
 	json.NewEncoder(w).Encode(rows[0])
 }
 
+// ── Save Call Recording ─────────────────────────────────────────────────────
+
+// POST /api/calls/{id}/recording  Body: { "url": "..." }
+// Stores the uploaded recording URL so the call can be downloaded later from Call Logs.
+func (s *server) handleSaveCallRecording(w http.ResponseWriter, r *http.Request) {
+	a := r.Context().Value(authCtxKey).(authInfo)
+	callID := r.PathValue("id")
+	var b struct {
+		URL string `json:"url"`
+	}
+	if err := json.NewDecoder(r.Body).Decode(&b); err != nil || b.URL == "" {
+		http.Error(w, "url required", http.StatusBadRequest)
+		return
+	}
+	ct, err := s.pool.Exec(r.Context(),
+		`UPDATE calls SET recording_url = $1 WHERE id = $2 AND organization_id = $3`,
+		b.URL, callID, a.OrgID)
+	if err != nil {
+		http.Error(w, err.Error(), http.StatusInternalServerError)
+		return
+	}
+	if ct.RowsAffected() == 0 {
+		http.Error(w, "call not found", http.StatusNotFound)
+		return
+	}
+	w.Header().Set("Content-Type", "application/json")
+	json.NewEncoder(w).Encode(map[string]any{"ok": true})
+}
+
 // ── Webhook: Call Events ────────────────────────────────────────────────────
 
 type callWebhookEvent struct {

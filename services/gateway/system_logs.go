@@ -180,7 +180,8 @@ func (s *server) handleLogCalls(w http.ResponseWriter, r *http.Request) {
 
 	q := `SELECT c.direction, ct.full_name AS name, c.contact_phone AS phone,
 	             c.duration_seconds, c.created_at AS received_at, c.call_ended_at AS ended_at,
-	             c.call_status, c.end_reason, u.full_name AS agent, c.id::text AS id
+	             c.call_status, c.end_reason, u.full_name AS agent, c.id::text AS id,
+	             c.recording_url AS recording_url
 	      ` + base + fmt.Sprintf(" ORDER BY c.created_at DESC LIMIT %d OFFSET %d", p.limit, p.offset)
 
 	rows, err := s.queryMaps(r.Context(), q, args...)

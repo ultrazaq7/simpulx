@@ -151,7 +151,7 @@ export default function SystemLogsPage() {
 
   const TH = ({ children, className }: { children?: React.ReactNode; className?: string }) =>
     <th className={cn("px-4 py-2.5 text-left text-[11px] font-bold uppercase tracking-wider text-muted-foreground whitespace-nowrap", className)}>{children}</th>;
-  const cols: Record<TabKey, number> = { messages: 8, conversations: 9, activity: 5, system: 5, calls: 8, downloads: 1 };
+  const cols: Record<TabKey, number> = { messages: 8, conversations: 9, activity: 5, system: 5, calls: 9, downloads: 1 };
   const rowsLen = tab === "messages" ? messages.length : tab === "conversations" ? convs.length : tab === "calls" ? calls.length : tab === "activity" ? activity.length : auditPaged.length;
 
   return (
@@ -246,7 +246,7 @@ export default function SystemLogsPage() {
                   {tab === "messages" && <><TH>Created</TH><TH>Direction</TH><TH>Contact</TH><TH>Phone</TH><TH>Agent</TH><TH>Type</TH><TH>Message</TH><TH>Status</TH></>}
                   {tab === "conversations" && <><TH>Agent</TH><TH>Department</TH><TH>Customer</TH><TH>Contact</TH><TH>Status</TH><TH className="text-right">First resp (s)</TH><TH className="text-right">Closing (s)</TH><TH className="text-right">Agent msgs</TH><TH>Initiated</TH></>}
                   {tab === "activity" && <><TH>Agent Name</TH><TH>Agent Email</TH><TH>Agent Activity</TH><TH>Offline Reason</TH><TH>Action At</TH></>}
-                  {tab === "calls" && <><TH>Type</TH><TH>Name</TH><TH>Phone Number</TH><TH className="text-right">Duration</TH><TH>Started At</TH><TH>Ended At</TH><TH>Agent</TH><TH>Status</TH></>}
+                  {tab === "calls" && <><TH>Type</TH><TH>Name</TH><TH>Phone Number</TH><TH className="text-right">Duration</TH><TH>Started At</TH><TH>Ended At</TH><TH>Agent</TH><TH>Status</TH><TH>Recording</TH></>}
                   {tab === "system" && <><TH>When</TH><TH>Actor</TH><TH>Action</TH><TH>Entity</TH><TH>Detail</TH></>}
                 </tr>
               </thead>
@@ -309,6 +309,13 @@ export default function SystemLogsPage() {
                       <td className="px-4 py-2.5 whitespace-nowrap text-muted-foreground text-[12px]">{fmtDT(c.ended_at)}</td>
                       <td className="px-4 py-2.5 text-foreground/80 truncate max-w-[140px]">{c.agent || "-"}</td>
                       <td className="px-4 py-2.5 capitalize text-muted-foreground text-[12px]">{c.call_status || c.end_reason || "-"}</td>
+                      <td className="px-4 py-2.5">
+                        {c.recording_url ? (
+                          <a href={c.recording_url} download target="_blank" rel="noreferrer" className="inline-flex items-center gap-1.5 text-[12px] font-semibold text-primary hover:underline">
+                            <Download className="w-3.5 h-3.5" />Download
+                          </a>
+                        ) : <span className="text-muted-foreground/60 text-[12px]">-</span>}
+                      </td>
                     </tr>
                   ))}
                   {tab === "system" && auditPaged.map((a) => {

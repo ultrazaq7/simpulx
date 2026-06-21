@@ -495,4 +495,6 @@ export const api = {
     req<{ status: string; duration_seconds: number }>(`/api/calls/${callId}/end`, { method: "POST" }),
   getCall: (callId: string) =>
     req<Record<string, unknown>>(`/api/calls/${callId}`),
+  saveCallRecording: (callId: string, url: string) =>
+    req<{ ok: boolean }>(`/api/calls/${callId}/recording`, { method: "POST", body: JSON.stringify({ url }) }),
 };

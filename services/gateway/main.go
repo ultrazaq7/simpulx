@@ -195,6 +195,7 @@ func main() {
 	mux.HandleFunc("POST /api/calls/{id}/reject", s.requireAuth(s.handleRejectCall))
 	mux.HandleFunc("POST /api/calls/{id}/end", s.requireAuth(s.handleEndCall))
 	mux.HandleFunc("GET /api/calls/{id}", s.requireAuth(s.handleGetCall))
+	mux.HandleFunc("POST /api/calls/{id}/recording", s.requireAuth(s.handleSaveCallRecording))
 	mux.HandleFunc("POST /api/conversations/{id}/summary", s.requireAuth(s.handleSummaryStream))
 	mux.HandleFunc("POST /api/conversations/{id}/draft-reply", s.requireAuth(s.handleDraftReplyStream))
 	mux.HandleFunc("GET /api/stages", s.requireAuth(s.handleListStages))
