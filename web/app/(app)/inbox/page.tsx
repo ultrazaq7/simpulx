@@ -192,15 +192,35 @@ export default function InboxPage() {
       if (!ev) return;
       const aid = activeIdRef.current;
       const data = ev.data || ev;
-      // New message for the conversation you're viewing -> keep it read server-side
-      // too, so the unread badge/count doesn't creep back up.
-      if (aid && ev.type === "message.persisted" && data && data.conversation_id === aid) {
+      const isMsg = ev.type === "message.persisted" && data && data.conversation_id === aid;
+      if (aid && isMsg) {
+        // Append the new message straight into the cache so it shows instantly. The
+        // persisted event carries the message, so we don't wait on a refetch that can
+        // race the DB write and momentarily drop the newest message.
+        const mid: string | undefined = data.message_id;
+        if (mid) {
+          queryClient.setQueryData(["messages", aid], (old: any) => {
+            if (!old?.pages?.length) return old;
+            if (old.pages.some((p: any) => (p.data || []).some((m: any) => m.id === mid))) return old;
+            const msg = {
+              id: mid, direction: data.direction, sender_type: data.sender_type,
+              type: data.type || "text", body: data.body, media_url: data.media_url || null,
+              status: "delivered", created_at: new Date().toISOString(),
+            };
+            const pages = old.pages.slice();
+            pages[0] = { ...pages[0], data: [...(pages[0].data || []), msg] };
+            return { ...old, pages };
+          });
+        }
+        // Keep it read server-side so the unread badge doesn't creep back up.
         api.patchConversation(aid, { unread_count: 0 })
           .then(() => window.dispatchEvent(new CustomEvent("refreshUnread")))
           .catch(() => { });
       }
       loadConvs();
-      if (aid) queryClient.invalidateQueries({ queryKey: ["messages", aid] });
+      // Reconcile other changes (status, edits). For a new message we already appended
+      // it above; refetching here can race the write and drop the newest message.
+      if (aid && !isMsg) queryClient.invalidateQueries({ queryKey: ["messages", aid] });
     };
     window.addEventListener("ws_message", handleWSMessage);
     return () => window.removeEventListener("ws_message", handleWSMessage);
