@@ -107,6 +107,62 @@ func (s *server) handleCreateUser(w http.ResponseWriter, r *http.Request) {
 // Admins/owners can change a user's email and reset their password from here;
 // agents/managers may only edit their own profile and never role/status. Email
 // and password are optional and only touched when a non-empty value is sent.
+// reassignLeadsFrom redistributes a user's OPEN conversations when they are
+// deactivated or deleted: each lead goes to the least-loaded active, in_rotation
+// agent in its branch (else its campaign), excluding the departing user. If none
+// qualify the lead is left unassigned. Closed conversations keep their original
+// agent for reporting. Best-effort: errors are logged, never fatal.
+func (s *server) reassignLeadsFrom(ctx context.Context, orgID, userID, actorID, reason string) {
+	rows, err := s.pool.Query(ctx,
+		`SELECT id::text, campaign_id::text, branch_id::text FROM conversations
+		   WHERE organization_id=$1 AND assigned_agent_id=$2 AND status <> 'closed'`, orgID, userID)
+	if err != nil {
+		s.log.Error("reassign leads: list", "err", err)
+		return
+	}
+	type lead struct {
+		id       string
+		campaign *string
+		branch   *string
+	}
+	var leads []lead
+	for rows.Next() {
+		var l lead
+		if err := rows.Scan(&l.id, &l.campaign, &l.branch); err == nil {
+			leads = append(leads, l)
+		}
+	}
+	rows.Close()
+
+	for _, l := range leads {
+		// Least-loaded eligible agent in the lead's branch (else its campaign).
+		var newAgent *string
+		_ = s.pool.QueryRow(ctx,
+			`SELECT u.id::text FROM users u
+			  WHERE u.organization_id=$1 AND u.is_deleted=false AND u.status='active' AND u.id <> $2::uuid
+			    AND ( ($3::uuid IS NOT NULL AND u.id IN (SELECT user_id FROM branch_agents WHERE branch_id=$3::uuid AND in_rotation))
+			       OR ($3::uuid IS NULL AND $4::uuid IS NOT NULL AND u.id IN (SELECT user_id FROM campaign_agents WHERE campaign_id=$4::uuid AND in_rotation)) )
+			  ORDER BY (SELECT count(*) FROM conversations cc WHERE cc.assigned_agent_id=u.id AND cc.status<>'closed') ASC, random()
+			  LIMIT 1`,
+			orgID, userID, l.branch, l.campaign).Scan(&newAgent)
+
+		if _, err := s.pool.Exec(ctx,
+			`UPDATE conversations SET assigned_agent_id=$2::uuid, updated_at=now() WHERE id=$1`,
+			l.id, newAgent); err != nil {
+			s.log.Error("reassign leads: update", "conv", l.id, "err", err)
+			continue
+		}
+		evType := "assigned"
+		if newAgent == nil {
+			evType = "unassigned"
+		}
+		_, _ = s.pool.Exec(ctx,
+			`INSERT INTO conversation_events (organization_id, conversation_id, type, actor_type, actor_id, detail)
+			 VALUES ($1,$2,$3,'agent',$4::uuid, jsonb_build_object('reason',$5::text,'previous_agent_id',$6::uuid,'new_agent_id',$7::uuid))`,
+			orgID, l.id, evType, actorID, reason, userID, newAgent)
+	}
+}
+
 func (s *server) handleUpdateUser(w http.ResponseWriter, r *http.Request) {
 	a, _ := authFrom(r.Context())
 	targetID := r.PathValue("id")
@@ -192,20 +248,8 @@ func (s *server) handleUpdateUser(w http.ResponseWriter, r *http.Request) {
 
 	// 4.2 Ownership Lifecycle: Bulk reassign (unset) leads if agent is deactivated
 	if b.Status != nil && *b.Status == "inactive" {
-		_, err = s.pool.Exec(r.Context(),
-			`WITH updated AS (
-				UPDATE conversations SET assigned_agent_id = NULL, updated_at = now()
-				WHERE assigned_agent_id = $1 AND status <> 'closed'
-				RETURNING id, organization_id
-			 )
-			 INSERT INTO conversation_events (organization_id, conversation_id, type, actor_type, actor_id, detail)
-			 SELECT organization_id, id, 'unassigned', 'agent', $2::uuid, jsonb_build_object('reason', 'agent_deactivated', 'previous_agent_id', $1::uuid)
-			 FROM updated`, targetID, a.UserID)
-		if err != nil {
-			// Log error but don't fail the request since user is already deactivated
-			_ = err
-		}
-		
+		s.reassignLeadsFrom(r.Context(), a.OrgID, targetID, a.UserID, "agent_deactivated")
+
 		// Broadcast deactivation so realtime service can kick them
 		_ = s.bus.Publish(events.SubjectAgentDeactivated, a.OrgID, events.AgentDeactivated{
 			AgentID: targetID,
@@ -307,18 +351,7 @@ func (s *server) handleDeleteUser(w http.ResponseWriter, r *http.Request) {
 	s.logUserActivity(r.Context(), a.OrgID, targetID, a.UserID, "lifecycle", "deleted", nil)
 
 	// Release any open leads they own, leaving an audit trail (same as deactivate).
-	_, err = s.pool.Exec(r.Context(),
-		`WITH updated AS (
-			UPDATE conversations SET assigned_agent_id = NULL, updated_at = now()
-			WHERE assigned_agent_id = $1 AND status <> 'closed'
-			RETURNING id, organization_id
-		 )
-		 INSERT INTO conversation_events (organization_id, conversation_id, type, actor_type, actor_id, detail)
-		 SELECT organization_id, id, 'unassigned', 'agent', $2::uuid, jsonb_build_object('reason', 'agent_deleted', 'previous_agent_id', $1::uuid)
-		 FROM updated`, targetID, a.UserID)
-	if err != nil {
-		_ = err // best effort: account is already tombstoned
-	}
+	s.reassignLeadsFrom(r.Context(), a.OrgID, targetID, a.UserID, "agent_deleted")
 
 	// Kick them from realtime sessions.
 	_ = s.bus.Publish(events.SubjectAgentDeactivated, a.OrgID, events.AgentDeactivated{
@@ -474,13 +507,13 @@ func (s *server) handleRegisterFCMToken(w http.ResponseWriter, r *http.Request) 
 		http.Error(w, "token required", http.StatusBadRequest)
 		return
 	}
-	
+
 	_, err := s.pool.Exec(r.Context(),
 		`INSERT INTO fcm_tokens (user_id, token, platform)
 		 VALUES ($1, $2, $3)
 		 ON CONFLICT (user_id, token) DO UPDATE SET platform = EXCLUDED.platform, created_at = now()`,
 		a.UserID, b.Token, b.Platform)
-		
+
 	if err != nil {
 		http.Error(w, err.Error(), http.StatusInternalServerError)
 		return
