@@ -8,7 +8,7 @@ import {
 
 import { api, getUser } from "@/lib/api";
 import { usePermissions } from "@/lib/permissions";
-import { initials, channelColor, fmtDate, cn } from "@/lib/utils";
+import { initials, channelColor, channelLabel, fmtDate, cn } from "@/lib/utils";
 import type { Contact, Agent, Campaign, Message, Stage, Conversation } from "@/lib/types";
 import { Tip } from "@/components/ui/tooltip";
 import MessageBubble, { rewriteLocalMedia } from "@/app/(app)/inbox/components/MessageBubble";
@@ -21,7 +21,7 @@ type ModalState = { mode: "add" } | { mode: "edit"; contact: Contact } | null;
 function sourceLabel(c: Contact): string {
   if (c.source_id) return "Ad";
   if (c.web_api_source_name) return c.web_api_source_name;
-  return c.source_channel || "Direct";
+  return c.source_channel ? channelLabel(c.source_channel) : "Direct";
 }
 
 export default function ContactsPage() {
@@ -235,7 +235,7 @@ export default function ContactsPage() {
                   <td className="px-4 py-2.5 whitespace-nowrap">
                     <span className="inline-flex px-2 py-0.5 rounded-md text-[11px] font-semibold"
                       style={{ backgroundColor: channelColor(c.source_channel) + "15", color: channelColor(c.source_channel) }}>
-                      {c.channel_name || c.source_channel || "Unknown"}
+                      {c.channel_name || channelLabel(c.source_channel)}
                     </span>
                   </td>
                   <td className="px-4 py-2.5 font-medium text-foreground/90 tabular-nums whitespace-nowrap">{c.phone || "-"}</td>
@@ -246,7 +246,7 @@ export default function ContactsPage() {
                       <span className="inline-flex px-2 py-0.5 rounded-md text-[11px] font-semibold bg-primary/10 text-primary">{c.stage_name}</span>
                     ) : <span className="text-muted-foreground">-</span>}
                   </td>
-                  <td className="px-4 py-2.5 capitalize text-foreground/80 whitespace-nowrap">{sourceLabel(c)}</td>
+                  <td className="px-4 py-2.5 text-foreground/80 whitespace-nowrap">{sourceLabel(c)}</td>
                   <td className="px-4 py-2.5">
                     {(c.tags && c.tags.length) ? (
                       <div className="flex flex-wrap gap-1 max-w-[160px]">

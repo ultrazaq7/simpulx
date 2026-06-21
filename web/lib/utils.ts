@@ -82,3 +82,16 @@ export function interestColor(val: string | undefined | null): string {
   const map: Record<string, string> = { hot: "#EF4444", warm: "#F59E0B", cold: "#3B82F6" };
   return map[val.toLowerCase()] || "#6B7280";
 }
+
+// Proper display casing for channel keys ("whatsapp" -> "WhatsApp"). CSS
+// `capitalize` only fixes the first letter, so it produces "Whatsapp".
+export function channelLabel(channel: string | undefined | null): string {
+  if (!channel) return "Direct";
+  const map: Record<string, string> = {
+    whatsapp: "WhatsApp", messenger: "Messenger", instagram: "Instagram",
+    telegram: "Telegram", facebook: "Facebook", sms: "SMS", line: "LINE",
+    viber: "Viber", email: "Email", webchat: "Web chat", testing: "Testing",
+  };
+  const k = channel.toLowerCase();
+  return map[k] || (channel.charAt(0).toUpperCase() + channel.slice(1));
+}

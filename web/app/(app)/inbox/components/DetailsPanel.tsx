@@ -2,7 +2,7 @@
 import { useEffect, useState } from "react";
 import { X, Copy, User, Phone, Hash, MessageSquare, Clock, StickyNote, Tag as TagIcon, Plus, Paperclip, Download, FileText, Image as ImageIcon, Video, Mic } from "lucide-react";
 import { api } from "@/lib/api";
-import { initials, channelColor, fmtDate, fmtTime, cn } from "@/lib/utils";
+import { initials, channelColor, channelLabel, fmtDate, fmtTime, cn } from "@/lib/utils";
 import { Tip } from "@/components/ui/tooltip";
 import type { Conversation, InternalNote, Message } from "@/lib/types";
 
@@ -223,7 +223,7 @@ export default function DetailsPanel({ active, onClose, copyText, notes, onAddNo
             <div className="mb-5">
               <DetailRow icon={User} label="Full name" value={active.contact_name || "Unknown"} />
               <DetailRow icon={Phone} label="Phone" value={active.contact_phone || "None"} copyable={!!active.contact_phone} onCopy={() => active.contact_phone && copyText(active.contact_phone)} />
-              <DetailRow icon={Hash} label="Channel" value={active.channel || "Unknown"} />
+              <DetailRow icon={Hash} label="Channel" value={channelLabel(active.channel)} />
               {active.campaign_name && <DetailRow icon={Hash} label="Campaign" value={active.campaign_name} />}
               <DetailRow icon={MessageSquare} label="Status" value={active.status} />
               <DetailRow icon={Clock} label="Last message" value={active.last_message_at ? `${fmtDate(active.last_message_at)} ${fmtTime(active.last_message_at)}` : "No messages"} />
