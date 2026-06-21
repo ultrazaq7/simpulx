@@ -309,6 +309,7 @@ function MessageMenu({ out, text, link, onCopyText, onUseInComposer, onForward }
 interface MessageBubbleProps {
   m: Message;
   active: Conversation;
+  grouped?: boolean; // continuation of the previous same-sender message
   onPreviewMedia: (messageId: string) => void;
   conversationId?: string | null;
   onCopyText?: (t: string) => void;
@@ -316,7 +317,7 @@ interface MessageBubbleProps {
   onForward?: (t: string) => void;
 }
 
-const MessageBubble = memo(function MessageBubble({ m, active, onPreviewMedia, conversationId, onCopyText, onUseInComposer, onForward }: MessageBubbleProps) {
+const MessageBubble = memo(function MessageBubble({ m, active, grouped, onPreviewMedia, conversationId, onCopyText, onUseInComposer, onForward }: MessageBubbleProps) {
   const msgLink = conversationId && typeof window !== "undefined" ? `${window.location.origin}/inbox?c=${conversationId}` : undefined;
   const out = m.direction === "outbound";
   const bot = m.sender_type === "bot";
@@ -355,19 +356,26 @@ const MessageBubble = memo(function MessageBubble({ m, active, onPreviewMedia, c
   return (
     <div className={cn("group flex items-start gap-1", out ? "justify-end" : "justify-start")}>
       {!out && (
-        <div
-          className="w-7 h-7 rounded-full mr-2 mt-2 flex items-center justify-center text-[10px] font-bold shrink-0"
-          style={{ backgroundColor: channelColor(active.channel) + "20", color: channelTextColor(active.channel) }}
-        >
-          {initials(active.contact_name || active.contact_phone)}
-        </div>
+        grouped ? (
+          <div className="w-7 mr-2 shrink-0" aria-hidden />
+        ) : (
+          <div
+            className="w-7 h-7 rounded-full mr-2 mt-0.5 flex items-center justify-center text-[10px] font-bold shrink-0"
+            style={{ backgroundColor: channelColor(active.channel) + "20", color: channelTextColor(active.channel) }}
+          >
+            {initials(active.contact_name || active.contact_phone)}
+          </div>
+        )
       )}
       {out && (m.body || msgLink) && <MessageMenu out={out} text={m.body ?? undefined} link={msgLink} onCopyText={onCopyText} onUseInComposer={onUseInComposer} onForward={onForward} />}
       <div className={cn("max-w-[66%] flex flex-col", out ? "items-end" : "items-start")}>
-        {/* Sender label */}
-        <p className={cn("text-[10px] font-semibold mb-0.5 px-0.5 inline-flex items-center gap-0.5", bot ? "text-violet-600" : broadcast ? "text-amber-700" : "text-muted-foreground")}>
-          {who} {bot && <Sparkles className="w-2.5 h-2.5" />}{broadcast && <Megaphone className="w-2.5 h-2.5" />}
-        </p>
+        {/* Sender label: only on the first of a group, and only for outbound (1:1
+            inbound is always the contact, so the name there is just noise). */}
+        {!grouped && (out || bot || broadcast) && (
+          <p className={cn("text-[10px] font-semibold mb-0.5 px-0.5 inline-flex items-center gap-0.5", bot ? "text-violet-600" : broadcast ? "text-amber-700" : "text-muted-foreground")}>
+            {who} {bot && <Sparkles className="w-2.5 h-2.5" />}{broadcast && <Megaphone className="w-2.5 h-2.5" />}
+          </p>
+        )}
 
         <div
           className={cn(

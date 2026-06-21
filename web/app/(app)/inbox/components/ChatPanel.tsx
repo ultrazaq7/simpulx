@@ -693,6 +693,14 @@ export default function ChatPanel({
               <div className="relative w-full" style={{ height: rowVirtualizer.getTotalSize() + 40 }}>
                 {rowVirtualizer.getVirtualItems().map((virtualRow) => {
                   const it = timeline[virtualRow.index];
+                  const prev = virtualRow.index > 0 ? timeline[virtualRow.index - 1] : undefined;
+                  // Group back-to-back messages from the same sender (within 5 min):
+                  // the continuation hides its avatar + name and sits tight.
+                  const grouped = it.kind === "msg" && prev?.kind === "msg"
+                    && it.m.type !== "call" && prev.m.type !== "call"
+                    && it.m.direction === prev.m.direction
+                    && it.m.sender_type === prev.m.sender_type
+                    && (new Date(it.m.created_at).getTime() - new Date(prev.m.created_at).getTime() < 5 * 60 * 1000);
                   const content = (() => {
                     if (it.kind === "date") return (
                       <div className="flex items-center gap-3 py-1">
@@ -717,6 +725,7 @@ export default function ChatPanel({
                       <MessageBubble
                         m={it.m}
                         active={active}
+                        grouped={grouped}
                         onPreviewMedia={(id) => setPreviewMediaId(id)}
                         conversationId={active.id}
                         onCopyText={onCopyText}
@@ -730,7 +739,7 @@ export default function ChatPanel({
                       key={virtualRow.key}
                       data-index={virtualRow.index}
                       ref={rowVirtualizer.measureElement}
-                      className={`absolute top-0 left-0 w-full pt-[3px] ${virtualRow.index === timeline.length - 1 ? 'pb-[40px]' : 'pb-[3px]'}`}
+                      className={`absolute top-0 left-0 w-full ${it.kind === "msg" && grouped ? 'pt-[2px]' : 'pt-[11px]'} ${virtualRow.index === timeline.length - 1 ? 'pb-[40px]' : 'pb-[2px]'}`}
                       style={{ transform: `translateY(${virtualRow.start}px)` }}
                     >
                       {content}
