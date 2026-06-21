@@ -5,26 +5,24 @@ import { cn } from "@/lib/utils";
 
 type Cat = "lost" | "spam";
 interface Reason { value: string; label: string; }
-interface Group { key: string; title: string; hint: string; cat: Cat; reasons: Reason[]; }
+interface Group { key: string; title: string; cat: Cat; reasons: Reason[]; }
 
-// Mirrors classifier.LOST_REASONS (services/ai-agent). did_purchase is DERIVED from the
-// group (the "bought" group => true) — no separate column needed.
+// Mirrors classifier.LOST_REASONS (services/ai-agent). did_purchase is DERIVED from
+// the group (the "bought" group => true), so no separate column is needed.
 const GROUPS: Group[] = [
   {
     key: "bought", cat: "lost",
-    title: "Lost — they bought",
-    hint: "We lost the deal, but the customer purchased (competitive / product loss)",
+    title: "Bought elsewhere",
     reasons: [
-      { value: "bought_other_brand", label: "Bought another brand" },
-      { value: "bought_used_car", label: "Bought a used car instead" },
-      { value: "bought_elsewhere", label: "Bought elsewhere (same brand)" },
-      { value: "competitor_promo", label: "Took a competitor promo" },
+      { value: "bought_other_brand", label: "Another brand" },
+      { value: "bought_used_car", label: "A used car instead" },
+      { value: "bought_elsewhere", label: "Same brand, other dealer" },
+      { value: "competitor_promo", label: "Competitor promo" },
     ],
   },
   {
     key: "nobuy", cat: "lost",
-    title: "Lost — didn't buy",
-    hint: "Real lead, didn't convert (timing / fit)",
+    title: "Didn't buy",
     reasons: [
       { value: "out_of_area", label: "Out of area" },
       { value: "price_too_high", label: "Price too high" },
@@ -38,7 +36,6 @@ const GROUPS: Group[] = [
   {
     key: "spam", cat: "spam",
     title: "Spam / invalid",
-    hint: "Never a real lead — excluded from conversion math",
     reasons: [
       { value: "spam_junk", label: "Spam" },
       { value: "job_seeker", label: "Job seeker" },
@@ -70,7 +67,7 @@ export default function LostReasonDialog({ open, onClose, onSubmit }: LostReason
         <div className="flex items-center px-5 py-3.5 border-b border-border">
           <div className="flex-1">
             <p className="font-bold text-[15px] text-foreground">Why is this lead lost?</p>
-            <p className="text-xs text-muted-foreground">Pick a reason. It powers lost analysis + ad attribution.</p>
+            <p className="text-xs text-muted-foreground">Pick the closest reason.</p>
           </div>
           <button onClick={close} className="p-1 rounded-md text-muted-foreground hover:bg-muted hover:text-foreground outline-none">
             <X className="w-[18px] h-[18px]" />
@@ -87,8 +84,7 @@ export default function LostReasonDialog({ open, onClose, onSubmit }: LostReason
                  <XCircle className="w-3.5 h-3.5 text-muted-foreground" />}
                 <p className="text-[11px] font-bold uppercase tracking-wider text-muted-foreground">{g.title}</p>
               </div>
-              <p className="text-[11px] text-muted-foreground/70 mb-2">{g.hint}</p>
-              <div className="flex flex-wrap gap-1.5">
+              <div className="flex flex-wrap gap-1.5 mt-1.5">
                 {g.reasons.map((r) => {
                   const on = selected?.value === r.value;
                   return (

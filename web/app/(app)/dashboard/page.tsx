@@ -102,7 +102,7 @@ function Badge({ label, bg, text }: { label: string; bg: string; text: string })
   );
 }
 
-// Card shell â€” crisp, layered, enterprise
+// Card shell - crisp, layered, enterprise
 function Card({ title, subtitle, icon: Icon, iconColor, children, className }: {
   title?: string; subtitle?: string; icon?: any; iconColor?: string;
   children: React.ReactNode; className?: string;
@@ -485,12 +485,12 @@ function ManagerControlTower() {
     <div className="p-4 space-y-4">
       {/* â”€â”€ Status band (mission control) â”€â”€ */}
       <div className="flex flex-wrap bg-card rounded-lg border border-border shadow-xs overflow-hidden divide-x divide-border">
-        <StatusCell label="Open queue" tone="idle" value={loading ? "â€”" : open.length} hint={`${waiting.length} awaiting reply`} />
-        <StatusCell label="Unassigned" tone={unassigned.length ? "warn" : "good"} value={loading ? "â€”" : unassigned.length} hint={unassigned.length ? "needs owner" : "all owned"} />
-        <StatusCell label="Longest wait" tone={longest > SLA_BREACH_MIN ? "bad" : longest > 0 ? "warn" : "good"} value={loading ? "â€”" : fmtDuration(longest)} hint={`SLA ${SLA_BREACH_MIN}m`} />
-        <StatusCell label="SLA breaching" tone={breaching.length ? "bad" : "good"} value={loading ? "â€”" : breaching.length} hint={breaching.length ? "act now" : "on track"} />
-        <StatusCell label="Hot waiting" tone={hotWaiting.length ? "bad" : "good"} value={loading ? "â€”" : hotWaiting.length} hint="high intent" />
-        <StatusCell label="Agents active" tone={agentsActive ? "good" : "idle"} value={loading ? "â€”" : agentsActive} hint="on the floor" />
+        <StatusCell label="Open queue" tone="idle" value={loading ? "-" : open.length} hint={`${waiting.length} awaiting reply`} />
+        <StatusCell label="Unassigned" tone={unassigned.length ? "warn" : "good"} value={loading ? "-" : unassigned.length} hint={unassigned.length ? "needs owner" : "all owned"} />
+        <StatusCell label="Longest wait" tone={longest > SLA_BREACH_MIN ? "bad" : longest > 0 ? "warn" : "good"} value={loading ? "-" : fmtDuration(longest)} hint={`SLA ${SLA_BREACH_MIN}m`} />
+        <StatusCell label="SLA breaching" tone={breaching.length ? "bad" : "good"} value={loading ? "-" : breaching.length} hint={breaching.length ? "act now" : "on track"} />
+        <StatusCell label="Hot waiting" tone={hotWaiting.length ? "bad" : "good"} value={loading ? "-" : hotWaiting.length} hint="high intent" />
+        <StatusCell label="Agents active" tone={agentsActive ? "good" : "idle"} value={loading ? "-" : agentsActive} hint="on the floor" />
       </div>
 
       <div className="grid grid-cols-1 lg:grid-cols-5 gap-4">
@@ -688,18 +688,18 @@ function ManagerDashboard() {
         </Card>
 
         <div className="grid grid-cols-1 md:grid-cols-2 gap-4 mb-5">
-          {/* Real lead funnel â€” pipeline conversion */}
+          {/* Real lead funnel - pipeline conversion */}
           <Card title="Lead funnel" subtitle="Reached each stage and beyond">
             <LeadFunnel stages={analytics?.funnel_stages} />
           </Card>
 
-          {/* Interest Level â€” clickable rows deep-link to filtered inbox */}
+          {/* Interest Level - clickable rows deep-link to filtered inbox */}
           <Card title="Interest level">
             <InterestSplit funnel={funnel} />
           </Card>
         </div>
 
-        {/* Agent performance â€” activity + pipeline, per agent x branch */}
+        {/* Agent performance - activity + pipeline, per agent x branch */}
         <PerfTables label="Agent" showBranch rows={agents.map((a) => ({
           name: a.agent, branch: a.branch, leads: a.leads, total_chat: a.total_chat, replied: a.replied,
           avg_rt_min: a.avg_rt_min, avg_resp_min: a.avg_resp_min, within_5_pct: a.within_5_pct,
