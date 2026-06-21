@@ -16,6 +16,7 @@ import { usePermissions } from "@/lib/permissions";
 import type { AppNotification, User } from "@/lib/types";
 import { useI18n } from "@/lib/i18n";
 import IncomingCallListener from "@/components/IncomingCallListener";
+import { registerPush } from "@/lib/push";
 
 function relAgo(iso: string): string {
   const s = Math.floor((Date.now() - new Date(iso).getTime()) / 1000);
@@ -120,6 +121,7 @@ export function Shell({ children }: { children: ReactNode }) {
   };
   useEffect(() => {
     loadNotifs();
+    registerPush(loadNotifs); // FCM device-token registration (no-op until VAPID is set)
     const t = setInterval(loadNotifs, 30000); // safety poll
     // Near-instant refresh: any websocket activity (incl. the snooze-due relay)
     // re-pulls the bell after a short debounce.

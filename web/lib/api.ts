@@ -273,6 +273,8 @@ export const api = {
     req(`/api/conversations/${id}/assign`, { method: "POST", body: JSON.stringify({ unassign: true }) }),
   snooze: (id: string, until: string) =>
     req(`/api/conversations/${id}/snooze`, { method: "POST", body: JSON.stringify({ until }) }),
+  registerFCMToken: (token: string, platform = "web") =>
+    req("/api/users/fcm-token", { method: "POST", body: JSON.stringify({ token, platform }) }),
   listNotifications: () => req<{ notifications: AppNotification[]; unread: number }>("/api/notifications"),
   markNotificationsRead: (id?: string) =>
     req("/api/notifications/read", { method: "POST", body: JSON.stringify(id ? { id } : {}) }),
