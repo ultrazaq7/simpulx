@@ -26,6 +26,32 @@ function relAgo(iso: string): string {
   return `${Math.floor(s / 86400)}d`;
 }
 
+// One shared AudioContext, unlocked on the first user gesture (browsers block
+// audio until then). Re-using it avoids the "AudioContext was not allowed" warning
+// and leaking a context per notification.
+let _audioCtx: AudioContext | null = null;
+function getAudioCtx(): AudioContext | null {
+  if (typeof window === "undefined") return null;
+  try {
+    if (!_audioCtx) _audioCtx = new (window.AudioContext || (window as any).webkitAudioContext)();
+    if (_audioCtx.state === "suspended") void _audioCtx.resume();
+    return _audioCtx;
+  } catch { return null; }
+}
+function playBeep(freq = 880, dur = 0.15) {
+  const ctx = getAudioCtx();
+  if (!ctx || ctx.state !== "running") return; // not unlocked by a gesture yet
+  try {
+    const osc = ctx.createOscillator();
+    const gain = ctx.createGain();
+    osc.connect(gain); gain.connect(ctx.destination);
+    osc.frequency.value = freq; osc.type = "sine";
+    gain.gain.setValueAtTime(0.3, ctx.currentTime);
+    gain.gain.exponentialRampToValueAtTime(0.001, ctx.currentTime + dur);
+    osc.start(ctx.currentTime); osc.stop(ctx.currentTime + dur);
+  } catch { /* ignore */ }
+}
+
 const NAV_TOP = [
   { href: "/dashboard", icon: LayoutDashboard, labelKey: "nav.dashboard", perm: "menu_dashboard" },
   { href: "/inbox", icon: MessageCircle, labelKey: "nav.inbox", perm: "menu_chats" },
@@ -119,6 +145,15 @@ export function Shell({ children }: { children: ReactNode }) {
     if (!getToken()) return;
     api.listNotifications().then((r) => { setNotifs(r.notifications || []); setNotifUnread(r.unread || 0); }).catch(() => {});
   };
+  // Unlock the shared AudioContext on the first user gesture so notification beeps
+  // can play (browsers block audio until then -> the console warning).
+  useEffect(() => {
+    const unlock = () => getAudioCtx();
+    window.addEventListener("pointerdown", unlock);
+    window.addEventListener("keydown", unlock);
+    return () => { window.removeEventListener("pointerdown", unlock); window.removeEventListener("keydown", unlock); };
+  }, []);
+
   // Clicking a background (service worker) notification posts here -> open the chat.
   useEffect(() => {
     if (!("serviceWorker" in navigator)) return;
@@ -215,20 +250,6 @@ export function Shell({ children }: { children: ReactNode }) {
           const prefs = orgSettingsRef.current?.notifications || { sound: true, newMessages: true, newConversations: true };
           let payload = ev.data || ev;
           if (typeof payload === "string") { try { payload = JSON.parse(payload); } catch {} }
-
-          const playBeep = (freq: number = 880, dur: number = 0.15) => {
-            try {
-              const ctx = new (window.AudioContext || (window as any).webkitAudioContext)();
-              const osc = ctx.createOscillator();
-              const gain = ctx.createGain();
-              osc.connect(gain); gain.connect(ctx.destination);
-              osc.frequency.value = freq; osc.type = "sine";
-              gain.gain.setValueAtTime(0.3, ctx.currentTime);
-              gain.gain.exponentialRampToValueAtTime(0.001, ctx.currentTime + dur);
-              osc.start(ctx.currentTime); osc.stop(ctx.currentTime + dur);
-              setTimeout(() => ctx.close(), 500);
-            } catch {}
-          };
 
           // Aggressive OS notification (stays until dismissed, click opens the chat).
           const showNotif = (title: string, body: string, convId?: string) => {
