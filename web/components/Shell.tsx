@@ -17,6 +17,7 @@ import type { AppNotification, User } from "@/lib/types";
 import { useI18n } from "@/lib/i18n";
 import IncomingCallListener from "@/components/IncomingCallListener";
 import CommandPalette from "@/components/CommandPalette";
+import KeyboardHelp from "@/components/KeyboardHelp";
 import { registerPush } from "@/lib/push";
 
 function relAgo(iso: string): string {
@@ -126,6 +127,7 @@ export function Shell({ children }: { children: ReactNode }) {
   const [user, setUser] = useState<User | null>(null);
   const [sidebarOpen, setSidebarOpen] = useState(true);
   const [cmdOpen, setCmdOpen] = useState(false);
+  const [helpOpen, setHelpOpen] = useState(false);
   const [userMenuOpen, setUserMenuOpen] = useState(false);
   const [notifOpen, setNotifOpen] = useState(false);
   const [brand, setBrand] = useState("Simpulx");
@@ -167,6 +169,27 @@ export function Shell({ children }: { children: ReactNode }) {
     window.addEventListener("keydown", onKey);
     return () => window.removeEventListener("keydown", onKey);
   }, []);
+
+  // "?" opens the shortcuts cheatsheet; "g" then d/i/c/b/s navigates (Linear-style).
+  useEffect(() => {
+    let gPending = false;
+    let t: ReturnType<typeof setTimeout> | undefined;
+    const onKey = (e: KeyboardEvent) => {
+      const el = document.activeElement as HTMLElement | null;
+      const typing = !!el && (el.tagName === "INPUT" || el.tagName === "TEXTAREA" || el.isContentEditable);
+      if (typing || e.metaKey || e.ctrlKey || e.altKey) return;
+      if (e.key === "?") { e.preventDefault(); setHelpOpen((v) => !v); return; }
+      if (gPending) {
+        gPending = false; if (t) clearTimeout(t);
+        const map: Record<string, string> = { d: "/dashboard", i: "/inbox", c: "/contacts", b: "/broadcasts", s: "/settings" };
+        if (map[e.key]) { e.preventDefault(); router.push(map[e.key]); }
+        return;
+      }
+      if (e.key === "g") { gPending = true; t = setTimeout(() => { gPending = false; }, 1000); }
+    };
+    window.addEventListener("keydown", onKey);
+    return () => { window.removeEventListener("keydown", onKey); if (t) clearTimeout(t); };
+  }, [router]);
 
   // Remember the sidebar collapsed/expanded choice across reloads.
   useEffect(() => {
@@ -658,8 +681,9 @@ export function Shell({ children }: { children: ReactNode }) {
       {/* Global inbound WhatsApp call ringer (rings the assigned agent anywhere) */}
       <IncomingCallListener />
 
-      {/* Cmd/Ctrl-K command palette */}
+      {/* Cmd/Ctrl-K command palette + "?" shortcuts cheatsheet */}
       <CommandPalette open={cmdOpen} onClose={() => setCmdOpen(false)} />
+      <KeyboardHelp open={helpOpen} onClose={() => setHelpOpen(false)} />
     </div>
   );
 }
