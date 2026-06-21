@@ -850,19 +850,23 @@ function MarketingAnalytics() {
   const [loading, setLoading] = useState(true);
 
   useEffect(() => {
-    setLoading(true);
     const to = new Date().toISOString().slice(0, 10);
     const from = new Date(Date.now() - Number(range) * 86400000).toISOString().slice(0, 10);
+    let alive = true;
     Promise.all([
-      api.adPerformance(from, to).catch(() => null),
+      api.adPerformance(from, to, campaignFilter || undefined).catch(() => null),
       api.listAdAccounts().catch(() => []),
     ]).then(([p, accts]) => {
+      if (!alive) return;
       setPerf(p as AdPerformance | null);
       const a = (accts as { currency?: string | null }[]) || [];
       setHasAccounts(a.length > 0);
       setCurrency(a.find((x) => x.currency)?.currency || "");
-    }).finally(() => setLoading(false));
-  }, [range]);
+    }).finally(() => { if (alive) setLoading(false); });
+    return () => { alive = false; };
+    // Refetch on campaign change so daily + per-creative respect the filter; keep
+    // the previous view visible during refetch (no skeleton flash after first load).
+  }, [range, campaignFilter]);
 
   const campaigns = perf?.campaigns || [];
   const campaignOptions = useMemo(() => [{ value: "", label: "All campaigns" }, ...campaigns.map((c) => ({ value: c.campaign_id, label: c.campaign_name }))], [campaigns]);
@@ -875,10 +879,13 @@ function MarketingAnalytics() {
   const cpa = t.sales > 0 ? t.spend / t.sales : 0;
   const convRate = t.leads > 0 ? (t.sales / t.leads) * 100 : 0;
   const money = (n: number) => `${currency ? currency + " " : ""}${fmtMoney(n)}`;
+  const creatives = perf?.creatives || [];
+  const hasSpend = hasAccounts && campaigns.length > 0;
 
   if (loading) return <div className="p-4"><Skeleton className="h-20 mb-4" /><Skeleton className="h-[300px]" /></div>;
 
-  if (!hasAccounts || campaigns.length === 0) {
+  // Empty only when there is neither ad spend data nor any ad-attributed lead.
+  if (!hasSpend && creatives.length === 0) {
     return (
       <div className="p-4">
         <div className="bg-card border border-border rounded-lg shadow-xs py-16 text-center">
@@ -926,6 +933,8 @@ function MarketingAnalytics() {
           options={[{ value: "7", label: "Last 7 days" }, { value: "30", label: "Last 30 days" }, { value: "90", label: "Last 90 days" }]} />
       </div>
 
+      {hasSpend ? (
+      <>
       {/* ROI cards */}
       <div className="flex flex-wrap bg-card rounded-lg border border-border shadow-xs mb-5 overflow-hidden">
         {roiCards.map((c, i) => (
@@ -1011,6 +1020,48 @@ function MarketingAnalytics() {
                     <td className="px-4 py-2.5 text-right tabular-nums">{c.sales > 0 ? money(ccpa) : "-"}</td>
                     <td className="px-4 py-2.5 text-right">
                       <Badge label={c.leads > 0 ? `${cr.toFixed(1)}%` : "-"} bg={cr >= 20 ? "#E8F5E9" : cr > 0 ? "#FFF3E0" : "#F1F5F9"} text={cr >= 20 ? "#2E7D32" : cr > 0 ? "#E65100" : "#64748B"} />
+                    </td>
+                  </tr>
+                );
+              })}
+            </tbody>
+          </table>
+        </div>
+      </Card>
+      </>
+      ) : (
+        <div className="mb-5 flex items-center gap-2 rounded-lg border border-border bg-muted/40 px-4 py-3 text-[13px] text-muted-foreground">
+          <CircleDollarSign className="w-4 h-4 text-muted-foreground/70 shrink-0" />
+          Connect a Meta ad account to add spend, cost per lead and ROI. The lead attribution below works without it.
+        </div>
+      )}
+
+      {/* Per ad / creative: which click-to-WhatsApp ad drove leads + conversions */}
+      <Card title="Per ad / creative" subtitle="Leads to conversions by click-to-WhatsApp ad" className="mt-5">
+        <div className="overflow-x-auto">
+          <table className="w-full text-sm">
+            <thead>
+              <tr className="border-b border-border bg-muted/40">
+                {["Ad / source id", "Leads", "Conversions", "Lead to purchase", "Link"].map((h, idx) => (
+                  <th key={h} className={cn("px-4 py-2.5 text-[11px] font-bold uppercase tracking-wider text-muted-foreground", idx === 0 ? "text-left" : "text-right")}>{h}</th>
+                ))}
+              </tr>
+            </thead>
+            <tbody>
+              {(perf?.creatives || []).length === 0 ? (
+                <tr><td colSpan={5} className="text-center py-12 text-muted-foreground">No ad-attributed leads in range</td></tr>
+              ) : (perf?.creatives || []).map((cr) => {
+                const rate = cr.leads > 0 ? (cr.sales / cr.leads) * 100 : 0;
+                return (
+                  <tr key={cr.source_id} className="border-b border-border/60 hover:bg-muted/50 transition-colors">
+                    <td className="px-4 py-2.5 font-mono text-[12px] text-foreground">{cr.source_id}</td>
+                    <td className="px-4 py-2.5 text-right tabular-nums font-semibold text-primary">{fmtInt(cr.leads)}</td>
+                    <td className="px-4 py-2.5 text-right tabular-nums font-bold text-[#059669]">{fmtInt(cr.sales)}</td>
+                    <td className="px-4 py-2.5 text-right">
+                      <Badge label={cr.leads > 0 ? `${rate.toFixed(1)}%` : "-"} bg={rate >= 20 ? "#E8F5E9" : rate > 0 ? "#FFF3E0" : "#F1F5F9"} text={rate >= 20 ? "#2E7D32" : rate > 0 ? "#E65100" : "#64748B"} />
+                    </td>
+                    <td className="px-4 py-2.5 text-right">
+                      {cr.source_url ? <a href={cr.source_url} target="_blank" rel="noreferrer" className="text-[12px] text-primary hover:underline">View ad</a> : <span className="text-muted-foreground">-</span>}
                     </td>
                   </tr>
                 );

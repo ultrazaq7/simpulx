@@ -298,10 +298,16 @@ export interface AdPerfDaily {
   date: string;
   impressions: number; reach: number; clicks: number; results: number; spend: number;
 }
+export interface AdPerfCreative {
+  source_id: string;
+  source_url: string | null;
+  leads: number; sales: number;
+}
 export interface AdPerformance {
   from: string; to: string;
   campaigns: AdPerfCampaign[];
   daily: AdPerfDaily[];
+  creatives: AdPerfCreative[];
 }
 
 export interface Channel {

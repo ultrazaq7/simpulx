@@ -257,10 +257,38 @@ func (s *server) handleAdPerformance(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
+	// Per ad/creative: leads + conversions grouped by the click-to-WhatsApp ad id
+	// (conversation_attributions.referral_source). Spend stays campaign-level (Meta
+	// only syncs campaign insights), so this view is leads -> conversions only.
+	cq := `SELECT att.referral_source AS source_id,
+	              max(att.referral_url) AS source_url,
+	              count(DISTINCT cv.id) AS leads,
+	              count(DISTINCT cv.id) FILTER (
+	                WHERE st.sort_order = (SELECT max(sort_order) FROM stages WHERE organization_id = $1)
+	              ) AS sales
+	         FROM conversation_attributions att
+	         JOIN conversations cv ON cv.id = att.conversation_id
+	         LEFT JOIN stages st ON st.id = cv.stage_id
+	        WHERE att.organization_id = $1
+	          AND att.referral_source IS NOT NULL AND att.referral_source <> ''
+	          AND cv.created_at::date BETWEEN $2 AND $3`
+	cargs := []any{a.OrgID, from, to}
+	if camp != "" {
+		cq += " AND cv.campaign_id = $4"
+		cargs = append(cargs, camp)
+	}
+	cq += " GROUP BY att.referral_source ORDER BY leads DESC, sales DESC LIMIT 100"
+	creativeRows, err := s.queryMaps(r.Context(), cq, cargs...)
+	if err != nil {
+		http.Error(w, err.Error(), http.StatusInternalServerError)
+		return
+	}
+
 	writeJSON(w, map[string]any{
 		"from": from, "to": to,
 		"campaigns": campRows,
 		"daily":     dailyRows,
+		"creatives": creativeRows,
 	})
 }
 
