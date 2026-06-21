@@ -7,7 +7,7 @@ import {
 } from "lucide-react";
 import { api } from "@/lib/api";
 import { initials, channelColor, fmtDate, fmtTime, relTime, cn, interestColor } from "@/lib/utils";
-import type { Contact, Message, InternalNote } from "@/lib/types";
+import type { Contact, Conversation, Message, InternalNote } from "@/lib/types";
 
 // Stage chip colors — mirror the inbox/dashboard funnel palette.
 const STAGE_COLORS: Record<string, string> = {
@@ -37,7 +37,9 @@ export default function ContactDetailsPage() {
   const { id } = useParams<{ id: string }>();
   const router = useRouter();
   const [contact, setContact] = useState<Contact | null>(null);
-  const [messages, setMessages] = useState<Message[]>([]);
+  // Full history: every thread this contact has had (incl. closed), oldest first,
+  // each with its own messages — not just the latest conversation.
+  const [threads, setThreads] = useState<{ conv: Conversation; msgs: Message[] }[]>([]);
   const [notes, setNotes] = useState<InternalNote[]>([]);
   const [loading, setLoading] = useState(true);
   const [tab, setTab] = useState<"conversation" | "notes" | "media">("conversation");
@@ -47,24 +49,36 @@ export default function ContactDetailsPage() {
     (async () => {
       setLoading(true);
       try {
-        const list = (await api.listContacts().catch(() => [])) || [];
-        const c = list.find((x) => x.id === id) || null;
+        const [contacts, convs] = await Promise.all([
+          api.listContacts().catch(() => []),
+          api.listConversations().catch(() => []),
+        ]);
+        const c = (contacts || []).find((x) => x.id === id) || null;
         if (!alive) return;
         setContact(c);
-        if (c?.conversation_id) {
-          const [m, n] = await Promise.all([
-            api.getMessages(c.conversation_id).catch(() => []),
-            api.getNotes(c.conversation_id).catch(() => []),
-          ]);
-          if (!alive) return;
-          setMessages(m || []); setNotes(n || []);
-        }
+        // Every conversation tied to this contact, oldest first.
+        const mine = (convs || [])
+          .filter((cv) => cv.contact_id === id)
+          .sort((a, b) => (a.last_message_at || "").localeCompare(b.last_message_at || ""));
+        const loaded = await Promise.all(
+          mine.map(async (cv) => ({
+            conv: cv,
+            msgs: ((await api.getMessages(cv.id).catch(() => [])) || [])
+              .slice()
+              .sort((a, b) => (a.created_at || "").localeCompare(b.created_at || "")),
+            notes: (await api.getNotes(cv.id).catch(() => [])) || [],
+          })),
+        );
+        if (!alive) return;
+        setThreads(loaded.filter((t) => t.msgs.length > 0).map((t) => ({ conv: t.conv, msgs: t.msgs })));
+        setNotes(loaded.flatMap((t) => t.notes).sort((a, b) => (a.created_at || "").localeCompare(b.created_at || "")));
       } finally { if (alive) setLoading(false); }
     })();
     return () => { alive = false; };
   }, [id]);
 
-  const media = useMemo(() => messages.filter((m) => isMedia(m)), [messages]);
+  const allMessages = useMemo(() => threads.flatMap((t) => t.msgs), [threads]);
+  const media = useMemo(() => allMessages.filter((m) => isMedia(m)), [allMessages]);
 
   if (loading) return <div className="grid place-items-center h-full"><Loader2 className="w-6 h-6 animate-spin text-muted-foreground" /></div>;
   if (!contact) return (
@@ -136,7 +150,7 @@ export default function ContactDetailsPage() {
         {/* ── Center: tabs ── */}
         <div className="flex flex-col min-h-0 bg-background">
           <div className="flex items-center gap-1 px-4 border-b border-border bg-card shrink-0">
-            {([["conversation", `Conversation (${messages.length})`], ["notes", `Notes (${notes.length})`], ["media", `Media (${media.length})`]] as const).map(([k, label]) => (
+            {([["conversation", `Conversation (${allMessages.length})`], ["notes", `Notes (${notes.length})`], ["media", `Media (${media.length})`]] as const).map(([k, label]) => (
               <button key={k} onClick={() => setTab(k)}
                 className={cn("relative px-3 py-2.5 text-[13px] font-semibold outline-none transition-colors", tab === k ? "text-primary" : "text-muted-foreground hover:text-foreground")}>
                 {label}
@@ -146,23 +160,35 @@ export default function ContactDetailsPage() {
           </div>
 
           <div className="flex-1 overflow-y-auto p-4">
-            {!c.conversation_id ? (
-              <Empty icon={MessageSquare} text="No conversation yet for this contact." />
-            ) : tab === "conversation" ? (
-              messages.length === 0 ? <Empty icon={MessageSquare} text="No messages yet." /> : (
+            {tab === "conversation" ? (
+              allMessages.length === 0 ? <Empty icon={MessageSquare} text="No messages yet." /> : (
                 <div className="space-y-2 max-w-[760px]">
-                  {messages.map((m) => {
-                    const out = m.direction === "outbound";
-                    return (
-                      <div key={m.id} className={cn("flex", out ? "justify-end" : "justify-start")}>
-                        <div className={cn("max-w-[78%] px-3 py-2 rounded-lg text-[13px] whitespace-pre-wrap break-words shadow-xs border",
-                          out ? "bg-primary/10 border-primary/20 text-foreground rounded-br-[4px]" : "bg-card border-border text-foreground rounded-bl-[4px]")}>
-                          {m.type === "call" ? <span className="italic text-muted-foreground">{m.body}</span> : (m.body || (m.media_url ? `[${isMedia(m) || "media"}]` : ""))}
-                          <span className="block text-[10px] text-muted-foreground text-right mt-0.5">{fmtDate(m.created_at)} {fmtTime(m.created_at)}</span>
-                        </div>
+                  {threads.map((t) => (
+                    <div key={t.conv.id} className="space-y-2">
+                      {/* Thread separator — each is a distinct conversation instance. */}
+                      <div className="flex items-center gap-2 pt-3 pb-1">
+                        <div className="flex-1 h-px bg-border" />
+                        <span className="text-[11px] text-muted-foreground whitespace-nowrap px-1">
+                          {t.conv.campaign_name || "Conversation"}
+                          {t.msgs[0] ? ` · ${fmtDate(t.msgs[0].created_at)}` : ""}
+                          {t.conv.status === "closed" ? " · closed" : ""}
+                        </span>
+                        <div className="flex-1 h-px bg-border" />
                       </div>
-                    );
-                  })}
+                      {t.msgs.map((m) => {
+                        const out = m.direction === "outbound";
+                        return (
+                          <div key={m.id} className={cn("flex", out ? "justify-end" : "justify-start")}>
+                            <div className={cn("max-w-[78%] px-3 py-2 rounded-lg text-[13px] whitespace-pre-wrap break-words shadow-xs border",
+                              out ? "bg-primary/10 border-primary/20 text-foreground rounded-br-[4px]" : "bg-card border-border text-foreground rounded-bl-[4px]")}>
+                              {m.type === "call" ? <span className="italic text-muted-foreground">{m.body}</span> : (m.body || (m.media_url ? `[${isMedia(m) || "media"}]` : ""))}
+                              <span className="block text-[10px] text-muted-foreground text-right mt-0.5">{fmtDate(m.created_at)} {fmtTime(m.created_at)}</span>
+                            </div>
+                          </div>
+                        );
+                      })}
+                    </div>
+                  ))}
                 </div>
               )
             ) : tab === "notes" ? (
