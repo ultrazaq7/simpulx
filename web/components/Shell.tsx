@@ -111,7 +111,17 @@ export function Shell({ children }: { children: ReactNode }) {
 
   useEffect(() => {
     if (!getToken()) { router.replace("/login"); return; }
-    setUser(getUser());
+    const cached = getUser();
+    setUser(cached);
+    // Refresh from the server so a verified email change / rename shows in the
+    // header without a re-login (the cached session is set once at login).
+    api.me().then((me) => {
+      const token = getToken();
+      if (!token) return;
+      const merged = { ...(cached || {}), ...me } as User;
+      setUser(merged);
+      setSession(token, merged);
+    }).catch(() => {});
   }, [router]);
 
   useEffect(() => {
