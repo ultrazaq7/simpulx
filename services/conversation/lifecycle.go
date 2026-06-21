@@ -65,6 +65,10 @@ func (a *app) sweepSnoozed(ctx context.Context) {
 			a.st.addNotification(ctx, d.OrgID, *d.AgentID, "snooze_due",
 				"Snooze ended", "Follow up with "+d.Contact, d.ConvID)
 		}
+		// Relayed to the org's websockets so the agent's bell refreshes instantly.
+		_ = a.bus.Publish(events.SubjectAuditCreated, d.OrgID, events.AuditCreated{
+			ConversationID: d.ConvID, Type: "snooze_due", ActorType: "system",
+		})
 	}
 	if len(due) > 0 {
 		a.log.Info("reopened snoozed conversations", "count", len(due))

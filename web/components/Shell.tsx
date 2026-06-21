@@ -120,8 +120,13 @@ export function Shell({ children }: { children: ReactNode }) {
   };
   useEffect(() => {
     loadNotifs();
-    const t = setInterval(loadNotifs, 30000); // poll; realtime push lands in a follow-up
-    return () => clearInterval(t);
+    const t = setInterval(loadNotifs, 30000); // safety poll
+    // Near-instant refresh: any websocket activity (incl. the snooze-due relay)
+    // re-pulls the bell after a short debounce.
+    let deb: ReturnType<typeof setTimeout>;
+    const onWs = () => { clearTimeout(deb); deb = setTimeout(loadNotifs, 800); };
+    window.addEventListener("ws_message", onWs);
+    return () => { clearInterval(t); window.removeEventListener("ws_message", onWs); clearTimeout(deb); };
   }, []);
   const [langOpen, setLangOpen] = useState(false);
 
