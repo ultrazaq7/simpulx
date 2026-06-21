@@ -223,7 +223,9 @@ function StageSplit({ stages }: { stages?: Analytics["stages"] }) {
 // pipeline, with stage-to-stage conversion %. Driven by analytics.funnel_stages.
 // Per-stage funnel colors, aligned with the inbox stage chips
 // (New Lead -> Contacted -> Qualified -> Appointment -> Negotiation -> Purchase).
-const FUNNEL_COLORS = ["#6366F1", "#0EA5E9", "#14B8A6", "#8B5CF6", "#F59E0B", "#16A34A", "#059669"];
+// One in-brand green ramp (light -> deep) instead of a rainbow: stays in the
+// design system and reads as funnel progression.
+const FUNNEL_COLORS = ["#A7DACE", "#7FC9B8", "#57B8A1", "#2D8B73", "#26735F", "#1E5C4C", "#174539"];
 function LeadFunnel({ stages }: { stages?: Analytics["funnel_stages"] }) {
   if (!stages || stages.length === 0) {
     return <div className="py-10 text-center text-sm text-muted-foreground">No pipeline data yet</div>;
@@ -499,10 +501,12 @@ function ManagerControlTower() {
           {loading ? (
             <div className="p-4 space-y-2">{[0, 1, 2].map((i) => <div key={i} className="skeleton h-12 rounded-md" />)}</div>
           ) : alerts.length === 0 ? (
-            <div className="flex flex-col items-center justify-center py-12 text-center">
-              <div className="w-12 h-12 rounded-xl bg-success/10 grid place-items-center mb-3"><CheckCircle2 className="w-6 h-6 text-success" /></div>
-              <p className="text-[13px] font-semibold text-foreground">All lanes clear</p>
-              <p className="text-xs text-muted-foreground">No unassigned, breaching, or stacked queues</p>
+            <div className="flex items-center gap-2.5 px-4 py-3">
+              <span className="w-7 h-7 rounded-lg bg-success/10 grid place-items-center shrink-0"><CheckCircle2 className="w-4 h-4 text-success" /></span>
+              <div className="min-w-0">
+                <p className="text-[13px] font-semibold text-foreground leading-tight">All lanes clear</p>
+                <p className="text-[11px] text-muted-foreground">No unassigned, breaching, or stacked queues</p>
+              </div>
             </div>
           ) : (
             <div>{alerts.map((a) => <AlertRow key={a.key} tone={a.tone} icon={a.icon} text={a.text} sub={a.sub} href={a.href} />)}</div>
