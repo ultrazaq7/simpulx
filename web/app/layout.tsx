@@ -1,8 +1,17 @@
 "use client";
 import { useState } from "react";
+import { Inter } from "next/font/google";
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import "./globals.css";
 import { cn } from "@/lib/utils";
+
+// Inter: the modern SaaS workhorse (Linear/Vercel/Stripe). Self-hosted + optimized
+// by Next, exposed as the --font-sans CSS variable used across the design system.
+const inter = Inter({
+  subsets: ["latin"],
+  variable: "--font-sans",
+  display: "swap",
+});
 
 
 import { TooltipProvider } from "@/components/ui/tooltip";
@@ -15,7 +24,7 @@ export default function RootLayout({ children }: { children: React.ReactNode }) 
   }));
 
   return (
-    <html lang="en" className={cn("font-sans")}>
+    <html lang="en" className={cn(inter.variable, "font-sans")}>
       <head>
         <meta charSet="utf-8" />
         <title>Simpulx</title>
