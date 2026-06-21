@@ -67,8 +67,10 @@ func (s *server) handleListConversations(w http.ResponseWriter, r *http.Request)
 
 	// Role-based visibility:
 	//  - admin/owner : every conversation in the org.
-	//  - manager     : conversations in the campaigns they belong to
-	//                  (campaign_agents), plus any unassigned conversation.
+	//  - manager     : strictly the campaigns/branches they belong to (campaign_agents
+	//                  / branch_agents). Unassigned leads in their scope still carry
+	//                  campaign_id/branch_id so they show; unrouted leads (no
+	//                  campaign/branch) are admin/owner only.
 	//  - agent       : only conversations assigned to them.
 	// $1=org, $2=status, $3=user id (used by manager/agent filters).
 	visibility := ""
@@ -76,9 +78,7 @@ func (s *server) handleListConversations(w http.ResponseWriter, r *http.Request)
 	case "admin", "owner":
 		// no extra filter
 	case "manager":
-		visibility = ` AND (cv.assigned_agent_id IS NULL
-		                     OR cv.campaign_id IN (SELECT campaign_id FROM campaign_agents WHERE user_id = $3)
-		                     OR cv.branch_id IN (SELECT branch_id FROM branch_agents WHERE user_id = $3))`
+		visibility = " AND " + managerScope("cv", 3)
 	default: // agent (and any unknown role) -> own conversations only
 		visibility = ` AND cv.assigned_agent_id = $3`
 	}
@@ -132,7 +132,8 @@ func (s *server) handleListConversations(w http.ResponseWriter, r *http.Request)
 // this, an agent who knows another agent's conversation id could read or mutate
 // it directly (IDOR). Rules:
 //   - admin/owner : any conversation in their org
-//   - manager     : conversations in their campaigns (campaign_agents) or unassigned
+//   - manager     : strictly conversations in their campaigns/branches (campaign_agents
+//                   / branch_agents); unrouted leads are admin/owner only
 //   - agent       : only conversations assigned to them
 //
 // Returns (allowed, found). found=false means the conversation does not exist in
@@ -153,10 +154,9 @@ func (s *server) canAccessConversation(ctx context.Context, a authInfo, convID s
 	case "admin", "owner":
 		return true, true
 	case "manager":
-		if assignedAgent == nil {
-			return true, true // unassigned is visible to managers
-		}
-		// Visible if the manager belongs to the conversation's campaign or its branch.
+		// Visible only if the manager belongs to the conversation's campaign or branch.
+		// An unassigned lead in their scope still carries campaign_id/branch_id, so it
+		// matches; an unrouted lead (no campaign/branch) does not.
 		var ok bool
 		_ = s.pool.QueryRow(ctx,
 			`SELECT EXISTS(SELECT 1 FROM campaign_agents WHERE user_id=$1 AND campaign_id=$2::uuid)
