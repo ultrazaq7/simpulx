@@ -1,9 +1,9 @@
 "use client";
 import { memo } from "react";
 import {
-  Image as ImageIcon, Video, FileText, Headset, Zap, Clock, Phone, Sticker, Mic, User,
+  Image as ImageIcon, Video, FileText, Headset, Zap, Clock, Phone, Sticker, Mic,
 } from "lucide-react";
-import { initials, channelColor, interestColor, relTime, cn } from "@/lib/utils";
+import { initials, channelColor, relTime, cn } from "@/lib/utils";
 import { Tip } from "@/components/ui/tooltip";
 import type { Conversation, Message } from "@/lib/types";
 
@@ -17,33 +17,6 @@ interface ConversationCardProps {
   channelName?: string; // display name of the channel (e.g. "Simpulx Test Channel")
 }
 
-function MetaTag({ tone, icon: Icon, active, children }: {
-  tone: "amber" | "blue" | "red" | "neutral";
-  icon?: any;
-  active?: boolean;
-  children: React.ReactNode;
-}) {
-  // On an active (green-tinted) row, switch to solid white pills + colored ring
-  // so the chips don't blend into the background.
-  const tones: Record<string, string> = active ? {
-    amber: "bg-white text-amber-700",
-    blue: "bg-white text-blue-700",
-    red: "bg-white text-red-600",
-    neutral: "bg-white text-slate-600",
-  } : {
-    amber: "bg-amber-50 text-amber-700",
-    blue: "bg-blue-50 text-blue-700",
-    red: "bg-red-50 text-red-600",
-    neutral: "bg-slate-100 text-slate-600",
-  };
-  return (
-    <span className={cn("inline-flex items-center gap-1 h-[18px] px-2 rounded-full text-[10px] font-semibold whitespace-nowrap shrink-0", tones[tone])}>
-      {Icon && <Icon className="w-3 h-3" />}
-      {children}
-    </span>
-  );
-}
-
 const PREVIEW_MEDIA: Record<string, { icon: any; label: string }> = {
   "[image]": { icon: ImageIcon, label: "Photo" },
   "[video]": { icon: Video, label: "Video" },
@@ -51,6 +24,10 @@ const PREVIEW_MEDIA: Record<string, { icon: any; label: string }> = {
   "[sticker]": { icon: Sticker, label: "Sticker" },
   "[audio]": { icon: Mic, label: "Voice message" },
 };
+
+// Lead temperature -> a real semantic dot (never brand green).
+const TEMP_DOT: Record<string, string> = { hot: "bg-hot", warm: "bg-warm", cold: "bg-cold" };
+const TEMP_LABEL: Record<string, string> = { hot: "Hot lead", warm: "Warm lead", cold: "Cold lead" };
 
 const ConversationCard = memo(function ConversationCard({
   conv: c, isActive, onClick, messages, showAgent, channelName,
@@ -66,9 +43,9 @@ const ConversationCard = memo(function ConversationCard({
   const unread = c.unread_count > 0;
   const time = relTime(c.last_message_at);
 
-  // Hot/Warm + unread → nudge to follow up now (BR-28: lead_score stays hidden)
+  // Hot/Warm + unread -> nudge to follow up now (BR-28: lead_score stays hidden)
   const needsFollowUp = (c.interest_level === "hot" || c.interest_level === "warm") && unread;
-  // Hot + never called → nudge to call (BR-30)
+  // Hot + never called -> nudge to call (BR-30)
   const needsCall = c.interest_level === "hot" && (c.call_attempts === null || c.call_attempts === 0);
   // WhatsApp 24h service window closed
   const windowExpired = (() => {
@@ -76,25 +53,24 @@ const ConversationCard = memo(function ConversationCard({
     return Date.now() - new Date(c.last_message_at).getTime() > 24 * 60 * 60 * 1000;
   })();
 
-  // Left accent: only signal bars (follow-up / call). Active is shown via bg only.
-  const accent = needsFollowUp ? "bg-amber" : needsCall ? "bg-info" : "";
+  // One left accent, by priority: unread > call > follow-up. Active is bg only.
+  const accent = unread ? "bg-primary" : needsCall ? "bg-info" : needsFollowUp ? "bg-warm" : "";
+  const temp = c.interest_level && TEMP_DOT[c.interest_level] ? c.interest_level : null;
 
   const media = c.last_message_preview ? PREVIEW_MEDIA[c.last_message_preview] : undefined;
-  const previewText = media ? media.label : (c.last_message_preview || "No messages yet");
 
   return (
     <div
       onClick={onClick}
       className={cn(
-        "group relative flex gap-2.5 pl-3.5 pr-3 py-2.5 cursor-pointer border-b border-border/50 transition-colors duration-100",
-        isActive ? "bg-primary/[0.08]" : "hover:bg-muted/60",
+        "group relative flex gap-2.5 pl-3.5 pr-3 py-2.5 cursor-pointer border-b border-border/60 transition-colors duration-100",
+        isActive ? "bg-primary/[0.07]" : "hover:bg-muted/50",
       )}
     >
-      {/* Unread: a glowing line slowly traces the row's border (no hover needed) */}
-      {unread && <span aria-hidden className="unread-trace pointer-events-none absolute inset-1 rounded-lg" />}
+      {accent && <span aria-hidden className={cn("absolute left-0 top-1.5 bottom-1.5 w-[3px] rounded-full", accent)} />}
 
       {/* Avatar + channel dot */}
-      <div className="relative shrink-0 self-start mt-0.5">
+      <div className="relative shrink-0 self-center">
         <div
           className="w-9 h-9 rounded-full grid place-items-center text-[12px] font-bold ring-1 ring-inset ring-black/5"
           style={{ backgroundColor: channelColor(c.channel) + "1A", color: channelColor(c.channel) }}
@@ -110,18 +86,30 @@ const ConversationCard = memo(function ConversationCard({
       </div>
 
       <div className="flex-1 min-w-0">
-        {/* Line 1: name + time */}
-        <div className="flex items-center gap-2">
+        {/* Line 1: temperature dot + name + (manager agent) + time */}
+        <div className="flex items-center gap-1.5">
+          {temp && (
+            <Tip label={TEMP_LABEL[temp]} side="top">
+              <span className={cn("shrink-0 w-2 h-2 rounded-full", TEMP_DOT[temp])} />
+            </Tip>
+          )}
           <p className={cn(
             "flex-1 truncate text-[14px] leading-tight",
             unread ? "font-bold text-foreground" : "font-semibold text-foreground/90",
           )}>
             {c.contact_name || c.contact_phone || "Unknown"}
           </p>
+          {showAgent && c.agent_name && (
+            <Tip label={`Assigned: ${c.agent_name}`} side="top">
+              <span className="shrink-0 w-[18px] h-[18px] rounded-full bg-muted text-muted-foreground text-[9px] font-bold grid place-items-center ring-1 ring-inset ring-black/5">
+                {initials(c.agent_name)}
+              </span>
+            </Tip>
+          )}
           {time && (
             <span className={cn(
               "shrink-0 flex items-center gap-1 text-[11px] tabular-nums",
-              unread ? "text-primary font-bold" : "text-muted-foreground font-medium",
+              unread ? "text-primary-text font-bold" : "text-muted-foreground font-medium",
             )}>
               {agentReplied && !unread && <Headset className="w-3 h-3 text-primary/70" />}
               {time}
@@ -129,54 +117,33 @@ const ConversationCard = memo(function ConversationCard({
           )}
         </div>
 
-        {/* Line 2: preview (2 lines, ellipsis) + unread count */}
-        <div className="flex items-start gap-2 mt-1">
-          <Tip label={<span className="block max-w-[300px] whitespace-pre-wrap leading-snug text-left">{previewText}</span>} side="right">
-            <span className={cn(
-              "flex-1 min-w-0 text-[12px] leading-snug",
-              media ? "truncate flex items-center gap-1" : "line-clamp-2",
-              unread ? "text-foreground/85 font-medium" : "text-foreground/65",
-            )}>
-              {media ? (
-                <><media.icon className="w-3.5 h-3.5 shrink-0" /> {media.label}</>
-              ) : (
-                c.last_message_preview || <span className="italic text-muted-foreground/55">No messages yet</span>
-              )}
-            </span>
-          </Tip>
+        {/* Line 2: preview + one urgent signal + unread count */}
+        <div className="flex items-center gap-2 mt-1">
+          <span className={cn(
+            "flex-1 min-w-0 truncate text-[12.5px] leading-snug",
+            unread ? "text-foreground/80 font-medium" : "text-muted-foreground",
+          )}>
+            {media ? (
+              <span className="inline-flex items-center gap-1"><media.icon className="w-3.5 h-3.5 shrink-0" />{media.label}</span>
+            ) : (
+              c.last_message_preview || <span className="italic text-muted-foreground/60">No messages yet</span>
+            )}
+          </span>
+          {needsCall ? (
+            <Tip label="Call this hot lead" side="top"><Phone className="w-3.5 h-3.5 text-info shrink-0" /></Tip>
+          ) : needsFollowUp ? (
+            <Tip label="Follow up now" side="top"><Zap className="w-3.5 h-3.5 text-warm shrink-0" /></Tip>
+          ) : windowExpired ? (
+            <Tip label="24h window closed" side="top"><Clock className="w-3.5 h-3.5 text-hot shrink-0" /></Tip>
+          ) : null}
           {unread && (
             <span className="shrink-0 min-w-[18px] h-[18px] px-1.5 rounded-full bg-primary text-primary-foreground text-[10px] font-bold grid place-items-center tabular-nums">
               {c.unread_count > 99 ? "99+" : c.unread_count}
             </span>
           )}
         </div>
-
-        {/* Line 3: signal tags (single line, no wrap) */}
-        {(showAgent || needsFollowUp || needsCall || windowExpired || c.interest_level || c.campaign_name) && (
-          <div className="flex flex-wrap items-center gap-1 mt-1.5">
-            {showAgent && (
-              c.agent_name
-                ? <span className={cn("inline-flex items-center gap-1 h-[18px] px-2 rounded-full text-slate-600 text-[10px] font-semibold shrink-0 max-w-[110px] truncate", isActive ? "bg-white" : "bg-slate-100")}><User className="w-2.5 h-2.5 shrink-0" />{c.agent_name}</span>
-                : <MetaTag tone="amber" icon={User} active={isActive}>Unassigned</MetaTag>
-            )}
-            {needsFollowUp && <MetaTag tone="amber" icon={Zap} active={isActive}>Follow up</MetaTag>}
-            {needsCall && <MetaTag tone="blue" icon={Phone} active={isActive}>Call</MetaTag>}
-            {windowExpired && <MetaTag tone="red" icon={Clock} active={isActive}>24h</MetaTag>}
-            {c.interest_level && (
-              <span className={cn("inline-flex items-center gap-1 h-[18px] px-2 rounded-full text-slate-600 text-[10px] font-semibold capitalize shrink-0", isActive ? "bg-white" : "bg-slate-100")}>
-                <span className="w-1.5 h-1.5 rounded-full" style={{ backgroundColor: interestColor(c.interest_level) }} />
-                {c.interest_level}
-              </span>
-            )}
-            {c.campaign_name && (
-              <span className={cn("inline-flex items-center h-[18px] px-2 rounded-md text-primary text-[10px] font-semibold shrink-0 max-w-[150px] truncate", isActive ? "bg-white" : "bg-primary/10")}>
-                {c.campaign_name}
-              </span>
-            )}
-          </div>
-        )}
-        </div>
       </div>
+    </div>
   );
 });
 
