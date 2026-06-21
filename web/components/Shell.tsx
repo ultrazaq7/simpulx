@@ -222,7 +222,7 @@ export function Shell({ children }: { children: ReactNode }) {
             if (!("Notification" in window) || Notification.permission !== "granted") return;
             try {
               const n = new Notification(title, { body, requireInteraction: true, tag: convId || undefined, icon: "/simpulx_logo.png" });
-              n.onclick = () => { window.focus(); if (convId) router.push(`/inbox?c=${convId}`); n.close(); };
+              n.onclick = () => { window.focus(); if (convId) { router.push(`/inbox?c=${convId}`); window.dispatchEvent(new CustomEvent("inbox:open", { detail: convId })); } n.close(); };
             } catch {}
           };
 
@@ -570,7 +570,7 @@ export function Shell({ children }: { children: ReactNode }) {
                       onClick={() => {
                         if (!n.read_at) { api.markNotificationsRead(n.id).catch(() => {}); setNotifs((ns) => ns.map((x) => x.id === n.id ? { ...x, read_at: new Date().toISOString() } : x)); setNotifUnread((u) => Math.max(0, u - 1)); }
                         setNotifOpen(false);
-                        if (n.conversation_id) router.push(`/inbox?c=${n.conversation_id}`);
+                        if (n.conversation_id) { router.push(`/inbox?c=${n.conversation_id}`); window.dispatchEvent(new CustomEvent("inbox:open", { detail: n.conversation_id })); }
                       }}
                       className={cn("w-full text-left p-3 rounded-md hover:bg-muted transition-colors border-l-2", n.read_at ? "border-transparent opacity-70" : "border-primary")}
                     >

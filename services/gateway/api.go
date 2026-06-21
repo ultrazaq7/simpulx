@@ -741,6 +741,9 @@ func (s *server) handleAnalytics(w http.ResponseWriter, r *http.Request) {
 	org := a.OrgID
 	ctx := r.Context()
 	camp := r.URL.Query().Get("campaign_id")
+	// Workspace timezone so a date-range filter matches local days, not UTC days.
+	orgTz := "Asia/Jakarta"
+	_ = s.pool.QueryRow(ctx, `SELECT COALESCE(NULLIF(settings->>'timezone',''),'Asia/Jakarta') FROM organizations WHERE id=$1`, org).Scan(&orgTz)
 
 	campFilterCv := ""
 	campFilter := ""
@@ -772,16 +775,22 @@ func (s *server) handleAnalytics(w http.ResponseWriter, r *http.Request) {
 		campFilterCv += fmt.Sprintf(" AND cv.assigned_agent_id = $%d::uuid", len(args))
 		campFilter += fmt.Sprintf(" AND assigned_agent_id = $%d::uuid", len(args))
 	}
-	// Custom date range on lead creation (inclusive of the 'to' day).
-	if from := r.URL.Query().Get("from"); from != "" {
-		args = append(args, from)
-		campFilterCv += fmt.Sprintf(" AND cv.created_at >= $%d::date", len(args))
-		campFilter += fmt.Sprintf(" AND created_at >= $%d::date", len(args))
-	}
-	if to := r.URL.Query().Get("to"); to != "" {
-		args = append(args, to)
-		campFilterCv += fmt.Sprintf(" AND cv.created_at < ($%d::date + 1)", len(args))
-		campFilter += fmt.Sprintf(" AND created_at < ($%d::date + 1)", len(args))
+	// Custom date range on lead creation, evaluated in the workspace timezone so
+	// the boundaries line up with the user's local days (inclusive of 'to').
+	fromS, toS := r.URL.Query().Get("from"), r.URL.Query().Get("to")
+	if fromS != "" || toS != "" {
+		args = append(args, orgTz)
+		tzIdx := len(args)
+		if fromS != "" {
+			args = append(args, fromS)
+			campFilterCv += fmt.Sprintf(" AND cv.created_at >= ($%d::date AT TIME ZONE $%d)", len(args), tzIdx)
+			campFilter += fmt.Sprintf(" AND created_at >= ($%d::date AT TIME ZONE $%d)", len(args), tzIdx)
+		}
+		if toS != "" {
+			args = append(args, toS)
+			campFilterCv += fmt.Sprintf(" AND cv.created_at < (($%d::date + 1) AT TIME ZONE $%d)", len(args), tzIdx)
+			campFilter += fmt.Sprintf(" AND created_at < (($%d::date + 1) AT TIME ZONE $%d)", len(args), tzIdx)
+		}
 	}
 
 	// Accurate, unambiguous definitions:

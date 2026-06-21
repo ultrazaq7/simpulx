@@ -79,6 +79,14 @@ export default function InboxPage() {
     if (c) setActiveId(c); // deep-link to a conversation (Copy link to message)
   }, []);
 
+  // Open a conversation from anywhere (notification click) even while already on
+  // this page — router.push to the same route doesn't re-run the mount effect.
+  useEffect(() => {
+    const onOpen = (e: Event) => { const id = (e as CustomEvent).detail as string; if (id) setActiveId(id); };
+    window.addEventListener("inbox:open", onOpen as EventListener);
+    return () => window.removeEventListener("inbox:open", onOpen as EventListener);
+  }, []);
+
   const bodyRef = useRef<HTMLDivElement>(null);
   const fileRef = useRef<HTMLInputElement>(null);
   const activeIdRef = useRef<string | null>(null);

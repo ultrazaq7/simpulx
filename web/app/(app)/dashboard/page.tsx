@@ -47,6 +47,23 @@ function buildChartData(analytics: Analytics | null, all = false) {
   });
 }
 
+// Date-range presets -> local YYYY-MM-DD (backend evaluates them in the org tz).
+function fmtLocalDate(d: Date) { return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, "0")}-${String(d.getDate()).padStart(2, "0")}`; }
+function presetRange(key: string): { from: string; to: string } {
+  const today = new Date();
+  const t = fmtLocalDate(today);
+  const back = (n: number) => { const d = new Date(today); d.setDate(today.getDate() - n); return fmtLocalDate(d); };
+  switch (key) {
+    case "today": return { from: t, to: t };
+    case "7d": return { from: back(6), to: t };
+    case "30d": return { from: back(29), to: t };
+    case "90d": return { from: back(89), to: t };
+    case "month": return { from: fmtLocalDate(new Date(today.getFullYear(), today.getMonth(), 1)), to: t };
+    case "lastmonth": return { from: fmtLocalDate(new Date(today.getFullYear(), today.getMonth() - 1, 1)), to: fmtLocalDate(new Date(today.getFullYear(), today.getMonth(), 0)) };
+    default: return { from: "", to: "" };
+  }
+}
+
 function CustomTooltip({ active, payload, label }: any) {
   if (!active || !payload?.length) return null;
   return (
@@ -542,6 +559,7 @@ function ManagerDashboard() {
   const [fAgent, setFAgent] = useState("");
   const [fFrom, setFFrom] = useState("");
   const [fTo, setFTo] = useState("");
+  const [dateRange, setDateRange] = useState("all");
   const [channels, setChannels] = useState<Channel[]>([]);
   const [campaigns, setCampaigns] = useState<Campaign[]>([]);
   const [agentList, setAgentList] = useState<Agent[]>([]);
@@ -567,7 +585,7 @@ function ManagerDashboard() {
   const funnel = analytics?.funnel;
   const agents = analytics?.agents || [];
   const funnelMax = funnel ? Math.max(funnel.total, 1) : 1;
-  const chartData = buildChartData(analytics);
+  const chartData = buildChartData(analytics, true); // all days; bounded by the date filter when applied
 
   return (
     <>
@@ -600,15 +618,29 @@ function ManagerDashboard() {
             options={[{ value: "", label: "All campaigns" }, ...campaigns.map((c) => ({ value: c.id, label: c.name }))]} />
           <Select value={fAgent} onChange={setFAgent} className="w-[160px]"
             options={[{ value: "", label: "All agents" }, ...agentList.map((a) => ({ value: a.id, label: a.full_name }))]} />
-          <div className="flex items-center gap-1.5 text-[12px] text-muted-foreground">
-            <input type="date" value={fFrom} max={fTo || undefined} onChange={(e) => setFFrom(e.target.value)}
-              className="h-9 px-2 rounded-md border border-input bg-background text-[13px] text-foreground outline-none focus:border-primary" />
-            <span>to</span>
-            <input type="date" value={fTo} min={fFrom || undefined} onChange={(e) => setFTo(e.target.value)}
-              className="h-9 px-2 rounded-md border border-input bg-background text-[13px] text-foreground outline-none focus:border-primary" />
-          </div>
-          {(fChannel || fCampaign || fAgent || fFrom || fTo) && (
-            <button onClick={() => { setFChannel(""); setFCampaign(""); setFAgent(""); setFFrom(""); setFTo(""); }} className="text-[12px] font-semibold text-primary hover:underline outline-none">Clear</button>
+          <Select value={dateRange} searchable={false} className="w-[150px]"
+            onChange={(v) => { setDateRange(v); if (v !== "custom") { const r = presetRange(v); setFFrom(r.from); setFTo(r.to); } }}
+            options={[
+              { value: "all", label: "All time" },
+              { value: "today", label: "Today" },
+              { value: "7d", label: "Last 7 days" },
+              { value: "30d", label: "Last 30 days" },
+              { value: "90d", label: "Last 90 days" },
+              { value: "month", label: "This month" },
+              { value: "lastmonth", label: "Last month" },
+              { value: "custom", label: "Custom range" },
+            ]} />
+          {dateRange === "custom" && (
+            <div className="flex items-center gap-1.5 text-[12px] text-muted-foreground">
+              <input type="date" value={fFrom} max={fTo || undefined} onChange={(e) => setFFrom(e.target.value)}
+                className="h-9 px-2 rounded-md border border-input bg-background text-[13px] text-foreground outline-none focus:border-primary" />
+              <span>to</span>
+              <input type="date" value={fTo} min={fFrom || undefined} onChange={(e) => setFTo(e.target.value)}
+                className="h-9 px-2 rounded-md border border-input bg-background text-[13px] text-foreground outline-none focus:border-primary" />
+            </div>
+          )}
+          {(fChannel || fCampaign || fAgent || dateRange !== "all") && (
+            <button onClick={() => { setFChannel(""); setFCampaign(""); setFAgent(""); setFFrom(""); setFTo(""); setDateRange("all"); }} className="text-[12px] font-semibold text-primary hover:underline outline-none">Clear</button>
           )}
         </div>
 
@@ -651,7 +683,7 @@ function ManagerDashboard() {
         </div>
 
         {/* â”€â”€ Area Chart (real, last 7 days) â”€â”€ */}
-        <Card title="Overview" subtitle="Last 7 days" className="mb-5">
+        <Card title="Overview" subtitle={fFrom || fTo ? `${fFrom || "start"} to ${fTo || "now"}` : "All time"} className="mb-5">
           <div className="px-4 py-4"><OverviewChart data={chartData} /></div>
         </Card>
 
