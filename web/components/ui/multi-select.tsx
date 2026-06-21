@@ -1,5 +1,6 @@
 "use client";
 import { useState, useRef, useEffect, useMemo } from "react";
+import { createPortal } from "react-dom";
 import { ChevronDown, Search, Check } from "lucide-react";
 import { cn } from "@/lib/utils";
 
@@ -12,31 +13,44 @@ export interface MultiSelectProps {
   className?: string;
 }
 
-// Searchable multi-select. Uses an inline (non-portaled) dropdown like Select so
-// it renders correctly inside modals/dialogs instead of opening behind them.
+interface MenuPos { left: number; width: number; maxH: number; up: boolean; top?: number; bottom?: number }
+
+// Searchable multi-select. The menu is portaled to <body> with fixed positioning
+// so it escapes overflow-hidden ancestors (cards, dialogs) and flips up when low
+// on space; a high z-index keeps it above modals.
 export function MultiSelect({ options, value, onChange, placeholder = "Select...", className }: MultiSelectProps) {
   const [open, setOpen] = useState(false);
   const [q, setQ] = useState("");
-  const [menu, setMenu] = useState<{ up: boolean; maxH: number }>({ up: false, maxH: 320 });
+  const [pos, setPos] = useState<MenuPos>({ left: 0, width: 0, maxH: 320, up: false });
   const ref = useRef<HTMLDivElement>(null);
+  const menuRef = useRef<HTMLDivElement>(null);
 
   useEffect(() => {
     if (!open) return;
-    const onDoc = (e: MouseEvent) => { if (ref.current && !ref.current.contains(e.target as Node)) { setOpen(false); setQ(""); } };
+    const onDoc = (e: MouseEvent) => {
+      const t = e.target as Node;
+      if (ref.current?.contains(t) || menuRef.current?.contains(t)) return;
+      setOpen(false); setQ("");
+    };
     document.addEventListener("mousedown", onDoc);
     return () => document.removeEventListener("mousedown", onDoc);
   }, [open]);
 
-  // Open upward when there isn't room below; cap height to the available space.
+  // Decide placement (below by default, above when there isn't room) and cap height.
   useEffect(() => {
     if (!open || !ref.current) return;
     const decide = () => {
       const r = ref.current!.getBoundingClientRect();
-      const gap = 8, desired = 320, minH = 180;
+      const gap = 6, desired = 320, minH = 200;
       const below = window.innerHeight - r.bottom - gap;
       const above = r.top - gap;
       const up = below < Math.min(desired, minH) && above > below;
-      setMenu({ up, maxH: Math.max(140, Math.min(desired, up ? above : below)) });
+      const maxH = Math.max(160, Math.min(desired, up ? above : below));
+      setPos({
+        left: r.left, width: r.width, maxH, up,
+        top: up ? undefined : r.bottom + gap,
+        bottom: up ? window.innerHeight - r.top + gap : undefined,
+      });
     };
     decide();
     window.addEventListener("resize", decide);
@@ -69,12 +83,13 @@ export function MultiSelect({ options, value, onChange, placeholder = "Select...
         <ChevronDown className={cn("w-4 h-4 text-muted-foreground shrink-0 transition-transform", open && "rotate-180")} />
       </button>
 
-      {open && (
+      {open && typeof document !== "undefined" && createPortal(
         <div
-          style={{ maxHeight: menu.maxH }}
+          ref={menuRef}
+          style={{ position: "fixed", left: pos.left, minWidth: pos.width, top: pos.top, bottom: pos.bottom, maxHeight: pos.maxH, zIndex: 1000 }}
           className={cn(
-            "absolute left-0 z-50 min-w-full w-max max-w-[280px] rounded-lg border border-border bg-popover shadow-xl overflow-hidden animate-scale-in flex flex-col",
-            menu.up ? "bottom-full mb-1.5 origin-bottom-left" : "top-full mt-1.5 origin-top-left",
+            "w-max max-w-[280px] rounded-lg border border-border bg-popover shadow-xl overflow-hidden animate-scale-in flex flex-col",
+            pos.up ? "origin-bottom" : "origin-top",
           )}
         >
           {options.length > 6 && (
@@ -109,7 +124,8 @@ export function MultiSelect({ options, value, onChange, placeholder = "Select...
               );
             })}
           </div>
-        </div>
+        </div>,
+        document.body,
       )}
     </div>
   );

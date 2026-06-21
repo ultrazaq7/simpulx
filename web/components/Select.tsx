@@ -1,14 +1,19 @@
 "use client";
 import { useState, useRef, useEffect } from "react";
+import { createPortal } from "react-dom";
 import { ChevronDown, Search, Check } from "lucide-react";
 import { cn } from "@/lib/utils";
 
 export interface SelectOption { value: string; label: string; disabled?: boolean }
 
+interface MenuPos { left: number; width: number; maxH: number; up: boolean; top?: number; bottom?: number }
+
 // Polished, searchable single-select to replace native <select> across the app.
 // Brand green, soft, searchable (auto when >6 options or `searchable`).
+// The menu is portaled to <body> with fixed positioning so it never gets clipped
+// by an overflow-hidden ancestor (cards, dialogs), and flips up when low on space.
 export function Select({
-  value, options, onChange, placeholder = "Select...", className, searchable, disabled, align = "left",
+  value, options, onChange, placeholder = "Select...", className, searchable, disabled,
 }: {
   value: string;
   options: SelectOption[];
@@ -21,9 +26,9 @@ export function Select({
 }) {
   const [open, setOpen] = useState(false);
   const [q, setQ] = useState("");
-  // Where the menu opens and how tall it can be, decided from viewport space.
-  const [menu, setMenu] = useState<{ up: boolean; maxH: number }>({ up: false, maxH: 320 });
+  const [pos, setPos] = useState<MenuPos>({ left: 0, width: 0, maxH: 320, up: false });
   const ref = useRef<HTMLDivElement>(null);
+  const menuRef = useRef<HTMLDivElement>(null);
 
   const current = options.find((o) => o.value === value);
   // Search box on for every dropdown (opt out with searchable={false}).
@@ -32,23 +37,31 @@ export function Select({
 
   useEffect(() => {
     if (!open) return;
-    const onDoc = (e: MouseEvent) => { if (ref.current && !ref.current.contains(e.target as Node)) { setOpen(false); setQ(""); } };
+    const onDoc = (e: MouseEvent) => {
+      const t = e.target as Node;
+      if (ref.current?.contains(t) || menuRef.current?.contains(t)) return;
+      setOpen(false); setQ("");
+    };
     document.addEventListener("mousedown", onDoc);
     return () => document.removeEventListener("mousedown", onDoc);
   }, [open]);
 
-  // On open, measure free space below vs above the trigger and flip if the menu
-  // would be clipped; also cap its height to whatever room is available.
+  // Measure the trigger and decide where the menu goes (below by default, above
+  // when there isn't room), capping height to the available space.
   useEffect(() => {
     if (!open || !ref.current) return;
     const decide = () => {
       const r = ref.current!.getBoundingClientRect();
-      const gap = 8, desired = 320, minH = 180;
+      const gap = 6, desired = 320, minH = 200;
       const below = window.innerHeight - r.bottom - gap;
       const above = r.top - gap;
       const up = below < Math.min(desired, minH) && above > below;
-      const maxH = Math.max(140, Math.min(desired, up ? above : below));
-      setMenu({ up, maxH });
+      const maxH = Math.max(160, Math.min(desired, up ? above : below));
+      setPos({
+        left: r.left, width: r.width, maxH, up,
+        top: up ? undefined : r.bottom + gap,
+        bottom: up ? window.innerHeight - r.top + gap : undefined,
+      });
     };
     decide();
     window.addEventListener("resize", decide);
@@ -71,15 +84,13 @@ export function Select({
         <ChevronDown className={cn("w-4 h-4 text-muted-foreground shrink-0 transition-transform", open && "rotate-180")} />
       </button>
 
-      {open && (
+      {open && typeof document !== "undefined" && createPortal(
         <div
-          style={{ maxHeight: menu.maxH }}
+          ref={menuRef}
+          style={{ position: "fixed", left: pos.left, width: pos.width, top: pos.top, bottom: pos.bottom, maxHeight: pos.maxH, zIndex: 1000 }}
           className={cn(
-            "absolute z-50 min-w-full rounded-lg border border-border bg-popover shadow-xl overflow-hidden animate-scale-in flex flex-col",
-            menu.up ? "bottom-full mb-1.5" : "top-full mt-1.5",
-            align === "right"
-              ? (menu.up ? "right-0 origin-bottom-right" : "right-0 origin-top-right")
-              : (menu.up ? "left-0 origin-bottom-left" : "left-0 origin-top-left"),
+            "rounded-lg border border-border bg-popover shadow-xl overflow-hidden animate-scale-in flex flex-col",
+            pos.up ? "origin-bottom" : "origin-top",
           )}
         >
           {showSearch && (
@@ -115,7 +126,8 @@ export function Select({
               </button>
             ))}
           </div>
-        </div>
+        </div>,
+        document.body,
       )}
     </div>
   );
