@@ -135,7 +135,7 @@ export default function AccountPage() {
   return (
     <div className="h-full overflow-y-auto bg-background">
       {Host}
-      <div className="max-w-[780px] mx-auto px-6 py-8">
+      <div className="max-w-3xl px-8 py-8">
         {/* Back button */}
         <button
           onClick={() => router.back()}
