@@ -23,7 +23,7 @@ export async function registerPush(onForeground?: () => void) {
     registered = true;
     // Foreground (tab focused): FCM doesn't auto-show data-only messages, so we
     // render the popup here. Background/closed is handled by the service worker.
-    onMessage(messaging, (payload) => {
+    onMessage(messaging, async (payload) => {
       onForeground?.(); // refresh the bell
       const d = (payload && (payload as any).data) || {};
       const convId: string | undefined = d.conversationId;
@@ -31,8 +31,13 @@ export async function registerPush(onForeground?: () => void) {
       if (convId && document.visibilityState === "visible" && window.location.search.includes(`c=${convId}`)) return;
       if (Notification.permission !== "granted") return;
       try {
-        const n = new Notification(d.title || "Simpulx", { body: d.body || "", icon: "/simpulx_logo.png", tag: convId || undefined });
-        n.onclick = () => { window.focus(); if (convId) { window.dispatchEvent(new CustomEvent("inbox:open", { detail: convId })); if (!location.pathname.startsWith("/inbox")) location.href = `/inbox?c=${convId}`; } n.close(); };
+        // Show via the service worker registration, not `new Notification()` —
+        // the latter is unreliable/blocked when a service worker controls the page.
+        // The SW's notificationclick handles the click (focus tab + open chat).
+        const reg = await navigator.serviceWorker.ready;
+        await reg.showNotification(d.title || "Simpulx", {
+          body: d.body || "", icon: "/simpulx_logo.png", tag: convId || undefined, data: d,
+        });
       } catch { /* ignore */ }
     });
   } catch { /* best effort */ }

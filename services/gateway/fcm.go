@@ -90,11 +90,11 @@ func (s *server) initFCMPush(ctx context.Context) {
 		// Get tokens
 		var rows []map[string]any
 		if assignedAgentID != nil {
-			rows, _ = s.queryMaps(ctx, `SELECT token FROM fcm_tokens WHERE user_id=$1`, *assignedAgentID)
+			rows, _ = s.queryMaps(ctx, `SELECT DISTINCT token FROM fcm_tokens WHERE user_id=$1`, *assignedAgentID)
 		} else {
 			// Notify all active agents in org
 			rows, _ = s.queryMaps(ctx, `
-				SELECT t.token 
+				SELECT DISTINCT t.token 
 				FROM fcm_tokens t
 				JOIN users u ON u.id = t.user_id
 				WHERE u.organization_id = $1 AND u.status = 'active'
@@ -161,7 +161,7 @@ func (s *server) initFCMPush(ctx context.Context) {
 		if err := json.Unmarshal(env.Data, &n); err != nil || n.UserID == "" {
 			return err
 		}
-		rows, _ := s.queryMaps(ctx, `SELECT token FROM fcm_tokens WHERE user_id=$1`, n.UserID)
+		rows, _ := s.queryMaps(ctx, `SELECT DISTINCT token FROM fcm_tokens WHERE user_id=$1`, n.UserID)
 		tokens := make([]string, 0, len(rows))
 		for _, r := range rows {
 			if t, ok := r["token"].(string); ok && t != "" {
