@@ -105,9 +105,11 @@ async def summary_stream(req: SummaryReq):
     pool = state["pool"]
     async with pool.acquire() as conn:
         conv = await conn.fetchrow(
-            """SELECT a.system_prompt, a.model, cv.car_brand, cv.car_model, cv.city
+            """SELECT a.system_prompt, a.model, cv.car_brand, cv.car_model, cv.city,
+                      cmp.name AS campaign_name, cmp.dealer_name
                  FROM conversations cv
                  LEFT JOIN ai_agents a ON a.id = cv.ai_agent_id
+                 LEFT JOIN campaigns cmp ON cmp.id = cv.campaign_id
                 WHERE cv.id = $1""",
             req.conversation_id,
         )
@@ -119,8 +121,13 @@ async def summary_stream(req: SummaryReq):
         if ctx:
             finance_ctx = f"\n\n{ctx}\n"
 
+    dealer_ctx = ""
+    if conv and conv.get("campaign_name"):
+        dealer_ctx = f"\n\nPENTING: Kamu adalah asisten sales untuk dealer {conv['dealer_name']} pada campaign '{conv['campaign_name']}'. " \
+                     f"JANGAN PERNAH menawarkan atau memberi harga mobil kompetitor. Jika ditanya mobil di luar campaign ini, tolak dengan sopan."
+
     system_prompt = (conv["system_prompt"] if conv and conv["system_prompt"]
-                     else "You are a helpful sales assistant.") + finance_ctx
+                     else "You are a helpful sales assistant.") + dealer_ctx + finance_ctx
     model = conv["model"] if conv else None
     history = await orchestrator._load_history(pool, req.conversation_id, None)
 
@@ -161,9 +168,11 @@ async def reply_stream(req: SummaryReq):
     pool = state["pool"]
     async with pool.acquire() as conn:
         conv = await conn.fetchrow(
-            """SELECT a.system_prompt, a.model, cv.car_brand, cv.car_model, cv.city
+            """SELECT a.system_prompt, a.model, cv.car_brand, cv.car_model, cv.city,
+                      cmp.name AS campaign_name, cmp.dealer_name
                  FROM conversations cv
                  LEFT JOIN ai_agents a ON a.id = cv.ai_agent_id
+                 LEFT JOIN campaigns cmp ON cmp.id = cv.campaign_id
                 WHERE cv.id = $1""",
             req.conversation_id,
         )
@@ -175,8 +184,14 @@ async def reply_stream(req: SummaryReq):
         if ctx:
             finance_ctx = f"\n\n{ctx}\n"
 
+    dealer_ctx = ""
+    if conv and conv.get("campaign_name"):
+        dealer_ctx = f"\n\nPENTING: Kamu adalah asisten sales untuk dealer {conv['dealer_name']} pada campaign '{conv['campaign_name']}'. " \
+                     f"JANGAN PERNAH menawarkan, memberi simulasi kredit, atau menjual mobil dari brand/tipe lain yang tidak dijual oleh dealer ini. " \
+                     f"Jika customer bertanya mobil kompetitor (misalnya nanya Toyota tapi campaign-nya Honda), tolak dengan sopan dan kembalikan fokus ke mobil di campaign ini."
+
     system_prompt = (conv["system_prompt"] if conv and conv["system_prompt"]
-                     else "You are a helpful sales assistant.") + finance_ctx
+                     else "You are a helpful sales assistant.") + dealer_ctx + finance_ctx
     model = conv["model"] if conv else None
     history = await orchestrator._load_history(pool, req.conversation_id, None)
 
