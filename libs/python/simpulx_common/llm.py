@@ -36,7 +36,7 @@ ANALYZE_INSTRUCTION = (
     "bought_other_brand | bought_used_car | bought_elsewhere | competitor_promo | out_of_area | "
     "price_too_high | financing_rejected | no_budget | postponed | wrong_product | changed_mind | "
     "trade_in_issue. Jika belum lost, lost_reason=null. Data tak disebut -> null.\n"
-    "Ringkasan untuk sales SEMUA dalam Bahasa Inggris:\n"
+    "Ringkasan untuk sales SEMUA dalam Bahasa Indonesia:\n"
     "- summary: 1-3 kalimat inti kebutuhan customer (mobil diminati, budget/DP, "
     "financing, pertanyaan utama).\n"
     "- priority: 'high' | 'medium' | 'low' (high=sinyal beli kuat/siap closing, "
@@ -96,7 +96,7 @@ _LANG_NAMES = {"en": "English", "id": "Bahasa Indonesia"}
 
 
 def _lang_name(code: Optional[str]) -> str:
-    return _LANG_NAMES.get((code or "en").strip().lower()[:2], "English")
+    return _LANG_NAMES.get((code or "id").strip().lower()[:2], "Bahasa Indonesia")
 
 FOLLOWUP_INSTRUCTION = (
     "INSTRUKSI: Buat satu pesan AUTO FOLLOW-UP WhatsApp yang natural, singkat, "

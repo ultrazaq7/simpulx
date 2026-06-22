@@ -120,6 +120,7 @@ async def handle_followup(broker, pool, org_id: str, conv_id: str, log) -> None:
     async with pool.acquire() as conn:
         conv = await conn.fetchrow(
             """SELECT cv.is_bot_active, cv.ai_agent_id, cv.followup_count,
+                      cv.car_brand, cv.car_model, cv.city,
                       a.system_prompt, a.model
                  FROM conversations cv
                  LEFT JOIN ai_agents a ON a.id = cv.ai_agent_id
@@ -158,7 +159,14 @@ async def handle_followup(broker, pool, org_id: str, conv_id: str, log) -> None:
             log.info("lead ghosted (no genuine reply)", extra={"conv": conv_id})
             return
 
-    system_prompt = conv["system_prompt"] or "You are a helpful sales assistant."
+    finance_ctx = ""
+    if conv and conv["car_brand"] and conv["car_model"]:
+        import finance_rag
+        ctx = await finance_rag.get_finance_context(pool, conv["car_brand"], conv["car_model"], conv["city"])
+        if ctx:
+            finance_ctx = f"\n\n{ctx}\n"
+
+    system_prompt = (conv["system_prompt"] if conv and conv["system_prompt"] else "You are a helpful sales assistant.") + finance_ctx
     history = await _load_history(pool, conv_id, None)
     reply = await llm.draft_followup(
         system_prompt, history,

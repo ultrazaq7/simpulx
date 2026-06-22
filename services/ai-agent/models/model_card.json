@@ -1,17 +1,17 @@
 {
-  "version": "bootstrap-20260603-0923",
+  "version": "bootstrap-20260622-1602",
   "algo": "catboost",
-  "label_source": "agent_hand_labeled (200 threads read and labeled manually, no API cost)",
-  "trained_at": "2026-06-03T09:23:15.770091Z",
-  "rows": 200,
-  "positives": 44,
-  "base_rate": 0.22,
+  "label_source": "llm_proxy (claude-haiku via label_conversations.py)",
+  "trained_at": "2026-06-22T16:02:41.951084Z",
+  "rows": 11492,
+  "positives": 2487,
+  "base_rate": 0.2164,
   "metrics": {
-    "roc_auc": 0.8566,
-    "pr_auc": 0.5699,
-    "brier": 0.1635,
-    "precision_at_10pct": 0.5,
-    "precision_at_20pct": 0.625
+    "roc_auc": 0.9799,
+    "pr_auc": 0.8951,
+    "brier": 0.0343,
+    "precision_at_10pct": 0.8952,
+    "precision_at_20pct": 0.8715
   },
   "sanity_gate_passed": true,
   "feature_order": [

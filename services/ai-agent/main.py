@@ -105,14 +105,22 @@ async def summary_stream(req: SummaryReq):
     pool = state["pool"]
     async with pool.acquire() as conn:
         conv = await conn.fetchrow(
-            """SELECT a.system_prompt, a.model
+            """SELECT a.system_prompt, a.model, cv.car_brand, cv.car_model, cv.city
                  FROM conversations cv
                  LEFT JOIN ai_agents a ON a.id = cv.ai_agent_id
                 WHERE cv.id = $1""",
             req.conversation_id,
         )
+    
+    finance_ctx = ""
+    if conv and conv["car_brand"] and conv["car_model"]:
+        import finance_rag
+        ctx = await finance_rag.get_finance_context(pool, conv["car_brand"], conv["car_model"], conv["city"])
+        if ctx:
+            finance_ctx = f"\n\n{ctx}\n"
+
     system_prompt = (conv["system_prompt"] if conv and conv["system_prompt"]
-                     else "You are a helpful sales assistant.")
+                     else "You are a helpful sales assistant.") + finance_ctx
     model = conv["model"] if conv else None
     history = await orchestrator._load_history(pool, req.conversation_id, None)
 
@@ -153,14 +161,22 @@ async def reply_stream(req: SummaryReq):
     pool = state["pool"]
     async with pool.acquire() as conn:
         conv = await conn.fetchrow(
-            """SELECT a.system_prompt, a.model
+            """SELECT a.system_prompt, a.model, cv.car_brand, cv.car_model, cv.city
                  FROM conversations cv
                  LEFT JOIN ai_agents a ON a.id = cv.ai_agent_id
                 WHERE cv.id = $1""",
             req.conversation_id,
         )
+        
+    finance_ctx = ""
+    if conv and conv["car_brand"] and conv["car_model"]:
+        import finance_rag
+        ctx = await finance_rag.get_finance_context(pool, conv["car_brand"], conv["car_model"], conv["city"])
+        if ctx:
+            finance_ctx = f"\n\n{ctx}\n"
+
     system_prompt = (conv["system_prompt"] if conv and conv["system_prompt"]
-                     else "You are a helpful sales assistant.")
+                     else "You are a helpful sales assistant.") + finance_ctx
     model = conv["model"] if conv else None
     history = await orchestrator._load_history(pool, req.conversation_id, None)
 
