@@ -153,10 +153,10 @@ export default function DetailsPanel({ active, onClose, copyText, notes, onAddNo
             </Tip>
           </div>
           <div className="min-w-0">
-            <p className="font-bold text-[13px] text-foreground truncate">{active.contact_name || "Unknown"}</p>
+            <p className="font-bold text-[15px] text-foreground truncate">{active.contact_name || "Unknown"}</p>
             {active.contact_phone && (
               <div className="flex items-center gap-1">
-                <span className="text-[11px] text-muted-foreground tabular-nums">{active.contact_phone}</span>
+                <span className="text-xs text-muted-foreground tabular-nums">{active.contact_phone}</span>
                 <button aria-label="Copy phone number" onClick={() => copyText(active.contact_phone!)} className="p-0.5 rounded hover:bg-muted outline-none text-primary/70 hover:text-primary">
                   <Copy className="w-[11px] h-[11px]" />
                 </button>
