@@ -1,27 +1,39 @@
-// ============================================================
-// Auth Repository Interface (Domain layer)
-// ============================================================
-import 'package:dartz/dartz.dart';
-import 'package:simpulx/core/error/failures.dart';
-import 'package:simpulx/features/auth/domain/entities/auth_entities.dart';
+import '../../../../core/error/result.dart';
+import '../../../../shared/models/auth_user.dart';
 
+/// Auth domain contract. Implemented in `data/`, consumed by the presentation
+/// controller. Returns [Result] so the UI never sees transport exceptions.
 abstract class AuthRepository {
-  Future<Either<Failure, AuthSession>> login({
+  /// Authenticate and persist tokens. Returns the signed-in user.
+  Future<Result<AuthUser>> login({
     required String email,
     required String password,
   });
 
-  Future<Either<Failure, String>> forgotPassword({
-    required String email,
+  /// Hydrate the current user from `/api/me` (used on cold start).
+  Future<Result<AuthUser>> currentUser();
+
+  /// Set online/offline presence.
+  Future<Result<void>> setPresence(bool online);
+
+  /// Register this device's push token after login.
+  Future<void> registerPushToken({
+    required String token,
+    required String platform,
   });
 
-  Future<Either<Failure, String>> resetPassword({
+  /// Request a password reset email.
+  Future<Result<void>> forgotPassword(String email);
+
+  /// Complete a password reset using a token from the email link.
+  Future<Result<void>> resetPassword({
     required String token,
     required String newPassword,
   });
 
-  Future<Either<Failure, AuthSession>> refreshToken();
-  Future<Either<Failure, void>> logout();
-  Future<Either<Failure, AuthSession?>> getStoredSession();
-  Future<void> updateStoredSession(AuthSession session);
+  /// Revoke the refresh token (best-effort) and clear local tokens.
+  Future<void> signOut();
+
+  /// Whether a token exists locally (no network).
+  Future<bool> hasSession();
 }

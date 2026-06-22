@@ -1,97 +1,64 @@
-// ============================================================
-// Chat Repository Interface (Domain)
-// ============================================================
-import 'package:dartz/dartz.dart';
-import 'package:simpulx/core/error/failures.dart';
-import 'package:simpulx/features/chat/domain/entities/chat_entities.dart';
+import '../../../../core/error/result.dart';
+import '../entities/conversation.dart';
+import '../entities/lead_lookups.dart';
+import '../entities/messages_page.dart';
+import '../entities/uploaded_media.dart';
 
 abstract class ChatRepository {
-  Future<Either<Failure, List<ConversationEntity>>> getConversations({
-    String? status,
-    String? agentId,
-    String? contactId,
-    String? assignment,
-    String? lastMessageBy,
-    String? channelId,
-    String? departmentId,
-    String? interestLevel,
-    String? sourceChannel,
-    String? stageId,
-    String? followUpDue,
-    String? sort,
-    String? tag,
-    int page,
-    int limit,
-    String? search,
-  });
+  /// Inbox list, optionally filtered by status (open/pending/closed).
+  Future<Result<List<Conversation>>> listConversations({String? status});
 
-  Future<Either<Failure, List<MessageEntity>>> getMessages({
-    required String conversationId,
-    int page,
+  /// Message history page (ASC). Pass [cursor] to load older messages.
+  Future<Result<MessagesPage>> getMessages(
+    String conversationId, {
+    String? cursor,
     int limit,
   });
 
-  Future<Either<Failure, MessageEntity>> sendMessage({
-    required String conversationId,
-    required String content,
+  /// Queue an outbound message. The persisted message arrives via realtime.
+  Future<Result<void>> sendMessage(
+    String conversationId, {
+    required String body,
     String type,
+    String? mediaUrl,
   });
 
-  Future<Either<Failure, MessageEntity>> sendTemplate({
-    required String conversationId,
-    required String templateId,
-    Map<String, String>? variables,
-  });
+  // ── Lookups ────────────────────────────────────────────
+  Future<Result<List<Stage>>> getStages();
+  Future<Result<List<Disposition>>> getDispositions();
+  Future<Result<List<QuickReply>>> getQuickReplies();
+  Future<Result<List<AgentRef>>> getAgents();
+  Future<Result<List<Note>>> getNotes(String conversationId);
 
-  Future<Either<Failure, void>> assignAgent({
-    required String conversationId,
-    String? agentId,
-  });
+  // ── Lead actions ───────────────────────────────────────
+  Future<Result<void>> addNote(String conversationId, String body);
 
-  Future<Either<Failure, List<AgentEntity>>> getAssignableAgents();
-
-  Future<Either<Failure, ChatFilterOptionsEntity>> getFilterOptions();
-
-  Future<Either<Failure, ContactEntity>> updateContactTags({
-    required String contactId,
-    required List<String> tags,
-  });
-
-  Future<Either<Failure, void>> markAsRead({
-    required String conversationId,
-  });
-
-  Future<Either<Failure, void>> updateConversationStatus({
-    required String conversationId,
-    required String status,
+  Future<Result<void>> patchConversation(
+    String conversationId, {
     String? stageId,
-    String? snoozedUntil,
-  });
-
-  Future<Either<Failure, void>> updateConversationStage({
-    required String conversationId,
-    String? stageId,
-  });
-
-  Future<Either<Failure, void>> updateConversationInterestLevel({
-    required String conversationId,
+    String? dispositionId,
     String? interestLevel,
+    String? status,
+    String? lostReason,
   });
 
-  Future<Either<Failure, List<InternalNoteEntity>>> getInternalNotes({
-    required String conversationId,
+  Future<Result<void>> assign(
+    String conversationId, {
+    String? agentId,
+    bool unassign,
   });
 
-  Future<Either<Failure, InternalNoteEntity>> addInternalNote({
-    required String conversationId,
-    required String content,
-  });
+  Future<Result<void>> snooze(String conversationId, DateTime until);
+  Future<Result<void>> close(String conversationId, {String? reason});
+  Future<Result<void>> toggleBot(String conversationId, bool active);
+  Future<Result<void>> trackCall(String conversationId, {int durationSeconds});
 
-  Future<Either<Failure, void>> deleteInternalNote({
-    required String conversationId,
-    required String noteId,
-  });
+  /// Upload a local file to object storage; returns the served URL + media type.
+  Future<Result<UploadedMedia>> uploadFile(String path, {String? filename});
 
-  Stream<MessageEntity> get messageStream;
-  Stream<ConversationEntity> get conversationUpdateStream;
+  /// Stream the AI lead summary (SSE text deltas).
+  Stream<String> streamSummary(String conversationId, {String lang});
+
+  /// Stream a suggested reply draft (SSE text deltas).
+  Stream<String> streamDraftReply(String conversationId, {String lang});
 }

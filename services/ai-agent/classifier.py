@@ -15,7 +15,7 @@ from typing import Dict, List, TypedDict
 INTENT_CATEGORIES: Dict[str, List[str]] = {
     "Price/Financing": [r"\bdp\b", r"\bcicilan\b", r"\bangsuran\b", r"\bharga\b", r"\botr\b",
                         r"\bkredit\b", r"\btunai\b", r"\bbunga\b", r"\btenor\b", r"\bleasing\b",
-                        r"\bberapa\b", r"\bbrp\b", r"\bjuta\b", r"\bjt\b"],
+                        r"\bberapa\b", r"\bbrp\b", r"\bjuta\b", r"\bjt\b", r"\bsimulasi\b", r"\bacc\b", r"\btaf\b"],
     "Promo/Deal": [r"\bpromo\b", r"\bdiskon\b", r"\bpenawaran\b", r"\bbonus\b", r"\bcashback\b",
                    r"\bsubsidi\b", r"\bgratis\b"],
     "Test Drive": [r"\btest drive\b", r"\btest-drive\b", r"\btestdrive\b", r"\buji coba\b",

@@ -1,323 +1,151 @@
-// ============================================================
-// Chat Repository Implementation
-// ============================================================
-import 'dart:async';
-import 'package:dartz/dartz.dart';
-import 'package:dio/dio.dart';
-import 'package:simpulx/core/error/failures.dart';
-import 'package:simpulx/core/network/websocket_service.dart';
-import 'package:simpulx/features/chat/data/datasources/chat_remote_datasource.dart';
-import 'package:simpulx/features/chat/data/models/chat_models.dart';
-import 'package:simpulx/features/chat/domain/entities/chat_entities.dart';
-import 'package:simpulx/features/chat/domain/repositories/chat_repository.dart';
+import '../../../../core/error/result.dart';
+import '../../../../core/network/error_mapper.dart';
+import '../../domain/entities/conversation.dart';
+import '../../domain/entities/lead_lookups.dart';
+import '../../domain/entities/messages_page.dart';
+import '../../domain/entities/uploaded_media.dart';
+import '../../domain/repositories/chat_repository.dart';
+import '../datasources/chat_remote_datasource.dart';
 
 class ChatRepositoryImpl implements ChatRepository {
-  final ChatRemoteDataSource _remoteDataSource;
-  final WebSocketService _wsService;
+  ChatRepositoryImpl(this._remote);
+  final ChatRemoteDataSource _remote;
 
-  final _messageStreamController = StreamController<MessageEntity>.broadcast();
-  final _conversationStreamController =
-      StreamController<ConversationEntity>.broadcast();
-  late final String Function(Object) _errorExtractor;
-
-  ChatRepositoryImpl({
-    required ChatRemoteDataSource remoteDataSource,
-    required WebSocketService wsService,
-  })  : _remoteDataSource = remoteDataSource,
-        _wsService = wsService {
-    // Extract user-friendly error message from exceptions
-    String extractError(Object e) {
-      if (e is DioException && e.response?.data is Map) {
-        final msg = (e.response!.data as Map)['message'];
-        if (msg is String && msg.isNotEmpty) return msg;
-        if (msg is List && msg.isNotEmpty) return msg.join(', ');
-      }
-      return 'Something went wrong';
+  @override
+  Future<Result<List<Conversation>>> listConversations({String? status}) async {
+    try {
+      final list = await _remote.listConversations(status: status);
+      return Result.ok(list);
+    } catch (e) {
+      return Result.err(ErrorMapper.toFailure(e));
     }
-
-    _errorExtractor = extractError;
-    // Forward WebSocket messages to typed streams
-    _wsService.messageStream.listen((data) {
-      if (data['message'] != null) {
-        final msg =
-            MessageModel.fromJson(Map<String, dynamic>.from(data['message']));
-        _messageStreamController.add(msg);
-      }
-    });
-
-    _wsService.conversationStream.listen((data) {
-      if (data['conversation'] != null) {
-        final conv = ConversationModel.fromJson(
-            Map<String, dynamic>.from(data['conversation']));
-        _conversationStreamController.add(conv);
-      }
-    });
   }
 
   @override
-  Future<Either<Failure, List<ConversationEntity>>> getConversations({
-    String? status,
-    String? agentId,
-    String? contactId,
-    String? assignment,
-    String? lastMessageBy,
-    String? channelId,
-    String? departmentId,
-    String? interestLevel,
-    String? sourceChannel,
-    String? stageId,
-    String? followUpDue,
-    String? sort,
-    String? tag,
-    int page = 1,
+  Future<Result<MessagesPage>> getMessages(
+    String conversationId, {
+    String? cursor,
     int limit = 50,
-    String? search,
   }) async {
     try {
-      final conversations = await _remoteDataSource.getConversations(
-        status: status,
-        search: search,
-        agentId: agentId,
-        contactId: contactId,
-        assignment: assignment,
-        lastMessageBy: lastMessageBy,
-        channelId: channelId,
-        departmentId: departmentId,
-        interestLevel: interestLevel,
-        sourceChannel: sourceChannel,
-        stageId: stageId,
-        followUpDue: followUpDue,
-        sort: sort,
-        tag: tag,
-        page: page,
+      final page = await _remote.getMessages(
+        conversationId,
+        cursor: cursor,
         limit: limit,
       );
-      return Right(conversations);
+      return Result.ok(page);
     } catch (e) {
-      return Left(ServerFailure(message: _errorExtractor(e)));
+      return Result.err(ErrorMapper.toFailure(e));
     }
   }
 
   @override
-  Future<Either<Failure, List<MessageEntity>>> getMessages({
-    required String conversationId,
-    int page = 1,
-    int limit = 100,
-  }) async {
-    try {
-      final messages = await _remoteDataSource.getMessages(
-        conversationId: conversationId,
-        page: page,
-        limit: limit,
-      );
-      return Right(messages);
-    } catch (e) {
-      return Left(ServerFailure(message: _errorExtractor(e)));
-    }
-  }
-
-  @override
-  Future<Either<Failure, MessageEntity>> sendMessage({
-    required String conversationId,
-    required String content,
+  Future<Result<void>> sendMessage(
+    String conversationId, {
+    required String body,
     String type = 'text',
+    String? mediaUrl,
   }) async {
     try {
-      final message = await _remoteDataSource.sendMessage(
-        conversationId: conversationId,
-        content: content,
+      await _remote.sendMessage(
+        conversationId,
+        body: body,
         type: type,
+        mediaUrl: mediaUrl,
       );
-      return Right(message);
+      return const Result.ok(null);
     } catch (e) {
-      return Left(ServerFailure(message: _errorExtractor(e)));
+      return Result.err(ErrorMapper.toFailure(e));
     }
   }
 
+  // ── Lookups ────────────────────────────────────────────
   @override
-  Future<Either<Failure, MessageEntity>> sendTemplate({
-    required String conversationId,
-    required String templateId,
-    Map<String, String>? variables,
-  }) async {
-    try {
-      final message = await _remoteDataSource.sendTemplate(
-        conversationId: conversationId,
-        templateId: templateId,
-        variables: variables,
-      );
-      return Right(message);
-    } catch (e) {
-      return Left(ServerFailure(message: _errorExtractor(e)));
-    }
-  }
+  Future<Result<List<Stage>>> getStages() => _guard(_remote.getStages);
 
   @override
-  Future<Either<Failure, void>> assignAgent({
-    required String conversationId,
-    String? agentId,
-  }) async {
-    try {
-      await _remoteDataSource.assignAgent(
-        conversationId: conversationId,
-        agentId: agentId,
-      );
-      return const Right(null);
-    } catch (e) {
-      return Left(ServerFailure(message: _errorExtractor(e)));
-    }
-  }
+  Future<Result<List<Disposition>>> getDispositions() =>
+      _guard(_remote.getDispositions);
 
   @override
-  Future<Either<Failure, List<AgentEntity>>> getAssignableAgents() async {
-    try {
-      final agents = await _remoteDataSource.getAssignableAgents();
-      return Right(agents);
-    } catch (e) {
-      return Left(ServerFailure(message: _errorExtractor(e)));
-    }
-  }
+  Future<Result<List<QuickReply>>> getQuickReplies() =>
+      _guard(_remote.getQuickReplies);
 
   @override
-  Future<Either<Failure, ChatFilterOptionsEntity>> getFilterOptions() async {
-    try {
-      final options = await _remoteDataSource.getFilterOptions();
-      return Right(options);
-    } catch (e) {
-      return Left(ServerFailure(message: _errorExtractor(e)));
-    }
-  }
+  Future<Result<List<AgentRef>>> getAgents() => _guard(_remote.getAgents);
 
   @override
-  Future<Either<Failure, ContactEntity>> updateContactTags({
-    required String contactId,
-    required List<String> tags,
-  }) async {
-    try {
-      final contact = await _remoteDataSource.updateContactTags(
-        contactId: contactId,
-        tags: tags,
-      );
-      return Right(contact);
-    } catch (e) {
-      return Left(ServerFailure(message: _errorExtractor(e)));
-    }
-  }
+  Future<Result<List<Note>>> getNotes(String conversationId) =>
+      _guard(() => _remote.getNotes(conversationId));
+
+  // ── Lead actions ───────────────────────────────────────
+  @override
+  Future<Result<void>> addNote(String conversationId, String body) =>
+      _guard(() => _remote.addNote(conversationId, body));
 
   @override
-  Future<Either<Failure, void>> markAsRead({
-    required String conversationId,
-  }) async {
-    try {
-      await _remoteDataSource.markAsRead(conversationId: conversationId);
-      return const Right(null);
-    } catch (e) {
-      return Left(ServerFailure(message: _errorExtractor(e)));
-    }
-  }
-
-  @override
-  Future<Either<Failure, void>> updateConversationStatus({
-    required String conversationId,
-    required String status,
+  Future<Result<void>> patchConversation(
+    String conversationId, {
     String? stageId,
-    String? snoozedUntil,
-  }) async {
-    try {
-      await _remoteDataSource.updateConversationStatus(
-        conversationId: conversationId,
-        status: status,
-        stageId: stageId,
-        snoozedUntil: snoozedUntil,
-      );
-      return const Right(null);
-    } catch (e) {
-      return Left(ServerFailure(message: _errorExtractor(e)));
-    }
-  }
-
-  @override
-  Future<Either<Failure, void>> updateConversationStage({
-    required String conversationId,
-    String? stageId,
-  }) async {
-    try {
-      await _remoteDataSource.updateConversationStage(
-        conversationId: conversationId,
-        stageId: stageId,
-      );
-      return const Right(null);
-    } catch (e) {
-      return Left(ServerFailure(message: _errorExtractor(e)));
-    }
-  }
-
-  @override
-  Future<Either<Failure, void>> updateConversationInterestLevel({
-    required String conversationId,
+    String? dispositionId,
     String? interestLevel,
-  }) async {
+    String? status,
+    String? lostReason,
+  }) =>
+      _guard(() => _remote.patchConversation(
+            conversationId,
+            stageId: stageId,
+            dispositionId: dispositionId,
+            interestLevel: interestLevel,
+            status: status,
+            lostReason: lostReason,
+          ));
+
+  @override
+  Future<Result<void>> assign(
+    String conversationId, {
+    String? agentId,
+    bool unassign = false,
+  }) =>
+      _guard(() =>
+          _remote.assign(conversationId, agentId: agentId, unassign: unassign));
+
+  @override
+  Future<Result<void>> snooze(String conversationId, DateTime until) =>
+      _guard(() => _remote.snooze(conversationId, until));
+
+  @override
+  Future<Result<void>> close(String conversationId, {String? reason}) =>
+      _guard(() => _remote.close(conversationId, reason: reason));
+
+  @override
+  Future<Result<void>> toggleBot(String conversationId, bool active) =>
+      _guard(() => _remote.toggleBot(conversationId, active));
+
+  @override
+  Future<Result<void>> trackCall(String conversationId,
+          {int durationSeconds = 0}) =>
+      _guard(() =>
+          _remote.trackCall(conversationId, durationSeconds: durationSeconds));
+
+  @override
+  Future<Result<UploadedMedia>> uploadFile(String path, {String? filename}) =>
+      _guard(() => _remote.uploadFile(path, filename: filename));
+
+  @override
+  Stream<String> streamSummary(String conversationId, {String lang = 'en'}) =>
+      _remote.streamSummary(conversationId, lang: lang);
+
+  @override
+  Stream<String> streamDraftReply(String conversationId, {String lang = 'en'}) =>
+      _remote.streamDraftReply(conversationId, lang: lang);
+
+  /// Wraps a datasource call, mapping exceptions to a [Failure].
+  Future<Result<T>> _guard<T>(Future<T> Function() call) async {
     try {
-      await _remoteDataSource.updateConversationInterestLevel(
-        conversationId: conversationId,
-        interestLevel: interestLevel,
-      );
-      return const Right(null);
+      return Result.ok(await call());
     } catch (e) {
-      return Left(ServerFailure(message: _errorExtractor(e)));
+      return Result.err(ErrorMapper.toFailure(e));
     }
   }
-
-  @override
-  Future<Either<Failure, List<InternalNoteEntity>>> getInternalNotes({
-    required String conversationId,
-  }) async {
-    try {
-      final notes = await _remoteDataSource.getInternalNotes(
-        conversationId: conversationId,
-      );
-      return Right(notes);
-    } catch (e) {
-      return Left(ServerFailure(message: _errorExtractor(e)));
-    }
-  }
-
-  @override
-  Future<Either<Failure, InternalNoteEntity>> addInternalNote({
-    required String conversationId,
-    required String content,
-  }) async {
-    try {
-      final note = await _remoteDataSource.addInternalNote(
-        conversationId: conversationId,
-        content: content,
-      );
-      return Right(note);
-    } catch (e) {
-      return Left(ServerFailure(message: _errorExtractor(e)));
-    }
-  }
-
-  @override
-  Future<Either<Failure, void>> deleteInternalNote({
-    required String conversationId,
-    required String noteId,
-  }) async {
-    try {
-      await _remoteDataSource.deleteInternalNote(
-        conversationId: conversationId,
-        noteId: noteId,
-      );
-      return const Right(null);
-    } catch (e) {
-      return Left(ServerFailure(message: _errorExtractor(e)));
-    }
-  }
-
-  @override
-  Stream<MessageEntity> get messageStream => _messageStreamController.stream;
-
-  @override
-  Stream<ConversationEntity> get conversationUpdateStream =>
-      _conversationStreamController.stream;
 }

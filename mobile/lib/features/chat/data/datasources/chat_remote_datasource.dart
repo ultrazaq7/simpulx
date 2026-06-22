@@ -1,262 +1,259 @@
-// ============================================================
-// Chat Remote Data Source
-// ============================================================
-import 'package:simpulx/core/network/dio_client.dart';
-import 'package:simpulx/core/constants/api_constants.dart';
-import 'package:simpulx/features/chat/data/models/chat_models.dart';
+import 'package:dio/dio.dart';
+
+import '../../../../core/network/api_endpoints.dart';
+import '../../../../core/network/error_mapper.dart';
+import '../../../../core/network/sse.dart';
+import '../../../../core/utils/json_parse.dart';
+import '../../domain/entities/conversation.dart';
+import '../../domain/entities/lead_lookups.dart';
+import '../../domain/entities/messages_page.dart';
+import '../../domain/entities/uploaded_media.dart';
+import '../models/conversation_model.dart';
+import '../models/message_model.dart';
 
 class ChatRemoteDataSource {
-  final DioClient _client;
+  ChatRemoteDataSource(this._dio);
+  final Dio _dio;
 
-  ChatRemoteDataSource({required DioClient client}) : _client = client;
+  /// GET /api/conversations[?status=] -> bare JSON array (max 100).
+  Future<List<Conversation>> listConversations({String? status}) async {
+    try {
+      final res = await _dio.get(
+        ApiEndpoints.conversations,
+        queryParameters: {if (status != null && status.isNotEmpty) 'status': status},
+      );
+      final data = res.data;
+      final list = data is List
+          ? data
+          : (data is Map ? (data['data'] as List? ?? const []) : const []);
+      return list
+          .whereType<Map>()
+          .map((e) => ConversationModel.fromJson(e.cast<String, dynamic>()))
+          .toList();
+    } on DioException catch (e) {
+      throw ErrorMapper.fromDio(e);
+    }
+  }
 
-  Future<List<ConversationModel>> getConversations({
-    String? status,
-    String? search,
-    String? agentId,
-    String? contactId,
-    String? assignment,
-    String? lastMessageBy,
-    String? channelId,
-    String? departmentId,
-    String? interestLevel,
-    String? sourceChannel,
-    String? stageId,
-    String? followUpDue,
-    String? sort,
-    String? tag,
-    int page = 1,
+  /// GET /api/conversations/{id}/messages?limit&cursor -> {data, next_cursor}.
+  /// `data` is chronological ASC; pass [cursor] = previous `nextCursor` to load
+  /// older history.
+  Future<MessagesPage> getMessages(
+    String conversationId, {
+    String? cursor,
     int limit = 50,
   }) async {
-    final queryParams = <String, dynamic>{
-      'page': page,
-      'limit': limit,
-    };
-    if (status != null && status.isNotEmpty) queryParams['status'] = status;
-    if (search != null && search.isNotEmpty) queryParams['search'] = search;
-    if (agentId != null && agentId.isNotEmpty) {
-      queryParams['agentId'] = agentId;
+    try {
+      final res = await _dio.get(
+        ApiEndpoints.messages(conversationId),
+        queryParameters: {
+          'limit': limit,
+          'cursor': ?cursor,
+        },
+      );
+      final map = (res.data as Map).cast<String, dynamic>();
+      final messages = (map['data'] as List? ?? const [])
+          .whereType<Map>()
+          .map((e) => MessageModel.fromJson(e.cast<String, dynamic>()))
+          .toList();
+      return MessagesPage(
+        messages: messages,
+        nextCursor: map['next_cursor'] as String?,
+      );
+    } on DioException catch (e) {
+      throw ErrorMapper.fromDio(e);
     }
-    if (contactId != null && contactId.isNotEmpty) {
-      queryParams['contactId'] = contactId;
-    }
-    if (assignment != null && assignment.isNotEmpty) {
-      queryParams['assignment'] = assignment;
-    }
-    if (lastMessageBy != null && lastMessageBy.isNotEmpty) {
-      queryParams['lastMessageBy'] = lastMessageBy;
-    }
-    if (channelId != null && channelId.isNotEmpty) {
-      queryParams['channelId'] = channelId;
-    }
-    if (departmentId != null && departmentId.isNotEmpty) {
-      queryParams['departmentId'] = departmentId;
-    }
-    if (interestLevel != null && interestLevel.isNotEmpty) {
-      queryParams['interestLevel'] = interestLevel;
-    }
-    if (sourceChannel != null && sourceChannel.isNotEmpty) {
-      queryParams['sourceChannel'] = sourceChannel;
-    }
-    if (stageId != null && stageId.isNotEmpty) {
-      queryParams['stageId'] = stageId;
-    }
-    if (followUpDue != null && followUpDue.isNotEmpty) {
-      queryParams['followUpDue'] = followUpDue;
-    }
-    if (sort != null && sort.isNotEmpty) queryParams['sort'] = sort;
-    if (tag != null && tag.isNotEmpty) queryParams['tag'] = tag;
-
-    final response = await _client.dio.get(
-      ApiConstants.conversations,
-      queryParameters: queryParams,
-    );
-
-    final data = response.data;
-    // Backend may return { data: [...] } or just [...]
-    final List<dynamic> list =
-        data is List ? data : (data['data'] ?? data['conversations'] ?? []);
-
-    return list
-        .map((json) =>
-            ConversationModel.fromJson(Map<String, dynamic>.from(json)))
-        .toList();
   }
 
-  Future<ChatFilterOptionsModel> getFilterOptions() async {
-    final response = await _client.dio.get(ApiConstants.conversationFilters);
-    return ChatFilterOptionsModel.fromJson(
-      Map<String, dynamic>.from(response.data as Map),
-    );
-  }
-
-  Future<ContactModel> updateContactTags({
-    required String contactId,
-    required List<String> tags,
-  }) async {
-    final response = await _client.dio.patch(
-      ApiConstants.contact(contactId),
-      data: {'tags': tags},
-    );
-
-    return ContactModel.fromJson(Map<String, dynamic>.from(response.data));
-  }
-
-  Future<List<MessageModel>> getMessages({
-    required String conversationId,
-    int page = 1,
-    int limit = 100,
-  }) async {
-    final response = await _client.dio.get(
-      ApiConstants.messages(conversationId),
-      queryParameters: {'page': page, 'limit': limit},
-    );
-
-    final data = response.data;
-    final List<dynamic> list =
-        data is List ? data : (data['data'] ?? data['messages'] ?? []);
-
-    return list
-        .map((json) => MessageModel.fromJson(Map<String, dynamic>.from(json)))
-        .toList();
-  }
-
-  Future<MessageModel> sendMessage({
-    required String conversationId,
-    required String content,
+  /// POST /api/conversations/{id}/messages -> {status: queued}. The persisted
+  /// message arrives over the realtime WebSocket as `message.persisted`.
+  Future<void> sendMessage(
+    String conversationId, {
+    required String body,
     String type = 'text',
+    String? mediaUrl,
   }) async {
-    final response = await _client.dio.post(
-      ApiConstants.messages(conversationId),
-      data: {
-        'content': content,
-        'type': type,
-      },
-    );
-
-    return MessageModel.fromJson(Map<String, dynamic>.from(response.data));
+    try {
+      await _dio.post(
+        ApiEndpoints.messages(conversationId),
+        data: {
+          'body': body,
+          'type': type,
+          if (mediaUrl != null && mediaUrl.isNotEmpty) 'media_url': mediaUrl,
+        },
+      );
+    } on DioException catch (e) {
+      throw ErrorMapper.fromDio(e);
+    }
   }
 
-  Future<MessageModel> sendTemplate({
-    required String conversationId,
-    required String templateId,
-    Map<String, String>? variables,
-  }) async {
-    final response = await _client.dio.post(
-      ApiConstants.sendTemplate(conversationId),
-      data: {
-        'templateId': templateId,
-        if (variables != null && variables.isNotEmpty) 'variables': variables,
-      },
-    );
+  // ── Lookups (bare arrays) ──────────────────────────────
 
-    return MessageModel.fromJson(Map<String, dynamic>.from(response.data));
+  Future<List<Stage>> getStages() => _list(
+        ApiEndpoints.stages,
+        (m) => Stage(id: asString(m['id']), name: asString(m['name'])),
+      );
+
+  Future<List<Disposition>> getDispositions() => _list(
+        ApiEndpoints.dispositions,
+        (m) => Disposition(
+          id: asString(m['id']),
+          name: asString(m['name']),
+          category: asString(m['category']),
+        ),
+      );
+
+  Future<List<QuickReply>> getQuickReplies() => _list(
+        ApiEndpoints.quickReplies,
+        (m) => QuickReply(
+          id: asString(m['id']),
+          shortcut: asString(m['shortcut']),
+          title: asString(m['title']),
+          body: asString(m['body']),
+        ),
+      );
+
+  Future<List<AgentRef>> getAgents() => _list(
+        ApiEndpoints.agents,
+        (m) => AgentRef(
+          id: asString(m['id']),
+          name: asString(m['full_name']),
+          isOnline: asBool(m['is_online']),
+          openCount: asInt(m['open_count']),
+        ),
+      );
+
+  Future<List<Note>> getNotes(String conversationId) => _list(
+        ApiEndpoints.notes(conversationId),
+        (m) => Note(
+          id: asString(m['id']),
+          body: asString(m['body']),
+          author: asString(m['author']),
+          createdAt: asDateOrNull(m['created_at']) ?? DateTime.now(),
+        ),
+      );
+
+  Future<List<T>> _list<T>(
+    String path,
+    T Function(Map<String, dynamic>) map,
+  ) async {
+    try {
+      final res = await _dio.get(path);
+      final data = res.data;
+      final list = data is List
+          ? data
+          : (data is Map ? (data['data'] as List? ?? const []) : const []);
+      return list
+          .whereType<Map>()
+          .map((e) => map(e.cast<String, dynamic>()))
+          .toList();
+    } on DioException catch (e) {
+      throw ErrorMapper.fromDio(e);
+    }
   }
 
-  Future<List<AgentModel>> getAssignableAgents() async {
-    final response = await _client.dio.get(
-      ApiConstants.users,
-      queryParameters: {
-        'status': 'active',
-        'page': 1,
-        'limit': 200,
-      },
-    );
+  // ── Mutations ──────────────────────────────────────────
 
-    final data = response.data;
-    final List<dynamic> list =
-        data is List ? data : (data['data'] ?? data['users'] ?? []);
+  Future<void> addNote(String conversationId, String body) =>
+      _post(ApiEndpoints.notes(conversationId), {'body': body});
 
-    return list
-        .whereType<Map<String, dynamic>>()
-        .where((json) {
-          final role = json['role'] as String? ?? '';
-          return role == 'agent' || role == 'supervisor' || role == 'manager';
-        })
-        .map(AgentModel.fromJson)
-        .toList();
-  }
-
-  Future<void> assignAgent({
-    required String conversationId,
-    String? agentId,
-  }) async {
-    await _client.dio.patch(
-      ApiConstants.assignAgent(conversationId),
-      data: {'agentId': agentId},
-    );
-  }
-
-  Future<void> markAsRead({required String conversationId}) async {
-    await _client.dio.patch(ApiConstants.markRead(conversationId));
-  }
-
-  Future<void> updateConversationStatus({
-    required String conversationId,
-    required String status,
+  /// PATCH /api/conversations/{id}. Only non-null fields are applied.
+  Future<void> patchConversation(
+    String conversationId, {
     String? stageId,
-    String? snoozedUntil,
-  }) async {
-    final body = <String, dynamic>{'status': status};
-    if (stageId != null) body['stageId'] = stageId;
-    if (snoozedUntil != null) body['snoozedUntil'] = snoozedUntil;
-    await _client.dio.patch(
-      ApiConstants.conversationStatus(conversationId),
-      data: body,
-    );
-  }
-
-  Future<void> updateConversationStage({
-    required String conversationId,
-    String? stageId,
-  }) async {
-    await _client.dio.patch(
-      ApiConstants.conversationStage(conversationId),
-      data: {'stageId': stageId},
-    );
-  }
-
-  Future<void> updateConversationInterestLevel({
-    required String conversationId,
+    String? dispositionId,
     String? interestLevel,
+    String? status,
+    String? lostReason,
   }) async {
-    await _client.dio.patch(
-      ApiConstants.conversationInterestLevel(conversationId),
-      data: {'interestLevel': interestLevel},
-    );
+    try {
+      await _dio.patch(
+        ApiEndpoints.conversation(conversationId),
+        data: {
+          'stage_id': ?stageId,
+          'disposition_id': ?dispositionId,
+          'interest_level': ?interestLevel,
+          'status': ?status,
+          'lost_reason': ?lostReason,
+        },
+      );
+    } on DioException catch (e) {
+      throw ErrorMapper.fromDio(e);
+    }
   }
 
-  Future<List<InternalNoteModel>> getInternalNotes({
-    required String conversationId,
-  }) async {
-    final response = await _client.dio.get(
-      ApiConstants.conversationNotes(conversationId),
-    );
-    final data = response.data;
-    final List<dynamic> list = data is List ? data : (data['data'] ?? []);
-    return list
-        .whereType<Map<String, dynamic>>()
-        .map(InternalNoteModel.fromJson)
-        .toList();
+  /// POST /api/conversations/{id}/assign (manager+). Empty [agentId] auto-picks.
+  Future<void> assign(
+    String conversationId, {
+    String? agentId,
+    bool unassign = false,
+  }) =>
+      _post(ApiEndpoints.assign(conversationId), {
+        if (unassign) 'unassign': true else 'agent_id': ?agentId,
+      });
+
+  Future<void> snooze(String conversationId, DateTime until) => _post(
+        ApiEndpoints.snooze(conversationId),
+        {'until': until.toUtc().toIso8601String()},
+      );
+
+  Future<void> close(String conversationId, {String? reason}) =>
+      _post(ApiEndpoints.close(conversationId), {'reason': ?reason});
+
+  Future<void> toggleBot(String conversationId, bool active) =>
+      _post(ApiEndpoints.bot(conversationId), {'active': active});
+
+  /// POST /api/conversations/{id}/calls {duration_seconds} - logs a call
+  /// attempt (increments call_attempts; duration unknown for a dialer redirect).
+  Future<void> trackCall(String conversationId, {int durationSeconds = 0}) =>
+      _post(ApiEndpoints.calls(conversationId),
+          {'duration_seconds': durationSeconds});
+
+  Future<void> _post(String path, Map<String, dynamic> body) async {
+    try {
+      await _dio.post(path, data: body);
+    } on DioException catch (e) {
+      throw ErrorMapper.fromDio(e);
+    }
   }
 
-  Future<InternalNoteModel> addInternalNote({
-    required String conversationId,
-    required String content,
-  }) async {
-    final response = await _client.dio.post(
-      ApiConstants.conversationNotes(conversationId),
-      data: {'content': content},
+  /// Stream the AI lead summary (SSE). Yields text deltas; completes on
+  /// `{"done": true}`, throws on `{"error": ...}`.
+  Stream<String> streamSummary(String conversationId, {String lang = 'en'}) =>
+      _sseText(ApiEndpoints.summary(conversationId), lang);
+
+  /// Stream a suggested customer-facing reply draft (SSE).
+  Stream<String> streamDraftReply(String conversationId, {String lang = 'en'}) =>
+      _sseText(ApiEndpoints.draftReply(conversationId), lang);
+
+  /// POSTs to an SSE endpoint and yields `text` deltas (see [decodeSseText]).
+  Stream<String> _sseText(String path, String lang) async* {
+    final response = await _dio.post<ResponseBody>(
+      path,
+      queryParameters: {'lang': lang},
+      options: Options(
+        responseType: ResponseType.stream,
+        headers: {'Accept': 'text/event-stream'},
+      ),
     );
-    return InternalNoteModel.fromJson(response.data);
+    yield* decodeSseText(response.data!.stream);
   }
 
-  Future<void> deleteInternalNote({
-    required String conversationId,
-    required String noteId,
-  }) async {
-    await _client.dio.delete(
-      ApiConstants.conversationNote(conversationId, noteId),
-    );
+  /// POST /api/uploads (multipart "file") -> {url, type, name}.
+  Future<UploadedMedia> uploadFile(String path, {String? filename}) async {
+    try {
+      final form = FormData.fromMap({
+        'file': await MultipartFile.fromFile(path, filename: filename),
+      });
+      final res = await _dio.post(ApiEndpoints.uploads, data: form);
+      final m = (res.data as Map).cast<String, dynamic>();
+      return UploadedMedia(
+        url: asString(m['url']),
+        type: asString(m['type']),
+        name: asString(m['name']),
+      );
+    } on DioException catch (e) {
+      throw ErrorMapper.fromDio(e);
+    }
   }
 }

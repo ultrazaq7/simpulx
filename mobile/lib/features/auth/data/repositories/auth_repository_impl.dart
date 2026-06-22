@@ -1,149 +1,96 @@
-// ============================================================
-// Auth Repository Implementation
-// ============================================================
-import 'dart:convert';
-import 'package:dartz/dartz.dart';
-import 'package:flutter_secure_storage/flutter_secure_storage.dart';
-import 'package:simpulx/core/error/failures.dart';
-import 'package:simpulx/features/auth/domain/entities/auth_entities.dart';
-import 'package:simpulx/features/auth/domain/repositories/auth_repository.dart';
-import 'package:simpulx/features/auth/data/datasources/auth_remote_datasource.dart';
-import 'package:simpulx/features/auth/data/models/auth_models.dart';
+import '../../../../core/error/result.dart';
+import '../../../../core/network/error_mapper.dart';
+import '../../../../core/storage/secure_store.dart';
+import '../../../../shared/models/auth_user.dart';
+import '../../domain/repositories/auth_repository.dart';
+import '../datasources/auth_remote_datasource.dart';
 
 class AuthRepositoryImpl implements AuthRepository {
-  final AuthRemoteDataSource _remoteDataSource;
-  final FlutterSecureStorage _storage;
-
   AuthRepositoryImpl({
-    required AuthRemoteDataSource remoteDataSource,
-    required FlutterSecureStorage storage,
-  })  : _remoteDataSource = remoteDataSource,
-        _storage = storage;
+    required AuthRemoteDataSource remote,
+    required SecureStore secureStore,
+  })  : _remote = remote,
+        _secureStore = secureStore;
+
+  final AuthRemoteDataSource _remote;
+  final SecureStore _secureStore;
 
   @override
-  Future<Either<Failure, AuthSession>> login({
+  Future<Result<AuthUser>> login({
     required String email,
     required String password,
   }) async {
     try {
-      final session = await _remoteDataSource.login(
-        email: email,
-        password: password,
+      final session = await _remote.login(email: email, password: password);
+      await _secureStore.saveTokens(
+        accessToken: session.token,
+        refreshToken: session.refreshToken,
       );
-      await _storeSession(session);
-      return Right(session);
-    } on ServerException catch (e) {
-      return Left(AuthFailure(message: e.message));
+      return Result.ok(session.user.toEntity());
     } catch (e) {
-      return Left(ServerFailure(message: e.toString()));
+      return Result.err(ErrorMapper.toFailure(e));
     }
   }
 
   @override
-  Future<Either<Failure, String>> forgotPassword({required String email}) async {
+  Future<Result<AuthUser>> currentUser() async {
     try {
-      final message = await _remoteDataSource.forgotPassword(email: email);
-      return Right(message);
-    } on ServerException catch (e) {
-      return Left(AuthFailure(message: e.message));
+      final model = await _remote.me();
+      return Result.ok(model.toEntity());
     } catch (e) {
-      return Left(ServerFailure(message: e.toString()));
+      return Result.err(ErrorMapper.toFailure(e));
     }
   }
 
   @override
-  Future<Either<Failure, String>> resetPassword({
+  Future<Result<void>> setPresence(bool online) async {
+    try {
+      await _remote.setPresence(online);
+      return const Result.ok(null);
+    } catch (e) {
+      return Result.err(ErrorMapper.toFailure(e));
+    }
+  }
+
+  @override
+  Future<void> registerPushToken({
+    required String token,
+    required String platform,
+  }) =>
+      _remote.registerFcmToken(token: token, platform: platform);
+
+  @override
+  Future<Result<void>> forgotPassword(String email) async {
+    try {
+      await _remote.forgotPassword(email);
+      return const Result.ok(null);
+    } catch (e) {
+      return Result.err(ErrorMapper.toFailure(e));
+    }
+  }
+
+  @override
+  Future<Result<void>> resetPassword({
     required String token,
     required String newPassword,
   }) async {
     try {
-      final message = await _remoteDataSource.resetPassword(
-        token: token,
-        newPassword: newPassword,
-      );
-      return Right(message);
-    } on ServerException catch (e) {
-      return Left(AuthFailure(message: e.message));
+      await _remote.resetPassword(token: token, newPassword: newPassword);
+      return const Result.ok(null);
     } catch (e) {
-      return Left(ServerFailure(message: e.toString()));
+      return Result.err(ErrorMapper.toFailure(e));
     }
   }
 
   @override
-  Future<Either<Failure, AuthSession>> refreshToken() async {
-    try {
-      final refreshToken = await _storage.read(key: 'refresh_token');
-      if (refreshToken == null) {
-        return const Left(AuthFailure(message: 'No refresh token'));
-      }
-      return const Left(AuthFailure(message: 'Refresh handled by interceptor'));
-    } catch (e) {
-      return Left(ServerFailure(message: e.toString()));
+  Future<void> signOut() async {
+    final refresh = await _secureStore.readRefreshToken();
+    if (refresh != null && refresh.isNotEmpty) {
+      await _remote.logout(refresh);
     }
+    await _secureStore.clear();
   }
 
   @override
-  Future<Either<Failure, void>> logout() async {
-    try {
-      await _storage.deleteAll();
-      return const Right(null);
-    } catch (e) {
-      return Left(CacheFailure(message: e.toString()));
-    }
-  }
-
-  @override
-  Future<Either<Failure, AuthSession?>> getStoredSession() async {
-    try {
-      final token = await _storage.read(key: 'access_token');
-      final userData = await _storage.read(key: 'user_data');
-      final orgData = await _storage.read(key: 'org_data');
-      final refreshTokenStr = await _storage.read(key: 'refresh_token');
-
-      if (token == null || userData == null || orgData == null) {
-        return const Right(null);
-      }
-
-      final user = UserModel.fromJson(jsonDecode(userData));
-      final org = OrganizationModel.fromJson(jsonDecode(orgData));
-
-      return Right(AuthSessionModel(
-        accessToken: token,
-        refreshToken: refreshTokenStr ?? '',
-        user: user,
-        organization: org,
-      ));
-    } catch (e) {
-      return const Right(null);
-    }
-  }
-
-  Future<void> _storeSession(AuthSessionModel session) async {
-    await _storage.write(key: 'access_token', value: session.accessToken);
-    await _storage.write(key: 'refresh_token', value: session.refreshToken);
-    await _storage.write(
-      key: 'user_data',
-      value: jsonEncode((session.user as UserModel).toJson()),
-    );
-    await _storage.write(
-      key: 'org_data',
-      value: jsonEncode((session.organization as OrganizationModel).toJson()),
-    );
-  }
-
-  @override
-  Future<void> updateStoredSession(AuthSession session) async {
-    // Re-serialize the org data so rolePermissions are persisted locally
-    final orgModel = OrganizationModel(
-      id: session.organization.id,
-      name: session.organization.name,
-      slug: session.organization.slug,
-      plan: session.organization.plan,
-      rolePermissions: session.organization.rolePermissions,
-    );
-    await _storage.write(
-      key: 'org_data',
-      value: jsonEncode(orgModel.toJson()),
-    );
-  }
+  Future<bool> hasSession() => _secureStore.hasSession;
 }

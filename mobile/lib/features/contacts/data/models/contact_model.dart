@@ -1,59 +1,33 @@
-// ============================================================
-// Contact Model (JSON Serializable)
-// ============================================================
-import 'package:simpulx/core/utils/app_datetime.dart';
-import 'package:simpulx/features/contacts/domain/entities/contact_entity.dart';
+import '../../../../core/utils/json_parse.dart';
+import '../../domain/entities/contact.dart';
 
-class ContactModel extends ContactEntity {
-  const ContactModel({
-    required super.id,
-    super.whatsappId,
-    super.instagramId,
-    super.facebookId,
-    super.phone,
-    super.email,
-    super.name,
-    super.avatarUrl,
-    super.tags,
-    super.metadata,
-    super.notes,
-    super.isBlocked,
-    super.sourceChannel,
-    super.firstSeenAt,
-    super.lastSeenAt,
-    required super.createdAt,
-  });
+/// Maps a `GET /api/contacts` row to a [Contact].
+class ContactModel {
+  ContactModel._();
 
-  factory ContactModel.fromJson(Map<String, dynamic> json) {
-    return ContactModel(
-      id: json['id'] as String,
-      whatsappId: json['whatsappId'] ?? json['whatsapp_id'],
-      instagramId: json['instagramId'] ?? json['instagram_id'],
-      facebookId: json['facebookId'] ?? json['facebook_id'],
-      phone: json['phone'] as String?,
-      email: json['email'] as String?,
-      name: (json['name'] ?? json['full_name']) as String?,
-      avatarUrl: json['avatarUrl'] ?? json['avatar_url'],
-      tags: (json['tags'] as List<dynamic>?)?.cast<String>() ?? [],
-      metadata: json['metadata'] is Map
-          ? Map<String, dynamic>.from(json['metadata'])
-          : {},
-      notes: json['notes'] as String?,
-      isBlocked: json['isBlocked'] ?? json['is_blocked'] ?? false,
-      sourceChannel: json['sourceChannel'] ?? json['source_channel'],
-      firstSeenAt: json['firstSeenAt'] != null
-          ? AppDateTime.parseLocal(json['firstSeenAt'])
-          : null,
-      lastSeenAt: json['lastSeenAt'] != null
-          ? AppDateTime.parseLocal(json['lastSeenAt'])
-          : (json['last_seen_at'] != null
-              ? AppDateTime.parseLocal(json['last_seen_at'])
-              : null),
-      createdAt: json['createdAt'] != null
-          ? AppDateTime.parseLocalOrNow(json['createdAt'])
-          : (json['created_at'] != null
-              ? AppDateTime.parseLocalOrNow(json['created_at'])
-              : DateTime.now()),
+  static Contact fromJson(Map<String, dynamic> json) {
+    return Contact(
+      id: asString(json['id']),
+      fullName: asString(json['full_name']),
+      phone: asString(json['phone']),
+      sourceChannel: asStringOrNull(json['source_channel']),
+      channelName: asStringOrNull(json['channel_name']),
+      tags: _tags(json['tags']),
+      blacklisted: asBool(json['blacklisted']),
+      createdAt: asDateOrNull(json['created_at']),
+      lastMessageAt: asDateOrNull(json['last_message_at']),
+      interestLevel: asStringOrNull(json['interest_level']),
+      stageName: asStringOrNull(json['stage_name']),
+      aiSummary: asStringOrNull(json['ai_summary']),
+      assignedAgentId: asStringOrNull(json['assigned_agent_id']),
+      agentName: asStringOrNull(json['agent_name']),
+      conversationId: asStringOrNull(json['conversation_id']),
+      campaignName: asStringOrNull(json['campaign_name']),
     );
+  }
+
+  static List<String> _tags(dynamic v) {
+    if (v is List) return v.map((e) => e.toString()).toList();
+    return const [];
   }
 }

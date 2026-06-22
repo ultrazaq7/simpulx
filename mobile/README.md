@@ -1,6 +1,6 @@
-# Simpulx
+# simpulx
 
-A new Flutter project.
+Simpulx - Customer Engagement Platform for sales teams
 
 ## Getting Started
 

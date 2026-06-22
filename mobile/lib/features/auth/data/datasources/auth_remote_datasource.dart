@@ -1,125 +1,100 @@
-// ============================================================
-// Auth Data Source (Remote via Dio)
-// ============================================================
 import 'package:dio/dio.dart';
-import 'package:simpulx/core/network/dio_client.dart';
-import 'package:simpulx/core/constants/api_constants.dart';
-import 'package:simpulx/core/error/failures.dart';
-import 'package:simpulx/features/auth/data/models/auth_models.dart';
 
+import '../../../../core/network/api_endpoints.dart';
+import '../../../../core/network/error_mapper.dart';
+import '../models/auth_session_model.dart';
+import '../models/auth_user_model.dart';
+
+/// Thin transport for auth endpoints. Throws typed `AppException`s (via
+/// [ErrorMapper]); the repository converts those to `Failure`s.
 class AuthRemoteDataSource {
-  final DioClient _client;
+  AuthRemoteDataSource(this._dio);
+  final Dio _dio;
 
-  AuthRemoteDataSource({required DioClient client}) : _client = client;
-
+  /// POST /auth/login -> {token, refresh_token, user}.
   Future<AuthSessionModel> login({
     required String email,
     required String password,
   }) async {
     try {
-      final response = await _client.dio.post(
-        ApiConstants.login,
-        data: {
-          'email': email,
-          'password': password,
-        },
+      final res = await _dio.post(
+        ApiEndpoints.login,
+        data: {'email': email, 'password': password},
       );
-      return AuthSessionModel.fromJson(response.data);
-    } catch (e) {
-      throw ServerException(message: _extractErrorMessage(e));
+      return AuthSessionModel.fromJson(res.data as Map<String, dynamic>);
+    } on DioException catch (e) {
+      throw ErrorMapper.fromDio(e);
     }
   }
 
-  Future<String> forgotPassword({required String email}) async {
+  /// GET /api/me -> current user profile.
+  Future<AuthUserModel> me() async {
     try {
-      final response = await _client.dio.post(
-        '${ApiConstants.baseUrl}/auth/forgot-password',
-        data: {'email': email},
-      );
-      return response.data['message'] ?? 'Reset link sent';
-    } catch (e) {
-      throw ServerException(message: _extractErrorMessage(e));
+      final res = await _dio.get(ApiEndpoints.me);
+      return AuthUserModel.fromJson(res.data as Map<String, dynamic>);
+    } on DioException catch (e) {
+      throw ErrorMapper.fromDio(e);
     }
   }
 
-  Future<String> resetPassword({
+  /// PATCH /api/users/me/presence {online: bool}.
+  Future<void> setPresence(bool online) async {
+    try {
+      await _dio.patch(ApiEndpoints.presence, data: {'online': online});
+    } on DioException catch (e) {
+      throw ErrorMapper.fromDio(e);
+    }
+  }
+
+  /// POST /api/users/fcm-token {token, platform}.
+  Future<void> registerFcmToken({
+    required String token,
+    required String platform,
+  }) async {
+    try {
+      await _dio.post(
+        ApiEndpoints.fcmToken,
+        data: {'token': token, 'platform': platform},
+      );
+    } on DioException catch (e) {
+      throw ErrorMapper.fromDio(e);
+    }
+  }
+
+  /// POST /auth/forgot-password {email}.
+  Future<void> forgotPassword(String email) async {
+    try {
+      await _dio.post(ApiEndpoints.forgotPassword, data: {'email': email});
+    } on DioException catch (e) {
+      throw ErrorMapper.fromDio(e);
+    }
+  }
+
+  /// POST /auth/reset-password {token, newPassword}. Note: the backend uses
+  /// the camelCase `newPassword` key here (an intentional match, not a typo).
+  Future<void> resetPassword({
     required String token,
     required String newPassword,
   }) async {
     try {
-      final response = await _client.dio.post(
-        '${ApiConstants.baseUrl}/auth/reset-password',
+      await _dio.post(
+        ApiEndpoints.resetPassword,
         data: {'token': token, 'newPassword': newPassword},
       );
-      return response.data['message'] ?? 'Password reset successfully';
-    } catch (e) {
-      throw ServerException(message: _extractErrorMessage(e));
+    } on DioException catch (e) {
+      throw ErrorMapper.fromDio(e);
     }
   }
 
-  Future<String> createAccount({
-    required String email,
-    required String fullName,
-    String role = 'agent',
-    String? departmentId,
-  }) async {
+  /// POST /auth/logout {refresh_token} (best-effort).
+  Future<void> logout(String refreshToken) async {
     try {
-      final data = <String, dynamic>{
-        'email': email,
-        'fullName': fullName,
-        'role': role,
-      };
-      if (departmentId != null && departmentId.isNotEmpty) {
-        data['departmentId'] = departmentId;
-      }
-      final response = await _client.dio.post(
-        ApiConstants.createAccount,
-        data: data,
+      await _dio.post(
+        ApiEndpoints.logout,
+        data: {'refresh_token': refreshToken},
       );
-      return response.data['message'] ?? 'Account created successfully';
-    } catch (e) {
-      throw ServerException(message: _extractErrorMessage(e));
+    } on DioException catch (_) {
+      // Logout is best-effort; ignore transport errors.
     }
-  }
-
-  Future<String> inviteAgent({
-    required String email,
-    required String fullName,
-    String role = 'agent',
-    String? departmentId,
-  }) {
-    return createAccount(
-      email: email,
-      fullName: fullName,
-      role: role,
-      departmentId: departmentId,
-    );
-  }
-
-  String _extractErrorMessage(dynamic error) {
-    if (error is DioException) {
-      final data = error.response?.data;
-      if (data is Map<String, dynamic> && data.containsKey('message')) {
-        return data['message'] is List
-            ? (data['message'] as List).join(', ')
-            : data['message'].toString();
-      }
-      switch (error.response?.statusCode) {
-        case 401:
-          return 'Invalid credentials';
-        case 403:
-          return 'Access denied';
-        case 404:
-          return 'Service not found';
-        case 500:
-          return 'Server error, please try again later';
-        default:
-          return error.message ?? 'Connection error';
-      }
-    }
-    if (error is Exception) {
-      return error.toString().replaceFirst('Exception: ', '');
-    }
-    return 'An unexpected error occurred';
   }
 }

@@ -232,6 +232,7 @@ func main() {
 	mux.HandleFunc("DELETE /api/quick-replies/{id}", s.requireAuth(s.handleDeleteQuickReply))
 	mux.HandleFunc("GET /api/conversations/{id}/notes", s.requireAuth(s.handleListNotes))
 	mux.HandleFunc("POST /api/conversations/{id}/notes", s.requireAuth(s.handleAddNote))
+	mux.HandleFunc("DELETE /api/conversations/{id}/notes/{noteId}", s.requireAuth(s.handleDeleteNote))
 	mux.HandleFunc("GET /api/contacts", s.requireAuth(s.gate("view_contacts", s.handleListContacts)))
 	mux.HandleFunc("POST /api/contacts", s.requireAuth(s.gate("create_contacts", s.handleCreateContact)))
 	mux.HandleFunc("PATCH /api/contacts/{id}", s.requireAuth(s.gate("edit_contacts", s.handleUpdateContact)))

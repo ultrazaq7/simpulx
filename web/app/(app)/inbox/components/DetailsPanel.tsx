@@ -1,6 +1,6 @@
 "use client";
 import { useEffect, useState } from "react";
-import { X, Copy, User, Phone, Hash, MessageSquare, Clock, StickyNote, Tag as TagIcon, Plus, Paperclip, Download, FileText, Image as ImageIcon, Video, Mic } from "lucide-react";
+import { X, Copy, User, Phone, Hash, MessageSquare, Clock, StickyNote, Tag as TagIcon, Plus, Paperclip, Download, FileText, Image as ImageIcon, Video, Mic, Trash2 } from "lucide-react";
 import { api } from "@/lib/api";
 import { initials, channelColor, channelTextColor, channelLabel, fmtDate, fmtTime, cn } from "@/lib/utils";
 import { Tip } from "@/components/ui/tooltip";
@@ -91,11 +91,12 @@ interface DetailsPanelProps {
   copyText: (text: string) => void;
   notes: InternalNote[];
   onAddNote: (body: string) => void | Promise<void>;
+  onDeleteNote: (noteId: string) => void | Promise<void>;
   messages?: Message[];
   channelName?: string; // real channel name (e.g. "Testing Channel"), not the type
 }
 
-export default function DetailsPanel({ active, onClose, copyText, notes, onAddNote, messages, channelName }: DetailsPanelProps) {
+export default function DetailsPanel({ active, onClose, copyText, notes, onAddNote, onDeleteNote, messages, channelName }: DetailsPanelProps) {
   const media = (messages || []).filter((m) => m.media_url && m.type !== "sticker"); // stickers are not attachments
   const mediaFiles = media.filter((m) => m.type === "image" || m.type === "video");
   const docFiles = media.filter((m) => !(m.type === "image" || m.type === "video"));
@@ -152,10 +153,10 @@ export default function DetailsPanel({ active, onClose, copyText, notes, onAddNo
             </Tip>
           </div>
           <div className="min-w-0">
-            <p className="font-bold text-[15px] text-foreground truncate">{active.contact_name || "Unknown"}</p>
+            <p className="font-bold text-[13px] text-foreground truncate">{active.contact_name || "Unknown"}</p>
             {active.contact_phone && (
               <div className="flex items-center gap-1">
-                <span className="text-xs text-muted-foreground tabular-nums">{active.contact_phone}</span>
+                <span className="text-[11px] text-muted-foreground tabular-nums">{active.contact_phone}</span>
                 <button aria-label="Copy phone number" onClick={() => copyText(active.contact_phone!)} className="p-0.5 rounded hover:bg-muted outline-none text-primary/70 hover:text-primary">
                   <Copy className="w-[11px] h-[11px]" />
                 </button>
@@ -277,9 +278,12 @@ export default function DetailsPanel({ active, onClose, copyText, notes, onAddNo
               </div>
             ) : (
               notes.map((n) => (
-                <div key={n.id} className="mb-2.5 p-3 rounded-lg border border-amber-200 bg-amber-50">
-                  <p className="text-xs text-foreground whitespace-pre-wrap">{n.body}</p>
+                <div key={n.id} className="mb-2.5 p-3 rounded-lg border border-amber-200 bg-amber-50 relative group">
+                  <p className="text-xs text-foreground whitespace-pre-wrap pr-5">{n.body}</p>
                   <p className="text-[11px] text-muted-foreground mt-1">{n.author || "Unknown"} - {fmtTime(n.created_at)}</p>
+                  <button onClick={() => onDeleteNote(n.id)} className="absolute top-2 right-2 p-1.5 rounded-md hover:bg-amber-200 text-amber-700/50 hover:text-amber-800 opacity-0 group-hover:opacity-100 transition-opacity outline-none">
+                    <Trash2 className="w-3.5 h-3.5" />
+                  </button>
                 </div>
               ))
             )}

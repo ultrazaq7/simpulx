@@ -1455,6 +1455,23 @@ func (s *server) handleAddNote(w http.ResponseWriter, r *http.Request) {
 	writeJSON(w, map[string]any{"id": id})
 }
 
+func (s *server) handleDeleteNote(w http.ResponseWriter, r *http.Request) {
+	a, _ := authFrom(r.Context())
+	convID := r.PathValue("id")
+	noteID := r.PathValue("noteId")
+	if !s.guardConversation(w, r, convID) {
+		return
+	}
+	_, err := s.pool.Exec(r.Context(),
+		`DELETE FROM internal_notes WHERE id=$1 AND conversation_id=$2 AND organization_id=$3`,
+		noteID, convID, a.OrgID)
+	if err != nil {
+		http.Error(w, err.Error(), http.StatusInternalServerError)
+		return
+	}
+	writeJSON(w, map[string]any{"status": "deleted"})
+}
+
 // ── Contacts ────────────────────────────────────────────────
 func (s *server) handleListContacts(w http.ResponseWriter, r *http.Request) {
 	a, _ := authFrom(r.Context())

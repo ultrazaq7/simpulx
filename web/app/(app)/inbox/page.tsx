@@ -499,6 +499,12 @@ export default function InboxPage() {
               setNotes((await api.getNotes(activeId)) || []);
               notify("Note added");
             }}
+            onDeleteNote={async (noteId) => {
+              if (!activeId) return;
+              await api.deleteNote(activeId, noteId);
+              setNotes((await api.getNotes(activeId)) || []);
+              notify("Note deleted");
+            }}
           />
         )}
       </div>
