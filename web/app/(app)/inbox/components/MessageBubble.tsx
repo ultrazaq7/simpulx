@@ -355,18 +355,7 @@ const MessageBubble = memo(function MessageBubble({ m, active, grouped, onPrevie
 
   return (
     <div className={cn("group flex items-start gap-1", out ? "justify-end" : "justify-start")}>
-      {!out && (
-        grouped ? (
-          <div className="w-7 mr-2 shrink-0" aria-hidden />
-        ) : (
-          <div
-            className="w-7 h-7 rounded-full mr-2 mt-0.5 flex items-center justify-center text-[10px] font-bold shrink-0"
-            style={{ backgroundColor: channelColor(active.channel) + "20", color: channelTextColor(active.channel) }}
-          >
-            {initials(active.contact_name || active.contact_phone)}
-          </div>
-        )
-      )}
+
       {out && (m.body || msgLink) && <MessageMenu out={out} text={m.body ?? undefined} link={msgLink} onCopyText={onCopyText} onUseInComposer={onUseInComposer} onForward={onForward} />}
       <div className={cn("max-w-[66%] flex flex-col", out ? "items-end" : "items-start")}>
         {/* Sender label: only on the first of a group, and only for outbound (1:1
