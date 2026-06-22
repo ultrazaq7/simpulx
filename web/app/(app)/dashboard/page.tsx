@@ -543,7 +543,7 @@ function ManagerControlTower() {
                   const barColor = lv.waiting >= 3 ? "#EF4444" : lv.waiting > 0 ? "#F59E0B" : "#2D8B73";
                   return (
                     <div key={a.name} className="flex items-center gap-2.5 px-4 py-2 border-b border-border/40 last:border-0">
-                      <div className="w-7 h-7 rounded-full bg-brand-gradient text-white grid place-items-center text-[10px] font-bold shrink-0">{initials(a.name)}</div>
+                      <div className="w-7 h-7 rounded-full bg-brand-gradient text-teal-950 grid place-items-center text-[10px] font-bold shrink-0">{initials(a.name)}</div>
                       <span className="w-24 truncate text-[12.5px] font-semibold text-foreground">{a.name}</span>
                       <div className="flex-1 flex items-center gap-2">
                         <div className="flex-1"><ProgressBar value={(lv.open / maxOpen) * 100} color={barColor} height={6} /></div>

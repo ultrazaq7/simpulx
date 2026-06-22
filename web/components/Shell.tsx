@@ -501,7 +501,7 @@ export function Shell({ children }: { children: ReactNode }) {
 
           {/* Avatar + name + chevron */}
           <button onClick={() => setUserMenuOpen(!userMenuOpen)} className="flex items-center gap-2 pl-1 pr-2 h-10 rounded-lg hover:bg-muted transition-colors outline-none relative">
-            <div className="w-8 h-8 rounded-full overflow-hidden bg-brand-gradient text-white flex items-center justify-center text-xs font-bold shrink-0 shadow-sm">
+            <div className="w-8 h-8 rounded-full overflow-hidden bg-brand-gradient text-teal-950 flex items-center justify-center text-xs font-bold shrink-0 shadow-sm">
               {user.avatar ? <img src={user.avatar} alt="" className="w-full h-full object-cover" /> : initials(user.name)}
             </div>
             <span className="text-[13px] font-semibold hidden md:block truncate max-w-[120px] text-foreground/90">
@@ -526,7 +526,7 @@ export function Shell({ children }: { children: ReactNode }) {
           <div className="absolute top-16 right-4 w-[280px] bg-popover border border-border shadow-xl rounded-xl z-50 flex flex-col animate-scale-in origin-top-right overflow-hidden">
             {/* Header: avatar + name + email */}
             <div className="px-5 pt-5 pb-4 flex items-center gap-3 border-b border-border">
-              <div className="w-11 h-11 rounded-full overflow-hidden bg-brand-gradient text-white flex items-center justify-center text-sm font-bold shrink-0 shadow-sm">
+              <div className="w-11 h-11 rounded-full overflow-hidden bg-brand-gradient text-teal-950 flex items-center justify-center text-sm font-bold shrink-0 shadow-sm">
                 {user.avatar ? <img src={user.avatar} alt="" className="w-full h-full object-cover" /> : initials(user.name)}
               </div>
               <div className="min-w-0">
