@@ -73,11 +73,13 @@ function TooltipContent({
 function Tip({
   label,
   side = "top",
+  align,
   followCursor,
   children,
 }: {
   label: React.ReactNode
   side?: "top" | "bottom" | "left" | "right"
+  align?: "start" | "center" | "end"
   followCursor?: boolean // track the cursor instead of anchoring to the trigger
   children: React.ReactElement
 }) {
@@ -100,7 +102,7 @@ function Tip({
     <TooltipProvider delay={200}>
       <Tooltip trackCursorAxis={followCursor ? "both" : undefined}>
         <TooltipTrigger render={trigger} />
-        <TooltipContent side={side} sideOffset={followCursor ? 12 : 4}>{label}</TooltipContent>
+        <TooltipContent side={side} align={align} sideOffset={followCursor ? 12 : 4}>{label}</TooltipContent>
       </Tooltip>
     </TooltipProvider>
   )

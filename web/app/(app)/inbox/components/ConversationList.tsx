@@ -357,22 +357,36 @@ export default function ConversationList({
 
           <SortMenu sort={sort} onSortChange={onSortChange} />
 
-          <Tip label="Filter" side="bottom">
-            <button
-              type="button"
-              aria-label="Filter conversations"
-              onClick={() => setFilterOpen((v) => !v)}
-              className={cn(
-                "shrink-0 w-8 h-9 rounded-md grid place-items-center border transition-colors outline-none relative",
-                filterOpen ? "bg-primary/10 text-primary border-primary/40" : "bg-background text-muted-foreground border-input hover:bg-muted hover:text-foreground",
-              )}
-            >
-              <Filter className="w-4 h-4" />
-              {activeFiltersCount > 0 && !filterOpen && (
-                <span className="absolute -top-1 -right-1 w-4 h-4 rounded-full bg-primary text-white text-[9px] font-bold grid place-items-center">{activeFiltersCount}</span>
-              )}
-            </button>
-          </Tip>
+          <div className="relative shrink-0">
+            <Tip label="Filter" side="bottom">
+              <button
+                type="button"
+                aria-label="Filter conversations"
+                onClick={() => setFilterOpen((v) => !v)}
+                className={cn(
+                  "w-8 h-9 rounded-md grid place-items-center border transition-colors outline-none relative",
+                  filterOpen ? "bg-primary/10 text-primary border-primary/40" : "bg-background text-muted-foreground border-input hover:bg-muted hover:text-foreground",
+                )}
+              >
+                <Filter className="w-4 h-4" />
+                {activeFiltersCount > 0 && !filterOpen && (
+                  <span className="absolute -top-1 -right-1 w-4 h-4 rounded-full bg-primary text-white text-[9px] font-bold grid place-items-center">{activeFiltersCount}</span>
+                )}
+              </button>
+            </Tip>
+            {/* Popover drops from the filter icon and extends right over the chat. */}
+            {filterOpen && (
+              <div className="absolute top-full left-0 mt-1.5 z-50">
+                <FilterPopover
+                  categories={filterCategories}
+                  toggles={filterToggles}
+                  activeCount={activeFiltersCount}
+                  onClearAll={clearAll}
+                  onClose={() => setFilterOpen(false)}
+                />
+              </div>
+            )}
+          </div>
 
           <Tip label={dense ? "Comfortable rows" : "Compact rows"} side="bottom">
             <button
@@ -389,19 +403,6 @@ export default function ConversationList({
           </Tip>
         </div>
       </div>
-
-      {/* SleekFlow-style master-detail filter popover (extends right, over the chat) */}
-      {filterOpen && (
-        <div className="absolute left-2 top-14 z-50">
-          <FilterPopover
-            categories={filterCategories}
-            toggles={filterToggles}
-            activeCount={activeFiltersCount}
-            onClearAll={clearAll}
-            onClose={() => setFilterOpen(false)}
-          />
-        </div>
-      )}
 
       {/* Active-filter strip — only appears when something is narrowing the list */}
       {activeFiltersCount > 0 && (

@@ -108,7 +108,7 @@ const ConversationCard = memo(function ConversationCard({
 
         {/* Line 2: preview (full text on hover) + one urgent signal + unread count */}
         <div className={cn("flex items-center gap-1.5", dense ? "mt-1" : "mt-1.5")}>
-          <Tip label={<span className="block max-w-[300px] whitespace-pre-wrap leading-snug text-left text-[12px]">{previewFull}</span>} side="bottom" followCursor>
+          <Tip label={<span className="block max-w-[300px] whitespace-pre-wrap leading-snug text-left text-[12px]">{previewFull}</span>} side="bottom" align="start">
             <span className={cn(
               "flex-1 min-w-0 truncate text-[13px] leading-snug",
               unread ? "text-foreground/70" : "text-muted-foreground",
