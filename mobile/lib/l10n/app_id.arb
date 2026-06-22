@@ -1,0 +1,38 @@
+{
+  "@@locale": "id",
+  "appName": "Simpulx",
+  "navDashboard": "Dasbor",
+  "navChat": "Chat",
+  "navContacts": "Kontak",
+  "navSettings": "Pengaturan",
+
+  "commonRetry": "Coba lagi",
+  "commonCancel": "Batal",
+  "commonSave": "Simpan",
+  "commonSearch": "Cari",
+  "commonLoading": "Memuat",
+  "commonError": "Terjadi kesalahan",
+  "commonEmpty": "Belum ada apa-apa di sini",
+  "commonNoConnection": "Tidak ada koneksi internet",
+
+  "authSignIn": "Masuk",
+  "authEmail": "Email",
+  "authPassword": "Kata sandi",
+  "authForgotPassword": "Lupa kata sandi?",
+  "authSignInToContinue": "Masuk untuk melanjutkan",
+  "authSessionExpired": "Sesi Anda telah berakhir. Silakan masuk lagi.",
+
+  "settingsProfile": "Profil",
+  "settingsPresence": "Status online",
+  "settingsLanguage": "Bahasa",
+  "settingsNotifications": "Notifikasi",
+  "settingsAccount": "Akun",
+  "settingsWorkspace": "Workspace",
+  "settingsSignOut": "Keluar",
+  "settingsOnline": "Online",
+  "settingsOffline": "Offline",
+
+  "dashboardTitle": "Hari ini",
+  "chatTitle": "Chat",
+  "contactsTitle": "Kontak"
+}

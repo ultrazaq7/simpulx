@@ -1,0 +1,38 @@
+{
+  "@@locale": "en",
+  "appName": "Simpulx",
+  "navDashboard": "Dashboard",
+  "navChat": "Chat",
+  "navContacts": "Contacts",
+  "navSettings": "Settings",
+
+  "commonRetry": "Retry",
+  "commonCancel": "Cancel",
+  "commonSave": "Save",
+  "commonSearch": "Search",
+  "commonLoading": "Loading",
+  "commonError": "Something went wrong",
+  "commonEmpty": "Nothing here yet",
+  "commonNoConnection": "No internet connection",
+
+  "authSignIn": "Sign in",
+  "authEmail": "Email",
+  "authPassword": "Password",
+  "authForgotPassword": "Forgot password?",
+  "authSignInToContinue": "Sign in to continue",
+  "authSessionExpired": "Your session has expired. Please sign in again.",
+
+  "settingsProfile": "Profile",
+  "settingsPresence": "Online status",
+  "settingsLanguage": "Language",
+  "settingsNotifications": "Notifications",
+  "settingsAccount": "Account",
+  "settingsWorkspace": "Workspace",
+  "settingsSignOut": "Sign out",
+  "settingsOnline": "Online",
+  "settingsOffline": "Offline",
+
+  "dashboardTitle": "Today",
+  "chatTitle": "Chats",
+  "contactsTitle": "Contacts"
+}

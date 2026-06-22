@@ -1,0 +1,12 @@
+<?xml version="1.0" encoding="utf-8"?>
+<network-security-config>
+    <!-- Production: HTTPS only. -->
+    <base-config cleartextTrafficPermitted="false" />
+    <!-- Dev loopback (Android emulator host + localhost) may use cleartext HTTP
+         so the dev flavor works against a local backend. -->
+    <domain-config cleartextTrafficPermitted="true">
+        <domain includeSubdomains="true">10.0.2.2</domain>
+        <domain includeSubdomains="true">localhost</domain>
+        <domain includeSubdomains="true">127.0.0.1</domain>
+    </domain-config>
+</network-security-config>

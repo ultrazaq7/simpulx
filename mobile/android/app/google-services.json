@@ -1,0 +1,29 @@
+{
+  "project_info": {
+    "project_number": "1077409983428",
+    "project_id": "simpulx-1",
+    "storage_bucket": "simpulx-1.firebasestorage.app"
+  },
+  "client": [
+    {
+      "client_info": {
+        "mobilesdk_app_id": "1:1077409983428:android:02396844a8056967e35291",
+        "android_client_info": {
+          "package_name": "com.simpulx.app"
+        }
+      },
+      "oauth_client": [],
+      "api_key": [
+        {
+          "current_key": "AIzaSyAnFBHBvxX-yFnxRCgfPPsCWPfEhgOZqdw"
+        }
+      ],
+      "services": {
+        "appinvite_service": {
+          "other_platform_oauth_client": []
+        }
+      }
+    }
+  ],
+  "configuration_version": "1"
+}
