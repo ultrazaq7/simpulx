@@ -16,6 +16,7 @@ const (
 	SubjectConversationHandoff  = "events.conversation.handoff"
 	SubjectConversationAssigned = "events.conversation.assigned"
 	SubjectConversationClosed   = "events.conversation.closed"
+	SubjectConversationUpdated  = "events.conversation.updated"
 	SubjectBroadcastRequested   = "events.broadcast.requested"
 	SubjectAgentDeactivated     = "events.agent.deactivated"
 	SubjectAuditCreated         = "events.audit.created"

@@ -54,6 +54,7 @@ async def handle_inbound(broker, pool, env: dict, data: dict, log) -> None:
     run, reason = _should_analyze(cr, conv, body)
     if not run:
         log.info("llm skipped", extra={"conv": conv_id, "reason": reason})
+        await broker.publish("events.conversation.updated", org_id, {"conversation_id": conv_id})
         return
 
     system_prompt = conv["system_prompt"] or "You are a helpful sales assistant."
@@ -87,6 +88,7 @@ async def handle_inbound(broker, pool, env: dict, data: dict, log) -> None:
             result.get("action_confidence"),
         )
     log.info("lead analyzed", extra={"conv": conv_id, "reason": reason})
+    await broker.publish("events.conversation.updated", org_id, {"conversation_id": conv_id})
 
 
 def _should_analyze(cr: Optional[dict], conv, body: str) -> tuple[bool, str]:

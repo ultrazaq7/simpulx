@@ -85,6 +85,7 @@ func main() {
 	subs := []struct{ subject, durable string }{
 		{events.SubjectMessagePersisted, "realtime-msg"},
 		{events.SubjectConversationAssigned, "realtime-assigned"},
+		{events.SubjectConversationUpdated, "realtime-updated"},
 		{events.SubjectConversationClosed, "realtime-closed"},
 		{events.SubjectConversationHandoff, "realtime-handoff"},
 		{events.SubjectAgentDeactivated, "realtime-deactivated"},
