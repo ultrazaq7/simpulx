@@ -247,11 +247,16 @@ async def classify_and_update(pool, org_id: str, conv_id: str, log) -> Optional[
                  ai_reason = $6,
                  ai_confidence = $7,
                  ai_analyzed_at = now(),
-                 metadata = metadata || jsonb_build_object('intent_categories', $8::jsonb),
+                 metadata = COALESCE(metadata, '{}'::jsonb) || jsonb_build_object('intent_categories', $8::jsonb),
+                 classification_locked = CASE 
+                     WHEN $10 = true THEN true  -- keep locked if it is junk
+                     WHEN $2 IN ('warm', 'hot') THEN false -- unlock if there is real buying intent
+                     ELSE classification_locked 
+                 END,
                  updated_at = now()
-               WHERE id = $1 AND classification_locked = false""",
+               WHERE id = $1 AND (classification_locked = false OR $2 IN ('warm', 'hot'))""",
             conv_id, interest, c["stage_key"], stage_id, disp_id,
-            reason, confidence, json.dumps(c["categories"]), lost_reason,
+            reason, confidence, json.dumps(c["categories"]), lost_reason, is_junk,
         )
     log.info("lead classified", extra={"conv": conv_id, "interest": interest,
                                        "stage": c["stage_key"], "junk": is_junk})
