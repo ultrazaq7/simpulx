@@ -202,6 +202,10 @@ jobs:
           echo "-- refresh caddy --"
           $DC restart caddy
           docker image prune -f >/dev/null 2>&1 || true
+          # Self-clean so the box never hits 100% disk mid-deploy. Keep the last
+          # 7 days (for quick rollback); drop older build cache + unused images.
+          docker builder prune -af --filter until=168h >/dev/null 2>&1 || true
+          docker image prune -af --filter until=168h >/dev/null 2>&1 || true
           echo "-- status --"
           $DC ps
           '
