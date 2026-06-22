@@ -353,12 +353,12 @@ export default function ChatPanel({
               </div>
               {/* Contact name + phone (left) */}
               <div className="min-w-0 mr-2">
-                <p className="text-[18px] font-bold text-foreground truncate leading-tight">
+                <p className="text-[14px] font-bold text-foreground truncate leading-tight">
                   {active.contact_name || active.contact_phone || "Unknown"}
                 </p>
                 {active.contact_phone && (
                   <div className="flex items-center gap-1 mt-0.5">
-                    <span className="text-[14px] text-muted-foreground tabular-nums">{active.contact_phone}</span>
+                    <span className="text-[11px] text-muted-foreground tabular-nums">{active.contact_phone}</span>
                     <button aria-label="Copy phone number" onClick={() => onCopyText(active.contact_phone!)} className="p-0.5 outline-none text-primary/70 hover:text-primary">
                       <Copy className="w-[11px] h-[11px]" />
                     </button>
