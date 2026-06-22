@@ -306,7 +306,7 @@ export const api = {
     req(`/api/conversations/${convId}/notes`, { method: "POST", body: JSON.stringify({ body }) }),
   listStages: () => req<import("./types").Stage[]>("/api/stages"),
   listDispositions: () => req<import("./types").Disposition[]>("/api/dispositions"),
-  patchConversation: (id: string, patch: { stage_id?: string; disposition_id?: string; interest_level?: string; unread_count?: number }) =>
+  patchConversation: (id: string, patch: { stage_id?: string; disposition_id?: string; interest_level?: string; unread_count?: number; lost_reason?: string }) =>
     req(`/api/conversations/${id}`, { method: "PATCH", body: JSON.stringify(patch) }),
   listContacts: () => req<Contact[]>("/api/contacts"),
   createContact: (body: { full_name?: string; phone?: string; tags?: string[] }) =>

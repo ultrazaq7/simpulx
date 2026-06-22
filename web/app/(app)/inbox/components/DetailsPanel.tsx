@@ -92,9 +92,10 @@ interface DetailsPanelProps {
   notes: InternalNote[];
   onAddNote: (body: string) => void | Promise<void>;
   messages?: Message[];
+  channelName?: string; // real channel name (e.g. "Testing Channel"), not the type
 }
 
-export default function DetailsPanel({ active, onClose, copyText, notes, onAddNote, messages }: DetailsPanelProps) {
+export default function DetailsPanel({ active, onClose, copyText, notes, onAddNote, messages, channelName }: DetailsPanelProps) {
   const media = (messages || []).filter((m) => m.media_url && m.type !== "sticker"); // stickers are not attachments
   const mediaFiles = media.filter((m) => m.type === "image" || m.type === "video");
   const docFiles = media.filter((m) => !(m.type === "image" || m.type === "video"));
@@ -143,7 +144,7 @@ export default function DetailsPanel({ active, onClose, copyText, notes, onAddNo
             >
               {initials(active.contact_name || active.contact_phone)}
             </div>
-            <Tip label={active.channel} side="bottom">
+            <Tip label={channelName || channelLabel(active.channel)} side="bottom">
               <span
                 className="absolute -bottom-0.5 -right-0.5 w-3.5 h-3.5 rounded-full ring-2 ring-card"
                 style={{ backgroundColor: channelColor(active.channel) }}
@@ -223,7 +224,7 @@ export default function DetailsPanel({ active, onClose, copyText, notes, onAddNo
             <div className="mb-5">
               <DetailRow icon={User} label="Full name" value={active.contact_name || "Unknown"} />
               <DetailRow icon={Phone} label="Phone" value={active.contact_phone || "None"} copyable={!!active.contact_phone} onCopy={() => active.contact_phone && copyText(active.contact_phone)} />
-              <DetailRow icon={Hash} label="Channel" value={channelLabel(active.channel)} />
+              <DetailRow icon={Hash} label="Channel" value={channelName || channelLabel(active.channel)} />
               {active.campaign_name && <DetailRow icon={Hash} label="Campaign" value={active.campaign_name} />}
               <DetailRow icon={MessageSquare} label="Status" value={active.status} />
               <DetailRow icon={Clock} label="Last message" value={active.last_message_at ? `${fmtDate(active.last_message_at)} ${fmtTime(active.last_message_at)}` : "No messages"} />

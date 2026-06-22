@@ -668,12 +668,12 @@ func (s *server) handleStats(w http.ResponseWriter, r *http.Request) {
 		campFilter += " AND " + managerScope("", len(args))
 	}
 	if ch := r.URL.Query().Get("channel_id"); ch != "" {
-		args = append(args, ch)
-		campFilter += fmt.Sprintf(" AND channel_id = $%d::uuid", len(args))
+		args = append(args, strings.Split(ch, ","))
+		campFilter += fmt.Sprintf(" AND channel_id = ANY($%d)", len(args))
 	}
 	if ag := r.URL.Query().Get("agent_id"); ag != "" {
-		args = append(args, ag)
-		campFilter += fmt.Sprintf(" AND assigned_agent_id = $%d::uuid", len(args))
+		args = append(args, strings.Split(ag, ","))
+		campFilter += fmt.Sprintf(" AND assigned_agent_id = ANY($%d)", len(args))
 	}
 
 	query := fmt.Sprintf(`SELECT
@@ -766,14 +766,14 @@ func (s *server) handleAnalytics(w http.ResponseWriter, r *http.Request) {
 		campFilter += " AND " + managerScope("", len(args))
 	}
 	if ch := r.URL.Query().Get("channel_id"); ch != "" {
-		args = append(args, ch)
-		campFilterCv += fmt.Sprintf(" AND cv.channel_id = $%d::uuid", len(args))
-		campFilter += fmt.Sprintf(" AND channel_id = $%d::uuid", len(args))
+		args = append(args, strings.Split(ch, ","))
+		campFilterCv += fmt.Sprintf(" AND cv.channel_id = ANY($%d)", len(args))
+		campFilter += fmt.Sprintf(" AND channel_id = ANY($%d)", len(args))
 	}
 	if ag := r.URL.Query().Get("agent_id"); ag != "" {
-		args = append(args, ag)
-		campFilterCv += fmt.Sprintf(" AND cv.assigned_agent_id = $%d::uuid", len(args))
-		campFilter += fmt.Sprintf(" AND assigned_agent_id = $%d::uuid", len(args))
+		args = append(args, strings.Split(ag, ","))
+		campFilterCv += fmt.Sprintf(" AND cv.assigned_agent_id = ANY($%d)", len(args))
+		campFilter += fmt.Sprintf(" AND assigned_agent_id = ANY($%d)", len(args))
 	}
 	// Custom date range on lead creation, evaluated in the workspace timezone so
 	// the boundaries line up with the user's local days (inclusive of 'to').

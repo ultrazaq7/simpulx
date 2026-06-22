@@ -481,6 +481,7 @@ export default function InboxPage() {
             copyText={copyText}
             notes={notes}
             messages={messages}
+            channelName={channels.find((ch) => ch.type === active.channel)?.name}
             onAddNote={async (body) => {
               if (!activeId) return;
               await api.addNote(activeId, body);

@@ -13,6 +13,7 @@ import type { UseInfiniteQueryResult } from "@tanstack/react-query";
 import MessageBubble, { rewriteLocalMedia } from "./MessageBubble";
 import Composer from "./Composer";
 import LostReasonDialog from "./LostReasonDialog";
+import { StageMenu } from "./StageMenu";
 import CallOverlay from "./CallOverlay";
 import { api } from "@/lib/api";
 
@@ -35,82 +36,6 @@ export type Item =
   | { kind: "date"; key: string; label: string }
   | { kind: "msg"; key: string; m: Message }
   | { kind: "note"; key: string; n: InternalNote };
-
-// --- Stage color map (semantic data colors) ---
-// Sales funnel colors (must match the dashboard's FUNNEL_COLORS order):
-// New Lead -> Contacted -> Qualified -> Appointment -> Negotiation -> Purchase.
-const stageColorMap: Record<string, string> = {
-  new_lead: "#6366F1", "new lead": "#6366F1",
-  contacted: "#0EA5E9",
-  qualified: "#14B8A6",
-  appointment: "#8B5CF6",
-  negotiation: "#F59E0B",
-  purchase: "#16A34A",
-  // legacy aliases (pre-rename) so old data still colors sensibly
-  test_drive: "#F59E0B", "test drive": "#F59E0B",
-  booking: "#16A34A",
-};
-function getDotColor(name: string): string {
-  return stageColorMap[name.toLowerCase()] || stageColorMap[name.toLowerCase().replace(/\s+/g, "_")] || "#64748B";
-}
-
-// --- Stage menu (custom dropdown, no MUI) ---
-// Pipeline stages = progress (New ... Booking). Lost/Spam are terminal OUTCOMES
-// (dispositions + reason), not stages — so they live in their own section here.
-function StageMenu({
-  stages, currentStageId, onSelect, onMarkOutcome, onClear,
-}: {
-  stages: Stage[];
-  currentStageId: string | null;
-  onSelect: (id: string) => void;
-  onMarkOutcome: () => void;
-  onClear: () => void;
-}) {
-  const [open, setOpen] = useState(false);
-  const current = stages.find((s) => s.id === currentStageId);
-
-  return (
-    <div className="relative">
-      <button
-        onClick={() => setOpen((v) => !v)}
-        className="flex items-center gap-1.5 px-2.5 h-8 rounded-l-md text-[13px] font-semibold text-foreground hover:bg-muted transition-colors outline-none"
-      >
-        <span className="w-2.5 h-2.5 rounded-full shrink-0" style={{ backgroundColor: current ? getDotColor(current.name) : "hsl(var(--muted-foreground))" }} />
-        {current?.name || "Select stage"}
-        <ChevronDown className="w-3.5 h-3.5 text-muted-foreground" />
-      </button>
-
-      {open && (
-        <>
-          <div className="fixed inset-0 z-40" onClick={() => setOpen(false)} />
-          <div className="absolute left-0 top-full mt-1.5 z-50 w-56 bg-popover rounded-lg border border-border shadow-xl py-1 max-h-[400px] overflow-auto animate-scale-in origin-top-left">
-            <p className="px-3 py-1.5 text-[10px] font-bold text-muted-foreground uppercase tracking-wider">Pipeline stage</p>
-            {stages.map((s) => (
-              <button
-                key={s.id}
-                onClick={() => { onSelect(s.id); setOpen(false); }}
-                className="w-full flex items-center gap-2 px-3 py-2 text-[13px] font-medium text-foreground/90 hover:bg-muted outline-none"
-              >
-                <span className="w-2.5 h-2.5 rounded-full shrink-0" style={{ backgroundColor: getDotColor(s.name) }} />
-                {s.name}
-                {s.id === currentStageId && <Check className="w-4 h-4 text-primary ml-auto" />}
-              </button>
-            ))}
-            <div className="border-t border-border my-1" />
-            <p className="px-3 py-1.5 text-[10px] font-bold text-muted-foreground uppercase tracking-wider">Outcome</p>
-            <button
-              onClick={() => { onMarkOutcome(); setOpen(false); }}
-              className="w-full flex items-center gap-2 px-3 py-2 text-[13px] font-medium text-red-600 hover:bg-red-50 outline-none"
-            >
-              <XCircle className="w-3.5 h-3.5" />
-              Mark as lost / spam
-            </button>
-          </div>
-        </>
-      )}
-    </div>
-  );
-}
 
 // --- Media kind helper (shared by the gallery + the media list) ---
 function mediaKind(m: Message): "image" | "video" | "document" | null {
@@ -452,7 +377,6 @@ export default function ChatPanel({
                     notify(`Stage updated to "${s?.name || "Unknown"}"`);
                   }}
                   onMarkOutcome={() => setOutcomeOpen(true)}
-                  onClear={() => onOverride({ stage_id: "" }, "Stage")}
                 />
                 <div className="w-px h-full bg-border" />
                 <Tip label={nextStage ? `Next: ${nextStage.name}` : "Last stage"}>

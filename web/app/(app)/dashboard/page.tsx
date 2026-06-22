@@ -14,6 +14,7 @@ import {
 
 import { api, getUser } from "@/lib/api";
 import { Select } from "@/components/Select";
+import { MultiSelect } from "@/components/ui/multi-select";
 import type { Stats, Analytics, DashboardCards, Conversation, AdPerformance, Channel, Campaign, Agent } from "@/lib/types";
 import { cn, initials, fmtDuration } from "@/lib/utils";
 
@@ -67,7 +68,7 @@ function presetRange(key: string): { from: string; to: string } {
 function CustomTooltip({ active, payload, label }: any) {
   if (!active || !payload?.length) return null;
   return (
-    <div className="bg-foreground rounded-lg px-3 py-2 shadow-xl">
+    <div className="bg-[#1C463B] rounded-lg px-3 py-2 shadow-xl">
       <p className="text-[11px] text-white/60 mb-1.5">{label}</p>
       {payload.map((p: any) => (
         <div key={p.dataKey} className="flex items-center gap-2 mb-0.5">
@@ -196,7 +197,8 @@ function InterestSplit({ funnel }: { funnel: Analytics["funnel"] | undefined }) 
 }
 
 // Stage split rows: leads by pipeline stage, colored to match the funnel chips.
-function StageSplit({ stages }: { stages?: Analytics["stages"] }) {
+// Lost is a terminal outcome (not a pipeline stage) so it sits at the bottom, in red.
+function StageSplit({ stages, lost }: { stages?: Analytics["stages"]; lost?: number }) {
   if (!stages || stages.length === 0) {
     return <div className="py-10 text-center text-sm text-muted-foreground">No pipeline data yet</div>;
   }
@@ -215,6 +217,14 @@ function StageSplit({ stages }: { stages?: Analytics["stages"] }) {
           </div>
         );
       })}
+      {lost !== undefined && (
+        <div className="flex items-center gap-3 px-2 py-2 mt-1 pt-2.5 border-t border-border/60">
+          <span className="w-2.5 h-2.5 rounded-full shrink-0" style={{ backgroundColor: "#EF4444" }} />
+          <span className="text-sm font-medium flex-1 text-foreground/90">Lost</span>
+          <div className="flex-[2]"><ProgressBar value={total > 0 ? (lost / total) * 100 : 0} color="#EF4444" /></div>
+          <span className="text-sm font-bold min-w-[28px] text-right tabular-nums" style={{ color: "#EF4444" }}>{lost}</span>
+        </div>
+      )}
     </div>
   );
 }
@@ -315,7 +325,7 @@ function AgentDashboard() {
           <div className="px-4 py-4"><OverviewChart data={buildChartData(analytics, true)} /></div>
         </Card>
         <Card title="Your stages" subtitle="Leads by pipeline stage">
-          <StageSplit stages={analytics?.stages} />
+          <StageSplit stages={analytics?.stages} lost={analytics?.funnel?.lost} />
         </Card>
       </div>
 
@@ -546,8 +556,8 @@ function ManagerControlTower() {
       {/* â”€â”€ Pulse (secondary): funnel + 7-day â”€â”€ */}
       <div className="grid grid-cols-1 lg:grid-cols-3 gap-4">
         <Card title="Lead funnel" subtitle="Reached each stage" className="lg:col-span-1"><LeadFunnel stages={analytics?.funnel_stages} /></Card>
-        <Card title="Activity" subtitle="Last 7 days" className="lg:col-span-2">
-          <div className="px-4 py-4"><OverviewChart data={buildChartData(analytics)} /></div>
+        <Card title="Activity" subtitle="Daily leads and replies" className="lg:col-span-2">
+          <div className="px-4 py-4"><OverviewChart data={buildChartData(analytics, true)} /></div>
         </Card>
       </div>
     </div>
@@ -558,9 +568,9 @@ function ManagerDashboard() {
   const [stats, setStats] = useState<Stats | null>(null);
   const [analytics, setAnalytics] = useState<Analytics | null>(null);
   const [tab, setTab] = useState<"overview" | "marketing">("overview");
-  const [fChannel, setFChannel] = useState("");
-  const [fCampaign, setFCampaign] = useState("");
-  const [fAgent, setFAgent] = useState("");
+  const [fChannel, setFChannel] = useState<string[]>([]);
+  const [fCampaign, setFCampaign] = useState<string[]>([]);
+  const [fAgent, setFAgent] = useState<string[]>([]);
   const [fFrom, setFFrom] = useState("");
   const [fTo, setFTo] = useState("");
   const [dateRange, setDateRange] = useState("all");
@@ -574,7 +584,12 @@ function ManagerDashboard() {
     api.listAgents().then((a) => setAgentList(a || [])).catch(() => {});
   }, []);
   useEffect(() => {
-    const f = { campaign_id: fCampaign || undefined, channel_id: fChannel || undefined, agent_id: fAgent || undefined, from: fFrom || undefined, to: fTo || undefined };
+    const f = {
+      campaign_id: fCampaign.length ? fCampaign.join(",") : undefined,
+      channel_id: fChannel.length ? fChannel.join(",") : undefined,
+      agent_id: fAgent.length ? fAgent.join(",") : undefined,
+      from: fFrom || undefined, to: fTo || undefined,
+    };
     api.getStats(f).then(setStats).catch(() => {});
     api.getAnalytics(f).then(setAnalytics).catch(() => {});
   }, [fChannel, fCampaign, fAgent, fFrom, fTo]);
@@ -616,12 +631,12 @@ function ManagerDashboard() {
         {/* â”€â”€ Filters â”€â”€ */}
         <div className="flex items-center gap-2 mb-4 flex-wrap">
           <FilterIcon className="w-4 h-4 text-muted-foreground" />
-          <Select value={fChannel} onChange={setFChannel} className="w-[160px]"
-            options={[{ value: "", label: "All channels" }, ...channels.map((c) => ({ value: c.id, label: c.name }))]} />
-          <Select value={fCampaign} onChange={setFCampaign} className="w-[180px]"
-            options={[{ value: "", label: "All campaigns" }, ...campaigns.map((c) => ({ value: c.id, label: c.name }))]} />
-          <Select value={fAgent} onChange={setFAgent} className="w-[160px]"
-            options={[{ value: "", label: "All agents" }, ...agentList.map((a) => ({ value: a.id, label: a.full_name }))]} />
+          <MultiSelect value={fChannel} onChange={setFChannel} placeholder="All channels" className="w-[160px]"
+            options={channels.map((c) => ({ value: c.id, label: c.name }))} />
+          <MultiSelect value={fCampaign} onChange={setFCampaign} placeholder="All campaigns" className="w-[180px]"
+            options={campaigns.map((c) => ({ value: c.id, label: c.name }))} />
+          <MultiSelect value={fAgent} onChange={setFAgent} placeholder="All agents" className="w-[160px]"
+            options={agentList.map((a) => ({ value: a.id, label: a.full_name }))} />
           <Select value={dateRange} searchable={false} className="w-[150px]"
             onChange={(v) => { setDateRange(v); if (v !== "custom") { const r = presetRange(v); setFFrom(r.from); setFTo(r.to); } }}
             options={[
@@ -643,8 +658,8 @@ function ManagerDashboard() {
                 className="h-9 px-2 rounded-md border border-input bg-background text-[13px] text-foreground outline-none focus:border-primary" />
             </div>
           )}
-          {(fChannel || fCampaign || fAgent || dateRange !== "all") && (
-            <button onClick={() => { setFChannel(""); setFCampaign(""); setFAgent(""); setFFrom(""); setFTo(""); setDateRange("all"); }} className="text-[12px] font-semibold text-primary hover:underline outline-none">Clear</button>
+          {(fChannel.length || fCampaign.length || fAgent.length || dateRange !== "all") && (
+            <button onClick={() => { setFChannel([]); setFCampaign([]); setFAgent([]); setFFrom(""); setFTo(""); setDateRange("all"); }} className="text-[12px] font-semibold text-primary hover:underline outline-none">Clear</button>
           )}
         </div>
 

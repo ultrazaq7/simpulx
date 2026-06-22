@@ -9,10 +9,12 @@ import {
 import { api, getUser } from "@/lib/api";
 import { usePermissions } from "@/lib/permissions";
 import { initials, channelColor, channelTextColor, channelLabel, fmtDate, cn } from "@/lib/utils";
-import type { Contact, Agent, Campaign, Message, Stage, Conversation } from "@/lib/types";
+import type { Contact, Agent, Campaign, Message, Stage, Conversation, Disposition } from "@/lib/types";
 import { Tip } from "@/components/ui/tooltip";
 import MessageBubble, { rewriteLocalMedia } from "@/app/(app)/inbox/components/MessageBubble";
 import Composer from "@/app/(app)/inbox/components/Composer";
+import { StageMenu } from "@/app/(app)/inbox/components/StageMenu";
+import LostReasonDialog from "@/app/(app)/inbox/components/LostReasonDialog";
 import { Select } from "@/components/Select";
 import { MultiSelect } from "@/components/ui/multi-select";
 
@@ -29,6 +31,8 @@ export default function ContactsPage() {
   const [agents, setAgents] = useState<Agent[]>([]);
   const [campaigns, setCampaigns] = useState<Campaign[]>([]);
   const [stages, setStages] = useState<Stage[]>([]);
+  const [dispositions, setDispositions] = useState<Disposition[]>([]);
+  const [outcomeFor, setOutcomeFor] = useState<Contact | null>(null);
   const [loading, setLoading] = useState(true);
   const [query, setQuery] = useState("");
   const [filterTags, setFilterTags] = useState<string[]>([]);
@@ -62,9 +66,9 @@ export default function ContactsPage() {
     ]).then(([c, a, cm]) => { setContacts(c as Contact[]); setAgents(a as Agent[]); setCampaigns(cm as Campaign[]); setLoading(false); });
   }, []); // eslint-disable-line react-hooks/exhaustive-deps
   useEffect(() => { api.listStages().then((s) => setStages(s || [])).catch(() => {}); }, []);
+  useEffect(() => { api.listDispositions().then((d) => setDispositions(d || [])).catch(() => {}); }, []);
   useEffect(() => { if (!toast) return; const t = setTimeout(() => setToast(null), 2500); return () => clearTimeout(t); }, [toast]);
 
-  const stageOptions = useMemo(() => [{ value: "", label: "No status" }, ...stages.map((s) => ({ value: s.id, label: s.name }))], [stages]);
   async function setStage(c: Contact, stageId: string) {
     if (!c.conversation_id) { setToast("No conversation yet for this contact"); return; }
     const name = stages.find((s) => s.id === stageId)?.name ?? null;
@@ -72,11 +76,22 @@ export default function ContactsPage() {
     setContacts((p) => p.map((x) => (x.id === c.id ? { ...x, stage_id: stageId || null, stage_name: name } : x)));
     try {
       await api.patchConversation(c.conversation_id, { stage_id: stageId });
-      setToast(name ? `Status updated to ${name}` : "Status cleared");
+      setToast(name ? `Stage updated to ${name}` : "Stage cleared");
     } catch {
       setContacts((p) => p.map((x) => (x.id === c.id ? { ...x, stage_id: prevStageId, stage_name: prevName } : x)));
-      setToast("Could not update status");
+      setToast("Could not update stage");
     }
+  }
+  // Lost / Spam are terminal outcomes (dispositions), mirroring the inbox stage menu.
+  async function markOutcome(c: Contact, reason: string, category: "lost" | "spam") {
+    if (!c.conversation_id) { setToast("No conversation yet for this contact"); return; }
+    const disp = category === "spam"
+      ? dispositions.find((d) => d.category === "spam")
+      : (dispositions.find((d) => d.name?.toLowerCase() === "lost") || dispositions.find((d) => d.category === "lost"));
+    try {
+      await api.patchConversation(c.conversation_id, disp ? { disposition_id: disp.id, lost_reason: reason } : { lost_reason: reason });
+      setToast(category === "spam" ? "Marked as spam" : "Marked as lost");
+    } catch { setToast("Could not update"); }
   }
   // Close row / add menus on outside click.
   useEffect(() => {
@@ -207,7 +222,7 @@ export default function ContactsPage() {
             <thead className="sticky top-0 z-10">
               <tr className="border-b border-border bg-muted">
                 <TH className="w-10"><span className="sr-only">Select</span><input type="checkbox" aria-label="Select all contacts" className="rounded border-input accent-primary" /></TH>
-                <TH>Contact name</TH><TH>Channel</TH><TH>Phone</TH><TH>Status</TH><TH>Source</TH>
+                <TH>Contact name</TH><TH>Channel</TH><TH>Phone</TH><TH>Stage</TH><TH>Source</TH>
                 <TH>Labels</TH><TH>Created</TH><TH>Updated</TH><TH>Blacklisted</TH><TH className="text-right">Actions</TH>
               </tr>
             </thead>
@@ -241,7 +256,14 @@ export default function ContactsPage() {
                   <td className="px-4 py-2.5 font-medium text-foreground/90 tabular-nums whitespace-nowrap">{c.phone || "-"}</td>
                   <td className="px-4 py-2.5 whitespace-nowrap">
                     {canEdit && c.conversation_id ? (
-                      <Select value={c.stage_id || ""} onChange={(v) => setStage(c, v)} options={stageOptions} className="w-[150px]" />
+                      <div className="inline-flex items-center h-8 rounded-md border border-border bg-background overflow-hidden">
+                        <StageMenu
+                          stages={stages}
+                          currentStageId={c.stage_id || null}
+                          onSelect={(id) => setStage(c, id)}
+                          onMarkOutcome={() => setOutcomeFor(c)}
+                        />
+                      </div>
                     ) : c.stage_name ? (
                       <span className="inline-flex px-2 py-0.5 rounded-md text-[11px] font-semibold bg-primary/10 text-primary">{c.stage_name}</span>
                     ) : <span className="text-muted-foreground">-</span>}
@@ -308,6 +330,11 @@ export default function ContactsPage() {
           onClose={() => setModal(null)} onSaved={(msg) => { setModal(null); reload(); setToast(msg); }} />
       )}
       {chatContact && <ChatPopup contact={chatContact} onClose={() => setChatContact(null)} notify={(m) => setToast(m)} />}
+      <LostReasonDialog
+        open={!!outcomeFor}
+        onClose={() => setOutcomeFor(null)}
+        onSubmit={(reason, category) => { if (outcomeFor) markOutcome(outcomeFor, reason, category); setOutcomeFor(null); }}
+      />
 
       {toast && (
         <div className="fixed bottom-6 left-6 z-[110] animate-scale-in">
