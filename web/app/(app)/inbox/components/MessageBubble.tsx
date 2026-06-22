@@ -369,7 +369,7 @@ const MessageBubble = memo(function MessageBubble({ m, active, grouped, onPrevie
         <div
           className={cn(
             isSticker ? "" : "rounded-lg overflow-hidden shadow-sm",
-            isSticker ? "" : (out ? "bg-primary text-primary-foreground rounded-br-[4px]" : "bg-card text-foreground border border-border rounded-bl-[4px]"),
+            isSticker ? "" : (out ? "bg-primary text-primary-foreground selection:bg-white/30 selection:text-white rounded-br-[4px]" : "bg-card text-foreground border border-border rounded-bl-[4px]"),
             // No padding when media-only (image/video fill the bubble)
             (isImage || isVideo) && !m.body && !isSticker ? "" : "",
           )}
