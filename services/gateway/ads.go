@@ -109,6 +109,45 @@ func (s *server) syncAccount(ctx context.Context, accountID, orgID, platform str
 	}
 }
 
+// PATCH /api/ad-accounts/{id} — edit the connection (name, account id, access
+// token). Supplying a new token clears the error state so the next sync re-validates.
+func (s *server) handlePatchAdAccount(w http.ResponseWriter, r *http.Request) {
+	a, _ := authFrom(r.Context())
+	id := r.PathValue("id")
+	var b struct {
+		Name              *string `json:"name"`
+		ExternalAccountID *string `json:"external_account_id"`
+		AccessToken       *string `json:"access_token"`
+	}
+	if err := json.NewDecoder(r.Body).Decode(&b); err != nil {
+		http.Error(w, "bad request", http.StatusBadRequest)
+		return
+	}
+	extID := ""
+	if b.ExternalAccountID != nil {
+		extID = strings.TrimSpace(strings.TrimPrefix(*b.ExternalAccountID, "act_"))
+	}
+	tag, err := s.pool.Exec(r.Context(),
+		`UPDATE ad_accounts SET
+		   name = COALESCE(NULLIF($3,''), name),
+		   external_account_id = COALESCE(NULLIF($4,''), external_account_id),
+		   access_token = COALESCE(NULLIF($5,''), access_token),
+		   status     = CASE WHEN NULLIF($5,'') IS NOT NULL THEN 'connected' ELSE status END,
+		   last_error = CASE WHEN NULLIF($5,'') IS NOT NULL THEN NULL ELSE last_error END
+		 WHERE id=$1 AND organization_id=$2`,
+		id, a.OrgID, derefStr(b.Name), extID, derefStr(b.AccessToken))
+	if err != nil {
+		http.Error(w, err.Error(), http.StatusInternalServerError)
+		return
+	}
+	if tag.RowsAffected() == 0 {
+		http.Error(w, "not found", http.StatusNotFound)
+		return
+	}
+	s.audit(r.Context(), a, "updated", "ad_account", id, nil)
+	writeJSON(w, map[string]any{"status": "updated"})
+}
+
 // DELETE /api/ad-accounts/{id}
 func (s *server) handleDeleteAdAccount(w http.ResponseWriter, r *http.Request) {
 	a, _ := authFrom(r.Context())

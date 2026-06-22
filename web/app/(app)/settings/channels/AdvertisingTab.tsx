@@ -1,10 +1,10 @@
 "use client";
 // Advertising — folded into Channel & Integrations as the "Advertising" tab.
-// SETUP ONLY: connect Meta / TikTok / Google ad accounts and map ad campaigns to
-// our campaigns. Reporting (spend, results, cost-per-lead) lives on the Dashboard.
+// SETUP ONLY: connect Meta / TikTok / Google ad accounts, edit a connection, and
+// map its ad campaigns to ours. Reporting (spend, cost-per-lead) lives on the Dashboard.
 import { useEffect, useMemo, useState } from "react";
 import {
-  Plus, RefreshCw, Trash2, Loader2, BarChart3, AlertTriangle, Link2, Search,
+  Plus, RefreshCw, Trash2, Loader2, BarChart3, AlertTriangle, Link2, Search, Pencil, X, KeyRound,
 } from "lucide-react";
 import { api } from "@/lib/api";
 import { Select } from "@/components/Select";
@@ -12,10 +12,10 @@ import { cn } from "@/lib/utils";
 import type { AdAccount, AdCampaignRow, Campaign } from "@/lib/types";
 import { AdWizard } from "./AdWizard";
 
-const PLATFORMS: Record<string, { label: string; live: boolean }> = {
-  meta: { label: "Meta (Facebook/Instagram)", live: true },
-  tiktok: { label: "TikTok", live: true },
-  google: { label: "Google Ads", live: true },
+const PLATFORMS: Record<string, { label: string }> = {
+  meta: { label: "Meta (Facebook/Instagram)" },
+  tiktok: { label: "TikTok" },
+  google: { label: "Google Ads" },
 };
 
 export function AdvertisingTab() {
@@ -25,12 +25,9 @@ export function AdvertisingTab() {
   const [loading, setLoading] = useState(true);
   const [syncing, setSyncing] = useState<string | null>(null);
   const [connectOpen, setConnectOpen] = useState(false);
+  const [manageId, setManageId] = useState<string | null>(null);
   const [toast, setToast] = useState<string | null>(null);
   const [search, setSearch] = useState("");
-  const [platformFilter, setPlatformFilter] = useState("");
-  const [accountFilter, setAccountFilter] = useState("");
-  const [mapPage, setMapPage] = useState(0);
-  const MAP_PER = 12;
 
   async function loadAll() {
     const [acc, adc, oc] = await Promise.all([
@@ -45,10 +42,6 @@ export function AdvertisingTab() {
   useEffect(() => { loadAll(); }, []); // eslint-disable-line react-hooks/exhaustive-deps
   useEffect(() => { if (!toast) return; const t = setTimeout(() => setToast(null), 2800); return () => clearTimeout(t); }, [toast]);
 
-  const ourCampOptions = useMemo(
-    () => [{ value: "", label: "Not mapped" }, ...ourCampaigns.map((c) => ({ value: c.id, label: c.name }))],
-    [ourCampaigns]);
-
   async function sync(id: string) {
     setSyncing(id);
     try { await api.syncAdAccount(id); setToast("Synced"); await loadAll(); }
@@ -57,7 +50,7 @@ export function AdvertisingTab() {
   }
   async function remove(a: AdAccount) {
     if (!confirm(`Disconnect ${a.name || a.external_account_id}? Its metrics will be removed.`)) return;
-    try { await api.deleteAdAccount(a.id); setToast("Disconnected"); await loadAll(); }
+    try { await api.deleteAdAccount(a.id); setToast("Disconnected"); setManageId(null); await loadAll(); }
     catch { setToast("Failed"); }
   }
   async function map(adCampId: string, campaignId: string) {
@@ -66,21 +59,12 @@ export function AdvertisingTab() {
     catch { setToast("Could not map"); }
   }
 
-  // Filters (search + platform + account narrow the mapping list)
-  const platformOptions = useMemo(() => [{ value: "", label: "All platforms" }, ...Array.from(new Set(accounts.map((a) => a.platform))).map((p) => ({ value: p, label: PLATFORMS[p]?.label || p }))], [accounts]);
-  const accountOptions = useMemo(() => [{ value: "", label: "All accounts" }, ...accounts.map((a) => ({ value: a.id, label: a.name || a.external_account_id }))], [accounts]);
   const q = search.trim().toLowerCase();
-  const filteredMap = useMemo(() => adCampaigns.filter((ac) =>
-    (!platformFilter || ac.platform === platformFilter) &&
-    (!accountFilter || (ac.account_name && accounts.find((a) => a.id === accountFilter)?.name === ac.account_name)) &&
-    (!q || ac.name.toLowerCase().includes(q) || (ac.campaign_name || "").toLowerCase().includes(q))
-  ), [adCampaigns, platformFilter, accountFilter, accounts, q]);
-  const mapPaged = filteredMap.slice(mapPage * MAP_PER, mapPage * MAP_PER + MAP_PER);
-  const mapPages = Math.max(1, Math.ceil(filteredMap.length / MAP_PER));
-  useEffect(() => { setMapPage(0); }, [platformFilter, accountFilter, q]);
-
-  const TH = ({ children, className }: { children?: React.ReactNode; className?: string }) =>
-    <th className={cn("px-4 py-2.5 text-left text-[11px] font-bold uppercase tracking-wider text-muted-foreground whitespace-nowrap", className)}>{children}</th>;
+  const visible = useMemo(
+    () => accounts.filter((a) => !q || (a.name || a.external_account_id).toLowerCase().includes(q)),
+    [accounts, q],
+  );
+  const managed = accounts.find((a) => a.id === manageId) || null;
 
   return (
     <div className="px-6 py-6 w-full h-full flex flex-col min-h-0">
@@ -89,18 +73,16 @@ export function AdvertisingTab() {
         <div className="p-3 flex items-center gap-2.5 border-b border-border flex-wrap shrink-0">
           <div className="relative w-[260px] max-w-[45vw]">
             <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-muted-foreground pointer-events-none" />
-            <input type="text" placeholder="Search campaigns" value={search} onChange={(e) => setSearch(e.target.value)}
+            <input type="text" placeholder="Search accounts" value={search} onChange={(e) => setSearch(e.target.value)}
               className="w-full h-9 pl-9 pr-3 rounded-md border border-input bg-muted text-sm text-foreground placeholder:text-muted-foreground/70 outline-none transition-shadow focus:border-primary focus:ring-2 focus:ring-primary/20" />
           </div>
-          {accounts.length > 0 && <Select value={platformFilter} onChange={setPlatformFilter} options={platformOptions} className="min-w-[150px]" />}
-          {accounts.length > 1 && <Select value={accountFilter} onChange={setAccountFilter} options={accountOptions} className="min-w-[160px]" />}
           <div className="flex-1" />
           <button onClick={() => setConnectOpen(true)} className="inline-flex items-center gap-2 px-3.5 h-9 bg-primary text-white rounded-md text-sm font-semibold hover:bg-primary-dark shadow-sm transition-all outline-none">
             <Plus className="w-4 h-4" />Connect ad account
           </button>
         </div>
 
-        <div className="overflow-auto flex-1 min-h-0 p-4 space-y-6">
+        <div className="overflow-auto flex-1 min-h-0 p-4">
         {loading ? (
           <div className="h-40 grid place-items-center"><Loader2 className="w-6 h-6 animate-spin text-primary" /></div>
         ) : accounts.length === 0 ? (
@@ -111,11 +93,11 @@ export function AdvertisingTab() {
             <button onClick={() => setConnectOpen(true)} className="inline-flex items-center gap-2 px-4 h-9 bg-primary text-white rounded-md text-sm font-semibold hover:bg-primary-dark shadow-sm outline-none"><Plus className="w-4 h-4" />Connect ad account</button>
           </div>
         ) : (
-          <>
-            {/* Connected accounts */}
-            <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-3">
-              {accounts.map((a) => (
-                <div key={a.id} className="bg-card border border-border rounded-lg p-4 shadow-xs">
+          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-3">
+            {visible.map((a) => {
+              const mapped = adCampaigns.filter((c) => c.account_name === a.name && c.campaign_id).length;
+              return (
+                <div key={a.id} className="group bg-card border border-border rounded-lg p-4 shadow-xs hover:border-primary/30 hover:shadow-md transition-all">
                   <div className="flex items-start gap-2">
                     <div className="min-w-0 flex-1">
                       <p className="font-semibold text-foreground truncate">{a.name || a.external_account_id}</p>
@@ -123,55 +105,147 @@ export function AdvertisingTab() {
                     </div>
                     <span className={cn("px-2 py-0.5 rounded-md text-[11px] font-semibold shrink-0", a.status === "error" ? "bg-red-50 text-red-600" : "bg-emerald-50 text-emerald-600")}>{a.status}</span>
                   </div>
-                  {a.last_error && <p className="mt-2 text-[11px] text-red-600 flex items-start gap-1"><AlertTriangle className="w-3.5 h-3.5 shrink-0 mt-px" />{a.last_error}</p>}
+                  {a.last_error && (
+                    <button onClick={() => setManageId(a.id)} className="mt-2 w-full text-left text-[11px] text-red-600 flex items-start gap-1 hover:underline outline-none">
+                      <AlertTriangle className="w-3.5 h-3.5 shrink-0 mt-px" /><span className="line-clamp-2">{a.last_error} — fix the token</span>
+                    </button>
+                  )}
                   <div className="flex items-center justify-between mt-3 pt-3 border-t border-border/60">
-                    <span className="text-[11px] text-muted-foreground">{a.last_synced_at ? `Synced ${new Date(a.last_synced_at).toLocaleString()}` : "Never synced"}</span>
-                    <div className="flex items-center gap-1">
-                      <button onClick={() => sync(a.id)} disabled={syncing === a.id} className="p-1.5 rounded-md hover:bg-muted text-primary outline-none disabled:opacity-50" title="Sync now"><RefreshCw className={cn("w-4 h-4", syncing === a.id && "animate-spin")} /></button>
-                      <button onClick={() => remove(a)} className="p-1.5 rounded-md hover:bg-muted text-destructive outline-none" title="Disconnect"><Trash2 className="w-4 h-4" /></button>
+                    <span className="text-[11px] text-muted-foreground">
+                      {a.campaign_count > 0 ? `${a.campaign_count} campaign${a.campaign_count === 1 ? "" : "s"}${mapped ? ` · ${mapped} mapped` : ""}` : (a.last_synced_at ? "No campaigns" : "Never synced")}
+                    </span>
+                    <div className="flex items-center gap-0.5">
+                      <button onClick={() => setManageId(a.id)} className="p-1.5 rounded-md hover:bg-muted text-muted-foreground hover:text-foreground outline-none transition-colors" title="Edit / map"><Pencil className="w-4 h-4" /></button>
+                      <button onClick={() => sync(a.id)} disabled={syncing === a.id} className="p-1.5 rounded-md hover:bg-muted text-primary outline-none disabled:opacity-50 transition-colors" title="Sync now"><RefreshCw className={cn("w-4 h-4", syncing === a.id && "animate-spin")} /></button>
+                      <button onClick={() => remove(a)} className="p-1.5 rounded-md hover:bg-muted text-destructive outline-none transition-colors" title="Disconnect"><Trash2 className="w-4 h-4" /></button>
                     </div>
                   </div>
                 </div>
-              ))}
-            </div>
-
-            {/* Mapping (setup) */}
-            <div className="bg-card border border-border rounded-lg shadow-xs overflow-hidden">
-              <div className="px-4 py-3 border-b border-border">
-                <p className="font-bold text-[14px] text-foreground">Map ad campaigns to your campaigns</p>
-                <p className="text-[12px] text-muted-foreground">Mapping ties each ad campaign to one of your campaigns. Cost-per-lead and results appear on the Dashboard.</p>
-              </div>
-              <div className="overflow-x-auto">
-                <table className="w-full text-sm">
-                  <thead><tr className="border-b border-border bg-muted/40"><TH>Ad campaign</TH><TH>Account</TH><TH>Mapped to</TH></tr></thead>
-                  <tbody>
-                    {filteredMap.length === 0 ? (
-                      <tr><td colSpan={3} className="text-center py-10 text-muted-foreground text-sm">No ad campaigns yet. Connect an account and sync.</td></tr>
-                    ) : mapPaged.map((ac) => (
-                      <tr key={ac.id} className="border-b border-border/60 hover:bg-muted/40">
-                        <td className="px-4 py-2.5 font-medium text-foreground"><span className="inline-flex items-center gap-1.5"><Link2 className="w-3.5 h-3.5 text-muted-foreground" />{ac.name}</span></td>
-                        <td className="px-4 py-2.5 text-muted-foreground">{ac.account_name}</td>
-                        <td className="px-4 py-2.5"><Select value={ac.campaign_id || ""} onChange={(v) => map(ac.id, v)} options={ourCampOptions} className="w-[220px]" /></td>
-                      </tr>
-                    ))}
-                  </tbody>
-                </table>
-              </div>
-              {filteredMap.length > MAP_PER && (
-                <div className="flex items-center justify-end gap-2 px-4 py-2.5 border-t border-border text-sm">
-                  <span className="text-muted-foreground mx-2 tabular-nums">Page {mapPage + 1} of {mapPages}</span>
-                  <button disabled={mapPage <= 0} onClick={() => setMapPage(mapPage - 1)} className="px-2.5 h-7 rounded-md border border-border text-xs font-semibold disabled:opacity-30 hover:bg-muted outline-none transition-colors">Prev</button>
-                  <button disabled={mapPage >= mapPages - 1} onClick={() => setMapPage(mapPage + 1)} className="px-2.5 h-7 rounded-md border border-border text-xs font-semibold disabled:opacity-30 hover:bg-muted outline-none transition-colors">Next</button>
-                </div>
-              )}
-            </div>
-          </>
+              );
+            })}
+          </div>
         )}
         </div>
       </div>
 
       {connectOpen && <AdWizard onClose={() => setConnectOpen(false)} onConnected={(msg) => { setConnectOpen(false); setToast(msg); loadAll(); }} />}
+      {managed && (
+        <AdAccountDialog
+          account={managed}
+          adCampaigns={adCampaigns.filter((c) => c.account_name === managed.name)}
+          ourCampaigns={ourCampaigns}
+          onMap={map}
+          onSync={() => sync(managed.id)}
+          syncing={syncing === managed.id}
+          onClose={() => setManageId(null)}
+          onSaved={(m) => { setToast(m); loadAll(); }}
+          onError={(m) => setToast(m)}
+        />
+      )}
       {toast && <div className="fixed bottom-6 left-6 z-[110] animate-scale-in"><div className="px-4 py-2.5 rounded-lg bg-[#2D8B73] text-white text-sm font-semibold shadow-xl">{toast}</div></div>}
+    </div>
+  );
+}
+
+// Manage one connection: edit name / account id / access token, and map its ad
+// campaigns to our campaigns. Replaces the old global mapping table.
+function AdAccountDialog({ account, adCampaigns, ourCampaigns, onMap, onSync, syncing, onClose, onSaved, onError }: {
+  account: AdAccount; adCampaigns: AdCampaignRow[]; ourCampaigns: Campaign[];
+  onMap: (adCampId: string, campaignId: string) => void; onSync: () => void; syncing: boolean;
+  onClose: () => void; onSaved: (m: string) => void; onError: (m: string) => void;
+}) {
+  const [name, setName] = useState(account.name || "");
+  const [extId, setExtId] = useState(account.external_account_id || "");
+  const [token, setToken] = useState("");
+  const [saving, setSaving] = useState(false);
+
+  const ourCampOptions = useMemo(
+    () => [{ value: "", label: "Not mapped" }, ...ourCampaigns.map((c) => ({ value: c.id, label: c.name }))],
+    [ourCampaigns]);
+
+  async function save() {
+    setSaving(true);
+    try {
+      await api.updateAdAccount(account.id, {
+        name: name.trim() || undefined,
+        external_account_id: extId.trim() || undefined,
+        access_token: token.trim() || undefined,
+      });
+      onSaved(token.trim() ? "Connection updated — syncing" : "Connection updated");
+      if (token.trim()) onSync();
+      onClose();
+    } catch (e) { onError(String(e)); }
+    finally { setSaving(false); }
+  }
+
+  const F = "w-full h-10 px-3 rounded-md border border-input bg-background text-[13.5px] text-foreground placeholder:text-muted-foreground/70 outline-none transition-shadow focus:border-primary focus:ring-2 focus:ring-primary/20";
+  const L = "block text-[11px] font-bold uppercase tracking-wider text-muted-foreground mb-1.5";
+
+  return (
+    <div className="fixed inset-0 z-[100] flex items-center justify-center p-4">
+      <div className="absolute inset-0 bg-black/40 backdrop-blur-[2px] animate-fade-in" onClick={onClose} />
+      <div className="relative bg-card rounded-lg border border-border shadow-2xl w-full max-w-lg max-h-[88vh] flex flex-col animate-scale-in">
+        <div className="flex items-center justify-between px-5 py-3.5 border-b border-border shrink-0">
+          <div className="min-w-0">
+            <h2 className="text-[15px] font-bold text-foreground truncate">{account.name || account.external_account_id}</h2>
+            <p className="text-[12px] text-muted-foreground">{PLATFORMS[account.platform]?.label || account.platform}</p>
+          </div>
+          <button onClick={onClose} className="p-1 rounded-md text-muted-foreground hover:bg-muted hover:text-foreground outline-none transition-colors"><X className="w-[18px] h-[18px]" /></button>
+        </div>
+
+        <div className="px-5 py-5 flex flex-col gap-5 overflow-auto">
+          {account.last_error && (
+            <div className="flex items-start gap-2 px-3 py-2 rounded-md bg-red-50 border border-red-200 text-[12px] text-red-600">
+              <AlertTriangle className="w-4 h-4 shrink-0 mt-px" /><span>{account.last_error}</span>
+            </div>
+          )}
+
+          {/* Connection */}
+          <div className="flex flex-col gap-3">
+            <p className="text-[11px] font-bold uppercase tracking-wider text-muted-foreground">Connection</p>
+            <div><label className={L}>Display name</label><input value={name} onChange={(e) => setName(e.target.value)} placeholder="e.g. Main Meta account" className={F} /></div>
+            <div><label className={L}>Account ID</label><input value={extId} onChange={(e) => setExtId(e.target.value)} placeholder="e.g. 1234567890" className={F} /></div>
+            <div>
+              <label className={L}>Access token</label>
+              <div className="relative">
+                <KeyRound className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-muted-foreground pointer-events-none" />
+                <input type="password" value={token} onChange={(e) => setToken(e.target.value)} placeholder="Leave blank to keep current" className={cn(F, "pl-9")} autoComplete="off" />
+              </div>
+              <p className="text-[11px] text-muted-foreground/70 mt-1">Paste a fresh token to fix an invalid connection. We re-sync after saving.</p>
+            </div>
+          </div>
+
+          {/* Campaign mapping */}
+          <div className="flex flex-col gap-2 border-t border-border pt-4">
+            <div className="flex items-center justify-between">
+              <p className="text-[11px] font-bold uppercase tracking-wider text-muted-foreground">Map campaigns</p>
+              <button onClick={onSync} disabled={syncing} className="inline-flex items-center gap-1.5 text-[12px] font-semibold text-primary hover:underline outline-none disabled:opacity-50">
+                <RefreshCw className={cn("w-3.5 h-3.5", syncing && "animate-spin")} />Sync
+              </button>
+            </div>
+            {adCampaigns.length === 0 ? (
+              <p className="text-[12.5px] text-muted-foreground py-3 text-center bg-muted/40 rounded-md">No campaigns yet. Sync this account to pull them.</p>
+            ) : (
+              <div className="flex flex-col divide-y divide-border/60 rounded-md border border-border overflow-hidden">
+                {adCampaigns.map((ac) => (
+                  <div key={ac.id} className="flex items-center gap-2 px-3 py-2.5">
+                    <Link2 className="w-3.5 h-3.5 text-muted-foreground shrink-0" />
+                    <span className="text-[13px] font-medium text-foreground flex-1 truncate">{ac.name}</span>
+                    <Select value={ac.campaign_id || ""} onChange={(v) => onMap(ac.id, v)} options={ourCampOptions} className="w-[200px]" />
+                  </div>
+                ))}
+              </div>
+            )}
+          </div>
+        </div>
+
+        <div className="flex justify-between items-center gap-2 px-5 py-3.5 border-t border-border shrink-0">
+          <button onClick={onClose} className="px-3 py-1.5 rounded-md text-sm font-semibold text-foreground/70 hover:bg-muted outline-none transition-colors">Close</button>
+          <button onClick={save} disabled={saving} className="inline-flex items-center gap-2 px-4 py-2 rounded-md text-sm font-semibold text-white bg-primary hover:bg-primary-dark disabled:opacity-60 outline-none transition-colors">
+            {saving ? <Loader2 className="w-4 h-4 animate-spin" /> : null}Save changes
+          </button>
+        </div>
+      </div>
     </div>
   );
 }
