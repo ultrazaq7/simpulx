@@ -28,7 +28,7 @@ const PREVIEW_MEDIA: Record<string, { icon: any; label: string }> = {
 
 // Lead temperature -> the avatar status dot (replaces the channel dot).
 const TEMP_DOT: Record<string, string> = { hot: "bg-hot", warm: "bg-warm", cold: "bg-cold" };
-const TEMP_LABEL: Record<string, string> = { hot: "Hot lead", warm: "Warm lead", cold: "Cold lead" };
+const TEMP_LABEL: Record<string, string> = { hot: "Hot", warm: "Warm", cold: "Cold" };
 
 const ConversationCard = memo(function ConversationCard({
   conv: c, isActive, onClick, messages, showAgent, channelName, dense,
@@ -50,11 +50,11 @@ const ConversationCard = memo(function ConversationCard({
     return Date.now() - new Date(c.last_message_at).getTime() > 24 * 60 * 60 * 1000;
   })();
 
-  // One left accent, by priority: unread > call > follow-up.
   const accent = unread ? "bg-primary" : needsCall ? "bg-info" : needsFollowUp ? "bg-warm" : "";
   const temp = c.interest_level && TEMP_DOT[c.interest_level] ? c.interest_level : null;
 
   const media = c.last_message_preview ? PREVIEW_MEDIA[c.last_message_preview] : undefined;
+  const previewFull = media ? media.label : (c.last_message_preview || "No messages yet");
   const cc = channelColor(c.channel);
   const hasMeta = !!c.campaign_name || (showAgent && !!c.agent_name);
 
@@ -63,14 +63,14 @@ const ConversationCard = memo(function ConversationCard({
       onClick={onClick}
       className={cn(
         "group relative flex gap-3 pl-4 pr-3 cursor-pointer border-b border-border/40 transition-colors duration-100",
-        dense ? "py-2" : "py-2.5",
+        dense ? "py-2" : "py-3",
         isActive ? "bg-primary/[0.06]" : "hover:bg-muted/40",
       )}
     >
-      {accent && <span aria-hidden className={cn("absolute left-0 top-1.5 bottom-1.5 w-[3px] rounded-r-full", accent)} />}
+      {accent && <span aria-hidden className={cn("absolute left-0 top-2 bottom-2 w-[3px] rounded-r-full", accent)} />}
 
-      {/* Avatar (channel tint) + temperature dot */}
-      <div className="relative shrink-0 self-center">
+      {/* Avatar (channel tint) + temperature dot — top-left, aligned with the name */}
+      <div className="relative shrink-0 self-start mt-0.5">
         <Tip label={channelName || c.channel} side="top">
           <div
             className="w-9 h-9 rounded-full grid place-items-center text-[13px] font-semibold"
@@ -106,19 +106,21 @@ const ConversationCard = memo(function ConversationCard({
           )}
         </div>
 
-        {/* Line 2: preview + one urgent signal + unread count */}
-        <div className={cn("flex items-center gap-1.5", dense ? "mt-0.5" : "mt-1")}>
-          <span className={cn(
-            "flex-1 min-w-0 truncate text-[13px] leading-snug",
-            unread ? "text-foreground/70" : "text-muted-foreground",
-          )}>
-            {agentReplied && !unread && <Headset className="inline-block w-3 h-3 mr-1 -mt-0.5 text-primary/60 align-middle" />}
-            {media ? (
-              <span className="inline-flex items-center gap-1 align-middle"><media.icon className="w-3.5 h-3.5 shrink-0" />{media.label}</span>
-            ) : (
-              c.last_message_preview || <span className="italic text-muted-foreground/60">No messages yet</span>
-            )}
-          </span>
+        {/* Line 2: preview (full text on hover) + one urgent signal + unread count */}
+        <div className={cn("flex items-center gap-1.5", dense ? "mt-1" : "mt-1.5")}>
+          <Tip label={<span className="block max-w-[300px] whitespace-pre-wrap leading-snug text-left text-[12px]">{previewFull}</span>} side="bottom">
+            <span className={cn(
+              "flex-1 min-w-0 truncate text-[13px] leading-snug",
+              unread ? "text-foreground/70" : "text-muted-foreground",
+            )}>
+              {agentReplied && !unread && <Headset className="inline-block w-3 h-3 mr-1 -mt-0.5 text-primary/60 align-middle" />}
+              {media ? (
+                <span className="inline-flex items-center gap-1 align-middle"><media.icon className="w-3.5 h-3.5 shrink-0" />{media.label}</span>
+              ) : (
+                c.last_message_preview || <span className="italic text-muted-foreground/60">No messages yet</span>
+              )}
+            </span>
+          </Tip>
           {needsCall ? (
             <Tip label="Call this hot lead" side="top"><Phone className="w-3.5 h-3.5 text-info shrink-0" /></Tip>
           ) : needsFollowUp ? (
@@ -133,20 +135,20 @@ const ConversationCard = memo(function ConversationCard({
           )}
         </div>
 
-        {/* Line 3: full campaign + agent name */}
+        {/* Line 3: agent (left) + campaign (right) — full names */}
         {hasMeta && (
-          <div className={cn("flex items-center gap-1.5 min-w-0", dense ? "mt-1" : "mt-1.5")}>
-            {c.campaign_name && (
-              <Tip label={c.campaign_name} side="top">
-                <span className="inline-flex items-center h-[19px] px-2 rounded-md bg-primary/[0.08] text-primary-text text-[11px] font-medium truncate min-w-0 max-w-[62%]">
-                  {c.campaign_name}
+          <div className={cn("flex items-center gap-1.5 min-w-0", dense ? "mt-1" : "mt-2")}>
+            {showAgent && c.agent_name && (
+              <Tip label={`Assigned: ${c.agent_name}`} side="top">
+                <span className="inline-flex items-center gap-1 h-[19px] px-1.5 rounded-md bg-muted text-foreground/70 text-[11px] font-medium truncate min-w-0 max-w-[55%]">
+                  <User className="w-2.5 h-2.5 shrink-0 opacity-70" />{c.agent_name}
                 </span>
               </Tip>
             )}
-            {showAgent && c.agent_name && (
-              <Tip label={`Assigned: ${c.agent_name}`} side="top">
-                <span className="inline-flex items-center gap-1 h-[19px] px-1.5 rounded-md bg-muted text-foreground/70 text-[11px] font-medium truncate shrink-0 max-w-[44%]">
-                  <User className="w-2.5 h-2.5 shrink-0 opacity-70" />{c.agent_name}
+            {c.campaign_name && (
+              <Tip label={c.campaign_name} side="top">
+                <span className="inline-flex items-center h-[19px] px-2 rounded-md bg-primary/[0.08] text-primary-text text-[11px] font-medium truncate min-w-0 ml-auto max-w-[58%]">
+                  {c.campaign_name}
                 </span>
               </Tip>
             )}

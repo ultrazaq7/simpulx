@@ -5,7 +5,7 @@ import {
   CheckCircle, RotateCcw, PanelRight, Lock, ChevronUp, ChevronDown,
   Download, XCircle, User, FileText, Video, Clock,
 } from "lucide-react";
-import { cn, fmtTime } from "@/lib/utils";
+import { cn, fmtTime, initials, channelColor, channelTextColor } from "@/lib/utils";
 import { Tip } from "@/components/ui/tooltip";
 import type { Agent, Conversation, Disposition, InternalNote, QuickReply, Stage, Message } from "@/lib/types";
 import type { Virtualizer } from "@tanstack/react-virtual";
@@ -419,6 +419,13 @@ export default function ChatPanel({
           <>
             {/* ── Chat Header ── */}
             <div className="h-14 shrink-0 flex items-center px-3 gap-2 border-b border-border bg-card">
+              {/* Contact avatar */}
+              <div
+                className="w-9 h-9 rounded-full grid place-items-center text-[13px] font-semibold shrink-0"
+                style={{ backgroundColor: channelColor(active.channel) + "14", color: channelTextColor(active.channel) }}
+              >
+                {initials(active.contact_name || active.contact_phone)}
+              </div>
               {/* Contact name + phone (left) */}
               <div className="min-w-0 mr-2">
                 <p className="text-[16px] font-bold text-foreground truncate leading-tight">

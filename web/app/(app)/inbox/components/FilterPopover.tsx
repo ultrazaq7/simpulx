@@ -54,7 +54,7 @@ export default function FilterPopover({ categories, toggles, activeCount, onClea
   return (
     <>
       <div className="fixed inset-0 z-40" onClick={onClose} />
-      <div className="relative z-50 w-[520px] max-w-[calc(100vw-2rem)] rounded-xl border border-border bg-popover shadow-2xl overflow-hidden animate-scale-in origin-top-left flex">
+      <div className="relative z-50 max-w-[calc(100vw-2rem)] rounded-xl border border-border bg-popover shadow-2xl overflow-hidden animate-scale-in origin-top-left flex">
         {/* ── Left: categories + toggles ── */}
         <div className="w-[188px] shrink-0 border-r border-border flex flex-col">
           <p className="px-4 pt-3 pb-2 text-[10px] font-bold uppercase tracking-wider text-muted-foreground">Filter</p>
@@ -111,15 +111,9 @@ export default function FilterPopover({ categories, toggles, activeCount, onClea
           </button>
         </div>
 
-        {/* ── Right: options for the hovered category ── */}
-        <div className="flex-1 min-w-0 flex flex-col max-h-[420px]">
-          {!activeCat && (
-            <div className="flex-1 grid place-items-center px-6 text-center min-h-[180px]">
-              <p className="text-[13px] text-muted-foreground">Hover a filter on the left to see its options</p>
-            </div>
-          )}
-          {activeCat && (
-            <>
+        {/* ── Right: options for the hovered category (revealed on hover) ── */}
+        {activeCat && (
+          <div className="w-[332px] flex flex-col max-h-[420px] animate-slide-in-left">
               <div className="flex items-center justify-between px-4 pt-3 pb-2">
                 <p className="text-[10px] font-bold uppercase tracking-wider text-muted-foreground">{activeCat.label}</p>
                 <div className="flex items-center gap-2">
@@ -185,9 +179,8 @@ export default function FilterPopover({ categories, toggles, activeCount, onClea
                   })
                 )}
               </div>
-            </>
-          )}
-        </div>
+          </div>
+        )}
       </div>
     </>
   );
