@@ -426,13 +426,13 @@ export function Shell({ children }: { children: ReactNode }) {
       <div
         role="navigation"
         aria-label="Main"
-        className="shrink-0 flex flex-col py-4 gap-0.5 bg-muted border-r border-border transition-all duration-200 ease-out z-50 relative overflow-x-hidden"
+        className="shrink-0 flex flex-col py-4 gap-0.5 bg-muted border-r border-border transition-[width] duration-200 ease-out z-50 relative overflow-x-hidden"
         style={{ width: sidebarOpen ? 240 : SIDEBAR_W }}
       >
         <div className={cn("flex items-center mb-5 h-[46px]", sidebarOpen ? "px-3.5" : "justify-center")}>
           <Link href="/dashboard" className="flex items-center outline-none">
             <div className={cn(
-              "rounded-lg overflow-hidden shrink-0 shadow-md transition-all duration-200",
+              "rounded-lg overflow-hidden shrink-0 shadow-md transition-[width,height] duration-200",
               sidebarOpen ? "w-9 h-9" : "w-8 h-8",
             )}>
               <img src="/simpulx_logo.png" alt="Simpulx" className="w-full h-full object-cover" />
@@ -452,7 +452,7 @@ export function Shell({ children }: { children: ReactNode }) {
           <button
             aria-label={sidebarOpen ? "Collapse sidebar" : "Expand sidebar"}
             onClick={() => setSidebarOpen(!sidebarOpen)}
-            className="p-1 rounded-md text-muted-foreground border border-border hover:text-foreground hover:bg-foreground/5 transition-all outline-none"
+            className="p-1 rounded-md text-muted-foreground border border-border hover:text-foreground hover:bg-foreground/5 transition-colors outline-none"
           >
             {sidebarOpen ? <ChevronLeft className="w-[18px] h-[18px]" /> : <ChevronRight className="w-[18px] h-[18px]" />}
           </button>
