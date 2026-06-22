@@ -258,7 +258,7 @@ export default function AccountPage() {
                 {avatar ? (
                   <img src={avatar} alt="" className="w-full h-full object-cover" />
                 ) : (
-                  <span className="w-full h-full bg-brand-gradient text-teal-950 flex items-center justify-center text-xl font-bold">{initials(user?.name || "")}</span>
+                  <span className="w-full h-full bg-brand-gradient text-white flex items-center justify-center text-xl font-bold">{initials(user?.name || "")}</span>
                 )}
                 <span className="absolute inset-0 bg-black/40 opacity-0 group-hover:opacity-100 transition-opacity grid place-items-center">
                   {avatarUploading ? <Loader2 className="w-5 h-5 text-white animate-spin" /> : <Camera className="w-5 h-5 text-white" />}
