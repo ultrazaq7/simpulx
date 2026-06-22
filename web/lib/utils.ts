@@ -26,6 +26,21 @@ export function dateLabel(dateStr: string | Date | undefined | null): string {
   return fmtDate(dateStr);
 }
 
+// Clean, sortable timestamp for CSV/data exports: "2026-06-21 9:03 AM",
+// rendered in the given IANA timezone (the workspace tz) so columns aren't UTC.
+export function fmtExportTs(dateStr: string | Date | undefined | null, tz?: string): string {
+  if (!dateStr) return "";
+  const d = new Date(dateStr);
+  if (isNaN(d.getTime())) return "";
+  const parts = new Intl.DateTimeFormat("en-US", {
+    timeZone: tz || undefined,
+    year: "numeric", month: "2-digit", day: "2-digit",
+    hour: "numeric", minute: "2-digit", hour12: true,
+  }).formatToParts(d);
+  const get = (t: string) => parts.find((p) => p.type === t)?.value || "";
+  return `${get("year")}-${get("month")}-${get("day")} ${get("hour")}:${get("minute")} ${get("dayPeriod")}`;
+}
+
 // Compact, non-ticking relative time for dense lists (Linear/Superhuman style):
 // "now", "5m", "2h", "3d", then a short weekday/date. No seconds jitter.
 export function relTime(dateStr: string | Date | undefined | null): string {

@@ -1,6 +1,6 @@
 "use client";
 import { useEffect, useMemo, useState } from "react";
-import { Loader2, Globe, Clock, Building2, Copy, Check, Phone, CalendarDays, Hash } from "lucide-react";
+import { Loader2, Globe, Clock, Building2, Copy, Check, Phone } from "lucide-react";
 import { api } from "@/lib/api";
 import { Select } from "@/components/Select";
 import type { OrgSettings } from "@/lib/types";
@@ -27,6 +27,15 @@ const COUNTRY_CODES = [
 function getTimezones() {
   try { return Intl.supportedValuesOf("timeZone"); }
   catch { return ["Asia/Jakarta", "Asia/Singapore", "America/New_York", "America/Los_Angeles", "Europe/London", "UTC"]; }
+}
+
+// Current UTC offset for an IANA zone, e.g. "UTC+7" / "UTC-5:30" (search by "+7" works).
+function tzOffset(tz: string): string {
+  try {
+    const parts = new Intl.DateTimeFormat("en-US", { timeZone: tz, timeZoneName: "shortOffset" }).formatToParts(new Date());
+    const name = parts.find((p) => p.type === "timeZoneName")?.value || "";
+    return name.replace("GMT", "UTC").replace(/^UTC$/, "UTC+0");
+  } catch { return ""; }
 }
 
 // Card with a titled header bar (enterprise look).
@@ -60,7 +69,7 @@ export default function GeneralSettingsPage() {
   const [country, setCountry] = useState("62");
   const [origCountry, setOrigCountry] = useState("62");
 
-  const tzOptions = useMemo(() => getTimezones().map((tz) => ({ value: tz, label: tz })), []);
+  const tzOptions = useMemo(() => getTimezones().map((tz) => { const off = tzOffset(tz); return { value: tz, label: off ? `${tz} (${off})` : tz }; }), []);
 
   useEffect(() => {
     api.getOrganization().then((o) => {
@@ -98,13 +107,6 @@ export default function GeneralSettingsPage() {
     setCopied(true);
     setTimeout(() => setCopied(false), 2000);
   }
-
-  // Live regional preview (honest: derived from the chosen locale + timezone).
-  const now = new Date();
-  const safeFmt = (fn: () => string) => { try { return fn(); } catch { return "—"; } };
-  const dateEx = safeFmt(() => new Intl.DateTimeFormat(locale, { timeZone: timezone, dateStyle: "medium" }).format(now));
-  const timeEx = safeFmt(() => new Intl.DateTimeFormat(locale, { timeZone: timezone, timeStyle: "short" }).format(now));
-  const numEx = safeFmt(() => new Intl.NumberFormat(locale).format(1234567.89));
 
   if (loading) return (
     <PageBody><div className="flex justify-center py-20"><Loader2 className="w-6 h-6 animate-spin text-muted-foreground" /></div></PageBody>
@@ -158,27 +160,10 @@ export default function GeneralSettingsPage() {
             <div>
               <div className="flex items-center gap-2 mb-1.5"><Phone className="w-4 h-4 text-muted-foreground" /><FieldLabel className="mb-0">Default country code</FieldLabel></div>
               <Select value={country} onChange={setCountry} options={COUNTRY_CODES} />
-              <p className="text-[11px] text-muted-foreground/70 mt-1.5">Primary country dialing code for this workspace.</p>
             </div>
           </div>
         </Panel>
       </div>
-
-      {/* ── Regional preview (live, read-only) ── */}
-      <Panel icon={CalendarDays} title="Regional preview" className="mt-5">
-        <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
-          {[
-            { icon: CalendarDays, label: "Date", value: dateEx },
-            { icon: Clock, label: "Time", value: timeEx },
-            { icon: Hash, label: "Number", value: numEx },
-          ].map((p) => (
-            <div key={p.label} className="rounded-lg border border-border bg-muted/30 p-4">
-              <div className="flex items-center gap-1.5 text-muted-foreground mb-1.5"><p.icon className="w-3.5 h-3.5" /><span className="text-[11px] font-bold uppercase tracking-wider">{p.label}</span></div>
-              <p className="text-[16px] font-bold text-foreground tabular-nums">{p.value}</p>
-            </div>
-          ))}
-        </div>
-      </Panel>
     </PageBody>
   );
 }

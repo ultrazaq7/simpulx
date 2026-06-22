@@ -196,7 +196,7 @@ export default function AccountPage() {
   return (
     <div className="h-full overflow-y-auto bg-background">
       {Host}
-      <div className="max-w-3xl px-8 py-8">
+      <div className="max-w-5xl px-8 py-8">
         {/* Back button */}
         <button
           onClick={() => router.back()}
@@ -238,7 +238,9 @@ export default function AccountPage() {
               </div>
             </div>
 
-            {/* Personal info form */}
+            {/* Personal info + system preference, side by side */}
+            <div className="grid grid-cols-1 lg:grid-cols-2 gap-6 items-start">
+            <div>
             <h3 className="text-[16px] font-bold text-foreground mb-5">{tr("account.tab_profile")}</h3>
 
             <div className="bg-card border border-border rounded-xl p-5 space-y-5">
@@ -310,6 +312,17 @@ export default function AccountPage() {
                 </button>
               </div>
             </div>
+            </div>{/* /left column */}
+
+            {/* System preference (timezone) - beside profile */}
+            <div>
+              <h3 className="text-[16px] font-bold text-foreground mb-5">{tr("account.system_pref")}</h3>
+              <div className="bg-card border border-border rounded-xl p-5">
+                <label className="block text-[11px] font-bold uppercase tracking-wider text-muted-foreground mb-1.5">{tr("account.your_timezone")}</label>
+                <Select value={timezone} options={tzSelectOptions} onChange={saveTimezone} placeholder="Select timezone" />
+              </div>
+            </div>
+            </div>{/* /grid */}
 
             {/* Change password */}
             <h3 className="text-[16px] font-bold text-foreground mt-10 mb-5">Password</h3>
@@ -363,13 +376,6 @@ export default function AccountPage() {
               </div>
             </div>
 
-            {/* System preference (timezone) */}
-            <h3 className="text-[16px] font-bold text-foreground mt-10 mb-5">{tr("account.system_pref")}</h3>
-            <div className="bg-card border border-border rounded-xl p-5">
-              <label className="block text-[11px] font-bold uppercase tracking-wider text-muted-foreground mb-1.5">{tr("account.your_timezone")}</label>
-              <Select value={timezone} options={tzSelectOptions} onChange={saveTimezone} placeholder="Select timezone" />
-              <p className="text-[11px] text-muted-foreground/70 mt-1.5">{tr("account.your_timezone_desc")}</p>
-            </div>
           </div>
         )}
 

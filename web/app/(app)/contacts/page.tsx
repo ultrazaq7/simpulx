@@ -8,7 +8,7 @@ import {
 
 import { api, getUser } from "@/lib/api";
 import { usePermissions } from "@/lib/permissions";
-import { initials, channelColor, channelTextColor, channelLabel, fmtDate, cn } from "@/lib/utils";
+import { initials, channelColor, channelTextColor, channelLabel, fmtDate, fmtExportTs, cn } from "@/lib/utils";
 import type { Contact, Agent, Campaign, Message, Stage, Conversation, Disposition } from "@/lib/types";
 import { Tip } from "@/components/ui/tooltip";
 import MessageBubble, { rewriteLocalMedia } from "@/app/(app)/inbox/components/MessageBubble";
@@ -45,6 +45,7 @@ export default function ContactsPage() {
   const [menuId, setMenuId] = useState<string | null>(null);
   const [addMenuOpen, setAddMenuOpen] = useState(false);
   const [toast, setToast] = useState<string | null>(null);
+  const [orgTz, setOrgTz] = useState<string>("");
   const importRef = useRef<HTMLInputElement>(null);
 
   const router = useRouter();
@@ -65,6 +66,7 @@ export default function ContactsPage() {
       showCampaignFilter ? api.listCampaigns().catch(() => []) : Promise.resolve([]),
     ]).then(([c, a, cm]) => { setContacts(c as Contact[]); setAgents(a as Agent[]); setCampaigns(cm as Campaign[]); setLoading(false); });
   }, []); // eslint-disable-line react-hooks/exhaustive-deps
+  useEffect(() => { api.getOrganization().then((o) => setOrgTz(((o.settings as Record<string, string>)?.timezone) || "")).catch(() => {}); }, []);
   useEffect(() => { api.listStages().then((s) => setStages(s || [])).catch(() => {}); }, []);
   useEffect(() => { api.listDispositions().then((d) => setDispositions(d || [])).catch(() => {}); }, []);
   useEffect(() => { if (!toast) return; const t = setTimeout(() => setToast(null), 2500); return () => clearTimeout(t); }, [toast]);
@@ -128,7 +130,7 @@ export default function ContactsPage() {
     if (filtered.length === 0) { setToast("Nothing to export"); return; }
     const esc = (v: any) => `"${String(v ?? "").replace(/"/g, '""')}"`;
     const head = ["Name", "Phone", "Channel", "Source", "Source Id", "Labels", "Blacklisted", "Created", "Updated"];
-    const lines = filtered.map((c) => [c.full_name, c.phone, c.channel_name, sourceLabel(c), c.source_id, (c.tags || []).join("; "), c.blacklisted ? "Yes" : "No", c.created_at, c.updated_at].map(esc).join(","));
+    const lines = filtered.map((c) => [c.full_name, c.phone, c.channel_name, sourceLabel(c), c.source_id, (c.tags || []).join("; "), c.blacklisted ? "Yes" : "No", fmtExportTs(c.created_at, orgTz), fmtExportTs(c.updated_at, orgTz)].map(esc).join(","));
     const csv = [head.join(","), ...lines].join("\n");
     const url = URL.createObjectURL(new Blob([csv], { type: "text/csv;charset=utf-8" }));
     const a = document.createElement("a");
