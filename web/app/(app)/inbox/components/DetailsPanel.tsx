@@ -145,12 +145,7 @@ export default function DetailsPanel({ active, onClose, copyText, notes, onAddNo
             >
               {initials(active.contact_name || active.contact_phone)}
             </div>
-            <Tip label={channelName || channelLabel(active.channel)} side="bottom">
-              <span
-                className="absolute -bottom-0.5 -right-0.5 w-3.5 h-3.5 rounded-full ring-2 ring-card"
-                style={{ backgroundColor: channelColor(active.channel) }}
-              />
-            </Tip>
+
           </div>
           <div className="min-w-0">
             <p className="font-bold text-[15px] text-foreground truncate">{active.contact_name || "Unknown"}</p>
