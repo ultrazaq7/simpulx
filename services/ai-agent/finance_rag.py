@@ -18,19 +18,29 @@ async def get_finance_context(pool, brand: str, model: str, city: str = None) ->
     b_pattern = f"%{brand.strip()}%" if brand else "%"
     m_pattern = f"%{model.strip()}%" if model else "%"
     
-    async with pool.acquire() as conn:
-        if city:
-            c_pattern = f"%{city.strip()}%"
-            rows = await conn.fetch(
-                """SELECT brand_name, model_name, variant_name, city_name, otr_price, dp_amount, tenor_months, emi, package_name
-                   FROM finance_packages
-                   WHERE brand_name ILIKE $1 AND model_name ILIKE $2 AND city_name ILIKE $3
-                   ORDER BY dp_amount ASC
-                   LIMIT 5""",
-                b_pattern, m_pattern, c_pattern
-            )
-            # Fallback jika di kota spesifik tidak ada
-            if not rows:
+    try:
+        async with pool.acquire() as conn:
+            if city:
+                c_pattern = f"%{city.strip()}%"
+                rows = await conn.fetch(
+                    """SELECT brand_name, model_name, variant_name, city_name, otr_price, dp_amount, tenor_months, emi, package_name
+                       FROM finance_packages
+                       WHERE brand_name ILIKE $1 AND model_name ILIKE $2 AND city_name ILIKE $3
+                       ORDER BY dp_amount ASC
+                       LIMIT 5""",
+                    b_pattern, m_pattern, c_pattern
+                )
+                # Fallback jika di kota spesifik tidak ada
+                if not rows:
+                    rows = await conn.fetch(
+                        """SELECT brand_name, model_name, variant_name, city_name, otr_price, dp_amount, tenor_months, emi, package_name
+                           FROM finance_packages
+                           WHERE brand_name ILIKE $1 AND model_name ILIKE $2
+                           ORDER BY dp_amount ASC
+                           LIMIT 5""",
+                        b_pattern, m_pattern
+                    )
+            else:
                 rows = await conn.fetch(
                     """SELECT brand_name, model_name, variant_name, city_name, otr_price, dp_amount, tenor_months, emi, package_name
                        FROM finance_packages
@@ -39,15 +49,9 @@ async def get_finance_context(pool, brand: str, model: str, city: str = None) ->
                        LIMIT 5""",
                     b_pattern, m_pattern
                 )
-        else:
-            rows = await conn.fetch(
-                """SELECT brand_name, model_name, variant_name, city_name, otr_price, dp_amount, tenor_months, emi, package_name
-                   FROM finance_packages
-                   WHERE brand_name ILIKE $1 AND model_name ILIKE $2
-                   ORDER BY dp_amount ASC
-                   LIMIT 5""",
-                b_pattern, m_pattern
-            )
+    except Exception as e:
+        log.warning(f"Failed to fetch finance_packages (table missing in prod?): {e}")
+        return None
             
     if not rows:
         return None
