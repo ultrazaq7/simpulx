@@ -46,10 +46,9 @@ INTENT_CATEGORIES: Dict[str, List[str]] = {
                              r"\bmobilio\b", r"\bbr-v\b", r"\bhr-v\b"],
 }
 
-STRONG_INTENT = {"Booking/Order", "Test Drive", "Visit/Showroom", "Strong/Closing"}
+STRONG_INTENT = {"Booking/Order", "Test Drive", "Visit/Showroom", "Strong/Closing", "Promo/Deal", "Price/Financing", "Specs/Variant", "Documents/Process"}
 # Considering-tier intent (shopping, not yet committing).
-CONSIDERING_INTENT = {"Price/Financing", "Promo/Deal", "Stock/Availability",
-                      "Specs/Variant", "Trade-in", "Documents/Process", "Model/Brand Interest"}
+CONSIDERING_INTENT = {"Stock/Availability", "Trade-in", "Model/Brand Interest"}
 
 # Off-topic: job-seekers replying to driver-recruitment ads (NOT buyers).
 OFF_TOPIC = [r"\bjadi driver\b", r"\bjadi sopir\b", r"\bmau jadi driver\b", r"\bsyarat driver\b",
