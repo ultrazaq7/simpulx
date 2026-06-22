@@ -87,10 +87,17 @@ export default function Composer({
     aiAbortRef.current?.abort();
     setAiOpen(false); setAiText(""); setAiState("idle"); setAiConfirmed(false);
   }, [conversationId]); // eslint-disable-line react-hooks/exhaustive-deps
-  // Switching mode (reply <-> note) clears the previous draft/summary.
+  // Switching mode (reply <-> note) clears the previous draft/summary and auto-generates if open.
   useEffect(() => {
     aiAbortRef.current?.abort();
     setAiText(""); setAiState("idle"); setAiConfirmed(false);
+    if (aiOpen) {
+      // Small timeout to allow state to settle before triggering generation
+      setTimeout(() => {
+        if (aiMode === "summary" && aiSummary) { setAiText(aiSummary); setAiState("done"); }
+        else generateAI();
+      }, 0);
+    }
   }, [aiMode]); // eslint-disable-line react-hooks/exhaustive-deps
   useEffect(() => () => aiAbortRef.current?.abort(), []);
 
