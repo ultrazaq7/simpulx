@@ -66,7 +66,9 @@ export default function InboxPage() {
   const [unreadOnly, setUnreadOnly] = useState(false);
   const [needsReplyOnly, setNeedsReplyOnly] = useState(false);
 
-  // Deep-link from Dashboard: initialize filters from URL params (?interest=hot, ?status=open, ?unread=1, ?followup=1)
+  // Deep-link from Dashboard: initialize filters from URL params
+  // (?interest=hot, ?status=open, ?unread=1, ?followup=1, ?stage=<name>)
+  const pendingStageRef = useRef<string | null>(null);
   useEffect(() => {
     const sp = new URLSearchParams(window.location.search);
     const interest = sp.get("interest");
@@ -76,8 +78,17 @@ export default function InboxPage() {
     if (status) setFilterStatuses([status]);
     if (sp.get("unread") === "1") setUnreadOnly(true);
     if (sp.get("followup") === "1") setFollowUpOnly(true);
+    pendingStageRef.current = sp.get("stage");
     if (c) setActiveId(c); // deep-link to a conversation (Copy link to message)
   }, []);
+  // Resolve ?stage=<name> once stages load (dashboard "Your stages" deep-link).
+  useEffect(() => {
+    const name = pendingStageRef.current;
+    if (!name || stages.length === 0) return;
+    const match = stages.find((s) => s.name.toLowerCase() === name.toLowerCase());
+    if (match) setFilterStages([match.id]);
+    pendingStageRef.current = null;
+  }, [stages]);
 
   // Open a conversation from anywhere (notification click) even while already on
   // this page — router.push to the same route doesn't re-run the mount effect.

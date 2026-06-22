@@ -46,6 +46,15 @@ const GROUPS: Group[] = [
   },
 ];
 
+// Code -> proper label (e.g. "changed_mind" -> "Changed mind / not buying"),
+// reused by the dashboards so lost reasons render nicely instead of raw enums.
+export const LOST_REASON_LABELS: Record<string, string> = Object.fromEntries(
+  GROUPS.flatMap((g) => g.reasons).map((r) => [r.value, r.label]),
+);
+export function lostReasonLabel(value: string): string {
+  return LOST_REASON_LABELS[value] || value.replace(/[_-]+/g, " ").replace(/\s+/g, " ").trim().replace(/^\w/, (c) => c.toUpperCase());
+}
+
 interface LostReasonDialogProps {
   open: boolean;
   onClose: () => void;

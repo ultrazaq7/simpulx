@@ -15,6 +15,7 @@ import {
 import { api, getUser } from "@/lib/api";
 import { Select } from "@/components/Select";
 import { MultiSelect } from "@/components/ui/multi-select";
+import { lostReasonLabel } from "@/app/(app)/inbox/components/LostReasonDialog";
 import type { Stats, Analytics, DashboardCards, Conversation, AdPerformance, Channel, Campaign, Agent } from "@/lib/types";
 import { cn, initials, fmtDuration } from "@/lib/utils";
 
@@ -209,12 +210,17 @@ function StageSplit({ stages, lost }: { stages?: Analytics["stages"]; lost?: num
       {ordered.map((s, i) => {
         const color = FUNNEL_COLORS[i % FUNNEL_COLORS.length];
         return (
-          <div key={s.system_key || s.name} className="flex items-center gap-3 px-2 py-2">
+          <Link
+            key={s.system_key || s.name}
+            href={`/inbox?stage=${encodeURIComponent(s.name)}`}
+            className="group/st flex items-center gap-3 px-2 py-2 rounded-md hover:bg-muted transition-colors"
+          >
             <span className="w-2.5 h-2.5 rounded-full shrink-0" style={{ backgroundColor: color }} />
             <span className="text-sm font-medium flex-1 text-foreground/90">{s.name}</span>
             <div className="flex-[2]"><ProgressBar value={total > 0 ? (s.count / total) * 100 : 0} color={color} /></div>
             <span className="text-sm font-bold min-w-[28px] text-right tabular-nums" style={{ color }}>{s.count}</span>
-          </div>
+            <ChevronRight className="w-4 h-4 text-muted-foreground/40 group-hover/st:text-muted-foreground shrink-0" />
+          </Link>
         );
       })}
       {lost !== undefined && (
@@ -223,6 +229,7 @@ function StageSplit({ stages, lost }: { stages?: Analytics["stages"]; lost?: num
           <span className="text-sm font-medium flex-1 text-foreground/90">Lost</span>
           <div className="flex-[2]"><ProgressBar value={total > 0 ? (lost / total) * 100 : 0} color="#EF4444" /></div>
           <span className="text-sm font-bold min-w-[28px] text-right tabular-nums" style={{ color: "#EF4444" }}>{lost}</span>
+          <span className="w-4 shrink-0" />
         </div>
       )}
     </div>
@@ -360,7 +367,7 @@ function AgentDashboard() {
                 return (
                   <div key={r.reason} className="mb-4 last:mb-0">
                     <div className="flex justify-between mb-1">
-                      <span className="text-sm font-medium text-foreground/80">{r.reason}</span>
+                      <span className="text-sm font-medium text-foreground/80">{lostReasonLabel(r.reason)}</span>
                       <span className="text-sm font-bold text-[#EF4444] tabular-nums">{r.count}</span>
                     </div>
                     <ProgressBar value={(r.count / maxCount) * 100} color={i === 0 ? "#EF4444" : i === 1 ? "#F97316" : "#FBBF24"} height={6} />
@@ -763,7 +770,7 @@ function ManagerDashboard() {
                   return (
                     <div key={r.reason} className="mb-4 last:mb-0">
                       <div className="flex justify-between mb-1">
-                        <span className="text-sm font-medium text-foreground/80">{r.reason}</span>
+                        <span className="text-sm font-medium text-foreground/80">{lostReasonLabel(r.reason)}</span>
                         <span className="text-sm font-bold text-[#EF4444] tabular-nums">{r.count}</span>
                       </div>
                       <ProgressBar value={(r.count / maxCount) * 100} color={i === 0 ? "#EF4444" : i === 1 ? "#F97316" : "#FBBF24"} height={6} />
