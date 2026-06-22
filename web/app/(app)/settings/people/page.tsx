@@ -5,7 +5,7 @@ import { api, getUser } from "@/lib/api";
 import { Select } from "@/components/Select";
 const cap = (s: string) => s ? s[0].toUpperCase() + s.slice(1) : s;
 import { fmtDate, cn } from "@/lib/utils";
-import type { UserAccount, UserActivity, Department } from "@/lib/types";
+import type { UserAccount, UserActivity } from "@/lib/types";
 import { useToast, PageBody, SettingsCard, FieldLabel, INPUT_CLASS, PrimaryButton, GhostButton, ROLES, ROLE_COLOR, initials } from "../_shared";
 
 function relativeTime(iso: string | null): string {
@@ -85,16 +85,16 @@ export default function PeopleSettingsPage() {
           <table className="w-full text-sm min-w-[920px]">
             <thead>
               <tr className="border-b border-border bg-muted/40">
-                {["User", "Role", "Departments", "Campaigns", "Status", "Last login", "Created", ""].map((h) => (
+                {["User", "Role", "Campaigns", "Status", "Last login", "Created", ""].map((h) => (
                   <th key={h} className={cn("px-4 py-2.5 text-[11px] font-bold uppercase tracking-wider text-muted-foreground", h === "" ? "text-right w-12" : "text-left")}>{h || <span className="sr-only">Actions</span>}</th>
                 ))}
               </tr>
             </thead>
             <tbody>
               {loading ? (
-                <tr><td colSpan={8} className="text-center py-16"><Loader2 className="w-6 h-6 animate-spin text-muted-foreground mx-auto" /></td></tr>
+                <tr><td colSpan={7} className="text-center py-16"><Loader2 className="w-6 h-6 animate-spin text-muted-foreground mx-auto" /></td></tr>
               ) : paged.length === 0 ? (
-                <tr><td colSpan={8} className="text-center py-16 text-muted-foreground">No people found</td></tr>
+                <tr><td colSpan={7} className="text-center py-16 text-muted-foreground">No people found</td></tr>
               ) : paged.map((u) => {
                 const rc = ROLE_COLOR[u.role] ?? "#64748B";
                 return (
@@ -118,7 +118,6 @@ export default function PeopleSettingsPage() {
                       <span className="inline-flex px-2 py-0.5 rounded-md text-[10.5px] font-bold capitalize"
                         style={{ backgroundColor: rc + "1a", color: rc }}>{u.role}</span>
                     </td>
-                    <td className="px-4 py-2.5"><CellChips items={u.department_names} empty="-" /></td>
                     <td className="px-4 py-2.5"><CellChips items={u.campaign_names} empty="-" /></td>
                     <td className="px-4 py-2.5">
                       <div className="inline-flex items-center gap-1.5">
@@ -341,15 +340,11 @@ function UserDialog({ state, isPrivileged, onClose, onSaved, onError }: {
   const [password, setPassword] = useState("");
   const [showPw, setShowPw] = useState(false);
   const [saving, setSaving] = useState(false);
-  const [allDepts, setAllDepts] = useState<Department[]>([]);
-  const [deptIds, setDeptIds] = useState<string[]>([]);
 
   useEffect(() => {
     if (!state.open) return;
     const u = state.editing;
     setEmail(u?.email ?? ""); setName(u?.full_name ?? ""); setRole(u?.role ?? "agent"); setPassword(""); setShowPw(false);
-    setDeptIds(u?.department_ids ?? []);
-    if (isPrivileged) api.listDepartments().then(setAllDepts).catch(() => {});
   }, [state.open]); // eslint-disable-line react-hooks/exhaustive-deps
 
   async function save() {
@@ -357,8 +352,8 @@ function UserDialog({ state, isPrivileged, onClose, onSaved, onError }: {
     setSaving(true);
     try {
       if (isEdit) {
-        const patch: { full_name: string; email?: string; role?: string; password?: string; department_ids?: string[] } = { full_name: name.trim() };
-        if (isPrivileged) { patch.email = email.trim(); patch.role = role; if (password.trim()) patch.password = password.trim(); patch.department_ids = deptIds; }
+        const patch: { full_name: string; email?: string; role?: string; password?: string } = { full_name: name.trim() };
+        if (isPrivileged) { patch.email = email.trim(); patch.role = role; if (password.trim()) patch.password = password.trim(); }
         await api.updateUser(state.editing!.id, patch);
         onSaved("User updated");
       } else {
@@ -408,28 +403,6 @@ function UserDialog({ state, isPrivileged, onClose, onSaved, onError }: {
                 </button>
               </div>
               <p className="text-xs text-muted-foreground/70 mt-1">{isEdit ? "Leave blank to keep current password" : "Defaults to changeme123 if left blank"}</p>
-            </div>
-          )}
-          {isPrivileged && isEdit && (
-            <div>
-              <FieldLabel>Departments</FieldLabel>
-              {allDepts.length === 0 ? (
-                <p className="text-xs text-muted-foreground/70">No departments yet. Create them in Settings &rarr; Departments.</p>
-              ) : (
-                <div className="flex flex-wrap gap-1.5">
-                  {allDepts.map((d) => {
-                    const on = deptIds.includes(d.id);
-                    return (
-                      <button type="button" key={d.id}
-                        onClick={() => setDeptIds((p) => on ? p.filter((x) => x !== d.id) : [...p, d.id])}
-                        className={cn("px-2.5 h-7 rounded-md text-[12px] font-semibold border transition-colors outline-none",
-                          on ? "bg-primary text-white border-primary" : "border-border text-muted-foreground hover:bg-muted")}>
-                        {d.name}
-                      </button>
-                    );
-                  })}
-                </div>
-              )}
             </div>
           )}
         </div>

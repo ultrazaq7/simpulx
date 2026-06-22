@@ -8,7 +8,7 @@ import { api } from "@/lib/api";
 import { Select } from "@/components/Select";
 import { cn } from "@/lib/utils";
 import { Tip } from "@/components/ui/tooltip";
-import type { WebApiSource, Department, Campaign } from "@/lib/types";
+import type { WebApiSource, Campaign } from "@/lib/types";
 import { useToast, SettingsCard, FieldLabel, INPUT_CLASS, PrimaryButton, GhostButton } from "../_shared";
 import { WebApiWizard } from "./WebApiWizard";
 
@@ -17,7 +17,6 @@ const API = process.env.NEXT_PUBLIC_API_URL || "http://localhost:8080";
 export function WebApiTab() {
   const { notify, ToastHost } = useToast();
   const [rows, setRows] = useState<WebApiSource[]>([]);
-  const [depts, setDepts] = useState<Department[]>([]);
   const [campaigns, setCampaigns] = useState<Campaign[]>([]);
   const [loading, setLoading] = useState(true);
   const [dlg, setDlg] = useState<{ open: boolean; editing: WebApiSource | null }>({ open: false, editing: null });
@@ -28,8 +27,8 @@ export function WebApiTab() {
   async function load() {
     setLoading(true);
     try {
-      const [p, d, c] = await Promise.all([api.listWebApiSources(), api.listDepartments().catch(() => []), api.listCampaigns().catch(() => [])]);
-      setRows(p); setDepts(d as Department[]); setCampaigns(c as Campaign[]);
+      const [p, c] = await Promise.all([api.listWebApiSources(), api.listCampaigns().catch(() => [])]);
+      setRows(p); setCampaigns(c as Campaign[]);
     } finally { setLoading(false); }
   }
   useEffect(() => { load(); }, []);
@@ -102,7 +101,7 @@ export function WebApiTab() {
                 </div>
                 <div className="flex-1 min-w-0">
                   <p className="text-[14.5px] font-bold text-foreground">{p.name}</p>
-                  <p className="text-xs text-muted-foreground">{p.slug ? `slug: ${p.slug}` : ""}{p.campaign_name ? ` · → ${p.campaign_name}` : ""}{p.department ? ` · ${p.department}` : ""} · {p.lead_count} leads</p>
+                  <p className="text-xs text-muted-foreground">{p.slug ? `slug: ${p.slug}` : ""}{p.campaign_name ? ` · → ${p.campaign_name}` : ""} · {p.lead_count} leads</p>
                 </div>
                 <Tip label={p.is_active ? "Active" : "Disabled"}>
                   <label className="relative inline-flex items-center cursor-pointer">
@@ -124,13 +123,13 @@ export function WebApiTab() {
         </div>
       </div>
 
-      <WebApiDialog state={dlg} depts={depts} campaigns={campaigns}
+      <WebApiDialog state={dlg} campaigns={campaigns}
         onClose={() => setDlg({ open: false, editing: null })}
         onSaved={(m) => { setDlg({ open: false, editing: null }); notify(m); load(); }}
         onError={(m) => notify(m, "error")} />
 
       {wizardOpen && (
-        <WebApiWizard depts={depts} campaigns={campaigns}
+        <WebApiWizard campaigns={campaigns}
           onClose={() => setWizardOpen(false)}
           onCreated={(m) => { setWizardOpen(false); notify(m); load(); }} />
       )}
@@ -138,14 +137,13 @@ export function WebApiTab() {
   );
 }
 
-function WebApiDialog({ state, depts, campaigns, onClose, onSaved, onError }: {
-  state: { open: boolean; editing: WebApiSource | null }; depts: Department[]; campaigns: Campaign[];
+function WebApiDialog({ state, campaigns, onClose, onSaved, onError }: {
+  state: { open: boolean; editing: WebApiSource | null }; campaigns: Campaign[];
   onClose: () => void; onSaved: (m: string) => void; onError: (m: string) => void;
 }) {
   const isEdit = !!state.editing;
   const [name, setName] = useState("");
   const [slug, setSlug] = useState("");
-  const [deptId, setDeptId] = useState("");
   const [campaignId, setCampaignId] = useState("");
   const [template, setTemplate] = useState("");
   const [webhook, setWebhook] = useState("");
@@ -154,7 +152,7 @@ function WebApiDialog({ state, depts, campaigns, onClose, onSaved, onError }: {
   useEffect(() => {
     if (!state.open) return;
     const p = state.editing;
-    setName(p?.name ?? ""); setSlug(p?.slug ?? ""); setDeptId(p?.auto_assign_dept_id ?? "");
+    setName(p?.name ?? ""); setSlug(p?.slug ?? "");
     setCampaignId(p?.campaign_id ?? "");
     setTemplate(p?.auto_template_name ?? ""); setWebhook(p?.webhook_url ?? "");
   }, [state.open]); // eslint-disable-line react-hooks/exhaustive-deps
@@ -162,7 +160,7 @@ function WebApiDialog({ state, depts, campaigns, onClose, onSaved, onError }: {
   async function save() {
     if (!name.trim()) { onError("Name is required"); return; }
     setSaving(true);
-    const payload = { name: name.trim(), slug: slug.trim() || undefined, auto_assign_dept_id: deptId || undefined, auto_template_name: template.trim() || undefined, webhook_url: webhook.trim() || undefined, campaign_id: campaignId };
+    const payload = { name: name.trim(), slug: slug.trim() || undefined, auto_template_name: template.trim() || undefined, webhook_url: webhook.trim() || undefined, campaign_id: campaignId };
     try {
       if (isEdit) { await api.updateWebApiSource(state.editing!.id, payload); onSaved("API source updated"); }
       else { await api.createWebApiSource(payload); onSaved("API source created"); }
@@ -199,11 +197,6 @@ function WebApiDialog({ state, depts, campaigns, onClose, onSaved, onError }: {
             <FieldLabel>Route to campaign</FieldLabel>
             <Select value={campaignId} onChange={setCampaignId} placeholder="No campaign"
               options={[{ value: "", label: "No campaign" }, ...campaigns.map((c) => ({ value: c.id, label: c.name }))]} />
-          </div>
-          <div>
-            <FieldLabel>Auto-assign department</FieldLabel>
-            <Select value={deptId} onChange={setDeptId} placeholder="None"
-              options={[{ value: "", label: "None" }, ...depts.map((d) => ({ value: d.id, label: d.name }))]} />
           </div>
         </div>
         <div className="flex justify-end gap-2 px-5 py-3.5 border-t border-border">

@@ -149,12 +149,13 @@ func (s *server) handleLogin(w http.ResponseWriter, r *http.Request) {
 	}
 	var (
 		id, orgID, role, name, hash string
+		avatar                      *string
 	)
 	err := s.pool.QueryRow(r.Context(),
-		`SELECT id, organization_id, role, full_name, password_hash
+		`SELECT id, organization_id, role, full_name, password_hash, avatar_url
 		   FROM users WHERE lower(email) = lower($1) AND status = 'active'`,
 		body.Email,
-	).Scan(&id, &orgID, &role, &name, &hash)
+	).Scan(&id, &orgID, &role, &name, &hash, &avatar)
 	if err != nil || !verifyPassword(body.Password, hash) {
 		http.Error(w, "invalid credentials", http.StatusUnauthorized)
 		return
@@ -183,7 +184,7 @@ func (s *server) handleLogin(w http.ResponseWriter, r *http.Request) {
 	writeJSON(w, map[string]any{
 		"token":         token,
 		"refresh_token": refresh,
-		"user":          map[string]any{"id": id, "org_id": orgID, "role": role, "name": name, "email": body.Email, "is_online": true},
+		"user":          map[string]any{"id": id, "org_id": orgID, "role": role, "name": name, "email": body.Email, "is_online": true, "avatar": derefStr(avatar)},
 	})
 }
 

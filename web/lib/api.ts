@@ -1,4 +1,4 @@
-import type { Agent, AIAgent, Analytics, AppNotification, AuditEntry, Automation, AutomationAction, AutomationDetail, AutomationFlow, Broadcast, Campaign, CampaignAnalyticsRow, CampaignDetail, Channel, Contact, Conversation, Department, InternalNote, KnowledgeSource, Message, Organization, OrgSettings, QuickReply, RolePermissions, Sequence, SequenceDetail, SequenceStep, Stats, DashboardCards, Template, TemplateButton, TemplateComponents, User, UserAccount, UserActivity, WebApiSource } from "./types";
+import type { Agent, AIAgent, Analytics, AppNotification, AuditEntry, Automation, AutomationAction, AutomationDetail, AutomationFlow, Broadcast, Campaign, CampaignAnalyticsRow, CampaignDetail, Channel, Contact, Conversation, InternalNote, KnowledgeSource, Message, Organization, OrgSettings, QuickReply, RolePermissions, Sequence, SequenceDetail, SequenceStep, Stats, DashboardCards, Template, TemplateButton, TemplateComponents, User, UserAccount, UserActivity, WebApiSource } from "./types";
 
 const API = process.env.NEXT_PUBLIC_API_URL || "http://localhost:8080";
 export const WS_URL = process.env.NEXT_PUBLIC_WS_URL || "ws://localhost:8082";
@@ -350,7 +350,7 @@ export const api = {
   listUsers: () => req<UserAccount[]>("/api/users"),
   createUser: (input: { email: string; full_name: string; role?: string; password?: string }) =>
     req<{ id: string }>("/api/users", { method: "POST", body: JSON.stringify(input) }),
-  updateUser: (id: string, patch: { full_name?: string; email?: string; role?: string; status?: string; password?: string; department_ids?: string[] }) =>
+  updateUser: (id: string, patch: { full_name?: string; email?: string; role?: string; status?: string; password?: string; avatar_url?: string }) =>
     req(`/api/users/${id}`, { method: "PATCH", body: JSON.stringify(patch) }),
   // Self-service password change (proves the current password; no email round-trip).
   changePassword: (current_password: string, new_password: string) =>
@@ -374,11 +374,6 @@ export const api = {
   getRolePermissions: () => req<RolePermissions>("/api/role-permissions"),
   updateRolePermissions: (doc: RolePermissions) =>
     req<RolePermissions>("/api/role-permissions", { method: "PUT", body: JSON.stringify(doc) }),
-  // ── Departments ──
-  listDepartments: () => req<Department[]>("/api/departments"),
-  createDepartment: (name: string) => req<{ id: string }>("/api/departments", { method: "POST", body: JSON.stringify({ name }) }),
-  updateDepartment: (id: string, name: string) => req(`/api/departments/${id}`, { method: "PATCH", body: JSON.stringify({ name }) }),
-  deleteDepartment: (id: string) => req(`/api/departments/${id}`, { method: "DELETE" }),
   // ── Organization (workspace settings) ──
   getOrganization: () => req<Organization>("/api/organization"),
   updateOrganization: (patch: { name?: string; settings?: OrgSettings }) =>
@@ -405,9 +400,9 @@ export const api = {
   listExports: () => req<import("./types").ExportJob[]>("/api/exports"),
   // ── Web API lead sources ──
   listWebApiSources: () => req<WebApiSource[]>("/api/web-api-sources"),
-  createWebApiSource: (input: { name: string; slug?: string; auto_assign_dept_id?: string; auto_template_name?: string; webhook_url?: string; campaign_id?: string }) =>
+  createWebApiSource: (input: { name: string; slug?: string; auto_template_name?: string; webhook_url?: string; campaign_id?: string }) =>
     req<{ id: string }>("/api/web-api-sources", { method: "POST", body: JSON.stringify(input) }),
-  updateWebApiSource: (id: string, patch: { name?: string; slug?: string; auto_assign_dept_id?: string; auto_template_name?: string; webhook_url?: string; is_active?: boolean; campaign_id?: string }) =>
+  updateWebApiSource: (id: string, patch: { name?: string; slug?: string; auto_template_name?: string; webhook_url?: string; is_active?: boolean; campaign_id?: string }) =>
     req(`/api/web-api-sources/${id}`, { method: "PATCH", body: JSON.stringify(patch) }),
   regenerateWebApiKey: (id: string) => req<{ api_key: string }>(`/api/web-api-sources/${id}/regenerate-key`, { method: "POST" }),
   deleteWebApiSource: (id: string) => req(`/api/web-api-sources/${id}`, { method: "DELETE" }),

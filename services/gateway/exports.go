@@ -198,7 +198,7 @@ func exportQuery(kind string) (string, []string) {
 		         WHERE m.organization_id = $1%s ORDER BY m.created_at DESC`,
 			[]string{"created_at", "direction", "message_type", "message", "file_url", "status", "message_id", "conversation_id", "channel_name", "contact_name", "contact_phone", "agent_name", "agent_email"}
 	case "conversations":
-		return `SELECT u.full_name AS agent_name, u.email AS email, d.name AS department_name,
+		return `SELECT u.full_name AS agent_name, u.email AS email, COALESCE(br.name, cmp.name) AS campaign_name,
 		             ct.full_name AS customer_name, disp.name AS disposition, ct.phone AS contact_number,
 		             cv.created_at AS assigned_at, cv.closed_at,
 		             COALESCE(EXTRACT(EPOCH FROM (cv.first_responsed_at - cv.created_at))::int, 0) AS first_response_sec,
@@ -207,11 +207,12 @@ func exportQuery(kind string) (string, []string) {
 		             cv.status, cv.created_at AS chat_initiation, cv.id::text AS id
 		      FROM conversations cv
 		          LEFT JOIN users u ON u.id = cv.assigned_agent_id
-		          LEFT JOIN departments d ON d.id = cv.department_id
+		          LEFT JOIN campaigns cmp ON cmp.id = cv.campaign_id
+		          LEFT JOIN campaign_branches br ON br.id = cv.branch_id
 		          LEFT JOIN contacts ct ON ct.id = cv.contact_id
 		          LEFT JOIN dispositions disp ON disp.id = cv.disposition_id
 		         WHERE cv.organization_id = $1%s ORDER BY cv.created_at DESC`,
-			[]string{"agent_name", "email", "department_name", "customer_name", "disposition", "contact_number", "assigned_at", "closed_at", "first_response_sec", "closing_sec", "agent_messages", "status", "chat_initiation", "id"}
+			[]string{"agent_name", "email", "campaign_name", "customer_name", "disposition", "contact_number", "assigned_at", "closed_at", "first_response_sec", "closing_sec", "agent_messages", "status", "chat_initiation", "id"}
 	case "calls":
 		return `SELECT c.direction, ct.full_name AS name, c.contact_phone AS phone,
 		             c.duration_seconds, c.created_at AS received_at, c.call_ended_at AS ended_at,

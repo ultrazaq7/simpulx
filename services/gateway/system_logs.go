@@ -119,12 +119,13 @@ func (s *server) handleLogConversations(w http.ResponseWriter, r *http.Request) 
 
 	base := `FROM conversations cv
 	          LEFT JOIN users u ON u.id = cv.assigned_agent_id
-	          LEFT JOIN departments d ON d.id = cv.department_id
+	          LEFT JOIN campaigns cmp ON cmp.id = cv.campaign_id
+	          LEFT JOIN campaign_branches br ON br.id = cv.branch_id
 	          LEFT JOIN contacts ct ON ct.id = cv.contact_id
 	          LEFT JOIN dispositions disp ON disp.id = cv.disposition_id
 	         WHERE cv.organization_id = $1` + df + cf
 
-	q := `SELECT u.full_name AS agent_name, u.email AS email, d.name AS department_name,
+	q := `SELECT u.full_name AS agent_name, u.email AS email, COALESCE(br.name, cmp.name) AS campaign_name,
 	             ct.full_name AS customer_name, disp.name AS disposition, ct.phone AS contact_number,
 	             cv.created_at AS assigned_at, cv.closed_at,
 	             COALESCE(EXTRACT(EPOCH FROM (cv.first_responsed_at - cv.created_at))::int, 0) AS first_response_sec,

@@ -8,7 +8,7 @@ import { type ReactNode, useState, useEffect } from "react";
 import Link from "next/link";
 import { usePathname } from "next/navigation";
 import {
-  Settings, Type, Bell, Users, Building2, ShieldCheck,
+  Settings, Type, Bell, Users, ShieldCheck,
   Sparkles, FileText, GitBranch, Radio, Clock,
   PanelLeftClose, PanelLeftOpen,
 } from "lucide-react";
@@ -33,7 +33,6 @@ const GROUPS: { titleKey: string; items: NavItem[] }[] = [
     items: [
       { key: "people", labelKey: "settings.team", icon: Users, href: "/settings/people", perm: "manage_team" },
       { key: "roles", labelKey: "settings.roles", icon: ShieldCheck, href: "/settings/roles", perm: "manage_roles" },
-      { key: "departments", labelKey: "settings.departments", icon: Building2, href: "/settings/departments", perm: "manage_departments" },
     ],
   },
   {

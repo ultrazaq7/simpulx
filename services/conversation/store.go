@@ -11,19 +11,18 @@ import (
 type store struct{ pool *pgxpool.Pool }
 
 type convMeta struct {
-	OrgID        string
-	DepartmentID *string
-	Status       string
-	AssignedTo   *string
+	OrgID      string
+	Status     string
+	AssignedTo *string
 }
 
 func (s *store) conversationMeta(ctx context.Context, convID string) (convMeta, error) {
 	var m convMeta
 	err := s.pool.QueryRow(ctx,
-		`SELECT organization_id, department_id, status, assigned_agent_id
+		`SELECT organization_id, status, assigned_agent_id
 		   FROM conversations WHERE id = $1`,
 		convID,
-	).Scan(&m.OrgID, &m.DepartmentID, &m.Status, &m.AssignedTo)
+	).Scan(&m.OrgID, &m.Status, &m.AssignedTo)
 	return m, err
 }
 
@@ -32,16 +31,11 @@ type agent struct {
 	Name string
 }
 
-// pickAgent memilih agen paling sedikit beban (round-robin least-loaded),
-// dalam scope department bila ada. Hanya status akun (active) yang menentukan
-// kelayakan distribusi lead; presence (is_online) bersifat kosmetik dan sengaja
-// TIDAK memengaruhi pembagian lead.
-func (s *store) pickAgent(ctx context.Context, orgID string, departmentID *string) (agent, bool, error) {
+// pickAgent memilih agen paling sedikit beban (round-robin least-loaded) di org.
+// Hanya status akun (active) yang menentukan kelayakan distribusi lead; presence
+// (is_online) bersifat kosmetik dan sengaja TIDAK memengaruhi pembagian lead.
+func (s *store) pickAgent(ctx context.Context, orgID string) (agent, bool, error) {
 	var a agent
-	var dept any
-	if departmentID != nil {
-		dept = *departmentID
-	}
 	err := s.pool.QueryRow(ctx,
 		`SELECT u.id, u.full_name
 		   FROM users u
@@ -49,14 +43,11 @@ func (s *store) pickAgent(ctx context.Context, orgID string, departmentID *strin
 		    AND u.role IN ('agent','admin')
 		    AND u.status = 'active'
 		    AND u.is_deleted = false
-		    AND ($2::uuid IS NULL OR EXISTS (
-		          SELECT 1 FROM agent_departments ad
-		           WHERE ad.user_id = u.id AND ad.department_id = $2::uuid))
 		  ORDER BY (SELECT count(*) FROM conversations c
 		              WHERE c.assigned_agent_id = u.id AND c.status <> 'closed') ASC,
 		           u.last_seen_at ASC NULLS FIRST
 		  LIMIT 1`,
-		orgID, dept,
+		orgID,
 	).Scan(&a.ID, &a.Name)
 	if errors.Is(err, pgx.ErrNoRows) {
 		return a, false, nil

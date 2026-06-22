@@ -34,24 +34,18 @@ func (s *server) logUserActivity(ctx context.Context, orgID, userID, actorID, ki
 // (owner|admin|manager|agent); per-campaign agent assignment is
 // handled separately at the campaign level.
 
-// GET /api/users — enriched for the People table: department names, campaign
-// names, last login, and open-chat load. Aggregated via subqueries so a user with
-// no departments/campaigns still returns one row.
+// GET /api/users — enriched for the People table: campaign names, last login,
+// and open-chat load. Aggregated via subqueries so a user with no campaigns
+// still returns one row.
 func (s *server) handleListUsers(w http.ResponseWriter, r *http.Request) {
 	a, _ := authFrom(r.Context())
 	rows, err := s.queryMaps(r.Context(),
 		`SELECT u.id::text AS id, u.full_name, u.email, u.role, u.status, u.is_online,
 		        u.is_inactive, u.inactive_since, u.is_deleted,
 		        u.last_seen_at, u.last_login_at, u.created_at,
-		        COALESCE((SELECT array_agg(d.name ORDER BY d.name)
-		                    FROM agent_departments ad JOIN departments d ON d.id = ad.department_id
-		                   WHERE ad.user_id = u.id), '{}') AS department_names,
-		        COALESCE((SELECT array_agg(ad.department_id::text)
-		                    FROM agent_departments ad WHERE ad.user_id = u.id), '{}') AS department_ids,
 		        COALESCE((SELECT array_agg(c.name ORDER BY c.name)
 		                    FROM campaign_agents ca JOIN campaigns c ON c.id = ca.campaign_id
 		                   WHERE ca.user_id = u.id), '{}') AS campaign_names,
-		        (SELECT count(*) FROM agent_departments ad WHERE ad.user_id = u.id) AS departments,
 		        (SELECT count(*) FROM conversations c WHERE c.assigned_agent_id = u.id AND c.status <> 'closed') AS open_chats
 		   FROM users u
 		  WHERE u.organization_id = $1 AND u.is_deleted = false
@@ -167,12 +161,12 @@ func (s *server) handleUpdateUser(w http.ResponseWriter, r *http.Request) {
 	a, _ := authFrom(r.Context())
 	targetID := r.PathValue("id")
 	var b struct {
-		FullName      *string   `json:"full_name"`
-		Email         *string   `json:"email"`
-		Role          *string   `json:"role"`
-		Status        *string   `json:"status"`
-		Password      *string   `json:"password"`
-		DepartmentIDs *[]string `json:"department_ids"`
+		FullName  *string `json:"full_name"`
+		Email     *string `json:"email"`
+		Role      *string `json:"role"`
+		Status    *string `json:"status"`
+		Password  *string `json:"password"`
+		AvatarURL *string `json:"avatar_url"`
 	}
 	if err := json.NewDecoder(r.Body).Decode(&b); err != nil {
 		http.Error(w, "bad request", http.StatusBadRequest)
@@ -225,12 +219,13 @@ func (s *server) handleUpdateUser(w http.ResponseWriter, r *http.Request) {
 		                         WHEN $6 = 'inactive' THEN COALESCE(u.inactive_since, now())
 		                         ELSE NULL END,
 		   password_hash = COALESCE(NULLIF($7,''), u.password_hash),
+		   avatar_url    = COALESCE(NULLIF($8,''), u.avatar_url),
 		   updated_at = now()
 		 FROM prev
 		 WHERE u.id=$1 AND u.organization_id=$2 AND u.is_deleted = false
 		 RETURNING prev.status`,
 		targetID, a.OrgID, derefStr(b.FullName), derefStr(b.Email),
-		derefStr(b.Role), derefStr(b.Status), pwHash).Scan(&prevStatus)
+		derefStr(b.Role), derefStr(b.Status), pwHash, derefStr(b.AvatarURL)).Scan(&prevStatus)
 	if errors.Is(err, pgx.ErrNoRows) {
 		http.Error(w, "not found", http.StatusNotFound)
 		return
@@ -255,19 +250,6 @@ func (s *server) handleUpdateUser(w http.ResponseWriter, r *http.Request) {
 			AgentID: targetID,
 		})
 	}
-	// Replace the user's department memberships (privileged only). nil = leave as is.
-	if isPrivileged && b.DepartmentIDs != nil {
-		if _, derr := s.pool.Exec(r.Context(), `DELETE FROM agent_departments WHERE user_id=$1::uuid`, targetID); derr == nil && len(*b.DepartmentIDs) > 0 {
-			if _, ierr := s.pool.Exec(r.Context(),
-				`INSERT INTO agent_departments (user_id, department_id)
-				 SELECT $1::uuid, d.id FROM departments d
-				  WHERE d.organization_id=$2 AND d.id::text = ANY($3)`,
-				targetID, a.OrgID, *b.DepartmentIDs); ierr != nil {
-				s.log.Error("sync agent_departments failed", "err", ierr)
-			}
-		}
-	}
-
 	detail := map[string]any{}
 	if b.Email != nil && *b.Email != "" {
 		detail["email_changed"] = true

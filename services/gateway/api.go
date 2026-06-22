@@ -56,8 +56,9 @@ func (s *server) handleMe(w http.ResponseWriter, r *http.Request) {
 	// Read name/email live from the DB so a verified email change (or a renamed
 	// profile) shows up without needing a fresh login; the JWT claims can be stale.
 	name, email := a.Name, ""
-	_ = s.pool.QueryRow(r.Context(), `SELECT full_name, email FROM users WHERE id=$1`, a.UserID).Scan(&name, &email)
-	writeJSON(w, map[string]any{"id": a.UserID, "org_id": a.OrgID, "role": a.Role, "name": name, "email": email})
+	var avatar *string
+	_ = s.pool.QueryRow(r.Context(), `SELECT full_name, email, avatar_url FROM users WHERE id=$1`, a.UserID).Scan(&name, &email, &avatar)
+	writeJSON(w, map[string]any{"id": a.UserID, "org_id": a.OrgID, "role": a.Role, "name": name, "email": email, "avatar": derefStr(avatar)})
 }
 
 // ── GET /api/conversations?status= ──────────────────────────

@@ -16,11 +16,9 @@ func (s *server) handleListWebAPISources(w http.ResponseWriter, r *http.Request)
 	a, _ := authFrom(r.Context())
 	rows, err := s.queryMaps(r.Context(),
 		`SELECT s.id::text AS id, s.name, s.slug, s.api_key, s.webhook_url,
-		        s.auto_assign_dept_id::text AS auto_assign_dept_id, d.name AS department,
 		        s.auto_template_name, s.is_active, s.lead_count, s.created_at,
 		        s.campaign_id::text AS campaign_id, c.name AS campaign_name
 		   FROM web_api_sources s
-		   LEFT JOIN departments d ON d.id = s.auto_assign_dept_id
 		   LEFT JOIN campaigns c ON c.id = s.campaign_id
 		  WHERE s.organization_id = $1
 		  ORDER BY s.created_at`,
@@ -40,7 +38,6 @@ func newAPIKey() string {
 type webAPISourceInput struct {
 	Name             string `json:"name"`
 	Slug             string `json:"slug"`
-	AutoAssignDeptID string `json:"auto_assign_dept_id"`
 	AutoTemplateName string `json:"auto_template_name"`
 	WebhookURL       string `json:"webhook_url"`
 	CampaignID       string `json:"campaign_id"`
@@ -59,9 +56,9 @@ func (s *server) handleCreateWebAPISource(w http.ResponseWriter, r *http.Request
 	}
 	var id string
 	err := s.pool.QueryRow(r.Context(),
-		`INSERT INTO web_api_sources (organization_id, name, slug, api_key, auto_assign_dept_id, auto_template_name, webhook_url, campaign_id)
-		 VALUES ($1,$2,$3,$4,NULLIF($5,'')::uuid,NULLIF($6,''),NULLIF($7,''),NULLIF($8,'')::uuid) RETURNING id::text`,
-		a.OrgID, b.Name, b.Slug, newAPIKey(), b.AutoAssignDeptID, b.AutoTemplateName, b.WebhookURL, b.CampaignID,
+		`INSERT INTO web_api_sources (organization_id, name, slug, api_key, auto_template_name, webhook_url, campaign_id)
+		 VALUES ($1,$2,$3,$4,NULLIF($5,''),NULLIF($6,''),NULLIF($7,'')::uuid) RETURNING id::text`,
+		a.OrgID, b.Name, b.Slug, newAPIKey(), b.AutoTemplateName, b.WebhookURL, b.CampaignID,
 	).Scan(&id)
 	if err != nil {
 		http.Error(w, err.Error(), http.StatusInternalServerError)
@@ -77,7 +74,6 @@ func (s *server) handleUpdateWebAPISource(w http.ResponseWriter, r *http.Request
 	var b struct {
 		Name             *string `json:"name"`
 		Slug             *string `json:"slug"`
-		AutoAssignDeptID *string `json:"auto_assign_dept_id"`
 		AutoTemplateName *string `json:"auto_template_name"`
 		WebhookURL       *string `json:"webhook_url"`
 		IsActive         *bool   `json:"is_active"`
@@ -91,14 +87,13 @@ func (s *server) handleUpdateWebAPISource(w http.ResponseWriter, r *http.Request
 		`UPDATE web_api_sources SET
 		   name = COALESCE(NULLIF($3,''), name),
 		   slug = COALESCE(NULLIF($4,''), slug),
-		   auto_assign_dept_id = COALESCE(NULLIF($5,'')::uuid, auto_assign_dept_id),
-		   auto_template_name = COALESCE($6, auto_template_name),
-		   webhook_url = COALESCE($7, webhook_url),
-		   is_active = COALESCE($8, is_active),
-		   campaign_id = CASE WHEN $9::text IS NULL THEN campaign_id ELSE NULLIF($9,'')::uuid END,
+		   auto_template_name = COALESCE($5, auto_template_name),
+		   webhook_url = COALESCE($6, webhook_url),
+		   is_active = COALESCE($7, is_active),
+		   campaign_id = CASE WHEN $8::text IS NULL THEN campaign_id ELSE NULLIF($8,'')::uuid END,
 		   updated_at = now()
 		 WHERE id=$1 AND organization_id=$2`,
-		r.PathValue("id"), a.OrgID, derefStr(b.Name), derefStr(b.Slug), derefStr(b.AutoAssignDeptID),
+		r.PathValue("id"), a.OrgID, derefStr(b.Name), derefStr(b.Slug),
 		b.AutoTemplateName, b.WebhookURL, b.IsActive, b.CampaignID)
 	if err != nil {
 		http.Error(w, err.Error(), http.StatusInternalServerError)
@@ -166,12 +161,12 @@ func (s *server) handleIngestLead(w http.ResponseWriter, r *http.Request) {
 	}
 	ctx := r.Context()
 
-	var orgID, srcID, deptID, campaignID, branchID string
+	var orgID, srcID, campaignID, branchID string
 	var slug string
 	err := s.pool.QueryRow(ctx,
-		`SELECT organization_id::text, id::text, slug, COALESCE(auto_assign_dept_id::text,''),
+		`SELECT organization_id::text, id::text, slug,
 		        COALESCE(campaign_id::text,''), COALESCE(branch_id::text,'')
-		   FROM web_api_sources WHERE api_key=$1 AND is_active`, key).Scan(&orgID, &srcID, &slug, &deptID, &campaignID, &branchID)
+		   FROM web_api_sources WHERE api_key=$1 AND is_active`, key).Scan(&orgID, &srcID, &slug, &campaignID, &branchID)
 	if err != nil {
 		http.Error(w, "invalid api key", http.StatusUnauthorized)
 		return
@@ -199,18 +194,11 @@ func (s *server) handleIngestLead(w http.ResponseWriter, r *http.Request) {
 		  WHERE organization_id=$1 AND contact_id=$2 AND status<>'closed'
 		  ORDER BY last_message_at DESC NULLS LAST LIMIT 1`, orgID, contactID).Scan(&convID)
 	if convID == "" {
-		assigned := any(nil)
-		if deptID != "" {
-			var aid string
-			if e := s.pool.QueryRow(ctx,
-				`SELECT user_id::text FROM agent_departments WHERE department_id=$1 LIMIT 1`, deptID).Scan(&aid); e == nil {
-				assigned = aid
-			}
-		}
+		// Branch/campaign routing below assigns the agent; no department step.
 		_ = s.pool.QueryRow(ctx,
-			`INSERT INTO conversations (organization_id, contact_id, channel, status, is_bot_active, assigned_agent_id)
-			 VALUES ($1,$2,'web_api','open',true,NULLIF($3,'')::uuid) RETURNING id::text`,
-			orgID, contactID, assigned).Scan(&convID)
+			`INSERT INTO conversations (organization_id, contact_id, channel, status, is_bot_active)
+			 VALUES ($1,$2,'web_api','open',true) RETURNING id::text`,
+			orgID, contactID).Scan(&convID)
 	}
 	msg := b.Message
 	if msg == "" {

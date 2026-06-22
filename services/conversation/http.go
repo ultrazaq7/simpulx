@@ -58,14 +58,14 @@ func (a *app) handleAssign(w http.ResponseWriter, r *http.Request) {
 		}
 		ag = agent{ID: body.AgentID}
 	} else {
-		picked, found, err := a.st.pickAgent(ctx, meta.OrgID, meta.DepartmentID)
+		picked, found, err := a.st.pickAgent(ctx, meta.OrgID)
 		if err != nil || !found {
 			http.Error(w, "no agent available", http.StatusConflict)
 			return
 		}
 		ag = picked
 	}
-	if err := a.assignAndAnnounce(ctx, meta.OrgID, convID, ag, meta.DepartmentID); err != nil {
+	if err := a.assignAndAnnounce(ctx, meta.OrgID, convID, ag); err != nil {
 		http.Error(w, err.Error(), http.StatusInternalServerError)
 		return
 	}

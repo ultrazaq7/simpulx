@@ -244,7 +244,7 @@ export default function SystemLogsPage() {
               <thead className="sticky top-0 bg-muted z-10">
                 <tr className="border-b border-border">
                   {tab === "messages" && <><TH>Created</TH><TH>Direction</TH><TH>Contact</TH><TH>Phone</TH><TH>Agent</TH><TH>Type</TH><TH>Message</TH><TH>Status</TH></>}
-                  {tab === "conversations" && <><TH>Agent</TH><TH>Department</TH><TH>Customer</TH><TH>Contact</TH><TH>Status</TH><TH className="text-right">First resp (s)</TH><TH className="text-right">Closing (s)</TH><TH className="text-right">Agent msgs</TH><TH>Initiated</TH></>}
+                  {tab === "conversations" && <><TH>Agent</TH><TH>Campaign</TH><TH>Customer</TH><TH>Contact</TH><TH>Status</TH><TH className="text-right">First resp (s)</TH><TH className="text-right">Closing (s)</TH><TH className="text-right">Agent msgs</TH><TH>Initiated</TH></>}
                   {tab === "activity" && <><TH>Agent Name</TH><TH>Agent Email</TH><TH>Agent Activity</TH><TH>Offline Reason</TH><TH>Action At</TH></>}
                   {tab === "calls" && <><TH>Type</TH><TH>Name</TH><TH>Phone Number</TH><TH className="text-right">Duration</TH><TH>Started At</TH><TH>Ended At</TH><TH>Agent</TH><TH>Status</TH><TH>Recording</TH></>}
                   {tab === "system" && <><TH>When</TH><TH>Actor</TH><TH>Action</TH><TH>Entity</TH><TH>Detail</TH></>}
@@ -276,7 +276,7 @@ export default function SystemLogsPage() {
                   {tab === "conversations" && convs.map((c) => (
                     <tr key={c.id} className="border-b border-border/60 hover:bg-muted/40">
                       <td className="px-4 py-2.5 font-medium text-foreground truncate max-w-[140px]">{c.agent_name || "-"}</td>
-                      <td className="px-4 py-2.5 text-foreground/80">{c.department_name || "-"}</td>
+                      <td className="px-4 py-2.5 text-foreground/80">{c.campaign_name || "-"}</td>
                       <td className="px-4 py-2.5 text-foreground/80 truncate max-w-[160px]">{c.customer_name || "-"}</td>
                       <td className="px-4 py-2.5 tabular-nums text-foreground/80">{c.contact_number || "-"}</td>
                       <td className="px-4 py-2.5"><span className="inline-flex px-2 py-0.5 rounded-md text-[11px] font-semibold bg-muted text-muted-foreground capitalize">{c.status}</span></td>

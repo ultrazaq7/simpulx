@@ -6,7 +6,7 @@ import { useState } from "react";
 import { Plug, Loader2, Copy, Check, CheckCircle2, Key } from "lucide-react";
 import { api } from "@/lib/api";
 import { Select } from "@/components/Select";
-import type { Department, Campaign } from "@/lib/types";
+import type { Campaign } from "@/lib/types";
 import { WizardModal, WizardCard, WizardField, BackButton, ContinueButton } from "./WizardModal";
 import { FieldLabel, PrimaryButton } from "../_shared";
 
@@ -40,14 +40,13 @@ function CopyField({ label, value, mono }: { label: string; value: string; mono?
   );
 }
 
-export function WebApiWizard({ depts, campaigns, onClose, onCreated }: {
-  depts: Department[]; campaigns: Campaign[]; onClose: () => void; onCreated: (msg: string) => void;
+export function WebApiWizard({ campaigns, onClose, onCreated }: {
+  campaigns: Campaign[]; onClose: () => void; onCreated: (msg: string) => void;
 }) {
   const [step, setStep] = useState(0);
   const [preset, setPreset] = useState("");
   const [name, setName] = useState("");
   const [slug, setSlug] = useState("");
-  const [deptId, setDeptId] = useState("");
   const [campaignId, setCampaignId] = useState("");
   const [template, setTemplate] = useState("");
   const [webhook, setWebhook] = useState("");
@@ -65,7 +64,7 @@ export function WebApiWizard({ depts, campaigns, onClose, onCreated }: {
     setSaving(true); setErr("");
     try {
       const r = await api.createWebApiSource({
-        name: name.trim(), slug: slug.trim() || undefined, auto_assign_dept_id: deptId || undefined,
+        name: name.trim(), slug: slug.trim() || undefined,
         auto_template_name: template.trim() || undefined, webhook_url: webhook.trim() || undefined,
         campaign_id: campaignId || undefined,
       });
@@ -109,11 +108,6 @@ export function WebApiWizard({ depts, campaigns, onClose, onCreated }: {
             <Select value={campaignId} onChange={setCampaignId} placeholder="No campaign"
               options={[{ value: "", label: "No campaign" }, ...campaigns.map((c) => ({ value: c.id, label: c.name }))]} />
             <p className="text-[11.5px] text-muted-foreground mt-1">Leads from this source are attributed to the campaign and round-robin assigned to its agents.</p>
-          </div>
-          <div>
-            <FieldLabel>Auto-assign department (optional)</FieldLabel>
-            <Select value={deptId} onChange={setDeptId} placeholder="None"
-              options={[{ value: "", label: "None" }, ...depts.map((d) => ({ value: d.id, label: d.name }))]} />
           </div>
           <WizardField label="Auto template (optional)" value={template} onChange={setTemplate} />
           <WizardField label="Webhook URL (optional)" value={webhook} onChange={setWebhook} placeholder="https://..." />

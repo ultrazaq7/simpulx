@@ -6,7 +6,7 @@ import {
   MessageCircle, Settings,
   ChevronLeft, ChevronRight, Bell, LogOut, User as UserIcon,
   CheckCircle2, Loader2, ChevronDown, Activity, LayoutDashboard, MessagesSquare, Users, Sparkles, SlidersHorizontal, Megaphone, Wrench, Globe,
-  ScrollText, BarChart3, Building2, ShieldCheck, FileText, Radio, GitBranch, Plug, Search
+  ScrollText, BarChart3, ShieldCheck, FileText, Radio, GitBranch, Plug, Search
 } from "lucide-react";
 import { WS_URL } from "@/lib/api";
 import { api, clearSession, getToken, getUser, setSession } from "@/lib/api";
@@ -81,7 +81,6 @@ const PAGE_TITLES: Record<string, { category: string; title: string }> = {
   "/settings/general": { category: "PREFERENCES", title: "General" },
   "/settings/people": { category: "TEAM", title: "Team Members" },
   "/settings/roles": { category: "ROLES", title: "Roles & Permissions" },
-  "/settings/departments": { category: "DEPARTMENTS", title: "Departments" },
   "/settings/campaigns": { category: "CAMPAIGNS", title: "Campaigns" },
   "/settings/templates": { category: "TEMPLATES", title: "Message Templates" },
   "/settings/automation": { category: "AUTOMATION", title: "Automation" },
@@ -105,7 +104,6 @@ const CATEGORY_ICONS: Record<string, any> = {
   "ACCOUNT": UserIcon,
   "TEAM": Users,
   "ROLES": ShieldCheck,
-  "DEPARTMENTS": Building2,
   "TEMPLATES": FileText,
   "CHANNELS": Radio,
   "ANALYTICS": BarChart3,
@@ -503,8 +501,8 @@ export function Shell({ children }: { children: ReactNode }) {
 
           {/* Avatar + name + chevron */}
           <button onClick={() => setUserMenuOpen(!userMenuOpen)} className="flex items-center gap-2 pl-1 pr-2 h-10 rounded-lg hover:bg-muted transition-colors outline-none relative">
-            <div className="w-8 h-8 rounded-full bg-brand-gradient text-white flex items-center justify-center text-xs font-bold shrink-0 shadow-sm">
-              {initials(user.name)}
+            <div className="w-8 h-8 rounded-full overflow-hidden bg-brand-gradient text-white flex items-center justify-center text-xs font-bold shrink-0 shadow-sm">
+              {user.avatar ? <img src={user.avatar} alt="" className="w-full h-full object-cover" /> : initials(user.name)}
             </div>
             <span className="text-[13px] font-semibold hidden md:block truncate max-w-[120px] text-foreground/90">
               {user.name}
@@ -528,8 +526,8 @@ export function Shell({ children }: { children: ReactNode }) {
           <div className="absolute top-16 right-4 w-[280px] bg-popover border border-border shadow-xl rounded-xl z-50 flex flex-col animate-scale-in origin-top-right overflow-hidden">
             {/* Header: avatar + name + email */}
             <div className="px-5 pt-5 pb-4 flex items-center gap-3 border-b border-border">
-              <div className="w-11 h-11 rounded-full bg-brand-gradient text-white flex items-center justify-center text-sm font-bold shrink-0 shadow-sm">
-                {initials(user.name)}
+              <div className="w-11 h-11 rounded-full overflow-hidden bg-brand-gradient text-white flex items-center justify-center text-sm font-bold shrink-0 shadow-sm">
+                {user.avatar ? <img src={user.avatar} alt="" className="w-full h-full object-cover" /> : initials(user.name)}
               </div>
               <div className="min-w-0">
                 <p className="text-[14px] font-bold text-foreground truncate">{user.name}</p>

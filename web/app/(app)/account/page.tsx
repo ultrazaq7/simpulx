@@ -1,8 +1,8 @@
 "use client";
-import { useEffect, useMemo, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import { useRouter } from "next/navigation";
 import {
-  Loader2, Bell, Mail, MessageSquare, Volume2, ArrowLeft, MailCheck,
+  Loader2, Bell, Mail, MessageSquare, Volume2, ArrowLeft, MailCheck, Camera,
 } from "lucide-react";
 import { api, getUser, getToken, setSession } from "@/lib/api";
 import type { OrgSettings } from "@/lib/types";
@@ -77,6 +77,9 @@ export default function AccountPage() {
   const [name, setName] = useState(user?.name || "");
   const [origName, setOrigName] = useState(user?.name || "");
   const [saving, setSaving] = useState(false);
+  const [avatar, setAvatar] = useState(user?.avatar || "");
+  const [avatarUploading, setAvatarUploading] = useState(false);
+  const avatarInputRef = useRef<HTMLInputElement>(null);
 
   // Notification prefs
   const [settings, setSettings] = useState<OrgSettings>({});
@@ -118,11 +121,28 @@ export default function AccountPage() {
     api.me().then((me) => {
       if (me.name) { setName(me.name); setOrigName(me.name); }
       if (me.email) { setEmail(me.email); setOrigEmail(me.email); }
+      if (me.avatar !== undefined) setAvatar(me.avatar || "");
       const token = getToken();
-      if (token && user) setSession(token, { ...user, name: me.name ?? user.name, email: me.email ?? user.email } as any);
+      if (token && user) setSession(token, { ...user, name: me.name ?? user.name, email: me.email ?? user.email, avatar: me.avatar ?? (user as any).avatar } as any);
     }).catch(() => {});
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
+
+  async function uploadAvatar(file: File) {
+    if (!file.type.startsWith("image/")) { notify("Please choose an image file", false); return; }
+    if (file.size > 5 * 1024 * 1024) { notify("Image too large (max 5 MB)", false); return; }
+    if (!user?.id) { notify("User not found", false); return; }
+    setAvatarUploading(true);
+    try {
+      const up = await api.uploadFile(file);
+      await api.updateUser(user.id, { avatar_url: up.url });
+      setAvatar(up.url);
+      const token = getToken();
+      if (token) setSession(token, { ...user, avatar: up.url } as any);
+      notify("Profile photo updated");
+    } catch (e) { notify(String(e), false); }
+    finally { setAvatarUploading(false); }
+  }
 
   async function saveProfile() {
     if (!name.trim()) { notify("Name is required", false); return; }
@@ -229,9 +249,22 @@ export default function AccountPage() {
           <div>
             {/* User header */}
             <div className="flex items-center gap-4 mb-8">
-              <div className="w-16 h-16 rounded-full bg-brand-gradient text-white flex items-center justify-center text-xl font-bold shrink-0 shadow-md">
-                {initials(user?.name || "")}
-              </div>
+              <button
+                type="button"
+                onClick={() => avatarInputRef.current?.click()}
+                className="relative w-16 h-16 rounded-full overflow-hidden shrink-0 shadow-md group outline-none focus-visible:ring-2 focus-visible:ring-primary"
+                aria-label="Change profile photo"
+              >
+                {avatar ? (
+                  <img src={avatar} alt="" className="w-full h-full object-cover" />
+                ) : (
+                  <span className="w-full h-full bg-brand-gradient text-white flex items-center justify-center text-xl font-bold">{initials(user?.name || "")}</span>
+                )}
+                <span className="absolute inset-0 bg-black/40 opacity-0 group-hover:opacity-100 transition-opacity grid place-items-center">
+                  {avatarUploading ? <Loader2 className="w-5 h-5 text-white animate-spin" /> : <Camera className="w-5 h-5 text-white" />}
+                </span>
+              </button>
+              <input ref={avatarInputRef} type="file" accept="image/*" className="hidden" onChange={(e) => { const f = e.target.files?.[0]; if (f) uploadAvatar(f); e.target.value = ""; }} />
               <div>
                 <p className="text-[18px] font-bold text-foreground">{user?.name || "—"}</p>
                 <p className="text-[13px] text-muted-foreground capitalize">{user?.role || "—"}</p>

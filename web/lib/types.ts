@@ -6,6 +6,7 @@ export interface User {
   email?: string;
   status?: string;
   is_online?: boolean;
+  avatar?: string;
 }
 
 export interface Conversation {
@@ -326,8 +327,6 @@ export interface Channel {
   created_at: string;
 }
 
-export interface Department { id: string; name: string; members: number; }
-
 // A branch is a sub-unit of a campaign (office / store / dealer) with its own
 // coverage, ad sources and agents. Leads route by ad source to the branch.
 export interface Branch {
@@ -408,8 +407,6 @@ export interface WebApiSource {
   slug: string | null;
   api_key: string;
   webhook_url: string | null;
-  auto_assign_dept_id: string | null;
-  department: string | null;
   auto_template_name: string | null;
   campaign_id: string | null;
   campaign_name: string | null;
@@ -428,7 +425,7 @@ export interface LogMessage {
   source_id: string | null; source_url: string | null;
 }
 export interface LogConversation {
-  agent_name: string | null; email: string | null; department_name: string | null;
+  agent_name: string | null; email: string | null; campaign_name: string | null;
   customer_name: string | null; disposition: string | null; contact_number: string | null;
   assigned_at: string | null; closed_at: string | null; first_response_sec: number; closing_sec: number;
   agent_messages: number; status: string; chat_initiation: string | null; id: string;
@@ -486,9 +483,6 @@ export interface UserAccount {
   last_seen_at: string | null;
   last_login_at: string | null;
   created_at: string;
-  departments: number;
-  department_names: string[] | null;
-  department_ids: string[] | null;
   campaign_names: string[] | null;
   open_chats: number;
 }

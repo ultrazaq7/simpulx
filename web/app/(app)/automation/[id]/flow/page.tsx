@@ -27,7 +27,7 @@ const META: Record<string, Meta> = {
   send_message: { label: "Send auto reply", Icon: MessageCircle, accent: "#2D8B73", kicker: "DO", desc: ACTIONS.send_message.desc },
   send_template: { label: "Send template", Icon: FileText, accent: "#2D8B73", kicker: "DO", desc: ACTIONS.send_template.desc },
   assign_agent: { label: "Assign to agent", Icon: User, accent: "#0891B2", kicker: "DO", desc: ACTIONS.assign_agent.desc },
-  assign_team: { label: "Assign to department", Icon: Users, accent: "#0891B2", kicker: "DO", desc: ACTIONS.assign_team.desc },
+  assign_team: { label: "Assign to team", Icon: Users, accent: "#0891B2", kicker: "DO", desc: ACTIONS.assign_team.desc },
   add_tag: { label: "Add tag", Icon: Tag, accent: "#D97706", kicker: "DO", desc: ACTIONS.add_tag.desc },
   remove_tag: { label: "Remove tag", Icon: Tag, accent: "#D97706", kicker: "DO", desc: ACTIONS.remove_tag.desc },
   set_priority: { label: "Set priority", Icon: Flag, accent: "#DC2626", kicker: "DO", desc: ACTIONS.set_priority.desc },
@@ -328,7 +328,7 @@ function Inspector({ node, triggerType, onChange, onClose, onDelete }: {
         {kind === "send_message" && <Field label="Message"><textarea value={String(c.message ?? "")} onChange={(e) => set("message", e.target.value)} rows={4} placeholder="Type the auto reply..." className={cn(INP, "resize-none h-auto py-2")} /></Field>}
         {kind === "send_template" && <Field label="Template name"><input value={String(c.template_name ?? "")} onChange={(e) => set("template_name", e.target.value)} placeholder="welcome_v1" className={INP} /></Field>}
         {kind === "assign_agent" && <Field label="Agent name or ID"><input value={String(c.agent_name ?? "")} onChange={(e) => set("agent_name", e.target.value)} placeholder="e.g. Agent Satu" className={INP} /></Field>}
-        {kind === "assign_team" && <Field label="Department / queue"><input value={String(c.queue ?? "")} onChange={(e) => set("queue", e.target.value)} placeholder="sales" className={INP} /></Field>}
+        {kind === "assign_team" && <Field label="Team / queue"><input value={String(c.queue ?? "")} onChange={(e) => set("queue", e.target.value)} placeholder="sales" className={INP} /></Field>}
         {(kind === "add_tag" || kind === "remove_tag") && <Field label="Tags (comma separated)"><input value={Array.isArray(c.tags) ? (c.tags as string[]).join(", ") : ""} onChange={(e) => set("tags", e.target.value.split(",").map((t) => t.trim()).filter(Boolean))} placeholder="vip, pricing" className={INP} /></Field>}
         {kind === "set_priority" && <Field label="Priority"><select value={String(c.priority ?? "normal")} onChange={(e) => set("priority", e.target.value)} className={INP}>{["low", "normal", "high", "urgent"].map((p) => <option key={p} value={p}>{p}</option>)}</select></Field>}
         {kind === "webhook_notify" && <Field label="Webhook URL"><input value={String(c.url ?? "")} onChange={(e) => set("url", e.target.value)} placeholder="https://..." className={INP} /></Field>}

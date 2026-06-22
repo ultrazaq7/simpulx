@@ -24,7 +24,7 @@ func (a *app) onHandoff(env events.Envelope) error {
 		return nil // sudah ada agen, jangan re-assign
 	}
 
-	ag, found, err := a.st.pickAgent(ctx, env.OrgID, meta.DepartmentID)
+	ag, found, err := a.st.pickAgent(ctx, env.OrgID)
 	if err != nil {
 		return err
 	}
@@ -34,7 +34,7 @@ func (a *app) onHandoff(env events.Envelope) error {
 		return nil
 	}
 
-	if err := a.assignAndAnnounce(ctx, env.OrgID, e.ConversationID, ag, meta.DepartmentID); err != nil {
+	if err := a.assignAndAnnounce(ctx, env.OrgID, e.ConversationID, ag); err != nil {
 		return err
 	}
 	a.log.Info("conversation assigned", "conv", e.ConversationID, "agent", ag.Name, "reason", e.Reason)
@@ -42,18 +42,13 @@ func (a *app) onHandoff(env events.Envelope) error {
 }
 
 // assignAndAnnounce melakukan assign + publish event conversation.assigned.
-func (a *app) assignAndAnnounce(ctx context.Context, orgID, convID string, ag agent, departmentID *string) error {
+func (a *app) assignAndAnnounce(ctx context.Context, orgID, convID string, ag agent) error {
 	if err := a.st.assign(ctx, orgID, convID, ag.ID); err != nil {
 		return err
-	}
-	deptID := ""
-	if departmentID != nil {
-		deptID = *departmentID
 	}
 	return a.bus.Publish(events.SubjectConversationAssigned, orgID, events.ConversationAssigned{
 		ConversationID: convID,
 		AgentID:        ag.ID,
 		AgentName:      ag.Name,
-		DepartmentID:   deptID,
 	})
 }
