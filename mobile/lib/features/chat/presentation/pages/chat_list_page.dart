@@ -161,9 +161,10 @@ class _ChatListPageState extends ConsumerState<ChatListPage> {
                         );
                       }
                       final c = filtered[i];
-                      return ConversationTile(
+                      return PremiumConversationTile(
                         conversation: c,
                         onTap: () => context.push('/chat/${c.id}', extra: c),
+                        index: i,
                       );
                     },
                   ),

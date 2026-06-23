@@ -45,6 +45,17 @@ class AgentPerformance {
   final double avgRtMin;
   final double within5Pct;
 
+  /// Full agent name
+  String get agentName => agent;
+
+  /// Agent initials (first letter of first and last name)
+  String get agentNameInitials {
+    final parts = agent.trim().split(RegExp(r'\s+')).where((p) => p.isNotEmpty).toList();
+    if (parts.isEmpty) return '?';
+    if (parts.length == 1) return parts.first.isNotEmpty ? parts.first[0].toUpperCase() : '?';
+    return (parts.first[0] + parts.last[0]).toUpperCase();
+  }
+
   factory AgentPerformance.fromJson(Map<String, dynamic> j) =>
       AgentPerformance(
         agent: asString(j['agent']),
