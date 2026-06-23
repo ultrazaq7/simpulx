@@ -1,4 +1,4 @@
-package com.simpulx.simpulx
+package com.simpulx.app
 
 import io.flutter.embedding.android.FlutterActivity
 
