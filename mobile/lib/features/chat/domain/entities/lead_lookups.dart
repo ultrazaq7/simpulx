@@ -55,6 +55,40 @@ class Note extends Equatable {
   List<Object?> get props => [id, body, author, createdAt];
 }
 
+/// WhatsApp message template (`GET /api/templates`).
+class MessageTemplate extends Equatable {
+  const MessageTemplate({
+    required this.id,
+    required this.name,
+    required this.language,
+    required this.body,
+    required this.status,
+    this.variables = const [],
+  });
+
+  final String id;
+  final String name;
+  final String language;
+  final String body;
+  final String status; // draft | pending | approved | rejected
+  final List<String> variables;
+
+  bool get isApproved => status.toLowerCase() == 'approved';
+
+  /// Body with {{1}}, {{2}}... substituted by the stored sample variables
+  /// (matches the backend's renderTemplate).
+  String get rendered {
+    var out = body;
+    for (var i = 0; i < variables.length; i++) {
+      out = out.replaceAll('{{${i + 1}}}', variables[i]);
+    }
+    return out;
+  }
+
+  @override
+  List<Object?> get props => [id, name, language, body, status, variables];
+}
+
 /// Assignable agent (`GET /api/agents` -> `{id, full_name, is_online, open_count}`).
 class AgentRef extends Equatable {
   const AgentRef({

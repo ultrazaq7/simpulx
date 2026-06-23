@@ -73,14 +73,41 @@ class LocalNotifications {
     NotificationPayload payload,
   ) async {
     final cat = payload.category;
-    final isUrgent = cat != NotificationCategory.incomingMessage;
+    final isMessage = cat == NotificationCategory.incomingMessage;
+    final isUrgent = !isMessage;
+
+    // WhatsApp-style: incoming messages render as a MessagingStyle thread with
+    // the sender as a Person + an avatar (the app mark, since WhatsApp contacts
+    // rarely carry a photo). Other categories keep an expandable big-text card.
+    const avatar = DrawableResourceAndroidBitmap('@mipmap/ic_launcher');
+    const personAvatar = DrawableResourceAndroidIcon('@mipmap/ic_launcher');
+    final StyleInformation style;
+    if (isMessage) {
+      final person = Person(
+        key: payload.conversationId ?? payload.title,
+        name: payload.title,
+        important: true,
+        icon: personAvatar,
+      );
+      style = MessagingStyleInformation(
+        person,
+        groupConversation: false,
+        messages: [
+          Message(payload.body, DateTime.now(), person),
+        ],
+      );
+    } else {
+      style = BigTextStyleInformation(payload.body);
+    }
+
     final android = AndroidNotificationDetails(
       cat.channelId,
       cat.channelName,
       importance: isUrgent ? Importance.max : Importance.high,
       priority: Priority.high,
       category: AndroidNotificationCategory.message,
-      styleInformation: BigTextStyleInformation(payload.body),
+      largeIcon: avatar,
+      styleInformation: style,
       actions: const [
         AndroidNotificationAction('view', 'View'),
       ],

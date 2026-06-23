@@ -93,8 +93,46 @@ class ContactTile extends StatelessWidget {
                 ],
               ),
             ),
+            if (c.leadScore != null) ...[
+              const SizedBox(width: 8),
+              _ScoreBadge(score: c.leadScore!),
+            ],
             const Icon(Icons.chevron_right_rounded, color: AppColors.textMuted),
           ],
+        ),
+      ),
+    );
+  }
+}
+
+/// Compact buy-potential score pill for the lead list.
+class _ScoreBadge extends StatelessWidget {
+  const _ScoreBadge({required this.score});
+  final int score;
+
+  Color get _color {
+    if (score >= 70) return AppColors.success;
+    if (score >= 40) return AppColors.warning;
+    return AppColors.textMuted;
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    return Container(
+      width: 34,
+      height: 34,
+      alignment: Alignment.center,
+      decoration: BoxDecoration(
+        color: _color.withValues(alpha: 0.12),
+        shape: BoxShape.circle,
+        border: Border.all(color: _color.withValues(alpha: 0.4)),
+      ),
+      child: Text(
+        '$score',
+        style: TextStyle(
+          color: _color,
+          fontWeight: FontWeight.w800,
+          fontSize: 13,
         ),
       ),
     );

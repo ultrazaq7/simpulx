@@ -67,31 +67,55 @@ class _LoginPageState extends ConsumerState<LoginPage> {
                   crossAxisAlignment: CrossAxisAlignment.stretch,
                   children: [
                     const SizedBox(height: AppSpacing.xxxl),
-                    Container(
-                      width: 56,
-                      height: 56,
-                      alignment: Alignment.center,
-                      decoration: BoxDecoration(
-                        gradient: const LinearGradient(
-                          colors: [
-                            AppColors.brandGreenSoft,
-                            AppColors.brandGreen
+                    Center(
+                      child: Container(
+                        width: 88,
+                        height: 88,
+                        decoration: BoxDecoration(
+                          borderRadius: BorderRadius.circular(24),
+                          boxShadow: [
+                            BoxShadow(
+                              color: AppColors.primary.withValues(alpha: 0.28),
+                              blurRadius: 28,
+                              offset: const Offset(0, 12),
+                            ),
                           ],
                         ),
-                        borderRadius: BorderRadius.circular(16),
+                        child: ClipRRect(
+                          borderRadius: BorderRadius.circular(24),
+                          child: Image.asset(
+                            'assets/images/simpulx_logo.png',
+                            fit: BoxFit.cover,
+                          ),
+                        ),
                       ),
-                      child: const Icon(Icons.bolt_rounded,
-                          color: Colors.white, size: 30),
                     ),
                     const SizedBox(height: AppSpacing.lg),
-                    Text(
-                      'Simpulx',
-                      style: theme.textTheme.headlineSmall
-                          ?.copyWith(fontWeight: FontWeight.w800),
+                    Center(
+                      child: RichText(
+                        text: TextSpan(
+                          style: theme.textTheme.headlineMedium?.copyWith(
+                            fontWeight: FontWeight.w800,
+                            letterSpacing: -0.5,
+                          ),
+                          children: [
+                            TextSpan(
+                              text: 'Simpul',
+                              style: TextStyle(
+                                  color: theme.colorScheme.onSurface),
+                            ),
+                            const TextSpan(
+                              text: 'x',
+                              style: TextStyle(color: AppColors.warning),
+                            ),
+                          ],
+                        ),
+                      ),
                     ),
                     const SizedBox(height: AppSpacing.xs),
                     Text(
-                      'Sign in to continue',
+                      'Customer Engagement Platform',
+                      textAlign: TextAlign.center,
                       style: theme.textTheme.bodyMedium
                           ?.copyWith(color: AppColors.textSecondary),
                     ),

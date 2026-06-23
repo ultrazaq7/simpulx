@@ -46,6 +46,24 @@ class AuthRemoteDataSource {
     }
   }
 
+  /// POST /api/account/password {current_password, new_password}.
+  Future<void> changePassword({
+    required String currentPassword,
+    required String newPassword,
+  }) async {
+    try {
+      await _dio.post(
+        ApiEndpoints.accountPassword,
+        data: {
+          'current_password': currentPassword,
+          'new_password': newPassword,
+        },
+      );
+    } on DioException catch (e) {
+      throw ErrorMapper.fromDio(e);
+    }
+  }
+
   /// POST /api/users/fcm-token {token, platform}.
   Future<void> registerFcmToken({
     required String token,

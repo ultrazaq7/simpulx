@@ -16,6 +16,13 @@ int asInt(dynamic v) {
   return int.tryParse('$v') ?? 0;
 }
 
+int? asIntOrNull(dynamic v) {
+  if (v == null) return null;
+  if (v is int) return v;
+  if (v is num) return v.toInt();
+  return int.tryParse('$v');
+}
+
 double? asDoubleOrNull(dynamic v) {
   if (v == null) return null;
   if (v is num) return v.toDouble();

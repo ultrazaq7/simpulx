@@ -53,6 +53,22 @@ class AuthRepositoryImpl implements AuthRepository {
   }
 
   @override
+  Future<Result<void>> changePassword({
+    required String currentPassword,
+    required String newPassword,
+  }) async {
+    try {
+      await _remote.changePassword(
+        currentPassword: currentPassword,
+        newPassword: newPassword,
+      );
+      return const Result.ok(null);
+    } catch (e) {
+      return Result.err(ErrorMapper.toFailure(e));
+    }
+  }
+
+  @override
   Future<void> registerPushToken({
     required String token,
     required String platform,

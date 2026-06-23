@@ -133,6 +133,29 @@ class ChatRemoteDataSource {
         ),
       );
 
+  Future<List<MessageTemplate>> getTemplates() => _list(
+        ApiEndpoints.templates,
+        (m) => MessageTemplate(
+          id: asString(m['id']),
+          name: asString(m['name']),
+          language: asString(m['language']),
+          body: asString(m['body']),
+          status: asString(m['status']),
+          variables: m['variables'] is List
+              ? (m['variables'] as List).map((e) => e.toString()).toList()
+              : const [],
+        ),
+      );
+
+  /// POST /api/quick-replies {shortcut, title, body} -> creates a shortcut.
+  Future<void> createQuickReply({
+    required String shortcut,
+    required String title,
+    required String body,
+  }) =>
+      _post(ApiEndpoints.quickReplies,
+          {'shortcut': shortcut, 'title': title, 'body': body});
+
   Future<List<T>> _list<T>(
     String path,
     T Function(Map<String, dynamic>) map,

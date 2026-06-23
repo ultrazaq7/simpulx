@@ -19,6 +19,7 @@ class ContactModel {
       interestLevel: asStringOrNull(json['interest_level']),
       stageName: asStringOrNull(json['stage_name']),
       aiSummary: asStringOrNull(json['ai_summary']),
+      leadScore: asIntOrNull(json['lead_score']),
       assignedAgentId: asStringOrNull(json['assigned_agent_id']),
       agentName: asStringOrNull(json['agent_name']),
       conversationId: asStringOrNull(json['conversation_id']),

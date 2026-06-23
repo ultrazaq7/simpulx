@@ -29,6 +29,13 @@ abstract class ChatRepository {
   Future<Result<List<QuickReply>>> getQuickReplies();
   Future<Result<List<AgentRef>>> getAgents();
   Future<Result<List<Note>>> getNotes(String conversationId);
+  Future<Result<List<MessageTemplate>>> getTemplates();
+
+  Future<Result<void>> createQuickReply({
+    required String shortcut,
+    required String title,
+    required String body,
+  });
 
   // ── Lead actions ───────────────────────────────────────
   Future<Result<void>> addNote(String conversationId, String body);

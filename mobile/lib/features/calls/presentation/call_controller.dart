@@ -3,6 +3,7 @@ import 'dart:async';
 import 'package:flutter/foundation.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
+import '../../../core/error/app_exception.dart';
 import '../../../core/providers/app_providers.dart';
 import '../../../core/realtime/realtime_event.dart';
 import '../../../core/realtime/realtime_providers.dart';
@@ -64,7 +65,7 @@ class CallController extends Notifier<CallSession?> {
       );
       if (perm.granted) await _placeOffer();
     } catch (e) {
-      _fail('Could not start the call');
+      _fail(e is AppException ? e.message : 'Could not start the call');
     }
   }
 

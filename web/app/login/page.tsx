@@ -67,8 +67,8 @@ export default function LoginPage() {
           </div>
         </div>
 
-        <p className="relative z-10 text-[11px] text-white/40 font-medium uppercase tracking-[0.18em]">
-          Simpulx OS
+        <p className="relative z-10 text-[11px] text-white/40 font-medium tracking-wide">
+          © {new Date().getFullYear()} Simpulx. All rights reserved.
         </p>
       </div>
 

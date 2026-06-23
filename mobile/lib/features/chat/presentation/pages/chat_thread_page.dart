@@ -1,5 +1,6 @@
 import 'dart:async';
 
+import 'package:file_picker/file_picker.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:image_picker/image_picker.dart';
@@ -14,11 +15,11 @@ import '../../domain/entities/conversation.dart';
 import '../../domain/entities/message.dart';
 import '../controllers/chat_providers.dart';
 import '../controllers/chat_thread_controller.dart';
+import '../controllers/conversation_list_controller.dart';
 import '../widgets/conversation_actions_sheet.dart';
-import '../widgets/lead_summary_sheet.dart';
 import '../widgets/message_bubble.dart';
 import '../widgets/message_composer.dart';
-import '../widgets/quick_replies_sheet.dart';
+import '../widgets/template_picker_sheet.dart';
 
 /// Full-screen conversation thread (no bottom nav). Optimistic send + realtime
 /// append; scroll up to load older history.
@@ -39,6 +40,19 @@ class ChatThreadPage extends ConsumerStatefulWidget {
 class _ChatThreadPageState extends ConsumerState<ChatThreadPage> {
   final _scroll = ScrollController();
   int _lastCount = 0;
+  bool _didInitialScroll = false;
+  bool _showJump = false;
+
+  /// Look up this conversation from the live inbox list (used when opened
+  /// without a route `extra`, e.g. from a push notification or contact Chat).
+  Conversation? _liveConversation() {
+    final list = ref.watch(conversationListProvider).value;
+    if (list == null) return null;
+    for (final c in list) {
+      if (c.id == widget.conversationId) return c;
+    }
+    return null;
+  }
 
   @override
   void initState() {
@@ -60,6 +74,19 @@ class _ChatThreadPageState extends ConsumerState<ChatThreadPage> {
           .read(chatThreadControllerProvider(widget.conversationId))
           .loadOlder();
     }
+    // Show a "jump to latest" button once the user scrolls up meaningfully.
+    final show = _scroll.hasClients &&
+        _scroll.position.pixels < _scroll.position.maxScrollExtent - 600;
+    if (show != _showJump) setState(() => _showJump = show);
+  }
+
+  void _scrollToBottomAnimated() {
+    if (!_scroll.hasClients) return;
+    _scroll.animateTo(
+      _scroll.position.maxScrollExtent,
+      duration: const Duration(milliseconds: 280),
+      curve: Curves.easeOut,
+    );
   }
 
   void _showCallMenu(Conversation conv) {
@@ -109,13 +136,16 @@ class _ChatThreadPageState extends ConsumerState<ChatThreadPage> {
     }
     final normalized = phone.startsWith('+') ? phone : '+$phone';
     final uri = Uri.parse('tel:$normalized');
-    if (await canLaunchUrl(uri)) {
-      await launchUrl(uri);
+    // Launch directly: canLaunchUrl(tel:) returns false on Android 11+ unless a
+    // <queries> intent is declared, which made the button appear dead.
+    try {
+      final ok = await launchUrl(uri, mode: LaunchMode.externalApplication);
+      if (!ok) throw Exception('no dialer');
       // Best-effort: record the call attempt for analytics/SLA.
       unawaited(
         ref.read(chatRepositoryProvider).trackCall(widget.conversationId),
       );
-    } else {
+    } catch (_) {
       messenger.showSnackBar(
         const SnackBar(content: Text('Could not open the dialer')),
       );
@@ -123,7 +153,7 @@ class _ChatThreadPageState extends ConsumerState<ChatThreadPage> {
   }
 
   Future<void> _attach() async {
-    final source = await showModalBottomSheet<ImageSource>(
+    final choice = await showModalBottomSheet<String>(
       context: context,
       showDragHandle: true,
       builder: (_) => SafeArea(
@@ -132,40 +162,74 @@ class _ChatThreadPageState extends ConsumerState<ChatThreadPage> {
             ListTile(
               leading: const Icon(Icons.photo_camera_outlined),
               title: const Text('Camera'),
-              onTap: () => Navigator.of(context).pop(ImageSource.camera),
+              onTap: () => Navigator.of(context).pop('camera'),
             ),
             ListTile(
               leading: const Icon(Icons.photo_library_outlined),
               title: const Text('Photo library'),
-              onTap: () => Navigator.of(context).pop(ImageSource.gallery),
+              onTap: () => Navigator.of(context).pop('gallery'),
+            ),
+            ListTile(
+              leading: const Icon(Icons.insert_drive_file_outlined),
+              title: const Text('Document'),
+              onTap: () => Navigator.of(context).pop('file'),
             ),
           ],
         ),
       ),
     );
-    if (source == null) return;
+    if (choice == null) return;
+    final ctrl = ref.read(chatThreadControllerProvider(widget.conversationId));
+
+    if (choice == 'file') {
+      final result = await FilePicker.platform.pickFiles(type: FileType.any);
+      final picked = result?.files.single;
+      if (picked?.path != null) {
+        await ctrl.attachAndSend(picked!.path!,
+            filename: picked.name, previewType: MessageType.document);
+      }
+      return;
+    }
+
+    final source = choice == 'camera' ? ImageSource.camera : ImageSource.gallery;
     final file = await ImagePicker()
         .pickImage(source: source, imageQuality: 80, maxWidth: 1600);
-    if (file == null) return;
-    await ref
-        .read(chatThreadControllerProvider(widget.conversationId))
-        .attachAndSend(file.path, filename: file.name);
+    if (file != null) {
+      await ctrl.attachAndSend(file.path, filename: file.name);
+    }
   }
 
   bool get _nearBottom =>
       !_scroll.hasClients ||
       _scroll.position.pixels >= _scroll.position.maxScrollExtent - 120;
 
+  void _jumpToBottom() {
+    if (_scroll.hasClients) {
+      _scroll.jumpTo(_scroll.position.maxScrollExtent);
+    }
+  }
+
   void _maybeAutoScroll(int count) {
-    if (count == _lastCount) return;
+    if (count == 0) return;
+    final firstLoad = !_didInitialScroll;
+    if (count == _lastCount && !firstLoad) return;
     final grew = count > _lastCount;
     _lastCount = count;
-    if (!grew) return;
-    WidgetsBinding.instance.addPostFrameCallback((_) {
-      if (_scroll.hasClients && _nearBottom) {
-        _scroll.jumpTo(_scroll.position.maxScrollExtent);
-      }
-    });
+    _didInitialScroll = true;
+
+    if (firstLoad) {
+      // Land at the bottom (newest) on open, even before the keyboard/images
+      // settle - re-jump shortly after so it lands precisely.
+      WidgetsBinding.instance.addPostFrameCallback((_) {
+        _jumpToBottom();
+        Future.delayed(const Duration(milliseconds: 150), () {
+          if (mounted) _jumpToBottom();
+        });
+      });
+    } else if (grew && _nearBottom) {
+      // Don't yank the user up while they're reading older history.
+      WidgetsBinding.instance.addPostFrameCallback((_) => _jumpToBottom());
+    }
   }
 
   @override
@@ -173,7 +237,11 @@ class _ChatThreadPageState extends ConsumerState<ChatThreadPage> {
     final controller =
         ref.watch(chatThreadControllerProvider(widget.conversationId));
 
+    // Prefer the conversation passed via route extra; otherwise look it up live
+    // from the inbox list so opening from a notification or the contact's Chat
+    // button still shows the name/phone and enables calling.
     final conversation = widget.conversation ??
+        _liveConversation() ??
         Conversation(
           id: widget.conversationId,
           status: 'open',
@@ -186,9 +254,10 @@ class _ChatThreadPageState extends ConsumerState<ChatThreadPage> {
 
     return Scaffold(
       appBar: _ThreadAppBar(
-        conversation: widget.conversation,
+        conversation: conversation,
         onMore: () => showConversationActions(context, conversation),
-        onSummarize: () => showLeadSummary(context, widget.conversationId),
+        onSendTemplate: () =>
+            showTemplatePicker(context, widget.conversationId),
         onCall: () => _showCallMenu(conversation),
       ),
       body: Column(
@@ -219,21 +288,36 @@ class _ChatThreadPageState extends ConsumerState<ChatThreadPage> {
                   );
                 }
                 _maybeAutoScroll(s.messages.length);
-                return _MessageList(
-                  scroll: _scroll,
-                  messages: s.messages,
-                  loadingMore: s.loadingMore,
+                return Stack(
+                  children: [
+                    _MessageList(
+                      scroll: _scroll,
+                      messages: s.messages,
+                      loadingMore: s.loadingMore,
+                    ),
+                    Positioned(
+                      right: 12,
+                      bottom: 12,
+                      child: AnimatedSlide(
+                        duration: const Duration(milliseconds: 200),
+                        offset: _showJump ? Offset.zero : const Offset(0, 2),
+                        child: AnimatedOpacity(
+                          duration: const Duration(milliseconds: 200),
+                          opacity: _showJump ? 1 : 0,
+                          child: _JumpToBottomButton(
+                            onTap: _scrollToBottomAnimated,
+                          ),
+                        ),
+                      ),
+                    ),
+                  ],
                 );
               },
             ),
           ),
           MessageComposer(
             onSend: (text) => controller.send(text),
-            onPickQuickReply: () => showQuickRepliesSheet(context),
             onAttach: _attach,
-            onSuggestReply: () => ref
-                .read(chatRepositoryProvider)
-                .streamDraftReply(widget.conversationId),
             onSendVoice: (path) => controller.attachAndSend(
               path,
               filename: 'voice.m4a',
@@ -323,16 +407,40 @@ class _DaySeparator extends StatelessWidget {
   }
 }
 
+/// Floating "jump to latest" button shown when the user scrolls up.
+class _JumpToBottomButton extends StatelessWidget {
+  const _JumpToBottomButton({required this.onTap});
+  final VoidCallback onTap;
+
+  @override
+  Widget build(BuildContext context) {
+    return Material(
+      elevation: 3,
+      shape: const CircleBorder(),
+      color: Theme.of(context).colorScheme.surface,
+      child: InkWell(
+        customBorder: const CircleBorder(),
+        onTap: onTap,
+        child: Padding(
+          padding: const EdgeInsets.all(10),
+          child: Icon(Icons.keyboard_arrow_down_rounded,
+              color: AppColors.primary, size: 26),
+        ),
+      ),
+    );
+  }
+}
+
 class _ThreadAppBar extends StatelessWidget implements PreferredSizeWidget {
   const _ThreadAppBar({
     this.conversation,
     this.onMore,
-    this.onSummarize,
+    this.onSendTemplate,
     this.onCall,
   });
   final Conversation? conversation;
   final VoidCallback? onMore;
-  final VoidCallback? onSummarize;
+  final VoidCallback? onSendTemplate;
   final VoidCallback? onCall;
 
   @override
@@ -389,9 +497,9 @@ class _ThreadAppBar extends StatelessWidget implements PreferredSizeWidget {
           tooltip: 'Call',
         ),
         IconButton(
-          icon: const Icon(Icons.auto_awesome_outlined),
-          onPressed: onSummarize,
-          tooltip: 'Lead summary',
+          icon: const Icon(Icons.description_outlined),
+          onPressed: onSendTemplate,
+          tooltip: 'Send template',
         ),
         IconButton(
           icon: const Icon(Icons.more_vert_rounded),

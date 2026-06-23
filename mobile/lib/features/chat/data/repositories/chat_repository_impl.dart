@@ -78,6 +78,22 @@ class ChatRepositoryImpl implements ChatRepository {
   Future<Result<List<Note>>> getNotes(String conversationId) =>
       _guard(() => _remote.getNotes(conversationId));
 
+  @override
+  Future<Result<List<MessageTemplate>>> getTemplates() =>
+      _guard(_remote.getTemplates);
+
+  @override
+  Future<Result<void>> createQuickReply({
+    required String shortcut,
+    required String title,
+    required String body,
+  }) =>
+      _guard(() => _remote.createQuickReply(
+            shortcut: shortcut,
+            title: title,
+            body: body,
+          ));
+
   // ── Lead actions ───────────────────────────────────────
   @override
   Future<Result<void>> addNote(String conversationId, String body) =>

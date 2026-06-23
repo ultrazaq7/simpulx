@@ -86,10 +86,11 @@ class _ContactFormState extends ConsumerState<_ContactForm> {
 
   @override
   Widget build(BuildContext context) {
-    return Padding(
-      padding: const EdgeInsets.fromLTRB(
-          AppSpacing.lg, 0, AppSpacing.lg, AppSpacing.lg),
-      child: Form(
+    return SafeArea(
+      child: SingleChildScrollView(
+        padding: const EdgeInsets.fromLTRB(
+            AppSpacing.lg, 0, AppSpacing.lg, AppSpacing.lg),
+        child: Form(
         key: _formKey,
         child: Column(
           mainAxisSize: MainAxisSize.min,
@@ -143,6 +144,7 @@ class _ContactFormState extends ConsumerState<_ContactForm> {
             ),
           ],
         ),
+      ),
       ),
     );
   }

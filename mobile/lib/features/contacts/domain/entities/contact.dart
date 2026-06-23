@@ -17,6 +17,7 @@ class Contact extends Equatable {
     this.interestLevel,
     this.stageName,
     this.aiSummary,
+    this.leadScore,
     this.assignedAgentId,
     this.agentName,
     this.conversationId,
@@ -35,6 +36,7 @@ class Contact extends Equatable {
   final String? interestLevel; // hot | warm | cold
   final String? stageName;
   final String? aiSummary;
+  final int? leadScore; // buy-potential 0-100 (from the latest conversation)
   final String? assignedAgentId;
   final String? agentName;
   final String? conversationId;
@@ -70,6 +72,7 @@ class Contact extends Equatable {
         interestLevel,
         stageName,
         aiSummary,
+        leadScore,
         assignedAgentId,
         agentName,
         conversationId,

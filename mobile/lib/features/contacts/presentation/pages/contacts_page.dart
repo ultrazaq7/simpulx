@@ -4,9 +4,11 @@ import 'package:go_router/go_router.dart';
 
 import '../../../../app/theme/app_colors.dart';
 import '../../../../core/error/failure.dart';
+import '../../../../core/session/session_controller.dart';
 import '../../../../core/widgets/app_empty_state.dart';
 import '../../../../core/widgets/app_error_view.dart';
 import '../../../../core/widgets/app_loader.dart';
+import '../../../chat/presentation/controllers/chat_actions_providers.dart';
 import '../../domain/entities/contact.dart';
 import '../controllers/contacts_providers.dart';
 import '../widgets/contact_form_sheet.dart';
@@ -24,6 +26,11 @@ class _ContactsPageState extends ConsumerState<ContactsPage> {
   final _search = TextEditingController();
   String _query = '';
   String? _interest; // null = all
+  String? _stage; // stage name, null = all
+  String? _assignment; // 'mine' | 'unassigned' | null = all
+
+  int get _activeFilters =>
+      (_stage != null ? 1 : 0) + (_assignment != null ? 1 : 0);
 
   @override
   void dispose() {
@@ -31,24 +38,174 @@ class _ContactsPageState extends ConsumerState<ContactsPage> {
     super.dispose();
   }
 
-  List<Contact> _filter(List<Contact> list) {
+  List<Contact> _filter(List<Contact> list, String? myId) {
     final q = _query.toLowerCase();
     return list.where((c) {
       final matchesQuery = q.isEmpty ||
           c.fullName.toLowerCase().contains(q) ||
           c.phone.toLowerCase().contains(q);
       final matchesInterest = _interest == null || c.interestLevel == _interest;
-      return matchesQuery && matchesInterest;
+      final matchesStage = _stage == null || c.stageName == _stage;
+      final matchesAssignment = _assignment == null ||
+          (_assignment == 'unassigned' && c.assignedAgentId == null) ||
+          (_assignment == 'mine' && c.assignedAgentId == myId);
+      return matchesQuery &&
+          matchesInterest &&
+          matchesStage &&
+          matchesAssignment;
     }).toList();
+  }
+
+  void _showFilters() {
+    showModalBottomSheet<void>(
+      context: context,
+      showDragHandle: true,
+      isScrollControlled: true,
+      builder: (_) => Consumer(
+        builder: (sheetContext, ref, _) {
+          final stages = ref.watch(stagesProvider).value ?? const [];
+          final isManager = ref
+                  .watch(sessionControllerProvider)
+                  .user
+                  ?.role
+                  .isManagerTier ??
+              false;
+          return StatefulBuilder(
+            builder: (context, setSheet) {
+              void update(VoidCallback fn) {
+                setSheet(fn);
+                setState(fn);
+              }
+
+              return SafeArea(
+                child: SingleChildScrollView(
+                  padding: const EdgeInsets.fromLTRB(16, 0, 16, 16),
+                  child: Column(
+                    mainAxisSize: MainAxisSize.min,
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      Row(
+                        children: [
+                          const Text('Filters',
+                              style: TextStyle(
+                                  fontSize: 17, fontWeight: FontWeight.w700)),
+                          const Spacer(),
+                          TextButton(
+                            onPressed: () => update(() {
+                              _stage = null;
+                              _assignment = null;
+                              _interest = null;
+                            }),
+                            child: const Text('Reset'),
+                          ),
+                        ],
+                      ),
+                      const SizedBox(height: 8),
+                      const Text('Stage',
+                          style: TextStyle(
+                              fontWeight: FontWeight.w700, fontSize: 13)),
+                      const SizedBox(height: 8),
+                      Wrap(
+                        spacing: 8,
+                        runSpacing: 8,
+                        children: [
+                          ChoiceChip(
+                            label: const Text('All'),
+                            selected: _stage == null,
+                            onSelected: (_) => update(() => _stage = null),
+                          ),
+                          for (final s in stages)
+                            ChoiceChip(
+                              label: Text(s.name),
+                              selected: _stage == s.name,
+                              onSelected: (_) =>
+                                  update(() => _stage = s.name),
+                            ),
+                        ],
+                      ),
+                      if (isManager) ...[
+                        const SizedBox(height: 16),
+                        const Text('Assignment',
+                            style: TextStyle(
+                                fontWeight: FontWeight.w700, fontSize: 13)),
+                        const SizedBox(height: 8),
+                        Wrap(
+                          spacing: 8,
+                          children: [
+                            for (final opt in const [
+                              (null, 'All'),
+                              ('mine', 'Mine'),
+                              ('unassigned', 'Unassigned'),
+                            ])
+                              ChoiceChip(
+                                label: Text(opt.$2),
+                                selected: _assignment == opt.$1,
+                                onSelected: (_) =>
+                                    update(() => _assignment = opt.$1),
+                              ),
+                          ],
+                        ),
+                      ],
+                      const SizedBox(height: 20),
+                      SizedBox(
+                        width: double.infinity,
+                        child: FilledButton(
+                          onPressed: () => Navigator.of(context).pop(),
+                          style: FilledButton.styleFrom(
+                              minimumSize: const Size.fromHeight(48)),
+                          child: const Text('Done'),
+                        ),
+                      ),
+                    ],
+                  ),
+                ),
+              );
+            },
+          );
+        },
+      ),
+    );
   }
 
   @override
   Widget build(BuildContext context) {
     final async = ref.watch(contactsProvider);
+    final myId = ref.watch(sessionControllerProvider).user?.id;
 
     return Scaffold(
       appBar: AppBar(
         title: const Text('Contacts'),
+        actions: [
+          Stack(
+            alignment: Alignment.center,
+            children: [
+              IconButton(
+                icon: const Icon(Icons.tune_rounded),
+                tooltip: 'Filters',
+                onPressed: _showFilters,
+              ),
+              if (_activeFilters > 0)
+                Positioned(
+                  right: 8,
+                  top: 8,
+                  child: Container(
+                    width: 16,
+                    height: 16,
+                    alignment: Alignment.center,
+                    decoration: const BoxDecoration(
+                      color: AppColors.primary,
+                      shape: BoxShape.circle,
+                    ),
+                    child: Text('$_activeFilters',
+                        style: const TextStyle(
+                            color: Colors.white,
+                            fontSize: 10,
+                            fontWeight: FontWeight.w700)),
+                  ),
+                ),
+            ],
+          ),
+        ],
         bottom: PreferredSize(
           preferredSize: const Size.fromHeight(98),
           child: Column(
@@ -113,7 +270,7 @@ class _ContactsPageState extends ConsumerState<ContactsPage> {
           onRetry: () => ref.read(contactsProvider.notifier).refresh(),
         ),
         data: (list) {
-          final filtered = _filter(list);
+          final filtered = _filter(list, myId);
           return RefreshIndicator(
             onRefresh: () => ref.read(contactsProvider.notifier).refresh(),
             child: filtered.isEmpty

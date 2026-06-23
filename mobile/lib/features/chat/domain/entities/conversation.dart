@@ -80,6 +80,9 @@ class Conversation extends Equatable {
     String? status,
     String? assignedAgentId,
     String? agentName,
+    String? interestLevel,
+    String? stageName,
+    bool? isBotActive,
   }) {
     return Conversation(
       id: id,
@@ -92,13 +95,13 @@ class Conversation extends Equatable {
       lastMessageAt: lastMessageAt ?? this.lastMessageAt,
       lastMessagePreview: lastMessagePreview ?? this.lastMessagePreview,
       lastMessageDirection: lastMessageDirection ?? this.lastMessageDirection,
-      interestLevel: interestLevel,
-      stageName: stageName,
+      interestLevel: interestLevel ?? this.interestLevel,
+      stageName: stageName ?? this.stageName,
       assignedAgentId: assignedAgentId ?? this.assignedAgentId,
       agentName: agentName ?? this.agentName,
       leadScore: leadScore,
       suggestedAction: suggestedAction,
-      isBotActive: isBotActive,
+      isBotActive: isBotActive ?? this.isBotActive,
       snoozedUntil: snoozedUntil,
     );
   }

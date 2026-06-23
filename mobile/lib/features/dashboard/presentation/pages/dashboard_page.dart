@@ -30,7 +30,8 @@ class DashboardPage extends ConsumerWidget {
 
     return Scaffold(
       appBar: AppBar(
-        title: const Text('Today'),
+        titleSpacing: 16,
+        title: const _SimpulxWordmark(),
       ),
       body: RefreshIndicator(
         onRefresh: () => ref.read(dashboardProvider.notifier).refresh(),
@@ -51,6 +52,45 @@ class DashboardPage extends ConsumerWidget {
           ),
         ),
       ),
+    );
+  }
+}
+
+/// Simpulx brand wordmark: icon mark + "Simpul" with an orange "x".
+class _SimpulxWordmark extends StatelessWidget {
+  const _SimpulxWordmark();
+
+  @override
+  Widget build(BuildContext context) {
+    final onSurface = Theme.of(context).colorScheme.onSurface;
+    return Row(
+      mainAxisSize: MainAxisSize.min,
+      children: [
+        ClipRRect(
+          borderRadius: BorderRadius.circular(8),
+          child: Image.asset(
+            'assets/images/simpulx_logo.png',
+            width: 30,
+            height: 30,
+            fit: BoxFit.cover,
+          ),
+        ),
+        const SizedBox(width: 8),
+        RichText(
+          text: TextSpan(
+            style: const TextStyle(
+              fontSize: 20,
+              fontWeight: FontWeight.w800,
+              letterSpacing: -0.2,
+            ),
+            children: [
+              TextSpan(text: 'Simpul', style: TextStyle(color: onSurface)),
+              const TextSpan(
+                  text: 'x', style: TextStyle(color: AppColors.warning)),
+            ],
+          ),
+        ),
+      ],
     );
   }
 }
@@ -88,6 +128,15 @@ class _DashboardBody extends StatelessWidget {
       padding: const EdgeInsets.all(16),
       children: [
         Text(
+          _dateLine(),
+          style: theme.textTheme.labelMedium?.copyWith(
+            color: AppColors.textMuted,
+            fontWeight: FontWeight.w600,
+            letterSpacing: 0.2,
+          ),
+        ),
+        const SizedBox(height: 2),
+        Text(
           firstName.isEmpty ? 'Welcome back' : 'Hi $firstName',
           style: theme.textTheme.headlineSmall
               ?.copyWith(fontWeight: FontWeight.w800),
@@ -98,14 +147,14 @@ class _DashboardBody extends StatelessWidget {
           style: theme.textTheme.bodyMedium
               ?.copyWith(color: AppColors.textSecondary),
         ),
-        const SizedBox(height: 16),
+        const SizedBox(height: 18),
         GridView.count(
           crossAxisCount: 2,
           shrinkWrap: true,
           physics: const NeverScrollableScrollPhysics(),
           mainAxisSpacing: 12,
           crossAxisSpacing: 12,
-          childAspectRatio: 1.5,
+          childAspectRatio: 1.45,
           children: [
             for (final item in items)
               _ActionCard(data: item, onTap: () => onDrill(item.filter)),
@@ -114,6 +163,20 @@ class _DashboardBody extends StatelessWidget {
         if (showManager) const _ManagerSection(),
       ],
     );
+  }
+
+  String _dateLine() {
+    const days = [
+      'Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday', 'Saturday',
+      'Sunday'
+    ];
+    const months = [
+      'Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct',
+      'Nov', 'Dec'
+    ];
+    final now = DateTime.now();
+    return '${days[now.weekday - 1]}, ${now.day} ${months[now.month - 1]}'
+        .toUpperCase();
   }
 }
 
@@ -133,17 +196,20 @@ class _ActionCard extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final active = data.count > 0;
     return Material(
-      color: Theme.of(context).colorScheme.surface,
-      borderRadius: BorderRadius.circular(16),
+      color: Colors.transparent,
+      borderRadius: BorderRadius.circular(18),
       child: InkWell(
         onTap: onTap,
-        borderRadius: BorderRadius.circular(16),
+        borderRadius: BorderRadius.circular(18),
         child: Container(
-          padding: const EdgeInsets.all(14),
+          padding: const EdgeInsets.all(15),
           decoration: BoxDecoration(
-            borderRadius: BorderRadius.circular(16),
-            border: Border.all(color: AppColors.border),
+            color: data.color.withValues(alpha: active ? 0.10 : 0.05),
+            borderRadius: BorderRadius.circular(18),
+            border: Border.all(
+                color: data.color.withValues(alpha: active ? 0.22 : 0.10)),
           ),
           child: Column(
             crossAxisAlignment: CrossAxisAlignment.start,
@@ -151,38 +217,40 @@ class _ActionCard extends StatelessWidget {
               Row(
                 children: [
                   Container(
-                    width: 34,
-                    height: 34,
+                    width: 38,
+                    height: 38,
                     decoration: BoxDecoration(
-                      color: data.color.withValues(alpha: 0.12),
-                      borderRadius: BorderRadius.circular(10),
+                      color: data.color,
+                      borderRadius: BorderRadius.circular(12),
+                      boxShadow: [
+                        BoxShadow(
+                          color: data.color.withValues(alpha: 0.35),
+                          blurRadius: 8,
+                          offset: const Offset(0, 4),
+                        ),
+                      ],
                     ),
-                    child: Icon(data.icon, color: data.color, size: 20),
+                    child: Icon(data.icon, color: Colors.white, size: 20),
                   ),
                   const Spacer(),
-                  Icon(Icons.chevron_right_rounded,
-                      color: AppColors.textMuted, size: 20),
+                  Text(
+                    '${data.count}',
+                    style: TextStyle(
+                      fontSize: 32,
+                      fontWeight: FontWeight.w800,
+                      color: active ? data.color : AppColors.textMuted,
+                      height: 1,
+                    ),
+                  ),
                 ],
               ),
               const Spacer(),
               Text(
-                '${data.count}',
-                style: TextStyle(
-                  fontSize: 30,
-                  fontWeight: FontWeight.w800,
-                  color: data.count > 0
-                      ? AppColors.textPrimary
-                      : AppColors.textMuted,
-                  height: 1,
-                ),
-              ),
-              const SizedBox(height: 2),
-              Text(
                 data.label,
                 style: const TextStyle(
                     fontSize: 13,
-                    fontWeight: FontWeight.w600,
-                    color: AppColors.textSecondary),
+                    fontWeight: FontWeight.w700,
+                    color: AppColors.textPrimary),
               ),
             ],
           ),

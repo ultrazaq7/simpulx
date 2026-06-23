@@ -2,6 +2,7 @@ import 'dart:io';
 
 import 'package:cached_network_image/cached_network_image.dart';
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart' show Clipboard, ClipboardData;
 import 'package:url_launcher/url_launcher.dart';
 
 import '../../../../app/theme/app_colors.dart';
@@ -28,7 +29,11 @@ class MessageBubble extends StatelessWidget {
 
     return Align(
       alignment: mine ? Alignment.centerRight : Alignment.centerLeft,
-      child: Container(
+      child: GestureDetector(
+        onLongPress: message.body.isEmpty
+            ? null
+            : () => _showMessageActions(context),
+        child: Container(
         margin: const EdgeInsets.symmetric(horizontal: 12, vertical: 3),
         constraints: BoxConstraints(
           maxWidth: MediaQuery.of(context).size.width * 0.78,
@@ -76,6 +81,35 @@ class MessageBubble extends StatelessWidget {
                   ),
                 ],
               ),
+            ),
+          ],
+        ),
+      ),
+      ),
+    );
+  }
+
+  void _showMessageActions(BuildContext context) {
+    showModalBottomSheet<void>(
+      context: context,
+      showDragHandle: true,
+      builder: (sheetContext) => SafeArea(
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            ListTile(
+              leading: const Icon(Icons.copy_rounded),
+              title: const Text('Copy'),
+              onTap: () {
+                Clipboard.setData(ClipboardData(text: message.body));
+                Navigator.of(sheetContext).pop();
+                ScaffoldMessenger.of(context).showSnackBar(
+                  const SnackBar(
+                    content: Text('Copied'),
+                    duration: Duration(seconds: 1),
+                  ),
+                );
+              },
             ),
           ],
         ),

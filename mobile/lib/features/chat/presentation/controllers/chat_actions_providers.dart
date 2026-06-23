@@ -3,6 +3,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import '../../../../core/error/failure.dart';
 import '../../../../core/error/result.dart';
+import '../../../contacts/presentation/controllers/contacts_providers.dart';
 import '../../domain/entities/lead_lookups.dart';
 import '../../domain/repositories/chat_repository.dart';
 import 'chat_providers.dart';
@@ -29,6 +30,11 @@ final dispositionsProvider = FutureProvider<List<Disposition>>(
 /// The agent's saved quick replies (cached).
 final quickRepliesProvider = FutureProvider<List<QuickReply>>(
   (ref) => _unwrap<QuickReply>((r) => r.getQuickReplies(), ref),
+);
+
+/// WhatsApp message templates (cached).
+final templatesProvider = FutureProvider<List<MessageTemplate>>(
+  (ref) => _unwrap<MessageTemplate>((r) => r.getTemplates(), ref),
 );
 
 /// Assignable agents (manager+ assignment UI).
@@ -96,8 +102,9 @@ class ConversationActionsController extends ChangeNotifier {
     _busy = false;
     notifyListeners();
     if (ok) {
-      // Reflect the change in the inbox list.
+      // Reflect the change in the inbox list + the CRM lead detail.
       ref.read(conversationListProvider.notifier).refresh();
+      ref.invalidate(contactsProvider);
     }
     return ok;
   }

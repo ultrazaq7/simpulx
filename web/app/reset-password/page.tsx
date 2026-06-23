@@ -130,8 +130,8 @@ export default function ResetPasswordPage() {
           </>
         )}
 
-        <p className="text-center mt-8 text-[11px] text-muted-foreground/60 font-medium uppercase tracking-[0.18em]">
-          Simpulx OS
+        <p className="text-center mt-8 text-[11px] text-muted-foreground/60 font-medium tracking-wide">
+          © {new Date().getFullYear()} Simpulx. All rights reserved.
         </p>
       </div>
     </div>

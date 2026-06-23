@@ -5,8 +5,6 @@ import 'package:go_router/go_router.dart';
 import '../../../../app/theme/app_colors.dart';
 import '../../../../app/theme/app_spacing.dart';
 import '../../../../core/notifications/notification_prefs.dart';
-import '../../../../core/providers/app_providers.dart';
-import '../../../../core/providers/locale_provider.dart';
 import '../../../../core/session/session_controller.dart';
 import '../../../auth/presentation/controllers/auth_controller.dart';
 
@@ -17,7 +15,6 @@ class SettingsPage extends ConsumerWidget {
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {
-    final config = ref.watch(appConfigProvider);
     final user = ref.watch(sessionControllerProvider).user;
 
     return Scaffold(
@@ -45,11 +42,12 @@ class SettingsPage extends ConsumerWidget {
           ),
           const Divider(height: 1),
           const _SectionLabel('Account'),
-          const ListTile(
-            leading: Icon(Icons.person_rounded),
-            title: Text('Profile'),
-            subtitle: Text('Name, email, password (P6)'),
-            trailing: Icon(Icons.chevron_right_rounded),
+          ListTile(
+            leading: const Icon(Icons.person_rounded),
+            title: const Text('Profile'),
+            subtitle: const Text('Your details and password'),
+            trailing: const Icon(Icons.chevron_right_rounded),
+            onTap: () => _showProfile(context),
           ),
           ListTile(
             leading: const Icon(Icons.notifications_rounded),
@@ -57,13 +55,6 @@ class SettingsPage extends ConsumerWidget {
             subtitle: const Text('Choose what alerts you'),
             trailing: const Icon(Icons.chevron_right_rounded),
             onTap: () => _showNotificationPrefs(context),
-          ),
-          ListTile(
-            leading: const Icon(Icons.language_rounded),
-            title: const Text('Language'),
-            subtitle: Text(_localeLabel(ref.watch(localeProvider))),
-            trailing: const Icon(Icons.chevron_right_rounded),
-            onTap: () => _showLanguageSheet(context, ref),
           ),
           if (user?.role.isManagerTier ?? false) ...[
             const Divider(height: 1),
@@ -95,8 +86,11 @@ class SettingsPage extends ConsumerWidget {
           const SizedBox(height: AppSpacing.lg),
           Center(
             child: Text(
-              'Simpulx - ${config.flavor.name}',
-              style: Theme.of(context).textTheme.bodySmall,
+              'Simpulx',
+              style: Theme.of(context).textTheme.bodySmall?.copyWith(
+                    color: AppColors.textMuted,
+                    fontWeight: FontWeight.w600,
+                  ),
             ),
           ),
           const SizedBox(height: AppSpacing.xxl),
@@ -190,45 +184,15 @@ class _SectionLabel extends StatelessWidget {
   }
 }
 
-String _localeLabel(Locale? locale) {
-  switch (locale?.languageCode) {
-    case 'en':
-      return 'English';
-    case 'id':
-      return 'Bahasa Indonesia';
-    default:
-      return 'System default';
-  }
-}
-
-void _showLanguageSheet(BuildContext context, WidgetRef ref) {
-  final current = ref.read(localeProvider)?.languageCode;
+void _showProfile(BuildContext context) {
   showModalBottomSheet<void>(
     context: context,
+    isScrollControlled: true,
     showDragHandle: true,
-    builder: (_) => SafeArea(
-      child: Column(
-        mainAxisSize: MainAxisSize.min,
-        children: [
-          for (final option in const [
-            (null, 'System default'),
-            ('en', 'English'),
-            ('id', 'Bahasa Indonesia'),
-          ])
-            ListTile(
-              title: Text(option.$2),
-              trailing: current == option.$1
-                  ? const Icon(Icons.check_rounded, color: AppColors.primary)
-                  : null,
-              onTap: () {
-                ref
-                    .read(localeProvider.notifier)
-                    .setLocale(option.$1 == null ? null : Locale(option.$1!));
-                Navigator.of(context).pop();
-              },
-            ),
-        ],
-      ),
+    builder: (sheetContext) => Padding(
+      padding: EdgeInsets.only(
+          bottom: MediaQuery.of(sheetContext).viewInsets.bottom),
+      child: const _ProfileSheet(),
     ),
   );
 }
@@ -239,6 +203,159 @@ void _showNotificationPrefs(BuildContext context) {
     showDragHandle: true,
     builder: (_) => const _NotificationPrefsSheet(),
   );
+}
+
+/// Profile + change-password. Name/email are read-only (email changes require
+/// verification on the web); password changes are self-service.
+class _ProfileSheet extends ConsumerStatefulWidget {
+  const _ProfileSheet();
+
+  @override
+  ConsumerState<_ProfileSheet> createState() => _ProfileSheetState();
+}
+
+class _ProfileSheetState extends ConsumerState<_ProfileSheet> {
+  final _current = TextEditingController();
+  final _new = TextEditingController();
+  final _confirm = TextEditingController();
+  bool _saving = false;
+  String? _error;
+
+  @override
+  void dispose() {
+    _current.dispose();
+    _new.dispose();
+    _confirm.dispose();
+    super.dispose();
+  }
+
+  Future<void> _save() async {
+    final current = _current.text;
+    final next = _new.text;
+    if (current.isEmpty || next.isEmpty) {
+      setState(() => _error = 'Fill in both password fields');
+      return;
+    }
+    if (next.length < 8) {
+      setState(() => _error = 'New password must be at least 8 characters');
+      return;
+    }
+    if (next != _confirm.text) {
+      setState(() => _error = 'New passwords do not match');
+      return;
+    }
+    setState(() {
+      _saving = true;
+      _error = null;
+    });
+    final result = await ref.read(authRepositoryProvider).changePassword(
+          currentPassword: current,
+          newPassword: next,
+        );
+    if (!mounted) return;
+    result.fold(
+      (f) => setState(() {
+        _saving = false;
+        _error = f.message;
+      }),
+      (_) {
+        Navigator.of(context).pop();
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(content: Text('Password updated')),
+        );
+      },
+    );
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final user = ref.watch(sessionControllerProvider).user;
+    return SafeArea(
+      child: SingleChildScrollView(
+        padding: const EdgeInsets.fromLTRB(16, 0, 16, 16),
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          crossAxisAlignment: CrossAxisAlignment.stretch,
+          children: [
+            const Text('Profile',
+                style: TextStyle(fontSize: 17, fontWeight: FontWeight.w700)),
+            const SizedBox(height: 12),
+            Row(
+              children: [
+                CircleAvatar(
+                  radius: 26,
+                  backgroundColor: AppColors.primary.withValues(alpha: 0.12),
+                  backgroundImage: user?.avatarUrl != null
+                      ? NetworkImage(user!.avatarUrl!)
+                      : null,
+                  child: user?.avatarUrl == null
+                      ? Text(user?.initials ?? '?',
+                          style: const TextStyle(
+                              color: AppColors.primary,
+                              fontWeight: FontWeight.w700))
+                      : null,
+                ),
+                const SizedBox(width: 12),
+                Expanded(
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      Text(user?.name ?? '',
+                          style:
+                              const TextStyle(fontWeight: FontWeight.w700)),
+                      Text(user?.email ?? '',
+                          style: const TextStyle(
+                              color: AppColors.textSecondary, fontSize: 13)),
+                    ],
+                  ),
+                ),
+              ],
+            ),
+            const SizedBox(height: 20),
+            const _SectionLabel('Change password'),
+            TextField(
+              controller: _current,
+              obscureText: true,
+              decoration: const InputDecoration(labelText: 'Current password'),
+            ),
+            const SizedBox(height: 8),
+            TextField(
+              controller: _new,
+              obscureText: true,
+              decoration: const InputDecoration(
+                  labelText: 'New password (min 8 characters)'),
+            ),
+            const SizedBox(height: 8),
+            TextField(
+              controller: _confirm,
+              obscureText: true,
+              decoration:
+                  const InputDecoration(labelText: 'Confirm new password'),
+            ),
+            if (_error != null) ...[
+              const SizedBox(height: 10),
+              Text(_error!,
+                  style: const TextStyle(
+                      color: AppColors.danger, fontSize: 13)),
+            ],
+            const SizedBox(height: 16),
+            FilledButton(
+              onPressed: _saving ? null : _save,
+              style: FilledButton.styleFrom(
+                  minimumSize: const Size.fromHeight(48)),
+              child: _saving
+                  ? const SizedBox(
+                      width: 18,
+                      height: 18,
+                      child: CircularProgressIndicator(
+                          strokeWidth: 2, color: Colors.white))
+                  : const Text('Update password'),
+            ),
+          ],
+        ),
+      ),
+    );
+  }
 }
 
 class _NotificationPrefsSheet extends ConsumerWidget {

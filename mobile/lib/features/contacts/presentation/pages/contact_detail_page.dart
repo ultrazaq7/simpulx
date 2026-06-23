@@ -38,7 +38,10 @@ class ContactDetailPage extends ConsumerWidget {
   Future<void> _call(BuildContext context, String phone) async {
     if (phone.isEmpty) return;
     final uri = Uri.parse('tel:${phone.startsWith('+') ? phone : '+$phone'}');
-    if (await canLaunchUrl(uri)) await launchUrl(uri);
+    // Launch directly: canLaunchUrl(tel:) can return false on Android 11+.
+    try {
+      await launchUrl(uri, mode: LaunchMode.externalApplication);
+    } catch (_) {/* no dialer available */}
   }
 
   @override
@@ -96,6 +99,10 @@ class ContactDetailPage extends ConsumerWidget {
                 ? () => showNotesSheet(context, c.conversationId!)
                 : null,
           ),
+          if (c.leadScore != null) ...[
+            const SizedBox(height: AppSpacing.md),
+            _LeadScoreCard(score: c.leadScore!),
+          ],
           const SizedBox(height: AppSpacing.md),
           _LeadContextCard(contact: c),
           if (c.aiSummary != null && c.aiSummary!.isNotEmpty) ...[
@@ -297,6 +304,79 @@ class _LeadContextCard extends StatelessWidget {
             child: Text(value,
                 style: const TextStyle(
                     fontSize: 13, fontWeight: FontWeight.w600)),
+          ),
+        ],
+      ),
+    );
+  }
+}
+
+/// Buy-potential lead score (0-100) with a colored strength bar.
+class _LeadScoreCard extends StatelessWidget {
+  const _LeadScoreCard({required this.score});
+  final int score;
+
+  Color get _color {
+    if (score >= 70) return AppColors.success;
+    if (score >= 40) return AppColors.warning;
+    return AppColors.textMuted;
+  }
+
+  String get _band {
+    if (score >= 70) return 'High';
+    if (score >= 40) return 'Medium';
+    return 'Low';
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final pct = (score.clamp(0, 100)) / 100.0;
+    return _Card(
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Row(
+            children: [
+              const Icon(Icons.insights_rounded,
+                  size: 16, color: AppColors.primary),
+              const SizedBox(width: 6),
+              const Text('Buy potential',
+                  style: TextStyle(fontWeight: FontWeight.w700, fontSize: 13)),
+              const Spacer(),
+              Text(_band,
+                  style: TextStyle(
+                      color: _color,
+                      fontWeight: FontWeight.w700,
+                      fontSize: 12)),
+            ],
+          ),
+          const SizedBox(height: 10),
+          Row(
+            crossAxisAlignment: CrossAxisAlignment.baseline,
+            textBaseline: TextBaseline.alphabetic,
+            children: [
+              Text('$score',
+                  style: TextStyle(
+                      fontSize: 30,
+                      fontWeight: FontWeight.w800,
+                      color: _color,
+                      height: 1)),
+              const SizedBox(width: 2),
+              const Text('/100',
+                  style: TextStyle(
+                      color: AppColors.textMuted,
+                      fontWeight: FontWeight.w600)),
+            ],
+          ),
+          const SizedBox(height: 10),
+          ClipRRect(
+            borderRadius: BorderRadius.circular(999),
+            child: LinearProgressIndicator(
+              value: pct,
+              minHeight: 8,
+              backgroundColor: AppColors.surfaceAlt,
+              valueColor: AlwaysStoppedAnimation(_color),
+            ),
           ),
         ],
       ),

@@ -52,6 +52,28 @@ class ConversationListController extends AsyncNotifier<List<Conversation>> {
     state = await AsyncValue.guard(_fetch);
   }
 
+  /// Optimistically apply a lead change (stage/interest/status) so the inbox,
+  /// thread header, and lead detail update instantly before the server confirms.
+  void patchLocal(
+    String conversationId, {
+    String? stageName,
+    String? interestLevel,
+    String? status,
+  }) {
+    final list = state.value;
+    if (list == null) return;
+    state = AsyncData([
+      for (final c in list)
+        c.id == conversationId
+            ? c.copyWith(
+                stageName: stageName,
+                interestLevel: interestLevel,
+                status: status,
+              )
+            : c,
+    ]);
+  }
+
   /// Locally clear the unread badge when a conversation is opened (the server
   /// also resets it on first message fetch).
   void markRead(String conversationId) {

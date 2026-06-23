@@ -5,10 +5,11 @@ import '../../../../app/theme/app_colors.dart';
 import '../../../../core/session/session_controller.dart';
 import '../../domain/entities/conversation.dart';
 import '../controllers/chat_actions_providers.dart';
+import '../controllers/conversation_list_controller.dart';
 import 'notes_sheet.dart';
 
 /// Lead action sheet opened from the thread header: interest, stage, snooze,
-/// notes, bot toggle, resolve/reopen, and assignment (manager+).
+/// notes, resolve/reopen, and assignment (manager+).
 Future<void> showConversationActions(
   BuildContext context,
   Conversation conversation,
@@ -29,7 +30,18 @@ class _ActionsSheet extends ConsumerWidget {
     final convId = conversation.id;
     final actions = ref.watch(conversationActionsProvider(convId));
     final role = ref.watch(sessionControllerProvider).user?.role;
-    final isClosed = conversation.status == 'closed';
+    // Live conversation so stage/interest changes reflect instantly here too.
+    Conversation live = conversation;
+    final list = ref.watch(conversationListProvider).value;
+    if (list != null) {
+      for (final c in list) {
+        if (c.id == convId) {
+          live = c;
+          break;
+        }
+      }
+    }
+    final isClosed = live.status == 'closed';
 
     return SafeArea(
       child: ListenableBuilder(
@@ -39,9 +51,9 @@ class _ActionsSheet extends ConsumerWidget {
             mainAxisSize: MainAxisSize.min,
             children: [
               ListTile(
-                title: Text(conversation.displayName,
+                title: Text(live.displayName,
                     style: const TextStyle(fontWeight: FontWeight.w700)),
-                subtitle: Text(conversation.stageName ?? 'No stage'),
+                subtitle: Text(live.stageName ?? 'No stage'),
                 trailing: actions.busy
                     ? const SizedBox(
                         width: 18,
@@ -51,15 +63,21 @@ class _ActionsSheet extends ConsumerWidget {
               ),
               const Divider(height: 1),
               _InterestRow(
-                current: conversation.interestLevel,
-                onPick: (level) => _do(context, actions.setInterest(level)),
+                current: live.interestLevel,
+                onPick: (level) {
+                  // Optimistic: update inbox + this sheet instantly.
+                  ref
+                      .read(conversationListProvider.notifier)
+                      .patchLocal(convId, interestLevel: level);
+                  actions.setInterest(level);
+                },
               ),
               const Divider(height: 1),
               ListTile(
                 leading: const Icon(Icons.flag_outlined),
                 title: const Text('Move stage'),
-                subtitle: Text(conversation.stageName ?? 'Not set'),
-                onTap: () => _pickStage(context, ref, actions),
+                subtitle: Text(live.stageName ?? 'Not set'),
+                onTap: () => _pickStage(context, ref, actions, convId),
               ),
               ListTile(
                 leading: const Icon(Icons.snooze_outlined),
@@ -73,12 +91,6 @@ class _ActionsSheet extends ConsumerWidget {
                   Navigator.of(context).pop();
                   showNotesSheet(context, convId);
                 },
-              ),
-              SwitchListTile.adaptive(
-                secondary: const Icon(Icons.smart_toy_outlined),
-                title: const Text('Bot replies'),
-                value: conversation.isBotActive,
-                onChanged: (v) => _do(context, actions.toggleBot(v)),
               ),
               ListTile(
                 leading: Icon(isClosed
@@ -94,7 +106,7 @@ class _ActionsSheet extends ConsumerWidget {
                 ListTile(
                   leading: const Icon(Icons.person_add_alt_1_outlined),
                   title: const Text('Assign agent'),
-                  subtitle: Text(conversation.agentName ?? 'Unassigned'),
+                  subtitle: Text(live.agentName ?? 'Unassigned'),
                   onTap: () => _pickAgent(context, ref, actions),
                 ),
               const SizedBox(height: 8),
@@ -123,10 +135,12 @@ class _ActionsSheet extends ConsumerWidget {
     BuildContext context,
     WidgetRef ref,
     ConversationActionsController actions,
+    String convId,
   ) {
     showModalBottomSheet<void>(
       context: context,
       showDragHandle: true,
+      isScrollControlled: true,
       builder: (_) => Consumer(
         builder: (context, ref, _) {
           final async = ref.watch(stagesProvider);
@@ -139,17 +153,26 @@ class _ActionsSheet extends ConsumerWidget {
               padding: EdgeInsets.all(24),
               child: Text('Could not load stages'),
             ),
-            data: (stages) => Column(
-              mainAxisSize: MainAxisSize.min,
-              children: [
-                for (final s in stages)
-                  ListTile(
-                    leading: const Icon(Icons.flag_outlined),
-                    title: Text(s.name),
-                    selected: s.name == conversation.stageName,
-                    onTap: () => _do(context, actions.setStage(s.id)),
-                  ),
-              ],
+            data: (stages) => SafeArea(
+              child: ListView(
+                shrinkWrap: true,
+                children: [
+                  for (final s in stages)
+                    ListTile(
+                      leading: const Icon(Icons.flag_outlined),
+                      title: Text(s.name),
+                      selected: s.name == conversation.stageName,
+                      onTap: () {
+                        // Optimistic stage move + persist.
+                        ref
+                            .read(conversationListProvider.notifier)
+                            .patchLocal(convId, stageName: s.name);
+                        actions.setStage(s.id);
+                        Navigator.of(context).pop();
+                      },
+                    ),
+                ],
+              ),
             ),
           );
         },

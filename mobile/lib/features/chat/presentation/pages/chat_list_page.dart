@@ -24,12 +24,29 @@ class ChatListPage extends ConsumerStatefulWidget {
 
 class _ChatListPageState extends ConsumerState<ChatListPage> {
   final _search = TextEditingController();
+  final _scroll = ScrollController();
   String _query = '';
+  int _visible = 25; // windowed render count; grows as the user scrolls
+  int _filteredLen = 0;
+
+  @override
+  void initState() {
+    super.initState();
+    _scroll.addListener(_onScroll);
+  }
 
   @override
   void dispose() {
+    _scroll.dispose();
     _search.dispose();
     super.dispose();
+  }
+
+  void _onScroll() {
+    if (_scroll.position.pixels >= _scroll.position.maxScrollExtent - 320 &&
+        _visible < _filteredLen) {
+      setState(() => _visible += 25);
+    }
   }
 
   List<Conversation> _filter(List<Conversation> list, InboxFilter filter) {
@@ -57,7 +74,10 @@ class _ChatListPageState extends ConsumerState<ChatListPage> {
             padding: const EdgeInsets.fromLTRB(12, 0, 12, 10),
             child: TextField(
               controller: _search,
-              onChanged: (v) => setState(() => _query = v),
+              onChanged: (v) => setState(() {
+                _query = v;
+                _visible = 25;
+              }),
               textInputAction: TextInputAction.search,
               decoration: InputDecoration(
                 hintText: 'Search name or phone',
@@ -85,6 +105,9 @@ class _ChatListPageState extends ConsumerState<ChatListPage> {
         ),
         data: (list) {
           final filtered = _filter(list, filter);
+          _filteredLen = filtered.length;
+          final shown = _visible < filtered.length ? _visible : filtered.length;
+          final hasMore = filtered.length > shown;
           return Column(
             children: [
               if (filter != InboxFilter.all)
@@ -114,13 +137,29 @@ class _ChatListPageState extends ConsumerState<ChatListPage> {
                     ],
                   )
                 : ListView.separated(
-                    itemCount: filtered.length,
-                    separatorBuilder: (_, _) => const Divider(
-                      height: 1,
-                      indent: 76,
-                      color: AppColors.border,
-                    ),
+                    controller: _scroll,
+                    itemCount: shown + (hasMore ? 1 : 0),
+                    separatorBuilder: (_, i) => i >= shown - 1
+                        ? const SizedBox.shrink()
+                        : const Divider(
+                            height: 1,
+                            indent: 76,
+                            color: AppColors.border,
+                          ),
                     itemBuilder: (context, i) {
+                      if (i >= shown) {
+                        return const Padding(
+                          padding: EdgeInsets.symmetric(vertical: 16),
+                          child: Center(
+                            child: SizedBox(
+                              width: 22,
+                              height: 22,
+                              child:
+                                  CircularProgressIndicator(strokeWidth: 2),
+                            ),
+                          ),
+                        );
+                      }
                       final c = filtered[i];
                       return ConversationTile(
                         conversation: c,
