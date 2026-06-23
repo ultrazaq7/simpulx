@@ -66,7 +66,7 @@ class _LoginPageState extends ConsumerState<LoginPage> {
                 child: Column(
                   crossAxisAlignment: CrossAxisAlignment.stretch,
                   children: [
-                    const SizedBox(height: AppSpacing.xxxl),
+                    const SizedBox(height: 24),
                     Center(
                       child: Container(
                         width: 88,
@@ -90,7 +90,7 @@ class _LoginPageState extends ConsumerState<LoginPage> {
                         ),
                       ),
                     ),
-                    const SizedBox(height: AppSpacing.lg),
+                    const SizedBox(height: 16),
                     Center(
                       child: RichText(
                         text: TextSpan(
@@ -112,14 +112,14 @@ class _LoginPageState extends ConsumerState<LoginPage> {
                         ),
                       ),
                     ),
-                    const SizedBox(height: AppSpacing.xs),
+                    const SizedBox(height: 4),
                     Text(
                       'Customer Engagement Platform',
                       textAlign: TextAlign.center,
                       style: theme.textTheme.bodyMedium
                           ?.copyWith(color: AppColors.textSecondary),
                     ),
-                    const SizedBox(height: AppSpacing.xxl),
+                    const SizedBox(height: 32),
                     TextFormField(
                       controller: _email,
                       enabled: !state.isSubmitting,
