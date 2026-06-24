@@ -230,10 +230,14 @@ class _CallRoutePageState extends ConsumerState<_CallRoutePage> {
       contactPhone = extra['contactPhone'] ?? contactPhone;
     }
 
+    final uri = GoRouterState.of(context).uri;
+    String? callId = uri.queryParameters['callId'];
+
     await controller.setupIncomingFromNotification(
       conversationId: widget.conversationId,
       contactName: contactName,
       contactPhone: contactPhone,
+      callId: callId,
     );
   }
 

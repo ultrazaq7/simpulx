@@ -159,28 +159,15 @@ class _Controls extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     if (session.phase == CallPhase.incoming) {
-      return Row(
-        mainAxisAlignment: MainAxisAlignment.spaceEvenly,
-        children: [
-          _RoundAction(
-            icon: Icons.call_end_rounded,
-            color: AppColors.danger,
-            label: 'Decline',
-            onTap: () {
-              Haptics.medium;
-              controller.rejectIncoming();
-            },
-          ),
-          _RoundAction(
-            icon: Icons.call_rounded,
-            color: AppColors.success,
-            label: 'Accept',
-            onTap: () {
-              Haptics.medium;
-              controller.acceptIncoming();
-            },
-          ),
-        ],
+      return _SwipeToAnswer(
+        onAccept: () {
+          Haptics.medium;
+          controller.acceptIncoming();
+        },
+        onDecline: () {
+          Haptics.medium;
+          controller.rejectIncoming();
+        },
       );
     }
 
@@ -262,6 +249,125 @@ class _RoundAction extends StatelessWidget {
                 color: Colors.white.withValues(alpha: onTap == null ? 0.4 : 0.8),
                 fontSize: 12)),
       ],
+    );
+  }
+}
+
+class _SwipeToAnswer extends StatefulWidget {
+  const _SwipeToAnswer({required this.onAccept, required this.onDecline});
+  final VoidCallback onAccept;
+  final VoidCallback onDecline;
+
+  @override
+  State<_SwipeToAnswer> createState() => _SwipeToAnswerState();
+}
+
+class _SwipeToAnswerState extends State<_SwipeToAnswer> with SingleTickerProviderStateMixin {
+  double _dragOffset = 0;
+  final double _maxDrag = 100; // max distance to swipe up/down
+  late AnimationController _anim;
+
+  @override
+  void initState() {
+    super.initState();
+    _anim = AnimationController(vsync: this, duration: const Duration(seconds: 1))..repeat(reverse: true);
+  }
+
+  @override
+  void dispose() {
+    _anim.dispose();
+    super.dispose();
+  }
+
+  void _onDragUpdate(DragUpdateDetails details) {
+    setState(() {
+      _dragOffset += details.primaryDelta!;
+      _dragOffset = _dragOffset.clamp(-_maxDrag, _maxDrag);
+    });
+  }
+
+  void _onDragEnd(DragEndDetails details) {
+    if (_dragOffset <= -_maxDrag * 0.7) {
+      widget.onAccept();
+    } else if (_dragOffset >= _maxDrag * 0.7) {
+      widget.onDecline();
+    } else {
+      setState(() => _dragOffset = 0); // snap back
+    }
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    return SizedBox(
+      height: 250,
+      width: 100,
+      child: Stack(
+        alignment: Alignment.center,
+        children: [
+          // Track
+          Container(
+            width: 60,
+            decoration: BoxDecoration(
+              color: Colors.white.withValues(alpha: 0.1),
+              borderRadius: BorderRadius.circular(30),
+            ),
+          ),
+          // Up Arrow
+          Positioned(
+            top: 16,
+            child: AnimatedBuilder(
+              animation: _anim,
+              builder: (ctx, child) => Opacity(
+                opacity: 1.0 - _anim.value * 0.5,
+                child: const Icon(Icons.keyboard_arrow_up_rounded, color: AppColors.success, size: 28),
+              ),
+            ),
+          ),
+          // Down Arrow
+          Positioned(
+            bottom: 16,
+            child: AnimatedBuilder(
+              animation: _anim,
+              builder: (ctx, child) => Opacity(
+                opacity: 1.0 - _anim.value * 0.5,
+                child: const Icon(Icons.keyboard_arrow_down_rounded, color: AppColors.danger, size: 28),
+              ),
+            ),
+          ),
+          // Labels
+          const Positioned(
+            top: 50,
+            child: Text('Answer', style: TextStyle(color: AppColors.success, fontSize: 12, fontWeight: FontWeight.bold)),
+          ),
+          const Positioned(
+            bottom: 50,
+            child: Text('Decline', style: TextStyle(color: AppColors.danger, fontSize: 12, fontWeight: FontWeight.bold)),
+          ),
+          // Draggable Button
+          Positioned(
+            top: 125 - 30 + _dragOffset, // 125 is half of 250 (center) minus half of 60 (button size)
+            child: GestureDetector(
+              onVerticalDragUpdate: _onDragUpdate,
+              onVerticalDragEnd: _onDragEnd,
+              child: Container(
+                width: 60,
+                height: 60,
+                decoration: const BoxDecoration(
+                  color: Colors.white,
+                  shape: BoxShape.circle,
+                ),
+                child: Icon(
+                  _dragOffset > 20 ? Icons.call_end_rounded : Icons.call_rounded,
+                  color: _dragOffset < -20 
+                      ? AppColors.success 
+                      : (_dragOffset > 20 ? AppColors.danger : AppColors.brandInk),
+                  size: 28,
+                ),
+              ),
+            ),
+          ),
+        ],
+      ),
     );
   }
 }

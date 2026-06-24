@@ -310,7 +310,7 @@ object NotificationHelper {
         val answerIntent = Intent(context, MainActivity::class.java).apply {
             action = "com.simpulx.app.ACTION_TAP_NOTIFICATION"
             flags = Intent.FLAG_ACTIVITY_SINGLE_TOP or Intent.FLAG_ACTIVITY_CLEAR_TOP
-            putExtra("route", "/call/$chatId")
+            putExtra("route", "/call/$chatId?callId=$callId")
             putExtra("contactName", contactName)
             putExtra("chatId", chatId)
         }

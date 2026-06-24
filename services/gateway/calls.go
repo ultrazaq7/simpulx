@@ -568,7 +568,7 @@ func (s *server) handleGetCall(w http.ResponseWriter, r *http.Request) {
 	callID := r.PathValue("id")
 	rows, err := s.queryMaps(r.Context(),
 		`SELECT id::text, conversation_id::text, direction, permission_status, call_status,
-		        external_call_id, duration_seconds, end_reason, created_at
+		        external_call_id, duration_seconds, end_reason, created_at, sdp_offer
 		   FROM calls WHERE id = $1 AND organization_id = $2`,
 		callID, a.OrgID)
 	if err != nil || len(rows) == 0 {
