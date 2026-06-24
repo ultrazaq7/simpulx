@@ -89,12 +89,10 @@ object NotificationHelper {
         val bitmap = Bitmap.createBitmap(size, size, Bitmap.Config.ARGB_8888)
         val canvas = Canvas(bitmap)
 
-        // Rounded square background (like WhatsApp)
+        // Fill background
         val bgPaint = Paint(Paint.ANTI_ALIAS_FLAG)
         bgPaint.color = bgColor
-        val cornerRadius = size * 0.22f  // WhatsApp-style corner radius
-        val rect = RectF(0f, 0f, size.toFloat(), size.toFloat())
-        canvas.drawRoundRect(rect, cornerRadius, cornerRadius, bgPaint)
+        canvas.drawCircle(size / 2f, size / 2f, size / 2f, bgPaint)
 
         // Draw initial letter
         val textPaint = Paint(Paint.ANTI_ALIAS_FLAG)
