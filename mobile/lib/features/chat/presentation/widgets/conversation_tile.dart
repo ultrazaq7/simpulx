@@ -335,27 +335,53 @@ class _PreviewWidget extends StatelessWidget {
       return Text('No messages yet', maxLines: 1, overflow: TextOverflow.ellipsis, style: style);
     }
 
-    // Normalize legacy [bracket] format from server to WhatsApp-style emoji labels.
-    String text = preview!;
-    final p = text.toLowerCase().trim();
-    if (p == '[image]' || p == '[photo]') {
-      text = '📷 Photo';
-    } else if (p == '[video]') {
-      text = '🎥 Video';
-    } else if (p == '[audio]' || p == '[voice]') {
-      text = '🎤 Voice message';
-    } else if (p == '[sticker]') {
-      text = 'Sticker';
-    } else if (p == '[document]' || p == '[file]') {
-      text = '📄 Document';
-    } else if (p == '[location]') {
-      text = '📍 Location';
-    } else if (p == '[contact]') {
-      text = '👤 Contact';
-    } else if (p == '[media]') {
-      text = '📎 Attachment';
+    // Check for media type indicators (emoji-prefixed from controller or [bracket] from server).
+    final p = preview!.toLowerCase().trim();
+    IconData? icon;
+    String? label;
+    // WhatsApp teal for media icons
+    const teal = Color(0xFF00A884);
+
+    // Match emoji-prefixed (from controller) or [bracket] (from server)
+    if (p.startsWith('📷') || p == '[image]' || p == '[photo]') {
+      icon = Icons.camera_alt_rounded;
+      label = 'Photo';
+    } else if (p.startsWith('🎥') || p == '[video]') {
+      icon = Icons.videocam_rounded;
+      label = 'Video';
+    } else if (p.startsWith('🎤') || p == '[audio]' || p == '[voice]') {
+      icon = Icons.mic_rounded;
+      label = 'Voice message';
+    } else if (p == '[sticker]' || p == 'sticker') {
+      icon = Icons.sticky_note_2_rounded;
+      label = 'Sticker';
+    } else if (p.startsWith('📄') || p == '[document]' || p == '[file]') {
+      icon = Icons.insert_drive_file_rounded;
+      label = 'Document';
+    } else if (p.startsWith('📍') || p == '[location]') {
+      icon = Icons.location_on_rounded;
+      label = 'Location';
+    } else if (p.startsWith('👤') || p == '[contact]') {
+      icon = Icons.person_rounded;
+      label = 'Contact';
+    } else if (p.startsWith('📎') || p == '[media]') {
+      icon = Icons.attach_file_rounded;
+      label = 'Attachment';
     }
 
-    return Text(text, maxLines: 1, overflow: TextOverflow.ellipsis, style: style);
+    if (icon != null && label != null) {
+      return Row(
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          Icon(icon, size: 16, color: teal),
+          const SizedBox(width: 3),
+          Flexible(
+            child: Text(label, maxLines: 1, overflow: TextOverflow.ellipsis, style: style),
+          ),
+        ],
+      );
+    }
+
+    return Text(preview!, maxLines: 1, overflow: TextOverflow.ellipsis, style: style);
   }
 }

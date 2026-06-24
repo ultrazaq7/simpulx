@@ -27,10 +27,12 @@ enum NotificationCategory {
         NotificationCategory.performance => 'Performance alerts',
       };
 
-  static NotificationCategory fromType(String? type) {
+  static NotificationCategory fromType(String? type, {String? body}) {
     switch (type) {
       case 'call':
       case 'incoming_call':
+      case 'voice_call':
+      case 'call_ringing':
         return NotificationCategory.incomingCall;
       case 'new_lead':
         return NotificationCategory.newLead;
@@ -47,6 +49,16 @@ enum NotificationCategory {
         return NotificationCategory.performance;
       case 'new_message':
       default:
+        // Heuristic: detect call from body text when type is generic
+        if (body != null) {
+          final b = body.toLowerCase();
+          if (b.contains('incoming call') ||
+              b.contains('incoming voice call') ||
+              b.contains('voice call') ||
+              b.contains('panggilan masuk')) {
+            return NotificationCategory.incomingCall;
+          }
+        }
         return NotificationCategory.incomingMessage;
     }
   }
@@ -80,7 +92,7 @@ class NotificationPayload {
     }
 
     return NotificationPayload(
-      category: NotificationCategory.fromType(str('type')),
+      category: NotificationCategory.fromType(str('type'), body: str('body')),
       title: str('title') ?? 'Simpulx',
       body: str('body') ?? '',
       conversationId: str('conversationId') ?? str('conversation_id'),
