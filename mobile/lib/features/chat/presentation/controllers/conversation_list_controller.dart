@@ -104,9 +104,14 @@ class ConversationListController extends AsyncNotifier<List<Conversation>> {
     }
 
     final existing = list[index];
+    // Ensure we always have a displayable preview — fallback chain:
+    // payload.preview → payload.body → '[Media]' (for image/audio/doc messages)
+    String displayPreview = payload.preview;
+    if (displayPreview.isEmpty) displayPreview = payload.body;
+    if (displayPreview.isEmpty) displayPreview = '[Media]';
+
     final updated = existing.copyWith(
-      lastMessagePreview:
-          payload.preview.isNotEmpty ? payload.preview : payload.body,
+      lastMessagePreview: displayPreview,
       lastMessageAt: event.ts,
       lastMessageDirection: payload.isInbound ? 'contact' : 'agent',
       unreadCount:

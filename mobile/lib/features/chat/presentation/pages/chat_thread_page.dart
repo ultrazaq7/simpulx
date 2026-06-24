@@ -38,11 +38,13 @@ class ChatThreadPage extends ConsumerStatefulWidget {
   ConsumerState<ChatThreadPage> createState() => _ChatThreadPageState();
 }
 
-class _ChatThreadPageState extends ConsumerState<ChatThreadPage> {
+class _ChatThreadPageState extends ConsumerState<ChatThreadPage>
+    with WidgetsBindingObserver {
   final _scroll = ScrollController();
   int _lastCount = 0;
   bool _didInitialScroll = false;
   bool _showJump = false;
+  double _lastBottomInset = 0;
 
   /// Look up this conversation from the live inbox list (used when opened
   /// without a route `extra`, e.g. from a push notification or contact Chat).
@@ -59,13 +61,29 @@ class _ChatThreadPageState extends ConsumerState<ChatThreadPage> {
   void initState() {
     super.initState();
     _scroll.addListener(_onScroll);
+    WidgetsBinding.instance.addObserver(this);
   }
 
   @override
   void dispose() {
+    WidgetsBinding.instance.removeObserver(this);
     _scroll.removeListener(_onScroll);
     _scroll.dispose();
     super.dispose();
+  }
+
+  @override
+  void didChangeMetrics() {
+    // When the keyboard opens/closes, scroll to bottom so the latest message
+    // stays visible (WhatsApp behaviour).
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      if (!mounted) return;
+      final bottomInset = MediaQuery.of(context).viewInsets.bottom;
+      if (bottomInset > _lastBottomInset && _nearBottom) {
+        _jumpToBottom();
+      }
+      _lastBottomInset = bottomInset;
+    });
   }
 
   void _onScroll() {

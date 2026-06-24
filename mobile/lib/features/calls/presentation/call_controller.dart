@@ -4,6 +4,8 @@ import 'package:flutter/foundation.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import '../../../core/error/app_exception.dart';
+import '../../../core/notifications/local_notifications.dart';
+import '../../../core/notifications/notification_payload.dart';
 import '../../../core/providers/app_providers.dart';
 import '../../../core/realtime/realtime_event.dart';
 import '../../../core/realtime/realtime_providers.dart';
@@ -65,11 +67,8 @@ class CallController extends Notifier<CallSession?> {
       );
       if (perm.granted) await _placeOffer();
     } catch (e) {
-      String msg = e is AppException ? e.message : 'Could not start the call';
-      if (msg.toLowerCase().contains('already requested')) {
-        msg = 'Wait for customer to reply to the previous request.';
-      }
-      _fail(msg);
+      final raw = e is AppException ? e.message : 'Could not start the call';
+      _fail(_friendlyMessage(raw));
     }
   }
 
@@ -164,6 +163,12 @@ class CallController extends Notifier<CallSession?> {
           phase: CallPhase.incoming,
           pendingOffer: p.sdpOffer,
         );
+        // Fire a local notification so the incoming call is visible on
+        // lock screen / status bar (fullScreenIntent shows over lock screen).
+        _showIncomingCallNotification(
+          contactName: p.contactName ?? 'Unknown',
+          conversationId: p.conversationId,
+        );
       }
       return;
     }
@@ -223,11 +228,50 @@ class CallController extends Notifier<CallSession?> {
     }
   }
 
+  /// Show a heads-up / lock-screen notification for an incoming call.
+  void _showIncomingCallNotification({
+    required String contactName,
+    required String conversationId,
+  }) {
+    final payload = NotificationPayload(
+      category: NotificationCategory.incomingCall,
+      title: contactName,
+      body: 'Incoming voice call',
+      conversationId: conversationId,
+    );
+    LocalNotifications.instance.show(payload);
+  }
+
   void _fail(String message) => _cleanup(CallPhase.failed, message: message);
+
+  /// Maps raw backend / exception messages to short, user-friendly labels.
+  static String _friendlyMessage(String raw) {
+    final lower = raw.toLowerCase();
+    if (lower.contains('already requested') || lower.contains('pending')) {
+      return 'Waiting for approval';
+    }
+    if (lower.contains('timeout') || lower.contains('timed out')) {
+      return 'No answer';
+    }
+    if (lower.contains('signaling') || lower.contains('signal')) {
+      return 'Connection failed';
+    }
+    if (lower.contains('busy')) return 'Line busy';
+    if (lower.contains('rejected') || lower.contains('declined')) {
+      return 'Call declined';
+    }
+    if (lower.contains('not available') || lower.contains('unavailable')) {
+      return 'Unavailable';
+    }
+    if (raw.length > 30) return 'Call unavailable';
+    return raw;
+  }
 
   void _cleanup(CallPhase phase, {String? message}) {
     _rtc?.dispose();
     _rtc = null;
+    // Dismiss any lingering incoming-call notification
+    _dismissCallNotification();
     state = state?.copyWith(phase: phase, message: message) ??
         CallSession(
           callId: '',
@@ -242,6 +286,16 @@ class CallController extends Notifier<CallSession?> {
     _autoClear?.cancel();
     _autoClear = Timer(const Duration(seconds: 3), clear);
     if (kDebugMode) debugPrint('[call] $phase ${message ?? ''}');
+  }
+
+  /// Cancel the notification shown by [_showIncomingCallNotification].
+  void _dismissCallNotification() {
+    // The notification id matches how LocalNotifications._show computes it
+    // from the conversationId. Re-derive the same id and cancel it.
+    final convId = state?.conversationId ?? '';
+    if (convId.isEmpty) return;
+    final id = convId.hashCode & 0x7fffffff;
+    LocalNotifications.instance.cancel(id);
   }
 }
 

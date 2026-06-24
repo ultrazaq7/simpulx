@@ -71,6 +71,9 @@ class LocalNotifications {
     await _show(_plugin, payload);
   }
 
+  /// Cancel a notification by its id.
+  Future<void> cancel(int id) => _plugin.cancel(id);
+
   /// Show from a raw data map (used by the background isolate).
   static Future<void> showFromData(Map<String, dynamic> data) async {
     debugPrint('[LocalNotifications] showFromData: $data');
@@ -123,22 +126,24 @@ class LocalNotifications {
       style = BigTextStyleInformation(payload.body);
     }
 
-    // WhatsApp green color
-    const whatsappGreen = Color(0xFF00A884);
+    // Brand color
+    const brandGreen = Color(0xFF2D8B73);
 
     final android = AndroidNotificationDetails(
       cat.channelId,
       cat.channelName,
       importance: isUrgent ? Importance.max : Importance.high,
       priority: Priority.high,
-
+      groupKey: isMessage
+          ? 'simpulx_messages_${payload.conversationId ?? 'general'}'
+          : null,
       category: isCall
           ? AndroidNotificationCategory.call
           : AndroidNotificationCategory.message,
       // Full screen intent for incoming calls - shows over lock screen
       fullScreenIntent: isCall,
       icon: '@drawable/ic_notification',
-      color: const Color(0xFF2D8B73),
+      color: brandGreen,
       styleInformation: style,
       // WhatsApp-like actions
       actions: [
@@ -146,14 +151,14 @@ class LocalNotifications {
           const AndroidNotificationAction(
             'reply',
             'Reply',
-            titleColor: whatsappGreen,
+            titleColor: brandGreen,
             inputs: [AndroidNotificationActionInput(label: 'Reply message')],
           ),
           const AndroidNotificationAction('mark_read', 'Mark as read'),
         ],
         if (isCall) ...[
           const AndroidNotificationAction('decline', 'Decline', titleColor: Color(0xFFD32F2F)),
-          const AndroidNotificationAction('answer', 'Answer', titleColor: whatsappGreen),
+          const AndroidNotificationAction('answer', 'Answer', titleColor: brandGreen),
         ],
       ],
       // Ongoing for calls
@@ -218,13 +223,11 @@ void notificationTapBackground(NotificationResponse response) async {
     WidgetsFlutterBinding.ensureInitialized();
     final payloadStr = response.payload;
     if (payloadStr == null) return;
-    
-    // Parse conversation ID from route payload (e.g. /inbox/123)
-    final route = NotificationPayload.routeFromEncoded(payloadStr);
-    if (!route.startsWith('/inbox/')) return;
-    final parts = route.split('/');
-    if (parts.length < 3) return;
-    final convId = parts[2];
+
+    // Parse conversation ID directly from the encoded payload (type|convId|contactId)
+    final parts = payloadStr.split('|');
+    final convId = parts.length > 1 ? parts[1] : '';
+    if (convId.isEmpty) return;
 
     final secureStore = SecureStore();
     if (!(await secureStore.hasSession)) return;
@@ -245,6 +248,7 @@ void notificationTapBackground(NotificationResponse response) async {
       }
     } else if (response.actionId == 'mark_read') {
       try {
+        // Fetch the latest message to trigger server-side read marking
         await dioClient.dio.get('/api/conversations/$convId/messages?limit=1');
       } catch (e) {
         debugPrint('[Background] Mark read failed: $e');

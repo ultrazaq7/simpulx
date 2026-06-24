@@ -52,7 +52,7 @@ class _CallScreenState extends ConsumerState<_CallScreen> {
         setState(() => _elapsed = DateTime.now().difference(at));
       }
     });
-    
+
     _proximitySub = ProximitySensor.events.listen((int event) {
       if (mounted) setState(() => _isNear = event > 0);
     });
@@ -69,7 +69,7 @@ class _CallScreenState extends ConsumerState<_CallScreen> {
     final s = ref.watch(callControllerProvider) ?? widget.session;
     switch (s.phase) {
       case CallPhase.requesting:
-        return s.message ?? 'Requesting permission...';
+        return s.message ?? 'Requesting...';
       case CallPhase.ringing:
         return 'Calling...';
       case CallPhase.incoming:
@@ -82,12 +82,12 @@ class _CallScreenState extends ConsumerState<_CallScreen> {
         final m = s.message;
         if (m == 'remote_hangup' || m == 'local_hangup') return 'Call ended';
         if (m == 'remote_rejected') return 'Call declined';
-        return m ?? 'Call ended';
+        if (m == null || m.isEmpty) return 'Call ended';
+        return m.length > 25 ? '${m.substring(0, 25)}...' : m;
       case CallPhase.failed:
         final m = s.message;
-        if (m == 'timeout') return 'Call timeout';
-        if (m == 'signaling_failed') return 'Connection failed';
-        return m ?? 'Call failed';
+        if (m == null || m.isEmpty) return 'Call failed';
+        return m.length > 25 ? '${m.substring(0, 25)}...' : m;
     }
   }
 
@@ -96,7 +96,7 @@ class _CallScreenState extends ConsumerState<_CallScreen> {
     if (_isNear) {
       return Container(color: Colors.black);
     }
-    
+
     final s = ref.watch(callControllerProvider) ?? widget.session;
     final controller = ref.read(callControllerProvider.notifier);
     final initials = s.contactName.trim().isNotEmpty
@@ -127,9 +127,14 @@ class _CallScreenState extends ConsumerState<_CallScreen> {
                   fontWeight: FontWeight.w700),
             ),
             const SizedBox(height: 8),
-            Text(_status,
-                style: TextStyle(
-                    color: Colors.white.withValues(alpha: 0.7), fontSize: 16)),
+            Padding(
+              padding: const EdgeInsets.symmetric(horizontal: 32),
+              child: Text(_status,
+                  textAlign: TextAlign.center,
+                  style: TextStyle(
+                      color: Colors.white.withValues(alpha: 0.7),
+                      fontSize: 16)),
+            ),
             const Spacer(flex: 3),
             _Controls(session: s, controller: controller),
             const SizedBox(height: 36),
