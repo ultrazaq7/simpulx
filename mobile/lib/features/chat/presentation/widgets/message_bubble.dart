@@ -158,12 +158,16 @@ class _MediaContent extends StatelessWidget {
             ConstrainedBox(
               constraints: BoxConstraints(
                 maxWidth: isSticker ? 160 : double.infinity,
+                maxHeight: isSticker ? 160 : 280,
               ),
               child: _isLocal
-                  ? Image.file(File(url), fit: BoxFit.contain)
+                  ? Image.file(File(url),
+                      fit: isSticker ? BoxFit.contain : BoxFit.cover,
+                      width: isSticker ? null : double.infinity)
                   : CachedNetworkImage(
                       imageUrl: url,
-                      fit: BoxFit.contain,
+                      fit: isSticker ? BoxFit.contain : BoxFit.cover,
+                      width: isSticker ? null : double.infinity,
                       placeholder: (_, _) => Container(
                         height: isSticker ? 120 : 180,
                         color: Colors.black12,
