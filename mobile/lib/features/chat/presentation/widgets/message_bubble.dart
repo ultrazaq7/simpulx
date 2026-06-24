@@ -14,9 +14,15 @@ import 'media_viewer.dart';
 /// A single chat bubble. Outbound (mine) right-aligned in brand tint; inbound
 /// left in a neutral surface. Renders text, images, and document attachments.
 class MessageBubble extends StatelessWidget {
-  const MessageBubble({super.key, required this.message});
+  const MessageBubble({
+    super.key,
+    required this.message,
+    this.allMessages = const [],
+  });
 
   final Message message;
+  /// All messages in the conversation — used to build the swipeable media gallery.
+  final List<Message> allMessages;
 
   @override
   Widget build(BuildContext context) {
@@ -52,7 +58,12 @@ class MessageBubble extends StatelessWidget {
           crossAxisAlignment: CrossAxisAlignment.start,
           mainAxisSize: MainAxisSize.min,
           children: [
-            if (message.hasMedia) _MediaContent(message: message, fg: fg),
+            if (message.hasMedia)
+              _MediaContent(
+                message: message,
+                fg: fg,
+                allMessages: allMessages,
+              ),
             Padding(
               padding: const EdgeInsets.fromLTRB(6, 2, 6, 0),
               child: Column(
@@ -119,9 +130,14 @@ class MessageBubble extends StatelessWidget {
 }
 
 class _MediaContent extends StatelessWidget {
-  const _MediaContent({required this.message, required this.fg});
+  const _MediaContent({
+    required this.message,
+    required this.fg,
+    this.allMessages = const [],
+  });
   final Message message;
   final Color fg;
+  final List<Message> allMessages;
 
   bool get _isLocal => !(message.mediaUrl!.startsWith('http'));
   bool get _uploading => message.status == MessageStatus.sending;
@@ -150,7 +166,32 @@ class _MediaContent extends StatelessWidget {
   Widget _image(BuildContext context, bool isSticker) {
     final url = message.mediaUrl!;
     return GestureDetector(
-      onTap: _uploading ? null : () => showMediaViewer(context, url),
+      onTap: _uploading
+          ? null
+          : () {
+              // Build gallery from all visual media in the conversation
+              final mediaMessages = allMessages
+                  .where((m) =>
+                      m.hasMedia &&
+                      (m.type == MessageType.image ||
+                       m.type == MessageType.video ||
+                       m.type == MessageType.sticker))
+                  .toList();
+              final items = mediaMessages
+                  .map((m) => MediaItem(
+                        url: m.mediaUrl!,
+                        senderName: m.isMine ? 'You' : '',
+                        timestamp: m.createdAt,
+                      ))
+                  .toList();
+              final idx = mediaMessages.indexWhere((m) => m.id == message.id);
+              showMediaViewer(
+                context,
+                url,
+                allMedia: items,
+                initialIndex: idx >= 0 ? idx : 0,
+              );
+            },
       child: ClipRRect(
         borderRadius: BorderRadius.circular(10),
         child: Stack(

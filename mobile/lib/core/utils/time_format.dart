@@ -31,3 +31,16 @@ String formatDayLabel(DateTime dt) {
   if (diff < 7) return DateFormat.EEEE().format(local); // Monday
   return DateFormat.yMMMd().format(local); // Jun 5, 2026
 }
+
+/// Full date + time for media viewer header: "Today, 14:30" or "Jun 5, 14:30".
+String formatFullDateTime(DateTime dt) {
+  final now = DateTime.now();
+  final local = dt.toLocal();
+  final today = DateTime(now.year, now.month, now.day);
+  final that = DateTime(local.year, local.month, local.day);
+  final diff = today.difference(that).inDays;
+  final time = DateFormat.Hm().format(local);
+  if (diff == 0) return 'Today, $time';
+  if (diff == 1) return 'Yesterday, $time';
+  return '${DateFormat.yMMMd().format(local)}, $time';
+}

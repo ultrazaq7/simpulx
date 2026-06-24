@@ -395,7 +395,7 @@ class _MessageList extends StatelessWidget {
         return Column(
           children: [
             if (showDay) _DaySeparator(date: message.createdAt),
-            MessageBubble(message: message),
+            MessageBubble(message: message, allMessages: messages),
           ],
         );
       },
