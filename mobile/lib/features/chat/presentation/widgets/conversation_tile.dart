@@ -335,43 +335,27 @@ class _PreviewWidget extends StatelessWidget {
       return Text('No messages yet', maxLines: 1, overflow: TextOverflow.ellipsis, style: style);
     }
 
-    final p = preview!.toLowerCase();
-    IconData? icon;
+    // Normalize legacy [bracket] format from server to WhatsApp-style emoji labels.
     String text = preview!;
-
+    final p = text.toLowerCase().trim();
     if (p == '[image]' || p == '[photo]') {
-      icon = Icons.camera_alt_rounded;
-      text = 'Photo';
+      text = '📷 Photo';
     } else if (p == '[video]') {
-      icon = Icons.videocam_rounded;
-      text = 'Video';
+      text = '🎥 Video';
     } else if (p == '[audio]' || p == '[voice]') {
-      icon = Icons.mic_rounded;
-      text = 'Voice message';
+      text = '🎤 Voice message';
     } else if (p == '[sticker]') {
-      icon = Icons.sticky_note_2_rounded;
       text = 'Sticker';
     } else if (p == '[document]' || p == '[file]') {
-      icon = Icons.insert_drive_file_rounded;
-      text = 'Document';
+      text = '📄 Document';
     } else if (p == '[location]') {
-      icon = Icons.location_on_rounded;
-      text = 'Location';
+      text = '📍 Location';
+    } else if (p == '[contact]') {
+      text = '👤 Contact';
+    } else if (p == '[media]') {
+      text = '📎 Attachment';
     }
 
-    if (icon == null) {
-      return Text(text, maxLines: 1, overflow: TextOverflow.ellipsis, style: style);
-    }
-
-    return Row(
-      mainAxisSize: MainAxisSize.min,
-      children: [
-        Icon(icon, size: 14, color: color),
-        const SizedBox(width: 4),
-        Expanded(
-          child: Text(text, maxLines: 1, overflow: TextOverflow.ellipsis, style: style),
-        ),
-      ],
-    );
+    return Text(text, maxLines: 1, overflow: TextOverflow.ellipsis, style: style);
   }
 }

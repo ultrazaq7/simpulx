@@ -104,11 +104,46 @@ class ConversationListController extends AsyncNotifier<List<Conversation>> {
     }
 
     final existing = list[index];
-    // Ensure we always have a displayable preview — fallback chain:
-    // payload.preview → payload.body → '[Media]' (for image/audio/doc messages)
-    String displayPreview = payload.preview;
-    if (displayPreview.isEmpty) displayPreview = payload.body;
-    if (displayPreview.isEmpty) displayPreview = '[Media]';
+
+    // Build a display preview matching WhatsApp's style.
+    // Priority: preview text → body text → type-based label.
+    String? displayPreview = payload.preview.isNotEmpty
+        ? payload.preview
+        : payload.body.isNotEmpty
+            ? payload.body
+            : null;
+
+    // If preview AND body are empty, derive from message type.
+    if (displayPreview == null || displayPreview.isEmpty) {
+      switch (payload.type) {
+        case 'image':
+          displayPreview = '📷 Photo';
+          break;
+        case 'video':
+          displayPreview = '🎥 Video';
+          break;
+        case 'audio':
+          displayPreview = '🎤 Voice message';
+          break;
+        case 'sticker':
+          displayPreview = 'Sticker';
+          break;
+        case 'document':
+        case 'file':
+          displayPreview = '📄 Document';
+          break;
+        case 'location':
+          displayPreview = '📍 Location';
+          break;
+        case 'contact':
+          displayPreview = '👤 Contact';
+          break;
+        default:
+          // text type with empty body (outbound echo) → keep existing preview
+          displayPreview = existing.lastMessagePreview ?? '';
+          break;
+      }
+    }
 
     final updated = existing.copyWith(
       lastMessagePreview: displayPreview,

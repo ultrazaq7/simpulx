@@ -125,21 +125,26 @@ class LocalNotifications {
     final StyleInformation style;
 
     if (isMessage) {
-      // WhatsApp-style MessagingStyle with Person
-      final person = Person(
+      // Android MessagingStyle requires two Person objects:
+      // • 'self' (device owner / you) → passed to MessagingStyleInformation()
+      // • 'sender' (the contact who sent the message) → passed to Message()
+      //
+      // This produces the WhatsApp-like header: "ContactName · AppName · time"
+      // For 1:1 chats, don't set conversationTitle (that's for groups only).
+      const self = Person(
+        key: 'self',
+        name: 'You',
+      );
+      final sender = Person(
         key: payload.conversationId ?? payload.title,
         name: payload.title,
         important: true,
-        // Use the app icon as the person avatar so Android overlays
-        // ic_notification as a badge on top (WhatsApp behavior).
-        icon: const DrawableResourceAndroidIcon('@mipmap/ic_launcher'),
       );
       style = MessagingStyleInformation(
-        person,
+        self,
         groupConversation: false,
-        conversationTitle: payload.title,
         messages: [
-          Message(payload.body, DateTime.now(), person),
+          Message(payload.body, DateTime.now(), sender),
         ],
       );
     } else {
