@@ -188,7 +188,7 @@ class CallController extends Notifier<CallSession?> {
     // New inbound ring (no active session).
     if (state == null) {
       if (p.isInbound &&
-          p.callStatus == 'ringing' &&
+          (p.callStatus == 'ringing' || p.callStatus == 'incoming') &&
           p.sdpOffer != null &&
           p.sdpOffer!.isNotEmpty) {
         _rtc = ref.read(webRtcServiceFactoryProvider)();
