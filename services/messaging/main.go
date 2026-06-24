@@ -337,7 +337,7 @@ func mediaPreview(msgType, body string) string {
 		return "🖼️ Sticker"
 	case "interactive", "button":
 		return "🔘 Button message"
-	case "template":
+	case "template", "hsm":
 		return "📝 Template message"
 	case "location":
 		return "📍 Location"
@@ -345,7 +345,17 @@ func mediaPreview(msgType, body string) string {
 		return "👤 Contact"
 	case "reaction":
 		return "❤️ Reaction"
-	case "unsupported":
+	case "order":
+		return "🛒 Order"
+	case "system":
+		return "⚙️ System message"
+	case "poll_creation", "poll_update":
+		return "📊 Poll"
+	case "call", "voice_call", "video_call":
+		return "📞 Call"
+	case "ephemeral":
+		return "⏳ Disappearing message"
+	case "unsupported", "unknown":
 		return "⚠️ Unsupported message"
 	default:
 		if msgType != "" && msgType != "text" {
