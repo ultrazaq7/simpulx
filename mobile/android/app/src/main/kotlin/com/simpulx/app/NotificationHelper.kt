@@ -113,21 +113,28 @@ object NotificationHelper {
         context: Context,
         chatId: String,
         senderName: String,
-        conversationTitle: String, // "Simpulx"
+        conversationTitle: String, // unused for 1:1 — sender name IS the title
         message: String,
         avatarBitmap: Bitmap,  // merged avatar with badge
     ) {
         ensureChannel(context)
 
-        val person = Person.Builder()
+        // "Self" person — the device owner (required by MessagingStyle constructor)
+        val selfPerson = Person.Builder()
+            .setName("You")
+            .build()
+
+        // The remote sender — their name becomes the notification title
+        val senderPerson = Person.Builder()
             .setName(senderName)
             .setIcon(IconCompat.createWithBitmap(avatarBitmap))
             .setImportant(true)
             .build()
 
-        val style = NotificationCompat.MessagingStyle(person)
-            .setConversationTitle(conversationTitle)
-            .addMessage(message, System.currentTimeMillis(), person)
+        // For 1:1 chats: do NOT set conversationTitle — Android uses sender name as title.
+        // "Simpulx" app name is shown automatically by the system.
+        val style = NotificationCompat.MessagingStyle(selfPerson)
+            .addMessage(message, System.currentTimeMillis(), senderPerson)
 
         // Reply action
         val replyLabel = "Reply"
@@ -162,6 +169,7 @@ object NotificationHelper {
 
         val notification = NotificationCompat.Builder(context, CHANNEL_ID)
             .setSmallIcon(R.drawable.ic_notification)
+            .setLargeIcon(avatarBitmap)  // Shows avatar in collapsed view
             .setStyle(style)
             .setCategory(NotificationCompat.CATEGORY_MESSAGE)
             .setPriority(NotificationCompat.PRIORITY_HIGH)
