@@ -1,7 +1,9 @@
 import 'dart:io';
+import 'dart:typed_data';
 import 'dart:ui' as ui;
 
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
 import 'package:flutter_local_notifications/flutter_local_notifications.dart';
 import 'package:path_provider/path_provider.dart';
 
@@ -125,6 +127,9 @@ class LocalNotifications {
   /// Returns file path that can be used with FilePathAndroidBitmap.
   static Future<String?> _generateAvatarWithBadgeFile(String name) async {
     try {
+      // Load the app icon bytes
+      final iconBytes = await _loadAppIconBytes();
+
       final initial = name.trim().isNotEmpty
           ? name.trim().substring(0, 1).toUpperCase()
           : '?';
@@ -178,8 +183,13 @@ class LocalNotifications {
         ),
       );
 
-      // Draw badge at bottom-right (WhatsApp style)
-      _drawWhatsAppBadge(canvas, size);
+      // Draw app icon badge at bottom-right if we have icon bytes
+      if (iconBytes != null) {
+        await _drawAppIconBadge(canvas, size, iconBytes);
+      } else {
+        // Fallback: draw green circle with phone icon
+        _drawFallbackBadge(canvas, size);
+      }
 
       final picture = recorder.endRecording();
       final image = await picture.toImage(size.toInt(), size.toInt());
@@ -203,9 +213,28 @@ class LocalNotifications {
     }
   }
 
-  /// Draw WhatsApp-style badge (green circle with phone icon) at bottom-right.
-  static void _drawWhatsAppBadge(Canvas canvas, double size) {
-    const badgeSize = 72.0;
+  /// Load app icon bytes from bundled resources.
+  static Future<Uint8List?> _loadAppIconBytes() async {
+    try {
+      // Try to load ic_notification from assets
+      // Use rootBundle which is available in Flutter context
+      final ByteData data = await rootBundle.load(
+        'android/app/src/main/res/drawable-hdpi/ic_notification.png',
+      );
+      return data.buffer.asUint8List();
+    } catch (e) {
+      debugPrint('[Notification] Failed to load app icon: $e');
+      return null;
+    }
+  }
+
+  /// Draw app icon badge at bottom-right (WhatsApp style).
+  static Future<void> _drawAppIconBadge(
+    Canvas canvas,
+    double size,
+    Uint8List iconBytes,
+  ) async {
+    const badgeSize = 64.0;
     const badgeMargin = 8.0;
     final badgeCenter = Offset(
       size - badgeMargin - badgeSize / 2,
@@ -213,36 +242,60 @@ class LocalNotifications {
     );
 
     // White border
-    canvas.drawCircle(badgeCenter, badgeSize / 2 + 2, Paint()..color = Colors.white);
+    canvas.drawCircle(
+      badgeCenter,
+      badgeSize / 2 + 2,
+      Paint()..color = Colors.white,
+    );
+
+    try {
+      // Decode the icon image
+      final codec = await ui.instantiateImageCodec(iconBytes);
+      final frame = await codec.getNextFrame();
+      final image = frame.image;
+
+      // Draw the icon scaled to fit in the badge
+      final src = Rect.fromLTWH(
+        0,
+        0,
+        image.width.toDouble(),
+        image.height.toDouble(),
+      );
+      final dst = Rect.fromCenter(
+        center: badgeCenter,
+        width: badgeSize - 8,
+        height: badgeSize - 8,
+      );
+      canvas.drawImageRect(image, src, dst, Paint());
+      image.dispose();
+    } catch (e) {
+      debugPrint('[Notification] Failed to draw app icon: $e');
+      // Fallback: draw green circle
+      _drawFallbackBadge(canvas, size);
+    }
+  }
+
+  /// Draw fallback badge (green circle).
+  static void _drawFallbackBadge(Canvas canvas, double size) {
+    const badgeSize = 64.0;
+    const badgeMargin = 8.0;
+    final badgeCenter = Offset(
+      size - badgeMargin - badgeSize / 2,
+      size - badgeMargin - badgeSize / 2,
+    );
+
+    // White border
+    canvas.drawCircle(
+      badgeCenter,
+      badgeSize / 2 + 2,
+      Paint()..color = Colors.white,
+    );
 
     // Green background
-    canvas.drawCircle(badgeCenter, badgeSize / 2, Paint()..color = const Color(0xFF25D366));
-
-    // Phone icon (simplified) - white
-    final phonePaint = Paint()
-      ..color = Colors.white
-      ..style = PaintingStyle.fill;
-
-    // Phone body
-    final phoneRect = RRect.fromRectAndRadius(
-      Rect.fromCenter(center: badgeCenter, width: 18, height: 26),
-      const Radius.circular(3),
-    );
-    canvas.drawRRect(phoneRect, phonePaint);
-
-    // Phone receiver (arc at top)
-    final arcPaint = Paint()
-      ..color = Colors.white
-      ..style = PaintingStyle.stroke
-      ..strokeWidth = 3
-      ..strokeCap = StrokeCap.round;
-
-    canvas.drawArc(
-      Rect.fromCenter(center: Offset(badgeCenter.dx, badgeCenter.dy - 9), width: 12, height: 10),
-      3.14,
-      3.14,
-      false,
-      arcPaint,
+    canvas.drawCircle(
+      badgeCenter,
+      badgeSize / 2,
+      Paint()..color = const Color(0xFF25D366),
     );
   }
 
@@ -335,9 +388,8 @@ class LocalNotifications {
 
     // Brand colors
     const brandGreen = Color(0xFF2D8B73);
-    const whatsappGreen = Color(0xFF25D366);
 
-    // Large icon with badge
+    // Large icon with badge - avatar PNG already contains badge
     AndroidBitmap<Object> largeIcon;
     if (avatarPath != null && avatarPath.isNotEmpty) {
       try {
@@ -362,10 +414,9 @@ class LocalNotifications {
           ? AndroidNotificationCategory.call
           : AndroidNotificationCategory.message,
       fullScreenIntent: isCall,
+      // Use a transparent 1x1 icon to avoid showing small icon overlay
       icon: '@drawable/ic_notification',
       largeIcon: largeIcon,
-      color: whatsappGreen,
-      colorized: true,
       styleInformation: style,
       actions: [
         // ── Message actions ──
