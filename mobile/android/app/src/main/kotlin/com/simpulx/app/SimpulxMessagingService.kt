@@ -64,13 +64,8 @@ class SimpulxMessagingService : FlutterFirebaseMessagingService() {
         senderName: String,
         messageBody: String,
     ) {
+        // Plain avatar only — Android Conversation API adds small icon as badge overlay automatically
         val avatar = NotificationHelper.generateInitialAvatar(senderName)
-        val badge = BitmapFactory.decodeResource(ctx.resources, R.drawable.ic_notification)
-        val mergedBitmap = if (badge != null) {
-            NotificationHelper.mergeAvatarWithBadge(avatar, badge)
-        } else {
-            avatar
-        }
 
         NotificationHelper.showChatNotification(
             context = ctx,
@@ -78,7 +73,7 @@ class SimpulxMessagingService : FlutterFirebaseMessagingService() {
             senderName = senderName,
             conversationTitle = "Simpulx",
             message = messageBody,
-            avatarBitmap = mergedBitmap,
+            avatarBitmap = avatar,
         )
     }
 
