@@ -2,7 +2,7 @@ import 'dart:io';
 import 'dart:ui' as ui;
 
 import 'package:flutter/foundation.dart';
-import 'package:flutter/widgets.dart';
+import 'package:flutter/material.dart';
 import 'package:flutter_local_notifications/flutter_local_notifications.dart';
 import 'package:path_provider/path_provider.dart';
 
@@ -121,50 +121,50 @@ class LocalNotifications {
     await _show(plugin, NotificationPayload.fromData(data));
   }
 
-  // ── Avatar bitmap generation ──────────────────────────
-  /// Generate a square avatar PNG with contact initials on a colored background.
-  /// Returns the file path. WhatsApp-style: rounded square, white letter, with
-  /// small app icon badge at bottom-right corner.
-  static Future<String?> _generateAvatarFile(String name) async {
+  // ── WhatsApp-style avatar with badge generation ──────────────────────────
+  /// Generate a WhatsApp-style avatar with badge and save to file.
+  /// Returns file path that can be used with FilePathAndroidBitmap.
+  static Future<String?> _generateAvatarWithBadgeFile(String name) async {
     try {
       final initial = name.trim().isNotEmpty
           ? name.trim().substring(0, 1).toUpperCase()
           : '?';
 
       // Deterministic color from name hash
-      const colors = [
-        ui.Color(0xFF1B5E20), // dark green
-        ui.Color(0xFF0D47A1), // dark blue
-        ui.Color(0xFF4A148C), // deep purple
-        ui.Color(0xFFBF360C), // deep orange
-        ui.Color(0xFF006064), // cyan dark
-        ui.Color(0xFF880E4F), // pink dark
-        ui.Color(0xFF33691E), // lime dark
-        ui.Color(0xFF1A237E), // indigo
-      ];
-      final bgColor = colors[name.hashCode.abs() % colors.length];
+      final bgColor = [
+        const Color(0xFF1B5E20), // dark green
+        const Color(0xFF0D47A1), // dark blue
+        const Color(0xFF4A148C), // deep purple
+        const Color(0xFFBF360C), // deep orange
+        const Color(0xFF006064), // cyan dark
+        const Color(0xFF880E4F), // pink dark
+        const Color(0xFF33691E), // lime dark
+        const Color(0xFF1A237E), // indigo
+      ][name.hashCode.abs() % 8];
 
       const size = 256.0;
-      final recorder = ui.PictureRecorder();
-      final canvas = Canvas(recorder, const Rect.fromLTWH(0, 0, size, size));
 
-      // Rounded rectangle background
-      final paint = Paint()..color = bgColor;
+      // Draw to picture recorder
+      final recorder = ui.PictureRecorder();
+      final canvas = Canvas(recorder, Rect.fromLTWH(0, 0, size, size));
+
+      // Draw rounded square background (WhatsApp style)
+      final bgPaint = Paint()..color = bgColor;
       canvas.drawRRect(
         RRect.fromRectAndRadius(
-          const Rect.fromLTWH(0, 0, size, size),
-          const Radius.circular(32),
+          Rect.fromLTWH(0, 0, size, size),
+          const Radius.circular(40),
         ),
-        paint,
+        bgPaint,
       );
 
-      // Draw initial letter
+      // Draw initial letter centered
       final textPainter = TextPainter(
         text: TextSpan(
           text: initial,
           style: const TextStyle(
-            color: ui.Color(0xFFFFFFFF),
-            fontSize: 120,
+            color: Colors.white,
+            fontSize: 128,
             fontWeight: FontWeight.w600,
           ),
         ),
@@ -179,44 +179,8 @@ class LocalNotifications {
         ),
       );
 
-      // Draw badge circle at bottom-right (WhatsApp-style)
-      const badgeSize = 64.0;
-      const badgeMargin = 12.0;
-      final badgeCenter = Offset(size - badgeMargin - badgeSize / 2,
-                                 size - badgeMargin - badgeSize / 2);
-
-      // White background circle for badge
-      canvas.drawCircle(badgeCenter, badgeSize / 2, Paint()..color = const ui.Color(0xFFFFFFFF));
-
-      // Draw a simple phone icon in the badge (brand green)
-      final iconPaint = Paint()
-        ..color = const ui.Color(0xFF2D8B73)
-        ..style = PaintingStyle.fill;
-
-      // Phone icon approximation: small rounded rect
-      final iconRect = RRect.fromRectAndRadius(
-        Rect.fromCenter(
-          center: badgeCenter,
-          width: 22,
-          height: 28,
-        ),
-        const Radius.circular(4),
-      );
-      canvas.drawRRect(iconRect, iconPaint);
-
-      // Add a small arc at top of phone icon for the receiver
-      final arcPaint = Paint()
-        ..color = const ui.Color(0xFFFFFFFF)
-        ..style = PaintingStyle.stroke
-        ..strokeWidth = 4;
-
-      canvas.drawArc(
-        Rect.fromCenter(center: Offset(badgeCenter.dx, badgeCenter.dy - 8), width: 16, height: 12),
-        0.2,
-        2.7,
-        false,
-        arcPaint,
-      );
+      // Draw badge at bottom-right (WhatsApp style)
+      _drawWhatsAppBadge(canvas, size);
 
       final picture = recorder.endRecording();
       final image = await picture.toImage(size.toInt(), size.toInt());
@@ -225,14 +189,78 @@ class LocalNotifications {
 
       if (byteData == null) return null;
 
+      // Save to temp file
       final dir = await getTemporaryDirectory();
-      final file = File('${dir.path}/notif_avatar_${name.hashCode.abs()}.png');
+      final fileName = 'notif_avatar_${name.hashCode.abs()}.png';
+      final file = File('${dir.path}/$fileName');
       await file.writeAsBytes(byteData.buffer.asUint8List());
+
+      debugPrint('[Notification] Avatar saved: ${file.path}');
       return file.path;
-    } catch (e) {
-      debugPrint('[Notification] Avatar generation failed: $e');
+    } catch (e, st) {
+      debugPrint('[Notification] AvatarWithBadge failed: $e');
+      debugPrint('[Notification] Stack: $st');
       return null;
     }
+  }
+
+  /// Draw WhatsApp-style badge (green circle with phone icon) at bottom-right.
+  static void _drawWhatsAppBadge(Canvas canvas, double size) {
+    const badgeSize = 72.0;
+    const badgeMargin = 8.0;
+    final badgeCenter = Offset(
+      size - badgeMargin - badgeSize / 2,
+      size - badgeMargin - badgeSize / 2,
+    );
+
+    // White border
+    canvas.drawCircle(badgeCenter, badgeSize / 2 + 2, Paint()..color = Colors.white);
+
+    // Green background
+    canvas.drawCircle(badgeCenter, badgeSize / 2, Paint()..color = const Color(0xFF25D366));
+
+    // Phone icon (simplified) - white
+    final phonePaint = Paint()
+      ..color = Colors.white
+      ..style = PaintingStyle.fill;
+
+    // Phone body
+    final phoneRect = RRect.fromRectAndRadius(
+      Rect.fromCenter(center: badgeCenter, width: 18, height: 26),
+      const Radius.circular(3),
+    );
+    canvas.drawRRect(phoneRect, phonePaint);
+
+    // Phone receiver (arc at top)
+    final arcPaint = Paint()
+      ..color = Colors.white
+      ..style = PaintingStyle.stroke
+      ..strokeWidth = 3
+      ..strokeCap = StrokeCap.round;
+
+    canvas.drawArc(
+      Rect.fromCenter(center: Offset(badgeCenter.dx, badgeCenter.dy - 9), width: 12, height: 10),
+      3.14,
+      3.14,
+      false,
+      arcPaint,
+    );
+  }
+
+  /// Cache for avatar file paths to avoid regenerating
+  static final Map<int, String> _avatarPathCache = {};
+
+  /// Get cached avatar path or generate new one.
+  static Future<String?> _getAvatarPath(String name) async {
+    final hash = name.hashCode.abs();
+    if (_avatarPathCache.containsKey(hash)) {
+      return _avatarPathCache[hash];
+    }
+    final path = await _generateAvatarWithBadgeFile(name);
+    if (path != null) {
+      _avatarPathCache[hash] = path;
+    }
+    return path;
   }
 
   static Future<void> _show(
@@ -243,8 +271,8 @@ class LocalNotifications {
     final isMessage = cat == NotificationCategory.incomingMessage;
     final isCall = cat == NotificationCategory.incomingCall;
 
-    // ── Generate avatar bitmap ──────────────────────────
-    final avatarPath = await _generateAvatarFile(payload.title);
+    // ── Generate WhatsApp-style avatar with badge ─────────────
+    final avatarPath = await _getAvatarPath(payload.title);
 
     // ── Style ──────────────────────────────────────────────
     final StyleInformation style;
@@ -254,18 +282,23 @@ class LocalNotifications {
         key: 'self',
         name: 'You',
       );
+
+      // Use file path for avatar
+      final AndroidIcon<Object> senderIcon = avatarPath != null
+          ? FilePathAndroidBitmap(avatarPath) as AndroidIcon<Object>
+          : const DrawableResourceAndroidIcon('@mipmap/ic_launcher') as AndroidIcon<Object>;
+
       final sender = Person(
         key: payload.conversationId ?? payload.title,
         name: payload.title,
         important: true,
-        // Square avatar with initials + badge overlay
-        icon: avatarPath != null
-            ? BitmapFilePathAndroidIcon(avatarPath)
-            : const DrawableResourceAndroidIcon('@mipmap/ic_launcher'),
+        icon: senderIcon,
       );
+
       style = MessagingStyleInformation(
         self,
         groupConversation: false,
+        conversationTitle: 'Simpulx',
         messages: [
           Message(payload.body, DateTime.now(), sender),
         ],
@@ -280,8 +313,9 @@ class LocalNotifications {
       style = BigTextStyleInformation(payload.body);
     }
 
-    // Brand color
-    const brandGreen = ui.Color(0xFF2D8B73);
+    // Brand colors
+    const brandGreen = Color(0xFF2D8B73);
+    const whatsappGreen = Color(0xFF25D366);
 
     final android = AndroidNotificationDetails(
       cat.channelId,
@@ -296,11 +330,11 @@ class LocalNotifications {
           : AndroidNotificationCategory.message,
       fullScreenIntent: isCall,
       icon: '@drawable/ic_notification',
-      // Square avatar as largeIcon
+      // Large icon with badge - use file path
       largeIcon: avatarPath != null
           ? FilePathAndroidBitmap(avatarPath)
           : const DrawableResourceAndroidBitmap('@mipmap/ic_launcher'),
-      color: brandGreen,
+      color: whatsappGreen,
       colorized: true,
       styleInformation: style,
       actions: [
@@ -323,7 +357,7 @@ class LocalNotifications {
           const AndroidNotificationAction(
             'decline',
             'Decline',
-            titleColor: ui.Color(0xFFD32F2F),
+            titleColor: Color(0xFFD32F2F),
             showsUserInterface: true,
           ),
           const AndroidNotificationAction(
