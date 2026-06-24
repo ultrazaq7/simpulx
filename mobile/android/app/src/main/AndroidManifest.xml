@@ -1,4 +1,5 @@
-<manifest xmlns:android="http://schemas.android.com/apk/res/android">
+<manifest xmlns:android="http://schemas.android.com/apk/res/android"
+    xmlns:tools="http://schemas.android.com/tools">
     <uses-permission android:name="android.permission.INTERNET"/>
     <uses-permission android:name="android.permission.POST_NOTIFICATIONS"/>
     <uses-permission android:name="android.permission.RECORD_AUDIO"/>
@@ -44,6 +45,18 @@
                 <data android:scheme="simpulx"/>
             </intent-filter>
         </activity>
+
+        <!-- Custom FCM service: intercepts data messages and builds native
+             WhatsApp-style notifications with avatar+badge BEFORE Flutter.
+             tools:node="replace" overrides the firebase_messaging plugin's service. -->
+        <service
+            android:name=".SimpulxMessagingService"
+            android:exported="false"
+            tools:node="replace">
+            <intent-filter>
+                <action android:name="com.google.firebase.MESSAGING_EVENT"/>
+            </intent-filter>
+        </service>
 
         <!-- FCM: default channel + icon used for background/data-only notifications. -->
         <meta-data
