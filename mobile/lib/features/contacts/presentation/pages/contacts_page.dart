@@ -240,7 +240,7 @@ class _ContactsPageState extends ConsumerState<ContactsPage> {
           ),
           // Sort dropdown
           PopupMenuButton<String>(
-            icon: const Icon(Icons.sort_rounded),
+            icon: const Icon(Icons.swap_vert_rounded),
             tooltip: 'Sort',
             onSelected: (v) => setState(() => _sortType = v),
             itemBuilder: (_) => [

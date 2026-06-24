@@ -214,9 +214,44 @@ class _ChatThreadPageState extends ConsumerState<ChatThreadPage>
       return;
     }
 
-    final source = choice == 'camera' ? ImageSource.camera : ImageSource.gallery;
+    if (choice == 'camera') {
+      final captureMode = await showDialog<String>(
+        context: context,
+        builder: (_) => AlertDialog(
+          title: const Text('Camera'),
+          content: const Text('What would you like to capture?'),
+          actions: [
+            TextButton(
+              onPressed: () => Navigator.of(context).pop('photo'),
+              child: const Text('Photo'),
+            ),
+            TextButton(
+              onPressed: () => Navigator.of(context).pop('video'),
+              child: const Text('Video'),
+            ),
+          ],
+        ),
+      );
+      if (captureMode == null) return;
+      
+      if (captureMode == 'video') {
+        final file = await ImagePicker().pickVideo(source: ImageSource.camera);
+        if (file != null) {
+          await ctrl.attachAndSend(file.path, filename: file.name, previewType: MessageType.video);
+        }
+        return;
+      }
+      
+      final file = await ImagePicker().pickImage(source: ImageSource.camera, imageQuality: 80, maxWidth: 1600);
+      if (file != null) {
+        await ctrl.attachAndSend(file.path, filename: file.name);
+      }
+      return;
+    }
+
+    // gallery
     final file = await ImagePicker()
-        .pickImage(source: source, imageQuality: 80, maxWidth: 1600);
+        .pickImage(source: ImageSource.gallery, imageQuality: 80, maxWidth: 1600);
     if (file != null) {
       await ctrl.attachAndSend(file.path, filename: file.name);
     }

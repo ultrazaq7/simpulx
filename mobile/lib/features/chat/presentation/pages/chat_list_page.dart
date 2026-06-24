@@ -284,10 +284,9 @@ class _ChatListPageState extends ConsumerState<ChatListPage> {
                 ),
             ],
           ),
-          const SizedBox(width: 8),
           // Sort dropdown
           PopupMenuButton<String>(
-            icon: const Icon(Icons.sort_rounded),
+            icon: const Icon(Icons.swap_vert_rounded),
             tooltip: 'Sort',
             onSelected: (v) => setState(() {
               _sortType = v;

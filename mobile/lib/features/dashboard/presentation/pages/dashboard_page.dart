@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
+import 'package:shimmer/shimmer.dart';
 
 import '../../../../app/theme/app_colors.dart';
 import '../../../../core/error/failure.dart';
@@ -450,13 +451,19 @@ class _StageFunnelCard extends StatelessWidget {
         const SizedBox(height: 4),
         ClipRRect(
           borderRadius: BorderRadius.circular(4),
-          child: SizedBox(
+          child: Container(
             height: 20,
-            child: LinearProgressIndicator(
-              value: pct / 100,
-              backgroundColor: Theme.of(context).colorScheme.surfaceContainerHighest,
-              valueColor: AlwaysStoppedAnimation(color),
-              minHeight: 20,
+            width: double.infinity,
+            color: Theme.of(context).colorScheme.surfaceContainerHighest,
+            child: FractionallySizedBox(
+              alignment: Alignment.centerLeft,
+              widthFactor: pct / 100,
+              child: Shimmer.fromColors(
+                baseColor: color,
+                highlightColor: Colors.white.withValues(alpha: 0.25),
+                period: const Duration(milliseconds: 2500),
+                child: Container(color: color),
+              ),
             ),
           ),
         ),
@@ -852,7 +859,7 @@ class _LeaderboardCard extends StatelessWidget {
                             fontWeight: FontWeight.w700,
                             color: ag.within5Pct >= 70
                                 ? AppColors.success
-                                : AppColors.textPrimary)),
+                                : null)),
                   ),
                 ],
               ),
@@ -1052,10 +1059,10 @@ class _AgentAnalyticsSection extends ConsumerWidget {
                   ],
                 ),
               ),
-              // Personal stage funnel
-              if (a.funnelStages.isNotEmpty) ...[
+              // Personal stage pipeline breakdown
+              if (a.stages.isNotEmpty) ...[
                 const SizedBox(height: 12),
-                _StageFunnelCard(stages: a.funnelStages),
+                _StageSplitCard(stages: a.stages, lost: a.lost),
               ],
             ],
           ),

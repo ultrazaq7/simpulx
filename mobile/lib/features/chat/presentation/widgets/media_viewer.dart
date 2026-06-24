@@ -3,8 +3,13 @@ import 'dart:io';
 import 'package:cached_network_image/cached_network_image.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
+import 'package:gal/gal.dart';
+import 'package:dio/dio.dart';
+import 'package:path_provider/path_provider.dart';
+import 'package:video_player/video_player.dart';
 
 import '../../../../core/utils/time_format.dart';
+import '../../../../core/widgets/app_snackbar.dart';
 
 /// WhatsApp-style full-screen media viewer with:
 /// • Pinch-to-zoom via InteractiveViewer
@@ -42,10 +47,12 @@ class MediaItem {
     required this.url,
     required this.senderName,
     required this.timestamp,
+    this.isVideo = false,
   });
   final String url;
   final String senderName;
   final DateTime? timestamp;
+  final bool isVideo;
 
   bool get isNetwork => url.startsWith('http');
 }
@@ -80,6 +87,31 @@ class _MediaGalleryState extends State<_MediaGallery> {
     super.dispose();
   }
 
+  Future<void> _saveMedia() async {
+    final item = widget.items[_current];
+    try {
+      final hasAccess = await Gal.hasAccess();
+      if (!hasAccess) await Gal.requestAccess();
+      
+      if (!mounted) return;
+      AppSnackbar.show(context, 'Saving...');
+      
+      if (item.isNetwork) {
+        final cacheDir = await getTemporaryDirectory();
+        final path = '${cacheDir.path}/${item.url.hashCode}${item.isVideo ? '.mp4' : '.jpg'}';
+        if (!File(path).existsSync()) {
+          await Dio().download(item.url, path);
+        }
+        item.isVideo ? await Gal.putVideo(path) : await Gal.putImage(path);
+      } else {
+        item.isVideo ? await Gal.putVideo(item.url) : await Gal.putImage(item.url);
+      }
+      if (mounted) AppSnackbar.show(context, 'Saved to device');
+    } catch (e) {
+      if (mounted) AppSnackbar.show(context, 'Failed to save', isError: true);
+    }
+  }
+
   @override
   Widget build(BuildContext context) {
     final item = widget.items[_current];
@@ -94,7 +126,7 @@ class _MediaGalleryState extends State<_MediaGallery> {
             controller: _pageCtrl,
             itemCount: count,
             onPageChanged: (i) => setState(() => _current = i),
-            itemBuilder: (_, i) => _ZoomablePage(item: widget.items[i]),
+            itemBuilder: (_, i) => _MediaPage(item: widget.items[i]),
           ),
 
           // ── Top bar ────────────────────────────────────
@@ -165,6 +197,10 @@ class _MediaGalleryState extends State<_MediaGallery> {
                           ),
                         ),
                       const SizedBox(width: 8),
+                      IconButton(
+                        icon: const Icon(Icons.download_rounded, color: Colors.white),
+                        onPressed: _saveMedia,
+                      ),
                     ],
                   ),
                 ),
@@ -203,12 +239,15 @@ class _MediaGalleryState extends State<_MediaGallery> {
   }
 }
 
-class _ZoomablePage extends StatelessWidget {
-  const _ZoomablePage({required this.item});
+class _MediaPage extends StatelessWidget {
+  const _MediaPage({required this.item});
   final MediaItem item;
 
   @override
   Widget build(BuildContext context) {
+    if (item.isVideo) {
+      return _VideoPage(item: item);
+    }
     return Center(
       child: InteractiveViewer(
         minScale: 0.5,
@@ -223,6 +262,7 @@ class _ZoomablePage extends StatelessWidget {
                 ),
                 errorWidget: (_, _, _) => const Column(
                   mainAxisSize: MainAxisSize.min,
+                  mainAxisAlignment: MainAxisAlignment.center,
                   children: [
                     Icon(Icons.broken_image_outlined,
                         color: Colors.white54, size: 48),
@@ -233,6 +273,82 @@ class _ZoomablePage extends StatelessWidget {
                 ),
               )
             : Image.file(File(item.url), fit: BoxFit.contain),
+      ),
+    );
+  }
+}
+
+class _VideoPage extends StatefulWidget {
+  final MediaItem item;
+  const _VideoPage({required this.item});
+
+  @override
+  State<_VideoPage> createState() => _VideoPageState();
+}
+
+class _VideoPageState extends State<_VideoPage> {
+  late VideoPlayerController _controller;
+  bool _initialized = false;
+
+  @override
+  void initState() {
+    super.initState();
+    _controller = widget.item.isNetwork 
+      ? VideoPlayerController.networkUrl(Uri.parse(widget.item.url))
+      : VideoPlayerController.file(File(widget.item.url));
+    _controller.initialize().then((_) {
+      if (mounted) {
+        setState(() { _initialized = true; });
+        _controller.play();
+        _controller.setLooping(true);
+      }
+    }).catchError((e) {
+      debugPrint("Video error: $e");
+    });
+  }
+
+  @override
+  void dispose() {
+    _controller.dispose();
+    super.dispose();
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    if (!_initialized) {
+      return const Center(child: CircularProgressIndicator(color: Colors.white));
+    }
+    return Center(
+      child: AspectRatio(
+        aspectRatio: _controller.value.aspectRatio,
+        child: Stack(
+          alignment: Alignment.center,
+          children: [
+            VideoPlayer(_controller),
+            GestureDetector(
+              onTap: () {
+                setState(() {
+                  _controller.value.isPlaying ? _controller.pause() : _controller.play();
+                });
+              },
+              child: Container(
+                color: Colors.transparent,
+                child: Center(
+                  child: !_controller.value.isPlaying
+                      ? Container(
+                          padding: const EdgeInsets.all(12),
+                          decoration: BoxDecoration(
+                            color: Colors.black.withValues(alpha: 0.5),
+                            shape: BoxShape.circle,
+                          ),
+                          child: const Icon(Icons.play_arrow_rounded, color: Colors.white, size: 48),
+                        )
+                      : const SizedBox.shrink(),
+                ),
+              ),
+            ),
+          ],
+        ),
       ),
     );
   }

@@ -76,24 +76,6 @@ class SettingsPage extends ConsumerWidget {
                 trailing: const Icon(Icons.chevron_right_rounded),
                 onTap: () => _showLanguagePicker(context, ref, locale),
               ),
-              ListTile(
-                leading: const Icon(Icons.palette_rounded),
-                title: const Text('Theme'),
-                subtitle: Text(themeName(themeMode)),
-                trailing: const Icon(Icons.chevron_right_rounded),
-                onTap: () => _showThemePicker(context, ref, themeMode),
-              ),
-              if (user?.role.isManagerTier ?? false) ...[
-                const Divider(height: 1),
-                const _SectionLabel('Workspace'),
-                ListTile(
-                  leading: const Icon(Icons.grid_view_rounded),
-                  title: const Text('Workspace'),
-                  subtitle: const Text('Team, and more'),
-                  trailing: const Icon(Icons.chevron_right_rounded),
-                  onTap: () => context.push('/workspace'),
-                ),
-              ],
             ],
           ),
           SliverFillRemaining(
