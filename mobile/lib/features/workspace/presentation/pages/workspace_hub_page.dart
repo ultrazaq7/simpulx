@@ -15,12 +15,7 @@ class WorkspaceHubPage extends StatelessWidget {
       body: ListView(
         children: [
           const _SectionLabel('Manage here'),
-          _Tile(
-            icon: Icons.campaign_outlined,
-            title: 'Broadcasts',
-            subtitle: 'Monitor delivery and send',
-            onTap: () => context.push('/workspace/broadcasts'),
-          ),
+
           _Tile(
             icon: Icons.groups_outlined,
             title: 'Team',

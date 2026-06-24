@@ -47,70 +47,72 @@ class _ActionsSheet extends ConsumerWidget {
       child: ListenableBuilder(
         listenable: actions,
         builder: (context, _) {
-          return Column(
-            mainAxisSize: MainAxisSize.min,
-            children: [
-              ListTile(
-                title: Text(live.displayName,
-                    style: const TextStyle(fontWeight: FontWeight.w700)),
-                subtitle: Text(live.stageName ?? 'No stage'),
-                trailing: actions.busy
-                    ? const SizedBox(
-                        width: 18,
-                        height: 18,
-                        child: CircularProgressIndicator(strokeWidth: 2))
-                    : null,
-              ),
-              const Divider(height: 1),
-              _InterestRow(
-                current: live.interestLevel,
-                onPick: (level) {
-                  // Optimistic: update inbox + this sheet instantly.
-                  ref
-                      .read(conversationListProvider.notifier)
-                      .patchLocal(convId, interestLevel: level);
-                  actions.setInterest(level);
-                },
-              ),
-              const Divider(height: 1),
-              ListTile(
-                leading: const Icon(Icons.flag_outlined),
-                title: const Text('Move stage'),
-                subtitle: Text(live.stageName ?? 'Not set'),
-                onTap: () => _pickStage(context, ref, actions, convId),
-              ),
-              ListTile(
-                leading: const Icon(Icons.snooze_outlined),
-                title: const Text('Snooze'),
-                onTap: () => _pickSnooze(context, actions),
-              ),
-              ListTile(
-                leading: const Icon(Icons.sticky_note_2_outlined),
-                title: const Text('Internal notes'),
-                onTap: () {
-                  Navigator.of(context).pop();
-                  showNotesSheet(context, convId);
-                },
-              ),
-              ListTile(
-                leading: Icon(isClosed
-                    ? Icons.refresh_rounded
-                    : Icons.check_circle_outline_rounded),
-                title: Text(isClosed ? 'Reopen' : 'Resolve'),
-                onTap: () => _do(
-                  context,
-                  isClosed ? actions.reopen() : actions.resolve(),
-                ),
-              ),
-              if (role?.isManagerTier ?? false)
+          return SingleChildScrollView(
+            child: Column(
+              mainAxisSize: MainAxisSize.min,
+              children: [
                 ListTile(
-                  leading: const Icon(Icons.person_add_alt_1_outlined),
-                  title: const Text('Assign agent'),
-                  subtitle: Text(live.agentName ?? 'Unassigned'),
-                  onTap: () => _pickAgent(context, ref, actions),
+                  title: Text(live.displayName,
+                      style: const TextStyle(fontWeight: FontWeight.w700)),
+                  subtitle: Text(live.stageName ?? 'No stage'),
+                  trailing: actions.busy
+                      ? const SizedBox(
+                          width: 18,
+                          height: 18,
+                          child: CircularProgressIndicator(strokeWidth: 2))
+                      : null,
                 ),
-              const SizedBox(height: 8),
-            ],
+                const Divider(height: 1),
+                _InterestRow(
+                  current: live.interestLevel,
+                  onPick: (level) {
+                    // Optimistic: update inbox + this sheet instantly.
+                    ref
+                        .read(conversationListProvider.notifier)
+                        .patchLocal(convId, interestLevel: level);
+                    actions.setInterest(level);
+                  },
+                ),
+                const Divider(height: 1),
+                ListTile(
+                  leading: const Icon(Icons.flag_outlined),
+                  title: const Text('Move stage'),
+                  subtitle: Text(live.stageName ?? 'Not set'),
+                  onTap: () => _pickStage(context, ref, actions, convId),
+                ),
+                ListTile(
+                  leading: const Icon(Icons.snooze_outlined),
+                  title: const Text('Snooze'),
+                  onTap: () => _pickSnooze(context, actions),
+                ),
+                ListTile(
+                  leading: const Icon(Icons.sticky_note_2_outlined),
+                  title: const Text('Internal notes'),
+                  onTap: () {
+                    Navigator.of(context).pop();
+                    showNotesSheet(context, convId);
+                  },
+                ),
+                ListTile(
+                  leading: Icon(isClosed
+                      ? Icons.refresh_rounded
+                      : Icons.check_circle_outline_rounded),
+                  title: Text(isClosed ? 'Reopen' : 'Resolve'),
+                  onTap: () => _do(
+                    context,
+                    isClosed ? actions.reopen() : actions.resolve(),
+                  ),
+                ),
+                if (role?.isManagerTier ?? false)
+                  ListTile(
+                    leading: const Icon(Icons.person_add_alt_1_outlined),
+                    title: const Text('Assign agent'),
+                    subtitle: Text(live.agentName ?? 'Unassigned'),
+                    onTap: () => _pickAgent(context, ref, actions),
+                  ),
+                const SizedBox(height: 8),
+              ],
+            ),
           );
         },
       ),

@@ -12,9 +12,9 @@ Future<void> showNotesSheet(BuildContext context, String conversationId) {
   return showModalBottomSheet<void>(
     context: context,
     isScrollControlled: true,
-    builder: (_) => Padding(
+    builder: (modalContext) => Padding(
       padding: EdgeInsets.only(
-        bottom: MediaQuery.of(context).viewInsets.bottom,
+        bottom: MediaQuery.of(modalContext).viewInsets.bottom,
       ),
       child: FractionallySizedBox(
         heightFactor: 0.85,
@@ -100,14 +100,17 @@ class _NotesSheetState extends ConsumerState<_NotesSheet> {
                     margin: const EdgeInsets.only(bottom: 8),
                     padding: const EdgeInsets.all(12),
                     decoration: BoxDecoration(
-                      color: const Color(0xFFFFFBEB),
+                      color: Theme.of(context).colorScheme.surfaceContainerHighest,
                       borderRadius: BorderRadius.circular(10),
-                      border: Border.all(color: const Color(0xFFFDE68A)),
+                      border: Border.all(
+                        color: AppColors.brandAmber.withValues(alpha: 0.5),
+                        width: 1,
+                      ),
                     ),
                     child: Column(
                       crossAxisAlignment: CrossAxisAlignment.start,
                       children: [
-                        Text(n.body),
+                        Text(n.body, style: TextStyle(color: Theme.of(context).colorScheme.onSurface)),
                         const SizedBox(height: 6),
                         Text(
                           '${n.author} - ${formatDayLabel(n.createdAt)} ${formatBubbleTime(n.createdAt)}',

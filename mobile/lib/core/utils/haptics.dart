@@ -1,3 +1,4 @@
+import 'dart:async';
 import 'package:flutter/services.dart';
 
 /// Enum for different haptic feedback types used across the app.
@@ -28,70 +29,71 @@ enum HapticType {
 }
 
 /// Utility class providing consistent haptic feedback throughout the app.
+/// Uses static helper methods for reliable fire-and-forget haptic feedback.
 class Haptics {
   Haptics._();
 
-  /// Triggers haptic feedback based on type.
-  /// Call this instead of HapticFeedback directly.
-  static Future<void> feedback(HapticType type) async {
+  /// Schedules haptic feedback. Safe to call without await (fire-and-forget).
+  static void feedback(HapticType type) {
     switch (type) {
       case HapticType.light:
-        await HapticFeedback.lightImpact();
+        HapticFeedback.lightImpact();
       case HapticType.medium:
-        await HapticFeedback.mediumImpact();
+        HapticFeedback.mediumImpact();
       case HapticType.heavy:
-        await HapticFeedback.heavyImpact();
+        HapticFeedback.heavyImpact();
       case HapticType.success:
-        await HapticFeedback.mediumImpact();
-        await Future.delayed(const Duration(milliseconds: 50));
-        await HapticFeedback.lightImpact();
+        HapticFeedback.mediumImpact();
+        Future.delayed(const Duration(milliseconds: 50), HapticFeedback.lightImpact);
       case HapticType.error:
-        await HapticFeedback.heavyImpact();
-        await Future.delayed(const Duration(milliseconds: 100));
-        await HapticFeedback.heavyImpact();
+        HapticFeedback.heavyImpact();
+        Future.delayed(const Duration(milliseconds: 100), HapticFeedback.heavyImpact);
       case HapticType.selection:
-        await HapticFeedback.selectionClick();
+        HapticFeedback.selectionClick();
       case HapticType.vibrate:
-        await HapticFeedback.vibrate();
+        HapticFeedback.vibrate();
       case HapticType.doubleTap:
-        await HapticFeedback.lightImpact();
-        await Future.delayed(const Duration(milliseconds: 80));
-        await HapticFeedback.lightImpact();
+        HapticFeedback.lightImpact();
+        Future.delayed(const Duration(milliseconds: 80), HapticFeedback.lightImpact);
     }
   }
 
-  /// Convenience methods for common scenarios
-  static Future<void> get light => feedback(HapticType.light);
-  static Future<void> get medium => feedback(HapticType.medium);
-  static Future<void> get heavy => feedback(HapticType.heavy);
-  static Future<void> get success => feedback(HapticType.success);
-  static Future<void> get error => feedback(HapticType.error);
-  static Future<void> get selection => feedback(HapticType.selection);
-  static Future<void> get vibrate => feedback(HapticType.vibrate);
-  static Future<void> get doubleTap => feedback(HapticType.doubleTap);
+  /// Light impact feedback
+  static void get light => feedback(HapticType.light);
 
-  /// For button presses - combines visual + haptic
-  static Future<void> buttonPress() async {
-    await medium;
-  }
+  /// Medium impact feedback
+  static void get medium => feedback(HapticType.medium);
+
+  /// Heavy impact feedback
+  static void get heavy => feedback(HapticType.heavy);
+
+  /// Success feedback (double tap pattern)
+  static void get success => feedback(HapticType.success);
+
+  /// Error feedback (heavy double tap)
+  static void get error => feedback(HapticType.error);
+
+  /// Selection click feedback
+  static void get selection => feedback(HapticType.selection);
+
+  /// Vibrate feedback
+  static void get vibrate => feedback(HapticType.vibrate);
+
+  /// Double tap feedback
+  static void get doubleTap => feedback(HapticType.doubleTap);
+
+  /// For button presses
+  static void get buttonPress => feedback(HapticType.medium);
 
   /// For toggle switches
-  static Future<void> toggle() async {
-    await light;
-  }
+  static void get toggle => feedback(HapticType.light);
 
   /// For card/item selection
-  static Future<void> select() async {
-    await selection;
-  }
+  static void get select => feedback(HapticType.selection);
 
   /// For destructive actions
-  static Future<void> destructive() async {
-    await heavy;
-  }
+  static void get destructive => feedback(HapticType.heavy);
 
   /// For successful completion
-  static Future<void> completed() async {
-    await success;
-  }
+  static void get completed => feedback(HapticType.success);
 }

@@ -1,4 +1,6 @@
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
+import '../../../../core/utils/haptics.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import '../../../../app/theme/app_colors.dart';
@@ -7,16 +9,20 @@ import '../controllers/chat_actions_providers.dart';
 import '../controllers/chat_providers.dart';
 import '../controllers/voice_recorder.dart';
 
+import 'template_picker_sheet.dart';
+
 /// Bottom message input: text, attachments, push-to-record voice, and an inline
 /// quick-reply popup triggered by typing "/" (WhatsApp-style).
 class MessageComposer extends ConsumerStatefulWidget {
   const MessageComposer({
     super.key,
+    required this.conversationId,
     required this.onSend,
     this.onAttach,
     this.onSendVoice,
   });
 
+  final String conversationId;
   final void Function(String text) onSend;
   final VoidCallback? onAttach;
 
@@ -98,7 +104,13 @@ class _MessageComposerState extends ConsumerState<MessageComposer> {
     return Container(
       decoration: BoxDecoration(
         color: theme.colorScheme.surface,
-        border: Border(top: BorderSide(color: AppColors.border)),
+        border: Border(
+          top: BorderSide(
+            color: theme.brightness == Brightness.dark 
+                ? Colors.transparent 
+                : AppColors.border,
+          ),
+        ),
       ),
       child: SafeArea(
         top: false,
@@ -128,7 +140,10 @@ class _MessageComposerState extends ConsumerState<MessageComposer> {
         IconButton(
           icon: const Icon(Icons.add_circle_outline_rounded),
           color: AppColors.textSecondary,
-          onPressed: widget.onAttach,
+          onPressed: () {
+            Haptics.selection;
+            widget.onAttach?.call();
+          },
           tooltip: 'Attach',
         ),
         Expanded(
@@ -140,11 +155,37 @@ class _MessageComposerState extends ConsumerState<MessageComposer> {
               maxLines: 5,
               textCapitalization: TextCapitalization.sentences,
               keyboardType: TextInputType.multiline,
-              decoration: const InputDecoration(
-                hintText: 'Message  (type / for quick replies)',
+              decoration: InputDecoration(
+                hintText: 'Message',
                 isDense: true,
                 contentPadding:
-                    EdgeInsets.symmetric(horizontal: 14, vertical: 10),
+                    const EdgeInsets.symmetric(horizontal: 14, vertical: 10),
+                suffixIcon: Row(
+                  mainAxisSize: MainAxisSize.min,
+                  children: [
+                    IconButton(
+                      icon: const Icon(Icons.flash_on_rounded, size: 20),
+                      color: AppColors.textSecondary,
+                      onPressed: () {
+                        Haptics.selection;
+                        setState(() {
+                          _controller.text = '/';
+                          _controller.selection = TextSelection.collapsed(offset: 1);
+                        });
+                      },
+                      tooltip: 'Shortcuts',
+                    ),
+                    IconButton(
+                      icon: const Icon(Icons.library_books_rounded, size: 20),
+                      color: AppColors.textSecondary,
+                      onPressed: () {
+                        Haptics.selection;
+                        showTemplatePicker(context, widget.conversationId);
+                      },
+                      tooltip: 'Templates',
+                    ),
+                  ],
+                ),
               ),
             ),
           ),
@@ -152,11 +193,17 @@ class _MessageComposerState extends ConsumerState<MessageComposer> {
         const SizedBox(width: 6),
         showMic
             ? _RoundButton(
-                icon: Icons.mic_rounded, filled: false, onTap: _startRecording)
+                icon: Icons.mic_rounded, filled: false, onTap: () {
+                  Haptics.medium;
+                  _startRecording();
+                })
             : _RoundButton(
                 icon: Icons.send_rounded,
                 filled: _canSend,
-                onTap: _canSend ? _send : null),
+                onTap: _canSend ? () {
+                  Haptics.medium;
+                  _send();
+                } : null),
       ],
     );
   }

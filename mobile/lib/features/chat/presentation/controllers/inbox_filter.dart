@@ -3,27 +3,72 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import '../../domain/entities/conversation.dart';
 
 /// Quick inbox filter, set by dashboard drill-through and the inbox itself.
-enum InboxFilter {
-  all,
-  hot,
-  unread,
-  followUp;
+class InboxFilter {
+  const InboxFilter({
+    this.interestLevel,
+    this.status,
+    this.stageName,
+    this.assignment, // 'mine', 'unassigned', null
+    this.unreadOnly = false,
+    this.followUpOnly = false,
+  });
 
-  String get label => switch (this) {
-        InboxFilter.all => 'All',
-        InboxFilter.hot => 'Hot',
-        InboxFilter.unread => 'Unread',
-        InboxFilter.followUp => 'Follow-up',
-      };
+  final String? interestLevel;
+  final String? status;
+  final String? stageName;
+  final String? assignment;
+  final bool unreadOnly;
+  final bool followUpOnly;
 
-  bool matches(Conversation c) => switch (this) {
-        InboxFilter.all => true,
-        InboxFilter.hot => c.interestLevel == 'hot',
-        InboxFilter.unread => c.unreadCount > 0,
-        InboxFilter.followUp =>
-          (c.interestLevel == 'hot' || c.interestLevel == 'warm') &&
-              c.unreadCount > 0,
-      };
+  static const all = InboxFilter();
+  static const hot = InboxFilter(interestLevel: 'hot');
+  static const unread = InboxFilter(unreadOnly: true);
+  static const followUp = InboxFilter(followUpOnly: true);
+
+  int get activeCount =>
+      (interestLevel != null ? 1 : 0) +
+      (status != null ? 1 : 0) +
+      (stageName != null ? 1 : 0) +
+      (assignment != null ? 1 : 0) +
+      (unreadOnly ? 1 : 0) +
+      (followUpOnly ? 1 : 0);
+
+  bool matches(Conversation c, {String? myId}) {
+    if (interestLevel != null && c.interestLevel != interestLevel) return false;
+    if (status != null && c.status != status) return false;
+    if (stageName != null && c.stageName != stageName) return false;
+    if (assignment == 'unassigned' && !c.isUnassigned) return false;
+    if (assignment == 'mine' && c.assignedAgentId != myId) return false;
+    if (unreadOnly && c.unreadCount == 0) return false;
+    if (followUpOnly &&
+        !((c.interestLevel == 'hot' || c.interestLevel == 'warm') &&
+            c.unreadCount > 0)) {
+      return false;
+    }
+    return true;
+  }
+
+  InboxFilter copyWith({
+    String? interestLevel,
+    bool clearInterest = false,
+    String? status,
+    bool clearStatus = false,
+    String? stageName,
+    bool clearStage = false,
+    String? assignment,
+    bool clearAssignment = false,
+    bool? unreadOnly,
+    bool? followUpOnly,
+  }) {
+    return InboxFilter(
+      interestLevel: clearInterest ? null : (interestLevel ?? this.interestLevel),
+      status: clearStatus ? null : (status ?? this.status),
+      stageName: clearStage ? null : (stageName ?? this.stageName),
+      assignment: clearAssignment ? null : (assignment ?? this.assignment),
+      unreadOnly: unreadOnly ?? this.unreadOnly,
+      followUpOnly: followUpOnly ?? this.followUpOnly,
+    );
+  }
 }
 
 class InboxFilterController extends Notifier<InboxFilter> {

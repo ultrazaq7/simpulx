@@ -4,8 +4,7 @@ import 'app_colors.dart';
 import 'app_spacing.dart';
 import 'app_typography.dart';
 
-/// Simpulx v2 design system. Light = clean whites with teal accents.
-/// Dark = deep teal-black with brand-aligned surfaces.
+/// Central [ThemeData] for light + dark, built from the design tokens.
 class AppTheme {
   AppTheme._();
 
@@ -15,83 +14,62 @@ class AppTheme {
   static ThemeData _build(Brightness brightness) {
     final isDark = brightness == Brightness.dark;
 
-    // ── Surface colours ──────────────────────────────────
-    final bg = isDark ? AppColors.darkBackground : AppColors.background;
-    final surface = isDark ? AppColors.darkSurface : AppColors.surface;
-    final surfaceAlt = isDark ? AppColors.darkSurfaceAlt : AppColors.surfaceAlt;
-    final border = isDark ? AppColors.darkBorder : AppColors.border;
-    final onSurface =
-        isDark ? AppColors.darkTextPrimary : AppColors.textPrimary;
-    final onSurfaceSecondary =
-        isDark ? AppColors.darkTextSecondary : AppColors.textSecondary;
-    final onSurfaceMuted =
-        isDark ? AppColors.darkTextMuted : AppColors.textMuted;
-
-    // ── ColorScheme ─────────────────────────────────────
     final scheme = ColorScheme(
       brightness: brightness,
       primary: AppColors.primary,
       onPrimary: AppColors.onPrimary,
-      secondary: AppColors.success,
+      secondary: AppColors.brandGreenSoft,
       onSecondary: AppColors.onPrimary,
-      tertiary: AppColors.warning,
       error: AppColors.danger,
       onError: Colors.white,
-      surface: surface,
-      onSurface: onSurface,
-      surfaceContainerHighest: surfaceAlt,
-      outline: border,
+      surface: isDark ? AppColors.darkSurface : AppColors.surface,
+      onSurface: isDark ? AppColors.darkTextPrimary : AppColors.textPrimary,
+      surfaceContainerHighest:
+          isDark ? AppColors.darkSurfaceAlt : AppColors.surfaceAlt,
+      outline: isDark ? AppColors.darkBorder : AppColors.borderStrong,
     );
+
+    final scaffoldBg =
+        isDark ? AppColors.darkBackground : AppColors.background;
+    final surface = isDark ? AppColors.darkSurface : AppColors.surface;
+    final border = isDark ? AppColors.darkBorder : AppColors.border;
+    final textSecondary =
+        isDark ? AppColors.darkTextSecondary : AppColors.textSecondary;
 
     return ThemeData(
       useMaterial3: true,
       brightness: brightness,
       colorScheme: scheme,
-      scaffoldBackgroundColor: bg,
+      scaffoldBackgroundColor: scaffoldBg,
       textTheme: AppText.textTheme(brightness),
-
-      // Splash: subtle shimmer
       splashFactory: InkSparkle.splashFactory,
-      splashColor: AppColors.primary.withValues(alpha: 0.08),
-
-      // ── App bar ──────────────────────────────────────────
       appBarTheme: AppBarTheme(
         backgroundColor: surface,
         surfaceTintColor: Colors.transparent,
         elevation: 0,
-        scrolledUnderElevation: 0,
+        scrolledUnderElevation: 0.5,
         centerTitle: false,
-        titleTextStyle: AppText.title.copyWith(color: onSurface),
-        iconTheme: IconThemeData(color: onSurface),
+        titleTextStyle: AppText.title.copyWith(color: scheme.onSurface),
+        iconTheme: IconThemeData(color: scheme.onSurface),
       ),
-
-      // ── Cards: clean surfaces ──────────────────────────────
       cardTheme: CardThemeData(
         color: surface,
         elevation: 0,
         margin: EdgeInsets.zero,
         shape: RoundedRectangleBorder(
           borderRadius: AppRadius.rLg,
-          side: BorderSide(color: border, width: 1),
+          side: BorderSide(color: border),
         ),
       ),
-
-      // ── Dividers ────────────────────────────────────────
-      dividerTheme: DividerThemeData(
-        color: border,
-        thickness: 0.5,
-        space: 1,
-      ),
-
-      // ── Inputs ──────────────────────────────────────────
+      dividerTheme: DividerThemeData(color: border, thickness: 1, space: 1),
       inputDecorationTheme: InputDecorationTheme(
         filled: true,
-        fillColor: surfaceAlt,
+        fillColor: isDark ? AppColors.darkSurfaceAlt : AppColors.surfaceAlt,
         contentPadding: const EdgeInsets.symmetric(
           horizontal: AppSpacing.lg,
           vertical: AppSpacing.md,
         ),
-        hintStyle: AppText.body.copyWith(color: onSurfaceMuted),
+        hintStyle: AppText.body.copyWith(color: AppColors.textMuted),
         border: OutlineInputBorder(
           borderRadius: AppRadius.rMd,
           borderSide: BorderSide(color: border),
@@ -109,27 +87,14 @@ class AppTheme {
           borderSide: const BorderSide(color: AppColors.danger),
         ),
       ),
-
-      // ── Buttons ────────────────────────────────────────
-      filledButtonTheme: FilledButtonThemeData(
-        style: FilledButton.styleFrom(
+      elevatedButtonTheme: ElevatedButtonThemeData(
+        style: ElevatedButton.styleFrom(
           backgroundColor: AppColors.primary,
           foregroundColor: AppColors.onPrimary,
           elevation: 0,
           minimumSize: const Size.fromHeight(50),
           textStyle: AppText.button,
           shape: RoundedRectangleBorder(borderRadius: AppRadius.rMd),
-          padding: const EdgeInsets.symmetric(horizontal: 20),
-        ),
-      ),
-      outlinedButtonTheme: OutlinedButtonThemeData(
-        style: OutlinedButton.styleFrom(
-          foregroundColor: AppColors.primary,
-          side: const BorderSide(color: AppColors.primary),
-          minimumSize: const Size.fromHeight(50),
-          textStyle: AppText.button,
-          shape: RoundedRectangleBorder(borderRadius: AppRadius.rMd),
-          padding: const EdgeInsets.symmetric(horizontal: 20),
         ),
       ),
       textButtonTheme: TextButtonThemeData(
@@ -138,94 +103,53 @@ class AppTheme {
           textStyle: AppText.button,
         ),
       ),
-
-      // ── Nav bar ────────────────────────────────────────
       navigationBarTheme: NavigationBarThemeData(
         backgroundColor: surface,
         indicatorColor: AppColors.primary.withValues(alpha: 0.12),
-        height: 64,
+        height: 62,
         labelBehavior: NavigationDestinationLabelBehavior.alwaysShow,
         elevation: 0,
-        surfaceTintColor: Colors.transparent,
         labelTextStyle: WidgetStateProperty.resolveWith((states) {
           final selected = states.contains(WidgetState.selected);
           return AppText.caption.copyWith(
+            fontSize: 11,
             fontWeight: selected ? FontWeight.w700 : FontWeight.w600,
-            color: selected ? AppColors.primary : onSurfaceSecondary,
+            color: selected ? AppColors.primary : textSecondary,
           );
         }),
         iconTheme: WidgetStateProperty.resolveWith((states) {
           final selected = states.contains(WidgetState.selected);
           return IconThemeData(
-            size: 24,
-            color: selected ? AppColors.primary : onSurfaceSecondary,
+            size: 22,
+            color: selected ? AppColors.primary : textSecondary,
           );
         }),
       ),
-
-      // ── Bottom sheets ────────────────────────────────────
       bottomSheetTheme: BottomSheetThemeData(
         backgroundColor: surface,
         surfaceTintColor: Colors.transparent,
         shape: const RoundedRectangleBorder(
-          borderRadius: BorderRadius.vertical(top: Radius.circular(24)),
+          borderRadius: BorderRadius.vertical(top: Radius.circular(20)),
         ),
         showDragHandle: true,
-        dragHandleColor: onSurfaceMuted,
       ),
-
-      // ── Snack bars ──────────────────────────────────────
       snackBarTheme: SnackBarThemeData(
         behavior: SnackBarBehavior.floating,
-        backgroundColor:
-            isDark ? AppColors.darkTextPrimary : AppColors.textPrimary,
+        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+        backgroundColor: isDark ? const Color(0xFF222222) : const Color(0xFF2C2C2C),
         contentTextStyle: AppText.body.copyWith(
-            color: isDark ? AppColors.darkBackground : AppColors.surface),
-        shape: RoundedRectangleBorder(borderRadius: AppRadius.rMd),
+          color: Colors.white,
+          fontWeight: FontWeight.w500,
+          fontSize: 14,
+        ),
+        elevation: 10,
+        insetPadding: const EdgeInsets.symmetric(horizontal: 16, vertical: 20),
       ),
-
-      // ── Chips ──────────────────────────────────────────
       chipTheme: ChipThemeData(
-        backgroundColor: surfaceAlt,
+        backgroundColor: isDark ? AppColors.darkSurfaceAlt : AppColors.surfaceAlt,
         side: BorderSide(color: border),
-        labelStyle: AppText.label.copyWith(color: onSurface),
+        labelStyle: AppText.label,
         shape: RoundedRectangleBorder(borderRadius: AppRadius.rPill),
-        padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
-      ),
-
-      // ── FAB ──────────────────────────────────────────
-      floatingActionButtonTheme: FloatingActionButtonThemeData(
-        backgroundColor: AppColors.primary,
-        foregroundColor: AppColors.onPrimary,
-        elevation: 2,
-        shape: const CircleBorder(),
-      ),
-
-      // ── Dialogs ──────────────────────────────────────
-      dialogTheme: DialogThemeData(
-        backgroundColor: surface,
-        surfaceTintColor: Colors.transparent,
-        shape: RoundedRectangleBorder(borderRadius: AppRadius.rXl),
-      ),
-
-      // ── Progress indicators ─────────────────────────────
-      progressIndicatorTheme: ProgressIndicatorThemeData(
-        color: AppColors.primary,
-        linearTrackColor: surfaceAlt,
-      ),
-
-      // ── Switch ────────────────────────────────────────
-      switchTheme: SwitchThemeData(
-        thumbColor: WidgetStateProperty.resolveWith((states) {
-          return states.contains(WidgetState.selected)
-              ? AppColors.primary
-              : onSurfaceMuted;
-        }),
-        trackColor: WidgetStateProperty.resolveWith((states) {
-          return states.contains(WidgetState.selected)
-              ? AppColors.primary.withValues(alpha: 0.30)
-              : surfaceAlt;
-        }),
       ),
     );
   }

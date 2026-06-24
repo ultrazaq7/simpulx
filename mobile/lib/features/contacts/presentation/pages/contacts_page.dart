@@ -86,7 +86,7 @@ class _ContactsPageState extends ConsumerState<ContactsPage> {
                     children: [
                       Row(
                         children: [
-                          const Text('Filters',
+                          const Text('Advanced Filters',
                               style: TextStyle(
                                   fontSize: 17, fontWeight: FontWeight.w700)),
                           const Spacer(),
@@ -101,6 +101,29 @@ class _ContactsPageState extends ConsumerState<ContactsPage> {
                         ],
                       ),
                       const SizedBox(height: 8),
+                      const Text('Interest Level',
+                          style: TextStyle(
+                              fontWeight: FontWeight.w700, fontSize: 13)),
+                      const SizedBox(height: 8),
+                      Wrap(
+                        spacing: 8,
+                        children: [
+                          ChoiceChip(
+                            label: const Text('All'),
+                            selected: _interest == null,
+                            onSelected: (_) => update(() => _interest = null),
+                          ),
+                          for (final level in const ['hot', 'warm', 'cold'])
+                            ChoiceChip(
+                              label: Text(level[0].toUpperCase() + level.substring(1)),
+                              selected: _interest == level,
+                              selectedColor:
+                                  AppColors.forInterest(level).withValues(alpha: 0.16),
+                              onSelected: (_) => update(() => _interest = level),
+                            ),
+                        ],
+                      ),
+                      const SizedBox(height: 16),
                       const Text('Stage',
                           style: TextStyle(
                               fontWeight: FontWeight.w700, fontSize: 13)),
@@ -153,7 +176,7 @@ class _ContactsPageState extends ConsumerState<ContactsPage> {
                           onPressed: () => Navigator.of(context).pop(),
                           style: FilledButton.styleFrom(
                               minimumSize: const Size.fromHeight(48)),
-                          child: const Text('Done'),
+                          child: const Text('Apply'),
                         ),
                       ),
                     ],
@@ -207,52 +230,28 @@ class _ContactsPageState extends ConsumerState<ContactsPage> {
           ),
         ],
         bottom: PreferredSize(
-          preferredSize: const Size.fromHeight(98),
-          child: Column(
-            children: [
-              Padding(
-                padding: const EdgeInsets.fromLTRB(12, 0, 12, 8),
-                child: TextField(
-                  controller: _search,
-                  onChanged: (v) => setState(() => _query = v),
-                  decoration: InputDecoration(
-                    hintText: 'Search name or phone',
-                    prefixIcon: const Icon(Icons.search_rounded, size: 20),
-                    isDense: true,
-                    suffixIcon: _query.isEmpty
-                        ? null
-                        : IconButton(
-                            icon: const Icon(Icons.close_rounded, size: 18),
-                            onPressed: () {
-                              _search.clear();
-                              setState(() => _query = '');
-                            },
-                          ),
-                  ),
-                ),
-              ),
-              SizedBox(
-                height: 40,
-                child: ListView(
-                  scrollDirection: Axis.horizontal,
-                  padding: const EdgeInsets.symmetric(horizontal: 12),
-                  children: [
-                    _FilterChip(
-                      label: 'All',
-                      selected: _interest == null,
-                      onTap: () => setState(() => _interest = null),
-                    ),
-                    for (final level in const ['hot', 'warm', 'cold'])
-                      _FilterChip(
-                        label: level[0].toUpperCase() + level.substring(1),
-                        color: AppColors.forInterest(level),
-                        selected: _interest == level,
-                        onTap: () => setState(() => _interest = level),
+          preferredSize: const Size.fromHeight(56),
+          child: Padding(
+            padding: const EdgeInsets.fromLTRB(12, 0, 12, 10),
+            child: TextField(
+              controller: _search,
+              onChanged: (v) => setState(() => _query = v),
+              textInputAction: TextInputAction.search,
+              decoration: InputDecoration(
+                hintText: 'Search name or phone',
+                prefixIcon: const Icon(Icons.search_rounded, size: 20),
+                isDense: true,
+                suffixIcon: _query.isEmpty
+                    ? null
+                    : IconButton(
+                        icon: const Icon(Icons.close_rounded, size: 18),
+                        onPressed: () {
+                          _search.clear();
+                          setState(() => _query = '');
+                        },
                       ),
-                  ],
-                ),
               ),
-            ],
+            ),
           ),
         ),
       ),
@@ -288,8 +287,7 @@ class _ContactsPageState extends ConsumerState<ContactsPage> {
                   )
                 : ListView.separated(
                     itemCount: filtered.length,
-                    separatorBuilder: (_, _) => const Divider(
-                        height: 1, indent: 70, color: AppColors.border),
+                    separatorBuilder: (_, _) => const SizedBox.shrink(),
                     itemBuilder: (context, i) {
                       final c = filtered[i];
                       return ContactTile(
@@ -305,29 +303,4 @@ class _ContactsPageState extends ConsumerState<ContactsPage> {
   }
 }
 
-class _FilterChip extends StatelessWidget {
-  const _FilterChip({
-    required this.label,
-    required this.selected,
-    required this.onTap,
-    this.color,
-  });
-  final String label;
-  final bool selected;
-  final VoidCallback onTap;
-  final Color? color;
-
-  @override
-  Widget build(BuildContext context) {
-    final c = color ?? AppColors.primary;
-    return Padding(
-      padding: const EdgeInsets.only(right: 8),
-      child: ChoiceChip(
-        label: Text(label),
-        selected: selected,
-        selectedColor: c.withValues(alpha: 0.16),
-        onSelected: (_) => onTap(),
-      ),
-    );
-  }
-}
+// _FilterChip class removed

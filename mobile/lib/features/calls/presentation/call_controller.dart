@@ -65,13 +65,20 @@ class CallController extends Notifier<CallSession?> {
       );
       if (perm.granted) await _placeOffer();
     } catch (e) {
-      _fail(e is AppException ? e.message : 'Could not start the call');
+      String msg = e is AppException ? e.message : 'Could not start the call';
+      if (msg.toLowerCase().contains('already requested')) {
+        msg = 'Wait for customer to reply to the previous request.';
+      }
+      _fail(msg);
     }
   }
 
   Future<void> _placeOffer() async {
     final s = state;
-    if (s == null || _rtc == null) return;
+    if (s == null || s.callId.isEmpty || _rtc == null) {
+      // callId not set yet - will be called again after permission granted
+      return;
+    }
     try {
       state = s.copyWith(phase: CallPhase.ringing, message: 'Calling...');
       final offer = await _rtc!.createOffer();

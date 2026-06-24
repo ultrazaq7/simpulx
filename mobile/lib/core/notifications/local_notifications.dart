@@ -1,3 +1,6 @@
+import 'dart:ui';
+
+import 'package:flutter/foundation.dart';
 import 'package:flutter_local_notifications/flutter_local_notifications.dart';
 
 import 'notification_payload.dart';
@@ -18,9 +21,9 @@ class LocalNotifications {
   Future<void> init({void Function(String route)? onTapRoute}) async {
     this.onTapRoute = onTapRoute;
     if (!_initialized) {
-      const android = AndroidInitializationSettings('@mipmap/ic_launcher');
+      // Use @drawable/ic_notification for notification icon (transparent background)
+      const android = AndroidInitializationSettings('@drawable/ic_notification');
       const ios = DarwinInitializationSettings(
-        // Permission is requested via FCM in PushService.
         requestAlertPermission: false,
         requestBadgePermission: false,
         requestSoundPermission: false,
@@ -30,8 +33,15 @@ class LocalNotifications {
         onDidReceiveNotificationResponse: _onResponse,
         onDidReceiveBackgroundNotificationResponse: notificationTapBackground,
       );
+
+      await _plugin
+          .resolvePlatformSpecificImplementation<
+              AndroidFlutterLocalNotificationsPlugin>()
+          ?.requestNotificationsPermission();
+
       await _ensureChannels(_plugin);
       _initialized = true;
+      debugPrint('[LocalNotifications] Initialized');
     }
 
     // Cold start via a tapped local notification.
@@ -40,22 +50,29 @@ class LocalNotifications {
       final route = NotificationPayload.routeFromEncoded(
         launch?.notificationResponse?.payload,
       );
+      debugPrint('[LocalNotifications] Launch from notification: $route');
       this.onTapRoute?.call(route);
     }
   }
 
   void _onResponse(NotificationResponse response) {
     final route = NotificationPayload.routeFromEncoded(response.payload);
+    debugPrint('[LocalNotifications] Tapped: ${response.actionId} -> $route');
     onTapRoute?.call(route);
   }
 
-  Future<void> show(NotificationPayload payload) =>
-      _show(_plugin, payload);
+  Future<void> show(NotificationPayload payload) async {
+    debugPrint('[LocalNotifications] show: ${payload.category} - ${payload.title}');
+    await _show(_plugin, payload);
+  }
 
   /// Show from a raw data map (used by the background isolate).
   static Future<void> showFromData(Map<String, dynamic> data) async {
+    debugPrint('[LocalNotifications] showFromData: $data');
+
     final plugin = FlutterLocalNotificationsPlugin();
-    const android = AndroidInitializationSettings('@mipmap/ic_launcher');
+    // Use @drawable/ic_notification for notification icon
+    const android = AndroidInitializationSettings('@drawable/ic_notification');
     const ios = DarwinInitializationSettings(
       requestAlertPermission: false,
       requestBadgePermission: false,
@@ -74,20 +91,23 @@ class LocalNotifications {
   ) async {
     final cat = payload.category;
     final isMessage = cat == NotificationCategory.incomingMessage;
-    final isUrgent = !isMessage;
+    final isCall = cat == NotificationCategory.incomingCall;
+    final isUrgent = isCall || !isMessage;
 
-    // WhatsApp-style: incoming messages render as a MessagingStyle thread with
-    // the sender as a Person + an avatar (the app mark, since WhatsApp contacts
-    // rarely carry a photo). Other categories keep an expandable big-text card.
-    const avatar = DrawableResourceAndroidBitmap('@mipmap/ic_launcher');
-    const personAvatar = DrawableResourceAndroidIcon('@mipmap/ic_launcher');
+    debugPrint('[LocalNotifications] _show: isMessage=$isMessage, isCall=$isCall, isUrgent=$isUrgent');
+
+    // WhatsApp-style: incoming messages use MessagingStyle
+    // For calls, use big text with fullScreenIntent for incoming call screen
     final StyleInformation style;
+
     if (isMessage) {
+      // MessagingStyle for WhatsApp-like chat notification
       final person = Person(
         key: payload.conversationId ?? payload.title,
         name: payload.title,
         important: true,
-        icon: personAvatar,
+        // Use app icon as person avatar
+        icon: const DrawableResourceAndroidIcon('@drawable/ic_notification'),
       );
       style = MessagingStyleInformation(
         person,
@@ -100,26 +120,61 @@ class LocalNotifications {
       style = BigTextStyleInformation(payload.body);
     }
 
+    // WhatsApp green color
+    const whatsappGreen = Color(0xFF00A884);
+
     final android = AndroidNotificationDetails(
       cat.channelId,
       cat.channelName,
       importance: isUrgent ? Importance.max : Importance.high,
       priority: Priority.high,
-      category: AndroidNotificationCategory.message,
-      largeIcon: avatar,
+      category: isCall
+          ? AndroidNotificationCategory.call
+          : AndroidNotificationCategory.message,
+      // Full screen intent for incoming calls - shows over lock screen
+      fullScreenIntent: isCall,
+      icon: '@drawable/ic_notification',
+      color: whatsappGreen,
       styleInformation: style,
-      actions: const [
-        AndroidNotificationAction('view', 'View'),
+      // WhatsApp-like actions
+      actions: [
+        if (isMessage) ...[
+          const AndroidNotificationAction(
+            'reply',
+            'Reply',
+            titleColor: whatsappGreen,
+            inputs: [AndroidNotificationActionInput(label: 'Reply message')],
+          ),
+          const AndroidNotificationAction('mark_read', 'Mark as read'),
+        ],
+        if (isCall) ...[
+          const AndroidNotificationAction('decline', 'Decline', titleColor: Color(0xFFD32F2F)),
+          const AndroidNotificationAction('answer', 'Answer', titleColor: whatsappGreen),
+        ],
       ],
+      // Android 12+ metadata
+      shortcutId: payload.conversationId,
+      // Ongoing for calls
+      ongoing: isCall,
+      autoCancel: !isCall,
+      // Only show when unlocked for messages, always show for calls
+      visibility: isCall ? NotificationVisibility.public : NotificationVisibility.private,
     );
+
     const ios = DarwinNotificationDetails(
       interruptionLevel: InterruptionLevel.timeSensitive,
+      presentAlert: true,
+      presentBadge: true,
+      presentSound: true,
     );
+
     // Collapse repeats for the same conversation/lead.
     final id =
         (payload.conversationId ?? payload.contactId ?? payload.rawType ?? '')
                 .hashCode &
             0x7fffffff;
+
+    debugPrint('[LocalNotifications] Showing notification id=$id, title=${payload.title}');
     await plugin.show(
       id: id,
       title: payload.title,
@@ -127,6 +182,7 @@ class LocalNotifications {
       notificationDetails: NotificationDetails(android: android, iOS: ios),
       payload: payload.encodeRoute(),
     );
+    debugPrint('[LocalNotifications] Show complete');
   }
 
   static Future<void> _ensureChannels(
@@ -134,6 +190,8 @@ class LocalNotifications {
     final android = plugin.resolvePlatformSpecificImplementation<
         AndroidFlutterLocalNotificationsPlugin>();
     if (android == null) return;
+
+    // Create channels with proper settings for each category
     for (final cat in NotificationCategory.values) {
       await android.createNotificationChannel(
         AndroidNotificationChannel(

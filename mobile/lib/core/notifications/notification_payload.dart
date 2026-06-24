@@ -2,6 +2,7 @@
 /// can tune importance per type and we can route taps correctly.
 enum NotificationCategory {
   incomingMessage,
+  incomingCall,
   newLead,
   followUp,
   assignment,
@@ -10,6 +11,7 @@ enum NotificationCategory {
   /// Android channel id (must be stable; channels persist once created).
   String get channelId => switch (this) {
         NotificationCategory.incomingMessage => 'incoming_message',
+        NotificationCategory.incomingCall => 'incoming_call',
         NotificationCategory.newLead => 'new_lead',
         NotificationCategory.followUp => 'follow_up',
         NotificationCategory.assignment => 'assignment',
@@ -18,6 +20,7 @@ enum NotificationCategory {
 
   String get channelName => switch (this) {
         NotificationCategory.incomingMessage => 'Incoming messages',
+        NotificationCategory.incomingCall => 'Incoming calls',
         NotificationCategory.newLead => 'New leads',
         NotificationCategory.followUp => 'Follow-up reminders',
         NotificationCategory.assignment => 'Assignments',
@@ -26,6 +29,9 @@ enum NotificationCategory {
 
   static NotificationCategory fromType(String? type) {
     switch (type) {
+      case 'call':
+      case 'incoming_call':
+        return NotificationCategory.incomingCall;
       case 'new_lead':
         return NotificationCategory.newLead;
       case 'follow_up':

@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 import 'package:url_launcher/url_launcher.dart';
@@ -164,9 +165,26 @@ class _IdentityCard extends StatelessWidget {
                     style: theme.textTheme.titleLarge
                         ?.copyWith(fontWeight: FontWeight.w700)),
                 if (c.phone.isNotEmpty)
-                  Text(c.phone,
-                      style: theme.textTheme.bodyMedium
-                          ?.copyWith(color: AppColors.textSecondary)),
+                  Row(
+                    children: [
+                      Text(c.phone,
+                          style: theme.textTheme.bodyMedium
+                              ?.copyWith(color: theme.colorScheme.onSurfaceVariant)),
+                      const SizedBox(width: 4),
+                      GestureDetector(
+                        onTap: () {
+                          Clipboard.setData(ClipboardData(text: c.phone));
+                          ScaffoldMessenger.of(context).showSnackBar(
+                            const SnackBar(
+                              content: Text('Phone number copied to clipboard'),
+                              duration: Duration(seconds: 2),
+                            ),
+                          );
+                        },
+                        child: Icon(Icons.copy_rounded, size: 14, color: theme.colorScheme.onSurfaceVariant),
+                      ),
+                    ],
+                  ),
                 const SizedBox(height: 6),
                 Wrap(
                   spacing: 6,
@@ -228,6 +246,7 @@ class _ActionButton extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final theme = Theme.of(context);
     final enabled = onTap != null;
     return Expanded(
       child: Padding(
@@ -238,7 +257,7 @@ class _ActionButton extends StatelessWidget {
           child: Container(
             padding: const EdgeInsets.symmetric(vertical: 12),
             decoration: BoxDecoration(
-              color: AppColors.surfaceAlt,
+              color: theme.colorScheme.surfaceContainerHighest,
               borderRadius: BorderRadius.circular(12),
             ),
             child: Column(
@@ -252,7 +271,7 @@ class _ActionButton extends StatelessWidget {
                         fontSize: 11,
                         fontWeight: FontWeight.w600,
                         color:
-                            enabled ? AppColors.textPrimary : AppColors.textMuted)),
+                            enabled ? theme.colorScheme.onSurface : theme.colorScheme.onSurfaceVariant)),
               ],
             ),
           ),
@@ -272,23 +291,23 @@ class _LeadContextCard extends StatelessWidget {
     return _Card(
       child: Column(
         children: [
-          _row('Stage', c.stageName ?? 'Not set'),
+          _row(context, 'Stage', c.stageName ?? 'Not set'),
           if (c.interestLevel != null)
-            _row('Interest',
+            _row(context, 'Interest',
                 c.interestLevel![0].toUpperCase() + c.interestLevel!.substring(1)),
-          _row('Assigned', c.agentName ?? 'Unassigned'),
-          if (c.campaignName != null) _row('Campaign', c.campaignName!),
+          _row(context, 'Assigned', c.agentName ?? 'Unassigned'),
+          if (c.campaignName != null) _row(context, 'Campaign', c.campaignName!),
           if (c.lastMessageAt != null)
-            _row('Last activity',
+            _row(context, 'Last activity',
                 '${formatDayLabel(c.lastMessageAt!)} ${formatBubbleTime(c.lastMessageAt!)}'),
           if (c.createdAt != null)
-            _row('Added', formatDayLabel(c.createdAt!)),
+            _row(context, 'Added', formatDayLabel(c.createdAt!)),
         ],
       ),
     );
   }
 
-  Widget _row(String label, String value) {
+  Widget _row(BuildContext context, String label, String value) {
     return Padding(
       padding: const EdgeInsets.symmetric(vertical: 6),
       child: Row(
@@ -297,8 +316,8 @@ class _LeadContextCard extends StatelessWidget {
           SizedBox(
             width: 100,
             child: Text(label,
-                style: const TextStyle(
-                    color: AppColors.textSecondary, fontSize: 13)),
+                style: TextStyle(
+                    color: Theme.of(context).colorScheme.onSurfaceVariant, fontSize: 13)),
           ),
           Expanded(
             child: Text(value,
@@ -362,9 +381,9 @@ class _LeadScoreCard extends StatelessWidget {
                       color: _color,
                       height: 1)),
               const SizedBox(width: 2),
-              const Text('/100',
+              Text('/100',
                   style: TextStyle(
-                      color: AppColors.textMuted,
+                      color: Theme.of(context).colorScheme.onSurfaceVariant,
                       fontWeight: FontWeight.w600)),
             ],
           ),
@@ -422,9 +441,8 @@ class _Card extends StatelessWidget {
       width: double.infinity,
       padding: const EdgeInsets.all(AppSpacing.lg),
       decoration: BoxDecoration(
-        color: Theme.of(context).colorScheme.surface,
+        color: Theme.of(context).colorScheme.surfaceContainerHighest.withValues(alpha: 0.5),
         borderRadius: BorderRadius.circular(AppRadius.lg),
-        border: Border.all(color: AppColors.border),
       ),
       child: child,
     );

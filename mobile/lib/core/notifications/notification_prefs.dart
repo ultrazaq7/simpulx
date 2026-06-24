@@ -8,6 +8,7 @@ import 'notification_payload.dart';
 class NotificationPrefs {
   const NotificationPrefs({
     this.messages = true,
+    this.calls = true,
     this.leads = true,
     this.followUps = true,
     this.assignments = true,
@@ -15,6 +16,7 @@ class NotificationPrefs {
   });
 
   final bool messages;
+  final bool calls;
   final bool leads;
   final bool followUps;
   final bool assignments;
@@ -22,6 +24,7 @@ class NotificationPrefs {
 
   bool isEnabled(NotificationCategory cat) => switch (cat) {
         NotificationCategory.incomingMessage => messages,
+        NotificationCategory.incomingCall => calls,
         NotificationCategory.newLead => leads,
         NotificationCategory.followUp => followUps,
         NotificationCategory.assignment => assignments,
@@ -30,6 +33,7 @@ class NotificationPrefs {
 
   NotificationPrefs copyWith({
     bool? messages,
+    bool? calls,
     bool? leads,
     bool? followUps,
     bool? assignments,
@@ -37,6 +41,7 @@ class NotificationPrefs {
   }) =>
       NotificationPrefs(
         messages: messages ?? this.messages,
+        calls: calls ?? this.calls,
         leads: leads ?? this.leads,
         followUps: followUps ?? this.followUps,
         assignments: assignments ?? this.assignments,
@@ -45,6 +50,7 @@ class NotificationPrefs {
 
   Map<String, dynamic> toJson() => {
         'messages': messages,
+        'calls': calls,
         'leads': leads,
         'followUps': followUps,
         'assignments': assignments,
@@ -56,6 +62,7 @@ class NotificationPrefs {
     bool b(String k) => json[k] != false; // default true
     return NotificationPrefs(
       messages: b('messages'),
+      calls: b('calls'),
       leads: b('leads'),
       followUps: b('followUps'),
       assignments: b('assignments'),

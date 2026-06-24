@@ -2,6 +2,7 @@ import 'dart:async';
 
 import 'package:file_picker/file_picker.dart';
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:image_picker/image_picker.dart';
 import 'package:url_launcher/url_launcher.dart';
@@ -316,6 +317,7 @@ class _ChatThreadPageState extends ConsumerState<ChatThreadPage> {
             ),
           ),
           MessageComposer(
+            conversationId: widget.conversationId,
             onSend: (text) => controller.send(text),
             onAttach: _attach,
             onSendVoice: (path) => controller.attachAndSend(
@@ -367,7 +369,7 @@ class _MessageList extends StatelessWidget {
         return Column(
           children: [
             if (showDay) _DaySeparator(date: message.createdAt),
-            PremiumMessageBubble(message: message, index: i),
+            MessageBubble(message: message),
           ],
         );
       },
@@ -479,11 +481,28 @@ class _ThreadAppBar extends StatelessWidget implements PreferredSizeWidget {
                   style: const TextStyle(
                       fontSize: 15.5, fontWeight: FontWeight.w700),
                 ),
-                if (c != null)
-                  Text(
-                    c.contactPhone,
-                    style: const TextStyle(
-                        fontSize: 12, color: AppColors.textSecondary),
+                if (c != null && c.contactPhone.isNotEmpty)
+                  Row(
+                    children: [
+                      Text(
+                        c.contactPhone,
+                        style: const TextStyle(
+                            fontSize: 12, color: AppColors.textSecondary),
+                      ),
+                      const SizedBox(width: 4),
+                      GestureDetector(
+                        onTap: () {
+                          Clipboard.setData(ClipboardData(text: c.contactPhone));
+                          ScaffoldMessenger.of(context).showSnackBar(
+                            const SnackBar(
+                              content: Text('Phone number copied to clipboard'),
+                              duration: Duration(seconds: 2),
+                            ),
+                          );
+                        },
+                        child: const Icon(Icons.copy_rounded, size: 14, color: AppColors.textSecondary),
+                      ),
+                    ],
                   ),
               ],
             ),
@@ -492,15 +511,11 @@ class _ThreadAppBar extends StatelessWidget implements PreferredSizeWidget {
       ),
       actions: [
         IconButton(
-          icon: const Icon(Icons.call_outlined),
           onPressed: onCall,
+          icon: const Icon(Icons.call_rounded),
           tooltip: 'Call',
         ),
-        IconButton(
-          icon: const Icon(Icons.description_outlined),
-          onPressed: onSendTemplate,
-          tooltip: 'Send template',
-        ),
+        const SizedBox(width: 8),
         IconButton(
           icon: const Icon(Icons.more_vert_rounded),
           onPressed: onMore,

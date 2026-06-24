@@ -56,7 +56,8 @@ class _LoginPageState extends ConsumerState<LoginPage> {
 
     return Scaffold(
       body: SafeArea(
-        child: Center(
+        child: Align(
+          alignment: const Alignment(0, -0.3),
           child: ConstrainedBox(
             constraints: const BoxConstraints(maxWidth: 420),
             child: SingleChildScrollView(
@@ -111,13 +112,6 @@ class _LoginPageState extends ConsumerState<LoginPage> {
                           ],
                         ),
                       ),
-                    ),
-                    const SizedBox(height: 4),
-                    Text(
-                      'Customer Engagement Platform',
-                      textAlign: TextAlign.center,
-                      style: theme.textTheme.bodyMedium
-                          ?.copyWith(color: AppColors.textSecondary),
                     ),
                     const SizedBox(height: 32),
                     TextFormField(

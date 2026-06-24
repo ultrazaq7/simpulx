@@ -1,14 +1,17 @@
 import 'dart:async';
 
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
+import '../../../core/utils/haptics.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:proximity_sensor/proximity_sensor.dart';
 
 import '../../../app/theme/app_colors.dart';
 import '../domain/call_session.dart';
 import 'call_controller.dart';
 
-/// Wraps the app; renders a full-screen WhatsApp-style call UI on top
-/// whenever a call is active. Wire via MaterialApp.builder.
+/// Wraps the app; renders a full-screen call UI on top whenever a call is
+/// active (outbound, inbound ring, or connected). Wire via MaterialApp.builder.
 class CallOverlay extends ConsumerWidget {
   const CallOverlay({super.key, required this.child});
   final Widget child;
@@ -37,6 +40,8 @@ class _CallScreen extends ConsumerStatefulWidget {
 class _CallScreenState extends ConsumerState<_CallScreen> {
   Timer? _ticker;
   Duration _elapsed = Duration.zero;
+  bool _isNear = false;
+  StreamSubscription<dynamic>? _proximitySub;
 
   @override
   void initState() {
@@ -47,19 +52,24 @@ class _CallScreenState extends ConsumerState<_CallScreen> {
         setState(() => _elapsed = DateTime.now().difference(at));
       }
     });
+    
+    _proximitySub = ProximitySensor.events.listen((int event) {
+      if (mounted) setState(() => _isNear = event > 0);
+    });
   }
 
   @override
   void dispose() {
     _ticker?.cancel();
+    _proximitySub?.cancel();
     super.dispose();
   }
 
-  String get _phaseLabel {
+  String get _status {
     final s = ref.watch(callControllerProvider) ?? widget.session;
     switch (s.phase) {
       case CallPhase.requesting:
-        return s.message ?? 'Requesting...';
+        return s.message ?? 'Requesting permission...';
       case CallPhase.ringing:
         return 'Calling...';
       case CallPhase.incoming:
@@ -69,10 +79,64 @@ class _CallScreenState extends ConsumerState<_CallScreen> {
       case CallPhase.connected:
         return _fmt(_elapsed);
       case CallPhase.ended:
-        return s.message ?? 'Call ended';
+        final m = s.message;
+        if (m == 'remote_hangup' || m == 'local_hangup') return 'Call ended';
+        if (m == 'remote_rejected') return 'Call declined';
+        return m ?? 'Call ended';
       case CallPhase.failed:
-        return s.message ?? 'Call failed';
+        final m = s.message;
+        if (m == 'timeout') return 'Call timeout';
+        if (m == 'signaling_failed') return 'Connection failed';
+        return m ?? 'Call failed';
     }
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    if (_isNear) {
+      return Container(color: Colors.black);
+    }
+    
+    final s = ref.watch(callControllerProvider) ?? widget.session;
+    final controller = ref.read(callControllerProvider.notifier);
+    final initials = s.contactName.trim().isNotEmpty
+        ? s.contactName.trim().substring(0, 1).toUpperCase()
+        : '?';
+
+    return Material(
+      color: AppColors.brandInk,
+      child: SafeArea(
+        child: Column(
+          children: [
+            const Spacer(flex: 2),
+            CircleAvatar(
+              radius: 48,
+              backgroundColor: Colors.white.withValues(alpha: 0.12),
+              child: Text(initials,
+                  style: const TextStyle(
+                      color: Colors.white,
+                      fontSize: 34,
+                      fontWeight: FontWeight.w700)),
+            ),
+            const SizedBox(height: 20),
+            Text(
+              s.contactName.isNotEmpty ? s.contactName : s.contactPhone,
+              style: const TextStyle(
+                  color: Colors.white,
+                  fontSize: 24,
+                  fontWeight: FontWeight.w700),
+            ),
+            const SizedBox(height: 8),
+            Text(_status,
+                style: TextStyle(
+                    color: Colors.white.withValues(alpha: 0.7), fontSize: 16)),
+            const Spacer(flex: 3),
+            _Controls(session: s, controller: controller),
+            const SizedBox(height: 36),
+          ],
+        ),
+      ),
+    );
   }
 
   String _fmt(Duration d) {
@@ -80,246 +144,95 @@ class _CallScreenState extends ConsumerState<_CallScreen> {
     final sec = d.inSeconds.remainder(60).toString().padLeft(2, '0');
     return '$m:$sec';
   }
-
-  @override
-  Widget build(BuildContext context) {
-    final s = ref.watch(callControllerProvider) ?? widget.session;
-    final ctrl = ref.read(callControllerProvider.notifier);
-
-    final initials = s.contactName.trim().isNotEmpty
-        ? s.contactName.trim().substring(0, 1).toUpperCase()
-        : '?';
-
-    final isIncoming = s.phase == CallPhase.incoming;
-    final isEnded = s.phase == CallPhase.ended || s.phase == CallPhase.failed;
-    final isConnected = s.phase == CallPhase.connected;
-
-    return Scaffold(
-      backgroundColor: AppColors.darkBackground,
-      body: SafeArea(
-        child: Column(
-          children: [
-            // ── Top: name + status ───────────────────────────────
-            const Spacer(flex: 2),
-            _AvatarRing(name: s.contactName, initials: initials),
-            const SizedBox(height: 24),
-            Text(
-              s.contactName.isNotEmpty ? s.contactName : s.contactPhone,
-              style: const TextStyle(
-                color: Colors.white,
-                fontSize: 26,
-                fontWeight: FontWeight.w700,
-                letterSpacing: -0.3,
-              ),
-            ),
-            const SizedBox(height: 8),
-            Text(
-              _phaseLabel,
-              style: TextStyle(
-                color: Colors.white.withValues(alpha: 0.65),
-                fontSize: 15,
-                fontWeight: FontWeight.w400,
-              ),
-            ),
-            const Spacer(flex: 3),
-
-            // ── Controls ─────────────────────────────────────
-            if (isIncoming)
-              _IncomingControls(ctrl: ctrl)
-            else if (isEnded)
-              _EndControls(ctrl: ctrl)
-            else if (isConnected)
-              _ConnectedControls(session: s, ctrl: ctrl)
-            else
-              Center(
-                child: _ActionPill(
-                  icon: Icons.call_end_rounded,
-                  color: AppColors.danger,
-                  label: 'Cancel',
-                  size: 60,
-                  iconSize: 28,
-                  onTap: ctrl.hangUp,
-                ),
-              ),
-
-            const SizedBox(height: 36),
-          ],
-        ),
-      ),
-    );
-  }
 }
 
-class _AvatarRing extends StatelessWidget {
-  const _AvatarRing({required this.name, required this.initials});
-  final String name;
-  final String initials;
+class _Controls extends StatelessWidget {
+  const _Controls({required this.session, required this.controller});
+  final CallSession session;
+  final CallController controller;
 
   @override
   Widget build(BuildContext context) {
-    return SizedBox(
-      width: 120,
-      height: 120,
-      child: Stack(
-        alignment: Alignment.center,
+    if (session.phase == CallPhase.incoming) {
+      return Row(
+        mainAxisAlignment: MainAxisAlignment.spaceEvenly,
         children: [
-          // Animated pulse ring for incoming
-          const _PulseRing(),
-          CircleAvatar(
-            radius: 52,
-            backgroundColor: AppColors.darkSurfaceAlt,
-            child: Text(
-              initials,
-              style: const TextStyle(
-                color: Colors.white,
-                fontSize: 42,
-                fontWeight: FontWeight.w600,
-              ),
-            ),
+          _RoundAction(
+            icon: Icons.call_end_rounded,
+            color: AppColors.danger,
+            label: 'Decline',
+            onTap: () {
+              Haptics.medium;
+              controller.rejectIncoming();
+            },
+          ),
+          _RoundAction(
+            icon: Icons.call_rounded,
+            color: AppColors.success,
+            label: 'Accept',
+            onTap: () {
+              Haptics.medium;
+              controller.acceptIncoming();
+            },
           ),
         ],
-      ),
-    );
-  }
-}
+      );
+    }
 
-class _PulseRing extends StatefulWidget {
-  const _PulseRing();
+    if (session.phase == CallPhase.ended ||
+        session.phase == CallPhase.failed) {
+      return _RoundAction(
+        icon: Icons.close_rounded,
+        color: Colors.white24,
+        label: 'Close',
+        onTap: () {
+          Haptics.selection;
+          controller.clear();
+        },
+      );
+    }
 
-  @override
-  State<_PulseRing> createState() => _PulseRingState();
-}
-
-class _PulseRingState extends State<_PulseRing>
-    with SingleTickerProviderStateMixin {
-  late final AnimationController _c = AnimationController(
-    vsync: this,
-    duration: const Duration(milliseconds: 1500),
-  )..repeat();
-
-  @override
-  void dispose() {
-    _c.dispose();
-    super.dispose();
-  }
-
-  @override
-  Widget build(BuildContext context) {
-    return AnimatedBuilder(
-      animation: _c,
-      builder: (context, child) {
-        return Container(
-          width: 120,
-          height: 120,
-          decoration: BoxDecoration(
-            shape: BoxShape.circle,
-            border: Border.all(
-              color: AppColors.success
-                  .withValues(alpha: 0.5 * (1 - _c.value)),
-              width: 2,
-            ),
-          ),
-        );
-      },
-    );
-  }
-}
-
-class _IncomingControls extends StatelessWidget {
-  const _IncomingControls({required this.ctrl});
-  final CallController ctrl;
-
-  @override
-  Widget build(BuildContext context) {
+    final connected = session.phase == CallPhase.connected;
     return Row(
       mainAxisAlignment: MainAxisAlignment.spaceEvenly,
       children: [
-        _ActionPill(
-          icon: Icons.call_end_rounded,
-          color: AppColors.danger,
-          label: 'Decline',
-          onTap: ctrl.rejectIncoming,
-        ),
-        _ActionPill(
-          icon: Icons.call_rounded,
-          color: AppColors.success,
-          label: 'Accept',
-          onTap: ctrl.acceptIncoming,
-        ),
-      ],
-    );
-  }
-}
-
-class _ConnectedControls extends StatelessWidget {
-  const _ConnectedControls({required this.session, required this.ctrl});
-  final CallSession session;
-  final CallController ctrl;
-
-  @override
-  Widget build(BuildContext context) {
-    return Row(
-      mainAxisAlignment: MainAxisAlignment.spaceEvenly,
-      children: [
-        _ActionPill(
+        _RoundAction(
           icon: session.muted ? Icons.mic_off_rounded : Icons.mic_rounded,
-          color: session.muted
-              ? Colors.white.withValues(alpha: 0.15)
-              : Colors.white.withValues(alpha: 0.08),
-          iconColor: session.muted ? AppColors.danger : Colors.white,
-          label: session.muted ? 'Unmute' : 'Mute',
-          size: 56,
-          iconSize: 24,
-          onTap: ctrl.toggleMute,
+          color: session.muted ? Colors.white : Colors.white24,
+          iconColor: session.muted ? AppColors.brandInk : Colors.white,
+          label: 'Mute',
+          onTap: connected ? () {
+            Haptics.selection;
+            controller.toggleMute();
+          } : null,
         ),
-        _ActionPill(
+        _RoundAction(
           icon: Icons.call_end_rounded,
           color: AppColors.danger,
           label: 'End',
-          size: 64,
-          iconSize: 30,
-          onTap: ctrl.hangUp,
+          onTap: () {
+            Haptics.medium;
+            controller.hangUp();
+          },
         ),
       ],
     );
   }
 }
 
-class _EndControls extends StatelessWidget {
-  const _EndControls({required this.ctrl});
-  final CallController ctrl;
-
-  @override
-  Widget build(BuildContext context) {
-    return Center(
-      child: TextButton.icon(
-        onPressed: ctrl.clear,
-        icon: const Icon(Icons.close_rounded, color: Colors.white54),
-        label:
-            const Text('Close', style: TextStyle(color: Colors.white54)),
-      ),
-    );
-  }
-}
-
-/// Large circular action button used in the call screen.
-class _ActionPill extends StatelessWidget {
-  const _ActionPill({
+class _RoundAction extends StatelessWidget {
+  const _RoundAction({
     required this.icon,
     required this.color,
     required this.label,
     required this.onTap,
     this.iconColor = Colors.white,
-    this.size = 60,
-    this.iconSize = 28,
   });
   final IconData icon;
   final Color color;
   final Color iconColor;
   final String label;
-  final VoidCallback onTap;
-  final double size;
-  final double iconSize;
+  final VoidCallback? onTap;
 
   @override
   Widget build(BuildContext context) {
@@ -329,26 +242,20 @@ class _ActionPill extends StatelessWidget {
         Material(
           color: color,
           shape: const CircleBorder(),
-          elevation: 0,
           child: InkWell(
             customBorder: const CircleBorder(),
             onTap: onTap,
-            child: SizedBox(
-              width: size,
-              height: size,
-              child: Icon(icon, color: iconColor, size: iconSize),
+            child: Padding(
+              padding: const EdgeInsets.all(18),
+              child: Icon(icon, color: iconColor, size: 28),
             ),
           ),
         ),
-        const SizedBox(height: 10),
-        Text(
-          label,
-          style: TextStyle(
-            color: Colors.white.withValues(alpha: 0.7),
-            fontSize: 12.5,
-            fontWeight: FontWeight.w600,
-          ),
-        ),
+        const SizedBox(height: 8),
+        Text(label,
+            style: TextStyle(
+                color: Colors.white.withValues(alpha: onTap == null ? 0.4 : 0.8),
+                fontSize: 12)),
       ],
     );
   }

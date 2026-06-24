@@ -24,6 +24,11 @@ android {
     compileSdk = flutter.compileSdkVersion
     ndkVersion = flutter.ndkVersion
 
+    buildFeatures {
+        // Enable BuildConfig for flavor detection in Dart
+        buildConfig = true
+    }
+
     compileOptions {
         // Required by flutter_local_notifications (java.time desugaring).
         isCoreLibraryDesugaringEnabled = true
@@ -57,7 +62,38 @@ android {
         }
     }
 
+    // Build flavors for different environments
+    flavorDimensions += "environment"
+    productFlavors {
+        create("dev") {
+            dimension = "environment"
+            applicationIdSuffix = ".dev"
+            versionNameSuffix = "-dev"
+            // Pass flavor name to Dart via BuildConfig
+            buildConfigField("String", "FLAVOR_NAME", "\"dev\"")
+            resValue("string", "flavor_name", "Simpulx Dev")
+        }
+        create("staging") {
+            dimension = "environment"
+            applicationIdSuffix = ".staging"
+            versionNameSuffix = "-staging"
+            buildConfigField("String", "FLAVOR_NAME", "\"staging\"")
+            resValue("string", "flavor_name", "Simpulx Staging")
+        }
+        create("prod") {
+            dimension = "environment"
+            // No suffix for production - uses default applicationId
+            buildConfigField("String", "FLAVOR_NAME", "\"prod\"")
+            resValue("string", "flavor_name", "Simpulx")
+        }
+    }
+
     buildTypes {
+        debug {
+            // Faster builds, no minification
+            isMinifyEnabled = false
+            isDebuggable = true
+        }
         release {
             signingConfig = if (keystorePropertiesFile.exists()) {
                 signingConfigs.getByName("release")

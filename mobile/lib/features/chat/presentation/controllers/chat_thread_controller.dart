@@ -201,10 +201,13 @@ class ChatThreadController extends ChangeNotifier {
     if (!payload.isInbound) {
       final hasMedia =
           payload.mediaUrl != null && payload.mediaUrl!.isNotEmpty;
-      final idx = messages.lastIndexWhere(
-        (m) => m.pending &&
-            (hasMedia ? m.hasMedia : (!m.hasMedia && m.body == payload.body)),
-      );
+      // Find optimistic message to reconcile - match by media URL or trimmed body
+      final idx = messages.lastIndexWhere((m) {
+        if (!m.pending) return false;
+        if (hasMedia) return m.hasMedia;
+        // Compare trimmed bodies (backend may normalize whitespace)
+        return m.body.trim().toLowerCase() == payload.body.trim().toLowerCase();
+      });
       if (idx != -1) {
         messages[idx] = messages[idx].copyWith(
           id: payload.messageId,

@@ -8,15 +8,29 @@ class SplashScreen extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    return const Scaffold(
+    final isDark = Theme.of(context).brightness == Brightness.dark;
+    
+    return Scaffold(
       body: Center(
-        child: SizedBox(
-          width: 30,
-          height: 30,
-          child: CircularProgressIndicator(
-            strokeWidth: 2.8,
-            valueColor: AlwaysStoppedAnimation(AppColors.primary),
-          ),
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            Image.asset(
+              isDark
+                  ? 'assets/images/splash_logo.png'
+                  : 'assets/images/splash_logo_light.png',
+              width: 140,
+            ),
+            const SizedBox(height: 32),
+            const SizedBox(
+              width: 30,
+              height: 30,
+              child: CircularProgressIndicator(
+                strokeWidth: 2.8,
+                valueColor: AlwaysStoppedAnimation(AppColors.primary),
+              ),
+            ),
+          ],
         ),
       ),
     );

@@ -2,6 +2,7 @@ import 'dart:io';
 
 import 'package:firebase_core/firebase_core.dart';
 import 'package:firebase_messaging/firebase_messaging.dart';
+import 'package:flutter/foundation.dart';
 
 import 'local_notifications.dart';
 import 'notification_payload.dart';
@@ -10,8 +11,14 @@ import 'notification_payload.dart';
 /// notification so the user never misses a lead, even when the app is killed.
 @pragma('vm:entry-point')
 Future<void> firebaseMessagingBackgroundHandler(RemoteMessage message) async {
-  await Firebase.initializeApp();
-  await LocalNotifications.showFromData(message.data);
+  debugPrint('[FCM Background] Received message: ${message.data}');
+  try {
+    await Firebase.initializeApp();
+    await LocalNotifications.showFromData(message.data);
+    debugPrint('[FCM Background] Notification shown');
+  } catch (e) {
+    debugPrint('[FCM Background] Error: $e');
+  }
 }
 
 /// FCM lifecycle: permission, token registration, foreground display, and deep
@@ -25,7 +32,14 @@ class PushService {
       Platform.isIOS ? 'iOS' : (Platform.isAndroid ? 'Android' : 'Web');
 
   Future<void> requestPermission() async {
-    await _fcm.requestPermission(alert: true, badge: true, sound: true);
+    debugPrint('[PushService] Requesting FCM permission...');
+    final result = await _fcm.requestPermission(
+      alert: true,
+      badge: true,
+      sound: true,
+      provisional: true, // Allow provisional (silent) permission on iOS
+    );
+    debugPrint('[PushService] Permission result: $result');
   }
 
   /// Wire foreground display + tap routing. [onTapRoute] navigates the app;
@@ -34,29 +48,44 @@ class PushService {
     required void Function(String route) onTapRoute,
     bool Function(NotificationCategory category)? allow,
   }) async {
+    debugPrint('[PushService] initForeground called');
     await LocalNotifications.instance.init(onTapRoute: onTapRoute);
 
+    // Handle foreground messages
     FirebaseMessaging.onMessage.listen((message) {
+      debugPrint('[PushService] Foreground message: ${message.data}');
       final payload = NotificationPayload.fromData(message.data);
-      if (allow != null && !allow(payload.category)) return;
+      debugPrint('[PushService] Payload category: ${payload.category}');
+      if (allow != null && !allow(payload.category)) {
+        debugPrint('[PushService] Blocked by allow callback');
+        return;
+      }
+      debugPrint('[PushService] Showing notification...');
       LocalNotifications.instance.show(payload);
     });
 
-    // For FCM notification-type messages (if any) tapped from background.
+    // Handle when app opened from notification
     FirebaseMessaging.onMessageOpenedApp.listen((message) {
+      debugPrint('[PushService] onMessageOpenedApp: ${message.data}');
       onTapRoute(NotificationPayload.fromData(message.data).route);
     });
 
+    // Handle cold start from notification
     final initial = await _fcm.getInitialMessage();
     if (initial != null) {
+      debugPrint('[PushService] getInitialMessage: ${initial.data}');
       onTapRoute(NotificationPayload.fromData(initial.data).route);
+    } else {
+      debugPrint('[PushService] No initial message');
     }
   }
 
   Future<String?> getToken() async {
     try {
-      _token ??= await _fcm.getToken();
-    } catch (_) {
+      _token = await _fcm.getToken();
+      debugPrint('[PushService] FCM Token: ${_token?.substring(0, 20)}...');
+    } catch (e) {
+      debugPrint('[PushService] getToken error: $e');
       // iOS without an APNS token (e.g. simulator) returns null - non-fatal.
     }
     return _token;
@@ -68,6 +97,7 @@ class PushService {
     _token = null;
     try {
       await _fcm.deleteToken();
+      debugPrint('[PushService] Token deleted');
     } catch (_) {/* best effort */}
   }
 }

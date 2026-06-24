@@ -184,4 +184,70 @@ func (s *server) initFCMPush(ctx context.Context) {
 	if err != nil {
 		s.log.Error("Failed to subscribe to FCM notif push", "err", err)
 	}
+
+	// Push incoming calls to agents
+	err = s.bus.Subscribe(events.SubjectCallUpdated, "gateway-fcm-call", func(env events.Envelope) error {
+		var c events.CallUpdated
+		if err := json.Unmarshal(env.Data, &c); err != nil {
+			return err
+		}
+		
+		// Only push for inbound incoming or ended calls
+		if c.Direction != "inbound" || (c.CallStatus != "incoming" && c.CallStatus != "ended") {
+			return nil
+		}
+
+		var rows []map[string]any
+		if c.AgentID != "" {
+			rows, _ = s.queryMaps(ctx, `SELECT DISTINCT token FROM fcm_tokens WHERE user_id=$1`, c.AgentID)
+		} else {
+			rows, _ = s.queryMaps(ctx, `
+				SELECT DISTINCT t.token 
+				FROM fcm_tokens t
+				JOIN users u ON u.id = t.user_id
+				WHERE u.organization_id = $1 AND u.status = 'active'
+			`, env.OrgID)
+		}
+
+		tokens := make([]string, 0, len(rows))
+		for _, r := range rows {
+			if t, ok := r["token"].(string); ok && t != "" {
+				tokens = append(tokens, t)
+			}
+		}
+
+		if len(tokens) == 0 || mockMode || fcmClient == nil {
+			return nil
+		}
+
+		callTitle := "Incoming call"
+		if c.CallStatus == "ended" {
+			callTitle = "Missed call"
+		}
+		if c.ContactName != "" {
+			callTitle += " from " + c.ContactName
+		} else if c.ContactPhone != "" {
+			callTitle += " from " + c.ContactPhone
+		}
+
+		_, err := fcmClient.SendEachForMulticast(ctx, &messaging.MulticastMessage{
+			Tokens:  tokens,
+			Data:    map[string]string{
+				"title": callTitle, 
+				"body": "WhatsApp Voice Call", 
+				"conversationId": c.ConversationID, 
+				"callId": c.CallID,
+				"type": "incomingCall",
+				"callStatus": c.CallStatus,
+			},
+			Android: &messaging.AndroidConfig{Priority: "high"},
+		})
+		if err != nil {
+			s.log.Error("FCM call push error", "err", err)
+		}
+		return nil
+	})
+	if err != nil {
+		s.log.Error("Failed to subscribe to FCM call push", "err", err)
+	}
 }

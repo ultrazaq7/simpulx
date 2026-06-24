@@ -341,7 +341,16 @@ func mediaPreview(msgType, body string) string {
 		return "[template message]"
 	case "unsupported":
 		return "[unsupported message]"
+	case "location":
+		return "[location]"
+	case "contacts":
+		return "[contact card]"
+	case "reaction":
+		return "[reaction]"
 	default:
+		if msgType != "" && msgType != "text" {
+			return "[" + msgType + "]"
+		}
 		return ""
 	}
 }

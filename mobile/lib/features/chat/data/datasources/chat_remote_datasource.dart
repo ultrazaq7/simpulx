@@ -48,7 +48,7 @@ class ChatRemoteDataSource {
         ApiEndpoints.messages(conversationId),
         queryParameters: {
           'limit': limit,
-          'cursor': ?cursor,
+          if (cursor != null) 'cursor': cursor,
         },
       );
       final map = (res.data as Map).cast<String, dynamic>();
@@ -193,11 +193,11 @@ class ChatRemoteDataSource {
       await _dio.patch(
         ApiEndpoints.conversation(conversationId),
         data: {
-          'stage_id': ?stageId,
-          'disposition_id': ?dispositionId,
-          'interest_level': ?interestLevel,
-          'status': ?status,
-          'lost_reason': ?lostReason,
+          if (stageId != null) 'stage_id': stageId,
+          if (dispositionId != null) 'disposition_id': dispositionId,
+          if (interestLevel != null) 'interest_level': interestLevel,
+          if (status != null) 'status': status,
+          if (lostReason != null) 'lost_reason': lostReason,
         },
       );
     } on DioException catch (e) {
@@ -212,7 +212,10 @@ class ChatRemoteDataSource {
     bool unassign = false,
   }) =>
       _post(ApiEndpoints.assign(conversationId), {
-        if (unassign) 'unassign': true else 'agent_id': ?agentId,
+        if (unassign)
+          'unassign': true
+        else if (agentId != null)
+          'agent_id': agentId,
       });
 
   Future<void> snooze(String conversationId, DateTime until) => _post(
@@ -221,7 +224,7 @@ class ChatRemoteDataSource {
       );
 
   Future<void> close(String conversationId, {String? reason}) =>
-      _post(ApiEndpoints.close(conversationId), {'reason': ?reason});
+      _post(ApiEndpoints.close(conversationId), reason != null ? {'reason': reason} : {});
 
   Future<void> toggleBot(String conversationId, bool active) =>
       _post(ApiEndpoints.bot(conversationId), {'active': active});

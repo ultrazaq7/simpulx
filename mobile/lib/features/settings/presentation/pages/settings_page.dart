@@ -19,81 +19,115 @@ class SettingsPage extends ConsumerWidget {
 
     return Scaffold(
       appBar: AppBar(title: const Text('Settings')),
-      body: ListView(
-        children: [
-          if (user != null) _ProfileHeader(),
-          const _SectionLabel('Availability'),
-          SwitchListTile.adaptive(
-            secondary: Icon(
-              user?.isOnline ?? false
-                  ? Icons.circle
-                  : Icons.circle_outlined,
-              color: user?.isOnline ?? false
-                  ? AppColors.success
-                  : AppColors.textMuted,
-              size: 16,
-            ),
-            title: Text(user?.isOnline ?? false ? 'Online' : 'Offline'),
-            subtitle: const Text('Receive new lead assignments'),
-            value: user?.isOnline ?? false,
-            activeThumbColor: AppColors.success,
-            onChanged: (v) =>
-                ref.read(authControllerProvider.notifier).setPresence(v),
-          ),
-          const Divider(height: 1),
-          const _SectionLabel('Account'),
-          ListTile(
-            leading: const Icon(Icons.person_rounded),
-            title: const Text('Profile'),
-            subtitle: const Text('Your details and password'),
-            trailing: const Icon(Icons.chevron_right_rounded),
-            onTap: () => _showProfile(context),
-          ),
-          ListTile(
-            leading: const Icon(Icons.notifications_rounded),
-            title: const Text('Notifications'),
-            subtitle: const Text('Choose what alerts you'),
-            trailing: const Icon(Icons.chevron_right_rounded),
-            onTap: () => _showNotificationPrefs(context),
-          ),
-          if (user?.role.isManagerTier ?? false) ...[
-            const Divider(height: 1),
-            const _SectionLabel('Workspace'),
-            ListTile(
-              leading: const Icon(Icons.grid_view_rounded),
-              title: const Text('Workspace'),
-              subtitle: const Text('Broadcasts, team, and more'),
-              trailing: const Icon(Icons.chevron_right_rounded),
-              onTap: () => context.push('/workspace'),
-            ),
-          ],
-          const SizedBox(height: AppSpacing.lg),
-          Padding(
-            padding: const EdgeInsets.symmetric(horizontal: AppSpacing.lg),
-            child: OutlinedButton.icon(
-              style: OutlinedButton.styleFrom(
-                foregroundColor: AppColors.danger,
-                minimumSize: const Size.fromHeight(48),
-                side: BorderSide(
-                    color: AppColors.danger.withValues(alpha: 0.4)),
+      body: CustomScrollView(
+        slivers: [
+          SliverList.list(
+            children: [
+              if (user != null) _ProfileHeader(),
+              const _SectionLabel('Availability'),
+              SwitchListTile.adaptive(
+                secondary: Icon(
+                  user?.isOnline ?? false
+                      ? Icons.circle
+                      : Icons.circle_outlined,
+                  color: user?.isOnline ?? false
+                      ? AppColors.success
+                      : AppColors.textMuted,
+                  size: 16,
+                ),
+                title: Text(user?.isOnline ?? false ? 'Online' : 'Offline'),
+                subtitle: const Text('Receive new lead assignments'),
+                value: user?.isOnline ?? false,
+                activeThumbColor: AppColors.success,
+                onChanged: (v) =>
+                    ref.read(authControllerProvider.notifier).setPresence(v),
               ),
-              onPressed: () =>
-                  ref.read(authControllerProvider.notifier).signOut(),
-              icon: const Icon(Icons.logout_rounded, size: 18),
-              label: const Text('Sign out'),
+              const Divider(height: 1),
+              const _SectionLabel('Account'),
+              ListTile(
+                leading: const Icon(Icons.person_rounded),
+                title: const Text('Profile'),
+                subtitle: const Text('Your details and password'),
+                trailing: const Icon(Icons.chevron_right_rounded),
+                onTap: () => _showProfile(context),
+              ),
+              ListTile(
+                leading: const Icon(Icons.notifications_rounded),
+                title: const Text('Notifications'),
+                subtitle: const Text('Choose what alerts you'),
+                trailing: const Icon(Icons.chevron_right_rounded),
+                onTap: () => _showNotificationPrefs(context),
+              ),
+              if (user?.role.isManagerTier ?? false) ...[
+                const Divider(height: 1),
+                const _SectionLabel('Workspace'),
+                ListTile(
+                  leading: const Icon(Icons.grid_view_rounded),
+                  title: const Text('Workspace'),
+                  subtitle: const Text('Team, and more'),
+                  trailing: const Icon(Icons.chevron_right_rounded),
+                  onTap: () => context.push('/workspace'),
+                ),
+              ],
+            ],
+          ),
+          SliverFillRemaining(
+            hasScrollBody: false,
+            child: Align(
+              alignment: Alignment.bottomCenter,
+              child: Padding(
+                padding: const EdgeInsets.only(bottom: AppSpacing.xxl, top: AppSpacing.lg, left: AppSpacing.lg, right: AppSpacing.lg),
+                child: Column(
+                  mainAxisSize: MainAxisSize.min,
+                  children: [
+                    OutlinedButton.icon(
+                      style: OutlinedButton.styleFrom(
+                        foregroundColor: AppColors.danger,
+                        minimumSize: const Size.fromHeight(48),
+                        side: BorderSide(
+                            color: AppColors.danger.withValues(alpha: 0.4)),
+                      ),
+                      onPressed: () =>
+                          ref.read(authControllerProvider.notifier).signOut(),
+                      icon: const Icon(Icons.logout_rounded, size: 18),
+                      label: const Text('Sign out'),
+                    ),
+                    const SizedBox(height: AppSpacing.xl),
+                    RichText(
+                      text: TextSpan(
+                        text: 'Simpul',
+                        style: Theme.of(context).textTheme.bodySmall?.copyWith(
+                              color: AppColors.textMuted,
+                              fontWeight: FontWeight.w800,
+                              letterSpacing: 1.2,
+                              shadows: [
+                                Shadow(
+                                  color: Colors.black.withValues(alpha: 0.1),
+                                  offset: const Offset(0, 1),
+                                  blurRadius: 2,
+                                ),
+                              ],
+                            ),
+                        children: const [
+                          TextSpan(
+                            text: 'x',
+                            style: TextStyle(color: AppColors.brandAmber),
+                          ),
+                        ],
+                      ),
+                    ),
+                    const SizedBox(height: 2),
+                    Text(
+                      'v1.0.0',
+                      style: Theme.of(context).textTheme.labelSmall?.copyWith(
+                            color: AppColors.textMuted.withValues(alpha: 0.6),
+                          ),
+                    ),
+                  ],
+                ),
+              ),
             ),
           ),
-          const SizedBox(height: AppSpacing.lg),
-          Center(
-            child: Text(
-              'Simpulx',
-              style: Theme.of(context).textTheme.bodySmall?.copyWith(
-                    color: AppColors.textMuted,
-                    fontWeight: FontWeight.w600,
-                  ),
-            ),
-          ),
-          const SizedBox(height: AppSpacing.xxl),
         ],
       ),
     );
@@ -112,7 +146,13 @@ class _ProfileHeader extends ConsumerWidget {
       decoration: BoxDecoration(
         color: theme.colorScheme.surface,
         borderRadius: BorderRadius.circular(AppRadius.lg),
-        border: Border.all(color: AppColors.border),
+        boxShadow: [
+          BoxShadow(
+            color: Colors.black.withValues(alpha: 0.05),
+            blurRadius: 10,
+            offset: const Offset(0, 4),
+          ),
+        ],
       ),
       child: Row(
         children: [

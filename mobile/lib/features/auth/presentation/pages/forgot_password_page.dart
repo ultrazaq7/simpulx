@@ -56,7 +56,8 @@ class _ForgotPasswordPageState extends ConsumerState<ForgotPasswordPage> {
     return Scaffold(
       appBar: AppBar(title: const Text('Reset password')),
       body: SafeArea(
-        child: Center(
+        child: Align(
+          alignment: const Alignment(0, -0.3),
           child: ConstrainedBox(
             constraints: const BoxConstraints(maxWidth: 420),
             child: SingleChildScrollView(
@@ -85,6 +86,8 @@ class _ForgotPasswordPageState extends ConsumerState<ForgotPasswordPage> {
                       child: Column(
                         crossAxisAlignment: CrossAxisAlignment.stretch,
                         children: [
+                          const Icon(Icons.lock_reset_rounded, size: 72, color: AppColors.primary),
+                          const SizedBox(height: AppSpacing.lg),
                           Text(
                             'Enter your account email and we will send a reset link.',
                             style: theme.textTheme.bodyMedium
