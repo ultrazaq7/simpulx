@@ -164,7 +164,7 @@ class LocalNotifications {
       icon: '@drawable/ic_notification',
       // Show app icon as large icon so the badge overlay appears
       largeIcon: isMessage
-          ? const DrawableResourceAndroidIcon('@mipmap/ic_launcher')
+          ? const DrawableResourceAndroidBitmap('@mipmap/ic_launcher')
           : null,
       color: brandGreen,
       colorized: true,
