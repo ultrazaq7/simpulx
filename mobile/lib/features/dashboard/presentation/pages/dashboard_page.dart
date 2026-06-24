@@ -154,7 +154,8 @@ class _DashboardBody extends StatelessWidget {
               _ActionCard(data: item, onTap: () => onDrill(item.filter)),
           ],
         ),
-        if (showManager) const _ManagerSection(),
+        if (showManager) const _ManagerSection()
+        else const _AgentAnalyticsSection(),
       ],
     );
   }
@@ -963,3 +964,105 @@ class _Card extends StatelessWidget {
     );
   }
 }
+
+// ── Agent analytics (personal funnel + avg response) ─────────
+class _AgentAnalyticsSection extends ConsumerWidget {
+  const _AgentAnalyticsSection();
+
+  @override
+  Widget build(BuildContext context, WidgetRef ref) {
+    final analytics = ref.watch(managerAnalyticsProvider);
+
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        const SizedBox(height: 24),
+        Text('My Performance',
+            style: Theme.of(context)
+                .textTheme
+                .titleMedium
+                ?.copyWith(fontWeight: FontWeight.w700)),
+        const SizedBox(height: 12),
+        analytics.when(
+          loading: () => const Padding(
+            padding: EdgeInsets.all(16),
+            child: Center(child: CircularProgressIndicator(strokeWidth: 2)),
+          ),
+          error: (_, _) => const _Card(
+            child: Text('Could not load analytics',
+                style: TextStyle(color: AppColors.textSecondary)),
+          ),
+          data: (a) => Column(
+            children: [
+              // Personal response time
+              _Card(
+                child: Row(
+                  children: [
+                    Expanded(
+                      child: _Metric(
+                        label: 'Avg response',
+                        value: _fmtDuration(a.avgRtMin),
+                      ),
+                    ),
+                    Container(width: 1, height: 36, color: Theme.of(context).colorScheme.outlineVariant),
+                    Expanded(
+                      child: _Metric(
+                        label: 'Within 5 min',
+                        value: '${a.within5Pct.toStringAsFixed(0)}%',
+                      ),
+                    ),
+                  ],
+                ),
+              ),
+              const SizedBox(height: 12),
+              // Personal interest split
+              _Card(
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Row(
+                      children: [
+                        const Icon(Icons.trending_up_rounded, size: 16, color: AppColors.primary),
+                        const SizedBox(width: 6),
+                        const Text('My Leads',
+                            style: TextStyle(fontWeight: FontWeight.w700, fontSize: 14)),
+                        const Spacer(),
+                        Text('${a.total} total',
+                            style: const TextStyle(fontSize: 12, color: AppColors.textSecondary, fontWeight: FontWeight.w600)),
+                      ],
+                    ),
+                    const SizedBox(height: 12),
+                    Row(
+                      children: [
+                        _Dot(AppColors.hot, 'Hot ${a.hot}'),
+                        const SizedBox(width: 12),
+                        _Dot(AppColors.warm, 'Warm ${a.warm}'),
+                        const SizedBox(width: 12),
+                        _Dot(AppColors.cold, 'Cold ${a.cold}'),
+                      ],
+                    ),
+                    const SizedBox(height: 8),
+                    Row(
+                      children: [
+                        _Dot(AppColors.success, 'Won ${a.won}'),
+                        const SizedBox(width: 12),
+                        _Dot(AppColors.danger, 'Lost ${a.lost}'),
+                      ],
+                    ),
+                  ],
+                ),
+              ),
+              // Personal stage funnel
+              if (a.funnelStages.isNotEmpty) ...[
+                const SizedBox(height: 12),
+                _StageFunnelCard(stages: a.funnelStages),
+              ],
+            ],
+          ),
+        ),
+        const SizedBox(height: 8),
+      ],
+    );
+  }
+}
+

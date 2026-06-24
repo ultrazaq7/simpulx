@@ -41,8 +41,10 @@ class AppSnackbar {
         backgroundColor: Colors.transparent,
         elevation: 0,
         behavior: SnackBarBehavior.floating,
-        margin: EdgeInsets.only(
-          bottom: MediaQuery.of(context).size.height / 2.5,
+        margin: const EdgeInsets.only(
+          bottom: 80,
+          left: 16,
+          right: 16,
         ),
         padding: EdgeInsets.zero,
         duration: const Duration(seconds: 2),

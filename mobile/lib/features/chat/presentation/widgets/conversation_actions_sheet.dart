@@ -119,8 +119,8 @@ class _ActionsSheet extends ConsumerWidget {
     );
   }
 
-  Future<void> _do(BuildContext context, Future<bool> action, [String? successMsg]) async {
-    final navigator = Navigator.of(context);
+  Future<void> _do(BuildContext context, BuildContext sheetContext, Future<bool> action, [String? successMsg]) async {
+    final navigator = Navigator.of(sheetContext);
     final ok = await action;
     if (!context.mounted) return;
     if (ok) {
@@ -144,8 +144,8 @@ class _ActionsSheet extends ConsumerWidget {
       context: context,
       showDragHandle: true,
       isScrollControlled: true,
-      builder: (_) => Consumer(
-        builder: (context, ref, _) {
+      builder: (sheetContext) => Consumer(
+        builder: (consumerContext, ref, _) {
           final async = ref.watch(stagesProvider);
           return async.when(
             loading: () => const Padding(
@@ -178,7 +178,7 @@ class _ActionsSheet extends ConsumerWidget {
                             }
                           }
                         });
-                        Navigator.of(context).pop();
+                        Navigator.of(sheetContext).pop();
                       },
                     ),
                   const Divider(),
@@ -186,7 +186,7 @@ class _ActionsSheet extends ConsumerWidget {
                     leading: const Icon(Icons.cancel_outlined, color: AppColors.danger),
                     title: const Text('Mark as Lost', style: TextStyle(color: AppColors.danger)),
                     onTap: () {
-                      Navigator.of(context).pop();
+                      Navigator.of(sheetContext).pop();
                       _pickLostReason(context, actions);
                     },
                   ),
@@ -203,27 +203,27 @@ class _ActionsSheet extends ConsumerWidget {
     showModalBottomSheet<void>(
       context: context,
       showDragHandle: true,
-      builder: (_) => SafeArea(
+      builder: (sheetContext) => SafeArea(
         child: Column(
           mainAxisSize: MainAxisSize.min,
           children: [
             ListTile(
               leading: const Icon(Icons.check_circle_outline_rounded),
               title: const Text('Open'),
-              onTap: () => _do(context, actions.reopen(), 'Status set to Open'),
+              onTap: () => _do(context, sheetContext, actions.reopen(), 'Status set to Open'),
             ),
             ListTile(
               leading: const Icon(Icons.snooze_outlined),
               title: const Text('Snooze'),
               onTap: () {
-                Navigator.of(context).pop();
+                Navigator.of(sheetContext).pop();
                 _pickSnooze(context, actions);
               },
             ),
             ListTile(
               leading: const Icon(Icons.close_rounded),
               title: const Text('Close'),
-              onTap: () => _do(context, actions.resolve(), 'Status set to Closed'),
+              onTap: () => _do(context, sheetContext, actions.resolve(), 'Status set to Closed'),
             ),
           ],
         ),
@@ -242,37 +242,38 @@ class _ActionsSheet extends ConsumerWidget {
     showModalBottomSheet<void>(
       context: context,
       showDragHandle: true,
-      builder: (_) => SafeArea(
+      builder: (sheetContext) => SafeArea(
         child: Column(
           mainAxisSize: MainAxisSize.min,
           children: [
             for (final entry in presets.entries)
               ListTile(
-                leading: const Icon(Icons.schedule_rounded),
                 title: Text(entry.key),
-                onTap: () => _do(context, actions.snooze(entry.value)),
+                trailing: Text(
+                  DateFormat('E, MMM d • HH:mm').format(entry.value),
+                  style: const TextStyle(color: AppColors.textMuted, fontSize: 13),
+                ),
+                onTap: () => _do(context, sheetContext, actions.snooze(entry.value), 'Snoozed until ${entry.key}'),
               ),
             const Divider(),
             ListTile(
-              leading: const Icon(Icons.calendar_month_outlined),
-              title: const Text('Custom Date & Time'),
+              leading: const Icon(Icons.edit_calendar_outlined),
+              title: const Text('Custom time...'),
               onTap: () async {
-                Navigator.of(context).pop();
                 final date = await showDatePicker(
                   context: context,
-                  initialDate: now,
+                  initialDate: now.add(const Duration(days: 1)),
                   firstDate: now,
                   lastDate: now.add(const Duration(days: 365)),
                 );
                 if (date == null || !context.mounted) return;
                 final time = await showTimePicker(
                   context: context,
-                  initialTime: TimeOfDay.now(),
+                  initialTime: const TimeOfDay(hour: 9, minute: 0),
                 );
                 if (time == null || !context.mounted) return;
-
-                final combined = DateTime(date.year, date.month, date.day, time.hour, time.minute);
-                _do(context, actions.snooze(combined));
+                final dt = DateTime(date.year, date.month, date.day, time.hour, time.minute);
+                _do(context, sheetContext, actions.snooze(dt), 'Snoozed until custom time');
               },
             ),
           ],
@@ -322,7 +323,7 @@ class _ActionsSheet extends ConsumerWidget {
       context: context,
       showDragHandle: true,
       isScrollControlled: true,
-      builder: (_) => DraggableScrollableSheet(
+      builder: (sheetContext) => DraggableScrollableSheet(
         initialChildSize: 0.7,
         maxChildSize: 0.9,
         expand: false,
@@ -333,7 +334,7 @@ class _ActionsSheet extends ConsumerWidget {
             title: Text(lostReasons[i]),
             onTap: () {
               final cat = values[i].startsWith('spam') || values[i] == 'job_seeker' || values[i] == 'abusive' || values[i] == 'wrong_number' || values[i] == 'duplicate' ? 'spam' : 'lost';
-              _do(context, actions.setDisposition(cat, lostReason: values[i]));
+              _do(context, sheetContext, actions.setDisposition(cat, lostReason: values[i]), 'Marked as lost: ${lostReasons[i]}');
             },
           ),
         ),
@@ -349,7 +350,7 @@ class _ActionsSheet extends ConsumerWidget {
     showModalBottomSheet<void>(
       context: context,
       showDragHandle: true,
-      builder: (_) => Consumer(
+      builder: (sheetContext) => Consumer(
         builder: (context, ref, _) {
           final async = ref.watch(agentsProvider);
           return async.when(
@@ -367,7 +368,7 @@ class _ActionsSheet extends ConsumerWidget {
                 ListTile(
                   leading: const Icon(Icons.person_off_outlined),
                   title: const Text('Unassign'),
-                  onTap: () => _do(context, actions.assign(unassign: true)),
+                  onTap: () => _do(context, sheetContext, actions.assign(unassign: true), 'Unassigned conversation'),
                 ),
                 const Divider(height: 1),
                 for (final agent in agents)

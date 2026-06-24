@@ -359,7 +359,17 @@ object NotificationHelper {
                 val channel = NotificationChannel(
                     CALL_CHANNEL_ID, CALL_CHANNEL_NAME,
                     NotificationManager.IMPORTANCE_HIGH
-                )
+                ).apply {
+                    setSound(
+                        android.provider.Settings.System.DEFAULT_RINGTONE_URI,
+                        android.media.AudioAttributes.Builder()
+                            .setUsage(android.media.AudioAttributes.USAGE_NOTIFICATION_RINGTONE)
+                            .setContentType(android.media.AudioAttributes.CONTENT_TYPE_SONIFICATION)
+                            .build()
+                    )
+                    vibrationPattern = longArrayOf(0, 1000, 500, 1000, 500, 1000)
+                    enableVibration(true)
+                }
                 manager.createNotificationChannel(channel)
             }
         }
