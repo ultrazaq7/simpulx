@@ -1,6 +1,7 @@
 package com.simpulx.app
 
 import android.content.Context
+import android.content.Intent
 import android.graphics.BitmapFactory
 import android.util.Log
 import com.google.firebase.messaging.RemoteMessage
