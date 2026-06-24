@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:intl/intl.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import '../../../../app/theme/app_colors.dart';
@@ -389,7 +390,7 @@ class _ActionsSheet extends ConsumerWidget {
                     ),
                     title: Text(agent.name),
                     subtitle: Text('${agent.openCount} open'),
-                    onTap: () => _do(context, actions.assign(agentId: agent.id)),
+                    onTap: () => _do(context, sheetContext, actions.assign(agentId: agent.id), 'Assigned to ${agent.name}'),
                   ),
               ],
             ),
