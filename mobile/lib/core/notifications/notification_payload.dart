@@ -103,6 +103,9 @@ class NotificationPayload {
 
   /// The in-app route a tap should open.
   String get route {
+    if (category == NotificationCategory.incomingCall && conversationId != null) {
+      return '/call/$conversationId';
+    }
     if (conversationId != null) return '/chat/$conversationId';
     if (contactId != null) return '/contacts/$contactId';
     if (category == NotificationCategory.performance) return '/dashboard';
@@ -123,10 +126,16 @@ class NotificationPayload {
     final type = parts.isNotEmpty ? parts[0] : '';
     final conv = parts.length > 1 ? parts[1] : '';
     final contact = parts.length > 2 ? parts[2] : '';
+
+    // Check if it's a call type
+    final category = NotificationCategory.fromType(type);
+    if (category == NotificationCategory.incomingCall && conv.isNotEmpty) {
+      return '/call/$conv';
+    }
+
     if (conv.isNotEmpty) return '/chat/$conv';
     if (contact.isNotEmpty) return '/contacts/$contact';
-    if (NotificationCategory.fromType(type) ==
-        NotificationCategory.performance) {
+    if (category == NotificationCategory.performance) {
       return '/dashboard';
     }
     return '/chat';

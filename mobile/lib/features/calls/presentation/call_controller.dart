@@ -89,6 +89,44 @@ class CallController extends Notifier<CallSession?> {
   }
 
   // ── Inbound ────────────────────────────────────────────
+  /// Setup an incoming call session from a notification tap.
+  /// Fetches call info from backend and creates the session.
+  Future<void> setupIncomingFromNotification({
+    required String conversationId,
+    required String contactName,
+    required String contactPhone,
+    String? callId,
+    String? sdpOffer,
+  }) async {
+    if (state != null) return; // a call is already in progress
+
+    // If we don't have callId/sdpOffer, try to fetch from backend
+    String? resolvedCallId = callId;
+    String? resolvedSdpOffer = sdpOffer;
+
+    if (resolvedCallId == null || resolvedSdpOffer == null) {
+      try {
+        final info = await _ds.getCallInfo(conversationId);
+        resolvedCallId ??= info.callId;
+        resolvedSdpOffer ??= info.sdpOffer;
+      } catch (e) {
+        debugPrint('[call] Failed to fetch call info: $e');
+        // Create session without SDP - will need to fetch later
+      }
+    }
+
+    _rtc = ref.read(webRtcServiceFactoryProvider)();
+    state = CallSession(
+      callId: resolvedCallId ?? '',
+      conversationId: conversationId,
+      inbound: true,
+      contactName: contactName.isNotEmpty ? contactName : 'Unknown',
+      contactPhone: contactPhone.isNotEmpty ? contactPhone : '',
+      phase: CallPhase.incoming,
+      pendingOffer: resolvedSdpOffer,
+    );
+  }
+
   Future<void> acceptIncoming() async {
     final s = state;
     if (s == null || !s.inbound || s.pendingOffer == null || _rtc == null) {

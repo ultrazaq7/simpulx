@@ -123,7 +123,8 @@ class LocalNotifications {
 
   // ── Avatar bitmap generation ──────────────────────────
   /// Generate a square avatar PNG with contact initials on a colored background.
-  /// Returns the file path. WhatsApp-style: rounded square, white letter.
+  /// Returns the file path. WhatsApp-style: rounded square, white letter, with
+  /// small app icon badge at bottom-right corner.
   static Future<String?> _generateAvatarFile(String name) async {
     try {
       final initial = name.trim().isNotEmpty
@@ -176,6 +177,45 @@ class LocalNotifications {
           (size - textPainter.width) / 2,
           (size - textPainter.height) / 2,
         ),
+      );
+
+      // Draw badge circle at bottom-right (WhatsApp-style)
+      const badgeSize = 64.0;
+      const badgeMargin = 12.0;
+      final badgeCenter = Offset(size - badgeMargin - badgeSize / 2,
+                                 size - badgeMargin - badgeSize / 2);
+
+      // White background circle for badge
+      canvas.drawCircle(badgeCenter, badgeSize / 2, Paint()..color = const ui.Color(0xFFFFFFFF));
+
+      // Draw a simple phone icon in the badge (brand green)
+      final iconPaint = Paint()
+        ..color = const ui.Color(0xFF2D8B73)
+        ..style = PaintingStyle.fill;
+
+      // Phone icon approximation: small rounded rect
+      final iconRect = RRect.fromRectAndRadius(
+        Rect.fromCenter(
+          center: badgeCenter,
+          width: 22,
+          height: 28,
+        ),
+        const Radius.circular(4),
+      );
+      canvas.drawRRect(iconRect, iconPaint);
+
+      // Add a small arc at top of phone icon for the receiver
+      final arcPaint = Paint()
+        ..color = const ui.Color(0xFFFFFFFF)
+        ..style = PaintingStyle.stroke
+        ..strokeWidth = 4;
+
+      canvas.drawArc(
+        Rect.fromCenter(center: Offset(badgeCenter.dx, badgeCenter.dy - 8), width: 16, height: 12),
+        0.2,
+        2.7,
+        false,
+        arcPaint,
       );
 
       final picture = recorder.endRecording();

@@ -1,5 +1,5 @@
 import 'package:flutter/foundation.dart';
-import 'package:flutter/widgets.dart';
+import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 
@@ -7,6 +7,7 @@ import '../../core/session/session_controller.dart';
 import '../../features/auth/presentation/pages/forgot_password_page.dart';
 import '../../features/auth/presentation/pages/login_page.dart';
 import '../../features/auth/presentation/pages/reset_password_page.dart';
+import '../../features/calls/presentation/call_controller.dart';
 import '../../features/chat/domain/entities/conversation.dart';
 import '../../features/chat/presentation/pages/chat_list_page.dart';
 import '../../features/chat/presentation/pages/chat_thread_page.dart';
@@ -107,6 +108,18 @@ final routerProvider = Provider<GoRouter>((ref) {
               : null,
         ),
       ),
+      // Full-screen incoming call UI. The CallOverlay handles the actual UI,
+      // this route just ensures the call session is set up and navigates to it.
+      GoRoute(
+        path: '/call/:id',
+        parentNavigatorKey: _rootKey,
+        builder: (context, state) {
+          // This page is a placeholder - CallOverlay shows the actual call UI
+          // once the CallController has an incoming session.
+          // We do minimal rendering to avoid showing the wrong screen.
+          return _CallRoutePage(conversationId: state.pathParameters['id']!);
+        },
+      ),
       // Full-screen lead detail.
       GoRoute(
         path: '/contacts/:id',
@@ -175,3 +188,70 @@ final routerProvider = Provider<GoRouter>((ref) {
     ],
   );
 });
+
+/// Placeholder page for /call/:id route.
+/// This triggers setup of the incoming call session in CallController,
+/// which causes CallOverlay to show the actual call UI.
+class _CallRoutePage extends ConsumerStatefulWidget {
+  const _CallRoutePage({required this.conversationId});
+  final String conversationId;
+
+  @override
+  ConsumerState<_CallRoutePage> createState() => _CallRoutePageState();
+}
+
+class _CallRoutePageState extends ConsumerState<_CallRoutePage> {
+  @override
+  void initState() {
+    super.initState();
+    // Setup incoming call session when this route is opened
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      _setupCall();
+    });
+  }
+
+  Future<void> _setupCall() async {
+    final controller = ref.read(callControllerProvider.notifier);
+
+    // Check if session already exists
+    final existing = ref.read(callControllerProvider);
+    if (existing != null && existing.conversationId == widget.conversationId) {
+      // Already have this call session, don't recreate
+      return;
+    }
+
+    // Extract contact info from route extra if available
+    String contactName = 'Incoming Call';
+    String contactPhone = '';
+
+    final extra = GoRouterState.of(context).extra;
+    if (extra is Map<String, dynamic>) {
+      contactName = extra['contactName'] ?? contactName;
+      contactPhone = extra['contactPhone'] ?? contactPhone;
+    }
+
+    await controller.setupIncomingFromNotification(
+      conversationId: widget.conversationId,
+      contactName: contactName,
+      contactPhone: contactPhone,
+    );
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    // Show a loading screen while setting up the call
+    // The CallOverlay will appear once session is ready
+    return const Scaffold(
+      body: Center(
+        child: Column(
+          mainAxisAlignment: MainAxisAlignment.center,
+          children: [
+            CircularProgressIndicator(),
+            SizedBox(height: 16),
+            Text('Setting up call...'),
+          ],
+        ),
+      ),
+    );
+  }
+}

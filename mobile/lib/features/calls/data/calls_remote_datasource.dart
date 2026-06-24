@@ -12,6 +12,24 @@ class CallPermission {
   final bool granted;
 }
 
+/// Call info fetched from the backend for setting up incoming calls.
+class CallInfo {
+  const CallInfo({
+    required this.callId,
+    required this.conversationId,
+    required this.contactName,
+    required this.contactPhone,
+    required this.status,
+    this.sdpOffer,
+  });
+  final String callId;
+  final String conversationId;
+  final String contactName;
+  final String contactPhone;
+  final String status;
+  final String? sdpOffer;
+}
+
 /// Signaling transport for the WhatsApp Business Calling API (via the gateway).
 class CallsRemoteDataSource {
   CallsRemoteDataSource(this._dio);
@@ -53,6 +71,24 @@ class CallsRemoteDataSource {
   /// POST /api/calls/{id}/end.
   Future<void> end(String callId) =>
       _post(ApiEndpoints.callEnd(callId), const {});
+
+  /// GET /api/calls/{id} - fetch call info for incoming call setup.
+  Future<CallInfo> getCallInfo(String callId) async {
+    try {
+      final res = await _dio.get(ApiEndpoints.callInfo(callId));
+      final m = (res.data as Map).cast<String, dynamic>();
+      return CallInfo(
+        callId: asString(m['call_id']),
+        conversationId: asString(m['conversation_id']),
+        contactName: asString(m['contact_name']),
+        contactPhone: asString(m['contact_phone']),
+        status: asString(m['status']),
+        sdpOffer: asStringOrNull(m['sdp_offer']),
+      );
+    } on DioException catch (e) {
+      throw ErrorMapper.fromDio(e);
+    }
+  }
 
   Future<void> _post(String path, Map<String, dynamic> body) async {
     try {

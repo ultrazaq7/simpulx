@@ -29,7 +29,7 @@ class _SimpulxAppState extends ConsumerState<SimpulxApp> {
     final push = ref.read(pushServiceProvider);
     await push.requestPermission();
     await push.initForeground(
-      onTapRoute: (route) => router.push(route),
+      onTapRoute: (route) => _navigateToRoute(router, route),
       allow: (category) =>
           ref.read(notificationPrefsProvider).isEnabled(category),
     );
@@ -41,6 +41,51 @@ class _SimpulxAppState extends ConsumerState<SimpulxApp> {
     push.onTokenRefresh.listen(
       (t) => repo.registerPushToken(token: t, platform: push.platform),
     );
+  }
+
+  /// Smart navigation that avoids duplicate routes.
+  /// Uses router.go() for root-level routes, router.push() for nested routes.
+  void _navigateToRoute(GoRouter router, String route) {
+    final currentLoc = router.routerDelegate.currentConfiguration.fullPath;
+    debugPrint('[Push] Current route: $currentLoc, navigating to: $route');
+
+    // If navigating to the same route we're already on, do nothing
+    if (currentLoc == route) {
+      debugPrint('[Push] Already on $route, skipping navigation');
+      return;
+    }
+
+    // For /call/:id routes, always use push since call screen needs to overlay
+    if (route.startsWith('/call/')) {
+      router.push(route);
+      return;
+    }
+
+    // For conversation/chat routes that include an ID
+    // Check if we're already viewing that specific conversation
+    if (route.startsWith('/chat/')) {
+      final targetId = route.substring('/chat/'.length);
+      final currentMatch = RegExp(r'^/chat/([^/]+)').firstMatch(currentLoc);
+      if (currentMatch != null && currentMatch.group(1) == targetId) {
+        debugPrint('[Push] Already viewing chat $targetId, skipping');
+        return;
+      }
+      router.push(route);
+      return;
+    }
+
+    // For other routes, check if it's a top-level shell route
+    final isShellRoute = route == '/dashboard' ||
+        route == '/chat' ||
+        route == '/contacts' ||
+        route == '/settings';
+
+    if (isShellRoute) {
+      // Use go() to replace the current route in the shell
+      router.go(route);
+    } else {
+      router.push(route);
+    }
   }
 
   @override
