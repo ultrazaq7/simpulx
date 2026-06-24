@@ -68,6 +68,29 @@ class ChatRemoteDataSource {
     }
   }
 
+  Future<List<MessageModel>> searchMessages(
+    String conversationId, {
+    String? q,
+    DateTime? date,
+  }) async {
+    try {
+      final res = await _dio.get(
+        ApiEndpoints.messageSearch(conversationId),
+        queryParameters: {
+          if (q != null && q.trim().isNotEmpty) 'q': q,
+          if (date != null) 'date': date.toIso8601String().split('T').first,
+        },
+      );
+      final map = (res.data as Map).cast<String, dynamic>();
+      return (map['data'] as List? ?? const [])
+          .whereType<Map>()
+          .map((e) => MessageModel.fromJson(e.cast<String, dynamic>()))
+          .toList();
+    } on DioException catch (e) {
+      throw ErrorMapper.fromDio(e);
+    }
+  }
+
   /// POST /api/conversations/{id}/messages -> {status: queued}. The persisted
   /// message arrives over the realtime WebSocket as `message.persisted`.
   Future<void> sendMessage(

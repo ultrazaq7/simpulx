@@ -5,6 +5,8 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import '../../../../app/theme/app_colors.dart';
 import '../../domain/entities/lead_lookups.dart';
+import '../../../../core/utils/time_format.dart';
+import '../../../../core/widgets/app_snackbar.dart';
 import '../controllers/chat_actions_providers.dart';
 import '../controllers/chat_providers.dart';
 import '../controllers/voice_recorder.dart';
@@ -87,9 +89,7 @@ class _MessageComposerState extends ConsumerState<MessageComposer> {
   Future<void> _startRecording() async {
     final ok = await _voice.start();
     if (!ok && mounted) {
-      ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: Text('Microphone permission is required')),
-      );
+      AppSnackbar.show(context, 'Microphone permission is required', isError: true);
     }
   }
 
@@ -355,8 +355,7 @@ class _CreateShortcutFormState extends State<_CreateShortcutForm> {
     result.fold(
       (f) {
         setState(() => _saving = false);
-        ScaffoldMessenger.of(context)
-            .showSnackBar(SnackBar(content: Text(f.message)));
+        AppSnackbar.show(context, f.message, isError: true);
       },
       (_) {
         widget.parentRef.invalidate(quickRepliesProvider);

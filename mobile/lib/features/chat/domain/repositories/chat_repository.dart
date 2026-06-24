@@ -15,6 +15,13 @@ abstract class ChatRepository {
     int limit,
   });
 
+  /// Search messages by date and/or text query
+  Future<Result<List<Message>>> searchMessages(
+    String conversationId, {
+    String? q,
+    DateTime? date,
+  });
+
   /// Queue an outbound message. The persisted message arrives via realtime.
   Future<Result<void>> sendMessage(
     String conversationId, {

@@ -40,6 +40,24 @@ class ChatRepositoryImpl implements ChatRepository {
   }
 
   @override
+  Future<Result<List<Message>>> searchMessages(
+    String conversationId, {
+    String? q,
+    DateTime? date,
+  }) async {
+    try {
+      final messages = await _remote.searchMessages(
+        conversationId,
+        q: q,
+        date: date,
+      );
+      return Result.ok(messages);
+    } catch (e) {
+      return Result.err(ErrorMapper.toFailure(e));
+    }
+  }
+
+  @override
   Future<Result<void>> sendMessage(
     String conversationId, {
     required String body,

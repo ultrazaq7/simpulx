@@ -6,6 +6,7 @@ import '../../../../app/theme/app_colors.dart';
 import '../../../../app/theme/app_spacing.dart';
 import '../../../../core/notifications/notification_prefs.dart';
 import '../../../../core/session/session_controller.dart';
+import '../../../../core/widgets/app_snackbar.dart';
 import '../../../auth/presentation/controllers/auth_controller.dart';
 
 /// P1 settings home: profile header, presence toggle, sign out. P6 adds
@@ -36,7 +37,6 @@ class SettingsPage extends ConsumerWidget {
                   size: 16,
                 ),
                 title: Text(user?.isOnline ?? false ? 'Online' : 'Offline'),
-                subtitle: const Text('Receive new lead assignments'),
                 value: user?.isOnline ?? false,
                 activeThumbColor: AppColors.success,
                 onChanged: (v) =>
@@ -57,6 +57,16 @@ class SettingsPage extends ConsumerWidget {
                 subtitle: const Text('Choose what alerts you'),
                 trailing: const Icon(Icons.chevron_right_rounded),
                 onTap: () => _showNotificationPrefs(context),
+              ),
+              ListTile(
+                leading: const Icon(Icons.language_rounded),
+                title: const Text('Language'),
+                subtitle: const Text('English, Indonesia'),
+                trailing: const Icon(Icons.chevron_right_rounded),
+                onTap: () {
+                  // For now, just show a stub or dialog since language logic isn't defined yet
+                  AppSnackbar.show(context, 'Language selection coming soon');
+                },
               ),
               if (user?.role.isManagerTier ?? false) ...[
                 const Divider(height: 1),
@@ -299,10 +309,9 @@ class _ProfileSheetState extends ConsumerState<_ProfileSheet> {
         _error = f.message;
       }),
       (_) {
+        setState(() => _saving = false);
+        AppSnackbar.show(context, 'Password updated');
         Navigator.of(context).pop();
-        ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(content: Text('Password updated')),
-        );
       },
     );
   }

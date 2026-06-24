@@ -3,6 +3,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import '../../../../app/theme/app_colors.dart';
 import '../../../../core/session/session_controller.dart';
+import '../../../../core/widgets/app_snackbar.dart';
 import '../../domain/entities/conversation.dart';
 import '../controllers/chat_actions_providers.dart';
 import '../controllers/conversation_list_controller.dart';
@@ -78,12 +79,13 @@ class _ActionsSheet extends ConsumerWidget {
                   leading: const Icon(Icons.flag_outlined),
                   title: const Text('Move stage'),
                   subtitle: Text(live.stageName ?? 'Not set'),
-                  onTap: () => _pickStage(context, ref, actions, convId),
+                  onTap: () => _pickStage(context, ref, actions, convId, live),
                 ),
                 ListTile(
-                  leading: const Icon(Icons.snooze_outlined),
-                  title: const Text('Snooze'),
-                  onTap: () => _pickSnooze(context, actions),
+                  leading: const Icon(Icons.rule_folder_outlined),
+                  title: const Text('Status'),
+                  subtitle: Text(live.status == 'closed' ? 'Closed' : (live.status == 'snoozed' ? 'Snoozed' : 'Open')),
+                  onTap: () => _pickStatus(context, actions, live.status == 'closed'),
                 ),
                 ListTile(
                   leading: const Icon(Icons.sticky_note_2_outlined),
@@ -92,16 +94,6 @@ class _ActionsSheet extends ConsumerWidget {
                     Navigator.of(context).pop();
                     showNotesSheet(context, convId);
                   },
-                ),
-                ListTile(
-                  leading: Icon(isClosed
-                      ? Icons.refresh_rounded
-                      : Icons.check_circle_outline_rounded),
-                  title: Text(isClosed ? 'Reopen' : 'Resolve'),
-                  onTap: () => _do(
-                    context,
-                    isClosed ? actions.reopen() : actions.resolve(),
-                  ),
                 ),
                 if (role?.isManagerTier ?? false)
                   ListTile(
@@ -120,16 +112,13 @@ class _ActionsSheet extends ConsumerWidget {
   }
 
   Future<void> _do(BuildContext context, Future<bool> action) async {
-    final messenger = ScaffoldMessenger.of(context);
     final navigator = Navigator.of(context);
     final ok = await action;
     if (!context.mounted) return;
     if (ok) {
       navigator.pop();
     } else {
-      messenger.showSnackBar(
-        const SnackBar(content: Text('Action failed. Try again.')),
-      );
+      AppSnackbar.show(context, 'Action failed. Try again.', isError: true);
     }
   }
 
@@ -138,6 +127,7 @@ class _ActionsSheet extends ConsumerWidget {
     WidgetRef ref,
     ConversationActionsController actions,
     String convId,
+    Conversation conversation,
   ) {
     showModalBottomSheet<void>(
       context: context,
@@ -165,7 +155,6 @@ class _ActionsSheet extends ConsumerWidget {
                       title: Text(s.name),
                       selected: s.name == conversation.stageName,
                       onTap: () {
-                        // Optimistic stage move + persist.
                         ref
                             .read(conversationListProvider.notifier)
                             .patchLocal(convId, stageName: s.name);
@@ -173,6 +162,15 @@ class _ActionsSheet extends ConsumerWidget {
                         Navigator.of(context).pop();
                       },
                     ),
+                  const Divider(),
+                  ListTile(
+                    leading: const Icon(Icons.cancel_outlined, color: AppColors.danger),
+                    title: const Text('Mark as Lost', style: TextStyle(color: AppColors.danger)),
+                    onTap: () {
+                      Navigator.of(context).pop();
+                      _pickLostReason(context, actions);
+                    },
+                  ),
                 ],
               ),
             ),
@@ -182,15 +180,45 @@ class _ActionsSheet extends ConsumerWidget {
     );
   }
 
+  void _pickStatus(BuildContext context, ConversationActionsController actions, bool isClosed) {
+    showModalBottomSheet<void>(
+      context: context,
+      showDragHandle: true,
+      builder: (_) => SafeArea(
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            ListTile(
+              leading: const Icon(Icons.check_circle_outline_rounded),
+              title: const Text('Open'),
+              onTap: () => _do(context, actions.reopen()),
+            ),
+            ListTile(
+              leading: const Icon(Icons.snooze_outlined),
+              title: const Text('Snooze'),
+              onTap: () {
+                Navigator.of(context).pop();
+                _pickSnooze(context, actions);
+              },
+            ),
+            ListTile(
+              leading: const Icon(Icons.close_rounded),
+              title: const Text('Close'),
+              onTap: () => _do(context, actions.resolve()),
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+
   void _pickSnooze(BuildContext context, ConversationActionsController actions) {
     final now = DateTime.now();
     final presets = <String, DateTime>{
       '1 hour': now.add(const Duration(hours: 1)),
       '3 hours': now.add(const Duration(hours: 3)),
-      'Tomorrow 9am':
-          DateTime(now.year, now.month, now.day + 1, 9),
-      'In 3 days':
-          DateTime(now.year, now.month, now.day + 3, 9),
+      'Tomorrow 9am': DateTime(now.year, now.month, now.day + 1, 9),
+      'In 3 days': DateTime(now.year, now.month, now.day + 3, 9),
     };
     showModalBottomSheet<void>(
       context: context,
@@ -205,7 +233,90 @@ class _ActionsSheet extends ConsumerWidget {
                 title: Text(entry.key),
                 onTap: () => _do(context, actions.snooze(entry.value)),
               ),
+            const Divider(),
+            ListTile(
+              leading: const Icon(Icons.calendar_month_outlined),
+              title: const Text('Custom Date & Time'),
+              onTap: () async {
+                Navigator.of(context).pop();
+                final date = await showDatePicker(
+                  context: context,
+                  initialDate: now,
+                  firstDate: now,
+                  lastDate: now.add(const Duration(days: 365)),
+                );
+                if (date == null || !context.mounted) return;
+                final time = await showTimePicker(
+                  context: context,
+                  initialTime: TimeOfDay.now(),
+                );
+                if (time == null || !context.mounted) return;
+
+                final combined = DateTime(date.year, date.month, date.day, time.hour, time.minute);
+                _do(context, actions.snooze(combined));
+              },
+            ),
           ],
+        ),
+      ),
+    );
+  }
+
+  void _pickLostReason(BuildContext context, ConversationActionsController actions) {
+    final lostReasons = [
+      'Bought elsewhere: Another brand',
+      'Bought elsewhere: A used car instead',
+      'Bought elsewhere: Same brand, other dealer',
+      'Bought elsewhere: Competitor promo',
+      'Didn\'t buy: Out of area',
+      'Didn\'t buy: Price too high',
+      'Didn\'t buy: Financing rejected',
+      'Didn\'t buy: No budget / postponed',
+      'Didn\'t buy: Wrong product / spec',
+      'Didn\'t buy: Changed mind / not buying',
+      'Didn\'t buy: Trade-in issue',
+      'Spam: Spam',
+      'Spam: Job seeker',
+      'Spam: Abusive',
+      'Spam: Wrong number',
+      'Spam: Duplicate',
+    ];
+    final values = [
+      'bought_other_brand',
+      'bought_used_car',
+      'bought_elsewhere',
+      'competitor_promo',
+      'out_of_area',
+      'price_too_high',
+      'financing_rejected',
+      'no_budget',
+      'wrong_product',
+      'changed_mind',
+      'trade_in_issue',
+      'spam_junk',
+      'job_seeker',
+      'abusive',
+      'wrong_number',
+      'duplicate',
+    ];
+    showModalBottomSheet<void>(
+      context: context,
+      showDragHandle: true,
+      isScrollControlled: true,
+      builder: (_) => DraggableScrollableSheet(
+        initialChildSize: 0.7,
+        maxChildSize: 0.9,
+        expand: false,
+        builder: (context, scrollController) => ListView.builder(
+          controller: scrollController,
+          itemCount: lostReasons.length,
+          itemBuilder: (context, i) => ListTile(
+            title: Text(lostReasons[i]),
+            onTap: () {
+              final cat = values[i].startsWith('spam') || values[i] == 'job_seeker' || values[i] == 'abusive' || values[i] == 'wrong_number' || values[i] == 'duplicate' ? 'spam' : 'lost';
+              _do(context, actions.setDisposition(cat, lostReason: values[i]));
+            },
+          ),
         ),
       ),
     );

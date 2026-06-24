@@ -7,6 +7,7 @@ import '../../../../core/utils/time_format.dart';
 import '../../../../core/widgets/app_empty_state.dart';
 import '../../../../core/widgets/app_error_view.dart';
 import '../../../../core/widgets/app_loader.dart';
+import '../../../../core/widgets/app_snackbar.dart';
 import '../../domain/broadcast_summary.dart';
 import '../workspace_providers.dart';
 
@@ -74,9 +75,7 @@ class BroadcastsPage extends ConsumerWidget {
     );
     if (ok != true) return;
     final sent = await ref.read(broadcastsProvider.notifier).send(b.id);
-    messenger.showSnackBar(SnackBar(
-      content: Text(sent ? 'Broadcast queued' : 'Could not send broadcast'),
-    ));
+    AppSnackbar.show(context, sent ? 'Broadcast queued' : 'Could not send broadcast', isError: !sent);
   }
 }
 

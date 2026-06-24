@@ -4,6 +4,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import '../../../../app/theme/app_colors.dart';
 import '../../../../core/utils/time_format.dart';
 import '../../../../core/widgets/app_empty_state.dart';
+import '../../../../core/widgets/app_snackbar.dart';
 import '../controllers/chat_actions_providers.dart';
 import '../controllers/chat_providers.dart';
 
@@ -52,8 +53,7 @@ class _NotesSheetState extends ConsumerState<_NotesSheet> {
     if (!mounted) return;
     setState(() => _adding = false);
     result.fold(
-      (f) => ScaffoldMessenger.of(context)
-          .showSnackBar(SnackBar(content: Text(f.message))),
+      (f) => AppSnackbar.show(context, f.message, isError: true),
       (_) {
         _controller.clear();
         ref.invalidate(notesProvider(widget.conversationId));

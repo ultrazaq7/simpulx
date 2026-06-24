@@ -29,6 +29,7 @@ class _ChatListPageState extends ConsumerState<ChatListPage> {
   final _scroll = ScrollController();
   String _query = '';
   String _searchType = 'Phone';
+  String _sortType = 'Latest';
   int _visible = 25; // windowed render count; grows as the user scrolls
   int _filteredLen = 0;
 
@@ -54,7 +55,7 @@ class _ChatListPageState extends ConsumerState<ChatListPage> {
 
   List<Conversation> _filter(List<Conversation> list, InboxFilter filter) {
     final q = _query.toLowerCase();
-    return list.where((c) {
+    final res = list.where((c) {
       bool matchesSearch = true;
       if (q.isNotEmpty) {
         if (_searchType == 'Name') {
@@ -74,6 +75,19 @@ class _ChatListPageState extends ConsumerState<ChatListPage> {
       }
       return matchesSearch && filter.matches(c);
     }).toList();
+    
+    if (_sortType == 'Latest') {
+      res.sort((a, b) => b.updatedAt.compareTo(a.updatedAt));
+    } else if (_sortType == 'Oldest') {
+      res.sort((a, b) => a.updatedAt.compareTo(b.updatedAt));
+    } else if (_sortType == 'Unread First') {
+      res.sort((a, b) {
+        if (a.unreadCount > 0 && b.unreadCount == 0) return -1;
+        if (a.unreadCount == 0 && b.unreadCount > 0) return 1;
+        return b.updatedAt.compareTo(a.updatedAt);
+      });
+    }
+    return res;
   }
 
   void _showFilters() {
@@ -105,6 +119,27 @@ class _ChatListPageState extends ConsumerState<ChatListPage> {
                     ],
                   ),
                   const SizedBox(height: 8),
+                  const Text('Sort by',
+                      style:
+                          TextStyle(fontWeight: FontWeight.w700, fontSize: 13)),
+                  const SizedBox(height: 8),
+                  Wrap(
+                    spacing: 8,
+                    children: [
+                      for (final sort in const ['Latest', 'Oldest', 'Unread First'])
+                        ChoiceChip(
+                          label: Text(sort),
+                          selected: _sortType == sort,
+                          onSelected: (_) {
+                            setState(() {
+                              _sortType = sort;
+                              _visible = 25;
+                            });
+                          },
+                        ),
+                    ],
+                  ),
+                  const SizedBox(height: 16),
                   const Text('Interest Level',
                       style:
                           TextStyle(fontWeight: FontWeight.w700, fontSize: 13)),
@@ -128,6 +163,31 @@ class _ChatListPageState extends ConsumerState<ChatListPage> {
                           onSelected: (_) => ref
                               .read(inboxFilterProvider.notifier)
                               .set(filter.copyWith(interestLevel: level)),
+                        ),
+                    ],
+                  ),
+                  const SizedBox(height: 16),
+                  const Text('Status',
+                      style:
+                          TextStyle(fontWeight: FontWeight.w700, fontSize: 13)),
+                  const SizedBox(height: 8),
+                  Wrap(
+                    spacing: 8,
+                    children: [
+                      ChoiceChip(
+                        label: const Text('All'),
+                        selected: filter.status == null,
+                        onSelected: (_) => ref
+                            .read(inboxFilterProvider.notifier)
+                            .set(filter.copyWith(clearStatus: true)),
+                      ),
+                      for (final status in const ['open', 'closed', 'snoozed'])
+                        ChoiceChip(
+                          label: Text(status[0].toUpperCase() + status.substring(1)),
+                          selected: filter.status == status,
+                          onSelected: (_) => ref
+                              .read(inboxFilterProvider.notifier)
+                              .set(filter.copyWith(status: status)),
                         ),
                     ],
                   ),

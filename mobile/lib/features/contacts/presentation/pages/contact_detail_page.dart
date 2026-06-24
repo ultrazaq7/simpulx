@@ -8,6 +8,7 @@ import '../../../../app/theme/app_colors.dart';
 import '../../../../app/theme/app_spacing.dart';
 import '../../../../core/utils/time_format.dart';
 import '../../../../core/widgets/app_loader.dart';
+import '../../../../core/widgets/app_snackbar.dart';
 import '../../../chat/domain/entities/conversation.dart';
 import '../../../chat/presentation/widgets/conversation_actions_sheet.dart';
 import '../../../chat/presentation/widgets/notes_sheet.dart';
@@ -59,7 +60,7 @@ class ContactDetailPage extends ConsumerWidget {
 
     return Scaffold(
       appBar: AppBar(
-        title: const Text('Lead'),
+        title: const Text('Contact Details'),
         actions: [
           IconButton(
             icon: const Icon(Icons.edit_outlined),
@@ -174,12 +175,7 @@ class _IdentityCard extends StatelessWidget {
                       GestureDetector(
                         onTap: () {
                           Clipboard.setData(ClipboardData(text: c.phone));
-                          ScaffoldMessenger.of(context).showSnackBar(
-                            const SnackBar(
-                              content: Text('Phone number copied to clipboard'),
-                              duration: Duration(seconds: 2),
-                            ),
-                          );
+                          AppSnackbar.show(context, 'Phone number copied');
                         },
                         child: Icon(Icons.copy_rounded, size: 14, color: theme.colorScheme.onSurfaceVariant),
                       ),

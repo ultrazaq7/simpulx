@@ -4,6 +4,7 @@ import 'package:file_picker/file_picker.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:go_router/go_router.dart';
 import 'package:image_picker/image_picker.dart';
 import 'package:url_launcher/url_launcher.dart';
 
@@ -12,6 +13,7 @@ import '../../../../core/utils/time_format.dart';
 import '../../../calls/presentation/call_controller.dart';
 import '../../../../core/widgets/app_error_view.dart';
 import '../../../../core/widgets/app_loader.dart';
+import '../../../../core/widgets/app_snackbar.dart';
 import '../../domain/entities/conversation.dart';
 import '../../domain/entities/message.dart';
 import '../controllers/chat_providers.dart';
@@ -20,6 +22,7 @@ import '../controllers/conversation_list_controller.dart';
 import '../widgets/conversation_actions_sheet.dart';
 import '../widgets/message_bubble.dart';
 import '../widgets/message_composer.dart';
+import '../widgets/message_search_delegate.dart';
 import '../widgets/template_picker_sheet.dart';
 
 /// Full-screen conversation thread (no bottom nav). Optimistic send + realtime
@@ -154,9 +157,7 @@ class _ChatThreadPageState extends ConsumerState<ChatThreadPage>
   Future<void> _call(String phone) async {
     final messenger = ScaffoldMessenger.of(context);
     if (phone.isEmpty) {
-      messenger.showSnackBar(
-        const SnackBar(content: Text('No phone number for this contact')),
-      );
+      AppSnackbar.show(context, 'No phone number for this contact', isError: true);
       return;
     }
     final normalized = phone.startsWith('+') ? phone : '+$phone';
@@ -168,9 +169,9 @@ class _ChatThreadPageState extends ConsumerState<ChatThreadPage>
         ref.read(chatRepositoryProvider).trackCall(widget.conversationId),
       );
     } catch (_) {
-      messenger.showSnackBar(
-        const SnackBar(content: Text('Could not open the dialer')),
-      );
+      if (context.mounted) {
+        AppSnackbar.show(context, 'Could not open the dialer', isError: true);
+      }
     }
   }
 
@@ -286,6 +287,12 @@ class _ChatThreadPageState extends ConsumerState<ChatThreadPage>
         onSendTemplate: () =>
             showTemplatePicker(context, widget.conversationId),
         onCall: () => _showCallMenu(conversation),
+        onSearch: () {
+          showSearch(
+            context: context,
+            delegate: MessageSearchDelegate(ref, widget.conversationId),
+          );
+        },
       ),
       body: Column(
         children: [
@@ -465,11 +472,13 @@ class _ThreadAppBar extends StatelessWidget implements PreferredSizeWidget {
     this.onMore,
     this.onSendTemplate,
     this.onCall,
+    this.onSearch,
   });
   final Conversation? conversation;
   final VoidCallback? onMore;
   final VoidCallback? onSendTemplate;
   final VoidCallback? onCall;
+  final VoidCallback? onSearch;
 
   @override
   Size get preferredSize => const Size.fromHeight(kToolbarHeight);
@@ -480,60 +489,62 @@ class _ThreadAppBar extends StatelessWidget implements PreferredSizeWidget {
     final title = c?.displayName ?? 'Conversation';
     return AppBar(
       titleSpacing: 0,
-      title: Row(
-        children: [
-          CircleAvatar(
-            radius: 17,
-            backgroundColor: AppColors.primary.withValues(alpha: 0.12),
-            child: Text(
-              _initials(title),
-              style: const TextStyle(
-                color: AppColors.primaryDark,
-                fontWeight: FontWeight.w700,
-                fontSize: 13,
+      title: GestureDetector(
+        onTap: () {
+          if (c != null && c.contactId.isNotEmpty) {
+            context.push('/contacts/${c.contactId}');
+          }
+        },
+        child: Row(
+          children: [
+            CircleAvatar(
+              radius: 17,
+              backgroundColor: AppColors.primary.withValues(alpha: 0.12),
+              child: Text(
+                _initials(title),
+                style: const TextStyle(
+                  color: AppColors.primaryDark,
+                  fontWeight: FontWeight.w700,
+                  fontSize: 13,
+                ),
               ),
             ),
-          ),
-          const SizedBox(width: 10),
-          Expanded(
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              mainAxisAlignment: MainAxisAlignment.center,
-              children: [
-                Text(
-                  title,
-                  maxLines: 1,
-                  overflow: TextOverflow.ellipsis,
-                  style: const TextStyle(
-                      fontSize: 15.5, fontWeight: FontWeight.w700),
-                ),
-                if (c != null && c.contactPhone.isNotEmpty)
-                  Row(
-                    children: [
-                      Text(
-                        c.contactPhone,
-                        style: const TextStyle(
-                            fontSize: 12, color: AppColors.textSecondary),
-                      ),
-                      const SizedBox(width: 4),
-                      GestureDetector(
-                        onTap: () {
-                          Clipboard.setData(ClipboardData(text: c.contactPhone));
-                          ScaffoldMessenger.of(context).showSnackBar(
-                            const SnackBar(
-                              content: Text('Phone number copied to clipboard'),
-                              duration: Duration(seconds: 2),
-                            ),
-                          );
-                        },
-                        child: const Icon(Icons.copy_rounded, size: 14, color: AppColors.textSecondary),
-                      ),
-                    ],
+            const SizedBox(width: 10),
+            Expanded(
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                mainAxisAlignment: MainAxisAlignment.center,
+                children: [
+                  Text(
+                    title,
+                    maxLines: 1,
+                    overflow: TextOverflow.ellipsis,
+                    style: const TextStyle(
+                        fontSize: 15.5, fontWeight: FontWeight.w700),
                   ),
-              ],
+                  if (c != null && c.contactPhone.isNotEmpty)
+                    Row(
+                      children: [
+                        Text(
+                          c.contactPhone,
+                          style: const TextStyle(
+                              fontSize: 12, color: AppColors.textSecondary),
+                        ),
+                        const SizedBox(width: 4),
+                        GestureDetector(
+                          onTap: () {
+                            Clipboard.setData(ClipboardData(text: c.contactPhone));
+                            AppSnackbar.show(context, 'Phone number copied');
+                          },
+                          child: const Icon(Icons.copy_rounded, size: 14, color: AppColors.textSecondary),
+                        ),
+                      ],
+                    ),
+                ],
+              ),
             ),
-          ),
-        ],
+          ],
+        ),
       ),
       actions: [
         IconButton(
@@ -541,7 +552,12 @@ class _ThreadAppBar extends StatelessWidget implements PreferredSizeWidget {
           icon: const Icon(Icons.call_rounded),
           tooltip: 'Call',
         ),
-        const SizedBox(width: 8),
+        IconButton(
+          onPressed: onSearch,
+          icon: const Icon(Icons.search_rounded),
+          tooltip: 'Search messages',
+        ),
+        const SizedBox(width: 4),
         IconButton(
           icon: const Icon(Icons.more_vert_rounded),
           onPressed: onMore,

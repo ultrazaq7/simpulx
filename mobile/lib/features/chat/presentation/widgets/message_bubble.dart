@@ -7,6 +7,7 @@ import 'package:url_launcher/url_launcher.dart';
 
 import '../../../../app/theme/app_colors.dart';
 import '../../../../core/utils/time_format.dart';
+import '../../../../core/widgets/app_snackbar.dart';
 import '../../domain/entities/message.dart';
 import 'audio_message.dart';
 import 'media_viewer.dart';
@@ -28,10 +29,11 @@ class MessageBubble extends StatelessWidget {
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
     final mine = message.isMine;
+    final isDark = theme.brightness == Brightness.dark;
     final bg = mine
         ? AppColors.primary.withValues(alpha: 0.92)
-        : theme.colorScheme.surfaceContainerHighest;
-    final fg = mine ? Colors.white : theme.colorScheme.onSurface;
+        : (isDark ? AppColors.darkSurfaceAlt : const Color(0xFFF0F2F5)); // WhatsApp-like light gray
+    final fg = mine ? Colors.white : (isDark ? AppColors.darkTextPrimary : AppColors.textPrimary);
 
     return Align(
       alignment: mine ? Alignment.centerRight : Alignment.centerLeft,
@@ -114,12 +116,7 @@ class MessageBubble extends StatelessWidget {
               onTap: () {
                 Clipboard.setData(ClipboardData(text: message.body));
                 Navigator.of(sheetContext).pop();
-                ScaffoldMessenger.of(context).showSnackBar(
-                  const SnackBar(
-                    content: Text('Copied'),
-                    duration: Duration(seconds: 1),
-                  ),
-                );
+                AppSnackbar.show(context, 'Copied');
               },
             ),
           ],

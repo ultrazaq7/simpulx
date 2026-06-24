@@ -36,16 +36,6 @@ class ContactTile extends StatelessWidget {
                 children: [
                   Row(
                     children: [
-                      if (c.interestLevel != null)
-                        Container(
-                          width: 8,
-                          height: 8,
-                          margin: const EdgeInsets.only(right: 6),
-                          decoration: BoxDecoration(
-                            color: AppColors.forInterest(c.interestLevel),
-                            shape: BoxShape.circle,
-                          ),
-                        ),
                       Expanded(
                         child: Text(
                           c.displayName,
@@ -87,6 +77,10 @@ class ContactTile extends StatelessWidget {
                                   color: AppColors.textSecondary,
                                   fontWeight: FontWeight.w600)),
                         ),
+                      ],
+                      if (c.interestLevel != null) ...[
+                        const SizedBox(width: 6),
+                        _ShinyBadge(interestLevel: c.interestLevel!),
                       ],
                     ],
                   ),
@@ -133,6 +127,72 @@ class _ScoreBadge extends StatelessWidget {
           color: _color,
           fontWeight: FontWeight.w800,
           fontSize: 13,
+        ),
+      ),
+    );
+  }
+}
+
+class _ShinyBadge extends StatelessWidget {
+  const _ShinyBadge({required this.interestLevel});
+  final String interestLevel;
+
+  @override
+  Widget build(BuildContext context) {
+    Color baseColor;
+    List<Color> gradientColors;
+
+    switch (interestLevel.toLowerCase()) {
+      case 'hot':
+        baseColor = AppColors.hot;
+        gradientColors = [const Color(0xFFff8a8a), const Color(0xFFef4444), const Color(0xFFb91c1c)];
+        break;
+      case 'warm':
+        baseColor = AppColors.warm;
+        gradientColors = [const Color(0xFFfcd34d), const Color(0xFFf59e0b), const Color(0xFFb45309)];
+        break;
+      case 'cold':
+      default:
+        baseColor = AppColors.cold;
+        gradientColors = [const Color(0xFF93c5fd), const Color(0xFF3b82f6), const Color(0xFF1d4ed8)];
+        break;
+    }
+
+    return Container(
+      padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 2),
+      decoration: BoxDecoration(
+        gradient: LinearGradient(
+          colors: gradientColors,
+          begin: Alignment.topLeft,
+          end: Alignment.bottomRight,
+        ),
+        borderRadius: BorderRadius.circular(999),
+        boxShadow: [
+          BoxShadow(
+            color: baseColor.withValues(alpha: 0.4),
+            blurRadius: 4,
+            offset: const Offset(0, 2),
+          ),
+        ],
+        border: Border.all(
+          color: Colors.white.withValues(alpha: 0.5),
+          width: 0.5,
+        ),
+      ),
+      child: Text(
+        interestLevel[0].toUpperCase() + interestLevel.substring(1),
+        style: const TextStyle(
+          fontSize: 11,
+          color: Colors.white,
+          fontWeight: FontWeight.w800,
+          letterSpacing: 0.2,
+          shadows: [
+            Shadow(
+              color: Colors.black26,
+              offset: Offset(0, 1),
+              blurRadius: 2,
+            ),
+          ],
         ),
       ),
     );

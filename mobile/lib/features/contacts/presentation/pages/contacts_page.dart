@@ -28,6 +28,7 @@ class _ContactsPageState extends ConsumerState<ContactsPage> {
   String? _interest; // null = all
   String? _stage; // stage name, null = all
   String? _assignment; // 'mine' | 'unassigned' | null = all
+  String _sortType = 'Latest';
 
   int get _activeFilters =>
       (_stage != null ? 1 : 0) + (_assignment != null ? 1 : 0);
@@ -40,7 +41,7 @@ class _ContactsPageState extends ConsumerState<ContactsPage> {
 
   List<Contact> _filter(List<Contact> list, String? myId) {
     final q = _query.toLowerCase();
-    return list.where((c) {
+    final res = list.where((c) {
       final matchesQuery = q.isEmpty ||
           c.fullName.toLowerCase().contains(q) ||
           c.phone.toLowerCase().contains(q);
@@ -54,6 +55,15 @@ class _ContactsPageState extends ConsumerState<ContactsPage> {
           matchesStage &&
           matchesAssignment;
     }).toList();
+
+    if (_sortType == 'Score') {
+      res.sort((a, b) => (b.leadScore ?? 0).compareTo(a.leadScore ?? 0));
+    } else if (_sortType == 'Latest') {
+      res.sort((a, b) => (b.createdAt ?? DateTime(0)).compareTo(a.createdAt ?? DateTime(0)));
+    } else if (_sortType == 'Name') {
+      res.sort((a, b) => a.fullName.compareTo(b.fullName));
+    }
+    return res;
   }
 
   void _showFilters() {
@@ -101,6 +111,22 @@ class _ContactsPageState extends ConsumerState<ContactsPage> {
                         ],
                       ),
                       const SizedBox(height: 8),
+                      const Text('Sort by',
+                          style: TextStyle(
+                              fontWeight: FontWeight.w700, fontSize: 13)),
+                      const SizedBox(height: 8),
+                      Wrap(
+                        spacing: 8,
+                        children: [
+                          for (final sort in const ['Latest', 'Score', 'Name'])
+                            ChoiceChip(
+                              label: Text(sort),
+                              selected: _sortType == sort,
+                              onSelected: (_) => update(() => _sortType = sort),
+                            ),
+                        ],
+                      ),
+                      const SizedBox(height: 16),
                       const Text('Interest Level',
                           style: TextStyle(
                               fontWeight: FontWeight.w700, fontSize: 13)),
