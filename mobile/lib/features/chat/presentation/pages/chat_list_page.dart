@@ -77,14 +77,14 @@ class _ChatListPageState extends ConsumerState<ChatListPage> {
     }).toList();
     
     if (_sortType == 'Latest') {
-      res.sort((a, b) => b.updatedAt.compareTo(a.updatedAt));
+      res.sort((a, b) => (b.lastMessageAt ?? DateTime(0)).compareTo(a.lastMessageAt ?? DateTime(0)));
     } else if (_sortType == 'Oldest') {
-      res.sort((a, b) => a.updatedAt.compareTo(b.updatedAt));
+      res.sort((a, b) => (a.lastMessageAt ?? DateTime(0)).compareTo(b.lastMessageAt ?? DateTime(0)));
     } else if (_sortType == 'Unread First') {
       res.sort((a, b) {
-        if (a.unreadCount > 0 && b.unreadCount == 0) return -1;
-        if (a.unreadCount == 0 && b.unreadCount > 0) return 1;
-        return b.updatedAt.compareTo(a.updatedAt);
+        if (a.hasUnread && !b.hasUnread) return -1;
+        if (!a.hasUnread && b.hasUnread) return 1;
+        return (b.lastMessageAt ?? DateTime(0)).compareTo(a.lastMessageAt ?? DateTime(0));
       });
     }
     return res;

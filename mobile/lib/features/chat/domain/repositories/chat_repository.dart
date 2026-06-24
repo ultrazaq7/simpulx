@@ -1,6 +1,7 @@
 import '../../../../core/error/result.dart';
 import '../entities/conversation.dart';
 import '../entities/lead_lookups.dart';
+import '../entities/message.dart';
 import '../entities/messages_page.dart';
 import '../entities/uploaded_media.dart';
 

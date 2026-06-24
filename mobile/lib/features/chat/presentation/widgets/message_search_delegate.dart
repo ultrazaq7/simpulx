@@ -94,7 +94,7 @@ class MessageSearchDelegate extends SearchDelegate<Message?> {
           itemBuilder: (context, index) {
             final m = messages[index];
             return AbsorbPointer(
-              child: MessageBubble(message: m, isMine: m.isOutbound),
+              child: MessageBubble(message: m),
             );
           },
         );

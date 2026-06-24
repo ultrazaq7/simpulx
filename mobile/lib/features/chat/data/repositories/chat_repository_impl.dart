@@ -2,6 +2,7 @@ import '../../../../core/error/result.dart';
 import '../../../../core/network/error_mapper.dart';
 import '../../domain/entities/conversation.dart';
 import '../../domain/entities/lead_lookups.dart';
+import '../../domain/entities/message.dart';
 import '../../domain/entities/messages_page.dart';
 import '../../domain/entities/uploaded_media.dart';
 import '../../domain/repositories/chat_repository.dart';

@@ -6,6 +6,7 @@ import '../../../../core/network/sse.dart';
 import '../../../../core/utils/json_parse.dart';
 import '../../domain/entities/conversation.dart';
 import '../../domain/entities/lead_lookups.dart';
+import '../../domain/entities/message.dart';
 import '../../domain/entities/messages_page.dart';
 import '../../domain/entities/uploaded_media.dart';
 import '../models/conversation_model.dart';
@@ -68,7 +69,7 @@ class ChatRemoteDataSource {
     }
   }
 
-  Future<List<MessageModel>> searchMessages(
+  Future<List<Message>> searchMessages(
     String conversationId, {
     String? q,
     DateTime? date,
