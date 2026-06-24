@@ -314,21 +314,45 @@ class LocalNotifications {
     return path;
   }
 
+  /// MethodChannel to native Kotlin notification builder.
+  static const _nativeChannel = MethodChannel('simpulx_notification');
+
   static Future<void> _show(
     FlutterLocalNotificationsPlugin plugin,
     NotificationPayload payload,
   ) async {
+    final isMessage = payload.category == NotificationCategory.incomingMessage;
+
+    // For messages: try native Kotlin notification (WhatsApp-style avatar+badge)
+    if (isMessage) {
+      try {
+        final badgeBytes = await _loadAppIconBytes();
+        await _nativeChannel.invokeMethod('showChatNotification', {
+          'chatId': payload.conversationId ?? payload.title,
+          'senderName': payload.title,
+          'conversationTitle': 'Simpulx',
+          'message': payload.body,
+          'avatar': null, // null = generate initial avatar natively
+          'badge': badgeBytes,
+        });
+        debugPrint('[Notification] Native notification shown');
+        return;
+      } catch (e) {
+        debugPrint('[Notification] Native channel failed: $e, using fallback');
+      }
+    }
+
+    // Fallback: use flutter_local_notifications for calls/other or when native fails
     try {
-      await _showInternal(plugin, payload);
+      await _showFlutter(plugin, payload);
     } catch (e, st) {
-      debugPrint('[Notification] _show failed: $e');
+      debugPrint('[Notification] Flutter notification failed: $e');
       debugPrint('[Notification] Stack: $st');
-      // Fallback: show simple notification without avatar
       await _showFallback(plugin, payload);
     }
   }
 
-  static Future<void> _showInternal(
+  static Future<void> _showFlutter(
     FlutterLocalNotificationsPlugin plugin,
     NotificationPayload payload,
   ) async {

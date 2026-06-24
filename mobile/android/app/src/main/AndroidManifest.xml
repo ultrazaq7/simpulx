@@ -58,6 +58,15 @@
         <meta-data
             android:name="flutterEmbedding"
             android:value="2" />
+        <!-- Native notification reply/mark-read handler -->
+        <receiver
+            android:name=".ReplyReceiver"
+            android:exported="false">
+            <intent-filter>
+                <action android:name="simpulx.ACTION_REPLY"/>
+                <action android:name="simpulx.ACTION_MARK_AS_READ"/>
+            </intent-filter>
+        </receiver>
     </application>
 
     <queries>

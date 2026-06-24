@@ -1,5 +1,69 @@
 package com.simpulx.app
 
+import android.graphics.Bitmap
+import android.graphics.BitmapFactory
 import io.flutter.embedding.android.FlutterActivity
+import io.flutter.embedding.engine.FlutterEngine
+import io.flutter.plugin.common.MethodChannel
 
-class MainActivity : FlutterActivity()
+class MainActivity : FlutterActivity() {
+
+    private val CHANNEL = "simpulx_notification"
+
+    override fun configureFlutterEngine(flutterEngine: FlutterEngine) {
+        super.configureFlutterEngine(flutterEngine)
+
+        MethodChannel(flutterEngine.dartExecutor.binaryMessenger, CHANNEL)
+            .setMethodCallHandler { call, result ->
+                when (call.method) {
+                    "showChatNotification" -> {
+                        try {
+                            val chatId = call.argument<String>("chatId") ?: ""
+                            val senderName = call.argument<String>("senderName") ?: "Unknown"
+                            val conversationTitle = call.argument<String>("conversationTitle") ?: "Simpulx"
+                            val message = call.argument<String>("message") ?: ""
+                            val avatarBytes = call.argument<ByteArray>("avatar")
+                            val badgeBytes = call.argument<ByteArray>("badge")
+
+                            // Generate initial avatar
+                            val avatar = if (avatarBytes != null && avatarBytes.isNotEmpty()) {
+                                BitmapFactory.decodeByteArray(avatarBytes, 0, avatarBytes.size)
+                            } else {
+                                NotificationHelper.generateInitialAvatar(senderName)
+                            }
+
+                            // Load badge icon
+                            val badge = if (badgeBytes != null && badgeBytes.isNotEmpty()) {
+                                BitmapFactory.decodeByteArray(badgeBytes, 0, badgeBytes.size)
+                            } else {
+                                // Load ic_notification from drawable resources
+                                BitmapFactory.decodeResource(resources, R.drawable.ic_notification)
+                            }
+
+                            // Merge avatar + badge
+                            val mergedBitmap = if (badge != null) {
+                                NotificationHelper.mergeAvatarWithBadge(avatar, badge)
+                            } else {
+                                avatar
+                            }
+
+                            // Show notification
+                            NotificationHelper.showChatNotification(
+                                context = this,
+                                chatId = chatId,
+                                senderName = senderName,
+                                conversationTitle = conversationTitle,
+                                message = message,
+                                avatarBitmap = mergedBitmap,
+                            )
+
+                            result.success(true)
+                        } catch (e: Exception) {
+                            result.error("NOTIFICATION_ERROR", e.message, null)
+                        }
+                    }
+                    else -> result.notImplemented()
+                }
+            }
+    }
+}
