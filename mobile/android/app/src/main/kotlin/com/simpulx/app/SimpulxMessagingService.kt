@@ -41,7 +41,7 @@ class SimpulxMessagingService : FlutterFirebaseMessagingService() {
 
         try {
             if (isCall) {
-                showNativeCallNotification(this, conversationId, title, body)
+                showNativeCallNotification(this, conversationId, title, body, message.toIntent())
             } else {
                 showNativeChatNotification(this, conversationId, title, body, message.toIntent())
             }
@@ -85,12 +85,14 @@ class SimpulxMessagingService : FlutterFirebaseMessagingService() {
         chatId: String,
         contactName: String,
         body: String,
+        intent: Intent,
     ) {
         NotificationHelper.showCallNotification(
             context = ctx,
             chatId = chatId,
             contactName = contactName,
             body = body,
+            intent = intent,
         )
     }
 }
