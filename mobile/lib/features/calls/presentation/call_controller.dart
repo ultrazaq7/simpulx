@@ -106,9 +106,12 @@ class CallController extends Notifier<CallSession?> {
 
     if (resolvedCallId == null || resolvedSdpOffer == null) {
       try {
-        final info = await _ds.getCallInfo(conversationId);
-        resolvedCallId ??= info.callId;
-        resolvedSdpOffer ??= info.sdpOffer;
+        if (resolvedCallId != null) {
+          final info = await _ds.getCallInfo(resolvedCallId);
+          resolvedSdpOffer ??= info.sdpOffer;
+        } else {
+          debugPrint('[call] Missing callId, cannot fetch SDP offer');
+        }
       } catch (e) {
         debugPrint('[call] Failed to fetch call info: $e');
         // Create session without SDP - will need to fetch later
