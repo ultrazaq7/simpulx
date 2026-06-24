@@ -12,8 +12,9 @@ import '../../../../core/widgets/app_loader.dart';
 import '../../domain/entities/conversation.dart';
 import '../controllers/conversation_list_controller.dart';
 import '../controllers/inbox_filter.dart';
-import '../widgets/conversation_tile.dart';
 import '../controllers/chat_actions_providers.dart';
+import '../controllers/chat_providers.dart';
+import '../widgets/conversation_tile.dart';
 
 /// The inbox: realtime conversation list with search + pull-to-refresh.
 class ChatListPage extends ConsumerStatefulWidget {

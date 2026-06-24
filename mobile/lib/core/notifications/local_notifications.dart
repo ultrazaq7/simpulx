@@ -3,7 +3,7 @@ import 'dart:ui';
 import 'package:flutter/foundation.dart';
 import 'package:flutter/widgets.dart';
 import 'package:flutter_local_notifications/flutter_local_notifications.dart';
-import 'package:shared_preferences/shared_preferences.dart';
+import 'package:flutter_secure_storage/flutter_secure_storage.dart';
 
 import '../config/app_config.dart';
 import '../network/dio_client.dart';
@@ -227,12 +227,10 @@ void notificationTapBackground(NotificationResponse response) async {
     if (parts.length < 3) return;
     final convId = parts[2];
 
-    await AppConfig.init();
-    final prefs = await SharedPreferences.getInstance();
-    final secureStore = SecureStore(prefs);
-    if (!secureStore.hasSession) return;
+    final secureStore = SecureStore();
+    if (!(await secureStore.hasSession)) return;
 
-    final dioClient = DioClient(config: AppConfig.instance, secureStore: secureStore);
+    final dioClient = DioClient(config: AppConfig.resolve(), secureStore: secureStore);
 
     if (response.actionId == 'reply') {
       final input = response.input;
