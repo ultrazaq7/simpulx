@@ -111,6 +111,7 @@ class LocalNotifications {
         key: payload.conversationId ?? payload.title,
         name: payload.title,
         important: true,
+        icon: const DrawableResourceAndroidIcon('ic_default_avatar'),
       );
       style = MessagingStyleInformation(
         person,
@@ -131,6 +132,7 @@ class LocalNotifications {
       cat.channelName,
       importance: isUrgent ? Importance.max : Importance.high,
       priority: Priority.high,
+      shortcutId: payload.conversationId ?? payload.title,
       category: isCall
           ? AndroidNotificationCategory.call
           : AndroidNotificationCategory.message,
