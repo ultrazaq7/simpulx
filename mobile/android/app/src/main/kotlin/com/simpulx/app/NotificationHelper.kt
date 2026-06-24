@@ -129,15 +129,11 @@ object NotificationHelper {
             .setLabel("Type a message...")
             .build()
 
-        val replyIntent = Intent(context, MainActivity::class.java).apply {
-            action = "com.simpulx.app.ACTION_INLINE_REPLY"
-            putExtra("chatId", chatId)
-            flags = Intent.FLAG_ACTIVITY_NEW_TASK or Intent.FLAG_ACTIVITY_SINGLE_TOP or Intent.FLAG_ACTIVITY_CLEAR_TOP
-        }
+        val replyIntent = ReplyReceiver.getReplyIntent(context, chatId)
         val replyAction = NotificationCompat.Action.Builder(
             R.drawable.ic_notification,
             replyLabel,
-            PendingIntent.getActivity(
+            PendingIntent.getBroadcast(
                 context, chatId.hashCode(),
                 replyIntent,
                 PendingIntent.FLAG_UPDATE_CURRENT or PendingIntent.FLAG_MUTABLE
@@ -233,6 +229,36 @@ object NotificationHelper {
             .build()
 
         manager.notify(chatId.hashCode(), notification)
+    }
+
+    /**
+     * Appends a sent message (from the user) to the existing notification stack,
+     * which clears the RemoteInput spinner and updates the notification visually.
+     */
+    fun appendSentMessage(context: Context, chatId: String, messageText: String) {
+        val manager = context.getSystemService(Context.NOTIFICATION_SERVICE) as NotificationManager
+        var style: NotificationCompat.MessagingStyle? = null
+        var builder: NotificationCompat.Builder? = null
+
+        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.M) {
+            for (statusBarNotification in manager.activeNotifications) {
+                if (statusBarNotification.id == chatId.hashCode()) {
+                    val activeNotification = statusBarNotification.notification
+                    style = NotificationCompat.MessagingStyle.extractMessagingStyleFromNotification(activeNotification)
+                    builder = NotificationCompat.Builder(context, activeNotification)
+                    break
+                }
+            }
+        }
+
+        if (style != null && builder != null) {
+            val selfPerson = Person.Builder().setName("You").build()
+            style.addMessage(messageText, System.currentTimeMillis(), selfPerson)
+            builder.setStyle(style)
+            
+            // Re-notify to update UI and stop spinner
+            manager.notify(chatId.hashCode(), builder.build())
+        }
     }
 
     /**

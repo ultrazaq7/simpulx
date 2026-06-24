@@ -4,6 +4,7 @@ import android.app.NotificationManager
 import android.content.BroadcastReceiver
 import android.content.Context
 import android.content.Intent
+import android.util.Log
 import androidx.core.app.RemoteInput
 
 /**
@@ -28,22 +29,30 @@ class ReplyReceiver : BroadcastReceiver() {
         if (replyText.isNullOrBlank()) return
 
         // Dismiss the notification after extracting the reply
-        val manager = context.getSystemService(Context.NOTIFICATION_SERVICE) as NotificationManager
-        manager.cancel(chatId.hashCode())
-
-        // The actual sending will be handled by the Flutter side via MethodChannel
-        // when the app is running. For background, we store the pending reply
-        // and let the FCM handler pick it up.
-        android.util.Log.d("ReplyReceiver", "Reply to $chatId: $replyText")
-
-        // Wake up MainActivity to handle the reply
-        val replyIntent = Intent(context, MainActivity::class.java).apply {
-            action = "com.simpulx.app.ACTION_INLINE_REPLY"
-            putExtra("chatId", chatId)
-            putExtra("replyText", replyText)
-            flags = Intent.FLAG_ACTIVITY_NEW_TASK or Intent.FLAG_ACTIVITY_SINGLE_TOP or Intent.FLAG_ACTIVITY_CLEAR_TOP
+        
+        if (replyText != null) {
+            // Hit the API natively in background
+            NativeApiClient.sendReply(
+                context = context,
+                chatId = chatId,
+                text = replyText,
+                onSuccess = {
+                    Log.d("ReplyReceiver", "Background reply sent!")
+                    // Append the message to the notification stack and stop the spinner
+                    NotificationHelper.appendSentMessage(context, chatId, replyText)
+                },
+                onError = { e ->
+                    Log.e("ReplyReceiver", "Failed to send background reply", e)
+                    // On error, cancel it or we could show an error. We'll just cancel for now.
+                    val manager = context.getSystemService(Context.NOTIFICATION_SERVICE) as NotificationManager
+                    manager.cancel(chatId.hashCode())
+                }
+            )
+        } else {
+            // No text, just cancel
+            val manager = context.getSystemService(Context.NOTIFICATION_SERVICE) as NotificationManager
+            manager.cancel(chatId.hashCode())
         }
-        context.startActivity(replyIntent)
     }
 
     private fun handleMarkAsRead(context: Context, chatId: String) {
