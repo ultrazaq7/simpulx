@@ -15,11 +15,12 @@ class ReplyReceiver : BroadcastReceiver() {
 
     override fun onReceive(context: Context, intent: Intent) {
         val chatId = intent.getStringExtra("chatId") ?: return
+        val callId = intent.getStringExtra("callId") ?: ""
 
         when (intent.action) {
             ACTION_REPLY -> handleReply(context, intent, chatId)
             ACTION_MARK_AS_READ -> handleMarkAsRead(context, chatId)
-            ACTION_REJECT_CALL -> handleRejectCall(context, chatId)
+            ACTION_REJECT_CALL -> handleRejectCall(context, chatId, callId)
         }
     }
 
@@ -60,15 +61,17 @@ class ReplyReceiver : BroadcastReceiver() {
         android.util.Log.d("ReplyReceiver", "Mark as read: $chatId")
     }
 
-    private fun handleRejectCall(context: Context, chatId: String) {
+    private fun handleRejectCall(context: Context, chatId: String, callId: String) {
         // Dismiss the call notification immediately
         val manager = context.getSystemService(Context.NOTIFICATION_SERVICE) as NotificationManager
         manager.cancel(chatId.hashCode() + 100)
-        Log.d("ReplyReceiver", "Rejecting call: $chatId")
+        Log.d("ReplyReceiver", "Rejecting call: $callId")
 
         // Hit the reject API in the background
-        NativeApiClient.rejectCall(context, chatId) {
-            Log.d("ReplyReceiver", "Call rejected via API: $chatId")
+        if (callId.isNotEmpty()) {
+            NativeApiClient.rejectCall(context, callId) {
+                Log.d("ReplyReceiver", "Call rejected via API: $callId")
+            }
         }
     }
 
@@ -91,10 +94,11 @@ class ReplyReceiver : BroadcastReceiver() {
             }
         }
 
-        fun getRejectCallIntent(context: Context, chatId: String): Intent {
+        fun getRejectCallIntent(context: Context, chatId: String, callId: String): Intent {
             return Intent(context, ReplyReceiver::class.java).apply {
                 action = ACTION_REJECT_CALL
                 putExtra("chatId", chatId)
+                putExtra("callId", callId)
             }
         }
     }

@@ -45,6 +45,14 @@ class MainActivity : FlutterActivity() {
             }
         } else if (intent.action == "com.simpulx.app.ACTION_TAP_NOTIFICATION") {
             val route = intent.getStringExtra("route")
+            val chatId = intent.getStringExtra("chatId")
+            
+            if (chatId != null) {
+                // Cancel ongoing call notification if user tapped Answer
+                val manager = getSystemService(Context.NOTIFICATION_SERVICE) as NotificationManager
+                manager.cancel(chatId.hashCode() + 100)
+            }
+            
             if (route != null) {
                 flutterEngine?.dartExecutor?.binaryMessenger?.let { messenger ->
                     MethodChannel(messenger, CHANNEL).invokeMethod("onNotificationTap", route)

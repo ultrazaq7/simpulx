@@ -30,6 +30,7 @@ class SimpulxMessagingService : FlutterFirebaseMessagingService() {
         val conversationId: String = data["conversationId"]
             ?: data["conversation_id"]
             ?: ""
+        val callId: String = data["callId"] ?: data["call_id"] ?: ""
 
         // Detect call notification
         val bodyLower: String = body.lowercase()
@@ -41,7 +42,7 @@ class SimpulxMessagingService : FlutterFirebaseMessagingService() {
 
         try {
             if (isCall) {
-                showNativeCallNotification(this, conversationId, title, body, message.toIntent())
+                showNativeCallNotification(this, conversationId, callId, title, body, message.toIntent())
             } else {
                 showNativeChatNotification(this, conversationId, title, body, message.toIntent())
             }
@@ -83,6 +84,7 @@ class SimpulxMessagingService : FlutterFirebaseMessagingService() {
     private fun showNativeCallNotification(
         ctx: Context,
         chatId: String,
+        callId: String,
         contactName: String,
         body: String,
         intent: Intent,
@@ -90,6 +92,7 @@ class SimpulxMessagingService : FlutterFirebaseMessagingService() {
         NotificationHelper.showCallNotification(
             context = ctx,
             chatId = chatId,
+            callId = callId,
             contactName = contactName,
             body = body,
             intent = intent,

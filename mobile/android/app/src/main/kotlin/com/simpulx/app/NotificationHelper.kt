@@ -299,6 +299,7 @@ object NotificationHelper {
     fun showCallNotification(
         context: Context,
         chatId: String,
+        callId: String,
         contactName: String,
         body: String,
         intent: Intent,
@@ -311,6 +312,7 @@ object NotificationHelper {
             flags = Intent.FLAG_ACTIVITY_SINGLE_TOP or Intent.FLAG_ACTIVITY_CLEAR_TOP
             putExtra("route", "/call/$chatId")
             putExtra("contactName", contactName)
+            putExtra("chatId", chatId)
         }
         val answerPendingIntent = PendingIntent.getActivity(
             context,
@@ -320,7 +322,7 @@ object NotificationHelper {
         )
 
         // Decline: broadcast to ReplyReceiver which calls the reject API
-        val declineIntent = ReplyReceiver.getRejectCallIntent(context, chatId)
+        val declineIntent = ReplyReceiver.getRejectCallIntent(context, chatId, callId)
         val declinePendingIntent = PendingIntent.getBroadcast(
             context,
             chatId.hashCode() + 10,
