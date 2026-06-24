@@ -7,6 +7,7 @@ import android.content.Context
 import android.content.Intent
 import android.graphics.*
 import android.os.Build
+import android.service.notification.StatusBarNotification
 import androidx.core.app.NotificationCompat
 import androidx.core.app.Person
 import androidx.core.app.RemoteInput
@@ -184,9 +185,25 @@ object NotificationHelper {
             .build()
         ShortcutManagerCompat.pushDynamicShortcut(context, shortcut)
 
-        // 2. MessagingStyle with the sender
-        val style = NotificationCompat.MessagingStyle(selfPerson)
-            .addMessage(message, System.currentTimeMillis(), senderPerson)
+        // 2. Extract existing MessagingStyle (if any) to stack multiple messages like WhatsApp
+        val manager = context.getSystemService(Context.NOTIFICATION_SERVICE) as NotificationManager
+        var style: NotificationCompat.MessagingStyle? = null
+
+        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.M) {
+            val activeNotifications: Array<StatusBarNotification> = manager.activeNotifications
+            for (statusBarNotification in activeNotifications) {
+                if (statusBarNotification.id == chatId.hashCode()) {
+                    style = NotificationCompat.MessagingStyle.extractMessagingStyleFromNotification(statusBarNotification.notification)
+                    break
+                }
+            }
+        }
+
+        if (style == null) {
+            style = NotificationCompat.MessagingStyle(selfPerson)
+        }
+        
+        style.addMessage(message, System.currentTimeMillis(), senderPerson)
 
         // Create Content Intent for routing on tap
         val tapIntent = Intent(context, MainActivity::class.java).apply {
@@ -222,7 +239,6 @@ object NotificationHelper {
             .addAction(markAsReadAction)
             .build()
 
-        val manager = context.getSystemService(Context.NOTIFICATION_SERVICE) as NotificationManager
         manager.notify(chatId.hashCode(), notification)
     }
 
