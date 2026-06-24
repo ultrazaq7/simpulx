@@ -105,6 +105,16 @@ class MainActivity : FlutterActivity() {
                             result.error("NOTIFICATION_ERROR", e.message, null)
                         }
                     }
+                    "cancelNotification" -> {
+                        try {
+                            val id = call.argument<Int>("id") ?: return@setMethodCallHandler
+                            val manager = getSystemService(Context.NOTIFICATION_SERVICE) as NotificationManager
+                            manager.cancel(id)
+                            result.success(true)
+                        } catch (e: Exception) {
+                            result.success(false)
+                        }
+                    }
                     else -> result.notImplemented()
                 }
             }

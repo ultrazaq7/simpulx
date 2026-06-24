@@ -1,11 +1,10 @@
 import 'dart:async';
 
 import 'package:flutter/foundation.dart';
+import 'package:flutter/services.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import '../../../core/error/app_exception.dart';
-import '../../../core/notifications/local_notifications.dart';
-import '../../../core/notifications/notification_payload.dart';
 import '../../../core/providers/app_providers.dart';
 import '../../../core/realtime/realtime_event.dart';
 import '../../../core/realtime/realtime_providers.dart';
@@ -28,6 +27,7 @@ final webRtcServiceFactoryProvider = Provider<WebRtcService Function()>(
 class CallController extends Notifier<CallSession?> {
   WebRtcService? _rtc;
   Timer? _autoClear;
+  static const _channel = MethodChannel('simpulx_notification');
 
   CallsRemoteDataSource get _ds => ref.read(callsDataSourceProvider);
 
@@ -201,12 +201,8 @@ class CallController extends Notifier<CallSession?> {
           phase: CallPhase.incoming,
           pendingOffer: p.sdpOffer,
         );
-        // Fire a local notification so the incoming call is visible on
-        // lock screen / status bar (fullScreenIntent shows over lock screen).
-        _showIncomingCallNotification(
-          contactName: p.contactName ?? 'Unknown',
-          conversationId: p.conversationId,
-        );
+        // Native SimpulxMessagingService already shows the call notification
+        // via NotificationHelper.showCallNotification — no Flutter duplicate.
       }
       return;
     }
@@ -266,20 +262,6 @@ class CallController extends Notifier<CallSession?> {
     }
   }
 
-  /// Show a heads-up / lock-screen notification for an incoming call.
-  void _showIncomingCallNotification({
-    required String contactName,
-    required String conversationId,
-  }) {
-    final payload = NotificationPayload(
-      category: NotificationCategory.incomingCall,
-      title: contactName,
-      body: 'Incoming voice call',
-      conversationId: conversationId,
-    );
-    LocalNotifications.instance.show(payload);
-  }
-
   void _fail(String message) => _cleanup(CallPhase.failed, message: message);
 
   /// Maps raw backend / exception messages to short, user-friendly labels.
@@ -308,8 +290,8 @@ class CallController extends Notifier<CallSession?> {
   void _cleanup(CallPhase phase, {String? message}) {
     _rtc?.dispose();
     _rtc = null;
-    // Dismiss any lingering incoming-call notification
-    _dismissCallNotification();
+    // Dismiss the native call notification when the call ends
+    _dismissNativeCallNotification();
     state = state?.copyWith(phase: phase, message: message) ??
         CallSession(
           callId: '',
@@ -326,14 +308,13 @@ class CallController extends Notifier<CallSession?> {
     if (kDebugMode) debugPrint('[call] $phase ${message ?? ''}');
   }
 
-  /// Cancel the notification shown by [_showIncomingCallNotification].
-  void _dismissCallNotification() {
-    // The notification id matches how LocalNotifications._show computes it
-    // from the conversationId. Re-derive the same id and cancel it.
+  /// Cancel the native call notification shown by SimpulxMessagingService.
+  void _dismissNativeCallNotification() {
     final convId = state?.conversationId ?? '';
     if (convId.isEmpty) return;
-    final id = convId.hashCode & 0x7fffffff;
-    LocalNotifications.instance.cancel(id);
+    // Native notification id = chatId.hashCode() + 100 (from NotificationHelper.kt)
+    final id = convId.hashCode + 100;
+    _channel.invokeMethod('cancelNotification', {'id': id}).catchError((_) {});
   }
 }
 

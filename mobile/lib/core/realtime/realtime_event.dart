@@ -23,6 +23,7 @@ class RealtimeEvent {
   bool get isMessagePersisted => type == 'message.persisted';
   bool get isConversationAssigned => type == 'conversation.assigned';
   bool get isConversationClosed => type == 'conversation.closed';
+  bool get isConversationUpdated => type == 'conversation.updated';
   bool get isCallUpdated => type == 'call.updated';
 
   static RealtimeEvent? tryParse(Map<String, dynamic> json) {

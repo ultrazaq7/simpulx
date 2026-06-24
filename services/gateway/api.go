@@ -522,6 +522,18 @@ func (s *server) handlePatchConversation(w http.ResponseWriter, r *http.Request)
 		http.Error(w, err.Error(), http.StatusInternalServerError)
 		return
 	}
+
+	// Broadcast the change so every connected agent's UI refreshes instantly.
+	if err := s.bus.Publish(events.SubjectConversationUpdated, a.OrgID, events.ConversationUpdated{
+		ConversationID: convID,
+		Status:         derefStr(b.Status),
+		StageID:        derefStr(b.StageID),
+		InterestLevel:  derefStr(b.InterestLevel),
+		LostReason:     derefStr(b.LostReason),
+	}); err != nil {
+		s.log.Error("publish conversation.updated failed", "err", err)
+	}
+
 	writeJSON(w, map[string]any{"status": "updated", "locked": true})
 }
 

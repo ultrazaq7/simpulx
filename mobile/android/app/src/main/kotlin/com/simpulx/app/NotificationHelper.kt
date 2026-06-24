@@ -305,10 +305,26 @@ object NotificationHelper {
     ) {
         ensureCallChannel(context)
 
-        val pendingIntent = PendingIntent.getActivity(
+        // Answer: open the app at /call/$chatId
+        val answerIntent = Intent(context, MainActivity::class.java).apply {
+            action = "com.simpulx.app.ACTION_TAP_NOTIFICATION"
+            flags = Intent.FLAG_ACTIVITY_SINGLE_TOP or Intent.FLAG_ACTIVITY_CLEAR_TOP
+            putExtra("route", "/call/$chatId")
+            putExtra("contactName", contactName)
+        }
+        val answerPendingIntent = PendingIntent.getActivity(
             context,
-            chatId.hashCode(),
-            intent,
+            chatId.hashCode() + 11,
+            answerIntent,
+            PendingIntent.FLAG_UPDATE_CURRENT or PendingIntent.FLAG_IMMUTABLE
+        )
+
+        // Decline: broadcast to ReplyReceiver which calls the reject API
+        val declineIntent = ReplyReceiver.getRejectCallIntent(context, chatId)
+        val declinePendingIntent = PendingIntent.getBroadcast(
+            context,
+            chatId.hashCode() + 10,
+            declineIntent,
             PendingIntent.FLAG_UPDATE_CURRENT or PendingIntent.FLAG_IMMUTABLE
         )
 
@@ -318,28 +334,18 @@ object NotificationHelper {
             .setContentText(body.ifEmpty { "Incoming voice call" })
             .setCategory(NotificationCompat.CATEGORY_CALL)
             .setPriority(NotificationCompat.PRIORITY_MAX)
-            .setContentIntent(pendingIntent)
-            .setFullScreenIntent(pendingIntent, true)
+            .setContentIntent(answerPendingIntent)
+            .setFullScreenIntent(answerPendingIntent, true)
             .setAutoCancel(false)
             .setOngoing(true)
             .addAction(
                 NotificationCompat.Action.Builder(
-                    0, "Decline",
-                    PendingIntent.getBroadcast(
-                        context, chatId.hashCode() + 10,
-                        ReplyReceiver.getMarkAsReadIntent(context, chatId),
-                        PendingIntent.FLAG_UPDATE_CURRENT or PendingIntent.FLAG_IMMUTABLE
-                    )
+                    0, "Decline", declinePendingIntent
                 ).build()
             )
             .addAction(
                 NotificationCompat.Action.Builder(
-                    0, "Answer",
-                    PendingIntent.getBroadcast(
-                        context, chatId.hashCode() + 11,
-                        ReplyReceiver.getMarkAsReadIntent(context, chatId),
-                        PendingIntent.FLAG_UPDATE_CURRENT or PendingIntent.FLAG_IMMUTABLE
-                    )
+                    0, "Answer", answerPendingIntent
                 ).build()
             )
             .build()

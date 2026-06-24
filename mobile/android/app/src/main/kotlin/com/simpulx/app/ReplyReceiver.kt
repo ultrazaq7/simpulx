@@ -19,6 +19,7 @@ class ReplyReceiver : BroadcastReceiver() {
         when (intent.action) {
             ACTION_REPLY -> handleReply(context, intent, chatId)
             ACTION_MARK_AS_READ -> handleMarkAsRead(context, chatId)
+            ACTION_REJECT_CALL -> handleRejectCall(context, chatId)
         }
     }
 
@@ -59,9 +60,22 @@ class ReplyReceiver : BroadcastReceiver() {
         android.util.Log.d("ReplyReceiver", "Mark as read: $chatId")
     }
 
+    private fun handleRejectCall(context: Context, chatId: String) {
+        // Dismiss the call notification immediately
+        val manager = context.getSystemService(Context.NOTIFICATION_SERVICE) as NotificationManager
+        manager.cancel(chatId.hashCode() + 100)
+        Log.d("ReplyReceiver", "Rejecting call: $chatId")
+
+        // Hit the reject API in the background
+        NativeApiClient.rejectCall(context, chatId) {
+            Log.d("ReplyReceiver", "Call rejected via API: $chatId")
+        }
+    }
+
     companion object {
         const val ACTION_REPLY = "simpulx.ACTION_REPLY"
         const val ACTION_MARK_AS_READ = "simpulx.ACTION_MARK_AS_READ"
+        const val ACTION_REJECT_CALL = "simpulx.ACTION_REJECT_CALL"
 
         fun getReplyIntent(context: Context, chatId: String): Intent {
             return Intent(context, ReplyReceiver::class.java).apply {
@@ -73,6 +87,13 @@ class ReplyReceiver : BroadcastReceiver() {
         fun getMarkAsReadIntent(context: Context, chatId: String): Intent {
             return Intent(context, ReplyReceiver::class.java).apply {
                 action = ACTION_MARK_AS_READ
+                putExtra("chatId", chatId)
+            }
+        }
+
+        fun getRejectCallIntent(context: Context, chatId: String): Intent {
+            return Intent(context, ReplyReceiver::class.java).apply {
+                action = ACTION_REJECT_CALL
                 putExtra("chatId", chatId)
             }
         }

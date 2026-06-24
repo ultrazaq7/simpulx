@@ -441,6 +441,15 @@ class LocalNotifications {
       icon: '@drawable/ic_notification',
       largeIcon: largeIcon,
       styleInformation: style,
+      // Incoming calls use the system ringtone instead of notification beep
+      sound: isCall
+          ? const UriAndroidNotificationSound(
+              'content://settings/system/ringtone')
+          : null,
+      playSound: true,
+      audioAttributesUsage: isCall
+          ? AudioAttributesUsage.notificationRingtone
+          : AudioAttributesUsage.notification,
       actions: [
         // ── Message actions ──
         if (isMessage) ...[
@@ -550,6 +559,14 @@ class LocalNotifications {
       icon: '@drawable/ic_notification',
       largeIcon: const DrawableResourceAndroidBitmap('@mipmap/ic_launcher'),
       styleInformation: style,
+      sound: isCall
+          ? const UriAndroidNotificationSound(
+              'content://settings/system/ringtone')
+          : null,
+      playSound: true,
+      audioAttributesUsage: isCall
+          ? AudioAttributesUsage.notificationRingtone
+          : AudioAttributesUsage.notification,
       actions: [
         if (isMessage) ...[
           const AndroidNotificationAction(
@@ -592,6 +609,7 @@ class LocalNotifications {
     if (android == null) return;
 
     for (final cat in NotificationCategory.values) {
+      final isCall = cat == NotificationCategory.incomingCall;
       await android.createNotificationChannel(
         AndroidNotificationChannel(
           cat.channelId,
@@ -601,6 +619,17 @@ class LocalNotifications {
               : Importance.max,
           playSound: true,
           enableVibration: true,
+          // Incoming calls use the system ringtone, not the default beep
+          sound: isCall
+              ? const UriAndroidNotificationSound(
+                  'content://settings/system/ringtone')
+              : null,
+          audioAttributesUsage: isCall
+              ? AudioAttributesUsage.notificationRingtone
+              : AudioAttributesUsage.notification,
+          vibrationPattern: isCall
+              ? Int64List.fromList([0, 1000, 500, 1000, 500, 1000])
+              : null,
         ),
       );
     }

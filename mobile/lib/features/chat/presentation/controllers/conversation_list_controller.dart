@@ -86,7 +86,7 @@ class ConversationListController extends AsyncNotifier<List<Conversation>> {
   }
 
   void _onEvent(RealtimeEvent event) {
-    if (event.isConversationAssigned || event.isConversationClosed) {
+    if (event.isConversationAssigned || event.isConversationClosed || event.isConversationUpdated) {
       refresh();
       return;
     }

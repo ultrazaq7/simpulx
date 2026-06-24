@@ -478,7 +478,14 @@ func (s *server) ingest(ctx context.Context, p waWebhook) {
 				// Call-permission reply (customer tapped Allow / Don't allow) →
 				// flip the pending outbound call's permission so the agent can dial.
 				if m.Type == "interactive" && m.Interactive != nil && m.Interactive.Type == "call_permission_reply" {
-					s.applyCallPermissionReply(ctx, orgID, m.From, m.Interactive.CallPermissionReply.Response)
+					var repliedMsgID string
+					if m.Context != nil {
+						repliedMsgID = m.Context.ID
+						if repliedMsgID == "" {
+							repliedMsgID = m.Context.MessageID
+						}
+					}
+					s.applyCallPermissionReply(ctx, orgID, m.From, m.Interactive.CallPermissionReply.Response, repliedMsgID)
 				}
 
 				// JSON asli pesan apa adanya (tidak lossy) — penting untuk

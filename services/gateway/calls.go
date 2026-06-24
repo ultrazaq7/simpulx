@@ -90,7 +90,7 @@ func (s *server) insertCallSummary(ctx context.Context, orgID, convID, direction
 
 // applyCallPermissionReply flips the pending outbound call when the customer
 // replies to a call-permission request via an interactive message.
-func (s *server) applyCallPermissionReply(ctx context.Context, orgID, fromPhone, response string) {
+func (s *server) applyCallPermissionReply(ctx context.Context, orgID, fromPhone, response, repliedMsgID string) {
 	r := strings.ToLower(response)
 	granted := strings.Contains(r, "accept") || strings.Contains(r, "allow") || strings.Contains(r, "grant") || strings.Contains(r, "approv")
 	denied := strings.Contains(r, "reject") || strings.Contains(r, "deny") || strings.Contains(r, "declin")
@@ -98,15 +98,34 @@ func (s *server) applyCallPermissionReply(ctx context.Context, orgID, fromPhone,
 		return // unknown response — leave it as a displayed message only
 	}
 	var callID, convID string
-	err := s.pool.QueryRow(ctx,
-		`SELECT id::text, conversation_id::text FROM calls
-		  WHERE organization_id=$1 AND direction='outbound' AND permission_status='pending'
-		    AND regexp_replace(contact_phone,'\D','','g') = regexp_replace($2,'\D','','g')
-		  ORDER BY created_at DESC LIMIT 1`,
-		orgID, fromPhone).Scan(&callID, &convID)
-	if err != nil {
-		return
+
+	// Prefer exact match by the permission message wamid (multi-thread safe).
+	if repliedMsgID != "" {
+		err := s.pool.QueryRow(ctx,
+			`SELECT id::text, conversation_id::text FROM calls
+			  WHERE organization_id=$1 AND direction='outbound' AND permission_status='pending'
+			    AND permission_msg_id=$2
+			  ORDER BY created_at DESC LIMIT 1`,
+			orgID, repliedMsgID).Scan(&callID, &convID)
+		if err != nil {
+			s.log.Warn("call permission reply: no match by msg_id, falling back to phone",
+				"msg_id", repliedMsgID, "from", fromPhone)
+		}
 	}
+
+	// Fallback: match by phone number (legacy / missing context).
+	if callID == "" {
+		err := s.pool.QueryRow(ctx,
+			`SELECT id::text, conversation_id::text FROM calls
+			  WHERE organization_id=$1 AND direction='outbound' AND permission_status='pending'
+			    AND regexp_replace(contact_phone,'\D','','g') = regexp_replace($2,'\D','','g')
+			  ORDER BY created_at DESC LIMIT 1`,
+			orgID, fromPhone).Scan(&callID, &convID)
+		if err != nil {
+			return
+		}
+	}
+
 	if granted {
 		_, _ = s.pool.Exec(ctx, `UPDATE calls SET permission_status='granted', permission_granted_at=now() WHERE id=$1`, callID)
 		s.broadcastCall(ctx, orgID, events.CallUpdated{

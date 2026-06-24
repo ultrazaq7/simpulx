@@ -129,6 +129,17 @@ type ConversationClosed struct {
 	Reason         string `json:"reason"`
 }
 
+// ConversationUpdated is broadcast when a conversation's stage, status,
+// interest level, or disposition changes so every connected agent's UI
+// refreshes in real time.
+type ConversationUpdated struct {
+	ConversationID string `json:"conversation_id"`
+	Status         string `json:"status,omitempty"`
+	StageID        string `json:"stage_id,omitempty"`
+	InterestLevel  string `json:"interest_level,omitempty"`
+	LostReason     string `json:"lost_reason,omitempty"`
+}
+
 type CmdAIDraftFollowup struct {
 	ConversationID string `json:"conversation_id"`
 }

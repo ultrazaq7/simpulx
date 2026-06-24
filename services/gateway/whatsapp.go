@@ -93,6 +93,13 @@ type waMessage struct {
 			Details string `json:"details"`
 		} `json:"error_data"`
 	} `json:"errors"`
+	// Context carries the message ID this message is replying to (e.g. the
+	// call-permission request wamid). Used for accurate multi-thread routing.
+	Context *struct {
+		From      string `json:"from"`
+		ID        string `json:"id"`
+		MessageID string `json:"message_id"` // alias used by some webhook payloads
+	} `json:"context"`
 	// raw menyimpan JSON asli pesan apa adanya (diisi UnmarshalJSON), agar field
 	// di luar struct (errors, tipe baru) tidak hilang saat decode.
 	raw json.RawMessage `json:"-"`

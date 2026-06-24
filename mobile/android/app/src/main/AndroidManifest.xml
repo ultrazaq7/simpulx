@@ -74,13 +74,14 @@
         <meta-data
             android:name="flutterEmbedding"
             android:value="2" />
-        <!-- Native notification reply/mark-read handler -->
+        <!-- Native notification reply/mark-read/reject-call handler -->
         <receiver
             android:name=".ReplyReceiver"
             android:exported="false">
             <intent-filter>
                 <action android:name="simpulx.ACTION_REPLY"/>
                 <action android:name="simpulx.ACTION_MARK_AS_READ"/>
+                <action android:name="simpulx.ACTION_REJECT_CALL"/>
             </intent-filter>
         </receiver>
     </application>

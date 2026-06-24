@@ -70,11 +70,11 @@ class ConversationActionsController extends ChangeNotifier {
   Future<bool> setInterest(String level) => _run(
       () => _repo.patchConversation(conversationId, interestLevel: level));
 
-  Future<bool> setDisposition(String dispositionId, {String? lostReason}) =>
+  Future<bool> setDisposition(String category, {String? lostReason}) =>
       _run(() => _repo.patchConversation(
             conversationId,
-            dispositionId: dispositionId,
-            lostReason: lostReason,
+            status: 'closed',
+            lostReason: lostReason ?? category,
           ));
 
   Future<bool> snooze(DateTime until) =>
