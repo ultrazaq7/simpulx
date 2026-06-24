@@ -10,6 +10,8 @@ import android.os.Build
 import androidx.core.app.NotificationCompat
 import androidx.core.app.Person
 import androidx.core.app.RemoteInput
+import androidx.core.content.pm.ShortcutInfoCompat
+import androidx.core.content.pm.ShortcutManagerCompat
 import androidx.core.graphics.drawable.IconCompat
 
 /**
@@ -150,7 +152,8 @@ object NotificationHelper {
             )
         ).build()
 
-        // MessagingStyle puts avatar on LEFT (like WhatsApp)
+        // --- Conversation Notification API (like WhatsApp) ---
+        // Create Person objects
         val selfPerson = Person.Builder().setName("You").build()
         val senderPerson = Person.Builder()
             .setName(senderName)
@@ -158,12 +161,32 @@ object NotificationHelper {
             .setImportant(true)
             .build()
 
+        // 1. Push a dynamic shortcut for this conversation
+        //    This is what makes Android render it as a "Conversation" notification
+        //    with avatar on LEFT and small icon as badge overlay (like WhatsApp)
+        val shortcutId = "chat_$chatId"
+        val shortcut = ShortcutInfoCompat.Builder(context, shortcutId)
+            .setLongLived(true)
+            .setShortLabel(senderName)
+            .setIcon(IconCompat.createWithBitmap(avatarBitmap))
+            .setIntent(
+                Intent(context, MainActivity::class.java)
+                    .setAction(Intent.ACTION_VIEW)
+                    .putExtra("chat_id", chatId)
+            )
+            .setPerson(senderPerson)
+            .setCategories(setOf("com.simpulx.app.category.SHARE_TARGET"))
+            .build()
+        ShortcutManagerCompat.pushDynamicShortcut(context, shortcut)
+
+        // 2. MessagingStyle with the sender
         val style = NotificationCompat.MessagingStyle(selfPerson)
             .addMessage(message, System.currentTimeMillis(), senderPerson)
 
+        // 3. Build notification linked to the shortcut
         val notification = NotificationCompat.Builder(context, CHANNEL_ID)
             .setSmallIcon(R.drawable.ic_notification)
-            .setLargeIcon(avatarBitmap)  // Samsung OneUI: avatar on LEFT, small icon as badge overlay
+            .setShortcutId(shortcutId)    // Links to conversation shortcut → avatar on LEFT
             .setStyle(style)
             .setCategory(NotificationCompat.CATEGORY_MESSAGE)
             .setPriority(NotificationCompat.PRIORITY_HIGH)
