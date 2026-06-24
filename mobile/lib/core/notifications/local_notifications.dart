@@ -3,7 +3,6 @@ import 'dart:ui';
 import 'package:flutter/foundation.dart';
 import 'package:flutter/widgets.dart';
 import 'package:flutter_local_notifications/flutter_local_notifications.dart';
-import 'package:flutter_secure_storage/flutter_secure_storage.dart';
 
 import '../config/app_config.dart';
 import '../network/dio_client.dart';
@@ -26,7 +25,6 @@ class LocalNotifications {
   Future<void> init({void Function(String route)? onTapRoute}) async {
     this.onTapRoute = onTapRoute;
     if (!_initialized) {
-      // Use @drawable/ic_notification for notification icon (transparent background)
       const android = AndroidInitializationSettings('@drawable/ic_notification');
       const ios = DarwinInitializationSettings(
         requestAlertPermission: false,
@@ -61,9 +59,31 @@ class LocalNotifications {
   }
 
   void _onResponse(NotificationResponse response) {
+    // If it's an action with reply input, handle inline (foreground)
+    if (response.actionId == 'reply' || response.actionId == 'mark_read') {
+      _handleActionForeground(response);
+      return;
+    }
     final route = NotificationPayload.routeFromEncoded(response.payload);
     debugPrint('[LocalNotifications] Tapped: ${response.actionId} -> $route');
     onTapRoute?.call(route);
+  }
+
+  /// Handle reply/mark-read when the app is in the foreground.
+  void _handleActionForeground(NotificationResponse response) {
+    final payloadStr = response.payload;
+    if (payloadStr == null) return;
+    final convId = _extractConversationId(payloadStr);
+    if (convId == null) return;
+
+    if (response.actionId == 'reply') {
+      final input = response.input;
+      if (input != null && input.isNotEmpty) {
+        _sendReplyInBackground(convId, input);
+      }
+    } else if (response.actionId == 'mark_read') {
+      _markReadInBackground(convId);
+    }
   }
 
   Future<void> show(NotificationPayload payload) async {
@@ -79,7 +99,6 @@ class LocalNotifications {
     debugPrint('[LocalNotifications] showFromData: $data');
 
     final plugin = FlutterLocalNotificationsPlugin();
-    // Use @drawable/ic_notification for notification icon
     const android = AndroidInitializationSettings('@drawable/ic_notification');
     const ios = DarwinInitializationSettings(
       requestAlertPermission: false,
@@ -102,22 +121,23 @@ class LocalNotifications {
     final isCall = cat == NotificationCategory.incomingCall;
     final isUrgent = isCall || !isMessage;
 
-    debugPrint('[LocalNotifications] _show: isMessage=$isMessage, isCall=$isCall, isUrgent=$isUrgent');
-
-    // WhatsApp-style: incoming messages use MessagingStyle
-    // For calls, use big text with fullScreenIntent for incoming call screen
+    // ── Style ──────────────────────────────────────────────
     final StyleInformation style;
 
     if (isMessage) {
-      // MessagingStyle for WhatsApp-like chat notification
+      // WhatsApp-style MessagingStyle with Person
       final person = Person(
         key: payload.conversationId ?? payload.title,
         name: payload.title,
         important: true,
+        // Use the app icon as the person avatar so Android overlays
+        // ic_notification as a badge on top (WhatsApp behavior).
+        icon: const DrawableResourceAndroidIcon('@mipmap/ic_launcher'),
       );
       style = MessagingStyleInformation(
         person,
         groupConversation: false,
+        conversationTitle: payload.title,
         messages: [
           Message(payload.body, DateTime.now(), person),
         ],
@@ -140,32 +160,49 @@ class LocalNotifications {
       category: isCall
           ? AndroidNotificationCategory.call
           : AndroidNotificationCategory.message,
-      // Full screen intent for incoming calls - shows over lock screen
       fullScreenIntent: isCall,
       icon: '@drawable/ic_notification',
+      // Show app icon as large icon so the badge overlay appears
+      largeIcon: isMessage
+          ? const DrawableResourceAndroidIcon('@mipmap/ic_launcher')
+          : null,
       color: brandGreen,
+      colorized: true,
       styleInformation: style,
-      // WhatsApp-like actions
       actions: [
         if (isMessage) ...[
           const AndroidNotificationAction(
             'reply',
             'Reply',
-            titleColor: brandGreen,
-            inputs: [AndroidNotificationActionInput(label: 'Reply message')],
+            showsUserInterface: false,
+            inputs: [AndroidNotificationActionInput(label: 'Type a message...')],
           ),
-          const AndroidNotificationAction('mark_read', 'Mark as read'),
+          const AndroidNotificationAction(
+            'mark_read',
+            'Mark as read',
+            showsUserInterface: false,
+          ),
         ],
         if (isCall) ...[
-          const AndroidNotificationAction('decline', 'Decline', titleColor: Color(0xFFD32F2F)),
-          const AndroidNotificationAction('answer', 'Answer', titleColor: brandGreen),
+          const AndroidNotificationAction(
+            'decline',
+            'Decline',
+            titleColor: Color(0xFFD32F2F),
+            showsUserInterface: true,
+          ),
+          const AndroidNotificationAction(
+            'answer',
+            'Answer',
+            titleColor: brandGreen,
+            showsUserInterface: true,
+          ),
         ],
       ],
-      // Ongoing for calls
       ongoing: isCall,
       autoCancel: !isCall,
-      // Only show when unlocked for messages, always show for calls
-      visibility: isCall ? NotificationVisibility.public : NotificationVisibility.private,
+      visibility: isCall
+          ? NotificationVisibility.public
+          : NotificationVisibility.private,
     );
 
     const ios = DarwinNotificationDetails(
@@ -181,15 +218,13 @@ class LocalNotifications {
                 .hashCode &
             0x7fffffff;
 
-    debugPrint('[LocalNotifications] Showing notification id=$id, title=${payload.title}');
     await plugin.show(
       id: id,
-      title: payload.title,
-      body: payload.body,
+      title: isMessage ? null : payload.title, // MessagingStyle sets its own title
+      body: isMessage ? null : payload.body,    // MessagingStyle sets its own body
       notificationDetails: NotificationDetails(android: android, iOS: ios),
       payload: payload.encodeRoute(),
     );
-    debugPrint('[LocalNotifications] Show complete');
   }
 
   static Future<void> _ensureChannels(
@@ -198,7 +233,6 @@ class LocalNotifications {
         AndroidFlutterLocalNotificationsPlugin>();
     if (android == null) return;
 
-    // Create channels with proper settings for each category
     for (final cat in NotificationCategory.values) {
       await android.createNotificationChannel(
         AndroidNotificationChannel(
@@ -213,46 +247,62 @@ class LocalNotifications {
       );
     }
   }
+
+  /// Extract conversationId from an encoded payload string (type|convId|contactId).
+  static String? _extractConversationId(String encoded) {
+    final parts = encoded.split('|');
+    final convId = parts.length > 1 ? parts[1] : '';
+    return convId.isNotEmpty ? convId : null;
+  }
+
+  /// Fire-and-forget reply via Dio using stored credentials.
+  static Future<void> _sendReplyInBackground(String convId, String text) async {
+    try {
+      final store = SecureStore();
+      if (!(await store.hasSession)) return;
+      final client = DioClient(config: AppConfig.resolve(), secureStore: store);
+      await client.dio.post('/api/conversations/$convId/messages', data: {
+        'type': 'text',
+        'body': text,
+      });
+      debugPrint('[Notification] Reply sent to $convId');
+    } catch (e) {
+      debugPrint('[Notification] Reply failed: $e');
+    }
+  }
+
+  /// Fire-and-forget mark-read via fetching latest message.
+  static Future<void> _markReadInBackground(String convId) async {
+    try {
+      final store = SecureStore();
+      if (!(await store.hasSession)) return;
+      final client = DioClient(config: AppConfig.resolve(), secureStore: store);
+      await client.dio.get('/api/conversations/$convId/messages',
+          queryParameters: {'limit': 1});
+      debugPrint('[Notification] Marked read: $convId');
+    } catch (e) {
+      debugPrint('[Notification] Mark read failed: $e');
+    }
+  }
 }
 
-/// Top-level handler for taps on notifications shown by the background isolate.
+/// Top-level handler for notification actions when app is in background/killed.
 @pragma('vm:entry-point')
 void notificationTapBackground(NotificationResponse response) async {
-  // Background actions handler
-  if (response.actionId == 'reply' || response.actionId == 'mark_read') {
-    WidgetsFlutterBinding.ensureInitialized();
-    final payloadStr = response.payload;
-    if (payloadStr == null) return;
+  WidgetsFlutterBinding.ensureInitialized();
 
-    // Parse conversation ID directly from the encoded payload (type|convId|contactId)
-    final parts = payloadStr.split('|');
-    final convId = parts.length > 1 ? parts[1] : '';
-    if (convId.isEmpty) return;
+  final payloadStr = response.payload;
+  if (payloadStr == null) return;
 
-    final secureStore = SecureStore();
-    if (!(await secureStore.hasSession)) return;
+  final convId = LocalNotifications._extractConversationId(payloadStr);
+  if (convId == null) return;
 
-    final dioClient = DioClient(config: AppConfig.resolve(), secureStore: secureStore);
-
-    if (response.actionId == 'reply') {
-      final input = response.input;
-      if (input != null && input.isNotEmpty) {
-        try {
-          await dioClient.dio.post('/api/conversations/$convId/messages', data: {
-            'type': 'text',
-            'body': input,
-          });
-        } catch (e) {
-          debugPrint('[Background] Reply failed: $e');
-        }
-      }
-    } else if (response.actionId == 'mark_read') {
-      try {
-        // Fetch the latest message to trigger server-side read marking
-        await dioClient.dio.get('/api/conversations/$convId/messages?limit=1');
-      } catch (e) {
-        debugPrint('[Background] Mark read failed: $e');
-      }
+  if (response.actionId == 'reply') {
+    final input = response.input;
+    if (input != null && input.isNotEmpty) {
+      await LocalNotifications._sendReplyInBackground(convId, input);
     }
+  } else if (response.actionId == 'mark_read') {
+    await LocalNotifications._markReadInBackground(convId);
   }
 }

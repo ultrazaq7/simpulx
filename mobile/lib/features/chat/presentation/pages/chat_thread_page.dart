@@ -74,15 +74,21 @@ class _ChatThreadPageState extends ConsumerState<ChatThreadPage>
 
   @override
   void didChangeMetrics() {
-    // When the keyboard opens/closes, scroll to bottom so the latest message
-    // stays visible (WhatsApp behaviour).
+    // When the keyboard opens, scroll to bottom so the latest message stays
+    // visible. Use a small delay because viewInsets may not be final in the
+    // first frame callback.
     WidgetsBinding.instance.addPostFrameCallback((_) {
       if (!mounted) return;
       final bottomInset = MediaQuery.of(context).viewInsets.bottom;
-      if (bottomInset > _lastBottomInset && _nearBottom) {
-        _jumpToBottom();
-      }
+      final keyboardOpened = bottomInset > _lastBottomInset;
       _lastBottomInset = bottomInset;
+      if (keyboardOpened) {
+        // Immediate jump + delayed jump to catch final layout
+        _jumpToBottom();
+        Future.delayed(const Duration(milliseconds: 200), () {
+          if (mounted) _jumpToBottom();
+        });
+      }
     });
   }
 
@@ -155,12 +161,9 @@ class _ChatThreadPageState extends ConsumerState<ChatThreadPage>
     }
     final normalized = phone.startsWith('+') ? phone : '+$phone';
     final uri = Uri.parse('tel:$normalized');
-    // Launch directly: canLaunchUrl(tel:) returns false on Android 11+ unless a
-    // <queries> intent is declared, which made the button appear dead.
     try {
       final ok = await launchUrl(uri, mode: LaunchMode.externalApplication);
       if (!ok) throw Exception('no dialer');
-      // Best-effort: record the call attempt for analytics/SLA.
       unawaited(
         ref.read(chatRepositoryProvider).trackCall(widget.conversationId),
       );
@@ -237,16 +240,21 @@ class _ChatThreadPageState extends ConsumerState<ChatThreadPage>
     _didInitialScroll = true;
 
     if (firstLoad) {
-      // Land at the bottom (newest) on open, even before the keyboard/images
-      // settle - re-jump shortly after so it lands precisely.
+      // Land at the bottom (newest) on open. Multiple delayed jumps ensure
+      // it sticks even after layout/images settle.
       WidgetsBinding.instance.addPostFrameCallback((_) {
         _jumpToBottom();
-        Future.delayed(const Duration(milliseconds: 150), () {
+        Future.delayed(const Duration(milliseconds: 100), () {
+          if (mounted) _jumpToBottom();
+        });
+        Future.delayed(const Duration(milliseconds: 350), () {
+          if (mounted) _jumpToBottom();
+        });
+        Future.delayed(const Duration(milliseconds: 600), () {
           if (mounted) _jumpToBottom();
         });
       });
     } else if (grew && _nearBottom) {
-      // Don't yank the user up while they're reading older history.
       WidgetsBinding.instance.addPostFrameCallback((_) => _jumpToBottom());
     }
   }
