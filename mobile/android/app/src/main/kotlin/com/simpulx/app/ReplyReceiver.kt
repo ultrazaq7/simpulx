@@ -36,8 +36,14 @@ class ReplyReceiver : BroadcastReceiver() {
         // and let the FCM handler pick it up.
         android.util.Log.d("ReplyReceiver", "Reply to $chatId: $replyText")
 
-        // TODO: If needed, implement direct HTTP call here using OkHttp
-        // For now, dismiss notification to acknowledge the reply
+        // Wake up MainActivity to handle the reply
+        val replyIntent = Intent(context, MainActivity::class.java).apply {
+            action = "com.simpulx.app.ACTION_INLINE_REPLY"
+            putExtra("chatId", chatId)
+            putExtra("replyText", replyText)
+            flags = Intent.FLAG_ACTIVITY_NEW_TASK or Intent.FLAG_ACTIVITY_SINGLE_TOP or Intent.FLAG_ACTIVITY_CLEAR_TOP
+        }
+        context.startActivity(replyIntent)
     }
 
     private fun handleMarkAsRead(context: Context, chatId: String) {

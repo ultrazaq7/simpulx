@@ -6,9 +6,37 @@ import io.flutter.embedding.android.FlutterActivity
 import io.flutter.embedding.engine.FlutterEngine
 import io.flutter.plugin.common.MethodChannel
 
+import android.os.Bundle
+import android.content.Intent
+
 class MainActivity : FlutterActivity() {
 
     private val CHANNEL = "simpulx_notification"
+    private var pendingReplyChatId: String? = null
+    private var pendingReplyText: String? = null
+
+    override fun onCreate(savedInstanceState: Bundle?) {
+        super.onCreate(savedInstanceState)
+        handleIntent(intent)
+    }
+
+    override fun onNewIntent(intent: Intent) {
+        super.onNewIntent(intent)
+        handleIntent(intent)
+    }
+
+    private fun handleIntent(intent: Intent) {
+        if (intent.action == "com.simpulx.app.ACTION_INLINE_REPLY") {
+            val chatId = intent.getStringExtra("chatId")
+            val replyText = intent.getStringExtra("replyText")
+            if (chatId != null && replyText != null) {
+                val data = mapOf("chatId" to chatId, "replyText" to replyText)
+                flutterEngine?.dartExecutor?.binaryMessenger?.let { messenger ->
+                    MethodChannel(messenger, CHANNEL).invokeMethod("onInlineReply", data)
+                }
+            }
+        }
+    }
 
     override fun configureFlutterEngine(flutterEngine: FlutterEngine) {
         super.configureFlutterEngine(flutterEngine)

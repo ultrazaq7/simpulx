@@ -118,6 +118,7 @@ object NotificationHelper {
         conversationTitle: String,
         message: String,
         avatarBitmap: Bitmap,
+        messageIntent: Intent? = null,
     ) {
         ensureChannel(context)
 
@@ -183,6 +184,25 @@ object NotificationHelper {
         val style = NotificationCompat.MessagingStyle(selfPerson)
             .addMessage(message, System.currentTimeMillis(), senderPerson)
 
+        // Create Content Intent for routing on tap
+        val tapIntent = Intent(context, MainActivity::class.java).apply {
+            action = Intent.ACTION_VIEW
+            flags = Intent.FLAG_ACTIVITY_SINGLE_TOP or Intent.FLAG_ACTIVITY_CLEAR_TOP
+            // Copy all Firebase extras so Flutter picks it up
+            if (messageIntent != null && messageIntent.extras != null) {
+                putExtras(messageIntent.extras!!)
+            }
+            // Fallback extras
+            putExtra("chat_id", chatId)
+            putExtra("route", "/chat/$chatId")
+        }
+        val contentIntent = PendingIntent.getActivity(
+            context,
+            chatId.hashCode(),
+            tapIntent,
+            PendingIntent.FLAG_UPDATE_CURRENT or PendingIntent.FLAG_IMMUTABLE
+        )
+
         // 3. Build notification linked to the shortcut
         val notification = NotificationCompat.Builder(context, CHANNEL_ID)
             .setSmallIcon(R.drawable.ic_notification)
@@ -192,6 +212,7 @@ object NotificationHelper {
             .setPriority(NotificationCompat.PRIORITY_HIGH)
             .setAutoCancel(true)
             .setOnlyAlertOnce(true)
+            .setContentIntent(contentIntent) // Opens app on tap
             .addAction(replyAction)
             .addAction(markAsReadAction)
             .build()

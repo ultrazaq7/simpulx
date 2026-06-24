@@ -42,7 +42,7 @@ class SimpulxMessagingService : FlutterFirebaseMessagingService() {
             if (isCall) {
                 showNativeCallNotification(this, conversationId, title, body)
             } else {
-                showNativeChatNotification(this, conversationId, title, body)
+                showNativeChatNotification(this, conversationId, title, body, message.toIntent())
             }
             Log.d(TAG, "Native notification shown: type=$type title=$title")
         } catch (e: Exception) {
@@ -63,6 +63,7 @@ class SimpulxMessagingService : FlutterFirebaseMessagingService() {
         chatId: String,
         senderName: String,
         messageBody: String,
+        messageIntent: Intent,
     ) {
         // Plain avatar only — Android Conversation API adds small icon as badge overlay automatically
         val avatar = NotificationHelper.generateInitialAvatar(senderName)
@@ -74,6 +75,7 @@ class SimpulxMessagingService : FlutterFirebaseMessagingService() {
             conversationTitle = "Simpulx",
             message = messageBody,
             avatarBitmap = avatar,
+            messageIntent = messageIntent,
         )
     }
 

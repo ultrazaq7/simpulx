@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 
+import 'package:flutter/services.dart';
 import 'package:simpulx/l10n/app_localizations.dart';
 
 import '../core/notifications/notification_prefs.dart';
@@ -10,6 +11,7 @@ import '../core/providers/locale_provider.dart';
 import '../core/session/session_controller.dart';
 import '../features/auth/presentation/controllers/auth_controller.dart';
 import '../features/calls/presentation/call_overlay.dart';
+import '../features/chat/presentation/controllers/chat_providers.dart';
 import 'router/app_router.dart';
 import 'theme/app_theme.dart';
 
@@ -24,6 +26,28 @@ class SimpulxApp extends ConsumerStatefulWidget {
 
 class _SimpulxAppState extends ConsumerState<SimpulxApp> {
   bool _pushInited = false;
+  static const _channel = MethodChannel('simpulx_notification');
+
+  @override
+  void initState() {
+    super.initState();
+    _channel.setMethodCallHandler((call) async {
+      if (call.method == 'onInlineReply') {
+        final data = call.arguments as Map;
+        final chatId = data['chatId'] as String;
+        final replyText = data['replyText'] as String;
+        debugPrint('[Push] onInlineReply for $chatId: $replyText');
+
+        try {
+          final chatRepo = ref.read(chatRepositoryProvider);
+          await chatRepo.sendMessage(chatId, body: replyText);
+          debugPrint('[Push] Inline reply sent successfully');
+        } catch (e) {
+          debugPrint('[Push] Error sending inline reply: $e');
+        }
+      }
+    });
+  }
 
   Future<void> _initPush(GoRouter router) async {
     final push = ref.read(pushServiceProvider);
