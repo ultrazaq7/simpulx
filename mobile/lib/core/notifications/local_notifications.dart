@@ -72,7 +72,7 @@ class LocalNotifications {
   }
 
   /// Cancel a notification by its id.
-  Future<void> cancel(int id) => _plugin.cancel(id);
+  Future<void> cancel(int id) => _plugin.cancel(id: id);
 
   /// Show from a raw data map (used by the background isolate).
   static Future<void> showFromData(Map<String, dynamic> data) async {
