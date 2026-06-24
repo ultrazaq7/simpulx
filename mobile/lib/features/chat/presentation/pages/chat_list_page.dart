@@ -61,7 +61,11 @@ class _ChatListPageState extends ConsumerState<ChatListPage> {
         } else if (_searchType == 'Phone') {
           matchesSearch = c.contactPhone.toLowerCase().contains(q);
         } else if (_searchType == 'Messages') {
-          matchesSearch = c.lastMessagePreview?.toLowerCase().contains(q) ?? false;
+          if (q.trim().length >= 2) {
+            matchesSearch = true;
+          } else {
+            matchesSearch = c.lastMessagePreview?.toLowerCase().contains(q) ?? false;
+          }
         } else {
           matchesSearch = c.contactName.toLowerCase().contains(q) ||
                           c.contactPhone.toLowerCase().contains(q);
@@ -202,7 +206,8 @@ class _ChatListPageState extends ConsumerState<ChatListPage> {
 
   @override
   Widget build(BuildContext context) {
-    final async = ref.watch(conversationListProvider);
+    final isGlobalSearch = _searchType == 'Messages' && _query.trim().length >= 2;
+    final async = isGlobalSearch ? ref.watch(messageSearchProvider(_query)) : ref.watch(conversationListProvider);
     final filter = ref.watch(inboxFilterProvider);
 
     return Scaffold(
@@ -327,30 +332,6 @@ class _ChatListPageState extends ConsumerState<ChatListPage> {
                         hintText: _searchType == 'Phone'
                             ? 'Search Number'
                             : 'Search ${_searchType.toLowerCase()}',
-                        prefixIcon: _searchType == 'Phone'
-                            ? IntrinsicWidth(
-                                child: Row(
-                                  mainAxisSize: MainAxisSize.min,
-                                  children: [
-                                    const SizedBox(width: 12),
-                                    const Text('+62',
-                                        style: TextStyle(
-                                            fontSize: 14,
-                                            fontWeight: FontWeight.w500)),
-                                    const Icon(Icons.keyboard_arrow_down_rounded,
-                                        size: 20),
-                                    const SizedBox(width: 6),
-                                    Container(
-                                        width: 1,
-                                        height: 24,
-                                        color: Theme.of(context)
-                                            .colorScheme
-                                            .outline),
-                                    const SizedBox(width: 12),
-                                  ],
-                                ),
-                              )
-                            : null,
                         isDense: true,
                         suffixIcon: _query.isEmpty
                             ? null

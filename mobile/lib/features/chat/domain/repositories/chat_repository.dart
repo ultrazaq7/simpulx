@@ -5,8 +5,8 @@ import '../entities/messages_page.dart';
 import '../entities/uploaded_media.dart';
 
 abstract class ChatRepository {
-  /// Inbox list, optionally filtered by status (open/pending/closed).
-  Future<Result<List<Conversation>>> listConversations({String? status});
+  /// Inbox list, optionally filtered by status (open/pending/closed) and search query [q].
+  Future<Result<List<Conversation>>> listConversations({String? status, String? q});
 
   /// Message history page (ASC). Pass [cursor] to load older messages.
   Future<Result<MessagesPage>> getMessages(

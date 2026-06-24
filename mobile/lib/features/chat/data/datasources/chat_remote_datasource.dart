@@ -16,11 +16,14 @@ class ChatRemoteDataSource {
   final Dio _dio;
 
   /// GET /api/conversations[?status=] -> bare JSON array (max 100).
-  Future<List<Conversation>> listConversations({String? status}) async {
+  Future<List<Conversation>> listConversations({String? status, String? q}) async {
     try {
       final res = await _dio.get(
         ApiEndpoints.conversations,
-        queryParameters: {if (status != null && status.isNotEmpty) 'status': status},
+        queryParameters: {
+          if (status != null && status.isNotEmpty) 'status': status,
+          if (q != null && q.isNotEmpty) 'q': q,
+        },
       );
       final data = res.data;
       final list = data is List

@@ -1,8 +1,13 @@
 import 'dart:ui';
 
 import 'package:flutter/foundation.dart';
+import 'package:flutter/widgets.dart';
 import 'package:flutter_local_notifications/flutter_local_notifications.dart';
+import 'package:shared_preferences/shared_preferences.dart';
 
+import '../config/app_config.dart';
+import '../network/dio_client.dart';
+import '../storage/secure_store.dart';
 import 'notification_payload.dart';
 
 /// Wraps flutter_local_notifications: per-category Android channels, display of
@@ -106,8 +111,6 @@ class LocalNotifications {
         key: payload.conversationId ?? payload.title,
         name: payload.title,
         important: true,
-        // Use app icon as person avatar
-        icon: const DrawableResourceAndroidIcon('@drawable/ic_notification'),
       );
       style = MessagingStyleInformation(
         person,
@@ -210,6 +213,45 @@ class LocalNotifications {
 
 /// Top-level handler for taps on notifications shown by the background isolate.
 @pragma('vm:entry-point')
-void notificationTapBackground(NotificationResponse response) {
-  // The app routes from getNotificationAppLaunchDetails on next launch.
+void notificationTapBackground(NotificationResponse response) async {
+  // Background actions handler
+  if (response.actionId == 'reply' || response.actionId == 'mark_read') {
+    WidgetsFlutterBinding.ensureInitialized();
+    final payloadStr = response.payload;
+    if (payloadStr == null) return;
+    
+    // Parse conversation ID from route payload (e.g. /inbox/123)
+    final route = NotificationPayload.routeFromEncoded(payloadStr);
+    if (!route.startsWith('/inbox/')) return;
+    final parts = route.split('/');
+    if (parts.length < 3) return;
+    final convId = parts[2];
+
+    await AppConfig.init();
+    final prefs = await SharedPreferences.getInstance();
+    final secureStore = SecureStore(prefs);
+    if (!secureStore.hasSession) return;
+
+    final dioClient = DioClient(config: AppConfig.instance, secureStore: secureStore);
+
+    if (response.actionId == 'reply') {
+      final input = response.input;
+      if (input != null && input.isNotEmpty) {
+        try {
+          await dioClient.dio.post('/api/conversations/$convId/messages', data: {
+            'type': 'text',
+            'body': input,
+          });
+        } catch (e) {
+          debugPrint('[Background] Reply failed: $e');
+        }
+      }
+    } else if (response.actionId == 'mark_read') {
+      try {
+        await dioClient.dio.get('/api/conversations/$convId/messages?limit=1');
+      } catch (e) {
+        debugPrint('[Background] Mark read failed: $e');
+      }
+    }
+  }
 }

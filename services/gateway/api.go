@@ -84,9 +84,19 @@ func (s *server) handleListConversations(w http.ResponseWriter, r *http.Request)
 		visibility = ` AND cv.assigned_agent_id = $3`
 	}
 
+	q := r.URL.Query().Get("q")
+	qFilter := ""
 	args := []any{a.OrgID, status}
+	
+	if q != "" {
+		qFilter = " AND EXISTS (SELECT 1 FROM messages m WHERE m.conversation_id = cv.id AND m.body ILIKE $" + fmt.Sprint(len(args)+1) + ")"
+		args = append(args, "%"+q+"%")
+	}
+
 	if visibility != "" {
 		args = append(args, a.UserID)
+		// replace $3 in visibility with the actual position
+		visibility = strings.ReplaceAll(visibility, "$3", "$"+fmt.Sprint(len(args)))
 	}
 
 	rows, err := s.queryMaps(r.Context(),
@@ -117,7 +127,7 @@ func (s *server) handleListConversations(w http.ResponseWriter, r *http.Request)
 		   LEFT JOIN campaigns cmp ON cmp.id = cv.campaign_id
 		   LEFT JOIN channels ch ON ch.id = cmp.channel_id
 		  WHERE cv.organization_id = $1
-		    AND ($2 = '' OR cv.status = $2)`+visibility+`
+		    AND ($2 = '' OR cv.status = $2)`+qFilter+visibility+`
 		  ORDER BY cv.last_message_at DESC NULLS LAST
 		  LIMIT 100`,
 		args...,
