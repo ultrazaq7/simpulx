@@ -113,30 +113,13 @@ object NotificationHelper {
         context: Context,
         chatId: String,
         senderName: String,
-        conversationTitle: String, // unused for 1:1 — sender name IS the title
+        conversationTitle: String,
         message: String,
-        avatarBitmap: Bitmap,  // merged avatar with badge
+        avatarBitmap: Bitmap,
     ) {
         ensureChannel(context)
 
-        // "Self" person — the device owner (required by MessagingStyle constructor)
-        val selfPerson = Person.Builder()
-            .setName("You")
-            .build()
-
-        // The remote sender — their name becomes the notification title
-        val senderPerson = Person.Builder()
-            .setName(senderName)
-            .setIcon(IconCompat.createWithBitmap(avatarBitmap))
-            .setImportant(true)
-            .build()
-
-        // For 1:1 chats: do NOT set conversationTitle — Android uses sender name as title.
-        // "Simpulx" app name is shown automatically by the system.
-        val style = NotificationCompat.MessagingStyle(selfPerson)
-            .addMessage(message, System.currentTimeMillis(), senderPerson)
-
-        // Reply action
+        // Reply action with RemoteInput
         val replyLabel = "Reply"
         val remoteInput = RemoteInput.Builder("key_text_reply")
             .setLabel("Type a message...")
@@ -167,14 +150,16 @@ object NotificationHelper {
             )
         ).build()
 
+        // Simple notification — avatar in header row, no extra MessagingStyle person row
         val notification = NotificationCompat.Builder(context, CHANNEL_ID)
             .setSmallIcon(R.drawable.ic_notification)
-            .setLargeIcon(avatarBitmap)  // Shows avatar in collapsed view
-            .setStyle(style)
+            .setLargeIcon(avatarBitmap)       // Merged avatar+badge shown inline
+            .setContentTitle(senderName)      // "Fachmy" — bold title
+            .setContentText(message)          // "Halo kak"
+            .setSubText(conversationTitle)    // "Simpulx" — replaces app name in header
             .setCategory(NotificationCompat.CATEGORY_MESSAGE)
             .setPriority(NotificationCompat.PRIORITY_HIGH)
             .setAutoCancel(true)
-            .setGroupSummary(false)
             .setOnlyAlertOnce(true)
             .addAction(replyAction)
             .addAction(markAsReadAction)
