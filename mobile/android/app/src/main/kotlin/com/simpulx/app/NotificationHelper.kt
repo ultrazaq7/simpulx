@@ -207,15 +207,8 @@ object NotificationHelper {
 
         // Create Content Intent for routing on tap
         val tapIntent = Intent(context, MainActivity::class.java).apply {
-            action = Intent.ACTION_VIEW
+            action = "com.simpulx.app.ACTION_TAP_NOTIFICATION"
             flags = Intent.FLAG_ACTIVITY_SINGLE_TOP or Intent.FLAG_ACTIVITY_CLEAR_TOP
-            // Copy all Firebase extras so Flutter picks it up
-            if (messageIntent != null && messageIntent.extras != null) {
-                putExtras(messageIntent.extras!!)
-            }
-            // Fallback extras for Dart routing
-            putExtra("conversationId", chatId)
-            putExtra("conversation_id", chatId)
             putExtra("route", "/chat/$chatId")
         }
         val contentIntent = PendingIntent.getActivity(

@@ -43,6 +43,13 @@ class MainActivity : FlutterActivity() {
                     MethodChannel(messenger, CHANNEL).invokeMethod("onInlineReply", data)
                 }
             }
+        } else if (intent.action == "com.simpulx.app.ACTION_TAP_NOTIFICATION") {
+            val route = intent.getStringExtra("route")
+            if (route != null) {
+                flutterEngine?.dartExecutor?.binaryMessenger?.let { messenger ->
+                    MethodChannel(messenger, CHANNEL).invokeMethod("onNotificationTap", route)
+                }
+            }
         }
     }
 

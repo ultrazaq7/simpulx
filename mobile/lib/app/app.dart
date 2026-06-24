@@ -45,6 +45,11 @@ class _SimpulxAppState extends ConsumerState<SimpulxApp> {
         } catch (e) {
           debugPrint('[Push] Error sending inline reply: $e');
         }
+      } else if (call.method == 'onNotificationTap') {
+        final route = call.arguments as String;
+        debugPrint('[Push] onNotificationTap route: $route');
+        final router = ref.read(routerProvider);
+        _navigateToRoute(router, route);
       }
     });
   }
