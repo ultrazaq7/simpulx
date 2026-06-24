@@ -1,7 +1,6 @@
 import 'dart:io';
 import 'dart:ui' as ui;
 
-import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_local_notifications/flutter_local_notifications.dart';
 import 'package:path_provider/path_provider.dart';
@@ -267,15 +266,40 @@ class LocalNotifications {
     FlutterLocalNotificationsPlugin plugin,
     NotificationPayload payload,
   ) async {
+    try {
+      await _showInternal(plugin, payload);
+    } catch (e, st) {
+      debugPrint('[Notification] _show failed: $e');
+      debugPrint('[Notification] Stack: $st');
+      // Fallback: show simple notification without avatar
+      await _showFallback(plugin, payload);
+    }
+  }
+
+  static Future<void> _showInternal(
+    FlutterLocalNotificationsPlugin plugin,
+    NotificationPayload payload,
+  ) async {
     final cat = payload.category;
     final isMessage = cat == NotificationCategory.incomingMessage;
     final isCall = cat == NotificationCategory.incomingCall;
 
     // ── Generate WhatsApp-style avatar with badge ─────────────
-    final avatarPath = await _getAvatarPath(payload.title);
+    // Try to generate, but don't fail if it doesn't work
+    String? avatarPath;
+    try {
+      avatarPath = await _getAvatarPath(payload.title);
+    } catch (e) {
+      debugPrint('[Notification] Avatar generation failed: $e');
+      avatarPath = null;
+    }
+
+    debugPrint('[Notification] Avatar path: $avatarPath');
 
     // ── Style ──────────────────────────────────────────────
     final StyleInformation style;
+    final DrawableResourceAndroidIcon defaultIcon =
+        const DrawableResourceAndroidIcon('@mipmap/ic_launcher');
 
     if (isMessage) {
       const self = Person(
@@ -283,16 +307,12 @@ class LocalNotifications {
         name: 'You',
       );
 
-      // Use file path for avatar
-      final AndroidIcon<Object> senderIcon = avatarPath != null
-          ? FilePathAndroidBitmap(avatarPath) as AndroidIcon<Object>
-          : const DrawableResourceAndroidIcon('@mipmap/ic_launcher') as AndroidIcon<Object>;
-
       final sender = Person(
         key: payload.conversationId ?? payload.title,
         name: payload.title,
         important: true,
-        icon: senderIcon,
+        // Note: Person.icon is optional, Android uses sender name for avatar
+        // The largeIcon will show the avatar with badge
       );
 
       style = MessagingStyleInformation(
@@ -317,6 +337,19 @@ class LocalNotifications {
     const brandGreen = Color(0xFF2D8B73);
     const whatsappGreen = Color(0xFF25D366);
 
+    // Large icon with badge
+    AndroidBitmap<Object> largeIcon;
+    if (avatarPath != null && avatarPath.isNotEmpty) {
+      try {
+        largeIcon = FilePathAndroidBitmap(avatarPath);
+      } catch (e) {
+        debugPrint('[Notification] largeIcon bitmap failed: $e');
+        largeIcon = const DrawableResourceAndroidBitmap('@mipmap/ic_launcher');
+      }
+    } else {
+      largeIcon = const DrawableResourceAndroidBitmap('@mipmap/ic_launcher');
+    }
+
     final android = AndroidNotificationDetails(
       cat.channelId,
       cat.channelName,
@@ -330,10 +363,7 @@ class LocalNotifications {
           : AndroidNotificationCategory.message,
       fullScreenIntent: isCall,
       icon: '@drawable/ic_notification',
-      // Large icon with badge - use file path
-      largeIcon: avatarPath != null
-          ? FilePathAndroidBitmap(avatarPath)
-          : const DrawableResourceAndroidBitmap('@mipmap/ic_launcher'),
+      largeIcon: largeIcon,
       color: whatsappGreen,
       colorized: true,
       styleInformation: style,
@@ -397,6 +427,87 @@ class LocalNotifications {
       notificationDetails: NotificationDetails(android: android, iOS: ios),
       payload: payload.encodeRoute(),
     );
+  }
+
+  /// Fallback notification without avatar - shows when avatar generation fails.
+  static Future<void> _showFallback(
+    FlutterLocalNotificationsPlugin plugin,
+    NotificationPayload payload,
+  ) async {
+    final cat = payload.category;
+    final isMessage = cat == NotificationCategory.incomingMessage;
+    final isCall = cat == NotificationCategory.incomingCall;
+
+    final StyleInformation style;
+    if (isMessage) {
+      const self = Person(key: 'self', name: 'You');
+      final sender = Person(
+        key: payload.conversationId ?? payload.title,
+        name: payload.title,
+        important: true,
+      );
+      style = MessagingStyleInformation(
+        self,
+        groupConversation: false,
+        conversationTitle: 'Simpulx',
+        messages: [
+          Message(payload.body, DateTime.now(), sender),
+        ],
+      );
+    } else if (isCall) {
+      style = BigTextStyleInformation(
+        'Incoming voice call',
+        contentTitle: payload.title,
+        summaryText: 'Simpulx Voice Call',
+      );
+    } else {
+      style = BigTextStyleInformation(payload.body);
+    }
+
+    const brandGreen = Color(0xFF2D8B73);
+
+    final android = AndroidNotificationDetails(
+      cat.channelId,
+      cat.channelName,
+      importance: (isCall || !isMessage) ? Importance.max : Importance.high,
+      priority: Priority.high,
+      category: isCall ? AndroidNotificationCategory.call : AndroidNotificationCategory.message,
+      fullScreenIntent: isCall,
+      icon: '@drawable/ic_notification',
+      styleInformation: style,
+      actions: [
+        if (isMessage) ...[
+          const AndroidNotificationAction(
+            'reply',
+            'Reply',
+            showsUserInterface: false,
+            inputs: [AndroidNotificationActionInput(label: 'Type a message...')],
+          ),
+          const AndroidNotificationAction(
+            'mark_read',
+            'Mark as read',
+            showsUserInterface: false,
+          ),
+        ],
+        if (isCall) ...[
+          const AndroidNotificationAction('decline', 'Decline', titleColor: Color(0xFFD32F2F), showsUserInterface: true),
+          const AndroidNotificationAction('answer', 'Answer', titleColor: brandGreen, showsUserInterface: true),
+        ],
+      ],
+      ongoing: isCall,
+      autoCancel: !isCall,
+    );
+
+    final id = (payload.conversationId ?? payload.contactId ?? payload.rawType ?? '').hashCode & 0x7fffffff;
+
+    await plugin.show(
+      id: id,
+      title: isMessage ? null : payload.title,
+      body: isMessage ? null : payload.body,
+      notificationDetails: NotificationDetails(android: android),
+      payload: payload.encodeRoute(),
+    );
+    debugPrint('[Notification] Fallback notification shown');
   }
 
   static Future<void> _ensureChannels(
