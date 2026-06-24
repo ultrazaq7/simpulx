@@ -137,7 +137,7 @@ class LocalNotifications {
       // Full screen intent for incoming calls - shows over lock screen
       fullScreenIntent: isCall,
       icon: '@drawable/ic_notification',
-      color: whatsappGreen,
+      color: const Color(0xFF2D8B73),
       styleInformation: style,
       // WhatsApp-like actions
       actions: [
