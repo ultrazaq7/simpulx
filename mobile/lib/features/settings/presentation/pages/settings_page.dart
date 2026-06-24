@@ -19,19 +19,7 @@ class SettingsPage extends ConsumerWidget {
   @override
   Widget build(BuildContext context, WidgetRef ref) {
     final user = ref.watch(sessionControllerProvider).user;
-    final themeMode = ref.watch(themeModeProvider);
     final locale = ref.watch(localeProvider);
-
-    String themeName(ThemeMode m) {
-      switch (m) {
-        case ThemeMode.system:
-          return 'System';
-        case ThemeMode.light:
-          return 'Light';
-        case ThemeMode.dark:
-          return 'Dark';
-      }
-    }
 
     String langName(Locale? l) {
       if (l == null) return 'System Default';
@@ -194,59 +182,7 @@ class SettingsPage extends ConsumerWidget {
     );
   }
 
-  void _showThemePicker(BuildContext context, WidgetRef ref, ThemeMode current) {
-    showModalBottomSheet<void>(
-      context: context,
-      showDragHandle: true,
-      builder: (_) => SafeArea(
-        child: Column(
-          mainAxisSize: MainAxisSize.min,
-          children: [
-            const Padding(
-              padding: EdgeInsets.fromLTRB(16, 0, 16, 8),
-              child: Align(
-                alignment: Alignment.centerLeft,
-                child: Text('Theme',
-                    style: TextStyle(fontSize: 16, fontWeight: FontWeight.w700)),
-              ),
-            ),
-            RadioListTile<ThemeMode>(
-              title: const Text('System'),
-              subtitle: const Text('Follow device theme'),
-              secondary: const Icon(Icons.brightness_auto_rounded),
-              value: ThemeMode.system,
-              groupValue: current,
-              onChanged: (v) {
-                ref.read(themeModeProvider.notifier).setThemeMode(ThemeMode.system);
-                Navigator.of(context).pop();
-              },
-            ),
-            RadioListTile<ThemeMode>(
-              title: const Text('Light'),
-              secondary: const Icon(Icons.light_mode_rounded),
-              value: ThemeMode.light,
-              groupValue: current,
-              onChanged: (v) {
-                ref.read(themeModeProvider.notifier).setThemeMode(ThemeMode.light);
-                Navigator.of(context).pop();
-              },
-            ),
-            RadioListTile<ThemeMode>(
-              title: const Text('Dark'),
-              secondary: const Icon(Icons.dark_mode_rounded),
-              value: ThemeMode.dark,
-              groupValue: current,
-              onChanged: (v) {
-                ref.read(themeModeProvider.notifier).setThemeMode(ThemeMode.dark);
-                Navigator.of(context).pop();
-              },
-            ),
-            const SizedBox(height: 8),
-          ],
-        ),
-      ),
-    );
-  }
+
 }
 
 class _OnlineStatusTile extends ConsumerWidget {

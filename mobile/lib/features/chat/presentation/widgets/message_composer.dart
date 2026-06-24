@@ -21,12 +21,14 @@ class MessageComposer extends ConsumerStatefulWidget {
     required this.conversationId,
     required this.onSend,
     this.onAttach,
+    this.onCamera,
     this.onSendVoice,
   });
 
   final String conversationId;
   final void Function(String text) onSend;
   final VoidCallback? onAttach;
+  final VoidCallback? onCamera;
 
   /// Called with the recorded voice-note file path when sent.
   final void Function(String path)? onSendVoice;

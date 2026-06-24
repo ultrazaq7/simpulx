@@ -6,16 +6,19 @@ import 'package:flutter/services.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 import 'package:image_picker/image_picker.dart';
+import 'package:path/path.dart' as p;
 import 'package:url_launcher/url_launcher.dart';
 
 import '../../../../app/theme/app_colors.dart';
+import '../../../../core/utils/haptics.dart';
 import '../../../../core/utils/time_format.dart';
-import '../../../calls/presentation/call_controller.dart';
 import '../../../../core/widgets/app_error_view.dart';
 import '../../../../core/widgets/app_loader.dart';
 import '../../../../core/widgets/app_snackbar.dart';
+import '../../../calls/presentation/call_controller.dart';
 import '../../domain/entities/conversation.dart';
 import '../../domain/entities/message.dart';
+import '../../domain/repositories/chat_repository.dart';
 import '../controllers/chat_providers.dart';
 import '../controllers/chat_thread_controller.dart';
 import '../controllers/conversation_list_controller.dart';
@@ -24,6 +27,7 @@ import '../widgets/message_bubble.dart';
 import '../widgets/message_composer.dart';
 import '../widgets/message_search_delegate.dart';
 import '../widgets/template_picker_sheet.dart';
+import 'custom_camera_page.dart';
 
 /// Full-screen conversation thread (no bottom nav). Optimistic send + realtime
 /// append; scroll up to load older history.
@@ -189,7 +193,7 @@ class _ChatThreadPageState extends ConsumerState<ChatThreadPage>
             ),
             ListTile(
               leading: const Icon(Icons.photo_library_outlined),
-              title: const Text('Photo library'),
+              title: const Text('Media library'),
               onTap: () => Navigator.of(context).pop('gallery'),
             ),
             ListTile(
@@ -204,56 +208,56 @@ class _ChatThreadPageState extends ConsumerState<ChatThreadPage>
     if (choice == null) return;
     final ctrl = ref.read(chatThreadControllerProvider(widget.conversationId));
 
-    if (choice == 'file') {
-      final result = await FilePicker.platform.pickFiles(type: FileType.any);
-      final picked = result?.files.single;
-      if (picked?.path != null) {
-        await ctrl.attachAndSend(picked!.path!,
-            filename: picked.name, previewType: MessageType.document);
-      }
+    if (choice == 'camera') {
+      await _openCustomCamera();
       return;
     }
 
-    if (choice == 'camera') {
-      final captureMode = await showDialog<String>(
-        context: context,
-        builder: (_) => AlertDialog(
-          title: const Text('Camera'),
-          content: const Text('What would you like to capture?'),
-          actions: [
-            TextButton(
-              onPressed: () => Navigator.of(context).pop('photo'),
-              child: const Text('Photo'),
-            ),
-            TextButton(
-              onPressed: () => Navigator.of(context).pop('video'),
-              child: const Text('Video'),
-            ),
-          ],
-        ),
-      );
-      if (captureMode == null) return;
-      
-      if (captureMode == 'video') {
-        final file = await ImagePicker().pickVideo(source: ImageSource.camera);
-        if (file != null) {
-          await ctrl.attachAndSend(file.path, filename: file.name, previewType: MessageType.video);
+    if (choice == 'file') {
+      final result = await FilePicker.platform.pickFiles(type: FileType.any, allowMultiple: true);
+      if (result != null && result.files.isNotEmpty) {
+        for (final picked in result.files) {
+          if (picked.path != null) {
+            await ctrl.attachAndSend(picked.path!,
+                filename: picked.name, previewType: MessageType.document);
+          }
         }
-        return;
-      }
-      
-      final file = await ImagePicker().pickImage(source: ImageSource.camera, imageQuality: 80, maxWidth: 1600);
-      if (file != null) {
-        await ctrl.attachAndSend(file.path, filename: file.name);
       }
       return;
     }
 
     // gallery
-    final file = await ImagePicker()
-        .pickImage(source: ImageSource.gallery, imageQuality: 80, maxWidth: 1600);
-    if (file != null) {
-      await ctrl.attachAndSend(file.path, filename: file.name);
+    if (choice == 'gallery') {
+      final files = await ImagePicker().pickMultipleMedia(imageQuality: 80, maxWidth: 1600);
+      for (final file in files) {
+        final isVideo = file.path.toLowerCase().endsWith('.mp4') || file.path.toLowerCase().endsWith('.mov');
+        await ctrl.attachAndSend(file.path, filename: file.name, previewType: isVideo ? MessageType.video : MessageType.image);
+      }
+    }
+  }
+
+  Future<void> _openCustomCamera() async {
+    final result = await Navigator.of(context).push<Map<String, dynamic>>(
+      MaterialPageRoute(builder: (_) => const CustomCameraPage()),
+    );
+    if (result == null) return;
+
+    if (result['gallery'] == true) {
+      // Launch standard gallery instead (allow multiple)
+      final files = await ImagePicker().pickMultipleMedia(imageQuality: 80, maxWidth: 1600);
+      final ctrl = ref.read(chatThreadControllerProvider(widget.conversationId));
+      for (final file in files) {
+        final isVideo = file.path.toLowerCase().endsWith('.mp4') || file.path.toLowerCase().endsWith('.mov');
+        await ctrl.attachAndSend(file.path, filename: file.name, previewType: isVideo ? MessageType.video : MessageType.image);
+      }
+      return;
+    }
+
+    final path = result['path'] as String?;
+    final type = result['type'] as MessageType?;
+    if (path != null && type != null) {
+      final ctrl = ref.read(chatThreadControllerProvider(widget.conversationId));
+      await ctrl.attachAndSend(path, filename: p.basename(path), previewType: type);
     }
   }
 
@@ -386,13 +390,14 @@ class _ChatThreadPageState extends ConsumerState<ChatThreadPage>
           ),
           MessageComposer(
             conversationId: widget.conversationId,
-            onSend: (text) => controller.send(text),
+            onSend: (text) => ref
+                .read(chatThreadControllerProvider(widget.conversationId))
+                .send(text),
             onAttach: _attach,
-            onSendVoice: (path) => controller.attachAndSend(
-              path,
-              filename: 'voice.m4a',
-              previewType: MessageType.audio,
-            ),
+            onCamera: _openCustomCamera,
+            onSendVoice: (path) => ref
+                .read(chatThreadControllerProvider(widget.conversationId))
+                .attachAndSend(path, previewType: MessageType.audio),
           ),
         ],
       ),

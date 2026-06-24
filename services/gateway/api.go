@@ -1509,7 +1509,7 @@ func (s *server) handleListContacts(w http.ResponseWriter, r *http.Request) {
 		   FROM contacts ct
 		   LEFT JOIN LATERAL (
 		     SELECT id AS conversation_id, interest_level, stage_id, last_message_at, ai_reason AS ai_summary,
-		            lead_score, assigned_agent_id, campaign_id, channel_id
+		            lead_score, assigned_agent_id, campaign_id, channel_id, branch_id
 		       FROM conversations WHERE contact_id=ct.id
 		      ORDER BY last_message_at DESC NULLS LAST LIMIT 1
 		   ) lc ON true

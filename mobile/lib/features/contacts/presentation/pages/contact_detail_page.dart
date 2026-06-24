@@ -67,21 +67,7 @@ class ContactDetailPage extends ConsumerWidget {
             tooltip: 'Edit',
             onPressed: () => showContactForm(context, existing: c),
           ),
-          PopupMenuButton<String>(
-            onSelected: (v) async {
-              if (v == 'delete') {
-                final ok = await _confirmDelete(context);
-                if (ok != true) return;
-                final deleted = await ref
-                    .read(contactsProvider.notifier)
-                    .deleteContact(c.id);
-                if (deleted && context.mounted) context.pop();
-              }
-            },
-            itemBuilder: (_) => const [
-              PopupMenuItem(value: 'delete', child: Text('Delete contact')),
-            ],
-          ),
+          const SizedBox(width: 8),
         ],
       ),
       body: ListView(
@@ -116,25 +102,7 @@ class ContactDetailPage extends ConsumerWidget {
     );
   }
 
-  Future<bool?> _confirmDelete(BuildContext context) {
-    return showDialog<bool>(
-      context: context,
-      builder: (_) => AlertDialog(
-        title: const Text('Delete contact?'),
-        content: const Text('This cannot be undone.'),
-        actions: [
-          TextButton(
-              onPressed: () => Navigator.pop(context, false),
-              child: const Text('Cancel')),
-          TextButton(
-            onPressed: () => Navigator.pop(context, true),
-            style: TextButton.styleFrom(foregroundColor: AppColors.danger),
-            child: const Text('Delete'),
-          ),
-        ],
-      ),
-    );
-  }
+
 }
 
 class _IdentityCard extends StatelessWidget {

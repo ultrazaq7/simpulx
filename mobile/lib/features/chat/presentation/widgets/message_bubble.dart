@@ -8,6 +8,7 @@ import 'package:dio/dio.dart';
 import 'package:path_provider/path_provider.dart';
 import 'package:open_filex/open_filex.dart';
 import 'package:pdfx/pdfx.dart';
+import 'package:video_player/video_player.dart';
 
 import '../../../../app/theme/app_colors.dart';
 import '../../../../core/utils/time_format.dart';
@@ -211,7 +212,7 @@ class _MediaContent extends StatelessWidget {
             ? _placeholder(Icons.mic_rounded, 'Sending voice...')
             : AudioMessage(url: message.mediaUrl!, fg: fg);
       case MessageType.video:
-        return _placeholder(Icons.videocam_rounded, 'Video');
+        return _videoPreview(context);
       default:
         return const SizedBox.shrink();
     }
@@ -298,9 +299,86 @@ class _MediaContent extends StatelessWidget {
     );
   }
 
+  Widget _videoPreview(BuildContext context) {
+    final url = message.mediaUrl!;
+    return GestureDetector(
+      onTap: _uploading
+          ? null
+          : () {
+              final mediaMessages = allMessages
+                  .where((m) =>
+                      m.hasMedia &&
+                      (m.type == MessageType.image ||
+                       m.type == MessageType.video ||
+                       m.type == MessageType.sticker))
+                  .toList();
+              final items = mediaMessages
+                  .map((m) => MediaItem(
+                        url: m.mediaUrl!,
+                        senderName: m.isMine ? 'You' : '',
+                        timestamp: m.createdAt,
+                        isVideo: m.type == MessageType.video,
+                      ))
+                  .toList();
+              final idx = mediaMessages.indexWhere((m) => m.id == message.id);
+              showMediaViewer(
+                context,
+                url,
+                allMedia: items,
+                initialIndex: idx >= 0 ? idx : 0,
+              );
+            },
+      child: ClipRRect(
+        borderRadius: BorderRadius.circular(10),
+        child: Stack(
+          alignment: Alignment.center,
+          children: [
+            ConstrainedBox(
+              constraints: const BoxConstraints(maxHeight: 280, maxWidth: 280),
+              child: _VideoThumbnail(url: url),
+            ),
+            Container(
+              decoration: BoxDecoration(
+                color: Colors.black.withValues(alpha: 0.4),
+                shape: BoxShape.circle,
+              ),
+              padding: const EdgeInsets.all(8),
+              child: const Icon(Icons.play_arrow_rounded, size: 32, color: Colors.white),
+            ),
+            if (_uploading)
+              const Positioned.fill(
+                child: ColoredBox(
+                  color: Colors.black26,
+                  child: Center(
+                    child: SizedBox(
+                      width: 26,
+                      height: 26,
+                      child: CircularProgressIndicator(
+                          strokeWidth: 2.4, color: Colors.white),
+                    ),
+                  ),
+                ),
+              ),
+            Positioned(
+              bottom: 8,
+              left: 8,
+              child: Row(
+                children: [
+                  const Icon(Icons.videocam_rounded, size: 14, color: Colors.white),
+                  const SizedBox(width: 4),
+                  Text('Video', style: const TextStyle(color: Colors.white, fontSize: 11, fontWeight: FontWeight.w600)),
+                ],
+              ),
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+
   Widget _document(BuildContext context) {
     final url = message.mediaUrl!;
-    final name = _fileName(url);
+    final name = _fileName(url, message.body);
     final ext = name.toLowerCase();
 
     IconData iconData = Icons.insert_drive_file_rounded;
@@ -377,7 +455,7 @@ class _MediaContent extends StatelessWidget {
     try {
       AppSnackbar.show(context, 'Opening document...');
       final cacheDir = await getTemporaryDirectory();
-      final fileName = _fileName(url);
+      final fileName = _fileName(url, message.body);
       final filePath = '${cacheDir.path}/$fileName';
       
       if (!File(filePath).existsSync()) {
@@ -410,7 +488,8 @@ class _MediaContent extends StatelessWidget {
     );
   }
 
-  String _fileName(String url) {
+  String _fileName(String url, String body) {
+    if (body.trim().isNotEmpty) return body.trim();
     final uri = Uri.tryParse(url);
     final name = uri?.queryParameters['name'];
     if (name != null && name.isNotEmpty) return name;
@@ -591,6 +670,53 @@ class _PdfPreviewState extends State<_PdfPreview> {
           ],
         ),
       ),
+    );
+  }
+}
+
+class _VideoThumbnail extends StatefulWidget {
+  final String url;
+  const _VideoThumbnail({required this.url});
+
+  @override
+  State<_VideoThumbnail> createState() => _VideoThumbnailState();
+}
+
+class _VideoThumbnailState extends State<_VideoThumbnail> {
+  late VideoPlayerController _controller;
+  bool _initialized = false;
+
+  @override
+  void initState() {
+    super.initState();
+    final isNetwork = widget.url.startsWith('http');
+    _controller = isNetwork
+        ? VideoPlayerController.networkUrl(Uri.parse(widget.url))
+        : VideoPlayerController.file(File(widget.url));
+    
+    _controller.initialize().then((_) {
+      if (mounted) setState(() => _initialized = true);
+    }).catchError((_) {});
+  }
+
+  @override
+  void dispose() {
+    _controller.dispose();
+    super.dispose();
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    if (!_initialized) {
+      return Container(
+        height: 180,
+        width: double.infinity,
+        color: Colors.black26,
+      );
+    }
+    return AspectRatio(
+      aspectRatio: _controller.value.aspectRatio,
+      child: VideoPlayer(_controller),
     );
   }
 }
