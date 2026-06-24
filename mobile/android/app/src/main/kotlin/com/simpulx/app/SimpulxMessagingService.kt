@@ -1,5 +1,6 @@
 package com.simpulx.app
 
+import android.content.Context
 import android.graphics.BitmapFactory
 import android.util.Log
 import com.google.firebase.messaging.RemoteMessage
@@ -11,9 +12,6 @@ import io.flutter.plugins.firebase.messaging.FlutterFirebaseMessagingService
  *
  * Extends [FlutterFirebaseMessagingService] so the Flutter Dart isolate
  * still receives messages for foreground state updates.
- *
- * For message-type payloads, it generates the avatar+badge bitmap and
- * shows via [NotificationHelper] BEFORE delegating to Flutter.
  */
 class SimpulxMessagingService : FlutterFirebaseMessagingService() {
 
@@ -24,26 +22,33 @@ class SimpulxMessagingService : FlutterFirebaseMessagingService() {
     override fun onMessageReceived(message: RemoteMessage) {
         Log.d(TAG, "onMessageReceived: ${message.data}")
 
-        val data = message.data
-        val type = data["type"] ?: ""
-        val title = data["title"] ?: "Simpulx"
-        val body = data["body"] ?: ""
-        val conversationId = data["conversationId"] ?: data["conversation_id"] ?: ""
+        val data: Map<String, String> = message.data
+        val type: String = data["type"] ?: ""
+        val title: String = data["title"] ?: "Simpulx"
+        val body: String = data["body"] ?: ""
+        val conversationId: String = data["conversationId"]
+            ?: data["conversation_id"]
+            ?: ""
 
         // Detect if this is a call notification
-        val isCall = type == "call" || type == "incoming_call" || type == "voice_call"
-                || type == "call_ringing"
-                || body.lowercase().contains("incoming call")
-                || body.lowercase().contains("voice call")
+        val bodyLower: String = body.lowercase()
+        val isCall: Boolean = type == "call" || type == "incoming_call"
+                || type == "voice_call" || type == "call_ringing"
+                || bodyLower.contains("incoming call")
+                || bodyLower.contains("voice call")
 
         // For chat messages: build native WhatsApp-style notification
         if (!isCall && conversationId.isNotEmpty()) {
             try {
-                showNativeChatNotification(conversationId, title, body)
+                showNativeChatNotification(
+                    this as Context,
+                    conversationId,
+                    title,
+                    body
+                )
                 Log.d(TAG, "Native notification shown for: $title")
-                // Return early — do NOT delegate to Flutter for notification display.
-                // Flutter's onMessage will still fire for foreground state updates
-                // because we call super below for foreground, but NOT for background.
+                // Return early — native notification is displayed.
+                // Do NOT call super to avoid duplicate Flutter notification.
                 return
             } catch (e: Exception) {
                 Log.e(TAG, "Native notification failed, delegating to Flutter", e)
@@ -60,6 +65,7 @@ class SimpulxMessagingService : FlutterFirebaseMessagingService() {
     }
 
     private fun showNativeChatNotification(
+        ctx: Context,
         chatId: String,
         senderName: String,
         messageBody: String,
@@ -68,7 +74,7 @@ class SimpulxMessagingService : FlutterFirebaseMessagingService() {
         val avatar = NotificationHelper.generateInitialAvatar(senderName)
 
         // Load badge icon from drawable resources
-        val badge = BitmapFactory.decodeResource(resources, R.drawable.ic_notification)
+        val badge = BitmapFactory.decodeResource(ctx.resources, R.drawable.ic_notification)
 
         // Merge avatar + badge
         val mergedBitmap = if (badge != null) {
@@ -79,7 +85,7 @@ class SimpulxMessagingService : FlutterFirebaseMessagingService() {
 
         // Show notification
         NotificationHelper.showChatNotification(
-            context = this,
+            context = ctx,
             chatId = chatId,
             senderName = senderName,
             conversationTitle = "Simpulx",
