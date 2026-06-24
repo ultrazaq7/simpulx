@@ -9,6 +9,8 @@ import java.io.OutputStreamWriter
 import java.net.HttpURLConnection
 import java.net.URL
 import kotlin.concurrent.thread
+import android.os.Handler
+import android.os.Looper
 
 object NativeApiClient {
 
@@ -42,6 +44,8 @@ object NativeApiClient {
                 // 2. Make HTTP POST Request
                 val url = URL("$API_BASE_URL/api/conversations/$chatId/messages")
                 val connection = url.openConnection() as HttpURLConnection
+                connection.connectTimeout = 10000
+                connection.readTimeout = 10000
                 connection.requestMethod = "POST"
                 connection.setRequestProperty("Authorization", "Bearer $token")
                 connection.setRequestProperty("Content-Type", "application/json; charset=utf-8")
@@ -49,6 +53,7 @@ object NativeApiClient {
 
                 val jsonParam = JSONObject()
                 jsonParam.put("body", text)
+                jsonParam.put("type", "text")
 
                 OutputStreamWriter(connection.outputStream).use { writer ->
                     writer.write(jsonParam.toString())
@@ -58,14 +63,19 @@ object NativeApiClient {
                 val responseCode = connection.responseCode
                 if (responseCode in 200..299) {
                     Log.d(TAG, "Successfully sent background reply")
-                    onSuccess()
+                    Handler(Looper.getMainLooper()).post {
+                        onSuccess()
+                    }
                 } else {
-                    val errorMsg = connection.errorStream?.bufferedReader()?.use { it.readText() } ?: "Unknown error"
-                    throw Exception("API Error $responseCode: $errorMsg")
+                    val errorStream = connection.errorStream?.bufferedReader()?.use { it.readText() }
+                    Log.e(TAG, "API Error: $responseCode - $errorStream")
+                    throw Exception("API Error: $responseCode")
                 }
             } catch (e: Exception) {
-                Log.e(TAG, "Background reply failed", e)
-                onError(e)
+                Log.e(TAG, "Exception in background reply", e)
+                Handler(Looper.getMainLooper()).post {
+                    onError(e)
+                }
             }
         }
     }

@@ -43,9 +43,7 @@ class ReplyReceiver : BroadcastReceiver() {
                 },
                 onError = { e ->
                     Log.e("ReplyReceiver", "Failed to send background reply", e)
-                    // On error, cancel it or we could show an error. We'll just cancel for now.
-                    val manager = context.getSystemService(Context.NOTIFICATION_SERVICE) as NotificationManager
-                    manager.cancel(chatId.hashCode())
+                    NotificationHelper.appendFailedMessage(context, chatId)
                 }
             )
         } else {

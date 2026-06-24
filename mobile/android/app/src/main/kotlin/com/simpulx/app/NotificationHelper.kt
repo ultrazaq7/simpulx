@@ -262,6 +262,38 @@ object NotificationHelper {
     }
 
     /**
+     * Rebuilds the notification with a failure message to ensure the spinner stops.
+     */
+    fun appendFailedMessage(context: Context, chatId: String) {
+        val manager = context.getSystemService(Context.NOTIFICATION_SERVICE) as NotificationManager
+        var builder: NotificationCompat.Builder? = null
+        var style: NotificationCompat.MessagingStyle? = null
+
+        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.M) {
+            for (statusBarNotification in manager.activeNotifications) {
+                if (statusBarNotification.id == chatId.hashCode()) {
+                    val activeNotification = statusBarNotification.notification
+                    style = NotificationCompat.MessagingStyle.extractMessagingStyleFromNotification(activeNotification)
+                    builder = NotificationCompat.Builder(context, activeNotification)
+                    break
+                }
+            }
+        }
+
+        if (style != null && builder != null) {
+            val selfPerson = Person.Builder().setName("System").build()
+            style.addMessage("❌ Failed to send reply", System.currentTimeMillis(), selfPerson)
+            builder.setStyle(style)
+            
+            // Re-notify to update UI and stop spinner
+            manager.notify(chatId.hashCode(), builder.build())
+        } else {
+            // Fallback: just cancel it
+            manager.cancel(chatId.hashCode())
+        }
+    }
+
+    /**
      * Build and show a call-style notification.
      */
     fun showCallNotification(
