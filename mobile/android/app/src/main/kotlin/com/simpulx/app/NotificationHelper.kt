@@ -20,6 +20,8 @@ object NotificationHelper {
 
     private const val CHANNEL_ID = "incoming_message"
     private const val CHANNEL_NAME = "Incoming messages"
+    private const val CALL_CHANNEL_ID = "incoming_call"
+    private const val CALL_CHANNEL_NAME = "Incoming calls"
 
     /**
      * Merge avatar bitmap with a badge bitmap (ic_notification) at bottom-right.
@@ -174,6 +176,52 @@ object NotificationHelper {
         manager.notify(chatId.hashCode(), notification)
     }
 
+    /**
+     * Build and show a call-style notification.
+     */
+    fun showCallNotification(
+        context: Context,
+        chatId: String,
+        contactName: String,
+        body: String,
+    ) {
+        ensureCallChannel(context)
+
+        val notification = NotificationCompat.Builder(context, CALL_CHANNEL_ID)
+            .setSmallIcon(R.drawable.ic_notification)
+            .setContentTitle(contactName)
+            .setContentText(body.ifEmpty { "Incoming voice call" })
+            .setCategory(NotificationCompat.CATEGORY_CALL)
+            .setPriority(NotificationCompat.PRIORITY_MAX)
+            .setFullScreenIntent(null, true)
+            .setAutoCancel(false)
+            .setOngoing(true)
+            .addAction(
+                NotificationCompat.Action.Builder(
+                    0, "Decline",
+                    PendingIntent.getBroadcast(
+                        context, chatId.hashCode() + 10,
+                        ReplyReceiver.getMarkAsReadIntent(context, chatId),
+                        PendingIntent.FLAG_UPDATE_CURRENT or PendingIntent.FLAG_IMMUTABLE
+                    )
+                ).build()
+            )
+            .addAction(
+                NotificationCompat.Action.Builder(
+                    0, "Answer",
+                    PendingIntent.getBroadcast(
+                        context, chatId.hashCode() + 11,
+                        ReplyReceiver.getMarkAsReadIntent(context, chatId),
+                        PendingIntent.FLAG_UPDATE_CURRENT or PendingIntent.FLAG_IMMUTABLE
+                    )
+                ).build()
+            )
+            .build()
+
+        val manager = context.getSystemService(Context.NOTIFICATION_SERVICE) as NotificationManager
+        manager.notify(chatId.hashCode() + 100, notification)
+    }
+
     private fun ensureChannel(context: Context) {
         if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) {
             val manager = context.getSystemService(Context.NOTIFICATION_SERVICE) as NotificationManager
@@ -186,4 +234,18 @@ object NotificationHelper {
             }
         }
     }
+
+    private fun ensureCallChannel(context: Context) {
+        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) {
+            val manager = context.getSystemService(Context.NOTIFICATION_SERVICE) as NotificationManager
+            if (manager.getNotificationChannel(CALL_CHANNEL_ID) == null) {
+                val channel = NotificationChannel(
+                    CALL_CHANNEL_ID, CALL_CHANNEL_NAME,
+                    NotificationManager.IMPORTANCE_HIGH
+                )
+                manager.createNotificationChannel(channel)
+            }
+        }
+    }
 }
+

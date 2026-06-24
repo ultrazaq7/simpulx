@@ -7,11 +7,11 @@ import com.google.firebase.messaging.RemoteMessage
 import io.flutter.plugins.firebase.messaging.FlutterFirebaseMessagingService
 
 /**
- * Custom FCM service that intercepts data-only messages and builds
- * WhatsApp-style notifications natively — no Flutter engine needed.
+ * Custom FCM service — intercepts ALL data-only messages and builds
+ * notifications natively. No Flutter needed for notification display.
  *
- * Extends [FlutterFirebaseMessagingService] so the Flutter Dart isolate
- * still receives messages for foreground state updates.
+ * Extends [FlutterFirebaseMessagingService] so Flutter still gets
+ * onMessage/onMessageOpenedApp events for navigation and state updates.
  */
 class SimpulxMessagingService : FlutterFirebaseMessagingService() {
 
@@ -30,33 +30,27 @@ class SimpulxMessagingService : FlutterFirebaseMessagingService() {
             ?: data["conversation_id"]
             ?: ""
 
-        // Detect if this is a call notification
+        // Detect call notification
         val bodyLower: String = body.lowercase()
         val isCall: Boolean = type == "call" || type == "incoming_call"
                 || type == "voice_call" || type == "call_ringing"
                 || bodyLower.contains("incoming call")
                 || bodyLower.contains("voice call")
+                || bodyLower.contains("panggilan masuk")
 
-        // For chat messages: build native WhatsApp-style notification
-        if (!isCall && conversationId.isNotEmpty()) {
-            try {
-                showNativeChatNotification(
-                    this as Context,
-                    conversationId,
-                    title,
-                    body
-                )
-                Log.d(TAG, "Native notification shown for: $title")
-                // Return early — native notification is displayed.
-                // Do NOT call super to avoid duplicate Flutter notification.
-                return
-            } catch (e: Exception) {
-                Log.e(TAG, "Native notification failed, delegating to Flutter", e)
+        try {
+            if (isCall) {
+                showNativeCallNotification(this, conversationId, title, body)
+            } else {
+                showNativeChatNotification(this, conversationId, title, body)
             }
+            Log.d(TAG, "Native notification shown: type=$type title=$title")
+        } catch (e: Exception) {
+            Log.e(TAG, "Native notification failed", e)
         }
 
-        // For calls, other types, or if native failed: let Flutter handle it
-        super.onMessageReceived(message)
+        // Do NOT call super — prevents Flutter from showing duplicate notification.
+        // Flutter's onMessageOpenedApp still works for tap routing.
     }
 
     override fun onNewToken(token: String) {
@@ -70,20 +64,14 @@ class SimpulxMessagingService : FlutterFirebaseMessagingService() {
         senderName: String,
         messageBody: String,
     ) {
-        // Generate initial avatar
         val avatar = NotificationHelper.generateInitialAvatar(senderName)
-
-        // Load badge icon from drawable resources
         val badge = BitmapFactory.decodeResource(ctx.resources, R.drawable.ic_notification)
-
-        // Merge avatar + badge
         val mergedBitmap = if (badge != null) {
             NotificationHelper.mergeAvatarWithBadge(avatar, badge)
         } else {
             avatar
         }
 
-        // Show notification
         NotificationHelper.showChatNotification(
             context = ctx,
             chatId = chatId,
@@ -91,6 +79,20 @@ class SimpulxMessagingService : FlutterFirebaseMessagingService() {
             conversationTitle = "Simpulx",
             message = messageBody,
             avatarBitmap = mergedBitmap,
+        )
+    }
+
+    private fun showNativeCallNotification(
+        ctx: Context,
+        chatId: String,
+        contactName: String,
+        body: String,
+    ) {
+        NotificationHelper.showCallNotification(
+            context = ctx,
+            chatId = chatId,
+            contactName = contactName,
+            body = body,
         )
     }
 }

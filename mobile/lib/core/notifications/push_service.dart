@@ -12,13 +12,8 @@ import 'notification_payload.dart';
 @pragma('vm:entry-point')
 Future<void> firebaseMessagingBackgroundHandler(RemoteMessage message) async {
   debugPrint('[FCM Background] Received message: ${message.data}');
-  try {
-    await Firebase.initializeApp();
-    await LocalNotifications.showFromData(message.data);
-    debugPrint('[FCM Background] Notification shown');
-  } catch (e) {
-    debugPrint('[FCM Background] Error: $e');
-  }
+  // All notifications are built natively by SimpulxMessagingService (Kotlin).
+  // No Flutter notification display needed.
 }
 
 /// FCM lifecycle: permission, token registration, foreground display, and deep
@@ -58,6 +53,12 @@ class PushService {
       debugPrint('[PushService] Payload category: ${payload.category}');
       if (allow != null && !allow(payload.category)) {
         debugPrint('[PushService] Blocked by allow callback');
+        return;
+      }
+      // Messages are handled natively by SimpulxMessagingService (Kotlin).
+      // Only show Flutter notification for calls and non-message types.
+      if (payload.category == NotificationCategory.incomingMessage) {
+        debugPrint('[PushService] Skipping - native Kotlin handles messages');
         return;
       }
       debugPrint('[PushService] Showing notification...');
