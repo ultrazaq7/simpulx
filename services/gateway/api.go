@@ -1681,67 +1681,61 @@ func (s *server) proxyJSON(w http.ResponseWriter, ctx context.Context, method, u
 
 // ── GET /api/llm-models ─────────────────────────────────────────
 func (s *server) handleListLLMModels(w http.ResponseWriter, r *http.Request) {
-	apiKey := os.Getenv("ANTHROPIC_API_KEY")
+	apiKey := os.Getenv("OPENAI_API_KEY")
 	if apiKey == "" {
-		http.Error(w, "ANTHROPIC_API_KEY is not configured", http.StatusServiceUnavailable)
+		http.Error(w, "OPENAI_API_KEY is not configured", http.StatusServiceUnavailable)
 		return
 	}
 
-	req, err := http.NewRequestWithContext(r.Context(), http.MethodGet, "https://api.anthropic.com/v1/models", nil)
+	req, err := http.NewRequestWithContext(r.Context(), http.MethodGet, "https://api.openai.com/v1/models", nil)
 	if err != nil {
 		http.Error(w, err.Error(), http.StatusInternalServerError)
 		return
 	}
 
-	req.Header.Set("x-api-key", apiKey)
-	req.Header.Set("anthropic-version", "2023-06-01")
+	req.Header.Set("Authorization", "Bearer "+apiKey)
 
 	client := &http.Client{Timeout: 10 * time.Second}
 	resp, err := client.Do(req)
 	if err != nil {
-		http.Error(w, "Failed to fetch models from Anthropic: "+err.Error(), http.StatusBadGateway)
+		http.Error(w, "Failed to fetch models from OpenAI: "+err.Error(), http.StatusBadGateway)
 		return
 	}
 	defer resp.Body.Close()
 
 	if resp.StatusCode != http.StatusOK {
 		body, _ := io.ReadAll(resp.Body)
-		http.Error(w, "Anthropic API error: "+string(body), resp.StatusCode)
+		http.Error(w, "OpenAI API error: "+string(body), resp.StatusCode)
 		return
 	}
 
 	var result struct {
 		Data []struct {
-			ID          string `json:"id"`
-			Type        string `json:"type"`
-			DisplayName string `json:"display_name"`
-			CreatedAt   string `json:"created_at"`
+			ID      string `json:"id"`
+			Object  string `json:"object"`
+			OwnedBy string `json:"owned_by"`
 		} `json:"data"`
 	}
 
 	if err := json.NewDecoder(resp.Body).Decode(&result); err != nil {
-		http.Error(w, "Failed to decode Anthropic response: "+err.Error(), http.StatusInternalServerError)
+		http.Error(w, "Failed to decode OpenAI response: "+err.Error(), http.StatusInternalServerError)
 		return
 	}
 
-	// Transform to a simpler structure for frontend
+	// Transform to a simpler structure for frontend — filter to chat models only
 	type ModelItem struct {
 		ID   string `json:"id"`
 		Name string `json:"name"`
 	}
-	
+
 	models := make([]ModelItem, 0, len(result.Data))
 	for _, m := range result.Data {
-		name := m.DisplayName
-		if name == "" {
-			name = m.ID
+		// Only include GPT models (filter out embeddings, whisper, etc.)
+		if len(m.ID) >= 3 && (m.ID[:3] == "gpt" || m.ID[:2] == "o1" || m.ID[:2] == "o3" || m.ID[:2] == "o4") {
+			models = append(models, ModelItem{ID: m.ID, Name: m.ID})
 		}
-		// prepend identifier to name if it's different so we can see the id
-		if name != m.ID {
-			name = name + " (" + m.ID + ")"
-		}
-		models = append(models, ModelItem{ID: m.ID, Name: name})
 	}
 
 	writeJSON(w, models)
 }
+

@@ -110,22 +110,6 @@ class _ContactsPageState extends ConsumerState<ContactsPage> {
                           ),
                         ],
                       ),
-                      const SizedBox(height: 8),
-                      const Text('Sort by',
-                          style: TextStyle(
-                              fontWeight: FontWeight.w700, fontSize: 13)),
-                      const SizedBox(height: 8),
-                      Wrap(
-                        spacing: 8,
-                        children: [
-                          for (final sort in const ['Latest', 'Score', 'Name'])
-                            ChoiceChip(
-                              label: Text(sort),
-                              selected: _sortType == sort,
-                              onSelected: (_) => update(() => _sortType = sort),
-                            ),
-                        ],
-                      ),
                       const SizedBox(height: 16),
                       const Text('Interest Level',
                           style: TextStyle(
@@ -250,6 +234,28 @@ class _ContactsPageState extends ConsumerState<ContactsPage> {
                             color: Colors.white,
                             fontSize: 10,
                             fontWeight: FontWeight.w700)),
+                  ),
+                ),
+            ],
+          ),
+          // Sort dropdown
+          PopupMenuButton<String>(
+            icon: const Icon(Icons.sort_rounded),
+            tooltip: 'Sort',
+            onSelected: (v) => setState(() => _sortType = v),
+            itemBuilder: (_) => [
+              for (final sort in const ['Latest', 'Score', 'Name'])
+                PopupMenuItem(
+                  value: sort,
+                  child: Row(
+                    children: [
+                      if (_sortType == sort)
+                        const Icon(Icons.check_rounded, size: 18, color: AppColors.primary)
+                      else
+                        const SizedBox(width: 18),
+                      const SizedBox(width: 8),
+                      Text(sort),
+                    ],
                   ),
                 ),
             ],

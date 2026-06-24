@@ -8,6 +8,7 @@ import 'package:simpulx/l10n/app_localizations.dart';
 import '../core/notifications/notification_prefs.dart';
 import '../core/notifications/notification_providers.dart';
 import '../core/providers/locale_provider.dart';
+import '../core/providers/theme_provider.dart';
 import '../core/session/session_controller.dart';
 import '../features/auth/presentation/controllers/auth_controller.dart';
 import '../features/calls/presentation/call_overlay.dart';
@@ -144,7 +145,7 @@ class _SimpulxAppState extends ConsumerState<SimpulxApp> {
       debugShowCheckedModeBanner: false,
       theme: AppTheme.light,
       darkTheme: AppTheme.dark,
-      themeMode: ThemeMode.system,
+      themeMode: ref.watch(themeModeProvider),
       locale: ref.watch(localeProvider),
       routerConfig: router,
       // Renders the active-call UI above all routes + keeps the call controller

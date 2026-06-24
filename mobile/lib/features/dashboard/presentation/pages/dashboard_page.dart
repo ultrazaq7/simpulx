@@ -141,12 +141,6 @@ class _DashboardBody extends StatelessWidget {
           style: theme.textTheme.headlineSmall
               ?.copyWith(fontWeight: FontWeight.w800),
         ),
-        const SizedBox(height: 2),
-        Text(
-          'Here is what needs you right now.',
-          style: theme.textTheme.bodyMedium
-              ?.copyWith(color: AppColors.textSecondary),
-        ),
         const SizedBox(height: 18),
         GridView.count(
           crossAxisCount: 2,
@@ -303,16 +297,31 @@ class _ManagerSection extends ConsumerWidget {
           ),
           data: (a) => Column(
             children: [
+              // Stage Funnel
+              if (a.funnelStages.isNotEmpty) ...[
+                _StageFunnelCard(stages: a.funnelStages),
+                const SizedBox(height: 12),
+              ],
+              // Stage Split
+              if (a.stages.isNotEmpty) ...[
+                _StageSplitCard(stages: a.stages, lost: a.lost),
+                const SizedBox(height: 12),
+              ],
+              // Interest Funnel
               _FunnelCard(a),
               const SizedBox(height: 12),
+              // Response Time
               _ResponseCard(a),
-              if (a.agents.isNotEmpty) ...[
-                const SizedBox(height: 12),
-                _LeaderboardCard(agents: a.agents),
-              ],
+              const SizedBox(height: 12),
+              // Lost Analysis
+              _LostAnalysisCard(analytics: a),
               if (a.lostReasons.isNotEmpty) ...[
                 const SizedBox(height: 12),
                 _LostReasonsCard(reasons: a.lostReasons),
+              ],
+              if (a.agents.isNotEmpty) ...[
+                const SizedBox(height: 12),
+                _LeaderboardCard(agents: a.agents),
               ],
             ],
           ),
@@ -355,6 +364,284 @@ class _MiniStat extends StatelessWidget {
   }
 }
 
+// ── Stage Funnel (like web's LeadFunnel) ─────────────────────
+const _funnelColors = [
+  Color(0xFFA7DACE), Color(0xFF7FC9B8), Color(0xFF57B8A1),
+  Color(0xFF2D8B73), Color(0xFF26735F), Color(0xFF1E5C4C), Color(0xFF174539),
+];
+
+class _StageFunnelCard extends StatelessWidget {
+  const _StageFunnelCard({required this.stages});
+  final List<FunnelStageStat> stages;
+
+  @override
+  Widget build(BuildContext context) {
+    final top = stages.isNotEmpty ? stages.first.reached : 1;
+    final maxReached = top > 0 ? top : 1;
+    return _Card(
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          const Text('Lead Funnel',
+              style: TextStyle(fontWeight: FontWeight.w700, fontSize: 14)),
+          const SizedBox(height: 4),
+          Text('Stage-to-stage conversion',
+              style: TextStyle(fontSize: 12, color: AppColors.textSecondary)),
+          const SizedBox(height: 14),
+          for (var i = 0; i < stages.length; i++) ...[
+            _buildFunnelRow(context, stages[i], i, maxReached),
+            if (i < stages.length - 1) const SizedBox(height: 8),
+          ],
+        ],
+      ),
+    );
+  }
+
+  Widget _buildFunnelRow(BuildContext context, FunnelStageStat s, int idx, int maxReached) {
+    final pct = (s.reached / maxReached * 100).clamp(0, 100).toDouble();
+    final convPct = idx == 0
+        ? null
+        : (stages[idx - 1].reached > 0
+            ? (s.reached / stages[idx - 1].reached * 100)
+            : 0.0);
+    final color = _funnelColors[idx % _funnelColors.length];
+
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        Row(
+          mainAxisAlignment: MainAxisAlignment.spaceBetween,
+          children: [
+            Text(s.name,
+                style: const TextStyle(fontSize: 13, fontWeight: FontWeight.w500)),
+            Row(
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                if (convPct != null)
+                  Container(
+                    padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 1),
+                    margin: const EdgeInsets.only(right: 8),
+                    decoration: BoxDecoration(
+                      color: convPct >= 50
+                          ? AppColors.success.withValues(alpha: 0.12)
+                          : convPct >= 25
+                              ? AppColors.warning.withValues(alpha: 0.12)
+                              : AppColors.textMuted.withValues(alpha: 0.12),
+                      borderRadius: BorderRadius.circular(4),
+                    ),
+                    child: Text('${convPct.round()}%',
+                        style: TextStyle(
+                          fontSize: 11,
+                          fontWeight: FontWeight.w700,
+                          color: convPct >= 50
+                              ? AppColors.success
+                              : convPct >= 25
+                                  ? AppColors.warning
+                                  : AppColors.textMuted,
+                        )),
+                  ),
+                Text('${s.reached}',
+                    style: const TextStyle(fontSize: 13, fontWeight: FontWeight.w800)),
+              ],
+            ),
+          ],
+        ),
+        const SizedBox(height: 4),
+        ClipRRect(
+          borderRadius: BorderRadius.circular(4),
+          child: SizedBox(
+            height: 20,
+            child: LinearProgressIndicator(
+              value: pct / 100,
+              backgroundColor: Theme.of(context).colorScheme.surfaceContainerHighest,
+              valueColor: AlwaysStoppedAnimation(color),
+              minHeight: 20,
+            ),
+          ),
+        ),
+      ],
+    );
+  }
+}
+
+// ── Stage Split (leads per pipeline stage) ─────────────────────
+class _StageSplitCard extends StatelessWidget {
+  const _StageSplitCard({required this.stages, required this.lost});
+  final List<StageStat> stages;
+  final int lost;
+
+  @override
+  Widget build(BuildContext context) {
+    final total = stages.fold<int>(0, (s, x) => s + x.count);
+    return _Card(
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          const Text('Pipeline Breakdown',
+              style: TextStyle(fontWeight: FontWeight.w700, fontSize: 14)),
+          const SizedBox(height: 12),
+          for (var i = 0; i < stages.length; i++)
+            _buildStageRow(context, stages[i], i, total),
+          if (lost > 0) ...[
+            const Divider(height: 16),
+            _buildLostRow(context, total),
+          ],
+        ],
+      ),
+    );
+  }
+
+  Widget _buildStageRow(BuildContext context, StageStat s, int idx, int total) {
+    final color = _funnelColors[idx % _funnelColors.length];
+    final pct = total > 0 ? (s.count / total * 100) : 0.0;
+    return Padding(
+      padding: const EdgeInsets.symmetric(vertical: 4),
+      child: Row(
+        children: [
+          Container(width: 8, height: 8, decoration: BoxDecoration(color: color, shape: BoxShape.circle)),
+          const SizedBox(width: 8),
+          Expanded(child: Text(s.name, style: const TextStyle(fontSize: 13, fontWeight: FontWeight.w500))),
+          SizedBox(
+            width: 100,
+            child: ClipRRect(
+              borderRadius: BorderRadius.circular(3),
+              child: LinearProgressIndicator(
+                value: (pct / 100).clamp(0, 1),
+                minHeight: 6,
+                backgroundColor: Theme.of(context).colorScheme.surfaceContainerHighest,
+                valueColor: AlwaysStoppedAnimation(color),
+              ),
+            ),
+          ),
+          const SizedBox(width: 8),
+          SizedBox(
+            width: 30,
+            child: Text('${s.count}', textAlign: TextAlign.right,
+                style: TextStyle(fontSize: 13, fontWeight: FontWeight.w700, color: color)),
+          ),
+        ],
+      ),
+    );
+  }
+
+  Widget _buildLostRow(BuildContext context, int total) {
+    final pct = total > 0 ? (lost / total * 100) : 0.0;
+    return Padding(
+      padding: const EdgeInsets.symmetric(vertical: 4),
+      child: Row(
+        children: [
+          Container(width: 8, height: 8, decoration: const BoxDecoration(color: AppColors.danger, shape: BoxShape.circle)),
+          const SizedBox(width: 8),
+          const Expanded(child: Text('Lost', style: TextStyle(fontSize: 13, fontWeight: FontWeight.w500))),
+          SizedBox(
+            width: 100,
+            child: ClipRRect(
+              borderRadius: BorderRadius.circular(3),
+              child: LinearProgressIndicator(
+                value: (pct / 100).clamp(0, 1),
+                minHeight: 6,
+                backgroundColor: Theme.of(context).colorScheme.surfaceContainerHighest,
+                valueColor: const AlwaysStoppedAnimation(AppColors.danger),
+              ),
+            ),
+          ),
+          const SizedBox(width: 8),
+          SizedBox(
+            width: 30,
+            child: Text('$lost', textAlign: TextAlign.right,
+                style: const TextStyle(fontSize: 13, fontWeight: FontWeight.w700, color: AppColors.danger)),
+          ),
+        ],
+      ),
+    );
+  }
+}
+
+// ── Lost Analysis Card (matching web) ─────────────────────
+class _LostAnalysisCard extends StatelessWidget {
+  const _LostAnalysisCard({required this.analytics});
+  final ManagerAnalytics analytics;
+
+  @override
+  Widget build(BuildContext context) {
+    final lossRate = analytics.total > 0
+        ? (analytics.lost / analytics.total * 100).round()
+        : 0;
+    final purchaseRate = analytics.total > 0
+        ? (analytics.won / analytics.total * 100).round()
+        : 0;
+
+    return _Card(
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Row(
+            children: [
+              Icon(Icons.trending_down_rounded, size: 18, color: AppColors.danger),
+              const SizedBox(width: 8),
+              const Text('Lost Analysis',
+                  style: TextStyle(fontWeight: FontWeight.w700, fontSize: 14)),
+            ],
+          ),
+          const SizedBox(height: 12),
+          Row(
+            children: [
+              Text('${analytics.lost}',
+                  style: const TextStyle(
+                      fontSize: 36, fontWeight: FontWeight.w800, color: AppColors.danger)),
+              const SizedBox(width: 8),
+              Text('total lost leads',
+                  style: TextStyle(fontSize: 13, color: AppColors.textSecondary)),
+            ],
+          ),
+          const SizedBox(height: 12),
+          Row(
+            children: [
+              Expanded(
+                child: Container(
+                  padding: const EdgeInsets.all(12),
+                  decoration: BoxDecoration(
+                    color: AppColors.danger.withValues(alpha: 0.08),
+                    borderRadius: BorderRadius.circular(10),
+                  ),
+                  child: Column(
+                    children: [
+                      Text('$lossRate%',
+                          style: const TextStyle(
+                              fontSize: 20, fontWeight: FontWeight.w800, color: AppColors.danger)),
+                      const Text('Loss rate',
+                          style: TextStyle(fontSize: 11, fontWeight: FontWeight.w600, color: AppColors.danger)),
+                    ],
+                  ),
+                ),
+              ),
+              const SizedBox(width: 12),
+              Expanded(
+                child: Container(
+                  padding: const EdgeInsets.all(12),
+                  decoration: BoxDecoration(
+                    color: AppColors.success.withValues(alpha: 0.08),
+                    borderRadius: BorderRadius.circular(10),
+                  ),
+                  child: Column(
+                    children: [
+                      Text('$purchaseRate%',
+                          style: const TextStyle(
+                              fontSize: 20, fontWeight: FontWeight.w800, color: AppColors.success)),
+                      const Text('Purchase rate',
+                          style: TextStyle(fontSize: 11, fontWeight: FontWeight.w600, color: AppColors.success)),
+                    ],
+                  ),
+                ),
+              ),
+            ],
+          ),
+        ],
+      ),
+    );
+  }
+}
+
 class _FunnelCard extends StatelessWidget {
   const _FunnelCard(this.a);
   final ManagerAnalytics a;
@@ -365,8 +652,8 @@ class _FunnelCard extends StatelessWidget {
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          const Text('Funnel',
-              style: TextStyle(fontWeight: FontWeight.w700, fontSize: 13)),
+          const Text('Interest Split',
+              style: TextStyle(fontWeight: FontWeight.w700, fontSize: 14)),
           const SizedBox(height: 10),
           _FunnelRow('Total leads', a.total, a.total),
           _FunnelRow('Replied', a.replied, a.total),
@@ -434,6 +721,14 @@ class _FunnelRow extends StatelessWidget {
   }
 }
 
+String _fmtDuration(double minutes) {
+  if (minutes < 1) return '${(minutes * 60).round()}s';
+  if (minutes < 60) return '${minutes.round()}m';
+  final h = (minutes / 60).floor();
+  final m = (minutes % 60).round();
+  return m > 0 ? '${h}h ${m}m' : '${h}h';
+}
+
 class _ResponseCard extends StatelessWidget {
   const _ResponseCard(this.a);
   final ManagerAnalytics a;
@@ -445,8 +740,8 @@ class _ResponseCard extends StatelessWidget {
         children: [
           Expanded(
             child: _Metric(
-              label: 'Median response',
-              value: '${a.medianRtMin.toStringAsFixed(0)}m',
+              label: 'Avg response',
+              value: _fmtDuration(a.avgRtMin),
             ),
           ),
           Container(width: 1, height: 36, color: Theme.of(context).colorScheme.outlineVariant),
@@ -492,16 +787,36 @@ class _LeaderboardCard extends StatelessWidget {
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          const Text('Agent leaderboard',
-              style: TextStyle(fontWeight: FontWeight.w700, fontSize: 13)),
-          const SizedBox(height: 8),
+          Row(
+            children: [
+              const Icon(Icons.groups_rounded, size: 18, color: AppColors.primary),
+              const SizedBox(width: 8),
+              const Text('Team Performance',
+                  style: TextStyle(fontWeight: FontWeight.w700, fontSize: 14)),
+            ],
+          ),
+          const SizedBox(height: 12),
+          // Table header
+          const Padding(
+            padding: EdgeInsets.only(bottom: 6),
+            child: Row(
+              children: [
+                Expanded(flex: 3, child: Text('Agent', style: TextStyle(fontSize: 11, fontWeight: FontWeight.w700, color: AppColors.textMuted))),
+                Expanded(flex: 1, child: Text('Leads', textAlign: TextAlign.center, style: TextStyle(fontSize: 11, fontWeight: FontWeight.w700, color: AppColors.textMuted))),
+                Expanded(flex: 1, child: Text('Won', textAlign: TextAlign.center, style: TextStyle(fontSize: 11, fontWeight: FontWeight.w700, color: AppColors.textMuted))),
+                Expanded(flex: 1, child: Text('Avg RT', textAlign: TextAlign.center, style: TextStyle(fontSize: 11, fontWeight: FontWeight.w700, color: AppColors.textMuted))),
+                Expanded(flex: 1, child: Text('<5m', textAlign: TextAlign.right, style: TextStyle(fontSize: 11, fontWeight: FontWeight.w700, color: AppColors.textMuted))),
+              ],
+            ),
+          ),
+          const Divider(height: 1),
           for (final ag in top)
             Padding(
-              padding: const EdgeInsets.symmetric(vertical: 6),
+              padding: const EdgeInsets.symmetric(vertical: 7),
               child: Row(
                 children: [
                   Expanded(
-                    flex: 4,
+                    flex: 3,
                     child: Text(ag.agent,
                         maxLines: 1,
                         overflow: TextOverflow.ellipsis,
@@ -509,14 +824,27 @@ class _LeaderboardCard extends StatelessWidget {
                             fontSize: 13, fontWeight: FontWeight.w600)),
                   ),
                   Expanded(
-                    flex: 2,
-                    child: Text('${ag.leads} leads',
-                        style: const TextStyle(
-                            fontSize: 12, color: AppColors.textSecondary)),
+                    flex: 1,
+                    child: Text('${ag.leads}',
+                        textAlign: TextAlign.center,
+                        style: const TextStyle(fontSize: 12)),
                   ),
                   Expanded(
-                    flex: 2,
-                    child: Text('${ag.within5Pct.toStringAsFixed(0)}% <5m',
+                    flex: 1,
+                    child: Text('${ag.won}',
+                        textAlign: TextAlign.center,
+                        style: const TextStyle(
+                            fontSize: 12, fontWeight: FontWeight.w700, color: AppColors.success)),
+                  ),
+                  Expanded(
+                    flex: 1,
+                    child: Text(_fmtDuration(ag.avgRtMin),
+                        textAlign: TextAlign.center,
+                        style: const TextStyle(fontSize: 12)),
+                  ),
+                  Expanded(
+                    flex: 1,
+                    child: Text('${ag.within5Pct.toStringAsFixed(0)}%',
                         textAlign: TextAlign.right,
                         style: TextStyle(
                             fontSize: 12,
@@ -540,26 +868,46 @@ class _LostReasonsCard extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final maxCount = reasons.fold<int>(1, (mx, r) => r.count > mx ? r.count : mx);
     return _Card(
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          const Text('Top lost reasons',
-              style: TextStyle(fontWeight: FontWeight.w700, fontSize: 13)),
-          const SizedBox(height: 8),
-          for (final r in reasons.take(5))
+          const Text('Lost Reasons',
+              style: TextStyle(fontWeight: FontWeight.w700, fontSize: 14)),
+          const SizedBox(height: 12),
+          for (var i = 0; i < reasons.take(6).length; i++)
             Padding(
-              padding: const EdgeInsets.symmetric(vertical: 4),
-              child: Row(
+              padding: const EdgeInsets.only(bottom: 10),
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
-                  Expanded(
-                      child: Text(r.reason,
-                          maxLines: 1,
-                          overflow: TextOverflow.ellipsis,
-                          style: const TextStyle(fontSize: 13))),
-                  Text('${r.count}',
-                      style: const TextStyle(
-                          fontSize: 13, fontWeight: FontWeight.w700)),
+                  Row(
+                    mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                    children: [
+                      Expanded(
+                        child: Text(reasons[i].reason,
+                            maxLines: 1,
+                            overflow: TextOverflow.ellipsis,
+                            style: const TextStyle(fontSize: 13, fontWeight: FontWeight.w500)),
+                      ),
+                      Text('${reasons[i].count}',
+                          style: const TextStyle(
+                              fontSize: 13, fontWeight: FontWeight.w700, color: AppColors.danger)),
+                    ],
+                  ),
+                  const SizedBox(height: 4),
+                  ClipRRect(
+                    borderRadius: BorderRadius.circular(3),
+                    child: LinearProgressIndicator(
+                      value: (reasons[i].count / maxCount).clamp(0, 1),
+                      minHeight: 5,
+                      backgroundColor: Theme.of(context).colorScheme.surfaceContainerHighest,
+                      valueColor: AlwaysStoppedAnimation(
+                        i == 0 ? AppColors.danger : i == 1 ? AppColors.warning : const Color(0xFFFBBF24),
+                      ),
+                    ),
+                  ),
                 ],
               ),
             ),

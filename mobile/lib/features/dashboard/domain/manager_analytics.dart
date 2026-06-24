@@ -63,8 +63,38 @@ class LostReason {
   final int count;
 }
 
+/// One pipeline stage's count (`GET /api/analytics` -> `stages[]`).
+class StageStat {
+  const StageStat({required this.name, required this.count, required this.sortOrder, this.systemKey});
+  final String name;
+  final int count;
+  final int sortOrder;
+  final String? systemKey;
+
+  factory StageStat.fromJson(Map<String, dynamic> j) => StageStat(
+        name: asString(j['name']),
+        count: asInt(j['count']),
+        sortOrder: asInt(j['sort_order']),
+        systemKey: j['system_key'] as String?,
+      );
+}
+
+/// Stage-level funnel with cumulative "reached" count (`analytics.funnel_stages[]`).
+class FunnelStageStat {
+  const FunnelStageStat({required this.name, required this.reached, this.systemKey});
+  final String name;
+  final int reached;
+  final String? systemKey;
+
+  factory FunnelStageStat.fromJson(Map<String, dynamic> j) => FunnelStageStat(
+        name: asString(j['name']),
+        reached: asInt(j['reached']),
+        systemKey: j['system_key'] as String?,
+      );
+}
+
 /// Lead-intelligence summary (`GET /api/analytics`): funnel + leaderboard +
-/// response time + lost reasons. Only the manager-facing subset is mapped.
+/// response time + lost reasons + stage funnel. Only the manager-facing subset is mapped.
 class ManagerAnalytics {
   const ManagerAnalytics({
     required this.total,
@@ -76,9 +106,12 @@ class ManagerAnalytics {
     required this.warm,
     required this.cold,
     required this.medianRtMin,
+    required this.avgRtMin,
     required this.within5Pct,
     required this.agents,
     required this.lostReasons,
+    required this.stages,
+    required this.funnelStages,
   });
 
   final int total;
@@ -90,13 +123,18 @@ class ManagerAnalytics {
   final int warm;
   final int cold;
   final double medianRtMin;
+  final double avgRtMin;
   final double within5Pct;
   final List<AgentPerformance> agents;
   final List<LostReason> lostReasons;
+  final List<StageStat> stages;
+  final List<FunnelStageStat> funnelStages;
 
   factory ManagerAnalytics.fromJson(Map<String, dynamic> j) {
     final funnel = (j['funnel'] as Map?)?.cast<String, dynamic>() ?? const {};
-    final rt = (j['rt'] as Map?)?.cast<String, dynamic>() ?? const {};
+    final rt = (j['response_time'] as Map?)?.cast<String, dynamic>() ??
+        (j['rt'] as Map?)?.cast<String, dynamic>() ??
+        const {};
     final agents = (j['agents'] as List? ?? const [])
         .whereType<Map>()
         .map((e) => AgentPerformance.fromJson(e.cast<String, dynamic>()))
@@ -117,6 +155,17 @@ class ManagerAnalytics {
             formatReason(asString(e['reason'])), asInt(e['count'])))
         .toList();
 
+    final stageList = (j['stages'] as List? ?? const [])
+        .whereType<Map>()
+        .map((e) => StageStat.fromJson(e.cast<String, dynamic>()))
+        .toList()
+      ..sort((a, b) => a.sortOrder.compareTo(b.sortOrder));
+
+    final funnelStageList = (j['funnel_stages'] as List? ?? const [])
+        .whereType<Map>()
+        .map((e) => FunnelStageStat.fromJson(e.cast<String, dynamic>()))
+        .toList();
+
     return ManagerAnalytics(
       total: asInt(funnel['total']),
       replied: asInt(funnel['replied']),
@@ -127,9 +176,13 @@ class ManagerAnalytics {
       warm: asInt(funnel['warm']),
       cold: asInt(funnel['cold']),
       medianRtMin: asDoubleOrNull(rt['median_min']) ?? 0,
+      avgRtMin: asDoubleOrNull(rt['avg_min']) ?? 0,
       within5Pct: asDoubleOrNull(rt['within_5_min_pct']) ?? 0,
       agents: agents,
       lostReasons: lost,
+      stages: stageList,
+      funnelStages: funnelStageList,
     );
   }
 }
+

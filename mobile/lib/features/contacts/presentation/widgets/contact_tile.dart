@@ -36,7 +36,7 @@ class ContactTile extends StatelessWidget {
                 children: [
                   Row(
                     children: [
-                      Expanded(
+                      Flexible(
                         child: Text(
                           c.displayName,
                           maxLines: 1,
@@ -45,9 +45,15 @@ class ContactTile extends StatelessWidget {
                               ?.copyWith(fontWeight: FontWeight.w600),
                         ),
                       ),
-                      if (c.blacklisted)
+                      if (c.interestLevel != null) ...[
+                        const SizedBox(width: 8),
+                        _ShinyBadge(interestLevel: c.interestLevel!),
+                      ],
+                      if (c.blacklisted) ...[
+                        const SizedBox(width: 6),
                         const Icon(Icons.block_rounded,
                             size: 15, color: AppColors.danger),
+                      ],
                     ],
                   ),
                   const SizedBox(height: 2),
@@ -77,10 +83,6 @@ class ContactTile extends StatelessWidget {
                                   color: AppColors.textSecondary,
                                   fontWeight: FontWeight.w600)),
                         ),
-                      ],
-                      if (c.interestLevel != null) ...[
-                        const SizedBox(width: 6),
-                        _ShinyBadge(interestLevel: c.interestLevel!),
                       ],
                     ],
                   ),
@@ -133,68 +135,99 @@ class _ScoreBadge extends StatelessWidget {
   }
 }
 
-class _ShinyBadge extends StatelessWidget {
+class _ShinyBadge extends StatefulWidget {
   const _ShinyBadge({required this.interestLevel});
   final String interestLevel;
 
   @override
+  State<_ShinyBadge> createState() => _ShinyBadgeState();
+}
+
+class _ShinyBadgeState extends State<_ShinyBadge> with SingleTickerProviderStateMixin {
+  late AnimationController _ctrl;
+
+  @override
+  void initState() {
+    super.initState();
+    _ctrl = AnimationController(
+      vsync: this,
+      duration: const Duration(milliseconds: 2200),
+    )..repeat();
+  }
+
+  @override
+  void dispose() {
+    _ctrl.dispose();
+    super.dispose();
+  }
+
+  @override
   Widget build(BuildContext context) {
-    Color baseColor;
     List<Color> gradientColors;
 
-    switch (interestLevel.toLowerCase()) {
+    switch (widget.interestLevel.toLowerCase()) {
       case 'hot':
-        baseColor = AppColors.hot;
         gradientColors = [const Color(0xFFff8a8a), const Color(0xFFef4444), const Color(0xFFb91c1c)];
         break;
       case 'warm':
-        baseColor = AppColors.warm;
         gradientColors = [const Color(0xFFfcd34d), const Color(0xFFf59e0b), const Color(0xFFb45309)];
         break;
       case 'cold':
       default:
-        baseColor = AppColors.cold;
         gradientColors = [const Color(0xFF93c5fd), const Color(0xFF3b82f6), const Color(0xFF1d4ed8)];
         break;
     }
 
-    return Container(
-      padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 2),
-      decoration: BoxDecoration(
-        gradient: LinearGradient(
-          colors: gradientColors,
-          begin: Alignment.topLeft,
-          end: Alignment.bottomRight,
-        ),
-        borderRadius: BorderRadius.circular(999),
-        boxShadow: [
-          BoxShadow(
-            color: baseColor.withValues(alpha: 0.4),
-            blurRadius: 4,
-            offset: const Offset(0, 2),
-          ),
-        ],
-        border: Border.all(
-          color: Colors.white.withValues(alpha: 0.5),
-          width: 0.5,
-        ),
-      ),
-      child: Text(
-        interestLevel[0].toUpperCase() + interestLevel.substring(1),
-        style: const TextStyle(
-          fontSize: 11,
-          color: Colors.white,
-          fontWeight: FontWeight.w800,
-          letterSpacing: 0.2,
-          shadows: [
-            Shadow(
-              color: Colors.black26,
-              offset: Offset(0, 1),
-              blurRadius: 2,
+    return AnimatedBuilder(
+      animation: _ctrl,
+      builder: (context, child) {
+        return ShaderMask(
+          shaderCallback: (bounds) {
+            return LinearGradient(
+              begin: Alignment(-1.0 + 2.0 * _ctrl.value, 0),
+              end: Alignment(0.0 + 2.0 * _ctrl.value, 0),
+              colors: [
+                Colors.white.withValues(alpha: 0.0),
+                Colors.white.withValues(alpha: 0.5),
+                Colors.white.withValues(alpha: 0.0),
+              ],
+              stops: const [0.0, 0.5, 1.0],
+            ).createShader(bounds);
+          },
+          blendMode: BlendMode.srcATop,
+          child: Container(
+            padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 2),
+            decoration: BoxDecoration(
+              gradient: LinearGradient(
+                colors: gradientColors,
+                begin: Alignment.topLeft,
+                end: Alignment.bottomRight,
+              ),
+              borderRadius: BorderRadius.circular(999),
+              border: Border.all(
+                color: Colors.white.withValues(alpha: 0.5),
+                width: 0.5,
+              ),
             ),
-          ],
-        ),
-      ),
+            child: Text(
+              widget.interestLevel[0].toUpperCase() + widget.interestLevel.substring(1),
+              style: const TextStyle(
+                fontSize: 11,
+                color: Colors.white,
+                fontWeight: FontWeight.w800,
+                letterSpacing: 0.2,
+                shadows: [
+                  Shadow(
+                    color: Colors.black26,
+                    offset: Offset(0, 1),
+                    blurRadius: 2,
+                  ),
+                ],
+              ),
+            ),
+          ),
+        );
+      },
     );
   }
 }

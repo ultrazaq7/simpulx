@@ -118,27 +118,6 @@ class _ChatListPageState extends ConsumerState<ChatListPage> {
                       ),
                     ],
                   ),
-                  const SizedBox(height: 8),
-                  const Text('Sort by',
-                      style:
-                          TextStyle(fontWeight: FontWeight.w700, fontSize: 13)),
-                  const SizedBox(height: 8),
-                  Wrap(
-                    spacing: 8,
-                    children: [
-                      for (final sort in const ['Latest', 'Oldest', 'Unread First'])
-                        ChoiceChip(
-                          label: Text(sort),
-                          selected: _sortType == sort,
-                          onSelected: (_) {
-                            setState(() {
-                              _sortType = sort;
-                              _visible = 25;
-                            });
-                          },
-                        ),
-                    ],
-                  ),
                   const SizedBox(height: 16),
                   const Text('Interest Level',
                       style:
@@ -301,6 +280,32 @@ class _ChatListPageState extends ConsumerState<ChatListPage> {
                             color: Colors.white,
                             fontSize: 10,
                             fontWeight: FontWeight.w700)),
+                  ),
+                ),
+            ],
+          ),
+          const SizedBox(width: 8),
+          // Sort dropdown
+          PopupMenuButton<String>(
+            icon: const Icon(Icons.sort_rounded),
+            tooltip: 'Sort',
+            onSelected: (v) => setState(() {
+              _sortType = v;
+              _visible = 25;
+            }),
+            itemBuilder: (_) => [
+              for (final sort in const ['Latest', 'Oldest', 'Unread First'])
+                PopupMenuItem(
+                  value: sort,
+                  child: Row(
+                    children: [
+                      if (_sortType == sort)
+                        const Icon(Icons.check_rounded, size: 18, color: AppColors.primary)
+                      else
+                        const SizedBox(width: 18),
+                      const SizedBox(width: 8),
+                      Text(sort),
+                    ],
                   ),
                 ),
             ],

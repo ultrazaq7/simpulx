@@ -71,7 +71,15 @@ class _ActionsSheet extends ConsumerWidget {
                     ref
                         .read(conversationListProvider.notifier)
                         .patchLocal(convId, interestLevel: level);
-                    actions.setInterest(level);
+                    actions.setInterest(level).then((ok) {
+                      if (context.mounted) {
+                        if (ok) {
+                          AppSnackbar.show(context, 'Interest set to ${level[0].toUpperCase()}${level.substring(1)}');
+                        } else {
+                          AppSnackbar.show(context, 'Failed to update interest', isError: true);
+                        }
+                      }
+                    });
                   },
                 ),
                 const Divider(height: 1),
@@ -111,12 +119,15 @@ class _ActionsSheet extends ConsumerWidget {
     );
   }
 
-  Future<void> _do(BuildContext context, Future<bool> action) async {
+  Future<void> _do(BuildContext context, Future<bool> action, [String? successMsg]) async {
     final navigator = Navigator.of(context);
     final ok = await action;
     if (!context.mounted) return;
     if (ok) {
       navigator.pop();
+      if (successMsg != null) {
+        AppSnackbar.show(context, successMsg);
+      }
     } else {
       AppSnackbar.show(context, 'Action failed. Try again.', isError: true);
     }
@@ -158,7 +169,15 @@ class _ActionsSheet extends ConsumerWidget {
                         ref
                             .read(conversationListProvider.notifier)
                             .patchLocal(convId, stageName: s.name);
-                        actions.setStage(s.id);
+                        actions.setStage(s.id).then((ok) {
+                          if (context.mounted) {
+                            if (ok) {
+                              AppSnackbar.show(context, 'Stage moved to ${s.name}');
+                            } else {
+                              AppSnackbar.show(context, 'Failed to update stage', isError: true);
+                            }
+                          }
+                        });
                         Navigator.of(context).pop();
                       },
                     ),
@@ -191,7 +210,7 @@ class _ActionsSheet extends ConsumerWidget {
             ListTile(
               leading: const Icon(Icons.check_circle_outline_rounded),
               title: const Text('Open'),
-              onTap: () => _do(context, actions.reopen()),
+              onTap: () => _do(context, actions.reopen(), 'Status set to Open'),
             ),
             ListTile(
               leading: const Icon(Icons.snooze_outlined),
@@ -204,7 +223,7 @@ class _ActionsSheet extends ConsumerWidget {
             ListTile(
               leading: const Icon(Icons.close_rounded),
               title: const Text('Close'),
-              onTap: () => _do(context, actions.resolve()),
+              onTap: () => _do(context, actions.resolve(), 'Status set to Closed'),
             ),
           ],
         ),

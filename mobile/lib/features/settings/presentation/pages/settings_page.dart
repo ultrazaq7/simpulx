@@ -5,6 +5,8 @@ import 'package:go_router/go_router.dart';
 import '../../../../app/theme/app_colors.dart';
 import '../../../../app/theme/app_spacing.dart';
 import '../../../../core/notifications/notification_prefs.dart';
+import '../../../../core/providers/locale_provider.dart';
+import '../../../../core/providers/theme_provider.dart';
 import '../../../../core/session/session_controller.dart';
 import '../../../../core/widgets/app_snackbar.dart';
 import '../../../auth/presentation/controllers/auth_controller.dart';
@@ -17,6 +19,30 @@ class SettingsPage extends ConsumerWidget {
   @override
   Widget build(BuildContext context, WidgetRef ref) {
     final user = ref.watch(sessionControllerProvider).user;
+    final themeMode = ref.watch(themeModeProvider);
+    final locale = ref.watch(localeProvider);
+
+    String themeName(ThemeMode m) {
+      switch (m) {
+        case ThemeMode.system:
+          return 'System';
+        case ThemeMode.light:
+          return 'Light';
+        case ThemeMode.dark:
+          return 'Dark';
+      }
+    }
+
+    String langName(Locale? l) {
+      if (l == null) return 'System Default';
+      switch (l.languageCode) {
+        case 'id':
+          return 'Indonesia';
+        case 'en':
+        default:
+          return 'English';
+      }
+    }
 
     return Scaffold(
       appBar: AppBar(title: const Text('Settings')),
@@ -26,22 +52,7 @@ class SettingsPage extends ConsumerWidget {
             children: [
               if (user != null) _ProfileHeader(),
               const _SectionLabel('Availability'),
-              SwitchListTile.adaptive(
-                secondary: Icon(
-                  user?.isOnline ?? false
-                      ? Icons.circle
-                      : Icons.circle_outlined,
-                  color: user?.isOnline ?? false
-                      ? AppColors.success
-                      : AppColors.textMuted,
-                  size: 16,
-                ),
-                title: Text(user?.isOnline ?? false ? 'Online' : 'Offline'),
-                value: user?.isOnline ?? false,
-                activeThumbColor: AppColors.success,
-                onChanged: (v) =>
-                    ref.read(authControllerProvider.notifier).setPresence(v),
-              ),
+              _OnlineStatusTile(),
               const Divider(height: 1),
               const _SectionLabel('Account'),
               ListTile(
@@ -61,12 +72,16 @@ class SettingsPage extends ConsumerWidget {
               ListTile(
                 leading: const Icon(Icons.language_rounded),
                 title: const Text('Language'),
-                subtitle: const Text('English, Indonesia'),
+                subtitle: Text(langName(locale)),
                 trailing: const Icon(Icons.chevron_right_rounded),
-                onTap: () {
-                  // For now, just show a stub or dialog since language logic isn't defined yet
-                  AppSnackbar.show(context, 'Language selection coming soon');
-                },
+                onTap: () => _showLanguagePicker(context, ref, locale),
+              ),
+              ListTile(
+                leading: const Icon(Icons.palette_rounded),
+                title: const Text('Theme'),
+                subtitle: Text(themeName(themeMode)),
+                trailing: const Icon(Icons.chevron_right_rounded),
+                onTap: () => _showThemePicker(context, ref, themeMode),
               ),
               if (user?.role.isManagerTier ?? false) ...[
                 const Divider(height: 1),
@@ -139,6 +154,207 @@ class SettingsPage extends ConsumerWidget {
             ),
           ),
         ],
+      ),
+    );
+  }
+
+  void _showLanguagePicker(BuildContext context, WidgetRef ref, Locale? current) {
+    showModalBottomSheet<void>(
+      context: context,
+      showDragHandle: true,
+      builder: (_) => SafeArea(
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            const Padding(
+              padding: EdgeInsets.fromLTRB(16, 0, 16, 8),
+              child: Align(
+                alignment: Alignment.centerLeft,
+                child: Text('Language',
+                    style: TextStyle(fontSize: 16, fontWeight: FontWeight.w700)),
+              ),
+            ),
+            RadioListTile<Locale?>(
+              title: const Text('System Default'),
+              subtitle: const Text('Follow device language'),
+              value: null,
+              groupValue: current,
+              onChanged: (v) {
+                ref.read(localeProvider.notifier).setLocale(null);
+                Navigator.of(context).pop();
+                AppSnackbar.show(context, 'Language set to System Default');
+              },
+            ),
+            RadioListTile<Locale?>(
+              title: const Text('English'),
+              value: const Locale('en'),
+              groupValue: current,
+              onChanged: (v) {
+                ref.read(localeProvider.notifier).setLocale(const Locale('en'));
+                Navigator.of(context).pop();
+                AppSnackbar.show(context, 'Language set to English');
+              },
+            ),
+            RadioListTile<Locale?>(
+              title: const Text('Indonesia'),
+              value: const Locale('id'),
+              groupValue: current,
+              onChanged: (v) {
+                ref.read(localeProvider.notifier).setLocale(const Locale('id'));
+                Navigator.of(context).pop();
+                AppSnackbar.show(context, 'Bahasa diubah ke Indonesia');
+              },
+            ),
+            const SizedBox(height: 8),
+          ],
+        ),
+      ),
+    );
+  }
+
+  void _showThemePicker(BuildContext context, WidgetRef ref, ThemeMode current) {
+    showModalBottomSheet<void>(
+      context: context,
+      showDragHandle: true,
+      builder: (_) => SafeArea(
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            const Padding(
+              padding: EdgeInsets.fromLTRB(16, 0, 16, 8),
+              child: Align(
+                alignment: Alignment.centerLeft,
+                child: Text('Theme',
+                    style: TextStyle(fontSize: 16, fontWeight: FontWeight.w700)),
+              ),
+            ),
+            RadioListTile<ThemeMode>(
+              title: const Text('System'),
+              subtitle: const Text('Follow device theme'),
+              secondary: const Icon(Icons.brightness_auto_rounded),
+              value: ThemeMode.system,
+              groupValue: current,
+              onChanged: (v) {
+                ref.read(themeModeProvider.notifier).setThemeMode(ThemeMode.system);
+                Navigator.of(context).pop();
+              },
+            ),
+            RadioListTile<ThemeMode>(
+              title: const Text('Light'),
+              secondary: const Icon(Icons.light_mode_rounded),
+              value: ThemeMode.light,
+              groupValue: current,
+              onChanged: (v) {
+                ref.read(themeModeProvider.notifier).setThemeMode(ThemeMode.light);
+                Navigator.of(context).pop();
+              },
+            ),
+            RadioListTile<ThemeMode>(
+              title: const Text('Dark'),
+              secondary: const Icon(Icons.dark_mode_rounded),
+              value: ThemeMode.dark,
+              groupValue: current,
+              onChanged: (v) {
+                ref.read(themeModeProvider.notifier).setThemeMode(ThemeMode.dark);
+                Navigator.of(context).pop();
+              },
+            ),
+            const SizedBox(height: 8),
+          ],
+        ),
+      ),
+    );
+  }
+}
+
+class _OnlineStatusTile extends ConsumerWidget {
+  @override
+  Widget build(BuildContext context, WidgetRef ref) {
+    final user = ref.watch(sessionControllerProvider).user;
+    final isOnline = user?.isOnline ?? false;
+
+    return SwitchListTile.adaptive(
+      secondary: _PulsingDot(isOnline: isOnline),
+      title: Text(isOnline ? 'Online' : 'Offline'),
+      value: isOnline,
+      activeThumbColor: AppColors.success,
+      onChanged: (v) =>
+          ref.read(authControllerProvider.notifier).setPresence(v),
+    );
+  }
+}
+
+/// Green dot that pulses when online.
+class _PulsingDot extends StatefulWidget {
+  const _PulsingDot({required this.isOnline});
+  final bool isOnline;
+
+  @override
+  State<_PulsingDot> createState() => _PulsingDotState();
+}
+
+class _PulsingDotState extends State<_PulsingDot> with SingleTickerProviderStateMixin {
+  late AnimationController _ctrl;
+  late Animation<double> _scale;
+
+  @override
+  void initState() {
+    super.initState();
+    _ctrl = AnimationController(vsync: this, duration: const Duration(milliseconds: 1500));
+    _scale = Tween<double>(begin: 1.0, end: 1.6).animate(
+      CurvedAnimation(parent: _ctrl, curve: Curves.easeOut),
+    );
+    if (widget.isOnline) _ctrl.repeat(reverse: false);
+  }
+
+  @override
+  void didUpdateWidget(_PulsingDot old) {
+    super.didUpdateWidget(old);
+    if (widget.isOnline && !_ctrl.isAnimating) {
+      _ctrl.repeat(reverse: false);
+    } else if (!widget.isOnline && _ctrl.isAnimating) {
+      _ctrl.stop();
+      _ctrl.reset();
+    }
+  }
+
+  @override
+  void dispose() {
+    _ctrl.dispose();
+    super.dispose();
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    return SizedBox(
+      width: 24,
+      height: 24,
+      child: Center(
+        child: Stack(
+          alignment: Alignment.center,
+          children: [
+            if (widget.isOnline)
+              AnimatedBuilder(
+                animation: _ctrl,
+                builder: (_, __) => Transform.scale(
+                  scale: _scale.value,
+                  child: Container(
+                    width: 14,
+                    height: 14,
+                    decoration: BoxDecoration(
+                      shape: BoxShape.circle,
+                      color: AppColors.success.withValues(alpha: 1 - _ctrl.value),
+                    ),
+                  ),
+                ),
+              ),
+            Icon(
+              widget.isOnline ? Icons.circle : Icons.circle_outlined,
+              color: widget.isOnline ? AppColors.success : AppColors.textMuted,
+              size: 16,
+            ),
+          ],
+        ),
       ),
     );
   }
