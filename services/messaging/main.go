@@ -326,30 +326,30 @@ func mediaPreview(msgType, body string) string {
 	}
 	switch msgType {
 	case "image":
-		return "[image]"
+		return "📷 Photo"
 	case "audio":
-		return "[audio]"
+		return "🎤 Audio"
 	case "video":
-		return "[video]"
+		return "🎥 Video"
 	case "document":
-		return "[document]"
+		return "📄 Document"
 	case "sticker":
-		return "[sticker]"
+		return "🖼️ Sticker"
 	case "interactive", "button":
-		return "[button message]"
+		return "🔘 Button message"
 	case "template":
-		return "[template message]"
-	case "unsupported":
-		return "[unsupported message]"
+		return "📝 Template message"
 	case "location":
-		return "[location]"
+		return "📍 Location"
 	case "contacts":
-		return "[contact card]"
+		return "👤 Contact"
 	case "reaction":
-		return "[reaction]"
+		return "❤️ Reaction"
+	case "unsupported":
+		return "⚠️ Unsupported message"
 	default:
 		if msgType != "" && msgType != "text" {
-			return "[" + msgType + "]"
+			return "📎 " + msgType
 		}
 		return ""
 	}
