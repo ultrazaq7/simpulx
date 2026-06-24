@@ -1,8 +1,10 @@
-import 'dart:ui';
+import 'dart:io';
+import 'dart:ui' as ui;
 
 import 'package:flutter/foundation.dart';
 import 'package:flutter/widgets.dart';
 import 'package:flutter_local_notifications/flutter_local_notifications.dart';
+import 'package:path_provider/path_provider.dart';
 
 import '../config/app_config.dart';
 import '../network/dio_client.dart';
@@ -80,7 +82,6 @@ class LocalNotifications {
       final input = response.input;
       if (input != null && input.isNotEmpty) {
         _sendReplyInBackground(convId, input).then((_) {
-          // Dismiss the notification after successful reply
           final id = convId.hashCode & 0x7fffffff;
           _plugin.cancel(id: id);
         });
@@ -120,6 +121,80 @@ class LocalNotifications {
     await _show(plugin, NotificationPayload.fromData(data));
   }
 
+  // ── Avatar bitmap generation ──────────────────────────
+  /// Generate a square avatar PNG with contact initials on a colored background.
+  /// Returns the file path. WhatsApp-style: rounded square, white letter.
+  static Future<String?> _generateAvatarFile(String name) async {
+    try {
+      final initial = name.trim().isNotEmpty
+          ? name.trim().substring(0, 1).toUpperCase()
+          : '?';
+
+      // Deterministic color from name hash
+      const colors = [
+        ui.Color(0xFF1B5E20), // dark green
+        ui.Color(0xFF0D47A1), // dark blue
+        ui.Color(0xFF4A148C), // deep purple
+        ui.Color(0xFFBF360C), // deep orange
+        ui.Color(0xFF006064), // cyan dark
+        ui.Color(0xFF880E4F), // pink dark
+        ui.Color(0xFF33691E), // lime dark
+        ui.Color(0xFF1A237E), // indigo
+      ];
+      final bgColor = colors[name.hashCode.abs() % colors.length];
+
+      const size = 256.0;
+      final recorder = ui.PictureRecorder();
+      final canvas = Canvas(recorder, const Rect.fromLTWH(0, 0, size, size));
+
+      // Rounded rectangle background
+      final paint = Paint()..color = bgColor;
+      canvas.drawRRect(
+        RRect.fromRectAndRadius(
+          const Rect.fromLTWH(0, 0, size, size),
+          const Radius.circular(32),
+        ),
+        paint,
+      );
+
+      // Draw initial letter
+      final textPainter = TextPainter(
+        text: TextSpan(
+          text: initial,
+          style: const TextStyle(
+            color: ui.Color(0xFFFFFFFF),
+            fontSize: 120,
+            fontWeight: FontWeight.w600,
+          ),
+        ),
+        textDirection: TextDirection.ltr,
+      );
+      textPainter.layout();
+      textPainter.paint(
+        canvas,
+        Offset(
+          (size - textPainter.width) / 2,
+          (size - textPainter.height) / 2,
+        ),
+      );
+
+      final picture = recorder.endRecording();
+      final image = await picture.toImage(size.toInt(), size.toInt());
+      final byteData = await image.toByteData(format: ui.ImageByteFormat.png);
+      image.dispose();
+
+      if (byteData == null) return null;
+
+      final dir = await getTemporaryDirectory();
+      final file = File('${dir.path}/notif_avatar_${name.hashCode.abs()}.png');
+      await file.writeAsBytes(byteData.buffer.asUint8List());
+      return file.path;
+    } catch (e) {
+      debugPrint('[Notification] Avatar generation failed: $e');
+      return null;
+    }
+  }
+
   static Future<void> _show(
     FlutterLocalNotificationsPlugin plugin,
     NotificationPayload payload,
@@ -128,14 +203,13 @@ class LocalNotifications {
     final isMessage = cat == NotificationCategory.incomingMessage;
     final isCall = cat == NotificationCategory.incomingCall;
 
+    // ── Generate avatar bitmap ──────────────────────────
+    final avatarPath = await _generateAvatarFile(payload.title);
+
     // ── Style ──────────────────────────────────────────────
     final StyleInformation style;
 
     if (isMessage) {
-      // Android MessagingStyle: person avatar + badge overlay.
-      // 'self' = device owner, 'sender' = the contact who sent the message.
-      // Person.icon = app launcher icon → Android overlays ic_notification
-      // as a small badge at bottom-right (WhatsApp behavior).
       const self = Person(
         key: 'self',
         name: 'You',
@@ -144,7 +218,10 @@ class LocalNotifications {
         key: payload.conversationId ?? payload.title,
         name: payload.title,
         important: true,
-        icon: const DrawableResourceAndroidIcon('@mipmap/ic_launcher'),
+        // Square avatar with initials + badge overlay
+        icon: avatarPath != null
+            ? BitmapFilePathAndroidIcon(avatarPath)
+            : const DrawableResourceAndroidIcon('@mipmap/ic_launcher'),
       );
       style = MessagingStyleInformation(
         self,
@@ -154,18 +231,17 @@ class LocalNotifications {
         ],
       );
     } else if (isCall) {
-      // Calls use BigText, NOT MessagingStyle
       style = BigTextStyleInformation(
         'Incoming voice call',
         contentTitle: payload.title,
-        summaryText: 'WhatsApp Voice Call',
+        summaryText: 'Simpulx Voice Call',
       );
     } else {
       style = BigTextStyleInformation(payload.body);
     }
 
     // Brand color
-    const brandGreen = Color(0xFF2D8B73);
+    const brandGreen = ui.Color(0xFF2D8B73);
 
     final android = AndroidNotificationDetails(
       cat.channelId,
@@ -180,10 +256,10 @@ class LocalNotifications {
           : AndroidNotificationCategory.message,
       fullScreenIntent: isCall,
       icon: '@drawable/ic_notification',
-      // largeIcon for message (avatar badge) and for call (contact icon)
-      largeIcon: (isMessage || isCall)
-          ? const DrawableResourceAndroidBitmap('@mipmap/ic_launcher')
-          : null,
+      // Square avatar as largeIcon
+      largeIcon: avatarPath != null
+          ? FilePathAndroidBitmap(avatarPath)
+          : const DrawableResourceAndroidBitmap('@mipmap/ic_launcher'),
       color: brandGreen,
       colorized: true,
       styleInformation: style,
@@ -207,7 +283,7 @@ class LocalNotifications {
           const AndroidNotificationAction(
             'decline',
             'Decline',
-            titleColor: Color(0xFFD32F2F),
+            titleColor: ui.Color(0xFFD32F2F),
             showsUserInterface: true,
           ),
           const AndroidNotificationAction(
