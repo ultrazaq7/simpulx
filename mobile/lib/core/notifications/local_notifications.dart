@@ -105,6 +105,7 @@ class LocalNotifications {
 
   /// Show from a raw data map (used by the background isolate).
   static Future<void> showFromData(Map<String, dynamic> data) async {
+    WidgetsFlutterBinding.ensureInitialized();
     debugPrint('[LocalNotifications] showFromData: $data');
 
     final plugin = FlutterLocalNotificationsPlugin();
@@ -216,10 +217,8 @@ class LocalNotifications {
   /// Load app icon bytes from bundled resources.
   static Future<Uint8List?> _loadAppIconBytes() async {
     try {
-      // Try to load ic_notification from assets
-      // Use rootBundle which is available in Flutter context
       final ByteData data = await rootBundle.load(
-        'android/app/src/main/res/drawable-hdpi/ic_notification.png',
+        'assets/images/ic_notification.png',
       );
       return data.buffer.asUint8List();
     } catch (e) {
