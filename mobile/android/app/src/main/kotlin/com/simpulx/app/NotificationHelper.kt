@@ -150,13 +150,21 @@ object NotificationHelper {
             )
         ).build()
 
-        // Simple notification — avatar in header row, no extra MessagingStyle person row
+        // MessagingStyle puts avatar on LEFT (like WhatsApp)
+        val selfPerson = Person.Builder().setName("You").build()
+        val senderPerson = Person.Builder()
+            .setName(senderName)
+            .setIcon(IconCompat.createWithBitmap(avatarBitmap))
+            .setImportant(true)
+            .build()
+
+        val style = NotificationCompat.MessagingStyle(selfPerson)
+            .addMessage(message, System.currentTimeMillis(), senderPerson)
+
         val notification = NotificationCompat.Builder(context, CHANNEL_ID)
             .setSmallIcon(R.drawable.ic_notification)
-            .setLargeIcon(avatarBitmap)       // Merged avatar+badge shown inline
-            .setContentTitle(senderName)      // "Fachmy" — bold title
-            .setContentText(message)          // "Halo kak"
-            .setSubText(conversationTitle)    // "Simpulx" — replaces app name in header
+            .setLargeIcon(avatarBitmap)  // Samsung OneUI: avatar on LEFT, small icon as badge overlay
+            .setStyle(style)
             .setCategory(NotificationCompat.CATEGORY_MESSAGE)
             .setPriority(NotificationCompat.PRIORITY_HIGH)
             .setAutoCancel(true)
