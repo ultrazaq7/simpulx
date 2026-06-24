@@ -79,10 +79,17 @@ class LocalNotifications {
     if (response.actionId == 'reply') {
       final input = response.input;
       if (input != null && input.isNotEmpty) {
-        _sendReplyInBackground(convId, input);
+        _sendReplyInBackground(convId, input).then((_) {
+          // Dismiss the notification after successful reply
+          final id = convId.hashCode & 0x7fffffff;
+          _plugin.cancel(id: id);
+        });
       }
     } else if (response.actionId == 'mark_read') {
-      _markReadInBackground(convId);
+      _markReadInBackground(convId).then((_) {
+        final id = convId.hashCode & 0x7fffffff;
+        _plugin.cancel(id: id);
+      });
     }
   }
 
@@ -107,6 +114,7 @@ class LocalNotifications {
     );
     await plugin.initialize(
       settings: const InitializationSettings(android: android, iOS: ios),
+      onDidReceiveBackgroundNotificationResponse: notificationTapBackground,
     );
     await _ensureChannels(plugin);
     await _show(plugin, NotificationPayload.fromData(data));
@@ -119,18 +127,15 @@ class LocalNotifications {
     final cat = payload.category;
     final isMessage = cat == NotificationCategory.incomingMessage;
     final isCall = cat == NotificationCategory.incomingCall;
-    final isUrgent = isCall || !isMessage;
 
     // ── Style ──────────────────────────────────────────────
     final StyleInformation style;
 
     if (isMessage) {
-      // Android MessagingStyle requires two Person objects:
-      // • 'self' (device owner / you) → passed to MessagingStyleInformation()
-      // • 'sender' (the contact who sent the message) → passed to Message()
-      //
-      // This produces the WhatsApp-like header: "ContactName · AppName · time"
-      // For 1:1 chats, don't set conversationTitle (that's for groups only).
+      // Android MessagingStyle: person avatar + badge overlay.
+      // 'self' = device owner, 'sender' = the contact who sent the message.
+      // Person.icon = app launcher icon → Android overlays ic_notification
+      // as a small badge at bottom-right (WhatsApp behavior).
       const self = Person(
         key: 'self',
         name: 'You',
@@ -139,6 +144,7 @@ class LocalNotifications {
         key: payload.conversationId ?? payload.title,
         name: payload.title,
         important: true,
+        icon: const DrawableResourceAndroidIcon('@mipmap/ic_launcher'),
       );
       style = MessagingStyleInformation(
         self,
@@ -146,6 +152,13 @@ class LocalNotifications {
         messages: [
           Message(payload.body, DateTime.now(), sender),
         ],
+      );
+    } else if (isCall) {
+      // Calls use BigText, NOT MessagingStyle
+      style = BigTextStyleInformation(
+        'Incoming voice call',
+        contentTitle: payload.title,
+        summaryText: 'WhatsApp Voice Call',
       );
     } else {
       style = BigTextStyleInformation(payload.body);
@@ -157,7 +170,7 @@ class LocalNotifications {
     final android = AndroidNotificationDetails(
       cat.channelId,
       cat.channelName,
-      importance: isUrgent ? Importance.max : Importance.high,
+      importance: (isCall || !isMessage) ? Importance.max : Importance.high,
       priority: Priority.high,
       groupKey: isMessage
           ? 'simpulx_messages_${payload.conversationId ?? 'general'}'
@@ -167,14 +180,15 @@ class LocalNotifications {
           : AndroidNotificationCategory.message,
       fullScreenIntent: isCall,
       icon: '@drawable/ic_notification',
-      // Show app icon as large icon so the badge overlay appears
-      largeIcon: isMessage
+      // largeIcon for message (avatar badge) and for call (contact icon)
+      largeIcon: (isMessage || isCall)
           ? const DrawableResourceAndroidBitmap('@mipmap/ic_launcher')
           : null,
       color: brandGreen,
       colorized: true,
       styleInformation: style,
       actions: [
+        // ── Message actions ──
         if (isMessage) ...[
           const AndroidNotificationAction(
             'reply',
@@ -188,6 +202,7 @@ class LocalNotifications {
             showsUserInterface: false,
           ),
         ],
+        // ── Call actions ──
         if (isCall) ...[
           const AndroidNotificationAction(
             'decline',
@@ -225,8 +240,10 @@ class LocalNotifications {
 
     await plugin.show(
       id: id,
-      title: isMessage ? null : payload.title, // MessagingStyle sets its own title
-      body: isMessage ? null : payload.body,    // MessagingStyle sets its own body
+      // For MessagingStyle, Android uses the Person name as title.
+      // For calls/other, use the payload title/body.
+      title: isMessage ? null : payload.title,
+      body: isMessage ? null : payload.body,
       notificationDetails: NotificationDetails(android: android, iOS: ios),
       payload: payload.encodeRoute(),
     );
@@ -263,22 +280,29 @@ class LocalNotifications {
   /// Fire-and-forget reply via Dio using stored credentials.
   static Future<void> _sendReplyInBackground(String convId, String text) async {
     try {
+      debugPrint('[Notification] Attempting reply to $convId: "$text"');
       final store = SecureStore();
-      if (!(await store.hasSession)) return;
+      final hasSession = await store.hasSession;
+      debugPrint('[Notification] hasSession: $hasSession');
+      if (!hasSession) return;
+      final token = await store.readAccessToken();
+      debugPrint('[Notification] token: ${token?.substring(0, 10)}...');
       final client = DioClient(config: AppConfig.resolve(), secureStore: store);
-      await client.dio.post('/api/conversations/$convId/messages', data: {
-        'type': 'text',
-        'body': text,
-      });
-      debugPrint('[Notification] Reply sent to $convId');
-    } catch (e) {
+      final response = await client.dio.post(
+        '/api/conversations/$convId/messages',
+        data: {'type': 'text', 'body': text},
+      );
+      debugPrint('[Notification] Reply sent: ${response.statusCode}');
+    } catch (e, st) {
       debugPrint('[Notification] Reply failed: $e');
+      debugPrint('[Notification] Stack: $st');
     }
   }
 
   /// Fire-and-forget mark-read via fetching latest message.
   static Future<void> _markReadInBackground(String convId) async {
     try {
+      debugPrint('[Notification] Attempting mark-read: $convId');
       final store = SecureStore();
       if (!(await store.hasSession)) return;
       final client = DioClient(config: AppConfig.resolve(), secureStore: store);
@@ -295,15 +319,18 @@ class LocalNotifications {
 @pragma('vm:entry-point')
 void notificationTapBackground(NotificationResponse response) async {
   WidgetsFlutterBinding.ensureInitialized();
+  debugPrint('[Notification BG] actionId=${response.actionId} payload=${response.payload}');
 
   final payloadStr = response.payload;
   if (payloadStr == null) return;
 
   final convId = LocalNotifications._extractConversationId(payloadStr);
+  debugPrint('[Notification BG] convId=$convId');
   if (convId == null) return;
 
   if (response.actionId == 'reply') {
     final input = response.input;
+    debugPrint('[Notification BG] reply input="$input"');
     if (input != null && input.isNotEmpty) {
       await LocalNotifications._sendReplyInBackground(convId, input);
     }
