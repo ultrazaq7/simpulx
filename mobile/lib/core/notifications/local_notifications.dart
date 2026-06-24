@@ -368,10 +368,10 @@ class LocalNotifications {
         // The largeIcon will show the avatar with badge
       );
 
+      // No conversationTitle to avoid duplicate "Simpulx • Simpulx" header
       style = MessagingStyleInformation(
         self,
         groupConversation: false,
-        conversationTitle: 'Simpulx',
         messages: [
           Message(payload.body, DateTime.now(), sender),
         ],
@@ -497,10 +497,10 @@ class LocalNotifications {
         name: payload.title,
         important: true,
       );
+      // No conversationTitle to avoid duplicate header
       style = MessagingStyleInformation(
         self,
         groupConversation: false,
-        conversationTitle: 'Simpulx',
         messages: [
           Message(payload.body, DateTime.now(), sender),
         ],
@@ -525,6 +525,7 @@ class LocalNotifications {
       category: isCall ? AndroidNotificationCategory.call : AndroidNotificationCategory.message,
       fullScreenIntent: isCall,
       icon: '@drawable/ic_notification',
+      largeIcon: const DrawableResourceAndroidBitmap('@mipmap/ic_launcher'),
       styleInformation: style,
       actions: [
         if (isMessage) ...[
