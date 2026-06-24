@@ -157,8 +157,6 @@ class LocalNotifications {
           const AndroidNotificationAction('answer', 'Answer', titleColor: whatsappGreen),
         ],
       ],
-      // Android 12+ metadata
-      shortcutId: payload.conversationId,
       // Ongoing for calls
       ongoing: isCall,
       autoCancel: !isCall,
