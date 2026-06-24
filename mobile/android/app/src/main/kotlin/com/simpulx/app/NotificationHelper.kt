@@ -128,11 +128,15 @@ object NotificationHelper {
             .setLabel("Type a message...")
             .build()
 
-        val replyIntent = ReplyReceiver.getReplyIntent(context, chatId)
+        val replyIntent = Intent(context, MainActivity::class.java).apply {
+            action = "com.simpulx.app.ACTION_INLINE_REPLY"
+            putExtra("chatId", chatId)
+            flags = Intent.FLAG_ACTIVITY_NEW_TASK or Intent.FLAG_ACTIVITY_SINGLE_TOP or Intent.FLAG_ACTIVITY_CLEAR_TOP
+        }
         val replyAction = NotificationCompat.Action.Builder(
             R.drawable.ic_notification,
             replyLabel,
-            PendingIntent.getBroadcast(
+            PendingIntent.getActivity(
                 context, chatId.hashCode(),
                 replyIntent,
                 PendingIntent.FLAG_UPDATE_CURRENT or PendingIntent.FLAG_MUTABLE
@@ -192,8 +196,9 @@ object NotificationHelper {
             if (messageIntent != null && messageIntent.extras != null) {
                 putExtras(messageIntent.extras!!)
             }
-            // Fallback extras
-            putExtra("chat_id", chatId)
+            // Fallback extras for Dart routing
+            putExtra("conversationId", chatId)
+            putExtra("conversation_id", chatId)
             putExtra("route", "/chat/$chatId")
         }
         val contentIntent = PendingIntent.getActivity(

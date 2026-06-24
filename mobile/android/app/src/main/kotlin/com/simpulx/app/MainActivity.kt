@@ -1,19 +1,19 @@
 package com.simpulx.app
 
-import android.graphics.Bitmap
 import android.graphics.BitmapFactory
+
 import io.flutter.embedding.android.FlutterActivity
 import io.flutter.embedding.engine.FlutterEngine
 import io.flutter.plugin.common.MethodChannel
-
 import android.os.Bundle
 import android.content.Intent
+import android.content.Context
+import android.app.NotificationManager
+import androidx.core.app.RemoteInput
 
 class MainActivity : FlutterActivity() {
 
     private val CHANNEL = "simpulx_notification"
-    private var pendingReplyChatId: String? = null
-    private var pendingReplyText: String? = null
 
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
@@ -28,8 +28,16 @@ class MainActivity : FlutterActivity() {
     private fun handleIntent(intent: Intent) {
         if (intent.action == "com.simpulx.app.ACTION_INLINE_REPLY") {
             val chatId = intent.getStringExtra("chatId")
-            val replyText = intent.getStringExtra("replyText")
+            
+            // Extract text from RemoteInput
+            val remoteInput = RemoteInput.getResultsFromIntent(intent)
+            val replyText = remoteInput?.getCharSequence("key_text_reply")?.toString()
+            
             if (chatId != null && replyText != null) {
+                // Cancel notification to stop the spinner
+                val manager = getSystemService(Context.NOTIFICATION_SERVICE) as NotificationManager
+                manager.cancel(chatId.hashCode())
+
                 val data = mapOf("chatId" to chatId, "replyText" to replyText)
                 flutterEngine?.dartExecutor?.binaryMessenger?.let { messenger ->
                     MethodChannel(messenger, CHANNEL).invokeMethod("onInlineReply", data)
