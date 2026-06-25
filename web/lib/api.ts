@@ -304,7 +304,6 @@ export const api = {
     req("/api/quick-replies", { method: "POST", body: JSON.stringify({ shortcut, title, body }) }),
   deleteQuickReply: (id: string) => req(`/api/quick-replies/${id}`, { method: "DELETE" }),
   getNotes: (convId: string) => req<InternalNote[]>(`/api/conversations/${convId}/notes`),
-  getActivities: (convId: string) => req<any[]>(`/api/conversations/${convId}/activities`),
   addNote: (convId: string, body: string) =>
     req(`/api/conversations/${convId}/notes`, { method: "POST", body: JSON.stringify({ body }) }),
   deleteNote: (convId: string, noteId: string) => req(`/api/conversations/${convId}/notes/${noteId}`, { method: "DELETE" }),

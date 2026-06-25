@@ -2,7 +2,7 @@
 import { useEffect, useState } from "react";
 import { X, Copy, User, Phone, Hash, MessageSquare, Clock, StickyNote, Tag as TagIcon, Plus, Paperclip, Download, FileText, Image as ImageIcon, Video, Mic, Trash2 } from "lucide-react";
 import { api } from "@/lib/api";
-import { initials, channelColor, channelTextColor, channelLabel, fmtDate, fmtTime, cn, getAvatarColor } from "@/lib/utils";
+import { initials, channelColor, channelTextColor, channelLabel, fmtDate, fmtTime, cn } from "@/lib/utils";
 import { Tip } from "@/components/ui/tooltip";
 import type { Conversation, InternalNote, Message } from "@/lib/types";
 
@@ -100,21 +100,14 @@ export default function DetailsPanel({ active, onClose, copyText, notes, onAddNo
   const media = (messages || []).filter((m) => m.media_url && m.type !== "sticker"); // stickers are not attachments
   const mediaFiles = media.filter((m) => m.type === "image" || m.type === "video");
   const docFiles = media.filter((m) => !(m.type === "image" || m.type === "video"));
-  const [tab, setTab] = useState<"info" | "files" | "notes" | "activity">("info");
+  const [tab, setTab] = useState<"info" | "files" | "notes">("info");
   const [noteDraft, setNoteDraft] = useState("");
 
   // Labels = the contact's tags (editable inline, SleekFlow-style)
   const [tags, setTags] = useState<string[]>(active.tags ?? []);
   const [tagOpen, setTagOpen] = useState(false);
   const [tagDraft, setTagDraft] = useState("");
-  const [activities, setActivities] = useState<any[]>([]);
-
-  useEffect(() => {
-    setTags(active.tags ?? []);
-    setTagOpen(false);
-    setTagDraft("");
-    api.getActivities(active.id).then(setActivities).catch(() => {});
-  }, [active.id]); // eslint-disable-line react-hooks/exhaustive-deps
+  useEffect(() => { setTags(active.tags ?? []); setTagOpen(false); setTagDraft(""); }, [active.id]); // eslint-disable-line react-hooks/exhaustive-deps
 
   const saveTags = (next: string[]) => {
     setTags(next);
@@ -147,8 +140,8 @@ export default function DetailsPanel({ active, onClose, copyText, notes, onAddNo
         <div className="flex items-center gap-3">
           <div className="relative shrink-0">
             <div
-              className="w-12 h-12 rounded-full grid place-items-center text-lg font-bold shadow-sm text-white"
-              style={{ backgroundColor: getAvatarColor(active.contact_name || active.contact_phone) }}
+              className="w-12 h-12 rounded-xl grid place-items-center text-lg font-bold ring-1 ring-inset ring-black/5"
+              style={{ backgroundColor: channelColor(active.channel) + "1A", color: channelTextColor(active.channel) }}
             >
               {initials(active.contact_name || active.contact_phone)}
             </div>
@@ -173,8 +166,7 @@ export default function DetailsPanel({ active, onClose, copyText, notes, onAddNo
         {([
           { key: "info" as const, label: "Contact", Icon: User, count: 0 },
           { key: "notes" as const, label: "Notes", Icon: StickyNote, count: notes.length },
-          { key: "files" as const, label: "Media", Icon: Paperclip, count: media.length },
-          { key: "activity" as const, label: "Activity", Icon: Clock, count: 0 },
+          { key: "files" as const, label: "Files", Icon: Paperclip, count: media.length },
         ]).map((t) => (
           <button
             key={t.key}
@@ -239,27 +231,7 @@ export default function DetailsPanel({ active, onClose, copyText, notes, onAddNo
 
             <p className="text-[10px] font-bold uppercase tracking-wider text-muted-foreground mb-1">Lead qualification</p>
             <div>
-              <div className="flex gap-3 py-2 border-b border-border/50 last:border-0 items-center">
-                <Hash className="w-4 h-4 text-muted-foreground/60 shrink-0" />
-                <div className="flex-1 min-w-0 flex items-center justify-between">
-                  <p className="text-[10px] font-bold uppercase tracking-wider text-muted-foreground">Interest level</p>
-                  <select
-                    value={active.interest_level || ""}
-                    onChange={(e) => {
-                      const val = e.target.value;
-                      api.patchConversation(active.id, { interest_level: val }).then(() => {
-                        api.getActivities(active.id).then(setActivities).catch(() => {});
-                      }).catch(() => {});
-                    }}
-                    className="text-xs font-semibold text-foreground bg-transparent outline-none cursor-pointer hover:text-primary transition-colors text-right"
-                  >
-                    <option value="">Unknown</option>
-                    <option value="hot">Hot</option>
-                    <option value="warm">Warm</option>
-                    <option value="cold">Cold</option>
-                  </select>
-                </div>
-              </div>
+              <DetailRow icon={Hash} label="Interest level" value={humanize(active.interest_level || "Unknown")} />
               <DetailRow icon={Hash} label="Brand" value={active.car_brand || "Unknown"} />
               <DetailRow icon={Hash} label="Model" value={active.car_model || "Unknown"} />
               <DetailRow icon={Hash} label="City" value={active.city || "Unknown"} />
@@ -272,38 +244,6 @@ export default function DetailsPanel({ active, onClose, copyText, notes, onAddNo
           <div className="p-4 space-y-5">
             <AttachmentSection title="Media" items={mediaFiles} empty="No photos or videos yet" />
             <AttachmentSection title="Documents" items={docFiles} empty="No documents yet" />
-          </div>
-        )}
-        {tab === "activity" && (
-          <div className="p-4 flex flex-col gap-4">
-            {activities.length === 0 ? (
-              <p className="text-sm text-muted-foreground">No activities yet</p>
-            ) : (
-              activities.map((act) => {
-                let text = "Updated conversation";
-                if (act.type === "interest_changed" && act.detail?.interest_level) {
-                  text = `Changed interest level to ${humanize(act.detail.interest_level)}`;
-                } else if (act.type === "stage_changed" && act.detail?.stage_id) {
-                  text = `Moved to stage ${act.detail.stage_id}`;
-                } else if (act.type === "lost_reason_changed" && act.detail?.lost_reason) {
-                  text = `Marked lost: ${humanize(act.detail.lost_reason)}`;
-                } else if (act.type === "assigned") {
-                  text = `Assigned conversation`;
-                }
-
-                return (
-                  <div key={act.id} className="flex gap-3">
-                    <div className="w-8 h-8 rounded-full bg-muted grid place-items-center shrink-0">
-                      <User className="w-4 h-4 text-muted-foreground" />
-                    </div>
-                    <div className="flex-1 min-w-0">
-                      <p className="text-sm text-foreground"><span className="font-semibold">{act.actor_name}</span> {text}</p>
-                      <p className="text-xs text-muted-foreground">{fmtDate(act.created_at)} {fmtTime(act.created_at)}</p>
-                    </div>
-                  </div>
-                );
-              })
-            )}
           </div>
         )}
         {tab === "notes" && (

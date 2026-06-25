@@ -523,20 +523,6 @@ func (s *server) handlePatchConversation(w http.ResponseWriter, r *http.Request)
 		return
 	}
 
-	// Insert events for tracked fields
-	if b.InterestLevel != nil {
-		detail, _ := json.Marshal(map[string]any{"interest_level": *b.InterestLevel})
-		s.pool.Exec(r.Context(), `INSERT INTO conversation_events (organization_id, conversation_id, type, actor_type, actor_id, detail) VALUES ($1, $2, 'interest_changed', 'user', $3, $4)`, a.OrgID, convID, a.UserID, detail)
-	}
-	if b.StageID != nil {
-		detail, _ := json.Marshal(map[string]any{"stage_id": *b.StageID})
-		s.pool.Exec(r.Context(), `INSERT INTO conversation_events (organization_id, conversation_id, type, actor_type, actor_id, detail) VALUES ($1, $2, 'stage_changed', 'user', $3, $4)`, a.OrgID, convID, a.UserID, detail)
-	}
-	if b.LostReason != nil {
-		detail, _ := json.Marshal(map[string]any{"lost_reason": *b.LostReason})
-		s.pool.Exec(r.Context(), `INSERT INTO conversation_events (organization_id, conversation_id, type, actor_type, actor_id, detail) VALUES ($1, $2, 'lost_reason_changed', 'user', $3, $4)`, a.OrgID, convID, a.UserID, detail)
-	}
-
 	// Broadcast the change so every connected agent's UI refreshes instantly.
 	if err := s.bus.Publish(events.SubjectConversationUpdated, a.OrgID, events.ConversationUpdated{
 		ConversationID: convID,
@@ -556,28 +542,6 @@ func derefStr(p *string) string {
 		return ""
 	}
 	return *p
-}
-
-// ── GET /api/conversations/{id}/activities ──────────────────
-func (s *server) handleGetActivities(w http.ResponseWriter, r *http.Request) {
-	a, _ := authFrom(r.Context())
-	convID := r.PathValue("id")
-	if !s.guardConversation(w, r, convID) {
-		return
-	}
-	rows, err := s.queryMaps(r.Context(),
-		`SELECT e.id::text, e.type, e.actor_type, e.actor_id, e.detail, e.created_at,
-		        COALESCE(u.full_name, 'System') as actor_name
-		   FROM conversation_events e
-		   LEFT JOIN users u ON e.actor_id = u.id::text
-		  WHERE e.conversation_id = $1 AND e.organization_id = $2
-		  ORDER BY e.created_at DESC`,
-		convID, a.OrgID)
-	if err != nil {
-		http.Error(w, err.Error(), http.StatusInternalServerError)
-		return
-	}
-	writeJSON(w, rows)
 }
 
 // ── GET /api/agents ─────────────────────────────────────────

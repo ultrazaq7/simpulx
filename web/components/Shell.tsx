@@ -382,6 +382,7 @@ export function Shell({ children }: { children: ReactNode }) {
         href={href}
         className={cn("group relative w-full block outline-none", sidebarOpen ? "px-2.5" : "px-2")}
       >
+        {active && <span aria-hidden className="absolute left-0 top-1/2 -translate-y-1/2 h-5 w-[3px] rounded-r-full bg-primary" />}
         <div className={cn(
           "h-10 rounded-lg flex items-center transition-colors duration-200",
           sidebarOpen ? "w-full justify-start" : "w-10 mx-auto justify-center",
@@ -394,10 +395,10 @@ export function Shell({ children }: { children: ReactNode }) {
               </span>
             )}
             <Icon
-              strokeWidth={active ? 2.25 : 1.75}
+              strokeWidth={active ? 2 : 1.75}
               className={cn(
                 "w-[20px] h-[20px] transition-colors duration-200",
-                active ? "text-primary fill-primary" : "text-muted-foreground group-hover:text-foreground fill-transparent"
+                active ? "text-primary" : "text-muted-foreground group-hover:text-foreground"
               )}
             />
           </div>
