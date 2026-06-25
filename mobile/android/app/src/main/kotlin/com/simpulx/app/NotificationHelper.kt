@@ -356,6 +356,56 @@ object NotificationHelper {
         manager.notify(chatId.hashCode() + 100, notification)
     }
 
+    /**
+     * Cancel the active (ringing/ongoing) call notification for a conversation.
+     * Called when the call ends, is declined, or is answered so it never lingers
+     * or re-rings.
+     */
+    fun cancelCallNotification(context: Context, chatId: String) {
+        val manager = context.getSystemService(Context.NOTIFICATION_SERVICE) as NotificationManager
+        manager.cancel(chatId.hashCode() + 100)
+    }
+
+    /**
+     * Show a lightweight "missed call" notification: no ringtone, no full-screen
+     * intent, auto-cancel. Tapping opens the conversation. Uses a distinct id so it
+     * never collides with (or revives) the ring notification.
+     */
+    fun showMissedCallNotification(
+        context: Context,
+        chatId: String,
+        title: String,
+        body: String,
+    ) {
+        ensureChannel(context)
+
+        val tapIntent = Intent(context, MainActivity::class.java).apply {
+            action = "com.simpulx.app.ACTION_TAP_NOTIFICATION"
+            flags = Intent.FLAG_ACTIVITY_SINGLE_TOP or Intent.FLAG_ACTIVITY_CLEAR_TOP
+            putExtra("route", "/chat/$chatId")
+        }
+        val contentIntent = PendingIntent.getActivity(
+            context,
+            chatId.hashCode() + 101,
+            tapIntent,
+            PendingIntent.FLAG_UPDATE_CURRENT or PendingIntent.FLAG_IMMUTABLE
+        )
+
+        val notification = NotificationCompat.Builder(context, CHANNEL_ID)
+            .setSmallIcon(R.drawable.ic_notification)
+            .setContentTitle(title.ifEmpty { "Missed call" })
+            .setContentText(body.ifEmpty { "Tap to call back" })
+            .setCategory(NotificationCompat.CATEGORY_CALL)
+            .setPriority(NotificationCompat.PRIORITY_DEFAULT)
+            .setAutoCancel(true)
+            .setOnlyAlertOnce(true)
+            .setContentIntent(contentIntent)
+            .build()
+
+        val manager = context.getSystemService(Context.NOTIFICATION_SERVICE) as NotificationManager
+        manager.notify(chatId.hashCode() + 101, notification)
+    }
+
     private fun ensureChannel(context: Context) {
         if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) {
             val manager = context.getSystemService(Context.NOTIFICATION_SERVICE) as NotificationManager

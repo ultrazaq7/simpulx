@@ -87,6 +87,7 @@ class NotificationPrefsController extends Notifier<NotificationPrefs> {
   }
 
   Future<void> setMessages(bool v) => _save(state.copyWith(messages: v));
+  Future<void> setCalls(bool v) => _save(state.copyWith(calls: v));
   Future<void> setLeads(bool v) => _save(state.copyWith(leads: v));
   Future<void> setFollowUps(bool v) => _save(state.copyWith(followUps: v));
   Future<void> setAssignments(bool v) => _save(state.copyWith(assignments: v));

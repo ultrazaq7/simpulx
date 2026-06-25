@@ -4,6 +4,7 @@ import (
 	"context"
 	"encoding/base64"
 	"encoding/json"
+	"strconv"
 
 	firebase "firebase.google.com/go/v4"
 	"firebase.google.com/go/v4/messaging"
@@ -185,14 +186,21 @@ func (s *server) initFCMPush(ctx context.Context) {
 		s.log.Error("Failed to subscribe to FCM notif push", "err", err)
 	}
 
-	// Push incoming calls to agents
+	// Push inbound call state to agents' devices. We deliberately push only two
+	// states, with an explicit `type`/`callStatus` contract the device branches on:
+	//   - "incoming": ring the assigned agent (full-screen call notification).
+	//   - "ended":    DISMISS the ring. A call broadcasts `ended` more than once
+	//                 (agent hangup + Meta's `terminate` webhook; decline), so the
+	//                 device MUST treat this as "cancel", never as a fresh ring —
+	//                 otherwise declining/ending re-opens the call notification.
+	// The `missed` flag lets the device surface a lightweight "missed call" note
+	// (auto-cancel, no ringtone) only when the call was never answered.
 	err = s.bus.Subscribe(events.SubjectCallUpdated, "gateway-fcm-call", func(env events.Envelope) error {
 		var c events.CallUpdated
 		if err := json.Unmarshal(env.Data, &c); err != nil {
 			return err
 		}
-		
-		// Only push for inbound incoming or ended calls
+
 		if c.Direction != "inbound" || (c.CallStatus != "incoming" && c.CallStatus != "ended") {
 			return nil
 		}
@@ -202,7 +210,7 @@ func (s *server) initFCMPush(ctx context.Context) {
 			rows, _ = s.queryMaps(ctx, `SELECT DISTINCT token FROM fcm_tokens WHERE user_id=$1`, c.AgentID)
 		} else {
 			rows, _ = s.queryMaps(ctx, `
-				SELECT DISTINCT t.token 
+				SELECT DISTINCT t.token
 				FROM fcm_tokens t
 				JOIN users u ON u.id = t.user_id
 				WHERE u.organization_id = $1 AND u.status = 'active'
@@ -220,26 +228,40 @@ func (s *server) initFCMPush(ctx context.Context) {
 			return nil
 		}
 
-		callTitle := "Incoming call"
-		if c.CallStatus == "ended" {
-			callTitle = "Missed call"
+		data := map[string]string{
+			"conversationId": c.ConversationID,
+			"callId":         c.CallID,
+			"callStatus":     c.CallStatus,
+			"body":           "WhatsApp voice call",
 		}
-		if c.ContactName != "" {
-			callTitle += " from " + c.ContactName
-		} else if c.ContactPhone != "" {
-			callTitle += " from " + c.ContactPhone
+		if c.CallStatus == "incoming" {
+			title := "Incoming call"
+			if c.ContactName != "" {
+				title += " from " + c.ContactName
+			} else if c.ContactPhone != "" {
+				title += " from " + c.ContactPhone
+			}
+			data["type"] = "incoming_call"
+			data["title"] = title
+		} else { // ended
+			missed := c.DurationSeconds == 0
+			title := "Call ended"
+			if missed {
+				title = "Missed call"
+				if c.ContactName != "" {
+					title += " from " + c.ContactName
+				} else if c.ContactPhone != "" {
+					title += " from " + c.ContactPhone
+				}
+			}
+			data["type"] = "call_ended"
+			data["title"] = title
+			data["missed"] = strconv.FormatBool(missed)
 		}
 
 		_, err := fcmClient.SendEachForMulticast(ctx, &messaging.MulticastMessage{
 			Tokens:  tokens,
-			Data:    map[string]string{
-				"title": callTitle, 
-				"body": "WhatsApp Voice Call", 
-				"conversationId": c.ConversationID, 
-				"callId": c.CallID,
-				"type": "incomingCall",
-				"callStatus": c.CallStatus,
-			},
+			Data:    data,
 			Android: &messaging.AndroidConfig{Priority: "high"},
 		})
 		if err != nil {

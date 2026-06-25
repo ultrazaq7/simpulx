@@ -137,6 +137,9 @@ class CallController extends Notifier<CallSession?> {
     }
     try {
       state = s.copyWith(phase: CallPhase.connecting);
+      // Answered: remove the ringing notification so it doesn't linger in the
+      // tray (with stale Answer/Decline buttons) during the live call.
+      _dismissNativeCallNotification();
       final answer = await _rtc!.createAnswer(s.pendingOffer!);
       await _ds.accept(callId: s.callId, sdpAnswer: answer);
       state = state?.copyWith(
@@ -246,6 +249,7 @@ class CallController extends Notifier<CallSession?> {
     }
 
     if (p.callStatus == 'connected' && s.phase != CallPhase.connected) {
+      _dismissNativeCallNotification();
       state = s.copyWith(
         phase: CallPhase.connected,
         connectedAt: s.connectedAt ?? DateTime.now(),

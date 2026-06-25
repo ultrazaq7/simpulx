@@ -77,6 +77,10 @@ func (a *app) sweepSnoozed(ctx context.Context) {
 			a.log.Error("snooze reopen failed", "conv", d.ConvID, "err", err)
 			continue
 		}
+		// Reflect the reopen on every connected client in real time.
+		_ = a.bus.Publish(events.SubjectConversationUpdated, d.OrgID, events.ConversationUpdated{
+			ConversationID: d.ConvID, Status: "open",
+		})
 		if d.AgentID != nil && *d.AgentID != "" {
 			a.st.addNotification(ctx, d.OrgID, *d.AgentID, "snooze_due",
 				"Snooze ended", "Follow up with "+d.Contact, d.ConvID)

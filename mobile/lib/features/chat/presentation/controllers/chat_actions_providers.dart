@@ -64,35 +64,67 @@ class ConversationActionsController extends ChangeNotifier {
 
   ChatRepository get _repo => ref.read(chatRepositoryProvider);
 
-  Future<bool> setStage(String stageId) =>
-      _run(() => _repo.patchConversation(conversationId, stageId: stageId));
+  ConversationListController get _inbox =>
+      ref.read(conversationListProvider.notifier);
 
-  Future<bool> setInterest(String level) => _run(
-      () => _repo.patchConversation(conversationId, interestLevel: level));
+  Future<bool> setStage(String stageId) {
+    // Optimistically reflect the stage name from the cached pipeline stages.
+    String? stageName;
+    final stages = ref.read(stagesProvider).value;
+    if (stages != null) {
+      for (final s in stages) {
+        if (s.id == stageId) {
+          stageName = s.name;
+          break;
+        }
+      }
+    }
+    _inbox.patchLocal(conversationId, stageName: stageName);
+    return _run(() => _repo.patchConversation(conversationId, stageId: stageId));
+  }
 
-  Future<bool> setDisposition(String category, {String? lostReason}) =>
-      _run(() => _repo.patchConversation(
-            conversationId,
-            status: 'closed',
-            lostReason: lostReason ?? category,
-          ));
+  Future<bool> setInterest(String level) {
+    _inbox.patchLocal(conversationId, interestLevel: level);
+    return _run(
+        () => _repo.patchConversation(conversationId, interestLevel: level));
+  }
 
-  Future<bool> snooze(DateTime until) =>
-      _run(() => _repo.snooze(conversationId, until));
+  Future<bool> setDisposition(String category, {String? lostReason}) {
+    _inbox.patchLocal(conversationId, status: 'closed');
+    return _run(() => _repo.patchConversation(
+          conversationId,
+          status: 'closed',
+          lostReason: lostReason ?? category,
+        ));
+  }
 
-  Future<bool> resolve({String? reason}) =>
-      _run(() => _repo.close(conversationId, reason: reason));
+  Future<bool> snooze(DateTime until) {
+    _inbox.patchLocal(conversationId, status: 'snoozed');
+    return _run(() => _repo.snooze(conversationId, until));
+  }
 
-  Future<bool> reopen() =>
-      _run(() => _repo.patchConversation(conversationId, status: 'open'));
+  Future<bool> resolve({String? reason}) {
+    _inbox.patchLocal(conversationId, status: 'closed');
+    return _run(() => _repo.close(conversationId, reason: reason));
+  }
+
+  Future<bool> reopen() {
+    _inbox.patchLocal(conversationId, status: 'open');
+    return _run(() => _repo.patchConversation(conversationId, status: 'open'));
+  }
 
   Future<bool> toggleBot(bool active) =>
       _run(() => _repo.toggleBot(conversationId, active));
 
   Future<bool> assign({String? agentId, bool unassign = false}) => _run(
-      () => _repo.assign(conversationId, agentId: agentId, unassign: unassign));
+      () => _repo.assign(conversationId, agentId: agentId, unassign: unassign),
+      // Assignment can change which leads the agent may see -> re-fetch.
+      refreshOnSuccess: true);
 
-  Future<bool> _run(Future<Result<void>> Function() action) async {
+  Future<bool> _run(
+    Future<Result<void>> Function() action, {
+    bool refreshOnSuccess = false,
+  }) async {
     _busy = true;
     lastError = null;
     notifyListeners();
@@ -102,9 +134,14 @@ class ConversationActionsController extends ChangeNotifier {
     _busy = false;
     notifyListeners();
     if (ok) {
-      // Reflect the change in the inbox list + the CRM lead detail.
-      ref.read(conversationListProvider.notifier).refresh();
+      // The optimistic patchLocal already updated the inbox instantly, and the
+      // backend echoes a realtime conversation.updated/closed event to every
+      // client. Only re-fetch when visibility may have changed (assignment).
+      if (refreshOnSuccess) _inbox.refresh();
       ref.invalidate(contactsProvider);
+    } else {
+      // Roll the optimistic change back to server truth.
+      _inbox.refresh();
     }
     return ok;
   }

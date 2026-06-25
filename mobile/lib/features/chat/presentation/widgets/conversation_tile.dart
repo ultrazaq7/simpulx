@@ -19,6 +19,9 @@ class ConversationTile extends ConsumerWidget {
   final Conversation conversation;
   final VoidCallback onTap;
 
+  static bool _isInactive(String status) =>
+      status == 'closed' || status == 'snoozed';
+
   @override
   Widget build(BuildContext context, WidgetRef ref) {
     final theme = Theme.of(context);
@@ -87,7 +90,8 @@ class ConversationTile extends ConsumerWidget {
                       if (hasUnread) _PulsingUnreadBadge(count: c.unreadCount),
                     ],
                   ),
-                  if (c.interestLevel != null ||
+                  if (_isInactive(c.status) ||
+                      c.interestLevel != null ||
                       c.stageName != null ||
                       (isManager && (c.agentName?.isNotEmpty ?? false))) ...[
                     const SizedBox(height: 6),
@@ -95,6 +99,8 @@ class ConversationTile extends ConsumerWidget {
                       spacing: 6,
                       runSpacing: 4,
                       children: [
+                        if (_isInactive(c.status))
+                          _StatusChip(status: c.status, until: c.snoozedUntil),
                         if (c.interestLevel != null)
                           _InterestBadge(level: c.interestLevel!),
                         if (c.stageName != null) _StageChip(label: c.stageName!),
@@ -287,6 +293,49 @@ class _AssigneeChip extends StatelessWidget {
               fontSize: 10.5,
               color: AppColors.primaryDark,
               fontWeight: FontWeight.w600,
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+}
+
+/// Closed / Snoozed status pill, so an inactive lead stays in the inbox but is
+/// clearly marked instead of looking identical to an open chat.
+class _StatusChip extends StatelessWidget {
+  const _StatusChip({required this.status, this.until});
+  final String status;
+  final DateTime? until;
+
+  @override
+  Widget build(BuildContext context) {
+    final isSnoozed = status == 'snoozed';
+    final color = isSnoozed ? AppColors.warning : AppColors.textMuted;
+    final icon =
+        isSnoozed ? Icons.snooze_rounded : Icons.check_circle_outline_rounded;
+    var label = isSnoozed ? 'Snoozed' : 'Closed';
+    if (isSnoozed && until != null) {
+      label = 'Snoozed ${formatListTime(until)}';
+    }
+    return Container(
+      padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 2),
+      decoration: BoxDecoration(
+        color: color.withValues(alpha: 0.12),
+        borderRadius: BorderRadius.circular(999),
+        border: Border.all(color: color.withValues(alpha: 0.4)),
+      ),
+      child: Row(
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          Icon(icon, size: 12, color: color),
+          const SizedBox(width: 3),
+          Text(
+            label,
+            style: TextStyle(
+              fontSize: 10.5,
+              color: color,
+              fontWeight: FontWeight.w700,
             ),
           ),
         ],

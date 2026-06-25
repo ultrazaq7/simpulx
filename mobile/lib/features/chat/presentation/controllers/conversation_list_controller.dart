@@ -6,15 +6,16 @@ import '../../../../core/realtime/realtime_providers.dart';
 import '../../../../core/storage/app_cache.dart';
 import '../../data/models/conversation_model.dart';
 import '../../domain/entities/conversation.dart';
+import 'chat_actions_providers.dart';
 import 'chat_providers.dart';
 
 /// Inbox list. Loads `GET /api/conversations` and keeps it live by folding in
-/// realtime `message.persisted` / assignment / close events.
+/// realtime `message.persisted` / assignment / status events.
 class ConversationListController extends AsyncNotifier<List<Conversation>> {
-  // Backend visibility already scopes to the caller's role, so 'open' is the
-  // agent's working set. (Filter UI lands in a later pass.)
-  static const _status = 'open';
-
+  // Fetch every status (open/snoozed/closed). Closing or snoozing a lead must
+  // KEEP it in the inbox with an updated status badge, not make it vanish; the
+  // client-side InboxFilter narrows the view when the user wants. Backend
+  // visibility already scopes rows to the caller's role.
   @override
   Future<List<Conversation>> build() async {
     ref.listen(realtimeEventsProvider, (_, next) {
@@ -27,7 +28,7 @@ class ConversationListController extends AsyncNotifier<List<Conversation>> {
   Future<List<Conversation>> _fetch() async {
     final cache = ref.read(appCacheProvider);
     final result =
-        await ref.read(chatRepositoryProvider).listConversations(status: _status);
+        await ref.read(chatRepositoryProvider).listConversations();
     if (result.isOk) {
       final list = result.valueOrNull!;
       // Persist a snapshot for the offline fallback.
@@ -74,6 +75,43 @@ class ConversationListController extends AsyncNotifier<List<Conversation>> {
     ]);
   }
 
+  /// Apply a realtime status/stage change in place. If the conversation isn't in
+  /// the current list (e.g. a freshly routed lead), re-fetch to pick it up.
+  void _patchStatus(
+    String conversationId, {
+    String? status,
+    String? interestLevel,
+    String? stageId,
+  }) {
+    if (conversationId.isEmpty) return;
+    final list = state.value;
+    if (list == null) return;
+    if (!list.any((c) => c.id == conversationId)) {
+      refresh();
+      return;
+    }
+    // Resolve the stage name from the cached pipeline stages (the event carries
+    // only the id; the inbox renders the name).
+    String? stageName;
+    if (stageId != null) {
+      final stages = ref.read(stagesProvider).value;
+      if (stages != null) {
+        for (final s in stages) {
+          if (s.id == stageId) {
+            stageName = s.name;
+            break;
+          }
+        }
+      }
+    }
+    patchLocal(
+      conversationId,
+      status: status,
+      interestLevel: interestLevel,
+      stageName: stageName,
+    );
+  }
+
   /// Locally clear the unread badge when a conversation is opened (the server
   /// also resets it on first message fetch).
   void markRead(String conversationId) {
@@ -86,8 +124,27 @@ class ConversationListController extends AsyncNotifier<List<Conversation>> {
   }
 
   void _onEvent(RealtimeEvent event) {
-    if (event.isConversationAssigned || event.isConversationClosed || event.isConversationUpdated) {
+    // Assignment can move a lead in/out of the agent's visibility scope, so it
+    // needs a re-fetch to stay correct.
+    if (event.isConversationAssigned) {
       refresh();
+      return;
+    }
+    // Status/stage changes: patch the row in place so a closed/snoozed lead keeps
+    // its spot in the inbox (just with a new status), instead of disappearing.
+    if (event.isConversationUpdated) {
+      final p = ConversationUpdatedPayload(event.data);
+      _patchStatus(
+        p.conversationId,
+        status: p.status,
+        interestLevel: p.interestLevel,
+        stageId: p.stageId,
+      );
+      return;
+    }
+    if (event.isConversationClosed) {
+      final p = ConversationClosedPayload(event.data);
+      _patchStatus(p.conversationId, status: 'closed');
       return;
     }
     if (!event.isMessagePersisted) return;

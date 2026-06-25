@@ -566,6 +566,11 @@ class _NotificationPrefsSheet extends ConsumerWidget {
             onChanged: controller.setMessages,
           ),
           SwitchListTile.adaptive(
+            title: const Text('Incoming calls'),
+            value: prefs.calls,
+            onChanged: controller.setCalls,
+          ),
+          SwitchListTile.adaptive(
             title: const Text('New leads'),
             value: prefs.leads,
             onChanged: controller.setLeads,

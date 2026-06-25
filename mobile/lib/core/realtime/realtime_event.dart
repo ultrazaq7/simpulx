@@ -71,6 +71,35 @@ class ConversationAssignedPayload {
   String get agentName => (_d['agent_name'] ?? '') as String;
 }
 
+/// Typed view over a `conversation.updated` payload (see backend
+/// `events.ConversationUpdated`). Empty fields mean "unchanged".
+class ConversationUpdatedPayload {
+  const ConversationUpdatedPayload(this._d);
+  final Map<String, dynamic> _d;
+
+  String? _s(String k) {
+    final v = _d[k];
+    if (v == null) return null;
+    final s = v.toString();
+    return s.isEmpty ? null : s;
+  }
+
+  String get conversationId => _s('conversation_id') ?? '';
+  String? get status => _s('status');
+  String? get stageId => _s('stage_id');
+  String? get interestLevel => _s('interest_level');
+  String? get lostReason => _s('lost_reason');
+}
+
+/// Typed view over a `conversation.closed` payload.
+class ConversationClosedPayload {
+  const ConversationClosedPayload(this._d);
+  final Map<String, dynamic> _d;
+
+  String get conversationId => (_d['conversation_id'] ?? '') as String;
+  String get reason => (_d['reason'] ?? '') as String;
+}
+
 /// Typed view over a `call.updated` payload (see backend `events.CallUpdated`).
 class CallUpdatedPayload {
   const CallUpdatedPayload(this._d);
