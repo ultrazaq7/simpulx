@@ -39,16 +39,18 @@ class AppColors {
   static const Color google = Color(0xFFEA4335);
 
   // ── Light surfaces ─────────────────────────────────────
-  static const Color background = Color(0xFFF8F9FC);
+  // Clean, WhatsApp-style pure white surfaces (no bluish/grey cast).
+  static const Color background = Color(0xFFFFFFFF);
   static const Color surface = Colors.white;
-  static const Color surfaceAlt = Color(0xFFF3F4F6);
-  static const Color border = Color(0xFFEEF0F4);
-  static const Color borderStrong = Color(0xFFE5E7EB);
+  static const Color surfaceAlt = Color(0xFFF5F6F6);
+  static const Color border = Color(0xFFE9EDEF);
+  static const Color borderStrong = Color(0xFFD1D7DB);
 
   // ── Light text ─────────────────────────────────────────
-  static const Color textPrimary = Color(0xFF1F2937);
-  static const Color textSecondary = Color(0xFF6B7280);
-  static const Color textMuted = Color(0xFF9CA3AF);
+  // Sharp near-black primary (WhatsApp #111B21) for a crisp, professional read.
+  static const Color textPrimary = Color(0xFF111B21);
+  static const Color textSecondary = Color(0xFF54656F);
+  static const Color textMuted = Color(0xFF8696A0);
   static const Color textInverse = Colors.white;
 
   // ── Dark surfaces ──────────────────────────────────────

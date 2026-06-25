@@ -13,7 +13,7 @@ import '../../../../app/theme/app_colors.dart';
 import '../../../../core/utils/haptics.dart';
 import '../../../../core/utils/time_format.dart';
 import '../../../../core/widgets/app_error_view.dart';
-import '../../../../core/widgets/app_loader.dart';
+import '../../../../core/widgets/app_skeleton.dart';
 import '../../../../core/widgets/app_snackbar.dart';
 import '../../../calls/presentation/call_controller.dart';
 import '../../domain/entities/conversation.dart';
@@ -341,7 +341,7 @@ class _ChatThreadPageState extends ConsumerState<ChatThreadPage>
               builder: (context, _) {
                 final s = controller.state;
                 if (s.initialLoading && s.messages.isEmpty) {
-                  return const AppLoader();
+                  return const MessageThreadSkeleton();
                 }
                 if (s.error != null && s.messages.isEmpty) {
                   return AppErrorView(

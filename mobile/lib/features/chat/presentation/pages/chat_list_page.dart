@@ -8,7 +8,7 @@ import '../../../../core/realtime/realtime_client.dart';
 import '../../../../core/realtime/realtime_providers.dart';
 import '../../../../core/widgets/app_empty_state.dart';
 import '../../../../core/widgets/app_error_view.dart';
-import '../../../../core/widgets/app_loader.dart';
+import '../../../../core/widgets/app_skeleton.dart';
 import '../../domain/entities/conversation.dart';
 import '../controllers/conversation_list_controller.dart';
 import '../controllers/inbox_filter.dart';
@@ -51,6 +51,17 @@ class _ChatListPageState extends ConsumerState<ChatListPage> {
         _visible < _filteredLen) {
       setState(() => _visible += 25);
     }
+  }
+
+  /// Which quick chip (if any) the current filter corresponds to.
+  String _activeChip(InboxFilter f) {
+    if (f.activeCount == 0) return 'All';
+    if (f.activeCount == 1) {
+      if (f.unreadOnly) return 'Unread';
+      if (f.interestLevel == 'hot') return 'Hot';
+      if (f.followUpOnly) return 'Follow-up';
+    }
+    return ''; // an advanced/custom filter is active -> no quick chip highlighted
   }
 
   List<Conversation> _filter(List<Conversation> list, InboxFilter filter) {
@@ -255,34 +266,10 @@ class _ChatListPageState extends ConsumerState<ChatListPage> {
         title: const Text('Chats'),
         actions: [
           const _RealtimeDot(),
-          Stack(
-            alignment: Alignment.center,
-            children: [
-              IconButton(
-                icon: const Icon(Icons.tune_rounded),
-                tooltip: 'Advanced Filters',
-                onPressed: _showFilters,
-              ),
-              if (filter.activeCount > 0)
-                Positioned(
-                  right: 8,
-                  top: 8,
-                  child: Container(
-                    width: 16,
-                    height: 16,
-                    alignment: Alignment.center,
-                    decoration: const BoxDecoration(
-                      color: AppColors.primary,
-                      shape: BoxShape.circle,
-                    ),
-                    child: Text('${filter.activeCount}',
-                        style: const TextStyle(
-                            color: Colors.white,
-                            fontSize: 10,
-                            fontWeight: FontWeight.w700)),
-                  ),
-                ),
-            ],
+          IconButton(
+            icon: const Icon(Icons.tune_rounded),
+            tooltip: 'Advanced Filters',
+            onPressed: _showFilters,
           ),
           // Sort dropdown
           PopupMenuButton<String>(
@@ -312,9 +299,12 @@ class _ChatListPageState extends ConsumerState<ChatListPage> {
           const SizedBox(width: 8),
         ],
         bottom: PreferredSize(
-          preferredSize: const Size.fromHeight(56),
-          child: Padding(
-            padding: const EdgeInsets.fromLTRB(12, 0, 12, 10),
+          preferredSize: const Size.fromHeight(102),
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              Padding(
+            padding: const EdgeInsets.fromLTRB(12, 0, 12, 8),
             child: SizedBox(
               height: 48,
               child: Row(
@@ -414,10 +404,19 @@ class _ChatListPageState extends ConsumerState<ChatListPage> {
               ),
             ),
           ),
+              _InboxFilterChips(
+                active: _activeChip(filter),
+                onSelect: (preset) {
+                  ref.read(inboxFilterProvider.notifier).set(preset);
+                  setState(() => _visible = 25);
+                },
+              ),
+            ],
+          ),
         ),
       ),
       body: async.when(
-        loading: () => const AppLoader(),
+        loading: () => const ConversationListSkeleton(),
         error: (e, _) => AppErrorView(
           failure: e is Failure ? e : null,
           onRetry: () => ref.read(conversationListProvider.notifier).refresh(),
@@ -501,6 +500,86 @@ class _RealtimeDot extends ConsumerWidget {
         decoration: BoxDecoration(
           color: connected ? AppColors.success : AppColors.warning,
           shape: BoxShape.circle,
+        ),
+      ),
+    );
+  }
+}
+
+/// WhatsApp-style quick filter chips below the search box.
+class _InboxFilterChips extends StatelessWidget {
+  const _InboxFilterChips({required this.active, required this.onSelect});
+  final String active;
+  final void Function(InboxFilter preset) onSelect;
+
+  static const _chips = <String, InboxFilter>{
+    'All': InboxFilter.all,
+    'Unread': InboxFilter.unread,
+    'Hot': InboxFilter.hot,
+    'Follow-up': InboxFilter.followUp,
+  };
+
+  @override
+  Widget build(BuildContext context) {
+    return SizedBox(
+      height: 38,
+      child: ListView(
+        scrollDirection: Axis.horizontal,
+        padding: const EdgeInsets.symmetric(horizontal: 12),
+        children: [
+          for (final entry in _chips.entries) ...[
+            _FilterChip(
+              label: entry.key,
+              selected: active == entry.key,
+              onTap: () => onSelect(entry.value),
+            ),
+            const SizedBox(width: 8),
+          ],
+        ],
+      ),
+    );
+  }
+}
+
+class _FilterChip extends StatelessWidget {
+  const _FilterChip({
+    required this.label,
+    required this.selected,
+    required this.onTap,
+  });
+  final String label;
+  final bool selected;
+  final VoidCallback onTap;
+
+  @override
+  Widget build(BuildContext context) {
+    return Center(
+      child: Material(
+        color: selected
+            ? AppColors.primary.withValues(alpha: 0.14)
+            : Colors.transparent,
+        shape: StadiumBorder(
+          side: BorderSide(
+            color: selected
+                ? Colors.transparent
+                : Theme.of(context).colorScheme.outline,
+          ),
+        ),
+        child: InkWell(
+          customBorder: const StadiumBorder(),
+          onTap: onTap,
+          child: Padding(
+            padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 6),
+            child: Text(
+              label,
+              style: TextStyle(
+                fontSize: 13,
+                fontWeight: FontWeight.w600,
+                color:
+                    selected ? AppColors.primaryDark : AppColors.textSecondary,
+              ),
+            ),
+          ),
         ),
       ),
     );
