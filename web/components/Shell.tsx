@@ -385,12 +385,9 @@ export function Shell({ children }: { children: ReactNode }) {
         <div className={cn(
           "h-10 rounded-lg flex items-center transition-colors duration-200",
           sidebarOpen ? "w-full justify-start" : "w-10 mx-auto justify-center",
-          !active && "hover:bg-foreground/[0.04]"
+          active ? "bg-primary/[0.09]" : "hover:bg-foreground/[0.04]"
         )}>
-          <div className={cn(
-            "relative w-10 h-10 shrink-0 flex items-center justify-center transition-colors",
-            active && "bg-black/5 dark:bg-white/10 rounded-full"
-          )}>
+          <div className="relative w-10 h-10 shrink-0 flex items-center justify-center">
             {href === "/inbox" && unreadCount > 0 && (
               <span className="absolute top-0.5 right-0 min-w-[15px] h-[15px] rounded-full bg-destructive text-white text-[9px] font-bold flex items-center justify-center px-0.5 z-10 pointer-events-none shadow-sm">
                 {unreadCount > 99 ? "99+" : unreadCount}
@@ -400,14 +397,14 @@ export function Shell({ children }: { children: ReactNode }) {
               strokeWidth={active ? 2.25 : 1.75}
               className={cn(
                 "w-[20px] h-[20px] transition-colors duration-200",
-                active ? "text-foreground fill-foreground" : "text-muted-foreground group-hover:text-foreground fill-transparent"
+                active ? "text-primary fill-primary" : "text-muted-foreground group-hover:text-foreground fill-transparent"
               )}
             />
           </div>
           {sidebarOpen && (
             <span className={cn(
               "text-[13px] font-semibold whitespace-nowrap",
-              active ? "text-foreground" : "text-muted-foreground group-hover:text-foreground",
+              active ? "text-primary-text" : "text-muted-foreground group-hover:text-foreground",
             )}>
               {label}
             </span>
