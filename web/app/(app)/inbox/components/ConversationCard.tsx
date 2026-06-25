@@ -64,7 +64,6 @@ const ConversationCard = memo(function ConversationCard({
         "group relative flex gap-3 pl-4 pr-3 cursor-pointer border-b border-border/40 transition-colors duration-100",
         dense ? "py-2" : "py-3",
         isActive ? "bg-primary/[0.06]" : "hover:bg-muted/40",
-        unread && !isActive && "unread-trace rounded-lg",
       )}
     >
 
@@ -78,13 +77,11 @@ const ConversationCard = memo(function ConversationCard({
             {initials(c.contact_name || c.contact_phone)}
           </div>
         </Tip>
-        {unread && !isActive ? (
-          <span className="absolute -top-0.5 -right-0.5 w-[11px] h-[11px] rounded-full bg-primary animate-unread ring-[2.5px] ring-card" />
-        ) : temp ? (
+        {temp && (
           <Tip label={TEMP_LABEL[temp]} side="top">
             <span className={cn("absolute -bottom-0.5 -right-0.5 w-[11px] h-[11px] rounded-full ring-[2.5px] ring-card", TEMP_DOT[temp])} />
           </Tip>
-        ) : null}
+        )}
       </div>
 
       {/* Text */}
@@ -130,7 +127,7 @@ const ConversationCard = memo(function ConversationCard({
             <Tip label="24h window closed" side="top"><Clock className="w-3.5 h-3.5 text-hot shrink-0" /></Tip>
           ) : null}
           {unread && (
-            <span className="shrink-0 min-w-[18px] h-[18px] px-1.5 rounded-full bg-primary text-primary-foreground text-[10px] font-semibold grid place-items-center tabular-nums">
+            <span className="shrink-0 min-w-[18px] h-[18px] px-1.5 rounded-full bg-primary text-primary-foreground text-[10px] font-semibold grid place-items-center tabular-nums animate-unread">
               {c.unread_count > 99 ? "99+" : c.unread_count}
             </span>
           )}
