@@ -5,6 +5,22 @@ export function cn(...inputs: ClassValue[]) {
   return twMerge(clsx(inputs))
 }
 
+export function getAvatarColor(identifier: string | null | undefined): string {
+  if (!identifier) return "#A0AEC0"; // fallback gray
+  let hash = 0;
+  for (let i = 0; i < identifier.length; i++) {
+    hash = identifier.charCodeAt(i) + ((hash << 5) - hash);
+  }
+  // Curated list of vibrant colors for avatars (WhatsApp style)
+  const colors = [
+    "#25D366", "#34B7F1", "#FF7A00", "#E1306C", "#F56040",
+    "#833AB4", "#405DE6", "#C13584", "#FD1D1D", "#E50914",
+    "#1DA1F2", "#1877F2", "#0A66C2", "#16A34A", "#00AFF0",
+    "#2196F3", "#4CAF50", "#FF9800", "#E91E63", "#9C27B0"
+  ];
+  return colors[Math.abs(hash) % colors.length];
+}
+
 export function fmtTime(dateStr: string | Date | undefined | null): string {
   if (!dateStr) return "";
   const d = new Date(dateStr);

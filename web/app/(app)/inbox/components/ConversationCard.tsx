@@ -1,10 +1,9 @@
 "use client";
 import { memo } from "react";
 import {
-  Image as ImageIcon, Video, FileText, Headset, Zap, Clock, Phone, Sticker, Mic, User,
-  Flame, Thermometer, Snowflake,
+  Image as ImageIcon, Video, FileText, Headset, Zap, Clock, Phone, Sticker, Mic, User, Activity
 } from "lucide-react";
-import { initials, channelColor, channelTextColor, relTime, cn } from "@/lib/utils";
+import { initials, channelColor, channelTextColor, relTime, cn, getAvatarColor } from "@/lib/utils";
 import { channelMeta } from "@/components/ChannelIcon";
 import { Tip } from "@/components/ui/tooltip";
 import type { Conversation, Message } from "@/lib/types";
@@ -27,11 +26,11 @@ const PREVIEW_MEDIA: Record<string, { icon: any; label: string }> = {
   "[audio]": { icon: Mic, label: "Voice message" },
 };
 
-// Interest level → styled pill badge (solid deep colors)
-const INTEREST_BADGE: Record<string, { label: string; icon: any; bg: string; text: string }> = {
-  hot:  { label: "Hot",  icon: Flame,       bg: "bg-hot",    text: "text-white" },
-  warm: { label: "Warm", icon: Thermometer, bg: "bg-amber-500", text: "text-white" },
-  cold: { label: "Cold", icon: Snowflake,   bg: "bg-cold",   text: "text-white" },
+// Interest level → styled pill badge
+const INTEREST_BADGE: Record<string, { label: string; dot: string; border: string; bg: string; text: string }> = {
+  hot:  { label: "Hot",  dot: "bg-hot", border: "border-hot/30", bg: "bg-hot/10",    text: "text-hot" },
+  warm: { label: "Warm", dot: "bg-amber-500", border: "border-amber-500/30", bg: "bg-amber-500/10", text: "text-amber-600" },
+  cold: { label: "Cold", dot: "bg-cold", border: "border-cold/30", bg: "bg-cold/10",   text: "text-cold" },
 };
 
 const ConversationCard = memo(function ConversationCard({
@@ -61,20 +60,20 @@ const ConversationCard = memo(function ConversationCard({
   const cc = channelColor(c.channel);
   const cm = channelMeta(c.channel);
   const ChannelSvg = cm.icon;
-  const hasMeta = !!interest;
+  const hasMeta = !!interest || !!c.campaign_name || (showAgent && !!c.agent_name);
 
   return (
     <div
       onClick={onClick}
       className={cn(
-        "group relative flex gap-3.5 pl-4 pr-3 py-4 cursor-pointer border-b border-border/40 transition-colors duration-100",
+        "group relative flex gap-3.5 pl-4 pr-3 py-3 cursor-pointer border-b border-border/40 transition-colors duration-100",
         isActive ? "bg-primary/[0.06]" : "hover:bg-muted/40",
       )}
     >
 
-      {/* Avatar (dark green) + channel icon badge */}
+      {/* Avatar + channel icon badge */}
       <div className="relative shrink-0 self-start mt-0.5">
-        <div className="w-11 h-11 rounded-full grid place-items-center text-[15px] font-bold shadow-sm bg-[#154637] text-white">
+        <div className="w-11 h-11 rounded-full grid place-items-center text-[15px] font-bold shadow-sm text-white" style={{ backgroundColor: getAvatarColor(c.contact_name || c.contact_phone) }}>
           <span>{initials(c.contact_name || c.contact_phone)}</span>
         </div>
         {/* Channel icon badge at bottom-right with Tooltip */}
@@ -139,16 +138,30 @@ const ConversationCard = memo(function ConversationCard({
           )}
         </div>
 
-        {/* Line 3: interest badge */}
+        {/* Line 3: badges */}
         {hasMeta && (
-          <div className="flex items-center gap-1.5 min-w-0 mt-2.5">
+          <div className="flex items-center gap-1.5 min-w-0 mt-2 overflow-hidden">
+            {showAgent && c.agent_name && (
+              <Tip label={`Assigned: ${c.agent_name}`} side="top">
+                <span className="inline-flex items-center gap-1 h-[20px] px-2 rounded-full text-[10px] font-medium shrink min-w-0 bg-[#154637]/10 text-[#154637]">
+                  <User className="w-3 h-3 shrink-0" />
+                  <span className="truncate">{c.agent_name.split(' ')[0]}</span>
+                </span>
+              </Tip>
+            )}
+            {c.campaign_name && (
+              <span className="inline-flex items-center gap-1 h-[20px] px-2 rounded-full text-[10px] font-medium shrink min-w-0 bg-muted/50 text-muted-foreground">
+                <Activity className="w-3 h-3 shrink-0" />
+                <span className="truncate">{c.campaign_name}</span>
+              </span>
+            )}
             {interest && (
               <span className={cn(
-                "inline-flex items-center gap-1 h-[20px] px-2 rounded-full text-[11px] font-semibold shrink-0",
-                interest.bg, interest.text,
+                "inline-flex items-center gap-1 h-[20px] px-2 rounded-full text-[10px] font-medium shrink-0 border",
+                interest.border, interest.bg, interest.text,
               )}>
-                <interest.icon className="w-3 h-3" />
-                {interest.label}
+                <div className={cn("w-1.5 h-1.5 rounded-full shrink-0", interest.dot)} />
+                <span className="truncate">{interest.label}</span>
               </span>
             )}
           </div>
