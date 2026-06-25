@@ -7,7 +7,7 @@ import '../../../../core/error/failure.dart';
 import '../../../../core/session/session_controller.dart';
 import '../../../../core/widgets/app_empty_state.dart';
 import '../../../../core/widgets/app_error_view.dart';
-import '../../../../core/widgets/app_loader.dart';
+import '../../../../core/widgets/app_skeleton.dart';
 import '../../../chat/presentation/controllers/chat_actions_providers.dart';
 import '../../domain/entities/contact.dart';
 import '../controllers/contacts_providers.dart';
@@ -295,7 +295,7 @@ class _ContactsPageState extends ConsumerState<ContactsPage> {
         child: const Icon(Icons.person_add_alt_1_rounded),
       ),
       body: async.when(
-        loading: () => const AppLoader(),
+        loading: () => const ConversationListSkeleton(),
         error: (e, _) => AppErrorView(
           failure: e is Failure ? e : null,
           onRetry: () => ref.read(contactsProvider.notifier).refresh(),

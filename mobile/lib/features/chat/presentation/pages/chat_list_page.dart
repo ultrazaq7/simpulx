@@ -84,7 +84,8 @@ class _ChatListPageState extends ConsumerState<ChatListPage> {
                           c.contactPhone.toLowerCase().contains(q);
         }
       }
-      return matchesSearch && filter.matches(c);
+      // Lost leads live in Archived, not the main inbox (WhatsApp-style).
+      return matchesSearch && filter.matches(c) && !c.isLost;
     }).toList();
     
     if (_sortType == 'Latest') {
@@ -426,8 +427,14 @@ class _ChatListPageState extends ConsumerState<ChatListPage> {
           _filteredLen = filtered.length;
           final shown = _visible < filtered.length ? _visible : filtered.length;
           final hasMore = filtered.length > shown;
+          final lostCount = list.where((c) => c.isLost).length;
           return Column(
             children: [
+              if (lostCount > 0 && _query.isEmpty)
+                _ArchivedRow(
+                  count: lostCount,
+                  onTap: () => context.push('/archived'),
+                ),
               Expanded(
                 child: RefreshIndicator(
                   onRefresh: () =>
@@ -482,7 +489,45 @@ class _ChatListPageState extends ConsumerState<ChatListPage> {
   }
 }
 
-// Banner removed
+/// WhatsApp-style "Archived" entry at the top of the inbox. Holds Lost leads.
+class _ArchivedRow extends StatelessWidget {
+  const _ArchivedRow({required this.count, required this.onTap});
+  final int count;
+  final VoidCallback onTap;
+
+  @override
+  Widget build(BuildContext context) {
+    return InkWell(
+      onTap: onTap,
+      child: Padding(
+        padding: const EdgeInsets.fromLTRB(16, 10, 16, 10),
+        child: Row(
+          children: [
+            const SizedBox(
+              width: 48,
+              child: Icon(Icons.archive_outlined,
+                  color: AppColors.textSecondary, size: 24),
+            ),
+            const SizedBox(width: 12),
+            const Expanded(
+              child: Text('Archived',
+                  style: TextStyle(
+                      fontSize: 15, fontWeight: FontWeight.w600)),
+            ),
+            Text('$count',
+                style: const TextStyle(
+                    fontSize: 13,
+                    color: AppColors.textMuted,
+                    fontWeight: FontWeight.w600)),
+            const SizedBox(width: 4),
+            const Icon(Icons.chevron_right_rounded,
+                color: AppColors.textMuted, size: 20),
+          ],
+        ),
+      ),
+    );
+  }
+}
 
 /// Subtle realtime connection indicator in the app bar.
 class _RealtimeDot extends ConsumerWidget {

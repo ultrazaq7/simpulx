@@ -5,6 +5,7 @@ import 'package:shimmer/shimmer.dart';
 
 import '../../../../app/theme/app_colors.dart';
 import '../../../../core/error/failure.dart';
+import '../../../../core/widgets/entrance_fade.dart';
 import '../../../../core/session/session_controller.dart';
 import '../../../../core/widgets/app_error_view.dart';
 import '../../../../core/widgets/app_loader.dart';
@@ -143,20 +144,27 @@ class _DashboardBody extends StatelessWidget {
               ?.copyWith(fontWeight: FontWeight.w800),
         ),
         const SizedBox(height: 18),
-        GridView.count(
-          crossAxisCount: 2,
-          shrinkWrap: true,
-          physics: const NeverScrollableScrollPhysics(),
-          mainAxisSpacing: 12,
-          crossAxisSpacing: 12,
-          childAspectRatio: 1.45,
-          children: [
-            for (final item in items)
-              _ActionCard(data: item, onTap: () => onDrill(item.filter)),
-          ],
+        EntranceFade(
+          delay: const Duration(milliseconds: 40),
+          child: GridView.count(
+            crossAxisCount: 2,
+            shrinkWrap: true,
+            physics: const NeverScrollableScrollPhysics(),
+            mainAxisSpacing: 12,
+            crossAxisSpacing: 12,
+            childAspectRatio: 1.45,
+            children: [
+              for (final item in items)
+                _ActionCard(data: item, onTap: () => onDrill(item.filter)),
+            ],
+          ),
         ),
-        if (showManager) const _ManagerSection()
-        else const _AgentAnalyticsSection(),
+        EntranceFade(
+          delay: const Duration(milliseconds: 130),
+          child: showManager
+              ? const _ManagerSection()
+              : const _AgentAnalyticsSection(),
+        ),
       ],
     );
   }
@@ -955,19 +963,30 @@ class _Card extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final isDark = Theme.of(context).brightness == Brightness.dark;
     return Container(
       width: double.infinity,
-      padding: const EdgeInsets.all(14),
+      padding: const EdgeInsets.all(16),
       decoration: BoxDecoration(
         color: Theme.of(context).colorScheme.surface,
-        borderRadius: BorderRadius.circular(14),
-        boxShadow: [
-          BoxShadow(
-            color: Colors.black.withValues(alpha: 0.05),
-            blurRadius: 10,
-            offset: const Offset(0, 4),
-          ),
-        ],
+        borderRadius: BorderRadius.circular(16),
+        border: Border.all(color: Theme.of(context).dividerColor),
+        // Layered, low-opacity shadow (Stripe/Linear style) for crisp depth.
+        boxShadow: isDark
+            ? null
+            : const [
+                BoxShadow(
+                  color: Color(0x0A0B1220),
+                  blurRadius: 2,
+                  offset: Offset(0, 1),
+                ),
+                BoxShadow(
+                  color: Color(0x140B1220),
+                  blurRadius: 16,
+                  spreadRadius: -6,
+                  offset: Offset(0, 8),
+                ),
+              ],
       ),
       child: child,
     );
