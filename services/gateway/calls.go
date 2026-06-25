@@ -203,10 +203,13 @@ func (s *server) handleRequestCallPermission(w http.ResponseWriter, r *http.Requ
 	}
 
 	// Rate limit: max 1 permission request per 24h per conversation.
+	// Only count requests that are still pending/active — failed attempts
+	// should not block retries (e.g. transient errors, 138017 before fix).
 	var recentCount int
 	_ = s.pool.QueryRow(r.Context(),
 		`SELECT count(*) FROM calls
-		  WHERE conversation_id = $1 AND permission_requested_at > now() - interval '24 hours'`,
+		  WHERE conversation_id = $1 AND permission_requested_at > now() - interval '24 hours'
+		    AND call_status NOT IN ('failed', 'ended')`,
 		body.ConversationID,
 	).Scan(&recentCount)
 	if recentCount >= 1 {
