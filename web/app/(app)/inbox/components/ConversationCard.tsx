@@ -50,7 +50,6 @@ const ConversationCard = memo(function ConversationCard({
     return Date.now() - new Date(c.last_message_at).getTime() > 24 * 60 * 60 * 1000;
   })();
 
-  const accent = unread ? "bg-primary" : needsCall ? "bg-info" : needsFollowUp ? "bg-warm" : "";
   const temp = c.interest_level && TEMP_DOT[c.interest_level] ? c.interest_level : null;
 
   const media = c.last_message_preview ? PREVIEW_MEDIA[c.last_message_preview] : undefined;
@@ -65,9 +64,9 @@ const ConversationCard = memo(function ConversationCard({
         "group relative flex gap-3 pl-4 pr-3 cursor-pointer border-b border-border/40 transition-colors duration-100",
         dense ? "py-2" : "py-3",
         isActive ? "bg-primary/[0.06]" : "hover:bg-muted/40",
+        unread && !isActive && "unread-trace rounded-lg",
       )}
     >
-      {accent && <span aria-hidden className={cn("absolute left-0 top-2 bottom-2 w-[3px] rounded-r-full", accent)} />}
 
       {/* Avatar (channel tint) + temperature dot — top-left, aligned with the name */}
       <div className="relative shrink-0 self-start mt-0.5">
@@ -79,11 +78,13 @@ const ConversationCard = memo(function ConversationCard({
             {initials(c.contact_name || c.contact_phone)}
           </div>
         </Tip>
-        {temp && (
+        {unread && !isActive ? (
+          <span className="absolute -top-0.5 -right-0.5 w-[11px] h-[11px] rounded-full bg-primary animate-unread ring-[2.5px] ring-card" />
+        ) : temp ? (
           <Tip label={TEMP_LABEL[temp]} side="top">
             <span className={cn("absolute -bottom-0.5 -right-0.5 w-[11px] h-[11px] rounded-full ring-[2.5px] ring-card", TEMP_DOT[temp])} />
           </Tip>
-        )}
+        ) : null}
       </div>
 
       {/* Text */}
