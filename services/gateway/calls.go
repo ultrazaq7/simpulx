@@ -230,6 +230,21 @@ func (s *server) handleRequestCallPermission(w http.ResponseWriter, r *http.Requ
 
 	wamid, err := s.sendCallPermissionRequest(r.Context(), phoneNumberID, accessToken, contactPhone, callID)
 	if err != nil {
+		// Meta error 138017: "A permanent permission has already been approved by
+		// this consumer." Treat it as an implicit grant so the agent can call now.
+		if strings.Contains(err.Error(), "138017") {
+			s.log.Info("call permission already permanently granted by consumer, treating as granted",
+				"conv", body.ConversationID, "phone", contactPhone)
+			_, _ = s.pool.Exec(r.Context(),
+				`UPDATE calls SET permission_status = 'granted', permission_granted_at = now(), call_status = 'idle' WHERE id = $1`, callID)
+			s.broadcastCall(r.Context(), a.OrgID, events.CallUpdated{
+				CallID: callID, ConversationID: body.ConversationID, Direction: "outbound",
+				PermissionStatus: "granted", CallStatus: "idle",
+			})
+			w.Header().Set("Content-Type", "application/json")
+			json.NewEncoder(w).Encode(map[string]string{"call_id": callID, "status": "granted"})
+			return
+		}
 		s.log.Error("send call permission failed", "err", err)
 		_, _ = s.pool.Exec(r.Context(),
 			`UPDATE calls SET call_status = 'failed', end_reason = $2 WHERE id = $1`, callID, err.Error())
