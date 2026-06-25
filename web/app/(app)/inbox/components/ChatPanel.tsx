@@ -643,7 +643,7 @@ export default function ChatPanel({
                       </div>
                     );
                     if (it.kind === "note") return (
-                      <div className="ml-auto max-w-[72%] rounded-lg border border-amber-200 bg-amber-50 px-4 py-3 shadow-xs">
+                      <div className="ml-auto w-fit max-w-[72%] rounded-lg border border-amber-200 bg-amber-50 px-4 py-3 shadow-xs">
                         <div className="flex items-center gap-1.5 mb-1">
                           <Lock className="w-3 h-3 text-amber-700" />
                           <span className="text-[10px] font-bold uppercase tracking-wider text-amber-700">Internal note</span>
