@@ -46,6 +46,13 @@ class SimpulxMessagingService : FlutterFirebaseMessagingService() {
                                 || bodyLower.contains("voice call")
                                 || bodyLower.contains("panggilan masuk")))
 
+        // Reminders/alerts (follow-up, snooze, bell notifications) are NOT chat
+        // messages: render them as a plain, collapsible notification so they don't
+        // stack into the conversation thread (with Reply/Mark-read) or duplicate.
+        val isAlert: Boolean = type == "follow_up" || type == "follow_up_reminder"
+                || type == "snooze_due" || type == "snooze_reminder"
+                || type == "notification" || type == "alert"
+
         try {
             when {
                 isEndedCall -> {
@@ -60,6 +67,10 @@ class SimpulxMessagingService : FlutterFirebaseMessagingService() {
                 isCall -> {
                     showNativeCallNotification(this, conversationId, callId, title, body, message.toIntent())
                     Log.d(TAG, "Native call notification shown: title=$title")
+                }
+                isAlert -> {
+                    NotificationHelper.showAlertNotification(this, conversationId, type, title, body)
+                    Log.d(TAG, "Native alert notification shown: type=$type title=$title")
                 }
                 else -> {
                     showNativeChatNotification(this, conversationId, title, body, message.toIntent())

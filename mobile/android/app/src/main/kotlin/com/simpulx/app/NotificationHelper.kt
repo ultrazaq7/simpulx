@@ -406,6 +406,48 @@ object NotificationHelper {
         manager.notify(chatId.hashCode() + 101, notification)
     }
 
+    /**
+     * Plain reminder/alert notification (follow-up, snooze, bell). Uses a STABLE
+     * id per (type + conversation) so repeated/duplicate pushes collapse into one
+     * instead of stacking, and tapping opens the conversation (or dashboard).
+     */
+    fun showAlertNotification(
+        context: Context,
+        chatId: String,
+        type: String,
+        title: String,
+        body: String,
+    ) {
+        ensureChannel(context)
+
+        val route = if (chatId.isNotEmpty()) "/chat/$chatId" else "/dashboard"
+        val tapIntent = Intent(context, MainActivity::class.java).apply {
+            action = "com.simpulx.app.ACTION_TAP_NOTIFICATION"
+            flags = Intent.FLAG_ACTIVITY_SINGLE_TOP or Intent.FLAG_ACTIVITY_CLEAR_TOP
+            putExtra("route", route)
+        }
+        val stableId = (type + ":" + chatId).hashCode()
+        val contentIntent = PendingIntent.getActivity(
+            context, stableId, tapIntent,
+            PendingIntent.FLAG_UPDATE_CURRENT or PendingIntent.FLAG_IMMUTABLE
+        )
+
+        val notification = NotificationCompat.Builder(context, CHANNEL_ID)
+            .setSmallIcon(R.drawable.ic_notification)
+            .setContentTitle(title.ifEmpty { "Simpulx" })
+            .setContentText(body)
+            .setStyle(NotificationCompat.BigTextStyle().bigText(body))
+            .setCategory(NotificationCompat.CATEGORY_REMINDER)
+            .setPriority(NotificationCompat.PRIORITY_HIGH)
+            .setAutoCancel(true)
+            .setOnlyAlertOnce(true)
+            .setContentIntent(contentIntent)
+            .build()
+
+        val manager = context.getSystemService(Context.NOTIFICATION_SERVICE) as NotificationManager
+        manager.notify(stableId, notification)
+    }
+
     private fun ensureChannel(context: Context) {
         if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) {
             val manager = context.getSystemService(Context.NOTIFICATION_SERVICE) as NotificationManager

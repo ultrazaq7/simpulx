@@ -89,11 +89,33 @@ class ConversationActionsController extends ChangeNotifier {
         () => _repo.patchConversation(conversationId, interestLevel: level));
   }
 
+  /// Resolve the canonical disposition id for a terminal category ('lost' or
+  /// 'spam'). The dashboard counts "lost" as `disposition.category='lost'`, so
+  /// marking lost MUST set disposition_id or the lead never registers as lost.
+  String? _dispositionIdForCategory(String category) {
+    final dispositions = ref.read(dispositionsProvider).value;
+    if (dispositions == null) return null;
+    final preferred = category == 'spam' ? 'spam' : 'lost';
+    String? fallback;
+    for (final d in dispositions) {
+      if (d.category != category) continue;
+      fallback ??= d.id;
+      if (d.name.toLowerCase() == preferred) return d.id;
+    }
+    return fallback;
+  }
+
   Future<bool> setDisposition(String category, {String? lostReason}) {
-    _inbox.patchLocal(conversationId, status: 'closed');
+    final dispositionId = _dispositionIdForCategory(category);
+    _inbox.patchLocal(
+      conversationId,
+      status: 'closed',
+      lostReason: lostReason ?? category,
+    );
     return _run(() => _repo.patchConversation(
           conversationId,
           status: 'closed',
+          dispositionId: dispositionId,
           lostReason: lostReason ?? category,
         ));
   }

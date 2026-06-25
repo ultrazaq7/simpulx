@@ -91,10 +91,16 @@ class _ActionsSheet extends ConsumerWidget {
                   onTap: () => _pickStage(context, ref, actions, convId, live),
                 ),
                 ListTile(
-                  leading: Icon(_statusIcon(live.status),
-                      color: _statusColor(live.status)),
+                  leading: Icon(
+                      live.isLost
+                          ? Icons.do_not_disturb_on_rounded
+                          : _statusIcon(live.status),
+                      color: live.isLost
+                          ? AppColors.danger
+                          : _statusColor(live.status)),
                   title: const Text('Status'),
-                  subtitle: Text(_statusLabel(live.status)),
+                  subtitle:
+                      Text(live.isLost ? 'Lost' : _statusLabel(live.status)),
                   onTap: () => _pickStatus(context, actions, live.status == 'closed'),
                 ),
                 // Show the snooze expiry right under Status, only while snoozed.

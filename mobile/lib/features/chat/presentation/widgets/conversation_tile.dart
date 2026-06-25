@@ -102,7 +102,10 @@ class ConversationTile extends ConsumerWidget {
                       runSpacing: 4,
                       children: [
                         if (_isInactive(c.status))
-                          _StatusChip(status: c.status, until: c.snoozedUntil),
+                          _StatusChip(
+                              status: c.status,
+                              until: c.snoozedUntil,
+                              lost: c.isLost),
                         if (c.interestLevel != null)
                           _InterestBadge(level: c.interestLevel!),
                         if (c.stageName != null) _StageChip(label: c.stageName!),
@@ -307,9 +310,10 @@ class _AssigneeChip extends StatelessWidget {
 /// clearly marked instead of looking identical to an open chat. The snoozed
 /// variant shows a live countdown that ticks down each minute while visible.
 class _StatusChip extends StatefulWidget {
-  const _StatusChip({required this.status, this.until});
+  const _StatusChip({required this.status, this.until, this.lost = false});
   final String status;
   final DateTime? until;
+  final bool lost;
 
   @override
   State<_StatusChip> createState() => _StatusChipState();
@@ -339,13 +343,24 @@ class _StatusChipState extends State<_StatusChip> {
   @override
   Widget build(BuildContext context) {
     final isSnoozed = widget.status == 'snoozed';
-    final color = isSnoozed ? AppColors.warning : AppColors.textMuted;
-    final icon =
-        isSnoozed ? Icons.snooze_rounded : Icons.check_circle_outline_rounded;
-    var label = isSnoozed ? 'Snoozed' : 'Closed';
-    if (isSnoozed && widget.until != null) {
+    final Color color;
+    final IconData icon;
+    String label;
+    if (widget.lost) {
+      color = AppColors.danger;
+      icon = Icons.do_not_disturb_on_rounded;
+      label = 'Lost';
+    } else if (isSnoozed) {
+      color = AppColors.warning;
+      icon = Icons.snooze_rounded;
       final left = formatTimeLeft(widget.until);
-      label = left == 'due' ? 'Reopening' : 'Snoozed · $left left';
+      label = widget.until == null
+          ? 'Snoozed'
+          : (left == 'due' ? 'Reopening' : 'Snoozed · $left left');
+    } else {
+      color = AppColors.textMuted;
+      icon = Icons.check_circle_outline_rounded;
+      label = 'Closed';
     }
     return Container(
       padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 2),

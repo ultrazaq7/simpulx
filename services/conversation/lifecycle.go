@@ -135,7 +135,7 @@ func (a *app) sweepSnoozeReminders(ctx context.Context) {
 		a.st.addNotification(ctx, d.OrgID, *d.AgentID, "snooze_reminder", d.Contact, body, d.ConvID)
 		_ = a.bus.Publish(events.SubjectNotificationCreated, d.OrgID, events.NotificationCreated{
 			UserID: *d.AgentID, Type: "snooze_reminder", Title: d.Contact,
-			Body: "Snooze ending soon — get ready to follow up", ConversationID: d.ConvID,
+			Body: "Snooze ending soon. Get ready to follow up.", ConversationID: d.ConvID,
 		})
 	}
 	if len(due) > 0 {
@@ -156,7 +156,7 @@ func (a *app) sweepFollowUps(ctx context.Context) {
 		title := d.Contact
 		body := "Lead is waiting for your follow-up"
 		if d.Tier == "priority" {
-			body = "Priority lead waiting for your reply — follow up now"
+			body = "Priority lead waiting for your reply. Follow up now."
 		}
 		a.st.addNotification(ctx, d.OrgID, d.AgentID, "follow_up", title, body, d.ConvID)
 		_ = a.bus.Publish(events.SubjectNotificationCreated, d.OrgID, events.NotificationCreated{

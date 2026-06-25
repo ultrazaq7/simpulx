@@ -8,6 +8,7 @@ import 'package:simpulx/l10n/app_localizations.dart';
 import '../core/notifications/notification_prefs.dart';
 import '../core/notifications/notification_providers.dart';
 import '../core/providers/locale_provider.dart';
+import '../core/realtime/realtime_providers.dart';
 import '../core/providers/theme_provider.dart';
 import '../core/session/session_controller.dart';
 import '../features/auth/presentation/controllers/auth_controller.dart';
@@ -25,13 +26,15 @@ class SimpulxApp extends ConsumerStatefulWidget {
   ConsumerState<SimpulxApp> createState() => _SimpulxAppState();
 }
 
-class _SimpulxAppState extends ConsumerState<SimpulxApp> {
+class _SimpulxAppState extends ConsumerState<SimpulxApp>
+    with WidgetsBindingObserver {
   bool _pushInited = false;
   static const _channel = MethodChannel('simpulx_notification');
 
   @override
   void initState() {
     super.initState();
+    WidgetsBinding.instance.addObserver(this);
     _channel.setMethodCallHandler((call) async {
       if (call.method == 'onInlineReply') {
         final data = call.arguments as Map;
@@ -55,6 +58,31 @@ class _SimpulxAppState extends ConsumerState<SimpulxApp> {
     });
   }
 
+  @override
+  void dispose() {
+    WidgetsBinding.instance.removeObserver(this);
+    super.dispose();
+  }
+
+  /// Mirror foreground/background to presence: an agent is "online" while the app
+  /// is in the foreground and "offline" when it leaves. Resuming also forces an
+  /// immediate realtime reconnect so the inbox is live again right away.
+  @override
+  void didChangeAppLifecycleState(AppLifecycleState state) {
+    if (ref.read(sessionControllerProvider).status !=
+        SessionStatus.authenticated) {
+      return;
+    }
+    final auth = ref.read(authControllerProvider.notifier);
+    if (state == AppLifecycleState.resumed) {
+      ref.read(realtimeClientProvider).reconnectNow();
+      auth.setPresence(true);
+    } else if (state == AppLifecycleState.paused ||
+        state == AppLifecycleState.detached) {
+      auth.setPresence(false);
+    }
+  }
+
   Future<void> _initPush(GoRouter router) async {
     final push = ref.read(pushServiceProvider);
     await push.requestPermission();
@@ -71,6 +99,8 @@ class _SimpulxAppState extends ConsumerState<SimpulxApp> {
     push.onTokenRefresh.listen(
       (t) => repo.registerPushToken(token: t, platform: push.platform),
     );
+    // Coming back into an authenticated session means we're online.
+    ref.read(authControllerProvider.notifier).setPresence(true);
   }
 
   /// Smart navigation that avoids duplicate routes.

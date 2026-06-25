@@ -25,6 +25,7 @@ class ConversationModel {
       suggestedAction: asStringOrNull(json['suggested_action']),
       isBotActive: asBool(json['is_bot_active']),
       snoozedUntil: asDateOrNull(json['snoozed_until']),
+      lostReason: asStringOrNull(json['lost_reason']),
     );
   }
 }

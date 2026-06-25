@@ -61,6 +61,7 @@ class ConversationListController extends AsyncNotifier<List<Conversation>> {
     String? interestLevel,
     String? status,
     DateTime? snoozedUntil,
+    String? lostReason,
   }) {
     final list = state.value;
     if (list == null) return;
@@ -72,6 +73,7 @@ class ConversationListController extends AsyncNotifier<List<Conversation>> {
                 interestLevel: interestLevel,
                 status: status,
                 snoozedUntil: snoozedUntil,
+                lostReason: lostReason,
               )
             : c,
     ]);
