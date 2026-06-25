@@ -61,7 +61,7 @@ const ConversationCard = memo(function ConversationCard({
   const cc = channelColor(c.channel);
   const cm = channelMeta(c.channel);
   const ChannelSvg = cm.icon;
-  const hasMeta = !!c.campaign_name || (showAgent && !!c.agent_name) || !!interest;
+  const hasMeta = !!interest;
 
   return (
     <div
@@ -72,14 +72,10 @@ const ConversationCard = memo(function ConversationCard({
       )}
     >
 
-      {/* Avatar (darkened channel color) + channel icon badge */}
+      {/* Avatar (dark green) + channel icon badge */}
       <div className="relative shrink-0 self-start mt-0.5">
-        <div
-          className="w-11 h-11 rounded-full grid place-items-center text-[15px] font-bold shadow-sm relative overflow-hidden"
-          style={{ backgroundColor: cc, color: "#ffffff" }}
-        >
-          <div className="absolute inset-0 bg-black/20 pointer-events-none" />
-          <span className="relative z-10">{initials(c.contact_name || c.contact_phone)}</span>
+        <div className="w-11 h-11 rounded-full grid place-items-center text-[15px] font-bold shadow-sm bg-[#154637] text-white">
+          <span>{initials(c.contact_name || c.contact_phone)}</span>
         </div>
         {/* Channel icon badge at bottom-right with Tooltip */}
         <Tip label={channelName || c.channel} side="top">
@@ -143,7 +139,7 @@ const ConversationCard = memo(function ConversationCard({
           )}
         </div>
 
-        {/* Line 3: interest badge + agent + campaign */}
+        {/* Line 3: interest badge */}
         {hasMeta && (
           <div className="flex items-center gap-1.5 min-w-0 mt-2.5">
             {interest && (
@@ -154,21 +150,6 @@ const ConversationCard = memo(function ConversationCard({
                 <interest.icon className="w-3 h-3" />
                 {interest.label}
               </span>
-            )}
-            {showAgent && c.agent_name && (
-              <Tip label={`Assigned: ${c.agent_name}`} side="top">
-                <span className="inline-flex items-center gap-1 h-[20px] px-2.5 rounded-full bg-foreground/90 text-background text-[11px] font-semibold min-w-0 max-w-[55%] shadow-sm">
-                  <User className="w-3 h-3 shrink-0 opacity-80" />
-                  <span className="truncate">{c.agent_name}</span>
-                </span>
-              </Tip>
-            )}
-            {c.campaign_name && (
-              <Tip label={c.campaign_name} side="top">
-                <span className="inline-flex items-center h-[20px] px-2.5 rounded-full bg-primary text-primary-foreground text-[11px] font-semibold min-w-0 ml-auto max-w-[58%] shadow-sm">
-                  <span className="truncate">{c.campaign_name}</span>
-                </span>
-              </Tip>
             )}
           </div>
         )}
