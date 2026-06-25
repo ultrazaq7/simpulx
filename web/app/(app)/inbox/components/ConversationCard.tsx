@@ -156,8 +156,8 @@ const ConversationCard = memo(function ConversationCard({
             )}
             {showAgent && c.agent_name && (
               <Tip label={`Assigned: ${c.agent_name}`} side="top">
-                <span className="inline-flex items-center gap-1 h-[19px] px-1.5 rounded-md bg-muted text-foreground/70 text-[11px] font-medium truncate min-w-0 max-w-[55%]">
-                  <User className="w-2.5 h-2.5 shrink-0 opacity-70" />{c.agent_name}
+                <span className="inline-flex items-center gap-1 h-[20px] px-2.5 rounded-full bg-foreground/90 text-background text-[11px] font-semibold truncate min-w-0 max-w-[55%] shadow-sm">
+                  <User className="w-3 h-3 shrink-0 opacity-80" />{c.agent_name}
                 </span>
               </Tip>
             )}
