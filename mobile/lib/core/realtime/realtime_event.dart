@@ -89,6 +89,10 @@ class ConversationUpdatedPayload {
   String? get stageId => _s('stage_id');
   String? get interestLevel => _s('interest_level');
   String? get lostReason => _s('lost_reason');
+  DateTime? get snoozedUntil {
+    final raw = _s('snoozed_until');
+    return raw == null ? null : DateTime.tryParse(raw);
+  }
 }
 
 /// Typed view over a `conversation.closed` payload.

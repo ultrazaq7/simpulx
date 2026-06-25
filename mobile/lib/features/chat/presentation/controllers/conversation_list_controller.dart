@@ -60,6 +60,7 @@ class ConversationListController extends AsyncNotifier<List<Conversation>> {
     String? stageName,
     String? interestLevel,
     String? status,
+    DateTime? snoozedUntil,
   }) {
     final list = state.value;
     if (list == null) return;
@@ -70,6 +71,7 @@ class ConversationListController extends AsyncNotifier<List<Conversation>> {
                 stageName: stageName,
                 interestLevel: interestLevel,
                 status: status,
+                snoozedUntil: snoozedUntil,
               )
             : c,
     ]);
@@ -82,6 +84,7 @@ class ConversationListController extends AsyncNotifier<List<Conversation>> {
     String? status,
     String? interestLevel,
     String? stageId,
+    DateTime? snoozedUntil,
   }) {
     if (conversationId.isEmpty) return;
     final list = state.value;
@@ -109,6 +112,7 @@ class ConversationListController extends AsyncNotifier<List<Conversation>> {
       status: status,
       interestLevel: interestLevel,
       stageName: stageName,
+      snoozedUntil: snoozedUntil,
     );
   }
 
@@ -139,6 +143,7 @@ class ConversationListController extends AsyncNotifier<List<Conversation>> {
         status: p.status,
         interestLevel: p.interestLevel,
         stageId: p.stageId,
+        snoozedUntil: p.snoozedUntil,
       );
       return;
     }

@@ -24,9 +24,11 @@ func (a *app) runLifecycle(ctx context.Context, interval time.Duration, idleHour
 
 // runSnoozeSweeper reopens due snoozes on its own fast cadence (snoozes need finer
 // granularity than the idle sweep) and runs once on startup so a service restart
-// doesn't leave an already-due snooze parked until the next tick.
+// doesn't leave an already-due snooze parked until the next tick. It also fires
+// pre-expiry "snooze ending soon" reminders on the same tick.
 func (a *app) runSnoozeSweeper(ctx context.Context, interval time.Duration) {
 	a.sweepSnoozed(ctx)
+	a.sweepSnoozeReminders(ctx)
 	t := time.NewTicker(interval)
 	defer t.Stop()
 	for {
@@ -35,6 +37,22 @@ func (a *app) runSnoozeSweeper(ctx context.Context, interval time.Duration) {
 			return
 		case <-t.C:
 			a.sweepSnoozed(ctx)
+			a.sweepSnoozeReminders(ctx)
+		}
+	}
+}
+
+// runFollowUpReminders nudges agents about waiting leads on a steady cadence.
+// Thresholds are minutes/hours, so a few-minute tick is plenty.
+func (a *app) runFollowUpReminders(ctx context.Context, interval time.Duration) {
+	t := time.NewTicker(interval)
+	defer t.Stop()
+	for {
+		select {
+		case <-ctx.Done():
+			return
+		case <-t.C:
+			a.sweepFollowUps(ctx)
 		}
 	}
 }
@@ -86,7 +104,8 @@ func (a *app) sweepSnoozed(ctx context.Context) {
 				"Snooze ended", "Follow up with "+d.Contact, d.ConvID)
 			// Push to the agent's browser (FCM) via the gateway.
 			_ = a.bus.Publish(events.SubjectNotificationCreated, d.OrgID, events.NotificationCreated{
-				UserID: *d.AgentID, Title: "Snooze ended", Body: "Follow up with " + d.Contact, ConversationID: d.ConvID,
+				UserID: *d.AgentID, Type: "snooze_due", Title: "Snooze ended",
+				Body: "Follow up with " + d.Contact, ConversationID: d.ConvID,
 			})
 		}
 		// Relayed to the org's websockets so the agent's bell refreshes instantly.
@@ -96,5 +115,55 @@ func (a *app) sweepSnoozed(ctx context.Context) {
 	}
 	if len(due) > 0 {
 		a.log.Info("reopened snoozed conversations", "count", len(due))
+	}
+}
+
+// sweepSnoozeReminders pings the assigned agent shortly before a snooze reopens,
+// so they have a heads-up to prepare the follow-up (one reminder per snooze).
+func (a *app) sweepSnoozeReminders(ctx context.Context) {
+	due, err := a.st.dueSnoozeReminders(ctx)
+	if err != nil {
+		a.log.Error("snooze reminder query failed", "err", err)
+		return
+	}
+	for _, d := range due {
+		a.st.markSnoozeReminded(ctx, d.ConvID)
+		if d.AgentID == nil || *d.AgentID == "" {
+			continue
+		}
+		body := "Snooze for " + d.Contact + " is ending soon"
+		a.st.addNotification(ctx, d.OrgID, *d.AgentID, "snooze_reminder", d.Contact, body, d.ConvID)
+		_ = a.bus.Publish(events.SubjectNotificationCreated, d.OrgID, events.NotificationCreated{
+			UserID: *d.AgentID, Type: "snooze_reminder", Title: d.Contact,
+			Body: "Snooze ending soon — get ready to follow up", ConversationID: d.ConvID,
+		})
+	}
+	if len(due) > 0 {
+		a.log.Info("sent snooze pre-expiry reminders", "count", len(due))
+	}
+}
+
+// sweepFollowUps nudges agents about open leads that are waiting on a reply,
+// prioritised by lead score / interest level (see store.dueFollowUps).
+func (a *app) sweepFollowUps(ctx context.Context) {
+	due, err := a.st.dueFollowUps(ctx)
+	if err != nil {
+		a.log.Error("follow-up sweep query failed", "err", err)
+		return
+	}
+	for _, d := range due {
+		a.st.markFollowUpNotified(ctx, d.ConvID, d.FreshWait)
+		title := d.Contact
+		body := "Lead is waiting for your follow-up"
+		if d.Tier == "priority" {
+			body = "Priority lead waiting for your reply — follow up now"
+		}
+		a.st.addNotification(ctx, d.OrgID, d.AgentID, "follow_up", title, body, d.ConvID)
+		_ = a.bus.Publish(events.SubjectNotificationCreated, d.OrgID, events.NotificationCreated{
+			UserID: d.AgentID, Type: "follow_up", Title: title, Body: body, ConversationID: d.ConvID,
+		})
+	}
+	if len(due) > 0 {
+		a.log.Info("sent follow-up reminders", "count", len(due))
 	}
 }

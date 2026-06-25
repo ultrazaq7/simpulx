@@ -54,27 +54,27 @@ type InboundMessage struct {
 }
 
 type MessageReceived struct {
-	Channel       string          `json:"channel"`
-	PhoneNumberID string          `json:"phone_number_id"`
-	From          string          `json:"from"`
-	ContactName   string          `json:"contact_name"`
+	Channel       string `json:"channel"`
+	PhoneNumberID string `json:"phone_number_id"`
+	From          string `json:"from"`
+	ContactName   string `json:"contact_name"`
 	// Referral carries the CTWA ad source_id when the contact arrived from a
 	// click-to-WhatsApp ad. Used for campaign attribution. Empty otherwise.
-	Referral string         `json:"referral,omitempty"`
+	Referral string `json:"referral,omitempty"`
 	// ReferralURL is the CTWA ad's source URL (the real ad link), when present.
-	ReferralURL string     `json:"referral_url,omitempty"`
-	Message  InboundMessage `json:"message"`
-	Raw      json.RawMessage `json:"raw,omitempty"`
+	ReferralURL string          `json:"referral_url,omitempty"`
+	Message     InboundMessage  `json:"message"`
+	Raw         json.RawMessage `json:"raw,omitempty"`
 }
 
 type MessagePersisted struct {
-	ConversationID string `json:"conversation_id"`
-	ContactID      string `json:"contact_id"`
-	MessageID      string `json:"message_id"`
-	Direction      string `json:"direction"`
-	SenderType     string `json:"sender_type"`
-	Type           string `json:"type"`
-	Body           string `json:"body"`
+	ConversationID  string  `json:"conversation_id"`
+	ContactID       string  `json:"contact_id"`
+	MessageID       string  `json:"message_id"`
+	Direction       string  `json:"direction"`
+	SenderType      string  `json:"sender_type"`
+	Type            string  `json:"type"`
+	Body            string  `json:"body"`
 	MediaURL        string  `json:"media_url,omitempty"`
 	Preview         string  `json:"preview"`
 	AssignedAgentID *string `json:"assigned_agent_id,omitempty"`
@@ -138,6 +138,7 @@ type ConversationUpdated struct {
 	StageID        string `json:"stage_id,omitempty"`
 	InterestLevel  string `json:"interest_level,omitempty"`
 	LostReason     string `json:"lost_reason,omitempty"`
+	SnoozedUntil   string `json:"snoozed_until,omitempty"` // RFC3339, set on snooze
 }
 
 type CmdAIDraftFollowup struct {
@@ -160,6 +161,7 @@ type AuditCreated struct {
 // gateway can also push it to the recipient's browser via FCM.
 type NotificationCreated struct {
 	UserID         string `json:"user_id"`
+	Type           string `json:"type,omitempty"` // snooze_due | snooze_reminder | follow_up | ...
 	Title          string `json:"title"`
 	Body           string `json:"body"`
 	ConversationID string `json:"conversation_id"`

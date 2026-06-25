@@ -81,7 +81,8 @@ func main() {
 
 	go a.runOutboxRelay(ctx)
 	go a.runFollowUpCron(ctx)
-	go a.runAggressiveNotifications(ctx)
+	// Agent-facing follow-up reminders (score-based) live in the conversation
+	// service's sweep, which routes through the real notification pipeline.
 
 	stop := make(chan os.Signal, 1)
 	signal.Notify(stop, syscall.SIGINT, syscall.SIGTERM)
@@ -381,7 +382,7 @@ func (a *app) runOutboxRelay(ctx context.Context) {
 }
 
 func (a *app) processOutbox(ctx context.Context) {
-	rows, err := a.st.pool.Query(ctx, 
+	rows, err := a.st.pool.Query(ctx,
 		`SELECT id, organization_id, topic, payload FROM outbox_events WHERE status = 'pending' ORDER BY created_at LIMIT 100`)
 	if err != nil {
 		return
@@ -396,7 +397,7 @@ func (a *app) processOutbox(ctx context.Context) {
 		if err := rows.Scan(&id, &orgID, &topic, &payload); err != nil {
 			continue
 		}
-		
+
 		var p events.MessagePersisted
 		if err := json.Unmarshal(payload, &p); err == nil {
 			if err := a.bus.Publish(topic, orgID, p); err == nil {
@@ -457,52 +458,10 @@ func (a *app) triggerFollowUps(ctx context.Context) {
 		if err != nil {
 			continue
 		}
-		
+
 		payload := events.CmdAIDraftFollowup{ConversationID: t.convID}
 		if err := a.bus.Publish(events.SubjectCmdAIDraftFollowup, t.orgID, payload); err != nil {
 			a.log.Warn("failed to trigger ai followup", "err", err, "conv", t.convID)
-		}
-	}
-}
-
-func (a *app) runAggressiveNotifications(ctx context.Context) {
-	ticker := time.NewTicker(5 * time.Minute)
-	defer ticker.Stop()
-	for {
-		select {
-		case <-ctx.Done():
-			return
-		case <-ticker.C:
-			a.triggerNotifications(ctx)
-		}
-	}
-}
-
-func (a *app) triggerNotifications(ctx context.Context) {
-	rows, err := a.st.pool.Query(ctx, `
-		SELECT id::text, organization_id::text
-		FROM conversations 
-		WHERE is_bot_active = false 
-		  AND status = 'open'
-		  AND last_contact_message_at < NOW() - INTERVAL '15 minutes'
-		  AND (last_agent_message_at IS NULL OR last_agent_message_at < last_contact_message_at)
-	`)
-	if err != nil {
-		a.log.Warn("failed to fetch unreplied leads for notif", "err", err)
-		return
-	}
-	defer rows.Close()
-
-	for rows.Next() {
-		var convID, orgID string
-		if err := rows.Scan(&convID, &orgID); err == nil {
-			payload := map[string]any{
-				"type":            "alert",
-				"title":           "Lead Pending Reply",
-				"body":            "A lead has been waiting for a reply for over 15 minutes!",
-				"conversation_id": convID,
-			}
-			_ = a.bus.Publish("events.notification.alert", orgID, payload)
 		}
 	}
 }

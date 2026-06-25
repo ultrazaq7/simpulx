@@ -99,7 +99,7 @@ class ConversationActionsController extends ChangeNotifier {
   }
 
   Future<bool> snooze(DateTime until) {
-    _inbox.patchLocal(conversationId, status: 'snoozed');
+    _inbox.patchLocal(conversationId, status: 'snoozed', snoozedUntil: until);
     return _run(() => _repo.snooze(conversationId, until));
   }
 

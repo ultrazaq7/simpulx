@@ -16,6 +16,22 @@ String formatListTime(DateTime? dt) {
   return DateFormat.yMd().format(local);
 }
 
+/// Compact "time left" until [until] for countdowns (snooze badge): "2h 15m",
+/// "45m", "<1m", or "due" once elapsed. Day-scale gaps collapse to "Nd".
+String formatTimeLeft(DateTime? until) {
+  if (until == null) return '';
+  final diff = until.toLocal().difference(DateTime.now());
+  if (diff.isNegative || diff.inSeconds <= 0) return 'due';
+  if (diff.inMinutes < 1) return '<1m';
+  if (diff.inHours < 1) return '${diff.inMinutes}m';
+  if (diff.inHours < 24) {
+    final m = diff.inMinutes.remainder(60);
+    return m > 0 ? '${diff.inHours}h ${m}m' : '${diff.inHours}h';
+  }
+  final h = diff.inHours.remainder(24);
+  return h > 0 ? '${diff.inDays}d ${h}h' : '${diff.inDays}d';
+}
+
 /// Clock time for a message bubble (HH:mm).
 String formatBubbleTime(DateTime dt) => DateFormat.Hm().format(dt.toLocal());
 

@@ -190,7 +190,8 @@ func (s *store) snooze(ctx context.Context, orgID, convID, actorID string, until
 	}
 	defer tx.Rollback(ctx)
 	if _, err = tx.Exec(ctx,
-		`UPDATE conversations SET status='snoozed', snoozed_until=$2::timestamptz, updated_at=now() WHERE id=$1`,
+		`UPDATE conversations SET status='snoozed', snoozed_until=$2::timestamptz,
+		   snooze_reminder_sent=false, updated_at=now() WHERE id=$1`,
 		convID, until); err != nil {
 		return err
 	}
@@ -246,4 +247,115 @@ func (s *store) addNotification(ctx context.Context, orgID, userID, typ, title, 
 		`INSERT INTO notifications (organization_id, user_id, type, title, body, conversation_id)
 		 VALUES ($1,$2::uuid,$3,$4,NULLIF($5,''),NULLIF($6,'')::uuid)`,
 		orgID, userID, typ, title, body, convID)
+}
+
+// ── Follow-up reminders (score + interest based) ────────────────────────────
+
+type followUpDue struct {
+	ConvID, OrgID string
+	AgentID       string
+	Contact       string
+	Tier          string // priority | medium
+	FreshWait     bool   // customer messaged after our last reminder -> reset cadence
+}
+
+// dueFollowUps returns open, human-handled leads whose assigned agent should be
+// nudged to follow up. Tiering: a "priority" lead (hot OR lead_score>=70) is
+// nudged after 30m of silence and re-nudged hourly (cap 4); a "medium" lead
+// (warm OR 40<=score<70) after 2h, re-nudged every 4h (cap 2). Reminders stop
+// once the agent replies (predicate), the lead closes/snoozes (status), or it
+// goes stale (>48h). A new customer message resets the cadence (FreshWait).
+func (s *store) dueFollowUps(ctx context.Context) ([]followUpDue, error) {
+	rows, err := s.pool.Query(ctx, `
+		SELECT cv.id::text, cv.organization_id::text, cv.assigned_agent_id::text,
+		       COALESCE(ct.full_name, ct.phone, 'a lead'),
+		       CASE WHEN (cv.interest_level='hot' OR cv.lead_score >= 70) THEN 'priority' ELSE 'medium' END,
+		       (cv.last_followup_notified_at IS NULL OR cv.last_contact_message_at > cv.last_followup_notified_at)
+		  FROM conversations cv JOIN contacts ct ON ct.id = cv.contact_id
+		 WHERE cv.status = 'open'
+		   AND cv.assigned_agent_id IS NOT NULL
+		   AND cv.last_contact_message_at IS NOT NULL
+		   AND cv.last_contact_message_at > now() - interval '48 hours'
+		   AND (cv.last_agent_message_at IS NULL OR cv.last_agent_message_at < cv.last_contact_message_at)
+		   AND (
+		        ( (cv.interest_level='hot' OR cv.lead_score >= 70)
+		          AND cv.last_contact_message_at < now() - interval '30 minutes'
+		          AND ( cv.last_followup_notified_at IS NULL
+		             OR cv.last_contact_message_at > cv.last_followup_notified_at
+		             OR (cv.followup_notify_count < 4 AND cv.last_followup_notified_at < now() - interval '60 minutes') ) )
+		     OR ( (cv.interest_level='warm' OR (cv.lead_score >= 40 AND cv.lead_score < 70))
+		          AND cv.last_contact_message_at < now() - interval '2 hours'
+		          AND ( cv.last_followup_notified_at IS NULL
+		             OR cv.last_contact_message_at > cv.last_followup_notified_at
+		             OR (cv.followup_notify_count < 2 AND cv.last_followup_notified_at < now() - interval '4 hours') ) )
+		   )
+		 LIMIT 200`)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+	var out []followUpDue
+	for rows.Next() {
+		var d followUpDue
+		if err := rows.Scan(&d.ConvID, &d.OrgID, &d.AgentID, &d.Contact, &d.Tier, &d.FreshWait); err != nil {
+			return nil, err
+		}
+		out = append(out, d)
+	}
+	return out, rows.Err()
+}
+
+// markFollowUpNotified records that a reminder was just sent. A fresh wait resets
+// the per-wait counter to 1; otherwise it increments.
+func (s *store) markFollowUpNotified(ctx context.Context, convID string, freshWait bool) {
+	if freshWait {
+		_, _ = s.pool.Exec(ctx,
+			`UPDATE conversations SET followup_notify_count=1, last_followup_notified_at=now() WHERE id=$1`, convID)
+		return
+	}
+	_, _ = s.pool.Exec(ctx,
+		`UPDATE conversations SET followup_notify_count=followup_notify_count+1, last_followup_notified_at=now() WHERE id=$1`,
+		convID)
+}
+
+// ── Snooze pre-expiry reminders ─────────────────────────────────────────────
+
+type snoozeReminderDue struct {
+	ConvID, OrgID string
+	AgentID       *string
+	Contact       string
+}
+
+// dueSnoozeReminders returns snoozed leads that reopen within ~10 minutes and
+// haven't been reminded yet (one-shot via snooze_reminder_sent).
+func (s *store) dueSnoozeReminders(ctx context.Context) ([]snoozeReminderDue, error) {
+	rows, err := s.pool.Query(ctx,
+		`SELECT cv.id::text, cv.organization_id::text, cv.assigned_agent_id::text,
+		        COALESCE(ct.full_name, ct.phone, 'a contact')
+		   FROM conversations cv LEFT JOIN contacts ct ON ct.id = cv.contact_id
+		  WHERE cv.status='snoozed' AND cv.snoozed_until IS NOT NULL
+		    AND cv.snooze_reminder_sent = false
+		    AND cv.assigned_agent_id IS NOT NULL
+		    AND cv.snoozed_until > now()
+		    AND cv.snoozed_until <= now() + interval '10 minutes'
+		  LIMIT 200`)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+	var out []snoozeReminderDue
+	for rows.Next() {
+		var d snoozeReminderDue
+		if err := rows.Scan(&d.ConvID, &d.OrgID, &d.AgentID, &d.Contact); err != nil {
+			return nil, err
+		}
+		out = append(out, d)
+	}
+	return out, rows.Err()
+}
+
+// markSnoozeReminded flips the one-shot flag so we don't re-remind every tick.
+func (s *store) markSnoozeReminded(ctx context.Context, convID string) {
+	_, _ = s.pool.Exec(ctx,
+		`UPDATE conversations SET snooze_reminder_sent=true WHERE id=$1`, convID)
 }

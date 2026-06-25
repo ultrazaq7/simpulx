@@ -65,12 +65,12 @@ func (s *server) initFCMPush(ctx context.Context) {
 		if err := json.Unmarshal(env.Data, &msg); err != nil {
 			return err
 		}
-		
+
 		// Only push to agents if it's an inbound message
 		if msg.Direction != "inbound" {
 			return nil
 		}
-		
+
 		var assignedAgentID *string
 		var contactName, contactPhone string
 
@@ -105,14 +105,14 @@ func (s *server) initFCMPush(ctx context.Context) {
 		if len(rows) == 0 {
 			return nil
 		}
-		
+
 		tokens := make([]string, 0, len(rows))
 		for _, r := range rows {
 			if t, ok := r["token"].(string); ok {
 				tokens = append(tokens, t)
 			}
 		}
-		
+
 		if len(tokens) == 0 {
 			return nil
 		}
@@ -121,7 +121,7 @@ func (s *server) initFCMPush(ctx context.Context) {
 		if bodyText == "" {
 			bodyText = "Sent a message"
 		}
-		
+
 		s.log.Info("Sending push notification", "to", len(tokens), "tokens", "mock", mockMode, "contact", contactName, "body", bodyText)
 
 		if mockMode || fcmClient == nil {
@@ -172,9 +172,13 @@ func (s *server) initFCMPush(ctx context.Context) {
 		if len(tokens) == 0 || mockMode || fcmClient == nil {
 			return nil
 		}
+		notifType := n.Type
+		if notifType == "" {
+			notifType = "notification"
+		}
 		_, err := fcmClient.SendEachForMulticast(ctx, &messaging.MulticastMessage{
 			Tokens:  tokens,
-			Data:    map[string]string{"title": n.Title, "body": n.Body, "conversationId": n.ConversationID, "type": "notification"},
+			Data:    map[string]string{"title": n.Title, "body": n.Body, "conversationId": n.ConversationID, "type": notifType},
 			Android: &messaging.AndroidConfig{Priority: "high"},
 		})
 		if err != nil {

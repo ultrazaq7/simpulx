@@ -39,6 +39,7 @@ enum NotificationCategory {
       case 'follow_up':
       case 'follow_up_reminder':
       case 'snooze_due':
+      case 'snooze_reminder':
         return NotificationCategory.followUp;
       case 'assignment':
       case 'assignment_change':

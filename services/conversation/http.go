@@ -97,7 +97,7 @@ func (a *app) handleSnooze(w http.ResponseWriter, r *http.Request) {
 	// Broadcast so every connected client (mobile inbox + web dashboard) reflects
 	// the snooze in real time instead of waiting for a manual refresh.
 	_ = a.bus.Publish(events.SubjectConversationUpdated, meta.OrgID, events.ConversationUpdated{
-		ConversationID: convID, Status: "snoozed",
+		ConversationID: convID, Status: "snoozed", SnoozedUntil: body.Until,
 	})
 	writeJSON(w, map[string]any{"status": "snoozed"})
 }

@@ -221,6 +221,9 @@ func (s *store) insertInbound(ctx context.Context, orgID, convID, msgType, body,
 		        unread_count = unread_count + 1,
 		        status = CASE WHEN status = 'snoozed' THEN 'open' ELSE status END,
 		        snoozed_until = CASE WHEN status = 'snoozed' THEN NULL ELSE snoozed_until END,
+		        -- A fresh customer message restarts the follow-up reminder cadence.
+		        followup_notify_count = 0,
+		        last_followup_notified_at = NULL,
 		        updated_at = now()
 		  WHERE id = $1 RETURNING assigned_agent_id`,
 		convID, previewText,
@@ -265,7 +268,7 @@ func (s *store) insertOutbound(ctx context.Context, orgID, convID, senderType, s
 	if senderID != "" {
 		sid = senderID
 	}
-	
+
 	if externalID != "" {
 		var exists string
 		err = tx.QueryRow(ctx, "SELECT id FROM messages WHERE organization_id = $1 AND external_id = $2 LIMIT 1", orgID, externalID).Scan(&exists)
@@ -282,7 +285,7 @@ func (s *store) insertOutbound(ctx context.Context, orgID, convID, senderType, s
 		 RETURNING id`,
 		orgID, convID, senderType, sid, msgType, body, mediaURL, externalID, status,
 	).Scan(&msgID)
-	
+
 	if err != nil {
 		return "", err
 	}
@@ -527,7 +530,7 @@ func (s *store) routeToCampaign(ctx context.Context, campaignID string, convID s
 	if campaignID == "" {
 		return
 	}
-	
+
 	tx, err := s.pool.Begin(ctx)
 	if err != nil {
 		return
@@ -564,18 +567,18 @@ func (s *store) routeToCampaign(ctx context.Context, campaignID string, convID s
 		  ORDER BY (SELECT count(*) FROM conversations cc WHERE cc.assigned_agent_id=ca.user_id AND cc.status<>'closed') ASC, ca.user_id
 		  LIMIT 1`,
 		campaignID).Scan(&assignedAgent)
-	
+
 	if err == nil && assignedAgent != "" {
 		tag, err := tx.Exec(ctx,
 			`UPDATE conversations 
 			 SET campaign_id = $1, assigned_agent_id = $2, updated_at = now() 
 			 WHERE id = $3 AND campaign_id IS NULL`,
 			campaignID, assignedAgent, convID)
-		
+
 		// Only advance cursor if we actually updated the row (i.e. campaign_id was NULL)
 		if err == nil && tag.RowsAffected() > 0 {
 			_, _ = tx.Exec(ctx, `UPDATE campaigns SET rr_cursor = rr_cursor + 1, lead_count = lead_count + 1 WHERE id = $1`, campaignID)
-			
+
 			// 6.1 Audit Trail Event Sourcing
 			_, _ = tx.Exec(ctx, `
 				INSERT INTO conversation_events (organization_id, conversation_id, type, actor_type, detail)

@@ -1,3 +1,5 @@
+import 'dart:async';
+
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
@@ -302,21 +304,48 @@ class _AssigneeChip extends StatelessWidget {
 }
 
 /// Closed / Snoozed status pill, so an inactive lead stays in the inbox but is
-/// clearly marked instead of looking identical to an open chat.
-class _StatusChip extends StatelessWidget {
+/// clearly marked instead of looking identical to an open chat. The snoozed
+/// variant shows a live countdown that ticks down each minute while visible.
+class _StatusChip extends StatefulWidget {
   const _StatusChip({required this.status, this.until});
   final String status;
   final DateTime? until;
 
   @override
+  State<_StatusChip> createState() => _StatusChipState();
+}
+
+class _StatusChipState extends State<_StatusChip> {
+  Timer? _ticker;
+
+  @override
+  void initState() {
+    super.initState();
+    if (widget.status == 'snoozed' && widget.until != null) {
+      // Refresh the "time left" label about once a minute (hour-scale snoozes
+      // don't need per-second updates).
+      _ticker = Timer.periodic(const Duration(seconds: 30), (_) {
+        if (mounted) setState(() {});
+      });
+    }
+  }
+
+  @override
+  void dispose() {
+    _ticker?.cancel();
+    super.dispose();
+  }
+
+  @override
   Widget build(BuildContext context) {
-    final isSnoozed = status == 'snoozed';
+    final isSnoozed = widget.status == 'snoozed';
     final color = isSnoozed ? AppColors.warning : AppColors.textMuted;
     final icon =
         isSnoozed ? Icons.snooze_rounded : Icons.check_circle_outline_rounded;
     var label = isSnoozed ? 'Snoozed' : 'Closed';
-    if (isSnoozed && until != null) {
-      label = 'Snoozed ${formatListTime(until)}';
+    if (isSnoozed && widget.until != null) {
+      final left = formatTimeLeft(widget.until);
+      label = left == 'due' ? 'Reopening' : 'Snoozed · $left left';
     }
     return Container(
       padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 2),

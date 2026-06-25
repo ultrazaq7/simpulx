@@ -83,6 +83,7 @@ class Conversation extends Equatable {
     String? interestLevel,
     String? stageName,
     bool? isBotActive,
+    DateTime? snoozedUntil,
   }) {
     return Conversation(
       id: id,
@@ -102,7 +103,7 @@ class Conversation extends Equatable {
       leadScore: leadScore,
       suggestedAction: suggestedAction,
       isBotActive: isBotActive ?? this.isBotActive,
-      snoozedUntil: snoozedUntil,
+      snoozedUntil: snoozedUntil ?? this.snoozedUntil,
     );
   }
 
