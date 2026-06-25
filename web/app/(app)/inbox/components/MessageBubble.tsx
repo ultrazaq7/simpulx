@@ -468,8 +468,8 @@ const MessageBubble = memo(function MessageBubble({ m, active, grouped, onPrevie
 
           {/* ── Text body ── */}
           {m.body && (
-            <div className="px-2.5 py-1.5 pb-2">
-              <span className="whitespace-pre-wrap break-words text-[13px] leading-[1.4] text-inherit align-top">{m.body}</span>
+            <div className="px-2.5 py-1.5 pb-2 min-w-0">
+              <div className="whitespace-pre-wrap break-all text-[13px] leading-[1.4] text-inherit align-top inline">{m.body}</div>
               <span className="inline-flex items-center gap-1 ml-5 float-right translate-y-[5px]">
                 <span className={cn("text-[10px]", out ? "text-white/70" : "text-muted-foreground")}>{fmtTime(m.created_at)}</span>
                 {out && <StatusIcon status={m.status} />}
