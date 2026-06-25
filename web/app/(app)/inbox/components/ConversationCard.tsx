@@ -67,18 +67,19 @@ const ConversationCard = memo(function ConversationCard({
     <div
       onClick={onClick}
       className={cn(
-        "group relative flex gap-3 pl-4 pr-3 py-3 cursor-pointer border-b border-border/40 transition-colors duration-100",
+        "group relative flex gap-3.5 pl-4 pr-3 py-4 cursor-pointer border-b border-border/40 transition-colors duration-100",
         isActive ? "bg-primary/[0.06]" : "hover:bg-muted/40",
       )}
     >
 
-      {/* Avatar (solid channel color) + channel icon badge */}
+      {/* Avatar (darkened channel color) + channel icon badge */}
       <div className="relative shrink-0 self-start mt-0.5">
         <div
-          className="w-11 h-11 rounded-full grid place-items-center text-[15px] font-bold shadow-sm"
+          className="w-11 h-11 rounded-full grid place-items-center text-[15px] font-bold shadow-sm relative overflow-hidden"
           style={{ backgroundColor: cc, color: "#ffffff" }}
         >
-          {initials(c.contact_name || c.contact_phone)}
+          <div className="absolute inset-0 bg-black/20 pointer-events-none" />
+          <span className="relative z-10">{initials(c.contact_name || c.contact_phone)}</span>
         </div>
         {/* Channel icon badge at bottom-right with Tooltip */}
         <Tip label={channelName || c.channel} side="top">
@@ -120,8 +121,8 @@ const ConversationCard = memo(function ConversationCard({
           </div>
         </div>
 
-        {/* Line 2: preview (full text on hover) + one urgent signal + unread count */}
-        <div className="flex items-center gap-1.5 mt-1.5">
+        {/* Line 2: preview (full text on hover) + unread count */}
+        <div className="flex items-center gap-1.5 mt-2">
           <Tip label={<span className="block max-w-[300px] whitespace-pre-wrap leading-snug text-left text-[12px]">{previewFull}</span>} side="bottom" align="start">
             <span className={cn(
               "flex-1 min-w-0 truncate text-[12px] leading-snug",
@@ -144,7 +145,7 @@ const ConversationCard = memo(function ConversationCard({
 
         {/* Line 3: interest badge + agent + campaign */}
         {hasMeta && (
-          <div className="flex items-center gap-1.5 min-w-0 mt-2">
+          <div className="flex items-center gap-1.5 min-w-0 mt-2.5">
             {interest && (
               <span className={cn(
                 "inline-flex items-center gap-1 h-[20px] px-2 rounded-full text-[11px] font-semibold shrink-0",
