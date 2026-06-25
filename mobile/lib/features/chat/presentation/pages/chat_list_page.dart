@@ -4,6 +4,7 @@ import 'package:go_router/go_router.dart';
 
 import '../../../../app/theme/app_colors.dart';
 import '../../../../core/error/failure.dart';
+import '../../../../core/i18n/i18n.dart';
 import '../../../../core/realtime/realtime_client.dart';
 import '../../../../core/realtime/realtime_providers.dart';
 import '../../../../core/widgets/app_empty_state.dart';
@@ -264,7 +265,7 @@ class _ChatListPageState extends ConsumerState<ChatListPage> {
 
     return Scaffold(
       appBar: AppBar(
-        title: const Text('Chats'),
+        title: Text('Chats'.tr(context)),
         actions: [
           const _RealtimeDot(),
           IconButton(
@@ -447,10 +448,12 @@ class _ChatListPageState extends ConsumerState<ChatListPage> {
                         icon: _query.isEmpty
                             ? Icons.forum_outlined
                             : Icons.search_off_rounded,
-                        title: _query.isEmpty ? 'No conversations' : 'No matches',
-                        message: _query.isEmpty
-                            ? 'New leads and chats will appear here.'
-                            : 'Try a different name or number.',
+                        title: (_query.isEmpty ? 'No conversations' : 'No matches')
+                            .tr(context),
+                        message: (_query.isEmpty
+                                ? 'New leads and chats will appear here.'
+                                : 'Try a different name or number.')
+                            .tr(context),
                       ),
                     ],
                   )
@@ -509,9 +512,9 @@ class _ArchivedRow extends StatelessWidget {
                   color: AppColors.textSecondary, size: 24),
             ),
             const SizedBox(width: 12),
-            const Expanded(
-              child: Text('Archived',
-                  style: TextStyle(
+            Expanded(
+              child: Text('Archived'.tr(context),
+                  style: const TextStyle(
                       fontSize: 15, fontWeight: FontWeight.w600)),
             ),
             Text('$count',
@@ -616,7 +619,7 @@ class _FilterChip extends StatelessWidget {
           child: Padding(
             padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 6),
             child: Text(
-              label,
+              label.tr(context),
               style: TextStyle(
                 fontSize: 13,
                 fontWeight: FontWeight.w600,
