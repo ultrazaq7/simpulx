@@ -2,8 +2,10 @@
 import { memo } from "react";
 import {
   Image as ImageIcon, Video, FileText, Headset, Zap, Clock, Phone, Sticker, Mic, User,
+  Flame, Thermometer, Snowflake,
 } from "lucide-react";
 import { initials, channelColor, channelTextColor, relTime, cn } from "@/lib/utils";
+import { channelMeta } from "@/components/ChannelIcon";
 import { Tip } from "@/components/ui/tooltip";
 import type { Conversation, Message } from "@/lib/types";
 
@@ -15,7 +17,6 @@ interface ConversationCardProps {
   messages?: Message[]; // only for active conv to determine last responder
   showAgent?: boolean;  // manager/admin: show the assigned agent
   channelName?: string; // display name of the channel (e.g. "Simpulx Test Channel")
-  dense?: boolean;      // compact density mode (tighter rows)
 }
 
 const PREVIEW_MEDIA: Record<string, { icon: any; label: string }> = {
@@ -26,12 +27,15 @@ const PREVIEW_MEDIA: Record<string, { icon: any; label: string }> = {
   "[audio]": { icon: Mic, label: "Voice message" },
 };
 
-// Lead temperature -> the avatar status dot (replaces the channel dot).
-const TEMP_DOT: Record<string, string> = { hot: "bg-hot", warm: "bg-warm", cold: "bg-cold" };
-const TEMP_LABEL: Record<string, string> = { hot: "Hot", warm: "Warm", cold: "Cold" };
+// Interest level → styled pill badge
+const INTEREST_BADGE: Record<string, { label: string; icon: any; bg: string; text: string }> = {
+  hot:  { label: "Hot",  icon: Flame,       bg: "bg-red-500/10",    text: "text-red-600" },
+  warm: { label: "Warm", icon: Thermometer,  bg: "bg-amber-500/10",  text: "text-amber-600" },
+  cold: { label: "Cold", icon: Snowflake,    bg: "bg-sky-500/10",    text: "text-sky-600" },
+};
 
 const ConversationCard = memo(function ConversationCard({
-  conv: c, isActive, onClick, messages, showAgent, channelName, dense,
+  conv: c, isActive, onClick, messages, showAgent, channelName,
 }: ConversationCardProps) {
   const agentReplied = (() => {
     if (isActive && messages && messages.length > 0) {
@@ -50,24 +54,25 @@ const ConversationCard = memo(function ConversationCard({
     return Date.now() - new Date(c.last_message_at).getTime() > 24 * 60 * 60 * 1000;
   })();
 
-  const temp = c.interest_level && TEMP_DOT[c.interest_level] ? c.interest_level : null;
+  const interest = c.interest_level && INTEREST_BADGE[c.interest_level] ? INTEREST_BADGE[c.interest_level] : null;
 
   const media = c.last_message_preview ? PREVIEW_MEDIA[c.last_message_preview] : undefined;
   const previewFull = media ? media.label : (c.last_message_preview || "No messages yet");
   const cc = channelColor(c.channel);
-  const hasMeta = !!c.campaign_name || (showAgent && !!c.agent_name);
+  const cm = channelMeta(c.channel);
+  const ChannelSvg = cm.icon;
+  const hasMeta = !!c.campaign_name || (showAgent && !!c.agent_name) || !!interest;
 
   return (
     <div
       onClick={onClick}
       className={cn(
-        "group relative flex gap-3 pl-4 pr-3 cursor-pointer border-b border-border/40 transition-colors duration-100",
-        dense ? "py-2" : "py-3",
+        "group relative flex gap-3 pl-4 pr-3 py-3 cursor-pointer border-b border-border/40 transition-colors duration-100",
         isActive ? "bg-primary/[0.06]" : "hover:bg-muted/40",
       )}
     >
 
-      {/* Avatar (channel tint) + temperature dot — top-left, aligned with the name */}
+      {/* Avatar (channel tint) + channel icon badge */}
       <div className="relative shrink-0 self-start mt-0.5">
         <Tip label={channelName || c.channel} side="top">
           <div
@@ -77,11 +82,13 @@ const ConversationCard = memo(function ConversationCard({
             {initials(c.contact_name || c.contact_phone)}
           </div>
         </Tip>
-        {temp && (
-          <Tip label={TEMP_LABEL[temp]} side="top">
-            <span className={cn("absolute -bottom-0.5 -right-0.5 w-[11px] h-[11px] rounded-full ring-[2.5px] ring-card", TEMP_DOT[temp])} />
-          </Tip>
-        )}
+        {/* Channel icon badge at bottom-right */}
+        <span
+          className="absolute -bottom-0.5 -right-0.5 w-[15px] h-[15px] rounded-full ring-[2px] ring-card grid place-items-center"
+          style={{ background: cm.gradient ?? cm.color }}
+        >
+          <ChannelSvg className="w-[9px] h-[9px] text-white" />
+        </span>
       </div>
 
       {/* Text */}
@@ -105,7 +112,7 @@ const ConversationCard = memo(function ConversationCard({
         </div>
 
         {/* Line 2: preview (full text on hover) + one urgent signal + unread count */}
-        <div className={cn("flex items-center gap-1.5", dense ? "mt-1" : "mt-1.5")}>
+        <div className="flex items-center gap-1.5 mt-1.5">
           <Tip label={<span className="block max-w-[300px] whitespace-pre-wrap leading-snug text-left text-[12px]">{previewFull}</span>} side="bottom" align="start">
             <span className={cn(
               "flex-1 min-w-0 truncate text-[12px] leading-snug",
@@ -133,9 +140,18 @@ const ConversationCard = memo(function ConversationCard({
           )}
         </div>
 
-        {/* Line 3: agent (left) + campaign (right) — full names */}
+        {/* Line 3: interest badge + agent + campaign */}
         {hasMeta && (
-          <div className={cn("flex items-center gap-1.5 min-w-0", dense ? "mt-1" : "mt-2")}>
+          <div className="flex items-center gap-1.5 min-w-0 mt-2">
+            {interest && (
+              <span className={cn(
+                "inline-flex items-center gap-1 h-[20px] px-2 rounded-full text-[11px] font-semibold shrink-0",
+                interest.bg, interest.text,
+              )}>
+                <interest.icon className="w-3 h-3" />
+                {interest.label}
+              </span>
+            )}
             {showAgent && c.agent_name && (
               <Tip label={`Assigned: ${c.agent_name}`} side="top">
                 <span className="inline-flex items-center gap-1 h-[19px] px-1.5 rounded-md bg-muted text-foreground/70 text-[11px] font-medium truncate min-w-0 max-w-[55%]">

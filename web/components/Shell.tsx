@@ -395,10 +395,11 @@ export function Shell({ children }: { children: ReactNode }) {
               </span>
             )}
             <Icon
-              strokeWidth={active ? 2 : 1.75}
+              strokeWidth={active ? 2.25 : 1.75}
+              fill="none"
               className={cn(
-                "w-[20px] h-[20px] transition-colors duration-200",
-                active ? "text-primary" : "text-muted-foreground group-hover:text-foreground"
+                "w-[20px] h-[20px] transition-all duration-200",
+                active ? "text-primary scale-110" : "text-muted-foreground group-hover:text-foreground"
               )}
             />
           </div>
