@@ -396,10 +396,9 @@ export function Shell({ children }: { children: ReactNode }) {
             )}
             <Icon
               strokeWidth={active ? 2.25 : 1.75}
-              fill="none"
               className={cn(
                 "w-[20px] h-[20px] transition-all duration-200",
-                active ? "text-primary scale-110" : "text-muted-foreground group-hover:text-foreground"
+                active ? "text-primary scale-110 fill-primary/20" : "text-muted-foreground group-hover:text-foreground fill-transparent"
               )}
             />
           </div>

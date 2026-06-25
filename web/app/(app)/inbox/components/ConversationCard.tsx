@@ -27,11 +27,11 @@ const PREVIEW_MEDIA: Record<string, { icon: any; label: string }> = {
   "[audio]": { icon: Mic, label: "Voice message" },
 };
 
-// Interest level → styled pill badge
+// Interest level → styled pill badge (solid deep colors)
 const INTEREST_BADGE: Record<string, { label: string; icon: any; bg: string; text: string }> = {
-  hot:  { label: "Hot",  icon: Flame,       bg: "bg-red-500/10",    text: "text-red-600" },
-  warm: { label: "Warm", icon: Thermometer,  bg: "bg-amber-500/10",  text: "text-amber-600" },
-  cold: { label: "Cold", icon: Snowflake,    bg: "bg-sky-500/10",    text: "text-sky-600" },
+  hot:  { label: "Hot",  icon: Flame,       bg: "bg-hot",    text: "text-white" },
+  warm: { label: "Warm", icon: Thermometer, bg: "bg-amber-500", text: "text-white" },
+  cold: { label: "Cold", icon: Snowflake,   bg: "bg-cold",   text: "text-white" },
 };
 
 const ConversationCard = memo(function ConversationCard({
@@ -72,43 +72,52 @@ const ConversationCard = memo(function ConversationCard({
       )}
     >
 
-      {/* Avatar (channel tint) + channel icon badge */}
+      {/* Avatar (solid channel color) + channel icon badge */}
       <div className="relative shrink-0 self-start mt-0.5">
-        <Tip label={channelName || c.channel} side="top">
-          <div
-            className="w-9 h-9 rounded-full grid place-items-center text-[13px] font-semibold"
-            style={{ backgroundColor: cc + "14", color: channelTextColor(c.channel) }}
-          >
-            {initials(c.contact_name || c.contact_phone)}
-          </div>
-        </Tip>
-        {/* Channel icon badge at bottom-right */}
-        <span
-          className="absolute -bottom-0.5 -right-0.5 w-[15px] h-[15px] rounded-full ring-[2px] ring-card grid place-items-center"
-          style={{ background: cm.gradient ?? cm.color }}
+        <div
+          className="w-11 h-11 rounded-full grid place-items-center text-[15px] font-bold shadow-sm"
+          style={{ backgroundColor: cc, color: "#ffffff" }}
         >
-          <ChannelSvg className="w-[9px] h-[9px] text-white" />
-        </span>
+          {initials(c.contact_name || c.contact_phone)}
+        </div>
+        {/* Channel icon badge at bottom-right with Tooltip */}
+        <Tip label={channelName || c.channel} side="top">
+          <span
+            className="absolute -bottom-1 -right-1 w-[18px] h-[18px] rounded-full ring-[2.5px] ring-card grid place-items-center cursor-default"
+            style={{ background: cm.gradient ?? cm.color }}
+          >
+            <ChannelSvg className="w-[10px] h-[10px] text-white" />
+          </span>
+        </Tip>
       </div>
 
       {/* Text */}
       <div className="flex-1 min-w-0">
-        {/* Line 1: name + time */}
-        <div className="flex items-baseline gap-2">
+        {/* Line 1: name + urgent signals + time */}
+        <div className="flex items-center gap-2">
           <p className={cn(
-            "flex-1 truncate text-[14px] leading-snug",
+            "flex-1 truncate text-[14.5px] leading-snug",
             unread ? "font-semibold text-foreground" : "font-medium text-foreground/90",
           )}>
             {c.contact_name || c.contact_phone || "Unknown"}
           </p>
-          {time && (
-            <span className={cn(
-              "shrink-0 text-[11px] tabular-nums",
-              unread ? "text-primary-text font-semibold" : "text-muted-foreground",
-            )}>
-              {time}
-            </span>
-          )}
+          <div className="flex items-center gap-1.5 shrink-0">
+            {needsCall ? (
+              <Tip label="Call this hot lead" side="top"><Phone className="w-3.5 h-3.5 text-info" /></Tip>
+            ) : needsFollowUp ? (
+              <Tip label="Follow up now" side="top"><Zap className="w-3.5 h-3.5 text-warm" /></Tip>
+            ) : windowExpired ? (
+              <Tip label="24h window closed" side="top"><Clock className="w-3.5 h-3.5 text-hot" /></Tip>
+            ) : null}
+            {time && (
+              <span className={cn(
+                "text-[11px] tabular-nums",
+                unread ? "text-primary-text font-semibold" : "text-muted-foreground",
+              )}>
+                {time}
+              </span>
+            )}
+          </div>
         </div>
 
         {/* Line 2: preview (full text on hover) + one urgent signal + unread count */}
@@ -126,15 +135,8 @@ const ConversationCard = memo(function ConversationCard({
               )}
             </span>
           </Tip>
-          {needsCall ? (
-            <Tip label="Call this hot lead" side="top"><Phone className="w-3.5 h-3.5 text-info shrink-0" /></Tip>
-          ) : needsFollowUp ? (
-            <Tip label="Follow up now" side="top"><Zap className="w-3.5 h-3.5 text-warm shrink-0" /></Tip>
-          ) : windowExpired ? (
-            <Tip label="24h window closed" side="top"><Clock className="w-3.5 h-3.5 text-hot shrink-0" /></Tip>
-          ) : null}
           {unread && (
-            <span className="shrink-0 min-w-[18px] h-[18px] px-1.5 rounded-full bg-primary text-primary-foreground text-[10px] font-semibold grid place-items-center tabular-nums animate-unread">
+            <span className="shrink-0 min-w-[18px] h-[18px] px-1.5 rounded-full bg-primary text-primary-foreground text-[10px] font-semibold grid place-items-center tabular-nums animate-unread ml-1">
               {c.unread_count > 99 ? "99+" : c.unread_count}
             </span>
           )}
