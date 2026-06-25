@@ -1,6 +1,6 @@
 "use client";
 import { api } from "@/lib/api";
-import { getMessagingClient, getToken, onMessage, VAPID_KEY } from "@/lib/firebase";
+import { getMessagingClient, getToken, deleteToken, onMessage, VAPID_KEY } from "@/lib/firebase";
 
 let registered = false;
 
@@ -41,4 +41,23 @@ export async function registerPush(onForeground?: () => void) {
       } catch { /* ignore */ }
     });
   } catch { /* best effort */ }
+}
+
+// unregisterPush removes this browser's FCM token on logout — both server-side
+// (so the gateway stops pushing) and client-side (invalidate the token) — so a
+// logged-out tab never receives notifications. Best-effort.
+export async function unregisterPush() {
+  if (typeof window === "undefined" || !VAPID_KEY) return;
+  try {
+    const messaging = await getMessagingClient();
+    if (!messaging) return;
+    const swReg = await navigator.serviceWorker.getRegistration("/firebase-messaging-sw.js");
+    const token = await getToken(messaging, {
+      vapidKey: VAPID_KEY,
+      serviceWorkerRegistration: swReg || undefined,
+    }).catch(() => null);
+    if (token) await api.unregisterFCMToken(token).catch(() => {});
+    await deleteToken(messaging).catch(() => {});
+  } catch { /* best effort */ }
+  registered = false;
 }

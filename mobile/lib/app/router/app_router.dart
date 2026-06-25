@@ -7,6 +7,7 @@ import '../../core/session/session_controller.dart';
 import '../../features/auth/presentation/pages/forgot_password_page.dart';
 import '../../features/auth/presentation/pages/login_page.dart';
 import '../../features/auth/presentation/pages/reset_password_page.dart';
+import '../../features/calls/domain/call_session.dart';
 import '../../features/calls/presentation/call_controller.dart';
 import '../../features/chat/domain/entities/conversation.dart';
 import '../../features/chat/presentation/pages/chat_list_page.dart';
@@ -239,12 +240,38 @@ class _CallRoutePageState extends ConsumerState<_CallRoutePage> {
       contactPhone: contactPhone,
       callId: callId,
     );
+
+    // If no live call materialised (e.g. it already ended/was declined before we
+    // got here), don't sit on the "Setting up call..." placeholder.
+    if (mounted && ref.read(callControllerProvider) == null) {
+      _leave();
+    }
+  }
+
+  /// Remove this setup placeholder. The global CallOverlay owns the actual call
+  /// UI, so once the call is gone there's nothing for this route to show.
+  void _leave() {
+    if (!mounted) return;
+    if (context.canPop()) {
+      context.pop();
+    } else {
+      context.go(Routes.chat);
+    }
   }
 
   @override
   Widget build(BuildContext context) {
-    // Show a loading screen while setting up the call
-    // The CallOverlay will appear once session is ready
+    // The CallOverlay renders the real call UI on top of everything; this route
+    // is only a setup placeholder. Pop it the moment the call ends, fails, or is
+    // cleared, so we never get stuck on "Setting up call..." after end/decline.
+    ref.listen<CallSession?>(callControllerProvider, (prev, next) {
+      final over = next == null ||
+          next.phase == CallPhase.ended ||
+          next.phase == CallPhase.failed;
+      if (over) {
+        WidgetsBinding.instance.addPostFrameCallback((_) => _leave());
+      }
+    });
     return const Scaffold(
       body: Center(
         child: Column(

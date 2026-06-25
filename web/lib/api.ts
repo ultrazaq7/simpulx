@@ -277,6 +277,8 @@ export const api = {
     req(`/api/conversations/${id}/snooze`, { method: "POST", body: JSON.stringify({ until }) }),
   registerFCMToken: (token: string, platform = "web") =>
     req("/api/users/fcm-token", { method: "POST", body: JSON.stringify({ token, platform }) }),
+  unregisterFCMToken: (token: string) =>
+    req("/api/users/fcm-token", { method: "DELETE", body: JSON.stringify({ token }) }),
   listNotifications: () => req<{ notifications: AppNotification[]; unread: number }>("/api/notifications"),
   markNotificationsRead: (id?: string) =>
     req("/api/notifications/read", { method: "POST", body: JSON.stringify(id ? { id } : {}) }),

@@ -1,11 +1,8 @@
 import 'dart:async';
-import 'dart:io';
 
 import 'package:camera/camera.dart';
 import 'package:flutter/material.dart';
 import 'package:go_router/go_router.dart';
-import 'package:photo_manager/photo_manager.dart';
-import 'package:photo_manager_image_provider/photo_manager_image_provider.dart';
 
 import '../../domain/entities/message.dart';
 
@@ -23,13 +20,10 @@ class _CustomCameraPageState extends State<CustomCameraPage> {
   bool _isInitialized = false;
   int _currentCameraIdx = 0;
 
-  List<AssetEntity> _recentMedia = [];
-
   @override
   void initState() {
     super.initState();
     _initCamera();
-    _fetchRecentMedia();
   }
 
   Future<void> _initCamera() async {
@@ -67,24 +61,6 @@ class _CustomCameraPageState extends State<CustomCameraPage> {
     if (_cameras.length < 2) return;
     _currentCameraIdx = (_currentCameraIdx + 1) % _cameras.length;
     _setCamera(_cameras[_currentCameraIdx]);
-  }
-
-  Future<void> _fetchRecentMedia() async {
-    final PermissionState ps = await PhotoManager.requestPermissionExtend();
-    if (ps.isAuth) {
-      List<AssetPathEntity> albums = await PhotoManager.getAssetPathList(
-        onlyAll: true,
-        type: RequestType.image | RequestType.video,
-      );
-      if (albums.isNotEmpty) {
-        final media = await albums.first.getAssetListPaged(page: 0, size: 30);
-        if (mounted) {
-          setState(() {
-            _recentMedia = media;
-          });
-        }
-      }
-    }
   }
 
   Future<void> _takePhoto() async {
@@ -173,42 +149,8 @@ class _CustomCameraPageState extends State<CustomCameraPage> {
             child: Column(
               mainAxisSize: MainAxisSize.min,
               children: [
-                // Gallery Reel
-                if (_recentMedia.isNotEmpty && !_isRecording)
-                  SizedBox(
-                    height: 80,
-                    child: ListView.builder(
-                      scrollDirection: Axis.horizontal,
-                      padding: const EdgeInsets.symmetric(horizontal: 16),
-                      itemCount: _recentMedia.length,
-                      itemBuilder: (context, index) {
-                        final asset = _recentMedia[index];
-                        return GestureDetector(
-                          onTap: () async {
-                            final file = await asset.file;
-                            if (file != null && context.mounted) {
-                               final isVideo = asset.type == AssetType.video;
-                               context.pop({'path': file.path, 'type': isVideo ? MessageType.video : MessageType.image});
-                            }
-                          },
-                          child: Container(
-                            width: 80,
-                            margin: const EdgeInsets.only(right: 8),
-                            color: Colors.grey[900],
-                            child: AssetEntityImage(
-                              asset,
-                              isOriginal: false,
-                              thumbnailSize: const ThumbnailSize.square(200),
-                              fit: BoxFit.cover,
-                            ),
-                          ),
-                        );
-                      },
-                    ),
-                  ),
-                  
                 const SizedBox(height: 16),
-                
+
                 // Shutter and actions
                 Padding(
                   padding: const EdgeInsets.only(bottom: 40, left: 32, right: 32),

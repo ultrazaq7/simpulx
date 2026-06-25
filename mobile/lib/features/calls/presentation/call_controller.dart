@@ -3,6 +3,7 @@ import 'dart:async';
 import 'package:flutter/foundation.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:record/record.dart';
 
 import '../../../core/error/app_exception.dart';
 import '../../../core/providers/app_providers.dart';
@@ -78,6 +79,10 @@ class CallController extends Notifier<CallSession?> {
       // callId not set yet - will be called again after permission granted
       return;
     }
+    if (!await _ensureMicPermission()) {
+      _fail('Microphone permission is required to call');
+      return;
+    }
     try {
       state = s.copyWith(phase: CallPhase.ringing, message: 'Calling...');
       final offer = await _rtc!.createOffer();
@@ -130,9 +135,26 @@ class CallController extends Notifier<CallSession?> {
     );
   }
 
+  /// Ensure the OS microphone permission is granted, prompting if it hasn't been
+  /// decided yet. Reuses the `record` plugin (already a dependency) so we don't
+  /// hit a raw getUserMedia failure mid-answer when the user never granted it.
+  Future<bool> _ensureMicPermission() async {
+    try {
+      return await AudioRecorder().hasPermission();
+    } catch (_) {
+      return false;
+    }
+  }
+
   Future<void> acceptIncoming() async {
     final s = state;
     if (s == null || !s.inbound || s.pendingOffer == null || _rtc == null) {
+      return;
+    }
+    // Auto-detect & request mic access before answering so the WebRTC layer
+    // never throws on a missing permission.
+    if (!await _ensureMicPermission()) {
+      _fail('Microphone permission is required to answer');
       return;
     }
     try {

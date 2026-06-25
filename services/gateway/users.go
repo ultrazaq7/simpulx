@@ -502,3 +502,23 @@ func (s *server) handleRegisterFCMToken(w http.ResponseWriter, r *http.Request) 
 	}
 	writeJSON(w, map[string]any{"status": "registered"})
 }
+
+// DELETE /api/users/fcm-token {token}
+// Called on logout so the backend immediately stops pushing to a device/browser
+// that no longer has an authenticated session.
+func (s *server) handleUnregisterFCMToken(w http.ResponseWriter, r *http.Request) {
+	a, _ := authFrom(r.Context())
+	var b struct {
+		Token string `json:"token"`
+	}
+	if err := json.NewDecoder(r.Body).Decode(&b); err != nil || b.Token == "" {
+		http.Error(w, "token required", http.StatusBadRequest)
+		return
+	}
+	if _, err := s.pool.Exec(r.Context(),
+		`DELETE FROM fcm_tokens WHERE user_id=$1 AND token=$2`, a.UserID, b.Token); err != nil {
+		http.Error(w, err.Error(), http.StatusInternalServerError)
+		return
+	}
+	writeJSON(w, map[string]any{"status": "unregistered"})
+}

@@ -79,6 +79,18 @@ class AuthRemoteDataSource {
     }
   }
 
+  /// DELETE /api/users/fcm-token {token} — unregister on logout.
+  Future<void> unregisterFcmToken({required String token}) async {
+    try {
+      await _dio.delete(
+        ApiEndpoints.fcmToken,
+        data: {'token': token},
+      );
+    } on DioException catch (e) {
+      throw ErrorMapper.fromDio(e);
+    }
+  }
+
   /// POST /auth/forgot-password {email}.
   Future<void> forgotPassword(String email) async {
     try {

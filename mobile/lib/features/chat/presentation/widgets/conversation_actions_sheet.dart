@@ -43,7 +43,6 @@ class _ActionsSheet extends ConsumerWidget {
         }
       }
     }
-    final isClosed = live.status == 'closed';
 
     return SafeArea(
       child: ListenableBuilder(
@@ -85,17 +84,29 @@ class _ActionsSheet extends ConsumerWidget {
                 ),
                 const Divider(height: 1),
                 ListTile(
-                  leading: const Icon(Icons.flag_outlined),
+                  leading: const Icon(Icons.timeline_rounded,
+                      color: AppColors.primary),
                   title: const Text('Move stage'),
                   subtitle: Text(live.stageName ?? 'Not set'),
                   onTap: () => _pickStage(context, ref, actions, convId, live),
                 ),
                 ListTile(
-                  leading: const Icon(Icons.rule_folder_outlined),
+                  leading: Icon(_statusIcon(live.status),
+                      color: _statusColor(live.status)),
                   title: const Text('Status'),
-                  subtitle: Text(live.status == 'closed' ? 'Closed' : (live.status == 'snoozed' ? 'Snoozed' : 'Open')),
+                  subtitle: Text(_statusLabel(live.status)),
                   onTap: () => _pickStatus(context, actions, live.status == 'closed'),
                 ),
+                // Show the snooze expiry right under Status, only while snoozed.
+                if (live.status == 'snoozed' && live.snoozedUntil != null)
+                  ListTile(
+                    dense: true,
+                    leading: const Icon(Icons.schedule_rounded,
+                        color: AppColors.warning),
+                    title: const Text('Snoozed until'),
+                    subtitle: Text(DateFormat('EEE, d MMM • HH:mm')
+                        .format(live.snoozedUntil!.toLocal())),
+                  ),
                 ListTile(
                   leading: const Icon(Icons.sticky_note_2_outlined),
                   title: const Text('Internal notes'),
@@ -119,6 +130,23 @@ class _ActionsSheet extends ConsumerWidget {
       ),
     );
   }
+
+  // Premium, state-aware visuals for the Status row.
+  static IconData _statusIcon(String s) => switch (s) {
+        'closed' => Icons.check_circle_rounded,
+        'snoozed' => Icons.snooze_rounded,
+        _ => Icons.radio_button_checked_rounded,
+      };
+  static Color _statusColor(String s) => switch (s) {
+        'closed' => AppColors.textMuted,
+        'snoozed' => AppColors.warning,
+        _ => AppColors.success,
+      };
+  static String _statusLabel(String s) => switch (s) {
+        'closed' => 'Closed',
+        'snoozed' => 'Snoozed',
+        _ => 'Open',
+      };
 
   Future<void> _do(BuildContext context, BuildContext sheetContext, Future<bool> action, [String? successMsg]) async {
     final navigator = Navigator.of(sheetContext);
@@ -163,7 +191,14 @@ class _ActionsSheet extends ConsumerWidget {
                 children: [
                   for (final s in stages)
                     ListTile(
-                      leading: const Icon(Icons.flag_outlined),
+                      leading: Icon(
+                        s.name == conversation.stageName
+                            ? Icons.radio_button_checked_rounded
+                            : Icons.radio_button_unchecked_rounded,
+                        color: s.name == conversation.stageName
+                            ? AppColors.primary
+                            : AppColors.textMuted,
+                      ),
                       title: Text(s.name),
                       selected: s.name == conversation.stageName,
                       onTap: () {

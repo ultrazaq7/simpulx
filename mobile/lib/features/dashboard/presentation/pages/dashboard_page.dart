@@ -480,12 +480,14 @@ class _StageSplitCard extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final total = stages.fold<int>(0, (s, x) => s + x.count);
+    // Lost leads count toward the overall total so every row's share is measured
+    // against the full set (stage percentages + Lost now add up to 100%).
+    final total = stages.fold<int>(0, (s, x) => s + x.count) + lost;
     return _Card(
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          const Text('Pipeline Breakdown',
+          const Text('Stage Breakdown',
               style: TextStyle(fontWeight: FontWeight.w700, fontSize: 14)),
           const SizedBox(height: 12),
           for (var i = 0; i < stages.length; i++)

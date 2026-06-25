@@ -149,9 +149,9 @@ func main() {
 	mux := http.NewServeMux()
 
 	// ── Rate Limiters ──
-	authRL := rateLimit(5, 10)    // 5 req/sec per IP, burst 10 (anti brute-force)
+	authRL := rateLimit(5, 10)       // 5 req/sec per IP, burst 10 (anti brute-force)
 	webhookRL := rateLimit(100, 200) // 100 req/sec per IP, burst 200 (Meta can burst)
-	leadsRL := rateLimit(10, 20)  // 10 req/sec per IP, burst 20
+	leadsRL := rateLimit(10, 20)     // 10 req/sec per IP, burst 20
 
 	mux.HandleFunc("/healthz", func(w http.ResponseWriter, r *http.Request) {
 		w.WriteHeader(http.StatusOK)
@@ -201,7 +201,7 @@ func main() {
 	mux.HandleFunc("GET /api/stages", s.requireAuth(s.handleListStages))
 	mux.HandleFunc("GET /api/dispositions", s.requireAuth(s.handleListDispositions))
 	mux.HandleFunc("POST /api/conversations/{id}/messages", s.requireAuth(s.handleSendMessage))
-	
+
 	mux.HandleFunc("GET /api/export/campaigns", s.requireAuth(s.handleExportCampaigns))
 	mux.HandleFunc("GET /api/export/chats", s.requireAuth(s.handleExportChats))
 	mux.HandleFunc("POST /api/conversations/{id}/assign", s.requireAuth(s.handleAssign))
@@ -272,6 +272,7 @@ func main() {
 	mux.HandleFunc("PATCH /api/users/{id}", s.requireAuth(s.gate("manage_team", s.handleUpdateUser)))
 	mux.HandleFunc("DELETE /api/users/{id}", s.requireAuth(s.gate("manage_team", s.handleDeleteUser)))
 	mux.HandleFunc("POST /api/users/fcm-token", s.requireAuth(s.handleRegisterFCMToken))
+	mux.HandleFunc("DELETE /api/users/fcm-token", s.requireAuth(s.handleUnregisterFCMToken))
 	mux.HandleFunc("GET /api/role-permissions", s.requireAuth(s.handleGetRolePermissions))
 	mux.HandleFunc("PUT /api/role-permissions", s.requireAuth(s.handleUpdateRolePermissions))
 	mux.HandleFunc("GET /api/audit-log", s.requireAuth(s.handleListAuditLog))
@@ -312,7 +313,6 @@ func main() {
 		proxy := httputil.NewSingleHostReverseProxy(target)
 		proxy.ServeHTTP(w, r)
 	})
-
 
 	port := config.Get("PORT", "8080")
 	srv := &http.Server{

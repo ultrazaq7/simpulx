@@ -28,6 +28,9 @@ abstract class AuthRepository {
     required String platform,
   });
 
+  /// Unregister this device's push token on logout so the backend stops pushing.
+  Future<void> unregisterPushToken({required String token});
+
   /// Request a password reset email.
   Future<Result<void>> forgotPassword(String email);
 

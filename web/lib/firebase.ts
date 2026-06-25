@@ -3,7 +3,7 @@
 // (the apiKey is an app identifier, not a secret). VAPID_KEY is the Web Push
 // public key from Firebase console > Cloud Messaging > Web Push certificates.
 import { initializeApp, getApps, getApp, type FirebaseApp } from "firebase/app";
-import { getMessaging, getToken, onMessage, isSupported, type Messaging } from "firebase/messaging";
+import { getMessaging, getToken, deleteToken, onMessage, isSupported, type Messaging } from "firebase/messaging";
 
 const firebaseConfig = {
   apiKey: "AIzaSyBZPxwDLJEzQ3vl25xXoWxpIVTXnxyB49U",
@@ -28,4 +28,4 @@ export async function getMessagingClient(): Promise<Messaging | null> {
   return getMessaging(firebaseApp());
 }
 
-export { getToken, onMessage };
+export { getToken, deleteToken, onMessage };

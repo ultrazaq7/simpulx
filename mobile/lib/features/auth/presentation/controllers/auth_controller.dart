@@ -1,5 +1,6 @@
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
+import '../../../../core/notifications/notification_providers.dart';
 import '../../../../core/providers/app_providers.dart';
 import '../../../../core/session/session_controller.dart';
 import '../../data/datasources/auth_remote_datasource.dart';
@@ -70,6 +71,14 @@ class AuthController extends Notifier<AuthActionState> {
   }
 
   Future<void> signOut() async {
+    // Unregister this device's push token while still authenticated, so the
+    // backend immediately stops pushing to it. Best-effort: never block logout.
+    try {
+      final token = await ref.read(pushServiceProvider).getToken();
+      if (token != null && token.isNotEmpty) {
+        await _repo.unregisterPushToken(token: token);
+      }
+    } catch (_) {/* ignore; the local deleteToken + server pruning still apply */}
     await _repo.signOut();
     _session.setUnauthenticated();
   }

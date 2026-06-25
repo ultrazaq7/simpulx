@@ -18,7 +18,7 @@ import { useI18n } from "@/lib/i18n";
 import IncomingCallListener from "@/components/IncomingCallListener";
 import CommandPalette from "@/components/CommandPalette";
 import KeyboardHelp from "@/components/KeyboardHelp";
-import { registerPush } from "@/lib/push";
+import { registerPush, unregisterPush } from "@/lib/push";
 
 function relAgo(iso: string): string {
   const s = Math.floor((Date.now() - new Date(iso).getTime()) / 1000);
@@ -362,7 +362,7 @@ export function Shell({ children }: { children: ReactNode }) {
   }, [metaTitle]);
 
 
-  async function logout() { await api.logout().catch(() => {}); clearSession(); router.replace("/login"); }
+  async function logout() { await unregisterPush().catch(() => {}); await api.logout().catch(() => {}); clearSession(); router.replace("/login"); }
 
   const pageInfo = resolvePageInfo(pathname) || { category: "", title: "Simpulx" };
 

@@ -148,6 +148,7 @@ func (s *server) initFCMPush(ctx context.Context) {
 			s.log.Error("FCM send error", "err", err)
 		} else {
 			s.log.Info("FCM sent", "successCount", resp.SuccessCount, "failureCount", resp.FailureCount)
+			s.pruneInvalidTokens(ctx, tokens, resp)
 		}
 		return nil
 	})
@@ -176,13 +177,15 @@ func (s *server) initFCMPush(ctx context.Context) {
 		if notifType == "" {
 			notifType = "notification"
 		}
-		_, err := fcmClient.SendEachForMulticast(ctx, &messaging.MulticastMessage{
+		resp, err := fcmClient.SendEachForMulticast(ctx, &messaging.MulticastMessage{
 			Tokens:  tokens,
 			Data:    map[string]string{"title": n.Title, "body": n.Body, "conversationId": n.ConversationID, "type": notifType},
 			Android: &messaging.AndroidConfig{Priority: "high"},
 		})
 		if err != nil {
 			s.log.Error("FCM notification send error", "err", err)
+		} else {
+			s.pruneInvalidTokens(ctx, tokens, resp)
 		}
 		return nil
 	})
@@ -263,17 +266,45 @@ func (s *server) initFCMPush(ctx context.Context) {
 			data["missed"] = strconv.FormatBool(missed)
 		}
 
-		_, err := fcmClient.SendEachForMulticast(ctx, &messaging.MulticastMessage{
+		resp, err := fcmClient.SendEachForMulticast(ctx, &messaging.MulticastMessage{
 			Tokens:  tokens,
 			Data:    data,
 			Android: &messaging.AndroidConfig{Priority: "high"},
 		})
 		if err != nil {
 			s.log.Error("FCM call push error", "err", err)
+		} else {
+			s.pruneInvalidTokens(ctx, tokens, resp)
 		}
 		return nil
 	})
 	if err != nil {
 		s.log.Error("Failed to subscribe to FCM call push", "err", err)
 	}
+}
+
+// pruneInvalidTokens removes FCM tokens that the server rejected as unregistered
+// or invalid (e.g. the app was uninstalled, or the client deleted its token on
+// logout). This keeps us from pushing to dead devices indefinitely.
+func (s *server) pruneInvalidTokens(ctx context.Context, tokens []string, resp *messaging.BatchResponse) {
+	if resp == nil {
+		return
+	}
+	var bad []string
+	for i, r := range resp.Responses {
+		if r.Success || i >= len(tokens) {
+			continue
+		}
+		if messaging.IsUnregistered(r.Error) || messaging.IsInvalidArgument(r.Error) {
+			bad = append(bad, tokens[i])
+		}
+	}
+	if len(bad) == 0 {
+		return
+	}
+	if _, err := s.pool.Exec(ctx, `DELETE FROM fcm_tokens WHERE token = ANY($1)`, bad); err != nil {
+		s.log.Warn("prune fcm tokens failed", "err", err)
+		return
+	}
+	s.log.Info("pruned invalid fcm tokens", "count", len(bad))
 }
