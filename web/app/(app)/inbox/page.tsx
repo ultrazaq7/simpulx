@@ -202,7 +202,7 @@ export default function InboxPage() {
 
   // --- WebSocket event handler ---
   useEffect(() => {
-    const handleWSMessage = (e: any) => {
+    const handleWSMessage = async (e: any) => {
       const ev = e.detail;
       if (!ev) return;
       const aid = activeIdRef.current;
@@ -228,7 +228,9 @@ export default function InboxPage() {
           });
         }
         // Keep it read server-side so the unread badge doesn't creep back up.
-        api.patchConversation(aid, { unread_count: 0 })
+        // Await the patch BEFORE refreshing the list to avoid a race where
+        // loadConvs fetches the stale (incremented) unread_count.
+        await api.patchConversation(aid, { unread_count: 0 })
           .then(() => window.dispatchEvent(new CustomEvent("refreshUnread")))
           .catch(() => { });
       }
