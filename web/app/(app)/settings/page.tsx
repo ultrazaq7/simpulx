@@ -10,7 +10,7 @@ export default function SettingsIndexPage() {
   useEffect(() => { router.replace("/settings/general"); }, [router]);
   return (
     <div className="grid place-items-center h-full">
-      <Loader2 className="w-6 h-6 animate-spin text-slate-400" />
+      <Loader2 className="w-6 h-6 animate-spin text-muted-foreground" />
     </div>
   );
 }

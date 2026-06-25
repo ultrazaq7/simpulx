@@ -80,6 +80,10 @@ module.exports = {
         lg: "var(--radius)",
         md: "calc(var(--radius) - 2px)",
         sm: "calc(var(--radius) - 4px)",
+        // Tighten the large corners (Tailwind defaults are 12/16px) so cards and
+        // tables match the restrained ~8-12px radius of Meta Business settings.
+        xl: "calc(var(--radius) + 2px)",
+        "2xl": "calc(var(--radius) + 4px)",
       },
       boxShadow: {
         xs: "0 1px 2px 0 rgb(16 24 40 / 0.04)",

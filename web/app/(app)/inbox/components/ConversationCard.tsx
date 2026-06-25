@@ -110,8 +110,8 @@ const ConversationCard = memo(function ConversationCard({
         <div className={cn("flex items-center gap-1.5", dense ? "mt-1" : "mt-1.5")}>
           <Tip label={<span className="block max-w-[300px] whitespace-pre-wrap leading-snug text-left text-[12px]">{previewFull}</span>} side="bottom" align="start">
             <span className={cn(
-              "flex-1 min-w-0 truncate text-[13px] leading-snug",
-              unread ? "text-foreground/70" : "text-muted-foreground",
+              "flex-1 min-w-0 truncate text-[12px] leading-snug",
+              unread ? "text-foreground/85" : "text-muted-foreground",
             )}>
               {agentReplied && !unread && <Headset className="inline-block w-3 h-3 mr-1 -mt-0.5 text-primary/60 align-middle" />}
               {media ? (

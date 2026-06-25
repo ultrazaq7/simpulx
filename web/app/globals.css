@@ -11,12 +11,12 @@
 @layer base {
   :root {
     /* Canvas & surfaces */
-    --background: 213 30% 98%;          /* app canvas — soft, cool, navy-tinted */
-    --foreground: 218 33% 18%;          /* ink #0F172A */
-    --card: 0 0% 100%;
-    --card-foreground: 218 33% 18%;
+    --background: 210 20% 97%;          /* app canvas — clean cool grey, not washed */
+    --foreground: 222 47% 11%;          /* ink — sharp near-black slate #0B1220 */
+    --card: 0 0% 100%;                  /* pure white cards */
+    --card-foreground: 222 47% 11%;
     --popover: 0 0% 100%;
-    --popover-foreground: 218 33% 18%;
+    --popover-foreground: 222 47% 11%;
 
     /* Brand green — deepened so white-on-primary and primary-as-text both pass
        WCAG AA 4.5:1 (was #2D8B73 at 4.17). */
@@ -31,11 +31,11 @@
 
     /* Neutral surfaces */
     --secondary: 210 40% 96%;
-    --secondary-foreground: 218 33% 18%;
+    --secondary-foreground: 222 47% 11%;
     --muted: 213 32% 96%;
-    --muted-foreground: 218 14% 43%;    /* AA at 11-13px on white AND on muted bg */
+    --muted-foreground: 218 19% 34%;    /* sharper secondary text (was washed out) */
     --accent: 210 40% 96%;
-    --accent-foreground: 218 33% 18%;
+    --accent-foreground: 222 47% 11%;
 
     /* Semantic */
     --success: 152 60% 29%;             /* deepened so success-as-text passes AA on its tint */
@@ -60,9 +60,9 @@
        fill color for buttons/active so the brand button is unchanged. */
     --primary-text: 162 58% 27%;
 
-    /* Lines & controls */
-    --border: 216 28% 93%;
-    --input: 216 24% 89%;
+    /* Lines & controls — crisper so white cards read as distinct containers */
+    --border: 216 20% 89%;
+    --input: 216 18% 85%;
     --ring: 163 52% 32%;
 
     /* Dark app rail (Shell sidebar) */
@@ -72,8 +72,8 @@
     --sidebar-border: 158 20% 18%;
     --sidebar-active: 161 40% 16%;
 
-    /* Softer, airier corners (SleekFlow-inspired) while staying our brand */
-    --radius: 0.625rem;
+    /* Tighter, engineered corners (Meta Business-style ~8px) */
+    --radius: 0.5rem;
   }
 }
 

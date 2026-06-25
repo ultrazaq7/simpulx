@@ -7,6 +7,7 @@ import {
 import { type FilterOption } from "./MultiSelectFilter";
 import FilterPopover, { type FilterCategory, type FilterToggle } from "./FilterPopover";
 import ConversationCard from "./ConversationCard";
+import { ConversationListSkeleton } from "./InboxSkeletons";
 import { cn } from "@/lib/utils";
 import { Tip } from "@/components/ui/tooltip";
 import type { Conversation, Stage, Message, Channel } from "@/lib/types";
@@ -118,6 +119,7 @@ function SortMenu({ sort, onSortChange }: { sort: SortMode; onSortChange: (s: So
 
 interface ConversationListProps {
   convs: Conversation[];
+  loading?: boolean;
   activeId: string | null;
   onSelect: (id: string) => void;
   onCopy: (text: string) => void;
@@ -153,7 +155,7 @@ interface ConversationListProps {
 }
 
 export default function ConversationList({
-  convs, activeId, onSelect, onCopy,
+  convs, loading, activeId, onSelect, onCopy,
   query, onQueryChange,
   sort, onSortChange,
   stages,
@@ -418,7 +420,9 @@ export default function ConversationList({
 
       {/* List */}
       <div className="flex-1 overflow-auto">
-        {shown.length === 0 ? (
+        {loading && convs.length === 0 ? (
+          <ConversationListSkeleton />
+        ) : shown.length === 0 ? (
           <div className="flex flex-col items-center justify-center h-full px-6 text-center">
             <div className="w-12 h-12 rounded-xl bg-muted grid place-items-center mb-3">
               <MessageSquare className="w-6 h-6 text-muted-foreground/50" />

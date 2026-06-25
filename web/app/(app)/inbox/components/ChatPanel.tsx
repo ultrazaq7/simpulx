@@ -13,6 +13,7 @@ import type { UseInfiniteQueryResult } from "@tanstack/react-query";
 import MessageBubble, { rewriteLocalMedia } from "./MessageBubble";
 import Composer from "./Composer";
 import LostReasonDialog from "./LostReasonDialog";
+import { MessageThreadSkeleton } from "./InboxSkeletons";
 import { StageMenu } from "./StageMenu";
 import CallOverlay from "./CallOverlay";
 import { api } from "@/lib/api";
@@ -616,6 +617,7 @@ export default function ChatPanel({
 
             {/* ── Message timeline ── */}
             <div ref={bodyRef} className="flex-1 overflow-auto px-4 pt-5 pb-10 flex flex-col">
+              {messagesQuery.isLoading && timeline.length === 0 && <MessageThreadSkeleton />}
               {messagesQuery.isFetchingNextPage && (
                 <p className="text-center text-xs text-muted-foreground my-2">Loading older messages...</p>
               )}

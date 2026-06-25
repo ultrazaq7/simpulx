@@ -34,6 +34,7 @@ function fileTooLargeMessage(f: File): string | null {
 export default function InboxPage() {
   // --- Core state ---
   const [convs, setConvs] = useState<Conversation[]>([]);
+  const [convsLoading, setConvsLoading] = useState(true);
   const [activeId, setActiveId] = useState<string | null>(null);
   const [notes, setNotes] = useState<InternalNote[]>([]);
   const [draft, setDraft] = useState("");
@@ -154,7 +155,7 @@ export default function InboxPage() {
       const aid = activeIdRef.current;
       // The conversation you're viewing is always read - never show its badge.
       setConvs(aid ? list.map((c) => (c.id === aid ? { ...c, unread_count: 0 } : c)) : list);
-    } catch { }
+    } catch { } finally { setConvsLoading(false); }
   }, []);
 
   useEffect(() => { loadConvs(); }, [loadConvs]);
@@ -411,6 +412,7 @@ export default function InboxPage() {
         {/* ── LEFT: Conversation List ── */}
         <ConversationList
           convs={convs}
+          loading={convsLoading}
           activeId={activeId}
           onSelect={setActiveId}
           onCopy={copyText}
