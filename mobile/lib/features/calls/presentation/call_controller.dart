@@ -148,21 +148,34 @@ class CallController extends Notifier<CallSession?> {
 
   Future<void> acceptIncoming() async {
     final s = state;
-    if (s == null || !s.inbound || s.pendingOffer == null || _rtc == null) {
-      return;
-    }
+    if (s == null || !s.inbound || _rtc == null) return;
     // Auto-detect & request mic access before answering so the WebRTC layer
     // never throws on a missing permission.
     if (!await _ensureMicPermission()) {
       _fail('Microphone permission is required to answer');
       return;
     }
+
+    // Resolve the SDP offer: it may be missing if we set up from a notification
+    // before the WS ring landed. Fetch it from the backend as a fallback so the
+    // Answer button is never a silent no-op.
+    String? offer = s.pendingOffer;
+    if ((offer == null || offer.isEmpty) && s.callId.isNotEmpty) {
+      try {
+        offer = (await _ds.getCallInfo(s.callId)).sdpOffer;
+      } catch (_) {/* fall through to the guard below */}
+    }
+    if (offer == null || offer.isEmpty || s.callId.isEmpty) {
+      _fail('Could not answer the call');
+      return;
+    }
+
     try {
-      state = s.copyWith(phase: CallPhase.connecting);
+      state = state?.copyWith(phase: CallPhase.connecting);
       // Answered: remove the ringing notification so it doesn't linger in the
       // tray (with stale Answer/Decline buttons) during the live call.
       _dismissNativeCallNotification();
-      final answer = await _rtc!.createAnswer(s.pendingOffer!);
+      final answer = await _rtc!.createAnswer(offer);
       await _ds.accept(callId: s.callId, sdpAnswer: answer);
       state = state?.copyWith(
         phase: CallPhase.connected,
@@ -176,9 +189,13 @@ class CallController extends Notifier<CallSession?> {
   Future<void> rejectIncoming() async {
     final s = state;
     if (s == null) return;
-    try {
-      await _ds.reject(s.callId);
-    } catch (_) {/* best effort */}
+    // Only hit the backend when we actually have a call id (otherwise the
+    // empty-id request 404s); always clean up the local UI either way.
+    if (s.callId.isNotEmpty) {
+      try {
+        await _ds.reject(s.callId);
+      } catch (_) {/* best effort */}
+    }
     _cleanup(CallPhase.ended, message: 'Declined');
   }
 
@@ -236,6 +253,31 @@ class CallController extends Notifier<CallSession?> {
     }
 
     final s = state!;
+
+    // A session created from a notification tap can be missing its callId/SDP
+    // offer until the WS ring arrives. Backfill it so Accept/Decline actually
+    // reach the backend (otherwise the toggle silently no-ops).
+    if (s.inbound &&
+        p.isInbound &&
+        (p.callStatus == 'incoming' || p.callStatus == 'ringing') &&
+        (s.callId.isEmpty ||
+            s.pendingOffer == null ||
+            s.pendingOffer!.isEmpty)) {
+      state = s.copyWith(
+        callId: p.callId.isNotEmpty ? p.callId : s.callId,
+        pendingOffer: (p.sdpOffer != null && p.sdpOffer!.isNotEmpty)
+            ? p.sdpOffer
+            : s.pendingOffer,
+        contactName: (p.contactName != null && p.contactName!.isNotEmpty)
+            ? p.contactName
+            : null,
+        contactPhone: (p.contactPhone != null && p.contactPhone!.isNotEmpty)
+            ? p.contactPhone
+            : null,
+      );
+      return;
+    }
+
     if (p.callId != s.callId && s.callId.isNotEmpty) return;
 
     if (p.callStatus == 'ended' ||

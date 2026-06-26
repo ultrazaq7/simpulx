@@ -43,24 +43,27 @@ class CallSession {
 
   CallSession copyWith({
     String? callId,
+    String? contactName,
+    String? contactPhone,
     CallPhase? phase,
     bool? muted,
     bool? speakerOn,
     DateTime? connectedAt,
     String? message,
+    String? pendingOffer,
   }) {
     return CallSession(
       callId: callId ?? this.callId,
       conversationId: conversationId,
       inbound: inbound,
-      contactName: contactName,
-      contactPhone: contactPhone,
+      contactName: contactName ?? this.contactName,
+      contactPhone: contactPhone ?? this.contactPhone,
       phase: phase ?? this.phase,
       muted: muted ?? this.muted,
       speakerOn: speakerOn ?? this.speakerOn,
       connectedAt: connectedAt ?? this.connectedAt,
       message: message ?? this.message,
-      pendingOffer: pendingOffer,
+      pendingOffer: pendingOffer ?? this.pendingOffer,
     );
   }
 }

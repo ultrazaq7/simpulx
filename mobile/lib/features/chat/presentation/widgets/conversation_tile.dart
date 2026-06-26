@@ -140,6 +140,8 @@ class _Avatar extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    // Dynamic, deterministic avatar colour per contact (WhatsApp-style).
+    final avatarColor = AppColors.avatarColor(name);
     return SizedBox(
       width: 48,
       height: 48,
@@ -147,11 +149,11 @@ class _Avatar extends StatelessWidget {
         children: [
           CircleAvatar(
             radius: 24,
-            backgroundColor: AppColors.primary.withValues(alpha: 0.12),
+            backgroundColor: avatarColor.withValues(alpha: 0.15),
             child: Text(
               _initials,
-              style: const TextStyle(
-                color: AppColors.primaryDark,
+              style: TextStyle(
+                color: avatarColor,
                 fontWeight: FontWeight.w700,
                 fontSize: 15,
               ),

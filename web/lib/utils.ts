@@ -77,6 +77,19 @@ export function initials(name: string | undefined | null): string {
   return (parts[0][0] + parts[parts.length - 1][0]).toUpperCase();
 }
 
+// Deterministic, WhatsApp-style avatar colour from a name/seed.
+const AVATAR_PALETTE = [
+  "#1B5E20", "#0D47A1", "#4A148C", "#BF360C", "#006064",
+  "#880E4F", "#33691E", "#1A237E", "#3E2723", "#004D40",
+];
+export function avatarColor(seed: string | undefined | null): string {
+  const s = (seed || "").trim();
+  if (!s) return AVATAR_PALETTE[0];
+  let h = 0;
+  for (let i = 0; i < s.length; i++) h = (h * 31 + s.charCodeAt(i)) | 0;
+  return AVATAR_PALETTE[Math.abs(h) % AVATAR_PALETTE.length];
+}
+
 export function channelColor(channel: string | undefined | null): string {
   if (!channel) return "#9CA3AF";
   const map: Record<string, string> = {

@@ -90,6 +90,17 @@ class _ActionsSheet extends ConsumerWidget {
                   subtitle: Text(live.stageName ?? 'Not set'),
                   onTap: () => _pickStage(context, ref, actions, convId, live),
                 ),
+                // The lost reason sits right under the stage while the lead is in
+                // the Lost stage.
+                if ((live.stageName ?? '').toLowerCase() == 'lost' &&
+                    (live.lostReason?.isNotEmpty ?? false))
+                  ListTile(
+                    dense: true,
+                    leading: const Icon(Icons.info_outline_rounded,
+                        color: AppColors.danger),
+                    title: const Text('Lost reason'),
+                    subtitle: Text(_humanizeReason(live.lostReason!)),
+                  ),
                 ListTile(
                   leading: Icon(
                       live.isLost
@@ -101,7 +112,8 @@ class _ActionsSheet extends ConsumerWidget {
                   title: const Text('Status'),
                   subtitle:
                       Text(live.isLost ? 'Lost' : _statusLabel(live.status)),
-                  onTap: () => _pickStatus(context, actions, live.status == 'closed'),
+                  onTap: () =>
+                      _pickStatus(context, ref, actions, convId, live),
                 ),
                 // Show the snooze expiry right under Status, only while snoozed.
                 if (live.status == 'snoozed' && live.snoozedUntil != null)
@@ -153,6 +165,13 @@ class _ActionsSheet extends ConsumerWidget {
         'snoozed' => 'Snoozed',
         _ => 'Open',
       };
+
+  /// Turn a lost-reason code ("price_too_high") into a readable label.
+  static String _humanizeReason(String code) {
+    final words = code.replaceAll('_', ' ').trim();
+    if (words.isEmpty) return code;
+    return words[0].toUpperCase() + words.substring(1);
+  }
 
   Future<void> _do(BuildContext context, BuildContext sheetContext, Future<bool> action, [String? successMsg]) async {
     final navigator = Navigator.of(sheetContext);
@@ -241,7 +260,9 @@ class _ActionsSheet extends ConsumerWidget {
     );
   }
 
-  void _pickStatus(BuildContext context, ConversationActionsController actions, bool isClosed) {
+  void _pickStatus(BuildContext context, WidgetRef ref,
+      ConversationActionsController actions, String convId,
+      Conversation conversation) {
     showModalBottomSheet<void>(
       context: context,
       showDragHandle: true,
@@ -265,10 +286,91 @@ class _ActionsSheet extends ConsumerWidget {
             ListTile(
               leading: const Icon(Icons.close_rounded),
               title: const Text('Close'),
-              onTap: () => _do(context, sheetContext, actions.resolve(), 'Status set to Closed'),
+              subtitle: const Text('Pick the final stage first'),
+              onTap: () {
+                // Closing requires recording where the lead ended in the pipeline.
+                Navigator.of(sheetContext).pop();
+                _pickCloseStage(context, ref, actions, convId, conversation);
+              },
             ),
           ],
         ),
+      ),
+    );
+  }
+
+  /// Forced stage selection before closing. The agent must record the final
+  /// pipeline stage (or mark Lost) — closing without an outcome is not allowed.
+  void _pickCloseStage(
+    BuildContext context,
+    WidgetRef ref,
+    ConversationActionsController actions,
+    String convId,
+    Conversation conversation,
+  ) {
+    showModalBottomSheet<void>(
+      context: context,
+      showDragHandle: true,
+      isScrollControlled: true,
+      builder: (sheetContext) => Consumer(
+        builder: (consumerContext, ref, _) {
+          final async = ref.watch(stagesProvider);
+          return async.when(
+            loading: () => const Padding(
+              padding: EdgeInsets.all(24),
+              child: Center(child: CircularProgressIndicator(strokeWidth: 2)),
+            ),
+            error: (_, _) => const Padding(
+              padding: EdgeInsets.all(24),
+              child: Text('Could not load stages'),
+            ),
+            data: (stages) => SafeArea(
+              child: ListView(
+                shrinkWrap: true,
+                children: [
+                  const Padding(
+                    padding: EdgeInsets.fromLTRB(16, 4, 16, 4),
+                    child: Text('Close as',
+                        style: TextStyle(
+                            fontSize: 16, fontWeight: FontWeight.w700)),
+                  ),
+                  const Padding(
+                    padding: EdgeInsets.fromLTRB(16, 0, 16, 8),
+                    child: Text('Choose the final stage to close this lead.',
+                        style: TextStyle(
+                            fontSize: 12.5, color: AppColors.textSecondary)),
+                  ),
+                  const Divider(height: 1),
+                  for (final s in stages)
+                    ListTile(
+                      leading: Icon(
+                        s.name == conversation.stageName
+                            ? Icons.radio_button_checked_rounded
+                            : Icons.radio_button_unchecked_rounded,
+                        color: s.name == conversation.stageName
+                            ? AppColors.primary
+                            : AppColors.textMuted,
+                      ),
+                      title: Text(s.name),
+                      onTap: () => _do(context, sheetContext,
+                          actions.closeWithStage(s.id), 'Closed as ${s.name}'),
+                    ),
+                  const Divider(),
+                  ListTile(
+                    leading: const Icon(Icons.do_not_disturb_on_rounded,
+                        color: AppColors.danger),
+                    title: const Text('Mark as Lost',
+                        style: TextStyle(color: AppColors.danger)),
+                    onTap: () {
+                      Navigator.of(sheetContext).pop();
+                      _pickLostReason(context, actions);
+                    },
+                  ),
+                ],
+              ),
+            ),
+          );
+        },
       ),
     );
   }

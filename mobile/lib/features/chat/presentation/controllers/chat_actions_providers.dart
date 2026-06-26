@@ -107,13 +107,31 @@ class ConversationActionsController extends ChangeNotifier {
 
   Future<bool> setDisposition(String category, {String? lostReason}) {
     final dispositionId = _dispositionIdForCategory(category);
+    // "Lost" is a real pipeline stage: move the lead there so its CURRENT STAGE
+    // reads "Lost" (not the stale pre-loss stage).
+    String? lostStageId;
+    String? lostStageName;
+    if (category == 'lost') {
+      final stages = ref.read(stagesProvider).value;
+      if (stages != null) {
+        for (final s in stages) {
+          if (s.name.toLowerCase() == 'lost') {
+            lostStageId = s.id;
+            lostStageName = s.name;
+            break;
+          }
+        }
+      }
+    }
     _inbox.patchLocal(
       conversationId,
       status: 'closed',
       lostReason: lostReason ?? category,
+      stageName: lostStageName,
     );
     return _run(() => _repo.patchConversation(
           conversationId,
+          stageId: lostStageId,
           status: 'closed',
           dispositionId: dispositionId,
           lostReason: lostReason ?? category,
@@ -128,6 +146,27 @@ class ConversationActionsController extends ChangeNotifier {
   Future<bool> resolve({String? reason}) {
     _inbox.patchLocal(conversationId, status: 'closed');
     return _run(() => _repo.close(conversationId, reason: reason));
+  }
+
+  /// Close a conversation while recording the final pipeline stage in one atomic
+  /// update (the UI requires a stage before closing).
+  Future<bool> closeWithStage(String stageId) {
+    String? stageName;
+    final stages = ref.read(stagesProvider).value;
+    if (stages != null) {
+      for (final s in stages) {
+        if (s.id == stageId) {
+          stageName = s.name;
+          break;
+        }
+      }
+    }
+    _inbox.patchLocal(conversationId, stageName: stageName, status: 'closed');
+    return _run(() => _repo.patchConversation(
+          conversationId,
+          stageId: stageId,
+          status: 'closed',
+        ));
   }
 
   Future<bool> reopen() {

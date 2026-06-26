@@ -87,7 +87,7 @@ func (s *server) handleListConversations(w http.ResponseWriter, r *http.Request)
 	q := r.URL.Query().Get("q")
 	qFilter := ""
 	args := []any{a.OrgID, status}
-	
+
 	if q != "" {
 		qFilter = " AND EXISTS (SELECT 1 FROM messages m WHERE m.conversation_id = cv.id AND m.body ILIKE $" + fmt.Sprint(len(args)+1) + ")"
 		args = append(args, "%"+q+"%")
@@ -276,7 +276,7 @@ func (s *server) handleSearchMessages(w http.ResponseWriter, r *http.Request) {
 	if !s.guardConversation(w, r, convID) {
 		return
 	}
-	
+
 	q := r.URL.Query().Get("q")
 	if len(q) < 2 {
 		writeJSON(w, map[string]any{"data": []any{}})
@@ -288,7 +288,7 @@ func (s *server) handleSearchMessages(w http.ResponseWriter, r *http.Request) {
 	           WHERE conversation_id = $1 AND organization_id = $2
 	             AND body ILIKE $3
 	           ORDER BY created_at DESC LIMIT 50`
-	           
+
 	rows, err := s.queryMaps(r.Context(), query, convID, a.OrgID, "%"+q+"%")
 	if err != nil {
 		http.Error(w, err.Error(), http.StatusInternalServerError)
@@ -365,7 +365,7 @@ func (s *server) handleUpload(w http.ResponseWriter, r *http.Request) {
 	}
 	// Append the original filename so it's preserved in the URL for downstream parsing
 	// e.g. "media/<uuid>-MyDocument.pdf"
-	
+
 	var uploadReader io.Reader = file
 	var uploadSize int64 = hdr.Size
 
@@ -444,7 +444,10 @@ func (s *server) handleListStages(w http.ResponseWriter, r *http.Request) {
 	a, _ := authFrom(r.Context())
 	rows, err := s.queryMaps(r.Context(),
 		`SELECT id::text AS id, name FROM stages WHERE organization_id=$1 ORDER BY sort_order`, a.OrgID)
-	if err != nil { http.Error(w, err.Error(), http.StatusInternalServerError); return }
+	if err != nil {
+		http.Error(w, err.Error(), http.StatusInternalServerError)
+		return
+	}
 	writeJSON(w, rows)
 }
 
@@ -452,7 +455,10 @@ func (s *server) handleListDispositions(w http.ResponseWriter, r *http.Request) 
 	a, _ := authFrom(r.Context())
 	rows, err := s.queryMaps(r.Context(),
 		`SELECT id::text AS id, name, category FROM dispositions WHERE organization_id=$1 ORDER BY sort_order`, a.OrgID)
-	if err != nil { http.Error(w, err.Error(), http.StatusInternalServerError); return }
+	if err != nil {
+		http.Error(w, err.Error(), http.StatusInternalServerError)
+		return
+	}
 	writeJSON(w, rows)
 }
 
@@ -460,7 +466,7 @@ func (s *server) handleListDispositions(w http.ResponseWriter, r *http.Request) 
 func (s *server) handleTrackCall(w http.ResponseWriter, r *http.Request) {
 	a, _ := authFrom(r.Context())
 	convID := r.PathValue("id")
-	
+
 	var body struct {
 		DurationSeconds int `json:"duration_seconds"`
 	}
@@ -483,7 +489,7 @@ func (s *server) handleTrackCall(w http.ResponseWriter, r *http.Request) {
 		http.Error(w, err.Error(), http.StatusInternalServerError)
 		return
 	}
-	
+
 	writeJSON(w, map[string]any{"status": "recorded", "duration": body.DurationSeconds})
 }
 
@@ -547,13 +553,13 @@ func derefStr(p *string) string {
 // ── GET /api/agents ─────────────────────────────────────────
 func (s *server) handleListAgents(w http.ResponseWriter, r *http.Request) {
 	a, _ := authFrom(r.Context())
-	
+
 	query := `SELECT u.id::text AS id, u.full_name, u.email, u.is_online,
 		        (SELECT count(*) FROM conversations c
 		           WHERE c.assigned_agent_id = u.id AND c.status <> 'closed') AS open_count
 		   FROM users u
 		  WHERE u.organization_id = $1 AND u.is_deleted = false AND u.role IN ('agent','admin', 'manager') `
-	
+
 	args := []any{a.OrgID}
 
 	if a.Role == "manager" {
@@ -673,10 +679,10 @@ func (s *server) handleUpdateAIAgent(w http.ResponseWriter, r *http.Request) {
 func (s *server) handleStats(w http.ResponseWriter, r *http.Request) {
 	a, _ := authFrom(r.Context())
 	camp := r.URL.Query().Get("campaign_id")
-	
+
 	campFilter := ""
 	args := []any{a.OrgID}
-	
+
 	if camp != "" {
 		camps := strings.Split(camp, ",")
 		args = append(args, camps)
@@ -771,7 +777,7 @@ func (s *server) handleAnalytics(w http.ResponseWriter, r *http.Request) {
 	campFilterCv := ""
 	campFilter := ""
 	args := []any{org}
-	
+
 	if camp != "" {
 		camps := strings.Split(camp, ",")
 		args = append(args, camps)
@@ -844,13 +850,16 @@ func (s *server) handleAnalytics(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
+	// Per-stage counts. "Lost" is itself a stage (sort_order 0), so Lost leads
+	// count there like any other stage. Order keeps Lost last in the list.
 	stages, _ := s.queryMaps(ctx,
 		fmt.Sprintf(`SELECT s.name, s.system_key, s.sort_order,
 		        count(cv.id) AS count
 		   FROM stages s
 		   LEFT JOIN conversations cv ON cv.stage_id = s.id%s
 		  WHERE s.organization_id=$1
-		  GROUP BY s.id ORDER BY s.sort_order`, campFilterCv), args...)
+		  GROUP BY s.id
+		  ORDER BY (s.system_key = 'lost'), s.sort_order`, campFilterCv), args...)
 
 	// REAL lead funnel: cumulative "reached this stage or beyond" along the actual
 	// sales pipeline (New -> Contacted -> ... -> Delivered). A lead at sort_order K is
@@ -863,7 +872,9 @@ func (s *server) handleAnalytics(w http.ResponseWriter, r *http.Request) {
 		    WHERE cv.organization_id=$1%s)
 		 SELECT st.name, st.system_key, st.sort_order,
 		        (SELECT count(*) FROM cur WHERE cur.so >= st.sort_order) AS reached
-		   FROM stages st WHERE st.organization_id=$1 ORDER BY st.sort_order`, campFilter), args...)
+		   FROM stages st
+		  WHERE st.organization_id=$1 AND st.system_key IS DISTINCT FROM 'lost'
+		  ORDER BY st.sort_order`, campFilter), args...)
 
 	categories, _ := s.queryMaps(ctx,
 		fmt.Sprintf(`SELECT cat AS category, count(*) AS count
@@ -1497,7 +1508,7 @@ func (s *server) handleDeleteNote(w http.ResponseWriter, r *http.Request) {
 // ── Contacts ────────────────────────────────────────────────
 func (s *server) handleListContacts(w http.ResponseWriter, r *http.Request) {
 	a, _ := authFrom(r.Context())
-	
+
 	filter := "WHERE ct.organization_id=$1"
 	args := []any{a.OrgID}
 
@@ -1750,4 +1761,3 @@ func (s *server) handleListLLMModels(w http.ResponseWriter, r *http.Request) {
 
 	writeJSON(w, models)
 }
-

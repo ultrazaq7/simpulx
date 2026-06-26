@@ -49,7 +49,8 @@ class AppColors {
   // ── Light text ─────────────────────────────────────────
   // Sharp near-black primary (WhatsApp #111B21) for a crisp, professional read.
   static const Color textPrimary = Color(0xFF111B21);
-  static const Color textSecondary = Color(0xFF54656F);
+  // WhatsApp's secondary grey — legible on white AND on the dark canvas.
+  static const Color textSecondary = Color(0xFF667781);
   static const Color textMuted = Color(0xFF8696A0);
   static const Color textInverse = Colors.white;
 
@@ -80,6 +81,26 @@ class AppColors {
       default:
         return primary;
     }
+  }
+
+  /// Deterministic avatar colour from a name/seed (WhatsApp-style coloured
+  /// avatars). Same input always yields the same colour.
+  static const List<Color> _avatarPalette = [
+    Color(0xFF1B5E20), // dark green
+    Color(0xFF0D47A1), // dark blue
+    Color(0xFF4A148C), // deep purple
+    Color(0xFFBF360C), // deep orange
+    Color(0xFF006064), // cyan dark
+    Color(0xFF880E4F), // pink dark
+    Color(0xFF33691E), // lime dark
+    Color(0xFF1A237E), // indigo
+    Color(0xFF3E2723), // brown
+    Color(0xFF004D40), // teal dark
+  ];
+
+  static Color avatarColor(String seed) {
+    if (seed.trim().isEmpty) return _avatarPalette[0];
+    return _avatarPalette[seed.hashCode.abs() % _avatarPalette.length];
   }
 
   /// Colour for a lead interest/temperature string (hot/warm/cold).

@@ -314,7 +314,7 @@ class _ManagerSection extends ConsumerWidget {
               ],
               // Stage Split
               if (a.stages.isNotEmpty) ...[
-                _StageSplitCard(stages: a.stages, lost: a.lost),
+                _StageSplitCard(stages: a.stages),
                 const SizedBox(height: 12),
               ],
               // Interest Funnel
@@ -482,15 +482,14 @@ class _StageFunnelCard extends StatelessWidget {
 
 // ── Stage Split (leads per pipeline stage) ─────────────────────
 class _StageSplitCard extends StatelessWidget {
-  const _StageSplitCard({required this.stages, required this.lost});
+  const _StageSplitCard({required this.stages});
   final List<StageStat> stages;
-  final int lost;
 
   @override
   Widget build(BuildContext context) {
-    // Lost leads count toward the overall total so every row's share is measured
-    // against the full set (stage percentages + Lost now add up to 100%).
-    final total = stages.fold<int>(0, (s, x) => s + x.count) + lost;
+    // "Lost" is now a stage in the list, so the total is simply the stage sum
+    // and every row's share adds up to 100%.
+    final total = stages.fold<int>(0, (s, x) => s + x.count);
     return _Card(
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
@@ -500,17 +499,16 @@ class _StageSplitCard extends StatelessWidget {
           const SizedBox(height: 12),
           for (var i = 0; i < stages.length; i++)
             _buildStageRow(context, stages[i], i, total),
-          if (lost > 0) ...[
-            const Divider(height: 16),
-            _buildLostRow(context, total),
-          ],
         ],
       ),
     );
   }
 
   Widget _buildStageRow(BuildContext context, StageStat s, int idx, int total) {
-    final color = _funnelColors[idx % _funnelColors.length];
+    // Lost is a terminal-negative stage -> always render it in red.
+    final color = s.name.toLowerCase() == 'lost'
+        ? AppColors.danger
+        : _funnelColors[idx % _funnelColors.length];
     final pct = total > 0 ? (s.count / total * 100) : 0.0;
     return Padding(
       padding: const EdgeInsets.symmetric(vertical: 4),
@@ -542,37 +540,6 @@ class _StageSplitCard extends StatelessWidget {
     );
   }
 
-  Widget _buildLostRow(BuildContext context, int total) {
-    final pct = total > 0 ? (lost / total * 100) : 0.0;
-    return Padding(
-      padding: const EdgeInsets.symmetric(vertical: 4),
-      child: Row(
-        children: [
-          Container(width: 8, height: 8, decoration: const BoxDecoration(color: AppColors.danger, shape: BoxShape.circle)),
-          const SizedBox(width: 8),
-          const Expanded(child: Text('Lost', style: TextStyle(fontSize: 13, fontWeight: FontWeight.w500))),
-          SizedBox(
-            width: 100,
-            child: ClipRRect(
-              borderRadius: BorderRadius.circular(3),
-              child: LinearProgressIndicator(
-                value: (pct / 100).clamp(0, 1),
-                minHeight: 6,
-                backgroundColor: Theme.of(context).colorScheme.surfaceContainerHighest,
-                valueColor: const AlwaysStoppedAnimation(AppColors.danger),
-              ),
-            ),
-          ),
-          const SizedBox(width: 8),
-          SizedBox(
-            width: 30,
-            child: Text('$lost', textAlign: TextAlign.right,
-                style: const TextStyle(fontSize: 13, fontWeight: FontWeight.w700, color: AppColors.danger)),
-          ),
-        ],
-      ),
-    );
-  }
 }
 
 // ── Lost Analysis Card (matching web) ─────────────────────
@@ -1083,7 +1050,7 @@ class _AgentAnalyticsSection extends ConsumerWidget {
               // Personal stage pipeline breakdown
               if (a.stages.isNotEmpty) ...[
                 const SizedBox(height: 12),
-                _StageSplitCard(stages: a.stages, lost: a.lost),
+                _StageSplitCard(stages: a.stages),
               ],
             ],
           ),

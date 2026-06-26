@@ -231,12 +231,16 @@ export default function DetailsPanel({ active, onClose, copyText, notes, onAddNo
 
             <p className="text-[10px] font-bold uppercase tracking-wider text-muted-foreground mb-1">Lead qualification</p>
             <div>
+              <DetailRow icon={Hash} label="Stage" value={active.stage_name || "Not set"} />
+              {/* Lost reason sits directly under the stage while the lead is Lost. */}
+              {active.stage_name?.toLowerCase() === "lost" && active.lost_reason && (
+                <DetailRow icon={StickyNote} label="Lost reason" value={humanize(active.lost_reason)} />
+              )}
               <DetailRow icon={Hash} label="Interest level" value={humanize(active.interest_level || "Unknown")} />
               <DetailRow icon={Hash} label="Brand" value={active.car_brand || "Unknown"} />
               <DetailRow icon={Hash} label="Model" value={active.car_model || "Unknown"} />
               <DetailRow icon={Hash} label="City" value={active.city || "Unknown"} />
               <DetailRow icon={Clock} label="Purchase time" value={active.purchase_timeframe ? humanize(active.purchase_timeframe) : "Unknown"} />
-              {active.lost_reason && <DetailRow icon={StickyNote} label="Lost reason" value={humanize(active.lost_reason)} />}
             </div>
           </div>
         )}

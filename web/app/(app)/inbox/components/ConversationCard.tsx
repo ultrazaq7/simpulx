@@ -3,7 +3,7 @@ import { memo } from "react";
 import {
   Image as ImageIcon, Video, FileText, Headset, Zap, Clock, Phone, Sticker, Mic, User,
 } from "lucide-react";
-import { initials, channelColor, channelTextColor, relTime, cn } from "@/lib/utils";
+import { initials, channelColor, avatarColor, relTime, cn } from "@/lib/utils";
 import { Tip } from "@/components/ui/tooltip";
 import type { Conversation, Message } from "@/lib/types";
 
@@ -26,10 +26,6 @@ const PREVIEW_MEDIA: Record<string, { icon: any; label: string }> = {
   "[audio]": { icon: Mic, label: "Voice message" },
 };
 
-// Lead temperature -> the avatar status dot (replaces the channel dot).
-const TEMP_DOT: Record<string, string> = { hot: "bg-hot", warm: "bg-warm", cold: "bg-cold" };
-const TEMP_LABEL: Record<string, string> = { hot: "Hot", warm: "Warm", cold: "Cold" };
-
 const ConversationCard = memo(function ConversationCard({
   conv: c, isActive, onClick, messages, showAgent, channelName, dense,
 }: ConversationCardProps) {
@@ -50,11 +46,10 @@ const ConversationCard = memo(function ConversationCard({
     return Date.now() - new Date(c.last_message_at).getTime() > 24 * 60 * 60 * 1000;
   })();
 
-  const temp = c.interest_level && TEMP_DOT[c.interest_level] ? c.interest_level : null;
-
   const media = c.last_message_preview ? PREVIEW_MEDIA[c.last_message_preview] : undefined;
   const previewFull = media ? media.label : (c.last_message_preview || "No messages yet");
   const cc = channelColor(c.channel);
+  const ac = avatarColor(c.contact_name || c.contact_phone);
   const hasMeta = !!c.campaign_name || (showAgent && !!c.agent_name);
 
   return (
@@ -67,21 +62,20 @@ const ConversationCard = memo(function ConversationCard({
       )}
     >
 
-      {/* Avatar (channel tint) + temperature dot — top-left, aligned with the name */}
+      {/* Avatar (dynamic per-contact colour, WhatsApp-style) + channel dot */}
       <div className="relative shrink-0 self-start mt-0.5">
+        <div
+          className="w-9 h-9 rounded-full grid place-items-center text-[13px] font-semibold"
+          style={{ backgroundColor: ac + "1F", color: ac }}
+        >
+          {initials(c.contact_name || c.contact_phone)}
+        </div>
         <Tip label={channelName || c.channel} side="top">
-          <div
-            className="w-9 h-9 rounded-full grid place-items-center text-[13px] font-semibold"
-            style={{ backgroundColor: cc + "14", color: channelTextColor(c.channel) }}
-          >
-            {initials(c.contact_name || c.contact_phone)}
-          </div>
+          <span
+            className="absolute -bottom-0.5 -right-0.5 w-[12px] h-[12px] rounded-full ring-[2.5px] ring-card"
+            style={{ backgroundColor: cc }}
+          />
         </Tip>
-        {temp && (
-          <Tip label={TEMP_LABEL[temp]} side="top">
-            <span className={cn("absolute -bottom-0.5 -right-0.5 w-[11px] h-[11px] rounded-full ring-[2.5px] ring-card", TEMP_DOT[temp])} />
-          </Tip>
-        )}
       </div>
 
       {/* Text */}

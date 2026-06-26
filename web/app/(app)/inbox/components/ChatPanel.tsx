@@ -713,10 +713,16 @@ export default function ChatPanel({
             if (spam) onOverride({ disposition_id: spam.id, lost_reason: reason }, "Marked as spam");
             else { onOverride({ lost_reason: reason }, "Spam reason saved"); notify("Spam disposition missing", "warning"); }
           } else {
-            // Lost is a disposition (category 'lost'), not a pipeline stage.
+            // Lost is a real pipeline stage now: move the lead into the Lost
+            // stage so its CURRENT STAGE reads "Lost", and keep the disposition
+            // for the lost analytics + the lost reason.
             const lost = dispositions.find((d) => d.name?.toLowerCase() === "lost") || dispositions.find((d) => d.category === "lost");
-            if (lost) onOverride({ disposition_id: lost.id, lost_reason: reason }, "Marked as lost");
-            else { onOverride({ lost_reason: reason }, "Lost reason saved"); notify("Lost disposition missing", "warning"); }
+            const lostStage = stages.find((s) => s.name?.toLowerCase() === "lost");
+            const patch: { stage_id?: string; disposition_id?: string; lost_reason?: string } = { lost_reason: reason };
+            if (lostStage) patch.stage_id = lostStage.id;
+            if (lost) patch.disposition_id = lost.id;
+            if (lostStage || lost) onOverride(patch, "Marked as lost");
+            else { onOverride(patch, "Lost reason saved"); notify("Lost stage/disposition missing", "warning"); }
           }
           setOutcomeOpen(false);
         }}

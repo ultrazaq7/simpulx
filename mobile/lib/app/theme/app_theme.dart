@@ -24,6 +24,10 @@ class AppTheme {
       onError: Colors.white,
       surface: isDark ? AppColors.darkSurface : AppColors.surface,
       onSurface: isDark ? AppColors.darkTextPrimary : AppColors.textPrimary,
+      // Secondary/muted text resolves per-brightness (bright grey in dark like
+      // WhatsApp, sharp grey in light) so widgets can read it from the theme.
+      onSurfaceVariant:
+          isDark ? AppColors.darkTextSecondary : AppColors.textSecondary,
       surfaceContainerHighest:
           isDark ? AppColors.darkSurfaceAlt : AppColors.surfaceAlt,
       outline: isDark ? AppColors.darkBorder : AppColors.borderStrong,
