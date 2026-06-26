@@ -7,6 +7,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:proximity_sensor/proximity_sensor.dart';
 
 import '../../../app/theme/app_colors.dart';
+import '../../../core/i18n/i18n.dart';
 import '../domain/call_session.dart';
 import 'call_controller.dart';
 
@@ -129,7 +130,7 @@ class _CallScreenState extends ConsumerState<_CallScreen> {
             const SizedBox(height: 8),
             Padding(
               padding: const EdgeInsets.symmetric(horizontal: 32),
-              child: Text(_status,
+              child: Text(_status.tr(context),
                   textAlign: TextAlign.center,
                   style: TextStyle(
                       color: Colors.white.withValues(alpha: 0.7),
@@ -257,7 +258,7 @@ class _RoundAction extends StatelessWidget {
           ),
         ),
         const SizedBox(height: 8),
-        Text(label,
+        Text(label.tr(context),
             style: TextStyle(
                 color: Colors.white.withValues(alpha: onTap == null ? 0.4 : 0.8),
                 fontSize: 12)),

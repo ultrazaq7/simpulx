@@ -3,6 +3,7 @@ import 'package:intl/intl.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import '../../../../app/theme/app_colors.dart';
+import '../../../../core/i18n/i18n.dart';
 import '../../../../core/session/session_controller.dart';
 import '../../../../core/widgets/app_snackbar.dart';
 import '../../domain/entities/conversation.dart';
@@ -86,8 +87,8 @@ class _ActionsSheet extends ConsumerWidget {
                 ListTile(
                   leading: const Icon(Icons.timeline_rounded,
                       color: AppColors.primary),
-                  title: const Text('Move stage'),
-                  subtitle: Text(live.stageName ?? 'Not set'),
+                  title: Text('Move stage'.tr(context)),
+                  subtitle: Text(live.stageName ?? 'Not set'.tr(context)),
                   onTap: () => _pickStage(context, ref, actions, convId, live),
                 ),
                 // The lost reason sits right under the stage while the lead is in
@@ -98,7 +99,7 @@ class _ActionsSheet extends ConsumerWidget {
                     dense: true,
                     leading: const Icon(Icons.info_outline_rounded,
                         color: AppColors.danger),
-                    title: const Text('Lost reason'),
+                    title: Text('Lost reason'.tr(context)),
                     subtitle: Text(_humanizeReason(live.lostReason!)),
                   ),
                 ListTile(
@@ -109,9 +110,10 @@ class _ActionsSheet extends ConsumerWidget {
                       color: live.isLost
                           ? AppColors.danger
                           : _statusColor(live.status)),
-                  title: const Text('Status'),
-                  subtitle:
-                      Text(live.isLost ? 'Lost' : _statusLabel(live.status)),
+                  title: Text('Status'.tr(context)),
+                  subtitle: Text(
+                      (live.isLost ? 'Lost' : _statusLabel(live.status))
+                          .tr(context)),
                   onTap: () =>
                       _pickStatus(context, ref, actions, convId, live),
                 ),
@@ -121,13 +123,13 @@ class _ActionsSheet extends ConsumerWidget {
                     dense: true,
                     leading: const Icon(Icons.schedule_rounded,
                         color: AppColors.warning),
-                    title: const Text('Snoozed until'),
+                    title: Text('Snoozed until'.tr(context)),
                     subtitle: Text(DateFormat('EEE, d MMM • HH:mm')
                         .format(live.snoozedUntil!.toLocal())),
                   ),
                 ListTile(
                   leading: const Icon(Icons.sticky_note_2_outlined),
-                  title: const Text('Internal notes'),
+                  title: Text('Internal notes'.tr(context)),
                   onTap: () {
                     Navigator.of(context).pop();
                     showNotesSheet(context, convId);
@@ -136,8 +138,8 @@ class _ActionsSheet extends ConsumerWidget {
                 if (role?.isManagerTier ?? false)
                   ListTile(
                     leading: const Icon(Icons.person_add_alt_1_outlined),
-                    title: const Text('Assign agent'),
-                    subtitle: Text(live.agentName ?? 'Unassigned'),
+                    title: Text('Assign agent'.tr(context)),
+                    subtitle: Text(live.agentName ?? 'Unassigned'.tr(context)),
                     onTap: () => _pickAgent(context, ref, actions),
                   ),
                 const SizedBox(height: 8),

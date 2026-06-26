@@ -1,7 +1,10 @@
+import 'dart:async';
+
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import '../../../../core/error/result.dart';
 import '../../../../core/providers/app_providers.dart';
+import '../../../../core/realtime/realtime_providers.dart';
 import '../../data/datasources/contacts_remote_datasource.dart';
 import '../../data/repositories/contacts_repository_impl.dart';
 import '../../domain/entities/contact.dart';
@@ -18,8 +21,32 @@ final contactsRepositoryProvider = Provider<ContactsRepository>(
 /// The CRM leads list. Each contact carries its latest conversation's lead
 /// context (stage/interest/agent/conversation_id).
 class ContactsController extends AsyncNotifier<List<Contact>> {
+  Timer? _debounce;
+
   @override
-  Future<List<Contact>> build() => _fetch();
+  Future<List<Contact>> build() {
+    // Stay live with the backend: any message / stage / status / assignment
+    // change (from this device, another agent, or the web) refreshes the leads
+    // list so the contact's latest-thread context never goes stale. Debounced so
+    // a burst of message events triggers a single refetch.
+    ref.listen(realtimeEventsProvider, (_, next) {
+      final e = next.value;
+      if (e == null) return;
+      if (e.isMessagePersisted ||
+          e.isConversationUpdated ||
+          e.isConversationClosed ||
+          e.isConversationAssigned) {
+        _scheduleRefresh();
+      }
+    });
+    ref.onDispose(() => _debounce?.cancel());
+    return _fetch();
+  }
+
+  void _scheduleRefresh() {
+    _debounce?.cancel();
+    _debounce = Timer(const Duration(seconds: 2), refresh);
+  }
 
   Future<List<Contact>> _fetch() async {
     final result = await ref.read(contactsRepositoryProvider).list();
