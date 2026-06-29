@@ -23,7 +23,8 @@ from .settings import settings
 
 log = logging.getLogger("llm")
 
-_URL = "https://api.anthropic.com/v1/messages"
+# Anthropic-compatible messages endpoint (direct, or via a configured gateway).
+_URL = settings.anthropic_base_url.rstrip("/") + "/v1/messages"
 _HEADERS_VERSION = "2023-06-01"
 
 # Instruksi statis (di-cache). analyze: ekstraksi + ringkasan untuk agent (BUKAN

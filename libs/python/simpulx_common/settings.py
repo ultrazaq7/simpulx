@@ -14,6 +14,11 @@ class Settings:
     # LLM
     llm_provider: str = os.getenv("LLM_PROVIDER", "mock")  # anthropic | mock
     anthropic_api_key: str = os.getenv("ANTHROPIC_API_KEY", "")
+    # Anthropic-compatible base URL. Point at an Anthropic-compatible gateway
+    # (e.g. https://gateway.olagon.site/anthropic) to route through a proxy; the
+    # client appends /v1/messages. Defaults to Anthropic direct.
+    anthropic_base_url: str = os.getenv(
+        "ANTHROPIC_BASE_URL", "https://api.anthropic.com")
     # Routine extraction/summary runs on every eligible message, so default to
     # Sonnet (not Opus) for cost. Per-agent ai_agents.model can still override.
     llm_model: str = os.getenv("LLM_MODEL", "claude-sonnet-4-6")
