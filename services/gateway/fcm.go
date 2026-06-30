@@ -71,15 +71,16 @@ func (s *server) initFCMPush(ctx context.Context) {
 			return nil
 		}
 
-		var assignedAgentID *string
+		var assignedAgentID, campaignID, branchID *string
 		var contactName, contactPhone string
 
 		// Resolve via the conversation (its contact), not the event's ContactID which
 		// can be empty — otherwise the title falls back to a generic "New Contact".
 		_ = s.pool.QueryRow(ctx,
-			`SELECT cv.assigned_agent_id::text, COALESCE(ct.full_name,''), COALESCE(ct.phone,'')
+			`SELECT cv.assigned_agent_id::text, cv.campaign_id::text, cv.branch_id::text,
+			        COALESCE(ct.full_name,''), COALESCE(ct.phone,'')
 			   FROM conversations cv LEFT JOIN contacts ct ON ct.id = cv.contact_id
-			  WHERE cv.id=$1`, msg.ConversationID).Scan(&assignedAgentID, &contactName, &contactPhone)
+			  WHERE cv.id=$1`, msg.ConversationID).Scan(&assignedAgentID, &campaignID, &branchID, &contactName, &contactPhone)
 
 		if contactName == "" {
 			contactName = contactPhone
@@ -93,13 +94,23 @@ func (s *server) initFCMPush(ctx context.Context) {
 		if assignedAgentID != nil {
 			rows, _ = s.queryMaps(ctx, `SELECT DISTINCT token FROM fcm_tokens WHERE user_id=$1`, *assignedAgentID)
 		} else {
-			// Notify all active agents in org
+			// Unassigned: only notify users who can actually SEE the lead (RBAC) —
+			// admins/owners (all) + managers of the conversation's campaign/branch.
+			// Previously this blasted EVERY active user, so agents got pushes for
+			// leads that were never (or no longer) routed to them.
 			rows, _ = s.queryMaps(ctx, `
-				SELECT DISTINCT t.token 
+				SELECT DISTINCT t.token
 				FROM fcm_tokens t
 				JOIN users u ON u.id = t.user_id
 				WHERE u.organization_id = $1 AND u.status = 'active'
-			`, env.OrgID)
+				  AND (
+				    u.role IN ('admin','owner')
+				    OR (u.role = 'manager' AND (
+				         $2::uuid IN (SELECT campaign_id FROM campaign_agents WHERE user_id = u.id)
+				      OR $3::uuid IN (SELECT branch_id   FROM branch_agents   WHERE user_id = u.id)
+				    ))
+				  )
+			`, env.OrgID, campaignID, branchID)
 		}
 
 		if len(rows) == 0 {
