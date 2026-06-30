@@ -242,7 +242,7 @@ func (s *server) handleAdPerformance(w http.ResponseWriter, r *http.Request) {
 		to = time.Now().Format("2006-01-02")
 	}
 	if from == "" {
-		from = time.Now().AddDate(0, 0, -29).Format("2006-01-02")
+		from = "2000-01-01" // empty range = all time
 	}
 	camp := r.URL.Query().Get("campaign_id")
 

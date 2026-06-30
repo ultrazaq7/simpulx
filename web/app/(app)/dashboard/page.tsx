@@ -881,7 +881,10 @@ const fmtMoney = (n: number) => (n || 0).toLocaleString(undefined, { minimumFrac
 const fmtInt = (n: number) => Math.round(n || 0).toLocaleString();
 
 function MarketingAnalytics() {
-  const [range, setRange] = useState("30");
+  // Same date filter as the Overview tab (preset keys + custom range).
+  const [dateRange, setDateRange] = useState("all");
+  const [fFrom, setFFrom] = useState("");
+  const [fTo, setFTo] = useState("");
   const [campaignFilter, setCampaignFilter] = useState("");
   const [perf, setPerf] = useState<AdPerformance | null>(null);
   const [currency, setCurrency] = useState("");
@@ -889,11 +892,10 @@ function MarketingAnalytics() {
   const [loading, setLoading] = useState(true);
 
   useEffect(() => {
-    const to = new Date().toISOString().slice(0, 10);
-    const from = new Date(Date.now() - Number(range) * 86400000).toISOString().slice(0, 10);
+    const { from, to } = dateRange === "custom" ? { from: fFrom, to: fTo } : presetRange(dateRange);
     let alive = true;
     Promise.all([
-      api.adPerformance(from, to, campaignFilter || undefined).catch(() => null),
+      api.adPerformance(from || undefined, to || undefined, campaignFilter || undefined).catch(() => null),
       api.listAdAccounts().catch(() => []),
     ]).then(([p, accts]) => {
       if (!alive) return;
@@ -903,9 +905,8 @@ function MarketingAnalytics() {
       setCurrency(a.find((x) => x.currency)?.currency || "");
     }).finally(() => { if (alive) setLoading(false); });
     return () => { alive = false; };
-    // Refetch on campaign change so daily + per-creative respect the filter; keep
-    // the previous view visible during refetch (no skeleton flash after first load).
-  }, [range, campaignFilter]);
+    // Refetch on filter change; keep the previous view visible during refetch.
+  }, [dateRange, fFrom, fTo, campaignFilter]);
 
   const campaigns = perf?.campaigns || [];
   const campaignOptions = useMemo(() => [{ value: "", label: "All campaigns" }, ...campaigns.map((c) => ({ value: c.campaign_id, label: c.campaign_name }))], [campaigns]);
@@ -965,11 +966,29 @@ function MarketingAnalytics() {
     <div className="p-4">
       {/* Toolbar */}
       <div className="flex items-center gap-2 mb-4 flex-wrap">
-        <p className="text-[13px] text-muted-foreground">Ad spend tied to the leads it produced and their conversions.</p>
         <div className="flex-1" />
         <Select value={campaignFilter} onChange={setCampaignFilter} options={campaignOptions} className="w-[180px]" />
-        <Select value={range} onChange={setRange} searchable={false} className="w-[150px]"
-          options={[{ value: "7", label: "Last 7 days" }, { value: "30", label: "Last 30 days" }, { value: "90", label: "Last 90 days" }]} />
+        <Select value={dateRange} searchable={false} className="w-[150px]"
+          onChange={(v) => { setDateRange(v); if (v !== "custom") { const r = presetRange(v); setFFrom(r.from); setFTo(r.to); } }}
+          options={[
+            { value: "all", label: "All time" },
+            { value: "today", label: "Today" },
+            { value: "7d", label: "Last 7 days" },
+            { value: "30d", label: "Last 30 days" },
+            { value: "90d", label: "Last 90 days" },
+            { value: "month", label: "This month" },
+            { value: "lastmonth", label: "Last month" },
+            { value: "custom", label: "Custom range" },
+          ]} />
+        {dateRange === "custom" && (
+          <div className="flex items-center gap-1.5 text-[12px] text-muted-foreground">
+            <input type="date" value={fFrom} max={fTo || undefined} onChange={(e) => setFFrom(e.target.value)}
+              className="h-9 px-2 rounded-md border border-input bg-background text-[13px] text-foreground outline-none focus:border-primary" />
+            <span>to</span>
+            <input type="date" value={fTo} min={fFrom || undefined} onChange={(e) => setFTo(e.target.value)}
+              className="h-9 px-2 rounded-md border border-input bg-background text-[13px] text-foreground outline-none focus:border-primary" />
+          </div>
+        )}
       </div>
 
       {hasSpend ? (
