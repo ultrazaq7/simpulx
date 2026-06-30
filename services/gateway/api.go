@@ -826,7 +826,8 @@ func (s *server) handleAnalytics(w http.ResponseWriter, r *http.Request) {
 	//  replied = the AGENT responded at least once (last_agent_message_at)
 	//  engaged = the LEAD/customer responded at least once (last_contact_message_at)
 	//  won     = reached the FINAL pipeline stage (Booking = max sort_order)
-	//  lost    = disposition CATEGORY 'lost' (terminal negative, set with a reason)
+	//  lost    = in the Lost STAGE (how leads are marked lost now) OR a legacy
+	//            'lost'-category disposition. Counted once via OR.
 	funnel, err := s.queryMaps(ctx,
 		fmt.Sprintf(`SELECT count(*) AS total,
 		        count(*) FILTER (WHERE cv.last_agent_message_at IS NOT NULL) AS replied,
@@ -837,7 +838,7 @@ func (s *server) handleAnalytics(w http.ResponseWriter, r *http.Request) {
 		        count(*) FILTER (WHERE cv.interest_level='cold') AS cold,
 		        count(*) FILTER (WHERE cv.interest_level IS NULL) AS unknown,
 		        count(*) FILTER (WHERE st.sort_order = (SELECT max(sort_order) FROM stages WHERE organization_id=$1)) AS won,
-		        count(*) FILTER (WHERE d.category='lost') AS lost,
+		        count(*) FILTER (WHERE st.system_key='lost' OR d.category='lost') AS lost,
 		        COALESCE(sum(cv.followup_count), 0)::int AS followups,
 		        COALESCE(sum(cv.call_attempts), 0)::int AS call_attempts,
 		        COALESCE(sum(cv.total_call_duration), 0)::int AS call_duration_sec

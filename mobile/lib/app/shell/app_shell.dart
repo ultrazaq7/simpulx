@@ -34,10 +34,13 @@ class AppShell extends ConsumerWidget {
     return Scaffold(
       body: navigationShell,
       // Hairline above the bar so it reads as a distinct surface on the clean
-      // white scaffold (WhatsApp-style).
+      // white scaffold (WhatsApp-style). foreground so it paints OVER the bar's
+      // opaque top edge - a background border would be hidden behind it.
       bottomNavigationBar: DecoratedBox(
+        position: DecorationPosition.foreground,
         decoration: BoxDecoration(
-          border: Border(top: BorderSide(color: Theme.of(context).dividerColor)),
+          border: Border(
+              top: BorderSide(color: Theme.of(context).colorScheme.outline)),
         ),
         child: NavigationBar(
         selectedIndex: navigationShell.currentIndex,

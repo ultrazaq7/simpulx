@@ -203,11 +203,16 @@ function StageSplit({ stages, lost }: { stages?: Analytics["stages"]; lost?: num
   if (!stages || stages.length === 0) {
     return <div className="py-10 text-center text-sm text-muted-foreground">No pipeline data yet</div>;
   }
-  const ordered = [...stages].sort((a, b) => a.sort_order - b.sort_order);
-  const total = ordered.reduce((s, x) => s + (x.count || 0), 0);
+  // "Lost" is a real stage but a terminal outcome: keep it OUT of the pipeline
+  // list and pin it to the bottom in red, shown once (no duplicate row). Its
+  // count comes from the stage itself; fall back to the legacy `lost` prop.
+  const pipeline = [...stages].filter((s) => s.system_key !== "lost").sort((a, b) => a.sort_order - b.sort_order);
+  const lostStage = stages.find((s) => s.system_key === "lost");
+  const lostCount = lostStage ? lostStage.count : lost;
+  const total = stages.reduce((s, x) => s + (x.count || 0), 0);
   return (
     <div className="p-2">
-      {ordered.map((s, i) => {
+      {pipeline.map((s, i) => {
         const color = FUNNEL_COLORS[i % FUNNEL_COLORS.length];
         return (
           <Link
@@ -223,14 +228,17 @@ function StageSplit({ stages, lost }: { stages?: Analytics["stages"]; lost?: num
           </Link>
         );
       })}
-      {lost !== undefined && (
-        <div className="flex items-center gap-3 px-2 py-2 mt-1 pt-2.5 border-t border-border/60">
+      {lostCount !== undefined && (
+        <Link
+          href="/inbox?stage=Lost"
+          className="group/st flex items-center gap-3 px-2 py-2 mt-1 pt-2.5 border-t border-border/60 rounded-md hover:bg-muted transition-colors"
+        >
           <span className="w-2.5 h-2.5 rounded-full shrink-0" style={{ backgroundColor: "#EF4444" }} />
           <span className="text-sm font-medium flex-1 text-foreground/90">Lost</span>
-          <div className="flex-[2]"><ProgressBar value={total > 0 ? (lost / total) * 100 : 0} color="#EF4444" /></div>
-          <span className="text-sm font-bold min-w-[28px] text-right tabular-nums" style={{ color: "#EF4444" }}>{lost}</span>
-          <span className="w-4 shrink-0" />
-        </div>
+          <div className="flex-[2]"><ProgressBar value={total > 0 ? (lostCount / total) * 100 : 0} color="#EF4444" /></div>
+          <span className="text-sm font-bold min-w-[28px] text-right tabular-nums" style={{ color: "#EF4444" }}>{lostCount}</span>
+          <ChevronRight className="w-4 h-4 text-muted-foreground/40 group-hover/st:text-muted-foreground shrink-0" />
+        </Link>
       )}
     </div>
   );
@@ -713,10 +721,15 @@ function ManagerDashboard() {
           <div className="px-4 py-4"><OverviewChart data={chartData} /></div>
         </Card>
 
-        <div className="grid grid-cols-1 md:grid-cols-2 gap-4 mb-5">
+        <div className="grid grid-cols-1 lg:grid-cols-3 gap-4 mb-5">
           {/* Real lead funnel - pipeline conversion */}
           <Card title="Lead funnel" subtitle="Reached each stage and beyond">
             <LeadFunnel stages={analytics?.funnel_stages} />
+          </Card>
+
+          {/* Stage breakdown - leads per stage incl. Lost pinned at the bottom */}
+          <Card title="Stage breakdown" subtitle="Leads by pipeline stage">
+            <StageSplit stages={analytics?.stages} lost={analytics?.funnel?.lost} />
           </Card>
 
           {/* Interest Level - clickable rows deep-link to filtered inbox */}

@@ -159,7 +159,14 @@ class ManagerAnalytics {
         .whereType<Map>()
         .map((e) => StageStat.fromJson(e.cast<String, dynamic>()))
         .toList()
-      ..sort((a, b) => a.sortOrder.compareTo(b.sortOrder));
+      // "Lost" is a real stage but a terminal outcome (sort_order 0), so pin it
+      // to the BOTTOM instead of letting its low sort_order float it to the top.
+      ..sort((a, b) {
+        final al = a.systemKey == 'lost' ? 1 : 0;
+        final bl = b.systemKey == 'lost' ? 1 : 0;
+        if (al != bl) return al - bl;
+        return a.sortOrder.compareTo(b.sortOrder);
+      });
 
     final funnelStageList = (j['funnel_stages'] as List? ?? const [])
         .whereType<Map>()
