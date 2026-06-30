@@ -598,6 +598,13 @@ export interface WaFlow {
 export interface WaFlowDetail extends WaFlow {
   definition: FlowDefinition;
   flow_json?: unknown;
+  sheet_id?: string;
+  sheet_tab?: string;
+  sheet_enabled?: boolean;
+}
+export interface GoogleSheetsInfo {
+  connected: boolean;
+  client_email: string;
 }
 export interface WaFlowResponse {
   id: string;

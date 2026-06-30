@@ -1,4 +1,4 @@
-import type { Agent, AIAgent, Analytics, AppNotification, AuditEntry, Automation, AutomationAction, AutomationDetail, AutomationFlow, Broadcast, Campaign, CampaignAnalyticsRow, CampaignDetail, Channel, Contact, Conversation, InternalNote, KnowledgeSource, Message, Organization, OrgSettings, QuickReply, RolePermissions, Sequence, SequenceDetail, SequenceStep, Stats, DashboardCards, Template, TemplateButton, TemplateComponents, User, UserAccount, UserActivity, WebApiSource, WaFlow, WaFlowDetail, WaFlowResponse, FlowDefinition } from "./types";
+import type { Agent, AIAgent, Analytics, AppNotification, AuditEntry, Automation, AutomationAction, AutomationDetail, AutomationFlow, Broadcast, Campaign, CampaignAnalyticsRow, CampaignDetail, Channel, Contact, Conversation, InternalNote, KnowledgeSource, Message, Organization, OrgSettings, QuickReply, RolePermissions, Sequence, SequenceDetail, SequenceStep, Stats, DashboardCards, Template, TemplateButton, TemplateComponents, User, UserAccount, UserActivity, WebApiSource, WaFlow, WaFlowDetail, WaFlowResponse, FlowDefinition, GoogleSheetsInfo } from "./types";
 
 const API = process.env.NEXT_PUBLIC_API_URL || "http://localhost:8080";
 export const WS_URL = process.env.NEXT_PUBLIC_WS_URL || "ws://localhost:8082";
@@ -488,8 +488,9 @@ export const api = {
   getFlow: (id: string) => req<WaFlowDetail>(`/api/wa-flows/${id}`),
   createFlow: (input: { name: string; channel_id?: string; categories?: string[]; definition?: FlowDefinition }) =>
     req<{ id: string }>("/api/wa-flows", { method: "POST", body: JSON.stringify(input) }),
-  updateFlow: (id: string, patch: { name?: string; channel_id?: string; categories?: string[]; definition?: FlowDefinition }) =>
+  updateFlow: (id: string, patch: { name?: string; channel_id?: string; categories?: string[]; definition?: FlowDefinition; sheet_id?: string; sheet_tab?: string; sheet_enabled?: boolean }) =>
     req(`/api/wa-flows/${id}`, { method: "PATCH", body: JSON.stringify(patch) }),
+  getGoogleSheetsInfo: () => req<GoogleSheetsInfo>("/api/integrations/google-sheets"),
   deleteFlow: (id: string) => req(`/api/wa-flows/${id}`, { method: "DELETE" }),
   publishFlow: (id: string) =>
     req<{ status: string; meta_flow_id: string }>(`/api/wa-flows/${id}/publish`, { method: "POST", body: "{}" }),

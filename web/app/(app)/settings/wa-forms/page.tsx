@@ -4,7 +4,7 @@ import type { ReactNode } from "react";
 import {
   FileText, Plus, Send, Trash2, Eye, Download, Loader2, X, GripVertical,
   CheckCircle2, AlertCircle, Rocket, Pencil, ChevronDown, Search, RefreshCw,
-  ChevronsLeft, ChevronLeft, ChevronRight, ChevronsRight,
+  ChevronsLeft, ChevronLeft, ChevronRight, ChevronsRight, Sheet,
 } from "lucide-react";
 import { api, getToken } from "@/lib/api";
 import { Select } from "@/components/Select";
@@ -370,6 +370,11 @@ function FlowBuilder({ flow, onClose, onSaved, onFlash }: {
   const [def, setDef] = useState<FlowDefinition>(flow.definition?.screens ? flow.definition : { screens: [] });
   const [sel, setSel] = useState(0);
   const [saving, setSaving] = useState(false);
+  const [sheetEnabled, setSheetEnabled] = useState(!!flow.sheet_enabled);
+  const [sheetUrl, setSheetUrl] = useState(flow.sheet_id || "");
+  const [sheetTab, setSheetTab] = useState(flow.sheet_tab || "Sheet1");
+  const [saEmail, setSaEmail] = useState("");
+  useEffect(() => { api.getGoogleSheetsInfo().then((i) => setSaEmail(i.client_email)).catch(() => {}); }, []);
   const screen: FlowScreen | undefined = def.screens[sel];
 
   const update = (s: FlowScreen[]) => setDef({ screens: s });
@@ -395,7 +400,7 @@ function FlowBuilder({ flow, onClose, onSaved, onFlash }: {
   async function persist(publish: boolean) {
     setSaving(true);
     try {
-      await api.updateFlow(flow.id, { name, categories: [category], definition: def });
+      await api.updateFlow(flow.id, { name, categories: [category], definition: def, sheet_id: sheetUrl, sheet_tab: sheetTab, sheet_enabled: sheetEnabled });
       if (publish) {
         const r = await api.publishFlow(flow.id);
         onFlash(true, r.status === "published" ? "Published to WhatsApp" : "Saved as draft");
@@ -541,6 +546,38 @@ function FlowBuilder({ flow, onClose, onSaved, onFlash }: {
                     </div>
                   </div>
                 ))}
+              </div>
+
+              {/* Google Sheets delivery */}
+              <div className="mt-6 rounded-lg border border-border p-4">
+                <div className="flex items-start justify-between gap-4">
+                  <div className="flex items-start gap-2.5">
+                    <Sheet className="w-5 h-5 text-success mt-0.5" />
+                    <div>
+                      <p className="text-sm font-semibold text-foreground">Send responses to Google Sheets</p>
+                      <p className="text-xs text-muted-foreground">Append every submission as a new row.</p>
+                    </div>
+                  </div>
+                  <button onClick={() => setSheetEnabled((v) => !v)}
+                    className={cn("relative w-10 h-6 rounded-full transition-colors shrink-0", sheetEnabled ? "bg-primary" : "bg-muted-foreground/30")}>
+                    <span className={cn("absolute top-0.5 w-5 h-5 rounded-full bg-white shadow transition-all", sheetEnabled ? "left-[18px]" : "left-0.5")} />
+                  </button>
+                </div>
+                {sheetEnabled && (
+                  <div className="mt-3 space-y-2">
+                    <input value={sheetUrl} onChange={(e) => setSheetUrl(e.target.value)} placeholder="Paste Google Sheet URL"
+                      className="w-full px-3 py-2 rounded-lg border border-border bg-background text-sm outline-none focus:border-primary" />
+                    <input value={sheetTab} onChange={(e) => setSheetTab(e.target.value)} placeholder="Tab name (default: Sheet1)"
+                      className="w-full px-3 py-2 rounded-lg border border-border bg-background text-sm outline-none focus:border-primary" />
+                    {saEmail ? (
+                      <p className="text-xs text-muted-foreground">
+                        Share your sheet with <span className="font-mono text-foreground">{saEmail}</span> as an <b>Editor</b> so we can write to it.
+                      </p>
+                    ) : (
+                      <p className="text-xs text-amber-600">Google Sheets isn&apos;t connected yet. An admin needs to add the service-account key on the server.</p>
+                    )}
+                  </div>
+                )}
               </div>
             </div>
           </div>

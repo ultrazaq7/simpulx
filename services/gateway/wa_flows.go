@@ -181,7 +181,8 @@ func (s *server) handleGetFlow(w http.ResponseWriter, r *http.Request) {
 	a, _ := authFrom(r.Context())
 	rows, err := s.queryMaps(r.Context(),
 		`SELECT id::text AS id, name, status, meta_flow_id, categories,
-		        channel_id::text AS channel_id, definition, flow_json, publish_error
+		        channel_id::text AS channel_id, definition, flow_json, publish_error,
+		        sheet_id, sheet_tab, sheet_enabled
 		   FROM wa_flows WHERE id=$1 AND organization_id=$2`,
 		r.PathValue("id"), a.OrgID)
 	if err != nil {
@@ -196,10 +197,13 @@ func (s *server) handleGetFlow(w http.ResponseWriter, r *http.Request) {
 }
 
 type flowInput struct {
-	Name       string          `json:"name"`
-	ChannelID  string          `json:"channel_id"`
-	Categories json.RawMessage `json:"categories"`
-	Definition json.RawMessage `json:"definition"`
+	Name         string          `json:"name"`
+	ChannelID    string          `json:"channel_id"`
+	Categories   json.RawMessage `json:"categories"`
+	Definition   json.RawMessage `json:"definition"`
+	SheetID      *string         `json:"sheet_id"`      // full URL or raw id
+	SheetTab     *string         `json:"sheet_tab"`     // worksheet/tab name
+	SheetEnabled *bool           `json:"sheet_enabled"` // append responses to the sheet
 }
 
 // POST /api/wa-flows
@@ -235,15 +239,23 @@ func (s *server) handleUpdateFlow(w http.ResponseWriter, r *http.Request) {
 		http.Error(w, "bad request", http.StatusBadRequest)
 		return
 	}
+	var sheetIDArg any
+	if b.SheetID != nil {
+		sheetIDArg = parseSpreadsheetID(*b.SheetID)
+	}
 	tag, err := s.pool.Exec(r.Context(),
 		`UPDATE wa_flows SET
-		   name        = COALESCE(NULLIF($3,''), name),
-		   channel_id  = COALESCE(NULLIF($4,'')::uuid, channel_id),
-		   categories  = COALESCE($5::jsonb, categories),
-		   definition  = COALESCE($6::jsonb, definition),
-		   updated_at  = now()
+		   name          = COALESCE(NULLIF($3,''), name),
+		   channel_id    = COALESCE(NULLIF($4,'')::uuid, channel_id),
+		   categories    = COALESCE($5::jsonb, categories),
+		   definition    = COALESCE($6::jsonb, definition),
+		   sheet_id      = COALESCE($7, sheet_id),
+		   sheet_tab     = COALESCE(NULLIF($8,''), sheet_tab),
+		   sheet_enabled = COALESCE($9, sheet_enabled),
+		   updated_at    = now()
 		 WHERE id=$1 AND organization_id=$2`,
-		r.PathValue("id"), a.OrgID, b.Name, b.ChannelID, rawOrNil(b.Categories), rawOrNil(b.Definition))
+		r.PathValue("id"), a.OrgID, b.Name, b.ChannelID, rawOrNil(b.Categories), rawOrNil(b.Definition),
+		sheetIDArg, b.SheetTab, b.SheetEnabled)
 	if err != nil {
 		http.Error(w, err.Error(), http.StatusInternalServerError)
 		return
@@ -657,4 +669,37 @@ func (s *server) captureFlowResponse(ctx context.Context, orgID, fromPhone, cont
 		return
 	}
 	s.log.Info("wa flow response captured", "org", orgID, "flow", flowID, "from", fromPhone)
+
+	if flowID != "" {
+		s.maybeAppendFlowSheet(ctx, orgID, flowID, contactName, fromPhone, answers)
+	}
+}
+
+// maybeAppendFlowSheet appends the submission to the form's linked Google Sheet,
+// if one is configured. Columns follow the form's input fields (stable order):
+// Timestamp, Contact, Phone, then each field value. Best-effort.
+func (s *server) maybeAppendFlowSheet(ctx context.Context, orgID, flowID, contactName, phone string, answers map[string]any) {
+	var enabled bool
+	var sheetID, sheetTab, defJSON string
+	err := s.pool.QueryRow(ctx,
+		`SELECT sheet_enabled, COALESCE(sheet_id,''), COALESCE(sheet_tab,'Sheet1'), definition::text
+		   FROM wa_flows WHERE id=$1 AND organization_id=$2`,
+		flowID, orgID).Scan(&enabled, &sheetID, &sheetTab, &defJSON)
+	if err != nil || !enabled || sheetID == "" {
+		return
+	}
+	var def flowDefinition
+	_ = json.Unmarshal([]byte(defJSON), &def)
+	row := []string{time.Now().Format("2006-01-02 15:04:05"), contactName, phone}
+	for _, sc := range def.Screens {
+		for _, c := range sc.Components {
+			if c.Type == "heading" || c.Type == "body" || c.Type == "caption" || c.Name == "" {
+				continue
+			}
+			row = append(row, asStr(answers[c.Name]))
+		}
+	}
+	if err := s.appendSheetRow(ctx, sheetID, sheetTab, row); err != nil {
+		s.log.Warn("flow -> google sheet append failed", "flow", flowID, "err", err)
+	}
 }

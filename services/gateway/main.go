@@ -272,6 +272,7 @@ func main() {
 	mux.HandleFunc("DELETE /api/wa-flows/{id}", s.requireAuth(s.gate("manage_automation", s.handleDeleteFlow)))
 	mux.HandleFunc("POST /api/wa-flows/{id}/publish", s.requireAuth(s.gate("manage_automation", s.handlePublishFlow)))
 	mux.HandleFunc("POST /api/wa-flows/{id}/send", s.requireAuth(s.gate("manage_automation", s.handleSendFlow)))
+	mux.HandleFunc("GET /api/integrations/google-sheets", s.requireAuth(s.gate("view_automation", s.handleGoogleSheetsInfo)))
 	mux.HandleFunc("GET /api/templates", s.requireAuth(s.handleListTemplates))
 	mux.HandleFunc("POST /api/templates", s.requireAuth(s.handleCreateTemplate))
 	mux.HandleFunc("PATCH /api/templates/{id}", s.requireAuth(s.handleUpdateTemplate))
