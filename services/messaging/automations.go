@@ -203,6 +203,16 @@ func (a *app) execStep(ctx context.Context, orgID, convID, contactID string, s a
 				a.log.Warn("automation assign_agent failed", "err", err)
 			}
 		}
+	case "assign_campaign":
+		campID := pStr(s.Params, "campaign_id")
+		if campID == "" {
+			campID = a.st.resolveCampaignByName(ctx, orgID, pStr(s.Params, "campaign_name"))
+		}
+		if campID != "" {
+			if err := a.st.assignCampaign(ctx, convID, campID); err != nil {
+				a.log.Warn("automation assign_campaign failed", "err", err)
+			}
+		}
 	case "close_conversation":
 		if err := a.st.closeConversation(ctx, convID); err != nil {
 			a.log.Warn("automation close_conversation failed", "err", err)
@@ -351,6 +361,24 @@ func (s *store) resolveAgentByName(ctx context.Context, orgID, name string) stri
 func (s *store) assignConversation(ctx context.Context, convID, agentID string) error {
 	_, err := s.pool.Exec(ctx,
 		`UPDATE conversations SET assigned_agent_id=$2, updated_at=now() WHERE id=$1`, convID, agentID)
+	return err
+}
+
+func (s *store) resolveCampaignByName(ctx context.Context, orgID, name string) string {
+	if name == "" {
+		return ""
+	}
+	var id string
+	_ = s.pool.QueryRow(ctx,
+		`SELECT id::text FROM campaigns
+		  WHERE organization_id=$1 AND (id::text=$2 OR lower(name)=lower($2))
+		  LIMIT 1`, orgID, name).Scan(&id)
+	return id
+}
+
+func (s *store) assignCampaign(ctx context.Context, convID, campaignID string) error {
+	_, err := s.pool.Exec(ctx,
+		`UPDATE conversations SET campaign_id=$2::uuid, updated_at=now() WHERE id=$1`, convID, campaignID)
 	return err
 }
 

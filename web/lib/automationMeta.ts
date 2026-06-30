@@ -16,7 +16,7 @@ export const ACTIONS: Record<string, { label: string; desc: string }> = {
   send_message: { label: "Send auto reply", desc: "Send a text message to the contact" },
   send_template: { label: "Send template", desc: "Send an approved WhatsApp template" },
   assign_agent: { label: "Assign to agent", desc: "Route the conversation to a specific agent" },
-  assign_team: { label: "Assign to team", desc: "Route to a team / queue" },
+  assign_campaign: { label: "Assign to campaign", desc: "Route the conversation to a campaign" },
   add_tag: { label: "Add label", desc: "Attach one or more labels" },
   remove_tag: { label: "Remove label", desc: "Detach one or more labels" },
   set_priority: { label: "Set priority", desc: "Mark the conversation priority" },

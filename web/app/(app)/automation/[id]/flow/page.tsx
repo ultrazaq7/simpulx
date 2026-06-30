@@ -8,8 +8,8 @@ import {
 } from "@xyflow/react";
 import "@xyflow/react/dist/style.css";
 import {
-  ArrowLeft, Plus, Zap, MessageCircle, FileText, User, Users, Tag, Flag,
-  CheckCircle, Globe, GitFork, Trash2, Loader2, X, Save,
+  ArrowLeft, Plus, Zap, MessageCircle, FileText, User, Sparkles, Tag, Flag,
+  CheckCircle, Globe, GitFork, Trash2, Loader2, X, Save, Undo2, Redo2,
 } from "lucide-react";
 import type { LucideIcon } from "lucide-react";
 import { Tip } from "@/components/ui/tooltip";
@@ -27,7 +27,7 @@ const META: Record<string, Meta> = {
   send_message: { label: "Send auto reply", Icon: MessageCircle, accent: "#2D8B73", kicker: "DO", desc: ACTIONS.send_message.desc },
   send_template: { label: "Send template", Icon: FileText, accent: "#2D8B73", kicker: "DO", desc: ACTIONS.send_template.desc },
   assign_agent: { label: "Assign to agent", Icon: User, accent: "#0891B2", kicker: "DO", desc: ACTIONS.assign_agent.desc },
-  assign_team: { label: "Assign to team", Icon: Users, accent: "#0891B2", kicker: "DO", desc: ACTIONS.assign_team.desc },
+  assign_campaign: { label: "Assign to campaign", Icon: Sparkles, accent: "#0891B2", kicker: "DO", desc: ACTIONS.assign_campaign.desc },
   add_tag: { label: "Add tag", Icon: Tag, accent: "#D97706", kicker: "DO", desc: ACTIONS.add_tag.desc },
   remove_tag: { label: "Remove tag", Icon: Tag, accent: "#D97706", kicker: "DO", desc: ACTIONS.remove_tag.desc },
   set_priority: { label: "Set priority", Icon: Flag, accent: "#DC2626", kicker: "DO", desc: ACTIONS.set_priority.desc },
@@ -39,12 +39,12 @@ const meta = (k: string) => META[k] ?? META.send_message;
 const PALETTE: { group: string; kinds: string[] }[] = [
   { group: "Logic", kinds: ["condition"] },
   { group: "Messaging", kinds: ["send_message", "send_template"] },
-  { group: "Routing", kinds: ["assign_agent", "assign_team"] },
+  { group: "Routing", kinds: ["assign_agent", "assign_campaign"] },
   { group: "Contact", kinds: ["add_tag", "remove_tag", "set_priority"] },
   { group: "Flow control", kinds: ["close_conversation", "webhook_notify"] },
 ];
 // The executor runs these; others are configurable but not yet executed.
-const EXECUTED = new Set(["send_message", "add_tag", "remove_tag", "assign_agent", "close_conversation", "webhook_notify"]);
+const EXECUTED = new Set(["send_message", "add_tag", "remove_tag", "assign_agent", "assign_campaign", "close_conversation", "webhook_notify"]);
 
 type NodeData = { kind: string; config: Record<string, unknown>; triggerType?: string };
 type AppNode = Node<NodeData>;
@@ -55,7 +55,7 @@ function summary(kind: string, c: Record<string, unknown>, triggerType?: string)
     case "send_message": return String(c.message || "No message set");
     case "send_template": return `Template: ${c.template_name || "—"}`;
     case "assign_agent": return `Agent: ${c.agent_name || c.agent_id || "—"}`;
-    case "assign_team": return `Queue: ${c.queue || "—"}`;
+    case "assign_campaign": return `Campaign: ${c.campaign_name || "—"}`;
     case "add_tag": case "remove_tag": return `Tags: ${(Array.isArray(c.tags) ? (c.tags as string[]).join(", ") : "") || "—"}`;
     case "set_priority": return `Priority: ${c.priority || "normal"}`;
     case "webhook_notify": return String(c.url || "No URL set");
@@ -153,20 +153,63 @@ function Builder() {
 
   const [nodes, setNodes, onNodesChange] = useNodesState<AppNode>([]);
   const [edges, setEdges, onEdgesChange] = useEdgesState<Edge>([]);
+  const [campaigns, setCampaigns] = useState<{ id: string; name: string }[]>([]);
+
+  // ── Undo / redo (Ctrl+Z / Ctrl+Y) ──
+  const nodesRef = useRef(nodes); nodesRef.current = nodes;
+  const edgesRef = useRef(edges); edgesRef.current = edges;
+  const history = useRef<{ past: { n: AppNode[]; e: Edge[] }[]; future: { n: AppNode[]; e: Edge[] }[] }>({ past: [], future: [] });
+  const lastPush = useRef(0);
+  const pushHistory = useCallback(() => {
+    const now = Date.now();
+    if (now - lastPush.current < 80) return; // coalesce batched changes (e.g. node + its edges)
+    lastPush.current = now;
+    history.current.past.push({ n: nodesRef.current, e: edgesRef.current });
+    if (history.current.past.length > 60) history.current.past.shift();
+    history.current.future = [];
+  }, []);
+  const undo = useCallback(() => {
+    const h = history.current;
+    if (!h.past.length) return;
+    h.future.push({ n: nodesRef.current, e: edgesRef.current });
+    const prev = h.past.pop()!;
+    setNodes(prev.n); setEdges(prev.e); setDirty(true);
+  }, [setNodes, setEdges]);
+  const redo = useCallback(() => {
+    const h = history.current;
+    if (!h.future.length) return;
+    h.past.push({ n: nodesRef.current, e: edgesRef.current });
+    const nxt = h.future.pop()!;
+    setNodes(nxt.n); setEdges(nxt.e); setDirty(true);
+  }, [setNodes, setEdges]);
+  useEffect(() => {
+    const onKey = (ev: KeyboardEvent) => {
+      const t = ev.target as HTMLElement | null;
+      if (t && (t.tagName === "INPUT" || t.tagName === "TEXTAREA" || t.isContentEditable)) return;
+      if (!(ev.ctrlKey || ev.metaKey)) return;
+      const k = ev.key.toLowerCase();
+      if (k === "z" && !ev.shiftKey) { ev.preventDefault(); undo(); }
+      else if (k === "y" || (k === "z" && ev.shiftKey)) { ev.preventDefault(); redo(); }
+    };
+    window.addEventListener("keydown", onKey);
+    return () => window.removeEventListener("keydown", onKey);
+  }, [undo, redo]);
 
   useEffect(() => {
     api.getAutomation(id).then((a) => {
       const { nodes: n, edges: e } = toRF(a);
       setAuto(a); setActive(a.is_active); setNodes(n); setEdges(e); setLoading(false);
     }).catch(() => setLoading(false));
+    api.listCampaigns().then((cs) => setCampaigns(cs.map((c) => ({ id: c.id, name: c.name })))).catch(() => {});
   }, [id]); // eslint-disable-line react-hooks/exhaustive-deps
   useEffect(() => { if (!toast) return; const t = setTimeout(() => setToast(null), 3000); return () => clearTimeout(t); }, [toast]);
 
-  const onConnect = useCallback((c: Connection) => { setEdges((eds) => addEdge({ ...c, animated: true, style: { stroke: "#94A3B8", strokeWidth: 1.6 } }, eds)); setDirty(true); }, [setEdges]);
+  const onConnect = useCallback((c: Connection) => { pushHistory(); setEdges((eds) => addEdge({ ...c, animated: true, style: { stroke: "#94A3B8", strokeWidth: 1.6 } }, eds)); setDirty(true); }, [setEdges, pushHistory]);
   const markDirty = useCallback(() => setDirty(true), []);
 
   function addNode(kind: string) {
     setPaletteOpen(false);
+    pushHistory();
     const rect = wrapRef.current?.getBoundingClientRect();
     const pos = rect ? screenToFlowPosition({ x: rect.left + rect.width / 2, y: rect.top + rect.height / 2 }) : { x: 240, y: 240 };
     const nid = `n${Date.now()}`;
@@ -180,6 +223,7 @@ function Builder() {
   }
   function deleteNode(nodeId: string) {
     if (nodeId === "trigger") { setToast("The trigger can't be deleted"); return; }
+    pushHistory();
     setNodes((nds) => nds.filter((n) => n.id !== nodeId));
     setEdges((eds) => eds.filter((e) => e.source !== nodeId && e.target !== nodeId));
     setSelId(null); setDirty(true);
@@ -218,6 +262,8 @@ function Builder() {
           <p className="text-[11.5px] text-muted-foreground">Visual flow · {nodes.length} node{nodes.length === 1 ? "" : "s"} · trigger: {triggerLabel(auto.trigger_type)}</p>
         </div>
         <div className="flex-1" />
+        <Tip label="Undo (Ctrl+Z)"><button onClick={undo} className="p-2 rounded-md text-muted-foreground hover:bg-muted hover:text-foreground outline-none transition-colors"><Undo2 className="w-[18px] h-[18px]" /></button></Tip>
+        <Tip label="Redo (Ctrl+Y)"><button onClick={redo} className="p-2 rounded-md text-muted-foreground hover:bg-muted hover:text-foreground outline-none transition-colors"><Redo2 className="w-[18px] h-[18px]" /></button></Tip>
         <button onClick={() => setPaletteOpen((v) => !v)} className="inline-flex items-center gap-1.5 px-3 h-9 rounded-md border border-border text-[13px] font-semibold text-foreground/80 hover:bg-muted transition-colors outline-none"><Plus className="w-4 h-4" /> Add node</button>
         <label className="inline-flex items-center gap-2 cursor-pointer mx-1">
           <span className="relative inline-flex">
@@ -236,9 +282,10 @@ function Builder() {
       <div className="flex-1 min-h-0 relative" ref={wrapRef}>
         <ReactFlow
           nodes={nodes} edges={edges}
-          onNodesChange={(c) => { onNodesChange(c); if (c.some((x) => x.type === "position" || x.type === "remove")) markDirty(); }}
-          onEdgesChange={(c) => { onEdgesChange(c); if (c.some((x) => x.type === "remove")) markDirty(); }}
+          onNodesChange={(c) => { if (c.some((x) => x.type === "remove")) pushHistory(); onNodesChange(c); if (c.some((x) => x.type === "position" || x.type === "remove")) markDirty(); }}
+          onEdgesChange={(c) => { if (c.some((x) => x.type === "remove")) pushHistory(); onEdgesChange(c); if (c.some((x) => x.type === "remove")) markDirty(); }}
           onConnect={onConnect}
+          onNodeDragStart={() => pushHistory()}
           onNodeClick={(_, n) => setSelId(n.id)}
           onPaneClick={() => { setSelId(null); setPaletteOpen(false); }}
           nodeTypes={nodeTypes}
@@ -246,6 +293,8 @@ function Builder() {
           proOptions={{ hideAttribution: true }}
           defaultEdgeOptions={{ animated: true, style: { stroke: "#94A3B8", strokeWidth: 1.6 } }}
           deleteKeyCode={["Backspace", "Delete"]}
+          multiSelectionKeyCode={["Shift"]}
+          selectionKeyCode={["Shift"]}
         >
           <Background variant={BackgroundVariant.Dots} gap={20} size={1} color="#CBD5E1" />
           <Controls showInteractive={false} className="!shadow-md !border !border-border !rounded-lg overflow-hidden" />
@@ -278,7 +327,7 @@ function Builder() {
         {/* Inspector */}
         {selected && (
           <div className="absolute inset-y-0 right-0 z-20 w-[340px] bg-card border-l border-border shadow-xl flex flex-col animate-scale-in">
-            <Inspector node={selected} triggerType={auto.trigger_type} onChange={(cfg) => updateConfig(selected.id, cfg)} onClose={() => setSelId(null)} onDelete={() => deleteNode(selected.id)} />
+            <Inspector node={selected} triggerType={auto.trigger_type} campaigns={campaigns} onChange={(cfg) => updateConfig(selected.id, cfg)} onClose={() => setSelId(null)} onDelete={() => deleteNode(selected.id)} />
           </div>
         )}
       </div>
@@ -293,8 +342,8 @@ function Builder() {
 }
 
 // ── Inspector (per-node config) ─────────────────────────────────────────────
-function Inspector({ node, triggerType, onChange, onClose, onDelete }: {
-  node: AppNode; triggerType: string; onChange: (cfg: Record<string, unknown>) => void; onClose: () => void; onDelete: () => void;
+function Inspector({ node, triggerType, campaigns, onChange, onClose, onDelete }: {
+  node: AppNode; triggerType: string; campaigns: { id: string; name: string }[]; onChange: (cfg: Record<string, unknown>) => void; onClose: () => void; onDelete: () => void;
 }) {
   const kind = node.data.kind;
   const c = node.data.config || {};
@@ -328,7 +377,14 @@ function Inspector({ node, triggerType, onChange, onClose, onDelete }: {
         {kind === "send_message" && <Field label="Message"><textarea value={String(c.message ?? "")} onChange={(e) => set("message", e.target.value)} rows={4} placeholder="Type the auto reply..." className={cn(INP, "resize-none h-auto py-2")} /></Field>}
         {kind === "send_template" && <Field label="Template name"><input value={String(c.template_name ?? "")} onChange={(e) => set("template_name", e.target.value)} placeholder="welcome_v1" className={INP} /></Field>}
         {kind === "assign_agent" && <Field label="Agent name or ID"><input value={String(c.agent_name ?? "")} onChange={(e) => set("agent_name", e.target.value)} placeholder="e.g. Agent Satu" className={INP} /></Field>}
-        {kind === "assign_team" && <Field label="Team / queue"><input value={String(c.queue ?? "")} onChange={(e) => set("queue", e.target.value)} placeholder="sales" className={INP} /></Field>}
+        {kind === "assign_campaign" && (
+          <Field label="Campaign">
+            <select value={String(c.campaign_id ?? "")} onChange={(e) => { const cid = e.target.value; const cname = campaigns.find((x) => x.id === cid)?.name || ""; onChange({ ...c, campaign_id: cid, campaign_name: cname }); }} className={INP}>
+              <option value="">Select a campaign…</option>
+              {campaigns.map((cp) => <option key={cp.id} value={cp.id}>{cp.name}</option>)}
+            </select>
+          </Field>
+        )}
         {(kind === "add_tag" || kind === "remove_tag") && <Field label="Tags (comma separated)"><input value={Array.isArray(c.tags) ? (c.tags as string[]).join(", ") : ""} onChange={(e) => set("tags", e.target.value.split(",").map((t) => t.trim()).filter(Boolean))} placeholder="vip, pricing" className={INP} /></Field>}
         {kind === "set_priority" && <Field label="Priority"><select value={String(c.priority ?? "normal")} onChange={(e) => set("priority", e.target.value)} className={INP}>{["low", "normal", "high", "urgent"].map((p) => <option key={p} value={p}>{p}</option>)}</select></Field>}
         {kind === "webhook_notify" && <Field label="Webhook URL"><input value={String(c.url ?? "")} onChange={(e) => set("url", e.target.value)} placeholder="https://..." className={INP} /></Field>}
