@@ -19,8 +19,11 @@ export const ACTIONS: Record<string, { label: string; desc: string }> = {
   assign_campaign: { label: "Assign to campaign", desc: "Route the conversation to a campaign" },
   add_tag: { label: "Add label", desc: "Attach one or more labels" },
   remove_tag: { label: "Remove label", desc: "Detach one or more labels" },
+  set_contact_attribute: { label: "Set contact attribute", desc: "Save a value to a contact field" },
   set_priority: { label: "Set priority", desc: "Mark the conversation priority" },
+  set_conversation_status: { label: "Set conversation status", desc: "Open, snooze or close the conversation" },
   close_conversation: { label: "Close conversation", desc: "Resolve and close the conversation" },
+  google_sheet: { label: "Add row to Google Sheet", desc: "Append contact data as a new sheet row" },
   webhook_notify: { label: "Webhook notification", desc: "POST the event to an external URL" },
 };
 

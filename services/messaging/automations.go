@@ -19,6 +19,7 @@ import (
 	"time"
 
 	"github.com/simpulx/v2/libs/go/events"
+	"github.com/simpulx/v2/libs/go/gsheets"
 )
 
 type autoRule struct {
@@ -213,6 +214,29 @@ func (a *app) execStep(ctx context.Context, orgID, convID, contactID string, s a
 				a.log.Warn("automation assign_campaign failed", "err", err)
 			}
 		}
+	case "set_contact_attribute":
+		key := pStr(s.Params, "key")
+		if key != "" {
+			if err := a.st.setContactAttribute(ctx, contactID, key, pStr(s.Params, "value")); err != nil {
+				a.log.Warn("automation set_contact_attribute failed", "err", err)
+			}
+		}
+	case "set_conversation_status":
+		st := pStr(s.Params, "status")
+		if st == "open" || st == "closed" || st == "snoozed" {
+			if err := a.st.setConversationStatus(ctx, convID, st); err != nil {
+				a.log.Warn("automation set_conversation_status failed", "err", err)
+			}
+		}
+	case "google_sheet":
+		sheetID := gsheets.ParseSpreadsheetID(pStr(s.Params, "sheet_url"))
+		if sheetID != "" {
+			row := a.st.contactSheetRow(ctx, contactID, pStrSlice(s.Params, "attributes"))
+			client := &http.Client{Timeout: 12 * time.Second}
+			if err := gsheets.AppendRow(ctx, client, sheetID, pStr(s.Params, "sheet_tab"), row); err != nil {
+				a.log.Warn("automation google_sheet append failed", "err", err)
+			}
+		}
 	case "close_conversation":
 		if err := a.st.closeConversation(ctx, convID); err != nil {
 			a.log.Warn("automation close_conversation failed", "err", err)
@@ -380,6 +404,47 @@ func (s *store) assignCampaign(ctx context.Context, convID, campaignID string) e
 	_, err := s.pool.Exec(ctx,
 		`UPDATE conversations SET campaign_id=$2::uuid, updated_at=now() WHERE id=$1`, convID, campaignID)
 	return err
+}
+
+func (s *store) setContactAttribute(ctx context.Context, contactID, key, value string) error {
+	_, err := s.pool.Exec(ctx,
+		`UPDATE contacts SET attributes = COALESCE(attributes,'{}'::jsonb) || jsonb_build_object($2::text, $3::text),
+		        updated_at = now()
+		  WHERE id = $1`, contactID, key, value)
+	return err
+}
+
+func (s *store) setConversationStatus(ctx context.Context, convID, status string) error {
+	_, err := s.pool.Exec(ctx,
+		`UPDATE conversations SET status=$2, updated_at=now() WHERE id=$1`, convID, status)
+	return err
+}
+
+// contactSheetRow builds a row for the Google Sheet "add row" node:
+// Timestamp, Name, Phone, then each requested contact attribute value.
+func (s *store) contactSheetRow(ctx context.Context, contactID string, keys []string) []string {
+	var name, phone string
+	var attrs map[string]any
+	_ = s.pool.QueryRow(ctx,
+		`SELECT COALESCE(full_name,''), COALESCE(phone,''), COALESCE(attributes,'{}'::jsonb)
+		   FROM contacts WHERE id=$1`, contactID).Scan(&name, &phone, &attrs)
+	row := []string{time.Now().Format("2006-01-02 15:04:05"), name, phone}
+	for _, k := range keys {
+		v := ""
+		if attrs != nil {
+			if raw, ok := attrs[k]; ok {
+				switch t := raw.(type) {
+				case string:
+					v = t
+				default:
+					b, _ := json.Marshal(t)
+					v = string(b)
+				}
+			}
+		}
+		row = append(row, v)
+	}
+	return row
 }
 
 func (s *store) closeConversation(ctx context.Context, convID string) error {

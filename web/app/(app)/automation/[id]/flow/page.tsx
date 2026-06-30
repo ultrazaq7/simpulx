@@ -10,6 +10,7 @@ import "@xyflow/react/dist/style.css";
 import {
   ArrowLeft, Plus, Zap, MessageCircle, FileText, User, Sparkles, Tag, Flag,
   CheckCircle, Globe, GitFork, Trash2, Loader2, X, Save, Undo2, Redo2,
+  Braces, ToggleRight, Sheet,
 } from "lucide-react";
 import type { LucideIcon } from "lucide-react";
 import { Tip } from "@/components/ui/tooltip";
@@ -30,8 +31,11 @@ const META: Record<string, Meta> = {
   assign_campaign: { label: "Assign to campaign", Icon: Sparkles, accent: "#0891B2", kicker: "DO", desc: ACTIONS.assign_campaign.desc },
   add_tag: { label: "Add tag", Icon: Tag, accent: "#D97706", kicker: "DO", desc: ACTIONS.add_tag.desc },
   remove_tag: { label: "Remove tag", Icon: Tag, accent: "#D97706", kicker: "DO", desc: ACTIONS.remove_tag.desc },
+  set_contact_attribute: { label: "Set contact attribute", Icon: Braces, accent: "#7C3AED", kicker: "DO", desc: ACTIONS.set_contact_attribute.desc },
   set_priority: { label: "Set priority", Icon: Flag, accent: "#DC2626", kicker: "DO", desc: ACTIONS.set_priority.desc },
+  set_conversation_status: { label: "Set conversation status", Icon: ToggleRight, accent: "#475569", kicker: "DO", desc: ACTIONS.set_conversation_status.desc },
   close_conversation: { label: "Close conversation", Icon: CheckCircle, accent: "#475569", kicker: "DO", desc: ACTIONS.close_conversation.desc },
+  google_sheet: { label: "Add row to Google Sheet", Icon: Sheet, accent: "#059669", kicker: "DO", desc: ACTIONS.google_sheet.desc },
   webhook_notify: { label: "Webhook", Icon: Globe, accent: "#475569", kicker: "DO", desc: ACTIONS.webhook_notify.desc },
 };
 const meta = (k: string) => META[k] ?? META.send_message;
@@ -40,11 +44,12 @@ const PALETTE: { group: string; kinds: string[] }[] = [
   { group: "Logic", kinds: ["condition"] },
   { group: "Messaging", kinds: ["send_message", "send_template"] },
   { group: "Routing", kinds: ["assign_agent", "assign_campaign"] },
-  { group: "Contact", kinds: ["add_tag", "remove_tag", "set_priority"] },
-  { group: "Flow control", kinds: ["close_conversation", "webhook_notify"] },
+  { group: "Contact", kinds: ["add_tag", "remove_tag", "set_contact_attribute", "set_priority"] },
+  { group: "Flow control", kinds: ["set_conversation_status", "close_conversation", "webhook_notify"] },
+  { group: "Integrations", kinds: ["google_sheet"] },
 ];
 // The executor runs these; others are configurable but not yet executed.
-const EXECUTED = new Set(["send_message", "add_tag", "remove_tag", "assign_agent", "assign_campaign", "close_conversation", "webhook_notify"]);
+const EXECUTED = new Set(["send_message", "add_tag", "remove_tag", "assign_agent", "assign_campaign", "set_contact_attribute", "set_conversation_status", "google_sheet", "close_conversation", "webhook_notify"]);
 
 type NodeData = { kind: string; config: Record<string, unknown>; triggerType?: string };
 type AppNode = Node<NodeData>;
@@ -57,6 +62,9 @@ function summary(kind: string, c: Record<string, unknown>, triggerType?: string)
     case "assign_agent": return `Agent: ${c.agent_name || c.agent_id || "—"}`;
     case "assign_campaign": return `Campaign: ${c.campaign_name || "—"}`;
     case "add_tag": case "remove_tag": return `Tags: ${(Array.isArray(c.tags) ? (c.tags as string[]).join(", ") : "") || "—"}`;
+    case "set_contact_attribute": return `${c.key || "field"} = ${c.value || "—"}`;
+    case "set_conversation_status": return `Status: ${c.status || "—"}`;
+    case "google_sheet": return c.sheet_url ? "Append to sheet" : "No sheet set";
     case "set_priority": return `Priority: ${c.priority || "normal"}`;
     case "webhook_notify": return String(c.url || "No URL set");
     case "condition": return String(c.expression || "Define condition");
@@ -386,6 +394,17 @@ function Inspector({ node, triggerType, campaigns, onChange, onClose, onDelete }
           </Field>
         )}
         {(kind === "add_tag" || kind === "remove_tag") && <Field label="Tags (comma separated)"><input value={Array.isArray(c.tags) ? (c.tags as string[]).join(", ") : ""} onChange={(e) => set("tags", e.target.value.split(",").map((t) => t.trim()).filter(Boolean))} placeholder="vip, pricing" className={INP} /></Field>}
+        {kind === "set_contact_attribute" && <>
+          <Field label="Attribute / field name"><input value={String(c.key ?? "")} onChange={(e) => set("key", e.target.value)} placeholder="e.g. preferred_model" className={INP} /></Field>
+          <Field label="Value"><input value={String(c.value ?? "")} onChange={(e) => set("value", e.target.value)} placeholder="e.g. Brio RS" className={INP} /></Field>
+        </>}
+        {kind === "set_conversation_status" && <Field label="Status"><select value={String(c.status ?? "open")} onChange={(e) => set("status", e.target.value)} className={INP}>{["open", "snoozed", "closed"].map((p) => <option key={p} value={p}>{p}</option>)}</select></Field>}
+        {kind === "google_sheet" && <>
+          <Field label="Google Sheet URL"><input value={String(c.sheet_url ?? "")} onChange={(e) => set("sheet_url", e.target.value)} placeholder="Paste the Sheet URL" className={INP} /></Field>
+          <Field label="Tab name"><input value={String(c.sheet_tab ?? "")} onChange={(e) => set("sheet_tab", e.target.value)} placeholder="Sheet1" className={INP} /></Field>
+          <Field label="Attributes to append (comma separated)"><input value={Array.isArray(c.attributes) ? (c.attributes as string[]).join(", ") : ""} onChange={(e) => set("attributes", e.target.value.split(",").map((t) => t.trim()).filter(Boolean))} placeholder="preferred_model, city" className={INP} /></Field>
+          <p className="text-[12px] text-muted-foreground">Row: timestamp, name, phone, then each attribute. Share the sheet (Editor) with the service account shown in WhatsApp Forms.</p>
+        </>}
         {kind === "set_priority" && <Field label="Priority"><select value={String(c.priority ?? "normal")} onChange={(e) => set("priority", e.target.value)} className={INP}>{["low", "normal", "high", "urgent"].map((p) => <option key={p} value={p}>{p}</option>)}</select></Field>}
         {kind === "webhook_notify" && <Field label="Webhook URL"><input value={String(c.url ?? "")} onChange={(e) => set("url", e.target.value)} placeholder="https://..." className={INP} /></Field>}
         {kind === "condition" && <Field label="Condition expression"><input value={String(c.expression ?? "")} onChange={(e) => set("expression", e.target.value)} placeholder="message contains 'refund'" className={INP} /></Field>}
