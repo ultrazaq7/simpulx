@@ -560,3 +560,51 @@ export interface Call {
   end_reason?: string;
   created_at?: string;
 }
+
+// ── WhatsApp Forms (native Meta Flows) ──
+export type FlowComponentType =
+  | 'heading' | 'body' | 'caption'
+  | 'text_input' | 'text_area' | 'dropdown' | 'radio' | 'checkbox' | 'date' | 'chips';
+
+export interface FlowComponent {
+  type: FlowComponentType;
+  name?: string;     // field name (inputs)
+  label?: string;
+  text?: string;     // heading/body/caption
+  required?: boolean;
+  options?: string[];
+}
+export interface FlowScreen {
+  id?: string;
+  title: string;
+  components: FlowComponent[];
+}
+export interface FlowDefinition {
+  screens: FlowScreen[];
+}
+export interface WaFlow {
+  id: string;
+  name: string;
+  status: 'draft' | 'published' | 'deprecated';
+  meta_flow_id?: string;
+  categories?: string[];
+  channel_id?: string;
+  channel_name?: string;
+  publish_error?: string;
+  response_count?: number;
+  created_at?: string;
+  updated_at?: string;
+}
+export interface WaFlowDetail extends WaFlow {
+  definition: FlowDefinition;
+  flow_json?: unknown;
+}
+export interface WaFlowResponse {
+  id: string;
+  flow_id?: string;
+  flow_name?: string;
+  contact_name?: string;
+  contact_phone?: string;
+  response: Record<string, unknown>;
+  received_at: string;
+}

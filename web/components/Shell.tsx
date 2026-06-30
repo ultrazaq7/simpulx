@@ -59,6 +59,7 @@ const NAV_TOP = [
   { href: "/inbox", icon: MessageCircle, labelKey: "nav.inbox", perm: "menu_chats" },
   { href: "/contacts", icon: Users, labelKey: "nav.contacts", perm: "menu_contacts" },
   { href: "/broadcasts", icon: Megaphone, labelKey: "nav.broadcasts", perm: "menu_broadcasts" },
+  { href: "/wa-forms", icon: FileText, labelKey: "nav.forms", perm: "menu_broadcasts" },
 ];
 
 const NAV_BOTTOM = [
@@ -386,7 +387,8 @@ export function Shell({ children }: { children: ReactNode }) {
         <div className={cn(
           "h-10 rounded-lg flex items-center transition-colors duration-200",
           sidebarOpen ? "w-full justify-start" : "w-10 mx-auto justify-center",
-          active ? "bg-primary/[0.09]" : "hover:bg-foreground/[0.04]"
+          // Darker, filled pill on the active tab (like the mobile bottom-nav).
+          active ? "bg-primary/[0.16]" : "hover:bg-foreground/[0.04]"
         )}>
           <div className="relative w-10 h-10 shrink-0 flex items-center justify-center">
             {href === "/inbox" && unreadCount > 0 && (
@@ -395,10 +397,11 @@ export function Shell({ children }: { children: ReactNode }) {
               </span>
             )}
             <Icon
-              strokeWidth={active ? 2 : 1.75}
+              strokeWidth={active ? 2.25 : 1.75}
               className={cn(
                 "w-[20px] h-[20px] transition-colors duration-200",
-                active ? "text-primary" : "text-muted-foreground group-hover:text-foreground"
+                // Deeper green on the active icon so it reads darker (mobile-style).
+                active ? "text-primary-text" : "text-muted-foreground group-hover:text-foreground"
               )}
             />
           </div>

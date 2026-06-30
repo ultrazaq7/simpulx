@@ -1,4 +1,4 @@
-import type { Agent, AIAgent, Analytics, AppNotification, AuditEntry, Automation, AutomationAction, AutomationDetail, AutomationFlow, Broadcast, Campaign, CampaignAnalyticsRow, CampaignDetail, Channel, Contact, Conversation, InternalNote, KnowledgeSource, Message, Organization, OrgSettings, QuickReply, RolePermissions, Sequence, SequenceDetail, SequenceStep, Stats, DashboardCards, Template, TemplateButton, TemplateComponents, User, UserAccount, UserActivity, WebApiSource } from "./types";
+import type { Agent, AIAgent, Analytics, AppNotification, AuditEntry, Automation, AutomationAction, AutomationDetail, AutomationFlow, Broadcast, Campaign, CampaignAnalyticsRow, CampaignDetail, Channel, Contact, Conversation, InternalNote, KnowledgeSource, Message, Organization, OrgSettings, QuickReply, RolePermissions, Sequence, SequenceDetail, SequenceStep, Stats, DashboardCards, Template, TemplateButton, TemplateComponents, User, UserAccount, UserActivity, WebApiSource, WaFlow, WaFlowDetail, WaFlowResponse, FlowDefinition } from "./types";
 
 const API = process.env.NEXT_PUBLIC_API_URL || "http://localhost:8080";
 export const WS_URL = process.env.NEXT_PUBLIC_WS_URL || "ws://localhost:8082";
@@ -482,6 +482,21 @@ export const api = {
     actions?: AutomationAction[]; flow?: AutomationFlow; is_active?: boolean;
   }) => req(`/api/automations/${id}`, { method: "PATCH", body: JSON.stringify(patch) }),
   deleteAutomation: (id: string) => req(`/api/automations/${id}`, { method: "DELETE" }),
+  // ── WhatsApp Forms (native Meta Flows) ──
+  listFlows: (channelId?: string) =>
+    req<WaFlow[]>(`/api/wa-flows${channelId ? `?channel_id=${channelId}` : ""}`),
+  getFlow: (id: string) => req<WaFlowDetail>(`/api/wa-flows/${id}`),
+  createFlow: (input: { name: string; channel_id?: string; categories?: string[]; definition?: FlowDefinition }) =>
+    req<{ id: string }>("/api/wa-flows", { method: "POST", body: JSON.stringify(input) }),
+  updateFlow: (id: string, patch: { name?: string; channel_id?: string; categories?: string[]; definition?: FlowDefinition }) =>
+    req(`/api/wa-flows/${id}`, { method: "PATCH", body: JSON.stringify(patch) }),
+  deleteFlow: (id: string) => req(`/api/wa-flows/${id}`, { method: "DELETE" }),
+  publishFlow: (id: string) =>
+    req<{ status: string; meta_flow_id: string }>(`/api/wa-flows/${id}/publish`, { method: "POST", body: "{}" }),
+  sendFlow: (id: string, to: string, cta?: string, body?: string) =>
+    req<{ status: string; flow_token: string }>(`/api/wa-flows/${id}/send`, { method: "POST", body: JSON.stringify({ to, cta, body }) }),
+  listFlowResponses: (flowId?: string) =>
+    req<WaFlowResponse[]>(`/api/wa-flows/responses${flowId ? `?flow_id=${flowId}` : ""}`),
   // ── WhatsApp Business Calling API ──
   requestCallPermission: (conversationId: string) =>
     req<{ call_id: string; status: string }>("/api/calls/request-permission", { method: "POST", body: JSON.stringify({ conversation_id: conversationId }) }),
