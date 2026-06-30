@@ -14,43 +14,40 @@ async def get_finance_context(pool, brand: str, model: str, city: str = None) ->
     if not brand and not model:
         return None
         
-    # Buat ILIKE query (case insensitive)
+    # ILIKE patterns (case-insensitive). The DB stores the BASE model ("Brio"),
+    # while a lead usually gives a variant ("Brio RS"). So besides the normal
+    # match, also match when the searched model CONTAINS the stored model_name
+    # (reverse match) — otherwise "Brio RS" never matches "Brio" and no finance
+    # context is injected. Order by variant so specific trims (e.g. RS) surface.
     b_pattern = f"%{brand.strip()}%" if brand else "%"
     m_pattern = f"%{model.strip()}%" if model else "%"
-    
+    m_raw = model.strip() if model else ""
+
+    cols = ("brand_name, model_name, variant_name, city_name, otr_price, "
+            "dp_amount, tenor_months, emi, package_name")
+    model_cond = ("(model_name ILIKE $2 "
+                  "OR ($3 <> '' AND $3 ILIKE '%' || model_name || '%'))")
+
     try:
         async with pool.acquire() as conn:
+            rows = []
             if city:
-                c_pattern = f"%{city.strip()}%"
                 rows = await conn.fetch(
-                    """SELECT brand_name, model_name, variant_name, city_name, otr_price, dp_amount, tenor_months, emi, package_name
-                       FROM finance_packages
-                       WHERE brand_name ILIKE $1 AND model_name ILIKE $2 AND city_name ILIKE $3
-                       ORDER BY dp_amount ASC
-                       LIMIT 5""",
-                    b_pattern, m_pattern, c_pattern
+                    f"SELECT {cols} FROM finance_packages "
+                    f"WHERE brand_name ILIKE $1 AND {model_cond} AND city_name ILIKE $4 "
+                    f"ORDER BY variant_name, dp_amount ASC LIMIT 8",
+                    b_pattern, m_pattern, m_raw, f"%{city.strip()}%",
                 )
-                # Fallback jika di kota spesifik tidak ada
-                if not rows:
-                    rows = await conn.fetch(
-                        """SELECT brand_name, model_name, variant_name, city_name, otr_price, dp_amount, tenor_months, emi, package_name
-                           FROM finance_packages
-                           WHERE brand_name ILIKE $1 AND model_name ILIKE $2
-                           ORDER BY dp_amount ASC
-                           LIMIT 5""",
-                        b_pattern, m_pattern
-                    )
-            else:
+            # Fallback: no city / nothing in that city -> drop the city filter.
+            if not rows:
                 rows = await conn.fetch(
-                    """SELECT brand_name, model_name, variant_name, city_name, otr_price, dp_amount, tenor_months, emi, package_name
-                       FROM finance_packages
-                       WHERE brand_name ILIKE $1 AND model_name ILIKE $2
-                       ORDER BY dp_amount ASC
-                       LIMIT 5""",
-                    b_pattern, m_pattern
+                    f"SELECT {cols} FROM finance_packages "
+                    f"WHERE brand_name ILIKE $1 AND {model_cond} "
+                    f"ORDER BY variant_name, dp_amount ASC LIMIT 8",
+                    b_pattern, m_pattern, m_raw,
                 )
     except Exception as e:
-        log.warning(f"Failed to fetch finance_packages (table missing in prod?): {e}")
+        log.warning(f"Failed to fetch finance_packages: {e}")
         return None
             
     if not rows:
