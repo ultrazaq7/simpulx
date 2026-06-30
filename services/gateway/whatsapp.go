@@ -189,6 +189,12 @@ type waInteractive struct {
 	CallPermissionReply struct {
 		Response string `json:"response"` // accept | reject (best-effort)
 	} `json:"call_permission_reply"`
+	// WhatsApp Flow (Form) submission. response_json is a JSON string of the
+	// collected fields plus our flow_token.
+	NFMReply struct {
+		Name         string `json:"name"`
+		ResponseJSON string `json:"response_json"`
+	} `json:"nfm_reply"`
 }
 
 type waTemplate struct {

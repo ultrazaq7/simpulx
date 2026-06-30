@@ -260,6 +260,18 @@ func main() {
 	mux.HandleFunc("GET /api/automations/{id}", s.requireAuth(s.gate("view_automation", s.handleGetAutomation)))
 	mux.HandleFunc("PATCH /api/automations/{id}", s.requireAuth(s.gate("manage_automation", s.handleUpdateAutomation)))
 	mux.HandleFunc("DELETE /api/automations/{id}", s.requireAuth(s.gate("manage_automation", s.handleDeleteAutomation)))
+
+	// WhatsApp Forms (native Meta Flows). /responses is more specific than /{id}
+	// so Go's mux routes it first.
+	mux.HandleFunc("GET /api/wa-flows", s.requireAuth(s.gate("view_automation", s.handleListFlows)))
+	mux.HandleFunc("POST /api/wa-flows", s.requireAuth(s.gate("manage_automation", s.handleCreateFlow)))
+	mux.HandleFunc("GET /api/wa-flows/responses", s.requireAuth(s.gate("view_automation", s.handleListFlowResponses)))
+	mux.HandleFunc("GET /api/wa-flows/responses/export", s.requireAuth(s.gate("view_automation", s.handleExportFlowResponses)))
+	mux.HandleFunc("GET /api/wa-flows/{id}", s.requireAuth(s.gate("view_automation", s.handleGetFlow)))
+	mux.HandleFunc("PATCH /api/wa-flows/{id}", s.requireAuth(s.gate("manage_automation", s.handleUpdateFlow)))
+	mux.HandleFunc("DELETE /api/wa-flows/{id}", s.requireAuth(s.gate("manage_automation", s.handleDeleteFlow)))
+	mux.HandleFunc("POST /api/wa-flows/{id}/publish", s.requireAuth(s.gate("manage_automation", s.handlePublishFlow)))
+	mux.HandleFunc("POST /api/wa-flows/{id}/send", s.requireAuth(s.gate("manage_automation", s.handleSendFlow)))
 	mux.HandleFunc("GET /api/templates", s.requireAuth(s.handleListTemplates))
 	mux.HandleFunc("POST /api/templates", s.requireAuth(s.handleCreateTemplate))
 	mux.HandleFunc("PATCH /api/templates/{id}", s.requireAuth(s.handleUpdateTemplate))
@@ -486,6 +498,12 @@ func (s *server) ingest(ctx context.Context, p waWebhook) {
 						}
 					}
 					s.applyCallPermissionReply(ctx, orgID, m.From, m.Interactive.CallPermissionReply.Response, repliedMsgID)
+				}
+
+				// WhatsApp Flow (Form) submission → store the collected answers.
+				if m.Type == "interactive" && m.Interactive != nil &&
+					m.Interactive.Type == "nfm_reply" && m.Interactive.NFMReply.ResponseJSON != "" {
+					s.captureFlowResponse(ctx, orgID, m.From, contactName, m.Interactive.NFMReply.ResponseJSON)
 				}
 
 				// JSON asli pesan apa adanya (tidak lossy) — penting untuk
