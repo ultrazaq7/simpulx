@@ -32,20 +32,26 @@ class ContactsController extends AsyncNotifier<List<Contact>> {
     ref.listen(realtimeEventsProvider, (_, next) {
       final e = next.value;
       if (e == null) return;
-      if (e.isMessagePersisted ||
-          e.isConversationUpdated ||
-          e.isConversationClosed ||
-          e.isConversationAssigned) {
-        _scheduleRefresh();
+      // Routing/assignment + stage/status changes are low-frequency and change
+      // which thread a contact resolves to (multi-thread routing), so reflect
+      // them fast. Message bursts get a longer debounce so we don't refetch the
+      // whole leads list constantly.
+      if (e.isConversationAssigned || e.isConversationUpdated) {
+        _scheduleRefresh(const Duration(milliseconds: 300), priority: true);
+      } else if (e.isMessagePersisted || e.isConversationClosed) {
+        _scheduleRefresh(const Duration(seconds: 2));
       }
     });
     ref.onDispose(() => _debounce?.cancel());
     return _fetch();
   }
 
-  void _scheduleRefresh() {
+  void _scheduleRefresh(Duration delay, {bool priority = false}) {
+    // A pending refresh already covers low-priority (message) events, so don't
+    // push it back. Priority (routing) events always win and refresh sooner.
+    if (!priority && (_debounce?.isActive ?? false)) return;
     _debounce?.cancel();
-    _debounce = Timer(const Duration(seconds: 2), refresh);
+    _debounce = Timer(delay, refresh);
   }
 
   Future<List<Contact>> _fetch() async {

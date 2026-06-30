@@ -33,7 +33,13 @@ class AppShell extends ConsumerWidget {
 
     return Scaffold(
       body: navigationShell,
-      bottomNavigationBar: NavigationBar(
+      // Hairline above the bar so it reads as a distinct surface on the clean
+      // white scaffold (WhatsApp-style).
+      bottomNavigationBar: DecoratedBox(
+        decoration: BoxDecoration(
+          border: Border(top: BorderSide(color: Theme.of(context).dividerColor)),
+        ),
+        child: NavigationBar(
         selectedIndex: navigationShell.currentIndex,
         onDestinationSelected: _goBranch,
         destinations: [
@@ -64,6 +70,7 @@ class AppShell extends ConsumerWidget {
             label: l10n.navSettings,
           ),
         ],
+        ),
       ),
     );
   }

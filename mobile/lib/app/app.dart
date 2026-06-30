@@ -106,7 +106,10 @@ class _SimpulxAppState extends ConsumerState<SimpulxApp>
   /// Smart navigation that avoids duplicate routes.
   /// Uses router.go() for root-level routes, router.push() for nested routes.
   void _navigateToRoute(GoRouter router, String route) {
-    final currentLoc = router.routerDelegate.currentConfiguration.fullPath;
+    // Use the actual resolved location, NOT fullPath (which returns the route
+    // *pattern* like "/chat/:id" — that breaks every same-route guard below and
+    // lets a tap push the same thread twice, so Back lands on a duplicate).
+    final currentLoc = router.routerDelegate.currentConfiguration.uri.toString();
     debugPrint('[Push] Current route: $currentLoc, navigating to: $route');
 
     // If navigating to the same route we're already on, do nothing
@@ -130,7 +133,13 @@ class _SimpulxAppState extends ConsumerState<SimpulxApp>
         debugPrint('[Push] Already viewing chat $targetId, skipping');
         return;
       }
-      router.push(route);
+      // Another thread is already open: replace it so Back returns to the inbox
+      // instead of peeling back through a stack of notification-opened threads.
+      if (currentMatch != null) {
+        router.pushReplacement(route);
+      } else {
+        router.push(route);
+      }
       return;
     }
 

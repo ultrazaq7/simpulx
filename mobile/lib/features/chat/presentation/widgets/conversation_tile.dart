@@ -103,9 +103,7 @@ class ConversationTile extends ConsumerWidget {
                       children: [
                         if (_isInactive(c.status))
                           _StatusChip(
-                              status: c.status,
-                              until: c.snoozedUntil,
-                              lost: c.isLost),
+                              status: c.status, until: c.snoozedUntil),
                         if (c.interestLevel != null)
                           _InterestBadge(level: c.interestLevel!),
                         if (c.stageName != null) _StageChip(label: c.stageName!),
@@ -312,10 +310,9 @@ class _AssigneeChip extends StatelessWidget {
 /// clearly marked instead of looking identical to an open chat. The snoozed
 /// variant shows a live countdown that ticks down each minute while visible.
 class _StatusChip extends StatefulWidget {
-  const _StatusChip({required this.status, this.until, this.lost = false});
+  const _StatusChip({required this.status, this.until});
   final String status;
   final DateTime? until;
-  final bool lost;
 
   @override
   State<_StatusChip> createState() => _StatusChipState();
@@ -344,15 +341,13 @@ class _StatusChipState extends State<_StatusChip> {
 
   @override
   Widget build(BuildContext context) {
+    // Status reflects open/closed/snoozed only. "Lost" is conveyed by the stage
+    // chip now, so a lost lead just reads "Closed" here (no duplicate "Lost").
     final isSnoozed = widget.status == 'snoozed';
     final Color color;
     final IconData icon;
     String label;
-    if (widget.lost) {
-      color = AppColors.danger;
-      icon = Icons.do_not_disturb_on_rounded;
-      label = 'Lost';
-    } else if (isSnoozed) {
+    if (isSnoozed) {
       color = AppColors.warning;
       icon = Icons.snooze_rounded;
       final left = formatTimeLeft(widget.until);

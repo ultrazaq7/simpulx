@@ -103,17 +103,10 @@ class _ActionsSheet extends ConsumerWidget {
                     subtitle: Text(_humanizeReason(live.lostReason!)),
                   ),
                 ListTile(
-                  leading: Icon(
-                      live.isLost
-                          ? Icons.do_not_disturb_on_rounded
-                          : _statusIcon(live.status),
-                      color: live.isLost
-                          ? AppColors.danger
-                          : _statusColor(live.status)),
+                  leading: Icon(_statusIcon(live.status),
+                      color: _statusColor(live.status)),
                   title: Text('Status'.tr(context)),
-                  subtitle: Text(
-                      (live.isLost ? 'Lost' : _statusLabel(live.status))
-                          .tr(context)),
+                  subtitle: Text(_statusLabel(live.status).tr(context)),
                   onTap: () =>
                       _pickStatus(context, ref, actions, convId, live),
                 ),
