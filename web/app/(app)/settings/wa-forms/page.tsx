@@ -1,11 +1,13 @@
 "use client";
-import { useCallback, useEffect, useState } from "react";
+import { useCallback, useEffect, useMemo, useState } from "react";
 import type { ReactNode } from "react";
 import {
   FileText, Plus, Send, Trash2, Eye, Download, Loader2, X, GripVertical,
-  CheckCircle2, AlertCircle, Rocket, Pencil, ChevronDown,
+  CheckCircle2, AlertCircle, Rocket, Pencil, ChevronDown, Search, RefreshCw,
+  ChevronsLeft, ChevronLeft, ChevronRight, ChevronsRight,
 } from "lucide-react";
 import { api, getToken } from "@/lib/api";
+import { Select } from "@/components/Select";
 import { cn, fmtDate } from "@/lib/utils";
 import type {
   WaFlow, WaFlowDetail, WaFlowResponse, FlowDefinition, FlowScreen,
@@ -44,6 +46,9 @@ export default function WaFormsPage() {
   const [viewing, setViewing] = useState<WaFlowResponse | null>(null);
   const [busy, setBusy] = useState<string>("");
   const [toast, setToast] = useState<{ ok: boolean; text: string } | null>(null);
+  const [query, setQuery] = useState("");
+  const [page, setPage] = useState(1);
+  const [perPage, setPerPage] = useState(25);
 
   const flash = (ok: boolean, text: string) => {
     setToast({ ok, text });
@@ -137,57 +142,96 @@ export default function WaFormsPage() {
       .catch(() => flash(false, "Export failed"));
   }
 
+  // Reset to page 1 whenever the tab or search changes.
+  useEffect(() => { setPage(1); }, [tab, query]);
+
+  const loadingList = tab === "forms" ? flows === null : responses === null;
+  const filtered = useMemo(() => {
+    const q = query.trim().toLowerCase();
+    if (tab === "forms") {
+      const list = flows || [];
+      return q ? list.filter((f) => f.name.toLowerCase().includes(q)) : list;
+    }
+    const list = responses || [];
+    return q ? list.filter((r) => (r.flow_name || "").toLowerCase().includes(q) || (r.contact_name || "").toLowerCase().includes(q) || (r.contact_phone || "").includes(q)) : list;
+  }, [tab, query, flows, responses]);
+
+  const totalPages = Math.max(1, Math.ceil(filtered.length / perPage));
+  const paged = filtered.slice((page - 1) * perPage, page * perPage);
+  const noun = tab === "forms" ? "form" : "response";
+
   return (
-    <div className="p-6 max-w-[1200px] mx-auto">
-      <div className="flex items-center justify-between mb-5">
-        <div className="flex items-center gap-2.5">
-          <FileText className="w-6 h-6 text-primary" />
-          <h1 className="text-xl font-bold text-foreground">WhatsApp Forms</h1>
+    <div className="px-4 pt-4 pb-4 h-full flex flex-col min-h-0">
+      <div className="bg-card rounded-lg border border-border shadow-xs overflow-hidden flex flex-col flex-1 min-h-0">
+        {/* Toolbar: tabs + search + actions */}
+        <div className="p-3 flex items-center gap-3 border-b border-border shrink-0">
+          <div className="flex items-center gap-1 rounded-md bg-muted/60 p-0.5">
+            {(["forms", "responses"] as const).map((t) => (
+              <button key={t} onClick={() => setTab(t)}
+                className={cn("px-3 h-8 rounded text-[13px] font-semibold capitalize transition-colors",
+                  tab === t ? "bg-card text-foreground shadow-xs" : "text-muted-foreground hover:text-foreground")}>
+                {t}
+              </button>
+            ))}
+          </div>
+          <div className="relative w-[260px] max-w-[40vw]">
+            <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-muted-foreground pointer-events-none" />
+            <input value={query} onChange={(e) => setQuery(e.target.value)} placeholder={`Search ${noun}s`}
+              className="w-full h-9 pl-9 pr-3 rounded-md border border-input bg-background text-sm text-foreground placeholder:text-muted-foreground/70 outline-none transition-shadow focus:border-primary focus:ring-2 focus:ring-primary/20" />
+          </div>
+          <button onClick={() => { load(); if (tab === "responses") api.listFlowResponses().then(setResponses).catch(() => {}); }}
+            className="p-1.5 rounded-md text-muted-foreground hover:bg-muted hover:text-foreground transition-colors outline-none" title="Refresh">
+            <RefreshCw className="w-[18px] h-[18px]" />
+          </button>
+          <div className="flex-1" />
+          {tab === "responses" && (
+            <button onClick={exportCsv} className="inline-flex items-center gap-1.5 px-3.5 h-9 rounded-md border border-border text-sm font-medium text-muted-foreground hover:bg-muted outline-none">
+              <Download className="w-4 h-4" /> Export
+            </button>
+          )}
+          <button onClick={createForm} disabled={busy === "create"}
+            className="inline-flex items-center gap-2 px-3.5 h-9 bg-primary text-white rounded-md text-sm font-semibold hover:bg-primary-dark shadow-sm transition-all outline-none disabled:opacity-50">
+            {busy === "create" ? <Loader2 className="w-4 h-4 animate-spin" /> : <Plus className="w-4 h-4" />}
+            Create WhatsApp Form
+          </button>
         </div>
-        <button
-          onClick={createForm}
-          disabled={busy === "create"}
-          className="inline-flex items-center gap-2 px-4 py-2 rounded-lg bg-primary text-primary-foreground text-sm font-semibold hover:opacity-90 disabled:opacity-50"
-        >
-          {busy === "create" ? <Loader2 className="w-4 h-4 animate-spin" /> : <Plus className="w-4 h-4" />}
-          Create WhatsApp Form
-        </button>
-      </div>
 
-      {/* Tabs */}
-      <div className="flex gap-6 border-b border-border mb-4">
-        {(["forms", "responses"] as const).map((t) => (
-          <button
-            key={t}
-            onClick={() => setTab(t)}
-            className={cn(
-              "pb-2.5 text-sm font-medium capitalize -mb-px border-b-2 transition-colors",
-              tab === t ? "border-primary text-primary" : "border-transparent text-muted-foreground hover:text-foreground"
-            )}
-          >
-            {t}
-          </button>
-        ))}
-        {tab === "responses" && (
-          <button onClick={exportCsv} className="ml-auto pb-2.5 inline-flex items-center gap-1.5 text-sm text-muted-foreground hover:text-foreground">
-            <Download className="w-4 h-4" /> Export
-          </button>
-        )}
-      </div>
+        {/* Content */}
+        <div className="overflow-auto flex-1 min-h-0">
+          {loadingList ? (
+            <div className="py-16 text-center text-muted-foreground"><Loader2 className="w-5 h-5 animate-spin inline" /></div>
+          ) : filtered.length === 0 ? (
+            <div className="py-16 text-center text-sm text-muted-foreground">
+              {tab === "forms" ? "No forms yet. Create your first WhatsApp Form." : "No responses yet."}
+            </div>
+          ) : tab === "forms" ? (
+            <FormsTable flows={paged as WaFlow[]} busy={busy} onEdit={openEditor} onPublish={publish} onSend={send} onDelete={remove} />
+          ) : (
+            <ResponsesTable responses={paged as WaFlowResponse[]} onView={setViewing} />
+          )}
+        </div>
 
-      {tab === "forms" ? (
-        <FormsTable flows={flows} busy={busy} onEdit={openEditor} onPublish={publish} onSend={send} onDelete={remove} />
-      ) : (
-        <ResponsesTable responses={responses} onView={setViewing} />
-      )}
+        {/* Pagination */}
+        <div className="flex items-center py-3 px-4 border-t border-border shrink-0">
+          <span className="text-[13px] font-semibold text-muted-foreground tabular-nums">{filtered.length} {noun}{filtered.length === 1 ? "" : "s"}</span>
+          <div className="flex-1 flex justify-center items-center gap-1">
+            <button aria-label="First page" disabled={page <= 1} onClick={() => setPage(1)} className="p-1 rounded-md text-muted-foreground hover:bg-muted hover:text-foreground disabled:opacity-30 disabled:cursor-not-allowed outline-none transition-colors"><ChevronsLeft className="w-[18px] h-[18px]" /></button>
+            <button aria-label="Previous page" disabled={page <= 1} onClick={() => setPage(page - 1)} className="p-1 rounded-md text-muted-foreground hover:bg-muted hover:text-foreground disabled:opacity-30 disabled:cursor-not-allowed outline-none transition-colors"><ChevronLeft className="w-[18px] h-[18px]" /></button>
+            <span className="px-3 py-1 rounded-md border border-primary/40 text-primary text-[13px] font-bold min-w-[32px] text-center tabular-nums">{page}</span>
+            <span className="text-[13px] text-muted-foreground tabular-nums">/ {totalPages}</span>
+            <button aria-label="Next page" disabled={page >= totalPages} onClick={() => setPage(page + 1)} className="p-1 rounded-md text-muted-foreground hover:bg-muted hover:text-foreground disabled:opacity-30 disabled:cursor-not-allowed outline-none transition-colors"><ChevronRight className="w-[18px] h-[18px]" /></button>
+            <button aria-label="Last page" disabled={page >= totalPages} onClick={() => setPage(totalPages)} className="p-1 rounded-md text-muted-foreground hover:bg-muted hover:text-foreground disabled:opacity-30 disabled:cursor-not-allowed outline-none transition-colors"><ChevronsRight className="w-[18px] h-[18px]" /></button>
+          </div>
+          <div className="flex items-center gap-2">
+            <span className="text-[13px] text-muted-foreground">Per page</span>
+            <Select value={String(perPage)} onChange={(v) => setPerPage(Number(v))} align="right" className="w-[72px]"
+              options={[10, 25, 50].map((n) => ({ value: String(n), label: String(n) }))} />
+          </div>
+        </div>
+      </div>
 
       {editing && (
-        <FlowBuilder
-          flow={editing}
-          onClose={() => setEditing(null)}
-          onSaved={() => { setEditing(null); load(); }}
-          onFlash={flash}
-        />
+        <FlowBuilder flow={editing} onClose={() => setEditing(null)} onSaved={() => { setEditing(null); load(); }} onFlash={flash} />
       )}
       {viewing && <ResponseViewer r={viewing} onClose={() => setViewing(null)} />}
 
@@ -206,25 +250,22 @@ export default function WaFormsPage() {
 
 // ── Forms table ─────────────────────────────────────────────
 function FormsTable({ flows, busy, onEdit, onPublish, onSend, onDelete }: {
-  flows: WaFlow[] | null; busy: string;
+  flows: WaFlow[]; busy: string;
   onEdit: (id: string) => void; onPublish: (id: string) => void;
   onSend: (f: WaFlow) => void; onDelete: (id: string) => void;
 }) {
-  if (flows === null) return <div className="py-16 text-center text-muted-foreground"><Loader2 className="w-5 h-5 animate-spin inline" /></div>;
-  if (flows.length === 0) return <div className="py-16 text-center text-sm text-muted-foreground">No forms yet. Create your first WhatsApp Form.</div>;
   return (
-    <div className="rounded-lg border border-border overflow-hidden">
-      <table className="w-full text-sm">
-        <thead className="bg-muted/40 text-muted-foreground">
-          <tr className="text-left">
-            <th className="px-4 py-2.5 font-medium">Name</th>
-            <th className="px-4 py-2.5 font-medium">Status</th>
-            <th className="px-4 py-2.5 font-medium">Responses</th>
-            <th className="px-4 py-2.5 font-medium">Updated</th>
-            <th className="px-4 py-2.5 font-medium text-right">Actions</th>
-          </tr>
-        </thead>
-        <tbody className="divide-y divide-border">
+    <table className="w-full text-sm">
+      <thead>
+        <tr className="border-b border-border bg-muted/40 text-left">
+          <th className="px-4 py-2.5 text-[11px] font-bold uppercase tracking-wider text-muted-foreground">Name</th>
+          <th className="px-4 py-2.5 text-[11px] font-bold uppercase tracking-wider text-muted-foreground">Status</th>
+          <th className="px-4 py-2.5 text-[11px] font-bold uppercase tracking-wider text-muted-foreground">Responses</th>
+          <th className="px-4 py-2.5 text-[11px] font-bold uppercase tracking-wider text-muted-foreground">Updated</th>
+          <th className="px-4 py-2.5 text-[11px] font-bold uppercase tracking-wider text-muted-foreground text-right">Actions</th>
+        </tr>
+      </thead>
+      <tbody className="divide-y divide-border">
           {flows.map((f) => (
             <tr key={f.id} className="hover:bg-muted/30">
               <td className="px-4 py-3 font-medium text-foreground">
@@ -246,9 +287,8 @@ function FormsTable({ flows, busy, onEdit, onPublish, onSend, onDelete }: {
               </td>
             </tr>
           ))}
-        </tbody>
-      </table>
-    </div>
+      </tbody>
+    </table>
   );
 }
 
@@ -262,36 +302,32 @@ function IconBtn({ children, title, onClick, disabled, loading }: { children: Re
 }
 
 // ── Responses table ─────────────────────────────────────────
-function ResponsesTable({ responses, onView }: { responses: WaFlowResponse[] | null; onView: (r: WaFlowResponse) => void }) {
-  if (responses === null) return <div className="py-16 text-center text-muted-foreground"><Loader2 className="w-5 h-5 animate-spin inline" /></div>;
-  if (responses.length === 0) return <div className="py-16 text-center text-sm text-muted-foreground">No responses yet.</div>;
+function ResponsesTable({ responses, onView }: { responses: WaFlowResponse[]; onView: (r: WaFlowResponse) => void }) {
   return (
-    <div className="rounded-lg border border-border overflow-hidden">
-      <table className="w-full text-sm">
-        <thead className="bg-muted/40 text-muted-foreground">
-          <tr className="text-left">
-            <th className="px-4 py-2.5 font-medium">Form</th>
-            <th className="px-4 py-2.5 font-medium">Contact</th>
-            <th className="px-4 py-2.5 font-medium">Phone</th>
-            <th className="px-4 py-2.5 font-medium">Received</th>
-            <th className="px-4 py-2.5 font-medium text-right">View</th>
+    <table className="w-full text-sm">
+      <thead>
+        <tr className="border-b border-border bg-muted/40 text-left">
+          <th className="px-4 py-2.5 text-[11px] font-bold uppercase tracking-wider text-muted-foreground">Form</th>
+          <th className="px-4 py-2.5 text-[11px] font-bold uppercase tracking-wider text-muted-foreground">Contact</th>
+          <th className="px-4 py-2.5 text-[11px] font-bold uppercase tracking-wider text-muted-foreground">Phone</th>
+          <th className="px-4 py-2.5 text-[11px] font-bold uppercase tracking-wider text-muted-foreground">Received</th>
+          <th className="px-4 py-2.5 text-[11px] font-bold uppercase tracking-wider text-muted-foreground text-right">View</th>
+        </tr>
+      </thead>
+      <tbody className="divide-y divide-border">
+        {responses.map((r) => (
+          <tr key={r.id} className="hover:bg-muted/30">
+            <td className="px-4 py-3 font-medium text-foreground">{r.flow_name || "—"}</td>
+            <td className="px-4 py-3">{r.contact_name || "—"}</td>
+            <td className="px-4 py-3 tabular-nums text-muted-foreground">{r.contact_phone}</td>
+            <td className="px-4 py-3 text-muted-foreground">{fmtDate(r.received_at)}</td>
+            <td className="px-4 py-3 text-right">
+              <IconBtn title="View" onClick={() => onView(r)}><Eye className="w-4 h-4" /></IconBtn>
+            </td>
           </tr>
-        </thead>
-        <tbody className="divide-y divide-border">
-          {responses.map((r) => (
-            <tr key={r.id} className="hover:bg-muted/30">
-              <td className="px-4 py-3 font-medium text-foreground">{r.flow_name || "—"}</td>
-              <td className="px-4 py-3">{r.contact_name || "—"}</td>
-              <td className="px-4 py-3 tabular-nums text-muted-foreground">{r.contact_phone}</td>
-              <td className="px-4 py-3 text-muted-foreground">{fmtDate(r.received_at)}</td>
-              <td className="px-4 py-3 text-right">
-                <IconBtn title="View" onClick={() => onView(r)}><Eye className="w-4 h-4" /></IconBtn>
-              </td>
-            </tr>
-          ))}
-        </tbody>
-      </table>
-    </div>
+        ))}
+      </tbody>
+    </table>
   );
 }
 

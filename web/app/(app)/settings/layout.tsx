@@ -41,6 +41,7 @@ const GROUPS: { titleKey: string; items: NavItem[] }[] = [
       { key: "campaigns", labelKey: "settings.campaigns", icon: Sparkles, href: "/settings/campaigns", perm: "manage_campaigns" },
       { key: "templates", labelKey: "settings.templates", icon: FileText, href: "/settings/templates", perm: "view_settings" },
       { key: "automation", labelKey: "settings.automations", icon: GitBranch, href: "/settings/automation", perm: "view_automation" },
+      { key: "wa-forms", labelKey: "settings.forms", icon: FileText, href: "/settings/wa-forms", perm: "view_automation" },
       // Channel & Integrations merges messaging channels, Web API lead sources and ad accounts.
       { key: "channels", labelKey: "settings.channels_integrations", icon: Radio, href: "/settings/channels", perm: "manage_channels" },
     ],

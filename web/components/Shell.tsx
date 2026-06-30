@@ -59,7 +59,6 @@ const NAV_TOP = [
   { href: "/inbox", icon: MessageCircle, labelKey: "nav.inbox", perm: "menu_chats" },
   { href: "/contacts", icon: Users, labelKey: "nav.contacts", perm: "menu_contacts" },
   { href: "/broadcasts", icon: Megaphone, labelKey: "nav.broadcasts", perm: "menu_broadcasts" },
-  { href: "/wa-forms", icon: FileText, labelKey: "nav.forms", perm: "menu_broadcasts" },
 ];
 
 const NAV_BOTTOM = [
@@ -85,6 +84,7 @@ const PAGE_TITLES: Record<string, { category: string; title: string }> = {
   "/settings/campaigns": { category: "CAMPAIGNS", title: "Campaigns" },
   "/settings/templates": { category: "TEMPLATES", title: "Message Templates" },
   "/settings/automation": { category: "AUTOMATION", title: "Automation" },
+  "/settings/wa-forms": { category: "FORMS", title: "WhatsApp Forms" },
   "/settings/channels": { category: "CHANNELS", title: "Channels" },
   "/settings/ads": { category: "ANALYTICS", title: "Ad Performance" },
   "/settings/integrations": { category: "INTEGRATIONS", title: "Web API Sources" },
@@ -106,6 +106,7 @@ const CATEGORY_ICONS: Record<string, any> = {
   "TEAM": Users,
   "ROLES": ShieldCheck,
   "TEMPLATES": FileText,
+  "FORMS": FileText,
   "CHANNELS": Radio,
   "ANALYTICS": BarChart3,
   "INTEGRATIONS": Plug,
