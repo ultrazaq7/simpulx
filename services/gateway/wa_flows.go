@@ -10,6 +10,7 @@ import (
 	"fmt"
 	"mime/multipart"
 	"net/http"
+	"net/textproto"
 	"sort"
 	"strings"
 	"time"
@@ -341,7 +342,13 @@ func (s *server) metaUploadFlowAsset(ctx context.Context, flowID, token string, 
 	mw := multipart.NewWriter(&buf)
 	_ = mw.WriteField("name", "flow.json")
 	_ = mw.WriteField("asset_type", "FLOW_JSON")
-	fw, err := mw.CreateFormFile("file", "flow.json")
+	// Meta requires the file part to be application/json; CreateFormFile would
+	// default to application/octet-stream (which Meta rejects with #100), so set
+	// the part header explicitly.
+	ph := textproto.MIMEHeader{}
+	ph.Set("Content-Disposition", `form-data; name="file"; filename="flow.json"`)
+	ph.Set("Content-Type", "application/json")
+	fw, err := mw.CreatePart(ph)
 	if err != nil {
 		return err
 	}
