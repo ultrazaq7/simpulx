@@ -1,0 +1,233 @@
+"use client";
+// Drip campaigns (a.k.a. sequences): a timed series of follow-up messages that
+// auto-send after a trigger (no reply / new lead). Lives under Broadcasts.
+import { useEffect, useMemo, useState } from "react";
+import { Plus, Trash2, Loader2, Repeat, Clock, Pencil, X, GripVertical, Power } from "lucide-react";
+import { api } from "@/lib/api";
+import type { Sequence, SequenceStep, Campaign } from "@/lib/types";
+import { Select } from "@/components/Select";
+import { usePermissions } from "@/lib/permissions";
+
+const TRIGGERS = [
+  { value: "no_reply", label: "No reply", hint: "Starts when a lead goes quiet." },
+  { value: "new_lead", label: "New lead", hint: "Starts as soon as a lead enters." },
+];
+
+// Present delay_minutes as value + unit for a friendly editor.
+function splitDelay(mins: number): { val: number; unit: "minutes" | "hours" | "days" } {
+  if (mins > 0 && mins % 1440 === 0) return { val: mins / 1440, unit: "days" };
+  if (mins > 0 && mins % 60 === 0) return { val: mins / 60, unit: "hours" };
+  return { val: mins, unit: "minutes" };
+}
+const toMins = (val: number, unit: string) => (unit === "days" ? val * 1440 : unit === "hours" ? val * 60 : val);
+
+export default function DripPage() {
+  const { can } = usePermissions();
+  const canEdit = can("menu_broadcasts");
+  const [rows, setRows] = useState<Sequence[]>([]);
+  const [campaigns, setCampaigns] = useState<Campaign[]>([]);
+  const [loading, setLoading] = useState(true);
+  const [editing, setEditing] = useState<string | "new" | null>(null);
+  const [toast, setToast] = useState<string | null>(null);
+
+  const load = () => { setLoading(true); api.listSequences().then((s) => setRows(s || [])).catch(() => {}).finally(() => setLoading(false)); };
+  useEffect(() => { load(); api.listCampaigns().then((c) => setCampaigns(c || [])).catch(() => {}); }, []);
+  useEffect(() => { if (!toast) return; const t = setTimeout(() => setToast(null), 2500); return () => clearTimeout(t); }, [toast]);
+
+  const toggleActive = async (s: Sequence) => {
+    setRows((r) => r.map((x) => (x.id === s.id ? { ...x, is_active: !x.is_active } : x)));
+    try { await api.updateSequence(s.id, { is_active: !s.is_active }); } catch { load(); }
+  };
+  const remove = async (s: Sequence) => {
+    if (!confirm(`Delete drip campaign "${s.name}"? Active enrollments will stop.`)) return;
+    try { await api.deleteSequence(s.id); setRows((r) => r.filter((x) => x.id !== s.id)); setToast("Drip campaign deleted"); } catch (e) { setToast(String(e)); }
+  };
+
+  return (
+    <div className="p-6 max-w-[1100px] mx-auto">
+      <div className="flex items-center justify-between gap-3 mb-5">
+        <div>
+          <h1 className="text-[19px] font-bold text-foreground">Drip campaigns</h1>
+          <p className="text-[13px] text-muted-foreground mt-0.5">Timed follow-up messages that auto-send to nurture leads.</p>
+        </div>
+        {canEdit && (
+          <button onClick={() => setEditing("new")} className="inline-flex items-center gap-1.5 h-9 px-3.5 rounded-lg bg-primary text-white text-[13px] font-semibold hover:bg-primary/90 transition-colors">
+            <Plus className="w-4 h-4" /> New drip
+          </button>
+        )}
+      </div>
+
+      <div className="rounded-xl border border-border bg-card overflow-hidden">
+        <table className="w-full text-sm">
+          <thead>
+            <tr className="border-b border-border bg-muted/40 text-[11px] font-bold uppercase tracking-wider text-muted-foreground">
+              <th className="text-left px-4 py-2.5">Name</th>
+              <th className="text-left px-4 py-2.5">Trigger</th>
+              <th className="text-left px-4 py-2.5">Campaign</th>
+              <th className="text-right px-4 py-2.5">Steps</th>
+              <th className="text-right px-4 py-2.5">Active leads</th>
+              <th className="text-center px-4 py-2.5">Status</th>
+              <th className="px-4 py-2.5"></th>
+            </tr>
+          </thead>
+          <tbody>
+            {loading ? (
+              [0, 1, 2].map((i) => <tr key={i}><td colSpan={7} className="px-4 py-2.5"><div className="h-9 skeleton rounded-md" /></td></tr>)
+            ) : rows.length === 0 ? (
+              <tr><td colSpan={7} className="text-center py-16">
+                <Repeat className="w-8 h-8 text-muted-foreground/40 mx-auto mb-2" />
+                <p className="text-[14px] font-semibold text-foreground">No drip campaigns yet</p>
+                <p className="text-[13px] text-muted-foreground mt-0.5">Create one to auto-nurture leads with timed messages.</p>
+              </td></tr>
+            ) : rows.map((s) => (
+              <tr key={s.id} className="border-b border-border/60 hover:bg-muted/40 transition-colors">
+                <td className="px-4 py-2.5 font-semibold text-foreground whitespace-nowrap">{s.name}</td>
+                <td className="px-4 py-2.5 whitespace-nowrap"><span className="inline-flex px-2 py-0.5 rounded-md text-[11px] font-semibold bg-muted text-foreground/70">{TRIGGERS.find((t) => t.value === s.trigger)?.label || s.trigger}</span></td>
+                <td className="px-4 py-2.5 text-muted-foreground whitespace-nowrap">{s.campaign_name || "All campaigns"}</td>
+                <td className="px-4 py-2.5 text-right tabular-nums text-foreground/80">{s.steps}</td>
+                <td className="px-4 py-2.5 text-right tabular-nums text-foreground/80">{s.active_enrollments}</td>
+                <td className="px-4 py-2.5 text-center">
+                  <button onClick={() => canEdit && toggleActive(s)} disabled={!canEdit}
+                    className={`relative inline-flex h-5 w-9 shrink-0 rounded-full transition-colors outline-none ${s.is_active ? "bg-primary" : "bg-muted"}`}>
+                    <span className={`inline-block h-4 w-4 rounded-full bg-white shadow-sm transform transition-transform mt-0.5 ${s.is_active ? "translate-x-[18px] ml-0.5" : "translate-x-0.5"}`} />
+                  </button>
+                </td>
+                <td className="px-4 py-2.5 text-right whitespace-nowrap">
+                  {canEdit && (
+                    <span className="inline-flex items-center gap-1">
+                      <button onClick={() => setEditing(s.id)} className="p-1.5 rounded-md text-muted-foreground hover:text-foreground hover:bg-muted" aria-label="Edit"><Pencil className="w-4 h-4" /></button>
+                      <button onClick={() => remove(s)} className="p-1.5 rounded-md text-muted-foreground hover:text-destructive hover:bg-destructive/10" aria-label="Delete"><Trash2 className="w-4 h-4" /></button>
+                    </span>
+                  )}
+                </td>
+              </tr>
+            ))}
+          </tbody>
+        </table>
+      </div>
+
+      {editing && (
+        <DripEditor id={editing === "new" ? null : editing} campaigns={campaigns}
+          onClose={() => setEditing(null)}
+          onSaved={(msg) => { setEditing(null); setToast(msg); load(); }} />
+      )}
+
+      {toast && <div className="fixed bottom-6 left-1/2 -translate-x-1/2 z-50 px-4 py-2.5 rounded-lg bg-foreground text-background text-[13px] font-medium shadow-lg">{toast}</div>}
+    </div>
+  );
+}
+
+function DripEditor({ id, campaigns, onClose, onSaved }: { id: string | null; campaigns: Campaign[]; onClose: () => void; onSaved: (msg: string) => void }) {
+  const isEdit = !!id;
+  const [name, setName] = useState("");
+  const [trigger, setTrigger] = useState("no_reply");
+  const [campaignId, setCampaignId] = useState("");
+  const [steps, setSteps] = useState<SequenceStep[]>([{ delay_minutes: 60, body: "" }]);
+  const [saving, setSaving] = useState(false);
+  const [err, setErr] = useState("");
+  const [loading, setLoading] = useState(isEdit);
+
+  useEffect(() => {
+    if (!id) return;
+    api.getSequence(id).then((d) => {
+      setName(d.name); setTrigger(d.trigger); setCampaignId(d.campaign_id || "");
+      setSteps(d.steps.length ? d.steps : [{ delay_minutes: 60, body: "" }]);
+    }).catch((e) => setErr(String(e))).finally(() => setLoading(false));
+  }, [id]);
+
+  const campaignOptions = useMemo(() => [{ value: "", label: "All campaigns" }, ...campaigns.map((c) => ({ value: c.id, label: c.name }))], [campaigns]);
+  const patchStep = (i: number, patch: Partial<SequenceStep>) => setSteps((s) => s.map((x, idx) => (idx === i ? { ...x, ...patch } : x)));
+  const addStep = () => setSteps((s) => [...s, { delay_minutes: s.length ? 1440 : 60, body: "" }]);
+  const removeStep = (i: number) => setSteps((s) => (s.length > 1 ? s.filter((_, idx) => idx !== i) : s));
+
+  const save = async () => {
+    if (!name.trim()) { setErr("Name is required"); return; }
+    const clean = steps.filter((s) => s.body.trim());
+    if (clean.length === 0) { setErr("Add at least one message"); return; }
+    setSaving(true); setErr("");
+    try {
+      const payload = { name: name.trim(), trigger, campaign_id: campaignId || "__null__", steps: clean };
+      if (isEdit) await api.updateSequence(id!, payload);
+      else await api.createSequence({ name: name.trim(), trigger, campaign_id: campaignId || undefined, steps: clean });
+      onSaved(isEdit ? "Drip campaign updated" : "Drip campaign created");
+    } catch (e) { setErr(String(e)); setSaving(false); }
+  };
+
+  return (
+    <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40 backdrop-blur-sm p-4" onClick={onClose}>
+      <div className="w-full max-w-[600px] max-h-[90vh] flex flex-col rounded-2xl bg-card border border-border shadow-2xl overflow-hidden" onClick={(e) => e.stopPropagation()}>
+        <div className="flex items-center justify-between gap-3 px-5 py-4 border-b border-border">
+          <div className="inline-flex items-center gap-2">
+            <span className="grid place-items-center w-8 h-8 rounded-lg bg-primary/10 text-primary"><Repeat className="w-4 h-4" /></span>
+            <h2 className="text-[15px] font-bold text-foreground">{isEdit ? "Edit drip campaign" : "New drip campaign"}</h2>
+          </div>
+          <button onClick={onClose} className="p-1.5 rounded-md text-muted-foreground hover:text-foreground hover:bg-muted"><X className="w-4.5 h-4.5" /></button>
+        </div>
+
+        {loading ? (
+          <div className="p-10 grid place-items-center"><Loader2 className="w-5 h-5 animate-spin text-muted-foreground" /></div>
+        ) : (
+          <div className="p-5 overflow-y-auto flex flex-col gap-4">
+            <div>
+              <label className="text-[12px] font-semibold text-foreground/80">Name</label>
+              <input value={name} onChange={(e) => setName(e.target.value)} autoFocus placeholder="e.g. XFORCE nurture"
+                className="mt-1 w-full h-9 px-3 rounded-md border border-input bg-background text-[13px] outline-none focus:border-primary focus:ring-2 focus:ring-primary/20" />
+            </div>
+            <div className="grid grid-cols-2 gap-4">
+              <div>
+                <label className="text-[12px] font-semibold text-foreground/80">Trigger</label>
+                <Select value={trigger} onChange={setTrigger} searchable={false} options={TRIGGERS.map((t) => ({ value: t.value, label: t.label }))} />
+                <p className="mt-1 text-[11px] text-muted-foreground">{TRIGGERS.find((t) => t.value === trigger)?.hint}</p>
+              </div>
+              <div>
+                <label className="text-[12px] font-semibold text-foreground/80">Campaign</label>
+                <Select value={campaignId} onChange={setCampaignId} searchable options={campaignOptions} />
+              </div>
+            </div>
+
+            <div>
+              <div className="flex items-center justify-between mb-2">
+                <label className="text-[12px] font-semibold text-foreground/80">Messages</label>
+                <button onClick={addStep} className="inline-flex items-center gap-1 text-[12px] font-semibold text-primary hover:underline"><Plus className="w-3.5 h-3.5" /> Add step</button>
+              </div>
+              <div className="flex flex-col gap-3">
+                {steps.map((s, i) => {
+                  const d = splitDelay(s.delay_minutes);
+                  return (
+                    <div key={i} className="rounded-lg border border-border p-3">
+                      <div className="flex items-center gap-2 mb-2">
+                        <span className="grid place-items-center w-5 h-5 rounded bg-primary/10 text-primary text-[11px] font-bold">{i + 1}</span>
+                        <Clock className="w-3.5 h-3.5 text-muted-foreground" />
+                        <span className="text-[12px] text-muted-foreground">Wait</span>
+                        <input type="number" min={0} value={d.val}
+                          onChange={(e) => patchStep(i, { delay_minutes: toMins(Math.max(0, Number(e.target.value) || 0), d.unit) })}
+                          className="w-16 h-7 px-2 rounded-md border border-input bg-background text-[13px] tabular-nums outline-none focus:border-primary" />
+                        <div className="w-28">
+                          <Select value={d.unit} searchable={false} onChange={(u) => patchStep(i, { delay_minutes: toMins(d.val, u) })}
+                            options={[{ value: "minutes", label: "minutes" }, { value: "hours", label: "hours" }, { value: "days", label: "days" }]} />
+                        </div>
+                        <span className="text-[12px] text-muted-foreground">{i === 0 ? "after trigger" : "after previous"}</span>
+                        {steps.length > 1 && <button onClick={() => removeStep(i)} className="ml-auto p-1 rounded text-muted-foreground hover:text-destructive"><Trash2 className="w-3.5 h-3.5" /></button>}
+                      </div>
+                      <textarea value={s.body} onChange={(e) => patchStep(i, { body: e.target.value })} rows={2} placeholder="Message text. Use {first_name}, {full_name} for personalization."
+                        className="w-full px-3 py-2 rounded-md border border-input bg-background text-[13px] outline-none focus:border-primary focus:ring-2 focus:ring-primary/20 resize-y" />
+                    </div>
+                  );
+                })}
+              </div>
+            </div>
+
+            {err && <p className="text-[12px] text-destructive">{err}</p>}
+          </div>
+        )}
+
+        <div className="flex items-center justify-end gap-2 px-5 py-3.5 border-t border-border">
+          <button onClick={onClose} className="h-9 px-4 rounded-lg border border-border text-[13px] font-semibold text-foreground hover:bg-muted">Cancel</button>
+          <button onClick={save} disabled={saving || loading} className="inline-flex items-center gap-1.5 h-9 px-4 rounded-lg bg-primary text-white text-[13px] font-semibold hover:bg-primary/90 disabled:opacity-60">
+            {saving && <Loader2 className="w-4 h-4 animate-spin" />} {isEdit ? "Save changes" : "Create"}
+          </button>
+        </div>
+      </div>
+    </div>
+  );
+}

@@ -6,7 +6,7 @@ import {
   MessageCircle, Settings,
   ChevronLeft, ChevronRight, Bell, LogOut, User as UserIcon,
   CheckCircle2, Loader2, ChevronDown, Activity, LayoutDashboard, MessagesSquare, Users, Sparkles, SlidersHorizontal, Megaphone, Wrench, Globe,
-  ScrollText, BarChart3, ShieldCheck, FileText, Radio, GitBranch, Plug, Search
+  ScrollText, BarChart3, ShieldCheck, FileText, Radio, GitBranch, Plug, Search, Repeat
 } from "lucide-react";
 import { WS_URL } from "@/lib/api";
 import { api, clearSession, getToken, getUser, setSession } from "@/lib/api";
@@ -59,6 +59,7 @@ const NAV_TOP = [
   { href: "/inbox", icon: MessageCircle, labelKey: "nav.inbox", perm: "menu_chats" },
   { href: "/contacts", icon: Users, labelKey: "nav.contacts", perm: "menu_contacts" },
   { href: "/broadcasts", icon: Megaphone, labelKey: "nav.broadcasts", perm: "menu_broadcasts" },
+  { href: "/drip", icon: Repeat, labelKey: "nav.drip", perm: "menu_broadcasts" },
 ];
 
 const NAV_BOTTOM = [
@@ -73,6 +74,7 @@ const PAGE_TITLES: Record<string, { category: string; title: string }> = {
   "/contacts": { category: "GROUPS", title: "Contacts" },
   "/campaigns": { category: "CAMPAIGNS", title: "Campaigns" },
   "/broadcasts": { category: "OUTREACH", title: "Broadcasts" },
+  "/drip": { category: "OUTREACH", title: "Drip campaigns" },
   "/templates": { category: "OUTREACH", title: "Message Templates" },
   "/automation": { category: "AUTOMATION", title: "Automation" },
   "/channels": { category: "SETUP", title: "Channels" },
