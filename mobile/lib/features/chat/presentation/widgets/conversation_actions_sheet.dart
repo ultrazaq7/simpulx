@@ -93,7 +93,7 @@ class _ActionsSheet extends ConsumerWidget {
                 ),
                 // The lost reason sits right under the stage while the lead is in
                 // the Lost stage.
-                if ((live.stageName ?? '').toLowerCase() == 'lost' &&
+                if ((live.stageName ?? '').toLowerCase().startsWith('lost') &&
                     (live.lostReason?.isNotEmpty ?? false))
                   ListTile(
                     dense: true,
@@ -209,7 +209,7 @@ class _ActionsSheet extends ConsumerWidget {
               child: ListView(
                 shrinkWrap: true,
                 children: [
-                  for (final s in stages)
+                  for (final s in stages.where((s) => !s.name.toLowerCase().startsWith('lost')))
                     ListTile(
                       leading: Icon(
                         s.name == conversation.stageName
@@ -336,7 +336,7 @@ class _ActionsSheet extends ConsumerWidget {
                             fontSize: 12.5, color: AppColors.textSecondary)),
                   ),
                   const Divider(height: 1),
-                  for (final s in stages)
+                  for (final s in stages.where((s) => !s.name.toLowerCase().startsWith('lost')))
                     ListTile(
                       leading: Icon(
                         s.name == conversation.stageName
@@ -472,8 +472,12 @@ class _ActionsSheet extends ConsumerWidget {
           itemBuilder: (context, i) => ListTile(
             title: Text(lostReasons[i]),
             onTap: () {
-              final cat = values[i].startsWith('spam') || values[i] == 'job_seeker' || values[i] == 'abusive' || values[i] == 'wrong_number' || values[i] == 'duplicate' ? 'spam' : 'lost';
-              _do(context, sheetContext, actions.setDisposition(cat, lostReason: values[i]), 'Marked as lost: ${lostReasons[i]}');
+              final v = values[i];
+              final isSpam = v.startsWith('spam') || v == 'job_seeker' || v == 'abusive' || v == 'wrong_number' || v == 'duplicate';
+              // "bought" reasons => lost but purchased elsewhere (Lost Purchase).
+              final didPurchase = v.startsWith('bought_') || v == 'competitor_promo';
+              final cat = isSpam ? 'spam' : 'lost';
+              _do(context, sheetContext, actions.setDisposition(cat, lostReason: v, didPurchase: didPurchase), 'Marked as lost: ${lostReasons[i]}');
             },
           ),
         ),

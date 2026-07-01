@@ -55,7 +55,7 @@ export interface DashboardCards {
   unread: number;
 }
 
-export interface Stage { id: string; name: string }
+export interface Stage { id: string; name: string; system_key?: string | null }
 export interface Disposition { id: string; name: string; category: string | null }
 
 export interface Analytics {

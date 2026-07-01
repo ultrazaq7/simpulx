@@ -706,22 +706,24 @@ export default function ChatPanel({
       <LostReasonDialog
         open={outcomeOpen}
         onClose={() => setOutcomeOpen(false)}
-        onSubmit={(reason, category) => {
+        onSubmit={(reason, category, didPurchase) => {
           if (!active) { setOutcomeOpen(false); return; }
           if (category === "spam") {
             const spam = dispositions.find((d) => d.category === "spam");
             if (spam) onOverride({ disposition_id: spam.id, lost_reason: reason }, "Marked as spam");
             else { onOverride({ lost_reason: reason }, "Spam reason saved"); notify("Spam disposition missing", "warning"); }
           } else {
-            // Lost is a real pipeline stage now: move the lead into the Lost
-            // stage so its CURRENT STAGE reads "Lost", and keep the disposition
-            // for the lost analytics + the lost reason.
+            // Route to "Lost Purchase" (bought elsewhere) or "Lost Not Purchase"
+            // so the CURRENT STAGE reflects the outcome; keep the disposition for
+            // the lost analytics + the specific reason.
+            const wantKey = didPurchase ? "lost_purchase" : "lost_not_purchase";
+            const lostStage = stages.find((s) => s.system_key === wantKey)
+              || stages.find((s) => s.name?.toLowerCase().startsWith("lost"));
             const lost = dispositions.find((d) => d.name?.toLowerCase() === "lost") || dispositions.find((d) => d.category === "lost");
-            const lostStage = stages.find((s) => s.name?.toLowerCase() === "lost");
             const patch: { stage_id?: string; disposition_id?: string; lost_reason?: string } = { lost_reason: reason };
             if (lostStage) patch.stage_id = lostStage.id;
             if (lost) patch.disposition_id = lost.id;
-            if (lostStage || lost) onOverride(patch, "Marked as lost");
+            if (lostStage || lost) onOverride(patch, didPurchase ? "Marked lost (purchased elsewhere)" : "Marked as lost");
             else { onOverride(patch, "Lost reason saved"); notify("Lost stage/disposition missing", "warning"); }
           }
           setOutcomeOpen(false);

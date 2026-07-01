@@ -233,7 +233,7 @@ export default function DetailsPanel({ active, onClose, copyText, notes, onAddNo
             <div>
               <DetailRow icon={Hash} label="Stage" value={active.stage_name || "Not set"} />
               {/* Lost reason sits directly under the stage while the lead is Lost. */}
-              {active.stage_name?.toLowerCase() === "lost" && active.lost_reason && (
+              {active.stage_name?.toLowerCase().startsWith("lost") && active.lost_reason && (
                 <DetailRow icon={StickyNote} label="Lost reason" value={humanize(active.lost_reason)} />
               )}
               <DetailRow icon={Hash} label="Interest level" value={humanize(active.interest_level || "Unknown")} />

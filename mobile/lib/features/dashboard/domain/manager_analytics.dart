@@ -162,8 +162,8 @@ class ManagerAnalytics {
       // "Lost" is a real stage but a terminal outcome (sort_order 0), so pin it
       // to the BOTTOM instead of letting its low sort_order float it to the top.
       ..sort((a, b) {
-        final al = a.systemKey == 'lost' ? 1 : 0;
-        final bl = b.systemKey == 'lost' ? 1 : 0;
+        final al = (a.systemKey?.startsWith('lost') ?? a.name.toLowerCase().startsWith('lost')) ? 1 : 0;
+        final bl = (b.systemKey?.startsWith('lost') ?? b.name.toLowerCase().startsWith('lost')) ? 1 : 0;
         if (al != bl) return al - bl;
         return a.sortOrder.compareTo(b.sortOrder);
       });

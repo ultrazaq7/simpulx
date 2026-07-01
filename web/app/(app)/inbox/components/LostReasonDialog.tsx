@@ -58,15 +58,17 @@ export function lostReasonLabel(value: string): string {
 interface LostReasonDialogProps {
   open: boolean;
   onClose: () => void;
-  onSubmit: (reason: string, category: Cat) => void;
+  // didPurchase is derived from the reason group ("bought" => true), so the
+  // caller can route to the "Lost Purchase" vs "Lost Not Purchase" stage.
+  onSubmit: (reason: string, category: Cat, didPurchase: boolean) => void;
 }
 
 export default function LostReasonDialog({ open, onClose, onSubmit }: LostReasonDialogProps) {
-  const [selected, setSelected] = useState<{ value: string; cat: Cat } | null>(null);
+  const [selected, setSelected] = useState<{ value: string; cat: Cat; group: string } | null>(null);
   if (!open) return null;
 
   const close = () => { setSelected(null); onClose(); };
-  const submit = () => { if (selected) { onSubmit(selected.value, selected.cat); setSelected(null); } };
+  const submit = () => { if (selected) { onSubmit(selected.value, selected.cat, selected.group === "bought"); setSelected(null); } };
 
   return (
     <div className="fixed inset-0 z-[100] flex items-center justify-center p-4">
@@ -99,7 +101,7 @@ export default function LostReasonDialog({ open, onClose, onSubmit }: LostReason
                   return (
                     <button
                       key={r.value}
-                      onClick={() => setSelected({ value: r.value, cat: g.cat })}
+                      onClick={() => setSelected({ value: r.value, cat: g.cat, group: g.key })}
                       className={cn(
                         "px-2.5 py-1.5 rounded-md border text-xs font-semibold transition-colors outline-none",
                         on

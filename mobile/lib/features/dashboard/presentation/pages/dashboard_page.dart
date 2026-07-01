@@ -505,8 +505,8 @@ class _StageSplitCard extends StatelessWidget {
   }
 
   Widget _buildStageRow(BuildContext context, StageStat s, int idx, int total) {
-    // Lost is a terminal-negative stage -> always render it in red.
-    final color = s.name.toLowerCase() == 'lost'
+    // Lost stages (Lost Purchase / Lost Not Purchase) -> always render in red.
+    final color = s.name.toLowerCase().startsWith('lost')
         ? AppColors.danger
         : _funnelColors[idx % _funnelColors.length];
     final pct = total > 0 ? (s.count / total * 100) : 0.0;

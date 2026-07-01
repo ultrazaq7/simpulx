@@ -79,7 +79,7 @@ export function StageMenu({
             )}
           >
             <p className="px-3 py-1.5 text-[10px] font-bold text-muted-foreground uppercase tracking-wider">Pipeline stage</p>
-            {stages.map((s) => (
+            {stages.filter((s) => !(s.system_key || "").startsWith("lost") && !s.name.toLowerCase().startsWith("lost")).map((s) => (
               <button
                 key={s.id}
                 onClick={() => { onSelect(s.id); setOpen(false); }}
