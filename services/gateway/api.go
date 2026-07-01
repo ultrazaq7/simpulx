@@ -1579,7 +1579,7 @@ func (s *server) handleListContacts(w http.ResponseWriter, r *http.Request) {
 		        ct.updated_at, ct.blacklisted, ct.web_api_source_id::text AS web_api_source_id,
 		        COALESCE(ct.tags, '{}') AS tags,
 		        lc.interest_level, lc.stage_id::text AS stage_id, ls.name AS stage_name, lc.last_message_at, lc.ai_summary,
-		        lc.lead_score,
+		        lc.lead_score, lc.lost_reason,
 		        lc.assigned_agent_id::text AS assigned_agent_id, lu.full_name AS agent_name,
 		        lc.campaign_id::text AS campaign_id, lcmp.name AS campaign_name,
 		        lc.conversation_id::text AS conversation_id, lch.name AS channel_name,
@@ -1587,7 +1587,7 @@ func (s *server) handleListContacts(w http.ResponseWriter, r *http.Request) {
 		   FROM contacts ct
 		   LEFT JOIN LATERAL (
 		     SELECT id AS conversation_id, interest_level, stage_id, last_message_at, ai_reason AS ai_summary,
-		            lead_score, assigned_agent_id, campaign_id, channel_id, branch_id
+		            lead_score, lost_reason, assigned_agent_id, campaign_id, channel_id, branch_id
 		       FROM conversations WHERE contact_id=ct.id
 		      ORDER BY last_message_at DESC NULLS LAST LIMIT 1
 		   ) lc ON true
