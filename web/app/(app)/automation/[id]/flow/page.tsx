@@ -180,6 +180,7 @@ function Builder() {
   const [edges, setEdges, onEdgesChange] = useEdgesState<Edge>([]);
   const [campaigns, setCampaigns] = useState<{ id: string; name: string }[]>([]);
   const [forms, setForms] = useState<{ id: string; name: string }[]>([]);
+  const [sheetEmail, setSheetEmail] = useState("");
 
   // ── Undo / redo (Ctrl+Z / Ctrl+Y) ──
   const nodesRef = useRef(nodes); nodesRef.current = nodes;
@@ -228,6 +229,7 @@ function Builder() {
     }).catch(() => setLoading(false));
     api.listCampaigns().then((cs) => setCampaigns(cs.map((c) => ({ id: c.id, name: c.name })))).catch(() => {});
     api.listFlows().then((fs) => setForms(fs.filter((f) => f.status === "published").map((f) => ({ id: f.id, name: f.name })))).catch(() => {});
+    api.getGoogleSheetsInfo().then((i) => setSheetEmail(i.client_email)).catch(() => {});
   }, [id]); // eslint-disable-line react-hooks/exhaustive-deps
   useEffect(() => { if (!toast) return; const t = setTimeout(() => setToast(null), 3000); return () => clearTimeout(t); }, [toast]);
 
@@ -354,7 +356,7 @@ function Builder() {
         {/* Inspector */}
         {selected && (
           <div className="absolute inset-y-0 right-0 z-20 w-[340px] bg-card border-l border-border shadow-xl flex flex-col animate-scale-in">
-            <Inspector node={selected} triggerType={auto.trigger_type} campaigns={campaigns} forms={forms} onChange={(cfg) => updateConfig(selected.id, cfg)} onClose={() => setSelId(null)} onDelete={() => deleteNode(selected.id)} />
+            <Inspector node={selected} triggerType={auto.trigger_type} campaigns={campaigns} forms={forms} sheetEmail={sheetEmail} onChange={(cfg) => updateConfig(selected.id, cfg)} onClose={() => setSelId(null)} onDelete={() => deleteNode(selected.id)} />
           </div>
         )}
       </div>
@@ -369,8 +371,8 @@ function Builder() {
 }
 
 // ── Inspector (per-node config) ─────────────────────────────────────────────
-function Inspector({ node, triggerType, campaigns, forms, onChange, onClose, onDelete }: {
-  node: AppNode; triggerType: string; campaigns: { id: string; name: string }[]; forms: { id: string; name: string }[]; onChange: (cfg: Record<string, unknown>) => void; onClose: () => void; onDelete: () => void;
+function Inspector({ node, triggerType, campaigns, forms, sheetEmail, onChange, onClose, onDelete }: {
+  node: AppNode; triggerType: string; campaigns: { id: string; name: string }[]; forms: { id: string; name: string }[]; sheetEmail: string; onChange: (cfg: Record<string, unknown>) => void; onClose: () => void; onDelete: () => void;
 }) {
   const kind = node.data.kind;
   const c = node.data.config || {};
@@ -433,7 +435,8 @@ function Inspector({ node, triggerType, campaigns, forms, onChange, onClose, onD
           <Field label="Google Sheet URL"><input value={String(c.sheet_url ?? "")} onChange={(e) => set("sheet_url", e.target.value)} placeholder="Paste the Sheet URL" className={INP} /></Field>
           <Field label="Tab name"><input value={String(c.sheet_tab ?? "")} onChange={(e) => set("sheet_tab", e.target.value)} placeholder="Sheet1" className={INP} /></Field>
           <Field label="Attributes to append (comma separated)"><input value={Array.isArray(c.attributes) ? (c.attributes as string[]).join(", ") : ""} onChange={(e) => set("attributes", e.target.value.split(",").map((t) => t.trim()).filter(Boolean))} placeholder="preferred_model, city" className={INP} /></Field>
-          <p className="text-[12px] text-muted-foreground">Row: timestamp, name, phone, then each attribute. Share the sheet (Editor) with the service account shown in WhatsApp Forms.</p>
+          <p className="text-[12px] text-muted-foreground">Row appended: timestamp, name, phone, then each attribute.</p>
+          <ShareWithSA email={sheetEmail} />
         </>}
         {kind === "set_priority" && <Field label="Priority"><select value={String(c.priority ?? "normal")} onChange={(e) => set("priority", e.target.value)} className={INP}>{["low", "normal", "high", "urgent"].map((p) => <option key={p} value={p}>{p}</option>)}</select></Field>}
         {kind === "webhook_notify" && <Field label="Webhook URL"><input value={String(c.url ?? "")} onChange={(e) => set("url", e.target.value)} placeholder="https://..." className={INP} /></Field>}
@@ -463,6 +466,22 @@ function Inspector({ node, triggerType, campaigns, forms, onChange, onClose, onD
 const INP = "w-full h-9 px-3 rounded-md border border-input bg-background text-sm text-foreground placeholder:text-muted-foreground/70 outline-none focus:ring-2 focus:ring-primary/25 focus:border-primary";
 function Field({ label, children }: { label: string; children: React.ReactNode }) {
   return <div className="space-y-1.5"><label className="block text-[12px] font-bold text-foreground/80">{label}</label>{children}</div>;
+}
+
+// Shows the Google service-account email to share the sheet with (+ copy).
+function ShareWithSA({ email }: { email: string }) {
+  const [copied, setCopied] = useState(false);
+  if (!email) return <p className="text-[12px] text-amber-600">Google Sheets isn&apos;t connected yet (an admin must add the service-account key).</p>;
+  return (
+    <div className="rounded-md border border-border bg-muted/40 p-2.5">
+      <p className="text-[11px] font-semibold text-muted-foreground mb-1">Share your Google Sheet (Editor) with this account:</p>
+      <div className="flex items-center gap-1.5">
+        <code className="flex-1 text-[11px] text-foreground break-all">{email}</code>
+        <button onClick={() => { navigator.clipboard?.writeText(email); setCopied(true); setTimeout(() => setCopied(false), 1500); }}
+          className="shrink-0 px-2 h-6 rounded border border-border text-[11px] font-medium hover:bg-muted outline-none">{copied ? "Copied" : "Copy"}</button>
+      </div>
+    </div>
+  );
 }
 
 export default function FlowBuilderPage() {

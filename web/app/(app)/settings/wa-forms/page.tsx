@@ -377,6 +377,7 @@ function FlowBuilder({ flow, onClose, onSaved, onFlash }: {
   const [sheetUrl, setSheetUrl] = useState(flow.sheet_id || "");
   const [sheetTab, setSheetTab] = useState(flow.sheet_tab || "Sheet1");
   const [saEmail, setSaEmail] = useState("");
+  const [saCopied, setSaCopied] = useState(false);
   useEffect(() => { api.getGoogleSheetsInfo().then((i) => setSaEmail(i.client_email)).catch(() => {}); }, []);
   const screen: FlowScreen | undefined = def.screens[sel];
 
@@ -566,19 +567,25 @@ function FlowBuilder({ flow, onClose, onSaved, onFlash }: {
                     <span className={cn("absolute top-0.5 w-5 h-5 rounded-full bg-white shadow transition-all", sheetEnabled ? "left-[18px]" : "left-0.5")} />
                   </button>
                 </div>
+                {/* Service-account email — always visible so the user knows who to share the sheet with. */}
+                {saEmail ? (
+                  <div className="mt-3 rounded-md border border-border bg-muted/40 p-2.5">
+                    <p className="text-[11px] font-semibold text-muted-foreground mb-1">Share your Google Sheet (Editor) with this account:</p>
+                    <div className="flex items-center gap-1.5">
+                      <code className="flex-1 text-[12px] text-foreground break-all select-all">{saEmail}</code>
+                      <button onClick={() => { navigator.clipboard?.writeText(saEmail); setSaCopied(true); setTimeout(() => setSaCopied(false), 1500); }}
+                        className="shrink-0 px-2 h-6 rounded border border-border text-[11px] font-medium hover:bg-muted outline-none">{saCopied ? "Copied" : "Copy"}</button>
+                    </div>
+                  </div>
+                ) : (
+                  <p className="mt-3 text-xs text-amber-600">Google Sheets isn&apos;t connected yet. An admin needs to add the service-account key on the server.</p>
+                )}
                 {sheetEnabled && (
                   <div className="mt-3 space-y-2">
                     <input value={sheetUrl} onChange={(e) => setSheetUrl(e.target.value)} placeholder="Paste Google Sheet URL"
                       className="w-full px-3 py-2 rounded-lg border border-border bg-background text-sm outline-none focus:border-primary" />
                     <input value={sheetTab} onChange={(e) => setSheetTab(e.target.value)} placeholder="Tab name (default: Sheet1)"
                       className="w-full px-3 py-2 rounded-lg border border-border bg-background text-sm outline-none focus:border-primary" />
-                    {saEmail ? (
-                      <p className="text-xs text-muted-foreground">
-                        Share your sheet with <span className="font-mono text-foreground">{saEmail}</span> as an <b>Editor</b> so we can write to it.
-                      </p>
-                    ) : (
-                      <p className="text-xs text-amber-600">Google Sheets isn&apos;t connected yet. An admin needs to add the service-account key on the server.</p>
-                    )}
                   </div>
                 )}
               </div>
