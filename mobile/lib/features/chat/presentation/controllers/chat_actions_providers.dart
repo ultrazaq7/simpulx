@@ -107,12 +107,14 @@ class ConversationActionsController extends ChangeNotifier {
 
   Future<bool> setDisposition(String category, {String? lostReason, bool didPurchase = false}) {
     final dispositionId = _dispositionIdForCategory(category);
-    // Lost is a terminal stage: route to "Lost Purchase" (bought elsewhere) or
-    // "Lost Not Purchase" so the CURRENT STAGE reflects the outcome.
+    // Both lost and spam are terminal: route to a Lost stage so the pipeline
+    // is consistent. Spam goes to "Lost Not Purchase" (same as not-bought).
     String? lostStageId;
     String? lostStageName;
-    if (category == 'lost') {
-      final wantName = didPurchase ? 'lost purchase' : 'lost not purchase';
+    {
+      final wantName = (category == 'lost' && didPurchase)
+          ? 'lost purchase'
+          : 'lost not purchase';
       final stages = ref.read(stagesProvider).value;
       if (stages != null) {
         for (final s in stages) {

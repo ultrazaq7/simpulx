@@ -8,7 +8,7 @@ import {
 import {
   BarChart3, MessageSquare, Inbox, Flame, Timer,
   TrendingDown, ChevronRight, Zap, Mail, Reply, Trophy,
-  Clock, ArrowRight, CheckCircle2, Activity, Users, Radio,
+  Clock, ArrowRight, CheckCircle2, Activity, Users, Radio, Ban,
   CircleDollarSign, MousePointerClick, Megaphone, Target, Eye, Filter as FilterIcon,
   Image as ImageIcon, MapPin,
 } from "lucide-react";
@@ -226,9 +226,9 @@ function StageSplit({ stages, lost }: { stages?: Analytics["stages"]; lost?: num
   // "Lost" is a real stage but a terminal outcome: keep it OUT of the pipeline
   // list and pin it to the bottom in red, shown once (no duplicate row). Its
   // count comes from the stage itself; fall back to the legacy `lost` prop.
-  const pipeline = [...stages].filter((s) => s.system_key !== "lost").sort((a, b) => a.sort_order - b.sort_order);
-  const lostStage = stages.find((s) => s.system_key === "lost");
-  const lostCount = lostStage ? lostStage.count : lost;
+  const pipeline = [...stages].filter((s) => !(s.system_key || "").startsWith("lost")).sort((a, b) => a.sort_order - b.sort_order);
+  const lostStages = stages.filter((s) => (s.system_key || "").startsWith("lost"));
+  const lostCount = lostStages.length > 0 ? lostStages.reduce((sum, s) => sum + (s.count || 0), 0) : lost;
   const total = stages.reduce((s, x) => s + (x.count || 0), 0);
   return (
     <div className="p-2">
@@ -374,6 +374,11 @@ function AgentDashboard() {
             <div className="flex items-baseline gap-2 mb-4">
               <span className="text-4xl font-extrabold text-[#EF4444] leading-none tabular-nums">{analytics?.lost ?? 0}</span>
               <span className="text-sm text-muted-foreground font-medium">total lost leads</span>
+              {(analytics?.junk ?? 0) > 0 && (
+                <span className="ml-auto inline-flex items-center gap-1 px-2 py-0.5 rounded-md bg-amber-50 text-amber-700 text-[11px] font-semibold tabular-nums">
+                  <Ban className="w-3 h-3" />{analytics!.junk} spam
+                </span>
+              )}
             </div>
             {funnel && (
               <div className="flex gap-3">
@@ -778,6 +783,11 @@ function ManagerDashboard() {
                   {analytics?.lost ?? stats?.lost ?? 0}
                 </span>
                 <span className="text-sm text-muted-foreground font-medium">total lost leads</span>
+                {(analytics?.junk ?? 0) > 0 && (
+                  <span className="ml-auto inline-flex items-center gap-1 px-2 py-0.5 rounded-md bg-amber-50 text-amber-700 text-[11px] font-semibold tabular-nums">
+                    <Ban className="w-3 h-3" />{analytics!.junk} spam
+                  </span>
+                )}
               </div>
               {funnel && (
                 <div className="flex gap-3">

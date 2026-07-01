@@ -587,6 +587,25 @@ class _LostAnalysisCard extends StatelessWidget {
               const SizedBox(width: 8),
               Text('total lost leads',
                   style: TextStyle(fontSize: 13, color: AppColors.textSecondary)),
+              if (analytics.junk > 0) ...[
+                const Spacer(),
+                Container(
+                  padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
+                  decoration: BoxDecoration(
+                    color: AppColors.warning.withValues(alpha: 0.12),
+                    borderRadius: BorderRadius.circular(6),
+                  ),
+                  child: Row(
+                    mainAxisSize: MainAxisSize.min,
+                    children: [
+                      Icon(Icons.block, size: 12, color: AppColors.warning),
+                      const SizedBox(width: 4),
+                      Text('${analytics.junk} spam',
+                          style: const TextStyle(fontSize: 11, fontWeight: FontWeight.w600, color: AppColors.warning)),
+                    ],
+                  ),
+                ),
+              ],
             ],
           ),
           const SizedBox(height: 12),

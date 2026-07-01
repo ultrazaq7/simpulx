@@ -3,7 +3,7 @@ import { useEffect, useMemo, useRef, useState } from "react";
 import { useRouter } from "next/navigation";
 import {
   Search, UserPlus, Download, Pencil, ChevronsLeft, ChevronsRight, ChevronLeft, ChevronRight,
-  Users, X, Loader2, Tag as TagIcon, MoreVertical, MessageSquare, Trash2, Upload, ChevronDown, Eye, Ban, Copy,
+  Users, User, X, XCircle, Loader2, Tag as TagIcon, MoreVertical, MessageSquare, Trash2, Upload, ChevronDown, Eye, Ban, Copy, Check,
 } from "lucide-react";
 
 import { api, getUser } from "@/lib/api";
@@ -102,15 +102,42 @@ export default function ContactsPage() {
       setToast("Could not update interest");
     }
   }
+  async function reassignAgent(c: Contact, agentId: string | null) {
+    if (!c.conversation_id) { setToast("No conversation yet for this contact"); return; }
+    const prevAgentId = c.assigned_agent_id;
+    const prevAgentName = c.agent_name;
+    const newAgent = agentId ? agents.find((a) => a.id === agentId) : null;
+    setContacts((p) => p.map((x) => (x.id === c.id ? { ...x, assigned_agent_id: agentId, agent_name: newAgent?.full_name || null } : x)));
+    try {
+      if (agentId) {
+        await api.assign(c.conversation_id, agentId);
+        setToast(`Assigned to ${newAgent?.full_name || "agent"}`);
+      } else {
+        await api.unassign(c.conversation_id);
+        setToast("Unassigned");
+      }
+    } catch {
+      setContacts((p) => p.map((x) => (x.id === c.id ? { ...x, assigned_agent_id: prevAgentId, agent_name: prevAgentName } : x)));
+      setToast("Could not reassign");
+    }
+  }
   // Lost / Spam are terminal outcomes (dispositions), mirroring the inbox stage menu.
-  async function markOutcome(c: Contact, reason: string, category: "lost" | "spam") {
+  async function markOutcome(c: Contact, reason: string, category: "lost" | "spam", didPurchase = false) {
     if (!c.conversation_id) { setToast("No conversation yet for this contact"); return; }
     const disp = category === "spam"
       ? dispositions.find((d) => d.category === "spam")
       : (dispositions.find((d) => d.name?.toLowerCase() === "lost") || dispositions.find((d) => d.category === "lost"));
+    // All outcomes (lost + spam) route to a terminal lost stage for consistency.
+    const wantKey = (category === "lost" && didPurchase) ? "lost_purchase" : "lost_not_purchase";
+    const lostStage = stages.find((s) => s.system_key === wantKey)
+      || stages.find((s) => s.name?.toLowerCase().startsWith("lost"));
+    const patch: Record<string, string> = { lost_reason: reason, status: "closed" };
+    if (disp) patch.disposition_id = disp.id;
+    if (lostStage) patch.stage_id = lostStage.id;
     try {
-      await api.patchConversation(c.conversation_id, disp ? { disposition_id: disp.id, lost_reason: reason } : { lost_reason: reason });
+      await api.patchConversation(c.conversation_id, patch);
       setToast(category === "spam" ? "Marked as spam" : "Marked as lost");
+      reload();
     } catch { setToast("Could not update"); }
   }
   // Close row / add menus on outside click.
@@ -346,7 +373,17 @@ export default function ContactsPage() {
                         style={{ backgroundColor: interestColor(c.interest_level) + "1A", color: interestColor(c.interest_level) }}>{c.interest_level}</span>
                     ) : <span className="text-muted-foreground">-</span>}
                   </td>
-                  <td className="px-4 py-2.5 text-foreground/80 whitespace-nowrap">{c.agent_name || <span className="text-muted-foreground">Unassigned</span>}</td>
+                  <td className="px-4 py-2.5 text-foreground/80 whitespace-nowrap">
+                    {showAgentFilter && c.conversation_id ? (
+                      <AgentAssignCell
+                        agentName={c.agent_name || null}
+                        assignedAgentId={c.assigned_agent_id || null}
+                        agents={agents}
+                        onReassign={(agentId) => reassignAgent(c, agentId)}
+                        onUnassign={() => reassignAgent(c, null)}
+                      />
+                    ) : (c.agent_name || <span className="text-muted-foreground">Unassigned</span>)}
+                  </td>
                   <td className="px-4 py-2.5 text-foreground/80 whitespace-nowrap">{c.campaign_name || <span className="text-muted-foreground">-</span>}</td>
                   <td className="px-4 py-2.5 text-foreground/80 whitespace-nowrap">{sourceLabel(c)}</td>
                   <td className="px-4 py-2.5 whitespace-nowrap">
@@ -669,6 +706,83 @@ function ContactModal({ state, allTags, onClose, onSaved }: {
           </button>
         </div>
       </div>
+    </div>
+  );
+}
+
+// ── Inline agent (re)assign dropdown for the contacts table ──────────────
+function AgentAssignCell({ agentName, assignedAgentId, agents, onReassign, onUnassign }: {
+  agentName: string | null;
+  assignedAgentId: string | null;
+  agents: Agent[];
+  onReassign: (agentId: string) => void;
+  onUnassign: () => void;
+}) {
+  const [open, setOpen] = useState(false);
+  const [query, setQuery] = useState("");
+  return (
+    <div className="relative">
+      <button
+        type="button"
+        onClick={(e) => { e.stopPropagation(); setOpen((v) => !v); }}
+        className={cn(
+          "inline-flex items-center gap-1 px-2 h-6 rounded-md text-[11px] font-semibold max-w-[160px] outline-none transition-colors",
+          agentName ? "bg-muted text-muted-foreground hover:bg-muted/70" : "bg-amber-50 text-amber-700 hover:bg-amber-100",
+        )}
+      >
+        <User className="w-3 h-3 shrink-0" />
+        <span className="truncate">{agentName || "Unassigned"}</span>
+        <ChevronDown className={cn("w-3 h-3 shrink-0 opacity-60 transition-transform", open && "rotate-180")} />
+      </button>
+      {open && (
+        <>
+          <div className="fixed inset-0 z-40" onClick={() => setOpen(false)} />
+          <div className="absolute left-0 top-full mt-1 z-50 w-60 max-h-[300px] flex flex-col rounded-lg border border-border bg-popover shadow-xl animate-scale-in">
+            <div className="p-2 border-b border-border shrink-0">
+              <div className="relative">
+                <Search className="absolute left-2.5 top-1/2 -translate-y-1/2 w-3.5 h-3.5 text-muted-foreground pointer-events-none" />
+                <input autoFocus value={query} onChange={(e) => setQuery(e.target.value)} placeholder="Search agent..."
+                  className="w-full h-8 pl-8 pr-2 rounded-md border border-input bg-background text-[13px] outline-none focus:border-primary" />
+              </div>
+            </div>
+            <div className="overflow-auto py-1 flex-1 min-h-0">
+              <p className="px-3 py-1 text-[10px] font-bold uppercase tracking-wider text-muted-foreground">Assign to</p>
+              {(() => {
+                const q = query.trim().toLowerCase();
+                const matches = agents.filter((ag) => ag.full_name.toLowerCase().includes(q) || (ag.email || "").toLowerCase().includes(q));
+                if (matches.length === 0) return <p className="text-center text-xs text-muted-foreground py-3">No agents</p>;
+                return matches.map((ag) => (
+                  <button
+                    key={ag.id}
+                    type="button"
+                    onClick={() => { onReassign(ag.id); setOpen(false); setQuery(""); }}
+                    className={cn("w-full flex items-center gap-2.5 px-3 py-1.5 text-left hover:bg-muted outline-none", ag.id === assignedAgentId ? "bg-primary/[0.04]" : "")}
+                  >
+                    <User className={cn("w-3.5 h-3.5 shrink-0", ag.id === assignedAgentId ? "text-primary" : "opacity-70")} />
+                    <div className="min-w-0 flex-1">
+                      <p className={cn("text-[13px] truncate", ag.id === assignedAgentId ? "text-primary font-semibold" : "text-foreground/90")}>{ag.full_name}</p>
+                      {ag.email && <p className="text-[11px] text-muted-foreground truncate">{ag.email}</p>}
+                    </div>
+                    {ag.id === assignedAgentId && <Check className="w-3.5 h-3.5 shrink-0 text-primary" />}
+                  </button>
+                ));
+              })()}
+              {assignedAgentId && (
+                <>
+                  <div className="my-1 border-t border-border" />
+                  <button
+                    type="button"
+                    onClick={() => { onUnassign(); setOpen(false); setQuery(""); }}
+                    className="w-full flex items-center gap-2 px-3 py-1.5 text-[13px] text-left text-amber-700 hover:bg-amber-50 outline-none"
+                  >
+                    <XCircle className="w-3.5 h-3.5 shrink-0" />Unassign
+                  </button>
+                </>
+              )}
+            </div>
+          </div>
+        </>
+      )}
     </div>
   );
 }

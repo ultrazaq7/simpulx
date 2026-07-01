@@ -398,7 +398,7 @@ export default function InboxPage() {
     loadConvs();
   }
 
-  async function override(patch: { stage_id?: string; disposition_id?: string; interest_level?: string; lost_reason?: string }, label: string) {
+  async function override(patch: { stage_id?: string; disposition_id?: string; interest_level?: string; lost_reason?: string; status?: string }, label: string) {
     if (!activeId) return;
     await api.patchConversation(activeId, patch); loadConvs();
     notify(`${label} updated`);

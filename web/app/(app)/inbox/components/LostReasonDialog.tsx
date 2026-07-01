@@ -30,6 +30,7 @@ const GROUPS: Group[] = [
       { value: "wrong_product", label: "Wrong product / spec" },
       { value: "changed_mind", label: "Changed mind / not buying" },
       { value: "trade_in_issue", label: "Trade-in issue" },
+      { value: "no_response", label: "No response" },
     ],
   },
   {

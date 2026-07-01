@@ -438,6 +438,7 @@ class _ActionsSheet extends ConsumerWidget {
         ('wrong_product', 'Wrong product / spec'),
         ('changed_mind', 'Changed mind / not buying'),
         ('trade_in_issue', 'Trade-in issue'),
+        ('no_response', 'No response'),
       ]),
       ('Spam', 'Spam / invalid', Icons.block, true, [
         ('spam_junk', 'Spam'),

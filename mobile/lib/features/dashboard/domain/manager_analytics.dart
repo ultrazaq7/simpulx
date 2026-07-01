@@ -102,6 +102,7 @@ class ManagerAnalytics {
     required this.engaged,
     required this.won,
     required this.lost,
+    required this.junk,
     required this.hot,
     required this.warm,
     required this.cold,
@@ -119,6 +120,7 @@ class ManagerAnalytics {
   final int engaged;
   final int won;
   final int lost;
+  final int junk;
   final int hot;
   final int warm;
   final int cold;
@@ -179,6 +181,7 @@ class ManagerAnalytics {
       engaged: asInt(funnel['engaged']),
       won: asInt(funnel['won']),
       lost: asInt(funnel['lost']),
+      junk: asInt(j['junk']),
       hot: asInt(funnel['hot']),
       warm: asInt(funnel['warm']),
       cold: asInt(funnel['cold']),

@@ -167,7 +167,7 @@ export interface ChatPanelProps {
   stages: Stage[];
   dispositions: Disposition[];
   onStageChange: (stageId: string) => void;
-  onOverride: (patch: { stage_id?: string; disposition_id?: string; interest_level?: string; lost_reason?: string }, label: string) => void;
+  onOverride: (patch: { stage_id?: string; disposition_id?: string; interest_level?: string; lost_reason?: string; status?: string }, label: string) => void;
   onResolve: () => void;
   onReopen: () => void;
   onCopyText: (text: string) => void;
@@ -710,8 +710,14 @@ export default function ChatPanel({
           if (!active) { setOutcomeOpen(false); return; }
           if (category === "spam") {
             const spam = dispositions.find((d) => d.category === "spam");
-            if (spam) onOverride({ disposition_id: spam.id, lost_reason: reason }, "Marked as spam");
-            else { onOverride({ lost_reason: reason }, "Spam reason saved"); notify("Spam disposition missing", "warning"); }
+            // Route spam to "Lost Not Purchase" so the stage is consistent.
+            const spamStage = stages.find((s) => s.system_key === "lost_not_purchase")
+              || stages.find((s) => s.name?.toLowerCase().startsWith("lost"));
+            const patch: { disposition_id?: string; lost_reason?: string; status?: string; stage_id?: string } = { lost_reason: reason, status: "closed" };
+            if (spam) patch.disposition_id = spam.id;
+            if (spamStage) patch.stage_id = spamStage.id;
+            onOverride(patch, "Marked as spam");
+            if (!spam) notify("Spam disposition missing", "warning");
           } else {
             // Route to "Lost Purchase" (bought elsewhere) or "Lost Not Purchase"
             // so the CURRENT STAGE reflects the outcome; keep the disposition for
