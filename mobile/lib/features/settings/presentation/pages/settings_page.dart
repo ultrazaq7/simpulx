@@ -39,6 +39,9 @@ class SettingsPage extends ConsumerWidget {
           SliverList.list(
             children: [
               if (user != null) _ProfileHeader(),
+              const SizedBox(height: 16),
+              const Divider(height: 1),
+              const SizedBox(height: 8),
               const _SectionLabel('Availability'),
               _OnlineStatusTile(),
               const Divider(height: 1),

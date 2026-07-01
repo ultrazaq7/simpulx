@@ -18,7 +18,13 @@ class ArchivedPage extends ConsumerWidget {
   Widget build(BuildContext context, WidgetRef ref) {
     final async = ref.watch(conversationListProvider);
     return Scaffold(
-      appBar: AppBar(title: const Text('Archived')),
+      appBar: AppBar(
+        title: const Text('Archived'),
+        bottom: const PreferredSize(
+          preferredSize: Size.fromHeight(1),
+          child: Divider(height: 1),
+        ),
+      ),
       body: async.when(
         loading: () => const ConversationListSkeleton(),
         error: (e, _) => AppErrorView(
