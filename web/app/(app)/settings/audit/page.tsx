@@ -5,6 +5,7 @@ import { api } from "@/lib/api";
 import { cn } from "@/lib/utils";
 import type { AuditEntry, LogMessage, LogConversation, LogCall, LogActivity, ExportJob, Campaign, Channel } from "@/lib/types";
 import { Select } from "@/components/Select";
+import { MultiSelect } from "@/components/ui/multi-select";
 import { useToast } from "../_shared";
 import { rewriteLocalMedia } from "@/app/(app)/inbox/components/MessageBubble";
 
@@ -89,8 +90,8 @@ export default function SystemLogsPage() {
   const [exports, setExports] = useState<ExportJob[]>([]);
   const { notify, ToastHost } = useToast();
   // Filters (campaign + channel on log tabs; label on messages only).
-  const [fCampaign, setFCampaign] = useState("");
-  const [fChannel, setFChannel] = useState("");
+  const [fCampaign, setFCampaign] = useState<string[]>([]);
+  const [fChannel, setFChannel] = useState<string[]>([]);
   const [fLabel, setFLabel] = useState("");
   const [campaigns, setCampaigns] = useState<Campaign[]>([]);
   const [channels, setChannels] = useState<Channel[]>([]);
@@ -103,12 +104,10 @@ export default function SystemLogsPage() {
   const to = range === "custom"
     ? customTo
     : (range ? new Date().toISOString().slice(0, 10) : "");
-  const logFilters = { campaign_id: fCampaign || undefined, channel_id: fChannel || undefined, label: fLabel || undefined };
-
   const fetchTab = useCallback(async () => {
     setLoading(true); setErr("");
     try {
-      const flt = { campaign_id: fCampaign || undefined, channel_id: fChannel || undefined, label: fLabel || undefined };
+      const flt = { campaign_id: fCampaign.length ? fCampaign.join(",") : undefined, channel_id: fChannel.length ? fChannel.join(",") : undefined, label: fLabel || undefined };
       if (tab === "messages") { const r = await api.systemLog("messages", { limit: PAGE, offset: page * PAGE, from, to, ...flt }); setMessages(r.rows as unknown as LogMessage[]); setTotal(r.total); }
       else if (tab === "conversations") { const r = await api.systemLog("conversations", { limit: PAGE, offset: page * PAGE, from, to, ...flt }); setConvs(r.rows as unknown as LogConversation[]); setTotal(r.total); }
       else if (tab === "calls") { const r = await api.systemLog("calls", { limit: PAGE, offset: page * PAGE, from, to, ...flt }); setCalls(r.rows as unknown as LogCall[]); setTotal(r.total); }
@@ -140,7 +139,7 @@ export default function SystemLogsPage() {
     }
     setExporting(kind);
     try {
-      await api.createExport(kind, from || undefined, to || undefined, { campaign_id: fCampaign || undefined, channel_id: fChannel || undefined, label: kind === "messages" ? (fLabel || undefined) : undefined });
+      await api.createExport(kind, from || undefined, to || undefined, { campaign_id: fCampaign.length ? fCampaign.join(",") : undefined, channel_id: fChannel.length ? fChannel.join(",") : undefined, label: kind === "messages" ? (fLabel || undefined) : undefined });
       notify("Export queued. Track it in the Downloads tab.");
       setTab("downloads");
       setTimeout(fetchExports, 400);
@@ -190,18 +189,18 @@ export default function SystemLogsPage() {
         )}
         {showConvFilters && (
           <>
-            <Select value={fCampaign} onChange={setFCampaign} className="w-[160px]"
-              options={[{ value: "", label: "All campaigns" }, ...campaigns.map((c) => ({ value: c.id, label: c.name }))]} />
-            <Select value={fChannel} onChange={setFChannel} className="w-[150px]"
-              options={[{ value: "", label: "All channels" }, ...channels.map((c) => ({ value: c.id, label: c.name }))]} />
+            <MultiSelect value={fCampaign} onChange={setFCampaign} placeholder="All campaigns" className="w-[170px]"
+              options={campaigns.map((c) => ({ value: c.id, label: c.name }))} />
+            <MultiSelect value={fChannel} onChange={setFChannel} placeholder="All channels" className="w-[160px]"
+              options={channels.map((c) => ({ value: c.id, label: c.name }))} />
           </>
         )}
         {showLabel && (
           <input value={fLabel} onChange={(e) => setFLabel(e.target.value)} placeholder="Label"
             className="w-[140px] h-9 px-3 rounded-md border border-input bg-background text-sm text-foreground placeholder:text-muted-foreground/70 outline-none focus:border-primary" />
         )}
-        {showConvFilters && (fCampaign || fChannel || fLabel) && (
-          <button onClick={() => { setFCampaign(""); setFChannel(""); setFLabel(""); }} className="text-[12px] font-semibold text-primary hover:underline outline-none">Clear</button>
+        {showConvFilters && (fCampaign.length > 0 || fChannel.length > 0 || fLabel) && (
+          <button onClick={() => { setFCampaign([]); setFChannel([]); setFLabel(""); }} className="text-[12px] font-semibold text-primary hover:underline outline-none">Clear</button>
         )}
         <div className="flex-1" />
         {showExportBtn && (
@@ -216,10 +215,6 @@ export default function SystemLogsPage() {
       <div className="bg-card border border-border rounded-lg shadow-xs overflow-hidden flex-1 min-h-0 flex flex-col">
         {tab === "downloads" ? (
           <div className="flex flex-col flex-1 min-h-0 p-5">
-            <div className="mb-3 shrink-0">
-              <p className="text-[14px] font-bold text-foreground">Downloads</p>
-              <p className="text-[13px] text-muted-foreground mt-0.5">Exports you request from each section&apos;s Export button land here. Files are generated in the background (the full dataset with your filters) and kept for 30 days.</p>
-            </div>
             <div className="rounded-lg border border-border overflow-auto flex-1 min-h-0">
               <table className="w-full text-sm">
                 <thead className="sticky top-0 z-10"><tr className="border-b border-border bg-muted">

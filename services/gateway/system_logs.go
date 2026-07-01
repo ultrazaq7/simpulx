@@ -4,6 +4,7 @@ import (
 	"fmt"
 	"net/http"
 	"strconv"
+	"strings"
 )
 
 // ── System Logs ──────────────────────────────────────────────
@@ -34,15 +35,17 @@ func parseLogParams(r *http.Request) logParams {
 }
 
 // convFilter appends campaign/channel filters on the given conversations alias.
+// Both accept a comma-separated list of ids (the logs filters are multi-select),
+// matched with ANY() so one or many ids work the same way.
 func convFilter(alias string, p logParams, args []any) (string, []any) {
 	clause := ""
 	if p.campaignID != "" {
-		args = append(args, p.campaignID)
-		clause += fmt.Sprintf(" AND %s.campaign_id = $%d::uuid", alias, len(args))
+		args = append(args, strings.Split(p.campaignID, ","))
+		clause += fmt.Sprintf(" AND %s.campaign_id = ANY($%d::uuid[])", alias, len(args))
 	}
 	if p.channelID != "" {
-		args = append(args, p.channelID)
-		clause += fmt.Sprintf(" AND %s.channel_id = $%d::uuid", alias, len(args))
+		args = append(args, strings.Split(p.channelID, ","))
+		clause += fmt.Sprintf(" AND %s.channel_id = ANY($%d::uuid[])", alias, len(args))
 	}
 	return clause, args
 }

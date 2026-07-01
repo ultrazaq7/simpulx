@@ -338,16 +338,25 @@ class _LeadContextCard extends StatelessWidget {
 }
 
 /// History timeline of stage/status/interest/assignment changes for the lead,
-/// mirroring the web contact-details History tab.
-class _HistoryCard extends ConsumerWidget {
+/// mirroring the web contact-details History tab. Collapsed to a few rows by
+/// default with a Show more / Show less toggle so it never grows unbounded.
+class _HistoryCard extends ConsumerStatefulWidget {
   const _HistoryCard({required this.contactId});
   final String contactId;
 
   @override
-  Widget build(BuildContext context, WidgetRef ref) {
+  ConsumerState<_HistoryCard> createState() => _HistoryCardState();
+}
+
+class _HistoryCardState extends ConsumerState<_HistoryCard> {
+  static const _collapsedCount = 5;
+  bool _expanded = false;
+
+  @override
+  Widget build(BuildContext context) {
     final theme = Theme.of(context);
     final muted = theme.colorScheme.onSurfaceVariant;
-    final async = ref.watch(contactActivityProvider(contactId));
+    final async = ref.watch(contactActivityProvider(widget.contactId));
     return _Card(
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
@@ -378,12 +387,49 @@ class _HistoryCard extends ConsumerWidget {
                 return Text('No changes yet.',
                     style: theme.textTheme.bodySmall?.copyWith(color: muted));
               }
+              final showCount =
+                  _expanded ? events.length : events.length.clamp(0, _collapsedCount);
+              final hasMore = events.length > _collapsedCount;
               return Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
-                  for (var i = 0; i < events.length; i++)
+                  for (var i = 0; i < showCount; i++)
                     _HistoryRow(
                       event: events[i],
-                      isLast: i == events.length - 1,
+                      isLast: i == showCount - 1,
+                    ),
+                  if (hasMore)
+                    Padding(
+                      padding: const EdgeInsets.only(top: 4),
+                      child: InkWell(
+                        onTap: () => setState(() => _expanded = !_expanded),
+                        borderRadius: BorderRadius.circular(6),
+                        child: Padding(
+                          padding: const EdgeInsets.symmetric(
+                              vertical: 6, horizontal: 4),
+                          child: Row(
+                            mainAxisSize: MainAxisSize.min,
+                            children: [
+                              Text(
+                                _expanded
+                                    ? 'Show less'
+                                    : 'Show ${events.length - _collapsedCount} more',
+                                style: const TextStyle(
+                                    color: AppColors.primary,
+                                    fontWeight: FontWeight.w600,
+                                    fontSize: 12.5),
+                              ),
+                              const SizedBox(width: 2),
+                              Icon(
+                                  _expanded
+                                      ? Icons.keyboard_arrow_up_rounded
+                                      : Icons.keyboard_arrow_down_rounded,
+                                  size: 18,
+                                  color: AppColors.primary),
+                            ],
+                          ),
+                        ),
+                      ),
                     ),
                 ],
               );

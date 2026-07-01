@@ -165,30 +165,7 @@ class _ContactsPageState extends ConsumerState<ContactsPage> {
                             ),
                         ],
                       ),
-                      if (isManager) ...[
-                        const SizedBox(height: 16),
-                        const Text('Assignment',
-                            style: TextStyle(
-                                fontWeight: FontWeight.w700, fontSize: 13)),
-                        const SizedBox(height: 8),
-                        Wrap(
-                          spacing: 8,
-                          children: [
-                            for (final opt in const [
-                              (null, 'All'),
-                              ('mine', 'Mine'),
-                              ('unassigned', 'Unassigned'),
-                            ])
-                              ChoiceChip(
-                                label: Text(opt.$2),
-                                selected: _assignment == opt.$1,
-                                onSelected: (_) =>
-                                    update(() => _assignment = opt.$1),
-                              ),
-                          ],
-                        ),
-                      ],
-                      // Campaign filter
+                      // Campaign filter (right under Stage)
                       Builder(
                         builder: (context) {
                           final contactsAsync = ref.watch(contactsProvider);
@@ -247,6 +224,29 @@ class _ContactsPageState extends ConsumerState<ContactsPage> {
                             );
                           },
                         ),
+                      if (isManager) ...[
+                        const SizedBox(height: 16),
+                        const Text('Assignment',
+                            style: TextStyle(
+                                fontWeight: FontWeight.w700, fontSize: 13)),
+                        const SizedBox(height: 8),
+                        Wrap(
+                          spacing: 8,
+                          children: [
+                            for (final opt in const [
+                              (null, 'All'),
+                              ('mine', 'Mine'),
+                              ('unassigned', 'Unassigned'),
+                            ])
+                              ChoiceChip(
+                                label: Text(opt.$2),
+                                selected: _assignment == opt.$1,
+                                onSelected: (_) =>
+                                    update(() => _assignment = opt.$1),
+                              ),
+                          ],
+                        ),
+                      ],
                       const SizedBox(height: 20),
                       SizedBox(
                         width: double.infinity,

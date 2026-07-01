@@ -7,6 +7,7 @@ import '../../../../core/error/failure.dart';
 import '../../../../core/i18n/i18n.dart';
 import '../../../../core/realtime/realtime_client.dart';
 import '../../../../core/realtime/realtime_providers.dart';
+import '../../../../core/session/session_controller.dart';
 import '../../../../core/widgets/app_empty_state.dart';
 import '../../../../core/widgets/app_error_view.dart';
 import '../../../../core/widgets/app_skeleton.dart';
@@ -111,6 +112,9 @@ class _ChatListPageState extends ConsumerState<ChatListPage> {
       builder: (_) => Consumer(
         builder: (context, ref, _) {
           final filter = ref.watch(inboxFilterProvider);
+          // Agent filter is a manager/admin tool; agents don't pick other agents.
+          final isManager =
+              ref.watch(sessionControllerProvider).user?.role.isManagerTier ?? false;
           return SafeArea(
             child: SingleChildScrollView(
               padding: const EdgeInsets.fromLTRB(16, 0, 16, 16),
@@ -218,28 +222,7 @@ class _ChatListPageState extends ConsumerState<ChatListPage> {
                     },
                   ),
                   const SizedBox(height: 16),
-                  const Text('Quick Filters',
-                      style:
-                          TextStyle(fontWeight: FontWeight.w700, fontSize: 13)),
-                  const SizedBox(height: 8),
-                  SwitchListTile.adaptive(
-                    contentPadding: EdgeInsets.zero,
-                    title: const Text('Unread only'),
-                    value: filter.unreadOnly,
-                    onChanged: (v) => ref
-                        .read(inboxFilterProvider.notifier)
-                        .set(filter.copyWith(unreadOnly: v)),
-                  ),
-                  SwitchListTile.adaptive(
-                    contentPadding: EdgeInsets.zero,
-                    title: const Text('Follow-up needed'),
-                    value: filter.followUpOnly,
-                    onChanged: (v) => ref
-                        .read(inboxFilterProvider.notifier)
-                        .set(filter.copyWith(followUpOnly: v)),
-                  ),
-                  const SizedBox(height: 16),
-                  // Campaign filter (derived from loaded conversations)
+                  // Campaign + Agent sit under Stage (lead-routing filters).
                   Consumer(
                     builder: (context, ref, _) {
                       final convAsync = ref.watch(conversationListProvider);
@@ -272,38 +255,58 @@ class _ChatListPageState extends ConsumerState<ChatListPage> {
                       );
                     },
                   ),
-                  // Agent filter (derived from loaded conversations)
-                  Consumer(
-                    builder: (context, ref, _) {
-                      final convAsync = ref.watch(conversationListProvider);
-                      final agents = convAsync.whenOrNull(
-                        data: (list) => list
-                            .where((c) => c.agentName?.isNotEmpty ?? false)
-                            .map((c) => c.agentName!)
-                            .toSet()
-                            .toList()
-                          ..sort(),
-                      ) ?? [];
-                      if (agents.isEmpty) return const SizedBox.shrink();
-                      return Column(
-                        crossAxisAlignment: CrossAxisAlignment.start,
-                        children: [
-                          const Text('Agent',
-                              style: TextStyle(fontWeight: FontWeight.w700, fontSize: 13)),
-                          const SizedBox(height: 8),
-                          _SearchableChipList(
-                            items: agents,
-                            selected: filter.agentName,
-                            onSelected: (v) => ref
-                                .read(inboxFilterProvider.notifier)
-                                .set(v == null
-                                    ? filter.copyWith(clearAgent: true)
-                                    : filter.copyWith(agentName: v)),
-                          ),
-                          const SizedBox(height: 16),
-                        ],
-                      );
-                    },
+                  if (isManager)
+                    Consumer(
+                      builder: (context, ref, _) {
+                        final convAsync = ref.watch(conversationListProvider);
+                        final agents = convAsync.whenOrNull(
+                          data: (list) => list
+                              .where((c) => c.agentName?.isNotEmpty ?? false)
+                              .map((c) => c.agentName!)
+                              .toSet()
+                              .toList()
+                            ..sort(),
+                        ) ?? [];
+                        if (agents.isEmpty) return const SizedBox.shrink();
+                        return Column(
+                          crossAxisAlignment: CrossAxisAlignment.start,
+                          children: [
+                            const Text('Agent',
+                                style: TextStyle(fontWeight: FontWeight.w700, fontSize: 13)),
+                            const SizedBox(height: 8),
+                            _SearchableChipList(
+                              items: agents,
+                              selected: filter.agentName,
+                              onSelected: (v) => ref
+                                  .read(inboxFilterProvider.notifier)
+                                  .set(v == null
+                                      ? filter.copyWith(clearAgent: true)
+                                      : filter.copyWith(agentName: v)),
+                            ),
+                            const SizedBox(height: 16),
+                          ],
+                        );
+                      },
+                    ),
+                  const Text('Quick Filters',
+                      style:
+                          TextStyle(fontWeight: FontWeight.w700, fontSize: 13)),
+                  const SizedBox(height: 8),
+                  SwitchListTile.adaptive(
+                    contentPadding: EdgeInsets.zero,
+                    title: const Text('Unread only'),
+                    value: filter.unreadOnly,
+                    onChanged: (v) => ref
+                        .read(inboxFilterProvider.notifier)
+                        .set(filter.copyWith(unreadOnly: v)),
+                  ),
+                  SwitchListTile.adaptive(
+                    contentPadding: EdgeInsets.zero,
+                    title: const Text('Follow-up needed'),
+                    value: filter.followUpOnly,
+                    onChanged: (v) => ref
+                        .read(inboxFilterProvider.notifier)
+                        .set(filter.copyWith(followUpOnly: v)),
                   ),
                   const SizedBox(height: 4),
                   SizedBox(

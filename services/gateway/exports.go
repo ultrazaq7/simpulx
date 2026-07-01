@@ -41,7 +41,7 @@ func (s *server) handleCreateExport(w http.ResponseWriter, r *http.Request) {
 	jobID := uuid.NewString()
 	if _, err := s.pool.Exec(r.Context(),
 		`INSERT INTO export_jobs (id, organization_id, requested_by, kind, date_from, date_to, campaign_id, channel_id, label, status)
-		 VALUES ($1,$2,$3::uuid,$4, NULLIF($5,'')::date, NULLIF($6,'')::date, NULLIF($7,'')::uuid, NULLIF($8,'')::uuid, NULLIF($9,''), 'queued')`,
+		 VALUES ($1,$2,$3::uuid,$4, NULLIF($5,'')::date, NULLIF($6,'')::date, NULLIF($7,''), NULLIF($8,''), NULLIF($9,''), 'queued')`,
 		jobID, a.OrgID, a.UserID, b.Kind, b.From, b.To, b.CampaignID, b.ChannelID, b.Label); err != nil {
 		http.Error(w, "internal error", http.StatusInternalServerError)
 		return
@@ -55,15 +55,18 @@ func (s *server) handleCreateExport(w http.ResponseWriter, r *http.Request) {
 // GET /api/exports
 func (s *server) handleListExports(w http.ResponseWriter, r *http.Request) {
 	a, _ := authFrom(r.Context())
+	// campaign_id/channel_id are now comma-separated id lists (multi-select), so
+	// resolve every id to a name and join them for the Downloads "Filters" chips.
 	rows, err := s.queryMaps(r.Context(),
 		`SELECT e.id::text, e.kind, e.date_from, e.date_to, e.status, e.row_count, e.file_url,
 		        e.error, e.expires_at, e.created_at, e.completed_at, u.full_name AS requested_by,
-		        e.campaign_id::text AS campaign_id, e.channel_id::text AS channel_id, e.label,
-		        cmp.name AS campaign_name, ch.name AS channel_name
+		        e.campaign_id, e.channel_id, e.label,
+		        (SELECT string_agg(cmp.name, ', ') FROM campaigns cmp
+		          WHERE cmp.id::text = ANY(string_to_array(e.campaign_id, ','))) AS campaign_name,
+		        (SELECT string_agg(ch.name, ', ') FROM channels ch
+		          WHERE ch.id::text = ANY(string_to_array(e.channel_id, ','))) AS channel_name
 		   FROM export_jobs e
 		   LEFT JOIN users u ON u.id = e.requested_by
-		   LEFT JOIN campaigns cmp ON cmp.id = e.campaign_id
-		   LEFT JOIN channels ch ON ch.id = e.channel_id
 		  WHERE e.organization_id = $1 ORDER BY e.created_at DESC LIMIT 100`, a.OrgID)
 	if err != nil {
 		http.Error(w, err.Error(), http.StatusInternalServerError)
