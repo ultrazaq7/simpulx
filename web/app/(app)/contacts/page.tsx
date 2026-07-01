@@ -318,8 +318,8 @@ export default function ContactsPage() {
             <thead className="sticky top-0 z-10">
               <tr className="border-b border-border bg-muted">
                 <TH className="w-10"><span className="sr-only">Select</span><input type="checkbox" aria-label="Select all contacts" className="rounded border-input accent-primary" checked={paged.length > 0 && paged.every((c) => selected.has(c.id))} onChange={(e) => setSelected((s) => { const n = new Set(s); if (e.target.checked) paged.forEach((c) => n.add(c.id)); else paged.forEach((c) => n.delete(c.id)); return n; })} /></TH>
-                <TH>Contact name</TH><TH>Channel</TH><TH>Phone</TH><TH>Stage</TH><TH>Interest</TH><TH>Agent</TH><TH>Campaign</TH><TH>Source</TH><TH>Source ID</TH><TH>Source URL</TH>
-                <TH>Labels</TH><TH>Created</TH><TH>Updated</TH><TH>Blacklisted</TH><TH className="text-right">Actions</TH>
+                <TH>Contact name</TH><TH>Phone</TH><TH>Stage</TH><TH>Interest</TH><TH>Agent</TH><TH>Campaign</TH><TH>Source</TH><TH>Source ID</TH><TH>Source URL</TH>
+                <TH>Labels</TH><TH>Channel</TH><TH>Created</TH><TH>Updated</TH><TH>Blacklisted</TH><TH className="text-right">Actions</TH>
               </tr>
             </thead>
             <tbody>
@@ -342,12 +342,6 @@ export default function ContactsPage() {
                       </div>
                       <button onClick={() => router.push(`/contacts/${c.id}`)} className="font-semibold text-[13px] text-foreground truncate max-w-[180px] text-left hover:text-primary hover:underline outline-none">{c.full_name || c.phone || "Unknown"}</button>
                     </div>
-                  </td>
-                  <td className="px-4 py-2.5 whitespace-nowrap">
-                    <span className="inline-flex px-2 py-0.5 rounded-md text-[11px] font-semibold"
-                      style={{ backgroundColor: channelColor(c.source_channel) + "15", color: channelTextColor(c.source_channel) }}>
-                      {c.channel_name || channelLabel(c.source_channel)}
-                    </span>
                   </td>
                   <td className="px-4 py-2.5 font-medium text-foreground/90 tabular-nums whitespace-nowrap">{c.phone || "-"}</td>
                   <td className="px-4 py-2.5 whitespace-nowrap">
@@ -406,6 +400,12 @@ export default function ContactsPage() {
                         {c.tags.length > 2 && <span className="text-[10px] text-muted-foreground font-semibold">+{c.tags.length - 2}</span>}
                       </div>
                     ) : <span className="text-muted-foreground">-</span>}
+                  </td>
+                  <td className="px-4 py-2.5 whitespace-nowrap">
+                    <span className="inline-flex px-2 py-0.5 rounded-md text-[11px] font-semibold"
+                      style={{ backgroundColor: channelColor(c.source_channel) + "15", color: channelTextColor(c.source_channel) }}>
+                      {c.channel_name || channelLabel(c.source_channel)}
+                    </span>
                   </td>
                   <td className="px-4 py-2.5 text-muted-foreground text-[12px] whitespace-nowrap">{fmtDate(c.created_at)}</td>
                   <td className="px-4 py-2.5 text-muted-foreground text-[12px] whitespace-nowrap">{c.updated_at ? fmtDate(c.updated_at) : "-"}</td>
