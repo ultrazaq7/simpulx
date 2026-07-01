@@ -81,7 +81,7 @@ class AppColors {
   // contrast, matching real WhatsApp's off-white incoming bubble.
   static const Color bubbleIncomingLight = surfaceAlt;
   static const Color bubbleOutgoingLight = Color(0xFFD9FDD3);
-  static const Color bubbleIncomingDark = Color(0xFF242424);
+  static const Color bubbleIncomingDark = Color(0xFF0E3636); // Teal-tinted dark grey to match background
   static const Color bubbleOutgoingDark = Color(0xFF005C4B);
 
   /// Brand colour for a given channel string (whatsapp/messenger/...).
