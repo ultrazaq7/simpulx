@@ -77,10 +77,16 @@ type waMessage struct {
 	Template    *waTemplate    `json:"template"`
 	// Present when the contact came from a Click-to-WhatsApp ad.
 	Referral *struct {
-		SourceID   string `json:"source_id"`
-		SourceType string `json:"source_type"`
-		SourceURL  string `json:"source_url"`
-		CtwaClid   string `json:"ctwa_clid"`
+		SourceID     string `json:"source_id"`
+		SourceType   string `json:"source_type"`
+		SourceURL    string `json:"source_url"`
+		CtwaClid     string `json:"ctwa_clid"`
+		Headline     string `json:"headline"`
+		Body         string `json:"body"`
+		MediaType    string `json:"media_type"`  // image | video
+		ImageURL     string `json:"image_url"`
+		VideoURL     string `json:"video_url"`
+		ThumbnailURL string `json:"thumbnail_url"`
 	} `json:"referral"`
 	// Errors hadir saat Meta tidak bisa men-decode pesan (type "unsupported",
 	// mis. kode 131051). PENTING: dalam kasus ini Meta TIDAK menyertakan konten
@@ -157,6 +163,42 @@ func (m waMessage) referralSourceID() string {
 func (m waMessage) referralSourceURL() string {
 	if m.Referral != nil {
 		return m.Referral.SourceURL
+	}
+	return ""
+}
+
+// referralImageURL returns the CTWA ad creative image (or video thumbnail) when
+// Meta includes it in the referral object. Empty for text-only ads.
+func (m waMessage) referralImageURL() string {
+	if m.Referral == nil {
+		return ""
+	}
+	if m.Referral.ImageURL != "" {
+		return m.Referral.ImageURL
+	}
+	return m.Referral.ThumbnailURL
+}
+
+// referralHeadline returns the CTWA ad headline when present.
+func (m waMessage) referralHeadline() string {
+	if m.Referral != nil {
+		return m.Referral.Headline
+	}
+	return ""
+}
+
+// referralBody returns the CTWA ad body copy when present.
+func (m waMessage) referralBody() string {
+	if m.Referral != nil {
+		return m.Referral.Body
+	}
+	return ""
+}
+
+// referralMediaType returns the CTWA ad media type (image | video) when present.
+func (m waMessage) referralMediaType() string {
+	if m.Referral != nil {
+		return m.Referral.MediaType
 	}
 	return ""
 }

@@ -244,7 +244,30 @@ func (s *server) handleAdPerformance(w http.ResponseWriter, r *http.Request) {
 	if from == "" {
 		from = "2000-01-01" // empty range = all time
 	}
-	camp := r.URL.Query().Get("campaign_id")
+	// campaign_id may be a comma-separated list (multi-select filter). Empty = all.
+	var campIDs []string
+	for _, c := range strings.Split(r.URL.Query().Get("campaign_id"), ",") {
+		if c = strings.TrimSpace(c); c != "" {
+			campIDs = append(campIDs, c)
+		}
+	}
+	// platform (ad source) filter — meta | google | tiktok. A single OUR campaign
+	// can aggregate several sources, so this slices spend by source. Empty = all.
+	platforms := []string{}
+	hasMeta := true
+	for _, p := range strings.Split(r.URL.Query().Get("platform"), ",") {
+		if p = strings.TrimSpace(strings.ToLower(p)); p != "" {
+			platforms = append(platforms, p)
+		}
+	}
+	if len(platforms) > 0 {
+		hasMeta = false
+		for _, p := range platforms {
+			if p == "meta" {
+				hasMeta = true
+			}
+		}
+	}
 
 	// Per-campaign: ad spend joined to OUR leads + sales (sale = reached the final stage).
 	campRows, err := s.queryMaps(r.Context(),
@@ -259,6 +282,7 @@ func (s *server) handleAdPerformance(w http.ResponseWriter, r *http.Request) {
 		            sum(am.clicks) clicks, sum(am.results) results
 		       FROM ad_metrics am JOIN ad_campaigns ac ON ac.id = am.ad_campaign_id
 		      WHERE am.organization_id = $1 AND am.date BETWEEN $2 AND $3 AND ac.campaign_id IS NOT NULL
+		        AND (cardinality($4::text[]) = 0 OR ac.platform = ANY($4::text[]))
 		      GROUP BY ac.campaign_id
 		   ) m ON m.campaign_id = c.id
 		   LEFT JOIN (
@@ -272,7 +296,7 @@ func (s *server) handleAdPerformance(w http.ResponseWriter, r *http.Request) {
 		  WHERE c.organization_id = $1
 		    AND (m.campaign_id IS NOT NULL OR l.leads > 0)
 		  ORDER BY spend DESC, leads DESC, c.name`,
-		a.OrgID, from, to)
+		a.OrgID, from, to, platforms)
 	if err != nil {
 		http.Error(w, err.Error(), http.StatusInternalServerError)
 		return
@@ -285,9 +309,13 @@ func (s *server) handleAdPerformance(w http.ResponseWriter, r *http.Request) {
 	         FROM ad_metrics am JOIN ad_campaigns ac ON ac.id = am.ad_campaign_id
 	        WHERE am.organization_id = $1 AND am.date BETWEEN $2 AND $3`
 	args := []any{a.OrgID, from, to}
-	if camp != "" {
-		dq += " AND ac.campaign_id = $4"
-		args = append(args, camp)
+	if len(campIDs) > 0 {
+		args = append(args, campIDs)
+		dq += fmt.Sprintf(" AND ac.campaign_id = ANY($%d::uuid[])", len(args))
+	}
+	if len(platforms) > 0 {
+		args = append(args, platforms)
+		dq += fmt.Sprintf(" AND ac.platform = ANY($%d::text[])", len(args))
 	}
 	dq += " GROUP BY am.date ORDER BY am.date DESC"
 	dailyRows, err := s.queryMaps(r.Context(), dq, args...)
@@ -298,15 +326,18 @@ func (s *server) handleAdPerformance(w http.ResponseWriter, r *http.Request) {
 
 	// Daily leads (chats) attributed to a campaign — the real conversion signal
 	// (Meta "results" is often 0 for click/reach-optimised ads). Merged into the
-	// daily rows so the Timeline can show leads instead of Meta results.
+	// daily rows so the Timeline can show leads instead of Meta results. Leads are
+	// WhatsApp conversations (source-agnostic), so only the campaign filter applies.
 	lq := `SELECT created_at::date AS d, count(*)::bigint AS leads
 	         FROM conversations
 	        WHERE organization_id=$1 AND created_at::date BETWEEN $2 AND $3 AND campaign_id IS NOT NULL`
-	if camp != "" {
-		lq += " AND campaign_id = $4"
+	largs := []any{a.OrgID, from, to}
+	if len(campIDs) > 0 {
+		largs = append(largs, campIDs)
+		lq += fmt.Sprintf(" AND campaign_id = ANY($%d::uuid[])", len(largs))
 	}
 	lq += " GROUP BY 1"
-	leadRows, _ := s.queryMaps(r.Context(), lq, args...)
+	leadRows, _ := s.queryMaps(r.Context(), lq, largs...)
 	leadsByDate := map[string]int64{}
 	for _, lr := range leadRows {
 		if d, ok := lr["d"].(time.Time); ok {
@@ -328,6 +359,12 @@ func (s *server) handleAdPerformance(w http.ResponseWriter, r *http.Request) {
 	// only syncs campaign insights), so this view is leads -> conversions only.
 	cq := `SELECT att.referral_source AS source_id,
 	              max(att.referral_url) AS source_url,
+	              (array_agg(att.referral_image_url) FILTER (WHERE att.referral_image_url IS NOT NULL))[1] AS image_url,
+	              (array_agg(att.referral_headline)  FILTER (WHERE att.referral_headline  IS NOT NULL))[1] AS headline,
+	              (array_agg(att.referral_body)      FILTER (WHERE att.referral_body      IS NOT NULL))[1] AS body,
+	              COALESCE(max(sp.spend), 0) AS spend,
+	              COALESCE(max(sp.impressions), 0) AS impressions,
+	              COALESCE(max(sp.clicks), 0) AS clicks,
 	              count(DISTINCT cv.id) AS leads,
 	              count(DISTINCT cv.id) FILTER (
 	                WHERE st.sort_order = (SELECT max(sort_order) FROM stages WHERE organization_id = $1)
@@ -335,19 +372,30 @@ func (s *server) handleAdPerformance(w http.ResponseWriter, r *http.Request) {
 	         FROM conversation_attributions att
 	         JOIN conversations cv ON cv.id = att.conversation_id
 	         LEFT JOIN stages st ON st.id = cv.stage_id
+	         LEFT JOIN (
+	              SELECT ad_external_id, sum(spend) AS spend, sum(impressions) AS impressions, sum(clicks) AS clicks
+	                FROM ad_ad_metrics
+	               WHERE organization_id = $1 AND date BETWEEN $2 AND $3
+	               GROUP BY ad_external_id
+	         ) sp ON sp.ad_external_id = att.referral_source
 	        WHERE att.organization_id = $1
 	          AND att.referral_source IS NOT NULL AND att.referral_source <> ''
 	          AND cv.created_at::date BETWEEN $2 AND $3`
 	cargs := []any{a.OrgID, from, to}
-	if camp != "" {
-		cq += " AND cv.campaign_id = $4"
-		cargs = append(cargs, camp)
+	if len(campIDs) > 0 {
+		cargs = append(cargs, campIDs)
+		cq += fmt.Sprintf(" AND cv.campaign_id = ANY($%d::uuid[])", len(cargs))
 	}
 	cq += " GROUP BY att.referral_source ORDER BY leads DESC, sales DESC LIMIT 100"
-	creativeRows, err := s.queryMaps(r.Context(), cq, cargs...)
-	if err != nil {
-		http.Error(w, err.Error(), http.StatusInternalServerError)
-		return
+	// Per-creative rows are click-to-WhatsApp (Meta) by nature, so when the source
+	// filter is set to non-Meta platforms only, there are no creatives to show.
+	creativeRows := []map[string]any{}
+	if hasMeta {
+		creativeRows, err = s.queryMaps(r.Context(), cq, cargs...)
+		if err != nil {
+			http.Error(w, err.Error(), http.StatusInternalServerError)
+			return
+		}
 	}
 
 	// Demographic breakdowns (account-level snapshot from the last sync; not
@@ -358,11 +406,15 @@ func (s *server) handleAdPerformance(w http.ResponseWriter, r *http.Request) {
 		  ORDER BY dimension, impressions DESC`, a.OrgID)
 	age := []map[string]any{}
 	gender := []map[string]any{}
+	region := []map[string]any{}
 	for _, b := range bdRows {
-		if b["dimension"] == "age" {
+		switch b["dimension"] {
+		case "age":
 			age = append(age, b)
-		} else if b["dimension"] == "gender" {
+		case "gender":
 			gender = append(gender, b)
+		case "region":
+			region = append(region, b)
 		}
 	}
 
@@ -373,6 +425,7 @@ func (s *server) handleAdPerformance(w http.ResponseWriter, r *http.Request) {
 		"creatives": creativeRows,
 		"age":       age,
 		"gender":    gender,
+		"region":    region,
 	})
 }
 
@@ -381,6 +434,8 @@ func (s *server) handleAdPerformance(w http.ResponseWriter, r *http.Request) {
 type metaInsight struct {
 	CampaignID   string `json:"campaign_id"`
 	CampaignName string `json:"campaign_name"`
+	AdID         string `json:"ad_id"`   // present on level=ad rows
+	AdName       string `json:"ad_name"` // present on level=ad rows
 	Impressions  string `json:"impressions"`
 	Reach        string `json:"reach"`
 	Clicks       string `json:"clicks"`
@@ -388,6 +443,7 @@ type metaInsight struct {
 	DateStart    string `json:"date_start"`
 	Age          string `json:"age"`    // present on age-breakdown rows
 	Gender       string `json:"gender"` // present on gender-breakdown rows
+	Region       string `json:"region"` // present on region-breakdown rows (province/state)
 	Actions      []struct {
 		ActionType string `json:"action_type"`
 		Value      string `json:"value"`
@@ -456,6 +512,10 @@ func (s *server) syncMetaAccount(ctx context.Context, accountID, orgID string) e
 		next = payload.Paging.Next
 	}
 
+	// Ad-level (per creative) daily insights — powers the "Per ad / creative"
+	// table's Spend / Cost-per-lead columns. Best-effort (never fails the sync).
+	s.syncMetaAds(ctx, accountID, orgID, extID, token, currency)
+
 	// Demographic breakdowns (age + gender) — account-level snapshot over the
 	// same window, best-effort (never fails the sync).
 	s.syncMetaBreakdowns(ctx, accountID, orgID, extID, token)
@@ -470,13 +530,13 @@ func (s *server) syncMetaBreakdowns(ctx context.Context, accountID, orgID, extID
 	since := time.Now().AddDate(0, 0, -90).Format("2006-01-02")
 	until := time.Now().Format("2006-01-02")
 	tr, _ := json.Marshal(map[string]string{"since": since, "until": until})
-	for _, dim := range []string{"age", "gender"} {
+	for _, dim := range []string{"age", "gender", "region"} {
 		q := url.Values{}
 		q.Set("level", "account")
 		q.Set("fields", "impressions,reach,clicks,spend,actions")
 		q.Set("breakdowns", dim)
 		q.Set("time_range", string(tr))
-		q.Set("limit", "200")
+		q.Set("limit", "500")
 		q.Set("access_token", token)
 		u := fmt.Sprintf("https://graph.facebook.com/%s/act_%s/insights?%s", metaGraphVersion, extID, q.Encode())
 		var payload struct {
@@ -492,8 +552,11 @@ func (s *server) syncMetaBreakdowns(ctx context.Context, accountID, orgID, extID
 		_, _ = s.pool.Exec(ctx, `DELETE FROM ad_breakdowns WHERE ad_account_id=$1 AND dimension=$2`, accountID, dim)
 		for _, in := range payload.Data {
 			val := in.Age
-			if dim == "gender" {
+			switch dim {
+			case "gender":
 				val = in.Gender
+			case "region":
+				val = in.Region
 			}
 			if strings.TrimSpace(val) == "" {
 				val = "unknown"
@@ -508,6 +571,58 @@ func (s *server) syncMetaBreakdowns(ctx context.Context, accountID, orgID, extID
 				atoiSafe(in.Impressions), atoiSafe(in.Reach), atoiSafe(in.Clicks), metaResults(in), atofSafe(in.Spend))
 		}
 	}
+}
+
+// syncMetaAds pulls the last 90 days of ad-level daily insights (keyed by Meta
+// ad_id, which equals the CTWA referral source_id) and upserts ad_ad_metrics, so
+// the "Per ad / creative" table can show real Spend / Cost-per-lead.
+func (s *server) syncMetaAds(ctx context.Context, accountID, orgID, extID, token, currency string) {
+	until := time.Now().Format("2006-01-02")
+	since := time.Now().AddDate(0, 0, -90).Format("2006-01-02")
+	tr, _ := json.Marshal(map[string]string{"since": since, "until": until})
+	q := url.Values{}
+	q.Set("level", "ad")
+	q.Set("time_increment", "1")
+	q.Set("fields", "ad_id,ad_name,impressions,reach,clicks,spend")
+	q.Set("time_range", string(tr))
+	q.Set("limit", "500")
+	q.Set("access_token", token)
+	next := fmt.Sprintf("https://graph.facebook.com/%s/act_%s/insights?%s", metaGraphVersion, extID, q.Encode())
+
+	pages := 0
+	for next != "" && pages < 40 {
+		pages++
+		var payload struct {
+			Data   []metaInsight `json:"data"`
+			Paging struct {
+				Next string `json:"next"`
+			} `json:"paging"`
+			Error *struct {
+				Message string `json:"message"`
+			} `json:"error"`
+		}
+		if err := metaGet(ctx, next, &payload); err != nil || payload.Error != nil {
+			return // best-effort: leave any previously-synced rows in place
+		}
+		for _, in := range payload.Data {
+			if in.AdID == "" {
+				continue
+			}
+			s.upsertAdAdMetric(ctx, orgID, accountID, in, currency)
+		}
+		next = payload.Paging.Next
+	}
+}
+
+func (s *server) upsertAdAdMetric(ctx context.Context, orgID, accountID string, in metaInsight, currency string) {
+	_, _ = s.pool.Exec(ctx,
+		`INSERT INTO ad_ad_metrics (organization_id, ad_account_id, ad_external_id, ad_name, date, impressions, reach, clicks, spend, currency)
+		 VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,NULLIF($10,''))
+		 ON CONFLICT (organization_id, ad_external_id, date)
+		 DO UPDATE SET ad_name=EXCLUDED.ad_name, impressions=EXCLUDED.impressions, reach=EXCLUDED.reach,
+		               clicks=EXCLUDED.clicks, spend=EXCLUDED.spend, currency=EXCLUDED.currency`,
+		orgID, accountID, in.AdID, in.AdName, in.DateStart,
+		atoiSafe(in.Impressions), atoiSafe(in.Reach), atoiSafe(in.Clicks), atofSafe(in.Spend), currency)
 }
 
 func (s *server) markAdAccountError(ctx context.Context, accountID, msg string) {

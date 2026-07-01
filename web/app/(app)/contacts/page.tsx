@@ -3,7 +3,7 @@ import { useEffect, useMemo, useRef, useState } from "react";
 import { useRouter } from "next/navigation";
 import {
   Search, UserPlus, Download, Pencil, ChevronsLeft, ChevronsRight, ChevronLeft, ChevronRight,
-  Users, X, Loader2, Tag as TagIcon, MoreVertical, MessageSquare, Trash2, Upload, ChevronDown, Eye, Ban,
+  Users, X, Loader2, Tag as TagIcon, MoreVertical, MessageSquare, Trash2, Upload, ChevronDown, Eye, Ban, Copy,
 } from "lucide-react";
 
 import { api, getUser } from "@/lib/api";
@@ -270,15 +270,15 @@ export default function ContactsPage() {
             <thead className="sticky top-0 z-10">
               <tr className="border-b border-border bg-muted">
                 <TH className="w-10"><span className="sr-only">Select</span><input type="checkbox" aria-label="Select all contacts" className="rounded border-input accent-primary" checked={paged.length > 0 && paged.every((c) => selected.has(c.id))} onChange={(e) => setSelected((s) => { const n = new Set(s); if (e.target.checked) paged.forEach((c) => n.add(c.id)); else paged.forEach((c) => n.delete(c.id)); return n; })} /></TH>
-                <TH>Contact name</TH><TH>Channel</TH><TH>Phone</TH><TH>Stage</TH><TH>Source</TH>
+                <TH>Contact name</TH><TH>Channel</TH><TH>Phone</TH><TH>Stage</TH><TH>Source</TH><TH>Source ID</TH><TH>Source URL</TH>
                 <TH>Labels</TH><TH>Created</TH><TH>Updated</TH><TH>Blacklisted</TH><TH className="text-right">Actions</TH>
               </tr>
             </thead>
             <tbody>
               {loading ? Array(8).fill(0).map((_, i) => (
-                <tr key={i}><td colSpan={11} className="px-4 py-2.5"><div className="h-9 skeleton rounded-md" /></td></tr>
+                <tr key={i}><td colSpan={13} className="px-4 py-2.5"><div className="h-9 skeleton rounded-md" /></td></tr>
               )) : paged.length === 0 ? (
-                <tr><td colSpan={11} className="text-center py-16">
+                <tr><td colSpan={13} className="text-center py-16">
                   <div className="w-12 h-12 rounded-xl bg-muted grid place-items-center mx-auto mb-3"><Users className="w-6 h-6 text-muted-foreground/50" /></div>
                   <p className="font-semibold text-foreground mb-0.5">No contacts found</p>
                   <p className="text-sm text-muted-foreground">{query || activeFilters ? "Try different filters." : "New contacts will appear here."}</p>
@@ -317,6 +317,17 @@ export default function ContactsPage() {
                     ) : <span className="text-muted-foreground">-</span>}
                   </td>
                   <td className="px-4 py-2.5 text-foreground/80 whitespace-nowrap">{sourceLabel(c)}</td>
+                  <td className="px-4 py-2.5 whitespace-nowrap">
+                    {c.source_id ? (
+                      <span className="inline-flex items-center gap-1.5">
+                        <span className="font-mono text-[12px] text-foreground/80 max-w-[130px] truncate">{c.source_id}</span>
+                        <button onClick={() => { navigator.clipboard?.writeText(c.source_id!); setToast("Source ID copied"); }} className="p-0.5 rounded text-muted-foreground/60 hover:text-foreground hover:bg-muted" aria-label="Copy source id"><Copy className="w-3.5 h-3.5" /></button>
+                      </span>
+                    ) : <span className="text-muted-foreground">-</span>}
+                  </td>
+                  <td className="px-4 py-2.5 whitespace-nowrap">
+                    {c.source_url ? <a href={c.source_url} target="_blank" rel="noreferrer" className="text-[12px] text-primary hover:underline">Link</a> : <span className="text-muted-foreground">-</span>}
+                  </td>
                   <td className="px-4 py-2.5">
                     {(c.tags && c.tags.length) ? (
                       <div className="flex flex-wrap gap-1 max-w-[160px]">

@@ -62,9 +62,15 @@ type MessageReceived struct {
 	// click-to-WhatsApp ad. Used for campaign attribution. Empty otherwise.
 	Referral string `json:"referral,omitempty"`
 	// ReferralURL is the CTWA ad's source URL (the real ad link), when present.
-	ReferralURL string          `json:"referral_url,omitempty"`
-	Message     InboundMessage  `json:"message"`
-	Raw         json.RawMessage `json:"raw,omitempty"`
+	ReferralURL string `json:"referral_url,omitempty"`
+	// CTWA creative preview fields, when Meta includes them in the referral object
+	// (image/video ads). Captured so the ad creative can be previewed in-app.
+	ReferralImageURL  string          `json:"referral_image_url,omitempty"`
+	ReferralHeadline  string          `json:"referral_headline,omitempty"`
+	ReferralBody      string          `json:"referral_body,omitempty"`
+	ReferralMediaType string          `json:"referral_media_type,omitempty"`
+	Message           InboundMessage  `json:"message"`
+	Raw               json.RawMessage `json:"raw,omitempty"`
 }
 
 type MessagePersisted struct {

@@ -302,6 +302,10 @@ export interface AdPerfDaily {
 export interface AdPerfCreative {
   source_id: string;
   source_url: string | null;
+  image_url: string | null;   // CTWA ad creative image / thumbnail
+  headline: string | null;    // CTWA ad headline
+  body: string | null;        // CTWA ad body copy
+  spend: number; impressions: number; clicks: number;  // ad-level (level=ad) insights
   leads: number; sales: number;
 }
 export interface AdBreakdown {
@@ -316,6 +320,7 @@ export interface AdPerformance {
   creatives: AdPerfCreative[];
   age?: AdBreakdown[];
   gender?: AdBreakdown[];
+  region?: AdBreakdown[];
 }
 
 export interface Channel {

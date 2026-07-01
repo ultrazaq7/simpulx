@@ -152,7 +152,8 @@ func (a *app) onReceived(env events.Envelope) error {
 
 	// 3.1 Multi-Touch Attribution Schema: Selalu simpan jejak klik iklan!
 	if e.Referral != "" {
-		if err := a.st.recordAttribution(ctx, env.OrgID, conv.ID, campaignID, e.Referral, e.ReferralURL); err != nil {
+		cr := adCreative{ImageURL: e.ReferralImageURL, Headline: e.ReferralHeadline, Body: e.ReferralBody, MediaType: e.ReferralMediaType}
+		if err := a.st.recordAttribution(ctx, env.OrgID, conv.ID, campaignID, e.Referral, e.ReferralURL, cr); err != nil {
 			a.log.Warn("recordAttribution failed", "conv", conv.ID, "err", err)
 		}
 	}

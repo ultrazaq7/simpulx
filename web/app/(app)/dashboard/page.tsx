@@ -10,6 +10,7 @@ import {
   TrendingDown, ChevronRight, Zap, Mail, Reply, Trophy,
   Clock, ArrowRight, CheckCircle2, Activity, Users, Radio,
   CircleDollarSign, MousePointerClick, Megaphone, Target, Eye, Filter as FilterIcon,
+  Image as ImageIcon, MapPin,
 } from "lucide-react";
 
 import { api, getUser } from "@/lib/api";
@@ -636,7 +637,7 @@ function ManagerDashboard() {
                 tab === t ? "border-primary text-primary" : "border-transparent text-muted-foreground hover:text-foreground",
               )}
             >
-              {t}
+              {t === "marketing" ? "Ads" : t}
             </button>
           ))}
         </div>
@@ -925,14 +926,65 @@ function BreakdownDonut({ title, data }: { title: string; data?: AdBreakdown[] }
   );
 }
 
+// Location performance: ranks the regions (provinces) that drove the most leads,
+// with a heat bar per row. Meta ad insights only expose geography down to the
+// region level (province/state) outside the US, so this is province-granular.
+function LocationPerformance({ data, currency }: { data?: AdBreakdown[]; currency: string }) {
+  const money = (n: number) => `${currency ? currency + " " : ""}${fmtMoney(n)}`;
+  const rows = (data || []).filter((r) => (r.value || "").toLowerCase() !== "unknown");
+  let total = rows.reduce((a, b) => a + (b.results || 0), 0);
+  const useImpr = total === 0;
+  if (useImpr) total = rows.reduce((a, b) => a + (b.impressions || 0), 0);
+  const ranked = rows
+    .map((b) => ({ name: b.value, value: useImpr ? (b.impressions || 0) : (b.results || 0), spend: b.spend || 0, clicks: b.clicks || 0 }))
+    .filter((x) => x.value > 0)
+    .sort((a, b) => b.value - a.value)
+    .slice(0, 12);
+  const max = ranked.length ? ranked[0].value : 0;
+  return (
+    <Card title="Top locations" subtitle={useImpr ? "Reach by province" : "Leads by province"} className="mt-5">
+      {ranked.length === 0 ? (
+        <div className="h-[200px] grid place-items-center text-sm text-muted-foreground flex-col gap-2">
+          <MapPin className="w-6 h-6 text-muted-foreground/40" />
+          No location data yet
+        </div>
+      ) : (
+        <div className="p-4 space-y-2.5">
+          {ranked.map((r, i) => {
+            const share = total > 0 ? (r.value / total) * 100 : 0;
+            const barW = max > 0 ? (r.value / max) * 100 : 0;
+            return (
+              <div key={r.name} className="flex items-center gap-3">
+                <span className={cn("shrink-0 grid place-items-center w-6 h-6 rounded-md text-[11px] font-bold",
+                  i === 0 ? "bg-primary text-white" : i < 3 ? "bg-primary/15 text-primary" : "bg-muted text-muted-foreground")}>{i + 1}</span>
+                <div className="flex items-center gap-1.5 w-[150px] shrink-0 min-w-0">
+                  <MapPin className="w-3.5 h-3.5 text-muted-foreground/60 shrink-0" />
+                  <span className="truncate text-[13px] font-medium text-foreground/90 capitalize">{r.name}</span>
+                </div>
+                <div className="flex-1 h-2.5 rounded-full bg-muted/60 overflow-hidden">
+                  <div className="h-full rounded-full bg-gradient-to-r from-primary/70 to-primary transition-all" style={{ width: `${barW}%` }} />
+                </div>
+                <span className="w-12 text-right tabular-nums text-[12px] font-semibold text-foreground shrink-0">{share.toFixed(1)}%</span>
+                <span className="w-14 text-right tabular-nums text-[12px] text-muted-foreground shrink-0 hidden sm:inline">{r.spend > 0 ? money(r.spend) : fmtInt(r.value)}</span>
+              </div>
+            );
+          })}
+        </div>
+      )}
+    </Card>
+  );
+}
+
 function MarketingAnalytics() {
   // Same date filter as the Overview tab (preset keys + custom range).
   const [dateRange, setDateRange] = useState("30d");
   const [fFrom, setFFrom] = useState(() => presetRange("30d").from);
   const [fTo, setFTo] = useState(() => presetRange("30d").to);
-  const [campaignFilter, setCampaignFilter] = useState("");
+  const [campaignFilter, setCampaignFilter] = useState<string[]>([]);
+  const [sourceFilter, setSourceFilter] = useState<string[]>([]);
   const [perf, setPerf] = useState<AdPerformance | null>(null);
   const [currency, setCurrency] = useState("");
+  const [platforms, setPlatforms] = useState<string[]>([]);
   const [hasAccounts, setHasAccounts] = useState<boolean | null>(null);
   const [loading, setLoading] = useState(true);
 
@@ -940,22 +992,26 @@ function MarketingAnalytics() {
     const { from, to } = dateRange === "custom" ? { from: fFrom, to: fTo } : presetRange(dateRange);
     let alive = true;
     Promise.all([
-      api.adPerformance(from || undefined, to || undefined, campaignFilter || undefined).catch(() => null),
+      api.adPerformance(from || undefined, to || undefined, campaignFilter.length ? campaignFilter : undefined, sourceFilter.length ? sourceFilter : undefined).catch(() => null),
       api.listAdAccounts().catch(() => []),
     ]).then(([p, accts]) => {
       if (!alive) return;
       setPerf(p as AdPerformance | null);
-      const a = (accts as { currency?: string | null }[]) || [];
+      const a = (accts as { currency?: string | null; platform?: string | null }[]) || [];
       setHasAccounts(a.length > 0);
       setCurrency(a.find((x) => x.currency)?.currency || "");
+      setPlatforms(Array.from(new Set(a.map((x) => (x.platform || "").toLowerCase()).filter(Boolean))));
     }).finally(() => { if (alive) setLoading(false); });
     return () => { alive = false; };
     // Refetch on filter change; keep the previous view visible during refetch.
-  }, [dateRange, fFrom, fTo, campaignFilter]);
+  }, [dateRange, fFrom, fTo, campaignFilter, sourceFilter]);
+
+  const PLATFORM_LABELS: Record<string, string> = { meta: "Meta Ads", google: "Google Ads", tiktok: "TikTok Ads" };
+  const sourceOptions = useMemo(() => platforms.map((p) => ({ value: p, label: PLATFORM_LABELS[p] || p })), [platforms]);
 
   const campaigns = perf?.campaigns || [];
-  const campaignOptions = useMemo(() => [{ value: "", label: "All campaigns" }, ...campaigns.map((c) => ({ value: c.campaign_id, label: c.campaign_name }))], [campaigns]);
-  const shown = campaignFilter ? campaigns.filter((c) => c.campaign_id === campaignFilter) : campaigns;
+  const campaignOptions = useMemo(() => campaigns.map((c) => ({ value: c.campaign_id, label: c.campaign_name })), [campaigns]);
+  const shown = campaignFilter.length ? campaigns.filter((c) => campaignFilter.includes(c.campaign_id)) : campaigns;
   const t = shown.reduce((a, c) => ({
     spend: a.spend + c.spend, leads: a.leads + c.leads, sales: a.sales + c.sales,
     clicks: a.clicks + c.clicks, impressions: a.impressions + c.impressions, results: a.results + c.results,
@@ -1002,7 +1058,10 @@ function MarketingAnalytics() {
       {/* Toolbar */}
       <div className="flex items-center gap-2 mb-4 flex-wrap">
         <div className="flex-1" />
-        <Select value={campaignFilter} onChange={setCampaignFilter} options={campaignOptions} className="w-[180px]" />
+        {sourceOptions.length > 1 && (
+          <MultiSelect value={sourceFilter} onChange={setSourceFilter} options={sourceOptions} placeholder="All sources" className="w-[170px]" />
+        )}
+        <MultiSelect value={campaignFilter} onChange={setCampaignFilter} options={campaignOptions} placeholder="All campaigns" className="w-[200px]" />
         <Select value={dateRange} searchable={false} className="w-[150px]"
           onChange={(v) => { setDateRange(v); if (v !== "custom") { const r = presetRange(v); setFFrom(r.from); setFTo(r.to); } }}
           options={[
@@ -1099,6 +1158,9 @@ function MarketingAnalytics() {
         <BreakdownDonut title="Gender performance" data={perf?.gender} />
       </div>
 
+      {/* Location performance (province-level) */}
+      <LocationPerformance data={perf?.region} currency={currency} />
+
       {/* Per-campaign ROI table */}
       <Card title="Campaign ROI" subtitle="Spend to leads to conversions, per campaign">
         <div className="overflow-x-auto">
@@ -1151,21 +1213,40 @@ function MarketingAnalytics() {
           <table className="w-full text-sm">
             <thead>
               <tr className="border-b border-border bg-muted/40">
-                {["Ad / source id", "Leads", "Conversions", "Lead to purchase", "Link"].map((h, idx) => (
-                  <th key={h} className={cn("px-4 py-2.5 text-[11px] font-bold uppercase tracking-wider text-muted-foreground", idx === 0 ? "text-left" : "text-right")}>{h}</th>
+                {["Creative", "Ad / source id", "Spend", "Impressions", "Clicks", "Leads", "Cost / lead", "Conversions", "Cost / conv", "Lead to purchase", "Link"].map((h, idx) => (
+                  <th key={h} className={cn("px-4 py-2.5 text-[11px] font-bold uppercase tracking-wider text-muted-foreground", idx <= 1 ? "text-left" : "text-right")}>{h}</th>
                 ))}
               </tr>
             </thead>
             <tbody>
               {(perf?.creatives || []).length === 0 ? (
-                <tr><td colSpan={5} className="text-center py-12 text-muted-foreground">No ad-attributed leads in range</td></tr>
+                <tr><td colSpan={11} className="text-center py-12 text-muted-foreground">No ad-attributed leads in range</td></tr>
               ) : (perf?.creatives || []).map((cr) => {
                 const rate = cr.leads > 0 ? (cr.sales / cr.leads) * 100 : 0;
+                const ccpl = cr.leads > 0 ? cr.spend / cr.leads : 0;
+                const ccpa = cr.sales > 0 ? cr.spend / cr.sales : 0;
                 return (
                   <tr key={cr.source_id} className="border-b border-border/60 hover:bg-muted/50 transition-colors">
-                    <td className="px-4 py-2.5 font-mono text-[12px] text-foreground">{cr.source_id}</td>
+                    <td className="px-4 py-2 w-14">
+                      {cr.image_url ? (
+                        <a href={cr.source_url || cr.image_url} target="_blank" rel="noreferrer" title={cr.headline || ""}>
+                          <img src={cr.image_url} alt={cr.headline || "Ad creative"} loading="lazy" className="w-11 h-11 rounded-md object-cover border border-border" />
+                        </a>
+                      ) : (
+                        <div className="w-11 h-11 rounded-md bg-muted/60 border border-border flex items-center justify-center text-muted-foreground/50"><ImageIcon className="w-4 h-4" /></div>
+                      )}
+                    </td>
+                    <td className="px-4 py-2.5">
+                      <div className="font-mono text-[12px] text-foreground">{cr.source_id}</div>
+                      {cr.headline && <div className="text-[11px] text-muted-foreground max-w-[220px] truncate">{cr.headline}</div>}
+                    </td>
+                    <td className="px-4 py-2.5 text-right tabular-nums">{cr.spend > 0 ? money(cr.spend) : "-"}</td>
+                    <td className="px-4 py-2.5 text-right tabular-nums text-muted-foreground">{cr.impressions > 0 ? fmtInt(cr.impressions) : "-"}</td>
+                    <td className="px-4 py-2.5 text-right tabular-nums text-muted-foreground">{cr.clicks > 0 ? fmtInt(cr.clicks) : "-"}</td>
                     <td className="px-4 py-2.5 text-right tabular-nums font-semibold text-primary">{fmtInt(cr.leads)}</td>
+                    <td className="px-4 py-2.5 text-right tabular-nums">{cr.leads > 0 && cr.spend > 0 ? money(ccpl) : "-"}</td>
                     <td className="px-4 py-2.5 text-right tabular-nums font-bold text-[#059669]">{fmtInt(cr.sales)}</td>
+                    <td className="px-4 py-2.5 text-right tabular-nums">{cr.sales > 0 && cr.spend > 0 ? money(ccpa) : "-"}</td>
                     <td className="px-4 py-2.5 text-right">
                       <Badge label={cr.leads > 0 ? `${rate.toFixed(1)}%` : "-"} bg={rate >= 20 ? "#E8F5E9" : rate > 0 ? "#FFF3E0" : "#F1F5F9"} text={rate >= 20 ? "#2E7D32" : rate > 0 ? "#E65100" : "#64748B"} />
                     </td>

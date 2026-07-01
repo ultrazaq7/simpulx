@@ -445,16 +445,26 @@ func (s *store) resolveCampaignByReferral(ctx context.Context, orgID, referral s
 	return id, err == nil
 }
 
+// adCreative carries the CTWA ad creative preview (image + copy) that Meta
+// includes in the referral object for image/video ads.
+type adCreative struct {
+	ImageURL, Headline, Body, MediaType string
+}
+
 // recordAttribution menyimpan jejak klik iklan (referral) ke dalam multi-touch attribution.
-func (s *store) recordAttribution(ctx context.Context, orgID, convID, campaignID, referral, referralURL string) error {
+func (s *store) recordAttribution(ctx context.Context, orgID, convID, campaignID, referral, referralURL string, cr adCreative) error {
 	var cid any
 	if campaignID != "" {
 		cid = campaignID
 	}
 	_, err := s.pool.Exec(ctx,
-		`INSERT INTO conversation_attributions (organization_id, conversation_id, campaign_id, referral_source, referral_url)
-		 VALUES ($1, $2, $3, NULLIF($4, ''), NULLIF($5, ''))`,
+		`INSERT INTO conversation_attributions
+		   (organization_id, conversation_id, campaign_id, referral_source, referral_url,
+		    referral_image_url, referral_headline, referral_body, referral_media_type)
+		 VALUES ($1, $2, $3, NULLIF($4, ''), NULLIF($5, ''),
+		         NULLIF($6, ''), NULLIF($7, ''), NULLIF($8, ''), NULLIF($9, ''))`,
 		orgID, convID, cid, referral, referralURL,
+		cr.ImageURL, cr.Headline, cr.Body, cr.MediaType,
 	)
 	return err
 }
