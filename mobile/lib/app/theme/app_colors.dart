@@ -54,24 +54,35 @@ class AppColors {
   static const Color textMuted = Color(0xFF8696A0);
   static const Color textInverse = Colors.white;
 
-  // ── Dark surfaces (Neutral OLED Black) ───────────
-  // WhatsApp's real dark mode uses layers that sit VERY close together in
-  // luminance (background ≈ appbar ≈ search field), separated mainly by a
-  // hairline border — not by a big black→grey jump. That's what makes it
-  // read as "one consistent surface" instead of patchy/blotchy.
-  //
-  // Previous values (#000000 → #1E1E1E) had too big a luminance gap, which
-  // is what produced the "belang" (patchy) look. Tightened below.
-  static const Color darkBackground = Color(0xFF000000); // scaffold canvas
-  static const Color darkSurface = Color(0xFF0C0C0C); // app bar / cards
-  static const Color darkSurfaceAlt = Color(0xFF141414); // search bar / chips
-  static const Color darkBorder = Color(0xFF262626); // hairline separators
-  static const Color darkBubbleBg = Color(0xFF1E1E1E); // incoming message bubble
+  // ── Dark surfaces (true WhatsApp navy palette) ───────────
+  // NOTE: an earlier version of this file deliberately swapped WhatsApp's
+  // real background (#0B141A) for pure OLED black to strip out its blue
+  // tint. For a pixel-accurate WhatsApp match, that tint is actually part
+  // of the look — so it's back below. All layers still sit close together
+  // in luminance (that's what avoids the "belang"/patchy effect); the
+  // difference now is the whole stack leans navy instead of neutral grey.
+  static const Color darkBackground = Color(0xFF0B141A); // chat wallpaper / scaffold canvas
+  static const Color darkSurface = Color(0xFF1F2C34); // app bar / bottom sheet / cards
+  static const Color darkSurfaceAlt = Color(0xFF202C33); // search bar / chips / incoming bubble
+  static const Color darkBorder = Color(0xFF222D34); // hairline separators
 
   // ── Dark text (WhatsApp) ───────────────────────────────
   static const Color darkTextPrimary = Color(0xFFE9EDEF);
   static const Color darkTextSecondary = Color(0xFF8696A0);
   static const Color darkTextMuted = Color(0xFF667781);
+
+  // ── Chat bubbles ───────────────────────────────────────
+  // Dedicated tokens (not `primary`/`brandGreen`) so the message bubble
+  // widget can match WhatsApp exactly without affecting buttons, links, etc.
+  // elsewhere in the app that should stay on-brand teal.
+  // NOT pure white: this app's light background is already pure white
+  // (see `surface` above), so a white bubble would vanish the same way
+  // the pure-black dark bubble did. surfaceAlt gives it a hairline of
+  // contrast, matching real WhatsApp's off-white incoming bubble.
+  static const Color bubbleIncomingLight = surfaceAlt;
+  static const Color bubbleOutgoingLight = Color(0xFFD9FDD3);
+  static const Color bubbleIncomingDark = Color(0xFF202C33);
+  static const Color bubbleOutgoingDark = Color(0xFF005C4B);
 
   /// Brand colour for a given channel string (whatsapp/messenger/...).
   static Color forChannel(String? channel) {

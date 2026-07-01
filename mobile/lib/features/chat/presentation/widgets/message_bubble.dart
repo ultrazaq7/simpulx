@@ -35,10 +35,13 @@ class MessageBubble extends StatelessWidget {
     final theme = Theme.of(context);
     final mine = message.isMine;
     final isDark = theme.brightness == Brightness.dark;
+    // Real WhatsApp uses a solid, non-transparent bubble fill and the SAME
+    // text colour for both outgoing and incoming bubbles (only the bg hue
+    // differs) — that's why fg no longer branches on `mine`.
     final bg = mine
-        ? AppColors.primary.withValues(alpha: 0.92)
-        : (isDark ? AppColors.darkBubbleBg : const Color(0xFFF0F2F5)); // WhatsApp-like light gray
-    final fg = mine ? Colors.white : (isDark ? AppColors.darkTextPrimary : AppColors.textPrimary);
+        ? (isDark ? AppColors.bubbleOutgoingDark : AppColors.bubbleOutgoingLight)
+        : (isDark ? AppColors.bubbleIncomingDark : AppColors.bubbleIncomingLight);
+    final fg = isDark ? AppColors.darkTextPrimary : AppColors.textPrimary;
 
     return Align(
       alignment: mine ? Alignment.centerRight : Alignment.centerLeft,
@@ -95,7 +98,7 @@ class MessageBubble extends StatelessWidget {
                       ),
                       if (mine) ...[
                         const SizedBox(width: 4),
-                        _StatusTick(status: message.status),
+                        _StatusTick(status: message.status, baseColor: fg),
                       ],
                     ],
                   ),
@@ -501,28 +504,32 @@ class _MediaContent extends StatelessWidget {
 }
 
 class _StatusTick extends StatelessWidget {
-  const _StatusTick({required this.status});
+  const _StatusTick({required this.status, required this.baseColor});
   final MessageStatus status;
+  /// The bubble's text colour — ticks derive from it so they stay legible
+  /// on both the dark-green and pale-mint outgoing bubble variants.
+  final Color baseColor;
 
   @override
   Widget build(BuildContext context) {
-    const onPrimary = Colors.white;
     switch (status) {
       case MessageStatus.sending:
-        return const Icon(Icons.schedule_rounded, size: 13, color: onPrimary);
+        return Icon(Icons.schedule_rounded,
+            size: 13, color: baseColor.withValues(alpha: 0.65));
       case MessageStatus.failed:
         return const Icon(Icons.error_outline_rounded,
-            size: 13, color: Color(0xFFFFD2D2));
+            size: 13, color: AppColors.danger);
       case MessageStatus.queued:
       case MessageStatus.sent:
         return Icon(Icons.done_rounded,
-            size: 14, color: onPrimary.withValues(alpha: 0.85));
+            size: 14, color: baseColor.withValues(alpha: 0.65));
       case MessageStatus.delivered:
         return Icon(Icons.done_all_rounded,
-            size: 14, color: onPrimary.withValues(alpha: 0.85));
+            size: 14, color: baseColor.withValues(alpha: 0.65));
       case MessageStatus.read:
+        // WhatsApp's signature "read" blue — same value in both themes.
         return const Icon(Icons.done_all_rounded,
-            size: 14, color: Color(0xFF9BE7FF));
+            size: 14, color: Color(0xFF53BDEB));
     }
   }
 }
