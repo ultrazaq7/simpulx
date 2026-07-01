@@ -1,5 +1,5 @@
 "use client";
-import { useEffect, useState, useMemo } from "react";
+import { useEffect, useState, useMemo, useRef, useCallback } from "react";
 import Link from "next/link";
 import {
   AreaChart, Area, XAxis, YAxis, CartesianGrid, Tooltip as RechartsTooltip,
@@ -493,10 +493,21 @@ function AlertRow({ tone, icon: Icon, text, sub, href }: {
 function ManagerControlTower() {
   const [analytics, setAnalytics] = useState<Analytics | null>(null);
   const [convs, setConvs] = useState<Conversation[] | null>(null);
-  useEffect(() => {
+
+  const reload = useCallback(() => {
     api.getAnalytics().then(setAnalytics).catch((e) => console.error('[tower-analytics]', e));
     api.listConversations().then((c) => setConvs(c || [])).catch(() => setConvs([]));
   }, []);
+
+  useEffect(() => { reload(); }, [reload]);
+
+  // Auto-refresh on WebSocket events (debounced to avoid hammering)
+  useEffect(() => {
+    let timer: NodeJS.Timeout;
+    const handler = () => { clearTimeout(timer); timer = setTimeout(reload, 3000); };
+    window.addEventListener("ws_message", handler);
+    return () => { window.removeEventListener("ws_message", handler); clearTimeout(timer); };
+  }, [reload]);
 
   const list = convs || [];
   const waitMin = (c: Conversation) => c.last_message_at ? (Date.now() - new Date(c.last_message_at).getTime()) / 60000 : 0;
@@ -626,7 +637,12 @@ function ManagerDashboard() {
     api.listCampaigns().then((c) => setCampaigns(c || [])).catch(() => {});
     api.listAgents().then((a) => setAgentList(a || [])).catch(() => {});
   }, []);
-  useEffect(() => {
+  // Refs for current filter values (used by the WS debounce handler)
+  const filtersRef = useRef({ fChannel, fCampaign, fAgent, fFrom, fTo });
+  filtersRef.current = { fChannel, fCampaign, fAgent, fFrom, fTo };
+
+  const reloadReports = useCallback(() => {
+    const { fChannel, fCampaign, fAgent, fFrom, fTo } = filtersRef.current;
     const f = {
       campaign_id: fCampaign.length ? fCampaign.join(",") : undefined,
       channel_id: fChannel.length ? fChannel.join(",") : undefined,
@@ -635,7 +651,19 @@ function ManagerDashboard() {
     };
     api.getStats(f).then(setStats).catch((e) => console.error('[mgr-stats]', e));
     api.getAnalytics(f).then(setAnalytics).catch((e) => console.error('[mgr-analytics]', e));
-  }, [fChannel, fCampaign, fAgent, fFrom, fTo]);
+  }, []);
+
+  useEffect(() => {
+    reloadReports();
+  }, [fChannel, fCampaign, fAgent, fFrom, fTo, reloadReports]);
+
+  // Auto-refresh on WebSocket events (debounced)
+  useEffect(() => {
+    let timer: NodeJS.Timeout;
+    const handler = () => { clearTimeout(timer); timer = setTimeout(reloadReports, 3000); };
+    window.addEventListener("ws_message", handler);
+    return () => { window.removeEventListener("ws_message", handler); clearTimeout(timer); };
+  }, [reloadReports]);
 
   if (!stats) return (
     <div className="p-4">
