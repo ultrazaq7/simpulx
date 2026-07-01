@@ -359,9 +359,9 @@ func (s *server) handleAdPerformance(w http.ResponseWriter, r *http.Request) {
 	// only syncs campaign insights), so this view is leads -> conversions only.
 	cq := `SELECT att.referral_source AS source_id,
 	              max(att.referral_url) AS source_url,
-	              (array_agg(att.referral_image_url) FILTER (WHERE att.referral_image_url IS NOT NULL))[1] AS image_url,
-	              (array_agg(att.referral_headline)  FILTER (WHERE att.referral_headline  IS NOT NULL))[1] AS headline,
-	              (array_agg(att.referral_body)      FILTER (WHERE att.referral_body      IS NOT NULL))[1] AS body,
+	              COALESCE((array_agg(att.referral_image_url) FILTER (WHERE att.referral_image_url IS NOT NULL))[1], max(acr.image_url)) AS image_url,
+	              COALESCE((array_agg(att.referral_headline)  FILTER (WHERE att.referral_headline  IS NOT NULL))[1], max(acr.title)) AS headline,
+	              COALESCE((array_agg(att.referral_body)      FILTER (WHERE att.referral_body      IS NOT NULL))[1], max(acr.body)) AS body,
 	              COALESCE(max(sp.spend), 0) AS spend,
 	              COALESCE(max(sp.impressions), 0) AS impressions,
 	              COALESCE(max(sp.clicks), 0) AS clicks,
@@ -372,6 +372,7 @@ func (s *server) handleAdPerformance(w http.ResponseWriter, r *http.Request) {
 	         FROM conversation_attributions att
 	         JOIN conversations cv ON cv.id = att.conversation_id
 	         LEFT JOIN stages st ON st.id = cv.stage_id
+	         LEFT JOIN ad_creatives acr ON acr.organization_id = $1 AND acr.ad_external_id = att.referral_source
 	         LEFT JOIN (
 	              SELECT ad_external_id, sum(spend) AS spend, sum(impressions) AS impressions, sum(clicks) AS clicks
 	                FROM ad_ad_metrics
@@ -516,6 +517,10 @@ func (s *server) syncMetaAccount(ctx context.Context, accountID, orgID string) e
 	// table's Spend / Cost-per-lead columns. Best-effort (never fails the sync).
 	s.syncMetaAds(ctx, accountID, orgID, extID, token, currency)
 
+	// Ad creative previews (thumbnail + copy), keyed by ad_id — so the creative
+	// column shows an image even for historical CTWA leads. Best-effort.
+	s.syncMetaAdCreatives(ctx, accountID, orgID, extID, token)
+
 	// Demographic breakdowns (age + gender) — account-level snapshot over the
 	// same window, best-effort (never fails the sync).
 	s.syncMetaBreakdowns(ctx, accountID, orgID, extID, token)
@@ -623,6 +628,80 @@ func (s *server) upsertAdAdMetric(ctx context.Context, orgID, accountID string, 
 		               clicks=EXCLUDED.clicks, spend=EXCLUDED.spend, currency=EXCLUDED.currency`,
 		orgID, accountID, in.AdID, in.AdName, in.DateStart,
 		atoiSafe(in.Impressions), atoiSafe(in.Reach), atoiSafe(in.Clicks), atofSafe(in.Spend), currency)
+}
+
+// metaAd is one row from GET /act_{id}/ads?fields=id,creative{...}.
+type metaAd struct {
+	ID       string `json:"id"`
+	Creative struct {
+		ThumbnailURL string `json:"thumbnail_url"`
+		ImageURL     string `json:"image_url"`
+		Title        string `json:"title"`
+		Body         string `json:"body"`
+		ObjectStory  struct {
+			LinkData struct {
+				Message string `json:"message"`
+				Name    string `json:"name"`
+				Picture string `json:"picture"`
+			} `json:"link_data"`
+			VideoData struct {
+				ImageURL string `json:"image_url"`
+				Message  string `json:"message"`
+				Title    string `json:"title"`
+			} `json:"video_data"`
+		} `json:"object_story_spec"`
+	} `json:"creative"`
+}
+
+// syncMetaAdCreatives pulls the account's ads with their creative preview and
+// upserts ad_creatives (keyed by ad_id). One paginated call per account.
+func (s *server) syncMetaAdCreatives(ctx context.Context, accountID, orgID, extID, token string) {
+	q := url.Values{}
+	q.Set("fields", "id,creative{thumbnail_url,image_url,title,body,object_story_spec{link_data{message,name,picture},video_data{image_url,message,title}}}")
+	q.Set("limit", "200")
+	q.Set("access_token", token)
+	next := fmt.Sprintf("https://graph.facebook.com/%s/act_%s/ads?%s", metaGraphVersion, extID, q.Encode())
+	pages := 0
+	for next != "" && pages < 40 {
+		pages++
+		var payload struct {
+			Data   []metaAd `json:"data"`
+			Paging struct {
+				Next string `json:"next"`
+			} `json:"paging"`
+			Error *struct {
+				Message string `json:"message"`
+			} `json:"error"`
+		}
+		if err := metaGet(ctx, next, &payload); err != nil || payload.Error != nil {
+			return
+		}
+		for _, ad := range payload.Data {
+			c := ad.Creative
+			img := firstNonEmpty(c.ImageURL, c.ObjectStory.LinkData.Picture, c.ObjectStory.VideoData.ImageURL, c.ThumbnailURL)
+			title := firstNonEmpty(c.Title, c.ObjectStory.LinkData.Name, c.ObjectStory.VideoData.Title)
+			body := firstNonEmpty(c.Body, c.ObjectStory.LinkData.Message, c.ObjectStory.VideoData.Message)
+			if ad.ID == "" || img == "" {
+				continue
+			}
+			_, _ = s.pool.Exec(ctx,
+				`INSERT INTO ad_creatives (organization_id, ad_account_id, ad_external_id, image_url, title, body)
+				 VALUES ($1,$2,$3,NULLIF($4,''),NULLIF($5,''),NULLIF($6,''))
+				 ON CONFLICT (organization_id, ad_external_id)
+				 DO UPDATE SET image_url=EXCLUDED.image_url, title=EXCLUDED.title, body=EXCLUDED.body, synced_at=now()`,
+				orgID, accountID, ad.ID, img, title, body)
+		}
+		next = payload.Paging.Next
+	}
+}
+
+func firstNonEmpty(vals ...string) string {
+	for _, v := range vals {
+		if strings.TrimSpace(v) != "" {
+			return v
+		}
+	}
+	return ""
 }
 
 func (s *server) markAdAccountError(ctx context.Context, accountID, msg string) {

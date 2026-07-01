@@ -888,16 +888,21 @@ const DONUT_COLORS = ["#6366F1", "#F97316", "#A5B4FC", "#EAE2D6", "#111827", "#C
 // Demographic donut (age / gender), shown by results, falling back to
 // impressions when there are no results yet.
 function BreakdownDonut({ title, data }: { title: string; data?: AdBreakdown[] }) {
-  const rows = data || [];
-  let total = rows.reduce((a, b) => a + (b.results || 0), 0);
-  const useImpr = total === 0;
-  if (useImpr) total = rows.reduce((a, b) => a + (b.impressions || 0), 0);
+  const rows = (data || []).filter((r) => (r.value || "").toLowerCase() !== "unknown");
+  const sum = (k: "reach" | "impressions" | "results") => rows.reduce((a, b) => a + (b[k] || 0), 0);
+  // Meta "results" is sparse/unreliable for click-to-WhatsApp, so demographics
+  // are shown by reach (unique people) - a real audience distribution - falling
+  // back to impressions, then results. One metric drives the whole chart.
+  const metric: "reach" | "impressions" | "results" =
+    sum("reach") > 0 ? "reach" : sum("impressions") > 0 ? "impressions" : "results";
+  const label = metric === "reach" ? "By reach" : metric === "impressions" ? "By impressions" : "By results";
+  const total = sum(metric);
   const chart = rows
-    .map((b, i) => ({ name: b.value, value: useImpr ? (b.impressions || 0) : (b.results || 0), color: DONUT_COLORS[i % DONUT_COLORS.length] }))
+    .map((b, i) => ({ name: b.value, value: b[metric] || 0, color: DONUT_COLORS[i % DONUT_COLORS.length] }))
     .filter((x) => x.value > 0)
     .sort((a, b) => b.value - a.value);
   return (
-    <Card title={title} subtitle={useImpr ? "By impressions" : "By results"}>
+    <Card title={title} subtitle={label}>
       {chart.length === 0 ? (
         <div className="h-[220px] grid place-items-center text-sm text-muted-foreground">No demographic data yet</div>
       ) : (
@@ -948,7 +953,7 @@ function LocationPerformance({ data, currency }: { data?: AdBreakdown[]; currenc
     .slice(0, 12);
   const max = ranked.length ? ranked[0].value : 0;
   return (
-    <Card title="Top locations" subtitle={label} className="mt-5">
+    <Card title="Top locations" subtitle={label} className="mt-5 mb-5">
       {ranked.length === 0 ? (
         <div className="h-[200px] grid place-items-center text-sm text-muted-foreground flex-col gap-2">
           <MapPin className="w-6 h-6 text-muted-foreground/40" />

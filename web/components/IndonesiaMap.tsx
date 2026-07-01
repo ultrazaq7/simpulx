@@ -1,103 +1,132 @@
 "use client";
-import { useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 
-// Lightweight, dependency-free bubble map of Indonesia. A stylized archipelago
-// backdrop (approximate island shapes) with one bubble per province, sized by
-// value. Province positions use real centroids projected equirectangularly over
-// Indonesia's bounding box, so bubbles land in the right place without shipping a
-// heavy TopoJSON. Meta ad insights expose geography at region (province) level.
+// Choropleth map of Indonesia, dependency-free. We load a real provinces GeoJSON
+// from /geo (served statically, so no bundle bloat), project it to the SVG box
+// ourselves, and shade each province by its value. Meta ad insights expose
+// geography at region (province) level, which maps 1:1 to these polygons.
 
-// Projection: 20px per degree on both axes over lng 94..142, lat 7..-12.
-const LNG_MIN = 94, LAT_MAX = 7, PPD = 20;
-const VB_W = (142 - LNG_MIN) * PPD; // 960
-const VB_H = (LAT_MAX - -12) * PPD; // 380
-const px = (lng: number) => (lng - LNG_MIN) * PPD;
-const py = (lat: number) => (LAT_MAX - lat) * PPD;
+type Geo = { type: string; features: { properties: Record<string, unknown>; geometry: { type: string; coordinates: unknown } }[] };
 
-// Province centroids keyed by canonical lowercase name (matches Meta region names).
-const CENTROIDS: Record<string, [number, number]> = {
-  "aceh": [4.5, 96.9], "north sumatra": [2.3, 99.1], "west sumatra": [-0.8, 100.6],
-  "riau": [0.5, 101.8], "riau islands": [0.9, 104.5], "jambi": [-1.6, 103.0],
-  "south sumatra": [-3.3, 104.0], "bangka belitung islands": [-2.7, 106.5],
-  "bengkulu": [-3.6, 102.3], "lampung": [-4.8, 105.2], "jakarta": [-6.2, 106.8],
-  "west java": [-6.9, 107.6], "banten": [-6.4, 106.1], "central java": [-7.2, 110.1],
-  "yogyakarta": [-7.9, 110.4], "east java": [-7.8, 112.7], "bali": [-8.4, 115.1],
-  "west nusa tenggara": [-8.7, 117.6], "east nusa tenggara": [-8.9, 121.3],
-  "west kalimantan": [0.1, 111.3], "central kalimantan": [-1.7, 113.4],
-  "south kalimantan": [-3.1, 115.3], "east kalimantan": [0.6, 116.4],
-  "north kalimantan": [3.1, 116.4], "north sulawesi": [1.1, 124.5],
-  "gorontalo": [0.7, 122.4], "central sulawesi": [-1.4, 121.4],
-  "west sulawesi": [-2.8, 119.2], "south sulawesi": [-4.0, 120.0],
-  "southeast sulawesi": [-4.1, 122.2], "maluku": [-3.7, 129.0],
-  "north maluku": [1.0, 127.8], "papua": [-4.3, 138.0], "west papua": [-1.3, 133.2],
-  "central papua": [-3.7, 136.5], "highland papua": [-4.0, 139.0],
-  "south papua": [-6.5, 139.9], "southwest papua": [-1.0, 132.0],
+// Indonesian province name (GeoJSON "Propinsi") -> canonical lowercase English
+// (Meta region name). Handles the older 32-province file's naming.
+const ID_TO_EN: Record<string, string> = {
+  "DKI JAKARTA": "jakarta", "JAWA BARAT": "west java", "JAWA TENGAH": "central java",
+  "JAWA TIMUR": "east java", "PROBANTEN": "banten", "DAERAH ISTIMEWA YOGYAKARTA": "yogyakarta",
+  "BALI": "bali", "SUMATERA UTARA": "north sumatra", "SUMATERA BARAT": "west sumatra",
+  "SUMATERA SELATAN": "south sumatra", "RIAU": "riau", "JAMBI": "jambi", "BENGKULU": "bengkulu",
+  "LAMPUNG": "lampung", "BANGKA BELITUNG": "bangka belitung islands", "DI. ACEH": "aceh",
+  "KALIMANTAN BARAT": "west kalimantan", "KALIMANTAN TENGAH": "central kalimantan",
+  "KALIMANTAN SELATAN": "south kalimantan", "KALIMANTAN TIMUR": "east kalimantan",
+  "SULAWESI UTARA": "north sulawesi", "GORONTALO": "gorontalo", "SULAWESI TENGAH": "central sulawesi",
+  "SULAWESI SELATAN": "south sulawesi", "SULAWESI TENGGARA": "southeast sulawesi",
+  "MALUKU": "maluku", "MALUKU UTARA": "north maluku", "NUSATENGGARA BARAT": "west nusa tenggara",
+  "NUSA TENGGARA TIMUR": "east nusa tenggara", "IRIAN JAYA TIMUR": "papua",
+  "IRIAN JAYA TENGAH": "papua", "IRIAN JAYA BARAT": "west papua",
 };
 
-// Rough island silhouettes for context (centre lat/lng, degree extents, rotation).
-const ISLANDS: [number, number, number, number, number][] = [
-  [-0.5, 101.8, 6.6, 3.0, -32], // Sumatra
-  [-7.4, 110.4, 0.9, 4.7, -6],  // Java
-  [0.3, 113.6, 4.2, 3.7, 0],    // Kalimantan
-  [-1.9, 120.9, 4.6, 2.3, 0],   // Sulawesi
-  [-4.2, 138.2, 3.4, 4.6, 0],   // Papua
-  [-8.5, 117.7, 0.6, 1.2, 0],   // West Nusa Tenggara
-  [-8.9, 121.4, 0.7, 1.9, 0],   // East Nusa Tenggara
-  [-8.4, 115.1, 0.45, 0.5, 0],  // Bali
-  [-3.5, 129.1, 2.4, 1.2, 0],   // Maluku
-  [1.0, 127.9, 1.5, 0.9, 0],    // North Maluku
-];
-
-function normalize(name: string): string {
-  return (name || "").toLowerCase().trim()
-    .replace(/^dki\s+/, "").replace(/^di\s+/, "").replace(/[–—]/g, "-")
-    .replace("-", " ").replace(/\s+/g, " ")
-    .replace("special region of ", "").replace(" special region", "")
-    .replace("d.i. ", "").replace("bangka belitung", "bangka belitung islands")
-    .replace("bangka belitung islands islands", "bangka belitung islands");
+// Normalize a Meta region name to the canonical english key.
+function normEn(name: string): string {
+  let s = (name || "").toLowerCase().trim().replace(/[–—]/g, "-").replace(/-/g, " ").replace(/\s+/g, " ");
+  s = s.replace(/^dki\s+/, "").replace(/^di\s+/, "").replace(/^d\.i\.?\s+/, "")
+    .replace("special region of ", "").replace(" special region", "");
+  if (s === "bangka belitung") s = "bangka belitung islands";
+  if (s === "central papua" || s === "highland papua" || s === "south papua") s = "papua";
+  if (s === "southwest papua") s = "west papua";
+  if (s === "north kalimantan") s = "east kalimantan"; // merged in the 32-province file
+  if (s === "west sulawesi") s = "south sulawesi";
+  if (s === "riau islands") s = "riau";
+  return s;
 }
+
+const VB_W = 960;
 
 export interface MapPoint { name: string; value: number }
 
 export function IndonesiaMap({ points, isMoney, money }: { points: MapPoint[]; isMoney?: boolean; money?: (n: number) => string }) {
+  const [geo, setGeo] = useState<Geo | null>(null);
   const [hover, setHover] = useState<{ name: string; value: number; x: number; y: number } | null>(null);
-  const max = points.reduce((m, p) => Math.max(m, p.value), 0) || 1;
-  const placed = points
-    .map((p) => ({ ...p, c: CENTROIDS[normalize(p.name)] }))
-    .filter((p): p is MapPoint & { c: [number, number] } => !!p.c)
-    .sort((a, b) => b.value - a.value);
+  const wrapRef = useRef<HTMLDivElement>(null);
+
+  useEffect(() => {
+    let alive = true;
+    fetch("/geo/id-provinces.json").then((r) => r.json()).then((d) => { if (alive) setGeo(d); }).catch(() => {});
+    return () => { alive = false; };
+  }, []);
+
+  const valueByEn = useMemo(() => {
+    const m: Record<string, number> = {};
+    for (const p of points) m[normEn(p.name)] = (m[normEn(p.name)] || 0) + p.value;
+    return m;
+  }, [points]);
+  const max = useMemo(() => Object.values(valueByEn).reduce((a, b) => Math.max(a, b), 0) || 1, [valueByEn]);
+
+  // Projection: fit the GeoJSON bbox to the viewBox width, preserving aspect.
+  const proj = useMemo(() => {
+    if (!geo) return null;
+    let minLng = 180, maxLng = -180, minLat = 90, maxLat = -90;
+    const walk = (c: unknown) => {
+      if (Array.isArray(c) && typeof c[0] === "number" && typeof c[1] === "number") {
+        const [lng, lat] = c as number[];
+        if (lng < minLng) minLng = lng; if (lng > maxLng) maxLng = lng;
+        if (lat < minLat) minLat = lat; if (lat > maxLat) maxLat = lat;
+      } else if (Array.isArray(c)) c.forEach(walk);
+    };
+    geo.features.forEach((f) => walk(f.geometry.coordinates));
+    const lngSpan = maxLng - minLng || 1, latSpan = maxLat - minLat || 1;
+    const scale = VB_W / lngSpan;
+    const H = latSpan * scale;
+    const project = (lng: number, lat: number): [number, number] => [(lng - minLng) * scale, (maxLat - lat) * scale];
+    return { project, H };
+  }, [geo]);
+
+  const paths = useMemo(() => {
+    if (!geo || !proj) return [];
+    const ring = (r: number[][]) => r.map(([lng, lat], i) => `${i ? "L" : "M"}${proj.project(lng, lat).map((n) => n.toFixed(1)).join(" ")}`).join("") + "Z";
+    return geo.features.map((f) => {
+      const g = f.geometry;
+      const polys = (g.type === "Polygon" ? [g.coordinates] : g.coordinates) as number[][][][];
+      const d = polys.map((poly) => poly.map(ring).join("")).join("");
+      const en = ID_TO_EN[String(f.properties.Propinsi || "").toUpperCase()] || "";
+      const val = valueByEn[en] || 0;
+      return { d, en, val, name: String(f.properties.Propinsi || "") };
+    });
+  }, [geo, proj, valueByEn]);
+
   const fmt = (v: number) => (isMoney && money ? money(v) : v.toLocaleString());
 
+  if (!geo || !proj) {
+    return <div className="w-full aspect-[2.5/1] rounded-lg bg-muted/30 animate-pulse" />;
+  }
+
   return (
-    <div className="relative w-full">
-      <svg viewBox={`0 0 ${VB_W} ${VB_H}`} className="w-full h-auto" preserveAspectRatio="xMidYMid meet">
-        {/* island backdrop */}
-        <g className="text-muted-foreground/20" fill="currentColor">
-          {ISLANDS.map(([lat, lng, latR, lngR, rot], i) => (
-            <ellipse key={i} cx={px(lng)} cy={py(lat)} rx={lngR * PPD} ry={latR * PPD}
-              transform={`rotate(${rot} ${px(lng)} ${py(lat)})`} />
-          ))}
-        </g>
-        {/* value bubbles */}
+    <div ref={wrapRef} className="relative w-full">
+      <svg viewBox={`0 0 ${VB_W} ${proj.H}`} className="w-full h-auto" preserveAspectRatio="xMidYMid meet"
+        onMouseLeave={() => setHover(null)}>
         <g className="text-primary">
-          {placed.map((p) => {
-            const r = 6 + Math.sqrt(p.value / max) * 26;
-            const x = px(p.c[1]), y = py(p.c[0]);
+          {paths.map((p, i) => {
+            const intensity = p.val > 0 ? 0.18 + 0.72 * (p.val / max) : 0;
             const active = hover?.name === p.name;
             return (
-              <g key={p.name} onMouseEnter={() => setHover({ name: p.name, value: p.value, x, y })} onMouseLeave={() => setHover(null)} className="cursor-pointer">
-                <circle cx={x} cy={y} r={r} fill="currentColor" fillOpacity={active ? 0.9 : 0.55} stroke="currentColor" strokeWidth={active ? 3 : 1.5} />
-                <circle cx={x} cy={y} r={2.5} fill="#fff" />
-              </g>
+              <path key={i} d={p.d}
+                fill={p.val > 0 ? "currentColor" : "hsl(var(--muted))"}
+                fillOpacity={p.val > 0 ? (active ? 1 : intensity) : 1}
+                stroke="#fff" strokeWidth={active ? 1.4 : 0.6}
+                className="transition-all cursor-pointer"
+                onMouseMove={(e) => {
+                  const r = wrapRef.current?.getBoundingClientRect();
+                  if (r) setHover({ name: p.name, value: p.val, x: e.clientX - r.left, y: e.clientY - r.top });
+                }}
+              />
             );
           })}
         </g>
       </svg>
       {hover && (
-        <div className="pointer-events-none absolute z-10 rounded-md border border-border bg-card/95 backdrop-blur-sm px-2.5 py-1.5 shadow-lg text-[12px] -translate-x-1/2 -translate-y-full"
-          style={{ left: `${(hover.x / VB_W) * 100}%`, top: `${(hover.y / VB_H) * 100}%` }}>
-          <div className="font-semibold text-foreground capitalize">{hover.name}</div>
-          <div className="text-muted-foreground tabular-nums">{fmt(hover.value)}</div>
+        <div className="pointer-events-none absolute z-10 rounded-md border border-border bg-card/95 backdrop-blur-sm px-2.5 py-1.5 shadow-lg text-[12px] -translate-x-1/2 -translate-y-[calc(100%+8px)]"
+          style={{ left: hover.x, top: hover.y }}>
+          <div className="font-semibold text-foreground capitalize">{(ID_TO_EN[hover.name.toUpperCase()] || hover.name).replace(/\b\w/g, (m) => m.toUpperCase())}</div>
+          <div className="text-muted-foreground tabular-nums">{hover.value > 0 ? fmt(hover.value) : "No data"}</div>
         </div>
       )}
     </div>
