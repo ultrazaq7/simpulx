@@ -1014,8 +1014,9 @@ function MarketingAnalytics() {
         ))}
       </div>
 
-      {/* Marketing funnel */}
-      <Card title="Marketing funnel" subtitle="Impression to click to chat to conversion" className="mb-5">
+      {/* Marketing funnel + Conversion rates side-by-side */}
+      <div className="grid grid-cols-1 lg:grid-cols-2 gap-4 mb-5">
+      <Card title="Marketing funnel" subtitle="Impression to click to chat to conversion">
         <div className="p-4 space-y-2.5">
           {funnel.map((s, i) => {
             const pct = (s.value / fTop) * 100;
@@ -1035,6 +1036,37 @@ function MarketingAnalytics() {
           })}
         </div>
       </Card>
+
+      {/* Step conversion rates — visual companion to the funnel */}
+      <Card title="Step conversion rates" subtitle="How efficiently each step converts">
+        <div className="p-4 flex flex-col justify-center gap-5">
+          {(() => {
+            const steps = [
+              { label: "Click-through rate", sub: "Impressions → Clicks", rate: t.impressions > 0 ? (t.clicks / t.impressions) * 100 : 0, color: "#0EA5E9" },
+              { label: "Lead capture rate", sub: "Clicks → Leads", rate: t.clicks > 0 ? (t.leads / t.clicks) * 100 : 0, color: "#2D8B73" },
+              { label: "Purchase rate", sub: "Leads → Conversions", rate: t.leads > 0 ? (t.sales / t.leads) * 100 : 0, color: "#059669" },
+            ];
+            return steps.map((s) => (
+              <div key={s.label} className="flex items-center gap-4">
+                <div className="relative w-14 h-14 shrink-0">
+                  <svg viewBox="0 0 36 36" className="w-full h-full -rotate-90">
+                    <circle cx="18" cy="18" r="15.5" fill="none" stroke="currentColor" className="text-muted/40" strokeWidth="3" />
+                    <circle cx="18" cy="18" r="15.5" fill="none" stroke={s.color} strokeWidth="3"
+                      strokeDasharray={`${Math.min(s.rate, 100) * 0.974} 97.4`}
+                      strokeLinecap="round" className="transition-all duration-700" />
+                  </svg>
+                  <span className="absolute inset-0 flex items-center justify-center text-[11px] font-bold tabular-nums text-foreground">{s.rate.toFixed(1)}%</span>
+                </div>
+                <div className="min-w-0">
+                  <p className="text-[13px] font-semibold text-foreground leading-snug">{s.label}</p>
+                  <p className="text-[11px] text-muted-foreground">{s.sub}</p>
+                </div>
+              </div>
+            ));
+          })()}
+        </div>
+      </Card>
+      </div>
 
       {/* Timeline split in two: Awareness (impressions + reach) and Engagement
           (link clicks + leads). Each is a single-axis line chart so the two
