@@ -877,7 +877,7 @@ func (s *server) handleAnalytics(w http.ResponseWriter, r *http.Request) {
 		        count(*) FILTER (WHERE cv.interest_level='cold') AS cold,
 		        count(*) FILTER (WHERE cv.interest_level IS NULL) AS unknown,
 		        count(*) FILTER (WHERE st.sort_order = (SELECT max(sort_order) FROM stages WHERE organization_id=$1)) AS won,
-		        count(*) FILTER (WHERE st.system_key LIKE 'lost%' OR d.category='lost') AS lost,
+		        count(*) FILTER (WHERE st.system_key LIKE 'lost%%' OR d.category='lost') AS lost,
 		        COALESCE(sum(cv.followup_count), 0)::int AS followups,
 		        COALESCE(sum(cv.call_attempts), 0)::int AS call_attempts,
 		        COALESCE(sum(cv.total_call_duration), 0)::int AS call_duration_sec
@@ -899,7 +899,7 @@ func (s *server) handleAnalytics(w http.ResponseWriter, r *http.Request) {
 		   LEFT JOIN conversations cv ON cv.stage_id = s.id%s
 		  WHERE s.organization_id=$1
 		  GROUP BY s.id
-		  ORDER BY (s.system_key LIKE 'lost%'), s.sort_order, s.name`, campFilterCv), args...)
+		  ORDER BY (s.system_key LIKE 'lost%%'), s.sort_order, s.name`, campFilterCv), args...)
 
 	// REAL lead funnel: cumulative "reached this stage or beyond" along the actual
 	// sales pipeline (New -> Contacted -> ... -> Delivered). A lead at sort_order K is
@@ -913,7 +913,7 @@ func (s *server) handleAnalytics(w http.ResponseWriter, r *http.Request) {
 		 SELECT st.name, st.system_key, st.sort_order,
 		        (SELECT count(*) FROM cur WHERE cur.so >= st.sort_order) AS reached
 		   FROM stages st
-		  WHERE st.organization_id=$1 AND (st.system_key IS NULL OR st.system_key NOT LIKE 'lost%')
+		  WHERE st.organization_id=$1 AND (st.system_key IS NULL OR st.system_key NOT LIKE 'lost%%')
 		  ORDER BY st.sort_order`, campFilter), args...)
 
 	categories, _ := s.queryMaps(ctx,
