@@ -890,7 +890,7 @@ func (s *server) handleAnalytics(w http.ResponseWriter, r *http.Request) {
 		        count(*) FILTER (WHERE cv.interest_level='cold') AS cold,
 		        count(*) FILTER (WHERE cv.interest_level IS NULL) AS unknown,
 		        count(*) FILTER (WHERE st.sort_order = (SELECT max(sort_order) FROM stages WHERE organization_id=$1)) AS won,
-		        count(*) FILTER (WHERE (st.system_key LIKE 'lost%%' OR d.category='lost') AND COALESCE(d.category,'') <> 'spam') AS lost,
+		        count(*) FILTER (WHERE st.system_key LIKE 'lost%%') AS lost,
 		        COALESCE(sum(cv.followup_count), 0)::int AS followups,
 		        COALESCE(sum(cv.call_attempts), 0)::int AS call_attempts,
 		        COALESCE(sum(cv.total_call_duration), 0)::int AS call_duration_sec
@@ -998,7 +998,7 @@ func (s *server) handleAnalytics(w http.ResponseWriter, r *http.Request) {
 		        count(cv.id) FILTER (WHERE st.system_key='appointment') AS appointment,
 		        count(cv.id) FILTER (WHERE st.system_key='test_drive') AS negotiation,
 		        count(cv.id) FILTER (WHERE st.system_key='booking') AS purchase,
-		        count(cv.id) FILTER (WHERE (st.system_key LIKE 'lost%%' OR d.category='lost') AND COALESCE(d.category,'')<>'spam') AS lost
+		        count(cv.id) FILTER (WHERE st.system_key LIKE 'lost%%') AS lost
 		   FROM users u
 		   LEFT JOIN conversations cv ON cv.assigned_agent_id=u.id AND cv.organization_id=$1%s
 		   LEFT JOIN stages st ON st.id=cv.stage_id
