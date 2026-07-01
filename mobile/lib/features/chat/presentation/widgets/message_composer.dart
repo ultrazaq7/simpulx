@@ -109,7 +109,7 @@ class _MessageComposerState extends ConsumerState<MessageComposer> {
         border: Border(
           top: BorderSide(
             color: theme.brightness == Brightness.dark 
-                ? Colors.transparent 
+                ? AppColors.darkBorder 
                 : AppColors.border,
           ),
         ),
