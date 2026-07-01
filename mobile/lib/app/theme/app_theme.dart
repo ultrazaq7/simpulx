@@ -24,6 +24,10 @@ class AppTheme {
       onError: Colors.white,
       surface: isDark ? AppColors.darkSurface : AppColors.surface,
       onSurface: isDark ? AppColors.darkTextPrimary : AppColors.textPrimary,
+      // Disable M3 surface tint — it blends primary (teal) into elevated
+      // surfaces, producing the unwanted blueish/greenish cast on cards,
+      // dialogs, bottom sheets, etc. WhatsApp uses flat, untinted surfaces.
+      surfaceTint: Colors.transparent,
       // Secondary/muted text resolves per-brightness (bright grey in dark like
       // WhatsApp, sharp grey in light) so widgets can read it from the theme.
       onSurfaceVariant:
