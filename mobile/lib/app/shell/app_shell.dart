@@ -39,15 +39,12 @@ class AppShell extends ConsumerWidget {
       bottomNavigationBar: DecoratedBox(
         position: DecorationPosition.foreground,
         decoration: BoxDecoration(
-          // WhatsApp-style soft glow: a faint upward shadow instead of a hard
-          // hairline, giving the bar a premium "floating" feel.
-          boxShadow: [
-            BoxShadow(
-              color: Colors.black.withValues(alpha: 0.25),
-              blurRadius: 8,
-              offset: const Offset(0, -2),
+          border: Border(
+            top: BorderSide(
+              color: Theme.of(context).colorScheme.onSurface.withValues(alpha: 0.12),
+              width: 0.5,
             ),
-          ],
+          ),
         ),
         child: NavigationBar(
         selectedIndex: navigationShell.currentIndex,
