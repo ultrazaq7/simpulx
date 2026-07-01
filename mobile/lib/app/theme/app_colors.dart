@@ -79,7 +79,7 @@ class AppColors {
   // (see `surface` above), so a white bubble would vanish the same way
   // the pure-black dark bubble did. surfaceAlt gives it a hairline of
   // contrast, matching real WhatsApp's off-white incoming bubble.
-  static const Color bubbleIncomingLight = surfaceAlt;
+  static const Color bubbleIncomingLight = Color(0xFFE8ECEF); // Darker cool grey for better contrast
   static const Color bubbleOutgoingLight = Color(0xFFD9FDD3);
   static const Color bubbleIncomingDark = Color(0xFF0E3636); // Teal-tinted dark grey to match background
   static const Color bubbleOutgoingDark = Color(0xFF005C4B);
