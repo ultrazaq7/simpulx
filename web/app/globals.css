@@ -297,3 +297,19 @@ a:focus:not(:focus-visible) { outline: none; }
     scroll-behavior: auto !important;
   }
 }
+
+/* ReactFlow: use our own node border/ring for selection; drop the default dark
+   (#1a192b) outline/box-shadow so the selected border reads as brand primary. */
+.react-flow__node.selected,
+.react-flow__node:focus,
+.react-flow__node:focus-visible,
+.react-flow__node.selectable.selected {
+  box-shadow: none !important;
+  outline: none !important;
+}
+.react-flow__edge.selected .react-flow__edge-path,
+.react-flow__edge:focus .react-flow__edge-path {
+  stroke: hsl(var(--primary)) !important;
+}
+.react-flow__edge-text { font-size: 10px; }
+.react-flow__edge-textbg { fill: hsl(var(--card)); }

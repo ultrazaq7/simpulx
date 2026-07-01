@@ -14,6 +14,7 @@ import {
 } from "lucide-react";
 import type { LucideIcon } from "lucide-react";
 import { Tip } from "@/components/ui/tooltip";
+import { Select } from "@/components/Select";
 
 import { api } from "@/lib/api";
 import { ACTIONS, TRIGGERS, triggerLabel } from "@/lib/automationMeta";
@@ -82,8 +83,8 @@ function FlowNode({ data, selected }: NodeProps<AppNode>) {
   const isTrigger = data.kind === "trigger";
   return (
     <div className={cn(
-      "w-[260px] rounded-lg bg-card border-[1.5px] shadow-sm transition-shadow",
-      selected ? "border-primary shadow-lg" : "border-border hover:shadow-md",
+      "w-[260px] rounded-lg bg-card border-[1.5px] shadow-sm transition-all",
+      selected ? "border-primary ring-2 ring-primary/25 shadow-md" : "border-border hover:border-primary/40 hover:shadow-md",
     )}>
       {!isTrigger && <Handle type="target" position={Position.Top} className="!w-2.5 !h-2.5 !bg-muted-foreground !border-2 !border-card" />}
       <div className="p-3.5">
@@ -180,6 +181,7 @@ function Builder() {
   const [edges, setEdges, onEdgesChange] = useEdgesState<Edge>([]);
   const [campaigns, setCampaigns] = useState<{ id: string; name: string }[]>([]);
   const [forms, setForms] = useState<{ id: string; name: string }[]>([]);
+  const [agents, setAgents] = useState<{ id: string; name: string }[]>([]);
   const [sheetEmail, setSheetEmail] = useState("");
 
   // ── Undo / redo (Ctrl+Z / Ctrl+Y) ──
@@ -230,6 +232,7 @@ function Builder() {
     api.listCampaigns().then((cs) => setCampaigns(cs.map((c) => ({ id: c.id, name: c.name })))).catch(() => {});
     api.listFlows().then((fs) => setForms(fs.filter((f) => f.status === "published").map((f) => ({ id: f.id, name: f.name })))).catch(() => {});
     api.getGoogleSheetsInfo().then((i) => setSheetEmail(i.client_email)).catch(() => {});
+    api.listAgents().then((as) => setAgents(as.map((a) => ({ id: a.id, name: a.full_name })))).catch(() => {});
   }, [id]); // eslint-disable-line react-hooks/exhaustive-deps
   useEffect(() => { if (!toast) return; const t = setTimeout(() => setToast(null), 3000); return () => clearTimeout(t); }, [toast]);
 
@@ -356,7 +359,7 @@ function Builder() {
         {/* Inspector */}
         {selected && (
           <div className="absolute inset-y-0 right-0 z-20 w-[340px] bg-card border-l border-border shadow-xl flex flex-col animate-scale-in">
-            <Inspector node={selected} triggerType={auto.trigger_type} campaigns={campaigns} forms={forms} sheetEmail={sheetEmail} onChange={(cfg) => updateConfig(selected.id, cfg)} onClose={() => setSelId(null)} onDelete={() => deleteNode(selected.id)} />
+            <Inspector node={selected} triggerType={auto.trigger_type} campaigns={campaigns} forms={forms} agents={agents} sheetEmail={sheetEmail} onChange={(cfg) => updateConfig(selected.id, cfg)} onClose={() => setSelId(null)} onDelete={() => deleteNode(selected.id)} />
           </div>
         )}
       </div>
@@ -371,9 +374,10 @@ function Builder() {
 }
 
 // ── Inspector (per-node config) ─────────────────────────────────────────────
-function Inspector({ node, triggerType, campaigns, forms, sheetEmail, onChange, onClose, onDelete }: {
-  node: AppNode; triggerType: string; campaigns: { id: string; name: string }[]; forms: { id: string; name: string }[]; sheetEmail: string; onChange: (cfg: Record<string, unknown>) => void; onClose: () => void; onDelete: () => void;
+function Inspector({ node, triggerType, campaigns, forms, agents, sheetEmail, onChange, onClose, onDelete }: {
+  node: AppNode; triggerType: string; campaigns: { id: string; name: string }[]; forms: { id: string; name: string }[]; agents: { id: string; name: string }[]; sheetEmail: string; onChange: (cfg: Record<string, unknown>) => void; onClose: () => void; onDelete: () => void;
 }) {
+  const pickById = (list: { id: string; name: string }[], idKey: string, nameKey: string) => (v: string) => onChange({ ...node.data.config, [idKey]: v, [nameKey]: list.find((x) => x.id === v)?.name || "" });
   const kind = node.data.kind;
   const c = node.data.config || {};
   const set = (k: string, v: unknown) => onChange({ ...c, [k]: v });
@@ -406,31 +410,19 @@ function Inspector({ node, triggerType, campaigns, forms, sheetEmail, onChange, 
         {kind === "send_message" && <Field label="Message"><textarea value={String(c.message ?? "")} onChange={(e) => set("message", e.target.value)} rows={4} placeholder="Type the auto reply..." className={cn(INP, "resize-none h-auto py-2")} /></Field>}
         {kind === "send_template" && <Field label="Template name"><input value={String(c.template_name ?? "")} onChange={(e) => set("template_name", e.target.value)} placeholder="welcome_v1" className={INP} /></Field>}
         {kind === "send_form" && <>
-          <Field label="Form">
-            <select value={String(c.form_id ?? "")} onChange={(e) => { const fid = e.target.value; const fname = forms.find((x) => x.id === fid)?.name || ""; onChange({ ...c, form_id: fid, form_name: fname }); }} className={INP}>
-              <option value="">Select a published form…</option>
-              {forms.map((f) => <option key={f.id} value={f.id}>{f.name}</option>)}
-            </select>
-          </Field>
+          <Field label="Form"><Select value={String(c.form_id ?? "")} onChange={pickById(forms, "form_id", "form_name")} options={forms.map((f) => ({ value: f.id, label: f.name }))} placeholder="Search published form…" className="w-full" /></Field>
           <Field label="Message text"><input value={String(c.body ?? "")} onChange={(e) => set("body", e.target.value)} placeholder="Please fill in this form" className={INP} /></Field>
           <Field label="Button label"><input value={String(c.cta ?? "")} onChange={(e) => set("cta", e.target.value)} placeholder="Open form" className={INP} /></Field>
           {forms.length === 0 && <p className="text-[12px] text-amber-600">No published forms yet. Publish one in WhatsApp Forms first.</p>}
         </>}
-        {kind === "assign_agent" && <Field label="Agent name or ID"><input value={String(c.agent_name ?? "")} onChange={(e) => set("agent_name", e.target.value)} placeholder="e.g. Agent Satu" className={INP} /></Field>}
-        {kind === "assign_campaign" && (
-          <Field label="Campaign">
-            <select value={String(c.campaign_id ?? "")} onChange={(e) => { const cid = e.target.value; const cname = campaigns.find((x) => x.id === cid)?.name || ""; onChange({ ...c, campaign_id: cid, campaign_name: cname }); }} className={INP}>
-              <option value="">Select a campaign…</option>
-              {campaigns.map((cp) => <option key={cp.id} value={cp.id}>{cp.name}</option>)}
-            </select>
-          </Field>
-        )}
+        {kind === "assign_agent" && <Field label="Agent"><Select value={String(c.agent_id ?? "")} onChange={pickById(agents, "agent_id", "agent_name")} options={agents.map((a) => ({ value: a.id, label: a.name }))} placeholder="Search agent…" className="w-full" /></Field>}
+        {kind === "assign_campaign" && <Field label="Campaign"><Select value={String(c.campaign_id ?? "")} onChange={pickById(campaigns, "campaign_id", "campaign_name")} options={campaigns.map((cp) => ({ value: cp.id, label: cp.name }))} placeholder="Search campaign…" className="w-full" /></Field>}
         {(kind === "add_tag" || kind === "remove_tag") && <Field label="Tags (comma separated)"><input value={Array.isArray(c.tags) ? (c.tags as string[]).join(", ") : ""} onChange={(e) => set("tags", e.target.value.split(",").map((t) => t.trim()).filter(Boolean))} placeholder="vip, pricing" className={INP} /></Field>}
         {kind === "set_contact_attribute" && <>
           <Field label="Attribute / field name"><input value={String(c.key ?? "")} onChange={(e) => set("key", e.target.value)} placeholder="e.g. preferred_model" className={INP} /></Field>
           <Field label="Value"><input value={String(c.value ?? "")} onChange={(e) => set("value", e.target.value)} placeholder="e.g. Brio RS" className={INP} /></Field>
         </>}
-        {kind === "set_conversation_status" && <Field label="Status"><select value={String(c.status ?? "open")} onChange={(e) => set("status", e.target.value)} className={INP}>{["open", "snoozed", "closed"].map((p) => <option key={p} value={p}>{p}</option>)}</select></Field>}
+        {kind === "set_conversation_status" && <Field label="Status"><Select value={String(c.status ?? "open")} onChange={(v) => set("status", v)} searchable={false} options={["open", "snoozed", "closed"].map((p) => ({ value: p, label: p }))} className="w-full" /></Field>}
         {kind === "google_sheet" && <>
           <Field label="Google Sheet URL"><input value={String(c.sheet_url ?? "")} onChange={(e) => set("sheet_url", e.target.value)} placeholder="Paste the Sheet URL" className={INP} /></Field>
           <Field label="Tab name"><input value={String(c.sheet_tab ?? "")} onChange={(e) => set("sheet_tab", e.target.value)} placeholder="Sheet1" className={INP} /></Field>
@@ -438,15 +430,11 @@ function Inspector({ node, triggerType, campaigns, forms, sheetEmail, onChange, 
           <p className="text-[12px] text-muted-foreground">Row appended: timestamp, name, phone, then each attribute.</p>
           <ShareWithSA email={sheetEmail} />
         </>}
-        {kind === "set_priority" && <Field label="Priority"><select value={String(c.priority ?? "normal")} onChange={(e) => set("priority", e.target.value)} className={INP}>{["low", "normal", "high", "urgent"].map((p) => <option key={p} value={p}>{p}</option>)}</select></Field>}
+        {kind === "set_priority" && <Field label="Priority"><Select value={String(c.priority ?? "normal")} onChange={(v) => set("priority", v)} searchable={false} options={["low", "normal", "high", "urgent"].map((p) => ({ value: p, label: p }))} className="w-full" /></Field>}
         {kind === "webhook_notify" && <Field label="Webhook URL"><input value={String(c.url ?? "")} onChange={(e) => set("url", e.target.value)} placeholder="https://..." className={INP} /></Field>}
         {kind === "condition" && <>
           <Field label="Contact attribute"><input value={String(c.attribute ?? "")} onChange={(e) => set("attribute", e.target.value)} placeholder="e.g. re_model, phone, full_name" className={INP} /></Field>
-          <Field label="Operator">
-            <select value={String(c.operator ?? "equals")} onChange={(e) => set("operator", e.target.value)} className={INP}>
-              {[["equals", "Equals"], ["not_equals", "Not equals"], ["contains", "Contains"], ["is_set", "Is set"], ["is_not_set", "Is not set"]].map(([v, l]) => <option key={v} value={v}>{l}</option>)}
-            </select>
-          </Field>
+          <Field label="Operator"><Select value={String(c.operator ?? "equals")} onChange={(v) => set("operator", v)} searchable={false} options={[["equals", "Equals"], ["not_equals", "Not equals"], ["contains", "Contains"], ["is_set", "Is set"], ["is_not_set", "Is not set"]].map(([v, l]) => ({ value: v, label: l }))} className="w-full" /></Field>
           {c.operator !== "is_set" && c.operator !== "is_not_set" && (
             <Field label="Value"><input value={String(c.value ?? "")} onChange={(e) => set("value", e.target.value)} placeholder="e.g. Brio RS" className={INP} /></Field>
           )}
