@@ -427,12 +427,15 @@ class _ChatListPageState extends ConsumerState<ChatListPage> {
               controller: _scroll,
               slivers: [
                 SliverToBoxAdapter(
-                  child: _InboxFilterChips(
-                    active: _activeChip(filter),
-                    onSelect: (preset) {
-                      ref.read(inboxFilterProvider.notifier).set(preset);
-                      setState(() => _visible = 25);
-                    },
+                  child: Padding(
+                    padding: const EdgeInsets.only(top: 10, bottom: 4),
+                    child: _InboxFilterChips(
+                      active: _activeChip(filter),
+                      onSelect: (preset) {
+                        ref.read(inboxFilterProvider.notifier).set(preset);
+                        setState(() => _visible = 25);
+                      },
+                    ),
                   ),
                 ),
                 if (lostCount > 0 && _query.isEmpty)

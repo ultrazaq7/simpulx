@@ -388,6 +388,46 @@ class _ChatThreadPageState extends ConsumerState<ChatThreadPage>
               },
             ),
           ),
+          // WhatsApp 24-hour customer-care window: once the last message is
+          // older than 24h, only template messages may be sent (mirrors web).
+          if (conversation.channel == 'whatsapp' &&
+              conversation.lastMessageAt != null &&
+              DateTime.now().difference(conversation.lastMessageAt!) >
+                  const Duration(hours: 24))
+            Container(
+              width: double.infinity,
+              color: AppColors.danger.withValues(alpha: 0.10),
+              padding:
+                  const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
+              child: Row(
+                children: [
+                  const Icon(Icons.access_time_rounded,
+                      size: 16, color: AppColors.danger),
+                  const SizedBox(width: 8),
+                  Expanded(
+                    child: Text(
+                      '24-hour window closed. Only template messages can be sent.',
+                      style: const TextStyle(
+                          fontSize: 12,
+                          fontWeight: FontWeight.w600,
+                          color: AppColors.danger),
+                    ),
+                  ),
+                  TextButton(
+                    onPressed: () =>
+                        showTemplatePicker(context, widget.conversationId),
+                    style: TextButton.styleFrom(
+                        padding:
+                            const EdgeInsets.symmetric(horizontal: 8),
+                        minimumSize: Size.zero,
+                        tapTargetSize: MaterialTapTargetSize.shrinkWrap),
+                    child: const Text('Template',
+                        style: TextStyle(
+                            fontSize: 12, fontWeight: FontWeight.w700)),
+                  ),
+                ],
+              ),
+            ),
           MessageComposer(
             conversationId: widget.conversationId,
             onSend: (text) => ref

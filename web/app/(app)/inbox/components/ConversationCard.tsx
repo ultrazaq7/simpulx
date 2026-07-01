@@ -83,11 +83,21 @@ const ConversationCard = memo(function ConversationCard({
         {/* Line 1: name + time */}
         <div className="flex items-baseline gap-2">
           <p className={cn(
-            "flex-1 truncate text-[14px] leading-snug",
+            "min-w-0 truncate text-[14px] leading-snug",
             unread ? "font-semibold text-foreground" : "font-medium text-foreground/90",
           )}>
             {c.contact_name || c.contact_phone || "Unknown"}
           </p>
+          {c.status === "closed" ? (
+            <span className="shrink-0 px-1.5 py-0.5 rounded text-[9px] font-bold uppercase tracking-wider bg-muted text-muted-foreground">Closed</span>
+          ) : c.status === "snoozed" ? (
+            <span className="shrink-0 px-1.5 py-0.5 rounded text-[9px] font-bold uppercase tracking-wider bg-amber-100 text-amber-700">Snoozed</span>
+          ) : windowExpired ? (
+            <Tip label="24h window closed - template only" side="top">
+              <span className="shrink-0 inline-flex items-center gap-0.5 px-1.5 py-0.5 rounded text-[9px] font-bold uppercase tracking-wider bg-hot/10 text-hot"><Clock className="w-2.5 h-2.5" />24h</span>
+            </Tip>
+          ) : null}
+          <span className="flex-1" />
           {time && (
             <span className={cn(
               "shrink-0 text-[11px] tabular-nums",
