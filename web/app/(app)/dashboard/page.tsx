@@ -1008,7 +1008,7 @@ function MarketingAnalytics() {
             <div className="w-9 h-9 rounded-lg grid place-items-center shrink-0" style={{ backgroundColor: c.color + "14" }}><c.Icon className="w-[18px] h-[18px]" style={{ color: c.color }} /></div>
             <div className="min-w-0">
               <p className="text-[10px] font-semibold text-muted-foreground uppercase tracking-wide leading-tight truncate">{c.label}</p>
-              <p className="text-[20px] font-extrabold text-foreground leading-none tabular-nums mt-1 whitespace-nowrap">{c.value}</p>
+              <p className="text-[18px] xl:text-[20px] font-extrabold text-foreground leading-none tabular-nums mt-1 truncate">{c.value}</p>
             </div>
           </div>
         ))}
