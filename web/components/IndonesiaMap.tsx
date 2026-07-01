@@ -126,7 +126,7 @@ export function IndonesiaMap({ points, isMoney, money }: { points: MapPoint[]; i
 
   return (
     <div ref={wrapRef} className="relative w-full">
-      <svg viewBox={`0 0 ${VB_W} ${proj.H}`} className="w-full h-auto" preserveAspectRatio="xMidYMid meet"
+      <svg viewBox={viewBox} className="w-full h-auto transition-[all] duration-500" preserveAspectRatio="xMidYMid meet"
         onMouseLeave={() => setHover(null)}>
         <g className="text-primary">
           {paths.map((p, i) => {
