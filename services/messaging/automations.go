@@ -38,8 +38,9 @@ type autoNode struct {
 	Config map[string]any `json:"config"`
 }
 type autoEdge struct {
-	From string `json:"from"`
-	To   string `json:"to"`
+	From   string `json:"from"`
+	To     string `json:"to"`
+	Handle string `json:"handle,omitempty"` // "match" | "else" for Criteria Router branches
 }
 type autoFlow struct {
 	Nodes []autoNode `json:"nodes"`
@@ -75,12 +76,9 @@ func (a *app) runAutomations(ctx context.Context, orgID, convID, contactID, chan
 		if !triggerMatches(r, body, payload, isNew) {
 			continue
 		}
-		steps := flowSteps(r)
-		for _, s := range steps {
-			a.execStep(ctx, orgID, convID, contactID, s)
-		}
+		n := a.walkFlow(ctx, orgID, convID, contactID, r)
 		_ = a.st.bumpAutomationRun(ctx, r.ID)
-		a.log.Info("automation fired", "id", r.ID, "trigger", r.TriggerType, "steps", len(steps))
+		a.log.Info("automation fired", "id", r.ID, "trigger", r.TriggerType, "steps", n)
 	}
 }
 
@@ -172,6 +170,107 @@ func flowSteps(r autoRule) []autoStep {
 		out = append(out, autoStep{Type: ac.Type, Params: ac.Params})
 	}
 	return out
+}
+
+// walkFlow traverses the node graph from the trigger, executing action nodes and
+// branching at Criteria Router / condition nodes (following the "match" or "else"
+// edge). Falls back to the legacy ordered action list when there are no nodes.
+// Returns the number of executed action steps. Guarded against cycles.
+func (a *app) walkFlow(ctx context.Context, orgID, convID, contactID string, r autoRule) int {
+	var f autoFlow
+	if len(r.Flow) > 0 {
+		_ = json.Unmarshal(r.Flow, &f)
+	}
+	if len(f.Nodes) == 0 {
+		steps := flowSteps(r)
+		for _, s := range steps {
+			a.execStep(ctx, orgID, convID, contactID, s)
+		}
+		return len(steps)
+	}
+
+	byID := make(map[string]autoNode, len(f.Nodes))
+	var triggerID string
+	for _, n := range f.Nodes {
+		byID[n.ID] = n
+		if n.Type == "trigger" {
+			triggerID = n.ID
+		}
+	}
+	type link struct{ to, handle string }
+	adj := make(map[string][]link)
+	for _, e := range f.Edges {
+		adj[e.From] = append(adj[e.From], link{e.To, e.Handle})
+	}
+	firstTo := func(id string) string {
+		if len(adj[id]) > 0 {
+			return adj[id][0].to
+		}
+		return ""
+	}
+
+	cur := firstTo(triggerID)
+	seen := map[string]bool{}
+	executed := 0
+	for i := 0; cur != "" && i < 100; i++ {
+		if seen[cur] {
+			break
+		}
+		seen[cur] = true
+		n := byID[cur]
+		switch n.Type {
+		case "condition", "criteria_router":
+			want := "else"
+			if a.evalCondition(ctx, orgID, contactID, n.Config) {
+				want = "match"
+			}
+			next, fallback := "", ""
+			for _, l := range adj[cur] {
+				if l.handle == want {
+					next = l.to
+					break
+				}
+				if l.handle == "" && fallback == "" {
+					fallback = l.to
+				}
+			}
+			if next == "" {
+				next = fallback
+			}
+			cur = next
+		case "trigger":
+			cur = firstTo(cur)
+		default:
+			a.execStep(ctx, orgID, convID, contactID, autoStep{Type: n.Type, Params: n.Config})
+			executed++
+			cur = firstTo(cur)
+		}
+	}
+	return executed
+}
+
+// evalCondition evaluates a Criteria Router rule (contact attribute vs value)
+// against the contact.
+func (a *app) evalCondition(ctx context.Context, orgID, contactID string, cfg map[string]any) bool {
+	attr := pStr(cfg, "attribute")
+	if attr == "" {
+		return false
+	}
+	op := pStr(cfg, "operator")
+	val := pStr(cfg, "value")
+	actual := a.st.contactField(ctx, contactID, attr)
+	switch op {
+	case "is_set":
+		return actual != ""
+	case "is_not_set":
+		return actual == ""
+	case "not_equals":
+		return !strings.EqualFold(actual, val)
+	case "contains":
+		return val != "" && strings.Contains(strings.ToLower(actual), strings.ToLower(val))
+	default: // equals
+		return strings.EqualFold(actual, val)
+	}
 }
 
 func (a *app) execStep(ctx context.Context, orgID, convID, contactID string, s autoStep) {
@@ -452,6 +551,21 @@ func (s *store) setContactAttribute(ctx context.Context, contactID, key, value s
 		        updated_at = now()
 		  WHERE id = $1`, contactID, key, value)
 	return err
+}
+
+// contactField reads a value for a Criteria Router condition: built-in columns
+// (full_name / phone) or a custom attribute (attributes->>key).
+func (s *store) contactField(ctx context.Context, contactID, key string) string {
+	var v string
+	switch key {
+	case "full_name", "name":
+		_ = s.pool.QueryRow(ctx, `SELECT COALESCE(full_name,'') FROM contacts WHERE id=$1`, contactID).Scan(&v)
+	case "phone", "phone_number":
+		_ = s.pool.QueryRow(ctx, `SELECT COALESCE(phone,'') FROM contacts WHERE id=$1`, contactID).Scan(&v)
+	default:
+		_ = s.pool.QueryRow(ctx, `SELECT COALESCE(attributes->>$2,'') FROM contacts WHERE id=$1`, contactID, key).Scan(&v)
+	}
+	return v
 }
 
 func (s *store) setConversationStatus(ctx context.Context, convID, status string) error {

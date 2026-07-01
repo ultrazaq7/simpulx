@@ -521,7 +521,7 @@ export interface RolePermissions {
 
 export interface AutomationAction { type: string; params?: Record<string, unknown>; }
 export interface FlowNode { id: string; type: string; x: number; y: number; config?: Record<string, unknown>; }
-export interface FlowEdge { from: string; to: string; label?: string; }
+export interface FlowEdge { from: string; to: string; label?: string; handle?: string; }
 export interface AutomationFlow { nodes: FlowNode[]; edges: FlowEdge[]; }
 
 export interface Automation {

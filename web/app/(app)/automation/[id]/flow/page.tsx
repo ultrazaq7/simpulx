@@ -24,7 +24,7 @@ import type { AutomationDetail } from "@/lib/types";
 type Meta = { label: string; Icon: LucideIcon; accent: string; kicker: string; desc: string };
 const META: Record<string, Meta> = {
   trigger: { label: "Trigger", Icon: Zap, accent: "#F59E0B", kicker: "WHEN", desc: "Flow entry point" },
-  condition: { label: "Condition", Icon: GitFork, accent: "#8B5CF6", kicker: "IF", desc: "Branch on a condition" },
+  condition: { label: "Criteria Router", Icon: GitFork, accent: "#8B5CF6", kicker: "IF", desc: "Branch on a contact attribute (match / else)" },
   send_message: { label: "Send auto reply", Icon: MessageCircle, accent: "#2D8B73", kicker: "DO", desc: ACTIONS.send_message.desc },
   send_template: { label: "Send template", Icon: FileText, accent: "#2D8B73", kicker: "DO", desc: ACTIONS.send_template.desc },
   send_form: { label: "Send WhatsApp Form", Icon: ClipboardList, accent: "#2D8B73", kicker: "DO", desc: ACTIONS.send_form.desc },
@@ -50,7 +50,7 @@ const PALETTE: { group: string; kinds: string[] }[] = [
   { group: "Integrations", kinds: ["google_sheet"] },
 ];
 // The executor runs these; others are configurable but not yet executed.
-const EXECUTED = new Set(["send_message", "send_form", "add_tag", "remove_tag", "assign_agent", "assign_campaign", "set_contact_attribute", "set_conversation_status", "google_sheet", "close_conversation", "webhook_notify"]);
+const EXECUTED = new Set(["condition", "send_message", "send_form", "add_tag", "remove_tag", "assign_agent", "assign_campaign", "set_contact_attribute", "set_conversation_status", "google_sheet", "close_conversation", "webhook_notify"]);
 
 type NodeData = { kind: string; config: Record<string, unknown>; triggerType?: string };
 type AppNode = Node<NodeData>;
@@ -69,7 +69,7 @@ function summary(kind: string, c: Record<string, unknown>, triggerType?: string)
     case "google_sheet": return c.sheet_url ? "Append to sheet" : "No sheet set";
     case "set_priority": return `Priority: ${c.priority || "normal"}`;
     case "webhook_notify": return String(c.url || "No URL set");
-    case "condition": return String(c.expression || "Define condition");
+    case "condition": return c.attribute ? `${c.attribute} ${String(c.operator || "equals").replace(/_/g, " ")} ${c.value ?? ""}`.trim() : "Define condition";
     case "close_conversation": return "Resolve and close";
     default: return ACTIONS[kind]?.desc ?? "";
   }
@@ -101,7 +101,18 @@ function FlowNode({ data, selected }: NodeProps<AppNode>) {
         </div>
         <p className="text-[11.5px] text-muted-foreground mt-2 line-clamp-2 break-words">{summary(data.kind, data.config, data.triggerType)}</p>
       </div>
-      <Handle type="source" position={Position.Bottom} className="!w-2.5 !h-2.5 !bg-primary !border-2 !border-card" />
+      {data.kind === "condition" ? (
+        <>
+          <div className="flex justify-between px-6 pb-1.5 -mt-1">
+            <span className="text-[8px] font-bold text-emerald-600">MATCH</span>
+            <span className="text-[8px] font-bold text-slate-400">ELSE</span>
+          </div>
+          <Handle id="match" type="source" position={Position.Bottom} style={{ left: "26%" }} className="!w-2.5 !h-2.5 !bg-emerald-500 !border-2 !border-card" />
+          <Handle id="else" type="source" position={Position.Bottom} style={{ left: "74%" }} className="!w-2.5 !h-2.5 !bg-slate-400 !border-2 !border-card" />
+        </>
+      ) : (
+        <Handle type="source" position={Position.Bottom} className="!w-2.5 !h-2.5 !bg-primary !border-2 !border-card" />
+      )}
     </div>
   );
 }
@@ -134,14 +145,18 @@ function toRF(auto: AutomationDetail): { nodes: AppNode[]; edges: Edge[] } {
       triggerType: n.type === "trigger" ? auto.trigger_type : undefined,
     },
   }));
-  const edges: Edge[] = (flow.edges ?? []).map((e, i) => ({ id: `e${i}-${e.from}-${e.to}`, source: e.from, target: e.to }));
+  const edges: Edge[] = (flow.edges ?? []).map((e, i) => ({
+    id: `e${i}-${e.from}-${e.to}-${e.handle ?? ""}`, source: e.from, target: e.to,
+    sourceHandle: e.handle || undefined,
+    label: e.handle === "match" ? "Match" : e.handle === "else" ? "Else" : undefined,
+  }));
   return { nodes, edges };
 }
 
 function toModel(nodes: AppNode[], edges: Edge[]) {
   return {
     nodes: nodes.map((n) => ({ id: n.id, type: n.data.kind, x: Math.round(n.position.x), y: Math.round(n.position.y), config: n.data.config })),
-    edges: edges.map((e) => ({ from: e.source, to: e.target })),
+    edges: edges.map((e) => ({ from: e.source, to: e.target, handle: e.sourceHandle || undefined })),
   };
 }
 
@@ -216,7 +231,7 @@ function Builder() {
   }, [id]); // eslint-disable-line react-hooks/exhaustive-deps
   useEffect(() => { if (!toast) return; const t = setTimeout(() => setToast(null), 3000); return () => clearTimeout(t); }, [toast]);
 
-  const onConnect = useCallback((c: Connection) => { pushHistory(); setEdges((eds) => addEdge({ ...c, animated: true, style: { stroke: "#94A3B8", strokeWidth: 1.6 } }, eds)); setDirty(true); }, [setEdges, pushHistory]);
+  const onConnect = useCallback((c: Connection) => { pushHistory(); setEdges((eds) => addEdge({ ...c, animated: true, style: { stroke: "#94A3B8", strokeWidth: 1.6 }, label: c.sourceHandle === "match" ? "Match" : c.sourceHandle === "else" ? "Else" : undefined }, eds)); setDirty(true); }, [setEdges, pushHistory]);
   const markDirty = useCallback(() => setDirty(true), []);
 
   function addNode(kind: string) {
@@ -422,7 +437,18 @@ function Inspector({ node, triggerType, campaigns, forms, onChange, onClose, onD
         </>}
         {kind === "set_priority" && <Field label="Priority"><select value={String(c.priority ?? "normal")} onChange={(e) => set("priority", e.target.value)} className={INP}>{["low", "normal", "high", "urgent"].map((p) => <option key={p} value={p}>{p}</option>)}</select></Field>}
         {kind === "webhook_notify" && <Field label="Webhook URL"><input value={String(c.url ?? "")} onChange={(e) => set("url", e.target.value)} placeholder="https://..." className={INP} /></Field>}
-        {kind === "condition" && <Field label="Condition expression"><input value={String(c.expression ?? "")} onChange={(e) => set("expression", e.target.value)} placeholder="message contains 'refund'" className={INP} /></Field>}
+        {kind === "condition" && <>
+          <Field label="Contact attribute"><input value={String(c.attribute ?? "")} onChange={(e) => set("attribute", e.target.value)} placeholder="e.g. re_model, phone, full_name" className={INP} /></Field>
+          <Field label="Operator">
+            <select value={String(c.operator ?? "equals")} onChange={(e) => set("operator", e.target.value)} className={INP}>
+              {[["equals", "Equals"], ["not_equals", "Not equals"], ["contains", "Contains"], ["is_set", "Is set"], ["is_not_set", "Is not set"]].map(([v, l]) => <option key={v} value={v}>{l}</option>)}
+            </select>
+          </Field>
+          {c.operator !== "is_set" && c.operator !== "is_not_set" && (
+            <Field label="Value"><input value={String(c.value ?? "")} onChange={(e) => set("value", e.target.value)} placeholder="e.g. Brio RS" className={INP} /></Field>
+          )}
+          <p className="text-[12px] text-muted-foreground">Connect the <b className="text-emerald-600">Match</b> handle for when it&apos;s true and <b className="text-slate-500">Else</b> for everything else.</p>
+        </>}
         {kind === "close_conversation" && <p className="text-[13px] text-muted-foreground">Resolves and closes the conversation. No configuration needed.</p>}
       </div>
       {!isTrigger && (
