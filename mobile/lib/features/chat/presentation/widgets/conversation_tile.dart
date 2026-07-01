@@ -388,23 +388,26 @@ class _StageChip extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final theme = Theme.of(context);
+    final bgColor = theme.colorScheme.surfaceContainerHighest;
+    final fgColor = theme.colorScheme.onSurfaceVariant;
+
     return Container(
       padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 2),
       decoration: BoxDecoration(
-        color: AppColors.surfaceAlt,
+        color: bgColor,
         borderRadius: BorderRadius.circular(999),
       ),
       child: Row(
         mainAxisSize: MainAxisSize.min,
         children: [
-          const Icon(Icons.timeline_rounded,
-              size: 12, color: AppColors.textSecondary),
+          Icon(Icons.timeline_rounded, size: 12, color: fgColor),
           const SizedBox(width: 4),
           Text(
             label,
-            style: const TextStyle(
+            style: TextStyle(
               fontSize: 10.5,
-              color: AppColors.textSecondary,
+              color: fgColor,
               fontWeight: FontWeight.w600,
             ),
           ),
@@ -487,10 +490,14 @@ class _CampaignChip extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final theme = Theme.of(context);
+    final bgColor = theme.colorScheme.surfaceContainerHighest;
+    final fgColor = theme.colorScheme.onSurfaceVariant;
+
     return Container(
       padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 2),
       decoration: BoxDecoration(
-        color: const Color(0xFF6366F1).withValues(alpha: 0.08),
+        color: bgColor,
         borderRadius: BorderRadius.circular(999),
       ),
       child: ConstrainedBox(
@@ -499,9 +506,9 @@ class _CampaignChip extends StatelessWidget {
           name,
           maxLines: 1,
           overflow: TextOverflow.ellipsis,
-          style: const TextStyle(
+          style: TextStyle(
             fontSize: 10.5,
-            color: Color(0xFF6366F1),
+            color: fgColor,
             fontWeight: FontWeight.w600,
           ),
         ),
