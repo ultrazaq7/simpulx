@@ -55,10 +55,11 @@ class AppColors {
   static const Color textInverse = Colors.white;
 
   // ── Dark surfaces (WhatsApp exact dark mode) ───────────
-  // WhatsApp's chat list bg #0B141A — confirmed from multiple sources.
-  // Elevated surfaces (search/chips/header) #202C33; borders #233138.
-  static const Color darkBackground = Color(0xFF0B141A);
-  static const Color darkSurface = Color(0xFF0B141A);
+  // WhatsApp chat list bg is #111B21 — verified via side-by-side pixel
+  // comparison. #0B141A is TOO dark and bluer. #111B21 is the warmer,
+  // slightly lighter tone visible in the actual WhatsApp app.
+  static const Color darkBackground = Color(0xFF111B21);
+  static const Color darkSurface = Color(0xFF111B21);
   static const Color darkSurfaceAlt = Color(0xFF202C33);
   static const Color darkBorder = Color(0xFF233138);
 
