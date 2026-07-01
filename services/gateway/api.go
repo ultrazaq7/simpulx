@@ -528,6 +528,17 @@ func (s *server) handlePatchConversation(w http.ResponseWriter, r *http.Request)
 		http.Error(w, err.Error(), http.StatusInternalServerError)
 		return
 	}
+	// If the stage changed to a non-lost stage, clear stale lost_reason and
+	// disposition so the lead is no longer counted as lost.
+	if b.StageID != nil && *b.StageID != "" {
+		_, _ = s.pool.Exec(r.Context(),
+			`UPDATE conversations SET lost_reason = NULL, disposition_id = NULL
+			  WHERE id = $1 AND organization_id = $2
+			    AND NOT EXISTS (
+			        SELECT 1 FROM stages WHERE id = conversations.stage_id
+			          AND system_key LIKE 'lost%')`,
+			convID, a.OrgID)
+	}
 
 	// Log each change to the conversation timeline (contact activity history).
 	logEvt := func(typ string, detail map[string]any) {
