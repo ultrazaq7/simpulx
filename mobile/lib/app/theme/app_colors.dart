@@ -54,16 +54,18 @@ class AppColors {
   static const Color textMuted = Color(0xFF8696A0);
   static const Color textInverse = Colors.white;
 
-  // ── Dark surfaces ──────────────────────────────────────
-  static const Color darkBackground = Color(0xFF0B1413);
-  static const Color darkSurface = Color(0xFF13201E);
-  static const Color darkSurfaceAlt = Color(0xFF1B2A28);
-  static const Color darkBorder = Color(0xFF243834);
+  // ── Dark surfaces (WhatsApp dark palette) ──────────────
+  // The deep cool near-black WhatsApp uses: #0B141A canvas, #111B21 panels,
+  // #202C33 elevated (search/input), #2A3942 dividers.
+  static const Color darkBackground = Color(0xFF0B141A);
+  static const Color darkSurface = Color(0xFF111B21);
+  static const Color darkSurfaceAlt = Color(0xFF202C33);
+  static const Color darkBorder = Color(0xFF2A3942);
 
-  // ── Dark text ──────────────────────────────────────────
-  static const Color darkTextPrimary = Color(0xFFE7EDEB);
-  static const Color darkTextSecondary = Color(0xFF9CB0AB);
-  static const Color darkTextMuted = Color(0xFF6B807B);
+  // ── Dark text (WhatsApp) ───────────────────────────────
+  static const Color darkTextPrimary = Color(0xFFE9EDEF);
+  static const Color darkTextSecondary = Color(0xFF8696A0);
+  static const Color darkTextMuted = Color(0xFF667781);
 
   /// Brand colour for a given channel string (whatsapp/messenger/...).
   static Color forChannel(String? channel) {
