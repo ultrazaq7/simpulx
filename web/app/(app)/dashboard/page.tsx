@@ -16,6 +16,7 @@ import {
 import { api, getUser } from "@/lib/api";
 import { Select } from "@/components/Select";
 import { MultiSelect } from "@/components/ui/multi-select";
+import { IndonesiaMap } from "@/components/IndonesiaMap";
 import { lostReasonLabel } from "@/app/(app)/inbox/components/LostReasonDialog";
 import type { Stats, Analytics, DashboardCards, Conversation, AdPerformance, AdBreakdown, Channel, Campaign, Agent } from "@/lib/types";
 import { cn, initials, fmtDuration } from "@/lib/utils";
@@ -932,24 +933,33 @@ function BreakdownDonut({ title, data }: { title: string; data?: AdBreakdown[] }
 function LocationPerformance({ data, currency }: { data?: AdBreakdown[]; currency: string }) {
   const money = (n: number) => `${currency ? currency + " " : ""}${fmtMoney(n)}`;
   const rows = (data || []).filter((r) => (r.value || "").toLowerCase() !== "unknown");
-  let total = rows.reduce((a, b) => a + (b.results || 0), 0);
-  const useImpr = total === 0;
-  if (useImpr) total = rows.reduce((a, b) => a + (b.impressions || 0), 0);
+  const sum = (k: "results" | "spend" | "impressions") => rows.reduce((a, b) => a + (b[k] || 0), 0);
+  // Rank + %, bar and trailing number all use ONE metric so the share always
+  // matches the value shown. Prefer real leads, then spend, then reach.
+  const metric: "results" | "spend" | "impressions" =
+    sum("results") > 0 ? "results" : sum("spend") > 0 ? "spend" : "impressions";
+  const isMoney = metric === "spend";
+  const label = metric === "results" ? "Leads by province" : metric === "spend" ? "Ad spend by province" : "Reach by province";
+  const total = sum(metric);
   const ranked = rows
-    .map((b) => ({ name: b.value, value: useImpr ? (b.impressions || 0) : (b.results || 0), spend: b.spend || 0, clicks: b.clicks || 0 }))
+    .map((b) => ({ name: b.value, value: b[metric] || 0 }))
     .filter((x) => x.value > 0)
     .sort((a, b) => b.value - a.value)
     .slice(0, 12);
   const max = ranked.length ? ranked[0].value : 0;
   return (
-    <Card title="Top locations" subtitle={useImpr ? "Reach by province" : "Leads by province"} className="mt-5">
+    <Card title="Top locations" subtitle={label} className="mt-5">
       {ranked.length === 0 ? (
         <div className="h-[200px] grid place-items-center text-sm text-muted-foreground flex-col gap-2">
           <MapPin className="w-6 h-6 text-muted-foreground/40" />
           No location data yet
         </div>
       ) : (
-        <div className="p-4 space-y-2.5">
+        <div className="p-4 grid grid-cols-1 lg:grid-cols-2 gap-5 items-center">
+          <div className="min-w-0">
+            <IndonesiaMap points={ranked} isMoney={isMoney} money={money} />
+          </div>
+          <div className="space-y-2.5">
           {ranked.map((r, i) => {
             const share = total > 0 ? (r.value / total) * 100 : 0;
             const barW = max > 0 ? (r.value / max) * 100 : 0;
@@ -965,10 +975,11 @@ function LocationPerformance({ data, currency }: { data?: AdBreakdown[]; currenc
                   <div className="h-full rounded-full bg-gradient-to-r from-primary/70 to-primary transition-all" style={{ width: `${barW}%` }} />
                 </div>
                 <span className="w-12 text-right tabular-nums text-[12px] font-semibold text-foreground shrink-0">{share.toFixed(1)}%</span>
-                <span className="w-14 text-right tabular-nums text-[12px] text-muted-foreground shrink-0 hidden sm:inline">{r.spend > 0 ? money(r.spend) : fmtInt(r.value)}</span>
+                <span className="w-16 text-right tabular-nums text-[12px] text-muted-foreground shrink-0 hidden sm:inline">{isMoney ? money(r.value) : fmtInt(r.value)}</span>
               </div>
             );
           })}
+          </div>
         </div>
       )}
     </Card>
@@ -1228,13 +1239,14 @@ function MarketingAnalytics() {
                 return (
                   <tr key={cr.source_id} className="border-b border-border/60 hover:bg-muted/50 transition-colors">
                     <td className="px-4 py-2 w-14">
-                      {cr.image_url ? (
-                        <a href={cr.source_url || cr.image_url} target="_blank" rel="noreferrer" title={cr.headline || ""}>
-                          <img src={cr.image_url} alt={cr.headline || "Ad creative"} loading="lazy" className="w-11 h-11 rounded-md object-cover border border-border" />
-                        </a>
-                      ) : (
-                        <div className="w-11 h-11 rounded-md bg-muted/60 border border-border flex items-center justify-center text-muted-foreground/50"><ImageIcon className="w-4 h-4" /></div>
-                      )}
+                      <div className="relative w-11 h-11 rounded-md border border-border bg-muted/60 overflow-hidden grid place-items-center text-muted-foreground/50">
+                        <ImageIcon className="w-4 h-4" />
+                        {cr.image_url && (
+                          <a href={cr.source_url || cr.image_url} target="_blank" rel="noreferrer" title={cr.headline || ""} className="absolute inset-0">
+                            <img src={cr.image_url} alt={cr.headline || "Ad creative"} loading="lazy" onError={(e) => { e.currentTarget.style.display = "none"; }} className="w-full h-full object-cover" />
+                          </a>
+                        )}
+                      </div>
                     </td>
                     <td className="px-4 py-2.5">
                       <div className="font-mono text-[12px] text-foreground">{cr.source_id}</div>
