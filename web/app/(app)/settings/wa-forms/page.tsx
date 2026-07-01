@@ -8,6 +8,7 @@ import {
 } from "lucide-react";
 import { api, getToken } from "@/lib/api";
 import { Select } from "@/components/Select";
+import { Tip } from "@/components/ui/tooltip";
 import { cn, fmtDate } from "@/lib/utils";
 import type {
   WaFlow, WaFlowDetail, WaFlowResponse, FlowDefinition, FlowScreen,
@@ -179,10 +180,10 @@ export default function WaFormsPage() {
             <input value={query} onChange={(e) => setQuery(e.target.value)} placeholder={`Search ${noun}s`}
               className="w-full h-9 pl-9 pr-3 rounded-md border border-input bg-background text-sm text-foreground placeholder:text-muted-foreground/70 outline-none transition-shadow focus:border-primary focus:ring-2 focus:ring-primary/20" />
           </div>
-          <button onClick={() => { load(); if (tab === "responses") api.listFlowResponses().then(setResponses).catch(() => {}); }}
-            className="p-1.5 rounded-md text-muted-foreground hover:bg-muted hover:text-foreground transition-colors outline-none" title="Refresh">
+          <Tip label="Refresh"><button onClick={() => { load(); if (tab === "responses") api.listFlowResponses().then(setResponses).catch(() => {}); }}
+            className="p-1.5 rounded-md text-muted-foreground hover:bg-muted hover:text-foreground transition-colors outline-none">
             <RefreshCw className="w-[18px] h-[18px]" />
-          </button>
+          </button></Tip>
           <div className="flex-1" />
           {tab === "responses" && (
             <button onClick={exportCsv} className="inline-flex items-center gap-1.5 px-3.5 h-9 rounded-md border border-border text-sm font-medium text-muted-foreground hover:bg-muted outline-none">
@@ -294,10 +295,12 @@ function FormsTable({ flows, busy, onEdit, onPublish, onSend, onDelete }: {
 
 function IconBtn({ children, title, onClick, disabled, loading }: { children: ReactNode; title: string; onClick: () => void; disabled?: boolean; loading?: boolean }) {
   return (
-    <button title={title} onClick={onClick} disabled={disabled || loading}
-      className="p-1.5 rounded-md hover:bg-muted text-muted-foreground hover:text-foreground disabled:opacity-30">
-      {loading ? <Loader2 className="w-4 h-4 animate-spin" /> : children}
-    </button>
+    <Tip label={title}>
+      <button onClick={onClick} disabled={disabled || loading}
+        className="p-1.5 rounded-md hover:bg-muted text-muted-foreground hover:text-foreground disabled:opacity-30 outline-none">
+        {loading ? <Loader2 className="w-4 h-4 animate-spin" /> : children}
+      </button>
+    </Tip>
   );
 }
 
@@ -634,8 +637,25 @@ function CompEditor({ c, onChange, onRemove }: { c: FlowComponent; onChange: (p:
           <input value={c.label || ""} onChange={(e) => onChange({ label: e.target.value, name: c.name || slug(e.target.value) })}
             placeholder="Question / label" className="w-full mb-2 px-2.5 py-1.5 rounded-md border border-border bg-background text-sm outline-none focus:border-primary" />
           {hasOptions(c.type) && (
-            <textarea value={(c.options || []).join("\n")} onChange={(e) => onChange({ options: e.target.value.split("\n") })}
-              placeholder="One option per line" rows={3} className="w-full mb-2 px-2.5 py-1.5 rounded-md border border-border bg-background text-sm outline-none focus:border-primary" />
+            <div className="mb-2 space-y-1.5">
+              <p className="text-[11px] font-semibold text-muted-foreground">Options</p>
+              {(c.options || []).map((opt, oi) => (
+                <div key={oi} className="group flex items-center gap-1.5">
+                  <span className="grid place-items-center w-5 h-7 text-[11px] text-muted-foreground/60 shrink-0">{oi + 1}</span>
+                  <input value={opt} onChange={(e) => onChange({ options: (c.options || []).map((o, x) => (x === oi ? e.target.value : o)) })}
+                    placeholder={`Option ${oi + 1}`}
+                    className="flex-1 h-8 px-2.5 rounded-md border border-border bg-background text-sm outline-none focus:border-primary" />
+                  <button onClick={() => onChange({ options: (c.options || []).filter((_, x) => x !== oi) })}
+                    className="p-1 rounded-md text-muted-foreground/50 hover:text-destructive hover:bg-muted shrink-0" title="Remove option">
+                    <X className="w-3.5 h-3.5" />
+                  </button>
+                </div>
+              ))}
+              <button onClick={() => onChange({ options: [...(c.options || []), ""] })}
+                className="inline-flex items-center gap-1.5 h-8 px-2.5 rounded-md border border-dashed border-border text-sm text-primary hover:bg-muted font-medium">
+                <Plus className="w-3.5 h-3.5" /> Add option
+              </button>
+            </div>
           )}
           <label className="flex items-center gap-2 text-xs text-muted-foreground">
             <input type="checkbox" checked={!!c.required} onChange={(e) => onChange({ required: e.target.checked })} /> Required
