@@ -139,7 +139,7 @@ const ConversationCard = memo(function ConversationCard({
             )}
             {c.campaign_name && (
               <Tip label={c.campaign_name} side="top">
-                <span className="inline-flex items-center h-[19px] px-2 rounded-md bg-primary/[0.08] text-primary-text text-[11px] font-medium truncate min-w-0 ml-auto max-w-[58%]">
+                <span className="inline-flex items-center h-[19px] px-2 rounded-md bg-primary/[0.08] text-primary-text text-[11px] font-medium truncate min-w-0 max-w-[58%]">
                   {c.campaign_name}
                 </span>
               </Tip>

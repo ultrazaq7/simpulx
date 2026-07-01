@@ -85,6 +85,22 @@ function CustomTooltip({ active, payload, label }: any) {
   );
 }
 
+// Green pie/donut tooltip, matching the main Tip colour.
+function DonutTooltip({ active, payload, total }: any) {
+  if (!active || !payload?.length) return null;
+  const p = payload[0];
+  const pct = total > 0 ? ((Number(p.value ?? 0) / total) * 100).toFixed(1) : "0";
+  return (
+    <div className="rounded-md bg-[#356B5A]/90 backdrop-blur-sm px-3 py-1.5 shadow-md">
+      <div className="flex items-center gap-1.5">
+        <span className="w-2 h-2 rounded-full shrink-0 ring-1 ring-white/40" style={{ backgroundColor: p.payload?.color || p.color }} />
+        <span className="text-xs font-semibold text-white capitalize">{p.name}</span>
+        <span className="text-xs font-bold text-white tabular-nums ml-2">{pct}%</span>
+      </div>
+    </div>
+  );
+}
+
 function ProgressBar({ value, color, height = 8 }: { value: number; color: string; height?: number }) {
   return (
     <div className="w-full rounded-full bg-foreground/[0.06] overflow-hidden" style={{ height }}>
@@ -914,7 +930,7 @@ function BreakdownDonut({ title, data }: { title: string; data?: AdBreakdown[] }
                 <Pie data={chart} dataKey="value" nameKey="name" innerRadius={48} outerRadius={78} paddingAngle={2} stroke="none">
                   {chart.map((c) => <Cell key={c.name} fill={c.color} />)}
                 </Pie>
-                <RechartsTooltip formatter={(v: any, n: any) => [`${total > 0 ? ((Number(v) / total) * 100).toFixed(1) : 0}%`, n]} />
+                <RechartsTooltip content={<DonutTooltip total={total} />} />
               </PieChart>
             </ResponsiveContainer>
           </div>
