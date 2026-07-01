@@ -30,13 +30,33 @@ class DashboardRemoteDataSource {
   }
 
   /// GET /api/analytics -> funnel + leaderboard + response time + lost reasons.
+  /// The analytics query is heavier than the KPI cards, so a transient upstream
+  /// blip (e.g. a 502 during a deploy, or a timeout) can fail it while the rest
+  /// of the dashboard loads. Retry transient failures a couple of times with
+  /// backoff before surfacing "Could not load".
   Future<ManagerAnalytics> getAnalytics() async {
-    try {
-      final res = await _dio.get(ApiEndpoints.analytics);
-      return ManagerAnalytics.fromJson(
-          (res.data as Map).cast<String, dynamic>());
-    } on DioException catch (e) {
-      throw ErrorMapper.fromDio(e);
+    for (var attempt = 0; ; attempt++) {
+      try {
+        final res = await _dio.get(ApiEndpoints.analytics);
+        final data = res.data;
+        if (data is! Map) {
+          throw StateError('unexpected analytics payload');
+        }
+        return ManagerAnalytics.fromJson(data.cast<String, dynamic>());
+      } on DioException catch (e) {
+        final code = e.response?.statusCode ?? 0;
+        final transient = code == 502 ||
+            code == 503 ||
+            code == 504 ||
+            e.type == DioExceptionType.receiveTimeout ||
+            e.type == DioExceptionType.connectionTimeout ||
+            e.type == DioExceptionType.connectionError;
+        if (transient && attempt < 2) {
+          await Future<void>.delayed(Duration(milliseconds: 400 * (attempt + 1)));
+          continue;
+        }
+        throw ErrorMapper.fromDio(e);
+      }
     }
   }
 }

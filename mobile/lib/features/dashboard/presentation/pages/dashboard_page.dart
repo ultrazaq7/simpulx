@@ -301,9 +301,19 @@ class _ManagerSection extends ConsumerWidget {
             padding: EdgeInsets.all(16),
             child: Center(child: CircularProgressIndicator(strokeWidth: 2)),
           ),
-          error: (_, _) => const _Card(
-            child: Text('Could not load analytics',
-                style: TextStyle(color: AppColors.textSecondary)),
+          error: (_, _) => GestureDetector(
+            onTap: () => ref.invalidate(managerAnalyticsProvider),
+            child: const _Card(
+              child: Row(
+                mainAxisAlignment: MainAxisAlignment.center,
+                children: [
+                  Icon(Icons.refresh, size: 16, color: AppColors.textSecondary),
+                  SizedBox(width: 8),
+                  Text('Could not load analytics. Tap to retry.',
+                      style: TextStyle(color: AppColors.textSecondary)),
+                ],
+              ),
+            ),
           ),
           data: (a) => Column(
             children: [
@@ -983,9 +993,19 @@ class _AgentAnalyticsSection extends ConsumerWidget {
             padding: EdgeInsets.all(16),
             child: Center(child: CircularProgressIndicator(strokeWidth: 2)),
           ),
-          error: (_, _) => const _Card(
-            child: Text('Could not load analytics',
-                style: TextStyle(color: AppColors.textSecondary)),
+          error: (_, _) => GestureDetector(
+            onTap: () => ref.invalidate(managerAnalyticsProvider),
+            child: const _Card(
+              child: Row(
+                mainAxisAlignment: MainAxisAlignment.center,
+                children: [
+                  Icon(Icons.refresh, size: 16, color: AppColors.textSecondary),
+                  SizedBox(width: 8),
+                  Text('Could not load analytics. Tap to retry.',
+                      style: TextStyle(color: AppColors.textSecondary)),
+                ],
+              ),
+            ),
           ),
           data: (a) => Column(
             children: [
