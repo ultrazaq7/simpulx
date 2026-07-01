@@ -11,6 +11,7 @@ import {
   ArrowLeft, Plus, Zap, MessageCircle, FileText, User, Sparkles, Tag, Flag,
   CheckCircle, Globe, GitFork, Trash2, Loader2, X, Save, Undo2, Redo2,
   Braces, ToggleRight, Sheet, ClipboardList, UserMinus, Ban, Radio, ListPlus,
+  FolderMinus, BellOff, Scissors, Mail,
 } from "lucide-react";
 import type { LucideIcon } from "lucide-react";
 import { Tip } from "@/components/ui/tooltip";
@@ -32,13 +33,14 @@ const META: Record<string, Meta> = {
   assign_agent: { label: "Assign to team member", Icon: User, accent: "#0891B2", kicker: "DO", desc: ACTIONS.assign_agent.desc },
   unassign_team: { label: "Unassign from team", Icon: UserMinus, accent: "#0891B2", kicker: "DO", desc: ACTIONS.unassign_team.desc },
   assign_campaign: { label: "Add to campaign", Icon: Sparkles, accent: "#0891B2", kicker: "DO", desc: ACTIONS.assign_campaign.desc },
-  remove_campaign: { label: "Remove from campaign", Icon: Ban, accent: "#0891B2", kicker: "DO", desc: ACTIONS.remove_campaign.desc },
+  remove_campaign: { label: "Remove from campaign", Icon: FolderMinus, accent: "#0891B2", kicker: "DO", desc: ACTIONS.remove_campaign.desc },
   add_to_sequence: { label: "Add to drip campaign", Icon: Radio, accent: "#D97706", kicker: "DO", desc: ACTIONS.add_to_sequence.desc },
-  remove_from_sequence: { label: "Remove from drip campaign", Icon: Ban, accent: "#D97706", kicker: "DO", desc: ACTIONS.remove_from_sequence.desc },
+  remove_from_sequence: { label: "Remove from drip campaign", Icon: BellOff, accent: "#D97706", kicker: "DO", desc: ACTIONS.remove_from_sequence.desc },
   blacklist: { label: "Mark blacklisted", Icon: Ban, accent: "#DC2626", kicker: "DO", desc: ACTIONS.blacklist.desc },
   add_to_list: { label: "Add contact to list", Icon: ListPlus, accent: "#D97706", kicker: "DO", desc: ACTIONS.add_to_list.desc },
+  send_email: { label: "Send email notification", Icon: Mail, accent: "#2563EB", kicker: "DO", desc: ACTIONS.send_email.desc },
   add_tag: { label: "Add tag", Icon: Tag, accent: "#D97706", kicker: "DO", desc: ACTIONS.add_tag.desc },
-  remove_tag: { label: "Remove tag", Icon: Tag, accent: "#D97706", kicker: "DO", desc: ACTIONS.remove_tag.desc },
+  remove_tag: { label: "Remove tag", Icon: Scissors, accent: "#D97706", kicker: "DO", desc: ACTIONS.remove_tag.desc },
   set_contact_attribute: { label: "Set contact attribute", Icon: Braces, accent: "#7C3AED", kicker: "DO", desc: ACTIONS.set_contact_attribute.desc },
   set_priority: { label: "Set priority", Icon: Flag, accent: "#DC2626", kicker: "DO", desc: ACTIONS.set_priority.desc },
   set_conversation_status: { label: "Set conversation status", Icon: ToggleRight, accent: "#475569", kicker: "DO", desc: ACTIONS.set_conversation_status.desc },
@@ -54,10 +56,10 @@ const PALETTE: { group: string; kinds: string[] }[] = [
   { group: "Routing", kinds: ["assign_agent", "unassign_team", "assign_campaign", "remove_campaign"] },
   { group: "Contact", kinds: ["add_tag", "remove_tag", "set_contact_attribute", "add_to_list", "set_priority", "add_to_sequence", "remove_from_sequence", "blacklist"] },
   { group: "Flow control", kinds: ["set_conversation_status", "close_conversation", "webhook_notify"] },
-  { group: "Integrations", kinds: ["google_sheet"] },
+  { group: "Integrations", kinds: ["google_sheet", "send_email"] },
 ];
 // The executor runs these; others are configurable but not yet executed.
-const EXECUTED = new Set(["condition", "send_message", "send_form", "add_tag", "remove_tag", "assign_agent", "unassign_team", "assign_campaign", "remove_campaign", "add_to_sequence", "remove_from_sequence", "blacklist", "add_to_list", "set_contact_attribute", "set_conversation_status", "google_sheet", "close_conversation", "webhook_notify"]);
+const EXECUTED = new Set(["condition", "send_message", "send_form", "add_tag", "remove_tag", "assign_agent", "unassign_team", "assign_campaign", "remove_campaign", "add_to_sequence", "remove_from_sequence", "blacklist", "add_to_list", "set_contact_attribute", "set_conversation_status", "google_sheet", "send_email", "close_conversation", "webhook_notify"]);
 
 type NodeData = { kind: string; config: Record<string, unknown>; triggerType?: string };
 type AppNode = Node<NodeData>;
@@ -75,6 +77,7 @@ function summary(kind: string, c: Record<string, unknown>, triggerType?: string)
     case "add_to_sequence": case "remove_from_sequence": return `Sequence: ${c.sequence_name || "—"}`;
     case "blacklist": return "Block from outreach";
     case "add_to_list": return `List: ${c.list || "—"}`;
+    case "send_email": return `Email to: ${c.to || "—"}`;
     case "set_contact_attribute": return `${(Array.isArray(c.mappings) ? c.mappings.length : (c.key ? 1 : 0))} attribute(s)`;
     case "add_tag": case "remove_tag": return `Tags: ${(Array.isArray(c.tags) ? (c.tags as string[]).join(", ") : "") || "—"}`;
     case "set_conversation_status": return `Status: ${c.status || "—"}`;
@@ -446,6 +449,12 @@ function Inspector({ node, triggerType, campaigns, forms, agents, sequences, she
         {kind === "remove_campaign" && <p className="text-[13px] text-muted-foreground">Clears the conversation&apos;s campaign. No configuration needed.</p>}
         {kind === "blacklist" && <p className="text-[13px] text-muted-foreground">Blocks this contact from future outreach. No configuration needed.</p>}
         {kind === "add_to_list" && <Field label="List name (tag)"><input value={String(c.list ?? "")} onChange={(e) => set("list", e.target.value)} placeholder="e.g. Newsletter, VIP" className={INP} /></Field>}
+        {kind === "send_email" && <>
+          <Field label="To (email)"><input value={String(c.to ?? "")} onChange={(e) => set("to", e.target.value)} placeholder="sales@yourco.com" className={INP} /></Field>
+          <Field label="Subject"><input value={String(c.subject ?? "")} onChange={(e) => set("subject", e.target.value)} placeholder="New lead: {full_name}" className={INP} /></Field>
+          <Field label="Body"><textarea value={String(c.body ?? "")} onChange={(e) => set("body", e.target.value)} rows={4} placeholder="{full_name} ({phone}) just came in." className={cn(INP, "resize-none h-auto py-2")} /></Field>
+          <p className="text-[12px] text-muted-foreground">Sent via your configured SMTP. Supports {"{first_name}"}, {"{full_name}"}, {"{phone}"} and contact attributes.</p>
+        </>}
         {kind === "webhook_notify" && <Field label="Webhook URL"><input value={String(c.url ?? "")} onChange={(e) => set("url", e.target.value)} placeholder="https://..." className={INP} /></Field>}
         {kind === "condition" && <>
           <Field label="Contact attribute"><input value={String(c.attribute ?? "")} onChange={(e) => set("attribute", e.target.value)} placeholder="e.g. re_model, phone, full_name" className={INP} /></Field>

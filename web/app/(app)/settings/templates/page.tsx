@@ -114,7 +114,7 @@ export default function TemplatesPage() {
         </div>
 
         <div className="overflow-auto flex-1 min-h-0">
-        <table className="w-full text-sm">
+        <table className="w-full text-sm whitespace-nowrap">
           <thead>
             <tr className="border-b border-border bg-muted/40">
               {["Name", "Category", "Scope", "Language", "Status", "Updated", "Actions"].map((h) => (

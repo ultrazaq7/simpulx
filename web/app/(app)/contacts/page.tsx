@@ -3,7 +3,7 @@ import { useEffect, useMemo, useRef, useState } from "react";
 import { useRouter } from "next/navigation";
 import {
   Search, UserPlus, Download, Pencil, ChevronsLeft, ChevronsRight, ChevronLeft, ChevronRight,
-  Users, X, Loader2, Tag as TagIcon, MoreVertical, MessageSquare, Trash2, Upload, ChevronDown, Eye,
+  Users, X, Loader2, Tag as TagIcon, MoreVertical, MessageSquare, Trash2, Upload, ChevronDown, Eye, Ban,
 } from "lucide-react";
 
 import { api, getUser } from "@/lib/api";
@@ -46,6 +46,8 @@ export default function ContactsPage() {
   const [addMenuOpen, setAddMenuOpen] = useState(false);
   const [toast, setToast] = useState<string | null>(null);
   const [orgTz, setOrgTz] = useState<string>("");
+  const [selected, setSelected] = useState<Set<string>>(new Set());
+  const [bulkBusy, setBulkBusy] = useState(false);
   const importRef = useRef<HTMLInputElement>(null);
 
   const router = useRouter();
@@ -168,6 +170,38 @@ export default function ContactsPage() {
     try { await api.deleteContact(c.id); setContacts((p) => p.filter((x) => x.id !== c.id)); setToast("Contact deleted"); }
     catch (e: any) { setToast(e?.message || "Delete failed"); }
   }
+
+  // ── Bulk actions ──
+  const toggleSel = (id: string) => setSelected((s) => { const n = new Set(s); n.has(id) ? n.delete(id) : n.add(id); return n; });
+  const clearSel = () => setSelected(new Set());
+  async function bulkDelete() {
+    if (!confirm(`Delete ${selected.size} contact(s)? This also removes their conversations.`)) return;
+    setBulkBusy(true);
+    const ids = [...selected];
+    await Promise.allSettled(ids.map((id) => api.deleteContact(id)));
+    setContacts((p) => p.filter((c) => !selected.has(c.id)));
+    clearSel(); setBulkBusy(false); setToast(`${ids.length} contact(s) deleted`);
+  }
+  async function bulkBlacklist() {
+    setBulkBusy(true);
+    const ids = [...selected];
+    await Promise.allSettled(ids.map((id) => api.updateContact(id, { blacklisted: true })));
+    setContacts((p) => p.map((c) => (selected.has(c.id) ? { ...c, blacklisted: true } : c)));
+    clearSel(); setBulkBusy(false); setToast(`${ids.length} contact(s) blacklisted`);
+  }
+  async function bulkLabel() {
+    const label = prompt("Add a label to the selected contacts:");
+    if (!label || !label.trim()) return;
+    const l = label.trim();
+    setBulkBusy(true);
+    const ids = [...selected];
+    await Promise.allSettled(ids.map((id) => {
+      const c = contacts.find((x) => x.id === id);
+      const tags = Array.from(new Set([...((c?.tags as string[]) || []), l]));
+      return api.updateContact(id, { tags });
+    }));
+    reload(); clearSel(); setBulkBusy(false); setToast(`Label "${l}" added to ${ids.length}`);
+  }
   async function toggleBlacklist(c: Contact) {
     const next = !c.blacklisted;
     setContacts((p) => p.map((x) => (x.id === c.id ? { ...x, blacklisted: next } : x)));
@@ -218,12 +252,24 @@ export default function ContactsPage() {
           <input ref={importRef} type="file" accept=".csv,text/csv" className="hidden" onChange={(e) => { const f = e.target.files?.[0]; if (f) importCsv(f); e.target.value = ""; }} />
         </div>
 
+        {/* Bulk action bar */}
+        {selected.size > 0 && (
+          <div className="flex items-center gap-2 px-3 py-2 mb-2 rounded-lg border border-primary/30 bg-primary/[0.06] shrink-0">
+            <span className="text-[13px] font-semibold text-foreground">{selected.size} selected</span>
+            <div className="flex-1" />
+            {canEdit && <button onClick={bulkLabel} disabled={bulkBusy} className="inline-flex items-center gap-1.5 px-3 h-8 rounded-md border border-border text-[13px] font-medium hover:bg-muted disabled:opacity-50"><TagIcon className="w-3.5 h-3.5" />Add label</button>}
+            {canEdit && <button onClick={bulkBlacklist} disabled={bulkBusy} className="inline-flex items-center gap-1.5 px-3 h-8 rounded-md border border-border text-[13px] font-medium hover:bg-muted disabled:opacity-50"><Ban className="w-3.5 h-3.5" />Blacklist</button>}
+            {canDelete && <button onClick={bulkDelete} disabled={bulkBusy} className="inline-flex items-center gap-1.5 px-3 h-8 rounded-md border border-destructive/40 text-destructive text-[13px] font-medium hover:bg-destructive/10 disabled:opacity-50"><Trash2 className="w-3.5 h-3.5" />Delete</button>}
+            <button onClick={clearSel} className="px-3 h-8 rounded-md text-[13px] font-medium text-muted-foreground hover:bg-muted">Clear</button>
+          </div>
+        )}
+
         {/* Table (fills remaining height) */}
         <div className="overflow-auto flex-1 min-h-0">
-          <table className="w-full text-sm">
+          <table className="w-full text-sm whitespace-nowrap">
             <thead className="sticky top-0 z-10">
               <tr className="border-b border-border bg-muted">
-                <TH className="w-10"><span className="sr-only">Select</span><input type="checkbox" aria-label="Select all contacts" className="rounded border-input accent-primary" /></TH>
+                <TH className="w-10"><span className="sr-only">Select</span><input type="checkbox" aria-label="Select all contacts" className="rounded border-input accent-primary" checked={paged.length > 0 && paged.every((c) => selected.has(c.id))} onChange={(e) => setSelected((s) => { const n = new Set(s); if (e.target.checked) paged.forEach((c) => n.add(c.id)); else paged.forEach((c) => n.delete(c.id)); return n; })} /></TH>
                 <TH>Contact name</TH><TH>Channel</TH><TH>Phone</TH><TH>Stage</TH><TH>Source</TH>
                 <TH>Labels</TH><TH>Created</TH><TH>Updated</TH><TH>Blacklisted</TH><TH className="text-right">Actions</TH>
               </tr>
@@ -239,7 +285,7 @@ export default function ContactsPage() {
                 </td></tr>
               ) : paged.map((c) => (
                 <tr key={c.id} className="border-b border-border/60 hover:bg-muted/50 transition-colors">
-                  <td className="px-4 py-2.5"><input type="checkbox" aria-label={`Select ${c.full_name || c.phone || "contact"}`} className="rounded border-input accent-primary" /></td>
+                  <td className="px-4 py-2.5"><input type="checkbox" aria-label={`Select ${c.full_name || c.phone || "contact"}`} className="rounded border-input accent-primary" checked={selected.has(c.id)} onChange={() => toggleSel(c.id)} /></td>
                   <td className="px-4 py-2.5">
                     <div className="flex items-center gap-3">
                       <div className="w-9 h-9 rounded-full grid place-items-center text-xs font-bold ring-1 ring-inset ring-black/5 shrink-0"

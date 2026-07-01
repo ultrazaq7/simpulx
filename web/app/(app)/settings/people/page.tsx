@@ -82,7 +82,7 @@ export default function PeopleSettingsPage() {
         </div>
 
         <div className="overflow-auto flex-1 min-h-0">
-          <table className="w-full text-sm min-w-[920px]">
+          <table className="w-full text-sm min-w-[920px] whitespace-nowrap">
             <thead>
               <tr className="border-b border-border bg-muted/40">
                 {["User", "Role", "Campaigns", "Status", "Last login", "Created", ""].map((h) => (

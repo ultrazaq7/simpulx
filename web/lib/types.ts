@@ -622,3 +622,10 @@ export interface WaFlowResponse {
   response: Record<string, unknown>;
   received_at: string;
 }
+
+export interface ContactActivity {
+  type: string;                        // stage_changed | status_changed | interest_changed | assigned | closed | ...
+  detail: Record<string, unknown>;
+  created_at: string;
+  actor_name?: string;
+}

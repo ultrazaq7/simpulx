@@ -23,6 +23,7 @@ import (
 
 	"github.com/simpulx/v2/libs/go/events"
 	"github.com/simpulx/v2/libs/go/gsheets"
+	"github.com/simpulx/v2/libs/go/mailer"
 )
 
 type autoRule struct {
@@ -345,6 +346,18 @@ func (a *app) execStep(ctx context.Context, orgID, convID, contactID string, s a
 			if err := a.st.addContactTags(ctx, contactID, []string{list}); err != nil {
 				a.log.Warn("automation add_to_list failed", "err", err)
 			}
+		}
+	case "send_email":
+		to := pStr(s.Params, "to")
+		if to == "" {
+			return
+		}
+		vars := a.st.contactVars(ctx, contactID)
+		to = resolvePlaceholders(vars, to)
+		subject := resolvePlaceholders(vars, pStr(s.Params, "subject"))
+		body := resolvePlaceholders(vars, pStr(s.Params, "body"))
+		if _, err := mailer.Send(to, subject, body, true); err != nil {
+			a.log.Warn("automation send_email failed", "err", err)
 		}
 	case "set_conversation_status":
 		st := pStr(s.Params, "status")

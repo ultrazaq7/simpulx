@@ -60,7 +60,7 @@ export default function CampaignsPage() {
         </div>
 
         <div className="overflow-auto flex-1 min-h-0">
-          <table className="w-full text-sm min-w-[920px]">
+          <table className="w-full text-sm min-w-[920px] whitespace-nowrap">
             <thead>
               <tr className="border-b border-border bg-muted/40">
                 {["Campaign", "Status", "Channel", "Agents", "Chats", "Leads", "Attribution", "Routing", ""].map((h) => (

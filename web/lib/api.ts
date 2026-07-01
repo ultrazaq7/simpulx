@@ -317,6 +317,7 @@ export const api = {
   updateContact: (id: string, body: { full_name?: string; phone?: string; tags?: string[]; blacklisted?: boolean }) =>
     req<void>(`/api/contacts/${id}`, { method: "PATCH", body: JSON.stringify(body) }),
   deleteContact: (id: string) => req<void>(`/api/contacts/${id}`, { method: "DELETE" }),
+  getContactActivity: (id: string) => req<import("./types").ContactActivity[]>(`/api/contacts/${id}/activity`),
   listBroadcasts: () => req<Broadcast[]>("/api/broadcasts"),
   createBroadcast: (input: {
     name: string; body?: string; template_id?: string; scheduled_at?: string;

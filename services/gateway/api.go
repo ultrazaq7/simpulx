@@ -529,6 +529,26 @@ func (s *server) handlePatchConversation(w http.ResponseWriter, r *http.Request)
 		return
 	}
 
+	// Log each change to the conversation timeline (contact activity history).
+	logEvt := func(typ string, detail map[string]any) {
+		d, _ := json.Marshal(detail)
+		_, _ = s.pool.Exec(r.Context(),
+			`INSERT INTO conversation_events (organization_id, conversation_id, type, actor_type, actor_id, detail)
+			 VALUES ($1, $2, $3, 'agent', $4::uuid, $5::jsonb)`,
+			a.OrgID, convID, typ, a.UserID, string(d))
+	}
+	if b.StageID != nil && *b.StageID != "" {
+		var stageName string
+		_ = s.pool.QueryRow(r.Context(), `SELECT COALESCE(name,'') FROM stages WHERE id=$1`, *b.StageID).Scan(&stageName)
+		logEvt("stage_changed", map[string]any{"stage_id": *b.StageID, "stage_name": stageName})
+	}
+	if b.Status != nil && *b.Status != "" {
+		logEvt("status_changed", map[string]any{"status": *b.Status})
+	}
+	if b.InterestLevel != nil && *b.InterestLevel != "" {
+		logEvt("interest_changed", map[string]any{"interest_level": *b.InterestLevel})
+	}
+
 	// Broadcast the change so every connected agent's UI refreshes instantly.
 	if err := s.bus.Publish(events.SubjectConversationUpdated, a.OrgID, events.ConversationUpdated{
 		ConversationID: convID,
@@ -541,6 +561,25 @@ func (s *server) handlePatchConversation(w http.ResponseWriter, r *http.Request)
 	}
 
 	writeJSON(w, map[string]any{"status": "updated", "locked": true})
+}
+
+// GET /api/contacts/{id}/activity — timeline of stage / interest / status /
+// assignment changes across the contact's conversations (contact detail).
+func (s *server) handleContactActivity(w http.ResponseWriter, r *http.Request) {
+	a, _ := authFrom(r.Context())
+	rows, err := s.queryMaps(r.Context(),
+		`SELECT ce.type, ce.detail, ce.created_at, COALESCE(u.full_name,'') AS actor_name
+		   FROM conversation_events ce
+		   JOIN conversations cv ON cv.id = ce.conversation_id
+		   LEFT JOIN users u ON u.id = ce.actor_id
+		  WHERE cv.contact_id = $1 AND ce.organization_id = $2
+		  ORDER BY ce.created_at DESC LIMIT 100`,
+		r.PathValue("id"), a.OrgID)
+	if err != nil {
+		http.Error(w, err.Error(), http.StatusInternalServerError)
+		return
+	}
+	writeJSON(w, rows)
 }
 
 func derefStr(p *string) string {
