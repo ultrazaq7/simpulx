@@ -42,29 +42,23 @@ class SettingsPage extends ConsumerWidget {
               const SizedBox(height: 16),
               const Divider(height: 1),
               const SizedBox(height: 8),
-              const _SectionLabel('Availability'),
               _OnlineStatusTile(),
-              const SizedBox(height: 8), // Add a bit of spacing instead of a line
-              const _SectionLabel('Account'),
               ListTile(
-                leading: const Icon(Icons.person_rounded),
-                title: const Text('Profile'),
-                subtitle: const Text('Your details and password'),
-                trailing: const Icon(Icons.chevron_right_rounded),
+                leading: const Icon(Icons.key_rounded),
+                title: const Text('Account'),
+                subtitle: const Text('Security notifications, change password'),
                 onTap: () => _showProfile(context),
               ),
               ListTile(
-                leading: const Icon(Icons.notifications_rounded),
+                leading: const Icon(Icons.notifications_none_rounded),
                 title: const Text('Notifications'),
-                subtitle: const Text('Choose what alerts you'),
-                trailing: const Icon(Icons.chevron_right_rounded),
+                subtitle: const Text('Message, group & call tones'),
                 onTap: () => _showNotificationPrefs(context),
               ),
               ListTile(
                 leading: const Icon(Icons.language_rounded),
-                title: const Text('Language'),
+                title: const Text('App language'),
                 subtitle: Text(langName(locale)),
-                trailing: const Icon(Icons.chevron_right_rounded),
                 onTap: () => _showLanguagePicker(context, ref, locale),
               ),
             ],
@@ -340,26 +334,7 @@ class _ProfileHeader extends ConsumerWidget {
   }
 }
 
-class _SectionLabel extends StatelessWidget {
-  const _SectionLabel(this.text);
-  final String text;
 
-  @override
-  Widget build(BuildContext context) {
-    return Padding(
-      padding: const EdgeInsets.fromLTRB(
-          AppSpacing.lg, AppSpacing.lg, AppSpacing.lg, AppSpacing.sm),
-      child: Text(
-        text.toUpperCase(),
-        style: Theme.of(context).textTheme.labelSmall?.copyWith(
-              color: AppColors.textMuted,
-              letterSpacing: 0.6,
-              fontWeight: FontWeight.w700,
-            ),
-      ),
-    );
-  }
-}
 
 void _showProfile(BuildContext context) {
   showModalBottomSheet<void>(
@@ -488,7 +463,16 @@ class _ProfileSheetState extends ConsumerState<_ProfileSheet> {
               ],
             ),
             const SizedBox(height: 20),
-            const _SectionLabel('Change password'),
+            const Text(
+              'CHANGE PASSWORD',
+              style: TextStyle(
+                color: AppColors.textMuted,
+                letterSpacing: 0.6,
+                fontWeight: FontWeight.w700,
+                fontSize: 11,
+              ),
+            ),
+            const SizedBox(height: 8),
             TextField(
               controller: _current,
               obscureText: true,
