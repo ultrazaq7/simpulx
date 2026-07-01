@@ -52,7 +52,8 @@ class AppTheme {
       brightness: brightness,
       colorScheme: scheme,
       scaffoldBackgroundColor: scaffoldBg,
-      surfaceTintColor: Colors.transparent, // Disable global M3 surface tinting
+      // Keep the canvas behind bars/menus identical to scaffold so nothing
+      // ever "pops" as a mismatched panel.
       canvasColor: scaffoldBg,
       textTheme: AppText.textTheme(brightness),
       splashFactory: InkSparkle.splashFactory,
