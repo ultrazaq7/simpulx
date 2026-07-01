@@ -923,7 +923,7 @@ func (s *server) handleAnalytics(w http.ResponseWriter, r *http.Request) {
 		  WHERE cv.organization_id=$1%s
 		  GROUP BY cat ORDER BY count DESC`, campFilterCv), args...)
 
-	tiers, _ := s.queryMaps(ctx,
+	tiers, tiersErr := s.queryMaps(ctx,
 		fmt.Sprintf(`WITH c AS (
 		   SELECT cv.id, count(m.id) FILTER (WHERE m.direction='inbound' AND m.sender_type='contact') AS replies
 		     FROM conversations cv LEFT JOIN messages m ON m.conversation_id=cv.id
@@ -996,7 +996,7 @@ func (s *server) handleAnalytics(w http.ResponseWriter, r *http.Request) {
 		   FROM conversations WHERE organization_id=$1%s
 		  GROUP BY 1 ORDER BY 1`, campFilter), args...)
 
-	rt, _ := s.queryMaps(ctx,
+	rt, rtErr := s.queryMaps(ctx,
 		fmt.Sprintf(`WITH fr AS (
 		   SELECT m.conversation_id, min(m.created_at) AS t_c
 		     FROM messages m JOIN conversations cv ON cv.id=m.conversation_id
@@ -1035,17 +1035,32 @@ func (s *server) handleAnalytics(w http.ResponseWriter, r *http.Request) {
 		  WHERE cv.organization_id=$1%s AND cv.lost_reason IS NOT NULL AND cv.lost_reason <> ''
 		  GROUP BY 1 ORDER BY 2 DESC LIMIT 8`, campFilter), args...)
 
+	// A secondary query failing must not take down the whole dashboard. Log it and
+	// fall back to an empty object so the primary funnel/stages still render.
+	first := func(rows []map[string]any) map[string]any {
+		if len(rows) > 0 {
+			return rows[0]
+		}
+		return map[string]any{}
+	}
+	if tiersErr != nil {
+		s.log.Warn("analytics tiers query failed", "org", org, "err", tiersErr)
+	}
+	if rtErr != nil {
+		s.log.Warn("analytics response-time query failed", "org", org, "err", rtErr)
+	}
+	fn := first(funnel)
 	writeJSON(w, map[string]any{
-		"funnel":        funnel[0],
+		"funnel":        fn,
 		"funnel_stages": funnelStages,
 		"stages":        stages,
 		"categories":    categories,
-		"tiers":         tiers[0],
+		"tiers":         first(tiers),
 		"agents":        agents,
 		"daily":         daily,
-		"response_time": rt[0],
+		"response_time": first(rt),
 		"junk":          junk,
-		"lost":          funnel[0]["lost"],
+		"lost":          fn["lost"],
 		"lost_reasons":  lostReasons,
 	})
 }
