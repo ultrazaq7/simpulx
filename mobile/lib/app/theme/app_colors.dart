@@ -61,10 +61,10 @@ class AppColors {
   // of the look — so it's back below. All layers still sit close together
   // in luminance (that's what avoids the "belang"/patchy effect); the
   // difference now is the whole stack leans navy instead of neutral grey.
-  static const Color darkBackground = Color(0xFF0B141A); // chat wallpaper / scaffold canvas
-  static const Color darkSurface = Color(0xFF1F2C34); // app bar / bottom sheet / cards
-  static const Color darkSurfaceAlt = Color(0xFF202C33); // search bar / chips / incoming bubble
-  static const Color darkBorder = Color(0xFF222D34); // hairline separators
+  static const Color darkBackground = Color(0xFF0E1211); // chat wallpaper / scaffold canvas
+  static const Color darkSurface = Color(0xFF181C1B); // app bar / bottom sheet / cards
+  static const Color darkSurfaceAlt = Color(0xFF222725); // search bar / chips / incoming bubble
+  static const Color darkBorder = Color(0xFF2A302E); // hairline separators
 
   // ── Dark text (WhatsApp) ───────────────────────────────
   static const Color darkTextPrimary = Color(0xFFE9EDEF);
@@ -81,7 +81,7 @@ class AppColors {
   // contrast, matching real WhatsApp's off-white incoming bubble.
   static const Color bubbleIncomingLight = surfaceAlt;
   static const Color bubbleOutgoingLight = Color(0xFFD9FDD3);
-  static const Color bubbleIncomingDark = Color(0xFF202C33);
+  static const Color bubbleIncomingDark = Color(0xFF222725);
   static const Color bubbleOutgoingDark = Color(0xFF005C4B);
 
   /// Brand colour for a given channel string (whatsapp/messenger/...).
