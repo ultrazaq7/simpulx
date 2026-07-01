@@ -567,8 +567,16 @@ class _ThreadAppBar extends StatelessWidget implements PreferredSizeWidget {
   Widget build(BuildContext context) {
     final c = conversation;
     final title = c?.displayName ?? 'Conversation';
+    final theme = Theme.of(context);
     return AppBar(
       titleSpacing: 0,
+      shape: Border(
+        bottom: BorderSide(
+          color: theme.brightness == Brightness.dark 
+              ? AppColors.darkBorder 
+              : AppColors.border,
+        ),
+      ),
       title: GestureDetector(
         onTap: () {
           if (c != null && c.contactId.isNotEmpty) {
