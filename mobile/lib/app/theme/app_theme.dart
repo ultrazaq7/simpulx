@@ -52,8 +52,7 @@ class AppTheme {
       brightness: brightness,
       colorScheme: scheme,
       scaffoldBackgroundColor: scaffoldBg,
-      // Keep the canvas behind bars/menus identical to scaffold so nothing
-      // ever "pops" as a mismatched panel.
+      surfaceTintColor: Colors.transparent, // Disable global M3 surface tinting
       canvasColor: scaffoldBg,
       textTheme: AppText.textTheme(brightness),
       splashFactory: InkSparkle.splashFactory,
@@ -125,6 +124,7 @@ class AppTheme {
         // Same idea as appBarTheme: blend into scaffold instead of a
         // separately-shaded bar at the bottom.
         backgroundColor: scaffoldBg,
+        surfaceTintColor: Colors.transparent, // Ensure no teal tint bleeding
         indicatorColor: AppColors.primary.withValues(alpha: 0.12),
         height: 62,
         labelBehavior: NavigationDestinationLabelBehavior.alwaysShow,
