@@ -271,9 +271,8 @@ export default function AccountPage() {
               </div>
             </div>
 
-            {/* Left: Profile + System preference (stacked). Right: Password. */}
-            <div className="grid grid-cols-1 lg:grid-cols-2 gap-6 items-start">
-            <div className="space-y-8">
+            {/* Single stacked column: Profile -> Password -> System preference. */}
+            <div className="max-w-2xl space-y-8">
             <div>
             <h3 className="text-[16px] font-bold text-foreground mb-5">{tr("account.tab_profile")}</h3>
 
@@ -348,17 +347,7 @@ export default function AccountPage() {
             </div>
             </div>{/* /profile block */}
 
-            {/* System preference (timezone) - below profile in the left column */}
-            <div>
-              <h3 className="text-[16px] font-bold text-foreground mb-5">{tr("account.system_pref")}</h3>
-              <div className="bg-card border border-border rounded-xl p-5">
-                <label className="block text-[11px] font-bold uppercase tracking-wider text-muted-foreground mb-1.5">{tr("account.your_timezone")}</label>
-                <Select value={timezone} options={tzSelectOptions} onChange={saveTimezone} placeholder="Select timezone" />
-              </div>
-            </div>
-            </div>{/* /left column */}
-
-            {/* Right column: Password */}
+            {/* Password - directly under profile */}
             <div>
             <h3 className="text-[16px] font-bold text-foreground mb-5">Password</h3>
             <div className="bg-card border border-border rounded-xl p-5 space-y-4">
@@ -410,8 +399,17 @@ export default function AccountPage() {
                 </button>
               </div>
             </div>
-            </div>{/* /right column */}
-            </div>{/* /grid */}
+            </div>{/* /password */}
+
+            {/* System preference (timezone) */}
+            <div>
+              <h3 className="text-[16px] font-bold text-foreground mb-5">{tr("account.system_pref")}</h3>
+              <div className="bg-card border border-border rounded-xl p-5">
+                <label className="block text-[11px] font-bold uppercase tracking-wider text-muted-foreground mb-1.5">{tr("account.your_timezone")}</label>
+                <Select value={timezone} options={tzSelectOptions} onChange={saveTimezone} placeholder="Select timezone" />
+              </div>
+            </div>
+            </div>{/* /stack */}
 
           </div>
         )}

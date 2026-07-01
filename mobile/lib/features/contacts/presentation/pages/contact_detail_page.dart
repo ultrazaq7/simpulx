@@ -13,6 +13,7 @@ import '../../../chat/domain/entities/conversation.dart';
 import '../../../chat/presentation/widgets/conversation_actions_sheet.dart';
 import '../../../chat/presentation/widgets/notes_sheet.dart';
 import '../../domain/entities/contact.dart';
+import '../../domain/entities/contact_activity.dart';
 import '../controllers/contacts_providers.dart';
 import '../widgets/contact_form_sheet.dart';
 
@@ -97,6 +98,8 @@ class ContactDetailPage extends ConsumerWidget {
             const SizedBox(height: AppSpacing.md),
             _SummaryCard(summary: c.aiSummary!),
           ],
+          const SizedBox(height: AppSpacing.md),
+          _HistoryCard(contactId: c.id),
         ],
       ),
     );
@@ -156,8 +159,8 @@ class _IdentityCard extends StatelessWidget {
                   children: [
                     if (c.channelName != null)
                       _Pill(text: c.channelName!),
-                    if (c.sourceChannel != null)
-                      _Pill(text: c.sourceChannel!),
+                    // Accurate source (e.g. "Ad"), not the raw channel.
+                    _Pill(text: c.sourceLabel),
                     for (final t in c.tags) _Pill(text: t),
                     if (c.blacklisted)
                       const _Pill(text: 'Blacklisted', danger: true),
@@ -255,19 +258,27 @@ class _LeadContextCard extends StatelessWidget {
     return _Card(
       child: Column(
         children: [
-          _row(context, 'Stage', c.stageName ?? 'Not set'),
+          // ── Lead qualification (AI-generated), matching the web ──
+          _row(context, 'Stage', c.stageName ?? 'Unset'),
           if (c.lostReason != null && c.lostReason!.isNotEmpty)
             _row(context, 'Lost reason',
                 c.lostReason![0].toUpperCase() + c.lostReason!.substring(1).replaceAll('_', ' ')),
-          if (c.interestLevel != null)
-            _row(context, 'Interest',
-                c.interestLevel![0].toUpperCase() + c.interestLevel!.substring(1)),
+          _row(context, 'Interest',
+              c.interestLevel != null && c.interestLevel!.isNotEmpty
+                  ? c.interestLevel![0].toUpperCase() + c.interestLevel!.substring(1)
+                  : '-'),
+          _row(context, 'Brand', _orDash(c.carBrand)),
+          _row(context, 'Model', _orDash(c.carModel)),
+          _row(context, 'City', _orDash(c.city)),
+          _row(context, 'Purchase time', _orDash(c.purchaseTimeframe)),
           _row(context, 'Assigned', c.agentName ?? 'Unassigned'),
           if (c.campaignName != null) _row(context, 'Campaign', c.campaignName!),
+          _row(context, 'Source', c.sourceLabel),
           if (c.sourceId != null && c.sourceId!.isNotEmpty)
             _row(context, 'Source ID', c.sourceId!),
           if (c.sourceUrl != null && c.sourceUrl!.isNotEmpty)
-            _row(context, 'Source URL', c.sourceUrl!),
+            _row(context, 'Source URL', c.sourceUrl!,
+                onTap: () => _openUrl(c.sourceUrl!)),
           if (c.lastMessageAt != null)
             _row(context, 'Last activity',
                 '${formatDayLabel(c.lastMessageAt!)} ${formatBubbleTime(c.lastMessageAt!)}'),
@@ -278,7 +289,32 @@ class _LeadContextCard extends StatelessWidget {
     );
   }
 
-  Widget _row(BuildContext context, String label, String value) {
+  String _orDash(String? v) =>
+      (v != null && v.trim().isNotEmpty) ? v : '-';
+
+  Future<void> _openUrl(String url) async {
+    var u = url.trim();
+    if (!u.startsWith('http')) u = 'https://$u';
+    final uri = Uri.tryParse(u);
+    if (uri == null) return;
+    try {
+      await launchUrl(uri, mode: LaunchMode.externalApplication);
+    } catch (_) {/* no browser available */}
+  }
+
+  Widget _row(BuildContext context, String label, String value,
+      {VoidCallback? onTap}) {
+    final isLink = onTap != null;
+    final valueWidget = Text(
+      value,
+      style: TextStyle(
+        fontSize: 13,
+        fontWeight: FontWeight.w600,
+        color: isLink ? AppColors.primary : null,
+        decoration: isLink ? TextDecoration.underline : null,
+        decorationColor: AppColors.primary,
+      ),
+    );
     return Padding(
       padding: const EdgeInsets.symmetric(vertical: 6),
       child: Row(
@@ -291,9 +327,126 @@ class _LeadContextCard extends StatelessWidget {
                     color: Theme.of(context).colorScheme.onSurfaceVariant, fontSize: 13)),
           ),
           Expanded(
-            child: Text(value,
-                style: const TextStyle(
-                    fontSize: 13, fontWeight: FontWeight.w600)),
+            child: isLink
+                ? GestureDetector(onTap: onTap, child: valueWidget)
+                : valueWidget,
+          ),
+        ],
+      ),
+    );
+  }
+}
+
+/// History timeline of stage/status/interest/assignment changes for the lead,
+/// mirroring the web contact-details History tab.
+class _HistoryCard extends ConsumerWidget {
+  const _HistoryCard({required this.contactId});
+  final String contactId;
+
+  @override
+  Widget build(BuildContext context, WidgetRef ref) {
+    final theme = Theme.of(context);
+    final muted = theme.colorScheme.onSurfaceVariant;
+    final async = ref.watch(contactActivityProvider(contactId));
+    return _Card(
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Row(
+            children: [
+              const Icon(Icons.history_rounded,
+                  size: 16, color: AppColors.primary),
+              const SizedBox(width: 6),
+              const Text('History',
+                  style: TextStyle(fontWeight: FontWeight.w700, fontSize: 13)),
+            ],
+          ),
+          const SizedBox(height: AppSpacing.md),
+          async.when(
+            loading: () => const Padding(
+              padding: EdgeInsets.symmetric(vertical: 12),
+              child: Center(
+                  child: SizedBox(
+                      width: 18,
+                      height: 18,
+                      child: CircularProgressIndicator(strokeWidth: 2))),
+            ),
+            error: (_, _) => Text('Could not load history',
+                style: theme.textTheme.bodySmall?.copyWith(color: muted)),
+            data: (events) {
+              if (events.isEmpty) {
+                return Text('No changes yet.',
+                    style: theme.textTheme.bodySmall?.copyWith(color: muted));
+              }
+              return Column(
+                children: [
+                  for (var i = 0; i < events.length; i++)
+                    _HistoryRow(
+                      event: events[i],
+                      isLast: i == events.length - 1,
+                    ),
+                ],
+              );
+            },
+          ),
+        ],
+      ),
+    );
+  }
+}
+
+class _HistoryRow extends StatelessWidget {
+  const _HistoryRow({required this.event, required this.isLast});
+  final ContactActivity event;
+  final bool isLast;
+
+  @override
+  Widget build(BuildContext context) {
+    final theme = Theme.of(context);
+    final muted = theme.colorScheme.onSurfaceVariant;
+    final when = event.createdAt != null
+        ? '${formatDayLabel(event.createdAt!)} ${formatBubbleTime(event.createdAt!)}'
+        : '';
+    final actor =
+        (event.actorName != null && event.actorName!.isNotEmpty) ? event.actorName! : '';
+    return IntrinsicHeight(
+      child: Row(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Column(
+            children: [
+              Container(
+                margin: const EdgeInsets.only(top: 3),
+                width: 8,
+                height: 8,
+                decoration: const BoxDecoration(
+                    color: AppColors.primary, shape: BoxShape.circle),
+              ),
+              if (!isLast)
+                Expanded(
+                  child: Container(width: 1, color: theme.dividerColor),
+                ),
+            ],
+          ),
+          const SizedBox(width: 10),
+          Expanded(
+            child: Padding(
+              padding: EdgeInsets.only(bottom: isLast ? 0 : 12),
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Text(event.label,
+                      style: const TextStyle(
+                          fontSize: 13, fontWeight: FontWeight.w500)),
+                  const SizedBox(height: 2),
+                  Text(
+                    [when, actor].where((s) => s.isNotEmpty).join('  ·  '),
+                    style: theme.textTheme.bodySmall
+                        ?.copyWith(color: muted, fontSize: 11),
+                  ),
+                ],
+              ),
+            ),
           ),
         ],
       ),

@@ -204,6 +204,7 @@ func main() {
 
 	mux.HandleFunc("GET /api/export/campaigns", s.requireAuth(s.handleExportCampaigns))
 	mux.HandleFunc("GET /api/export/chats", s.requireAuth(s.handleExportChats))
+	mux.HandleFunc("GET /api/export/team", s.requireAuth(s.gate("manage_team", s.handleExportTeam)))
 	mux.HandleFunc("POST /api/conversations/{id}/assign", s.requireAuth(s.handleAssign))
 	mux.HandleFunc("POST /api/conversations/{id}/snooze", s.requireAuth(s.handleSnooze))
 	mux.HandleFunc("GET /api/notifications", s.requireAuth(s.handleListNotifications))

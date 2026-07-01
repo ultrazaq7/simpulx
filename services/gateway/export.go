@@ -59,6 +59,60 @@ func (s *server) handleExportCampaigns(w http.ResponseWriter, r *http.Request) {
 	cw.Flush()
 }
 
+// ── GET /api/export/team ─────────────────────────────────────
+// Full team roster in the SmartKonek teams-export shape (teams-*.csv). Columns
+// with no source in our schema (phone, created/updated by, SSO-only, external
+// ref) are emitted empty rather than dropped, so the file stays drop-in.
+func (s *server) handleExportTeam(w http.ResponseWriter, r *http.Request) {
+	a, _ := authFrom(r.Context())
+
+	tz := "Asia/Jakarta"
+	_ = s.pool.QueryRow(r.Context(),
+		`SELECT COALESCE(NULLIF(settings->>'timezone',''),'Asia/Jakarta') FROM organizations WHERE id=$1`, a.OrgID).Scan(&tz)
+
+	rows, err := s.queryMaps(r.Context(),
+		`SELECT u.full_name AS name, u.email,
+		        '' AS phone, '' AS created_by, '' AS updated_by,
+		        initcap(u.role) AS role,
+		        to_char(u.created_at AT TIME ZONE $2, 'MM/DD/YYYY HH24:MI:SS') AS created_at,
+		        to_char(u.updated_at AT TIME ZONE $2, 'MM/DD/YYYY HH24:MI:SS') AS updated_at,
+		        CASE WHEN u.is_deleted OR u.is_inactive THEN 'false' ELSE 'true' END AS active_status,
+		        COALESCE(to_char(u.last_seen_at AT TIME ZONE $2, 'MM/DD/YYYY HH24:MI:SS'), '') AS last_active,
+		        'false' AS sso_only, '' AS external_ref
+		   FROM users u
+		  WHERE u.organization_id=$1 AND u.is_deleted = false
+		  ORDER BY u.created_at DESC`,
+		a.OrgID, tz,
+	)
+	if err != nil {
+		http.Error(w, err.Error(), http.StatusInternalServerError)
+		return
+	}
+
+	w.Header().Set("Content-Type", "text/csv; charset=utf-8")
+	w.Header().Set("Content-Disposition", "attachment; filename=\"team_export.csv\"")
+	_, _ = w.Write([]byte("\xEF\xBB\xBF")) // UTF-8 BOM for Excel
+
+	cw := csv.NewWriter(w)
+	_ = cw.Write([]string{
+		"Name", "Email", "Phone Number", "Created By", "Updated By", "Role",
+		"Created At", "Updated At", "Active Status", "Last Active",
+		"Allow user to sso login only", "External Reference Id",
+	})
+	keys := []string{"name", "email", "phone", "created_by", "updated_by", "role",
+		"created_at", "updated_at", "active_status", "last_active", "sso_only", "external_ref"}
+	for _, row := range rows {
+		rec := make([]string, len(keys))
+		for i, k := range keys {
+			if v := row[k]; v != nil {
+				rec[i] = fmt.Sprintf("%v", v)
+			}
+		}
+		_ = cw.Write(rec)
+	}
+	cw.Flush()
+}
+
 // ── GET /api/export/chats ────────────────────────────────────
 func (s *server) handleExportChats(w http.ResponseWriter, r *http.Request) {
 	a, _ := authFrom(r.Context())

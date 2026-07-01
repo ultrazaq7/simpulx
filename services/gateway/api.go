@@ -824,14 +824,16 @@ func (s *server) handleAnalytics(w http.ResponseWriter, r *http.Request) {
 		campFilter = fmt.Sprintf(" AND campaign_id = ANY($%d)", len(args))
 	}
 
+	mgrIdx := 0 // param index of the manager's user id (for scoping the roster)
 	if a.Role == "agent" {
 		args = append(args, a.UserID)
 		campFilterCv += fmt.Sprintf(" AND cv.assigned_agent_id = $%d", len(args))
 		campFilter += fmt.Sprintf(" AND assigned_agent_id = $%d", len(args))
 	} else if a.Role == "manager" {
 		args = append(args, a.UserID)
-		campFilterCv += " AND " + managerScope("cv", len(args))
-		campFilter += " AND " + managerScope("", len(args))
+		mgrIdx = len(args)
+		campFilterCv += " AND " + managerScope("cv", mgrIdx)
+		campFilter += " AND " + managerScope("", mgrIdx)
 	}
 	if ch := r.URL.Query().Get("channel_id"); ch != "" {
 		args = append(args, strings.Split(ch, ","))
@@ -877,7 +879,7 @@ func (s *server) handleAnalytics(w http.ResponseWriter, r *http.Request) {
 		        count(*) FILTER (WHERE cv.interest_level='cold') AS cold,
 		        count(*) FILTER (WHERE cv.interest_level IS NULL) AS unknown,
 		        count(*) FILTER (WHERE st.sort_order = (SELECT max(sort_order) FROM stages WHERE organization_id=$1)) AS won,
-		        count(*) FILTER (WHERE st.system_key LIKE 'lost%%' OR d.category='lost') AS lost,
+		        count(*) FILTER (WHERE (st.system_key LIKE 'lost%%' OR d.category='lost') AND COALESCE(d.category,'') <> 'spam') AS lost,
 		        COALESCE(sum(cv.followup_count), 0)::int AS followups,
 		        COALESCE(sum(cv.call_attempts), 0)::int AS call_attempts,
 		        COALESCE(sum(cv.total_call_duration), 0)::int AS call_duration_sec
@@ -894,9 +896,10 @@ func (s *server) handleAnalytics(w http.ResponseWriter, r *http.Request) {
 	// count there like any other stage. Order keeps Lost last in the list.
 	stages, _ := s.queryMaps(ctx,
 		fmt.Sprintf(`SELECT s.name, s.system_key, s.sort_order,
-		        count(cv.id) AS count
+		        count(cv.id) FILTER (WHERE COALESCE(d.category,'') <> 'spam') AS count
 		   FROM stages s
 		   LEFT JOIN conversations cv ON cv.stage_id = s.id%s
+		   LEFT JOIN dispositions d ON d.id = cv.disposition_id
 		  WHERE s.organization_id=$1
 		  GROUP BY s.id
 		  ORDER BY (s.system_key LIKE 'lost%%'), s.sort_order, s.name`, campFilterCv), args...)
@@ -938,6 +941,15 @@ func (s *server) handleAnalytics(w http.ResponseWriter, r *http.Request) {
 	// First-response time = first AGENT outbound after the first customer inbound
 	// (bot messages excluded so the number reflects the human agent's speed).
 	// won = disposition category 'won'. replied = the agent responded.
+	// Managers only see the roster of their own campaigns/branches (same scope as
+	// GET /api/agents); leads outside their scope must not leak into the pipeline.
+	agentScope := ""
+	if a.Role == "manager" && mgrIdx > 0 {
+		agentScope = fmt.Sprintf(` AND u.id IN (
+		    SELECT user_id FROM campaign_agents WHERE campaign_id IN (SELECT campaign_id FROM campaign_agents WHERE user_id = $%d)
+		    UNION
+		    SELECT user_id FROM branch_agents WHERE branch_id IN (SELECT branch_id FROM branch_agents WHERE user_id = $%d))`, mgrIdx, mgrIdx)
+	}
 	agents, _ := s.queryMaps(ctx,
 		fmt.Sprintf(`WITH fr AS (
 		   SELECT conversation_id, min(created_at) AS t_c FROM messages
@@ -974,17 +986,20 @@ func (s *server) handleAnalytics(w http.ResponseWriter, r *http.Request) {
 		        count(cv.id) FILTER (WHERE st.system_key='qualified') AS qualified,
 		        count(cv.id) FILTER (WHERE st.system_key='appointment') AS appointment,
 		        count(cv.id) FILTER (WHERE st.system_key='test_drive') AS negotiation,
-		        count(cv.id) FILTER (WHERE st.system_key='booking') AS purchase
+		        count(cv.id) FILTER (WHERE st.system_key='booking') AS purchase,
+		        count(cv.id) FILTER (WHERE (st.system_key LIKE 'lost%%' OR d.category='lost') AND COALESCE(d.category,'')<>'spam') AS lost
 		   FROM users u
 		   LEFT JOIN conversations cv ON cv.assigned_agent_id=u.id AND cv.organization_id=$1%s
 		   LEFT JOIN stages st ON st.id=cv.stage_id
+		   LEFT JOIN dispositions d ON d.id=cv.disposition_id
 		   LEFT JOIN campaign_branches b ON b.id=cv.branch_id
 		   LEFT JOIN campaigns cmp ON cmp.id=cv.campaign_id
 		   LEFT JOIN rt ON rt.conversation_id=cv.id
 		   LEFT JOIN ar ON ar.conversation_id=cv.id
-		  WHERE u.organization_id=$1 AND u.role IN ('agent','admin','manager')
+		  WHERE u.organization_id=$1 AND u.role IN ('agent','admin','manager')%s
 		  GROUP BY u.id, u.full_name, COALESCE(b.name, cmp.name, 'Unassigned')
-		  ORDER BY leads DESC`, campFilterCv), args...)
+		  HAVING (u.role = 'agent' OR count(DISTINCT cv.contact_id) > 0)
+		  ORDER BY leads DESC`, campFilterCv, agentScope), args...)
 
 	// Per-day: new leads vs how many got an AGENT reply.
 	// All days (one point per active day). The admin view trims to the last 7 in
@@ -1023,18 +1038,23 @@ func (s *server) handleAnalytics(w http.ResponseWriter, r *http.Request) {
 		        count(*) FILTER (WHERE rt_min >= 1440)                   AS d_gt24h
 		   FROM rt`, campFilterCv), args...)
 
+	// Spam / junk leads: bucketed separately from genuine 'lost' so they never
+	// inflate the loss rate (the spam disposition uses category='spam').
 	var junk int64
 	_ = s.pool.QueryRow(ctx,
 		fmt.Sprintf(`SELECT count(*) FROM conversations cv JOIN dispositions d ON d.id=cv.disposition_id
-		  WHERE cv.organization_id=$1%s AND d.system_key='off_topic'`, campFilterCv), args...).Scan(&junk)
+		  WHERE cv.organization_id=$1%s AND (d.category='spam' OR d.system_key='off_topic')`, campFilterCv), args...).Scan(&junk)
 
 	// Why leads were lost (drives the lost-analysis breakdown + ad attribution).
+	// Spam is excluded here too so "Spam" never shows up as a lost reason.
 	lostReasons, _ := s.queryMaps(ctx,
 		fmt.Sprintf(`SELECT cv.lost_reason AS reason, count(*) AS count
 		   FROM conversations cv
 		   LEFT JOIN stages st ON st.id = cv.stage_id
+		   LEFT JOIN dispositions d ON d.id = cv.disposition_id
 		  WHERE cv.organization_id=$1%s AND cv.lost_reason IS NOT NULL AND cv.lost_reason <> ''
 		    AND st.system_key LIKE 'lost%%'
+		    AND COALESCE(d.category,'') <> 'spam'
 		  GROUP BY 1 ORDER BY 2 DESC LIMIT 8`, campFilter), args...)
 
 	// A secondary query failing must not take down the whole dashboard. Log it and
@@ -1582,6 +1602,7 @@ func (s *server) handleListContacts(w http.ResponseWriter, r *http.Request) {
 		        COALESCE(ct.tags, '{}') AS tags,
 		        lc.interest_level, lc.stage_id::text AS stage_id, ls.name AS stage_name, lc.last_message_at, lc.ai_summary,
 		        lc.lead_score, lc.lost_reason,
+		        lc.car_brand, lc.car_model, lc.city, lc.purchase_timeframe,
 		        lc.assigned_agent_id::text AS assigned_agent_id, lu.full_name AS agent_name,
 		        lc.campaign_id::text AS campaign_id, lcmp.name AS campaign_name,
 		        lc.conversation_id::text AS conversation_id, lch.name AS channel_name,
@@ -1589,7 +1610,8 @@ func (s *server) handleListContacts(w http.ResponseWriter, r *http.Request) {
 		   FROM contacts ct
 		   LEFT JOIN LATERAL (
 		     SELECT id AS conversation_id, interest_level, stage_id, last_message_at, ai_reason AS ai_summary,
-		            lead_score, lost_reason, assigned_agent_id, campaign_id, channel_id, branch_id
+		            lead_score, lost_reason, car_brand, car_model, city, purchase_timeframe,
+		            assigned_agent_id, campaign_id, channel_id, branch_id
 		       FROM conversations WHERE contact_id=ct.id
 		      ORDER BY last_message_at DESC NULLS LAST LIMIT 1
 		   ) lc ON true

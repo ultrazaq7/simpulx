@@ -493,26 +493,18 @@ class _CampaignChip extends StatelessWidget {
         color: const Color(0xFF6366F1).withValues(alpha: 0.08),
         borderRadius: BorderRadius.circular(999),
       ),
-      child: Row(
-        mainAxisSize: MainAxisSize.min,
-        children: [
-          const Icon(Icons.campaign_rounded,
-              size: 12, color: Color(0xFF6366F1)),
-          const SizedBox(width: 3),
-          ConstrainedBox(
-            constraints: const BoxConstraints(maxWidth: 100),
-            child: Text(
-              name,
-              maxLines: 1,
-              overflow: TextOverflow.ellipsis,
-              style: const TextStyle(
-                fontSize: 10.5,
-                color: Color(0xFF6366F1),
-                fontWeight: FontWeight.w600,
-              ),
-            ),
+      child: ConstrainedBox(
+        constraints: const BoxConstraints(maxWidth: 120),
+        child: Text(
+          name,
+          maxLines: 1,
+          overflow: TextOverflow.ellipsis,
+          style: const TextStyle(
+            fontSize: 10.5,
+            color: Color(0xFF6366F1),
+            fontWeight: FontWeight.w600,
           ),
-        ],
+        ),
       ),
     );
   }

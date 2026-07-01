@@ -3,12 +3,11 @@ import { useEffect, useState, useMemo, useRef, useCallback } from "react";
 import Link from "next/link";
 import {
   AreaChart, Area, XAxis, YAxis, CartesianGrid, Tooltip as RechartsTooltip,
-  Legend, ResponsiveContainer, ComposedChart, Bar, Line, PieChart, Pie, Cell,
+  Legend, ResponsiveContainer, LineChart, Line, PieChart, Pie, Cell,
 } from "recharts";
 import {
   BarChart3, MessageSquare, Inbox, Flame, Timer,
-  TrendingDown, ChevronRight, Zap, Mail, Reply, Trophy,
-  Clock, ArrowRight, CheckCircle2, Activity, Users, Radio, Ban,
+  TrendingDown, ChevronRight, Zap, Mail, Reply, Trophy, Ban,
   CircleDollarSign, MousePointerClick, Megaphone, Target, Eye, Filter as FilterIcon,
   Image as ImageIcon, MapPin,
 } from "lucide-react";
@@ -19,8 +18,8 @@ import { MultiSelect } from "@/components/ui/multi-select";
 import { IndonesiaMap } from "@/components/IndonesiaMap";
 import { Tip } from "@/components/ui/tooltip";
 import { lostReasonLabel } from "@/app/(app)/inbox/components/LostReasonDialog";
-import type { Stats, Analytics, DashboardCards, Conversation, AdPerformance, AdBreakdown, Channel, Campaign, Agent } from "@/lib/types";
-import { cn, initials, fmtDuration } from "@/lib/utils";
+import type { Stats, Analytics, DashboardCards, AdPerformance, AdBreakdown, Channel, Campaign, Agent } from "@/lib/types";
+import { cn, fmtDuration } from "@/lib/utils";
 
 type Metric = {
   key: string; label: string; Icon: any; color: string;
@@ -183,6 +182,36 @@ function OverviewChart({ data }: { data: { date: string; leads: number; replied:
           activeDot={{ r: 5, fill: "#0284C7", stroke: "#fff", strokeWidth: 2 }} />
       </AreaChart>
     </ResponsiveContainer>
+  );
+}
+
+// Single-axis daily line chart: plots N series on ONE left Y scale (no dual
+// axis), so the lines share a scale instead of two confusing axes.
+function TimelineChart({ title, subtitle, data, series }: {
+  title: string; subtitle: string;
+  data: Record<string, number | string>[];
+  series: { key: string; name: string; color: string }[];
+}) {
+  return (
+    <Card title={title} subtitle={subtitle}>
+      <div className="px-4 py-4">
+        {data.length === 0 ? <div className="h-[260px] grid place-items-center text-sm text-muted-foreground">No daily data</div> : (
+          <ResponsiveContainer width="100%" height={260}>
+            <LineChart data={data} margin={{ top: 12, right: 12, left: -12, bottom: 0 }}>
+              <CartesianGrid strokeDasharray="4 4" stroke="rgba(0,0,0,0.05)" vertical={false} />
+              <XAxis dataKey="date" tick={{ fontSize: 11, fill: "#9CA3AF" }} axisLine={false} tickLine={false} minTickGap={16} padding={{ left: 20, right: 20 }} />
+              <YAxis tick={{ fontSize: 11, fill: "#9CA3AF" }} axisLine={false} tickLine={false} width={44} allowDecimals={false} />
+              <RechartsTooltip content={<CustomTooltip />} cursor={{ stroke: "rgba(0,0,0,0.08)" }} />
+              <Legend wrapperStyle={{ fontSize: 11, paddingTop: 6 }} iconType="circle" iconSize={8} />
+              {series.map((s) => (
+                <Line key={s.key} type="monotone" dataKey={s.key} name={s.name} stroke={s.color} strokeWidth={2.5}
+                  dot={{ r: 3, fill: s.color, strokeWidth: 0 }} activeDot={{ r: 5, stroke: "#fff", strokeWidth: 2 }} />
+              ))}
+            </LineChart>
+          </ResponsiveContainer>
+        )}
+      </div>
+    </Card>
   );
 }
 
@@ -423,199 +452,7 @@ function AgentDashboard() {
 export default function DashboardPage() {
   const role = getUser()?.role;
   if (role === "agent") return <AgentDashboard />;
-  return <ManagerHome />;
-}
-
-// â”€â”€ Manager home: Live ops (Control Tower) âŸ· Reports (deep analytics) â”€â”€
-function ManagerHome() {
-  const [view, setView] = useState<"live" | "reports">("live");
-  return (
-    <div>
-      <div className="px-4 pt-4">
-        <div className="inline-flex p-0.5 rounded-md bg-muted border border-border">
-          {(["live", "reports"] as const).map((v) => (
-            <button
-              key={v}
-              onClick={() => setView(v)}
-              className={cn(
-                "inline-flex items-center gap-1.5 px-3 h-7 rounded text-[12.5px] font-semibold transition-colors outline-none",
-                view === v ? "bg-card text-foreground shadow-xs" : "text-muted-foreground hover:text-foreground",
-              )}
-            >
-              {v === "live" ? <><Radio className="w-3.5 h-3.5" /> Live ops</> : <><BarChart3 className="w-3.5 h-3.5" /> Reports</>}
-            </button>
-          ))}
-        </div>
-      </div>
-      {view === "live" ? <ManagerControlTower /> : <ManagerDashboard />}
-    </div>
-  );
-}
-
-const SLA_BREACH_MIN = 15;
-
-function StatusCell({ label, value, tone, hint }: {
-  label: string; value: React.ReactNode; tone: "good" | "warn" | "bad" | "idle"; hint?: string;
-}) {
-  const dot = tone === "bad" ? "bg-red-500" : tone === "warn" ? "bg-amber-500" : tone === "good" ? "bg-success" : "bg-muted-foreground/40";
-  const txt = tone === "bad" ? "text-red-500" : tone === "warn" ? "text-amber-600" : "text-foreground";
-  return (
-    <div className="flex-1 min-w-[140px] px-4 py-3.5 flex flex-col gap-1.5">
-      <div className="flex items-center gap-1.5">
-        <span className={cn("w-1.5 h-1.5 rounded-full", dot, tone === "bad" && "animate-pulse")} />
-        <span className="text-[10px] font-bold uppercase tracking-wider text-muted-foreground truncate">{label}</span>
-      </div>
-      <span className={cn("text-[24px] font-extrabold leading-none tabular-nums", txt)}>{value}</span>
-      <span className="text-[11px] text-muted-foreground h-3.5">{hint || ""}</span>
-    </div>
-  );
-}
-
-function AlertRow({ tone, icon: Icon, text, sub, href }: {
-  tone: "red" | "amber" | "blue"; icon: any; text: string; sub?: string; href?: string;
-}) {
-  const tones: Record<string, string> = { red: "bg-red-50 text-red-600", amber: "bg-amber-50 text-amber-700", blue: "bg-blue-50 text-blue-700" };
-  const inner = (
-    <>
-      <div className={cn("w-8 h-8 rounded-md grid place-items-center shrink-0", tones[tone])}><Icon className="w-4 h-4" /></div>
-      <div className="flex-1 min-w-0">
-        <p className="text-[13px] font-semibold text-foreground">{text}</p>
-        {sub && <p className="text-[11px] text-muted-foreground">{sub}</p>}
-      </div>
-      {href && <ArrowRight className="w-4 h-4 text-muted-foreground/50 group-hover:text-primary group-hover:translate-x-0.5 transition-all" />}
-    </>
-  );
-  return href
-    ? <Link href={href} className="group flex items-center gap-3 px-4 py-2.5 border-b border-border/50 last:border-0 hover:bg-muted/60 transition-colors">{inner}</Link>
-    : <div className="flex items-center gap-3 px-4 py-2.5 border-b border-border/50 last:border-0">{inner}</div>;
-}
-
-function ManagerControlTower() {
-  const [analytics, setAnalytics] = useState<Analytics | null>(null);
-  const [convs, setConvs] = useState<Conversation[] | null>(null);
-
-  const reload = useCallback(() => {
-    api.getAnalytics().then(setAnalytics).catch((e) => console.error('[tower-analytics]', e));
-    api.listConversations().then((c) => setConvs(c || [])).catch(() => setConvs([]));
-  }, []);
-
-  useEffect(() => { reload(); }, [reload]);
-
-  // Auto-refresh on WebSocket events (debounced to avoid hammering)
-  useEffect(() => {
-    let timer: NodeJS.Timeout;
-    const handler = () => { clearTimeout(timer); timer = setTimeout(reload, 3000); };
-    window.addEventListener("ws_message", handler);
-    return () => { window.removeEventListener("ws_message", handler); clearTimeout(timer); };
-  }, [reload]);
-
-  const list = convs || [];
-  const waitMin = (c: Conversation) => c.last_message_at ? (Date.now() - new Date(c.last_message_at).getTime()) / 60000 : 0;
-  const isWaiting = (c: Conversation) => c.status !== "closed" && (c.unread_count > 0 || c.last_message_direction === "contact");
-
-  const open = list.filter((c) => c.status !== "closed");
-  const waiting = open.filter(isWaiting);
-  const unassigned = open.filter((c) => !c.assigned_agent_id);
-  const hotWaiting = waiting.filter((c) => c.interest_level === "hot");
-  const unassignedHot = unassigned.filter((c) => c.interest_level === "hot");
-  const breaching = waiting.filter((c) => waitMin(c) > SLA_BREACH_MIN);
-  const longest = waiting.reduce((mx, c) => Math.max(mx, waitMin(c)), 0);
-  const hotOldest = unassignedHot.reduce((mx, c) => Math.max(mx, waitMin(c)), 0);
-
-  const agents = analytics?.agents || [];
-  // live load per agent (by name) from open conversations
-  const load = new Map<string, { open: number; waiting: number; oldest: number }>();
-  for (const c of open) {
-    const name = c.agent_name;
-    if (!name) continue;
-    const e = load.get(name) || { open: 0, waiting: 0, oldest: 0 };
-    e.open++;
-    if (isWaiting(c)) { e.waiting++; e.oldest = Math.max(e.oldest, waitMin(c)); }
-    load.set(name, e);
-  }
-  const maxOpen = Math.max(1, ...Array.from(load.values()).map((v) => v.open));
-  const agentsActive = agents.filter((a) => a.leads > 0).length || load.size;
-
-  // Build the attention stream (problems first, with one-tap intervention)
-  const alerts: { key: string; tone: "red" | "amber" | "blue"; icon: any; text: string; sub?: string; href?: string }[] = [];
-  if (unassignedHot.length) alerts.push({ key: "uh", tone: "red", icon: Flame, text: `${unassignedHot.length} hot lead${unassignedHot.length === 1 ? "" : "s"} unassigned`, sub: `oldest ${fmtDuration(hotOldest)} - assign now`, href: "/inbox?interest=hot" });
-  if (breaching.length) alerts.push({ key: "br", tone: "amber", icon: Clock, text: `${breaching.length} lead${breaching.length === 1 ? "" : "s"} past the ${SLA_BREACH_MIN}m SLA`, sub: `longest wait ${fmtDuration(longest)}`, href: "/inbox?unread=1" });
-  if (unassigned.length) alerts.push({ key: "un", tone: "blue", icon: Inbox, text: `${unassigned.length} unassigned in the queue`, sub: "needs an owner", href: "/inbox" });
-  for (const [name, v] of Array.from(load.entries()).sort((a, b) => b[1].waiting - a[1].waiting)) {
-    if (v.waiting >= 3) alerts.push({ key: "ag" + name, tone: "amber", icon: Activity, text: `${name} is stacking up`, sub: `${v.waiting} waiting, ${v.open} open, oldest ${fmtDuration(v.oldest)}` });
-  }
-
-  const loading = convs === null;
-
-  return (
-    <div className="p-4 space-y-4">
-      {/* â”€â”€ Status band (mission control) â”€â”€ */}
-      <div className="flex flex-wrap bg-card rounded-lg border border-border shadow-xs overflow-hidden divide-x divide-border">
-        <StatusCell label="Open queue" tone="idle" value={loading ? "-" : open.length} hint={`${waiting.length} awaiting reply`} />
-        <StatusCell label="Unassigned" tone={unassigned.length ? "warn" : "good"} value={loading ? "-" : unassigned.length} hint={unassigned.length ? "needs owner" : "all owned"} />
-        <StatusCell label="Longest wait" tone={longest > SLA_BREACH_MIN ? "bad" : longest > 0 ? "warn" : "good"} value={loading ? "-" : fmtDuration(longest)} hint={`SLA ${SLA_BREACH_MIN}m`} />
-        <StatusCell label="SLA breaching" tone={breaching.length ? "bad" : "good"} value={loading ? "-" : breaching.length} hint={breaching.length ? "act now" : "on track"} />
-        <StatusCell label="Hot waiting" tone={hotWaiting.length ? "bad" : "good"} value={loading ? "-" : hotWaiting.length} hint="high intent" />
-        <StatusCell label="Agents active" tone={agentsActive ? "good" : "idle"} value={loading ? "-" : agentsActive} hint="on the floor" />
-      </div>
-
-      <div className="grid grid-cols-1 lg:grid-cols-5 gap-4">
-        {/* â”€â”€ Needs attention (the spine) â”€â”€ */}
-        <Card title="Needs attention" subtitle="Act on these first" icon={Radio} iconColor="hsl(var(--primary))" className="lg:col-span-3">
-          {loading ? (
-            <div className="p-4 space-y-2">{[0, 1, 2].map((i) => <div key={i} className="skeleton h-12 rounded-md" />)}</div>
-          ) : alerts.length === 0 ? (
-            <div className="flex items-center gap-2.5 px-4 py-3">
-              <span className="w-7 h-7 rounded-lg bg-success/10 grid place-items-center shrink-0"><CheckCircle2 className="w-4 h-4 text-success" /></span>
-              <div className="min-w-0">
-                <p className="text-[13px] font-semibold text-foreground leading-tight">All lanes clear</p>
-                <p className="text-[11px] text-muted-foreground">No unassigned, breaching, or stacked queues</p>
-              </div>
-            </div>
-          ) : (
-            <div>{alerts.map((a) => <AlertRow key={a.key} tone={a.tone} icon={a.icon} text={a.text} sub={a.sub} href={a.href} />)}</div>
-          )}
-        </Card>
-
-        {/* â”€â”€ Floor: live agent load â”€â”€ */}
-        <Card title="Floor" subtitle="Live agent load" icon={Users} iconColor="hsl(var(--primary))" className="lg:col-span-2">
-          {agents.length === 0 && load.size === 0 ? (
-            <div className="py-12 text-center text-sm text-muted-foreground">No active agents</div>
-          ) : (
-            <div className="py-1">
-              {(agents.length ? Array.from(agents.reduce((m, a) => { const e = m.get(a.agent) || { name: a.agent, won: 0, within5: 0 }; e.won += a.won; e.within5 = Math.max(e.within5, a.within_5_pct); return m.set(a.agent, e); }, new Map<string, { name: string; won: number; within5: number }>()).values()) : Array.from(load.keys()).map((name) => ({ name, won: 0, within5: 0 })))
-                .map((a) => {
-                  const lv = load.get(a.name) || { open: 0, waiting: 0, oldest: 0 };
-                  const pct5 = a.within5 <= 1 ? Math.round(a.within5 * 100) : Math.round(a.within5);
-                  const barColor = lv.waiting >= 3 ? "#EF4444" : lv.waiting > 0 ? "#F59E0B" : "#2D8B73";
-                  return (
-                    <div key={a.name} className="flex items-center gap-2.5 px-4 py-2 border-b border-border/40 last:border-0">
-                      <div className="w-7 h-7 rounded-full bg-brand-gradient text-white grid place-items-center text-[10px] font-bold shrink-0">{initials(a.name)}</div>
-                      <span className="w-24 truncate text-[12.5px] font-semibold text-foreground">{a.name}</span>
-                      <div className="flex-1 flex items-center gap-2">
-                        <div className="flex-1"><ProgressBar value={(lv.open / maxOpen) * 100} color={barColor} height={6} /></div>
-                        <span className="text-[12px] font-bold tabular-nums w-5 text-right text-foreground">{lv.open}</span>
-                      </div>
-                      {lv.waiting > 0
-                        ? <span className="text-[10px] font-bold text-amber-700 bg-amber-50 rounded px-1.5 py-0.5 tabular-nums shrink-0">{lv.waiting}{"·"}{fmtDuration(lv.oldest)}</span>
-                        : <span className="text-[10px] font-semibold text-muted-foreground w-12 text-center shrink-0">clear</span>}
-                    </div>
-                  );
-                })}
-            </div>
-          )}
-        </Card>
-      </div>
-
-      {/* â”€â”€ Pulse (secondary): funnel + 7-day â”€â”€ */}
-      <div className="grid grid-cols-1 lg:grid-cols-3 gap-4">
-        <Card title="Lead funnel" subtitle="Reached each stage" className="lg:col-span-1"><LeadFunnel stages={analytics?.funnel_stages} /></Card>
-        <Card title="Activity" subtitle="Daily leads and replies" className="lg:col-span-2">
-          <div className="px-4 py-4"><OverviewChart data={buildChartData(analytics, true)} /></div>
-        </Card>
-      </div>
-    </div>
-  );
+  return <ManagerDashboard />;
 }
 
 function ManagerDashboard() {
@@ -674,24 +511,23 @@ function ManagerDashboard() {
 
   const funnel = analytics?.funnel;
   const agents = analytics?.agents || [];
-  const funnelMax = funnel ? Math.max(funnel.total, 1) : 1;
   const chartData = buildChartData(analytics, true); // all days; bounded by the date filter when applied
 
   return (
     <>
-      {/* Tabs */}
+      {/* View switch: Overview âŸ· Ads */}
       <div className="px-4 pt-4">
-        <div className="flex border-b border-border">
+        <div className="inline-flex p-0.5 rounded-md bg-muted border border-border">
           {(["overview", "marketing"] as const).map((t) => (
             <button
               key={t}
               onClick={() => setTab(t)}
               className={cn(
-                "px-4 py-2 text-[13.5px] font-semibold border-b-2 -mb-px transition-colors outline-none capitalize",
-                tab === t ? "border-primary text-primary" : "border-transparent text-muted-foreground hover:text-foreground",
+                "inline-flex items-center gap-1.5 px-3 h-7 rounded text-[12.5px] font-semibold transition-colors outline-none",
+                tab === t ? "bg-card text-foreground shadow-xs" : "text-muted-foreground hover:text-foreground",
               )}
             >
-              {t === "marketing" ? "Ads" : t}
+              {t === "overview" ? <><BarChart3 className="w-3.5 h-3.5" /> Overview</> : <><Megaphone className="w-3.5 h-3.5" /> Ads</>}
             </button>
           ))}
         </div>
@@ -799,7 +635,7 @@ function ManagerDashboard() {
           name: a.agent, branch: a.branch, leads: a.leads, total_chat: a.total_chat, replied: a.replied,
           avg_rt_min: a.avg_rt_min, avg_resp_min: a.avg_resp_min, within_5_pct: a.within_5_pct,
           call_attempts: a.call_attempts, call_duration_sec: a.call_duration_sec,
-          updated: a.updated, contacted: a.contacted, qualified: a.qualified, appointment: a.appointment, negotiation: a.negotiation, purchase: a.purchase,
+          updated: a.updated, contacted: a.contacted, qualified: a.qualified, appointment: a.appointment, negotiation: a.negotiation, purchase: a.purchase, lost: a.lost,
         }))} />
 
         {/* Lost Analysis */}
@@ -870,7 +706,7 @@ type PerfRow = {
   name: string; branch?: string; leads: number; total_chat: number; replied: number;
   avg_rt_min: number; avg_resp_min: number; within_5_pct: number;
   call_attempts: number; call_duration_sec: number;
-  updated: number; contacted: number; qualified: number; appointment: number; negotiation: number; purchase: number;
+  updated: number; contacted: number; qualified: number; appointment: number; negotiation: number; purchase: number; lost: number;
 };
 const TH2 = ({ children, right }: { children: React.ReactNode; right?: boolean }) =>
   <th className={cn("px-3 py-2.5 text-[11px] font-bold uppercase tracking-wider text-muted-foreground whitespace-nowrap", right ? "text-right" : "text-left")}>{children}</th>;
@@ -911,7 +747,7 @@ function PerfTables({ rows, label, showBranch }: { rows: PerfRow[]; label: strin
           <table className="w-full text-sm">
             <thead><tr className="border-b border-border bg-muted/40">
               <TH2>{label}</TH2>{showBranch && <TH2>Branch</TH2>}
-              <TH2 right>Leads</TH2><TH2 right>Updated</TH2><TH2 right>% Updated</TH2><TH2 right>Contacted</TH2><TH2 right>Qualified</TH2><TH2 right>Appointment</TH2><TH2 right>Negotiation</TH2><TH2 right>Purchase</TH2><TH2 right>% Purchase</TH2>
+              <TH2 right>Leads</TH2><TH2 right>Updated</TH2><TH2 right>% Updated</TH2><TH2 right>Contacted</TH2><TH2 right>Qualified</TH2><TH2 right>Appointment</TH2><TH2 right>Negotiation</TH2><TH2 right>Purchase</TH2><TH2 right>% Purchase</TH2><TH2 right>Lost</TH2>
             </tr></thead>
             <tbody>
               {rows.map((r, i) => (
@@ -927,6 +763,7 @@ function PerfTables({ rows, label, showBranch }: { rows: PerfRow[]; label: strin
                   <td className="px-3 py-2.5 text-right tabular-nums">{r.negotiation}</td>
                   <td className="px-3 py-2.5 text-right font-bold text-[#16A34A] tabular-nums">{r.purchase}</td>
                   <td className="px-3 py-2.5 text-right"><Badge label={pctOf(r.purchase, r.total_chat)} bg="#E8F5E9" text="#2E7D32" /></td>
+                  <td className={cn("px-3 py-2.5 text-right font-bold tabular-nums", r.lost > 0 ? "text-[#EF4444]" : "text-muted-foreground")}>{r.lost}</td>
                 </tr>
               ))}
             </tbody>
@@ -1177,53 +1014,36 @@ function MarketingAnalytics() {
         ))}
       </div>
 
-      <div className="grid grid-cols-1 lg:grid-cols-5 gap-4 mb-5">
-        {/* Marketing funnel */}
-        <Card title="Marketing funnel" subtitle="Impression to click to chat to conversion" className="lg:col-span-2">
-          <div className="p-4 space-y-2.5">
-            {funnel.map((s, i) => {
-              const pct = (s.value / fTop) * 100;
-              const rate = i === 0 ? null : (funnel[i - 1].value > 0 ? (s.value / funnel[i - 1].value) * 100 : 0);
-              return (
-                <div key={s.label}>
-                  <div className="flex items-center justify-between mb-1">
-                    <span className="flex items-center gap-1.5 text-[13px] font-medium text-foreground/90"><s.Icon className="w-3.5 h-3.5" style={{ color: s.color }} />{s.label}</span>
-                    <div className="flex items-center gap-2">
-                      {rate !== null && <span className="text-[11px] tabular-nums text-muted-foreground">{rate.toFixed(1)}%</span>}
-                      <span className="text-[13px] font-bold tabular-nums text-foreground min-w-[3rem] text-right">{fmtInt(s.value)}</span>
-                    </div>
+      {/* Marketing funnel */}
+      <Card title="Marketing funnel" subtitle="Impression to click to chat to conversion" className="mb-5">
+        <div className="p-4 space-y-2.5">
+          {funnel.map((s, i) => {
+            const pct = (s.value / fTop) * 100;
+            const rate = i === 0 ? null : (funnel[i - 1].value > 0 ? (s.value / funnel[i - 1].value) * 100 : 0);
+            return (
+              <div key={s.label}>
+                <div className="flex items-center justify-between mb-1">
+                  <span className="flex items-center gap-1.5 text-[13px] font-medium text-foreground/90"><s.Icon className="w-3.5 h-3.5" style={{ color: s.color }} />{s.label}</span>
+                  <div className="flex items-center gap-2">
+                    {rate !== null && <span className="text-[11px] tabular-nums text-muted-foreground">{rate.toFixed(1)}%</span>}
+                    <span className="text-[13px] font-bold tabular-nums text-foreground min-w-[3rem] text-right">{fmtInt(s.value)}</span>
                   </div>
-                  <div className="h-6 rounded-md bg-muted/50 overflow-hidden"><div className="h-full rounded-md transition-all duration-500" style={{ width: `${Math.max(pct, 3)}%`, backgroundColor: s.color }} /></div>
                 </div>
-              );
-            })}
-          </div>
-        </Card>
+                <div className="h-6 rounded-md bg-muted/50 overflow-hidden"><div className="h-full rounded-md transition-all duration-500" style={{ width: `${Math.max(pct, 3)}%`, backgroundColor: s.color }} /></div>
+              </div>
+            );
+          })}
+        </div>
+      </Card>
 
-        {/* Timeline: impressions/reach (lines) + link clicks/results (bars) */}
-        <Card title="Timeline" subtitle="Daily impressions, reach, clicks and leads" className="lg:col-span-3">
-          <div className="px-4 py-4">
-            {daily.length === 0 ? <div className="h-[260px] grid place-items-center text-sm text-muted-foreground">No daily data</div> : (
-              <ResponsiveContainer width="100%" height={260}>
-                <ComposedChart data={daily} margin={{ top: 12, right: 8, left: -12, bottom: 0 }} barGap={4}>
-                  <defs>
-                    <linearGradient id="tlImp" x1="0" y1="0" x2="0" y2="1"><stop offset="0%" stopColor="#2563EB" stopOpacity={0.18} /><stop offset="100%" stopColor="#2563EB" stopOpacity={0} /></linearGradient>
-                  </defs>
-                  <CartesianGrid strokeDasharray="4 4" stroke="rgba(0,0,0,0.05)" vertical={false} />
-                  <XAxis dataKey="date" tick={{ fontSize: 11, fill: "#9CA3AF" }} axisLine={false} tickLine={false} minTickGap={16} padding={{ left: 20, right: 20 }} />
-                  <YAxis yAxisId="left" tick={{ fontSize: 11, fill: "#9CA3AF" }} axisLine={false} tickLine={false} width={44} />
-                  <YAxis yAxisId="right" orientation="right" tick={{ fontSize: 11, fill: "#9CA3AF" }} axisLine={false} tickLine={false} width={30} allowDecimals={false} />
-                  <RechartsTooltip content={<CustomTooltip />} cursor={{ fill: "rgba(0,0,0,0.035)" }} />
-                  <Legend wrapperStyle={{ fontSize: 11, paddingTop: 6 }} iconType="circle" iconSize={8} />
-                  <Bar yAxisId="right" dataKey="clicks" name="Link clicks" fill="#F59E0B" radius={[4, 4, 0, 0]} maxBarSize={22} />
-                  <Bar yAxisId="right" dataKey="leads" name="Leads (chats)" fill="#2D8B73" radius={[4, 4, 0, 0]} maxBarSize={22} />
-                  <Area yAxisId="left" type="monotone" dataKey="impressions" name="Impressions" stroke="#2563EB" strokeWidth={2.5} fill="url(#tlImp)" dot={{ r: 3, fill: "#2563EB", strokeWidth: 0 }} activeDot={{ r: 5, stroke: "#fff", strokeWidth: 2 }} />
-                  <Line yAxisId="left" type="monotone" dataKey="reach" name="Reach" stroke="#10B981" strokeWidth={2.5} dot={{ r: 3, fill: "#10B981", strokeWidth: 0 }} activeDot={{ r: 5, stroke: "#fff", strokeWidth: 2 }} />
-                </ComposedChart>
-              </ResponsiveContainer>
-            )}
-          </div>
-        </Card>
+      {/* Timeline split in two: Awareness (impressions + reach) and Engagement
+          (link clicks + leads). Each is a single-axis line chart so the two
+          series share one scale instead of a confusing dual axis. */}
+      <div className="grid grid-cols-1 lg:grid-cols-2 gap-4 mb-5">
+        <TimelineChart title="Awareness" subtitle="Daily impressions and reach" data={daily}
+          series={[{ key: "impressions", name: "Impressions", color: "#2563EB" }, { key: "reach", name: "Reach", color: "#10B981" }]} />
+        <TimelineChart title="Engagement" subtitle="Daily link clicks and leads" data={daily}
+          series={[{ key: "clicks", name: "Link clicks", color: "#F59E0B" }, { key: "leads", name: "Leads (chats)", color: "#2D8B73" }]} />
       </div>
 
       {/* Demographic performance donuts */}

@@ -57,7 +57,7 @@ export default function ContactDetailsPage() {
   const [threads, setThreads] = useState<{ conv: Conversation; msgs: Message[] }[]>([]);
   const [notes, setNotes] = useState<InternalNote[]>([]);
   const [loading, setLoading] = useState(true);
-  const [tab, setTab] = useState<"conversation" | "notes" | "media">("conversation");
+  const [tab, setTab] = useState<"conversation" | "notes" | "media" | "history">("conversation");
   const [activity, setActivity] = useState<import("@/lib/types").ContactActivity[]>([]);
 
   useEffect(() => { if (id) api.getContactActivity(id).then(setActivity).catch(() => {}); }, [id]);
@@ -163,33 +163,12 @@ export default function ContactDetailsPage() {
             <Row icon={Mail} label="Email" value="-" />
             <Row icon={Radio} label="Channel" value={c.channel_name || c.source_channel || "-"} />
           </Section>
-
-          <Section title="History">
-            {activity.length === 0 ? (
-              <p className="text-[12.5px] text-muted-foreground px-0.5">No changes yet.</p>
-            ) : (
-              <div className="space-y-2.5">
-                {activity.map((ev, i) => (
-                  <div key={i} className="flex gap-2.5">
-                    <div className="flex flex-col items-center pt-0.5">
-                      <span className="w-2 h-2 rounded-full bg-primary shrink-0" />
-                      {i < activity.length - 1 && <span className="flex-1 w-px bg-border mt-1" />}
-                    </div>
-                    <div className="min-w-0 pb-0.5">
-                      <p className="text-[12.5px] text-foreground leading-snug">{activityLabel(ev)}</p>
-                      <p className="text-[11px] text-muted-foreground">{relTime(ev.created_at)}{ev.actor_name ? ` · ${ev.actor_name}` : ""}</p>
-                    </div>
-                  </div>
-                ))}
-              </div>
-            )}
-          </Section>
         </div>
 
         {/* ── Center: tabs ── */}
         <div className="flex flex-col min-h-0 bg-background">
           <div className="flex items-center gap-1 px-4 border-b border-border bg-card shrink-0">
-            {([["conversation", `Conversation (${allMessages.length})`], ["notes", `Notes (${notes.length})`], ["media", `Media (${media.length})`]] as const).map(([k, label]) => (
+            {([["conversation", `Conversation (${allMessages.length})`], ["notes", `Notes (${notes.length})`], ["media", `Media (${media.length})`], ["history", `History (${activity.length})`]] as const).map(([k, label]) => (
               <button key={k} onClick={() => setTab(k)}
                 className={cn("relative px-3 py-2.5 text-[13px] font-semibold outline-none transition-colors", tab === k ? "text-primary" : "text-muted-foreground hover:text-foreground")}>
                 {label}
@@ -241,7 +220,7 @@ export default function ContactDetailsPage() {
                   ))}
                 </div>
               )
-            ) : (
+            ) : tab === "media" ? (
               media.length === 0 ? <Empty icon={ImageIcon} text="No media shared yet." /> : (
                 <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 gap-3">
                   {media.map((m) => {
@@ -262,6 +241,23 @@ export default function ContactDetailsPage() {
                   })}
                 </div>
               )
+            ) : (
+              activity.length === 0 ? <Empty icon={Clock} text="No changes yet." /> : (
+                <div className="space-y-2.5 max-w-[760px]">
+                  {activity.map((ev, i) => (
+                    <div key={i} className="flex gap-3">
+                      <div className="flex flex-col items-center pt-0.5">
+                        <span className="w-2 h-2 rounded-full bg-primary shrink-0" />
+                        {i < activity.length - 1 && <span className="flex-1 w-px bg-border mt-1" />}
+                      </div>
+                      <div className="min-w-0 pb-1">
+                        <p className="text-[13px] text-foreground leading-snug">{activityLabel(ev)}</p>
+                        <p className="text-[11px] text-muted-foreground mt-0.5">{relTime(ev.created_at)}{ev.actor_name ? ` · ${ev.actor_name}` : ""}</p>
+                      </div>
+                    </div>
+                  ))}
+                </div>
+              )
             )}
           </div>
         </div>
@@ -276,6 +272,16 @@ export default function ContactDetailsPage() {
                 ))}
               </div>
             ) : <p className="text-[12.5px] text-muted-foreground">No labels</p>}
+          </Section>
+
+          <Section title="Lead qualification">
+            <Row icon={Radio} label="Stage" value={c.stage_name || "-"} />
+            {c.lost_reason && <Row icon={StickyNote} label="Lost reason" value={<span className="capitalize">{c.lost_reason.replace(/_/g, " ")}</span>} />}
+            <Row icon={Radio} label="Interest level" value={<span className="capitalize">{c.interest_level || "-"}</span>} />
+            <Row icon={TagIcon} label="Brand" value={c.car_brand || "-"} />
+            <Row icon={TagIcon} label="Model" value={c.car_model || "-"} />
+            <Row icon={TagIcon} label="City" value={c.city || "-"} />
+            <Row icon={Clock} label="Purchase time" value={c.purchase_timeframe || "-"} />
           </Section>
 
           <Section title="Assignment">

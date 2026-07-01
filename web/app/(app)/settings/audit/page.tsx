@@ -24,6 +24,7 @@ const RANGES = [
   { value: "90", label: "Last 90 days" },
 ];
 const PAGE = 50;
+const DL_PAGE = 8; // downloads list rows per page
 const ACTION_COLOR: Record<string, string> = { created: "#16A34A", deleted: "#DC2626", updated: "#2563EB", submitted: "#7C3AED", tested: "#0891B2", connected: "#16A34A", disconnected: "#DC2626" };
 
 const fmtDT = (iso?: string | null) => iso ? new Date(iso).toLocaleString(undefined, { day: "2-digit", month: "short", year: "numeric", hour: "2-digit", minute: "2-digit" }) : "-";
@@ -144,6 +145,9 @@ export default function SystemLogsPage() {
 
   const totalPages = Math.max(1, Math.ceil(total / PAGE));
   const auditPaged = audit.slice(page * PAGE, page * PAGE + PAGE);
+  // Downloads list is client-paginated (the API returns the recent 100 jobs).
+  const dlTotalPages = Math.max(1, Math.ceil(exports.length / DL_PAGE));
+  const exportsPaged = exports.slice(page * DL_PAGE, page * DL_PAGE + DL_PAGE);
   const showExportBtn = tab !== "downloads";
   const showRange = tab !== "system";
   const showConvFilters = tab === "messages" || tab === "conversations" || tab === "calls";
@@ -198,7 +202,10 @@ export default function SystemLogsPage() {
       <div className="bg-card border border-border rounded-lg shadow-xs overflow-hidden flex-1 min-h-0 flex flex-col">
         {tab === "downloads" ? (
           <div className="flex flex-col flex-1 min-h-0 p-5">
-            <p className="text-[13px] text-muted-foreground mb-3 shrink-0">Exports you request from each section&apos;s Export button land here. Files are generated in the background (the full dataset with your filters) and kept for 30 days.</p>
+            <div className="mb-3 shrink-0">
+              <p className="text-[14px] font-bold text-foreground">Downloads</p>
+              <p className="text-[13px] text-muted-foreground mt-0.5">Exports you request from each section&apos;s Export button land here. Files are generated in the background (the full dataset with your filters) and kept for 30 days.</p>
+            </div>
             <div className="rounded-lg border border-border overflow-auto flex-1 min-h-0">
               <table className="w-full text-sm">
                 <thead className="sticky top-0 z-10"><tr className="border-b border-border bg-muted">
@@ -209,7 +216,7 @@ export default function SystemLogsPage() {
                 <tbody>
                   {exports.length === 0 ? (
                     <tr><td colSpan={8} className="text-center py-12 text-muted-foreground">No exports yet. Use the Export button on any tab.</td></tr>
-                  ) : exports.map((e) => {
+                  ) : exportsPaged.map((e) => {
                     const chips = [e.campaign_name, e.channel_name, e.label].filter(Boolean) as string[];
                     return (
                       <tr key={e.id} className="border-b border-border/60 hover:bg-muted/40">
@@ -336,7 +343,7 @@ export default function SystemLogsPage() {
           </div>
         )}
 
-        {/* Pagination */}
+        {/* Pagination — log tabs */}
         {tab !== "downloads" && (
           <div className="flex items-center justify-between px-4 py-2.5 border-t border-border text-sm shrink-0">
             <span className="text-muted-foreground tabular-nums">{total} total</span>
@@ -344,6 +351,18 @@ export default function SystemLogsPage() {
               <span className="text-muted-foreground mx-2 tabular-nums">Page {page + 1} of {totalPages}</span>
               <button disabled={page <= 0} onClick={() => setPage(page - 1)} className="px-2.5 h-7 rounded-md border border-border text-xs font-semibold disabled:opacity-30 hover:bg-muted outline-none transition-colors">Prev</button>
               <button disabled={page >= totalPages - 1} onClick={() => setPage(page + 1)} className="px-2.5 h-7 rounded-md border border-border text-xs font-semibold disabled:opacity-30 hover:bg-muted outline-none transition-colors">Next</button>
+            </div>
+          </div>
+        )}
+
+        {/* Pagination — downloads list */}
+        {tab === "downloads" && exports.length > 0 && (
+          <div className="flex items-center justify-between px-4 py-2.5 border-t border-border text-sm shrink-0">
+            <span className="text-muted-foreground tabular-nums">{exports.length} total</span>
+            <div className="flex items-center gap-2">
+              <span className="text-muted-foreground mx-2 tabular-nums">Page {page + 1} of {dlTotalPages}</span>
+              <button disabled={page <= 0} onClick={() => setPage(page - 1)} className="px-2.5 h-7 rounded-md border border-border text-xs font-semibold disabled:opacity-30 hover:bg-muted outline-none transition-colors">Prev</button>
+              <button disabled={page >= dlTotalPages - 1} onClick={() => setPage(page + 1)} className="px-2.5 h-7 rounded-md border border-border text-xs font-semibold disabled:opacity-30 hover:bg-muted outline-none transition-colors">Next</button>
             </div>
           </div>
         )}

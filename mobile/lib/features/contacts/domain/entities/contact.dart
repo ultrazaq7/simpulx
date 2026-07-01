@@ -25,6 +25,11 @@ class Contact extends Equatable {
     this.lostReason,
     this.sourceId,
     this.sourceUrl,
+    this.webApiSourceName,
+    this.carBrand,
+    this.carModel,
+    this.city,
+    this.purchaseTimeframe,
   });
 
   final String id;
@@ -47,8 +52,27 @@ class Contact extends Equatable {
   final String? lostReason;
   final String? sourceId;
   final String? sourceUrl;
+  final String? webApiSourceName;
+  final String? carBrand;
+  final String? carModel;
+  final String? city;
+  final String? purchaseTimeframe;
 
   String get displayName => fullName.trim().isNotEmpty ? fullName : phone;
+
+  /// Accurate lead source label, matching the web: an ad-attributed lead reads
+  /// "Ad", a web-API lead reads its source name, otherwise the channel/"Direct"
+  /// (so it never just shows the raw channel like "whatsapp").
+  String get sourceLabel {
+    if (sourceId != null && sourceId!.isNotEmpty) return 'Ad';
+    if (webApiSourceName != null && webApiSourceName!.isNotEmpty) {
+      return webApiSourceName!;
+    }
+    if (sourceChannel != null && sourceChannel!.isNotEmpty) {
+      return sourceChannel!;
+    }
+    return 'Direct';
+  }
   bool get hasConversation =>
       conversationId != null && conversationId!.isNotEmpty;
 
@@ -86,5 +110,10 @@ class Contact extends Equatable {
         lostReason,
         sourceId,
         sourceUrl,
+        webApiSourceName,
+        carBrand,
+        carModel,
+        city,
+        purchaseTimeframe,
       ];
 }

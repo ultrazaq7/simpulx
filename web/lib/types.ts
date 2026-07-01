@@ -66,7 +66,7 @@ export interface Analytics {
   stages: { name: string; system_key: string; sort_order: number; count: number }[];
   categories: { category: string; count: number }[];
   tiers: { cold: number; lukewarm: number; warm: number; engaged: number; hot: number };
-  agents: { agent: string; branch: string; leads: number; total_chat: number; replied: number; hot: number; won: number; avg_rt_min: number; avg_resp_min: number; within_5_pct: number; call_attempts: number; call_duration_sec: number; updated: number; contacted: number; qualified: number; appointment: number; negotiation: number; purchase: number }[];
+  agents: { agent: string; branch: string; leads: number; total_chat: number; replied: number; hot: number; won: number; avg_rt_min: number; avg_resp_min: number; within_5_pct: number; call_attempts: number; call_duration_sec: number; updated: number; contacted: number; qualified: number; appointment: number; negotiation: number; purchase: number; lost: number }[];
   daily: { day: string; leads: number; replied: number }[];
   response_time: {
     median_min: number; avg_min: number; within_5_min_pct: number; within_1_hr_pct: number; leads_with_rt: number;
@@ -250,6 +250,10 @@ export interface Contact {
   stage_name: string | null;
   lost_reason?: string | null;
   lead_score?: number | null;
+  car_brand?: string | null;
+  car_model?: string | null;
+  city?: string | null;
+  purchase_timeframe?: string | null;
   last_message_at: string | null;
   created_at: string;
   ai_summary?: string | null;

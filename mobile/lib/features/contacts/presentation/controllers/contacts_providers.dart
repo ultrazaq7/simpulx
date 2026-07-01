@@ -8,6 +8,7 @@ import '../../../../core/realtime/realtime_providers.dart';
 import '../../data/datasources/contacts_remote_datasource.dart';
 import '../../data/repositories/contacts_repository_impl.dart';
 import '../../domain/entities/contact.dart';
+import '../../domain/entities/contact_activity.dart';
 import '../../domain/repositories/contacts_repository.dart';
 
 final contactsRemoteDataSourceProvider = Provider<ContactsRemoteDataSource>(
@@ -104,6 +105,12 @@ final contactsProvider =
     AsyncNotifierProvider<ContactsController, List<Contact>>(
   ContactsController.new,
 );
+
+/// A contact's history timeline (stage/status/interest/assignment changes).
+final contactActivityProvider =
+    FutureProvider.family<List<ContactActivity>, String>((ref, id) async {
+  return ref.watch(contactsRemoteDataSourceProvider).activity(id);
+});
 
 /// Lookup a single contact from the loaded list (detail screen).
 final contactByIdProvider = Provider.family<Contact?, String>((ref, id) {

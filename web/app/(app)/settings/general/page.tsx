@@ -1,7 +1,9 @@
 "use client";
 import { useEffect, useMemo, useState } from "react";
+import { useRouter } from "next/navigation";
 import { Loader2, Globe, Clock, Building2, Copy, Check, Phone } from "lucide-react";
-import { api } from "@/lib/api";
+import { api, getUser } from "@/lib/api";
+import { loadPermissions, canWith } from "@/lib/permissions";
 import { Select } from "@/components/Select";
 import type { OrgSettings } from "@/lib/types";
 import { useToast, PageBody, SettingsCard, FieldLabel, PrimaryButton, initials } from "../_shared";
@@ -52,8 +54,20 @@ function Panel({ icon: Icon, title, children, className }: { icon: any; title: s
 }
 
 export default function GeneralSettingsPage() {
+  const router = useRouter();
   const { notify, ToastHost } = useToast();
   const { setLang } = useI18n();
+  // Org/workspace settings are permission-gated. A role without view_settings
+  // (e.g. a manager the owner didn't grant org access) is bounced back to the
+  // settings index, which routes them to their first allowed section.
+  const [allowed, setAllowed] = useState<boolean | null>(null);
+  useEffect(() => {
+    loadPermissions().then((doc) => {
+      const ok = canWith(doc, getUser()?.role, "view_settings");
+      setAllowed(ok);
+      if (!ok) router.replace("/settings");
+    });
+  }, [router]);
   const [orgId, setOrgId] = useState("");
   const [name, setName] = useState("");
   const [origName, setOrigName] = useState("");
@@ -108,7 +122,7 @@ export default function GeneralSettingsPage() {
     setTimeout(() => setCopied(false), 2000);
   }
 
-  if (loading) return (
+  if (loading || allowed !== true) return (
     <PageBody><div className="flex justify-center py-20"><Loader2 className="w-6 h-6 animate-spin text-muted-foreground" /></div></PageBody>
   );
 

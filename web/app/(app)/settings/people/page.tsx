@@ -1,6 +1,6 @@
 "use client";
 import { useEffect, useMemo, useRef, useState } from "react";
-import { Search, MoreHorizontal, User, Loader2, Eye, EyeOff, X, Plus, Activity, Clock, Timer, CalendarDays } from "lucide-react";
+import { Search, MoreHorizontal, User, Loader2, Eye, EyeOff, X, Plus, Activity, Clock, Timer, CalendarDays, Download } from "lucide-react";
 import { api, getUser } from "@/lib/api";
 import { Select } from "@/components/Select";
 const cap = (s: string) => s ? s[0].toUpperCase() + s.slice(1) : s;
@@ -51,6 +51,13 @@ export default function PeopleSettingsPage() {
     try { await api.updateUser(u.id, { status: u.status === "active" ? "inactive" : "active" }); notify(`User ${u.status === "active" ? "deactivated" : "activated"}`); load(); }
     catch (e) { notify(String(e), "error"); }
   }
+  const [exporting, setExporting] = useState(false);
+  async function exportTeam() {
+    setExporting(true);
+    try { await api.downloadTeamCsv(); }
+    catch (e) { notify(String(e), "error"); }
+    finally { setExporting(false); }
+  }
 
   const filtered = useMemo(() => rows.filter((u) =>
     (!roleFilter || u.role === roleFilter) &&
@@ -74,6 +81,9 @@ export default function PeopleSettingsPage() {
           <Select value={roleFilter} onChange={setRoleFilter} placeholder="All roles" className="min-w-[140px]"
             options={[{ value: "", label: "All roles" }, ...ROLES.map((r) => ({ value: r, label: cap(r) }))]} />
           <div className="flex-1" />
+          <GhostButton onClick={exportTeam} disabled={exporting}>
+            {exporting ? <Loader2 className="w-4 h-4 animate-spin" /> : <Download className="w-4 h-4" />}Export
+          </GhostButton>
           {isPrivileged && (
             <PrimaryButton onClick={() => setDlg({ open: true, editing: null })}>
               <Plus className="w-4 h-4" />Invite people

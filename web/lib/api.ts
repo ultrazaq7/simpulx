@@ -402,6 +402,19 @@ export const api = {
   createExport: (kind: "messages" | "conversations" | "calls" | "activity", from?: string, to?: string, filters?: { campaign_id?: string; channel_id?: string; label?: string }) =>
     req<{ id: string; status: string }>("/api/exports", { method: "POST", body: JSON.stringify({ kind, from: from || "", to: to || "", campaign_id: filters?.campaign_id || "", channel_id: filters?.channel_id || "", label: filters?.label || "" }) }),
   listExports: () => req<import("./types").ExportJob[]>("/api/exports"),
+  // Direct CSV download (authenticated) of the full team roster. Fetches with the
+  // bearer token, then triggers a browser download from the blob.
+  async downloadTeamCsv(): Promise<void> {
+    const token = getToken();
+    const res = await fetch(`${API}/api/export/team`, { headers: token ? { Authorization: `Bearer ${token}` } : {} });
+    if (!res.ok) throw new Error((await res.text().catch(() => "")) || "Export failed");
+    const blob = await res.blob();
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement("a");
+    const stamp = new Date().toISOString().slice(0, 10).replace(/-/g, "");
+    a.href = url; a.download = `teams-${stamp}.csv`; a.click();
+    URL.revokeObjectURL(url);
+  },
   // ── Web API lead sources ──
   listWebApiSources: () => req<WebApiSource[]>("/api/web-api-sources"),
   createWebApiSource: (input: { name: string; slug?: string; auto_template_name?: string; webhook_url?: string; campaign_id?: string }) =>

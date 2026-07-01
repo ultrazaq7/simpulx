@@ -77,7 +77,7 @@ func (s *server) runExport(jobID, orgID, kind, from, to, campaignID, channelID, 
 	ctx := context.Background()
 	_, _ = s.pool.Exec(ctx, `UPDATE export_jobs SET status='processing' WHERE id=$1`, jobID)
 
-	q, cols := exportQuery(kind)
+	q, headers, keys := exportQuery(kind)
 	if q == "" {
 		s.failExport(ctx, jobID, "unknown export kind")
 		return
@@ -106,12 +106,14 @@ func (s *server) runExport(jobID, orgID, kind, from, to, campaignID, channelID, 
 	loc := s.orgLocation(ctx, orgID) // render timestamps in the workspace timezone
 
 	var buf bytes.Buffer
+	// UTF-8 BOM so Excel opens the file with the right encoding.
+	buf.WriteString("\xEF\xBB\xBF")
 	cw := csv.NewWriter(&buf)
-	_ = cw.Write(cols)
+	_ = cw.Write(headers)
 	for _, row := range rows {
-		rec := make([]string, len(cols))
-		for i, c := range cols {
-			rec[i] = csvVal(row[c], loc)
+		rec := make([]string, len(keys))
+		for i, k := range keys {
+			rec[i] = csvVal(row[k], loc)
 		}
 		_ = cw.Write(rec)
 	}
@@ -144,7 +146,8 @@ func csvVal(v any, loc *time.Location) string {
 		if x.IsZero() {
 			return ""
 		}
-		return x.In(loc).Format("2006-01-02 15:04:05")
+		// MM/DD/YYYY HH:MM:SS in the workspace tz, matching the training CSVs.
+		return x.In(loc).Format("01/02/2006 15:04:05")
 	case string:
 		return x
 	default:
@@ -168,10 +171,9 @@ func (s *server) orgLocation(ctx context.Context, orgID string) *time.Location {
 
 func exportDateCol(kind string) string {
 	switch kind {
-	case "messages":
+	case "messages", "conversations":
+		// Both are message-level dumps, filtered on the message timestamp.
 		return "m.created_at"
-	case "conversations":
-		return "cv.created_at"
 	case "calls":
 		return "c.created_at"
 	case "activity":
@@ -181,39 +183,86 @@ func exportDateCol(kind string) string {
 }
 
 // exportQuery returns SQL with a single %s placeholder for the date filter, plus
-// the ordered column list. Mirrors the system-log queries but unbounded (all rows).
-func exportQuery(kind string) (string, []string) {
+// the CSV header row and the matching map keys (headers can be pretty labels that
+// differ from the SQL aliases). Mirrors the SmartKonek training exports
+// (data-train/*.csv) so drops flow straight into the training pipeline.
+func exportQuery(kind string) (string, []string, []string) {
 	switch kind {
-	case "messages":
-		return `SELECT m.created_at, m.direction, m.type AS message_type, m.body AS message,
-		             m.media_url AS file_url, m.status, COALESCE(m.external_id, m.id::text) AS message_id,
-		             cv.id::text AS conversation_id, ch.name AS channel_name,
-		             ct.full_name AS contact_name, ct.phone AS contact_phone,
-		             u.full_name AS agent_name, u.email AS agent_email
+	case "messages", "conversations":
+		// Both are message-level dumps in the SmartKonek training CSV shape. They
+		// differ only in the AI-credit column header ("AI Wallet Deducted" vs
+		// "AI Credits"). Every column the reference exports carries is emitted; a
+		// field with no source in our schema is emitted empty rather than dropped.
+		aiHeader := "AI Wallet Deducted"
+		if kind == "conversations" {
+			aiHeader = "AI Credits"
+		}
+		headers := []string{
+			"File Name", "Channel Id", "Contact ID", "Contact Name", "Sender/Agent Name",
+			"Agent Email", "Direction", "Call Duration (in sec)", "Error Message", "Billable",
+			"Cost Currency", "Message Cost", aiHeader, "Created At", "Updated At",
+			"Call ID", "Recording Url", "Connect Status", "Call Status", "Message Type",
+			"Message ID", "Message", "File Url", "File Caption", "Read Status",
+			"Sent Status", "Contact Phone Number", "Contact Email", "Source Url", "Source Id", "Source Type",
+		}
+		keys := []string{
+			"file_name", "channel_id", "contact_id", "contact_name", "sender_name",
+			"agent_email", "direction", "call_duration", "error_message", "billable",
+			"cost_currency", "message_cost", "ai_credits", "created_at", "updated_at",
+			"call_id", "recording_url", "connect_status", "call_status", "message_type",
+			"message_id", "message", "file_url", "file_caption", "read_status",
+			"sent_status", "contact_phone", "contact_email", "source_url", "source_id", "source_type",
+		}
+		q := `SELECT
+		        COALESCE(m.metadata->>'file_name','')      AS file_name,
+		        cv.channel_id::text                        AS channel_id,
+		        cv.contact_id::text                        AS contact_id,
+		        ct.full_name                               AS contact_name,
+		        CASE WHEN m.direction='inbound' THEN ct.full_name
+		             ELSE COALESCE(u.full_name, CASE WHEN m.sender_type='bot' THEN 'Bot' END) END AS sender_name,
+		        u.email                                    AS agent_email,
+		        CASE WHEN m.direction='inbound' THEN 'Incoming' ELSE 'Outgoing' END AS direction,
+		        ''                                         AS call_duration,
+		        COALESCE(m.metadata->>'error','')          AS error_message,
+		        'False'                                    AS billable,
+		        ''                                         AS cost_currency,
+		        ''                                         AS message_cost,
+		        COALESCE(m.metadata->>'ai_credits','')     AS ai_credits,
+		        m.created_at,
+		        m.updated_at,
+		        ''                                         AS call_id,
+		        ''                                         AS recording_url,
+		        ''                                         AS connect_status,
+		        ''                                         AS call_status,
+		        m.type                                     AS message_type,
+		        COALESCE(m.external_id, m.id::text)        AS message_id,
+		        COALESCE(m.body,'')                        AS message,
+		        COALESCE(m.media_url,'')                   AS file_url,
+		        COALESCE(m.metadata->>'caption','')        AS file_caption,
+		        CASE WHEN m.status='read' THEN 'viewed' ELSE '' END AS read_status,
+		        CASE WHEN m.status IN ('sent','delivered','read') THEN 'sent'
+		             WHEN m.status='queued' THEN 'pending'
+		             WHEN m.status='failed' THEN 'failed'
+		             ELSE m.status END                     AS sent_status,
+		        ct.phone                                   AS contact_phone,
+		        COALESCE(ct.email,'')                      AS contact_email,
+		        COALESCE(att.referral_url,'')              AS source_url,
+		        COALESCE(att.referral_source,'')           AS source_id,
+		        CASE WHEN att.referral_source IS NOT NULL THEN 'ad'
+		             WHEN ct.web_api_source_id IS NOT NULL THEN 'web'
+		             ELSE '' END                           AS source_type
 		      FROM messages m
 		          JOIN conversations cv ON cv.id = m.conversation_id
 		          LEFT JOIN contacts ct ON ct.id = cv.contact_id
 		          LEFT JOIN users u ON u.id = m.sender_id
-		          LEFT JOIN channels ch ON ch.id = cv.channel_id
-		         WHERE m.organization_id = $1%s ORDER BY m.created_at DESC`,
-			[]string{"created_at", "direction", "message_type", "message", "file_url", "status", "message_id", "conversation_id", "channel_name", "contact_name", "contact_phone", "agent_name", "agent_email"}
-	case "conversations":
-		return `SELECT u.full_name AS agent_name, u.email AS email, COALESCE(br.name, cmp.name) AS campaign_name,
-		             ct.full_name AS customer_name, disp.name AS disposition, ct.phone AS contact_number,
-		             cv.created_at AS assigned_at, cv.closed_at,
-		             COALESCE(EXTRACT(EPOCH FROM (cv.first_responsed_at - cv.created_at))::int, 0) AS first_response_sec,
-		             COALESCE(EXTRACT(EPOCH FROM (cv.closed_at - cv.created_at))::int, 0) AS closing_sec,
-		             (SELECT count(*) FROM messages mm WHERE mm.conversation_id = cv.id AND mm.direction='outbound' AND mm.sender_type='agent')::int AS agent_messages,
-		             cv.status, cv.created_at AS chat_initiation, cv.id::text AS id
-		      FROM conversations cv
-		          LEFT JOIN users u ON u.id = cv.assigned_agent_id
-		          LEFT JOIN campaigns cmp ON cmp.id = cv.campaign_id
-		          LEFT JOIN campaign_branches br ON br.id = cv.branch_id
-		          LEFT JOIN contacts ct ON ct.id = cv.contact_id
-		          LEFT JOIN dispositions disp ON disp.id = cv.disposition_id
-		         WHERE cv.organization_id = $1%s ORDER BY cv.created_at DESC`,
-			[]string{"agent_name", "email", "campaign_name", "customer_name", "disposition", "contact_number", "assigned_at", "closed_at", "first_response_sec", "closing_sec", "agent_messages", "status", "chat_initiation", "id"}
+		          LEFT JOIN LATERAL (
+		            SELECT referral_source, referral_url FROM conversation_attributions
+		             WHERE conversation_id = cv.id ORDER BY created_at DESC LIMIT 1
+		          ) att ON true
+		         WHERE m.organization_id = $1%s ORDER BY m.created_at DESC`
+		return q, headers, keys
 	case "calls":
+		keys := []string{"direction", "name", "phone", "duration_seconds", "received_at", "ended_at", "call_status", "end_reason", "agent", "id"}
 		return `SELECT c.direction, ct.full_name AS name, c.contact_phone AS phone,
 		             c.duration_seconds, c.created_at AS received_at, c.call_ended_at AS ended_at,
 		             c.call_status, c.end_reason, u.full_name AS agent, c.id::text AS id
@@ -222,14 +271,15 @@ func exportQuery(kind string) (string, []string) {
 		          LEFT JOIN contacts ct ON ct.id = cv.contact_id
 		          LEFT JOIN users u ON u.id = c.agent_id
 		         WHERE c.organization_id = $1%s ORDER BY c.created_at DESC`,
-			[]string{"direction", "name", "phone", "duration_seconds", "received_at", "ended_at", "call_status", "end_reason", "agent", "id"}
+			[]string{"Direction", "Name", "Phone Number", "Call Duration (in sec)", "Received At", "Ended At", "Call Status", "End Reason", "Agent", "Call ID"}, keys
 	case "activity":
+		keys := []string{"agent_name", "agent_email", "kind", "event", "detail", "action_at"}
 		return `SELECT u.full_name AS agent_name, u.email AS agent_email,
 		             ev.kind, ev.event, ev.detail, ev.at AS action_at
 		      FROM user_activity_events ev
 		          JOIN users u ON u.id = ev.user_id
 		         WHERE ev.organization_id = $1%s ORDER BY ev.at DESC`,
-			[]string{"agent_name", "agent_email", "kind", "event", "detail", "action_at"}
+			[]string{"Agent Name", "Agent Email", "Kind", "Event", "Detail", "Action At"}, keys
 	}
-	return "", nil
+	return "", nil, nil
 }

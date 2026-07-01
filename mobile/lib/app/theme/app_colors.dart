@@ -54,13 +54,13 @@ class AppColors {
   static const Color textMuted = Color(0xFF8696A0);
   static const Color textInverse = Colors.white;
 
-  // ── Dark surfaces (WhatsApp dark palette) ──────────────
-  // The deep cool near-black WhatsApp uses: #0B141A canvas, #111B21 panels,
-  // #202C33 elevated (search/input), #2A3942 dividers.
-  static const Color darkBackground = Color(0xFF0B141A);
-  static const Color darkSurface = Color(0xFF0B141A); // Match background for full flat dark look
-  static const Color darkSurfaceAlt = Color(0xFF202C33);
-  static const Color darkBorder = Color(0xFF2A3942);
+  // ── Dark surfaces (pure-black, AMOLED WhatsApp look) ───
+  // Pitch-black canvas + panels so the app reads as a dense true black; only the
+  // elevated bits (search/input/chips) get a faint lift, and dividers stay subtle.
+  static const Color darkBackground = Color(0xFF000000);
+  static const Color darkSurface = Color(0xFF000000); // Match background for full flat black look
+  static const Color darkSurfaceAlt = Color(0xFF16211C);
+  static const Color darkBorder = Color(0xFF1F2C28);
 
   // ── Dark text (WhatsApp) ───────────────────────────────
   static const Color darkTextPrimary = Color(0xFFE9EDEF);

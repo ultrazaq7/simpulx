@@ -56,6 +56,7 @@ class ApiEndpoints {
   // ── Contacts / leads ───────────────────────────────────
   static const contacts = '/api/contacts';
   static String contact(String id) => '/api/contacts/$id';
+  static String contactActivity(String id) => '/api/contacts/$id/activity';
 
   // ── Agents / team ──────────────────────────────────────
   static const agents = '/api/agents';

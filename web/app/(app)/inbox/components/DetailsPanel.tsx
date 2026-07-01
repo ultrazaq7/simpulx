@@ -4,6 +4,7 @@ import { X, Copy, User, Phone, Hash, MessageSquare, Clock, StickyNote, Tag as Ta
 import { api } from "@/lib/api";
 import { initials, channelColor, channelTextColor, channelLabel, fmtDate, fmtTime, cn } from "@/lib/utils";
 import { Tip } from "@/components/ui/tooltip";
+import { Select } from "@/components/Select";
 import type { Conversation, InternalNote, Message } from "@/lib/types";
 
 function rewriteLocalMedia(url: string): string {
@@ -94,9 +95,12 @@ interface DetailsPanelProps {
   onDeleteNote: (noteId: string) => void | Promise<void>;
   messages?: Message[];
   channelName?: string; // real channel name (e.g. "Testing Channel"), not the type
+  // Patch the active conversation (stage/interest/etc). Provided by the inbox so
+  // qualification fields like Interest level can be edited inline.
+  onOverride?: (patch: { stage_id?: string; disposition_id?: string; interest_level?: string; lost_reason?: string; status?: string }, label: string) => void | Promise<void>;
 }
 
-export default function DetailsPanel({ active, onClose, copyText, notes, onAddNote, onDeleteNote, messages, channelName }: DetailsPanelProps) {
+export default function DetailsPanel({ active, onClose, copyText, notes, onAddNote, onDeleteNote, messages, channelName, onOverride }: DetailsPanelProps) {
   const media = (messages || []).filter((m) => m.media_url && m.type !== "sticker"); // stickers are not attachments
   const mediaFiles = media.filter((m) => m.type === "image" || m.type === "video");
   const docFiles = media.filter((m) => !(m.type === "image" || m.type === "video"));
@@ -108,6 +112,11 @@ export default function DetailsPanel({ active, onClose, copyText, notes, onAddNo
   const [tagOpen, setTagOpen] = useState(false);
   const [tagDraft, setTagDraft] = useState("");
   useEffect(() => { setTags(active.tags ?? []); setTagOpen(false); setTagDraft(""); }, [active.id]); // eslint-disable-line react-hooks/exhaustive-deps
+
+  // Interest level is editable inline (like the stage), optimistic + persisted.
+  const [interest, setInterest] = useState<string>(active.interest_level ?? "");
+  useEffect(() => { setInterest(active.interest_level ?? ""); }, [active.id, active.interest_level]);
+  const changeInterest = (v: string) => { setInterest(v); onOverride?.({ interest_level: v }, "Interest"); };
 
   const saveTags = (next: string[]) => {
     setTags(next);
@@ -231,16 +240,27 @@ export default function DetailsPanel({ active, onClose, copyText, notes, onAddNo
 
             <p className="text-[10px] font-bold uppercase tracking-wider text-muted-foreground mb-1">Lead qualification</p>
             <div>
-              <DetailRow icon={Hash} label="Stage" value={active.stage_name || "Not set"} />
+              <DetailRow icon={Hash} label="Stage" value={active.stage_name || "-"} />
               {/* Lost reason sits directly under the stage while the lead is Lost. */}
               {active.stage_name?.toLowerCase().startsWith("lost") && active.lost_reason && (
                 <DetailRow icon={StickyNote} label="Lost reason" value={humanize(active.lost_reason)} />
               )}
-              <DetailRow icon={Hash} label="Interest level" value={humanize(active.interest_level || "Unknown")} />
-              <DetailRow icon={Hash} label="Brand" value={active.car_brand || "Unknown"} />
-              <DetailRow icon={Hash} label="Model" value={active.car_model || "Unknown"} />
-              <DetailRow icon={Hash} label="City" value={active.city || "Unknown"} />
-              <DetailRow icon={Clock} label="Purchase time" value={active.purchase_timeframe ? humanize(active.purchase_timeframe) : "Unknown"} />
+              {onOverride ? (
+                <div className="flex gap-3 py-2 border-b border-border/50">
+                  <Hash className="w-4 h-4 text-muted-foreground/60 mt-0.5 shrink-0" />
+                  <div className="flex-1 min-w-0">
+                    <p className="text-[10px] font-bold uppercase tracking-wider text-muted-foreground mb-1">Interest level</p>
+                    <Select value={interest} searchable={false} onChange={changeInterest} className="w-full"
+                      options={[{ value: "", label: "-" }, { value: "hot", label: "🔥 Hot" }, { value: "warm", label: "🌤 Warm" }, { value: "cold", label: "❄ Cold" }]} />
+                  </div>
+                </div>
+              ) : (
+                <DetailRow icon={Hash} label="Interest level" value={active.interest_level ? humanize(active.interest_level) : "-"} />
+              )}
+              <DetailRow icon={Hash} label="Brand" value={active.car_brand || "-"} />
+              <DetailRow icon={Hash} label="Model" value={active.car_model || "-"} />
+              <DetailRow icon={Hash} label="City" value={active.city || "-"} />
+              <DetailRow icon={Clock} label="Purchase time" value={active.purchase_timeframe ? humanize(active.purchase_timeframe) : "-"} />
             </div>
           </div>
         )}

@@ -129,14 +129,15 @@ export function PrimaryButton({ children, onClick, disabled, className }: {
 }
 
 // GhostButton: secondary / cancel actions.
-export function GhostButton({ children, onClick, className }: {
-  children: ReactNode; onClick?: () => void; className?: string;
+export function GhostButton({ children, onClick, disabled, className }: {
+  children: ReactNode; onClick?: () => void; disabled?: boolean; className?: string;
 }) {
   return (
     <button
       onClick={onClick}
+      disabled={disabled}
       className={cn(
-        "px-4 py-2 rounded-md text-sm font-semibold text-foreground/70 hover:bg-muted transition-colors outline-none",
+        "inline-flex items-center gap-2 px-4 py-2 rounded-md text-sm font-semibold text-foreground/70 hover:bg-muted transition-colors outline-none disabled:opacity-50",
         className,
       )}
     >

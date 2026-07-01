@@ -2,7 +2,9 @@ import 'package:dio/dio.dart';
 
 import '../../../../core/network/api_endpoints.dart';
 import '../../../../core/network/error_mapper.dart';
+import '../../../../core/utils/json_parse.dart';
 import '../../domain/entities/contact.dart';
+import '../../domain/entities/contact_activity.dart';
 import '../models/contact_model.dart';
 
 class ContactsRemoteDataSource {
@@ -68,6 +70,31 @@ class ContactsRemoteDataSource {
   Future<void> delete(String id) async {
     try {
       await _dio.delete(ApiEndpoints.contact(id));
+    } on DioException catch (e) {
+      throw ErrorMapper.fromDio(e);
+    }
+  }
+
+  /// GET /api/contacts/{id}/activity -> the contact's history timeline.
+  Future<List<ContactActivity>> activity(String id) async {
+    try {
+      final res = await _dio.get(ApiEndpoints.contactActivity(id));
+      final data = res.data;
+      final rows = data is List
+          ? data
+          : (data is Map ? (data['data'] as List? ?? const []) : const []);
+      return rows.whereType<Map>().map((e) {
+        final m = e.cast<String, dynamic>();
+        final rawDetail = m['detail'];
+        return ContactActivity(
+          type: asString(m['type']),
+          detail: rawDetail is Map
+              ? rawDetail.cast<String, dynamic>()
+              : const <String, dynamic>{},
+          createdAt: asDateOrNull(m['created_at']),
+          actorName: asStringOrNull(m['actor_name']),
+        );
+      }).toList();
     } on DioException catch (e) {
       throw ErrorMapper.fromDio(e);
     }

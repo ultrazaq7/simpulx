@@ -258,7 +258,7 @@ export default function ContactsPage() {
   }
 
   const TH = ({ children, className }: { children?: React.ReactNode; className?: string }) =>
-    <th className={cn("px-4 py-2.5 text-left text-[11px] font-bold uppercase tracking-wider text-muted-foreground whitespace-nowrap", className)}>{children}</th>;
+    <th className={cn("px-3 py-2 text-left text-[11px] font-bold uppercase tracking-wider text-muted-foreground whitespace-nowrap", className)}>{children}</th>;
 
   return (
     <div className="h-full flex flex-col px-4 pt-4 pb-4 min-h-0">
@@ -324,7 +324,7 @@ export default function ContactsPage() {
             </thead>
             <tbody>
               {loading ? Array(8).fill(0).map((_, i) => (
-                <tr key={i}><td colSpan={16} className="px-4 py-2.5"><div className="h-9 skeleton rounded-md" /></td></tr>
+                <tr key={i}><td colSpan={16} className="px-3 py-2"><div className="h-9 skeleton rounded-md" /></td></tr>
               )) : paged.length === 0 ? (
                 <tr><td colSpan={16} className="text-center py-16">
                   <div className="w-12 h-12 rounded-xl bg-muted grid place-items-center mx-auto mb-3"><Users className="w-6 h-6 text-muted-foreground/50" /></div>
@@ -333,20 +333,20 @@ export default function ContactsPage() {
                 </td></tr>
               ) : paged.map((c) => (
                 <tr key={c.id} className="border-b border-border/60 hover:bg-muted/50 transition-colors">
-                  <td className="px-4 py-2.5"><input type="checkbox" aria-label={`Select ${c.full_name || c.phone || "contact"}`} className="rounded border-input accent-primary" checked={selected.has(c.id)} onChange={() => toggleSel(c.id)} /></td>
-                  <td className="px-4 py-2.5">
-                    <div className="flex items-center gap-3">
-                      <div className="w-8 h-8 rounded-full grid place-items-center text-[11px] font-bold text-white shrink-0"
+                  <td className="px-3 py-2"><input type="checkbox" aria-label={`Select ${c.full_name || c.phone || "contact"}`} className="rounded border-input accent-primary" checked={selected.has(c.id)} onChange={() => toggleSel(c.id)} /></td>
+                  <td className="px-3 py-2">
+                    <div className="flex items-center gap-2.5">
+                      <div className="w-7 h-7 rounded-full grid place-items-center text-[10px] font-bold text-white shrink-0"
                         style={{ backgroundColor: avatarColor(c.full_name || c.phone) }}>
                         {initials(c.full_name || c.phone)}
                       </div>
                       <button onClick={() => router.push(`/contacts/${c.id}`)} className="font-semibold text-[13px] text-foreground truncate max-w-[180px] text-left hover:text-primary hover:underline outline-none">{c.full_name || c.phone || "Unknown"}</button>
                     </div>
                   </td>
-                  <td className="px-4 py-2.5 font-medium text-foreground/90 tabular-nums whitespace-nowrap">{c.phone || "-"}</td>
-                  <td className="px-4 py-2.5 whitespace-nowrap">
+                  <td className="px-3 py-2 font-medium text-foreground/90 tabular-nums whitespace-nowrap">{c.phone || "-"}</td>
+                  <td className="px-3 py-2 whitespace-nowrap">
                     {canEdit && c.conversation_id ? (
-                      <div className="inline-flex items-center h-8 rounded-md border border-border bg-background overflow-hidden">
+                      <div className="inline-flex items-center h-7 rounded-md border border-border bg-background overflow-hidden">
                         <StageMenu
                           stages={stages}
                           currentStageId={c.stage_id || null}
@@ -358,7 +358,7 @@ export default function ContactsPage() {
                       <span className="inline-flex px-2 py-0.5 rounded-md text-[11px] font-semibold bg-primary/10 text-primary">{c.stage_name}</span>
                     ) : <span className="text-muted-foreground">-</span>}
                   </td>
-                  <td className="px-4 py-2.5 whitespace-nowrap">
+                  <td className="px-3 py-2 whitespace-nowrap">
                     {canEdit && c.conversation_id ? (
                       <Select value={c.interest_level || ""} searchable={false} onChange={(v) => setInterest(c, v)} className="w-[104px]"
                         options={[{ value: "", label: "Unset" }, { value: "hot", label: "🔥 Hot" }, { value: "warm", label: "🌤 Warm" }, { value: "cold", label: "❄ Cold" }]} />
@@ -367,7 +367,7 @@ export default function ContactsPage() {
                         style={{ backgroundColor: interestColor(c.interest_level) + "1A", color: interestColor(c.interest_level) }}>{c.interest_level}</span>
                     ) : <span className="text-muted-foreground">-</span>}
                   </td>
-                  <td className="px-4 py-2.5 text-foreground/80 whitespace-nowrap">
+                  <td className="px-3 py-2 text-foreground/80 whitespace-nowrap">
                     {showAgentFilter && c.conversation_id ? (
                       <AgentAssignCell
                         agentName={c.agent_name || null}
@@ -378,9 +378,9 @@ export default function ContactsPage() {
                       />
                     ) : (c.agent_name || <span className="text-muted-foreground">Unassigned</span>)}
                   </td>
-                  <td className="px-4 py-2.5 text-foreground/80 whitespace-nowrap">{c.campaign_name || <span className="text-muted-foreground">-</span>}</td>
-                  <td className="px-4 py-2.5 text-foreground/80 whitespace-nowrap">{sourceLabel(c)}</td>
-                  <td className="px-4 py-2.5 whitespace-nowrap">
+                  <td className="px-3 py-2 text-foreground/80 whitespace-nowrap">{c.campaign_name || <span className="text-muted-foreground">-</span>}</td>
+                  <td className="px-3 py-2 text-foreground/80 whitespace-nowrap">{sourceLabel(c)}</td>
+                  <td className="px-3 py-2 whitespace-nowrap">
                     {c.source_id ? (
                       <span className="inline-flex items-center gap-1.5">
                         <span className="font-mono text-[12px] text-foreground/80 max-w-[130px] truncate">{c.source_id}</span>
@@ -388,10 +388,10 @@ export default function ContactsPage() {
                       </span>
                     ) : <span className="text-muted-foreground">-</span>}
                   </td>
-                  <td className="px-4 py-2.5 whitespace-nowrap">
+                  <td className="px-3 py-2 whitespace-nowrap">
                     {c.source_url ? <a href={c.source_url} target="_blank" rel="noreferrer" className="text-[12px] text-primary hover:underline">Link</a> : <span className="text-muted-foreground">-</span>}
                   </td>
-                  <td className="px-4 py-2.5">
+                  <td className="px-3 py-2">
                     {(c.tags && c.tags.length) ? (
                       <div className="flex flex-wrap gap-1 max-w-[160px]">
                         {c.tags.slice(0, 2).map((t) => (
@@ -401,20 +401,20 @@ export default function ContactsPage() {
                       </div>
                     ) : <span className="text-muted-foreground">-</span>}
                   </td>
-                  <td className="px-4 py-2.5 whitespace-nowrap">
+                  <td className="px-3 py-2 whitespace-nowrap">
                     <span className="inline-flex px-2 py-0.5 rounded-md text-[11px] font-semibold"
                       style={{ backgroundColor: channelColor(c.source_channel) + "15", color: channelTextColor(c.source_channel) }}>
                       {c.channel_name || channelLabel(c.source_channel)}
                     </span>
                   </td>
-                  <td className="px-4 py-2.5 text-muted-foreground text-[12px] whitespace-nowrap">{fmtDate(c.created_at)}</td>
-                  <td className="px-4 py-2.5 text-muted-foreground text-[12px] whitespace-nowrap">{c.updated_at ? fmtDate(c.updated_at) : "-"}</td>
-                  <td className="px-4 py-2.5">
+                  <td className="px-3 py-2 text-muted-foreground text-[12px] whitespace-nowrap">{fmtDate(c.created_at)}</td>
+                  <td className="px-3 py-2 text-muted-foreground text-[12px] whitespace-nowrap">{c.updated_at ? fmtDate(c.updated_at) : "-"}</td>
+                  <td className="px-3 py-2">
                     <span className={cn("inline-flex px-2 py-0.5 rounded-md text-[11px] font-semibold", c.blacklisted ? "bg-red-50 text-red-600" : "bg-muted text-muted-foreground")}>
                       {c.blacklisted ? "Yes" : "No"}
                     </span>
                   </td>
-                  <td className="px-4 py-2.5 text-right">
+                  <td className="px-3 py-2 text-right">
                     <div className="relative inline-block" onClick={(e) => e.stopPropagation()}>
                       <button aria-label="Contact actions" onClick={() => setMenuId(menuId === c.id ? null : c.id)} className="p-1.5 rounded-md hover:bg-muted text-muted-foreground hover:text-foreground outline-none transition-colors"><MoreVertical className="w-4 h-4" /></button>
                       {menuId === c.id && (
@@ -466,7 +466,7 @@ export default function ContactsPage() {
 
       {toast && (
         <div className="fixed bottom-6 left-6 z-[110] animate-scale-in">
-          <div className="px-4 py-2.5 rounded-lg bg-[#2D8B73] text-white text-sm font-semibold shadow-xl">{toast}</div>
+          <div className="px-3 py-2 rounded-lg bg-[#2D8B73] text-white text-sm font-semibold shadow-xl">{toast}</div>
         </div>
       )}
     </div>

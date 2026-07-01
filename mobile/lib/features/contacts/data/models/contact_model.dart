@@ -27,6 +27,11 @@ class ContactModel {
       lostReason: asStringOrNull(json['lost_reason']),
       sourceId: asStringOrNull(json['source_id']),
       sourceUrl: asStringOrNull(json['source_url']),
+      webApiSourceName: asStringOrNull(json['web_api_source_name']),
+      carBrand: asStringOrNull(json['car_brand']),
+      carModel: asStringOrNull(json['car_model']),
+      city: asStringOrNull(json['city']),
+      purchaseTimeframe: asStringOrNull(json['purchase_timeframe']),
     );
   }
 
