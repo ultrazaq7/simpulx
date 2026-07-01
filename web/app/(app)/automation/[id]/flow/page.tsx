@@ -10,7 +10,7 @@ import "@xyflow/react/dist/style.css";
 import {
   ArrowLeft, Plus, Zap, MessageCircle, FileText, User, Sparkles, Tag, Flag,
   CheckCircle, Globe, GitFork, Trash2, Loader2, X, Save, Undo2, Redo2,
-  Braces, ToggleRight, Sheet, ClipboardList, UserMinus, Ban, Radio,
+  Braces, ToggleRight, Sheet, ClipboardList, UserMinus, Ban, Radio, ListPlus,
 } from "lucide-react";
 import type { LucideIcon } from "lucide-react";
 import { Tip } from "@/components/ui/tooltip";
@@ -36,6 +36,7 @@ const META: Record<string, Meta> = {
   add_to_sequence: { label: "Add to drip campaign", Icon: Radio, accent: "#D97706", kicker: "DO", desc: ACTIONS.add_to_sequence.desc },
   remove_from_sequence: { label: "Remove from drip campaign", Icon: Ban, accent: "#D97706", kicker: "DO", desc: ACTIONS.remove_from_sequence.desc },
   blacklist: { label: "Mark blacklisted", Icon: Ban, accent: "#DC2626", kicker: "DO", desc: ACTIONS.blacklist.desc },
+  add_to_list: { label: "Add contact to list", Icon: ListPlus, accent: "#D97706", kicker: "DO", desc: ACTIONS.add_to_list.desc },
   add_tag: { label: "Add tag", Icon: Tag, accent: "#D97706", kicker: "DO", desc: ACTIONS.add_tag.desc },
   remove_tag: { label: "Remove tag", Icon: Tag, accent: "#D97706", kicker: "DO", desc: ACTIONS.remove_tag.desc },
   set_contact_attribute: { label: "Set contact attribute", Icon: Braces, accent: "#7C3AED", kicker: "DO", desc: ACTIONS.set_contact_attribute.desc },
@@ -51,12 +52,12 @@ const PALETTE: { group: string; kinds: string[] }[] = [
   { group: "Logic", kinds: ["condition"] },
   { group: "Messaging", kinds: ["send_message", "send_template", "send_form"] },
   { group: "Routing", kinds: ["assign_agent", "unassign_team", "assign_campaign", "remove_campaign"] },
-  { group: "Contact", kinds: ["add_tag", "remove_tag", "set_contact_attribute", "set_priority", "add_to_sequence", "remove_from_sequence", "blacklist"] },
+  { group: "Contact", kinds: ["add_tag", "remove_tag", "set_contact_attribute", "add_to_list", "set_priority", "add_to_sequence", "remove_from_sequence", "blacklist"] },
   { group: "Flow control", kinds: ["set_conversation_status", "close_conversation", "webhook_notify"] },
   { group: "Integrations", kinds: ["google_sheet"] },
 ];
 // The executor runs these; others are configurable but not yet executed.
-const EXECUTED = new Set(["condition", "send_message", "send_form", "add_tag", "remove_tag", "assign_agent", "unassign_team", "assign_campaign", "remove_campaign", "add_to_sequence", "remove_from_sequence", "blacklist", "set_contact_attribute", "set_conversation_status", "google_sheet", "close_conversation", "webhook_notify"]);
+const EXECUTED = new Set(["condition", "send_message", "send_form", "add_tag", "remove_tag", "assign_agent", "unassign_team", "assign_campaign", "remove_campaign", "add_to_sequence", "remove_from_sequence", "blacklist", "add_to_list", "set_contact_attribute", "set_conversation_status", "google_sheet", "close_conversation", "webhook_notify"]);
 
 type NodeData = { kind: string; config: Record<string, unknown>; triggerType?: string };
 type AppNode = Node<NodeData>;
@@ -73,8 +74,9 @@ function summary(kind: string, c: Record<string, unknown>, triggerType?: string)
     case "remove_campaign": return "Clear campaign";
     case "add_to_sequence": case "remove_from_sequence": return `Sequence: ${c.sequence_name || "—"}`;
     case "blacklist": return "Block from outreach";
+    case "add_to_list": return `List: ${c.list || "—"}`;
+    case "set_contact_attribute": return `${(Array.isArray(c.mappings) ? c.mappings.length : (c.key ? 1 : 0))} attribute(s)`;
     case "add_tag": case "remove_tag": return `Tags: ${(Array.isArray(c.tags) ? (c.tags as string[]).join(", ") : "") || "—"}`;
-    case "set_contact_attribute": return `${c.key || "field"} = ${c.value || "—"}`;
     case "set_conversation_status": return `Status: ${c.status || "—"}`;
     case "google_sheet": return c.sheet_url ? "Append to sheet" : "No sheet set";
     case "set_priority": return `Priority: ${c.priority || "normal"}`;
@@ -429,10 +431,7 @@ function Inspector({ node, triggerType, campaigns, forms, agents, sequences, she
         {kind === "assign_agent" && <Field label="Agent"><Select value={String(c.agent_id ?? "")} onChange={pickById(agents, "agent_id", "agent_name")} options={agents.map((a) => ({ value: a.id, label: a.name }))} placeholder="Search agent…" className="w-full" /></Field>}
         {kind === "assign_campaign" && <Field label="Campaign"><Select value={String(c.campaign_id ?? "")} onChange={pickById(campaigns, "campaign_id", "campaign_name")} options={campaigns.map((cp) => ({ value: cp.id, label: cp.name }))} placeholder="Search campaign…" className="w-full" /></Field>}
         {(kind === "add_tag" || kind === "remove_tag") && <Field label="Tags (comma separated)"><input value={Array.isArray(c.tags) ? (c.tags as string[]).join(", ") : ""} onChange={(e) => set("tags", e.target.value.split(",").map((t) => t.trim()).filter(Boolean))} placeholder="vip, pricing" className={INP} /></Field>}
-        {kind === "set_contact_attribute" && <>
-          <Field label="Attribute / field name"><input value={String(c.key ?? "")} onChange={(e) => set("key", e.target.value)} placeholder="e.g. preferred_model" className={INP} /></Field>
-          <Field label="Value"><input value={String(c.value ?? "")} onChange={(e) => set("value", e.target.value)} placeholder="e.g. Brio RS" className={INP} /></Field>
-        </>}
+        {kind === "set_contact_attribute" && <AttrMappings c={c} onChange={onChange} />}
         {kind === "set_conversation_status" && <Field label="Status"><Select value={String(c.status ?? "open")} onChange={(v) => set("status", v)} searchable={false} options={["open", "snoozed", "closed"].map((p) => ({ value: p, label: p }))} className="w-full" /></Field>}
         {kind === "google_sheet" && <>
           <Field label="Google Sheet URL"><input value={String(c.sheet_url ?? "")} onChange={(e) => set("sheet_url", e.target.value)} placeholder="Paste the Sheet URL" className={INP} /></Field>
@@ -446,6 +445,7 @@ function Inspector({ node, triggerType, campaigns, forms, agents, sequences, she
         {kind === "unassign_team" && <p className="text-[13px] text-muted-foreground">Clears the conversation&apos;s assigned agent. No configuration needed.</p>}
         {kind === "remove_campaign" && <p className="text-[13px] text-muted-foreground">Clears the conversation&apos;s campaign. No configuration needed.</p>}
         {kind === "blacklist" && <p className="text-[13px] text-muted-foreground">Blocks this contact from future outreach. No configuration needed.</p>}
+        {kind === "add_to_list" && <Field label="List name (tag)"><input value={String(c.list ?? "")} onChange={(e) => set("list", e.target.value)} placeholder="e.g. Newsletter, VIP" className={INP} /></Field>}
         {kind === "webhook_notify" && <Field label="Webhook URL"><input value={String(c.url ?? "")} onChange={(e) => set("url", e.target.value)} placeholder="https://..." className={INP} /></Field>}
         {kind === "condition" && <>
           <Field label="Contact attribute"><input value={String(c.attribute ?? "")} onChange={(e) => set("attribute", e.target.value)} placeholder="e.g. re_model, phone, full_name" className={INP} /></Field>
@@ -469,6 +469,34 @@ function Inspector({ node, triggerType, campaigns, forms, agents, sequences, she
 const INP = "w-full h-9 px-3 rounded-md border border-input bg-background text-sm text-foreground placeholder:text-muted-foreground/70 outline-none focus:ring-2 focus:ring-primary/25 focus:border-primary";
 function Field({ label, children }: { label: string; children: React.ReactNode }) {
   return <div className="space-y-1.5"><label className="block text-[12px] font-bold text-foreground/80">{label}</label>{children}</div>;
+}
+
+// Multi-row contact-attribute mapping (attribute -> value, value supports
+// {placeholders}). Matches the SmartKonek "Set Contact Attribute" node.
+type AttrRow = { attribute?: string; value?: string };
+function AttrMappings({ c, onChange }: { c: Record<string, unknown>; onChange: (cfg: Record<string, unknown>) => void }) {
+  const rows: AttrRow[] = Array.isArray(c.mappings)
+    ? (c.mappings as AttrRow[])
+    : (c.key ? [{ attribute: String(c.key), value: String(c.value ?? "") }] : [{ attribute: "", value: "" }]);
+  const setRows = (r: AttrRow[]) => onChange({ ...c, mappings: r, key: undefined, value: undefined });
+  return (
+    <Field label="Attribute mappings">
+      <div className="space-y-1.5">
+        {rows.map((row, i) => (
+          <div key={i} className="flex items-center gap-1.5">
+            <input value={row.attribute ?? ""} onChange={(e) => setRows(rows.map((x, j) => (j === i ? { ...x, attribute: e.target.value } : x)))}
+              placeholder="attribute" className="w-[42%] h-8 px-2.5 rounded-md border border-input bg-background text-sm outline-none focus:border-primary" />
+            <input value={row.value ?? ""} onChange={(e) => setRows(rows.map((x, j) => (j === i ? { ...x, value: e.target.value } : x)))}
+              placeholder="value or {field}" className="flex-1 h-8 px-2.5 rounded-md border border-input bg-background text-sm outline-none focus:border-primary" />
+            <button onClick={() => setRows(rows.filter((_, j) => j !== i))} className="p-1 rounded-md text-muted-foreground/50 hover:text-destructive hover:bg-muted shrink-0"><X className="w-3.5 h-3.5" /></button>
+          </div>
+        ))}
+        <button onClick={() => setRows([...rows, { attribute: "", value: "" }])}
+          className="inline-flex items-center gap-1.5 h-8 px-2.5 rounded-md border border-dashed border-border text-sm text-primary hover:bg-muted font-medium"><Plus className="w-3.5 h-3.5" /> Add mapping</button>
+        <p className="text-[11.5px] text-muted-foreground">Use {"{first_name}"}, {"{full_name}"}, {"{phone}"} or any contact attribute in the value.</p>
+      </div>
+    </Field>
+  );
 }
 
 // Shows the Google service-account email to share the sheet with (+ copy).

@@ -17,6 +17,7 @@ import (
 	"encoding/hex"
 	"encoding/json"
 	"net/http"
+	"regexp"
 	"strings"
 	"time"
 
@@ -280,6 +281,7 @@ func (a *app) execStep(ctx context.Context, orgID, convID, contactID string, s a
 		if msg == "" {
 			return
 		}
+		msg = resolvePlaceholders(a.st.contactVars(ctx, contactID), msg)
 		_ = a.bus.Publish(events.SubjectMessageOutbound, orgID, events.MessageOutbound{
 			ConversationID: convID, SenderType: "system", Type: "text", Body: msg,
 		})
@@ -316,10 +318,32 @@ func (a *app) execStep(ctx context.Context, orgID, convID, contactID string, s a
 			}
 		}
 	case "set_contact_attribute":
-		key := pStr(s.Params, "key")
-		if key != "" {
-			if err := a.st.setContactAttribute(ctx, contactID, key, pStr(s.Params, "value")); err != nil {
+		vars := a.st.contactVars(ctx, contactID)
+		// Multi-row: params.mappings = [{attribute|key, value}]. Values support
+		// {placeholders}. Falls back to a single key/value for older nodes.
+		if raw, ok := s.Params["mappings"].([]any); ok && len(raw) > 0 {
+			for _, r := range raw {
+				m, _ := r.(map[string]any)
+				key := pStr(m, "attribute")
+				if key == "" {
+					key = pStr(m, "key")
+				}
+				if key == "" {
+					continue
+				}
+				if err := a.st.setContactAttribute(ctx, contactID, key, resolvePlaceholders(vars, pStr(m, "value"))); err != nil {
+					a.log.Warn("automation set_contact_attribute failed", "err", err)
+				}
+			}
+		} else if key := pStr(s.Params, "key"); key != "" {
+			if err := a.st.setContactAttribute(ctx, contactID, key, resolvePlaceholders(vars, pStr(s.Params, "value"))); err != nil {
 				a.log.Warn("automation set_contact_attribute failed", "err", err)
+			}
+		}
+	case "add_to_list":
+		if list := pStr(s.Params, "list"); list != "" {
+			if err := a.st.addContactTags(ctx, contactID, []string{list}); err != nil {
+				a.log.Warn("automation add_to_list failed", "err", err)
 			}
 		}
 	case "set_conversation_status":
@@ -396,6 +420,54 @@ func (a *app) execStep(ctx context.Context, orgID, convID, contactID string, s a
 	default:
 		a.log.Info("automation action not yet supported", "type", s.Type)
 	}
+}
+
+// ── placeholders / merge fields ──
+var placeholderRe = regexp.MustCompile(`\{([a-zA-Z0-9_]+)\}`)
+
+// resolvePlaceholders replaces {full_name}, {first_name}, {phone} and any
+// {contact_attribute} with the contact's values. Unknown tokens are left as-is.
+func resolvePlaceholders(vars map[string]string, s string) string {
+	if s == "" || !strings.Contains(s, "{") {
+		return s
+	}
+	return placeholderRe.ReplaceAllStringFunc(s, func(tok string) string {
+		if v, ok := vars[tok[1:len(tok)-1]]; ok {
+			return v
+		}
+		return tok
+	})
+}
+
+// contactVars returns the merge-field values for a contact: built-ins + every
+// custom attribute.
+func (s *store) contactVars(ctx context.Context, contactID string) map[string]string {
+	m := map[string]string{}
+	var name, phone string
+	var attrs map[string]any
+	_ = s.pool.QueryRow(ctx,
+		`SELECT COALESCE(full_name,''), COALESCE(phone,''), COALESCE(attributes,'{}'::jsonb)
+		   FROM contacts WHERE id=$1`, contactID).Scan(&name, &phone, &attrs)
+	m["full_name"] = name
+	m["name"] = name
+	first := name
+	if i := strings.IndexByte(name, ' '); i > 0 {
+		first = name[:i]
+	}
+	m["first_name"] = first
+	m["phone"] = phone
+	for k, v := range attrs {
+		switch t := v.(type) {
+		case string:
+			m[k] = t
+		case nil:
+			m[k] = ""
+		default:
+			b, _ := json.Marshal(t)
+			m[k] = string(b)
+		}
+	}
+	return m
 }
 
 // ── param helpers ──

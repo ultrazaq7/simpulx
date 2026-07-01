@@ -23,6 +23,7 @@ export const ACTIONS: Record<string, { label: string; desc: string }> = {
   add_to_sequence: { label: "Add to drip campaign", desc: "Enroll the contact into a follow-up sequence" },
   remove_from_sequence: { label: "Remove from drip campaign", desc: "Stop the contact's sequence enrollment" },
   blacklist: { label: "Mark blacklisted", desc: "Block the contact from outreach" },
+  add_to_list: { label: "Add contact to list", desc: "Tag the contact into a list" },
   add_tag: { label: "Add label", desc: "Attach one or more labels" },
   remove_tag: { label: "Remove label", desc: "Detach one or more labels" },
   set_contact_attribute: { label: "Set contact attribute", desc: "Save a value to a contact field" },
