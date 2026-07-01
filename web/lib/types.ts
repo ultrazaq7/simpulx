@@ -369,7 +369,15 @@ export interface Campaign {
   calling_enabled?: boolean;
   created_at: string;
 }
-export interface CampaignDetail extends Campaign { agent_ids: string[]; supervisor_ids?: string[]; }
+export interface CampaignDetail extends Campaign {
+  agent_ids: string[]; supervisor_ids?: string[];
+  segment?: string | null;
+  brand?: string | null;
+  ai_auto_reply?: boolean;
+  ai_language?: string | null;         // id | en
+  ai_dynamic_language?: boolean;
+  intake_form_id?: string | null;
+}
 export interface CampaignAnalyticsRow {
   id: string;
   name: string;

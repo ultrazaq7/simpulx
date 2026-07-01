@@ -99,6 +99,8 @@ func (s *server) handleGetCampaign(w http.ResponseWriter, r *http.Request) {
 		`SELECT c.id::text AS id, c.name, c.dealer_name, c.status, c.routing_strategy,
 		        to_jsonb(c.ad_source_ids) AS ad_source_ids, to_jsonb(c.keywords) AS keywords,
 		        c.lead_count, c.channel_id::text AS channel_id, c.calling_enabled,
+		        c.segment, c.brand, c.ai_auto_reply, c.ai_language, c.ai_dynamic_language,
+		        c.intake_form_id::text AS intake_form_id,
 		        COALESCE((SELECT jsonb_agg(ca.user_id::text) FROM campaign_agents ca WHERE ca.campaign_id = c.id AND ca.in_rotation), '[]'::jsonb) AS agent_ids,
 		        COALESCE((SELECT jsonb_agg(ca.user_id::text) FROM campaign_agents ca WHERE ca.campaign_id = c.id AND NOT ca.in_rotation), '[]'::jsonb) AS supervisor_ids
 		   FROM campaigns c WHERE c.id = $1 AND c.organization_id = $2`,
@@ -126,6 +128,13 @@ type campaignInput struct {
 	AgentIDs        []string `json:"agent_ids"`
 	SupervisorIDs   []string `json:"supervisor_ids"` // members for oversight only (no round-robin)
 	CallingEnabled  *bool    `json:"calling_enabled"`
+	// AI assistant config.
+	Segment           string `json:"segment"`
+	Brand             string `json:"brand"`
+	AIAutoReply       *bool  `json:"ai_auto_reply"`
+	AILanguage        string `json:"ai_language"`         // id | en
+	AIDynamicLanguage *bool  `json:"ai_dynamic_language"` // match the contact's language
+	IntakeFormID      string `json:"intake_form_id"`
 }
 
 // keywordsConflict returns the first keyword already claimed by ANOTHER campaign
@@ -166,10 +175,16 @@ func (s *server) handleCreateCampaign(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	var id string
+	if b.AILanguage == "" {
+		b.AILanguage = "id"
+	}
 	err := s.pool.QueryRow(r.Context(),
-		`INSERT INTO campaigns (organization_id, name, dealer_name, routing_strategy, ad_source_ids, keywords, channel_id, calling_enabled)
-		 VALUES ($1,$2,NULLIF($3,''),$4,$5,$6,NULLIF($7,'')::uuid,COALESCE($8,true)) RETURNING id::text`,
+		`INSERT INTO campaigns (organization_id, name, dealer_name, routing_strategy, ad_source_ids, keywords, channel_id, calling_enabled,
+		                        segment, brand, ai_auto_reply, ai_language, ai_dynamic_language, intake_form_id)
+		 VALUES ($1,$2,NULLIF($3,''),$4,$5,$6,NULLIF($7,'')::uuid,COALESCE($8,true),
+		         NULLIF($9,''),NULLIF($10,''),COALESCE($11,false),$12,COALESCE($13,true),NULLIF($14,'')::uuid) RETURNING id::text`,
 		a.OrgID, b.Name, b.DealerName, b.RoutingStrategy, b.AdSourceIDs, b.Keywords, b.ChannelID, b.CallingEnabled,
+		b.Segment, b.Brand, b.AIAutoReply, b.AILanguage, b.AIDynamicLanguage, b.IntakeFormID,
 	).Scan(&id)
 	if err != nil {
 		http.Error(w, err.Error(), http.StatusInternalServerError)
@@ -207,10 +222,17 @@ func (s *server) handleUpdateCampaign(w http.ResponseWriter, r *http.Request) {
 		   keywords = COALESCE($8, keywords),
 		   channel_id = NULLIF($9,'')::uuid,
 		   calling_enabled = COALESCE($10, calling_enabled),
+		   segment = COALESCE(NULLIF($11,''), segment),
+		   brand = COALESCE(NULLIF($12,''), brand),
+		   ai_auto_reply = COALESCE($13, ai_auto_reply),
+		   ai_language = COALESCE(NULLIF($14,''), ai_language),
+		   ai_dynamic_language = COALESCE($15, ai_dynamic_language),
+		   intake_form_id = CASE WHEN $16 = '' THEN intake_form_id WHEN $16 = 'none' THEN NULL ELSE $16::uuid END,
 		   updated_at = now()
 		 WHERE id=$1 AND organization_id=$2`,
 		r.PathValue("id"), a.OrgID, b.Name, b.DealerName, b.Status, b.RoutingStrategy,
 		nilIfEmptySlice(b.AdSourceIDs), nilIfEmptySlice(b.Keywords), b.ChannelID, b.CallingEnabled,
+		b.Segment, b.Brand, b.AIAutoReply, b.AILanguage, b.AIDynamicLanguage, b.IntakeFormID,
 	)
 	if err != nil {
 		http.Error(w, err.Error(), http.StatusInternalServerError)

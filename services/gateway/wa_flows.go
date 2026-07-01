@@ -16,6 +16,7 @@ import (
 	"time"
 
 	"github.com/simpulx/v2/libs/go/config"
+	"github.com/simpulx/v2/libs/go/events"
 )
 
 // ============================================================
@@ -696,6 +697,59 @@ func (s *server) captureFlowResponse(ctx context.Context, orgID, fromPhone, cont
 
 	if flowID != "" {
 		s.maybeAppendFlowSheet(ctx, orgID, flowID, contactName, fromPhone, answers)
+	}
+
+	// Fire an immediate notification: the form is in, so the lead's details are
+	// ready and an agent should pick it up now.
+	name := contactName
+	if name == "" {
+		name = fromPhone
+	}
+	cv := ""
+	if convID != nil {
+		cv = *convID
+	}
+	s.notifyFormComplete(ctx, orgID, cv, name, flowID)
+}
+
+// notifyFormComplete notifies the assigned agent (or, if unassigned, the org's
+// managers/admins) that a lead completed an intake form, with an in-app bell
+// notification + FCM push.
+func (s *server) notifyFormComplete(ctx context.Context, orgID, convID, contactName, flowID string) {
+	formName := "the intake form"
+	if flowID != "" {
+		var nm string
+		if err := s.pool.QueryRow(ctx, `SELECT name FROM wa_flows WHERE id=$1`, flowID).Scan(&nm); err == nil && nm != "" {
+			formName = nm
+		}
+	}
+	var recipients []string
+	if convID != "" {
+		var agent *string
+		_ = s.pool.QueryRow(ctx, `SELECT assigned_agent_id::text FROM conversations WHERE id=$1 AND organization_id=$2`, convID, orgID).Scan(&agent)
+		if agent != nil && *agent != "" {
+			recipients = []string{*agent}
+		}
+	}
+	if len(recipients) == 0 {
+		// No assigned agent yet: notify whoever can action the lead.
+		rows, _ := s.queryMaps(ctx, `SELECT id::text FROM users WHERE organization_id=$1 AND status='active' AND role IN ('admin','owner','manager')`, orgID)
+		for _, r := range rows {
+			if id, ok := r["id"].(string); ok {
+				recipients = append(recipients, id)
+			}
+		}
+	}
+	title := "Lead details ready"
+	body := contactName + " completed " + formName
+	for _, uid := range recipients {
+		_, _ = s.pool.Exec(ctx,
+			`INSERT INTO notifications (organization_id, user_id, type, title, body, conversation_id)
+			 VALUES ($1,$2::uuid,'form_completed',$3,$4,NULLIF($5,'')::uuid)`,
+			orgID, uid, title, body, convID)
+		_ = s.bus.Publish(events.SubjectNotificationCreated, orgID, events.NotificationCreated{
+			UserID: uid, Type: "form_completed", Title: title, Body: body, ConversationID: convID,
+		})
 	}
 }
 

@@ -15,6 +15,11 @@ import { FieldLabel, PrimaryButton } from "../_shared";
 
 const STEPS = ["Campaign", "Branches", "Review"];
 
+const SEGMENTS = [
+  "Automotive", "Property / Real Estate", "Finance", "Insurance", "Retail / FMCG",
+  "Education", "Healthcare", "Travel & Hospitality", "Food & Beverage", "Services", "Other",
+];
+
 type LocalBranch = {
   key: string; id?: string;
   name: string; adSources: string;
@@ -45,6 +50,15 @@ export function CampaignWizard({ campaignId, users, channels, onClose, onDone, o
   const [adSources, setAdSources] = useState("");
   const [keywords, setKeywords] = useState("");
 
+  // AI assistant
+  const [segment, setSegment] = useState("");
+  const [brand, setBrand] = useState("");
+  const [aiAutoReply, setAiAutoReply] = useState(false);
+  const [aiLanguage, setAiLanguage] = useState("id");
+  const [aiDynamicLanguage, setAiDynamicLanguage] = useState(true);
+  const [intakeFormId, setIntakeFormId] = useState("");
+  const [forms, setForms] = useState<{ id: string; name: string }[]>([]);
+
   // Branches
   const [branches, setBranches] = useState<LocalBranch[]>([]);
   const [removed, setRemoved] = useState<string[]>([]);
@@ -55,6 +69,7 @@ export function CampaignWizard({ campaignId, users, channels, onClose, onDone, o
 
   useEffect(() => {
     api.listWebApiSources().then(setWebSources).catch(() => {});
+    api.listFlows().then((fs) => setForms((fs || []).map((f) => ({ id: f.id, name: f.name })))).catch(() => {});
     if (campaignId) {
       Promise.all([api.getCampaign(campaignId), api.listCampaignBranches(campaignId).catch(() => [])])
         .then(([c, brs]) => {
@@ -62,6 +77,8 @@ export function CampaignWizard({ campaignId, users, channels, onClose, onDone, o
           setChannelId(c.channel_id ?? ""); setCallingEnabled(c.calling_enabled ?? true);
           setDefaultAgents(c.agent_ids ?? []); setSupervisors(c.supervisor_ids ?? []); setKeywords((c.keywords ?? []).join(", "));
           setAdSources((c.ad_source_ids ?? []).join(", "));
+          setSegment(c.segment ?? ""); setBrand(c.brand ?? ""); setAiAutoReply(c.ai_auto_reply ?? false);
+          setAiLanguage(c.ai_language ?? "id"); setAiDynamicLanguage(c.ai_dynamic_language ?? true); setIntakeFormId(c.intake_form_id ?? "");
           setBranches((brs as any[]).map((b) => ({
             key: `b${++keySeq}`, id: b.id, name: b.name,
             adSources: (b.ad_source_ids ?? []).join(", "), agentIds: b.agent_ids ?? [], supervisorIds: b.supervisor_ids ?? [], webSourceIds: b.web_source_ids ?? [],
@@ -99,6 +116,8 @@ export function CampaignWizard({ campaignId, users, channels, onClose, onDone, o
         name: name.trim(), dealer_name: company.trim(), status, routing_strategy: routing,
         channel_id: channelId, ad_source_ids: csv(adSources), keywords: csv(keywords),
         agent_ids: defaultAgents, supervisor_ids: supervisors, calling_enabled: callingEnabled,
+        segment, brand: brand.trim(), ai_auto_reply: aiAutoReply, ai_language: aiLanguage,
+        ai_dynamic_language: aiDynamicLanguage, intake_form_id: intakeFormId || "none",
       };
       let cid = campaignId;
       if (isEdit) await api.updateCampaign(cid!, payload);
@@ -161,6 +180,51 @@ export function CampaignWizard({ campaignId, users, channels, onClose, onDone, o
           </div>
           <WizardField label="CTWA ad source IDs (used when no branch matches)" value={adSources} onChange={setAdSources} placeholder="ad_honda_brio_2026" hint="Per-branch ad sources are set in step 2. These campaign-level IDs route leads when no branch matches." />
           <WizardField label="Keywords in first message (comma separated)" value={keywords} onChange={setKeywords} placeholder="brio, honda" />
+
+          {/* AI Assistant */}
+          <div className="rounded-xl border border-border overflow-hidden">
+            <div className="flex items-center justify-between gap-3 px-4 py-3 bg-muted/40 border-b border-border">
+              <div className="inline-flex items-center gap-2">
+                <Sparkles className="w-4 h-4 text-primary" />
+                <span className="text-[13.5px] font-semibold text-foreground">AI assistant</span>
+              </div>
+              <div className="inline-flex items-center gap-2">
+                <span className="text-[12px] font-medium text-muted-foreground">{aiAutoReply ? "Auto-reply on" : "Auto-reply off"}</span>
+                <button type="button" onClick={() => setAiAutoReply((v) => !v)}
+                  className={`relative inline-flex h-5 w-9 shrink-0 rounded-full transition-colors outline-none ${aiAutoReply ? "bg-primary" : "bg-muted"}`}>
+                  <span className={`inline-block h-4 w-4 rounded-full bg-white shadow-sm transform transition-transform mt-0.5 ${aiAutoReply ? "translate-x-[18px] ml-0.5" : "translate-x-0.5"}`} />
+                </button>
+              </div>
+            </div>
+            <div className="p-4 flex flex-col gap-4">
+              <p className="text-[12px] text-muted-foreground -mt-1">When on, the AI replies automatically, nurtures the lead until the key details are collected, then notifies an agent to take over.</p>
+              <div className="grid grid-cols-2 gap-4">
+                <div><FieldLabel>Segment</FieldLabel>
+                  <Select value={segment} onChange={setSegment} placeholder="Select segment" searchable
+                    options={[{ value: "", label: "Not set" }, ...SEGMENTS.map((s) => ({ value: s, label: s }))]} /></div>
+                <WizardField label="Brand" value={brand} onChange={setBrand} placeholder="e.g. Mitsubishi XFORCE" hint="Gives the AI clear context for on-brand replies." />
+              </div>
+              <div className="grid grid-cols-2 gap-4">
+                <div><FieldLabel>Reply language</FieldLabel>
+                  <Select value={aiLanguage} onChange={setAiLanguage} searchable={false}
+                    options={[{ value: "id", label: "Indonesian" }, { value: "en", label: "English" }]} /></div>
+                <div className="flex items-end">
+                  <div className="flex items-center justify-between gap-3 w-full rounded-lg border border-border p-3">
+                    <p className="text-[13px] font-medium text-foreground">Match contact&apos;s language</p>
+                    <button type="button" onClick={() => setAiDynamicLanguage((v) => !v)}
+                      className={`relative inline-flex h-5 w-9 shrink-0 rounded-full transition-colors outline-none ${aiDynamicLanguage ? "bg-primary" : "bg-muted"}`}>
+                      <span className={`inline-block h-4 w-4 rounded-full bg-white shadow-sm transform transition-transform mt-0.5 ${aiDynamicLanguage ? "translate-x-[18px] ml-0.5" : "translate-x-0.5"}`} />
+                    </button>
+                  </div>
+                </div>
+              </div>
+              <div><FieldLabel>Intake form (auto-sent on first reply)</FieldLabel>
+                <Select value={intakeFormId} onChange={setIntakeFormId} placeholder="No form" searchable
+                  options={[{ value: "", label: "No form" }, ...forms.map((f) => ({ value: f.id, label: f.name }))]} />
+                <p className="mt-1 text-[11px] text-muted-foreground">The AI sends this WhatsApp form on the first response to collect complete lead details.</p>
+              </div>
+            </div>
+          </div>
         </div>
       )}
 
