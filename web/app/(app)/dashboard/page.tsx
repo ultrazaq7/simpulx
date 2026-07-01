@@ -317,10 +317,13 @@ const AGENT_CARDS = [
 function AgentDashboard() {
   const [cards, setCards] = useState<DashboardCards | null>(null);
   const [analytics, setAnalytics] = useState<Analytics | null>(null);
+  const [analyticsDone, setAnalyticsDone] = useState(false);
   useEffect(() => {
     // Fall back to zeros (not an endless skeleton) if the endpoint isn't deployed yet.
     api.getDashboardCards().then(setCards).catch(() => setCards({ open: 0, hot: 0, follow_up: 0, need_call: 0, unread: 0 }));
-    api.getAnalytics().then(setAnalytics).catch(() => {});
+    // analyticsDone gates the Purchased/Lost cards: skeleton only WHILE loading,
+    // then fall back to 0 on failure so they never spin forever.
+    api.getAnalytics().then(setAnalytics).catch(() => {}).finally(() => setAnalyticsDone(true));
   }, []);
   const funnel = analytics?.funnel;
 
@@ -329,8 +332,8 @@ function AgentDashboard() {
       {/* Action cards */}
       <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-6 gap-3 mb-5">
         {AGENT_CARDS.map((c) => {
-          const v = c.key === "purchase" ? (funnel?.won ?? null)
-            : c.key === "lost" ? (analytics?.lost ?? null)
+          const v = c.key === "purchase" ? (funnel?.won ?? (analyticsDone ? 0 : null))
+            : c.key === "lost" ? (analytics?.lost ?? (analyticsDone ? 0 : null))
             : cards ? ((cards as any)[c.key] as number) : null;
           const body = (
             <>

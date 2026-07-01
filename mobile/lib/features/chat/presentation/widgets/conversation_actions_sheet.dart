@@ -422,64 +422,108 @@ class _ActionsSheet extends ConsumerWidget {
   }
 
   void _pickLostReason(BuildContext context, ConversationActionsController actions) {
-    final lostReasons = [
-      'Bought elsewhere: Another brand',
-      'Bought elsewhere: A used car instead',
-      'Bought elsewhere: Same brand, other dealer',
-      'Bought elsewhere: Competitor promo',
-      'Didn\'t buy: Out of area',
-      'Didn\'t buy: Price too high',
-      'Didn\'t buy: Financing rejected',
-      'Didn\'t buy: No budget / postponed',
-      'Didn\'t buy: Wrong product / spec',
-      'Didn\'t buy: Changed mind / not buying',
-      'Didn\'t buy: Trade-in issue',
-      'Spam: Spam',
-      'Spam: Job seeker',
-      'Spam: Abusive',
-      'Spam: Wrong number',
-      'Spam: Duplicate',
+    // Three lost TYPES (wizard step 1) -> specific reasons (step 2).
+    const groups = <(String, String, IconData, bool, List<(String, String)>)>[
+      ('Purchase', 'Bought elsewhere', Icons.shopping_bag_outlined, false, [
+        ('bought_other_brand', 'Another brand'),
+        ('bought_used_car', 'A used car instead'),
+        ('bought_elsewhere', 'Same brand, other dealer'),
+        ('competitor_promo', 'Competitor promo'),
+      ]),
+      ('Not Purchase', "Didn't buy", Icons.cancel_outlined, false, [
+        ('out_of_area', 'Out of area'),
+        ('price_too_high', 'Price too high'),
+        ('financing_rejected', 'Financing rejected'),
+        ('no_budget', 'No budget / postponed'),
+        ('wrong_product', 'Wrong product / spec'),
+        ('changed_mind', 'Changed mind / not buying'),
+        ('trade_in_issue', 'Trade-in issue'),
+      ]),
+      ('Spam', 'Spam / invalid', Icons.block, true, [
+        ('spam_junk', 'Spam'),
+        ('job_seeker', 'Job seeker'),
+        ('abusive', 'Abusive'),
+        ('wrong_number', 'Wrong number'),
+        ('duplicate', 'Duplicate'),
+      ]),
     ];
-    final values = [
-      'bought_other_brand',
-      'bought_used_car',
-      'bought_elsewhere',
-      'competitor_promo',
-      'out_of_area',
-      'price_too_high',
-      'financing_rejected',
-      'no_budget',
-      'wrong_product',
-      'changed_mind',
-      'trade_in_issue',
-      'spam_junk',
-      'job_seeker',
-      'abusive',
-      'wrong_number',
-      'duplicate',
-    ];
+    int? gi; // selected type index; null = step 1 (pick type)
     showModalBottomSheet<void>(
       context: context,
       showDragHandle: true,
       isScrollControlled: true,
       builder: (sheetContext) => DraggableScrollableSheet(
-        initialChildSize: 0.7,
+        initialChildSize: 0.55,
         maxChildSize: 0.9,
         expand: false,
-        builder: (context, scrollController) => ListView.builder(
-          controller: scrollController,
-          itemCount: lostReasons.length,
-          itemBuilder: (context, i) => ListTile(
-            title: Text(lostReasons[i]),
-            onTap: () {
-              final v = values[i];
-              final isSpam = v.startsWith('spam') || v == 'job_seeker' || v == 'abusive' || v == 'wrong_number' || v == 'duplicate';
-              // "bought" reasons => lost but purchased elsewhere (Lost Purchase).
-              final didPurchase = v.startsWith('bought_') || v == 'competitor_promo';
-              final cat = isSpam ? 'spam' : 'lost';
-              _do(context, sheetContext, actions.setDisposition(cat, lostReason: v, didPurchase: didPurchase), 'Marked as lost: ${lostReasons[i]}');
-            },
-          ),
+        builder: (context, scrollController) => StatefulBuilder(
+          builder: (context, setSheetState) {
+            if (gi == null) {
+              // Step 1: pick the outcome type.
+              return ListView(
+                controller: scrollController,
+                children: [
+                  const Padding(
+                    padding: EdgeInsets.fromLTRB(20, 4, 20, 12),
+                    child: Text('Why is this lead lost?',
+                        style: TextStyle(fontSize: 17, fontWeight: FontWeight.w700)),
+                  ),
+                  for (var i = 0; i < groups.length; i++)
+                    ListTile(
+                      leading: CircleAvatar(
+                        backgroundColor:
+                            (groups[i].$4 ? AppColors.danger : AppColors.primary)
+                                .withValues(alpha: 0.12),
+                        child: Icon(groups[i].$3,
+                            color: groups[i].$4 ? AppColors.danger : AppColors.primary),
+                      ),
+                      title: Text(groups[i].$1,
+                          style: const TextStyle(fontWeight: FontWeight.w700)),
+                      subtitle: Text(groups[i].$2),
+                      trailing: const Icon(Icons.chevron_right_rounded),
+                      onTap: () => setSheetState(() => gi = i),
+                    ),
+                ],
+              );
+            }
+            // Step 2: pick a specific reason within the chosen type.
+            final g = groups[gi!];
+            return ListView(
+              controller: scrollController,
+              children: [
+                Padding(
+                  padding: const EdgeInsets.fromLTRB(4, 0, 16, 4),
+                  child: Row(
+                    children: [
+                      IconButton(
+                        icon: const Icon(Icons.arrow_back_rounded),
+                        onPressed: () => setSheetState(() => gi = null),
+                      ),
+                      Text(g.$1,
+                          style: const TextStyle(
+                              fontSize: 16, fontWeight: FontWeight.w700)),
+                    ],
+                  ),
+                ),
+                for (final r in g.$5)
+                  ListTile(
+                    title: Text(r.$2),
+                    onTap: () {
+                      final cat = g.$4 ? 'spam' : 'lost';
+                      // The "Purchase" group means lost-but-bought-elsewhere.
+                      final didPurchase = gi == 0;
+                      _do(
+                        context,
+                        sheetContext,
+                        actions.setDisposition(cat,
+                            lostReason: r.$1, didPurchase: didPurchase),
+                        'Marked as lost: ${r.$2}',
+                      );
+                    },
+                  ),
+              ],
+            );
+          },
         ),
       ),
     );
