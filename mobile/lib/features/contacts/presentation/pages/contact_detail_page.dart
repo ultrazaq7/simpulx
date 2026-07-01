@@ -53,7 +53,16 @@ class ContactDetailPage extends ConsumerWidget {
 
     if (contact == null) {
       return Scaffold(
-        appBar: AppBar(title: const Text('Contact')),
+        appBar: AppBar(
+          title: const Text('Contact'),
+          shape: Border(
+            bottom: BorderSide(
+              color: Theme.of(context).brightness == Brightness.dark 
+                  ? AppColors.darkBorder 
+                  : AppColors.border,
+            ),
+          ),
+        ),
         body: const AppLoader(),
       );
     }
@@ -62,6 +71,13 @@ class ContactDetailPage extends ConsumerWidget {
     return Scaffold(
       appBar: AppBar(
         title: const Text('Contact Details'),
+        shape: Border(
+          bottom: BorderSide(
+            color: Theme.of(context).brightness == Brightness.dark 
+                ? AppColors.darkBorder 
+                : AppColors.border,
+          ),
+        ),
         actions: [
           IconButton(
             icon: const Icon(Icons.edit_outlined),
