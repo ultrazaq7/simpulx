@@ -878,8 +878,7 @@ func (s *server) handleAnalytics(w http.ResponseWriter, r *http.Request) {
 	//  replied = the AGENT responded at least once (last_agent_message_at)
 	//  engaged = the LEAD/customer responded at least once (last_contact_message_at)
 	//  won     = reached the FINAL pipeline stage (Booking = max sort_order)
-	//  lost    = in the Lost STAGE (how leads are marked lost now) OR a legacy
-	//            'lost'-category disposition. Counted once via OR.
+	//  lost    = in a Lost STAGE (system_key starts with 'lost')
 	funnel, err := s.queryMaps(ctx,
 		fmt.Sprintf(`SELECT count(*) AS total,
 		        count(*) FILTER (WHERE cv.last_agent_message_at IS NOT NULL) AS replied,
