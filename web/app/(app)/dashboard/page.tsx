@@ -323,7 +323,7 @@ function AgentDashboard() {
     api.getDashboardCards().then(setCards).catch(() => setCards({ open: 0, hot: 0, follow_up: 0, need_call: 0, unread: 0 }));
     // analyticsDone gates the Purchased/Lost cards: skeleton only WHILE loading,
     // then fall back to 0 on failure so they never spin forever.
-    api.getAnalytics().then(setAnalytics).catch(() => {}).finally(() => setAnalyticsDone(true));
+    api.getAnalytics().then(setAnalytics).catch((e) => console.error('[agent-analytics]', e)).finally(() => setAnalyticsDone(true));
   }, []);
   const funnel = analytics?.funnel;
 
@@ -494,7 +494,7 @@ function ManagerControlTower() {
   const [analytics, setAnalytics] = useState<Analytics | null>(null);
   const [convs, setConvs] = useState<Conversation[] | null>(null);
   useEffect(() => {
-    api.getAnalytics().then(setAnalytics).catch(() => {});
+    api.getAnalytics().then(setAnalytics).catch((e) => console.error('[tower-analytics]', e));
     api.listConversations().then((c) => setConvs(c || [])).catch(() => setConvs([]));
   }, []);
 
@@ -633,8 +633,8 @@ function ManagerDashboard() {
       agent_id: fAgent.length ? fAgent.join(",") : undefined,
       from: fFrom || undefined, to: fTo || undefined,
     };
-    api.getStats(f).then(setStats).catch(() => {});
-    api.getAnalytics(f).then(setAnalytics).catch(() => {});
+    api.getStats(f).then(setStats).catch((e) => console.error('[mgr-stats]', e));
+    api.getAnalytics(f).then(setAnalytics).catch((e) => console.error('[mgr-analytics]', e));
   }, [fChannel, fCampaign, fAgent, fFrom, fTo]);
 
   if (!stats) return (
