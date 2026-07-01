@@ -58,7 +58,7 @@ class AppColors {
   // The deep cool near-black WhatsApp uses: #0B141A canvas, #111B21 panels,
   // #202C33 elevated (search/input), #2A3942 dividers.
   static const Color darkBackground = Color(0xFF0B141A);
-  static const Color darkSurface = Color(0xFF111B21);
+  static const Color darkSurface = Color(0xFF0B141A); // Match background for full flat dark look
   static const Color darkSurfaceAlt = Color(0xFF202C33);
   static const Color darkBorder = Color(0xFF2A3942);
 
