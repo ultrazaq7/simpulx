@@ -420,18 +420,18 @@ func (s *server) handlePublishFlow(w http.ResponseWriter, r *http.Request) {
 		metaFlowID, err = s.createMetaFlow(r.Context(), waba, token, name, categories)
 		if err != nil {
 			s.markFlowPublished(r.Context(), id, a.OrgID, "", flowJSON, err.Error())
-			http.Error(w, err.Error(), http.StatusBadGateway)
+			http.Error(w, err.Error(), http.StatusUnprocessableEntity)
 			return
 		}
 	}
 	if err := s.metaUploadFlowAsset(r.Context(), metaFlowID, token, []byte(flowJSON)); err != nil {
 		s.markFlowPublished(r.Context(), id, a.OrgID, metaFlowID, flowJSON, err.Error())
-		http.Error(w, err.Error(), http.StatusBadGateway)
+		http.Error(w, err.Error(), http.StatusUnprocessableEntity)
 		return
 	}
 	if _, err := s.metaPost(r.Context(), fmt.Sprintf("%s/%s/publish", graphBase, metaFlowID), token, map[string]any{}); err != nil {
 		s.markFlowPublished(r.Context(), id, a.OrgID, metaFlowID, flowJSON, err.Error())
-		http.Error(w, err.Error(), http.StatusBadGateway)
+		http.Error(w, err.Error(), http.StatusUnprocessableEntity)
 		return
 	}
 	s.markFlowPublished(r.Context(), id, a.OrgID, metaFlowID, flowJSON, "")
@@ -533,7 +533,7 @@ func (s *server) handleSendFlow(w http.ResponseWriter, r *http.Request) {
 		},
 	}
 	if _, err := s.metaPost(r.Context(), fmt.Sprintf("%s/%s/messages", graphBase, pnid), accessToken, payload); err != nil {
-		http.Error(w, err.Error(), http.StatusBadGateway)
+		http.Error(w, err.Error(), http.StatusUnprocessableEntity)
 		return
 	}
 	writeJSON(w, map[string]any{"status": "sent", "flow_token": token})

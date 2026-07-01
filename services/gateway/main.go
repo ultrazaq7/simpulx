@@ -329,10 +329,14 @@ func main() {
 
 	port := config.Get("PORT", "8080")
 	srv := &http.Server{
-		Addr:         ":" + port,
-		Handler:      cors(mux),
-		ReadTimeout:  10 * time.Second,
-		WriteTimeout: 10 * time.Second,
+		Addr:    ":" + port,
+		Handler: cors(mux),
+		// Multi-step Meta operations (publish a WhatsApp Flow = create + upload
+		// asset + publish; media/template uploads) can take well over 10s. A short
+		// WriteTimeout aborts the response mid-flight, which the proxy surfaces as a
+		// 502. Keep it under Cloudflare's ~100s edge timeout.
+		ReadTimeout:  30 * time.Second,
+		WriteTimeout: 90 * time.Second,
 	}
 
 	go func() {
