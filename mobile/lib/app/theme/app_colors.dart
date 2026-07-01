@@ -55,12 +55,17 @@ class AppColors {
   static const Color textInverse = Colors.white;
 
   // ── Dark surfaces (Neutral OLED Black) ───────────
-  // WhatsApp's actual dark mode (#0B141A) has a blue tint natively.
-  // Changed to pure OLED black/neutral grays to eliminate any blue tint.
-  static const Color darkBackground = Color(0xFF000000);
-  static const Color darkSurface = Color(0xFF121212);
-  static const Color darkSurfaceAlt = Color(0xFF1E1E1E);
-  static const Color darkBorder = Color(0xFF2C2C2C);
+  // WhatsApp's real dark mode uses layers that sit VERY close together in
+  // luminance (background ≈ appbar ≈ search field), separated mainly by a
+  // hairline border — not by a big black→grey jump. That's what makes it
+  // read as "one consistent surface" instead of patchy/blotchy.
+  //
+  // Previous values (#000000 → #1E1E1E) had too big a luminance gap, which
+  // is what produced the "belang" (patchy) look. Tightened below.
+  static const Color darkBackground = Color(0xFF000000); // scaffold canvas
+  static const Color darkSurface = Color(0xFF0C0C0C); // app bar / cards
+  static const Color darkSurfaceAlt = Color(0xFF141414); // search bar / chips
+  static const Color darkBorder = Color(0xFF262626); // hairline separators
 
   // ── Dark text (WhatsApp) ───────────────────────────────
   static const Color darkTextPrimary = Color(0xFFE9EDEF);
