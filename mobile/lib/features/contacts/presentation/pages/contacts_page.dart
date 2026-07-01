@@ -78,7 +78,12 @@ class _ContactsPageState extends ConsumerState<ContactsPage> {
       context: context,
       showDragHandle: true,
       isScrollControlled: true,
-      builder: (_) => Consumer(
+      builder: (_) => DraggableScrollableSheet(
+        expand: false,
+        initialChildSize: 0.55,
+        minChildSize: 0.3,
+        maxChildSize: 0.7,
+        builder: (context, scrollController) => Consumer(
         builder: (sheetContext, ref, _) {
           final stages = ref.watch(stagesProvider).value ?? const [];
           final isManager = ref
@@ -96,6 +101,7 @@ class _ContactsPageState extends ConsumerState<ContactsPage> {
 
               return SafeArea(
                 child: SingleChildScrollView(
+                  controller: scrollController,
                   padding: const EdgeInsets.fromLTRB(16, 0, 16, 16),
                   child: Column(
                     mainAxisSize: MainAxisSize.min,
@@ -264,6 +270,7 @@ class _ContactsPageState extends ConsumerState<ContactsPage> {
             },
           );
         },
+      ),
       ),
     );
   }

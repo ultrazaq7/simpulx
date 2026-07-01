@@ -79,26 +79,38 @@ class _ChatListPageState extends ConsumerState<ChatListPage> {
           if (q.trim().length >= 2) {
             matchesSearch = true;
           } else {
-            matchesSearch = c.lastMessagePreview?.toLowerCase().contains(q) ?? false;
+            matchesSearch =
+                c.lastMessagePreview?.toLowerCase().contains(q) ?? false;
           }
         } else {
-          matchesSearch = c.contactName.toLowerCase().contains(q) ||
-                          c.contactPhone.toLowerCase().contains(q);
+          matchesSearch =
+              c.contactName.toLowerCase().contains(q) ||
+              c.contactPhone.toLowerCase().contains(q);
         }
       }
       // Lost leads live in Archived, not the main inbox (WhatsApp-style).
       return matchesSearch && filter.matches(c) && !c.isLost;
     }).toList();
-    
+
     if (_sortType == 'Latest') {
-      res.sort((a, b) => (b.lastMessageAt ?? DateTime(0)).compareTo(a.lastMessageAt ?? DateTime(0)));
+      res.sort(
+        (a, b) => (b.lastMessageAt ?? DateTime(0)).compareTo(
+          a.lastMessageAt ?? DateTime(0),
+        ),
+      );
     } else if (_sortType == 'Oldest') {
-      res.sort((a, b) => (a.lastMessageAt ?? DateTime(0)).compareTo(b.lastMessageAt ?? DateTime(0)));
+      res.sort(
+        (a, b) => (a.lastMessageAt ?? DateTime(0)).compareTo(
+          b.lastMessageAt ?? DateTime(0),
+        ),
+      );
     } else if (_sortType == 'Unread First') {
       res.sort((a, b) {
         if (a.hasUnread && !b.hasUnread) return -1;
         if (!a.hasUnread && b.hasUnread) return 1;
-        return (b.lastMessageAt ?? DateTime(0)).compareTo(a.lastMessageAt ?? DateTime(0));
+        return (b.lastMessageAt ?? DateTime(0)).compareTo(
+          a.lastMessageAt ?? DateTime(0),
+        );
       });
     }
     return res;
@@ -109,14 +121,21 @@ class _ChatListPageState extends ConsumerState<ChatListPage> {
       context: context,
       showDragHandle: true,
       isScrollControlled: true,
-      builder: (_) => Consumer(
+      builder: (_) => DraggableScrollableSheet(
+        expand: false,
+        initialChildSize: 0.55,
+        minChildSize: 0.3,
+        maxChildSize: 0.7,
+        builder: (context, scrollController) => Consumer(
         builder: (context, ref, _) {
           final filter = ref.watch(inboxFilterProvider);
           // Agent filter is a manager/admin tool; agents don't pick other agents.
           final isManager =
-              ref.watch(sessionControllerProvider).user?.role.isManagerTier ?? false;
+              ref.watch(sessionControllerProvider).user?.role.isManagerTier ??
+              false;
           return SafeArea(
             child: SingleChildScrollView(
+              controller: scrollController,
               padding: const EdgeInsets.fromLTRB(16, 0, 16, 16),
               child: Column(
                 mainAxisSize: MainAxisSize.min,
@@ -124,9 +143,13 @@ class _ChatListPageState extends ConsumerState<ChatListPage> {
                 children: [
                   Row(
                     children: [
-                      const Text('Advanced Filters',
-                          style: TextStyle(
-                              fontSize: 17, fontWeight: FontWeight.w700)),
+                      const Text(
+                        'Advanced Filters',
+                        style: TextStyle(
+                          fontSize: 17,
+                          fontWeight: FontWeight.w700,
+                        ),
+                      ),
                       const Spacer(),
                       TextButton(
                         onPressed: () =>
@@ -136,9 +159,10 @@ class _ChatListPageState extends ConsumerState<ChatListPage> {
                     ],
                   ),
                   const SizedBox(height: 16),
-                  const Text('Interest Level',
-                      style:
-                          TextStyle(fontWeight: FontWeight.w700, fontSize: 13)),
+                  const Text(
+                    'Interest Level',
+                    style: TextStyle(fontWeight: FontWeight.w700, fontSize: 13),
+                  ),
                   const SizedBox(height: 8),
                   Wrap(
                     spacing: 8,
@@ -152,10 +176,13 @@ class _ChatListPageState extends ConsumerState<ChatListPage> {
                       ),
                       for (final level in const ['hot', 'warm', 'cold'])
                         ChoiceChip(
-                          label: Text(level[0].toUpperCase() + level.substring(1)),
+                          label: Text(
+                            level[0].toUpperCase() + level.substring(1),
+                          ),
                           selected: filter.interestLevel == level,
-                          selectedColor:
-                              AppColors.forInterest(level).withValues(alpha: 0.16),
+                          selectedColor: AppColors.forInterest(
+                            level,
+                          ).withValues(alpha: 0.16),
                           onSelected: (_) => ref
                               .read(inboxFilterProvider.notifier)
                               .set(filter.copyWith(interestLevel: level)),
@@ -163,9 +190,10 @@ class _ChatListPageState extends ConsumerState<ChatListPage> {
                     ],
                   ),
                   const SizedBox(height: 16),
-                  const Text('Status',
-                      style:
-                          TextStyle(fontWeight: FontWeight.w700, fontSize: 13)),
+                  const Text(
+                    'Status',
+                    style: TextStyle(fontWeight: FontWeight.w700, fontSize: 13),
+                  ),
                   const SizedBox(height: 8),
                   Wrap(
                     spacing: 8,
@@ -179,7 +207,9 @@ class _ChatListPageState extends ConsumerState<ChatListPage> {
                       ),
                       for (final status in const ['open', 'closed', 'snoozed'])
                         ChoiceChip(
-                          label: Text(status[0].toUpperCase() + status.substring(1)),
+                          label: Text(
+                            status[0].toUpperCase() + status.substring(1),
+                          ),
                           selected: filter.status == status,
                           onSelected: (_) => ref
                               .read(inboxFilterProvider.notifier)
@@ -188,9 +218,10 @@ class _ChatListPageState extends ConsumerState<ChatListPage> {
                     ],
                   ),
                   const SizedBox(height: 16),
-                  const Text('Stage',
-                      style:
-                          TextStyle(fontWeight: FontWeight.w700, fontSize: 13)),
+                  const Text(
+                    'Stage',
+                    style: TextStyle(fontWeight: FontWeight.w700, fontSize: 13),
+                  ),
                   const SizedBox(height: 8),
                   Consumer(
                     builder: (context, ref, _) {
@@ -212,7 +243,9 @@ class _ChatListPageState extends ConsumerState<ChatListPage> {
                                 selected: filter.stageName == stage.name,
                                 onSelected: (_) => ref
                                     .read(inboxFilterProvider.notifier)
-                                    .set(filter.copyWith(stageName: stage.name)),
+                                    .set(
+                                      filter.copyWith(stageName: stage.name),
+                                    ),
                               ),
                           ],
                         ),
@@ -226,29 +259,42 @@ class _ChatListPageState extends ConsumerState<ChatListPage> {
                   Consumer(
                     builder: (context, ref, _) {
                       final convAsync = ref.watch(conversationListProvider);
-                      final campaigns = convAsync.whenOrNull(
-                        data: (list) => list
-                            .where((c) => c.campaignName?.isNotEmpty ?? false)
-                            .map((c) => c.campaignName!)
-                            .toSet()
-                            .toList()
-                          ..sort(),
-                      ) ?? [];
+                      final campaigns =
+                          convAsync.whenOrNull(
+                            data: (list) =>
+                                list
+                                    .where(
+                                      (c) =>
+                                          c.campaignName?.isNotEmpty ?? false,
+                                    )
+                                    .map((c) => c.campaignName!)
+                                    .toSet()
+                                    .toList()
+                                  ..sort(),
+                          ) ??
+                          [];
                       if (campaigns.isEmpty) return const SizedBox.shrink();
                       return Column(
                         crossAxisAlignment: CrossAxisAlignment.start,
                         children: [
-                          const Text('Campaign',
-                              style: TextStyle(fontWeight: FontWeight.w700, fontSize: 13)),
+                          const Text(
+                            'Campaign',
+                            style: TextStyle(
+                              fontWeight: FontWeight.w700,
+                              fontSize: 13,
+                            ),
+                          ),
                           const SizedBox(height: 8),
                           _SearchableChipList(
                             items: campaigns,
                             selected: filter.campaignName,
                             onSelected: (v) => ref
                                 .read(inboxFilterProvider.notifier)
-                                .set(v == null
-                                    ? filter.copyWith(clearCampaign: true)
-                                    : filter.copyWith(campaignName: v)),
+                                .set(
+                                  v == null
+                                      ? filter.copyWith(clearCampaign: true)
+                                      : filter.copyWith(campaignName: v),
+                                ),
                           ),
                           const SizedBox(height: 16),
                         ],
@@ -259,38 +305,51 @@ class _ChatListPageState extends ConsumerState<ChatListPage> {
                     Consumer(
                       builder: (context, ref, _) {
                         final convAsync = ref.watch(conversationListProvider);
-                        final agents = convAsync.whenOrNull(
-                          data: (list) => list
-                              .where((c) => c.agentName?.isNotEmpty ?? false)
-                              .map((c) => c.agentName!)
-                              .toSet()
-                              .toList()
-                            ..sort(),
-                        ) ?? [];
+                        final agents =
+                            convAsync.whenOrNull(
+                              data: (list) =>
+                                  list
+                                      .where(
+                                        (c) => c.agentName?.isNotEmpty ?? false,
+                                      )
+                                      .map((c) => c.agentName!)
+                                      .toSet()
+                                      .toList()
+                                    ..sort(),
+                            ) ??
+                            [];
                         if (agents.isEmpty) return const SizedBox.shrink();
                         return Column(
                           crossAxisAlignment: CrossAxisAlignment.start,
                           children: [
-                            const Text('Agent',
-                                style: TextStyle(fontWeight: FontWeight.w700, fontSize: 13)),
+                            const Text(
+                              'Agent',
+                              style: TextStyle(
+                                fontWeight: FontWeight.w700,
+                                fontSize: 13,
+                              ),
+                            ),
                             const SizedBox(height: 8),
                             _SearchableChipList(
                               items: agents,
                               selected: filter.agentName,
                               onSelected: (v) => ref
                                   .read(inboxFilterProvider.notifier)
-                                  .set(v == null
-                                      ? filter.copyWith(clearAgent: true)
-                                      : filter.copyWith(agentName: v)),
+                                  .set(
+                                    v == null
+                                        ? filter.copyWith(clearAgent: true)
+                                        : filter.copyWith(agentName: v),
+                                  ),
                             ),
                             const SizedBox(height: 16),
                           ],
                         );
                       },
                     ),
-                  const Text('Quick Filters',
-                      style:
-                          TextStyle(fontWeight: FontWeight.w700, fontSize: 13)),
+                  const Text(
+                    'Quick Filters',
+                    style: TextStyle(fontWeight: FontWeight.w700, fontSize: 13),
+                  ),
                   const SizedBox(height: 8),
                   SwitchListTile.adaptive(
                     contentPadding: EdgeInsets.zero,
@@ -314,7 +373,8 @@ class _ChatListPageState extends ConsumerState<ChatListPage> {
                     child: FilledButton(
                       onPressed: () => Navigator.of(context).pop(),
                       style: FilledButton.styleFrom(
-                          minimumSize: const Size.fromHeight(48)),
+                        minimumSize: const Size.fromHeight(48),
+                      ),
                       child: const Text('Apply'),
                     ),
                   ),
@@ -324,13 +384,17 @@ class _ChatListPageState extends ConsumerState<ChatListPage> {
           );
         },
       ),
+      ),
     );
   }
 
   @override
   Widget build(BuildContext context) {
-    final isGlobalSearch = _searchType == 'Messages' && _query.trim().length >= 2;
-    final async = isGlobalSearch ? ref.watch(messageSearchProvider(_query)) : ref.watch(conversationListProvider);
+    final isGlobalSearch =
+        _searchType == 'Messages' && _query.trim().length >= 2;
+    final async = isGlobalSearch
+        ? ref.watch(messageSearchProvider(_query))
+        : ref.watch(conversationListProvider);
     final filter = ref.watch(inboxFilterProvider);
 
     return Scaffold(
@@ -358,7 +422,11 @@ class _ChatListPageState extends ConsumerState<ChatListPage> {
                   child: Row(
                     children: [
                       if (_sortType == sort)
-                        const Icon(Icons.check_rounded, size: 18, color: AppColors.primary)
+                        const Icon(
+                          Icons.check_rounded,
+                          size: 18,
+                          color: AppColors.primary,
+                        )
                       else
                         const SizedBox(width: 18),
                       const SizedBox(width: 8),
@@ -522,7 +590,8 @@ class _ChatListPageState extends ConsumerState<ChatListPage> {
                     hasScrollBody: false,
                     child: Padding(
                       padding: EdgeInsets.only(
-                          top: MediaQuery.of(context).size.height * 0.15),
+                        top: MediaQuery.of(context).size.height * 0.15,
+                      ),
                       child: AppEmptyState(
                         icon: _query.isEmpty
                             ? Icons.forum_outlined
@@ -530,10 +599,11 @@ class _ChatListPageState extends ConsumerState<ChatListPage> {
                         title:
                             (_query.isEmpty ? 'No conversations' : 'No matches')
                                 .tr(context),
-                        message: (_query.isEmpty
-                                ? 'New leads and chats will appear here.'
-                                : 'Try a different name or number.')
-                            .tr(context),
+                        message:
+                            (_query.isEmpty
+                                    ? 'New leads and chats will appear here.'
+                                    : 'Try a different name or number.')
+                                .tr(context),
                       ),
                     ),
                   )
@@ -548,8 +618,7 @@ class _ChatListPageState extends ConsumerState<ChatListPage> {
                             child: SizedBox(
                               width: 22,
                               height: 22,
-                              child:
-                                  CircularProgressIndicator(strokeWidth: 2),
+                              child: CircularProgressIndicator(strokeWidth: 2),
                             ),
                           ),
                         );
@@ -586,33 +655,45 @@ class _ArchivedRow extends StatelessWidget {
           children: [
             const SizedBox(
               width: 48,
-              child: Icon(Icons.archive_outlined,
-                  color: AppColors.textSecondary, size: 24),
+              child: Icon(
+                Icons.archive_outlined,
+                color: AppColors.textSecondary,
+                size: 24,
+              ),
             ),
             const SizedBox(width: 12),
             Expanded(
-              child: Text('Archived'.tr(context),
-                  style: const TextStyle(
-                      fontSize: 15, fontWeight: FontWeight.w600)),
+              child: Text(
+                'Archived'.tr(context),
+                style: const TextStyle(
+                  fontSize: 15,
+                  fontWeight: FontWeight.w600,
+                ),
+              ),
             ),
             // Show a number ONLY when there's an unread inside (a real notification).
             if (unread > 0)
               Container(
-                padding:
-                    const EdgeInsets.symmetric(horizontal: 7, vertical: 2),
+                padding: const EdgeInsets.symmetric(horizontal: 7, vertical: 2),
                 decoration: BoxDecoration(
                   color: AppColors.primary,
                   borderRadius: BorderRadius.circular(999),
                 ),
-                child: Text(unread > 99 ? '99+' : '$unread',
-                    style: const TextStyle(
-                        fontSize: 12,
-                        color: Colors.white,
-                        fontWeight: FontWeight.w700)),
+                child: Text(
+                  unread > 99 ? '99+' : '$unread',
+                  style: const TextStyle(
+                    fontSize: 12,
+                    color: Colors.white,
+                    fontWeight: FontWeight.w700,
+                  ),
+                ),
               ),
             const SizedBox(width: 4),
-            const Icon(Icons.chevron_right_rounded,
-                color: AppColors.textMuted, size: 20),
+            const Icon(
+              Icons.chevron_right_rounded,
+              color: AppColors.textMuted,
+              size: 20,
+            ),
           ],
         ),
       ),
@@ -711,8 +792,9 @@ class _FilterChip extends StatelessWidget {
               style: TextStyle(
                 fontSize: 13,
                 fontWeight: FontWeight.w600,
-                color:
-                    selected ? AppColors.primaryDark : AppColors.textSecondary,
+                color: selected
+                    ? AppColors.primaryDark
+                    : AppColors.textSecondary,
               ),
             ),
           ),
@@ -764,7 +846,10 @@ class _SearchableChipListState extends State<_SearchableChipList> {
               hintText: 'Search...',
               prefixIcon: const Icon(Icons.search_rounded, size: 20),
               isDense: true,
-              contentPadding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+              contentPadding: const EdgeInsets.symmetric(
+                horizontal: 12,
+                vertical: 8,
+              ),
               border: OutlineInputBorder(
                 borderRadius: BorderRadius.circular(10),
               ),
@@ -787,8 +872,8 @@ class _SearchableChipListState extends State<_SearchableChipList> {
               ChoiceChip(
                 label: Text(item, overflow: TextOverflow.ellipsis),
                 selected: widget.selected == item,
-                onSelected: (_) => widget.onSelected(
-                    widget.selected == item ? null : item),
+                onSelected: (_) =>
+                    widget.onSelected(widget.selected == item ? null : item),
               ),
           ],
         ),
