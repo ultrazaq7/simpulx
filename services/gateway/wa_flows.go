@@ -54,6 +54,10 @@ func nz(a, b string) string {
 func optSource(opts []string) []map[string]any {
 	out := make([]map[string]any, 0, len(opts))
 	for _, o := range opts {
+		o = strings.TrimSpace(o)
+		if o == "" {
+			continue // ignore blank lines from the options editor
+		}
 		// id == title so the submitted value is the human-readable choice.
 		out = append(out, map[string]any{"id": o, "title": o})
 	}

@@ -634,7 +634,7 @@ function CompEditor({ c, onChange, onRemove }: { c: FlowComponent; onChange: (p:
           <input value={c.label || ""} onChange={(e) => onChange({ label: e.target.value, name: c.name || slug(e.target.value) })}
             placeholder="Question / label" className="w-full mb-2 px-2.5 py-1.5 rounded-md border border-border bg-background text-sm outline-none focus:border-primary" />
           {hasOptions(c.type) && (
-            <textarea value={(c.options || []).join("\n")} onChange={(e) => onChange({ options: e.target.value.split("\n").filter(Boolean) })}
+            <textarea value={(c.options || []).join("\n")} onChange={(e) => onChange({ options: e.target.value.split("\n") })}
               placeholder="One option per line" rows={3} className="w-full mb-2 px-2.5 py-1.5 rounded-md border border-border bg-background text-sm outline-none focus:border-primary" />
           )}
           <label className="flex items-center gap-2 text-xs text-muted-foreground">
@@ -687,7 +687,7 @@ function Preview({ screen }: { screen?: FlowScreen }) {
                 <div className="h-12 rounded-md border border-[#D1D7DB] bg-white" />
               ) : hasOptions(c.type) ? (
                 <div className="flex flex-wrap gap-1">
-                  {(c.options || []).slice(0, 4).map((o, x) => (
+                  {(c.options || []).filter((o) => o.trim()).slice(0, 4).map((o, x) => (
                     <span key={x} className="px-2 py-0.5 rounded-full border border-[#D1D7DB] text-[10px] text-[#111B21]">{o}</span>
                   ))}
                 </div>
