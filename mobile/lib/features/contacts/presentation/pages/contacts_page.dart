@@ -28,10 +28,13 @@ class _ContactsPageState extends ConsumerState<ContactsPage> {
   String? _interest; // null = all
   String? _stage; // stage name, null = all
   String? _assignment; // 'mine' | 'unassigned' | null = all
+  String? _campaign; // campaign name, null = all
+  String? _agentFilter; // agent name, null = all
   String _sortType = 'Latest';
 
   int get _activeFilters =>
-      (_stage != null ? 1 : 0) + (_assignment != null ? 1 : 0);
+      (_stage != null ? 1 : 0) + (_assignment != null ? 1 : 0) +
+      (_campaign != null ? 1 : 0) + (_agentFilter != null ? 1 : 0);
 
   @override
   void dispose() {
@@ -50,10 +53,14 @@ class _ContactsPageState extends ConsumerState<ContactsPage> {
       final matchesAssignment = _assignment == null ||
           (_assignment == 'unassigned' && c.assignedAgentId == null) ||
           (_assignment == 'mine' && c.assignedAgentId == myId);
+      final matchesCampaign = _campaign == null || c.campaignName == _campaign;
+      final matchesAgent = _agentFilter == null || c.agentName == _agentFilter;
       return matchesQuery &&
           matchesInterest &&
           matchesStage &&
-          matchesAssignment;
+          matchesAssignment &&
+          matchesCampaign &&
+          matchesAgent;
     }).toList();
 
     if (_sortType == 'Score') {
@@ -105,6 +112,8 @@ class _ContactsPageState extends ConsumerState<ContactsPage> {
                               _stage = null;
                               _assignment = null;
                               _interest = null;
+                              _campaign = null;
+                              _agentFilter = null;
                             }),
                             child: const Text('Reset'),
                           ),
@@ -179,6 +188,65 @@ class _ContactsPageState extends ConsumerState<ContactsPage> {
                           ],
                         ),
                       ],
+                      // Campaign filter
+                      Builder(
+                        builder: (context) {
+                          final contactsAsync = ref.watch(contactsProvider);
+                          final campaigns = contactsAsync.whenOrNull(
+                            data: (list) => list
+                                .where((c) => c.campaignName?.isNotEmpty ?? false)
+                                .map((c) => c.campaignName!)
+                                .toSet()
+                                .toList()
+                              ..sort(),
+                          ) ?? [];
+                          if (campaigns.isEmpty) return const SizedBox.shrink();
+                          return Column(
+                            crossAxisAlignment: CrossAxisAlignment.start,
+                            children: [
+                              const SizedBox(height: 16),
+                              const Text('Campaign',
+                                  style: TextStyle(fontWeight: FontWeight.w700, fontSize: 13)),
+                              const SizedBox(height: 8),
+                              _SearchableChipList(
+                                items: campaigns,
+                                selected: _campaign,
+                                onSelected: (v) => update(() => _campaign = v),
+                              ),
+                            ],
+                          );
+                        },
+                      ),
+                      // Agent filter (manager only)
+                      if (isManager)
+                        Builder(
+                          builder: (context) {
+                            final contactsAsync = ref.watch(contactsProvider);
+                            final agents = contactsAsync.whenOrNull(
+                              data: (list) => list
+                                  .where((c) => c.agentName?.isNotEmpty ?? false)
+                                  .map((c) => c.agentName!)
+                                  .toSet()
+                                  .toList()
+                                ..sort(),
+                            ) ?? [];
+                            if (agents.isEmpty) return const SizedBox.shrink();
+                            return Column(
+                              crossAxisAlignment: CrossAxisAlignment.start,
+                              children: [
+                                const SizedBox(height: 16),
+                                const Text('Agent',
+                                    style: TextStyle(fontWeight: FontWeight.w700, fontSize: 13)),
+                                const SizedBox(height: 8),
+                                _SearchableChipList(
+                                  items: agents,
+                                  selected: _agentFilter,
+                                  onSelected: (v) => update(() => _agentFilter = v),
+                                ),
+                              ],
+                            );
+                          },
+                        ),
                       const SizedBox(height: 20),
                       SizedBox(
                         width: double.infinity,
@@ -331,6 +399,80 @@ class _ContactsPageState extends ConsumerState<ContactsPage> {
           );
         },
       ),
+    );
+  }
+}
+
+/// Searchable chip list for campaign/agent filter in contacts.
+class _SearchableChipList extends StatefulWidget {
+  const _SearchableChipList({
+    required this.items,
+    required this.selected,
+    required this.onSelected,
+  });
+  final List<String> items;
+  final String? selected;
+  final ValueChanged<String?> onSelected;
+
+  @override
+  State<_SearchableChipList> createState() => _SearchableChipListState();
+}
+
+class _SearchableChipListState extends State<_SearchableChipList> {
+  final _ctrl = TextEditingController();
+  String _q = '';
+
+  @override
+  void dispose() {
+    _ctrl.dispose();
+    super.dispose();
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final filtered = _q.isEmpty
+        ? widget.items
+        : widget.items.where((i) => i.toLowerCase().contains(_q)).toList();
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        SizedBox(
+          height: 40,
+          child: TextField(
+            controller: _ctrl,
+            decoration: InputDecoration(
+              hintText: 'Search...',
+              prefixIcon: const Icon(Icons.search_rounded, size: 20),
+              isDense: true,
+              contentPadding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+              border: OutlineInputBorder(
+                borderRadius: BorderRadius.circular(10),
+              ),
+            ),
+            style: const TextStyle(fontSize: 13),
+            onChanged: (v) => setState(() => _q = v.toLowerCase()),
+          ),
+        ),
+        const SizedBox(height: 8),
+        Wrap(
+          spacing: 8,
+          runSpacing: 4,
+          children: [
+            ChoiceChip(
+              label: const Text('All'),
+              selected: widget.selected == null,
+              onSelected: (_) => widget.onSelected(null),
+            ),
+            for (final item in filtered)
+              ChoiceChip(
+                label: Text(item, overflow: TextOverflow.ellipsis),
+                selected: widget.selected == item,
+                onSelected: (_) => widget.onSelected(
+                    widget.selected == item ? null : item),
+              ),
+          ],
+        ),
+      ],
     );
   }
 }

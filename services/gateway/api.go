@@ -1032,7 +1032,9 @@ func (s *server) handleAnalytics(w http.ResponseWriter, r *http.Request) {
 	lostReasons, _ := s.queryMaps(ctx,
 		fmt.Sprintf(`SELECT cv.lost_reason AS reason, count(*) AS count
 		   FROM conversations cv
+		   LEFT JOIN stages st ON st.id = cv.stage_id
 		  WHERE cv.organization_id=$1%s AND cv.lost_reason IS NOT NULL AND cv.lost_reason <> ''
+		    AND st.system_key LIKE 'lost%%'
 		  GROUP BY 1 ORDER BY 2 DESC LIMIT 8`, campFilter), args...)
 
 	// A secondary query failing must not take down the whole dashboard. Log it and

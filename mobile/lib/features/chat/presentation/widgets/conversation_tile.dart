@@ -93,9 +93,8 @@ class ConversationTile extends ConsumerWidget {
                     ],
                   ),
                   if (_isInactive(c.status) ||
-                      c.interestLevel != null ||
-                      c.stageName != null ||
-                      (isManager && (c.agentName?.isNotEmpty ?? false))) ...[
+                      (isManager && (c.agentName?.isNotEmpty ?? false)) ||
+                      (c.campaignName?.isNotEmpty ?? false)) ...[
                     const SizedBox(height: 6),
                     Wrap(
                       spacing: 6,
@@ -104,11 +103,10 @@ class ConversationTile extends ConsumerWidget {
                         if (_isInactive(c.status))
                           _StatusChip(
                               status: c.status, until: c.snoozedUntil),
-                        if (c.interestLevel != null)
-                          _InterestBadge(level: c.interestLevel!),
-                        if (c.stageName != null) _StageChip(label: c.stageName!),
                         if (isManager && (c.agentName?.isNotEmpty ?? false))
                           _AssigneeChip(name: c.agentName!),
+                        if (c.campaignName?.isNotEmpty ?? false)
+                          _CampaignChip(name: c.campaignName!),
                       ],
                     ),
                   ],
@@ -279,7 +277,6 @@ class _AssigneeChip extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final first = name.trim().split(RegExp(r'\s+')).first;
     return Container(
       padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 2),
       decoration: BoxDecoration(
@@ -293,7 +290,7 @@ class _AssigneeChip extends StatelessWidget {
               size: 12, color: AppColors.primaryDark),
           const SizedBox(width: 3),
           Text(
-            first,
+            name,
             style: const TextStyle(
               fontSize: 10.5,
               color: AppColors.primaryDark,
@@ -481,5 +478,42 @@ class _PreviewWidget extends StatelessWidget {
     }
 
     return Text(preview!, maxLines: 1, overflow: TextOverflow.ellipsis, style: style);
+  }
+}
+
+class _CampaignChip extends StatelessWidget {
+  const _CampaignChip({required this.name});
+  final String name;
+
+  @override
+  Widget build(BuildContext context) {
+    return Container(
+      padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 2),
+      decoration: BoxDecoration(
+        color: const Color(0xFF6366F1).withValues(alpha: 0.08),
+        borderRadius: BorderRadius.circular(999),
+      ),
+      child: Row(
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          const Icon(Icons.campaign_rounded,
+              size: 12, color: Color(0xFF6366F1)),
+          const SizedBox(width: 3),
+          ConstrainedBox(
+            constraints: const BoxConstraints(maxWidth: 100),
+            child: Text(
+              name,
+              maxLines: 1,
+              overflow: TextOverflow.ellipsis,
+              style: const TextStyle(
+                fontSize: 10.5,
+                color: Color(0xFF6366F1),
+                fontWeight: FontWeight.w600,
+              ),
+            ),
+          ),
+        ],
+      ),
+    );
   }
 }

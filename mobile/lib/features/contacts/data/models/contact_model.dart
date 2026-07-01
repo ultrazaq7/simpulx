@@ -24,6 +24,9 @@ class ContactModel {
       agentName: asStringOrNull(json['agent_name']),
       conversationId: asStringOrNull(json['conversation_id']),
       campaignName: asStringOrNull(json['campaign_name']),
+      lostReason: asStringOrNull(json['lost_reason']),
+      sourceId: asStringOrNull(json['source_id']),
+      sourceUrl: asStringOrNull(json['source_url']),
     );
   }
 

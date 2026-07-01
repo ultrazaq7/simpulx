@@ -26,6 +26,7 @@ class ConversationModel {
       isBotActive: asBool(json['is_bot_active']),
       snoozedUntil: asDateOrNull(json['snoozed_until']),
       lostReason: asStringOrNull(json['lost_reason']),
+      campaignName: asStringOrNull(json['campaign_name']),
     );
   }
 }

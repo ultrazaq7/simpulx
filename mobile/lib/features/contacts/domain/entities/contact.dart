@@ -22,6 +22,9 @@ class Contact extends Equatable {
     this.agentName,
     this.conversationId,
     this.campaignName,
+    this.lostReason,
+    this.sourceId,
+    this.sourceUrl,
   });
 
   final String id;
@@ -41,6 +44,9 @@ class Contact extends Equatable {
   final String? agentName;
   final String? conversationId;
   final String? campaignName;
+  final String? lostReason;
+  final String? sourceId;
+  final String? sourceUrl;
 
   String get displayName => fullName.trim().isNotEmpty ? fullName : phone;
   bool get hasConversation =>
@@ -77,5 +83,8 @@ class Contact extends Equatable {
         agentName,
         conversationId,
         campaignName,
+        lostReason,
+        sourceId,
+        sourceUrl,
       ];
 }

@@ -238,7 +238,74 @@ class _ChatListPageState extends ConsumerState<ChatListPage> {
                         .read(inboxFilterProvider.notifier)
                         .set(filter.copyWith(followUpOnly: v)),
                   ),
-                  const SizedBox(height: 20),
+                  const SizedBox(height: 16),
+                  // Campaign filter (derived from loaded conversations)
+                  Consumer(
+                    builder: (context, ref, _) {
+                      final convAsync = ref.watch(conversationListProvider);
+                      final campaigns = convAsync.whenOrNull(
+                        data: (list) => list
+                            .where((c) => c.campaignName?.isNotEmpty ?? false)
+                            .map((c) => c.campaignName!)
+                            .toSet()
+                            .toList()
+                          ..sort(),
+                      ) ?? [];
+                      if (campaigns.isEmpty) return const SizedBox.shrink();
+                      return Column(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: [
+                          const Text('Campaign',
+                              style: TextStyle(fontWeight: FontWeight.w700, fontSize: 13)),
+                          const SizedBox(height: 8),
+                          _SearchableChipList(
+                            items: campaigns,
+                            selected: filter.campaignName,
+                            onSelected: (v) => ref
+                                .read(inboxFilterProvider.notifier)
+                                .set(v == null
+                                    ? filter.copyWith(clearCampaign: true)
+                                    : filter.copyWith(campaignName: v)),
+                          ),
+                          const SizedBox(height: 16),
+                        ],
+                      );
+                    },
+                  ),
+                  // Agent filter (derived from loaded conversations)
+                  Consumer(
+                    builder: (context, ref, _) {
+                      final convAsync = ref.watch(conversationListProvider);
+                      final agents = convAsync.whenOrNull(
+                        data: (list) => list
+                            .where((c) => c.agentName?.isNotEmpty ?? false)
+                            .map((c) => c.agentName!)
+                            .toSet()
+                            .toList()
+                          ..sort(),
+                      ) ?? [];
+                      if (agents.isEmpty) return const SizedBox.shrink();
+                      return Column(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: [
+                          const Text('Agent',
+                              style: TextStyle(fontWeight: FontWeight.w700, fontSize: 13)),
+                          const SizedBox(height: 8),
+                          _SearchableChipList(
+                            items: agents,
+                            selected: filter.agentName,
+                            onSelected: (v) => ref
+                                .read(inboxFilterProvider.notifier)
+                                .set(v == null
+                                    ? filter.copyWith(clearAgent: true)
+                                    : filter.copyWith(agentName: v)),
+                          ),
+                          const SizedBox(height: 16),
+                        ],
+                      );
+                    },
+                  ),
+                  const SizedBox(height: 4),
                   SizedBox(
                     width: double.infinity,
                     child: FilledButton(
@@ -648,6 +715,81 @@ class _FilterChip extends StatelessWidget {
           ),
         ),
       ),
+    );
+  }
+}
+
+/// A searchable chip list for campaign/agent filter. Shows a search field +
+/// filtered list of ChoiceChips.
+class _SearchableChipList extends StatefulWidget {
+  const _SearchableChipList({
+    required this.items,
+    required this.selected,
+    required this.onSelected,
+  });
+  final List<String> items;
+  final String? selected;
+  final ValueChanged<String?> onSelected;
+
+  @override
+  State<_SearchableChipList> createState() => _SearchableChipListState();
+}
+
+class _SearchableChipListState extends State<_SearchableChipList> {
+  final _ctrl = TextEditingController();
+  String _q = '';
+
+  @override
+  void dispose() {
+    _ctrl.dispose();
+    super.dispose();
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final filtered = _q.isEmpty
+        ? widget.items
+        : widget.items.where((i) => i.toLowerCase().contains(_q)).toList();
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        SizedBox(
+          height: 40,
+          child: TextField(
+            controller: _ctrl,
+            decoration: InputDecoration(
+              hintText: 'Search...',
+              prefixIcon: const Icon(Icons.search_rounded, size: 20),
+              isDense: true,
+              contentPadding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+              border: OutlineInputBorder(
+                borderRadius: BorderRadius.circular(10),
+              ),
+            ),
+            style: const TextStyle(fontSize: 13),
+            onChanged: (v) => setState(() => _q = v.toLowerCase()),
+          ),
+        ),
+        const SizedBox(height: 8),
+        Wrap(
+          spacing: 8,
+          runSpacing: 4,
+          children: [
+            ChoiceChip(
+              label: const Text('All'),
+              selected: widget.selected == null,
+              onSelected: (_) => widget.onSelected(null),
+            ),
+            for (final item in filtered)
+              ChoiceChip(
+                label: Text(item, overflow: TextOverflow.ellipsis),
+                selected: widget.selected == item,
+                onSelected: (_) => widget.onSelected(
+                    widget.selected == item ? null : item),
+              ),
+          ],
+        ),
+      ],
     );
   }
 }

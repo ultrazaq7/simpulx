@@ -256,11 +256,18 @@ class _LeadContextCard extends StatelessWidget {
       child: Column(
         children: [
           _row(context, 'Stage', c.stageName ?? 'Not set'),
+          if (c.lostReason != null && c.lostReason!.isNotEmpty)
+            _row(context, 'Lost reason',
+                c.lostReason![0].toUpperCase() + c.lostReason!.substring(1).replaceAll('_', ' ')),
           if (c.interestLevel != null)
             _row(context, 'Interest',
                 c.interestLevel![0].toUpperCase() + c.interestLevel!.substring(1)),
           _row(context, 'Assigned', c.agentName ?? 'Unassigned'),
           if (c.campaignName != null) _row(context, 'Campaign', c.campaignName!),
+          if (c.sourceId != null && c.sourceId!.isNotEmpty)
+            _row(context, 'Source ID', c.sourceId!),
+          if (c.sourceUrl != null && c.sourceUrl!.isNotEmpty)
+            _row(context, 'Source URL', c.sourceUrl!),
           if (c.lastMessageAt != null)
             _row(context, 'Last activity',
                 '${formatDayLabel(c.lastMessageAt!)} ${formatBubbleTime(c.lastMessageAt!)}'),

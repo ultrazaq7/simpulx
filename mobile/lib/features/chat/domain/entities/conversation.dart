@@ -23,6 +23,7 @@ class Conversation extends Equatable {
     this.isBotActive = false,
     this.snoozedUntil,
     this.lostReason,
+    this.campaignName,
   });
 
   final String id;
@@ -44,6 +45,7 @@ class Conversation extends Equatable {
   final bool isBotActive;
   final DateTime? snoozedUntil;
   final String? lostReason; // set when a closed lead was marked Lost/Spam
+  final String? campaignName;
 
   /// A closed lead that carries a lost reason is a "Lost" lead, not just closed.
   bool get isLost => status == 'closed' && (lostReason?.isNotEmpty ?? false);
@@ -73,6 +75,7 @@ class Conversation extends Equatable {
         'is_bot_active': isBotActive,
         'snoozed_until': snoozedUntil?.toIso8601String(),
         'lost_reason': lostReason,
+        'campaign_name': campaignName,
       };
 
   String get displayName =>
@@ -91,6 +94,7 @@ class Conversation extends Equatable {
     bool? isBotActive,
     DateTime? snoozedUntil,
     String? lostReason,
+    String? campaignName,
   }) {
     return Conversation(
       id: id,
@@ -112,6 +116,7 @@ class Conversation extends Equatable {
       isBotActive: isBotActive ?? this.isBotActive,
       snoozedUntil: snoozedUntil ?? this.snoozedUntil,
       lostReason: lostReason ?? this.lostReason,
+      campaignName: campaignName ?? this.campaignName,
     );
   }
 
@@ -136,5 +141,6 @@ class Conversation extends Equatable {
         isBotActive,
         snoozedUntil,
         lostReason,
+        campaignName,
       ];
 }

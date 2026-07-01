@@ -9,6 +9,8 @@ class InboxFilter {
     this.status,
     this.stageName,
     this.assignment, // 'mine', 'unassigned', null
+    this.campaignName,
+    this.agentName,
     this.unreadOnly = false,
     this.followUpOnly = false,
   });
@@ -17,6 +19,8 @@ class InboxFilter {
   final String? status;
   final String? stageName;
   final String? assignment;
+  final String? campaignName;
+  final String? agentName;
   final bool unreadOnly;
   final bool followUpOnly;
 
@@ -30,6 +34,8 @@ class InboxFilter {
       (status != null ? 1 : 0) +
       (stageName != null ? 1 : 0) +
       (assignment != null ? 1 : 0) +
+      (campaignName != null ? 1 : 0) +
+      (agentName != null ? 1 : 0) +
       (unreadOnly ? 1 : 0) +
       (followUpOnly ? 1 : 0);
 
@@ -39,6 +45,8 @@ class InboxFilter {
     if (stageName != null && c.stageName != stageName) return false;
     if (assignment == 'unassigned' && !c.isUnassigned) return false;
     if (assignment == 'mine' && c.assignedAgentId != myId) return false;
+    if (campaignName != null && c.campaignName != campaignName) return false;
+    if (agentName != null && c.agentName != agentName) return false;
     if (unreadOnly && c.unreadCount == 0) return false;
     if (followUpOnly &&
         !((c.interestLevel == 'hot' || c.interestLevel == 'warm') &&
@@ -57,6 +65,10 @@ class InboxFilter {
     bool clearStage = false,
     String? assignment,
     bool clearAssignment = false,
+    String? campaignName,
+    bool clearCampaign = false,
+    String? agentName,
+    bool clearAgent = false,
     bool? unreadOnly,
     bool? followUpOnly,
   }) {
@@ -65,6 +77,8 @@ class InboxFilter {
       status: clearStatus ? null : (status ?? this.status),
       stageName: clearStage ? null : (stageName ?? this.stageName),
       assignment: clearAssignment ? null : (assignment ?? this.assignment),
+      campaignName: clearCampaign ? null : (campaignName ?? this.campaignName),
+      agentName: clearAgent ? null : (agentName ?? this.agentName),
       unreadOnly: unreadOnly ?? this.unreadOnly,
       followUpOnly: followUpOnly ?? this.followUpOnly,
     );
