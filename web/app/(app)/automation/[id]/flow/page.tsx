@@ -10,7 +10,7 @@ import "@xyflow/react/dist/style.css";
 import {
   ArrowLeft, Plus, Zap, MessageCircle, FileText, User, Sparkles, Tag, Flag,
   CheckCircle, Globe, GitFork, Trash2, Loader2, X, Save, Undo2, Redo2,
-  Braces, ToggleRight, Sheet,
+  Braces, ToggleRight, Sheet, ClipboardList,
 } from "lucide-react";
 import type { LucideIcon } from "lucide-react";
 import { Tip } from "@/components/ui/tooltip";
@@ -27,6 +27,7 @@ const META: Record<string, Meta> = {
   condition: { label: "Condition", Icon: GitFork, accent: "#8B5CF6", kicker: "IF", desc: "Branch on a condition" },
   send_message: { label: "Send auto reply", Icon: MessageCircle, accent: "#2D8B73", kicker: "DO", desc: ACTIONS.send_message.desc },
   send_template: { label: "Send template", Icon: FileText, accent: "#2D8B73", kicker: "DO", desc: ACTIONS.send_template.desc },
+  send_form: { label: "Send WhatsApp Form", Icon: ClipboardList, accent: "#2D8B73", kicker: "DO", desc: ACTIONS.send_form.desc },
   assign_agent: { label: "Assign to agent", Icon: User, accent: "#0891B2", kicker: "DO", desc: ACTIONS.assign_agent.desc },
   assign_campaign: { label: "Assign to campaign", Icon: Sparkles, accent: "#0891B2", kicker: "DO", desc: ACTIONS.assign_campaign.desc },
   add_tag: { label: "Add tag", Icon: Tag, accent: "#D97706", kicker: "DO", desc: ACTIONS.add_tag.desc },
@@ -42,14 +43,14 @@ const meta = (k: string) => META[k] ?? META.send_message;
 
 const PALETTE: { group: string; kinds: string[] }[] = [
   { group: "Logic", kinds: ["condition"] },
-  { group: "Messaging", kinds: ["send_message", "send_template"] },
+  { group: "Messaging", kinds: ["send_message", "send_template", "send_form"] },
   { group: "Routing", kinds: ["assign_agent", "assign_campaign"] },
   { group: "Contact", kinds: ["add_tag", "remove_tag", "set_contact_attribute", "set_priority"] },
   { group: "Flow control", kinds: ["set_conversation_status", "close_conversation", "webhook_notify"] },
   { group: "Integrations", kinds: ["google_sheet"] },
 ];
 // The executor runs these; others are configurable but not yet executed.
-const EXECUTED = new Set(["send_message", "add_tag", "remove_tag", "assign_agent", "assign_campaign", "set_contact_attribute", "set_conversation_status", "google_sheet", "close_conversation", "webhook_notify"]);
+const EXECUTED = new Set(["send_message", "send_form", "add_tag", "remove_tag", "assign_agent", "assign_campaign", "set_contact_attribute", "set_conversation_status", "google_sheet", "close_conversation", "webhook_notify"]);
 
 type NodeData = { kind: string; config: Record<string, unknown>; triggerType?: string };
 type AppNode = Node<NodeData>;
@@ -59,6 +60,7 @@ function summary(kind: string, c: Record<string, unknown>, triggerType?: string)
     case "trigger": return TRIGGERS[triggerType ?? ""]?.desc ?? "Entry point";
     case "send_message": return String(c.message || "No message set");
     case "send_template": return `Template: ${c.template_name || "—"}`;
+    case "send_form": return `Form: ${c.form_name || "—"}`;
     case "assign_agent": return `Agent: ${c.agent_name || c.agent_id || "—"}`;
     case "assign_campaign": return `Campaign: ${c.campaign_name || "—"}`;
     case "add_tag": case "remove_tag": return `Tags: ${(Array.isArray(c.tags) ? (c.tags as string[]).join(", ") : "") || "—"}`;
@@ -162,6 +164,7 @@ function Builder() {
   const [nodes, setNodes, onNodesChange] = useNodesState<AppNode>([]);
   const [edges, setEdges, onEdgesChange] = useEdgesState<Edge>([]);
   const [campaigns, setCampaigns] = useState<{ id: string; name: string }[]>([]);
+  const [forms, setForms] = useState<{ id: string; name: string }[]>([]);
 
   // ── Undo / redo (Ctrl+Z / Ctrl+Y) ──
   const nodesRef = useRef(nodes); nodesRef.current = nodes;
@@ -209,6 +212,7 @@ function Builder() {
       setAuto(a); setActive(a.is_active); setNodes(n); setEdges(e); setLoading(false);
     }).catch(() => setLoading(false));
     api.listCampaigns().then((cs) => setCampaigns(cs.map((c) => ({ id: c.id, name: c.name })))).catch(() => {});
+    api.listFlows().then((fs) => setForms(fs.filter((f) => f.status === "published").map((f) => ({ id: f.id, name: f.name })))).catch(() => {});
   }, [id]); // eslint-disable-line react-hooks/exhaustive-deps
   useEffect(() => { if (!toast) return; const t = setTimeout(() => setToast(null), 3000); return () => clearTimeout(t); }, [toast]);
 
@@ -335,7 +339,7 @@ function Builder() {
         {/* Inspector */}
         {selected && (
           <div className="absolute inset-y-0 right-0 z-20 w-[340px] bg-card border-l border-border shadow-xl flex flex-col animate-scale-in">
-            <Inspector node={selected} triggerType={auto.trigger_type} campaigns={campaigns} onChange={(cfg) => updateConfig(selected.id, cfg)} onClose={() => setSelId(null)} onDelete={() => deleteNode(selected.id)} />
+            <Inspector node={selected} triggerType={auto.trigger_type} campaigns={campaigns} forms={forms} onChange={(cfg) => updateConfig(selected.id, cfg)} onClose={() => setSelId(null)} onDelete={() => deleteNode(selected.id)} />
           </div>
         )}
       </div>
@@ -350,8 +354,8 @@ function Builder() {
 }
 
 // ── Inspector (per-node config) ─────────────────────────────────────────────
-function Inspector({ node, triggerType, campaigns, onChange, onClose, onDelete }: {
-  node: AppNode; triggerType: string; campaigns: { id: string; name: string }[]; onChange: (cfg: Record<string, unknown>) => void; onClose: () => void; onDelete: () => void;
+function Inspector({ node, triggerType, campaigns, forms, onChange, onClose, onDelete }: {
+  node: AppNode; triggerType: string; campaigns: { id: string; name: string }[]; forms: { id: string; name: string }[]; onChange: (cfg: Record<string, unknown>) => void; onClose: () => void; onDelete: () => void;
 }) {
   const kind = node.data.kind;
   const c = node.data.config || {};
@@ -384,6 +388,17 @@ function Inspector({ node, triggerType, campaigns, onChange, onClose, onDelete }
         )}
         {kind === "send_message" && <Field label="Message"><textarea value={String(c.message ?? "")} onChange={(e) => set("message", e.target.value)} rows={4} placeholder="Type the auto reply..." className={cn(INP, "resize-none h-auto py-2")} /></Field>}
         {kind === "send_template" && <Field label="Template name"><input value={String(c.template_name ?? "")} onChange={(e) => set("template_name", e.target.value)} placeholder="welcome_v1" className={INP} /></Field>}
+        {kind === "send_form" && <>
+          <Field label="Form">
+            <select value={String(c.form_id ?? "")} onChange={(e) => { const fid = e.target.value; const fname = forms.find((x) => x.id === fid)?.name || ""; onChange({ ...c, form_id: fid, form_name: fname }); }} className={INP}>
+              <option value="">Select a published form…</option>
+              {forms.map((f) => <option key={f.id} value={f.id}>{f.name}</option>)}
+            </select>
+          </Field>
+          <Field label="Message text"><input value={String(c.body ?? "")} onChange={(e) => set("body", e.target.value)} placeholder="Please fill in this form" className={INP} /></Field>
+          <Field label="Button label"><input value={String(c.cta ?? "")} onChange={(e) => set("cta", e.target.value)} placeholder="Open form" className={INP} /></Field>
+          {forms.length === 0 && <p className="text-[12px] text-amber-600">No published forms yet. Publish one in WhatsApp Forms first.</p>}
+        </>}
         {kind === "assign_agent" && <Field label="Agent name or ID"><input value={String(c.agent_name ?? "")} onChange={(e) => set("agent_name", e.target.value)} placeholder="e.g. Agent Satu" className={INP} /></Field>}
         {kind === "assign_campaign" && (
           <Field label="Campaign">

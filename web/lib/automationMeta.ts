@@ -15,6 +15,7 @@ export const TRIGGERS: Record<string, { label: string; desc: string }> = {
 export const ACTIONS: Record<string, { label: string; desc: string }> = {
   send_message: { label: "Send auto reply", desc: "Send a text message to the contact" },
   send_template: { label: "Send template", desc: "Send an approved WhatsApp template" },
+  send_form: { label: "Send WhatsApp Form", desc: "Send a published form for the contact to fill" },
   assign_agent: { label: "Assign to agent", desc: "Route the conversation to a specific agent" },
   assign_campaign: { label: "Assign to campaign", desc: "Route the conversation to a campaign" },
   add_tag: { label: "Add label", desc: "Attach one or more labels" },

@@ -13,6 +13,8 @@ package main
 
 import (
 	"context"
+	"crypto/rand"
+	"encoding/hex"
 	"encoding/json"
 	"net/http"
 	"strings"
@@ -228,6 +230,29 @@ func (a *app) execStep(ctx context.Context, orgID, convID, contactID string, s a
 				a.log.Warn("automation set_conversation_status failed", "err", err)
 			}
 		}
+	case "send_form":
+		formID := pStr(s.Params, "form_id")
+		if formID == "" {
+			return
+		}
+		metaFlowID, ok := a.st.publishedFlowMeta(ctx, orgID, formID)
+		if !ok {
+			a.log.Warn("automation send_form: form not published", "form", formID)
+			return
+		}
+		target, terr := a.st.sendTarget(ctx, convID)
+		if terr != nil {
+			a.log.Warn("automation send_form: no target", "err", terr)
+			return
+		}
+		// Token encodes the form id so the nfm_reply webhook maps the response
+		// back to this form (same scheme as the gateway's newFlowToken).
+		tb := make([]byte, 8)
+		_, _ = rand.Read(tb)
+		token := "f-" + formID + "-" + hex.EncodeToString(tb)
+		if _, err := a.snd.sendFlow(ctx, target, metaFlowID, token, pStr(s.Params, "cta"), pStr(s.Params, "body")); err != nil {
+			a.log.Warn("automation send_form failed", "err", err)
+		}
 	case "google_sheet":
 		sheetID := gsheets.ParseSpreadsheetID(pStr(s.Params, "sheet_url"))
 		if sheetID != "" {
@@ -386,6 +411,21 @@ func (s *store) assignConversation(ctx context.Context, convID, agentID string) 
 	_, err := s.pool.Exec(ctx,
 		`UPDATE conversations SET assigned_agent_id=$2, updated_at=now() WHERE id=$1`, convID, agentID)
 	return err
+}
+
+// publishedFlowMeta returns the Meta flow id for a published WhatsApp Form.
+func (s *store) publishedFlowMeta(ctx context.Context, orgID, formID string) (string, bool) {
+	if formID == "" {
+		return "", false
+	}
+	var meta string
+	err := s.pool.QueryRow(ctx,
+		`SELECT COALESCE(meta_flow_id,'') FROM wa_flows
+		  WHERE id=$1::uuid AND organization_id=$2 AND status='published'`, formID, orgID).Scan(&meta)
+	if err != nil || meta == "" {
+		return "", false
+	}
+	return meta, true
 }
 
 func (s *store) resolveCampaignByName(ctx context.Context, orgID, name string) string {

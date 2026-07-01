@@ -64,6 +64,35 @@ func (s *sender) sendMedia(ctx context.Context, t sendTarget, msgType, mediaURL,
 	})
 }
 
+// sendFlow mengirim interactive WhatsApp Flow (Form) message.
+func (s *sender) sendFlow(ctx context.Context, t sendTarget, metaFlowID, flowToken, cta, body string) (string, error) {
+	if cta == "" {
+		cta = "Open form"
+	}
+	if body == "" {
+		body = "Please fill in this form"
+	}
+	return s.post(ctx, t, map[string]any{
+		"messaging_product": "whatsapp",
+		"to":                t.ContactPhone,
+		"type":              "interactive",
+		"interactive": map[string]any{
+			"type": "flow",
+			"body": map[string]string{"text": body},
+			"action": map[string]any{
+				"name": "flow",
+				"parameters": map[string]any{
+					"flow_message_version": "3",
+					"flow_token":           flowToken,
+					"flow_id":              metaFlowID,
+					"flow_cta":             cta,
+					"flow_action":          "navigate",
+				},
+			},
+		},
+	})
+}
+
 // post mengirim payload ke WA Cloud API. Saat mock/kredensial kosong,
 // mengembalikan wamid palsu agar slice bisa diuji offline.
 func (s *sender) post(ctx context.Context, t sendTarget, payload map[string]any) (string, error) {
