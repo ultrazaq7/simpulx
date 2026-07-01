@@ -22,10 +22,10 @@ class ContactTile extends StatelessWidget {
           children: [
             CircleAvatar(
               radius: 22,
-              backgroundColor: AppColors.primary.withValues(alpha: 0.12),
+              backgroundColor: AppColors.avatarColor(c.displayName),
               child: Text(c.initials,
                   style: const TextStyle(
-                      color: AppColors.primaryDark,
+                      color: Colors.white,
                       fontWeight: FontWeight.w700,
                       fontSize: 14)),
             ),

@@ -147,11 +147,11 @@ class _Avatar extends StatelessWidget {
         children: [
           CircleAvatar(
             radius: 24,
-            backgroundColor: avatarColor.withValues(alpha: 0.15),
+            backgroundColor: avatarColor,
             child: Text(
               _initials,
-              style: TextStyle(
-                color: avatarColor,
+              style: const TextStyle(
+                color: Colors.white,
                 fontWeight: FontWeight.w700,
                 fontSize: 15,
               ),

@@ -539,11 +539,11 @@ class _ThreadAppBar extends StatelessWidget implements PreferredSizeWidget {
           children: [
             CircleAvatar(
               radius: 17,
-              backgroundColor: AppColors.primary.withValues(alpha: 0.12),
+              backgroundColor: AppColors.avatarColor(title),
               child: Text(
                 _initials(title),
                 style: const TextStyle(
-                  color: AppColors.primaryDark,
+                  color: Colors.white,
                   fontWeight: FontWeight.w700,
                   fontSize: 13,
                 ),

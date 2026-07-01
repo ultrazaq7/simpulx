@@ -301,11 +301,8 @@ class _ChatListPageState extends ConsumerState<ChatListPage> {
           const SizedBox(width: 8),
         ],
         bottom: PreferredSize(
-          preferredSize: const Size.fromHeight(102),
-          child: Column(
-            mainAxisSize: MainAxisSize.min,
-            children: [
-              Padding(
+          preferredSize: const Size.fromHeight(56),
+          child: Padding(
             padding: const EdgeInsets.fromLTRB(12, 0, 12, 8),
             child: SizedBox(
               height: 48,
@@ -406,15 +403,6 @@ class _ChatListPageState extends ConsumerState<ChatListPage> {
               ),
             ),
           ),
-              _InboxFilterChips(
-                active: _activeChip(filter),
-                onSelect: (preset) {
-                  ref.read(inboxFilterProvider.notifier).set(preset);
-                  setState(() => _visible = 25);
-                },
-              ),
-            ],
-          ),
         ),
       ),
       body: async.when(
@@ -429,38 +417,54 @@ class _ChatListPageState extends ConsumerState<ChatListPage> {
           final shown = _visible < filtered.length ? _visible : filtered.length;
           final hasMore = filtered.length > shown;
           final lostCount = list.where((c) => c.isLost).length;
-          return Column(
-            children: [
-              if (lostCount > 0 && _query.isEmpty)
-                _ArchivedRow(
-                  count: lostCount,
-                  onTap: () => context.push('/archived'),
+          // WhatsApp-style: the filter pills + Archived row live INSIDE the
+          // scroll view so they scroll away with the list instead of staying
+          // pinned under the app bar.
+          return RefreshIndicator(
+            onRefresh: () =>
+                ref.read(conversationListProvider.notifier).refresh(),
+            child: CustomScrollView(
+              controller: _scroll,
+              slivers: [
+                SliverToBoxAdapter(
+                  child: _InboxFilterChips(
+                    active: _activeChip(filter),
+                    onSelect: (preset) {
+                      ref.read(inboxFilterProvider.notifier).set(preset);
+                      setState(() => _visible = 25);
+                    },
+                  ),
                 ),
-              Expanded(
-                child: RefreshIndicator(
-                  onRefresh: () =>
-                      ref.read(conversationListProvider.notifier).refresh(),
-                  child: filtered.isEmpty
-                ? ListView(
-                    children: [
-                      SizedBox(height: MediaQuery.of(context).size.height * 0.2),
-                      AppEmptyState(
+                if (lostCount > 0 && _query.isEmpty)
+                  SliverToBoxAdapter(
+                    child: _ArchivedRow(
+                      count: lostCount,
+                      onTap: () => context.push('/archived'),
+                    ),
+                  ),
+                if (filtered.isEmpty)
+                  SliverFillRemaining(
+                    hasScrollBody: false,
+                    child: Padding(
+                      padding: EdgeInsets.only(
+                          top: MediaQuery.of(context).size.height * 0.15),
+                      child: AppEmptyState(
                         icon: _query.isEmpty
                             ? Icons.forum_outlined
                             : Icons.search_off_rounded,
-                        title: (_query.isEmpty ? 'No conversations' : 'No matches')
-                            .tr(context),
+                        title:
+                            (_query.isEmpty ? 'No conversations' : 'No matches')
+                                .tr(context),
                         message: (_query.isEmpty
                                 ? 'New leads and chats will appear here.'
                                 : 'Try a different name or number.')
                             .tr(context),
                       ),
-                    ],
+                    ),
                   )
-                : ListView.separated(
-                    controller: _scroll,
+                else
+                  SliverList.builder(
                     itemCount: shown + (hasMore ? 1 : 0),
-                    separatorBuilder: (_, i) => const SizedBox.shrink(),
                     itemBuilder: (context, i) {
                       if (i >= shown) {
                         return const Padding(
@@ -482,9 +486,8 @@ class _ChatListPageState extends ConsumerState<ChatListPage> {
                       );
                     },
                   ),
-                ),
-              ),
-            ],
+              ],
+            ),
           );
         },
       ),

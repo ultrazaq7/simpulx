@@ -302,14 +302,14 @@ class _ProfileHeader extends ConsumerWidget {
         children: [
           CircleAvatar(
             radius: 26,
-            backgroundColor: AppColors.primary.withValues(alpha: 0.12),
+            backgroundColor: AppColors.avatarColor(user.name),
             backgroundImage: user.avatarUrl != null
                 ? NetworkImage(user.avatarUrl!)
                 : null,
             child: user.avatarUrl == null
                 ? Text(user.initials,
                     style: const TextStyle(
-                        color: AppColors.primary,
+                        color: Colors.white,
                         fontWeight: FontWeight.w700))
                 : null,
           ),
