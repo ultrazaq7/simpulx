@@ -52,6 +52,19 @@ func nz(a, b string) string {
 	return b
 }
 
+// letters maps an index to A, B, ... Z, AA, ... Meta requires screen ids (and
+// we keep form names) to be alphabets + underscores only — no digits.
+func letters(i int) string {
+	s := ""
+	i++
+	for i > 0 {
+		i--
+		s = string(rune('A'+i%26)) + s
+		i /= 26
+	}
+	return s
+}
+
 func optSource(opts []string) []map[string]any {
 	out := make([]map[string]any, 0, len(opts))
 	for _, o := range opts {
@@ -124,7 +137,7 @@ func compileFlowJSON(def flowDefinition) (string, error) {
 			action = map[string]any{"name": "complete", "payload": payload}
 			footer = "Submit"
 		} else {
-			action = map[string]any{"name": "navigate", "next": map[string]any{"type": "screen", "name": fmt.Sprintf("SCREEN_%d", i+1)}, "payload": payload}
+			action = map[string]any{"name": "navigate", "next": map[string]any{"type": "screen", "name": "SCREEN_" + letters(i+1)}, "payload": payload}
 		}
 		formChildren = append(formChildren, map[string]any{"type": "Footer", "label": footer, "on-click-action": action})
 
@@ -138,13 +151,13 @@ func compileFlowJSON(def flowDefinition) (string, error) {
 		}
 
 		metaScreens = append(metaScreens, map[string]any{
-			"id":       fmt.Sprintf("SCREEN_%d", i),
+			"id":       "SCREEN_" + letters(i),
 			"title":    nz(sc.Title, "Form"),
 			"terminal": last,
 			"data":     data,
 			"layout": map[string]any{
 				"type":     "SingleColumnLayout",
-				"children": []map[string]any{{"type": "Form", "name": fmt.Sprintf("form_%d", i), "children": formChildren}},
+				"children": []map[string]any{{"type": "Form", "name": "FORM_" + letters(i), "children": formChildren}},
 			},
 		})
 		prior = append(prior, own...)
