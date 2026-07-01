@@ -8,7 +8,7 @@ import {
 
 import { api, getUser } from "@/lib/api";
 import { usePermissions } from "@/lib/permissions";
-import { initials, channelColor, channelTextColor, channelLabel, fmtDate, fmtExportTs, cn } from "@/lib/utils";
+import { initials, channelColor, channelTextColor, channelLabel, avatarColor, fmtDate, fmtExportTs, cn } from "@/lib/utils";
 import type { Contact, Agent, Campaign, Message, Stage, Conversation, Disposition } from "@/lib/types";
 import { Tip } from "@/components/ui/tooltip";
 import MessageBubble, { rewriteLocalMedia } from "@/app/(app)/inbox/components/MessageBubble";
@@ -24,6 +24,10 @@ function sourceLabel(c: Contact): string {
   if (c.source_id) return "Ad";
   if (c.web_api_source_name) return c.web_api_source_name;
   return c.source_channel ? channelLabel(c.source_channel) : "Direct";
+}
+
+function interestColor(level?: string | null): string {
+  return level === "hot" ? "#EF4444" : level === "warm" ? "#F59E0B" : level === "cold" ? "#3B82F6" : "#9CA3AF";
 }
 
 export default function ContactsPage() {
@@ -84,6 +88,18 @@ export default function ContactsPage() {
     } catch {
       setContacts((p) => p.map((x) => (x.id === c.id ? { ...x, stage_id: prevStageId, stage_name: prevName } : x)));
       setToast("Could not update stage");
+    }
+  }
+  async function setInterest(c: Contact, level: string) {
+    if (!c.conversation_id) { setToast("No conversation yet for this contact"); return; }
+    const prev = c.interest_level;
+    setContacts((p) => p.map((x) => (x.id === c.id ? { ...x, interest_level: level || null } : x)));
+    try {
+      await api.patchConversation(c.conversation_id, { interest_level: level });
+      setToast(level ? `Interest set to ${level}` : "Interest cleared");
+    } catch {
+      setContacts((p) => p.map((x) => (x.id === c.id ? { ...x, interest_level: prev } : x)));
+      setToast("Could not update interest");
     }
   }
   // Lost / Spam are terminal outcomes (dispositions), mirroring the inbox stage menu.
@@ -271,19 +287,19 @@ export default function ContactsPage() {
 
         {/* Table (fills remaining height) */}
         <div className="overflow-auto flex-1 min-h-0">
-          <table className="w-full text-sm whitespace-nowrap">
+          <table className="w-full text-[13px] whitespace-nowrap">
             <thead className="sticky top-0 z-10">
               <tr className="border-b border-border bg-muted">
                 <TH className="w-10"><span className="sr-only">Select</span><input type="checkbox" aria-label="Select all contacts" className="rounded border-input accent-primary" checked={paged.length > 0 && paged.every((c) => selected.has(c.id))} onChange={(e) => setSelected((s) => { const n = new Set(s); if (e.target.checked) paged.forEach((c) => n.add(c.id)); else paged.forEach((c) => n.delete(c.id)); return n; })} /></TH>
-                <TH>Contact name</TH><TH>Channel</TH><TH>Phone</TH><TH>Stage</TH><TH>Agent</TH><TH>Campaign</TH><TH>Source</TH><TH>Source ID</TH><TH>Source URL</TH>
+                <TH>Contact name</TH><TH>Channel</TH><TH>Phone</TH><TH>Stage</TH><TH>Interest</TH><TH>Agent</TH><TH>Campaign</TH><TH>Source</TH><TH>Source ID</TH><TH>Source URL</TH>
                 <TH>Labels</TH><TH>Created</TH><TH>Updated</TH><TH>Blacklisted</TH><TH className="text-right">Actions</TH>
               </tr>
             </thead>
             <tbody>
               {loading ? Array(8).fill(0).map((_, i) => (
-                <tr key={i}><td colSpan={15} className="px-4 py-2.5"><div className="h-9 skeleton rounded-md" /></td></tr>
+                <tr key={i}><td colSpan={16} className="px-4 py-2.5"><div className="h-9 skeleton rounded-md" /></td></tr>
               )) : paged.length === 0 ? (
-                <tr><td colSpan={15} className="text-center py-16">
+                <tr><td colSpan={16} className="text-center py-16">
                   <div className="w-12 h-12 rounded-xl bg-muted grid place-items-center mx-auto mb-3"><Users className="w-6 h-6 text-muted-foreground/50" /></div>
                   <p className="font-semibold text-foreground mb-0.5">No contacts found</p>
                   <p className="text-sm text-muted-foreground">{query || activeFilters ? "Try different filters." : "New contacts will appear here."}</p>
@@ -293,8 +309,8 @@ export default function ContactsPage() {
                   <td className="px-4 py-2.5"><input type="checkbox" aria-label={`Select ${c.full_name || c.phone || "contact"}`} className="rounded border-input accent-primary" checked={selected.has(c.id)} onChange={() => toggleSel(c.id)} /></td>
                   <td className="px-4 py-2.5">
                     <div className="flex items-center gap-3">
-                      <div className="w-9 h-9 rounded-full grid place-items-center text-xs font-bold ring-1 ring-inset ring-black/5 shrink-0"
-                        style={{ backgroundColor: channelColor(c.source_channel) + "1A", color: channelTextColor(c.source_channel) }}>
+                      <div className="w-8 h-8 rounded-full grid place-items-center text-[11px] font-bold text-white shrink-0"
+                        style={{ backgroundColor: avatarColor(c.full_name || c.phone) }}>
                         {initials(c.full_name || c.phone)}
                       </div>
                       <button onClick={() => router.push(`/contacts/${c.id}`)} className="font-semibold text-[13px] text-foreground truncate max-w-[180px] text-left hover:text-primary hover:underline outline-none">{c.full_name || c.phone || "Unknown"}</button>
@@ -319,6 +335,15 @@ export default function ContactsPage() {
                       </div>
                     ) : c.stage_name ? (
                       <span className="inline-flex px-2 py-0.5 rounded-md text-[11px] font-semibold bg-primary/10 text-primary">{c.stage_name}</span>
+                    ) : <span className="text-muted-foreground">-</span>}
+                  </td>
+                  <td className="px-4 py-2.5 whitespace-nowrap">
+                    {canEdit && c.conversation_id ? (
+                      <Select value={c.interest_level || ""} searchable={false} onChange={(v) => setInterest(c, v)} className="w-[104px]"
+                        options={[{ value: "", label: "Unset" }, { value: "hot", label: "🔥 Hot" }, { value: "warm", label: "🌤 Warm" }, { value: "cold", label: "❄ Cold" }]} />
+                    ) : c.interest_level ? (
+                      <span className="inline-flex px-2 py-0.5 rounded-md text-[11px] font-semibold capitalize"
+                        style={{ backgroundColor: interestColor(c.interest_level) + "1A", color: interestColor(c.interest_level) }}>{c.interest_level}</span>
                     ) : <span className="text-muted-foreground">-</span>}
                   </td>
                   <td className="px-4 py-2.5 text-foreground/80 whitespace-nowrap">{c.agent_name || <span className="text-muted-foreground">Unassigned</span>}</td>
@@ -517,8 +542,8 @@ function ChatPopup({ contact, onClose, notify }: {
       <div className="relative w-[540px] max-w-full h-[660px] max-h-[90vh] rounded-xl border border-border bg-card shadow-2xl animate-scale-in flex flex-col overflow-hidden">
         {/* Header */}
         <div className="flex items-center gap-3 px-4 py-3 border-b border-border bg-card shrink-0">
-          <div className="w-9 h-9 rounded-full grid place-items-center text-xs font-bold ring-1 ring-inset ring-black/5"
-            style={{ backgroundColor: channelColor(contact.source_channel) + "1A", color: channelTextColor(contact.source_channel) }}>
+          <div className="w-9 h-9 rounded-full grid place-items-center text-xs font-bold text-white"
+            style={{ backgroundColor: avatarColor(contact.full_name || contact.phone) }}>
             {initials(contact.full_name || contact.phone)}
           </div>
           <div className="min-w-0 flex-1">

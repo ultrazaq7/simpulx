@@ -65,8 +65,8 @@ const ConversationCard = memo(function ConversationCard({
       {/* Avatar (dynamic per-contact colour, WhatsApp-style) + channel dot */}
       <div className="relative shrink-0 self-start mt-0.5">
         <div
-          className="w-9 h-9 rounded-full grid place-items-center text-[13px] font-semibold"
-          style={{ backgroundColor: ac + "1F", color: ac }}
+          className="w-9 h-9 rounded-full grid place-items-center text-[13px] font-bold text-white"
+          style={{ backgroundColor: ac }}
         >
           {initials(c.contact_name || c.contact_phone)}
         </div>

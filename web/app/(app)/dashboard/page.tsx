@@ -17,6 +17,7 @@ import { api, getUser } from "@/lib/api";
 import { Select } from "@/components/Select";
 import { MultiSelect } from "@/components/ui/multi-select";
 import { IndonesiaMap } from "@/components/IndonesiaMap";
+import { Tip } from "@/components/ui/tooltip";
 import { lostReasonLabel } from "@/app/(app)/inbox/components/LostReasonDialog";
 import type { Stats, Analytics, DashboardCards, Conversation, AdPerformance, AdBreakdown, Channel, Campaign, Agent } from "@/lib/types";
 import { cn, initials, fmtDuration } from "@/lib/utils";
@@ -71,13 +72,13 @@ function presetRange(key: string): { from: string; to: string } {
 function CustomTooltip({ active, payload, label }: any) {
   if (!active || !payload?.length) return null;
   return (
-    <div className="rounded-lg border border-border bg-card/95 backdrop-blur-sm px-3 py-2 shadow-lg min-w-[140px]">
-      <p className="text-[11px] font-semibold text-muted-foreground mb-1.5">{label}</p>
+    <div className="rounded-md bg-[#356B5A]/90 backdrop-blur-sm px-3 py-2 shadow-md min-w-[140px]">
+      <p className="text-[11px] font-semibold text-white/70 mb-1.5">{label}</p>
       {payload.map((p: any) => (
         <div key={p.dataKey} className="flex items-center gap-2 mb-0.5 last:mb-0">
-          <span className="w-2 h-2 rounded-full shrink-0" style={{ backgroundColor: p.color }} />
-          <span className="text-xs text-foreground/75">{p.name}</span>
-          <span className="text-xs font-bold text-foreground tabular-nums ml-auto">{Number(p.value ?? 0).toLocaleString()}</span>
+          <span className="w-2 h-2 rounded-full shrink-0 ring-1 ring-white/40" style={{ backgroundColor: p.color }} />
+          <span className="text-xs text-white/80">{p.name}</span>
+          <span className="text-xs font-bold text-white tabular-nums ml-auto">{Number(p.value ?? 0).toLocaleString()}</span>
         </div>
       ))}
     </div>
@@ -1247,9 +1248,11 @@ function MarketingAnalytics() {
                       <div className="relative w-16 h-16 rounded-lg border border-border bg-muted/60 overflow-hidden grid place-items-center text-muted-foreground/50">
                         <ImageIcon className="w-5 h-5" />
                         {cr.image_url && (
-                          <a href={cr.source_url || cr.image_url} target="_blank" rel="noreferrer" title={cr.headline || ""} className="absolute inset-0">
-                            <img src={cr.image_url} alt={cr.headline || "Ad creative"} loading="lazy" onError={(e) => { e.currentTarget.style.display = "none"; }} className="w-full h-full object-cover" />
-                          </a>
+                          <Tip label={cr.headline || ""}>
+                            <a href={cr.source_url || cr.image_url} target="_blank" rel="noreferrer" className="absolute inset-0">
+                              <img src={cr.image_url} alt={cr.headline || "Ad creative"} loading="lazy" onError={(e) => { e.currentTarget.style.display = "none"; }} className="w-full h-full object-cover" />
+                            </a>
+                          </Tip>
                         )}
                       </div>
                     </td>

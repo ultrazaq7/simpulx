@@ -195,14 +195,14 @@ export function IndonesiaMap({ points, isMoney, money }: { points: MapPoint[]; i
       </svg>
       {hover && (
         <div className="pointer-events-none absolute z-20 -translate-x-1/2 -translate-y-[calc(100%+12px)]" style={{ left: hover.x, top: hover.y }}>
-          <div className="rounded-xl bg-foreground text-background px-3 py-2 shadow-xl">
+          <div className="rounded-md bg-[#356B5A]/90 backdrop-blur-sm text-white px-3 py-2 shadow-md">
             <div className="flex items-center gap-1.5">
-              <span className="w-1.5 h-1.5 rounded-full" style={{ background: "hsl(var(--primary))" }} />
+              <span className="w-1.5 h-1.5 rounded-full bg-white/90" />
               <span className="text-[12px] font-semibold capitalize whitespace-nowrap">{label(hover.name)}</span>
             </div>
-            <div className="text-[11px] tabular-nums opacity-75 mt-0.5 pl-3">{hover.value > 0 ? fmt(hover.value) : "No data"}</div>
+            <div className="text-[11px] tabular-nums opacity-80 mt-0.5 pl-3">{hover.value > 0 ? fmt(hover.value) : "No data"}</div>
           </div>
-          <div className="w-2.5 h-2.5 bg-foreground rotate-45 mx-auto -mt-[5px] rounded-[2px]" />
+          <div className="w-2.5 h-2.5 bg-[#356B5A]/90 rotate-45 mx-auto -mt-[5px] rounded-[2px]" />
         </div>
       )}
       <div className="pointer-events-none absolute bottom-2 right-2 text-[10px] font-medium text-muted-foreground/70 bg-card/70 backdrop-blur-sm rounded px-1.5 py-0.5">drag to pan · scroll to zoom</div>
