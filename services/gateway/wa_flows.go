@@ -507,57 +507,91 @@ func (s *server) handleSendFlow(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
+	token, err := s.sendPublishedFlow(r.Context(), a.OrgID, id, body.To, body.CTA, body.Body)
+	if err != nil {
+		http.Error(w, err.Error(), http.StatusUnprocessableEntity)
+		return
+	}
+	writeJSON(w, map[string]any{"status": "sent", "flow_token": token, "mock": config.GetBool("WA_MOCK", true)})
+}
+
+// sendPublishedFlow sends a published WhatsApp form to a phone number and returns
+// the flow_token that keys the eventual response. Shared by the HTTP send handler
+// and the AI-nurture auto-send subscriber.
+func (s *server) sendPublishedFlow(ctx context.Context, orgID, formID, toPhone, cta, bodyText string) (string, error) {
+	toPhone = strings.TrimSpace(toPhone)
+	if toPhone == "" {
+		return "", fmt.Errorf("recipient required")
+	}
 	var name, metaFlowID, status, channelID string
-	err := s.pool.QueryRow(r.Context(),
+	if err := s.pool.QueryRow(ctx,
 		`SELECT name, COALESCE(meta_flow_id,''), status, COALESCE(channel_id::text,'')
 		   FROM wa_flows WHERE id=$1 AND organization_id=$2`,
-		id, a.OrgID).Scan(&name, &metaFlowID, &status, &channelID)
-	if err != nil {
-		http.Error(w, "not found", http.StatusNotFound)
-		return
+		formID, orgID).Scan(&name, &metaFlowID, &status, &channelID); err != nil {
+		return "", fmt.Errorf("form not found")
 	}
 	if status != "published" || metaFlowID == "" {
-		http.Error(w, "form must be published before sending", http.StatusBadRequest)
-		return
+		return "", fmt.Errorf("form must be published before sending")
 	}
-
-	token := newFlowToken(id)
+	token := newFlowToken(formID)
 	if config.GetBool("WA_MOCK", true) {
-		writeJSON(w, map[string]any{"status": "sent", "flow_token": token, "mock": true})
-		return
+		return token, nil
 	}
-
-	_, pnid, accessToken, err := s.resolveFlowWABA(r.Context(), a.OrgID, channelID)
+	_, pnid, accessToken, err := s.resolveFlowWABA(ctx, orgID, channelID)
 	if err != nil || pnid == "" {
-		http.Error(w, "channel not ready to send", http.StatusBadRequest)
-		return
+		return "", fmt.Errorf("channel not ready to send")
 	}
-	cta := nz(body.CTA, "Open form")
-	bodyText := nz(body.Body, name)
 	payload := map[string]any{
 		"messaging_product": "whatsapp",
-		"to":                body.To,
+		"to":                toPhone,
 		"type":              "interactive",
 		"interactive": map[string]any{
 			"type": "flow",
-			"body": map[string]string{"text": bodyText},
+			"body": map[string]string{"text": nz(bodyText, name)},
 			"action": map[string]any{
 				"name": "flow",
 				"parameters": map[string]any{
 					"flow_message_version": "3",
 					"flow_token":           token,
 					"flow_id":              metaFlowID,
-					"flow_cta":             cta,
+					"flow_cta":             nz(cta, "Open form"),
 					"flow_action":          "navigate",
 				},
 			},
 		},
 	}
-	if _, err := s.metaPost(r.Context(), fmt.Sprintf("%s/%s/messages", graphBase, pnid), accessToken, payload); err != nil {
-		http.Error(w, err.Error(), http.StatusUnprocessableEntity)
-		return
+	if _, err := s.metaPost(ctx, fmt.Sprintf("%s/%s/messages", graphBase, pnid), accessToken, payload); err != nil {
+		return "", err
 	}
-	writeJSON(w, map[string]any{"status": "sent", "flow_token": token})
+	return token, nil
+}
+
+// subscribeSendForm consumes events.cmd.send_form (published by the AI nurture
+// engine on the first bot turn) and sends the campaign's intake form.
+func (s *server) subscribeSendForm(ctx context.Context) {
+	_ = s.bus.Subscribe(events.SubjectSendForm, "gateway-send-form", func(env events.Envelope) error {
+		var d struct {
+			ConversationID string `json:"conversation_id"`
+			FormID         string `json:"form_id"`
+		}
+		if err := json.Unmarshal(env.Data, &d); err != nil {
+			return err
+		}
+		if d.ConversationID == "" || d.FormID == "" {
+			return nil
+		}
+		var phone string
+		if err := s.pool.QueryRow(ctx,
+			`SELECT ct.phone FROM conversations cv JOIN contacts ct ON ct.id = cv.contact_id
+			  WHERE cv.id=$1 AND cv.organization_id=$2`,
+			d.ConversationID, env.OrgID).Scan(&phone); err != nil || phone == "" {
+			return nil
+		}
+		if _, err := s.sendPublishedFlow(ctx, env.OrgID, d.FormID, phone, "", ""); err != nil {
+			s.log.Warn("auto-send intake form failed", "conv", d.ConversationID, "err", err)
+		}
+		return nil
+	})
 }
 
 // ── Responses ───────────────────────────────────────────────

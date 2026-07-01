@@ -37,6 +37,13 @@ async def handle_inbound(broker, pool, env: dict, data: dict, log) -> None:
     cr = await classify_and_update(pool, org_id, conv_id, log)
     await lead_score.score_and_update(pool, conv_id, log)
 
+    # (2.5) AI auto-reply nurture — only when the conversation's campaign opted in.
+    # Runs independently of the extraction gate below. Never raises to the caller.
+    try:
+        await maybe_nurture(broker, pool, org_id, conv_id, message_id, body, cr, log)
+    except Exception:  # noqa: BLE001
+        log.exception("nurture failed", extra={"conv": conv_id})
+
     async with pool.acquire() as conn:
         conv = await conn.fetchrow(
             """SELECT cv.ai_agent_id, cv.ai_extracted_at,
@@ -183,6 +190,150 @@ async def handle_followup(broker, pool, org_id: str, conv_id: str, log) -> None:
         # Outbound path stamps last_agent_message_at=now(), so the 4h cron won't
         # re-fire until the customer replies again.
         log.info("followup sent", extra={"conv": conv_id})
+
+
+_LANG_NAMES = {"id": "Bahasa Indonesia", "en": "English"}
+SUBJECT_NOTIFICATION = "events.notification.created"
+SUBJECT_SEND_FORM = "events.cmd.send_form"
+NURTURE_BURST_SEC = 20  # skip a fresh auto-reply if the bot just replied < this ago
+
+
+async def maybe_nurture(broker, pool, org_id: str, conv_id: str, message_id, body: str, cr, log) -> None:
+    """AI auto-reply nurture. Gated by the conversation's campaign (ai_auto_reply).
+    Generates a context-aware reply, sends it, auto-sends the intake form on the
+    first turn, and hands off to a human (stand down + notify) once the lead's key
+    details are collected or the lead asks for a person / is ready to transact."""
+    async with pool.acquire() as conn:
+        row = await conn.fetchrow(
+            """SELECT cv.is_bot_active, cv.assigned_agent_id::text AS agent_id,
+                      cv.car_brand, cv.car_model, cv.city, cv.purchase_timeframe,
+                      COALESCE(cv.metadata, '{}'::jsonb) AS metadata,
+                      a.system_prompt, a.model,
+                      cmp.ai_auto_reply, cmp.segment, cmp.brand, cmp.ai_language,
+                      cmp.ai_dynamic_language, cmp.intake_form_id::text AS intake_form_id,
+                      cmp.name AS campaign_name, cmp.dealer_name
+                 FROM conversations cv
+                 LEFT JOIN ai_agents a ON a.id = cv.ai_agent_id
+                 LEFT JOIN campaigns cmp ON cmp.id = cv.campaign_id
+                WHERE cv.id = $1""",
+            conv_id,
+        )
+    if row is None or not row["ai_auto_reply"]:
+        return  # campaign didn't opt into AI auto-reply
+    if not row["is_bot_active"]:
+        return  # bot already stood down (handed off / paused)
+    if cr and (cr.get("is_junk") or cr.get("off_topic")):
+        return  # don't auto-reply to spam / off-topic
+
+    async with pool.acquire() as conn:
+        # Human takeover: if a human (agent/user) already replied, stand down.
+        human = await conn.fetchval(
+            """SELECT count(*) FROM messages
+                WHERE conversation_id = $1 AND direction = 'outbound'
+                  AND sender_type NOT IN ('bot', 'system')""",
+            conv_id,
+        )
+        if human and human > 0:
+            await conn.execute("UPDATE conversations SET is_bot_active = false WHERE id = $1", conv_id)
+            log.info("nurture stand down (human replied)", extra={"conv": conv_id})
+            return
+        # Burst guard: don't fire again if the bot just replied moments ago.
+        recent_bot = await conn.fetchval(
+            """SELECT count(*) FROM messages
+                WHERE conversation_id = $1 AND direction = 'outbound' AND sender_type = 'bot'
+                  AND created_at > now() - ($2 || ' seconds')::interval""",
+            conv_id, str(NURTURE_BURST_SEC),
+        )
+    if recent_bot and recent_bot > 0:
+        return
+
+    # Language rule (consistent, with optional dynamic matching to the contact).
+    lang = (row["ai_language"] or "id").lower()
+    lang_name = _LANG_NAMES.get(lang, "Bahasa Indonesia")
+    if row["ai_dynamic_language"]:
+        lang_rule = (f"Reply in the SAME language the customer is using. "
+                     f"If it is unclear, default to {lang_name}.")
+    else:
+        lang_rule = f"Always reply in {lang_name}, regardless of the customer's language."
+
+    # Campaign / brand context so replies stay on-brand and never sell competitors.
+    ctx = ""
+    if row["campaign_name"]:
+        who = row["dealer_name"] or row["brand"] or "our business"
+        ctx = f"\n\nYou are the sales assistant for {who}"
+        if row["brand"]:
+            ctx += f", product/brand: {row['brand']}"
+        if row["segment"]:
+            ctx += f" (industry: {row['segment']})"
+        ctx += (f", on campaign '{row['campaign_name']}'. Only discuss what this business sells; "
+                f"politely decline and refocus if asked about competitors.")
+
+    finance_ctx = ""
+    if row["car_brand"] and row["car_model"]:
+        import finance_rag
+        fc = await finance_rag.get_finance_context(pool, row["car_brand"], row["car_model"], row["city"])
+        if fc:
+            finance_ctx = f"\n\n{fc}\n"
+
+    system_prompt = (row["system_prompt"] or "You are a helpful sales assistant.") + ctx + "\n\n" + lang_rule + finance_ctx
+    history = await _load_history(pool, conv_id, message_id)
+    result = await llm.nurture(system_prompt, history, body, model=row["model"])
+    reply = (result.get("reply") or "").strip()
+    if not reply:
+        return
+
+    meta = row["metadata"] if isinstance(row["metadata"], dict) else json.loads(row["metadata"] or "{}")
+    first_turn = not meta.get("ai_nurture_started")
+
+    # Send the reply.
+    await broker.publish(SUBJECT_OUTBOUND, org_id, {
+        "conversation_id": conv_id, "sender_type": "bot", "type": "text", "body": reply,
+    })
+    async with pool.acquire() as conn:
+        await conn.execute(
+            """UPDATE conversations
+                  SET metadata = COALESCE(metadata, '{}'::jsonb) || '{"ai_nurture_started": true}'::jsonb
+                WHERE id = $1""",
+            conv_id,
+        )
+    log.info("nurture replied", extra={"conv": conv_id, "handoff": result.get("ready_for_handoff")})
+
+    # First turn: auto-send the campaign's intake form to collect full details.
+    if first_turn and row["intake_form_id"]:
+        await broker.publish(SUBJECT_SEND_FORM, org_id, {
+            "conversation_id": conv_id, "form_id": row["intake_form_id"],
+        })
+
+    # Hand off once info is complete OR the model flagged readiness.
+    fields_done = all(row[f] is not None for f in ("car_model", "city", "purchase_timeframe"))
+    if result.get("ready_for_handoff") or fields_done:
+        await _ai_handoff(broker, pool, org_id, conv_id, row["agent_id"], log)
+
+
+async def _ai_handoff(broker, pool, org_id: str, conv_id: str, agent_id, log) -> None:
+    """Stand the bot down and notify a human that a nurtured lead is ready."""
+    async with pool.acquire() as conn:
+        await conn.execute("UPDATE conversations SET is_bot_active = false, updated_at = now() WHERE id = $1", conv_id)
+        recipients = [agent_id] if agent_id else [
+            r["id"] for r in await conn.fetch(
+                "SELECT id::text AS id FROM users WHERE organization_id = $1 AND status = 'active' AND role IN ('admin','owner','manager')",
+                org_id,
+            )
+        ]
+        title = "Lead ready for you"
+        bodytext = "The AI assistant collected the details - this lead is warmed up and ready to handle."
+        for uid in recipients:
+            if not uid:
+                continue
+            await conn.execute(
+                """INSERT INTO notifications (organization_id, user_id, type, title, body, conversation_id)
+                   VALUES ($1, $2::uuid, 'ai_handoff', $3, $4, $5::uuid)""",
+                org_id, uid, title, bodytext, conv_id,
+            )
+            await broker.publish(SUBJECT_NOTIFICATION, org_id, {
+                "user_id": uid, "type": "ai_handoff", "title": title, "body": bodytext, "conversation_id": conv_id,
+            })
+    log.info("nurture handoff", extra={"conv": conv_id, "recipients": len(recipients)})
 
 
 async def classify_and_update(pool, org_id: str, conv_id: str, log) -> Optional[dict]:

@@ -1229,23 +1229,23 @@ function MarketingAnalytics() {
           <table className="w-full text-sm">
             <thead>
               <tr className="border-b border-border bg-muted/40">
-                {["Creative", "Ad / source id", "Spend", "Impressions", "Clicks", "Leads", "Cost / lead", "Conversions", "Cost / conv", "Lead to purchase", "Link"].map((h, idx) => (
+                {["Creative", "Ad / source id", "Spend", "Impressions", "Clicks", "Leads", "Cost / lead", "Conversions", "Cost / conv", "Lead to purchase"].map((h, idx) => (
                   <th key={h} className={cn("px-4 py-2.5 text-[11px] font-bold uppercase tracking-wider text-muted-foreground", idx <= 1 ? "text-left" : "text-right")}>{h}</th>
                 ))}
               </tr>
             </thead>
             <tbody>
               {(perf?.creatives || []).length === 0 ? (
-                <tr><td colSpan={11} className="text-center py-12 text-muted-foreground">No ad-attributed leads in range</td></tr>
+                <tr><td colSpan={10} className="text-center py-12 text-muted-foreground">No ad-attributed leads in range</td></tr>
               ) : (perf?.creatives || []).map((cr) => {
                 const rate = cr.leads > 0 ? (cr.sales / cr.leads) * 100 : 0;
                 const ccpl = cr.leads > 0 ? cr.spend / cr.leads : 0;
                 const ccpa = cr.sales > 0 ? cr.spend / cr.sales : 0;
                 return (
                   <tr key={cr.source_id} className="border-b border-border/60 hover:bg-muted/50 transition-colors">
-                    <td className="px-4 py-2 w-14">
-                      <div className="relative w-11 h-11 rounded-md border border-border bg-muted/60 overflow-hidden grid place-items-center text-muted-foreground/50">
-                        <ImageIcon className="w-4 h-4" />
+                    <td className="px-4 py-2 w-20">
+                      <div className="relative w-16 h-16 rounded-lg border border-border bg-muted/60 overflow-hidden grid place-items-center text-muted-foreground/50">
+                        <ImageIcon className="w-5 h-5" />
                         {cr.image_url && (
                           <a href={cr.source_url || cr.image_url} target="_blank" rel="noreferrer" title={cr.headline || ""} className="absolute inset-0">
                             <img src={cr.image_url} alt={cr.headline || "Ad creative"} loading="lazy" onError={(e) => { e.currentTarget.style.display = "none"; }} className="w-full h-full object-cover" />
@@ -1266,9 +1266,6 @@ function MarketingAnalytics() {
                     <td className="px-4 py-2.5 text-right tabular-nums">{cr.sales > 0 && cr.spend > 0 ? money(ccpa) : "-"}</td>
                     <td className="px-4 py-2.5 text-right">
                       <Badge label={cr.leads > 0 ? `${rate.toFixed(1)}%` : "-"} bg={rate >= 20 ? "#E8F5E9" : rate > 0 ? "#FFF3E0" : "#F1F5F9"} text={rate >= 20 ? "#2E7D32" : rate > 0 ? "#E65100" : "#64748B"} />
-                    </td>
-                    <td className="px-4 py-2.5 text-right">
-                      {cr.source_url ? <a href={cr.source_url} target="_blank" rel="noreferrer" className="text-[12px] text-primary hover:underline">View ad</a> : <span className="text-muted-foreground">-</span>}
                     </td>
                   </tr>
                 );

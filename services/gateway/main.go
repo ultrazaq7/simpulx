@@ -351,7 +351,8 @@ func main() {
 	// start background jobs
 
 	s.initFCMPush(ctx)
-	s.startAdSyncCron(ctx) // daily ad metrics refresh (Meta/TikTok/Google)
+	s.subscribeSendForm(ctx) // AI nurture -> auto-send intake form
+	s.startAdSyncCron(ctx)   // daily ad metrics refresh (Meta/TikTok/Google)
 
 	// graceful shutdown
 	stop := make(chan os.Signal, 1)

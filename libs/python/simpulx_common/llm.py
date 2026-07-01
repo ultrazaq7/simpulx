@@ -333,3 +333,32 @@ async def draft_followup(system_prompt: str, history: Optional[List[dict]],
     }]
     obj = await _anthropic_call(system, history or [], user_message, model or settings.llm_model, 256)
     return (obj.get("reply") or "").strip()
+
+
+NURTURE_INSTRUCTION = (
+    "INSTRUKSI: Kamu me-nurture lead lewat WhatsApp sebagai sales assistant. "
+    "Balas natural, ramah, dan SINGKAT (1-3 kalimat), tidak memaksa. "
+    "Kumpulkan info kunci yang BELUM diketahui satu per satu (jangan bertubi-tubi): "
+    "unit/produk yang diminati, kota/domisili, skema (cash atau kredit) & budget, dan rencana waktu pembelian. "
+    "Tanyakan HANYA satu hal per pesan. Jangan mengarang harga/promo yang tidak kamu ketahui. "
+    "Set ready_for_handoff=true HANYA jika: info kunci sudah lengkap, ATAU lead minta bicara dengan sales/manusia, "
+    "ATAU lead siap bertransaksi (mis. mau test drive, nego harga, atau DP). "
+    'Balas HANYA JSON: {"reply": string, "ready_for_handoff": boolean}.'
+)
+
+
+async def nurture(system_prompt: str, history: Optional[List[dict]],
+                  user_message: str, model: Optional[str] = None) -> dict:
+    """Generate one nurture reply + a handoff decision.
+    Returns {"reply": str, "ready_for_handoff": bool}."""
+    if not (settings.llm_provider == "anthropic" and settings.anthropic_api_key):
+        return {"reply": "Halo kak, boleh dibantu ya. Unit apa yang lagi dicari, dan domisili di kota mana?",
+                "ready_for_handoff": False}
+    system = [{
+        "type": "text",
+        "text": (system_prompt or "You are a helpful sales assistant.") + "\n\n" + NURTURE_INSTRUCTION,
+        "cache_control": {"type": "ephemeral"},
+    }]
+    obj = await _anthropic_call(system, history or [], user_message, model or settings.llm_model, 400)
+    return {"reply": (obj.get("reply") or "").strip(),
+            "ready_for_handoff": bool(obj.get("ready_for_handoff"))}

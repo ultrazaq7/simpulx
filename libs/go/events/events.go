@@ -22,6 +22,7 @@ const (
 	SubjectAuditCreated         = "events.audit.created"
 	SubjectCallUpdated          = "events.call.updated"
 	SubjectNotificationCreated  = "events.notification.created"
+	SubjectSendForm             = "events.cmd.send_form" // AI nurture -> auto-send a WA intake form
 
 	StreamName     = "EVENTS"
 	StreamSubjects = "events.>"
