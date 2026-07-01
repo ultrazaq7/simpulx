@@ -361,6 +361,30 @@ func (a *app) execStep(ctx context.Context, orgID, convID, contactID string, s a
 				a.log.Warn("automation google_sheet append failed", "err", err)
 			}
 		}
+	case "unassign_team":
+		if err := a.st.assignConversation(ctx, convID, ""); err != nil {
+			a.log.Warn("automation unassign_team failed", "err", err)
+		}
+	case "remove_campaign":
+		if err := a.st.removeCampaign(ctx, convID); err != nil {
+			a.log.Warn("automation remove_campaign failed", "err", err)
+		}
+	case "blacklist":
+		if err := a.st.setBlacklisted(ctx, contactID, true); err != nil {
+			a.log.Warn("automation blacklist failed", "err", err)
+		}
+	case "add_to_sequence":
+		if seq := pStr(s.Params, "sequence_id"); seq != "" {
+			if err := a.st.enrollSequence(ctx, orgID, seq, contactID, convID); err != nil {
+				a.log.Warn("automation add_to_sequence failed", "err", err)
+			}
+		}
+	case "remove_from_sequence":
+		if seq := pStr(s.Params, "sequence_id"); seq != "" {
+			if err := a.st.unenrollSequence(ctx, seq, contactID); err != nil {
+				a.log.Warn("automation remove_from_sequence failed", "err", err)
+			}
+		}
 	case "close_conversation":
 		if err := a.st.closeConversation(ctx, convID); err != nil {
 			a.log.Warn("automation close_conversation failed", "err", err)
@@ -507,8 +531,39 @@ func (s *store) resolveAgentByName(ctx context.Context, orgID, name string) stri
 }
 
 func (s *store) assignConversation(ctx context.Context, convID, agentID string) error {
+	// Empty agentID unassigns (assigned_agent_id -> NULL).
 	_, err := s.pool.Exec(ctx,
-		`UPDATE conversations SET assigned_agent_id=$2, updated_at=now() WHERE id=$1`, convID, agentID)
+		`UPDATE conversations SET assigned_agent_id=NULLIF($2,'')::uuid, updated_at=now() WHERE id=$1`, convID, agentID)
+	return err
+}
+
+func (s *store) removeCampaign(ctx context.Context, convID string) error {
+	_, err := s.pool.Exec(ctx,
+		`UPDATE conversations SET campaign_id=NULL, updated_at=now() WHERE id=$1`, convID)
+	return err
+}
+
+func (s *store) setBlacklisted(ctx context.Context, contactID string, v bool) error {
+	_, err := s.pool.Exec(ctx,
+		`UPDATE contacts SET blacklisted=$2, updated_at=now() WHERE id=$1`, contactID, v)
+	return err
+}
+
+func (s *store) enrollSequence(ctx context.Context, orgID, sequenceID, contactID, convID string) error {
+	_, err := s.pool.Exec(ctx,
+		`INSERT INTO sequence_enrollments (organization_id, sequence_id, conversation_id, contact_id, current_step, next_run_at, status)
+		 SELECT $1, $2::uuid, $3::uuid, $4::uuid, 0,
+		        now() + (COALESCE((SELECT delay_minutes FROM sequence_steps WHERE sequence_id=$2::uuid AND step_order=1), 0) || ' minutes')::interval,
+		        'active'
+		 ON CONFLICT (sequence_id, conversation_id) DO UPDATE SET status='active', updated_at=now()`,
+		orgID, sequenceID, convID, contactID)
+	return err
+}
+
+func (s *store) unenrollSequence(ctx context.Context, sequenceID, contactID string) error {
+	_, err := s.pool.Exec(ctx,
+		`UPDATE sequence_enrollments SET status='stopped', updated_at=now()
+		  WHERE sequence_id=$1::uuid AND contact_id=$2::uuid`, sequenceID, contactID)
 	return err
 }
 

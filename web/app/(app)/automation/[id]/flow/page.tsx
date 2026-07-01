@@ -10,7 +10,7 @@ import "@xyflow/react/dist/style.css";
 import {
   ArrowLeft, Plus, Zap, MessageCircle, FileText, User, Sparkles, Tag, Flag,
   CheckCircle, Globe, GitFork, Trash2, Loader2, X, Save, Undo2, Redo2,
-  Braces, ToggleRight, Sheet, ClipboardList,
+  Braces, ToggleRight, Sheet, ClipboardList, UserMinus, Ban, Radio,
 } from "lucide-react";
 import type { LucideIcon } from "lucide-react";
 import { Tip } from "@/components/ui/tooltip";
@@ -29,8 +29,13 @@ const META: Record<string, Meta> = {
   send_message: { label: "Send auto reply", Icon: MessageCircle, accent: "#2D8B73", kicker: "DO", desc: ACTIONS.send_message.desc },
   send_template: { label: "Send template", Icon: FileText, accent: "#2D8B73", kicker: "DO", desc: ACTIONS.send_template.desc },
   send_form: { label: "Send WhatsApp Form", Icon: ClipboardList, accent: "#2D8B73", kicker: "DO", desc: ACTIONS.send_form.desc },
-  assign_agent: { label: "Assign to agent", Icon: User, accent: "#0891B2", kicker: "DO", desc: ACTIONS.assign_agent.desc },
-  assign_campaign: { label: "Assign to campaign", Icon: Sparkles, accent: "#0891B2", kicker: "DO", desc: ACTIONS.assign_campaign.desc },
+  assign_agent: { label: "Assign to team member", Icon: User, accent: "#0891B2", kicker: "DO", desc: ACTIONS.assign_agent.desc },
+  unassign_team: { label: "Unassign from team", Icon: UserMinus, accent: "#0891B2", kicker: "DO", desc: ACTIONS.unassign_team.desc },
+  assign_campaign: { label: "Add to campaign", Icon: Sparkles, accent: "#0891B2", kicker: "DO", desc: ACTIONS.assign_campaign.desc },
+  remove_campaign: { label: "Remove from campaign", Icon: Ban, accent: "#0891B2", kicker: "DO", desc: ACTIONS.remove_campaign.desc },
+  add_to_sequence: { label: "Add to drip campaign", Icon: Radio, accent: "#D97706", kicker: "DO", desc: ACTIONS.add_to_sequence.desc },
+  remove_from_sequence: { label: "Remove from drip campaign", Icon: Ban, accent: "#D97706", kicker: "DO", desc: ACTIONS.remove_from_sequence.desc },
+  blacklist: { label: "Mark blacklisted", Icon: Ban, accent: "#DC2626", kicker: "DO", desc: ACTIONS.blacklist.desc },
   add_tag: { label: "Add tag", Icon: Tag, accent: "#D97706", kicker: "DO", desc: ACTIONS.add_tag.desc },
   remove_tag: { label: "Remove tag", Icon: Tag, accent: "#D97706", kicker: "DO", desc: ACTIONS.remove_tag.desc },
   set_contact_attribute: { label: "Set contact attribute", Icon: Braces, accent: "#7C3AED", kicker: "DO", desc: ACTIONS.set_contact_attribute.desc },
@@ -45,13 +50,13 @@ const meta = (k: string) => META[k] ?? META.send_message;
 const PALETTE: { group: string; kinds: string[] }[] = [
   { group: "Logic", kinds: ["condition"] },
   { group: "Messaging", kinds: ["send_message", "send_template", "send_form"] },
-  { group: "Routing", kinds: ["assign_agent", "assign_campaign"] },
-  { group: "Contact", kinds: ["add_tag", "remove_tag", "set_contact_attribute", "set_priority"] },
+  { group: "Routing", kinds: ["assign_agent", "unassign_team", "assign_campaign", "remove_campaign"] },
+  { group: "Contact", kinds: ["add_tag", "remove_tag", "set_contact_attribute", "set_priority", "add_to_sequence", "remove_from_sequence", "blacklist"] },
   { group: "Flow control", kinds: ["set_conversation_status", "close_conversation", "webhook_notify"] },
   { group: "Integrations", kinds: ["google_sheet"] },
 ];
 // The executor runs these; others are configurable but not yet executed.
-const EXECUTED = new Set(["condition", "send_message", "send_form", "add_tag", "remove_tag", "assign_agent", "assign_campaign", "set_contact_attribute", "set_conversation_status", "google_sheet", "close_conversation", "webhook_notify"]);
+const EXECUTED = new Set(["condition", "send_message", "send_form", "add_tag", "remove_tag", "assign_agent", "unassign_team", "assign_campaign", "remove_campaign", "add_to_sequence", "remove_from_sequence", "blacklist", "set_contact_attribute", "set_conversation_status", "google_sheet", "close_conversation", "webhook_notify"]);
 
 type NodeData = { kind: string; config: Record<string, unknown>; triggerType?: string };
 type AppNode = Node<NodeData>;
@@ -64,6 +69,10 @@ function summary(kind: string, c: Record<string, unknown>, triggerType?: string)
     case "send_form": return `Form: ${c.form_name || "—"}`;
     case "assign_agent": return `Agent: ${c.agent_name || c.agent_id || "—"}`;
     case "assign_campaign": return `Campaign: ${c.campaign_name || "—"}`;
+    case "unassign_team": return "Clear assigned agent";
+    case "remove_campaign": return "Clear campaign";
+    case "add_to_sequence": case "remove_from_sequence": return `Sequence: ${c.sequence_name || "—"}`;
+    case "blacklist": return "Block from outreach";
     case "add_tag": case "remove_tag": return `Tags: ${(Array.isArray(c.tags) ? (c.tags as string[]).join(", ") : "") || "—"}`;
     case "set_contact_attribute": return `${c.key || "field"} = ${c.value || "—"}`;
     case "set_conversation_status": return `Status: ${c.status || "—"}`;
@@ -182,6 +191,7 @@ function Builder() {
   const [campaigns, setCampaigns] = useState<{ id: string; name: string }[]>([]);
   const [forms, setForms] = useState<{ id: string; name: string }[]>([]);
   const [agents, setAgents] = useState<{ id: string; name: string }[]>([]);
+  const [sequences, setSequences] = useState<{ id: string; name: string }[]>([]);
   const [sheetEmail, setSheetEmail] = useState("");
 
   // ── Undo / redo (Ctrl+Z / Ctrl+Y) ──
@@ -233,6 +243,7 @@ function Builder() {
     api.listFlows().then((fs) => setForms(fs.filter((f) => f.status === "published").map((f) => ({ id: f.id, name: f.name })))).catch(() => {});
     api.getGoogleSheetsInfo().then((i) => setSheetEmail(i.client_email)).catch(() => {});
     api.listAgents().then((as) => setAgents(as.map((a) => ({ id: a.id, name: a.full_name })))).catch(() => {});
+    api.listSequences().then((sq) => setSequences(sq.map((s) => ({ id: s.id, name: s.name })))).catch(() => {});
   }, [id]); // eslint-disable-line react-hooks/exhaustive-deps
   useEffect(() => { if (!toast) return; const t = setTimeout(() => setToast(null), 3000); return () => clearTimeout(t); }, [toast]);
 
@@ -359,7 +370,7 @@ function Builder() {
         {/* Inspector */}
         {selected && (
           <div className="absolute inset-y-0 right-0 z-20 w-[340px] bg-card border-l border-border shadow-xl flex flex-col animate-scale-in">
-            <Inspector node={selected} triggerType={auto.trigger_type} campaigns={campaigns} forms={forms} agents={agents} sheetEmail={sheetEmail} onChange={(cfg) => updateConfig(selected.id, cfg)} onClose={() => setSelId(null)} onDelete={() => deleteNode(selected.id)} />
+            <Inspector node={selected} triggerType={auto.trigger_type} campaigns={campaigns} forms={forms} agents={agents} sequences={sequences} sheetEmail={sheetEmail} onChange={(cfg) => updateConfig(selected.id, cfg)} onClose={() => setSelId(null)} onDelete={() => deleteNode(selected.id)} />
           </div>
         )}
       </div>
@@ -374,8 +385,8 @@ function Builder() {
 }
 
 // ── Inspector (per-node config) ─────────────────────────────────────────────
-function Inspector({ node, triggerType, campaigns, forms, agents, sheetEmail, onChange, onClose, onDelete }: {
-  node: AppNode; triggerType: string; campaigns: { id: string; name: string }[]; forms: { id: string; name: string }[]; agents: { id: string; name: string }[]; sheetEmail: string; onChange: (cfg: Record<string, unknown>) => void; onClose: () => void; onDelete: () => void;
+function Inspector({ node, triggerType, campaigns, forms, agents, sequences, sheetEmail, onChange, onClose, onDelete }: {
+  node: AppNode; triggerType: string; campaigns: { id: string; name: string }[]; forms: { id: string; name: string }[]; agents: { id: string; name: string }[]; sequences: { id: string; name: string }[]; sheetEmail: string; onChange: (cfg: Record<string, unknown>) => void; onClose: () => void; onDelete: () => void;
 }) {
   const pickById = (list: { id: string; name: string }[], idKey: string, nameKey: string) => (v: string) => onChange({ ...node.data.config, [idKey]: v, [nameKey]: list.find((x) => x.id === v)?.name || "" });
   const kind = node.data.kind;
@@ -431,6 +442,10 @@ function Inspector({ node, triggerType, campaigns, forms, agents, sheetEmail, on
           <ShareWithSA email={sheetEmail} />
         </>}
         {kind === "set_priority" && <Field label="Priority"><Select value={String(c.priority ?? "normal")} onChange={(v) => set("priority", v)} searchable={false} options={["low", "normal", "high", "urgent"].map((p) => ({ value: p, label: p }))} className="w-full" /></Field>}
+        {(kind === "add_to_sequence" || kind === "remove_from_sequence") && <Field label="Drip campaign (sequence)"><Select value={String(c.sequence_id ?? "")} onChange={pickById(sequences, "sequence_id", "sequence_name")} options={sequences.map((sq) => ({ value: sq.id, label: sq.name }))} placeholder="Search sequence…" className="w-full" /></Field>}
+        {kind === "unassign_team" && <p className="text-[13px] text-muted-foreground">Clears the conversation&apos;s assigned agent. No configuration needed.</p>}
+        {kind === "remove_campaign" && <p className="text-[13px] text-muted-foreground">Clears the conversation&apos;s campaign. No configuration needed.</p>}
+        {kind === "blacklist" && <p className="text-[13px] text-muted-foreground">Blocks this contact from future outreach. No configuration needed.</p>}
         {kind === "webhook_notify" && <Field label="Webhook URL"><input value={String(c.url ?? "")} onChange={(e) => set("url", e.target.value)} placeholder="https://..." className={INP} /></Field>}
         {kind === "condition" && <>
           <Field label="Contact attribute"><input value={String(c.attribute ?? "")} onChange={(e) => set("attribute", e.target.value)} placeholder="e.g. re_model, phone, full_name" className={INP} /></Field>
