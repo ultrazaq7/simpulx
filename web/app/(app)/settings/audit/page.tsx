@@ -22,6 +22,7 @@ const RANGES = [
   { value: "7", label: "Last 7 days" },
   { value: "30", label: "Last 30 days" },
   { value: "90", label: "Last 90 days" },
+  { value: "custom", label: "Custom range" },
 ];
 const PAGE = 50;
 const DL_PAGE = 8; // downloads list rows per page
@@ -73,6 +74,8 @@ type ExportKind = "messages" | "conversations" | "calls" | "activity" | "system"
 export default function SystemLogsPage() {
   const [tab, setTab] = useState<TabKey>("messages");
   const [range, setRange] = useState("30");
+  const [customFrom, setCustomFrom] = useState("");
+  const [customTo, setCustomTo] = useState("");
   const [page, setPage] = useState(0);
   const [loading, setLoading] = useState(true);
   const [exporting, setExporting] = useState<string | null>(null);
@@ -96,8 +99,10 @@ export default function SystemLogsPage() {
     api.listChannels().then((c) => setChannels(c || [])).catch(() => {});
   }, []);
 
-  const from = fromDate(range);
-  const to = range ? new Date().toISOString().slice(0, 10) : "";
+  const from = range === "custom" ? customFrom : fromDate(range);
+  const to = range === "custom"
+    ? customTo
+    : (range ? new Date().toISOString().slice(0, 10) : "");
   const logFilters = { campaign_id: fCampaign || undefined, channel_id: fChannel || undefined, label: fLabel || undefined };
 
   const fetchTab = useCallback(async () => {
@@ -113,7 +118,7 @@ export default function SystemLogsPage() {
     } catch (e) { setErr(e instanceof Error ? e.message : String(e)); } finally { setLoading(false); }
   }, [tab, page, from, to, fCampaign, fChannel, fLabel]);
   useEffect(() => { fetchTab(); }, [fetchTab]);
-  useEffect(() => { setPage(0); }, [tab, range, fCampaign, fChannel, fLabel]);
+  useEffect(() => { setPage(0); }, [tab, range, customFrom, customTo, fCampaign, fChannel, fLabel]);
 
   // Async exports: queue a job; the worker generates the full CSV and the
   // Downloads tab polls for live status.
@@ -174,6 +179,15 @@ export default function SystemLogsPage() {
       {/* Toolbar */}
       <div className="flex items-center gap-2 py-3 shrink-0 flex-wrap">
         {showRange && <Select value={range} onChange={setRange} options={RANGES} className="w-[150px]" searchable={false} />}
+        {showRange && range === "custom" && (
+          <div className="flex items-center gap-1.5 text-[12px] text-muted-foreground">
+            <input type="date" value={customFrom} max={customTo || undefined} onChange={(e) => setCustomFrom(e.target.value)}
+              className="h-9 px-2 rounded-md border border-input bg-background text-[13px] text-foreground outline-none focus:border-primary" />
+            <span>to</span>
+            <input type="date" value={customTo} min={customFrom || undefined} onChange={(e) => setCustomTo(e.target.value)}
+              className="h-9 px-2 rounded-md border border-input bg-background text-[13px] text-foreground outline-none focus:border-primary" />
+          </div>
+        )}
         {showConvFilters && (
           <>
             <Select value={fCampaign} onChange={setFCampaign} className="w-[160px]"

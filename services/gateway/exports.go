@@ -229,7 +229,7 @@ func exportQuery(kind string) (string, []string, []string) {
 		        ''                                         AS message_cost,
 		        COALESCE(m.metadata->>'ai_credits','')     AS ai_credits,
 		        m.created_at,
-		        m.updated_at,
+		        m.created_at                               AS updated_at,
 		        ''                                         AS call_id,
 		        ''                                         AS recording_url,
 		        ''                                         AS connect_status,
