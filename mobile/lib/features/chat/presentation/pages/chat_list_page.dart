@@ -417,6 +417,8 @@ class _ChatListPageState extends ConsumerState<ChatListPage> {
           final shown = _visible < filtered.length ? _visible : filtered.length;
           final hasMore = filtered.length > shown;
           final lostCount = list.where((c) => c.isLost).length;
+          // Only surface a number on Archived when something inside is unread.
+          final lostUnread = list.where((c) => c.isLost && c.hasUnread).length;
           // WhatsApp-style: the filter pills + Archived row live INSIDE the
           // scroll view so they scroll away with the list instead of staying
           // pinned under the app bar.
@@ -441,7 +443,7 @@ class _ChatListPageState extends ConsumerState<ChatListPage> {
                 if (lostCount > 0 && _query.isEmpty)
                   SliverToBoxAdapter(
                     child: _ArchivedRow(
-                      count: lostCount,
+                      unread: lostUnread,
                       onTap: () => context.push('/archived'),
                     ),
                   ),
@@ -500,8 +502,8 @@ class _ChatListPageState extends ConsumerState<ChatListPage> {
 
 /// WhatsApp-style "Archived" entry at the top of the inbox. Holds Lost leads.
 class _ArchivedRow extends StatelessWidget {
-  const _ArchivedRow({required this.count, required this.onTap});
-  final int count;
+  const _ArchivedRow({required this.unread, required this.onTap});
+  final int unread; // unread archived threads; drives the notification badge
   final VoidCallback onTap;
 
   @override
@@ -523,11 +525,21 @@ class _ArchivedRow extends StatelessWidget {
                   style: const TextStyle(
                       fontSize: 15, fontWeight: FontWeight.w600)),
             ),
-            Text('$count',
-                style: const TextStyle(
-                    fontSize: 13,
-                    color: AppColors.textMuted,
-                    fontWeight: FontWeight.w600)),
+            // Show a number ONLY when there's an unread inside (a real notification).
+            if (unread > 0)
+              Container(
+                padding:
+                    const EdgeInsets.symmetric(horizontal: 7, vertical: 2),
+                decoration: BoxDecoration(
+                  color: AppColors.primary,
+                  borderRadius: BorderRadius.circular(999),
+                ),
+                child: Text(unread > 99 ? '99+' : '$unread',
+                    style: const TextStyle(
+                        fontSize: 12,
+                        color: Colors.white,
+                        fontWeight: FontWeight.w700)),
+              ),
             const SizedBox(width: 4),
             const Icon(Icons.chevron_right_rounded,
                 color: AppColors.textMuted, size: 20),
