@@ -66,6 +66,7 @@ class AppColors {
   static const Color darkSurface = Color(0xFF0C0C0C); // app bar / cards
   static const Color darkSurfaceAlt = Color(0xFF141414); // search bar / chips
   static const Color darkBorder = Color(0xFF262626); // hairline separators
+  static const Color darkBubbleBg = Color(0xFF1E1E1E); // incoming message bubble
 
   // ── Dark text (WhatsApp) ───────────────────────────────
   static const Color darkTextPrimary = Color(0xFFE9EDEF);

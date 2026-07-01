@@ -37,7 +37,7 @@ class MessageBubble extends StatelessWidget {
     final isDark = theme.brightness == Brightness.dark;
     final bg = mine
         ? AppColors.primary.withValues(alpha: 0.92)
-        : (isDark ? AppColors.darkSurfaceAlt : const Color(0xFFF0F2F5)); // WhatsApp-like light gray
+        : (isDark ? AppColors.darkBubbleBg : const Color(0xFFF0F2F5)); // WhatsApp-like light gray
     final fg = mine ? Colors.white : (isDark ? AppColors.darkTextPrimary : AppColors.textPrimary);
 
     return Align(
