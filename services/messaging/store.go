@@ -148,7 +148,14 @@ func (s *store) getOrCreateConversation(ctx context.Context, orgID, contactID, c
 	// instance, so a quick continuation stays in the same conversation.
 	err = tx.QueryRow(ctx,
 		`UPDATE conversations
-		    SET status='open', closed_at=NULL, closed_reason=NULL, updated_at=now()
+		    SET status='open', closed_at=NULL, closed_reason=NULL,
+		        stage_id = COALESCE(
+		          (SELECT id FROM stages WHERE organization_id=$1 AND sort_order=1 LIMIT 1),
+		          stage_id),
+		        disposition_id = NULL,
+		        lost_reason = NULL,
+		        classification_locked = false,
+		        updated_at=now()
 		  WHERE id = (
 		      SELECT id FROM conversations
 		       WHERE organization_id=$1 AND contact_id=$2 AND status='closed'
@@ -400,7 +407,14 @@ func (s *store) getOrCreateThread(ctx context.Context, orgID, contactID, channel
 	// instance. Keeps the existing agent assignment and campaign tagging.
 	err = tx.QueryRow(ctx,
 		`UPDATE conversations
-		    SET status='open', closed_at=NULL, closed_reason=NULL, updated_at=now()
+		    SET status='open', closed_at=NULL, closed_reason=NULL,
+		        stage_id = COALESCE(
+		          (SELECT id FROM stages WHERE organization_id=$1 AND sort_order=1 LIMIT 1),
+		          stage_id),
+		        disposition_id = NULL,
+		        lost_reason = NULL,
+		        classification_locked = false,
+		        updated_at=now()
 		  WHERE id = (
 		      SELECT id FROM conversations
 		       WHERE organization_id=$1 AND contact_id=$2 AND status='closed'
