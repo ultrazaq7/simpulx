@@ -120,14 +120,59 @@ export function IndonesiaMap({ points, isMoney, money }: { points: MapPoint[]; i
 
   const fmt = (v: number) => (isMoney && money ? money(v) : v.toLocaleString());
 
+  const svgRef = useRef<SVGSVGElement>(null);
+  const [view, setView] = useState<{ x: number; y: number; w: number; h: number } | null>(null);
+  const drag = useRef<{ sx: number; sy: number; vx: number; vy: number } | null>(null);
+
+  // Reset pan/zoom whenever the auto-fit box changes (new data / new filter).
+  useEffect(() => {
+    const n = viewBox.split(" ").map(Number);
+    setView({ x: n[0], y: n[1], w: n[2], h: n[3] });
+  }, [viewBox]);
+
+  // Scroll-to-zoom around the cursor. Non-passive so we can stop the page from
+  // scrolling while the pointer is over the map.
+  useEffect(() => {
+    const el = svgRef.current;
+    if (!el) return;
+    const onWheel = (e: WheelEvent) => {
+      e.preventDefault();
+      const rect = el.getBoundingClientRect();
+      const px = (e.clientX - rect.left) / rect.width;
+      const py = (e.clientY - rect.top) / rect.height;
+      const f = e.deltaY < 0 ? 0.85 : 1.18;
+      setView((v) => {
+        if (!v) return v;
+        const nw = Math.min(VB_W * 3.5, Math.max(VB_W * 0.04, v.w * f));
+        const nh = nw * (v.h / v.w);
+        return { x: v.x + px * v.w - px * nw, y: v.y + py * v.h - py * nh, w: nw, h: nh };
+      });
+    };
+    el.addEventListener("wheel", onWheel, { passive: false });
+    return () => el.removeEventListener("wheel", onWheel);
+  }, [geo, proj]);
+
   if (!geo || !proj) {
     return <div className="w-full aspect-[2.5/1] rounded-lg bg-muted/30 animate-pulse" />;
   }
 
+  const vb = view ? `${view.x} ${view.y} ${view.w} ${view.h}` : viewBox;
+  const label = (n: string) => (ID_TO_EN[n.toUpperCase()] || n).replace(/\b\w/g, (m) => m.toUpperCase());
+
   return (
-    <div ref={wrapRef} className="relative w-full">
-      <svg viewBox={viewBox} className="w-full h-auto transition-[all] duration-500" preserveAspectRatio="xMidYMid meet"
-        onMouseLeave={() => setHover(null)}>
+    <div ref={wrapRef} className="relative w-full overflow-hidden rounded-lg">
+      <svg ref={svgRef} viewBox={vb} className="w-full h-auto select-none" preserveAspectRatio="xMidYMid meet"
+        style={{ cursor: drag.current ? "grabbing" : "grab" }}
+        onMouseDown={(e) => { if (view) drag.current = { sx: e.clientX, sy: e.clientY, vx: view.x, vy: view.y }; setHover(null); }}
+        onMouseMove={(e) => {
+          if (!drag.current || !view) return;
+          const rect = svgRef.current!.getBoundingClientRect();
+          setView({ ...view,
+            x: drag.current.vx - (e.clientX - drag.current.sx) * (view.w / rect.width),
+            y: drag.current.vy - (e.clientY - drag.current.sy) * (view.h / rect.height) });
+        }}
+        onMouseUp={() => { drag.current = null; }}
+        onMouseLeave={() => { drag.current = null; setHover(null); }}>
         <g className="text-primary">
           {paths.map((p, i) => {
             const intensity = p.val > 0 ? 0.18 + 0.72 * (p.val / max) : 0;
@@ -137,8 +182,9 @@ export function IndonesiaMap({ points, isMoney, money }: { points: MapPoint[]; i
                 fill={p.val > 0 ? "currentColor" : "hsl(var(--muted))"}
                 fillOpacity={p.val > 0 ? (active ? 1 : intensity) : 1}
                 stroke="#fff" strokeWidth={active ? 1.4 : 0.6}
-                className="transition-all cursor-pointer"
+                className="cursor-pointer"
                 onMouseMove={(e) => {
+                  if (drag.current) return;
                   const r = wrapRef.current?.getBoundingClientRect();
                   if (r) setHover({ name: p.name, value: p.val, x: e.clientX - r.left, y: e.clientY - r.top });
                 }}
@@ -148,12 +194,18 @@ export function IndonesiaMap({ points, isMoney, money }: { points: MapPoint[]; i
         </g>
       </svg>
       {hover && (
-        <div className="pointer-events-none absolute z-10 rounded-md border border-border bg-card/95 backdrop-blur-sm px-2.5 py-1.5 shadow-lg text-[12px] -translate-x-1/2 -translate-y-[calc(100%+8px)]"
-          style={{ left: hover.x, top: hover.y }}>
-          <div className="font-semibold text-foreground capitalize">{(ID_TO_EN[hover.name.toUpperCase()] || hover.name).replace(/\b\w/g, (m) => m.toUpperCase())}</div>
-          <div className="text-muted-foreground tabular-nums">{hover.value > 0 ? fmt(hover.value) : "No data"}</div>
+        <div className="pointer-events-none absolute z-20 -translate-x-1/2 -translate-y-[calc(100%+12px)]" style={{ left: hover.x, top: hover.y }}>
+          <div className="rounded-xl bg-foreground text-background px-3 py-2 shadow-xl">
+            <div className="flex items-center gap-1.5">
+              <span className="w-1.5 h-1.5 rounded-full" style={{ background: "hsl(var(--primary))" }} />
+              <span className="text-[12px] font-semibold capitalize whitespace-nowrap">{label(hover.name)}</span>
+            </div>
+            <div className="text-[11px] tabular-nums opacity-75 mt-0.5 pl-3">{hover.value > 0 ? fmt(hover.value) : "No data"}</div>
+          </div>
+          <div className="w-2.5 h-2.5 bg-foreground rotate-45 mx-auto -mt-[5px] rounded-[2px]" />
         </div>
       )}
+      <div className="pointer-events-none absolute bottom-2 right-2 text-[10px] font-medium text-muted-foreground/70 bg-card/70 backdrop-blur-sm rounded px-1.5 py-0.5">drag to pan · scroll to zoom</div>
     </div>
   );
 }

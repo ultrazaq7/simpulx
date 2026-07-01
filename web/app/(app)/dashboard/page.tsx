@@ -960,7 +960,7 @@ function LocationPerformance({ data, currency }: { data?: AdBreakdown[]; currenc
           No location data yet
         </div>
       ) : (
-        <div className="p-4 grid grid-cols-1 lg:grid-cols-2 gap-5 items-center">
+        <div className="p-4 grid grid-cols-1 lg:grid-cols-2 gap-5 items-start">
           <div className="min-w-0">
             <IndonesiaMap points={ranked} isMoney={isMoney} money={money} />
           </div>

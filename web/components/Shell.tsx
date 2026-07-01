@@ -6,7 +6,7 @@ import {
   MessageCircle, Settings,
   ChevronLeft, ChevronRight, Bell, LogOut, User as UserIcon,
   CheckCircle2, Loader2, ChevronDown, Activity, LayoutDashboard, MessagesSquare, Users, Sparkles, SlidersHorizontal, Megaphone, Wrench, Globe,
-  ScrollText, BarChart3, ShieldCheck, FileText, Radio, GitBranch, Plug, Search, Repeat
+  ScrollText, BarChart3, ShieldCheck, FileText, Radio, GitBranch, Plug, Search, Repeat, ClipboardList
 } from "lucide-react";
 import { WS_URL } from "@/lib/api";
 import { api, clearSession, getToken, getUser, setSession } from "@/lib/api";
@@ -108,7 +108,7 @@ const CATEGORY_ICONS: Record<string, any> = {
   "TEAM": Users,
   "ROLES": ShieldCheck,
   "TEMPLATES": FileText,
-  "FORMS": FileText,
+  "FORMS": ClipboardList,
   "CHANNELS": Radio,
   "ANALYTICS": BarChart3,
   "INTEGRATIONS": Plug,

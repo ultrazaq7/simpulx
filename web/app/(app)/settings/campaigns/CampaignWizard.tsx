@@ -11,7 +11,7 @@ import { Select } from "@/components/Select";
 import { AgentMultiSelect } from "@/components/AgentMultiSelect";
 import MultiSelectFilter from "@/app/(app)/inbox/components/MultiSelectFilter";
 import { WizardModal, WizardField, BackButton, ContinueButton } from "../channels/WizardModal";
-import { FieldLabel, PrimaryButton } from "../_shared";
+import { FieldLabel, PrimaryButton, InfoHint } from "../_shared";
 
 const STEPS = ["Campaign", "Branches", "Review"];
 
@@ -170,13 +170,12 @@ export function CampaignWizard({ campaignId, users, channels, onClose, onDone, o
             {!channelId && <p className="mt-1 text-[11px] text-amber-600">No channel set. Leads won&apos;t route until a channel is assigned.</p>}
           </div>
           <div>
-            <FieldLabel>Default agents (round-robin, used when no branch matches)</FieldLabel>
+            <FieldLabel hint="Round-robin. Used when no branch matches.">Default agents</FieldLabel>
             <AgentMultiSelect options={agentOptions} selected={defaultAgents} onChange={setDefaultAgents} />
           </div>
           <div>
-            <FieldLabel>Supervisors (view only, no leads)</FieldLabel>
+            <FieldLabel hint="Managers/SPV who can see this campaign's leads but are never assigned in the rotation.">Supervisors (view only, no leads)</FieldLabel>
             <AgentMultiSelect options={agentOptions} selected={supervisors} onChange={setSupervisors} />
-            <p className="mt-1 text-[11px] text-muted-foreground">Managers/SPV who can see this campaign&apos;s leads but are never assigned in the rotation.</p>
           </div>
           <WizardField label="CTWA ad source IDs (used when no branch matches)" value={adSources} onChange={setAdSources} placeholder="ad_honda_brio_2026" hint="Per-branch ad sources are set in step 2. These campaign-level IDs route leads when no branch matches." />
           <WizardField label="Keywords in first message (comma separated)" value={keywords} onChange={setKeywords} placeholder="brio, honda" />
@@ -184,9 +183,10 @@ export function CampaignWizard({ campaignId, users, channels, onClose, onDone, o
           {/* AI Assistant */}
           <div className="rounded-xl border border-border overflow-hidden">
             <div className="flex items-center justify-between gap-3 px-4 py-3 bg-muted/40 border-b border-border">
-              <div className="inline-flex items-center gap-2">
+              <div className="inline-flex items-center gap-1.5">
                 <Sparkles className="w-4 h-4 text-primary" />
                 <span className="text-[13.5px] font-semibold text-foreground">AI assistant</span>
+                <InfoHint text="When on, the AI replies automatically, nurtures the lead until the key details are collected, then notifies an agent to take over." />
               </div>
               <div className="inline-flex items-center gap-2">
                 <span className="text-[12px] font-medium text-muted-foreground">{aiAutoReply ? "Auto-reply on" : "Auto-reply off"}</span>
@@ -197,7 +197,6 @@ export function CampaignWizard({ campaignId, users, channels, onClose, onDone, o
               </div>
             </div>
             <div className="p-4 flex flex-col gap-4">
-              <p className="text-[12px] text-muted-foreground -mt-1">When on, the AI replies automatically, nurtures the lead until the key details are collected, then notifies an agent to take over.</p>
               <div className="grid grid-cols-2 gap-4">
                 <div><FieldLabel>Segment</FieldLabel>
                   <Select value={segment} onChange={setSegment} placeholder="Select segment" searchable
@@ -218,10 +217,9 @@ export function CampaignWizard({ campaignId, users, channels, onClose, onDone, o
                   </div>
                 </div>
               </div>
-              <div><FieldLabel>Intake form (auto-sent on first reply)</FieldLabel>
+              <div><FieldLabel hint="The AI sends this WhatsApp form on the first response to collect complete lead details.">Intake form (auto-sent on first reply)</FieldLabel>
                 <Select value={intakeFormId} onChange={setIntakeFormId} placeholder="No form" searchable
                   options={[{ value: "", label: "No form" }, ...forms.map((f) => ({ value: f.id, label: f.name }))]} />
-                <p className="mt-1 text-[11px] text-muted-foreground">The AI sends this WhatsApp form on the first response to collect complete lead details.</p>
               </div>
             </div>
           </div>

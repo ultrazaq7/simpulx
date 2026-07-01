@@ -82,9 +82,8 @@ export function WizardField({ label, value, onChange, placeholder, type = "text"
 }) {
   return (
     <div>
-      <FieldLabel>{label}</FieldLabel>
+      <FieldLabel hint={hint}>{label}</FieldLabel>
       <input type={type} value={value} onChange={(e) => onChange(e.target.value)} placeholder={placeholder} autoFocus={autoFocus} className={INPUT_CLASS} />
-      {hint && <p className="text-[11.5px] text-muted-foreground mt-1">{hint}</p>}
     </div>
   );
 }

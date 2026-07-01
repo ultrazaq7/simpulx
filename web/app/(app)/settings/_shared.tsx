@@ -3,7 +3,8 @@
 // reused across the split setting pages. Keeps each page focused on its own data.
 import { useEffect, useState, type ReactNode } from "react";
 import { cn } from "@/lib/utils";
-import { X } from "lucide-react";
+import { X, Info } from "lucide-react";
+import { Tip } from "@/components/ui/tooltip";
 
 export type ToastSeverity = "success" | "error" | "info";
 
@@ -81,11 +82,26 @@ export function SettingsCard({ children, className }: { children: ReactNode; cla
   );
 }
 
-// FieldLabel: the tiny label above every form input. Repeated ~30 times across pages.
-export function FieldLabel({ children, className }: { children: ReactNode; className?: string }) {
+// InfoHint: a small (i) button that reveals a description on hover, so fields can
+// stay clean instead of carrying verbose helper text underneath.
+export function InfoHint({ text }: { text: string }) {
   return (
-    <label className={cn("block text-[12px] font-bold text-foreground/80 mb-1", className)}>
-      {children}
+    <Tip label={text}>
+      <button type="button" tabIndex={-1} aria-label="More info"
+        className="inline-flex items-center justify-center w-4 h-4 rounded-full text-muted-foreground/60 hover:text-primary hover:bg-primary/10 transition-colors align-middle">
+        <Info className="w-3.5 h-3.5" />
+      </button>
+    </Tip>
+  );
+}
+
+// FieldLabel: the tiny label above every form input. Repeated ~30 times across pages.
+// An optional `hint` renders an info button + hover tooltip beside the label.
+export function FieldLabel({ children, className, hint }: { children: ReactNode; className?: string; hint?: string }) {
+  return (
+    <label className={cn("flex items-center gap-1.5 text-[12px] font-bold text-foreground/80 mb-1", className)}>
+      <span>{children}</span>
+      {hint && <InfoHint text={hint} />}
     </label>
   );
 }

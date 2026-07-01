@@ -248,6 +248,8 @@ export interface Contact {
   interest_level: string | null;
   stage_id?: string | null;
   stage_name: string | null;
+  lost_reason?: string | null;
+  lead_score?: number | null;
   last_message_at: string | null;
   created_at: string;
   ai_summary?: string | null;

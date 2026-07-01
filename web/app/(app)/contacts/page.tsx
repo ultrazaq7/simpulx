@@ -131,8 +131,13 @@ export default function ContactsPage() {
   function exportCsv() {
     if (filtered.length === 0) { setToast("Nothing to export"); return; }
     const esc = (v: any) => `"${String(v ?? "").replace(/"/g, '""')}"`;
-    const head = ["Name", "Phone", "Channel", "Source", "Source Id", "Labels", "Blacklisted", "Created", "Updated"];
-    const lines = filtered.map((c) => [c.full_name, c.phone, c.channel_name, sourceLabel(c), c.source_id, (c.tags || []).join("; "), c.blacklisted ? "Yes" : "No", fmtExportTs(c.created_at, orgTz), fmtExportTs(c.updated_at, orgTz)].map(esc).join(","));
+    const head = ["Name", "Phone", "Channel", "Stage", "Interest level", "Lost reason", "Lead score", "Agent", "Campaign", "Source", "Source Id", "Source Url", "Labels", "Blacklisted", "Created", "Updated"];
+    const lines = filtered.map((c) => [
+      c.full_name, c.phone, c.channel_name, c.stage_name, c.interest_level, c.lost_reason,
+      c.lead_score ?? "", c.agent_name, c.campaign_name, sourceLabel(c), c.source_id, c.source_url,
+      (c.tags || []).join("; "), c.blacklisted ? "Yes" : "No",
+      fmtExportTs(c.created_at, orgTz), fmtExportTs(c.updated_at, orgTz),
+    ].map(esc).join(","));
     const csv = [head.join(","), ...lines].join("\n");
     const url = URL.createObjectURL(new Blob([csv], { type: "text/csv;charset=utf-8" }));
     const a = document.createElement("a");
@@ -270,15 +275,15 @@ export default function ContactsPage() {
             <thead className="sticky top-0 z-10">
               <tr className="border-b border-border bg-muted">
                 <TH className="w-10"><span className="sr-only">Select</span><input type="checkbox" aria-label="Select all contacts" className="rounded border-input accent-primary" checked={paged.length > 0 && paged.every((c) => selected.has(c.id))} onChange={(e) => setSelected((s) => { const n = new Set(s); if (e.target.checked) paged.forEach((c) => n.add(c.id)); else paged.forEach((c) => n.delete(c.id)); return n; })} /></TH>
-                <TH>Contact name</TH><TH>Channel</TH><TH>Phone</TH><TH>Stage</TH><TH>Source</TH><TH>Source ID</TH><TH>Source URL</TH>
+                <TH>Contact name</TH><TH>Channel</TH><TH>Phone</TH><TH>Stage</TH><TH>Agent</TH><TH>Campaign</TH><TH>Source</TH><TH>Source ID</TH><TH>Source URL</TH>
                 <TH>Labels</TH><TH>Created</TH><TH>Updated</TH><TH>Blacklisted</TH><TH className="text-right">Actions</TH>
               </tr>
             </thead>
             <tbody>
               {loading ? Array(8).fill(0).map((_, i) => (
-                <tr key={i}><td colSpan={13} className="px-4 py-2.5"><div className="h-9 skeleton rounded-md" /></td></tr>
+                <tr key={i}><td colSpan={15} className="px-4 py-2.5"><div className="h-9 skeleton rounded-md" /></td></tr>
               )) : paged.length === 0 ? (
-                <tr><td colSpan={13} className="text-center py-16">
+                <tr><td colSpan={15} className="text-center py-16">
                   <div className="w-12 h-12 rounded-xl bg-muted grid place-items-center mx-auto mb-3"><Users className="w-6 h-6 text-muted-foreground/50" /></div>
                   <p className="font-semibold text-foreground mb-0.5">No contacts found</p>
                   <p className="text-sm text-muted-foreground">{query || activeFilters ? "Try different filters." : "New contacts will appear here."}</p>
@@ -316,6 +321,8 @@ export default function ContactsPage() {
                       <span className="inline-flex px-2 py-0.5 rounded-md text-[11px] font-semibold bg-primary/10 text-primary">{c.stage_name}</span>
                     ) : <span className="text-muted-foreground">-</span>}
                   </td>
+                  <td className="px-4 py-2.5 text-foreground/80 whitespace-nowrap">{c.agent_name || <span className="text-muted-foreground">Unassigned</span>}</td>
+                  <td className="px-4 py-2.5 text-foreground/80 whitespace-nowrap">{c.campaign_name || <span className="text-muted-foreground">-</span>}</td>
                   <td className="px-4 py-2.5 text-foreground/80 whitespace-nowrap">{sourceLabel(c)}</td>
                   <td className="px-4 py-2.5 whitespace-nowrap">
                     {c.source_id ? (
