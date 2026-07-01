@@ -44,7 +44,7 @@ class SettingsPage extends ConsumerWidget {
               const SizedBox(height: 8),
               const _SectionLabel('Availability'),
               _OnlineStatusTile(),
-              const Divider(height: 1),
+              const SizedBox(height: 8), // Add a bit of spacing instead of a line
               const _SectionLabel('Account'),
               ListTile(
                 leading: const Icon(Icons.person_rounded),
