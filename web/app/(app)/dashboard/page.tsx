@@ -69,12 +69,13 @@ function presetRange(key: string): { from: string; to: string } {
 function CustomTooltip({ active, payload, label }: any) {
   if (!active || !payload?.length) return null;
   return (
-    <div className="bg-[#1C463B] rounded-lg px-3 py-2 shadow-xl">
-      <p className="text-[11px] text-white/60 mb-1.5">{label}</p>
+    <div className="rounded-lg border border-border bg-card/95 backdrop-blur-sm px-3 py-2 shadow-lg min-w-[140px]">
+      <p className="text-[11px] font-semibold text-muted-foreground mb-1.5">{label}</p>
       {payload.map((p: any) => (
-        <div key={p.dataKey} className="flex items-center gap-2 mb-0.5">
+        <div key={p.dataKey} className="flex items-center gap-2 mb-0.5 last:mb-0">
           <span className="w-2 h-2 rounded-full shrink-0" style={{ backgroundColor: p.color }} />
-          <span className="text-xs text-white font-medium tabular-nums">{p.name}: <b>{p.value}</b></span>
+          <span className="text-xs text-foreground/75">{p.name}</span>
+          <span className="text-xs font-bold text-foreground tabular-nums ml-auto">{Number(p.value ?? 0).toLocaleString()}</span>
         </div>
       ))}
     </div>
@@ -992,7 +993,7 @@ function MarketingAnalytics() {
     const dt = new Date(d.date);
     return {
       date: isNaN(dt.getTime()) ? d.date : `${String(dt.getDate()).padStart(2, "0")}/${String(dt.getMonth() + 1).padStart(2, "0")}`,
-      spend: d.spend || 0, impressions: d.impressions || 0, reach: d.reach || 0, clicks: d.clicks || 0, results: d.results || 0,
+      spend: d.spend || 0, impressions: d.impressions || 0, reach: d.reach || 0, clicks: d.clicks || 0, leads: d.leads || 0,
     };
   }).reverse(); // chart reads left (oldest) -> right (newest)
 
@@ -1067,21 +1068,24 @@ function MarketingAnalytics() {
         </Card>
 
         {/* Timeline: impressions/reach (lines) + link clicks/results (bars) */}
-        <Card title="Timeline" subtitle="Daily impressions, reach, clicks and results" className="lg:col-span-3">
+        <Card title="Timeline" subtitle="Daily impressions, reach, clicks and leads" className="lg:col-span-3">
           <div className="px-4 py-4">
             {daily.length === 0 ? <div className="h-[260px] grid place-items-center text-sm text-muted-foreground">No daily data</div> : (
               <ResponsiveContainer width="100%" height={260}>
-                <ComposedChart data={daily} margin={{ top: 10, right: 6, left: -12, bottom: 0 }}>
-                  <CartesianGrid strokeDasharray="3 3" stroke="rgba(0,0,0,0.06)" vertical={false} />
-                  <XAxis dataKey="date" tick={{ fontSize: 11, fill: "#9CA3AF" }} axisLine={false} tickLine={false} minTickGap={16} />
+                <ComposedChart data={daily} margin={{ top: 12, right: 8, left: -12, bottom: 0 }} barGap={4}>
+                  <defs>
+                    <linearGradient id="tlImp" x1="0" y1="0" x2="0" y2="1"><stop offset="0%" stopColor="#2563EB" stopOpacity={0.18} /><stop offset="100%" stopColor="#2563EB" stopOpacity={0} /></linearGradient>
+                  </defs>
+                  <CartesianGrid strokeDasharray="4 4" stroke="rgba(0,0,0,0.05)" vertical={false} />
+                  <XAxis dataKey="date" tick={{ fontSize: 11, fill: "#9CA3AF" }} axisLine={false} tickLine={false} minTickGap={16} padding={{ left: 20, right: 20 }} />
                   <YAxis yAxisId="left" tick={{ fontSize: 11, fill: "#9CA3AF" }} axisLine={false} tickLine={false} width={44} />
-                  <YAxis yAxisId="right" orientation="right" tick={{ fontSize: 11, fill: "#9CA3AF" }} axisLine={false} tickLine={false} width={36} />
-                  <RechartsTooltip content={<CustomTooltip />} cursor={{ fill: "rgba(0,0,0,0.04)" }} />
-                  <Legend wrapperStyle={{ fontSize: 11 }} iconType="circle" />
-                  <Bar yAxisId="right" dataKey="clicks" name="Link clicks" fill="#F59E0B" radius={[3, 3, 0, 0]} barSize={9} />
-                  <Bar yAxisId="right" dataKey="results" name="Results" fill="#14B8A6" radius={[3, 3, 0, 0]} barSize={9} />
-                  <Line yAxisId="left" type="monotone" dataKey="impressions" name="Impressions" stroke="#2563EB" strokeWidth={2} dot={false} />
-                  <Line yAxisId="left" type="monotone" dataKey="reach" name="Reach" stroke="#10B981" strokeWidth={2} dot={false} />
+                  <YAxis yAxisId="right" orientation="right" tick={{ fontSize: 11, fill: "#9CA3AF" }} axisLine={false} tickLine={false} width={30} allowDecimals={false} />
+                  <RechartsTooltip content={<CustomTooltip />} cursor={{ fill: "rgba(0,0,0,0.035)" }} />
+                  <Legend wrapperStyle={{ fontSize: 11, paddingTop: 6 }} iconType="circle" iconSize={8} />
+                  <Bar yAxisId="right" dataKey="clicks" name="Link clicks" fill="#F59E0B" radius={[4, 4, 0, 0]} maxBarSize={22} />
+                  <Bar yAxisId="right" dataKey="leads" name="Leads (chats)" fill="#2D8B73" radius={[4, 4, 0, 0]} maxBarSize={22} />
+                  <Area yAxisId="left" type="monotone" dataKey="impressions" name="Impressions" stroke="#2563EB" strokeWidth={2.5} fill="url(#tlImp)" dot={{ r: 3, fill: "#2563EB", strokeWidth: 0 }} activeDot={{ r: 5, stroke: "#fff", strokeWidth: 2 }} />
+                  <Line yAxisId="left" type="monotone" dataKey="reach" name="Reach" stroke="#10B981" strokeWidth={2.5} dot={{ r: 3, fill: "#10B981", strokeWidth: 0 }} activeDot={{ r: 5, stroke: "#fff", strokeWidth: 2 }} />
                 </ComposedChart>
               </ResponsiveContainer>
             )}

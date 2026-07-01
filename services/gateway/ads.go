@@ -296,6 +296,33 @@ func (s *server) handleAdPerformance(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
+	// Daily leads (chats) attributed to a campaign — the real conversion signal
+	// (Meta "results" is often 0 for click/reach-optimised ads). Merged into the
+	// daily rows so the Timeline can show leads instead of Meta results.
+	lq := `SELECT created_at::date AS d, count(*)::bigint AS leads
+	         FROM conversations
+	        WHERE organization_id=$1 AND created_at::date BETWEEN $2 AND $3 AND campaign_id IS NOT NULL`
+	if camp != "" {
+		lq += " AND campaign_id = $4"
+	}
+	lq += " GROUP BY 1"
+	leadRows, _ := s.queryMaps(r.Context(), lq, args...)
+	leadsByDate := map[string]int64{}
+	for _, lr := range leadRows {
+		if d, ok := lr["d"].(time.Time); ok {
+			if n, ok := lr["leads"].(int64); ok {
+				leadsByDate[d.Format("2006-01-02")] = n
+			}
+		}
+	}
+	for _, dr := range dailyRows {
+		if d, ok := dr["date"].(time.Time); ok {
+			dr["leads"] = leadsByDate[d.Format("2006-01-02")]
+		} else {
+			dr["leads"] = int64(0)
+		}
+	}
+
 	// Per ad/creative: leads + conversions grouped by the click-to-WhatsApp ad id
 	// (conversation_attributions.referral_source). Spend stays campaign-level (Meta
 	// only syncs campaign insights), so this view is leads -> conversions only.

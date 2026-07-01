@@ -297,7 +297,7 @@ export interface AdPerfCampaign {
 }
 export interface AdPerfDaily {
   date: string;
-  impressions: number; reach: number; clicks: number; results: number; spend: number;
+  impressions: number; reach: number; clicks: number; results: number; spend: number; leads: number;
 }
 export interface AdPerfCreative {
   source_id: string;
