@@ -93,6 +93,31 @@ export function IndonesiaMap({ points, isMoney, money }: { points: MapPoint[]; i
     });
   }, [geo, proj, valueByEn]);
 
+  // Auto-zoom: fit the viewBox to the provinces that actually have data (with
+  // padding), so the map frames where the leads are instead of all of Indonesia.
+  const viewBox = useMemo(() => {
+    if (!geo || !proj) return `0 0 ${VB_W} ${VB_W * 0.4}`;
+    const feats = geo.features.filter((f) => (valueByEn[ID_TO_EN[String(f.properties.Propinsi || "").toUpperCase()] || ""] || 0) > 0);
+    const target = feats.length ? feats : geo.features;
+    let minX = Infinity, minY = Infinity, maxX = -Infinity, maxY = -Infinity;
+    const walk = (c: unknown) => {
+      if (Array.isArray(c) && typeof c[0] === "number" && typeof c[1] === "number") {
+        const [x, y] = proj.project(c[0] as number, c[1] as number);
+        if (x < minX) minX = x; if (x > maxX) maxX = x; if (y < minY) minY = y; if (y > maxY) maxY = y;
+      } else if (Array.isArray(c)) c.forEach(walk);
+    };
+    target.forEach((f) => walk(f.geometry.coordinates));
+    let w = maxX - minX, h = maxY - minY;
+    const padX = Math.max(w * 0.2, 24), padY = Math.max(h * 0.2, 24);
+    minX -= padX; minY -= padY; w += padX * 2; h += padY * 2;
+    const MIN_W = VB_W * 0.14;
+    if (w < MIN_W) { minX -= (MIN_W - w) / 2; w = MIN_W; }
+    const AR = 2.4; // keep a wide, card-friendly aspect
+    if (w / h < AR) { const nw = h * AR; minX -= (nw - w) / 2; w = nw; }
+    else { const nh = w / AR; minY -= (nh - h) / 2; h = nh; }
+    return `${minX.toFixed(1)} ${minY.toFixed(1)} ${w.toFixed(1)} ${h.toFixed(1)}`;
+  }, [geo, proj, valueByEn]);
+
   const fmt = (v: number) => (isMoney && money ? money(v) : v.toLocaleString());
 
   if (!geo || !proj) {
