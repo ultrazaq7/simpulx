@@ -364,7 +364,16 @@ export function Shell({ children }: { children: ReactNode }) {
   }, [metaTitle]);
 
 
-  async function logout() { await unregisterPush().catch(() => {}); await api.logout().catch(() => {}); clearSession(); router.replace("/login"); }
+  // Optimistic logout: clear the session + redirect IMMEDIATELY so it feels
+  // instant. The server-side token revoke + FCM cleanup are slow (the FCM token
+  // dance can take seconds), so fire them in the background — never awaited.
+  // api.logout() reads the refresh token synchronously before the session clears.
+  function logout() {
+    api.logout().catch(() => {});
+    unregisterPush().catch(() => {});
+    clearSession();
+    router.replace("/login");
+  }
 
   const pageInfo = resolvePageInfo(pathname) || { category: "", title: "Simpulx" };
 

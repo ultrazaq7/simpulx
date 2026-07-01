@@ -323,11 +323,29 @@ func (s *server) handleAdPerformance(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
+	// Demographic breakdowns (account-level snapshot from the last sync; not
+	// date-filtered). Split into age / gender for the two donut charts.
+	bdRows, _ := s.queryMaps(r.Context(),
+		`SELECT dimension, value, impressions, reach, clicks, results, spend
+		   FROM ad_breakdowns WHERE organization_id=$1
+		  ORDER BY dimension, impressions DESC`, a.OrgID)
+	age := []map[string]any{}
+	gender := []map[string]any{}
+	for _, b := range bdRows {
+		if b["dimension"] == "age" {
+			age = append(age, b)
+		} else if b["dimension"] == "gender" {
+			gender = append(gender, b)
+		}
+	}
+
 	writeJSON(w, map[string]any{
 		"from": from, "to": to,
 		"campaigns": campRows,
 		"daily":     dailyRows,
 		"creatives": creativeRows,
+		"age":       age,
+		"gender":    gender,
 	})
 }
 
@@ -341,6 +359,8 @@ type metaInsight struct {
 	Clicks       string `json:"clicks"`
 	Spend        string `json:"spend"`
 	DateStart    string `json:"date_start"`
+	Age          string `json:"age"`    // present on age-breakdown rows
+	Gender       string `json:"gender"` // present on gender-breakdown rows
 	Actions      []struct {
 		ActionType string `json:"action_type"`
 		Value      string `json:"value"`
@@ -408,8 +428,59 @@ func (s *server) syncMetaAccount(ctx context.Context, accountID, orgID string) e
 		}
 		next = payload.Paging.Next
 	}
+
+	// Demographic breakdowns (age + gender) — account-level snapshot over the
+	// same window, best-effort (never fails the sync).
+	s.syncMetaBreakdowns(ctx, accountID, orgID, extID, token)
+
 	_, _ = s.pool.Exec(ctx, `UPDATE ad_accounts SET last_synced_at=now(), status='connected', last_error=NULL WHERE id=$1`, accountID)
 	return nil
+}
+
+// syncMetaBreakdowns pulls account-level age + gender insights (aggregated over
+// the last 90 days) and refreshes the ad_breakdowns snapshot.
+func (s *server) syncMetaBreakdowns(ctx context.Context, accountID, orgID, extID, token string) {
+	since := time.Now().AddDate(0, 0, -90).Format("2006-01-02")
+	until := time.Now().Format("2006-01-02")
+	tr, _ := json.Marshal(map[string]string{"since": since, "until": until})
+	for _, dim := range []string{"age", "gender"} {
+		q := url.Values{}
+		q.Set("level", "account")
+		q.Set("fields", "impressions,reach,clicks,spend,actions")
+		q.Set("breakdowns", dim)
+		q.Set("time_range", string(tr))
+		q.Set("limit", "200")
+		q.Set("access_token", token)
+		u := fmt.Sprintf("https://graph.facebook.com/%s/act_%s/insights?%s", metaGraphVersion, extID, q.Encode())
+		var payload struct {
+			Data  []metaInsight `json:"data"`
+			Error *struct {
+				Message string `json:"message"`
+			} `json:"error"`
+		}
+		if err := metaGet(ctx, u, &payload); err != nil || payload.Error != nil {
+			continue
+		}
+		// Refresh the snapshot for this dimension.
+		_, _ = s.pool.Exec(ctx, `DELETE FROM ad_breakdowns WHERE ad_account_id=$1 AND dimension=$2`, accountID, dim)
+		for _, in := range payload.Data {
+			val := in.Age
+			if dim == "gender" {
+				val = in.Gender
+			}
+			if strings.TrimSpace(val) == "" {
+				val = "unknown"
+			}
+			_, _ = s.pool.Exec(ctx,
+				`INSERT INTO ad_breakdowns (organization_id, ad_account_id, dimension, value, impressions, reach, clicks, results, spend)
+				 VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9)
+				 ON CONFLICT (ad_account_id, dimension, value)
+				 DO UPDATE SET impressions=EXCLUDED.impressions, reach=EXCLUDED.reach, clicks=EXCLUDED.clicks,
+				               results=EXCLUDED.results, spend=EXCLUDED.spend, synced_at=now()`,
+				orgID, accountID, dim, val,
+				atoiSafe(in.Impressions), atoiSafe(in.Reach), atoiSafe(in.Clicks), metaResults(in), atofSafe(in.Spend))
+		}
+	}
 }
 
 func (s *server) markAdAccountError(ctx context.Context, accountID, msg string) {

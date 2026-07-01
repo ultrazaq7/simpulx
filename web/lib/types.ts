@@ -304,11 +304,18 @@ export interface AdPerfCreative {
   source_url: string | null;
   leads: number; sales: number;
 }
+export interface AdBreakdown {
+  dimension: string;
+  value: string;
+  impressions: number; reach: number; clicks: number; results: number; spend: number;
+}
 export interface AdPerformance {
   from: string; to: string;
   campaigns: AdPerfCampaign[];
   daily: AdPerfDaily[];
   creatives: AdPerfCreative[];
+  age?: AdBreakdown[];
+  gender?: AdBreakdown[];
 }
 
 export interface Channel {

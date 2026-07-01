@@ -3,7 +3,7 @@ import { useEffect, useState, useMemo } from "react";
 import Link from "next/link";
 import {
   AreaChart, Area, XAxis, YAxis, CartesianGrid, Tooltip as RechartsTooltip,
-  Legend, ResponsiveContainer, ComposedChart, Bar, Line,
+  Legend, ResponsiveContainer, ComposedChart, Bar, Line, PieChart, Pie, Cell,
 } from "recharts";
 import {
   BarChart3, MessageSquare, Inbox, Flame, Timer,
@@ -16,7 +16,7 @@ import { api, getUser } from "@/lib/api";
 import { Select } from "@/components/Select";
 import { MultiSelect } from "@/components/ui/multi-select";
 import { lostReasonLabel } from "@/app/(app)/inbox/components/LostReasonDialog";
-import type { Stats, Analytics, DashboardCards, Conversation, AdPerformance, Channel, Campaign, Agent } from "@/lib/types";
+import type { Stats, Analytics, DashboardCards, Conversation, AdPerformance, AdBreakdown, Channel, Campaign, Agent } from "@/lib/types";
 import { cn, initials, fmtDuration } from "@/lib/utils";
 
 type Metric = {
@@ -880,6 +880,50 @@ function PerfTables({ rows, label, showBranch }: { rows: PerfRow[]; label: strin
 const fmtMoney = (n: number) => (n || 0).toLocaleString(undefined, { minimumFractionDigits: 0, maximumFractionDigits: 0 });
 const fmtInt = (n: number) => Math.round(n || 0).toLocaleString();
 
+const DONUT_COLORS = ["#6366F1", "#F97316", "#A5B4FC", "#EAE2D6", "#111827", "#C9A98A", "#8B5E34", "#14B8A6"];
+
+// Demographic donut (age / gender), shown by results, falling back to
+// impressions when there are no results yet.
+function BreakdownDonut({ title, data }: { title: string; data?: AdBreakdown[] }) {
+  const rows = data || [];
+  let total = rows.reduce((a, b) => a + (b.results || 0), 0);
+  const useImpr = total === 0;
+  if (useImpr) total = rows.reduce((a, b) => a + (b.impressions || 0), 0);
+  const chart = rows
+    .map((b, i) => ({ name: b.value, value: useImpr ? (b.impressions || 0) : (b.results || 0), color: DONUT_COLORS[i % DONUT_COLORS.length] }))
+    .filter((x) => x.value > 0)
+    .sort((a, b) => b.value - a.value);
+  return (
+    <Card title={title} subtitle={useImpr ? "By impressions" : "By results"}>
+      {chart.length === 0 ? (
+        <div className="h-[220px] grid place-items-center text-sm text-muted-foreground">No demographic data yet</div>
+      ) : (
+        <div className="p-4 flex items-center gap-4">
+          <div className="w-[45%] shrink-0">
+            <ResponsiveContainer width="100%" height={200}>
+              <PieChart>
+                <Pie data={chart} dataKey="value" nameKey="name" innerRadius={48} outerRadius={78} paddingAngle={2} stroke="none">
+                  {chart.map((c) => <Cell key={c.name} fill={c.color} />)}
+                </Pie>
+                <RechartsTooltip formatter={(v: any, n: any) => [`${total > 0 ? ((Number(v) / total) * 100).toFixed(1) : 0}%`, n]} />
+              </PieChart>
+            </ResponsiveContainer>
+          </div>
+          <div className="flex-1 space-y-1.5 min-w-0">
+            {chart.map((c) => (
+              <div key={c.name} className="flex items-center gap-2 text-[12px]">
+                <span className="w-2.5 h-2.5 rounded-full shrink-0" style={{ backgroundColor: c.color }} />
+                <span className="flex-1 truncate text-foreground/90 capitalize">{c.name}</span>
+                <span className="tabular-nums font-semibold text-foreground">{total > 0 ? ((c.value / total) * 100).toFixed(1) : 0}%</span>
+              </div>
+            ))}
+          </div>
+        </div>
+      )}
+    </Card>
+  );
+}
+
 function MarketingAnalytics() {
   // Same date filter as the Overview tab (preset keys + custom range).
   const [dateRange, setDateRange] = useState("30d");
@@ -1043,6 +1087,12 @@ function MarketingAnalytics() {
             )}
           </div>
         </Card>
+      </div>
+
+      {/* Demographic performance donuts */}
+      <div className="grid grid-cols-1 md:grid-cols-2 gap-4 mb-5">
+        <BreakdownDonut title="Age performance" data={perf?.age} />
+        <BreakdownDonut title="Gender performance" data={perf?.gender} />
       </div>
 
       {/* Per-campaign ROI table */}
