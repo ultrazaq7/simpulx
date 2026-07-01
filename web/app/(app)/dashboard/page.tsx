@@ -3,7 +3,7 @@ import { useEffect, useState, useMemo } from "react";
 import Link from "next/link";
 import {
   AreaChart, Area, XAxis, YAxis, CartesianGrid, Tooltip as RechartsTooltip,
-  Legend, ResponsiveContainer,
+  Legend, ResponsiveContainer, ComposedChart, Bar, Line,
 } from "recharts";
 import {
   BarChart3, MessageSquare, Inbox, Flame, Timer,
@@ -882,9 +882,9 @@ const fmtInt = (n: number) => Math.round(n || 0).toLocaleString();
 
 function MarketingAnalytics() {
   // Same date filter as the Overview tab (preset keys + custom range).
-  const [dateRange, setDateRange] = useState("all");
-  const [fFrom, setFFrom] = useState("");
-  const [fTo, setFTo] = useState("");
+  const [dateRange, setDateRange] = useState("30d");
+  const [fFrom, setFFrom] = useState(() => presetRange("30d").from);
+  const [fTo, setFTo] = useState(() => presetRange("30d").to);
   const [campaignFilter, setCampaignFilter] = useState("");
   const [perf, setPerf] = useState<AdPerformance | null>(null);
   const [currency, setCurrency] = useState("");
@@ -922,23 +922,10 @@ function MarketingAnalytics() {
   const creatives = perf?.creatives || [];
   const hasSpend = hasAccounts && campaigns.length > 0;
 
-  if (loading) return <div className="p-4"><Skeleton className="h-20 mb-4" /><Skeleton className="h-[300px]" /></div>;
-
-  // Empty only when there is neither ad spend data nor any ad-attributed lead.
-  if (!hasSpend && creatives.length === 0) {
-    return (
-      <div className="p-4">
-        <div className="bg-card border border-border rounded-lg shadow-xs py-16 text-center">
-          <div className="w-12 h-12 rounded-xl bg-muted grid place-items-center mx-auto mb-3"><Megaphone className="w-6 h-6 text-muted-foreground/50" /></div>
-          <p className="font-semibold text-foreground mb-0.5">{hasAccounts ? "No ad data for this range" : "No ad account connected"}</p>
-          <p className="text-sm text-muted-foreground mb-4">Connect a Meta ad account to see spend, cost per lead and cost per conversion.</p>
-          <Link href="/settings/channels?tab=advertising" className="inline-flex items-center gap-2 px-4 h-9 bg-primary text-white rounded-md text-sm font-semibold hover:bg-primary-dark shadow-sm outline-none">
-            <CircleDollarSign className="w-4 h-4" />Connect ad account
-          </Link>
-        </div>
-      </div>
-    );
-  }
+  // Empty only when there is neither ad spend data nor any ad-attributed lead
+  // for the selected range. Rendered INLINE (below the toolbar) so the date
+  // filter stays reachable — picking an empty range must not trap the user.
+  const isEmpty = !hasSpend && creatives.length === 0;
 
   const roiCards = [
     { label: "Ad spend", value: money(t.spend), Icon: CircleDollarSign, color: "#F59E0B" },
@@ -959,8 +946,11 @@ function MarketingAnalytics() {
 
   const daily = (perf?.daily || []).map((d) => {
     const dt = new Date(d.date);
-    return { date: isNaN(dt.getTime()) ? d.date : `${String(dt.getDate()).padStart(2, "0")}/${String(dt.getMonth() + 1).padStart(2, "0")}`, spend: d.spend || 0 };
-  });
+    return {
+      date: isNaN(dt.getTime()) ? d.date : `${String(dt.getDate()).padStart(2, "0")}/${String(dt.getMonth() + 1).padStart(2, "0")}`,
+      spend: d.spend || 0, impressions: d.impressions || 0, reach: d.reach || 0, clicks: d.clicks || 0, results: d.results || 0,
+    };
+  }).reverse(); // chart reads left (oldest) -> right (newest)
 
   return (
     <div className="p-4">
@@ -991,6 +981,9 @@ function MarketingAnalytics() {
         )}
       </div>
 
+      {loading ? (
+        <div className="py-8"><Skeleton className="h-20 mb-4" /><Skeleton className="h-[280px]" /></div>
+      ) : (<>
       {hasSpend ? (
       <>
       {/* ROI cards */}
@@ -1029,19 +1022,23 @@ function MarketingAnalytics() {
           </div>
         </Card>
 
-        {/* Daily spend trend */}
-        <Card title="Spend trend" subtitle="Daily ad spend" className="lg:col-span-3">
+        {/* Timeline: impressions/reach (lines) + link clicks/results (bars) */}
+        <Card title="Timeline" subtitle="Daily impressions, reach, clicks and results" className="lg:col-span-3">
           <div className="px-4 py-4">
             {daily.length === 0 ? <div className="h-[260px] grid place-items-center text-sm text-muted-foreground">No daily data</div> : (
               <ResponsiveContainer width="100%" height={260}>
-                <AreaChart data={daily} margin={{ top: 10, right: 10, left: -20, bottom: 0 }}>
-                  <defs><linearGradient id="spend" x1="0" y1="0" x2="0" y2="1"><stop offset="0%" stopColor="#F59E0B" stopOpacity={0.28} /><stop offset="100%" stopColor="#F59E0B" stopOpacity={0.02} /></linearGradient></defs>
+                <ComposedChart data={daily} margin={{ top: 10, right: 6, left: -12, bottom: 0 }}>
                   <CartesianGrid strokeDasharray="3 3" stroke="rgba(0,0,0,0.06)" vertical={false} />
-                  <XAxis dataKey="date" tick={{ fontSize: 11, fill: "#9CA3AF" }} axisLine={false} tickLine={false} />
-                  <YAxis tick={{ fontSize: 11, fill: "#9CA3AF" }} axisLine={false} tickLine={false} />
-                  <RechartsTooltip content={<CustomTooltip />} cursor={{ stroke: "rgba(0,0,0,0.08)" }} />
-                  <Area type="monotone" dataKey="spend" name="Spend" stroke="#F59E0B" strokeWidth={2.5} fill="url(#spend)" dot={false} activeDot={{ r: 5, fill: "#F59E0B", stroke: "#fff", strokeWidth: 2 }} />
-                </AreaChart>
+                  <XAxis dataKey="date" tick={{ fontSize: 11, fill: "#9CA3AF" }} axisLine={false} tickLine={false} minTickGap={16} />
+                  <YAxis yAxisId="left" tick={{ fontSize: 11, fill: "#9CA3AF" }} axisLine={false} tickLine={false} width={44} />
+                  <YAxis yAxisId="right" orientation="right" tick={{ fontSize: 11, fill: "#9CA3AF" }} axisLine={false} tickLine={false} width={36} />
+                  <RechartsTooltip content={<CustomTooltip />} cursor={{ fill: "rgba(0,0,0,0.04)" }} />
+                  <Legend wrapperStyle={{ fontSize: 11 }} iconType="circle" />
+                  <Bar yAxisId="right" dataKey="clicks" name="Link clicks" fill="#F59E0B" radius={[3, 3, 0, 0]} barSize={9} />
+                  <Bar yAxisId="right" dataKey="results" name="Results" fill="#14B8A6" radius={[3, 3, 0, 0]} barSize={9} />
+                  <Line yAxisId="left" type="monotone" dataKey="impressions" name="Impressions" stroke="#2563EB" strokeWidth={2} dot={false} />
+                  <Line yAxisId="left" type="monotone" dataKey="reach" name="Reach" stroke="#10B981" strokeWidth={2} dot={false} />
+                </ComposedChart>
               </ResponsiveContainer>
             )}
           </div>
@@ -1128,6 +1125,7 @@ function MarketingAnalytics() {
           </table>
         </div>
       </Card>
+      </>)}
     </div>
   );
 }
