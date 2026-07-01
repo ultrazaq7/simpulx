@@ -105,7 +105,7 @@ class _MessageComposerState extends ConsumerState<MessageComposer> {
     final theme = Theme.of(context);
     return Container(
       decoration: BoxDecoration(
-        color: theme.colorScheme.surface,
+        color: theme.scaffoldBackgroundColor,
         border: Border(
           top: BorderSide(
             color: theme.brightness == Brightness.dark 
