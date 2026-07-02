@@ -18,7 +18,7 @@ class AppLocalizationsEn extends AppLocalizations {
   String get navChat => 'Chat';
 
   @override
-  String get navContacts => 'Contacts';
+  String get navContacts => 'Leads';
 
   @override
   String get navSettings => 'Settings';

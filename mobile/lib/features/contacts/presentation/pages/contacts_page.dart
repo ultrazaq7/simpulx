@@ -30,7 +30,7 @@ class _ContactsPageState extends ConsumerState<ContactsPage> {
   String? _assignment; // 'mine' | 'unassigned' | null = all
   String? _campaign; // campaign name, null = all
   String? _agentFilter; // agent name, null = all
-  String _sortType = 'Latest';
+  String _sortType = 'Oldest';
 
   int get _activeFilters =>
       (_stage != null ? 1 : 0) + (_assignment != null ? 1 : 0) +
@@ -67,6 +67,8 @@ class _ContactsPageState extends ConsumerState<ContactsPage> {
       res.sort((a, b) => (b.leadScore ?? 0).compareTo(a.leadScore ?? 0));
     } else if (_sortType == 'Latest') {
       res.sort((a, b) => (b.createdAt ?? DateTime(0)).compareTo(a.createdAt ?? DateTime(0)));
+    } else if (_sortType == 'Oldest') {
+      res.sort((a, b) => (a.createdAt ?? DateTime(0)).compareTo(b.createdAt ?? DateTime(0)));
     } else if (_sortType == 'Name') {
       res.sort((a, b) => a.fullName.compareTo(b.fullName));
     }
@@ -288,12 +290,12 @@ class _ContactsPageState extends ConsumerState<ContactsPage> {
 
     return Scaffold(
       appBar: AppBar(
-        title: Text(count != null ? 'Contacts ($count)' : 'Contacts'),
+        title: Text(count != null ? 'Leads ($count)' : 'Leads'),
         actions: [
-          // Add contact button
+          // Add lead button
           IconButton(
             icon: const Icon(Icons.person_add_alt_1_rounded),
-            tooltip: 'Add Contact',
+            tooltip: 'Add Lead',
             onPressed: () async {
               final id = await showContactForm(context);
               if (id != null && context.mounted) context.push('/contacts/$id');
@@ -334,7 +336,7 @@ class _ContactsPageState extends ConsumerState<ContactsPage> {
             tooltip: 'Sort',
             onSelected: (v) => setState(() => _sortType = v),
             itemBuilder: (_) => [
-              for (final sort in const ['Latest', 'Score', 'Name'])
+              for (final sort in const ['Oldest', 'Latest', 'Score', 'Name'])
                 PopupMenuItem(
                   value: sort,
                   child: Row(
