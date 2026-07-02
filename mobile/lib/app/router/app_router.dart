@@ -132,8 +132,14 @@ final routerProvider = Provider<GoRouter>((ref) {
       GoRoute(
         path: '/contacts/:id',
         parentNavigatorKey: _rootKey,
-        builder: (context, state) =>
-            ContactDetailPage(contactId: state.pathParameters['id']!),
+        builder: (context, state) {
+          final extra = state.extra;
+          final scrollToHistory = extra is Map && extra['scrollToHistory'] == true;
+          return ContactDetailPage(
+            contactId: state.pathParameters['id']!,
+            scrollToHistory: scrollToHistory,
+          );
+        },
       ),
       // Workspace back-office (role-gated entry from Settings).
       GoRoute(

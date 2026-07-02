@@ -19,10 +19,23 @@ import '../widgets/contact_form_sheet.dart';
 
 /// Lead detail: identity + lead context, with quick actions that reuse the
 /// chat feature's action sheet / notes for the linked conversation.
-class ContactDetailPage extends ConsumerWidget {
-  const ContactDetailPage({super.key, required this.contactId});
+class ContactDetailPage extends ConsumerStatefulWidget {
+  const ContactDetailPage({
+    super.key,
+    required this.contactId,
+    this.scrollToHistory = false,
+  });
 
   final String contactId;
+  final bool scrollToHistory;
+
+  @override
+  ConsumerState<ContactDetailPage> createState() => _ContactDetailPageState();
+}
+
+class _ContactDetailPageState extends ConsumerState<ContactDetailPage> {
+  final _scrollController = ScrollController();
+  final _historyKey = GlobalKey();
 
   Conversation _asConversation(Contact c) => Conversation(
         id: c.conversationId!,
@@ -48,8 +61,36 @@ class ContactDetailPage extends ConsumerWidget {
   }
 
   @override
-  Widget build(BuildContext context, WidgetRef ref) {
-    final contact = ref.watch(contactByIdProvider(contactId));
+  void initState() {
+    super.initState();
+    if (widget.scrollToHistory) {
+      // Wait for tree to build, then scroll to the history card.
+      WidgetsBinding.instance.addPostFrameCallback((_) {
+        _scrollToHistoryCard();
+      });
+    }
+  }
+
+  void _scrollToHistoryCard() {
+    final ctx = _historyKey.currentContext;
+    if (ctx != null) {
+      Scrollable.ensureVisible(
+        ctx,
+        duration: const Duration(milliseconds: 400),
+        curve: Curves.easeInOut,
+      );
+    }
+  }
+
+  @override
+  void dispose() {
+    _scrollController.dispose();
+    super.dispose();
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final contact = ref.watch(contactByIdProvider(widget.contactId));
 
     if (contact == null) {
       return Scaffold(
@@ -88,6 +129,7 @@ class ContactDetailPage extends ConsumerWidget {
         ],
       ),
       body: ListView(
+        controller: _scrollController,
         padding: const EdgeInsets.all(AppSpacing.lg),
         children: [
           _IdentityCard(contact: c),
@@ -115,14 +157,13 @@ class ContactDetailPage extends ConsumerWidget {
             _SummaryCard(summary: c.aiSummary!),
           ],
           const SizedBox(height: AppSpacing.md),
-          _HistoryCard(contactId: c.id),
+          _HistoryCard(key: _historyKey, contactId: c.id),
         ],
       ),
     );
   }
-
-
 }
+
 
 class _IdentityCard extends StatelessWidget {
   const _IdentityCard({required this.contact});
@@ -357,7 +398,7 @@ class _LeadContextCard extends StatelessWidget {
 /// mirroring the web contact-details History tab. Collapsed to a few rows by
 /// default with a Show more / Show less toggle so it never grows unbounded.
 class _HistoryCard extends ConsumerStatefulWidget {
-  const _HistoryCard({required this.contactId});
+  const _HistoryCard({super.key, required this.contactId});
   final String contactId;
 
   @override

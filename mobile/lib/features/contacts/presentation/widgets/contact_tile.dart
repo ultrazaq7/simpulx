@@ -1,125 +1,394 @@
 import 'package:flutter/material.dart';
+import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:go_router/go_router.dart';
+import 'package:intl/intl.dart';
+import 'package:url_launcher/url_launcher.dart';
 
 import '../../../../app/theme/app_colors.dart';
 import '../../domain/entities/contact.dart';
+import '../controllers/contacts_providers.dart';
 
-/// One CRM lead row: avatar, name, phone, and calm stage/interest accents.
+/// Rich CRM lead card.
 ///
-/// Deliberately restrained (WhatsApp-like): a single small interest dot, a plain
-/// stage label and a subtle score pill — no animated/shimmering badges — so a
-/// long list stays easy on the eyes. Colours resolve from the theme so the row
-/// reads correctly on both the light and the pitch-black dark canvas.
-class ContactTile extends StatelessWidget {
+/// Only the body area navigates to contact detail. The bottom bar
+/// (History chevron, CHAT, CALL) has its own tap targets and does NOT
+/// trigger the card-level onTap.
+class ContactTile extends ConsumerStatefulWidget {
   const ContactTile({super.key, required this.contact, required this.onTap});
 
   final Contact contact;
   final VoidCallback onTap;
 
   @override
+  ConsumerState<ContactTile> createState() => _ContactTileState();
+}
+
+class _ContactTileState extends ConsumerState<ContactTile> {
+  bool _historyOpen = false;
+
+  @override
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
     final muted = theme.colorScheme.onSurfaceVariant;
-    final c = contact;
-    return InkWell(
-      onTap: onTap,
-      child: Padding(
-        padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 10),
-        child: Row(
-          children: [
-            CircleAvatar(
-              radius: 21,
-              backgroundColor: AppColors.avatarColor(c.displayName),
-              child: Text(c.initials,
-                  style: const TextStyle(
-                      color: Colors.white,
-                      fontWeight: FontWeight.w700,
-                      fontSize: 14)),
-            ),
-            const SizedBox(width: 12),
-            Expanded(
+    final c = widget.contact;
+
+    return Card(
+      margin: const EdgeInsets.symmetric(horizontal: 12, vertical: 5),
+      elevation: 0.6,
+      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+      clipBehavior: Clip.antiAlias,
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          // ── Main content area (tappable → detail) ──
+          InkWell(
+            onTap: widget.onTap,
+            child: Padding(
+              padding: const EdgeInsets.fromLTRB(14, 12, 14, 10),
               child: Column(
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
+                  // Row 1: Name + Interest badge + Score
                   Row(
                     children: [
-                      Flexible(
-                        child: Text(
-                          c.displayName,
-                          maxLines: 1,
-                          overflow: TextOverflow.ellipsis,
-                          style: theme.textTheme.bodyLarge
-                              ?.copyWith(fontWeight: FontWeight.w600),
+                      Expanded(
+                        child: Row(
+                          children: [
+                            Flexible(
+                              child: Text(
+                                c.displayName,
+                                maxLines: 1,
+                                overflow: TextOverflow.ellipsis,
+                                style: theme.textTheme.titleSmall?.copyWith(
+                                  fontWeight: FontWeight.w700,
+                                  fontSize: 15,
+                                ),
+                              ),
+                            ),
+                            if (c.interestLevel != null) ...[
+                              const SizedBox(width: 8),
+                              _InterestBadge(interestLevel: c.interestLevel!),
+                            ],
+                            if (c.blacklisted) ...[
+                              const SizedBox(width: 6),
+                              const Icon(Icons.block_rounded,
+                                  size: 15, color: AppColors.danger),
+                            ],
+                          ],
                         ),
                       ),
-                      if (c.interestLevel != null) ...[
+                      if (c.leadScore != null) ...[
                         const SizedBox(width: 8),
-                        _InterestDot(interestLevel: c.interestLevel!),
-                      ],
-                      if (c.blacklisted) ...[
-                        const SizedBox(width: 6),
-                        const Icon(Icons.block_rounded,
-                            size: 15, color: AppColors.danger),
+                        _ScoreCircle(score: c.leadScore!),
                       ],
                     ],
                   ),
-                  const SizedBox(height: 3),
+
+                  const SizedBox(height: 6),
+
+                  // Row 2: Phone / Car / City
+                  Text(
+                    _buildInfoLine(c),
+                    maxLines: 1,
+                    overflow: TextOverflow.ellipsis,
+                    style: theme.textTheme.bodyMedium?.copyWith(color: muted),
+                  ),
+
+                  const SizedBox(height: 8),
+
+                  // Row 3: Source badge + Stage badge + duration
                   Row(
                     children: [
-                      Text(
-                        c.phone.isNotEmpty ? c.phone : 'No phone',
-                        maxLines: 1,
-                        overflow: TextOverflow.ellipsis,
-                        style: theme.textTheme.bodyMedium?.copyWith(color: muted),
+                      Expanded(
+                        child: Wrap(
+                          spacing: 8,
+                          runSpacing: 6,
+                          crossAxisAlignment: WrapCrossAlignment.center,
+                          children: [
+                            if (c.sourceLabel.isNotEmpty)
+                              _SourceBadge(label: c.sourceLabel),
+                            if (c.stageName != null)
+                              _StageBadge(stageName: c.stageName!),
+                          ],
+                        ),
                       ),
-                      if (c.stageName != null) ...[
-                        Text('  ·  ',
-                            style: theme.textTheme.bodyMedium
-                                ?.copyWith(color: muted)),
-                        Flexible(
-                          child: Text(
-                            c.stageName!,
-                            maxLines: 1,
-                            overflow: TextOverflow.ellipsis,
-                            style: theme.textTheme.bodyMedium?.copyWith(
-                                color: muted, fontWeight: FontWeight.w500),
+                      // Duration since entry
+                      if (c.createdAt != null)
+                        Text(
+                          'Added ${_timeSince(c.createdAt!)}',
+                          style: theme.textTheme.bodySmall?.copyWith(
+                            color: muted,
+                            fontSize: 11.5,
                           ),
                         ),
-                      ],
                     ],
                   ),
                 ],
               ),
             ),
-            if (c.leadScore != null) ...[
-              const SizedBox(width: 8),
-              _ScoreBadge(score: c.leadScore!),
-            ],
+          ),
+
+          // ── Bottom bar: History chevron + CHAT + CALL ──
+          const Divider(height: 1),
+          Padding(
+            padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 4),
+            child: Row(
+              children: [
+                // History label + chevron (only chevron triggers expand)
+                Text(
+                  'History',
+                  style: theme.textTheme.bodySmall?.copyWith(
+                    color: muted,
+                    fontWeight: FontWeight.w600,
+                    fontSize: 13,
+                  ),
+                ),
+                IconButton(
+                  onPressed: () =>
+                      setState(() => _historyOpen = !_historyOpen),
+                  icon: Icon(
+                    _historyOpen
+                        ? Icons.keyboard_arrow_up_rounded
+                        : Icons.keyboard_arrow_down_rounded,
+                    color: muted,
+                  ),
+                  iconSize: 22,
+                  padding: EdgeInsets.zero,
+                  constraints: const BoxConstraints(
+                    minWidth: 36,
+                    minHeight: 36,
+                  ),
+                  tooltip: _historyOpen ? 'Collapse' : 'Expand',
+                ),
+                const Spacer(),
+                // CHAT button
+                if (c.hasConversation)
+                  Padding(
+                    padding: const EdgeInsets.only(right: 8),
+                    child: OutlinedButton.icon(
+                      onPressed: () =>
+                          context.push('/chat/${c.conversationId}'),
+                      icon: const Icon(Icons.chat_rounded, size: 16),
+                      label: const Text('CHAT'),
+                      style: OutlinedButton.styleFrom(
+                        foregroundColor: AppColors.info,
+                        side: const BorderSide(color: AppColors.info),
+                        padding: const EdgeInsets.symmetric(
+                            horizontal: 14, vertical: 6),
+                        textStyle: const TextStyle(
+                          fontWeight: FontWeight.w700,
+                          fontSize: 13,
+                          letterSpacing: 0.5,
+                        ),
+                        shape: RoundedRectangleBorder(
+                          borderRadius: BorderRadius.circular(8),
+                        ),
+                      ),
+                    ),
+                  ),
+                // CALL button
+                if (c.phone.isNotEmpty)
+                  OutlinedButton.icon(
+                    onPressed: () => _dial(c.phone),
+                    icon: const Icon(Icons.phone_rounded, size: 17),
+                    label: const Text('CALL'),
+                    style: OutlinedButton.styleFrom(
+                      foregroundColor: AppColors.success,
+                      side: const BorderSide(color: AppColors.success),
+                      padding: const EdgeInsets.symmetric(
+                          horizontal: 14, vertical: 6),
+                      textStyle: const TextStyle(
+                        fontWeight: FontWeight.w700,
+                        fontSize: 13,
+                        letterSpacing: 0.5,
+                      ),
+                      shape: RoundedRectangleBorder(
+                        borderRadius: BorderRadius.circular(8),
+                      ),
+                    ),
+                  ),
+              ],
+            ),
+          ),
+
+          // ── Expanded history section ──
+          if (_historyOpen) ...[
+            const Divider(height: 1),
+            _HistorySection(contactId: c.id),
           ],
+        ],
+      ),
+    );
+  }
+
+  /// Builds the "phone / car / city" info line.
+  static String _buildInfoLine(Contact c) {
+    final parts = <String>[];
+    if (c.phone.isNotEmpty) parts.add(c.phone);
+    final car = [c.carBrand, c.carModel]
+        .where((s) => s != null && s.isNotEmpty)
+        .join(' ');
+    if (car.isNotEmpty) parts.add(car);
+    if (c.city != null && c.city!.isNotEmpty) parts.add(c.city!);
+    return parts.join(' / ');
+  }
+
+  /// Human-readable relative time from [dt] until now.
+  static String _timeSince(DateTime dt) {
+    final diff = DateTime.now().difference(dt);
+    if (diff.inDays >= 365) {
+      final y = diff.inDays ~/ 365;
+      return '${y}y ago';
+    }
+    if (diff.inDays >= 30) {
+      final m = diff.inDays ~/ 30;
+      return '${m}mo ago';
+    }
+    if (diff.inDays >= 7) {
+      final w = diff.inDays ~/ 7;
+      return '${w}w ago';
+    }
+    if (diff.inDays >= 1) return '${diff.inDays}d ago';
+    if (diff.inHours >= 1) return '${diff.inHours}h ago';
+    return 'just now';
+  }
+
+  static Future<void> _dial(String phone) async {
+    final uri = Uri(scheme: 'tel', path: phone);
+    if (await canLaunchUrl(uri)) {
+      await launchUrl(uri);
+    }
+  }
+}
+
+// ─── History section (fetched on expand, shows last 2 with date) ────
+
+class _HistorySection extends ConsumerWidget {
+  const _HistorySection({required this.contactId});
+  final String contactId;
+
+  static final _dateFmt = DateFormat('dd MMM, HH:mm');
+
+  @override
+  Widget build(BuildContext context, WidgetRef ref) {
+    final theme = Theme.of(context);
+    final muted = theme.colorScheme.onSurfaceVariant;
+    final asyncAct = ref.watch(contactActivityProvider(contactId));
+
+    return Padding(
+      padding: const EdgeInsets.fromLTRB(14, 8, 14, 10),
+      child: asyncAct.when(
+        loading: () => const SizedBox(
+          height: 16,
+          width: 16,
+          child: CircularProgressIndicator(strokeWidth: 2),
+        ),
+        error: (_, _) => Text('Failed to load history',
+            style: theme.textTheme.bodySmall
+                ?.copyWith(color: AppColors.danger)),
+        data: (activities) {
+          if (activities.isEmpty) {
+            return Text('No history yet',
+                style: theme.textTheme.bodySmall?.copyWith(color: muted));
+          }
+          final last2 = activities.take(2).toList();
+          return Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              for (final a in last2)
+                Padding(
+                  padding: const EdgeInsets.only(bottom: 6),
+                  child: Row(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      // Date+time column (fixed width)
+                      SizedBox(
+                        width: 100,
+                        child: Text(
+                          a.createdAt != null
+                              ? _dateFmt.format(a.createdAt!)
+                              : '-',
+                          style: theme.textTheme.bodySmall?.copyWith(
+                            color: muted,
+                            fontSize: 12,
+                            fontWeight: FontWeight.w500,
+                          ),
+                        ),
+                      ),
+                      const SizedBox(width: 8),
+                      // Activity label
+                      Expanded(
+                        child: Text(
+                          a.label,
+                          maxLines: 2,
+                          overflow: TextOverflow.ellipsis,
+                          style: theme.textTheme.bodySmall?.copyWith(
+                            fontSize: 12,
+                          ),
+                        ),
+                      ),
+                    ],
+                  ),
+                ),
+              if (activities.length > 2)
+                GestureDetector(
+                  onTap: () => context.push(
+                    '/contacts/$contactId',
+                    extra: {'scrollToHistory': true},
+                  ),
+                  child: Padding(
+                    padding: const EdgeInsets.only(top: 2),
+                    child: Text(
+                      'See More →',
+                      style: theme.textTheme.bodySmall?.copyWith(
+                        color: AppColors.primary,
+                        fontWeight: FontWeight.w600,
+                        fontSize: 12,
+                      ),
+                    ),
+                  ),
+                ),
+            ],
+          );
+        },
+      ),
+    );
+  }
+}
+
+// ─── Sub-widgets ────────────────────────────────────────────
+
+/// Rounded coloured pill for interest level (Hot / Warm / Cold).
+class _InterestBadge extends StatelessWidget {
+  const _InterestBadge({required this.interestLevel});
+  final String interestLevel;
+
+  @override
+  Widget build(BuildContext context) {
+    final color = AppColors.forInterest(interestLevel);
+    final label =
+        interestLevel[0].toUpperCase() + interestLevel.substring(1);
+    return Container(
+      padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 2),
+      decoration: BoxDecoration(
+        color: color,
+        borderRadius: BorderRadius.circular(10),
+      ),
+      child: Text(
+        label,
+        style: const TextStyle(
+          color: Colors.white,
+          fontSize: 11,
+          fontWeight: FontWeight.w700,
         ),
       ),
     );
   }
 }
 
-/// A small static interest dot (hot/warm/cold) — replaces the old animated pill.
-class _InterestDot extends StatelessWidget {
-  const _InterestDot({required this.interestLevel});
-  final String interestLevel;
-
-  @override
-  Widget build(BuildContext context) {
-    final color = AppColors.forInterest(interestLevel);
-    return Container(
-      width: 9,
-      height: 9,
-      decoration: BoxDecoration(color: color, shape: BoxShape.circle),
-    );
-  }
-}
-
-/// Subtle buy-potential score pill for the lead list (flat, no heavy ring).
-class _ScoreBadge extends StatelessWidget {
-  const _ScoreBadge({required this.score});
+/// Circled lead score (thin ring style).
+class _ScoreCircle extends StatelessWidget {
+  const _ScoreCircle({required this.score});
   final int score;
 
   Color get _color {
@@ -131,19 +400,72 @@ class _ScoreBadge extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return Container(
-      width: 30,
-      height: 30,
+      width: 32,
+      height: 32,
       alignment: Alignment.center,
       decoration: BoxDecoration(
-        color: _color.withValues(alpha: 0.12),
         shape: BoxShape.circle,
+        border: Border.all(color: _color, width: 1.8),
       ),
       child: Text(
         '$score',
         style: TextStyle(
           color: _color,
           fontWeight: FontWeight.w800,
-          fontSize: 12.5,
+          fontSize: 12,
+        ),
+      ),
+    );
+  }
+}
+
+/// Source badge pill (e.g. "Ad", "OTO.Com", "WhatsApp").
+class _SourceBadge extends StatelessWidget {
+  const _SourceBadge({required this.label});
+  final String label;
+
+  @override
+  Widget build(BuildContext context) {
+    return Container(
+      padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
+      decoration: BoxDecoration(
+        color: AppColors.primary.withValues(alpha: 0.12),
+        borderRadius: BorderRadius.circular(6),
+        border: Border.all(color: AppColors.primary.withValues(alpha: 0.3)),
+      ),
+      child: Text(
+        label,
+        style: const TextStyle(
+          color: AppColors.primary,
+          fontSize: 11,
+          fontWeight: FontWeight.w600,
+        ),
+      ),
+    );
+  }
+}
+
+/// Stage name pill badge with a small arrow (▸).
+class _StageBadge extends StatelessWidget {
+  const _StageBadge({required this.stageName});
+  final String stageName;
+
+  @override
+  Widget build(BuildContext context) {
+    const color = AppColors.warning;
+    return Container(
+      padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
+      decoration: BoxDecoration(
+        color: color.withValues(alpha: 0.14),
+        borderRadius: BorderRadius.circular(6),
+        border: Border.all(color: color.withValues(alpha: 0.35)),
+      ),
+      child: Text(
+        '$stageName ▸',
+        style: TextStyle(
+          color: color.withValues(alpha: 1.0),
+          fontSize: 11,
+          fontWeight: FontWeight.w600,
         ),
       ),
     );

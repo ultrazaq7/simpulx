@@ -280,10 +280,25 @@ class _ContactsPageState extends ConsumerState<ContactsPage> {
     final async = ref.watch(contactsProvider);
     final myId = ref.watch(sessionControllerProvider).user?.id;
 
+    // Pre-compute filtered list for count in AppBar.
+    final filtered = async.whenOrNull(
+      data: (list) => _filter(list, myId),
+    );
+    final count = filtered?.length;
+
     return Scaffold(
       appBar: AppBar(
-        title: const Text('Contacts'),
+        title: Text(count != null ? 'Contacts ($count)' : 'Contacts'),
         actions: [
+          // Add contact button
+          IconButton(
+            icon: const Icon(Icons.person_add_alt_1_rounded),
+            tooltip: 'Add Contact',
+            onPressed: () async {
+              final id = await showContactForm(context);
+              if (id != null && context.mounted) context.push('/contacts/$id');
+            },
+          ),
           Stack(
             alignment: Alignment.center,
             children: [
@@ -362,13 +377,6 @@ class _ContactsPageState extends ConsumerState<ContactsPage> {
           ),
         ),
       ),
-      floatingActionButton: FloatingActionButton(
-        onPressed: () async {
-          final id = await showContactForm(context);
-          if (id != null && context.mounted) context.push('/contacts/$id');
-        },
-        child: const Icon(Icons.person_add_alt_1_rounded),
-      ),
       body: async.when(
         loading: () => const ConversationListSkeleton(),
         error: (e, _) => AppErrorView(
@@ -376,10 +384,10 @@ class _ContactsPageState extends ConsumerState<ContactsPage> {
           onRetry: () => ref.read(contactsProvider.notifier).refresh(),
         ),
         data: (list) {
-          final filtered = _filter(list, myId);
+          final f = _filter(list, myId);
           return RefreshIndicator(
             onRefresh: () => ref.read(contactsProvider.notifier).refresh(),
-            child: filtered.isEmpty
+            child: f.isEmpty
                 ? ListView(
                     children: [
                       SizedBox(height: MediaQuery.of(context).size.height * 0.2),
@@ -392,11 +400,11 @@ class _ContactsPageState extends ConsumerState<ContactsPage> {
                       ),
                     ],
                   )
-                : ListView.separated(
-                    itemCount: filtered.length,
-                    separatorBuilder: (_, _) => const SizedBox.shrink(),
+                : ListView.builder(
+                    padding: const EdgeInsets.only(top: 4, bottom: 80),
+                    itemCount: f.length,
                     itemBuilder: (context, i) {
-                      final c = filtered[i];
+                      final c = f[i];
                       return ContactTile(
                         contact: c,
                         onTap: () => context.push('/contacts/${c.id}'),
