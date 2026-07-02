@@ -76,13 +76,13 @@ class SettingsPage extends ConsumerWidget {
               ),
               ListTile(
                 leading: const Icon(Icons.language_rounded),
-                title: const Text('App language'),
+                title: const Text('Language'),
                 subtitle: Text(langName(locale)),
                 onTap: () => _showLanguagePicker(context, ref, locale),
               ),
               ListTile(
                 leading: const Icon(Icons.palette_outlined),
-                title: const Text('App theme'),
+                title: const Text('Theme'),
                 subtitle: Text(themeName(themeMode)),
                 onTap: () => _showThemePicker(context, ref, themeMode),
               ),
@@ -216,7 +216,7 @@ class SettingsPage extends ConsumerWidget {
               padding: EdgeInsets.fromLTRB(16, 0, 16, 8),
               child: Align(
                 alignment: Alignment.centerLeft,
-                child: Text('App theme',
+                child: Text('Theme',
                     style: TextStyle(fontSize: 16, fontWeight: FontWeight.w700)),
               ),
             ),
