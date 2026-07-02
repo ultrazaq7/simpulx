@@ -1,7 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
-import 'package:shimmer/shimmer.dart';
+
 
 import '../../../../app/theme/app_colors.dart';
 import '../../../../core/error/failure.dart';
@@ -459,12 +459,7 @@ class _StageFunnelCard extends StatelessWidget {
             child: FractionallySizedBox(
               alignment: Alignment.centerLeft,
               widthFactor: pct / 100,
-              child: Shimmer.fromColors(
-                baseColor: color,
-                highlightColor: Colors.white.withValues(alpha: 0.25),
-                period: const Duration(milliseconds: 2500),
-                child: Container(color: color),
-              ),
+              child: Container(color: color),
             ),
           ),
         ),
