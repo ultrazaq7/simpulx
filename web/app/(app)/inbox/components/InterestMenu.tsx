@@ -3,6 +3,7 @@ import { useState, useRef, useEffect } from "react";
 import { createPortal } from "react-dom";
 import { ChevronDown, Check } from "lucide-react";
 import { cn, interestColor } from "@/lib/utils";
+import { Tip } from "@/components/ui/tooltip";
 
 // Compact lead-interest (temperature) picker for the chat header, next to the
 // Stage chip. Interest is otherwise read-only in the Details panel; this is the
@@ -43,16 +44,17 @@ export function InterestMenu({
 
   return (
     <div className="relative inline-flex">
-      <button
-        ref={btnRef}
-        onClick={() => setOpen((v) => !v)}
-        className="flex items-center gap-1.5 px-2.5 h-8 rounded-md border border-border bg-background text-[13px] font-semibold text-foreground hover:bg-muted transition-colors outline-none shrink-0"
-        title="Interest level"
-      >
-        <span className="w-2.5 h-2.5 rounded-full shrink-0" style={{ backgroundColor: current ? interestColor(current.value) : "hsl(var(--muted-foreground))" }} />
-        {current?.label || "Interest"}
-        <ChevronDown className="w-3.5 h-3.5 text-muted-foreground" />
-      </button>
+      <Tip label="Interest level">
+        <button
+          ref={btnRef}
+          onClick={() => setOpen((v) => !v)}
+          className="flex items-center gap-1.5 px-2.5 h-8 rounded-md border border-border bg-background text-[13px] font-semibold text-foreground hover:bg-muted transition-colors outline-none shrink-0"
+        >
+          <span className="w-2.5 h-2.5 rounded-full shrink-0" style={{ backgroundColor: current ? interestColor(current.value) : "hsl(var(--muted-foreground))" }} />
+          {current?.label || "Interest"}
+          <ChevronDown className="w-3.5 h-3.5 text-muted-foreground" />
+        </button>
+      </Tip>
 
       {open && pos && typeof document !== "undefined" && createPortal(
         <>
@@ -76,13 +78,7 @@ export function InterestMenu({
                 {cur === o.value && <Check className="w-4 h-4 text-primary ml-auto" />}
               </button>
             ))}
-            <div className="border-t border-border my-1" />
-            <button
-              onClick={() => { onSelect(""); setOpen(false); }}
-              className="w-full flex items-center gap-2 px-3 py-2 text-[13px] font-medium text-muted-foreground hover:bg-muted outline-none"
-            >
-              Clear
-            </button>
+
           </div>
         </>,
         document.body,
