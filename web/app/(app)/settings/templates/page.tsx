@@ -44,9 +44,9 @@ export default function TemplatesPage() {
   const [campaigns, setCampaigns] = useState<Campaign[]>([]);
   const [loading, setLoading] = useState(true);
   const [query, setQuery] = useState("");
-  const [statusFilter, setStatusFilter] = useState("");
-  const [channelFilter, setChannelFilter] = useState("");
-  const [campaignFilter, setCampaignFilter] = useState("");
+  const [statusFilter, setStatusFilter] = useState<string[]>([]);
+  const [channelFilter, setChannelFilter] = useState<string[]>([]);
+  const [campaignFilter, setCampaignFilter] = useState<string[]>([]);
   const [page, setPage] = useState(0);
   const [rowsPerPage, setRowsPerPage] = useState(10);
 
@@ -59,21 +59,25 @@ export default function TemplatesPage() {
   async function load() {
     setLoading(true);
     try {
-      setRows(await api.listTemplates({ channel_id: channelFilter || undefined, campaign_id: campaignFilter || undefined }));
+      setRows(await api.listTemplates({}));
     } finally { setLoading(false); }
   }
-  useEffect(() => { load(); }, [channelFilter, campaignFilter]); // eslint-disable-line react-hooks/exhaustive-deps
+  useEffect(() => { load(); }, []);
   useEffect(() => {
     api.listChannels().then(setChannels).catch(() => {});
     api.listCampaigns().then(setCampaigns).catch(() => {});
   }, []);
 
   const channelName = (id: string | null) => channels.find((c) => c.id === id)?.name ?? null;
-  const filterCampaigns = useMemo(() => campaigns.filter((c) => !channelFilter || c.channel_id === channelFilter), [campaigns, channelFilter]);
+  const filterCampaigns = useMemo(() => campaigns.filter((c) => !channelFilter.length || (!!c.channel_id && channelFilter.includes(c.channel_id))), [campaigns, channelFilter]);
   const filtered = useMemo(() => rows.filter((t) =>
     (!query || t.name.toLowerCase().includes(query.toLowerCase())) &&
-    (!statusFilter || t.status === statusFilter)
-  ), [rows, query, statusFilter]);
+    (!statusFilter.length || statusFilter.includes(t.status)) &&
+    // Channel-less templates apply to every channel, so they always pass.
+    (!channelFilter.length || !t.channel_id || channelFilter.includes(t.channel_id)) &&
+    // Templates with no campaigns apply to all campaigns, so they always pass.
+    (!campaignFilter.length || !(t.campaign_ids?.length) || t.campaign_ids.some((id) => campaignFilter.includes(id)))
+  ), [rows, query, statusFilter, channelFilter, campaignFilter]);
   const totalPages = Math.max(1, Math.ceil(filtered.length / rowsPerPage));
   const paged = filtered.slice(page * rowsPerPage, page * rowsPerPage + rowsPerPage);
   useEffect(() => { setPage(0); }, [query, statusFilter, channelFilter, campaignFilter]);
@@ -102,12 +106,12 @@ export default function TemplatesPage() {
             <input type="text" placeholder="Search templates" value={query} onChange={(e) => setQuery(e.target.value)}
               className="w-full h-9 pl-9 pr-3 rounded-md border border-input bg-muted text-sm text-foreground placeholder:text-muted-foreground/70 outline-none transition-shadow focus:border-primary" />
           </div>
-          <Select value={statusFilter} onChange={setStatusFilter} placeholder="All statuses" className="min-w-[140px]"
-            options={[{ value: "", label: "All statuses" }, ...Object.keys(STATUS_COLOR).map((s) => ({ value: s, label: s }))]} />
-          <Select value={channelFilter} onChange={(v) => { setChannelFilter(v); setCampaignFilter(""); }} placeholder="All channels" className="min-w-[150px]"
-            options={[{ value: "", label: "All channels" }, ...channels.map((c) => ({ value: c.id, label: c.name }))]} />
-          <Select value={campaignFilter} onChange={setCampaignFilter} placeholder="All campaigns" className="min-w-[160px]"
-            options={[{ value: "", label: "All campaigns" }, ...filterCampaigns.map((c) => ({ value: c.id, label: c.name }))]} />
+          <MultiSelect value={statusFilter} onChange={setStatusFilter} placeholder="All statuses" className="min-w-[140px]"
+            options={Object.keys(STATUS_COLOR).map((s) => ({ value: s, label: s }))} />
+          <MultiSelect value={channelFilter} onChange={setChannelFilter} placeholder="All channels" className="min-w-[150px]"
+            options={channels.map((c) => ({ value: c.id, label: c.name }))} />
+          <MultiSelect value={campaignFilter} onChange={setCampaignFilter} placeholder="All campaigns" className="min-w-[160px]"
+            options={filterCampaigns.map((c) => ({ value: c.id, label: c.name }))} />
           <Tip label="Refresh"><button onClick={load} className="p-1.5 rounded-md hover:bg-muted outline-none transition-colors"><RefreshCw className="w-[18px] h-[18px] text-muted-foreground" /></button></Tip>
           <div className="flex-1" />
           <PrimaryButton onClick={openNew}><Plus className="w-4 h-4" />New template</PrimaryButton>

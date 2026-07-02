@@ -25,18 +25,13 @@ export default function LoginPage() {
   }
 
   return (
-    <div className="min-h-screen w-full flex flex-col items-center justify-center px-6 py-10 relative overflow-hidden"
-      style={{ background: "#0b241d" }}>
-      {/* faint grid texture */}
-      <div className="absolute inset-0 opacity-[0.035] pointer-events-none"
-        style={{ backgroundImage: "linear-gradient(#fff 1px, transparent 1px), linear-gradient(90deg, #fff 1px, transparent 1px)", backgroundSize: "46px 46px" }} />
-
+    <div className="min-h-screen w-full flex flex-col items-center justify-center px-6 py-10 relative overflow-hidden bg-muted">
       {/* Logo above the card */}
       <div className="relative z-10 mb-7 flex flex-col items-center gap-3 animate-fade-in">
-        <div className="w-14 h-14 rounded-2xl overflow-hidden shadow-[0_10px_30px_-8px_rgba(0,0,0,0.6)] ring-1 ring-white/15">
+        <div className="w-14 h-14 rounded-2xl overflow-hidden shadow-[0_10px_30px_-8px_rgba(0,0,0,0.35)] ring-1 ring-black/5">
           <img src="/simpulx_logo.png" alt="Simpulx" className="w-full h-full object-cover" />
         </div>
-        <span className="text-[22px] font-extrabold tracking-tight text-white">
+        <span className="text-[22px] font-extrabold tracking-tight text-foreground">
           Simpul<span className="text-amber">x</span>
         </span>
       </div>
@@ -118,7 +113,7 @@ export default function LoginPage() {
           </form>
         </div>
 
-        <p className="relative z-10 mt-6 text-[11px] text-white/50 font-medium tracking-wide">
+        <p className="relative z-10 mt-6 text-[11px] text-muted-foreground font-medium tracking-wide">
           © {new Date().getFullYear()} Simpulx. All rights reserved.
         </p>
       </div>

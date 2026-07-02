@@ -6,6 +6,7 @@ import { cn } from "@/lib/utils";
 import { Tip } from "@/components/ui/tooltip";
 import type { Campaign, UserAccount, Channel } from "@/lib/types";
 import { Select } from "@/components/Select";
+import { MultiSelect } from "@/components/ui/multi-select";
 import { CampaignWizard } from "./CampaignWizard";
 
 type Toast = { msg: string; sev: "success" | "error" } | null;
@@ -16,6 +17,7 @@ export default function CampaignsPage() {
   const [channels, setChannels] = useState<Channel[]>([]);
   const [loading, setLoading] = useState(true);
   const [search, setSearch] = useState("");
+  const [channelFilter, setChannelFilter] = useState<string[]>([]);
   const [page, setPage] = useState(0);
   const [rowsPerPage, setRowsPerPage] = useState(10);
   const [dlg, setDlg] = useState<{ open: boolean; id: string | null }>({ open: false, id: null });
@@ -38,10 +40,12 @@ export default function CampaignsPage() {
     catch (e) { setToast({ msg: String(e), sev: "error" }); }
   }
 
-  const filtered = rows.filter((c) => c.name.toLowerCase().includes(search.toLowerCase()) || (c.dealer_name ?? "").toLowerCase().includes(search.toLowerCase()));
+  const filtered = rows.filter((c) =>
+    (c.name.toLowerCase().includes(search.toLowerCase()) || (c.dealer_name ?? "").toLowerCase().includes(search.toLowerCase())) &&
+    (!channelFilter.length || (!!c.channel_id && channelFilter.includes(c.channel_id))));
   const totalPages = Math.max(1, Math.ceil(filtered.length / rowsPerPage));
   const paged = filtered.slice(page * rowsPerPage, page * rowsPerPage + rowsPerPage);
-  useEffect(() => { setPage(0); }, [search]);
+  useEffect(() => { setPage(0); }, [search, channelFilter]);
 
   return (
     <div className="px-6 pt-6 pb-6 max-w-[1180px] mx-auto w-full h-full flex flex-col min-h-0">
@@ -52,6 +56,8 @@ export default function CampaignsPage() {
             <input type="text" placeholder="Search campaigns" value={search} onChange={(e) => setSearch(e.target.value)}
               className="w-full h-9 pl-9 pr-3 rounded-md border border-input bg-background text-sm text-foreground placeholder:text-muted-foreground/70 outline-none transition-shadow focus:border-primary focus:ring-2 focus:ring-primary/20" />
           </div>
+          <MultiSelect value={channelFilter} onChange={setChannelFilter} placeholder="All channels" className="min-w-[180px]"
+            options={channels.map((c) => ({ value: c.id, label: c.name }))} />
           <div className="flex-1" />
           <button onClick={() => setDlg({ open: true, id: null })}
             className="inline-flex items-center gap-2 px-3.5 h-9 bg-primary text-white rounded-md text-sm font-semibold hover:bg-primary-dark shadow-sm hover:shadow-brand-md transition-all outline-none">
@@ -74,7 +80,7 @@ export default function CampaignsPage() {
               ) : paged.length === 0 ? (
                 <tr><td colSpan={9} className="text-center py-16">
                   <div className="w-12 h-12 rounded-xl bg-muted grid place-items-center mx-auto mb-3"><Megaphone className="w-6 h-6 text-muted-foreground/50" /></div>
-                  <p className="font-semibold text-foreground mb-0.5">{search ? "No matching campaigns" : "No campaigns yet"}</p>
+                  <p className="font-semibold text-foreground mb-0.5">{search || channelFilter.length ? "No matching campaigns" : "No campaigns yet"}</p>
                   <p className="text-[13px] text-muted-foreground">Create a campaign to start routing its leads.</p>
                 </td></tr>
               ) : paged.map((c) => (

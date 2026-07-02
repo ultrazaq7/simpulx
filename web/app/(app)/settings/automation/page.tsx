@@ -21,7 +21,7 @@ export default function AutomationPage() {
   const [channels, setChannels] = useState<Channel[]>([]);
   const [loading, setLoading] = useState(true);
   const [query, setQuery] = useState("");
-  const [triggerFilter, setTriggerFilter] = useState("");
+  const [triggerFilter, setTriggerFilter] = useState<string[]>([]);
   const [channelFilter, setChannelFilter] = useState<string[]>([]);
   const [editing, setEditing] = useState<Automation | null>(null);
   const [dialogOpen, setDialogOpen] = useState(false);
@@ -34,7 +34,7 @@ export default function AutomationPage() {
 
   const filtered = useMemo(() => rows.filter((r) =>
     (!query || r.name.toLowerCase().includes(query.toLowerCase())) &&
-    (!triggerFilter || r.trigger_type === triggerFilter) &&
+    (!triggerFilter.length || triggerFilter.includes(r.trigger_type)) &&
     // Channel-less automations apply to every channel, so they always pass.
     (!channelFilter.length || !r.channel_id || channelFilter.includes(r.channel_id))
   ), [rows, query, triggerFilter, channelFilter]);
@@ -60,8 +60,8 @@ export default function AutomationPage() {
           <input type="text" placeholder="Search automations" value={query} onChange={(e) => setQuery(e.target.value)}
             className="w-full h-9 pl-9 pr-3 rounded-md border border-input bg-muted text-sm text-foreground placeholder:text-muted-foreground/70 outline-none transition-shadow focus:border-primary" />
         </div>
-        <Select value={triggerFilter} onChange={setTriggerFilter} placeholder="All triggers" className="min-w-[180px]"
-          options={[{ value: "", label: "All triggers" }, ...TRIGGER_KEYS.map((k) => ({ value: k, label: TRIGGERS[k].label }))]} />
+        <MultiSelect value={triggerFilter} onChange={setTriggerFilter} placeholder="All triggers" className="min-w-[180px]"
+          options={TRIGGER_KEYS.map((k) => ({ value: k, label: TRIGGERS[k].label }))} />
         <MultiSelect value={channelFilter} onChange={setChannelFilter} placeholder="All channels" className="min-w-[180px]"
           options={channels.map((c) => ({ value: c.id, label: c.name }))} />
         <Tip label="Refresh"><button onClick={load} className="p-1.5 rounded-md hover:bg-muted outline-none transition-colors"><RefreshCw className="w-[18px] h-[18px] text-muted-foreground" /></button></Tip>
@@ -84,7 +84,7 @@ export default function AutomationPage() {
           <div className="w-[88px] h-[88px] rounded-full bg-primary/10 grid place-items-center mx-auto mb-5">
             <Sparkles className="w-11 h-11 text-primary" />
           </div>
-          <p className="font-bold text-lg text-foreground">{query || triggerFilter || channelFilter.length ? "No matching automations" : "No automations yet"}</p>
+          <p className="font-bold text-lg text-foreground">{query || triggerFilter.length || channelFilter.length ? "No matching automations" : "No automations yet"}</p>
           <p className="text-[13.5px] text-muted-foreground mt-1 mb-5">Create your first automation to route messages and reply automatically.</p>
           {canManage && (
             <PrimaryButton onClick={() => { setEditing(null); setDialogOpen(true); }}>

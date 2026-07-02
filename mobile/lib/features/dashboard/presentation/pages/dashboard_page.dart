@@ -380,8 +380,13 @@ class _StageFunnelCard extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final top = stages.isNotEmpty ? stages.first.reached : 1;
-    final maxReached = top > 0 ? top : 1;
+    // Lost leads all entered the funnel, so fold them into the entry stage's
+    // cumulative count (matching web). No separate Lost row -> no double count.
+    final reached = <int>[
+      for (var i = 0; i < stages.length; i++)
+        i == 0 ? stages[i].reached + lostCount : stages[i].reached,
+    ];
+    final maxReached = reached.isNotEmpty && reached.first > 0 ? reached.first : 1;
     return _Card(
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
@@ -393,72 +398,22 @@ class _StageFunnelCard extends StatelessWidget {
               style: TextStyle(fontSize: 12, color: AppColors.textSecondary)),
           const SizedBox(height: 14),
           for (var i = 0; i < stages.length; i++) ...[
-            _buildFunnelRow(context, stages[i], i, maxReached),
+            _buildFunnelRow(context, stages[i].name, reached[i],
+                i == 0 ? null : reached[i - 1], i, maxReached),
             if (i < stages.length - 1) const SizedBox(height: 8),
-          ],
-          if (lostCount > 0) ...[
-            const SizedBox(height: 8),
-            _buildLostRow(context, lostCount, maxReached),
           ],
         ],
       ),
     );
   }
 
-  Widget _buildLostRow(BuildContext context, int lost, int maxReached) {
-    final pct = (lost / maxReached * 100).clamp(0, 100).toDouble();
-    return Column(
-      crossAxisAlignment: CrossAxisAlignment.start,
-      children: [
-        Row(
-          mainAxisAlignment: MainAxisAlignment.spaceBetween,
-          children: [
-            const Text('Lost',
-                style: TextStyle(fontSize: 13, fontWeight: FontWeight.w500)),
-            Row(
-              mainAxisSize: MainAxisSize.min,
-              children: [
-                Container(
-                  padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 1),
-                  margin: const EdgeInsets.only(right: 8),
-                  decoration: BoxDecoration(
-                    color: AppColors.danger.withValues(alpha: 0.12),
-                    borderRadius: BorderRadius.circular(4),
-                  ),
-                  child: Text('${pct.round()}%',
-                      style: const TextStyle(
-                        fontSize: 11,
-                        fontWeight: FontWeight.w700,
-                        color: AppColors.danger,
-                      )),
-                ),
-                Text('$lost',
-                    style: const TextStyle(fontSize: 13, fontWeight: FontWeight.w800)),
-              ],
-            ),
-          ],
-        ),
-        const SizedBox(height: 4),
-        ClipRRect(
-          borderRadius: BorderRadius.circular(4),
-          child: Container(
-            height: 20,
-            width: double.infinity,
-            color: Theme.of(context).colorScheme.surfaceContainerHighest,
-            child: FractionallySizedBox(
-              alignment: Alignment.centerLeft,
-              widthFactor: pct / 100,
-              child: Container(color: AppColors.danger),
-            ),
-          ),
-        ),
-      ],
-    );
-  }
-
-  Widget _buildFunnelRow(BuildContext context, FunnelStageStat s, int idx, int maxReached) {
-    final pct = (s.reached / maxReached * 100).clamp(0, 100).toDouble();
-    final convPct = idx == 0 ? null : pct;
+  Widget _buildFunnelRow(BuildContext context, String name, int reached,
+      int? prevReached, int idx, int maxReached) {
+    final pct = (reached / maxReached * 100).clamp(0, 100).toDouble();
+    // Stage-to-stage conversion vs the previous stage (matches web).
+    final convPct = prevReached == null
+        ? null
+        : (prevReached > 0 ? (reached / prevReached * 100).clamp(0, 100).toDouble() : 0.0);
     final color = _funnelColors[idx % _funnelColors.length];
 
     return Column(
@@ -467,7 +422,7 @@ class _StageFunnelCard extends StatelessWidget {
         Row(
           mainAxisAlignment: MainAxisAlignment.spaceBetween,
           children: [
-            Text(s.name,
+            Text(name,
                 style: const TextStyle(fontSize: 13, fontWeight: FontWeight.w500)),
             Row(
               mainAxisSize: MainAxisSize.min,
@@ -495,7 +450,7 @@ class _StageFunnelCard extends StatelessWidget {
                                   : AppColors.textMuted,
                         )),
                   ),
-                Text('${s.reached}',
+                Text('$reached',
                     style: const TextStyle(fontSize: 13, fontWeight: FontWeight.w800)),
               ],
             ),

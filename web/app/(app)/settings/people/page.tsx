@@ -3,9 +3,10 @@ import { useEffect, useMemo, useRef, useState } from "react";
 import { Search, MoreHorizontal, User, Loader2, Eye, EyeOff, X, Plus, Activity, Clock, Timer, CalendarDays, Download } from "lucide-react";
 import { api, getUser } from "@/lib/api";
 import { Select } from "@/components/Select";
+import { MultiSelect } from "@/components/ui/multi-select";
 const cap = (s: string) => s ? s[0].toUpperCase() + s.slice(1) : s;
 import { fmtDate, cn } from "@/lib/utils";
-import type { UserAccount, UserActivity } from "@/lib/types";
+import type { UserAccount, UserActivity, Campaign, Channel } from "@/lib/types";
 import { useToast, PageBody, SettingsCard, FieldLabel, INPUT_CLASS, PrimaryButton, GhostButton, ROLES, ROLE_COLOR, initials } from "../_shared";
 
 function relativeTime(iso: string | null): string {
@@ -26,7 +27,12 @@ export default function PeopleSettingsPage() {
   const [rows, setRows] = useState<UserAccount[]>([]);
   const [loading, setLoading] = useState(true);
   const [search, setSearch] = useState("");
-  const [roleFilter, setRoleFilter] = useState("");
+  const [roleFilter, setRoleFilter] = useState<string[]>([]);
+  const [campaigns, setCampaigns] = useState<Campaign[]>([]);
+  const [channels, setChannels] = useState<Channel[]>([]);
+  const [campaignFilter, setCampaignFilter] = useState<string[]>([]);
+  const [channelFilter, setChannelFilter] = useState<string[]>([]);
+  const [statusFilter, setStatusFilter] = useState<string[]>([]);
   const [page, setPage] = useState(0);
   const [rowsPerPage, setRowsPerPage] = useState(10);
   const [dlg, setDlg] = useState<{ open: boolean; editing: UserAccount | null }>({ open: false, editing: null });
@@ -41,6 +47,10 @@ export default function PeopleSettingsPage() {
     try { setRows(await api.listUsers()); } catch { } finally { setLoading(false); }
   }
   useEffect(() => { load(); }, []);
+  useEffect(() => {
+    api.listCampaigns().then((c) => setCampaigns(c || [])).catch(() => {});
+    api.listChannels().then((c) => setChannels(c || [])).catch(() => {});
+  }, []);
 
   async function remove(u: UserAccount) {
     if (!confirm(`Remove ${u.full_name}? This is permanent: they lose access and their open leads are reassigned. Past history stays for the record. To pause an account temporarily, use Deactivate instead.`)) return;
@@ -59,14 +69,27 @@ export default function PeopleSettingsPage() {
     finally { setExporting(false); }
   }
 
+  // Users aren't tied to a channel directly, only to campaigns; map each campaign
+  // name to its channel so a channel filter can match through campaign membership.
+  const campNameToChannel = useMemo(() => {
+    const m = new Map<string, string>();
+    campaigns.forEach((c) => { if (c.channel_id) m.set(c.name, c.channel_id); });
+    return m;
+  }, [campaigns]);
+
   const filtered = useMemo(() => rows.filter((u) =>
-    (!roleFilter || u.role === roleFilter) &&
-    (u.full_name.toLowerCase().includes(search.toLowerCase()) || u.email.toLowerCase().includes(search.toLowerCase()))
-  ), [rows, search, roleFilter]);
+    (!roleFilter.length || roleFilter.includes(u.role)) &&
+    (u.full_name.toLowerCase().includes(search.toLowerCase()) || u.email.toLowerCase().includes(search.toLowerCase())) &&
+    (!statusFilter.length || statusFilter.includes(u.status)) &&
+    (!campaignFilter.length || (u.campaign_names || []).some((n) => campaignFilter.includes(n))) &&
+    (!channelFilter.length || (u.campaign_names || []).some((n) => {
+      const ch = campNameToChannel.get(n); return !!ch && channelFilter.includes(ch);
+    }))
+  ), [rows, search, roleFilter, statusFilter, campaignFilter, channelFilter, campNameToChannel]);
 
   const totalPages = Math.max(1, Math.ceil(filtered.length / rowsPerPage));
   const paged = filtered.slice(page * rowsPerPage, page * rowsPerPage + rowsPerPage);
-  useEffect(() => { setPage(0); }, [search, roleFilter]);
+  useEffect(() => { setPage(0); }, [search, roleFilter, statusFilter, campaignFilter, channelFilter]);
 
   return (
     <PageBody fill>
@@ -78,8 +101,14 @@ export default function PeopleSettingsPage() {
             <input type="text" placeholder="Search by name or email" value={search} onChange={(e) => setSearch(e.target.value)}
               className="w-full h-9 pl-9 pr-3 rounded-md border border-input bg-muted text-sm text-foreground placeholder:text-muted-foreground/70 outline-none transition-shadow focus:border-primary" />
           </div>
-          <Select value={roleFilter} onChange={setRoleFilter} placeholder="All roles" className="min-w-[140px]"
-            options={[{ value: "", label: "All roles" }, ...ROLES.map((r) => ({ value: r, label: cap(r) }))]} />
+          <MultiSelect value={roleFilter} onChange={setRoleFilter} placeholder="All roles" className="min-w-[140px]"
+            options={ROLES.map((r) => ({ value: r, label: cap(r) }))} />
+          <MultiSelect value={campaignFilter} onChange={setCampaignFilter} placeholder="All campaigns" className="min-w-[160px]"
+            options={campaigns.map((c) => ({ value: c.name, label: c.name }))} />
+          <MultiSelect value={channelFilter} onChange={setChannelFilter} placeholder="All channels" className="min-w-[150px]"
+            options={channels.map((c) => ({ value: c.id, label: c.name }))} />
+          <MultiSelect value={statusFilter} onChange={setStatusFilter} placeholder="All statuses" className="min-w-[150px]"
+            options={[{ value: "active", label: "Active" }, { value: "inactive", label: "Inactive" }]} />
           <div className="flex-1" />
           <GhostButton onClick={exportTeam} disabled={exporting}>
             {exporting ? <Loader2 className="w-4 h-4 animate-spin" /> : <Download className="w-4 h-4" />}Export
