@@ -279,23 +279,6 @@ class _ManagerSection extends ConsumerWidget {
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
         const SizedBox(height: 24),
-        Text('Team overview',
-            style: Theme.of(context)
-                .textTheme
-                .titleMedium
-                ?.copyWith(fontWeight: FontWeight.w700)),
-        const SizedBox(height: 10),
-        stats.maybeWhen(
-          data: (s) => Row(
-            children: [
-              _MiniStat('Active', s.active, AppColors.primary),
-              _MiniStat('Unassigned', s.unassigned, AppColors.warning),
-              _MiniStat('Team', s.team, AppColors.info),
-            ],
-          ),
-          orElse: () => const SizedBox.shrink(),
-        ),
-        const SizedBox(height: 12),
         analytics.when(
           loading: () => const Padding(
             padding: EdgeInsets.all(16),

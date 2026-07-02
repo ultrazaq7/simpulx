@@ -39,6 +39,23 @@ func (s *sender) sendText(ctx context.Context, t sendTarget, body string) (strin
 	})
 }
 
+// sendTemplate mengirim pesan template WhatsApp (name + language). Dipakai node
+// automation "Send template" — juga satu-satunya cara mengirim di luar 24 jam.
+func (s *sender) sendTemplate(ctx context.Context, t sendTarget, name, lang string) (string, error) {
+	if lang == "" {
+		lang = "en"
+	}
+	return s.post(ctx, t, map[string]any{
+		"messaging_product": "whatsapp",
+		"to":                t.ContactPhone,
+		"type":              "template",
+		"template": map[string]any{
+			"name":     name,
+			"language": map[string]string{"code": lang},
+		},
+	})
+}
+
 // sendMedia mengirim pesan media (image/audio/video/document) via link.
 // WhatsApp Cloud API menerima media dengan URL publik (atau media id upload).
 func (s *sender) sendMedia(ctx context.Context, t sendTarget, msgType, mediaURL, caption string) (string, error) {

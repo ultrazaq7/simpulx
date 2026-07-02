@@ -341,10 +341,26 @@ func (a *app) execStep(ctx context.Context, orgID, convID, contactID string, s a
 				a.log.Warn("automation set_contact_attribute failed", "err", err)
 			}
 		}
-	case "add_to_list":
-		if list := pStr(s.Params, "list"); list != "" {
-			if err := a.st.addContactTags(ctx, contactID, []string{list}); err != nil {
-				a.log.Warn("automation add_to_list failed", "err", err)
+	case "send_template":
+		name := pStr(s.Params, "template_name")
+		if name == "" {
+			name = pStr(s.Params, "template")
+		}
+		if name == "" {
+			return
+		}
+		target, terr := a.st.sendTarget(ctx, convID)
+		if terr != nil {
+			a.log.Warn("automation send_template: no target", "err", terr)
+			return
+		}
+		if _, err := a.snd.sendTemplate(ctx, target, name, pStr(s.Params, "language")); err != nil {
+			a.log.Warn("automation send_template failed", "err", err)
+		}
+	case "set_priority":
+		if p := pStr(s.Params, "priority"); p == "high" || p == "medium" || p == "low" {
+			if err := a.st.setLeadPriority(ctx, convID, p); err != nil {
+				a.log.Warn("automation set_priority failed", "err", err)
 			}
 		}
 	case "send_email":
@@ -430,6 +446,29 @@ func (a *app) execStep(ctx context.Context, orgID, convID, contactID string, s a
 		if url := pStr(s.Params, "url"); url != "" {
 			go postWebhook(url, orgID, convID)
 		}
+	case "rest_api", "call_rest_api":
+		// Full outbound HTTP call: method + URL + headers + body, all with
+		// {placeholder} merge fields. Fire-and-forget so it never blocks the flow.
+		vars := a.st.contactVars(ctx, contactID)
+		url := resolvePlaceholders(vars, pStr(s.Params, "url"))
+		if url == "" {
+			return
+		}
+		method := strings.ToUpper(strings.TrimSpace(pStr(s.Params, "method")))
+		if method == "" {
+			method = "POST"
+		}
+		body := resolvePlaceholders(vars, pStr(s.Params, "body"))
+		headers := map[string]string{}
+		if raw, ok := s.Params["headers"].([]any); ok {
+			for _, r := range raw {
+				m, _ := r.(map[string]any)
+				if k := strings.TrimSpace(pStr(m, "key")); k != "" {
+					headers[k] = resolvePlaceholders(vars, pStr(m, "value"))
+				}
+			}
+		}
+		go callRestAPI(method, url, headers, body)
 	default:
 		a.log.Info("automation action not yet supported", "type", s.Type)
 	}
@@ -531,6 +570,25 @@ func (a *app) trackBroadcastClick(ctx context.Context, payload string) {
 	a.log.Info("broadcast click tracked", "recip", recipID, "button", button)
 }
 
+// callRestAPI performs an arbitrary outbound HTTP call for the "Call REST API"
+// automation node. Fire-and-forget; failures are swallowed (like postWebhook).
+func callRestAPI(method, url string, headers map[string]string, body string) {
+	req, err := http.NewRequest(method, url, strings.NewReader(body))
+	if err != nil {
+		return
+	}
+	if body != "" {
+		req.Header.Set("Content-Type", "application/json")
+	}
+	for k, v := range headers {
+		req.Header.Set(k, v) // explicit headers win (e.g. Authorization, custom CT)
+	}
+	client := &http.Client{Timeout: 15 * time.Second}
+	if resp, err := client.Do(req); err == nil {
+		_ = resp.Body.Close()
+	}
+}
+
 func postWebhook(url, orgID, convID string) {
 	payload, _ := json.Marshal(map[string]string{"organization_id": orgID, "conversation_id": convID})
 	req, err := http.NewRequest(http.MethodPost, url, strings.NewReader(string(payload)))
@@ -625,6 +683,12 @@ func (s *store) assignConversation(ctx context.Context, convID, agentID string) 
 func (s *store) removeCampaign(ctx context.Context, convID string) error {
 	_, err := s.pool.Exec(ctx,
 		`UPDATE conversations SET campaign_id=NULL, updated_at=now() WHERE id=$1`, convID)
+	return err
+}
+
+func (s *store) setLeadPriority(ctx context.Context, convID, priority string) error {
+	_, err := s.pool.Exec(ctx,
+		`UPDATE conversations SET lead_priority=$2, updated_at=now() WHERE id=$1`, convID, priority)
 	return err
 }
 

@@ -25,14 +25,18 @@ export default function LoginPage() {
   }
 
   return (
-    <div className="min-h-screen w-full flex flex-col items-center justify-center px-6 py-10 relative overflow-hidden bg-sidebar-gradient">
-      {/* decorative brand glow */}
-      <div className="absolute -top-40 -left-32 w-[520px] h-[520px] rounded-full bg-primary/20 blur-3xl pointer-events-none" />
-      <div className="absolute -bottom-40 -right-32 w-[520px] h-[520px] rounded-full bg-amber/10 blur-3xl pointer-events-none" />
+    <div className="min-h-screen w-full flex flex-col items-center justify-center px-6 py-10 relative overflow-hidden"
+      style={{ background: "radial-gradient(130% 130% at 50% -10%, #12463a 0%, #0b241d 45%, #06120f 100%)" }}>
+      {/* soft brand glows for depth */}
+      <div className="absolute -top-[15%] left-1/2 -translate-x-1/2 w-[760px] h-[420px] rounded-full bg-primary/15 blur-[130px] pointer-events-none" />
+      <div className="absolute bottom-[-20%] right-[-10%] w-[460px] h-[460px] rounded-full bg-amber/[0.07] blur-[120px] pointer-events-none" />
+      {/* faint grid texture */}
+      <div className="absolute inset-0 opacity-[0.035] pointer-events-none"
+        style={{ backgroundImage: "linear-gradient(#fff 1px, transparent 1px), linear-gradient(90deg, #fff 1px, transparent 1px)", backgroundSize: "46px 46px" }} />
 
       {/* Logo above the card */}
-      <div className="relative z-10 mb-6 flex flex-col items-center gap-3 animate-fade-in">
-        <div className="w-14 h-14 rounded-2xl overflow-hidden shadow-xl ring-1 ring-white/10">
+      <div className="relative z-10 mb-7 flex flex-col items-center gap-3 animate-fade-in">
+        <div className="w-14 h-14 rounded-2xl overflow-hidden shadow-[0_10px_30px_-8px_rgba(0,0,0,0.6)] ring-1 ring-white/15">
           <img src="/simpulx_logo.png" alt="Simpulx" className="w-full h-full object-cover" />
         </div>
         <span className="text-[22px] font-extrabold tracking-tight text-white">
@@ -41,7 +45,9 @@ export default function LoginPage() {
       </div>
 
       {/* Centered card */}
-      <div className="relative z-10 w-full max-w-[400px] rounded-2xl border border-white/10 bg-card shadow-2xl p-7 sm:p-8 animate-scale-in">
+      <div className="relative z-10 w-full max-w-[400px] rounded-2xl bg-card p-8 shadow-[0_28px_80px_-24px_rgba(0,0,0,0.65)] ring-1 ring-white/10 border border-white/5 animate-scale-in overflow-hidden">
+        {/* brand accent bar */}
+        <div className="absolute inset-x-0 top-0 h-[3px] bg-gradient-to-r from-primary via-primary-light to-amber" />
         <div className="mb-6 text-center">
           <h1 className="text-[24px] font-bold tracking-tight text-foreground">Welcome back</h1>
           <p className="mt-1 text-[13.5px] text-muted-foreground">Sign in to your workspace to continue.</p>
@@ -66,7 +72,7 @@ export default function LoginPage() {
                   required
                   autoFocus
                   placeholder="you@company.com"
-                  className="w-full h-11 pl-10 pr-3 rounded-lg border border-input bg-card text-[13.5px] text-foreground placeholder:text-muted-foreground/70 outline-none transition-shadow focus:border-primary focus:ring-2 focus:ring-primary/20"
+                  className="w-full h-11 pl-10 pr-3 rounded-xl border border-input bg-background text-[13.5px] text-foreground placeholder:text-muted-foreground/60 outline-none transition-shadow focus:border-primary focus:ring-2 focus:ring-primary/20"
                 />
               </div>
             </div>
@@ -82,7 +88,7 @@ export default function LoginPage() {
                   onChange={(e) => setPassword(e.target.value)}
                   required
                   placeholder="Enter your password"
-                  className="w-full h-11 pl-10 pr-10 rounded-lg border border-input bg-card text-[13.5px] text-foreground placeholder:text-muted-foreground/70 outline-none transition-shadow focus:border-primary focus:ring-2 focus:ring-primary/20"
+                  className="w-full h-11 pl-10 pr-10 rounded-xl border border-input bg-background text-[13.5px] text-foreground placeholder:text-muted-foreground/60 outline-none transition-shadow focus:border-primary focus:ring-2 focus:ring-primary/20"
                 />
                 <button
                   type="button"
@@ -98,7 +104,7 @@ export default function LoginPage() {
             <button
               type="submit"
               disabled={loading}
-              className="group w-full h-11 mt-1 inline-flex items-center justify-center gap-2 rounded-lg bg-primary hover:bg-primary-dark text-white font-bold text-[13.5px] shadow-sm hover:shadow-brand-md transition-all disabled:opacity-60 outline-none"
+              className="group w-full h-12 mt-2 inline-flex items-center justify-center gap-2 rounded-xl bg-primary hover:bg-primary-dark text-white font-bold text-[14px] shadow-lg shadow-primary/25 hover:shadow-primary/40 transition-all disabled:opacity-60 outline-none active:scale-[0.99]"
             >
               {loading ? <Loader2 className="w-4 h-4 animate-spin" /> : (
                 <>Sign in <ArrowRight className="w-4 h-4 transition-transform group-hover:translate-x-0.5" /></>
