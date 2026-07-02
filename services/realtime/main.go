@@ -87,6 +87,7 @@ func main() {
 		{events.SubjectConversationAssigned, "realtime-assigned"},
 		{events.SubjectConversationUpdated, "realtime-updated"},
 		{events.SubjectConversationClosed, "realtime-closed"},
+		{events.SubjectContactDeleted, "realtime-contact-deleted"},
 		{events.SubjectConversationHandoff, "realtime-handoff"},
 		{events.SubjectAgentDeactivated, "realtime-deactivated"},
 		{events.SubjectAuditCreated, "realtime-audit"},

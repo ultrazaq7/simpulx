@@ -25,6 +25,7 @@ class RealtimeEvent {
   bool get isConversationClosed => type == 'conversation.closed';
   bool get isConversationUpdated => type == 'conversation.updated';
   bool get isCallUpdated => type == 'call.updated';
+  bool get isContactDeleted => type == 'contact.deleted';
 
   static RealtimeEvent? tryParse(Map<String, dynamic> json) {
     final type = json['type'];
@@ -102,6 +103,20 @@ class ConversationClosedPayload {
 
   String get conversationId => (_d['conversation_id'] ?? '') as String;
   String get reason => (_d['reason'] ?? '') as String;
+}
+
+/// Typed view over a `contact.deleted` payload (see backend
+/// `events.ContactDeleted`). Carries the deleted contact + its conversation ids
+/// so the inbox and contacts lists can drop the matching rows in realtime.
+class ContactDeletedPayload {
+  const ContactDeletedPayload(this._d);
+  final Map<String, dynamic> _d;
+
+  String get contactId => (_d['contact_id'] ?? '') as String;
+  List<String> get conversationIds {
+    final raw = _d['conversation_ids'];
+    return raw is List ? raw.map((e) => e.toString()).toList() : const [];
+  }
 }
 
 /// Typed view over a `call.updated` payload (see backend `events.CallUpdated`).

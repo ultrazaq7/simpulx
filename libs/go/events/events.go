@@ -17,6 +17,7 @@ const (
 	SubjectConversationAssigned = "events.conversation.assigned"
 	SubjectConversationClosed   = "events.conversation.closed"
 	SubjectConversationUpdated  = "events.conversation.updated"
+	SubjectContactDeleted       = "events.contact.deleted"
 	SubjectBroadcastRequested   = "events.broadcast.requested"
 	SubjectAgentDeactivated     = "events.agent.deactivated"
 	SubjectAuditCreated         = "events.audit.created"
@@ -168,6 +169,13 @@ type ConversationAssigned struct {
 type ConversationClosed struct {
 	ConversationID string `json:"conversation_id"`
 	Reason         string `json:"reason"`
+}
+
+// ContactDeleted is published when a contact (and its conversations) is deleted,
+// so connected clients remove it from their lists in realtime.
+type ContactDeleted struct {
+	ContactID       string   `json:"contact_id"`
+	ConversationIDs []string `json:"conversation_ids"`
 }
 
 // ConversationUpdated is broadcast when a conversation's stage, status,

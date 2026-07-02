@@ -154,6 +154,15 @@ class ConversationListController extends AsyncNotifier<List<Conversation>> {
       _patchStatus(p.conversationId, status: 'closed');
       return;
     }
+    // A deleted contact removes its conversations from the inbox in realtime.
+    if (event.isContactDeleted) {
+      final ids = ContactDeletedPayload(event.data).conversationIds.toSet();
+      final list = state.value;
+      if (list != null && ids.isNotEmpty) {
+        state = AsyncData(list.where((c) => !ids.contains(c.id)).toList());
+      }
+      return;
+    }
     if (!event.isMessagePersisted) return;
 
     final list = state.value;

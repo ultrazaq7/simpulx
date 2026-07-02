@@ -4,6 +4,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import '../../../../core/error/result.dart';
 import '../../../../core/providers/app_providers.dart';
+import '../../../../core/realtime/realtime_event.dart';
 import '../../../../core/realtime/realtime_providers.dart';
 import '../../data/datasources/contacts_remote_datasource.dart';
 import '../../data/repositories/contacts_repository_impl.dart';
@@ -37,6 +38,16 @@ class ContactsController extends AsyncNotifier<List<Contact>> {
       // which thread a contact resolves to (multi-thread routing), so reflect
       // them fast. Message bursts get a longer debounce so we don't refetch the
       // whole leads list constantly.
+      // A deleted contact (from this device, another agent, or the web) drops
+      // out of the list immediately — no refetch needed.
+      if (e.isContactDeleted) {
+        final cid = ContactDeletedPayload(e.data).contactId;
+        final list = state.value;
+        if (list != null && cid.isNotEmpty) {
+          state = AsyncData(list.where((c) => c.id != cid).toList());
+        }
+        return;
+      }
       if (e.isConversationAssigned || e.isConversationUpdated) {
         _scheduleRefresh(const Duration(milliseconds: 300), priority: true);
       } else if (e.isMessagePersisted || e.isConversationClosed) {

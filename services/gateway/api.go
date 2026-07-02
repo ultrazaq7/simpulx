@@ -1784,6 +1784,19 @@ func (s *server) handleDeleteContact(w http.ResponseWriter, r *http.Request) {
 		http.Error(w, "not found", http.StatusNotFound)
 		return
 	}
+	// Collect the contact's conversation ids first so we can tell connected
+	// clients exactly which inbox rows to drop in realtime.
+	var convIDs []string
+	if rows, qerr := s.pool.Query(r.Context(),
+		`SELECT id::text FROM conversations WHERE contact_id=$1 AND organization_id=$2`, id, a.OrgID); qerr == nil {
+		for rows.Next() {
+			var cid string
+			if rows.Scan(&cid) == nil {
+				convIDs = append(convIDs, cid)
+			}
+		}
+		rows.Close()
+	}
 	// Remove the contact's conversations first (messages cascade), then the contact.
 	_, _ = s.pool.Exec(r.Context(), `DELETE FROM conversations WHERE contact_id=$1 AND organization_id=$2`, id, a.OrgID)
 	if _, err := s.pool.Exec(r.Context(), `DELETE FROM contacts WHERE id=$1 AND organization_id=$2`, id, a.OrgID); err != nil {
@@ -1791,6 +1804,12 @@ func (s *server) handleDeleteContact(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	s.audit(r.Context(), a, "deleted", "contact", id, nil)
+	// Realtime: every connected client removes this contact + its conversations.
+	if err := s.bus.Publish(events.SubjectContactDeleted, a.OrgID, events.ContactDeleted{
+		ContactID: id, ConversationIDs: convIDs,
+	}); err != nil {
+		s.log.Warn("publish contact.deleted failed", "contact", id, "err", err)
+	}
 	w.WriteHeader(http.StatusNoContent)
 }
 
