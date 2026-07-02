@@ -4,6 +4,7 @@ import { useParams, useRouter } from "next/navigation";
 import {
   ArrowLeft, Loader2, Phone, Mail, Tag as TagIcon, MessageSquare, Calendar, Clock,
   ExternalLink, Megaphone, User, Radio, FileText, Image as ImageIcon, Video, StickyNote,
+  ChevronDown, Check,
 } from "lucide-react";
 import { api } from "@/lib/api";
 import { initials, channelColor, fmtDate, fmtTime, relTime, cn, interestColor } from "@/lib/utils";
@@ -59,8 +60,23 @@ export default function ContactDetailsPage() {
   const [loading, setLoading] = useState(true);
   const [tab, setTab] = useState<"conversation" | "notes" | "media" | "history">("conversation");
   const [activity, setActivity] = useState<import("@/lib/types").ContactActivity[]>([]);
+  const [stages, setStages] = useState<{ id: string; name: string }[]>([]);
 
   useEffect(() => { if (id) api.getContactActivity(id).then(setActivity).catch(() => {}); }, [id]);
+  useEffect(() => { api.listStages().then((ss) => setStages(ss.map((s) => ({ id: s.id, name: s.name })))).catch(() => {}); }, []);
+
+  // Set the contact's pipeline stage by patching its current conversation. The
+  // stage lives on the conversation (a contact can hold several), so we target
+  // the primary/latest one exposed as `conversation_id`.
+  async function setStage(stageId: string) {
+    const convId = contact?.conversation_id;
+    if (!convId) return;
+    const st = stages.find((s) => s.id === stageId);
+    setContact((prev) => (prev ? { ...prev, stage_id: stageId, stage_name: st?.name ?? prev.stage_name } : prev));
+    setActivity((prev) => [{ type: "stage_changed", detail: { stage_id: stageId, stage_name: st?.name ?? "" }, created_at: new Date().toISOString(), actor_name: "" } as import("@/lib/types").ContactActivity, ...prev]);
+    try { await api.patchConversation(convId, { stage_id: stageId }); }
+    catch { /* best-effort; a reload will reconcile */ }
+  }
 
   useEffect(() => {
     let alive = true;
@@ -137,13 +153,15 @@ export default function ContactDetailsPage() {
             </div>
             <p className="mt-3 text-[16px] font-bold text-foreground">{c.full_name || c.phone || "Unknown"}</p>
             {c.phone && <p className="text-[12.5px] text-muted-foreground tabular-nums">{c.phone}</p>}
-            {c.stage_name && (
+            {c.conversation_id ? (
+              <StageChooser stageId={c.stage_id} stageName={c.stage_name} stages={stages} onSelect={setStage} />
+            ) : c.stage_name ? (
               <span className="mt-2 inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full text-[11px] font-semibold"
                 style={{ backgroundColor: stageColor(c.stage_name) + "1A", color: stageColor(c.stage_name) }}>
                 <span className="w-1.5 h-1.5 rounded-full" style={{ backgroundColor: stageColor(c.stage_name) }} />
                 {c.stage_name}
               </span>
-            )}
+            ) : null}
           </div>
 
           <Section title="Activity">
@@ -300,6 +318,44 @@ export default function ContactDetailsPage() {
           </Section>
         </div>
       </div>
+    </div>
+  );
+}
+
+// Editable pipeline-stage picker shown under the avatar (mirrors the chat header
+// stage chip). Selecting a stage patches the contact's current conversation.
+function StageChooser({ stageId, stageName, stages, onSelect }: {
+  stageId: string | null | undefined; stageName: string | null | undefined;
+  stages: { id: string; name: string }[]; onSelect: (id: string) => void;
+}) {
+  const [open, setOpen] = useState(false);
+  const color = stageColor(stageName);
+  return (
+    <div className="relative mt-2">
+      <button onClick={() => setOpen((v) => !v)}
+        className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full text-[11px] font-semibold outline-none hover:ring-1 hover:ring-border transition-shadow"
+        style={{ backgroundColor: color + "1A", color }}>
+        <span className="w-1.5 h-1.5 rounded-full" style={{ backgroundColor: color }} />
+        {stageName || "Set stage"}
+        <ChevronDown className="w-3 h-3 opacity-70" />
+      </button>
+      {open && (
+        <>
+          <div className="fixed inset-0 z-30" onClick={() => setOpen(false)} />
+          <div className="absolute left-1/2 -translate-x-1/2 mt-1.5 z-40 w-48 bg-popover rounded-lg border border-border shadow-xl py-1 animate-scale-in">
+            <p className="px-3 py-1.5 text-[10px] font-bold text-muted-foreground uppercase tracking-wider">Pipeline stage</p>
+            {stages.length === 0 && <p className="px-3 py-2 text-[12px] text-muted-foreground">No stages defined</p>}
+            {stages.map((s) => (
+              <button key={s.id} onClick={() => { onSelect(s.id); setOpen(false); }}
+                className="w-full flex items-center gap-2 px-3 py-2 text-[13px] font-medium text-foreground/90 hover:bg-muted outline-none text-left">
+                <span className="w-2 h-2 rounded-full shrink-0" style={{ backgroundColor: stageColor(s.name) }} />
+                <span className="flex-1 truncate">{s.name}</span>
+                {stageId === s.id && <Check className="w-4 h-4 text-primary" />}
+              </button>
+            ))}
+          </div>
+        </>
+      )}
     </div>
   );
 }
