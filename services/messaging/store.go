@@ -483,28 +483,6 @@ func (s *store) recordAttribution(ctx context.Context, orgID, convID, campaignID
 	return err
 }
 
-// activeCampaignChoices returns a short, comma-separated sample of keywords from
-// active campaigns, to suggest options in the "which car?" prompt. Best-effort:
-// returns "" on any error or when no campaigns have keywords.
-func (s *store) activeCampaignChoices(ctx context.Context, orgID string) string {
-	rows, err := s.pool.Query(ctx,
-		`SELECT DISTINCT lower(k) FROM campaigns, unnest(keywords) k
-		  WHERE organization_id=$1 AND status='active' AND k <> ''
-		  ORDER BY 1 LIMIT 6`, orgID)
-	if err != nil {
-		return ""
-	}
-	defer rows.Close()
-	var kws []string
-	for rows.Next() {
-		var k string
-		if rows.Scan(&k) == nil && k != "" {
-			kws = append(kws, k)
-		}
-	}
-	return strings.Join(kws, ", ")
-}
-
 // resolveCampaignByKeyword: cocokkan keyword campaign aktif yang terkandung di
 // teks pesan. Dipanggil SEBELUM memilih conversation, sehingga pesan dengan
 // keyword campaign lain membuka thread campaign tersebut (bukan menempel pada
@@ -544,13 +522,19 @@ func (s *store) announceAssigned(ctx context.Context, orgID, convID, agentID str
 	})
 }
 
-// ensureAssigned gives an unassigned open conversation an owner immediately so it
-// never sits waiting. It first tries the campaign/branch rotation, then falls back
-// to the org's least-loaded active agent (covers no-signal leads that carry no
-// campaign yet). On success it announces the assignment in realtime.
+// ensureAssigned gives a campaign/branch-routed but still-unassigned open
+// conversation an owner immediately (campaign/branch round-robin), so an
+// attributed lead never sits waiting when no agent was eligible at first touch.
+//
+// Un-attributed leads (no campaign, no branch) are intentionally LEFT unassigned
+// in the manager/admin queue until a keyword routes them into a campaign — see
+// 14-fair-distribution-engine, decision #2. There is deliberately NO org-wide
+// fallback: assignment happens only through campaign/branch round-robin, never by
+// silently handing a no-signal lead to the least-loaded agent.
+// On success it announces the assignment in realtime.
 func (s *store) ensureAssigned(ctx context.Context, convID string) {
 	var agentID, orgID string
-	// 1) Campaign/branch-scoped rotation.
+	// Campaign/branch-scoped rotation only.
 	err := s.pool.QueryRow(ctx,
 		`WITH c AS (
 		     SELECT organization_id, campaign_id, branch_id FROM conversations
@@ -569,27 +553,6 @@ func (s *store) ensureAssigned(ctx context.Context, convID string) {
 		convID).Scan(&agentID, &orgID)
 	if err != nil && !errors.Is(err, pgx.ErrNoRows) {
 		return
-	}
-	// 2) Fallback: org-wide least-loaded active agent so a lead with no campaign
-	//    (e.g. a no-signal opener) still gets an owner right away.
-	if agentID == "" {
-		err = s.pool.QueryRow(ctx,
-			`WITH c AS (
-			     SELECT organization_id FROM conversations
-			      WHERE id=$1 AND assigned_agent_id IS NULL AND status<>'closed'
-			 ), pick AS (
-			     SELECT u.id AS user_id FROM users u, c
-			      WHERE u.organization_id=c.organization_id AND u.is_deleted=false
-			        AND u.status='active' AND u.role IN ('agent','admin')
-			      ORDER BY (SELECT count(*) FROM conversations cc WHERE cc.assigned_agent_id=u.id AND cc.status<>'closed') ASC, u.id
-			      LIMIT 1)
-			 UPDATE conversations SET assigned_agent_id=(SELECT user_id FROM pick), updated_at=now()
-			  WHERE id=$1 AND assigned_agent_id IS NULL AND EXISTS (SELECT 1 FROM pick)
-			  RETURNING assigned_agent_id::text, organization_id::text`,
-			convID).Scan(&agentID, &orgID)
-		if err != nil && !errors.Is(err, pgx.ErrNoRows) {
-			return
-		}
 	}
 	if agentID != "" {
 		s.announceAssigned(ctx, orgID, convID, agentID)

@@ -276,6 +276,18 @@ func (a *app) evalCondition(ctx context.Context, orgID, contactID string, cfg ma
 }
 
 func (a *app) execStep(ctx context.Context, orgID, convID, contactID string, s autoStep) {
+	// Never auto-send a customer-facing message to a lead nobody owns yet. An
+	// unassigned lead must be handled by a human, not an automation — auto-send is
+	// fine, but not for unassigned leads. Routing/tagging/notification actions are
+	// unaffected (they help get the lead owned or logged).
+	switch s.Type {
+	case "send_message", "send_template", "send_form":
+		if !a.st.isAssigned(ctx, convID) {
+			a.log.Info("automation send skipped: lead unassigned", "type", s.Type, "conv", convID)
+			return
+		}
+	}
+
 	switch s.Type {
 	case "send_message":
 		vars := a.st.contactVars(ctx, contactID)
@@ -397,6 +409,14 @@ func (a *app) execStep(ctx context.Context, orgID, convID, contactID string, s a
 			if err := a.st.setConversationStatus(ctx, convID, st); err != nil {
 				a.log.Warn("automation set_conversation_status failed", "err", err)
 			}
+		}
+	case "set_stage":
+		if err := a.st.setStage(ctx, orgID, convID, pStr(s.Params, "stage_id")); err != nil {
+			a.log.Warn("automation set_stage failed", "err", err)
+		}
+	case "set_interest":
+		if err := a.st.setInterest(ctx, orgID, convID, pStr(s.Params, "interest_level")); err != nil {
+			a.log.Warn("automation set_interest failed", "err", err)
 		}
 	case "send_form":
 		formID := pStr(s.Params, "form_id")
@@ -764,6 +784,16 @@ func (s *store) resolveAgentByName(ctx context.Context, orgID, name string) stri
 	return id
 }
 
+// isAssigned reports whether the conversation currently has a human owner
+// (assigned_agent_id set). Used to gate customer-facing auto-sends so an
+// unassigned lead is never auto-messaged.
+func (s *store) isAssigned(ctx context.Context, convID string) bool {
+	var assigned bool
+	_ = s.pool.QueryRow(ctx,
+		`SELECT assigned_agent_id IS NOT NULL FROM conversations WHERE id=$1`, convID).Scan(&assigned)
+	return assigned
+}
+
 func (s *store) assignConversation(ctx context.Context, convID, agentID string) error {
 	// Empty agentID unassigns (assigned_agent_id -> NULL).
 	_, err := s.pool.Exec(ctx,
@@ -867,6 +897,78 @@ func (s *store) setConversationStatus(ctx context.Context, convID, status string
 	_, err := s.pool.Exec(ctx,
 		`UPDATE conversations SET status=$2, updated_at=now() WHERE id=$1`, convID, status)
 	return err
+}
+
+// setStage sets the conversation's pipeline stage (automation "Set stage" node)
+// and records a stage_changed event so the change counts toward the funnel
+// (0075_stage_max_reached reads these events). Only a stage owned by the org is
+// accepted; anything else is a no-op.
+func (s *store) setStage(ctx context.Context, orgID, convID, stageID string) error {
+	if stageID == "" {
+		return nil
+	}
+	var stageName string
+	if err := s.pool.QueryRow(ctx,
+		`SELECT COALESCE(name,'') FROM stages WHERE id=$1::uuid AND organization_id=$2`,
+		stageID, orgID).Scan(&stageName); err != nil {
+		return nil // unknown / foreign stage -> skip silently
+	}
+	tx, err := s.pool.Begin(ctx)
+	if err != nil {
+		return err
+	}
+	defer tx.Rollback(ctx)
+	if _, err = tx.Exec(ctx,
+		`UPDATE conversations SET stage_id=$2::uuid, classification_locked=true, updated_at=now()
+		  WHERE id=$1 AND organization_id=$3`, convID, stageID, orgID); err != nil {
+		return err
+	}
+	if _, err = tx.Exec(ctx,
+		`INSERT INTO conversation_events (organization_id, conversation_id, type, actor_type, detail)
+		 VALUES ($1,$2,'stage_changed','system', jsonb_build_object('stage_id',$3::text,'stage_name',$4::text))`,
+		orgID, convID, stageID, stageName); err != nil {
+		return err
+	}
+	if err = tx.Commit(ctx); err != nil {
+		return err
+	}
+	_ = s.bus.Publish(events.SubjectConversationUpdated, orgID, events.ConversationUpdated{
+		ConversationID: convID, StageID: stageID,
+	})
+	return nil
+}
+
+// setInterest sets the lead interest/temperature (automation "Set interest level"
+// node) and records an interest_changed event for the contact history.
+func (s *store) setInterest(ctx context.Context, orgID, convID, level string) error {
+	switch level {
+	case "hot", "warm", "cold":
+	default:
+		return nil
+	}
+	tx, err := s.pool.Begin(ctx)
+	if err != nil {
+		return err
+	}
+	defer tx.Rollback(ctx)
+	if _, err = tx.Exec(ctx,
+		`UPDATE conversations SET interest_level=$2, updated_at=now()
+		  WHERE id=$1 AND organization_id=$3`, convID, level, orgID); err != nil {
+		return err
+	}
+	if _, err = tx.Exec(ctx,
+		`INSERT INTO conversation_events (organization_id, conversation_id, type, actor_type, detail)
+		 VALUES ($1,$2,'interest_changed','system', jsonb_build_object('interest_level',$3::text))`,
+		orgID, convID, level); err != nil {
+		return err
+	}
+	if err = tx.Commit(ctx); err != nil {
+		return err
+	}
+	_ = s.bus.Publish(events.SubjectConversationUpdated, orgID, events.ConversationUpdated{
+		ConversationID: convID, InterestLevel: level,
+	})
+	return nil
 }
 
 // contactSheetRow builds a row for the Google Sheet "add row" node:

@@ -14,6 +14,17 @@ final chatRepositoryProvider = Provider<ChatRepository>(
   (ref) => ChatRepositoryImpl(ref.watch(chatRemoteDataSourceProvider)),
 );
 
+/// Fetches a single conversation by id. Used by the chat thread when it is
+/// opened without a cached copy (push notification / deep link) so the header
+/// resolves the real contact instead of staying blank.
+final conversationByIdProvider =
+    FutureProvider.family<Conversation, String>((ref, id) async {
+  final repo = ref.watch(chatRepositoryProvider);
+  final res = await repo.getConversation(id);
+  if (res.isErr) throw res.failureOrNull!;
+  return res.valueOrNull!;
+});
+
 final messageSearchProvider = FutureProvider.family<List<Conversation>, String>((ref, q) async {
   if (q.trim().isEmpty) return [];
   final repo = ref.watch(chatRepositoryProvider);

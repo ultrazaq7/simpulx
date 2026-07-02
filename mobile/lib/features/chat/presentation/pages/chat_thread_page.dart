@@ -307,8 +307,13 @@ class _ChatThreadPageState extends ConsumerState<ChatThreadPage>
     // Prefer the conversation passed via route extra; otherwise look it up live
     // from the inbox list so opening from a notification or the contact's Chat
     // button still shows the name/phone and enables calling.
-    final conversation = widget.conversation ??
-        _liveConversation() ??
+    Conversation? resolved = widget.conversation ?? _liveConversation();
+    // Opened from a push notification / deep link before the inbox list synced
+    // (or when the current inbox filter excludes this lead): fetch it by id so
+    // the header shows the real contact instead of a blank/nameless placeholder.
+    resolved ??=
+        ref.watch(conversationByIdProvider(widget.conversationId)).asData?.value;
+    final conversation = resolved ??
         Conversation(
           id: widget.conversationId,
           status: 'open',

@@ -185,6 +185,7 @@ func main() {
 	mux.HandleFunc("POST /api/account/password", s.requireAuth(s.handleChangePassword))
 	mux.HandleFunc("POST /api/account/email", s.requireAuth(s.handleRequestEmailChange))
 	mux.HandleFunc("GET /api/conversations", s.requireAuth(s.handleListConversations))
+	mux.HandleFunc("GET /api/conversations/{id}", s.requireAuth(s.handleGetConversation))
 	mux.HandleFunc("GET /api/conversations/{id}/messages", s.requireAuth(s.handleGetMessages))
 	mux.HandleFunc("GET /api/conversations/{id}/messages/search", s.requireAuth(s.handleSearchMessages))
 	mux.HandleFunc("PATCH /api/conversations/{id}", s.requireAuth(s.handlePatchConversation))

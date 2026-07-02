@@ -124,9 +124,9 @@ func (a *app) onReceived(env events.Envelope) error {
 	// If matched -> open/continue that campaign's lead instance (isolated per
 	// campaign). If NOT matched -> attach to the contact's latest active lead
 	// instance (decision #1); a brand-new no-signal contact gets a fresh
-	// unassigned conversation and we prompt them to pick a campaign (decision #2).
+	// unassigned conversation that waits quietly in the manager/admin queue for a
+	// human to pick up (decision #2 — no auto bot prompt).
 	var conv convInfo
-	var createdNoSignal bool
 	// Branch's ad source is more specific than a campaign's -> check it first.
 	campaignID, branchID := "", ""
 	matched := false
@@ -143,7 +143,7 @@ func (a *app) onReceived(env events.Envelope) error {
 	if matched {
 		conv, err = a.st.getOrCreateThread(ctx, env.OrgID, contactID, e.Channel, ch.ID, campaignID, branchID)
 	} else {
-		conv, createdNoSignal, err = a.st.getOrCreateConversation(ctx, env.OrgID, contactID, e.Channel, ch.ID)
+		conv, _, err = a.st.getOrCreateConversation(ctx, env.OrgID, contactID, e.Channel, ch.ID)
 	}
 	if err != nil {
 		a.log.Error("getOrCreateConversation failed", "org", env.OrgID, "contact", contactID, "err", err)
@@ -199,33 +199,10 @@ func (a *app) onReceived(env events.Envelope) error {
 	a.runAutomations(ctx, env.OrgID, conv.ID, contactID, ch.ID, body, e.Message.ButtonPayload)
 
 	// Decision #2: a brand-new contact whose first message carried no campaign
-	// signal (no CTWA referral, no keyword) cannot be attributed to a branch. Ask
-	// them which car/campaign they are interested in, ONCE, so a keyword in their
-	// reply routes them. The conversation stays unassigned (manager/admin queue)
-	// until then, so no agent sees an un-attributable lead.
-	if createdNoSignal {
-		a.promptCampaignChoice(ctx, env.OrgID, conv.ID)
-	}
+	// signal (no CTWA referral, no keyword) is left UNASSIGNED in the manager/admin
+	// queue for a human to pick up. We deliberately do NOT auto-reply with a bot
+	// prompt — new leads land quietly (no AI auto-chat).
 	return nil
-}
-
-// promptCampaignChoice asks an un-attributable new lead which car/brand they are
-// interested in, so a keyword in their reply routes them to the right campaign
-// (decision #2). Best-effort: it publishes a bot outbound and never blocks ingest.
-func (a *app) promptCampaignChoice(ctx context.Context, orgID, convID string) {
-	options := a.st.activeCampaignChoices(ctx, orgID)
-	body := "Halo! Boleh tahu mobil apa yang Anda minati? Balas dengan nama mobil atau brand-nya ya."
-	if options != "" {
-		body = "Halo! Boleh tahu mobil apa yang Anda minati? Misalnya: " + options + ". Balas dengan nama mobil atau brand-nya ya."
-	}
-	if err := a.bus.Publish(events.SubjectMessageOutbound, orgID, events.MessageOutbound{
-		ConversationID: convID,
-		SenderType:     "bot",
-		Type:           "text",
-		Body:           body,
-	}); err != nil {
-		a.log.Warn("campaign-choice prompt publish failed", "conv", convID, "err", err)
-	}
 }
 
 // onOutbound: kirim ke WA (mock di dev) -> persist -> publish message.persisted.

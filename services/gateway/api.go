@@ -139,6 +139,58 @@ func (s *server) handleListConversations(w http.ResponseWriter, r *http.Request)
 	writeJSON(w, rows)
 }
 
+// ── GET /api/conversations/{id} — a single conversation, same row shape as the
+// list. Opened when a client has no cached copy yet, e.g. tapping a push
+// notification for a brand-new lead before the inbox list has synced (which
+// otherwise renders a blank/nameless header). RBAC via guardConversation.
+func (s *server) handleGetConversation(w http.ResponseWriter, r *http.Request) {
+	convID := r.PathValue("id")
+	if !s.guardConversation(w, r, convID) {
+		return
+	}
+	a, _ := authFrom(r.Context())
+	// Mirrors the SELECT in handleListConversations, filtered to one id.
+	rows, err := s.queryMaps(r.Context(),
+		`SELECT cv.id::text AS id, cv.status, cv.channel, cv.is_bot_active,
+		        cv.unread_count, cv.last_message_at, cv.last_message_preview,
+		        (CASE
+		           WHEN cv.last_agent_message_at IS NOT NULL AND (cv.last_contact_message_at IS NULL OR cv.last_agent_message_at >= cv.last_contact_message_at) THEN 'agent'
+		           ELSE 'contact'
+		         END) AS last_message_direction,
+		        cv.interest_level, cv.ai_stage,
+		        cv.car_brand, cv.car_model, cv.city, cv.purchase_timeframe, cv.lost_reason,
+		        cv.lead_summary, cv.suggested_action, cv.suggested_action_reason,
+		        cv.suggested_action_confidence, cv.lead_score, cv.call_attempts,
+		        ct.full_name AS contact_name, ct.phone AS contact_phone,
+		        cv.assigned_agent_id::text AS assigned_agent_id,
+		        u.full_name AS agent_name,
+		        cv.stage_id::text AS stage_id, s.name AS stage_name,
+		        cv.disposition_id::text AS disposition_id, d.name AS disposition_name,
+		        cv.campaign_id::text AS campaign_id, cmp.name AS campaign_name,
+		        COALESCE(ch.calling_enabled, false) AND COALESCE(cmp.calling_enabled, true) AS calling_enabled,
+		        cv.contact_id::text AS contact_id, COALESCE(ct.tags, '{}') AS tags,
+		        cv.snoozed_until
+		   FROM conversations cv
+		   JOIN contacts ct ON ct.id = cv.contact_id
+		   LEFT JOIN users u ON u.id = cv.assigned_agent_id
+		   LEFT JOIN stages s ON s.id = cv.stage_id
+		   LEFT JOIN dispositions d ON d.id = cv.disposition_id
+		   LEFT JOIN campaigns cmp ON cmp.id = cv.campaign_id
+		   LEFT JOIN channels ch ON ch.id = cmp.channel_id
+		  WHERE cv.id = $1 AND cv.organization_id = $2`,
+		convID, a.OrgID,
+	)
+	if err != nil {
+		http.Error(w, err.Error(), http.StatusInternalServerError)
+		return
+	}
+	if len(rows) == 0 {
+		http.Error(w, "not found", http.StatusNotFound)
+		return
+	}
+	writeJSON(w, rows[0])
+}
+
 // canAccessConversation enforces the same role-based visibility as the inbox
 // list query, but for a single conversation (id-addressable endpoints). Without
 // this, an agent who knows another agent's conversation id could read or mutate

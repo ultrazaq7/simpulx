@@ -23,6 +23,16 @@ class ChatRepositoryImpl implements ChatRepository {
   }
 
   @override
+  Future<Result<Conversation>> getConversation(String id) async {
+    try {
+      final conv = await _remote.getConversation(id);
+      return Result.ok(conv);
+    } catch (e) {
+      return Result.err(ErrorMapper.toFailure(e));
+    }
+  }
+
+  @override
   Future<Result<MessagesPage>> getMessages(
     String conversationId, {
     String? cursor,

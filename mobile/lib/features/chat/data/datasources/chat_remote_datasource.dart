@@ -39,6 +39,20 @@ class ChatRemoteDataSource {
     }
   }
 
+  /// GET /api/conversations/{id} -> a single conversation (same shape as a list
+  /// row). Used to resolve a conversation opened without a cached copy — e.g.
+  /// tapping a push notification for a brand-new lead before the inbox list has
+  /// synced — so the thread header shows the real contact instead of a blank.
+  Future<Conversation> getConversation(String id) async {
+    try {
+      final res = await _dio.get(ApiEndpoints.conversation(id));
+      final map = (res.data as Map).cast<String, dynamic>();
+      return ConversationModel.fromJson(map);
+    } on DioException catch (e) {
+      throw ErrorMapper.fromDio(e);
+    }
+  }
+
   /// GET /api/conversations/{id}/messages?limit&cursor -> {data, next_cursor}.
   /// `data` is chronological ASC; pass [cursor] = previous `nextCursor` to load
   /// older history.
