@@ -34,7 +34,7 @@ export default function RootLayout({ children }: { children: React.ReactNode }) 
         <link rel="apple-touch-icon" href="/simpulx_logo.png" />
         {/* Set the tab title from the path during head parse so reloads don't flash
             a bare "Simpulx" before the app sets the real title. */}
-        <script dangerouslySetInnerHTML={{ __html: "try{var m={dashboard:'Dashboard',inbox:'My Inbox',contacts:'Contacts',campaigns:'Campaigns',broadcasts:'Broadcasts',templates:'Message Templates',automation:'Automation',channels:'Channels',integrations:'Web API',settings:'Settings',account:'Account'};var s=location.pathname.split('/')[1];document.title=(m[s]?m[s]+' - ':'')+'Simpulx';}catch(e){}" }} />
+        <script dangerouslySetInnerHTML={{ __html: "try{var m={dashboard:'Dashboard',inbox:'My Inbox',contacts:'Leads',campaigns:'Campaigns',broadcasts:'Broadcasts',templates:'Message Templates',automation:'Automation',channels:'Channels',integrations:'Web API',settings:'Settings',account:'Account'};var s=location.pathname.split('/')[1];document.title=(m[s]?m[s]+' - ':'')+'Simpulx';}catch(e){}" }} />
         <script src="/lame.min.js"></script>
       </head>
       <body className="min-h-screen bg-background font-sans antialiased">

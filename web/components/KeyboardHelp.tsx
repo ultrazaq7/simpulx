@@ -6,7 +6,7 @@ const SECTIONS: { title: string; items: [string, string][] }[] = [
     ["⌘ K", "Command palette"],
     ["g  d", "Go to Dashboard"],
     ["g  i", "Go to Inbox"],
-    ["g  c", "Go to Contacts"],
+    ["g  c", "Go to Leads"],
     ["g  b", "Go to Broadcasts"],
     ["g  s", "Go to Settings"],
   ] },
