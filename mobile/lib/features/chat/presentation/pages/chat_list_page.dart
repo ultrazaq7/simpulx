@@ -346,28 +346,7 @@ class _ChatListPageState extends ConsumerState<ChatListPage> {
                         );
                       },
                     ),
-                  const Text(
-                    'Quick Filters',
-                    style: TextStyle(fontWeight: FontWeight.w700, fontSize: 13),
-                  ),
-                  const SizedBox(height: 8),
-                  SwitchListTile.adaptive(
-                    contentPadding: EdgeInsets.zero,
-                    title: const Text('Unread only'),
-                    value: filter.unreadOnly,
-                    onChanged: (v) => ref
-                        .read(inboxFilterProvider.notifier)
-                        .set(filter.copyWith(unreadOnly: v)),
-                  ),
-                  SwitchListTile.adaptive(
-                    contentPadding: EdgeInsets.zero,
-                    title: const Text('Follow-up needed'),
-                    value: filter.followUpOnly,
-                    onChanged: (v) => ref
-                        .read(inboxFilterProvider.notifier)
-                        .set(filter.copyWith(followUpOnly: v)),
-                  ),
-                  const SizedBox(height: 4),
+
                   SizedBox(
                     width: double.infinity,
                     child: FilledButton(

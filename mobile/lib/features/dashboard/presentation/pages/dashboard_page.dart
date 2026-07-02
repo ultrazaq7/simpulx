@@ -302,7 +302,7 @@ class _ManagerSection extends ConsumerWidget {
             children: [
               // Stage Funnel
               if (a.funnelStages.isNotEmpty) ...[
-                _StageFunnelCard(stages: a.funnelStages),
+                _StageFunnelCard(stages: a.funnelStages, lostCount: a.lost),
                 const SizedBox(height: 12),
               ],
               // Stage Split
@@ -374,8 +374,9 @@ const _funnelColors = [
 ];
 
 class _StageFunnelCard extends StatelessWidget {
-  const _StageFunnelCard({required this.stages});
+  const _StageFunnelCard({required this.stages, required this.lostCount});
   final List<FunnelStageStat> stages;
+  final int lostCount;
 
   @override
   Widget build(BuildContext context) {
@@ -395,8 +396,44 @@ class _StageFunnelCard extends StatelessWidget {
             _buildFunnelRow(context, stages[i], i, maxReached),
             if (i < stages.length - 1) const SizedBox(height: 8),
           ],
+          if (lostCount > 0) ...[
+            const SizedBox(height: 8),
+            _buildLostRow(context, lostCount, maxReached),
+          ],
         ],
       ),
+    );
+  }
+
+  Widget _buildLostRow(BuildContext context, int lost, int maxReached) {
+    final pct = (lost / maxReached * 100).clamp(0, 100).toDouble();
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        Row(
+          mainAxisAlignment: MainAxisAlignment.spaceBetween,
+          children: [
+            const Text('Lost',
+                style: TextStyle(fontSize: 13, fontWeight: FontWeight.w500)),
+            Text('$lost',
+                style: const TextStyle(fontSize: 13, fontWeight: FontWeight.w800)),
+          ],
+        ),
+        const SizedBox(height: 4),
+        ClipRRect(
+          borderRadius: BorderRadius.circular(4),
+          child: Container(
+            height: 20,
+            width: double.infinity,
+            color: Theme.of(context).colorScheme.surfaceContainerHighest,
+            child: FractionallySizedBox(
+              alignment: Alignment.centerLeft,
+              widthFactor: pct / 100,
+              child: Container(color: AppColors.danger),
+            ),
+          ),
+        ),
+      ],
     );
   }
 
