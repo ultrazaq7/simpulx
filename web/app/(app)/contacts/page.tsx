@@ -186,7 +186,7 @@ export default function ContactsPage() {
     const a = document.createElement("a");
     a.href = url; a.download = `contacts-${new Date().toISOString().slice(0, 10)}.csv`;
     a.click(); URL.revokeObjectURL(url);
-    setToast(`Exported ${filtered.length} lead${filtered.length === 1 ? "" : "s"}`);
+    setToast(`Exported ${filtered.length} contact${filtered.length === 1 ? "" : "s"}`);
   }
 
   async function importCsv(file: File) {
@@ -215,7 +215,7 @@ export default function ContactsPage() {
 
   async function remove(c: Contact) {
     if (!confirm(`Delete "${c.full_name || c.phone}"? This also removes its conversations.`)) return;
-    try { await api.deleteContact(c.id); setContacts((p) => p.filter((x) => x.id !== c.id)); setToast("Lead deleted"); }
+    try { await api.deleteContact(c.id); setContacts((p) => p.filter((x) => x.id !== c.id)); setToast("Contact deleted"); }
     catch (e: any) { setToast(e?.message || "Delete failed"); }
   }
 
@@ -278,7 +278,7 @@ export default function ContactsPage() {
           {canCreate && (
             <div className="relative inline-flex" onClick={(e) => e.stopPropagation()}>
               <button onClick={() => setModal({ mode: "add" })} className="inline-flex items-center gap-2 px-3.5 h-9 bg-primary text-white rounded-l-md text-sm font-semibold hover:bg-primary-dark shadow-sm transition-all outline-none">
-                <UserPlus className="w-4 h-4" />Add lead
+                <UserPlus className="w-4 h-4" />Add contact
               </button>
               <button aria-label="More add options" onClick={() => setAddMenuOpen((o) => !o)} className="px-2 h-9 bg-primary text-white rounded-r-md border-l border-white/20 hover:bg-primary-dark outline-none transition-colors">
                 <ChevronDown className="w-4 h-4" />
@@ -328,8 +328,8 @@ export default function ContactsPage() {
               )) : paged.length === 0 ? (
                 <tr><td colSpan={16} className="text-center py-16">
                   <div className="w-12 h-12 rounded-xl bg-muted grid place-items-center mx-auto mb-3"><Users className="w-6 h-6 text-muted-foreground/50" /></div>
-                  <p className="font-semibold text-foreground mb-0.5">No leads found</p>
-                  <p className="text-sm text-muted-foreground">{query || activeFilters ? "Try different filters." : "New leads will appear here."}</p>
+                  <p className="font-semibold text-foreground mb-0.5">No contacts found</p>
+                  <p className="text-sm text-muted-foreground">{query || activeFilters ? "Try different filters." : "New contacts will appear here."}</p>
                 </td></tr>
               ) : paged.map((c) => (
                 <tr key={c.id} className="border-b border-border/60 hover:bg-muted/50 transition-colors">
@@ -666,7 +666,7 @@ function ContactModal({ state, allTags, onClose, onSaved }: {
       <div className="absolute inset-0 bg-black/40 backdrop-blur-[2px] animate-fade-in" onClick={onClose} />
       <div className="relative w-[440px] rounded-lg border border-border bg-card shadow-2xl animate-scale-in">
         <div className="flex items-center px-5 py-3.5 border-b border-border">
-          <p className="font-bold text-[15px] text-foreground flex-1">{editing ? "Edit lead" : "Add lead"}</p>
+          <p className="font-bold text-[15px] text-foreground flex-1">{editing ? "Edit contact" : "Add contact"}</p>
           <button onClick={onClose} className="p-1 rounded-md text-muted-foreground hover:bg-muted hover:text-foreground outline-none"><X className="w-[18px] h-[18px]" /></button>
         </div>
         <div className="p-5 space-y-4">

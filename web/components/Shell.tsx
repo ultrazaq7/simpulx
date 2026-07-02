@@ -71,7 +71,7 @@ const SIDEBAR_W = 72;
 const PAGE_TITLES: Record<string, { category: string; title: string }> = {
   "/dashboard": { category: "OVERVIEW", title: "Dashboard" },
   "/inbox": { category: "INBOX", title: "My Inbox" },
-  "/contacts": { category: "GROUPS", title: "Leads" },
+  "/contacts": { category: "GROUPS", title: "Contacts" },
   "/campaigns": { category: "CAMPAIGNS", title: "Campaigns" },
   "/broadcasts": { category: "OUTREACH", title: "Broadcasts" },
   "/drip": { category: "OUTREACH", title: "Drip campaigns" },

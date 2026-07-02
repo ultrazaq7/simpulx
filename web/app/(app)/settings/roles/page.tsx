@@ -10,7 +10,7 @@ const GROUPS: { group: string; perms: Perm[] }[] = [
   { group: "Sidebar Menu", perms: [
     { key: "menu_dashboard", label: "Dashboard" },
     { key: "menu_chats", label: "Inbox / Chats" },
-    { key: "menu_contacts", label: "Leads" },
+    { key: "menu_contacts", label: "Contacts" },
     { key: "menu_broadcasts", label: "Broadcasts" },
     { key: "menu_automation", label: "Automation" },
     { key: "menu_drip_campaigns", label: "Follow-ups" },
@@ -28,12 +28,12 @@ const GROUPS: { group: string; perms: Perm[] }[] = [
     { key: "assign_chats", label: "Assign Conversations" },
     { key: "close_chats", label: "Close Conversations" },
   ] },
-  { group: "Leads", perms: [
-    { key: "view_contacts", label: "View Leads" },
-    { key: "create_contacts", label: "Create Leads" },
-    { key: "edit_contacts", label: "Edit Leads" },
-    { key: "delete_contacts", label: "Delete Leads" },
-    { key: "export_contacts", label: "Export Leads" },
+  { group: "Contacts", perms: [
+    { key: "view_contacts", label: "View Contacts" },
+    { key: "create_contacts", label: "Create Contacts" },
+    { key: "edit_contacts", label: "Edit Contacts" },
+    { key: "delete_contacts", label: "Delete Contacts" },
+    { key: "export_contacts", label: "Export Contacts" },
   ] },
   { group: "Broadcasts", perms: [
     { key: "view_broadcasts", label: "View Broadcasts" },

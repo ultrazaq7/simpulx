@@ -118,8 +118,8 @@ export default function ContactDetailsPage() {
   if (!contact) return (
     <div className="grid place-items-center h-full text-center">
       <div>
-        <p className="font-semibold text-foreground mb-1">Lead not found</p>
-        <button onClick={() => router.push("/contacts")} className="text-[13px] font-semibold text-primary hover:underline outline-none">Back to leads</button>
+        <p className="font-semibold text-foreground mb-1">Contact not found</p>
+        <button onClick={() => router.push("/contacts")} className="text-[13px] font-semibold text-primary hover:underline outline-none">Back to contacts</button>
       </div>
     </div>
   );
@@ -132,7 +132,7 @@ export default function ContactDetailsPage() {
       {/* Header */}
       <div className="flex items-center gap-3 px-4 py-3 border-b border-border bg-card shrink-0">
         <button onClick={() => router.push("/contacts")} className="p-1.5 rounded-md text-muted-foreground hover:bg-muted hover:text-foreground outline-none"><ArrowLeft className="w-5 h-5" /></button>
-        <p className="font-bold text-[15px] text-foreground">Lead details</p>
+        <p className="font-bold text-[15px] text-foreground">Contact details</p>
         <div className="flex-1" />
         {c.conversation_id && (
           <button onClick={() => router.push(`/inbox?c=${c.conversation_id}`)}
