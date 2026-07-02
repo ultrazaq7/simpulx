@@ -10,7 +10,7 @@ import {
   X, Check, ArrowLeft, Loader2, Copy, Lock, LogIn as FbIcon, KeyRound, CheckCircle2, Radio,
 } from "lucide-react";
 import ChannelIcon, { CHANNEL_CATALOG, channelMeta } from "@/components/ChannelIcon";
-import { api } from "@/lib/api";
+import { api, getUser } from "@/lib/api";
 import { cn } from "@/lib/utils";
 import { isMetaSignupConfigured, launchWhatsAppSignup } from "@/lib/fbSignup";
 import { FieldLabel, INPUT_CLASS, PrimaryButton } from "../_shared";
@@ -109,11 +109,15 @@ export function ChannelWizard({ onClose, onDone, onError }: {
 
 // ── Step 0: pick a platform ────────────────────────────────────────────────
 function SelectStep({ selected, onSelect }: { selected: string; onSelect: (t: string) => void }) {
+  // Testing (sandbox) is Owner-only: managers/agents/dealers never see it in the
+  // wizard. Each org keeps a single testing channel, provisioned by its Owner.
+  const isOwner = getUser()?.role === "owner";
+  const catalog = CHANNEL_CATALOG.filter((c) => c.type !== "testing" || isOwner);
   return (
     <div>
       <p className="text-[13.5px] text-muted-foreground mb-4">Choose the platform you want to connect. You can add more channels any time.</p>
       <div className="grid grid-cols-1 sm:grid-cols-2 gap-2.5">
-        {CHANNEL_CATALOG.map((c) => {
+        {catalog.map((c) => {
           const active = selected === c.type;
           return (
             <button

@@ -9,7 +9,7 @@ import { Select } from "@/components/Select";
 import { cn } from "@/lib/utils";
 import { Tip } from "@/components/ui/tooltip";
 import type { WebApiSource, Campaign } from "@/lib/types";
-import { useToast, SettingsCard, FieldLabel, INPUT_CLASS, PrimaryButton, GhostButton } from "../_shared";
+import { useToast, FieldLabel, INPUT_CLASS, PrimaryButton, GhostButton } from "../_shared";
 import { WebApiWizard } from "./WebApiWizard";
 
 const API = process.env.NEXT_PUBLIC_API_URL || "http://localhost:8080";
@@ -81,9 +81,9 @@ export function WebApiTab() {
             </div>
           </div>
 
-          {/* List */}
+          {/* List (rows) */}
           {loading ? (
-            [0, 1].map((i) => <div key={i} className="h-24 mb-3 rounded-lg skeleton" />)
+            <div className="space-y-2">{[0, 1].map((i) => <div key={i} className="h-14 rounded-lg skeleton" />)}</div>
           ) : filtered.length === 0 ? (
             <div className="text-center py-16 border border-dashed border-border rounded-lg bg-card">
               <Plug className="w-11 h-11 text-muted-foreground/30 mx-auto mb-2" />
@@ -93,33 +93,33 @@ export function WebApiTab() {
                 <Plus className="w-4 h-4" />Add API source
               </PrimaryButton>
             </div>
-          ) : filtered.map((p) => (
-            <SettingsCard key={p.id} className={cn("p-5 mb-3", !p.is_active && "opacity-65")}>
-              <div className="flex items-center gap-3">
-                <div className="w-10 h-10 rounded-lg grid place-items-center bg-[#8B5CF6]/[0.12] text-[#8B5CF6] shrink-0">
-                  <Plug className="w-5 h-5" />
+          ) : (
+            <div className="rounded-lg border border-border divide-y divide-border overflow-hidden">
+              {filtered.map((p) => (
+                <div key={p.id} className={cn("flex items-center gap-3 px-4 py-2.5 hover:bg-muted/40 transition-colors", !p.is_active && "opacity-65")}>
+                  <div className="w-9 h-9 rounded-lg grid place-items-center bg-[#8B5CF6]/[0.12] text-[#8B5CF6] shrink-0"><Plug className="w-[18px] h-[18px]" /></div>
+                  <div className="min-w-0 w-[210px] shrink-0">
+                    <p className="text-[13.5px] font-bold text-foreground truncate">{p.name}</p>
+                    <p className="text-[11.5px] text-muted-foreground truncate">{p.slug ? `slug: ${p.slug}` : ""}{p.campaign_name ? ` · → ${p.campaign_name}` : ""} · {p.lead_count} leads</p>
+                  </div>
+                  <div className="min-w-0 flex-1 hidden md:flex items-center gap-2 px-2.5 py-1.5 rounded-lg bg-muted/50">
+                    <Key className="w-[15px] h-[15px] text-muted-foreground shrink-0" />
+                    <span className="font-mono text-xs text-muted-foreground flex-1 truncate">{p.api_key.slice(0, 10)}{"•".repeat(14)}</span>
+                    <Tip label="Copy key"><button onClick={() => copy(p.api_key, "API key copied")} className="p-1 outline-none text-muted-foreground hover:text-foreground transition-colors"><Copy className="w-[15px] h-[15px]" /></button></Tip>
+                    <Tip label="Regenerate key"><button onClick={() => regen(p)} className="p-1 outline-none text-muted-foreground hover:text-foreground transition-colors"><RotateCw className="w-[15px] h-[15px]" /></button></Tip>
+                  </div>
+                  <Tip label={p.is_active ? "Active" : "Disabled"}>
+                    <label className="relative inline-flex items-center cursor-pointer shrink-0">
+                      <input type="checkbox" checked={p.is_active} onChange={() => toggle(p)} className="sr-only peer" />
+                      <div className="w-9 h-5 bg-muted rounded-full peer peer-checked:bg-primary after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:rounded-full after:h-4 after:w-4 after:transition-all peer-checked:after:translate-x-full" />
+                    </label>
+                  </Tip>
+                  <Tip label="Edit"><button onClick={() => setDlg({ open: true, editing: p })} className="p-1.5 rounded-md hover:bg-muted outline-none transition-colors shrink-0"><Pencil className="w-[18px] h-[18px] text-muted-foreground" /></button></Tip>
+                  <Tip label="Delete"><button onClick={() => remove(p)} className="p-1.5 rounded-md hover:bg-muted outline-none transition-colors shrink-0"><Trash2 className="w-[18px] h-[18px] text-destructive" /></button></Tip>
                 </div>
-                <div className="flex-1 min-w-0">
-                  <p className="text-[14.5px] font-bold text-foreground">{p.name}</p>
-                  <p className="text-xs text-muted-foreground">{p.slug ? `slug: ${p.slug}` : ""}{p.campaign_name ? ` · → ${p.campaign_name}` : ""} · {p.lead_count} leads</p>
-                </div>
-                <Tip label={p.is_active ? "Active" : "Disabled"}>
-                  <label className="relative inline-flex items-center cursor-pointer">
-                    <input type="checkbox" checked={p.is_active} onChange={() => toggle(p)} className="sr-only peer" />
-                    <div className="w-9 h-5 bg-muted rounded-full peer peer-checked:bg-primary after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:rounded-full after:h-4 after:w-4 after:transition-all peer-checked:after:translate-x-full" />
-                  </label>
-                </Tip>
-                <Tip label="Edit"><button onClick={() => setDlg({ open: true, editing: p })} className="p-1.5 rounded-md hover:bg-muted outline-none transition-colors"><Pencil className="w-[18px] h-[18px] text-muted-foreground" /></button></Tip>
-                <Tip label="Delete"><button onClick={() => remove(p)} className="p-1.5 rounded-md hover:bg-muted outline-none transition-colors"><Trash2 className="w-[18px] h-[18px] text-destructive" /></button></Tip>
-              </div>
-              <div className="flex items-center gap-2 mt-3 px-2.5 py-1.5 rounded-lg bg-muted/50">
-                <Key className="w-[15px] h-[15px] text-muted-foreground shrink-0" />
-                <span className="font-mono text-xs text-muted-foreground flex-1 truncate">{p.api_key.slice(0, 10)}{"•".repeat(18)}</span>
-                <Tip label="Copy key"><button onClick={() => copy(p.api_key, "API key copied")} className="p-1 outline-none text-muted-foreground hover:text-foreground transition-colors"><Copy className="w-[15px] h-[15px]" /></button></Tip>
-                <Tip label="Regenerate key"><button onClick={() => regen(p)} className="p-1 outline-none text-muted-foreground hover:text-foreground transition-colors"><RotateCw className="w-[15px] h-[15px]" /></button></Tip>
-              </div>
-            </SettingsCard>
-          ))}
+              ))}
+            </div>
+          )}
         </div>
       </div>
 

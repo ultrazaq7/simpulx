@@ -125,10 +125,10 @@ export function ChannelsTab() {
           </div>
         )}
 
-        {/* List */}
-        <div className="overflow-auto flex-1 min-h-0 p-4">
+        {/* List (rows) */}
+        <div className="overflow-auto flex-1 min-h-0">
           {loading ? (
-            <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-3">{[0, 1, 2, 3].map((i) => <div key={i} className="h-[132px] rounded-xl skeleton" />)}</div>
+            <div className="p-4 space-y-2">{[0, 1, 2, 3].map((i) => <div key={i} className="h-14 rounded-lg skeleton" />)}</div>
           ) : visible.length === 0 ? (
             <div className="text-center py-16">
               <div className="inline-flex mb-3 opacity-80"><ChannelIcon type="whatsapp" size={56} radius={16} /></div>
@@ -137,9 +137,9 @@ export function ChannelsTab() {
               {channels.length === 0 && <PrimaryButton onClick={() => setWizardOpen(true)}><Plus className="w-4 h-4" />Create channel</PrimaryButton>}
             </div>
           ) : (
-            <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-3">
+            <div className="divide-y divide-border">
               {paged.map((c) => (
-                <ChannelCard key={c.id} c={c} onTest={test} onToggle={toggleActive} onEdit={setEditing} onDelete={remove} />
+                <ChannelRow key={c.id} c={c} onTest={test} onToggle={toggleActive} onEdit={setEditing} onDelete={remove} />
               ))}
             </div>
           )}
@@ -188,8 +188,8 @@ function Chip({ label, active, onClick }: { label: string; active: boolean; onCl
   );
 }
 
-// ── Enterprise channel card ────────────────────────────────────────────────
-function ChannelCard({ c, onTest, onToggle, onEdit, onDelete }: {
+// ── Enterprise channel row ─────────────────────────────────────────────────
+function ChannelRow({ c, onTest, onToggle, onEdit, onDelete }: {
   c: Channel; onTest: (c: Channel) => void; onToggle: (c: Channel) => void; onEdit: (c: Channel) => void; onDelete: (c: Channel) => void;
 }) {
   const sandbox = isSandbox(c);
@@ -199,55 +199,52 @@ function ChannelCard({ c, onTest, onToggle, onEdit, onDelete }: {
   const [menu, setMenu] = useState(false);
 
   return (
-    <div className={cn("rounded-xl bg-card border border-border shadow-xs p-4 flex flex-col gap-3 transition-opacity", !c.is_active && "opacity-60")}>
-      {/* Header */}
-      <div className="flex items-start gap-3">
-        <ChannelIcon type={iconType} size={44} />
-        <div className="min-w-0 flex-1">
-          <p className="text-[14px] font-bold text-foreground truncate">{c.name}</p>
-          <p className="text-[12px] text-muted-foreground truncate">{typeLabel}</p>
-        </div>
-        <StatusDot status={c.status} />
+    <div className={cn("flex items-center gap-3 px-4 py-2.5 hover:bg-muted/40 transition-colors", !c.is_active && "opacity-60")}>
+      <ChannelIcon type={iconType} size={38} />
+      <div className="min-w-0 w-[190px] shrink-0">
+        <p className="text-[13.5px] font-bold text-foreground truncate">{c.name}</p>
+        <p className="text-[11.5px] text-muted-foreground truncate">{typeLabel}</p>
       </div>
-
-      {/* Reference badge */}
-      <div className="flex items-center gap-2 flex-wrap">
+      <div className="min-w-0 flex-1 hidden md:flex items-center gap-2">
         {ref ? (
-          <span className="inline-flex items-center px-2.5 h-7 rounded-full border border-success/40 bg-success/[0.07] text-[12px] font-semibold text-success font-mono">{ref}</span>
+          <span className="inline-flex items-center px-2.5 h-7 rounded-full border border-success/40 bg-success/[0.07] text-[12px] font-semibold text-success font-mono truncate max-w-full">{ref}</span>
         ) : (
           <span className="inline-flex items-center px-2.5 h-7 rounded-full border border-border bg-muted/50 text-[12px] font-medium text-muted-foreground">Not configured</span>
         )}
-        {c.connected_at && <span className="text-[11.5px] text-muted-foreground">since {fmtDate(c.connected_at)}</span>}
+        {c.connected_at && <span className="text-[11.5px] text-muted-foreground shrink-0">since {fmtDate(c.connected_at)}</span>}
       </div>
-
-      {/* Actions */}
-      <div className="flex items-center gap-2 pt-1 border-t border-border/60 mt-1">
-        <button onClick={() => onTest(c)} className="inline-flex items-center gap-1.5 px-2.5 h-8 rounded-md border border-border text-[12.5px] font-semibold text-foreground hover:bg-muted transition-colors outline-none">
-          <CheckCircle className="w-3.5 h-3.5" />Test
+      <div className="w-[120px] shrink-0 hidden sm:block"><StatusDot status={c.status} /></div>
+      <Tip label={c.is_active ? "Active" : "Disabled"}><span className="shrink-0"><Toggle checked={c.is_active} onChange={() => onToggle(c)} /></span></Tip>
+      <button onClick={() => onTest(c)} className="inline-flex items-center gap-1.5 px-2.5 h-8 rounded-md border border-border text-[12.5px] font-semibold text-foreground hover:bg-muted transition-colors outline-none shrink-0">
+        <CheckCircle className="w-3.5 h-3.5" />Test
+      </button>
+      <div className="relative shrink-0">
+        <button onClick={() => setMenu((m) => !m)} className="p-1.5 rounded-md hover:bg-muted outline-none transition-colors">
+          <MoreVertical className="w-[18px] h-[18px] text-muted-foreground" />
         </button>
-        <Link href="/settings/templates" className="inline-flex items-center gap-1.5 px-2.5 h-8 rounded-md border border-border text-[12.5px] font-semibold text-foreground hover:bg-muted transition-colors outline-none">
-          <FileText className="w-3.5 h-3.5" />Templates
-        </Link>
-        <div className="flex-1" />
-        <Tip label={c.is_active ? "Active" : "Disabled"}><span><Toggle checked={c.is_active} onChange={() => onToggle(c)} /></span></Tip>
-        <div className="relative">
-          <button onClick={() => setMenu((m) => !m)} className="p-1.5 rounded-md hover:bg-muted outline-none transition-colors">
-            <MoreVertical className="w-[18px] h-[18px] text-muted-foreground" />
-          </button>
-          {menu && (
-            <>
-              <div className="fixed inset-0 z-10" onClick={() => setMenu(false)} />
-              <div className="absolute right-0 top-9 z-20 w-40 rounded-lg border border-border bg-card shadow-xl py-1 animate-scale-in">
-                <MenuItem icon={Pencil} label="Edit" onClick={() => { setMenu(false); onEdit(c); }} />
-                <MenuItem icon={Power} label={c.is_active ? "Disable" : "Enable"} onClick={() => { setMenu(false); onToggle(c); }} />
-                <div className="my-1 border-t border-border/60" />
-                <MenuItem icon={Trash2} label="Delete" danger onClick={() => { setMenu(false); onDelete(c); }} />
-              </div>
-            </>
-          )}
-        </div>
+        {menu && (
+          <>
+            <div className="fixed inset-0 z-10" onClick={() => setMenu(false)} />
+            <div className="absolute right-0 top-9 z-20 w-40 rounded-lg border border-border bg-card shadow-xl py-1 animate-scale-in">
+              <MenuItem icon={Pencil} label="Edit" onClick={() => { setMenu(false); onEdit(c); }} />
+              <LinkMenuItem icon={FileText} label="Templates" href="/settings/templates" onClick={() => setMenu(false)} />
+              <MenuItem icon={Power} label={c.is_active ? "Disable" : "Enable"} onClick={() => { setMenu(false); onToggle(c); }} />
+              <div className="my-1 border-t border-border/60" />
+              <MenuItem icon={Trash2} label="Delete" danger onClick={() => { setMenu(false); onDelete(c); }} />
+            </div>
+          </>
+        )}
       </div>
     </div>
+  );
+}
+
+function LinkMenuItem({ icon: Icon, label, href, onClick }: { icon: any; label: string; href: string; onClick: () => void }) {
+  return (
+    <Link href={href} onClick={onClick}
+      className="w-full flex items-center gap-2.5 px-3 py-2 text-[13px] font-medium text-left hover:bg-muted transition-colors outline-none text-foreground">
+      <Icon className="w-4 h-4" />{label}
+    </Link>
   );
 }
 

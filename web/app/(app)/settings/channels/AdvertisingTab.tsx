@@ -93,32 +93,31 @@ export function AdvertisingTab() {
             <button onClick={() => setConnectOpen(true)} className="inline-flex items-center gap-2 px-4 h-9 bg-primary text-white rounded-md text-sm font-semibold hover:bg-primary-dark shadow-sm outline-none"><Plus className="w-4 h-4" />Connect ad account</button>
           </div>
         ) : (
-          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-3">
+          <div className="rounded-lg border border-border divide-y divide-border overflow-hidden">
             {visible.map((a) => {
               const mapped = adCampaigns.filter((c) => c.account_name === a.name && c.campaign_id).length;
               return (
-                <div key={a.id} className="group bg-card border border-border rounded-lg p-4 shadow-xs hover:border-primary/30 hover:shadow-md transition-all">
-                  <div className="flex items-start gap-2">
-                    <div className="min-w-0 flex-1">
-                      <p className="font-semibold text-foreground truncate">{a.name || a.external_account_id}</p>
-                      <p className="text-[12px] text-muted-foreground">{PLATFORMS[a.platform]?.label || a.platform}{a.currency ? ` · ${a.currency}` : ""}</p>
-                    </div>
-                    <span className={cn("px-2 py-0.5 rounded-md text-[11px] font-semibold shrink-0", a.status === "error" ? "bg-red-50 text-red-600" : "bg-emerald-50 text-emerald-600")}>{a.status}</span>
+                <div key={a.id} className="flex items-center gap-3 px-4 py-2.5 hover:bg-muted/40 transition-colors">
+                  <div className="min-w-0 w-[220px] shrink-0">
+                    <p className="font-semibold text-foreground truncate">{a.name || a.external_account_id}</p>
+                    <p className="text-[11.5px] text-muted-foreground truncate">{PLATFORMS[a.platform]?.label || a.platform}{a.currency ? ` · ${a.currency}` : ""}</p>
                   </div>
-                  {a.last_error && (
-                    <button onClick={() => setManageId(a.id)} className="mt-2 w-full text-left text-[11px] text-red-600 flex items-start gap-1 hover:underline outline-none">
-                      <AlertTriangle className="w-3.5 h-3.5 shrink-0 mt-px" /><span className="line-clamp-2">{a.last_error} — fix the token</span>
-                    </button>
-                  )}
-                  <div className="flex items-center justify-between mt-3 pt-3 border-t border-border/60">
-                    <span className="text-[11px] text-muted-foreground">
-                      {a.campaign_count > 0 ? `${a.campaign_count} campaign${a.campaign_count === 1 ? "" : "s"}${mapped ? ` · ${mapped} mapped` : ""}` : (a.last_synced_at ? "No campaigns" : "Never synced")}
-                    </span>
-                    <div className="flex items-center gap-0.5">
-                      <button onClick={() => setManageId(a.id)} className="p-1.5 rounded-md hover:bg-muted text-muted-foreground hover:text-foreground outline-none transition-colors" title="Edit / map"><Pencil className="w-4 h-4" /></button>
-                      <button onClick={() => sync(a.id)} disabled={syncing === a.id} className="p-1.5 rounded-md hover:bg-muted text-primary outline-none disabled:opacity-50 transition-colors" title="Sync now"><RefreshCw className={cn("w-4 h-4", syncing === a.id && "animate-spin")} /></button>
-                      <button onClick={() => remove(a)} className="p-1.5 rounded-md hover:bg-muted text-destructive outline-none transition-colors" title="Disconnect"><Trash2 className="w-4 h-4" /></button>
-                    </div>
+                  <div className="min-w-0 flex-1 hidden md:block">
+                    {a.last_error ? (
+                      <button onClick={() => setManageId(a.id)} className="text-left text-[11.5px] text-red-600 flex items-start gap-1 hover:underline outline-none max-w-full">
+                        <AlertTriangle className="w-3.5 h-3.5 shrink-0 mt-px" /><span className="line-clamp-1">{a.last_error} — fix the token</span>
+                      </button>
+                    ) : (
+                      <span className="text-[11.5px] text-muted-foreground">
+                        {a.campaign_count > 0 ? `${a.campaign_count} campaign${a.campaign_count === 1 ? "" : "s"}${mapped ? ` · ${mapped} mapped` : ""}` : (a.last_synced_at ? "No campaigns" : "Never synced")}
+                      </span>
+                    )}
+                  </div>
+                  <span className={cn("px-2 py-0.5 rounded-md text-[11px] font-semibold shrink-0", a.status === "error" ? "bg-red-50 text-red-600" : "bg-emerald-50 text-emerald-600")}>{a.status}</span>
+                  <div className="flex items-center gap-0.5 shrink-0">
+                    <button onClick={() => setManageId(a.id)} className="p-1.5 rounded-md hover:bg-muted text-muted-foreground hover:text-foreground outline-none transition-colors" title="Edit / map"><Pencil className="w-4 h-4" /></button>
+                    <button onClick={() => sync(a.id)} disabled={syncing === a.id} className="p-1.5 rounded-md hover:bg-muted text-primary outline-none disabled:opacity-50 transition-colors" title="Sync now"><RefreshCw className={cn("w-4 h-4", syncing === a.id && "animate-spin")} /></button>
+                    <button onClick={() => remove(a)} className="p-1.5 rounded-md hover:bg-muted text-destructive outline-none transition-colors" title="Disconnect"><Trash2 className="w-4 h-4" /></button>
                   </div>
                 </div>
               );
