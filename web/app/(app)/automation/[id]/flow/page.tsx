@@ -37,7 +37,6 @@ const META: Record<string, Meta> = {
   add_to_sequence: { label: "Add to drip campaign", Icon: Radio, accent: "#D97706", kicker: "DO", desc: ACTIONS.add_to_sequence.desc },
   remove_from_sequence: { label: "Remove from drip campaign", Icon: BellOff, accent: "#D97706", kicker: "DO", desc: ACTIONS.remove_from_sequence.desc },
   blacklist: { label: "Mark blacklisted", Icon: Ban, accent: "#DC2626", kicker: "DO", desc: ACTIONS.blacklist.desc },
-  add_to_list: { label: "Add contact to list", Icon: ListPlus, accent: "#D97706", kicker: "DO", desc: ACTIONS.add_to_list.desc },
   send_email: { label: "Send email notification", Icon: Mail, accent: "#2563EB", kicker: "DO", desc: ACTIONS.send_email.desc },
   add_tag: { label: "Add tag", Icon: Tag, accent: "#D97706", kicker: "DO", desc: ACTIONS.add_tag.desc },
   remove_tag: { label: "Remove tag", Icon: Scissors, accent: "#D97706", kicker: "DO", desc: ACTIONS.remove_tag.desc },
@@ -47,6 +46,7 @@ const META: Record<string, Meta> = {
   close_conversation: { label: "Close conversation", Icon: CheckCircle, accent: "#475569", kicker: "DO", desc: ACTIONS.close_conversation.desc },
   google_sheet: { label: "Add row to Google Sheet", Icon: Sheet, accent: "#059669", kicker: "DO", desc: ACTIONS.google_sheet.desc },
   webhook_notify: { label: "Webhook", Icon: Globe, accent: "#475569", kicker: "DO", desc: ACTIONS.webhook_notify.desc },
+  rest_api: { label: "Call REST API", Icon: Globe, accent: "#475569", kicker: "DO", desc: ACTIONS.rest_api.desc },
 };
 const meta = (k: string) => META[k] ?? META.send_message;
 
@@ -54,12 +54,12 @@ const PALETTE: { group: string; kinds: string[] }[] = [
   { group: "Logic", kinds: ["condition"] },
   { group: "Messaging", kinds: ["send_message", "send_template", "send_form"] },
   { group: "Routing", kinds: ["assign_agent", "unassign_team", "assign_campaign", "remove_campaign"] },
-  { group: "Contact", kinds: ["add_tag", "remove_tag", "set_contact_attribute", "add_to_list", "set_priority", "add_to_sequence", "remove_from_sequence", "blacklist"] },
+  { group: "Contact", kinds: ["add_tag", "remove_tag", "set_contact_attribute", "set_priority", "add_to_sequence", "remove_from_sequence", "blacklist"] },
   { group: "Flow control", kinds: ["set_conversation_status", "close_conversation", "webhook_notify"] },
-  { group: "Integrations", kinds: ["google_sheet", "send_email"] },
+  { group: "Integrations", kinds: ["google_sheet", "send_email", "rest_api"] },
 ];
 // The executor runs these; others are configurable but not yet executed.
-const EXECUTED = new Set(["condition", "send_message", "send_form", "add_tag", "remove_tag", "assign_agent", "unassign_team", "assign_campaign", "remove_campaign", "add_to_sequence", "remove_from_sequence", "blacklist", "add_to_list", "set_contact_attribute", "set_conversation_status", "google_sheet", "send_email", "close_conversation", "webhook_notify"]);
+const EXECUTED = new Set(["condition", "send_message", "send_template", "send_form", "add_tag", "remove_tag", "assign_agent", "unassign_team", "assign_campaign", "remove_campaign", "add_to_sequence", "remove_from_sequence", "blacklist", "set_priority", "set_contact_attribute", "set_conversation_status", "google_sheet", "send_email", "close_conversation", "webhook_notify", "rest_api"]);
 
 type NodeData = { kind: string; config: Record<string, unknown>; triggerType?: string };
 type AppNode = Node<NodeData>;
@@ -76,7 +76,6 @@ function summary(kind: string, c: Record<string, unknown>, triggerType?: string)
     case "remove_campaign": return "Clear campaign";
     case "add_to_sequence": case "remove_from_sequence": return `Sequence: ${c.sequence_name || "—"}`;
     case "blacklist": return "Block from outreach";
-    case "add_to_list": return `List: ${c.list || "—"}`;
     case "send_email": return `Email to: ${c.to || "—"}`;
     case "set_contact_attribute": return `${(Array.isArray(c.mappings) ? c.mappings.length : (c.key ? 1 : 0))} attribute(s)`;
     case "add_tag": case "remove_tag": return `Tags: ${(Array.isArray(c.tags) ? (c.tags as string[]).join(", ") : "") || "—"}`;
@@ -84,6 +83,7 @@ function summary(kind: string, c: Record<string, unknown>, triggerType?: string)
     case "google_sheet": return c.sheet_url ? "Append to sheet" : "No sheet set";
     case "set_priority": return `Priority: ${c.priority || "normal"}`;
     case "webhook_notify": return String(c.url || "No URL set");
+    case "rest_api": return c.url ? `${String(c.method || "POST")} ${String(c.url)}` : "No URL set";
     case "condition": return c.attribute ? `${c.attribute} ${String(c.operator || "equals").replace(/_/g, " ")} ${c.value ?? ""}`.trim() : "Define condition";
     case "close_conversation": return "Resolve and close";
     default: return ACTIONS[kind]?.desc ?? "";
@@ -448,7 +448,6 @@ function Inspector({ node, triggerType, campaigns, forms, agents, sequences, she
         {kind === "unassign_team" && <p className="text-[13px] text-muted-foreground">Clears the conversation&apos;s assigned agent. No configuration needed.</p>}
         {kind === "remove_campaign" && <p className="text-[13px] text-muted-foreground">Clears the conversation&apos;s campaign. No configuration needed.</p>}
         {kind === "blacklist" && <p className="text-[13px] text-muted-foreground">Blocks this contact from future outreach. No configuration needed.</p>}
-        {kind === "add_to_list" && <Field label="List name (tag)"><input value={String(c.list ?? "")} onChange={(e) => set("list", e.target.value)} placeholder="e.g. Newsletter, VIP" className={INP} /></Field>}
         {kind === "send_email" && <>
           <Field label="To (email)"><input value={String(c.to ?? "")} onChange={(e) => set("to", e.target.value)} placeholder="sales@yourco.com" className={INP} /></Field>
           <Field label="Subject"><input value={String(c.subject ?? "")} onChange={(e) => set("subject", e.target.value)} placeholder="New lead: {full_name}" className={INP} /></Field>
