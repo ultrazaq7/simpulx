@@ -290,12 +290,12 @@ class _ContactsPageState extends ConsumerState<ContactsPage> {
 
     return Scaffold(
       appBar: AppBar(
-        title: Text(count != null ? 'Leads ($count)' : 'Leads'),
+        title: Text(count != null ? 'Contacts ($count)' : 'Contacts'),
         actions: [
-          // Add lead button
+          // Add contact button
           IconButton(
             icon: const Icon(Icons.person_add_alt_1_rounded),
-            tooltip: 'Add Lead',
+            tooltip: 'Add Contact',
             onPressed: () async {
               final id = await showContactForm(context);
               if (id != null && context.mounted) context.push('/contacts/$id');

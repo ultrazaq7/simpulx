@@ -96,7 +96,7 @@ class _ContactDetailPageState extends ConsumerState<ContactDetailPage> {
     if (contact == null) {
       return Scaffold(
         appBar: AppBar(
-          title: const Text('Lead'),
+          title: const Text('Contact'),
           shape: Border(
             bottom: BorderSide(
               color: Theme.of(context).brightness == Brightness.dark 
@@ -112,7 +112,7 @@ class _ContactDetailPageState extends ConsumerState<ContactDetailPage> {
 
     return Scaffold(
       appBar: AppBar(
-        title: const Text('Lead Details'),
+        title: const Text('Contact Details'),
         shape: Border(
           bottom: BorderSide(
             color: Theme.of(context).brightness == Brightness.dark 
