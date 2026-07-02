@@ -1,3 +1,4 @@
+import 'package:cached_network_image/cached_network_image.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
@@ -369,7 +370,7 @@ class _ProfileHeader extends ConsumerWidget {
             radius: 26,
             backgroundColor: AppColors.avatarColor(user.name),
             backgroundImage: user.avatarUrl != null
-                ? NetworkImage(user.avatarUrl!)
+                ? CachedNetworkImageProvider(user.avatarUrl!)
                 : null,
             child: user.avatarUrl == null
                 ? Text(user.initials,
@@ -515,7 +516,7 @@ class _ProfileSheetState extends ConsumerState<_ProfileSheet> {
                   radius: 26,
                   backgroundColor: AppColors.primary.withValues(alpha: 0.12),
                   backgroundImage: user?.avatarUrl != null
-                      ? NetworkImage(user!.avatarUrl!)
+                      ? CachedNetworkImageProvider(user!.avatarUrl!)
                       : null,
                   child: user?.avatarUrl == null
                       ? Text(user?.initials ?? '?',

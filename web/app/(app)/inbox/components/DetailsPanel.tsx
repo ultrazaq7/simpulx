@@ -2,7 +2,7 @@
 import { useEffect, useState } from "react";
 import { X, Copy, User, Phone, Hash, MessageSquare, Clock, StickyNote, Tag as TagIcon, Plus, Paperclip, Download, FileText, Image as ImageIcon, Video, Mic, Trash2 } from "lucide-react";
 import { api } from "@/lib/api";
-import { initials, channelColor, channelTextColor, channelLabel, fmtDate, fmtTime, cn } from "@/lib/utils";
+import { initials, channelColor, channelTextColor, channelLabel, fmtDate, fmtTime, cn, interestColor } from "@/lib/utils";
 import { Tip } from "@/components/ui/tooltip";
 import { Select } from "@/components/Select";
 import type { Conversation, InternalNote, Message } from "@/lib/types";
@@ -251,7 +251,7 @@ export default function DetailsPanel({ active, onClose, copyText, notes, onAddNo
                   <div className="flex-1 min-w-0">
                     <p className="text-[10px] font-bold uppercase tracking-wider text-muted-foreground mb-1">Interest level</p>
                     <Select value={interest} searchable={false} onChange={changeInterest} className="w-full"
-                      options={[{ value: "", label: "-" }, { value: "hot", label: "🔥 Hot" }, { value: "warm", label: "🌤 Warm" }, { value: "cold", label: "❄ Cold" }]} />
+                      options={[{ value: "", label: "-" }, { value: "hot", label: "Hot", dot: interestColor("hot") }, { value: "warm", label: "Warm", dot: interestColor("warm") }, { value: "cold", label: "Cold", dot: interestColor("cold") }]} />
                   </div>
                 </div>
               ) : (

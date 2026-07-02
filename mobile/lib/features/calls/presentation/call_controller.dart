@@ -380,12 +380,18 @@ class CallController extends Notifier<CallSession?> {
   }
 
   /// Cancel the native call notification shown by SimpulxMessagingService.
+  ///
+  /// We pass the raw conversationId and let the native side derive the id
+  /// (chatId.hashCode() + 100). Computing the id in Dart never matched, because
+  /// Dart's String.hashCode differs from the JVM's, so the ring notification was
+  /// never actually dismissed (it lingered with stale Answer/Decline buttons and
+  /// looked like a duplicate).
   void _dismissNativeCallNotification() {
     final convId = state?.conversationId ?? '';
     if (convId.isEmpty) return;
-    // Native notification id = chatId.hashCode() + 100 (from NotificationHelper.kt)
-    final id = convId.hashCode + 100;
-    _channel.invokeMethod('cancelNotification', {'id': id}).catchError((_) {});
+    _channel
+        .invokeMethod('cancelCallNotification', {'chatId': convId})
+        .catchError((_) {});
   }
 }
 

@@ -361,7 +361,7 @@ export default function ContactsPage() {
                   <td className="px-3 py-2 whitespace-nowrap">
                     {canEdit && c.conversation_id ? (
                       <Select value={c.interest_level || ""} searchable={false} onChange={(v) => setInterest(c, v)} className="w-[104px]"
-                        options={[{ value: "", label: "Unset" }, { value: "hot", label: "🔥 Hot" }, { value: "warm", label: "🌤 Warm" }, { value: "cold", label: "❄ Cold" }]} />
+                        options={[{ value: "", label: "Unset" }, { value: "hot", label: "Hot", dot: interestColor("hot") }, { value: "warm", label: "Warm", dot: interestColor("warm") }, { value: "cold", label: "Cold", dot: interestColor("cold") }]} />
                     ) : c.interest_level ? (
                       <span className="inline-flex px-2 py-0.5 rounded-md text-[11px] font-semibold capitalize"
                         style={{ backgroundColor: interestColor(c.interest_level) + "1A", color: interestColor(c.interest_level) }}>{c.interest_level}</span>

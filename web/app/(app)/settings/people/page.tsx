@@ -1,5 +1,6 @@
 "use client";
 import { useEffect, useMemo, useRef, useState } from "react";
+import { createPortal } from "react-dom";
 import { Search, MoreHorizontal, User, Loader2, Eye, EyeOff, X, Plus, Activity, Clock, Timer, CalendarDays, Download } from "lucide-react";
 import { api, getUser } from "@/lib/api";
 import { Select } from "@/components/Select";
@@ -237,7 +238,7 @@ function UserRowMenu({ u, isOpen, onToggle, onClose, onEdit, onViewActivity, onT
         className="p-1 border border-border rounded-md hover:bg-muted transition-colors outline-none">
         <MoreHorizontal className="w-[18px] h-[18px] text-muted-foreground" />
       </button>
-      {isOpen && (
+      {isOpen && typeof document !== "undefined" && createPortal(
         <>
           <div className="fixed inset-0 z-[60]" onClick={onClose} />
           <div
@@ -261,7 +262,8 @@ function UserRowMenu({ u, isOpen, onToggle, onClose, onEdit, onViewActivity, onT
               <button onClick={onRemove} className="w-full px-3 py-2 text-left text-[13px] text-destructive hover:bg-muted outline-none transition-colors">Remove</button>
             )}
           </div>
-        </>
+        </>,
+        document.body,
       )}
     </>
   );

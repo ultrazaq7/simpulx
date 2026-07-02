@@ -278,13 +278,29 @@ func (a *app) evalCondition(ctx context.Context, orgID, contactID string, cfg ma
 func (a *app) execStep(ctx context.Context, orgID, convID, contactID string, s autoStep) {
 	switch s.Type {
 	case "send_message":
-		msg := pStr(s.Params, "message")
-		if msg == "" {
+		vars := a.st.contactVars(ctx, contactID)
+		// Auto-reply node: "text" (default) or a WhatsApp interactive message
+		// (reply buttons / list). Older nodes have no message_type -> text.
+		mt := pStr(s.Params, "message_type")
+		if mt == "" || mt == "text" {
+			msg := pStr(s.Params, "message")
+			if msg == "" {
+				return
+			}
+			_ = a.bus.Publish(events.SubjectMessageOutbound, orgID, events.MessageOutbound{
+				ConversationID: convID, SenderType: "system", Type: "text",
+				Body: resolvePlaceholders(vars, msg),
+			})
 			return
 		}
-		msg = resolvePlaceholders(a.st.contactVars(ctx, contactID), msg)
+		inter := buildInteractive(vars, s.Params, mt)
+		if inter == nil {
+			a.log.Warn("automation send_message: invalid interactive config", "type", mt, "conv", convID)
+			return
+		}
 		_ = a.bus.Publish(events.SubjectMessageOutbound, orgID, events.MessageOutbound{
-			ConversationID: convID, SenderType: "system", Type: "text", Body: msg,
+			ConversationID: convID, SenderType: "system", Type: "interactive",
+			Body: inter.Body, Interactive: inter,
 		})
 	case "add_tag":
 		if tags := pStrSlice(s.Params, "tags"); len(tags) > 0 {
@@ -520,6 +536,81 @@ func (s *store) contactVars(ctx context.Context, contactID string) map[string]st
 		}
 	}
 	return m
+}
+
+// buildInteractive turns an auto-reply node's params into a WhatsApp interactive
+// payload (reply buttons or list). Placeholders in the text fields are resolved
+// against the contact. Returns nil when the config is incomplete/invalid.
+func buildInteractive(vars map[string]string, params map[string]any, mt string) *events.InteractiveOutbound {
+	body := pStr(params, "body")
+	if body == "" {
+		body = pStr(params, "message")
+	}
+	if body == "" {
+		return nil
+	}
+	out := &events.InteractiveOutbound{
+		Type:   mt,
+		Body:   resolvePlaceholders(vars, body),
+		Header: resolvePlaceholders(vars, pStr(params, "header")),
+		Footer: resolvePlaceholders(vars, pStr(params, "footer")),
+	}
+	switch mt {
+	case "buttons":
+		raw, _ := params["buttons"].([]any)
+		for _, r := range raw {
+			m, _ := r.(map[string]any)
+			title := pStr(m, "title")
+			if title == "" {
+				title = pStr(m, "label")
+			}
+			if title == "" {
+				continue
+			}
+			id := pStr(m, "id")
+			if id == "" {
+				id = title
+			}
+			out.Buttons = append(out.Buttons, events.InteractiveButton{ID: id, Title: title})
+			if len(out.Buttons) >= 3 { // WhatsApp caps reply buttons at 3
+				break
+			}
+		}
+		if len(out.Buttons) == 0 {
+			return nil
+		}
+	case "list":
+		out.ButtonText = pStr(params, "button_text")
+		raw, _ := params["sections"].([]any)
+		for _, r := range raw {
+			m, _ := r.(map[string]any)
+			sec := events.InteractiveSection{Title: pStr(m, "title")}
+			rows, _ := m["rows"].([]any)
+			for _, rr := range rows {
+				rm, _ := rr.(map[string]any)
+				title := pStr(rm, "title")
+				if title == "" {
+					continue
+				}
+				id := pStr(rm, "id")
+				if id == "" {
+					id = title
+				}
+				sec.Rows = append(sec.Rows, events.InteractiveRow{
+					ID: id, Title: title, Description: pStr(rm, "description"),
+				})
+			}
+			if len(sec.Rows) > 0 {
+				out.Sections = append(out.Sections, sec)
+			}
+		}
+		if len(out.Sections) == 0 {
+			return nil
+		}
+	default:
+		return nil
+	}
+	return out
 }
 
 // ── param helpers ──

@@ -259,6 +259,8 @@ func (a *app) onOutbound(env events.Envelope) error {
 	switch {
 	case target.ChannelType == "viber":
 		externalID, err = a.vsnd.send(ctx, target, e.Type, e.Body, e.MediaURL)
+	case e.Interactive != nil:
+		externalID, err = a.snd.sendInteractive(ctx, target, e.Interactive)
 	case e.MediaURL != "" && (e.Type == "image" || e.Type == "audio" || e.Type == "video" || e.Type == "document"):
 		externalID, err = a.snd.sendMedia(ctx, target, e.Type, e.MediaURL, e.Body)
 	default:

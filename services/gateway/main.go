@@ -506,6 +506,10 @@ func (s *server) ingest(ctx context.Context, p waWebhook) {
 						}
 					}
 					s.applyCallPermissionReply(ctx, orgID, m.From, m.Interactive.CallPermissionReply.Response, repliedMsgID)
+					// A call-permission reply is a call-control signal, not a chat
+					// message. Stop here so it is NOT persisted or pushed as an inbound
+					// "new message" (that surfaced as a stray notification mid-call setup).
+					continue
 				}
 
 				// WhatsApp Flow (Form) submission → store the collected answers.

@@ -23,12 +23,14 @@ const (
 	SubjectCallUpdated          = "events.call.updated"
 	SubjectNotificationCreated  = "events.notification.created"
 	SubjectSendForm             = "events.cmd.send_form" // AI nurture -> auto-send a WA intake form
+	// AI follow-up trigger. MUST stay under events.> so the JetStream EVENTS stream
+	// captures it and the ai-agent consumer (subscribed on "events.ai.draft_followup")
+	// receives it. A prior "cmd.ai.draft_followup" value silently failed to publish
+	// (no stream matched the subject) so 4h auto follow-ups never fired.
+	SubjectCmdAIDraftFollowup = "events.ai.draft_followup"
 
 	StreamName     = "EVENTS"
 	StreamSubjects = "events.>"
-
-	// Commands (stream COMMANDS, subjects cmd.>)
-	SubjectCmdAIDraftFollowup = "cmd.ai.draft_followup"
 )
 
 // Envelope adalah amplop umum semua event.
@@ -112,6 +114,38 @@ type MessageOutbound struct {
 	// "bc_<recipient_id>"). Pada pengiriman template asli ke Meta, dipasang sebagai
 	// payload tiap tombol sehingga klik balasan bisa dilacak ke penerima broadcast.
 	CallbackID string `json:"callback_id,omitempty"`
+	// Interactive: when set, send a WhatsApp interactive message (reply buttons or
+	// list) instead of plain text. Type should be "interactive".
+	Interactive *InteractiveOutbound `json:"interactive,omitempty"`
+}
+
+// ── Interactive (WhatsApp) outbound payloads ────────────────
+// Carried on MessageOutbound.Interactive so an automation "auto reply" node can
+// send reply-buttons or a list message, not just plain text.
+type InteractiveButton struct {
+	ID    string `json:"id"`
+	Title string `json:"title"`
+}
+
+type InteractiveRow struct {
+	ID          string `json:"id"`
+	Title       string `json:"title"`
+	Description string `json:"description,omitempty"`
+}
+
+type InteractiveSection struct {
+	Title string           `json:"title,omitempty"`
+	Rows  []InteractiveRow `json:"rows"`
+}
+
+type InteractiveOutbound struct {
+	Type       string               `json:"type"` // "buttons" | "list"
+	Header     string               `json:"header,omitempty"`
+	Body       string               `json:"body"`
+	Footer     string               `json:"footer,omitempty"`
+	Buttons    []InteractiveButton  `json:"buttons,omitempty"`     // type=buttons (WA max 3)
+	ButtonText string               `json:"button_text,omitempty"` // type=list CTA label
+	Sections   []InteractiveSection `json:"sections,omitempty"`    // type=list
 }
 
 type BroadcastRequested struct {

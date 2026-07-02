@@ -67,7 +67,12 @@ type AppNode = Node<NodeData>;
 function summary(kind: string, c: Record<string, unknown>, triggerType?: string): string {
   switch (kind) {
     case "trigger": return TRIGGERS[triggerType ?? ""]?.desc ?? "Entry point";
-    case "send_message": return String(c.message || "No message set");
+    case "send_message": {
+      const mt = String(c.message_type ?? "text");
+      if (mt === "buttons") return `Buttons: ${(Array.isArray(c.buttons) ? c.buttons.length : 0)} option(s)`;
+      if (mt === "list") { const s0 = (Array.isArray(c.sections) ? c.sections[0] : undefined) as { rows?: unknown[] } | undefined; return `List: ${(Array.isArray(s0?.rows) ? s0!.rows!.length : 0)} item(s)`; }
+      return String(c.message || c.body || "No message set");
+    }
     case "send_template": return `Template: ${c.template_name || "—"}`;
     case "send_form": return `Form: ${c.form_name || "—"}`;
     case "assign_agent": return `Agent: ${c.agent_name || c.agent_id || "—"}`;
@@ -389,6 +394,69 @@ function Builder() {
   );
 }
 
+// ── Auto-reply node config: Text, reply Buttons, or a List menu ─────────────
+type ReplyBtn = { title?: string; id?: string };
+type ReplyRow = { title?: string; description?: string; id?: string };
+
+function AutoReplyConfig({ c, set }: { c: Record<string, unknown>; set: (k: string, v: unknown) => void }) {
+  const mt = String(c.message_type ?? "text");
+  const buttons: ReplyBtn[] = Array.isArray(c.buttons) ? (c.buttons as ReplyBtn[]) : [];
+  const section0 = (Array.isArray(c.sections) ? (c.sections as Record<string, unknown>[])[0] : undefined) ?? {};
+  const rows: ReplyRow[] = Array.isArray(section0.rows) ? (section0.rows as ReplyRow[]) : [];
+  const setRows = (next: ReplyRow[]) => set("sections", [{ title: String(section0.title ?? ""), rows: next }]);
+
+  return (
+    <>
+      <Field label="Message type">
+        <Select value={mt} searchable={false} onChange={(v) => set("message_type", v)} className="w-full"
+          options={[{ value: "text", label: "Text" }, { value: "buttons", label: "Buttons (quick reply)" }, { value: "list", label: "List menu" }]} />
+      </Field>
+
+      {mt === "text" && (
+        <Field label="Message"><textarea value={String(c.message ?? "")} onChange={(e) => set("message", e.target.value)} rows={4} placeholder="Type the auto reply..." className={cn(INP, "resize-none h-auto py-2")} /></Field>
+      )}
+
+      {(mt === "buttons" || mt === "list") && <>
+        <Field label="Header (optional)"><input value={String(c.header ?? "")} onChange={(e) => set("header", e.target.value)} placeholder="Short title" className={INP} /></Field>
+        <Field label="Body"><textarea value={String(c.body ?? "")} onChange={(e) => set("body", e.target.value)} rows={3} placeholder="Message text..." className={cn(INP, "resize-none h-auto py-2")} /></Field>
+        <Field label="Footer (optional)"><input value={String(c.footer ?? "")} onChange={(e) => set("footer", e.target.value)} placeholder="Small footnote" className={INP} /></Field>
+      </>}
+
+      {mt === "buttons" && (
+        <Field label="Buttons (up to 3)">
+          <div className="space-y-1.5">
+            {buttons.map((b, i) => (
+              <div key={i} className="flex gap-1.5 items-center">
+                <input value={String(b?.title ?? "")} onChange={(e) => { const arr = [...buttons]; arr[i] = { ...arr[i], title: e.target.value }; set("buttons", arr); }} placeholder={`Button ${i + 1} label`} className={cn(INP, "flex-1")} />
+                <input value={String(b?.id ?? "")} onChange={(e) => { const arr = [...buttons]; arr[i] = { ...arr[i], id: e.target.value }; set("buttons", arr); }} placeholder="id (optional)" className={cn(INP, "w-28")} />
+                <button type="button" onClick={() => { const arr = [...buttons]; arr.splice(i, 1); set("buttons", arr); }} className="px-1.5 text-muted-foreground hover:text-destructive text-lg leading-none">×</button>
+              </div>
+            ))}
+            {buttons.length < 3 && <button type="button" onClick={() => set("buttons", [...buttons, { title: "", id: "" }])} className="text-[12.5px] font-semibold text-primary hover:underline">+ Add button</button>}
+          </div>
+        </Field>
+      )}
+
+      {mt === "list" && <>
+        <Field label="List button label"><input value={String(c.button_text ?? "")} onChange={(e) => set("button_text", e.target.value)} placeholder="Menu" className={INP} /></Field>
+        <Field label="Section title (optional)"><input value={String(section0.title ?? "")} onChange={(e) => set("sections", [{ title: e.target.value, rows }])} placeholder="Choose an option" className={INP} /></Field>
+        <Field label="List items">
+          <div className="space-y-1.5">
+            {rows.map((r, i) => (
+              <div key={i} className="flex gap-1.5 items-center">
+                <input value={String(r?.title ?? "")} onChange={(e) => { const arr = [...rows]; arr[i] = { ...arr[i], title: e.target.value }; setRows(arr); }} placeholder={`Item ${i + 1} title`} className={cn(INP, "flex-1")} />
+                <input value={String(r?.description ?? "")} onChange={(e) => { const arr = [...rows]; arr[i] = { ...arr[i], description: e.target.value }; setRows(arr); }} placeholder="description (optional)" className={cn(INP, "flex-1")} />
+                <button type="button" onClick={() => { const arr = [...rows]; arr.splice(i, 1); setRows(arr); }} className="px-1.5 text-muted-foreground hover:text-destructive text-lg leading-none">×</button>
+              </div>
+            ))}
+            {rows.length < 10 && <button type="button" onClick={() => setRows([...rows, { title: "", description: "" }])} className="text-[12.5px] font-semibold text-primary hover:underline">+ Add item</button>}
+          </div>
+        </Field>
+      </>}
+    </>
+  );
+}
+
 // ── Inspector (per-node config) ─────────────────────────────────────────────
 function Inspector({ node, triggerType, campaigns, forms, agents, sequences, sheetEmail, onChange, onClose, onDelete }: {
   node: AppNode; triggerType: string; campaigns: { id: string; name: string }[]; forms: { id: string; name: string }[]; agents: { id: string; name: string }[]; sequences: { id: string; name: string }[]; sheetEmail: string; onChange: (cfg: Record<string, unknown>) => void; onClose: () => void; onDelete: () => void;
@@ -423,7 +491,7 @@ function Inspector({ node, triggerType, campaigns, forms, agents, sequences, she
         {isTrigger && triggerType !== "keyword_match" && triggerType !== "conversation_idle" && triggerType !== "button_click" && (
           <p className="text-[13px] text-muted-foreground">{TRIGGERS[triggerType]?.desc ?? "Fires on the configured event."} No extra configuration needed.</p>
         )}
-        {kind === "send_message" && <Field label="Message"><textarea value={String(c.message ?? "")} onChange={(e) => set("message", e.target.value)} rows={4} placeholder="Type the auto reply..." className={cn(INP, "resize-none h-auto py-2")} /></Field>}
+        {kind === "send_message" && <AutoReplyConfig c={c} set={set} />}
         {kind === "send_template" && <Field label="Template name"><input value={String(c.template_name ?? "")} onChange={(e) => set("template_name", e.target.value)} placeholder="welcome_v1" className={INP} /></Field>}
         {kind === "send_form" && <>
           <Field label="Form"><Select value={String(c.form_id ?? "")} onChange={pickById(forms, "form_id", "form_name")} options={forms.map((f) => ({ value: f.id, label: f.name }))} placeholder="Search published form…" className="w-full" /></Field>

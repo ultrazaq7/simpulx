@@ -4,7 +4,9 @@ import { createPortal } from "react-dom";
 import { ChevronDown, Search, Check } from "lucide-react";
 import { cn } from "@/lib/utils";
 
-export interface SelectOption { value: string; label: string; disabled?: boolean }
+// `dot` is an optional CSS color rendered as a small leading status dot (used for
+// e.g. lead interest hot/warm/cold) — a clean, professional alternative to emoji.
+export interface SelectOption { value: string; label: string; disabled?: boolean; dot?: string }
 
 interface MenuPos { left: number; width: number; maxH: number; up: boolean; top?: number; bottom?: number }
 
@@ -80,6 +82,7 @@ export function Select({
           open ? "border-primary ring-2 ring-primary/20" : "border-input hover:border-muted-foreground/30",
         )}
       >
+        {current?.dot && <span className="w-2 h-2 rounded-full shrink-0" style={{ backgroundColor: current.dot }} />}
         <span className={cn("flex-1 truncate", current ? "text-foreground" : "text-muted-foreground")}>{current?.label || placeholder}</span>
         <ChevronDown className={cn("w-4 h-4 text-muted-foreground shrink-0 transition-transform", open && "rotate-180")} />
       </button>
@@ -121,6 +124,7 @@ export function Select({
                   o.value === value ? "bg-primary/10 text-primary font-semibold" : "text-foreground/90 hover:bg-muted",
                 )}
               >
+                {o.dot && <span className="w-2 h-2 rounded-full shrink-0" style={{ backgroundColor: o.dot }} />}
                 <span className="flex-1 truncate">{o.label}</span>
                 {o.value === value && <Check className="w-4 h-4 shrink-0" />}
               </button>

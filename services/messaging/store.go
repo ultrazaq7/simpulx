@@ -528,8 +528,30 @@ func (s *store) resolveCampaignByKeyword(ctx context.Context, orgID, text string
 // it already has an agent, isn't routed yet, or no agent qualifies. This lets a
 // lead that was left unassigned at first touch (e.g. every agent was inactive)
 // get an owner on the contact's next message instead of sitting forever.
+// announceAssigned publishes conversation.assigned so realtime clients (mobile +
+// web) update the instant a lead is routed, instead of waiting on the slower
+// message.persisted refetch. Best-effort; never blocks ingest.
+func (s *store) announceAssigned(ctx context.Context, orgID, convID, agentID string) {
+	if s.bus == nil || agentID == "" || orgID == "" {
+		return
+	}
+	var name string
+	_ = s.pool.QueryRow(ctx, `SELECT COALESCE(full_name,'') FROM users WHERE id=$1`, agentID).Scan(&name)
+	_ = s.bus.Publish(events.SubjectConversationAssigned, orgID, events.ConversationAssigned{
+		ConversationID: convID,
+		AgentID:        agentID,
+		AgentName:      name,
+	})
+}
+
+// ensureAssigned gives an unassigned open conversation an owner immediately so it
+// never sits waiting. It first tries the campaign/branch rotation, then falls back
+// to the org's least-loaded active agent (covers no-signal leads that carry no
+// campaign yet). On success it announces the assignment in realtime.
 func (s *store) ensureAssigned(ctx context.Context, convID string) {
-	_, _ = s.pool.Exec(ctx,
+	var agentID, orgID string
+	// 1) Campaign/branch-scoped rotation.
+	err := s.pool.QueryRow(ctx,
 		`WITH c AS (
 		     SELECT organization_id, campaign_id, branch_id FROM conversations
 		      WHERE id=$1 AND assigned_agent_id IS NULL AND status<>'closed'
@@ -542,8 +564,36 @@ func (s *store) ensureAssigned(ctx context.Context, convID string) {
 		      ORDER BY (SELECT count(*) FROM conversations cc WHERE cc.assigned_agent_id=u.id AND cc.status<>'closed') ASC, u.id
 		      LIMIT 1)
 		 UPDATE conversations SET assigned_agent_id=(SELECT user_id FROM pick), updated_at=now()
-		  WHERE id=$1 AND assigned_agent_id IS NULL AND EXISTS (SELECT 1 FROM pick)`,
-		convID)
+		  WHERE id=$1 AND assigned_agent_id IS NULL AND EXISTS (SELECT 1 FROM pick)
+		  RETURNING assigned_agent_id::text, organization_id::text`,
+		convID).Scan(&agentID, &orgID)
+	if err != nil && !errors.Is(err, pgx.ErrNoRows) {
+		return
+	}
+	// 2) Fallback: org-wide least-loaded active agent so a lead with no campaign
+	//    (e.g. a no-signal opener) still gets an owner right away.
+	if agentID == "" {
+		err = s.pool.QueryRow(ctx,
+			`WITH c AS (
+			     SELECT organization_id FROM conversations
+			      WHERE id=$1 AND assigned_agent_id IS NULL AND status<>'closed'
+			 ), pick AS (
+			     SELECT u.id AS user_id FROM users u, c
+			      WHERE u.organization_id=c.organization_id AND u.is_deleted=false
+			        AND u.status='active' AND u.role IN ('agent','admin')
+			      ORDER BY (SELECT count(*) FROM conversations cc WHERE cc.assigned_agent_id=u.id AND cc.status<>'closed') ASC, u.id
+			      LIMIT 1)
+			 UPDATE conversations SET assigned_agent_id=(SELECT user_id FROM pick), updated_at=now()
+			  WHERE id=$1 AND assigned_agent_id IS NULL AND EXISTS (SELECT 1 FROM pick)
+			  RETURNING assigned_agent_id::text, organization_id::text`,
+			convID).Scan(&agentID, &orgID)
+		if err != nil && !errors.Is(err, pgx.ErrNoRows) {
+			return
+		}
+	}
+	if agentID != "" {
+		s.announceAssigned(ctx, orgID, convID, agentID)
+	}
 }
 
 // routeToCampaign: set campaign + assign agent berikutnya secara round-robin.
@@ -592,15 +642,17 @@ func (s *store) routeToCampaign(ctx context.Context, campaignID string, convID s
 		  LIMIT 1`,
 		campaignID).Scan(&assignedAgent)
 
+	didAssign := false
 	if err == nil && assignedAgent != "" {
 		tag, err := tx.Exec(ctx,
-			`UPDATE conversations 
-			 SET campaign_id = $1, assigned_agent_id = $2, updated_at = now() 
+			`UPDATE conversations
+			 SET campaign_id = $1, assigned_agent_id = $2, updated_at = now()
 			 WHERE id = $3 AND campaign_id IS NULL`,
 			campaignID, assignedAgent, convID)
 
 		// Only advance cursor if we actually updated the row (i.e. campaign_id was NULL)
 		if err == nil && tag.RowsAffected() > 0 {
+			didAssign = true
 			_, _ = tx.Exec(ctx, `UPDATE campaigns SET rr_cursor = rr_cursor + 1, lead_count = lead_count + 1 WHERE id = $1`, campaignID)
 
 			// 6.1 Audit Trail Event Sourcing
@@ -625,6 +677,9 @@ func (s *store) routeToCampaign(ctx context.Context, campaignID string, convID s
 	}
 
 	_ = tx.Commit(ctx)
+	if didAssign {
+		s.announceAssigned(ctx, orgID, convID, assignedAgent)
+	}
 }
 
 // routeThread routes a conversation to a branch when one is given, else to the
@@ -695,6 +750,7 @@ func (s *store) routeToBranch(ctx context.Context, branchID string, convID strin
 		  LIMIT 1`,
 		branchID).Scan(&assignedAgent)
 
+	didAssign := false
 	if err == nil && assignedAgent != "" {
 		tag, err := tx.Exec(ctx,
 			`UPDATE conversations
@@ -703,6 +759,7 @@ func (s *store) routeToBranch(ctx context.Context, branchID string, convID strin
 			branchID, campaignID, assignedAgent, convID)
 
 		if err == nil && tag.RowsAffected() > 0 {
+			didAssign = true
 			_, _ = tx.Exec(ctx, `UPDATE campaign_branches SET rr_cursor = rr_cursor + 1, lead_count = lead_count + 1 WHERE id = $1`, branchID)
 
 			_, _ = tx.Exec(ctx, `
@@ -727,6 +784,9 @@ func (s *store) routeToBranch(ctx context.Context, branchID string, convID strin
 	}
 
 	_ = tx.Commit(ctx)
+	if didAssign {
+		s.announceAssigned(ctx, orgID, convID, assignedAgent)
+	}
 }
 
 // enrollSequences mendaftarkan percakapan ke semua sequence aktif yang cocok

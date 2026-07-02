@@ -27,6 +27,13 @@ log = logging.getLogger("llm")
 _URL = settings.anthropic_base_url.rstrip("/") + "/v1/messages"
 _HEADERS_VERSION = "2023-06-01"
 
+# Appended to every customer-facing instruction. Emoji read as unprofessional in a
+# B2B/dealer context, so the AI must never use them in messages it sends.
+NO_EMOJI_RULE = (
+    " JANGAN gunakan emoji, emotikon, atau kaomoji apa pun (mis. 🔥, ❄️, 😊). "
+    "Tulis dengan bahasa yang bersih dan profesional. Do not use any emoji."
+)
+
 # Instruksi statis (di-cache). analyze: ekstraksi + ringkasan untuk agent (BUKAN
 # untuk pelanggan). interest_level tetap milik rule classifier, jadi tak diminta.
 ANALYZE_INSTRUCTION = (
@@ -84,6 +91,7 @@ REPLY_INSTRUCTION = (
     "JANGAN pakai placeholder seperti [nama] atau tanda kurung siku. JANGAN bungkus "
     "dengan tanda kutip. JANGAN pakai em dash (—) atau en dash (–). Tulis HANYA "
     "teks balasannya, tanpa label, tanpa penjelasan."
+    + NO_EMOJI_RULE
 )
 
 _MOCK_REPLY = (
@@ -102,8 +110,9 @@ def _lang_name(code: Optional[str]) -> str:
 FOLLOWUP_INSTRUCTION = (
     "INSTRUKSI: Buat satu pesan AUTO FOLLOW-UP WhatsApp yang natural, singkat, "
     "ramah, tidak memaksa, dalam Bahasa Indonesia seperti sales mobil profesional "
-    "yang menanyakan kelanjutan ketertarikan lead. "
-    'Balas HANYA JSON: {"reply": string}.'
+    "yang menanyakan kelanjutan ketertarikan lead."
+    + NO_EMOJI_RULE +
+    ' Balas HANYA JSON: {"reply": string}.'
 )
 
 
@@ -342,8 +351,9 @@ NURTURE_INSTRUCTION = (
     "unit/produk yang diminati, kota/domisili, skema (cash atau kredit) & budget, dan rencana waktu pembelian. "
     "Tanyakan HANYA satu hal per pesan. Jangan mengarang harga/promo yang tidak kamu ketahui. "
     "Set ready_for_handoff=true HANYA jika: info kunci sudah lengkap, ATAU lead minta bicara dengan sales/manusia, "
-    "ATAU lead siap bertransaksi (mis. mau test drive, nego harga, atau DP). "
-    'Balas HANYA JSON: {"reply": string, "ready_for_handoff": boolean}.'
+    "ATAU lead siap bertransaksi (mis. mau test drive, nego harga, atau DP)."
+    + NO_EMOJI_RULE +
+    ' Balas HANYA JSON: {"reply": string, "ready_for_handoff": boolean}.'
 )
 
 

@@ -123,6 +123,19 @@ class MainActivity : FlutterActivity() {
                             result.success(false)
                         }
                     }
+                    // Cancel the call ring/ongoing notification by conversation id. The id is
+                    // derived natively (chatId.hashCode() + 100) so it MATCHES what
+                    // NotificationHelper.showCallNotification used. Passing a Dart-computed id
+                    // never matched (Dart and JVM String.hashCode differ), so the ring lingered.
+                    "cancelCallNotification" -> {
+                        try {
+                            val chatId = call.argument<String>("chatId") ?: ""
+                            NotificationHelper.cancelCallNotification(this, chatId)
+                            result.success(true)
+                        } catch (e: Exception) {
+                            result.success(false)
+                        }
+                    }
                     else -> result.notImplemented()
                 }
             }
