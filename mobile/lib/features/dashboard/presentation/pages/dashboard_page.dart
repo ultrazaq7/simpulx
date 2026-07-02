@@ -389,7 +389,7 @@ class _StageFunnelCard extends StatelessWidget {
           const Text('Lead Funnel',
               style: TextStyle(fontWeight: FontWeight.w700, fontSize: 14)),
           const SizedBox(height: 4),
-          Text('Stage-to-stage conversion',
+          Text('Cumulative conversion',
               style: TextStyle(fontSize: 12, color: AppColors.textSecondary)),
           const SizedBox(height: 14),
           for (var i = 0; i < stages.length; i++) ...[
@@ -458,11 +458,7 @@ class _StageFunnelCard extends StatelessWidget {
 
   Widget _buildFunnelRow(BuildContext context, FunnelStageStat s, int idx, int maxReached) {
     final pct = (s.reached / maxReached * 100).clamp(0, 100).toDouble();
-    final convPct = idx == 0
-        ? null
-        : (stages[idx - 1].reached > 0
-            ? (s.reached / stages[idx - 1].reached * 100)
-            : 0.0);
+    final convPct = idx == 0 ? null : pct;
     final color = _funnelColors[idx % _funnelColors.length];
 
     return Column(

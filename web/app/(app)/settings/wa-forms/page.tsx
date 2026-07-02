@@ -8,11 +8,12 @@ import {
 } from "lucide-react";
 import { api, getToken } from "@/lib/api";
 import { Select } from "@/components/Select";
+import { MultiSelect } from "@/components/ui/multi-select";
 import { Tip } from "@/components/ui/tooltip";
 import { cn, fmtDate } from "@/lib/utils";
 import type {
   WaFlow, WaFlowDetail, WaFlowResponse, FlowDefinition, FlowScreen,
-  FlowComponent, FlowComponentType,
+  FlowComponent, FlowComponentType, Channel,
 } from "@/lib/types";
 
 // ── Component palette (friendly labels, Meta-Flow component types) ──
@@ -50,6 +51,8 @@ export default function WaFormsPage() {
   const [query, setQuery] = useState("");
   const [page, setPage] = useState(1);
   const [perPage, setPerPage] = useState(25);
+  const [channels, setChannels] = useState<Channel[]>([]);
+  const [channelFilter, setChannelFilter] = useState<string[]>([]);
 
   const flash = (ok: boolean, text: string) => {
     setToast({ ok, text });
@@ -64,6 +67,7 @@ export default function WaFormsPage() {
     }
   }, []);
   useEffect(() => { load(); }, [load]);
+  useEffect(() => { api.listChannels().then((c) => setChannels(c || [])).catch(() => {}); }, []);
   useEffect(() => {
     if (tab === "responses") api.listFlowResponses().then(setResponses).catch(() => setResponses([]));
   }, [tab]);
