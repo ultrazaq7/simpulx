@@ -18,7 +18,7 @@ export default function LoginPage() {
     try {
       const { token, refresh_token, user } = await api.login(email, password);
       setSession(token, user, refresh_token);
-      router.replace("/dashboard");
+      router.replace("/inbox");
     } catch (err: any) {
       setError(err.message || "Login failed");
     } finally { setLoading(false); }

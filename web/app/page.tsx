@@ -6,7 +6,7 @@ import { getToken } from "@/lib/api";
 export default function RootPage() {
   const router = useRouter();
   useEffect(() => {
-    router.replace(getToken() ? "/dashboard" : "/login");
+    router.replace(getToken() ? "/inbox" : "/login");
   }, [router]);
   return null;
 }

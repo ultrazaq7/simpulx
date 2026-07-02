@@ -75,7 +75,7 @@ final routerProvider = Provider<GoRouter>((ref) {
           if (loc == Routes.splash ||
               loc == Routes.login ||
               loc == Routes.forgotPassword) {
-            return Routes.dashboard;
+            return Routes.chat;
           }
           return null;
       }
