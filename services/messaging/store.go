@@ -733,17 +733,28 @@ func (s *store) routeToBranch(ctx context.Context, branchID string, convID strin
 // (global atau sesuai campaign percakapan). Idempotent (UNIQUE seq+conv).
 // Step pertama dijadwalkan setelah delay-nya.
 func (s *store) enrollSequences(ctx context.Context, orgID, convID, contactID string) {
+	// RBAC scoping by the drip owner's role: an agent-owned drip only enrolls
+	// that agent's own assigned leads; a manager-owned drip only their campaigns'
+	// leads; admin/owner (or an unowned legacy drip) is org-wide.
 	_, _ = s.pool.Exec(ctx,
 		`INSERT INTO sequence_enrollments
 		   (organization_id, sequence_id, conversation_id, contact_id, current_step, next_run_at, status)
 		 SELECT $1, sq.id, $2, $3, 1, now() + make_interval(mins => st1.delay_minutes), 'active'
 		   FROM sequences sq
+		   JOIN conversations conv ON conv.id = $2
+		   LEFT JOIN users ou ON ou.id = sq.owner_user_id
 		   JOIN LATERAL (
 		     SELECT delay_minutes FROM sequence_steps WHERE sequence_id = sq.id ORDER BY step_order LIMIT 1
 		   ) st1 ON true
 		  WHERE sq.organization_id = $1 AND sq.is_active
-		    AND (sq.campaign_id IS NULL
-		         OR sq.campaign_id = (SELECT campaign_id FROM conversations WHERE id = $2))
+		    AND (sq.campaign_id IS NULL OR sq.campaign_id = conv.campaign_id)
+		    AND (
+		      sq.owner_user_id IS NULL
+		      OR ou.role IN ('admin','owner')
+		      OR (ou.role = 'agent' AND conv.assigned_agent_id = sq.owner_user_id)
+		      OR (ou.role = 'manager' AND conv.campaign_id IN
+		            (SELECT campaign_id FROM campaign_agents WHERE user_id = sq.owner_user_id))
+		    )
 		 ON CONFLICT (sequence_id, conversation_id) DO NOTHING`,
 		orgID, convID, contactID)
 }

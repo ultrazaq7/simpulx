@@ -13,6 +13,21 @@ import (
 // GET /api/sequences
 func (s *server) handleListSequences(w http.ResponseWriter, r *http.Request) {
 	a, _ := authFrom(r.Context())
+	// Visibility follows the same rule as enrollment: agents see drips they own
+	// (or org-wide ones), managers additionally see drips for campaigns they
+	// oversee, admins/owners see everything.
+	args := []any{a.OrgID}
+	scope := ""
+	if a.Role == "agent" {
+		args = append(args, a.UserID)
+		scope = ` AND (sq.owner_user_id = $2 OR sq.owner_user_id IS NULL
+		               OR ou.role IN ('admin','owner'))`
+	} else if a.Role == "manager" {
+		args = append(args, a.UserID)
+		scope = ` AND (sq.owner_user_id = $2 OR sq.owner_user_id IS NULL
+		               OR ou.role IN ('admin','owner')
+		               OR sq.campaign_id IN (SELECT campaign_id FROM campaign_agents WHERE user_id = $2))`
+	}
 	rows, err := s.queryMaps(r.Context(),
 		`SELECT sq.id::text AS id, sq.name, sq.trigger, sq.is_active,
 		        sq.campaign_id::text AS campaign_id, c.name AS campaign_name,
@@ -21,9 +36,10 @@ func (s *server) handleListSequences(w http.ResponseWriter, r *http.Request) {
 		        sq.created_at, sq.updated_at
 		   FROM sequences sq
 		   LEFT JOIN campaigns c ON c.id = sq.campaign_id
-		  WHERE sq.organization_id = $1
+		   LEFT JOIN users ou ON ou.id = sq.owner_user_id
+		  WHERE sq.organization_id = $1`+scope+`
 		  ORDER BY sq.updated_at DESC`,
-		a.OrgID,
+		args...,
 	)
 	if err != nil {
 		http.Error(w, err.Error(), http.StatusInternalServerError)
@@ -76,11 +92,13 @@ func (s *server) handleCreateSequence(w http.ResponseWriter, r *http.Request) {
 	if b.Trigger == "" {
 		b.Trigger = "no_reply"
 	}
+	// owner_user_id scopes the drip by the creator's role at enrollment time:
+	// agent -> own leads, manager -> their campaigns, admin/owner -> org-wide.
 	var id string
 	err := s.pool.QueryRow(r.Context(),
-		`INSERT INTO sequences (organization_id, name, trigger, campaign_id)
-		 VALUES ($1,$2,$3,NULLIF($4,'')::uuid) RETURNING id::text`,
-		a.OrgID, b.Name, b.Trigger, b.CampaignID,
+		`INSERT INTO sequences (organization_id, name, trigger, campaign_id, owner_user_id)
+		 VALUES ($1,$2,$3,NULLIF($4,'')::uuid,$5::uuid) RETURNING id::text`,
+		a.OrgID, b.Name, b.Trigger, b.CampaignID, a.UserID,
 	).Scan(&id)
 	if err != nil {
 		http.Error(w, err.Error(), http.StatusInternalServerError)
