@@ -918,9 +918,16 @@ func (s *server) handleAnalytics(w http.ResponseWriter, r *http.Request) {
 	// sales pipeline (New -> Contacted -> ... -> Delivered). A lead at sort_order K is
 	// assumed to have passed every earlier stage, so reached(N) = #leads with so >= N.
 	// Monotonically decreasing -> a true funnel with stage-to-stage conversion.
+	// `so` uses max_reached_sort_order (the FURTHEST stage a lead ever reached), so a
+	// lost lead counts at the stage it actually got to, and is floored at the entry
+	// stage so every lead counts at the funnel top (New Lead reached == total leads).
 	funnelStages, _ := s.queryMaps(ctx,
-		fmt.Sprintf(`WITH cur AS (
-		   SELECT COALESCE(s.sort_order, 1) AS so
+		fmt.Sprintf(`WITH entry AS (
+		   SELECT COALESCE(min(sort_order), 1) AS so
+		     FROM stages
+		    WHERE organization_id=$1 AND (system_key IS NULL OR system_key NOT LIKE 'lost%%')),
+		 cur AS (
+		   SELECT GREATEST(cv.max_reached_sort_order, COALESCE(s.sort_order, 0), (SELECT so FROM entry)) AS so
 		     FROM conversations cv LEFT JOIN stages s ON s.id=cv.stage_id
 		    WHERE cv.organization_id=$1%s)
 		 SELECT st.name, st.system_key, st.sort_order,

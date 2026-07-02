@@ -302,7 +302,7 @@ class _ManagerSection extends ConsumerWidget {
             children: [
               // Stage Funnel
               if (a.funnelStages.isNotEmpty) ...[
-                _StageFunnelCard(stages: a.funnelStages, lostCount: a.lost),
+                _StageFunnelCard(stages: a.funnelStages),
                 const SizedBox(height: 12),
               ],
               // Stage Split
@@ -374,19 +374,14 @@ const _funnelColors = [
 ];
 
 class _StageFunnelCard extends StatelessWidget {
-  const _StageFunnelCard({required this.stages, required this.lostCount});
+  const _StageFunnelCard({required this.stages});
   final List<FunnelStageStat> stages;
-  final int lostCount;
 
   @override
   Widget build(BuildContext context) {
-    // Lost leads all entered the funnel, so fold them into the entry stage's
-    // cumulative count (matching web). No separate Lost row -> no double count.
-    final reached = <int>[
-      for (var i = 0; i < stages.length; i++)
-        i == 0 ? stages[i].reached + lostCount : stages[i].reached,
-    ];
-    final maxReached = reached.isNotEmpty && reached.first > 0 ? reached.first : 1;
+    // `reached` already includes lost leads at their furthest stage (backend uses
+    // max_reached_sort_order), so the entry stage equals the total leads that entered.
+    final maxReached = stages.isNotEmpty && stages.first.reached > 0 ? stages.first.reached : 1;
     return _Card(
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
@@ -398,8 +393,8 @@ class _StageFunnelCard extends StatelessWidget {
               style: TextStyle(fontSize: 12, color: AppColors.textSecondary)),
           const SizedBox(height: 14),
           for (var i = 0; i < stages.length; i++) ...[
-            _buildFunnelRow(context, stages[i].name, reached[i],
-                i == 0 ? null : reached[i - 1], i, maxReached),
+            _buildFunnelRow(context, stages[i].name, stages[i].reached,
+                i == 0 ? null : stages[i - 1].reached, i, maxReached),
             if (i < stages.length - 1) const SizedBox(height: 8),
           ],
         ],
