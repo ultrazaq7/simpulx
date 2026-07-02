@@ -134,31 +134,36 @@ class _ContactTileState extends ConsumerState<ContactTile> {
             padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 4),
             child: Row(
               children: [
-                // History label + chevron (only chevron triggers expand)
-                Text(
-                  'History',
-                  style: theme.textTheme.bodySmall?.copyWith(
-                    color: muted,
-                    fontWeight: FontWeight.w600,
-                    fontSize: 13,
-                  ),
-                ),
-                IconButton(
-                  onPressed: () =>
+                // History label + chevron (tapping either one expands/collapses)
+                InkWell(
+                  onTap: () =>
                       setState(() => _historyOpen = !_historyOpen),
-                  icon: Icon(
-                    _historyOpen
-                        ? Icons.keyboard_arrow_up_rounded
-                        : Icons.keyboard_arrow_down_rounded,
-                    color: muted,
+                  borderRadius: BorderRadius.circular(8),
+                  child: Padding(
+                    padding: const EdgeInsets.symmetric(
+                        horizontal: 6, vertical: 6),
+                    child: Row(
+                      mainAxisSize: MainAxisSize.min,
+                      children: [
+                        Text(
+                          'History',
+                          style: theme.textTheme.bodySmall?.copyWith(
+                            color: muted,
+                            fontWeight: FontWeight.w600,
+                            fontSize: 13,
+                          ),
+                        ),
+                        const SizedBox(width: 2),
+                        Icon(
+                          _historyOpen
+                              ? Icons.keyboard_arrow_up_rounded
+                              : Icons.keyboard_arrow_down_rounded,
+                          color: muted,
+                          size: 22,
+                        ),
+                      ],
+                    ),
                   ),
-                  iconSize: 22,
-                  padding: EdgeInsets.zero,
-                  constraints: const BoxConstraints(
-                    minWidth: 36,
-                    minHeight: 36,
-                  ),
-                  tooltip: _historyOpen ? 'Collapse' : 'Expand',
                 ),
                 const Spacer(),
                 // CHAT button

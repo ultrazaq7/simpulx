@@ -53,7 +53,6 @@ export default function LoginPage() {
           <h1 className="text-[26px] font-extrabold tracking-tight text-white leading-none">
             Simpul<span className="text-amber">x</span>
           </h1>
-          <p className="mt-2 text-[13px] text-white/50">Sign in to your workspace</p>
         </div>
       </div>
 
