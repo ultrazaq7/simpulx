@@ -65,12 +65,13 @@
     --input: 216 18% 85%;
     --ring: 163 52% 32%;
 
-    /* Dark app rail (Shell sidebar) */
-    --sidebar: 156 36% 8%;              /* #0d1b16 */
+    /* Dark app rail (Shell sidebar) — matches the mobile app dark theme
+       (WhatsApp teal-navy: bg #021A1A, surface #052323, border #0F3B3B). */
+    --sidebar: 180 82% 6%;              /* #021A1A mobile darkBackground */
     --sidebar-foreground: 0 0% 100%;
-    --sidebar-muted: 156 14% 64%;
-    --sidebar-border: 158 20% 18%;
-    --sidebar-active: 161 40% 16%;
+    --sidebar-muted: 206 12% 62%;       /* mobile darkTextSecondary */
+    --sidebar-border: 180 55% 15%;      /* #0F3B3B mobile darkBorder */
+    --sidebar-active: 180 62% 11%;      /* #092D2D mobile darkSurfaceAlt */
 
     /* Tighter, engineered corners (Meta Business-style ~8px) */
     --radius: 0.5rem;
