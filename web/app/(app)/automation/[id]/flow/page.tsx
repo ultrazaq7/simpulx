@@ -10,7 +10,7 @@ import "@xyflow/react/dist/style.css";
 import {
   ArrowLeft, Plus, Zap, MessageCircle, FileText, User, Sparkles, Tag, Flag,
   CheckCircle, Globe, GitFork, Trash2, Loader2, X, Save, Undo2, Redo2,
-  Braces, ToggleRight, Sheet, ClipboardList, UserMinus, Ban, Radio, ListPlus,
+  Braces, ToggleRight, Sheet, ClipboardList, UserMinus, Ban, Radio,
   FolderMinus, BellOff, Scissors, Mail,
 } from "lucide-react";
 import type { LucideIcon } from "lucide-react";
@@ -455,6 +455,24 @@ function Inspector({ node, triggerType, campaigns, forms, agents, sequences, she
           <p className="text-[12px] text-muted-foreground">Sent via your configured SMTP. Supports {"{first_name}"}, {"{full_name}"}, {"{phone}"} and contact attributes.</p>
         </>}
         {kind === "webhook_notify" && <Field label="Webhook URL"><input value={String(c.url ?? "")} onChange={(e) => set("url", e.target.value)} placeholder="https://..." className={INP} /></Field>}
+        {kind === "rest_api" && <>
+          <Field label="Method"><Select value={String(c.method ?? "POST")} onChange={(v) => set("method", v)} searchable={false} options={["GET", "POST", "PUT", "PATCH", "DELETE"].map((m) => ({ value: m, label: m }))} className="w-full" /></Field>
+          <Field label="URL"><input value={String(c.url ?? "")} onChange={(e) => set("url", e.target.value)} placeholder="https://api.example.com/hook" className={INP} /></Field>
+          <Field label="Headers">
+            <div className="space-y-1.5">
+              {(Array.isArray(c.headers) ? c.headers as Record<string, unknown>[] : []).map((h, i) => (
+                <div key={i} className="flex gap-1.5 items-center">
+                  <input value={String(h?.key ?? "")} onChange={(e) => { const arr = [...(c.headers as Record<string, unknown>[] ?? [])]; arr[i] = { ...arr[i], key: e.target.value }; set("headers", arr); }} placeholder="Header" className={cn(INP, "flex-1")} />
+                  <input value={String(h?.value ?? "")} onChange={(e) => { const arr = [...(c.headers as Record<string, unknown>[] ?? [])]; arr[i] = { ...arr[i], value: e.target.value }; set("headers", arr); }} placeholder="Value" className={cn(INP, "flex-1")} />
+                  <button type="button" onClick={() => { const arr = [...(c.headers as Record<string, unknown>[] ?? [])]; arr.splice(i, 1); set("headers", arr); }} className="px-1.5 text-muted-foreground hover:text-destructive text-lg leading-none">×</button>
+                </div>
+              ))}
+              <button type="button" onClick={() => set("headers", [...(Array.isArray(c.headers) ? c.headers as Record<string, unknown>[] : []), { key: "", value: "" }])} className="text-[12px] font-semibold text-primary hover:underline">+ Add header</button>
+            </div>
+          </Field>
+          <Field label="Body"><textarea value={String(c.body ?? "")} onChange={(e) => set("body", e.target.value)} rows={4} placeholder={'{"name": "{full_name}", "phone": "{phone}"}'} className={cn(INP, "resize-none h-auto py-2")} /></Field>
+          <p className="text-[12px] text-muted-foreground">URL, headers and body support {"{first_name}"}, {"{full_name}"}, {"{phone}"} and contact attributes.</p>
+        </>}
         {kind === "condition" && <>
           <Field label="Contact attribute"><input value={String(c.attribute ?? "")} onChange={(e) => set("attribute", e.target.value)} placeholder="e.g. re_model, phone, full_name" className={INP} /></Field>
           <Field label="Operator"><Select value={String(c.operator ?? "equals")} onChange={(v) => set("operator", v)} searchable={false} options={[["equals", "Equals"], ["not_equals", "Not equals"], ["contains", "Contains"], ["is_set", "Is set"], ["is_not_set", "Is not set"]].map(([v, l]) => ({ value: v, label: l }))} className="w-full" /></Field>
