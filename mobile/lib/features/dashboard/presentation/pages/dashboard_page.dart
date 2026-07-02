@@ -389,7 +389,7 @@ class _StageFunnelCard extends StatelessWidget {
           const Text('Lead Funnel',
               style: TextStyle(fontWeight: FontWeight.w700, fontSize: 14)),
           const SizedBox(height: 4),
-          Text('Cumulative conversion',
+          Text('Reached each stage and beyond',
               style: TextStyle(fontSize: 12, color: AppColors.textSecondary)),
           const SizedBox(height: 14),
           for (var i = 0; i < stages.length; i++) ...[

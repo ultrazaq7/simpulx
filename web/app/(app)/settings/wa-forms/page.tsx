@@ -148,18 +148,20 @@ export default function WaFormsPage() {
   }
 
   // Reset to page 1 whenever the tab or search changes.
-  useEffect(() => { setPage(1); }, [tab, query]);
+  useEffect(() => { setPage(1); }, [tab, query, channelFilter]);
 
   const loadingList = tab === "forms" ? flows === null : responses === null;
   const filtered = useMemo(() => {
     const q = query.trim().toLowerCase();
     if (tab === "forms") {
-      const list = flows || [];
+      let list = flows || [];
+      // Channel-less forms fall back to the default WhatsApp channel, so keep them visible.
+      if (channelFilter.length) list = list.filter((f) => !f.channel_id || channelFilter.includes(f.channel_id));
       return q ? list.filter((f) => f.name.toLowerCase().includes(q)) : list;
     }
     const list = responses || [];
     return q ? list.filter((r) => (r.flow_name || "").toLowerCase().includes(q) || (r.contact_name || "").toLowerCase().includes(q) || (r.contact_phone || "").includes(q)) : list;
-  }, [tab, query, flows, responses]);
+  }, [tab, query, flows, responses, channelFilter]);
 
   const totalPages = Math.max(1, Math.ceil(filtered.length / perPage));
   const paged = filtered.slice((page - 1) * perPage, page * perPage);
@@ -184,6 +186,10 @@ export default function WaFormsPage() {
             <input value={query} onChange={(e) => setQuery(e.target.value)} placeholder={`Search ${noun}s`}
               className="w-full h-9 pl-9 pr-3 rounded-md border border-input bg-background text-sm text-foreground placeholder:text-muted-foreground/70 outline-none transition-shadow focus:border-primary focus:ring-2 focus:ring-primary/20" />
           </div>
+          {tab === "forms" && (
+            <MultiSelect value={channelFilter} onChange={setChannelFilter} placeholder="All channels" className="min-w-[170px]"
+              options={channels.map((c) => ({ value: c.id, label: c.name }))} />
+          )}
           <Tip label="Refresh"><button onClick={() => { load(); if (tab === "responses") api.listFlowResponses().then(setResponses).catch(() => {}); }}
             className="p-1.5 rounded-md text-muted-foreground hover:bg-muted hover:text-foreground transition-colors outline-none">
             <RefreshCw className="w-[18px] h-[18px]" />
@@ -236,7 +242,7 @@ export default function WaFormsPage() {
       </div>
 
       {editing && (
-        <FlowBuilder flow={editing} onClose={() => setEditing(null)} onSaved={() => { setEditing(null); load(); }} onFlash={flash} />
+        <FlowBuilder flow={editing} channels={channels} onClose={() => setEditing(null)} onSaved={() => { setEditing(null); load(); }} onFlash={flash} />
       )}
       {viewing && <ResponseViewer r={viewing} onClose={() => setViewing(null)} />}
 
@@ -367,13 +373,14 @@ const CATEGORIES = [
   { v: "OTHER", label: "Other" },
 ];
 
-function FlowBuilder({ flow, onClose, onSaved, onFlash }: {
-  flow: WaFlowDetail; onClose: () => void; onSaved: () => void;
+function FlowBuilder({ flow, channels, onClose, onSaved, onFlash }: {
+  flow: WaFlowDetail; channels: Channel[]; onClose: () => void; onSaved: () => void;
   onFlash: (ok: boolean, t: string) => void;
 }) {
   const [step, setStep] = useState(0);
   const [name, setName] = useState(flow.name);
   const [category, setCategory] = useState((flow.categories && flow.categories[0]) || "LEAD_GENERATION");
+  const [channelId, setChannelId] = useState(flow.channel_id || "");
   const [def, setDef] = useState<FlowDefinition>(flow.definition?.screens ? flow.definition : { screens: [] });
   const [sel, setSel] = useState(0);
   const [saving, setSaving] = useState(false);
@@ -408,7 +415,7 @@ function FlowBuilder({ flow, onClose, onSaved, onFlash }: {
   async function persist(publish: boolean) {
     setSaving(true);
     try {
-      await api.updateFlow(flow.id, { name, categories: [category], definition: def, sheet_id: sheetUrl, sheet_tab: sheetTab, sheet_enabled: sheetEnabled });
+      await api.updateFlow(flow.id, { name, channel_id: channelId, categories: [category], definition: def, sheet_id: sheetUrl, sheet_tab: sheetTab, sheet_enabled: sheetEnabled });
       if (publish) {
         const r = await api.publishFlow(flow.id);
         onFlash(true, r.status === "published" ? "Published to WhatsApp" : "Saved as draft");
@@ -472,6 +479,12 @@ function FlowBuilder({ flow, onClose, onSaved, onFlash }: {
                     </button>
                   ))}
                 </div>
+              </div>
+              <div>
+                <label className="block text-sm font-semibold mb-1.5">WhatsApp channel</label>
+                <Select value={channelId} onChange={setChannelId} placeholder="Default WhatsApp channel"
+                  options={[{ value: "", label: "Default WhatsApp channel" }, ...channels.map((c) => ({ value: c.id, label: c.name }))]} />
+                <p className="text-xs text-muted-foreground mt-1.5">Which connected number this form publishes and sends from.</p>
               </div>
             </div>
           </div>
