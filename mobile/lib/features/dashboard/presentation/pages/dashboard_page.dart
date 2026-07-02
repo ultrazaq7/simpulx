@@ -415,8 +415,27 @@ class _StageFunnelCard extends StatelessWidget {
           children: [
             const Text('Lost',
                 style: TextStyle(fontSize: 13, fontWeight: FontWeight.w500)),
-            Text('$lost',
-                style: const TextStyle(fontSize: 13, fontWeight: FontWeight.w800)),
+            Row(
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                Container(
+                  padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 1),
+                  margin: const EdgeInsets.only(right: 8),
+                  decoration: BoxDecoration(
+                    color: AppColors.danger.withValues(alpha: 0.12),
+                    borderRadius: BorderRadius.circular(4),
+                  ),
+                  child: Text('${pct.round()}%',
+                      style: const TextStyle(
+                        fontSize: 11,
+                        fontWeight: FontWeight.w700,
+                        color: AppColors.danger,
+                      )),
+                ),
+                Text('$lost',
+                    style: const TextStyle(fontSize: 13, fontWeight: FontWeight.w800)),
+              ],
+            ),
           ],
         ),
         const SizedBox(height: 4),

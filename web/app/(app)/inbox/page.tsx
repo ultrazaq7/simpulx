@@ -83,11 +83,14 @@ export default function InboxPage() {
     if (c) setActiveId(c); // deep-link to a conversation (Copy link to message)
   }, []);
   // Resolve ?stage=<name> once stages load (dashboard "Your stages" deep-link).
+  // Accepts one or more comma-separated names — the "Lost" row can map to several
+  // lost-keyed stages, so we match them all instead of a single literal "Lost".
   useEffect(() => {
-    const name = pendingStageRef.current;
-    if (!name || stages.length === 0) return;
-    const match = stages.find((s) => s.name.toLowerCase() === name.toLowerCase());
-    if (match) setFilterStages([match.id]);
+    const raw = pendingStageRef.current;
+    if (!raw || stages.length === 0) return;
+    const wanted = new Set(raw.split(",").map((n) => n.trim().toLowerCase()).filter(Boolean));
+    const ids = stages.filter((s) => wanted.has(s.name.toLowerCase())).map((s) => s.id);
+    if (ids.length) setFilterStages(ids);
     pendingStageRef.current = null;
   }, [stages]);
 

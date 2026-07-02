@@ -259,6 +259,12 @@ function StageSplit({ stages, lost }: { stages?: Analytics["stages"]; lost?: num
   const lostStages = stages.filter((s) => (s.system_key || "").startsWith("lost"));
   const lostCount = lostStages.length > 0 ? lostStages.reduce((sum, s) => sum + (s.count || 0), 0) : lost;
   const total = stages.reduce((s, x) => s + (x.count || 0), 0);
+  // The Lost row can aggregate several lost-keyed stages whose display names may
+  // not literally be "Lost". Deep-link by the actual stage name(s) so the inbox
+  // filter matches exactly the leads counted here (comma-separated, resolved below).
+  const lostHref = lostStages.length > 0
+    ? `/inbox?stage=${lostStages.map((s) => encodeURIComponent(s.name)).join(",")}`
+    : "/inbox?stage=Lost";
   return (
     <div className="p-2">
       {pipeline.map((s, i) => {
@@ -279,7 +285,7 @@ function StageSplit({ stages, lost }: { stages?: Analytics["stages"]; lost?: num
       })}
       {lostCount !== undefined && (
         <Link
-          href="/inbox?stage=Lost"
+          href={lostHref}
           className="group/st flex items-center gap-3 px-2 py-2 mt-1 pt-2.5 border-t border-border/60 rounded-md hover:bg-muted transition-colors"
         >
           <span className="w-2.5 h-2.5 rounded-full shrink-0" style={{ backgroundColor: "#EF4444" }} />
@@ -387,12 +393,15 @@ function AgentDashboard() {
       </div>
 
       {/* Personal activity */}
-      <div className="grid grid-cols-1 lg:grid-cols-3 gap-4">
-        <Card title="Your activity" subtitle="Daily leads and replies" className="lg:col-span-2">
-          <div className="px-4 py-4"><OverviewChart data={buildChartData(analytics, true)} /></div>
-        </Card>
+      <Card title="Your activity" subtitle="Daily leads and replies" className="mb-4">
+        <div className="px-4 py-4"><OverviewChart data={buildChartData(analytics, true)} /></div>
+      </Card>
+      <div className="grid grid-cols-1 lg:grid-cols-2 gap-4">
         <Card title="Your stages" subtitle="Leads by pipeline stage">
           <StageSplit stages={analytics?.stages} lost={analytics?.funnel?.lost} />
+        </Card>
+        <Card title="Interest level" subtitle="Buying intent split">
+          <InterestSplit funnel={funnel} />
         </Card>
       </div>
 

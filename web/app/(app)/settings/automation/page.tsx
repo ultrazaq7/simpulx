@@ -4,6 +4,7 @@ import { useRouter } from "next/navigation";
 import { Search, Plus, RefreshCw, GitBranch, Pencil, Trash2, Zap, Sparkles, Loader2, X } from "lucide-react";
 import { api } from "@/lib/api";
 import { Select } from "@/components/Select";
+import { MultiSelect } from "@/components/ui/multi-select";
 import { usePermissions } from "@/lib/permissions";
 import { fmtDate, cn } from "@/lib/utils";
 import { Tip } from "@/components/ui/tooltip";
@@ -21,6 +22,7 @@ export default function AutomationPage() {
   const [loading, setLoading] = useState(true);
   const [query, setQuery] = useState("");
   const [triggerFilter, setTriggerFilter] = useState("");
+  const [channelFilter, setChannelFilter] = useState<string[]>([]);
   const [editing, setEditing] = useState<Automation | null>(null);
   const [dialogOpen, setDialogOpen] = useState(false);
 
@@ -32,8 +34,10 @@ export default function AutomationPage() {
 
   const filtered = useMemo(() => rows.filter((r) =>
     (!query || r.name.toLowerCase().includes(query.toLowerCase())) &&
-    (!triggerFilter || r.trigger_type === triggerFilter)
-  ), [rows, query, triggerFilter]);
+    (!triggerFilter || r.trigger_type === triggerFilter) &&
+    // Channel-less automations apply to every channel, so they always pass.
+    (!channelFilter.length || !r.channel_id || channelFilter.includes(r.channel_id))
+  ), [rows, query, triggerFilter, channelFilter]);
 
   async function toggle(r: Automation) {
     try { await api.updateAutomation(r.id, { is_active: !r.is_active }); load(); }
@@ -58,6 +62,8 @@ export default function AutomationPage() {
         </div>
         <Select value={triggerFilter} onChange={setTriggerFilter} placeholder="All triggers" className="min-w-[180px]"
           options={[{ value: "", label: "All triggers" }, ...TRIGGER_KEYS.map((k) => ({ value: k, label: TRIGGERS[k].label }))]} />
+        <MultiSelect value={channelFilter} onChange={setChannelFilter} placeholder="All channels" className="min-w-[180px]"
+          options={channels.map((c) => ({ value: c.id, label: c.name }))} />
         <Tip label="Refresh"><button onClick={load} className="p-1.5 rounded-md hover:bg-muted outline-none transition-colors"><RefreshCw className="w-[18px] h-[18px] text-muted-foreground" /></button></Tip>
         <div className="flex-1" />
         {canManage && (
@@ -78,7 +84,7 @@ export default function AutomationPage() {
           <div className="w-[88px] h-[88px] rounded-full bg-primary/10 grid place-items-center mx-auto mb-5">
             <Sparkles className="w-11 h-11 text-primary" />
           </div>
-          <p className="font-bold text-lg text-foreground">{query || triggerFilter ? "No matching automations" : "No automations yet"}</p>
+          <p className="font-bold text-lg text-foreground">{query || triggerFilter || channelFilter.length ? "No matching automations" : "No automations yet"}</p>
           <p className="text-[13.5px] text-muted-foreground mt-1 mb-5">Create your first automation to route messages and reply automatically.</p>
           {canManage && (
             <PrimaryButton onClick={() => { setEditing(null); setDialogOpen(true); }}>
