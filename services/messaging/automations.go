@@ -92,16 +92,12 @@ func triggerMatches(r autoRule, body, payload string, isNew bool) bool {
 		return isNew
 	case "keyword_match":
 		var cfg struct {
-			Keywords []string `json:"keywords"`
+			Keywords      []string `json:"keywords"`
+			CaseSensitive bool     `json:"case_sensitive"`
+			MatchMode     string   `json:"match_mode"` // any (default) | all | exact | starts_with
 		}
 		_ = json.Unmarshal(r.TriggerConfig, &cfg)
-		lb := strings.ToLower(body)
-		for _, k := range cfg.Keywords {
-			k = strings.ToLower(strings.TrimSpace(k))
-			if k != "" && strings.Contains(lb, k) {
-				return true
-			}
-		}
+		return keywordTriggerMatches(body, cfg.Keywords, cfg.MatchMode, cfg.CaseSensitive)
 	case "button_click":
 		// Fires when the contact tapped a quick-reply / template button. An
 		// optional `callback` in trigger_config narrows it to a specific callback
@@ -117,6 +113,60 @@ func triggerMatches(r autoRule, body, payload string, isNew bool) bool {
 		return cb == "" || strings.Contains(strings.ToLower(payload), cb)
 	}
 	return false
+}
+
+// keywordTriggerMatches evaluates a keyword_match trigger against the message
+// body. mode: "any" (default, contains at least one keyword), "all" (contains
+// every keyword), "exact" (body equals a keyword), "starts_with" (body starts
+// with a keyword). caseSensitive toggles case folding.
+func keywordTriggerMatches(body string, keywords []string, mode string, caseSensitive bool) bool {
+	norm := func(s string) string {
+		s = strings.TrimSpace(s)
+		if !caseSensitive {
+			s = strings.ToLower(s)
+		}
+		return s
+	}
+	b := norm(body)
+	kws := make([]string, 0, len(keywords))
+	for _, k := range keywords {
+		if k = norm(k); k != "" {
+			kws = append(kws, k)
+		}
+	}
+	if len(kws) == 0 {
+		return false
+	}
+	switch mode {
+	case "all":
+		for _, k := range kws {
+			if !strings.Contains(b, k) {
+				return false
+			}
+		}
+		return true
+	case "exact":
+		for _, k := range kws {
+			if b == k {
+				return true
+			}
+		}
+		return false
+	case "starts_with":
+		for _, k := range kws {
+			if strings.HasPrefix(b, k) {
+				return true
+			}
+		}
+		return false
+	default: // "any"
+		for _, k := range kws {
+			if strings.Contains(b, k) {
+				return true
+			}
+		}
+		return false
+	}
 }
 
 // flowSteps returns the ordered action steps. It prefers the visual flow (walked
@@ -302,6 +352,17 @@ func (a *app) execStep(ctx context.Context, orgID, convID, contactID string, s a
 			_ = a.bus.Publish(events.SubjectMessageOutbound, orgID, events.MessageOutbound{
 				ConversationID: convID, SenderType: "system", Type: "text",
 				Body: resolvePlaceholders(vars, msg),
+			})
+			return
+		}
+		if mt == "image" {
+			url := pStr(s.Params, "media_url")
+			if url == "" {
+				return
+			}
+			_ = a.bus.Publish(events.SubjectMessageOutbound, orgID, events.MessageOutbound{
+				ConversationID: convID, SenderType: "system", Type: "image",
+				MediaURL: url, Body: resolvePlaceholders(vars, pStr(s.Params, "body")),
 			})
 			return
 		}

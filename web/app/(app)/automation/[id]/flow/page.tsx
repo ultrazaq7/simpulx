@@ -9,9 +9,10 @@ import {
 import "@xyflow/react/dist/style.css";
 import {
   ArrowLeft, Plus, Zap, MessageCircle, FileText, User, Sparkles, Tag, Flag,
-  CheckCircle, Globe, GitFork, Trash2, Loader2, X, Save, Undo2, Redo2,
+  Globe, GitFork, Trash2, Loader2, X, Save, Undo2, Redo2,
   Braces, ToggleRight, Sheet, ClipboardList, UserMinus, Ban, Radio,
-  FolderMinus, BellOff, Scissors, Mail,
+  FolderMinus, BellOff, Scissors, Mail, Milestone, Flame, Image as ImageIcon,
+  RefreshCw,
 } from "lucide-react";
 import type { LucideIcon } from "lucide-react";
 import { Tip } from "@/components/ui/tooltip";
@@ -42,8 +43,9 @@ const META: Record<string, Meta> = {
   remove_tag: { label: "Remove tag", Icon: Scissors, accent: "#D97706", kicker: "DO", desc: ACTIONS.remove_tag.desc },
   set_contact_attribute: { label: "Set contact attribute", Icon: Braces, accent: "#7C3AED", kicker: "DO", desc: ACTIONS.set_contact_attribute.desc },
   set_priority: { label: "Set priority", Icon: Flag, accent: "#DC2626", kicker: "DO", desc: ACTIONS.set_priority.desc },
+  set_stage: { label: "Set stage", Icon: Milestone, accent: "#7C3AED", kicker: "DO", desc: ACTIONS.set_stage.desc },
+  set_interest: { label: "Set interest level", Icon: Flame, accent: "#DC2626", kicker: "DO", desc: ACTIONS.set_interest.desc },
   set_conversation_status: { label: "Set conversation status", Icon: ToggleRight, accent: "#475569", kicker: "DO", desc: ACTIONS.set_conversation_status.desc },
-  close_conversation: { label: "Close conversation", Icon: CheckCircle, accent: "#475569", kicker: "DO", desc: ACTIONS.close_conversation.desc },
   google_sheet: { label: "Add row to Google Sheet", Icon: Sheet, accent: "#059669", kicker: "DO", desc: ACTIONS.google_sheet.desc },
   webhook_notify: { label: "Webhook", Icon: Globe, accent: "#475569", kicker: "DO", desc: ACTIONS.webhook_notify.desc },
   rest_api: { label: "Call REST API", Icon: Globe, accent: "#475569", kicker: "DO", desc: ACTIONS.rest_api.desc },
@@ -54,12 +56,12 @@ const PALETTE: { group: string; kinds: string[] }[] = [
   { group: "Logic", kinds: ["condition"] },
   { group: "Messaging", kinds: ["send_message", "send_template", "send_form"] },
   { group: "Routing", kinds: ["assign_agent", "unassign_team", "assign_campaign", "remove_campaign"] },
-  { group: "Contact", kinds: ["add_tag", "remove_tag", "set_contact_attribute", "set_priority", "add_to_sequence", "remove_from_sequence", "blacklist"] },
-  { group: "Flow control", kinds: ["set_conversation_status", "close_conversation", "webhook_notify"] },
+  { group: "Contact", kinds: ["add_tag", "remove_tag", "set_contact_attribute", "set_stage", "set_interest", "set_priority", "add_to_sequence", "remove_from_sequence", "blacklist"] },
+  { group: "Flow control", kinds: ["set_conversation_status", "webhook_notify"] },
   { group: "Integrations", kinds: ["google_sheet", "send_email", "rest_api"] },
 ];
 // The executor runs these; others are configurable but not yet executed.
-const EXECUTED = new Set(["condition", "send_message", "send_template", "send_form", "add_tag", "remove_tag", "assign_agent", "unassign_team", "assign_campaign", "remove_campaign", "add_to_sequence", "remove_from_sequence", "blacklist", "set_priority", "set_contact_attribute", "set_conversation_status", "google_sheet", "send_email", "close_conversation", "webhook_notify", "rest_api"]);
+const EXECUTED = new Set(["condition", "send_message", "send_template", "send_form", "add_tag", "remove_tag", "assign_agent", "unassign_team", "assign_campaign", "remove_campaign", "add_to_sequence", "remove_from_sequence", "blacklist", "set_priority", "set_stage", "set_interest", "set_contact_attribute", "set_conversation_status", "google_sheet", "send_email", "webhook_notify", "rest_api"]);
 
 type NodeData = { kind: string; config: Record<string, unknown>; triggerType?: string };
 type AppNode = Node<NodeData>;
@@ -71,6 +73,7 @@ function summary(kind: string, c: Record<string, unknown>, triggerType?: string)
       const mt = String(c.message_type ?? "text");
       if (mt === "buttons") return `Buttons: ${(Array.isArray(c.buttons) ? c.buttons.length : 0)} option(s)`;
       if (mt === "list") { const s0 = (Array.isArray(c.sections) ? c.sections[0] : undefined) as { rows?: unknown[] } | undefined; return `List: ${(Array.isArray(s0?.rows) ? s0!.rows!.length : 0)} item(s)`; }
+      if (mt === "image") return c.media_url ? `Image${c.body ? ": " + String(c.body) : ""}` : "No image set";
       return String(c.message || c.body || "No message set");
     }
     case "send_template": return `Template: ${c.template_name || "—"}`;
@@ -85,12 +88,13 @@ function summary(kind: string, c: Record<string, unknown>, triggerType?: string)
     case "set_contact_attribute": return `${(Array.isArray(c.mappings) ? c.mappings.length : (c.key ? 1 : 0))} attribute(s)`;
     case "add_tag": case "remove_tag": return `Tags: ${(Array.isArray(c.tags) ? (c.tags as string[]).join(", ") : "") || "—"}`;
     case "set_conversation_status": return `Status: ${c.status || "—"}`;
+    case "set_stage": return `Stage: ${c.stage_name || "—"}`;
+    case "set_interest": return `Interest: ${c.interest_level || "—"}`;
     case "google_sheet": return c.sheet_url ? "Append to sheet" : "No sheet set";
     case "set_priority": return `Priority: ${c.priority || "normal"}`;
     case "webhook_notify": return String(c.url || "No URL set");
     case "rest_api": return c.url ? `${String(c.method || "POST")} ${String(c.url)}` : "No URL set";
     case "condition": return c.attribute ? `${c.attribute} ${String(c.operator || "equals").replace(/_/g, " ")} ${c.value ?? ""}`.trim() : "Define condition";
-    case "close_conversation": return "Resolve and close";
     default: return ACTIONS[kind]?.desc ?? "";
   }
 }
@@ -202,6 +206,7 @@ function Builder() {
   const [forms, setForms] = useState<{ id: string; name: string }[]>([]);
   const [agents, setAgents] = useState<{ id: string; name: string }[]>([]);
   const [sequences, setSequences] = useState<{ id: string; name: string }[]>([]);
+  const [stages, setStages] = useState<{ id: string; name: string }[]>([]);
   const [sheetEmail, setSheetEmail] = useState("");
 
   // ── Undo / redo (Ctrl+Z / Ctrl+Y) ──
@@ -254,6 +259,7 @@ function Builder() {
     api.getGoogleSheetsInfo().then((i) => setSheetEmail(i.client_email)).catch(() => {});
     api.listAgents().then((as) => setAgents(as.map((a) => ({ id: a.id, name: a.full_name })))).catch(() => {});
     api.listSequences().then((sq) => setSequences(sq.map((s) => ({ id: s.id, name: s.name })))).catch(() => {});
+    api.listStages().then((ss) => setStages(ss.map((s) => ({ id: s.id, name: s.name })))).catch(() => {});
   }, [id]); // eslint-disable-line react-hooks/exhaustive-deps
   useEffect(() => { if (!toast) return; const t = setTimeout(() => setToast(null), 3000); return () => clearTimeout(t); }, [toast]);
 
@@ -380,7 +386,7 @@ function Builder() {
         {/* Inspector */}
         {selected && (
           <div className="absolute inset-y-0 right-0 z-20 w-[340px] bg-card border-l border-border shadow-xl flex flex-col animate-scale-in">
-            <Inspector node={selected} triggerType={auto.trigger_type} campaigns={campaigns} forms={forms} agents={agents} sequences={sequences} sheetEmail={sheetEmail} onChange={(cfg) => updateConfig(selected.id, cfg)} onClose={() => setSelId(null)} onDelete={() => deleteNode(selected.id)} />
+            <Inspector node={selected} triggerType={auto.trigger_type} campaigns={campaigns} forms={forms} agents={agents} sequences={sequences} stages={stages} sheetEmail={sheetEmail} onChange={(cfg) => updateConfig(selected.id, cfg)} onClose={() => setSelId(null)} onDelete={() => deleteNode(selected.id)} />
           </div>
         )}
       </div>
@@ -394,9 +400,52 @@ function Builder() {
   );
 }
 
-// ── Auto-reply node config: Text, reply Buttons, or a List menu ─────────────
+// ── Auto-reply node config: Text, Image, reply Buttons, or a List menu ──────
 type ReplyBtn = { title?: string; id?: string };
 type ReplyRow = { title?: string; description?: string; id?: string };
+
+// Auto-generate a WhatsApp button callback id (payload). 16-char url-safe token
+// (matches the SmartKonek style). The user can edit or regenerate it — the
+// button_click trigger matches on this id.
+function genCallbackId(): string {
+  const chars = "ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789";
+  let s = "";
+  for (let i = 0; i < 16; i++) s += chars[Math.floor(Math.random() * chars.length)];
+  return s;
+}
+
+// Inline image uploader (reuses POST /api/uploads). Shows a thumbnail + clear.
+function ImageUpload({ url, onChange }: { url: string; onChange: (u: string) => void }) {
+  const [busy, setBusy] = useState(false);
+  const [err, setErr] = useState("");
+  const inputRef = useRef<HTMLInputElement>(null);
+  async function pick(file?: File) {
+    if (!file) return;
+    setBusy(true); setErr("");
+    try { const r = await api.uploadFile(file); onChange(r.url); }
+    catch (e) { setErr(e instanceof Error ? e.message : String(e)); }
+    finally { setBusy(false); }
+  }
+  return (
+    <div className="space-y-2">
+      {url ? (
+        <div className="relative">
+          {/* eslint-disable-next-line @next/next/no-img-element */}
+          <img src={url} alt="" className="w-full max-h-40 object-cover rounded-md border border-border" />
+          <button type="button" onClick={() => onChange("")} className="absolute top-1.5 right-1.5 w-6 h-6 grid place-items-center rounded-full bg-black/60 text-white text-sm leading-none">×</button>
+        </div>
+      ) : (
+        <button type="button" onClick={() => inputRef.current?.click()} disabled={busy}
+          className="flex flex-col items-center justify-center gap-1.5 w-full h-24 rounded-md border border-dashed border-border text-muted-foreground hover:border-primary/50 hover:text-primary transition-colors outline-none">
+          {busy ? <Loader2 className="w-5 h-5 animate-spin" /> : <ImageIcon className="w-5 h-5" />}
+          <span className="text-[12px] font-medium">{busy ? "Uploading…" : "Upload image"}</span>
+        </button>
+      )}
+      <input ref={inputRef} type="file" accept="image/*" className="hidden" onChange={(e) => pick(e.target.files?.[0])} />
+      {err && <p className="text-[12px] text-destructive">{err}</p>}
+    </div>
+  );
+}
 
 function AutoReplyConfig({ c, set }: { c: Record<string, unknown>; set: (k: string, v: unknown) => void }) {
   const mt = String(c.message_type ?? "text");
@@ -409,12 +458,17 @@ function AutoReplyConfig({ c, set }: { c: Record<string, unknown>; set: (k: stri
     <>
       <Field label="Message type">
         <Select value={mt} searchable={false} onChange={(v) => set("message_type", v)} className="w-full"
-          options={[{ value: "text", label: "Text" }, { value: "buttons", label: "Buttons (quick reply)" }, { value: "list", label: "List menu" }]} />
+          options={[{ value: "text", label: "Text" }, { value: "image", label: "Image" }, { value: "buttons", label: "Buttons (quick reply)" }, { value: "list", label: "List menu" }]} />
       </Field>
 
       {mt === "text" && (
         <Field label="Message"><textarea value={String(c.message ?? "")} onChange={(e) => set("message", e.target.value)} rows={4} placeholder="Type the auto reply..." className={cn(INP, "resize-none h-auto py-2")} /></Field>
       )}
+
+      {mt === "image" && <>
+        <Field label="Image"><ImageUpload url={String(c.media_url ?? "")} onChange={(u) => set("media_url", u)} /></Field>
+        <Field label="Caption (optional)"><textarea value={String(c.body ?? "")} onChange={(e) => set("body", e.target.value)} rows={3} placeholder="Caption sent with the image..." className={cn(INP, "resize-none h-auto py-2")} /></Field>
+      </>}
 
       {(mt === "buttons" || mt === "list") && <>
         <Field label="Header (optional)"><input value={String(c.header ?? "")} onChange={(e) => set("header", e.target.value)} placeholder="Short title" className={INP} /></Field>
@@ -424,16 +478,23 @@ function AutoReplyConfig({ c, set }: { c: Record<string, unknown>; set: (k: stri
 
       {mt === "buttons" && (
         <Field label="Buttons (up to 3)">
-          <div className="space-y-1.5">
+          <div className="space-y-2">
             {buttons.map((b, i) => (
-              <div key={i} className="flex gap-1.5 items-center">
-                <input value={String(b?.title ?? "")} onChange={(e) => { const arr = [...buttons]; arr[i] = { ...arr[i], title: e.target.value }; set("buttons", arr); }} placeholder={`Button ${i + 1} label`} className={cn(INP, "flex-1")} />
-                <input value={String(b?.id ?? "")} onChange={(e) => { const arr = [...buttons]; arr[i] = { ...arr[i], id: e.target.value }; set("buttons", arr); }} placeholder="id (optional)" className={cn(INP, "w-28")} />
-                <button type="button" onClick={() => { const arr = [...buttons]; arr.splice(i, 1); set("buttons", arr); }} className="px-1.5 text-muted-foreground hover:text-destructive text-lg leading-none">×</button>
+              <div key={i} className="rounded-md border border-border/60 p-2 space-y-1.5">
+                <div className="flex gap-1.5 items-center">
+                  <input value={String(b?.title ?? "")} maxLength={20} onChange={(e) => { const arr = [...buttons]; arr[i] = { ...arr[i], title: e.target.value }; set("buttons", arr); }} placeholder={`Button ${i + 1} label`} className={cn(INP, "flex-1")} />
+                  <button type="button" onClick={() => { const arr = [...buttons]; arr.splice(i, 1); set("buttons", arr); }} className="px-1.5 text-muted-foreground hover:text-destructive text-lg leading-none">×</button>
+                </div>
+                <div className="flex gap-1.5 items-center">
+                  <span className="text-[10px] font-bold uppercase tracking-wide text-muted-foreground shrink-0">Callback ID</span>
+                  <input value={String(b?.id ?? "")} onChange={(e) => { const arr = [...buttons]; arr[i] = { ...arr[i], id: e.target.value }; set("buttons", arr); }} placeholder="auto-generated" className={cn(INP, "flex-1 !h-8 font-mono text-[12px]")} />
+                  <Tip label="Regenerate id"><button type="button" onClick={() => { const arr = [...buttons]; arr[i] = { ...arr[i], id: genCallbackId() }; set("buttons", arr); }} className="p-1.5 rounded-md text-muted-foreground hover:bg-muted hover:text-foreground outline-none shrink-0"><RefreshCw className="w-3.5 h-3.5" /></button></Tip>
+                </div>
               </div>
             ))}
-            {buttons.length < 3 && <button type="button" onClick={() => set("buttons", [...buttons, { title: "", id: "" }])} className="text-[12.5px] font-semibold text-primary hover:underline">+ Add button</button>}
+            {buttons.length < 3 && <button type="button" onClick={() => set("buttons", [...buttons, { title: "", id: genCallbackId() }])} className="text-[12.5px] font-semibold text-primary hover:underline">+ Add button</button>}
           </div>
+          <p className="text-[11.5px] text-muted-foreground mt-1.5">Callback IDs are auto-generated and editable. A <b>Button click</b> trigger can match on them.</p>
         </Field>
       )}
 
@@ -457,9 +518,51 @@ function AutoReplyConfig({ c, set }: { c: Record<string, unknown>; set: (k: stri
   );
 }
 
+// ── Trigger config: keyword match (chips + match mode + case sensitivity) ────
+function KeywordTriggerConfig({ c, set }: { c: Record<string, unknown>; set: (k: string, v: unknown) => void }) {
+  const kws: string[] = Array.isArray(c.keywords) ? (c.keywords as string[]) : [];
+  const [draft, setDraft] = useState("");
+  const addKw = (raw: string) => {
+    const parts = raw.split(",").map((k) => k.trim()).filter(Boolean);
+    if (parts.length === 0) return;
+    set("keywords", Array.from(new Set([...kws, ...parts])));
+    setDraft("");
+  };
+  return (
+    <>
+      <Field label="Message contains keyword(s)">
+        <div className="rounded-md border border-input bg-background px-2 py-1.5 flex flex-wrap gap-1.5 focus-within:border-primary focus-within:ring-2 focus-within:ring-primary/25">
+          {kws.map((k, i) => (
+            <span key={i} className="inline-flex items-center gap-1 rounded-md bg-muted px-2 py-0.5 text-[12.5px] font-medium text-foreground">
+              {k}
+              <button type="button" onClick={() => set("keywords", kws.filter((_, j) => j !== i))} className="text-muted-foreground hover:text-destructive leading-none">×</button>
+            </span>
+          ))}
+          <input value={draft} onChange={(e) => setDraft(e.target.value)}
+            onKeyDown={(e) => {
+              if (e.key === "Enter" || e.key === ",") { e.preventDefault(); addKw(draft); }
+              else if (e.key === "Backspace" && !draft && kws.length) { set("keywords", kws.slice(0, -1)); }
+            }}
+            onBlur={() => { if (draft) addKw(draft); }}
+            placeholder={kws.length ? "" : "Type a keyword, Enter to add"}
+            className="flex-1 min-w-[120px] bg-transparent outline-none text-sm py-0.5" />
+        </div>
+      </Field>
+      <Field label="Match mode">
+        <Select value={String(c.match_mode ?? "any")} onChange={(v) => set("match_mode", v)} searchable={false}
+          options={[["any", "Contains any keyword"], ["all", "Contains all keywords"], ["exact", "Exactly matches a keyword"], ["starts_with", "Starts with a keyword"]].map(([v, l]) => ({ value: v, label: l }))} className="w-full" />
+      </Field>
+      <label className="flex items-center gap-2 cursor-pointer">
+        <input type="checkbox" checked={Boolean(c.case_sensitive)} onChange={(e) => set("case_sensitive", e.target.checked)} className="w-4 h-4 rounded border-input text-primary focus:ring-primary/25" />
+        <span className="text-[13px] font-medium text-foreground/80">Case sensitive</span>
+      </label>
+    </>
+  );
+}
+
 // ── Inspector (per-node config) ─────────────────────────────────────────────
-function Inspector({ node, triggerType, campaigns, forms, agents, sequences, sheetEmail, onChange, onClose, onDelete }: {
-  node: AppNode; triggerType: string; campaigns: { id: string; name: string }[]; forms: { id: string; name: string }[]; agents: { id: string; name: string }[]; sequences: { id: string; name: string }[]; sheetEmail: string; onChange: (cfg: Record<string, unknown>) => void; onClose: () => void; onDelete: () => void;
+function Inspector({ node, triggerType, campaigns, forms, agents, sequences, stages, sheetEmail, onChange, onClose, onDelete }: {
+  node: AppNode; triggerType: string; campaigns: { id: string; name: string }[]; forms: { id: string; name: string }[]; agents: { id: string; name: string }[]; sequences: { id: string; name: string }[]; stages: { id: string; name: string }[]; sheetEmail: string; onChange: (cfg: Record<string, unknown>) => void; onClose: () => void; onDelete: () => void;
 }) {
   const pickById = (list: { id: string; name: string }[], idKey: string, nameKey: string) => (v: string) => onChange({ ...node.data.config, [idKey]: v, [nameKey]: list.find((x) => x.id === v)?.name || "" });
   const kind = node.data.kind;
@@ -479,9 +582,7 @@ function Inspector({ node, triggerType, campaigns, forms, agents, sequences, she
         {!isTrigger && !EXECUTED.has(kind) && (
           <div className="px-3 py-2 rounded-md bg-amber-50 border border-amber-200 text-[12px] text-amber-700 font-medium">Configurable now; the engine doesn&apos;t execute this action type yet.</div>
         )}
-        {isTrigger && triggerType === "keyword_match" && (
-          <Field label="Keywords (comma separated)"><input value={Array.isArray(c.keywords) ? (c.keywords as string[]).join(", ") : ""} onChange={(e) => set("keywords", e.target.value.split(",").map((k) => k.trim()).filter(Boolean))} placeholder="price, promo, harga" className={INP} /></Field>
-        )}
+        {isTrigger && triggerType === "keyword_match" && <KeywordTriggerConfig c={c} set={set} />}
         {isTrigger && triggerType === "conversation_idle" && (
           <Field label="Idle minutes"><input type="number" value={String(c.idle_minutes ?? "30")} onChange={(e) => set("idle_minutes", Number(e.target.value) || 30)} className={INP} /></Field>
         )}
@@ -504,6 +605,11 @@ function Inspector({ node, triggerType, campaigns, forms, agents, sequences, she
         {(kind === "add_tag" || kind === "remove_tag") && <Field label="Tags (comma separated)"><input value={Array.isArray(c.tags) ? (c.tags as string[]).join(", ") : ""} onChange={(e) => set("tags", e.target.value.split(",").map((t) => t.trim()).filter(Boolean))} placeholder="vip, pricing" className={INP} /></Field>}
         {kind === "set_contact_attribute" && <AttrMappings c={c} onChange={onChange} />}
         {kind === "set_conversation_status" && <Field label="Status"><Select value={String(c.status ?? "open")} onChange={(v) => set("status", v)} searchable={false} options={["open", "snoozed", "closed"].map((p) => ({ value: p, label: p }))} className="w-full" /></Field>}
+        {kind === "set_stage" && <Field label="Pipeline stage">
+          <Select value={String(c.stage_id ?? "")} onChange={pickById(stages, "stage_id", "stage_name")} options={stages.map((s) => ({ value: s.id, label: s.name }))} placeholder="Search stage…" className="w-full" />
+          {stages.length === 0 && <p className="text-[12px] text-amber-600 mt-1.5">No pipeline stages defined yet.</p>}
+        </Field>}
+        {kind === "set_interest" && <Field label="Interest level"><Select value={String(c.interest_level ?? "")} onChange={(v) => set("interest_level", v)} searchable={false} options={[["hot", "Hot"], ["warm", "Warm"], ["cold", "Cold"]].map(([v, l]) => ({ value: v, label: l }))} placeholder="Choose…" className="w-full" /></Field>}
         {kind === "google_sheet" && <>
           <Field label="Google Sheet URL"><input value={String(c.sheet_url ?? "")} onChange={(e) => set("sheet_url", e.target.value)} placeholder="Paste the Sheet URL" className={INP} /></Field>
           <Field label="Tab name"><input value={String(c.sheet_tab ?? "")} onChange={(e) => set("sheet_tab", e.target.value)} placeholder="Sheet1" className={INP} /></Field>
@@ -549,7 +655,6 @@ function Inspector({ node, triggerType, campaigns, forms, agents, sequences, she
           )}
           <p className="text-[12px] text-muted-foreground">Connect the <b className="text-emerald-600">Match</b> handle for when it&apos;s true and <b className="text-slate-500">Else</b> for everything else.</p>
         </>}
-        {kind === "close_conversation" && <p className="text-[13px] text-muted-foreground">Resolves and closes the conversation. No configuration needed.</p>}
       </div>
       {!isTrigger && (
         <div className="px-4 py-3 border-t border-border">
