@@ -20,6 +20,7 @@ class SettingsPage extends ConsumerWidget {
   Widget build(BuildContext context, WidgetRef ref) {
     final user = ref.watch(sessionControllerProvider).user;
     final locale = ref.watch(localeProvider);
+    final themeMode = ref.watch(themeModeProvider);
 
     String langName(Locale? l) {
       if (l == null) return 'System Default';
@@ -29,6 +30,18 @@ class SettingsPage extends ConsumerWidget {
         case 'en':
         default:
           return 'English';
+      }
+    }
+
+    String themeName(ThemeMode m) {
+      switch (m) {
+        case ThemeMode.light:
+          return 'Light';
+        case ThemeMode.dark:
+          return 'Dark';
+        case ThemeMode.system:
+        default:
+          return 'System Default';
       }
     }
 
@@ -52,13 +65,13 @@ class SettingsPage extends ConsumerWidget {
               ListTile(
                 leading: const Icon(Icons.key_rounded),
                 title: const Text('Account'),
-                subtitle: const Text('Security notifications, change password'),
+                subtitle: const Text('Change password'),
                 onTap: () => _showProfile(context),
               ),
               ListTile(
                 leading: const Icon(Icons.notifications_none_rounded),
                 title: const Text('Notifications'),
-                subtitle: const Text('Message, group & call tones'),
+                subtitle: const Text('Message & Alerts'),
                 onTap: () => _showNotificationPrefs(context),
               ),
               ListTile(
@@ -66,6 +79,12 @@ class SettingsPage extends ConsumerWidget {
                 title: const Text('App language'),
                 subtitle: Text(langName(locale)),
                 onTap: () => _showLanguagePicker(context, ref, locale),
+              ),
+              ListTile(
+                leading: const Icon(Icons.palette_outlined),
+                title: const Text('App theme'),
+                subtitle: Text(themeName(themeMode)),
+                onTap: () => _showThemePicker(context, ref, themeMode),
               ),
             ],
           ),
@@ -185,6 +204,59 @@ class SettingsPage extends ConsumerWidget {
     );
   }
 
+  void _showThemePicker(BuildContext context, WidgetRef ref, ThemeMode current) {
+    showModalBottomSheet<void>(
+      context: context,
+      showDragHandle: true,
+      builder: (_) => SafeArea(
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            const Padding(
+              padding: EdgeInsets.fromLTRB(16, 0, 16, 8),
+              child: Align(
+                alignment: Alignment.centerLeft,
+                child: Text('App theme',
+                    style: TextStyle(fontSize: 16, fontWeight: FontWeight.w700)),
+              ),
+            ),
+            RadioListTile<ThemeMode>(
+              title: const Text('System Default'),
+              subtitle: const Text('Follow device theme'),
+              value: ThemeMode.system,
+              groupValue: current,
+              onChanged: (v) {
+                if (v != null) ref.read(themeModeProvider.notifier).setThemeMode(v);
+                Navigator.of(context).pop();
+                AppSnackbar.show(context, 'Theme set to System Default');
+              },
+            ),
+            RadioListTile<ThemeMode>(
+              title: const Text('Light'),
+              value: ThemeMode.light,
+              groupValue: current,
+              onChanged: (v) {
+                if (v != null) ref.read(themeModeProvider.notifier).setThemeMode(v);
+                Navigator.of(context).pop();
+                AppSnackbar.show(context, 'Theme set to Light');
+              },
+            ),
+            RadioListTile<ThemeMode>(
+              title: const Text('Dark'),
+              value: ThemeMode.dark,
+              groupValue: current,
+              onChanged: (v) {
+                if (v != null) ref.read(themeModeProvider.notifier).setThemeMode(v);
+                Navigator.of(context).pop();
+                AppSnackbar.show(context, 'Theme set to Dark');
+              },
+            ),
+            const SizedBox(height: 8),
+          ],
+        ),
+      ),
+    );
+  }
 
 }
 
