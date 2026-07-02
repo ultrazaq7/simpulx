@@ -15,6 +15,7 @@ import Composer from "./Composer";
 import LostReasonDialog from "./LostReasonDialog";
 import { MessageThreadSkeleton } from "./InboxSkeletons";
 import { StageMenu } from "./StageMenu";
+import { InterestMenu } from "./InterestMenu";
 import CallOverlay from "./CallOverlay";
 import { api } from "@/lib/api";
 
@@ -394,6 +395,14 @@ export default function ChatPanel({
                     <ChevronRight className="w-[18px] h-[18px]" />
                   </button>
                 </Tip>
+              </div>
+
+              {/* Interest (temperature) pill — the one place to set it by hand */}
+              <div className="ml-2 shrink-0">
+                <InterestMenu
+                  value={active.interest_level || null}
+                  onSelect={(v) => onOverride({ interest_level: v }, "Interest")}
+                />
               </div>
 
               <div className="flex-1" />
