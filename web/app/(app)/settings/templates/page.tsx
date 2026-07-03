@@ -8,7 +8,7 @@ import {
 import { api } from "@/lib/api";
 import { Select } from "@/components/Select";
 import { MultiSelect } from "@/components/ui/multi-select";
-import { fmtDate, cn } from "@/lib/utils";
+import { fmtDateTimeShort, cn } from "@/lib/utils";
 import { useEscClose } from "@/lib/useEscClose";
 import { Tip } from "@/components/ui/tooltip";
 import type { Template, TemplateButton, CarouselCard, Channel, Campaign } from "@/lib/types";
@@ -152,7 +152,7 @@ export default function TemplatesPage() {
                   </td>
                   <td className="px-4 py-2.5 text-[12.5px] text-foreground">{t.language}</td>
                   <td className="px-4 py-2.5"><span className="inline-flex px-2 py-0.5 rounded-md text-[10px] font-bold" style={{ backgroundColor: sc.bg, color: sc.fg }}>{t.status}</span></td>
-                  <td className="px-4 py-2.5 text-[12.5px] text-muted-foreground">{fmtDate(t.updated_at)}</td>
+                  <td className="px-4 py-2.5 text-[12.5px] text-muted-foreground">{fmtDateTimeShort(t.updated_at)}</td>
                   <td className="px-4 py-2.5 text-right">
                     {(t.status === "DRAFT" || t.status === "REJECTED") && (
                       <Tip label="Submit to Meta"><button onClick={() => submit(t)} className="p-1.5 rounded-md hover:bg-muted outline-none transition-colors"><Send className="w-[17px] h-[17px] text-primary" /></button></Tip>

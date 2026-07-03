@@ -3,6 +3,7 @@ import { useState, useRef, useEffect } from "react";
 import { createPortal } from "react-dom";
 import { ChevronDown, Check } from "lucide-react";
 import { cn, interestColor } from "@/lib/utils";
+import { useEscClose } from "@/lib/useEscClose";
 import { Tip } from "@/components/ui/tooltip";
 
 // Compact lead-interest (temperature) picker for the chat header, next to the
@@ -25,6 +26,7 @@ export function InterestMenu({
   const [pos, setPos] = useState<{ top: number; left: number } | null>(null);
   const btnRef = useRef<HTMLButtonElement>(null);
   const W = 176; // w-44
+  useEscClose(open, () => setOpen(false));
   const cur = (value || "").toLowerCase();
   const current = OPTS.find((o) => o.value === cur);
 
@@ -51,7 +53,7 @@ export function InterestMenu({
           className="flex items-center gap-1.5 px-2.5 h-8 rounded-md border border-border bg-background text-[13px] font-semibold text-foreground hover:bg-muted transition-colors outline-none shrink-0"
         >
           <span className="w-2.5 h-2.5 rounded-full shrink-0" style={{ backgroundColor: current ? interestColor(current.value) : "hsl(var(--muted-foreground))" }} />
-          {current?.label || "Interest"}
+          {current?.label || "Unset"}
           <ChevronDown className="w-3.5 h-3.5 text-muted-foreground" />
         </button>
       </Tip>
@@ -67,6 +69,14 @@ export function InterestMenu({
             )}
           >
             <p className="px-3 py-1.5 text-[10px] font-bold text-muted-foreground uppercase tracking-wider">Interest level</p>
+            <button
+              onClick={() => { onSelect(""); setOpen(false); }}
+              className="w-full flex items-center gap-2 px-3 py-2 text-[13px] font-medium text-foreground/90 hover:bg-muted outline-none"
+            >
+              <span className="w-2.5 h-2.5 rounded-full shrink-0 border border-muted-foreground/40" />
+              Unset
+              {cur === "" && <Check className="w-4 h-4 text-primary ml-auto" />}
+            </button>
             {OPTS.map((o) => (
               <button
                 key={o.value}

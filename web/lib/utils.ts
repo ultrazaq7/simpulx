@@ -26,6 +26,17 @@ export function dateLabel(dateStr: string | Date | undefined | null): string {
   return fmtDate(dateStr);
 }
 
+// Human, sortable-ish absolute timestamp: "22 Jun 2026 01:28" (24h, local).
+// Used for created/updated/last-message columns across contacts + details.
+const MONTHS_SHORT = ["Jan", "Feb", "Mar", "Apr", "May", "Jun", "Jul", "Aug", "Sep", "Oct", "Nov", "Dec"];
+export function fmtDateTimeShort(dateStr: string | Date | undefined | null): string {
+  if (!dateStr) return "";
+  const d = new Date(dateStr);
+  if (isNaN(d.getTime())) return "";
+  const p = (n: number) => String(n).padStart(2, "0");
+  return `${d.getDate()} ${MONTHS_SHORT[d.getMonth()]} ${d.getFullYear()} ${p(d.getHours())}:${p(d.getMinutes())}`;
+}
+
 // Clean, sortable timestamp for CSV/data exports: "2026-06-21 9:03 AM",
 // rendered in the given IANA timezone (the workspace tz) so columns aren't UTC.
 export function fmtExportTs(dateStr: string | Date | undefined | null, tz?: string): string {

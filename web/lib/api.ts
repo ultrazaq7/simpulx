@@ -309,7 +309,7 @@ export const api = {
   deleteNote: (convId: string, noteId: string) => req(`/api/conversations/${convId}/notes/${noteId}`, { method: "DELETE" }),
   listStages: () => req<import("./types").Stage[]>("/api/stages"),
   listDispositions: () => req<import("./types").Disposition[]>("/api/dispositions"),
-  patchConversation: (id: string, patch: { stage_id?: string; disposition_id?: string; interest_level?: string; unread_count?: number; lost_reason?: string }) =>
+  patchConversation: (id: string, patch: { stage_id?: string; disposition_id?: string; interest_level?: string; unread_count?: number; lost_reason?: string; status?: string }) =>
     req(`/api/conversations/${id}`, { method: "PATCH", body: JSON.stringify(patch) }),
   listContacts: () => req<Contact[]>("/api/contacts"),
   createContact: (body: { full_name?: string; phone?: string; tags?: string[]; attributes?: Record<string, unknown> }) =>
@@ -322,6 +322,9 @@ export const api = {
     contact_ids: string[];
     set: { stage_id?: string; interest_level?: string; assigned_agent_id?: string; add_tags?: string[]; remove_tags?: string[]; blacklisted?: boolean };
   }) => req<{ updated: number; skipped: { contact_id: string; reason: string }[] }>("/api/contacts/bulk-update", { method: "POST", body: JSON.stringify(body) }),
+  // Initiate chat: send an approved WhatsApp template to contacts (get-or-create conversation).
+  sendTemplateToContacts: (body: { contact_ids: string[]; channel_id?: string; template_id: string; variables: string[] }) =>
+    req<{ queued: number; skipped: { contact_id: string; reason: string }[] }>("/api/contacts/send-template", { method: "POST", body: JSON.stringify(body) }),
 
   // Custom (typed) contact fields — org-defined schema; values live in contact.attributes.
   listCustomFields: () => req<import("./types").CustomField[]>("/api/custom-fields"),

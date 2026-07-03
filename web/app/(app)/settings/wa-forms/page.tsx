@@ -10,7 +10,7 @@ import { api, getToken } from "@/lib/api";
 import { Select } from "@/components/Select";
 import { MultiSelect } from "@/components/ui/multi-select";
 import { Tip } from "@/components/ui/tooltip";
-import { cn, fmtDate } from "@/lib/utils";
+import { cn, fmtDateTimeShort } from "@/lib/utils";
 import type {
   WaFlow, WaFlowDetail, WaFlowResponse, FlowDefinition, FlowScreen,
   FlowComponent, FlowComponentType, Channel,
@@ -287,7 +287,7 @@ function FormsTable({ flows, busy, onEdit, onPublish, onSend, onDelete }: {
                 <span className={cn("px-2 py-0.5 rounded-full text-xs font-medium capitalize", STATUS_BADGE[f.status] || STATUS_BADGE.draft)}>{f.status}</span>
               </td>
               <td className="px-4 py-3 tabular-nums">{f.response_count ?? 0}</td>
-              <td className="px-4 py-3 text-muted-foreground">{fmtDate(f.updated_at || "")}</td>
+              <td className="px-4 py-3 text-muted-foreground">{fmtDateTimeShort(f.updated_at || "")}</td>
               <td className="px-4 py-3">
                 <div className="flex items-center justify-end gap-1">
                   <IconBtn title="Edit" onClick={() => onEdit(f.id)}><Pencil className="w-4 h-4" /></IconBtn>
@@ -333,7 +333,7 @@ function ResponsesTable({ responses, onView }: { responses: WaFlowResponse[]; on
             <td className="px-4 py-3 font-medium text-foreground">{r.flow_name || "—"}</td>
             <td className="px-4 py-3">{r.contact_name || "—"}</td>
             <td className="px-4 py-3 tabular-nums text-muted-foreground">{r.contact_phone}</td>
-            <td className="px-4 py-3 text-muted-foreground">{fmtDate(r.received_at)}</td>
+            <td className="px-4 py-3 text-muted-foreground">{fmtDateTimeShort(r.received_at)}</td>
             <td className="px-4 py-3 text-right">
               <IconBtn title="View" onClick={() => onView(r)}><Eye className="w-4 h-4" /></IconBtn>
             </td>
@@ -348,7 +348,7 @@ function ResponseViewer({ r, onClose }: { r: WaFlowResponse; onClose: () => void
   return (
     <Modal onClose={onClose} title={r.flow_name || "Response"}>
       <div className="p-5 space-y-3 text-sm">
-        <p className="text-muted-foreground">{r.contact_name} · {r.contact_phone} · {fmtDate(r.received_at)}</p>
+        <p className="text-muted-foreground">{r.contact_name} · {r.contact_phone} · {fmtDateTimeShort(r.received_at)}</p>
         <div className="divide-y divide-border rounded-lg border border-border">
           {Object.entries(r.response || {}).map(([k, v]) => (
             <div key={k} className="flex gap-3 px-3 py-2">

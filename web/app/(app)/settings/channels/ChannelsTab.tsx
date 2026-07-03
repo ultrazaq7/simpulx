@@ -10,7 +10,7 @@ import {
 } from "lucide-react";
 import ChannelIcon, { CHANNEL_CATALOG, channelMeta } from "@/components/ChannelIcon";
 import { api } from "@/lib/api";
-import { cn, fmtDate } from "@/lib/utils";
+import { cn, fmtDateTimeShort } from "@/lib/utils";
 import { Tip } from "@/components/ui/tooltip";
 import type { Channel } from "@/lib/types";
 import { useToast, FieldLabel, INPUT_CLASS, PrimaryButton, GhostButton } from "../_shared";
@@ -211,7 +211,7 @@ function ChannelRow({ c, onTest, onToggle, onEdit, onDelete }: {
         ) : (
           <span className="inline-flex items-center px-2.5 h-7 rounded-full border border-border bg-muted/50 text-[12px] font-medium text-muted-foreground">Not configured</span>
         )}
-        {c.connected_at && <span className="text-[11.5px] text-muted-foreground shrink-0">since {fmtDate(c.connected_at)}</span>}
+        {c.connected_at && <span className="text-[11.5px] text-muted-foreground shrink-0">Created {fmtDateTimeShort(c.connected_at)}</span>}
       </div>
       <div className="w-[120px] shrink-0 hidden sm:block"><StatusDot status={c.status} /></div>
       <Tip label={c.is_active ? "Active" : "Disabled"}><span className="shrink-0"><Toggle checked={c.is_active} onChange={() => onToggle(c)} /></span></Tip>

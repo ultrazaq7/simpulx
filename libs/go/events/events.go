@@ -118,6 +118,22 @@ type MessageOutbound struct {
 	// Interactive: when set, send a WhatsApp interactive message (reply buttons or
 	// list) instead of plain text. Type should be "interactive".
 	Interactive *InteractiveOutbound `json:"interactive,omitempty"`
+	// Template: when set, send a real WhatsApp HSM template (with body variable
+	// substitution). Used to (re)open a conversation with a contact. Type should
+	// be "template"; Body carries a rendered preview for persistence/inbox.
+	Template *TemplateOutbound `json:"template,omitempty"`
+}
+
+// ── Template (WhatsApp HSM) outbound payload ────────────────
+// A real approved Meta template send with per-message variable values, so an
+// agent can initiate a conversation outside the 24h window.
+type TemplateOutbound struct {
+	Name           string   `json:"name"`
+	Language       string   `json:"language"`
+	BodyParams     []string `json:"body_params,omitempty"`      // fills {{1}}..{{n}} in the body
+	HeaderType     string   `json:"header_type,omitempty"`      // IMAGE | VIDEO | DOCUMENT | TEXT
+	HeaderMediaURL string   `json:"header_media_url,omitempty"` // when header is media
+	HeaderParam    string   `json:"header_param,omitempty"`     // TEXT header {{1}}
 }
 
 // ── Interactive (WhatsApp) outbound payloads ────────────────

@@ -8,7 +8,7 @@ import {
 
 import { api, getUser } from "@/lib/api";
 import { usePermissions } from "@/lib/permissions";
-import { initials, channelColor, channelTextColor, channelLabel, avatarColor, fmtDate, fmtExportTs, cn } from "@/lib/utils";
+import { initials, channelColor, channelTextColor, channelLabel, avatarColor, fmtDate, fmtDateTimeShort, fmtExportTs, cn } from "@/lib/utils";
 import type { Contact, Agent, Campaign, Message, Stage, Conversation, Disposition, CustomField } from "@/lib/types";
 import { Tip } from "@/components/ui/tooltip";
 import MessageBubble, { rewriteLocalMedia } from "@/app/(app)/inbox/components/MessageBubble";
@@ -407,8 +407,8 @@ export default function ContactsPage() {
                       {c.channel_name || channelLabel(c.source_channel)}
                     </span>
                   </td>
-                  <td className="px-3 py-2 text-muted-foreground text-[12px] whitespace-nowrap">{fmtDate(c.created_at)}</td>
-                  <td className="px-3 py-2 text-muted-foreground text-[12px] whitespace-nowrap">{c.updated_at ? fmtDate(c.updated_at) : "-"}</td>
+                  <td className="px-3 py-2 text-muted-foreground text-[12px] whitespace-nowrap">{fmtDateTimeShort(c.created_at)}</td>
+                  <td className="px-3 py-2 text-muted-foreground text-[12px] whitespace-nowrap">{c.updated_at ? fmtDateTimeShort(c.updated_at) : "-"}</td>
                   <td className="px-3 py-2">
                     <span className={cn("inline-flex px-2 py-0.5 rounded-md text-[11px] font-semibold", c.blacklisted ? "bg-red-50 text-red-600" : "bg-muted text-muted-foreground")}>
                       {c.blacklisted ? "Yes" : "No"}

@@ -1,8 +1,9 @@
 "use client";
 import { useEffect, useState } from "react";
+import Link from "next/link";
 import { X, Copy, User, Phone, Hash, MessageSquare, Clock, StickyNote, Tag as TagIcon, Plus, Paperclip, Download, FileText, Image as ImageIcon, Video, Mic, Trash2 } from "lucide-react";
 import { api } from "@/lib/api";
-import { initials, channelColor, channelTextColor, channelLabel, fmtDate, fmtTime, cn } from "@/lib/utils";
+import { initials, channelColor, channelTextColor, channelLabel, fmtDate, fmtTime, fmtDateTimeShort, cn } from "@/lib/utils";
 import { Tip } from "@/components/ui/tooltip";
 import type { Conversation, InternalNote, Message } from "@/lib/types";
 
@@ -150,7 +151,13 @@ export default function DetailsPanel({ active, onClose, copyText, notes, onAddNo
 
           </div>
           <div className="min-w-0">
-            <p className="font-bold text-[15px] text-foreground truncate">{active.contact_name || "Unknown"}</p>
+            {active.contact_id ? (
+              <Link href={`/contacts/${active.contact_id}`} className="font-bold text-[15px] text-foreground truncate hover:text-primary hover:underline outline-none block" title="View contact details">
+                {active.contact_name || "Unknown"}
+              </Link>
+            ) : (
+              <p className="font-bold text-[15px] text-foreground truncate">{active.contact_name || "Unknown"}</p>
+            )}
             {active.contact_phone && (
               <div className="flex items-center gap-1">
                 <span className="text-xs text-muted-foreground tabular-nums">{active.contact_phone}</span>
@@ -225,7 +232,7 @@ export default function DetailsPanel({ active, onClose, copyText, notes, onAddNo
               <DetailRow icon={Hash} label="Channel" value={channelName || channelLabel(active.channel)} />
               {active.campaign_name && <DetailRow icon={Hash} label="Campaign" value={active.campaign_name} />}
               <DetailRow icon={MessageSquare} label="Status" value={humanize(active.status)} />
-              <DetailRow icon={Clock} label="Last message" value={active.last_message_at ? `${fmtDate(active.last_message_at)} ${fmtTime(active.last_message_at)}` : "No messages"} />
+              <DetailRow icon={Clock} label="Last message" value={active.last_message_at ? fmtDateTimeShort(active.last_message_at) : "No messages"} />
               {active.status === "snoozed" && active.snoozed_until && (
                 <DetailRow icon={Clock} label="Snoozed until" value={`${fmtDate(active.snoozed_until)} ${fmtTime(active.snoozed_until)}`} />
               )}

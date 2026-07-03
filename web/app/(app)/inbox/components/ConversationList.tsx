@@ -9,6 +9,7 @@ import FilterPopover, { type FilterCategory, type FilterToggle } from "./FilterP
 import ConversationCard from "./ConversationCard";
 import { ConversationListSkeleton } from "./InboxSkeletons";
 import { cn } from "@/lib/utils";
+import { useEscClose } from "@/lib/useEscClose";
 import { Tip } from "@/components/ui/tooltip";
 import type { Conversation, Stage, Message, Channel } from "@/lib/types";
 
@@ -24,6 +25,7 @@ const SEARCH_MODES: { value: SearchMode; label: string; icon: any }[] = [
 // Compact "search by" selector that sits inside the search box (snapshot 4 pattern).
 function SearchModeMenu({ mode, onChange }: { mode: SearchMode; onChange: (m: SearchMode) => void }) {
   const [open, setOpen] = useState(false);
+  useEscClose(open, () => setOpen(false));
   const current = SEARCH_MODES.find((m) => m.value === mode) ?? SEARCH_MODES[0];
   const CurrentIcon = current.icon;
   return (
@@ -77,6 +79,7 @@ const SORT_LABELS: Record<SortMode, string> = {
 // Compact sort selector (SleekFlow pattern: a small popover off the up/down arrows).
 function SortMenu({ sort, onSortChange }: { sort: SortMode; onSortChange: (s: SortMode) => void }) {
   const [open, setOpen] = useState(false);
+  useEscClose(open, () => setOpen(false));
   return (
     <div className="relative shrink-0">
       <Tip label="Sort" side="bottom">

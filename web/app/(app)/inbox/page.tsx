@@ -7,6 +7,7 @@ import { cn, channelColor, channelTextColor, initials } from "@/lib/utils";
 
 import { api, getUser, WS_URL } from "@/lib/api";
 import { dateLabel } from "@/lib/utils";
+import { hasOpenOverlay } from "@/lib/useEscClose";
 import type { Agent, Channel, Conversation, Disposition, InternalNote, Message, QuickReply, Stage } from "@/lib/types";
 import ChatPanel, { type Item } from "./components/ChatPanel";
 import ConversationList, { type SortMode } from "./components/ConversationList";
@@ -188,6 +189,9 @@ export default function InboxPage() {
         
       const handleEsc = (e: KeyboardEvent) => {
         if (e.key === "Escape") {
+          // An open overlay (filter popover, stage/interest menu, drawer) owns
+          // Escape first - don't close the conversation out from under it.
+          if (hasOpenOverlay()) return;
           // Close the right details panel first; only close the conversation once it's hidden.
           if (showDetailsRef.current) { setShowDetails(false); return; }
           setActiveId(null);

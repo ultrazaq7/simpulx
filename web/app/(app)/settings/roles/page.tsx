@@ -28,6 +28,7 @@ const GROUPS: { group: string; perms: Perm[] }[] = [
     { key: "view_team_chats", label: "View Team Conversations" },
     { key: "assign_chats", label: "Assign Conversations" },
     { key: "close_chats", label: "Close Conversations" },
+    { key: "initiate_chats", label: "Send Template / Initiate Chat" },
   ] },
   { group: "Contacts", perms: [
     { key: "view_contacts", label: "View Contacts" },

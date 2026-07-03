@@ -44,17 +44,60 @@ func (s *sender) sendText(ctx context.Context, t sendTarget, body string) (strin
 // sendTemplate mengirim pesan template WhatsApp (name + language). Dipakai node
 // automation "Send template" — juga satu-satunya cara mengirim di luar 24 jam.
 func (s *sender) sendTemplate(ctx context.Context, t sendTarget, name, lang string) (string, error) {
+	return s.sendTemplateParams(ctx, t, &events.TemplateOutbound{Name: name, Language: lang})
+}
+
+// sendTemplateParams mengirim template HSM dengan komponen (body variables +
+// optional header media/text), sehingga agent bisa initiate chat dengan isian
+// {{1}}..{{n}}. Meng-generalisasi sendTemplate lama.
+func (s *sender) sendTemplateParams(ctx context.Context, t sendTarget, tpl *events.TemplateOutbound) (string, error) {
+	lang := tpl.Language
 	if lang == "" {
 		lang = "en"
 	}
+	tmpl := map[string]any{
+		"name":     tpl.Name,
+		"language": map[string]string{"code": lang},
+	}
+
+	var components []map[string]any
+	// Header component (media or text variable).
+	switch tpl.HeaderType {
+	case "IMAGE", "VIDEO", "DOCUMENT":
+		if tpl.HeaderMediaURL != "" {
+			key := map[string]string{"IMAGE": "image", "VIDEO": "video", "DOCUMENT": "document"}[tpl.HeaderType]
+			components = append(components, map[string]any{
+				"type": "header",
+				"parameters": []map[string]any{
+					{"type": key, key: map[string]string{"link": tpl.HeaderMediaURL}},
+				},
+			})
+		}
+	case "TEXT":
+		if tpl.HeaderParam != "" {
+			components = append(components, map[string]any{
+				"type":       "header",
+				"parameters": []map[string]any{{"type": "text", "text": tpl.HeaderParam}},
+			})
+		}
+	}
+	// Body variables {{1}}..{{n}}.
+	if len(tpl.BodyParams) > 0 {
+		params := make([]map[string]any, 0, len(tpl.BodyParams))
+		for _, p := range tpl.BodyParams {
+			params = append(params, map[string]any{"type": "text", "text": p})
+		}
+		components = append(components, map[string]any{"type": "body", "parameters": params})
+	}
+	if len(components) > 0 {
+		tmpl["components"] = components
+	}
+
 	return s.post(ctx, t, map[string]any{
 		"messaging_product": "whatsapp",
 		"to":                t.ContactPhone,
 		"type":              "template",
-		"template": map[string]any{
-			"name":     name,
-			"language": map[string]string{"code": lang},
-		},
+		"template":          tmpl,
 	})
 }
 

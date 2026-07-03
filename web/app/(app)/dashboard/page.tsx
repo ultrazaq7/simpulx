@@ -1029,17 +1029,14 @@ function MarketingAnalytics() {
       <div className="grid grid-cols-1 lg:grid-cols-2 gap-4 mb-5">
       <Card title="Marketing funnel" subtitle="Impression to click to chat to conversion">
         <div className="p-4 space-y-2.5">
-          {funnel.map((s, i) => {
+          {funnel.map((s) => {
             const pct = (s.value / fTop) * 100;
-            const rate = i === 0 ? null : (funnel[i - 1].value > 0 ? (s.value / funnel[i - 1].value) * 100 : 0);
             return (
               <div key={s.label}>
                 <div className="flex items-center justify-between mb-1">
                   <span className="flex items-center gap-1.5 text-[13px] font-medium text-foreground/90"><s.Icon className="w-3.5 h-3.5" style={{ color: s.color }} />{s.label}</span>
-                  <div className="flex items-center gap-2">
-                    {rate !== null && <span className="text-[11px] tabular-nums text-muted-foreground">{rate.toFixed(1)}%</span>}
-                    <span className="text-[13px] font-bold tabular-nums text-foreground min-w-[3rem] text-right">{fmtInt(s.value)}</span>
-                  </div>
+                  {/* Per-step % lives in the "Step conversion rates" card on the right. */}
+                  <span className="text-[13px] font-bold tabular-nums text-foreground min-w-[3rem] text-right">{fmtInt(s.value)}</span>
                 </div>
                 <div className="h-6 rounded-md bg-muted/50 overflow-hidden"><div className="h-full rounded-md transition-all duration-500" style={{ width: `${Math.max(pct, 3)}%`, backgroundColor: s.color }} /></div>
               </div>

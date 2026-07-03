@@ -1,5 +1,5 @@
 "use client";
-import { MessageCircle, Send, MessageSquare, TestTube } from "lucide-react";
+import { MessageCircle, Send, MessageSquare, FlaskRound } from "lucide-react";
 import type { LucideIcon } from "lucide-react";
 
 // Brand icons removed from lucide-react v1.x — lightweight inline replacements.
@@ -36,7 +36,7 @@ export type ChannelMeta = {
 
 export const CHANNEL_CATALOG: ChannelMeta[] = [
   {
-    type: "testing", name: "Testing channel", color: "#2D8B73", icon: TestTube,
+    type: "testing", name: "Testing channel", color: "#2D8B73", icon: FlaskRound,
     blurb: "Simulated sandbox",
     description: "Experiment with Simpulx features in a safe space. Actions here are simulated and won't reach real customers.",
     available: true,

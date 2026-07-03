@@ -4,11 +4,13 @@ import { useParams, useRouter } from "next/navigation";
 import {
   ArrowLeft, Loader2, Phone, Mail, Tag as TagIcon, MessageSquare, Calendar, Clock,
   ExternalLink, Megaphone, User, Radio, FileText, Image as ImageIcon, Video, StickyNote,
-  ChevronDown, Check,
 } from "lucide-react";
 import { api } from "@/lib/api";
-import { initials, channelColor, fmtDate, fmtTime, relTime, cn, interestColor } from "@/lib/utils";
+import { initials, channelColor, fmtDate, fmtTime, relTime, fmtDateTimeShort, cn } from "@/lib/utils";
 import type { Contact, Conversation, Message, InternalNote } from "@/lib/types";
+import { StageMenu } from "../../inbox/components/StageMenu";
+import { InterestMenu } from "../../inbox/components/InterestMenu";
+import LostReasonDialog from "../../inbox/components/LostReasonDialog";
 
 // Stage chip colors — mirror the inbox/dashboard funnel palette.
 const STAGE_COLORS: Record<string, string> = {
@@ -78,6 +80,30 @@ export default function ContactDetailsPage() {
     setActivity((prev) => [{ type: "stage_changed", detail: { stage_id: stageId, stage_name: st?.name ?? "" }, created_at: new Date().toISOString(), actor_name: "" } as import("@/lib/types").ContactActivity, ...prev]);
     try { await api.patchConversation(convId, { stage_id: stageId }); }
     catch { /* best-effort; a reload will reconcile */ }
+  }
+
+  // Interest (temperature) lives on the conversation too.
+  async function setInterest(level: string) {
+    const convId = contact?.conversation_id;
+    if (!convId) return;
+    setContact((prev) => (prev ? { ...prev, interest_level: level || null } : prev));
+    try { await api.patchConversation(convId, { interest_level: level }); } catch { /* reconcile on reload */ }
+  }
+
+  // Mark lost/spam: set a terminal lost stage + reason + close, mirroring inbox.
+  const [outcomeOpen, setOutcomeOpen] = useState(false);
+  async function markOutcome(reason: string, _cat: "lost" | "spam", didPurchase: boolean) {
+    const convId = contact?.conversation_id;
+    if (!convId) return;
+    const lost = stages.find((s) => {
+      const n = s.name.toLowerCase();
+      return didPurchase ? n.includes("lost") && n.includes("purchase") && !n.includes("not")
+        : n.startsWith("lost") && (n.includes("not") || !n.includes("purchase"));
+    }) || stages.find((s) => s.name.toLowerCase().startsWith("lost"));
+    const st = lost ? stages.find((s) => s.id === lost.id) : undefined;
+    if (st) setContact((prev) => (prev ? { ...prev, stage_id: st.id, stage_name: st.name } : prev));
+    try { await api.patchConversation(convId, { lost_reason: reason, status: "closed", ...(lost ? { stage_id: lost.id } : {}) }); }
+    catch { /* reconcile on reload */ }
   }
 
   useEffect(() => {
@@ -156,7 +182,12 @@ export default function ContactDetailsPage() {
             <p className="mt-3 text-[16px] font-bold text-foreground">{c.full_name || c.phone || "Unknown"}</p>
             {c.phone && <p className="text-[12.5px] text-muted-foreground tabular-nums">{c.phone}</p>}
             {c.conversation_id ? (
-              <StageChooser stageId={c.stage_id} stageName={c.stage_name} stages={stages} onSelect={setStage} />
+              <div className="mt-2 flex items-center justify-center gap-1.5 flex-wrap">
+                <div className="rounded-md border border-border bg-background">
+                  <StageMenu stages={stages} currentStageId={c.stage_id ?? null} onSelect={setStage} onMarkOutcome={() => setOutcomeOpen(true)} />
+                </div>
+                <InterestMenu value={c.interest_level ?? null} onSelect={setInterest} />
+              </div>
             ) : c.stage_name ? (
               <span className="mt-2 inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full text-[11px] font-semibold"
                 style={{ backgroundColor: stageColor(c.stage_name) + "1A", color: stageColor(c.stage_name) }}>
@@ -168,14 +199,7 @@ export default function ContactDetailsPage() {
 
           <Section title="Activity">
             <Row icon={Calendar} label="Created" value={fmtDate(c.created_at)} />
-            <Row icon={Clock} label="Last message" value={c.last_message_at ? relTime(c.last_message_at) : "No messages"} />
-            {c.interest_level && (
-              <Row icon={Radio} label="Interest" value={
-                <span className="inline-flex items-center gap-1.5 capitalize">
-                  <span className="w-1.5 h-1.5 rounded-full" style={{ backgroundColor: interestColor(c.interest_level) }} />{c.interest_level}
-                </span>
-              } />
-            )}
+            <Row icon={Clock} label="Last message" value={c.last_message_at ? fmtDateTimeShort(c.last_message_at) : "No messages"} />
           </Section>
 
           <Section title="Contact info">
@@ -192,6 +216,7 @@ export default function ContactDetailsPage() {
               })}
             </Section>
           )}
+          <LostReasonDialog open={outcomeOpen} onClose={() => setOutcomeOpen(false)} onSubmit={markOutcome} />
         </div>
 
         {/* ── Center: tabs ── */}
@@ -335,42 +360,6 @@ export default function ContactDetailsPage() {
 
 // Editable pipeline-stage picker shown under the avatar (mirrors the chat header
 // stage chip). Selecting a stage patches the contact's current conversation.
-function StageChooser({ stageId, stageName, stages, onSelect }: {
-  stageId: string | null | undefined; stageName: string | null | undefined;
-  stages: { id: string; name: string }[]; onSelect: (id: string) => void;
-}) {
-  const [open, setOpen] = useState(false);
-  const color = stageColor(stageName);
-  return (
-    <div className="relative mt-2">
-      <button onClick={() => setOpen((v) => !v)}
-        className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full text-[11px] font-semibold outline-none hover:ring-1 hover:ring-border transition-shadow"
-        style={{ backgroundColor: color + "1A", color }}>
-        <span className="w-1.5 h-1.5 rounded-full" style={{ backgroundColor: color }} />
-        {stageName || "Set stage"}
-        <ChevronDown className="w-3 h-3 opacity-70" />
-      </button>
-      {open && (
-        <>
-          <div className="fixed inset-0 z-30" onClick={() => setOpen(false)} />
-          <div className="absolute left-1/2 -translate-x-1/2 mt-1.5 z-40 w-48 bg-popover rounded-lg border border-border shadow-xl py-1 animate-scale-in">
-            <p className="px-3 py-1.5 text-[10px] font-bold text-muted-foreground uppercase tracking-wider">Pipeline stage</p>
-            {stages.length === 0 && <p className="px-3 py-2 text-[12px] text-muted-foreground">No stages defined</p>}
-            {stages.map((s) => (
-              <button key={s.id} onClick={() => { onSelect(s.id); setOpen(false); }}
-                className="w-full flex items-center gap-2 px-3 py-2 text-[13px] font-medium text-foreground/90 hover:bg-muted outline-none text-left">
-                <span className="w-2 h-2 rounded-full shrink-0" style={{ backgroundColor: stageColor(s.name) }} />
-                <span className="flex-1 truncate">{s.name}</span>
-                {stageId === s.id && <Check className="w-4 h-4 text-primary" />}
-              </button>
-            ))}
-          </div>
-        </>
-      )}
-    </div>
-  );
-}
-
 function Section({ title, children, first }: { title: string; children: React.ReactNode; first?: boolean }) {
   return (
     <div className={first ? "" : "mt-6"}>

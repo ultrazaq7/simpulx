@@ -32,6 +32,14 @@ function ensureListener() {
   listening = true;
 }
 
+// True while any useEscClose overlay (drawer, menu, popover) is open. Raw
+// component keydown handlers (e.g. the inbox "Esc closes the conversation")
+// should bail when this is true so Escape resolves the topmost overlay first
+// instead of firing an unrelated action underneath it.
+export function hasOpenOverlay(): boolean {
+  return stack.length > 0;
+}
+
 /**
  * Close `onClose` when Escape is pressed while `open`, but only if this overlay
  * is the topmost one. Registration is keyed by a unique id (re-renders don't

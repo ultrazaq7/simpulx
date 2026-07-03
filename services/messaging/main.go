@@ -234,6 +234,9 @@ func (a *app) onOutbound(env events.Envelope) error {
 	}
 	var externalID string
 	switch {
+	case e.Template != nil:
+		// Real HSM template send (initiate chat / outside 24h window).
+		externalID, err = a.snd.sendTemplateParams(ctx, target, e.Template)
 	case target.ChannelType == "viber":
 		externalID, err = a.vsnd.send(ctx, target, e.Type, e.Body, e.MediaURL)
 	case e.Interactive != nil:

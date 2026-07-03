@@ -29,7 +29,7 @@ func defaultPerm(role, key string) bool {
 		switch key {
 		case "menu_dashboard", "menu_chats", "menu_contacts", "menu_settings",
 			"view_dashboard", "view_team_chats", "view_contacts", "create_contacts",
-			"edit_contacts", "close_chats", "view_settings":
+			"edit_contacts", "close_chats", "view_settings", "initiate_chats":
 			return true
 		}
 		return false

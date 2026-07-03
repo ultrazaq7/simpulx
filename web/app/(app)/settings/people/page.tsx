@@ -7,7 +7,7 @@ import { Select } from "@/components/Select";
 import { MultiSelect } from "@/components/ui/multi-select";
 import SidePanel from "@/components/SidePanel";
 const cap = (s: string) => s ? s[0].toUpperCase() + s.slice(1) : s;
-import { fmtDate, cn } from "@/lib/utils";
+import { fmtDate, fmtDateTimeShort, cn } from "@/lib/utils";
 import type { UserAccount, UserActivity, Campaign, Channel } from "@/lib/types";
 import { useToast, PageBody, SettingsCard, FieldLabel, INPUT_CLASS, PrimaryButton, GhostButton, ROLES, ROLE_COLOR, initials } from "../_shared";
 
@@ -167,8 +167,8 @@ export default function PeopleSettingsPage() {
                         <span className={cn("text-[12.5px] capitalize", u.status === "active" ? "text-foreground" : "text-muted-foreground")}>{u.status}</span>
                       </div>
                     </td>
-                    <td className="px-4 py-2.5 text-[12.5px] text-muted-foreground">{relativeTime(u.last_login_at)}</td>
-                    <td className="px-4 py-2.5 text-[12.5px] text-muted-foreground">{fmtDate(u.created_at)}</td>
+                    <td className="px-4 py-2.5 text-[12.5px] text-muted-foreground whitespace-nowrap">{u.last_login_at ? fmtDateTimeShort(u.last_login_at) : "Never"}</td>
+                    <td className="px-4 py-2.5 text-[12.5px] text-muted-foreground whitespace-nowrap">{fmtDateTimeShort(u.created_at)}</td>
                     <td className="px-4 py-2.5 text-right relative">
                       <UserRowMenu
                         u={u}

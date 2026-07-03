@@ -3,6 +3,7 @@ import { useState, useRef, useEffect } from "react";
 import { createPortal } from "react-dom";
 import { ChevronDown, Check, XCircle } from "lucide-react";
 import { cn } from "@/lib/utils";
+import { useEscClose } from "@/lib/useEscClose";
 import type { Stage } from "@/lib/types";
 
 // --- Stage color map (semantic data colors) ---
@@ -41,6 +42,7 @@ export function StageMenu({
   const btnRef = useRef<HTMLButtonElement>(null);
   const current = stages.find((s) => s.id === currentStageId);
   const W = 224; // w-56
+  useEscClose(open, () => setOpen(false));
 
   useEffect(() => {
     if (!open || !btnRef.current) { setPos(null); return; }

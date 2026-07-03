@@ -2,6 +2,7 @@
 import { useMemo, useState } from "react";
 import { Search, ChevronRight, Check } from "lucide-react";
 import { cn } from "@/lib/utils";
+import { useEscClose } from "@/lib/useEscClose";
 import type { FilterOption } from "./MultiSelectFilter";
 
 export interface FilterCategory {
@@ -33,6 +34,7 @@ interface FilterPopoverProps {
 export default function FilterPopover({ categories, toggles, activeCount, onClearAll, onClose }: FilterPopoverProps) {
   const [activeKey, setActiveKey] = useState("");
   const [search, setSearch] = useState("");
+  useEscClose(true, onClose); // mounted only while open
 
   // No category open by default; the detail panel reveals on hover (or click).
   const activeCat = categories.find((c) => c.key === activeKey);

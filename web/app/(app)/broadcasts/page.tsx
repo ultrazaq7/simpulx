@@ -14,7 +14,7 @@ import { api } from "@/lib/api";
 import { Select } from "@/components/Select";
 import SidePanel from "@/components/SidePanel";
 import { usePermissions } from "@/lib/permissions";
-import { fmtDate, cn } from "@/lib/utils";
+import { fmtDateTimeShort, cn } from "@/lib/utils";
 import type { Broadcast, Template, Channel, Contact } from "@/lib/types";
 
 // ── Status presentation ────────────────────────────────────────────────────
@@ -231,7 +231,7 @@ function BroadcastRow({ b, busy, canManage, onOpen, onSend, onDelete }: { b: Bro
         </div>
       </td>
       {/* Created */}
-      <td className="px-4 py-2.5 text-[12.5px] text-muted-foreground whitespace-nowrap">{fmtDate(b.created_at)}</td>
+      <td className="px-4 py-2.5 text-[12.5px] text-muted-foreground whitespace-nowrap">{fmtDateTimeShort(b.created_at)}</td>
       {/* Actions */}
       <td className="px-4 py-2.5">
         <div className="flex items-center justify-end gap-1">
