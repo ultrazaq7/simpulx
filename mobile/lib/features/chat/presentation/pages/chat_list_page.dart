@@ -567,10 +567,7 @@ class _ChatListPageState extends ConsumerState<ChatListPage> {
                 if (filtered.isEmpty)
                   SliverFillRemaining(
                     hasScrollBody: false,
-                    child: Padding(
-                      padding: EdgeInsets.only(
-                        top: MediaQuery.of(context).size.height * 0.15,
-                      ),
+                    child: Center(
                       child: AppEmptyState(
                         icon: _query.isEmpty
                             ? Icons.forum_outlined
