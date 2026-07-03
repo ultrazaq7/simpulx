@@ -145,6 +145,8 @@ interface ConversationListProps {
   onUnreadToggle: () => void;
   needsReplyOnly: boolean;
   onNeedsReplyToggle: () => void;
+  unassignedOnly?: boolean;
+  onUnassignedToggle?: () => void;
   lostReasonFilter?: string | null;
   onClearLostReason?: () => void;
   activeMessages?: Message[];
@@ -171,6 +173,7 @@ export default function ConversationList({
   followUpOnly, onFollowUpToggle,
   unreadOnly, onUnreadToggle,
   needsReplyOnly, onNeedsReplyToggle,
+  unassignedOnly, onUnassignedToggle,
   lostReasonFilter, onClearLostReason,
   activeMessages,
   agents, filterAgents, onFilterAgentsChange, showAgent,
@@ -249,6 +252,7 @@ export default function ConversationList({
     if (filterCampaigns.length > 0) list = list.filter((c) => c.campaign_id && filterCampaigns.includes(c.campaign_id));
     if (filterInterests.length > 0) list = list.filter((c) => c.interest_level && filterInterests.includes(c.interest_level));
     if (filterAgents.length > 0) list = list.filter((c) => filterAgents.includes(c.assigned_agent_id || "__unassigned__"));
+    if (unassignedOnly) list = list.filter((c) => !c.assigned_agent_id);
     if (filterChannels.length > 0) {
       // Match by channel type from the selected channel IDs
       const selectedTypes = new Set((channels || []).filter((ch) => filterChannels.includes(ch.id)).map((ch) => ch.type));
@@ -294,7 +298,7 @@ export default function ConversationList({
         break;
     }
     return sorted;
-  }, [convs, query, searchMode, filterStatuses, filterStages, filterCampaigns, filterInterests, filterAgents, filterChannels, channels, followUpOnly, unreadOnly, needsReplyOnly, lostReasonFilter, responded, unresponded, lastByCustomer, lastByBot, sort]);
+  }, [convs, query, searchMode, filterStatuses, filterStages, filterCampaigns, filterInterests, filterAgents, filterChannels, channels, followUpOnly, unreadOnly, needsReplyOnly, unassignedOnly, lostReasonFilter, responded, unresponded, lastByCustomer, lastByBot, sort]);
 
   shownRef.current = shown;
 
@@ -328,7 +332,7 @@ export default function ConversationList({
 
   const activeFiltersCount =
     filterStages.length + filterCampaigns.length + filterInterests.length + filterStatuses.length + filterAgents.length + filterChannels.length +
-    (followUpOnly ? 1 : 0) + (unreadOnly ? 1 : 0) + (needsReplyOnly ? 1 : 0) +
+    (followUpOnly ? 1 : 0) + (unreadOnly ? 1 : 0) + (needsReplyOnly ? 1 : 0) + (unassignedOnly ? 1 : 0) +
     (responded ? 1 : 0) + (unresponded ? 1 : 0) + (lastByCustomer ? 1 : 0) + (lastByBot ? 1 : 0) + (lostReasonFilter ? 1 : 0) + (query ? 1 : 0);
 
   const clearAll = () => {
@@ -342,6 +346,7 @@ export default function ConversationList({
     if (followUpOnly) onFollowUpToggle();
     if (unreadOnly) onUnreadToggle();
     if (needsReplyOnly) onNeedsReplyToggle();
+    if (unassignedOnly) onUnassignedToggle?.();
     setResponded(false);
     setUnresponded(false);
     setLastByCustomer(false);

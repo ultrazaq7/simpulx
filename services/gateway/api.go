@@ -972,7 +972,9 @@ func (s *server) handleAnalytics(w http.ResponseWriter, r *http.Request) {
 		        count(*) FILTER (WHERE cv.interest_level='cold') AS cold,
 		        count(*) FILTER (WHERE cv.interest_level IS NULL) AS unknown,
 		        count(*) FILTER (WHERE st.sort_order = (SELECT max(sort_order) FROM stages WHERE organization_id=$1)) AS won,
-		        count(*) FILTER (WHERE st.system_key LIKE 'lost%%') AS lost,
+		        count(*) FILTER (WHERE st.system_key LIKE 'lost%%'
+		            AND COALESCE(d.category,'') <> 'spam'
+		            AND lower(COALESCE(cv.lost_reason,'')) <> 'spam') AS lost,
 		        COALESCE(sum(cv.followup_count), 0)::int AS followups,
 		        COALESCE(sum(cv.call_attempts), 0)::int AS call_attempts,
 		        COALESCE(sum(cv.total_call_duration), 0)::int AS call_duration_sec
@@ -1147,19 +1149,23 @@ func (s *server) handleAnalytics(w http.ResponseWriter, r *http.Request) {
 	// inflate the loss rate (the spam disposition uses category='spam').
 	var junk int64
 	_ = s.pool.QueryRow(ctx,
-		fmt.Sprintf(`SELECT count(*) FROM conversations cv JOIN dispositions d ON d.id=cv.disposition_id
-		  WHERE cv.organization_id=$1%s AND (d.category='spam' OR d.system_key='off_topic')`, campFilterCv), args...).Scan(&junk)
+		fmt.Sprintf(`SELECT count(*) FROM conversations cv LEFT JOIN dispositions d ON d.id=cv.disposition_id
+		  WHERE cv.organization_id=$1%s AND (d.category='spam' OR d.system_key='off_topic'
+		    OR lower(COALESCE(cv.lost_reason,''))='spam')`, campFilterCv), args...).Scan(&junk)
 
 	// Why leads were lost (drives the lost-analysis breakdown + ad attribution).
-	// Spam is excluded here too so "Spam" never shows up as a lost reason.
+	// Spam is excluded (it's shown separately as the junk badge, never inflates
+	// loss), and lost leads without a recorded reason bucket into 'unspecified'
+	// so the breakdown sums to the total-lost count (no confusing gap).
 	lostReasons, _ := s.queryMaps(ctx,
-		fmt.Sprintf(`SELECT cv.lost_reason AS reason, count(*) AS count
+		fmt.Sprintf(`SELECT COALESCE(NULLIF(cv.lost_reason,''), 'unspecified') AS reason, count(*) AS count
 		   FROM conversations cv
 		   LEFT JOIN stages st ON st.id = cv.stage_id
 		   LEFT JOIN dispositions d ON d.id = cv.disposition_id
-		  WHERE cv.organization_id=$1%s AND cv.lost_reason IS NOT NULL AND cv.lost_reason <> ''
+		  WHERE cv.organization_id=$1%s
 		    AND st.system_key LIKE 'lost%%'
 		    AND COALESCE(d.category,'') <> 'spam'
+		    AND lower(COALESCE(cv.lost_reason,'')) <> 'spam'
 		  GROUP BY 1 ORDER BY 2 DESC LIMIT 8`, campFilter), args...)
 
 	// A secondary query failing must not take down the whole dashboard. Log it and

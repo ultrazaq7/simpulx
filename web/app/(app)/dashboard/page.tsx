@@ -31,8 +31,10 @@ type Metric = {
 const METRICS: Metric[] = [
   { key: "total_leads", label: "Leads", Icon: BarChart3, color: "#6366F1", href: "/inbox" },
   { key: "active", label: "Active", Icon: MessageSquare, color: "#2D8B73", href: "/inbox?status=open" },
-  { key: "unassigned", label: "Unassigned", Icon: Inbox, color: "#E67E22", href: "/inbox" },
-  { key: "replied", label: "Replied", Icon: Reply, color: "#0284C7" },
+  { key: "unassigned", label: "Unassigned", Icon: Inbox, color: "#E67E22", href: "/inbox?assigned=unassigned" },
+  // "Responded" = the AGENT replied (distinct from the Overview chart's
+  // "Replied", which counts customers who replied back).
+  { key: "replied", label: "Responded", Icon: Reply, color: "#0284C7" },
   { key: "won", label: "Purchase", Icon: Trophy, color: "#059669" },
   { key: "avg_rt", label: "Avg first response", Icon: Timer, color: "#7C3AED", fmt: fmtDuration },
 ];
@@ -660,7 +662,7 @@ function ManagerDashboard() {
                 </span>
                 <span className="text-sm text-muted-foreground font-medium">total lost leads</span>
                 {(analytics?.junk ?? 0) > 0 && (
-                  <span className="ml-auto inline-flex items-center gap-1 px-2 py-0.5 rounded-md bg-amber-50 text-amber-700 text-[11px] font-semibold tabular-nums">
+                  <span title="Spam / junk leads, counted separately so they never inflate the loss rate" className="ml-auto inline-flex items-center gap-1 px-2 py-0.5 rounded-md bg-amber-50 text-amber-700 text-[11px] font-semibold tabular-nums">
                     <Ban className="w-3 h-3" />{analytics!.junk} spam
                   </span>
                 )}
@@ -734,7 +736,7 @@ function PerfTables({ rows, label, showBranch }: { rows: PerfRow[]; label: strin
           <table className="w-full text-sm">
             <thead><tr className="border-b border-border bg-muted/40">
               <TH2>{label}</TH2>{showBranch && <TH2>Branch</TH2>}
-              <TH2 right>Leads</TH2><TH2 right>Replied</TH2><TH2 right>Avg 1st resp</TH2><TH2 right>Avg resp</TH2><TH2 right>Within 5m</TH2><TH2 right>Total chat</TH2><TH2 right>Call attempts</TH2><TH2 right>Call duration</TH2>
+              <TH2 right>Leads</TH2><TH2 right>Responded</TH2><TH2 right>Avg 1st resp</TH2><TH2 right>Avg resp</TH2><TH2 right>Within 5m</TH2><TH2 right>Total chat</TH2><TH2 right>Call attempts</TH2><TH2 right>Call duration</TH2>
             </tr></thead>
             <tbody>
               {rows.map((r, i) => (
@@ -769,13 +771,13 @@ function PerfTables({ rows, label, showBranch }: { rows: PerfRow[]; label: strin
                   {showBranch && <td className="px-3 py-2.5 text-muted-foreground whitespace-nowrap">{r.branch || "-"}</td>}
                   <td className="px-3 py-2.5 text-right tabular-nums">{r.leads}</td>
                   <td className="px-3 py-2.5 text-right tabular-nums">{r.updated}</td>
-                  <td className="px-3 py-2.5 text-right"><Badge label={pctOf(r.updated, r.total_chat)} bg="#EEF2FF" text="#4338CA" /></td>
+                  <td className="px-3 py-2.5 text-right"><Badge label={pctOf(r.updated, r.leads)} bg="#EEF2FF" text="#4338CA" /></td>
                   <td className="px-3 py-2.5 text-right tabular-nums">{r.contacted}</td>
                   <td className="px-3 py-2.5 text-right tabular-nums">{r.qualified}</td>
                   <td className="px-3 py-2.5 text-right tabular-nums">{r.appointment}</td>
                   <td className="px-3 py-2.5 text-right tabular-nums">{r.negotiation}</td>
                   <td className="px-3 py-2.5 text-right font-bold text-[#16A34A] tabular-nums">{r.purchase}</td>
-                  <td className="px-3 py-2.5 text-right"><Badge label={pctOf(r.purchase, r.total_chat)} bg="#E8F5E9" text="#2E7D32" /></td>
+                  <td className="px-3 py-2.5 text-right"><Badge label={pctOf(r.purchase, r.leads)} bg="#E8F5E9" text="#2E7D32" /></td>
                   <td className={cn("px-3 py-2.5 text-right font-bold tabular-nums", r.lost > 0 ? "text-[#EF4444]" : "text-muted-foreground")}>{r.lost}</td>
                 </tr>
               ))}
