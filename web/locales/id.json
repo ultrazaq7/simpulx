@@ -45,6 +45,7 @@
   },
   "settings": {
     "general": "Umum",
+    "custom_fields": "Custom Fields",
     "workspace": "Ruang Kerja",
     "workspace_id": "ID Ruang Kerja",
     "workspace_name": "Nama ruang kerja",

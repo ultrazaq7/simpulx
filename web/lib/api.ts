@@ -312,11 +312,19 @@ export const api = {
   patchConversation: (id: string, patch: { stage_id?: string; disposition_id?: string; interest_level?: string; unread_count?: number; lost_reason?: string }) =>
     req(`/api/conversations/${id}`, { method: "PATCH", body: JSON.stringify(patch) }),
   listContacts: () => req<Contact[]>("/api/contacts"),
-  createContact: (body: { full_name?: string; phone?: string; tags?: string[] }) =>
+  createContact: (body: { full_name?: string; phone?: string; tags?: string[]; attributes?: Record<string, unknown> }) =>
     req<Contact>("/api/contacts", { method: "POST", body: JSON.stringify(body) }),
-  updateContact: (id: string, body: { full_name?: string; phone?: string; tags?: string[]; blacklisted?: boolean }) =>
+  updateContact: (id: string, body: { full_name?: string; phone?: string; tags?: string[]; blacklisted?: boolean; attributes?: Record<string, unknown> }) =>
     req<void>(`/api/contacts/${id}`, { method: "PATCH", body: JSON.stringify(body) }),
   deleteContact: (id: string) => req<void>(`/api/contacts/${id}`, { method: "DELETE" }),
+
+  // Custom (typed) contact fields — org-defined schema; values live in contact.attributes.
+  listCustomFields: () => req<import("./types").CustomField[]>("/api/custom-fields"),
+  createCustomField: (body: { key?: string; label: string; type: string; options?: string[]; sort_order?: number }) =>
+    req<{ id: string; key: string }>("/api/custom-fields", { method: "POST", body: JSON.stringify(body) }),
+  updateCustomField: (id: string, body: Partial<{ label: string; type: string; options: string[]; sort_order: number }>) =>
+    req<void>(`/api/custom-fields/${id}`, { method: "PATCH", body: JSON.stringify(body) }),
+  deleteCustomField: (id: string) => req<void>(`/api/custom-fields/${id}`, { method: "DELETE" }),
   getContactActivity: (id: string) => req<import("./types").ContactActivity[]>(`/api/contacts/${id}/activity`),
   listBroadcasts: () => req<Broadcast[]>("/api/broadcasts"),
   createBroadcast: (input: {

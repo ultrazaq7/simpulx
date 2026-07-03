@@ -56,6 +56,17 @@ export interface DashboardCards {
 }
 
 export interface Stage { id: string; name: string; system_key?: string | null }
+
+export type CustomFieldType = "text" | "number" | "date" | "select";
+export interface CustomField {
+  id: string;
+  key: string;
+  label: string;
+  type: CustomFieldType;
+  options?: string[] | null;
+  sort_order?: number;
+  created_at?: string;
+}
 export interface Disposition { id: string; name: string; category: string | null }
 
 export interface Analytics {
@@ -258,6 +269,7 @@ export interface Contact {
   created_at: string;
   ai_summary?: string | null;
   tags?: string[] | null;
+  attributes?: Record<string, unknown> | null;
   assigned_agent_id?: string | null;
   agent_name?: string | null;
   campaign_id?: string | null;

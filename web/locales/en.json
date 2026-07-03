@@ -45,6 +45,7 @@
   },
   "settings": {
     "general": "General",
+    "custom_fields": "Custom Fields",
     "workspace": "Workspace",
     "workspace_id": "Workspace ID",
     "workspace_name": "Workspace name",

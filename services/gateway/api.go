@@ -1668,7 +1668,7 @@ func (s *server) handleListContacts(w http.ResponseWriter, r *http.Request) {
 
 	query := fmt.Sprintf(`SELECT ct.id::text AS id, ct.full_name, ct.phone, ct.source_channel, ct.created_at,
 		        ct.updated_at, ct.blacklisted, ct.web_api_source_id::text AS web_api_source_id,
-		        COALESCE(ct.tags, '{}') AS tags,
+		        COALESCE(ct.tags, '{}') AS tags, COALESCE(ct.attributes, '{}'::jsonb) AS attributes,
 		        lc.interest_level, lc.stage_id::text AS stage_id, ls.name AS stage_name, lc.last_message_at, lc.ai_summary,
 		        lc.lead_score, lc.lost_reason,
 		        lc.car_brand, lc.car_model, lc.city, lc.purchase_timeframe,
@@ -1709,9 +1709,10 @@ func (s *server) handleListContacts(w http.ResponseWriter, r *http.Request) {
 func (s *server) handleCreateContact(w http.ResponseWriter, r *http.Request) {
 	a, _ := authFrom(r.Context())
 	var body struct {
-		FullName string   `json:"full_name"`
-		Phone    string   `json:"phone"`
-		Tags     []string `json:"tags"`
+		FullName   string         `json:"full_name"`
+		Phone      string         `json:"phone"`
+		Tags       []string       `json:"tags"`
+		Attributes map[string]any `json:"attributes"` // custom-field values
 	}
 	if err := json.NewDecoder(r.Body).Decode(&body); err != nil {
 		http.Error(w, "bad request", http.StatusBadRequest)
@@ -1727,11 +1728,17 @@ func (s *server) handleCreateContact(w http.ResponseWriter, r *http.Request) {
 	if tags == nil {
 		tags = []string{}
 	}
+	attrsJSON := "{}"
+	if len(body.Attributes) > 0 {
+		if b, e := json.Marshal(body.Attributes); e == nil {
+			attrsJSON = string(b)
+		}
+	}
 	rows, err := s.queryMaps(r.Context(),
-		`INSERT INTO contacts (organization_id, full_name, phone, source_channel, tags)
-		   VALUES ($1, NULLIF($2,''), NULLIF($3,''), 'manual', $4)
-		 RETURNING id::text AS id, full_name, phone, source_channel, created_at, COALESCE(tags,'{}') AS tags`,
-		a.OrgID, body.FullName, body.Phone, tags)
+		`INSERT INTO contacts (organization_id, full_name, phone, source_channel, tags, attributes)
+		   VALUES ($1, NULLIF($2,''), NULLIF($3,''), 'manual', $4, $5::jsonb)
+		 RETURNING id::text AS id, full_name, phone, source_channel, created_at, COALESCE(tags,'{}') AS tags, COALESCE(attributes,'{}'::jsonb) AS attributes`,
+		a.OrgID, body.FullName, body.Phone, tags, attrsJSON)
 	if err != nil {
 		http.Error(w, err.Error(), http.StatusInternalServerError)
 		return
@@ -1744,14 +1751,21 @@ func (s *server) handleUpdateContact(w http.ResponseWriter, r *http.Request) {
 	a, _ := authFrom(r.Context())
 	id := r.PathValue("id")
 	var body struct {
-		FullName    *string   `json:"full_name"`
-		Phone       *string   `json:"phone"`
-		Tags        *[]string `json:"tags"`
-		Blacklisted *bool     `json:"blacklisted"`
+		FullName    *string        `json:"full_name"`
+		Phone       *string        `json:"phone"`
+		Tags        *[]string      `json:"tags"`
+		Blacklisted *bool          `json:"blacklisted"`
+		Attributes  map[string]any `json:"attributes"` // merged into existing attributes
 	}
 	if err := json.NewDecoder(r.Body).Decode(&body); err != nil {
 		http.Error(w, "bad request", http.StatusBadRequest)
 		return
+	}
+	var attrsJSON any
+	if body.Attributes != nil {
+		if b, e := json.Marshal(body.Attributes); e == nil {
+			attrsJSON = string(b)
+		}
 	}
 	tag, err := s.pool.Exec(r.Context(),
 		`UPDATE contacts SET
@@ -1759,9 +1773,11 @@ func (s *server) handleUpdateContact(w http.ResponseWriter, r *http.Request) {
 		     phone       = COALESCE($4, phone),
 		     tags        = COALESCE($5, tags),
 		     blacklisted = COALESCE($6, blacklisted),
+		     attributes  = CASE WHEN $7::jsonb IS NULL THEN attributes
+		                        ELSE COALESCE(attributes,'{}'::jsonb) || $7::jsonb END,
 		     updated_at  = now()
 		   WHERE id=$1 AND organization_id=$2`,
-		id, a.OrgID, body.FullName, body.Phone, body.Tags, body.Blacklisted)
+		id, a.OrgID, body.FullName, body.Phone, body.Tags, body.Blacklisted, attrsJSON)
 	if err != nil {
 		http.Error(w, err.Error(), http.StatusInternalServerError)
 		return

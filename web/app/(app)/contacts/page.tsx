@@ -9,7 +9,7 @@ import {
 import { api, getUser } from "@/lib/api";
 import { usePermissions } from "@/lib/permissions";
 import { initials, channelColor, channelTextColor, channelLabel, avatarColor, fmtDate, fmtExportTs, cn } from "@/lib/utils";
-import type { Contact, Agent, Campaign, Message, Stage, Conversation, Disposition } from "@/lib/types";
+import type { Contact, Agent, Campaign, Message, Stage, Conversation, Disposition, CustomField } from "@/lib/types";
 import { Tip } from "@/components/ui/tooltip";
 import MessageBubble, { rewriteLocalMedia } from "@/app/(app)/inbox/components/MessageBubble";
 import Composer from "@/app/(app)/inbox/components/Composer";
@@ -648,6 +648,14 @@ function ContactModal({ state, allTags, onClose, onSaved }: {
   const [tagDraft, setTagDraft] = useState("");
   const [saving, setSaving] = useState(false);
   const [err, setErr] = useState("");
+  const [fields, setFields] = useState<CustomField[]>([]);
+  const [attrs, setAttrs] = useState<Record<string, string>>(() => {
+    const src = (editing ? state.contact.attributes : null) ?? {};
+    const out: Record<string, string> = {};
+    for (const [k, v] of Object.entries(src as Record<string, unknown>)) out[k] = v == null ? "" : String(v);
+    return out;
+  });
+  useEffect(() => { api.listCustomFields().then(setFields).catch(() => {}); }, []);
 
   const addTag = (raw: string) => { const t = raw.trim().replace(/,$/, ""); if (t && !tags.includes(t)) setTags((p) => [...p, t]); setTagDraft(""); };
   const suggestions = allTags.filter((t) => !tags.includes(t) && t.toLowerCase().includes(tagDraft.toLowerCase()) && tagDraft.trim()).slice(0, 6);
@@ -655,9 +663,11 @@ function ContactModal({ state, allTags, onClose, onSaved }: {
   async function save() {
     if (!name.trim() && !phone.trim()) { setErr("Enter a name or phone."); return; }
     setSaving(true); setErr("");
+    const attributes: Record<string, string> = {};
+    for (const f of fields) attributes[f.key] = (attrs[f.key] ?? "").trim();
     try {
-      if (editing) { await api.updateContact(state.contact.id, { full_name: name.trim(), phone: phone.trim(), tags }); onSaved("Contact updated"); }
-      else { await api.createContact({ full_name: name.trim(), phone: phone.trim(), tags }); onSaved("Contact added"); }
+      if (editing) { await api.updateContact(state.contact.id, { full_name: name.trim(), phone: phone.trim(), tags, attributes }); onSaved("Contact updated"); }
+      else { await api.createContact({ full_name: name.trim(), phone: phone.trim(), tags, attributes }); onSaved("Contact added"); }
     } catch (e: any) { setErr(e?.message || "Save failed"); setSaving(false); }
   }
 
@@ -698,6 +708,26 @@ function ContactModal({ state, allTags, onClose, onSaved }: {
               </div>
             )}
           </div>
+
+          {fields.length > 0 && (
+            <div className="space-y-3 pt-3 border-t border-border/60">
+              <p className="text-[11px] font-bold uppercase tracking-wider text-muted-foreground">Custom fields</p>
+              {fields.map((f) => (
+                <div key={f.id} className="space-y-1.5">
+                  <label className="text-[12px] font-bold text-foreground/80">{f.label}</label>
+                  {f.type === "select" ? (
+                    <select value={attrs[f.key] ?? ""} onChange={(e) => setAttrs((p) => ({ ...p, [f.key]: e.target.value }))} className={INPUT_CLS}>
+                      <option value="">—</option>
+                      {(f.options ?? []).map((o) => <option key={o} value={o}>{o}</option>)}
+                    </select>
+                  ) : (
+                    <input type={f.type === "number" ? "number" : f.type === "date" ? "date" : "text"}
+                      value={attrs[f.key] ?? ""} onChange={(e) => setAttrs((p) => ({ ...p, [f.key]: e.target.value }))} className={INPUT_CLS} />
+                  )}
+                </div>
+              ))}
+            </div>
+          )}
         </div>
         <div className="flex items-center justify-end gap-2 px-5 py-3 border-t border-border">
           <button onClick={onClose} className="px-3 py-1.5 rounded-md text-sm font-semibold text-foreground/70 hover:bg-muted outline-none">Cancel</button>

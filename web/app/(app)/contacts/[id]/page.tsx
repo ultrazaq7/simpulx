@@ -61,9 +61,11 @@ export default function ContactDetailsPage() {
   const [tab, setTab] = useState<"conversation" | "notes" | "media" | "history">("conversation");
   const [activity, setActivity] = useState<import("@/lib/types").ContactActivity[]>([]);
   const [stages, setStages] = useState<{ id: string; name: string }[]>([]);
+  const [customFields, setCustomFields] = useState<import("@/lib/types").CustomField[]>([]);
 
   useEffect(() => { if (id) api.getContactActivity(id).then(setActivity).catch(() => {}); }, [id]);
   useEffect(() => { api.listStages().then((ss) => setStages(ss.map((s) => ({ id: s.id, name: s.name })))).catch(() => {}); }, []);
+  useEffect(() => { api.listCustomFields().then(setCustomFields).catch(() => {}); }, []);
 
   // Set the contact's pipeline stage by patching its current conversation. The
   // stage lives on the conversation (a contact can hold several), so we target
@@ -181,6 +183,15 @@ export default function ContactDetailsPage() {
             <Row icon={Mail} label="Email" value="-" />
             <Row icon={Radio} label="Channel" value={c.channel_name || c.source_channel || "-"} />
           </Section>
+
+          {customFields.length > 0 && (
+            <Section title="Custom fields">
+              {customFields.map((f) => {
+                const v = (c.attributes as Record<string, unknown> | null | undefined)?.[f.key];
+                return <Row key={f.id} icon={FileText} label={f.label} value={v != null && String(v) !== "" ? String(v) : "-"} />;
+              })}
+            </Section>
+          )}
         </div>
 
         {/* ── Center: tabs ── */}
