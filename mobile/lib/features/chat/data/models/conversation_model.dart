@@ -29,6 +29,7 @@ class ConversationModel {
       snoozedUntil: asDateOrNull(json['snoozed_until']),
       lostReason: asStringOrNull(json['lost_reason']),
       campaignName: asStringOrNull(json['campaign_name']),
+      lastOutboundStatus: asStringOrNull(json['last_outbound_status']),
     );
   }
 }

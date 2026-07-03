@@ -32,8 +32,7 @@ String formatTimeLeft(DateTime? until) {
   return h > 0 ? '${diff.inDays}d ${h}h' : '${diff.inDays}d';
 }
 
-/// International absolute date: MM/dd/yyyy (local). Chat-list rows show only
-/// the date; the live 24h countdown lives in the tile's corner badge.
+/// Date-only timestamp for the chat list: MM/dd/yyyy (local).
 String formatSessionTimestamp(DateTime? dt) {
   if (dt == null) return '';
   return DateFormat('MM/dd/yyyy').format(dt.toLocal());
