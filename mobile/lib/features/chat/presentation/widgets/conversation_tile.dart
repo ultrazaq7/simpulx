@@ -29,18 +29,16 @@ class ConversationTile extends ConsumerWidget {
     final preview = c.lastMessagePreview?.trim();
     final isManager =
         ref.watch(sessionControllerProvider).user?.role.isManagerTier ?? false;
-    // Last responder derived from who actually sent the latest message: a human
-    // agent (headset) vs Simpuler (robot). isBotActive only means the bot is
-    // enabled, not who replied, so it must not drive this.
-    final repliedByBot = c.lastSenderType == 'bot';
-    final repliedByAgent =
-        c.lastSenderType == 'agent' || c.lastSenderType == 'system';
-    final showResponder = repliedByBot || repliedByAgent;
-    final responderIcon = repliedByBot
+    // "Assigned to" logic instead of last responder.
+    // If bot is active, show bot icon. Otherwise if agent is assigned, show headset.
+    final assignedToBot = c.isBotActive;
+    final assignedToAgent = c.agentName != null && c.agentName!.isNotEmpty;
+    final showAssigned = assignedToBot || assignedToAgent;
+    final assignedIcon = assignedToBot
         ? Icons.smart_toy_outlined
         : Icons.headset_mic_outlined;
-    final responderLabel =
-        repliedByBot ? 'Replied by Simpuler' : 'Replied by agent';
+    final assignedLabel =
+        assignedToBot ? 'Assigned to Simpuler' : 'Assigned to agent';
     // The 24h session window counts down from the last message in the thread
     // (any direction); a fresh reply restarts it. While open, the line-1
     // trailing slot shows a live countdown; once elapsed it becomes the plain
@@ -68,10 +66,10 @@ class ConversationTile extends ConsumerWidget {
               child: Column(
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
-                  // Line 1: name + [responder icon] + [24H badge] + date
+                  // Line 1: name + [assigned icon] + [24H badge] + date/badge
                   Row(
                     children: [
-                      Flexible(
+                      Expanded(
                         child: Text(
                           c.displayName,
                           maxLines: 1,
@@ -84,22 +82,18 @@ class ConversationTile extends ConsumerWidget {
                           ),
                         ),
                       ),
-                      const Spacer(),
                       const SizedBox(width: 8),
                       if (!windowExpired)
-                        Transform.translate(
-                          offset: const Offset(16, 0),
-                          child: _CountdownBadge(
-                            lastMessageAt: sessionAnchor!,
-                            icon: showResponder ? responderIcon : null,
-                          ),
+                        _CountdownBadge(
+                          lastMessageAt: sessionAnchor!,
+                          icon: showAssigned ? assignedIcon : null,
                         )
                       else ...[
-                        if (showResponder) ...[
+                        if (showAssigned) ...[
                           Tooltip(
-                            message: responderLabel,
+                            message: assignedLabel,
                             child: Icon(
-                              responderIcon,
+                              assignedIcon,
                               size: 13,
                               color: AppColors.textMuted,
                             ),
