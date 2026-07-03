@@ -330,29 +330,33 @@ object NotificationHelper {
             PendingIntent.FLAG_UPDATE_CURRENT or PendingIntent.FLAG_IMMUTABLE
         )
 
+        // Caller identity for the rich CallStyle: name + circular avatar.
+        val caller = Person.Builder()
+            .setName(if (contactName.isNotBlank()) contactName else "Unknown")
+            .setIcon(IconCompat.createWithBitmap(generateInitialAvatar(contactName)))
+            .setImportant(true)
+            .build()
+
         val notification = NotificationCompat.Builder(context, CALL_CHANNEL_ID)
             .setSmallIcon(R.drawable.ic_notification)
-            .setContentTitle(contactName)
+            // Official Android incoming-call layout: full-width row with a green
+            // Answer and a red Decline button + the caller avatar. Renders in
+            // full on the lock screen and as a heads-up banner (not a plain
+            // "contents hidden" placeholder).
+            .setStyle(
+                NotificationCompat.CallStyle.forIncomingCall(
+                    caller, declinePendingIntent, answerPendingIntent
+                )
+            )
             .setContentText(body.ifEmpty { "Incoming voice call" })
             .setCategory(NotificationCompat.CATEGORY_CALL)
             .setPriority(NotificationCompat.PRIORITY_MAX)
-            // Show the full call (title, actions) on the lock screen, not a
-            // "contents hidden" placeholder.
             .setVisibility(NotificationCompat.VISIBILITY_PUBLIC)
             .setContentIntent(answerPendingIntent)
             .setFullScreenIntent(answerPendingIntent, true)
             .setAutoCancel(false)
             .setOngoing(true)
-            .addAction(
-                NotificationCompat.Action.Builder(
-                    0, "Decline", declinePendingIntent
-                ).build()
-            )
-            .addAction(
-                NotificationCompat.Action.Builder(
-                    0, "Answer", answerPendingIntent
-                ).build()
-            )
+            .setColorized(true)
             .build()
 
         val manager = context.getSystemService(Context.NOTIFICATION_SERVICE) as NotificationManager
