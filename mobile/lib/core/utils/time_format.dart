@@ -32,6 +32,28 @@ String formatTimeLeft(DateTime? until) {
   return h > 0 ? '${diff.inDays}d ${h}h' : '${diff.inDays}d';
 }
 
+/// International absolute timestamp: MM/dd/yyyy HH:mm:ss (24h clock, local).
+String formatSessionTimestamp(DateTime? dt) {
+  if (dt == null) return '';
+  return DateFormat('MM/dd/yyyy HH:mm:ss').format(dt.toLocal());
+}
+
+/// Live countdown of the 24h WhatsApp session window from [lastMessageAt]:
+/// "Xh Ym Zs" while the window is open, or null once elapsed (the caller then
+/// shows [formatSessionTimestamp]).
+String? formatWindowCountdown(DateTime? lastMessageAt) {
+  if (lastMessageAt == null) return null;
+  final remaining = lastMessageAt
+      .toLocal()
+      .add(const Duration(hours: 24))
+      .difference(DateTime.now());
+  if (remaining.isNegative || remaining.inSeconds <= 0) return null;
+  final h = remaining.inHours;
+  final m = remaining.inMinutes.remainder(60);
+  final s = remaining.inSeconds.remainder(60);
+  return '${h}h ${m}m ${s}s';
+}
+
 /// Clock time for a message bubble (HH:mm).
 String formatBubbleTime(DateTime dt) => DateFormat.Hm().format(dt.toLocal());
 

@@ -3,7 +3,8 @@ import { memo } from "react";
 import {
   Image as ImageIcon, Video, FileText, Headset, Zap, Clock, Phone, Sticker, Mic, User,
 } from "lucide-react";
-import { initials, channelColor, avatarColor, relTime, cn } from "@/lib/utils";
+import { initials, channelColor, avatarColor, cn } from "@/lib/utils";
+import { WindowTime } from "./WindowTime";
 import { Tip } from "@/components/ui/tooltip";
 import type { Conversation, Message } from "@/lib/types";
 
@@ -37,7 +38,6 @@ const ConversationCard = memo(function ConversationCard({
   })();
 
   const unread = c.unread_count > 0;
-  const time = relTime(c.last_message_at);
 
   const needsFollowUp = (c.interest_level === "hot" || c.interest_level === "warm") && unread;
   const needsCall = c.interest_level === "hot" && (c.call_attempts === null || c.call_attempts === 0);
@@ -98,14 +98,7 @@ const ConversationCard = memo(function ConversationCard({
             </Tip>
           ) : null}
           <span className="flex-1" />
-          {time && (
-            <span className={cn(
-              "shrink-0 text-[11px] tabular-nums",
-              unread ? "text-primary-text font-semibold" : "text-muted-foreground",
-            )}>
-              {time}
-            </span>
-          )}
+          <WindowTime lastMessageAt={c.last_message_at} unread={unread} />
         </div>
 
         {/* Line 2: preview (full text on hover) + one urgent signal + unread count */}

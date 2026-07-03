@@ -41,6 +41,32 @@ export function fmtExportTs(dateStr: string | Date | undefined | null, tz?: stri
   return `${get("year")}-${get("month")}-${get("day")} ${get("hour")}:${get("minute")} ${get("dayPeriod")}`;
 }
 
+// International-standard absolute timestamp: MM/DD/YYYY HH:MM:SS (24h clock,
+// local time). The single format used app-wide once a relative window elapses.
+export function fmtDateTime(dateStr: string | Date | undefined | null): string {
+  if (!dateStr) return "";
+  const d = new Date(dateStr);
+  if (isNaN(d.getTime())) return "";
+  const p = (n: number) => String(n).padStart(2, "0");
+  return `${p(d.getMonth() + 1)}/${p(d.getDate())}/${d.getFullYear()} ${p(d.getHours())}:${p(d.getMinutes())}:${p(d.getSeconds())}`;
+}
+
+// WhatsApp 24h session window derived from a conversation's last message time.
+// While open -> a live countdown "Xh Ym Zs"; once elapsed -> the absolute
+// timestamp (fmtDateTime). Pure/stateless; the ticking is done by the caller.
+const SESSION_WINDOW_MS = 24 * 60 * 60 * 1000;
+export function windowState(dateStr: string | Date | undefined | null): { open: boolean; text: string } {
+  if (!dateStr) return { open: false, text: "" };
+  const d = new Date(dateStr);
+  if (isNaN(d.getTime())) return { open: false, text: "" };
+  const remaining = d.getTime() + SESSION_WINDOW_MS - Date.now();
+  if (remaining <= 0) return { open: false, text: fmtDateTime(d) };
+  const h = Math.floor(remaining / 3600000);
+  const m = Math.floor((remaining % 3600000) / 60000);
+  const s = Math.floor((remaining % 60000) / 1000);
+  return { open: true, text: `${h}h ${m}m ${s}s` };
+}
+
 // Compact, non-ticking relative time for dense lists (Linear/Superhuman style):
 // "now", "5m", "2h", "3d", then a short weekday/date. No seconds jitter.
 export function relTime(dateStr: string | Date | undefined | null): string {

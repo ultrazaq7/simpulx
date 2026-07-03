@@ -49,7 +49,7 @@ class ConversationTile extends ConsumerWidget {
                 children: [
                   Row(
                     children: [
-                      Expanded(
+                      Flexible(
                         child: Text(
                           c.displayName,
                           maxLines: 1,
@@ -60,17 +60,19 @@ class ConversationTile extends ConsumerWidget {
                           ),
                         ),
                       ),
+                      // Past the 24h WhatsApp window -> template-only "24H" badge
+                      // (mirrors the web ConversationCard placement + content).
+                      if (c.channel == 'whatsapp' &&
+                          c.lastMessageAt != null &&
+                          formatWindowCountdown(c.lastMessageAt) == null) ...[
+                        const SizedBox(width: 6),
+                        const _Window24hBadge(),
+                      ],
+                      const Spacer(),
                       const SizedBox(width: 8),
-                      Text(
-                        formatListTime(c.lastMessageAt),
-                        style: theme.textTheme.bodySmall?.copyWith(
-                          color: hasUnread
-                              ? AppColors.primary
-                              : AppColors.textMuted,
-                          fontWeight:
-                              hasUnread ? FontWeight.w700 : FontWeight.w400,
-                          fontSize: 12,
-                        ),
+                      _WindowTime(
+                        lastMessageAt: c.lastMessageAt,
+                        hasUnread: hasUnread,
                       ),
                     ],
                   ),
@@ -512,6 +514,124 @@ class _CampaignChip extends StatelessWidget {
             fontWeight: FontWeight.w600,
           ),
         ),
+      ),
+    );
+  }
+}
+
+/// "24H" badge shown when the WhatsApp 24h session window has closed (template
+/// only). Mirrors the web ConversationCard badge: red, uppercase, clock icon.
+class _Window24hBadge extends StatelessWidget {
+  const _Window24hBadge();
+
+  @override
+  Widget build(BuildContext context) {
+    return Container(
+      padding: const EdgeInsets.symmetric(horizontal: 5, vertical: 1.5),
+      decoration: BoxDecoration(
+        color: AppColors.hot.withValues(alpha: 0.12),
+        borderRadius: BorderRadius.circular(4),
+      ),
+      child: const Row(
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          Icon(Icons.schedule_rounded, size: 10, color: AppColors.hot),
+          SizedBox(width: 2),
+          Text('24H',
+              style: TextStyle(
+                  fontSize: 9,
+                  fontWeight: FontWeight.w700,
+                  letterSpacing: 0.4,
+                  color: AppColors.hot)),
+        ],
+      ),
+    );
+  }
+}
+
+/// Chat-list time cell: a live per-second countdown of the 24h session window,
+/// then the absolute timestamp (MM/dd/yyyy HH:mm:ss) once elapsed. Ticks only
+/// while the window is open. Mirrors the web WindowTime component.
+class _WindowTime extends StatefulWidget {
+  const _WindowTime({required this.lastMessageAt, required this.hasUnread});
+  final DateTime? lastMessageAt;
+  final bool hasUnread;
+
+  @override
+  State<_WindowTime> createState() => _WindowTimeState();
+}
+
+class _WindowTimeState extends State<_WindowTime> {
+  Timer? _timer;
+
+  @override
+  void initState() {
+    super.initState();
+    _sync();
+  }
+
+  @override
+  void didUpdateWidget(covariant _WindowTime old) {
+    super.didUpdateWidget(old);
+    if (old.lastMessageAt != widget.lastMessageAt) _sync();
+  }
+
+  void _sync() {
+    _timer?.cancel();
+    _timer = null;
+    if (formatWindowCountdown(widget.lastMessageAt) != null) {
+      _timer = Timer.periodic(const Duration(seconds: 1), (t) {
+        if (!mounted) {
+          t.cancel();
+          return;
+        }
+        if (formatWindowCountdown(widget.lastMessageAt) == null) {
+          t.cancel();
+          _timer = null;
+        }
+        setState(() {});
+      });
+    }
+  }
+
+  @override
+  void dispose() {
+    _timer?.cancel();
+    super.dispose();
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final theme = Theme.of(context);
+    final countdown = formatWindowCountdown(widget.lastMessageAt);
+    if (countdown != null) {
+      return Container(
+        padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
+        decoration: BoxDecoration(
+          color: AppColors.primary.withValues(alpha: 0.12),
+          borderRadius: BorderRadius.circular(20),
+        ),
+        child: Row(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            const Icon(Icons.schedule_rounded,
+                size: 11, color: AppColors.primary),
+            const SizedBox(width: 3),
+            Text(countdown,
+                style: const TextStyle(
+                    fontSize: 11,
+                    fontWeight: FontWeight.w600,
+                    color: AppColors.primary)),
+          ],
+        ),
+      );
+    }
+    return Text(
+      formatSessionTimestamp(widget.lastMessageAt),
+      style: theme.textTheme.bodySmall?.copyWith(
+        color: widget.hasUnread ? AppColors.primary : AppColors.textMuted,
+        fontWeight: widget.hasUnread ? FontWeight.w700 : FontWeight.w400,
+        fontSize: 10.5,
       ),
     );
   }
