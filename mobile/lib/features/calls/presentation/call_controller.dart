@@ -29,6 +29,7 @@ class CallController extends Notifier<CallSession?> {
   WebRtcService? _rtc;
   Timer? _autoClear;
   Timer? _ringTimeout;
+  Timer? _statusPoll;
   static const _channel = MethodChannel('simpulx_notification');
 
   /// How long we ring an outbound call before giving up as "No answer". Without
@@ -139,6 +140,33 @@ class CallController extends Notifier<CallSession?> {
     _ringTimeout = null;
   }
 
+  /// Safety net for a missed realtime "ended" event (e.g. the WS was briefly
+  /// disconnected when the customer hung up): while connected, poll the call
+  /// status and tear down if the backend says it already ended. Without this the
+  /// call screen could tick its duration forever after a remote hangup.
+  void _startStatusWatchdog() {
+    _statusPoll?.cancel();
+    _statusPoll = Timer.periodic(const Duration(seconds: 20), (_) async {
+      final s = state;
+      if (s == null || s.phase != CallPhase.connected || s.callId.isEmpty) {
+        return;
+      }
+      try {
+        final info = await _ds.getCallInfo(s.callId);
+        if (info.status == 'ended' || info.status == 'failed') {
+          _cleanup(CallPhase.ended, message: 'Call ended');
+        }
+      } catch (_) {
+        // Ignore transient errors; the next tick (or a WS event) will catch up.
+      }
+    });
+  }
+
+  void _stopStatusWatchdog() {
+    _statusPoll?.cancel();
+    _statusPoll = null;
+  }
+
   // ── Inbound ────────────────────────────────────────────
   /// Setup an incoming call session from a notification tap.
   /// Fetches call info from backend and creates the session.
@@ -228,6 +256,7 @@ class CallController extends Notifier<CallSession?> {
         phase: CallPhase.connected,
         connectedAt: DateTime.now(),
       );
+      _startStatusWatchdog();
     } catch (e) {
       _fail('Could not answer the call');
     }
@@ -383,6 +412,7 @@ class CallController extends Notifier<CallSession?> {
         phase: CallPhase.connected,
         connectedAt: s.connectedAt ?? DateTime.now(),
       );
+      _startStatusWatchdog();
     }
   }
 
@@ -398,6 +428,7 @@ class CallController extends Notifier<CallSession?> {
         phase: CallPhase.connected,
         connectedAt: DateTime.now(),
       );
+      _startStatusWatchdog();
     } catch (e) {
       _fail('Audio connection failed');
     }
@@ -431,6 +462,7 @@ class CallController extends Notifier<CallSession?> {
   void _cleanup(CallPhase phase, {String? message}) {
     _stopRingback();
     _cancelRingTimeout();
+    _stopStatusWatchdog();
     _rtc?.dispose();
     _rtc = null;
     // Dismiss the native call notification when the call ends

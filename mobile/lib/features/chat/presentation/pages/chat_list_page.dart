@@ -706,10 +706,10 @@ class _InboxFilterChips extends StatelessWidget {
   final void Function(InboxFilter preset) onSelect;
 
   static const _chips = <String, InboxFilter>{
+    'All': InboxFilter.all,
     'Hot': InboxFilter.hot,
     'Unread': InboxFilter.unread,
     'Awaiting reply': InboxFilter.unreplied,
-    'All': InboxFilter.all,
   };
 
   @override

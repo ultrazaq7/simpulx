@@ -752,7 +752,7 @@ func (s *server) processCallWebhook(ctx context.Context, orgID, phoneNumberID st
 				s.insertCallSummary(ctx, orgID, convID, callDir, dur)
 			}
 			s.broadcastCall(ctx, orgID, events.CallUpdated{
-				CallID: callID, ConversationID: convID,
+				CallID: callID, ConversationID: convID, Direction: callDir,
 				CallStatus: "ended", EndReason: "remote_hangup", DurationSeconds: dur,
 			})
 		}
