@@ -168,15 +168,17 @@ const ConversationCard = memo(function ConversationCard({
           <div className={cn("flex items-center justify-end gap-3 min-w-0", dense ? "mt-1" : "mt-1.5")}>
             {showAgent && c.agent_name && (
               <Tip label={`Assigned: ${c.agent_name}`} side="top">
-                <span className="inline-flex items-center gap-1 text-[11px] text-muted-foreground truncate min-w-0 max-w-[50%]">
-                  <User className="w-3 h-3 shrink-0 opacity-70" />{c.agent_name}
+                <span className="inline-flex items-center gap-1 text-[11px] text-muted-foreground truncate shrink min-w-0">
+                  <User className="w-3 h-3 shrink-0 opacity-70" />
+                  <span className="truncate">{c.agent_name}</span>
                 </span>
               </Tip>
             )}
             {c.campaign_name && (
               <Tip label={c.campaign_name} side="top">
-                <span className="inline-flex items-center gap-1 text-[11px] font-medium text-primary-text truncate min-w-0 max-w-[60%]">
-                  <Building2 className="w-3 h-3 shrink-0 opacity-80" />{c.campaign_name}
+                <span className="inline-flex items-center gap-1 text-[11px] font-medium text-primary-text truncate shrink min-w-0">
+                  <Building2 className="w-3 h-3 shrink-0 opacity-80" />
+                  <span className="truncate">{c.campaign_name}</span>
                 </span>
               </Tip>
             )}
