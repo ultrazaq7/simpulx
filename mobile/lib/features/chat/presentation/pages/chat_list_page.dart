@@ -709,7 +709,7 @@ class _InboxFilterChips extends StatelessWidget {
     'All': InboxFilter.all,
     'Unread': InboxFilter.unread,
     'Hot': InboxFilter.hot,
-    'Follow-up': InboxFilter.followUp,
+    'Awaiting reply': InboxFilter.unreplied,
   };
 
   @override

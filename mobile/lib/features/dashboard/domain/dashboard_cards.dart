@@ -6,25 +6,25 @@ class DashboardCards {
   const DashboardCards({
     required this.open,
     required this.hot,
-    required this.followUp,
-    required this.needCall,
+    required this.unreplied,
     required this.unread,
   });
 
   final int open;
   final int hot;
-  final int followUp;
-  final int needCall;
+
+  /// Customer sent the last message and the agent hasn't replied, while the 24h
+  /// window is still open (past that a free reply is impossible).
+  final int unreplied;
   final int unread;
 
   factory DashboardCards.fromJson(Map<String, dynamic> json) => DashboardCards(
         open: asInt(json['open']),
         hot: asInt(json['hot']),
-        followUp: asInt(json['follow_up']),
-        needCall: asInt(json['need_call']),
+        unreplied: asInt(json['unreplied']),
         unread: asInt(json['unread']),
       );
 
   static const empty =
-      DashboardCards(open: 0, hot: 0, followUp: 0, needCall: 0, unread: 0);
+      DashboardCards(open: 0, hot: 0, unreplied: 0, unread: 0);
 }

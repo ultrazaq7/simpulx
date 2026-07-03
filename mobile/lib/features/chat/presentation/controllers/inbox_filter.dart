@@ -13,6 +13,7 @@ class InboxFilter {
     this.agentName,
     this.unreadOnly = false,
     this.followUpOnly = false,
+    this.unrepliedOnly = false,
   });
 
   final String? interestLevel;
@@ -24,10 +25,16 @@ class InboxFilter {
   final bool unreadOnly;
   final bool followUpOnly;
 
+  /// Customer sent the last message and the agent hasn't replied, while the 24h
+  /// window is still open.
+  final bool unrepliedOnly;
+
   static const all = InboxFilter();
+  static const open = InboxFilter(status: 'open');
   static const hot = InboxFilter(interestLevel: 'hot');
   static const unread = InboxFilter(unreadOnly: true);
   static const followUp = InboxFilter(followUpOnly: true);
+  static const unreplied = InboxFilter(unrepliedOnly: true);
 
   int get activeCount =>
       (interestLevel != null ? 1 : 0) +
@@ -37,7 +44,8 @@ class InboxFilter {
       (campaignName != null ? 1 : 0) +
       (agentName != null ? 1 : 0) +
       (unreadOnly ? 1 : 0) +
-      (followUpOnly ? 1 : 0);
+      (followUpOnly ? 1 : 0) +
+      (unrepliedOnly ? 1 : 0);
 
   bool matches(Conversation c, {String? myId}) {
     if (interestLevel != null && c.interestLevel != interestLevel) return false;
@@ -52,6 +60,14 @@ class InboxFilter {
         !((c.interestLevel == 'hot' || c.interestLevel == 'warm') &&
             c.unreadCount > 0)) {
       return false;
+    }
+    if (unrepliedOnly) {
+      if (c.lastMessageDirection != 'contact') return false;
+      final anchor = c.lastContactMessageAt ?? c.lastMessageAt;
+      if (anchor == null) return false;
+      if (DateTime.now().difference(anchor.toLocal()).inHours >= 24) {
+        return false;
+      }
     }
     return true;
   }
@@ -71,6 +87,7 @@ class InboxFilter {
     bool clearAgent = false,
     bool? unreadOnly,
     bool? followUpOnly,
+    bool? unrepliedOnly,
   }) {
     return InboxFilter(
       interestLevel: clearInterest ? null : (interestLevel ?? this.interestLevel),
@@ -81,6 +98,7 @@ class InboxFilter {
       agentName: clearAgent ? null : (agentName ?? this.agentName),
       unreadOnly: unreadOnly ?? this.unreadOnly,
       followUpOnly: followUpOnly ?? this.followUpOnly,
+      unrepliedOnly: unrepliedOnly ?? this.unrepliedOnly,
     );
   }
 }

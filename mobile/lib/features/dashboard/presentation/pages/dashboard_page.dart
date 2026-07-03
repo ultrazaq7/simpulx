@@ -115,13 +115,11 @@ class _DashboardBody extends StatelessWidget {
     final theme = Theme.of(context);
     final items = <_CardData>[
       _CardData('Open leads', cards.open, Icons.inbox_rounded,
-          AppColors.primary, InboxFilter.all),
+          AppColors.primary, InboxFilter.open),
       _CardData('Hot', cards.hot, Icons.local_fire_department_rounded,
           AppColors.hot, InboxFilter.hot),
-      _CardData('Follow up now', cards.followUp, Icons.reply_rounded,
-          AppColors.warning, InboxFilter.followUp),
-      _CardData('Need a call', cards.needCall, Icons.call_rounded,
-          AppColors.info, InboxFilter.hot),
+      _CardData('Awaiting reply', cards.unreplied, Icons.reply_rounded,
+          AppColors.warning, InboxFilter.unreplied),
       _CardData('Unread', cards.unread, Icons.mark_chat_unread_rounded,
           AppColors.brandGreenDark, InboxFilter.unread),
     ];

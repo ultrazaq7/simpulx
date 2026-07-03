@@ -345,8 +345,8 @@ function LeadFunnel({ stages }: { stages?: Analytics["funnel_stages"] }) {
 const AGENT_CARDS = [
   { key: "open", label: "My open", sub: "Active conversations", Icon: MessageSquare, color: "#2D8B73", href: "/inbox?status=open" },
   { key: "hot", label: "Hot leads", sub: "High buying intent", Icon: Flame, color: "#EF4444", href: "/inbox?interest=hot" },
-  { key: "unreplied", label: "Awaiting reply", sub: "Customer waiting on you", Icon: Zap, color: "#F59E0B", href: "/inbox?unreplied=1" },
-  { key: "unread", label: "Unread", sub: "Waiting on you", Icon: Mail, color: "#6366F1", href: "/inbox?unread=1" },
+  { key: "unreplied", label: "Awaiting reply", sub: "You haven't replied yet", Icon: Zap, color: "#F59E0B", href: "/inbox?unreplied=1" },
+  { key: "unread", label: "Unread", sub: "New, not opened", Icon: Mail, color: "#6366F1", href: "/inbox?unread=1" },
   { key: "purchase", label: "Purchased", sub: "Reached purchase", Icon: CircleDollarSign, color: "#059669", href: "" },
   { key: "lost", label: "Lost", sub: "Marked lost", Icon: TrendingDown, color: "#EF4444", href: "" },
 ] as const;

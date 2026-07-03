@@ -14,12 +14,29 @@ class AppShell extends ConsumerWidget {
 
   final StatefulNavigationShell navigationShell;
 
+  static const int _tabCount = 4;
+
   void _goBranch(int index) {
     navigationShell.goBranch(
       index,
       // Re-tapping the active tab pops to its root.
       initialLocation: index == navigationShell.currentIndex,
     );
+  }
+
+  // Swipe left/right anywhere on the page to move between the primary tabs.
+  // A velocity threshold means only a deliberate fling switches tabs, so it
+  // doesn't fight the chat list's swipe-to-archive tiles (which claim their own
+  // horizontal drag and win the gesture arena on the tile itself).
+  void _onHorizontalFling(DragEndDetails d) {
+    final v = d.primaryVelocity ?? 0;
+    if (v.abs() < 320) return;
+    final i = navigationShell.currentIndex;
+    if (v < 0 && i < _tabCount - 1) {
+      _goBranch(i + 1);
+    } else if (v > 0 && i > 0) {
+      _goBranch(i - 1);
+    }
   }
 
   @override
@@ -32,7 +49,11 @@ class AppShell extends ConsumerWidget {
     final unread = ref.watch(totalUnreadProvider);
 
     return Scaffold(
-      body: navigationShell,
+      body: GestureDetector(
+        behavior: HitTestBehavior.translucent,
+        onHorizontalDragEnd: _onHorizontalFling,
+        child: navigationShell,
+      ),
       // Hairline above the bar so it reads as a distinct surface on the clean
       // white scaffold (WhatsApp-style). foreground so it paints OVER the bar's
       // opaque top edge - a background border would be hidden behind it.

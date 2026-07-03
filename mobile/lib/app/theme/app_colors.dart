@@ -66,10 +66,12 @@ class AppColors {
   static const Color darkSurfaceAlt = Color(0xFF092D2D); // search bar / chips / incoming bubble
   static const Color darkBorder = Color(0xFF0F3B3B); // hairline separators
 
-  // ── Dark text (WhatsApp) ───────────────────────────────
-  static const Color darkTextPrimary = Color(0xFFE9EDEF);
-  static const Color darkTextSecondary = Color(0xFF8696A0);
-  static const Color darkTextMuted = Color(0xFF667781);
+  // ── Dark text ──────────────────────────────────────────
+  // Brightened from the old WhatsApp greys (8696A0 / 667781), which read too
+  // dim on the deep-navy canvas; these clear WCAG AA on darkBackground.
+  static const Color darkTextPrimary = Color(0xFFECF1F3);
+  static const Color darkTextSecondary = Color(0xFFB4C1C8);
+  static const Color darkTextMuted = Color(0xFF93A2AC);
 
   // ── Chat bubbles ───────────────────────────────────────
   // Dedicated tokens (not `primary`/`brandGreen`) so the message bubble
