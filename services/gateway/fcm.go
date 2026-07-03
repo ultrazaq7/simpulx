@@ -246,18 +246,33 @@ func (s *server) initFCMPush(ctx context.Context) {
 			return nil
 		}
 
+		// The "ended" broadcast (unlike the ring) doesn't carry the contact
+		// identity, so look it up from the conversation. The device needs it to
+		// render a WhatsApp-style missed-call note (name + avatar).
+		contactName, contactPhone := c.ContactName, c.ContactPhone
+		if contactName == "" && c.ConversationID != "" {
+			_ = s.pool.QueryRow(ctx,
+				`SELECT COALESCE(ct.full_name,''), COALESCE(ct.phone,'')
+				   FROM conversations cv JOIN contacts ct ON ct.id = cv.contact_id
+				  WHERE cv.id = $1`, c.ConversationID).Scan(&contactName, &contactPhone)
+		}
+
 		data := map[string]string{
 			"conversationId": c.ConversationID,
 			"callId":         c.CallID,
 			"callStatus":     c.CallStatus,
 			"body":           "WhatsApp voice call",
+			// Carry the contact identity so the device can render a proper
+			// WhatsApp-style missed-call note (name + avatar), not a raw title.
+			"contactName":  contactName,
+			"contactPhone": contactPhone,
 		}
 		if c.CallStatus == "incoming" {
 			title := "Incoming call"
-			if c.ContactName != "" {
-				title += " from " + c.ContactName
-			} else if c.ContactPhone != "" {
-				title += " from " + c.ContactPhone
+			if contactName != "" {
+				title += " from " + contactName
+			} else if contactPhone != "" {
+				title += " from " + contactPhone
 			}
 			data["type"] = "incoming_call"
 			data["title"] = title
@@ -274,10 +289,10 @@ func (s *server) initFCMPush(ctx context.Context) {
 			title := "Call ended"
 			if missed {
 				title = "Missed call"
-				if c.ContactName != "" {
-					title += " from " + c.ContactName
-				} else if c.ContactPhone != "" {
-					title += " from " + c.ContactPhone
+				if contactName != "" {
+					title += " from " + contactName
+				} else if contactPhone != "" {
+					title += " from " + contactPhone
 				}
 			}
 			data["type"] = "call_ended"

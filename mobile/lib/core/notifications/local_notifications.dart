@@ -29,13 +29,23 @@ class LocalNotifications {
     this.onTapRoute = onTapRoute;
     if (!_initialized) {
       const android = AndroidInitializationSettings('@drawable/ic_notification');
-      const ios = DarwinInitializationSettings(
+      final ios = DarwinInitializationSettings(
         requestAlertPermission: false,
         requestBadgePermission: false,
         requestSoundPermission: false,
+        // Action buttons for the WhatsApp-style missed-call note on iOS.
+        notificationCategories: [
+          DarwinNotificationCategory(
+            'missed_call',
+            actions: [
+              DarwinNotificationAction.plain('callback', 'Call back'),
+              DarwinNotificationAction.plain('message', 'Message'),
+            ],
+          ),
+        ],
       );
       await _plugin.initialize(
-        settings: const InitializationSettings(android: android, iOS: ios),
+        settings: InitializationSettings(android: android, iOS: ios),
         onDidReceiveNotificationResponse: _onResponse,
         onDidReceiveBackgroundNotificationResponse: notificationTapBackground,
       );
@@ -321,6 +331,21 @@ class LocalNotifications {
     FlutterLocalNotificationsPlugin plugin,
     NotificationPayload payload,
   ) async {
+    // A call that ended / was declined must DISMISS the ring, never show a fresh
+    // call notification (its body still says "voice call"). Only surface a
+    // silent WhatsApp-style missed-call note when it was genuinely unanswered.
+    if (payload.isEndedCall) {
+      final ringId =
+          (payload.conversationId ?? payload.contactId ?? payload.rawType ?? '')
+                  .hashCode &
+              0x7fffffff;
+      await plugin.cancel(id: ringId);
+      if (payload.missed) {
+        await _showMissedNote(plugin, payload);
+      }
+      return;
+    }
+
     final isMessage = payload.category == NotificationCategory.incomingMessage;
 
     // For messages: try native Kotlin notification (WhatsApp-style avatar+badge)
@@ -350,6 +375,67 @@ class LocalNotifications {
       debugPrint('[Notification] Stack: $st');
       await _showFallback(plugin, payload);
     }
+  }
+
+  /// WhatsApp-style missed-call note (iOS + Android fallback): caller name +
+  /// avatar, "Missed voice call", Call back / Message actions, and silent (a
+  /// missed call must never ring). Used by the iOS foreground path.
+  static Future<void> _showMissedNote(
+    FlutterLocalNotificationsPlugin plugin,
+    NotificationPayload payload,
+  ) async {
+    final name = (payload.contactName?.trim().isNotEmpty ?? false)
+        ? payload.contactName!.trim()
+        : 'Missed call';
+
+    String? avatarPath;
+    try {
+      avatarPath = await _getAvatarPath(name);
+    } catch (_) {
+      avatarPath = null;
+    }
+
+    final android = AndroidNotificationDetails(
+      NotificationCategory.incomingMessage.channelId,
+      NotificationCategory.incomingMessage.channelName,
+      importance: Importance.high,
+      priority: Priority.defaultPriority,
+      category: AndroidNotificationCategory.call,
+      icon: '@drawable/ic_notification',
+      largeIcon: (avatarPath != null && avatarPath.isNotEmpty)
+          ? FilePathAndroidBitmap(avatarPath)
+          : const DrawableResourceAndroidBitmap('@mipmap/ic_launcher'),
+      playSound: false,
+      enableVibration: false,
+      autoCancel: true,
+      actions: const [
+        AndroidNotificationAction('callback', 'Call back',
+            showsUserInterface: true),
+        AndroidNotificationAction('message', 'Message',
+            showsUserInterface: true),
+      ],
+    );
+
+    const ios = DarwinNotificationDetails(
+      categoryIdentifier: 'missed_call',
+      presentAlert: true,
+      presentBadge: true,
+      presentSound: false,
+    );
+
+    // Distinct id from the ring so the two never collide.
+    final id =
+        ('missed:${payload.conversationId ?? payload.contactId ?? name}')
+                .hashCode &
+            0x7fffffff;
+
+    await plugin.show(
+      id: id,
+      title: name,
+      body: 'Missed voice call',
+      notificationDetails: NotificationDetails(android: android, iOS: ios),
+      payload: payload.encodeRoute(),
+    );
   }
 
   static Future<void> _showFlutter(

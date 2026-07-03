@@ -46,6 +46,7 @@ class SimpulxMessagingService : FlutterFirebaseMessagingService() {
             ?: ""
         val callId: String = data["callId"] ?: data["call_id"] ?: ""
         val callStatus: String = data["callStatus"] ?: data["call_status"] ?: ""
+        val contactName: String = data["contactName"] ?: data["contact_name"] ?: ""
 
         // Classify the push. A call is authoritatively identified by type/callStatus
         // (body string-matching was unreliable and caused "ended" pushes to ring).
@@ -78,7 +79,7 @@ class SimpulxMessagingService : FlutterFirebaseMessagingService() {
                     NotificationHelper.cancelCallNotification(this, conversationId)
                     NotificationHelper.cancelMissedCallNotification(this, conversationId)
                     if (data["missed"] == "true") {
-                        NotificationHelper.showMissedCallNotification(this, conversationId, title, body)
+                        NotificationHelper.showMissedCallNotification(this, conversationId, contactName)
                     }
                     Log.d(TAG, "Call ended push: dismissed ring (missed=${data["missed"]})")
                 }

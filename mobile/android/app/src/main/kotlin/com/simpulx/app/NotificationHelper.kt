@@ -380,39 +380,46 @@ object NotificationHelper {
     }
 
     /**
-     * Show a lightweight "missed call" notification: no ringtone, no full-screen
-     * intent, auto-cancel. Tapping opens the conversation. Uses a distinct id so it
-     * never collides with (or revives) the ring notification.
+     * WhatsApp-style "missed call" note: caller name + avatar, "Missed voice
+     * call", and Call back / Message actions. No ringtone, no full-screen intent,
+     * auto-cancel. Distinct id from the ring so the two never collide.
      */
     fun showMissedCallNotification(
         context: Context,
         chatId: String,
-        title: String,
-        body: String,
+        contactName: String,
     ) {
         ensureChannel(context)
 
-        val tapIntent = Intent(context, MainActivity::class.java).apply {
-            action = "com.simpulx.app.ACTION_TAP_NOTIFICATION"
-            flags = Intent.FLAG_ACTIVITY_SINGLE_TOP or Intent.FLAG_ACTIVITY_CLEAR_TOP
-            putExtra("route", "/chat/$chatId")
+        val name = if (contactName.isNotBlank()) contactName else "Missed call"
+
+        fun openChat(requestCode: Int): PendingIntent {
+            val intent = Intent(context, MainActivity::class.java).apply {
+                action = "com.simpulx.app.ACTION_TAP_NOTIFICATION"
+                flags = Intent.FLAG_ACTIVITY_SINGLE_TOP or Intent.FLAG_ACTIVITY_CLEAR_TOP
+                putExtra("route", "/chat/$chatId")
+                putExtra("chatId", chatId)
+            }
+            return PendingIntent.getActivity(
+                context, chatId.hashCode() + requestCode, intent,
+                PendingIntent.FLAG_UPDATE_CURRENT or PendingIntent.FLAG_IMMUTABLE
+            )
         }
-        val contentIntent = PendingIntent.getActivity(
-            context,
-            chatId.hashCode() + 101,
-            tapIntent,
-            PendingIntent.FLAG_UPDATE_CURRENT or PendingIntent.FLAG_IMMUTABLE
-        )
 
         val notification = NotificationCompat.Builder(context, CHANNEL_ID)
             .setSmallIcon(R.drawable.ic_notification)
-            .setContentTitle(title.ifEmpty { "Missed call" })
-            .setContentText(body.ifEmpty { "Tap to call back" })
+            .setLargeIcon(generateInitialAvatar(name))
+            .setContentTitle(name)
+            .setContentText("Missed voice call")
             .setCategory(NotificationCompat.CATEGORY_CALL)
             .setPriority(NotificationCompat.PRIORITY_DEFAULT)
+            // A missed call must never ring or vibrate; it's a passive note.
+            .setSilent(true)
             .setAutoCancel(true)
             .setOnlyAlertOnce(true)
-            .setContentIntent(contentIntent)
+            .setContentIntent(openChat(101))
+            .addAction(0, "Call back", openChat(102))
+            .addAction(0, "Message", openChat(103))
             .build()
 
         val manager = context.getSystemService(Context.NOTIFICATION_SERVICE) as NotificationManager

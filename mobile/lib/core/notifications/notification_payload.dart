@@ -29,6 +29,13 @@ enum NotificationCategory {
 
   static NotificationCategory fromType(String? type, {String? body}) {
     switch (type) {
+      case 'call_ended':
+      case 'call_end':
+      case 'ended':
+        // Ended / declined / missed calls are handled specially (dismiss the
+        // ring). Never classify them as an incoming call to be rung, and don't
+        // let the body heuristic below turn "voice call" into a ring.
+        return NotificationCategory.incomingMessage;
       case 'call':
       case 'incoming_call':
       case 'voice_call':
@@ -75,6 +82,9 @@ class NotificationPayload {
     this.conversationId,
     this.contactId,
     this.rawType,
+    this.callStatus,
+    this.missed = false,
+    this.contactName,
   });
 
   final NotificationCategory category;
@@ -83,6 +93,15 @@ class NotificationPayload {
   final String? conversationId;
   final String? contactId;
   final String? rawType;
+  final String? callStatus;
+  final bool missed;
+  final String? contactName;
+
+  /// A call that has ended / been declined / missed (never a fresh ring).
+  bool get isEndedCall =>
+      rawType == 'call_ended' ||
+      rawType == 'ended' ||
+      callStatus == 'ended';
 
   factory NotificationPayload.fromData(Map<String, dynamic> data) {
     String? str(String k) {
@@ -99,6 +118,9 @@ class NotificationPayload {
       conversationId: str('conversationId') ?? str('conversation_id'),
       contactId: str('contactId') ?? str('contact_id'),
       rawType: str('type'),
+      callStatus: str('callStatus') ?? str('call_status'),
+      missed: (str('missed') ?? '').toLowerCase() == 'true',
+      contactName: str('contactName') ?? str('contact_name'),
     );
   }
 
