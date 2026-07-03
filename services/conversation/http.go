@@ -44,6 +44,12 @@ func (a *app) handleAssign(w http.ResponseWriter, r *http.Request) {
 			http.Error(w, err.Error(), http.StatusInternalServerError)
 			return
 		}
+		// Announce so every connected client updates in real time (an empty
+		// agent id signals the lead went back to the unassigned queue); without
+		// this the change only surfaced on the next poll (a few seconds later).
+		_ = a.bus.Publish(events.SubjectConversationAssigned, meta.OrgID, events.ConversationAssigned{
+			ConversationID: convID,
+		})
 		writeJSON(w, map[string]any{"status": "unassigned"})
 		return
 	}

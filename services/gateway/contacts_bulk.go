@@ -4,6 +4,8 @@ import (
 	"context"
 	"encoding/json"
 	"net/http"
+
+	"github.com/simpulx/v2/libs/go/events"
 )
 
 // Lead fields (stage / interest / owner) live on a conversation when one
@@ -56,6 +58,10 @@ func (s *server) applyContactLead(ctx context.Context, orgID, actorID string, co
 			if setInterest {
 				logEvt("interest_changed", map[string]any{"interest_level": *interest})
 			}
+			// Announce so open inboxes reflect the change in real time.
+			_ = s.bus.Publish(events.SubjectConversationUpdated, orgID, events.ConversationUpdated{
+				ConversationID: convID, StageID: derefStr(stageID), InterestLevel: derefStr(interest),
+			})
 		}
 		if setAgent {
 			if _, err := s.pool.Exec(ctx,
@@ -64,6 +70,9 @@ func (s *server) applyContactLead(ctx context.Context, orgID, actorID string, co
 				return touched, err
 			}
 			touched = true
+			_ = s.bus.Publish(events.SubjectConversationAssigned, orgID, events.ConversationAssigned{
+				ConversationID: convID, AgentID: derefStr(agentID),
+			})
 		}
 		return touched, nil
 	}

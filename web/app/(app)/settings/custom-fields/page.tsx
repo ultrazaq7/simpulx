@@ -37,12 +37,7 @@ export default function CustomFieldsPage() {
     <div className="px-6 py-6 w-full h-full flex flex-col min-h-0">
       {ToastHost}
       <div className="bg-card border border-border rounded-lg shadow-xs overflow-hidden flex-1 min-h-0 flex flex-col">
-        <div className="p-3 flex items-center gap-3 border-b border-border shrink-0">
-          <div className="min-w-0">
-            <p className="text-[14px] font-bold text-foreground">Custom Fields</p>
-            <p className="text-[12px] text-muted-foreground">Typed fields for contacts. Values attach to each contact for attribution and automations.</p>
-          </div>
-          <div className="flex-1" />
+        <div className="p-3 flex items-center justify-end gap-3 border-b border-border shrink-0">
           <PrimaryButton onClick={() => setDlg({ open: true, editing: null })}><Plus className="w-4 h-4" />Add field</PrimaryButton>
         </div>
 
