@@ -1,4 +1,4 @@
-
+import 'dart:async';
 
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
@@ -86,25 +86,35 @@ class ConversationTile extends ConsumerWidget {
                       ),
                       const Spacer(),
                       const SizedBox(width: 8),
-                      if (showResponder) ...[
-                        Tooltip(
-                          message: responderLabel,
-                          child: Icon(
-                            responderIcon,
-                            size: 13,
-                            color: AppColors.textMuted,
+                      if (!windowExpired)
+                        Transform.translate(
+                          offset: const Offset(16, 0),
+                          child: _CountdownBadge(
+                            lastMessageAt: sessionAnchor!,
+                            icon: showResponder ? responderIcon : null,
                           ),
+                        )
+                      else ...[
+                        if (showResponder) ...[
+                          Tooltip(
+                            message: responderLabel,
+                            child: Icon(
+                              responderIcon,
+                              size: 13,
+                              color: AppColors.textMuted,
+                            ),
+                          ),
+                          const SizedBox(width: 6),
+                        ],
+                        if (windowExpired) ...[
+                          const _Window24hBadge(),
+                          const SizedBox(width: 6),
+                        ],
+                        _WindowTime(
+                          lastMessageAt: c.lastMessageAt,
+                          hasUnread: hasUnread,
                         ),
-                        const SizedBox(width: 6),
                       ],
-                      if (windowExpired) ...[
-                        const _Window24hBadge(),
-                        const SizedBox(width: 6),
-                      ],
-                      _WindowTime(
-                        lastMessageAt: c.lastMessageAt,
-                        hasUnread: hasUnread,
-                      ),
                     ],
                   ),
                   const SizedBox(height: 2),
@@ -460,3 +470,90 @@ class _WindowTime extends StatelessWidget {
   }
 }
 
+class _CountdownBadge extends StatefulWidget {
+  const _CountdownBadge({required this.lastMessageAt, this.icon});
+  final DateTime lastMessageAt;
+  final IconData? icon;
+
+  @override
+  State<_CountdownBadge> createState() => _CountdownBadgeState();
+}
+
+class _CountdownBadgeState extends State<_CountdownBadge> {
+  Timer? _timer;
+
+  @override
+  void initState() {
+    super.initState();
+    _sync();
+  }
+
+  @override
+  void didUpdateWidget(covariant _CountdownBadge old) {
+    super.didUpdateWidget(old);
+    if (old.lastMessageAt != widget.lastMessageAt) _sync();
+  }
+
+  void _sync() {
+    _timer?.cancel();
+    _timer = null;
+    if (formatWindowCountdown(widget.lastMessageAt) != null) {
+      _timer = Timer.periodic(const Duration(seconds: 1), (t) {
+        if (!mounted) {
+          t.cancel();
+          return;
+        }
+        if (formatWindowCountdown(widget.lastMessageAt) == null) {
+          t.cancel();
+          _timer = null;
+        }
+        setState(() {});
+      });
+    }
+  }
+
+  @override
+  void dispose() {
+    _timer?.cancel();
+    super.dispose();
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final countdown = formatWindowCountdown(widget.lastMessageAt);
+    if (countdown == null) return const SizedBox.shrink();
+    return Container(
+      padding: const EdgeInsets.only(left: 4, right: 10, top: 2, bottom: 2),
+      decoration: const BoxDecoration(
+        color: AppColors.primary,
+        borderRadius: BorderRadius.only(
+          topLeft: Radius.circular(8),
+          bottomLeft: Radius.circular(8),
+        ),
+      ),
+      child: Row(
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          if (widget.icon != null) ...[
+            Container(
+              width: 15,
+              height: 15,
+              decoration: BoxDecoration(
+                color: Colors.white.withValues(alpha: 0.25),
+                shape: BoxShape.circle,
+              ),
+              alignment: Alignment.center,
+              child: Icon(widget.icon, size: 10, color: Colors.white),
+            ),
+            const SizedBox(width: 4),
+          ],
+          Text(countdown,
+              style: const TextStyle(
+                  fontSize: 10.5,
+                  fontWeight: FontWeight.w700,
+                  color: Colors.white)),
+        ],
+      ),
+    );
+  }
+}

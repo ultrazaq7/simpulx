@@ -5,7 +5,7 @@ import {
   Check, CheckCheck, AlertCircle,
 } from "lucide-react";
 import { initials, channelColor, avatarColor, cn } from "@/lib/utils";
-import { WindowTime } from "./WindowTime";
+import { WindowTime, WindowCountdownBadge } from "./WindowTime";
 import { Tip } from "@/components/ui/tooltip";
 import type { Conversation } from "@/lib/types";
 
@@ -92,21 +92,27 @@ const ConversationCard = memo(function ConversationCard({
             {c.contact_name || c.contact_phone || "Unknown"}
           </p>
           <span className="flex-1" />
-          {responder && (
-            <Tip label={responderLabel} side="top">
-              {responder === "bot"
-                ? <Bot className="w-3.5 h-3.5 shrink-0 text-muted-foreground" />
-                : <Headset className="w-3.5 h-3.5 shrink-0 text-muted-foreground" />}
-            </Tip>
+          {!windowExpired ? (
+            <WindowCountdownBadge lastMessageAt={c.last_message_at} responder={responder} />
+          ) : (
+            <>
+              {responder && (
+                <Tip label={responderLabel} side="top">
+                  {responder === "bot"
+                    ? <Bot className="w-3.5 h-3.5 shrink-0 text-muted-foreground" />
+                    : <Headset className="w-3.5 h-3.5 shrink-0 text-muted-foreground" />}
+                </Tip>
+              )}
+              {isWa && (
+                <Tip label="24h window closed - template only" side="top">
+                  <span className="shrink-0 inline-flex items-center gap-0.5 h-[18px] px-1.5 rounded-lg bg-hot text-white text-[9px] font-bold tabular-nums leading-none">
+                    <Clock className="w-2.5 h-2.5" />24H
+                  </span>
+                </Tip>
+              )}
+              <WindowTime lastMessageAt={c.last_message_at} unread={unread} />
+            </>
           )}
-          {windowExpired && (
-            <Tip label="24h window closed - template only" side="top">
-              <span className="shrink-0 inline-flex items-center gap-0.5 h-[18px] px-1.5 rounded-lg bg-hot text-white text-[9px] font-bold tabular-nums leading-none">
-                <Clock className="w-2.5 h-2.5" />24H
-              </span>
-            </Tip>
-          )}
-          <WindowTime lastMessageAt={c.last_message_at} unread={unread} />
         </div>
 
         {/* Line 2: delivery check + preview + signal icon + unread count */}
