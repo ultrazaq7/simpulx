@@ -177,7 +177,10 @@ class AppTheme {
         backgroundColor: surfaceAlt,
         selectedColor: AppColors.primary.withValues(alpha: 0.16),
         side: BorderSide(color: border),
-        labelStyle: AppText.label,
+        // AppText.label carries a fixed light-mode colour, so filter chip labels
+        // (quick chips + Advanced Filters sheet) rendered dim on dark. Resolve the
+        // colour per brightness so they stay legible in dark mode.
+        labelStyle: AppText.label.copyWith(color: textSecondary),
         secondaryLabelStyle: AppText.label.copyWith(color: AppColors.primary),
         checkmarkColor: AppColors.primary,
         showCheckmark: false,

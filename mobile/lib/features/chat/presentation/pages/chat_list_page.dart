@@ -706,10 +706,10 @@ class _InboxFilterChips extends StatelessWidget {
   final void Function(InboxFilter preset) onSelect;
 
   static const _chips = <String, InboxFilter>{
-    'All': InboxFilter.all,
-    'Unread': InboxFilter.unread,
     'Hot': InboxFilter.hot,
+    'Unread': InboxFilter.unread,
     'Awaiting reply': InboxFilter.unreplied,
+    'All': InboxFilter.all,
   };
 
   @override
@@ -768,9 +768,11 @@ class _FilterChip extends StatelessWidget {
               style: TextStyle(
                 fontSize: 13,
                 fontWeight: FontWeight.w600,
+                // onSurfaceVariant resolves per brightness (bright grey in dark),
+                // so the unselected label stays legible in dark mode.
                 color: selected
-                    ? AppColors.primaryDark
-                    : AppColors.textSecondary,
+                    ? AppColors.primary
+                    : Theme.of(context).colorScheme.onSurfaceVariant,
               ),
             ),
           ),
