@@ -32,9 +32,9 @@ const METRICS: Metric[] = [
   { key: "total_leads", label: "Leads", Icon: BarChart3, color: "#6366F1", href: "/inbox" },
   { key: "active", label: "Active", Icon: MessageSquare, color: "#2D8B73", href: "/inbox?status=open" },
   { key: "unassigned", label: "Unassigned", Icon: Inbox, color: "#E67E22", href: "/inbox?assigned=unassigned" },
-  // "Responded" = the AGENT replied (distinct from the Overview chart's
+  // "Handled" = leads the AGENT replied to (distinct from the Overview chart's
   // "Replied", which counts customers who replied back).
-  { key: "replied", label: "Responded", Icon: Reply, color: "#0284C7" },
+  { key: "replied", label: "Handled", Icon: Reply, color: "#0284C7" },
   { key: "won", label: "Purchase", Icon: Trophy, color: "#059669" },
   { key: "avg_rt", label: "Avg first response", Icon: Timer, color: "#7C3AED", fmt: fmtDuration },
 ];
@@ -736,7 +736,7 @@ function PerfTables({ rows, label, showBranch }: { rows: PerfRow[]; label: strin
           <table className="w-full text-sm">
             <thead><tr className="border-b border-border bg-muted/40">
               <TH2>{label}</TH2>{showBranch && <TH2>Branch</TH2>}
-              <TH2 right>Leads</TH2><TH2 right>Responded</TH2><TH2 right>Avg 1st resp</TH2><TH2 right>Avg resp</TH2><TH2 right>Within 5m</TH2><TH2 right>Total chat</TH2><TH2 right>Call attempts</TH2><TH2 right>Call duration</TH2>
+              <TH2 right>Leads</TH2><TH2 right>Handled</TH2><TH2 right>Avg 1st resp</TH2><TH2 right>Avg resp</TH2><TH2 right>Within 5m</TH2><TH2 right>Total chat</TH2><TH2 right>Call attempts</TH2><TH2 right>Call duration</TH2>
             </tr></thead>
             <tbody>
               {rows.map((r, i) => (

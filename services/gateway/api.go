@@ -835,7 +835,7 @@ func (s *server) handleStats(w http.ResponseWriter, r *http.Request) {
 
 	query := fmt.Sprintf(`SELECT
 		   (SELECT count(*) FROM conversations WHERE organization_id=$1%s AND status<>'closed') AS active,
-		   (SELECT count(*) FROM conversations WHERE organization_id=$1%s AND status<>'closed' AND assigned_agent_id IS NULL) AS unassigned,
+		   (SELECT count(*) FROM conversations WHERE organization_id=$1%s AND assigned_agent_id IS NULL) AS unassigned,
 		   (SELECT count(*) FROM conversations WHERE organization_id=$1%s AND is_bot_active) AS bot_active,
 		   (SELECT count(*) FROM messages WHERE organization_id=$1) AS messages,
 		   (SELECT count(*) FROM contacts WHERE organization_id=$1) AS contacts,
