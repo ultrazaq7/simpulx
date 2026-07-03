@@ -5,7 +5,8 @@ import {
 } from "lucide-react";
 
 import { type FilterOption } from "./MultiSelectFilter";
-import FilterPopover, { type FilterCategory, type FilterToggle } from "./FilterPopover";
+import { type FilterCategory, type FilterToggle } from "./FilterPopover";
+import FiltersDrawer from "./FiltersDrawer";
 import ConversationCard from "./ConversationCard";
 import { ConversationListSkeleton } from "./InboxSkeletons";
 import { cn } from "@/lib/utils";
@@ -376,18 +377,15 @@ export default function ConversationList({
                 )}
               </button>
             </Tip>
-            {/* Popover drops from the filter icon and extends right over the chat. */}
-            {filterOpen && (
-              <div className="absolute top-full left-0 mt-1.5 z-50">
-                <FilterPopover
-                  categories={filterCategories}
-                  toggles={filterToggles}
-                  activeCount={activeFiltersCount}
-                  onClearAll={clearAll}
-                  onClose={() => setFilterOpen(false)}
-                />
-              </div>
-            )}
+            {/* Filters live in a right-side drawer (enterprise pattern). */}
+            <FiltersDrawer
+              open={filterOpen}
+              onClose={() => setFilterOpen(false)}
+              categories={filterCategories}
+              toggles={filterToggles}
+              activeCount={activeFiltersCount}
+              onClearAll={clearAll}
+            />
           </div>
 
           <Tip label={dense ? "Comfortable rows" : "Compact rows"} side="bottom">

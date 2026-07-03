@@ -3,7 +3,8 @@ import { useEffect, useMemo, useRef, useState } from "react";
 import { Plus, Lock, X, Loader2, ChevronLeft, ChevronRight } from "lucide-react";
 import { api, getUser } from "@/lib/api";
 import { cn } from "@/lib/utils";
-import { useToast, PageBody, SettingsCard, FieldLabel, INPUT_CLASS, PrimaryButton, GhostButton } from "../_shared";
+import SidePanel from "@/components/SidePanel";
+import { useToast, PageBody, SettingsCard, FieldLabel, INPUT_CLASS, PrimaryButton } from "../_shared";
 
 type Perm = { key: string; label: string };
 const GROUPS: { group: string; perms: Perm[] }[] = [
@@ -238,27 +239,28 @@ export default function RolesSettingsPage() {
         </div>
       </SettingsCard>
 
-      {/* Add Role Dialog */}
-      {addOpen && (
-        <div className="fixed inset-0 z-[100] flex items-center justify-center p-4">
-          <div className="absolute inset-0 bg-black/40 backdrop-blur-[2px] animate-fade-in" onClick={() => setAddOpen(false)} />
-          <div className="relative bg-card rounded-lg border border-border shadow-2xl w-full max-w-sm animate-scale-in">
-            <div className="flex items-center justify-between px-5 py-3.5 border-b border-border">
-              <h2 className="text-[15px] font-bold text-foreground">Create custom role</h2>
-              <button onClick={() => setAddOpen(false)} className="p-1 rounded-md text-muted-foreground hover:bg-muted hover:text-foreground outline-none transition-colors"><X className="w-[18px] h-[18px]" /></button>
-            </div>
-            <div className="px-5 py-5">
-              <FieldLabel>Role name</FieldLabel>
-              <input type="text" value={newRole} onChange={(e) => setNewRole(e.target.value)} autoFocus placeholder="e.g. Team Lead"
-                className={INPUT_CLASS} />
-            </div>
-            <div className="flex justify-end gap-2 px-5 py-3.5 border-t border-border">
-              <GhostButton onClick={() => setAddOpen(false)}>Cancel</GhostButton>
-              <PrimaryButton onClick={addRole}>Create</PrimaryButton>
-            </div>
-          </div>
-        </div>
-      )}
+      {/* Add Role drawer */}
+      <SidePanel
+        open={addOpen}
+        onClose={() => setAddOpen(false)}
+        title="Create custom role"
+        description="Add a role, then set its permissions in the matrix."
+        width="sm"
+        onApply={addRole}
+        applyLabel="Create"
+        applyDisabled={!newRole.trim()}
+      >
+        <FieldLabel>Role name</FieldLabel>
+        <input
+          type="text"
+          value={newRole}
+          onChange={(e) => setNewRole(e.target.value)}
+          onKeyDown={(e) => { if (e.key === "Enter" && newRole.trim()) addRole(); }}
+          autoFocus
+          placeholder="e.g. Team Lead"
+          className={INPUT_CLASS}
+        />
+      </SidePanel>
     </PageBody>
   );
 }

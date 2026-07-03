@@ -5,6 +5,7 @@ import { Search, MoreHorizontal, User, Loader2, Eye, EyeOff, X, Plus, Activity, 
 import { api, getUser } from "@/lib/api";
 import { Select } from "@/components/Select";
 import { MultiSelect } from "@/components/ui/multi-select";
+import SidePanel from "@/components/SidePanel";
 const cap = (s: string) => s ? s[0].toUpperCase() + s.slice(1) : s;
 import { fmtDate, cn } from "@/lib/utils";
 import type { UserAccount, UserActivity, Campaign, Channel } from "@/lib/types";
@@ -405,56 +406,49 @@ function UserDialog({ state, isPrivileged, onClose, onSaved, onError }: {
     finally { setSaving(false); }
   }
 
-  if (!state.open) return null;
-
   return (
-    <div className="fixed inset-0 z-[100] flex items-center justify-center p-4">
-      <div className="absolute inset-0 bg-black/40 backdrop-blur-[2px] animate-fade-in" onClick={onClose} />
-      <div className="relative bg-card rounded-lg border border-border shadow-2xl w-full max-w-sm animate-scale-in">
-        <div className="flex items-center justify-between px-5 py-3.5 border-b border-border">
-          <h2 className="text-[15px] font-bold text-foreground">{isEdit ? "Edit user" : "Invite people"}</h2>
-          <button onClick={onClose} className="p-1 rounded-md text-muted-foreground hover:bg-muted hover:text-foreground outline-none transition-colors"><X className="w-[18px] h-[18px]" /></button>
+    <SidePanel
+      open={state.open}
+      onClose={onClose}
+      title={isEdit ? "Edit user" : "Invite people"}
+      description={isEdit ? "Update this team member's details." : "Add a team member to the workspace."}
+      width="sm"
+      busy={saving}
+      onApply={save}
+      applyLabel={isEdit ? "Save" : "Invite"}
+    >
+      <div className="flex flex-col gap-4">
+        <div>
+          <FieldLabel>Full name</FieldLabel>
+          <input type="text" value={name} onChange={(e) => setName(e.target.value)} autoFocus className={INPUT_CLASS} />
         </div>
-        <div className="px-5 py-5 flex flex-col gap-4">
+        <div>
+          <FieldLabel>Email</FieldLabel>
+          <input type="email" value={email} onChange={(e) => setEmail(e.target.value)} disabled={isEdit && !isPrivileged}
+            className={cn(INPUT_CLASS, "disabled:bg-muted disabled:text-muted-foreground")} />
+          {isEdit && !isPrivileged && <p className="text-xs text-muted-foreground/70 mt-1">Only admins can change email</p>}
+        </div>
+        {(isPrivileged || !isEdit) && (
           <div>
-            <FieldLabel>Full name</FieldLabel>
-            <input type="text" value={name} onChange={(e) => setName(e.target.value)} autoFocus className={INPUT_CLASS} />
+            <FieldLabel>Role</FieldLabel>
+            <Select value={role} onChange={setRole} disabled={isEdit && !isPrivileged}
+              options={ROLES.map((r) => ({ value: r, label: cap(r) }))} />
           </div>
+        )}
+        {(isPrivileged || !isEdit) && (
           <div>
-            <FieldLabel>Email</FieldLabel>
-            <input type="email" value={email} onChange={(e) => setEmail(e.target.value)} disabled={isEdit && !isPrivileged}
-              className={cn(INPUT_CLASS, "disabled:bg-muted disabled:text-muted-foreground")} />
-            {isEdit && !isPrivileged && <p className="text-xs text-muted-foreground/70 mt-1">Only admins can change email</p>}
+            <FieldLabel>{isEdit ? "Reset password (optional)" : "Temporary password (optional)"}</FieldLabel>
+            <div className="relative">
+              <input type={showPw ? "text" : "password"} value={password} onChange={(e) => setPassword(e.target.value)}
+                className={cn(INPUT_CLASS, "pr-9")} />
+              <button onClick={() => setShowPw(!showPw)} className="absolute right-2 top-1/2 -translate-y-1/2 p-0.5 outline-none text-muted-foreground hover:text-foreground transition-colors">
+                {showPw ? <Eye className="w-4 h-4" /> : <EyeOff className="w-4 h-4" />}
+              </button>
+            </div>
+            <p className="text-xs text-muted-foreground/70 mt-1">{isEdit ? "Leave blank to keep current password" : "Defaults to changeme123 if left blank"}</p>
           </div>
-          {(isPrivileged || !isEdit) && (
-            <div>
-              <FieldLabel>Role</FieldLabel>
-              <Select value={role} onChange={setRole} disabled={isEdit && !isPrivileged}
-                options={ROLES.map((r) => ({ value: r, label: cap(r) }))} />
-            </div>
-          )}
-          {(isPrivileged || !isEdit) && (
-            <div>
-              <FieldLabel>{isEdit ? "Reset password (optional)" : "Temporary password (optional)"}</FieldLabel>
-              <div className="relative">
-                <input type={showPw ? "text" : "password"} value={password} onChange={(e) => setPassword(e.target.value)}
-                  className={cn(INPUT_CLASS, "pr-9")} />
-                <button onClick={() => setShowPw(!showPw)} className="absolute right-2 top-1/2 -translate-y-1/2 p-0.5 outline-none text-muted-foreground hover:text-foreground transition-colors">
-                  {showPw ? <Eye className="w-4 h-4" /> : <EyeOff className="w-4 h-4" />}
-                </button>
-              </div>
-              <p className="text-xs text-muted-foreground/70 mt-1">{isEdit ? "Leave blank to keep current password" : "Defaults to changeme123 if left blank"}</p>
-            </div>
-          )}
-        </div>
-        <div className="flex justify-end gap-2 px-5 py-3.5 border-t border-border">
-          <GhostButton onClick={onClose}>Cancel</GhostButton>
-          <PrimaryButton onClick={save} disabled={saving}>
-            {saving ? <Loader2 className="w-4 h-4 animate-spin" /> : null}
-            {isEdit ? "Save" : "Invite"}
-          </PrimaryButton>
-        </div>
+        )}
       </div>
-    </div>
+    </SidePanel>
   );
 }
