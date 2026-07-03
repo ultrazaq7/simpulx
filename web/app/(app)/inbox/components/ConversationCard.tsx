@@ -86,22 +86,32 @@ const ConversationCard = memo(function ConversationCard({
             {c.contact_name || c.contact_phone || "Unknown"}
           </p>
           <span className="flex-1" />
-          {windowExpired ? (
-            <Tip label="24h window closed - template only" side="top">
-              <span className="shrink-0 inline-flex items-center gap-0.5 h-[18px] px-1.5 rounded-full bg-hot text-white text-[9px] font-bold tabular-nums leading-none">
-                <Clock className="w-2.5 h-2.5" />24H
-              </span>
-            </Tip>
-          ) : isOutbound ? (
-            <Tip label={c.is_bot_active ? "Replied by Simpuler" : "Replied by agent"} side="top">
-              {c.is_bot_active
-                ? <Bot className="w-3.5 h-3.5 shrink-0 text-muted-foreground" />
-                : <Headset className="w-3.5 h-3.5 shrink-0 text-muted-foreground" />}
-            </Tip>
-          ) : null}
-          {windowOpen
-            ? <WindowCountdownBadge lastMessageAt={c.last_message_at} />
-            : <WindowTime lastMessageAt={c.last_message_at} unread={unread} />}
+          {windowOpen ? (
+            <WindowCountdownBadge
+              lastMessageAt={c.last_message_at}
+              responder={isOutbound ? (c.is_bot_active ? "bot" : "human") : null}
+            />
+          ) : windowExpired ? (
+            <>
+              <Tip label="24h window closed - template only" side="top">
+                <span className="shrink-0 inline-flex items-center gap-0.5 h-[18px] px-1.5 rounded-lg bg-hot text-white text-[9px] font-bold tabular-nums leading-none">
+                  <Clock className="w-2.5 h-2.5" />24H
+                </span>
+              </Tip>
+              <WindowTime lastMessageAt={c.last_message_at} unread={unread} />
+            </>
+          ) : (
+            <>
+              {isOutbound && (
+                <Tip label={c.is_bot_active ? "Replied by Simpuler" : "Replied by agent"} side="top">
+                  {c.is_bot_active
+                    ? <Bot className="w-3.5 h-3.5 shrink-0 text-muted-foreground" />
+                    : <Headset className="w-3.5 h-3.5 shrink-0 text-muted-foreground" />}
+                </Tip>
+              )}
+              <WindowTime lastMessageAt={c.last_message_at} unread={unread} />
+            </>
+          )}
         </div>
 
         {/* Line 2: preview + one signal + unread count */}

@@ -69,26 +69,35 @@ class ConversationTile extends ConsumerWidget {
                       ),
                       const Spacer(),
                       const SizedBox(width: 8),
-                      if (windowExpired) ...[
-                        const _Window24hBadge(),
-                        const SizedBox(width: 6),
-                      ] else if (isOutbound) ...[
-                        Icon(
-                          c.isBotActive
-                              ? Icons.smart_toy_outlined
-                              : Icons.headset_mic_outlined,
-                          size: 13,
-                          color: AppColors.textMuted,
-                        ),
-                        const SizedBox(width: 6),
-                      ],
                       if (countdownActive)
-                        _CountdownBadge(lastMessageAt: c.lastMessageAt!)
-                      else
+                        // Chip icon doubles as the "replied by" indicator.
+                        _CountdownBadge(
+                          lastMessageAt: c.lastMessageAt!,
+                          icon: isOutbound
+                              ? (c.isBotActive
+                                  ? Icons.smart_toy_outlined
+                                  : Icons.headset_mic_outlined)
+                              : Icons.schedule_rounded,
+                        )
+                      else ...[
+                        if (windowExpired) ...[
+                          const _Window24hBadge(),
+                          const SizedBox(width: 6),
+                        ] else if (isOutbound) ...[
+                          Icon(
+                            c.isBotActive
+                                ? Icons.smart_toy_outlined
+                                : Icons.headset_mic_outlined,
+                            size: 13,
+                            color: AppColors.textMuted,
+                          ),
+                          const SizedBox(width: 6),
+                        ],
                         _WindowTime(
                           lastMessageAt: c.lastMessageAt,
                           hasUnread: hasUnread,
                         ),
+                      ],
                     ],
                   ),
                   const SizedBox(height: 2),
@@ -431,11 +440,14 @@ class _WindowTime extends StatelessWidget {
 }
 
 /// Corner badge: live per-second countdown of the 24h session window as a
-/// solid blue pill ("Xh Ym Zs"). Ticks only while the window is open and
-/// stops its own ticker once it elapses. Mirrors web WindowCountdownBadge.
+/// brand badge ("Xh Ym Zs") with a leading icon chip. The [icon] doubles as
+/// the "replied by" indicator (headset/robot), else a clock. Ticks only while
+/// the window is open and stops its own ticker once it elapses. Mirrors web
+/// WindowCountdownBadge.
 class _CountdownBadge extends StatefulWidget {
-  const _CountdownBadge({required this.lastMessageAt});
+  const _CountdownBadge({required this.lastMessageAt, required this.icon});
   final DateTime lastMessageAt;
+  final IconData icon;
 
   @override
   State<_CountdownBadge> createState() => _CountdownBadgeState();
@@ -488,7 +500,7 @@ class _CountdownBadgeState extends State<_CountdownBadge> {
       padding: const EdgeInsets.only(left: 3, right: 8, top: 2, bottom: 2),
       decoration: BoxDecoration(
         color: AppColors.primary,
-        borderRadius: BorderRadius.circular(20),
+        borderRadius: BorderRadius.circular(8),
       ),
       child: Row(
         mainAxisSize: MainAxisSize.min,
@@ -501,8 +513,7 @@ class _CountdownBadgeState extends State<_CountdownBadge> {
               shape: BoxShape.circle,
             ),
             alignment: Alignment.center,
-            child: const Icon(Icons.schedule_rounded,
-                size: 10, color: Colors.white),
+            child: Icon(widget.icon, size: 10, color: Colors.white),
           ),
           const SizedBox(width: 4),
           Text(countdown,
