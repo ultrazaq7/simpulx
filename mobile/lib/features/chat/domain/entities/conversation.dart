@@ -15,6 +15,7 @@ class Conversation extends Equatable {
     this.lastContactMessageAt,
     this.lastMessagePreview,
     this.lastMessageDirection,
+    this.lastSenderType,
     this.interestLevel,
     this.stageName,
     this.assignedAgentId,
@@ -38,6 +39,7 @@ class Conversation extends Equatable {
   final DateTime? lastContactMessageAt; // last inbound msg -> 24h window anchor
   final String? lastMessagePreview;
   final String? lastMessageDirection; // agent | contact
+  final String? lastSenderType; // contact | agent | bot | system (latest msg)
   final String? interestLevel; // hot | warm | cold
   final String? stageName;
   final String? assignedAgentId;
@@ -69,6 +71,7 @@ class Conversation extends Equatable {
         'last_contact_message_at': lastContactMessageAt?.toIso8601String(),
         'last_message_preview': lastMessagePreview,
         'last_message_direction': lastMessageDirection,
+        'last_sender_type': lastSenderType,
         'interest_level': interestLevel,
         'stage_name': stageName,
         'assigned_agent_id': assignedAgentId,
@@ -136,6 +139,7 @@ class Conversation extends Equatable {
         lastContactMessageAt,
         lastMessagePreview,
         lastMessageDirection,
+        lastSenderType,
         interestLevel,
         stageName,
         assignedAgentId,

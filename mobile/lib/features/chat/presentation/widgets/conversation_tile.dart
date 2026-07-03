@@ -27,15 +27,25 @@ class ConversationTile extends ConsumerWidget {
     final c = conversation;
     final hasUnread = c.hasUnread;
     final preview = c.lastMessagePreview?.trim();
-    final isOutbound = c.lastMessageDirection == 'agent';
     final isManager =
         ref.watch(sessionControllerProvider).user?.role.isManagerTier ?? false;
-    // The 24h session window is a WhatsApp concept anchored on the customer's
-    // last inbound message (an agent/bot reply must NOT reset it). Falls back to
-    // lastMessageAt until the API ships last_contact_message_at. While open, the
-    // line-1 trailing slot shows a live countdown; once elapsed it becomes the
-    // plain date with a red "24H" badge in the responder-icon slot to its left.
-    final sessionAnchor = c.lastContactMessageAt ?? c.lastMessageAt;
+    // Last responder derived from who actually sent the latest message: a human
+    // agent (headset) vs Simpuler (robot). isBotActive only means the bot is
+    // enabled, not who replied, so it must not drive this.
+    final repliedByBot = c.lastSenderType == 'bot';
+    final repliedByAgent =
+        c.lastSenderType == 'agent' || c.lastSenderType == 'system';
+    final showResponder = repliedByBot || repliedByAgent;
+    final responderIcon = repliedByBot
+        ? Icons.smart_toy_outlined
+        : Icons.headset_mic_outlined;
+    final responderLabel =
+        repliedByBot ? 'Replied by Simpuler' : 'Replied by agent';
+    // The 24h session window counts down from the last message (any direction);
+    // sending a reply restarts it. While open, the line-1 trailing slot shows a
+    // live countdown; once elapsed it becomes the plain date with a red "24H"
+    // badge in the responder-icon slot to its left.
+    final sessionAnchor = c.lastMessageAt;
     final countdownActive = formatWindowCountdown(sessionAnchor) != null;
     final windowExpired =
         c.channel == 'whatsapp' && sessionAnchor != null && !countdownActive;
@@ -77,26 +87,30 @@ class ConversationTile extends ConsumerWidget {
                         // the "replied by" indicator.
                         Transform.translate(
                           offset: const Offset(16, 0),
-                          child: _CountdownBadge(
-                            lastMessageAt: sessionAnchor!,
-                            icon: isOutbound
-                                ? (c.isBotActive
-                                    ? Icons.smart_toy_outlined
-                                    : Icons.headset_mic_outlined)
-                                : Icons.schedule_rounded,
+                          child: Tooltip(
+                            message: showResponder
+                                ? responderLabel
+                                : '24h session window',
+                            child: _CountdownBadge(
+                              lastMessageAt: sessionAnchor!,
+                              icon: showResponder
+                                  ? responderIcon
+                                  : Icons.schedule_rounded,
+                            ),
                           ),
                         )
                       else ...[
                         if (windowExpired) ...[
                           const _Window24hBadge(),
                           const SizedBox(width: 6),
-                        ] else if (isOutbound) ...[
-                          Icon(
-                            c.isBotActive
-                                ? Icons.smart_toy_outlined
-                                : Icons.headset_mic_outlined,
-                            size: 13,
-                            color: AppColors.textMuted,
+                        ] else if (showResponder) ...[
+                          Tooltip(
+                            message: responderLabel,
+                            child: Icon(
+                              responderIcon,
+                              size: 13,
+                              color: AppColors.textMuted,
+                            ),
                           ),
                           const SizedBox(width: 6),
                         ],
@@ -131,9 +145,9 @@ class ConversationTile extends ConsumerWidget {
                   ),
                   if ((isManager && (c.agentName?.isNotEmpty ?? false)) ||
                       (c.campaignName?.isNotEmpty ?? false)) ...[
-                    const SizedBox(height: 6),
+                    const SizedBox(height: 5),
                     Wrap(
-                      spacing: 6,
+                      spacing: 12,
                       runSpacing: 4,
                       children: [
                         if (isManager && (c.agentName?.isNotEmpty ?? false))
@@ -263,34 +277,28 @@ class _PulsingUnreadBadgeState extends State<_PulsingUnreadBadge>
   }
 }
 
+/// Assignee as a plain icon + name (no pill).
 class _AssigneeChip extends StatelessWidget {
   const _AssigneeChip({required this.name});
   final String name;
 
   @override
   Widget build(BuildContext context) {
-    return Container(
-      padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 2),
-      decoration: BoxDecoration(
-        color: AppColors.primary.withValues(alpha: 0.08),
-        borderRadius: BorderRadius.circular(999),
-      ),
-      child: Row(
-        mainAxisSize: MainAxisSize.min,
-        children: [
-          const Icon(Icons.person_rounded,
-              size: 12, color: AppColors.primaryDark),
-          const SizedBox(width: 3),
-          Text(
-            name,
-            style: const TextStyle(
-              fontSize: 10.5,
-              color: AppColors.primaryDark,
-              fontWeight: FontWeight.w600,
-            ),
+    return Row(
+      mainAxisSize: MainAxisSize.min,
+      children: [
+        const Icon(Icons.person_outline_rounded,
+            size: 13, color: AppColors.textMuted),
+        const SizedBox(width: 3),
+        Text(
+          name,
+          style: const TextStyle(
+            fontSize: 11,
+            color: AppColors.textMuted,
+            fontWeight: FontWeight.w500,
           ),
-        ],
-      ),
+        ),
+      ],
     );
   }
 }
@@ -362,35 +370,33 @@ class _PreviewWidget extends StatelessWidget {
   }
 }
 
+/// Campaign as a plain icon + name (no pill).
 class _CampaignChip extends StatelessWidget {
   const _CampaignChip({required this.name});
   final String name;
 
   @override
   Widget build(BuildContext context) {
-    final theme = Theme.of(context);
-    final bgColor = theme.colorScheme.surfaceContainerHighest;
-    final fgColor = theme.colorScheme.onSurfaceVariant;
-
-    return Container(
-      padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 2),
-      decoration: BoxDecoration(
-        color: bgColor,
-        borderRadius: BorderRadius.circular(999),
-      ),
-      child: ConstrainedBox(
-        constraints: const BoxConstraints(maxWidth: 120),
-        child: Text(
-          name,
-          maxLines: 1,
-          overflow: TextOverflow.ellipsis,
-          style: TextStyle(
-            fontSize: 10.5,
-            color: fgColor,
-            fontWeight: FontWeight.w600,
+    return Row(
+      mainAxisSize: MainAxisSize.min,
+      children: [
+        const Icon(Icons.campaign_outlined,
+            size: 14, color: AppColors.primary),
+        const SizedBox(width: 3),
+        ConstrainedBox(
+          constraints: const BoxConstraints(maxWidth: 140),
+          child: Text(
+            name,
+            maxLines: 1,
+            overflow: TextOverflow.ellipsis,
+            style: const TextStyle(
+              fontSize: 11,
+              color: AppColors.primary,
+              fontWeight: FontWeight.w600,
+            ),
           ),
         ),
-      ),
+      ],
     );
   }
 }

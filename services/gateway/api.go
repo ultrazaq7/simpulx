@@ -106,6 +106,9 @@ func (s *server) handleListConversations(w http.ResponseWriter, r *http.Request)
 		           WHEN cv.last_agent_message_at IS NOT NULL AND (cv.last_contact_message_at IS NULL OR cv.last_agent_message_at >= cv.last_contact_message_at) THEN 'agent' 
 		           ELSE 'contact' 
 		         END) AS last_message_direction,
+		        (SELECT m.sender_type FROM messages m
+		           WHERE m.conversation_id = cv.id
+		           ORDER BY m.created_at DESC LIMIT 1) AS last_sender_type,
 		        cv.interest_level, cv.ai_stage,
 		        cv.car_brand, cv.car_model, cv.city, cv.purchase_timeframe, cv.lost_reason,
 		        cv.lead_summary, cv.suggested_action, cv.suggested_action_reason,
@@ -157,6 +160,9 @@ func (s *server) handleGetConversation(w http.ResponseWriter, r *http.Request) {
 		           WHEN cv.last_agent_message_at IS NOT NULL AND (cv.last_contact_message_at IS NULL OR cv.last_agent_message_at >= cv.last_contact_message_at) THEN 'agent'
 		           ELSE 'contact'
 		         END) AS last_message_direction,
+		        (SELECT m.sender_type FROM messages m
+		           WHERE m.conversation_id = cv.id
+		           ORDER BY m.created_at DESC LIMIT 1) AS last_sender_type,
 		        cv.interest_level, cv.ai_stage,
 		        cv.car_brand, cv.car_model, cv.city, cv.purchase_timeframe, cv.lost_reason,
 		        cv.lead_summary, cv.suggested_action, cv.suggested_action_reason,

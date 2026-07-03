@@ -1,7 +1,7 @@
 "use client";
 import { memo } from "react";
 import {
-  Image as ImageIcon, Video, FileText, Headset, Bot, CheckCircle, Zap, Clock, Phone, Sticker, Mic, User,
+  Image as ImageIcon, Video, FileText, Headset, Bot, CheckCircle, Zap, Clock, Phone, Sticker, Mic, User, Megaphone,
 } from "lucide-react";
 import { initials, channelColor, avatarColor, cn } from "@/lib/utils";
 import { WindowTime, WindowCountdownBadge } from "./WindowTime";
@@ -34,13 +34,18 @@ const ConversationCard = memo(function ConversationCard({
 
   const needsFollowUp = (c.interest_level === "hot" || c.interest_level === "warm") && unread;
   const needsCall = c.interest_level === "hot" && (c.call_attempts === null || c.call_attempts === 0);
-  const isOutbound = c.last_message_direction === "agent";
-  // The 24h session window is a WhatsApp concept anchored on the customer's
-  // last inbound message (an agent/bot reply must NOT reset it). Falls back to
-  // last_message_at until the API ships last_contact_message_at. While open,
-  // the line-1 slot shows a live countdown; once elapsed it becomes the plain
-  // date with a "24H" badge in the responder-icon slot to its left.
-  const sessionAnchor = c.last_contact_message_at ?? c.last_message_at;
+  // Last responder derived from who actually sent the latest message: a human
+  // agent (headset) vs Simpuler (robot). is_bot_active only means the bot is
+  // enabled, not who replied, so it must not drive this.
+  const repliedByBot = c.last_sender_type === "bot";
+  const repliedByAgent = c.last_sender_type === "agent" || c.last_sender_type === "system";
+  const responder: "human" | "bot" | null = repliedByBot ? "bot" : repliedByAgent ? "human" : null;
+  const responderLabel = repliedByBot ? "Replied by Simpuler" : "Replied by agent";
+  // The 24h session window counts down from the last message (any direction);
+  // sending a reply restarts it. While open, the line-1 slot shows a live
+  // countdown; once elapsed it becomes the plain date with a "24H" badge in the
+  // responder-icon slot to its left.
+  const sessionAnchor = c.last_message_at;
   const isWa = c.channel === "whatsapp" && !!sessionAnchor;
   const winAge = sessionAnchor ? Date.now() - new Date(sessionAnchor).getTime() : Infinity;
   const windowOpen = isWa && winAge < 24 * 60 * 60 * 1000;
@@ -90,10 +95,9 @@ const ConversationCard = memo(function ConversationCard({
           </p>
           <span className="flex-1" />
           {windowOpen ? (
-            <WindowCountdownBadge
-              lastMessageAt={sessionAnchor}
-              responder={isOutbound ? (c.is_bot_active ? "bot" : "human") : null}
-            />
+            <Tip label={responder ? responderLabel : "24h session window"} side="top">
+              <WindowCountdownBadge lastMessageAt={sessionAnchor} responder={responder} />
+            </Tip>
           ) : windowExpired ? (
             <>
               <Tip label="24h window closed - template only" side="top">
@@ -105,9 +109,9 @@ const ConversationCard = memo(function ConversationCard({
             </>
           ) : (
             <>
-              {isOutbound && (
-                <Tip label={c.is_bot_active ? "Replied by Simpuler" : "Replied by agent"} side="top">
-                  {c.is_bot_active
+              {responder && (
+                <Tip label={responderLabel} side="top">
+                  {responder === "bot"
                     ? <Bot className="w-3.5 h-3.5 shrink-0 text-muted-foreground" />
                     : <Headset className="w-3.5 h-3.5 shrink-0 text-muted-foreground" />}
                 </Tip>
@@ -149,20 +153,20 @@ const ConversationCard = memo(function ConversationCard({
           )}
         </div>
 
-        {/* Line 3: agent (left) + campaign (right) — full names */}
+        {/* Line 3: agent + campaign as icon + text (no pills) */}
         {hasMeta && (
-          <div className={cn("flex items-center gap-1.5 min-w-0", dense ? "mt-1" : "mt-2")}>
+          <div className={cn("flex items-center gap-3 min-w-0", dense ? "mt-1" : "mt-1.5")}>
             {showAgent && c.agent_name && (
               <Tip label={`Assigned: ${c.agent_name}`} side="top">
-                <span className="inline-flex items-center gap-1 h-[19px] px-1.5 rounded-md bg-muted text-foreground/70 text-[11px] font-medium truncate min-w-0 max-w-[55%]">
-                  <User className="w-2.5 h-2.5 shrink-0 opacity-70" />{c.agent_name}
+                <span className="inline-flex items-center gap-1 text-[11px] text-muted-foreground truncate min-w-0 max-w-[50%]">
+                  <User className="w-3 h-3 shrink-0 opacity-70" />{c.agent_name}
                 </span>
               </Tip>
             )}
             {c.campaign_name && (
               <Tip label={c.campaign_name} side="top">
-                <span className="inline-flex items-center h-[19px] px-2 rounded-md bg-primary/[0.08] text-primary-text text-[11px] font-medium truncate min-w-0 max-w-[58%]">
-                  {c.campaign_name}
+                <span className="inline-flex items-center gap-1 text-[11px] font-medium text-primary-text truncate min-w-0 max-w-[60%]">
+                  <Megaphone className="w-3 h-3 shrink-0 opacity-80" />{c.campaign_name}
                 </span>
               </Tip>
             )}

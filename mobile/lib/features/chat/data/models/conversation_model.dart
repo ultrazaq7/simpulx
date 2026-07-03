@@ -18,6 +18,7 @@ class ConversationModel {
       lastContactMessageAt: asDateOrNull(json['last_contact_message_at']),
       lastMessagePreview: asStringOrNull(json['last_message_preview']),
       lastMessageDirection: asStringOrNull(json['last_message_direction']),
+      lastSenderType: asStringOrNull(json['last_sender_type']),
       interestLevel: asStringOrNull(json['interest_level']),
       stageName: asStringOrNull(json['stage_name']),
       assignedAgentId: asStringOrNull(json['assigned_agent_id']),

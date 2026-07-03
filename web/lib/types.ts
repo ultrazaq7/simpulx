@@ -19,6 +19,7 @@ export interface Conversation {
   last_contact_message_at?: string | null; // last inbound (customer) msg -> 24h window anchor
   last_message_preview: string | null;
   last_message_direction: "agent" | "contact";
+  last_sender_type?: string | null; // contact | agent | bot | system (of the latest message)
   contact_name: string | null;
   contact_phone: string | null;
   assigned_agent_id: string | null;
