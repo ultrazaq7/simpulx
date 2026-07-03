@@ -30,7 +30,8 @@ Simpulx v2 is inbox-first today. This batch turns it into a full enterprise CRM:
 ## Environment rules
 
 - Repo root: `c:\Users\Fachmi Razaq\Documents\Simpulx`. Backend builds are **Docker only** (`docker compose build gateway messaging && docker compose up -d`; psql via `docker exec`). Do not batch builds with edits.
-- Next free migrations: **0078** (contact lead fields), **0079** (deals), **0080** (org subscription).
+- Next free migrations: ~~0078 (contact lead fields, DONE)~~, **0079** (deals), **0080** (org subscription).
+- **CRITICAL: migrations run through goose.** Every `db/migrations/NNNN_*.sql` MUST start with `-- +goose Up` and include a `-- +goose Down` section, or goose fails to parse it and the ENTIRE deploy aborts at the migrate step (`$DC run --rm -e MIGRATE_ONLY=true gateway`) - builds still pass, only deploy fails. Complex statements (DO blocks / functions) need `-- +goose StatementBegin/End`. This bit 0078 and blocked all deploys until fixed in ca1f0a8.
 - Web: Next.js 14.2 App Router, Tailwind **3.4 (do not upgrade to v4)**, recharts, fetch client `web/lib/api.ts`. `components/ui/*` is a dead parallel kit — do not build on it.
 - Mobile: Flutter + Riverpod + go_router + dio. Prod APK: `flutter build apk --flavor prod --dart-define=FLAVOR=prod --release`.
 - go.mod must stay go 1.22+ (method-prefixed routes 404 otherwise).
