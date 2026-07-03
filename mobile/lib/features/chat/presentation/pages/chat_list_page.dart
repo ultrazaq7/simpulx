@@ -59,9 +59,9 @@ class _ChatListPageState extends ConsumerState<ChatListPage> {
   String _activeChip(InboxFilter f) {
     if (f.activeCount == 0) return 'All';
     if (f.activeCount == 1) {
-      if (f.unreadOnly) return 'Unread';
       if (f.interestLevel == 'hot') return 'Hot';
-      if (f.followUpOnly) return 'Follow-up';
+      if (f.unreadOnly) return 'Unread';
+      if (f.unrepliedOnly) return 'Awaiting reply';
     }
     return ''; // an advanced/custom filter is active -> no quick chip highlighted
   }
@@ -522,9 +522,24 @@ class _ChatListPageState extends ConsumerState<ChatListPage> {
       ),
       body: async.when(
         loading: () => const ConversationListSkeleton(),
-        error: (e, _) => AppErrorView(
-          failure: e is Failure ? e : null,
-          onRetry: () => ref.read(conversationListProvider.notifier).refresh(),
+        // Wrap the error state so a swipe-down also re-syncs (not just the
+        // Retry button) when the initial load failed.
+        error: (e, _) => RefreshIndicator(
+          onRefresh: () =>
+              ref.read(conversationListProvider.notifier).refresh(),
+          child: LayoutBuilder(
+            builder: (context, constraints) => SingleChildScrollView(
+              physics: const AlwaysScrollableScrollPhysics(),
+              child: ConstrainedBox(
+                constraints: BoxConstraints(minHeight: constraints.maxHeight),
+                child: AppErrorView(
+                  failure: e is Failure ? e : null,
+                  onRetry: () =>
+                      ref.read(conversationListProvider.notifier).refresh(),
+                ),
+              ),
+            ),
+          ),
         ),
         data: (list) {
           final filtered = _filter(list, filter);
@@ -542,6 +557,9 @@ class _ChatListPageState extends ConsumerState<ChatListPage> {
                 ref.read(conversationListProvider.notifier).refresh(),
             child: CustomScrollView(
               controller: _scroll,
+              // Always allow overscroll so pull-to-refresh works even when the
+              // filtered list is short or empty.
+              physics: const AlwaysScrollableScrollPhysics(),
               slivers: [
                 SliverToBoxAdapter(
                   child: Padding(

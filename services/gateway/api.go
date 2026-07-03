@@ -1083,7 +1083,7 @@ func (s *server) handleAnalytics(w http.ResponseWriter, r *http.Request) {
 		        COALESCE(avg(CASE WHEN rt.rt_min<=5 THEN 100.0 ELSE 0 END) FILTER (WHERE rt.rt_min IS NOT NULL),0)::float8 AS within_5_pct,
 		        COALESCE(sum(cv.call_attempts), 0)::int AS call_attempts,
 		        COALESCE(sum(cv.total_call_duration), 0)::int AS call_duration_sec,
-		        count(cv.id) FILTER (WHERE st.sort_order > 1) AS updated,
+		        count(cv.id) FILTER (WHERE st.sort_order > 1 OR st.system_key LIKE 'lost%%') AS updated,
 		        count(cv.id) FILTER (WHERE st.system_key='contacted') AS contacted,
 		        count(cv.id) FILTER (WHERE st.system_key='qualified') AS qualified,
 		        count(cv.id) FILTER (WHERE st.system_key='appointment') AS appointment,

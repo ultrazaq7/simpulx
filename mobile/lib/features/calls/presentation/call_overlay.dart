@@ -69,13 +69,17 @@ class _CallScreenState extends ConsumerState<_CallScreen> {
     final s = ref.watch(callControllerProvider) ?? widget.session;
     switch (s.phase) {
       case CallPhase.requesting:
-        return s.message ?? 'Requesting...';
-      case CallPhase.ringing:
+        // Outbound is waiting for the customer to approve the call permission -
+        // say so explicitly instead of implying the phone is already ringing.
+        return 'Awaiting permission';
+      case CallPhase.connecting:
+        // Permission granted, placing the call (dialing).
         return 'Calling...';
+      case CallPhase.ringing:
+        // Offer delivered - the customer's phone is now ringing.
+        return 'Ringing...';
       case CallPhase.incoming:
         return 'Incoming call';
-      case CallPhase.connecting:
-        return 'Connecting...';
       case CallPhase.connected:
         return _fmt(_elapsed);
       case CallPhase.ended:

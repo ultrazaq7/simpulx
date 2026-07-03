@@ -9,38 +9,56 @@ import '../../features/chat/presentation/controllers/conversation_list_controlle
 
 /// Root scaffold hosting the 4 primary tabs via an [IndexedStack] so each
 /// branch keeps its own navigation + scroll state.
-class AppShell extends ConsumerWidget {
+class AppShell extends ConsumerStatefulWidget {
   const AppShell({super.key, required this.navigationShell});
 
   final StatefulNavigationShell navigationShell;
 
+  @override
+  ConsumerState<AppShell> createState() => _AppShellState();
+}
+
+class _AppShellState extends ConsumerState<AppShell> {
   static const int _tabCount = 4;
 
+  // Accumulated horizontal travel of the in-progress drag, so a slow but
+  // deliberate left/right drag switches tabs (not only a fast fling).
+  double _dragDx = 0;
+
   void _goBranch(int index) {
-    navigationShell.goBranch(
+    widget.navigationShell.goBranch(
       index,
       // Re-tapping the active tab pops to its root.
-      initialLocation: index == navigationShell.currentIndex,
+      initialLocation: index == widget.navigationShell.currentIndex,
     );
   }
 
-  // Swipe left/right anywhere on the page to move between the primary tabs.
-  // A velocity threshold means only a deliberate fling switches tabs, so it
-  // doesn't fight the chat list's swipe-to-archive tiles (which claim their own
-  // horizontal drag and win the gesture arena on the tile itself).
-  void _onHorizontalFling(DragEndDetails d) {
+  void _onDragStart(DragStartDetails _) => _dragDx = 0;
+  void _onDragUpdate(DragUpdateDetails d) => _dragDx += d.delta.dx;
+
+  // Switch tabs on a deliberate horizontal gesture: a fast fling OR a drag past
+  // a distance threshold. This is a HorizontalDragGestureRecognizer, so vertical
+  // scrolls never trigger it (they win the arena on their own axis) and the chat
+  // list's swipe-to-archive tiles still claim the drag when it starts on a tile.
+  void _onDragEnd(DragEndDetails d) {
     final v = d.primaryVelocity ?? 0;
-    if (v.abs() < 320) return;
-    final i = navigationShell.currentIndex;
-    if (v < 0 && i < _tabCount - 1) {
+    final dx = _dragDx;
+    _dragDx = 0;
+    final flung = v.abs() >= 320;
+    final dragged = dx.abs() >= 64;
+    if (!flung && !dragged) return;
+    // Swipe left (negative) -> next tab; swipe right (positive) -> previous.
+    final goNext = flung ? v < 0 : dx < 0;
+    final i = widget.navigationShell.currentIndex;
+    if (goNext && i < _tabCount - 1) {
       _goBranch(i + 1);
-    } else if (v > 0 && i > 0) {
+    } else if (!goNext && i > 0) {
       _goBranch(i - 1);
     }
   }
 
   @override
-  Widget build(BuildContext context, WidgetRef ref) {
+  Widget build(BuildContext context) {
     final l10n = AppLocalizations.of(context);
 
     // Keep the realtime connection alive for the whole authenticated session
@@ -51,8 +69,10 @@ class AppShell extends ConsumerWidget {
     return Scaffold(
       body: GestureDetector(
         behavior: HitTestBehavior.translucent,
-        onHorizontalDragEnd: _onHorizontalFling,
-        child: navigationShell,
+        onHorizontalDragStart: _onDragStart,
+        onHorizontalDragUpdate: _onDragUpdate,
+        onHorizontalDragEnd: _onDragEnd,
+        child: widget.navigationShell,
       ),
       // Hairline above the bar so it reads as a distinct surface on the clean
       // white scaffold (WhatsApp-style). foreground so it paints OVER the bar's
@@ -68,7 +88,7 @@ class AppShell extends ConsumerWidget {
           ),
         ),
         child: NavigationBar(
-        selectedIndex: navigationShell.currentIndex,
+        selectedIndex: widget.navigationShell.currentIndex,
         onDestinationSelected: _goBranch,
         destinations: [
           NavigationDestination(

@@ -8,7 +8,7 @@ import { type ReactNode, useState, useEffect } from "react";
 import Link from "next/link";
 import { usePathname } from "next/navigation";
 import {
-  Settings, Type, Bell, Users, ShieldCheck,
+  Settings, FormInput, Bell, Users, ShieldCheck,
   Sparkles, FileText, GitBranch, Radio, Clock, ClipboardList,
   PanelLeftClose, PanelLeftOpen,
 } from "lucide-react";
@@ -26,7 +26,7 @@ const GROUPS: { titleKey: string; items: NavItem[] }[] = [
     titleKey: "settings.general",
     items: [
       { key: "general", labelKey: "settings.general", icon: Settings, href: "/settings/general", perm: "view_settings" },
-      { key: "custom-fields", labelKey: "settings.custom_fields", icon: Type, href: "/settings/custom-fields", perm: "view_settings" },
+      { key: "custom-fields", labelKey: "settings.custom_fields", icon: FormInput, href: "/settings/custom-fields", perm: "view_settings" },
     ],
   },
   {

@@ -1,0 +1,163 @@
+const fs = require('fs');
+
+const en = JSON.parse(fs.readFileSync('web/locales/en.json', 'utf8'));
+const id = JSON.parse(fs.readFileSync('web/locales/id.json', 'utf8'));
+
+// Common additions
+const commonEn = {
+  clear: "Clear",
+  allChannels: "All channels",
+  allCampaigns: "All campaigns",
+  allAgents: "All agents",
+  allTime: "All time",
+  today: "Today",
+  last7Days: "Last 7 days",
+  last30Days: "Last 30 days",
+  last90Days: "Last 90 days",
+  thisMonth: "This month",
+  lastMonth: "Last month",
+  customRange: "Custom range"
+};
+
+const commonId = {
+  clear: "Hapus filter",
+  allChannels: "Semua saluran",
+  allCampaigns: "Semua kampanye",
+  allAgents: "Semua agen",
+  allTime: "Semua waktu",
+  today: "Hari ini",
+  last7Days: "7 hari terakhir",
+  last30Days: "30 hari terakhir",
+  last90Days: "90 hari terakhir",
+  thisMonth: "Bulan ini",
+  lastMonth: "Bulan lalu",
+  customRange: "Rentang khusus"
+};
+
+Object.assign(en.common, commonEn);
+Object.assign(id.common, commonId);
+
+// Dashboard additions
+const dashboardEn = {
+  leads: "Leads",
+  active: "Active",
+  unassigned: "Unassigned",
+  responded: "Responded",
+  purchase: "Purchase",
+  avgFirstResponse: "Avg first response",
+  noActivityYet: "No activity yet",
+  dailyLeadsDesc: "Daily leads and replies will show here",
+  interestHot: "Hot",
+  interestWarm: "Warm",
+  interestCold: "Cold",
+  interestUnclassified: "Unclassified",
+  stageLost: "Lost",
+  myOpen: "My open",
+  myOpenSub: "Active conversations",
+  hotLeads: "Hot leads",
+  hotLeadsSub: "High buying intent",
+  awaitingReply: "Awaiting reply",
+  awaitingReplySub: "You haven't replied yet",
+  unread: "Unread",
+  unreadSub: "New, not opened",
+  purchased: "Purchased",
+  purchasedSub: "Reached purchase",
+  lostSub: "Marked lost",
+  yourActivity: "Your activity",
+  yourActivitySub: "New leads vs how many replied back",
+  lostAnalysis: "Lost analysis",
+  totalLostLeads: "total lost leads",
+  spam: "spam",
+  lossRate: "Loss rate",
+  purchaseRate: "Purchase rate",
+  ads: "Ads",
+  leadFunnel: "Lead funnel",
+  leadFunnelSub: "Reached each stage and beyond",
+  stageBreakdown: "Stage breakdown",
+  stageBreakdownSub: "Leads by pipeline stage",
+  interestLevel: "Interest level",
+  interestLevelSub: "Buying intent split",
+  lostReasons: "Lost reasons",
+  noLostReasonData: "No lost reason data available",
+  agentPerformance: "Agent performance",
+  agentActivitySla: "Agent activity and SLA",
+  agentPipeline: "Agent pipeline",
+  branch: "Branch",
+  avgResp: "Avg resp",
+  within5m: "Within 5m",
+  totalChat: "Total chat",
+  callAttempts: "Call attempts",
+  callDuration: "Call duration",
+  updated: "Updated",
+  pctUpdated: "% Updated",
+  contacted: "Contacted",
+  qualified: "Qualified",
+  appointment: "Appointment",
+  negotiation: "Negotiation",
+  pctPurchase: "% Purchase"
+};
+
+const dashboardId = {
+  leads: "Prospek",
+  active: "Aktif",
+  unassigned: "Belum ditugaskan",
+  responded: "Merespons",
+  purchase: "Pembelian",
+  avgFirstResponse: "Rata-rata respons pertama",
+  noActivityYet: "Belum ada aktivitas",
+  dailyLeadsDesc: "Prospek harian dan balasan akan muncul di sini",
+  interestHot: "Panas",
+  interestWarm: "Hangat",
+  interestCold: "Dingin",
+  interestUnclassified: "Belum diklasifikasi",
+  stageLost: "Kalah",
+  myOpen: "Pesan terbuka saya",
+  myOpenSub: "Percakapan aktif",
+  hotLeads: "Prospek panas",
+  hotLeadsSub: "Niat beli tinggi",
+  awaitingReply: "Menunggu balasan",
+  awaitingReplySub: "Anda belum membalas",
+  unread: "Belum dibaca",
+  unreadSub: "Baru, belum dibuka",
+  purchased: "Telah membeli",
+  purchasedSub: "Mencapai pembelian",
+  lostSub: "Ditandai kalah",
+  yourActivity: "Aktivitas Anda",
+  yourActivitySub: "Prospek baru vs seberapa banyak yang membalas",
+  lostAnalysis: "Analisis kekalahan",
+  totalLostLeads: "total prospek kalah",
+  spam: "spam",
+  lossRate: "Tingkat kekalahan",
+  purchaseRate: "Tingkat pembelian",
+  ads: "Iklan",
+  leadFunnel: "Corong prospek",
+  leadFunnelSub: "Mencapai setiap tahap dan selanjutnya",
+  stageBreakdown: "Rincian tahap",
+  stageBreakdownSub: "Prospek berdasarkan tahap saluran",
+  interestLevel: "Tingkat minat",
+  interestLevelSub: "Pembagian niat beli",
+  lostReasons: "Alasan kalah",
+  noLostReasonData: "Tidak ada data alasan kalah",
+  agentPerformance: "Performa agen",
+  agentActivitySla: "Aktivitas agen dan SLA",
+  agentPipeline: "Saluran agen",
+  branch: "Cabang",
+  avgResp: "Rata-rata respons",
+  within5m: "Dalam 5 mnt",
+  totalChat: "Total chat",
+  callAttempts: "Percobaan panggilan",
+  callDuration: "Durasi panggilan",
+  updated: "Diperbarui",
+  pctUpdated: "% Diperbarui",
+  contacted: "Dihubungi",
+  qualified: "Memenuhi syarat",
+  appointment: "Janji temu",
+  negotiation: "Negosiasi",
+  pctPurchase: "% Pembelian"
+};
+
+en.dashboard = dashboardEn;
+id.dashboard = dashboardId;
+
+fs.writeFileSync('web/locales/en.json', JSON.stringify(en, null, 2) + '\n');
+fs.writeFileSync('web/locales/id.json', JSON.stringify(id, null, 2) + '\n');
