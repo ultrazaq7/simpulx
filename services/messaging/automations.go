@@ -341,39 +341,54 @@ func (a *app) execStep(ctx context.Context, orgID, convID, contactID string, s a
 	switch s.Type {
 	case "send_message":
 		vars := a.st.contactVars(ctx, contactID)
-		// Auto-reply node: "text" (default) or a WhatsApp interactive message
-		// (reply buttons / list). Older nodes have no message_type -> text.
-		mt := pStr(s.Params, "message_type")
-		if mt == "" || mt == "text" {
-			msg := pStr(s.Params, "message")
-			if msg == "" {
+		// Composed auto-reply: a body + an optional image + an optional interactive
+		// (reply buttons / list). We send the richest form the config provides, so
+		// "text + buttons", "image + buttons", "image only" and "text only" all work
+		// from one node. `interactive` is the new field; `message_type` is the
+		// legacy single-type field kept for older saved nodes.
+		interactive := pStr(s.Params, "interactive")
+		if mt := pStr(s.Params, "message_type"); interactive == "" && (mt == "buttons" || mt == "list") {
+			interactive = mt
+		}
+		if interactive == "buttons" || interactive == "list" {
+			// A list can't carry an image header on WhatsApp, so send its image (if
+			// any) as a separate message first. Buttons keep the image as a header.
+			if interactive == "list" {
+				if url := pStr(s.Params, "media_url"); url != "" {
+					_ = a.bus.Publish(events.SubjectMessageOutbound, orgID, events.MessageOutbound{
+						ConversationID: convID, SenderType: "system", Type: "image", MediaURL: url,
+					})
+				}
+			}
+			inter := buildInteractive(vars, s.Params, interactive)
+			if inter == nil {
+				a.log.Warn("automation send_message: invalid interactive config", "type", interactive, "conv", convID)
 				return
 			}
 			_ = a.bus.Publish(events.SubjectMessageOutbound, orgID, events.MessageOutbound{
-				ConversationID: convID, SenderType: "system", Type: "text",
-				Body: resolvePlaceholders(vars, msg),
+				ConversationID: convID, SenderType: "system", Type: "interactive",
+				Body: inter.Body, Interactive: inter,
 			})
 			return
 		}
-		if mt == "image" {
-			url := pStr(s.Params, "media_url")
-			if url == "" {
-				return
-			}
+		// No interactive: an image (with caption) or plain text.
+		body := pStr(s.Params, "message")
+		if body == "" {
+			body = pStr(s.Params, "body")
+		}
+		if url := pStr(s.Params, "media_url"); url != "" {
 			_ = a.bus.Publish(events.SubjectMessageOutbound, orgID, events.MessageOutbound{
 				ConversationID: convID, SenderType: "system", Type: "image",
-				MediaURL: url, Body: resolvePlaceholders(vars, pStr(s.Params, "body")),
+				MediaURL: url, Body: resolvePlaceholders(vars, body),
 			})
 			return
 		}
-		inter := buildInteractive(vars, s.Params, mt)
-		if inter == nil {
-			a.log.Warn("automation send_message: invalid interactive config", "type", mt, "conv", convID)
+		if body == "" {
 			return
 		}
 		_ = a.bus.Publish(events.SubjectMessageOutbound, orgID, events.MessageOutbound{
-			ConversationID: convID, SenderType: "system", Type: "interactive",
-			Body: inter.Body, Interactive: inter,
+			ConversationID: convID, SenderType: "system", Type: "text",
+			Body: resolvePlaceholders(vars, body),
 		})
 	case "add_tag":
 		if tags := pStrSlice(s.Params, "tags"); len(tags) > 0 {
@@ -633,8 +648,17 @@ func buildInteractive(vars map[string]string, params map[string]any, mt string) 
 	out := &events.InteractiveOutbound{
 		Type:   mt,
 		Body:   resolvePlaceholders(vars, body),
-		Header: resolvePlaceholders(vars, pStr(params, "header")),
 		Footer: resolvePlaceholders(vars, pStr(params, "footer")),
+	}
+	// Header: WhatsApp allows an image header only on button messages, so an
+	// uploaded image becomes the header there; a list uses a text header (its
+	// image is sent as a separate message by the caller).
+	if hurl := pStr(params, "media_url"); hurl != "" && mt == "buttons" {
+		out.HeaderType = "image"
+		out.HeaderImageURL = resolvePlaceholders(vars, hurl)
+	} else if h := pStr(params, "header"); h != "" {
+		out.HeaderType = "text"
+		out.Header = resolvePlaceholders(vars, h)
 	}
 	switch mt {
 	case "buttons":

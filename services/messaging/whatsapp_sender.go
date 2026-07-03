@@ -119,7 +119,11 @@ func (s *sender) sendInteractive(ctx context.Context, t sendTarget, p *events.In
 		return "", fmt.Errorf("interactive: empty body")
 	}
 	interactive := map[string]any{"body": map[string]string{"text": p.Body}}
-	if p.Header != "" {
+	// Header can be an image (so an auto-reply combines an image + buttons/list
+	// in one message) or plain text.
+	if p.HeaderType == "image" && p.HeaderImageURL != "" {
+		interactive["header"] = map[string]any{"type": "image", "image": map[string]string{"link": p.HeaderImageURL}}
+	} else if p.Header != "" {
 		interactive["header"] = map[string]any{"type": "text", "text": p.Header}
 	}
 	if p.Footer != "" {

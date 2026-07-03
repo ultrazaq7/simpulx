@@ -70,11 +70,14 @@ function summary(kind: string, c: Record<string, unknown>, triggerType?: string)
   switch (kind) {
     case "trigger": return TRIGGERS[triggerType ?? ""]?.desc ?? "Entry point";
     case "send_message": {
-      const mt = String(c.message_type ?? "text");
-      if (mt === "buttons") return `Buttons: ${(Array.isArray(c.buttons) ? c.buttons.length : 0)} option(s)`;
-      if (mt === "list") { const s0 = (Array.isArray(c.sections) ? c.sections[0] : undefined) as { rows?: unknown[] } | undefined; return `List: ${(Array.isArray(s0?.rows) ? s0!.rows!.length : 0)} item(s)`; }
-      if (mt === "image") return c.media_url ? `Image${c.body ? ": " + String(c.body) : ""}` : "No image set";
-      return String(c.message || c.body || "No message set");
+      const inter = String(c.interactive ?? (c.message_type === "buttons" || c.message_type === "list" ? c.message_type : "none"));
+      const parts: string[] = [];
+      if (c.media_url) parts.push("Image");
+      const body = String(c.body ?? c.message ?? "");
+      if (body) parts.push(body.length > 28 ? body.slice(0, 28) + "…" : body);
+      if (inter === "buttons") parts.push(`${Array.isArray(c.buttons) ? c.buttons.length : 0} button(s)`);
+      if (inter === "list") { const s0 = (Array.isArray(c.sections) ? c.sections[0] : undefined) as { rows?: unknown[] } | undefined; parts.push(`list: ${(Array.isArray(s0?.rows) ? s0!.rows!.length : 0)} item(s)`); }
+      return parts.join(" · ") || "No message set";
     }
     case "send_template": return `Template: ${c.template_name || "—"}`;
     case "send_form": return `Form: ${c.form_name || "—"}`;
@@ -448,35 +451,35 @@ function ImageUpload({ url, onChange }: { url: string; onChange: (u: string) => 
 }
 
 function AutoReplyConfig({ c, set }: { c: Record<string, unknown>; set: (k: string, v: unknown) => void }) {
-  const mt = String(c.message_type ?? "text");
+  // Composed reply: a body + an optional image + an optional interactive
+  // (buttons/list). Legacy nodes used a single message_type; migrate on read.
+  const legacy = String(c.message_type ?? "");
+  const interactive = String(c.interactive ?? (legacy === "buttons" || legacy === "list" ? legacy : "none"));
   const buttons: ReplyBtn[] = Array.isArray(c.buttons) ? (c.buttons as ReplyBtn[]) : [];
   const section0 = (Array.isArray(c.sections) ? (c.sections as Record<string, unknown>[])[0] : undefined) ?? {};
   const rows: ReplyRow[] = Array.isArray(section0.rows) ? (section0.rows as ReplyRow[]) : [];
   const setRows = (next: ReplyRow[]) => set("sections", [{ title: String(section0.title ?? ""), rows: next }]);
+  const bodyVal = String(c.body ?? c.message ?? "");
 
   return (
     <>
-      <Field label="Message type">
-        <Select value={mt} searchable={false} onChange={(v) => set("message_type", v)} className="w-full"
-          options={[{ value: "text", label: "Text" }, { value: "image", label: "Image" }, { value: "buttons", label: "Buttons (quick reply)" }, { value: "list", label: "List menu" }]} />
+      {/* Body — works standalone or combined with an image / buttons / list. */}
+      <Field label="Message"><textarea value={bodyVal} onChange={(e) => set("body", e.target.value)} rows={4} placeholder="Type the auto reply..." className={cn(INP, "resize-none h-auto py-2")} /></Field>
+
+      {/* Optional image — becomes the header image when combined with buttons. */}
+      <Field label="Image (optional)"><ImageUpload url={String(c.media_url ?? "")} onChange={(u) => set("media_url", u)} /></Field>
+
+      {/* Optional interactive: reply buttons or a list menu. */}
+      <Field label="Buttons / list (optional)">
+        <Select value={interactive} searchable={false} onChange={(v) => set("interactive", v)} className="w-full"
+          options={[{ value: "none", label: "None (text / image only)" }, { value: "buttons", label: "Reply buttons" }, { value: "list", label: "List menu" }]} />
       </Field>
 
-      {mt === "text" && (
-        <Field label="Message"><textarea value={String(c.message ?? "")} onChange={(e) => set("message", e.target.value)} rows={4} placeholder="Type the auto reply..." className={cn(INP, "resize-none h-auto py-2")} /></Field>
+      {(interactive === "buttons" || interactive === "list") && (
+        <Field label="Footer (optional)"><input value={String(c.footer ?? "")} onChange={(e) => set("footer", e.target.value)} placeholder="Small footnote" className={INP} /></Field>
       )}
 
-      {mt === "image" && <>
-        <Field label="Image"><ImageUpload url={String(c.media_url ?? "")} onChange={(u) => set("media_url", u)} /></Field>
-        <Field label="Caption (optional)"><textarea value={String(c.body ?? "")} onChange={(e) => set("body", e.target.value)} rows={3} placeholder="Caption sent with the image..." className={cn(INP, "resize-none h-auto py-2")} /></Field>
-      </>}
-
-      {(mt === "buttons" || mt === "list") && <>
-        <Field label="Header (optional)"><input value={String(c.header ?? "")} onChange={(e) => set("header", e.target.value)} placeholder="Short title" className={INP} /></Field>
-        <Field label="Body"><textarea value={String(c.body ?? "")} onChange={(e) => set("body", e.target.value)} rows={3} placeholder="Message text..." className={cn(INP, "resize-none h-auto py-2")} /></Field>
-        <Field label="Footer (optional)"><input value={String(c.footer ?? "")} onChange={(e) => set("footer", e.target.value)} placeholder="Small footnote" className={INP} /></Field>
-      </>}
-
-      {mt === "buttons" && (
+      {interactive === "buttons" && (
         <Field label="Buttons (up to 3)">
           <div className="space-y-2">
             {buttons.map((b, i) => (
@@ -498,9 +501,10 @@ function AutoReplyConfig({ c, set }: { c: Record<string, unknown>; set: (k: stri
         </Field>
       )}
 
-      {mt === "list" && <>
+      {interactive === "list" && <>
         <Field label="List button label"><input value={String(c.button_text ?? "")} onChange={(e) => set("button_text", e.target.value)} placeholder="Menu" className={INP} /></Field>
         <Field label="Section title (optional)"><input value={String(section0.title ?? "")} onChange={(e) => set("sections", [{ title: e.target.value, rows }])} placeholder="Choose an option" className={INP} /></Field>
+        {c.media_url ? <p className="text-[11.5px] text-amber-600">WhatsApp lists can&apos;t show a header image, so the image is sent as a separate message before the list.</p> : null}
         <Field label="List items">
           <div className="space-y-1.5">
             {rows.map((r, i) => (

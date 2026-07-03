@@ -140,13 +140,15 @@ type InteractiveSection struct {
 }
 
 type InteractiveOutbound struct {
-	Type       string               `json:"type"` // "buttons" | "list"
-	Header     string               `json:"header,omitempty"`
-	Body       string               `json:"body"`
-	Footer     string               `json:"footer,omitempty"`
-	Buttons    []InteractiveButton  `json:"buttons,omitempty"`     // type=buttons (WA max 3)
-	ButtonText string               `json:"button_text,omitempty"` // type=list CTA label
-	Sections   []InteractiveSection `json:"sections,omitempty"`    // type=list
+	Type           string               `json:"type"` // "buttons" | "list"
+	Header         string               `json:"header,omitempty"`
+	HeaderType     string               `json:"header_type,omitempty"`      // "text" | "image"
+	HeaderImageURL string               `json:"header_image_url,omitempty"` // when header_type=image
+	Body           string               `json:"body"`
+	Footer         string               `json:"footer,omitempty"`
+	Buttons        []InteractiveButton  `json:"buttons,omitempty"`     // type=buttons (WA max 3)
+	ButtonText     string               `json:"button_text,omitempty"` // type=list CTA label
+	Sections       []InteractiveSection `json:"sections,omitempty"`    // type=list
 }
 
 type BroadcastRequested struct {
