@@ -511,49 +511,22 @@ class _HistoryRow extends StatelessWidget {
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
     final muted = theme.colorScheme.onSurfaceVariant;
-    final when = event.createdAt != null
-        ? '${formatDayLabel(event.createdAt!)} ${formatBubbleTime(event.createdAt!)}'
-        : '';
-    final actor =
-        (event.actorName != null && event.actorName!.isNotEmpty) ? event.actorName! : '';
-    return IntrinsicHeight(
+    final when = formatHistoryTimestamp(event.createdAt);
+    return Padding(
+      padding: EdgeInsets.only(bottom: isLast ? 0 : 8),
       child: Row(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          Column(
-            children: [
-              Container(
-                margin: const EdgeInsets.only(top: 3),
-                width: 8,
-                height: 8,
-                decoration: const BoxDecoration(
-                    color: AppColors.primary, shape: BoxShape.circle),
-              ),
-              if (!isLast)
-                Expanded(
-                  child: Container(width: 1, color: theme.dividerColor),
-                ),
-            ],
+          SizedBox(
+            width: 100,
+            child: Text(when,
+                style: TextStyle(color: muted, fontSize: 13)),
           ),
-          const SizedBox(width: 10),
+          const SizedBox(width: 8),
           Expanded(
-            child: Padding(
-              padding: EdgeInsets.only(bottom: isLast ? 0 : 12),
-              child: Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  Text(event.label,
-                      style: const TextStyle(
-                          fontSize: 13, fontWeight: FontWeight.w500)),
-                  const SizedBox(height: 2),
-                  Text(
-                    [when, actor].where((s) => s.isNotEmpty).join('  ·  '),
-                    style: theme.textTheme.bodySmall
-                        ?.copyWith(color: muted, fontSize: 11),
-                  ),
-                ],
-              ),
-            ),
+            child: Text(event.label,
+                style: const TextStyle(
+                    fontSize: 13, fontWeight: FontWeight.w500)),
           ),
         ],
       ),

@@ -44,6 +44,12 @@ String formatAbsoluteTimestamp(DateTime? dt) {
   return DateFormat('MM/dd/yyyy HH:mm:ss').format(dt.toLocal());
 }
 
+/// History timestamp: dd MMM, HH:mm
+String formatHistoryTimestamp(DateTime? dt) {
+  if (dt == null) return '';
+  return DateFormat('dd MMM, HH:mm').format(dt.toLocal());
+}
+
 /// Elapsed time since [lastMessageAt], counting UP from 0 while inside the 24h
 /// WhatsApp session window ("Xh Ym Zs"); returns null once 24h has passed (the
 /// caller then shows the closed-window state + [formatSessionTimestamp]).
