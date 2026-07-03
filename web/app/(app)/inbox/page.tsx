@@ -67,6 +67,7 @@ export default function InboxPage() {
   const [followUpOnly, setFollowUpOnly] = useState(false);
   const [unreadOnly, setUnreadOnly] = useState(false);
   const [needsReplyOnly, setNeedsReplyOnly] = useState(false);
+  const [lostReasonFilter, setLostReasonFilter] = useState<string | null>(null); // ?lost_reason= from dashboard
 
   // Deep-link from Dashboard: initialize filters from URL params
   // (?interest=hot, ?status=open, ?unread=1, ?followup=1, ?stage=<name>)
@@ -80,6 +81,9 @@ export default function InboxPage() {
     if (status) setFilterStatuses([status]);
     if (sp.get("unread") === "1") setUnreadOnly(true);
     if (sp.get("followup") === "1") setFollowUpOnly(true);
+    // "Awaiting reply" dashboard card -> customer-waiting filter (repurposed).
+    if (sp.get("unreplied") === "1") setNeedsReplyOnly(true);
+    const lr = sp.get("lost_reason"); if (lr) setLostReasonFilter(lr); // Lost-reasons chart drill-in
     pendingStageRef.current = sp.get("stage");
     if (c) setActiveId(c); // deep-link to a conversation (Copy link to message)
   }, []);
@@ -454,6 +458,8 @@ export default function InboxPage() {
           onUnreadToggle={() => setUnreadOnly((v) => !v)}
           needsReplyOnly={needsReplyOnly}
           onNeedsReplyToggle={() => setNeedsReplyOnly((v) => !v)}
+          lostReasonFilter={lostReasonFilter}
+          onClearLostReason={() => setLostReasonFilter(null)}
           activeMessages={messages}
           agents={agents}
           filterAgents={filterAgents}

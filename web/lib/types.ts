@@ -54,8 +54,7 @@ export interface Conversation {
 export interface DashboardCards {
   open: number;
   hot: number;
-  follow_up: number;
-  need_call: number;
+  unreplied: number; // customer sent last, agent hasn't replied, still within 24h window
   unread: number;
 }
 

@@ -343,9 +343,9 @@ function LeadFunnel({ stages }: { stages?: Analytics["funnel_stages"] }) {
 
 // â”€â”€ Agent dashboard: action-center (essentials only, no org analytics, no lead score) â”€â”€
 const AGENT_CARDS = [
-  { key: "open", label: "My open", sub: "Active conversations", Icon: MessageSquare, color: "#2D8B73", href: "/inbox" },
+  { key: "open", label: "My open", sub: "Active conversations", Icon: MessageSquare, color: "#2D8B73", href: "/inbox?status=open" },
   { key: "hot", label: "Hot leads", sub: "High buying intent", Icon: Flame, color: "#EF4444", href: "/inbox?interest=hot" },
-  { key: "follow_up", label: "Follow up now", sub: "Hot/warm and unread", Icon: Zap, color: "#F59E0B", href: "/inbox?followup=1" },
+  { key: "unreplied", label: "Awaiting reply", sub: "Customer waiting on you", Icon: Zap, color: "#F59E0B", href: "/inbox?unreplied=1" },
   { key: "unread", label: "Unread", sub: "Waiting on you", Icon: Mail, color: "#6366F1", href: "/inbox?unread=1" },
   { key: "purchase", label: "Purchased", sub: "Reached purchase", Icon: CircleDollarSign, color: "#059669", href: "" },
   { key: "lost", label: "Lost", sub: "Marked lost", Icon: TrendingDown, color: "#EF4444", href: "" },
@@ -357,7 +357,7 @@ function AgentDashboard() {
   const [analyticsDone, setAnalyticsDone] = useState(false);
   useEffect(() => {
     // Fall back to zeros (not an endless skeleton) if the endpoint isn't deployed yet.
-    api.getDashboardCards().then(setCards).catch(() => setCards({ open: 0, hot: 0, follow_up: 0, need_call: 0, unread: 0 }));
+    api.getDashboardCards().then(setCards).catch(() => setCards({ open: 0, hot: 0, unreplied: 0, unread: 0 }));
     // analyticsDone gates the Purchased/Lost cards: skeleton only WHILE loading,
     // then fall back to 0 on failure so they never spin forever.
     api.getAnalytics().then(setAnalytics).catch((e) => console.error('[agent-analytics]', e)).finally(() => setAnalyticsDone(true));
@@ -441,13 +441,14 @@ function AgentDashboard() {
               analytics.lost_reasons.map((r, i) => {
                 const maxCount = Math.max(...analytics.lost_reasons!.map((x) => x.count), 1);
                 return (
-                  <div key={r.reason} className="mb-4 last:mb-0">
+                  <Link key={r.reason} href={`/inbox?lost_reason=${encodeURIComponent(r.reason)}`}
+                    className="block mb-4 last:mb-0 -mx-1.5 px-1.5 py-1 rounded-md hover:bg-muted/50 transition-colors group/lr">
                     <div className="flex justify-between mb-1">
-                      <span className="text-sm font-medium text-foreground/80">{lostReasonLabel(r.reason)}</span>
+                      <span className="text-sm font-medium text-foreground/80 group-hover/lr:text-foreground">{lostReasonLabel(r.reason)}</span>
                       <span className="text-sm font-bold text-[#EF4444] tabular-nums">{r.count}</span>
                     </div>
                     <ProgressBar value={(r.count / maxCount) * 100} color={i === 0 ? "#EF4444" : i === 1 ? "#F97316" : "#FBBF24"} height={6} />
-                  </div>
+                  </Link>
                 );
               })
             ) : (
@@ -689,13 +690,14 @@ function ManagerDashboard() {
                 analytics.lost_reasons.map((r, i) => {
                   const maxCount = Math.max(...analytics.lost_reasons!.map(x => x.count), 1);
                   return (
-                    <div key={r.reason} className="mb-4 last:mb-0">
+                    <Link key={r.reason} href={`/inbox?lost_reason=${encodeURIComponent(r.reason)}`}
+                      className="block mb-4 last:mb-0 -mx-1.5 px-1.5 py-1 rounded-md hover:bg-muted/50 transition-colors group/lr">
                       <div className="flex justify-between mb-1">
-                        <span className="text-sm font-medium text-foreground/80">{lostReasonLabel(r.reason)}</span>
+                        <span className="text-sm font-medium text-foreground/80 group-hover/lr:text-foreground">{lostReasonLabel(r.reason)}</span>
                         <span className="text-sm font-bold text-[#EF4444] tabular-nums">{r.count}</span>
                       </div>
                       <ProgressBar value={(r.count / maxCount) * 100} color={i === 0 ? "#EF4444" : i === 1 ? "#F97316" : "#FBBF24"} height={6} />
-                    </div>
+                    </Link>
                   );
                 })
               ) : (

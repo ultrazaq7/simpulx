@@ -598,6 +598,14 @@ func (s *server) handlePatchConversation(w http.ResponseWriter, r *http.Request)
 		http.Error(w, err.Error(), http.StatusInternalServerError)
 		return
 	}
+	// Interest can be explicitly cleared ("Unset"): the main COALESCE keeps the
+	// old value on an empty string, so when the field is present but empty we
+	// force it to NULL here.
+	if b.InterestLevel != nil && *b.InterestLevel == "" {
+		_, _ = s.pool.Exec(r.Context(),
+			`UPDATE conversations SET interest_level = NULL, updated_at = now()
+			  WHERE id=$1 AND organization_id=$2`, convID, a.OrgID)
+	}
 	// If the stage changed to a non-lost stage, clear stale lost_reason and
 	// disposition so the lead is no longer counted as lost.
 	if b.StageID != nil && *b.StageID != "" {
@@ -868,11 +876,16 @@ func (s *server) handleDashboardCards(w http.ResponseWriter, r *http.Request) {
 		campFilter += " AND " + managerScope("", len(args))
 	}
 
+	// "unreplied" = the customer sent the last message and the agent hasn't
+	// replied since, but only while the 24h WhatsApp window is still open (past
+	// that a free reply is impossible, so chasing it is pointless).
 	query := fmt.Sprintf(`SELECT
 		   count(*) FILTER (WHERE status<>'closed') AS open,
 		   count(*) FILTER (WHERE status<>'closed' AND interest_level='hot') AS hot,
-		   count(*) FILTER (WHERE status<>'closed' AND interest_level IN ('hot','warm') AND unread_count>0) AS follow_up,
-		   count(*) FILTER (WHERE status<>'closed' AND interest_level='hot' AND COALESCE(call_attempts,0)=0) AS need_call,
+		   count(*) FILTER (WHERE status<>'closed'
+		        AND last_contact_message_at IS NOT NULL
+		        AND (last_agent_message_at IS NULL OR last_contact_message_at > last_agent_message_at)
+		        AND last_contact_message_at > now() - interval '24 hours') AS unreplied,
 		   count(*) FILTER (WHERE status<>'closed' AND unread_count>0) AS unread
 		 FROM conversations WHERE organization_id=$1%s`, campFilter)
 

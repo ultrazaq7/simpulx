@@ -17,7 +17,7 @@ func (s *server) applyContactLead(ctx context.Context, orgID, actorID string, co
 	stageID, interest, agentID *string, canAssign bool) (bool, error) {
 
 	setStage := stageID != nil && *stageID != ""
-	setInterest := interest != nil && *interest != ""
+	setInterest := interest != nil // empty interest == clear ("Unset")
 	setAgent := agentID != nil && canAssign // empty agentID == unassign
 	if !setStage && !setInterest && !setAgent {
 		return false, nil
@@ -57,6 +57,13 @@ func (s *server) applyContactLead(ctx context.Context, orgID, actorID string, co
 			}
 			if setInterest {
 				logEvt("interest_changed", map[string]any{"interest_level": *interest})
+			}
+			// Explicit clear ("Unset"): the COALESCE above keeps the old value on
+			// an empty string, so force NULL when interest was sent empty.
+			if setInterest && *interest == "" {
+				_, _ = s.pool.Exec(ctx,
+					`UPDATE conversations SET interest_level = NULL, updated_at = now()
+					  WHERE id=$1 AND organization_id=$2`, convID, orgID)
 			}
 			// Announce so open inboxes reflect the change in real time.
 			_ = s.bus.Publish(events.SubjectConversationUpdated, orgID, events.ConversationUpdated{

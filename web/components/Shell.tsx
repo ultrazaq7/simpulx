@@ -651,7 +651,7 @@ export function Shell({ children }: { children: ReactNode }) {
       {notifOpen && (
         <>
           <div className="fixed inset-0 z-40" onClick={() => setNotifOpen(false)} />
-          <div className="absolute top-16 right-20 w-80 bg-popover border border-border shadow-xl rounded-lg z-50 flex flex-col max-h-[400px] animate-scale-in origin-top-right">
+          <div className="absolute top-16 right-20 w-80 bg-popover border border-border shadow-xl rounded-lg z-50 flex flex-col max-h-[560px] animate-scale-in origin-top-right">
             <div className="p-4 border-b border-border flex items-center justify-between">
               <h3 className="font-bold text-[15px] text-foreground">Notifications</h3>
               {notifUnread > 0 && (

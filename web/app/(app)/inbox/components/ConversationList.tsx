@@ -145,6 +145,8 @@ interface ConversationListProps {
   onUnreadToggle: () => void;
   needsReplyOnly: boolean;
   onNeedsReplyToggle: () => void;
+  lostReasonFilter?: string | null;
+  onClearLostReason?: () => void;
   activeMessages?: Message[];
   // Manager/admin only: show the assigned agent + filter by agent
   agents?: { id: string; full_name: string }[];
@@ -169,6 +171,7 @@ export default function ConversationList({
   followUpOnly, onFollowUpToggle,
   unreadOnly, onUnreadToggle,
   needsReplyOnly, onNeedsReplyToggle,
+  lostReasonFilter, onClearLostReason,
   activeMessages,
   agents, filterAgents, onFilterAgentsChange, showAgent,
   channels, filterChannels, onFilterChannelsChange,
@@ -253,10 +256,17 @@ export default function ConversationList({
     }
     if (followUpOnly) list = list.filter((c) => (c.interest_level === "hot" || c.interest_level === "warm") && c.unread_count > 0);
     if (unreadOnly) list = list.filter((c) => c.unread_count > 0);
-    if (needsReplyOnly) list = list.filter((c) => c.last_message_direction === "contact" || c.unread_count > 0);
+    // "Awaiting reply": customer sent last & agent hasn't replied, still inside
+    // the 24h window (past that a free reply is impossible, so it's dropped).
+    if (needsReplyOnly) list = list.filter((c) => {
+      if (c.last_message_direction !== "contact") return false;
+      const anchor = c.last_contact_message_at ?? c.last_message_at;
+      return !!anchor && (Date.now() - new Date(anchor).getTime()) < 24 * 60 * 60 * 1000;
+    });
     // Unresponded = the customer has NOT genuinely replied yet (only the
     // CTWA/lead-capture opener exists, no real human reply). customer_responded
     // comes from the API; fall back to the direction heuristic pre-deploy.
+    if (lostReasonFilter) list = list.filter((c) => c.lost_reason === lostReasonFilter);
     if (responded) list = list.filter((c) => c.customer_responded === true);
     if (unresponded) list = list.filter((c) => c.customer_responded === undefined ? c.last_message_direction === "contact" : !c.customer_responded);
     if (lastByCustomer) list = list.filter((c) => c.last_sender_type === "contact");
@@ -284,7 +294,7 @@ export default function ConversationList({
         break;
     }
     return sorted;
-  }, [convs, query, searchMode, filterStatuses, filterStages, filterCampaigns, filterInterests, filterAgents, filterChannels, channels, followUpOnly, unreadOnly, needsReplyOnly, responded, unresponded, lastByCustomer, lastByBot, sort]);
+  }, [convs, query, searchMode, filterStatuses, filterStages, filterCampaigns, filterInterests, filterAgents, filterChannels, channels, followUpOnly, unreadOnly, needsReplyOnly, lostReasonFilter, responded, unresponded, lastByCustomer, lastByBot, sort]);
 
   shownRef.current = shown;
 
@@ -319,7 +329,7 @@ export default function ConversationList({
   const activeFiltersCount =
     filterStages.length + filterCampaigns.length + filterInterests.length + filterStatuses.length + filterAgents.length + filterChannels.length +
     (followUpOnly ? 1 : 0) + (unreadOnly ? 1 : 0) + (needsReplyOnly ? 1 : 0) +
-    (responded ? 1 : 0) + (unresponded ? 1 : 0) + (lastByCustomer ? 1 : 0) + (lastByBot ? 1 : 0) + (query ? 1 : 0);
+    (responded ? 1 : 0) + (unresponded ? 1 : 0) + (lastByCustomer ? 1 : 0) + (lastByBot ? 1 : 0) + (lostReasonFilter ? 1 : 0) + (query ? 1 : 0);
 
   const clearAll = () => {
     onQueryChange("");
@@ -336,6 +346,7 @@ export default function ConversationList({
     setUnresponded(false);
     setLastByCustomer(false);
     setLastByBot(false);
+    onClearLostReason?.();
   };
 
   const filterCategories: FilterCategory[] = [
