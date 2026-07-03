@@ -42,6 +42,9 @@ class ReplyReceiver : BroadcastReceiver() {
                     Log.d("ReplyReceiver", "Background reply sent!")
                     // Append the message to the notification stack and stop the spinner
                     NotificationHelper.appendSentMessage(context, chatId, replyText)
+                    // If the reply came from a missed-call note, clear it (and its
+                    // RemoteInput spinner) now that the message is on its way.
+                    NotificationHelper.cancelMissedCallNotification(context, chatId)
                 },
                 onError = { e ->
                     Log.e("ReplyReceiver", "Failed to send background reply", e)

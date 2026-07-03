@@ -12,6 +12,7 @@ import '../core/realtime/realtime_providers.dart';
 import '../core/providers/theme_provider.dart';
 import '../core/session/session_controller.dart';
 import '../features/auth/presentation/controllers/auth_controller.dart';
+import '../features/calls/presentation/call_controller.dart';
 import '../features/calls/presentation/call_overlay.dart';
 import '../features/chat/presentation/controllers/chat_providers.dart';
 import 'router/app_router.dart';
@@ -111,6 +112,22 @@ class _SimpulxAppState extends ConsumerState<SimpulxApp>
     // lets a tap push the same thread twice, so Back lands on a duplicate).
     final currentLoc = router.routerDelegate.currentConfiguration.uri.toString();
     debugPrint('[Push] Current route: $currentLoc, navigating to: $route');
+
+    // "Call back" from a missed-call notification: start an outbound call to the
+    // contact rather than navigating. The CallOverlay renders the call UI.
+    if (route.startsWith('/callback/')) {
+      final uri = Uri.parse(route);
+      final conv = uri.pathSegments.length > 1 ? uri.pathSegments[1] : '';
+      final name = uri.queryParameters['name'] ?? '';
+      if (conv.isNotEmpty) {
+        ref.read(callControllerProvider.notifier).startOutbound(
+              conversationId: conv,
+              contactName: name,
+              contactPhone: '',
+            );
+      }
+      return;
+    }
 
     // If navigating to the same route we're already on, do nothing
     if (currentLoc == route) {

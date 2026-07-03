@@ -393,11 +393,11 @@ object NotificationHelper {
 
         val name = if (contactName.isNotBlank()) contactName else "Missed call"
 
-        fun openChat(requestCode: Int): PendingIntent {
+        fun tapRoute(route: String, requestCode: Int): PendingIntent {
             val intent = Intent(context, MainActivity::class.java).apply {
                 action = "com.simpulx.app.ACTION_TAP_NOTIFICATION"
                 flags = Intent.FLAG_ACTIVITY_SINGLE_TOP or Intent.FLAG_ACTIVITY_CLEAR_TOP
-                putExtra("route", "/chat/$chatId")
+                putExtra("route", route)
                 putExtra("chatId", chatId)
             }
             return PendingIntent.getActivity(
@@ -405,6 +405,24 @@ object NotificationHelper {
                 PendingIntent.FLAG_UPDATE_CURRENT or PendingIntent.FLAG_IMMUTABLE
             )
         }
+
+        // Call back -> redial (the app starts an outbound call from this route).
+        val chatRoute = "/chat/$chatId"
+        val callbackRoute = "/callback/$chatId?name=" + android.net.Uri.encode(name)
+
+        // Message -> inline reply, identical to the chat notification's Reply:
+        // type in the shade and it's sent in the background (works app-killed).
+        val messageAction = NotificationCompat.Action.Builder(
+            R.drawable.ic_notification,
+            "Message",
+            PendingIntent.getBroadcast(
+                context, chatId.hashCode() + 104,
+                ReplyReceiver.getReplyIntent(context, chatId),
+                PendingIntent.FLAG_UPDATE_CURRENT or PendingIntent.FLAG_MUTABLE
+            )
+        ).addRemoteInput(
+            RemoteInput.Builder("key_text_reply").setLabel("Message...").build()
+        ).build()
 
         val notification = NotificationCompat.Builder(context, CHANNEL_ID)
             .setSmallIcon(R.drawable.ic_notification)
@@ -417,9 +435,9 @@ object NotificationHelper {
             .setSilent(true)
             .setAutoCancel(true)
             .setOnlyAlertOnce(true)
-            .setContentIntent(openChat(101))
-            .addAction(0, "Call back", openChat(102))
-            .addAction(0, "Message", openChat(103))
+            .setContentIntent(tapRoute(chatRoute, 101))
+            .addAction(0, "Call back", tapRoute(callbackRoute, 102))
+            .addAction(messageAction)
             .build()
 
         val manager = context.getSystemService(Context.NOTIFICATION_SERVICE) as NotificationManager

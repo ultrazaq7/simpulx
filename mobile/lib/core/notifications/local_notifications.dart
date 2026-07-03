@@ -39,7 +39,12 @@ class LocalNotifications {
             'missed_call',
             actions: [
               DarwinNotificationAction.plain('callback', 'Call back'),
-              DarwinNotificationAction.plain('message', 'Message'),
+              // Inline text reply, same concept as the chat Reply action.
+              DarwinNotificationAction.text(
+                'message',
+                'Message',
+                buttonTitle: 'Send',
+              ),
             ],
           ),
         ],
@@ -72,10 +77,22 @@ class LocalNotifications {
   }
 
   void _onResponse(NotificationResponse response) {
-    // If it's an action with reply input, handle inline (foreground)
-    if (response.actionId == 'reply' || response.actionId == 'mark_read') {
+    // If it's an action with reply input, handle inline (foreground).
+    // 'message' is the missed-call note's inline reply (same as chat 'reply').
+    if (response.actionId == 'reply' ||
+        response.actionId == 'message' ||
+        response.actionId == 'mark_read') {
       _handleActionForeground(response);
       return;
+    }
+    // "Call back" from the missed-call note: redial the contact instead of just
+    // opening the chat. "Message" falls through to the /chat route below.
+    if (response.actionId == 'callback') {
+      final conv = _extractConversationId(response.payload ?? '');
+      if (conv != null) {
+        onTapRoute?.call('/callback/$conv');
+        return;
+      }
     }
     final route = NotificationPayload.routeFromEncoded(response.payload);
     debugPrint('[LocalNotifications] Tapped: ${response.actionId} -> $route');
@@ -89,12 +106,14 @@ class LocalNotifications {
     final convId = _extractConversationId(payloadStr);
     if (convId == null) return;
 
-    if (response.actionId == 'reply') {
+    if (response.actionId == 'reply' || response.actionId == 'message') {
       final input = response.input;
       if (input != null && input.isNotEmpty) {
         _sendReplyInBackground(convId, input).then((_) {
-          final id = convId.hashCode & 0x7fffffff;
-          _plugin.cancel(id: id);
+          // Clear both the chat notification and the missed-call note (whichever
+          // this reply came from) so no spinner lingers.
+          _plugin.cancel(id: convId.hashCode & 0x7fffffff);
+          _plugin.cancel(id: ('missed:$convId').hashCode & 0x7fffffff);
         });
       }
     } else if (response.actionId == 'mark_read') {
@@ -411,8 +430,10 @@ class LocalNotifications {
       actions: const [
         AndroidNotificationAction('callback', 'Call back',
             showsUserInterface: true),
+        // Inline reply, same as the chat Reply action.
         AndroidNotificationAction('message', 'Message',
-            showsUserInterface: true),
+            showsUserInterface: false,
+            inputs: [AndroidNotificationActionInput(label: 'Message...')]),
       ],
     );
 
@@ -460,8 +481,6 @@ class LocalNotifications {
 
     // ── Style ──────────────────────────────────────────────
     final StyleInformation style;
-    final DrawableResourceAndroidIcon defaultIcon =
-        const DrawableResourceAndroidIcon('@mipmap/ic_launcher');
 
     if (isMessage) {
       const self = Person(
@@ -779,7 +798,7 @@ void notificationTapBackground(NotificationResponse response) async {
   debugPrint('[Notification BG] convId=$convId');
   if (convId == null) return;
 
-  if (response.actionId == 'reply') {
+  if (response.actionId == 'reply' || response.actionId == 'message') {
     final input = response.input;
     debugPrint('[Notification BG] reply input="$input"');
     if (input != null && input.isNotEmpty) {
