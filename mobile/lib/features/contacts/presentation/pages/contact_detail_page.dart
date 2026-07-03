@@ -224,7 +224,6 @@ class _IdentityCard extends StatelessWidget {
                       const _Pill(text: 'Blacklisted', danger: true),
                   ],
                 ),
-                _StageChip(contact: c),
               ],
             ),
           ),
@@ -234,120 +233,7 @@ class _IdentityCard extends StatelessWidget {
   }
 }
 
-/// Editable pipeline-stage chip under the identity (mirrors the chat header
-/// stage chip). Tapping opens a stage picker that patches the contact's linked
-/// conversation. Hidden when the lead has no conversation yet.
-class _StageChip extends ConsumerWidget {
-  const _StageChip({required this.contact});
-  final Contact contact;
 
-  @override
-  Widget build(BuildContext context, WidgetRef ref) {
-    if (!contact.hasConversation) return const SizedBox.shrink();
-    final label = contact.stageName ?? 'Set stage';
-    return Padding(
-      padding: const EdgeInsets.only(top: 8),
-      child: InkWell(
-        borderRadius: BorderRadius.circular(20),
-        onTap: () => _pick(context, ref),
-        child: Container(
-          padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 5),
-          decoration: BoxDecoration(
-            color: AppColors.primary.withValues(alpha: 0.10),
-            borderRadius: BorderRadius.circular(20),
-          ),
-          child: Row(
-            mainAxisSize: MainAxisSize.min,
-            children: [
-              Container(
-                width: 7,
-                height: 7,
-                decoration: const BoxDecoration(
-                    color: AppColors.primary, shape: BoxShape.circle),
-              ),
-              const SizedBox(width: 6),
-              Text(label,
-                  style: const TextStyle(
-                      fontSize: 12,
-                      fontWeight: FontWeight.w600,
-                      color: AppColors.primaryDark)),
-              const SizedBox(width: 2),
-              const Icon(Icons.expand_more_rounded,
-                  size: 16, color: AppColors.primaryDark),
-            ],
-          ),
-        ),
-      ),
-    );
-  }
-
-  void _pick(BuildContext context, WidgetRef ref) {
-    final convId = contact.conversationId;
-    if (convId == null) return;
-    showModalBottomSheet<void>(
-      context: context,
-      showDragHandle: true,
-      isScrollControlled: true,
-      builder: (sheetContext) => Consumer(
-        builder: (_, sheetRef, _) {
-          final async = sheetRef.watch(stagesProvider);
-          return async.when(
-            loading: () => const Padding(
-                padding: EdgeInsets.all(24),
-                child: Center(child: CircularProgressIndicator(strokeWidth: 2))),
-            error: (_, _) => const Padding(
-                padding: EdgeInsets.all(24),
-                child: Text('Could not load stages')),
-            data: (stages) => SafeArea(
-              child: ListView(
-                shrinkWrap: true,
-                children: [
-                  const Padding(
-                    padding: EdgeInsets.fromLTRB(20, 4, 20, 8),
-                    child: Text('Pipeline stage',
-                        style: TextStyle(fontWeight: FontWeight.w700)),
-                  ),
-                  for (final s in stages
-                      .where((s) => !s.name.toLowerCase().startsWith('lost')))
-                    ListTile(
-                      leading: Icon(
-                        s.name == contact.stageName
-                            ? Icons.radio_button_checked_rounded
-                            : Icons.radio_button_unchecked_rounded,
-                        color: s.name == contact.stageName
-                            ? AppColors.primary
-                            : AppColors.textMuted,
-                      ),
-                      title: Text(s.name),
-                      selected: s.name == contact.stageName,
-                      onTap: () {
-                        ref
-                            .read(conversationActionsProvider(convId))
-                            .setStage(s.id)
-                            .then((ok) {
-                          if (context.mounted) {
-                            AppSnackbar.show(
-                                context,
-                                ok
-                                    ? 'Stage moved to ${s.name}'
-                                    : 'Failed to update stage',
-                                isError: !ok);
-                          }
-                          ref.read(contactsProvider.notifier).refresh();
-                          ref.invalidate(contactActivityProvider(contact.id));
-                        });
-                        Navigator.of(sheetContext).pop();
-                      },
-                    ),
-                ],
-              ),
-            ),
-          );
-        },
-      ),
-    );
-  }
-}
 
 class _ActionsRow extends StatelessWidget {
   const _ActionsRow({
@@ -454,10 +340,9 @@ class _LeadContextCard extends StatelessWidget {
             _row(context, 'Source URL', c.sourceUrl!,
                 onTap: () => _openUrl(c.sourceUrl!)),
           if (c.lastMessageAt != null)
-            _row(context, 'Last activity',
-                '${formatDayLabel(c.lastMessageAt!)} ${formatBubbleTime(c.lastMessageAt!)}'),
+            _row(context, 'Last activity', formatAbsoluteTimestamp(c.lastMessageAt!)),
           if (c.createdAt != null)
-            _row(context, 'Added', formatDayLabel(c.createdAt!)),
+            _row(context, 'Added', formatAbsoluteTimestamp(c.createdAt!)),
         ],
       ),
     );
@@ -564,11 +449,8 @@ class _HistoryCardState extends ConsumerState<_HistoryCard> {
               // Backend returns newest-first; display oldest-first (ascending).
               final events = raw.reversed.toList();
               final hasMore = events.length > _collapsedCount;
-              // Collapsed: show the most recent items (tail), still ascending.
-              final start = _expanded
-                  ? 0
-                  : (events.length - _collapsedCount).clamp(0, events.length);
-              final shown = events.sublist(start);
+              // Collapsed: show the oldest items (head of the ascending list).
+              final shown = _expanded ? events : events.take(_collapsedCount).toList();
               return Column(
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
