@@ -41,11 +41,12 @@ const ConversationCard = memo(function ConversationCard({
   const repliedByAgent = c.last_sender_type === "agent" || c.last_sender_type === "system";
   const responder: "human" | "bot" | null = repliedByBot ? "bot" : repliedByAgent ? "human" : null;
   const responderLabel = repliedByBot ? "Replied by Simpuler" : "Replied by agent";
-  // The 24h session window counts down from the last message (any direction);
-  // sending a reply restarts it. While open, the line-1 slot shows a live
-  // countdown; once elapsed it becomes the plain date with a "24H" badge in the
-  // responder-icon slot to its left.
-  const sessionAnchor = c.last_message_at;
+  // The 24h WhatsApp session window counts down from the CUSTOMER's last
+  // inbound message; an agent/bot reply must NOT reset it. Falls back to
+  // last_message_at only until the gateway ships last_contact_message_at.
+  // While open, the line-1 slot shows a live countdown; once elapsed it becomes
+  // the plain date with a "24H" badge in the responder-icon slot to its left.
+  const sessionAnchor = c.last_contact_message_at ?? c.last_message_at;
   const isWa = c.channel === "whatsapp" && !!sessionAnchor;
   const winAge = sessionAnchor ? Date.now() - new Date(sessionAnchor).getTime() : Infinity;
   const windowOpen = isWa && winAge < 24 * 60 * 60 * 1000;
@@ -96,7 +97,9 @@ const ConversationCard = memo(function ConversationCard({
           <span className="flex-1" />
           {windowOpen ? (
             <Tip label={responder ? responderLabel : "24h session window"} side="top">
-              <WindowCountdownBadge lastMessageAt={sessionAnchor} responder={responder} />
+              <span className="shrink-0 inline-flex">
+                <WindowCountdownBadge lastMessageAt={sessionAnchor} responder={responder} />
+              </span>
             </Tip>
           ) : windowExpired ? (
             <>

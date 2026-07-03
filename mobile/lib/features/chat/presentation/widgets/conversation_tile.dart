@@ -41,11 +41,12 @@ class ConversationTile extends ConsumerWidget {
         : Icons.headset_mic_outlined;
     final responderLabel =
         repliedByBot ? 'Replied by Simpuler' : 'Replied by agent';
-    // The 24h session window counts down from the last message (any direction);
-    // sending a reply restarts it. While open, the line-1 trailing slot shows a
-    // live countdown; once elapsed it becomes the plain date with a red "24H"
-    // badge in the responder-icon slot to its left.
-    final sessionAnchor = c.lastMessageAt;
+    // The 24h WhatsApp session window counts down from the CUSTOMER's last
+    // inbound message; an agent/bot reply must NOT reset it. Falls back to
+    // lastMessageAt only until the gateway ships last_contact_message_at. While
+    // open, the line-1 trailing slot shows a live countdown; once elapsed it
+    // becomes the plain date with a red "24H" badge in the responder slot.
+    final sessionAnchor = c.lastContactMessageAt ?? c.lastMessageAt;
     final countdownActive = formatWindowCountdown(sessionAnchor) != null;
     final windowExpired =
         c.channel == 'whatsapp' && sessionAnchor != null && !countdownActive;
