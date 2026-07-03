@@ -395,7 +395,7 @@ function AgentDashboard() {
       </div>
 
       {/* Personal activity */}
-      <Card title="Your activity" subtitle="New leads vs how many you replied to" className="mb-4">
+      <Card title="Your activity" subtitle="New leads vs how many replied back" className="mb-4">
         <div className="px-4 py-4"><OverviewChart data={buildChartData(analytics, true)} /></div>
       </Card>
       <div className="grid grid-cols-1 lg:grid-cols-2 gap-4">

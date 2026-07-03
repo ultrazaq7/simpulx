@@ -1101,13 +1101,18 @@ func (s *server) handleAnalytics(w http.ResponseWriter, r *http.Request) {
 		  HAVING (u.role = 'agent' OR count(DISTINCT cv.contact_id) > 0)
 		  ORDER BY leads DESC`, campFilterCv, agentScope), args...)
 
-	// Per-day: new leads vs how many got an AGENT reply.
+	// Per-day: new leads vs how many the CUSTOMER genuinely replied to (an actual
+	// typed inbound, not the auto CTWA/lead-capture opener - genuine=true). This
+	// reads as lead engagement: of the leads that came in, how many wrote back.
 	// All days (one point per active day). The admin view trims to the last 7 in
 	// the client; the agent view plots the full history.
 	daily, _ := s.queryMaps(ctx,
 		fmt.Sprintf(`SELECT to_char(date_trunc('day', created_at),'YYYY-MM-DD') AS day,
 		        count(*) AS leads,
-		        count(*) FILTER (WHERE last_agent_message_at IS NOT NULL) AS replied
+		        count(*) FILTER (WHERE EXISTS(
+		          SELECT 1 FROM messages m
+		           WHERE m.conversation_id = conversations.id
+		             AND m.direction='inbound' AND m.genuine = true)) AS replied
 		   FROM conversations WHERE organization_id=$1%s
 		  GROUP BY 1 ORDER BY 1`, campFilter), args...)
 
