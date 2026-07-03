@@ -18,6 +18,20 @@ class SimpulxMessagingService : FlutterFirebaseMessagingService() {
 
     companion object {
         private const val TAG = "SimpulxFCM"
+
+        // Call ids we've already seen an "ended" push for. Guards against FCM
+        // ordering races where a delayed "incoming" push lands AFTER the call was
+        // ended/declined and would otherwise re-ring a dead call.
+        private val endedCallIds =
+            java.util.Collections.synchronizedSet(HashSet<String>())
+
+        private fun markCallEnded(callId: String) {
+            if (callId.isEmpty()) return
+            synchronized(endedCallIds) {
+                if (endedCallIds.size > 200) endedCallIds.clear()
+                endedCallIds.add(callId)
+            }
+        }
     }
 
     override fun onMessageReceived(message: RemoteMessage) {
@@ -56,17 +70,31 @@ class SimpulxMessagingService : FlutterFirebaseMessagingService() {
         try {
             when {
                 isEndedCall -> {
-                    // The call is over (hangup / decline / missed). Dismiss the ring;
-                    // never show a fresh call notification here.
+                    // The call is over (hangup / decline / missed). Remember it so a
+                    // late incoming push can't re-ring it, dismiss the ring, and clear
+                    // any stale missed note. Only surface a fresh "missed call" note
+                    // when the call was genuinely unanswered (missed == true).
+                    markCallEnded(callId)
                     NotificationHelper.cancelCallNotification(this, conversationId)
+                    NotificationHelper.cancelMissedCallNotification(this, conversationId)
                     if (data["missed"] == "true") {
                         NotificationHelper.showMissedCallNotification(this, conversationId, title, body)
                     }
                     Log.d(TAG, "Call ended push: dismissed ring (missed=${data["missed"]})")
                 }
                 isCall -> {
-                    showNativeCallNotification(this, conversationId, callId, title, body, message.toIntent())
-                    Log.d(TAG, "Native call notification shown: title=$title")
+                    // Drop a delayed/duplicate ring for a call that already ended so
+                    // declining/ending never re-opens the call notification.
+                    if (callId.isNotEmpty() && endedCallIds.contains(callId)) {
+                        NotificationHelper.cancelCallNotification(this, conversationId)
+                        Log.d(TAG, "Dropped ring for already-ended call: $callId")
+                    } else {
+                        // Clear a leftover missed note before a fresh ring so they
+                        // never stack.
+                        NotificationHelper.cancelMissedCallNotification(this, conversationId)
+                        showNativeCallNotification(this, conversationId, callId, title, body, message.toIntent())
+                        Log.d(TAG, "Native call notification shown: title=$title")
+                    }
                 }
                 isAlert -> {
                     NotificationHelper.showAlertNotification(this, conversationId, type, title, body)

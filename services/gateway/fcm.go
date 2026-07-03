@@ -262,7 +262,15 @@ func (s *server) initFCMPush(ctx context.Context) {
 			data["type"] = "incoming_call"
 			data["title"] = title
 		} else { // ended
-			missed := c.DurationSeconds == 0
+			// "Missed" means the customer rang and nobody picked up. A call the
+			// agent actively declined (rejected) or hung up (agent_hangup), or one
+			// denied by permission, is NOT missed, so it must not spawn a "Missed
+			// call" note every time the agent declines.
+			missed := c.DurationSeconds == 0 &&
+				c.EndReason != "rejected" &&
+				c.EndReason != "declined" &&
+				c.EndReason != "agent_hangup" &&
+				c.EndReason != "permission_denied"
 			title := "Call ended"
 			if missed {
 				title = "Missed call"

@@ -373,6 +373,12 @@ object NotificationHelper {
         manager.cancel(chatId.hashCode() + 100)
     }
 
+    /** Cancel the lightweight "missed call" note (distinct id from the ring). */
+    fun cancelMissedCallNotification(context: Context, chatId: String) {
+        val manager = context.getSystemService(Context.NOTIFICATION_SERVICE) as NotificationManager
+        manager.cancel(chatId.hashCode() + 101)
+    }
+
     /**
      * Show a lightweight "missed call" notification: no ringtone, no full-screen
      * intent, auto-cancel. Tapping opens the conversation. Uses a distinct id so it
