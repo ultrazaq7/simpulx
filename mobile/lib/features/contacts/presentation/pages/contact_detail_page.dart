@@ -340,9 +340,9 @@ class _LeadContextCard extends StatelessWidget {
             _row(context, 'Source URL', c.sourceUrl!,
                 onTap: () => _openUrl(c.sourceUrl!)),
           if (c.lastMessageAt != null)
-            _row(context, 'Last activity', formatAbsoluteTimestamp(c.lastMessageAt!)),
+            _row(context, 'Last activity', formatHistoryTimestamp(c.lastMessageAt!)),
           if (c.createdAt != null)
-            _row(context, 'Added', formatAbsoluteTimestamp(c.createdAt!)),
+            _row(context, 'Added', formatHistoryTimestamp(c.createdAt!)),
         ],
       ),
     );
