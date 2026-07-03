@@ -17,6 +17,7 @@ export interface FilterToggle {
   label: string;
   active: boolean;
   onToggle: () => void;
+  dividerBefore?: boolean; // render a section separator above this toggle
 }
 
 interface FilterPopoverProps {
@@ -87,8 +88,9 @@ export default function FilterPopover({ categories, toggles, activeCount, onClea
 
             {toggles.length > 0 && <div className="my-1.5 mx-3 border-t border-border" />}
             {toggles.map((t) => (
+              <div key={t.key}>
+              {t.dividerBefore && <div className="my-1.5 mx-3 border-t border-border" />}
               <button
-                key={t.key}
                 type="button"
                 onClick={t.onToggle}
                 className="w-full flex items-center gap-2.5 pl-4 pr-3 py-2 text-[13px] font-medium text-foreground/85 hover:bg-muted outline-none group"
@@ -101,6 +103,7 @@ export default function FilterPopover({ categories, toggles, activeCount, onClea
                 </span>
                 <span className="truncate">{t.label}</span>
               </button>
+              </div>
             ))}
           </div>
 

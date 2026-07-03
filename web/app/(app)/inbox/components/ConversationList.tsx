@@ -174,6 +174,7 @@ export default function ConversationList({
   const [searchMode, setSearchMode] = useState<SearchMode>("name");
   const [dense, setDense] = useState(false);
   // Inbox-local quick toggles (not threaded through the parent).
+  const [responded, setResponded] = useState(false);
   const [unresponded, setUnresponded] = useState(false);
   const [lastByCustomer, setLastByCustomer] = useState(false);
   const [lastByBot, setLastByBot] = useState(false);
@@ -253,6 +254,7 @@ export default function ConversationList({
     // Unresponded = the customer has NOT genuinely replied yet (only the
     // CTWA/lead-capture opener exists, no real human reply). customer_responded
     // comes from the API; fall back to the direction heuristic pre-deploy.
+    if (responded) list = list.filter((c) => c.customer_responded === true);
     if (unresponded) list = list.filter((c) => c.customer_responded === undefined ? c.last_message_direction === "contact" : !c.customer_responded);
     if (lastByCustomer) list = list.filter((c) => c.last_sender_type === "contact");
     if (lastByBot) list = list.filter((c) => c.last_sender_type === "bot");
@@ -279,7 +281,7 @@ export default function ConversationList({
         break;
     }
     return sorted;
-  }, [convs, query, searchMode, filterStatuses, filterStages, filterCampaigns, filterInterests, filterAgents, filterChannels, channels, followUpOnly, unreadOnly, needsReplyOnly, unresponded, lastByCustomer, lastByBot, sort]);
+  }, [convs, query, searchMode, filterStatuses, filterStages, filterCampaigns, filterInterests, filterAgents, filterChannels, channels, followUpOnly, unreadOnly, needsReplyOnly, responded, unresponded, lastByCustomer, lastByBot, sort]);
 
   shownRef.current = shown;
 
@@ -314,7 +316,7 @@ export default function ConversationList({
   const activeFiltersCount =
     filterStages.length + filterCampaigns.length + filterInterests.length + filterStatuses.length + filterAgents.length + filterChannels.length +
     (followUpOnly ? 1 : 0) + (unreadOnly ? 1 : 0) + (needsReplyOnly ? 1 : 0) +
-    (unresponded ? 1 : 0) + (lastByCustomer ? 1 : 0) + (lastByBot ? 1 : 0) + (query ? 1 : 0);
+    (responded ? 1 : 0) + (unresponded ? 1 : 0) + (lastByCustomer ? 1 : 0) + (lastByBot ? 1 : 0) + (query ? 1 : 0);
 
   const clearAll = () => {
     onQueryChange("");
@@ -327,6 +329,7 @@ export default function ConversationList({
     if (followUpOnly) onFollowUpToggle();
     if (unreadOnly) onUnreadToggle();
     if (needsReplyOnly) onNeedsReplyToggle();
+    setResponded(false);
     setUnresponded(false);
     setLastByCustomer(false);
     setLastByBot(false);
@@ -344,7 +347,8 @@ export default function ConversationList({
   const filterToggles: FilterToggle[] = [
     { key: "unread", label: "Unread", active: unreadOnly, onToggle: onUnreadToggle },
     { key: "unresponded", label: "Unresponded chat", active: unresponded, onToggle: () => setUnresponded((v) => !v) },
-    { key: "lastcustomer", label: "Last message by customer", active: lastByCustomer, onToggle: () => setLastByCustomer((v) => !v) },
+    { key: "responded", label: "Responded chat", active: responded, onToggle: () => setResponded((v) => !v) },
+    { key: "lastcustomer", label: "Last message by customer", active: lastByCustomer, onToggle: () => setLastByCustomer((v) => !v), dividerBefore: true },
     { key: "lastbot", label: "Last message by bot", active: lastByBot, onToggle: () => setLastByBot((v) => !v) },
   ];
 
