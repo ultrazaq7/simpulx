@@ -47,6 +47,9 @@ class AuthController extends Notifier<AuthActionState> {
       _session.setUnauthenticated();
       return;
     }
+    // Mirror the JWT to the native store so background notification replies work
+    // even if the app is later killed (best-effort; Android only).
+    await _repo.syncNativeAuth();
     final result = await _repo.currentUser();
     result.fold(
       (_) => _session.setUnauthenticated(),

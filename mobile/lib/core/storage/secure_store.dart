@@ -1,9 +1,17 @@
+import 'dart:io';
+
+import 'package:flutter/services.dart';
 import 'package:flutter_secure_storage/flutter_secure_storage.dart';
 
 /// Encrypted storage for sensitive values (JWT access + refresh tokens).
 ///
 /// Backed by Keychain (iOS) / EncryptedSharedPreferences (Android). Tokens
 /// must never go in Hive/SharedPreferences.
+///
+/// On Android the tokens are also mirrored into a native-owned encrypted store
+/// (via [_nativeChannel]) so the background notification reply/reject path can
+/// authenticate without reading flutter_secure_storage's internal files, whose
+/// name/key format changed across major versions and broke native token reads.
 class SecureStore {
   SecureStore([FlutterSecureStorage? storage])
       : _storage = storage ??
@@ -17,6 +25,7 @@ class SecureStore {
 
   static const _kAccessToken = 'access_token';
   static const _kRefreshToken = 'refresh_token';
+  static const _nativeChannel = MethodChannel('simpulx_notification');
 
   Future<String?> readAccessToken() => _storage.read(key: _kAccessToken);
   Future<String?> readRefreshToken() => _storage.read(key: _kRefreshToken);
@@ -27,10 +36,13 @@ class SecureStore {
   }) async {
     await _storage.write(key: _kAccessToken, value: accessToken);
     await _storage.write(key: _kRefreshToken, value: refreshToken);
+    await _mirrorToNative(accessToken, refreshToken);
   }
 
-  Future<void> saveAccessToken(String accessToken) =>
-      _storage.write(key: _kAccessToken, value: accessToken);
+  Future<void> saveAccessToken(String accessToken) async {
+    await _storage.write(key: _kAccessToken, value: accessToken);
+    await _mirrorToNative(accessToken, await readRefreshToken());
+  }
 
   Future<bool> get hasSession async =>
       (await readAccessToken())?.isNotEmpty ?? false;
@@ -39,5 +51,32 @@ class SecureStore {
   Future<void> clear() async {
     await _storage.delete(key: _kAccessToken);
     await _storage.delete(key: _kRefreshToken);
+    if (Platform.isAndroid) {
+      try {
+        await _nativeChannel.invokeMethod('clearNativeAuth');
+      } catch (_) {}
+    }
+  }
+
+  /// Push the current tokens to the native store. Called on app start so an
+  /// already-logged-in user (who won't re-save until the next refresh) still
+  /// has a valid native token for background replies.
+  Future<void> syncNativeAuth() async {
+    final access = await readAccessToken();
+    final refresh = await readRefreshToken();
+    if (access == null || access.isEmpty) return;
+    await _mirrorToNative(access, refresh);
+  }
+
+  Future<void> _mirrorToNative(String access, String? refresh) async {
+    if (!Platform.isAndroid) return;
+    try {
+      await _nativeChannel.invokeMethod('saveNativeAuth', {
+        'access': access,
+        'refresh': refresh,
+      });
+    } catch (_) {
+      // Best-effort; the in-app path still works via flutter_secure_storage.
+    }
   }
 }

@@ -45,4 +45,8 @@ abstract class AuthRepository {
 
   /// Whether a token exists locally (no network).
   Future<bool> hasSession();
+
+  /// Mirror the stored JWT into the native store (Android) so background
+  /// notification actions can authenticate. Call on cold start.
+  Future<void> syncNativeAuth();
 }

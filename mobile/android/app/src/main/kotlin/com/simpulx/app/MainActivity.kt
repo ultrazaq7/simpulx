@@ -136,6 +136,26 @@ class MainActivity : FlutterActivity() {
                             result.success(false)
                         }
                     }
+                    // Flutter mirrors the JWT here so the background reply/reject
+                    // path can authenticate without reading flutter_secure_storage.
+                    "saveNativeAuth" -> {
+                        try {
+                            val access = call.argument<String>("access") ?: ""
+                            val refresh = call.argument<String>("refresh")
+                            NativeApiClient.storeTokens(this, access, refresh)
+                            result.success(true)
+                        } catch (e: Exception) {
+                            result.success(false)
+                        }
+                    }
+                    "clearNativeAuth" -> {
+                        try {
+                            NativeApiClient.clearTokens(this)
+                            result.success(true)
+                        } catch (e: Exception) {
+                            result.success(false)
+                        }
+                    }
                     else -> result.notImplemented()
                 }
             }

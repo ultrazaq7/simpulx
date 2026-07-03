@@ -17,8 +17,13 @@ object NativeApiClient {
     private const val TAG = "NativeApiClient"
     private const val API_BASE_URL = "https://app.simpulx.com" // Prod URL
 
-    // flutter_secure_storage prepends this prefix to keys on Android.
-    private const val KEY_PREFIX = "VGhpcyBpcyB0aGUgcHJlZml4IGZvciBhIHNlY3VyZSBzdG9yYWdlCg_"
+    // Native-owned encrypted store. Flutter mirrors the JWT here on every token
+    // change (see SecureStore + syncNativeAuth) so the background reply/reject
+    // path never depends on flutter_secure_storage's internal file/key format,
+    // which changed across major versions and silently broke token reads.
+    private const val NATIVE_PREFS = "SimpulxNativeAuth"
+    private const val KEY_ACCESS = "access_token"
+    private const val KEY_REFRESH = "refresh_token"
 
     fun sendReply(context: Context, chatId: String, text: String, onSuccess: () -> Unit, onError: (Exception) -> Unit) {
         thread {
@@ -137,22 +142,33 @@ object NativeApiClient {
 
     private fun prefs(context: Context) = EncryptedSharedPreferences.create(
         context,
-        "FlutterSecureKeyStorage",
+        NATIVE_PREFS,
         MasterKey.Builder(context).setKeyScheme(MasterKey.KeyScheme.AES256_GCM).build(),
         EncryptedSharedPreferences.PrefKeyEncryptionScheme.AES256_SIV,
         EncryptedSharedPreferences.PrefValueEncryptionScheme.AES256_GCM
     )
 
     private fun getToken(context: Context): String? =
-        prefs(context).getString("${KEY_PREFIX}access_token", null)
+        prefs(context).getString(KEY_ACCESS, null)
 
     private fun getRefreshToken(context: Context): String? =
-        prefs(context).getString("${KEY_PREFIX}refresh_token", null)
+        prefs(context).getString(KEY_REFRESH, null)
 
     private fun saveTokens(context: Context, access: String, refresh: String) {
         prefs(context).edit()
-            .putString("${KEY_PREFIX}access_token", access)
-            .putString("${KEY_PREFIX}refresh_token", refresh)
+            .putString(KEY_ACCESS, access)
+            .putString(KEY_REFRESH, refresh)
             .apply()
+    }
+
+    /** Called from Flutter (MethodChannel) to mirror the current JWT natively. */
+    fun storeTokens(context: Context, access: String, refresh: String?) {
+        val e = prefs(context).edit().putString(KEY_ACCESS, access)
+        if (!refresh.isNullOrEmpty()) e.putString(KEY_REFRESH, refresh)
+        e.apply()
+    }
+
+    fun clearTokens(context: Context) {
+        prefs(context).edit().remove(KEY_ACCESS).remove(KEY_REFRESH).apply()
     }
 }

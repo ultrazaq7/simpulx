@@ -113,4 +113,7 @@ class AuthRepositoryImpl implements AuthRepository {
 
   @override
   Future<bool> hasSession() => _secureStore.hasSession;
+
+  @override
+  Future<void> syncNativeAuth() => _secureStore.syncNativeAuth();
 }
