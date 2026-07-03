@@ -93,7 +93,11 @@ const ConversationCard = memo(function ConversationCard({
           </p>
           <span className="flex-1" />
           {!windowExpired ? (
-            <WindowCountdownBadge lastMessageAt={c.last_message_at} responder={responder} />
+            <Tip label={responder ? responderLabel : "24h session window"} side="top">
+              <span className="flex items-center">
+                <WindowCountdownBadge lastMessageAt={c.last_message_at} responder={responder} />
+              </span>
+            </Tip>
           ) : (
             <>
               {responder && (
