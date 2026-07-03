@@ -21,7 +21,24 @@ class MainActivity : FlutterActivity() {
 
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
+        showOverLockscreen()
         handleIntent(intent)
+    }
+
+    // Let an incoming-call full-screen intent take over a locked screen: show the
+    // activity above the keyguard and turn the screen on. The manifest flags cover
+    // the static case; these runtime calls make it reliable across OEM skins.
+    private fun showOverLockscreen() {
+        if (android.os.Build.VERSION.SDK_INT >= android.os.Build.VERSION_CODES.O_MR1) {
+            setShowWhenLocked(true)
+            setTurnScreenOn(true)
+        } else {
+            @Suppress("DEPRECATION")
+            window.addFlags(
+                android.view.WindowManager.LayoutParams.FLAG_SHOW_WHEN_LOCKED or
+                    android.view.WindowManager.LayoutParams.FLAG_TURN_SCREEN_ON
+            )
+        }
     }
 
     override fun onNewIntent(intent: Intent) {
@@ -56,7 +73,16 @@ class MainActivity : FlutterActivity() {
                 val manager = getSystemService(Context.NOTIFICATION_SERVICE) as NotificationManager
                 manager.cancel(chatId.hashCode() + 100)
             }
-            
+
+            // Answering from the lock screen must drop the keyguard so the agent
+            // lands in the live call, not stuck behind the lock.
+            if (android.os.Build.VERSION.SDK_INT >= android.os.Build.VERSION_CODES.O) {
+                val km = getSystemService(Context.KEYGUARD_SERVICE) as android.app.KeyguardManager
+                if (km.isKeyguardLocked) {
+                    km.requestDismissKeyguard(this, null)
+                }
+            }
+
             if (route != null) {
                 flutterEngine?.dartExecutor?.binaryMessenger?.let { messenger ->
                     MethodChannel(messenger, CHANNEL).invokeMethod("onNotificationTap", route)
