@@ -103,6 +103,16 @@ export default function InboxPage() {
     return () => window.removeEventListener("inbox:open", onOpen as EventListener);
   }, []);
 
+  // Keep the open conversation in the URL (?c=<id>) so a refresh reopens it
+  // instead of dropping back to the empty state. Mount reads ?c above.
+  useEffect(() => {
+    if (typeof window === "undefined") return;
+    const url = new URL(window.location.href);
+    if (activeId) url.searchParams.set("c", activeId);
+    else url.searchParams.delete("c");
+    window.history.replaceState(null, "", url.toString());
+  }, [activeId]);
+
   const bodyRef = useRef<HTMLDivElement>(null);
   const fileRef = useRef<HTMLInputElement>(null);
   const activeIdRef = useRef<string | null>(null);

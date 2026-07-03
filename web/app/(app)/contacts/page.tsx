@@ -77,13 +77,15 @@ export default function ContactsPage() {
   useEffect(() => { api.listDispositions().then((d) => setDispositions(d || [])).catch(() => {}); }, []);
   useEffect(() => { if (!toast) return; const t = setTimeout(() => setToast(null), 2500); return () => clearTimeout(t); }, [toast]);
 
+  // Lead edits go through updateContact, which routes to the contact's
+  // conversation when it has one, else to the contact-level fallback columns
+  // (migration 0078) - so manual leads without a conversation are editable too.
   async function setStage(c: Contact, stageId: string) {
-    if (!c.conversation_id) { setToast("No conversation yet for this contact"); return; }
     const name = stages.find((s) => s.id === stageId)?.name ?? null;
     const prevStageId = c.stage_id, prevName = c.stage_name;
     setContacts((p) => p.map((x) => (x.id === c.id ? { ...x, stage_id: stageId || null, stage_name: name } : x)));
     try {
-      await api.patchConversation(c.conversation_id, { stage_id: stageId });
+      await api.updateContact(c.id, { stage_id: stageId });
       setToast(name ? `Stage updated to ${name}` : "Stage cleared");
     } catch {
       setContacts((p) => p.map((x) => (x.id === c.id ? { ...x, stage_id: prevStageId, stage_name: prevName } : x)));
@@ -91,11 +93,10 @@ export default function ContactsPage() {
     }
   }
   async function setInterest(c: Contact, level: string) {
-    if (!c.conversation_id) { setToast("No conversation yet for this contact"); return; }
     const prev = c.interest_level;
     setContacts((p) => p.map((x) => (x.id === c.id ? { ...x, interest_level: level || null } : x)));
     try {
-      await api.patchConversation(c.conversation_id, { interest_level: level });
+      await api.updateContact(c.id, { interest_level: level });
       setToast(level ? `Interest set to ${level}` : "Interest cleared");
     } catch {
       setContacts((p) => p.map((x) => (x.id === c.id ? { ...x, interest_level: prev } : x)));
@@ -103,19 +104,13 @@ export default function ContactsPage() {
     }
   }
   async function reassignAgent(c: Contact, agentId: string | null) {
-    if (!c.conversation_id) { setToast("No conversation yet for this contact"); return; }
     const prevAgentId = c.assigned_agent_id;
     const prevAgentName = c.agent_name;
     const newAgent = agentId ? agents.find((a) => a.id === agentId) : null;
     setContacts((p) => p.map((x) => (x.id === c.id ? { ...x, assigned_agent_id: agentId, agent_name: newAgent?.full_name || null } : x)));
     try {
-      if (agentId) {
-        await api.assign(c.conversation_id, agentId);
-        setToast(`Assigned to ${newAgent?.full_name || "agent"}`);
-      } else {
-        await api.unassign(c.conversation_id);
-        setToast("Unassigned");
-      }
+      await api.updateContact(c.id, { assigned_agent_id: agentId || "" });
+      setToast(agentId ? `Assigned to ${newAgent?.full_name || "agent"}` : "Unassigned");
     } catch {
       setContacts((p) => p.map((x) => (x.id === c.id ? { ...x, assigned_agent_id: prevAgentId, agent_name: prevAgentName } : x)));
       setToast("Could not reassign");

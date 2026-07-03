@@ -64,6 +64,22 @@ export default function ContactDetailsPage() {
   const [activity, setActivity] = useState<import("@/lib/types").ContactActivity[]>([]);
   const [stages, setStages] = useState<{ id: string; name: string }[]>([]);
   const [customFields, setCustomFields] = useState<import("@/lib/types").CustomField[]>([]);
+  const [noteDraft, setNoteDraft] = useState("");
+  const [savingNote, setSavingNote] = useState(false);
+
+  async function addContactNote() {
+    const convId = contact?.conversation_id;
+    const body = noteDraft.trim();
+    if (!convId || !body) return;
+    setSavingNote(true);
+    try {
+      await api.addNote(convId, body);
+      setNoteDraft("");
+      const fresh = await api.getNotes(convId);
+      setNotes(fresh);
+    } catch { /* keep draft on failure */ }
+    finally { setSavingNote(false); }
+  }
 
   useEffect(() => { if (id) api.getContactActivity(id).then(setActivity).catch(() => {}); }, [id]);
   useEffect(() => { api.listStages().then((ss) => setStages(ss.map((s) => ({ id: s.id, name: s.name })))).catch(() => {}); }, []);
@@ -198,7 +214,7 @@ export default function ContactDetailsPage() {
           </div>
 
           <Section title="Activity">
-            <Row icon={Calendar} label="Created" value={fmtDate(c.created_at)} />
+            <Row icon={Calendar} label="Created" value={fmtDateTimeShort(c.created_at)} />
             <Row icon={Clock} label="Last message" value={c.last_message_at ? fmtDateTimeShort(c.last_message_at) : "No messages"} />
           </Section>
 
@@ -264,16 +280,39 @@ export default function ContactDetailsPage() {
                 </div>
               )
             ) : tab === "notes" ? (
-              notes.length === 0 ? <Empty icon={StickyNote} text="No internal notes yet." /> : (
-                <div className="space-y-2.5 max-w-[760px]">
-                  {notes.map((n) => (
-                    <div key={n.id} className="rounded-lg border border-amber-200 bg-amber-50 px-4 py-3">
-                      <p className="text-[13px] text-foreground whitespace-pre-line">{n.body}</p>
-                      <p className="text-[11px] text-muted-foreground mt-1.5">{n.author || "Unknown"} · {fmtDate(n.created_at)} {fmtTime(n.created_at)}</p>
+              <div className="max-w-[760px] space-y-3">
+                {c.conversation_id ? (
+                  <div className="rounded-lg border border-border bg-card p-3">
+                    <textarea
+                      value={noteDraft}
+                      onChange={(e) => setNoteDraft(e.target.value)}
+                      placeholder="Add a note (visible to your team only)"
+                      rows={3}
+                      className="w-full resize-y rounded-md border border-input bg-background px-3 py-2 text-[13px] outline-none focus:border-primary focus:ring-2 focus:ring-primary/20"
+                    />
+                    <div className="mt-2 flex justify-end">
+                      <button onClick={addContactNote} disabled={savingNote || !noteDraft.trim()}
+                        className="inline-flex items-center gap-1.5 h-9 px-4 rounded-md bg-primary text-primary-foreground text-[13px] font-semibold hover:bg-primary/90 disabled:opacity-50 outline-none">
+                        {savingNote ? <Loader2 className="w-4 h-4 animate-spin" /> : <StickyNote className="w-4 h-4" />}Add note
+                      </button>
                     </div>
-                  ))}
-                </div>
-              )
+                  </div>
+                ) : (
+                  <p className="text-[12.5px] text-muted-foreground">Notes are available once this contact has a conversation.</p>
+                )}
+                {notes.length === 0 ? (
+                  <p className="text-[12.5px] text-muted-foreground text-center py-6">No internal notes yet.</p>
+                ) : (
+                  <div className="space-y-2.5">
+                    {notes.map((n) => (
+                      <div key={n.id} className="rounded-lg border border-amber-200 bg-amber-50 px-4 py-3">
+                        <p className="text-[13px] text-foreground whitespace-pre-line">{n.body}</p>
+                        <p className="text-[11px] text-muted-foreground mt-1.5">{n.author || "Unknown"} · {fmtDateTimeShort(n.created_at)}</p>
+                      </div>
+                    ))}
+                  </div>
+                )}
+              </div>
             ) : tab === "media" ? (
               media.length === 0 ? <Empty icon={ImageIcon} text="No media shared yet." /> : (
                 <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 gap-3">
@@ -306,7 +345,7 @@ export default function ContactDetailsPage() {
                       </div>
                       <div className="min-w-0 pb-1">
                         <p className="text-[13px] text-foreground leading-snug">{activityLabel(ev)}</p>
-                        <p className="text-[11px] text-muted-foreground mt-0.5">{relTime(ev.created_at)}{ev.actor_name ? ` · ${ev.actor_name}` : ""}</p>
+                        <p className="text-[11px] text-muted-foreground mt-0.5">{fmtDateTimeShort(ev.created_at)}{ev.actor_name ? ` · ${ev.actor_name}` : ""}</p>
                       </div>
                     </div>
                   ))}
