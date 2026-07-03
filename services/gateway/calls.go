@@ -749,12 +749,18 @@ func (s *server) processCallWebhook(ctx context.Context, orgID, phoneNumberID st
 			}
 			s.persistCallDuration(ctx, convID, dur)
 			if !alreadyEnded {
+				// Only surface the summary + broadcast (and thus the FCM push) when
+				// the REMOTE actually ended the call. If we already ended it (agent
+				// reject/hangup), our own handler already broadcast + pushed the
+				// correct state; re-broadcasting here fires a duplicate "Missed call"
+				// with a ringtone, because Meta's terminate webhook trails our own
+				// reject/hangup for the same call.
 				s.insertCallSummary(ctx, orgID, convID, callDir, dur)
+				s.broadcastCall(ctx, orgID, events.CallUpdated{
+					CallID: callID, ConversationID: convID, Direction: callDir,
+					CallStatus: "ended", EndReason: "remote_hangup", DurationSeconds: dur,
+				})
 			}
-			s.broadcastCall(ctx, orgID, events.CallUpdated{
-				CallID: callID, ConversationID: convID, Direction: callDir,
-				CallStatus: "ended", EndReason: "remote_hangup", DurationSeconds: dur,
-			})
 		}
 	}
 }
