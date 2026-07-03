@@ -35,11 +35,11 @@ const ConversationCard = memo(function ConversationCard({
   const needsFollowUp = (c.interest_level === "hot" || c.interest_level === "warm") && unread;
   const needsCall = c.interest_level === "hot" && (c.call_attempts === null || c.call_attempts === 0);
 
-  // Last assigned by logic
-  const assignedToBot = c.is_bot_active;
-  const assignedToAgent = !!c.agent_name;
-  const responder: "human" | "bot" | null = assignedToBot ? "bot" : assignedToAgent ? "human" : null;
-  const responderLabel = assignedToBot ? "Assigned to Simpuler" : "Assigned to agent";
+  // Last responder: who sent the latest message
+  const repliedByBot = c.last_sender_type === "bot";
+  const repliedByAgent = c.last_sender_type === "agent" || c.last_sender_type === "system";
+  const responder: "human" | "bot" | null = repliedByBot ? "bot" : repliedByAgent ? "human" : null;
+  const responderLabel = repliedByBot ? "Replied by Simpuler" : "Replied by agent";
 
   // 24h window expired badge (template only)
   const isWa = c.channel === "whatsapp" && !!c.last_message_at;

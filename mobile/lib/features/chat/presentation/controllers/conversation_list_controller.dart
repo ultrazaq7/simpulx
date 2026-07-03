@@ -222,6 +222,7 @@ class ConversationListController extends AsyncNotifier<List<Conversation>> {
       lastMessagePreview: displayPreview,
       lastMessageAt: event.ts,
       lastMessageDirection: payload.isInbound ? 'contact' : 'agent',
+      lastSenderType: payload.senderType,
       unreadCount:
           payload.isInbound ? existing.unreadCount + 1 : existing.unreadCount,
     );

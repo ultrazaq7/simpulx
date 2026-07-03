@@ -29,16 +29,18 @@ class ConversationTile extends ConsumerWidget {
     final preview = c.lastMessagePreview?.trim();
     final isManager =
         ref.watch(sessionControllerProvider).user?.role.isManagerTier ?? false;
-    // "Assigned to" logic instead of last responder.
-    // If bot is active, show bot icon. Otherwise if agent is assigned, show headset.
-    final assignedToBot = c.isBotActive;
-    final assignedToAgent = c.agentName != null && c.agentName!.isNotEmpty;
-    final showAssigned = assignedToBot || assignedToAgent;
-    final assignedIcon = assignedToBot
+    // Last responder derived from who actually sent the latest message: a human
+    // agent (headset) vs Simpuler (robot). isBotActive only means the bot is
+    // enabled, not who replied, so it must not drive this.
+    final repliedByBot = c.lastSenderType == 'bot';
+    final repliedByAgent =
+        c.lastSenderType == 'agent' || c.lastSenderType == 'system';
+    final showResponder = repliedByBot || repliedByAgent;
+    final responderIcon = repliedByBot
         ? Icons.smart_toy_outlined
         : Icons.headset_mic_outlined;
-    final assignedLabel =
-        assignedToBot ? 'Assigned to Simpuler' : 'Assigned to agent';
+    final responderLabel =
+        repliedByBot ? 'Replied by Simpuler' : 'Replied by agent';
     // The 24h session window counts down from the last message in the thread
     // (any direction); a fresh reply restarts it. While open, the line-1
     // trailing slot shows a live countdown; once elapsed it becomes the plain
@@ -86,14 +88,14 @@ class ConversationTile extends ConsumerWidget {
                       if (!windowExpired)
                         _CountdownBadge(
                           lastMessageAt: sessionAnchor!,
-                          icon: showAssigned ? assignedIcon : null,
+                          icon: showResponder ? responderIcon : null,
                         )
                       else ...[
-                        if (showAssigned) ...[
+                        if (showResponder) ...[
                           Tooltip(
-                            message: assignedLabel,
+                            message: responderLabel,
                             child: Icon(
-                              assignedIcon,
+                              responderIcon,
                               size: 13,
                               color: AppColors.textMuted,
                             ),
