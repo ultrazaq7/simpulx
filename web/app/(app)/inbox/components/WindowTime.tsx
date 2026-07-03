@@ -1,30 +1,46 @@
 "use client";
 import { useEffect, useState } from "react";
 import { Clock } from "lucide-react";
-import { windowState, cn } from "@/lib/utils";
+import { cn, windowState } from "@/lib/utils";
 
-// Chat-list time cell: a live per-second countdown of the 24h session window,
-// then the absolute international timestamp (MM/DD/YYYY HH:MM:SS) once elapsed.
-// Ticks only while the window is open; a closed window is a static label.
+// Chat-list date cell: always shows the static MM/dd/yyyy date.
+// The live countdown lives in WindowCountdownBadge (corner of the tile).
 export function WindowTime({ lastMessageAt, unread }: { lastMessageAt: string | null; unread?: boolean }) {
-  const [, force] = useState(0);
-  const st = windowState(lastMessageAt);
-  useEffect(() => {
-    if (!st.open) return;
-    const id = setInterval(() => force((n) => n + 1), 1000);
-    return () => clearInterval(id);
-  }, [st.open, lastMessageAt]);
-
-  if (!lastMessageAt || !st.text) return null;
-  if (st.open) {
-    return (
-      <span className="shrink-0 inline-flex items-center gap-1 px-1.5 py-0.5 rounded-full text-[10px] font-semibold tabular-nums bg-primary/10 text-primary-text">
-        <Clock className="w-2.5 h-2.5" />{st.text}
-      </span>
-    );
-  }
+  if (!lastMessageAt) return null;
+  const d = new Date(lastMessageAt);
+  if (isNaN(d.getTime())) return null;
+  const p = (n: number) => String(n).padStart(2, "0");
+  const text = `${p(d.getMonth() + 1)}/${p(d.getDate())}/${d.getFullYear()}`;
   return (
     <span className={cn("shrink-0 text-[10.5px] tabular-nums", unread ? "text-primary-text font-semibold" : "text-muted-foreground")}>
+      {text}
+    </span>
+  );
+}
+
+// Corner badge: live per-second countdown of the 24h session window as a
+// solid blue pill ("Xh Ym Zs" + clock icon). Self-gating: renders nothing
+// once the window elapses, and stops its own ticker.
+export function WindowCountdownBadge({ lastMessageAt, className }: { lastMessageAt: string | null; className?: string }) {
+  const [st, setSt] = useState(() => windowState(lastMessageAt));
+  useEffect(() => {
+    const first = windowState(lastMessageAt);
+    setSt(first);
+    if (!first.open) return;
+    const t = setInterval(() => {
+      const s = windowState(lastMessageAt);
+      setSt(s);
+      if (!s.open) clearInterval(t);
+    }, 1000);
+    return () => clearInterval(t);
+  }, [lastMessageAt]);
+  if (!st.open) return null;
+  return (
+    <span className={cn(
+      "inline-flex items-center gap-1 h-[18px] px-2 rounded-full bg-primary text-primary-foreground text-[10px] font-semibold tabular-nums leading-none",
+      className,
+    )}>
+      <Clock className="w-3 h-3 shrink-0" />
       {st.text}
     </span>
   );

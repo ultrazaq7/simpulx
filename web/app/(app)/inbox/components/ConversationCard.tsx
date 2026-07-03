@@ -1,10 +1,10 @@
 "use client";
 import { memo } from "react";
 import {
-  Image as ImageIcon, Video, FileText, Headset, Zap, Clock, Phone, Sticker, Mic, User,
+  Image as ImageIcon, Video, FileText, Headset, Bot, CheckCircle, Zap, Clock, Phone, Sticker, Mic, User,
 } from "lucide-react";
 import { initials, channelColor, avatarColor, cn } from "@/lib/utils";
-import { WindowTime } from "./WindowTime";
+import { WindowTime, WindowCountdownBadge } from "./WindowTime";
 import { Tip } from "@/components/ui/tooltip";
 import type { Conversation, Message } from "@/lib/types";
 
@@ -28,15 +28,8 @@ const PREVIEW_MEDIA: Record<string, { icon: any; label: string }> = {
 };
 
 const ConversationCard = memo(function ConversationCard({
-  conv: c, isActive, onClick, messages, showAgent, channelName, dense,
+  conv: c, isActive, onClick, showAgent, channelName, dense,
 }: ConversationCardProps) {
-  const agentReplied = (() => {
-    if (isActive && messages && messages.length > 0) {
-      return messages[messages.length - 1].direction !== "inbound";
-    }
-    return c.unread_count === 0 && c.last_message_direction === "agent";
-  })();
-
   const unread = c.unread_count > 0;
 
   const needsFollowUp = (c.interest_level === "hot" || c.interest_level === "warm") && unread;
@@ -44,6 +37,12 @@ const ConversationCard = memo(function ConversationCard({
   const windowExpired = (() => {
     if (!c.last_message_at || c.channel !== "whatsapp") return false;
     return Date.now() - new Date(c.last_message_at).getTime() > 24 * 60 * 60 * 1000;
+  })();
+  // 24h session window still open -> corner countdown badge (line 1 shifts
+  // down to make room). Computed once per render; the badge self-expires.
+  const windowOpen = (() => {
+    if (!c.last_message_at) return false;
+    return Date.now() - new Date(c.last_message_at).getTime() < 24 * 60 * 60 * 1000;
   })();
 
   const media = c.last_message_preview ? PREVIEW_MEDIA[c.last_message_preview] : undefined;
@@ -57,10 +56,21 @@ const ConversationCard = memo(function ConversationCard({
       onClick={onClick}
       className={cn(
         "group relative flex gap-3 pl-4 pr-3 cursor-pointer border-b border-border/40 transition-colors duration-100",
-        dense ? "py-2" : "py-3",
+        dense ? (windowOpen || windowExpired ? "pt-7 pb-2" : "py-2") : (windowOpen || windowExpired ? "pt-8 pb-3" : "py-3"),
         isActive ? "bg-primary/[0.06]" : "hover:bg-muted/40",
       )}
     >
+      {/* Top-right corner session badge: live countdown while the 24h window is
+          open, or a red "24H" template-only badge once it has closed. */}
+      {windowOpen ? (
+        <WindowCountdownBadge lastMessageAt={c.last_message_at} className="absolute top-2 right-2.5 z-[1]" />
+      ) : windowExpired ? (
+        <Tip label="24h window closed - template only" side="top">
+          <span className="absolute top-2 right-2.5 z-[1] inline-flex items-center gap-1 h-[18px] px-2 rounded-full bg-hot text-white text-[10px] font-semibold leading-none">
+            <Clock className="w-3 h-3 shrink-0" />24H
+          </span>
+        </Tip>
+      ) : null}
 
       {/* Avatar (dynamic per-contact colour, WhatsApp-style) + channel dot */}
       <div className="relative shrink-0 self-start mt-0.5">
@@ -80,35 +90,32 @@ const ConversationCard = memo(function ConversationCard({
 
       {/* Text */}
       <div className="flex-1 min-w-0">
-        {/* Line 1: name + time */}
+        {/* Line 1: name + date */}
         <div className="flex items-baseline gap-2">
           <p className={cn(
-            "min-w-0 truncate text-[14px] leading-snug",
+            "min-w-0 truncate text-[13px] leading-snug",
             unread ? "font-semibold text-foreground" : "font-medium text-foreground/90",
           )}>
             {c.contact_name || c.contact_phone || "Unknown"}
           </p>
-          {c.status === "closed" ? (
-            <span className="shrink-0 px-1.5 py-0.5 rounded text-[9px] font-bold uppercase tracking-wider bg-muted text-muted-foreground">Closed</span>
-          ) : c.status === "snoozed" ? (
-            <span className="shrink-0 px-1.5 py-0.5 rounded text-[9px] font-bold uppercase tracking-wider bg-amber-100 text-amber-700">Snoozed</span>
-          ) : windowExpired ? (
-            <Tip label="24h window closed - template only" side="top">
-              <span className="shrink-0 inline-flex items-center gap-0.5 px-1.5 py-0.5 rounded text-[9px] font-bold uppercase tracking-wider bg-hot/10 text-hot"><Clock className="w-2.5 h-2.5" />24h</span>
-            </Tip>
-          ) : null}
           <span className="flex-1" />
           <WindowTime lastMessageAt={c.last_message_at} unread={unread} />
         </div>
 
-        {/* Line 2: preview (full text on hover) + one urgent signal + unread count */}
-        <div className={cn("flex items-center gap-1.5", dense ? "mt-1" : "mt-1.5")}>
+        {/* Line 2: last-responder icon + preview + one signal + unread count */}
+        <div className={cn("flex items-center gap-1.5", dense ? "mt-0.5" : "mt-1")}>
+          {c.last_message_direction === "agent" && (
+            <Tip label={c.is_bot_active ? "Replied by Simpuler" : "Replied by agent"} side="top">
+              {c.is_bot_active
+                ? <Bot className="w-3.5 h-3.5 shrink-0 text-muted-foreground" />
+                : <Headset className="w-3.5 h-3.5 shrink-0 text-muted-foreground" />}
+            </Tip>
+          )}
           <Tip label={<span className="block max-w-[300px] whitespace-pre-wrap leading-snug text-left text-[12px]">{previewFull}</span>} side="bottom" align="start">
             <span className={cn(
               "flex-1 min-w-0 truncate text-[12px] leading-snug",
               unread ? "text-foreground/85" : "text-muted-foreground",
             )}>
-              {agentReplied && !unread && <Headset className="inline-block w-3 h-3 mr-1 -mt-0.5 text-primary/60 align-middle" />}
               {media ? (
                 <span className="inline-flex items-center gap-1 align-middle"><media.icon className="w-3.5 h-3.5 shrink-0" />{media.label}</span>
               ) : (
@@ -116,7 +123,11 @@ const ConversationCard = memo(function ConversationCard({
               )}
             </span>
           </Tip>
-          {needsCall ? (
+          {c.status === "closed" ? (
+            <Tip label="Closed" side="top"><CheckCircle className="w-3.5 h-3.5 text-muted-foreground shrink-0" /></Tip>
+          ) : c.status === "snoozed" ? (
+            <Tip label="Snoozed" side="top"><Clock className="w-3.5 h-3.5 text-warm shrink-0" /></Tip>
+          ) : needsCall ? (
             <Tip label="Call this hot lead" side="top"><Phone className="w-3.5 h-3.5 text-info shrink-0" /></Tip>
           ) : needsFollowUp ? (
             <Tip label="Follow up now" side="top"><Zap className="w-3.5 h-3.5 text-warm shrink-0" /></Tip>

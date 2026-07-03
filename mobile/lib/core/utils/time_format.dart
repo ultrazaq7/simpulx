@@ -32,10 +32,11 @@ String formatTimeLeft(DateTime? until) {
   return h > 0 ? '${diff.inDays}d ${h}h' : '${diff.inDays}d';
 }
 
-/// International absolute timestamp: MM/dd/yyyy HH:mm:ss (24h clock, local).
+/// International absolute date: MM/dd/yyyy (local). Chat-list rows show only
+/// the date; the live 24h countdown lives in the tile's corner badge.
 String formatSessionTimestamp(DateTime? dt) {
   if (dt == null) return '';
-  return DateFormat('MM/dd/yyyy HH:mm:ss').format(dt.toLocal());
+  return DateFormat('MM/dd/yyyy').format(dt.toLocal());
 }
 
 /// Live countdown of the 24h WhatsApp session window from [lastMessageAt]:

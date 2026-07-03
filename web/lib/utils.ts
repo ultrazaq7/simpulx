@@ -60,7 +60,10 @@ export function windowState(dateStr: string | Date | undefined | null): { open: 
   const d = new Date(dateStr);
   if (isNaN(d.getTime())) return { open: false, text: "" };
   const remaining = d.getTime() + SESSION_WINDOW_MS - Date.now();
-  if (remaining <= 0) return { open: false, text: fmtDateTime(d) };
+  if (remaining <= 0) {
+    const p = (n: number) => String(n).padStart(2, "0");
+    return { open: false, text: `${p(d.getMonth() + 1)}/${p(d.getDate())}/${d.getFullYear()}` };
+  }
   const h = Math.floor(remaining / 3600000);
   const m = Math.floor((remaining % 3600000) / 60000);
   const s = Math.floor((remaining % 60000) / 1000);

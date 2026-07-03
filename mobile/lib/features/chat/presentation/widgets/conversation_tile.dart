@@ -21,9 +21,6 @@ class ConversationTile extends ConsumerWidget {
   final Conversation conversation;
   final VoidCallback onTap;
 
-  static bool _isInactive(String status) =>
-      status == 'closed' || status == 'snoozed';
-
   @override
   Widget build(BuildContext context, WidgetRef ref) {
     final theme = Theme.of(context);
@@ -33,12 +30,34 @@ class ConversationTile extends ConsumerWidget {
     final isOutbound = c.lastMessageDirection == 'agent';
     final isManager =
         ref.watch(sessionControllerProvider).user?.role.isManagerTier ?? false;
+    // Top-right corner session badge: a live countdown pill while the 24h
+    // WhatsApp window is open, or a red "24H" badge once it has closed
+    // (template-only). Mutually exclusive; row 1 shifts down to make room.
+    final countdownActive = formatWindowCountdown(c.lastMessageAt) != null;
+    final windowExpired = c.channel == 'whatsapp' &&
+        c.lastMessageAt != null &&
+        !countdownActive;
+    final hasCornerBadge = countdownActive || windowExpired;
 
     return InkWell(
       onTap: onTap,
-      child: Padding(
-        padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 10),
-        child: Row(
+      child: Stack(
+        children: [
+          if (countdownActive)
+            Positioned(
+              top: 5,
+              right: 16,
+              child: _CountdownBadge(lastMessageAt: c.lastMessageAt!),
+            )
+          else if (windowExpired)
+            const Positioned(
+              top: 5,
+              right: 16,
+              child: _Window24hBadge(),
+            ),
+          Padding(
+            padding: EdgeInsets.fromLTRB(16, hasCornerBadge ? 26 : 10, 16, 10),
+            child: Row(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
             _Avatar(name: c.displayName, channel: c.channel),
@@ -47,6 +66,7 @@ class ConversationTile extends ConsumerWidget {
               child: Column(
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
+                  // Line 1: name + date (clean, one trailing element).
                   Row(
                     children: [
                       Flexible(
@@ -54,20 +74,14 @@ class ConversationTile extends ConsumerWidget {
                           c.displayName,
                           maxLines: 1,
                           overflow: TextOverflow.ellipsis,
-                          style: theme.textTheme.bodyLarge?.copyWith(
+                          style: TextStyle(
+                            fontSize: 14,
                             fontWeight:
                                 hasUnread ? FontWeight.w700 : FontWeight.w600,
+                            color: theme.colorScheme.onSurface,
                           ),
                         ),
                       ),
-                      // Past the 24h WhatsApp window -> template-only "24H" badge
-                      // (mirrors the web ConversationCard placement + content).
-                      if (c.channel == 'whatsapp' &&
-                          c.lastMessageAt != null &&
-                          formatWindowCountdown(c.lastMessageAt) == null) ...[
-                        const SizedBox(width: 6),
-                        const _Window24hBadge(),
-                      ],
                       const Spacer(),
                       const SizedBox(width: 8),
                       _WindowTime(
@@ -76,13 +90,19 @@ class ConversationTile extends ConsumerWidget {
                       ),
                     ],
                   ),
-                  const SizedBox(height: 3),
+                  const SizedBox(height: 2),
+                  // Line 2: last-responder icon + preview + status/unread.
                   Row(
                     children: [
-                      if (isOutbound && preview != null) ...[
-                        const Icon(Icons.done_all_rounded,
-                            size: 15, color: AppColors.textMuted),
-                        const SizedBox(width: 3),
+                      if (isOutbound) ...[
+                        Icon(
+                          c.isBotActive
+                              ? Icons.smart_toy_outlined
+                              : Icons.headset_mic_outlined,
+                          size: 13,
+                          color: AppColors.textMuted,
+                        ),
+                        const SizedBox(width: 4),
                       ],
                       Expanded(
                         child: _PreviewWidget(
@@ -91,20 +111,24 @@ class ConversationTile extends ConsumerWidget {
                         ),
                       ),
                       const SizedBox(width: 6),
-                      if (hasUnread) _PulsingUnreadBadge(count: c.unreadCount),
+                      // Clean trailing: unread count, else closed/snoozed icon.
+                      if (hasUnread)
+                        _PulsingUnreadBadge(count: c.unreadCount)
+                      else if (c.status == 'closed')
+                        const Icon(Icons.check_circle_outline_rounded,
+                            size: 14, color: AppColors.textMuted)
+                      else if (c.status == 'snoozed')
+                        const Icon(Icons.snooze_rounded,
+                            size: 14, color: AppColors.warning),
                     ],
                   ),
-                  if (_isInactive(c.status) ||
-                      (isManager && (c.agentName?.isNotEmpty ?? false)) ||
+                  if ((isManager && (c.agentName?.isNotEmpty ?? false)) ||
                       (c.campaignName?.isNotEmpty ?? false)) ...[
                     const SizedBox(height: 6),
                     Wrap(
                       spacing: 6,
                       runSpacing: 4,
                       children: [
-                        if (_isInactive(c.status))
-                          _StatusChip(
-                              status: c.status, until: c.snoozedUntil),
                         if (isManager && (c.agentName?.isNotEmpty ?? false))
                           _AssigneeChip(name: c.agentName!),
                         if (c.campaignName?.isNotEmpty ?? false)
@@ -117,6 +141,8 @@ class ConversationTile extends ConsumerWidget {
             ),
           ],
         ),
+          ),
+        ],
       ),
     );
   }
@@ -232,47 +258,6 @@ class _PulsingUnreadBadgeState extends State<_PulsingUnreadBadge>
   }
 }
 
-/// Hot / Warm / Cold pill.
-class _InterestBadge extends StatelessWidget {
-  const _InterestBadge({required this.level});
-  final String level;
-
-  @override
-  Widget build(BuildContext context) {
-    final color = AppColors.forInterest(level);
-    final label = level.isEmpty
-        ? level
-        : '${level[0].toUpperCase()}${level.substring(1).toLowerCase()}';
-    return Container(
-      padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 2),
-      decoration: BoxDecoration(
-        color: color.withValues(alpha: 0.12),
-        borderRadius: BorderRadius.circular(999),
-        border: Border.all(color: color.withValues(alpha: 0.4)),
-      ),
-      child: Row(
-        mainAxisSize: MainAxisSize.min,
-        children: [
-          Container(
-            width: 6,
-            height: 6,
-            margin: const EdgeInsets.only(right: 4),
-            decoration: BoxDecoration(color: color, shape: BoxShape.circle),
-          ),
-          Text(
-            label,
-            style: TextStyle(
-              fontSize: 10.5,
-              color: color,
-              fontWeight: FontWeight.w700,
-            ),
-          ),
-        ],
-      ),
-    );
-  }
-}
-
 class _AssigneeChip extends StatelessWidget {
   const _AssigneeChip({required this.name});
   final String name;
@@ -296,120 +281,6 @@ class _AssigneeChip extends StatelessWidget {
             style: const TextStyle(
               fontSize: 10.5,
               color: AppColors.primaryDark,
-              fontWeight: FontWeight.w600,
-            ),
-          ),
-        ],
-      ),
-    );
-  }
-}
-
-/// Closed / Snoozed status pill, so an inactive lead stays in the inbox but is
-/// clearly marked instead of looking identical to an open chat. The snoozed
-/// variant shows a live countdown that ticks down each minute while visible.
-class _StatusChip extends StatefulWidget {
-  const _StatusChip({required this.status, this.until});
-  final String status;
-  final DateTime? until;
-
-  @override
-  State<_StatusChip> createState() => _StatusChipState();
-}
-
-class _StatusChipState extends State<_StatusChip> {
-  Timer? _ticker;
-
-  @override
-  void initState() {
-    super.initState();
-    if (widget.status == 'snoozed' && widget.until != null) {
-      // Refresh the "time left" label about once a minute (hour-scale snoozes
-      // don't need per-second updates).
-      _ticker = Timer.periodic(const Duration(seconds: 30), (_) {
-        if (mounted) setState(() {});
-      });
-    }
-  }
-
-  @override
-  void dispose() {
-    _ticker?.cancel();
-    super.dispose();
-  }
-
-  @override
-  Widget build(BuildContext context) {
-    // Status reflects open/closed/snoozed only. "Lost" is conveyed by the stage
-    // chip now, so a lost lead just reads "Closed" here (no duplicate "Lost").
-    final isSnoozed = widget.status == 'snoozed';
-    final Color color;
-    final IconData icon;
-    String label;
-    if (isSnoozed) {
-      color = AppColors.warning;
-      icon = Icons.snooze_rounded;
-      final left = formatTimeLeft(widget.until);
-      label = widget.until == null
-          ? 'Snoozed'
-          : (left == 'due' ? 'Reopening' : 'Snoozed · $left left');
-    } else {
-      color = AppColors.textMuted;
-      icon = Icons.check_circle_outline_rounded;
-      label = 'Closed';
-    }
-    return Container(
-      padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 2),
-      decoration: BoxDecoration(
-        color: color.withValues(alpha: 0.12),
-        borderRadius: BorderRadius.circular(999),
-        border: Border.all(color: color.withValues(alpha: 0.4)),
-      ),
-      child: Row(
-        mainAxisSize: MainAxisSize.min,
-        children: [
-          Icon(icon, size: 12, color: color),
-          const SizedBox(width: 3),
-          Text(
-            label,
-            style: TextStyle(
-              fontSize: 10.5,
-              color: color,
-              fontWeight: FontWeight.w700,
-            ),
-          ),
-        ],
-      ),
-    );
-  }
-}
-
-class _StageChip extends StatelessWidget {
-  const _StageChip({required this.label});
-  final String label;
-
-  @override
-  Widget build(BuildContext context) {
-    final theme = Theme.of(context);
-    final bgColor = theme.colorScheme.surfaceContainerHighest;
-    final fgColor = theme.colorScheme.onSurfaceVariant;
-
-    return Container(
-      padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 2),
-      decoration: BoxDecoration(
-        color: bgColor,
-        borderRadius: BorderRadius.circular(999),
-      ),
-      child: Row(
-        mainAxisSize: MainAxisSize.min,
-        children: [
-          Icon(Icons.timeline_rounded, size: 12, color: fgColor),
-          const SizedBox(width: 4),
-          Text(
-            label,
-            style: TextStyle(
-              fontSize: 10.5,
-              color: fgColor,
               fontWeight: FontWeight.w600,
             ),
           ),
@@ -549,19 +420,39 @@ class _Window24hBadge extends StatelessWidget {
   }
 }
 
-/// Chat-list time cell: a live per-second countdown of the 24h session window,
-/// then the absolute timestamp (MM/dd/yyyy HH:mm:ss) once elapsed. Ticks only
-/// while the window is open. Mirrors the web WindowTime component.
-class _WindowTime extends StatefulWidget {
+/// Chat-list date cell: the static MM/dd/yyyy date. The live 24h countdown
+/// lives in [_CountdownBadge] pinned to the tile's corner.
+class _WindowTime extends StatelessWidget {
   const _WindowTime({required this.lastMessageAt, required this.hasUnread});
   final DateTime? lastMessageAt;
   final bool hasUnread;
 
   @override
-  State<_WindowTime> createState() => _WindowTimeState();
+  Widget build(BuildContext context) {
+    final theme = Theme.of(context);
+    return Text(
+      formatSessionTimestamp(lastMessageAt),
+      style: theme.textTheme.bodySmall?.copyWith(
+        color: hasUnread ? AppColors.primary : AppColors.textMuted,
+        fontWeight: hasUnread ? FontWeight.w700 : FontWeight.w400,
+        fontSize: 10.5,
+      ),
+    );
+  }
 }
 
-class _WindowTimeState extends State<_WindowTime> {
+/// Corner badge: live per-second countdown of the 24h session window as a
+/// solid blue pill ("Xh Ym Zs"). Ticks only while the window is open and
+/// stops its own ticker once it elapses. Mirrors web WindowCountdownBadge.
+class _CountdownBadge extends StatefulWidget {
+  const _CountdownBadge({required this.lastMessageAt});
+  final DateTime lastMessageAt;
+
+  @override
+  State<_CountdownBadge> createState() => _CountdownBadgeState();
+}
+
+class _CountdownBadgeState extends State<_CountdownBadge> {
   Timer? _timer;
 
   @override
@@ -571,7 +462,7 @@ class _WindowTimeState extends State<_WindowTime> {
   }
 
   @override
-  void didUpdateWidget(covariant _WindowTime old) {
+  void didUpdateWidget(covariant _CountdownBadge old) {
     super.didUpdateWidget(old);
     if (old.lastMessageAt != widget.lastMessageAt) _sync();
   }
@@ -602,36 +493,25 @@ class _WindowTimeState extends State<_WindowTime> {
 
   @override
   Widget build(BuildContext context) {
-    final theme = Theme.of(context);
     final countdown = formatWindowCountdown(widget.lastMessageAt);
-    if (countdown != null) {
-      return Container(
-        padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
-        decoration: BoxDecoration(
-          color: AppColors.primary.withValues(alpha: 0.12),
-          borderRadius: BorderRadius.circular(20),
-        ),
-        child: Row(
-          mainAxisSize: MainAxisSize.min,
-          children: [
-            const Icon(Icons.schedule_rounded,
-                size: 11, color: AppColors.primary),
-            const SizedBox(width: 3),
-            Text(countdown,
-                style: const TextStyle(
-                    fontSize: 11,
-                    fontWeight: FontWeight.w600,
-                    color: AppColors.primary)),
-          ],
-        ),
-      );
-    }
-    return Text(
-      formatSessionTimestamp(widget.lastMessageAt),
-      style: theme.textTheme.bodySmall?.copyWith(
-        color: widget.hasUnread ? AppColors.primary : AppColors.textMuted,
-        fontWeight: widget.hasUnread ? FontWeight.w700 : FontWeight.w400,
-        fontSize: 10.5,
+    if (countdown == null) return const SizedBox.shrink();
+    return Container(
+      padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 2),
+      decoration: BoxDecoration(
+        color: AppColors.primary,
+        borderRadius: BorderRadius.circular(20),
+      ),
+      child: Row(
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          const Icon(Icons.schedule_rounded, size: 11, color: Colors.white),
+          const SizedBox(width: 3),
+          Text(countdown,
+              style: const TextStyle(
+                  fontSize: 10.5,
+                  fontWeight: FontWeight.w700,
+                  color: Colors.white)),
+        ],
       ),
     );
   }

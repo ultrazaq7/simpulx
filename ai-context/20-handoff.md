@@ -36,6 +36,7 @@ Simpulx v2.
 | 19 | current-state | honest status snapshot |
 | 20 | handoff | this file |
 | 21 | whatsapp-calling | WhatsApp Business Calling API scope (real calls + auto duration) |
+| 22 | enterprise-revamp-plan | ACTIVE batch: enterprise CRM revamp plan + progress checklist (start here if continuing that work) |
 
 ## The six things that will bite you
 
