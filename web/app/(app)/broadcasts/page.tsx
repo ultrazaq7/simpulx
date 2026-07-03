@@ -12,6 +12,7 @@ import { Tip } from "@/components/ui/tooltip";
 
 import { api } from "@/lib/api";
 import { Select } from "@/components/Select";
+import SidePanel from "@/components/SidePanel";
 import { usePermissions } from "@/lib/permissions";
 import { fmtDate, cn } from "@/lib/utils";
 import type { Broadcast, Template, Channel, Contact } from "@/lib/types";
@@ -395,53 +396,15 @@ function BroadcastWizard({ onClose, onDone }: { onClose: () => void; onDone: (ms
   }
 
   return (
-    <div className="fixed inset-0 z-[100] flex items-center justify-center p-4">
-      <div className="absolute inset-0 bg-black/45 backdrop-blur-[2px] animate-fade-in" onClick={onClose} />
-      <div className="relative w-full max-w-[840px] max-h-[88vh] rounded-xl border border-border bg-card shadow-2xl animate-scale-in flex flex-col">
-        {/* Header */}
-        <div className="flex items-center gap-3 px-6 py-4 border-b border-border shrink-0">
-          <div className="w-9 h-9 rounded-lg bg-primary/10 text-primary grid place-items-center"><Megaphone className="w-5 h-5" /></div>
-          <div className="flex-1 min-w-0">
-            <p className="font-bold text-[16px] text-foreground leading-tight">New broadcast</p>
-            <p className="text-[12px] text-muted-foreground">Step {step + 1} of {STEPS.length}: {STEPS[step]}</p>
-          </div>
-          <button onClick={onClose} className="p-1.5 rounded-md text-muted-foreground hover:bg-muted hover:text-foreground outline-none"><X className="w-5 h-5" /></button>
-        </div>
-
-        {/* Step dots */}
-        <div className="flex items-center px-6 pt-4 shrink-0">
-          {STEPS.map((s, i) => {
-            const done = i < step, active = i === step;
-            return (
-              <div key={s} className="flex items-center flex-1 last:flex-none">
-                <div className={cn("w-7 h-7 rounded-full grid place-items-center text-[12px] font-bold shrink-0 transition-colors",
-                  done ? "bg-success text-white" : active ? "bg-primary text-white" : "bg-muted text-muted-foreground")}>
-                  {done ? <Check className="w-3.5 h-3.5" /> : i + 1}
-                </div>
-                {i < STEPS.length - 1 && <div className={cn("h-0.5 flex-1 mx-1.5 rounded-full", done ? "bg-success" : "bg-border")} />}
-              </div>
-            );
-          })}
-        </div>
-
-        {/* Body */}
-        <div className="flex-1 overflow-y-auto px-6 py-6 min-h-0">
-          {step === 0 && <NameStep name={name} setName={setName} />}
-          {step === 1 && <ChannelStep {...{ type, setType, channels, channelId, setChannelId, setTemplateId }} />}
-          {step === 2 && <AudienceStep {...{ audienceMode, setAudienceMode, allTags, filterTags, setFilterTags, estRecipients, contacts: filteredContacts, selectedIds, toggleContact, contactSearch, setContactSearch, onImport: () => setImportOpen(true) }} />}
-          {step === 3 && (
-            <MessageStep {...{ type, textMessage, setTextMessage, approvedTemplates, templateId, setTemplateId, template, previewBody,
-              testCandidates, testContactId, setTestContactId, canTest, sendTest, sendingTest, testFlash, audienceMode }} />
-          )}
-          {step === 4 && (
-            <ReviewStep {...{ name, type, channelName: channel?.name ?? null, audienceMode, filterTags, selectedCount: selectedIds.size,
-              template, textMessage, previewBody, costEstimate, sendNow, setSendNow }} />
-          )}
-          {err && <div className="mt-4 px-3 py-2 rounded-md bg-destructive/10 border border-destructive/20 text-destructive text-[13px] font-medium">{err}</div>}
-        </div>
-
-        {/* Footer */}
-        <div className="flex items-center gap-2 px-6 py-4 border-t border-border shrink-0">
+    <>
+    <SidePanel
+      open
+      onClose={onClose}
+      title="New broadcast"
+      description={`Step ${step + 1} of ${STEPS.length}: ${STEPS[step]}`}
+      width="lg"
+      footer={
+        <div className="flex items-center gap-2 w-full">
           {step > 0 && (
             <button onClick={() => setStep(step - 1)} className="inline-flex items-center gap-1.5 px-4 h-9 rounded-md border border-border text-sm font-semibold text-foreground/80 hover:bg-muted transition-colors outline-none">
               <ArrowLeft className="w-4 h-4" /> Back
@@ -462,18 +425,54 @@ function BroadcastWizard({ onClose, onDone }: { onClose: () => void; onDone: (ms
             </button>
           )}
         </div>
-      </div>
+      }
+    >
+        {/* Step dots */}
+        <div className="flex items-center gap-3 pb-5">
+          <div className="w-9 h-9 rounded-lg bg-primary/10 text-primary grid place-items-center shrink-0"><Megaphone className="w-5 h-5" /></div>
+          <div className="flex items-center flex-1">
+            {STEPS.map((s, i) => {
+              const done = i < step, active = i === step;
+              return (
+                <div key={s} className="flex items-center flex-1 last:flex-none">
+                  <div className={cn("w-7 h-7 rounded-full grid place-items-center text-[12px] font-bold shrink-0 transition-colors",
+                    done ? "bg-success text-white" : active ? "bg-primary text-white" : "bg-muted text-muted-foreground")}>
+                    {done ? <Check className="w-3.5 h-3.5" /> : i + 1}
+                  </div>
+                  {i < STEPS.length - 1 && <div className={cn("h-0.5 flex-1 mx-1.5 rounded-full", done ? "bg-success" : "bg-border")} />}
+                </div>
+              );
+            })}
+          </div>
+        </div>
 
-      {importOpen && (
-        <ImportContactsDialog contacts={contacts}
-          onClose={() => setImportOpen(false)}
-          onMatched={(ids, count, total) => {
-            setSelectedIds((prev) => { const n = new Set(prev); ids.forEach((i) => n.add(i)); return n; });
-            setImportOpen(false);
-            flashTest(`${count} contact${count === 1 ? "" : "s"} matched from ${total} numbers`);
-          }} />
-      )}
-    </div>
+        {/* Body */}
+        <div>
+          {step === 0 && <NameStep name={name} setName={setName} />}
+          {step === 1 && <ChannelStep {...{ type, setType, channels, channelId, setChannelId, setTemplateId }} />}
+          {step === 2 && <AudienceStep {...{ audienceMode, setAudienceMode, allTags, filterTags, setFilterTags, estRecipients, contacts: filteredContacts, selectedIds, toggleContact, contactSearch, setContactSearch, onImport: () => setImportOpen(true) }} />}
+          {step === 3 && (
+            <MessageStep {...{ type, textMessage, setTextMessage, approvedTemplates, templateId, setTemplateId, template, previewBody,
+              testCandidates, testContactId, setTestContactId, canTest, sendTest, sendingTest, testFlash, audienceMode }} />
+          )}
+          {step === 4 && (
+            <ReviewStep {...{ name, type, channelName: channel?.name ?? null, audienceMode, filterTags, selectedCount: selectedIds.size,
+              template, textMessage, previewBody, costEstimate, sendNow, setSendNow }} />
+          )}
+          {err && <div className="mt-4 px-3 py-2 rounded-md bg-destructive/10 border border-destructive/20 text-destructive text-[13px] font-medium">{err}</div>}
+        </div>
+    </SidePanel>
+
+    {importOpen && (
+      <ImportContactsDialog contacts={contacts}
+        onClose={() => setImportOpen(false)}
+        onMatched={(ids, count, total) => {
+          setSelectedIds((prev) => { const n = new Set(prev); ids.forEach((i) => n.add(i)); return n; });
+          setImportOpen(false);
+          flashTest(`${count} contact${count === 1 ? "" : "s"} matched from ${total} numbers`);
+        }} />
+    )}
+    </>
   );
 }
 

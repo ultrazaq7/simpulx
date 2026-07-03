@@ -7,6 +7,7 @@ import { api } from "@/lib/api";
 import type { Sequence, SequenceStep, Campaign } from "@/lib/types";
 import { Select } from "@/components/Select";
 import { Tip } from "@/components/ui/tooltip";
+import SidePanel from "@/components/SidePanel";
 import { cn } from "@/lib/utils";
 import { usePermissions } from "@/lib/permissions";
 
@@ -196,20 +197,21 @@ function DripEditor({ id, campaigns, onClose, onSaved }: { id: string | null; ca
   };
 
   return (
-    <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40 backdrop-blur-sm p-4" onClick={onClose}>
-      <div className="w-full max-w-[600px] max-h-[90vh] flex flex-col rounded-2xl bg-card border border-border shadow-2xl overflow-hidden" onClick={(e) => e.stopPropagation()}>
-        <div className="flex items-center justify-between gap-3 px-5 py-4 border-b border-border">
-          <div className="inline-flex items-center gap-2">
-            <span className="grid place-items-center w-8 h-8 rounded-lg bg-primary/10 text-primary"><Repeat className="w-4 h-4" /></span>
-            <h2 className="text-[15px] font-bold text-foreground">{isEdit ? "Edit drip campaign" : "New drip campaign"}</h2>
-          </div>
-          <button onClick={onClose} className="p-1.5 rounded-md text-muted-foreground hover:text-foreground hover:bg-muted"><X className="w-4.5 h-4.5" /></button>
-        </div>
-
+    <SidePanel
+      open
+      onClose={onClose}
+      title={isEdit ? "Edit drip campaign" : "New drip campaign"}
+      description="Automated message sequence triggered per lead."
+      width="lg"
+      busy={saving}
+      onApply={save}
+      applyLabel={isEdit ? "Save changes" : "Create"}
+      applyDisabled={loading}
+    >
         {loading ? (
           <div className="p-10 grid place-items-center"><Loader2 className="w-5 h-5 animate-spin text-muted-foreground" /></div>
         ) : (
-          <div className="p-5 overflow-y-auto flex flex-col gap-4">
+          <div className="flex flex-col gap-4">
             <div>
               <label className="text-[12px] font-semibold text-foreground/80">Name</label>
               <input value={name} onChange={(e) => setName(e.target.value)} autoFocus placeholder="e.g. XFORCE nurture"
@@ -262,14 +264,6 @@ function DripEditor({ id, campaigns, onClose, onSaved }: { id: string | null; ca
             {err && <p className="text-[12px] text-destructive">{err}</p>}
           </div>
         )}
-
-        <div className="flex items-center justify-end gap-2 px-5 py-3.5 border-t border-border">
-          <button onClick={onClose} className="h-9 px-4 rounded-lg border border-border text-[13px] font-semibold text-foreground hover:bg-muted">Cancel</button>
-          <button onClick={save} disabled={saving || loading} className="inline-flex items-center gap-1.5 h-9 px-4 rounded-lg bg-primary text-white text-[13px] font-semibold hover:bg-primary/90 disabled:opacity-60">
-            {saving && <Loader2 className="w-4 h-4 animate-spin" />} {isEdit ? "Save changes" : "Create"}
-          </button>
-        </div>
-      </div>
-    </div>
+    </SidePanel>
   );
 }

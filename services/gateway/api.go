@@ -112,6 +112,9 @@ func (s *server) handleListConversations(w http.ResponseWriter, r *http.Request)
 		        (SELECT m.status FROM messages m
 		           WHERE m.conversation_id = cv.id AND m.direction = 'outbound'
 		           ORDER BY m.created_at DESC LIMIT 1) AS last_outbound_status,
+		        EXISTS(SELECT 1 FROM messages m
+		           WHERE m.conversation_id = cv.id
+		             AND m.direction = 'inbound' AND m.genuine = true) AS customer_responded,
 		        cv.interest_level, cv.ai_stage,
 		        cv.car_brand, cv.car_model, cv.city, cv.purchase_timeframe, cv.lost_reason,
 		        cv.lead_summary, cv.suggested_action, cv.suggested_action_reason,
@@ -169,6 +172,9 @@ func (s *server) handleGetConversation(w http.ResponseWriter, r *http.Request) {
 		        (SELECT m.status FROM messages m
 		           WHERE m.conversation_id = cv.id AND m.direction = 'outbound'
 		           ORDER BY m.created_at DESC LIMIT 1) AS last_outbound_status,
+		        EXISTS(SELECT 1 FROM messages m
+		           WHERE m.conversation_id = cv.id
+		             AND m.direction = 'inbound' AND m.genuine = true) AS customer_responded,
 		        cv.interest_level, cv.ai_stage,
 		        cv.car_brand, cv.car_model, cv.city, cv.purchase_timeframe, cv.lost_reason,
 		        cv.lead_summary, cv.suggested_action, cv.suggested_action_reason,

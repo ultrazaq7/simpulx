@@ -5,8 +5,7 @@ import {
 } from "lucide-react";
 
 import { type FilterOption } from "./MultiSelectFilter";
-import { type FilterCategory, type FilterToggle } from "./FilterPopover";
-import FiltersDrawer from "./FiltersDrawer";
+import FilterPopover, { type FilterCategory, type FilterToggle } from "./FilterPopover";
 import ConversationCard from "./ConversationCard";
 import { ConversationListSkeleton } from "./InboxSkeletons";
 import { cn } from "@/lib/utils";
@@ -174,6 +173,10 @@ export default function ConversationList({
   const [filterOpen, setFilterOpen] = useState(false);
   const [searchMode, setSearchMode] = useState<SearchMode>("name");
   const [dense, setDense] = useState(false);
+  // Inbox-local quick toggles (not threaded through the parent).
+  const [unresponded, setUnresponded] = useState(false);
+  const [lastByCustomer, setLastByCustomer] = useState(false);
+  const [lastByBot, setLastByBot] = useState(false);
   const searchInputRef = useRef<HTMLInputElement>(null);
   const shownRef = useRef<Conversation[]>([]);
 
@@ -247,6 +250,12 @@ export default function ConversationList({
     if (followUpOnly) list = list.filter((c) => (c.interest_level === "hot" || c.interest_level === "warm") && c.unread_count > 0);
     if (unreadOnly) list = list.filter((c) => c.unread_count > 0);
     if (needsReplyOnly) list = list.filter((c) => c.last_message_direction === "contact" || c.unread_count > 0);
+    // Unresponded = the customer has NOT genuinely replied yet (only the
+    // CTWA/lead-capture opener exists, no real human reply). customer_responded
+    // comes from the API; fall back to the direction heuristic pre-deploy.
+    if (unresponded) list = list.filter((c) => c.customer_responded === undefined ? c.last_message_direction === "contact" : !c.customer_responded);
+    if (lastByCustomer) list = list.filter((c) => c.last_sender_type === "contact");
+    if (lastByBot) list = list.filter((c) => c.last_sender_type === "bot");
 
     const sorted = [...list];
     switch (sort) {
@@ -270,7 +279,7 @@ export default function ConversationList({
         break;
     }
     return sorted;
-  }, [convs, query, searchMode, filterStatuses, filterStages, filterCampaigns, filterInterests, filterAgents, filterChannels, channels, followUpOnly, unreadOnly, needsReplyOnly, sort]);
+  }, [convs, query, searchMode, filterStatuses, filterStages, filterCampaigns, filterInterests, filterAgents, filterChannels, channels, followUpOnly, unreadOnly, needsReplyOnly, unresponded, lastByCustomer, lastByBot, sort]);
 
   shownRef.current = shown;
 
@@ -304,7 +313,8 @@ export default function ConversationList({
 
   const activeFiltersCount =
     filterStages.length + filterCampaigns.length + filterInterests.length + filterStatuses.length + filterAgents.length + filterChannels.length +
-    (followUpOnly ? 1 : 0) + (unreadOnly ? 1 : 0) + (needsReplyOnly ? 1 : 0) + (query ? 1 : 0);
+    (followUpOnly ? 1 : 0) + (unreadOnly ? 1 : 0) + (needsReplyOnly ? 1 : 0) +
+    (unresponded ? 1 : 0) + (lastByCustomer ? 1 : 0) + (lastByBot ? 1 : 0) + (query ? 1 : 0);
 
   const clearAll = () => {
     onQueryChange("");
@@ -317,6 +327,9 @@ export default function ConversationList({
     if (followUpOnly) onFollowUpToggle();
     if (unreadOnly) onUnreadToggle();
     if (needsReplyOnly) onNeedsReplyToggle();
+    setUnresponded(false);
+    setLastByCustomer(false);
+    setLastByBot(false);
   };
 
   const filterCategories: FilterCategory[] = [
@@ -331,6 +344,9 @@ export default function ConversationList({
   const filterToggles: FilterToggle[] = [
     { key: "unread", label: "Unread", active: unreadOnly, onToggle: onUnreadToggle },
     { key: "needsreply", label: "Needs reply", active: needsReplyOnly, onToggle: onNeedsReplyToggle },
+    { key: "unresponded", label: "Unresponded chat", active: unresponded, onToggle: () => setUnresponded((v) => !v) },
+    { key: "lastcustomer", label: "Last message by customer", active: lastByCustomer, onToggle: () => setLastByCustomer((v) => !v) },
+    { key: "lastbot", label: "Last message by bot", active: lastByBot, onToggle: () => setLastByBot((v) => !v) },
   ];
 
   return (
@@ -377,15 +393,18 @@ export default function ConversationList({
                 )}
               </button>
             </Tip>
-            {/* Filters live in a right-side drawer (enterprise pattern). */}
-            <FiltersDrawer
-              open={filterOpen}
-              onClose={() => setFilterOpen(false)}
-              categories={filterCategories}
-              toggles={filterToggles}
-              activeCount={activeFiltersCount}
-              onClearAll={clearAll}
-            />
+            {/* Inbox keeps the master-detail filter popover (per owner). */}
+            {filterOpen && (
+              <div className="absolute top-full left-0 mt-1.5 z-50">
+                <FilterPopover
+                  categories={filterCategories}
+                  toggles={filterToggles}
+                  activeCount={activeFiltersCount}
+                  onClearAll={clearAll}
+                  onClose={() => setFilterOpen(false)}
+                />
+              </div>
+            )}
           </div>
 
           <Tip label={dense ? "Comfortable rows" : "Compact rows"} side="bottom">

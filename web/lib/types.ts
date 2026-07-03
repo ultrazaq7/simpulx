@@ -20,6 +20,7 @@ export interface Conversation {
   last_message_preview: string | null;
   last_message_direction: "agent" | "contact";
   last_sender_type?: string | null; // contact | agent | bot | system (of the latest message)
+  customer_responded?: boolean; // true once the customer sends a genuine reply (not the CTWA opener)
   last_outbound_status?: string | null; // sent | delivered | read | failed (last outbound msg)
   contact_name: string | null;
   contact_phone: string | null;

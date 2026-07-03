@@ -1,8 +1,9 @@
 "use client";
 import { useMemo, useState } from "react";
-import { X, FileText, ExternalLink, Send } from "lucide-react";
+import { ExternalLink, Send } from "lucide-react";
 import Link from "next/link";
 import { Select } from "@/components/Select";
+import SidePanel from "@/components/SidePanel";
 import type { Template } from "@/lib/types";
 
 // "Send Template" wizard: pick an approved template, fill its {{variables}}, preview
@@ -26,20 +27,26 @@ export default function TemplateWizard({ templates, contactName, onClose, onUse 
   }, [sel, variables, values]);
 
   return (
-    <div className="fixed inset-0 z-[120] flex items-center justify-center p-4">
-      <div className="absolute inset-0 bg-black/40 backdrop-blur-[2px] animate-fade-in" onClick={onClose} />
-      <div className="relative w-[820px] max-w-full max-h-[88vh] rounded-xl border border-border bg-card shadow-2xl animate-scale-in flex flex-col overflow-hidden">
-        {/* Header */}
-        <div className="flex items-center gap-2 px-5 py-3.5 border-b border-border shrink-0">
-          <FileText className="w-[18px] h-[18px] text-primary" />
-          <p className="font-bold text-[15px] text-foreground flex-1">Send template</p>
-          <button aria-label="Close" onClick={onClose} className="p-1 rounded-md text-muted-foreground hover:bg-muted hover:text-foreground outline-none"><X className="w-[18px] h-[18px]" /></button>
+    <SidePanel
+      open
+      onClose={onClose}
+      title="Send template"
+      description="Pick an approved template, fill its variables, then drop it into the composer."
+      width="lg"
+      footer={
+        <div className="flex items-center justify-end gap-2 w-full">
+          <button onClick={onClose} className="px-3.5 py-2 rounded-md text-[13px] font-semibold text-foreground/70 hover:bg-muted outline-none">Cancel</button>
+          <button onClick={() => sel && onUse(filled)} disabled={!sel || !filled}
+            className="inline-flex items-center gap-1.5 px-4 py-2 rounded-md text-[13px] font-bold text-white bg-primary hover:bg-primary-dark disabled:opacity-50 outline-none shadow-sm transition-colors">
+            <Send className="w-4 h-4" />Use template
+          </button>
         </div>
-
-        <div className="flex-1 min-h-0 grid grid-cols-1 md:grid-cols-[1fr_300px] overflow-hidden">
-          {/* Left: select + variables */}
-          <div className="overflow-y-auto p-5 border-r border-border">
-            <div className="flex items-end gap-2 mb-4">
+      }
+    >
+      <div className="flex flex-col gap-5">
+        {/* Select + variables */}
+        <div>
+          <div className="flex items-end gap-2 mb-4">
               <div className="flex-1">
                 <label className="text-[12px] font-bold text-foreground/80 mb-1.5 block">Select template</label>
                 <Select value={selId} onChange={(v) => { setSelId(v); setValues({}); }}
@@ -75,37 +82,27 @@ export default function TemplateWizard({ templates, contactName, onClose, onUse 
                 )}
               </>
             )}
-          </div>
+        </div>
 
-          {/* Right: phone preview */}
-          <div className="p-4 bg-muted/30 overflow-y-auto hidden md:block">
-            <p className="text-[12px] font-bold text-foreground/70 mb-2 text-center">Preview</p>
-            <div className="rounded-[24px] border-[3px] border-[#2D2D44] bg-[#1A1A2E] p-1.5 shadow-xl">
-              <div className="rounded-[18px] overflow-hidden bg-[#ECE5DD]">
-                <div className="h-10 bg-[#075E54] flex items-center px-3 gap-2">
-                  <div className="w-6 h-6 rounded-full bg-white/25 shrink-0" />
-                  <span className="text-white text-[11px] font-semibold truncate">{contactName || "Customer"}</span>
-                </div>
-                <div className="min-h-[280px] p-3" style={{ background: "#ECE5DD", backgroundImage: "radial-gradient(rgba(0,0,0,0.035) 1px,transparent 1px)", backgroundSize: "14px 14px" }}>
-                  <div className="max-w-[220px] rounded-lg rounded-tl-sm bg-white px-3 pt-2 pb-1.5 shadow-sm">
-                    <p className="text-[11.5px] leading-relaxed text-[#303030] whitespace-pre-wrap break-words">{filled || "(select a template)"}</p>
-                    <p className="text-right text-[8.5px] text-[#8D9A9E] mt-1">11:44</p>
-                  </div>
+        {/* Phone preview */}
+        <div>
+          <p className="text-[12px] font-bold text-foreground/70 mb-2">Preview</p>
+          <div className="rounded-[24px] border-[3px] border-[#2D2D44] bg-[#1A1A2E] p-1.5 shadow-xl max-w-[280px]">
+            <div className="rounded-[18px] overflow-hidden bg-[#ECE5DD]">
+              <div className="h-10 bg-[#075E54] flex items-center px-3 gap-2">
+                <div className="w-6 h-6 rounded-full bg-white/25 shrink-0" />
+                <span className="text-white text-[11px] font-semibold truncate">{contactName || "Customer"}</span>
+              </div>
+              <div className="min-h-[220px] p-3" style={{ background: "#ECE5DD", backgroundImage: "radial-gradient(rgba(0,0,0,0.035) 1px,transparent 1px)", backgroundSize: "14px 14px" }}>
+                <div className="max-w-[220px] rounded-lg rounded-tl-sm bg-white px-3 pt-2 pb-1.5 shadow-sm">
+                  <p className="text-[11.5px] leading-relaxed text-[#303030] whitespace-pre-wrap break-words">{filled || "(select a template)"}</p>
+                  <p className="text-right text-[8.5px] text-[#8D9A9E] mt-1">11:44</p>
                 </div>
               </div>
             </div>
           </div>
         </div>
-
-        {/* Footer */}
-        <div className="flex items-center justify-end gap-2 px-5 py-3.5 border-t border-border shrink-0">
-          <button onClick={onClose} className="px-3.5 py-2 rounded-md text-[13px] font-semibold text-foreground/70 hover:bg-muted outline-none">Cancel</button>
-          <button onClick={() => sel && onUse(filled)} disabled={!sel || !filled}
-            className="inline-flex items-center gap-1.5 px-4 py-2 rounded-md text-[13px] font-bold text-white bg-primary hover:bg-primary-dark disabled:opacity-50 outline-none shadow-sm transition-colors">
-            <Send className="w-4 h-4" />Use template
-          </button>
-        </div>
       </div>
-    </div>
+    </SidePanel>
   );
 }

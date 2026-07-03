@@ -3,12 +3,13 @@
 // dropdown). Values attach to each contact (contact.attributes) and power the
 // contact form, contact detail and automations.
 import { useEffect, useState } from "react";
-import { Plus, Pencil, Trash2, Loader2, X } from "lucide-react";
+import { Plus, Pencil, Trash2 } from "lucide-react";
 import { api } from "@/lib/api";
 import { Select } from "@/components/Select";
 import { Tip } from "@/components/ui/tooltip";
+import SidePanel from "@/components/SidePanel";
 import type { CustomField, CustomFieldType } from "@/lib/types";
-import { useToast, FieldLabel, INPUT_CLASS, PrimaryButton, GhostButton } from "../_shared";
+import { useToast, FieldLabel, INPUT_CLASS, PrimaryButton } from "../_shared";
 
 const TYPE_LABEL: Record<string, string> = { text: "Text", number: "Number", date: "Date", select: "Dropdown" };
 
@@ -103,40 +104,38 @@ function CustomFieldDialog({ editing, count, onClose, onSaved, onError }: {
   }
 
   return (
-    <div className="fixed inset-0 z-[100] flex items-center justify-center p-4">
-      <div className="absolute inset-0 bg-black/40 backdrop-blur-[2px] animate-fade-in" onClick={onClose} />
-      <div className="relative bg-card rounded-lg border border-border shadow-2xl w-full max-w-sm animate-scale-in">
-        <div className="flex items-center justify-between px-5 py-3.5 border-b border-border">
-          <h2 className="text-[15px] font-bold text-foreground">{isEdit ? "Edit custom field" : "New custom field"}</h2>
-          <button onClick={onClose} className="p-1 rounded-md text-muted-foreground hover:bg-muted outline-none"><X className="w-[18px] h-[18px]" /></button>
+    <SidePanel
+      open
+      onClose={onClose}
+      title={isEdit ? "Edit custom field" : "New custom field"}
+      description="Typed field stored on every contact."
+      width="sm"
+      busy={saving}
+      onApply={save}
+      applyLabel={isEdit ? "Save" : "Create"}
+    >
+      <div className="flex flex-col gap-4">
+        <div><FieldLabel>Label</FieldLabel><input value={label} onChange={(e) => setLabel(e.target.value)} autoFocus placeholder="e.g. Budget" className={INPUT_CLASS} /></div>
+        <div><FieldLabel>Type</FieldLabel>
+          <Select value={type} searchable={false} onChange={(v) => setType(v as CustomFieldType)}
+            options={[{ value: "text", label: "Text" }, { value: "number", label: "Number" }, { value: "date", label: "Date" }, { value: "select", label: "Dropdown" }]} />
         </div>
-        <div className="px-5 py-5 flex flex-col gap-4">
-          <div><FieldLabel>Label</FieldLabel><input value={label} onChange={(e) => setLabel(e.target.value)} autoFocus placeholder="e.g. Budget" className={INPUT_CLASS} /></div>
-          <div><FieldLabel>Type</FieldLabel>
-            <Select value={type} searchable={false} onChange={(v) => setType(v as CustomFieldType)}
-              options={[{ value: "text", label: "Text" }, { value: "number", label: "Number" }, { value: "date", label: "Date" }, { value: "select", label: "Dropdown" }]} />
-          </div>
-          {type === "select" && (
-            <div>
-              <FieldLabel>Options</FieldLabel>
-              <div className="space-y-1.5">
-                {options.map((o, i) => (
-                  <div key={i} className="flex gap-1.5 items-center">
-                    <input value={o} onChange={(e) => setOptions(options.map((x, j) => (j === i ? e.target.value : x)))} placeholder={`Option ${i + 1}`} className={INPUT_CLASS} />
-                    <button type="button" onClick={() => setOptions(options.filter((_, j) => j !== i))} className="px-1.5 text-muted-foreground hover:text-destructive text-lg leading-none">×</button>
-                  </div>
-                ))}
-                <button type="button" onClick={() => setOptions([...options, ""])} className="text-[12.5px] font-semibold text-primary hover:underline">+ Add option</button>
-              </div>
+        {type === "select" && (
+          <div>
+            <FieldLabel>Options</FieldLabel>
+            <div className="space-y-1.5">
+              {options.map((o, i) => (
+                <div key={i} className="flex gap-1.5 items-center">
+                  <input value={o} onChange={(e) => setOptions(options.map((x, j) => (j === i ? e.target.value : x)))} placeholder={`Option ${i + 1}`} className={INPUT_CLASS} />
+                  <button type="button" onClick={() => setOptions(options.filter((_, j) => j !== i))} className="px-1.5 text-muted-foreground hover:text-destructive text-lg leading-none">×</button>
+                </div>
+              ))}
+              <button type="button" onClick={() => setOptions([...options, ""])} className="text-[12.5px] font-semibold text-primary hover:underline">+ Add option</button>
             </div>
-          )}
-          {isEdit && <p className="text-[11.5px] text-muted-foreground">The field key <span className="font-mono">{editing!.key}</span> can&apos;t change (keeps existing values linked).</p>}
-        </div>
-        <div className="flex justify-end gap-2 px-5 py-3.5 border-t border-border">
-          <GhostButton onClick={onClose}>Cancel</GhostButton>
-          <PrimaryButton onClick={save} disabled={saving}>{saving ? <Loader2 className="w-4 h-4 animate-spin" /> : null}{isEdit ? "Save" : "Create"}</PrimaryButton>
-        </div>
+          </div>
+        )}
+        {isEdit && <p className="text-[11.5px] text-muted-foreground">The field key <span className="font-mono">{editing!.key}</span> can&apos;t change (keeps existing values linked).</p>}
       </div>
-    </div>
+    </SidePanel>
   );
 }

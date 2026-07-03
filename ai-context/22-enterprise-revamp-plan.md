@@ -42,9 +42,9 @@ Simpulx v2 is inbox-first today. This batch turns it into a full enterprise CRM:
 | Phase | Status | Notes |
 |---|---|---|
 | 0. This handoff doc | DONE | Keep updated every phase |
-| 1. Chat-list tile redesign (web+mobile) | IN PROGRESS | web WindowTime.tsx + utils.ts already date-only (uncommitted) |
-| 2. SidePanel + useEscClose + first conversions | TODO | |
-| 3. SidePanel rollout (all remaining surfaces) | TODO | |
+| 1. Chat-list tile redesign (web+mobile) | DONE | Session badge counts UP from 0 (elapsed since last_message_at); green ribbon flush-right + rounded-left; chip icon = responder (headset/robot) only when outbound, else no icon; red "24H" badge + date once >24h; delivery ticks sent/delivered/read/failed via new last_outbound_status; agent+campaign as icon+text (Building2), right-aligned. Gateway now selects last_sender_type + last_outbound_status. |
+| 2. SidePanel + useEscClose + first conversions | DONE | web/lib/useEscClose.ts (LIFO stack) + web/components/SidePanel.tsx (right drawer). Converted: inbox filters -> FiltersDrawer.tsx, roles create-role, people invite/edit. FilterPopover.tsx kept only for its type exports. |
+| 3. SidePanel rollout (all remaining surfaces) | IN PROGRESS | channels/campaigns/templates/custom-fields wizards, broadcasts/drip compose, inbox TemplateWizard, contacts modals + apply useEscClose sweep to remaining popovers |
 | 4. Backend contact lead fields + bulk update | TODO | migration 0078 |
 | 5. Send Template / initiate chat | TODO | events lib change: rebuild gateway+messaging together |
 | 6. Contacts page revamp | TODO | needs 2+4+5 |
