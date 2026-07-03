@@ -243,6 +243,7 @@ export default function InboxPage() {
             const msg = {
               id: mid, direction: data.direction, sender_type: data.sender_type,
               type: data.type || "text", body: data.body, media_url: data.media_url || null,
+              metadata: data.metadata || null,
               status: "delivered", created_at: new Date().toISOString(),
             };
             const pages = old.pages.slice();

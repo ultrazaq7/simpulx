@@ -74,6 +74,12 @@ class MessageBubble extends StatelessWidget {
                 fg: fg,
                 allMessages: allMessages,
               ),
+            if (message.referral != null)
+              _ReferralCard(referral: message.referral!, fg: fg),
+            if (message.type == MessageType.contacts && message.contacts.isNotEmpty)
+              _ContactsCard(contacts: message.contacts, fg: fg),
+            if (message.type == MessageType.location && message.location != null)
+              _LocationCard(location: message.location!, fg: fg),
             Padding(
               padding: const EdgeInsets.fromLTRB(6, 2, 6, 0),
               child: Column(
@@ -724,6 +730,207 @@ class _VideoThumbnailState extends State<_VideoThumbnail> {
     return AspectRatio(
       aspectRatio: _controller.value.aspectRatio,
       child: VideoPlayer(_controller),
+    );
+  }
+}
+
+/// CTWA ad creative preview (image + headline + body + link), WhatsApp-style.
+class _ReferralCard extends StatelessWidget {
+  const _ReferralCard({required this.referral, required this.fg});
+  final Map<String, dynamic> referral;
+  final Color fg;
+
+  @override
+  Widget build(BuildContext context) {
+    final image = (referral['image_url'] as String?)?.trim() ?? '';
+    final headline = (referral['headline'] as String?)?.trim() ?? '';
+    final body = (referral['body'] as String?)?.trim() ?? '';
+    final sourceUrl = (referral['source_url'] as String?)?.trim() ?? '';
+    return GestureDetector(
+      onTap: sourceUrl.isEmpty
+          ? null
+          : () => launchUrl(Uri.parse(sourceUrl), mode: LaunchMode.externalApplication),
+      child: Container(
+        margin: const EdgeInsets.only(bottom: 4),
+        constraints: const BoxConstraints(maxWidth: 280),
+        clipBehavior: Clip.antiAlias,
+        decoration: BoxDecoration(
+          color: fg.withValues(alpha: 0.06),
+          borderRadius: BorderRadius.circular(10),
+          border: Border.all(color: fg.withValues(alpha: 0.12)),
+        ),
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            if (image.isNotEmpty)
+              CachedNetworkImage(
+                imageUrl: image,
+                fit: BoxFit.cover,
+                width: double.infinity,
+                height: 150,
+                placeholder: (_, _) => Container(height: 150, color: Colors.black12),
+                errorWidget: (_, _, _) => const SizedBox.shrink(),
+              ),
+            Padding(
+              padding: const EdgeInsets.fromLTRB(10, 8, 10, 8),
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                mainAxisSize: MainAxisSize.min,
+                children: [
+                  if (headline.isNotEmpty)
+                    Text(headline,
+                        maxLines: 2,
+                        overflow: TextOverflow.ellipsis,
+                        style: TextStyle(color: fg, fontWeight: FontWeight.w700, fontSize: 13.5, height: 1.2)),
+                  if (body.isNotEmpty) ...[
+                    const SizedBox(height: 2),
+                    Text(body,
+                        maxLines: 2,
+                        overflow: TextOverflow.ellipsis,
+                        style: TextStyle(color: fg.withValues(alpha: 0.75), fontSize: 12.5, height: 1.25)),
+                  ],
+                  if (sourceUrl.isNotEmpty) ...[
+                    const SizedBox(height: 4),
+                    Row(mainAxisSize: MainAxisSize.min, children: [
+                      Icon(Icons.open_in_new_rounded, size: 13, color: AppColors.primary),
+                      const SizedBox(width: 3),
+                      Text('View ad',
+                          style: TextStyle(color: AppColors.primary, fontSize: 12, fontWeight: FontWeight.w600)),
+                    ]),
+                  ],
+                ],
+              ),
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+}
+
+/// Shared contact card(s).
+class _ContactsCard extends StatelessWidget {
+  const _ContactsCard({required this.contacts, required this.fg});
+  final List<Map<String, dynamic>> contacts;
+  final Color fg;
+
+  String _initial(String s) => s.trim().isEmpty ? '?' : s.trim().substring(0, 1).toUpperCase();
+
+  @override
+  Widget build(BuildContext context) {
+    return Column(
+      mainAxisSize: MainAxisSize.min,
+      children: [
+        for (final c in contacts)
+          Container(
+            margin: const EdgeInsets.only(bottom: 4),
+            constraints: const BoxConstraints(minWidth: 210),
+            padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 8),
+            decoration: BoxDecoration(
+              color: fg.withValues(alpha: 0.06),
+              borderRadius: BorderRadius.circular(10),
+            ),
+            child: Row(
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                CircleAvatar(
+                  radius: 18,
+                  backgroundColor: AppColors.primary.withValues(alpha: 0.15),
+                  child: Text(_initial((c['name'] as String?) ?? '?'),
+                      style: TextStyle(color: AppColors.primary, fontWeight: FontWeight.w700, fontSize: 14)),
+                ),
+                const SizedBox(width: 10),
+                Flexible(
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    mainAxisSize: MainAxisSize.min,
+                    children: [
+                      Text(((c['name'] as String?)?.isNotEmpty ?? false) ? c['name'] as String : 'Contact',
+                          maxLines: 1,
+                          overflow: TextOverflow.ellipsis,
+                          style: TextStyle(color: fg, fontWeight: FontWeight.w600, fontSize: 14)),
+                      const SizedBox(height: 1),
+                      Row(mainAxisSize: MainAxisSize.min, children: [
+                        Icon(Icons.phone_rounded, size: 12, color: fg.withValues(alpha: 0.6)),
+                        const SizedBox(width: 3),
+                        Flexible(
+                          child: Text(
+                              ((c['phone'] as String?)?.isNotEmpty ?? false)
+                                  ? c['phone'] as String
+                                  : ((c['org'] as String?) ?? 'Contact card'),
+                              maxLines: 1,
+                              overflow: TextOverflow.ellipsis,
+                              style: TextStyle(color: fg.withValues(alpha: 0.7), fontSize: 12)),
+                        ),
+                      ]),
+                    ],
+                  ),
+                ),
+              ],
+            ),
+          ),
+      ],
+    );
+  }
+}
+
+/// Shared pinned location -> opens in the maps app.
+class _LocationCard extends StatelessWidget {
+  const _LocationCard({required this.location, required this.fg});
+  final Map<String, dynamic> location;
+  final Color fg;
+
+  @override
+  Widget build(BuildContext context) {
+    final lat = (location['latitude'] as num?)?.toDouble() ?? 0;
+    final lng = (location['longitude'] as num?)?.toDouble() ?? 0;
+    final name = (location['name'] as String?)?.trim() ?? '';
+    final address = (location['address'] as String?)?.trim() ?? '';
+    final url = 'https://www.google.com/maps/search/?api=1&query=$lat,$lng';
+    return GestureDetector(
+      onTap: () => launchUrl(Uri.parse(url), mode: LaunchMode.externalApplication),
+      child: Container(
+        margin: const EdgeInsets.only(bottom: 4),
+        constraints: const BoxConstraints(minWidth: 210),
+        padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 8),
+        decoration: BoxDecoration(
+          color: fg.withValues(alpha: 0.06),
+          borderRadius: BorderRadius.circular(10),
+        ),
+        child: Row(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            Container(
+              padding: const EdgeInsets.all(8),
+              decoration: BoxDecoration(
+                  color: AppColors.primary.withValues(alpha: 0.15), borderRadius: BorderRadius.circular(8)),
+              child: Icon(Icons.location_on_rounded, color: AppColors.primary, size: 22),
+            ),
+            const SizedBox(width: 10),
+            Flexible(
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                mainAxisSize: MainAxisSize.min,
+                children: [
+                  Text(name.isNotEmpty ? name : 'Location',
+                      maxLines: 1,
+                      overflow: TextOverflow.ellipsis,
+                      style: TextStyle(color: fg, fontWeight: FontWeight.w600, fontSize: 14)),
+                  const SizedBox(height: 1),
+                  Text(
+                      address.isNotEmpty
+                          ? address
+                          : '${lat.toStringAsFixed(5)}, ${lng.toStringAsFixed(5)}',
+                      maxLines: 2,
+                      overflow: TextOverflow.ellipsis,
+                      style: TextStyle(color: fg.withValues(alpha: 0.7), fontSize: 12)),
+                ],
+              ),
+            ),
+          ],
+        ),
+      ),
     );
   }
 }

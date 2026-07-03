@@ -56,6 +56,8 @@ class MessagePersistedPayload {
   String get type => (_d['type'] ?? 'text') as String;
   String get body => (_d['body'] ?? '') as String;
   String? get mediaUrl => _d['media_url'] as String?;
+  Map<String, dynamic>? get metadata =>
+      _d['metadata'] is Map ? Map<String, dynamic>.from(_d['metadata'] as Map) : null;
   String get preview => (_d['preview'] ?? '') as String;
   String? get assignedAgentId => _d['assigned_agent_id'] as String?;
 

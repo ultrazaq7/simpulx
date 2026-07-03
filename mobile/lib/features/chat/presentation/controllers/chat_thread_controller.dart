@@ -228,6 +228,7 @@ class ChatThreadController extends ChangeNotifier {
       type: messageTypeFromWire(payload.type),
       body: payload.body,
       mediaUrl: payload.mediaUrl,
+      metadata: payload.metadata,
       status: payload.isInbound ? MessageStatus.delivered : MessageStatus.sent,
       createdAt: event.ts,
     ));

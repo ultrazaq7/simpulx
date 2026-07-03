@@ -5,7 +5,7 @@ import {
   Sparkles, Check, CheckCheck, Clock, AlertCircle, Play, Pause, Mic, User,
   FileText, FileSpreadsheet, FileImage, FileArchive, FileCode,
   File, Download, MoreHorizontal, Copy, ClipboardPaste, Link2, Megaphone, Forward,
-  PhoneOutgoing, PhoneIncoming, PhoneMissed,
+  PhoneOutgoing, PhoneIncoming, PhoneMissed, MapPin, Phone, ExternalLink,
 } from "lucide-react";
 import { initials, fmtTime, channelColor, channelTextColor, cn } from "@/lib/utils";
 import type { Conversation, Message } from "@/lib/types";
@@ -336,6 +336,14 @@ const MessageBubble = memo(function MessageBubble({ m, active, grouped, onPrevie
   const fname = url ? filenameFromUrl(url) : "";
   const ds = isDoc ? docStyle(ext, out) : null;
 
+  // Rich WhatsApp-style content from the message metadata.
+  const meta = m.metadata;
+  const referral = meta?.referral;
+  const hasReferral = !!(referral && (referral.image_url || referral.headline || referral.body || referral.source_url));
+  const contacts = m.type === "contacts" ? meta?.contacts : undefined;
+  const location = m.type === "location" ? meta?.location : undefined;
+  const mapsUrl = location ? `https://www.google.com/maps/search/?api=1&query=${location.latitude},${location.longitude}` : "";
+
   // ── Voice call: a centered, low-contrast timeline marker (not a chat bubble) ──
   if (m.type === "call") {
     const cout = m.direction === "outbound";
@@ -374,6 +382,71 @@ const MessageBubble = memo(function MessageBubble({ m, active, grouped, onPrevie
             (isImage || isVideo) && !m.body && !isSticker ? "" : "",
           )}
         >
+          {/* ── CTWA ad referral card (image + headline + body + link) ── */}
+          {hasReferral && (
+            <a
+              href={referral!.source_url || "#"}
+              target="_blank"
+              rel="noopener noreferrer"
+              className={cn(
+                "block m-1 rounded-lg overflow-hidden border no-underline",
+                out ? "border-white/25 bg-white/10" : "border-border bg-muted/40 hover:bg-muted/70",
+              )}
+            >
+              {referral!.image_url && (
+                <img src={rewriteLocalMedia(referral!.image_url)} className="w-full max-w-[300px] max-h-[200px] object-cover block" loading="lazy" />
+              )}
+              <div className="px-2.5 py-2">
+                {referral!.headline && (
+                  <p className={cn("text-[13px] font-bold leading-tight line-clamp-2", out ? "text-white" : "text-foreground")}>{referral!.headline}</p>
+                )}
+                {referral!.body && (
+                  <p className={cn("text-[12px] leading-snug line-clamp-2 mt-0.5", out ? "text-white/80" : "text-muted-foreground")}>{referral!.body}</p>
+                )}
+                <span className={cn("mt-1 inline-flex items-center gap-1 text-[11px] font-semibold", out ? "text-white/90" : "text-primary")}>
+                  <ExternalLink className="w-3 h-3" /> View ad
+                </span>
+              </div>
+            </a>
+          )}
+
+          {/* ── Shared contact card(s) ── */}
+          {contacts && contacts.length > 0 && (
+            <div className="m-1 flex flex-col gap-1 min-w-[220px]">
+              {contacts.map((c, i) => (
+                <div key={i} className={cn("flex items-center gap-2.5 px-2.5 py-2 rounded-lg", out ? "bg-white/10" : "bg-muted/50")}>
+                  <div className={cn("w-9 h-9 rounded-full grid place-items-center text-[13px] font-bold shrink-0", out ? "bg-white/20 text-white" : "bg-primary/15 text-primary")}>
+                    {initials(c.name || "?")}
+                  </div>
+                  <div className="min-w-0">
+                    <p className={cn("text-[13px] font-semibold truncate", out ? "text-white" : "text-foreground")}>{c.name || "Contact"}</p>
+                    <p className={cn("text-[11px] truncate inline-flex items-center gap-1", out ? "text-white/70" : "text-muted-foreground")}>
+                      <Phone className="w-3 h-3" />{c.phone || c.org || "Contact card"}
+                    </p>
+                  </div>
+                </div>
+              ))}
+            </div>
+          )}
+
+          {/* ── Shared location ── */}
+          {location && (
+            <a
+              href={mapsUrl}
+              target="_blank"
+              rel="noopener noreferrer"
+              className={cn("m-1 flex items-center gap-2.5 px-2.5 py-2 rounded-lg no-underline min-w-[220px]", out ? "bg-white/10 hover:bg-white/20" : "bg-muted/50 hover:bg-muted/80")}
+            >
+              <div className={cn("w-9 h-9 rounded-lg grid place-items-center shrink-0", out ? "bg-white/20" : "bg-primary/15")}>
+                <MapPin className={cn("w-5 h-5", out ? "text-white" : "text-primary")} />
+              </div>
+              <div className="min-w-0">
+                <p className={cn("text-[13px] font-semibold truncate", out ? "text-white" : "text-foreground")}>{location.name || "Location"}</p>
+                <p className={cn("text-[11px] truncate", out ? "text-white/70" : "text-muted-foreground")}>{location.address || `${location.latitude.toFixed(5)}, ${location.longitude.toFixed(5)}`}</p>
+              </div>
+            </a>
+          )}
+
           {/* ── Sticker ── */}
           {url && isSticker && (
             <div className="relative cursor-pointer group">

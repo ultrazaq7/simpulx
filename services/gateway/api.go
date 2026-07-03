@@ -294,13 +294,13 @@ func (s *server) handleGetMessages(w http.ResponseWriter, r *http.Request) {
 	var query string
 	var args []any
 	if cursor == "" {
-		query = `SELECT id::text AS id, direction, sender_type, type, body, media_url, status, created_at
+		query = `SELECT id::text AS id, direction, sender_type, type, body, media_url, metadata, status, created_at
 		           FROM messages
 		          WHERE conversation_id = $1 AND organization_id = $2
 		          ORDER BY created_at DESC, id DESC LIMIT $3`
 		args = []any{convID, a.OrgID, limit}
 	} else {
-		query = `SELECT id::text AS id, direction, sender_type, type, body, media_url, status, created_at
+		query = `SELECT id::text AS id, direction, sender_type, type, body, media_url, metadata, status, created_at
 		           FROM messages
 		          WHERE conversation_id = $1 AND organization_id = $2
 		            AND created_at <= (SELECT created_at FROM messages WHERE id = $3)

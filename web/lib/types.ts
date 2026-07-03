@@ -101,6 +101,22 @@ export interface AppNotification {
   created_at: string;
 }
 
+export interface MessageMetadata {
+  // CTWA (click-to-WhatsApp) ad creative the customer arrived from.
+  referral?: {
+    image_url?: string;
+    headline?: string;
+    body?: string;
+    source_url?: string;
+    media_type?: string;
+  };
+  // Shared contact card(s).
+  contacts?: { name: string; phone?: string; org?: string }[];
+  // Shared pinned location.
+  location?: { latitude: number; longitude: number; name?: string; address?: string };
+  raw_webhook?: unknown;
+}
+
 export interface Message {
   id: string;
   direction: "inbound" | "outbound";
@@ -108,6 +124,7 @@ export interface Message {
   type: string;
   body: string | null;
   media_url: string | null;
+  metadata?: MessageMetadata | null;
   status: string;
   created_at: string;
 }

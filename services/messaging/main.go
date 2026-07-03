@@ -166,12 +166,7 @@ func (a *app) onReceived(env events.Envelope) error {
 	genuine := e.Referral == "" && e.Message.Type != "unsupported"
 	// Simpan payload webhook mentah untuk pesan "unsupported" agar bisa diinspeksi
 	// dari DB (messages.metadata.raw_webhook) -- konten asli tak pernah hilang lagi.
-	meta := ""
-	if e.Message.Type == "unsupported" && len(e.Raw) > 0 {
-		if b, mErr := json.Marshal(map[string]json.RawMessage{"raw_webhook": e.Raw}); mErr == nil {
-			meta = string(b)
-		}
-	}
+	meta := buildMessageMeta(e)
 	msgID, err := a.st.insertInbound(ctx, env.OrgID, conv.ID, e.Message.Type, body, e.Message.MediaURL, e.Message.ExternalID, genuine, mediaPreview(e.Message.Type, body), meta)
 	if err != nil {
 		if err.Error() == "duplicate message" {
@@ -301,6 +296,39 @@ func preview(s string) string {
 		return string(r[:120])
 	}
 	return s
+}
+
+// buildMessageMeta assembles the per-message metadata JSON stored on the row so
+// the inbox can render rich content WhatsApp-style: the CTWA ad creative, shared
+// contact cards, a pinned location, and the raw webhook for unsupported types.
+func buildMessageMeta(e events.MessageReceived) string {
+	m := map[string]any{}
+	if e.ReferralImageURL != "" || e.ReferralHeadline != "" || e.ReferralBody != "" || e.ReferralURL != "" {
+		m["referral"] = map[string]any{
+			"image_url":  e.ReferralImageURL,
+			"headline":   e.ReferralHeadline,
+			"body":       e.ReferralBody,
+			"source_url": e.ReferralURL,
+			"media_type": e.ReferralMediaType,
+		}
+	}
+	if len(e.Message.Contacts) > 0 {
+		m["contacts"] = e.Message.Contacts
+	}
+	if e.Message.Location != nil {
+		m["location"] = e.Message.Location
+	}
+	if e.Message.Type == "unsupported" && len(e.Raw) > 0 {
+		m["raw_webhook"] = json.RawMessage(e.Raw)
+	}
+	if len(m) == 0 {
+		return ""
+	}
+	b, err := json.Marshal(m)
+	if err != nil {
+		return ""
+	}
+	return string(b)
 }
 
 // mediaPreview falls back to a type placeholder when a media message has no caption.

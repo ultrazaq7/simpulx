@@ -250,6 +250,9 @@ func (s *store) insertInbound(ctx context.Context, orgID, convID, msgType, body,
 		"preview":           previewText,
 		"assigned_agent_id": assignedAgentID,
 	}
+	if metaJSON != "" {
+		payload["metadata"] = json.RawMessage(metaJSON)
+	}
 	payloadBytes, _ := json.Marshal(payload)
 	_, err = tx.Exec(ctx,
 		`INSERT INTO outbox_events (organization_id, topic, payload) VALUES ($1, 'events.message.persisted', $2)`,

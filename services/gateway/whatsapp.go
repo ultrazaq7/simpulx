@@ -4,7 +4,45 @@ import (
 	"encoding/json"
 	"fmt"
 	"strings"
+
+	"github.com/simpulx/v2/libs/go/events"
 )
+
+// eventContacts maps shared contact cards to the inbound-event shape.
+func (m waMessage) eventContacts() []events.InboundContact {
+	if len(m.SharedContacts) == 0 {
+		return nil
+	}
+	out := make([]events.InboundContact, 0, len(m.SharedContacts))
+	for _, c := range m.SharedContacts {
+		name := c.Name.FormattedName
+		if name == "" {
+			name = strings.TrimSpace(c.Name.FirstName)
+		}
+		phone := ""
+		if len(c.Phones) > 0 {
+			phone = c.Phones[0].Phone
+			if phone == "" {
+				phone = c.Phones[0].WaID
+			}
+		}
+		out = append(out, events.InboundContact{Name: name, Phone: phone, Org: c.Org.Company})
+	}
+	return out
+}
+
+// eventLocation maps a shared pinned location to the inbound-event shape.
+func (m waMessage) eventLocation() *events.InboundLocation {
+	if m.Location == nil {
+		return nil
+	}
+	return &events.InboundLocation{
+		Latitude:  m.Location.Latitude,
+		Longitude: m.Location.Longitude,
+		Name:      m.Location.Name,
+		Address:   m.Location.Address,
+	}
+}
 
 // Struktur payload webhook WhatsApp Cloud API (subset yang dipakai).
 type waWebhook struct {
@@ -59,6 +97,30 @@ type waContact struct {
 	} `json:"profile"`
 }
 
+// waSharedContact is a contact card the customer shares (type == "contacts").
+type waSharedContact struct {
+	Name struct {
+		FormattedName string `json:"formatted_name"`
+		FirstName     string `json:"first_name"`
+	} `json:"name"`
+	Org struct {
+		Company string `json:"company"`
+	} `json:"org"`
+	Phones []struct {
+		Phone string `json:"phone"`
+		WaID  string `json:"wa_id"`
+		Type  string `json:"type"`
+	} `json:"phones"`
+}
+
+// waLocation is a pinned location the customer shares (type == "location").
+type waLocation struct {
+	Latitude  float64 `json:"latitude"`
+	Longitude float64 `json:"longitude"`
+	Name      string  `json:"name"`
+	Address   string  `json:"address"`
+}
+
 type waMessage struct {
 	From      string `json:"from"`
 	ID        string `json:"id"`
@@ -75,6 +137,9 @@ type waMessage struct {
 	Button      *waButton      `json:"button"`
 	Interactive *waInteractive `json:"interactive"`
 	Template    *waTemplate    `json:"template"`
+	// Shared contact card(s) + pinned location, when the customer sends them.
+	SharedContacts []waSharedContact `json:"contacts"`
+	Location       *waLocation       `json:"location"`
 	// Present when the contact came from a Click-to-WhatsApp ad.
 	Referral *struct {
 		SourceID     string `json:"source_id"`

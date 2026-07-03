@@ -4,7 +4,7 @@ enum MessageDirection { inbound, outbound }
 
 enum MessageSenderType { contact, agent, bot, system }
 
-enum MessageType { text, image, audio, video, document, file, sticker, template, interactive, unsupported, call }
+enum MessageType { text, image, audio, video, document, file, sticker, template, interactive, unsupported, call, contacts, location }
 
 /// Includes a local-only `sending` status for optimistic bubbles.
 enum MessageStatus { sending, queued, sent, delivered, read, failed }
@@ -30,6 +30,8 @@ MessageType messageTypeFromWire(String? v) => switch (v) {
       'interactive' => MessageType.interactive,
       'unsupported' => MessageType.unsupported,
       'call' => MessageType.call,
+      'contacts' => MessageType.contacts,
+      'location' => MessageType.location,
       _ => MessageType.text,
     };
 
@@ -52,6 +54,7 @@ class Message extends Equatable {
     required this.status,
     required this.createdAt,
     this.mediaUrl,
+    this.metadata,
     this.pending = false,
   });
 
@@ -61,8 +64,23 @@ class Message extends Equatable {
   final MessageType type;
   final String body;
   final String? mediaUrl;
+  /// Rich per-type payload (CTWA ad referral, shared contacts, location).
+  final Map<String, dynamic>? metadata;
   final MessageStatus status;
   final DateTime createdAt;
+
+  /// CTWA ad creative the customer arrived from (image/headline/body/link).
+  Map<String, dynamic>? get referral =>
+      metadata?['referral'] is Map ? Map<String, dynamic>.from(metadata!['referral'] as Map) : null;
+
+  /// Shared contact card(s).
+  List<Map<String, dynamic>> get contacts => metadata?['contacts'] is List
+      ? (metadata!['contacts'] as List).whereType<Map>().map((e) => Map<String, dynamic>.from(e)).toList()
+      : const [];
+
+  /// Shared pinned location.
+  Map<String, dynamic>? get location =>
+      metadata?['location'] is Map ? Map<String, dynamic>.from(metadata!['location'] as Map) : null;
 
   /// True for an optimistic bubble not yet confirmed by `message.persisted`.
   final bool pending;
@@ -80,6 +98,7 @@ class Message extends Equatable {
       type: type,
       body: body,
       mediaUrl: mediaUrl,
+      metadata: metadata,
       status: status ?? this.status,
       createdAt: createdAt,
       pending: pending ?? this.pending,
@@ -88,5 +107,5 @@ class Message extends Equatable {
 
   @override
   List<Object?> get props =>
-      [id, direction, senderType, type, body, mediaUrl, status, createdAt, pending];
+      [id, direction, senderType, type, body, mediaUrl, metadata, status, createdAt, pending];
 }

@@ -562,6 +562,8 @@ func (s *server) ingest(ctx context.Context, p waWebhook) {
 						Text:          m.extractText(),
 						MediaURL:      mediaURL,
 						ButtonPayload: m.buttonPayload(),
+						Contacts:      m.eventContacts(),
+						Location:      m.eventLocation(),
 					},
 					Raw: raw,
 				}

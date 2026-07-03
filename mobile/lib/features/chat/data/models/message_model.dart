@@ -13,6 +13,9 @@ class MessageModel {
       type: messageTypeFromWire(asStringOrNull(json['type'])),
       body: asString(json['body']),
       mediaUrl: asStringOrNull(json['media_url']),
+      metadata: json['metadata'] is Map
+          ? Map<String, dynamic>.from(json['metadata'] as Map)
+          : null,
       status: messageStatusFromWire(asStringOrNull(json['status'])),
       createdAt: asDateOrNull(json['created_at']) ?? DateTime.now(),
     );

@@ -55,6 +55,25 @@ type InboundMessage struct {
 	// button. Empty for normal messages. Drives the button_click automation
 	// trigger + broadcast click tracking.
 	ButtonPayload string `json:"button_payload,omitempty"`
+	// Rich content the customer shares, surfaced so the inbox can render a card
+	// (WhatsApp-style) instead of a bare placeholder.
+	Contacts []InboundContact `json:"contacts,omitempty"`
+	Location *InboundLocation `json:"location,omitempty"`
+}
+
+// InboundContact is one shared contact card (type == "contacts").
+type InboundContact struct {
+	Name  string `json:"name"`
+	Phone string `json:"phone,omitempty"`
+	Org   string `json:"org,omitempty"`
+}
+
+// InboundLocation is a shared pinned location (type == "location").
+type InboundLocation struct {
+	Latitude  float64 `json:"latitude"`
+	Longitude float64 `json:"longitude"`
+	Name      string  `json:"name,omitempty"`
+	Address   string  `json:"address,omitempty"`
 }
 
 type MessageReceived struct {
@@ -88,6 +107,10 @@ type MessagePersisted struct {
 	MediaURL        string  `json:"media_url,omitempty"`
 	Preview         string  `json:"preview"`
 	AssignedAgentID *string `json:"assigned_agent_id,omitempty"`
+	// Metadata carries the rich per-type payload (referral ad creative, shared
+	// contacts, location) so the realtime-appended message renders fully without
+	// a reload.
+	Metadata json.RawMessage `json:"metadata,omitempty"`
 }
 
 type MessageStatusUpdated struct {
