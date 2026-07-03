@@ -35,11 +35,14 @@ const ConversationCard = memo(function ConversationCard({
   const needsFollowUp = (c.interest_level === "hot" || c.interest_level === "warm") && unread;
   const needsCall = c.interest_level === "hot" && (c.call_attempts === null || c.call_attempts === 0);
   const isOutbound = c.last_message_direction === "agent";
-  // The 24h session window is a WhatsApp concept. While open, the line-1 slot
-  // shows a live countdown pill; once elapsed it becomes the plain date and a
-  // "24H" badge takes the responder-icon slot to its left.
-  const isWa = c.channel === "whatsapp" && !!c.last_message_at;
-  const winAge = c.last_message_at ? Date.now() - new Date(c.last_message_at).getTime() : Infinity;
+  // The 24h session window is a WhatsApp concept anchored on the customer's
+  // last inbound message (an agent/bot reply must NOT reset it). Falls back to
+  // last_message_at until the API ships last_contact_message_at. While open,
+  // the line-1 slot shows a live countdown; once elapsed it becomes the plain
+  // date with a "24H" badge in the responder-icon slot to its left.
+  const sessionAnchor = c.last_contact_message_at ?? c.last_message_at;
+  const isWa = c.channel === "whatsapp" && !!sessionAnchor;
+  const winAge = sessionAnchor ? Date.now() - new Date(sessionAnchor).getTime() : Infinity;
   const windowOpen = isWa && winAge < 24 * 60 * 60 * 1000;
   const windowExpired = isWa && winAge >= 24 * 60 * 60 * 1000;
 
@@ -88,7 +91,7 @@ const ConversationCard = memo(function ConversationCard({
           <span className="flex-1" />
           {windowOpen ? (
             <WindowCountdownBadge
-              lastMessageAt={c.last_message_at}
+              lastMessageAt={sessionAnchor}
               responder={isOutbound ? (c.is_bot_active ? "bot" : "human") : null}
             />
           ) : windowExpired ? (

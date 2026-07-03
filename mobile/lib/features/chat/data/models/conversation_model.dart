@@ -15,6 +15,7 @@ class ConversationModel {
       contactPhone: asString(json['contact_phone']),
       unreadCount: asInt(json['unread_count']),
       lastMessageAt: asDateOrNull(json['last_message_at']),
+      lastContactMessageAt: asDateOrNull(json['last_contact_message_at']),
       lastMessagePreview: asStringOrNull(json['last_message_preview']),
       lastMessageDirection: asStringOrNull(json['last_message_direction']),
       interestLevel: asStringOrNull(json['interest_level']),

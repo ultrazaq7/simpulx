@@ -42,9 +42,11 @@ export function WindowCountdownBadge({ lastMessageAt, responder, className }: {
   }, [lastMessageAt]);
   if (!st.open) return null;
   const Icon = responder === "bot" ? Bot : responder === "human" ? Headset : Clock;
+  // Sits flush against the tile's right edge (ribbon): rounded on the left,
+  // square on the right. The -mr-3 cancels the tile's right padding.
   return (
     <span className={cn(
-      "shrink-0 inline-flex items-center gap-1.5 h-[21px] pl-1 pr-2 rounded-lg bg-primary text-primary-foreground text-[10.5px] font-semibold tabular-nums leading-none",
+      "shrink-0 inline-flex items-center gap-1.5 h-[21px] pl-1 pr-2.5 -mr-3 rounded-l-lg rounded-r-none bg-primary text-primary-foreground text-[10.5px] font-semibold tabular-nums leading-none",
       className,
     )}>
       <span className="grid place-items-center w-[15px] h-[15px] rounded-full bg-white/25">

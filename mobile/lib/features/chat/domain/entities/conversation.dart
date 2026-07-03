@@ -12,6 +12,7 @@ class Conversation extends Equatable {
     required this.contactPhone,
     required this.unreadCount,
     this.lastMessageAt,
+    this.lastContactMessageAt,
     this.lastMessagePreview,
     this.lastMessageDirection,
     this.interestLevel,
@@ -34,6 +35,7 @@ class Conversation extends Equatable {
   final String contactPhone;
   final int unreadCount;
   final DateTime? lastMessageAt;
+  final DateTime? lastContactMessageAt; // last inbound msg -> 24h window anchor
   final String? lastMessagePreview;
   final String? lastMessageDirection; // agent | contact
   final String? interestLevel; // hot | warm | cold
@@ -64,6 +66,7 @@ class Conversation extends Equatable {
         'contact_phone': contactPhone,
         'unread_count': unreadCount,
         'last_message_at': lastMessageAt?.toIso8601String(),
+        'last_contact_message_at': lastContactMessageAt?.toIso8601String(),
         'last_message_preview': lastMessagePreview,
         'last_message_direction': lastMessageDirection,
         'interest_level': interestLevel,
@@ -130,6 +133,7 @@ class Conversation extends Equatable {
         contactPhone,
         unreadCount,
         lastMessageAt,
+        lastContactMessageAt,
         lastMessagePreview,
         lastMessageDirection,
         interestLevel,

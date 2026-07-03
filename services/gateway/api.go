@@ -101,7 +101,7 @@ func (s *server) handleListConversations(w http.ResponseWriter, r *http.Request)
 
 	rows, err := s.queryMaps(r.Context(),
 		`SELECT cv.id::text AS id, cv.status, cv.channel, cv.is_bot_active,
-		        cv.unread_count, cv.last_message_at, cv.last_message_preview,
+		        cv.unread_count, cv.last_message_at, cv.last_contact_message_at, cv.last_message_preview,
 		        (CASE 
 		           WHEN cv.last_agent_message_at IS NOT NULL AND (cv.last_contact_message_at IS NULL OR cv.last_agent_message_at >= cv.last_contact_message_at) THEN 'agent' 
 		           ELSE 'contact' 
@@ -152,7 +152,7 @@ func (s *server) handleGetConversation(w http.ResponseWriter, r *http.Request) {
 	// Mirrors the SELECT in handleListConversations, filtered to one id.
 	rows, err := s.queryMaps(r.Context(),
 		`SELECT cv.id::text AS id, cv.status, cv.channel, cv.is_bot_active,
-		        cv.unread_count, cv.last_message_at, cv.last_message_preview,
+		        cv.unread_count, cv.last_message_at, cv.last_contact_message_at, cv.last_message_preview,
 		        (CASE
 		           WHEN cv.last_agent_message_at IS NOT NULL AND (cv.last_contact_message_at IS NULL OR cv.last_agent_message_at >= cv.last_contact_message_at) THEN 'agent'
 		           ELSE 'contact'

@@ -30,13 +30,15 @@ class ConversationTile extends ConsumerWidget {
     final isOutbound = c.lastMessageDirection == 'agent';
     final isManager =
         ref.watch(sessionControllerProvider).user?.role.isManagerTier ?? false;
-    // The 24h session window is a WhatsApp concept. While open, the line-1
-    // trailing slot shows a live countdown pill; once elapsed it becomes the
-    // plain date and a red "24H" badge takes the responder-icon slot to its left.
-    final countdownActive = formatWindowCountdown(c.lastMessageAt) != null;
-    final windowExpired = c.channel == 'whatsapp' &&
-        c.lastMessageAt != null &&
-        !countdownActive;
+    // The 24h session window is a WhatsApp concept anchored on the customer's
+    // last inbound message (an agent/bot reply must NOT reset it). Falls back to
+    // lastMessageAt until the API ships last_contact_message_at. While open, the
+    // line-1 trailing slot shows a live countdown; once elapsed it becomes the
+    // plain date with a red "24H" badge in the responder-icon slot to its left.
+    final sessionAnchor = c.lastContactMessageAt ?? c.lastMessageAt;
+    final countdownActive = formatWindowCountdown(sessionAnchor) != null;
+    final windowExpired =
+        c.channel == 'whatsapp' && sessionAnchor != null && !countdownActive;
 
     return InkWell(
       onTap: onTap,
@@ -70,14 +72,19 @@ class ConversationTile extends ConsumerWidget {
                       const Spacer(),
                       const SizedBox(width: 8),
                       if (countdownActive)
-                        // Chip icon doubles as the "replied by" indicator.
-                        _CountdownBadge(
-                          lastMessageAt: c.lastMessageAt!,
-                          icon: isOutbound
-                              ? (c.isBotActive
-                                  ? Icons.smart_toy_outlined
-                                  : Icons.headset_mic_outlined)
-                              : Icons.schedule_rounded,
+                        // Flush to the tile's right edge (ribbon): the +16 shift
+                        // cancels the row's right padding. Chip icon doubles as
+                        // the "replied by" indicator.
+                        Transform.translate(
+                          offset: const Offset(16, 0),
+                          child: _CountdownBadge(
+                            lastMessageAt: sessionAnchor!,
+                            icon: isOutbound
+                                ? (c.isBotActive
+                                    ? Icons.smart_toy_outlined
+                                    : Icons.headset_mic_outlined)
+                                : Icons.schedule_rounded,
+                          ),
                         )
                       else ...[
                         if (windowExpired) ...[
@@ -497,10 +504,13 @@ class _CountdownBadgeState extends State<_CountdownBadge> {
     final countdown = formatWindowCountdown(widget.lastMessageAt);
     if (countdown == null) return const SizedBox.shrink();
     return Container(
-      padding: const EdgeInsets.only(left: 3, right: 8, top: 2, bottom: 2),
-      decoration: BoxDecoration(
+      padding: const EdgeInsets.only(left: 3, right: 10, top: 2, bottom: 2),
+      decoration: const BoxDecoration(
         color: AppColors.primary,
-        borderRadius: BorderRadius.circular(8),
+        borderRadius: BorderRadius.only(
+          topLeft: Radius.circular(8),
+          bottomLeft: Radius.circular(8),
+        ),
       ),
       child: Row(
         mainAxisSize: MainAxisSize.min,
