@@ -314,9 +314,14 @@ export const api = {
   listContacts: () => req<Contact[]>("/api/contacts"),
   createContact: (body: { full_name?: string; phone?: string; tags?: string[]; attributes?: Record<string, unknown> }) =>
     req<Contact>("/api/contacts", { method: "POST", body: JSON.stringify(body) }),
-  updateContact: (id: string, body: { full_name?: string; phone?: string; tags?: string[]; blacklisted?: boolean; attributes?: Record<string, unknown> }) =>
+  updateContact: (id: string, body: { full_name?: string; phone?: string; tags?: string[]; blacklisted?: boolean; attributes?: Record<string, unknown>; stage_id?: string; interest_level?: string; assigned_agent_id?: string }) =>
     req<void>(`/api/contacts/${id}`, { method: "PATCH", body: JSON.stringify(body) }),
   deleteContact: (id: string) => req<void>(`/api/contacts/${id}`, { method: "DELETE" }),
+  // Bulk stage / interest / owner / tags / blacklist across many contacts.
+  bulkUpdateContacts: (body: {
+    contact_ids: string[];
+    set: { stage_id?: string; interest_level?: string; assigned_agent_id?: string; add_tags?: string[]; remove_tags?: string[]; blacklisted?: boolean };
+  }) => req<{ updated: number; skipped: { contact_id: string; reason: string }[] }>("/api/contacts/bulk-update", { method: "POST", body: JSON.stringify(body) }),
 
   // Custom (typed) contact fields — org-defined schema; values live in contact.attributes.
   listCustomFields: () => req<import("./types").CustomField[]>("/api/custom-fields"),

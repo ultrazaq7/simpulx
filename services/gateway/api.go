@@ -1678,7 +1678,8 @@ func (s *server) handleListContacts(w http.ResponseWriter, r *http.Request) {
 
 	if a.Role == "agent" {
 		args = append(args, a.UserID)
-		filter += fmt.Sprintf(" AND lc.assigned_agent_id = $%d", len(args))
+		// Manual contacts have no conversation, so fall back to the contact owner.
+		filter += fmt.Sprintf(" AND COALESCE(lc.assigned_agent_id, ct.assigned_agent_id) = $%d", len(args))
 	} else if a.Role == "manager" {
 		args = append(args, a.UserID)
 		filter += " AND " + managerScope("lc", len(args))
@@ -1687,10 +1688,11 @@ func (s *server) handleListContacts(w http.ResponseWriter, r *http.Request) {
 	query := fmt.Sprintf(`SELECT ct.id::text AS id, ct.full_name, ct.phone, ct.source_channel, ct.created_at,
 		        ct.updated_at, ct.blacklisted, ct.web_api_source_id::text AS web_api_source_id,
 		        COALESCE(ct.tags, '{}') AS tags, COALESCE(ct.attributes, '{}'::jsonb) AS attributes,
-		        lc.interest_level, lc.stage_id::text AS stage_id, ls.name AS stage_name, lc.last_message_at, lc.ai_summary,
+		        COALESCE(lc.interest_level, ct.interest_level) AS interest_level,
+		        COALESCE(lc.stage_id, ct.stage_id)::text AS stage_id, ls.name AS stage_name, lc.last_message_at, lc.ai_summary,
 		        lc.lead_score, lc.lost_reason,
 		        lc.car_brand, lc.car_model, lc.city, lc.purchase_timeframe,
-		        lc.assigned_agent_id::text AS assigned_agent_id, lu.full_name AS agent_name,
+		        COALESCE(lc.assigned_agent_id, ct.assigned_agent_id)::text AS assigned_agent_id, lu.full_name AS agent_name,
 		        lc.campaign_id::text AS campaign_id, lcmp.name AS campaign_name,
 		        lc.conversation_id::text AS conversation_id, lch.name AS channel_name,
 		        was.name AS web_api_source_name, att.referral_source AS source_id, att.referral_url AS source_url
@@ -1702,8 +1704,8 @@ func (s *server) handleListContacts(w http.ResponseWriter, r *http.Request) {
 		       FROM conversations WHERE contact_id=ct.id
 		      ORDER BY last_message_at DESC NULLS LAST LIMIT 1
 		   ) lc ON true
-		   LEFT JOIN stages ls ON ls.id = lc.stage_id
-		   LEFT JOIN users lu ON lu.id = lc.assigned_agent_id
+		   LEFT JOIN stages ls ON ls.id = COALESCE(lc.stage_id, ct.stage_id)
+		   LEFT JOIN users lu ON lu.id = COALESCE(lc.assigned_agent_id, ct.assigned_agent_id)
 		   LEFT JOIN campaigns lcmp ON lcmp.id = lc.campaign_id
 		   LEFT JOIN channels lch ON lch.id = lc.channel_id
 		   LEFT JOIN web_api_sources was ON was.id = ct.web_api_source_id
@@ -1774,6 +1776,11 @@ func (s *server) handleUpdateContact(w http.ResponseWriter, r *http.Request) {
 		Tags        *[]string      `json:"tags"`
 		Blacklisted *bool          `json:"blacklisted"`
 		Attributes  map[string]any `json:"attributes"` // merged into existing attributes
+		// Lead fields: routed to the latest conversation if one exists, else the
+		// contact-level fallback columns (migration 0078).
+		StageID       *string `json:"stage_id"`
+		InterestLevel *string `json:"interest_level"`
+		AssignedAgent *string `json:"assigned_agent_id"`
 	}
 	if err := json.NewDecoder(r.Body).Decode(&body); err != nil {
 		http.Error(w, "bad request", http.StatusBadRequest)
@@ -1802,6 +1809,14 @@ func (s *server) handleUpdateContact(w http.ResponseWriter, r *http.Request) {
 	}
 	if tag.RowsAffected() == 0 {
 		http.Error(w, "not found", http.StatusNotFound) // IDOR guard
+		return
+	}
+	// Stage / interest / owner: route to the conversation or contact fallback.
+	// Assigning an owner requires owner/admin/manager, like the assign endpoint.
+	canAssign := a.Role == "owner" || a.Role == "admin" || a.Role == "manager"
+	if _, err := s.applyContactLead(r.Context(), a.OrgID, a.UserID, id,
+		body.StageID, body.InterestLevel, body.AssignedAgent, canAssign); err != nil {
+		http.Error(w, err.Error(), http.StatusInternalServerError)
 		return
 	}
 	w.WriteHeader(http.StatusNoContent)
