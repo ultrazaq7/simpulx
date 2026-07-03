@@ -343,7 +343,6 @@ export default function ConversationList({
 
   const filterToggles: FilterToggle[] = [
     { key: "unread", label: "Unread", active: unreadOnly, onToggle: onUnreadToggle },
-    { key: "needsreply", label: "Needs reply", active: needsReplyOnly, onToggle: onNeedsReplyToggle },
     { key: "unresponded", label: "Unresponded chat", active: unresponded, onToggle: () => setUnresponded((v) => !v) },
     { key: "lastcustomer", label: "Last message by customer", active: lastByCustomer, onToggle: () => setLastByCustomer((v) => !v) },
     { key: "lastbot", label: "Last message by bot", active: lastByBot, onToggle: () => setLastByBot((v) => !v) },

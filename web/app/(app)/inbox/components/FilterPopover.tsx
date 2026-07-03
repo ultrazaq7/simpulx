@@ -59,7 +59,7 @@ export default function FilterPopover({ categories, toggles, activeCount, onClea
         className="relative z-50 max-w-[calc(100vw-2rem)] rounded-xl border border-border bg-popover shadow-2xl overflow-hidden animate-scale-in origin-top-left flex"
       >
         {/* ── Left: categories + toggles ── */}
-        <div className="w-[188px] shrink-0 border-r border-border flex flex-col">
+        <div className="w-[224px] shrink-0 border-r border-border flex flex-col">
           <p className="px-4 pt-3 pb-2 text-[10px] font-bold uppercase tracking-wider text-muted-foreground">Filter</p>
           <div className="flex-1 overflow-y-auto pb-1">
             {categories.map((c) => {
