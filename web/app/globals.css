@@ -109,21 +109,22 @@
 a { color: inherit; text-decoration: none; }
 input, textarea, select, button { font-family: inherit; }
 
-/* Premium thin scrollbar — hidden by default, revealed only while the
-   scrollable area (or anything inside it) is hovered. */
-::-webkit-scrollbar { width: 8px; height: 8px; }
+/* Modern scrollbar — hidden by default, revealed AND auto-widened only while
+   the scroll area (or anything inside it) is hovered. Applied app-wide,
+   theme-aware via --muted-foreground. */
+::-webkit-scrollbar { width: 6px; height: 6px; }
 ::-webkit-scrollbar-track { background: transparent; }
 ::-webkit-scrollbar-thumb {
   background: transparent;
   border-radius: 999px;
-  border: 2px solid transparent;
-  background-clip: padding-box;
   transition: background-color 0.15s ease;
 }
-:hover::-webkit-scrollbar-thumb { background: hsl(214 18% 80%); background-clip: padding-box; }
-:hover::-webkit-scrollbar-thumb:hover { background: hsl(214 14% 66%); background-clip: padding-box; }
+:hover::-webkit-scrollbar { width: 11px; height: 11px; }
+:hover::-webkit-scrollbar-thumb { background: hsl(var(--muted-foreground) / 0.42); }
+::-webkit-scrollbar-thumb:hover { background: hsl(var(--muted-foreground) / 0.62); }
+/* Firefox: no hover-widen, so reveal the thin thumb on hover only. */
 * { scrollbar-width: thin; scrollbar-color: transparent transparent; }
-*:hover { scrollbar-color: hsl(214 18% 80%) transparent; }
+*:hover { scrollbar-color: hsl(var(--muted-foreground) / 0.4) transparent; }
 
 /* Hide scrollbar but keep scroll (rails) */
 .no-scrollbar::-webkit-scrollbar { display: none; }

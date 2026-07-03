@@ -9,6 +9,7 @@ import { api } from "@/lib/api";
 import { Select } from "@/components/Select";
 import { MultiSelect } from "@/components/ui/multi-select";
 import { fmtDate, cn } from "@/lib/utils";
+import { useEscClose } from "@/lib/useEscClose";
 import { Tip } from "@/components/ui/tooltip";
 import type { Template, TemplateButton, CarouselCard, Channel, Campaign } from "@/lib/types";
 import {
@@ -741,9 +742,13 @@ function TemplateForm({ editing, prefill, prefillLang, channels, campaigns, onCl
 }
 
 // ─────────────────────────────── small helpers ──────────────────────────────
+// The HSM template builder is a wide two-column editor (form + live phone
+// preview), so it stays a centered modal rather than a narrow drawer - but it
+// still closes on Escape via useEscClose for consistency with the app.
 function Modal({ children, onClose, title, header, maxW, noPad }: {
   children: React.ReactNode; onClose: () => void; title?: string; header?: React.ReactNode; maxW: string; noPad?: boolean;
 }) {
+  useEscClose(true, onClose);
   return (
     <div className="fixed inset-0 z-[100] flex items-center justify-center p-4">
       <div className="absolute inset-0 bg-black/40 backdrop-blur-[2px] animate-fade-in" onClick={onClose} />
