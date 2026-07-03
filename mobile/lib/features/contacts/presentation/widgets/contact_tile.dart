@@ -296,11 +296,11 @@ class _HistorySection extends ConsumerWidget {
             return Text('No history yet',
                 style: theme.textTheme.bodySmall?.copyWith(color: muted));
           }
-          final last2 = activities.take(2).toList();
+          final sorted = activities.reversed.take(2).toList();
           return Column(
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
-              for (final a in last2)
+              for (final a in sorted)
                 Padding(
                   padding: const EdgeInsets.only(bottom: 6),
                   child: Row(
@@ -335,24 +335,23 @@ class _HistorySection extends ConsumerWidget {
                     ],
                   ),
                 ),
-              if (activities.length > 2)
-                GestureDetector(
-                  onTap: () => context.push(
-                    '/contacts/$contactId',
-                    extra: {'scrollToHistory': true},
-                  ),
-                  child: Padding(
-                    padding: const EdgeInsets.only(top: 2),
-                    child: Text(
-                      'See More →',
-                      style: theme.textTheme.bodySmall?.copyWith(
-                        color: AppColors.primary,
-                        fontWeight: FontWeight.w600,
-                        fontSize: 12,
-                      ),
+              GestureDetector(
+                onTap: () => context.push(
+                  '/contacts/$contactId',
+                  extra: {'scrollToHistory': true},
+                ),
+                child: Padding(
+                  padding: const EdgeInsets.only(top: 2),
+                  child: Text(
+                    'See More →',
+                    style: theme.textTheme.bodySmall?.copyWith(
+                      color: AppColors.primary,
+                      fontWeight: FontWeight.w600,
+                      fontSize: 12,
                     ),
                   ),
                 ),
+              ),
             ],
           );
         },
