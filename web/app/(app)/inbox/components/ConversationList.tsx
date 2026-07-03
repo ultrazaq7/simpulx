@@ -447,7 +447,6 @@ export default function ConversationList({
                 isActive={c.id === activeId}
                 onClick={() => onSelect(c.id)}
                 onCopy={onCopy}
-                messages={c.id === activeId ? activeMessages : undefined}
                 showAgent={showAgent}
                 channelName={channelNameMap.get(c.channel)}
                 dense={dense}
