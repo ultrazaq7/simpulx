@@ -1,7 +1,6 @@
 import 'dart:async';
 
 import 'package:flutter/material.dart';
-import 'package:flutter/services.dart';
 import '../../../core/utils/haptics.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:proximity_sensor/proximity_sensor.dart';
@@ -210,6 +209,18 @@ class _Controls extends StatelessWidget {
           onTap: connected ? () {
             Haptics.selection;
             controller.toggleMute();
+          } : null,
+        ),
+        _RoundAction(
+          icon: session.speakerOn
+              ? Icons.volume_up_rounded
+              : Icons.volume_down_rounded,
+          color: session.speakerOn ? Colors.white : Colors.white24,
+          iconColor: session.speakerOn ? AppColors.brandInk : Colors.white,
+          label: 'Speaker',
+          onTap: connected ? () {
+            Haptics.selection;
+            controller.toggleSpeaker();
           } : null,
         ),
         _RoundAction(

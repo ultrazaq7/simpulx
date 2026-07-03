@@ -28,7 +28,12 @@ final webRtcServiceFactoryProvider = Provider<WebRtcService Function()>(
 class CallController extends Notifier<CallSession?> {
   WebRtcService? _rtc;
   Timer? _autoClear;
+  Timer? _ringTimeout;
   static const _channel = MethodChannel('simpulx_notification');
+
+  /// How long we ring an outbound call before giving up as "No answer". Without
+  /// this the caller waits forever on a customer who never picks up.
+  static const _outboundRingTimeout = Duration(seconds: 45);
 
   CallsRemoteDataSource get _ds => ref.read(callsDataSourceProvider);
 
@@ -87,10 +92,51 @@ class CallController extends Notifier<CallSession?> {
       state = s.copyWith(phase: CallPhase.ringing, message: 'Calling...');
       final offer = await _rtc!.createOffer();
       await _ds.initiate(callId: s.callId, sdpOffer: offer);
+      // The user may have pressed End while we were gathering ICE / initiating.
+      // If the session is gone or no longer ringing, don't revive audio/timers.
+      final now = state;
+      if (now == null ||
+          now.callId != s.callId ||
+          now.phase != CallPhase.ringing) {
+        return;
+      }
+      // We're ringing now: play the local ringback so the caller hears feedback,
+      // and arm a timeout so an unanswered call doesn't hang forever.
+      _startRingback();
+      _armRingTimeout();
       // Wait for the `call.updated` sdp_answer to connect.
     } catch (e) {
       _fail('Could not place the call');
     }
+  }
+
+  /// Play the outbound ringback tone (Android ToneGenerator, no bundled asset).
+  /// Best-effort: silence on failure is fine, the call still proceeds.
+  void _startRingback() {
+    _channel.invokeMethod('startRingback').catchError((_) {});
+  }
+
+  void _stopRingback() {
+    _channel.invokeMethod('stopRingback').catchError((_) {});
+  }
+
+  /// Give up on an unanswered outbound call after [_outboundRingTimeout].
+  void _armRingTimeout() {
+    _ringTimeout?.cancel();
+    _ringTimeout = Timer(_outboundRingTimeout, () {
+      final s = state;
+      if (s == null || s.inbound || s.phase == CallPhase.connected) return;
+      // Tell the backend to tear down so the customer's ring also stops.
+      if (s.callId.isNotEmpty) {
+        _ds.end(s.callId).catchError((_) {});
+      }
+      _cleanup(CallPhase.ended, message: 'No answer');
+    });
+  }
+
+  void _cancelRingTimeout() {
+    _ringTimeout?.cancel();
+    _ringTimeout = null;
   }
 
   // ── Inbound ────────────────────────────────────────────
@@ -177,6 +223,7 @@ class CallController extends Notifier<CallSession?> {
       _dismissNativeCallNotification();
       final answer = await _rtc!.createAnswer(offer);
       await _ds.accept(callId: s.callId, sdpAnswer: answer);
+      await _rtc?.setSpeaker(state?.speakerOn ?? false);
       state = state?.copyWith(
         phase: CallPhase.connected,
         connectedAt: DateTime.now(),
@@ -189,26 +236,33 @@ class CallController extends Notifier<CallSession?> {
   Future<void> rejectIncoming() async {
     final s = state;
     if (s == null) return;
-    // Only hit the backend when we actually have a call id (otherwise the
-    // empty-id request 404s); always clean up the local UI either way.
-    if (s.callId.isNotEmpty) {
+    // Tear down the local UI first so Decline feels instant, then tell the
+    // backend (best-effort). Only hit the API when we actually have a call id
+    // (an empty-id request 404s).
+    final callId = s.callId;
+    _cleanup(CallPhase.ended, message: 'Declined');
+    if (callId.isNotEmpty) {
       try {
-        await _ds.reject(s.callId);
+        await _ds.reject(callId);
       } catch (_) {/* best effort */}
     }
-    _cleanup(CallPhase.ended, message: 'Declined');
   }
 
   // ── Controls ───────────────────────────────────────────
   Future<void> hangUp() async {
     final s = state;
     if (s == null) return;
-    if (s.callId.isNotEmpty) {
+    // Optimistically tear down the local UI so End is always instant, then tell
+    // the backend to terminate (which stops the customer's ring too). Doing the
+    // network call after cleanup means a slow/failed request never leaves the
+    // call screen stuck as if End did nothing.
+    final callId = s.callId;
+    _cleanup(CallPhase.ended, message: 'Call ended');
+    if (callId.isNotEmpty) {
       try {
-        await _ds.end(s.callId);
+        await _ds.end(callId);
       } catch (_) {/* best effort */}
     }
-    _cleanup(CallPhase.ended, message: 'Call ended');
   }
 
   Future<void> toggleMute() async {
@@ -217,6 +271,15 @@ class CallController extends Notifier<CallSession?> {
     final muted = !s.muted;
     await _rtc?.setMuted(muted);
     state = s.copyWith(muted: muted);
+  }
+
+  /// Toggle the loudspeaker on/off during a call.
+  Future<void> toggleSpeaker() async {
+    final s = state;
+    if (s == null) return;
+    final on = !s.speakerOn;
+    await _rtc?.setSpeaker(on);
+    state = s.copyWith(speakerOn: on);
   }
 
   /// Dismiss a finished call card.
@@ -285,7 +348,7 @@ class CallController extends Notifier<CallSession?> {
         (p.endReason != null && p.endReason!.isNotEmpty)) {
       _cleanup(
         p.callStatus == 'failed' ? CallPhase.failed : CallPhase.ended,
-        message: p.endReason ?? 'Call ended',
+        message: friendlyEndReason(p.endReason, failed: p.callStatus == 'failed'),
       );
       return;
     }
@@ -313,6 +376,8 @@ class CallController extends Notifier<CallSession?> {
     }
 
     if (p.callStatus == 'connected' && s.phase != CallPhase.connected) {
+      _stopRingback();
+      _cancelRingTimeout();
       _dismissNativeCallNotification();
       state = s.copyWith(
         phase: CallPhase.connected,
@@ -324,6 +389,11 @@ class CallController extends Notifier<CallSession?> {
   Future<void> _applyAnswer(String sdp) async {
     try {
       await _rtc?.setRemoteAnswer(sdp);
+      // Connected: stop the ringback and disarm the no-answer timeout.
+      _stopRingback();
+      _cancelRingTimeout();
+      // Pin audio to the earpiece by default (predictable across devices).
+      await _rtc?.setSpeaker(state?.speakerOn ?? false);
       state = state?.copyWith(
         phase: CallPhase.connected,
         connectedAt: DateTime.now(),
@@ -359,6 +429,8 @@ class CallController extends Notifier<CallSession?> {
   }
 
   void _cleanup(CallPhase phase, {String? message}) {
+    _stopRingback();
+    _cancelRingTimeout();
     _rtc?.dispose();
     _rtc = null;
     // Dismiss the native call notification when the call ends
@@ -397,3 +469,30 @@ class CallController extends Notifier<CallSession?> {
 
 final callControllerProvider =
     NotifierProvider<CallController, CallSession?>(CallController.new);
+
+/// Map a raw backend end-reason enum (agent_hangup, rejected, no_answer, ...)
+/// to a short human label shown when a call ends. Falls back gracefully for any
+/// unknown value instead of leaking the raw token.
+String friendlyEndReason(String? reason, {bool failed = false}) {
+  switch (reason) {
+    case 'rejected':
+    case 'declined':
+      return 'Call declined';
+    case 'no_answer':
+    case 'timeout':
+      return 'No answer';
+    case 'busy':
+      return 'Line busy';
+    case 'agent_hangup':
+    case 'caller_hangup':
+    case 'customer_hangup':
+    case 'hangup':
+    case 'call_ended':
+    case 'ended':
+    case null:
+    case '':
+      return 'Call ended';
+    default:
+      return failed ? 'Call failed' : 'Call ended';
+  }
+}

@@ -336,6 +336,9 @@ object NotificationHelper {
             .setContentText(body.ifEmpty { "Incoming voice call" })
             .setCategory(NotificationCompat.CATEGORY_CALL)
             .setPriority(NotificationCompat.PRIORITY_MAX)
+            // Show the full call (title, actions) on the lock screen, not a
+            // "contents hidden" placeholder.
+            .setVisibility(NotificationCompat.VISIBILITY_PUBLIC)
             .setContentIntent(answerPendingIntent)
             .setFullScreenIntent(answerPendingIntent, true)
             .setAutoCancel(false)
@@ -469,6 +472,7 @@ object NotificationHelper {
                     CALL_CHANNEL_ID, CALL_CHANNEL_NAME,
                     NotificationManager.IMPORTANCE_HIGH
                 ).apply {
+                    lockscreenVisibility = android.app.Notification.VISIBILITY_PUBLIC
                     setSound(
                         android.provider.Settings.System.DEFAULT_RINGTONE_URI,
                         android.media.AudioAttributes.Builder()

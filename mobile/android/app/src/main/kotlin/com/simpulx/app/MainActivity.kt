@@ -15,6 +15,10 @@ class MainActivity : FlutterActivity() {
 
     private val CHANNEL = "simpulx_notification"
 
+    // Outbound ringback tone (played while an outbound call is ringing). Uses the
+    // system ToneGenerator so no audio asset needs to be bundled.
+    private var ringbackTone: android.media.ToneGenerator? = null
+
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
         handleIntent(intent)
@@ -59,6 +63,21 @@ class MainActivity : FlutterActivity() {
                 }
             }
         }
+    }
+
+    private fun stopRingbackTone() {
+        ringbackTone?.let {
+            try {
+                it.stopTone()
+                it.release()
+            } catch (_: Exception) {}
+        }
+        ringbackTone = null
+    }
+
+    override fun onDestroy() {
+        stopRingbackTone()
+        super.onDestroy()
     }
 
     override fun configureFlutterEngine(flutterEngine: FlutterEngine) {
@@ -151,6 +170,30 @@ class MainActivity : FlutterActivity() {
                     "clearNativeAuth" -> {
                         try {
                             NativeApiClient.clearTokens(this)
+                            result.success(true)
+                        } catch (e: Exception) {
+                            result.success(false)
+                        }
+                    }
+                    // Start the outbound ringback tone (repeats until stopped).
+                    "startRingback" -> {
+                        try {
+                            if (ringbackTone == null) {
+                                ringbackTone = android.media.ToneGenerator(
+                                    android.media.AudioManager.STREAM_VOICE_CALL, 80
+                                )
+                            }
+                            ringbackTone?.startTone(
+                                android.media.ToneGenerator.TONE_SUP_RINGTONE
+                            )
+                            result.success(true)
+                        } catch (e: Exception) {
+                            result.success(false)
+                        }
+                    }
+                    "stopRingback" -> {
+                        try {
+                            stopRingbackTone()
                             result.success(true)
                         } catch (e: Exception) {
                             result.success(false)

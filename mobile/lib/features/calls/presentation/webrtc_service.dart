@@ -66,6 +66,16 @@ class WebRtcService {
     }
   }
 
+  /// Route call audio to the loudspeaker (true) or the earpiece (false).
+  /// Best-effort: audio still works if the platform call throws.
+  Future<void> setSpeaker(bool on) async {
+    try {
+      await Helper.setSpeakerphoneOn(on);
+    } catch (e) {
+      if (kDebugMode) debugPrint('[webrtc] setSpeaker: $e');
+    }
+  }
+
   Future<void> dispose() async {
     try {
       for (final t in _localStream?.getTracks() ?? const []) {

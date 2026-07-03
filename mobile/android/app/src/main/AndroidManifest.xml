@@ -30,6 +30,7 @@
             android:hardwareAccelerated="true"
             android:windowSoftInputMode="adjustResize"
             android:showOnLockScreen="true"
+            android:showWhenLocked="true"
             android:turnScreenOn="true">
             <meta-data
               android:name="io.flutter.embedding.android.NormalTheme"
