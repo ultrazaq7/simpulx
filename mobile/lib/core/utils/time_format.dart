@@ -39,19 +39,17 @@ String formatSessionTimestamp(DateTime? dt) {
   return DateFormat('MM/dd/yyyy').format(dt.toLocal());
 }
 
-/// Live countdown of the 24h WhatsApp session window from [lastMessageAt]:
-/// "Xh Ym Zs" while the window is open, or null once elapsed (the caller then
-/// shows [formatSessionTimestamp]).
+/// Elapsed time since [lastMessageAt], counting UP from 0 while inside the 24h
+/// WhatsApp session window ("Xh Ym Zs"); returns null once 24h has passed (the
+/// caller then shows the closed-window state + [formatSessionTimestamp]).
 String? formatWindowCountdown(DateTime? lastMessageAt) {
   if (lastMessageAt == null) return null;
-  final remaining = lastMessageAt
-      .toLocal()
-      .add(const Duration(hours: 24))
-      .difference(DateTime.now());
-  if (remaining.isNegative || remaining.inSeconds <= 0) return null;
-  final h = remaining.inHours;
-  final m = remaining.inMinutes.remainder(60);
-  final s = remaining.inSeconds.remainder(60);
+  var elapsed = DateTime.now().difference(lastMessageAt.toLocal());
+  if (elapsed.isNegative) elapsed = Duration.zero;
+  if (elapsed.inHours >= 24) return null;
+  final h = elapsed.inHours;
+  final m = elapsed.inMinutes.remainder(60);
+  final s = elapsed.inSeconds.remainder(60);
   return '${h}h ${m}m ${s}s';
 }
 

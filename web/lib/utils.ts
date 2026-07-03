@@ -52,21 +52,23 @@ export function fmtDateTime(dateStr: string | Date | undefined | null): string {
 }
 
 // WhatsApp 24h session window derived from a conversation's last message time.
-// While open -> a live countdown "Xh Ym Zs"; once elapsed -> the absolute
-// timestamp (fmtDateTime). Pure/stateless; the ticking is done by the caller.
+// While open -> the elapsed time since that message, counting UP from 0
+// ("Xh Ym Zs"); once 24h passes -> the absolute date (window closed).
+// Pure/stateless; the ticking is done by the caller.
 const SESSION_WINDOW_MS = 24 * 60 * 60 * 1000;
 export function windowState(dateStr: string | Date | undefined | null): { open: boolean; text: string } {
   if (!dateStr) return { open: false, text: "" };
   const d = new Date(dateStr);
   if (isNaN(d.getTime())) return { open: false, text: "" };
-  const remaining = d.getTime() + SESSION_WINDOW_MS - Date.now();
-  if (remaining <= 0) {
+  let elapsed = Date.now() - d.getTime();
+  if (elapsed < 0) elapsed = 0;
+  if (elapsed >= SESSION_WINDOW_MS) {
     const p = (n: number) => String(n).padStart(2, "0");
     return { open: false, text: `${p(d.getMonth() + 1)}/${p(d.getDate())}/${d.getFullYear()}` };
   }
-  const h = Math.floor(remaining / 3600000);
-  const m = Math.floor((remaining % 3600000) / 60000);
-  const s = Math.floor((remaining % 60000) / 1000);
+  const h = Math.floor(elapsed / 3600000);
+  const m = Math.floor((elapsed % 3600000) / 60000);
+  const s = Math.floor((elapsed % 60000) / 1000);
   return { open: true, text: `${h}h ${m}m ${s}s` };
 }
 
