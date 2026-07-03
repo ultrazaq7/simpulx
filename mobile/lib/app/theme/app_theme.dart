@@ -175,14 +175,19 @@ class AppTheme {
       // same flat grey.
       chipTheme: ChipThemeData(
         backgroundColor: surfaceAlt,
-        selectedColor: AppColors.primary.withValues(alpha: 0.16),
+        // Selected = solid brand fill with white text so the active pill reads
+        // clearly in both themes (a faint tint looked washed out / dim).
+        selectedColor: AppColors.primary,
         side: BorderSide(color: border),
         // AppText.label carries a fixed light-mode colour, so filter chip labels
         // (quick chips + Advanced Filters sheet) rendered dim on dark. Resolve the
         // colour per brightness so they stay legible in dark mode.
         labelStyle: AppText.label.copyWith(color: textSecondary),
-        secondaryLabelStyle: AppText.label.copyWith(color: AppColors.primary),
-        checkmarkColor: AppColors.primary,
+        secondaryLabelStyle: AppText.label.copyWith(
+          color: AppColors.onPrimary,
+          fontWeight: FontWeight.w700,
+        ),
+        checkmarkColor: AppColors.onPrimary,
         showCheckmark: false,
         shape: RoundedRectangleBorder(
           borderRadius: AppRadius.rPill,

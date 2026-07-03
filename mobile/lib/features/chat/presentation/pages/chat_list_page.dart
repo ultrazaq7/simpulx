@@ -180,9 +180,7 @@ class _ChatListPageState extends ConsumerState<ChatListPage> {
                             level[0].toUpperCase() + level.substring(1),
                           ),
                           selected: filter.interestLevel == level,
-                          selectedColor: AppColors.forInterest(
-                            level,
-                          ).withValues(alpha: 0.16),
+                          selectedColor: AppColors.forInterest(level),
                           onSelected: (_) => ref
                               .read(inboxFilterProvider.notifier)
                               .set(filter.copyWith(interestLevel: level)),
@@ -748,9 +746,9 @@ class _FilterChip extends StatelessWidget {
   Widget build(BuildContext context) {
     return Center(
       child: Material(
-        color: selected
-            ? AppColors.primary.withValues(alpha: 0.14)
-            : Colors.transparent,
+        // Selected = solid brand fill + white text so the active pill is clearly
+        // visible; unselected = outlined with a per-brightness legible label.
+        color: selected ? AppColors.primary : Colors.transparent,
         shape: StadiumBorder(
           side: BorderSide(
             color: selected
@@ -767,11 +765,9 @@ class _FilterChip extends StatelessWidget {
               label.tr(context),
               style: TextStyle(
                 fontSize: 13,
-                fontWeight: FontWeight.w600,
-                // onSurfaceVariant resolves per brightness (bright grey in dark),
-                // so the unselected label stays legible in dark mode.
+                fontWeight: selected ? FontWeight.w700 : FontWeight.w600,
                 color: selected
-                    ? AppColors.primary
+                    ? AppColors.onPrimary
                     : Theme.of(context).colorScheme.onSurfaceVariant,
               ),
             ),

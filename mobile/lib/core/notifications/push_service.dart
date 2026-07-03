@@ -1,6 +1,5 @@
 import 'dart:io';
 
-import 'package:firebase_core/firebase_core.dart';
 import 'package:firebase_messaging/firebase_messaging.dart';
 import 'package:flutter/foundation.dart';
 
@@ -49,16 +48,20 @@ class PushService {
     // Handle foreground messages
     FirebaseMessaging.onMessage.listen((message) {
       debugPrint('[PushService] Foreground message: ${message.data}');
+      // On Android, SimpulxMessagingService (native) renders EVERY push in all
+      // app states (messages, calls, alerts) with the correct call lifecycle
+      // (a call_ended push dismisses the ring instead of re-ringing). Showing a
+      // Flutter notification here as well double-posted the call - the second
+      // one even rang for ended/missed calls. iOS has no native handler, so it
+      // still needs this Flutter fallback.
+      if (Platform.isAndroid) {
+        debugPrint('[PushService] Skipping - native Kotlin handles all pushes');
+        return;
+      }
       final payload = NotificationPayload.fromData(message.data);
       debugPrint('[PushService] Payload category: ${payload.category}');
       if (allow != null && !allow(payload.category)) {
         debugPrint('[PushService] Blocked by allow callback');
-        return;
-      }
-      // Messages are handled natively by SimpulxMessagingService (Kotlin).
-      // Only show Flutter notification for calls and non-message types.
-      if (payload.category == NotificationCategory.incomingMessage) {
-        debugPrint('[PushService] Skipping - native Kotlin handles messages');
         return;
       }
       debugPrint('[PushService] Showing notification...');

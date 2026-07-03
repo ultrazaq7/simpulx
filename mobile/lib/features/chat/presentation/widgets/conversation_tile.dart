@@ -325,7 +325,11 @@ class _PreviewWidget extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
-    final color = hasUnread ? theme.colorScheme.onSurface : AppColors.textSecondary;
+    // onSurfaceVariant resolves per brightness (bright grey in dark) so the
+    // preview stays readable; the fixed light-mode grey was far too dim on the
+    // dark canvas.
+    final color =
+        hasUnread ? theme.colorScheme.onSurface : theme.colorScheme.onSurfaceVariant;
     final weight = hasUnread ? FontWeight.w500 : FontWeight.w400;
     final style = theme.textTheme.bodyMedium?.copyWith(color: color, fontWeight: weight);
 
@@ -458,7 +462,7 @@ class _WindowTime extends StatelessWidget {
     return Text(
       formatSessionTimestamp(lastMessageAt),
       style: theme.textTheme.bodySmall?.copyWith(
-        color: hasUnread ? AppColors.primary : AppColors.textMuted,
+        color: hasUnread ? AppColors.primary : theme.colorScheme.onSurfaceVariant,
         fontWeight: hasUnread ? FontWeight.w700 : FontWeight.w400,
         fontSize: 10.5,
       ),
