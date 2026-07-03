@@ -1,7 +1,7 @@
 "use client";
 import { memo } from "react";
 import {
-  Image as ImageIcon, Video, FileText, Headset, Bot, CheckCircle, Zap, Clock, Phone, Sticker, Mic, User, Megaphone,
+  Image as ImageIcon, Video, FileText, Headset, Bot, CheckCircle, Zap, Clock, Phone, Sticker, Mic, User, Building2,
 } from "lucide-react";
 import { initials, channelColor, avatarColor, cn } from "@/lib/utils";
 import { WindowTime, WindowCountdownBadge } from "./WindowTime";
@@ -41,12 +41,11 @@ const ConversationCard = memo(function ConversationCard({
   const repliedByAgent = c.last_sender_type === "agent" || c.last_sender_type === "system";
   const responder: "human" | "bot" | null = repliedByBot ? "bot" : repliedByAgent ? "human" : null;
   const responderLabel = repliedByBot ? "Replied by Simpuler" : "Replied by agent";
-  // The 24h WhatsApp session window counts down from the CUSTOMER's last
-  // inbound message; an agent/bot reply must NOT reset it. Falls back to
-  // last_message_at only until the gateway ships last_contact_message_at.
-  // While open, the line-1 slot shows a live countdown; once elapsed it becomes
-  // the plain date with a "24H" badge in the responder-icon slot to its left.
-  const sessionAnchor = c.last_contact_message_at ?? c.last_message_at;
+  // The 24h session window counts down from the last message in the thread
+  // (any direction); a fresh reply restarts it. While open, the line-1 slot
+  // shows a live countdown; once elapsed it becomes the plain date with a "24H"
+  // badge in the responder-icon slot to its left.
+  const sessionAnchor = c.last_message_at;
   const isWa = c.channel === "whatsapp" && !!sessionAnchor;
   const winAge = sessionAnchor ? Date.now() - new Date(sessionAnchor).getTime() : Infinity;
   const windowOpen = isWa && winAge < 24 * 60 * 60 * 1000;
@@ -156,9 +155,9 @@ const ConversationCard = memo(function ConversationCard({
           )}
         </div>
 
-        {/* Line 3: agent + campaign as icon + text (no pills) */}
+        {/* Line 3: agent + campaign as icon + text (no pills), right-aligned */}
         {hasMeta && (
-          <div className={cn("flex items-center gap-3 min-w-0", dense ? "mt-1" : "mt-1.5")}>
+          <div className={cn("flex items-center justify-end gap-3 min-w-0", dense ? "mt-1" : "mt-1.5")}>
             {showAgent && c.agent_name && (
               <Tip label={`Assigned: ${c.agent_name}`} side="top">
                 <span className="inline-flex items-center gap-1 text-[11px] text-muted-foreground truncate min-w-0 max-w-[50%]">
@@ -169,7 +168,7 @@ const ConversationCard = memo(function ConversationCard({
             {c.campaign_name && (
               <Tip label={c.campaign_name} side="top">
                 <span className="inline-flex items-center gap-1 text-[11px] font-medium text-primary-text truncate min-w-0 max-w-[60%]">
-                  <Megaphone className="w-3 h-3 shrink-0 opacity-80" />{c.campaign_name}
+                  <Building2 className="w-3 h-3 shrink-0 opacity-80" />{c.campaign_name}
                 </span>
               </Tip>
             )}

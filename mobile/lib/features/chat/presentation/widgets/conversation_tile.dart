@@ -41,12 +41,11 @@ class ConversationTile extends ConsumerWidget {
         : Icons.headset_mic_outlined;
     final responderLabel =
         repliedByBot ? 'Replied by Simpuler' : 'Replied by agent';
-    // The 24h WhatsApp session window counts down from the CUSTOMER's last
-    // inbound message; an agent/bot reply must NOT reset it. Falls back to
-    // lastMessageAt only until the gateway ships last_contact_message_at. While
-    // open, the line-1 trailing slot shows a live countdown; once elapsed it
-    // becomes the plain date with a red "24H" badge in the responder slot.
-    final sessionAnchor = c.lastContactMessageAt ?? c.lastMessageAt;
+    // The 24h session window counts down from the last message in the thread
+    // (any direction); a fresh reply restarts it. While open, the line-1
+    // trailing slot shows a live countdown; once elapsed it becomes the plain
+    // date with a red "24H" badge in the responder slot.
+    final sessionAnchor = c.lastMessageAt;
     final countdownActive = formatWindowCountdown(sessionAnchor) != null;
     final windowExpired =
         c.channel == 'whatsapp' && sessionAnchor != null && !countdownActive;
@@ -147,15 +146,19 @@ class ConversationTile extends ConsumerWidget {
                   if ((isManager && (c.agentName?.isNotEmpty ?? false)) ||
                       (c.campaignName?.isNotEmpty ?? false)) ...[
                     const SizedBox(height: 5),
-                    Wrap(
-                      spacing: 12,
-                      runSpacing: 4,
-                      children: [
-                        if (isManager && (c.agentName?.isNotEmpty ?? false))
-                          _AssigneeChip(name: c.agentName!),
-                        if (c.campaignName?.isNotEmpty ?? false)
-                          _CampaignChip(name: c.campaignName!),
-                      ],
+                    SizedBox(
+                      width: double.infinity,
+                      child: Wrap(
+                        alignment: WrapAlignment.end,
+                        spacing: 12,
+                        runSpacing: 4,
+                        children: [
+                          if (isManager && (c.agentName?.isNotEmpty ?? false))
+                            _AssigneeChip(name: c.agentName!),
+                          if (c.campaignName?.isNotEmpty ?? false)
+                            _CampaignChip(name: c.campaignName!),
+                        ],
+                      ),
                     ),
                   ],
                 ],
@@ -381,7 +384,7 @@ class _CampaignChip extends StatelessWidget {
     return Row(
       mainAxisSize: MainAxisSize.min,
       children: [
-        const Icon(Icons.campaign_outlined,
+        const Icon(Icons.apartment_rounded,
             size: 14, color: AppColors.primary),
         const SizedBox(width: 3),
         ConstrainedBox(
