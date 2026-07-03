@@ -30,34 +30,19 @@ class ConversationTile extends ConsumerWidget {
     final isOutbound = c.lastMessageDirection == 'agent';
     final isManager =
         ref.watch(sessionControllerProvider).user?.role.isManagerTier ?? false;
-    // Top-right corner session badge: a live countdown pill while the 24h
-    // WhatsApp window is open, or a red "24H" badge once it has closed
-    // (template-only). Mutually exclusive; row 1 shifts down to make room.
+    // The 24h session window is a WhatsApp concept. While open, the line-1
+    // trailing slot shows a live countdown pill; once elapsed it becomes the
+    // plain date and a red "24H" badge takes the responder-icon slot to its left.
     final countdownActive = formatWindowCountdown(c.lastMessageAt) != null;
     final windowExpired = c.channel == 'whatsapp' &&
         c.lastMessageAt != null &&
         !countdownActive;
-    final hasCornerBadge = countdownActive || windowExpired;
 
     return InkWell(
       onTap: onTap,
-      child: Stack(
-        children: [
-          if (countdownActive)
-            Positioned(
-              top: 5,
-              right: 16,
-              child: _CountdownBadge(lastMessageAt: c.lastMessageAt!),
-            )
-          else if (windowExpired)
-            const Positioned(
-              top: 5,
-              right: 16,
-              child: _Window24hBadge(),
-            ),
-          Padding(
-            padding: EdgeInsets.fromLTRB(16, hasCornerBadge ? 26 : 10, 16, 10),
-            child: Row(
+      child: Padding(
+        padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 10),
+        child: Row(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
             _Avatar(name: c.displayName, channel: c.channel),
@@ -66,7 +51,7 @@ class ConversationTile extends ConsumerWidget {
               child: Column(
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
-                  // Line 1: name + date (clean, one trailing element).
+                  // Line 1: name + [responder icon | 24H badge] + [pill | date].
                   Row(
                     children: [
                       Flexible(
@@ -84,17 +69,10 @@ class ConversationTile extends ConsumerWidget {
                       ),
                       const Spacer(),
                       const SizedBox(width: 8),
-                      _WindowTime(
-                        lastMessageAt: c.lastMessageAt,
-                        hasUnread: hasUnread,
-                      ),
-                    ],
-                  ),
-                  const SizedBox(height: 2),
-                  // Line 2: last-responder icon + preview + status/unread.
-                  Row(
-                    children: [
-                      if (isOutbound) ...[
+                      if (windowExpired) ...[
+                        const _Window24hBadge(),
+                        const SizedBox(width: 6),
+                      ] else if (isOutbound) ...[
                         Icon(
                           c.isBotActive
                               ? Icons.smart_toy_outlined
@@ -102,8 +80,21 @@ class ConversationTile extends ConsumerWidget {
                           size: 13,
                           color: AppColors.textMuted,
                         ),
-                        const SizedBox(width: 4),
+                        const SizedBox(width: 6),
                       ],
+                      if (countdownActive)
+                        _CountdownBadge(lastMessageAt: c.lastMessageAt!)
+                      else
+                        _WindowTime(
+                          lastMessageAt: c.lastMessageAt,
+                          hasUnread: hasUnread,
+                        ),
+                    ],
+                  ),
+                  const SizedBox(height: 2),
+                  // Line 2: preview + status/unread.
+                  Row(
+                    children: [
                       Expanded(
                         child: _PreviewWidget(
                           preview: preview,
@@ -141,8 +132,6 @@ class ConversationTile extends ConsumerWidget {
             ),
           ],
         ),
-          ),
-        ],
       ),
     );
   }
@@ -398,22 +387,22 @@ class _Window24hBadge extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return Container(
-      padding: const EdgeInsets.symmetric(horizontal: 5, vertical: 1.5),
+      padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
       decoration: BoxDecoration(
-        color: AppColors.hot.withValues(alpha: 0.12),
-        borderRadius: BorderRadius.circular(4),
+        color: AppColors.hot,
+        borderRadius: BorderRadius.circular(20),
       ),
       child: const Row(
         mainAxisSize: MainAxisSize.min,
         children: [
-          Icon(Icons.schedule_rounded, size: 10, color: AppColors.hot),
+          Icon(Icons.schedule_rounded, size: 10, color: Colors.white),
           SizedBox(width: 2),
           Text('24H',
               style: TextStyle(
                   fontSize: 9,
                   fontWeight: FontWeight.w700,
-                  letterSpacing: 0.4,
-                  color: AppColors.hot)),
+                  letterSpacing: 0.3,
+                  color: Colors.white)),
         ],
       ),
     );
@@ -496,7 +485,7 @@ class _CountdownBadgeState extends State<_CountdownBadge> {
     final countdown = formatWindowCountdown(widget.lastMessageAt);
     if (countdown == null) return const SizedBox.shrink();
     return Container(
-      padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 2),
+      padding: const EdgeInsets.only(left: 3, right: 8, top: 2, bottom: 2),
       decoration: BoxDecoration(
         color: AppColors.primary,
         borderRadius: BorderRadius.circular(20),
@@ -504,8 +493,18 @@ class _CountdownBadgeState extends State<_CountdownBadge> {
       child: Row(
         mainAxisSize: MainAxisSize.min,
         children: [
-          const Icon(Icons.schedule_rounded, size: 11, color: Colors.white),
-          const SizedBox(width: 3),
+          Container(
+            width: 15,
+            height: 15,
+            decoration: BoxDecoration(
+              color: Colors.white.withValues(alpha: 0.25),
+              shape: BoxShape.circle,
+            ),
+            alignment: Alignment.center,
+            child: const Icon(Icons.schedule_rounded,
+                size: 10, color: Colors.white),
+          ),
+          const SizedBox(width: 4),
           Text(countdown,
               style: const TextStyle(
                   fontSize: 10.5,

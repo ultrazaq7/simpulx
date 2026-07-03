@@ -34,16 +34,14 @@ const ConversationCard = memo(function ConversationCard({
 
   const needsFollowUp = (c.interest_level === "hot" || c.interest_level === "warm") && unread;
   const needsCall = c.interest_level === "hot" && (c.call_attempts === null || c.call_attempts === 0);
-  const windowExpired = (() => {
-    if (!c.last_message_at || c.channel !== "whatsapp") return false;
-    return Date.now() - new Date(c.last_message_at).getTime() > 24 * 60 * 60 * 1000;
-  })();
-  // 24h session window still open -> corner countdown badge (line 1 shifts
-  // down to make room). Computed once per render; the badge self-expires.
-  const windowOpen = (() => {
-    if (!c.last_message_at) return false;
-    return Date.now() - new Date(c.last_message_at).getTime() < 24 * 60 * 60 * 1000;
-  })();
+  const isOutbound = c.last_message_direction === "agent";
+  // The 24h session window is a WhatsApp concept. While open, the line-1 slot
+  // shows a live countdown pill; once elapsed it becomes the plain date and a
+  // "24H" badge takes the responder-icon slot to its left.
+  const isWa = c.channel === "whatsapp" && !!c.last_message_at;
+  const winAge = c.last_message_at ? Date.now() - new Date(c.last_message_at).getTime() : Infinity;
+  const windowOpen = isWa && winAge < 24 * 60 * 60 * 1000;
+  const windowExpired = isWa && winAge >= 24 * 60 * 60 * 1000;
 
   const media = c.last_message_preview ? PREVIEW_MEDIA[c.last_message_preview] : undefined;
   const previewFull = media ? media.label : (c.last_message_preview || "No messages yet");
@@ -56,21 +54,10 @@ const ConversationCard = memo(function ConversationCard({
       onClick={onClick}
       className={cn(
         "group relative flex gap-3 pl-4 pr-3 cursor-pointer border-b border-border/40 transition-colors duration-100",
-        dense ? (windowOpen || windowExpired ? "pt-7 pb-2" : "py-2") : (windowOpen || windowExpired ? "pt-8 pb-3" : "py-3"),
+        dense ? "py-2" : "py-3",
         isActive ? "bg-primary/[0.06]" : "hover:bg-muted/40",
       )}
     >
-      {/* Top-right corner session badge: live countdown while the 24h window is
-          open, or a red "24H" template-only badge once it has closed. */}
-      {windowOpen ? (
-        <WindowCountdownBadge lastMessageAt={c.last_message_at} className="absolute top-2 right-2.5 z-[1]" />
-      ) : windowExpired ? (
-        <Tip label="24h window closed - template only" side="top">
-          <span className="absolute top-2 right-2.5 z-[1] inline-flex items-center gap-1 h-[18px] px-2 rounded-full bg-hot text-white text-[10px] font-semibold leading-none">
-            <Clock className="w-3 h-3 shrink-0" />24H
-          </span>
-        </Tip>
-      ) : null}
 
       {/* Avatar (dynamic per-contact colour, WhatsApp-style) + channel dot */}
       <div className="relative shrink-0 self-start mt-0.5">
@@ -90,8 +77,8 @@ const ConversationCard = memo(function ConversationCard({
 
       {/* Text */}
       <div className="flex-1 min-w-0">
-        {/* Line 1: name + date */}
-        <div className="flex items-baseline gap-2">
+        {/* Line 1: name + [responder icon | 24H badge] + [countdown pill | date] */}
+        <div className="flex items-center gap-1.5">
           <p className={cn(
             "min-w-0 truncate text-[13px] leading-snug",
             unread ? "font-semibold text-foreground" : "font-medium text-foreground/90",
@@ -99,18 +86,26 @@ const ConversationCard = memo(function ConversationCard({
             {c.contact_name || c.contact_phone || "Unknown"}
           </p>
           <span className="flex-1" />
-          <WindowTime lastMessageAt={c.last_message_at} unread={unread} />
-        </div>
-
-        {/* Line 2: last-responder icon + preview + one signal + unread count */}
-        <div className={cn("flex items-center gap-1.5", dense ? "mt-0.5" : "mt-1")}>
-          {c.last_message_direction === "agent" && (
+          {windowExpired ? (
+            <Tip label="24h window closed - template only" side="top">
+              <span className="shrink-0 inline-flex items-center gap-0.5 h-[18px] px-1.5 rounded-full bg-hot text-white text-[9px] font-bold tabular-nums leading-none">
+                <Clock className="w-2.5 h-2.5" />24H
+              </span>
+            </Tip>
+          ) : isOutbound ? (
             <Tip label={c.is_bot_active ? "Replied by Simpuler" : "Replied by agent"} side="top">
               {c.is_bot_active
                 ? <Bot className="w-3.5 h-3.5 shrink-0 text-muted-foreground" />
                 : <Headset className="w-3.5 h-3.5 shrink-0 text-muted-foreground" />}
             </Tip>
-          )}
+          ) : null}
+          {windowOpen
+            ? <WindowCountdownBadge lastMessageAt={c.last_message_at} />
+            : <WindowTime lastMessageAt={c.last_message_at} unread={unread} />}
+        </div>
+
+        {/* Line 2: preview + one signal + unread count */}
+        <div className={cn("flex items-center gap-1.5", dense ? "mt-0.5" : "mt-1")}>
           <Tip label={<span className="block max-w-[300px] whitespace-pre-wrap leading-snug text-left text-[12px]">{previewFull}</span>} side="bottom" align="start">
             <span className={cn(
               "flex-1 min-w-0 truncate text-[12px] leading-snug",

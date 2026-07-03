@@ -3,8 +3,9 @@ import { useEffect, useState } from "react";
 import { Clock } from "lucide-react";
 import { cn, windowState } from "@/lib/utils";
 
-// Chat-list date cell: always shows the static MM/dd/yyyy date.
-// The live countdown lives in WindowCountdownBadge (corner of the tile).
+// Chat-list date cell: the static MM/dd/yyyy date. Shown in the line-1 slot
+// once the 24h session window has elapsed (the countdown pill takes this slot
+// while the window is still open).
 export function WindowTime({ lastMessageAt, unread }: { lastMessageAt: string | null; unread?: boolean }) {
   if (!lastMessageAt) return null;
   const d = new Date(lastMessageAt);
@@ -18,9 +19,9 @@ export function WindowTime({ lastMessageAt, unread }: { lastMessageAt: string | 
   );
 }
 
-// Corner badge: live per-second countdown of the 24h session window as a
-// solid blue pill ("Xh Ym Zs" + clock icon). Self-gating: renders nothing
-// once the window elapses, and stops its own ticker.
+// Live per-second countdown of the 24h session window as a rounded brand pill
+// ("Xh Ym Zs" with a clock chip), occupying the same line-1 slot the date uses
+// once elapsed. Self-gating: renders null and stops its ticker at expiry.
 export function WindowCountdownBadge({ lastMessageAt, className }: { lastMessageAt: string | null; className?: string }) {
   const [st, setSt] = useState(() => windowState(lastMessageAt));
   useEffect(() => {
@@ -37,10 +38,12 @@ export function WindowCountdownBadge({ lastMessageAt, className }: { lastMessage
   if (!st.open) return null;
   return (
     <span className={cn(
-      "inline-flex items-center gap-1 h-[18px] px-2 rounded-full bg-primary text-primary-foreground text-[10px] font-semibold tabular-nums leading-none",
+      "shrink-0 inline-flex items-center gap-1 h-[20px] pl-1 pr-2.5 rounded-full bg-primary text-primary-foreground text-[10.5px] font-semibold tabular-nums leading-none",
       className,
     )}>
-      <Clock className="w-3 h-3 shrink-0" />
+      <span className="grid place-items-center w-[15px] h-[15px] rounded-full bg-white/25">
+        <Clock className="w-2.5 h-2.5" />
+      </span>
       {st.text}
     </span>
   );
