@@ -14,7 +14,7 @@ import MessageBubble, { rewriteLocalMedia } from "./MessageBubble";
 import Composer from "./Composer";
 import LostReasonDialog from "./LostReasonDialog";
 import { MessageThreadSkeleton } from "./InboxSkeletons";
-import { StageMenu } from "./StageMenu";
+import { StageMenu, getDotColor } from "./StageMenu";
 import { InterestMenu } from "./InterestMenu";
 import CallOverlay from "./CallOverlay";
 import { api } from "@/lib/api";
@@ -540,15 +540,32 @@ export default function ChatPanel({
                   <div className="relative bg-card rounded-xl border border-border shadow-2xl w-full max-w-sm p-5 animate-scale-in">
                     <h3 className="text-[15px] font-bold text-foreground mb-1">Close conversation</h3>
                     <p className="text-[12.5px] text-muted-foreground mb-4">Pick the final stage for this lead before closing.</p>
-                    <div className="space-y-1.5 max-h-[260px] overflow-auto mb-4">
-                      {stages.map((st) => (
+                    <div className="max-h-[300px] overflow-auto mb-4 -mx-1">
+                      <p className="px-2 py-1.5 text-[10px] font-bold text-muted-foreground uppercase tracking-wider">Pipeline stage</p>
+                      {stages.filter((st) => !(st.system_key || "").startsWith("lost") && !st.name.toLowerCase().startsWith("lost")).map((st) => (
                         <button key={st.id} onClick={() => setCloseStageId(st.id)}
-                          className={cn("w-full flex items-center gap-2 px-3 py-2 rounded-lg border text-[13px] text-left outline-none transition-colors",
-                            closeStageId === st.id ? "border-primary bg-primary/5 text-foreground font-semibold" : "border-border hover:bg-muted text-foreground/90")}>
+                          className={cn("w-full flex items-center gap-2 px-2 py-2 rounded-md text-[13px] text-left outline-none transition-colors",
+                            closeStageId === st.id ? "bg-primary/[0.07] text-foreground font-semibold" : "hover:bg-muted text-foreground/90")}>
+                          <span className="w-2.5 h-2.5 rounded-full shrink-0" style={{ backgroundColor: getDotColor(st.name) }} />
                           <span className="flex-1 truncate">{st.name}</span>
                           {closeStageId === st.id && <Check className="w-4 h-4 text-primary shrink-0" />}
                         </button>
                       ))}
+                      {stages.some((st) => (st.system_key || "").startsWith("lost") || st.name.toLowerCase().startsWith("lost")) && (
+                        <>
+                          <div className="border-t border-border my-1" />
+                          <p className="px-2 py-1.5 text-[10px] font-bold text-muted-foreground uppercase tracking-wider">Outcome</p>
+                          {stages.filter((st) => (st.system_key || "").startsWith("lost") || st.name.toLowerCase().startsWith("lost")).map((st) => (
+                            <button key={st.id} onClick={() => setCloseStageId(st.id)}
+                              className={cn("w-full flex items-center gap-2 px-2 py-2 rounded-md text-[13px] text-left outline-none transition-colors",
+                                closeStageId === st.id ? "bg-red-50 text-red-600 font-semibold" : "hover:bg-muted text-foreground/90")}>
+                              <span className="w-2.5 h-2.5 rounded-full shrink-0 bg-red-500" />
+                              <span className="flex-1 truncate">{st.name}</span>
+                              {closeStageId === st.id && <Check className="w-4 h-4 text-red-500 shrink-0" />}
+                            </button>
+                          ))}
+                        </>
+                      )}
                     </div>
                     <div className="flex justify-end gap-2">
                       <button onClick={() => setCloseStageOpen(false)} className="px-4 h-9 rounded-md border border-border text-[13px] font-semibold text-foreground/80 hover:bg-muted outline-none">Cancel</button>
