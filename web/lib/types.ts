@@ -299,6 +299,7 @@ export interface Contact {
   channel_name?: string | null;       // real channel name (e.g. "Test Channel")
   conversation_id?: string | null;    // latest conversation (for the Chat popup)
   web_api_source_name?: string | null;
+  web_api_source_platform?: SourcePlatform | null;
   source_id?: string | null;          // CTWA / referral source id
   source_url?: string | null;         // CTWA / referral ad URL
 }
@@ -459,6 +460,9 @@ export interface OrgNotifications { newMessages?: boolean; newConversations?: bo
 export interface OrgSettings { notifications?: OrgNotifications; branding?: OrgBranding; [k: string]: unknown; }
 export interface Organization { id: string; name: string; settings: OrgSettings | null; }
 
+// Platform vocabulary shared with AdAccount.platform - keep these in sync.
+export type SourcePlatform = "meta" | "tiktok" | "google" | "other";
+
 export interface WebApiSource {
   id: string;
   name: string;
@@ -471,6 +475,7 @@ export interface WebApiSource {
   is_active: boolean;
   lead_count: number;
   created_at: string;
+  platform: SourcePlatform;
 }
 
 export interface LogPage<T> { rows: T[]; total: number; }

@@ -6,7 +6,7 @@ import { useState } from "react";
 import { Plug, Loader2, Copy, Check, CheckCircle2, Key } from "lucide-react";
 import { api } from "@/lib/api";
 import { Select } from "@/components/Select";
-import type { Campaign } from "@/lib/types";
+import type { Campaign, SourcePlatform } from "@/lib/types";
 import { WizardModal, WizardCard, WizardField, BackButton, ContinueButton } from "./WizardModal";
 import { FieldLabel, PrimaryButton } from "../_shared";
 
@@ -63,10 +63,16 @@ export function WebApiWizard({ campaigns, onClose, onCreated }: {
     if (!name.trim()) { setErr("Name is required"); return; }
     setSaving(true); setErr("");
     try {
+      // The preset picked in step 0 IS the platform - send it, instead of
+      // discarding it after prefilling name/slug. Without this every Web API
+      // lead showed up as a generic "Ad"/"web" everywhere downstream (contacts,
+      // exports, logs), even though the admin told us right here which
+      // platform (Meta/TikTok/Google) the source is for.
+      const platform: SourcePlatform = preset === "custom" || preset === "" ? "other" : (preset as SourcePlatform);
       const r = await api.createWebApiSource({
         name: name.trim(), slug: slug.trim() || undefined,
         auto_template_name: template.trim() || undefined, webhook_url: webhook.trim() || undefined,
-        campaign_id: campaignId || undefined,
+        campaign_id: campaignId || undefined, platform,
       });
       // The create response carries only the id; fetch the row to reveal its key.
       const all = await api.listWebApiSources().catch(() => []);

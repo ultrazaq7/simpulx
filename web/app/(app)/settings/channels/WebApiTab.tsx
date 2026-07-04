@@ -8,11 +8,20 @@ import { api } from "@/lib/api";
 import { Select } from "@/components/Select";
 import { cn } from "@/lib/utils";
 import { Tip } from "@/components/ui/tooltip";
-import type { WebApiSource, Campaign } from "@/lib/types";
+import type { WebApiSource, Campaign, SourcePlatform } from "@/lib/types";
 import { useToast, FieldLabel, INPUT_CLASS, PrimaryButton, GhostButton } from "../_shared";
 import { WebApiWizard } from "./WebApiWizard";
 
 const API = process.env.NEXT_PUBLIC_API_URL || "http://localhost:8080";
+
+// Same vocabulary as ad_accounts.platform, so a source's platform reads the
+// same way everywhere (contacts, exports, logs).
+const PLATFORM_LABELS: Record<SourcePlatform, string> = {
+  meta: "Meta Ads", tiktok: "TikTok Ads", google: "Google Ads", other: "Other",
+};
+const PLATFORM_COLORS: Record<SourcePlatform, string> = {
+  meta: "#1877F2", tiktok: "#111111", google: "#EA4335", other: "#8B5CF6",
+};
 
 export function WebApiTab() {
   const { notify, ToastHost } = useToast();
@@ -99,7 +108,12 @@ export function WebApiTab() {
                 <div key={p.id} className={cn("flex items-center gap-3 px-4 py-2.5 hover:bg-muted/40 transition-colors", !p.is_active && "opacity-65")}>
                   <div className="w-9 h-9 rounded-lg grid place-items-center bg-[#8B5CF6]/[0.12] text-[#8B5CF6] shrink-0"><Plug className="w-[18px] h-[18px]" /></div>
                   <div className="min-w-0 w-[210px] shrink-0">
-                    <p className="text-[13.5px] font-bold text-foreground truncate">{p.name}</p>
+                    <div className="flex items-center gap-1.5">
+                      <p className="text-[13.5px] font-bold text-foreground truncate">{p.name}</p>
+                      <span className="shrink-0 px-1.5 py-0.5 rounded text-[10px] font-semibold text-white" style={{ backgroundColor: PLATFORM_COLORS[p.platform] }}>
+                        {PLATFORM_LABELS[p.platform]}
+                      </span>
+                    </div>
                     <p className="text-[11.5px] text-muted-foreground truncate">{p.slug ? `slug: ${p.slug}` : ""}{p.campaign_name ? ` · → ${p.campaign_name}` : ""} · {p.lead_count} leads</p>
                   </div>
                   <div className="min-w-0 flex-1 hidden md:flex items-center gap-2 px-2.5 py-1.5 rounded-lg bg-muted/50">
@@ -147,6 +161,7 @@ function WebApiDialog({ state, campaigns, onClose, onSaved, onError }: {
   const [campaignId, setCampaignId] = useState("");
   const [template, setTemplate] = useState("");
   const [webhook, setWebhook] = useState("");
+  const [platform, setPlatform] = useState<SourcePlatform>("other");
   const [saving, setSaving] = useState(false);
 
   useEffect(() => {
@@ -155,12 +170,13 @@ function WebApiDialog({ state, campaigns, onClose, onSaved, onError }: {
     setName(p?.name ?? ""); setSlug(p?.slug ?? "");
     setCampaignId(p?.campaign_id ?? "");
     setTemplate(p?.auto_template_name ?? ""); setWebhook(p?.webhook_url ?? "");
+    setPlatform(p?.platform ?? "other");
   }, [state.open]); // eslint-disable-line react-hooks/exhaustive-deps
 
   async function save() {
     if (!name.trim()) { onError("Name is required"); return; }
     setSaving(true);
-    const payload = { name: name.trim(), slug: slug.trim() || undefined, auto_template_name: template.trim() || undefined, webhook_url: webhook.trim() || undefined, campaign_id: campaignId };
+    const payload = { name: name.trim(), slug: slug.trim() || undefined, auto_template_name: template.trim() || undefined, webhook_url: webhook.trim() || undefined, campaign_id: campaignId, platform };
     try {
       if (isEdit) { await api.updateWebApiSource(state.editing!.id, payload); onSaved("API source updated"); }
       else { await api.createWebApiSource(payload); onSaved("API source created"); }
@@ -193,6 +209,12 @@ function WebApiDialog({ state, campaigns, onClose, onSaved, onError }: {
                 className={INPUT_CLASS} />
             </div>
           ))}
+          <div>
+            <FieldLabel>Platform</FieldLabel>
+            <Select value={platform} onChange={(v) => setPlatform(v as SourcePlatform)} searchable={false}
+              options={(Object.keys(PLATFORM_LABELS) as SourcePlatform[]).map((k) => ({ value: k, label: PLATFORM_LABELS[k] }))} />
+            <p className="text-[11.5px] text-muted-foreground mt-1">Shown consistently as the lead source across Contacts, exports, and logs.</p>
+          </div>
           <div>
             <FieldLabel>Route to campaign</FieldLabel>
             <Select value={campaignId} onChange={setCampaignId} placeholder="No campaign"

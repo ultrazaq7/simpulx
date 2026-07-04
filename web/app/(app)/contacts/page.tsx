@@ -20,8 +20,16 @@ import { MultiSelect } from "@/components/ui/multi-select";
 
 type ModalState = { mode: "add" } | { mode: "edit"; contact: Contact } | null;
 
+// Specific, not generic: a CTWA referral is always Meta by definition (WhatsApp
+// click-to-chat is a Meta-only feature); a Web API lead uses its tagged
+// platform. Kept in one place so Contacts, its CSV export, and any drill-in
+// all read the same label.
+const SOURCE_PLATFORM_LABELS: Record<string, string> = {
+  meta: "Meta Ads", tiktok: "TikTok Ads", google: "Google Ads", other: "Website",
+};
 function sourceLabel(c: Contact): string {
-  if (c.source_id) return "Ad";
+  if (c.source_id) return "Meta Ads";
+  if (c.web_api_source_platform) return SOURCE_PLATFORM_LABELS[c.web_api_source_platform] ?? c.web_api_source_name ?? "Website";
   if (c.web_api_source_name) return c.web_api_source_name;
   return c.source_channel ? channelLabel(c.source_channel) : "Direct";
 }

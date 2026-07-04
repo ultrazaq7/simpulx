@@ -26,6 +26,7 @@ class Contact extends Equatable {
     this.sourceId,
     this.sourceUrl,
     this.webApiSourceName,
+    this.webApiSourcePlatform,
     this.carBrand,
     this.carModel,
     this.city,
@@ -53,6 +54,7 @@ class Contact extends Equatable {
   final String? sourceId;
   final String? sourceUrl;
   final String? webApiSourceName;
+  final String? webApiSourcePlatform; // meta | tiktok | google | other
   final String? carBrand;
   final String? carModel;
   final String? city;
@@ -60,11 +62,23 @@ class Contact extends Equatable {
 
   String get displayName => fullName.trim().isNotEmpty ? fullName : phone;
 
-  /// Accurate lead source label, matching the web: an ad-attributed lead reads
-  /// "Ad", a web-API lead reads its source name, otherwise the channel/"Direct"
-  /// (so it never just shows the raw channel like "whatsapp").
+  /// Accurate, specific lead source label (matches the web): a CTWA referral
+  /// is always Meta by definition (WhatsApp click-to-chat is a Meta-only
+  /// feature) so it reads "Meta Ads"; a Web API lead reads its tagged
+  /// platform (Meta/TikTok/Google Ads, or "Website"); otherwise the
+  /// channel/"Direct" (so it never just shows the raw channel like "whatsapp").
   String get sourceLabel {
-    if (sourceId != null && sourceId!.isNotEmpty) return 'Ad';
+    if (sourceId != null && sourceId!.isNotEmpty) return 'Meta Ads';
+    switch (webApiSourcePlatform) {
+      case 'meta':
+        return 'Meta Ads';
+      case 'tiktok':
+        return 'TikTok Ads';
+      case 'google':
+        return 'Google Ads';
+      case 'other':
+        return 'Website';
+    }
     if (webApiSourceName != null && webApiSourceName!.isNotEmpty) {
       return webApiSourceName!;
     }
@@ -111,6 +125,7 @@ class Contact extends Equatable {
         sourceId,
         sourceUrl,
         webApiSourceName,
+        webApiSourcePlatform,
         carBrand,
         carModel,
         city,

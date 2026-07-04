@@ -17,7 +17,7 @@ func (s *server) handleListWebAPISources(w http.ResponseWriter, r *http.Request)
 	rows, err := s.queryMaps(r.Context(),
 		`SELECT s.id::text AS id, s.name, s.slug, s.api_key, s.webhook_url,
 		        s.auto_template_name, s.is_active, s.lead_count, s.created_at,
-		        s.campaign_id::text AS campaign_id, c.name AS campaign_name
+		        s.platform, s.campaign_id::text AS campaign_id, c.name AS campaign_name
 		   FROM web_api_sources s
 		   LEFT JOIN campaigns c ON c.id = s.campaign_id
 		  WHERE s.organization_id = $1
@@ -41,7 +41,13 @@ type webAPISourceInput struct {
 	AutoTemplateName string `json:"auto_template_name"`
 	WebhookURL       string `json:"webhook_url"`
 	CampaignID       string `json:"campaign_id"`
+	// Platform tag (meta | tiktok | google | other) - drives the specific
+	// "Meta Ads"/"TikTok Ads"/"Google Ads"/"Website" label shown consistently
+	// across contacts, exports, and logs (same vocabulary as ad_accounts.platform).
+	Platform string `json:"platform"`
 }
+
+var validWebAPISourcePlatforms = map[string]bool{"meta": true, "tiktok": true, "google": true, "other": true}
 
 // POST /api/web-api-sources
 func (s *server) handleCreateWebAPISource(w http.ResponseWriter, r *http.Request) {
@@ -54,17 +60,24 @@ func (s *server) handleCreateWebAPISource(w http.ResponseWriter, r *http.Request
 	if b.Slug == "" {
 		b.Slug = strings.ToLower(strings.ReplaceAll(strings.TrimSpace(b.Name), " ", "-"))
 	}
+	if b.Platform == "" {
+		b.Platform = "other"
+	}
+	if !validWebAPISourcePlatforms[b.Platform] {
+		http.Error(w, "invalid platform", http.StatusBadRequest)
+		return
+	}
 	var id string
 	err := s.pool.QueryRow(r.Context(),
-		`INSERT INTO web_api_sources (organization_id, name, slug, api_key, auto_template_name, webhook_url, campaign_id)
-		 VALUES ($1,$2,$3,$4,NULLIF($5,''),NULLIF($6,''),NULLIF($7,'')::uuid) RETURNING id::text`,
-		a.OrgID, b.Name, b.Slug, newAPIKey(), b.AutoTemplateName, b.WebhookURL, b.CampaignID,
+		`INSERT INTO web_api_sources (organization_id, name, slug, api_key, auto_template_name, webhook_url, campaign_id, platform)
+		 VALUES ($1,$2,$3,$4,NULLIF($5,''),NULLIF($6,''),NULLIF($7,'')::uuid,$8) RETURNING id::text`,
+		a.OrgID, b.Name, b.Slug, newAPIKey(), b.AutoTemplateName, b.WebhookURL, b.CampaignID, b.Platform,
 	).Scan(&id)
 	if err != nil {
 		http.Error(w, err.Error(), http.StatusInternalServerError)
 		return
 	}
-	s.audit(r.Context(), a, "created", "web_api_source", id, map[string]any{"name": b.Name})
+	s.audit(r.Context(), a, "created", "web_api_source", id, map[string]any{"name": b.Name, "platform": b.Platform})
 	writeJSON(w, map[string]any{"id": id})
 }
 
@@ -78,9 +91,14 @@ func (s *server) handleUpdateWebAPISource(w http.ResponseWriter, r *http.Request
 		WebhookURL       *string `json:"webhook_url"`
 		IsActive         *bool   `json:"is_active"`
 		CampaignID       *string `json:"campaign_id"`
+		Platform         *string `json:"platform"`
 	}
 	if err := json.NewDecoder(r.Body).Decode(&b); err != nil {
 		http.Error(w, "bad request", http.StatusBadRequest)
+		return
+	}
+	if b.Platform != nil && !validWebAPISourcePlatforms[*b.Platform] {
+		http.Error(w, "invalid platform", http.StatusBadRequest)
 		return
 	}
 	tag, err := s.pool.Exec(r.Context(),
@@ -91,10 +109,11 @@ func (s *server) handleUpdateWebAPISource(w http.ResponseWriter, r *http.Request
 		   webhook_url = COALESCE($6, webhook_url),
 		   is_active = COALESCE($7, is_active),
 		   campaign_id = CASE WHEN $8::text IS NULL THEN campaign_id ELSE NULLIF($8,'')::uuid END,
+		   platform = COALESCE($9, platform),
 		   updated_at = now()
 		 WHERE id=$1 AND organization_id=$2`,
 		r.PathValue("id"), a.OrgID, derefStr(b.Name), derefStr(b.Slug),
-		b.AutoTemplateName, b.WebhookURL, b.IsActive, b.CampaignID)
+		b.AutoTemplateName, b.WebhookURL, b.IsActive, b.CampaignID, b.Platform)
 	if err != nil {
 		http.Error(w, err.Error(), http.StatusInternalServerError)
 		return

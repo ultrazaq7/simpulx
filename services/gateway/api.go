@@ -1719,7 +1719,8 @@ func (s *server) handleListContacts(w http.ResponseWriter, r *http.Request) {
 		        COALESCE(lc.assigned_agent_id, ct.assigned_agent_id)::text AS assigned_agent_id, lu.full_name AS agent_name,
 		        lc.campaign_id::text AS campaign_id, lcmp.name AS campaign_name,
 		        lc.conversation_id::text AS conversation_id, lch.name AS channel_name,
-		        was.name AS web_api_source_name, att.referral_source AS source_id, att.referral_url AS source_url
+		        was.name AS web_api_source_name, was.platform AS web_api_source_platform,
+		        att.referral_source AS source_id, att.referral_url AS source_url
 		   FROM contacts ct
 		   LEFT JOIN LATERAL (
 		     SELECT id AS conversation_id, interest_level, stage_id, last_message_at, ai_reason AS ai_summary,

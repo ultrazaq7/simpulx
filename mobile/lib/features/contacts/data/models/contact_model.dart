@@ -28,6 +28,7 @@ class ContactModel {
       sourceId: asStringOrNull(json['source_id']),
       sourceUrl: asStringOrNull(json['source_url']),
       webApiSourceName: asStringOrNull(json['web_api_source_name']),
+      webApiSourcePlatform: asStringOrNull(json['web_api_source_platform']),
       carBrand: asStringOrNull(json['car_brand']),
       carModel: asStringOrNull(json['car_model']),
       city: asStringOrNull(json['city']),

@@ -251,13 +251,20 @@ func exportQuery(kind string) (string, []string, []string) {
 		        COALESCE(ct.email,'')                      AS contact_email,
 		        COALESCE(att.referral_url,'')              AS source_url,
 		        COALESCE(att.referral_source,'')           AS source_id,
-		        CASE WHEN att.referral_source IS NOT NULL THEN 'ad'
-		             WHEN ct.web_api_source_id IS NOT NULL THEN 'web'
+		        -- Specific platform, not a generic 'ad'/'web': a CTWA referral is
+		        -- always Meta by definition (WhatsApp click-to-chat is a Meta-only
+		        -- feature); a Web API lead uses the source's tagged platform.
+		        CASE WHEN att.referral_source IS NOT NULL THEN 'meta_ads'
+		             WHEN was.platform = 'meta' THEN 'meta_ads'
+		             WHEN was.platform = 'tiktok' THEN 'tiktok_ads'
+		             WHEN was.platform = 'google' THEN 'google_ads'
+		             WHEN ct.web_api_source_id IS NOT NULL THEN 'website'
 		             ELSE '' END                           AS source_type
 		      FROM messages m
 		          JOIN conversations cv ON cv.id = m.conversation_id
 		          LEFT JOIN contacts ct ON ct.id = cv.contact_id
 		          LEFT JOIN users u ON u.id = m.sender_id
+		          LEFT JOIN web_api_sources was ON was.id = ct.web_api_source_id
 		          LEFT JOIN LATERAL (
 		            SELECT referral_source, referral_url FROM conversation_attributions
 		             WHERE conversation_id = cv.id ORDER BY created_at DESC LIMIT 1
