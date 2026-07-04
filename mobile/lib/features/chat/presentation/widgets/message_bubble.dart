@@ -149,12 +149,16 @@ class MessageBubble extends StatelessWidget {
                 child: Row(
                   mainAxisSize: MainAxisSize.min,
                   children: [
-                    SizedBox(
-                      width: 16,
-                      height: 16,
-                      child: CircularProgressIndicator(
-                          strokeWidth: 2, color: fg.withValues(alpha: 0.5)),
-                    ),
+                    if (message.type == MessageType.sticker)
+                      Icon(Icons.emoji_emotions_outlined,
+                          size: 18, color: fg.withValues(alpha: 0.6))
+                    else
+                      SizedBox(
+                        width: 16,
+                        height: 16,
+                        child: CircularProgressIndicator(
+                            strokeWidth: 2, color: fg.withValues(alpha: 0.5)),
+                      ),
                     const SizedBox(width: 10),
                     Text(
                       switch (message.type) {

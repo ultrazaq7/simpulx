@@ -5,7 +5,7 @@ import {
   Sparkles, Check, CheckCheck, Clock, AlertCircle, Play, Pause, Mic, User,
   FileText, FileSpreadsheet, FileImage, FileArchive, FileCode,
   File, Download, MoreHorizontal, Copy, ClipboardPaste, Link2, Megaphone, Forward,
-  PhoneOutgoing, PhoneIncoming, PhoneMissed, MapPin, Phone, ExternalLink, Loader2,
+  PhoneOutgoing, PhoneIncoming, PhoneMissed, MapPin, Phone, ExternalLink, Loader2, Sticker as StickerIcon,
 } from "lucide-react";
 import { initials, fmtTime, channelColor, channelTextColor, cn } from "@/lib/utils";
 import { api } from "@/lib/api";
@@ -669,7 +669,9 @@ const MessageBubble = memo(function MessageBubble({ m, active, grouped, onPrevie
           {/* ── Media still downloading server-side ── */}
           {mediaPending && (
             <div className="px-2.5 py-2 flex items-center gap-2">
-              <Loader2 className={cn("w-4 h-4 animate-spin", out ? "text-white/60" : "text-muted-foreground")} />
+              {m.type === "sticker"
+                ? <StickerIcon className={cn("w-5 h-5", out ? "text-white/70" : "text-muted-foreground")} />
+                : <Loader2 className={cn("w-4 h-4 animate-spin", out ? "text-white/60" : "text-muted-foreground")} />}
               <span className={cn("text-[13px]", out ? "text-white/70" : "text-muted-foreground")}>
                 {m.type === "sticker" ? "Sticker" : m.type === "video" ? "Video" : m.type === "audio" ? "Voice message" : m.type === "image" ? "Photo" : "Document"}
               </span>
