@@ -1,7 +1,7 @@
 "use client";
 import { useState, useRef, useEffect } from "react";
 import { createPortal } from "react-dom";
-import { ChevronDown, Check } from "lucide-react";
+import { CaretDown as ChevronDown, Check } from "@phosphor-icons/react/ssr";
 import { cn, interestColor } from "@/lib/utils";
 import { useEscClose } from "@/lib/useEscClose";
 import { Tip } from "@/components/ui/tooltip";

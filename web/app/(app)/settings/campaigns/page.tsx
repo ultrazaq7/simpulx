@@ -1,6 +1,6 @@
 "use client";
 import { useEffect, useState } from "react";
-import { Search, Plus, Pencil, Trash2, Megaphone, Loader2, X } from "lucide-react";
+import { MagnifyingGlass as Search, Plus, PencilSimple as Pencil, Trash as Trash2, Megaphone, CircleNotch as Loader2, X } from "@phosphor-icons/react/ssr";
 import { api } from "@/lib/api";
 import { cn, fmtDateTimeShort } from "@/lib/utils";
 import { Tip } from "@/components/ui/tooltip";

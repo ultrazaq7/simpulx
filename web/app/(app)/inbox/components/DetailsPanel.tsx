@@ -1,7 +1,7 @@
 "use client";
 import { useEffect, useState } from "react";
 import Link from "next/link";
-import { X, Copy, User, Phone, Hash, MessageSquare, Clock, StickyNote, Tag as TagIcon, Plus, Paperclip, Download, FileText, Image as ImageIcon, Video, Mic, Trash2 } from "lucide-react";
+import { X, Copy, User, Phone, Hash, Chat as MessageSquare, Clock, Note as StickyNote, Tag as TagIcon, Plus, Paperclip, DownloadSimple as Download, FileText, Image as ImageIcon, VideoCamera as Video, Microphone as Mic, Trash as Trash2 } from "@phosphor-icons/react/ssr";
 import { api } from "@/lib/api";
 import { initials, channelColor, channelTextColor, channelLabel, fmtDate, fmtTime, fmtDateTimeShort, cn } from "@/lib/utils";
 import { Tip } from "@/components/ui/tooltip";

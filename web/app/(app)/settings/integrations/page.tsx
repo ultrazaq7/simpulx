@@ -3,7 +3,7 @@
 // redirect so existing bookmarks and links land on the right tab.
 import { useEffect } from "react";
 import { useRouter } from "next/navigation";
-import { Loader2 } from "lucide-react";
+import { CircleNotch as Loader2 } from "@phosphor-icons/react/ssr";
 
 export default function IntegrationsRedirect() {
   const router = useRouter();

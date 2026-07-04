@@ -1,10 +1,7 @@
 "use client";
 import { useEffect, useMemo, useState } from "react";
 import { useParams, useRouter } from "next/navigation";
-import {
-  ArrowLeft, Loader2, Phone, Mail, Tag as TagIcon, MessageSquare, Calendar, Clock,
-  ExternalLink, Megaphone, User, Radio, FileText, Image as ImageIcon, Video, StickyNote,
-} from "lucide-react";
+import { ArrowLeft, CircleNotch as Loader2, Phone, Envelope as Mail, Tag as TagIcon, Chat as MessageSquare, Calendar, Clock, ArrowSquareOut as ExternalLink, Megaphone, User, Radio, FileText, Image as ImageIcon, VideoCamera as Video, Note as StickyNote } from "@phosphor-icons/react/ssr";
 import { api } from "@/lib/api";
 import { initials, channelColor, fmtDate, fmtTime, relTime, fmtDateTimeShort, cn } from "@/lib/utils";
 import type { Contact, Conversation, Message, InternalNote } from "@/lib/types";

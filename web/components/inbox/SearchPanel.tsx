@@ -1,7 +1,7 @@
 "use client";
 
 import { useInbox } from "./InboxContext";
-import { X, Search as SearchIcon, FileText } from "lucide-react";
+import { X, MagnifyingGlass as SearchIcon, FileText } from "@phosphor-icons/react/ssr";
 import { fmtDate, fmtTime } from "@/lib/utils";
 import type { Message } from "@/lib/types";
 import { Input } from "@/components/ui/input";

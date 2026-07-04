@@ -1,7 +1,7 @@
 "use client";
 import { useState, useEffect } from "react";
 import { useRouter } from "next/navigation";
-import { Mail, Lock, EyeOff, Eye, Loader2, ArrowRight, AtSign, ShieldCheck } from "lucide-react";
+import { Envelope as Mail, Lock, EyeSlash as EyeOff, Eye, CircleNotch as Loader2, ArrowRight, At as AtSign, ShieldCheck } from "@phosphor-icons/react/ssr";
 import { api, setSession } from "@/lib/api";
 import { useI18n } from "@/lib/i18n";
 

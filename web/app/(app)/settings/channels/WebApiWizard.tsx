@@ -3,7 +3,7 @@
 // reveals the generated API key + a ready-to-copy curl snippet, so connecting an
 // external lead source feels like a guided enterprise onboarding.
 import { useState } from "react";
-import { Plug, Loader2, Copy, Check, CheckCircle2, Key } from "lucide-react";
+import { Plug, CircleNotch as Loader2, Copy, Check, CheckCircle as CheckCircle2, Key } from "@phosphor-icons/react/ssr";
 import { api } from "@/lib/api";
 import { Select } from "@/components/Select";
 import type { Campaign, SourcePlatform } from "@/lib/types";

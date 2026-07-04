@@ -1,7 +1,7 @@
 "use client";
 import { useState } from "react";
 import { useRouter } from "next/navigation";
-import { Mail, ArrowLeft, MailCheck, Loader2 } from "lucide-react";
+import { Envelope as Mail, ArrowLeft, Envelope as MailCheck, CircleNotch as Loader2 } from "@phosphor-icons/react/ssr";
 import { api } from "@/lib/api";
 
 export default function ForgotPasswordPage() {

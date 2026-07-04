@@ -4,7 +4,7 @@ import { useState, useEffect } from "react";
 import { useInbox } from "./InboxContext";
 import { formatCountdown } from "./SharedTypes";
 import { initials, channelColor, interestColor } from "@/lib/utils";
-import { Search, Filter, ArrowDownUp, CheckCircle2, Bot, Mic, Camera, Video, FileText, Headset, MessageSquare, AlertTriangle, Smile } from "lucide-react";
+import { MagnifyingGlass as Search, Funnel as Filter, ArrowsDownUp as ArrowDownUp, CheckCircle as CheckCircle2, Robot as Bot, Microphone as Mic, Camera, VideoCamera as Video, FileText, Headset, Chat as MessageSquare, Warning as AlertTriangle, Smiley as Smile } from "@phosphor-icons/react/ssr";
 import { Select, SelectContent, SelectTrigger, SelectValue, SelectItem } from "@/components/ui/select";
 import { MultiSelect } from "@/components/ui/multi-select";
 import { Input } from "@/components/ui/input";

@@ -1,9 +1,7 @@
 "use client";
 import { useEffect, useMemo, useRef, useState } from "react";
 import { useRouter } from "next/navigation";
-import {
-  Search, LayoutDashboard, MessageCircle, Users, Megaphone, Settings, CornerDownLeft, ArrowUp, ArrowDown,
-} from "lucide-react";
+import { MagnifyingGlass as Search, SquaresFour as LayoutDashboard, ChatCircle as MessageCircle, Users, Megaphone, Gear as Settings, ArrowBendDownLeft as CornerDownLeft, ArrowUp, ArrowDown } from "@phosphor-icons/react/ssr";
 import { api } from "@/lib/api";
 import { cn, initials, channelColor, channelTextColor } from "@/lib/utils";
 import type { Conversation } from "@/lib/types";

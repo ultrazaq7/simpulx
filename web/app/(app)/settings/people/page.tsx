@@ -1,7 +1,7 @@
 "use client";
 import { useEffect, useMemo, useRef, useState } from "react";
 import { createPortal } from "react-dom";
-import { Search, MoreHorizontal, User, Loader2, Eye, EyeOff, X, Plus, Activity, Clock, Timer, CalendarDays, Download } from "lucide-react";
+import { MagnifyingGlass as Search, DotsThree as MoreHorizontal, User, CircleNotch as Loader2, Eye, EyeSlash as EyeOff, X, Plus, Pulse as Activity, Clock, Timer, CalendarDots as CalendarDays, DownloadSimple as Download } from "@phosphor-icons/react/ssr";
 import { api, getUser } from "@/lib/api";
 import { Select } from "@/components/Select";
 import { MultiSelect } from "@/components/ui/multi-select";

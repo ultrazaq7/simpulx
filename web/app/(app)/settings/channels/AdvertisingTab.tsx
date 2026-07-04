@@ -3,9 +3,7 @@
 // SETUP ONLY: connect Meta / TikTok / Google ad accounts, edit a connection, and
 // map its ad campaigns to ours. Reporting (spend, cost-per-lead) lives on the Dashboard.
 import { useEffect, useMemo, useState } from "react";
-import {
-  Plus, RefreshCw, Trash2, Loader2, BarChart3, AlertTriangle, Link2, Search, Pencil, X, KeyRound,
-} from "lucide-react";
+import { Plus, ArrowsClockwise as RefreshCw, Trash as Trash2, CircleNotch as Loader2, ChartBar as BarChart3, Warning as AlertTriangle, Link as Link2, MagnifyingGlass as Search, PencilSimple as Pencil, X, Key as KeyRound } from "@phosphor-icons/react/ssr";
 import { api } from "@/lib/api";
 import { Select } from "@/components/Select";
 import { cn } from "@/lib/utils";

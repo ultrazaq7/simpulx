@@ -5,7 +5,7 @@
 // from the old /settings/integrations and /settings/ads routes land correctly.
 import { Suspense } from "react";
 import { useRouter, usePathname, useSearchParams } from "next/navigation";
-import { Radio, Plug, BarChart3 } from "lucide-react";
+import { Radio, Plug, ChartBar as BarChart3 } from "@phosphor-icons/react/ssr";
 import { cn } from "@/lib/utils";
 import { useI18n } from "@/lib/i18n";
 import { ChannelsTab } from "./ChannelsTab";

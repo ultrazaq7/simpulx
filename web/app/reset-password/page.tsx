@@ -1,7 +1,7 @@
 "use client";
 import { useEffect, useState } from "react";
 import { useRouter } from "next/navigation";
-import { Lock, EyeOff, Eye, CheckCircle2, Loader2, AlertCircle } from "lucide-react";
+import { Lock, EyeSlash as EyeOff, Eye, CheckCircle as CheckCircle2, CircleNotch as Loader2, WarningCircle as AlertCircle } from "@phosphor-icons/react/ssr";
 import { api } from "@/lib/api";
 import { cn } from "@/lib/utils";
 

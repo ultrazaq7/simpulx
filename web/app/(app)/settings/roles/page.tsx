@@ -1,6 +1,6 @@
 "use client";
 import { useEffect, useMemo, useRef, useState } from "react";
-import { Plus, Lock, X, Loader2, ChevronLeft, ChevronRight } from "lucide-react";
+import { Plus, Lock, X, CircleNotch as Loader2, CaretLeft as ChevronLeft, CaretRight as ChevronRight } from "@phosphor-icons/react/ssr";
 import { api, getUser } from "@/lib/api";
 import { cn } from "@/lib/utils";
 import SidePanel from "@/components/SidePanel";

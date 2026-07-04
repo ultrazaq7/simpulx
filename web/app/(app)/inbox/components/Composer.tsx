@@ -1,6 +1,6 @@
 "use client";
 import { useState, useRef, useEffect, useCallback } from "react";
-import { Smile, Paperclip, Zap, Send, Lock, X, FileText, Loader2, Clock, Phone, Mic, Trash2, Pause, Play, Sparkles, RefreshCw, Check, Plus } from "lucide-react";
+import { Smiley as Smile, Paperclip, Lightning as Zap, PaperPlaneRight as Send, Lock, X, FileText, CircleNotch as Loader2, Clock, Phone, Microphone as Mic, Trash as Trash2, Pause, Play, Sparkle as Sparkles, ArrowsClockwise as RefreshCw, Check, Plus } from "@phosphor-icons/react/ssr";
 import EmojiPicker from "emoji-picker-react";
 import { cn } from "@/lib/utils";
 import { api } from "@/lib/api";

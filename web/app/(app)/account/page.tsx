@@ -1,9 +1,7 @@
 "use client";
 import { useEffect, useMemo, useRef, useState } from "react";
 import { useRouter } from "next/navigation";
-import {
-  Loader2, Bell, Mail, MessageSquare, Volume2, ArrowLeft, MailCheck, Camera,
-} from "lucide-react";
+import { CircleNotch as Loader2, Bell, Envelope as Mail, Chat as MessageSquare, SpeakerHigh as Volume2, ArrowLeft, Envelope as MailCheck, Camera } from "@phosphor-icons/react/ssr";
 import { api, getUser, getToken, setSession } from "@/lib/api";
 import type { OrgSettings } from "@/lib/types";
 import { cn, initials } from "@/lib/utils";

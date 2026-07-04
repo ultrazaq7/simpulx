@@ -1,6 +1,6 @@
 "use client";
 import { useMemo, useState } from "react";
-import { ExternalLink, Send } from "lucide-react";
+import { ArrowSquareOut as ExternalLink, PaperPlaneRight as Send } from "@phosphor-icons/react/ssr";
 import Link from "next/link";
 import { Select } from "@/components/Select";
 import SidePanel from "@/components/SidePanel";

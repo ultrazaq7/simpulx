@@ -5,12 +5,7 @@ import {
   AreaChart, Area, XAxis, YAxis, CartesianGrid, Tooltip as RechartsTooltip,
   Legend, ResponsiveContainer, LineChart, Line, PieChart, Pie, Cell,
 } from "recharts";
-import {
-  BarChart3, MessageSquare, Inbox, Flame, Timer,
-  TrendingDown, ChevronRight, Zap, Mail, Reply, Trophy, Ban,
-  CircleDollarSign, MousePointerClick, Megaphone, Target, Eye, Filter as FilterIcon,
-  Image as ImageIcon, MapPin,
-} from "lucide-react";
+import { ChartBar as BarChart3, Chat as MessageSquare, Tray as Inbox, Fire as Flame, Timer, TrendDown as TrendingDown, CaretRight as ChevronRight, Lightning as Zap, Envelope as Mail, ArrowBendUpLeft as Reply, Trophy, Prohibit as Ban, CurrencyCircleDollar as CircleDollarSign, CursorClick as MousePointerClick, Megaphone, Target, Eye, Funnel as FilterIcon, Image as ImageIcon, MapPin } from "@phosphor-icons/react/ssr";
 
 import { api, getUser } from "@/lib/api";
 import { Select } from "@/components/Select";

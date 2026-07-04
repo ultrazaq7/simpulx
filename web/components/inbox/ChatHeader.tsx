@@ -1,7 +1,7 @@
 "use client";
 
 import { useInbox } from "./InboxContext";
-import { Check, ChevronRight, ChevronDown, RotateCcw, CheckCircle, Search, PanelRight, MoreVertical } from "lucide-react";
+import { Check, CaretRight as ChevronRight, CaretDown as ChevronDown, ArrowCounterClockwise as RotateCcw, CheckCircle, MagnifyingGlass as Search, Sidebar as PanelRight, DotsThreeVertical as MoreVertical } from "@phosphor-icons/react/ssr";
 import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuSeparator, DropdownMenuTrigger } from "@/components/ui/dropdown-menu";
 import { api } from "@/lib/api";
 

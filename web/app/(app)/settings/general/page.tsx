@@ -1,7 +1,7 @@
 "use client";
 import { useEffect, useMemo, useState } from "react";
 import { useRouter } from "next/navigation";
-import { Loader2, Globe, Clock, Building2, Copy, Check, Phone } from "lucide-react";
+import { CircleNotch as Loader2, Globe, Clock, Buildings as Building2, Copy, Check, Phone } from "@phosphor-icons/react/ssr";
 import { api, getUser } from "@/lib/api";
 import { loadPermissions, canWith } from "@/lib/permissions";
 import { Select } from "@/components/Select";

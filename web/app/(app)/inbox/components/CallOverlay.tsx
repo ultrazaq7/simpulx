@@ -1,6 +1,6 @@
 "use client";
 import { useState, useEffect, useRef, useCallback } from "react";
-import { Phone, PhoneOff, PhoneIncoming, Mic, MicOff, X, Loader2, Minus, GripHorizontal, ChevronUp } from "lucide-react";
+import { Phone, PhoneDisconnect as PhoneOff, PhoneIncoming, Microphone as Mic, MicrophoneSlash as MicOff, X, CircleNotch as Loader2, Minus, DotsSix as GripHorizontal, CaretUp as ChevronUp } from "@phosphor-icons/react/ssr";
 import { cn } from "@/lib/utils";
 import { api } from "@/lib/api";
 

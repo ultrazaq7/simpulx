@@ -3,7 +3,7 @@
 // Source wizards so all three look identical (header + numbered step indicator +
 // scrollable body + footer). Keeps each wizard focused on its own steps.
 import { type ReactNode } from "react";
-import { Check, CheckCircle2, Lock } from "lucide-react";
+import { Check, CheckCircle as CheckCircle2, Lock } from "@phosphor-icons/react/ssr";
 import { cn } from "@/lib/utils";
 import SidePanel from "@/components/SidePanel";
 import { FieldLabel, INPUT_CLASS } from "../_shared";

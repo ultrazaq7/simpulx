@@ -1,6 +1,6 @@
 "use client";
 import { useState, useMemo, useCallback } from "react";
-import { Search, ListFilter, X, ChevronDown, Check } from "lucide-react";
+import { MagnifyingGlass as Search, FunnelSimple as ListFilter, X, CaretDown as ChevronDown, Check } from "@phosphor-icons/react/ssr";
 import { cn } from "@/lib/utils";
 
 export interface FilterOption {

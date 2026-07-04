@@ -1,7 +1,7 @@
 "use client";
 
 import { useEffect, useRef, useState } from "react";
-import { Play, Pause, Volume2, VolumeX, Maximize, PictureInPicture } from "lucide-react";
+import { Play, Pause, SpeakerHigh as Volume2, SpeakerSlash as VolumeX, CornersOut as Maximize, PictureInPicture } from "@phosphor-icons/react/ssr";
 
 export function CustomVideoPlayer({ src }: { src: string }) {
   const videoRef = useRef<HTMLVideoElement>(null);

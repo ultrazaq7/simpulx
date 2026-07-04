@@ -1,10 +1,6 @@
 "use client";
 import { useEffect, useMemo, useRef, useState } from "react";
-import {
-  Search, Plus, Pencil, Trash2, Send, RefreshCw, Loader2, X, ChevronLeft,
-  Phone, Bold, Italic, Strikethrough, Smile, Info, Image as ImageIcon, Video,
-  UserRound, LibraryBig, Terminal, Upload,
-} from "lucide-react";
+import { MagnifyingGlass as Search, Plus, PencilSimple as Pencil, Trash as Trash2, PaperPlaneRight as Send, ArrowsClockwise as RefreshCw, CircleNotch as Loader2, X, CaretLeft as ChevronLeft, Phone, TextB as Bold, TextItalic as Italic, TextStrikethrough as Strikethrough, Smiley as Smile, Info, Image as ImageIcon, VideoCamera as Video, User as UserRound, Books as LibraryBig, Terminal, UploadSimple as Upload } from "@phosphor-icons/react/ssr";
 import { api } from "@/lib/api";
 import { Select } from "@/components/Select";
 import { MultiSelect } from "@/components/ui/multi-select";

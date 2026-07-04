@@ -1,7 +1,7 @@
 "use client";
 import { useState, useRef, useEffect } from "react";
 import { createPortal } from "react-dom";
-import { ChevronDown, Search, Check } from "lucide-react";
+import { CaretDown as ChevronDown, MagnifyingGlass as Search, Check } from "@phosphor-icons/react/ssr";
 import { cn } from "@/lib/utils";
 
 // `dot` is an optional CSS color rendered as a small leading status dot (used for

@@ -1,10 +1,6 @@
 "use client";
 import { useState, useEffect, useCallback, useMemo } from "react";
-import {
-  MessageSquare, ChevronRight, ChevronLeft, Check, Copy, X, Search,
-  CheckCircle, RotateCcw, PanelRight, Lock, ChevronUp, ChevronDown,
-  Download, XCircle, User, FileText, Video, Clock,
-} from "lucide-react";
+import { Chat as MessageSquare, CaretRight as ChevronRight, CaretLeft as ChevronLeft, Check, Copy, X, MagnifyingGlass as Search, CheckCircle, ArrowCounterClockwise as RotateCcw, Sidebar as PanelRight, Lock, CaretUp as ChevronUp, CaretDown as ChevronDown, DownloadSimple as Download, XCircle, User, FileText, VideoCamera as Video, Clock } from "@phosphor-icons/react/ssr";
 import { cn, fmtTime, initials, channelColor, channelTextColor } from "@/lib/utils";
 import { Tip } from "@/components/ui/tooltip";
 import type { Agent, Conversation, Disposition, InternalNote, QuickReply, Stage, Message } from "@/lib/types";

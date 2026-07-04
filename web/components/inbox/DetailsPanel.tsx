@@ -1,7 +1,7 @@
 "use client";
 import { useState } from "react";
 import { useInbox } from "./InboxContext";
-import { X, User, Copy, Tag, MessageSquare, Clock, Bot, MapPin, Box, Hash, Lock } from "lucide-react";
+import { X, User, Copy, Tag, Chat as MessageSquare, Clock, Robot as Bot, MapPin, Package as Box, Hash, Lock } from "@phosphor-icons/react/ssr";
 import { initials, channelColor, fmtDate, fmtTime } from "@/lib/utils";
 import { api } from "@/lib/api";
 import { useQueryClient } from "@tanstack/react-query";

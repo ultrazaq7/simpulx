@@ -1,9 +1,6 @@
 "use client";
 import { memo } from "react";
-import {
-  Image as ImageIcon, Video, FileText, Headset, Bot, CheckCircle, Zap, Clock, Phone, Sticker, Mic, User, Building2,
-  Check, CheckCheck, AlertCircle,
-} from "lucide-react";
+import { Image as ImageIcon, VideoCamera as Video, FileText, Headset, Robot as Bot, CheckCircle, Lightning as Zap, Clock, Phone, Sticker, Microphone as Mic, User, Buildings as Building2, Check, Checks as CheckCheck, WarningCircle as AlertCircle } from "@phosphor-icons/react/ssr";
 import { initials, channelColor, avatarColor, cn } from "@/lib/utils";
 import { WindowTime, WindowCountdownBadge } from "./WindowTime";
 import { Tip } from "@/components/ui/tooltip";

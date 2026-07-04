@@ -3,11 +3,11 @@ import { useEffect, useState, useRef, type ReactNode } from "react";
 import { usePathname, useRouter } from "next/navigation";
 import Link from "next/link";
 import {
-  MessageCircle, Settings,
-  ChevronLeft, ChevronRight, Bell, LogOut, User as UserIcon,
-  CheckCircle2, Loader2, ChevronDown, Activity, LayoutDashboard, MessagesSquare, Users, SlidersHorizontal, Megaphone, Wrench, Globe,
-  ScrollText, BarChart3, ShieldCheck, FileText, Radio, GitBranch, Plug, Search, Repeat, ClipboardList, Building2, FormInput, Menu
-} from "lucide-react";
+  ChatCircle as MessageCircle, Gear as Settings,
+  CaretLeft as ChevronLeft, CaretRight as ChevronRight, Bell, SignOut as LogOut, User as UserIcon,
+  CheckCircle as CheckCircle2, CircleNotch as Loader2, CaretDown as ChevronDown, Pulse as Activity, SquaresFour as LayoutDashboard, Chats as MessagesSquare, Users, FadersHorizontal as SlidersHorizontal, Megaphone, Wrench, Globe,
+  Scroll as ScrollText, ChartBar as BarChart3, ShieldCheck, FileText, Radio, GitBranch, Plug, MagnifyingGlass as Search, Repeat, ClipboardText as ClipboardList, Buildings as Building2, Textbox as FormInput, List as Menu
+} from "@phosphor-icons/react/ssr";
 import { WS_URL } from "@/lib/api";
 import { api, clearSession, getToken, getUser, setSession } from "@/lib/api";
 import { initials, cn } from "@/lib/utils";
@@ -439,10 +439,9 @@ export function Shell({ children }: { children: ReactNode }) {
               </span>
             )}
             <Icon
-              strokeWidth={active ? 2 : 1.75}
-              // Lucide icons are stroke-only; fill the active glyph so it reads
-              // as a solid (filled) icon like the mobile bottom-nav selected tab.
-              fill={active ? "currentColor" : "none"}
+              // Phosphor: fill weight on the active tab reads as a solid icon,
+              // regular (outline) otherwise - like the mobile bottom-nav.
+              weight={active ? "fill" : "regular"}
               className={cn(
                 "w-[20px] h-[20px] transition-colors duration-200",
                 active ? "text-primary-text" : "text-muted-foreground group-hover:text-foreground"

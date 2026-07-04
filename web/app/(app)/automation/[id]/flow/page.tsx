@@ -7,14 +7,8 @@ import {
   type Node, type Edge, type Connection, type NodeProps, type NodeTypes,
 } from "@xyflow/react";
 import "@xyflow/react/dist/style.css";
-import {
-  ArrowLeft, Plus, Zap, MessageCircle, FileText, User, Sparkles, Tag, Flag,
-  Globe, GitFork, Trash2, Loader2, X, Save, Undo2, Redo2,
-  Braces, ToggleRight, Sheet, ClipboardList, UserMinus, Ban, Radio,
-  FolderMinus, BellOff, Scissors, Mail, Milestone, Flame, Image as ImageIcon,
-  RefreshCw,
-} from "lucide-react";
-import type { LucideIcon } from "lucide-react";
+import { ArrowLeft, Plus, Lightning as Zap, ChatCircle as MessageCircle, FileText, User, Sparkle as Sparkles, Tag, Flag, Globe, GitFork, Trash as Trash2, CircleNotch as Loader2, X, FloppyDisk as Save, ArrowUUpLeft as Undo2, ArrowUUpRight as Redo2, BracketsCurly as Braces, ToggleRight, Table as Sheet, ClipboardText as ClipboardList, UserMinus, Prohibit as Ban, Radio, FolderMinus, BellSlash as BellOff, Scissors, Envelope as Mail, Signpost as Milestone, Fire as Flame, Image as ImageIcon, ArrowsClockwise as RefreshCw } from "@phosphor-icons/react/ssr";
+import type { Icon as LucideIcon } from "@phosphor-icons/react";
 import { Tip } from "@/components/ui/tooltip";
 import { Select } from "@/components/Select";
 

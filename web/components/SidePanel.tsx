@@ -1,7 +1,7 @@
 "use client";
 import { useEffect, useState, type ReactNode } from "react";
 import { createPortal } from "react-dom";
-import { X, Loader2 } from "lucide-react";
+import { X, CircleNotch as Loader2 } from "@phosphor-icons/react/ssr";
 import { cn } from "@/lib/utils";
 import { useEscClose } from "@/lib/useEscClose";
 

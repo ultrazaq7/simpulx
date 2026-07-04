@@ -7,11 +7,7 @@
 import { type ReactNode, useState, useEffect } from "react";
 import Link from "next/link";
 import { usePathname } from "next/navigation";
-import {
-  Settings, FormInput, Bell, User, ShieldCheck,
-  Building2, FileText, GitBranch, Radio, Clock, ClipboardList,
-  PanelLeftClose, PanelLeftOpen,
-} from "lucide-react";
+import { Gear as Settings, Textbox as FormInput, Bell, User, ShieldCheck, Buildings as Building2, FileText, GitBranch, Radio, Clock, ClipboardText as ClipboardList, SidebarSimple as PanelLeftClose, Sidebar as PanelLeftOpen } from "@phosphor-icons/react/ssr";
 import { cn } from "@/lib/utils";
 import { usePermissions } from "@/lib/permissions";
 import { useI18n } from "@/lib/i18n";

@@ -1,11 +1,7 @@
 "use client";
 import { useCallback, useEffect, useMemo, useState } from "react";
 import type { ReactNode } from "react";
-import {
-  FileText, Plus, Send, Trash2, Eye, Download, Loader2, X, GripVertical,
-  CheckCircle2, AlertCircle, Rocket, Pencil, ChevronDown, Search, RefreshCw,
-  ChevronsLeft, ChevronLeft, ChevronRight, ChevronsRight, Sheet,
-} from "lucide-react";
+import { FileText, Plus, PaperPlaneRight as Send, Trash as Trash2, Eye, DownloadSimple as Download, CircleNotch as Loader2, X, DotsSixVertical as GripVertical, CheckCircle as CheckCircle2, WarningCircle as AlertCircle, Rocket, PencilSimple as Pencil, CaretDown as ChevronDown, MagnifyingGlass as Search, ArrowsClockwise as RefreshCw, CaretDoubleLeft as ChevronsLeft, CaretLeft as ChevronLeft, CaretRight as ChevronRight, CaretDoubleRight as ChevronsRight, Table as Sheet } from "@phosphor-icons/react/ssr";
 import { api, getToken } from "@/lib/api";
 import { Select } from "@/components/Select";
 import { MultiSelect } from "@/components/ui/multi-select";

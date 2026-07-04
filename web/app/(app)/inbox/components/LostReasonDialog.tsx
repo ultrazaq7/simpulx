@@ -1,6 +1,6 @@
 "use client";
 import { useState } from "react";
-import { X, ShoppingBag, XCircle, Ban, ChevronRight, ChevronLeft } from "lucide-react";
+import { X, ShoppingBag, XCircle, Prohibit as Ban, CaretRight as ChevronRight, CaretLeft as ChevronLeft } from "@phosphor-icons/react/ssr";
 import { cn } from "@/lib/utils";
 
 type Cat = "lost" | "spam";

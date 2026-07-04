@@ -1,7 +1,7 @@
 "use client";
 import { useEffect, useRef, useState } from "react";
 import { useRouter } from "next/navigation";
-import { CheckCircle2, Loader2, AlertCircle } from "lucide-react";
+import { CheckCircle as CheckCircle2, CircleNotch as Loader2, WarningCircle as AlertCircle } from "@phosphor-icons/react/ssr";
 import { api } from "@/lib/api";
 
 export default function VerifyEmailPage() {

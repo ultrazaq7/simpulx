@@ -3,7 +3,7 @@
 // reused across the split setting pages. Keeps each page focused on its own data.
 import { useEffect, useState, type ReactNode } from "react";
 import { cn } from "@/lib/utils";
-import { X, Info } from "lucide-react";
+import { X, Info } from "@phosphor-icons/react/ssr";
 import { Tip } from "@/components/ui/tooltip";
 
 export type ToastSeverity = "success" | "error" | "info";

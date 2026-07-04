@@ -1,5 +1,5 @@
 "use client";
-import { X } from "lucide-react";
+import { X } from "@phosphor-icons/react/ssr";
 
 const SECTIONS: { title: string; items: [string, string][] }[] = [
   { title: "Navigation", items: [

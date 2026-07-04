@@ -1,6 +1,6 @@
 "use client";
 import { useEffect, useState, useCallback } from "react";
-import { Loader2, Download, PhoneIncoming, PhoneOutgoing, CheckCircle2, Clock, XCircle, AlertTriangle } from "lucide-react";
+import { CircleNotch as Loader2, DownloadSimple as Download, PhoneIncoming, PhoneOutgoing, CheckCircle as CheckCircle2, Clock, XCircle, Warning as AlertTriangle } from "@phosphor-icons/react/ssr";
 import { api } from "@/lib/api";
 import { cn } from "@/lib/utils";
 import type { AuditEntry, LogMessage, LogConversation, LogCall, LogActivity, ExportJob, Campaign, Channel } from "@/lib/types";

@@ -1,6 +1,6 @@
 "use client";
 import { useEffect, useMemo, useState } from "react";
-import { Send } from "lucide-react";
+import { PaperPlaneRight as Send } from "@phosphor-icons/react/ssr";
 import { api } from "@/lib/api";
 import { Select } from "@/components/Select";
 import SidePanel from "@/components/SidePanel";

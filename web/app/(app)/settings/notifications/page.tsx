@@ -1,6 +1,6 @@
 "use client";
 import { useEffect, useState } from "react";
-import { Bell, Loader2, Mail, MessageSquare, Volume2 } from "lucide-react";
+import { Bell, CircleNotch as Loader2, Envelope as Mail, Chat as MessageSquare, SpeakerHigh as Volume2 } from "@phosphor-icons/react/ssr";
 import { api } from "@/lib/api";
 import type { OrgSettings } from "@/lib/types";
 import { useToast, PageBody, SectionLabel, SettingsCard } from "../_shared";

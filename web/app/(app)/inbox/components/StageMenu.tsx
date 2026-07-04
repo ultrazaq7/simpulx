@@ -1,7 +1,7 @@
 "use client";
 import { useState, useRef, useEffect } from "react";
 import { createPortal } from "react-dom";
-import { ChevronDown, Check, XCircle } from "lucide-react";
+import { CaretDown as ChevronDown, Check, XCircle } from "@phosphor-icons/react/ssr";
 import { cn } from "@/lib/utils";
 import { useEscClose } from "@/lib/useEscClose";
 import type { Stage } from "@/lib/types";

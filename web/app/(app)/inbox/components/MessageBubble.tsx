@@ -1,12 +1,7 @@
 "use client";
 import { memo, useState, useRef, useEffect } from "react";
 import { createPortal } from "react-dom";
-import {
-  Sparkles, Check, CheckCheck, Clock, AlertCircle, Play, Pause, Mic, User,
-  FileText, FileSpreadsheet, FileImage, FileArchive, FileCode,
-  File, Download, MoreHorizontal, Copy, ClipboardPaste, Link2, Megaphone, Forward,
-  PhoneOutgoing, PhoneIncoming, PhoneMissed, MapPin, Phone, ExternalLink, Loader2, Sticker as StickerIcon,
-} from "lucide-react";
+import { Sparkle as Sparkles, Check, Checks as CheckCheck, Clock, WarningCircle as AlertCircle, Play, Pause, Microphone as Mic, User, FileText, FileXls as FileSpreadsheet, FileImage, FileZip as FileArchive, FileCode, File, DownloadSimple as Download, DotsThree as MoreHorizontal, Copy, Clipboard as ClipboardPaste, Link as Link2, Megaphone, ArrowBendUpRight as Forward, PhoneOutgoing, PhoneIncoming, PhoneX as PhoneMissed, MapPin, Phone, ArrowSquareOut as ExternalLink, CircleNotch as Loader2, Sticker as StickerIcon } from "@phosphor-icons/react/ssr";
 import { initials, fmtTime, channelColor, channelTextColor, cn } from "@/lib/utils";
 import { api } from "@/lib/api";
 import type { Conversation, Message } from "@/lib/types";

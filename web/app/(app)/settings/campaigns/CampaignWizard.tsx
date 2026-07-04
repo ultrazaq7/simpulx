@@ -4,7 +4,7 @@
 // its own coverage, ad sources and agents. Leads route by ad source to a branch,
 // else fall back to the campaign's default agents.
 import { useEffect, useState } from "react";
-import { Plus, Trash2, Loader2, Phone, PhoneOff, Sparkles, Building2 } from "lucide-react";
+import { Plus, Trash as Trash2, CircleNotch as Loader2, Phone, PhoneDisconnect as PhoneOff, Sparkle as Sparkles, Buildings as Building2 } from "@phosphor-icons/react/ssr";
 import { api } from "@/lib/api";
 import type { UserAccount, Channel, WebApiSource } from "@/lib/types";
 import { Select } from "@/components/Select";

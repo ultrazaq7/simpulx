@@ -3,7 +3,7 @@
 // dropdown). Values attach to each contact (contact.attributes) and power the
 // contact form, contact detail and automations.
 import { useEffect, useState } from "react";
-import { Plus, Pencil, Trash2 } from "lucide-react";
+import { Plus, PencilSimple as Pencil, Trash as Trash2 } from "@phosphor-icons/react/ssr";
 import { api } from "@/lib/api";
 import { Select } from "@/components/Select";
 import { Tip } from "@/components/ui/tooltip";

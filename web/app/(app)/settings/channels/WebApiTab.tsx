@@ -3,7 +3,7 @@
 // Captures leads from ad platforms / external systems via an API key; each lead
 // opens a conversation in the inbox attributed to its source.
 import { useEffect, useState } from "react";
-import { Plus, RefreshCw, Pencil, Trash2, Copy, RotateCw, Plug, Key, Loader2, X, Search } from "lucide-react";
+import { Plus, ArrowsClockwise as RefreshCw, PencilSimple as Pencil, Trash as Trash2, Copy, ArrowClockwise as RotateCw, Plug, Key, CircleNotch as Loader2, X, MagnifyingGlass as Search } from "@phosphor-icons/react/ssr";
 import { api } from "@/lib/api";
 import { Select } from "@/components/Select";
 import { cn } from "@/lib/utils";

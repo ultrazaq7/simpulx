@@ -1,10 +1,7 @@
 "use client";
 import { useEffect, useMemo, useRef, useState } from "react";
 import { useRouter } from "next/navigation";
-import {
-  Search, UserPlus, Download, Pencil, ChevronsLeft, ChevronsRight, ChevronLeft, ChevronRight,
-  Users, User, X, XCircle, Loader2, Tag as TagIcon, MoreVertical, MessageSquare, Trash2, Upload, ChevronDown, Eye, Ban, Copy, Check,
-} from "lucide-react";
+import { MagnifyingGlass as Search, UserPlus, DownloadSimple as Download, PencilSimple as Pencil, CaretDoubleLeft as ChevronsLeft, CaretDoubleRight as ChevronsRight, CaretLeft as ChevronLeft, CaretRight as ChevronRight, Users, User, X, XCircle, CircleNotch as Loader2, Tag as TagIcon, DotsThreeVertical as MoreVertical, Chat as MessageSquare, Trash as Trash2, UploadSimple as Upload, CaretDown as ChevronDown, Eye, Prohibit as Ban, Copy, Check } from "@phosphor-icons/react/ssr";
 
 import { api, getUser } from "@/lib/api";
 import { usePermissions } from "@/lib/permissions";

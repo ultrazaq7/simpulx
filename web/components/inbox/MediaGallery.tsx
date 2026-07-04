@@ -1,6 +1,6 @@
 "use client";
 
-import { X, Download, ChevronLeft, ChevronRight, Video, FileText, File } from "lucide-react";
+import { X, DownloadSimple as Download, CaretLeft as ChevronLeft, CaretRight as ChevronRight, VideoCamera as Video, FileText, File } from "@phosphor-icons/react/ssr";
 import { initials, fmtDate, fmtTime, channelColor } from "@/lib/utils";
 import { getMediaUrl } from "./SharedTypes";
 import { CustomVideoPlayer } from "./CustomVideoPlayer";

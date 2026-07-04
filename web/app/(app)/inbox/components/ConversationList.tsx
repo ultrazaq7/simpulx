@@ -1,8 +1,6 @@
 "use client";
 import { useEffect, useMemo, useRef, useState } from "react";
-import {
-  MessageSquare, X, Filter, User, Phone, ChevronDown, Check, ArrowUpDown, Rows3,
-} from "lucide-react";
+import { Chat as MessageSquare, X, Funnel as Filter, User, Phone, CaretDown as ChevronDown, Check, ArrowsDownUp as ArrowUpDown, Rows as Rows3 } from "@phosphor-icons/react/ssr";
 
 import { type FilterOption } from "./MultiSelectFilter";
 import FilterPopover, { type FilterCategory, type FilterToggle } from "./FilterPopover";

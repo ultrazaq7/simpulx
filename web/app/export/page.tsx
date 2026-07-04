@@ -1,5 +1,5 @@
 "use client";
-import { Download } from "lucide-react";
+import { DownloadSimple as Download } from "@phosphor-icons/react/ssr";
 import Shell from "@/components/Shell";
 import { getToken } from "@/lib/api";
 

@@ -2,7 +2,7 @@
 // Connect Ad Account — 3-step wizard (Select platform > Credentials > Map campaigns).
 // Wraps the real createAdAccount endpoint; mirrors the Create Channel wizard.
 import { useMemo, useState } from "react";
-import { BarChart3, Loader2, CheckCircle2, AlertTriangle, Link2 } from "lucide-react";
+import { ChartBar as BarChart3, CircleNotch as Loader2, CheckCircle as CheckCircle2, Warning as AlertTriangle, Link as Link2 } from "@phosphor-icons/react/ssr";
 import { api } from "@/lib/api";
 import { Select } from "@/components/Select";
 import type { AdAccount, AdCampaignRow, Campaign } from "@/lib/types";

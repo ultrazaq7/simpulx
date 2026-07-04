@@ -1,13 +1,8 @@
 "use client";
 import { useEffect, useMemo, useRef, useState } from "react";
 import { useRouter } from "next/navigation";
-import {
-  Megaphone, RefreshCw, Plus, X, Loader2, Send, Trash2, Check, Search, Upload,
-  Users, UserPlus, FileText, MessageSquare, Tag as TagIcon, Info, Clock,
-  CheckCircle2, AlertCircle, Smartphone, ArrowLeft, ChevronRight, ChevronLeft,
-  ChevronsLeft, ChevronsRight,
-} from "lucide-react";
-import type { LucideIcon } from "lucide-react";
+import { Megaphone, ArrowsClockwise as RefreshCw, Plus, X, CircleNotch as Loader2, PaperPlaneRight as Send, Trash as Trash2, Check, MagnifyingGlass as Search, UploadSimple as Upload, Users, UserPlus, FileText, Chat as MessageSquare, Tag as TagIcon, Info, Clock, CheckCircle as CheckCircle2, WarningCircle as AlertCircle, DeviceMobile as Smartphone, ArrowLeft, CaretRight as ChevronRight, CaretLeft as ChevronLeft, CaretDoubleLeft as ChevronsLeft, CaretDoubleRight as ChevronsRight } from "@phosphor-icons/react/ssr";
+import type { Icon as LucideIcon } from "@phosphor-icons/react";
 import { Tip } from "@/components/ui/tooltip";
 
 import { api } from "@/lib/api";

@@ -1,6 +1,6 @@
 "use client";
 import { useEffect, useState } from "react";
-import { Bot, Headset } from "lucide-react";
+import { Robot as Bot, Headset } from "@phosphor-icons/react/ssr";
 import { cn, windowState } from "@/lib/utils";
 
 // Chat-list date cell: always shows the static MM/dd/yyyy date.

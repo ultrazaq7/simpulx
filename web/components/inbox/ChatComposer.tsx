@@ -2,7 +2,7 @@
 
 import { useState, useRef } from "react";
 import { useInbox } from "./InboxContext";
-import { Send, Lock, Mic, Paperclip, Zap, Smile, FileText, Loader2, Pause, Play, Trash2, X } from "lucide-react";
+import { PaperPlaneRight as Send, Lock, Microphone as Mic, Paperclip, Lightning as Zap, Smiley as Smile, FileText, CircleNotch as Loader2, Pause, Play, Trash as Trash2, X } from "@phosphor-icons/react/ssr";
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
 import EmojiPicker from "emoji-picker-react";
 import { api } from "@/lib/api";

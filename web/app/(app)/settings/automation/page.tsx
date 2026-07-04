@@ -1,7 +1,7 @@
 "use client";
 import { useEffect, useMemo, useState } from "react";
 import { useRouter } from "next/navigation";
-import { Search, Plus, RefreshCw, GitBranch, Pencil, Trash2, Zap, Sparkles, Loader2, X } from "lucide-react";
+import { MagnifyingGlass as Search, Plus, ArrowsClockwise as RefreshCw, GitBranch, PencilSimple as Pencil, Trash as Trash2, Lightning as Zap, Sparkle as Sparkles, CircleNotch as Loader2, X } from "@phosphor-icons/react/ssr";
 import { api } from "@/lib/api";
 import { Select } from "@/components/Select";
 import { MultiSelect } from "@/components/ui/multi-select";
