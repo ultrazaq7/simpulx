@@ -129,6 +129,7 @@ class MainActivity : FlutterActivity() {
                             val message = call.argument<String>("message") ?: ""
                             val avatarBytes = call.argument<ByteArray>("avatar")
                             val badgeBytes = call.argument<ByteArray>("badge")
+                            val messageType = call.argument<String>("messageType")
 
                             // Generate initial avatar
                             val avatar = if (avatarBytes != null && avatarBytes.isNotEmpty()) {
@@ -160,6 +161,7 @@ class MainActivity : FlutterActivity() {
                                 conversationTitle = conversationTitle,
                                 message = message,
                                 avatarBitmap = mergedBitmap,
+                                messageType = messageType,
                             )
 
                             result.success(true)
