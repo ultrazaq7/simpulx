@@ -31,8 +31,11 @@ const PREVIEW_MEDIA: Record<string, { icon: any; label: string }> = {
   "🎥": { icon: Video, label: "Video" },
   "📄": { icon: FileText, label: "Document" },
   "🖼": { icon: Sticker, label: "Sticker" },
+  "🖼️": { icon: Sticker, label: "Sticker" },
   "🎤": { icon: Mic, label: "Voice message" },
   "👤": { icon: User, label: "Contact" },
+  // Bare word (server sometimes sends without brackets)
+  "sticker": { icon: Sticker, label: "Sticker" },
 };
 
 function previewMedia(preview: string | null | undefined) {

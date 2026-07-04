@@ -120,8 +120,12 @@ object NotificationHelper {
         message: String,
         avatarBitmap: Bitmap,
         messageIntent: Intent? = null,
+        messageType: String? = null,
     ) {
         ensureChannel(context)
+
+        // Select icon based on message type
+        val iconRes = getNotificationIconRes(messageType)
 
         // Reply action with RemoteInput
         val replyLabel = "Reply"
@@ -131,7 +135,7 @@ object NotificationHelper {
 
         val replyIntent = ReplyReceiver.getReplyIntent(context, chatId)
         val replyAction = NotificationCompat.Action.Builder(
-            R.drawable.ic_notification,
+            iconRes,
             replyLabel,
             PendingIntent.getBroadcast(
                 context, chatId.hashCode(),
@@ -216,7 +220,7 @@ object NotificationHelper {
 
         // 3. Build notification linked to the shortcut
         val notification = NotificationCompat.Builder(context, CHANNEL_ID)
-            .setSmallIcon(R.drawable.ic_notification)
+            .setSmallIcon(iconRes)
             .setShortcutId(shortcutId)    // Links to conversation shortcut → avatar on LEFT
             .setStyle(style)
             .setCategory(NotificationCompat.CATEGORY_MESSAGE)
@@ -574,6 +578,21 @@ object NotificationHelper {
                 }
                 manager.createNotificationChannel(channel)
             }
+        }
+    }
+
+    /**
+     * Select notification icon based on message type.
+     * Returns the drawable resource ID for the appropriate icon.
+     */
+    private fun getNotificationIconRes(messageType: String?): Int {
+        return when (messageType?.lowercase()) {
+            "sticker" -> R.drawable.ic_notification_sticker_24
+            "image" -> R.drawable.ic_notification_image
+            "video" -> R.drawable.ic_notification_video
+            "document" -> R.drawable.ic_notification_document
+            "audio" -> R.drawable.ic_notification_audio
+            else -> R.drawable.ic_notification
         }
     }
 }

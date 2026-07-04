@@ -367,6 +367,21 @@ class LocalNotifications {
 
     final isMessage = payload.category == NotificationCategory.incomingMessage;
 
+    // Detect message type from body for icon selection
+    final body = payload.body.toLowerCase();
+    String? messageType;
+    if (body.contains('sticker')) {
+      messageType = 'sticker';
+    } else if (body.contains('photo') || body.contains('image') || body.startsWith('🖼')) {
+      messageType = 'image';
+    } else if (body.contains('video')) {
+      messageType = 'video';
+    } else if (body.contains('document') || body.contains('file')) {
+      messageType = 'document';
+    } else if (body.contains('voice') || body.contains('audio')) {
+      messageType = 'audio';
+    }
+
     // For messages: try native Kotlin notification (WhatsApp-style avatar+badge)
     if (isMessage) {
       try {
@@ -378,6 +393,7 @@ class LocalNotifications {
           'message': payload.body,
           'avatar': null, // null = generate initial avatar natively
           'badge': badgeBytes,
+          'messageType': messageType,
         });
         debugPrint('[Notification] Native notification shown');
         return;

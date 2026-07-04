@@ -123,10 +123,20 @@ function extFromUrl(url: string): string {
   } catch { return ""; }
 }
 
-function filenameFromUrl(urlStr: string): string {
+function filenameFromUrl(urlStr: string, body?: string): string {
+  // First try the body (message caption often has the real filename)
+  if (body) {
+    const trimmed = body.trim();
+    if (trimmed) return trimmed;
+  }
+  // Then try URL search params
   try {
     const u = new URL(urlStr);
     if (u.searchParams.has("name")) return u.searchParams.get("name")!;
+  } catch { /* fall through */ }
+  // Finally parse pathname
+  try {
+    const u = new URL(urlStr);
     const parts = u.pathname.split("/");
     const last = parts[parts.length - 1] || "file";
     // Strip standard UUID v4 prefix (e.g. 123e4567-e89b-12d3-a456-426614174000-)
@@ -137,8 +147,10 @@ function filenameFromUrl(urlStr: string): string {
 type DocStyle = { icon: React.ReactNode; bg: string; accent: string; label: string };
 
 function docStyle(ext: string, out: boolean): DocStyle {
+  // Normalize: strip leading dot if present
+  const e = ext.startsWith(".") ? ext.slice(1) : ext;
   const iconCls = "w-6 h-6";
-  switch (ext) {
+  switch (e) {
     case "pdf":
       return { icon: <FileText className={cn(iconCls, "text-[#E53935]")} />, bg: out ? "bg-white/15" : "bg-[#FDECEC]", accent: "#E53935", label: "PDF" };
     case "doc": case "docx":
@@ -148,13 +160,13 @@ function docStyle(ext: string, out: boolean): DocStyle {
     case "ppt": case "pptx":
       return { icon: <FileText className={cn(iconCls, "text-[#E65100]")} />, bg: out ? "bg-white/15" : "bg-[#FFF3E0]", accent: "#E65100", label: "PPT" };
     case "zip": case "rar": case "7z": case "tar": case "gz":
-      return { icon: <FileArchive className={cn(iconCls, "text-[#6D4C41]")} />, bg: out ? "bg-white/15" : "bg-[#EFEBE9]", accent: "#6D4C41", label: ext.toUpperCase() };
+      return { icon: <FileArchive className={cn(iconCls, "text-[#6D4C41]")} />, bg: out ? "bg-white/15" : "bg-[#EFEBE9]", accent: "#6D4C41", label: e.toUpperCase() };
     case "png": case "jpg": case "jpeg": case "gif": case "webp": case "svg":
-      return { icon: <FileImage className={cn(iconCls, "text-[#7B1FA2]")} />, bg: out ? "bg-white/15" : "bg-[#F3E5F5]", accent: "#7B1FA2", label: ext.toUpperCase() };
+      return { icon: <FileImage className={cn(iconCls, "text-[#7B1FA2]")} />, bg: out ? "bg-white/15" : "bg-[#F3E5F5]", accent: "#7B1FA2", label: e.toUpperCase() };
     case "js": case "ts": case "py": case "go": case "json": case "xml": case "html": case "css":
-      return { icon: <FileCode className={cn(iconCls, "text-[#455A64]")} />, bg: out ? "bg-white/15" : "bg-[#ECEFF1]", accent: "#455A64", label: ext.toUpperCase() };
+      return { icon: <FileCode className={cn(iconCls, "text-[#455A64]")} />, bg: out ? "bg-white/15" : "bg-[#ECEFF1]", accent: "#455A64", label: e.toUpperCase() };
     default:
-      return { icon: <File className={cn(iconCls, out ? "text-white/80" : "text-[#78909C]")} />, bg: out ? "bg-white/15" : "bg-[#F5F5F5]", accent: "#78909C", label: ext.toUpperCase() || "FILE" };
+      return { icon: <File className={cn(iconCls, out ? "text-white/80" : "text-[#78909C]")} />, bg: out ? "bg-white/15" : "bg-[#F5F5F5]", accent: "#78909C", label: e.toUpperCase() || "FILE" };
   }
 }
 

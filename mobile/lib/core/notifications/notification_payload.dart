@@ -111,16 +111,22 @@ class NotificationPayload {
       return s.isEmpty ? null : s;
     }
 
+    // Server sometimes sends media type (e.g. "Sticker") as title instead of contact name.
+    // Use contact_name as title when title is a media type indicator.
+    final rawTitle = str('title');
+    final contactName = str('contactName') ?? str('contact_name');
+    final title = _isMediaTypeTitle(rawTitle) ? (contactName ?? rawTitle) : rawTitle;
+
     return NotificationPayload(
       category: NotificationCategory.fromType(str('type'), body: str('body')),
-      title: str('title') ?? 'Simpulx',
+      title: title ?? 'Simpulx',
       body: _normalizePreview(str('body') ?? ''),
       conversationId: str('conversationId') ?? str('conversation_id'),
       contactId: str('contactId') ?? str('contact_id'),
       rawType: str('type'),
       callStatus: str('callStatus') ?? str('call_status'),
       missed: (str('missed') ?? '').toLowerCase() == 'true',
-      contactName: str('contactName') ?? str('contact_name'),
+      contactName: contactName,
     );
   }
 
@@ -178,4 +184,17 @@ String _normalizePreview(String body) {
     return '😊 Sticker';
   }
   return body;
+}
+
+/// Check if a title is a media type indicator (e.g. "Sticker", "Photo", "Document")
+/// rather than a real contact name.
+bool _isMediaTypeTitle(String? title) {
+  if (title == null) return false;
+  final lower = title.toLowerCase().trim();
+  const mediaTypes = [
+    'sticker', 'photo', 'image', 'video', 'document', 'file',
+    'audio', 'voice', 'voice message', 'location', 'contact',
+    '🖼', '📷', '🎥', '📄', '🎤', '👤', '📍',
+  ];
+  return mediaTypes.contains(lower);
 }
