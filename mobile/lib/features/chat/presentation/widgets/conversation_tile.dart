@@ -2,6 +2,7 @@ import 'dart:async';
 
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:phosphor_flutter/phosphor_flutter.dart';
 
 import '../../../../app/theme/app_colors.dart';
 import '../../../../core/session/session_controller.dart';
@@ -341,51 +342,42 @@ class _PreviewWidget extends StatelessWidget {
     final p = preview!.toLowerCase().trim();
     IconData? icon;
     String? label;
-    // Stickers use the same lucide "Sticker" glyph as the web (exported to a PNG
-    // asset, tinted to match), since lucide-react isn't available in Flutter.
-    bool isSticker = false;
     // WhatsApp teal for media icons
     const teal = Color(0xFF00A884);
 
-    // Match emoji-prefixed (from controller) or [bracket] (from server)
+    // Match emoji-prefixed (from controller) or [bracket] (from server). Icons
+    // are Phosphor, matching the web's icon language.
     if (p.startsWith('📷') || p == '[image]' || p == '[photo]') {
-      icon = Icons.camera_alt_rounded;
+      icon = PhosphorIconsRegular.camera;
       label = 'Photo';
     } else if (p.startsWith('🎥') || p == '[video]') {
-      icon = Icons.videocam_rounded;
+      icon = PhosphorIconsRegular.videoCamera;
       label = 'Video';
     } else if (p.startsWith('🎤') || p == '[audio]' || p == '[voice]') {
-      icon = Icons.mic_rounded;
+      icon = PhosphorIconsRegular.microphone;
       label = 'Voice message';
-    } else if (p.startsWith('🖼') || p.startsWith('😊') || p == '[sticker]' || p == 'sticker') {
-      isSticker = true;
+    } else if (p.startsWith('🖼') || p.startsWith('😊') || p.startsWith('💟') || p == '[sticker]' || p == 'sticker') {
+      icon = PhosphorIconsRegular.sticker;
       label = 'Sticker';
     } else if (p.startsWith('📄') || p == '[document]' || p == '[file]') {
-      icon = Icons.insert_drive_file_rounded;
+      icon = PhosphorIconsRegular.fileText;
       label = 'Document';
     } else if (p.startsWith('📍') || p == '[location]') {
-      icon = Icons.location_on_rounded;
+      icon = PhosphorIconsRegular.mapPin;
       label = 'Location';
     } else if (p.startsWith('👤') || p == '[contact]') {
-      icon = Icons.person_rounded;
+      icon = PhosphorIconsRegular.user;
       label = 'Contact';
     } else if (p.startsWith('📎') || p == '[media]') {
-      icon = Icons.attach_file_rounded;
+      icon = PhosphorIconsRegular.paperclip;
       label = 'Attachment';
     }
 
-    if (label != null && (icon != null || isSticker)) {
+    if (icon != null && label != null) {
       return Row(
         mainAxisSize: MainAxisSize.min,
         children: [
-          if (isSticker)
-            const ImageIcon(
-              AssetImage('assets/images/sticker_icon.png'),
-              size: 16,
-              color: teal,
-            )
-          else
-            Icon(icon, size: 16, color: teal),
+          Icon(icon, size: 16, color: teal),
           const SizedBox(width: 3),
           Flexible(
             child: Text(label, maxLines: 1, overflow: TextOverflow.ellipsis, style: style),

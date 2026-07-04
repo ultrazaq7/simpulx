@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
+import 'package:phosphor_flutter/phosphor_flutter.dart';
 
 import 'package:simpulx/l10n/app_localizations.dart';
 
@@ -103,29 +104,29 @@ class _AppShellState extends ConsumerState<AppShell> {
         onDestinationSelected: _goBranch,
         destinations: [
           NavigationDestination(
-            icon: const Icon(Icons.dashboard_outlined),
-            selectedIcon: const Icon(Icons.dashboard_rounded),
+            icon: const Icon(PhosphorIconsRegular.squaresFour),
+            selectedIcon: const Icon(PhosphorIconsFill.squaresFour),
             label: l10n.navDashboard,
           ),
           NavigationDestination(
             icon: _BadgedIcon(
-              icon: Icons.chat_bubble_outline_rounded,
+              icon: PhosphorIconsRegular.chatCircle,
               count: unread,
             ),
             selectedIcon: _BadgedIcon(
-              icon: Icons.chat_bubble_rounded,
+              icon: PhosphorIconsFill.chatCircle,
               count: unread,
             ),
             label: l10n.navChat,
           ),
           NavigationDestination(
-            icon: const Icon(Icons.people_outline_rounded),
-            selectedIcon: const Icon(Icons.people_rounded),
+            icon: const Icon(PhosphorIconsRegular.users),
+            selectedIcon: const Icon(PhosphorIconsFill.users),
             label: l10n.navContacts,
           ),
           NavigationDestination(
-            icon: const Icon(Icons.settings_outlined),
-            selectedIcon: const Icon(Icons.settings_rounded),
+            icon: const Icon(PhosphorIconsRegular.gear),
+            selectedIcon: const Icon(PhosphorIconsFill.gear),
             label: l10n.navSettings,
           ),
         ],
