@@ -7,24 +7,37 @@ import 'package:simpulx/l10n/app_localizations.dart';
 import '../../core/realtime/realtime_providers.dart';
 import '../../features/chat/presentation/controllers/conversation_list_controller.dart';
 
-/// Root scaffold hosting the 4 primary tabs via an [IndexedStack] so each
-/// branch keeps its own navigation + scroll state.
+/// Root scaffold hosting the 4 primary tabs in a [PageView] so tabs swipe with
+/// the finger (WhatsApp-style: the page tracks the drag and settles smoothly),
+/// while each branch still keeps its own navigation + scroll state via the
+/// stateful shell. Detail pages (chat thread, contact detail, ...) are
+/// top-level routes that cover the shell, so a swipe never fires inside them.
 class AppShell extends ConsumerStatefulWidget {
-  const AppShell({super.key, required this.navigationShell});
+  const AppShell({
+    super.key,
+    required this.navigationShell,
+    required this.children,
+  });
 
   final StatefulNavigationShell navigationShell;
+  // The branch navigator widgets, laid out horizontally in the PageView.
+  final List<Widget> children;
 
   @override
   ConsumerState<AppShell> createState() => _AppShellState();
 }
 
 class _AppShellState extends ConsumerState<AppShell> {
-  static const int _tabCount = 4;
+  late final PageController _pageController =
+      PageController(initialPage: widget.navigationShell.currentIndex);
 
-  // Accumulated horizontal travel of the in-progress drag, so a slow but
-  // deliberate left/right drag switches tabs (not only a fast fling).
-  double _dragDx = 0;
+  @override
+  void dispose() {
+    _pageController.dispose();
+    super.dispose();
+  }
 
+  // Tap on the nav bar (or programmatic navigation).
   void _goBranch(int index) {
     widget.navigationShell.goBranch(
       index,
@@ -33,27 +46,10 @@ class _AppShellState extends ConsumerState<AppShell> {
     );
   }
 
-  void _onDragStart(DragStartDetails _) => _dragDx = 0;
-  void _onDragUpdate(DragUpdateDetails d) => _dragDx += d.delta.dx;
-
-  // Switch tabs on a deliberate horizontal gesture: a fast fling OR a drag past
-  // a distance threshold. This is a HorizontalDragGestureRecognizer, so vertical
-  // scrolls never trigger it (they win the arena on their own axis) and the chat
-  // list's swipe-to-archive tiles still claim the drag when it starts on a tile.
-  void _onDragEnd(DragEndDetails d) {
-    final v = d.primaryVelocity ?? 0;
-    final dx = _dragDx;
-    _dragDx = 0;
-    final flung = v.abs() >= 320;
-    final dragged = dx.abs() >= 64;
-    if (!flung && !dragged) return;
-    // Swipe left (negative) -> next tab; swipe right (positive) -> previous.
-    final goNext = flung ? v < 0 : dx < 0;
-    final i = widget.navigationShell.currentIndex;
-    if (goNext && i < _tabCount - 1) {
-      _goBranch(i + 1);
-    } else if (!goNext && i > 0) {
-      _goBranch(i - 1);
+  // Swipe settled on a new page -> make it the active branch.
+  void _onPageChanged(int index) {
+    if (index != widget.navigationShell.currentIndex) {
+      widget.navigationShell.goBranch(index);
     }
   }
 
@@ -66,13 +62,29 @@ class _AppShellState extends ConsumerState<AppShell> {
     ref.watch(realtimeClientProvider);
     final unread = ref.watch(totalUnreadProvider);
 
+    // When the branch changes via the nav bar (not a swipe), glide the PageView
+    // to it after this frame so the two stay in lockstep.
+    final current = widget.navigationShell.currentIndex;
+    if (_pageController.hasClients &&
+        (_pageController.page?.round() ?? current) != current) {
+      WidgetsBinding.instance.addPostFrameCallback((_) {
+        if (!mounted || !_pageController.hasClients) return;
+        if ((_pageController.page?.round() ?? current) != current) {
+          _pageController.animateToPage(
+            current,
+            duration: const Duration(milliseconds: 240),
+            curve: Curves.easeOutCubic,
+          );
+        }
+      });
+    }
+
     return Scaffold(
-      body: GestureDetector(
-        behavior: HitTestBehavior.translucent,
-        onHorizontalDragStart: _onDragStart,
-        onHorizontalDragUpdate: _onDragUpdate,
-        onHorizontalDragEnd: _onDragEnd,
-        child: widget.navigationShell,
+      body: PageView(
+        controller: _pageController,
+        onPageChanged: _onPageChanged,
+        physics: const ClampingScrollPhysics(),
+        children: widget.children,
       ),
       // Hairline above the bar so it reads as a distinct surface on the clean
       // white scaffold (WhatsApp-style). foreground so it paints OVER the bar's

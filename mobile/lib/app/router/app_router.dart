@@ -157,9 +157,12 @@ final routerProvider = Provider<GoRouter>((ref) {
           ),
         ],
       ),
-      StatefulShellRoute.indexedStack(
-        builder: (context, state, navigationShell) =>
-            AppShell(navigationShell: navigationShell),
+      StatefulShellRoute(
+        // Return the shell itself; the container builder below decides HOW the
+        // branch navigators are laid out (a PageView for WhatsApp-style swipe).
+        builder: (context, state, navigationShell) => navigationShell,
+        navigatorContainerBuilder: (context, navigationShell, children) =>
+            AppShell(navigationShell: navigationShell, children: children),
         branches: [
           StatefulShellBranch(
             navigatorKey: _dashboardKey,

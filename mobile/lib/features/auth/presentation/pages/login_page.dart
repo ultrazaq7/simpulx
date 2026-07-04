@@ -192,6 +192,11 @@ class _ErrorBanner extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    // Server messages arrive lowercase ("invalid credentials"); present them
+    // sentence-cased so the banner reads cleanly.
+    final text = message.isEmpty
+        ? message
+        : message[0].toUpperCase() + message.substring(1);
     return Container(
       padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
       decoration: BoxDecoration(
@@ -200,14 +205,20 @@ class _ErrorBanner extends StatelessWidget {
         border: Border.all(color: AppColors.danger.withValues(alpha: 0.3)),
       ),
       child: Row(
+        crossAxisAlignment: CrossAxisAlignment.center,
         children: [
           const Icon(Icons.error_outline_rounded,
               color: AppColors.danger, size: 18),
           const SizedBox(width: 8),
           Expanded(
             child: Text(
-              message,
-              style: const TextStyle(color: AppColors.danger, fontSize: 13),
+              text,
+              style: const TextStyle(
+                color: AppColors.danger,
+                fontSize: 13,
+                height: 1.3,
+                fontWeight: FontWeight.w500,
+              ),
             ),
           ),
         ],
