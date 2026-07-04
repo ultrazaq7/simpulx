@@ -347,7 +347,9 @@ export default function ChatPanel({
         ) : (
           <>
             {/* ── Chat Header ── */}
-            <div className="h-14 shrink-0 flex items-center px-3 gap-2 border-b border-border bg-card">
+            {/* Wraps to a second row on mobile (too many controls to fit one
+                narrow row); stays a single fixed-height row on desktop. */}
+            <div className="shrink-0 flex flex-wrap lg:flex-nowrap items-center px-3 gap-2 py-2 lg:py-0 min-h-14 lg:h-14 border-b border-border bg-card">
               {/* Back to list — mobile only */}
               {onBack && (
                 <button aria-label="Back to conversations" onClick={onBack} className="lg:hidden -ml-1 p-1 rounded-md text-muted-foreground hover:bg-muted hover:text-foreground outline-none shrink-0">
@@ -413,7 +415,10 @@ export default function ChatPanel({
                 />
               </div>
 
-              <div className="flex-1" />
+              {/* Spacer pushes the right cluster over on desktop; on mobile the
+                  header wraps instead, so no spacer (it would force an early
+                  line break). */}
+              <div className="max-lg:hidden flex-1" />
 
               {/* Assigned agent (manager/admin) — clickable to (re)assign / unassign */}
               {showAgent && (canAssign ? (
@@ -648,7 +653,10 @@ export default function ChatPanel({
               {messagesQuery.isFetchingNextPage && (
                 <p className="text-center text-xs text-muted-foreground my-2">Loading older messages...</p>
               )}
-              <div className="relative w-full" style={{ height: rowVirtualizer.getTotalSize() + 40 }}>
+              {/* mt-auto bottom-anchors a short thread so the last message sits
+                  just above the composer instead of leaving a big empty gap
+                  under it (very visible on tall/desktop-site viewports). */}
+              <div className="relative w-full mt-auto" style={{ height: rowVirtualizer.getTotalSize() + 40 }}>
                 {rowVirtualizer.getVirtualItems().map((virtualRow) => {
                   const it = timeline[virtualRow.index];
                   const prev = virtualRow.index > 0 ? timeline[virtualRow.index - 1] : undefined;
