@@ -111,22 +111,16 @@ class NotificationPayload {
       return s.isEmpty ? null : s;
     }
 
-    // Server sometimes sends media type (e.g. "Sticker") as title instead of contact name.
-    // Use contact_name as title when title is a media type indicator.
-    final rawTitle = str('title');
-    final contactName = str('contactName') ?? str('contact_name');
-    final title = _isMediaTypeTitle(rawTitle) ? (contactName ?? rawTitle) : rawTitle;
-
     return NotificationPayload(
       category: NotificationCategory.fromType(str('type'), body: str('body')),
-      title: title ?? 'Simpulx',
+      title: str('title') ?? 'Simpulx',
       body: _normalizePreview(str('body') ?? ''),
       conversationId: str('conversationId') ?? str('conversation_id'),
       contactId: str('contactId') ?? str('contact_id'),
       rawType: str('type'),
       callStatus: str('callStatus') ?? str('call_status'),
       missed: (str('missed') ?? '').toLowerCase() == 'true',
-      contactName: contactName,
+      contactName: str('contactName') ?? str('contact_name'),
     );
   }
 
@@ -171,30 +165,17 @@ class NotificationPayload {
   }
 }
 
-/// Normalizes a message preview for a notification so a sticker reads like the
-/// in-app chat list. The server tags a sticker with a picture-frame emoji
-/// ("🖼️ Sticker"), which looks like an image; the chat list instead shows a
-/// smiley (Icons.emoji_emotions_outlined), so we mirror that here. Detection
-/// matches the chat list's exactly (emoji prefix or the bare word) to avoid
-/// rewriting a real text message that merely mentions "sticker".
+/// Normalizes a message preview for a notification (iOS path; Android renders
+/// natively and normalizes in SimpulxMessagingService). The server tags a
+/// sticker with a picture-frame emoji ("🖼️ Sticker") that reads as an image;
+/// a notification can't render the web's lucide sticker glyph inline, so show a
+/// clean "Sticker" label. Detection matches the chat list's exactly (emoji
+/// prefix or the bare word) so a real message mentioning "sticker" is untouched.
 String _normalizePreview(String body) {
   final p = body.trim();
   final lower = p.toLowerCase();
   if (p.startsWith('🖼') || lower == '[sticker]' || lower == 'sticker') {
-    return '😊 Sticker';
+    return 'Sticker';
   }
   return body;
-}
-
-/// Check if a title is a media type indicator (e.g. "Sticker", "Photo", "Document")
-/// rather than a real contact name.
-bool _isMediaTypeTitle(String? title) {
-  if (title == null) return false;
-  final lower = title.toLowerCase().trim();
-  const mediaTypes = [
-    'sticker', 'photo', 'image', 'video', 'document', 'file',
-    'audio', 'voice', 'voice message', 'location', 'contact',
-    '🖼', '📷', '🎥', '📄', '🎤', '👤', '📍',
-  ];
-  return mediaTypes.contains(lower);
 }

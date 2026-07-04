@@ -40,7 +40,7 @@ class SimpulxMessagingService : FlutterFirebaseMessagingService() {
         val data: Map<String, String> = message.data
         val type: String = data["type"] ?: ""
         val title: String = data["title"] ?: "Simpulx"
-        val body: String = data["body"] ?: ""
+        val body: String = normalizePreview(data["body"] ?: "")
         val conversationId: String = data["conversationId"]
             ?: data["conversation_id"]
             ?: ""
@@ -138,6 +138,19 @@ class SimpulxMessagingService : FlutterFirebaseMessagingService() {
             avatarBitmap = avatar,
             messageIntent = messageIntent,
         )
+    }
+
+    // The server tags a sticker preview with a picture-frame emoji
+    // ("🖼️ Sticker") that reads as an image. A native notification can't render
+    // the web's lucide sticker glyph inline in the text, so normalize it to a
+    // clean "Sticker" label (the chat list shows the real glyph via an asset).
+    private fun normalizePreview(raw: String): String {
+        val t = raw.trim()
+        val lower = t.lowercase()
+        if (t.startsWith("🖼") || lower == "[sticker]" || lower == "sticker") {
+            return "Sticker"
+        }
+        return raw
     }
 
     private fun showNativeCallNotification(

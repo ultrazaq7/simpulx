@@ -410,7 +410,11 @@ func mediaPreview(msgType, body string) string {
 	case "document":
 		return "📄 Document"
 	case "sticker":
-		return "🖼️ Sticker"
+		// Bracket marker, not a picture-frame emoji: 🖼️ read as an image
+		// everywhere it wasn't turned into an icon. Every client detects
+		// "[sticker]" and renders a proper sticker glyph (web: lucide Sticker;
+		// mobile: the exported PNG); notifications normalize it to "Sticker".
+		return "[sticker]"
 	case "interactive", "button":
 		return "🔘 Button message"
 	case "template", "hsm":

@@ -341,6 +341,9 @@ class _PreviewWidget extends StatelessWidget {
     final p = preview!.toLowerCase().trim();
     IconData? icon;
     String? label;
+    // Stickers use the same lucide "Sticker" glyph as the web (exported to a PNG
+    // asset, tinted to match), since lucide-react isn't available in Flutter.
+    bool isSticker = false;
     // WhatsApp teal for media icons
     const teal = Color(0xFF00A884);
 
@@ -354,8 +357,8 @@ class _PreviewWidget extends StatelessWidget {
     } else if (p.startsWith('🎤') || p == '[audio]' || p == '[voice]') {
       icon = Icons.mic_rounded;
       label = 'Voice message';
-    } else if (p.startsWith('🖼') || p == '[sticker]' || p == 'sticker') {
-      icon = Icons.emoji_emotions_outlined;
+    } else if (p.startsWith('🖼') || p.startsWith('😊') || p == '[sticker]' || p == 'sticker') {
+      isSticker = true;
       label = 'Sticker';
     } else if (p.startsWith('📄') || p == '[document]' || p == '[file]') {
       icon = Icons.insert_drive_file_rounded;
@@ -371,11 +374,18 @@ class _PreviewWidget extends StatelessWidget {
       label = 'Attachment';
     }
 
-    if (icon != null && label != null) {
+    if (label != null && (icon != null || isSticker)) {
       return Row(
         mainAxisSize: MainAxisSize.min,
         children: [
-          Icon(icon, size: 16, color: teal),
+          if (isSticker)
+            const ImageIcon(
+              AssetImage('assets/images/sticker_icon.png'),
+              size: 16,
+              color: teal,
+            )
+          else
+            Icon(icon, size: 16, color: teal),
           const SizedBox(width: 3),
           Flexible(
             child: Text(label, maxLines: 1, overflow: TextOverflow.ellipsis, style: style),
