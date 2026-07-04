@@ -4,6 +4,7 @@ import 'package:go_router/go_router.dart';
 
 import 'package:flutter/services.dart';
 import 'package:simpulx/l10n/app_localizations.dart';
+import 'package:wakelock_plus/wakelock_plus.dart';
 
 import '../core/notifications/notification_prefs.dart';
 import '../core/notifications/notification_providers.dart';
@@ -37,6 +38,11 @@ class _SimpulxAppState extends ConsumerState<SimpulxApp>
   void initState() {
     super.initState();
     WidgetsBinding.instance.addObserver(this);
+    // Keep the screen awake while the app is in the foreground: agents monitor
+    // the inbox without touching it, so the normal system timeout locking the
+    // phone mid-shift is a bug from their side. Released on background (below)
+    // so it never drains battery while the app isn't in use.
+    WakelockPlus.enable();
     _channel.setMethodCallHandler((call) async {
       if (call.method == 'onInlineReply') {
         final data = call.arguments as Map;
@@ -63,6 +69,7 @@ class _SimpulxAppState extends ConsumerState<SimpulxApp>
   @override
   void dispose() {
     WidgetsBinding.instance.removeObserver(this);
+    WakelockPlus.disable();
     super.dispose();
   }
 
@@ -71,6 +78,16 @@ class _SimpulxAppState extends ConsumerState<SimpulxApp>
   /// immediate realtime reconnect so the inbox is live again right away.
   @override
   void didChangeAppLifecycleState(AppLifecycleState state) {
+    // Screen wakelock tracks foreground/background, independent of auth: hold it
+    // while the app is visible, release it once truly backgrounded. (inactive is
+    // a transient state - app switcher, system dialog - so leave it held there.)
+    if (state == AppLifecycleState.resumed) {
+      WakelockPlus.enable();
+    } else if (state == AppLifecycleState.paused ||
+        state == AppLifecycleState.detached) {
+      WakelockPlus.disable();
+    }
+
     if (ref.read(sessionControllerProvider).status !=
         SessionStatus.authenticated) {
       return;
