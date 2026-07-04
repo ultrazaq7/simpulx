@@ -3,7 +3,7 @@ import { useEffect, useState, useRef, type ReactNode } from "react";
 import { usePathname, useRouter } from "next/navigation";
 import Link from "next/link";
 import {
-  MessageCircle, Settings,
+  MessageCircle, Settings, Inbox,
   ChevronLeft, ChevronRight, Bell, LogOut, User as UserIcon,
   CheckCircle2, Loader2, ChevronDown, Activity, LayoutDashboard, MessagesSquare, Users, SlidersHorizontal, Megaphone, Wrench, Globe,
   ScrollText, BarChart3, ShieldCheck, FileText, Radio, GitBranch, Plug, Search, Repeat, ClipboardList, Building2, FormInput, Menu
@@ -56,7 +56,7 @@ function playBeep(freq = 880, dur = 0.15) {
 
 const NAV_TOP = [
   { href: "/dashboard", icon: LayoutDashboard, labelKey: "nav.dashboard", perm: "menu_dashboard" },
-  { href: "/inbox", icon: MessageCircle, labelKey: "nav.inbox", perm: "menu_chats" },
+  { href: "/inbox", icon: Inbox, labelKey: "nav.inbox", perm: "menu_chats" },
   { href: "/contacts", icon: Users, labelKey: "nav.contacts", perm: "menu_contacts" },
   { href: "/broadcasts", icon: Megaphone, labelKey: "nav.broadcasts", perm: "menu_broadcasts" },
   { href: "/drip", icon: Repeat, labelKey: "nav.drip", perm: "menu_broadcasts" },

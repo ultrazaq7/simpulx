@@ -2,7 +2,7 @@
 import { useEffect, useMemo, useRef, useState } from "react";
 import { useRouter } from "next/navigation";
 import {
-  Search, LayoutDashboard, MessageCircle, Users, Megaphone, Settings, CornerDownLeft, ArrowUp, ArrowDown,
+  Search, LayoutDashboard, MessageCircle, Users, Megaphone, Settings, CornerDownLeft, ArrowUp, ArrowDown, Inbox,
 } from "lucide-react";
 import { api } from "@/lib/api";
 import { cn, initials, channelColor, channelTextColor } from "@/lib/utils";
@@ -40,7 +40,7 @@ export default function CommandPalette({ open, onClose }: { open: boolean; onClo
 
   const NAV: CmdItem[] = useMemo(() => [
     { id: "nav-dashboard", group: "Go to", label: "Dashboard", icon: LayoutDashboard, run: () => router.push("/dashboard") },
-    { id: "nav-inbox", group: "Go to", label: "Inbox", icon: MessageCircle, run: () => router.push("/inbox") },
+    { id: "nav-inbox", group: "Go to", label: "Inbox", icon: Inbox, run: () => router.push("/inbox") },
     { id: "nav-contacts", group: "Go to", label: "Contacts", icon: Users, run: () => router.push("/contacts") },
     { id: "nav-broadcasts", group: "Go to", label: "Broadcasts", icon: Megaphone, run: () => router.push("/broadcasts") },
     { id: "nav-settings", group: "Go to", label: "Settings", icon: Settings, run: () => router.push("/settings") },
