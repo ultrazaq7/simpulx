@@ -439,13 +439,10 @@ export function Shell({ children }: { children: ReactNode }) {
               </span>
             )}
             <Icon
-              strokeWidth={active ? 2 : 1.75}
-              // Lucide icons are stroke-only; fill the active glyph so it reads
-              // as a solid (filled) icon like the mobile bottom-nav selected tab.
-              fill={active ? "currentColor" : "none"}
+              strokeWidth={active ? 2.5 : 1.75}
               className={cn(
-                "w-[20px] h-[20px] transition-colors duration-200",
-                active ? "text-primary-text" : "text-muted-foreground group-hover:text-foreground"
+                "w-[20px] h-[20px] transition-all duration-200",
+                active ? "text-primary-text drop-shadow-sm" : "text-muted-foreground group-hover:text-foreground"
               )}
             />
           </div>
