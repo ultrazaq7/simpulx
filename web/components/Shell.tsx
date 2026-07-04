@@ -447,7 +447,7 @@ export function Shell({ children }: { children: ReactNode }) {
               color={active ? "hsl(var(--background))" : "currentColor"}
               className={cn(
                 "w-[20px] h-[20px] transition-colors duration-200",
-                active ? "text-primary-text" : "text-muted-foreground group-hover:text-foreground"
+                active ? "text-primary-text [&>*:first-child]:stroke-current" : "text-muted-foreground group-hover:text-foreground"
               )}
             />
           </div>
