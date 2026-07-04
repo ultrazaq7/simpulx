@@ -62,19 +62,18 @@ class _AppShellState extends ConsumerState<AppShell> {
     ref.watch(realtimeClientProvider);
     final unread = ref.watch(totalUnreadProvider);
 
-    // When the branch changes via the nav bar (not a swipe), glide the PageView
-    // to it after this frame so the two stay in lockstep.
+    // When the branch changes via the nav bar (not a swipe), JUMP the PageView
+    // straight to it - no animation - so a tab tap is instant instead of
+    // sliding through every page in between (e.g. Dashboard -> Settings). A
+    // swipe still tracks the finger natively; there the page already matches
+    // by the time this runs, so nothing happens here.
     final current = widget.navigationShell.currentIndex;
     if (_pageController.hasClients &&
         (_pageController.page?.round() ?? current) != current) {
       WidgetsBinding.instance.addPostFrameCallback((_) {
         if (!mounted || !_pageController.hasClients) return;
         if ((_pageController.page?.round() ?? current) != current) {
-          _pageController.animateToPage(
-            current,
-            duration: const Duration(milliseconds: 240),
-            curve: Curves.easeOutCubic,
-          );
+          _pageController.jumpToPage(current);
         }
       });
     }
