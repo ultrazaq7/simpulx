@@ -499,13 +499,7 @@ class _MediaContent extends StatelessWidget {
   Widget _document(BuildContext context) {
     final url = message.mediaUrl!;
     final name = _fileName(url, message.body);
-    // Extract just the extension from the filename (handle cases where URL or body contains full filename)
-    final nameLower = name.toLowerCase();
-    String ext = '';
-    final dotIndex = nameLower.lastIndexOf('.');
-    if (dotIndex >= 0 && dotIndex < nameLower.length - 1) {
-      ext = nameLower.substring(dotIndex);
-    }
+    final ext = name.toLowerCase();
 
     IconData iconData = Icons.insert_drive_file_rounded;
     Color iconColor = fg;
@@ -557,10 +551,7 @@ class _MediaContent extends StatelessWidget {
                     style: TextStyle(color: fg, fontWeight: FontWeight.w600, fontSize: 13),
                   ),
                   const SizedBox(height: 2),
-                  Text(
-                    ext.isNotEmpty ? '${ext.substring(1).toUpperCase()} Document' : 'Document',
-                    style: TextStyle(color: fg.withValues(alpha: 0.7), fontSize: 11),
-                  ),
+                  Text('Document', style: TextStyle(color: fg.withValues(alpha: 0.7), fontSize: 11)),
                 ],
               ),
             ),
