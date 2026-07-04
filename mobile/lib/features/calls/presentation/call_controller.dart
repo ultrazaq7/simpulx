@@ -32,6 +32,7 @@ class CallController extends Notifier<CallSession?> {
   Timer? _statusPoll;
   Timer? _pickupPoll;
   Timer? _permissionPoll;
+  Timer? _incomingPoll;
   static const _channel = MethodChannel('simpulx_notification');
 
   /// How long we ring an outbound call before giving up as "No answer". Without
@@ -184,6 +185,35 @@ class CallController extends Notifier<CallSession?> {
     _permissionPoll = null;
   }
 
+  /// Safety net while an inbound call is ringing on this device: if the caller
+  /// cancels and the realtime "ended" event is missed (e.g. the app was just
+  /// cold-started from the full-screen notification and the WS wasn't connected
+  /// yet), poll the call status so the incoming overlay can never get stuck.
+  void _startIncomingPoll() {
+    _incomingPoll?.cancel();
+    _incomingPoll = Timer.periodic(const Duration(seconds: 3), (_) async {
+      final s = state;
+      if (s == null || !s.inbound || s.phase != CallPhase.incoming) {
+        _stopIncomingPoll();
+        return;
+      }
+      if (s.callId.isEmpty) return; // backfill pending; next tick retries
+      try {
+        final info = await _ds.getCallInfo(s.callId);
+        if (state?.phase != CallPhase.incoming) return;
+        if (info.status == 'ended' || info.status == 'failed') {
+          _stopIncomingPoll();
+          _cleanup(CallPhase.ended, message: 'Missed call');
+        }
+      } catch (_) {/* transient; next tick retries */}
+    });
+  }
+
+  void _stopIncomingPoll() {
+    _incomingPoll?.cancel();
+    _incomingPoll = null;
+  }
+
   /// WhatsApp delivers the SDP answer while the callee's phone is still
   /// RINGING, so "answer received" is NOT "picked up". Actual pickup is when
   /// inbound audio starts flowing - poll RTP stats and only then flip the UI
@@ -296,6 +326,9 @@ class CallController extends Notifier<CallSession?> {
       phase: CallPhase.incoming,
       pendingOffer: resolvedSdpOffer,
     );
+    // The app may have been cold-started from the notification, so the caller
+    // could have hung up before our WS connected - poll as a safety net.
+    _startIncomingPoll();
   }
 
   /// Ensure the OS microphone permission is granted, prompting if it hasn't been
@@ -429,6 +462,9 @@ class CallController extends Notifier<CallSession?> {
         );
         // Native SimpulxMessagingService already shows the call notification
         // via NotificationHelper.showCallNotification — no Flutter duplicate.
+        // Poll as a safety net so a caller-cancel can never leave the incoming
+        // overlay stuck if the ended event is missed.
+        _startIncomingPoll();
       }
       return;
     }
@@ -568,6 +604,7 @@ class CallController extends Notifier<CallSession?> {
     _stopStatusWatchdog();
     _stopPickupDetector();
     _stopPermissionPoll();
+    _stopIncomingPoll();
     _rtc?.dispose();
     _rtc = null;
     // Dismiss the native call notification when the call ends
