@@ -439,10 +439,12 @@ export function Shell({ children }: { children: ReactNode }) {
               </span>
             )}
             <Icon
-              strokeWidth={active ? 2 : 1.75}
+              strokeWidth={active ? 2.5 : 1.75}
               // Lucide icons are stroke-only; fill the active glyph so it reads
-              // as a solid (filled) icon like the mobile bottom-nav selected tab.
+              // as a solid (filled) icon. We also set the stroke to the background
+              // color so that internal lines (like in MessageSquareText) appear as cutouts.
               fill={active ? "currentColor" : "none"}
+              color={active ? "hsl(var(--background))" : "currentColor"}
               className={cn(
                 "w-[20px] h-[20px] transition-colors duration-200",
                 active ? "text-primary-text" : "text-muted-foreground group-hover:text-foreground"
