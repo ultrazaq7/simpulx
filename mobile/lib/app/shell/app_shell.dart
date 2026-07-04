@@ -109,11 +109,11 @@ class _AppShellState extends ConsumerState<AppShell> {
           ),
           NavigationDestination(
             icon: _BadgedIcon(
-              icon: Icons.chat_bubble_outline_rounded,
+              icon: Icons.chat_outlined,
               count: unread,
             ),
             selectedIcon: _BadgedIcon(
-              icon: Icons.chat_bubble_rounded,
+              icon: Icons.chat_rounded,
               count: unread,
             ),
             label: l10n.navChat,

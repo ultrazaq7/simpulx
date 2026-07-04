@@ -3,7 +3,7 @@ import { useEffect, useState, useRef, type ReactNode } from "react";
 import { usePathname, useRouter } from "next/navigation";
 import Link from "next/link";
 import {
-  MessageCircle, Settings, Inbox,
+  MessageCircle, Settings, MessageSquareText,
   ChevronLeft, ChevronRight, Bell, LogOut, User as UserIcon,
   CheckCircle2, Loader2, ChevronDown, Activity, LayoutDashboard, MessagesSquare, Users, SlidersHorizontal, Megaphone, Wrench, Globe,
   ScrollText, BarChart3, ShieldCheck, FileText, Radio, GitBranch, Plug, Search, Repeat, ClipboardList, Building2, FormInput, Menu
@@ -56,7 +56,7 @@ function playBeep(freq = 880, dur = 0.15) {
 
 const NAV_TOP = [
   { href: "/dashboard", icon: LayoutDashboard, labelKey: "nav.dashboard", perm: "menu_dashboard" },
-  { href: "/inbox", icon: Inbox, labelKey: "nav.inbox", perm: "menu_chats" },
+  { href: "/inbox", icon: MessageSquareText, labelKey: "nav.inbox", perm: "menu_chats" },
   { href: "/contacts", icon: Users, labelKey: "nav.contacts", perm: "menu_contacts" },
   { href: "/broadcasts", icon: Megaphone, labelKey: "nav.broadcasts", perm: "menu_broadcasts" },
   { href: "/drip", icon: Repeat, labelKey: "nav.drip", perm: "menu_broadcasts" },
@@ -439,10 +439,13 @@ export function Shell({ children }: { children: ReactNode }) {
               </span>
             )}
             <Icon
-              strokeWidth={active ? 2.5 : 1.75}
+              strokeWidth={active ? 2 : 1.75}
+              // Lucide icons are stroke-only; fill the active glyph so it reads
+              // as a solid (filled) icon like the mobile bottom-nav selected tab.
+              fill={active ? "currentColor" : "none"}
               className={cn(
-                "w-[20px] h-[20px] transition-all duration-200",
-                active ? "text-primary-text drop-shadow-sm" : "text-muted-foreground group-hover:text-foreground"
+                "w-[20px] h-[20px] transition-colors duration-200",
+                active ? "text-primary-text" : "text-muted-foreground group-hover:text-foreground"
               )}
             />
           </div>
