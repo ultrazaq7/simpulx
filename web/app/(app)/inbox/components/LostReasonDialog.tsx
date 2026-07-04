@@ -1,6 +1,6 @@
 "use client";
 import { useState } from "react";
-import { CloseCircleLinear as X, QuestionCircleLinear as ShoppingBag, QuestionCircleLinear as XCircle, QuestionCircleLinear as Ban, AltArrowRightLinear as ChevronRight, AltArrowLeftLinear as ChevronLeft } from "solar-icon-set";
+import { X, ShoppingBag, XCircle, Ban, ChevronRight, ChevronLeft } from "lucide-react";
 import { cn } from "@/lib/utils";
 
 type Cat = "lost" | "spam";

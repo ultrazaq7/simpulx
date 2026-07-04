@@ -1,5 +1,5 @@
 "use client";
-import { DownloadSquareLinear as Download } from "solar-icon-set";
+import { Download } from "lucide-react";
 import Shell from "@/components/Shell";
 import { getToken } from "@/lib/api";
 

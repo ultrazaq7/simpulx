@@ -1,7 +1,7 @@
 "use client";
 
 import { useInbox } from "./InboxContext";
-import { CloseCircleLinear as X, MagniferLinear as SearchIcon, FileTextLinear as FileText } from "solar-icon-set";
+import { X, Search as SearchIcon, FileText } from "lucide-react";
 import { fmtDate, fmtTime } from "@/lib/utils";
 import type { Message } from "@/lib/types";
 import { Input } from "@/components/ui/input";

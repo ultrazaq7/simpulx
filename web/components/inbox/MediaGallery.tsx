@@ -1,6 +1,6 @@
 "use client";
 
-import { CloseCircleLinear as X, DownloadSquareLinear as Download, AltArrowLeftLinear as ChevronLeft, AltArrowRightLinear as ChevronRight, QuestionCircleLinear as Video, FileTextLinear as FileText, FileLinear as File } from "solar-icon-set";
+import { X, Download, ChevronLeft, ChevronRight, Video, FileText, File } from "lucide-react";
 import { initials, fmtDate, fmtTime, channelColor } from "@/lib/utils";
 import { getMediaUrl } from "./SharedTypes";
 import { CustomVideoPlayer } from "./CustomVideoPlayer";

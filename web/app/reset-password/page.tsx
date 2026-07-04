@@ -1,7 +1,7 @@
 "use client";
 import { useEffect, useState } from "react";
 import { useRouter } from "next/navigation";
-import { LockLinear as Lock, EyeClosedLinear as EyeOff, EyeLinear as Eye, CheckCircleLinear as CheckCircle2, RefreshLinear as Loader2, DangerCircleLinear as AlertCircle } from "solar-icon-set";
+import { Lock, EyeOff, Eye, CheckCircle2, Loader2, AlertCircle } from "lucide-react";
 import { api } from "@/lib/api";
 import { cn } from "@/lib/utils";
 

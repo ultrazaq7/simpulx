@@ -3,7 +3,7 @@
 // reused across the split setting pages. Keeps each page focused on its own data.
 import { useEffect, useState, type ReactNode } from "react";
 import { cn } from "@/lib/utils";
-import { CloseCircleLinear as X, InfoCircleLinear as Info } from "solar-icon-set";
+import { X, Info } from "lucide-react";
 import { Tip } from "@/components/ui/tooltip";
 
 export type ToastSeverity = "success" | "error" | "info";

@@ -1,6 +1,6 @@
 "use client";
 import { useEffect, useState } from "react";
-import { BellLinear as Bell, RefreshLinear as Loader2, LetterLinear as Mail, ChatRoundLinear as MessageSquare, QuestionCircleLinear as Volume2 } from "solar-icon-set";
+import { Bell, Loader2, Mail, MessageSquare, Volume2 } from "lucide-react";
 import { api } from "@/lib/api";
 import type { OrgSettings } from "@/lib/types";
 import { useToast, PageBody, SectionLabel, SettingsCard } from "../_shared";

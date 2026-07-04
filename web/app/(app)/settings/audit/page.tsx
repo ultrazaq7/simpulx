@@ -1,6 +1,6 @@
 "use client";
 import { useEffect, useState, useCallback } from "react";
-import { RefreshLinear as Loader2, DownloadSquareLinear as Download, PhoneCallingLinear as PhoneIncoming, PhoneCallingLinear as PhoneOutgoing, CheckCircleLinear as CheckCircle2, ClockCircleLinear as Clock, QuestionCircleLinear as XCircle, DangerTriangleLinear as AlertTriangle } from "solar-icon-set";
+import { Loader2, Download, PhoneIncoming, PhoneOutgoing, CheckCircle2, Clock, XCircle, AlertTriangle } from "lucide-react";
 import { api } from "@/lib/api";
 import { cn } from "@/lib/utils";
 import type { AuditEntry, LogMessage, LogConversation, LogCall, LogActivity, ExportJob, Campaign, Channel } from "@/lib/types";

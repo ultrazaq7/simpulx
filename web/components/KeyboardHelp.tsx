@@ -1,5 +1,5 @@
 "use client";
-import { CloseCircleLinear as X } from "solar-icon-set";
+import { X } from "lucide-react";
 
 const SECTIONS: { title: string; items: [string, string][] }[] = [
   { title: "Navigation", items: [

@@ -1,9 +1,12 @@
 "use client";
 import { useEffect, useMemo, useState } from "react";
 import { useParams, useRouter } from "next/navigation";
-import { ArrowLeftLinear as ArrowLeft, RefreshLinear as Loader2, UsersGroupTwoRoundedLinear as Users, PlainLinear as Send, CheckReadLinear as CheckCheck, ChatRoundLinear as MessageSquare, QuestionCircleLinear as Percent, QuestionCircleLinear as CircleDollarSign, TrashBinTrashLinear as Trash2, QuestionCircleLinear as RotateCcw, DownloadSquareLinear as Download, MagniferLinear as Search, QuestionCircleLinear as ArrowDownLeft, SpeakerLinear as Speaker, QuestionCircleLinear as MousePointerClick, AltArrowLeftLinear as ChevronLeft, AltArrowRightLinear as ChevronRight, QuestionCircleLinear as ChevronsLeft, QuestionCircleLinear as ChevronsRight } from "solar-icon-set";
-import type { SVGProps } from "react";
-type LucideIcon = (props: SVGProps<SVGSVGElement>) => JSX.Element;
+import {
+  ArrowLeft, Loader2, Users, Send, CheckCheck, MessageSquare, Percent, CircleDollarSign,
+  Trash2, RotateCcw, Download, Search, ArrowDownLeft, Megaphone, MousePointerClick,
+  ChevronLeft, ChevronRight, ChevronsLeft, ChevronsRight,
+} from "lucide-react";
+import type { LucideIcon } from "lucide-react";
 import { Tip } from "@/components/ui/tooltip";
 
 import { api } from "@/lib/api";

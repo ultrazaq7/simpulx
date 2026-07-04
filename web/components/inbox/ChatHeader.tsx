@@ -1,7 +1,7 @@
 "use client";
 
 import { useInbox } from "./InboxContext";
-import { CheckReadLinear as Check, AltArrowRightLinear as ChevronRight, AltArrowDownLinear as ChevronDown, QuestionCircleLinear as RotateCcw, CheckCircleLinear as CheckCircle, MagniferLinear as Search, QuestionCircleLinear as PanelRight, MenuDotsCircleLinear as MoreVertical } from "solar-icon-set";
+import { Check, ChevronRight, ChevronDown, RotateCcw, CheckCircle, Search, PanelRight, MoreVertical } from "lucide-react";
 import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuSeparator, DropdownMenuTrigger } from "@/components/ui/dropdown-menu";
 import { api } from "@/lib/api";
 

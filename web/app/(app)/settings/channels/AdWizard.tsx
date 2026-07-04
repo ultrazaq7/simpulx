@@ -2,7 +2,7 @@
 // Connect Ad Account — 3-step wizard (Select platform > Credentials > Map campaigns).
 // Wraps the real createAdAccount endpoint; mirrors the Create Channel wizard.
 import { useMemo, useState } from "react";
-import { ChartSquareLinear as BarChart3, RefreshLinear as Loader2, CheckCircleLinear as CheckCircle2, DangerTriangleLinear as AlertTriangle, LinkLinear as Link2 } from "solar-icon-set";
+import { BarChart3, Loader2, CheckCircle2, AlertTriangle, Link2 } from "lucide-react";
 import { api } from "@/lib/api";
 import { Select } from "@/components/Select";
 import type { AdAccount, AdCampaignRow, Campaign } from "@/lib/types";

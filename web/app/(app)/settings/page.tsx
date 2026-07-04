@@ -1,7 +1,7 @@
 "use client";
 import { useEffect } from "react";
 import { useRouter } from "next/navigation";
-import { RefreshLinear as Loader2 } from "solar-icon-set";
+import { Loader2 } from "lucide-react";
 import { getUser } from "@/lib/api";
 import { loadPermissions, canWith } from "@/lib/permissions";
 

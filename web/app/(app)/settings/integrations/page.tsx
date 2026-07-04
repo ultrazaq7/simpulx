@@ -3,7 +3,7 @@
 // redirect so existing bookmarks and links land on the right tab.
 import { useEffect } from "react";
 import { useRouter } from "next/navigation";
-import { RefreshLinear as Loader2 } from "solar-icon-set";
+import { Loader2 } from "lucide-react";
 
 export default function IntegrationsRedirect() {
   const router = useRouter();

@@ -1,6 +1,6 @@
 "use client";
 import { useEffect, useState } from "react";
-import { RefreshLinear as Loader2 } from "solar-icon-set";
+import { Loader2 } from "lucide-react";
 import { api } from "@/lib/api";
 import type { OrgSettings } from "@/lib/types";
 import { useToast, PageBody, SectionLabel, SettingsCard, FieldLabel, INPUT_CLASS, PrimaryButton } from "../_shared";

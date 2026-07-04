@@ -1,7 +1,7 @@
 "use client";
 import { useState, useEffect } from "react";
 import { useRouter } from "next/navigation";
-import { LetterLinear as Mail, LockLinear as Lock, EyeClosedLinear as EyeOff, EyeLinear as Eye, RefreshLinear as Loader2, ArrowRightLinear as ArrowRight, QuestionCircleLinear as AtSign, ShieldCheckLinear as ShieldCheck } from "solar-icon-set";
+import { Mail, Lock, EyeOff, Eye, Loader2, ArrowRight, AtSign, ShieldCheck } from "lucide-react";
 import { api, setSession } from "@/lib/api";
 import { useI18n } from "@/lib/i18n";
 

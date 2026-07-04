@@ -1,7 +1,9 @@
 "use client";
 import { useEffect, useMemo, useRef, useState } from "react";
 import { useRouter } from "next/navigation";
-import { MagniferLinear as Search, WidgetLinear as LayoutDashboard, ChatRoundDotsLinear as MessageCircle, UsersGroupTwoRoundedLinear as Users, SpeakerLinear as Speaker, SettingsLinear as Settings, QuestionCircleLinear as CornerDownLeft, ArrowUpLinear as ArrowUp, ArrowDownLinear as ArrowDown } from "solar-icon-set";
+import {
+  Search, LayoutDashboard, MessageCircle, Users, Megaphone, Settings, CornerDownLeft, ArrowUp, ArrowDown,
+} from "lucide-react";
 import { api } from "@/lib/api";
 import { cn, initials, channelColor, channelTextColor } from "@/lib/utils";
 import type { Conversation } from "@/lib/types";
@@ -40,7 +42,7 @@ export default function CommandPalette({ open, onClose }: { open: boolean; onClo
     { id: "nav-dashboard", group: "Go to", label: "Dashboard", icon: LayoutDashboard, run: () => router.push("/dashboard") },
     { id: "nav-inbox", group: "Go to", label: "Inbox", icon: MessageCircle, run: () => router.push("/inbox") },
     { id: "nav-contacts", group: "Go to", label: "Contacts", icon: Users, run: () => router.push("/contacts") },
-    { id: "nav-broadcasts", group: "Go to", label: "Broadcasts", icon: Speaker, run: () => router.push("/broadcasts") },
+    { id: "nav-broadcasts", group: "Go to", label: "Broadcasts", icon: Megaphone, run: () => router.push("/broadcasts") },
     { id: "nav-settings", group: "Go to", label: "Settings", icon: Settings, run: () => router.push("/settings") },
   ], [router]);
 

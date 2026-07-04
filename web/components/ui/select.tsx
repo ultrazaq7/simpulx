@@ -4,7 +4,7 @@ import * as React from "react"
 import { Select as SelectPrimitive } from "@base-ui/react/select"
 
 import { cn } from "@/lib/utils"
-import { AltArrowDownLinear as ChevronDownIcon, CheckReadLinear as CheckIcon, AltArrowUpLinear as ChevronUpIcon } from "solar-icon-set";
+import { ChevronDownIcon, CheckIcon, ChevronUpIcon } from "lucide-react"
 
 const Select = SelectPrimitive.Root
 

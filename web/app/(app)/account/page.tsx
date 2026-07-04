@@ -1,7 +1,9 @@
 "use client";
 import { useEffect, useMemo, useRef, useState } from "react";
 import { useRouter } from "next/navigation";
-import { RefreshLinear as Loader2, BellLinear as Bell, LetterLinear as Mail, ChatRoundLinear as MessageSquare, QuestionCircleLinear as Volume2, ArrowLeftLinear as ArrowLeft, LetterLinear as MailCheck, CameraLinear as Camera } from "solar-icon-set";
+import {
+  Loader2, Bell, Mail, MessageSquare, Volume2, ArrowLeft, MailCheck, Camera,
+} from "lucide-react";
 import { api, getUser, getToken, setSession } from "@/lib/api";
 import type { OrgSettings } from "@/lib/types";
 import { cn, initials } from "@/lib/utils";

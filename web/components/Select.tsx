@@ -1,7 +1,7 @@
 "use client";
 import { useState, useRef, useEffect } from "react";
 import { createPortal } from "react-dom";
-import { AltArrowDownLinear as ChevronDown, MagniferLinear as Search, CheckReadLinear as Check } from "solar-icon-set";
+import { ChevronDown, Search, Check } from "lucide-react";
 import { cn } from "@/lib/utils";
 
 // `dot` is an optional CSS color rendered as a small leading status dot (used for

@@ -7,9 +7,14 @@ import {
   type Node, type Edge, type Connection, type NodeProps, type NodeTypes,
 } from "@xyflow/react";
 import "@xyflow/react/dist/style.css";
-import { ArrowLeftLinear as ArrowLeft, AddCircleLinear as Plus, BoltLinear as Zap, ChatRoundDotsLinear as MessageCircle, FileTextLinear as FileText, UserLinear as User, MagicStick3Linear as Sparkles, TagLinear as Tag, FlagLinear as Flag, GlobalLinear as Globe, QuestionCircleLinear as GitFork, TrashBinTrashLinear as Trash2, RefreshLinear as Loader2, CloseCircleLinear as X, QuestionCircleLinear as Save, QuestionCircleLinear as Undo2, QuestionCircleLinear as Redo2, QuestionCircleLinear as Braces, QuestionCircleLinear as ToggleRight, QuestionCircleLinear as Sheet, ClipboardTextLinear as ClipboardList, UserCrossRoundedLinear as UserMinus, QuestionCircleLinear as Ban, RadioLinear as Radio, QuestionCircleLinear as FolderMinus, QuestionCircleLinear as BellOff, ScissorsLinear as Scissors, LetterLinear as Mail, SignpostLinear as Milestone, FireLinear as Flame, GalleryLinear as ImageIcon, QuestionCircleLinear as RefreshCw } from "solar-icon-set";
-import type { SVGProps } from "react";
-type LucideIcon = (props: SVGProps<SVGSVGElement>) => JSX.Element;
+import {
+  ArrowLeft, Plus, Zap, MessageCircle, FileText, User, Sparkles, Tag, Flag,
+  Globe, GitFork, Trash2, Loader2, X, Save, Undo2, Redo2,
+  Braces, ToggleRight, Sheet, ClipboardList, UserMinus, Ban, Radio,
+  FolderMinus, BellOff, Scissors, Mail, Milestone, Flame, Image as ImageIcon,
+  RefreshCw,
+} from "lucide-react";
+import type { LucideIcon } from "lucide-react";
 import { Tip } from "@/components/ui/tooltip";
 import { Select } from "@/components/Select";
 

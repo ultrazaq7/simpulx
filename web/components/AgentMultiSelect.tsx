@@ -2,7 +2,7 @@
 // Polished agent multi-select: avatar chips, search, select-all, removable pills.
 // Used in the campaign wizard (per branch) and anywhere agents are picked.
 import { useState, useMemo, useRef, useEffect } from "react";
-import { MagniferLinear as Search, CheckReadLinear as Check, AltArrowDownLinear as ChevronDown, CloseCircleLinear as X, UsersGroupTwoRoundedLinear as Users } from "solar-icon-set";
+import { Search, Check, ChevronDown, X, Users } from "lucide-react";
 import { cn } from "@/lib/utils";
 
 export interface AgentOption { id: string; name: string }

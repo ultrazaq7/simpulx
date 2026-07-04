@@ -1,7 +1,7 @@
 "use client";
 import { useEffect, useMemo, useState } from "react";
 import { useRouter } from "next/navigation";
-import { MagniferLinear as Search, AddCircleLinear as Plus, QuestionCircleLinear as RefreshCw, ShareLinear as GitBranch, PenLinear as Pencil, TrashBinTrashLinear as Trash2, BoltLinear as Zap, MagicStick3Linear as Sparkles, RefreshLinear as Loader2, CloseCircleLinear as X } from "solar-icon-set";
+import { Search, Plus, RefreshCw, GitBranch, Pencil, Trash2, Zap, Sparkles, Loader2, X } from "lucide-react";
 import { api } from "@/lib/api";
 import { Select } from "@/components/Select";
 import { MultiSelect } from "@/components/ui/multi-select";

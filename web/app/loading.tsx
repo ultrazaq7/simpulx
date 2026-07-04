@@ -1,4 +1,4 @@
-import { RefreshLinear as Loader2 } from "solar-icon-set";
+import { Loader2 } from "lucide-react";
 
 export default function Loading() {
   return (

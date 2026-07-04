@@ -2,7 +2,7 @@
 
 import { useState, useRef } from "react";
 import { useInbox } from "./InboxContext";
-import { PlainLinear as Send, LockLinear as Lock, Microphone2Linear as Mic, PaperclipLinear as Paperclip, BoltLinear as Zap, QuestionCircleLinear as Smile, FileTextLinear as FileText, RefreshLinear as Loader2, PauseLinear as Pause, PlayLinear as Play, TrashBinTrashLinear as Trash2, CloseCircleLinear as X } from "solar-icon-set";
+import { Send, Lock, Mic, Paperclip, Zap, Smile, FileText, Loader2, Pause, Play, Trash2, X } from "lucide-react";
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
 import EmojiPicker from "emoji-picker-react";
 import { api } from "@/lib/api";

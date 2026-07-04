@@ -1,7 +1,7 @@
 "use client";
 import { useEffect, useRef, useState } from "react";
 import { useRouter } from "next/navigation";
-import { CheckCircleLinear as CheckCircle2, RefreshLinear as Loader2, DangerCircleLinear as AlertCircle } from "solar-icon-set";
+import { CheckCircle2, Loader2, AlertCircle } from "lucide-react";
 import { api } from "@/lib/api";
 
 export default function VerifyEmailPage() {

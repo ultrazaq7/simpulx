@@ -1,7 +1,7 @@
 "use client";
 import { useState } from "react";
 import { useRouter } from "next/navigation";
-import { LetterLinear as Mail, ArrowLeftLinear as ArrowLeft, LetterLinear as MailCheck, RefreshLinear as Loader2 } from "solar-icon-set";
+import { Mail, ArrowLeft, MailCheck, Loader2 } from "lucide-react";
 import { api } from "@/lib/api";
 
 export default function ForgotPasswordPage() {

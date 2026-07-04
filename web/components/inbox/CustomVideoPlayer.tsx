@@ -1,7 +1,7 @@
 "use client";
 
 import { useEffect, useRef, useState } from "react";
-import { PlayLinear as Play, PauseLinear as Pause, QuestionCircleLinear as Volume2, QuestionCircleLinear as VolumeX, QuestionCircleLinear as Maximize, QuestionCircleLinear as PictureInPicture } from "solar-icon-set";
+import { Play, Pause, Volume2, VolumeX, Maximize, PictureInPicture } from "lucide-react";
 
 export function CustomVideoPlayer({ src }: { src: string }) {
   const videoRef = useRef<HTMLVideoElement>(null);

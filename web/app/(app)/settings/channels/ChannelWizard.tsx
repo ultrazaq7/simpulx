@@ -6,7 +6,9 @@
 //   - Viber: Public Account auth token (verified + webhook registered server-side).
 //   - Messenger / Instagram / Testing: createChannel with the right config.
 import { useState } from "react";
-import { CloseCircleLinear as X, CheckReadLinear as Check, ArrowLeftLinear as ArrowLeft, RefreshLinear as Loader2, CopyLinear as Copy, LockLinear as Lock, QuestionCircleLinear as FbIcon, KeyLinear as KeyRound, CheckCircleLinear as CheckCircle2, RadioLinear as Radio } from "solar-icon-set";
+import {
+  X, Check, ArrowLeft, Loader2, Copy, Lock, LogIn as FbIcon, KeyRound, CheckCircle2, Radio,
+} from "lucide-react";
 import ChannelIcon, { CHANNEL_CATALOG, channelMeta } from "@/components/ChannelIcon";
 import { api, getUser } from "@/lib/api";
 import { cn } from "@/lib/utils";

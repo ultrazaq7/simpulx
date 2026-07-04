@@ -1,7 +1,7 @@
 "use client";
 import { useState } from "react";
 import { useInbox } from "./InboxContext";
-import { CloseCircleLinear as X, UserLinear as User, CopyLinear as Copy, TagLinear as Tag, ChatRoundLinear as MessageSquare, ClockCircleLinear as Clock, SmartSpeaker2Linear as Bot, MapPointLinear as MapPin, BoxLinear as Box, QuestionCircleLinear as Hash, LockLinear as Lock } from "solar-icon-set";
+import { X, User, Copy, Tag, MessageSquare, Clock, Bot, MapPin, Box, Hash, Lock } from "lucide-react";
 import { initials, channelColor, fmtDate, fmtTime } from "@/lib/utils";
 import { api } from "@/lib/api";
 import { useQueryClient } from "@tanstack/react-query";

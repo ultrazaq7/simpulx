@@ -1,6 +1,6 @@
 "use client";
 import { useState, useMemo, useCallback } from "react";
-import { MagniferLinear as Search, QuestionCircleLinear as ListFilter, CloseCircleLinear as X, AltArrowDownLinear as ChevronDown, CheckReadLinear as Check } from "solar-icon-set";
+import { Search, ListFilter, X, ChevronDown, Check } from "lucide-react";
 import { cn } from "@/lib/utils";
 
 export interface FilterOption {
