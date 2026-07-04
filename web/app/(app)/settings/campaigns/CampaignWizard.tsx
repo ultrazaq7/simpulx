@@ -142,7 +142,7 @@ export function CampaignWizard({ campaignId, users, channels, onClose, onDone, o
   const channel = channels.find((c) => c.id === channelId);
 
   return (
-    <WizardModal title={isEdit ? "Edit campaign" : "New campaign"} icon={<Sparkles className="w-5 h-5" />} steps={STEPS} step={step} onClose={onClose} footer={footer} maxWidth={820}>
+    <WizardModal title={isEdit ? "Edit campaign" : "New campaign"} icon={<Building2 className="w-5 h-5" />} steps={STEPS} step={step} onClose={onClose} footer={footer} maxWidth={820}>
       {/* Step 0 — Campaign */}
       {step === 0 && (
         <div className="flex flex-col gap-4">

@@ -8,8 +8,8 @@ import { type ReactNode, useState, useEffect } from "react";
 import Link from "next/link";
 import { usePathname } from "next/navigation";
 import {
-  Settings, FormInput, Bell, Users, ShieldCheck,
-  Sparkles, FileText, GitBranch, Radio, Clock, ClipboardList,
+  Settings, FormInput, Bell, User, ShieldCheck,
+  Building2, FileText, GitBranch, Radio, Clock, ClipboardList,
   PanelLeftClose, PanelLeftOpen,
 } from "lucide-react";
 import { cn } from "@/lib/utils";
@@ -26,23 +26,23 @@ const GROUPS: { titleKey: string; items: NavItem[] }[] = [
     titleKey: "settings.general",
     items: [
       { key: "general", labelKey: "settings.general", icon: Settings, href: "/settings/general", perm: "view_settings" },
-      { key: "custom-fields", labelKey: "settings.custom_fields", icon: FormInput, href: "/settings/custom-fields", perm: "view_settings" },
     ],
   },
   {
     titleKey: "settings.team",
     items: [
-      { key: "people", labelKey: "settings.team", icon: Users, href: "/settings/people", perm: "manage_team" },
+      { key: "people", labelKey: "settings.team", icon: User, href: "/settings/people", perm: "manage_team" },
       { key: "roles", labelKey: "settings.roles", icon: ShieldCheck, href: "/settings/roles", perm: "manage_roles" },
     ],
   },
   {
     titleKey: "settings.channels",
     items: [
-      { key: "campaigns", labelKey: "settings.campaigns", icon: Sparkles, href: "/settings/campaigns", perm: "manage_campaigns" },
+      { key: "campaigns", labelKey: "settings.campaigns", icon: Building2, href: "/settings/campaigns", perm: "manage_campaigns" },
       { key: "templates", labelKey: "settings.templates", icon: FileText, href: "/settings/templates", perm: "view_settings" },
       { key: "automation", labelKey: "settings.automations", icon: GitBranch, href: "/settings/automation", perm: "view_automation" },
       { key: "wa-forms", labelKey: "settings.forms", icon: ClipboardList, href: "/settings/wa-forms", perm: "view_automation" },
+      { key: "custom-fields", labelKey: "settings.custom_fields", icon: FormInput, href: "/settings/custom-fields", perm: "view_settings" },
       // Channel & Integrations merges messaging channels, Web API lead sources and ad accounts.
       { key: "channels", labelKey: "settings.channels_integrations", icon: Radio, href: "/settings/channels", perm: "manage_channels" },
     ],

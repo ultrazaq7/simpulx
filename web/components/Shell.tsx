@@ -5,8 +5,8 @@ import Link from "next/link";
 import {
   MessageCircle, Settings,
   ChevronLeft, ChevronRight, Bell, LogOut, User as UserIcon,
-  CheckCircle2, Loader2, ChevronDown, Activity, LayoutDashboard, MessagesSquare, Users, Sparkles, SlidersHorizontal, Megaphone, Wrench, Globe,
-  ScrollText, BarChart3, ShieldCheck, FileText, Radio, GitBranch, Plug, Search, Repeat, ClipboardList
+  CheckCircle2, Loader2, ChevronDown, Activity, LayoutDashboard, MessagesSquare, Users, SlidersHorizontal, Megaphone, Wrench, Globe,
+  ScrollText, BarChart3, ShieldCheck, FileText, Radio, GitBranch, Plug, Search, Repeat, ClipboardList, Building2, FormInput
 } from "lucide-react";
 import { WS_URL } from "@/lib/api";
 import { api, clearSession, getToken, getUser, setSession } from "@/lib/api";
@@ -81,7 +81,7 @@ const PAGE_TITLES: Record<string, { category: string; title: string }> = {
   "/integrations": { category: "SETUP", title: "Web API" },
   // Settings sub-pages (more specific than "/settings" so each gets its own title + icon).
   "/settings/general": { category: "PREFERENCES", title: "General" },
-  "/settings/custom-fields": { category: "PREFERENCES", title: "Custom Fields" },
+  "/settings/custom-fields": { category: "CUSTOM_FIELDS", title: "Custom Fields" },
   "/settings/people": { category: "TEAM", title: "Team Members" },
   "/settings/roles": { category: "ROLES", title: "Roles & Permissions" },
   "/settings/campaigns": { category: "CAMPAIGNS", title: "Campaigns" },
@@ -100,13 +100,14 @@ const CATEGORY_ICONS: Record<string, any> = {
   "OVERVIEW": LayoutDashboard,
   "INBOX": MessagesSquare,
   "GROUPS": Users,
-  "CAMPAIGNS": Sparkles,
+  "CAMPAIGNS": Building2,
   "OUTREACH": Megaphone,
   "AUTOMATION": GitBranch,
   "SETUP": Wrench,
   "PREFERENCES": SlidersHorizontal,
+  "CUSTOM_FIELDS": FormInput,
   "ACCOUNT": UserIcon,
-  "TEAM": Users,
+  "TEAM": UserIcon,
   "ROLES": ShieldCheck,
   "TEMPLATES": FileText,
   "FORMS": ClipboardList,

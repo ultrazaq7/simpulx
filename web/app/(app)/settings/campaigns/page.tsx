@@ -100,12 +100,31 @@ export default function CampaignsPage() {
                   <td className="px-4 py-2.5 text-right font-semibold text-[13px] text-foreground tabular-nums">{c.agent_count}</td>
                   <td className="px-4 py-2.5 text-right font-semibold text-[13px] tabular-nums">{c.conversations}</td>
                   <td className="px-4 py-2.5 text-right font-semibold text-[13px] tabular-nums">{c.lead_count}</td>
-                  <td className="px-4 py-2.5">
-                    <div className="flex flex-wrap gap-1 max-w-[220px]">
-                      {(c.ad_source_ids ?? []).map((s) => <span key={s} className="inline-flex px-1.5 py-0.5 rounded-md bg-blue-50 text-blue-700 text-[10px]">ad: {s}</span>)}
-                      {(c.keywords ?? []).map((k) => <span key={k} className="inline-flex px-1.5 py-0.5 rounded-md bg-teal-50 text-teal-700 text-[10px]">kw: {k}</span>)}
-                      {((c.ad_source_ids?.length ?? 0) + (c.keywords?.length ?? 0)) === 0 && <span className="text-[11.5px] text-muted-foreground">None</span>}
-                    </div>
+                  <td className="px-4 py-2.5 max-w-[220px]">
+                    {(() => {
+                      const chips = [
+                        ...(c.ad_source_ids ?? []).map((s) => ({ key: `ad:${s}`, label: `ad: ${s}`, cls: "bg-blue-50 text-blue-700" })),
+                        ...(c.keywords ?? []).map((k) => ({ key: `kw:${k}`, label: `kw: ${k}`, cls: "bg-teal-50 text-teal-700" })),
+                      ];
+                      if (chips.length === 0) return <span className="text-[11.5px] text-muted-foreground">None</span>;
+                      // Fixed single-row height: show what fits, collapse the rest into
+                      // a "+N" chip (hover for the full list) so the table row never
+                      // grows tall as campaigns accumulate more sources/keywords.
+                      const shown = chips.slice(0, 2);
+                      const rest = chips.slice(2);
+                      return (
+                        <div className="flex items-center gap-1 flex-nowrap overflow-hidden">
+                          {shown.map((chip) => (
+                            <span key={chip.key} className={cn("inline-flex shrink-0 px-1.5 py-0.5 rounded-md text-[10px] whitespace-nowrap", chip.cls)}>{chip.label}</span>
+                          ))}
+                          {rest.length > 0 && (
+                            <Tip label={<div className="flex flex-col gap-1 max-w-[240px]">{rest.map((chip) => <span key={chip.key} className={cn("inline-flex px-1.5 py-0.5 rounded-md text-[10px] w-fit", chip.cls)}>{chip.label}</span>)}</div>}>
+                              <span className="inline-flex shrink-0 px-1.5 py-0.5 rounded-md text-[10px] font-semibold bg-muted text-muted-foreground whitespace-nowrap cursor-default">+{rest.length}</span>
+                            </Tip>
+                          )}
+                        </div>
+                      );
+                    })()}
                   </td>
                   <td className="px-4 py-2.5 text-[12.5px] text-muted-foreground capitalize">{c.routing_strategy.replace("_", " ")}</td>
                   <td className="px-4 py-2.5 text-right whitespace-nowrap">
