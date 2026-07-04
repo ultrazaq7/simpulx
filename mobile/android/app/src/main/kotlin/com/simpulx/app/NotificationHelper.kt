@@ -397,13 +397,33 @@ object NotificationHelper {
         // Plain avatar only - Android's Conversation API overlays the app's
         // small icon on the Person avatar automatically, so merging our own
         // badge produced a double icon.
+        val avatar = generateInitialAvatar(name)
         val caller = Person.Builder()
             .setName(name)
-            .setIcon(IconCompat.createWithBitmap(generateInitialAvatar(name)))
+            .setIcon(IconCompat.createWithBitmap(avatar))
             .setImportant(true)
             .build()
         val style = NotificationCompat.MessagingStyle(Person.Builder().setName("You").build())
             .addMessage("Missed voice call", System.currentTimeMillis(), caller)
+
+        // Conversation shortcut: same id as the chat thread so Android renders
+        // this as a Conversation notification (avatar LEFT with the app icon as
+        // a small overlay badge - no separate header icon), exactly like the
+        // chat + incoming-call notifications.
+        val shortcutId = "chat_$chatId"
+        val shortcut = ShortcutInfoCompat.Builder(context, shortcutId)
+            .setLongLived(true)
+            .setShortLabel(name)
+            .setIcon(IconCompat.createWithBitmap(avatar))
+            .setIntent(
+                Intent(context, MainActivity::class.java)
+                    .setAction(Intent.ACTION_VIEW)
+                    .putExtra("chat_id", chatId)
+            )
+            .setPerson(caller)
+            .setCategories(setOf("com.simpulx.app.category.SHARE_TARGET"))
+            .build()
+        ShortcutManagerCompat.pushDynamicShortcut(context, shortcut)
 
         fun tapRoute(route: String, requestCode: Int): PendingIntent {
             val intent = Intent(context, MainActivity::class.java).apply {
@@ -442,6 +462,7 @@ object NotificationHelper {
 
         val notification = NotificationCompat.Builder(context, CHANNEL_ID)
             .setSmallIcon(R.drawable.ic_notification)
+            .setShortcutId(shortcutId) // conversation rendering: avatar left + tiny badge
             .setStyle(style)
             .setCategory(NotificationCompat.CATEGORY_CALL)
             .setPriority(NotificationCompat.PRIORITY_DEFAULT)

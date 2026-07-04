@@ -68,8 +68,9 @@ func (s *server) initFCMPush(ctx context.Context) {
 
 		// Only push to agents for real inbound CONTACT messages. Call-summary
 		// bubbles (type=call, sender system) are timeline markers - the call FCM
-		// path already covers their notifications.
-		if msg.Direction != "inbound" || msg.Type == "call" || msg.SenderType == "system" {
+		// path already covers their notifications. MediaUpdated is a re-publish
+		// that only fills media_url in - never a fresh message.
+		if msg.Direction != "inbound" || msg.Type == "call" || msg.SenderType == "system" || msg.MediaUpdated {
 			return nil
 		}
 

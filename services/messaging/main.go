@@ -76,6 +76,10 @@ func main() {
 		log.Error("subscribe received failed", "err", err)
 		os.Exit(1)
 	}
+	if err := bus.Subscribe(events.SubjectMediaResolved, "messaging-media", a.onMediaResolved); err != nil {
+		log.Error("subscribe media resolved failed", "err", err)
+		os.Exit(1)
+	}
 	if err := bus.Subscribe(events.SubjectMessageOutbound, "messaging-outbound", a.onOutbound); err != nil {
 		log.Error("subscribe outbound failed", "err", err)
 		os.Exit(1)
@@ -314,6 +318,48 @@ func preview(s string) string {
 		return string(r[:120])
 	}
 	return s
+}
+
+// onMediaResolved patches the message row once the async media download is
+// done, then re-broadcasts message.persisted with MediaUpdated so the open
+// chat swaps its placeholder for the real image/sticker/file in place.
+func (a *app) onMediaResolved(env events.Envelope) error {
+	var e events.MediaResolved
+	if err := json.Unmarshal(env.Data, &e); err != nil {
+		return err
+	}
+	if e.ExternalID == "" || e.MediaURL == "" {
+		return nil
+	}
+	ctx := context.Background()
+	var msgID, convID, direction, senderType, msgType, body string
+	var err error
+	// Tiny retry: the resolver can (rarely) beat the insert transaction.
+	for attempt := 0; attempt < 5; attempt++ {
+		err = a.st.pool.QueryRow(ctx,
+			`UPDATE messages SET media_url = $1
+			  WHERE organization_id = $2 AND external_id = $3
+			 RETURNING id::text, conversation_id::text, direction, sender_type, type, COALESCE(body,'')`,
+			e.MediaURL, env.OrgID, e.ExternalID,
+		).Scan(&msgID, &convID, &direction, &senderType, &msgType, &body)
+		if err == nil {
+			break
+		}
+		time.Sleep(300 * time.Millisecond)
+	}
+	if err != nil {
+		a.log.Warn("media resolved: message row not found", "ext", e.ExternalID, "err", err)
+		return nil // don't redeliver forever; the media is stored, row just missing
+	}
+	if perr := a.bus.Publish(events.SubjectMessagePersisted, env.OrgID, events.MessagePersisted{
+		ConversationID: convID, MessageID: msgID, Direction: direction,
+		SenderType: senderType, Type: msgType, Body: body,
+		MediaURL: e.MediaURL, Preview: mediaPreview(msgType, body),
+		MediaUpdated: true,
+	}); perr != nil {
+		a.log.Error("publish media update failed", "err", perr)
+	}
+	return nil
 }
 
 // buildMessageMeta assembles the per-message metadata JSON stored on the row so

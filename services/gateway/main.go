@@ -534,18 +534,37 @@ func (s *server) ingest(ctx context.Context, p waWebhook) {
 					s.log.Warn("unsupported inbound message captured",
 						"from", m.From, "wamid", m.ID, "reason", m.errorSummary(), "raw", string(raw))
 				}
-				// Real Meta media arrives as an id (no link) — download + re-host.
+				// Real Meta media arrives as an id (no link). Downloading it inline
+				// delayed the whole message (stickers/images showed seconds late), so
+				// publish the message immediately and resolve the media in the
+				// background - MediaResolved patches the row + re-broadcasts.
 				mediaURL := m.extractMediaURL()
+				var pendingMediaID string
 				if mediaURL == "" {
 					if mid := m.mediaID(); mid != "" && s.storage != nil && !config.GetBool("WA_MOCK", true) {
-						if token := s.channelToken(ctx, val.Metadata.PhoneNumberID); token != "" {
-							if u, derr := s.downloadMetaMedia(ctx, token, mid); derr == nil {
-								mediaURL = u
-							} else {
-								s.log.Warn("inbound media download failed", "media_id", mid, "err", derr)
-							}
-						}
+						pendingMediaID = mid
 					}
+				}
+				if pendingMediaID != "" {
+					mid, pn, extID, org := pendingMediaID, val.Metadata.PhoneNumberID, m.ID, orgID
+					go func() {
+						bg, cancel := context.WithTimeout(context.Background(), 90*time.Second)
+						defer cancel()
+						token := s.channelToken(bg, pn)
+						if token == "" {
+							return
+						}
+						u, derr := s.downloadMetaMedia(bg, token, mid)
+						if derr != nil {
+							s.log.Warn("inbound media download failed", "media_id", mid, "err", derr)
+							return
+						}
+						if perr := s.bus.Publish(events.SubjectMediaResolved, org, events.MediaResolved{
+							ExternalID: extID, MediaURL: u,
+						}); perr != nil {
+							s.log.Error("publish media.resolved failed", "err", perr)
+						}
+					}()
 				}
 				evt := events.MessageReceived{
 					Channel:       "whatsapp",

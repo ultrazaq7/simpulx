@@ -100,22 +100,22 @@ class CallController extends Notifier<CallSession?> {
       return;
     }
     try {
-      state = s.copyWith(phase: CallPhase.ringing, message: 'Calling...');
+      // "Calling..." while we build + deliver the offer; the phase flips to
+      // "Ringing..." only when WhatsApp confirms delivery (the SDP answer
+      // arrives = the callee's phone is actually ringing).
+      state = s.copyWith(phase: CallPhase.connecting, message: 'Calling...');
       final offer = await _rtc!.createOffer();
       await _ds.initiate(callId: s.callId, sdpOffer: offer);
       // The user may have pressed End while we were gathering ICE / initiating.
-      // If the session is gone or no longer ringing, don't revive audio/timers.
       final now = state;
       if (now == null ||
           now.callId != s.callId ||
-          now.phase != CallPhase.ringing) {
+          now.phase != CallPhase.connecting) {
         return;
       }
-      // We're ringing now: play the local ringback so the caller hears feedback,
-      // and arm a timeout so an unanswered call doesn't hang forever.
-      _startRingback();
+      // Arm the no-answer timeout for the whole wait (ring included).
       _armRingTimeout();
-      // Wait for the `call.updated` sdp_answer to connect.
+      // Wait for the `call.updated` sdp_answer -> ringing -> pickup.
     } catch (e) {
       _fail('Could not place the call');
     }
@@ -464,9 +464,16 @@ class CallController extends Notifier<CallSession?> {
     if (p.callStatus == 'ended' ||
         p.callStatus == 'failed' ||
         (p.endReason != null && p.endReason!.isNotEmpty)) {
+      // WhatsApp parity: an outbound call that ends before pickup is simply
+      // "No answer" - declined, timed out, or busy all read the same.
+      final noPickup = !s.inbound &&
+          s.phase != CallPhase.connected &&
+          p.callStatus != 'failed';
       _cleanup(
         p.callStatus == 'failed' ? CallPhase.failed : CallPhase.ended,
-        message: friendlyEndReason(p.endReason, failed: p.callStatus == 'failed'),
+        message: noPickup
+            ? 'No answer'
+            : friendlyEndReason(p.endReason, failed: p.callStatus == 'failed'),
       );
       return;
     }
@@ -515,10 +522,15 @@ class CallController extends Notifier<CallSession?> {
     try {
       await _rtc?.setRemoteAnswer(sdp);
       // The SDP answer arrives while the callee is still RINGING (WhatsApp
-      // pre-establishes the media path), so do NOT mark connected here - keep
-      // "Ringing..." + local ringback, and let the pickup detector flip to
-      // connected the moment real inbound audio starts (= actual pickup).
-      // The 45s no-answer timeout stays armed until then.
+      // pre-establishes the media path), so this is the moment the callee's
+      // phone starts ringing - NOT pickup. Flip Calling... -> Ringing..., play
+      // the local ringback, and let the pickup detector mark connected when
+      // real inbound audio starts. The no-answer timeout stays armed.
+      final s = state;
+      if (s != null && !s.inbound && s.phase != CallPhase.connected) {
+        state = s.copyWith(phase: CallPhase.ringing, message: null);
+        _startRingback();
+      }
       _startPickupDetector();
     } catch (e) {
       _fail('Audio connection failed');

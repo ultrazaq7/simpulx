@@ -30,7 +30,10 @@ function interestColor(level?: string | null): string {
   return level === "hot" ? "#EF4444" : level === "warm" ? "#F59E0B" : level === "cold" ? "#3B82F6" : "#9CA3AF";
 }
 
+import { useI18n } from "@/lib/i18n";
+
 export default function ContactsPage() {
+  const { t } = useI18n();
   const [contacts, setContacts] = useState<Contact[]>([]);
   const [agents, setAgents] = useState<Agent[]>([]);
   const [campaigns, setCampaigns] = useState<Campaign[]>([]);
@@ -147,7 +150,7 @@ export default function ContactsPage() {
     contacts.forEach((c) => (c.tags || []).forEach((t) => set.add(t)));
     return Array.from(set).sort().map((t) => ({ value: t, label: t }));
   }, [contacts]);
-  const agentOptions = useMemo(() => [{ value: "__unassigned__", label: "Unassigned" }, ...agents.map((a) => ({ value: a.id, label: a.full_name }))], [agents]);
+  const agentOptions = useMemo(() => [{ value: "__unassigned__", label: t("common.unassigned") }, ...agents.map((a) => ({ value: a.id, label: a.full_name }))], [agents]);
   const campaignOptions = useMemo(() => campaigns.map((c) => ({ value: c.id, label: c.name })), [campaigns]);
 
   const filtered = useMemo(() => {
@@ -262,18 +265,18 @@ export default function ContactsPage() {
         <div className="p-3 flex items-center gap-2 border-b border-border shrink-0 flex-wrap">
           <div className="relative w-[280px] max-w-[45vw]">
             <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-muted-foreground pointer-events-none" />
-            <input type="text" placeholder="Search name or phone" value={query} onChange={(e) => setQuery(e.target.value)}
+            <input type="text" placeholder={t("contacts.searchNameOrPhone")} value={query} onChange={(e) => setQuery(e.target.value)}
               className="w-full h-9 pl-9 pr-3 rounded-md border border-input bg-background text-sm text-foreground placeholder:text-muted-foreground/70 outline-none transition-shadow focus:border-primary focus:ring-2 focus:ring-primary/20" />
           </div>
-          <MultiSelect value={filterTags} onChange={setFilterTags} placeholder="All labels" options={tagOptions} className="w-[150px]" />
-          {showAgentFilter && <MultiSelect value={filterAgents} onChange={setFilterAgents} placeholder="All agents" options={agentOptions} className="w-[150px]" />}
-          {showCampaignFilter && <MultiSelect value={filterCampaigns} onChange={setFilterCampaigns} placeholder="All campaigns" options={campaignOptions} className="w-[160px]" />}
-          {activeFilters > 0 && <button onClick={clearFilters} className="text-[11px] font-semibold text-primary hover:underline outline-none">Clear</button>}
+          <MultiSelect value={filterTags} onChange={setFilterTags} placeholder={t("contacts.allLabels")} options={tagOptions} className="w-[150px]" />
+          {showAgentFilter && <MultiSelect value={filterAgents} onChange={setFilterAgents} placeholder={t("common.allAgents")} options={agentOptions} className="w-[150px]" />}
+          {showCampaignFilter && <MultiSelect value={filterCampaigns} onChange={setFilterCampaigns} placeholder={t("common.allCampaigns")} options={campaignOptions} className="w-[160px]" />}
+          {activeFilters > 0 && <button onClick={clearFilters} className="text-[11px] font-semibold text-primary hover:underline outline-none">{t("common.clear")}</button>}
           <div className="flex-1" />
           {canCreate && (
             <div className="relative inline-flex" onClick={(e) => e.stopPropagation()}>
               <button onClick={() => setModal({ mode: "add" })} className="inline-flex items-center gap-2 px-3.5 h-9 bg-primary text-white rounded-l-md text-sm font-semibold hover:bg-primary-dark shadow-sm transition-all outline-none">
-                <UserPlus className="w-4 h-4" />Add contact
+                <UserPlus className="w-4 h-4" />{t("contacts.addContact")}
               </button>
               <button aria-label="More add options" onClick={() => setAddMenuOpen((o) => !o)} className="px-2 h-9 bg-primary text-white rounded-r-md border-l border-white/20 hover:bg-primary-dark outline-none transition-colors">
                 <ChevronDown className="w-4 h-4" />
@@ -281,11 +284,11 @@ export default function ContactsPage() {
               {addMenuOpen && (
                 <div className="absolute right-0 top-full mt-1 w-44 bg-popover border border-border rounded-lg shadow-xl z-50 py-1 animate-scale-in origin-top-right">
                   <button onClick={() => { setAddMenuOpen(false); importRef.current?.click(); }} className="w-full flex items-center gap-2 px-3 py-2 text-[13px] text-foreground hover:bg-muted outline-none">
-                    <Upload className="w-4 h-4 text-muted-foreground" />Import CSV
+                    <Upload className="w-4 h-4 text-muted-foreground" />{t("contacts.importCsv")}
                   </button>
                   {canExport && (
                     <button onClick={() => { setAddMenuOpen(false); exportCsv(); }} className="w-full flex items-center gap-2 px-3 py-2 text-[13px] text-foreground hover:bg-muted outline-none">
-                      <Download className="w-4 h-4 text-muted-foreground" />Export
+                      <Download className="w-4 h-4 text-muted-foreground" />{t("contacts.export")}
                     </button>
                   )}
                 </div>
@@ -298,12 +301,12 @@ export default function ContactsPage() {
         {/* Bulk action bar */}
         {selected.size > 0 && (
           <div className="flex items-center gap-2 px-3 py-2 mb-2 rounded-lg border border-primary/30 bg-primary/[0.06] shrink-0">
-            <span className="text-[13px] font-semibold text-foreground">{selected.size} selected</span>
+            <span className="text-[13px] font-semibold text-foreground">{selected.size} {t("contacts.selected")}</span>
             <div className="flex-1" />
-            {canEdit && <button onClick={bulkLabel} disabled={bulkBusy} className="inline-flex items-center gap-1.5 px-3 h-8 rounded-md border border-border text-[13px] font-medium hover:bg-muted disabled:opacity-50"><TagIcon className="w-3.5 h-3.5" />Add label</button>}
-            {canEdit && <button onClick={bulkBlacklist} disabled={bulkBusy} className="inline-flex items-center gap-1.5 px-3 h-8 rounded-md border border-border text-[13px] font-medium hover:bg-muted disabled:opacity-50"><Ban className="w-3.5 h-3.5" />Blacklist</button>}
-            {canDelete && <button onClick={bulkDelete} disabled={bulkBusy} className="inline-flex items-center gap-1.5 px-3 h-8 rounded-md border border-destructive/40 text-destructive text-[13px] font-medium hover:bg-destructive/10 disabled:opacity-50"><Trash2 className="w-3.5 h-3.5" />Delete</button>}
-            <button onClick={clearSel} className="px-3 h-8 rounded-md text-[13px] font-medium text-muted-foreground hover:bg-muted">Clear</button>
+            {canEdit && <button onClick={bulkLabel} disabled={bulkBusy} className="inline-flex items-center gap-1.5 px-3 h-8 rounded-md border border-border text-[13px] font-medium hover:bg-muted disabled:opacity-50"><TagIcon className="w-3.5 h-3.5" />{t("contacts.addLabel")}</button>}
+            {canEdit && <button onClick={bulkBlacklist} disabled={bulkBusy} className="inline-flex items-center gap-1.5 px-3 h-8 rounded-md border border-border text-[13px] font-medium hover:bg-muted disabled:opacity-50"><Ban className="w-3.5 h-3.5" />{t("contacts.blacklist")}</button>}
+            {canDelete && <button onClick={bulkDelete} disabled={bulkBusy} className="inline-flex items-center gap-1.5 px-3 h-8 rounded-md border border-destructive/40 text-destructive text-[13px] font-medium hover:bg-destructive/10 disabled:opacity-50"><Trash2 className="w-3.5 h-3.5" />{t("common.delete")}</button>}
+            <button onClick={clearSel} className="px-3 h-8 rounded-md text-[13px] font-medium text-muted-foreground hover:bg-muted">{t("common.clear")}</button>
           </div>
         )}
 
@@ -313,8 +316,8 @@ export default function ContactsPage() {
             <thead className="sticky top-0 z-10">
               <tr className="border-b border-border bg-muted">
                 <TH className="w-10"><span className="sr-only">Select</span><input type="checkbox" aria-label="Select all contacts" className="rounded border-input accent-primary" checked={paged.length > 0 && paged.every((c) => selected.has(c.id))} onChange={(e) => setSelected((s) => { const n = new Set(s); if (e.target.checked) paged.forEach((c) => n.add(c.id)); else paged.forEach((c) => n.delete(c.id)); return n; })} /></TH>
-                <TH>Contact name</TH><TH>Phone</TH><TH>Stage</TH><TH>Interest</TH><TH>Agent</TH><TH>Campaign</TH><TH>Source</TH><TH>Source ID</TH><TH>Source URL</TH>
-                <TH>Labels</TH><TH>Channel</TH><TH>Created</TH><TH>Updated</TH><TH>Blacklisted</TH><TH className="text-right">Actions</TH>
+                <TH>{t("contacts.contactName")}</TH><TH>{t("contacts.phone")}</TH><TH>{t("contacts.stage")}</TH><TH>{t("contacts.interest")}</TH><TH>{t("contacts.agent")}</TH><TH>{t("settings.campaigns")}</TH><TH>{t("contacts.source")}</TH><TH>Source ID</TH><TH>Source URL</TH>
+                <TH>Labels</TH><TH>Channel</TH><TH>{t("contacts.created")}</TH><TH>Updated</TH><TH>Blacklisted</TH><TH className="text-right">{t("common.actions")}</TH>
               </tr>
             </thead>
             <tbody>
@@ -323,7 +326,7 @@ export default function ContactsPage() {
               )) : paged.length === 0 ? (
                 <tr><td colSpan={16} className="text-center py-16">
                   <div className="w-12 h-12 rounded-xl bg-muted grid place-items-center mx-auto mb-3"><Users className="w-6 h-6 text-muted-foreground/50" /></div>
-                  <p className="font-semibold text-foreground mb-0.5">No contacts found</p>
+                  <p className="font-semibold text-foreground mb-0.5">{t("contacts.noContactsFound")}</p>
                   <p className="text-sm text-muted-foreground">{query || activeFilters ? "Try different filters." : "New contacts will appear here."}</p>
                 </td></tr>
               ) : paged.map((c) => (
@@ -371,7 +374,7 @@ export default function ContactsPage() {
                         onReassign={(agentId) => reassignAgent(c, agentId)}
                         onUnassign={() => reassignAgent(c, null)}
                       />
-                    ) : (c.agent_name || <span className="text-muted-foreground">Unassigned</span>)}
+                    ) : (c.agent_name || <span className="text-muted-foreground">{t("common.unassigned")}</span>)}
                   </td>
                   <td className="px-3 py-2 text-foreground/80 whitespace-nowrap">{c.campaign_name || <span className="text-muted-foreground">-</span>}</td>
                   <td className="px-3 py-2 text-foreground/80 whitespace-nowrap">{sourceLabel(c)}</td>
@@ -379,7 +382,7 @@ export default function ContactsPage() {
                     {c.source_id ? (
                       <span className="inline-flex items-center gap-1.5">
                         <span className="font-mono text-[12px] text-foreground/80 max-w-[130px] truncate">{c.source_id}</span>
-                        <button onClick={() => { navigator.clipboard?.writeText(c.source_id!); setToast("Source ID copied"); }} className="p-0.5 rounded text-muted-foreground/60 hover:text-foreground hover:bg-muted" aria-label="Copy source id"><Copy className="w-3.5 h-3.5" /></button>
+                        <button onClick={() => { navigator.clipboard?.writeText(c.source_id!); setToast(t("contacts.sourceIdCopied")); }} className="p-0.5 rounded text-muted-foreground/60 hover:text-foreground hover:bg-muted" aria-label="Copy source id"><Copy className="w-3.5 h-3.5" /></button>
                       </span>
                     ) : <span className="text-muted-foreground">-</span>}
                   </td>
@@ -406,7 +409,7 @@ export default function ContactsPage() {
                   <td className="px-3 py-2 text-muted-foreground text-[12px] whitespace-nowrap">{c.updated_at ? fmtDateTimeShort(c.updated_at) : "-"}</td>
                   <td className="px-3 py-2">
                     <span className={cn("inline-flex px-2 py-0.5 rounded-md text-[11px] font-semibold", c.blacklisted ? "bg-red-50 text-red-600" : "bg-muted text-muted-foreground")}>
-                      {c.blacklisted ? "Yes" : "No"}
+                      {c.blacklisted ? t("common.yes") : t("common.no")}
                     </span>
                   </td>
                   <td className="px-3 py-2 text-right">
@@ -414,11 +417,11 @@ export default function ContactsPage() {
                       <button aria-label="Contact actions" onClick={() => setMenuId(menuId === c.id ? null : c.id)} className="p-1.5 rounded-md hover:bg-muted text-muted-foreground hover:text-foreground outline-none transition-colors"><MoreVertical className="w-4 h-4" /></button>
                       {menuId === c.id && (
                         <div className="absolute right-0 top-full mt-1 w-40 bg-popover border border-border rounded-lg shadow-xl z-20 py-1 animate-scale-in origin-top-right">
-                          <button onClick={() => { setMenuId(null); router.push(`/contacts/${c.id}`); }} className="w-full flex items-center gap-2 px-3 py-2 text-[13px] text-foreground hover:bg-muted outline-none"><Eye className="w-4 h-4 text-muted-foreground" />View details</button>
-                          {canEdit && <button onClick={() => { setMenuId(null); setModal({ mode: "edit", contact: c }); }} className="w-full flex items-center gap-2 px-3 py-2 text-[13px] text-foreground hover:bg-muted outline-none"><Pencil className="w-4 h-4 text-muted-foreground" />Edit</button>}
-                          <button disabled={!c.conversation_id} onClick={() => { setMenuId(null); setChatContact(c); }} className="w-full flex items-center gap-2 px-3 py-2 text-[13px] text-foreground hover:bg-muted outline-none disabled:opacity-40 disabled:cursor-not-allowed"><MessageSquare className="w-4 h-4 text-muted-foreground" />Chat</button>
-                          {canEdit && <button onClick={() => { setMenuId(null); toggleBlacklist(c); }} className="w-full flex items-center gap-2 px-3 py-2 text-[13px] text-foreground hover:bg-muted outline-none"><Users className="w-4 h-4 text-muted-foreground" />{c.blacklisted ? "Unblacklist" : "Blacklist"}</button>}
-                          {canDelete && <button onClick={() => { setMenuId(null); remove(c); }} className="w-full flex items-center gap-2 px-3 py-2 text-[13px] text-destructive hover:bg-muted outline-none"><Trash2 className="w-4 h-4" />Delete</button>}
+                          <button onClick={() => { setMenuId(null); router.push(`/contacts/${c.id}`); }} className="w-full flex items-center gap-2 px-3 py-2 text-[13px] text-foreground hover:bg-muted outline-none"><Eye className="w-4 h-4 text-muted-foreground" />{t("contacts.viewDetails")}</button>
+                          {canEdit && <button onClick={() => { setMenuId(null); setModal({ mode: "edit", contact: c }); }} className="w-full flex items-center gap-2 px-3 py-2 text-[13px] text-foreground hover:bg-muted outline-none"><Pencil className="w-4 h-4 text-muted-foreground" />{t("common.edit")}</button>}
+                          <button disabled={!c.conversation_id} onClick={() => { setMenuId(null); setChatContact(c); }} className="w-full flex items-center gap-2 px-3 py-2 text-[13px] text-foreground hover:bg-muted outline-none disabled:opacity-40 disabled:cursor-not-allowed"><MessageSquare className="w-4 h-4 text-muted-foreground" />{t("contacts.chat")}</button>
+                          {canEdit && <button onClick={() => { setMenuId(null); toggleBlacklist(c); }} className="w-full flex items-center gap-2 px-3 py-2 text-[13px] text-foreground hover:bg-muted outline-none"><Users className="w-4 h-4 text-muted-foreground" />{c.blacklisted ? t("contacts.unblacklist") : t("contacts.blacklist")}</button>}
+                          {canDelete && <button onClick={() => { setMenuId(null); remove(c); }} className="w-full flex items-center gap-2 px-3 py-2 text-[13px] text-destructive hover:bg-muted outline-none"><Trash2 className="w-4 h-4" />{t("common.delete")}</button>}
                         </div>
                       )}
                     </div>

@@ -91,14 +91,15 @@ class Message extends Equatable {
 
   bool get hasMedia => mediaUrl != null && mediaUrl!.isNotEmpty;
 
-  Message copyWith({String? id, MessageStatus? status, bool? pending}) {
+  Message copyWith(
+      {String? id, MessageStatus? status, bool? pending, String? mediaUrl}) {
     return Message(
       id: id ?? this.id,
       direction: direction,
       senderType: senderType,
       type: type,
       body: body,
-      mediaUrl: mediaUrl,
+      mediaUrl: mediaUrl ?? this.mediaUrl,
       metadata: metadata,
       status: status ?? this.status,
       createdAt: createdAt,

@@ -56,6 +56,8 @@ class MessagePersistedPayload {
   String get type => (_d['type'] ?? 'text') as String;
   String get body => (_d['body'] ?? '') as String;
   String? get mediaUrl => _d['media_url'] as String?;
+  /// True for the async-media re-publish that only fills media_url in.
+  bool get mediaUpdated => _d['media_updated'] == true;
   Map<String, dynamic>? get metadata =>
       _d['metadata'] is Map ? Map<String, dynamic>.from(_d['metadata'] as Map) : null;
   String get preview => (_d['preview'] ?? '') as String;

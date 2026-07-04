@@ -542,9 +542,9 @@ func (s *server) handleRejectCall(w http.ResponseWriter, r *http.Request) {
 		_ = s.postMetaCallAcceptReject(r.Context(), phoneNumberID, accessToken, extCallID, "reject", "")
 	}
 
-	// Render as a proper call bubble - and be precise: the agent DECLINED this
-	// call, it wasn't missed.
-	s.insertCallMessage(r.Context(), a.OrgID, convID, "inbound", "Declined call")
+	// WhatsApp parity: an unanswered inbound call is always "Missed call" in the
+	// chat, whether it rang out or the agent declined (no "Declined call" bubble).
+	s.insertCallSummary(r.Context(), a.OrgID, convID, "inbound", 0)
 
 	s.broadcastCall(r.Context(), a.OrgID, events.CallUpdated{
 		CallID: callID, ConversationID: convID, Direction: "inbound",
@@ -779,7 +779,11 @@ func (s *server) processCallWebhook(ctx context.Context, orgID, phoneNumberID st
 				})
 			}
 
-		case "terminate", "CALL_ENDED", "ended":
+		case "terminate", "CALL_ENDED", "ended",
+			// Callee declined / line busy / ring timeout: Meta reports these as
+			// their own events on some payload versions. Without handling them the
+			// caller's screen kept "Ringing..." forever after a decline.
+			"reject", "rejected", "REJECTED", "decline", "declined", "busy", "BUSY", "timeout", "no_answer":
 			// Skip the summary message if the agent already ended it (avoids a
 			// duplicate when our own hangup triggers Meta's terminate webhook).
 			var alreadyEnded, wasConnected bool
@@ -792,19 +796,26 @@ func (s *server) processCallWebhook(ctx context.Context, orgID, phoneNumberID st
 			if !wasConnected {
 				dur = 0
 			}
+			// Reason: Meta's status when present, else the event name itself
+			// (reject/busy/...), else generic remote_hangup.
+			reason := ce.Status
+			if reason == "" && ce.Event != "terminate" && ce.Event != "CALL_ENDED" && ce.Event != "ended" {
+				reason = ce.Event
+			}
 			if dur > 0 {
 				_, _ = s.pool.Exec(ctx,
 					`UPDATE calls SET call_status='ended', call_ended_at=now(),
 					   end_reason=COALESCE(NULLIF($2,''),'remote_hangup'), duration_seconds=$3,
 					   sdp_offer=NULL, sdp_answer=NULL WHERE id=$1`,
-					callID, ce.Status, dur)
+					callID, reason, dur)
 			} else {
 				_, _ = s.pool.Exec(ctx,
 					`UPDATE calls SET call_status='ended', call_ended_at=now(),
 					   end_reason=COALESCE(NULLIF($2,''),'remote_hangup'),
-					   duration_seconds=COALESCE(EXTRACT(EPOCH FROM (now() - call_connected_at))::int, 0),
+					   duration_seconds=CASE WHEN call_connected_at IS NULL THEN 0
+					     ELSE COALESCE(EXTRACT(EPOCH FROM (now() - call_connected_at))::int, 0) END,
 					   sdp_offer=NULL, sdp_answer=NULL WHERE id=$1`,
-					callID, ce.Status)
+					callID, reason)
 				_ = s.pool.QueryRow(ctx, `SELECT duration_seconds FROM calls WHERE id=$1`, callID).Scan(&dur)
 			}
 			s.persistCallDuration(ctx, convID, dur)

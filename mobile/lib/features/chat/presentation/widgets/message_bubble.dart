@@ -92,9 +92,21 @@ class MessageBubble extends StatelessWidget {
     final firstUrl = message.type == MessageType.text && message.referral == null
         ? _kUrlRe.firstMatch(message.body)?.group(0)
         : null;
+    // Media message whose file is still downloading server-side (published
+    // instantly for zero text latency; MediaUpdated patches it in).
+    const mediaTypes = {
+      MessageType.image,
+      MessageType.video,
+      MessageType.audio,
+      MessageType.document,
+      MessageType.file,
+      MessageType.sticker,
+    };
+    final mediaPending = !message.hasMedia && mediaTypes.contains(message.type);
     // Never render an empty bubble: unknown/undecodable types get a label.
     final isBlank = message.body.isEmpty &&
         !message.hasMedia &&
+        !mediaPending &&
         message.referral == null &&
         message.contacts.isEmpty &&
         message.location == null &&
@@ -130,6 +142,33 @@ class MessageBubble extends StatelessWidget {
                 message: message,
                 fg: fg,
                 allMessages: allMessages,
+              ),
+            if (mediaPending)
+              Padding(
+                padding: const EdgeInsets.all(10),
+                child: Row(
+                  mainAxisSize: MainAxisSize.min,
+                  children: [
+                    SizedBox(
+                      width: 16,
+                      height: 16,
+                      child: CircularProgressIndicator(
+                          strokeWidth: 2, color: fg.withValues(alpha: 0.5)),
+                    ),
+                    const SizedBox(width: 10),
+                    Text(
+                      switch (message.type) {
+                        MessageType.sticker => 'Sticker',
+                        MessageType.video => 'Video',
+                        MessageType.audio => 'Voice message',
+                        MessageType.document || MessageType.file => 'Document',
+                        _ => 'Photo',
+                      },
+                      style: TextStyle(
+                          color: fg.withValues(alpha: 0.65), fontSize: 13.5),
+                    ),
+                  ],
+                ),
               ),
             if (message.referral != null)
               _ReferralCard(referral: message.referral!, fg: fg),

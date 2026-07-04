@@ -239,7 +239,16 @@ export default function InboxPage() {
         if (mid) {
           queryClient.setQueryData(["messages", aid], (old: any) => {
             if (!old?.pages?.length) return old;
-            if (old.pages.some((p: any) => (p.data || []).some((m: any) => m.id === mid))) return old;
+            if (old.pages.some((p: any) => (p.data || []).some((m: any) => m.id === mid))) {
+              // Async media resolved: swap the placeholder for the real file.
+              if (!data.media_url) return old;
+              const pages = old.pages.map((p: any) => ({
+                ...p,
+                data: (p.data || []).map((m: any) =>
+                  m.id === mid && m.media_url !== data.media_url ? { ...m, media_url: data.media_url } : m),
+              }));
+              return { ...old, pages };
+            }
             const msg = {
               id: mid, direction: data.direction, sender_type: data.sender_type,
               type: data.type || "text", body: data.body, media_url: data.media_url || null,

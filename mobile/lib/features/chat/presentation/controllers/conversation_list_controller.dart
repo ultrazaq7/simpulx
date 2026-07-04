@@ -168,6 +168,9 @@ class ConversationListController extends AsyncNotifier<List<Conversation>> {
     final list = state.value;
     if (list == null) return;
     final payload = MessagePersistedPayload(event.data);
+    // Media-only re-publish (async download finished): not a new message, so
+    // never bump unread / reorder the list.
+    if (payload.mediaUpdated) return;
     final index = list.indexWhere((c) => c.id == payload.conversationId);
 
     // Unknown conversation (new lead / freshly routed) -> reload to pick it up.

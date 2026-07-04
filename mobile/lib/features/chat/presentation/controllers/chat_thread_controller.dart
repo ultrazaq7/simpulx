@@ -219,7 +219,16 @@ class ChatThreadController extends ChangeNotifier {
       }
     }
 
-    if (messages.any((m) => m.id == payload.messageId)) return; // dedupe
+    final dupIdx = messages.indexWhere((m) => m.id == payload.messageId);
+    if (dupIdx != -1) {
+      // Async media resolved: swap the placeholder for the real file in place.
+      final murl = payload.mediaUrl;
+      if (murl != null && murl.isNotEmpty && messages[dupIdx].mediaUrl != murl) {
+        messages[dupIdx] = messages[dupIdx].copyWith(mediaUrl: murl);
+        _emit(_withMessages(messages));
+      }
+      return; // dedupe
+    }
 
     messages.add(Message(
       id: payload.messageId,

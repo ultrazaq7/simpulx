@@ -11,6 +11,7 @@ import (
 const (
 	SubjectMessageReceived      = "events.message.received"
 	SubjectMessagePersisted     = "events.message.persisted"
+	SubjectMediaResolved        = "events.media.resolved"
 	SubjectMessageOutbound      = "events.message.outbound"
 	SubjectMessageStatusUpdated = "events.message.status.updated"
 	SubjectConversationHandoff  = "events.conversation.handoff"
@@ -111,6 +112,18 @@ type MessagePersisted struct {
 	// contacts, location) so the realtime-appended message renders fully without
 	// a reload.
 	Metadata json.RawMessage `json:"metadata,omitempty"`
+	// MediaUpdated marks a re-publish that only fills in media_url after the
+	// async download finished - clients merge it into the existing bubble and
+	// push/unread pipelines ignore it.
+	MediaUpdated bool `json:"media_updated,omitempty"`
+}
+
+// MediaResolved is published by the gateway when an inbound media download
+// completes (the message was already persisted + delivered without media so
+// text latency never waits on the file).
+type MediaResolved struct {
+	ExternalID string `json:"external_id"`
+	MediaURL   string `json:"media_url"`
 }
 
 type MessageStatusUpdated struct {

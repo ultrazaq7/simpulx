@@ -15,6 +15,7 @@ import '../features/auth/presentation/controllers/auth_controller.dart';
 import '../features/calls/presentation/call_controller.dart';
 import '../features/calls/presentation/call_overlay.dart';
 import '../features/chat/presentation/controllers/chat_providers.dart';
+import '../features/chat/presentation/controllers/conversation_list_controller.dart';
 import 'router/app_router.dart';
 import 'theme/app_theme.dart';
 
@@ -144,6 +145,9 @@ class _SimpulxAppState extends ConsumerState<SimpulxApp>
     // For conversation/chat routes that include an ID
     // Check if we're already viewing that specific conversation
     if (route.startsWith('/chat/')) {
+      // Opening from a notification: the app may have been backgrounded with a
+      // stale inbox - force a re-sync so the list + thread are current.
+      ref.read(conversationListProvider.notifier).refresh();
       final targetId = route.substring('/chat/'.length);
       final currentMatch = RegExp(r'^/chat/([^/]+)').firstMatch(currentLoc);
       if (currentMatch != null && currentMatch.group(1) == targetId) {

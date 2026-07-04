@@ -5,7 +5,7 @@ import {
   Sparkles, Check, CheckCheck, Clock, AlertCircle, Play, Pause, Mic, User,
   FileText, FileSpreadsheet, FileImage, FileArchive, FileCode,
   File, Download, MoreHorizontal, Copy, ClipboardPaste, Link2, Megaphone, Forward,
-  PhoneOutgoing, PhoneIncoming, PhoneMissed, MapPin, Phone, ExternalLink,
+  PhoneOutgoing, PhoneIncoming, PhoneMissed, MapPin, Phone, ExternalLink, Loader2,
 } from "lucide-react";
 import { initials, fmtTime, channelColor, channelTextColor, cn } from "@/lib/utils";
 import { api } from "@/lib/api";
@@ -439,9 +439,12 @@ const MessageBubble = memo(function MessageBubble({ m, active, grouped, onPrevie
   // First URL in a plain text message -> OG link preview (skip when the CTWA
   // ad card already provides a preview).
   const firstUrl = !hasReferral && m.type === "text" && m.body ? m.body.match(FIRST_URL_RE)?.[0] : undefined;
+  // Media message whose file is still downloading server-side (the message is
+  // published instantly; MediaUpdated patches the URL in moments later).
+  const mediaPending = !url && ["image", "video", "audio", "document", "file", "sticker"].includes(m.type);
   // Nothing renderable at all (unknown/blank types) -> show a placeholder so
   // the bubble is never empty.
-  const isBlank = !m.body && !url && !hasReferral && !(contacts && contacts.length) && !location;
+  const isBlank = !m.body && !url && !hasReferral && !(contacts && contacts.length) && !location && !mediaPending;
 
   // ── Reaction: a centered marker, not a bubble (WhatsApp attaches these to the
   //    target message; we surface them inline on the timeline) ──
@@ -662,6 +665,16 @@ const MessageBubble = memo(function MessageBubble({ m, active, grouped, onPrevie
 
           {/* ── OG link preview above the text (WhatsApp style) ── */}
           {firstUrl && <LinkPreviewCard url={firstUrl} out={out} />}
+
+          {/* ── Media still downloading server-side ── */}
+          {mediaPending && (
+            <div className="px-2.5 py-2 flex items-center gap-2">
+              <Loader2 className={cn("w-4 h-4 animate-spin", out ? "text-white/60" : "text-muted-foreground")} />
+              <span className={cn("text-[13px]", out ? "text-white/70" : "text-muted-foreground")}>
+                {m.type === "sticker" ? "Sticker" : m.type === "video" ? "Video" : m.type === "audio" ? "Voice message" : m.type === "image" ? "Photo" : "Document"}
+              </span>
+            </div>
+          )}
 
           {/* ── Fallback: never render an empty bubble ── */}
           {isBlank && (
