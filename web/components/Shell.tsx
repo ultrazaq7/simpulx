@@ -68,7 +68,7 @@ const NAV_BOTTOM = [
 
 const SIDEBAR_W = 72;
 
-const PAGE_TITLES: Record<string, { category: string; title: string }> = {
+const PAGE_TITLES: Record<string, { category: string; title: string; icon?: any }> = {
   "/dashboard": { category: "OVERVIEW", title: "Dashboard" },
   "/inbox": { category: "INBOX", title: "My Inbox" },
   "/contacts": { category: "GROUPS", title: "Contacts" },
