@@ -167,15 +167,16 @@ class NotificationPayload {
 
 /// Normalizes a message preview for a notification (iOS path; Android renders
 /// natively and normalizes in SimpulxMessagingService). The server tags a
-/// sticker with a picture-frame emoji ("🖼️ Sticker") that reads as an image;
-/// a notification can't render the web's lucide sticker glyph inline, so show a
-/// clean "Sticker" label. Detection matches the chat list's exactly (emoji
-/// prefix or the bare word) so a real message mentioning "sticker" is untouched.
+/// sticker as "[sticker]"; a notification can't render the web's lucide glyph
+/// inline, so show "💟 Sticker" with a heart-decoration emoji exactly like
+/// WhatsApp's own sticker preview. Detection matches the chat list's exactly
+/// (emoji prefix or the bare word) so a real message mentioning "sticker" is
+/// untouched.
 String _normalizePreview(String body) {
   final p = body.trim();
   final lower = p.toLowerCase();
   if (p.startsWith('🖼') || lower == '[sticker]' || lower == 'sticker') {
-    return 'Sticker';
+    return '💟 Sticker';
   }
   return body;
 }

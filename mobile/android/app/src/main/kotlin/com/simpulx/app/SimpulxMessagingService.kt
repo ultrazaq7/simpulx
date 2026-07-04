@@ -140,15 +140,15 @@ class SimpulxMessagingService : FlutterFirebaseMessagingService() {
         )
     }
 
-    // The server tags a sticker preview with a picture-frame emoji
-    // ("🖼️ Sticker") that reads as an image. A native notification can't render
-    // the web's lucide sticker glyph inline in the text, so normalize it to a
-    // clean "Sticker" label (the chat list shows the real glyph via an asset).
+    // The server tags a sticker preview as "[sticker]". A native notification
+    // can't render the web's lucide sticker glyph inline, so show "💟 Sticker"
+    // with a heart-decoration emoji exactly like WhatsApp's own sticker preview.
+    // (The chat list still shows the real glyph via a PNG asset.)
     private fun normalizePreview(raw: String): String {
         val t = raw.trim()
         val lower = t.lowercase()
         if (t.startsWith("🖼") || lower == "[sticker]" || lower == "sticker") {
-            return "Sticker"
+            return "💟 Sticker"
         }
         return raw
     }
