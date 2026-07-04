@@ -9,7 +9,7 @@ import {
   BarChart3, MessageSquare, Inbox, Flame, Timer,
   TrendingDown, ChevronRight, Zap, Mail, Reply, Trophy, Ban,
   CircleDollarSign, MousePointerClick, Spotlight, Target, Eye, Filter as FilterIcon,
-  Image as ImageIcon, MapPin,
+  Image as ImageIcon, MapPin, ChartPie,
 } from "lucide-react";
 
 import { api, getUser } from "@/lib/api";
@@ -608,7 +608,7 @@ function ManagerDashboard() {
                 tab === t ? "bg-card text-foreground shadow-xs" : "text-muted-foreground hover:text-foreground",
               )}
             >
-              {t === "overview" ? <><BarChart3 className="w-3.5 h-3.5" /> Overview</> : <><Spotlight className="w-3.5 h-3.5" /> Ads</>}
+              {t === "overview" ? <><ChartPie className="w-3.5 h-3.5" /> Overview</> : <><BarChart3 className="w-3.5 h-3.5" /> Ads</>}
             </button>
           ))}
         </div>
