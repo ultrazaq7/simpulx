@@ -482,10 +482,13 @@ export default function InboxPage() {
           channels={channels}
           filterChannels={filterChannels}
           onFilterChannelsChange={setFilterChannels}
+          className={cn(activeId && "max-lg:hidden")}
         />
 
         {/* ── CENTER: Chat Panel ── */}
         <ChatPanel
+          className={cn(!activeId && "max-lg:hidden")}
+          onBack={() => setActiveId(null)}
           active={active}
           timeline={timeline}
           messagesQuery={messagesQuery}

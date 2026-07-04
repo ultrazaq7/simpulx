@@ -75,11 +75,39 @@ export default function SettingsLayout({ children }: { children: ReactNode }) {
     .filter((href) => pathname === href || pathname.startsWith(href + "/"))
     .sort((a, b) => b.length - a.length)[0];
 
+  // Flat item list for the mobile horizontal nav strip (groups collapse away).
+  const flatItems = groups.flatMap((g) => g.items);
+
   return (
-    <div className="flex h-full min-h-0">
-      {/* Settings sidebar — mounted once, persists across child navigation */}
+    <div className="flex flex-col lg:flex-row h-full min-h-0">
+      {/* Mobile: horizontal scrollable section strip (the vertical sidebar
+          doesn't fit next to content below lg). */}
+      <div className="lg:hidden shrink-0 border-b border-border bg-card overflow-x-auto">
+        <div className="flex items-center gap-1 px-2 py-2 w-max">
+          {flatItems.map((s) => {
+            const Icon = s.icon;
+            const sel = s.href === activeHref;
+            return (
+              <Link
+                key={s.key}
+                href={s.href}
+                scroll={false}
+                className={cn(
+                  "inline-flex items-center gap-1.5 px-3 h-9 rounded-full text-[13px] whitespace-nowrap outline-none transition-colors",
+                  sel ? "bg-primary/[0.12] text-primary font-semibold" : "text-muted-foreground hover:bg-muted font-medium",
+                )}
+              >
+                <Icon className="w-4 h-4 shrink-0" />
+                {t(s.labelKey)}
+              </Link>
+            );
+          })}
+        </div>
+      </div>
+
+      {/* Settings sidebar — desktop only; mounted once, persists across child navigation */}
       <div className={cn(
-        "shrink-0 border-r border-border bg-card flex flex-col transition-[width] duration-200",
+        "max-lg:hidden shrink-0 border-r border-border bg-card flex flex-col transition-[width] duration-200",
         collapsed ? "w-[64px]" : "w-[260px]",
       )}>
         <div className="flex-1 overflow-y-auto overflow-x-hidden py-3 min-h-0">

@@ -159,6 +159,7 @@ interface ConversationListProps {
   channels?: Channel[];
   filterChannels: string[];
   onFilterChannelsChange: (v: string[]) => void;
+  className?: string; // parent-controlled responsive visibility (mobile single-pane)
 }
 
 export default function ConversationList({
@@ -178,6 +179,7 @@ export default function ConversationList({
   activeMessages,
   agents, filterAgents, onFilterAgentsChange, showAgent,
   channels, filterChannels, onFilterChannelsChange,
+  className,
 }: ConversationListProps) {
   const [filterOpen, setFilterOpen] = useState(false);
   const [searchMode, setSearchMode] = useState<SearchMode>("name");
@@ -372,7 +374,7 @@ export default function ConversationList({
   ];
 
   return (
-    <div className="w-[276px] shrink-0 flex flex-col border-r border-border bg-card relative">
+    <div className={cn("w-full lg:w-[276px] shrink-0 flex flex-col border-r border-border bg-card relative", className)}>
       {/* Header: search + sort + filter (SleekFlow layout) — height matches the chat header */}
       <div className="shrink-0 h-14 px-1.5 flex items-center border-b border-border">
         <div className="flex items-center gap-1 w-full min-w-0">

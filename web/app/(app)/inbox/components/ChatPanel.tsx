@@ -198,6 +198,8 @@ export interface ChatPanelProps {
   onForward?: (text: string) => void;
   uploadProgress?: number | null; // 0-100 while an attachment uploads
   onAddNote?: (body: string) => Promise<void>; // post an internal note (AI Smart Summary -> Confirm)
+  className?: string; // parent-controlled responsive visibility (mobile single-pane)
+  onBack?: () => void; // mobile: return to the conversation list
 }
 
 export default function ChatPanel({
@@ -208,7 +210,7 @@ export default function ChatPanel({
   pendingFiles, pendingPreviews, fileRef, onFile, cancelSendFile, removePendingFile,
   busy, onSubmit, onSendVoice, showDetails, onToggleDetails, notify, showAgent, onForward,
   agents, canAssign, onReassign, onUnassign, onSnooze,
-  uploadProgress, onAddNote,
+  uploadProgress, onAddNote, className, onBack,
 }: ChatPanelProps) {
   const [assignOpen, setAssignOpen] = useState(false);
   const [assignQuery, setAssignQuery] = useState("");
@@ -294,7 +296,7 @@ export default function ChatPanel({
 
   return (
     <>
-      <div className="flex-1 flex flex-col min-w-0 bg-background">
+      <div className={cn("flex-1 flex flex-col min-w-0 bg-background", className)}>
         {!active ? (
           /* WhatsApp-style Animated Empty State */
           <div className="flex flex-col items-center justify-center h-full px-6 text-center bg-background">
@@ -346,6 +348,12 @@ export default function ChatPanel({
           <>
             {/* ── Chat Header ── */}
             <div className="h-14 shrink-0 flex items-center px-3 gap-2 border-b border-border bg-card">
+              {/* Back to list — mobile only */}
+              {onBack && (
+                <button aria-label="Back to conversations" onClick={onBack} className="lg:hidden -ml-1 p-1 rounded-md text-muted-foreground hover:bg-muted hover:text-foreground outline-none shrink-0">
+                  <ChevronLeft className="w-5 h-5" />
+                </button>
+              )}
               {/* Contact avatar */}
               <div
                 className="w-9 h-9 rounded-full grid place-items-center text-[13px] font-semibold shrink-0"

@@ -129,7 +129,10 @@ export default function DetailsPanel({ active, onClose, copyText, notes, onAddNo
   };
 
   return (
-    <div className="w-80 shrink-0 flex flex-col border-l border-border bg-card">
+    <>
+      {/* Mobile backdrop — the panel is an overlay below lg */}
+      <div className="lg:hidden fixed inset-0 bg-black/40 z-40" onClick={onClose} aria-hidden />
+      <div className="w-80 shrink-0 flex flex-col border-l border-border bg-card max-lg:fixed max-lg:inset-y-0 max-lg:right-0 max-lg:z-50 max-lg:w-[85vw] max-lg:max-w-sm max-lg:shadow-2xl">
       {/* Header */}
       <div className="h-14 shrink-0 px-4 flex items-center border-b border-border">
         <p className="font-bold text-sm flex-1 text-foreground">Details</p>
@@ -298,6 +301,7 @@ export default function DetailsPanel({ active, onClose, copyText, notes, onAddNo
           </div>
         )}
       </div>
-    </div>
+      </div>
+    </>
   );
 }

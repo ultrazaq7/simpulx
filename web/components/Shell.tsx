@@ -6,7 +6,7 @@ import {
   MessageCircle, Settings,
   ChevronLeft, ChevronRight, Bell, LogOut, User as UserIcon,
   CheckCircle2, Loader2, ChevronDown, Activity, LayoutDashboard, MessagesSquare, Users, SlidersHorizontal, Megaphone, Wrench, Globe,
-  ScrollText, BarChart3, ShieldCheck, FileText, Radio, GitBranch, Plug, Search, Repeat, ClipboardList, Building2, FormInput
+  ScrollText, BarChart3, ShieldCheck, FileText, Radio, GitBranch, Plug, Search, Repeat, ClipboardList, Building2, FormInput, Menu
 } from "lucide-react";
 import { WS_URL } from "@/lib/api";
 import { api, clearSession, getToken, getUser, setSession } from "@/lib/api";
@@ -130,6 +130,10 @@ export function Shell({ children }: { children: ReactNode }) {
   const pathname = usePathname();
   const [user, setUser] = useState<User | null>(null);
   const [sidebarOpen, setSidebarOpen] = useState(true);
+  // Mobile (< lg): the sidebar becomes an off-canvas drawer toggled by a
+  // hamburger in the top bar, rather than the desktop collapse rail.
+  const [isMobile, setIsMobile] = useState(false);
+  const [mobileNavOpen, setMobileNavOpen] = useState(false);
   const [cmdOpen, setCmdOpen] = useState(false);
   const [helpOpen, setHelpOpen] = useState(false);
   const [userMenuOpen, setUserMenuOpen] = useState(false);
@@ -201,6 +205,26 @@ export function Shell({ children }: { children: ReactNode }) {
     if (v !== null) setSidebarOpen(v === "1");
   }, []);
   useEffect(() => { localStorage.setItem("sidebarOpen", sidebarOpen ? "1" : "0"); }, [sidebarOpen]);
+
+  // Track the mobile breakpoint (Tailwind lg = 1024px). The full shell renders
+  // client-side only (gated on `user`), so reading matchMedia here can't cause
+  // an SSR hydration mismatch.
+  useEffect(() => {
+    const mq = window.matchMedia("(max-width: 1023px)");
+    const on = () => setIsMobile(mq.matches);
+    on();
+    mq.addEventListener("change", on);
+    return () => mq.removeEventListener("change", on);
+  }, []);
+  // Close the mobile drawer whenever the route changes.
+  useEffect(() => { setMobileNavOpen(false); }, [pathname]);
+  // Escape closes the mobile drawer.
+  useEffect(() => {
+    if (!mobileNavOpen) return;
+    const onKey = (e: KeyboardEvent) => { if (e.key === "Escape") setMobileNavOpen(false); };
+    window.addEventListener("keydown", onKey);
+    return () => window.removeEventListener("keydown", onKey);
+  }, [mobileNavOpen]);
 
   // Clicking a background (service worker) notification posts here -> open the chat.
   useEffect(() => {
@@ -381,6 +405,10 @@ export function Shell({ children }: { children: ReactNode }) {
 
   const pageInfo = resolvePageInfo(pathname) || { category: "", title: "Simpulx" };
 
+  // On mobile the drawer is always shown in its expanded (labelled) form; the
+  // collapse rail is a desktop-only affordance.
+  const expanded = isMobile ? true : sidebarOpen;
+
   if (!user) return (
     <div className="grid place-items-center h-screen bg-background text-muted-foreground text-sm">
       <Loader2 className="w-5 h-5 animate-spin text-primary" />
@@ -395,12 +423,12 @@ export function Shell({ children }: { children: ReactNode }) {
     const item = (
       <Link
         href={href}
-        className={cn("group relative w-full block outline-none", sidebarOpen ? "px-2.5" : "px-2")}
+        className={cn("group relative w-full block outline-none", expanded ? "px-2.5" : "px-2")}
       >
         {active && <span aria-hidden className="absolute left-0 top-1/2 -translate-y-1/2 h-5 w-[3px] rounded-r-full bg-primary" />}
         <div className={cn(
           "h-10 rounded-lg flex items-center transition-colors duration-200",
-          sidebarOpen ? "w-full justify-start" : "w-10 mx-auto justify-center",
+          expanded ? "w-full justify-start" : "w-10 mx-auto justify-center",
           // Darker, filled pill on the active tab (like the mobile bottom-nav).
           active ? "bg-primary/[0.16]" : "hover:bg-foreground/[0.04]"
         )}>
@@ -421,7 +449,7 @@ export function Shell({ children }: { children: ReactNode }) {
               )}
             />
           </div>
-          {sidebarOpen && (
+          {expanded && (
             <span className={cn(
               "text-[13px] font-semibold whitespace-nowrap",
               active ? "text-primary-text" : "text-muted-foreground group-hover:text-foreground",
@@ -434,27 +462,35 @@ export function Shell({ children }: { children: ReactNode }) {
     );
     // Collapsed rail shows the label as a portaled tooltip (managed by Base UI —
     // closes on click/navigation, so it never gets stuck).
-    return sidebarOpen ? item : <Tip side="right" label={label}>{item}</Tip>;
+    return expanded ? item : <Tip side="right" label={label}>{item}</Tip>;
   }
 
   return (
     <div className="flex h-screen overflow-hidden bg-background text-foreground">
-      {/* Sidebar */}
+      {/* Mobile drawer backdrop */}
+      {isMobile && mobileNavOpen && (
+        <div className="fixed inset-0 bg-black/40 z-[55] lg:hidden" onClick={() => setMobileNavOpen(false)} aria-hidden />
+      )}
+      {/* Sidebar — in-flow rail on desktop, off-canvas drawer on mobile */}
       <div
         role="navigation"
         aria-label="Main"
-        className="shrink-0 flex flex-col py-4 gap-0.5 bg-muted border-r border-border transition-[width] duration-200 ease-out z-50 relative overflow-x-hidden"
-        style={{ width: sidebarOpen ? 240 : SIDEBAR_W }}
+        className={cn(
+          "shrink-0 flex flex-col py-4 gap-0.5 bg-muted border-r border-border transition-[width,transform] duration-200 ease-out z-50 overflow-x-hidden",
+          "max-lg:fixed max-lg:inset-y-0 max-lg:left-0 max-lg:z-[60] max-lg:shadow-2xl",
+          isMobile && !mobileNavOpen && "max-lg:-translate-x-full",
+        )}
+        style={{ width: expanded ? 240 : SIDEBAR_W }}
       >
-        <div className={cn("flex items-center mb-5 h-[46px]", sidebarOpen ? "px-3.5" : "justify-center")}>
+        <div className={cn("flex items-center mb-5 h-[46px]", expanded ? "px-3.5" : "justify-center")}>
           <Link href="/dashboard" className="flex items-center outline-none">
             <div className={cn(
               "rounded-lg overflow-hidden shrink-0 shadow-md transition-[width,height] duration-200",
-              sidebarOpen ? "w-9 h-9" : "w-8 h-8",
+              expanded ? "w-9 h-9" : "w-8 h-8",
             )}>
               <img src="/simpulx_logo.png" alt="Simpulx" className="w-full h-full object-cover" />
             </div>
-            {sidebarOpen && (
+            {expanded && (
               <span className="ml-3 text-[20px] font-extrabold tracking-tight text-foreground whitespace-nowrap">
                 Simpul<span className="text-amber">x</span>
               </span>
@@ -465,7 +501,8 @@ export function Shell({ children }: { children: ReactNode }) {
         {NAV_TOP.filter((n) => can(n.perm)).map((n) => <NavItem key={n.href} href={n.href} icon={n.icon} label={t(n.labelKey)} />)}
         <div className="flex-1" />
 
-        <div className={cn("px-4 pb-4 flex", sidebarOpen ? "justify-end" : "justify-center")}>
+        {/* Collapse rail toggle — desktop only (mobile uses the drawer). */}
+        <div className={cn("px-4 pb-4 max-lg:hidden", sidebarOpen ? "flex justify-end" : "flex justify-center")}>
           <button
             aria-label={sidebarOpen ? "Collapse sidebar" : "Expand sidebar"}
             onClick={() => setSidebarOpen(!sidebarOpen)}
@@ -480,7 +517,15 @@ export function Shell({ children }: { children: ReactNode }) {
       {/* Main content */}
       <div className="flex-1 flex flex-col min-w-0 min-h-0 bg-background">
         {/* Top Header */}
-        <div role="banner" className="h-16 shrink-0 flex items-center px-5 gap-3 bg-card border-b border-border">
+        <div role="banner" className="h-16 shrink-0 flex items-center px-4 sm:px-5 gap-2 sm:gap-3 bg-card border-b border-border">
+          {/* Hamburger — mobile only, opens the nav drawer */}
+          <button
+            aria-label="Open menu"
+            onClick={() => setMobileNavOpen(true)}
+            className="lg:hidden -ml-1 p-2 rounded-lg text-muted-foreground hover:bg-muted hover:text-foreground transition-colors outline-none shrink-0"
+          >
+            <Menu className="w-[22px] h-[22px]" />
+          </button>
           <div className="min-w-0">
             <p className="text-[10px] font-bold tracking-[0.12em] text-muted-foreground uppercase leading-none mb-1">
               {pageInfo.category || " "}
