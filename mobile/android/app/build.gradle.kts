@@ -119,4 +119,8 @@ dependencies {
     implementation("com.google.firebase:firebase-messaging:24.1.0")
     implementation("androidx.core:core-ktx:1.15.0")
     implementation("androidx.security:security-crypto-ktx:1.1.0-alpha06")
+    // AppCompatDelegate.setDefaultNightMode() - forces the splash/launch theme's
+    // night-mode resource resolution to match the user's in-app theme choice
+    // instead of always following the OS system theme.
+    implementation("androidx.appcompat:appcompat:1.7.0")
 }

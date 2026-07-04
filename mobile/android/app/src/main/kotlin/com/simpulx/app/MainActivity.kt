@@ -225,6 +225,19 @@ class MainActivity : FlutterActivity() {
                             result.success(false)
                         }
                     }
+                    // Mirror the user's in-app theme choice (light/dark/system) so the
+                    // NEXT cold start's splash/launch theme resolves against it via
+                    // AppCompatDelegate in SimpulxApplication, instead of always
+                    // following the OS system theme.
+                    "setThemeMode" -> {
+                        try {
+                            val mode = call.argument<String>("mode") ?: "system"
+                            NativeThemeStore.save(this, mode)
+                            result.success(true)
+                        } catch (e: Exception) {
+                            result.success(false)
+                        }
+                    }
                     else -> result.notImplemented()
                 }
             }
