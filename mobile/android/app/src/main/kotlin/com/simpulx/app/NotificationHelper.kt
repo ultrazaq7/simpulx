@@ -588,10 +588,7 @@ object NotificationHelper {
     private fun getNotificationIconRes(messageType: String?): Int {
         return when (messageType?.lowercase()) {
             "sticker" -> R.drawable.ic_notification_sticker_24
-            "image" -> R.drawable.ic_notification_image
-            "video" -> R.drawable.ic_notification_video
-            "document" -> R.drawable.ic_notification_document
-            "audio" -> R.drawable.ic_notification_audio
+            // For other types, use the default notification icon for now
             else -> R.drawable.ic_notification
         }
     }
