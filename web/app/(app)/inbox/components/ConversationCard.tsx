@@ -25,7 +25,24 @@ const PREVIEW_MEDIA: Record<string, { icon: any; label: string }> = {
   "[document]": { icon: FileText, label: "Document" },
   "[sticker]": { icon: Sticker, label: "Sticker" },
   "[audio]": { icon: Mic, label: "Voice message" },
+  // Backend previews are emoji-prefixed ("🖼️ Sticker") - match by prefix so
+  // the list shows a proper icon instead of a raw emoji.
+  "📷": { icon: ImageIcon, label: "Photo" },
+  "🎥": { icon: Video, label: "Video" },
+  "📄": { icon: FileText, label: "Document" },
+  "🖼": { icon: Sticker, label: "Sticker" },
+  "🎤": { icon: Mic, label: "Voice message" },
+  "👤": { icon: User, label: "Contact" },
 };
+
+function previewMedia(preview: string | null | undefined) {
+  if (!preview) return undefined;
+  if (PREVIEW_MEDIA[preview]) return PREVIEW_MEDIA[preview];
+  for (const key of Object.keys(PREVIEW_MEDIA)) {
+    if (preview.startsWith(key)) return PREVIEW_MEDIA[key];
+  }
+  return undefined;
+}
 
 const ConversationCard = memo(function ConversationCard({
   conv: c, isActive, onClick, showAgent, channelName, dense,
@@ -49,7 +66,7 @@ const ConversationCard = memo(function ConversationCard({
   // Delivery status for outbound messages
   const outboundStatus = c.last_message_direction === "agent" ? c.last_outbound_status : null;
 
-  const media = c.last_message_preview ? PREVIEW_MEDIA[c.last_message_preview] : undefined;
+  const media = previewMedia(c.last_message_preview);
   const previewFull = media ? media.label : (c.last_message_preview || "No messages yet");
   const cc = channelColor(c.channel);
   const ac = avatarColor(c.contact_name || c.contact_phone);

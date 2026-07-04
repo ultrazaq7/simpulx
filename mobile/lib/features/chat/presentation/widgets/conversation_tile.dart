@@ -354,8 +354,8 @@ class _PreviewWidget extends StatelessWidget {
     } else if (p.startsWith('🎤') || p == '[audio]' || p == '[voice]') {
       icon = Icons.mic_rounded;
       label = 'Voice message';
-    } else if (p == '[sticker]' || p == 'sticker') {
-      icon = Icons.sticky_note_2_rounded;
+    } else if (p.startsWith('🖼') || p == '[sticker]' || p == 'sticker') {
+      icon = Icons.emoji_emotions_outlined;
       label = 'Sticker';
     } else if (p.startsWith('📄') || p == '[document]' || p == '[file]') {
       icon = Icons.insert_drive_file_rounded;
