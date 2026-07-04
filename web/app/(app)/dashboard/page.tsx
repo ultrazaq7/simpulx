@@ -357,13 +357,23 @@ function AgentDashboard() {
   const [cards, setCards] = useState<DashboardCards | null>(null);
   const [analytics, setAnalytics] = useState<Analytics | null>(null);
   const [analyticsDone, setAnalyticsDone] = useState(false);
+  // Same date-range filter as the manager Overview: it bounds the historical
+  // chart/funnel/lost-analysis sections below, not the live action-center
+  // cards above (those are current-state counts, not time-bound).
+  const [fFrom, setFFrom] = useState("");
+  const [fTo, setFTo] = useState("");
+  const [dateRange, setDateRange] = useState("all");
+
   useEffect(() => {
     // Fall back to zeros (not an endless skeleton) if the endpoint isn't deployed yet.
     api.getDashboardCards().then(setCards).catch(() => setCards({ open: 0, hot: 0, unreplied: 0, unread: 0 }));
+  }, []);
+  useEffect(() => {
     // analyticsDone gates the Purchased/Lost cards: skeleton only WHILE loading,
     // then fall back to 0 on failure so they never spin forever.
-    api.getAnalytics().then(setAnalytics).catch((e) => console.error('[agent-analytics]', e)).finally(() => setAnalyticsDone(true));
-  }, []);
+    api.getAnalytics({ from: fFrom || undefined, to: fTo || undefined })
+      .then(setAnalytics).catch((e) => console.error('[agent-analytics]', e)).finally(() => setAnalyticsDone(true));
+  }, [fFrom, fTo]);
   const funnel = analytics?.funnel;
 
   return (
@@ -396,8 +406,38 @@ function AgentDashboard() {
         })}
       </div>
 
+      {/* Date filter - same control as the manager Overview, bounding the
+          historical sections below (chart/stages/interest/lost analysis). */}
+      <div className="flex items-center gap-2 mb-4 flex-wrap">
+        <FilterIcon className="w-4 h-4 text-muted-foreground" />
+        <Select value={dateRange} searchable={false} className="w-[150px]"
+          onChange={(v) => { setDateRange(v); if (v !== "custom") { const r = presetRange(v); setFFrom(r.from); setFTo(r.to); } }}
+          options={[
+            { value: "all", label: "All time" },
+            { value: "today", label: "Today" },
+            { value: "7d", label: "Last 7 days" },
+            { value: "30d", label: "Last 30 days" },
+            { value: "90d", label: "Last 90 days" },
+            { value: "month", label: "This month" },
+            { value: "lastmonth", label: "Last month" },
+            { value: "custom", label: "Custom range" },
+          ]} />
+        {dateRange === "custom" && (
+          <div className="flex items-center gap-1.5 text-[12px] text-muted-foreground">
+            <input type="date" value={fFrom} max={fTo || undefined} onChange={(e) => setFFrom(e.target.value)}
+              className="h-9 px-2 rounded-md border border-input bg-background text-[13px] text-foreground outline-none focus:border-primary" />
+            <span>to</span>
+            <input type="date" value={fTo} min={fFrom || undefined} onChange={(e) => setFTo(e.target.value)}
+              className="h-9 px-2 rounded-md border border-input bg-background text-[13px] text-foreground outline-none focus:border-primary" />
+          </div>
+        )}
+        {dateRange !== "all" && (
+          <button onClick={() => { setFFrom(""); setFTo(""); setDateRange("all"); }} className="text-[12px] font-semibold text-primary hover:underline outline-none">Clear</button>
+        )}
+      </div>
+
       {/* Personal activity */}
-      <Card title="Your activity" subtitle="New leads vs how many replied back" className="mb-4">
+      <Card title="Your activity" subtitle={fFrom || fTo ? `${fFrom || "start"} to ${fTo || "now"}` : "All time"} className="mb-4">
         <div className="px-4 py-4"><OverviewChart data={buildChartData(analytics, true)} /></div>
       </Card>
       <div className="grid grid-cols-1 lg:grid-cols-2 gap-4">
