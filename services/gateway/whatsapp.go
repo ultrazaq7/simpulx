@@ -285,7 +285,8 @@ type waMedia struct {
 	ID       string `json:"id"`
 	MimeType string `json:"mime_type"`
 	Caption  string `json:"caption"`
-	Link     string `json:"link"` // direct URL when available (test payloads); real Meta uses ID
+	Filename string `json:"filename"` // documents carry the sender's original filename
+	Link     string `json:"link"`     // direct URL when available (test payloads); real Meta uses ID
 	Animated bool   `json:"animated"` // for stickers
 }
 
@@ -373,6 +374,16 @@ func (m waMessage) mediaID() string {
 		if m.Sticker != nil {
 			return m.Sticker.ID
 		}
+	}
+	return ""
+}
+
+// mediaFilename returns the sender's original filename for a document, so the
+// hosted media URL can carry it (?name=) and the inbox shows the real name +
+// type instead of a bare UUID. Only documents carry a meaningful filename.
+func (m waMessage) mediaFilename() string {
+	if m.Type == "document" && m.Document != nil {
+		return m.Document.Filename
 	}
 	return ""
 }

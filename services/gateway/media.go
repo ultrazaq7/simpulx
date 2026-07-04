@@ -7,6 +7,8 @@ import (
 	"fmt"
 	"io"
 	"net/http"
+	"net/url"
+	"strings"
 
 	"github.com/google/uuid"
 
@@ -25,7 +27,7 @@ func (s *server) channelToken(ctx context.Context, phoneNumberID string) string 
 // downloadMetaMedia resolves a Meta media id to its short-lived URL, downloads
 // the bytes (Bearer-authenticated), re-hosts them in object storage, and
 // returns the public URL. Real Meta inbound media arrives as an id, not a link.
-func (s *server) downloadMetaMedia(ctx context.Context, token, mediaID string) (string, error) {
+func (s *server) downloadMetaMedia(ctx context.Context, token, mediaID, filename string) (string, error) {
 	if s.storage == nil {
 		return "", fmt.Errorf("storage not configured")
 	}
@@ -75,5 +77,23 @@ func (s *server) downloadMetaMedia(ctx context.Context, token, mediaID string) (
 	if ct == "" {
 		ct = meta.MimeType
 	}
-	return s.storage.put(ctx, "media/"+uuid.NewString(), ct, bytes.NewReader(data), int64(len(data)))
+	// Preserve the sender's original filename in the key + as ?name=, mirroring
+	// the outbound upload path (api.go), so the inbox shows the real name and
+	// file type instead of the bare storage UUID.
+	key := "media/" + uuid.NewString()
+	if filename != "" {
+		key += "-" + strings.ReplaceAll(filename, " ", "-")
+	}
+	hosted, err := s.storage.put(ctx, key, ct, bytes.NewReader(data), int64(len(data)))
+	if err != nil {
+		return "", err
+	}
+	if filename != "" {
+		sep := "?"
+		if strings.Contains(hosted, "?") {
+			sep = "&"
+		}
+		hosted += sep + "name=" + url.QueryEscape(filename)
+	}
+	return hosted, nil
 }

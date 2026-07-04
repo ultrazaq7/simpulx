@@ -547,6 +547,7 @@ func (s *server) ingest(ctx context.Context, p waWebhook) {
 				}
 				if pendingMediaID != "" {
 					mid, pn, extID, org := pendingMediaID, val.Metadata.PhoneNumberID, m.ID, orgID
+					fname := m.mediaFilename()
 					go func() {
 						bg, cancel := context.WithTimeout(context.Background(), 90*time.Second)
 						defer cancel()
@@ -554,7 +555,7 @@ func (s *server) ingest(ctx context.Context, p waWebhook) {
 						if token == "" {
 							return
 						}
-						u, derr := s.downloadMetaMedia(bg, token, mid)
+						u, derr := s.downloadMetaMedia(bg, token, mid, fname)
 						if derr != nil {
 							s.log.Warn("inbound media download failed", "media_id", mid, "err", derr)
 							return
