@@ -226,8 +226,12 @@ class ConversationListController extends AsyncNotifier<List<Conversation>> {
       lastMessageAt: event.ts,
       lastMessageDirection: payload.isInbound ? 'contact' : 'agent',
       lastSenderType: payload.senderType,
-      unreadCount:
-          payload.isInbound ? existing.unreadCount + 1 : existing.unreadCount,
+      // Use the authoritative count from the server when available (single
+      // source of truth).  Fall back to a local +1 only when the payload
+      // doesn't carry the field (backward compat with older server builds).
+      unreadCount: payload.isInbound
+          ? (payload.unreadCount ?? existing.unreadCount + 1)
+          : existing.unreadCount,
     );
 
     final next = [...list]..removeAt(index);

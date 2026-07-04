@@ -219,6 +219,7 @@ func (s *store) insertInbound(ctx context.Context, orgID, convID, msgType, body,
 	}
 
 	var assignedAgentID *string
+	var newUnreadCount int
 	err = tx.QueryRow(ctx,
 		`UPDATE conversations
 		    SET last_message_at = now(),
@@ -232,9 +233,9 @@ func (s *store) insertInbound(ctx context.Context, orgID, convID, msgType, body,
 		        followup_notify_count = 0,
 		        last_followup_notified_at = NULL,
 		        updated_at = now()
-		  WHERE id = $1 RETURNING assigned_agent_id`,
+		  WHERE id = $1 RETURNING assigned_agent_id, unread_count`,
 		convID, previewText,
-	).Scan(&assignedAgentID)
+	).Scan(&assignedAgentID, &newUnreadCount)
 	if err != nil {
 		return "", err
 	}
@@ -249,6 +250,7 @@ func (s *store) insertInbound(ctx context.Context, orgID, convID, msgType, body,
 		"media_url":         mediaURL,
 		"preview":           previewText,
 		"assigned_agent_id": assignedAgentID,
+		"unread_count":      newUnreadCount,
 	}
 	if metaJSON != "" {
 		payload["metadata"] = json.RawMessage(metaJSON)

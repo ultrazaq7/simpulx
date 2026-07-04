@@ -62,6 +62,12 @@ class MessagePersistedPayload {
       _d['metadata'] is Map ? Map<String, dynamic>.from(_d['metadata'] as Map) : null;
   String get preview => (_d['preview'] ?? '') as String;
   String? get assignedAgentId => _d['assigned_agent_id'] as String?;
+  /// Authoritative unread count from the DB after the increment.
+  /// Returns null for older payloads that don't carry it yet (backward compat).
+  int? get unreadCount {
+    final v = _d['unread_count'];
+    return v is int ? v : null;
+  }
 
   bool get isInbound => direction == 'inbound';
 }
