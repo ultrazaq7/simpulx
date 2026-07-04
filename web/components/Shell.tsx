@@ -81,7 +81,7 @@ const PAGE_TITLES: Record<string, { category: string; title: string }> = {
   "/integrations": { category: "SETUP", title: "Web API" },
   // Settings sub-pages (more specific than "/settings" so each gets its own title + icon).
   "/settings/general": { category: "PREFERENCES", title: "General" },
-  "/settings/custom-fields": { category: "CUSTOM_FIELDS", title: "Custom Fields" },
+  "/settings/custom-fields": { category: "FIELDS", title: "Custom Fields" },
   "/settings/people": { category: "TEAM", title: "Team Members" },
   "/settings/roles": { category: "ROLES", title: "Roles & Permissions" },
   "/settings/campaigns": { category: "CAMPAIGNS", title: "Campaigns" },
@@ -105,7 +105,7 @@ const CATEGORY_ICONS: Record<string, any> = {
   "AUTOMATION": GitBranch,
   "SETUP": Wrench,
   "PREFERENCES": SlidersHorizontal,
-  "CUSTOM_FIELDS": FormInput,
+  "FIELDS": FormInput,
   "ACCOUNT": UserIcon,
   "TEAM": UserIcon,
   "ROLES": ShieldCheck,

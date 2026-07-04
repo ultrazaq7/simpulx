@@ -264,6 +264,39 @@ func managerScope(alias string, idx int) string {
 		" OR %sbranch_id IN (SELECT branch_id FROM branch_agents WHERE user_id = $%d))", p, idx, p, idx)
 }
 
+// sourceClassifyExpr returns a SQL CASE expression classifying a conversation's
+// lead source into the same canonical keys shown everywhere else (contacts
+// table, CSV exports): meta_ads | tiktok_ads | google_ads | website | direct.
+// alias is the conversations table alias ("" for none, e.g. "cv"), used to
+// build both the conversation id and contact_id column references.
+func sourceClassifyExpr(alias string) string {
+	p := ""
+	if alias != "" {
+		p = alias + "."
+	}
+	return fmt.Sprintf(`(CASE
+		WHEN EXISTS (SELECT 1 FROM conversation_attributions att WHERE att.conversation_id = %sid AND att.referral_source IS NOT NULL) THEN 'meta_ads'
+		WHEN (SELECT was.platform FROM contacts ct LEFT JOIN web_api_sources was ON was.id = ct.web_api_source_id WHERE ct.id = %scontact_id) = 'meta' THEN 'meta_ads'
+		WHEN (SELECT was.platform FROM contacts ct LEFT JOIN web_api_sources was ON was.id = ct.web_api_source_id WHERE ct.id = %scontact_id) = 'tiktok' THEN 'tiktok_ads'
+		WHEN (SELECT was.platform FROM contacts ct LEFT JOIN web_api_sources was ON was.id = ct.web_api_source_id WHERE ct.id = %scontact_id) = 'google' THEN 'google_ads'
+		WHEN (SELECT ct.web_api_source_id FROM contacts ct WHERE ct.id = %scontact_id) IS NOT NULL THEN 'website'
+		ELSE 'direct'
+	END)`, p, p, p, p, p)
+}
+
+// applySourceFilter appends a "source" query-param filter (comma-separated
+// canonical keys) to filterStr, using idx+1 as the new parameter's position.
+// Returns the updated filter string and args slice.
+func applySourceFilter(r *http.Request, alias, filterStr string, args []any) (string, []any) {
+	src := r.URL.Query().Get("source")
+	if src == "" {
+		return filterStr, args
+	}
+	args = append(args, strings.Split(src, ","))
+	filterStr += fmt.Sprintf(" AND %s = ANY($%d)", sourceClassifyExpr(alias), len(args))
+	return filterStr, args
+}
+
 // guardConversation runs canAccessConversation and writes the appropriate error
 // response. Returns true when the caller may proceed.
 func (s *server) guardConversation(w http.ResponseWriter, r *http.Request, convID string) bool {
@@ -832,6 +865,7 @@ func (s *server) handleStats(w http.ResponseWriter, r *http.Request) {
 		args = append(args, strings.Split(ag, ","))
 		campFilter += fmt.Sprintf(" AND assigned_agent_id = ANY($%d)", len(args))
 	}
+	campFilter, args = applySourceFilter(r, "", campFilter, args)
 
 	query := fmt.Sprintf(`SELECT
 		   (SELECT count(*) FROM conversations WHERE organization_id=$1%s AND status<>'closed') AS active,
@@ -875,6 +909,7 @@ func (s *server) handleDashboardCards(w http.ResponseWriter, r *http.Request) {
 		args = append(args, a.UserID)
 		campFilter += " AND " + managerScope("", len(args))
 	}
+	campFilter, args = applySourceFilter(r, "", campFilter, args)
 
 	// "unreplied" = the customer sent the last message and the agent hasn't
 	// replied since, but only while the 24h WhatsApp window is still open (past
@@ -939,6 +974,8 @@ func (s *server) handleAnalytics(w http.ResponseWriter, r *http.Request) {
 		campFilterCv += fmt.Sprintf(" AND cv.assigned_agent_id = ANY($%d)", len(args))
 		campFilter += fmt.Sprintf(" AND assigned_agent_id = ANY($%d)", len(args))
 	}
+	campFilterCv, args = applySourceFilter(r, "cv", campFilterCv, args)
+	campFilter, args = applySourceFilter(r, "", campFilter, args)
 	// Custom date range on lead creation, evaluated in the workspace timezone so
 	// the boundaries line up with the user's local days (inclusive of 'to').
 	fromS, toS := r.URL.Query().Get("from"), r.URL.Query().Get("to")
@@ -981,7 +1018,7 @@ func (s *server) handleAnalytics(w http.ResponseWriter, r *http.Request) {
 		   FROM conversations cv
 		   LEFT JOIN dispositions d ON d.id=cv.disposition_id
 		   LEFT JOIN stages st ON st.id=cv.stage_id
-		  WHERE cv.organization_id=$1%s`, campFilter), args...)
+		  WHERE cv.organization_id=$1%s`, campFilterCv), args...)
 	if err != nil {
 		http.Error(w, err.Error(), http.StatusInternalServerError)
 		return
@@ -1019,7 +1056,7 @@ func (s *server) handleAnalytics(w http.ResponseWriter, r *http.Request) {
 		        (SELECT count(*) FROM cur WHERE cur.so >= st.sort_order) AS reached
 		   FROM stages st
 		  WHERE st.organization_id=$1 AND (st.system_key IS NULL OR st.system_key NOT LIKE 'lost%%')
-		  ORDER BY st.sort_order`, campFilter), args...)
+		  ORDER BY st.sort_order`, campFilterCv), args...)
 
 	categories, _ := s.queryMaps(ctx,
 		fmt.Sprintf(`SELECT cat AS category, count(*) AS count
@@ -1166,7 +1203,7 @@ func (s *server) handleAnalytics(w http.ResponseWriter, r *http.Request) {
 		    AND st.system_key LIKE 'lost%%'
 		    AND COALESCE(d.category,'') <> 'spam'
 		    AND lower(COALESCE(cv.lost_reason,'')) <> 'spam'
-		  GROUP BY 1 ORDER BY 2 DESC LIMIT 8`, campFilter), args...)
+		  GROUP BY 1 ORDER BY 2 DESC LIMIT 8`, campFilterCv), args...)
 
 	// A secondary query failing must not take down the whole dashboard. Log it and
 	// fall back to an empty object so the primary funnel/stages still render.

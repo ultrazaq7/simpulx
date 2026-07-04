@@ -2,7 +2,7 @@
 import { useEffect, useState } from "react";
 import { Search, Plus, Pencil, Trash2, Megaphone, Loader2, X } from "lucide-react";
 import { api } from "@/lib/api";
-import { cn } from "@/lib/utils";
+import { cn, fmtDateTimeShort } from "@/lib/utils";
 import { Tip } from "@/components/ui/tooltip";
 import type { Campaign, UserAccount, Channel } from "@/lib/types";
 import { Select } from "@/components/Select";
@@ -69,16 +69,16 @@ export default function CampaignsPage() {
           <table className="w-full text-sm min-w-[920px] whitespace-nowrap">
             <thead>
               <tr className="border-b border-border bg-muted/40">
-                {["Campaign", "Status", "Channel", "Agents", "Chats", "Leads", "Attribution", "Routing", ""].map((h) => (
+                {["Campaign", "Status", "Channel", "Agents", "Chats", "Leads", "Routing", "Created", "Updated", ""].map((h) => (
                   <th key={h} className={cn("px-4 py-2.5 text-[11px] font-bold uppercase tracking-wider text-muted-foreground", ["Agents", "Chats", "Leads"].includes(h) ? "text-right" : h === "" ? "text-right w-20" : "text-left")}>{h}</th>
                 ))}
               </tr>
             </thead>
             <tbody>
               {loading ? (
-                <tr><td colSpan={9} className="text-center py-16"><Loader2 className="w-6 h-6 animate-spin text-muted-foreground mx-auto" /></td></tr>
+                <tr><td colSpan={10} className="text-center py-16"><Loader2 className="w-6 h-6 animate-spin text-muted-foreground mx-auto" /></td></tr>
               ) : paged.length === 0 ? (
-                <tr><td colSpan={9} className="text-center py-16">
+                <tr><td colSpan={10} className="text-center py-16">
                   <div className="w-12 h-12 rounded-xl bg-muted grid place-items-center mx-auto mb-3"><Megaphone className="w-6 h-6 text-muted-foreground/50" /></div>
                   <p className="font-semibold text-foreground mb-0.5">{search || channelFilter.length ? "No matching campaigns" : "No campaigns yet"}</p>
                   <p className="text-[13px] text-muted-foreground">Create a campaign to start routing its leads.</p>
@@ -100,33 +100,9 @@ export default function CampaignsPage() {
                   <td className="px-4 py-2.5 text-right font-semibold text-[13px] text-foreground tabular-nums">{c.agent_count}</td>
                   <td className="px-4 py-2.5 text-right font-semibold text-[13px] tabular-nums">{c.conversations}</td>
                   <td className="px-4 py-2.5 text-right font-semibold text-[13px] tabular-nums">{c.lead_count}</td>
-                  <td className="px-4 py-2.5 max-w-[220px]">
-                    {(() => {
-                      const chips = [
-                        ...(c.ad_source_ids ?? []).map((s) => ({ key: `ad:${s}`, label: `ad: ${s}`, cls: "bg-blue-50 text-blue-700" })),
-                        ...(c.keywords ?? []).map((k) => ({ key: `kw:${k}`, label: `kw: ${k}`, cls: "bg-teal-50 text-teal-700" })),
-                      ];
-                      if (chips.length === 0) return <span className="text-[11.5px] text-muted-foreground">None</span>;
-                      // Fixed single-row height: show what fits, collapse the rest into
-                      // a "+N" chip (hover for the full list) so the table row never
-                      // grows tall as campaigns accumulate more sources/keywords.
-                      const shown = chips.slice(0, 2);
-                      const rest = chips.slice(2);
-                      return (
-                        <div className="flex items-center gap-1 flex-nowrap overflow-hidden">
-                          {shown.map((chip) => (
-                            <span key={chip.key} className={cn("inline-flex shrink-0 px-1.5 py-0.5 rounded-md text-[10px] whitespace-nowrap", chip.cls)}>{chip.label}</span>
-                          ))}
-                          {rest.length > 0 && (
-                            <Tip label={<div className="flex flex-col gap-1 max-w-[240px]">{rest.map((chip) => <span key={chip.key} className={cn("inline-flex px-1.5 py-0.5 rounded-md text-[10px] w-fit", chip.cls)}>{chip.label}</span>)}</div>}>
-                              <span className="inline-flex shrink-0 px-1.5 py-0.5 rounded-md text-[10px] font-semibold bg-muted text-muted-foreground whitespace-nowrap cursor-default">+{rest.length}</span>
-                            </Tip>
-                          )}
-                        </div>
-                      );
-                    })()}
-                  </td>
                   <td className="px-4 py-2.5 text-[12.5px] text-muted-foreground capitalize">{c.routing_strategy.replace("_", " ")}</td>
+                  <td className="px-4 py-2.5 text-[12.5px] text-muted-foreground whitespace-nowrap">{fmtDateTimeShort(c.created_at)}</td>
+                  <td className="px-4 py-2.5 text-[12.5px] text-muted-foreground whitespace-nowrap">{fmtDateTimeShort(c.updated_at)}</td>
                   <td className="px-4 py-2.5 text-right whitespace-nowrap">
                     <Tip label="Edit"><button onClick={() => setDlg({ open: true, id: c.id })} className="p-1.5 rounded-md hover:bg-muted outline-none transition-colors text-muted-foreground hover:text-foreground"><Pencil className="w-[17px] h-[17px]" /></button></Tip>
                     <Tip label="Delete"><button onClick={() => remove(c)} className="p-1.5 rounded-md hover:bg-red-50 outline-none transition-colors text-red-500"><Trash2 className="w-[17px] h-[17px]" /></button></Tip>

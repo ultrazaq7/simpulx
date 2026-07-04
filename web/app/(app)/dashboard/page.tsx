@@ -39,6 +39,15 @@ const METRICS: Metric[] = [
   { key: "avg_rt", label: "Avg first response", Icon: Timer, color: "#7C3AED", fmt: fmtDuration },
 ];
 
+// Same canonical keys used everywhere else (contacts, exports, logs).
+const SOURCE_OPTIONS = [
+  { value: "meta_ads", label: "Meta Ads" },
+  { value: "tiktok_ads", label: "TikTok Ads" },
+  { value: "google_ads", label: "Google Ads" },
+  { value: "website", label: "Website" },
+  { value: "direct", label: "Direct" },
+];
+
 // Real daily series from analytics.daily (no fabrication). Returns [] when absent.
 // Pass all=true to plot every day instead of just the last 7.
 function buildChartData(analytics: Analytics | null, all = false) {
@@ -357,27 +366,73 @@ function AgentDashboard() {
   const [cards, setCards] = useState<DashboardCards | null>(null);
   const [analytics, setAnalytics] = useState<Analytics | null>(null);
   const [analyticsDone, setAnalyticsDone] = useState(false);
-  // Same date-range filter as the manager Overview: it bounds the historical
+  const [campaigns, setCampaigns] = useState<Campaign[]>([]);
+  // Same filters as the manager Overview: they bound the historical
   // chart/funnel/lost-analysis sections below, not the live action-center
-  // cards above (those are current-state counts, not time-bound).
+  // cards above (those are current-state counts) - except campaign/source,
+  // which DO meaningfully scope the live cards too, so those two also reload
+  // getDashboardCards.
+  const [fCampaign, setFCampaign] = useState<string[]>([]);
+  const [fSource, setFSource] = useState<string[]>([]);
   const [fFrom, setFFrom] = useState("");
   const [fTo, setFTo] = useState("");
   const [dateRange, setDateRange] = useState("all");
 
   useEffect(() => {
-    // Fall back to zeros (not an endless skeleton) if the endpoint isn't deployed yet.
-    api.getDashboardCards().then(setCards).catch(() => setCards({ open: 0, hot: 0, unreplied: 0, unread: 0 }));
+    api.listCampaigns().then((c) => setCampaigns(c || [])).catch(() => {});
   }, []);
+  useEffect(() => {
+    const campaign_id = fCampaign.length ? fCampaign.join(",") : undefined;
+    const source = fSource.length ? fSource.join(",") : undefined;
+    // Fall back to zeros (not an endless skeleton) if the endpoint isn't deployed yet.
+    api.getDashboardCards({ campaign_id, source }).then(setCards).catch(() => setCards({ open: 0, hot: 0, unreplied: 0, unread: 0 }));
+  }, [fCampaign, fSource]);
   useEffect(() => {
     // analyticsDone gates the Purchased/Lost cards: skeleton only WHILE loading,
     // then fall back to 0 on failure so they never spin forever.
-    api.getAnalytics({ from: fFrom || undefined, to: fTo || undefined })
-      .then(setAnalytics).catch((e) => console.error('[agent-analytics]', e)).finally(() => setAnalyticsDone(true));
-  }, [fFrom, fTo]);
+    api.getAnalytics({
+      campaign_id: fCampaign.length ? fCampaign.join(",") : undefined,
+      source: fSource.length ? fSource.join(",") : undefined,
+      from: fFrom || undefined, to: fTo || undefined,
+    }).then(setAnalytics).catch((e) => console.error('[agent-analytics]', e)).finally(() => setAnalyticsDone(true));
+  }, [fCampaign, fSource, fFrom, fTo]);
   const funnel = analytics?.funnel;
 
   return (
     <div className="p-4">
+      {/* Filters - same controls as the manager Overview. */}
+      <div className="flex items-center gap-2 mb-4 flex-wrap">
+        <FilterIcon className="w-4 h-4 text-muted-foreground" />
+        <MultiSelect value={fCampaign} onChange={setFCampaign} placeholder="All campaigns" className="w-[180px]"
+          options={campaigns.map((c) => ({ value: c.id, label: c.name }))} />
+        <MultiSelect value={fSource} onChange={setFSource} placeholder="All sources" className="w-[160px]"
+          options={SOURCE_OPTIONS} />
+        <Select value={dateRange} searchable={false} className="w-[150px]"
+          onChange={(v) => { setDateRange(v); if (v !== "custom") { const r = presetRange(v); setFFrom(r.from); setFTo(r.to); } }}
+          options={[
+            { value: "all", label: "All time" },
+            { value: "today", label: "Today" },
+            { value: "7d", label: "Last 7 days" },
+            { value: "30d", label: "Last 30 days" },
+            { value: "90d", label: "Last 90 days" },
+            { value: "month", label: "This month" },
+            { value: "lastmonth", label: "Last month" },
+            { value: "custom", label: "Custom range" },
+          ]} />
+        {dateRange === "custom" && (
+          <div className="flex items-center gap-1.5 text-[12px] text-muted-foreground">
+            <input type="date" value={fFrom} max={fTo || undefined} onChange={(e) => setFFrom(e.target.value)}
+              className="h-9 px-2 rounded-md border border-input bg-background text-[13px] text-foreground outline-none focus:border-primary" />
+            <span>to</span>
+            <input type="date" value={fTo} min={fFrom || undefined} onChange={(e) => setFTo(e.target.value)}
+              className="h-9 px-2 rounded-md border border-input bg-background text-[13px] text-foreground outline-none focus:border-primary" />
+          </div>
+        )}
+        {(fCampaign.length || fSource.length || dateRange !== "all") && (
+          <button onClick={() => { setFCampaign([]); setFSource([]); setFFrom(""); setFTo(""); setDateRange("all"); }} className="text-[12px] font-semibold text-primary hover:underline outline-none">Clear</button>
+        )}
+      </div>
+
       {/* Action cards */}
       <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-6 gap-3 mb-5">
         {AGENT_CARDS.map((c) => {
@@ -404,36 +459,6 @@ function AgentDashboard() {
             ? <Link key={c.key} href={c.href} className={cls}>{body}</Link>
             : <div key={c.key} className={cls}>{body}</div>;
         })}
-      </div>
-
-      {/* Date filter - same control as the manager Overview, bounding the
-          historical sections below (chart/stages/interest/lost analysis). */}
-      <div className="flex items-center gap-2 mb-4 flex-wrap">
-        <FilterIcon className="w-4 h-4 text-muted-foreground" />
-        <Select value={dateRange} searchable={false} className="w-[150px]"
-          onChange={(v) => { setDateRange(v); if (v !== "custom") { const r = presetRange(v); setFFrom(r.from); setFTo(r.to); } }}
-          options={[
-            { value: "all", label: "All time" },
-            { value: "today", label: "Today" },
-            { value: "7d", label: "Last 7 days" },
-            { value: "30d", label: "Last 30 days" },
-            { value: "90d", label: "Last 90 days" },
-            { value: "month", label: "This month" },
-            { value: "lastmonth", label: "Last month" },
-            { value: "custom", label: "Custom range" },
-          ]} />
-        {dateRange === "custom" && (
-          <div className="flex items-center gap-1.5 text-[12px] text-muted-foreground">
-            <input type="date" value={fFrom} max={fTo || undefined} onChange={(e) => setFFrom(e.target.value)}
-              className="h-9 px-2 rounded-md border border-input bg-background text-[13px] text-foreground outline-none focus:border-primary" />
-            <span>to</span>
-            <input type="date" value={fTo} min={fFrom || undefined} onChange={(e) => setFTo(e.target.value)}
-              className="h-9 px-2 rounded-md border border-input bg-background text-[13px] text-foreground outline-none focus:border-primary" />
-          </div>
-        )}
-        {dateRange !== "all" && (
-          <button onClick={() => { setFFrom(""); setFTo(""); setDateRange("all"); }} className="text-[12px] font-semibold text-primary hover:underline outline-none">Clear</button>
-        )}
       </div>
 
       {/* Personal activity */}
@@ -516,6 +541,7 @@ function ManagerDashboard() {
   const [fChannel, setFChannel] = useState<string[]>([]);
   const [fCampaign, setFCampaign] = useState<string[]>([]);
   const [fAgent, setFAgent] = useState<string[]>([]);
+  const [fSource, setFSource] = useState<string[]>([]);
   const [fFrom, setFFrom] = useState("");
   const [fTo, setFTo] = useState("");
   const [dateRange, setDateRange] = useState("all");
@@ -529,15 +555,16 @@ function ManagerDashboard() {
     api.listAgents().then((a) => setAgentList(a || [])).catch(() => {});
   }, []);
   // Refs for current filter values (used by the WS debounce handler)
-  const filtersRef = useRef({ fChannel, fCampaign, fAgent, fFrom, fTo });
-  filtersRef.current = { fChannel, fCampaign, fAgent, fFrom, fTo };
+  const filtersRef = useRef({ fChannel, fCampaign, fAgent, fSource, fFrom, fTo });
+  filtersRef.current = { fChannel, fCampaign, fAgent, fSource, fFrom, fTo };
 
   const reloadReports = useCallback(() => {
-    const { fChannel, fCampaign, fAgent, fFrom, fTo } = filtersRef.current;
+    const { fChannel, fCampaign, fAgent, fSource, fFrom, fTo } = filtersRef.current;
     const f = {
       campaign_id: fCampaign.length ? fCampaign.join(",") : undefined,
       channel_id: fChannel.length ? fChannel.join(",") : undefined,
       agent_id: fAgent.length ? fAgent.join(",") : undefined,
+      source: fSource.length ? fSource.join(",") : undefined,
       from: fFrom || undefined, to: fTo || undefined,
     };
     api.getStats(f).then(setStats).catch((e) => console.error('[mgr-stats]', e));
@@ -546,7 +573,7 @@ function ManagerDashboard() {
 
   useEffect(() => {
     reloadReports();
-  }, [fChannel, fCampaign, fAgent, fFrom, fTo, reloadReports]);
+  }, [fChannel, fCampaign, fAgent, fSource, fFrom, fTo, reloadReports]);
 
   // Auto-refresh on WebSocket events (debounced)
   useEffect(() => {
@@ -598,6 +625,8 @@ function ManagerDashboard() {
             options={campaigns.map((c) => ({ value: c.id, label: c.name }))} />
           <MultiSelect value={fAgent} onChange={setFAgent} placeholder="All agents" className="w-[160px]"
             options={agentList.map((a) => ({ value: a.id, label: a.full_name }))} />
+          <MultiSelect value={fSource} onChange={setFSource} placeholder="All sources" className="w-[160px]"
+            options={SOURCE_OPTIONS} />
           <Select value={dateRange} searchable={false} className="w-[150px]"
             onChange={(v) => { setDateRange(v); if (v !== "custom") { const r = presetRange(v); setFFrom(r.from); setFTo(r.to); } }}
             options={[
@@ -619,8 +648,8 @@ function ManagerDashboard() {
                 className="h-9 px-2 rounded-md border border-input bg-background text-[13px] text-foreground outline-none focus:border-primary" />
             </div>
           )}
-          {(fChannel.length || fCampaign.length || fAgent.length || dateRange !== "all") && (
-            <button onClick={() => { setFChannel([]); setFCampaign([]); setFAgent([]); setFFrom(""); setFTo(""); setDateRange("all"); }} className="text-[12px] font-semibold text-primary hover:underline outline-none">Clear</button>
+          {(fChannel.length || fCampaign.length || fAgent.length || fSource.length || dateRange !== "all") && (
+            <button onClick={() => { setFChannel([]); setFCampaign([]); setFAgent([]); setFSource([]); setFFrom(""); setFTo(""); setDateRange("all"); }} className="text-[12px] font-semibold text-primary hover:underline outline-none">Clear</button>
           )}
         </div>
 

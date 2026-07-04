@@ -407,6 +407,7 @@ export interface Campaign {
   channel_name?: string | null;
   calling_enabled?: boolean;
   created_at: string;
+  updated_at?: string;
 }
 export interface CampaignDetail extends Campaign {
   agent_ids: string[]; supervisor_ids?: string[];
