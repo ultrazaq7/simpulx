@@ -6,7 +6,7 @@
 //   - Viber: Public Account auth token (verified + webhook registered server-side).
 //   - Messenger / Instagram / Testing: createChannel with the right config.
 import { useState } from "react";
-import { X, Check, ArrowLeft, CircleNotch as Loader2, Copy, Lock, SignIn as FbIcon, Key as KeyRound, CheckCircle as CheckCircle2, Radio } from "@phosphor-icons/react/ssr";
+import { CloseCircleLinear as X, CheckReadLinear as Check, ArrowLeftLinear as ArrowLeft, RefreshLinear as Loader2, CopyLinear as Copy, LockLinear as Lock, QuestionCircleLinear as FbIcon, KeyLinear as KeyRound, CheckCircleLinear as CheckCircle2, RadioLinear as Radio } from "solar-icon-set";
 import ChannelIcon, { CHANNEL_CATALOG, channelMeta } from "@/components/ChannelIcon";
 import { api, getUser } from "@/lib/api";
 import { cn } from "@/lib/utils";

@@ -1,7 +1,7 @@
 "use client";
 import { useEffect, useMemo, useState } from "react";
 import { useRouter } from "next/navigation";
-import { MagnifyingGlass as Search, Plus, ArrowsClockwise as RefreshCw, GitBranch, PencilSimple as Pencil, Trash as Trash2, Lightning as Zap, Sparkle as Sparkles, CircleNotch as Loader2, X } from "@phosphor-icons/react/ssr";
+import { MagniferLinear as Search, AddCircleLinear as Plus, QuestionCircleLinear as RefreshCw, ShareLinear as GitBranch, PenLinear as Pencil, TrashBinTrashLinear as Trash2, BoltLinear as Zap, MagicStick3Linear as Sparkles, RefreshLinear as Loader2, CloseCircleLinear as X } from "solar-icon-set";
 import { api } from "@/lib/api";
 import { Select } from "@/components/Select";
 import { MultiSelect } from "@/components/ui/multi-select";

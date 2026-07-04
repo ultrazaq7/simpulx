@@ -1,7 +1,7 @@
 "use client";
 import { useCallback, useEffect, useMemo, useState } from "react";
 import type { ReactNode } from "react";
-import { FileText, Plus, PaperPlaneRight as Send, Trash as Trash2, Eye, DownloadSimple as Download, CircleNotch as Loader2, X, DotsSixVertical as GripVertical, CheckCircle as CheckCircle2, WarningCircle as AlertCircle, Rocket, PencilSimple as Pencil, CaretDown as ChevronDown, MagnifyingGlass as Search, ArrowsClockwise as RefreshCw, CaretDoubleLeft as ChevronsLeft, CaretLeft as ChevronLeft, CaretRight as ChevronRight, CaretDoubleRight as ChevronsRight, Table as Sheet } from "@phosphor-icons/react/ssr";
+import { FileTextLinear as FileText, AddCircleLinear as Plus, PlainLinear as Send, TrashBinTrashLinear as Trash2, EyeLinear as Eye, DownloadSquareLinear as Download, RefreshLinear as Loader2, CloseCircleLinear as X, QuestionCircleLinear as GripVertical, CheckCircleLinear as CheckCircle2, DangerCircleLinear as AlertCircle, RocketLinear as Rocket, PenLinear as Pencil, AltArrowDownLinear as ChevronDown, MagniferLinear as Search, QuestionCircleLinear as RefreshCw, QuestionCircleLinear as ChevronsLeft, AltArrowLeftLinear as ChevronLeft, AltArrowRightLinear as ChevronRight, QuestionCircleLinear as ChevronsRight, QuestionCircleLinear as Sheet } from "solar-icon-set";
 import { api, getToken } from "@/lib/api";
 import { Select } from "@/components/Select";
 import { MultiSelect } from "@/components/ui/multi-select";

@@ -1,6 +1,6 @@
 "use client";
 import { useEffect, useMemo, useRef, useState } from "react";
-import { Chat as MessageSquare, X, Funnel as Filter, User, Phone, CaretDown as ChevronDown, Check, ArrowsDownUp as ArrowUpDown, Rows as Rows3 } from "@phosphor-icons/react/ssr";
+import { ChatRoundLinear as MessageSquare, CloseCircleLinear as X, FilterLinear as Filter, UserLinear as User, PhoneLinear as Phone, AltArrowDownLinear as ChevronDown, CheckReadLinear as Check, SortLinear as ArrowUpDown, QuestionCircleLinear as Rows3 } from "solar-icon-set";
 
 import { type FilterOption } from "./MultiSelectFilter";
 import FilterPopover, { type FilterCategory, type FilterToggle } from "./FilterPopover";

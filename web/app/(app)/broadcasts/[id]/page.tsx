@@ -1,8 +1,9 @@
 "use client";
 import { useEffect, useMemo, useState } from "react";
 import { useParams, useRouter } from "next/navigation";
-import { ArrowLeft, CircleNotch as Loader2, Users, PaperPlaneRight as Send, Checks as CheckCheck, Chat as MessageSquare, Percent, CurrencyCircleDollar as CircleDollarSign, Trash as Trash2, ArrowCounterClockwise as RotateCcw, DownloadSimple as Download, MagnifyingGlass as Search, ArrowDownLeft, Megaphone, CursorClick as MousePointerClick, CaretLeft as ChevronLeft, CaretRight as ChevronRight, CaretDoubleLeft as ChevronsLeft, CaretDoubleRight as ChevronsRight } from "@phosphor-icons/react/ssr";
-import type { Icon as LucideIcon } from "@phosphor-icons/react";
+import { ArrowLeftLinear as ArrowLeft, RefreshLinear as Loader2, UsersGroupTwoRoundedLinear as Users, PlainLinear as Send, CheckReadLinear as CheckCheck, ChatRoundLinear as MessageSquare, QuestionCircleLinear as Percent, QuestionCircleLinear as CircleDollarSign, TrashBinTrashLinear as Trash2, QuestionCircleLinear as RotateCcw, DownloadSquareLinear as Download, MagniferLinear as Search, QuestionCircleLinear as ArrowDownLeft, SpeakerLinear as Speaker, QuestionCircleLinear as MousePointerClick, AltArrowLeftLinear as ChevronLeft, AltArrowRightLinear as ChevronRight, QuestionCircleLinear as ChevronsLeft, QuestionCircleLinear as ChevronsRight } from "solar-icon-set";
+import type { SVGProps } from "react";
+type LucideIcon = (props: SVGProps<SVGSVGElement>) => JSX.Element;
 import { Tip } from "@/components/ui/tooltip";
 
 import { api } from "@/lib/api";

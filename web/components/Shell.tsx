@@ -2,12 +2,7 @@
 import { useEffect, useState, useRef, type ReactNode } from "react";
 import { usePathname, useRouter } from "next/navigation";
 import Link from "next/link";
-import {
-  ChatCircle as MessageCircle, Gear as Settings,
-  CaretLeft as ChevronLeft, CaretRight as ChevronRight, Bell, SignOut as LogOut, User as UserIcon,
-  CheckCircle as CheckCircle2, CircleNotch as Loader2, CaretDown as ChevronDown, Pulse as Activity, SquaresFour as LayoutDashboard, Chats as MessagesSquare, Users, FadersHorizontal as SlidersHorizontal, Megaphone, Wrench, Globe,
-  Scroll as ScrollText, ChartBar as BarChart3, ShieldCheck, FileText, Radio, GitBranch, Plug, MagnifyingGlass as Search, Repeat, ClipboardText as ClipboardList, Buildings as Building2, Textbox as FormInput, List as Menu
-} from "@phosphor-icons/react/ssr";
+import { ChatRoundDotsLinear as MessageCircle, SettingsLinear as Settings, AltArrowLeftLinear as ChevronLeft, AltArrowRightLinear as ChevronRight, BellLinear as Bell, LogoutOutline as LogOut, UserLinear as UserIcon, CheckCircleLinear as CheckCircle2, RefreshLinear as Loader2, AltArrowDownLinear as ChevronDown, PulseLinear as Activity, WidgetLinear as LayoutDashboard, ChatRoundLineLinear as MessagesSquare, UsersGroupTwoRoundedLinear as Users, TuningSquare2Linear as SlidersHorizontal, SpeakerLinear as Speaker, GlobalLinear as Globe, DocumentTextLinear as ScrollText, ChartSquareLinear as BarChart3, ShieldCheckLinear as ShieldCheck, FileTextLinear as FileText, RadioLinear as Radio, ShareLinear as GitBranch, PlugCircleLinear as Plug, MagniferLinear as Search, RestartLinear as Repeat, ClipboardTextLinear as ClipboardList, BuildingsLinear as Building2, TextSquareLinear as FormInput, HamburgerMenuLinear as Menu } from "solar-icon-set";
 import { WS_URL } from "@/lib/api";
 import { api, clearSession, getToken, getUser, setSession } from "@/lib/api";
 import { initials, cn } from "@/lib/utils";
@@ -58,7 +53,7 @@ const NAV_TOP = [
   { href: "/dashboard", icon: LayoutDashboard, labelKey: "nav.dashboard", perm: "menu_dashboard" },
   { href: "/inbox", icon: MessageCircle, labelKey: "nav.inbox", perm: "menu_chats" },
   { href: "/contacts", icon: Users, labelKey: "nav.contacts", perm: "menu_contacts" },
-  { href: "/broadcasts", icon: Megaphone, labelKey: "nav.broadcasts", perm: "menu_broadcasts" },
+  { href: "/broadcasts", icon: Speaker, labelKey: "nav.broadcasts", perm: "menu_broadcasts" },
   { href: "/drip", icon: Repeat, labelKey: "nav.drip", perm: "menu_broadcasts" },
 ];
 
@@ -101,9 +96,9 @@ const CATEGORY_ICONS: Record<string, any> = {
   "INBOX": MessagesSquare,
   "GROUPS": Users,
   "CAMPAIGNS": Building2,
-  "OUTREACH": Megaphone,
+  "OUTREACH": Speaker,
   "AUTOMATION": GitBranch,
-  "SETUP": Wrench,
+  "SETUP": Settings,
   "PREFERENCES": SlidersHorizontal,
   "FIELDS": FormInput,
   "ACCOUNT": UserIcon,
@@ -441,7 +436,7 @@ export function Shell({ children }: { children: ReactNode }) {
             <Icon
               // Phosphor: fill weight on the active tab reads as a solid icon,
               // regular (outline) otherwise - like the mobile bottom-nav.
-              weight={active ? "fill" : "regular"}
+              /* removed weight */
               className={cn(
                 "w-[20px] h-[20px] transition-colors duration-200",
                 active ? "text-primary-text" : "text-muted-foreground group-hover:text-foreground"

@@ -1,5 +1,5 @@
 "use client";
-import { X } from "@phosphor-icons/react/ssr";
+import { CloseCircleLinear as X } from "solar-icon-set";
 
 const SECTIONS: { title: string; items: [string, string][] }[] = [
   { title: "Navigation", items: [

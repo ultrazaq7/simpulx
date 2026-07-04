@@ -5,7 +5,7 @@ import {
   AreaChart, Area, XAxis, YAxis, CartesianGrid, Tooltip as RechartsTooltip,
   Legend, ResponsiveContainer, LineChart, Line, PieChart, Pie, Cell,
 } from "recharts";
-import { ChartBar as BarChart3, Chat as MessageSquare, Tray as Inbox, Fire as Flame, Timer, TrendDown as TrendingDown, CaretRight as ChevronRight, Lightning as Zap, Envelope as Mail, ArrowBendUpLeft as Reply, Trophy, Prohibit as Ban, CurrencyCircleDollar as CircleDollarSign, CursorClick as MousePointerClick, Megaphone, Target, Eye, Funnel as FilterIcon, Image as ImageIcon, MapPin } from "@phosphor-icons/react/ssr";
+import { ChartSquareLinear as BarChart3, ChatRoundLinear as MessageSquare, InboxLinear as Inbox, FireLinear as Flame, QuestionCircleLinear as Timer, QuestionCircleLinear as TrendingDown, AltArrowRightLinear as ChevronRight, BoltLinear as Zap, LetterLinear as Mail, QuestionCircleLinear as Reply, QuestionCircleLinear as Trophy, QuestionCircleLinear as Ban, QuestionCircleLinear as CircleDollarSign, QuestionCircleLinear as MousePointerClick, SpeakerLinear as Speaker, TargetLinear as Target, EyeLinear as Eye, FilterLinear as FilterIcon, GalleryLinear as ImageIcon, MapPointLinear as MapPin } from "solar-icon-set";
 
 import { api, getUser } from "@/lib/api";
 import { Select } from "@/components/Select";
@@ -603,7 +603,7 @@ function ManagerDashboard() {
                 tab === t ? "bg-card text-foreground shadow-xs" : "text-muted-foreground hover:text-foreground",
               )}
             >
-              {t === "overview" ? <><BarChart3 className="w-3.5 h-3.5" /> Overview</> : <><Megaphone className="w-3.5 h-3.5" /> Ads</>}
+              {t === "overview" ? <><BarChart3 className="w-3.5 h-3.5" /> Overview</> : <><Speaker className="w-3.5 h-3.5" /> Ads</>}
             </button>
           ))}
         </div>

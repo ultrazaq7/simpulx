@@ -1,7 +1,7 @@
 "use client";
 import { useEffect, useState } from "react";
 import Link from "next/link";
-import { X, Copy, User, Phone, Hash, Chat as MessageSquare, Clock, Note as StickyNote, Tag as TagIcon, Plus, Paperclip, DownloadSimple as Download, FileText, Image as ImageIcon, VideoCamera as Video, Microphone as Mic, Trash as Trash2 } from "@phosphor-icons/react/ssr";
+import { CloseCircleLinear as X, CopyLinear as Copy, UserLinear as User, PhoneLinear as Phone, QuestionCircleLinear as Hash, ChatRoundLinear as MessageSquare, ClockCircleLinear as Clock, QuestionCircleLinear as StickyNote, TagLinear as TagIcon, AddCircleLinear as Plus, PaperclipLinear as Paperclip, DownloadSquareLinear as Download, FileTextLinear as FileText, GalleryLinear as ImageIcon, QuestionCircleLinear as Video, Microphone2Linear as Mic, TrashBinTrashLinear as Trash2 } from "solar-icon-set";
 import { api } from "@/lib/api";
 import { initials, channelColor, channelTextColor, channelLabel, fmtDate, fmtTime, fmtDateTimeShort, cn } from "@/lib/utils";
 import { Tip } from "@/components/ui/tooltip";

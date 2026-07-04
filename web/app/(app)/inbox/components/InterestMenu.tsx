@@ -1,7 +1,7 @@
 "use client";
 import { useState, useRef, useEffect } from "react";
 import { createPortal } from "react-dom";
-import { CaretDown as ChevronDown, Check } from "@phosphor-icons/react/ssr";
+import { AltArrowDownLinear as ChevronDown, CheckReadLinear as Check } from "solar-icon-set";
 import { cn, interestColor } from "@/lib/utils";
 import { useEscClose } from "@/lib/useEscClose";
 import { Tip } from "@/components/ui/tooltip";

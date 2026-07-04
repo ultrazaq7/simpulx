@@ -1,7 +1,7 @@
 "use client";
 
 import { useInbox } from "./InboxContext";
-import { Check, CaretRight as ChevronRight, CaretDown as ChevronDown, ArrowCounterClockwise as RotateCcw, CheckCircle, MagnifyingGlass as Search, Sidebar as PanelRight, DotsThreeVertical as MoreVertical } from "@phosphor-icons/react/ssr";
+import { CheckReadLinear as Check, AltArrowRightLinear as ChevronRight, AltArrowDownLinear as ChevronDown, QuestionCircleLinear as RotateCcw, CheckCircleLinear as CheckCircle, MagniferLinear as Search, QuestionCircleLinear as PanelRight, MenuDotsCircleLinear as MoreVertical } from "solar-icon-set";
 import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuSeparator, DropdownMenuTrigger } from "@/components/ui/dropdown-menu";
 import { api } from "@/lib/api";
 

@@ -1,4 +1,4 @@
-import { CircleNotch as Loader2 } from "@phosphor-icons/react/ssr";
+import { RefreshLinear as Loader2 } from "solar-icon-set";
 
 export default function Loading() {
   return (

@@ -1,6 +1,6 @@
 "use client";
 import { useEffect, useMemo, useState } from "react";
-import { PaperPlaneRight as Send } from "@phosphor-icons/react/ssr";
+import { PlainLinear as Send } from "solar-icon-set";
 import { api } from "@/lib/api";
 import { Select } from "@/components/Select";
 import SidePanel from "@/components/SidePanel";

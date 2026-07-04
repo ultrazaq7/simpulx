@@ -3,7 +3,7 @@
 // so existing bookmarks and links land on the Advertising tab.
 import { useEffect } from "react";
 import { useRouter } from "next/navigation";
-import { CircleNotch as Loader2 } from "@phosphor-icons/react/ssr";
+import { RefreshLinear as Loader2 } from "solar-icon-set";
 
 export default function AdsRedirect() {
   const router = useRouter();

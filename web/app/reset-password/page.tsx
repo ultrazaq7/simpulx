@@ -1,7 +1,7 @@
 "use client";
 import { useEffect, useState } from "react";
 import { useRouter } from "next/navigation";
-import { Lock, EyeSlash as EyeOff, Eye, CheckCircle as CheckCircle2, CircleNotch as Loader2, WarningCircle as AlertCircle } from "@phosphor-icons/react/ssr";
+import { LockLinear as Lock, EyeClosedLinear as EyeOff, EyeLinear as Eye, CheckCircleLinear as CheckCircle2, RefreshLinear as Loader2, DangerCircleLinear as AlertCircle } from "solar-icon-set";
 import { api } from "@/lib/api";
 import { cn } from "@/lib/utils";
 

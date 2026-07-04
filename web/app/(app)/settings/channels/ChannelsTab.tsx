@@ -4,7 +4,7 @@
 // so this view is a clean, searchable, filterable list of real connections.
 import { useEffect, useMemo, useState } from "react";
 import Link from "next/link";
-import { Plus, ArrowsClockwise as RefreshCw, PencilSimple as Pencil, Trash as Trash2, CheckCircle, CircleNotch as Loader2, X, MagnifyingGlass as Search, DotsThreeVertical as MoreVertical, FileText, Power, CaretLeft as ChevronLeft, CaretRight as ChevronRight, CaretDoubleLeft as ChevronsLeft, CaretDoubleRight as ChevronsRight } from "@phosphor-icons/react/ssr";
+import { AddCircleLinear as Plus, QuestionCircleLinear as RefreshCw, PenLinear as Pencil, TrashBinTrashLinear as Trash2, CheckCircleLinear as CheckCircle, RefreshLinear as Loader2, CloseCircleLinear as X, MagniferLinear as Search, MenuDotsCircleLinear as MoreVertical, FileTextLinear as FileText, PowerLinear as Power, AltArrowLeftLinear as ChevronLeft, AltArrowRightLinear as ChevronRight, QuestionCircleLinear as ChevronsLeft, QuestionCircleLinear as ChevronsRight } from "solar-icon-set";
 import ChannelIcon, { CHANNEL_CATALOG, channelMeta } from "@/components/ChannelIcon";
 import { api } from "@/lib/api";
 import { cn, fmtDateTimeShort } from "@/lib/utils";

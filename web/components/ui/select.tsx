@@ -4,7 +4,7 @@ import * as React from "react"
 import { Select as SelectPrimitive } from "@base-ui/react/select"
 
 import { cn } from "@/lib/utils"
-import { CaretDown as ChevronDownIcon, Check as CheckIcon, CaretUp as ChevronUpIcon } from "@phosphor-icons/react/ssr";
+import { AltArrowDownLinear as ChevronDownIcon, CheckReadLinear as CheckIcon, AltArrowUpLinear as ChevronUpIcon } from "solar-icon-set";
 
 const Select = SelectPrimitive.Root
 

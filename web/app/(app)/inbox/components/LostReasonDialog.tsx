@@ -1,6 +1,6 @@
 "use client";
 import { useState } from "react";
-import { X, ShoppingBag, XCircle, Prohibit as Ban, CaretRight as ChevronRight, CaretLeft as ChevronLeft } from "@phosphor-icons/react/ssr";
+import { CloseCircleLinear as X, QuestionCircleLinear as ShoppingBag, QuestionCircleLinear as XCircle, QuestionCircleLinear as Ban, AltArrowRightLinear as ChevronRight, AltArrowLeftLinear as ChevronLeft } from "solar-icon-set";
 import { cn } from "@/lib/utils";
 
 type Cat = "lost" | "spam";

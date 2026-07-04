@@ -1,6 +1,7 @@
 "use client";
-import { ChatCircle as MessageCircle, PaperPlaneRight as Send, Chat as MessageSquare, Flask as FlaskRound } from "@phosphor-icons/react/ssr";
-import type { Icon as LucideIcon } from "@phosphor-icons/react";
+import { ChatRoundDotsLinear as MessageCircle, PlainLinear as Send, ChatRoundLinear as MessageSquare, QuestionCircleLinear as FlaskRound } from "solar-icon-set";
+import type { SVGProps } from "react";
+type LucideIcon = (props: SVGProps<SVGSVGElement>) => JSX.Element;
 
 // Brand icons removed from lucide-react v1.x — lightweight inline replacements.
 const Facebook: LucideIcon = Object.assign(

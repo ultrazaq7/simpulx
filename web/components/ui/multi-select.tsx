@@ -1,7 +1,7 @@
 "use client";
 import { useState, useRef, useEffect, useMemo } from "react";
 import { createPortal } from "react-dom";
-import { CaretDown as ChevronDown, MagnifyingGlass as Search, Check } from "@phosphor-icons/react/ssr";
+import { AltArrowDownLinear as ChevronDown, MagniferLinear as Search, CheckReadLinear as Check } from "solar-icon-set";
 import { cn } from "@/lib/utils";
 
 export interface Option { label: string; value: string; }

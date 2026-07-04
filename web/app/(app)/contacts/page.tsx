@@ -1,7 +1,7 @@
 "use client";
 import { useEffect, useMemo, useRef, useState } from "react";
 import { useRouter } from "next/navigation";
-import { MagnifyingGlass as Search, UserPlus, DownloadSimple as Download, PencilSimple as Pencil, CaretDoubleLeft as ChevronsLeft, CaretDoubleRight as ChevronsRight, CaretLeft as ChevronLeft, CaretRight as ChevronRight, Users, User, X, XCircle, CircleNotch as Loader2, Tag as TagIcon, DotsThreeVertical as MoreVertical, Chat as MessageSquare, Trash as Trash2, UploadSimple as Upload, CaretDown as ChevronDown, Eye, Prohibit as Ban, Copy, Check } from "@phosphor-icons/react/ssr";
+import { MagniferLinear as Search, UserPlusRoundedLinear as UserPlus, DownloadSquareLinear as Download, PenLinear as Pencil, QuestionCircleLinear as ChevronsLeft, QuestionCircleLinear as ChevronsRight, AltArrowLeftLinear as ChevronLeft, AltArrowRightLinear as ChevronRight, UsersGroupTwoRoundedLinear as Users, UserLinear as User, CloseCircleLinear as X, QuestionCircleLinear as XCircle, RefreshLinear as Loader2, TagLinear as TagIcon, MenuDotsCircleLinear as MoreVertical, ChatRoundLinear as MessageSquare, TrashBinTrashLinear as Trash2, UploadSquareLinear as Upload, AltArrowDownLinear as ChevronDown, EyeLinear as Eye, QuestionCircleLinear as Ban, CopyLinear as Copy, CheckReadLinear as Check } from "solar-icon-set";
 
 import { api, getUser } from "@/lib/api";
 import { usePermissions } from "@/lib/permissions";

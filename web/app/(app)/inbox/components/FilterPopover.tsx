@@ -1,6 +1,6 @@
 "use client";
 import { useMemo, useState } from "react";
-import { MagnifyingGlass as Search, CaretRight as ChevronRight, Check } from "@phosphor-icons/react/ssr";
+import { MagniferLinear as Search, AltArrowRightLinear as ChevronRight, CheckReadLinear as Check } from "solar-icon-set";
 import { cn } from "@/lib/utils";
 import { useEscClose } from "@/lib/useEscClose";
 import type { FilterOption } from "./MultiSelectFilter";

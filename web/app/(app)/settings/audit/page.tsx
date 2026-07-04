@@ -1,6 +1,6 @@
 "use client";
 import { useEffect, useState, useCallback } from "react";
-import { CircleNotch as Loader2, DownloadSimple as Download, PhoneIncoming, PhoneOutgoing, CheckCircle as CheckCircle2, Clock, XCircle, Warning as AlertTriangle } from "@phosphor-icons/react/ssr";
+import { RefreshLinear as Loader2, DownloadSquareLinear as Download, PhoneCallingLinear as PhoneIncoming, PhoneCallingLinear as PhoneOutgoing, CheckCircleLinear as CheckCircle2, ClockCircleLinear as Clock, QuestionCircleLinear as XCircle, DangerTriangleLinear as AlertTriangle } from "solar-icon-set";
 import { api } from "@/lib/api";
 import { cn } from "@/lib/utils";
 import type { AuditEntry, LogMessage, LogConversation, LogCall, LogActivity, ExportJob, Campaign, Channel } from "@/lib/types";

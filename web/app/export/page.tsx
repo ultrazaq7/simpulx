@@ -1,5 +1,5 @@
 "use client";
-import { DownloadSimple as Download } from "@phosphor-icons/react/ssr";
+import { DownloadSquareLinear as Download } from "solar-icon-set";
 import Shell from "@/components/Shell";
 import { getToken } from "@/lib/api";
 

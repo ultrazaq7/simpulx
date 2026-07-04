@@ -1,6 +1,6 @@
 "use client";
 import { useState, useMemo, useCallback } from "react";
-import { MagnifyingGlass as Search, FunnelSimple as ListFilter, X, CaretDown as ChevronDown, Check } from "@phosphor-icons/react/ssr";
+import { MagniferLinear as Search, QuestionCircleLinear as ListFilter, CloseCircleLinear as X, AltArrowDownLinear as ChevronDown, CheckReadLinear as Check } from "solar-icon-set";
 import { cn } from "@/lib/utils";
 
 export interface FilterOption {

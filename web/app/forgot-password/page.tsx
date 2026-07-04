@@ -1,7 +1,7 @@
 "use client";
 import { useState } from "react";
 import { useRouter } from "next/navigation";
-import { Envelope as Mail, ArrowLeft, Envelope as MailCheck, CircleNotch as Loader2 } from "@phosphor-icons/react/ssr";
+import { LetterLinear as Mail, ArrowLeftLinear as ArrowLeft, LetterLinear as MailCheck, RefreshLinear as Loader2 } from "solar-icon-set";
 import { api } from "@/lib/api";
 
 export default function ForgotPasswordPage() {

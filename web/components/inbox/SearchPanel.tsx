@@ -1,7 +1,7 @@
 "use client";
 
 import { useInbox } from "./InboxContext";
-import { X, MagnifyingGlass as SearchIcon, FileText } from "@phosphor-icons/react/ssr";
+import { CloseCircleLinear as X, MagniferLinear as SearchIcon, FileTextLinear as FileText } from "solar-icon-set";
 import { fmtDate, fmtTime } from "@/lib/utils";
 import type { Message } from "@/lib/types";
 import { Input } from "@/components/ui/input";

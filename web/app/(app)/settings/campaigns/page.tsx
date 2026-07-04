@@ -1,6 +1,6 @@
 "use client";
 import { useEffect, useState } from "react";
-import { MagnifyingGlass as Search, Plus, PencilSimple as Pencil, Trash as Trash2, Megaphone, CircleNotch as Loader2, X } from "@phosphor-icons/react/ssr";
+import { MagniferLinear as Search, AddCircleLinear as Plus, PenLinear as Pencil, TrashBinTrashLinear as Trash2, SpeakerLinear as Speaker, RefreshLinear as Loader2, CloseCircleLinear as X } from "solar-icon-set";
 import { api } from "@/lib/api";
 import { cn, fmtDateTimeShort } from "@/lib/utils";
 import { Tip } from "@/components/ui/tooltip";
@@ -79,7 +79,7 @@ export default function CampaignsPage() {
                 <tr><td colSpan={10} className="text-center py-16"><Loader2 className="w-6 h-6 animate-spin text-muted-foreground mx-auto" /></td></tr>
               ) : paged.length === 0 ? (
                 <tr><td colSpan={10} className="text-center py-16">
-                  <div className="w-12 h-12 rounded-xl bg-muted grid place-items-center mx-auto mb-3"><Megaphone className="w-6 h-6 text-muted-foreground/50" /></div>
+                  <div className="w-12 h-12 rounded-xl bg-muted grid place-items-center mx-auto mb-3"><Speaker className="w-6 h-6 text-muted-foreground/50" /></div>
                   <p className="font-semibold text-foreground mb-0.5">{search || channelFilter.length ? "No matching campaigns" : "No campaigns yet"}</p>
                   <p className="text-[13px] text-muted-foreground">Create a campaign to start routing its leads.</p>
                 </td></tr>

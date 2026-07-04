@@ -7,7 +7,7 @@
 import { type ReactNode, useState, useEffect } from "react";
 import Link from "next/link";
 import { usePathname } from "next/navigation";
-import { Gear as Settings, Textbox as FormInput, Bell, User, ShieldCheck, Buildings as Building2, FileText, GitBranch, Radio, Clock, ClipboardText as ClipboardList, SidebarSimple as PanelLeftClose, Sidebar as PanelLeftOpen } from "@phosphor-icons/react/ssr";
+import { SettingsLinear as Settings, TextSquareLinear as FormInput, BellLinear as Bell, UserLinear as User, ShieldCheckLinear as ShieldCheck, BuildingsLinear as Building2, FileTextLinear as FileText, ShareLinear as GitBranch, RadioLinear as Radio, ClockCircleLinear as Clock, ClipboardTextLinear as ClipboardList, QuestionCircleLinear as PanelLeftClose, QuestionCircleLinear as PanelLeftOpen } from "solar-icon-set";
 import { cn } from "@/lib/utils";
 import { usePermissions } from "@/lib/permissions";
 import { useI18n } from "@/lib/i18n";

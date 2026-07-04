@@ -1,7 +1,7 @@
 "use client";
 
 import { useEffect, useRef, useState } from "react";
-import { Play, Pause, SpeakerHigh as Volume2, SpeakerSlash as VolumeX, CornersOut as Maximize, PictureInPicture } from "@phosphor-icons/react/ssr";
+import { PlayLinear as Play, PauseLinear as Pause, QuestionCircleLinear as Volume2, QuestionCircleLinear as VolumeX, QuestionCircleLinear as Maximize, QuestionCircleLinear as PictureInPicture } from "solar-icon-set";
 
 export function CustomVideoPlayer({ src }: { src: string }) {
   const videoRef = useRef<HTMLVideoElement>(null);

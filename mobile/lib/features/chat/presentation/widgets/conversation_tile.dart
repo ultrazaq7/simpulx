@@ -2,7 +2,7 @@ import 'dart:async';
 
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
-import 'package:phosphor_flutter/phosphor_flutter.dart';
+import 'package:solar_icons/solar_icons.dart';
 
 import '../../../../app/theme/app_colors.dart';
 import '../../../../core/session/session_controller.dart';
@@ -346,30 +346,30 @@ class _PreviewWidget extends StatelessWidget {
     const teal = Color(0xFF00A884);
 
     // Match emoji-prefixed (from controller) or [bracket] (from server). Icons
-    // are Phosphor, matching the web's icon language.
+    // are Solar, matching the web's icon language.
     if (p.startsWith('📷') || p == '[image]' || p == '[photo]') {
-      icon = PhosphorIconsRegular.camera;
+      icon = SolarIconsOutline.camera;
       label = 'Photo';
     } else if (p.startsWith('🎥') || p == '[video]') {
-      icon = PhosphorIconsRegular.videoCamera;
+      icon = SolarIconsOutline.videoFrame;
       label = 'Video';
     } else if (p.startsWith('🎤') || p == '[audio]' || p == '[voice]') {
-      icon = PhosphorIconsRegular.microphone;
+      icon = SolarIconsOutline.microphone2;
       label = 'Voice message';
     } else if (p.startsWith('🖼') || p.startsWith('😊') || p.startsWith('💟') || p == '[sticker]' || p == 'sticker') {
-      icon = PhosphorIconsRegular.sticker;
+      icon = SolarIconsOutline.stickerSmileSquare;
       label = 'Sticker';
     } else if (p.startsWith('📄') || p == '[document]' || p == '[file]') {
-      icon = PhosphorIconsRegular.fileText;
+      icon = SolarIconsOutline.fileText;
       label = 'Document';
     } else if (p.startsWith('📍') || p == '[location]') {
-      icon = PhosphorIconsRegular.mapPin;
+      icon = SolarIconsOutline.mapPoint;
       label = 'Location';
     } else if (p.startsWith('👤') || p == '[contact]') {
-      icon = PhosphorIconsRegular.user;
+      icon = SolarIconsOutline.user;
       label = 'Contact';
     } else if (p.startsWith('📎') || p == '[media]') {
-      icon = PhosphorIconsRegular.paperclip;
+      icon = SolarIconsOutline.link;
       label = 'Attachment';
     }
 

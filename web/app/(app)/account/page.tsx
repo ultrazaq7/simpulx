@@ -1,7 +1,7 @@
 "use client";
 import { useEffect, useMemo, useRef, useState } from "react";
 import { useRouter } from "next/navigation";
-import { CircleNotch as Loader2, Bell, Envelope as Mail, Chat as MessageSquare, SpeakerHigh as Volume2, ArrowLeft, Envelope as MailCheck, Camera } from "@phosphor-icons/react/ssr";
+import { RefreshLinear as Loader2, BellLinear as Bell, LetterLinear as Mail, ChatRoundLinear as MessageSquare, QuestionCircleLinear as Volume2, ArrowLeftLinear as ArrowLeft, LetterLinear as MailCheck, CameraLinear as Camera } from "solar-icon-set";
 import { api, getUser, getToken, setSession } from "@/lib/api";
 import type { OrgSettings } from "@/lib/types";
 import { cn, initials } from "@/lib/utils";

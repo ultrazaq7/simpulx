@@ -3,7 +3,7 @@
 // reveals the generated API key + a ready-to-copy curl snippet, so connecting an
 // external lead source feels like a guided enterprise onboarding.
 import { useState } from "react";
-import { Plug, CircleNotch as Loader2, Copy, Check, CheckCircle as CheckCircle2, Key } from "@phosphor-icons/react/ssr";
+import { PlugCircleLinear as Plug, RefreshLinear as Loader2, CopyLinear as Copy, CheckReadLinear as Check, CheckCircleLinear as CheckCircle2, KeyLinear as Key } from "solar-icon-set";
 import { api } from "@/lib/api";
 import { Select } from "@/components/Select";
 import type { Campaign, SourcePlatform } from "@/lib/types";

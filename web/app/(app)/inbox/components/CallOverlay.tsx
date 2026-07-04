@@ -1,6 +1,6 @@
 "use client";
 import { useState, useEffect, useRef, useCallback } from "react";
-import { Phone, PhoneDisconnect as PhoneOff, PhoneIncoming, Microphone as Mic, MicrophoneSlash as MicOff, X, CircleNotch as Loader2, Minus, DotsSix as GripHorizontal, CaretUp as ChevronUp } from "@phosphor-icons/react/ssr";
+import { PhoneLinear as Phone, QuestionCircleLinear as PhoneOff, PhoneCallingLinear as PhoneIncoming, Microphone2Linear as Mic, QuestionCircleLinear as MicOff, CloseCircleLinear as X, RefreshLinear as Loader2, MinusCircleLinear as Minus, QuestionCircleLinear as GripHorizontal, AltArrowUpLinear as ChevronUp } from "solar-icon-set";
 import { cn } from "@/lib/utils";
 import { api } from "@/lib/api";
 

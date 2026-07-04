@@ -3,7 +3,7 @@
 // dropdown). Values attach to each contact (contact.attributes) and power the
 // contact form, contact detail and automations.
 import { useEffect, useState } from "react";
-import { Plus, PencilSimple as Pencil, Trash as Trash2 } from "@phosphor-icons/react/ssr";
+import { AddCircleLinear as Plus, PenLinear as Pencil, TrashBinTrashLinear as Trash2 } from "solar-icon-set";
 import { api } from "@/lib/api";
 import { Select } from "@/components/Select";
 import { Tip } from "@/components/ui/tooltip";

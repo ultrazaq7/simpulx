@@ -2,7 +2,7 @@
 // Connect Ad Account — 3-step wizard (Select platform > Credentials > Map campaigns).
 // Wraps the real createAdAccount endpoint; mirrors the Create Channel wizard.
 import { useMemo, useState } from "react";
-import { ChartBar as BarChart3, CircleNotch as Loader2, CheckCircle as CheckCircle2, Warning as AlertTriangle, Link as Link2 } from "@phosphor-icons/react/ssr";
+import { ChartSquareLinear as BarChart3, RefreshLinear as Loader2, CheckCircleLinear as CheckCircle2, DangerTriangleLinear as AlertTriangle, LinkLinear as Link2 } from "solar-icon-set";
 import { api } from "@/lib/api";
 import { Select } from "@/components/Select";
 import type { AdAccount, AdCampaignRow, Campaign } from "@/lib/types";

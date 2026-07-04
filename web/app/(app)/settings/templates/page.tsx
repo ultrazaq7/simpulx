@@ -1,6 +1,6 @@
 "use client";
 import { useEffect, useMemo, useRef, useState } from "react";
-import { MagnifyingGlass as Search, Plus, PencilSimple as Pencil, Trash as Trash2, PaperPlaneRight as Send, ArrowsClockwise as RefreshCw, CircleNotch as Loader2, X, CaretLeft as ChevronLeft, Phone, TextB as Bold, TextItalic as Italic, TextStrikethrough as Strikethrough, Smiley as Smile, Info, Image as ImageIcon, VideoCamera as Video, User as UserRound, Books as LibraryBig, Terminal, UploadSimple as Upload } from "@phosphor-icons/react/ssr";
+import { MagniferLinear as Search, AddCircleLinear as Plus, PenLinear as Pencil, TrashBinTrashLinear as Trash2, PlainLinear as Send, QuestionCircleLinear as RefreshCw, RefreshLinear as Loader2, CloseCircleLinear as X, AltArrowLeftLinear as ChevronLeft, PhoneLinear as Phone, QuestionCircleLinear as Bold, TextItalicLinear as Italic, QuestionCircleLinear as Strikethrough, QuestionCircleLinear as Smile, InfoCircleLinear as Info, GalleryLinear as ImageIcon, QuestionCircleLinear as Video, UserLinear as UserRound, QuestionCircleLinear as LibraryBig, QuestionCircleLinear as Terminal, UploadSquareLinear as Upload } from "solar-icon-set";
 import { api } from "@/lib/api";
 import { Select } from "@/components/Select";
 import { MultiSelect } from "@/components/ui/multi-select";

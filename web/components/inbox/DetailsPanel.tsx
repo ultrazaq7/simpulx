@@ -1,7 +1,7 @@
 "use client";
 import { useState } from "react";
 import { useInbox } from "./InboxContext";
-import { X, User, Copy, Tag, Chat as MessageSquare, Clock, Robot as Bot, MapPin, Package as Box, Hash, Lock } from "@phosphor-icons/react/ssr";
+import { CloseCircleLinear as X, UserLinear as User, CopyLinear as Copy, TagLinear as Tag, ChatRoundLinear as MessageSquare, ClockCircleLinear as Clock, SmartSpeaker2Linear as Bot, MapPointLinear as MapPin, BoxLinear as Box, QuestionCircleLinear as Hash, LockLinear as Lock } from "solar-icon-set";
 import { initials, channelColor, fmtDate, fmtTime } from "@/lib/utils";
 import { api } from "@/lib/api";
 import { useQueryClient } from "@tanstack/react-query";

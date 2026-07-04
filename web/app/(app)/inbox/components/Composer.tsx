@@ -1,6 +1,6 @@
 "use client";
 import { useState, useRef, useEffect, useCallback } from "react";
-import { Smiley as Smile, Paperclip, Lightning as Zap, PaperPlaneRight as Send, Lock, X, FileText, CircleNotch as Loader2, Clock, Phone, Microphone as Mic, Trash as Trash2, Pause, Play, Sparkle as Sparkles, ArrowsClockwise as RefreshCw, Check, Plus } from "@phosphor-icons/react/ssr";
+import { QuestionCircleLinear as Smile, PaperclipLinear as Paperclip, BoltLinear as Zap, PlainLinear as Send, LockLinear as Lock, CloseCircleLinear as X, FileTextLinear as FileText, RefreshLinear as Loader2, ClockCircleLinear as Clock, PhoneLinear as Phone, Microphone2Linear as Mic, TrashBinTrashLinear as Trash2, PauseLinear as Pause, PlayLinear as Play, MagicStick3Linear as Sparkles, QuestionCircleLinear as RefreshCw, CheckReadLinear as Check, AddCircleLinear as Plus } from "solar-icon-set";
 import EmojiPicker from "emoji-picker-react";
 import { cn } from "@/lib/utils";
 import { api } from "@/lib/api";

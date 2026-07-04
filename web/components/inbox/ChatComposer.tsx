@@ -2,7 +2,7 @@
 
 import { useState, useRef } from "react";
 import { useInbox } from "./InboxContext";
-import { PaperPlaneRight as Send, Lock, Microphone as Mic, Paperclip, Lightning as Zap, Smiley as Smile, FileText, CircleNotch as Loader2, Pause, Play, Trash as Trash2, X } from "@phosphor-icons/react/ssr";
+import { PlainLinear as Send, LockLinear as Lock, Microphone2Linear as Mic, PaperclipLinear as Paperclip, BoltLinear as Zap, QuestionCircleLinear as Smile, FileTextLinear as FileText, RefreshLinear as Loader2, PauseLinear as Pause, PlayLinear as Play, TrashBinTrashLinear as Trash2, CloseCircleLinear as X } from "solar-icon-set";
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
 import EmojiPicker from "emoji-picker-react";
 import { api } from "@/lib/api";

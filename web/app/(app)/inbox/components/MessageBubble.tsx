@@ -1,7 +1,7 @@
 "use client";
 import { memo, useState, useRef, useEffect } from "react";
 import { createPortal } from "react-dom";
-import { Sparkle as Sparkles, Check, Checks as CheckCheck, Clock, WarningCircle as AlertCircle, Play, Pause, Microphone as Mic, User, FileText, FileXls as FileSpreadsheet, FileImage, FileZip as FileArchive, FileCode, File, DownloadSimple as Download, DotsThree as MoreHorizontal, Copy, Clipboard as ClipboardPaste, Link as Link2, Megaphone, ArrowBendUpRight as Forward, PhoneOutgoing, PhoneIncoming, PhoneX as PhoneMissed, MapPin, Phone, ArrowSquareOut as ExternalLink, CircleNotch as Loader2, Sticker as StickerIcon } from "@phosphor-icons/react/ssr";
+import { MagicStick3Linear as Sparkles, CheckReadLinear as Check, CheckReadLinear as CheckCheck, ClockCircleLinear as Clock, DangerCircleLinear as AlertCircle, PlayLinear as Play, PauseLinear as Pause, Microphone2Linear as Mic, UserLinear as User, FileTextLinear as FileText, DocumentTextLinear as FileSpreadsheet, GalleryLinear as FileImage, ArchiveMinimalisticLinear as FileArchive, CodeLinear as FileCode, FileLinear as File, DownloadSquareLinear as Download, MenuDotsLinear as MoreHorizontal, CopyLinear as Copy, ClipboardLinear as ClipboardPaste, LinkLinear as Link2, SpeakerLinear as Speaker, ForwardLinear as Forward, PhoneCallingLinear as PhoneOutgoing, PhoneCallingLinear as PhoneIncoming, PhoneCallingLinear as PhoneMissed, MapPointLinear as MapPin, PhoneLinear as Phone, SquareTopDownLinear as ExternalLink, RefreshLinear as Loader2, StickerSmileSquareLinear as StickerIcon } from "solar-icon-set";
 import { initials, fmtTime, channelColor, channelTextColor, cn } from "@/lib/utils";
 import { api } from "@/lib/api";
 import type { Conversation, Message } from "@/lib/types";
@@ -482,7 +482,7 @@ const MessageBubble = memo(function MessageBubble({ m, active, grouped, onPrevie
             inbound is always the contact, so the name there is just noise). */}
         {!grouped && (out || bot || broadcast) && (
           <p className={cn("text-[10px] font-semibold mb-0.5 px-0.5 inline-flex items-center gap-0.5", bot ? "text-violet-600" : broadcast ? "text-amber-700" : "text-muted-foreground")}>
-            {who} {bot && <Sparkles className="w-2.5 h-2.5" />}{broadcast && <Megaphone className="w-2.5 h-2.5" />}
+            {who} {bot && <Sparkles className="w-2.5 h-2.5" />}{broadcast && <Speaker className="w-2.5 h-2.5" />}
           </p>
         )}
 

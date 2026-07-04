@@ -5,7 +5,7 @@ import { useVirtualizer } from "@tanstack/react-virtual";
 import { useInbox } from "./InboxContext";
 import { getMediaUrl, TimelineItem } from "./SharedTypes";
 import { fmtTime, dateLabel, channelColor, initials } from "@/lib/utils";
-import { Lock, FileText, Robot as Bot, Check, Checks as CheckCheck, Clock, WarningCircle as AlertCircle, Target, Pulse as Activity } from "@phosphor-icons/react/ssr";
+import { LockLinear as Lock, FileTextLinear as FileText, SmartSpeaker2Linear as Bot, CheckReadLinear as Check, CheckReadLinear as CheckCheck, ClockCircleLinear as Clock, DangerCircleLinear as AlertCircle, TargetLinear as Target, PulseLinear as Activity } from "solar-icon-set";
 
 export function MessageTimeline({ 
   timeline, 

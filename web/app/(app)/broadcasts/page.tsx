@@ -1,8 +1,9 @@
 "use client";
 import { useEffect, useMemo, useRef, useState } from "react";
 import { useRouter } from "next/navigation";
-import { Megaphone, ArrowsClockwise as RefreshCw, Plus, X, CircleNotch as Loader2, PaperPlaneRight as Send, Trash as Trash2, Check, MagnifyingGlass as Search, UploadSimple as Upload, Users, UserPlus, FileText, Chat as MessageSquare, Tag as TagIcon, Info, Clock, CheckCircle as CheckCircle2, WarningCircle as AlertCircle, DeviceMobile as Smartphone, ArrowLeft, CaretRight as ChevronRight, CaretLeft as ChevronLeft, CaretDoubleLeft as ChevronsLeft, CaretDoubleRight as ChevronsRight } from "@phosphor-icons/react/ssr";
-import type { Icon as LucideIcon } from "@phosphor-icons/react";
+import { SpeakerLinear as Speaker, QuestionCircleLinear as RefreshCw, AddCircleLinear as Plus, CloseCircleLinear as X, RefreshLinear as Loader2, PlainLinear as Send, TrashBinTrashLinear as Trash2, CheckReadLinear as Check, MagniferLinear as Search, UploadSquareLinear as Upload, UsersGroupTwoRoundedLinear as Users, UserPlusRoundedLinear as UserPlus, FileTextLinear as FileText, ChatRoundLinear as MessageSquare, TagLinear as TagIcon, InfoCircleLinear as Info, ClockCircleLinear as Clock, CheckCircleLinear as CheckCircle2, DangerCircleLinear as AlertCircle, SmartphoneLinear as Smartphone, ArrowLeftLinear as ArrowLeft, AltArrowRightLinear as ChevronRight, AltArrowLeftLinear as ChevronLeft, QuestionCircleLinear as ChevronsLeft, QuestionCircleLinear as ChevronsRight } from "solar-icon-set";
+import type { SVGProps } from "react";
+type LucideIcon = (props: SVGProps<SVGSVGElement>) => JSX.Element;
 import { Tip } from "@/components/ui/tooltip";
 
 import { api } from "@/lib/api";
@@ -92,7 +93,7 @@ export default function BroadcastsPage() {
           {canSend && (
             <button onClick={() => setWizardOpen(true)}
               className="inline-flex items-center gap-2 px-3.5 h-9 bg-primary text-white rounded-md text-sm font-semibold hover:bg-primary-dark shadow-sm hover:shadow-brand-md transition-all outline-none">
-              <Megaphone className="w-4 h-4" /> New broadcast
+              <Speaker className="w-4 h-4" /> New broadcast
             </button>
           )}
         </div>
@@ -169,7 +170,7 @@ function EmptyState({ onCreate, canCreate }: { onCreate: () => void; canCreate: 
   return (
     <div className="grid place-items-center text-center">
       <div className="w-16 h-16 rounded-2xl bg-primary/10 grid place-items-center mb-4">
-        <Megaphone className="w-8 h-8 text-primary" />
+        <Speaker className="w-8 h-8 text-primary" />
       </div>
       <p className="font-bold text-foreground">No broadcasts yet</p>
       <p className="text-sm text-muted-foreground mt-1 mb-4">Send bulk messages to your contacts at once.</p>
@@ -424,7 +425,7 @@ function BroadcastWizard({ onClose, onDone }: { onClose: () => void; onDone: (ms
     >
         {/* Step dots */}
         <div className="flex items-center gap-3 pb-5">
-          <div className="w-9 h-9 rounded-lg bg-primary/10 text-primary grid place-items-center shrink-0"><Megaphone className="w-5 h-5" /></div>
+          <div className="w-9 h-9 rounded-lg bg-primary/10 text-primary grid place-items-center shrink-0"><Speaker className="w-5 h-5" /></div>
           <div className="flex items-center flex-1">
             {STEPS.map((s, i) => {
               const done = i < step, active = i === step;
