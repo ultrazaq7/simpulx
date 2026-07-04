@@ -186,10 +186,10 @@ export default function ContactDetailsPage() {
         )}
       </div>
 
-      {/* Body: 3 columns */}
-      <div className="flex-1 min-h-0 grid grid-cols-1 lg:grid-cols-[300px_1fr_300px] overflow-hidden">
+      {/* Body: 3 columns on desktop; stacked + page-scroll on mobile */}
+      <div className="flex-1 min-h-0 grid grid-cols-1 lg:grid-cols-[300px_1fr_300px] overflow-y-auto lg:overflow-hidden">
         {/* ── Left: identity ── */}
-        <div className="border-r border-border bg-card overflow-y-auto p-5">
+        <div className="border-b lg:border-b-0 lg:border-r border-border bg-card lg:overflow-y-auto p-5">
           <div className="flex flex-col items-center text-center">
             <div className="w-20 h-20 rounded-full grid place-items-center text-2xl font-bold ring-1 ring-inset ring-black/5"
               style={{ backgroundColor: chColor + "1A", color: chColor }}>
@@ -236,7 +236,7 @@ export default function ContactDetailsPage() {
         </div>
 
         {/* ── Center: tabs ── */}
-        <div className="flex flex-col min-h-0 bg-background">
+        <div className="flex flex-col min-h-0 bg-background max-lg:min-h-[65vh]">
           <div className="flex items-center gap-1 px-4 border-b border-border bg-card shrink-0">
             {([["conversation", `Conversation (${allMessages.length})`], ["notes", `Notes (${notes.length})`], ["media", `Media (${media.length})`], ["history", `History (${activity.length})`]] as const).map(([k, label]) => (
               <button key={k} onClick={() => setTab(k)}
@@ -247,7 +247,7 @@ export default function ContactDetailsPage() {
             ))}
           </div>
 
-          <div className="flex-1 overflow-y-auto p-4">
+          <div className="flex-1 lg:overflow-y-auto p-4">
             {tab === "conversation" ? (
               allMessages.length === 0 ? <Empty icon={MessageSquare} text="No messages yet." /> : (
                 <div className="space-y-2 max-w-[760px]">
@@ -356,7 +356,7 @@ export default function ContactDetailsPage() {
         </div>
 
         {/* ── Right: attributes ── */}
-        <div className="border-l border-border bg-card overflow-y-auto p-5">
+        <div className="border-t lg:border-t-0 lg:border-l border-border bg-card lg:overflow-y-auto p-5">
           <Section title="Labels" first>
             {c.tags && c.tags.length > 0 ? (
               <div className="flex flex-wrap gap-1.5">

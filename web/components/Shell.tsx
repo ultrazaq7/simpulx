@@ -410,7 +410,7 @@ export function Shell({ children }: { children: ReactNode }) {
   const expanded = isMobile ? true : sidebarOpen;
 
   if (!user) return (
-    <div className="grid place-items-center h-screen bg-background text-muted-foreground text-sm">
+    <div className="grid place-items-center h-dvh bg-background text-muted-foreground text-sm">
       <Loader2 className="w-5 h-5 animate-spin text-primary" />
     </div>
   );
@@ -466,7 +466,7 @@ export function Shell({ children }: { children: ReactNode }) {
   }
 
   return (
-    <div className="flex h-screen overflow-hidden bg-background text-foreground">
+    <div className="flex h-dvh overflow-hidden bg-background text-foreground">
       {/* Mobile drawer backdrop */}
       {isMobile && mobileNavOpen && (
         <div className="fixed inset-0 bg-black/40 z-[55] lg:hidden" onClick={() => setMobileNavOpen(false)} aria-hidden />
