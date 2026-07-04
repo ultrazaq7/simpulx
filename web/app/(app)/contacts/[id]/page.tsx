@@ -6,7 +6,7 @@ import {
   ExternalLink, Building2, User, Radio, RadioTower, Layers, Flame, FileText, Image as ImageIcon, Video, StickyNote,
 } from "lucide-react";
 import { api } from "@/lib/api";
-import { initials, channelColor, fmtDate, fmtTime, relTime, fmtDateTimeShort, cn } from "@/lib/utils";
+import { initials, channelColor, fmtDate, fmtTime, relTime, fmtDateTimeShort, cn, channelLabel } from "@/lib/utils";
 import type { Contact, Conversation, Message, InternalNote } from "@/lib/types";
 import { StageMenu } from "../../inbox/components/StageMenu";
 import { InterestMenu } from "../../inbox/components/InterestMenu";
@@ -21,10 +21,14 @@ const STAGE_COLORS: Record<string, string> = {
 const stageColor = (name?: string | null) =>
   (name && (STAGE_COLORS[name.toLowerCase()] || STAGE_COLORS[name.toLowerCase().replace(/\s+/g, "_")])) || "#64748B";
 
+const SOURCE_PLATFORM_LABELS: Record<string, string> = {
+  meta: "Meta Ads", tiktok: "TikTok Ads", google: "Google Ads", other: "Website",
+};
 function sourceLabel(c: Contact): string {
-  if (c.source_id) return "Ad";
+  if (c.source_id) return "Meta Ads";
+  if (c.web_api_source_platform) return SOURCE_PLATFORM_LABELS[c.web_api_source_platform] ?? c.web_api_source_name ?? "Website";
   if (c.web_api_source_name) return c.web_api_source_name;
-  return c.source_channel || "Direct";
+  return c.source_channel ? channelLabel(c.source_channel) : "Direct";
 }
 function isMedia(m: Message): "image" | "video" | "document" | null {
   if (!m.media_url) return null;
