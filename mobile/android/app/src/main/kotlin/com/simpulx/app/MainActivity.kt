@@ -19,6 +19,15 @@ class MainActivity : FlutterActivity() {
     // system ToneGenerator so no audio asset needs to be bundled.
     private var ringbackTone: android.media.ToneGenerator? = null
 
+    // Force this activity's configuration to the user's in-app theme choice so
+    // the launch/splash theme resolves its `-night` resources against that
+    // choice, not the device's system theme. Runs before onCreate/window
+    // creation, so it takes effect for the first splash frame this process
+    // draws (see NativeThemeStore.wrap).
+    override fun attachBaseContext(newBase: Context) {
+        super.attachBaseContext(NativeThemeStore.wrap(newBase))
+    }
+
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
         showOverLockscreen()

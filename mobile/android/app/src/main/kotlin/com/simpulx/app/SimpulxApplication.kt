@@ -1,6 +1,7 @@
 package com.simpulx.app
 
 import android.content.Context
+import android.content.res.Configuration
 import androidx.appcompat.app.AppCompatDelegate
 import io.flutter.app.FlutterApplication
 
@@ -12,9 +13,13 @@ import io.flutter.app.FlutterApplication
  * theme inside the app (Flutter's ThemeMode is Dart-side state that doesn't
  * exist yet at splash time).
  *
- * [MainActivity] mirrors the Flutter-side preference here (see
- * NativeThemeStore) every time the user changes it, so this file is always
- * a beat behind the in-app setting, not the system setting.
+ * The splash background is resolved from the launch theme against the
+ * ACTIVITY's configuration, so the real fix lives in
+ * [MainActivity.attachBaseContext] (via [NativeThemeStore.wrap]) - this
+ * AppCompatDelegate call only covers any incidental AppCompat surfaces.
+ * [MainActivity] mirrors the Flutter-side preference into [NativeThemeStore]
+ * every time it changes, so the store is always a beat behind the in-app
+ * setting, not the system setting.
  */
 class SimpulxApplication : FlutterApplication() {
     override fun onCreate() {
@@ -35,13 +40,31 @@ object NativeThemeStore {
             .apply()
     }
 
-    fun readNightMode(context: Context): Int {
-        val mode = context.getSharedPreferences(PREFS, Context.MODE_PRIVATE)
-            .getString(KEY_THEME_MODE, "system")
-        return when (mode) {
-            "light" -> AppCompatDelegate.MODE_NIGHT_NO
-            "dark" -> AppCompatDelegate.MODE_NIGHT_YES
-            else -> AppCompatDelegate.MODE_NIGHT_FOLLOW_SYSTEM
-        }
+    private fun mode(context: Context): String =
+        context.getSharedPreferences(PREFS, Context.MODE_PRIVATE)
+            .getString(KEY_THEME_MODE, "system") ?: "system"
+
+    fun readNightMode(context: Context): Int = when (mode(context)) {
+        "light" -> AppCompatDelegate.MODE_NIGHT_NO
+        "dark" -> AppCompatDelegate.MODE_NIGHT_YES
+        else -> AppCompatDelegate.MODE_NIGHT_FOLLOW_SYSTEM
+    }
+
+    /**
+     * Wraps [base] with a configuration whose night-mode bit is forced to the
+     * saved preference, so resource resolution for THIS activity's window -
+     * including the launch/splash theme's `-night` qualifier - follows the
+     * in-app choice instead of the device's system theme. Returns [base]
+     * unchanged for "system" (follow the device, the default behaviour).
+     */
+    fun wrap(base: Context): Context {
+        val m = mode(base)
+        if (m == "system") return base
+        val nightBits =
+            if (m == "dark") Configuration.UI_MODE_NIGHT_YES else Configuration.UI_MODE_NIGHT_NO
+        val config = Configuration(base.resources.configuration)
+        config.uiMode =
+            (config.uiMode and Configuration.UI_MODE_NIGHT_MASK.inv()) or nightBits
+        return base.createConfigurationContext(config)
     }
 }
