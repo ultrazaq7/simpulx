@@ -92,8 +92,7 @@ export default function Composer({
     return () => clearTimeout(t);
   }, [conversationId]);
 
-  // ── Contextual AI assist: Reply tab -> Smart Reply, Internal note tab -> Smart Summary ──
-  const aiMode: "reply" | "summary" = tab === 1 ? "summary" : "reply";
+  // ── AI Smart Summary (Internal note tab only) ──
   const [aiOpen, setAiOpen] = useState(false);
   const [aiText, setAiText] = useState("");
   const [aiState, setAiState] = useState<"idle" | "streaming" | "done" | "error">("idle");
@@ -105,18 +104,13 @@ export default function Composer({
     aiAbortRef.current?.abort();
     setAiOpen(false); setAiText(""); setAiState("idle"); setAiConfirmed(false);
   }, [conversationId]); // eslint-disable-line react-hooks/exhaustive-deps
-  // Switching mode (reply <-> note) clears the previous draft/summary and auto-generates if open.
+  // Switching to Reply tab closes the AI panel (Smart Reply removed).
   useEffect(() => {
-    aiAbortRef.current?.abort();
-    setAiText(""); setAiState("idle"); setAiConfirmed(false);
-    if (aiOpen) {
-      // Small timeout to allow state to settle before triggering generation
-      setTimeout(() => {
-        if (aiMode === "summary" && aiSummary) { setAiText(aiSummary); setAiState("done"); }
-        else generateAI();
-      }, 0);
+    if (tab === 0 && aiOpen) {
+      aiAbortRef.current?.abort();
+      setAiOpen(false); setAiText(""); setAiState("idle"); setAiConfirmed(false);
     }
-  }, [aiMode]); // eslint-disable-line react-hooks/exhaustive-deps
+  }, [tab]); // eslint-disable-line react-hooks/exhaustive-deps
   useEffect(() => () => aiAbortRef.current?.abort(), []);
 
   const generateAI = useCallback(async () => {
@@ -125,7 +119,7 @@ export default function Composer({
     const ctrl = new AbortController();
     aiAbortRef.current = ctrl;
     setAiText(""); setAiState("streaming"); setAiConfirmed(false);
-    const stream = aiMode === "summary" ? api.streamSummary : api.streamDraftReply;
+    const stream = api.streamSummary;
     try {
       await stream(conversationId, (t) => setAiText((p) => p + t), ctrl.signal);
       setAiState("done");
@@ -133,19 +127,17 @@ export default function Composer({
       if (ctrl.signal.aborted) return;
       setAiState("error");
     }
-  }, [conversationId, aiMode]);
+  }, [conversationId]);
 
   const openAI = () => {
     const next = !aiOpen;
     setAiOpen(next);
     if (!next || aiText || aiState === "streaming") return;
-    // Summary reuses the last persisted briefing (saves a call); reply always fresh.
-    if (aiMode === "summary" && aiSummary) { setAiText(aiSummary); setAiState("done"); }
+    // Summary reuses the last persisted briefing (saves a call).
+    if (aiSummary) { setAiText(aiSummary); setAiState("done"); }
     else generateAI();
   };
 
-  // UI copy rule: never show em/en dashes.
-  const cleanReply = (t: string) => t.replace(/\s*[—–]\s*/g, ", ").trim();
   const summaryBullets = (t: string) => t
     .replace(/\s*[—–]\s*/g, ", ")
     .split("\n")
@@ -154,23 +146,15 @@ export default function Composer({
 
   const confirmAI = async () => {
     if (aiState !== "done" || !aiText.trim()) return;
-    if (aiMode === "reply") {
-      const text = cleanReply(aiText);
-      if (!text) return;
-      setAiConfirmed(true);
-      setDraft((d) => (d.trim() ? d.trimEnd() + "\n" + text : text));
+    const body = summaryBullets(aiText).map((b) => "• " + b).join("\n");
+    if (!body) return;
+    setAiConfirmed(true);
+    try {
+      if (onAddNote) await onAddNote(body);
       setTimeout(() => { setAiOpen(false); setAiConfirmed(false); }, 420);
-    } else {
-      const body = summaryBullets(aiText).map((b) => "• " + b).join("\n");
-      if (!body) return;
-      setAiConfirmed(true);
-      try {
-        if (onAddNote) await onAddNote(body);
-        setTimeout(() => { setAiOpen(false); setAiConfirmed(false); }, 420);
-      } catch {
-        setAiConfirmed(false);
-        notify("Could not add note", "error");
-      }
+    } catch {
+      setAiConfirmed(false);
+      notify("Could not add note", "error");
     }
   };
 
@@ -404,32 +388,32 @@ export default function Composer({
 
           <div className="flex-1" />
 
-          {/* Contextual AI assist — label + action follow the active tab */}
-          <button
-            type="button"
-            onClick={openAI}
-            className={cn(
-              "inline-flex items-center gap-1.5 h-6 px-2 mb-1 rounded-md text-[12px] font-semibold outline-none transition-colors",
-              note
-                ? (aiOpen ? "bg-amber-100 text-amber-800" : "text-amber-700 hover:bg-amber-100")
-                : (aiOpen ? "bg-primary/10 text-primary" : "text-primary hover:bg-primary/10"),
-            )}
-          >
-            <Sparkles className={cn("w-3.5 h-3.5", aiState === "streaming" && "animate-pulse")} />
-            {aiMode === "summary" ? "AI Smart Summary" : "AI Smart Reply"}
-          </button>
+          {/* AI Smart Summary — Internal note tab only */}
+          {note && (
+            <button
+              type="button"
+              onClick={openAI}
+              className={cn(
+                "inline-flex items-center gap-1.5 h-6 px-2 mb-1 rounded-md text-[12px] font-semibold outline-none transition-colors",
+                aiOpen ? "bg-amber-100 text-amber-800" : "text-amber-700 hover:bg-amber-100",
+              )}
+            >
+              <Sparkles className={cn("w-3.5 h-3.5", aiState === "streaming" && "animate-pulse")} />
+              AI Smart Summary
+            </button>
+          )}
         </div>
 
         {/* AI assistant card (streams a draft; Confirm submits with a gesture) */}
         {aiOpen && (
           <div className={cn(
             "mx-3 mt-2 rounded-xl border bg-card shadow-sm overflow-hidden transition-all duration-300 origin-bottom",
-            note ? "border-amber-200" : "border-primary/30",
+            "border-amber-200",
             aiConfirmed ? "opacity-0 -translate-y-2 scale-[0.97]" : "animate-scale-in",
           )}>
-            <div className={cn("flex items-center gap-1.5 px-3 py-2 border-b", note ? "border-amber-200 bg-amber-50" : "border-border bg-primary/[0.04]")}>
-              <Sparkles className={cn("w-4 h-4", note ? "text-amber-700" : "text-primary")} />
-              <p className="text-[13px] font-bold text-foreground">{aiMode === "summary" ? "AI Smart Summary" : "AI Smart Reply"}</p>
+            <div className="flex items-center gap-1.5 px-3 py-2 border-b border-amber-200 bg-amber-50">
+              <Sparkles className="w-4 h-4 text-amber-700" />
+              <p className="text-[13px] font-bold text-foreground">AI Smart Summary</p>
               <div className="ml-auto flex items-center gap-0.5">
                 {aiState !== "streaming" && (
                   <Tip label="Regenerate">
@@ -449,7 +433,7 @@ export default function Composer({
                 <div>
                   <div className="flex items-center gap-1.5 text-primary mb-2.5">
                     <Sparkles className="w-3.5 h-3.5 animate-pulse" />
-                    <span className="text-[12px] font-semibold">{aiMode === "summary" ? "Summarizing the conversation…" : "Drafting a reply…"}</span>
+                    <span className="text-[12px] font-semibold">Summarizing the conversation…</span>
                   </div>
                   <div className="space-y-2">
                     <div className="h-2.5 rounded skeleton w-[92%]" />
@@ -459,10 +443,10 @@ export default function Composer({
                 </div>
               ) : aiState === "error" ? (
                 <div className="py-2 text-center">
-                  <p className="text-xs text-muted-foreground mb-2">{aiMode === "summary" ? "Could not generate a summary." : "Could not draft a reply."}</p>
+                  <p className="text-xs text-muted-foreground mb-2">Could not generate a summary.</p>
                   <button onClick={generateAI} className="text-[12px] font-semibold text-primary hover:underline outline-none">Try again</button>
                 </div>
-              ) : aiMode === "summary" ? (
+              ) : (
                 <ul className="space-y-1.5">
                   {summaryBullets(aiText).map((line, i, arr) => {
                     const last = i === arr.length - 1;
@@ -477,11 +461,6 @@ export default function Composer({
                     );
                   })}
                 </ul>
-              ) : (
-                <p className="text-[13px] leading-relaxed text-foreground/90 whitespace-pre-line">
-                  {cleanReply(aiText)}
-                  {aiState === "streaming" && <span className="inline-block w-[2px] h-3.5 ml-0.5 bg-primary/70 align-middle animate-pulse" />}
-                </p>
               )}
             </div>
 
@@ -493,10 +472,9 @@ export default function Composer({
                 </button>
                 <div className="flex-1" />
                 <button onClick={confirmAI}
-                  className={cn("inline-flex items-center gap-1.5 h-7 px-3 rounded-md text-[12px] font-bold text-white outline-none transition-colors shadow-sm",
-                    note ? "bg-amber hover:bg-amber/90" : "bg-primary hover:bg-primary-dark")}>
+                  className="inline-flex items-center gap-1.5 h-7 px-3 rounded-md text-[12px] font-bold text-white bg-amber hover:bg-amber/90 outline-none transition-colors shadow-sm">
                   <Check className="w-3.5 h-3.5" />
-                  {aiMode === "summary" ? "Add as note" : "Use this reply"}
+                  Add as note
                 </button>
               </div>
             )}
