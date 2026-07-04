@@ -9,7 +9,7 @@ import Link from "next/link";
 import { usePathname } from "next/navigation";
 import {
   Settings, FormInput, Bell, User, ShieldCheck,
-  Building2, FileText, GitBranch, Radio, Clock, ClipboardList,
+  Building2, FileText, GitBranch, RadioTower, Clock, ClipboardList,
   PanelLeftClose, PanelLeftOpen,
 } from "lucide-react";
 import { cn } from "@/lib/utils";
@@ -44,7 +44,7 @@ const GROUPS: { titleKey: string; items: NavItem[] }[] = [
       { key: "wa-forms", labelKey: "settings.forms", icon: ClipboardList, href: "/settings/wa-forms", perm: "view_automation" },
       { key: "custom-fields", labelKey: "settings.custom_fields", icon: FormInput, href: "/settings/custom-fields", perm: "view_settings" },
       // Channel & Integrations merges messaging channels, Web API lead sources and ad accounts.
-      { key: "channels", labelKey: "settings.channels_integrations", icon: Radio, href: "/settings/channels", perm: "manage_channels" },
+      { key: "channels", labelKey: "settings.channels_integrations", icon: RadioTower, href: "/settings/channels", perm: "manage_channels" },
     ],
   },
   {

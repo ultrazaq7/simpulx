@@ -3,7 +3,7 @@ import { useEffect, useMemo, useState } from "react";
 import { useParams, useRouter } from "next/navigation";
 import {
   ArrowLeft, Loader2, Phone, Mail, Tag as TagIcon, MessageSquare, Calendar, Clock,
-  ExternalLink, Megaphone, User, Radio, FileText, Image as ImageIcon, Video, StickyNote,
+  ExternalLink, Building2, User, Radio, RadioTower, Layers, Flame, FileText, Image as ImageIcon, Video, StickyNote,
 } from "lucide-react";
 import { api } from "@/lib/api";
 import { initials, channelColor, fmtDate, fmtTime, relTime, fmtDateTimeShort, cn } from "@/lib/utils";
@@ -221,7 +221,7 @@ export default function ContactDetailsPage() {
           <Section title="Contact info">
             <Row icon={Phone} label="Phone" value={c.phone || "-"} mono />
             <Row icon={Mail} label="Email" value="-" />
-            <Row icon={Radio} label="Channel" value={c.channel_name || c.source_channel || "-"} />
+            <Row icon={RadioTower} label="Channel" value={c.channel_name || c.source_channel || "-"} />
           </Section>
 
           {customFields.length > 0 && (
@@ -368,9 +368,9 @@ export default function ContactDetailsPage() {
           </Section>
 
           <Section title="Lead qualification">
-            <Row icon={Radio} label="Stage" value={c.stage_name || "-"} />
+            <Row icon={Layers} label="Stage" value={c.stage_name || "-"} />
             {c.lost_reason && <Row icon={StickyNote} label="Lost reason" value={<span className="capitalize">{c.lost_reason.replace(/_/g, " ")}</span>} />}
-            <Row icon={Radio} label="Interest level" value={<span className="capitalize">{c.interest_level || "-"}</span>} />
+            <Row icon={Flame} label="Interest level" value={<span className="capitalize">{c.interest_level || "-"}</span>} />
             <Row icon={TagIcon} label="Brand" value={c.car_brand || "-"} />
             <Row icon={TagIcon} label="Model" value={c.car_model || "-"} />
             <Row icon={TagIcon} label="City" value={c.city || "-"} />
@@ -378,7 +378,7 @@ export default function ContactDetailsPage() {
           </Section>
 
           <Section title="Assignment">
-            <Row icon={Megaphone} label="Campaign" value={c.campaign_name || "-"} />
+            <Row icon={Building2} label="Campaign" value={c.campaign_name || "-"} />
             <Row icon={User} label="Agent" value={c.agent_name || "Unassigned"} />
           </Section>
 
