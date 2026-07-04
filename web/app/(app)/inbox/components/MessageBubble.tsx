@@ -1,7 +1,12 @@
 "use client";
 import { memo, useState, useRef, useEffect } from "react";
 import { createPortal } from "react-dom";
-import { MagicStick3Linear as Sparkles, CheckReadLinear as Check, CheckReadLinear as CheckCheck, ClockCircleLinear as Clock, DangerCircleLinear as AlertCircle, PlayLinear as Play, PauseLinear as Pause, Microphone2Linear as Mic, UserLinear as User, FileTextLinear as FileText, DocumentTextLinear as FileSpreadsheet, GalleryLinear as FileImage, ArchiveMinimalisticLinear as FileArchive, CodeLinear as FileCode, FileLinear as File, DownloadSquareLinear as Download, MenuDotsLinear as MoreHorizontal, CopyLinear as Copy, ClipboardLinear as ClipboardPaste, LinkLinear as Link2, SpeakerLinear as Speaker, ForwardLinear as Forward, PhoneCallingLinear as PhoneOutgoing, PhoneCallingLinear as PhoneIncoming, PhoneCallingLinear as PhoneMissed, MapPointLinear as MapPin, PhoneLinear as Phone, SquareTopDownLinear as ExternalLink, RefreshLinear as Loader2, StickerSmileSquareLinear as StickerIcon } from "solar-icon-set";
+import {
+  Sparkles, Check, CheckCheck, Clock, AlertCircle, Play, Pause, Mic, User,
+  FileText, FileSpreadsheet, FileImage, FileArchive, FileCode,
+  File, Download, MoreHorizontal, Copy, ClipboardPaste, Link2, Megaphone, Forward,
+  PhoneOutgoing, PhoneIncoming, PhoneMissed, MapPin, Phone, ExternalLink, Loader2, Sticker as StickerIcon,
+} from "lucide-react";
 import { initials, fmtTime, channelColor, channelTextColor, cn } from "@/lib/utils";
 import { api } from "@/lib/api";
 import type { Conversation, Message } from "@/lib/types";
@@ -482,7 +487,7 @@ const MessageBubble = memo(function MessageBubble({ m, active, grouped, onPrevie
             inbound is always the contact, so the name there is just noise). */}
         {!grouped && (out || bot || broadcast) && (
           <p className={cn("text-[10px] font-semibold mb-0.5 px-0.5 inline-flex items-center gap-0.5", bot ? "text-violet-600" : broadcast ? "text-amber-700" : "text-muted-foreground")}>
-            {who} {bot && <Sparkles className="w-2.5 h-2.5" />}{broadcast && <Speaker className="w-2.5 h-2.5" />}
+            {who} {bot && <Sparkles className="w-2.5 h-2.5" />}{broadcast && <Megaphone className="w-2.5 h-2.5" />}
           </p>
         )}
 

@@ -1,6 +1,10 @@
 "use client";
 import { useState, useEffect, useCallback, useMemo } from "react";
-import { ChatRoundLinear as MessageSquare, AltArrowRightLinear as ChevronRight, AltArrowLeftLinear as ChevronLeft, CheckReadLinear as Check, CopyLinear as Copy, CloseCircleLinear as X, MagniferLinear as Search, CheckCircleLinear as CheckCircle, QuestionCircleLinear as RotateCcw, QuestionCircleLinear as PanelRight, LockLinear as Lock, AltArrowUpLinear as ChevronUp, AltArrowDownLinear as ChevronDown, DownloadSquareLinear as Download, QuestionCircleLinear as XCircle, UserLinear as User, FileTextLinear as FileText, QuestionCircleLinear as Video, ClockCircleLinear as Clock } from "solar-icon-set";
+import {
+  MessageSquare, ChevronRight, ChevronLeft, Check, Copy, X, Search,
+  CheckCircle, RotateCcw, PanelRight, Lock, ChevronUp, ChevronDown,
+  Download, XCircle, User, FileText, Video, Clock,
+} from "lucide-react";
 import { cn, fmtTime, initials, channelColor, channelTextColor } from "@/lib/utils";
 import { Tip } from "@/components/ui/tooltip";
 import type { Agent, Conversation, Disposition, InternalNote, QuickReply, Stage, Message } from "@/lib/types";

@@ -1,6 +1,10 @@
 "use client";
 import { useEffect, useMemo, useRef, useState } from "react";
-import { MagniferLinear as Search, AddCircleLinear as Plus, PenLinear as Pencil, TrashBinTrashLinear as Trash2, PlainLinear as Send, QuestionCircleLinear as RefreshCw, RefreshLinear as Loader2, CloseCircleLinear as X, AltArrowLeftLinear as ChevronLeft, PhoneLinear as Phone, QuestionCircleLinear as Bold, TextItalicLinear as Italic, QuestionCircleLinear as Strikethrough, QuestionCircleLinear as Smile, InfoCircleLinear as Info, GalleryLinear as ImageIcon, QuestionCircleLinear as Video, UserLinear as UserRound, QuestionCircleLinear as LibraryBig, QuestionCircleLinear as Terminal, UploadSquareLinear as Upload } from "solar-icon-set";
+import {
+  Search, Plus, Pencil, Trash2, Send, RefreshCw, Loader2, X, ChevronLeft,
+  Phone, Bold, Italic, Strikethrough, Smile, Info, Image as ImageIcon, Video,
+  UserRound, LibraryBig, Terminal, Upload,
+} from "lucide-react";
 import { api } from "@/lib/api";
 import { Select } from "@/components/Select";
 import { MultiSelect } from "@/components/ui/multi-select";

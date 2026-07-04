@@ -1,7 +1,10 @@
 "use client";
 import { useEffect, useMemo, useRef, useState } from "react";
 import { useRouter } from "next/navigation";
-import { MagniferLinear as Search, UserPlusRoundedLinear as UserPlus, DownloadSquareLinear as Download, PenLinear as Pencil, QuestionCircleLinear as ChevronsLeft, QuestionCircleLinear as ChevronsRight, AltArrowLeftLinear as ChevronLeft, AltArrowRightLinear as ChevronRight, UsersGroupTwoRoundedLinear as Users, UserLinear as User, CloseCircleLinear as X, QuestionCircleLinear as XCircle, RefreshLinear as Loader2, TagLinear as TagIcon, MenuDotsCircleLinear as MoreVertical, ChatRoundLinear as MessageSquare, TrashBinTrashLinear as Trash2, UploadSquareLinear as Upload, AltArrowDownLinear as ChevronDown, EyeLinear as Eye, QuestionCircleLinear as Ban, CopyLinear as Copy, CheckReadLinear as Check } from "solar-icon-set";
+import {
+  Search, UserPlus, Download, Pencil, ChevronsLeft, ChevronsRight, ChevronLeft, ChevronRight,
+  Users, User, X, XCircle, Loader2, Tag as TagIcon, MoreVertical, MessageSquare, Trash2, Upload, ChevronDown, Eye, Ban, Copy, Check,
+} from "lucide-react";
 
 import { api, getUser } from "@/lib/api";
 import { usePermissions } from "@/lib/permissions";

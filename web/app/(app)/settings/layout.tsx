@@ -7,7 +7,11 @@
 import { type ReactNode, useState, useEffect } from "react";
 import Link from "next/link";
 import { usePathname } from "next/navigation";
-import { SettingsLinear as Settings, TextSquareLinear as FormInput, BellLinear as Bell, UserLinear as User, ShieldCheckLinear as ShieldCheck, BuildingsLinear as Building2, FileTextLinear as FileText, ShareLinear as GitBranch, RadioLinear as Radio, ClockCircleLinear as Clock, ClipboardTextLinear as ClipboardList, QuestionCircleLinear as PanelLeftClose, QuestionCircleLinear as PanelLeftOpen } from "solar-icon-set";
+import {
+  Settings, FormInput, Bell, User, ShieldCheck,
+  Building2, FileText, GitBranch, Radio, Clock, ClipboardList,
+  PanelLeftClose, PanelLeftOpen,
+} from "lucide-react";
 import { cn } from "@/lib/utils";
 import { usePermissions } from "@/lib/permissions";
 import { useI18n } from "@/lib/i18n";

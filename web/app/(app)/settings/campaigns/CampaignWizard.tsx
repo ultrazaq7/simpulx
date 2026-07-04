@@ -4,7 +4,7 @@
 // its own coverage, ad sources and agents. Leads route by ad source to a branch,
 // else fall back to the campaign's default agents.
 import { useEffect, useState } from "react";
-import { AddCircleLinear as Plus, TrashBinTrashLinear as Trash2, RefreshLinear as Loader2, PhoneLinear as Phone, QuestionCircleLinear as PhoneOff, MagicStick3Linear as Sparkles, BuildingsLinear as Building2 } from "solar-icon-set";
+import { Plus, Trash2, Loader2, Phone, PhoneOff, Sparkles, Building2 } from "lucide-react";
 import { api } from "@/lib/api";
 import type { UserAccount, Channel, WebApiSource } from "@/lib/types";
 import { Select } from "@/components/Select";

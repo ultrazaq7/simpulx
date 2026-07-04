@@ -3,7 +3,7 @@
 // reveals the generated API key + a ready-to-copy curl snippet, so connecting an
 // external lead source feels like a guided enterprise onboarding.
 import { useState } from "react";
-import { PlugCircleLinear as Plug, RefreshLinear as Loader2, CopyLinear as Copy, CheckReadLinear as Check, CheckCircleLinear as CheckCircle2, KeyLinear as Key } from "solar-icon-set";
+import { Plug, Loader2, Copy, Check, CheckCircle2, Key } from "lucide-react";
 import { api } from "@/lib/api";
 import { Select } from "@/components/Select";
 import type { Campaign, SourcePlatform } from "@/lib/types";

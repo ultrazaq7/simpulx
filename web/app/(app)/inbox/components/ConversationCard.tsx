@@ -1,6 +1,9 @@
 "use client";
 import { memo } from "react";
-import { GalleryLinear as ImageIcon, QuestionCircleLinear as Video, FileTextLinear as FileText, QuestionCircleLinear as Headset, SmartSpeaker2Linear as Bot, CheckCircleLinear as CheckCircle, BoltLinear as Zap, ClockCircleLinear as Clock, PhoneLinear as Phone, StickerSmileSquareLinear as Sticker, Microphone2Linear as Mic, UserLinear as User, BuildingsLinear as Building2, CheckReadLinear as Check, CheckReadLinear as CheckCheck, DangerCircleLinear as AlertCircle } from "solar-icon-set";
+import {
+  Image as ImageIcon, Video, FileText, Headset, Bot, CheckCircle, Zap, Clock, Phone, Sticker, Mic, User, Building2,
+  Check, CheckCheck, AlertCircle,
+} from "lucide-react";
 import { initials, channelColor, avatarColor, cn } from "@/lib/utils";
 import { WindowTime, WindowCountdownBadge } from "./WindowTime";
 import { Tip } from "@/components/ui/tooltip";

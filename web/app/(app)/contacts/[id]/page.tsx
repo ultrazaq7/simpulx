@@ -1,7 +1,10 @@
 "use client";
 import { useEffect, useMemo, useState } from "react";
 import { useParams, useRouter } from "next/navigation";
-import { ArrowLeftLinear as ArrowLeft, RefreshLinear as Loader2, PhoneLinear as Phone, LetterLinear as Mail, TagLinear as TagIcon, ChatRoundLinear as MessageSquare, CalendarLinear as Calendar, ClockCircleLinear as Clock, SquareTopDownLinear as ExternalLink, SpeakerLinear as Speaker, UserLinear as User, RadioLinear as Radio, FileTextLinear as FileText, GalleryLinear as ImageIcon, QuestionCircleLinear as Video, QuestionCircleLinear as StickyNote } from "solar-icon-set";
+import {
+  ArrowLeft, Loader2, Phone, Mail, Tag as TagIcon, MessageSquare, Calendar, Clock,
+  ExternalLink, Megaphone, User, Radio, FileText, Image as ImageIcon, Video, StickyNote,
+} from "lucide-react";
 import { api } from "@/lib/api";
 import { initials, channelColor, fmtDate, fmtTime, relTime, fmtDateTimeShort, cn } from "@/lib/utils";
 import type { Contact, Conversation, Message, InternalNote } from "@/lib/types";
@@ -375,7 +378,7 @@ export default function ContactDetailsPage() {
           </Section>
 
           <Section title="Assignment">
-            <Row icon={Speaker} label="Campaign" value={c.campaign_name || "-"} />
+            <Row icon={Megaphone} label="Campaign" value={c.campaign_name || "-"} />
             <Row icon={User} label="Agent" value={c.agent_name || "Unassigned"} />
           </Section>
 

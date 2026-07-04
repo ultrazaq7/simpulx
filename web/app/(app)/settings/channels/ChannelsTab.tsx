@@ -4,7 +4,10 @@
 // so this view is a clean, searchable, filterable list of real connections.
 import { useEffect, useMemo, useState } from "react";
 import Link from "next/link";
-import { AddCircleLinear as Plus, QuestionCircleLinear as RefreshCw, PenLinear as Pencil, TrashBinTrashLinear as Trash2, CheckCircleLinear as CheckCircle, RefreshLinear as Loader2, CloseCircleLinear as X, MagniferLinear as Search, MenuDotsCircleLinear as MoreVertical, FileTextLinear as FileText, PowerLinear as Power, AltArrowLeftLinear as ChevronLeft, AltArrowRightLinear as ChevronRight, QuestionCircleLinear as ChevronsLeft, QuestionCircleLinear as ChevronsRight } from "solar-icon-set";
+import {
+  Plus, RefreshCw, Pencil, Trash2, CheckCircle, Loader2, X, Search, MoreVertical, FileText, Power,
+  ChevronLeft, ChevronRight, ChevronsLeft, ChevronsRight,
+} from "lucide-react";
 import ChannelIcon, { CHANNEL_CATALOG, channelMeta } from "@/components/ChannelIcon";
 import { api } from "@/lib/api";
 import { cn, fmtDateTimeShort } from "@/lib/utils";

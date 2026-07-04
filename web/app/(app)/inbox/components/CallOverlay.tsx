@@ -1,6 +1,6 @@
 "use client";
 import { useState, useEffect, useRef, useCallback } from "react";
-import { PhoneLinear as Phone, QuestionCircleLinear as PhoneOff, PhoneCallingLinear as PhoneIncoming, Microphone2Linear as Mic, QuestionCircleLinear as MicOff, CloseCircleLinear as X, RefreshLinear as Loader2, MinusCircleLinear as Minus, QuestionCircleLinear as GripHorizontal, AltArrowUpLinear as ChevronUp } from "solar-icon-set";
+import { Phone, PhoneOff, PhoneIncoming, Mic, MicOff, X, Loader2, Minus, GripHorizontal, ChevronUp } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { api } from "@/lib/api";
 

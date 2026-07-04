@@ -1,6 +1,6 @@
 "use client";
 import { useEffect, useMemo, useState } from "react";
-import { PlainLinear as Send } from "solar-icon-set";
+import { Send } from "lucide-react";
 import { api } from "@/lib/api";
 import { Select } from "@/components/Select";
 import SidePanel from "@/components/SidePanel";

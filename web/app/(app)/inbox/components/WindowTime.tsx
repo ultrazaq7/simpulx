@@ -1,6 +1,6 @@
 "use client";
 import { useEffect, useState } from "react";
-import { SmartSpeaker2Linear as Bot, QuestionCircleLinear as Headset } from "solar-icon-set";
+import { Bot, Headset } from "lucide-react";
 import { cn, windowState } from "@/lib/utils";
 
 // Chat-list date cell: always shows the static MM/dd/yyyy date.

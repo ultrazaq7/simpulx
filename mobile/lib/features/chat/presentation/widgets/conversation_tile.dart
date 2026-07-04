@@ -2,7 +2,6 @@ import 'dart:async';
 
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
-import 'package:solar_icons/solar_icons.dart';
 
 import '../../../../app/theme/app_colors.dart';
 import '../../../../core/session/session_controller.dart';
@@ -342,42 +341,51 @@ class _PreviewWidget extends StatelessWidget {
     final p = preview!.toLowerCase().trim();
     IconData? icon;
     String? label;
+    // Stickers use the same lucide "Sticker" glyph as the web (exported to a PNG
+    // asset, tinted to match), since lucide-react isn't available in Flutter.
+    bool isSticker = false;
     // WhatsApp teal for media icons
     const teal = Color(0xFF00A884);
 
-    // Match emoji-prefixed (from controller) or [bracket] (from server). Icons
-    // are Solar, matching the web's icon language.
+    // Match emoji-prefixed (from controller) or [bracket] (from server)
     if (p.startsWith('📷') || p == '[image]' || p == '[photo]') {
-      icon = SolarIconsOutline.camera;
+      icon = Icons.camera_alt_rounded;
       label = 'Photo';
     } else if (p.startsWith('🎥') || p == '[video]') {
-      icon = SolarIconsOutline.videoFrame;
+      icon = Icons.videocam_rounded;
       label = 'Video';
     } else if (p.startsWith('🎤') || p == '[audio]' || p == '[voice]') {
-      icon = SolarIconsOutline.microphone2;
+      icon = Icons.mic_rounded;
       label = 'Voice message';
-    } else if (p.startsWith('🖼') || p.startsWith('😊') || p.startsWith('💟') || p == '[sticker]' || p == 'sticker') {
-      icon = SolarIconsOutline.stickerSmileSquare;
+    } else if (p.startsWith('🖼') || p.startsWith('😊') || p == '[sticker]' || p == 'sticker') {
+      isSticker = true;
       label = 'Sticker';
     } else if (p.startsWith('📄') || p == '[document]' || p == '[file]') {
-      icon = SolarIconsOutline.fileText;
+      icon = Icons.insert_drive_file_rounded;
       label = 'Document';
     } else if (p.startsWith('📍') || p == '[location]') {
-      icon = SolarIconsOutline.mapPoint;
+      icon = Icons.location_on_rounded;
       label = 'Location';
     } else if (p.startsWith('👤') || p == '[contact]') {
-      icon = SolarIconsOutline.user;
+      icon = Icons.person_rounded;
       label = 'Contact';
     } else if (p.startsWith('📎') || p == '[media]') {
-      icon = SolarIconsOutline.link;
+      icon = Icons.attach_file_rounded;
       label = 'Attachment';
     }
 
-    if (icon != null && label != null) {
+    if (label != null && (icon != null || isSticker)) {
       return Row(
         mainAxisSize: MainAxisSize.min,
         children: [
-          Icon(icon, size: 16, color: teal),
+          if (isSticker)
+            const ImageIcon(
+              AssetImage('assets/images/sticker_icon.png'),
+              size: 16,
+              color: teal,
+            )
+          else
+            Icon(icon, size: 16, color: teal),
           const SizedBox(width: 3),
           Flexible(
             child: Text(label, maxLines: 1, overflow: TextOverflow.ellipsis, style: style),

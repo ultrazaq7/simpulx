@@ -3,7 +3,7 @@
 // Source wizards so all three look identical (header + numbered step indicator +
 // scrollable body + footer). Keeps each wizard focused on its own steps.
 import { type ReactNode } from "react";
-import { CheckReadLinear as Check, CheckCircleLinear as CheckCircle2, LockLinear as Lock } from "solar-icon-set";
+import { Check, CheckCircle2, Lock } from "lucide-react";
 import { cn } from "@/lib/utils";
 import SidePanel from "@/components/SidePanel";
 import { FieldLabel, INPUT_CLASS } from "../_shared";

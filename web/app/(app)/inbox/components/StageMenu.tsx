@@ -1,7 +1,7 @@
 "use client";
 import { useState, useRef, useEffect } from "react";
 import { createPortal } from "react-dom";
-import { AltArrowDownLinear as ChevronDown, CheckReadLinear as Check, QuestionCircleLinear as XCircle } from "solar-icon-set";
+import { ChevronDown, Check, XCircle } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { useEscClose } from "@/lib/useEscClose";
 import type { Stage } from "@/lib/types";

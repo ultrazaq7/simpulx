@@ -2,7 +2,7 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { useInfiniteQuery, useQueryClient } from "@tanstack/react-query";
 import { useVirtualizer } from "@tanstack/react-virtual";
-import { CloseCircleLinear as X, MagniferLinear as Search, ChatRoundLinear as MessageSquare } from "solar-icon-set";
+import { X, Search, MessageSquare } from "lucide-react";
 import { cn, channelColor, channelTextColor, initials } from "@/lib/utils";
 
 import { api, getUser, WS_URL } from "@/lib/api";

@@ -1,6 +1,6 @@
 "use client";
 import { useMemo, useState } from "react";
-import { SquareTopDownLinear as ExternalLink, PlainLinear as Send } from "solar-icon-set";
+import { ExternalLink, Send } from "lucide-react";
 import Link from "next/link";
 import { Select } from "@/components/Select";
 import SidePanel from "@/components/SidePanel";

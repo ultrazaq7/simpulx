@@ -1,7 +1,7 @@
 "use client";
 import { useEffect, useState } from "react";
 import Link from "next/link";
-import { CloseCircleLinear as X, CopyLinear as Copy, UserLinear as User, PhoneLinear as Phone, QuestionCircleLinear as Hash, ChatRoundLinear as MessageSquare, ClockCircleLinear as Clock, QuestionCircleLinear as StickyNote, TagLinear as TagIcon, AddCircleLinear as Plus, PaperclipLinear as Paperclip, DownloadSquareLinear as Download, FileTextLinear as FileText, GalleryLinear as ImageIcon, QuestionCircleLinear as Video, Microphone2Linear as Mic, TrashBinTrashLinear as Trash2 } from "solar-icon-set";
+import { X, Copy, User, Phone, Hash, MessageSquare, Clock, StickyNote, Tag as TagIcon, Plus, Paperclip, Download, FileText, Image as ImageIcon, Video, Mic, Trash2 } from "lucide-react";
 import { api } from "@/lib/api";
 import { initials, channelColor, channelTextColor, channelLabel, fmtDate, fmtTime, fmtDateTimeShort, cn } from "@/lib/utils";
 import { Tip } from "@/components/ui/tooltip";

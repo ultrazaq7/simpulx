@@ -1,6 +1,6 @@
 "use client";
 import { useEffect, useMemo, useRef, useState } from "react";
-import { AddCircleLinear as Plus, LockLinear as Lock, CloseCircleLinear as X, RefreshLinear as Loader2, AltArrowLeftLinear as ChevronLeft, AltArrowRightLinear as ChevronRight } from "solar-icon-set";
+import { Plus, Lock, X, Loader2, ChevronLeft, ChevronRight } from "lucide-react";
 import { api, getUser } from "@/lib/api";
 import { cn } from "@/lib/utils";
 import SidePanel from "@/components/SidePanel";

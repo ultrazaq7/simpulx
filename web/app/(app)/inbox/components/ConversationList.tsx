@@ -1,6 +1,8 @@
 "use client";
 import { useEffect, useMemo, useRef, useState } from "react";
-import { ChatRoundLinear as MessageSquare, CloseCircleLinear as X, FilterLinear as Filter, UserLinear as User, PhoneLinear as Phone, AltArrowDownLinear as ChevronDown, CheckReadLinear as Check, SortLinear as ArrowUpDown, QuestionCircleLinear as Rows3 } from "solar-icon-set";
+import {
+  MessageSquare, X, Filter, User, Phone, ChevronDown, Check, ArrowUpDown, Rows3,
+} from "lucide-react";
 
 import { type FilterOption } from "./MultiSelectFilter";
 import FilterPopover, { type FilterCategory, type FilterToggle } from "./FilterPopover";

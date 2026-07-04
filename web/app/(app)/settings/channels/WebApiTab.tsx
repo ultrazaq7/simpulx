@@ -3,7 +3,7 @@
 // Captures leads from ad platforms / external systems via an API key; each lead
 // opens a conversation in the inbox attributed to its source.
 import { useEffect, useState } from "react";
-import { AddCircleLinear as Plus, QuestionCircleLinear as RefreshCw, PenLinear as Pencil, TrashBinTrashLinear as Trash2, CopyLinear as Copy, QuestionCircleLinear as RotateCw, PlugCircleLinear as Plug, KeyLinear as Key, RefreshLinear as Loader2, CloseCircleLinear as X, MagniferLinear as Search } from "solar-icon-set";
+import { Plus, RefreshCw, Pencil, Trash2, Copy, RotateCw, Plug, Key, Loader2, X, Search } from "lucide-react";
 import { api } from "@/lib/api";
 import { Select } from "@/components/Select";
 import { cn } from "@/lib/utils";

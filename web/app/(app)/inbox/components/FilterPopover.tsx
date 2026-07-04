@@ -1,6 +1,6 @@
 "use client";
 import { useMemo, useState } from "react";
-import { MagniferLinear as Search, AltArrowRightLinear as ChevronRight, CheckReadLinear as Check } from "solar-icon-set";
+import { Search, ChevronRight, Check } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { useEscClose } from "@/lib/useEscClose";
 import type { FilterOption } from "./MultiSelectFilter";

@@ -1,7 +1,6 @@
 "use client";
-import { ChatRoundDotsLinear as MessageCircle, PlainLinear as Send, ChatRoundLinear as MessageSquare, QuestionCircleLinear as FlaskRound } from "solar-icon-set";
-import type { SVGProps } from "react";
-type LucideIcon = (props: SVGProps<SVGSVGElement>) => JSX.Element;
+import { MessageCircle, Send, MessageSquare, FlaskRound } from "lucide-react";
+import type { LucideIcon } from "lucide-react";
 
 // Brand icons removed from lucide-react v1.x — lightweight inline replacements.
 const Facebook: LucideIcon = Object.assign(

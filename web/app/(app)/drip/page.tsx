@@ -2,7 +2,7 @@
 // Drip campaigns (a.k.a. sequences): a timed series of follow-up messages that
 // auto-send after a trigger (no reply / new lead). Lives under Broadcasts.
 import { useEffect, useMemo, useState } from "react";
-import { AddCircleLinear as Plus, TrashBinTrashLinear as Trash2, RefreshLinear as Loader2, RestartLinear as Repeat, ClockCircleLinear as Clock, PenLinear as Pencil, CloseCircleLinear as X, MagniferLinear as Search, QuestionCircleLinear as RefreshCw, QuestionCircleLinear as ChevronsLeft, QuestionCircleLinear as ChevronsRight, AltArrowLeftLinear as ChevronLeft, AltArrowRightLinear as ChevronRight } from "solar-icon-set";
+import { Plus, Trash2, Loader2, Repeat, Clock, Pencil, X, Search, RefreshCw, ChevronsLeft, ChevronsRight, ChevronLeft, ChevronRight } from "lucide-react";
 import { api } from "@/lib/api";
 import type { Sequence, SequenceStep, Campaign } from "@/lib/types";
 import { Select } from "@/components/Select";

@@ -1,6 +1,6 @@
 "use client";
 import { useState, useRef, useEffect, useCallback } from "react";
-import { QuestionCircleLinear as Smile, PaperclipLinear as Paperclip, BoltLinear as Zap, PlainLinear as Send, LockLinear as Lock, CloseCircleLinear as X, FileTextLinear as FileText, RefreshLinear as Loader2, ClockCircleLinear as Clock, PhoneLinear as Phone, Microphone2Linear as Mic, TrashBinTrashLinear as Trash2, PauseLinear as Pause, PlayLinear as Play, MagicStick3Linear as Sparkles, QuestionCircleLinear as RefreshCw, CheckReadLinear as Check, AddCircleLinear as Plus } from "solar-icon-set";
+import { Smile, Paperclip, Zap, Send, Lock, X, FileText, Loader2, Clock, Phone, Mic, Trash2, Pause, Play, Sparkles, RefreshCw, Check, Plus } from "lucide-react";
 import EmojiPicker from "emoji-picker-react";
 import { cn } from "@/lib/utils";
 import { api } from "@/lib/api";

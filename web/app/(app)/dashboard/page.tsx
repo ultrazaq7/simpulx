@@ -5,7 +5,12 @@ import {
   AreaChart, Area, XAxis, YAxis, CartesianGrid, Tooltip as RechartsTooltip,
   Legend, ResponsiveContainer, LineChart, Line, PieChart, Pie, Cell,
 } from "recharts";
-import { ChartSquareLinear as BarChart3, ChatRoundLinear as MessageSquare, InboxLinear as Inbox, FireLinear as Flame, QuestionCircleLinear as Timer, QuestionCircleLinear as TrendingDown, AltArrowRightLinear as ChevronRight, BoltLinear as Zap, LetterLinear as Mail, QuestionCircleLinear as Reply, QuestionCircleLinear as Trophy, QuestionCircleLinear as Ban, QuestionCircleLinear as CircleDollarSign, QuestionCircleLinear as MousePointerClick, SpeakerLinear as Speaker, TargetLinear as Target, EyeLinear as Eye, FilterLinear as FilterIcon, GalleryLinear as ImageIcon, MapPointLinear as MapPin } from "solar-icon-set";
+import {
+  BarChart3, MessageSquare, Inbox, Flame, Timer,
+  TrendingDown, ChevronRight, Zap, Mail, Reply, Trophy, Ban,
+  CircleDollarSign, MousePointerClick, Megaphone, Target, Eye, Filter as FilterIcon,
+  Image as ImageIcon, MapPin,
+} from "lucide-react";
 
 import { api, getUser } from "@/lib/api";
 import { Select } from "@/components/Select";
@@ -603,7 +608,7 @@ function ManagerDashboard() {
                 tab === t ? "bg-card text-foreground shadow-xs" : "text-muted-foreground hover:text-foreground",
               )}
             >
-              {t === "overview" ? <><BarChart3 className="w-3.5 h-3.5" /> Overview</> : <><Speaker className="w-3.5 h-3.5" /> Ads</>}
+              {t === "overview" ? <><BarChart3 className="w-3.5 h-3.5" /> Overview</> : <><Megaphone className="w-3.5 h-3.5" /> Ads</>}
             </button>
           ))}
         </div>

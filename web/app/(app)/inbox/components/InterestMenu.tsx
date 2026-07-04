@@ -1,7 +1,7 @@
 "use client";
 import { useState, useRef, useEffect } from "react";
 import { createPortal } from "react-dom";
-import { AltArrowDownLinear as ChevronDown, CheckReadLinear as Check } from "solar-icon-set";
+import { ChevronDown, Check } from "lucide-react";
 import { cn, interestColor } from "@/lib/utils";
 import { useEscClose } from "@/lib/useEscClose";
 import { Tip } from "@/components/ui/tooltip";

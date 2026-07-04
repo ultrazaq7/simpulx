@@ -1,7 +1,7 @@
 "use client";
 import { useEffect, useMemo, useRef, useState } from "react";
 import { createPortal } from "react-dom";
-import { MagniferLinear as Search, MenuDotsLinear as MoreHorizontal, UserLinear as User, RefreshLinear as Loader2, EyeLinear as Eye, EyeClosedLinear as EyeOff, CloseCircleLinear as X, AddCircleLinear as Plus, PulseLinear as Activity, ClockCircleLinear as Clock, QuestionCircleLinear as Timer, QuestionCircleLinear as CalendarDays, DownloadSquareLinear as Download } from "solar-icon-set";
+import { Search, MoreHorizontal, User, Loader2, Eye, EyeOff, X, Plus, Activity, Clock, Timer, CalendarDays, Download } from "lucide-react";
 import { api, getUser } from "@/lib/api";
 import { Select } from "@/components/Select";
 import { MultiSelect } from "@/components/ui/multi-select";
