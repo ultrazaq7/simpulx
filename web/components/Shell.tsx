@@ -497,7 +497,7 @@ export function Shell({ children }: { children: ReactNode }) {
           </Link>
         </div>
 
-        {NAV_TOP.filter((n) => can(n.perm)).map((n) => <NavItem key={n.href} href={n.href} icon={n.icon} label={t(n.labelKey)} />)}
+        {NAV_TOP.filter((n) => can(n.perm)).map((n) => <NavItem key={n.href} href={n.href} icon={n.icon} label={t(n.labelKey)} cutout={(n as any).cutout} noFill={(n as any).noFill} />)}
         <div className="flex-1" />
 
         {/* Collapse rail toggle — desktop only (mobile uses the drawer). */}
@@ -510,7 +510,7 @@ export function Shell({ children }: { children: ReactNode }) {
             {sidebarOpen ? <ChevronLeft className="w-[18px] h-[18px]" /> : <ChevronRight className="w-[18px] h-[18px]" />}
           </button>
         </div>
-        {NAV_BOTTOM.filter((n) => can(n.perm)).map((n) => <NavItem key={n.href} href={n.href} icon={n.icon} label={t(n.labelKey)} />)}
+        {NAV_BOTTOM.filter((n) => can(n.perm)).map((n) => <NavItem key={n.href} href={n.href} icon={n.icon} label={t(n.labelKey)} cutout={(n as any).cutout} noFill={(n as any).noFill} />)}
       </div>
 
       {/* Main content */}
