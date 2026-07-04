@@ -83,7 +83,7 @@ export function WebApiWizard({ campaigns, onClose, onCreated }: {
     finally { setSaving(false); }
   }
 
-  const curl = `curl -X POST ${API}/v1/leads \\\n  -H "X-API-Key: ${created?.apiKey || "<KEY>"}" \\\n  -H "Content-Type: application/json" \\\n  -d '{"phone":"+62812...","name":"Lead","message":"Interested in a Brio"}'`;
+  const httpSample = `POST ${API}/v1/leads\nX-API-Key: ${created?.apiKey || "<KEY>"}\n{ "phone": "+62812...", "name": "Lead name", "message": "Interested in a Brio" }`;
 
   const footer =
     step === 0 ? (<><div className="flex-1" /><ContinueButton onClick={() => preset && setStep(1)} disabled={!preset} /></>)
@@ -139,10 +139,10 @@ export function WebApiWizard({ campaigns, onClose, onCreated }: {
           <CopyField label="Endpoint" value={`POST ${API}/v1/leads`} mono />
 
           <div>
-            <FieldLabel>Quick start (curl)</FieldLabel>
+            <FieldLabel>Sample payload</FieldLabel>
             <div className="relative bg-sidebar text-[#D1FAE5] rounded-lg p-3 font-mono text-[11.5px] overflow-x-auto">
-              <button onClick={() => navigator.clipboard.writeText(curl)} className="absolute top-2 right-2 p-1 text-white/60 hover:text-white outline-none"><Copy className="w-[15px] h-[15px]" /></button>
-              <pre className="m-0 whitespace-pre-wrap">{curl}</pre>
+              <button onClick={() => navigator.clipboard.writeText(httpSample)} className="absolute top-2 right-2 p-1 text-white/60 hover:text-white outline-none"><Copy className="w-[15px] h-[15px]" /></button>
+              <pre className="m-0 whitespace-pre-wrap">{httpSample}</pre>
             </div>
           </div>
         </div>

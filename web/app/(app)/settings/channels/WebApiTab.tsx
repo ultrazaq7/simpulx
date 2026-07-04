@@ -77,24 +77,13 @@ export function WebApiTab() {
         </div>
 
         <div className="overflow-auto flex-1 min-h-0 p-4">
-          {/* How it works */}
-          <div className="p-5 mb-5 rounded-lg bg-muted/50 border border-border">
-            <p className="text-[13.5px] font-bold text-foreground mb-1">Capture leads via API</p>
-            <p className="text-[12.5px] text-muted-foreground mb-3">
-              Send leads from ad platforms or external systems with the integration&apos;s API key. Each lead opens a conversation in the inbox, attributed to its source.
-            </p>
-            <div className="relative bg-sidebar text-[#D1FAE5] rounded-lg p-3 font-mono text-[11.5px] overflow-x-auto">
-              <button onClick={() => copy(`curl -X POST ${API}/v1/leads -H "X-API-Key: <KEY>" -H "Content-Type: application/json" -d '{"phone":"+62812...","name":"Lead","message":"Interested in a Brio"}'`)}
-                className="absolute top-2 right-2 p-1 text-white/60 hover:text-white outline-none transition-opacity"><Copy className="w-[15px] h-[15px]" /></button>
-              <pre className="m-0 whitespace-pre-wrap">{`POST ${API}/v1/leads\nX-API-Key: <your integration key>\n{ "phone": "+62812...", "name": "Lead name", "message": "Interested in a Brio" }`}</pre>
-            </div>
-          </div>
+
 
           {/* List (rows) */}
           {loading ? (
             <div className="space-y-2">{[0, 1].map((i) => <div key={i} className="h-14 rounded-lg skeleton" />)}</div>
           ) : filtered.length === 0 ? (
-            <div className="text-center py-16 border border-dashed border-border rounded-lg bg-card">
+            <div className="text-center py-16 rounded-lg bg-card">
               <Plug className="w-11 h-11 text-muted-foreground/30 mx-auto mb-2" />
               <p className="font-bold text-foreground mb-1">No API sources yet</p>
               <p className="text-[13px] text-muted-foreground mb-4">Connect an ad platform or external system to capture leads via the Web API.</p>
