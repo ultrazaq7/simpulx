@@ -71,6 +71,11 @@ class CallsRemoteDataSource {
   Future<void> reject(String callId) =>
       _post(ApiEndpoints.callReject(callId), const {});
 
+  /// POST /api/calls/{id}/connected - confirm actual pickup (inbound audio
+  /// detected) so the backend's talk-time duration is accurate.
+  Future<void> markConnected(String callId) =>
+      _post('/api/calls/$callId/connected', const {});
+
   /// POST /api/calls/{id}/end.
   Future<void> end(String callId) =>
       _post(ApiEndpoints.callEnd(callId), const {});

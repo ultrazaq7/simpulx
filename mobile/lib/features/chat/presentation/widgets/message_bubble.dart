@@ -1,9 +1,11 @@
 import 'dart:io';
+import 'dart:math' as math;
 
 import 'package:cached_network_image/cached_network_image.dart';
 import 'package:flutter/gestures.dart' show TapGestureRecognizer;
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart' show Clipboard, ClipboardData;
+import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:url_launcher/url_launcher.dart';
 import 'package:dio/dio.dart';
 import 'package:path_provider/path_provider.dart';
@@ -12,11 +14,31 @@ import 'package:pdfx/pdfx.dart';
 import 'package:video_player/video_player.dart';
 
 import '../../../../app/theme/app_colors.dart';
+import '../../../../core/network/api_endpoints.dart';
+import '../../../../core/providers/app_providers.dart';
 import '../../../../core/utils/time_format.dart';
 import '../../../../core/widgets/app_snackbar.dart';
 import '../../domain/entities/message.dart';
 import 'audio_message.dart';
 import 'media_viewer.dart';
+
+/// Shared URL matcher for linkified text + OG preview.
+final _kUrlRe = RegExp(r'(https?:\/\/[^\s]+|www\.[^\s]+)', caseSensitive: false);
+
+/// Single OSM tile centered on the location (WhatsApp-style map thumbnail).
+String _osmTileUrl(double lat, double lng, {int z = 15}) {
+  final n = 1 << z;
+  final x = (((lng + 180) / 360) * n).floor().clamp(0, n - 1);
+  final latRad = lat * 3.141592653589793 / 180;
+  final y = ((1 -
+              (math.log(math.tan(latRad) + 1 / math.cos(latRad)) /
+                  3.141592653589793)) /
+          2 *
+          n)
+      .floor()
+      .clamp(0, n - 1);
+  return 'https://tile.openstreetmap.org/$z/$x/$y.png';
+}
 
 /// A single chat bubble. Outbound (mine) right-aligned in brand tint; inbound
 /// left in a neutral surface. Renders text, images, and document attachments.
@@ -43,6 +65,40 @@ class MessageBubble extends StatelessWidget {
         ? (isDark ? AppColors.bubbleOutgoingDark : AppColors.bubbleOutgoingLight)
         : (isDark ? AppColors.bubbleIncomingDark : AppColors.bubbleIncomingLight);
     final fg = isDark ? AppColors.darkTextPrimary : AppColors.textPrimary;
+
+    // Reaction: centered timeline marker, not a bubble (WhatsApp attaches
+    // reactions to the target message; we surface them inline).
+    if (message.type == MessageType.reaction) {
+      return Center(
+        child: Container(
+          margin: const EdgeInsets.symmetric(vertical: 4),
+          padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 5),
+          decoration: BoxDecoration(
+            color: fg.withValues(alpha: 0.08),
+            borderRadius: BorderRadius.circular(999),
+          ),
+          child: Text(
+            message.body.isNotEmpty
+                ? '${message.body}  ${mine ? 'You reacted' : 'Reacted'} to a message'
+                : '${mine ? 'You removed' : 'Removed'} a reaction',
+            style: TextStyle(color: fg.withValues(alpha: 0.7), fontSize: 12.5),
+          ),
+        ),
+      );
+    }
+
+    // First URL in a plain text message -> OG link preview (the CTWA ad card
+    // already provides its own preview).
+    final firstUrl = message.type == MessageType.text && message.referral == null
+        ? _kUrlRe.firstMatch(message.body)?.group(0)
+        : null;
+    // Never render an empty bubble: unknown/undecodable types get a label.
+    final isBlank = message.body.isEmpty &&
+        !message.hasMedia &&
+        message.referral == null &&
+        message.contacts.isEmpty &&
+        message.location == null &&
+        message.type != MessageType.call;
 
     return Align(
       alignment: mine ? Alignment.centerRight : Alignment.centerLeft,
@@ -81,6 +137,7 @@ class MessageBubble extends StatelessWidget {
               _ContactsCard(contacts: message.contacts, fg: fg),
             if (message.type == MessageType.location && message.location != null)
               _LocationCard(location: message.location!, fg: fg),
+            if (firstUrl != null) _LinkPreviewCard(url: firstUrl, fg: fg),
             Padding(
               padding: const EdgeInsets.fromLTRB(6, 2, 6, 0),
               child: Column(
@@ -90,7 +147,18 @@ class MessageBubble extends StatelessWidget {
                   if (message.type == MessageType.call)
                     _callBubble(context, fg)
                   else if (message.body.isNotEmpty)
-                    _LinkifiedBody(text: message.body, color: fg),
+                    _LinkifiedBody(text: message.body, color: fg)
+                  else if (isBlank)
+                    Text(
+                      message.type == MessageType.unsupported
+                          ? "This message can't be displayed"
+                          : 'Unsupported message',
+                      style: TextStyle(
+                        color: fg.withValues(alpha: 0.65),
+                        fontSize: 14,
+                        fontStyle: FontStyle.italic,
+                      ),
+                    ),
                   const SizedBox(height: 2),
                   Row(
                     mainAxisSize: MainAxisSize.min,
@@ -143,7 +211,9 @@ class MessageBubble extends StatelessWidget {
     final parts = message.body.split(' · ');
     final title = parts.isNotEmpty ? parts[0] : 'Voice call';
     final subtitle = parts.length > 1 ? parts[1] : '';
-    final isMissed = subtitle.toLowerCase().contains('no answer') || title.toLowerCase().contains('missed');
+    final isMissed = subtitle.toLowerCase().contains('no answer') ||
+        title.toLowerCase().contains('missed') ||
+        title.toLowerCase().contains('declined');
     
     return Padding(
       padding: const EdgeInsets.only(bottom: 6, top: 4, right: 8),
@@ -940,7 +1010,8 @@ class _LinkifiedBodyState extends State<_LinkifiedBody> {
   }
 }
 
-/// Shared pinned location -> opens in the maps app.
+/// Shared pinned location: map thumbnail (OSM tile) + name/address, opens the
+/// maps app on tap.
 class _LocationCard extends StatelessWidget {
   const _LocationCard({required this.location, required this.fg});
   final Map<String, dynamic> location;
@@ -957,23 +1028,54 @@ class _LocationCard extends StatelessWidget {
       onTap: () => launchUrl(Uri.parse(url), mode: LaunchMode.externalApplication),
       child: Container(
         margin: const EdgeInsets.only(bottom: 4),
-        constraints: const BoxConstraints(minWidth: 210),
-        padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 8),
+        width: 240,
+        clipBehavior: Clip.antiAlias,
         decoration: BoxDecoration(
           color: fg.withValues(alpha: 0.06),
           borderRadius: BorderRadius.circular(10),
         ),
-        child: Row(
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
           mainAxisSize: MainAxisSize.min,
           children: [
-            Container(
-              padding: const EdgeInsets.all(8),
-              decoration: BoxDecoration(
-                  color: AppColors.primary.withValues(alpha: 0.15), borderRadius: BorderRadius.circular(8)),
-              child: Icon(Icons.location_on_rounded, color: AppColors.primary, size: 22),
+            SizedBox(
+              height: 110,
+              width: 240,
+              child: Stack(
+                fit: StackFit.expand,
+                children: [
+                  CachedNetworkImage(
+                    imageUrl: _osmTileUrl(lat, lng),
+                    fit: BoxFit.cover,
+                    placeholder: (_, _) => Container(color: Colors.black12),
+                    errorWidget: (_, _, _) => Container(
+                      color: Colors.black12,
+                      child: Icon(Icons.map_rounded,
+                          color: fg.withValues(alpha: 0.4), size: 36),
+                    ),
+                  ),
+                  const Center(
+                    child: Padding(
+                      padding: EdgeInsets.only(bottom: 18),
+                      child: Icon(Icons.location_on_rounded,
+                          color: Color(0xFFEF4444), size: 30),
+                    ),
+                  ),
+                  Positioned(
+                    right: 2,
+                    bottom: 1,
+                    child: Container(
+                      padding: const EdgeInsets.symmetric(horizontal: 2),
+                      color: Colors.white.withValues(alpha: 0.6),
+                      child: const Text('© OpenStreetMap',
+                          style: TextStyle(fontSize: 7, color: Colors.black54)),
+                    ),
+                  ),
+                ],
+              ),
             ),
-            const SizedBox(width: 10),
-            Flexible(
+            Padding(
+              padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 8),
               child: Column(
                 crossAxisAlignment: CrossAxisAlignment.start,
                 mainAxisSize: MainAxisSize.min,
@@ -990,6 +1092,120 @@ class _LocationCard extends StatelessWidget {
                       maxLines: 2,
                       overflow: TextOverflow.ellipsis,
                       style: TextStyle(color: fg.withValues(alpha: 0.7), fontSize: 12)),
+                ],
+              ),
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+}
+
+/// Open Graph preview card for a URL in a text message (fetched via the
+/// gateway; results memory-cached so scrolling doesn't refetch).
+class _LinkPreviewCard extends ConsumerStatefulWidget {
+  const _LinkPreviewCard({required this.url, required this.fg});
+  final String url;
+  final Color fg;
+
+  @override
+  ConsumerState<_LinkPreviewCard> createState() => _LinkPreviewCardState();
+}
+
+class _LinkPreviewCardState extends ConsumerState<_LinkPreviewCard> {
+  static final Map<String, Map<String, dynamic>?> _cache = {};
+  Map<String, dynamic>? _data;
+
+  @override
+  void initState() {
+    super.initState();
+    _load();
+  }
+
+  Future<void> _load() async {
+    final key = widget.url;
+    if (_cache.containsKey(key)) {
+      if (mounted) setState(() => _data = _cache[key]);
+      return;
+    }
+    try {
+      final target = key.startsWith('http') ? key : 'https://$key';
+      final res = await ref.read(dioProvider).get(
+        ApiEndpoints.linkPreview,
+        queryParameters: {'url': target},
+      );
+      final m = (res.data as Map).cast<String, dynamic>();
+      final title = (m['title'] as String?) ?? '';
+      final image = (m['image'] as String?) ?? '';
+      _cache[key] = (title.isNotEmpty || image.isNotEmpty) ? m : null;
+    } catch (_) {
+      _cache[key] = null;
+    }
+    if (mounted) setState(() => _data = _cache[key]);
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final d = _data;
+    if (d == null) return const SizedBox.shrink();
+    final fg = widget.fg;
+    final title = (d['title'] as String?) ?? '';
+    final desc = (d['description'] as String?) ?? '';
+    final image = (d['image'] as String?) ?? '';
+    final target = widget.url.startsWith('http') ? widget.url : 'https://${widget.url}';
+    String domain = '';
+    try {
+      domain = Uri.parse(target).host.replaceFirst('www.', '');
+    } catch (_) {}
+    return GestureDetector(
+      onTap: () => launchUrl(Uri.parse(target), mode: LaunchMode.externalApplication),
+      child: Container(
+        margin: const EdgeInsets.only(bottom: 4),
+        constraints: const BoxConstraints(maxWidth: 270),
+        clipBehavior: Clip.antiAlias,
+        decoration: BoxDecoration(
+          color: fg.withValues(alpha: 0.06),
+          borderRadius: BorderRadius.circular(10),
+        ),
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            if (image.isNotEmpty)
+              CachedNetworkImage(
+                imageUrl: image,
+                fit: BoxFit.cover,
+                width: double.infinity,
+                height: 130,
+                placeholder: (_, _) => Container(height: 130, color: Colors.black12),
+                errorWidget: (_, _, _) => const SizedBox.shrink(),
+              ),
+            Padding(
+              padding: const EdgeInsets.fromLTRB(10, 8, 10, 8),
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                mainAxisSize: MainAxisSize.min,
+                children: [
+                  if (title.isNotEmpty)
+                    Text(title,
+                        maxLines: 2,
+                        overflow: TextOverflow.ellipsis,
+                        style: TextStyle(
+                            color: fg, fontWeight: FontWeight.w700, fontSize: 13, height: 1.2)),
+                  if (desc.isNotEmpty) ...[
+                    const SizedBox(height: 2),
+                    Text(desc,
+                        maxLines: 2,
+                        overflow: TextOverflow.ellipsis,
+                        style: TextStyle(
+                            color: fg.withValues(alpha: 0.7), fontSize: 12, height: 1.25)),
+                  ],
+                  if (domain.isNotEmpty) ...[
+                    const SizedBox(height: 3),
+                    Text(domain,
+                        style: TextStyle(color: fg.withValues(alpha: 0.55), fontSize: 11)),
+                  ],
                 ],
               ),
             ),

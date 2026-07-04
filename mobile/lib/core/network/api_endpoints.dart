@@ -27,6 +27,8 @@ class ApiEndpoints {
   static String messages(String id) => '/api/conversations/$id/messages';
   static String messageSearch(String id) =>
       '/api/conversations/$id/messages/search';
+  // OG preview for a URL in a chat message (server-side fetch).
+  static const linkPreview = '/api/link-preview';
   static String assign(String id) => '/api/conversations/$id/assign';
   static String close(String id) => '/api/conversations/$id/close';
   static String snooze(String id) => '/api/conversations/$id/snooze';

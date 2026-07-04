@@ -222,6 +222,11 @@ class CallController extends Notifier<CallSession?> {
       connectedAt: DateTime.now(),
     );
     _startStatusWatchdog();
+    // Tell the backend talk time starts NOW (the SDP answer fires at ring
+    // time, so the server can't know pickup on its own). Best-effort.
+    if (s.callId.isNotEmpty) {
+      _ds.markConnected(s.callId).catchError((_) {});
+    }
   }
 
   /// Safety net for a missed realtime "ended" event (e.g. the WS was briefly

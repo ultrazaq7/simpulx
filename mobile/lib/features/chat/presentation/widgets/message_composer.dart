@@ -1,9 +1,14 @@
+import 'dart:async';
+
+import 'package:cached_network_image/cached_network_image.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import '../../../../core/utils/haptics.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import '../../../../app/theme/app_colors.dart';
+import '../../../../core/network/api_endpoints.dart';
+import '../../../../core/providers/app_providers.dart';
 import '../../domain/entities/lead_lookups.dart';
 import '../../../../core/utils/time_format.dart';
 import '../../../../core/widgets/app_snackbar.dart';
@@ -38,10 +43,21 @@ class MessageComposer extends ConsumerStatefulWidget {
 }
 
 class _MessageComposerState extends ConsumerState<MessageComposer> {
+  static final _urlRe =
+      RegExp(r'(https?:\/\/[^\s]+|www\.[^\s]+)', caseSensitive: false);
+  static final Map<String, Map<String, dynamic>?> _lpCache = {};
+
   final _controller = TextEditingController();
   final _voice = VoiceRecorder();
   bool _canSend = false;
   String? _slashQuery; // non-null while the text is a "/..." shortcut query
+
+  // WhatsApp-style link preview while composing: first URL in the draft shows
+  // a dismissible OG card above the input.
+  Timer? _lpDebounce;
+  String? _lpUrl;
+  Map<String, dynamic>? _lpData;
+  String? _lpDismissed;
 
   @override
   void initState() {
@@ -60,6 +76,47 @@ class _MessageComposerState extends ConsumerState<MessageComposer> {
         _slashQuery = query;
       });
     }
+    _updateLinkPreview(text);
+  }
+
+  void _updateLinkPreview(String text) {
+    final url = _urlRe.firstMatch(text)?.group(0);
+    if (url == null) {
+      _lpDebounce?.cancel();
+      if (_lpData != null || _lpUrl != null || _lpDismissed != null) {
+        setState(() {
+          _lpUrl = null;
+          _lpData = null;
+          _lpDismissed = null;
+        });
+      }
+      return;
+    }
+    if (url == _lpDismissed || url == _lpUrl) return;
+    _lpUrl = url;
+    _lpDebounce?.cancel();
+    _lpDebounce = Timer(const Duration(milliseconds: 450), () async {
+      Map<String, dynamic>? data;
+      if (_lpCache.containsKey(url)) {
+        data = _lpCache[url];
+      } else {
+        try {
+          final target = url.startsWith('http') ? url : 'https://$url';
+          final res = await ref.read(dioProvider).get(
+            ApiEndpoints.linkPreview,
+            queryParameters: {'url': target},
+          );
+          final m = (res.data as Map).cast<String, dynamic>();
+          final ok = ((m['title'] as String?) ?? '').isNotEmpty ||
+              ((m['image'] as String?) ?? '').isNotEmpty;
+          data = ok ? m : null;
+        } catch (_) {
+          data = null;
+        }
+        _lpCache[url] = data;
+      }
+      if (mounted && _lpUrl == url) setState(() => _lpData = data);
+    });
   }
 
   void _onVoiceChanged() {
@@ -68,6 +125,7 @@ class _MessageComposerState extends ConsumerState<MessageComposer> {
 
   @override
   void dispose() {
+    _lpDebounce?.cancel();
     _voice.removeListener(_onVoiceChanged);
     _voice.dispose();
     _controller.dispose();
@@ -86,6 +144,74 @@ class _MessageComposerState extends ConsumerState<MessageComposer> {
     _controller.selection =
         TextSelection.collapsed(offset: _controller.text.length);
     setState(() => _slashQuery = null);
+  }
+
+  /// Dismissible OG card above the input while a URL sits in the draft.
+  Widget _linkPreviewBar(ThemeData theme) {
+    final d = _lpData!;
+    final title = (d['title'] as String?) ?? '';
+    final image = (d['image'] as String?) ?? '';
+    final url = _lpUrl ?? '';
+    String domain = '';
+    try {
+      domain = Uri.parse(url.startsWith('http') ? url : 'https://$url')
+          .host
+          .replaceFirst('www.', '');
+    } catch (_) {}
+    final fg = theme.colorScheme.onSurface;
+    return Container(
+      margin: const EdgeInsets.fromLTRB(8, 8, 8, 0),
+      clipBehavior: Clip.antiAlias,
+      decoration: BoxDecoration(
+        color: fg.withValues(alpha: 0.05),
+        borderRadius: BorderRadius.circular(10),
+        border: Border.all(color: fg.withValues(alpha: 0.1)),
+      ),
+      child: Row(
+        children: [
+          if (image.isNotEmpty)
+            CachedNetworkImage(
+              imageUrl: image,
+              width: 56,
+              height: 56,
+              fit: BoxFit.cover,
+              errorWidget: (_, _, _) => const SizedBox.shrink(),
+            ),
+          Expanded(
+            child: Padding(
+              padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 8),
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                mainAxisSize: MainAxisSize.min,
+                children: [
+                  if (title.isNotEmpty)
+                    Text(title,
+                        maxLines: 2,
+                        overflow: TextOverflow.ellipsis,
+                        style: TextStyle(
+                            color: fg,
+                            fontWeight: FontWeight.w700,
+                            fontSize: 12.5,
+                            height: 1.2)),
+                  if (domain.isNotEmpty)
+                    Text(domain,
+                        style: TextStyle(
+                            color: fg.withValues(alpha: 0.55), fontSize: 11)),
+                ],
+              ),
+            ),
+          ),
+          IconButton(
+            icon: Icon(Icons.close_rounded,
+                size: 18, color: fg.withValues(alpha: 0.6)),
+            onPressed: () => setState(() {
+              _lpDismissed = _lpUrl;
+              _lpData = null;
+            }),
+          ),
+        ],
+      ),
+    );
   }
 
   Future<void> _startRecording() async {
@@ -124,6 +250,7 @@ class _MessageComposerState extends ConsumerState<MessageComposer> {
                 query: _slashQuery!,
                 onPick: _applyQuickReply,
               ),
+            if (_lpData != null && !_voice.recording) _linkPreviewBar(theme),
             Padding(
               padding: const EdgeInsets.fromLTRB(8, 8, 8, 8),
               child: _voice.recording ? _recordingBar() : _inputBar(),

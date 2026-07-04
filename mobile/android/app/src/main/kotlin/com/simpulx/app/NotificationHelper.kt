@@ -394,13 +394,12 @@ object NotificationHelper {
 
         val name = if (contactName.isNotBlank()) contactName else "Missed call"
 
-        // Caller avatar with the app badge merged in (same look as chat notifs).
-        val avatar = generateInitialAvatar(name)
-        val badge = BitmapFactory.decodeResource(context.resources, R.drawable.ic_notification)
-        val merged = if (badge != null) mergeAvatarWithBadge(avatar, badge) else avatar
+        // Plain avatar only - Android's Conversation API overlays the app's
+        // small icon on the Person avatar automatically, so merging our own
+        // badge produced a double icon.
         val caller = Person.Builder()
             .setName(name)
-            .setIcon(IconCompat.createWithBitmap(merged))
+            .setIcon(IconCompat.createWithBitmap(generateInitialAvatar(name)))
             .setImportant(true)
             .build()
         val style = NotificationCompat.MessagingStyle(Person.Builder().setName("You").build())

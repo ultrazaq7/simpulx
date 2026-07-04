@@ -66,6 +66,24 @@ export default function Composer({
     setDraft((d) => { const m = d.match(/(?:^|\s)(\/[^\s]*)$/); return m ? d.slice(0, d.length - m[1].length) + q.body : d + q.body; });
     setTimeout(() => textareaRef.current?.focus(), 0);
   };
+  // ── Composer link preview (WhatsApp-style): pasting a URL shows a
+  // dismissible OG card above the input while you type. ──
+  const [linkPrev, setLinkPrev] = useState<{ url: string; title?: string; description?: string; image?: string; site_name?: string } | null>(null);
+  const [linkPrevDismissed, setLinkPrevDismissed] = useState<string | null>(null);
+  useEffect(() => {
+    const url = tab === 0 ? draft.match(/(?:https?:\/\/|www\.)[^\s<>"']+/i)?.[0] : undefined;
+    if (!url) { setLinkPrev(null); setLinkPrevDismissed(null); return; }
+    if (linkPrevDismissed === url || linkPrev?.url === url) return;
+    const t = setTimeout(() => {
+      const target = url.startsWith("http") ? url : `https://${url}`;
+      api.linkPreview(target)
+        .then((d) => { if (d && (d.title || d.image)) setLinkPrev({ ...d, url }); else setLinkPrev(null); })
+        .catch(() => setLinkPrev(null));
+    }, 450);
+    return () => clearTimeout(t);
+  }, [draft, tab, linkPrevDismissed, linkPrev?.url]);
+  useEffect(() => { setLinkPrev(null); setLinkPrevDismissed(null); }, [conversationId]);
+
   // Focus the message box when a conversation opens (cursor ready to type).
   const textareaRef = useRef<HTMLTextAreaElement>(null);
   useEffect(() => {
@@ -546,6 +564,27 @@ export default function Composer({
 
         {!isRecording && (
           <>
+        {/* Link preview for a URL in the draft (WhatsApp style, dismissible) */}
+        {tab === 0 && linkPrev && (
+          <div className="mx-3 mt-2 flex items-stretch gap-0 rounded-lg overflow-hidden border border-border bg-muted/40">
+            {linkPrev.image && (
+              <img src={linkPrev.image} className="w-16 h-16 object-cover shrink-0" alt=""
+                onError={(e) => { (e.target as HTMLImageElement).style.display = "none"; }} />
+            )}
+            <div className="flex-1 min-w-0 px-2.5 py-1.5">
+              {linkPrev.title && <p className="text-[12.5px] font-bold text-foreground leading-tight line-clamp-2">{linkPrev.title}</p>}
+              {(() => { try { return <p className="text-[11px] text-muted-foreground mt-0.5">{new URL(linkPrev.url.startsWith("http") ? linkPrev.url : `https://${linkPrev.url}`).hostname.replace(/^www\./, "")}</p>; } catch { return null; } })()}
+            </div>
+            <button
+              type="button"
+              onClick={() => { setLinkPrevDismissed(linkPrev.url); setLinkPrev(null); }}
+              className="px-2 text-muted-foreground hover:text-foreground outline-none shrink-0"
+              aria-label="Remove link preview"
+            >
+              <X className="w-4 h-4" />
+            </button>
+          </div>
+        )}
         {/* Textarea */}
         <textarea
           ref={textareaRef}

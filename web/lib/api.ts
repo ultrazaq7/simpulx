@@ -236,6 +236,11 @@ export const api = {
   },
   searchMessages: (id: string, query: string) =>
     req<{ data: Message[] }>(`/api/conversations/${id}/messages/search?q=${encodeURIComponent(query)}`),
+  // Open Graph preview for a URL in a chat message (fetched server-side; CORS
+  // blocks doing this from the browser).
+  linkPreview: (url: string) =>
+    req<{ url: string; title?: string; description?: string; image?: string; site_name?: string }>(
+      `/api/link-preview?url=${encodeURIComponent(url)}`),
   sendMessage: (id: string, body: string) =>
     req(`/api/conversations/${id}/messages`, { method: "POST", body: JSON.stringify({ body }) }),
   sendMedia: (id: string, type: string, mediaUrl: string, caption: string) =>
@@ -539,6 +544,10 @@ export const api = {
     req<{ call_id: string; status: string }>(`/api/calls/${callId}/accept`, { method: "POST", body: JSON.stringify({ sdp_answer: sdpAnswer }) }),
   rejectCall: (callId: string) =>
     req<{ status: string }>(`/api/calls/${callId}/reject`, { method: "POST" }),
+  // Confirm actual pickup on an outbound call (inbound audio detected) so the
+  // backend's talk-time duration starts at the right moment.
+  callConnected: (callId: string) =>
+    req<{ status: string }>(`/api/calls/${callId}/connected`, { method: "POST" }),
   endCall: (callId: string) =>
     req<{ status: string; duration_seconds: number }>(`/api/calls/${callId}/end`, { method: "POST" }),
   getCall: (callId: string) =>

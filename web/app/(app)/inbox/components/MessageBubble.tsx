@@ -8,7 +8,74 @@ import {
   PhoneOutgoing, PhoneIncoming, PhoneMissed, MapPin, Phone, ExternalLink,
 } from "lucide-react";
 import { initials, fmtTime, channelColor, channelTextColor, cn } from "@/lib/utils";
+import { api } from "@/lib/api";
 import type { Conversation, Message } from "@/lib/types";
+
+/* ── URL helpers: first URL in a text + OSM map tile ───────── */
+const FIRST_URL_RE = /(?:https?:\/\/|www\.)[^\s<>"']+/i;
+
+function osmTileUrl(lat: number, lng: number, z = 15): string {
+  const x = Math.floor(((lng + 180) / 360) * 2 ** z);
+  const latRad = (lat * Math.PI) / 180;
+  const y = Math.floor(((1 - Math.log(Math.tan(latRad) + 1 / Math.cos(latRad)) / Math.PI) / 2) * 2 ** z);
+  return `https://tile.openstreetmap.org/${z}/${x}/${y}.png`;
+}
+
+/* ── Open Graph link preview card (WhatsApp style) ─────────── */
+type OgData = { url: string; title?: string; description?: string; image?: string; site_name?: string };
+const ogCache = new Map<string, OgData | null>();
+
+function LinkPreviewCard({ url, out }: { url: string; out: boolean }) {
+  const [data, setData] = useState<OgData | null | undefined>(
+    ogCache.has(url) ? ogCache.get(url) : undefined,
+  );
+  useEffect(() => {
+    if (ogCache.has(url)) { setData(ogCache.get(url)); return; }
+    let alive = true;
+    const target = url.startsWith("http") ? url : `https://${url}`;
+    api.linkPreview(target)
+      .then((d) => {
+        const val = d && (d.title || d.image) ? d : null;
+        ogCache.set(url, val);
+        if (alive) setData(val);
+      })
+      .catch(() => { ogCache.set(url, null); if (alive) setData(null); });
+    return () => { alive = false; };
+  }, [url]);
+
+  if (!data) return null;
+  const href = url.startsWith("http") ? url : `https://${url}`;
+  let domain = "";
+  try { domain = new URL(href).hostname.replace(/^www\./, ""); } catch { /* keep empty */ }
+  return (
+    <a
+      href={href}
+      target="_blank"
+      rel="noopener noreferrer"
+      onClick={(e) => e.stopPropagation()}
+      className={cn(
+        "block m-1 mb-0 rounded-lg overflow-hidden no-underline border",
+        out ? "border-white/25 bg-white/10 hover:bg-white/15" : "border-border bg-muted/40 hover:bg-muted/70",
+      )}
+    >
+      {data.image && (
+        <img src={data.image} className="w-full max-h-[160px] object-cover block" loading="lazy"
+          onError={(e) => { (e.target as HTMLImageElement).style.display = "none"; }} />
+      )}
+      <div className="px-2.5 py-2">
+        {data.title && (
+          <p className={cn("text-[12.5px] font-bold leading-tight line-clamp-2", out ? "text-white" : "text-foreground")}>{data.title}</p>
+        )}
+        {data.description && (
+          <p className={cn("text-[11.5px] leading-snug line-clamp-2 mt-0.5", out ? "text-white/75" : "text-muted-foreground")}>{data.description}</p>
+        )}
+        {domain && (
+          <p className={cn("text-[10.5px] mt-1", out ? "text-white/60" : "text-muted-foreground/80")}>{domain}</p>
+        )}
+      </div>
+    </a>
+  );
+}
 
 /* ── Clickable links in message text (WhatsApp style) ──────── */
 const URL_SPLIT_RE = /((?:https?:\/\/|www\.)[^\s<>"']+)/gi;
@@ -369,6 +436,27 @@ const MessageBubble = memo(function MessageBubble({ m, active, grouped, onPrevie
   const contacts = m.type === "contacts" ? meta?.contacts : undefined;
   const location = m.type === "location" ? meta?.location : undefined;
   const mapsUrl = location ? `https://www.google.com/maps/search/?api=1&query=${location.latitude},${location.longitude}` : "";
+  // First URL in a plain text message -> OG link preview (skip when the CTWA
+  // ad card already provides a preview).
+  const firstUrl = !hasReferral && m.type === "text" && m.body ? m.body.match(FIRST_URL_RE)?.[0] : undefined;
+  // Nothing renderable at all (unknown/blank types) -> show a placeholder so
+  // the bubble is never empty.
+  const isBlank = !m.body && !url && !hasReferral && !(contacts && contacts.length) && !location;
+
+  // ── Reaction: a centered marker, not a bubble (WhatsApp attaches these to the
+  //    target message; we surface them inline on the timeline) ──
+  if (m.type === "reaction") {
+    return (
+      <div className="flex justify-center my-1">
+        <span className="inline-flex items-center gap-2 px-3 py-1 rounded-full bg-muted/70 text-[12px] font-medium text-foreground/70">
+          {m.body
+            ? <><span className="text-[15px] leading-none">{m.body}</span> {out ? "You reacted" : "Reacted"} to a message</>
+            : <>{out ? "You removed" : "Removed"} a reaction</>}
+          <span className="text-[11px] text-muted-foreground tabular-nums">{fmtTime(m.created_at)}</span>
+        </span>
+      </div>
+    );
+  }
 
   // ── Voice call: a centered, low-contrast timeline marker (not a chat bubble) ──
   if (m.type === "call") {
@@ -391,7 +479,7 @@ const MessageBubble = memo(function MessageBubble({ m, active, grouped, onPrevie
     <div className={cn("group flex items-start gap-1", out ? "justify-end" : "justify-start")}>
 
       {out && (m.body || msgLink) && <MessageMenu out={out} text={m.body ?? undefined} link={msgLink} onCopyText={onCopyText} onUseInComposer={onUseInComposer} onForward={onForward} />}
-      <div className={cn(hasReferral ? "max-w-[340px]" : "max-w-[66%]", "flex flex-col", out ? "items-end" : "items-start")}>
+      <div className={cn(hasReferral || firstUrl ? "max-w-[340px]" : "max-w-[66%]", "flex flex-col", out ? "items-end" : "items-start")}>
         {/* Sender label: only on the first of a group, and only for outbound (1:1
             inbound is always the contact, so the name there is just noise). */}
         {!grouped && (out || bot || broadcast) && (
@@ -455,18 +543,25 @@ const MessageBubble = memo(function MessageBubble({ m, active, grouped, onPrevie
             </div>
           )}
 
-          {/* ── Shared location ── */}
+          {/* ── Shared location: map thumbnail + name/address, opens Maps ── */}
           {location && (
             <a
               href={mapsUrl}
               target="_blank"
               rel="noopener noreferrer"
-              className={cn("m-1 flex items-center gap-2.5 px-2.5 py-2 rounded-lg no-underline min-w-[220px]", out ? "bg-white/10 hover:bg-white/20" : "bg-muted/50 hover:bg-muted/80")}
+              className={cn("block m-1 rounded-lg overflow-hidden no-underline w-[260px] border", out ? "border-white/25 bg-white/10 hover:bg-white/15" : "border-border bg-muted/40 hover:bg-muted/70")}
             >
-              <div className={cn("w-9 h-9 rounded-lg grid place-items-center shrink-0", out ? "bg-white/20" : "bg-primary/15")}>
-                <MapPin className={cn("w-5 h-5", out ? "text-white" : "text-primary")} />
+              <div className="relative h-28 bg-muted">
+                <img
+                  src={osmTileUrl(location.latitude, location.longitude)}
+                  className="w-full h-full object-cover block"
+                  loading="lazy"
+                  onError={(e) => { (e.target as HTMLImageElement).style.display = "none"; }}
+                />
+                <MapPin className="absolute left-1/2 top-1/2 -translate-x-1/2 -translate-y-full w-6 h-6 text-[#EF4444] drop-shadow" fill="#EF4444" strokeWidth={1.5} />
+                <span className="absolute bottom-0.5 right-1 text-[8px] text-black/50 bg-white/60 px-0.5 rounded-sm">© OpenStreetMap</span>
               </div>
-              <div className="min-w-0">
+              <div className="px-2.5 py-2">
                 <p className={cn("text-[13px] font-semibold truncate", out ? "text-white" : "text-foreground")}>{location.name || "Location"}</p>
                 <p className={cn("text-[11px] truncate", out ? "text-white/70" : "text-muted-foreground")}>{location.address || `${location.latitude.toFixed(5)}, ${location.longitude.toFixed(5)}`}</p>
               </div>
@@ -562,6 +657,18 @@ const MessageBubble = memo(function MessageBubble({ m, active, grouped, onPrevie
               </div>
               {/* Download indicator */}
               <Download className={cn("w-4 h-4 shrink-0", out ? "text-white/50" : "text-slate-400")} />
+            </div>
+          )}
+
+          {/* ── OG link preview above the text (WhatsApp style) ── */}
+          {firstUrl && <LinkPreviewCard url={firstUrl} out={out} />}
+
+          {/* ── Fallback: never render an empty bubble ── */}
+          {isBlank && (
+            <div className="px-2.5 py-1.5">
+              <span className={cn("text-[13px] italic", out ? "text-white/70" : "text-muted-foreground")}>
+                {m.type === "unsupported" ? "This message can't be displayed" : m.type === "order" ? "🛒 Order" : "Unsupported message"}
+              </span>
             </div>
           )}
 

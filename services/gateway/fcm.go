@@ -66,8 +66,10 @@ func (s *server) initFCMPush(ctx context.Context) {
 			return err
 		}
 
-		// Only push to agents if it's an inbound message
-		if msg.Direction != "inbound" {
+		// Only push to agents for real inbound CONTACT messages. Call-summary
+		// bubbles (type=call, sender system) are timeline markers - the call FCM
+		// path already covers their notifications.
+		if msg.Direction != "inbound" || msg.Type == "call" || msg.SenderType == "system" {
 			return nil
 		}
 

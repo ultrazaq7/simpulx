@@ -69,16 +69,23 @@ func callSummaryText(direction string, dur int) string {
 // insertCallSummary writes the voice-call entry as a dedicated type='call' message
 // (rendered as a call bubble), aligned by direction.
 func (s *server) insertCallSummary(ctx context.Context, orgID, convID, direction string, dur int) {
+	s.insertCallMessage(ctx, orgID, convID, direction, callSummaryText(direction, dur))
+}
+
+// insertCallMessage persists a type='call' bubble AND broadcasts it over
+// realtime immediately - without the publish, the bubble only appeared after a
+// page reload (the "call result is delayed in chat" bug).
+func (s *server) insertCallMessage(ctx context.Context, orgID, convID, direction, body string) {
 	if convID == "" {
 		return
 	}
 	if direction != "inbound" {
 		direction = "outbound"
 	}
-	body := callSummaryText(direction, dur)
-	if _, err := s.pool.Exec(ctx,
+	var msgID string
+	if err := s.pool.QueryRow(ctx,
 		`INSERT INTO messages (organization_id, conversation_id, direction, sender_type, type, body)
-		 VALUES ($1, $2, $3, 'system', 'call', $4)`, orgID, convID, direction, body); err != nil {
+		 VALUES ($1, $2, $3, 'system', 'call', $4) RETURNING id::text`, orgID, convID, direction, body).Scan(&msgID); err != nil {
 		s.log.Error("insert call summary failed", "conv", convID, "err", err)
 		return
 	}
@@ -86,6 +93,12 @@ func (s *server) insertCallSummary(ctx context.Context, orgID, convID, direction
 	_, _ = s.pool.Exec(ctx,
 		`UPDATE conversations SET last_message_at=now(), last_message_preview=LEFT($2,200), updated_at=now() WHERE id=$1`,
 		convID, body)
+	if err := s.bus.Publish(events.SubjectMessagePersisted, orgID, events.MessagePersisted{
+		ConversationID: convID, MessageID: msgID, Direction: direction,
+		SenderType: "system", Type: "call", Body: body, Preview: body,
+	}); err != nil {
+		s.log.Error("publish call bubble failed", "conv", convID, "err", err)
+	}
 }
 
 // applyCallPermissionReply flips the pending outbound call when the customer
@@ -472,6 +485,34 @@ func (s *server) handleAcceptCall(w http.ResponseWriter, r *http.Request) {
 	json.NewEncoder(w).Encode(map[string]string{"call_id": callID, "status": "connected"})
 }
 
+// POST /api/calls/{id}/connected - the caller's device detected real inbound
+// audio (actual pickup) on an outbound call. This is the authoritative start of
+// talk time: the SDP-answer webhook fires at RING time, so trusting it counted
+// ring seconds as call duration (a declined call showed "Voice call · 0:12").
+func (s *server) handleCallConnected(w http.ResponseWriter, r *http.Request) {
+	a := r.Context().Value(authCtxKey).(authInfo)
+	callID := r.PathValue("id")
+	var convID, direction string
+	err := s.pool.QueryRow(r.Context(),
+		`SELECT conversation_id::text, direction FROM calls WHERE id = $1 AND organization_id = $2`,
+		callID, a.OrgID).Scan(&convID, &direction)
+	if err != nil {
+		http.Error(w, "call not found", http.StatusNotFound)
+		return
+	}
+	tag, _ := s.pool.Exec(r.Context(),
+		`UPDATE calls SET call_status = 'connected', call_connected_at = COALESCE(call_connected_at, now())
+		  WHERE id = $1 AND call_status NOT IN ('ended','failed')`, callID)
+	if tag.RowsAffected() > 0 {
+		s.broadcastCall(r.Context(), a.OrgID, events.CallUpdated{
+			CallID: callID, ConversationID: convID, Direction: direction,
+			PermissionStatus: "granted", CallStatus: "connected",
+		})
+	}
+	w.Header().Set("Content-Type", "application/json")
+	json.NewEncoder(w).Encode(map[string]string{"status": "connected"})
+}
+
 // POST /api/calls/{id}/reject
 func (s *server) handleRejectCall(w http.ResponseWriter, r *http.Request) {
 	a := r.Context().Value(authCtxKey).(authInfo)
@@ -501,9 +542,9 @@ func (s *server) handleRejectCall(w http.ResponseWriter, r *http.Request) {
 		_ = s.postMetaCallAcceptReject(r.Context(), phoneNumberID, accessToken, extCallID, "reject", "")
 	}
 
-	// Render as a proper call bubble ("Missed call"), matching how WhatsApp
-	// treats a declined inbound call — not a plain text line.
-	s.insertCallSummary(r.Context(), a.OrgID, convID, "inbound", 0)
+	// Render as a proper call bubble - and be precise: the agent DECLINED this
+	// call, it wasn't missed.
+	s.insertCallMessage(r.Context(), a.OrgID, convID, "inbound", "Declined call")
 
 	s.broadcastCall(r.Context(), a.OrgID, events.CallUpdated{
 		CallID: callID, ConversationID: convID, Direction: "inbound",
@@ -722,25 +763,35 @@ func (s *server) processCallWebhook(ctx context.Context, orgID, phoneNumberID st
 			})
 
 		case "connect":
-			// Outbound: the SDP answer from the customer completes the handshake.
+			// Outbound: the SDP answer completes the WebRTC handshake, but WhatsApp
+			// sends it while the callee is still RINGING - it is NOT pickup. Store
+			// the answer and stay 'ringing'; the caller's device confirms actual
+			// pickup via POST /api/calls/{id}/connected (audio detected), which is
+			// what starts the billed/summary duration. Without this, a declined
+			// call counted its ring time as an answered call.
 			if ce.Session.SDPType == "answer" && ce.Session.SDP != "" {
 				_, _ = s.pool.Exec(ctx,
-					`UPDATE calls SET sdp_answer = $2, call_status = 'connected', call_connected_at = now() WHERE id = $1`,
+					`UPDATE calls SET sdp_answer = $2, call_status = 'ringing' WHERE id = $1 AND call_status NOT IN ('connected','ended','failed')`,
 					callID, ce.Session.SDP)
 				s.broadcastCall(ctx, orgID, events.CallUpdated{
 					CallID: callID, ConversationID: convID, Direction: "outbound",
-					PermissionStatus: "granted", CallStatus: "connected", SDPAnswer: ce.Session.SDP,
+					PermissionStatus: "granted", CallStatus: "ringing", SDPAnswer: ce.Session.SDP,
 				})
 			}
 
 		case "terminate", "CALL_ENDED", "ended":
 			// Skip the summary message if the agent already ended it (avoids a
 			// duplicate when our own hangup triggers Meta's terminate webhook).
-			var alreadyEnded bool
+			var alreadyEnded, wasConnected bool
 			var callDir string
-			_ = s.pool.QueryRow(ctx, `SELECT call_status='ended', direction FROM calls WHERE id=$1`, callID).Scan(&alreadyEnded, &callDir)
+			_ = s.pool.QueryRow(ctx, `SELECT call_status='ended', direction, call_connected_at IS NOT NULL FROM calls WHERE id=$1`, callID).Scan(&alreadyEnded, &callDir, &wasConnected)
 			// Prefer Meta's authoritative duration; fall back to connected_at.
+			// A call that was never confirmed connected (no pickup) has duration 0
+			// no matter what - ring time must never count as talk time.
 			dur := ce.Duration
+			if !wasConnected {
+				dur = 0
+			}
 			if dur > 0 {
 				_, _ = s.pool.Exec(ctx,
 					`UPDATE calls SET call_status='ended', call_ended_at=now(),

@@ -140,6 +140,19 @@ type waMessage struct {
 	// Shared contact card(s) + pinned location, when the customer sends them.
 	SharedContacts []waSharedContact `json:"contacts"`
 	Location       *waLocation       `json:"location"`
+	// Emoji reaction to an earlier message.
+	Reaction *struct {
+		MessageID string `json:"message_id"`
+		Emoji     string `json:"emoji"`
+	} `json:"reaction"`
+	// Catalog cart order.
+	Order *struct {
+		CatalogID    string `json:"catalog_id"`
+		ProductItems []struct {
+			ProductRetailerID string `json:"product_retailer_id"`
+			Quantity          int    `json:"quantity"`
+		} `json:"product_items"`
+	} `json:"order"`
 	// Present when the contact came from a Click-to-WhatsApp ad.
 	Referral *struct {
 		SourceID     string `json:"source_id"`
@@ -417,6 +430,24 @@ func (m waMessage) extractText() string {
 	case "template":
 		if m.Template != nil {
 			return m.Template.Name
+		}
+	case "reaction":
+		// An empty emoji means the reaction was removed.
+		if m.Reaction != nil && m.Reaction.Emoji != "" {
+			return m.Reaction.Emoji
+		}
+		return ""
+	case "order":
+		if m.Order != nil {
+			n := 0
+			for _, it := range m.Order.ProductItems {
+				if it.Quantity > 0 {
+					n += it.Quantity
+				} else {
+					n++
+				}
+			}
+			return fmt.Sprintf("Order placed (%d item%s)", n, map[bool]string{true: "s"}[n != 1])
 		}
 	case "unsupported":
 		// Meta tidak bisa men-decode pesan ini; konten asli TIDAK dikirim.

@@ -146,6 +146,29 @@ export default function CallOverlay({
       .catch(() => { /* best effort: a failed upload just means no Call Logs entry */ });
   }, [recUrl, callId]);
 
+  // Outbound: ICE connects at RING time (WhatsApp pre-establishes media), so
+  // "connected" must wait for real inbound audio bytes = actual pickup. That
+  // also tells the backend when talk time starts (accurate durations).
+  const pickupPollRef = useRef<ReturnType<typeof setInterval> | null>(null);
+  const startPickupDetect = useCallback((pc: RTCPeerConnection) => {
+    if (pickupPollRef.current) return;
+    pickupPollRef.current = setInterval(async () => {
+      try {
+        const stats = await pc.getStats();
+        let bytes = 0;
+        stats.forEach((s: any) => {
+          if (s.type === "inbound-rtp" && (s.kind === "audio" || s.mediaType === "audio")) bytes += s.bytesReceived || 0;
+        });
+        if (bytes > 500) {
+          if (pickupPollRef.current) { clearInterval(pickupPollRef.current); pickupPollRef.current = null; }
+          setCallStatus("connected");
+          api.callConnected(callId).catch(() => {});
+        }
+      } catch { /* keep polling */ }
+    }, 500);
+  }, [callId]);
+  useEffect(() => () => { if (pickupPollRef.current) clearInterval(pickupPollRef.current); }, []);
+
   const wirePeer = useCallback((pc: RTCPeerConnection) => {
     pc.ontrack = (event) => {
       remoteStreamRef.current = event.streams[0];
@@ -153,12 +176,15 @@ export default function CallOverlay({
       startRecording();
     };
     pc.onconnectionstatechange = () => {
-      if (pc.connectionState === "connected") setCallStatus("connected");
+      if (pc.connectionState === "connected") {
+        if (inbound) setCallStatus("connected");
+        else startPickupDetect(pc);
+      }
       if (pc.connectionState === "failed" || pc.connectionState === "disconnected") {
         setCallStatus("ended"); setEndReason("Connection lost"); cleanup();
       }
     };
-  }, [cleanup, startRecording]);
+  }, [cleanup, startRecording, inbound, startPickupDetect]);
 
   useEffect(() => {
     const onWS = (e: Event) => {

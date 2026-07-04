@@ -4,7 +4,7 @@ enum MessageDirection { inbound, outbound }
 
 enum MessageSenderType { contact, agent, bot, system }
 
-enum MessageType { text, image, audio, video, document, file, sticker, template, interactive, unsupported, call, contacts, location }
+enum MessageType { text, image, audio, video, document, file, sticker, template, interactive, unsupported, call, contacts, location, reaction }
 
 /// Includes a local-only `sending` status for optimistic bubbles.
 enum MessageStatus { sending, queued, sent, delivered, read, failed }
@@ -32,6 +32,7 @@ MessageType messageTypeFromWire(String? v) => switch (v) {
       'call' => MessageType.call,
       'contacts' => MessageType.contacts,
       'location' => MessageType.location,
+      'reaction' => MessageType.reaction,
       _ => MessageType.text,
     };
 
