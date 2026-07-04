@@ -30,6 +30,8 @@ class CallController extends Notifier<CallSession?> {
   Timer? _autoClear;
   Timer? _ringTimeout;
   Timer? _statusPoll;
+  Timer? _pickupPoll;
+  Timer? _permissionPoll;
   static const _channel = MethodChannel('simpulx_notification');
 
   /// How long we ring an outbound call before giving up as "No answer". Without
@@ -72,7 +74,14 @@ class CallController extends Notifier<CallSession?> {
         phase: perm.granted ? CallPhase.connecting : CallPhase.requesting,
         message: perm.granted ? null : 'Waiting for customer approval...',
       );
-      if (perm.granted) await _placeOffer();
+      if (perm.granted) {
+        await _placeOffer();
+      } else {
+        // Safety net: if the realtime grant event is missed (WS blip, or the
+        // backend couldn't classify the customer's reply), poll the call status
+        // so "Awaiting permission" can never get stuck forever.
+        _startPermissionPoll();
+      }
     } catch (e) {
       final raw = e is AppException ? e.message : 'Could not start the call';
       _fail(_friendlyMessage(raw));
@@ -80,6 +89,7 @@ class CallController extends Notifier<CallSession?> {
   }
 
   Future<void> _placeOffer() async {
+    _stopPermissionPoll(); // permission resolved (or superseded)
     final s = state;
     if (s == null || s.callId.isEmpty || _rtc == null) {
       // callId not set yet - will be called again after permission granted
@@ -138,6 +148,80 @@ class CallController extends Notifier<CallSession?> {
   void _cancelRingTimeout() {
     _ringTimeout?.cancel();
     _ringTimeout = null;
+  }
+
+  /// Poll the backend while "Awaiting permission" so a missed realtime grant
+  /// event can never leave the screen stuck: on granted -> place the call, on
+  /// denied/ended -> fail out.
+  void _startPermissionPoll() {
+    _permissionPoll?.cancel();
+    _permissionPoll = Timer.periodic(const Duration(seconds: 3), (_) async {
+      final s = state;
+      if (s == null || s.inbound || s.phase != CallPhase.requesting) {
+        _stopPermissionPoll();
+        return;
+      }
+      if (s.callId.isEmpty) return;
+      try {
+        final info = await _ds.getCallInfo(s.callId);
+        if (state?.phase != CallPhase.requesting) return;
+        if (info.permissionStatus == 'granted') {
+          _stopPermissionPoll();
+          state = state?.copyWith(phase: CallPhase.connecting, message: null);
+          await _placeOffer();
+        } else if (info.permissionStatus == 'denied' ||
+            info.status == 'ended' ||
+            info.status == 'failed') {
+          _stopPermissionPoll();
+          _fail('Call permission declined');
+        }
+      } catch (_) {/* transient; next tick retries */}
+    });
+  }
+
+  void _stopPermissionPoll() {
+    _permissionPoll?.cancel();
+    _permissionPoll = null;
+  }
+
+  /// WhatsApp delivers the SDP answer while the callee's phone is still
+  /// RINGING, so "answer received" is NOT "picked up". Actual pickup is when
+  /// inbound audio starts flowing - poll RTP stats and only then flip the UI
+  /// to connected (this is what makes the duration accurate).
+  void _startPickupDetector() {
+    if (_pickupPoll != null) return; // already watching
+    _pickupPoll = Timer.periodic(const Duration(milliseconds: 500), (_) async {
+      final s = state;
+      if (s == null || s.inbound || s.phase == CallPhase.connected) {
+        _stopPickupDetector();
+        return;
+      }
+      final bytes = await _rtc?.inboundAudioBytes() ?? -1;
+      // Stats unsupported on this platform -> fall back to the old behavior
+      // (connect immediately) rather than never connecting at all.
+      if (bytes < 0 || bytes > 500) {
+        _stopPickupDetector();
+        await _markOutboundConnected();
+      }
+    });
+  }
+
+  void _stopPickupDetector() {
+    _pickupPoll?.cancel();
+    _pickupPoll = null;
+  }
+
+  Future<void> _markOutboundConnected() async {
+    final s = state;
+    if (s == null || s.phase == CallPhase.connected) return;
+    _stopRingback();
+    _cancelRingTimeout();
+    await _rtc?.setSpeaker(s.speakerOn);
+    state = state?.copyWith(
+      phase: CallPhase.connected,
+      connectedAt: DateTime.now(),
+    );
+    _startStatusWatchdog();
   }
 
   /// Safety net for a missed realtime "ended" event (e.g. the WS was briefly
@@ -405,6 +489,12 @@ class CallController extends Notifier<CallSession?> {
     }
 
     if (p.callStatus == 'connected' && s.phase != CallPhase.connected) {
+      if (!s.inbound) {
+        // Outbound: the backend marks "connected" on SDP answer, which happens
+        // at RING time - wait for real inbound audio instead (accurate timer).
+        _startPickupDetector();
+        return;
+      }
       _stopRingback();
       _cancelRingTimeout();
       _dismissNativeCallNotification();
@@ -419,16 +509,12 @@ class CallController extends Notifier<CallSession?> {
   Future<void> _applyAnswer(String sdp) async {
     try {
       await _rtc?.setRemoteAnswer(sdp);
-      // Connected: stop the ringback and disarm the no-answer timeout.
-      _stopRingback();
-      _cancelRingTimeout();
-      // Pin audio to the earpiece by default (predictable across devices).
-      await _rtc?.setSpeaker(state?.speakerOn ?? false);
-      state = state?.copyWith(
-        phase: CallPhase.connected,
-        connectedAt: DateTime.now(),
-      );
-      _startStatusWatchdog();
+      // The SDP answer arrives while the callee is still RINGING (WhatsApp
+      // pre-establishes the media path), so do NOT mark connected here - keep
+      // "Ringing..." + local ringback, and let the pickup detector flip to
+      // connected the moment real inbound audio starts (= actual pickup).
+      // The 45s no-answer timeout stays armed until then.
+      _startPickupDetector();
     } catch (e) {
       _fail('Audio connection failed');
     }
@@ -463,6 +549,8 @@ class CallController extends Notifier<CallSession?> {
     _stopRingback();
     _cancelRingTimeout();
     _stopStatusWatchdog();
+    _stopPickupDetector();
+    _stopPermissionPoll();
     _rtc?.dispose();
     _rtc = null;
     // Dismiss the native call notification when the call ends

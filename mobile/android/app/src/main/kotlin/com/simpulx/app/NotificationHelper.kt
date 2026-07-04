@@ -380,9 +380,10 @@ object NotificationHelper {
     }
 
     /**
-     * WhatsApp-style "missed call" note: caller name + avatar, "Missed voice
-     * call", and Call back / Message actions. No ringtone, no full-screen intent,
-     * auto-cancel. Distinct id from the ring so the two never collide.
+     * WhatsApp-style "missed call" note. Uses MessagingStyle (like the chat
+     * notification) so the caller avatar sits on the LEFT with the app badge
+     * merged into it - not a plain notification with a right-side largeIcon.
+     * Silent, auto-cancel, with Call back (redial) and Message (inline reply).
      */
     fun showMissedCallNotification(
         context: Context,
@@ -392,6 +393,18 @@ object NotificationHelper {
         ensureChannel(context)
 
         val name = if (contactName.isNotBlank()) contactName else "Missed call"
+
+        // Caller avatar with the app badge merged in (same look as chat notifs).
+        val avatar = generateInitialAvatar(name)
+        val badge = BitmapFactory.decodeResource(context.resources, R.drawable.ic_notification)
+        val merged = if (badge != null) mergeAvatarWithBadge(avatar, badge) else avatar
+        val caller = Person.Builder()
+            .setName(name)
+            .setIcon(IconCompat.createWithBitmap(merged))
+            .setImportant(true)
+            .build()
+        val style = NotificationCompat.MessagingStyle(Person.Builder().setName("You").build())
+            .addMessage("Missed voice call", System.currentTimeMillis(), caller)
 
         fun tapRoute(route: String, requestCode: Int): PendingIntent {
             val intent = Intent(context, MainActivity::class.java).apply {
@@ -412,12 +425,16 @@ object NotificationHelper {
 
         // Message -> inline reply, identical to the chat notification's Reply:
         // type in the shade and it's sent in the background (works app-killed).
+        // fromMissed lets ReplyReceiver clear THIS notification's spinner.
+        val replyIntent = ReplyReceiver.getReplyIntent(context, chatId).apply {
+            putExtra("fromMissed", true)
+        }
         val messageAction = NotificationCompat.Action.Builder(
             R.drawable.ic_notification,
             "Message",
             PendingIntent.getBroadcast(
                 context, chatId.hashCode() + 104,
-                ReplyReceiver.getReplyIntent(context, chatId),
+                replyIntent,
                 PendingIntent.FLAG_UPDATE_CURRENT or PendingIntent.FLAG_MUTABLE
             )
         ).addRemoteInput(
@@ -426,9 +443,7 @@ object NotificationHelper {
 
         val notification = NotificationCompat.Builder(context, CHANNEL_ID)
             .setSmallIcon(R.drawable.ic_notification)
-            .setLargeIcon(generateInitialAvatar(name))
-            .setContentTitle(name)
-            .setContentText("Missed voice call")
+            .setStyle(style)
             .setCategory(NotificationCompat.CATEGORY_CALL)
             .setPriority(NotificationCompat.PRIORITY_DEFAULT)
             // A missed call must never ring or vibrate; it's a passive note.
@@ -442,6 +457,25 @@ object NotificationHelper {
 
         val manager = context.getSystemService(Context.NOTIFICATION_SERVICE) as NotificationManager
         manager.notify(chatId.hashCode() + 101, notification)
+    }
+
+    /**
+     * Resolve the missed-call note after an inline "Message" reply. An inline
+     * reply's spinner only stops when the SAME notification id is re-notified -
+     * cancel() alone leaves it spinning forever. Show a brief silent
+     * confirmation that auto-dismisses.
+     */
+    fun finishMissedReply(context: Context, chatId: String, ok: Boolean) {
+        ensureChannel(context)
+        val n = NotificationCompat.Builder(context, CHANNEL_ID)
+            .setSmallIcon(R.drawable.ic_notification)
+            .setContentText(if (ok) "Message sent" else "Failed to send message")
+            .setSilent(true)
+            .setAutoCancel(true)
+            .setTimeoutAfter(2500)
+            .build()
+        val manager = context.getSystemService(Context.NOTIFICATION_SERVICE) as NotificationManager
+        manager.notify(chatId.hashCode() + 101, n)
     }
 
     /**

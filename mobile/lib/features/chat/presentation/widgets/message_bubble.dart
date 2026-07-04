@@ -1,6 +1,7 @@
 import 'dart:io';
 
 import 'package:cached_network_image/cached_network_image.dart';
+import 'package:flutter/gestures.dart' show TapGestureRecognizer;
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart' show Clipboard, ClipboardData;
 import 'package:url_launcher/url_launcher.dart';
@@ -89,10 +90,7 @@ class MessageBubble extends StatelessWidget {
                   if (message.type == MessageType.call)
                     _callBubble(context, fg)
                   else if (message.body.isNotEmpty)
-                    Text(
-                      message.body,
-                      style: TextStyle(color: fg, fontSize: 15, height: 1.3),
-                    ),
+                    _LinkifiedBody(text: message.body, color: fg),
                   const SizedBox(height: 2),
                   Row(
                     mainAxisSize: MainAxisSize.min,
@@ -872,6 +870,73 @@ class _ContactsCard extends StatelessWidget {
           ),
       ],
     );
+  }
+}
+
+/// Message body with tappable links (WhatsApp-style): URLs are underlined and
+/// open in the external browser.
+class _LinkifiedBody extends StatefulWidget {
+  const _LinkifiedBody({required this.text, required this.color});
+  final String text;
+  final Color color;
+
+  @override
+  State<_LinkifiedBody> createState() => _LinkifiedBodyState();
+}
+
+class _LinkifiedBodyState extends State<_LinkifiedBody> {
+  static final _urlRe =
+      RegExp(r'(https?:\/\/[^\s]+|www\.[^\s]+)', caseSensitive: false);
+  final List<TapGestureRecognizer> _recognizers = [];
+
+  void _disposeRecognizers() {
+    for (final r in _recognizers) {
+      r.dispose();
+    }
+    _recognizers.clear();
+  }
+
+  @override
+  void dispose() {
+    _disposeRecognizers();
+    super.dispose();
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final base = TextStyle(color: widget.color, fontSize: 15, height: 1.3);
+    final matches = _urlRe.allMatches(widget.text).toList();
+    if (matches.isEmpty) return Text(widget.text, style: base);
+
+    _disposeRecognizers(); // rebuild-safe: recreate recognizers fresh
+    final spans = <TextSpan>[];
+    var last = 0;
+    for (final m in matches) {
+      if (m.start > last) {
+        spans.add(TextSpan(text: widget.text.substring(last, m.start)));
+      }
+      final url = m.group(0)!;
+      final rec = TapGestureRecognizer()
+        ..onTap = () {
+          final href = url.startsWith('http') ? url : 'https://$url';
+          launchUrl(Uri.parse(href), mode: LaunchMode.externalApplication);
+        };
+      _recognizers.add(rec);
+      spans.add(TextSpan(
+        text: url,
+        recognizer: rec,
+        style: const TextStyle(
+          color: Color(0xFF53BDEB),
+          decoration: TextDecoration.underline,
+          decorationColor: Color(0xFF53BDEB),
+        ),
+      ));
+      last = m.end;
+    }
+    if (last < widget.text.length) {
+      spans.add(TextSpan(text: widget.text.substring(last)));
+    }
+    return Text.rich(TextSpan(style: base, children: spans));
   }
 }
 

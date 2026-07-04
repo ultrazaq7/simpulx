@@ -92,8 +92,18 @@ func (s *server) insertCallSummary(ctx context.Context, orgID, convID, direction
 // replies to a call-permission request via an interactive message.
 func (s *server) applyCallPermissionReply(ctx context.Context, orgID, fromPhone, response, repliedMsgID string) {
 	r := strings.ToLower(response)
-	granted := strings.Contains(r, "accept") || strings.Contains(r, "allow") || strings.Contains(r, "grant") || strings.Contains(r, "approv")
-	denied := strings.Contains(r, "reject") || strings.Contains(r, "deny") || strings.Contains(r, "declin")
+	// Match both English and Indonesian button labels: a customer on an
+	// Indonesian WhatsApp replies "Izinkan"/"Tolak", which previously matched
+	// neither branch, so the grant was silently dropped and the agent's call
+	// screen sat on "Awaiting permission" forever.
+	granted := strings.Contains(r, "accept") || strings.Contains(r, "allow") || strings.Contains(r, "grant") || strings.Contains(r, "approv") ||
+		strings.Contains(r, "izin") || strings.Contains(r, "boleh") || strings.Contains(r, "setuju") || strings.Contains(r, "terima")
+	denied := strings.Contains(r, "reject") || strings.Contains(r, "deny") || strings.Contains(r, "declin") ||
+		strings.Contains(r, "tolak") || strings.Contains(r, "jangan") || strings.Contains(r, "tidak")
+	// "terima" is a substring of nothing denied; but "tidak terima" contains both -> treat as denied.
+	if granted && denied {
+		granted = false
+	}
 	if !granted && !denied {
 		return // unknown response — leave it as a displayed message only
 	}
@@ -491,10 +501,9 @@ func (s *server) handleRejectCall(w http.ResponseWriter, r *http.Request) {
 		_ = s.postMetaCallAcceptReject(r.Context(), phoneNumberID, accessToken, extCallID, "reject", "")
 	}
 
-	_, _ = s.pool.Exec(r.Context(),
-		`INSERT INTO messages (organization_id, conversation_id, direction, sender_type, type, body)
-		 VALUES ($1, $2, 'inbound', 'system', 'text', 'Missed or declined call')`,
-		a.OrgID, convID)
+	// Render as a proper call bubble ("Missed call"), matching how WhatsApp
+	// treats a declined inbound call — not a plain text line.
+	s.insertCallSummary(r.Context(), a.OrgID, convID, "inbound", 0)
 
 	s.broadcastCall(r.Context(), a.OrgID, events.CallUpdated{
 		CallID: callID, ConversationID: convID, Direction: "inbound",

@@ -27,38 +27,35 @@ class ReplyReceiver : BroadcastReceiver() {
     private fun handleReply(context: Context, intent: Intent, chatId: String) {
         val remoteInput = RemoteInput.getResultsFromIntent(intent)
         val replyText = remoteInput?.getCharSequence("key_text_reply")?.toString()
-
         if (replyText.isNullOrBlank()) return
 
-        // Dismiss the notification after extracting the reply
-        
-        if (replyText != null) {
-            // Hit the API natively in background
-            NativeApiClient.sendReply(
-                context = context,
-                chatId = chatId,
-                text = replyText,
-                onSuccess = {
-                    Log.d("ReplyReceiver", "Background reply sent!")
+        // Which notification carries the RemoteInput spinner: the chat thread
+        // notification, or the missed-call note's Message action. The spinner
+        // only stops when that SAME id is re-notified, so route accordingly.
+        val fromMissed = intent.getBooleanExtra("fromMissed", false)
+
+        NativeApiClient.sendReply(
+            context = context,
+            chatId = chatId,
+            text = replyText,
+            onSuccess = {
+                Log.d("ReplyReceiver", "Background reply sent! (missed=$fromMissed)")
+                if (fromMissed) {
+                    NotificationHelper.finishMissedReply(context, chatId, true)
+                } else {
                     // Append the message to the notification stack and stop the spinner
                     NotificationHelper.appendSentMessage(context, chatId, replyText)
-                    // If the reply came from a missed-call note, clear it (and its
-                    // RemoteInput spinner) now that the message is on its way.
-                    NotificationHelper.cancelMissedCallNotification(context, chatId)
-                },
-                onError = { e ->
-                    Log.e("ReplyReceiver", "Failed to send background reply", e)
-                    NotificationHelper.appendFailedMessage(context, chatId)
-                    // Clear the missed-call note's RemoteInput spinner too (if the
-                    // reply came from there) so it never hangs spinning on failure.
-                    NotificationHelper.cancelMissedCallNotification(context, chatId)
                 }
-            )
-        } else {
-            // No text, just cancel
-            val manager = context.getSystemService(Context.NOTIFICATION_SERVICE) as NotificationManager
-            manager.cancel(chatId.hashCode())
-        }
+            },
+            onError = { e ->
+                Log.e("ReplyReceiver", "Failed to send background reply", e)
+                if (fromMissed) {
+                    NotificationHelper.finishMissedReply(context, chatId, false)
+                } else {
+                    NotificationHelper.appendFailedMessage(context, chatId)
+                }
+            }
+        )
     }
 
     private fun handleMarkAsRead(context: Context, chatId: String) {

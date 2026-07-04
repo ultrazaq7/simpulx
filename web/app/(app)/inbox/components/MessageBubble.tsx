@@ -10,6 +10,32 @@ import {
 import { initials, fmtTime, channelColor, channelTextColor, cn } from "@/lib/utils";
 import type { Conversation, Message } from "@/lib/types";
 
+/* ── Clickable links in message text (WhatsApp style) ──────── */
+const URL_SPLIT_RE = /((?:https?:\/\/|www\.)[^\s<>"']+)/gi;
+function LinkifiedText({ text, out }: { text: string; out: boolean }) {
+  const parts = text.split(URL_SPLIT_RE);
+  return (
+    <>
+      {parts.map((p, i) => {
+        if (!/^(https?:\/\/|www\.)/i.test(p)) return <span key={i}>{p}</span>;
+        const href = p.startsWith("http") ? p : `https://${p}`;
+        return (
+          <a
+            key={i}
+            href={href}
+            target="_blank"
+            rel="noopener noreferrer"
+            onClick={(e) => e.stopPropagation()}
+            className={cn("underline underline-offset-2 break-all", out ? "text-white" : "text-[#0284C7]")}
+          >
+            {p}
+          </a>
+        );
+      })}
+    </>
+  );
+}
+
 /* ── Status ticks (WhatsApp style) ─────────────────────────── */
 function StatusIcon({ status }: { status: string }) {
   switch (status) {
@@ -365,7 +391,7 @@ const MessageBubble = memo(function MessageBubble({ m, active, grouped, onPrevie
     <div className={cn("group flex items-start gap-1", out ? "justify-end" : "justify-start")}>
 
       {out && (m.body || msgLink) && <MessageMenu out={out} text={m.body ?? undefined} link={msgLink} onCopyText={onCopyText} onUseInComposer={onUseInComposer} onForward={onForward} />}
-      <div className={cn("max-w-[66%] flex flex-col", out ? "items-end" : "items-start")}>
+      <div className={cn(hasReferral ? "max-w-[340px]" : "max-w-[66%]", "flex flex-col", out ? "items-end" : "items-start")}>
         {/* Sender label: only on the first of a group, and only for outbound (1:1
             inbound is always the contact, so the name there is just noise). */}
         {!grouped && (out || bot || broadcast) && (
@@ -542,7 +568,7 @@ const MessageBubble = memo(function MessageBubble({ m, active, grouped, onPrevie
           {/* ── Text body ── */}
           {m.body && (
             <div className="px-2.5 py-1.5 pb-2">
-              <span className="whitespace-pre-wrap break-words text-[13px] leading-[1.4] text-inherit align-top">{m.body}</span>
+              <span className="whitespace-pre-wrap break-words text-[13px] leading-[1.4] text-inherit align-top"><LinkifiedText text={m.body} out={out} /></span>
               <span className="inline-flex items-center gap-1 ml-5 float-right translate-y-[5px]">
                 <span className={cn("text-[10px]", out ? "text-white/70" : "text-muted-foreground")}>{fmtTime(m.created_at)}</span>
                 {out && <StatusIcon status={m.status} />}

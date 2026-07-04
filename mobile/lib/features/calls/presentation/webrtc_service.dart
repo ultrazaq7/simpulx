@@ -76,6 +76,35 @@ class WebRtcService {
     }
   }
 
+  /// Total RTP bytes received on the inbound audio track, or -1 when stats are
+  /// unavailable. WhatsApp delivers the SDP answer while the callee is still
+  /// RINGING, so media bytes flowing is the only reliable "picked up" signal.
+  Future<int> inboundAudioBytes() async {
+    final pc = _pc;
+    if (pc == null) return -1;
+    try {
+      final stats = await pc.getStats();
+      var total = 0;
+      var found = false;
+      for (final s in stats) {
+        if (s.type == 'inbound-rtp') {
+          final kind = '${s.values['kind'] ?? s.values['mediaType'] ?? ''}';
+          if (kind == 'audio' || kind.isEmpty) {
+            final b = s.values['bytesReceived'];
+            if (b is num) {
+              total += b.toInt();
+              found = true;
+            }
+          }
+        }
+      }
+      return found ? total : 0;
+    } catch (e) {
+      if (kDebugMode) debugPrint('[webrtc] stats: $e');
+      return -1;
+    }
+  }
+
   Future<void> dispose() async {
     try {
       for (final t in _localStream?.getTracks() ?? const []) {

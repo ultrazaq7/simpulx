@@ -30,6 +30,18 @@ type app struct {
 		Error(string, ...any)
 		Warn(string, ...any)
 	}
+	// outboxKick wakes the outbox relay immediately after a message is
+	// persisted, so realtime delivery doesn't wait for the next poll tick.
+	outboxKick chan struct{}
+}
+
+// kickOutbox requests an immediate outbox drain (non-blocking; a pending kick
+// already covers this one).
+func (a *app) kickOutbox() {
+	select {
+	case a.outboxKick <- struct{}{}:
+	default:
+	}
 }
 
 func main() {
@@ -56,6 +68,8 @@ func main() {
 		snd:  newSender(config.GetBool("WA_MOCK", true), config.Get("WA_GRAPH_BASE", "https://graph.facebook.com/v21.0")),
 		vsnd: newViberSender(config.GetBool("WA_MOCK", true)),
 		log:  log,
+
+		outboxKick: make(chan struct{}, 1),
 	}
 
 	if err := bus.Subscribe(events.SubjectMessageReceived, "messaging-inbound", a.onReceived); err != nil {
@@ -168,6 +182,9 @@ func (a *app) onReceived(env events.Envelope) error {
 	// dari DB (messages.metadata.raw_webhook) -- konten asli tak pernah hilang lagi.
 	meta := buildMessageMeta(e)
 	msgID, err := a.st.insertInbound(ctx, env.OrgID, conv.ID, e.Message.Type, body, e.Message.MediaURL, e.Message.ExternalID, genuine, mediaPreview(e.Message.Type, body), meta)
+	if err == nil {
+		a.kickOutbox() // deliver realtime immediately, don't wait for the poll tick
+	}
 	if err != nil {
 		if err.Error() == "duplicate message" {
 			a.log.Info("duplicate message dropped", "ext", e.Message.ExternalID)
@@ -254,6 +271,7 @@ func (a *app) onOutbound(env events.Envelope) error {
 		}
 		return err2
 	}
+	a.kickOutbox() // deliver realtime immediately, don't wait for the poll tick
 
 	// Broadcast: tautkan message ini ke baris broadcast_recipients agar laporan
 	// bisa membaca status delivered/read langsung (bukan tebakan time-window).
@@ -380,12 +398,17 @@ func mediaPreview(msgType, body string) string {
 // ── Outbox Relay Worker ──
 
 func (a *app) runOutboxRelay(ctx context.Context) {
+	// The ticker is only a safety net (crash recovery / missed kicks); the
+	// normal path is the immediate kick fired right after a message commits,
+	// so realtime delivery is near-instant instead of waiting up to 500ms.
 	ticker := time.NewTicker(500 * time.Millisecond)
 	defer ticker.Stop()
 	for {
 		select {
 		case <-ctx.Done():
 			return
+		case <-a.outboxKick:
+			a.processOutbox(ctx)
 		case <-ticker.C:
 			a.processOutbox(ctx)
 		}

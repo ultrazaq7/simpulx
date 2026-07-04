@@ -20,6 +20,7 @@ class CallInfo {
     required this.contactName,
     required this.contactPhone,
     required this.status,
+    this.permissionStatus = '',
     this.sdpOffer,
   });
   final String callId;
@@ -27,6 +28,8 @@ class CallInfo {
   final String contactName;
   final String contactPhone;
   final String status;
+  // pending | granted | denied — drives the awaiting-permission poll fallback.
+  final String permissionStatus;
   final String? sdpOffer;
 }
 
@@ -77,12 +80,15 @@ class CallsRemoteDataSource {
     try {
       final res = await _dio.get(ApiEndpoints.callInfo(callId));
       final m = (res.data as Map).cast<String, dynamic>();
+      // The backend returns raw row keys (id / call_status); older builds used
+      // call_id / status. Accept both so status parsing never silently breaks.
       return CallInfo(
-        callId: asString(m['call_id']),
+        callId: asString(m['call_id'] ?? m['id']),
         conversationId: asString(m['conversation_id']),
         contactName: asString(m['contact_name']),
         contactPhone: asString(m['contact_phone']),
-        status: asString(m['status']),
+        status: asString(m['call_status'] ?? m['status']),
+        permissionStatus: asString(m['permission_status']),
         sdpOffer: asStringOrNull(m['sdp_offer']),
       );
     } on DioException catch (e) {
