@@ -114,7 +114,7 @@ class NotificationPayload {
     return NotificationPayload(
       category: NotificationCategory.fromType(str('type'), body: str('body')),
       title: str('title') ?? 'Simpulx',
-      body: str('body') ?? '',
+      body: _normalizePreview(str('body') ?? ''),
       conversationId: str('conversationId') ?? str('conversation_id'),
       contactId: str('contactId') ?? str('contact_id'),
       rawType: str('type'),
@@ -163,4 +163,19 @@ class NotificationPayload {
     }
     return '/chat';
   }
+}
+
+/// Normalizes a message preview for a notification so a sticker reads like the
+/// in-app chat list. The server tags a sticker with a picture-frame emoji
+/// ("🖼️ Sticker"), which looks like an image; the chat list instead shows a
+/// smiley (Icons.emoji_emotions_outlined), so we mirror that here. Detection
+/// matches the chat list's exactly (emoji prefix or the bare word) to avoid
+/// rewriting a real text message that merely mentions "sticker".
+String _normalizePreview(String body) {
+  final p = body.trim();
+  final lower = p.toLowerCase();
+  if (p.startsWith('🖼') || lower == '[sticker]' || lower == 'sticker') {
+    return '😊 Sticker';
+  }
+  return body;
 }

@@ -10,7 +10,6 @@ import '../../../../core/utils/time_format.dart';
 import '../../../../core/widgets/app_loader.dart';
 import '../../../../core/widgets/app_snackbar.dart';
 import '../../../chat/domain/entities/conversation.dart';
-import '../../../chat/presentation/controllers/chat_actions_providers.dart';
 import '../../../chat/presentation/widgets/conversation_actions_sheet.dart';
 import '../../../chat/presentation/widgets/notes_sheet.dart';
 import '../../domain/entities/contact.dart';
@@ -153,10 +152,6 @@ class _ContactDetailPageState extends ConsumerState<ContactDetailPage> {
           ],
           const SizedBox(height: AppSpacing.md),
           _LeadContextCard(contact: c),
-          if (c.aiSummary != null && c.aiSummary!.isNotEmpty) ...[
-            const SizedBox(height: AppSpacing.md),
-            _SummaryCard(summary: c.aiSummary!),
-          ],
           const SizedBox(height: AppSpacing.md),
           _HistoryCard(key: _historyKey, contactId: c.id),
         ],
@@ -601,34 +596,6 @@ class _LeadScoreCard extends StatelessWidget {
               valueColor: AlwaysStoppedAnimation(_color),
             ),
           ),
-        ],
-      ),
-    );
-  }
-}
-
-class _SummaryCard extends StatelessWidget {
-  const _SummaryCard({required this.summary});
-  final String summary;
-
-  @override
-  Widget build(BuildContext context) {
-    return _Card(
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          const Row(
-            children: [
-              Icon(Icons.auto_awesome_outlined,
-                  size: 16, color: AppColors.primary),
-              SizedBox(width: 6),
-              Text('Summary',
-                  style: TextStyle(fontWeight: FontWeight.w700, fontSize: 13)),
-            ],
-          ),
-          const SizedBox(height: 8),
-          Text(summary,
-              style: const TextStyle(fontSize: 13, height: 1.5)),
         ],
       ),
     );
