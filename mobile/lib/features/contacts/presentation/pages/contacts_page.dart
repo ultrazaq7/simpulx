@@ -144,8 +144,16 @@ class _ContactsPageState extends ConsumerState<ContactsPage> {
                             ChoiceChip(
                               label: Text(level[0].toUpperCase() + level.substring(1)),
                               selected: _interest == level,
-                              selectedColor:
-                                  AppColors.forInterest(level).withValues(alpha: 0.16),
+                              // Solid, saturated fill (not a faint alpha wash) so the
+                              // selected chip stays readable in light mode too.
+                              selectedColor: AppColors.forInterest(level),
+                              labelStyle: TextStyle(
+                                fontSize: 12,
+                                fontWeight: FontWeight.w600,
+                                color: _interest == level
+                                    ? Colors.white
+                                    : Theme.of(context).colorScheme.onSurfaceVariant,
+                              ),
                               onSelected: (_) => update(() => _interest = level),
                             ),
                         ],

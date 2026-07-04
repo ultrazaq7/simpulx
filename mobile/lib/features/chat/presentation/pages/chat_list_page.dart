@@ -180,7 +180,17 @@ class _ChatListPageState extends ConsumerState<ChatListPage> {
                             level[0].toUpperCase() + level.substring(1),
                           ),
                           selected: filter.interestLevel == level,
+                          // Solid, saturated fill + white label when selected so it
+                          // reads clearly in both themes (a faint alpha wash was
+                          // nearly invisible in light mode).
                           selectedColor: AppColors.forInterest(level),
+                          labelStyle: TextStyle(
+                            fontSize: 12,
+                            fontWeight: FontWeight.w600,
+                            color: filter.interestLevel == level
+                                ? Colors.white
+                                : Theme.of(context).colorScheme.onSurfaceVariant,
+                          ),
                           onSelected: (_) => ref
                               .read(inboxFilterProvider.notifier)
                               .set(filter.copyWith(interestLevel: level)),

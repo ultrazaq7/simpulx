@@ -595,6 +595,7 @@ class _InterestRow extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final theme = Theme.of(context);
     return Padding(
       padding: const EdgeInsets.fromLTRB(16, 10, 16, 10),
       child: Row(
@@ -607,7 +608,19 @@ class _InterestRow extends StatelessWidget {
               child: ChoiceChip(
                 label: Text(level[0].toUpperCase() + level.substring(1)),
                 selected: current == level,
-                selectedColor: AppColors.forInterest(level).withValues(alpha: 0.18),
+                // A faint alpha wash on a light background left the label
+                // nearly invisible in light mode. Selected = solid, saturated
+                // fill with white text (readable regardless of theme); the
+                // unselected label still resolves per-brightness (see
+                // AppTheme.chipTheme) so it stays legible in dark mode too.
+                selectedColor: AppColors.forInterest(level),
+                labelStyle: TextStyle(
+                  fontSize: 12,
+                  fontWeight: FontWeight.w600,
+                  color: current == level
+                      ? Colors.white
+                      : theme.colorScheme.onSurfaceVariant,
+                ),
                 onSelected: (_) => onPick(level),
               ),
             ),
