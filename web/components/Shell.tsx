@@ -56,14 +56,14 @@ function playBeep(freq = 880, dur = 0.15) {
 
 const NAV_TOP = [
   { href: "/dashboard", icon: LayoutDashboard, labelKey: "nav.dashboard", perm: "menu_dashboard" },
-  { href: "/inbox", icon: MessageSquareText, labelKey: "nav.inbox", perm: "menu_chats" },
+  { href: "/inbox", icon: MessageSquareText, labelKey: "nav.inbox", perm: "menu_chats", cutout: true },
   { href: "/contacts", icon: Users, labelKey: "nav.contacts", perm: "menu_contacts" },
   { href: "/broadcasts", icon: Megaphone, labelKey: "nav.broadcasts", perm: "menu_broadcasts" },
-  { href: "/drip", icon: Repeat, labelKey: "nav.drip", perm: "menu_broadcasts" },
+  { href: "/drip", icon: Repeat, labelKey: "nav.drip", perm: "menu_broadcasts", noFill: true },
 ];
 
 const NAV_BOTTOM = [
-  { href: "/settings", icon: Settings, labelKey: "nav.settings", perm: "menu_settings" },
+  { href: "/settings", icon: Settings, labelKey: "nav.settings", perm: "menu_settings", noFill: true },
 ];
 
 const SIDEBAR_W = 72;
@@ -74,7 +74,7 @@ const PAGE_TITLES: Record<string, { category: string; title: string }> = {
   "/contacts": { category: "GROUPS", title: "Contacts" },
   "/campaigns": { category: "CAMPAIGNS", title: "Campaigns" },
   "/broadcasts": { category: "OUTREACH", title: "Broadcasts" },
-  "/drip": { category: "OUTREACH", title: "Drip campaigns" },
+  "/drip": { category: "OUTREACH", title: "Drip campaigns", icon: Repeat },
   "/templates": { category: "OUTREACH", title: "Message Templates" },
   "/automation": { category: "AUTOMATION", title: "Automation" },
   "/channels": { category: "SETUP", title: "Channels" },
@@ -418,7 +418,7 @@ export function Shell({ children }: { children: ReactNode }) {
   // Presence: undefined (legacy session) is treated as online; only an explicit false is offline.
   const online = user.is_online !== false;
 
-  function NavItem({ href, icon: Icon, label }: { href: string; icon: any; label: string }) {
+  function NavItem({ href, icon: Icon, label, cutout, noFill }: { href: string; icon: any; label: string; cutout?: boolean; noFill?: boolean; }) {
     const active = pathname.startsWith(href);
     const item = (
       <Link
@@ -439,15 +439,12 @@ export function Shell({ children }: { children: ReactNode }) {
               </span>
             )}
             <Icon
-              strokeWidth={active ? 2.5 : 1.75}
-              // Lucide icons are stroke-only; fill the active glyph so it reads
-              // as a solid (filled) icon. We also set the stroke to the background
-              // color so that internal lines (like in MessageSquareText) appear as cutouts.
-              fill={active ? "currentColor" : "none"}
-              color={active ? "hsl(var(--background))" : "currentColor"}
+              strokeWidth={active ? (cutout ? 2.5 : 2) : 1.75}
+              fill={active && !noFill ? "currentColor" : "none"}
+              color={active && cutout ? "hsl(var(--background))" : "currentColor"}
               className={cn(
                 "w-[20px] h-[20px] transition-colors duration-200",
-                active ? "text-primary-text [&>*:first-child]:stroke-current" : "text-muted-foreground group-hover:text-foreground"
+                active ? cn("text-primary-text", cutout && "[&>*:first-child]:stroke-current") : "text-muted-foreground group-hover:text-foreground"
               )}
             />
           </div>
@@ -534,7 +531,7 @@ export function Shell({ children }: { children: ReactNode }) {
             </p>
             <h1 className="text-[19px] font-bold leading-normal truncate text-foreground flex items-center gap-2">
               {(() => {
-                const Icon = CATEGORY_ICONS[pageInfo.category] || Activity;
+                const Icon = (pageInfo as any).icon || CATEGORY_ICONS[pageInfo.category] || Activity;
                 return <Icon key={pathname} className="w-[18px] h-[18px] text-primary animate-pop-icon shrink-0" />;
               })()}
               {pageInfo.title}
