@@ -1,6 +1,7 @@
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import '../../domain/entities/conversation.dart';
+import '../../../../features/contacts/domain/entities/contact.dart';
 
 /// Quick inbox filter, set by dashboard drill-through and the inbox itself.
 class InboxFilter {
@@ -73,6 +74,36 @@ class InboxFilter {
         return false;
       }
     }
+    return true;
+  }
+
+  bool matchesContact(Contact c, {String? myId}) {
+    if (interestLevel != null && c.interestLevel != interestLevel) return false;
+    
+    // Status filter from dashboard (e.g., 'closed' for Lost Analysis card)
+    if (status != null) {
+      if (status == 'closed' && c.stageName != 'Lost' && c.stageName != 'Won') return false;
+      if (status == 'open' && (c.stageName == 'Lost' || c.stageName == 'Won')) return false;
+    }
+
+    if (stageName != null) {
+      // Dashboard "Lost Reason" drill-downs pass the combined name (e.g., "Lost Changed Mind")
+      // We must match c.stageName == 'Lost' and c.lostReason == 'changed_mind'.
+      if (stageName!.toLowerCase().startsWith('lost')) {
+        if (c.stageName != 'Lost') return false;
+        final reason = stageName!.substring(4).trim().toLowerCase().replaceAll(' ', '_');
+        if (reason.isNotEmpty && c.lostReason?.toLowerCase() != reason) return false;
+      } else {
+        if (c.stageName != stageName) return false;
+      }
+    }
+
+    if (assignment == 'unassigned' && c.assignedAgentId != null) return false;
+    if (assignment == 'mine' && c.assignedAgentId != myId) return false;
+    if (campaignName != null && c.campaignName != campaignName) return false;
+    if (agentName != null && c.agentName != agentName) return false;
+    if (lostReason != null && c.lostReason != lostReason) return false;
+
     return true;
   }
 

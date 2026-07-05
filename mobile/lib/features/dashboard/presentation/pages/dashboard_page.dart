@@ -13,6 +13,7 @@ import '../../../chat/presentation/controllers/inbox_filter.dart';
 import '../../domain/dashboard_cards.dart';
 import '../../domain/manager_analytics.dart';
 import '../dashboard_providers.dart';
+import '../../../contacts/presentation/controllers/contacts_providers.dart';
 
 /// Agent-first dashboard: a greeting + actionable counts. Each card drills into
 /// the filtered inbox. Built for <=5s comprehension.
@@ -21,6 +22,7 @@ class DashboardPage extends ConsumerWidget {
 
   void _drill(WidgetRef ref, BuildContext context, InboxFilter filter) {
     ref.read(inboxFilterProvider.notifier).set(filter);
+    ref.read(contactsFilterProvider.notifier).set(filter);
     context.go('/contacts');
   }
 
@@ -996,9 +998,9 @@ class _Card extends StatelessWidget {
       width: double.infinity,
       padding: const EdgeInsets.all(16),
       decoration: BoxDecoration(
-        color: Theme.of(context).colorScheme.surface,
+        color: AppColors.brandGreenDark.withValues(alpha: 0.10),
         borderRadius: BorderRadius.circular(16),
-        border: Border.all(color: Theme.of(context).dividerColor),
+        border: Border.all(color: AppColors.brandGreenDark.withValues(alpha: 0.22)),
         // Layered, low-opacity shadow (Stripe/Linear style) for crisp depth.
         boxShadow: isDark
             ? null

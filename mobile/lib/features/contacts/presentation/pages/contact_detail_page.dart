@@ -162,14 +162,20 @@ class _ContactDetailPageState extends ConsumerState<ContactDetailPage>
               controller: _tabController,
               indicatorSize: TabBarIndicatorSize.tab,
               indicator: BoxDecoration(
-                color: Theme.of(context).colorScheme.surface,
+                color: Theme.of(context).brightness == Brightness.dark
+                    ? Theme.of(context).colorScheme.surfaceContainerHighest
+                    : Theme.of(context).colorScheme.surface,
                 borderRadius: BorderRadius.circular(8),
+                border: Theme.of(context).brightness == Brightness.dark
+                    ? Border.all(color: Colors.white.withValues(alpha: 0.1), width: 1)
+                    : null,
                 boxShadow: [
-                  BoxShadow(
-                    color: Colors.black.withValues(alpha: 0.06),
-                    blurRadius: 4,
-                    offset: const Offset(0, 1),
-                  ),
+                  if (Theme.of(context).brightness == Brightness.light)
+                    BoxShadow(
+                      color: Colors.black.withValues(alpha: 0.06),
+                      blurRadius: 4,
+                      offset: const Offset(0, 1),
+                    ),
                 ],
               ),
               dividerColor: Colors.transparent,

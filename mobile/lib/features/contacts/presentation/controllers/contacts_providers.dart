@@ -11,6 +11,7 @@ import '../../data/repositories/contacts_repository_impl.dart';
 import '../../domain/entities/contact.dart';
 import '../../domain/entities/contact_activity.dart';
 import '../../domain/repositories/contacts_repository.dart';
+import '../../../chat/presentation/controllers/inbox_filter.dart';
 
 final contactsRemoteDataSourceProvider = Provider<ContactsRemoteDataSource>(
   (ref) => ContactsRemoteDataSource(ref.watch(dioProvider)),
@@ -18,6 +19,10 @@ final contactsRemoteDataSourceProvider = Provider<ContactsRemoteDataSource>(
 
 final contactsRepositoryProvider = Provider<ContactsRepository>(
   (ref) => ContactsRepositoryImpl(ref.watch(contactsRemoteDataSourceProvider)),
+);
+
+final contactsFilterProvider = NotifierProvider<InboxFilterController, InboxFilter>(
+  InboxFilterController.new,
 );
 
 /// The CRM leads list. Each contact carries its latest conversation's lead

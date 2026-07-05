@@ -30,11 +30,13 @@ class _ContactsPageState extends ConsumerState<ContactsPage> {
   String? _assignment; // 'mine' | 'unassigned' | null = all
   String? _campaign; // campaign name, null = all
   String? _agentFilter; // agent name, null = all
+  String? _lostReason;
   String _sortType = 'Oldest';
 
   int get _activeFilters =>
       (_stage != null ? 1 : 0) + (_assignment != null ? 1 : 0) +
-      (_campaign != null ? 1 : 0) + (_agentFilter != null ? 1 : 0);
+      (_campaign != null ? 1 : 0) + (_agentFilter != null ? 1 : 0) +
+      (_lostReason != null ? 1 : 0);
 
   @override
   void dispose() {
@@ -55,12 +57,14 @@ class _ContactsPageState extends ConsumerState<ContactsPage> {
           (_assignment == 'mine' && c.assignedAgentId == myId);
       final matchesCampaign = _campaign == null || c.campaignName == _campaign;
       final matchesAgent = _agentFilter == null || c.agentName == _agentFilter;
+      final matchesLostReason = _lostReason == null || c.lostReason == _lostReason;
       return matchesQuery &&
           matchesInterest &&
           matchesStage &&
           matchesAssignment &&
           matchesCampaign &&
-          matchesAgent;
+          matchesAgent &&
+          matchesLostReason;
     }).toList();
 
     if (_sortType == 'Score') {
@@ -287,8 +291,32 @@ class _ContactsPageState extends ConsumerState<ContactsPage> {
 
   @override
   Widget build(BuildContext context) {
-    final async = ref.watch(contactsProvider);
+    ref.listen(contactsFilterProvider, (prev, next) {
+      if (next.activeCount > 0) {
+        setState(() {
+          _interest = next.interestLevel;
+          if (next.stageName != null && next.stageName!.toLowerCase().startsWith('lost')) {
+            _stage = 'Lost';
+            _lostReason = next.stageName!.substring(4).trim().toLowerCase().replaceAll(' ', '_');
+            if (_lostReason!.isEmpty) _lostReason = null;
+          } else {
+            _stage = next.stageName;
+            _lostReason = next.lostReason;
+          }
+          if (next.status == 'closed' && _stage == null) {
+            _stage = 'Lost'; // rough mapping for "closed" drill
+          }
+          _assignment = next.assignment;
+          _campaign = next.campaignName;
+          _agentFilter = next.agentName;
+        });
+        // clear the event so it doesn't get re-applied on subsequent builds
+        Future.microtask(() => ref.read(contactsFilterProvider.notifier).clear());
+      }
+    });
+
     final myId = ref.watch(sessionControllerProvider).user?.id;
+    final async = ref.watch(contactsProvider);
 
     // Pre-compute filtered list for count in AppBar.
     final filtered = async.whenOrNull(
