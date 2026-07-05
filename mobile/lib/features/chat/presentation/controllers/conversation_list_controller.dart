@@ -168,9 +168,11 @@ class ConversationListController extends AsyncNotifier<List<Conversation>> {
     final list = state.value;
     if (list == null) return;
     final payload = MessagePersistedPayload(event.data);
-    // Media-only re-publish (async download finished): not a new message, so
-    // never bump unread / reorder the list.
-    if (payload.mediaUpdated) return;
+    // The async-media re-publish carries the full message (type + preview), so we
+    // process it too — otherwise a media/sticker/document whose first (placeholder)
+    // event was missed never shows in the list until a manual refresh. It is NOT a
+    // new message though, so it must not bump the unread count.
+    final isMediaResolve = payload.mediaUpdated;
     final index = list.indexWhere((c) => c.id == payload.conversationId);
 
     // Unknown conversation (new lead / freshly routed) -> reload to pick it up.
@@ -229,7 +231,7 @@ class ConversationListController extends AsyncNotifier<List<Conversation>> {
       // Use the authoritative count from the server when available (single
       // source of truth).  Fall back to a local +1 only when the payload
       // doesn't carry the field (backward compat with older server builds).
-      unreadCount: payload.isInbound
+      unreadCount: (payload.isInbound && !isMediaResolve)
           ? (payload.unreadCount ?? existing.unreadCount + 1)
           : existing.unreadCount,
     );

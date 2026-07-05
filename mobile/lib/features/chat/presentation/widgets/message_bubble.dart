@@ -324,7 +324,7 @@ class _MediaContent extends StatelessWidget {
       case MessageType.document:
       case MessageType.file:
         if (message.mediaUrl?.toLowerCase().endsWith('.pdf') == true) {
-          return _PdfPreview(url: message.mediaUrl!, fg: fg, uploading: _uploading);
+          return _PdfPreview(url: message.mediaUrl!, name: _fileName(message.mediaUrl!, message.body), fg: fg, uploading: _uploading);
         }
         return _document(context);
       case MessageType.audio:
@@ -609,14 +609,22 @@ class _MediaContent extends StatelessWidget {
   }
 
   String _fileName(String url, String body) {
-    if (body.trim().isNotEmpty) return body.trim();
+    // The real name is preserved in the message metadata (the WhatsApp document
+    // filename), then the media URL's ?name= param, then the URL path with the
+    // storage UUID prefix stripped, then the caption. Never show the bare UUID.
+    final metaName = message.metadata?['file_name'];
+    if (metaName is String && metaName.trim().isNotEmpty) return metaName.trim();
     final uri = Uri.tryParse(url);
-    final name = uri?.queryParameters['name'];
-    if (name != null && name.isNotEmpty) return name;
-    final seg = uri?.pathSegments.isNotEmpty == true
-        ? uri!.pathSegments.last
-        : 'Document';
-    return seg;
+    final qName = uri?.queryParameters['name'];
+    if (qName != null && qName.isNotEmpty) return qName;
+    final seg = uri?.pathSegments.isNotEmpty == true ? uri!.pathSegments.last : '';
+    final stripped = seg.replaceFirst(
+        RegExp(r'^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}-',
+            caseSensitive: false),
+        '');
+    if (stripped.isNotEmpty) return stripped;
+    if (body.trim().isNotEmpty) return body.trim();
+    return 'Document';
   }
 }
 
@@ -653,9 +661,10 @@ class _StatusTick extends StatelessWidget {
 
 class _PdfPreview extends StatefulWidget {
   final String url;
+  final String name;
   final Color fg;
   final bool uploading;
-  const _PdfPreview({required this.url, required this.fg, required this.uploading});
+  const _PdfPreview({required this.url, required this.name, required this.fg, required this.uploading});
 
   @override
   State<_PdfPreview> createState() => _PdfPreviewState();
@@ -734,8 +743,7 @@ class _PdfPreviewState extends State<_PdfPreview> {
 
   @override
   Widget build(BuildContext context) {
-    final uri = Uri.tryParse(widget.url);
-    final fileName = uri?.pathSegments.last ?? 'Document.pdf';
+    final fileName = widget.name.isNotEmpty ? widget.name : 'Document.pdf';
 
     return GestureDetector(
       onTap: widget.uploading ? null : () => _openDocument(context),
