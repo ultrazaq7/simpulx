@@ -44,9 +44,13 @@ class _ArchivedPageState extends ConsumerState<ArchivedPage> {
   @override
   Widget build(BuildContext context) {
     final async = ref.watch(conversationListProvider);
+    final count = async.whenOrNull(
+      data: (list) => list.where((c) => c.isLost).length,
+    );
+
     return Scaffold(
       appBar: AppBar(
-        title: const Text('Archived'),
+        title: Text(count != null ? 'Archived ($count)' : 'Archived'),
         bottom: const PreferredSize(
           preferredSize: Size.fromHeight(1),
           child: Divider(height: 1),
