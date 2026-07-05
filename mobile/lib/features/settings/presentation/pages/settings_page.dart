@@ -21,11 +21,8 @@ class SettingsPage extends ConsumerWidget {
   Widget build(BuildContext context, WidgetRef ref) {
     final user = ref.watch(sessionControllerProvider).user;
     final locale = ref.watch(localeProvider);
-    // Watch effective state to trigger rebuilds; read userPreference for
-    // display so "System Default" is shown even when the effective ThemeMode
-    // has been resolved to explicit light/dark (Android wrapped context fix).
-    ref.watch(themeModeProvider);
-    final themeMode = ref.read(themeModeProvider.notifier).userPreference;
+    // Watch the provider to rebuild when theme changes.
+    final themeMode = ref.watch(themeModeProvider);
 
     String langName(Locale? l) {
       if (l == null) return 'System Default';

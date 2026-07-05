@@ -21,13 +21,12 @@ class MainActivity : FlutterActivity() {
     // system ToneGenerator so no audio asset needs to be bundled.
     private var ringbackTone: android.media.ToneGenerator? = null
 
-    // Force this activity's configuration to the user's in-app theme choice so
-    // the launch/splash theme resolves its `-night` resources against that
-    // choice, not the device's system theme. Runs before onCreate/window
-    // creation, so it takes effect for the first splash frame this process
-    // draws (see NativeThemeStore.wrap).
+    // Splash theming is handled by NativeThemeStore.applyToSystem() which
+    // uses UiModeManager (API 31+). We intentionally do NOT wrap the base
+    // context here so Flutter's platformBrightness stays in sync with the
+    // real device theme — ThemeMode.system needs that to work correctly.
     override fun attachBaseContext(newBase: Context) {
-        super.attachBaseContext(NativeThemeStore.wrap(newBase))
+        super.attachBaseContext(newBase)
     }
 
     override fun onCreate(savedInstanceState: Bundle?) {

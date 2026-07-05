@@ -21,7 +21,7 @@ class DashboardPage extends ConsumerWidget {
 
   void _drill(WidgetRef ref, BuildContext context, InboxFilter filter) {
     ref.read(inboxFilterProvider.notifier).set(filter);
-    context.go('/chat');
+    context.go('/contacts');
   }
 
   @override
@@ -393,12 +393,8 @@ class _StageFunnelCard extends StatelessWidget {
               style: TextStyle(fontSize: 12, color: AppColors.textSecondary)),
           const SizedBox(height: 14),
           for (var i = 0; i < stages.length; i++) ...[
-            InkWell(
-              onTap: () => onDrill(InboxFilter(stageName: stages[i].name)),
-              borderRadius: BorderRadius.circular(4),
-              child: _buildFunnelRow(context, stages[i].name, stages[i].reached,
-                  i == 0 ? null : stages[i - 1].reached, i, maxReached),
-            ),
+            _buildFunnelRow(context, stages[i].name, stages[i].reached,
+                i == 0 ? null : stages[i - 1].reached, i, maxReached),
             if (i < stages.length - 1) const SizedBox(height: 8),
           ],
         ],
@@ -451,8 +447,6 @@ class _StageFunnelCard extends StatelessWidget {
                   ),
                 Text('$reached',
                     style: const TextStyle(fontSize: 13, fontWeight: FontWeight.w800)),
-                const SizedBox(width: 2),
-                Icon(Icons.chevron_right, size: 14, color: AppColors.textMuted),
               ],
             ),
           ],
