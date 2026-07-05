@@ -317,40 +317,7 @@ function StageSplit({ stages, lost }: { stages?: Analytics["stages"]; lost?: num
 // One in-brand green ramp (light -> deep) instead of a rainbow: stays in the
 // design system and reads as funnel progression.
 const FUNNEL_COLORS = ["#A7DACE", "#7FC9B8", "#57B8A1", "#2D8B73", "#26735F", "#1E5C4C", "#174539"];
-function LeadFunnel({ stages }: { stages?: Analytics["funnel_stages"] }) {
-  if (!stages || stages.length === 0) {
-    return <div className="py-10 text-center text-sm text-muted-foreground">No pipeline data yet</div>;
-  }
-  // `reached` already includes lost leads at their furthest stage (backend uses
-  // max_reached_sort_order), so the entry stage equals the total leads that entered.
-  const top = Math.max(stages[0]?.reached ?? 0, 1);
-  return (
-    <div className="p-4 space-y-2.5">
-      {stages.map((s, i) => {
-        const pct = (s.reached / top) * 100;
-        const conv = i === 0 ? null : (stages[i - 1].reached > 0 ? (s.reached / stages[i - 1].reached) * 100 : 0);
-        return (
-          <div key={s.system_key || s.name}>
-            <div className="flex items-center justify-between mb-1">
-              <span className="text-[13px] font-medium text-foreground/90">{s.name}</span>
-              <div className="flex items-center gap-2">
-                {conv !== null && (
-                  <span className={cn("text-[11px] tabular-nums", conv >= 50 ? "text-success" : conv >= 25 ? "text-amber-600" : "text-muted-foreground")}>
-                    {Math.round(conv)}%
-                  </span>
-                )}
-                <span className="text-[13px] font-bold tabular-nums text-foreground min-w-[2rem] text-right">{s.reached}</span>
-              </div>
-            </div>
-            <div className="h-6 rounded-md bg-muted/50 overflow-hidden">
-              <div className="h-full rounded-md transition-all duration-500" style={{ width: `${Math.max(pct, 3)}%`, backgroundColor: FUNNEL_COLORS[i % FUNNEL_COLORS.length] }} />
-            </div>
-          </div>
-        );
-      })}
-    </div>
-  );
-}
+
 
 // â”€â”€ Agent dashboard: action-center (essentials only, no org analytics, no lead score) â”€â”€
 const AGENT_CARDS = [
@@ -696,12 +663,7 @@ function ManagerDashboard() {
           <div className="px-4 py-4"><OverviewChart data={chartData} /></div>
         </Card>
 
-        <div className="grid grid-cols-1 lg:grid-cols-3 gap-4 mb-5">
-          {/* Real lead funnel - pipeline conversion */}
-          <Card title="Lead funnel" subtitle="Reached each stage and beyond">
-            <LeadFunnel stages={analytics?.funnel_stages} />
-          </Card>
-
+        <div className="grid grid-cols-1 lg:grid-cols-2 gap-4 mb-5">
           {/* Stage breakdown - leads per stage incl. Lost pinned at the bottom */}
           <Card title="Stage breakdown" subtitle="Leads by pipeline stage">
             <StageSplit stages={analytics?.stages} lost={analytics?.funnel?.lost} />
