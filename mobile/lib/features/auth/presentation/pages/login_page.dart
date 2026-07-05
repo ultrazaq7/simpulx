@@ -194,9 +194,10 @@ class _ErrorBanner extends StatelessWidget {
   Widget build(BuildContext context) {
     // Server messages arrive lowercase ("invalid credentials"); present them
     // sentence-cased so the banner reads cleanly.
-    final text = message.isEmpty
-        ? message
-        : message[0].toUpperCase() + message.substring(1);
+    final trimmed = message.trim();
+    final text = trimmed.isEmpty
+        ? trimmed
+        : trimmed[0].toUpperCase() + trimmed.substring(1);
     return Container(
       padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
       decoration: BoxDecoration(

@@ -511,7 +511,15 @@ class _StageSplitCard extends StatelessWidget {
         : _funnelColors[idx % _funnelColors.length];
     final pct = total > 0 ? (s.count / total * 100) : 0.0;
     return InkWell(
-      onTap: onDrill != null ? () => onDrill!(InboxFilter(stageName: s.name)) : null,
+      onTap: onDrill != null
+          ? () {
+              final isLost = s.name.toLowerCase().startsWith('lost');
+              onDrill!(InboxFilter(
+                stageName: isLost ? 'Lost' : s.name,
+                lostReason: isLost ? s.systemKey : null,
+              ));
+            }
+          : null,
       borderRadius: BorderRadius.circular(4),
       child: Padding(
       padding: const EdgeInsets.symmetric(vertical: 4),
