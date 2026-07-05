@@ -1000,22 +1000,6 @@ class _Card extends StatelessWidget {
         color: AppColors.brandGreenDark.withValues(alpha: 0.05),
         borderRadius: BorderRadius.circular(16),
         border: Border.all(color: AppColors.brandGreenDark.withValues(alpha: 0.10)),
-        // Layered, low-opacity shadow (Stripe/Linear style) for crisp depth.
-        boxShadow: isDark
-            ? null
-            : const [
-                BoxShadow(
-                  color: Color(0x0A0B1220),
-                  blurRadius: 2,
-                  offset: Offset(0, 1),
-                ),
-                BoxShadow(
-                  color: Color(0x140B1220),
-                  blurRadius: 16,
-                  spreadRadius: -6,
-                  offset: Offset(0, 8),
-                ),
-              ],
       ),
       child: child,
     );
