@@ -487,7 +487,7 @@ class _ContactsPageState extends ConsumerState<ContactsPage> {
                                 const SizedBox(width: 6),
                                 Flexible(
                                   child: Text(
-                                    _filterLabel,
+                                    'Clear all',
                                     maxLines: 1,
                                     overflow: TextOverflow.ellipsis,
                                     style: const TextStyle(

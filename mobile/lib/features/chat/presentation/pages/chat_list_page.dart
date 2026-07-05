@@ -782,8 +782,8 @@ class _InboxFilterChips extends StatelessWidget {
                         const SizedBox(width: 4),
                         ConstrainedBox(
                           constraints: const BoxConstraints(maxWidth: 140),
-                          child: Text(
-                            filterLabel!,
+                          child: const Text(
+                            'Clear all',
                             maxLines: 1,
                             overflow: TextOverflow.ellipsis,
                             style: const TextStyle(
