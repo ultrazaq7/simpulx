@@ -245,26 +245,20 @@ class MainActivity : FlutterActivity() {
                             val mode = call.argument<String>("mode") ?: "system"
                             NativeThemeStore.save(this, mode)
                             NativeThemeStore.applyToSystem(this)
-                            // attachBaseContext locked the Activity's night-mode
-                            // bits for the entire lifecycle via NativeThemeStore
-                            // .wrap().  Flutter reads platformBrightness from
-                            // those bits, so switching to "system" keeps the old
-                            // forced value.  Fix: dispatch onConfigurationChanged
-                            // with the correct bits so Flutter re-reads brightness.
-                            val nightBits = when (mode) {
-                                "light" -> Configuration.UI_MODE_NIGHT_NO
-                                "dark"  -> Configuration.UI_MODE_NIGHT_YES
-                                else    -> Resources.getSystem().configuration.uiMode and
-                                           Configuration.UI_MODE_NIGHT_MASK
-                            }
-                            val updated = Configuration(resources.configuration)
-                            updated.uiMode = (updated.uiMode and
-                                Configuration.UI_MODE_NIGHT_MASK.inv()) or nightBits
-                            onConfigurationChanged(updated)
                             result.success(true)
                         } catch (e: Exception) {
                             result.success(false)
                         }
+                    }
+                    // Returns the REAL device brightness ("light" or "dark"),
+                    // bypassing any configuration override from attachBaseContext.
+                    // Used by Dart to resolve ThemeMode.system correctly at runtime.
+                    "getSystemBrightness" -> {
+                        val sysNight = Resources.getSystem().configuration.uiMode and
+                                       Configuration.UI_MODE_NIGHT_MASK
+                        result.success(
+                            if (sysNight == Configuration.UI_MODE_NIGHT_YES) "dark" else "light"
+                        )
                     }
                     else -> result.notImplemented()
                 }
