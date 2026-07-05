@@ -26,7 +26,7 @@ import type { AutomationDetail } from "@/lib/types";
 // ── Node catalog ────────────────────────────────────────────────────────────
 type Meta = { label: string; Icon: LucideIcon; accent: string; kicker: string; desc: string };
 const META: Record<string, Meta> = {
-  trigger: { label: "Trigger", Icon: Zap, accent: "#F59E0B", kicker: "WHEN", desc: "Flow entry point" },
+  trigger: { label: "Trigger", Icon: Zap, accent: "#F59E0B", kicker: "WHEN", desc: "A conditional entry point - adds a keyword branch" },
   condition: { label: "Criteria Router", Icon: GitFork, accent: "#8B5CF6", kicker: "IF", desc: "Branch on a contact attribute (match / else)" },
   send_message: { label: "Send auto reply", Icon: MessageCircle, accent: "#2D8B73", kicker: "DO", desc: ACTIONS.send_message.desc },
   send_template: { label: "Send template", Icon: FileText, accent: "#2D8B73", kicker: "DO", desc: ACTIONS.send_template.desc },
@@ -51,6 +51,7 @@ const META: Record<string, Meta> = {
 const meta = (k: string) => META[k] ?? META.send_message;
 
 const PALETTE: { group: string; kinds: string[] }[] = [
+  { group: "Triggers", kinds: ["trigger"] },
   { group: "Logic", kinds: ["condition"] },
   { group: "Messaging", kinds: ["send_message", "send_template", "send_form"] },
   { group: "Routing", kinds: ["assign_agent", "unassign_team", "assign_campaign", "remove_campaign"] },
@@ -66,7 +67,13 @@ type AppNode = Node<NodeData>;
 
 function summary(kind: string, c: Record<string, unknown>, triggerType?: string): string {
   switch (kind) {
-    case "trigger": return TRIGGERS[triggerType ?? ""]?.desc ?? "Entry point";
+    case "trigger": {
+      const conds = Array.isArray(c.conditions) ? (c.conditions as Record<string, unknown>[]) : [];
+      if (conds.length === 0) return TRIGGERS[triggerType ?? ""]?.desc ?? "Fires on the event";
+      if (conds.length > 1) return `${conds.length} conditions (all match)`;
+      const kws = Array.isArray(conds[0]?.keywords) ? (conds[0].keywords as string[]) : [];
+      return kws.length ? kws.join(", ") : String(conds[0]?.type ?? "").replace(/_/g, " ");
+    }
     case "send_message": {
       const inter = String(c.interactive ?? (c.message_type === "buttons" || c.message_type === "list" ? c.message_type : "none"));
       const parts: string[] = [];
@@ -102,7 +109,7 @@ function summary(kind: string, c: Record<string, unknown>, triggerType?: string)
 // ── Custom node ─────────────────────────────────────────────────────────────
 function FlowNode({ data, selected }: NodeProps<AppNode>) {
   const m = meta(data.kind);
-  const title = data.kind === "trigger" ? eventLabel(data.triggerType ?? "") : m.label;
+  const title = m.label;
   const isTrigger = data.kind === "trigger";
   return (
     <div className={cn(
@@ -270,7 +277,10 @@ function Builder() {
     const rect = wrapRef.current?.getBoundingClientRect();
     const pos = rect ? screenToFlowPosition({ x: rect.left + rect.width / 2, y: rect.top + rect.height / 2 }) : { x: 240, y: 240 };
     const nid = `n${Date.now()}`;
-    setNodes((nds) => [...nds, { id: nid, type: "flowNode", position: pos, data: { kind, config: {} } }]);
+    const data: NodeData = kind === "trigger"
+      ? { kind, config: {}, triggerType: auto?.trigger_type ?? "new_message" }
+      : { kind, config: {} };
+    setNodes((nds) => [...nds, { id: nid, type: "flowNode", position: pos, data }]);
     setSelId(nid); setDirty(true);
   }
 
@@ -290,17 +300,10 @@ function Builder() {
     if (!auto) return;
     setSaving(true);
     const model = toModel(nodes, edges);
-    const trig = nodes.find((n) => n.data.kind === "trigger");
-    let triggerPatch: Record<string, unknown> = {};
-    if (trig) {
-      const cfg = trig.data.config as Record<string, unknown>;
-      // trigger_type is the EVENT (chosen at create); only the refinement
-      // conditions are edited in the flow trigger node.
-      const conds = Array.isArray(cfg.conditions) ? (cfg.conditions as Record<string, unknown>[]) : [];
-      triggerPatch = { trigger_config: { conditions: conds } };
-    }
+    // trigger_type is the EVENT (set at create). Each trigger node's conditions
+    // now live in the flow graph, so the automation-level trigger_config is cleared.
     try {
-      await api.updateAutomation(auto.id, { flow: model, ...triggerPatch });
+      await api.updateAutomation(auto.id, { flow: model, trigger_config: {} });
       setDirty(false); setToast("Flow saved");
     } catch (e) { setToast(String(e)); }
     finally { setSaving(false); }

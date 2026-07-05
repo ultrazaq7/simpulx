@@ -473,36 +473,37 @@ class _ContactsPageState extends ConsumerState<ContactsPage> {
                     padding: const EdgeInsets.fromLTRB(12, 8, 12, 0),
                     child: Row(
                       children: [
-                        Material(
-                          color: Colors.transparent,
-                          borderRadius: BorderRadius.circular(20),
-                          child: InkWell(
+                        Expanded(
+                          child: Material(
+                            color: AppColors.primary.withValues(alpha: 0.12),
                             borderRadius: BorderRadius.circular(20),
-                            onTap: _clearFilters,
-                            child: Padding(
-                              padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
-                              child: Row(
-                                mainAxisSize: MainAxisSize.min,
-                                children: [
-                                  Icon(Icons.filter_alt_rounded,
-                                      size: 16, color: AppColors.primary),
-                                  const SizedBox(width: 6),
-                                  Flexible(
-                                    child: Text(
-                                      _filterLabel,
-                                      maxLines: 1,
-                                      overflow: TextOverflow.ellipsis,
-                                      style: const TextStyle(
-                                        fontSize: 13,
-                                        fontWeight: FontWeight.w600,
-                                        color: AppColors.primary,
+                            child: InkWell(
+                              borderRadius: BorderRadius.circular(20),
+                              onTap: _clearFilters,
+                              child: Padding(
+                                padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+                                child: Row(
+                                  children: [
+                                    Icon(Icons.filter_alt_rounded,
+                                        size: 16, color: AppColors.primary),
+                                    const SizedBox(width: 6),
+                                    Expanded(
+                                      child: Text(
+                                        _filterLabel,
+                                        maxLines: 1,
+                                        overflow: TextOverflow.ellipsis,
+                                        style: const TextStyle(
+                                          fontSize: 13,
+                                          fontWeight: FontWeight.w600,
+                                          color: AppColors.primary,
+                                        ),
                                       ),
                                     ),
-                                  ),
-                                  const SizedBox(width: 6),
-                                  Icon(Icons.close_rounded,
-                                      size: 16, color: AppColors.primary),
-                                ],
+                                    const SizedBox(width: 6),
+                                    Icon(Icons.close_rounded,
+                                        size: 16, color: AppColors.primary),
+                                  ],
+                                ),
                               ),
                             ),
                           ),

@@ -84,7 +84,7 @@ func (a *app) runAutomations(ctx context.Context, orgID, convID, contactID, chan
 		if !a.triggerMatches(ctx, orgID, r, in, contactID, convID) {
 			continue
 		}
-		n := a.walkFlow(ctx, orgID, convID, contactID, r)
+		n := a.walkFlow(ctx, orgID, convID, contactID, r, in)
 		_ = a.st.bumpAutomationRun(ctx, r.ID)
 		a.log.Info("automation fired", "id", r.ID, "trigger", r.TriggerType, "steps", n)
 	}
@@ -315,11 +315,12 @@ func flowSteps(r autoRule) []autoStep {
 	return out
 }
 
-// walkFlow traverses the node graph from the trigger, executing action nodes and
-// branching at Criteria Router / condition nodes (following the "match" or "else"
-// edge). Falls back to the legacy ordered action list when there are no nodes.
-// Returns the number of executed action steps. Guarded against cycles.
-func (a *app) walkFlow(ctx context.Context, orgID, convID, contactID string, r autoRule) int {
+// walkFlow runs the flow graph. A flow may hold MULTIPLE trigger nodes, each with
+// its own conditions (e.g. one keyword branch per product). On the inbound event,
+// every trigger node whose conditions match runs its downstream branch; branches
+// that converge on a shared node run it once (shared visited set). Falls back to
+// the legacy ordered action list when there are no nodes. Guarded against cycles.
+func (a *app) walkFlow(ctx context.Context, orgID, convID, contactID string, r autoRule, in triggerInput) int {
 	var f autoFlow
 	if len(r.Flow) > 0 {
 		_ = json.Unmarshal(r.Flow, &f)
@@ -333,11 +334,11 @@ func (a *app) walkFlow(ctx context.Context, orgID, convID, contactID string, r a
 	}
 
 	byID := make(map[string]autoNode, len(f.Nodes))
-	var triggerID string
+	triggerIDs := make([]string, 0, 2)
 	for _, n := range f.Nodes {
 		byID[n.ID] = n
 		if n.Type == "trigger" {
-			triggerID = n.ID
+			triggerIDs = append(triggerIDs, n.ID)
 		}
 	}
 	type link struct{ to, handle string }
@@ -352,44 +353,80 @@ func (a *app) walkFlow(ctx context.Context, orgID, convID, contactID string, r a
 		return ""
 	}
 
-	cur := firstTo(triggerID)
-	seen := map[string]bool{}
 	executed := 0
-	for i := 0; cur != "" && i < 100; i++ {
-		if seen[cur] {
-			break
+	seen := map[string]bool{}
+	for _, tid := range triggerIDs {
+		// Each trigger node gates its own branch by its conditions.
+		if !a.triggerNodeMatches(ctx, orgID, r.TriggerType, byID[tid].Config, in, contactID, convID) {
+			continue
 		}
-		seen[cur] = true
-		n := byID[cur]
-		switch n.Type {
-		case "condition", "criteria_router":
-			want := "else"
-			if a.evalCondition(ctx, orgID, contactID, n.Config) {
-				want = "match"
+		cur := firstTo(tid)
+		for i := 0; cur != "" && i < 100; i++ {
+			if seen[cur] {
+				break
 			}
-			next, fallback := "", ""
-			for _, l := range adj[cur] {
-				if l.handle == want {
-					next = l.to
-					break
+			seen[cur] = true
+			n := byID[cur]
+			switch n.Type {
+			case "condition", "criteria_router":
+				want := "else"
+				if a.evalCondition(ctx, orgID, contactID, n.Config) {
+					want = "match"
 				}
-				if l.handle == "" && fallback == "" {
-					fallback = l.to
+				next, fallback := "", ""
+				for _, l := range adj[cur] {
+					if l.handle == want {
+						next = l.to
+						break
+					}
+					if l.handle == "" && fallback == "" {
+						fallback = l.to
+					}
 				}
+				if next == "" {
+					next = fallback
+				}
+				cur = next
+			case "trigger":
+				cur = firstTo(cur)
+			default:
+				a.execStep(ctx, orgID, convID, contactID, autoStep{Type: n.Type, Params: n.Config})
+				executed++
+				cur = firstTo(cur)
 			}
-			if next == "" {
-				next = fallback
-			}
-			cur = next
-		case "trigger":
-			cur = firstTo(cur)
-		default:
-			a.execStep(ctx, orgID, convID, contactID, autoStep{Type: n.Type, Params: n.Config})
-			executed++
-			cur = firstTo(cur)
 		}
 	}
 	return executed
+}
+
+// triggerNodeMatches evaluates one trigger node. A node with a conditions[] array
+// uses the multi-condition model (ALL must match); a node without one is
+// interpreted by the automation's event (legacy keyword_match / button_click).
+func (a *app) triggerNodeMatches(ctx context.Context, orgID, triggerType string, cfg map[string]any, in triggerInput, contactID, convID string) bool {
+	if raw, ok := cfg["conditions"].([]any); ok && len(raw) > 0 {
+		for _, c := range raw {
+			cond, _ := c.(map[string]any)
+			if cond == nil || !a.conditionMatches(ctx, orgID, cond, in, contactID, convID) {
+				return false
+			}
+		}
+		return true
+	}
+	switch triggerType {
+	case "keyword_match":
+		mode := pStr(cfg, "match_mode")
+		if mode == "" {
+			mode = "any"
+		}
+		return keywordTriggerMatches(in.body, pStrSlice(cfg, "keywords"), mode, pBool(cfg, "case_sensitive"))
+	case "button_click":
+		if in.payload == "" {
+			return false
+		}
+		cb := strings.ToLower(pStr(cfg, "callback"))
+		return cb == "" || strings.Contains(strings.ToLower(in.payload), cb)
+	}
+	return true
 }
 
 // evalCondition evaluates a Criteria Router rule (contact attribute vs value)
