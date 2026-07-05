@@ -323,11 +323,25 @@ class _ContactsPageState extends ConsumerState<ContactsPage> {
           _interest = next.interestLevel;
           if (next.stageName != null && next.stageName!.toLowerCase().startsWith('lost')) {
             _stage = 'Lost';
-            final reason = next.stageName!.substring(4).trim().toLowerCase().replaceAll(' ', '_');
-            _lostReason = reason.isEmpty ? next.lostReason : (reason.startsWith('lost_reason_') ? reason : 'lost_reason_$reason');
+            // lostReason may come from StageSplit (systemKey like 'lost_not_purchase')
+            // or from LostReasonsCard (rawReason like 'lost_reason_not_purchase').
+            // Normalise to always include the 'lost_reason_' prefix.
+            var lr = next.lostReason;
+            if (lr != null && !lr.startsWith('lost_reason_')) {
+              // Strip leading 'lost_' if present, then re-prefix.
+              final stripped = lr.startsWith('lost_') ? lr.substring(5) : lr;
+              lr = 'lost_reason_$stripped';
+            }
+            _lostReason = lr;
           } else {
             _stage = next.stageName;
-            _lostReason = next.lostReason;
+            // Same normalisation for standalone lost-reason drills.
+            var lr = next.lostReason;
+            if (lr != null && !lr.startsWith('lost_reason_')) {
+              final stripped = lr.startsWith('lost_') ? lr.substring(5) : lr;
+              lr = 'lost_reason_$stripped';
+            }
+            _lostReason = lr;
           }
           if (next.status == 'closed' && _stage == null) {
             _stage = 'Lost'; // rough mapping for "closed" drill
@@ -459,37 +473,36 @@ class _ContactsPageState extends ConsumerState<ContactsPage> {
                     padding: const EdgeInsets.fromLTRB(12, 8, 12, 0),
                     child: Row(
                       children: [
-                        Expanded(
-                          child: Material(
-                            color: AppColors.primary.withValues(alpha: 0.12),
+                        Material(
+                          color: Colors.transparent,
+                          borderRadius: BorderRadius.circular(20),
+                          child: InkWell(
                             borderRadius: BorderRadius.circular(20),
-                            child: InkWell(
-                              borderRadius: BorderRadius.circular(20),
-                              onTap: _clearFilters,
-                              child: Padding(
-                                padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
-                                child: Row(
-                                  children: [
-                                    Icon(Icons.filter_alt_rounded,
-                                        size: 16, color: AppColors.primary),
-                                    const SizedBox(width: 6),
-                                    Expanded(
-                                      child: Text(
-                                        _filterLabel,
-                                        maxLines: 1,
-                                        overflow: TextOverflow.ellipsis,
-                                        style: const TextStyle(
-                                          fontSize: 13,
-                                          fontWeight: FontWeight.w600,
-                                          color: AppColors.primary,
-                                        ),
+                            onTap: _clearFilters,
+                            child: Padding(
+                              padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+                              child: Row(
+                                mainAxisSize: MainAxisSize.min,
+                                children: [
+                                  Icon(Icons.filter_alt_rounded,
+                                      size: 16, color: AppColors.primary),
+                                  const SizedBox(width: 6),
+                                  Flexible(
+                                    child: Text(
+                                      _filterLabel,
+                                      maxLines: 1,
+                                      overflow: TextOverflow.ellipsis,
+                                      style: const TextStyle(
+                                        fontSize: 13,
+                                        fontWeight: FontWeight.w600,
+                                        color: AppColors.primary,
                                       ),
                                     ),
-                                    const SizedBox(width: 6),
-                                    Icon(Icons.close_rounded,
-                                        size: 16, color: AppColors.primary),
-                                  ],
-                                ),
+                                  ),
+                                  const SizedBox(width: 6),
+                                  Icon(Icons.close_rounded,
+                                      size: 16, color: AppColors.primary),
+                                ],
                               ),
                             ),
                           ),
