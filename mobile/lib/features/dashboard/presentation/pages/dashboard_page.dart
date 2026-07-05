@@ -109,7 +109,8 @@ class _DashboardBody extends StatelessWidget {
     required this.firstName,
     required this.cards,
     required this.showManager,
-    required this.onDrill,
+    required this.onDrillChat,
+    required this.onDrillContacts,
   });
 
   final String firstName;
