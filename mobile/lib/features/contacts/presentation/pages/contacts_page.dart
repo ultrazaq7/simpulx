@@ -32,6 +32,29 @@ class _ContactsPageState extends ConsumerState<ContactsPage> {
   String? _agentFilter; // agent name, null = all
   String? _lostReason;
   String _sortType = 'Oldest';
+  
+  final _scroll = ScrollController();
+  bool _showScrollToTop = false;
+
+  @override
+  void initState() {
+    super.initState();
+    _scroll.addListener(_onScroll);
+  }
+
+  @override
+  void dispose() {
+    _scroll.dispose();
+    _search.dispose();
+    super.dispose();
+  }
+
+  void _onScroll() {
+    final shouldShow = _scroll.offset > 400;
+    if (_showScrollToTop != shouldShow) {
+      setState(() => _showScrollToTop = shouldShow);
+    }
+  }
 
   int get _activeFilters =>
       (_interest != null ? 1 : 0) +
@@ -504,9 +527,11 @@ class _ContactsPageState extends ConsumerState<ContactsPage> {
             onRefresh: () => ref.read(contactsProvider.notifier).refresh(),
             child: f.isEmpty
                 ? ListView(
+                    controller: _scroll,
+                    physics: const AlwaysScrollableScrollPhysics(),
                     padding: const EdgeInsets.only(bottom: 80),
                     children: [
-                      ?pill,
+                      if (pill != null) pill,
                       SizedBox(height: MediaQuery.of(context).size.height * 0.2),
                       AppEmptyState(
                         icon: Icons.contacts_outlined,
@@ -518,6 +543,8 @@ class _ContactsPageState extends ConsumerState<ContactsPage> {
                     ],
                   )
                 : ListView.builder(
+                    controller: _scroll,
+                    physics: const AlwaysScrollableScrollPhysics(),
                     padding: const EdgeInsets.only(top: 4, bottom: 80),
                     itemCount: (pill != null ? 1 : 0) + f.length,
                     itemBuilder: (context, i) {
@@ -532,6 +559,19 @@ class _ContactsPageState extends ConsumerState<ContactsPage> {
           );
         },
       ),
+      floatingActionButton: _showScrollToTop
+          ? FloatingActionButton(
+              mini: true,
+              onPressed: () {
+                _scroll.animateTo(
+                  0,
+                  duration: const Duration(milliseconds: 300),
+                  curve: Curves.easeOut,
+                );
+              },
+              child: const Icon(Icons.keyboard_arrow_up_rounded),
+            )
+          : null,
     );
   }
 }

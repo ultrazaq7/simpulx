@@ -34,6 +34,7 @@ class _ChatListPageState extends ConsumerState<ChatListPage> {
   String _sortType = 'Latest';
   int _visible = 25; // windowed render count; grows as the user scrolls
   int _filteredLen = 0;
+  bool _showScrollToTop = false;
 
   @override
   void initState() {
@@ -52,6 +53,10 @@ class _ChatListPageState extends ConsumerState<ChatListPage> {
     if (_scroll.position.pixels >= _scroll.position.maxScrollExtent - 320 &&
         _visible < _filteredLen) {
       setState(() => _visible += 25);
+    }
+    final shouldShow = _scroll.offset > 400;
+    if (_showScrollToTop != shouldShow) {
+      setState(() => _showScrollToTop = shouldShow);
     }
   }
 
@@ -646,6 +651,19 @@ class _ChatListPageState extends ConsumerState<ChatListPage> {
           );
         },
       ),
+      floatingActionButton: _showScrollToTop
+          ? FloatingActionButton(
+              mini: true,
+              onPressed: () {
+                _scroll.animateTo(
+                  0,
+                  duration: const Duration(milliseconds: 300),
+                  curve: Curves.easeOut,
+                );
+              },
+              child: const Icon(Icons.keyboard_arrow_up_rounded),
+            )
+          : null,
     );
   }
 }
