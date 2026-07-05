@@ -73,12 +73,24 @@ class InboxFilter {
   bool matches(Conversation c, {String? myId}) {
     if (interestLevel != null && c.interestLevel != interestLevel) return false;
     if (status != null && c.status != status) return false;
-    if (stageName != null && c.stageName != stageName) return false;
+    if (stageName != null) {
+      if (stageName!.toLowerCase() == 'lost' && (c.stageName?.toLowerCase().startsWith('lost') ?? false)) {
+        // match
+      } else if (c.stageName != stageName) {
+        return false;
+      }
+    }
     if (assignment == 'unassigned' && !c.isUnassigned) return false;
     if (assignment == 'mine' && c.assignedAgentId != myId) return false;
     if (campaignName != null && c.campaignName != campaignName) return false;
     if (agentName != null && c.agentName != agentName) return false;
-    if (lostReason != null && c.lostReason != lostReason) return false;
+    
+    if (lostReason != null) {
+      if (c.lostReason == null) return false;
+      final f1 = lostReason!.replaceAll('lost_reason_', '');
+      final f2 = c.lostReason!.replaceAll('lost_reason_', '');
+      if (f1 != f2) return false;
+    }
     if (unreadOnly && c.unreadCount == 0) return false;
     if (followUpOnly &&
         !((c.interestLevel == 'hot' || c.interestLevel == 'warm') &&
@@ -106,17 +118,10 @@ class InboxFilter {
     }
 
     if (stageName != null) {
-      // Dashboard "Lost Reason" drill-downs pass the combined name (e.g., "Lost Changed Mind")
-      // We must match c.stageName == 'Lost' and c.lostReason == 'changed_mind'.
-      if (stageName!.toLowerCase().startsWith('lost')) {
-        if (c.stageName != 'Lost') return false;
-        final rawReason = stageName!.substring(4).trim().toLowerCase().replaceAll(' ', '_');
-        if (rawReason.isNotEmpty) {
-          final reason = rawReason.startsWith('lost_reason_') ? rawReason : 'lost_reason_$rawReason';
-          if (c.lostReason?.toLowerCase() != reason) return false;
-        }
-      } else {
-        if (c.stageName != stageName) return false;
+      if (stageName!.toLowerCase() == 'lost' && (c.stageName?.toLowerCase().startsWith('lost') ?? false)) {
+        // match
+      } else if (c.stageName != stageName) {
+        return false;
       }
     }
 
@@ -124,7 +129,13 @@ class InboxFilter {
     if (assignment == 'mine' && c.assignedAgentId != myId) return false;
     if (campaignName != null && c.campaignName != campaignName) return false;
     if (agentName != null && c.agentName != agentName) return false;
-    if (lostReason != null && c.lostReason != lostReason) return false;
+    
+    if (lostReason != null) {
+      if (c.lostReason == null) return false;
+      final f1 = lostReason!.replaceAll('lost_reason_', '');
+      final f2 = c.lostReason!.replaceAll('lost_reason_', '');
+      if (f1 != f2) return false;
+    }
 
     return true;
   }

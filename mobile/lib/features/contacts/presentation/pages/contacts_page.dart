@@ -77,13 +77,25 @@ class _ContactsPageState extends ConsumerState<ContactsPage> {
           c.fullName.toLowerCase().contains(q) ||
           c.phone.toLowerCase().contains(q);
       final matchesInterest = _interest == null || c.interestLevel == _interest;
-      final matchesStage = _stage == null || c.stageName == _stage;
+      final matchesStage = _stage == null ||
+          c.stageName == _stage ||
+          (_stage!.toLowerCase() == 'lost' && (c.stageName?.toLowerCase().startsWith('lost') ?? false));
+      
+      bool checkLostReason() {
+        if (_lostReason == null) return true;
+        if (c.lostReason == null) return false;
+        final f1 = _lostReason!.replaceAll('lost_reason_', '');
+        final f2 = c.lostReason!.replaceAll('lost_reason_', '');
+        return f1 == f2;
+      }
+      final matchesLostReason = checkLostReason();
+
       final matchesAssignment = _assignment == null ||
           (_assignment == 'unassigned' && c.assignedAgentId == null) ||
           (_assignment == 'mine' && c.assignedAgentId == myId);
       final matchesCampaign = _campaign == null || c.campaignName == _campaign;
       final matchesAgent = _agentFilter == null || c.agentName == _agentFilter;
-      final matchesLostReason = _lostReason == null || c.lostReason == _lostReason;
+
       return matchesQuery &&
           matchesInterest &&
           matchesStage &&
@@ -321,28 +333,8 @@ class _ContactsPageState extends ConsumerState<ContactsPage> {
       if (next.activeCount > 0) {
         setState(() {
           _interest = next.interestLevel;
-          if (next.stageName != null && next.stageName!.toLowerCase().startsWith('lost')) {
-            _stage = 'Lost';
-            // lostReason may come from StageSplit (systemKey like 'lost_not_purchase')
-            // or from LostReasonsCard (rawReason like 'lost_reason_not_purchase').
-            // Normalise to always include the 'lost_reason_' prefix.
-            var lr = next.lostReason;
-            if (lr != null && !lr.startsWith('lost_reason_')) {
-              // Strip leading 'lost_' if present, then re-prefix.
-              final stripped = lr.startsWith('lost_') ? lr.substring(5) : lr;
-              lr = 'lost_reason_$stripped';
-            }
-            _lostReason = lr;
-          } else {
-            _stage = next.stageName;
-            // Same normalisation for standalone lost-reason drills.
-            var lr = next.lostReason;
-            if (lr != null && !lr.startsWith('lost_reason_')) {
-              final stripped = lr.startsWith('lost_') ? lr.substring(5) : lr;
-              lr = 'lost_reason_$stripped';
-            }
-            _lostReason = lr;
-          }
+          _stage = next.stageName;
+          _lostReason = next.lostReason;
           if (next.status == 'closed' && _stage == null) {
             _stage = 'Lost'; // rough mapping for "closed" drill
           }

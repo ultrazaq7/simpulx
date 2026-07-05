@@ -513,11 +513,7 @@ class _StageSplitCard extends StatelessWidget {
     return InkWell(
       onTap: onDrill != null
           ? () {
-              final isLost = s.name.toLowerCase().startsWith('lost');
-              onDrill!(InboxFilter(
-                stageName: isLost ? 'Lost' : s.name,
-                lostReason: isLost ? s.systemKey : null,
-              ));
+              onDrill!(InboxFilter(stageName: s.name));
             }
           : null,
       borderRadius: BorderRadius.circular(4),
