@@ -114,7 +114,7 @@ function FlowNode({ data, selected }: NodeProps<AppNode>) {
   return (
     <div className={cn(
       "w-[260px] rounded-lg bg-card border-[1.5px] shadow-sm transition-all",
-      selected ? "border-primary ring-2 ring-primary/25 shadow-md" : "border-border hover:border-primary/40 hover:shadow-md",
+      selected ? "border-primary/50 ring-1 ring-primary/15 shadow-md" : "border-border hover:border-primary/40 hover:shadow-md",
     )}>
       {!isTrigger && <Handle type="target" position={Position.Top} className="!w-2.5 !h-2.5 !bg-muted-foreground !border-2 !border-card" />}
       <div className="p-3.5">
@@ -381,7 +381,7 @@ function Builder() {
                     <button key={k} onClick={() => addNode(k)} className="flex items-center gap-2.5 w-full px-3 py-1.5 hover:bg-muted text-left outline-none transition-colors">
                       <div className="w-7 h-7 rounded-md grid place-items-center shrink-0" style={{ backgroundColor: m.accent + "1a", color: m.accent }}><m.Icon className="w-[15px] h-[15px]" /></div>
                       <div className="min-w-0">
-                        <p className="text-[12.5px] font-semibold text-foreground flex items-center gap-1.5">{m.label}{!EXECUTED.has(k) && <span className="text-[8px] font-bold uppercase text-amber-600">soon</span>}</p>
+                        <p className="text-[12.5px] font-semibold text-foreground flex items-center gap-1.5">{m.label}{!EXECUTED.has(k) && k !== "trigger" && <span className="text-[8px] font-bold uppercase text-amber-600">soon</span>}</p>
                         <p className="text-[10.5px] text-muted-foreground truncate">{m.desc}</p>
                       </div>
                     </button>
