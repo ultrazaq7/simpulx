@@ -51,6 +51,25 @@ class InboxFilter {
       (followUpOnly ? 1 : 0) +
       (unrepliedOnly ? 1 : 0);
 
+  /// Human-readable summary of all active filters (for the "clear" chip).
+  String get label {
+    final parts = <String>[];
+    if (interestLevel != null) parts.add(interestLevel!);
+    if (status != null) parts.add(status!);
+    if (stageName != null) parts.add(stageName!);
+    if (assignment != null) parts.add(assignment!);
+    if (campaignName != null) parts.add(campaignName!);
+    if (agentName != null) parts.add(agentName!);
+    if (lostReason != null) {
+      final clean = lostReason!.replaceAll('lost_reason_', '').replaceAll('_', ' ');
+      parts.add(clean);
+    }
+    if (unreadOnly) parts.add('Unread');
+    if (followUpOnly) parts.add('Follow-up');
+    if (unrepliedOnly) parts.add('Awaiting reply');
+    return parts.join(', ');
+  }
+
   bool matches(Conversation c, {String? myId}) {
     if (interestLevel != null && c.interestLevel != interestLevel) return false;
     if (status != null && c.status != status) return false;

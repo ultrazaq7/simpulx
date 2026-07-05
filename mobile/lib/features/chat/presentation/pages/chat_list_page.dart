@@ -576,6 +576,15 @@ class _ChatListPageState extends ConsumerState<ChatListPage> {
                     padding: const EdgeInsets.only(top: 10, bottom: 4),
                     child: _InboxFilterChips(
                       active: _activeChip(filter),
+                      filterLabel: _activeChip(filter).isEmpty && filter.activeCount > 0
+                          ? filter.label
+                          : null,
+                      onClear: _activeChip(filter).isEmpty && filter.activeCount > 0
+                          ? () {
+                              ref.read(inboxFilterProvider.notifier).clear();
+                              setState(() => _visible = 25);
+                            }
+                          : null,
                       onSelect: (preset) {
                         ref.read(inboxFilterProvider.notifier).set(preset);
                         setState(() => _visible = 25);
@@ -727,9 +736,17 @@ class _RealtimeDot extends ConsumerWidget {
 
 /// WhatsApp-style quick filter chips below the search box.
 class _InboxFilterChips extends StatelessWidget {
-  const _InboxFilterChips({required this.active, required this.onSelect});
+  const _InboxFilterChips({
+    required this.active,
+    required this.onSelect,
+    this.filterLabel,
+    this.onClear,
+  });
   final String active;
   final void Function(InboxFilter preset) onSelect;
+  /// When non-null, shows a dismissible chip with the current filter summary.
+  final String? filterLabel;
+  final VoidCallback? onClear;
 
   static const _chips = <String, InboxFilter>{
     'All': InboxFilter.all,
@@ -746,6 +763,47 @@ class _InboxFilterChips extends StatelessWidget {
         scrollDirection: Axis.horizontal,
         padding: const EdgeInsets.symmetric(horizontal: 12),
         children: [
+          // Visible "clear" chip when an advanced/dashboard filter is active.
+          if (filterLabel != null && onClear != null) ...[
+            Center(
+              child: Material(
+                color: AppColors.primary.withValues(alpha: 0.12),
+                shape: const StadiumBorder(),
+                child: InkWell(
+                  customBorder: const StadiumBorder(),
+                  onTap: onClear,
+                  child: Padding(
+                    padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
+                    child: Row(
+                      mainAxisSize: MainAxisSize.min,
+                      children: [
+                        Icon(Icons.filter_alt_rounded,
+                            size: 14, color: AppColors.primary),
+                        const SizedBox(width: 4),
+                        ConstrainedBox(
+                          constraints: const BoxConstraints(maxWidth: 140),
+                          child: Text(
+                            filterLabel!,
+                            maxLines: 1,
+                            overflow: TextOverflow.ellipsis,
+                            style: const TextStyle(
+                              fontSize: 12,
+                              fontWeight: FontWeight.w700,
+                              color: AppColors.primary,
+                            ),
+                          ),
+                        ),
+                        const SizedBox(width: 4),
+                        Icon(Icons.close_rounded,
+                            size: 14, color: AppColors.primary),
+                      ],
+                    ),
+                  ),
+                ),
+              ),
+            ),
+            const SizedBox(width: 8),
+          ],
           for (final entry in _chips.entries) ...[
             _FilterChip(
               label: entry.key,

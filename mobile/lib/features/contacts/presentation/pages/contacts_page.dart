@@ -34,9 +34,35 @@ class _ContactsPageState extends ConsumerState<ContactsPage> {
   String _sortType = 'Oldest';
 
   int get _activeFilters =>
+      (_interest != null ? 1 : 0) +
       (_stage != null ? 1 : 0) + (_assignment != null ? 1 : 0) +
       (_campaign != null ? 1 : 0) + (_agentFilter != null ? 1 : 0) +
       (_lostReason != null ? 1 : 0);
+
+  String get _filterLabel {
+    final parts = <String>[];
+    if (_interest != null) parts.add(_interest!);
+    if (_stage != null) parts.add(_stage!);
+    if (_assignment != null) parts.add(_assignment!);
+    if (_campaign != null) parts.add(_campaign!);
+    if (_agentFilter != null) parts.add(_agentFilter!);
+    if (_lostReason != null) {
+      final clean = _lostReason!.replaceAll('lost_reason_', '').replaceAll('_', ' ');
+      parts.add(clean);
+    }
+    return parts.join(', ');
+  }
+
+  void _clearFilters() {
+    setState(() {
+      _interest = null;
+      _stage = null;
+      _assignment = null;
+      _campaign = null;
+      _agentFilter = null;
+      _lostReason = null;
+    });
+  }
 
   @override
   void dispose() {
@@ -425,30 +451,80 @@ class _ContactsPageState extends ConsumerState<ContactsPage> {
           final f = _filter(list, myId);
           return RefreshIndicator(
             onRefresh: () => ref.read(contactsProvider.notifier).refresh(),
-            child: f.isEmpty
-                ? ListView(
-                    children: [
-                      SizedBox(height: MediaQuery.of(context).size.height * 0.2),
-                      AppEmptyState(
-                        icon: Icons.contacts_outlined,
-                        title: list.isEmpty ? 'No contacts' : 'No matches',
-                        message: list.isEmpty
-                            ? 'Add a lead with the + button.'
-                            : 'Try a different search or filter.',
-                      ),
-                    ],
-                  )
-                : ListView.builder(
-                    padding: const EdgeInsets.only(top: 4, bottom: 80),
-                    itemCount: f.length,
-                    itemBuilder: (context, i) {
-                      final c = f[i];
-                      return ContactTile(
-                        contact: c,
-                        onTap: () => context.push('/contacts/${c.id}'),
-                      );
-                    },
+            child: Column(
+              children: [
+                // Visible "active filter" chip when filters from dashboard or manual are active.
+                if (_activeFilters > 0)
+                  Padding(
+                    padding: const EdgeInsets.fromLTRB(12, 8, 12, 0),
+                    child: Row(
+                      children: [
+                        Expanded(
+                          child: Material(
+                            color: AppColors.primary.withValues(alpha: 0.12),
+                            borderRadius: BorderRadius.circular(20),
+                            child: InkWell(
+                              borderRadius: BorderRadius.circular(20),
+                              onTap: _clearFilters,
+                              child: Padding(
+                                padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+                                child: Row(
+                                  children: [
+                                    Icon(Icons.filter_alt_rounded,
+                                        size: 16, color: AppColors.primary),
+                                    const SizedBox(width: 6),
+                                    Expanded(
+                                      child: Text(
+                                        _filterLabel,
+                                        maxLines: 1,
+                                        overflow: TextOverflow.ellipsis,
+                                        style: const TextStyle(
+                                          fontSize: 13,
+                                          fontWeight: FontWeight.w600,
+                                          color: AppColors.primary,
+                                        ),
+                                      ),
+                                    ),
+                                    const SizedBox(width: 6),
+                                    Icon(Icons.close_rounded,
+                                        size: 16, color: AppColors.primary),
+                                  ],
+                                ),
+                              ),
+                            ),
+                          ),
+                        ),
+                      ],
+                    ),
                   ),
+                Expanded(
+                  child: f.isEmpty
+                    ? ListView(
+                        children: [
+                          SizedBox(height: MediaQuery.of(context).size.height * 0.2),
+                          AppEmptyState(
+                            icon: Icons.contacts_outlined,
+                            title: list.isEmpty ? 'No contacts' : 'No matches',
+                            message: list.isEmpty
+                                ? 'Add a lead with the + button.'
+                                : 'Try a different search or filter.',
+                          ),
+                        ],
+                      )
+                    : ListView.builder(
+                        padding: const EdgeInsets.only(top: 4, bottom: 80),
+                        itemCount: f.length,
+                        itemBuilder: (context, i) {
+                          final c = f[i];
+                          return ContactTile(
+                            contact: c,
+                            onTap: () => context.push('/contacts/${c.id}'),
+                          );
+                        },
+                      ),
+                ),
+              ],
+            ),
           );
         },
       ),

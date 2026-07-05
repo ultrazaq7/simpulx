@@ -466,7 +466,7 @@ class _StageFunnelCard extends StatelessWidget {
           child: Container(
             height: 20,
             width: double.infinity,
-            color: Theme.of(context).colorScheme.surfaceContainerHighest,
+            color: Theme.of(context).colorScheme.onSurface.withValues(alpha: 0.08),
             child: FractionallySizedBox(
               alignment: Alignment.centerLeft,
               widthFactor: pct / 100,
@@ -954,7 +954,7 @@ class _LostReasonsCard extends StatelessWidget {
                     child: LinearProgressIndicator(
                       value: (reasons[i].count / maxCount).clamp(0, 1),
                       minHeight: 5,
-                      backgroundColor: Theme.of(context).colorScheme.surfaceContainerHighest,
+                      backgroundColor: Theme.of(context).colorScheme.onSurface.withValues(alpha: 0.08),
                       valueColor: AlwaysStoppedAnimation(
                         i == 0 ? AppColors.danger : i == 1 ? AppColors.warning : const Color(0xFFFBBF24),
                       ),
