@@ -160,8 +160,8 @@ class _DashboardBody extends StatelessWidget {
         EntranceFade(
           delay: const Duration(milliseconds: 130),
           child: showManager
-              ? const _ManagerSection()
-              : const _AgentAnalyticsSection(),
+              ? _ManagerSection(onDrill: onDrill)
+              : _AgentAnalyticsSection(onDrill: onDrill),
         ),
       ],
     );
@@ -266,7 +266,8 @@ class _ActionCard extends StatelessWidget {
 // ── Manager analytics (role-gated) ─────────────────────────
 
 class _ManagerSection extends ConsumerWidget {
-  const _ManagerSection();
+  const _ManagerSection({required this.onDrill});
+  final void Function(InboxFilter filter) onDrill;
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {
@@ -300,29 +301,29 @@ class _ManagerSection extends ConsumerWidget {
             children: [
               // Stage Funnel
               if (a.funnelStages.isNotEmpty) ...[
-                _StageFunnelCard(stages: a.funnelStages),
+                _StageFunnelCard(stages: a.funnelStages, onDrill: onDrill),
                 const SizedBox(height: 12),
               ],
               // Stage Split
               if (a.stages.isNotEmpty) ...[
-                _StageSplitCard(stages: a.stages),
+                _StageSplitCard(stages: a.stages, onDrill: onDrill),
                 const SizedBox(height: 12),
               ],
               // Interest Funnel
-              _FunnelCard(a),
+              _FunnelCard(a, onDrill: onDrill),
               const SizedBox(height: 12),
               // Response Time
               _ResponseCard(a),
               const SizedBox(height: 12),
               // Lost Analysis
-              _LostAnalysisCard(analytics: a),
+              _LostAnalysisCard(analytics: a, onDrill: onDrill),
               if (a.lostReasons.isNotEmpty) ...[
                 const SizedBox(height: 12),
-                _LostReasonsCard(reasons: a.lostReasons),
+                _LostReasonsCard(reasons: a.lostReasons, onDrill: onDrill),
               ],
               if (a.agents.isNotEmpty) ...[
                 const SizedBox(height: 12),
-                _LeaderboardCard(agents: a.agents),
+                _LeaderboardCard(agents: a.agents, onDrill: onDrill),
               ],
             ],
           ),
@@ -372,8 +373,9 @@ const _funnelColors = [
 ];
 
 class _StageFunnelCard extends StatelessWidget {
-  const _StageFunnelCard({required this.stages});
+  const _StageFunnelCard({required this.stages, required this.onDrill});
   final List<FunnelStageStat> stages;
+  final void Function(InboxFilter filter) onDrill;
 
   @override
   Widget build(BuildContext context) {
@@ -391,8 +393,12 @@ class _StageFunnelCard extends StatelessWidget {
               style: TextStyle(fontSize: 12, color: AppColors.textSecondary)),
           const SizedBox(height: 14),
           for (var i = 0; i < stages.length; i++) ...[
-            _buildFunnelRow(context, stages[i].name, stages[i].reached,
-                i == 0 ? null : stages[i - 1].reached, i, maxReached),
+            InkWell(
+              onTap: () => onDrill(InboxFilter(stageName: stages[i].name)),
+              borderRadius: BorderRadius.circular(4),
+              child: _buildFunnelRow(context, stages[i].name, stages[i].reached,
+                  i == 0 ? null : stages[i - 1].reached, i, maxReached),
+            ),
             if (i < stages.length - 1) const SizedBox(height: 8),
           ],
         ],
@@ -470,8 +476,9 @@ class _StageFunnelCard extends StatelessWidget {
 
 // ── Stage Split (leads per pipeline stage) ─────────────────────
 class _StageSplitCard extends StatelessWidget {
-  const _StageSplitCard({required this.stages});
+  const _StageSplitCard({required this.stages, this.onDrill});
   final List<StageStat> stages;
+  final void Function(InboxFilter filter)? onDrill;
 
   @override
   Widget build(BuildContext context) {
@@ -498,7 +505,10 @@ class _StageSplitCard extends StatelessWidget {
         ? AppColors.danger
         : _funnelColors[idx % _funnelColors.length];
     final pct = total > 0 ? (s.count / total * 100) : 0.0;
-    return Padding(
+    return InkWell(
+      onTap: onDrill != null ? () => onDrill!(InboxFilter(stageName: s.name)) : null,
+      borderRadius: BorderRadius.circular(4),
+      child: Padding(
       padding: const EdgeInsets.symmetric(vertical: 4),
       child: Row(
         children: [
@@ -525,6 +535,7 @@ class _StageSplitCard extends StatelessWidget {
           ),
         ],
       ),
+      ),
     );
   }
 
@@ -532,8 +543,9 @@ class _StageSplitCard extends StatelessWidget {
 
 // ── Lost Analysis Card (matching web) ─────────────────────
 class _LostAnalysisCard extends StatelessWidget {
-  const _LostAnalysisCard({required this.analytics});
+  const _LostAnalysisCard({required this.analytics, required this.onDrill});
   final ManagerAnalytics analytics;
+  final void Function(InboxFilter filter) onDrill;
 
   @override
   Widget build(BuildContext context) {
@@ -559,9 +571,12 @@ class _LostAnalysisCard extends StatelessWidget {
           const SizedBox(height: 12),
           Row(
             children: [
-              Text('${analytics.lost}',
-                  style: const TextStyle(
-                      fontSize: 36, fontWeight: FontWeight.w800, color: AppColors.danger)),
+              GestureDetector(
+                onTap: () => onDrill(const InboxFilter(status: 'closed')),
+                child: Text('${analytics.lost}',
+                    style: const TextStyle(
+                        fontSize: 36, fontWeight: FontWeight.w800, color: AppColors.danger)),
+              ),
               const SizedBox(width: 8),
               Text('total lost leads',
                   style: TextStyle(fontSize: 13, color: AppColors.textSecondary)),
@@ -635,8 +650,9 @@ class _LostAnalysisCard extends StatelessWidget {
 }
 
 class _FunnelCard extends StatelessWidget {
-  const _FunnelCard(this.a);
+  const _FunnelCard(this.a, {required this.onDrill});
   final ManagerAnalytics a;
+  final void Function(InboxFilter filter) onDrill;
 
   @override
   Widget build(BuildContext context) {
@@ -647,19 +663,27 @@ class _FunnelCard extends StatelessWidget {
           const Text('Interest Split',
               style: TextStyle(fontWeight: FontWeight.w700, fontSize: 14)),
           const SizedBox(height: 10),
-          _FunnelRow('Total leads', a.total, a.total),
-          _FunnelRow('Replied', a.replied, a.total),
-          _FunnelRow('Engaged', a.engaged, a.total),
-          _FunnelRow('Won', a.won, a.total, color: AppColors.success),
-          _FunnelRow('Lost', a.lost, a.total, color: AppColors.danger),
+          _FunnelRow('Total leads', a.total, a.total,
+              onTap: () => onDrill(const InboxFilter())),
+          _FunnelRow('Replied', a.replied, a.total,
+              onTap: () => onDrill(const InboxFilter(status: 'open'))),
+          _FunnelRow('Engaged', a.engaged, a.total,
+              onTap: () => onDrill(const InboxFilter(status: 'open'))),
+          _FunnelRow('Won', a.won, a.total, color: AppColors.success,
+              onTap: () => onDrill(const InboxFilter(stageName: 'Won'))),
+          _FunnelRow('Lost', a.lost, a.total, color: AppColors.danger,
+              onTap: () => onDrill(const InboxFilter(status: 'closed'))),
           const Divider(height: 18),
           Row(
             children: [
-              _Dot(AppColors.hot, 'Hot ${a.hot}'),
+              _Dot(AppColors.hot, 'Hot ${a.hot}',
+                  onTap: () => onDrill(const InboxFilter(interestLevel: 'hot'))),
               const SizedBox(width: 12),
-              _Dot(AppColors.warm, 'Warm ${a.warm}'),
+              _Dot(AppColors.warm, 'Warm ${a.warm}',
+                  onTap: () => onDrill(const InboxFilter(interestLevel: 'warm'))),
               const SizedBox(width: 12),
-              _Dot(AppColors.cold, 'Cold ${a.cold}'),
+              _Dot(AppColors.cold, 'Cold ${a.cold}',
+                  onTap: () => onDrill(const InboxFilter(interestLevel: 'cold'))),
             ],
           ),
         ],
@@ -669,45 +693,50 @@ class _FunnelCard extends StatelessWidget {
 }
 
 class _FunnelRow extends StatelessWidget {
-  const _FunnelRow(this.label, this.value, this.total, {this.color});
+  const _FunnelRow(this.label, this.value, this.total, {this.color, this.onTap});
   final String label;
   final int value;
   final int total;
   final Color? color;
+  final VoidCallback? onTap;
 
   @override
   Widget build(BuildContext context) {
     final pct = total == 0 ? 0.0 : (value / total).clamp(0.0, 1.0);
     final c = color ?? AppColors.primary;
-    return Padding(
-      padding: const EdgeInsets.symmetric(vertical: 4),
-      child: Row(
-        children: [
-          SizedBox(
-              width: 86,
-              child: Text(label,
-                  style: const TextStyle(
-                      fontSize: 12, color: AppColors.textSecondary))),
-          Expanded(
-            child: ClipRRect(
-              borderRadius: BorderRadius.circular(4),
-              child: LinearProgressIndicator(
-                value: pct,
-                minHeight: 8,
-                backgroundColor: Theme.of(context).colorScheme.surfaceContainerHighest,
-                valueColor: AlwaysStoppedAnimation(c),
+    return InkWell(
+      onTap: onTap,
+      borderRadius: BorderRadius.circular(4),
+      child: Padding(
+        padding: const EdgeInsets.symmetric(vertical: 4),
+        child: Row(
+          children: [
+            SizedBox(
+                width: 86,
+                child: Text(label,
+                    style: const TextStyle(
+                        fontSize: 12, color: AppColors.textSecondary))),
+            Expanded(
+              child: ClipRRect(
+                borderRadius: BorderRadius.circular(4),
+                child: LinearProgressIndicator(
+                  value: pct,
+                  minHeight: 8,
+                  backgroundColor: Theme.of(context).colorScheme.surfaceContainerHighest,
+                  valueColor: AlwaysStoppedAnimation(c),
+                ),
               ),
             ),
-          ),
-          const SizedBox(width: 8),
-          SizedBox(
-            width: 36,
-            child: Text('$value',
-                textAlign: TextAlign.right,
-                style: const TextStyle(
-                    fontSize: 13, fontWeight: FontWeight.w700)),
-          ),
-        ],
+            const SizedBox(width: 8),
+            SizedBox(
+              width: 36,
+              child: Text('$value',
+                  textAlign: TextAlign.right,
+                  style: const TextStyle(
+                      fontSize: 13, fontWeight: FontWeight.w700)),
+            ),
+          ],
+        ),
       ),
     );
   }
@@ -769,8 +798,9 @@ class _Metric extends StatelessWidget {
 }
 
 class _LeaderboardCard extends StatelessWidget {
-  const _LeaderboardCard({required this.agents});
+  const _LeaderboardCard({required this.agents, required this.onDrill});
   final List<AgentPerformance> agents;
+  final void Function(InboxFilter filter) onDrill;
 
   @override
   Widget build(BuildContext context) {
@@ -803,49 +833,52 @@ class _LeaderboardCard extends StatelessWidget {
           ),
           const Divider(height: 1),
           for (final ag in top)
-            Padding(
-              padding: const EdgeInsets.symmetric(vertical: 7),
-              child: Row(
-                children: [
-                  Expanded(
-                    flex: 3,
-                    child: Text(ag.agent,
-                        maxLines: 1,
-                        overflow: TextOverflow.ellipsis,
-                        style: const TextStyle(
-                            fontSize: 13, fontWeight: FontWeight.w600)),
-                  ),
-                  Expanded(
-                    flex: 1,
-                    child: Text('${ag.leads}',
-                        textAlign: TextAlign.center,
-                        style: const TextStyle(fontSize: 12)),
-                  ),
-                  Expanded(
-                    flex: 1,
-                    child: Text('${ag.won}',
-                        textAlign: TextAlign.center,
-                        style: const TextStyle(
-                            fontSize: 12, fontWeight: FontWeight.w700, color: AppColors.success)),
-                  ),
-                  Expanded(
-                    flex: 1,
-                    child: Text(_fmtDuration(ag.avgRtMin),
-                        textAlign: TextAlign.center,
-                        style: const TextStyle(fontSize: 12)),
-                  ),
-                  Expanded(
-                    flex: 1,
-                    child: Text('${ag.within5Pct.toStringAsFixed(0)}%',
-                        textAlign: TextAlign.right,
-                        style: TextStyle(
-                            fontSize: 12,
-                            fontWeight: FontWeight.w700,
-                            color: ag.within5Pct >= 70
-                                ? AppColors.success
-                                : null)),
-                  ),
-                ],
+            InkWell(
+              onTap: () => onDrill(InboxFilter(agentName: ag.agent)),
+              child: Padding(
+                padding: const EdgeInsets.symmetric(vertical: 7),
+                child: Row(
+                  children: [
+                    Expanded(
+                      flex: 3,
+                      child: Text(ag.agent,
+                          maxLines: 1,
+                          overflow: TextOverflow.ellipsis,
+                          style: const TextStyle(
+                              fontSize: 13, fontWeight: FontWeight.w600)),
+                    ),
+                    Expanded(
+                      flex: 1,
+                      child: Text('${ag.leads}',
+                          textAlign: TextAlign.center,
+                          style: const TextStyle(fontSize: 12)),
+                    ),
+                    Expanded(
+                      flex: 1,
+                      child: Text('${ag.won}',
+                          textAlign: TextAlign.center,
+                          style: const TextStyle(
+                              fontSize: 12, fontWeight: FontWeight.w700, color: AppColors.success)),
+                    ),
+                    Expanded(
+                      flex: 1,
+                      child: Text(_fmtDuration(ag.avgRtMin),
+                          textAlign: TextAlign.center,
+                          style: const TextStyle(fontSize: 12)),
+                    ),
+                    Expanded(
+                      flex: 1,
+                      child: Text('${ag.within5Pct.toStringAsFixed(0)}%',
+                          textAlign: TextAlign.right,
+                          style: TextStyle(
+                              fontSize: 12,
+                              fontWeight: FontWeight.w700,
+                              color: ag.within5Pct >= 70
+                                  ? AppColors.success
+                                  : null)),
+                    ),
+                  ],
+                ),
               ),
             ),
         ],
@@ -855,8 +888,9 @@ class _LeaderboardCard extends StatelessWidget {
 }
 
 class _LostReasonsCard extends StatelessWidget {
-  const _LostReasonsCard({required this.reasons});
+  const _LostReasonsCard({required this.reasons, this.onDrill});
   final List<LostReason> reasons;
+  final void Function(InboxFilter filter)? onDrill;
 
   @override
   Widget build(BuildContext context) {
@@ -869,11 +903,16 @@ class _LostReasonsCard extends StatelessWidget {
               style: TextStyle(fontWeight: FontWeight.w700, fontSize: 14)),
           const SizedBox(height: 12),
           for (var i = 0; i < reasons.take(6).length; i++)
-            Padding(
-              padding: const EdgeInsets.only(bottom: 10),
-              child: Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
+            InkWell(
+              onTap: onDrill != null && reasons[i].rawReason != null
+                  ? () => onDrill!(InboxFilter(lostReason: reasons[i].rawReason))
+                  : null,
+              borderRadius: BorderRadius.circular(6),
+              child: Padding(
+                padding: const EdgeInsets.only(bottom: 10),
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
                   Row(
                     mainAxisAlignment: MainAxisAlignment.spaceBetween,
                     children: [
@@ -902,6 +941,7 @@ class _LostReasonsCard extends StatelessWidget {
                   ),
                 ],
               ),
+              ),
             ),
         ],
       ),
@@ -910,23 +950,27 @@ class _LostReasonsCard extends StatelessWidget {
 }
 
 class _Dot extends StatelessWidget {
-  const _Dot(this.color, this.label);
+  const _Dot(this.color, this.label, {this.onTap});
   final Color color;
   final String label;
+  final VoidCallback? onTap;
 
   @override
   Widget build(BuildContext context) {
-    return Row(
-      mainAxisSize: MainAxisSize.min,
-      children: [
-        Container(
-            width: 8,
-            height: 8,
-            decoration: BoxDecoration(color: color, shape: BoxShape.circle)),
-        const SizedBox(width: 4),
-        Text(label,
-            style: const TextStyle(fontSize: 12, color: AppColors.textSecondary)),
-      ],
+    return GestureDetector(
+      onTap: onTap,
+      child: Row(
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          Container(
+              width: 8,
+              height: 8,
+              decoration: BoxDecoration(color: color, shape: BoxShape.circle)),
+          const SizedBox(width: 4),
+          Text(label,
+              style: const TextStyle(fontSize: 12, color: AppColors.textSecondary)),
+        ],
+      ),
     );
   }
 }
@@ -969,7 +1013,8 @@ class _Card extends StatelessWidget {
 
 // ── Agent analytics (personal funnel + avg response) ─────────
 class _AgentAnalyticsSection extends ConsumerWidget {
-  const _AgentAnalyticsSection();
+  const _AgentAnalyticsSection({required this.onDrill});
+  final void Function(InboxFilter filter) onDrill;
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {
@@ -1046,19 +1091,24 @@ class _AgentAnalyticsSection extends ConsumerWidget {
                     const SizedBox(height: 12),
                     Row(
                       children: [
-                        _Dot(AppColors.hot, 'Hot ${a.hot}'),
+                        _Dot(AppColors.hot, 'Hot ${a.hot}',
+                            onTap: () => onDrill(const InboxFilter(interestLevel: 'hot'))),
                         const SizedBox(width: 12),
-                        _Dot(AppColors.warm, 'Warm ${a.warm}'),
+                        _Dot(AppColors.warm, 'Warm ${a.warm}',
+                            onTap: () => onDrill(const InboxFilter(interestLevel: 'warm'))),
                         const SizedBox(width: 12),
-                        _Dot(AppColors.cold, 'Cold ${a.cold}'),
+                        _Dot(AppColors.cold, 'Cold ${a.cold}',
+                            onTap: () => onDrill(const InboxFilter(interestLevel: 'cold'))),
                       ],
                     ),
                     const SizedBox(height: 8),
                     Row(
                       children: [
-                        _Dot(AppColors.success, 'Won ${a.won}'),
+                        _Dot(AppColors.success, 'Won ${a.won}',
+                            onTap: () => onDrill(const InboxFilter(stageName: 'Won'))),
                         const SizedBox(width: 12),
-                        _Dot(AppColors.danger, 'Lost ${a.lost}'),
+                        _Dot(AppColors.danger, 'Lost ${a.lost}',
+                            onTap: () => onDrill(const InboxFilter(status: 'closed'))),
                       ],
                     ),
                   ],
@@ -1067,7 +1117,12 @@ class _AgentAnalyticsSection extends ConsumerWidget {
               // Personal stage pipeline breakdown
               if (a.stages.isNotEmpty) ...[
                 const SizedBox(height: 12),
-                _StageSplitCard(stages: a.stages),
+                _StageSplitCard(stages: a.stages, onDrill: onDrill),
+              ],
+              // Personal lost reasons
+              if (a.lostReasons.isNotEmpty) ...[
+                const SizedBox(height: 12),
+                _LostReasonsCard(reasons: a.lostReasons, onDrill: onDrill),
               ],
             ],
           ),

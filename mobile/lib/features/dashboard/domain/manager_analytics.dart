@@ -58,9 +58,11 @@ class AgentPerformance {
 }
 
 class LostReason {
-  const LostReason(this.reason, this.count);
+  const LostReason(this.reason, this.count, {this.rawReason});
   final String reason;
   final int count;
+  /// Raw API value (e.g. "no_response") for matching against Conversation.lostReason.
+  final String? rawReason;
 }
 
 /// One pipeline stage's count (`GET /api/analytics` -> `stages[]`).
@@ -153,8 +155,11 @@ class ManagerAnalytics {
 
     final lost = (j['lost_reasons'] as List? ?? const [])
         .whereType<Map>()
-        .map((e) => LostReason(
-            formatReason(asString(e['reason'])), asInt(e['count'])))
+        .map((e) {
+          final raw = asString(e['reason']);
+          return LostReason(
+              formatReason(raw), asInt(e['count']), rawReason: raw);
+        })
         .toList();
 
     final stageList = (j['stages'] as List? ?? const [])

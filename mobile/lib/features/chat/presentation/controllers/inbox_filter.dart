@@ -11,6 +11,7 @@ class InboxFilter {
     this.assignment, // 'mine', 'unassigned', null
     this.campaignName,
     this.agentName,
+    this.lostReason,
     this.unreadOnly = false,
     this.followUpOnly = false,
     this.unrepliedOnly = false,
@@ -22,6 +23,7 @@ class InboxFilter {
   final String? assignment;
   final String? campaignName;
   final String? agentName;
+  final String? lostReason;
   final bool unreadOnly;
   final bool followUpOnly;
 
@@ -43,6 +45,7 @@ class InboxFilter {
       (assignment != null ? 1 : 0) +
       (campaignName != null ? 1 : 0) +
       (agentName != null ? 1 : 0) +
+      (lostReason != null ? 1 : 0) +
       (unreadOnly ? 1 : 0) +
       (followUpOnly ? 1 : 0) +
       (unrepliedOnly ? 1 : 0);
@@ -55,6 +58,7 @@ class InboxFilter {
     if (assignment == 'mine' && c.assignedAgentId != myId) return false;
     if (campaignName != null && c.campaignName != campaignName) return false;
     if (agentName != null && c.agentName != agentName) return false;
+    if (lostReason != null && c.lostReason != lostReason) return false;
     if (unreadOnly && c.unreadCount == 0) return false;
     if (followUpOnly &&
         !((c.interestLevel == 'hot' || c.interestLevel == 'warm') &&
@@ -85,6 +89,8 @@ class InboxFilter {
     bool clearCampaign = false,
     String? agentName,
     bool clearAgent = false,
+    String? lostReason,
+    bool clearLostReason = false,
     bool? unreadOnly,
     bool? followUpOnly,
     bool? unrepliedOnly,
@@ -96,6 +102,7 @@ class InboxFilter {
       assignment: clearAssignment ? null : (assignment ?? this.assignment),
       campaignName: clearCampaign ? null : (campaignName ?? this.campaignName),
       agentName: clearAgent ? null : (agentName ?? this.agentName),
+      lostReason: clearLostReason ? null : (lostReason ?? this.lostReason),
       unreadOnly: unreadOnly ?? this.unreadOnly,
       followUpOnly: followUpOnly ?? this.followUpOnly,
       unrepliedOnly: unrepliedOnly ?? this.unrepliedOnly,
