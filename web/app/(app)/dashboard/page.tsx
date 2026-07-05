@@ -436,7 +436,7 @@ function AgentDashboard() {
         <Card title="Your stages" subtitle="Leads by pipeline stage">
           <StageSplit stages={analytics?.stages} lost={analytics?.funnel?.lost} />
         </Card>
-        <Card title="Interest level" subtitle="Buying intent split">
+        <Card title="Interest split" subtitle="Buying intent split">
           <InterestSplit funnel={funnel} />
         </Card>
       </div>
@@ -670,7 +670,7 @@ function ManagerDashboard() {
           </Card>
 
           {/* Interest Level - clickable rows deep-link to filtered inbox */}
-          <Card title="Interest level">
+          <Card title="Interest split">
             <InterestSplit funnel={funnel} />
           </Card>
         </div>

@@ -315,7 +315,7 @@ class _ManagerSection extends ConsumerWidget {
                 const SizedBox(height: 12),
               ],
               // Interest Funnel
-              _FunnelCard(a, onDrill: onDrill),
+              _InterestSplitCard(a, onDrill: onDrill),
               const SizedBox(height: 12),
               // Response Time
               _ResponseCard(a),
@@ -559,8 +559,8 @@ class _LostAnalysisCard extends StatelessWidget {
   }
 }
 
-class _FunnelCard extends StatelessWidget {
-  const _FunnelCard(this.a, {required this.onDrill});
+class _InterestSplitCard extends StatelessWidget {
+  const _InterestSplitCard(this.a, {required this.onDrill});
   final ManagerAnalytics a;
   final void Function(InboxFilter filter) onDrill;
 
@@ -572,81 +572,76 @@ class _FunnelCard extends StatelessWidget {
         children: [
           const Text('Interest Split',
               style: TextStyle(fontWeight: FontWeight.w700, fontSize: 14)),
-          const SizedBox(height: 10),
-          _FunnelRow('Total leads', a.total, a.total,
-              onTap: () => onDrill(const InboxFilter())),
-          _FunnelRow('Replied', a.replied, a.total,
-              onTap: () => onDrill(const InboxFilter(status: 'open'))),
-          _FunnelRow('Engaged', a.engaged, a.total,
-              onTap: () => onDrill(const InboxFilter(status: 'open'))),
-          _FunnelRow('Won', a.won, a.total, color: AppColors.success,
-              onTap: () => onDrill(const InboxFilter(stageName: 'Won'))),
-          _FunnelRow('Lost', a.lost, a.total, color: AppColors.danger,
-              onTap: () => onDrill(const InboxFilter(stageName: 'Lost'))),
-          const Divider(height: 18),
-          Row(
-            children: [
-              _Dot(AppColors.hot, 'Hot ${a.hot}',
-                  onTap: () => onDrill(const InboxFilter(interestLevel: 'hot'))),
-              const SizedBox(width: 12),
-              _Dot(AppColors.warm, 'Warm ${a.warm}',
-                  onTap: () => onDrill(const InboxFilter(interestLevel: 'warm'))),
-              const SizedBox(width: 12),
-              _Dot(AppColors.cold, 'Cold ${a.cold}',
-                  onTap: () => onDrill(const InboxFilter(interestLevel: 'cold'))),
-            ],
-          ),
+          const SizedBox(height: 14),
+          _InterestRow('Hot', a.hot, a.total, color: AppColors.hot,
+              onTap: () => onDrill(const InboxFilter(interestLevel: 'hot'))),
+          _InterestRow('Warm', a.warm, a.total, color: AppColors.warm,
+              onTap: () => onDrill(const InboxFilter(interestLevel: 'warm'))),
+          _InterestRow('Cold', a.cold, a.total, color: AppColors.cold,
+              onTap: () => onDrill(const InboxFilter(interestLevel: 'cold'))),
+          _InterestRow('Unclassified', a.unclassified, a.total, color: AppColors.textMuted,
+              onTap: null), // Unclassified usually doesn't have a direct filter or is just empty string
         ],
       ),
     );
   }
 }
 
-class _FunnelRow extends StatelessWidget {
-  const _FunnelRow(this.label, this.value, this.total, {this.color, this.onTap});
+class _InterestRow extends StatelessWidget {
+  const _InterestRow(this.label, this.value, this.total, {required this.color, this.onTap});
   final String label;
   final int value;
   final int total;
-  final Color? color;
+  final Color color;
   final VoidCallback? onTap;
 
   @override
   Widget build(BuildContext context) {
     final pct = total == 0 ? 0.0 : (value / total).clamp(0.0, 1.0);
-    final c = color ?? AppColors.primary;
     return InkWell(
       onTap: onTap,
-      borderRadius: BorderRadius.circular(4),
+      borderRadius: BorderRadius.circular(6),
       child: Padding(
-        padding: const EdgeInsets.symmetric(vertical: 4),
+        padding: const EdgeInsets.symmetric(vertical: 8, horizontal: 4),
         child: Row(
           children: [
+            Container(
+              width: 8,
+              height: 8,
+              decoration: BoxDecoration(color: color, shape: BoxShape.circle),
+            ),
+            const SizedBox(width: 12),
             SizedBox(
                 width: 86,
                 child: Text(label,
                     style: const TextStyle(
-                        fontSize: 12, color: AppColors.textSecondary))),
+                        fontSize: 13, fontWeight: FontWeight.w500))),
             Expanded(
+              flex: 2,
               child: ClipRRect(
                 borderRadius: BorderRadius.circular(4),
                 child: LinearProgressIndicator(
                   value: pct,
-                  minHeight: 8,
+                  minHeight: 6,
                   backgroundColor: Theme.of(context).colorScheme.onSurface.withValues(alpha: 0.08),
-                  valueColor: AlwaysStoppedAnimation(c),
+                  valueColor: AlwaysStoppedAnimation(color),
                 ),
               ),
             ),
-            const SizedBox(width: 8),
+            const SizedBox(width: 12),
             SizedBox(
-              width: 36,
+              width: 28,
               child: Text('$value',
                   textAlign: TextAlign.right,
-                  style: const TextStyle(
-                      fontSize: 13, fontWeight: FontWeight.w700)),
+                  style: TextStyle(
+                      fontSize: 13, fontWeight: FontWeight.w700, color: color)),
             ),
-            if (onTap != null)
-              Icon(Icons.chevron_right, size: 14, color: AppColors.textMuted),
+            const SizedBox(width: 8),
+            Icon(Icons.chevron_right_rounded,
+                size: 16,
+                color: onTap != null
+                    ? AppColors.textMuted.withValues(alpha: 0.4)
+                    : Colors.transparent),
           ],
         ),
       ),
@@ -865,38 +860,6 @@ class _LostReasonsCard extends StatelessWidget {
   }
 }
 
-class _Dot extends StatelessWidget {
-  const _Dot(this.color, this.label, {this.onTap});
-  final Color color;
-  final String label;
-  final VoidCallback? onTap;
-
-  @override
-  Widget build(BuildContext context) {
-    return GestureDetector(
-      onTap: onTap,
-      child: Row(
-        mainAxisSize: MainAxisSize.min,
-        children: [
-          Container(
-              width: 8,
-              height: 8,
-              decoration: BoxDecoration(color: color, shape: BoxShape.circle)),
-          const SizedBox(width: 4),
-          Text(label,
-              style: TextStyle(
-                fontSize: 12,
-                color: AppColors.textSecondary,
-                decoration: onTap != null ? TextDecoration.underline : null,
-                decorationColor: AppColors.textMuted,
-                decorationStyle: TextDecorationStyle.dotted,
-              )),
-        ],
-      ),
-    );
-  }
-}
-
 class _Card extends StatelessWidget {
   const _Card({required this.child});
   final Widget child;
@@ -979,7 +942,7 @@ class _AgentAnalyticsSection extends ConsumerWidget {
               ),
               const SizedBox(height: 12),
               // Personal interest split (same style as manager)
-              _FunnelCard(a, onDrill: onDrill),
+              _InterestSplitCard(a, onDrill: onDrill),
               // Personal stage pipeline breakdown
               if (a.stages.isNotEmpty) ...[
                 const SizedBox(height: 12),
