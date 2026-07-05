@@ -1,16 +1,17 @@
 "use client";
 import { useEffect, useMemo, useState } from "react";
 import { useRouter } from "next/navigation";
-import { Search, Plus, RefreshCw, GitBranch, Pencil, Trash2, Zap, Sparkles, Loader2, X } from "lucide-react";
+import { Search, Plus, RefreshCw, GitBranch, Pencil, Trash2, Zap, Sparkles } from "lucide-react";
 import { api } from "@/lib/api";
 import { Select } from "@/components/Select";
 import { MultiSelect } from "@/components/ui/multi-select";
 import { usePermissions } from "@/lib/permissions";
 import { fmtDate, cn } from "@/lib/utils";
 import { Tip } from "@/components/ui/tooltip";
-import { TRIGGERS, ACTIONS, TRIGGER_KEYS, triggerLabel } from "@/lib/automationMeta";
+import { EVENT_GROUPS, EVENT_LIVE, eventLabel } from "@/lib/automationMeta";
 import type { Automation, Channel } from "@/lib/types";
-import { useToast, PageBody, FieldLabel, INPUT_CLASS, PrimaryButton, GhostButton } from "../_shared";
+import SidePanel from "@/components/SidePanel";
+import { useToast, PageBody, FieldLabel, INPUT_CLASS, PrimaryButton } from "../_shared";
 
 export default function AutomationPage() {
   const router = useRouter();
@@ -60,8 +61,8 @@ export default function AutomationPage() {
           <input type="text" placeholder="Search automations" value={query} onChange={(e) => setQuery(e.target.value)}
             className="w-full h-9 pl-9 pr-3 rounded-md border border-input bg-muted text-sm text-foreground placeholder:text-muted-foreground/70 outline-none transition-shadow focus:border-primary" />
         </div>
-        <MultiSelect value={triggerFilter} onChange={setTriggerFilter} placeholder="All triggers" className="min-w-[180px]"
-          options={TRIGGER_KEYS.map((k) => ({ value: k, label: TRIGGERS[k].label }))} />
+        <MultiSelect value={triggerFilter} onChange={setTriggerFilter} placeholder="All events" className="min-w-[180px]"
+          options={EVENT_GROUPS.flatMap((g) => g.events).map((e) => ({ value: e.value, label: e.label }))} />
         <MultiSelect value={channelFilter} onChange={setChannelFilter} placeholder="All channels" className="min-w-[180px]"
           options={channels.map((c) => ({ value: c.id, label: c.name }))} />
         <Tip label="Refresh"><button onClick={load} className="p-1.5 rounded-md hover:bg-muted outline-none transition-colors"><RefreshCw className="w-[18px] h-[18px] text-muted-foreground" /></button></Tip>
@@ -122,7 +123,7 @@ export default function AutomationPage() {
               {r.description && <p className="text-[12.5px] text-muted-foreground mt-0.5 truncate">{r.description}</p>}
               <div className="inline-flex items-center gap-1 mt-3 px-2 py-1 rounded-lg bg-muted/50 self-start">
                 <Zap className="w-3.5 h-3.5 text-amber" />
-                <span className="text-xs font-semibold text-foreground">{triggerLabel(r.trigger_type)}</span>
+                <span className="text-xs font-semibold text-foreground">{eventLabel(r.trigger_type)}</span>
               </div>
               <div className="flex-1" />
               <div className="flex items-center gap-2 mt-4">
@@ -140,122 +141,81 @@ export default function AutomationPage() {
       <EditDialog open={dialogOpen} editing={editing} channels={channels}
         onClose={() => setDialogOpen(false)}
         onSaved={(msg) => { setDialogOpen(false); notify(msg); load(); }}
+        onCreated={(id) => { setDialogOpen(false); router.push(`/automation/${id}/flow`); }}
         onError={(msg) => notify(msg, "error")} />
     </PageBody>
   );
 }
 
-function EditDialog({ open, editing, channels, onClose, onSaved, onError }: {
+function EditDialog({ open, editing, channels, onClose, onSaved, onCreated, onError }: {
   open: boolean; editing: Automation | null; channels: Channel[];
-  onClose: () => void; onSaved: (msg: string) => void; onError: (msg: string) => void;
+  onClose: () => void; onSaved: (msg: string) => void; onCreated: (id: string) => void; onError: (msg: string) => void;
 }) {
   const isEdit = !!editing;
   const [name, setName] = useState("");
   const [description, setDescription] = useState("");
-  const [trigger, setTrigger] = useState("new_message");
+  const [eventType, setEventType] = useState("new_message");
   const [channelId, setChannelId] = useState("");
-  const [keywords, setKeywords] = useState("");
-  const [idleMinutes, setIdleMinutes] = useState("30");
-  const [callback, setCallback] = useState("");
-  const [action, setAction] = useState("send_message");
-  const [message, setMessage] = useState("");
   const [saving, setSaving] = useState(false);
 
   useEffect(() => {
     if (!open) return;
     const r = editing;
     setName(r?.name ?? ""); setDescription(r?.description ?? "");
-    setTrigger(r?.trigger_type ?? "new_message"); setChannelId(r?.channel_id ?? "");
-    const tc = (r?.trigger_config ?? {}) as Record<string, unknown>;
-    setKeywords(Array.isArray(tc.keywords) ? (tc.keywords as string[]).join(", ") : "");
-    setIdleMinutes(tc.idle_minutes ? String(tc.idle_minutes) : "30");
-    setCallback(typeof tc.callback === "string" ? tc.callback : "");
-    const first = r?.actions?.[0];
-    setAction(first?.type ?? "send_message");
-    setMessage(String(first?.params?.message ?? first?.params?.template_name ?? ""));
+    setEventType(r?.trigger_type ?? "new_message"); setChannelId(r?.channel_id ?? "");
   }, [open]); // eslint-disable-line react-hooks/exhaustive-deps
-
-  const needsKeywords = trigger === "keyword_match";
-  const needsIdle = trigger === "conversation_idle";
-  const needsCallback = trigger === "button_click";
-  const needsMessage = action === "send_message" || action === "send_template" || action === "webhook_notify";
 
   async function save() {
     if (!name.trim()) { onError("Automation name is required"); return; }
     setSaving(true);
-    const triggerConfig: Record<string, unknown> = {};
-    if (needsKeywords) triggerConfig.keywords = keywords.split(",").map((k) => k.trim()).filter(Boolean);
-    if (needsIdle) triggerConfig.idle_minutes = Number(idleMinutes) || 30;
-    if (needsCallback && callback.trim()) triggerConfig.callback = callback.trim();
-    const params: Record<string, unknown> = {};
-    if (action === "send_message") params.message = message;
-    if (action === "send_template") params.template_name = message;
-    if (action === "webhook_notify") params.url = message;
-    const actions = [{ type: action, params }];
     try {
       if (isEdit) {
-        await api.updateAutomation(editing!.id, { name: name.trim(), description, trigger_type: trigger, trigger_config: triggerConfig, channel_id: channelId, actions });
+        await api.updateAutomation(editing!.id, { name: name.trim(), description, trigger_type: eventType, channel_id: channelId });
         onSaved("Automation updated");
       } else {
-        await api.createAutomation({ name: name.trim(), description, trigger_type: trigger, trigger_config: triggerConfig, channel_id: channelId || undefined, actions });
-        onSaved("Automation created");
+        // Actions + condition refinements are built in the flow after create.
+        const { id } = await api.createAutomation({ name: name.trim(), description, trigger_type: eventType, channel_id: channelId || undefined, actions: [] });
+        onCreated(id);
       }
     } catch (e) { onError(String(e)); }
     finally { setSaving(false); }
   }
 
-  if (!open) return null;
-
   return (
-    <div className="fixed inset-0 z-[100] flex items-center justify-center p-4">
-      <div className="absolute inset-0 bg-black/40 backdrop-blur-[2px] animate-fade-in" onClick={onClose} />
-      <div className="relative bg-card rounded-lg border border-border shadow-2xl w-full max-w-lg max-h-[85vh] flex flex-col animate-scale-in">
-        <div className="flex items-center justify-between px-5 py-3.5 border-b border-border shrink-0">
-          <h2 className="text-[15px] font-bold text-foreground">{isEdit ? "Edit automation" : "New automation"}</h2>
-          <button onClick={onClose} className="p-1 rounded-md text-muted-foreground hover:bg-muted hover:text-foreground outline-none transition-colors"><X className="w-[18px] h-[18px]" /></button>
-        </div>
-        <div className="px-5 py-5 flex flex-col gap-4 overflow-y-auto flex-1 min-h-0">
-          <Lbl label="Name"><input type="text" value={name} onChange={(e) => setName(e.target.value)} placeholder="e.g. Welcome new chats" autoFocus className={INPUT_CLASS} /></Lbl>
-          <Lbl label="Description"><input type="text" value={description} onChange={(e) => setDescription(e.target.value)} placeholder="Optional" className={INPUT_CLASS} /></Lbl>
-          <div className="flex gap-4">
-            <Lbl label="Trigger" className="flex-1">
-              <Select value={trigger} onChange={setTrigger} options={TRIGGER_KEYS.map((k) => ({ value: k, label: TRIGGERS[k].label }))} />
-            </Lbl>
-            <Lbl label="Channel" className="flex-1">
-              <Select value={channelId} onChange={setChannelId} placeholder="All channels"
-                options={[{ value: "", label: "All channels" }, ...channels.map((c) => ({ value: c.id, label: c.name }))]} />
-            </Lbl>
+    <SidePanel open={open} onClose={onClose} title={isEdit ? "Edit automation" : "New automation"}
+      description={isEdit ? undefined : "Pick the event that starts this automation. Build the actions in the flow after."}
+      onApply={save} applyLabel={isEdit ? "Save" : "Create"} applyDisabled={!name.trim()} busy={saving}>
+      <div className="flex flex-col gap-4">
+        <Lbl label="Name"><input type="text" value={name} onChange={(e) => setName(e.target.value)} placeholder="e.g. Welcome new chats" autoFocus className={INPUT_CLASS} /></Lbl>
+        <Lbl label="Description (optional)"><input type="text" value={description} onChange={(e) => setDescription(e.target.value)} placeholder="Optional" className={INPUT_CLASS} /></Lbl>
+        <Lbl label="Channel">
+          <Select value={channelId} onChange={setChannelId} placeholder="All channels"
+            options={[{ value: "", label: "All channels" }, ...channels.map((c) => ({ value: c.id, label: c.name }))]} />
+        </Lbl>
+        <div>
+          <FieldLabel>Event</FieldLabel>
+          <div className="rounded-lg border border-border divide-y divide-border overflow-hidden">
+            {EVENT_GROUPS.map((g) => (
+              <div key={g.group}>
+                <p className="px-3 pt-2.5 pb-1 text-[10px] font-bold uppercase tracking-wider text-muted-foreground bg-muted/40">{g.group}</p>
+                {g.events.map((ev) => {
+                  const sel = eventType === ev.value;
+                  return (
+                    <button key={ev.value} type="button" onClick={() => setEventType(ev.value)}
+                      className={cn("w-full flex items-center gap-2.5 px-3 py-2 text-left text-[13px] outline-none transition-colors", sel ? "bg-primary/10 text-primary font-semibold" : "text-foreground hover:bg-muted/60")}>
+                      <span className={cn("w-3.5 h-3.5 rounded-full border shrink-0 grid place-items-center", sel ? "border-primary" : "border-muted-foreground/40")}>{sel && <span className="w-1.5 h-1.5 rounded-full bg-primary" />}</span>
+                      <span className="flex-1">{ev.label}</span>
+                      {!ev.live && <span className="text-[10px] font-semibold text-amber-600 bg-amber-50 px-1.5 py-0.5 rounded">soon</span>}
+                    </button>
+                  );
+                })}
+              </div>
+            ))}
           </div>
-          <p className="text-xs text-muted-foreground -mt-2">{TRIGGERS[trigger]?.desc}</p>
-          {needsKeywords && <Lbl label="Keywords (comma separated)"><input type="text" value={keywords} onChange={(e) => setKeywords(e.target.value)} placeholder="price, harga, quote" className={INPUT_CLASS} /></Lbl>}
-          {needsIdle && <Lbl label="Idle minutes"><input type="number" value={idleMinutes} onChange={(e) => setIdleMinutes(e.target.value)} className={INPUT_CLASS} /></Lbl>}
-          {needsCallback && <Lbl label="Callback id contains (optional)"><input type="text" value={callback} onChange={(e) => setCallback(e.target.value)} placeholder="e.g. daftar (blank = any button)" className={INPUT_CLASS} /></Lbl>}
-          <div className="border-t border-border pt-3"><p className="text-[10px] font-bold text-muted-foreground uppercase tracking-wider">THEN</p></div>
-          <Lbl label="Action">
-            <Select value={action} onChange={setAction} options={Object.entries(ACTIONS).map(([k, v]) => ({ value: k, label: (v as { label: string }).label }))} />
-          </Lbl>
-          {needsMessage && (
-            <Lbl label={action === "send_template" ? "Template name" : action === "webhook_notify" ? "Webhook URL" : "Message"}>
-              {action === "send_message" ? (
-                <textarea value={message} onChange={(e) => setMessage(e.target.value)} rows={2} placeholder="Type the auto reply..."
-                  className="w-full px-3 py-2 rounded-md border border-input bg-background text-sm text-foreground outline-none resize-none transition-shadow focus:border-primary" />
-              ) : (
-                <input type="text" value={message} onChange={(e) => setMessage(e.target.value)}
-                  placeholder={action === "send_template" ? "welcome_v1" : "https://..."}
-                  className={INPUT_CLASS} />
-              )}
-            </Lbl>
-          )}
-          <p className="text-xs text-muted-foreground">Add more steps and branching in the visual flow builder after saving.</p>
-        </div>
-        <div className="flex justify-end gap-2 px-5 py-3.5 border-t border-border shrink-0">
-          <GhostButton onClick={onClose}>Cancel</GhostButton>
-          <PrimaryButton onClick={save} disabled={saving}>
-            {saving ? <Loader2 className="w-4 h-4 animate-spin" /> : null}{isEdit ? "Save" : "Create"}
-          </PrimaryButton>
+          {!EVENT_LIVE[eventType] && <p className="mt-1.5 text-[12px] text-amber-600">Selectable, but the engine does not fire this event yet.</p>}
         </div>
       </div>
-    </div>
+    </SidePanel>
   );
 }
 

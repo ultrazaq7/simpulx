@@ -19,7 +19,7 @@ import { Tip } from "@/components/ui/tooltip";
 import { Select } from "@/components/Select";
 
 import { api } from "@/lib/api";
-import { ACTIONS, TRIGGERS, triggerLabel } from "@/lib/automationMeta";
+import { ACTIONS, TRIGGERS, eventLabel } from "@/lib/automationMeta";
 import { cn } from "@/lib/utils";
 import type { AutomationDetail } from "@/lib/types";
 
@@ -102,7 +102,7 @@ function summary(kind: string, c: Record<string, unknown>, triggerType?: string)
 // ── Custom node ─────────────────────────────────────────────────────────────
 function FlowNode({ data, selected }: NodeProps<AppNode>) {
   const m = meta(data.kind);
-  const title = data.kind === "trigger" ? triggerLabel(data.triggerType ?? "") : m.label;
+  const title = data.kind === "trigger" ? eventLabel(data.triggerType ?? "") : m.label;
   const isTrigger = data.kind === "trigger";
   return (
     <div className={cn(
@@ -294,10 +294,10 @@ function Builder() {
     let triggerPatch: Record<string, unknown> = {};
     if (trig) {
       const cfg = trig.data.config as Record<string, unknown>;
-      const conds = Array.isArray(cfg.conditions) && (cfg.conditions as unknown[]).length
-        ? (cfg.conditions as Record<string, unknown>[])
-        : [legacyToCondition(trig.data.triggerType ?? auto.trigger_type, cfg)];
-      triggerPatch = { trigger_type: String(conds[0]?.type ?? "all_messages"), trigger_config: { conditions: conds } };
+      // trigger_type is the EVENT (chosen at create); only the refinement
+      // conditions are edited in the flow trigger node.
+      const conds = Array.isArray(cfg.conditions) ? (cfg.conditions as Record<string, unknown>[]) : [];
+      triggerPatch = { trigger_config: { conditions: conds } };
     }
     try {
       await api.updateAutomation(auto.id, { flow: model, ...triggerPatch });
@@ -324,7 +324,7 @@ function Builder() {
         <button onClick={() => router.push("/settings/automation")} className="p-1.5 rounded-md text-muted-foreground hover:bg-muted hover:text-foreground outline-none"><ArrowLeft className="w-5 h-5" /></button>
         <div className="min-w-0">
           <p className="font-bold text-[15px] text-foreground truncate">{auto.name}</p>
-          <p className="text-[11.5px] text-muted-foreground">Visual flow · {nodes.length} node{nodes.length === 1 ? "" : "s"} · trigger: {triggerLabel(auto.trigger_type)}</p>
+          <p className="text-[11.5px] text-muted-foreground">Visual flow · {nodes.length} node{nodes.length === 1 ? "" : "s"} · trigger: {eventLabel(auto.trigger_type)}</p>
         </div>
         <div className="flex-1" />
         <Tip label="Undo (Ctrl+Z)"><button onClick={undo} className="p-2 rounded-md text-muted-foreground hover:bg-muted hover:text-foreground outline-none transition-colors"><Undo2 className="w-[18px] h-[18px]" /></button></Tip>
@@ -651,7 +651,7 @@ function Inspector({ node, triggerType, campaigns, forms, agents, stages, sheetE
     <>
       <div className="flex items-center gap-2.5 px-4 py-3 border-b border-border">
         <div className="w-8 h-8 rounded-md grid place-items-center shrink-0" style={{ backgroundColor: m.accent + "1a", color: m.accent }}><m.Icon className="w-[17px] h-[17px]" /></div>
-        <p className="font-bold text-[14px] text-foreground flex-1 truncate">{isTrigger ? triggerLabel(triggerType) : m.label}</p>
+        <p className="font-bold text-[14px] text-foreground flex-1 truncate">{isTrigger ? eventLabel(triggerType) : m.label}</p>
         <button onClick={onClose} className="p-1 rounded-md text-muted-foreground hover:bg-muted outline-none"><X className="w-[18px] h-[18px]" /></button>
       </div>
       <div className="flex-1 overflow-y-auto p-4 space-y-4">
