@@ -451,6 +451,8 @@ class _StageFunnelCard extends StatelessWidget {
                   ),
                 Text('$reached',
                     style: const TextStyle(fontSize: 13, fontWeight: FontWeight.w800)),
+                const SizedBox(width: 2),
+                Icon(Icons.chevron_right, size: 14, color: AppColors.textMuted),
               ],
             ),
           ],
@@ -533,6 +535,8 @@ class _StageSplitCard extends StatelessWidget {
             child: Text('${s.count}', textAlign: TextAlign.right,
                 style: TextStyle(fontSize: 13, fontWeight: FontWeight.w700, color: color)),
           ),
+          if (onDrill != null)
+            Icon(Icons.chevron_right, size: 14, color: AppColors.textMuted),
         ],
       ),
       ),
@@ -735,6 +739,8 @@ class _FunnelRow extends StatelessWidget {
                   style: const TextStyle(
                       fontSize: 13, fontWeight: FontWeight.w700)),
             ),
+            if (onTap != null)
+              Icon(Icons.chevron_right, size: 14, color: AppColors.textMuted),
           ],
         ),
       ),
@@ -877,6 +883,7 @@ class _LeaderboardCard extends StatelessWidget {
                                   ? AppColors.success
                                   : null)),
                     ),
+                    Icon(Icons.chevron_right, size: 14, color: AppColors.textMuted),
                   ],
                 ),
               ),
@@ -914,7 +921,6 @@ class _LostReasonsCard extends StatelessWidget {
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
                   Row(
-                    mainAxisAlignment: MainAxisAlignment.spaceBetween,
                     children: [
                       Expanded(
                         child: Text(reasons[i].reason,
@@ -925,6 +931,10 @@ class _LostReasonsCard extends StatelessWidget {
                       Text('${reasons[i].count}',
                           style: const TextStyle(
                               fontSize: 13, fontWeight: FontWeight.w700, color: AppColors.danger)),
+                      if (onDrill != null) ...[
+                        const SizedBox(width: 2),
+                        Icon(Icons.chevron_right, size: 14, color: AppColors.textMuted),
+                      ],
                     ],
                   ),
                   const SizedBox(height: 4),
@@ -968,7 +978,13 @@ class _Dot extends StatelessWidget {
               decoration: BoxDecoration(color: color, shape: BoxShape.circle)),
           const SizedBox(width: 4),
           Text(label,
-              style: const TextStyle(fontSize: 12, color: AppColors.textSecondary)),
+              style: TextStyle(
+                fontSize: 12,
+                color: AppColors.textSecondary,
+                decoration: onTap != null ? TextDecoration.underline : null,
+                decorationColor: AppColors.textMuted,
+                decorationStyle: TextDecorationStyle.dotted,
+              )),
         ],
       ),
     );
@@ -1072,48 +1088,8 @@ class _AgentAnalyticsSection extends ConsumerWidget {
                 ),
               ),
               const SizedBox(height: 12),
-              // Personal interest split
-              _Card(
-                child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    Row(
-                      children: [
-                        const Icon(Icons.trending_up_rounded, size: 16, color: AppColors.primary),
-                        const SizedBox(width: 6),
-                        const Text('My Leads',
-                            style: TextStyle(fontWeight: FontWeight.w700, fontSize: 14)),
-                        const Spacer(),
-                        Text('${a.total} total',
-                            style: const TextStyle(fontSize: 12, color: AppColors.textSecondary, fontWeight: FontWeight.w600)),
-                      ],
-                    ),
-                    const SizedBox(height: 12),
-                    Row(
-                      children: [
-                        _Dot(AppColors.hot, 'Hot ${a.hot}',
-                            onTap: () => onDrill(const InboxFilter(interestLevel: 'hot'))),
-                        const SizedBox(width: 12),
-                        _Dot(AppColors.warm, 'Warm ${a.warm}',
-                            onTap: () => onDrill(const InboxFilter(interestLevel: 'warm'))),
-                        const SizedBox(width: 12),
-                        _Dot(AppColors.cold, 'Cold ${a.cold}',
-                            onTap: () => onDrill(const InboxFilter(interestLevel: 'cold'))),
-                      ],
-                    ),
-                    const SizedBox(height: 8),
-                    Row(
-                      children: [
-                        _Dot(AppColors.success, 'Won ${a.won}',
-                            onTap: () => onDrill(const InboxFilter(stageName: 'Won'))),
-                        const SizedBox(width: 12),
-                        _Dot(AppColors.danger, 'Lost ${a.lost}',
-                            onTap: () => onDrill(const InboxFilter(status: 'closed'))),
-                      ],
-                    ),
-                  ],
-                ),
-              ),
+              // Personal interest split (same style as manager)
+              _FunnelCard(a, onDrill: onDrill),
               // Personal stage pipeline breakdown
               if (a.stages.isNotEmpty) ...[
                 const SizedBox(height: 12),
