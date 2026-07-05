@@ -463,82 +463,80 @@ class _ContactsPageState extends ConsumerState<ContactsPage> {
         ),
         data: (list) {
           final f = _filter(list, myId);
-          return RefreshIndicator(
-            onRefresh: () => ref.read(contactsProvider.notifier).refresh(),
-            child: Column(
-              children: [
-                // Visible "active filter" chip when filters from dashboard or manual are active.
-                if (_activeFilters > 0)
-                  Padding(
-                    padding: const EdgeInsets.fromLTRB(12, 8, 12, 0),
-                    child: Row(
-                      children: [
-                        Expanded(
-                          child: Material(
-                            color: AppColors.primary.withValues(alpha: 0.12),
-                            borderRadius: BorderRadius.circular(20),
-                            child: InkWell(
-                              borderRadius: BorderRadius.circular(20),
-                              onTap: _clearFilters,
-                              child: Padding(
-                                padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
-                                child: Row(
-                                  children: [
-                                    Icon(Icons.filter_alt_rounded,
-                                        size: 16, color: AppColors.primary),
-                                    const SizedBox(width: 6),
-                                    Expanded(
-                                      child: Text(
-                                        _filterLabel,
-                                        maxLines: 1,
-                                        overflow: TextOverflow.ellipsis,
-                                        style: const TextStyle(
-                                          fontSize: 13,
-                                          fontWeight: FontWeight.w600,
-                                          color: AppColors.primary,
-                                        ),
-                                      ),
+          // Compact filter chip (capped width) rendered INSIDE the scroll list so
+          // it scrolls away with the contacts instead of pinning to a top box.
+          final Widget? pill = _activeFilters > 0
+              ? Padding(
+                  padding: const EdgeInsets.fromLTRB(12, 8, 12, 4),
+                  child: Align(
+                    alignment: Alignment.centerLeft,
+                    child: ConstrainedBox(
+                      constraints: const BoxConstraints(maxWidth: 240),
+                      child: Material(
+                        color: AppColors.primary.withValues(alpha: 0.12),
+                        borderRadius: BorderRadius.circular(20),
+                        child: InkWell(
+                          borderRadius: BorderRadius.circular(20),
+                          onTap: _clearFilters,
+                          child: Padding(
+                            padding: const EdgeInsets.only(left: 12, right: 8, top: 7, bottom: 7),
+                            child: Row(
+                              mainAxisSize: MainAxisSize.min,
+                              children: [
+                                Icon(Icons.filter_alt_rounded, size: 15, color: AppColors.primary),
+                                const SizedBox(width: 6),
+                                Flexible(
+                                  child: Text(
+                                    _filterLabel,
+                                    maxLines: 1,
+                                    overflow: TextOverflow.ellipsis,
+                                    style: const TextStyle(
+                                      fontSize: 13,
+                                      fontWeight: FontWeight.w600,
+                                      color: AppColors.primary,
                                     ),
-                                    const SizedBox(width: 6),
-                                    Icon(Icons.close_rounded,
-                                        size: 16, color: AppColors.primary),
-                                  ],
+                                  ),
                                 ),
-                              ),
+                                const SizedBox(width: 5),
+                                Icon(Icons.close_rounded, size: 16, color: AppColors.primary),
+                              ],
                             ),
                           ),
                         ),
-                      ],
+                      ),
                     ),
                   ),
-                Expanded(
-                  child: f.isEmpty
-                    ? ListView(
-                        children: [
-                          SizedBox(height: MediaQuery.of(context).size.height * 0.2),
-                          AppEmptyState(
-                            icon: Icons.contacts_outlined,
-                            title: list.isEmpty ? 'No contacts' : 'No matches',
-                            message: list.isEmpty
-                                ? 'Add a lead with the + button.'
-                                : 'Try a different search or filter.',
-                          ),
-                        ],
-                      )
-                    : ListView.builder(
-                        padding: const EdgeInsets.only(top: 4, bottom: 80),
-                        itemCount: f.length,
-                        itemBuilder: (context, i) {
-                          final c = f[i];
-                          return ContactTile(
-                            contact: c,
-                            onTap: () => context.push('/contacts/${c.id}'),
-                          );
-                        },
+                )
+              : null;
+          return RefreshIndicator(
+            onRefresh: () => ref.read(contactsProvider.notifier).refresh(),
+            child: f.isEmpty
+                ? ListView(
+                    padding: const EdgeInsets.only(bottom: 80),
+                    children: [
+                      ?pill,
+                      SizedBox(height: MediaQuery.of(context).size.height * 0.2),
+                      AppEmptyState(
+                        icon: Icons.contacts_outlined,
+                        title: list.isEmpty ? 'No contacts' : 'No matches',
+                        message: list.isEmpty
+                            ? 'Add a lead with the + button.'
+                            : 'Try a different search or filter.',
                       ),
-                ),
-              ],
-            ),
+                    ],
+                  )
+                : ListView.builder(
+                    padding: const EdgeInsets.only(top: 4, bottom: 80),
+                    itemCount: (pill != null ? 1 : 0) + f.length,
+                    itemBuilder: (context, i) {
+                      if (pill != null && i == 0) return pill;
+                      final c = f[pill != null ? i - 1 : i];
+                      return ContactTile(
+                        contact: c,
+                        onTap: () => context.push('/contacts/${c.id}'),
+                      );
+                    },
+                  ),
           );
         },
       ),
