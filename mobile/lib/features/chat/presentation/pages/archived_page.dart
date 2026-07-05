@@ -11,11 +11,38 @@ import '../widgets/conversation_tile.dart';
 
 /// WhatsApp-style "Archived" view: the leads marked Lost, kept out of the main
 /// inbox but never deleted.
-class ArchivedPage extends ConsumerWidget {
+class ArchivedPage extends ConsumerStatefulWidget {
   const ArchivedPage({super.key});
 
   @override
-  Widget build(BuildContext context, WidgetRef ref) {
+  ConsumerState<ArchivedPage> createState() => _ArchivedPageState();
+}
+
+class _ArchivedPageState extends ConsumerState<ArchivedPage> {
+  final _scroll = ScrollController();
+  bool _showScrollToTop = false;
+
+  @override
+  void initState() {
+    super.initState();
+    _scroll.addListener(_onScroll);
+  }
+
+  @override
+  void dispose() {
+    _scroll.dispose();
+    super.dispose();
+  }
+
+  void _onScroll() {
+    final shouldShow = _scroll.offset > 400;
+    if (_showScrollToTop != shouldShow) {
+      setState(() => _showScrollToTop = shouldShow);
+    }
+  }
+
+  @override
+  Widget build(BuildContext context) {
     final async = ref.watch(conversationListProvider);
     return Scaffold(
       appBar: AppBar(
@@ -37,6 +64,8 @@ class ArchivedPage extends ConsumerWidget {
                 .compareTo(a.lastMessageAt ?? DateTime(0)));
           if (lost.isEmpty) {
             return ListView(
+              controller: _scroll,
+              physics: const AlwaysScrollableScrollPhysics(),
               children: [
                 SizedBox(height: MediaQuery.of(context).size.height * 0.2),
                 const AppEmptyState(
@@ -51,6 +80,8 @@ class ArchivedPage extends ConsumerWidget {
             onRefresh: () =>
                 ref.read(conversationListProvider.notifier).refresh(),
             child: ListView.builder(
+              controller: _scroll,
+              physics: const AlwaysScrollableScrollPhysics(),
               itemCount: lost.length,
               itemBuilder: (context, i) {
                 final c = lost[i];
@@ -63,6 +94,19 @@ class ArchivedPage extends ConsumerWidget {
           );
         },
       ),
+      floatingActionButton: _showScrollToTop
+          ? FloatingActionButton(
+              mini: true,
+              onPressed: () {
+                _scroll.animateTo(
+                  0,
+                  duration: const Duration(milliseconds: 300),
+                  curve: Curves.easeOut,
+                );
+              },
+              child: const Icon(Icons.keyboard_arrow_up_rounded),
+            )
+          : null,
     );
   }
 }
