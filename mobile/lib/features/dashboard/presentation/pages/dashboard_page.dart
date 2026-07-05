@@ -519,7 +519,7 @@ class _StageSplitCard extends StatelessWidget {
               child: LinearProgressIndicator(
                 value: (pct / 100).clamp(0, 1),
                 minHeight: 6,
-                backgroundColor: Theme.of(context).colorScheme.surfaceContainerHighest,
+                backgroundColor: Theme.of(context).colorScheme.onSurface.withValues(alpha: 0.08),
                 valueColor: AlwaysStoppedAnimation(color),
               ),
             ),
@@ -721,7 +721,7 @@ class _FunnelRow extends StatelessWidget {
                 child: LinearProgressIndicator(
                   value: pct,
                   minHeight: 8,
-                  backgroundColor: Theme.of(context).colorScheme.surfaceContainerHighest,
+                  backgroundColor: Theme.of(context).colorScheme.onSurface.withValues(alpha: 0.08),
                   valueColor: AlwaysStoppedAnimation(c),
                 ),
               ),
