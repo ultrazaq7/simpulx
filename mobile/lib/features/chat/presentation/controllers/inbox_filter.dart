@@ -91,8 +91,11 @@ class InboxFilter {
       // We must match c.stageName == 'Lost' and c.lostReason == 'changed_mind'.
       if (stageName!.toLowerCase().startsWith('lost')) {
         if (c.stageName != 'Lost') return false;
-        final reason = stageName!.substring(4).trim().toLowerCase().replaceAll(' ', '_');
-        if (reason.isNotEmpty && c.lostReason?.toLowerCase() != reason) return false;
+        final rawReason = stageName!.substring(4).trim().toLowerCase().replaceAll(' ', '_');
+        if (rawReason.isNotEmpty) {
+          final reason = rawReason.startsWith('lost_reason_') ? rawReason : 'lost_reason_$rawReason';
+          if (c.lostReason?.toLowerCase() != reason) return false;
+        }
       } else {
         if (c.stageName != stageName) return false;
       }

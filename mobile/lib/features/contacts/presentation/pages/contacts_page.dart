@@ -297,8 +297,8 @@ class _ContactsPageState extends ConsumerState<ContactsPage> {
           _interest = next.interestLevel;
           if (next.stageName != null && next.stageName!.toLowerCase().startsWith('lost')) {
             _stage = 'Lost';
-            _lostReason = next.stageName!.substring(4).trim().toLowerCase().replaceAll(' ', '_');
-            if (_lostReason!.isEmpty) _lostReason = null;
+            final reason = next.stageName!.substring(4).trim().toLowerCase().replaceAll(' ', '_');
+            _lostReason = reason.isEmpty ? null : (reason.startsWith('lost_reason_') ? reason : 'lost_reason_$reason');
           } else {
             _stage = next.stageName;
             _lostReason = next.lostReason;

@@ -20,9 +20,14 @@ import '../../../contacts/presentation/controllers/contacts_providers.dart';
 class DashboardPage extends ConsumerWidget {
   const DashboardPage({super.key});
 
-  void _drill(WidgetRef ref, BuildContext context, InboxFilter filter) {
+  void _drillContacts(WidgetRef ref, BuildContext context, InboxFilter filter) {
     ref.read(contactsFilterProvider.notifier).set(filter);
     context.go('/contacts');
+  }
+
+  void _drillChat(WidgetRef ref, BuildContext context, InboxFilter filter) {
+    ref.read(inboxFilterProvider.notifier).set(filter);
+    context.go('/chat');
   }
 
   @override
@@ -51,7 +56,8 @@ class DashboardPage extends ConsumerWidget {
             firstName: firstName,
             cards: cards,
             showManager: user?.role.isManagerTier ?? false,
-            onDrill: (filter) => _drill(ref, context, filter),
+            onDrillChat: (filter) => _drillChat(ref, context, filter),
+            onDrillContacts: (filter) => _drillContacts(ref, context, filter),
           ),
         ),
       ),
@@ -109,7 +115,8 @@ class _DashboardBody extends StatelessWidget {
   final String firstName;
   final DashboardCards cards;
   final bool showManager;
-  final void Function(InboxFilter filter) onDrill;
+  final void Function(InboxFilter filter) onDrillChat;
+  final void Function(InboxFilter filter) onDrillContacts;
 
   @override
   Widget build(BuildContext context) {
@@ -154,15 +161,15 @@ class _DashboardBody extends StatelessWidget {
             childAspectRatio: 1.45,
             children: [
               for (final item in items)
-                _ActionCard(data: item, onTap: () => onDrill(item.filter)),
+                _ActionCard(data: item, onTap: () => onDrillChat(item.filter)),
             ],
           ),
         ),
         EntranceFade(
           delay: const Duration(milliseconds: 130),
           child: showManager
-              ? _ManagerSection(onDrill: onDrill)
-              : _AgentAnalyticsSection(onDrill: onDrill),
+              ? _ManagerSection(onDrill: onDrillContacts)
+              : _AgentAnalyticsSection(onDrill: onDrillContacts),
         ),
       ],
     );
@@ -671,7 +678,7 @@ class _FunnelCard extends StatelessWidget {
           _FunnelRow('Won', a.won, a.total, color: AppColors.success,
               onTap: () => onDrill(const InboxFilter(stageName: 'Won'))),
           _FunnelRow('Lost', a.lost, a.total, color: AppColors.danger,
-              onTap: () => onDrill(const InboxFilter(status: 'closed'))),
+              onTap: () => onDrill(const InboxFilter(stageName: 'Lost'))),
           const Divider(height: 18),
           Row(
             children: [
