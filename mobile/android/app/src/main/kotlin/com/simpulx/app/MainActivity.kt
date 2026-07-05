@@ -10,7 +10,8 @@ import android.content.Intent
 import android.content.Context
 import android.app.NotificationManager
 import androidx.core.app.RemoteInput
-import androidx.appcompat.app.AppCompatDelegate
+import android.content.res.Configuration
+import android.content.res.Resources
 
 class MainActivity : FlutterActivity() {
 
@@ -244,14 +245,22 @@ class MainActivity : FlutterActivity() {
                             val mode = call.argument<String>("mode") ?: "system"
                             NativeThemeStore.save(this, mode)
                             NativeThemeStore.applyToSystem(this)
-                            // Update the in-process night mode so Flutter's
-                            // platformBrightness reflects the change immediately
-                            // (fixes "system" resolving to the previous manual
-                            // choice because attachBaseContext's wrapped config
-                            // is stale).
-                            AppCompatDelegate.setDefaultNightMode(
-                                NativeThemeStore.readNightMode(this)
-                            )
+                            // attachBaseContext locked the Activity's night-mode
+                            // bits for the entire lifecycle via NativeThemeStore
+                            // .wrap().  Flutter reads platformBrightness from
+                            // those bits, so switching to "system" keeps the old
+                            // forced value.  Fix: dispatch onConfigurationChanged
+                            // with the correct bits so Flutter re-reads brightness.
+                            val nightBits = when (mode) {
+                                "light" -> Configuration.UI_MODE_NIGHT_NO
+                                "dark"  -> Configuration.UI_MODE_NIGHT_YES
+                                else    -> Resources.getSystem().configuration.uiMode and
+                                           Configuration.UI_MODE_NIGHT_MASK
+                            }
+                            val updated = Configuration(resources.configuration)
+                            updated.uiMode = (updated.uiMode and
+                                Configuration.UI_MODE_NIGHT_MASK.inv()) or nightBits
+                            onConfigurationChanged(updated)
                             result.success(true)
                         } catch (e: Exception) {
                             result.success(false)
