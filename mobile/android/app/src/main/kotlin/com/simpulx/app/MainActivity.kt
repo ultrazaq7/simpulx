@@ -10,6 +10,7 @@ import android.content.Intent
 import android.content.Context
 import android.app.NotificationManager
 import androidx.core.app.RemoteInput
+import androidx.appcompat.app.AppCompatDelegate
 
 class MainActivity : FlutterActivity() {
 
@@ -243,6 +244,14 @@ class MainActivity : FlutterActivity() {
                             val mode = call.argument<String>("mode") ?: "system"
                             NativeThemeStore.save(this, mode)
                             NativeThemeStore.applyToSystem(this)
+                            // Update the in-process night mode so Flutter's
+                            // platformBrightness reflects the change immediately
+                            // (fixes "system" resolving to the previous manual
+                            // choice because attachBaseContext's wrapped config
+                            // is stale).
+                            AppCompatDelegate.setDefaultNightMode(
+                                NativeThemeStore.readNightMode(this)
+                            )
                             result.success(true)
                         } catch (e: Exception) {
                             result.success(false)
