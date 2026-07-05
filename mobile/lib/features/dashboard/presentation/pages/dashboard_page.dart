@@ -21,7 +21,6 @@ class DashboardPage extends ConsumerWidget {
   const DashboardPage({super.key});
 
   void _drill(WidgetRef ref, BuildContext context, InboxFilter filter) {
-    ref.read(inboxFilterProvider.notifier).set(filter);
     ref.read(contactsFilterProvider.notifier).set(filter);
     context.go('/contacts');
   }
