@@ -17,7 +17,6 @@ func (a *app) runLifecycle(ctx context.Context, interval time.Duration, idleHour
 			return
 		case <-t.C:
 			a.sweepIdle(ctx, idleHours)
-			a.sendDueDrips(ctx)
 		}
 	}
 }

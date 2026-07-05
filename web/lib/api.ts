@@ -1,4 +1,4 @@
-import type { Agent, AIAgent, Analytics, AppNotification, AuditEntry, Automation, AutomationAction, AutomationDetail, AutomationFlow, Broadcast, Campaign, CampaignAnalyticsRow, CampaignDetail, Channel, Contact, Conversation, InternalNote, KnowledgeSource, Message, Organization, OrgSettings, QuickReply, RolePermissions, Sequence, SequenceDetail, SequenceStep, Stats, DashboardCards, Template, TemplateButton, TemplateComponents, User, UserAccount, UserActivity, WebApiSource, SourcePlatform, WaFlow, WaFlowDetail, WaFlowResponse, FlowDefinition, GoogleSheetsInfo } from "./types";
+import type { Agent, AIAgent, Analytics, AppNotification, AuditEntry, Automation, AutomationAction, AutomationDetail, AutomationFlow, Broadcast, Campaign, CampaignAnalyticsRow, CampaignDetail, Channel, Contact, Conversation, InternalNote, KnowledgeSource, Message, Organization, OrgSettings, QuickReply, RolePermissions, Stats, DashboardCards, Template, TemplateButton, TemplateComponents, User, UserAccount, UserActivity, WebApiSource, SourcePlatform, WaFlow, WaFlowDetail, WaFlowResponse, FlowDefinition, GoogleSheetsInfo } from "./types";
 
 const API = process.env.NEXT_PUBLIC_API_URL || "http://localhost:8080";
 export const WS_URL = process.env.NEXT_PUBLIC_WS_URL || "ws://localhost:8082";
@@ -448,14 +448,6 @@ export const api = {
   // ── Campaigns ──
   listCampaigns: () => req<Campaign[]>("/api/campaigns"),
   getCampaignAnalytics: () => req<CampaignAnalyticsRow[]>("/api/analytics/campaigns"),
-  // ── Sequences (drip / follow-up) ──
-  listSequences: () => req<Sequence[]>("/api/sequences"),
-  getSequence: (id: string) => req<SequenceDetail>(`/api/sequences/${id}`),
-  createSequence: (input: { name: string; trigger?: string; campaign_id?: string; steps: SequenceStep[] }) =>
-    req<{ id: string }>("/api/sequences", { method: "POST", body: JSON.stringify(input) }),
-  updateSequence: (id: string, patch: { name?: string; trigger?: string; campaign_id?: string; is_active?: boolean; steps?: SequenceStep[] }) =>
-    req(`/api/sequences/${id}`, { method: "PATCH", body: JSON.stringify(patch) }),
-  deleteSequence: (id: string) => req(`/api/sequences/${id}`, { method: "DELETE" }),
   getCampaign: (id: string) => req<CampaignDetail>(`/api/campaigns/${id}`),
   createCampaign: (input: { name: string; dealer_name?: string; routing_strategy?: string; channel_id?: string; ad_source_ids?: string[]; keywords?: string[]; agent_ids?: string[]; supervisor_ids?: string[]; calling_enabled?: boolean }) =>
     req<{ id: string }>("/api/campaigns", { method: "POST", body: JSON.stringify(input) }),

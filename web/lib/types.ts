@@ -438,24 +438,6 @@ export interface CampaignAnalyticsRow {
   purchase: number;
 }
 
-export interface SequenceStep { delay_minutes: number; body: string; }
-export interface Sequence {
-  id: string;
-  name: string;
-  trigger: string;            // no_reply | new_lead
-  is_active: boolean;
-  campaign_id: string | null;
-  campaign_name: string | null;
-  steps: number;
-  active_enrollments: number;
-  created_at: string;
-  updated_at: string;
-}
-export interface SequenceDetail {
-  id: string; name: string; trigger: string; is_active: boolean;
-  campaign_id: string | null; steps: SequenceStep[];
-}
-
 export interface OrgBranding { page_title?: string; meta_title?: string; }
 export interface OrgNotifications { newMessages?: boolean; newConversations?: boolean; emailDigest?: boolean; sound?: boolean; }
 export interface OrgSettings { notifications?: OrgNotifications; branding?: OrgBranding; [k: string]: unknown; }

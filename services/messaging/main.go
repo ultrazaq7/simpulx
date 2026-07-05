@@ -198,9 +198,6 @@ func (a *app) onReceived(env events.Envelope) error {
 		return err
 	}
 
-	// Enroll the conversation into matching drip/follow-up sequences (idempotent).
-	a.st.enrollSequences(ctx, env.OrgID, conv.ID, contactID)
-
 	a.log.Info("inbound persisted (outbox created)", "conv", conv.ID, "msg", msgID)
 
 	// Broadcast CTA click: a tapped template button carries a "bc_<recipient_id>"

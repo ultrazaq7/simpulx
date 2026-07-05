@@ -20,8 +20,6 @@ export const ACTIONS: Record<string, { label: string; desc: string }> = {
   unassign_team: { label: "Unassign from team", desc: "Clear the assigned agent" },
   assign_campaign: { label: "Add to campaign", desc: "Route the conversation to a campaign" },
   remove_campaign: { label: "Remove from campaign", desc: "Clear the conversation's campaign" },
-  add_to_sequence: { label: "Add to drip campaign", desc: "Enroll the contact into a follow-up sequence" },
-  remove_from_sequence: { label: "Remove from drip campaign", desc: "Stop the contact's sequence enrollment" },
   blacklist: { label: "Mark blacklisted", desc: "Block the contact from outreach" },
   send_email: { label: "Send email notification", desc: "Email a notification (supports {placeholders})" },
   add_tag: { label: "Add label", desc: "Attach one or more labels" },

@@ -336,6 +336,14 @@ func (a *app) execStep(ctx context.Context, orgID, convID, contactID string, s a
 			a.log.Info("automation send skipped: lead unassigned", "type", s.Type, "conv", convID)
 			return
 		}
+		// AI/automation non-collision (WS-H): when the conversation's campaign has
+		// AI auto-reply on AND the bot is still actively handling this conversation,
+		// the AI owns customer messaging — an automation must NOT also send (double
+		// reply). Non-messaging actions (tag/assign/close/webhook) are unaffected.
+		if a.st.isBotHandling(ctx, convID) {
+			a.log.Info("automation send skipped: AI bot handling conversation", "type", s.Type, "conv", convID)
+			return
+		}
 	}
 
 	switch s.Type {
@@ -537,18 +545,6 @@ func (a *app) execStep(ctx context.Context, orgID, convID, contactID string, s a
 	case "blacklist":
 		if err := a.st.setBlacklisted(ctx, contactID, true); err != nil {
 			a.log.Warn("automation blacklist failed", "err", err)
-		}
-	case "add_to_sequence":
-		if seq := pStr(s.Params, "sequence_id"); seq != "" {
-			if err := a.st.enrollSequence(ctx, orgID, seq, contactID, convID); err != nil {
-				a.log.Warn("automation add_to_sequence failed", "err", err)
-			}
-		}
-	case "remove_from_sequence":
-		if seq := pStr(s.Params, "sequence_id"); seq != "" {
-			if err := a.st.unenrollSequence(ctx, seq, contactID); err != nil {
-				a.log.Warn("automation remove_from_sequence failed", "err", err)
-			}
 		}
 	case "close_conversation":
 		if err := a.st.closeConversation(ctx, convID); err != nil {
@@ -879,6 +875,21 @@ func (s *store) isAssigned(ctx context.Context, convID string) bool {
 	return assigned
 }
 
+// isBotHandling reports whether the AI assistant currently owns customer
+// messaging for this conversation: the campaign opted into ai_auto_reply AND the
+// bot has not stood down (is_bot_active). Used so a manual automation flow never
+// double-replies over the live AI (WS-H collision guard). Once the bot hands off
+// (is_bot_active=false) or the campaign has auto-reply off, automations send freely.
+func (s *store) isBotHandling(ctx context.Context, convID string) bool {
+	var handling bool
+	_ = s.pool.QueryRow(ctx,
+		`SELECT COALESCE(cmp.ai_auto_reply, false) AND COALESCE(cv.is_bot_active, false)
+		   FROM conversations cv
+		   LEFT JOIN campaigns cmp ON cmp.id = cv.campaign_id
+		  WHERE cv.id = $1`, convID).Scan(&handling)
+	return handling
+}
+
 func (s *store) assignConversation(ctx context.Context, convID, agentID string) error {
 	// Empty agentID unassigns (assigned_agent_id -> NULL).
 	_, err := s.pool.Exec(ctx,
@@ -901,24 +912,6 @@ func (s *store) setLeadPriority(ctx context.Context, convID, priority string) er
 func (s *store) setBlacklisted(ctx context.Context, contactID string, v bool) error {
 	_, err := s.pool.Exec(ctx,
 		`UPDATE contacts SET blacklisted=$2, updated_at=now() WHERE id=$1`, contactID, v)
-	return err
-}
-
-func (s *store) enrollSequence(ctx context.Context, orgID, sequenceID, contactID, convID string) error {
-	_, err := s.pool.Exec(ctx,
-		`INSERT INTO sequence_enrollments (organization_id, sequence_id, conversation_id, contact_id, current_step, next_run_at, status)
-		 SELECT $1, $2::uuid, $3::uuid, $4::uuid, 0,
-		        now() + (COALESCE((SELECT delay_minutes FROM sequence_steps WHERE sequence_id=$2::uuid AND step_order=1), 0) || ' minutes')::interval,
-		        'active'
-		 ON CONFLICT (sequence_id, conversation_id) DO UPDATE SET status='active', updated_at=now()`,
-		orgID, sequenceID, convID, contactID)
-	return err
-}
-
-func (s *store) unenrollSequence(ctx context.Context, sequenceID, contactID string) error {
-	_, err := s.pool.Exec(ctx,
-		`UPDATE sequence_enrollments SET status='stopped', updated_at=now()
-		  WHERE sequence_id=$1::uuid AND contact_id=$2::uuid`, sequenceID, contactID)
 	return err
 }
 

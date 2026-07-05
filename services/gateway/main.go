@@ -324,11 +324,6 @@ func main() {
 	mux.HandleFunc("POST /api/campaigns/{id}/branches", s.requireAuth(s.gate("manage_campaigns", s.handleCreateBranch)))
 	mux.HandleFunc("PATCH /api/branches/{id}", s.requireAuth(s.gate("manage_campaigns", s.handleUpdateBranch)))
 	mux.HandleFunc("DELETE /api/branches/{id}", s.requireAuth(s.gate("manage_campaigns", s.handleDeleteBranch)))
-	mux.HandleFunc("GET /api/sequences", s.requireAuth(s.handleListSequences))
-	mux.HandleFunc("POST /api/sequences", s.requireAuth(s.handleCreateSequence))
-	mux.HandleFunc("GET /api/sequences/{id}", s.requireAuth(s.handleGetSequence))
-	mux.HandleFunc("PATCH /api/sequences/{id}", s.requireAuth(s.handleUpdateSequence))
-	mux.HandleFunc("DELETE /api/sequences/{id}", s.requireAuth(s.handleDeleteSequence))
 	mux.HandleFunc("POST /api/uploads", s.requireAuth(s.handleUpload))
 
 	// Proxy media directly to minio

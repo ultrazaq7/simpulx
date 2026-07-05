@@ -14,7 +14,6 @@ const GROUPS: { group: string; perms: Perm[] }[] = [
     { key: "menu_contacts", label: "Contacts" },
     { key: "menu_broadcasts", label: "Broadcasts" },
     { key: "menu_automation", label: "Automation" },
-    { key: "menu_drip_campaigns", label: "Follow-ups" },
     { key: "menu_analytics", label: "Analytics" },
     { key: "menu_audit_log", label: "Audit Log" },
     { key: "menu_settings", label: "Settings" },

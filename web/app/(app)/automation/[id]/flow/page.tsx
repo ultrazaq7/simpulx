@@ -10,8 +10,8 @@ import "@xyflow/react/dist/style.css";
 import {
   ArrowLeft, Plus, Zap, MessageCircle, FileText, User, Sparkles, Tag, Flag,
   Globe, GitFork, Trash2, Loader2, X, Save, Undo2, Redo2,
-  Braces, ToggleRight, Sheet, ClipboardList, UserMinus, Ban, Radio,
-  FolderMinus, BellOff, Scissors, Mail, Milestone, Flame, Image as ImageIcon,
+  Braces, ToggleRight, Sheet, ClipboardList, UserMinus, Ban,
+  FolderMinus, Scissors, Mail, Milestone, Flame, Image as ImageIcon,
   RefreshCw,
 } from "lucide-react";
 import type { LucideIcon } from "lucide-react";
@@ -35,8 +35,6 @@ const META: Record<string, Meta> = {
   unassign_team: { label: "Unassign from team", Icon: UserMinus, accent: "#0891B2", kicker: "DO", desc: ACTIONS.unassign_team.desc },
   assign_campaign: { label: "Add to campaign", Icon: Sparkles, accent: "#0891B2", kicker: "DO", desc: ACTIONS.assign_campaign.desc },
   remove_campaign: { label: "Remove from campaign", Icon: FolderMinus, accent: "#0891B2", kicker: "DO", desc: ACTIONS.remove_campaign.desc },
-  add_to_sequence: { label: "Add to drip campaign", Icon: Radio, accent: "#D97706", kicker: "DO", desc: ACTIONS.add_to_sequence.desc },
-  remove_from_sequence: { label: "Remove from drip campaign", Icon: BellOff, accent: "#D97706", kicker: "DO", desc: ACTIONS.remove_from_sequence.desc },
   blacklist: { label: "Mark blacklisted", Icon: Ban, accent: "#DC2626", kicker: "DO", desc: ACTIONS.blacklist.desc },
   send_email: { label: "Send email notification", Icon: Mail, accent: "#2563EB", kicker: "DO", desc: ACTIONS.send_email.desc },
   add_tag: { label: "Add tag", Icon: Tag, accent: "#D97706", kicker: "DO", desc: ACTIONS.add_tag.desc },
@@ -56,12 +54,12 @@ const PALETTE: { group: string; kinds: string[] }[] = [
   { group: "Logic", kinds: ["condition"] },
   { group: "Messaging", kinds: ["send_message", "send_template", "send_form"] },
   { group: "Routing", kinds: ["assign_agent", "unassign_team", "assign_campaign", "remove_campaign"] },
-  { group: "Contact", kinds: ["add_tag", "remove_tag", "set_contact_attribute", "set_stage", "set_interest", "set_priority", "add_to_sequence", "remove_from_sequence", "blacklist"] },
+  { group: "Contact", kinds: ["add_tag", "remove_tag", "set_contact_attribute", "set_stage", "set_interest", "set_priority", "blacklist"] },
   { group: "Flow control", kinds: ["set_conversation_status", "webhook_notify"] },
   { group: "Integrations", kinds: ["google_sheet", "send_email", "rest_api"] },
 ];
 // The executor runs these; others are configurable but not yet executed.
-const EXECUTED = new Set(["condition", "send_message", "send_template", "send_form", "add_tag", "remove_tag", "assign_agent", "unassign_team", "assign_campaign", "remove_campaign", "add_to_sequence", "remove_from_sequence", "blacklist", "set_priority", "set_stage", "set_interest", "set_contact_attribute", "set_conversation_status", "google_sheet", "send_email", "webhook_notify", "rest_api"]);
+const EXECUTED = new Set(["condition", "send_message", "send_template", "send_form", "add_tag", "remove_tag", "assign_agent", "unassign_team", "assign_campaign", "remove_campaign", "blacklist", "set_priority", "set_stage", "set_interest", "set_contact_attribute", "set_conversation_status", "google_sheet", "send_email", "webhook_notify", "rest_api"]);
 
 type NodeData = { kind: string; config: Record<string, unknown>; triggerType?: string };
 type AppNode = Node<NodeData>;
@@ -85,7 +83,6 @@ function summary(kind: string, c: Record<string, unknown>, triggerType?: string)
     case "assign_campaign": return `Campaign: ${c.campaign_name || "—"}`;
     case "unassign_team": return "Clear assigned agent";
     case "remove_campaign": return "Clear campaign";
-    case "add_to_sequence": case "remove_from_sequence": return `Sequence: ${c.sequence_name || "—"}`;
     case "blacklist": return "Block from outreach";
     case "send_email": return `Email to: ${c.to || "—"}`;
     case "set_contact_attribute": return `${(Array.isArray(c.mappings) ? c.mappings.length : (c.key ? 1 : 0))} attribute(s)`;
@@ -208,7 +205,6 @@ function Builder() {
   const [campaigns, setCampaigns] = useState<{ id: string; name: string }[]>([]);
   const [forms, setForms] = useState<{ id: string; name: string }[]>([]);
   const [agents, setAgents] = useState<{ id: string; name: string }[]>([]);
-  const [sequences, setSequences] = useState<{ id: string; name: string }[]>([]);
   const [stages, setStages] = useState<{ id: string; name: string }[]>([]);
   const [sheetEmail, setSheetEmail] = useState("");
 
@@ -261,7 +257,6 @@ function Builder() {
     api.listFlows().then((fs) => setForms(fs.filter((f) => f.status === "published").map((f) => ({ id: f.id, name: f.name })))).catch(() => {});
     api.getGoogleSheetsInfo().then((i) => setSheetEmail(i.client_email)).catch(() => {});
     api.listAgents().then((as) => setAgents(as.map((a) => ({ id: a.id, name: a.full_name })))).catch(() => {});
-    api.listSequences().then((sq) => setSequences(sq.map((s) => ({ id: s.id, name: s.name })))).catch(() => {});
     api.listStages().then((ss) => setStages(ss.map((s) => ({ id: s.id, name: s.name })))).catch(() => {});
   }, [id]); // eslint-disable-line react-hooks/exhaustive-deps
   useEffect(() => { if (!toast) return; const t = setTimeout(() => setToast(null), 3000); return () => clearTimeout(t); }, [toast]);
@@ -389,7 +384,7 @@ function Builder() {
         {/* Inspector */}
         {selected && (
           <div className="absolute inset-y-0 right-0 z-20 w-[340px] bg-card border-l border-border shadow-xl flex flex-col animate-scale-in">
-            <Inspector node={selected} triggerType={auto.trigger_type} campaigns={campaigns} forms={forms} agents={agents} sequences={sequences} stages={stages} sheetEmail={sheetEmail} onChange={(cfg) => updateConfig(selected.id, cfg)} onClose={() => setSelId(null)} onDelete={() => deleteNode(selected.id)} />
+            <Inspector node={selected} triggerType={auto.trigger_type} campaigns={campaigns} forms={forms} agents={agents} stages={stages} sheetEmail={sheetEmail} onChange={(cfg) => updateConfig(selected.id, cfg)} onClose={() => setSelId(null)} onDelete={() => deleteNode(selected.id)} />
           </div>
         )}
       </div>
@@ -565,8 +560,8 @@ function KeywordTriggerConfig({ c, set }: { c: Record<string, unknown>; set: (k:
 }
 
 // ── Inspector (per-node config) ─────────────────────────────────────────────
-function Inspector({ node, triggerType, campaigns, forms, agents, sequences, stages, sheetEmail, onChange, onClose, onDelete }: {
-  node: AppNode; triggerType: string; campaigns: { id: string; name: string }[]; forms: { id: string; name: string }[]; agents: { id: string; name: string }[]; sequences: { id: string; name: string }[]; stages: { id: string; name: string }[]; sheetEmail: string; onChange: (cfg: Record<string, unknown>) => void; onClose: () => void; onDelete: () => void;
+function Inspector({ node, triggerType, campaigns, forms, agents, stages, sheetEmail, onChange, onClose, onDelete }: {
+  node: AppNode; triggerType: string; campaigns: { id: string; name: string }[]; forms: { id: string; name: string }[]; agents: { id: string; name: string }[]; stages: { id: string; name: string }[]; sheetEmail: string; onChange: (cfg: Record<string, unknown>) => void; onClose: () => void; onDelete: () => void;
 }) {
   const pickById = (list: { id: string; name: string }[], idKey: string, nameKey: string) => (v: string) => onChange({ ...node.data.config, [idKey]: v, [nameKey]: list.find((x) => x.id === v)?.name || "" });
   const kind = node.data.kind;
@@ -622,7 +617,6 @@ function Inspector({ node, triggerType, campaigns, forms, agents, sequences, sta
           <ShareWithSA email={sheetEmail} />
         </>}
         {kind === "set_priority" && <Field label="Priority"><Select value={String(c.priority ?? "normal")} onChange={(v) => set("priority", v)} searchable={false} options={["low", "normal", "high", "urgent"].map((p) => ({ value: p, label: p }))} className="w-full" /></Field>}
-        {(kind === "add_to_sequence" || kind === "remove_from_sequence") && <Field label="Drip campaign (sequence)"><Select value={String(c.sequence_id ?? "")} onChange={pickById(sequences, "sequence_id", "sequence_name")} options={sequences.map((sq) => ({ value: sq.id, label: sq.name }))} placeholder="Search sequence…" className="w-full" /></Field>}
         {kind === "unassign_team" && <p className="text-[13px] text-muted-foreground">Clears the conversation&apos;s assigned agent. No configuration needed.</p>}
         {kind === "remove_campaign" && <p className="text-[13px] text-muted-foreground">Clears the conversation&apos;s campaign. No configuration needed.</p>}
         {kind === "blacklist" && <p className="text-[13px] text-muted-foreground">Blocks this contact from future outreach. No configuration needed.</p>}
