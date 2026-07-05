@@ -87,12 +87,6 @@ class _ContactsPageState extends ConsumerState<ContactsPage> {
     });
   }
 
-  @override
-  void dispose() {
-    _search.dispose();
-    super.dispose();
-  }
-
   List<Contact> _filter(List<Contact> list, String? myId) {
     final q = _query.toLowerCase();
     final res = list.where((c) {
