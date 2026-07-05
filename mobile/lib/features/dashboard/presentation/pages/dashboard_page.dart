@@ -308,11 +308,7 @@ class _ManagerSection extends ConsumerWidget {
           ),
           data: (a) => Column(
             children: [
-              // Stage Funnel
-              if (a.funnelStages.isNotEmpty) ...[
-                _StageFunnelCard(stages: a.funnelStages, onDrill: onDrill),
-                const SizedBox(height: 12),
-              ],
+              const SizedBox(height: 16),
               // Stage Split
               if (a.stages.isNotEmpty) ...[
                 _StageSplitCard(stages: a.stages, onDrill: onDrill),
@@ -381,103 +377,6 @@ const _funnelColors = [
   Color(0xFF2D8B73), Color(0xFF26735F), Color(0xFF1E5C4C), Color(0xFF174539),
 ];
 
-class _StageFunnelCard extends StatelessWidget {
-  const _StageFunnelCard({required this.stages, required this.onDrill});
-  final List<FunnelStageStat> stages;
-  final void Function(InboxFilter filter) onDrill;
-
-  @override
-  Widget build(BuildContext context) {
-    // `reached` already includes lost leads at their furthest stage (backend uses
-    // max_reached_sort_order), so the entry stage equals the total leads that entered.
-    final maxReached = stages.isNotEmpty && stages.first.reached > 0 ? stages.first.reached : 1;
-    return _Card(
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          const Text('Lead Funnel',
-              style: TextStyle(fontWeight: FontWeight.w700, fontSize: 14)),
-          const SizedBox(height: 4),
-          Text('Reached each stage and beyond',
-              style: TextStyle(fontSize: 12, color: AppColors.textSecondary)),
-          const SizedBox(height: 14),
-          for (var i = 0; i < stages.length; i++) ...[
-            _buildFunnelRow(context, stages[i].name, stages[i].reached,
-                i == 0 ? null : stages[i - 1].reached, i, maxReached),
-            if (i < stages.length - 1) const SizedBox(height: 8),
-          ],
-        ],
-      ),
-    );
-  }
-
-  Widget _buildFunnelRow(BuildContext context, String name, int reached,
-      int? prevReached, int idx, int maxReached) {
-    final pct = (reached / maxReached * 100).clamp(0, 100).toDouble();
-    // Stage-to-stage conversion vs the previous stage (matches web).
-    final convPct = prevReached == null
-        ? null
-        : (prevReached > 0 ? (reached / prevReached * 100).clamp(0, 100).toDouble() : 0.0);
-    final color = _funnelColors[idx % _funnelColors.length];
-
-    return Column(
-      crossAxisAlignment: CrossAxisAlignment.start,
-      children: [
-        Row(
-          mainAxisAlignment: MainAxisAlignment.spaceBetween,
-          children: [
-            Text(name,
-                style: const TextStyle(fontSize: 13, fontWeight: FontWeight.w500)),
-            Row(
-              mainAxisSize: MainAxisSize.min,
-              children: [
-                if (convPct != null)
-                  Container(
-                    padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 1),
-                    margin: const EdgeInsets.only(right: 8),
-                    decoration: BoxDecoration(
-                      color: convPct >= 50
-                          ? AppColors.success.withValues(alpha: 0.12)
-                          : convPct >= 25
-                              ? AppColors.warning.withValues(alpha: 0.12)
-                              : AppColors.textMuted.withValues(alpha: 0.12),
-                      borderRadius: BorderRadius.circular(4),
-                    ),
-                    child: Text('${convPct.round()}%',
-                        style: TextStyle(
-                          fontSize: 11,
-                          fontWeight: FontWeight.w700,
-                          color: convPct >= 50
-                              ? AppColors.success
-                              : convPct >= 25
-                                  ? AppColors.warning
-                                  : AppColors.textMuted,
-                        )),
-                  ),
-                Text('$reached',
-                    style: const TextStyle(fontSize: 13, fontWeight: FontWeight.w800)),
-              ],
-            ),
-          ],
-        ),
-        const SizedBox(height: 4),
-        ClipRRect(
-          borderRadius: BorderRadius.circular(4),
-          child: Container(
-            height: 20,
-            width: double.infinity,
-            color: Theme.of(context).colorScheme.onSurface.withValues(alpha: 0.08),
-            child: FractionallySizedBox(
-              alignment: Alignment.centerLeft,
-              widthFactor: pct / 100,
-              child: Container(color: color),
-            ),
-          ),
-        ),
-      ],
-    );
-  }
-}
 
 // ── Stage Split (leads per pipeline stage) ─────────────────────
 class _StageSplitCard extends StatelessWidget {
