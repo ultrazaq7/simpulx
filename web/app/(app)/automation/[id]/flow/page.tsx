@@ -291,8 +291,16 @@ function Builder() {
     setSaving(true);
     const model = toModel(nodes, edges);
     const trig = nodes.find((n) => n.data.kind === "trigger");
+    let triggerPatch: Record<string, unknown> = {};
+    if (trig) {
+      const cfg = trig.data.config as Record<string, unknown>;
+      const conds = Array.isArray(cfg.conditions) && (cfg.conditions as unknown[]).length
+        ? (cfg.conditions as Record<string, unknown>[])
+        : [legacyToCondition(trig.data.triggerType ?? auto.trigger_type, cfg)];
+      triggerPatch = { trigger_type: String(conds[0]?.type ?? "all_messages"), trigger_config: { conditions: conds } };
+    }
     try {
-      await api.updateAutomation(auto.id, { flow: model, ...(trig ? { trigger_config: trig.data.config } : {}) });
+      await api.updateAutomation(auto.id, { flow: model, ...triggerPatch });
       setDirty(false); setToast("Flow saved");
     } catch (e) { setToast(String(e)); }
     finally { setSaving(false); }
@@ -517,46 +525,115 @@ function AutoReplyConfig({ c, set }: { c: Record<string, unknown>; set: (k: stri
   );
 }
 
-// ── Trigger config: keyword match (chips + match mode + case sensitivity) ────
-function KeywordTriggerConfig({ c, set }: { c: Record<string, unknown>; set: (k: string, v: unknown) => void }) {
-  const kws: string[] = Array.isArray(c.keywords) ? (c.keywords as string[]) : [];
-  const [draft, setDraft] = useState("");
-  const addKw = (raw: string) => {
-    const parts = raw.split(",").map((k) => k.trim()).filter(Boolean);
-    if (parts.length === 0) return;
-    set("keywords", Array.from(new Set([...kws, ...parts])));
-    setDraft("");
-  };
+// ── Trigger conditions (multi-condition; the automation fires only when ALL match) ──
+const TRIGGER_CONDITIONS: { value: string; label: string; soon?: boolean }[] = [
+  { value: "keyword_include", label: "Message text includes any of keywords" },
+  { value: "keyword_exact", label: "Message text exactly matches any of keywords" },
+  { value: "keyword_exclude", label: "Message text excludes any of keywords" },
+  { value: "regex_match", label: "Message text matches regex" },
+  { value: "callback_id", label: "List / Button callback ID matches" },
+  { value: "message_type", label: "Message type" },
+  { value: "file_type", label: "File type matches" },
+  { value: "catalog_order", label: "New catalog order received" },
+  { value: "first_or_after_24h", label: "Very first message (or after 24h)" },
+  { value: "individual_chat", label: "Received in an individual chat" },
+  { value: "all_messages", label: "All messages / no condition" },
+  { value: "custom_condition", label: "Custom condition (contact attribute)" },
+  { value: "office_hours", label: "Received inside business hours", soon: true },
+  { value: "after_hours", label: "Received outside business hours", soon: true },
+  { value: "template_message", label: "Template message", soon: true },
+];
+const MSG_TYPES = ["text", "image", "video", "audio", "document", "location", "contacts", "sticker", "order"];
+
+// legacyToCondition maps a pre-multi-condition trigger (trigger_type + flat config)
+// into one condition object so old automations edit/display cleanly.
+function legacyToCondition(triggerType: string | undefined, c: Record<string, unknown>): Record<string, unknown> {
+  switch (triggerType) {
+    case "keyword_match": return { type: "keyword_include", keywords: c.keywords ?? [], match_mode: c.match_mode ?? "any", case_sensitive: c.case_sensitive ?? false };
+    case "button_click": return { type: "callback_id", callback: c.callback ?? "" };
+    case "new_conversation": return { type: "first_or_after_24h" };
+    case "office_hours": return { type: "office_hours" };
+    case "after_hours": return { type: "after_hours" };
+    default: return { type: "all_messages" };
+  }
+}
+
+function TriggerConditionsConfig({ triggerType, c, onChange }: { triggerType: string; c: Record<string, unknown>; onChange: (cfg: Record<string, unknown>) => void }) {
+  const conditions: Record<string, unknown>[] = Array.isArray(c.conditions) && (c.conditions as unknown[]).length
+    ? (c.conditions as Record<string, unknown>[])
+    : [legacyToCondition(triggerType, c)];
+  const write = (next: Record<string, unknown>[]) => onChange({ conditions: next });
+  const patch = (i: number, p: Record<string, unknown>) => write(conditions.map((cd, j) => (j === i ? { ...cd, ...p } : cd)));
+  const setType = (i: number, type: string) => write(conditions.map((cd, j) => (j === i ? { type } : cd)));
   return (
-    <>
-      <Field label="Message contains keyword(s)">
+    <div className="space-y-3">
+      <p className="text-[12px] text-muted-foreground">Fires only when <b className="text-foreground/80">all</b> conditions below match.</p>
+      {conditions.map((cd, i) => {
+        const type = String(cd.type ?? "keyword_include");
+        return (
+          <div key={i} className="rounded-lg border border-border p-3 space-y-2.5 bg-muted/20">
+            <div className="flex items-center gap-2">
+              <Select value={type} onChange={(v) => setType(i, v)} className="flex-1"
+                options={TRIGGER_CONDITIONS.map((t) => ({ value: t.value, label: t.label + (t.soon ? " (soon)" : "") }))} />
+              {conditions.length > 1 && <button type="button" onClick={() => write(conditions.filter((_, j) => j !== i))} className="p-1 rounded-md text-muted-foreground hover:bg-destructive/10 hover:text-destructive outline-none"><X className="w-4 h-4" /></button>}
+            </div>
+            <CondFields type={type} cd={cd} patch={(p) => patch(i, p)} />
+          </div>
+        );
+      })}
+      <button type="button" onClick={() => write([...conditions, { type: "keyword_include" }])}
+        className="inline-flex items-center gap-1.5 h-9 px-3 rounded-lg border border-dashed border-border text-[13px] font-semibold text-foreground/80 hover:border-primary/40 hover:bg-muted/40 outline-none">
+        <Plus className="w-4 h-4" /> Add trigger condition
+      </button>
+    </div>
+  );
+}
+
+function CondFields({ type, cd, patch }: { type: string; cd: Record<string, unknown>; patch: (p: Record<string, unknown>) => void }) {
+  const kws: string[] = Array.isArray(cd.keywords) ? (cd.keywords as string[]) : [];
+  const [draft, setDraft] = useState("");
+  const addKw = (raw: string) => { const parts = raw.split(",").map((k) => k.trim()).filter(Boolean); if (parts.length) { patch({ keywords: Array.from(new Set([...kws, ...parts])) }); setDraft(""); } };
+  if (type === "keyword_include" || type === "keyword_exact" || type === "keyword_exclude") {
+    return (
+      <>
         <div className="rounded-md border border-input bg-background px-2 py-1.5 flex flex-wrap gap-1.5 focus-within:border-primary focus-within:ring-2 focus-within:ring-primary/25">
           {kws.map((k, i) => (
-            <span key={i} className="inline-flex items-center gap-1 rounded-md bg-muted px-2 py-0.5 text-[12.5px] font-medium text-foreground">
-              {k}
-              <button type="button" onClick={() => set("keywords", kws.filter((_, j) => j !== i))} className="text-muted-foreground hover:text-destructive leading-none">×</button>
-            </span>
+            <span key={i} className="inline-flex items-center gap-1 rounded-md bg-muted px-2 py-0.5 text-[12.5px] font-medium text-foreground">{k}
+              <button type="button" onClick={() => patch({ keywords: kws.filter((_, j) => j !== i) })} className="text-muted-foreground hover:text-destructive leading-none">×</button></span>
           ))}
           <input value={draft} onChange={(e) => setDraft(e.target.value)}
-            onKeyDown={(e) => {
-              if (e.key === "Enter" || e.key === ",") { e.preventDefault(); addKw(draft); }
-              else if (e.key === "Backspace" && !draft && kws.length) { set("keywords", kws.slice(0, -1)); }
-            }}
-            onBlur={() => { if (draft) addKw(draft); }}
-            placeholder={kws.length ? "" : "Type a keyword, Enter to add"}
-            className="flex-1 min-w-[120px] bg-transparent outline-none text-sm py-0.5" />
+            onKeyDown={(e) => { if (e.key === "Enter" || e.key === ",") { e.preventDefault(); addKw(draft); } else if (e.key === "Backspace" && !draft && kws.length) patch({ keywords: kws.slice(0, -1) }); }}
+            onBlur={() => { if (draft) addKw(draft); }} placeholder={kws.length ? "" : "Type a keyword, Enter to add"} className="flex-1 min-w-[120px] bg-transparent outline-none text-sm py-0.5" />
         </div>
-      </Field>
-      <Field label="Match mode">
-        <Select value={String(c.match_mode ?? "any")} onChange={(v) => set("match_mode", v)} searchable={false}
-          options={[["any", "Contains any keyword"], ["all", "Contains all keywords"], ["exact", "Exactly matches a keyword"], ["starts_with", "Starts with a keyword"]].map(([v, l]) => ({ value: v, label: l }))} className="w-full" />
-      </Field>
-      <label className="flex items-center gap-2 cursor-pointer">
-        <input type="checkbox" checked={Boolean(c.case_sensitive)} onChange={(e) => set("case_sensitive", e.target.checked)} className="w-4 h-4 rounded border-input text-primary focus:ring-primary/25" />
-        <span className="text-[13px] font-medium text-foreground/80">Case sensitive</span>
-      </label>
-    </>
-  );
+        {type === "keyword_include" && (
+          <Field label="Match mode"><Select value={String(cd.match_mode ?? "any")} onChange={(v) => patch({ match_mode: v })} searchable={false}
+            options={[["any", "Contains any keyword"], ["all", "Contains all keywords"], ["starts_with", "Starts with a keyword"]].map(([v, l]) => ({ value: v, label: l }))} className="w-full" /></Field>
+        )}
+        <label className="flex items-center gap-2 cursor-pointer"><input type="checkbox" checked={Boolean(cd.case_sensitive)} onChange={(e) => patch({ case_sensitive: e.target.checked })} className="w-4 h-4 rounded border-input text-primary focus:ring-primary/25" /><span className="text-[13px] font-medium text-foreground/80">Case sensitive</span></label>
+      </>
+    );
+  }
+  if (type === "regex_match") return <Field label="Regex pattern"><input value={String(cd.pattern ?? "")} onChange={(e) => patch({ pattern: e.target.value })} placeholder="^(hi|halo)\b" className={INP} /></Field>;
+  if (type === "callback_id") return <Field label="Callback id contains (optional)"><input value={String(cd.callback ?? "")} onChange={(e) => patch({ callback: e.target.value })} placeholder="e.g. daftar (blank = any button)" className={INP} /></Field>;
+  if (type === "message_type") {
+    const sel: string[] = Array.isArray(cd.message_types) ? (cd.message_types as string[]) : [];
+    return <Field label="Message type is one of"><div className="flex flex-wrap gap-1.5">{MSG_TYPES.map((t) => { const on = sel.includes(t); return <button key={t} type="button" onClick={() => patch({ message_types: on ? sel.filter((x) => x !== t) : [...sel, t] })} className={cn("px-2 py-1 rounded-md text-[12px] font-medium border capitalize outline-none", on ? "bg-primary/10 border-primary/40 text-primary" : "border-border text-muted-foreground hover:bg-muted")}>{t}</button>; })}</div></Field>;
+  }
+  if (type === "file_type") return <Field label="File extensions (comma separated)"><input value={Array.isArray(cd.extensions) ? (cd.extensions as string[]).join(", ") : ""} onChange={(e) => patch({ extensions: e.target.value.split(",").map((x) => x.trim().replace(/^\./, "")).filter(Boolean) })} placeholder="pdf, xlsx, jpg" className={INP} /></Field>;
+  if (type === "custom_condition") {
+    const op = String(cd.operator ?? "equals");
+    return (
+      <div className="space-y-2">
+        <Field label="Contact attribute"><input value={String(cd.attribute ?? "")} onChange={(e) => patch({ attribute: e.target.value })} placeholder="attribute key (e.g. city)" className={INP} /></Field>
+        <Field label="Operator"><Select value={op} onChange={(v) => patch({ operator: v })} searchable={false} options={[["equals", "equals"], ["not_equals", "not equals"], ["contains", "contains"], ["is_set", "is set"], ["is_not_set", "is not set"]].map(([v, l]) => ({ value: v, label: l }))} className="w-full" /></Field>
+        {op !== "is_set" && op !== "is_not_set" && <Field label="Value"><input value={String(cd.value ?? "")} onChange={(e) => patch({ value: e.target.value })} placeholder="value" className={INP} /></Field>}
+      </div>
+    );
+  }
+  if (type === "office_hours" || type === "after_hours" || type === "template_message")
+    return <p className="text-[12px] text-amber-600">Configurable, but the engine doesn&apos;t evaluate this condition yet.</p>;
+  // catalog_order, first_or_after_24h, individual_chat, all_messages -> no config
+  return <p className="text-[12.5px] text-muted-foreground">No extra configuration needed.</p>;
 }
 
 // ── Inspector (per-node config) ─────────────────────────────────────────────
@@ -581,16 +658,7 @@ function Inspector({ node, triggerType, campaigns, forms, agents, stages, sheetE
         {!isTrigger && !EXECUTED.has(kind) && (
           <div className="px-3 py-2 rounded-md bg-amber-50 border border-amber-200 text-[12px] text-amber-700 font-medium">Configurable now; the engine doesn&apos;t execute this action type yet.</div>
         )}
-        {isTrigger && triggerType === "keyword_match" && <KeywordTriggerConfig c={c} set={set} />}
-        {isTrigger && triggerType === "conversation_idle" && (
-          <Field label="Idle minutes"><input type="number" value={String(c.idle_minutes ?? "30")} onChange={(e) => set("idle_minutes", Number(e.target.value) || 30)} className={INP} /></Field>
-        )}
-        {isTrigger && triggerType === "button_click" && (
-          <Field label="Callback id contains (optional)"><input value={String(c.callback ?? "")} onChange={(e) => set("callback", e.target.value)} placeholder="e.g. daftar (blank = any button)" className={INP} /></Field>
-        )}
-        {isTrigger && triggerType !== "keyword_match" && triggerType !== "conversation_idle" && triggerType !== "button_click" && (
-          <p className="text-[13px] text-muted-foreground">{TRIGGERS[triggerType]?.desc ?? "Fires on the configured event."} No extra configuration needed.</p>
-        )}
+        {isTrigger && <TriggerConditionsConfig triggerType={triggerType} c={c} onChange={onChange} />}
         {kind === "send_message" && <AutoReplyConfig c={c} set={set} />}
         {kind === "send_template" && <Field label="Template name"><input value={String(c.template_name ?? "")} onChange={(e) => set("template_name", e.target.value)} placeholder="welcome_v1" className={INP} /></Field>}
         {kind === "send_form" && <>

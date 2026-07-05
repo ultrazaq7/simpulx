@@ -53,10 +53,18 @@ type autoStep struct {
 	Params map[string]any
 }
 
-// runAutomations loads active automations for the org/channel and fires the
-// ones whose trigger matches this inbound message. payload is the tapped button
-// callback id (empty for normal messages).
-func (a *app) runAutomations(ctx context.Context, orgID, convID, contactID, channelID, body, payload string) {
+// triggerInput carries the inbound facts a trigger condition can test.
+type triggerInput struct {
+	body     string
+	payload  string // tapped button / interactive callback id (empty for normal messages)
+	msgType  string // text | image | video | audio | document | location | contacts | order | ...
+	mediaExt string // lowercased attachment extension (from media_url), else ""
+	isNew    bool   // first genuine inbound of the conversation
+}
+
+// runAutomations loads active automations for the org/channel and fires the ones
+// whose trigger matches this inbound message.
+func (a *app) runAutomations(ctx context.Context, orgID, convID, contactID, channelID, body, payload, msgType, mediaURL string) {
 	rules, err := a.st.activeAutomations(ctx, orgID, channelID)
 	if err != nil {
 		a.log.Warn("load automations failed", "err", err)
@@ -65,17 +73,15 @@ func (a *app) runAutomations(ctx context.Context, orgID, convID, contactID, chan
 	if len(rules) == 0 {
 		return
 	}
-	// Only pay for the "is this the first message" check when a new_conversation
-	// rule actually exists.
-	isNew := false
-	for _, r := range rules {
-		if r.TriggerType == "new_conversation" {
-			isNew = a.st.isFirstInbound(ctx, convID)
-			break
-		}
+	in := triggerInput{
+		body:     body,
+		payload:  payload,
+		msgType:  msgType,
+		mediaExt: fileExt(mediaURL),
+		isNew:    a.st.isFirstInbound(ctx, convID),
 	}
 	for _, r := range rules {
-		if !triggerMatches(r, body, payload, isNew) {
+		if !a.triggerMatches(ctx, orgID, r, in, contactID, convID) {
 			continue
 		}
 		n := a.walkFlow(ctx, orgID, convID, contactID, r)
@@ -84,12 +90,33 @@ func (a *app) runAutomations(ctx context.Context, orgID, convID, contactID, chan
 	}
 }
 
-func triggerMatches(r autoRule, body, payload string, isNew bool) bool {
+// triggerMatches evaluates an automation's trigger. New model: trigger_config
+// carries a "conditions" array [{type, ...}] where ALL must match (AND). When it
+// is absent, it falls back to the legacy single trigger_type + flat trigger_config.
+func (a *app) triggerMatches(ctx context.Context, orgID string, r autoRule, in triggerInput, contactID, convID string) bool {
+	var cfg struct {
+		Conditions []map[string]any `json:"conditions"`
+	}
+	_ = json.Unmarshal(r.TriggerConfig, &cfg)
+	if len(cfg.Conditions) > 0 {
+		for _, cond := range cfg.Conditions {
+			if !a.conditionMatches(ctx, orgID, cond, in, contactID, convID) {
+				return false
+			}
+		}
+		return true
+	}
+	return legacyTriggerMatches(r, in)
+}
+
+// legacyTriggerMatches keeps the pre-multi-condition behavior for automations
+// saved before the conditions array existed.
+func legacyTriggerMatches(r autoRule, in triggerInput) bool {
 	switch r.TriggerType {
 	case "new_message":
 		return true
 	case "new_conversation":
-		return isNew
+		return in.isNew
 	case "keyword_match":
 		var cfg struct {
 			Keywords      []string `json:"keywords"`
@@ -97,12 +124,9 @@ func triggerMatches(r autoRule, body, payload string, isNew bool) bool {
 			MatchMode     string   `json:"match_mode"` // any (default) | all | exact | starts_with
 		}
 		_ = json.Unmarshal(r.TriggerConfig, &cfg)
-		return keywordTriggerMatches(body, cfg.Keywords, cfg.MatchMode, cfg.CaseSensitive)
+		return keywordTriggerMatches(in.body, cfg.Keywords, cfg.MatchMode, cfg.CaseSensitive)
 	case "button_click":
-		// Fires when the contact tapped a quick-reply / template button. An
-		// optional `callback` in trigger_config narrows it to a specific callback
-		// id (substring match, e.g. a broadcast key or button suffix like ".daftar").
-		if payload == "" {
+		if in.payload == "" {
 			return false
 		}
 		var cfg struct {
@@ -110,7 +134,74 @@ func triggerMatches(r autoRule, body, payload string, isNew bool) bool {
 		}
 		_ = json.Unmarshal(r.TriggerConfig, &cfg)
 		cb := strings.ToLower(strings.TrimSpace(cfg.Callback))
-		return cb == "" || strings.Contains(strings.ToLower(payload), cb)
+		return cb == "" || strings.Contains(strings.ToLower(in.payload), cb)
+	}
+	return false
+}
+
+// conditionMatches evaluates one condition from the multi-condition model.
+// cond["type"] selects the check; the rest of the map is that check's config.
+func (a *app) conditionMatches(ctx context.Context, orgID string, cond map[string]any, in triggerInput, contactID, convID string) bool {
+	switch pStr(cond, "type") {
+	case "all_messages", "individual_chat":
+		// WhatsApp business chats are 1:1, so "individual chat" always holds.
+		return true
+	case "keyword_include", "keyword_match":
+		mode := pStr(cond, "match_mode")
+		if mode == "" {
+			mode = "any"
+		}
+		return keywordTriggerMatches(in.body, pStrSlice(cond, "keywords"), mode, pBool(cond, "case_sensitive"))
+	case "keyword_exact":
+		return keywordTriggerMatches(in.body, pStrSlice(cond, "keywords"), "exact", pBool(cond, "case_sensitive"))
+	case "keyword_exclude":
+		ks := pStrSlice(cond, "keywords")
+		if len(ks) == 0 {
+			return true
+		}
+		return !keywordTriggerMatches(in.body, ks, "any", pBool(cond, "case_sensitive"))
+	case "regex_match":
+		pat := pStr(cond, "pattern")
+		if pat == "" {
+			return false
+		}
+		re, err := regexp.Compile(pat)
+		return err == nil && re.MatchString(in.body)
+	case "callback_id", "button_click", "list_button_callback":
+		if in.payload == "" {
+			return false
+		}
+		cb := strings.ToLower(pStr(cond, "callback"))
+		return cb == "" || strings.Contains(strings.ToLower(in.payload), cb)
+	case "message_type":
+		for _, t := range pStrSlice(cond, "message_types") {
+			if strings.EqualFold(t, in.msgType) {
+				return true
+			}
+		}
+		return false
+	case "file_type":
+		if in.mediaExt == "" {
+			return false
+		}
+		for _, e := range pStrSlice(cond, "extensions") {
+			if strings.EqualFold(strings.TrimPrefix(e, "."), in.mediaExt) {
+				return true
+			}
+		}
+		return false
+	case "catalog_order":
+		return in.msgType == "order"
+	case "first_or_after_24h":
+		// TODO: also fire when >24h since the previous message (needs prev-message lookup).
+		return in.isNew
+	case "custom_condition":
+		return a.evalCondition(ctx, orgID, contactID, cond)
+	case "office_hours", "after_hours", "template_message":
+		// TODO: office/after hours need the org's business-hours config; template_message
+		// needs inbound-template detection. Not evaluated yet -> condition not met.
+		a.log.Info("automation trigger condition not yet supported", "type", pStr(cond, "type"))
+		return false
 	}
 	return false
 }
@@ -722,6 +813,29 @@ func pStr(m map[string]any, k string) string {
 	return ""
 }
 
+func pBool(m map[string]any, k string) bool {
+	v, _ := m[k].(bool)
+	return v
+}
+
+// fileExt returns the lowercased extension of a media URL's filename (no dot),
+// e.g. "https://.../doc.pdf?x=1" -> "pdf". Empty when there is none.
+func fileExt(mediaURL string) string {
+	if mediaURL == "" {
+		return ""
+	}
+	u := mediaURL
+	if i := strings.IndexByte(u, '?'); i >= 0 {
+		u = u[:i]
+	}
+	slash := strings.LastIndexByte(u, '/')
+	dot := strings.LastIndexByte(u, '.')
+	if dot >= 0 && dot > slash {
+		return strings.ToLower(u[dot+1:])
+	}
+	return ""
+}
+
 func pStrSlice(m map[string]any, k string) []string {
 	out := []string{}
 	switch v := m[k].(type) {
@@ -802,7 +916,6 @@ func (s *store) activeAutomations(ctx context.Context, orgID, channelID string) 
 		        COALESCE(actions,'[]')::text, COALESCE(flow,'{}')::text
 		   FROM automations
 		  WHERE organization_id=$1 AND is_active=true
-		    AND trigger_type IN ('new_message','keyword_match','new_conversation','button_click')
 		    AND (channel_id IS NULL OR channel_id::text=$2)`, orgID, channelID)
 	if err != nil {
 		return nil, err

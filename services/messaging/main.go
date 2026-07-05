@@ -209,7 +209,7 @@ func (a *app) onReceived(env events.Envelope) error {
 	// Run user-configured automations (keyword reply, auto-tag, auto-assign,
 	// button_click, ...). Deterministic rules, not the AI assistant. Best-effort,
 	// never blocks ingest.
-	a.runAutomations(ctx, env.OrgID, conv.ID, contactID, ch.ID, body, e.Message.ButtonPayload)
+	a.runAutomations(ctx, env.OrgID, conv.ID, contactID, ch.ID, body, e.Message.ButtonPayload, e.Message.Type, e.Message.MediaURL)
 
 	// Decision #2: a brand-new contact whose first message carried no campaign
 	// signal (no CTWA referral, no keyword) is left UNASSIGNED in the manager/admin
