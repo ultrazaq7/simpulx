@@ -483,7 +483,7 @@ class _ContactsPageState extends ConsumerState<ContactsPage> {
                             child: Row(
                               mainAxisSize: MainAxisSize.min,
                               children: [
-                                Icon(Icons.filter_alt_rounded, size: 15, color: AppColors.primary),
+                                Icon(Icons.filter_alt_rounded, size: 14, color: AppColors.primary),
                                 const SizedBox(width: 6),
                                 Flexible(
                                   child: Text(
@@ -498,7 +498,7 @@ class _ContactsPageState extends ConsumerState<ContactsPage> {
                                   ),
                                 ),
                                 const SizedBox(width: 5),
-                                Icon(Icons.close_rounded, size: 16, color: AppColors.primary),
+                                Icon(Icons.close_rounded, size: 14, color: AppColors.primary),
                               ],
                             ),
                           ),
