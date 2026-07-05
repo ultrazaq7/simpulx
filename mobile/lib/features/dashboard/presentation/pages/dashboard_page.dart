@@ -997,9 +997,9 @@ class _Card extends StatelessWidget {
       width: double.infinity,
       padding: const EdgeInsets.all(16),
       decoration: BoxDecoration(
-        color: AppColors.brandGreenDark.withValues(alpha: 0.10),
+        color: AppColors.brandGreenDark.withValues(alpha: 0.05),
         borderRadius: BorderRadius.circular(16),
-        border: Border.all(color: AppColors.brandGreenDark.withValues(alpha: 0.22)),
+        border: Border.all(color: AppColors.brandGreenDark.withValues(alpha: 0.10)),
         // Layered, low-opacity shadow (Stripe/Linear style) for crisp depth.
         boxShadow: isDark
             ? null
