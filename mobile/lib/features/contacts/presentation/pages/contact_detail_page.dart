@@ -33,9 +33,11 @@ class ContactDetailPage extends ConsumerStatefulWidget {
   ConsumerState<ContactDetailPage> createState() => _ContactDetailPageState();
 }
 
-class _ContactDetailPageState extends ConsumerState<ContactDetailPage> {
+class _ContactDetailPageState extends ConsumerState<ContactDetailPage>
+    with SingleTickerProviderStateMixin {
   final _scrollController = ScrollController();
   final _historyKey = GlobalKey();
+  late final TabController _tabController;
 
   Conversation _asConversation(Contact c) => Conversation(
         id: c.conversationId!,
@@ -63,27 +65,16 @@ class _ContactDetailPageState extends ConsumerState<ContactDetailPage> {
   @override
   void initState() {
     super.initState();
-    if (widget.scrollToHistory) {
-      // Wait for tree to build, then scroll to the history card.
-      WidgetsBinding.instance.addPostFrameCallback((_) {
-        _scrollToHistoryCard();
-      });
-    }
-  }
-
-  void _scrollToHistoryCard() {
-    final ctx = _historyKey.currentContext;
-    if (ctx != null) {
-      Scrollable.ensureVisible(
-        ctx,
-        duration: const Duration(milliseconds: 400),
-        curve: Curves.easeInOut,
-      );
-    }
+    _tabController = TabController(
+      length: 2,
+      vsync: this,
+      initialIndex: widget.scrollToHistory ? 1 : 0,
+    );
   }
 
   @override
   void dispose() {
+    _tabController.dispose();
     _scrollController.dispose();
     super.dispose();
   }
@@ -128,32 +119,94 @@ class _ContactDetailPageState extends ConsumerState<ContactDetailPage> {
           const SizedBox(width: 8),
         ],
       ),
-      body: ListView(
-        controller: _scrollController,
-        padding: const EdgeInsets.all(AppSpacing.lg),
+      body: Column(
         children: [
-          _IdentityCard(contact: c),
-          const SizedBox(height: AppSpacing.md),
-          _ActionsRow(
-            onCall: () => _call(context, c.phone),
-            onChat: c.hasConversation
-                ? () => context.push('/chat/${c.conversationId}')
-                : null,
-            onActions: c.hasConversation
-                ? () => showConversationActions(context, _asConversation(c))
-                : null,
-            onNotes: c.hasConversation
-                ? () => showNotesSheet(context, c.conversationId!)
-                : null,
+          // ── Fixed header: identity + actions + lead score ──
+          Padding(
+            padding: const EdgeInsets.fromLTRB(
+                AppSpacing.lg, AppSpacing.lg, AppSpacing.lg, 0),
+            child: Column(
+              children: [
+                _IdentityCard(contact: c),
+                const SizedBox(height: AppSpacing.md),
+                _ActionsRow(
+                  onCall: () => _call(context, c.phone),
+                  onChat: c.hasConversation
+                      ? () => context.push('/chat/${c.conversationId}')
+                      : null,
+                  onActions: c.hasConversation
+                      ? () =>
+                          showConversationActions(context, _asConversation(c))
+                      : null,
+                  onNotes: c.hasConversation
+                      ? () => showNotesSheet(context, c.conversationId!)
+                      : null,
+                ),
+                if (c.leadScore != null) ...[
+                  const SizedBox(height: AppSpacing.md),
+                  _LeadScoreCard(score: c.leadScore!),
+                ],
+              ],
+            ),
           ),
-          if (c.leadScore != null) ...[
-            const SizedBox(height: AppSpacing.md),
-            _LeadScoreCard(score: c.leadScore!),
-          ],
-          const SizedBox(height: AppSpacing.md),
-          _LeadContextCard(contact: c),
-          const SizedBox(height: AppSpacing.md),
-          _HistoryCard(key: _historyKey, contactId: c.id),
+          const SizedBox(height: AppSpacing.sm),
+          // ── Tab bar ──
+          Container(
+            margin: const EdgeInsets.symmetric(horizontal: AppSpacing.lg),
+            decoration: BoxDecoration(
+              color: Theme.of(context).colorScheme.surfaceContainerHighest.withValues(alpha: 0.5),
+              borderRadius: BorderRadius.circular(10),
+            ),
+            padding: const EdgeInsets.all(3),
+            child: TabBar(
+              controller: _tabController,
+              indicatorSize: TabBarIndicatorSize.tab,
+              indicator: BoxDecoration(
+                color: Theme.of(context).colorScheme.surface,
+                borderRadius: BorderRadius.circular(8),
+                boxShadow: [
+                  BoxShadow(
+                    color: Colors.black.withValues(alpha: 0.06),
+                    blurRadius: 4,
+                    offset: const Offset(0, 1),
+                  ),
+                ],
+              ),
+              dividerColor: Colors.transparent,
+              labelColor: Theme.of(context).colorScheme.onSurface,
+              unselectedLabelColor: AppColors.textMuted,
+              labelStyle: const TextStyle(
+                  fontSize: 13, fontWeight: FontWeight.w600),
+              unselectedLabelStyle: const TextStyle(
+                  fontSize: 13, fontWeight: FontWeight.w500),
+              tabs: const [
+                Tab(text: 'Overview'),
+                Tab(text: 'History'),
+              ],
+            ),
+          ),
+          const SizedBox(height: AppSpacing.sm),
+          // ── Tab content ──
+          Expanded(
+            child: TabBarView(
+              controller: _tabController,
+              children: [
+                // Overview tab
+                SingleChildScrollView(
+                  padding: const EdgeInsets.fromLTRB(
+                      AppSpacing.lg, 0, AppSpacing.lg, AppSpacing.lg),
+                  child: _LeadContextCard(contact: c),
+                ),
+                // History tab
+                SingleChildScrollView(
+                  padding: const EdgeInsets.fromLTRB(
+                      AppSpacing.lg, 0, AppSpacing.lg, AppSpacing.lg),
+                  child: _HistoryCard(
+                      key: _historyKey, contactId: c.id),
+                ),
+              ],
+            ),
+          ),
         ],
       ),
     );
