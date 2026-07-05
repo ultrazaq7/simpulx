@@ -474,16 +474,6 @@ class _HistoryCardState extends ConsumerState<_HistoryCard> {
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          Row(
-            children: [
-              const Icon(Icons.history_rounded,
-                  size: 16, color: AppColors.primary),
-              const SizedBox(width: 6),
-              const Text('History',
-                  style: TextStyle(fontWeight: FontWeight.w700, fontSize: 13)),
-            ],
-          ),
-          const SizedBox(height: AppSpacing.md),
           async.when(
             loading: () => const Padding(
               padding: EdgeInsets.symmetric(vertical: 12),
