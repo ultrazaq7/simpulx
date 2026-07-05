@@ -108,6 +108,7 @@ class ManagerAnalytics {
     required this.hot,
     required this.warm,
     required this.cold,
+    required this.unknown,
     required this.medianRtMin,
     required this.avgRtMin,
     required this.within5Pct,
@@ -126,6 +127,7 @@ class ManagerAnalytics {
   final int hot;
   final int warm;
   final int cold;
+  final int unknown;
   final double medianRtMin;
   final double avgRtMin;
   final double within5Pct;
@@ -190,6 +192,7 @@ class ManagerAnalytics {
       hot: asInt(funnel['hot']),
       warm: asInt(funnel['warm']),
       cold: asInt(funnel['cold']),
+      unknown: asInt(funnel['unknown']),
       medianRtMin: asDoubleOrNull(rt['median_min']) ?? 0,
       avgRtMin: asDoubleOrNull(rt['avg_min']) ?? 0,
       within5Pct: asDoubleOrNull(rt['within_5_min_pct']) ?? 0,

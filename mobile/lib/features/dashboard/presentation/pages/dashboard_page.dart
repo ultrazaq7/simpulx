@@ -579,7 +579,7 @@ class _InterestSplitCard extends StatelessWidget {
               onTap: () => onDrill(const InboxFilter(interestLevel: 'warm'))),
           _InterestRow('Cold', a.cold, a.total, color: AppColors.cold,
               onTap: () => onDrill(const InboxFilter(interestLevel: 'cold'))),
-          _InterestRow('Unclassified', a.unclassified, a.total, color: AppColors.textMuted,
+          _InterestRow('Unclassified', a.unknown, a.total, color: AppColors.textMuted,
               onTap: null), // Unclassified usually doesn't have a direct filter or is just empty string
         ],
       ),
