@@ -4,10 +4,11 @@
 // map its ad campaigns to ours. Reporting (spend, cost-per-lead) lives on the Dashboard.
 import { useEffect, useMemo, useState } from "react";
 import {
-  Plus, RefreshCw, Trash2, Loader2, BarChart3, AlertTriangle, Link2, Search, Pencil, X, KeyRound,
+  Plus, RefreshCw, Trash2, Loader2, BarChart3, AlertTriangle, Link2, Search, Pencil, KeyRound,
 } from "lucide-react";
 import { api } from "@/lib/api";
-import { Select } from "@/components/Select";
+import { MultiSelect } from "@/components/ui/multi-select";
+import SidePanel from "@/components/SidePanel";
 import { cn, fmtDateTimeShort } from "@/lib/utils";
 import type { AdAccount, AdCampaignRow, Campaign } from "@/lib/types";
 import { AdWizard } from "./AdWizard";
@@ -53,9 +54,9 @@ export function AdvertisingTab() {
     try { await api.deleteAdAccount(a.id); setToast("Disconnected"); setManageId(null); await loadAll(); }
     catch { setToast("Failed"); }
   }
-  async function map(adCampId: string, campaignId: string) {
-    setAdCampaigns((p) => p.map((x) => (x.id === adCampId ? { ...x, campaign_id: campaignId || null } : x)));
-    try { await api.mapAdCampaign(adCampId, campaignId || null); await loadAll(); }
+  async function map(adCampId: string, campaignIds: string[]) {
+    setAdCampaigns((p) => p.map((x) => (x.id === adCampId ? { ...x, campaign_ids: campaignIds, campaign_id: campaignIds[0] || null } : x)));
+    try { await api.mapAdCampaign(adCampId, campaignIds); await loadAll(); }
     catch { setToast("Could not map"); }
   }
 
@@ -154,7 +155,7 @@ export function AdvertisingTab() {
 // campaigns to our campaigns. Replaces the old global mapping table.
 function AdAccountDialog({ account, adCampaigns, ourCampaigns, onMap, onSync, syncing, onClose, onSaved, onError }: {
   account: AdAccount; adCampaigns: AdCampaignRow[]; ourCampaigns: Campaign[];
-  onMap: (adCampId: string, campaignId: string) => void; onSync: () => void; syncing: boolean;
+  onMap: (adCampId: string, campaignIds: string[]) => void; onSync: () => void; syncing: boolean;
   onClose: () => void; onSaved: (m: string) => void; onError: (m: string) => void;
 }) {
   const [name, setName] = useState(account.name || "");
@@ -162,9 +163,7 @@ function AdAccountDialog({ account, adCampaigns, ourCampaigns, onMap, onSync, sy
   const [token, setToken] = useState("");
   const [saving, setSaving] = useState(false);
 
-  const ourCampOptions = useMemo(
-    () => [{ value: "", label: "Not mapped" }, ...ourCampaigns.map((c) => ({ value: c.id, label: c.name }))],
-    [ourCampaigns]);
+  const ourCampOptions = useMemo(() => ourCampaigns.map((c) => ({ value: c.id, label: c.name })), [ourCampaigns]);
 
   async function save() {
     setSaving(true);
@@ -185,70 +184,66 @@ function AdAccountDialog({ account, adCampaigns, ourCampaigns, onMap, onSync, sy
   const L = "block text-[11px] font-bold uppercase tracking-wider text-muted-foreground mb-1.5";
 
   return (
-    <div className="fixed inset-0 z-[100] flex items-center justify-center p-4">
-      <div className="absolute inset-0 bg-black/40 backdrop-blur-[2px] animate-fade-in" onClick={onClose} />
-      <div className="relative bg-card rounded-lg border border-border shadow-2xl w-full max-w-lg max-h-[88vh] flex flex-col animate-scale-in">
-        <div className="flex items-center justify-between px-5 py-3.5 border-b border-border shrink-0">
-          <div className="min-w-0">
-            <h2 className="text-[15px] font-bold text-foreground truncate">{account.name || account.external_account_id}</h2>
-            <p className="text-[12px] text-muted-foreground">{PLATFORMS[account.platform]?.label || account.platform}</p>
+    <SidePanel
+      open
+      onClose={onClose}
+      title={account.name || account.external_account_id}
+      description={PLATFORMS[account.platform]?.label || account.platform}
+      width="lg"
+      busy={saving}
+      onApply={save}
+      applyLabel="Save changes"
+    >
+      <div className="flex flex-col gap-5">
+        {account.last_error && (
+          <div className="flex items-start gap-2 px-3 py-2 rounded-md bg-red-50 border border-red-200 text-[12px] text-red-600">
+            <AlertTriangle className="w-4 h-4 shrink-0 mt-px" /><span>{account.last_error}</span>
           </div>
-          <button onClick={onClose} className="p-1 rounded-md text-muted-foreground hover:bg-muted hover:text-foreground outline-none transition-colors"><X className="w-[18px] h-[18px]" /></button>
+        )}
+
+        {/* Connection */}
+        <div className="flex flex-col gap-3">
+          <p className="text-[11px] font-bold uppercase tracking-wider text-muted-foreground">Connection</p>
+          <div><label className={L}>Display name</label><input value={name} onChange={(e) => setName(e.target.value)} placeholder="e.g. Main Meta account" className={F} /></div>
+          <div><label className={L}>Account ID</label><input value={extId} onChange={(e) => setExtId(e.target.value)} placeholder="e.g. 1234567890" className={F} /></div>
+          <div>
+            <label className={L}>Access token</label>
+            <div className="relative">
+              <KeyRound className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-muted-foreground pointer-events-none" />
+              <input type="password" value={token} onChange={(e) => setToken(e.target.value)} placeholder="Leave blank to keep current" className={cn(F, "pl-9")} autoComplete="off" />
+            </div>
+          </div>
         </div>
 
-        <div className="px-5 py-5 flex flex-col gap-5 overflow-auto">
-          {account.last_error && (
-            <div className="flex items-start gap-2 px-3 py-2 rounded-md bg-red-50 border border-red-200 text-[12px] text-red-600">
-              <AlertTriangle className="w-4 h-4 shrink-0 mt-px" /><span>{account.last_error}</span>
+        {/* Campaign mapping */}
+        <div className="flex flex-col gap-2 border-t border-border pt-4">
+          <div className="flex items-center justify-between">
+            <p className="text-[11px] font-bold uppercase tracking-wider text-muted-foreground">Map campaigns</p>
+            <button onClick={onSync} disabled={syncing} className="inline-flex items-center gap-1.5 text-[12px] font-semibold text-primary hover:underline outline-none disabled:opacity-50">
+              <RefreshCw className={cn("w-3.5 h-3.5", syncing && "animate-spin")} />Sync
+            </button>
+          </div>
+          {adCampaigns.length === 0 ? (
+            <p className="text-[12.5px] text-muted-foreground py-3 text-center bg-muted/40 rounded-md">No campaigns yet. Sync this account to pull them.</p>
+          ) : (
+            <div className="flex flex-col divide-y divide-border/60 rounded-md border border-border overflow-hidden">
+              {adCampaigns.map((ac) => (
+                <div key={ac.id} className="flex items-center gap-2 px-3 py-2.5">
+                  <Link2 className="w-3.5 h-3.5 text-muted-foreground shrink-0" />
+                  <span className="text-[13px] font-medium text-foreground flex-1 truncate">{ac.name}</span>
+                  <MultiSelect
+                    value={ac.campaign_ids || (ac.campaign_id ? [ac.campaign_id] : [])}
+                    onChange={(v) => onMap(ac.id, v)}
+                    options={ourCampOptions}
+                    placeholder="Not mapped"
+                    className="w-[220px]"
+                  />
+                </div>
+              ))}
             </div>
           )}
-
-          {/* Connection */}
-          <div className="flex flex-col gap-3">
-            <p className="text-[11px] font-bold uppercase tracking-wider text-muted-foreground">Connection</p>
-            <div><label className={L}>Display name</label><input value={name} onChange={(e) => setName(e.target.value)} placeholder="e.g. Main Meta account" className={F} /></div>
-            <div><label className={L}>Account ID</label><input value={extId} onChange={(e) => setExtId(e.target.value)} placeholder="e.g. 1234567890" className={F} /></div>
-            <div>
-              <label className={L}>Access token</label>
-              <div className="relative">
-                <KeyRound className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-muted-foreground pointer-events-none" />
-                <input type="password" value={token} onChange={(e) => setToken(e.target.value)} placeholder="Leave blank to keep current" className={cn(F, "pl-9")} autoComplete="off" />
-              </div>
-              <p className="text-[11px] text-muted-foreground/70 mt-1">Paste a fresh token to fix an invalid connection. We re-sync after saving.</p>
-            </div>
-          </div>
-
-          {/* Campaign mapping */}
-          <div className="flex flex-col gap-2 border-t border-border pt-4">
-            <div className="flex items-center justify-between">
-              <p className="text-[11px] font-bold uppercase tracking-wider text-muted-foreground">Map campaigns</p>
-              <button onClick={onSync} disabled={syncing} className="inline-flex items-center gap-1.5 text-[12px] font-semibold text-primary hover:underline outline-none disabled:opacity-50">
-                <RefreshCw className={cn("w-3.5 h-3.5", syncing && "animate-spin")} />Sync
-              </button>
-            </div>
-            {adCampaigns.length === 0 ? (
-              <p className="text-[12.5px] text-muted-foreground py-3 text-center bg-muted/40 rounded-md">No campaigns yet. Sync this account to pull them.</p>
-            ) : (
-              <div className="flex flex-col divide-y divide-border/60 rounded-md border border-border overflow-hidden">
-                {adCampaigns.map((ac) => (
-                  <div key={ac.id} className="flex items-center gap-2 px-3 py-2.5">
-                    <Link2 className="w-3.5 h-3.5 text-muted-foreground shrink-0" />
-                    <span className="text-[13px] font-medium text-foreground flex-1 truncate">{ac.name}</span>
-                    <Select value={ac.campaign_id || ""} onChange={(v) => onMap(ac.id, v)} options={ourCampOptions} className="w-[200px]" />
-                  </div>
-                ))}
-              </div>
-            )}
-          </div>
-        </div>
-
-        <div className="flex justify-between items-center gap-2 px-5 py-3.5 border-t border-border shrink-0">
-          <button onClick={onClose} className="px-3 py-1.5 rounded-md text-sm font-semibold text-foreground/70 hover:bg-muted outline-none transition-colors">Close</button>
-          <button onClick={save} disabled={saving} className="inline-flex items-center gap-2 px-4 py-2 rounded-md text-sm font-semibold text-white bg-primary hover:bg-primary-dark disabled:opacity-60 outline-none transition-colors">
-            {saving ? <Loader2 className="w-4 h-4 animate-spin" /> : null}Save changes
-          </button>
         </div>
       </div>
-    </div>
+    </SidePanel>
   );
 }

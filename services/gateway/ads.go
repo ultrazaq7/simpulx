@@ -189,7 +189,13 @@ func (s *server) handleListAdCampaigns(w http.ResponseWriter, r *http.Request) {
 	rows, err := s.queryMaps(r.Context(),
 		`SELECT ac.id::text AS id, ac.platform, ac.external_id, ac.name,
 		        ac.campaign_id::text AS campaign_id, c.name AS campaign_name,
-		        aa.name AS account_name,
+		        aa.name AS account_name, ac.ad_account_id::text AS ad_account_id,
+		        COALESCE((SELECT array_agg(m.campaign_id::text ORDER BY cc.name)
+		                    FROM ad_campaign_campaigns m JOIN campaigns cc ON cc.id = m.campaign_id
+		                   WHERE m.ad_campaign_id = ac.id), '{}') AS campaign_ids,
+		        COALESCE((SELECT string_agg(cc.name, ', ' ORDER BY cc.name)
+		                    FROM ad_campaign_campaigns m JOIN campaigns cc ON cc.id = m.campaign_id
+		                   WHERE m.ad_campaign_id = ac.id), '') AS campaign_names,
 		        COALESCE((SELECT sum(spend) FROM ad_metrics m WHERE m.ad_campaign_id = ac.id),0)::float8 AS spend,
 		        COALESCE((SELECT sum(impressions) FROM ad_metrics m WHERE m.ad_campaign_id = ac.id),0)::bigint AS impressions
 		   FROM ad_campaigns ac
@@ -205,27 +211,75 @@ func (s *server) handleListAdCampaigns(w http.ResponseWriter, r *http.Request) {
 	writeJSON(w, rows)
 }
 
-// PATCH /api/ad-campaigns/{id} — map an ad campaign to one of OUR campaigns.
+// PATCH /api/ad-campaigns/{id} — map an ad campaign to one or more of OUR
+// campaigns. Accepts `campaign_ids` (the new many-to-many form) or a single
+// legacy `campaign_id`. The join table is the source of truth; the legacy
+// ad_campaigns.campaign_id column is kept in sync with the first mapping.
 func (s *server) handlePatchAdCampaign(w http.ResponseWriter, r *http.Request) {
 	a, _ := authFrom(r.Context())
 	id := r.PathValue("id")
 	var b struct {
-		CampaignID *string `json:"campaign_id"`
+		CampaignIDs []string `json:"campaign_ids"`
+		CampaignID  *string  `json:"campaign_id"`
 	}
 	if err := json.NewDecoder(r.Body).Decode(&b); err != nil {
 		http.Error(w, "bad request", http.StatusBadRequest)
 		return
 	}
-	tag, err := s.pool.Exec(r.Context(),
-		`UPDATE ad_campaigns SET campaign_id = NULLIF($3,'')::uuid
-		   WHERE id = $1 AND organization_id = $2`,
-		id, a.OrgID, derefStr(b.CampaignID))
+	// Normalize to a de-duplicated, non-empty id list.
+	ids := b.CampaignIDs
+	if ids == nil && b.CampaignID != nil {
+		if c := strings.TrimSpace(*b.CampaignID); c != "" {
+			ids = []string{c}
+		}
+	}
+	seen := map[string]bool{}
+	clean := ids[:0]
+	for _, c := range ids {
+		if c = strings.TrimSpace(c); c != "" && !seen[c] {
+			seen[c] = true
+			clean = append(clean, c)
+		}
+	}
+
+	tx, err := s.pool.Begin(r.Context())
 	if err != nil {
 		http.Error(w, err.Error(), http.StatusInternalServerError)
 		return
 	}
-	if tag.RowsAffected() == 0 {
+	defer tx.Rollback(r.Context())
+
+	// Ownership check (also gives us "not found" for a foreign id).
+	var owned bool
+	if err := tx.QueryRow(r.Context(),
+		`SELECT true FROM ad_campaigns WHERE id=$1 AND organization_id=$2`, id, a.OrgID).Scan(&owned); err != nil {
 		http.Error(w, "not found", http.StatusNotFound)
+		return
+	}
+	if _, err := tx.Exec(r.Context(), `DELETE FROM ad_campaign_campaigns WHERE ad_campaign_id=$1`, id); err != nil {
+		http.Error(w, err.Error(), http.StatusInternalServerError)
+		return
+	}
+	for _, cid := range clean {
+		if _, err := tx.Exec(r.Context(),
+			`INSERT INTO ad_campaign_campaigns (ad_campaign_id, campaign_id, organization_id)
+			 VALUES ($1, $2::uuid, $3) ON CONFLICT DO NOTHING`, id, cid, a.OrgID); err != nil {
+			http.Error(w, err.Error(), http.StatusInternalServerError)
+			return
+		}
+	}
+	first := ""
+	if len(clean) > 0 {
+		first = clean[0]
+	}
+	if _, err := tx.Exec(r.Context(),
+		`UPDATE ad_campaigns SET campaign_id = NULLIF($3,'')::uuid WHERE id=$1 AND organization_id=$2`,
+		id, a.OrgID, first); err != nil {
+		http.Error(w, err.Error(), http.StatusInternalServerError)
+		return
+	}
+	if err := tx.Commit(r.Context()); err != nil {
+		http.Error(w, err.Error(), http.StatusInternalServerError)
 		return
 	}
 	writeJSON(w, map[string]any{"ok": true})
@@ -244,11 +298,17 @@ func (s *server) handleAdPerformance(w http.ResponseWriter, r *http.Request) {
 	if from == "" {
 		from = "2000-01-01" // empty range = all time
 	}
-	// campaign_id may be a comma-separated list (multi-select filter). Empty = all.
-	var campIDs []string
+	// campaign_id / account_id may be comma-separated lists (multi-select). Empty = all.
+	campIDs := []string{}
 	for _, c := range strings.Split(r.URL.Query().Get("campaign_id"), ",") {
 		if c = strings.TrimSpace(c); c != "" {
 			campIDs = append(campIDs, c)
+		}
+	}
+	accountIDs := []string{}
+	for _, c := range strings.Split(r.URL.Query().Get("account_id"), ",") {
+		if c = strings.TrimSpace(c); c != "" {
+			accountIDs = append(accountIDs, c)
 		}
 	}
 	// platform (ad source) filter — meta | google | tiktok. A single OUR campaign
@@ -269,7 +329,39 @@ func (s *server) handleAdPerformance(w http.ResponseWriter, r *http.Request) {
 		}
 	}
 
-	// Per-campaign: ad spend joined to OUR leads + sales (sale = reached the final stage).
+	// Role scope: admin/owner see every campaign; manager/agent are limited to the
+	// campaigns they're assigned to (campaign_agents), intersected with any filter.
+	// Applied by narrowing campIDs, which every query below already respects.
+	if a.Role != "admin" && a.Role != "owner" {
+		mineRows, _ := s.queryMaps(r.Context(), `SELECT campaign_id::text AS id FROM campaign_agents WHERE user_id=$1`, a.UserID)
+		mine := map[string]bool{}
+		for _, mr := range mineRows {
+			if id, ok := mr["id"].(string); ok && id != "" {
+				mine[id] = true
+			}
+		}
+		if len(campIDs) == 0 {
+			for id := range mine {
+				campIDs = append(campIDs, id)
+			}
+		} else {
+			kept := campIDs[:0]
+			for _, c := range campIDs {
+				if mine[c] {
+					kept = append(kept, c)
+				}
+			}
+			campIDs = kept
+		}
+		// A scoped user with no campaigns must see nothing, not everything.
+		if len(campIDs) == 0 {
+			campIDs = []string{"00000000-0000-0000-0000-000000000000"}
+		}
+	}
+
+	// Per-campaign: ad spend joined to OUR leads + sales (sale = reached the final
+	// stage). Spend is joined through ad_campaign_campaigns, so an ad campaign
+	// mapped to several campaigns shows its full spend under each (Option A).
 	campRows, err := s.queryMaps(r.Context(),
 		`SELECT c.id::text AS campaign_id, c.name AS campaign_name,
 		        COALESCE(m.spend,0)::float8 AS spend, COALESCE(m.impressions,0)::bigint AS impressions,
@@ -277,13 +369,16 @@ func (s *server) handleAdPerformance(w http.ResponseWriter, r *http.Request) {
 		        COALESCE(l.leads,0) AS leads, COALESCE(l.sales,0) AS sales
 		   FROM campaigns c
 		   LEFT JOIN (
-		     SELECT ac.campaign_id,
+		     SELECT map.campaign_id,
 		            sum(am.spend) spend, sum(am.impressions) impressions, sum(am.reach) reach,
 		            sum(am.clicks) clicks, sum(am.results) results
-		       FROM ad_metrics am JOIN ad_campaigns ac ON ac.id = am.ad_campaign_id
-		      WHERE am.organization_id = $1 AND am.date BETWEEN $2 AND $3 AND ac.campaign_id IS NOT NULL
+		       FROM ad_metrics am
+		       JOIN ad_campaigns ac ON ac.id = am.ad_campaign_id
+		       JOIN ad_campaign_campaigns map ON map.ad_campaign_id = ac.id
+		      WHERE am.organization_id = $1 AND am.date BETWEEN $2 AND $3
 		        AND (cardinality($4::text[]) = 0 OR ac.platform = ANY($4::text[]))
-		      GROUP BY ac.campaign_id
+		        AND (cardinality($5::text[]) = 0 OR ac.ad_account_id::text = ANY($5::text[]))
+		      GROUP BY map.campaign_id
 		   ) m ON m.campaign_id = c.id
 		   LEFT JOIN (
 		     SELECT cv.campaign_id,
@@ -294,9 +389,10 @@ func (s *server) handleAdPerformance(w http.ResponseWriter, r *http.Request) {
 		      GROUP BY cv.campaign_id
 		   ) l ON l.campaign_id = c.id
 		  WHERE c.organization_id = $1
+		    AND (cardinality($6::uuid[]) = 0 OR c.id = ANY($6::uuid[]))
 		    AND (m.campaign_id IS NOT NULL OR l.leads > 0)
 		  ORDER BY spend DESC, leads DESC, c.name`,
-		a.OrgID, from, to, platforms)
+		a.OrgID, from, to, platforms, accountIDs, campIDs)
 	if err != nil {
 		http.Error(w, err.Error(), http.StatusInternalServerError)
 		return
@@ -311,11 +407,15 @@ func (s *server) handleAdPerformance(w http.ResponseWriter, r *http.Request) {
 	args := []any{a.OrgID, from, to}
 	if len(campIDs) > 0 {
 		args = append(args, campIDs)
-		dq += fmt.Sprintf(" AND ac.campaign_id = ANY($%d::uuid[])", len(args))
+		dq += fmt.Sprintf(" AND ac.id IN (SELECT ad_campaign_id FROM ad_campaign_campaigns WHERE campaign_id = ANY($%d::uuid[]))", len(args))
 	}
 	if len(platforms) > 0 {
 		args = append(args, platforms)
 		dq += fmt.Sprintf(" AND ac.platform = ANY($%d::text[])", len(args))
+	}
+	if len(accountIDs) > 0 {
+		args = append(args, accountIDs)
+		dq += fmt.Sprintf(" AND ac.ad_account_id::text = ANY($%d::text[])", len(args))
 	}
 	dq += " GROUP BY am.date ORDER BY am.date DESC"
 	dailyRows, err := s.queryMaps(r.Context(), dq, args...)

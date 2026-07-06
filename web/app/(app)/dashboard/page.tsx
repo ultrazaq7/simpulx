@@ -902,6 +902,8 @@ function MarketingAnalytics() {
   const [fTo, setFTo] = useState(() => presetRange("30d").to);
   const [campaignFilter, setCampaignFilter] = useState<string[]>([]);
   const [sourceFilter, setSourceFilter] = useState<string[]>([]);
+  const [accountFilter, setAccountFilter] = useState<string[]>([]);
+  const [accounts, setAccounts] = useState<{ id: string; name?: string | null }[]>([]);
   const [perf, setPerf] = useState<AdPerformance | null>(null);
   const [currency, setCurrency] = useState("");
   const [platforms, setPlatforms] = useState<string[]>([]);
@@ -912,25 +914,27 @@ function MarketingAnalytics() {
     const { from, to } = dateRange === "custom" ? { from: fFrom, to: fTo } : presetRange(dateRange);
     let alive = true;
     Promise.all([
-      api.adPerformance(from || undefined, to || undefined, campaignFilter.length ? campaignFilter : undefined, sourceFilter.length ? sourceFilter : undefined).catch(() => null),
+      api.adPerformance(from || undefined, to || undefined, campaignFilter.length ? campaignFilter : undefined, sourceFilter.length ? sourceFilter : undefined, accountFilter.length ? accountFilter : undefined).catch(() => null),
       api.listAdAccounts().catch(() => []),
     ]).then(([p, accts]) => {
       if (!alive) return;
       setPerf(p as AdPerformance | null);
-      const a = (accts as { currency?: string | null; platform?: string | null }[]) || [];
+      const a = (accts as { id: string; name?: string | null; currency?: string | null; platform?: string | null }[]) || [];
+      setAccounts(a);
       setHasAccounts(a.length > 0);
       setCurrency(a.find((x) => x.currency)?.currency || "");
       setPlatforms(Array.from(new Set(a.map((x) => (x.platform || "").toLowerCase()).filter(Boolean))));
     }).finally(() => { if (alive) setLoading(false); });
     return () => { alive = false; };
     // Refetch on filter change; keep the previous view visible during refetch.
-  }, [dateRange, fFrom, fTo, campaignFilter, sourceFilter]);
+  }, [dateRange, fFrom, fTo, campaignFilter, sourceFilter, accountFilter]);
 
   const PLATFORM_LABELS: Record<string, string> = { meta: "Meta Ads", google: "Google Ads", tiktok: "TikTok Ads" };
   const sourceOptions = useMemo(() => platforms.map((p) => ({ value: p, label: PLATFORM_LABELS[p] || p })), [platforms]);
 
   const campaigns = perf?.campaigns || [];
   const campaignOptions = useMemo(() => campaigns.map((c) => ({ value: c.campaign_id, label: c.campaign_name })), [campaigns]);
+  const accountOptions = useMemo(() => accounts.map((a) => ({ value: a.id, label: a.name || "Ad account" })), [accounts]);
   const shown = campaignFilter.length ? campaigns.filter((c) => campaignFilter.includes(c.campaign_id)) : campaigns;
   const t = shown.reduce((a, c) => ({
     spend: a.spend + c.spend, leads: a.leads + c.leads, sales: a.sales + c.sales,
@@ -975,13 +979,16 @@ function MarketingAnalytics() {
 
   return (
     <div className="p-4">
-      {/* Toolbar */}
+      {/* Toolbar — left-aligned with a filter icon, matching the Overview tab. */}
       <div className="flex items-center gap-2 mb-4 flex-wrap">
-        <div className="flex-1" />
+        <FilterIcon className="w-4 h-4 text-muted-foreground" />
+        {accountOptions.length > 1 && (
+          <MultiSelect value={accountFilter} onChange={setAccountFilter} options={accountOptions} placeholder="All accounts" className="w-[180px]" />
+        )}
+        <MultiSelect value={campaignFilter} onChange={setCampaignFilter} options={campaignOptions} placeholder="All campaigns" className="w-[200px]" />
         {sourceOptions.length > 1 && (
           <MultiSelect value={sourceFilter} onChange={setSourceFilter} options={sourceOptions} placeholder="All sources" className="w-[170px]" />
         )}
-        <MultiSelect value={campaignFilter} onChange={setCampaignFilter} options={campaignOptions} placeholder="All campaigns" className="w-[200px]" />
         <DateRangeFilter value={{ preset: dateRange, from: fFrom, to: fTo }}
           onChange={(v) => { setDateRange(v.preset); setFFrom(v.from); setFTo(v.to); }} />
       </div>

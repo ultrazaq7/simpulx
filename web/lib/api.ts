@@ -519,13 +519,14 @@ export const api = {
   deleteAdAccount: (id: string) => req<void>(`/api/ad-accounts/${id}`, { method: "DELETE" }),
   syncAdAccount: (id: string) => req<{ ok: boolean }>(`/api/ad-accounts/${id}/sync`, { method: "POST" }),
   listAdCampaigns: () => req<import("./types").AdCampaignRow[]>("/api/ad-campaigns"),
-  mapAdCampaign: (id: string, campaign_id: string | null) =>
-    req<{ ok: boolean }>(`/api/ad-campaigns/${id}`, { method: "PATCH", body: JSON.stringify({ campaign_id }) }),
-  adPerformance: (from?: string, to?: string, campaign_ids?: string[], platforms?: string[]) => {
+  mapAdCampaign: (id: string, campaign_ids: string[]) =>
+    req<{ ok: boolean }>(`/api/ad-campaigns/${id}`, { method: "PATCH", body: JSON.stringify({ campaign_ids }) }),
+  adPerformance: (from?: string, to?: string, campaign_ids?: string[], platforms?: string[], account_ids?: string[]) => {
     const q = new URLSearchParams();
     if (from) q.set("from", from); if (to) q.set("to", to);
     if (campaign_ids && campaign_ids.length) q.set("campaign_id", campaign_ids.join(","));
     if (platforms && platforms.length) q.set("platform", platforms.join(","));
+    if (account_ids && account_ids.length) q.set("account_id", account_ids.join(","));
     const qs = q.toString();
     return req<import("./types").AdPerformance>(`/api/ad-performance${qs ? "?" + qs : ""}`);
   },

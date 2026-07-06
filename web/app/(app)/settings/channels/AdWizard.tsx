@@ -4,7 +4,7 @@
 import { useMemo, useState } from "react";
 import { BarChart3, Loader2, CheckCircle2, AlertTriangle, Link2 } from "lucide-react";
 import { api } from "@/lib/api";
-import { Select } from "@/components/Select";
+import { MultiSelect } from "@/components/ui/multi-select";
 import type { AdAccount, AdCampaignRow, Campaign } from "@/lib/types";
 import { WizardModal, WizardCard, WizardField, BackButton, ContinueButton } from "./WizardModal";
 import { PrimaryButton } from "../_shared";
@@ -45,7 +45,7 @@ export function AdWizard({ onClose, onConnected }: { onClose: () => void; onConn
       : "An OAuth refresh token for an account with access to this customer.";
 
   const ourCampOptions = useMemo(
-    () => [{ value: "", label: "Not mapped" }, ...ourCampaigns.map((c) => ({ value: c.id, label: c.name }))],
+    () => ourCampaigns.map((c) => ({ value: c.id, label: c.name })),
     [ourCampaigns]);
 
   async function connect() {
@@ -72,9 +72,9 @@ export function AdWizard({ onClose, onConnected }: { onClose: () => void; onConn
     finally { setSaving(false); }
   }
 
-  async function map(adCampId: string, campaignId: string) {
-    setAdCampaigns((p) => p.map((x) => (x.id === adCampId ? { ...x, campaign_id: campaignId || null } : x)));
-    try { await api.mapAdCampaign(adCampId, campaignId || null); } catch { /* optimistic; can retry from Edit dialog */ }
+  async function map(adCampId: string, campaignIds: string[]) {
+    setAdCampaigns((p) => p.map((x) => (x.id === adCampId ? { ...x, campaign_ids: campaignIds, campaign_id: campaignIds[0] || null } : x)));
+    try { await api.mapAdCampaign(adCampId, campaignIds); } catch { /* optimistic; can retry from Edit dialog */ }
   }
 
   const footer =
@@ -141,7 +141,7 @@ export function AdWizard({ onClose, onConnected }: { onClose: () => void; onConn
                   <div key={ac.id} className="flex items-center gap-2 px-3 py-2.5">
                     <Link2 className="w-3.5 h-3.5 text-muted-foreground shrink-0" />
                     <span className="text-[13px] font-medium text-foreground flex-1 truncate">{ac.name}</span>
-                    <Select value={ac.campaign_id || ""} onChange={(v) => map(ac.id, v)} options={ourCampOptions} className="w-[200px]" />
+                    <MultiSelect value={ac.campaign_ids || (ac.campaign_id ? [ac.campaign_id] : [])} onChange={(v) => map(ac.id, v)} options={ourCampOptions} placeholder="Not mapped" className="w-[200px]" />
                   </div>
                 ))}
               </div>

@@ -327,9 +327,12 @@ export interface AdCampaignRow {
   platform: string;
   external_id: string;
   name: string;
-  campaign_id: string | null;          // mapped to OUR campaign
+  campaign_id: string | null;          // legacy single mapping (first of campaign_ids)
   campaign_name: string | null;
+  campaign_ids?: string[];             // many-to-many: OUR campaigns this ad campaign feeds
+  campaign_names?: string | null;      // comma-joined names for display
   account_name: string | null;
+  ad_account_id?: string;
   spend: number;
   impressions: number;
 }
