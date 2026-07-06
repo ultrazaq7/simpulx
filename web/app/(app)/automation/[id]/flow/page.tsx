@@ -705,7 +705,7 @@ function CondFields({ type, cd, patch }: { type: string; cd: Record<string, unkn
   if (type === "keyword_include" || type === "keyword_exact" || type === "keyword_exclude") {
     return (
       <>
-        <div className="rounded-md border border-input bg-background px-2 py-1.5 flex flex-wrap gap-1.5 focus-within:border-primary focus-within:ring-2 focus-within:ring-primary/25">
+        <div className="rounded-md border border-input bg-background px-2 py-1.5 flex flex-wrap gap-1.5">
           {kws.map((k, i) => (
             <span key={i} className="inline-flex items-center gap-1 rounded-md bg-primary/10 border border-primary/25 px-2 py-0.5 text-[12.5px] font-semibold text-primary">{k}
               <button type="button" onClick={() => patch({ keywords: kws.filter((_, j) => j !== i) })} className="text-primary/60 hover:text-destructive leading-none text-[15px]">×</button></span>

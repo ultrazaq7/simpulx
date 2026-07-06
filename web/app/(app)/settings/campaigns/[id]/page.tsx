@@ -7,7 +7,7 @@ import { api } from "@/lib/api";
 import { Select } from "@/components/Select";
 import { cn, fmtDuration } from "@/lib/utils";
 import type { CampaignDetail, CampaignAnalyticsRow, CatalogItem } from "@/lib/types";
-import { useToast, PageBody, FieldLabel, INPUT_CLASS, PrimaryButton } from "../../_shared";
+import { useToast, PageBody, FieldLabel, INPUT_CLASS } from "../../_shared";
 import UnsavedBar from "@/components/UnsavedBar";
 
 const SEGMENTS = ["Automotive", "Property / Real Estate", "Finance", "Insurance", "Retail / FMCG", "Education", "Healthcare", "Travel & Hospitality", "Food & Beverage", "Services", "Other"];
@@ -120,6 +120,8 @@ function CreditsTab({ id, notify }: { id: string; notify: (m: string, s?: "succe
     } catch (e) { notify(String(e), "error"); } finally { setSaving(false); }
   }
   if (!credits) return <Loader2 className="w-5 h-5 animate-spin text-muted-foreground" />;
+  const allocChangedCount = (Number(alloc) !== credits.allocated_credits ? 1 : 0) + (Number(threshold) !== credits.low_balance_threshold ? 1 : 0);
+  const resetAlloc = () => { setAlloc(String(credits.allocated_credits)); setThreshold(String(credits.low_balance_threshold)); };
   const low = credits.allocated_credits > 0 && credits.remaining_credits <= credits.low_balance_threshold;
   const maxUsage = Math.max(1, ...usage.map((u) => u.credits));
   return (
@@ -138,9 +140,8 @@ function CreditsTab({ id, notify }: { id: string; notify: (m: string, s?: "succe
           <div><FieldLabel>Allocated credits</FieldLabel><input type="number" min={0} value={alloc} onChange={(e) => setAlloc(e.target.value)} className={INPUT_CLASS} /></div>
           <div><FieldLabel>Low-balance alert at</FieldLabel><input type="number" min={0} value={threshold} onChange={(e) => setThreshold(e.target.value)} className={INPUT_CLASS} /></div>
         </div>
-        <PrimaryButton onClick={save} disabled={saving}>{saving ? <Loader2 className="w-4 h-4 animate-spin" /> : null}Save allocation</PrimaryButton>
-        <p className="text-[11.5px] text-muted-foreground">1 credit = 1 Simpuler (AI) reply. Broadcasts and agent messages are not counted.</p>
       </div>
+      <UnsavedBar count={allocChangedCount} saving={saving} onSave={save} onCancel={resetAlloc} saveLabel="Save allocation" />
 
       <div className="rounded-lg border border-border p-4">
         <p className="text-[13px] font-semibold text-foreground mb-3">Usage (last 30 days)</p>

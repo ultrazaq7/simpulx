@@ -378,7 +378,7 @@ export default function ConversationList({
       {/* Header: search + sort + filter (SleekFlow layout) — height matches the chat header */}
       <div className="shrink-0 h-14 px-1.5 flex items-center border-b border-border">
         <div className="flex items-center gap-1 w-full min-w-0">
-          <div className="relative flex-1 min-w-0 flex items-center h-9 rounded-md border border-input bg-background transition-colors focus-within:border-primary overflow-visible">
+          <div className="relative flex-1 min-w-0 flex items-center h-9 rounded-md border border-input bg-background overflow-visible">
             <SearchModeMenu mode={searchMode} onChange={setSearchMode} />
             <input
               ref={searchInputRef}

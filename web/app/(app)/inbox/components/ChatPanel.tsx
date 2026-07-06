@@ -18,6 +18,7 @@ import { StageMenu, getDotColor } from "./StageMenu";
 import { InterestMenu } from "./InterestMenu";
 import CallOverlay from "./CallOverlay";
 import { api } from "@/lib/api";
+import { useEscClose } from "@/lib/useEscClose";
 
 // Snooze quick presets, computed at click time.
 function snoozePresets(): { label: string; until: Date }[] {
@@ -216,6 +217,10 @@ export default function ChatPanel({
   const [assignOpen, setAssignOpen] = useState(false);
   const [assignQuery, setAssignQuery] = useState("");
   const [statusOpen, setStatusOpen] = useState(false);
+  // Esc closes these header dropdowns (topmost-first), and registering them on
+  // the shared stack also makes the inbox's "Esc closes conversation" defer.
+  useEscClose(assignOpen, () => { setAssignOpen(false); setAssignQuery(""); });
+  useEscClose(statusOpen, () => setStatusOpen(false));
   const [snoozeOpen, setSnoozeOpen] = useState(false);
   const [customSnooze, setCustomSnooze] = useState("");
   const [closeStageOpen, setCloseStageOpen] = useState(false);

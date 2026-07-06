@@ -3,6 +3,7 @@ import { useState, useRef, useEffect, useMemo } from "react";
 import { createPortal } from "react-dom";
 import { ChevronDown, Search, Check } from "lucide-react";
 import { cn } from "@/lib/utils";
+import { useEscClose } from "@/lib/useEscClose";
 
 export interface Option { label: string; value: string; }
 export interface MultiSelectProps {
@@ -62,6 +63,9 @@ export function MultiSelect({ options, value, onChange, placeholder = "Select...
     const s = q.trim().toLowerCase();
     return s ? options.filter((o) => o.label.toLowerCase().includes(s)) : options;
   }, [options, q]);
+
+  // Esc closes the menu (topmost-first via the shared LIFO stack).
+  useEscClose(open, () => { setOpen(false); setQ(""); });
 
   const toggle = (val: string) => onChange(value.includes(val) ? value.filter((v) => v !== val) : [...value, val]);
   const allSelected = options.length > 0 && value.length === options.length;

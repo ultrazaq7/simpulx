@@ -13,7 +13,7 @@ import {
   PanelLeftClose, PanelLeftOpen, Boxes,
 } from "lucide-react";
 import { cn } from "@/lib/utils";
-import { api } from "@/lib/api";
+import { api, getUser } from "@/lib/api";
 import { usePermissions } from "@/lib/permissions";
 import { useI18n } from "@/lib/i18n";
 import { Tip } from "@/components/ui/tooltip";
@@ -68,7 +68,10 @@ export default function SettingsLayout({ children }: { children: ReactNode }) {
   const toggle = () => setCollapsed((c) => { const n = !c; localStorage.setItem("simpulx_settings_collapsed", n ? "1" : "0"); return n; });
 
   // Platform is visible only to the super admin (a configured email, not a role).
-  const [isSuper, setIsSuper] = useState(false);
+  // Lazy-init from the cached session so the Platform item renders immediately on
+  // reload (like every other nav item) instead of popping in after the async
+  // access check; the effect then reconciles with the server in case it's stale.
+  const [isSuper, setIsSuper] = useState<boolean>(() => typeof window !== "undefined" && !!getUser()?.is_super_admin);
   useEffect(() => { api.platformAccess().then((r) => setIsSuper(r.super_admin)).catch(() => {}); }, []);
 
   const navScrollRef = useRef<HTMLDivElement | null>(null);

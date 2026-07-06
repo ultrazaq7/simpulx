@@ -2,6 +2,7 @@
 import { useState, useRef, useEffect, useMemo } from "react";
 import { ChevronDown, ChevronLeft, ChevronRight, Calendar } from "lucide-react";
 import { cn } from "@/lib/utils";
+import { useEscClose } from "@/lib/useEscClose";
 
 // One enterprise date-range filter, reused app-wide: preset list + calendar range
 // with a live hover preview of the range you're about to pick.
@@ -38,6 +39,9 @@ export default function DateRangeFilter({ value, onChange, align = "left" }: {
   align?: "left" | "right";
 }) {
   const [open, setOpen] = useState(false);
+  // The calendar stays collapsed behind the DATE RANGE field until the user opens
+  // it (clicks the field / icon), matching the enterprise reference.
+  const [showCal, setShowCal] = useState(false);
   const ref = useRef<HTMLDivElement>(null);
   useEffect(() => {
     if (!open) return;
@@ -45,6 +49,10 @@ export default function DateRangeFilter({ value, onChange, align = "left" }: {
     window.addEventListener("mousedown", h);
     return () => window.removeEventListener("mousedown", h);
   }, [open]);
+  useEffect(() => { if (!open) setShowCal(false); }, [open]);
+  // Esc closes the calendar first, then the popover (shared LIFO stack).
+  useEscClose(open, () => setOpen(false));
+  useEscClose(showCal, () => setShowCal(false));
 
   const [pick, setPick] = useState<{ start: string; end: string }>({ start: value.from, end: value.to });
   const [hover, setHover] = useState("");
@@ -93,12 +101,14 @@ export default function DateRangeFilter({ value, onChange, align = "left" }: {
           </div>
           <div className="mt-2 pt-2 border-t border-border">
             <p className="px-1 mb-1.5 text-[11px] font-bold uppercase tracking-wider text-muted-foreground">Date range</p>
-            <div className="flex items-center gap-2 mb-2 px-2 h-9 rounded-md border border-input bg-background text-[12.5px]">
+            <button type="button" onClick={() => setShowCal((v) => !v)}
+              className={cn("w-full flex items-center gap-2 px-2 h-9 rounded-md border bg-background text-[12.5px] outline-none transition-colors", showCal ? "border-primary ring-2 ring-primary/20" : "border-input hover:border-muted-foreground/40")}>
               <Calendar className="w-3.5 h-3.5 text-muted-foreground shrink-0" />
               <span className={cn("tabular-nums", lo ? "text-foreground" : "text-muted-foreground/60")}>
                 {lo ? us(lo) : "MM/DD/YYYY"} <span className="text-muted-foreground/50">–</span> {hi ? us(hi) : "MM/DD/YYYY"}
               </span>
-            </div>
+            </button>
+            {showCal && (<div className="mt-2">
             <div className="flex items-center justify-between px-1 mb-1.5">
               <button onClick={() => setView(new Date(view.getFullYear(), view.getMonth() - 1, 1))} className="p-1 rounded-md hover:bg-muted outline-none"><ChevronLeft className="w-4 h-4" /></button>
               <span className="text-[13px] font-semibold text-foreground">{view.toLocaleDateString("en-US", { month: "long", year: "numeric" })}</span>
@@ -123,6 +133,7 @@ export default function DateRangeFilter({ value, onChange, align = "left" }: {
                 );
               })())}
             </div>
+            </div>)}
           </div>
         </div>
       )}

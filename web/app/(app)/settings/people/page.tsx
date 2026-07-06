@@ -80,6 +80,8 @@ export default function PeopleSettingsPage() {
   }, [campaigns]);
 
   const filtered = useMemo(() => rows.filter((u) =>
+    // The platform super admin is not a tenant team member — keep it out of the list.
+    !u.is_super_admin &&
     (!roleFilter.length || roleFilter.includes(u.role)) &&
     (u.full_name.toLowerCase().includes(search.toLowerCase()) || u.email.toLowerCase().includes(search.toLowerCase())) &&
     (!statusFilter.length || statusFilter.includes(u.status)) &&

@@ -3,6 +3,7 @@ import { useState, useRef, useEffect } from "react";
 import { createPortal } from "react-dom";
 import { ChevronDown, Search, Check } from "lucide-react";
 import { cn } from "@/lib/utils";
+import { useEscClose } from "@/lib/useEscClose";
 
 // `dot` is an optional CSS color rendered as a small leading status dot (used for
 // e.g. lead interest hot/warm/cold) — a clean, professional alternative to emoji.
@@ -36,6 +37,9 @@ export function Select({
   // Search box on for every dropdown (opt out with searchable={false}).
   const showSearch = searchable ?? true;
   const filtered = q ? options.filter((o) => o.label.toLowerCase().includes(q.toLowerCase())) : options;
+
+  // Esc closes the menu (topmost-first via the shared LIFO stack).
+  useEscClose(open, () => { setOpen(false); setQ(""); });
 
   useEffect(() => {
     if (!open) return;

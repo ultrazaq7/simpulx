@@ -697,7 +697,7 @@ function ContactModal({ state, allTags, onClose, onSaved }: {
           </div>
           <div className="space-y-1.5">
             <label className="text-[12px] font-bold text-foreground/80">Labels</label>
-            <div className="flex flex-wrap items-center gap-1.5 rounded-md border border-input bg-background px-2 py-2 focus-within:border-primary focus-within:ring-2 focus-within:ring-primary/20">
+            <div className="flex flex-wrap items-center gap-1.5 rounded-md border border-input bg-background px-2 py-2">
               {tags.map((t) => (
                 <span key={t} className="inline-flex items-center gap-1 px-2 py-0.5 rounded-md bg-amber-50 text-amber-700 text-[11px] font-semibold">
                   <TagIcon className="w-3 h-3" />{t}
