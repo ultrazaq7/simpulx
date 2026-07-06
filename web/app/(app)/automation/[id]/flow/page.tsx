@@ -105,12 +105,23 @@ function summary(kind: string, c: Record<string, unknown>, triggerType?: string)
     default: return ACTIONS[kind]?.desc ?? "";
   }
 }
+// Extract trigger keywords as array for pill rendering inside the node.
+function triggerKeywords(c: Record<string, unknown>): string[] {
+  const conds = Array.isArray(c.conditions) ? (c.conditions as Record<string, unknown>[]) : [];
+  const all: string[] = [];
+  for (const cond of conds) {
+    const kws = Array.isArray(cond?.keywords) ? (cond.keywords as string[]) : [];
+    all.push(...kws);
+  }
+  return all;
+}
 
 // ── Custom node ─────────────────────────────────────────────────────────────
 function FlowNode({ data, selected }: NodeProps<AppNode>) {
   const m = meta(data.kind);
   const title = m.label;
   const isTrigger = data.kind === "trigger";
+  const tKws = isTrigger ? triggerKeywords(data.config) : [];
   // Per-option source handles: an Auto Reply with reply buttons / a list gets one
   // source handle per option (handle id = its callback id) so each option can
   // branch to its own downstream node. walkFlow routes a tapped button to the
@@ -144,7 +155,16 @@ function FlowNode({ data, selected }: NodeProps<AppNode>) {
             <Tip label="Configurable, not yet executed by the engine"><span className="text-[8.5px] font-bold uppercase text-amber-600 bg-amber-50 px-1.5 py-0.5 rounded">soon</span></Tip>
           )}
         </div>
-        <p className="text-[11.5px] text-muted-foreground mt-2 line-clamp-2 break-words">{summary(data.kind, data.config, data.triggerType)}</p>
+        {/* Trigger keywords as pills, otherwise plain summary */}
+        {isTrigger && tKws.length > 0 ? (
+          <div className="mt-2.5 flex flex-wrap gap-1.5">
+            {tKws.map((kw, i) => (
+              <span key={i} className="inline-flex items-center px-2 py-0.5 rounded-full text-[10px] font-semibold bg-amber-100 text-amber-800 border border-amber-200">{kw}</span>
+            ))}
+          </div>
+        ) : (
+          <p className="text-[11.5px] text-muted-foreground mt-2 line-clamp-2 break-words">{summary(data.kind, data.config, data.triggerType)}</p>
+        )}
         {options.length > 0 && (
           <div className="mt-2.5 flex gap-1.5">
             {options.map((opt, i) => (
