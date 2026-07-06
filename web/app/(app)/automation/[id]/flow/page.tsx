@@ -456,7 +456,7 @@ function ImageUpload({ url, onChange }: { url: string; onChange: (u: string) => 
   );
 }
 
-function AutoReplyConfig({ c, set }: { c: Record<string, unknown>; set: (k: string, v: unknown) => void }) {
+function AutoReplyConfig({ c, set, forms }: { c: Record<string, unknown>; set: (k: string, v: unknown) => void; forms: { id: string; name: string }[] }) {
   // Composed reply: a body + an optional image + an optional interactive
   // (buttons/list). Legacy nodes used a single message_type; migrate on read.
   const legacy = String(c.message_type ?? "");
@@ -476,10 +476,16 @@ function AutoReplyConfig({ c, set }: { c: Record<string, unknown>; set: (k: stri
       <Field label="Image (optional)"><ImageUpload url={String(c.media_url ?? "")} onChange={(u) => set("media_url", u)} /></Field>
 
       {/* Optional interactive: reply buttons or a list menu. */}
-      <Field label="Buttons / list (optional)">
+      <Field label="Interactive (optional)">
         <Select value={interactive} searchable={false} onChange={(v) => set("interactive", v)} className="w-full"
-          options={[{ value: "none", label: "None (text / image only)" }, { value: "buttons", label: "Reply buttons" }, { value: "list", label: "List menu" }]} />
+          options={[{ value: "none", label: "None (text / image only)" }, { value: "buttons", label: "Reply buttons" }, { value: "list", label: "List menu" }, { value: "flow", label: "WhatsApp Flow button" }]} />
       </Field>
+
+      {interactive === "flow" && <>
+        <Field label="WhatsApp Flow"><Select value={String(c.flow_id ?? "")} onChange={(v) => set("flow_id", v)} options={forms.map((f) => ({ value: f.id, label: f.name }))} placeholder="Select a published flow…" className="w-full" /></Field>
+        <Field label="Button label"><input value={String(c.flow_cta ?? "")} onChange={(e) => set("flow_cta", e.target.value)} placeholder="Get Offers" className={INP} /></Field>
+        {forms.length === 0 && <p className="text-[12px] text-amber-600">No published forms yet. Publish one in WhatsApp Forms first.</p>}
+      </>}
 
       {(interactive === "buttons" || interactive === "list") && (
         <Field label="Footer (optional)"><input value={String(c.footer ?? "")} onChange={(e) => set("footer", e.target.value)} placeholder="Small footnote" className={INP} /></Field>
@@ -662,7 +668,7 @@ function Inspector({ node, triggerType, campaigns, forms, agents, stages, sheetE
           <div className="px-3 py-2 rounded-md bg-amber-50 border border-amber-200 text-[12px] text-amber-700 font-medium">Configurable now; the engine doesn&apos;t execute this action type yet.</div>
         )}
         {isTrigger && <TriggerConditionsConfig triggerType={triggerType} c={c} onChange={onChange} />}
-        {kind === "send_message" && <AutoReplyConfig c={c} set={set} />}
+        {kind === "send_message" && <AutoReplyConfig c={c} set={set} forms={forms} />}
         {kind === "send_template" && <Field label="Template name"><input value={String(c.template_name ?? "")} onChange={(e) => set("template_name", e.target.value)} placeholder="welcome_v1" className={INP} /></Field>}
         {kind === "send_form" && <>
           <Field label="Form"><Select value={String(c.form_id ?? "")} onChange={pickById(forms, "form_id", "form_name")} options={forms.map((f) => ({ value: f.id, label: f.name }))} placeholder="Search published form…" className="w-full" /></Field>

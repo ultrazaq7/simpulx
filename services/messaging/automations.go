@@ -486,6 +486,34 @@ func (a *app) execStep(ctx context.Context, orgID, convID, contactID string, s a
 		if mt := pStr(s.Params, "message_type"); interactive == "" && (mt == "buttons" || mt == "list") {
 			interactive = mt
 		}
+		// Flow CTA: a button that opens a WhatsApp Flow (reuses the send_form path).
+		if interactive == "flow" {
+			formID := pStr(s.Params, "flow_id")
+			if formID == "" {
+				return
+			}
+			metaFlowID, ok := a.st.publishedFlowMeta(ctx, orgID, formID)
+			if !ok {
+				a.log.Warn("auto-reply flow: form not published", "form", formID)
+				return
+			}
+			target, terr := a.st.sendTarget(ctx, convID)
+			if terr != nil {
+				a.log.Warn("auto-reply flow: no target", "err", terr)
+				return
+			}
+			tb := make([]byte, 8)
+			_, _ = rand.Read(tb)
+			token := "f-" + formID + "-" + hex.EncodeToString(tb)
+			body := pStr(s.Params, "body")
+			if body == "" {
+				body = pStr(s.Params, "message")
+			}
+			if _, err := a.snd.sendFlow(ctx, target, metaFlowID, token, resolvePlaceholders(vars, pStr(s.Params, "flow_cta")), resolvePlaceholders(vars, body)); err != nil {
+				a.log.Warn("auto-reply flow send failed", "err", err)
+			}
+			return
+		}
 		if interactive == "buttons" || interactive == "list" {
 			// A list can't carry an image header on WhatsApp, so send its image (if
 			// any) as a separate message first. Buttons keep the image as a header.
