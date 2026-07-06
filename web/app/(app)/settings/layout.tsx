@@ -16,6 +16,7 @@ import { cn } from "@/lib/utils";
 import { api, getUser } from "@/lib/api";
 import { usePermissions } from "@/lib/permissions";
 import { useI18n } from "@/lib/i18n";
+import { useEscClose } from "@/lib/useEscClose";
 import { Tip } from "@/components/ui/tooltip";
 
 // perm = permission key gating this section. Items without a dedicated perm in
@@ -66,6 +67,10 @@ export default function SettingsLayout({ children }: { children: ReactNode }) {
   // immediately (no expand-then-collapse flash).
   const [collapsed, setCollapsed] = useState<boolean>(() => typeof window !== "undefined" && localStorage.getItem("simpulx_settings_collapsed") === "1");
   const toggle = () => setCollapsed((c) => { const n = !c; localStorage.setItem("simpulx_settings_collapsed", n ? "1" : "0"); return n; });
+  // Esc collapses the settings sidebar. It mounts after Shell, so it sits ABOVE
+  // the main sidebar on the shared LIFO stack -> Esc collapses this one first,
+  // then the main sidebar (the order requested).
+  useEscClose(!collapsed, () => { setCollapsed(true); localStorage.setItem("simpulx_settings_collapsed", "1"); }, -2);
 
   // Platform is visible only to the super admin (a configured email, not a role).
   // Lazy-init from the cached session so the Platform item renders immediately on

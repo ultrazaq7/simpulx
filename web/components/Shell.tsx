@@ -15,6 +15,7 @@ import { Tip } from "@/components/ui/tooltip";
 import { usePermissions } from "@/lib/permissions";
 import type { AppNotification, User } from "@/lib/types";
 import { useI18n } from "@/lib/i18n";
+import { useEscClose } from "@/lib/useEscClose";
 import IncomingCallListener from "@/components/IncomingCallListener";
 import CommandPalette from "@/components/CommandPalette";
 import KeyboardHelp from "@/components/KeyboardHelp";
@@ -225,6 +226,10 @@ export function Shell({ children }: { children: ReactNode }) {
     window.addEventListener("keydown", onKey);
     return () => window.removeEventListener("keydown", onKey);
   }, [mobileNavOpen]);
+  // Esc collapses the desktop sidebar — registered on the shared LIFO stack as
+  // the LOWEST-priority overlay (it mounts first), so Esc only reaches it after
+  // every dropdown, the inbox conversation, and the settings sidebar have closed.
+  useEscClose(!isMobile && sidebarOpen, () => setSidebarOpen(false), -3);
 
   // Clicking a background (service worker) notification posts here -> open the chat.
   useEffect(() => {

@@ -566,6 +566,7 @@ export default function Composer({
         {/* Textarea */}
         <textarea
           ref={textareaRef}
+          data-flat
           value={draft}
           onChange={(e) => setDraft(e.target.value)}
           onKeyDown={(e) => { if (e.key === "Enter" && !e.shiftKey) { e.preventDefault(); onSubmit(); } }}

@@ -7,7 +7,7 @@ import { cn, channelColor, channelTextColor, initials } from "@/lib/utils";
 
 import { api, getUser, WS_URL } from "@/lib/api";
 import { dateLabel } from "@/lib/utils";
-import { hasOpenOverlay } from "@/lib/useEscClose";
+import { useEscClose } from "@/lib/useEscClose";
 import type { Agent, Channel, Conversation, Disposition, InternalNote, Message, QuickReply, Stage } from "@/lib/types";
 import ChatPanel, { type Item } from "./components/ChatPanel";
 import ConversationList, { type SortMode } from "./components/ConversationList";
@@ -200,28 +200,22 @@ export default function InboxPage() {
   // Tab title (with unread count) is owned solely by Shell to avoid two effects
   // fighting over document.title on the inbox.
 
-  // --- Mark active as read and Esc to close ---
+  // --- Mark active as read ---
   useEffect(() => {
-    if (activeId) {
-      setConvs((prev) => prev.map((c) => (c.id === activeId ? { ...c, unread_count: 0 } : c)));
-      api.patchConversation(activeId, { unread_count: 0 })
-        .then(() => window.dispatchEvent(new CustomEvent("refreshUnread")))
-        .catch(() => { });
-        
-      const handleEsc = (e: KeyboardEvent) => {
-        if (e.key === "Escape") {
-          // An open overlay (filter popover, stage/interest menu, drawer) owns
-          // Escape first - don't close the conversation out from under it.
-          if (hasOpenOverlay()) return;
-          // Close the right details panel first; only close the conversation once it's hidden.
-          if (showDetailsRef.current) { setShowDetails(false); return; }
-          setActiveId(null);
-        }
-      };
-      window.addEventListener("keydown", handleEsc);
-      return () => window.removeEventListener("keydown", handleEsc);
-    }
+    if (!activeId) return;
+    setConvs((prev) => prev.map((c) => (c.id === activeId ? { ...c, unread_count: 0 } : c)));
+    api.patchConversation(activeId, { unread_count: 0 })
+      .then(() => window.dispatchEvent(new CustomEvent("refreshUnread")))
+      .catch(() => { });
   }, [activeId]);
+
+  // Esc closes the conversation (right details panel first), routed through the
+  // shared LIFO stack: any open dropdown/menu closes before it, and the sidebars
+  // collapse after it (dropdown -> conversation -> settings sidebar -> main).
+  useEscClose(!!activeId, () => {
+    if (showDetailsRef.current) setShowDetails(false);
+    else setActiveId(null);
+  }, -1);
 
   // --- Load notes for active conversation ---
   useEffect(() => {

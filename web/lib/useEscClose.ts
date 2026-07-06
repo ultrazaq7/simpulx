@@ -7,7 +7,13 @@ import { useEffect, useRef } from "react";
 // the order they opened (drawer -> nested confirm on top: Esc closes the
 // confirm first, then the drawer). See ai-context/22-enterprise-revamp-plan.md.
 
-type Entry = { id: number; close: () => void };
+// priority orders WHAT closes first, independent of mount/registration order
+// (React runs child effects before parents, so push-order alone is unreliable):
+// higher priority closes first; ties break to the most recently opened.
+// 0 = dropdowns/menus/panels (default). Negatives = persistent chrome that should
+// only close after everything transient: conversation (-1), settings sidebar
+// (-2), main sidebar (-3).
+type Entry = { id: number; close: () => void; priority: number };
 
 let stack: Entry[] = [];
 let listening = false;
@@ -20,8 +26,11 @@ function handleKey(e: KeyboardEvent) {
   // propagation + preventDefaults, so it closes before we touch the stack).
   if (e.isComposing || (e as KeyboardEvent & { keyCode?: number }).keyCode === 229) return;
   if (e.defaultPrevented) return;
-  const top = stack[stack.length - 1];
-  if (!top) return;
+  if (stack.length === 0) return;
+  let top = stack[0];
+  for (const en of stack) {
+    if (en.priority > top.priority || (en.priority === top.priority && en.id > top.id)) top = en;
+  }
   e.preventDefault();
   top.close();
 }
@@ -46,16 +55,16 @@ export function hasOpenOverlay(): boolean {
  * duplicate it) and cleaned up on close/unmount (no zombie entries). Safe under
  * React StrictMode's double-mount.
  */
-export function useEscClose(open: boolean, onClose: () => void) {
+export function useEscClose(open: boolean, onClose: () => void, priority = 0) {
   const cbRef = useRef(onClose);
   cbRef.current = onClose;
   useEffect(() => {
     if (!open) return;
     const id = ++seq;
-    stack.push({ id, close: () => cbRef.current() });
+    stack.push({ id, close: () => cbRef.current(), priority });
     ensureListener();
     return () => {
       stack = stack.filter((entry) => entry.id !== id);
     };
-  }, [open]);
+  }, [open, priority]);
 }

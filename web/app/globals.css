@@ -270,6 +270,17 @@ select[class]:focus {
   outline: none !important;
 }
 
+/* Opt-out for borderless fields that live *inside* a styled container (the
+   composer, in-container search): the container is the visual surface, so the
+   field itself must not paint its own focus border/ring. */
+textarea[data-flat]:focus,
+textarea[data-flat]:focus-visible,
+input[data-flat]:focus,
+input[data-flat]:focus-visible {
+  border-color: transparent !important;
+  box-shadow: none !important;
+}
+
 /* Kill ring on focus-within containers (but NOT border — keep Composer clean) */
 *:focus-within {
   --tw-ring-offset-shadow: 0 0 #0000 !important;

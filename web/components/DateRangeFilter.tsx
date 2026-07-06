@@ -49,6 +49,15 @@ export default function DateRangeFilter({ value, onChange, align = "left" }: {
     window.addEventListener("mousedown", h);
     return () => window.removeEventListener("mousedown", h);
   }, [open]);
+
+  // Auto-align the popover so it never clips off the right edge: if there isn't
+  // room to open leftward, anchor it to the trigger's right. Overrides `align`.
+  const [autoAlign, setAutoAlign] = useState<"left" | "right">(align);
+  useEffect(() => {
+    if (!open || !ref.current) return;
+    const r = ref.current.getBoundingClientRect();
+    setAutoAlign(r.left + 300 > window.innerWidth - 12 ? "right" : "left");
+  }, [open, align]);
   useEffect(() => { if (!open) setShowCal(false); }, [open]);
   // Esc closes the calendar first, then the popover (shared LIFO stack).
   useEscClose(open, () => setOpen(false));
@@ -62,7 +71,9 @@ export default function DateRangeFilter({ value, onChange, align = "left" }: {
   const isCustom = value.preset === "custom" || (!value.preset && !!value.from);
   const label = isCustom && value.from ? `${us(value.from)} - ${us(value.to)}` : (PRESETS.find((p) => p[0] === value.preset)?.[1] || "All time");
 
+  const isFiltered = (!!value.preset && value.preset !== "all") || !!value.from;
   function choosePreset(key: string) { const r = presetRange(key); onChange({ preset: key, from: r.from, to: r.to }); setOpen(false); }
+  function clearFilter() { onChange({ preset: "all", from: "", to: "" }); setShowCal(false); setOpen(false); }
   function onDay(d: Date) {
     const s = fmtLocal(d);
     if (!pick.start || pick.end) { setPick({ start: s, end: "" }); setHover(""); return; }
@@ -74,8 +85,12 @@ export default function DateRangeFilter({ value, onChange, align = "left" }: {
 
   // While picking the second date, preview the range against the hovered day.
   const selecting = !!pick.start && !pick.end;
-  const lo = selecting && hover ? (hover < pick.start ? hover : pick.start) : pick.start;
-  const hi = selecting && hover ? (hover < pick.start ? pick.start : hover) : pick.end;
+  // Only surface a range for a real custom pick (or while actively picking). A
+  // preset like "Last 30 days" must NOT pre-fill the DATE RANGE field/calendar —
+  // the field stays a placeholder until the user picks a custom range.
+  const active = value.preset === "custom" || selecting;
+  const lo = !active ? "" : (selecting && hover ? (hover < pick.start ? hover : pick.start) : pick.start);
+  const hi = !active ? "" : (selecting && hover ? (hover < pick.start ? pick.start : hover) : pick.end);
 
   const cells = useMemo(() => {
     const first = new Date(view.getFullYear(), view.getMonth(), 1);
@@ -102,9 +117,9 @@ export default function DateRangeFilter({ value, onChange, align = "left" }: {
           <div className="mt-2 pt-2 border-t border-border">
             <p className="px-1 mb-1.5 text-[11px] font-bold uppercase tracking-wider text-muted-foreground">Date range</p>
             <button type="button" onClick={() => setShowCal((v) => !v)}
-              className={cn("w-full flex items-center gap-2 px-2 h-9 rounded-md border bg-background text-[12.5px] outline-none transition-colors", showCal ? "border-primary ring-2 ring-primary/20" : "border-input hover:border-muted-foreground/40")}>
+              className={cn("w-full flex items-center gap-2 px-2 h-9 rounded-md border bg-background text-[12px] outline-none transition-colors overflow-hidden", showCal ? "border-primary ring-2 ring-primary/20" : "border-input hover:border-muted-foreground/40")}>
               <Calendar className="w-3.5 h-3.5 text-muted-foreground shrink-0" />
-              <span className={cn("tabular-nums", lo ? "text-foreground" : "text-muted-foreground/60")}>
+              <span className={cn("truncate min-w-0 tabular-nums", lo ? "text-foreground" : "text-muted-foreground/60")}>
                 {lo ? us(lo) : "MM/DD/YYYY"} <span className="text-muted-foreground/50">–</span> {hi ? us(hi) : "MM/DD/YYYY"}
               </span>
             </button>
@@ -135,6 +150,14 @@ export default function DateRangeFilter({ value, onChange, align = "left" }: {
             </div>
             </div>)}
           </div>
+          {isFiltered && (
+            <div className="mt-2 pt-2 border-t border-border">
+              <button type="button" onClick={clearFilter}
+                className="w-full h-8 rounded-md text-[12.5px] font-semibold text-muted-foreground hover:bg-muted hover:text-foreground outline-none transition-colors">
+                Clear filter
+              </button>
+            </div>
+          )}
         </div>
       )}
     </div>
