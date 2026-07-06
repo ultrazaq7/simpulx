@@ -157,25 +157,20 @@ function FlowNode({ data, selected }: NodeProps<AppNode>) {
         </div>
         {/* Trigger keywords as pills, otherwise plain summary */}
         {isTrigger && tKws.length > 0 ? (
-          <div className="mt-2.5 flex flex-wrap gap-1.5">
+          <div className="mt-2.5 flex flex-wrap gap-2">
             {tKws.map((kw, i) => (
-              <span key={i} className="inline-flex items-center px-2 py-0.5 rounded-full text-[10px] font-semibold bg-amber-100 text-amber-800 border border-amber-200">{kw}</span>
+              <span key={i} className="inline-flex items-center px-2.5 py-1 rounded-full text-[11px] font-bold bg-amber-500/15 text-amber-700 border border-amber-300 shadow-sm">{kw}</span>
             ))}
           </div>
         ) : (
           <p className="text-[11.5px] text-muted-foreground mt-2 line-clamp-2 break-words">{summary(data.kind, data.config, data.triggerType)}</p>
         )}
         {options.length > 0 && (
-          <div className="mt-2.5 flex gap-1.5">
+          <div className="mt-2.5 flex gap-1.5 pb-1">
             {options.map((opt, i) => (
-              <div key={opt.id} className="relative flex-1 flex flex-col items-center">
-                <div className="w-full flex items-center justify-center gap-1 rounded-md border border-border bg-muted/50 px-1.5 py-1.5 text-[10px] font-medium text-foreground">
-                  <span className="grid place-items-center w-4 h-4 rounded bg-primary/15 text-primary text-[8px] font-bold shrink-0">{i + 1}</span>
-                  <span className="truncate">{opt.title}</span>
-                </div>
-                <Handle id={opt.id} type="source" position={Position.Bottom}
-                  style={{ position: "absolute", bottom: -14, left: "50%" }}
-                  className="!w-2.5 !h-2.5 !bg-primary !border-2 !border-card" />
+              <div key={opt.id} className="flex-1 flex items-center justify-center gap-1 rounded-md border border-border bg-muted/50 px-1.5 py-1.5 text-[10px] font-medium text-foreground">
+                <span className="grid place-items-center w-4 h-4 rounded bg-primary/15 text-primary text-[8px] font-bold shrink-0">{i + 1}</span>
+                <span className="truncate">{opt.title}</span>
               </div>
             ))}
           </div>
@@ -190,7 +185,14 @@ function FlowNode({ data, selected }: NodeProps<AppNode>) {
           <Handle id="match" type="source" position={Position.Bottom} style={{ left: "26%" }} className="!w-2.5 !h-2.5 !bg-emerald-500 !border-2 !border-card" />
           <Handle id="else" type="source" position={Position.Bottom} style={{ left: "74%" }} className="!w-2.5 !h-2.5 !bg-slate-400 !border-2 !border-card" />
         </>
-      ) : options.length > 0 ? null : (
+      ) : options.length > 0 ? (
+        // One handle per button, positioned along the node's bottom edge centered under each button.
+        options.map((opt, i) => (
+          <Handle key={opt.id} id={opt.id} type="source" position={Position.Bottom}
+            style={{ left: `${Math.round(((i + 0.5) / options.length) * 100)}%` }}
+            className="!w-2.5 !h-2.5 !bg-primary !border-2 !border-card" />
+        ))
+      ) : (
         <Handle type="source" position={Position.Bottom} className="!w-2.5 !h-2.5 !bg-primary !border-2 !border-card" />
       )}
     </div>
