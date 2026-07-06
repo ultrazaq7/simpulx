@@ -39,7 +39,6 @@ export default function PlatformPage() {
             <div className="w-9 h-9 rounded-lg bg-primary/10 text-primary grid place-items-center shrink-0"><Boxes className="w-[18px] h-[18px]" /></div>
             <div className="min-w-0">
               <h1 className="text-[15px] font-bold text-foreground leading-tight">Platform</h1>
-              <p className="text-[12px] text-muted-foreground truncate">All organizations, packages, and Simpuler credit pools.</p>
             </div>
           </div>
           <button onClick={() => setPanel({ mode: "create" })}
@@ -153,8 +152,7 @@ function OrgPanel({ mode, org, onClose, onDone, onError }: {
 
   return (
     <SidePanel open onClose={onClose} width="md" busy={busy}
-      title={isEdit ? "Edit organization" : "New organization"}
-      description={isEdit ? org?.name : "Create an organization, its owner, and its credit pool."}
+      title={isEdit ? (org?.name || "Edit organization") : "New organization"}
       onApply={submit} applyLabel={isEdit ? "Save" : "Create"} applyDisabled={!canSubmit}>
       <div className="space-y-4">
         <div><FieldLabel>Company name</FieldLabel><input value={name} onChange={(e) => setName(e.target.value)} placeholder="Acme Motors" className={INPUT_CLASS} /></div>

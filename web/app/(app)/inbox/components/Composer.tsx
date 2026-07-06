@@ -644,8 +644,8 @@ export default function Composer({
             aria-label={note ? "Add internal note" : "Send message"}
             disabled={busy || (!draft.trim() && pendingFiles.length === 0)}
             className={cn(
-              "w-10 h-10 rounded-full flex items-center justify-center text-white transition-all disabled:opacity-50",
-              note ? "bg-amber hover:bg-amber/90 shadow-sm" : "bg-primary hover:bg-primary-dark shadow-sm hover:shadow-brand-md",
+              "w-10 h-10 shrink-0 rounded-full flex items-center justify-center text-white transition-colors disabled:opacity-50",
+              note ? "bg-amber hover:bg-amber/90 shadow-sm" : "bg-primary hover:bg-primary-dark shadow-sm",
             )}
           >
             {busy ? <Loader2 className="w-[18px] h-[18px] animate-spin" /> : note ? <Lock className="w-[18px] h-[18px]" /> : <Send className="w-[18px] h-[18px]" />}
