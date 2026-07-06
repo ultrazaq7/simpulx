@@ -87,6 +87,7 @@ const PAGE_TITLES: Record<string, { category: string; title: string; icon?: any 
   "/settings/templates": { category: "TEMPLATES", title: "Message Templates" },
   "/settings/automation": { category: "AUTOMATION", title: "Automation" },
   "/settings/wa-forms": { category: "FORMS", title: "WhatsApp Forms" },
+  "/settings/quick-replies": { category: "TEMPLATES", title: "Quick Replies" },
   "/settings/channels": { category: "CHANNELS", title: "Channel & Integrations" },
   "/settings/platform": { category: "PLATFORM", title: "Platform", icon: Boxes },
   "/settings/ads": { category: "ANALYTICS", title: "Ad Performance" },

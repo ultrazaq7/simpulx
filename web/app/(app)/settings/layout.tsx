@@ -10,7 +10,7 @@ import { usePathname } from "next/navigation";
 import {
   Settings, FormInput, Bell, User, ShieldCheck,
   Building2, FileText, GitBranch, RadioTower, Clock, ClipboardList,
-  PanelLeftClose, PanelLeftOpen, Boxes,
+  PanelLeftClose, PanelLeftOpen, Boxes, Zap,
 } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { api, getUser } from "@/lib/api";
@@ -44,6 +44,7 @@ const GROUPS: { titleKey: string; items: NavItem[] }[] = [
       { key: "templates", labelKey: "settings.templates", icon: FileText, href: "/settings/templates", perm: "view_settings" },
       { key: "automation", labelKey: "settings.automations", icon: GitBranch, href: "/settings/automation", perm: "view_automation" },
       { key: "wa-forms", labelKey: "settings.forms", icon: ClipboardList, href: "/settings/wa-forms", perm: "view_automation" },
+      { key: "quick-replies", labelKey: "Quick Replies", icon: Zap, href: "/settings/quick-replies", perm: "view_settings" },
       { key: "custom-fields", labelKey: "settings.custom_fields", icon: FormInput, href: "/settings/custom-fields", perm: "view_settings" },
       // Channel & Integrations merges messaging channels, Web API lead sources and ad accounts.
       { key: "channels", labelKey: "settings.channels_integrations", icon: RadioTower, href: "/settings/channels", perm: "manage_channels" },
