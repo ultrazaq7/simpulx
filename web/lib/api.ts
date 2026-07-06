@@ -221,8 +221,14 @@ export const api = {
     }
   },
   me: () => req<User>("/api/me"),
-  listConversations: (status = "") =>
-    req<Conversation[]>(`/api/conversations${status ? `?status=${status}` : ""}`),
+  listConversations: (status = "", from = "", to = "") => {
+    const q = new URLSearchParams();
+    if (status) q.set("status", status);
+    if (from) q.set("from", from);
+    if (to) q.set("to", to);
+    const qs = q.toString();
+    return req<Conversation[]>(`/api/conversations${qs ? "?" + qs : ""}`);
+  },
   // The endpoint returns a paginated { data, next_cursor }; tolerate both shapes
   // so callers that just want the latest messages (e.g. the contacts chat popup)
   // always get an array instead of crashing on `.map`.

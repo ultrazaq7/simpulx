@@ -99,6 +99,26 @@ func (s *server) handleListConversations(w http.ResponseWriter, r *http.Request)
 		visibility = strings.ReplaceAll(visibility, "$3", "$"+fmt.Sprint(len(args)))
 	}
 
+	// Optional created_at range, evaluated in the workspace timezone so it lines up
+	// with the dashboard's date-scoped counts. Carried by dashboard drill-ins via
+	// ?from=&to=; there is intentionally no date picker in the inbox UI.
+	dateFilter := ""
+	fromS, toS := r.URL.Query().Get("from"), r.URL.Query().Get("to")
+	if fromS != "" || toS != "" {
+		orgTz := "Asia/Jakarta"
+		_ = s.pool.QueryRow(r.Context(), `SELECT COALESCE(NULLIF(settings->>'timezone',''),'Asia/Jakarta') FROM organizations WHERE id=$1`, a.OrgID).Scan(&orgTz)
+		args = append(args, orgTz)
+		tzIdx := len(args)
+		if fromS != "" {
+			args = append(args, fromS)
+			dateFilter += fmt.Sprintf(" AND cv.created_at >= ($%d::date AT TIME ZONE $%d)", len(args), tzIdx)
+		}
+		if toS != "" {
+			args = append(args, toS)
+			dateFilter += fmt.Sprintf(" AND cv.created_at < (($%d::date + 1) AT TIME ZONE $%d)", len(args), tzIdx)
+		}
+	}
+
 	rows, err := s.queryMaps(r.Context(),
 		`SELECT cv.id::text AS id, cv.status, cv.channel, cv.is_bot_active,
 		        cv.unread_count, cv.last_message_at, cv.last_contact_message_at, cv.last_message_preview,
@@ -976,8 +996,17 @@ func (s *server) handleAnalytics(w http.ResponseWriter, r *http.Request) {
 		campFilterCv += fmt.Sprintf(" AND cv.assigned_agent_id = ANY($%d)", len(args))
 		campFilter += fmt.Sprintf(" AND assigned_agent_id = ANY($%d)", len(args))
 	}
-	campFilterCv, args = applySourceFilter(r, "cv", campFilterCv, args)
-	campFilter, args = applySourceFilter(r, "", campFilter, args)
+	// Source filter — append the value ONCE and reference it from both the cv and
+	// no-alias filter strings (same param index), so every query below binds
+	// exactly the params it references. Appending twice (the old applySourceFilter
+	// x2) left one arg unreferenced by the cv-only funnel query -> bind-parameter
+	// mismatch -> 500 -> the dashboard silently kept stale numbers.
+	if src := r.URL.Query().Get("source"); src != "" {
+		args = append(args, strings.Split(src, ","))
+		si := len(args)
+		campFilterCv += fmt.Sprintf(" AND %s = ANY($%d)", sourceClassifyExpr("cv"), si)
+		campFilter += fmt.Sprintf(" AND %s = ANY($%d)", sourceClassifyExpr(""), si)
+	}
 	// Custom date range on lead creation, evaluated in the workspace timezone so
 	// the boundaries line up with the user's local days (inclusive of 'to').
 	fromS, toS := r.URL.Query().Get("from"), r.URL.Query().Get("to")

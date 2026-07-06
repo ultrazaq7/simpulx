@@ -216,7 +216,7 @@ func (s *server) handleUpdateCampaign(w http.ResponseWriter, r *http.Request) {
 	tag, err := s.pool.Exec(r.Context(),
 		`UPDATE campaigns SET
 		   name = COALESCE(NULLIF($3,''), name),
-		   dealer_name = COALESCE($4, dealer_name),
+		   dealer_name = COALESCE(NULLIF($4,''), dealer_name),
 		   status = COALESCE(NULLIF($5,''), status),
 		   routing_strategy = COALESCE(NULLIF($6,''), routing_strategy),
 		   ad_source_ids = COALESCE($7, ad_source_ids),

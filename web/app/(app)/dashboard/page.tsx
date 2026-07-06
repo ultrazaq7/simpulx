@@ -513,6 +513,8 @@ function ManagerDashboard() {
     fCampaign.length ? `campaign=${fCampaign.join(",")}` : "",
     fAgent.length ? `agent=${fAgent.join(",")}` : "",
     fChannel.length ? `channel=${fChannel.join(",")}` : "",
+    fFrom ? `from=${fFrom}` : "",
+    fTo ? `to=${fTo}` : "",
   ].filter(Boolean).join("&");
   const metricHref = (h: string) => cardFilterQS ? `${h}${h.includes("?") ? "&" : "?"}${cardFilterQS}` : h;
 

@@ -159,6 +159,10 @@ interface ConversationListProps {
   channels?: Channel[];
   filterChannels: string[];
   onFilterChannelsChange: (v: string[]) => void;
+  // Date scope carried from a dashboard drill-in (backend filter; no date picker
+  // here). Counts toward the active-filter strip so "Clear all" resets it too.
+  dateScope?: { from: string; to: string };
+  onClearDateScope?: () => void;
   className?: string; // parent-controlled responsive visibility (mobile single-pane)
 }
 
@@ -179,6 +183,7 @@ export default function ConversationList({
   activeMessages,
   agents, filterAgents, onFilterAgentsChange, showAgent,
   channels, filterChannels, onFilterChannelsChange,
+  dateScope, onClearDateScope,
   className,
 }: ConversationListProps) {
   const [filterOpen, setFilterOpen] = useState(false);
@@ -335,7 +340,8 @@ export default function ConversationList({
   const activeFiltersCount =
     filterStages.length + filterCampaigns.length + filterInterests.length + filterStatuses.length + filterAgents.length + filterChannels.length +
     (followUpOnly ? 1 : 0) + (unreadOnly ? 1 : 0) + (needsReplyOnly ? 1 : 0) + (unassignedOnly ? 1 : 0) +
-    (responded ? 1 : 0) + (unresponded ? 1 : 0) + (lastByCustomer ? 1 : 0) + (lastByBot ? 1 : 0) + (lostReasonFilter ? 1 : 0) + (query ? 1 : 0);
+    (responded ? 1 : 0) + (unresponded ? 1 : 0) + (lastByCustomer ? 1 : 0) + (lastByBot ? 1 : 0) + (lostReasonFilter ? 1 : 0) + (query ? 1 : 0) +
+    ((dateScope?.from || dateScope?.to) ? 1 : 0);
 
   const clearAll = () => {
     onQueryChange("");
@@ -354,6 +360,7 @@ export default function ConversationList({
     setLastByCustomer(false);
     setLastByBot(false);
     onClearLostReason?.();
+    onClearDateScope?.();
   };
 
   const filterCategories: FilterCategory[] = [

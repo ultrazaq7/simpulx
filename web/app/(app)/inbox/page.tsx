@@ -178,15 +178,38 @@ export default function InboxPage() {
     overscan: 10,
   });
 
+  // Date scope carried from a dashboard drill-in (?from=&to=). Surfaced as a
+  // dismissible chip (the only date affordance in the inbox); clearing reloads all.
+  const [dateScope, setDateScope] = useState<{ from: string; to: string }>(() => {
+    if (typeof window === "undefined") return { from: "", to: "" };
+    const sp = new URLSearchParams(window.location.search);
+    return { from: sp.get("from") || "", to: sp.get("to") || "" };
+  });
+  const dateScopeRef = useRef(dateScope);
+  dateScopeRef.current = dateScope;
+
   // --- Data loaders ---
   const loadConvs = useCallback(async () => {
     try {
-      const list = (await api.listConversations()) || [];
+      const { from, to } = dateScopeRef.current;
+      const list = (await api.listConversations("", from, to)) || [];
       const aid = activeIdRef.current;
       // The conversation you're viewing is always read - never show its badge.
       setConvs(aid ? list.map((c) => (c.id === aid ? { ...c, unread_count: 0 } : c)) : list);
     } catch { } finally { setConvsLoading(false); }
   }, []);
+
+  const clearDateScope = useCallback(() => {
+    dateScopeRef.current = { from: "", to: "" };
+    setDateScope({ from: "", to: "" });
+    if (typeof window !== "undefined") {
+      const url = new URL(window.location.href);
+      url.searchParams.delete("from");
+      url.searchParams.delete("to");
+      window.history.replaceState({}, "", url.toString());
+    }
+    loadConvs();
+  }, [loadConvs]);
 
   useEffect(() => { loadConvs(); }, [loadConvs]);
   // Polling fallback: refresh every 15s as safety net
@@ -505,6 +528,8 @@ export default function InboxPage() {
           channels={channels}
           filterChannels={filterChannels}
           onFilterChannelsChange={setFilterChannels}
+          dateScope={dateScope}
+          onClearDateScope={clearDateScope}
           className={cn(activeId && "max-lg:hidden")}
         />
 
