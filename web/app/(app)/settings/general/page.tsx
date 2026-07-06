@@ -15,6 +15,15 @@ const LANGUAGES = [
   { value: "id", label: "Indonesia" },
 ];
 
+const COMPANY_SIZES = [
+  { value: "", label: "Not set" },
+  { value: "1-10", label: "1-10" },
+  { value: "11-50", label: "11-50" },
+  { value: "51-200", label: "51-200" },
+  { value: "201-500", label: "201-500" },
+  { value: "500+", label: "500+" },
+];
+
 const COUNTRY_CODES = [
   { value: "62", label: "Indonesia (+62)" },
   { value: "60", label: "Malaysia (+60)" },
@@ -100,6 +109,11 @@ export default function GeneralSettingsPage() {
   const [origTimezone, setOrigTimezone] = useState(Intl.DateTimeFormat().resolvedOptions().timeZone);
   const [country, setCountry] = useState("62");
   const [origCountry, setOrigCountry] = useState("62");
+  // Enterprise company-profile fields (stored in the org settings jsonb).
+  const [industry, setIndustry] = useState(""); const [origIndustry, setOrigIndustry] = useState("");
+  const [companySize, setCompanySize] = useState(""); const [origCompanySize, setOrigCompanySize] = useState("");
+  const [website, setWebsite] = useState(""); const [origWebsite, setOrigWebsite] = useState("");
+  const [supportEmail, setSupportEmail] = useState(""); const [origSupportEmail, setOrigSupportEmail] = useState("");
 
   const tzOptions = useMemo(() => getTimezones().map((tz) => { const off = tzOffset(tz); return { value: tz, label: off ? `${tz} (${off})` : tz }; }), []);
 
@@ -108,31 +122,40 @@ export default function GeneralSettingsPage() {
       setName(o.name || ""); setOrigName(o.name || "");
       const s = o.settings ?? {};
       setSettings(s);
-      const l = (s as Record<string, string>).locale || "en";
+      const sr = s as Record<string, string>;
+      const l = sr.locale || "en";
       setLocale(l); setOrigLocale(l);
-      const t = (s as Record<string, string>).timezone || Intl.DateTimeFormat().resolvedOptions().timeZone;
+      const t = sr.timezone || Intl.DateTimeFormat().resolvedOptions().timeZone;
       setTimezone(t); setOrigTimezone(t);
-      const c = (s as Record<string, string>).country_code || "62";
+      const c = sr.country_code || "62";
       setCountry(c); setOrigCountry(c);
+      setIndustry(sr.industry || ""); setOrigIndustry(sr.industry || "");
+      setCompanySize(sr.company_size || ""); setOrigCompanySize(sr.company_size || "");
+      setWebsite(sr.website || ""); setOrigWebsite(sr.website || "");
+      setSupportEmail(sr.support_email || ""); setOrigSupportEmail(sr.support_email || "");
     }).catch(() => {}).finally(() => setLoading(false));
     api.getSubscription().then(setSub).catch(() => {});
   }, []);
 
-  const dirty = name.trim() !== origName || locale !== origLocale || timezone !== origTimezone || country !== origCountry;
+  const dirty = name.trim() !== origName || locale !== origLocale || timezone !== origTimezone || country !== origCountry
+    || industry !== origIndustry || companySize !== origCompanySize || website !== origWebsite || supportEmail !== origSupportEmail;
 
   async function save() {
-    if (!name.trim()) { notify("Workspace name is required", "error"); return; }
+    if (!name.trim()) { notify("Company name is required", "error"); return; }
     setSaving(true);
     try {
-      const nextSettings = { ...settings, locale, timezone, country_code: country };
+      const nextSettings = { ...settings, locale, timezone, country_code: country, industry: industry.trim(), company_size: companySize, website: website.trim(), support_email: supportEmail.trim() };
       await api.updateOrganization({ name: name.trim(), settings: nextSettings });
       setOrigName(name.trim()); setOrigLocale(locale); setOrigTimezone(timezone); setOrigCountry(country);
+      setOrigIndustry(industry); setOrigCompanySize(companySize); setOrigWebsite(website); setOrigSupportEmail(supportEmail);
       setSettings(nextSettings);
       setLang(locale);
       notify("Settings saved");
     } catch (e) { notify(String(e), "error"); }
     finally { setSaving(false); }
   }
+
+  const inputCls = "w-full h-9 px-3 rounded-md border border-input bg-background text-[13.5px] text-foreground placeholder:text-muted-foreground/70 outline-none transition-shadow focus:border-primary focus:ring-2 focus:ring-primary/20";
 
   if (loading || allowed !== true) return (
     <PageBody><div className="flex justify-center py-20"><Loader2 className="w-6 h-6 animate-spin text-muted-foreground" /></div></PageBody>
@@ -142,23 +165,36 @@ export default function GeneralSettingsPage() {
     <PageBody maxWidth={1120}>
       {ToastHost}
 
-      <div className="flex items-center justify-end mb-4">
+      <div className="flex items-center justify-between gap-4 mb-5 px-4 py-3 rounded-lg border border-border bg-card shadow-xs">
+        <div className="min-w-0">
+          <h1 className="text-[15px] font-bold text-foreground leading-tight">General</h1>
+          <p className="text-[12px] text-muted-foreground truncate">Company profile, localization, and subscription.</p>
+        </div>
         <PrimaryButton onClick={save} disabled={saving || !dirty}>
           {saving ? <Loader2 className="w-4 h-4 animate-spin" /> : dirty ? "Save changes" : "Saved"}
         </PrimaryButton>
       </div>
 
       <div className="grid grid-cols-1 lg:grid-cols-2 gap-5">
-        {/* ── Workspace ── */}
-        <Panel icon={Building2} title="Workspace">
-          <div className="flex items-center gap-4">
-            <div className="w-14 h-14 rounded-xl bg-primary/10 text-primary-text grid place-items-center text-lg font-bold shrink-0">
-              {initials(name) || <Building2 className="w-6 h-6" />}
+        {/* ── Company ── */}
+        <Panel icon={Building2} title="Company">
+          <div className="space-y-4">
+            <div className="flex items-center gap-4">
+              <div className="w-14 h-14 rounded-xl bg-primary/10 text-primary-text grid place-items-center text-lg font-bold shrink-0">
+                {initials(name) || <Building2 className="w-6 h-6" />}
+              </div>
+              <div className="flex-1 min-w-0">
+                <FieldLabel>Company name</FieldLabel>
+                <input type="text" value={name} onChange={(e) => setName(e.target.value)} placeholder="Your company name" className={inputCls} />
+              </div>
             </div>
-            <div className="flex-1 min-w-0">
-              <FieldLabel>Workspace name</FieldLabel>
-              <input type="text" value={name} onChange={(e) => setName(e.target.value)} placeholder="Your company or workspace name"
-                className="w-full h-9 px-3 rounded-md border border-input bg-background text-[13.5px] text-foreground placeholder:text-muted-foreground/70 outline-none transition-shadow focus:border-primary focus:ring-2 focus:ring-primary/20" />
+            <div className="grid grid-cols-2 gap-4">
+              <div><FieldLabel>Industry</FieldLabel><input type="text" value={industry} onChange={(e) => setIndustry(e.target.value)} placeholder="e.g. Automotive" className={inputCls} /></div>
+              <div><FieldLabel>Company size</FieldLabel><Select value={companySize} onChange={setCompanySize} options={COMPANY_SIZES} searchable={false} /></div>
+            </div>
+            <div className="grid grid-cols-2 gap-4">
+              <div><FieldLabel>Website</FieldLabel><input type="url" value={website} onChange={(e) => setWebsite(e.target.value)} placeholder="https://example.com" className={inputCls} /></div>
+              <div><FieldLabel>Support email</FieldLabel><input type="email" value={supportEmail} onChange={(e) => setSupportEmail(e.target.value)} placeholder="support@example.com" className={inputCls} /></div>
             </div>
           </div>
         </Panel>

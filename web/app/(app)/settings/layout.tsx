@@ -10,9 +10,10 @@ import { usePathname } from "next/navigation";
 import {
   Settings, FormInput, Bell, User, ShieldCheck,
   Building2, FileText, GitBranch, RadioTower, Clock, ClipboardList,
-  PanelLeftClose, PanelLeftOpen,
+  PanelLeftClose, PanelLeftOpen, Boxes,
 } from "lucide-react";
 import { cn } from "@/lib/utils";
+import { api } from "@/lib/api";
 import { usePermissions } from "@/lib/permissions";
 import { useI18n } from "@/lib/i18n";
 import { Tip } from "@/components/ui/tooltip";
@@ -63,10 +64,17 @@ export default function SettingsLayout({ children }: { children: ReactNode }) {
   useEffect(() => { setCollapsed(localStorage.getItem("simpulx_settings_collapsed") === "1"); }, []);
   const toggle = () => setCollapsed((c) => { const n = !c; localStorage.setItem("simpulx_settings_collapsed", n ? "1" : "0"); return n; });
 
+  // Platform is visible only to the super admin (a configured email, not a role).
+  const [isSuper, setIsSuper] = useState(false);
+  useEffect(() => { api.platformAccess().then((r) => setIsSuper(r.super_admin)).catch(() => {}); }, []);
+
   // Hide sections the role can't access; drop groups that become empty.
-  const groups = GROUPS
-    .map((g) => ({ ...g, items: g.items.filter((i) => can(i.perm)) }))
-    .filter((g) => g.items.length > 0);
+  const groups = [
+    ...GROUPS
+      .map((g) => ({ ...g, items: g.items.filter((i) => can(i.perm)) }))
+      .filter((g) => g.items.length > 0),
+    ...(isSuper ? [{ titleKey: "Platform", items: [{ key: "platform", labelKey: "Platform", icon: Boxes, href: "/settings/platform", perm: "" }] }] : []),
+  ];
 
   // Active item = the nav href that is a prefix of the current path (so nested
   // routes like /settings/automation/<id>/flow keep "Automation" highlighted).

@@ -49,6 +49,7 @@ type server struct {
 	conversationURL string
 	knowledgeURL    string
 	aiAgentURL      string
+	superAdminEmail string // platform super admin (NOT a role); default admin@simpulx.com
 	httpClient      *http.Client
 	storage         *storage
 	log             interface {
@@ -123,6 +124,7 @@ func main() {
 		conversationURL: config.Get("CONVERSATION_URL", "http://conversation:8083"),
 		knowledgeURL:    config.Get("KNOWLEDGE_URL", "http://knowledge:8001"),
 		aiAgentURL:      config.Get("AI_AGENT_URL", "http://ai-agent:8000"),
+		superAdminEmail: config.Get("SUPER_ADMIN_EMAIL", "admin@simpulx.com"),
 		httpClient:      &http.Client{Timeout: 30 * time.Second},
 		log:             log,
 	}
@@ -330,6 +332,11 @@ func main() {
 	mux.HandleFunc("GET /api/campaigns/{id}/credits", s.requireAuth(s.handleGetCampaignCredits))
 	mux.HandleFunc("POST /api/campaigns/{id}/credits/allocate", s.requireAuth(s.gate("manage_campaigns", s.handleAllocateCampaignCredits)))
 	mux.HandleFunc("GET /api/campaigns/{id}/usage", s.requireAuth(s.handleCampaignUsage))
+	// Platform super admin (email-gated, NOT a role): manage every org + credit pool.
+	mux.HandleFunc("GET /api/platform/access", s.requireAuth(s.handlePlatformAccess))
+	mux.HandleFunc("GET /api/platform/orgs", s.requireSuperAdmin(s.handleListOrgs))
+	mux.HandleFunc("POST /api/platform/orgs", s.requireSuperAdmin(s.handleCreateOrg))
+	mux.HandleFunc("PATCH /api/platform/orgs/{id}", s.requireSuperAdmin(s.handleUpdateOrg))
 	mux.HandleFunc("POST /api/uploads", s.requireAuth(s.handleUpload))
 
 	// Proxy media directly to minio

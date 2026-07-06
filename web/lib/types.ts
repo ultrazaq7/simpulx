@@ -443,6 +443,22 @@ export interface OrgNotifications { newMessages?: boolean; newConversations?: bo
 export interface OrgSettings { notifications?: OrgNotifications; branding?: OrgBranding; [k: string]: unknown; }
 export interface Organization { id: string; name: string; settings: OrgSettings | null; }
 
+// Platform super-admin org row (full columns): profile + credit pool + usage.
+export interface OrgRow {
+  id: string;
+  name: string;
+  slug: string;
+  created_at: string;
+  package_name: string;
+  status: string;
+  renewal_date: string | null;
+  quotas: Record<string, number>;
+  users_active: number;
+  users_total: number;
+  campaigns: number;
+  credits_used_month: number;
+}
+
 // Platform vocabulary shared with AdAccount.platform - keep these in sync.
 export type SourcePlatform = "meta" | "tiktok" | "google" | "other";
 

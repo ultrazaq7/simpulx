@@ -10,7 +10,7 @@ import '../../features/auth/presentation/pages/reset_password_page.dart';
 import '../../features/calls/domain/call_session.dart';
 import '../../features/calls/presentation/call_controller.dart';
 import '../../features/chat/domain/entities/conversation.dart';
-import '../../features/chat/presentation/pages/archived_page.dart';
+
 import '../../features/chat/presentation/pages/chat_list_page.dart';
 import '../../features/chat/presentation/pages/chat_thread_page.dart';
 import '../../features/contacts/presentation/pages/contact_detail_page.dart';
@@ -121,12 +121,6 @@ final routerProvider = Provider<GoRouter>((ref) {
           // We do minimal rendering to avoid showing the wrong screen.
           return _CallRoutePage(conversationId: state.pathParameters['id']!);
         },
-      ),
-      // WhatsApp-style Archived view (holds Lost leads).
-      GoRoute(
-        path: '/archived',
-        parentNavigatorKey: _rootKey,
-        builder: (context, state) => const ArchivedPage(),
       ),
       // Full-screen lead detail.
       GoRoute(
