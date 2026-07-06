@@ -125,7 +125,8 @@ class _ActionsSheet extends ConsumerWidget {
                   title: Text('Internal notes'.tr(context)),
                   onTap: () {
                     Navigator.of(context).pop();
-                    showNotesSheet(context, convId);
+                    showNotesSheet(context, convId,
+                        smartSummaryEnabled: live.campaignSmartSummary);
                   },
                 ),
                 if (role?.isManagerTier ?? false)

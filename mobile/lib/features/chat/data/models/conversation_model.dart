@@ -30,6 +30,7 @@ class ConversationModel {
       lostReason: asStringOrNull(json['lost_reason']),
       campaignName: asStringOrNull(json['campaign_name']),
       lastOutboundStatus: asStringOrNull(json['last_outbound_status']),
+      campaignSmartSummary: asBool(json['campaign_smart_summary'] ?? true),
     );
   }
 }

@@ -9,7 +9,11 @@ import '../controllers/chat_actions_providers.dart';
 import '../controllers/chat_providers.dart';
 
 /// Internal notes for a conversation: timeline + add field.
-Future<void> showNotesSheet(BuildContext context, String conversationId) {
+Future<void> showNotesSheet(
+  BuildContext context,
+  String conversationId, {
+  bool smartSummaryEnabled = true,
+}) {
   return showModalBottomSheet<void>(
     context: context,
     isScrollControlled: true,
@@ -19,15 +23,22 @@ Future<void> showNotesSheet(BuildContext context, String conversationId) {
       ),
       child: FractionallySizedBox(
         heightFactor: 0.85,
-        child: _NotesSheet(conversationId: conversationId),
+        child: _NotesSheet(
+          conversationId: conversationId,
+          smartSummaryEnabled: smartSummaryEnabled,
+        ),
       ),
     ),
   );
 }
 
 class _NotesSheet extends ConsumerStatefulWidget {
-  const _NotesSheet({required this.conversationId});
+  const _NotesSheet({
+    required this.conversationId,
+    required this.smartSummaryEnabled,
+  });
   final String conversationId;
+  final bool smartSummaryEnabled;
 
   @override
   ConsumerState<_NotesSheet> createState() => _NotesSheetState();
@@ -113,17 +124,18 @@ class _NotesSheetState extends ConsumerState<_NotesSheet> {
                 child: Text('Internal notes',
                     style: TextStyle(fontSize: 16, fontWeight: FontWeight.w700)),
               ),
-              TextButton.icon(
-                onPressed: _summarizing ? null : _generateSummary,
-                icon: _summarizing
-                    ? const SizedBox(
-                        width: 16,
-                        height: 16,
-                        child: CircularProgressIndicator(strokeWidth: 2),
-                      )
-                    : const Icon(Icons.auto_awesome, size: 18),
-                label: const Text('Smart Summary'),
-              ),
+              if (widget.smartSummaryEnabled)
+                TextButton.icon(
+                  onPressed: _summarizing ? null : _generateSummary,
+                  icon: _summarizing
+                      ? const SizedBox(
+                          width: 16,
+                          height: 16,
+                          child: CircularProgressIndicator(strokeWidth: 2),
+                        )
+                      : const Icon(Icons.auto_awesome, size: 18),
+                  label: const Text('Smart Summary'),
+                ),
             ],
           ),
         ),

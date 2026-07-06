@@ -27,6 +27,7 @@ class Conversation extends Equatable {
     this.lostReason,
     this.campaignName,
     this.lastOutboundStatus,
+    this.campaignSmartSummary = true,
   });
 
   final String id;
@@ -52,6 +53,7 @@ class Conversation extends Equatable {
   final String? lostReason; // set when a closed lead was marked Lost/Spam
   final String? campaignName;
   final String? lastOutboundStatus; // sent | delivered | read | failed
+  final bool campaignSmartSummary; // per-campaign Smart Summary toggle
 
   /// A closed lead that carries a lost reason is a "Lost" lead, not just closed.
   bool get isLost => status == 'closed' && (lostReason?.isNotEmpty ?? false);
@@ -85,6 +87,7 @@ class Conversation extends Equatable {
         'lost_reason': lostReason,
         'campaign_name': campaignName,
         'last_outbound_status': lastOutboundStatus,
+        'campaign_smart_summary': campaignSmartSummary,
       };
 
   String get displayName =>
@@ -130,6 +133,7 @@ class Conversation extends Equatable {
       lostReason: lostReason ?? this.lostReason,
       campaignName: campaignName ?? this.campaignName,
       lastOutboundStatus: lastOutboundStatus ?? this.lastOutboundStatus,
+      campaignSmartSummary: campaignSmartSummary,
     );
   }
 
