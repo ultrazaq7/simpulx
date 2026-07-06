@@ -241,3 +241,25 @@ func (s *server) handleUpdateOrg(w http.ResponseWriter, r *http.Request) {
 	}
 	writeJSON(w, map[string]any{"status": "updated"})
 }
+
+// DELETE /api/platform/orgs/{id} — permanently remove an org and everything under
+// it (cascades). Super admin only; you cannot delete your own organization.
+func (s *server) handleDeleteOrg(w http.ResponseWriter, r *http.Request) {
+	a, _ := authFrom(r.Context())
+	orgID := r.PathValue("id")
+	if orgID == a.OrgID {
+		http.Error(w, "you cannot delete your own organization", http.StatusBadRequest)
+		return
+	}
+	tag, err := s.pool.Exec(r.Context(), `DELETE FROM organizations WHERE id=$1::uuid`, orgID)
+	if err != nil {
+		http.Error(w, err.Error(), http.StatusInternalServerError)
+		return
+	}
+	if tag.RowsAffected() == 0 {
+		http.Error(w, "not found", http.StatusNotFound)
+		return
+	}
+	s.log.Info("platform: org deleted", "org", orgID)
+	writeJSON(w, map[string]any{"status": "deleted"})
+}

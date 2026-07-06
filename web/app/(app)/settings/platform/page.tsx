@@ -1,7 +1,7 @@
 "use client";
 import { useEffect, useState } from "react";
 import { useRouter } from "next/navigation";
-import { Loader2, Plus, Pencil, Building2 } from "lucide-react";
+import { Loader2, Plus, Pencil, Building2, Trash2 } from "lucide-react";
 import { api } from "@/lib/api";
 import { cn, fmtDateTimeShort } from "@/lib/utils";
 import type { OrgRow } from "@/lib/types";
@@ -191,6 +191,21 @@ function OrgPanel({ mode, org, onClose, onDone, onError }: {
           </div>
           <p className="text-[11px] text-muted-foreground">Simpuler credits are the org-wide monthly AI-reply pool. Each campaign draws from it via its Credits &amp; Usage allocation.</p>
         </div>
+
+        {isEdit && org && (
+          <div className="pt-3 border-t border-border">
+            <button type="button" disabled={busy}
+              onClick={async () => {
+                if (!confirm(`Delete "${org.name}"? This permanently removes the organization and all its users, campaigns and data.`)) return;
+                setBusy(true);
+                try { await api.deleteOrg(org.id); onDone("Organization deleted"); }
+                catch (e) { onError(String(e)); } finally { setBusy(false); }
+              }}
+              className="inline-flex items-center gap-1.5 text-[13px] font-semibold text-red-600 hover:text-red-700 outline-none disabled:opacity-50">
+              <Trash2 className="w-4 h-4" />Delete organization
+            </button>
+          </div>
+        )}
       </div>
     </SidePanel>
   );
