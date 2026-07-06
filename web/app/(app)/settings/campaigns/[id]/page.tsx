@@ -2,6 +2,7 @@
 import { useEffect, useRef, useState } from "react";
 import { useParams, useRouter } from "next/navigation";
 import { ArrowLeft, Loader2, Coins, Sparkles, BarChart3, Database, Upload, Trash2 } from "lucide-react";
+import * as XLSX from "xlsx";
 import { api } from "@/lib/api";
 import { Select } from "@/components/Select";
 import { cn } from "@/lib/utils";
@@ -226,7 +227,9 @@ function CatalogTab({ id, segment, notify }: { id: string; segment?: string; not
     if (!file) return;
     setBusy(true);
     try {
-      const isPdf = file.type === "application/pdf" || file.name.toLowerCase().endsWith(".pdf");
+      const lower = file.name.toLowerCase();
+      const isPdf = file.type === "application/pdf" || lower.endsWith(".pdf");
+      const isExcel = lower.endsWith(".xlsx") || lower.endsWith(".xls") || file.type.includes("spreadsheet") || file.type.includes("excel");
       let parsed: CatalogRowInput[];
       if (isPdf) {
         notify("Extracting from PDF, this can take up to a minute...", "success");
@@ -234,6 +237,10 @@ function CatalogTab({ id, segment, notify }: { id: string; segment?: string; not
         if (res.error) { notify(`Extraction failed: ${res.error}`, "error"); return; }
         if (res.warning === "scanned") { notify("This looks like a scanned PDF (no readable text). Use a text PDF or a CSV.", "error"); return; }
         parsed = res.rows || [];
+      } else if (isExcel) {
+        const wb = XLSX.read(await file.arrayBuffer(), { type: "array" });
+        const sheet = wb.Sheets[wb.SheetNames[0]];
+        parsed = parseCatalogRows(XLSX.utils.sheet_to_json(sheet, { header: 1, raw: false, defval: "" }) as (string | number | null)[][]);
       } else {
         parsed = parseCatalogCsv(await file.text());
       }
@@ -259,12 +266,12 @@ function CatalogTab({ id, segment, notify }: { id: string; segment?: string; not
     <div className="space-y-5">
       <div className="rounded-lg border border-dashed border-border p-5 text-center">
         <div className="w-11 h-11 rounded-xl bg-primary/10 text-primary grid place-items-center mx-auto mb-3"><Upload className="w-5 h-5" /></div>
-        <p className="text-[13.5px] font-semibold text-foreground">Upload a pricelist (CSV or PDF)</p>
+        <p className="text-[13.5px] font-semibold text-foreground">Upload a pricelist (CSV, Excel, or PDF)</p>
         <p className="text-[12px] text-muted-foreground mt-0.5 max-w-[540px] mx-auto">
-          CSV columns: item_name (or brand + model), variant, location/city, category, price (or otr_price); other columns become per-row attributes (dp, tenor, emi, ...).
+          CSV/Excel columns: item_name (or brand + model), variant, location/city, category, price (or otr_price); other columns become per-row attributes (dp, tenor, emi, ...).
           A PDF pricelist is read by the AI and extracted into the same fields. A new upload replaces this campaign&apos;s catalog.
         </p>
-        <input ref={fileRef} type="file" accept=".csv,text/csv,.pdf,application/pdf" className="hidden" onChange={onFile} />
+        <input ref={fileRef} type="file" accept=".csv,text/csv,.pdf,application/pdf,.xlsx,.xls,application/vnd.openxmlformats-officedocument.spreadsheetml.sheet" className="hidden" onChange={onFile} />
         <button onClick={() => fileRef.current?.click()} disabled={busy}
           className="inline-flex items-center gap-2 px-3.5 h-9 mt-3 bg-primary text-white rounded-md text-sm font-semibold hover:bg-primary-dark shadow-sm transition-all outline-none disabled:opacity-50">
           {busy ? <Loader2 className="w-4 h-4 animate-spin" /> : <Upload className="w-4 h-4" />}Choose file
@@ -337,11 +344,12 @@ function csvToRows(text: string): string[][] {
   return rows;
 }
 
-// Map a pricelist CSV to catalog rows: known headers -> spine, the rest -> attributes.
-function parseCatalogCsv(text: string): CatalogRowInput[] {
-  const raw = csvToRows(text).filter((r) => r.some((c) => c && c.trim()));
+// Map a header+rows grid to catalog rows: known headers -> spine, the rest ->
+// attributes. Shared by CSV and Excel (both feed a string[][] with a header row).
+function parseCatalogRows(grid: (string | number | null | undefined)[][]): CatalogRowInput[] {
+  const raw = grid.filter((r) => r.some((c) => c != null && String(c).trim()));
   if (raw.length < 2) return [];
-  const header = raw[0].map((h) => h.trim().toLowerCase());
+  const header = raw[0].map((h) => String(h ?? "").trim().toLowerCase());
   const idx = (names: string[]) => { for (const n of names) { const i = header.indexOf(n); if (i >= 0) return i; } return -1; };
   const iItem = idx(["item_name", "name", "product", "product_name"]);
   const iBrand = idx(["brand_name", "brand", "merk"]);
@@ -354,7 +362,7 @@ function parseCatalogCsv(text: string): CatalogRowInput[] {
   const out: CatalogRowInput[] = [];
   for (let r = 1; r < raw.length; r++) {
     const cells = raw[r];
-    const get = (i: number) => (i >= 0 ? (cells[i] ?? "").trim() : "");
+    const get = (i: number) => (i >= 0 ? String(cells[i] ?? "").trim() : "");
     let item = get(iItem);
     if (!item) item = [get(iBrand), get(iModel)].filter(Boolean).join(" ");
     if (!item) continue;
@@ -372,3 +380,5 @@ function parseCatalogCsv(text: string): CatalogRowInput[] {
   }
   return out;
 }
+
+function parseCatalogCsv(text: string): CatalogRowInput[] { return parseCatalogRows(csvToRows(text)); }

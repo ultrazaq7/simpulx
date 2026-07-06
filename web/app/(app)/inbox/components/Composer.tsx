@@ -574,7 +574,7 @@ export default function Composer({
         />
 
         {/* Action row */}
-        <div className="relative flex items-center gap-1 px-3 pb-3">
+        <div className="relative flex items-center gap-1 pl-3 pr-4 pb-3">
           {/* Emoji */}
           <Tip label="Emoji">
             <button onClick={() => setEmojiOpen((v) => !v)} className="p-1.5 rounded-md text-muted-foreground hover:bg-muted hover:text-foreground outline-none transition-colors">
