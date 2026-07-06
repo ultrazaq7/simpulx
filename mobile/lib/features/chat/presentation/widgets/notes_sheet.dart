@@ -39,6 +39,7 @@ class _NotesSheetState extends ConsumerState<_NotesSheet> {
   bool _adding = false;
   bool _summarizing = false;
   bool _showScrollTop = false;
+  String? _aiSummary;
 
   @override
   void initState() {
@@ -56,20 +57,26 @@ class _NotesSheetState extends ConsumerState<_NotesSheet> {
     super.dispose();
   }
 
-  // Generate an AI Smart Summary and drop it into the note field for review
-  // before the agent posts it (mirrors the web composer's Smart Summary).
+  // Generate a Smart Summary and show it in a preview state
   Future<void> _generateSummary() async {
-    setState(() => _summarizing = true);
+    setState(() {
+      _summarizing = true;
+      _aiSummary = '';
+    });
     final buf = StringBuffer();
     try {
       await for (final delta
           in ref.read(chatRepositoryProvider).streamSummary(widget.conversationId)) {
         buf.write(delta);
+        if (mounted) setState(() => _aiSummary = buf.toString());
       }
       if (!mounted) return;
-      _controller.text = buf.toString().trim();
+      setState(() => _aiSummary = buf.toString().trim());
     } catch (_) {
-      if (mounted) AppSnackbar.show(context, 'Could not generate summary', isError: true);
+      if (mounted) {
+        AppSnackbar.show(context, 'Could not generate summary', isError: true);
+        setState(() => _aiSummary = null);
+      }
     } finally {
       if (mounted) setState(() => _summarizing = false);
     }
@@ -188,10 +195,79 @@ class _NotesSheetState extends ConsumerState<_NotesSheet> {
         ),
         SafeArea(
           top: false,
-          child: Padding(
-            padding: const EdgeInsets.fromLTRB(12, 8, 12, 8),
-            child: Row(
-              children: [
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              if (_aiSummary != null || _summarizing)
+                Container(
+                  margin: const EdgeInsets.fromLTRB(12, 0, 12, 0),
+                  padding: const EdgeInsets.all(12),
+                  decoration: BoxDecoration(
+                    color: AppColors.brandAmber.withValues(alpha: 0.1),
+                    border: Border.all(color: AppColors.brandAmber.withValues(alpha: 0.3)),
+                    borderRadius: BorderRadius.circular(10),
+                  ),
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.stretch,
+                    children: [
+                      Row(
+                        children: [
+                          const Icon(Icons.auto_awesome, size: 16, color: AppColors.brandAmber),
+                          const SizedBox(width: 6),
+                          const Text('Smart Summary', style: TextStyle(fontWeight: FontWeight.w700, color: AppColors.brandAmber, fontSize: 13)),
+                          const Spacer(),
+                          if (!_summarizing)
+                            InkWell(
+                              onTap: () => setState(() => _aiSummary = null),
+                              child: const Icon(Icons.close, size: 16, color: AppColors.textMuted),
+                            ),
+                        ],
+                      ),
+                      const SizedBox(height: 8),
+                      Text(
+                        (_aiSummary == null || _aiSummary!.isEmpty) ? 'Summarizing...' : _aiSummary!,
+                        style: const TextStyle(fontSize: 13),
+                      ),
+                      if (!_summarizing && _aiSummary != null && _aiSummary!.isNotEmpty) ...[
+                        const SizedBox(height: 12),
+                        Row(
+                          mainAxisAlignment: MainAxisAlignment.end,
+                          children: [
+                            TextButton(
+                              onPressed: () => setState(() => _aiSummary = null),
+                              style: TextButton.styleFrom(
+                                foregroundColor: AppColors.textMuted,
+                                padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+                                minimumSize: Size.zero,
+                              ),
+                              child: const Text('Clear', style: TextStyle(fontSize: 12, fontWeight: FontWeight.bold)),
+                            ),
+                            const SizedBox(width: 8),
+                            FilledButton.icon(
+                              onPressed: () {
+                                _controller.text = _aiSummary!;
+                                setState(() => _aiSummary = null);
+                                _add();
+                              },
+                              style: FilledButton.styleFrom(
+                                backgroundColor: AppColors.brandAmber,
+                                foregroundColor: Colors.white,
+                                padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+                                minimumSize: Size.zero,
+                              ),
+                              icon: const Icon(Icons.check, size: 14),
+                              label: const Text('Add as note', style: TextStyle(fontSize: 12, fontWeight: FontWeight.bold)),
+                            ),
+                          ],
+                        ),
+                      ],
+                    ],
+                  ),
+                ),
+              Padding(
+                padding: const EdgeInsets.fromLTRB(12, 8, 12, 8),
+                child: Row(
+                  children: [
                 Expanded(
                   child: TextField(
                     controller: _controller,

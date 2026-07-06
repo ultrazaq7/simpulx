@@ -93,7 +93,7 @@ export default function Composer({
     return () => clearTimeout(t);
   }, [conversationId]);
 
-  // ── AI Smart Summary (Internal note tab only) ──
+  // ── Smart Summary (Internal note tab only) ──
   const [aiOpen, setAiOpen] = useState(false);
   const [aiText, setAiText] = useState("");
   const [aiState, setAiState] = useState<"idle" | "streaming" | "done" | "error">("idle");
@@ -389,7 +389,7 @@ export default function Composer({
 
           <div className="flex-1" />
 
-          {/* AI Smart Summary — Internal note tab only, and only if the campaign enables it */}
+          {/* Smart Summary — Internal note tab only, and only if the campaign enables it */}
           {note && smartSummaryEnabled && (
             <button
               type="button"
@@ -399,8 +399,7 @@ export default function Composer({
                 aiOpen ? "bg-amber-100 text-amber-800" : "text-amber-700 hover:bg-amber-100",
               )}
             >
-              <Sparkles className={cn("w-3.5 h-3.5", aiState === "streaming" && "animate-pulse")} />
-              AI Smart Summary
+              Smart Summary
             </button>
           )}
         </div>
@@ -414,7 +413,7 @@ export default function Composer({
           )}>
             <div className="flex items-center gap-1.5 px-3 py-2 border-b border-amber-200 bg-amber-50">
               <Sparkles className="w-4 h-4 text-amber-700" />
-              <p className="text-[13px] font-bold text-foreground">AI Smart Summary</p>
+              <p className="text-[13px] font-bold text-foreground">Smart Summary</p>
               <div className="ml-auto flex items-center gap-0.5">
                 {aiState !== "streaming" && (
                   <Tip label="Regenerate">
