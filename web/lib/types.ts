@@ -443,6 +443,21 @@ export interface OrgNotifications { newMessages?: boolean; newConversations?: bo
 export interface OrgSettings { notifications?: OrgNotifications; branding?: OrgBranding; [k: string]: unknown; }
 export interface Organization { id: string; name: string; settings: OrgSettings | null; }
 
+// One row of a campaign's segment-generic catalog / KB (WS-A).
+export interface CatalogItem {
+  id: string;
+  segment: string | null;
+  category_type: string | null;
+  item_name: string;
+  variant_name: string | null;
+  location_name: string | null;
+  headline_price: number | null;
+  effective_month: string | null;
+  source_ref: string | null;
+  attributes: Record<string, unknown>;
+  created_at: string;
+}
+
 // Platform super-admin org row (full columns): profile + credit pool + usage.
 export interface OrgRow {
   id: string;

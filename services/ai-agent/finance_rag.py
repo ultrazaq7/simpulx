@@ -5,6 +5,87 @@ import logging
 
 log = logging.getLogger("finance-rag")
 
+
+async def get_catalog_context(pool, campaign_id, brand: str, model: str,
+                              city: str = None, segment: str = None) -> str | None:
+    """Segment-generic, CAMPAIGN-SCOPED catalog lookup (WS-A).
+
+    Tries the per-campaign campaign_catalog first so one campaign never grounds
+    on another's pricing (fixes the global finance_packages cross-dealer leak).
+    If the campaign has no catalog rows -- or anything goes wrong -- it FALLS BACK
+    to the legacy global finance_packages lookup, so the live bot never loses its
+    grounding. Safe to swap in for get_finance_context at any call site that has
+    the conversation's campaign_id in scope.
+    """
+    if campaign_id:
+        try:
+            ctx = await _catalog_from_table(pool, campaign_id, brand, model, city)
+            if ctx:
+                return ctx
+        except Exception as e:  # never let the new path break grounding
+            log.warning(f"campaign_catalog lookup failed, falling back: {e}")
+    # Fallback: legacy global finance_packages (automotive only).
+    return await get_finance_context(pool, brand, model, city)
+
+
+async def _catalog_from_table(pool, campaign_id, brand: str, model: str,
+                              city: str = None) -> str | None:
+    """Query campaign_catalog for one campaign, matching item/variant on the
+    lead's brand/model. Formats rows segment-agnostically (spine columns +
+    whatever segment-specific keys sit in the attributes jsonb)."""
+    needle = (model or brand or "").strip()
+    if not needle:
+        return None
+    like = f"%{needle}%"
+    async with pool.acquire() as conn:
+        rows = await conn.fetch(
+            """SELECT item_name, variant_name, location_name, category_type,
+                      headline_price, attributes
+                 FROM campaign_catalog
+                WHERE campaign_id = $1::uuid
+                  AND (item_name ILIKE $2 OR variant_name ILIKE $2
+                       OR $2 ILIKE '%' || item_name || '%')
+                ORDER BY variant_name NULLS LAST, headline_price ASC NULLS LAST
+                LIMIT 8""",
+            campaign_id, like,
+        )
+    if not rows:
+        return None
+    # If a city was given and some rows match it, prefer those (else keep all).
+    if city:
+        cl = city.strip().lower()
+        pref = [r for r in rows if r["location_name"] and cl in r["location_name"].lower()]
+        if pref:
+            rows = pref
+
+    def rupiah(v):
+        try:
+            return f"Rp {int(v):,}".replace(",", ".")
+        except (TypeError, ValueError):
+            return None
+
+    lines = ["[INFO KATALOG / HARGA TERBARU YANG TERSEDIA DI DATABASE (Tawarkan Jika Relevan)]:"]
+    for i, r in enumerate(rows, 1):
+        parts = [r["item_name"] or ""]
+        if r["variant_name"]:
+            parts.append(r["variant_name"])
+        if r["location_name"]:
+            parts.append(f"({r['location_name']})")
+        price = rupiah(r["headline_price"])
+        if price:
+            parts.append(f"| Harga: {price}")
+        # Surface segment-specific fields from attributes (dp, tenor, emi, size, ...).
+        attrs = r["attributes"] or {}
+        if isinstance(attrs, dict):
+            for k, v in attrs.items():
+                if v in (None, ""):
+                    continue
+                money = rupiah(v) if k in ("dp", "dp_amount", "emi", "plafon", "otr_price", "price") else None
+                parts.append(f"| {k}: {money or v}")
+        lines.append("  " + f"{i}. " + " ".join(str(p) for p in parts if p))
+    lines.append("CATATAN UNTUK AI: Jika customer bertanya tentang harga/DP/cicilan, GUNAKAN angka dari atas. Jangan buat estimasi sendiri.")
+    return "\n".join(lines)
+
 async def get_finance_context(pool, brand: str, model: str, city: str = None) -> str | None:
     """
     Mencari paket kredit yang cocok di tabel finance_packages

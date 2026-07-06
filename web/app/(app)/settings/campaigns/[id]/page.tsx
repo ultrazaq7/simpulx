@@ -1,15 +1,15 @@
 "use client";
-import { useEffect, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import { useParams, useRouter } from "next/navigation";
-import { ArrowLeft, Loader2, Coins, Sparkles, BarChart3 } from "lucide-react";
+import { ArrowLeft, Loader2, Coins, Sparkles, BarChart3, Database, Upload, Trash2 } from "lucide-react";
 import { api } from "@/lib/api";
 import { Select } from "@/components/Select";
 import { cn } from "@/lib/utils";
-import type { CampaignDetail, CampaignAnalyticsRow } from "@/lib/types";
+import type { CampaignDetail, CampaignAnalyticsRow, CatalogItem } from "@/lib/types";
 import { useToast, PageBody, FieldLabel, INPUT_CLASS, PrimaryButton } from "../../_shared";
 
 const SEGMENTS = ["Automotive", "Property / Real Estate", "Finance", "Insurance", "Retail / FMCG", "Education", "Healthcare", "Travel & Hospitality", "Food & Beverage", "Services", "Other"];
-type Tab = "overview" | "credits" | "ai";
+type Tab = "overview" | "credits" | "ai" | "catalog";
 
 export default function CampaignDetailPage() {
   const { id } = useParams<{ id: string }>();
@@ -27,6 +27,7 @@ export default function CampaignDetailPage() {
     { key: "overview", label: "Overview", Icon: BarChart3 },
     { key: "credits", label: "Credits & Usage", Icon: Coins },
     { key: "ai", label: "AI Assistant", Icon: Sparkles },
+    { key: "catalog", label: "Catalog & Pricing", Icon: Database },
   ];
 
   return (
@@ -57,6 +58,7 @@ export default function CampaignDetailPage() {
               {tab === "overview" && <OverviewTab id={id} />}
               {tab === "credits" && <CreditsTab id={id} notify={notify} />}
               {tab === "ai" && <AITab campaign={campaign} onSaved={(c) => { setCampaign(c); notify("AI settings saved"); }} onError={(m) => notify(m, "error")} />}
+              {tab === "catalog" && <CatalogTab id={id} segment={campaign.segment ?? undefined} notify={notify} />}
             </div>
           </>
         )}
@@ -203,4 +205,152 @@ function AITab({ campaign, onSaved, onError }: { campaign: CampaignDetail; onSav
       <PrimaryButton onClick={save} disabled={saving}>{saving ? <Loader2 className="w-4 h-4 animate-spin" /> : null}Save AI settings</PrimaryButton>
     </div>
   );
+}
+
+// ── Catalog & Pricing (WS-A) ────────────────────────────────────────────────
+// Per-campaign pricelist the Simpuler bot grounds pricing answers on. Upload a
+// CSV; recognized columns map to the spine (item/variant/location/price), the
+// rest land in each row's attributes. A new upload replaces the campaign's rows.
+type CatalogRowInput = { item_name: string; variant_name?: string; location_name?: string; category_type?: string; headline_price?: number | null; attributes?: Record<string, unknown> };
+
+function CatalogTab({ id, segment, notify }: { id: string; segment?: string; notify: (m: string, s?: "success" | "error") => void }) {
+  const [rows, setRows] = useState<CatalogItem[] | null>(null);
+  const [busy, setBusy] = useState(false);
+  const fileRef = useRef<HTMLInputElement>(null);
+
+  function load() { api.getCampaignCatalog(id).then(setRows).catch(() => setRows([])); }
+  useEffect(load, [id]); // eslint-disable-line react-hooks/exhaustive-deps
+
+  async function onFile(e: React.ChangeEvent<HTMLInputElement>) {
+    const file = e.target.files?.[0]; e.target.value = "";
+    if (!file) return;
+    try {
+      const parsed = parseCatalogCsv(await file.text());
+      if (parsed.length === 0) { notify("No rows found. Check the file has a header and data.", "error"); return; }
+      setBusy(true);
+      const month = new Date().toISOString().slice(0, 7);
+      const res = await api.uploadCampaignCatalog(id, { replace: true, segment, source_ref: file.name, effective_month: month, rows: parsed });
+      notify(`Imported ${res.inserted} item${res.inserted === 1 ? "" : "s"}`);
+      load();
+    } catch (err) { notify(String(err), "error"); } finally { setBusy(false); }
+  }
+
+  async function clearAll() {
+    if (!confirm("Remove all catalog rows for this campaign? The bot will fall back to the shared pricing table.")) return;
+    setBusy(true);
+    try { await api.clearCampaignCatalog(id); notify("Catalog cleared"); load(); }
+    catch (e) { notify(String(e), "error"); } finally { setBusy(false); }
+  }
+
+  if (rows === null) return <Loader2 className="w-5 h-5 animate-spin text-muted-foreground" />;
+  const fmtPrice = (v: number | null) => v == null ? "" : "Rp " + Math.round(v).toLocaleString("id-ID");
+
+  return (
+    <div className="space-y-5">
+      <div className="rounded-lg border border-dashed border-border p-5 text-center">
+        <div className="w-11 h-11 rounded-xl bg-primary/10 text-primary grid place-items-center mx-auto mb-3"><Upload className="w-5 h-5" /></div>
+        <p className="text-[13.5px] font-semibold text-foreground">Upload a pricelist (CSV)</p>
+        <p className="text-[12px] text-muted-foreground mt-0.5 max-w-[520px] mx-auto">
+          Recognized columns: item_name (or brand + model), variant, location/city, category, price (or otr_price).
+          Any other columns are kept per row as attributes (dp, tenor, emi, size, ...). A new upload replaces this campaign&apos;s catalog.
+        </p>
+        <input ref={fileRef} type="file" accept=".csv,text/csv" className="hidden" onChange={onFile} />
+        <button onClick={() => fileRef.current?.click()} disabled={busy}
+          className="inline-flex items-center gap-2 px-3.5 h-9 mt-3 bg-primary text-white rounded-md text-sm font-semibold hover:bg-primary-dark shadow-sm transition-all outline-none disabled:opacity-50">
+          {busy ? <Loader2 className="w-4 h-4 animate-spin" /> : <Upload className="w-4 h-4" />}Choose CSV
+        </button>
+      </div>
+
+      <div className="flex items-center justify-between">
+        <p className="text-[13px] text-muted-foreground"><span className="font-semibold text-foreground tabular-nums">{rows.length}</span> item{rows.length === 1 ? "" : "s"} in this campaign&apos;s catalog</p>
+        {rows.length > 0 && (
+          <button onClick={clearAll} disabled={busy} className="inline-flex items-center gap-1.5 text-[12.5px] font-semibold text-red-500 hover:text-red-600 outline-none disabled:opacity-50">
+            <Trash2 className="w-4 h-4" />Clear all
+          </button>
+        )}
+      </div>
+
+      {rows.length > 0 && (
+        <div className="rounded-lg border border-border overflow-hidden">
+          <div className="overflow-x-auto max-h-[420px] overflow-y-auto">
+            <table className="w-full text-sm min-w-[640px] whitespace-nowrap">
+              <thead className="sticky top-0 bg-muted/60 backdrop-blur">
+                <tr className="border-b border-border">
+                  {["Item", "Variant", "Location", "Price", "Attributes"].map((h) => (
+                    <th key={h} className={cn("px-3 py-2 text-[11px] font-bold uppercase tracking-wider text-muted-foreground", h === "Price" ? "text-right" : "text-left")}>{h}</th>
+                  ))}
+                </tr>
+              </thead>
+              <tbody>
+                {rows.slice(0, 200).map((r) => (
+                  <tr key={r.id} className="border-b border-border/60">
+                    <td className="px-3 py-2 text-[13px] font-medium text-foreground">{r.item_name}</td>
+                    <td className="px-3 py-2 text-[12.5px] text-muted-foreground">{r.variant_name || ""}</td>
+                    <td className="px-3 py-2 text-[12.5px] text-muted-foreground">{r.location_name || ""}</td>
+                    <td className="px-3 py-2 text-[12.5px] text-foreground text-right tabular-nums">{fmtPrice(r.headline_price)}</td>
+                    <td className="px-3 py-2 text-[11.5px] text-muted-foreground max-w-[280px] truncate">{Object.entries(r.attributes || {}).slice(0, 4).map(([k, v]) => `${k}: ${v}`).join("  •  ")}</td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          </div>
+          {rows.length > 200 && <p className="px-3 py-2 text-[11.5px] text-muted-foreground border-t border-border">Showing first 200 of {rows.length}.</p>}
+        </div>
+      )}
+    </div>
+  );
+}
+
+// Minimal CSV -> rows (handles quoted fields, escaped quotes, CRLF).
+function csvToRows(text: string): string[][] {
+  const rows: string[][] = []; let row: string[] = []; let cur = ""; let inQ = false;
+  for (let i = 0; i < text.length; i++) {
+    const c = text[i];
+    if (inQ) {
+      if (c === '"') { if (text[i + 1] === '"') { cur += '"'; i++; } else inQ = false; }
+      else cur += c;
+    } else if (c === '"') inQ = true;
+    else if (c === ",") { row.push(cur); cur = ""; }
+    else if (c === "\n") { row.push(cur); rows.push(row); row = []; cur = ""; }
+    else if (c === "\r") { /* skip */ }
+    else cur += c;
+  }
+  if (cur !== "" || row.length) { row.push(cur); rows.push(row); }
+  return rows;
+}
+
+// Map a pricelist CSV to catalog rows: known headers -> spine, the rest -> attributes.
+function parseCatalogCsv(text: string): CatalogRowInput[] {
+  const raw = csvToRows(text).filter((r) => r.some((c) => c && c.trim()));
+  if (raw.length < 2) return [];
+  const header = raw[0].map((h) => h.trim().toLowerCase());
+  const idx = (names: string[]) => { for (const n of names) { const i = header.indexOf(n); if (i >= 0) return i; } return -1; };
+  const iItem = idx(["item_name", "name", "product", "product_name"]);
+  const iBrand = idx(["brand_name", "brand", "merk"]);
+  const iModel = idx(["model_name", "model", "type", "tipe"]);
+  const iVariant = idx(["variant_name", "variant", "varian", "trim"]);
+  const iLoc = idx(["location_name", "city_name", "city", "kota", "location", "area"]);
+  const iCat = idx(["category_type", "category", "kategori"]);
+  const iPrice = idx(["headline_price", "otr_price", "price", "harga", "list_price"]);
+  const known = new Set([iItem, iBrand, iModel, iVariant, iLoc, iCat, iPrice].filter((i) => i >= 0));
+  const out: CatalogRowInput[] = [];
+  for (let r = 1; r < raw.length; r++) {
+    const cells = raw[r];
+    const get = (i: number) => (i >= 0 ? (cells[i] ?? "").trim() : "");
+    let item = get(iItem);
+    if (!item) item = [get(iBrand), get(iModel)].filter(Boolean).join(" ");
+    if (!item) continue;
+    const priceDigits = get(iPrice).replace(/\D/g, "");
+    const attributes: Record<string, unknown> = {};
+    header.forEach((h, i) => { if (h && !known.has(i)) { const v = get(i); if (v) attributes[h] = v; } });
+    out.push({
+      item_name: item,
+      variant_name: get(iVariant) || undefined,
+      location_name: get(iLoc) || undefined,
+      category_type: get(iCat) || undefined,
+      headline_price: priceDigits ? Number(priceDigits) : null,
+      attributes,
+    });
+  }
+  return out;
 }

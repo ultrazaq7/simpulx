@@ -1,4 +1,4 @@
-import type { Agent, AIAgent, Analytics, AppNotification, AuditEntry, Automation, AutomationAction, AutomationDetail, AutomationFlow, Broadcast, Campaign, CampaignAnalyticsRow, CampaignDetail, Channel, Contact, Conversation, InternalNote, KnowledgeSource, Message, Organization, OrgSettings, QuickReply, RolePermissions, Stats, DashboardCards, Template, TemplateButton, TemplateComponents, User, UserAccount, UserActivity, WebApiSource, SourcePlatform, WaFlow, WaFlowDetail, WaFlowResponse, FlowDefinition, GoogleSheetsInfo, OrgRow } from "./types";
+import type { Agent, AIAgent, Analytics, AppNotification, AuditEntry, Automation, AutomationAction, AutomationDetail, AutomationFlow, Broadcast, Campaign, CampaignAnalyticsRow, CampaignDetail, Channel, Contact, Conversation, InternalNote, KnowledgeSource, Message, Organization, OrgSettings, QuickReply, RolePermissions, Stats, DashboardCards, Template, TemplateButton, TemplateComponents, User, UserAccount, UserActivity, WebApiSource, SourcePlatform, WaFlow, WaFlowDetail, WaFlowResponse, FlowDefinition, GoogleSheetsInfo, OrgRow, CatalogItem } from "./types";
 
 const API = process.env.NEXT_PUBLIC_API_URL || "http://localhost:8080";
 export const WS_URL = process.env.NEXT_PUBLIC_WS_URL || "ws://localhost:8082";
@@ -453,6 +453,11 @@ export const api = {
   allocateCampaignCredits: (id: string, input: { allocated_credits?: number; low_balance_threshold?: number }) =>
     req(`/api/campaigns/${id}/credits/allocate`, { method: "POST", body: JSON.stringify(input) }),
   getCampaignUsage: (id: string) => req<{ day: string; credits: number }[]>(`/api/campaigns/${id}/usage`),
+  // ── Segment-generic campaign catalog / KB (per-campaign pricing) ──
+  getCampaignCatalog: (id: string) => req<CatalogItem[]>(`/api/campaigns/${id}/catalog`),
+  uploadCampaignCatalog: (id: string, input: { effective_month?: string; source_ref?: string; segment?: string; replace?: boolean; rows: { item_name: string; variant_name?: string; location_name?: string; category_type?: string; headline_price?: number | null; attributes?: Record<string, unknown> }[] }) =>
+    req<{ inserted: number; replaced: boolean }>(`/api/campaigns/${id}/catalog`, { method: "POST", body: JSON.stringify(input) }),
+  clearCampaignCatalog: (id: string) => req<{ deleted: number }>(`/api/campaigns/${id}/catalog`, { method: "DELETE" }),
   getSubscription: () => req<{ package_name: string; status: string; renewal_date: string | null; quotas: Record<string, number>; used_users: number; used_simpuler_credits: number; used_custom_fields: number }>("/api/subscription"),
   // ── Platform super admin (email-gated, not a role) ──
   platformAccess: () => req<{ super_admin: boolean }>("/api/platform/access"),

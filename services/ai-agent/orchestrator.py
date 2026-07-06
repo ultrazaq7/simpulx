@@ -206,6 +206,7 @@ async def maybe_nurture(broker, pool, org_id: str, conv_id: str, message_id, bod
     async with pool.acquire() as conn:
         row = await conn.fetchrow(
             """SELECT cv.is_bot_active, cv.assigned_agent_id::text AS agent_id,
+                      cv.campaign_id::text AS campaign_id,
                       cv.car_brand, cv.car_model, cv.city, cv.purchase_timeframe,
                       COALESCE(cv.metadata, '{}'::jsonb) AS metadata,
                       a.system_prompt, a.model,
@@ -286,7 +287,8 @@ async def maybe_nurture(broker, pool, org_id: str, conv_id: str, message_id, bod
     finance_ctx = ""
     if row["car_brand"] and row["car_model"]:
         import finance_rag
-        fc = await finance_rag.get_finance_context(pool, row["car_brand"], row["car_model"], row["city"])
+        # Campaign-scoped catalog first (falls back to global finance_packages).
+        fc = await finance_rag.get_catalog_context(pool, row["campaign_id"], row["car_brand"], row["car_model"], row["city"], row["segment"])
         if fc:
             finance_ctx = f"\n\n{fc}\n"
 
