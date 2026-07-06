@@ -1,7 +1,7 @@
 "use client";
-import { useEffect, useMemo, useState, type ReactNode } from "react";
+import { useEffect, useMemo, useState } from "react";
 import { useRouter } from "next/navigation";
-import { Loader2, Building2, Pencil, Check, X } from "lucide-react";
+import { Loader2, Building2 } from "lucide-react";
 import { api, getUser } from "@/lib/api";
 import { loadPermissions, canWith } from "@/lib/permissions";
 import { Select } from "@/components/Select";
@@ -9,6 +9,7 @@ import { cn } from "@/lib/utils";
 import type { OrgSettings } from "@/lib/types";
 import { useToast, PageBody, initials } from "../_shared";
 import { useI18n } from "@/lib/i18n";
+import UnsavedBar from "@/components/UnsavedBar";
 
 const LANGUAGES = [
   { value: "en", label: "English" },
@@ -50,46 +51,16 @@ function tzOffset(tz: string): string {
 }
 
 type Sub = { package_name: string; status: string; quotas: Record<string, number>; used_users: number; used_simpuler_credits: number; used_custom_fields: number };
-const INPUT = "w-full h-9 px-3 rounded-md border border-input bg-background text-[13.5px] text-foreground placeholder:text-muted-foreground/60 outline-none transition-shadow focus:border-primary focus:ring-2 focus:ring-primary/20";
+const INPUT = "w-full h-10 px-3 rounded-lg border border-input bg-background text-[13.5px] text-foreground placeholder:text-muted-foreground/60 outline-none transition-shadow focus:border-primary focus:ring-2 focus:ring-primary/20";
+const LBL = "block text-[11px] font-bold uppercase tracking-wider text-muted-foreground mb-1.5";
 
-// A settings card that toggles between read-only and edit. The Edit button lives
-// in the card header; edit mode reveals Save/Cancel. `editable=false` (e.g. no
-// permission, or a read-only card like Subscription) hides the Edit button.
-function SectionCard({ title, editing, editable = true, saving, onEdit, onSave, onCancel, children }: {
-  title: string; editing: boolean; editable?: boolean; saving?: boolean;
-  onEdit?: () => void; onSave?: () => void; onCancel?: () => void; children: ReactNode;
-}) {
+function Section({ title, children }: { title: string; children: React.ReactNode }) {
   return (
     <section>
-      <div className="flex items-center justify-between mb-2 px-1 h-7">
-        <h2 className="text-[11px] font-bold uppercase tracking-wider text-muted-foreground">{title}</h2>
-        {editable && (editing ? (
-          <div className="flex items-center gap-1.5">
-            <button onClick={onCancel} disabled={saving} className="inline-flex items-center gap-1 h-7 px-2.5 rounded-md text-[12px] font-semibold text-muted-foreground hover:bg-muted outline-none disabled:opacity-50"><X className="w-3.5 h-3.5" />Cancel</button>
-            <button onClick={onSave} disabled={saving} className="inline-flex items-center gap-1 h-7 px-2.5 rounded-md text-[12px] font-semibold text-white bg-primary hover:bg-primary-dark outline-none disabled:opacity-50">{saving ? <Loader2 className="w-3.5 h-3.5 animate-spin" /> : <Check className="w-3.5 h-3.5" />}Save</button>
-          </div>
-        ) : (
-          <button onClick={onEdit} className="inline-flex items-center gap-1 h-7 px-2.5 rounded-md text-[12px] font-semibold text-foreground/70 hover:text-foreground hover:bg-muted outline-none"><Pencil className="w-3.5 h-3.5" />Edit</button>
-        ))}
-      </div>
-      <div className="rounded-lg border border-border bg-card px-5 divide-y divide-border/60">{children}</div>
+      <h2 className="text-[15px] font-bold text-foreground mb-4">{title}</h2>
+      <div className="space-y-5">{children}</div>
     </section>
   );
-}
-
-// One row: label on the left, value or control on the right.
-function Row({ label, children }: { label: string; children: ReactNode }) {
-  return (
-    <div className="flex flex-col sm:flex-row sm:items-center gap-1 sm:gap-4 py-3 min-h-[52px]">
-      <p className="sm:w-56 shrink-0 text-[13px] font-semibold text-foreground">{label}</p>
-      <div className="flex-1 min-w-0 sm:max-w-[380px]">{children}</div>
-    </div>
-  );
-}
-
-// Read-only value text (falls back to a muted placeholder).
-function Val({ children }: { children?: string | null }) {
-  return <p className="text-[13.5px] text-foreground truncate">{children ? children : <span className="text-muted-foreground/70">Not set</span>}</p>;
 }
 
 function QuotaRow({ label, used, limit }: { label: string; used: number; limit?: number }) {
@@ -108,104 +79,100 @@ function QuotaRow({ label, used, limit }: { label: string; used: number; limit?:
   );
 }
 
+type Form = { name: string; industry: string; company_size: string; website: string; support_email: string; locale: string; timezone: string; country_code: string };
+
 export default function GeneralSettingsPage() {
   const router = useRouter();
   const { notify, ToastHost } = useToast();
   const { setLang } = useI18n();
   const [allowed, setAllowed] = useState<boolean | null>(null);
-  const [canEdit, setCanEdit] = useState(false);
   useEffect(() => {
     loadPermissions().then((doc) => {
-      const role = getUser()?.role;
-      const ok = canWith(doc, role, "view_settings");
+      const ok = canWith(doc, getUser()?.role, "view_settings");
       setAllowed(ok);
-      setCanEdit(canWith(doc, role, "manage_settings") || canWith(doc, role, "view_settings"));
       if (!ok) router.replace("/settings");
     });
   }, [router]);
 
-  const [name, setName] = useState("");
   const [settings, setSettings] = useState<OrgSettings>({});
   const [loading, setLoading] = useState(true);
+  const [saving, setSaving] = useState(false);
   const [sub, setSub] = useState<Sub | null>(null);
 
   const browserTz = Intl.DateTimeFormat().resolvedOptions().timeZone;
   const tzOptions = useMemo(() => getTimezones().map((tz) => { const off = tzOffset(tz); return { value: tz, label: off ? `${tz} (${off})` : tz }; }), []);
-  const s = settings as Record<string, string>;
+
+  const [form, setForm] = useState<Form>({ name: "", industry: "", company_size: "", website: "", support_email: "", locale: "en", timezone: browserTz, country_code: "62" });
+  const [orig, setOrig] = useState<Form>(form);
+  const set = <K extends keyof Form>(k: K, v: Form[K]) => setForm((f) => ({ ...f, [k]: v }));
 
   useEffect(() => {
-    api.getOrganization().then((o) => { setName(o.name || ""); setSettings(o.settings ?? {}); }).catch(() => {}).finally(() => setLoading(false));
+    api.getOrganization().then((o) => {
+      const s = (o.settings ?? {}) as Record<string, string>;
+      const next: Form = {
+        name: o.name || "", industry: s.industry || "", company_size: s.company_size || "",
+        website: s.website || "", support_email: s.support_email || "",
+        locale: s.locale || "en", timezone: s.timezone || browserTz, country_code: s.country_code || "62",
+      };
+      setSettings(o.settings ?? {}); setForm(next); setOrig(next);
+    }).catch(() => {}).finally(() => setLoading(false));
     api.getSubscription().then(setSub).catch(() => {});
-  }, []);
+  }, []); // eslint-disable-line react-hooks/exhaustive-deps
 
-  // ── Company section (name + profile) ──
-  const [editCo, setEditCo] = useState(false);
-  const [savingCo, setSavingCo] = useState(false);
-  const [co, setCo] = useState({ name: "", industry: "", company_size: "", website: "", support_email: "" });
-  function startCo() { setCo({ name, industry: s.industry || "", company_size: s.company_size || "", website: s.website || "", support_email: s.support_email || "" }); setEditCo(true); }
-  async function saveCo() {
-    if (!co.name.trim()) { notify("Company name is required", "error"); return; }
-    setSavingCo(true);
+  const changed = (Object.keys(form) as (keyof Form)[]).filter((k) => form[k] !== orig[k]);
+
+  async function save() {
+    if (!form.name.trim()) { notify("Company name is required", "error"); return; }
+    setSaving(true);
     try {
-      const next = { ...settings, industry: co.industry.trim(), company_size: co.company_size, website: co.website.trim(), support_email: co.support_email.trim() };
-      await api.updateOrganization({ name: co.name.trim(), settings: next });
-      setName(co.name.trim()); setSettings(next); setEditCo(false);
-      notify("Company saved");
-    } catch (e) { notify(String(e), "error"); } finally { setSavingCo(false); }
+      const next = { ...settings, industry: form.industry.trim(), company_size: form.company_size, website: form.website.trim(), support_email: form.support_email.trim(), locale: form.locale, timezone: form.timezone, country_code: form.country_code };
+      await api.updateOrganization({ name: form.name.trim(), settings: next });
+      setSettings(next); setOrig(form); setLang(form.locale);
+      notify("Changes saved");
+    } catch (e) { notify(String(e), "error"); } finally { setSaving(false); }
   }
-
-  // ── Localization section ──
-  const [editLoc, setEditLoc] = useState(false);
-  const [savingLoc, setSavingLoc] = useState(false);
-  const [loc, setLoc] = useState({ locale: "en", timezone: "", country_code: "62" });
-  function startLoc() { setLoc({ locale: s.locale || "en", timezone: s.timezone || browserTz, country_code: s.country_code || "62" }); setEditLoc(true); }
-  async function saveLoc() {
-    setSavingLoc(true);
-    try {
-      const next = { ...settings, locale: loc.locale, timezone: loc.timezone, country_code: loc.country_code };
-      await api.updateOrganization({ name: name.trim(), settings: next });
-      setSettings(next); setLang(loc.locale); setEditLoc(false);
-      notify("Localization saved");
-    } catch (e) { notify(String(e), "error"); } finally { setSavingLoc(false); }
-  }
-
-  const langLabel = LANGUAGES.find((l) => l.value === (s.locale || "en"))?.label;
-  const countryLabel = COUNTRY_CODES.find((c) => c.value === (s.country_code || "62"))?.label;
-  const sizeLabel = s.company_size ? COMPANY_SIZES.find((c) => c.value === s.company_size)?.label : "";
 
   if (loading || allowed !== true) return (
     <PageBody><div className="flex justify-center py-20"><Loader2 className="w-6 h-6 animate-spin text-muted-foreground" /></div></PageBody>
   );
 
   return (
-    <PageBody maxWidth={820}>
+    <PageBody maxWidth={760}>
       {ToastHost}
-      <div className="space-y-6 pt-1">
-        <SectionCard title="Company" editable={canEdit} editing={editCo} saving={savingCo} onEdit={startCo} onSave={saveCo} onCancel={() => setEditCo(false)}>
-          <div className="flex items-center gap-4 py-3">
-            <div className="w-12 h-12 rounded-xl bg-primary/10 text-primary-text grid place-items-center text-base font-bold shrink-0">
-              {initials(editCo ? co.name : name) || <Building2 className="w-5 h-5" />}
+      <div className="space-y-9 pt-1 pb-24">
+        <Section title="Company">
+          <div className="flex items-center gap-4">
+            <div className="w-14 h-14 rounded-full bg-primary/10 text-primary-text grid place-items-center text-lg font-bold shrink-0">
+              {initials(form.name) || <Building2 className="w-6 h-6" />}
             </div>
             <div className="flex-1 min-w-0">
-              <p className="text-[13px] font-semibold text-foreground mb-0.5">Company name</p>
-              {editCo ? <input value={co.name} onChange={(e) => setCo({ ...co, name: e.target.value })} placeholder="Your company name" className={INPUT} /> : <Val>{name}</Val>}
+              <label className={LBL}>Company name</label>
+              <input value={form.name} onChange={(e) => set("name", e.target.value)} placeholder="Your company name" className={INPUT} />
             </div>
           </div>
-          <Row label="Industry">{editCo ? <input value={co.industry} onChange={(e) => setCo({ ...co, industry: e.target.value })} placeholder="e.g. Automotive" className={INPUT} /> : <Val>{s.industry}</Val>}</Row>
-          <Row label="Company size">{editCo ? <Select value={co.company_size} onChange={(v) => setCo({ ...co, company_size: v })} options={COMPANY_SIZES} searchable={false} /> : <Val>{sizeLabel}</Val>}</Row>
-          <Row label="Website">{editCo ? <input type="url" value={co.website} onChange={(e) => setCo({ ...co, website: e.target.value })} placeholder="https://example.com" className={INPUT} /> : <Val>{s.website}</Val>}</Row>
-          <Row label="Support email">{editCo ? <input type="email" value={co.support_email} onChange={(e) => setCo({ ...co, support_email: e.target.value })} placeholder="support@example.com" className={INPUT} /> : <Val>{s.support_email}</Val>}</Row>
-        </SectionCard>
+          <div className="grid grid-cols-1 sm:grid-cols-2 gap-5">
+            <div><label className={LBL}>Industry</label><input value={form.industry} onChange={(e) => set("industry", e.target.value)} placeholder="e.g. Automotive" className={INPUT} /></div>
+            <div><label className={LBL}>Company size</label><Select value={form.company_size} onChange={(v) => set("company_size", v)} options={COMPANY_SIZES} searchable={false} /></div>
+            <div><label className={LBL}>Website</label><input type="url" value={form.website} onChange={(e) => set("website", e.target.value)} placeholder="https://example.com" className={INPUT} /></div>
+            <div><label className={LBL}>Support email</label><input type="email" value={form.support_email} onChange={(e) => set("support_email", e.target.value)} placeholder="support@example.com" className={INPUT} /></div>
+          </div>
+        </Section>
 
-        <SectionCard title="Localization" editable={canEdit} editing={editLoc} saving={savingLoc} onEdit={startLoc} onSave={saveLoc} onCancel={() => setEditLoc(false)}>
-          <Row label="Default language">{editLoc ? <Select value={loc.locale} onChange={(v) => setLoc({ ...loc, locale: v })} options={LANGUAGES} searchable={false} /> : <Val>{langLabel}</Val>}</Row>
-          <Row label="Default timezone">{editLoc ? <Select value={loc.timezone} onChange={(v) => setLoc({ ...loc, timezone: v })} options={tzOptions} placeholder="Select timezone" /> : <Val>{s.timezone || browserTz}</Val>}</Row>
-          <Row label="Default country code">{editLoc ? <Select value={loc.country_code} onChange={(v) => setLoc({ ...loc, country_code: v })} options={COUNTRY_CODES} /> : <Val>{countryLabel}</Val>}</Row>
-        </SectionCard>
+        <div className="border-t border-border" />
 
-        <SectionCard title="Subscription" editable={false} editing={false}>
+        <Section title="Localization">
+          <div className="grid grid-cols-1 sm:grid-cols-2 gap-5">
+            <div><label className={LBL}>Default language</label><Select value={form.locale} onChange={(v) => set("locale", v)} options={LANGUAGES} searchable={false} /></div>
+            <div><label className={LBL}>Default country code</label><Select value={form.country_code} onChange={(v) => set("country_code", v)} options={COUNTRY_CODES} /></div>
+            <div className="sm:col-span-2"><label className={LBL}>Default timezone</label><Select value={form.timezone} onChange={(v) => set("timezone", v)} options={tzOptions} placeholder="Select timezone" /></div>
+          </div>
+        </Section>
+
+        <div className="border-t border-border" />
+
+        <Section title="Subscription">
           {sub ? (
-            <div className="py-4 space-y-4">
+            <div className="space-y-4">
               <div className="flex items-center gap-2">
                 <span className="text-[15px] font-bold text-foreground capitalize">{sub.package_name}</span>
                 <span className="px-2 py-0.5 rounded-md text-[10px] font-bold bg-success/10 text-success capitalize">{sub.status}</span>
@@ -215,13 +182,12 @@ export default function GeneralSettingsPage() {
                 <QuotaRow label="Simpuler credits (this month)" used={sub.used_simpuler_credits} limit={sub.quotas?.simpuler_credits} />
                 <QuotaRow label="Custom fields" used={sub.used_custom_fields} limit={sub.quotas?.custom_fields} />
               </div>
-              <p className="text-[11.5px] text-muted-foreground">Credit pools and package are managed by Simpulx. Allocate a campaign&apos;s share in its Credits &amp; Usage tab.</p>
             </div>
-          ) : (
-            <div className="flex justify-center py-6"><Loader2 className="w-5 h-5 animate-spin text-muted-foreground" /></div>
-          )}
-        </SectionCard>
+          ) : <div className="flex justify-center py-6"><Loader2 className="w-5 h-5 animate-spin text-muted-foreground" /></div>}
+        </Section>
       </div>
+
+      <UnsavedBar count={changed.length} saving={saving} onSave={save} onCancel={() => setForm(orig)} />
     </PageBody>
   );
 }
