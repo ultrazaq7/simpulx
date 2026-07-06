@@ -1,13 +1,13 @@
 "use client";
-import { useEffect, useMemo, useState } from "react";
+import { useEffect, useMemo, useRef, useState, type ReactNode } from "react";
 import { useRouter } from "next/navigation";
-import { Loader2, Globe, Clock, Building2, Phone, Coins } from "lucide-react";
+import { Loader2, Building2, Check } from "lucide-react";
 import { api, getUser } from "@/lib/api";
 import { loadPermissions, canWith } from "@/lib/permissions";
 import { Select } from "@/components/Select";
 import { cn } from "@/lib/utils";
 import type { OrgSettings } from "@/lib/types";
-import { useToast, PageBody, SettingsCard, FieldLabel, PrimaryButton, initials } from "../_shared";
+import { useToast, PageBody, initials } from "../_shared";
 import { useI18n } from "@/lib/i18n";
 
 const LANGUAGES = [
@@ -50,20 +50,45 @@ function tzOffset(tz: string): string {
   } catch { return ""; }
 }
 
-// Card with a titled header bar (enterprise look).
-function Panel({ icon: Icon, title, children, className }: { icon: any; title: string; children: React.ReactNode; className?: string }) {
+type Sub = { package_name: string; status: string; quotas: Record<string, number>; used_users: number; used_simpuler_credits: number; used_custom_fields: number };
+type SaveState = "idle" | "saving" | "saved";
+
+// Flat section card. No icon-heavy header bar; just a quiet label above a list of
+// inline-editable rows.
+function Section({ title, children }: { title: string; children: ReactNode }) {
   return (
-    <SettingsCard className={`overflow-hidden ${className ?? ""}`}>
-      <div className="px-5 py-3 border-b border-border flex items-center gap-2.5 bg-muted/30">
-        <Icon className="w-[18px] h-[18px] text-primary" />
-        <h2 className="font-bold text-[14px] text-foreground">{title}</h2>
-      </div>
-      <div className="p-5">{children}</div>
-    </SettingsCard>
+    <section>
+      <h2 className="text-[11px] font-bold uppercase tracking-wider text-muted-foreground mb-2 px-1">{title}</h2>
+      <div className="rounded-lg border border-border bg-card px-5 divide-y divide-border/60">{children}</div>
+    </section>
   );
 }
 
-type Sub = { package_name: string; status: string; quotas: Record<string, number>; used_users: number; used_simpuler_credits: number; used_custom_fields: number };
+// One settings row: label (+ hint) on the left, editable control on the right.
+function Row({ label, hint, children }: { label: string; hint?: string; children: ReactNode }) {
+  return (
+    <div className="flex flex-col sm:flex-row sm:items-center gap-1.5 sm:gap-4 py-3">
+      <div className="sm:w-56 shrink-0">
+        <p className="text-[13px] font-semibold text-foreground">{label}</p>
+        {hint && <p className="text-[11.5px] text-muted-foreground">{hint}</p>}
+      </div>
+      <div className="flex-1 min-w-0 sm:max-w-[380px]">{children}</div>
+    </div>
+  );
+}
+
+// Borderless-until-focus text field that commits on blur / Enter (inline edit).
+function InlineText({ value, onCommit, placeholder, type = "text" }: { value: string; onCommit: (v: string) => void; placeholder?: string; type?: string }) {
+  const [v, setV] = useState(value);
+  useEffect(() => { setV(value); }, [value]);
+  return (
+    <input type={type} value={v} placeholder={placeholder}
+      onChange={(e) => setV(e.target.value)}
+      onBlur={() => { if (v.trim() !== (value || "").trim()) onCommit(v.trim()); }}
+      onKeyDown={(e) => { if (e.key === "Enter") (e.target as HTMLInputElement).blur(); }}
+      className="w-full h-9 px-3 rounded-md border border-transparent bg-transparent hover:border-input hover:bg-background text-[13.5px] text-foreground placeholder:text-muted-foreground/60 outline-none transition-colors focus:border-primary focus:bg-background focus:ring-2 focus:ring-primary/20" />
+  );
+}
 
 function QuotaRow({ label, used, limit }: { label: string; used: number; limit?: number }) {
   const pct = limit && limit > 0 ? Math.min(100, Math.round((used / limit) * 100)) : 0;
@@ -85,9 +110,8 @@ export default function GeneralSettingsPage() {
   const router = useRouter();
   const { notify, ToastHost } = useToast();
   const { setLang } = useI18n();
-  // Org/workspace settings are permission-gated. A role without view_settings
-  // (e.g. a manager the owner didn't grant org access) is bounced back to the
-  // settings index, which routes them to their first allowed section.
+  // Org settings are permission-gated. A role without view_settings is bounced
+  // back to the settings index, which routes them to their first allowed section.
   const [allowed, setAllowed] = useState<boolean | null>(null);
   useEffect(() => {
     loadPermissions().then((doc) => {
@@ -96,131 +120,85 @@ export default function GeneralSettingsPage() {
       if (!ok) router.replace("/settings");
     });
   }, [router]);
+
   const [name, setName] = useState("");
-  const [origName, setOrigName] = useState("");
   const [settings, setSettings] = useState<OrgSettings>({});
   const [loading, setLoading] = useState(true);
-  const [saving, setSaving] = useState(false);
+  const [status, setStatus] = useState<SaveState>("idle");
   const [sub, setSub] = useState<Sub | null>(null);
+  const savedTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
 
-  const [locale, setLocale] = useState("en");
-  const [origLocale, setOrigLocale] = useState("en");
-  const [timezone, setTimezone] = useState(Intl.DateTimeFormat().resolvedOptions().timeZone);
-  const [origTimezone, setOrigTimezone] = useState(Intl.DateTimeFormat().resolvedOptions().timeZone);
-  const [country, setCountry] = useState("62");
-  const [origCountry, setOrigCountry] = useState("62");
-  // Enterprise company-profile fields (stored in the org settings jsonb).
-  const [industry, setIndustry] = useState(""); const [origIndustry, setOrigIndustry] = useState("");
-  const [companySize, setCompanySize] = useState(""); const [origCompanySize, setOrigCompanySize] = useState("");
-  const [website, setWebsite] = useState(""); const [origWebsite, setOrigWebsite] = useState("");
-  const [supportEmail, setSupportEmail] = useState(""); const [origSupportEmail, setOrigSupportEmail] = useState("");
-
+  const browserTz = Intl.DateTimeFormat().resolvedOptions().timeZone;
   const tzOptions = useMemo(() => getTimezones().map((tz) => { const off = tzOffset(tz); return { value: tz, label: off ? `${tz} (${off})` : tz }; }), []);
 
   useEffect(() => {
-    api.getOrganization().then((o) => {
-      setName(o.name || ""); setOrigName(o.name || "");
-      const s = o.settings ?? {};
-      setSettings(s);
-      const sr = s as Record<string, string>;
-      const l = sr.locale || "en";
-      setLocale(l); setOrigLocale(l);
-      const t = sr.timezone || Intl.DateTimeFormat().resolvedOptions().timeZone;
-      setTimezone(t); setOrigTimezone(t);
-      const c = sr.country_code || "62";
-      setCountry(c); setOrigCountry(c);
-      setIndustry(sr.industry || ""); setOrigIndustry(sr.industry || "");
-      setCompanySize(sr.company_size || ""); setOrigCompanySize(sr.company_size || "");
-      setWebsite(sr.website || ""); setOrigWebsite(sr.website || "");
-      setSupportEmail(sr.support_email || ""); setOrigSupportEmail(sr.support_email || "");
-    }).catch(() => {}).finally(() => setLoading(false));
+    api.getOrganization().then((o) => { setName(o.name || ""); setSettings(o.settings ?? {}); }).catch(() => {}).finally(() => setLoading(false));
     api.getSubscription().then(setSub).catch(() => {});
   }, []);
 
-  const dirty = name.trim() !== origName || locale !== origLocale || timezone !== origTimezone || country !== origCountry
-    || industry !== origIndustry || companySize !== origCompanySize || website !== origWebsite || supportEmail !== origSupportEmail;
+  const s = settings as Record<string, string>;
 
-  async function save() {
-    if (!name.trim()) { notify("Company name is required", "error"); return; }
-    setSaving(true);
+  // Inline commit: merge the one changed field and persist. A quiet status pill
+  // replaces the old global Save button.
+  async function commit(patch: { name?: string; settings?: Record<string, string> }) {
+    if (patch.name !== undefined && !patch.name.trim()) { notify("Company name is required", "error"); return; }
+    const nextName = (patch.name ?? name).trim();
+    const nextSettings = { ...settings, ...(patch.settings || {}) };
+    setStatus("saving");
     try {
-      const nextSettings = { ...settings, locale, timezone, country_code: country, industry: industry.trim(), company_size: companySize, website: website.trim(), support_email: supportEmail.trim() };
-      await api.updateOrganization({ name: name.trim(), settings: nextSettings });
-      setOrigName(name.trim()); setOrigLocale(locale); setOrigTimezone(timezone); setOrigCountry(country);
-      setOrigIndustry(industry); setOrigCompanySize(companySize); setOrigWebsite(website); setOrigSupportEmail(supportEmail);
+      await api.updateOrganization({ name: nextName, settings: nextSettings });
+      if (patch.name !== undefined) setName(nextName);
       setSettings(nextSettings);
-      setLang(locale);
-      notify("Settings saved");
-    } catch (e) { notify(String(e), "error"); }
-    finally { setSaving(false); }
+      if (patch.settings?.locale) setLang(patch.settings.locale);
+      setStatus("saved");
+      if (savedTimer.current) clearTimeout(savedTimer.current);
+      savedTimer.current = setTimeout(() => setStatus("idle"), 1600);
+    } catch (e) { setStatus("idle"); notify(String(e), "error"); }
   }
-
-  const inputCls = "w-full h-9 px-3 rounded-md border border-input bg-background text-[13.5px] text-foreground placeholder:text-muted-foreground/70 outline-none transition-shadow focus:border-primary focus:ring-2 focus:ring-primary/20";
+  const setField = (key: string) => (v: string) => commit({ settings: { [key]: v } });
 
   if (loading || allowed !== true) return (
     <PageBody><div className="flex justify-center py-20"><Loader2 className="w-6 h-6 animate-spin text-muted-foreground" /></div></PageBody>
   );
 
   return (
-    <PageBody maxWidth={1120}>
+    <PageBody maxWidth={820}>
       {ToastHost}
 
-      <div className="flex items-center justify-between gap-4 mb-5 px-4 py-3 rounded-lg border border-border bg-card shadow-xs">
-        <div className="min-w-0">
-          <h1 className="text-[15px] font-bold text-foreground leading-tight">General</h1>
-          <p className="text-[12px] text-muted-foreground truncate">Company profile, localization, and subscription.</p>
-        </div>
-        <PrimaryButton onClick={save} disabled={saving || !dirty}>
-          {saving ? <Loader2 className="w-4 h-4 animate-spin" /> : dirty ? "Save changes" : "Saved"}
-        </PrimaryButton>
+      <div className="flex items-center justify-end h-5 mb-3">
+        {status !== "idle" && (
+          <span className={cn("inline-flex items-center gap-1.5 text-[12px] font-medium", status === "saved" ? "text-success" : "text-muted-foreground")}>
+            {status === "saving" ? <><Loader2 className="w-3.5 h-3.5 animate-spin" />Saving…</> : <><Check className="w-3.5 h-3.5" />Saved</>}
+          </span>
+        )}
       </div>
 
-      <div className="grid grid-cols-1 lg:grid-cols-2 gap-5">
-        {/* ── Company ── */}
-        <Panel icon={Building2} title="Company">
-          <div className="space-y-4">
-            <div className="flex items-center gap-4">
-              <div className="w-14 h-14 rounded-xl bg-primary/10 text-primary-text grid place-items-center text-lg font-bold shrink-0">
-                {initials(name) || <Building2 className="w-6 h-6" />}
-              </div>
-              <div className="flex-1 min-w-0">
-                <FieldLabel>Company name</FieldLabel>
-                <input type="text" value={name} onChange={(e) => setName(e.target.value)} placeholder="Your company name" className={inputCls} />
-              </div>
+      <div className="space-y-6">
+        <Section title="Company">
+          <div className="flex items-center gap-4 py-3">
+            <div className="w-12 h-12 rounded-xl bg-primary/10 text-primary-text grid place-items-center text-base font-bold shrink-0">
+              {initials(name) || <Building2 className="w-5 h-5" />}
             </div>
-            <div className="grid grid-cols-2 gap-4">
-              <div><FieldLabel>Industry</FieldLabel><input type="text" value={industry} onChange={(e) => setIndustry(e.target.value)} placeholder="e.g. Automotive" className={inputCls} /></div>
-              <div><FieldLabel>Company size</FieldLabel><Select value={companySize} onChange={setCompanySize} options={COMPANY_SIZES} searchable={false} /></div>
-            </div>
-            <div className="grid grid-cols-2 gap-4">
-              <div><FieldLabel>Website</FieldLabel><input type="url" value={website} onChange={(e) => setWebsite(e.target.value)} placeholder="https://example.com" className={inputCls} /></div>
-              <div><FieldLabel>Support email</FieldLabel><input type="email" value={supportEmail} onChange={(e) => setSupportEmail(e.target.value)} placeholder="support@example.com" className={inputCls} /></div>
+            <div className="flex-1 min-w-0">
+              <p className="text-[13px] font-semibold text-foreground mb-0.5">Company name</p>
+              <InlineText value={name} onCommit={(v) => commit({ name: v })} placeholder="Your company name" />
             </div>
           </div>
-        </Panel>
+          <Row label="Industry"><InlineText value={s.industry || ""} onCommit={setField("industry")} placeholder="e.g. Automotive" /></Row>
+          <Row label="Company size"><Select value={s.company_size || ""} onChange={setField("company_size")} options={COMPANY_SIZES} searchable={false} /></Row>
+          <Row label="Website"><InlineText value={s.website || ""} onCommit={setField("website")} placeholder="https://example.com" type="url" /></Row>
+          <Row label="Support email"><InlineText value={s.support_email || ""} onCommit={setField("support_email")} placeholder="support@example.com" type="email" /></Row>
+        </Section>
 
-        {/* ── Localization ── */}
-        <Panel icon={Globe} title="Localization">
-          <div className="space-y-4">
-            <div>
-              <div className="flex items-center gap-2 mb-1.5"><Globe className="w-4 h-4 text-muted-foreground" /><FieldLabel className="mb-0">Default language</FieldLabel></div>
-              <Select value={locale} onChange={setLocale} options={LANGUAGES} searchable={false} />
-            </div>
-            <div>
-              <div className="flex items-center gap-2 mb-1.5"><Clock className="w-4 h-4 text-muted-foreground" /><FieldLabel className="mb-0">Default timezone</FieldLabel></div>
-              <Select value={timezone} onChange={setTimezone} options={tzOptions} placeholder="Select timezone" />
-            </div>
-            <div>
-              <div className="flex items-center gap-2 mb-1.5"><Phone className="w-4 h-4 text-muted-foreground" /><FieldLabel className="mb-0">Default country code</FieldLabel></div>
-              <Select value={country} onChange={setCountry} options={COUNTRY_CODES} />
-            </div>
-          </div>
-        </Panel>
+        <Section title="Localization">
+          <Row label="Default language"><Select value={s.locale || "en"} onChange={setField("locale")} options={LANGUAGES} searchable={false} /></Row>
+          <Row label="Default timezone"><Select value={s.timezone || browserTz} onChange={setField("timezone")} options={tzOptions} placeholder="Select timezone" /></Row>
+          <Row label="Default country code"><Select value={s.country_code || "62"} onChange={setField("country_code")} options={COUNTRY_CODES} /></Row>
+        </Section>
 
-        {/* ── Subscription ── */}
-        <Panel icon={Coins} title="Subscription" className="lg:col-span-2">
+        <Section title="Subscription">
           {sub ? (
-            <div className="space-y-4">
+            <div className="py-4 space-y-4">
               <div className="flex items-center gap-2">
                 <span className="text-[15px] font-bold text-foreground capitalize">{sub.package_name}</span>
                 <span className="px-2 py-0.5 rounded-md text-[10px] font-bold bg-success/10 text-success capitalize">{sub.status}</span>
@@ -235,7 +213,7 @@ export default function GeneralSettingsPage() {
           ) : (
             <div className="flex justify-center py-6"><Loader2 className="w-5 h-5 animate-spin text-muted-foreground" /></div>
           )}
-        </Panel>
+        </Section>
       </div>
     </PageBody>
   );

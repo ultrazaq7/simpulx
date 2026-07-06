@@ -86,7 +86,7 @@ const PAGE_TITLES: Record<string, { category: string; title: string; icon?: any 
   "/settings/templates": { category: "TEMPLATES", title: "Message Templates" },
   "/settings/automation": { category: "AUTOMATION", title: "Automation" },
   "/settings/wa-forms": { category: "FORMS", title: "WhatsApp Forms" },
-  "/settings/channels": { category: "CHANNELS", title: "Channels" },
+  "/settings/channels": { category: "CHANNELS", title: "Channel & Integrations" },
   "/settings/ads": { category: "ANALYTICS", title: "Ad Performance" },
   "/settings/integrations": { category: "INTEGRATIONS", title: "Web API Sources" },
   "/settings/audit": { category: "SYSTEM", title: "System Logs" },

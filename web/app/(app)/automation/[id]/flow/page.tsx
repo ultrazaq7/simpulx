@@ -21,6 +21,7 @@ import { Select } from "@/components/Select";
 import { api } from "@/lib/api";
 import { ACTIONS, TRIGGERS, eventLabel } from "@/lib/automationMeta";
 import { cn } from "@/lib/utils";
+import { useEscClose } from "@/lib/useEscClose";
 import type { AutomationDetail } from "@/lib/types";
 
 // ── Node catalog ────────────────────────────────────────────────────────────
@@ -257,6 +258,10 @@ function Builder() {
   const [paletteOpen, setPaletteOpen] = useState(false);
   const [selId, setSelId] = useState<string | null>(null);
   const [toast, setToast] = useState<string | null>(null);
+  // Escape closes overlays newest-first (shared LIFO stack): the node inspector
+  // and the add-node palette both register, so Esc resolves the topmost one.
+  useEscClose(paletteOpen, () => setPaletteOpen(false));
+  useEscClose(!!selId, () => setSelId(null));
 
   const [nodes, setNodes, onNodesChange] = useNodesState<AppNode>([]);
   const [edges, setEdges, onEdgesChange] = useEdgesState<Edge>([]);
@@ -658,8 +663,8 @@ function CondFields({ type, cd, patch }: { type: string; cd: Record<string, unkn
       <>
         <div className="rounded-md border border-input bg-background px-2 py-1.5 flex flex-wrap gap-1.5 focus-within:border-primary focus-within:ring-2 focus-within:ring-primary/25">
           {kws.map((k, i) => (
-            <span key={i} className="inline-flex items-center gap-1 rounded-md bg-muted px-2 py-0.5 text-[12.5px] font-medium text-foreground">{k}
-              <button type="button" onClick={() => patch({ keywords: kws.filter((_, j) => j !== i) })} className="text-muted-foreground hover:text-destructive leading-none">×</button></span>
+            <span key={i} className="inline-flex items-center gap-1 rounded-md bg-primary/10 border border-primary/25 px-2 py-0.5 text-[12.5px] font-semibold text-primary">{k}
+              <button type="button" onClick={() => patch({ keywords: kws.filter((_, j) => j !== i) })} className="text-primary/60 hover:text-destructive leading-none text-[15px]">×</button></span>
           ))}
           <input value={draft} onChange={(e) => setDraft(e.target.value)}
             onKeyDown={(e) => { if (e.key === "Enter" || e.key === ",") { e.preventDefault(); addKw(draft); } else if (e.key === "Backspace" && !draft && kws.length) patch({ keywords: kws.slice(0, -1) }); }}
