@@ -91,6 +91,24 @@ async def debug_reply(req: DebugReply):
     return {"status": "processed"}
 
 
+class ExtractCatalogReq(BaseModel):
+    pdf_base64: str
+    segment: str | None = None
+
+
+@app.post("/extract/catalog")
+async def extract_catalog(req: ExtractCatalogReq):
+    """Extract catalog rows from a pricelist PDF via Claude (WS-A). The gateway
+    forwards the upload here; the caller reviews/imports the returned rows."""
+    if not req.pdf_base64:
+        return {"rows": [], "error": "no pdf"}
+    try:
+        return await llm.extract_catalog(req.pdf_base64, segment=req.segment)
+    except Exception as e:  # noqa: BLE001
+        log.exception("catalog extract failed")
+        return {"rows": [], "error": str(e)}
+
+
 class SummaryReq(BaseModel):
     conversation_id: str
     org_id: str

@@ -466,6 +466,9 @@ export const api = {
   getCampaignCatalog: (id: string) => req<CatalogItem[]>(`/api/campaigns/${id}/catalog`),
   uploadCampaignCatalog: (id: string, input: { effective_month?: string; source_ref?: string; segment?: string; replace?: boolean; rows: { item_name: string; variant_name?: string; location_name?: string; category_type?: string; headline_price?: number | null; attributes?: Record<string, unknown> }[] }) =>
     req<{ inserted: number; replaced: boolean }>(`/api/campaigns/${id}/catalog`, { method: "POST", body: JSON.stringify(input) }),
+  // PDF pricelist -> LLM extraction (via ai-agent). Returns rows to review + import.
+  extractCatalogPdf: (id: string, input: { pdf_base64: string; segment?: string }) =>
+    req<{ rows: { item_name: string; variant_name?: string; location_name?: string; category_type?: string; headline_price?: number | null; attributes?: Record<string, unknown> }[]; warning?: string; error?: string }>(`/api/campaigns/${id}/catalog/extract`, { method: "POST", body: JSON.stringify(input) }),
   clearCampaignCatalog: (id: string) => req<{ deleted: number }>(`/api/campaigns/${id}/catalog`, { method: "DELETE" }),
   getSubscription: () => req<{ package_name: string; status: string; renewal_date: string | null; quotas: Record<string, number>; used_users: number; used_simpuler_credits: number; used_custom_fields: number }>("/api/subscription"),
   // ── Platform super admin (email-gated, not a role) ──

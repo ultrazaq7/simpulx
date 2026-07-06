@@ -1,9 +1,12 @@
 package main
 
 import (
+	"bytes"
 	"encoding/json"
+	"io"
 	"net/http"
 	"strconv"
+	"time"
 )
 
 // ── Segment-generic campaign catalog / KB (WS-A) ────────────────────────────
@@ -119,6 +122,46 @@ func (s *server) handleUploadCatalog(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	writeJSON(w, map[string]any{"inserted": inserted, "replaced": b.Replace})
+}
+
+// POST /api/campaigns/{id}/catalog/extract {pdf_base64, segment?} — forward a
+// pricelist PDF to the ai-agent for LLM extraction (WS-A). Returns {rows, warning}
+// for the client to review and import via POST .../catalog.
+func (s *server) handleExtractCatalog(w http.ResponseWriter, r *http.Request) {
+	a, _ := authFrom(r.Context())
+	cid := r.PathValue("id")
+	var b struct {
+		PDFBase64 string `json:"pdf_base64"`
+		Segment   string `json:"segment"`
+	}
+	if err := json.NewDecoder(r.Body).Decode(&b); err != nil || b.PDFBase64 == "" {
+		http.Error(w, "pdf_base64 required", http.StatusBadRequest)
+		return
+	}
+	var ok bool
+	if err := s.pool.QueryRow(r.Context(),
+		`SELECT EXISTS(SELECT 1 FROM campaigns WHERE id=$1::uuid AND organization_id=$2)`, cid, a.OrgID).Scan(&ok); err != nil || !ok {
+		http.Error(w, "not found", http.StatusNotFound)
+		return
+	}
+	payload, _ := json.Marshal(map[string]any{"pdf_base64": b.PDFBase64, "segment": b.Segment})
+	req, err := http.NewRequestWithContext(r.Context(), http.MethodPost, s.aiAgentURL+"/extract/catalog", bytes.NewReader(payload))
+	if err != nil {
+		http.Error(w, err.Error(), http.StatusInternalServerError)
+		return
+	}
+	req.Header.Set("content-type", "application/json")
+	// LLM PDF extraction is slow; give it more room than the shared 30s client.
+	client := &http.Client{Timeout: 150 * time.Second}
+	resp, err := client.Do(req)
+	if err != nil {
+		http.Error(w, "extraction service unavailable", http.StatusBadGateway)
+		return
+	}
+	defer resp.Body.Close()
+	w.Header().Set("content-type", "application/json")
+	w.WriteHeader(resp.StatusCode)
+	_, _ = io.Copy(w, resp.Body)
 }
 
 // DELETE /api/campaigns/{id}/catalog — clear a campaign's catalog.

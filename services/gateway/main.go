@@ -335,6 +335,7 @@ func main() {
 	// Segment-generic campaign catalog / KB (per-campaign pricing the bot grounds on).
 	mux.HandleFunc("GET /api/campaigns/{id}/catalog", s.requireAuth(s.handleListCatalog))
 	mux.HandleFunc("POST /api/campaigns/{id}/catalog", s.requireAuth(s.gate("manage_campaigns", s.handleUploadCatalog)))
+	mux.HandleFunc("POST /api/campaigns/{id}/catalog/extract", s.requireAuth(s.gate("manage_campaigns", s.handleExtractCatalog)))
 	mux.HandleFunc("DELETE /api/campaigns/{id}/catalog", s.requireAuth(s.gate("manage_campaigns", s.handleClearCatalog)))
 	// Platform super admin (email-gated, NOT a role): manage every org + credit pool.
 	mux.HandleFunc("GET /api/platform/access", s.requireAuth(s.handlePlatformAccess))

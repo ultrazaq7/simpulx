@@ -224,13 +224,23 @@ function CatalogTab({ id, segment, notify }: { id: string; segment?: string; not
   async function onFile(e: React.ChangeEvent<HTMLInputElement>) {
     const file = e.target.files?.[0]; e.target.value = "";
     if (!file) return;
+    setBusy(true);
     try {
-      const parsed = parseCatalogCsv(await file.text());
-      if (parsed.length === 0) { notify("No rows found. Check the file has a header and data.", "error"); return; }
-      setBusy(true);
+      const isPdf = file.type === "application/pdf" || file.name.toLowerCase().endsWith(".pdf");
+      let parsed: CatalogRowInput[];
+      if (isPdf) {
+        notify("Extracting from PDF, this can take up to a minute...", "success");
+        const res = await api.extractCatalogPdf(id, { pdf_base64: fileToBase64(await file.arrayBuffer()), segment });
+        if (res.error) { notify(`Extraction failed: ${res.error}`, "error"); return; }
+        if (res.warning === "scanned") { notify("This looks like a scanned PDF (no readable text). Use a text PDF or a CSV.", "error"); return; }
+        parsed = res.rows || [];
+      } else {
+        parsed = parseCatalogCsv(await file.text());
+      }
+      if (parsed.length === 0) { notify("No rows found in the file.", "error"); return; }
       const month = new Date().toISOString().slice(0, 7);
       const res = await api.uploadCampaignCatalog(id, { replace: true, segment, source_ref: file.name, effective_month: month, rows: parsed });
-      notify(`Imported ${res.inserted} item${res.inserted === 1 ? "" : "s"}`);
+      notify(`Imported ${res.inserted} item${res.inserted === 1 ? "" : "s"}${isPdf ? " from PDF" : ""}`);
       load();
     } catch (err) { notify(String(err), "error"); } finally { setBusy(false); }
   }
@@ -249,15 +259,15 @@ function CatalogTab({ id, segment, notify }: { id: string; segment?: string; not
     <div className="space-y-5">
       <div className="rounded-lg border border-dashed border-border p-5 text-center">
         <div className="w-11 h-11 rounded-xl bg-primary/10 text-primary grid place-items-center mx-auto mb-3"><Upload className="w-5 h-5" /></div>
-        <p className="text-[13.5px] font-semibold text-foreground">Upload a pricelist (CSV)</p>
-        <p className="text-[12px] text-muted-foreground mt-0.5 max-w-[520px] mx-auto">
-          Recognized columns: item_name (or brand + model), variant, location/city, category, price (or otr_price).
-          Any other columns are kept per row as attributes (dp, tenor, emi, size, ...). A new upload replaces this campaign&apos;s catalog.
+        <p className="text-[13.5px] font-semibold text-foreground">Upload a pricelist (CSV or PDF)</p>
+        <p className="text-[12px] text-muted-foreground mt-0.5 max-w-[540px] mx-auto">
+          CSV columns: item_name (or brand + model), variant, location/city, category, price (or otr_price); other columns become per-row attributes (dp, tenor, emi, ...).
+          A PDF pricelist is read by the AI and extracted into the same fields. A new upload replaces this campaign&apos;s catalog.
         </p>
-        <input ref={fileRef} type="file" accept=".csv,text/csv" className="hidden" onChange={onFile} />
+        <input ref={fileRef} type="file" accept=".csv,text/csv,.pdf,application/pdf" className="hidden" onChange={onFile} />
         <button onClick={() => fileRef.current?.click()} disabled={busy}
           className="inline-flex items-center gap-2 px-3.5 h-9 mt-3 bg-primary text-white rounded-md text-sm font-semibold hover:bg-primary-dark shadow-sm transition-all outline-none disabled:opacity-50">
-          {busy ? <Loader2 className="w-4 h-4 animate-spin" /> : <Upload className="w-4 h-4" />}Choose CSV
+          {busy ? <Loader2 className="w-4 h-4 animate-spin" /> : <Upload className="w-4 h-4" />}Choose file
         </button>
       </div>
 
@@ -299,6 +309,14 @@ function CatalogTab({ id, segment, notify }: { id: string; segment?: string; not
       )}
     </div>
   );
+}
+
+// ArrayBuffer -> base64, chunked to avoid call-stack limits on large PDFs.
+function fileToBase64(buf: ArrayBuffer): string {
+  const bytes = new Uint8Array(buf);
+  let bin = "";
+  for (let i = 0; i < bytes.length; i += 0x8000) bin += String.fromCharCode(...bytes.subarray(i, i + 0x8000));
+  return btoa(bin);
 }
 
 // Minimal CSV -> rows (handles quoted fields, escaped quotes, CRLF).

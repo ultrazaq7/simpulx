@@ -144,6 +144,48 @@ async def _anthropic_call(system_blocks: list, history: List[dict],
     return _parse_json(text)
 
 
+CATALOG_EXTRACT_INSTRUCTION = (
+    "Kamu mengekstrak DAFTAR item dari dokumen pricelist/katalog (brosur, daftar harga). "
+    "Untuk SETIAP item/baris keluarkan objek dengan field: "
+    "item_name (nama produk/unit, WAJIB), variant_name, location_name (kota/area), "
+    "category_type, headline_price (harga utama sebagai INTEGER tanpa titik/koma/simbol), "
+    "attributes (objek berisi field relevan lain: dp, tenor, emi/cicilan, ukuran, dsb; nilai apa adanya). "
+    "Data yang tidak ada -> null. Balas HANYA JSON valid: {\"rows\": [ {..} ]}. "
+    "Jika dokumen scan tanpa teks terbaca, balas {\"rows\": [], \"warning\": \"scanned\"}."
+)
+
+
+async def extract_catalog(pdf_b64: str, segment: Optional[str] = None,
+                          model: Optional[str] = None) -> dict:
+    """Extract catalog/pricelist rows from a PDF via Claude's document input (WS-A).
+    Returns {"rows": [...], "warning": str|None}. Rows match campaign_catalog's shape."""
+    if not (settings.llm_provider == "anthropic" and settings.anthropic_api_key):
+        return {"rows": [], "warning": "no_llm"}
+    hint = f" Segmen bisnis: {segment}." if segment else ""
+    content = [
+        {"type": "document", "source": {"type": "base64", "media_type": "application/pdf", "data": pdf_b64}},
+        {"type": "text", "text": CATALOG_EXTRACT_INSTRUCTION + hint},
+    ]
+    async with httpx.AsyncClient(timeout=120) as client:
+        resp = await client.post(
+            _URL,
+            headers={"x-api-key": settings.anthropic_api_key,
+                     "anthropic-version": _HEADERS_VERSION, "content-type": "application/json"},
+            json={"model": model or settings.llm_model, "max_tokens": 4096,
+                  "messages": [{"role": "user", "content": content}]},
+        )
+        resp.raise_for_status()
+        data = resp.json()
+    u = data.get("usage", {})
+    log.info("catalog extract usage in=%s out=%s", u.get("input_tokens"), u.get("output_tokens"))
+    text = "".join(b.get("text", "") for b in data.get("content", []) if b.get("type") == "text")
+    obj = _parse_json(text)
+    if not isinstance(obj, dict):
+        return {"rows": [], "warning": "parse_failed"}
+    rows = obj.get("rows")
+    return {"rows": rows if isinstance(rows, list) else [], "warning": obj.get("warning")}
+
+
 def _as_int(v):
     try:
         return int(v) if v is not None else None

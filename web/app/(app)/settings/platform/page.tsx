@@ -7,7 +7,7 @@ import { cn, fmtDateTimeShort } from "@/lib/utils";
 import type { OrgRow } from "@/lib/types";
 import { Select } from "@/components/Select";
 import SidePanel from "@/components/SidePanel";
-import { useToast, PageBody, FieldLabel, INPUT_CLASS, initials } from "../_shared";
+import { useToast, FieldLabel, INPUT_CLASS, initials } from "../_shared";
 
 const PACKAGES = ["starter", "growth", "scale", "enterprise"];
 const STATUSES = ["active", "trial", "expired"];
@@ -30,11 +30,18 @@ export default function PlatformPage() {
     api.platformAccess().then((r) => { if (!r.super_admin) router.replace("/settings"); else load(); }).catch(() => router.replace("/settings"));
   }, [router]); // eslint-disable-line react-hooks/exhaustive-deps
 
+  const [page, setPage] = useState(0);
+  const [rowsPerPage, setRowsPerPage] = useState(25);
+  const all = rows ?? [];
+  const totalPages = Math.max(1, Math.ceil(all.length / rowsPerPage));
+  const paged = all.slice(page * rowsPerPage, page * rowsPerPage + rowsPerPage);
+  useEffect(() => { if (page > totalPages - 1) setPage(0); }, [totalPages, page]);
+
   return (
-    <PageBody wide>
+    <>
       {ToastHost}
-      <div className="max-w-[1180px] mx-auto w-full px-6 py-6">
-        <div className="flex items-center justify-between gap-4 mb-5 px-4 py-3 rounded-lg border border-border bg-card shadow-xs">
+      <div className="px-6 pt-6 pb-6 max-w-[1180px] mx-auto w-full h-full flex flex-col min-h-0">
+        <div className="flex items-center justify-between gap-4 mb-4 px-4 py-3 rounded-lg border border-border bg-card shadow-xs shrink-0">
           <div className="flex items-center gap-2.5 min-w-0">
             <div className="w-9 h-9 rounded-lg bg-primary/10 text-primary grid place-items-center shrink-0"><Boxes className="w-[18px] h-[18px]" /></div>
             <div className="min-w-0">
@@ -47,11 +54,11 @@ export default function PlatformPage() {
           </button>
         </div>
 
-        <div className="bg-card rounded-lg border border-border shadow-xs overflow-hidden">
-          <div className="overflow-x-auto">
+        <div className="bg-card rounded-lg border border-border shadow-xs overflow-hidden flex-1 min-h-0 flex flex-col">
+          <div className="overflow-auto flex-1 min-h-0">
             <table className="w-full text-sm min-w-[920px] whitespace-nowrap">
-              <thead>
-                <tr className="border-b border-border bg-muted/40">
+              <thead className="sticky top-0 z-10">
+                <tr className="border-b border-border bg-muted/40 backdrop-blur">
                   {["Organization", "Package", "Status", "Users", "Campaigns", "Simpuler credits (mo)", "Created", ""].map((h) => (
                     <th key={h} className={cn("px-4 py-2.5 text-[11px] font-bold uppercase tracking-wider text-muted-foreground",
                       ["Users", "Campaigns", "Simpuler credits (mo)"].includes(h) ? "text-right" : h === "" ? "text-right w-16" : "text-left")}>{h}</th>
@@ -63,13 +70,13 @@ export default function PlatformPage() {
                   <tr><td colSpan={8} className="text-center py-16"><Loader2 className="w-6 h-6 animate-spin text-muted-foreground mx-auto" /></td></tr>
                 ) : denied ? (
                   <tr><td colSpan={8} className="text-center py-16 text-[13px] text-muted-foreground">You do not have platform access.</td></tr>
-                ) : rows.length === 0 ? (
+                ) : all.length === 0 ? (
                   <tr><td colSpan={8} className="text-center py-16">
                     <div className="w-12 h-12 rounded-xl bg-muted grid place-items-center mx-auto mb-3"><Building2 className="w-6 h-6 text-muted-foreground/50" /></div>
                     <p className="font-semibold text-foreground mb-0.5">No organizations yet</p>
                     <p className="text-[13px] text-muted-foreground">Create the first organization to get started.</p>
                   </td></tr>
-                ) : rows.map((o) => {
+                ) : paged.map((o) => {
                   const pool = o.quotas?.simpuler_credits ?? 0;
                   const near = pool > 0 && o.credits_used_month / pool >= 0.85;
                   return (
@@ -101,6 +108,17 @@ export default function PlatformPage() {
               </tbody>
             </table>
           </div>
+
+          <div className="flex items-center justify-between px-4 py-2.5 border-t border-border text-sm shrink-0">
+            <span className="text-muted-foreground tabular-nums">{all.length} total</span>
+            <div className="flex items-center gap-2">
+              <Select value={String(rowsPerPage)} onChange={(v) => { setRowsPerPage(Number(v)); setPage(0); }}
+                options={[10, 25, 50].map((n) => ({ value: String(n), label: String(n) }))} className="w-[72px]" align="right" />
+              <span className="text-muted-foreground mx-2 tabular-nums">Page {page + 1} of {totalPages}</span>
+              <button disabled={page <= 0} onClick={() => setPage(page - 1)} className="px-2.5 h-7 rounded-md border border-border text-xs font-semibold disabled:opacity-30 hover:bg-muted outline-none">Prev</button>
+              <button disabled={page >= totalPages - 1} onClick={() => setPage(page + 1)} className="px-2.5 h-7 rounded-md border border-border text-xs font-semibold disabled:opacity-30 hover:bg-muted outline-none">Next</button>
+            </div>
+          </div>
         </div>
       </div>
 
@@ -110,7 +128,7 @@ export default function PlatformPage() {
           onDone={(msg) => { setPanel(null); notify(msg); load(); }}
           onError={(msg) => notify(msg, "error")} />
       )}
-    </PageBody>
+    </>
   );
 }
 
