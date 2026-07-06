@@ -82,7 +82,7 @@ func (s *server) handlePlatformAccess(w http.ResponseWriter, r *http.Request) {
 // GET /api/platform/orgs — every org with its full column set.
 func (s *server) handleListOrgs(w http.ResponseWriter, r *http.Request) {
 	rows, err := s.queryMaps(r.Context(),
-		`SELECT o.id, o.name, o.slug, o.created_at,
+		`SELECT o.id::text AS id, o.name, o.slug, o.created_at,
 		        COALESCE(os.package_name,'starter') AS package_name,
 		        COALESCE(os.status,'active')        AS status,
 		        os.renewal_date,

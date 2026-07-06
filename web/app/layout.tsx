@@ -27,7 +27,11 @@ export default function RootLayout({ children }: { children: React.ReactNode }) 
     <html lang="en" className={cn(inter.variable, "font-sans")}>
       <head>
         <meta charSet="utf-8" />
-        <title>Simpulx</title>
+        {/* NOTE: no static <title> here on purpose. A declarative <title> in this
+            "use client" root layout gets re-asserted by React during hydration,
+            clobbering the correct title (set by the inline script below) with a
+            bare "Simpulx" flash on every refresh. The inline script sets the real
+            title during head parse; Shell's effect maintains it across navigation. */}
         <meta name="description" content="Simpulx - Omnichannel inbox for sales teams. Manage WhatsApp, Instagram, Telegram and more from one place." />
         <meta name="theme-color" content="#2D8B73" />
         <link rel="icon" href="/favicon_squircle.svg" type="image/svg+xml" />

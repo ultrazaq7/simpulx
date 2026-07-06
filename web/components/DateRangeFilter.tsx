@@ -1,9 +1,10 @@
 "use client";
 import { useState, useRef, useEffect, useMemo } from "react";
-import { ChevronDown, ChevronLeft, ChevronRight } from "lucide-react";
+import { ChevronDown, ChevronLeft, ChevronRight, Calendar } from "lucide-react";
 import { cn } from "@/lib/utils";
 
-// One enterprise date-range filter, reused app-wide: preset list + calendar range.
+// One enterprise date-range filter, reused app-wide: preset list + calendar range
+// with a live hover preview of the range you're about to pick.
 export type DateRangeValue = { preset: string; from: string; to: string };
 
 function fmtLocal(d: Date) { return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, "0")}-${String(d.getDate()).padStart(2, "0")}`; }
@@ -28,7 +29,8 @@ const PRESETS: [string, string][] = [
 ];
 const DOW = ["Su", "Mo", "Tu", "We", "Th", "Fr", "Sa"];
 
-function nice(s: string) { return s ? parse(s).toLocaleDateString("en-GB", { day: "numeric", month: "short", year: "numeric" }) : ""; }
+// MM/DD/YYYY to match the enterprise reference input.
+function us(s: string) { if (!s) return ""; const d = parse(s); return `${String(d.getMonth() + 1).padStart(2, "0")}/${String(d.getDate()).padStart(2, "0")}/${d.getFullYear()}`; }
 
 export default function DateRangeFilter({ value, onChange, align = "left" }: {
   value: DateRangeValue;
@@ -45,21 +47,27 @@ export default function DateRangeFilter({ value, onChange, align = "left" }: {
   }, [open]);
 
   const [pick, setPick] = useState<{ start: string; end: string }>({ start: value.from, end: value.to });
+  const [hover, setHover] = useState("");
   const [view, setView] = useState(() => { const a = value.from ? parse(value.from) : new Date(); return new Date(a.getFullYear(), a.getMonth(), 1); });
   useEffect(() => { setPick({ start: value.from, end: value.to }); }, [value.from, value.to]);
 
   const isCustom = value.preset === "custom" || (!value.preset && !!value.from);
-  const label = isCustom && value.from ? `${nice(value.from)} - ${nice(value.to)}` : (PRESETS.find((p) => p[0] === value.preset)?.[1] || "All time");
+  const label = isCustom && value.from ? `${us(value.from)} - ${us(value.to)}` : (PRESETS.find((p) => p[0] === value.preset)?.[1] || "All time");
 
   function choosePreset(key: string) { const r = presetRange(key); onChange({ preset: key, from: r.from, to: r.to }); setOpen(false); }
   function onDay(d: Date) {
     const s = fmtLocal(d);
-    if (!pick.start || pick.end) { setPick({ start: s, end: "" }); return; }
+    if (!pick.start || pick.end) { setPick({ start: s, end: "" }); setHover(""); return; }
     const [from, to] = s < pick.start ? [s, pick.start] : [pick.start, s];
     setPick({ start: from, end: to });
     onChange({ preset: "custom", from, to });
     setOpen(false);
   }
+
+  // While picking the second date, preview the range against the hovered day.
+  const selecting = !!pick.start && !pick.end;
+  const lo = selecting && hover ? (hover < pick.start ? hover : pick.start) : pick.start;
+  const hi = selecting && hover ? (hover < pick.start ? pick.start : hover) : pick.end;
 
   const cells = useMemo(() => {
     const first = new Date(view.getFullYear(), view.getMonth(), 1);
@@ -76,7 +84,7 @@ export default function DateRangeFilter({ value, onChange, align = "left" }: {
         {label}<ChevronDown className="w-4 h-4 text-muted-foreground" />
       </button>
       {open && (
-        <div className={cn("absolute z-50 mt-1.5 w-[290px] rounded-xl border border-border bg-popover shadow-xl p-2", align === "right" ? "right-0" : "left-0")}>
+        <div className={cn("absolute z-50 mt-1.5 w-[300px] rounded-xl border border-border bg-popover shadow-xl p-2", align === "right" ? "right-0" : "left-0")}>
           <div className="flex flex-col">
             {PRESETS.map(([k, l]) => (
               <button key={k} onClick={() => choosePreset(k)}
@@ -84,20 +92,34 @@ export default function DateRangeFilter({ value, onChange, align = "left" }: {
             ))}
           </div>
           <div className="mt-2 pt-2 border-t border-border">
+            <p className="px-1 mb-1.5 text-[11px] font-bold uppercase tracking-wider text-muted-foreground">Date range</p>
+            <div className="flex items-center gap-2 mb-2 px-2 h-9 rounded-md border border-input bg-background text-[12.5px]">
+              <Calendar className="w-3.5 h-3.5 text-muted-foreground shrink-0" />
+              <span className={cn("tabular-nums", lo ? "text-foreground" : "text-muted-foreground/60")}>
+                {lo ? us(lo) : "MM/DD/YYYY"} <span className="text-muted-foreground/50">–</span> {hi ? us(hi) : "MM/DD/YYYY"}
+              </span>
+            </div>
             <div className="flex items-center justify-between px-1 mb-1.5">
               <button onClick={() => setView(new Date(view.getFullYear(), view.getMonth() - 1, 1))} className="p-1 rounded-md hover:bg-muted outline-none"><ChevronLeft className="w-4 h-4" /></button>
               <span className="text-[13px] font-semibold text-foreground">{view.toLocaleDateString("en-US", { month: "long", year: "numeric" })}</span>
               <button onClick={() => setView(new Date(view.getFullYear(), view.getMonth() + 1, 1))} className="p-1 rounded-md hover:bg-muted outline-none"><ChevronRight className="w-4 h-4" /></button>
             </div>
-            <div className="grid grid-cols-7 gap-0.5 text-center">
+            <div className="grid grid-cols-7 gap-y-0.5 text-center" onMouseLeave={() => setHover("")}>
               {DOW.map((d) => <div key={d} className="text-[10px] font-bold text-muted-foreground py-1">{d}</div>)}
               {cells.map((d, i) => d === null ? <div key={i} /> : (() => {
                 const s = fmtLocal(d);
-                const edge = s === pick.start || s === pick.end;
-                const between = pick.start && pick.end && s > pick.start && s < pick.end;
+                const edge = (!!lo && s === lo) || (!!hi && s === hi);
+                const between = !!lo && !!hi && s > lo && s < hi;
                 return (
-                  <button key={i} onClick={() => onDay(d)}
-                    className={cn("h-8 rounded-md text-[12px] outline-none transition-colors", edge ? "bg-primary text-white" : between ? "bg-primary/15 text-foreground" : "text-foreground hover:bg-muted")}>{d.getDate()}</button>
+                  <div key={i} className={cn("py-0.5", between && "bg-primary/10", edge && lo !== hi && (s === lo ? "bg-primary/10 rounded-l-full" : "bg-primary/10 rounded-r-full"))}>
+                    <button
+                      onClick={() => onDay(d)}
+                      onMouseEnter={() => setHover(s)}
+                      className={cn("w-8 h-8 rounded-full text-[12px] outline-none transition-colors mx-auto flex items-center justify-center",
+                        edge ? "bg-primary text-white font-semibold" : between ? "text-foreground" : "text-foreground hover:bg-muted")}>
+                      {d.getDate()}
+                    </button>
+                  </div>
                 );
               })())}
             </div>

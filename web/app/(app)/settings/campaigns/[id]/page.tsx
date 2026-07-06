@@ -8,6 +8,7 @@ import { Select } from "@/components/Select";
 import { cn, fmtDuration } from "@/lib/utils";
 import type { CampaignDetail, CampaignAnalyticsRow, CatalogItem } from "@/lib/types";
 import { useToast, PageBody, FieldLabel, INPUT_CLASS, PrimaryButton } from "../../_shared";
+import UnsavedBar from "@/components/UnsavedBar";
 
 const SEGMENTS = ["Automotive", "Property / Real Estate", "Finance", "Insurance", "Retail / FMCG", "Education", "Healthcare", "Travel & Hospitality", "Food & Beverage", "Services", "Other"];
 type Tab = "overview" | "credits" | "ai" | "catalog";
@@ -32,9 +33,9 @@ export default function CampaignDetailPage() {
   ];
 
   return (
-    <PageBody>
+    <PageBody wide>
       {ToastHost}
-      <div className="max-w-[900px] mx-auto w-full px-6 py-6">
+      <div className="max-w-[1040px]">
         <button onClick={() => router.push("/settings/campaigns")} className="inline-flex items-center gap-1.5 text-[13px] text-muted-foreground hover:text-foreground mb-3 outline-none">
           <ArrowLeft className="w-4 h-4" /> Campaigns
         </button>
@@ -43,7 +44,7 @@ export default function CampaignDetailPage() {
         ) : !campaign ? (
           <p className="text-muted-foreground">Campaign not found.</p>
         ) : (
-          <>
+          <div className="bg-card border border-border rounded-xl shadow-xs p-6 sm:p-8">
             <h1 className="text-xl font-bold text-foreground">{campaign.name}</h1>
             {campaign.dealer_name && <p className="text-[13px] text-muted-foreground">{campaign.dealer_name}</p>}
             <div className="flex gap-1 mt-5 border-b border-border">
@@ -55,13 +56,13 @@ export default function CampaignDetailPage() {
                 </button>
               ))}
             </div>
-            <div className="mt-5">
+            <div className="mt-6">
               {tab === "overview" && <OverviewTab id={id} />}
               {tab === "credits" && <CreditsTab id={id} notify={notify} />}
               {tab === "ai" && <AITab campaign={campaign} onSaved={(c) => { setCampaign(c); notify("AI settings saved"); }} onError={(m) => notify(m, "error")} />}
               {tab === "catalog" && <CatalogTab id={id} segment={campaign.segment ?? undefined} notify={notify} />}
             </div>
-          </>
+          </div>
         )}
       </div>
     </PageBody>
@@ -165,12 +166,21 @@ function Toggle({ on, onToggle }: { on: boolean; onToggle: () => void }) {
 }
 
 function AITab({ campaign, onSaved, onError }: { campaign: CampaignDetail; onSaved: (c: CampaignDetail) => void; onError: (m: string) => void }) {
-  const [segment, setSegment] = useState(campaign.segment ?? "");
-  const [brand, setBrand] = useState(campaign.brand ?? "");
-  const [autoReply, setAutoReply] = useState(campaign.ai_auto_reply ?? false);
-  const [lang, setLang] = useState(campaign.ai_language ?? "id");
-  const [dynLang, setDynLang] = useState(campaign.ai_dynamic_language ?? true);
+  const init = {
+    segment: campaign.segment ?? "", brand: campaign.brand ?? "",
+    autoReply: campaign.ai_auto_reply ?? false, lang: campaign.ai_language ?? "id",
+    dynLang: campaign.ai_dynamic_language ?? true,
+  };
+  const [segment, setSegment] = useState(init.segment);
+  const [brand, setBrand] = useState(init.brand);
+  const [autoReply, setAutoReply] = useState(init.autoReply);
+  const [lang, setLang] = useState(init.lang);
+  const [dynLang, setDynLang] = useState(init.dynLang);
   const [saving, setSaving] = useState(false);
+
+  const changedCount = [segment !== init.segment, brand.trim() !== init.brand, autoReply !== init.autoReply, lang !== init.lang, dynLang !== init.dynLang].filter(Boolean).length;
+  function reset() { setSegment(init.segment); setBrand(init.brand); setAutoReply(init.autoReply); setLang(init.lang); setDynLang(init.dynLang); }
+
   async function save() {
     setSaving(true);
     try {
@@ -181,10 +191,7 @@ function AITab({ campaign, onSaved, onError }: { campaign: CampaignDetail; onSav
   return (
     <div className="space-y-4 max-w-[560px]">
       <div className="flex items-center justify-between rounded-lg border border-border p-3">
-        <div>
-          <p className="text-[13.5px] font-semibold text-foreground">Auto-reply</p>
-          <p className="text-[12px] text-muted-foreground">When on, the AI replies automatically and hands off to an agent once details are collected.</p>
-        </div>
+        <p className="text-[13.5px] font-semibold text-foreground">Auto-reply</p>
         <Toggle on={autoReply} onToggle={() => setAutoReply((v) => !v)} />
       </div>
       <div className="grid grid-cols-2 gap-4">
@@ -203,7 +210,7 @@ function AITab({ campaign, onSaved, onError }: { campaign: CampaignDetail; onSav
           </div>
         </div>
       </div>
-      <PrimaryButton onClick={save} disabled={saving}>{saving ? <Loader2 className="w-4 h-4 animate-spin" /> : null}Save AI settings</PrimaryButton>
+      <UnsavedBar count={changedCount} saving={saving} onSave={save} onCancel={reset} saveLabel="Save AI settings" />
     </div>
   );
 }

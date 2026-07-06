@@ -9,6 +9,7 @@ import type { OrgSettings } from "@/lib/types";
 import { cn, initials } from "@/lib/utils";
 import { useI18n } from "@/lib/i18n";
 import { Select } from "@/components/Select";
+import UnsavedBar from "@/components/UnsavedBar";
 
 // ── Toast ──
 function useToast() {
@@ -86,6 +87,7 @@ export default function AccountPage() {
   const [settings, setSettings] = useState<OrgSettings>({});
   const [prefs, setPrefs] = useState<Record<string, boolean>>(NOTIF_DEFAULTS);
   const [timezone, setTimezone] = useState(Intl.DateTimeFormat().resolvedOptions().timeZone);
+  const [origTz, setOrigTz] = useState(timezone);
 
   // Email change (requires verifying the new address)
   const [origEmail, setOrigEmail] = useState(user?.email || "");
@@ -111,7 +113,7 @@ export default function AccountPage() {
       const s = o.settings ?? {};
       setSettings(s);
       setPrefs({ ...NOTIF_DEFAULTS, ...(s.notifications ?? {}) });
-      if (s.timezone) setTimezone(s.timezone as string);
+      if (s.timezone) { setTimezone(s.timezone as string); setOrigTz(s.timezone as string); }
     }).catch(() => {}).finally(() => setLoading(false));
   }, []);
 
@@ -145,20 +147,26 @@ export default function AccountPage() {
     finally { setAvatarUploading(false); }
   }
 
-  async function saveProfile() {
+  // One save for the editable profile fields (name + timezone), driven by the
+  // sticky UnsavedBar — no inline per-field save buttons. Email (needs
+  // verification) and password (a security action) keep their own flows.
+  async function saveAll() {
     if (!name.trim()) { notify("Name is required", false); return; }
     if (!user?.id) { notify("User not found", false); return; }
     setSaving(true);
     try {
-      await api.updateUser(user.id, { full_name: name.trim() });
-      // Persist to localStorage so Shell picks it up
-      const token = getToken();
-      if (token) {
-        const updated = { ...user, name: name.trim() };
-        setSession(token, updated as any);
+      if (name.trim() !== origName) {
+        await api.updateUser(user.id, { full_name: name.trim() });
+        const token = getToken();
+        if (token) setSession(token, { ...user, name: name.trim() } as any);
+        setOrigName(name.trim());
       }
-      setOrigName(name.trim());
-      notify("Profile updated");
+      if (timezone !== origTz) {
+        const next = { ...settings, timezone };
+        await api.updateOrganization({ settings: next });
+        setSettings(next); setOrigTz(timezone);
+      }
+      notify("Changes saved");
     } catch (e) { notify(String(e), false); }
     finally { setSaving(false); }
   }
@@ -167,16 +175,6 @@ export default function AccountPage() {
     try {
       await api.updateOrganization({ settings: { ...settings, notifications: payload } });
       notify("Notification settings saved");
-    } catch (e) { notify(String(e), false); }
-  }
-
-  async function saveTimezone(tz: string) {
-    setTimezone(tz);
-    try {
-      const nextSettings = { ...settings, timezone: tz };
-      setSettings(nextSettings);
-      await api.updateOrganization({ settings: nextSettings });
-      notify("Timezone updated");
     } catch (e) { notify(String(e), false); }
   }
 
@@ -210,7 +208,7 @@ export default function AccountPage() {
     </div>
   );
 
-  const dirty = name.trim() !== origName;
+  const profileChangedCount = (name.trim() !== origName ? 1 : 0) + (timezone !== origTz ? 1 : 0);
   const emailChanged = email.trim().toLowerCase() !== origEmail.toLowerCase();
   const emailValid = /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email.trim());
 
@@ -330,21 +328,6 @@ export default function AccountPage() {
                   className="w-full h-11 px-4 rounded-lg border border-input bg-muted/30 text-[14px] text-foreground/60 outline-none cursor-not-allowed capitalize"
                 />
               </div>
-
-              <div className="flex justify-end pt-1">
-                <button
-                  onClick={saveProfile}
-                  disabled={saving || !dirty}
-                  className={cn(
-                    "inline-flex items-center gap-2 px-5 py-2.5 rounded-lg text-[13px] font-semibold transition-all outline-none",
-                    dirty
-                      ? "bg-primary text-white hover:bg-primary-dark shadow-sm"
-                      : "bg-muted text-muted-foreground cursor-not-allowed",
-                  )}
-                >
-                  {saving ? <Loader2 className="w-4 h-4 animate-spin" /> : dirty ? tr("account.save") : tr("common.save")}
-                </button>
-              </div>
             </div>
             </div>{/* /profile block */}
 
@@ -406,7 +389,7 @@ export default function AccountPage() {
               <h3 className="text-[16px] font-bold text-foreground mb-5">{tr("account.system_pref")}</h3>
               <div className="bg-card border border-border rounded-xl p-5">
                 <label className="block text-[11px] font-bold uppercase tracking-wider text-muted-foreground mb-1.5">{tr("account.your_timezone")}</label>
-                <Select value={timezone} options={tzSelectOptions} onChange={saveTimezone} placeholder="Select timezone" />
+                <Select value={timezone} options={tzSelectOptions} onChange={setTimezone} placeholder="Select timezone" />
               </div>
             </div>
             </div>{/* /stack */}
@@ -446,6 +429,14 @@ export default function AccountPage() {
           </div>
         )}
       </div>
+      {tab === "profile" && (
+        <UnsavedBar
+          count={profileChangedCount}
+          saving={saving}
+          onSave={saveAll}
+          onCancel={() => { setName(origName); setTimezone(origTz); }}
+        />
+      )}
     </div>
   );
 }

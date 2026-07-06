@@ -54,6 +54,36 @@ type Sub = { package_name: string; status: string; quotas: Record<string, number
 const INPUT = "w-full h-10 px-3 rounded-lg border border-input bg-background text-[13.5px] text-foreground placeholder:text-muted-foreground/60 outline-none transition-shadow focus:border-primary focus:ring-2 focus:ring-primary/20";
 const LBL = "block text-[11px] font-bold uppercase tracking-wider text-muted-foreground mb-1.5";
 
+// Working hours (stored in org settings.working_hours). Serialized into the form
+// as a JSON string so it flows through the same dirty-tracking + UnsavedBar as
+// every other field. normalizeWH gives a canonical shape/order so an untouched
+// value round-trips to the identical string (never a false "unsaved" state).
+type WHDay = { on: boolean; start: string; end: string };
+type WorkHours = { enabled: boolean; days: Record<string, WHDay> };
+const DAYS: [string, string][] = [["mon", "Monday"], ["tue", "Tuesday"], ["wed", "Wednesday"], ["thu", "Thursday"], ["fri", "Friday"], ["sat", "Saturday"], ["sun", "Sunday"]];
+function normalizeWH(raw: unknown): WorkHours {
+  const src = (raw && typeof raw === "object" ? raw : {}) as { enabled?: unknown; days?: Record<string, Partial<WHDay>> };
+  const days: Record<string, WHDay> = {};
+  for (const [k] of DAYS) {
+    const d = (src.days?.[k] ?? {}) as Partial<WHDay>;
+    days[k] = {
+      on: typeof d.on === "boolean" ? d.on : (k !== "sat" && k !== "sun"),
+      start: typeof d.start === "string" ? d.start : "09:00",
+      end: typeof d.end === "string" ? d.end : "18:00",
+    };
+  }
+  return { enabled: !!src.enabled, days };
+}
+
+function Toggle({ checked, onChange }: { checked: boolean; onChange: (v: boolean) => void }) {
+  return (
+    <button type="button" onClick={() => onChange(!checked)}
+      className={cn("relative inline-flex h-5 w-9 shrink-0 rounded-full transition-colors outline-none", checked ? "bg-primary" : "bg-muted")}>
+      <span className={cn("inline-block h-4 w-4 rounded-full bg-white shadow-sm transform transition-transform mt-0.5", checked ? "translate-x-[18px] ml-0.5" : "translate-x-0.5")} />
+    </button>
+  );
+}
+
 function Section({ title, children }: { title: string; children: React.ReactNode }) {
   return (
     <section>
@@ -79,7 +109,7 @@ function QuotaRow({ label, used, limit }: { label: string; used: number; limit?:
   );
 }
 
-type Form = { name: string; industry: string; company_size: string; website: string; support_email: string; locale: string; timezone: string; country_code: string };
+type Form = { name: string; industry: string; company_size: string; website: string; support_email: string; locale: string; timezone: string; country_code: string; working_hours: string };
 
 export default function GeneralSettingsPage() {
   const router = useRouter();
@@ -102,9 +132,11 @@ export default function GeneralSettingsPage() {
   const browserTz = Intl.DateTimeFormat().resolvedOptions().timeZone;
   const tzOptions = useMemo(() => getTimezones().map((tz) => { const off = tzOffset(tz); return { value: tz, label: off ? `${tz} (${off})` : tz }; }), []);
 
-  const [form, setForm] = useState<Form>({ name: "", industry: "", company_size: "", website: "", support_email: "", locale: "en", timezone: browserTz, country_code: "62" });
+  const [form, setForm] = useState<Form>({ name: "", industry: "", company_size: "", website: "", support_email: "", locale: "en", timezone: browserTz, country_code: "62", working_hours: JSON.stringify(normalizeWH(undefined)) });
   const [orig, setOrig] = useState<Form>(form);
   const set = <K extends keyof Form>(k: K, v: Form[K]) => setForm((f) => ({ ...f, [k]: v }));
+  const wh = useMemo<WorkHours>(() => { try { return JSON.parse(form.working_hours); } catch { return normalizeWH(undefined); } }, [form.working_hours]);
+  const setWh = (next: WorkHours) => set("working_hours", JSON.stringify(next));
 
   useEffect(() => {
     api.getOrganization().then((o) => {
@@ -113,6 +145,7 @@ export default function GeneralSettingsPage() {
         name: o.name || "", industry: s.industry || "", company_size: s.company_size || "",
         website: s.website || "", support_email: s.support_email || "",
         locale: s.locale || "en", timezone: s.timezone || browserTz, country_code: s.country_code || "62",
+        working_hours: JSON.stringify(normalizeWH((o.settings as Record<string, unknown> | undefined)?.working_hours)),
       };
       setSettings(o.settings ?? {}); setForm(next); setOrig(next);
     }).catch(() => {}).finally(() => setLoading(false));
@@ -125,7 +158,7 @@ export default function GeneralSettingsPage() {
     if (!form.name.trim()) { notify("Company name is required", "error"); return; }
     setSaving(true);
     try {
-      const next = { ...settings, industry: form.industry.trim(), company_size: form.company_size, website: form.website.trim(), support_email: form.support_email.trim(), locale: form.locale, timezone: form.timezone, country_code: form.country_code };
+      const next = { ...settings, industry: form.industry.trim(), company_size: form.company_size, website: form.website.trim(), support_email: form.support_email.trim(), locale: form.locale, timezone: form.timezone, country_code: form.country_code, working_hours: JSON.parse(form.working_hours) };
       await api.updateOrganization({ name: form.name.trim(), settings: next });
       setSettings(next); setOrig(form); setLang(form.locale);
       notify("Changes saved");
@@ -137,9 +170,9 @@ export default function GeneralSettingsPage() {
   );
 
   return (
-    <PageBody maxWidth={1000}>
+    <PageBody wide>
       {ToastHost}
-      <div className="bg-card border border-border rounded-xl shadow-xs p-6 sm:p-8 mb-24 space-y-9">
+      <div className="bg-card border border-border rounded-xl shadow-xs p-6 sm:p-8 mb-24 space-y-9 max-w-[1040px]">
         <Section title="Company">
           <div className="flex items-center gap-4">
             <div className="w-14 h-14 rounded-full bg-primary/10 text-primary-text grid place-items-center text-lg font-bold shrink-0">
@@ -166,6 +199,39 @@ export default function GeneralSettingsPage() {
             <div><label className={LBL}>Default country code</label><Select value={form.country_code} onChange={(v) => set("country_code", v)} options={COUNTRY_CODES} /></div>
             <div className="sm:col-span-2"><label className={LBL}>Default timezone</label><Select value={form.timezone} onChange={(v) => set("timezone", v)} options={tzOptions} placeholder="Select timezone" /></div>
           </div>
+        </Section>
+
+        <div className="border-t border-border" />
+
+        <Section title="Working hours">
+          <div className="flex items-center gap-3">
+            <Toggle checked={wh.enabled} onChange={(v) => setWh({ ...wh, enabled: v })} />
+            <span className="text-[13px] font-medium text-foreground">{wh.enabled ? "On" : "Off"}</span>
+          </div>
+          {wh.enabled && (
+            <div className="space-y-2.5 pt-1">
+              {DAYS.map(([k, label]) => {
+                const d = wh.days[k];
+                return (
+                  <div key={k} className="flex items-center gap-3">
+                    <label className="flex items-center gap-2.5 w-36 shrink-0 cursor-pointer">
+                      <input type="checkbox" checked={d.on}
+                        onChange={(e) => setWh({ ...wh, days: { ...wh.days, [k]: { ...d, on: e.target.checked } } })}
+                        className="w-4 h-4 rounded border-input accent-primary cursor-pointer" />
+                      <span className={cn("text-[13.5px]", d.on ? "text-foreground font-medium" : "text-muted-foreground")}>{label}</span>
+                    </label>
+                    <input type="time" value={d.start} disabled={!d.on}
+                      onChange={(e) => setWh({ ...wh, days: { ...wh.days, [k]: { ...d, start: e.target.value } } })}
+                      className={cn(INPUT, "max-w-[150px]", !d.on && "opacity-40")} />
+                    <span className="text-muted-foreground text-sm">-</span>
+                    <input type="time" value={d.end} disabled={!d.on}
+                      onChange={(e) => setWh({ ...wh, days: { ...wh.days, [k]: { ...d, end: e.target.value } } })}
+                      className={cn(INPUT, "max-w-[150px]", !d.on && "opacity-40")} />
+                  </div>
+                );
+              })}
+            </div>
+          )}
         </Section>
 
         <div className="border-t border-border" />

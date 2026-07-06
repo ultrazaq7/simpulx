@@ -72,6 +72,7 @@ export default function SettingsLayout({ children }: { children: ReactNode }) {
   useEffect(() => { api.platformAccess().then((r) => setIsSuper(r.super_admin)).catch(() => {}); }, []);
 
   const navScrollRef = useRef<HTMLDivElement | null>(null);
+  const activeItemRef = useRef<HTMLAnchorElement | null>(null);
 
   // Hide sections the role can't access; drop groups that become empty.
   const groups = [
@@ -81,19 +82,7 @@ export default function SettingsLayout({ children }: { children: ReactNode }) {
     ...(isSuper ? [{ titleKey: "Platform", items: [{ key: "platform", labelKey: "Platform", icon: Boxes, href: "/settings/platform", perm: "" }] }] : []),
   ];
 
-  // Persist + restore the sidebar scroll. Re-applies whenever the nav content
-  // changes (async permissions + Platform, and the collapse toggle change width/
-  // height) and once more on a rAF, so a refresh lands back where you were.
   const navCount = groups.reduce((n, g) => n + g.items.length, 0);
-  useIsoLayoutEffect(() => {
-    const box = navScrollRef.current;
-    if (!box || navCount === 0) return;
-    const saved = Number(sessionStorage.getItem("simpulx_settings_navscroll") || 0);
-    if (!saved) return;
-    box.scrollTop = saved;
-    const raf = requestAnimationFrame(() => { if (box.scrollTop !== saved) box.scrollTop = saved; });
-    return () => cancelAnimationFrame(raf);
-  }, [navCount, collapsed]);
 
   // Active item = the nav href that is a prefix of the current path (so nested
   // routes like /settings/automation/<id>/flow keep "Automation" highlighted).
@@ -101,6 +90,24 @@ export default function SettingsLayout({ children }: { children: ReactNode }) {
     .map((i) => i.href)
     .filter((href) => pathname === href || pathname.startsWith(href + "/"))
     .sort((a, b) => b.length - a.length)[0];
+
+  // Bring the active section into view on load / route change. Deterministic
+  // (center the active item in the nav viewport) rather than restoring a saved
+  // pixel offset — so a reload deep in the list (e.g. Platform at the bottom)
+  // always shows where you are instead of pinning to the top. Re-applies on a
+  // rAF because the async nav content (permissions + Platform) renders late.
+  useIsoLayoutEffect(() => {
+    const box = navScrollRef.current, el = activeItemRef.current;
+    if (!box || !el) return;
+    const center = () => {
+      const b = box.getBoundingClientRect(), e = el.getBoundingClientRect();
+      const delta = (e.top - b.top) - (box.clientHeight / 2 - el.clientHeight / 2);
+      if (Math.abs(delta) > 2) box.scrollTop += delta;
+    };
+    center();
+    const raf = requestAnimationFrame(center);
+    return () => cancelAnimationFrame(raf);
+  }, [navCount, collapsed, activeHref]);
 
   // Flat item list for the mobile horizontal nav strip (groups collapse away).
   const flatItems = groups.flatMap((g) => g.items);
@@ -137,7 +144,7 @@ export default function SettingsLayout({ children }: { children: ReactNode }) {
         "max-lg:hidden shrink-0 border-r border-border bg-card flex flex-col transition-[width] duration-200",
         collapsed ? "w-[64px]" : "w-[260px]",
       )}>
-        <div ref={navScrollRef} onScroll={(e) => sessionStorage.setItem("simpulx_settings_navscroll", String(e.currentTarget.scrollTop))} className="flex-1 overflow-y-auto overflow-x-hidden py-3 min-h-0">
+        <div ref={navScrollRef} className="flex-1 overflow-y-auto overflow-x-hidden py-3 min-h-0">
           {groups.map((g, gi) => (
             <div key={g.titleKey} className="mb-5">
               {!collapsed && (
@@ -151,6 +158,7 @@ export default function SettingsLayout({ children }: { children: ReactNode }) {
                   const sel = s.href === activeHref;
                   const link = (
                     <Link
+                      ref={sel ? activeItemRef : undefined}
                       href={s.href}
                       scroll={false}
                       className={cn(
