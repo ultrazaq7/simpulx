@@ -284,6 +284,8 @@ export function Shell({ children }: { children: ReactNode }) {
         setBrand(o.settings?.branding?.page_title || "Simpulx");
         setMetaTitle(o.settings?.branding?.meta_title || "");
         setOrgSettings(o.settings || {});
+        // Cache the org date format so the pure formatters in lib/utils can read it.
+        try { localStorage.setItem("simpulx_date_format", (o.settings as any)?.date_format || "MM/DD/YYYY"); } catch { /* ignore */ }
         // Adopt the workspace default language unless this device already chose one.
         const orgLocale = (o.settings as any)?.locale;
         if (orgLocale && !localStorage.getItem("simpulx_lang")) setLang(orgLocale);

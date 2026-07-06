@@ -71,9 +71,7 @@ export default function DateRangeFilter({ value, onChange, align = "left" }: {
   const isCustom = value.preset === "custom" || (!value.preset && !!value.from);
   const label = isCustom && value.from ? `${us(value.from)} - ${us(value.to)}` : (PRESETS.find((p) => p[0] === value.preset)?.[1] || "All time");
 
-  const isFiltered = (!!value.preset && value.preset !== "all") || !!value.from;
   function choosePreset(key: string) { const r = presetRange(key); onChange({ preset: key, from: r.from, to: r.to }); setOpen(false); }
-  function clearFilter() { onChange({ preset: "all", from: "", to: "" }); setShowCal(false); setOpen(false); }
   function onDay(d: Date) {
     const s = fmtLocal(d);
     if (!pick.start || pick.end) { setPick({ start: s, end: "" }); setHover(""); return; }
@@ -150,14 +148,6 @@ export default function DateRangeFilter({ value, onChange, align = "left" }: {
             </div>
             </div>)}
           </div>
-          {isFiltered && (
-            <div className="mt-2 pt-2 border-t border-border">
-              <button type="button" onClick={clearFilter}
-                className="w-full h-8 rounded-md text-[12.5px] font-semibold text-muted-foreground hover:bg-muted hover:text-foreground outline-none transition-colors">
-                Clear filter
-              </button>
-            </div>
-          )}
         </div>
       )}
     </div>

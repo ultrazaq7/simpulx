@@ -33,6 +33,13 @@ function handleKey(e: KeyboardEvent) {
   }
   e.preventDefault();
   top.close();
+  // Esc closing an overlay returns focus to its trigger button, which then shows
+  // the keyboard :focus-visible ring. That stray ring reads as noise, so drop
+  // focus from the trigger on the next frame (buttons only — inputs keep focus).
+  requestAnimationFrame(() => {
+    const el = document.activeElement as HTMLElement | null;
+    if (el && el.tagName === "BUTTON" && typeof el.blur === "function") el.blur();
+  });
 }
 
 function ensureListener() {

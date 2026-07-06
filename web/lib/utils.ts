@@ -5,6 +5,22 @@ export function cn(...inputs: ClassValue[]) {
   return twMerge(clsx(inputs))
 }
 
+// Org-wide date format (set in Settings > General). Cached in localStorage so the
+// pure formatters below can read it without a React context. Shell writes it on
+// org load; the General page writes it on save so it applies immediately.
+export function getDateFormat(): string {
+  try { return (typeof localStorage !== "undefined" && localStorage.getItem("simpulx_date_format")) || "MM/DD/YYYY"; }
+  catch { return "MM/DD/YYYY"; }
+}
+// Arrange a date's numeric parts per the org format: MM/DD/YYYY | DD/MM/YYYY | YYYY/MM/DD.
+export function datePart(d: Date, fmt = getDateFormat()): string {
+  const p = (n: number) => String(n).padStart(2, "0");
+  const mm = p(d.getMonth() + 1), dd = p(d.getDate()), yyyy = d.getFullYear();
+  if (fmt === "DD/MM/YYYY") return `${dd}/${mm}/${yyyy}`;
+  if (fmt === "YYYY/MM/DD") return `${yyyy}/${mm}/${dd}`;
+  return `${mm}/${dd}/${yyyy}`;
+}
+
 export function fmtTime(dateStr: string | Date | undefined | null): string {
   if (!dateStr) return "";
   const d = new Date(dateStr);
@@ -34,7 +50,7 @@ export function fmtDateTimeShort(dateStr: string | Date | undefined | null): str
   const d = new Date(dateStr);
   if (isNaN(d.getTime())) return "";
   const p = (n: number) => String(n).padStart(2, "0");
-  return `${d.getDate()} ${MONTHS_SHORT[d.getMonth()]} ${d.getFullYear()} ${p(d.getHours())}:${p(d.getMinutes())}`;
+  return `${datePart(d)} ${p(d.getHours())}:${p(d.getMinutes())}`;
 }
 
 // Clean, sortable timestamp for CSV/data exports: "2026-06-21 9:03 AM",
@@ -59,7 +75,7 @@ export function fmtDateTime(dateStr: string | Date | undefined | null): string {
   const d = new Date(dateStr);
   if (isNaN(d.getTime())) return "";
   const p = (n: number) => String(n).padStart(2, "0");
-  return `${p(d.getMonth() + 1)}/${p(d.getDate())}/${d.getFullYear()} ${p(d.getHours())}:${p(d.getMinutes())}:${p(d.getSeconds())}`;
+  return `${datePart(d)} ${p(d.getHours())}:${p(d.getMinutes())}:${p(d.getSeconds())}`;
 }
 
 // WhatsApp 24h session window derived from a conversation's last message time.

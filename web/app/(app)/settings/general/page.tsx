@@ -37,6 +37,14 @@ const COUNTRY_CODES = [
   { value: "91", label: "India (+91)" },
 ];
 
+// Org-wide date format. Stored in settings.date_format and consumed by the shared
+// formatDate() so every date in the web app (and the mobile app) reads the same way.
+const DATE_FORMATS = [
+  { value: "MM/DD/YYYY", label: "MM/DD/YYYY" },
+  { value: "DD/MM/YYYY", label: "DD/MM/YYYY" },
+  { value: "YYYY/MM/DD", label: "YYYY/MM/DD" },
+];
+
 function getTimezones() {
   try { return Intl.supportedValuesOf("timeZone"); }
   catch { return ["Asia/Jakarta", "Asia/Singapore", "America/New_York", "America/Los_Angeles", "Europe/London", "UTC"]; }
@@ -109,7 +117,7 @@ function QuotaRow({ label, used, limit }: { label: string; used: number; limit?:
   );
 }
 
-type Form = { name: string; industry: string; company_size: string; website: string; support_email: string; locale: string; timezone: string; country_code: string; working_hours: string };
+type Form = { name: string; industry: string; company_size: string; website: string; support_email: string; locale: string; timezone: string; country_code: string; date_format: string; working_hours: string };
 
 export default function GeneralSettingsPage() {
   const router = useRouter();
@@ -132,7 +140,7 @@ export default function GeneralSettingsPage() {
   const browserTz = Intl.DateTimeFormat().resolvedOptions().timeZone;
   const tzOptions = useMemo(() => getTimezones().map((tz) => { const off = tzOffset(tz); return { value: tz, label: off ? `${tz} (${off})` : tz }; }), []);
 
-  const [form, setForm] = useState<Form>({ name: "", industry: "", company_size: "", website: "", support_email: "", locale: "en", timezone: browserTz, country_code: "62", working_hours: JSON.stringify(normalizeWH(undefined)) });
+  const [form, setForm] = useState<Form>({ name: "", industry: "", company_size: "", website: "", support_email: "", locale: "en", timezone: browserTz, country_code: "62", date_format: "MM/DD/YYYY", working_hours: JSON.stringify(normalizeWH(undefined)) });
   const [orig, setOrig] = useState<Form>(form);
   const set = <K extends keyof Form>(k: K, v: Form[K]) => setForm((f) => ({ ...f, [k]: v }));
   const wh = useMemo<WorkHours>(() => { try { return JSON.parse(form.working_hours); } catch { return normalizeWH(undefined); } }, [form.working_hours]);
@@ -145,6 +153,7 @@ export default function GeneralSettingsPage() {
         name: o.name || "", industry: s.industry || "", company_size: s.company_size || "",
         website: s.website || "", support_email: s.support_email || "",
         locale: s.locale || "en", timezone: s.timezone || browserTz, country_code: s.country_code || "62",
+        date_format: s.date_format || "MM/DD/YYYY",
         working_hours: JSON.stringify(normalizeWH((o.settings as Record<string, unknown> | undefined)?.working_hours)),
       };
       setSettings(o.settings ?? {}); setForm(next); setOrig(next);
@@ -158,9 +167,10 @@ export default function GeneralSettingsPage() {
     if (!form.name.trim()) { notify("Company name is required", "error"); return; }
     setSaving(true);
     try {
-      const next = { ...settings, industry: form.industry.trim(), company_size: form.company_size, website: form.website.trim(), support_email: form.support_email.trim(), locale: form.locale, timezone: form.timezone, country_code: form.country_code, working_hours: JSON.parse(form.working_hours) };
+      const next = { ...settings, industry: form.industry.trim(), company_size: form.company_size, website: form.website.trim(), support_email: form.support_email.trim(), locale: form.locale, timezone: form.timezone, country_code: form.country_code, date_format: form.date_format, working_hours: JSON.parse(form.working_hours) };
       await api.updateOrganization({ name: form.name.trim(), settings: next });
       setSettings(next); setOrig(form); setLang(form.locale);
+      try { localStorage.setItem("simpulx_date_format", form.date_format); } catch { /* ignore */ }
       notify("Changes saved");
     } catch (e) { notify(String(e), "error"); } finally { setSaving(false); }
   }
@@ -197,7 +207,8 @@ export default function GeneralSettingsPage() {
           <div className="grid grid-cols-1 sm:grid-cols-2 gap-5">
             <div><label className={LBL}>Default language</label><Select value={form.locale} onChange={(v) => set("locale", v)} options={LANGUAGES} searchable={false} /></div>
             <div><label className={LBL}>Default country code</label><Select value={form.country_code} onChange={(v) => set("country_code", v)} options={COUNTRY_CODES} /></div>
-            <div className="sm:col-span-2"><label className={LBL}>Default timezone</label><Select value={form.timezone} onChange={(v) => set("timezone", v)} options={tzOptions} placeholder="Select timezone" /></div>
+            <div><label className={LBL}>Default timezone</label><Select value={form.timezone} onChange={(v) => set("timezone", v)} options={tzOptions} placeholder="Select timezone" /></div>
+            <div><label className={LBL}>Date format</label><Select value={form.date_format} onChange={(v) => set("date_format", v)} options={DATE_FORMATS} searchable={false} /></div>
           </div>
         </Section>
 
