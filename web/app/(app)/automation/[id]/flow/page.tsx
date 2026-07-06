@@ -124,11 +124,12 @@ function FlowNode({ data, selected }: NodeProps<AppNode>) {
   const options: { id: string; title: string }[] = Array.isArray(rawOpts)
     ? (rawOpts as { id?: string; title?: string }[]).map((o, i) => ({ id: String(o?.id || o?.title || `opt${i}`), title: String(o?.title || `Option ${i + 1}`) }))
     : [];
+  const nodeWidth = options.length > 0 ? Math.max(260, options.length * 100 + 40) : 260;
   return (
     <div className={cn(
-      "w-[260px] rounded-lg bg-card border-[1.5px] shadow-sm transition-all",
+      "rounded-lg bg-card border-[1.5px] shadow-sm transition-all",
       selected ? "border-primary/50 ring-1 ring-primary/15 shadow-md" : "border-border hover:border-primary/40 hover:shadow-md",
-    )}>
+    )} style={{ width: nodeWidth }}>
       {!isTrigger && <Handle type="target" position={Position.Top} className="!w-2.5 !h-2.5 !bg-muted-foreground !border-2 !border-card" />}
       <div className="p-3.5">
         <div className="flex items-center gap-2.5">
@@ -145,14 +146,16 @@ function FlowNode({ data, selected }: NodeProps<AppNode>) {
         </div>
         <p className="text-[11.5px] text-muted-foreground mt-2 line-clamp-2 break-words">{summary(data.kind, data.config, data.triggerType)}</p>
         {options.length > 0 && (
-          <div className="mt-2 space-y-1.5">
+          <div className="mt-2.5 flex gap-1.5">
             {options.map((opt, i) => (
-              <div key={opt.id} className="relative flex items-center gap-1.5 rounded-md border border-border bg-muted/50 px-2 py-1.5 text-[11px] font-medium text-foreground">
-                <span className="grid place-items-center w-4 h-4 rounded bg-primary/15 text-primary text-[8px] font-bold shrink-0">{i + 1}</span>
-                <span className="truncate flex-1">{opt.title}</span>
-                <Handle id={opt.id} type="source" position={Position.Right}
-                  style={{ top: "50%", right: -1 }}
-                  className="!w-2.5 !h-2.5 !bg-primary !border-2 !border-card !absolute" />
+              <div key={opt.id} className="relative flex-1 flex flex-col items-center">
+                <div className="w-full flex items-center justify-center gap-1 rounded-md border border-border bg-muted/50 px-1.5 py-1.5 text-[10px] font-medium text-foreground">
+                  <span className="grid place-items-center w-4 h-4 rounded bg-primary/15 text-primary text-[8px] font-bold shrink-0">{i + 1}</span>
+                  <span className="truncate">{opt.title}</span>
+                </div>
+                <Handle id={opt.id} type="source" position={Position.Bottom}
+                  style={{ position: "absolute", bottom: -14, left: "50%" }}
+                  className="!w-2.5 !h-2.5 !bg-primary !border-2 !border-card" />
               </div>
             ))}
           </div>
