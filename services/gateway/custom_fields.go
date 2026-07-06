@@ -14,7 +14,7 @@ import (
 func (s *server) handleListCustomFields(w http.ResponseWriter, r *http.Request) {
 	a, _ := authFrom(r.Context())
 	rows, err := s.queryMaps(r.Context(),
-		`SELECT id::text AS id, key, label, type, options, sort_order, created_at
+		`SELECT id::text AS id, key, label, type, options, sort_order, created_at, updated_at
 		   FROM custom_fields WHERE organization_id=$1 ORDER BY sort_order, label`, a.OrgID)
 	if err != nil {
 		http.Error(w, err.Error(), http.StatusInternalServerError)

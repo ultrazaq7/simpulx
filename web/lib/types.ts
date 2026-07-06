@@ -72,6 +72,7 @@ export interface CustomField {
   options?: string[] | null;
   sort_order?: number;
   created_at?: string;
+  updated_at?: string;
 }
 export interface Disposition { id: string; name: string; category: string | null }
 
