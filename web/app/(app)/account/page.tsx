@@ -384,8 +384,7 @@ export default function AccountPage() {
                   />
                 </div>
               </div>
-              <div className="flex items-center justify-between gap-4">
-                <p className="text-[11px] text-muted-foreground/70">Use at least 8 characters.</p>
+              <div className="flex items-center justify-end gap-4">
                 <button
                   onClick={changePassword}
                   disabled={pwSaving || !curPw || !newPw || !confirmPw}
@@ -430,7 +429,6 @@ export default function AccountPage() {
                     </div>
                     <div className="flex-1">
                       <p className="text-[13px] font-semibold text-foreground">{tr(t.titleKey)}</p>
-                      <p className="text-[12px] text-muted-foreground">{tr(t.subKey)}</p>
                     </div>
                     <Toggle
                       checked={!!prefs[t.key]}

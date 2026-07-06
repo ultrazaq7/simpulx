@@ -54,7 +54,6 @@ export default function NotificationsSettingsPage() {
               </div>
               <div className="flex-1">
                 <p className="text-sm font-semibold text-foreground">{t.title}</p>
-                <p className="text-[12.5px] text-muted-foreground">{t.subtitle}</p>
               </div>
               <label className="relative inline-flex items-center cursor-pointer">
                 <input
