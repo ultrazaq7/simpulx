@@ -2,6 +2,7 @@ import 'package:dio/dio.dart';
 
 import '../../../../core/network/api_endpoints.dart';
 import '../../../../core/network/error_mapper.dart';
+import '../../../../core/utils/time_format.dart';
 import '../models/auth_session_model.dart';
 import '../models/auth_user_model.dart';
 
@@ -31,9 +32,25 @@ class AuthRemoteDataSource {
   Future<AuthUserModel> me() async {
     try {
       final res = await _dio.get(ApiEndpoints.me);
-      return AuthUserModel.fromJson(res.data as Map<String, dynamic>);
+      final user = AuthUserModel.fromJson(res.data as Map<String, dynamic>);
+      await loadOrgDateFormat(); // best-effort; applies the org date format
+      return user;
     } on DioException catch (e) {
       throw ErrorMapper.fromDio(e);
+    }
+  }
+
+  /// GET /api/organization -> apply the org date format to the app formatters.
+  /// Best-effort: on any failure the default (MM/DD/YYYY) is kept.
+  Future<void> loadOrgDateFormat() async {
+    try {
+      final res = await _dio.get(ApiEndpoints.organization);
+      final data = res.data;
+      if (data is Map && data['settings'] is Map) {
+        setAppDateFormat((data['settings'] as Map)['date_format'] as String?);
+      }
+    } catch (_) {
+      // Keep the default date format on any error.
     }
   }
 

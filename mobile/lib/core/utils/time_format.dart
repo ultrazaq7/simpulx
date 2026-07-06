@@ -1,5 +1,26 @@
 import 'package:intl/intl.dart';
 
+/// Org-wide date format (Settings > General on the web). Set once from the org
+/// settings after login so the numeric date formatters below render in the same
+/// order everywhere. Defaults to MM/DD/YYYY (unchanged behaviour until set).
+String _dateOrder = 'MM/DD/YYYY';
+void setAppDateFormat(String? fmt) {
+  if (fmt == 'MM/DD/YYYY' || fmt == 'DD/MM/YYYY' || fmt == 'YYYY/MM/DD') {
+    _dateOrder = fmt!;
+  }
+}
+
+String _datePattern() {
+  switch (_dateOrder) {
+    case 'DD/MM/YYYY':
+      return 'dd/MM/yyyy';
+    case 'YYYY/MM/DD':
+      return 'yyyy/MM/dd';
+    default:
+      return 'MM/dd/yyyy';
+  }
+}
+
 /// Compact, WhatsApp-style timestamp for list rows: time today, weekday this
 /// week, otherwise a short date.
 String formatListTime(DateTime? dt) {
@@ -32,16 +53,16 @@ String formatTimeLeft(DateTime? until) {
   return h > 0 ? '${diff.inDays}d ${h}h' : '${diff.inDays}d';
 }
 
-/// Date-only timestamp for the chat list: MM/dd/yyyy (local).
+/// Date-only timestamp for the chat list, in the org date order (local).
 String formatSessionTimestamp(DateTime? dt) {
   if (dt == null) return '';
-  return DateFormat('MM/dd/yyyy').format(dt.toLocal());
+  return DateFormat(_datePattern()).format(dt.toLocal());
 }
 
-/// Absolute timestamp: MM/dd/yyyy HH:mm:ss (local).
+/// Absolute timestamp in the org date order, plus HH:mm:ss (local).
 String formatAbsoluteTimestamp(DateTime? dt) {
   if (dt == null) return '';
-  return DateFormat('MM/dd/yyyy HH:mm:ss').format(dt.toLocal());
+  return DateFormat('${_datePattern()} HH:mm:ss').format(dt.toLocal());
 }
 
 /// History timestamp: dd MMM, HH:mm
