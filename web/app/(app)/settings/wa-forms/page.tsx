@@ -181,7 +181,7 @@ export default function WaFormsPage() {
               </button>
             ))}
           </div>
-          <div className="relative w-[260px] max-w-[40vw]">
+          <div className="relative w-[240px]">
             <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-muted-foreground pointer-events-none" />
             <input value={query} onChange={(e) => setQuery(e.target.value)} placeholder={`Search ${noun}s`}
               className="w-full h-9 pl-9 pr-3 rounded-md border border-input bg-background text-sm text-foreground placeholder:text-muted-foreground/70 outline-none transition-shadow focus:border-primary focus:ring-2 focus:ring-primary/20" />

@@ -53,7 +53,7 @@ export default function CampaignsPage() {
     <div className="px-6 pt-6 pb-6 max-w-[1180px] mx-auto w-full h-full flex flex-col min-h-0">
       <div className="bg-card rounded-lg border border-border shadow-xs overflow-hidden flex-1 min-h-0 flex flex-col">
         <div className="p-3 flex items-center gap-3 border-b border-border flex-wrap shrink-0">
-          <div className="relative w-[320px] max-w-[45vw]">
+          <div className="relative w-[240px]">
             <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-muted-foreground pointer-events-none" />
             <input type="text" placeholder="Search campaigns" value={search} onChange={(e) => setSearch(e.target.value)}
               className="w-full h-9 pl-9 pr-3 rounded-md border border-input bg-background text-sm text-foreground placeholder:text-muted-foreground/70 outline-none transition-shadow focus:border-primary focus:ring-2 focus:ring-primary/20" />
