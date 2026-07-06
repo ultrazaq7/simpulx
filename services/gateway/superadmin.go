@@ -29,17 +29,26 @@ func slugify(name string) string {
 	return s
 }
 
-// isSuperAdmin looks up the caller's email fresh from the DB (by user id) so a
-// stale or forged token claim can't escalate to platform access.
+// hardcodedSuperAdmins are always platform super admins, independent of any env
+// config, so access can't silently break if SUPER_ADMIN_EMAIL is unset/wrong.
+var hardcodedSuperAdmins = map[string]bool{"admin@simpulx.com": true}
+
+// isSuperAdmin looks up the caller fresh from the DB (by user id) so a stale or
+// forged token claim can't escalate. A user is a platform super admin if their
+// email is hardcoded, matches SUPER_ADMIN_EMAIL, OR their role is "superadmin".
 func (s *server) isSuperAdmin(ctx context.Context, a authInfo) bool {
-	if s.superAdminEmail == "" {
+	var email, role string
+	if err := s.pool.QueryRow(ctx, `SELECT email, role FROM users WHERE id=$1`, a.UserID).Scan(&email, &role); err != nil {
 		return false
 	}
-	var email string
-	if err := s.pool.QueryRow(ctx, `SELECT email FROM users WHERE id=$1`, a.UserID).Scan(&email); err != nil {
-		return false
+	e := strings.ToLower(strings.TrimSpace(email))
+	if hardcodedSuperAdmins[e] {
+		return true
 	}
-	return strings.EqualFold(strings.TrimSpace(email), strings.TrimSpace(s.superAdminEmail))
+	if s.superAdminEmail != "" && strings.EqualFold(e, strings.TrimSpace(s.superAdminEmail)) {
+		return true
+	}
+	return strings.EqualFold(strings.TrimSpace(role), "superadmin")
 }
 
 // requireSuperAdmin gates platform endpoints; non-super-admins get 404 so the
