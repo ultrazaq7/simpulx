@@ -8,7 +8,7 @@ import {
 } from "lucide-react";
 import { api } from "@/lib/api";
 import { Select } from "@/components/Select";
-import { cn } from "@/lib/utils";
+import { cn, fmtDateTimeShort } from "@/lib/utils";
 import type { AdAccount, AdCampaignRow, Campaign } from "@/lib/types";
 import { AdWizard } from "./AdWizard";
 
@@ -112,6 +112,10 @@ export function AdvertisingTab() {
                         {a.campaign_count > 0 ? `${a.campaign_count} campaign${a.campaign_count === 1 ? "" : "s"}${mapped ? ` · ${mapped} mapped` : ""}` : (a.last_synced_at ? "No campaigns" : "Never synced")}
                       </span>
                     )}
+                  </div>
+                  <div className="hidden lg:flex flex-col items-end shrink-0 text-[11px] text-muted-foreground leading-tight whitespace-nowrap">
+                    <span>Created {fmtDateTimeShort(a.created_at)}</span>
+                    {a.updated_at && <span>Updated {fmtDateTimeShort(a.updated_at)}</span>}
                   </div>
                   <span className={cn("px-2 py-0.5 rounded-md text-[11px] font-semibold shrink-0", a.status === "error" ? "bg-red-50 text-red-600" : "bg-emerald-50 text-emerald-600")}>{a.status}</span>
                   <div className="flex items-center gap-0.5 shrink-0">

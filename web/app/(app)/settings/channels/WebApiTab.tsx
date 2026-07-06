@@ -6,7 +6,7 @@ import { useEffect, useState } from "react";
 import { Plus, RefreshCw, Pencil, Trash2, Copy, RotateCw, Plug, Key, Loader2, X, Search } from "lucide-react";
 import { api } from "@/lib/api";
 import { Select } from "@/components/Select";
-import { cn } from "@/lib/utils";
+import { cn, fmtDateTimeShort } from "@/lib/utils";
 import { Tip } from "@/components/ui/tooltip";
 import type { WebApiSource, Campaign, SourcePlatform } from "@/lib/types";
 import { useToast, FieldLabel, INPUT_CLASS, PrimaryButton, GhostButton } from "../_shared";
@@ -110,6 +110,10 @@ export function WebApiTab() {
                     <span className="font-mono text-xs text-muted-foreground flex-1 truncate">{p.api_key.slice(0, 10)}{"•".repeat(14)}</span>
                     <Tip label="Copy key"><button onClick={() => copy(p.api_key, "API key copied")} className="p-1 outline-none text-muted-foreground hover:text-foreground transition-colors"><Copy className="w-[15px] h-[15px]" /></button></Tip>
                     <Tip label="Regenerate key"><button onClick={() => regen(p)} className="p-1 outline-none text-muted-foreground hover:text-foreground transition-colors"><RotateCw className="w-[15px] h-[15px]" /></button></Tip>
+                  </div>
+                  <div className="hidden lg:flex flex-col items-end shrink-0 text-[11px] text-muted-foreground leading-tight whitespace-nowrap">
+                    <span>Created {fmtDateTimeShort(p.created_at)}</span>
+                    {p.updated_at && <span>Updated {fmtDateTimeShort(p.updated_at)}</span>}
                   </div>
                   <Tip label={p.is_active ? "Active" : "Disabled"}>
                     <label className="relative inline-flex items-center cursor-pointer shrink-0">

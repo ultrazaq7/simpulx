@@ -318,6 +318,7 @@ export interface AdAccount {
   last_error: string | null;
   campaign_count: number;
   created_at: string;
+  updated_at?: string;
 }
 export interface AdCampaignRow {
   id: string;
@@ -491,6 +492,7 @@ export interface WebApiSource {
   is_active: boolean;
   lead_count: number;
   created_at: string;
+  updated_at?: string;
   platform: SourcePlatform;
 }
 

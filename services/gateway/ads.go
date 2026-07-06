@@ -29,7 +29,7 @@ func (s *server) handleListAdAccounts(w http.ResponseWriter, r *http.Request) {
 	rows, err := s.queryMaps(r.Context(),
 		`SELECT id::text AS id, platform, external_account_id, name, status, currency,
 		        (access_token IS NOT NULL AND access_token <> '') AS has_token,
-		        last_synced_at, last_error, created_at,
+		        last_synced_at, last_error, created_at, updated_at,
 		        (SELECT count(*) FROM ad_campaigns ac WHERE ac.ad_account_id = aa.id) AS campaign_count
 		   FROM ad_accounts aa
 		  WHERE organization_id = $1

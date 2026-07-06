@@ -16,7 +16,7 @@ func (s *server) handleListWebAPISources(w http.ResponseWriter, r *http.Request)
 	a, _ := authFrom(r.Context())
 	rows, err := s.queryMaps(r.Context(),
 		`SELECT s.id::text AS id, s.name, s.slug, s.api_key, s.webhook_url,
-		        s.auto_template_name, s.is_active, s.lead_count, s.created_at,
+		        s.auto_template_name, s.is_active, s.lead_count, s.created_at, s.updated_at,
 		        s.platform, s.campaign_id::text AS campaign_id, c.name AS campaign_name
 		   FROM web_api_sources s
 		   LEFT JOIN campaigns c ON c.id = s.campaign_id
