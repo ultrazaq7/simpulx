@@ -216,14 +216,7 @@ export default function AccountPage() {
     <div className="h-full overflow-y-auto bg-background">
       {Host}
       <div className="max-w-5xl px-8 py-8">
-        {/* Back button */}
-        <button
-          onClick={() => router.back()}
-          className="inline-flex items-center gap-1.5 text-[13px] font-medium text-muted-foreground hover:text-foreground mb-6 transition-colors outline-none"
-        >
-          <ArrowLeft className="w-4 h-4" />
-          {tr("account.back")}
-        </button>
+
 
         {/* Tabs */}
         <div className="flex gap-6 border-b border-border mb-8">
