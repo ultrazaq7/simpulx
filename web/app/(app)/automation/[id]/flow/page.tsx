@@ -145,11 +145,11 @@ function FlowNode({ data, selected }: NodeProps<AppNode>) {
         </div>
         <p className="text-[11.5px] text-muted-foreground mt-2 line-clamp-2 break-words">{summary(data.kind, data.config, data.triggerType)}</p>
         {options.length > 0 && (
-          <div className="mt-2 space-y-1">
+          <div className="mt-2 space-y-3">
             {options.map((opt) => (
-              <div key={opt.id} className="relative flex items-center rounded-md border border-border bg-muted/50 pl-2 pr-3 py-1 text-[11px] font-medium text-foreground">
+              <div key={opt.id} className="relative flex items-center rounded-md border border-border bg-muted/50 px-2 py-1 text-[11px] font-medium text-foreground">
                 <span className="truncate">{opt.title}</span>
-                <Handle id={opt.id} type="source" position={Position.Right} className="!w-2.5 !h-2.5 !bg-primary !border-2 !border-card" />
+                <Handle id={opt.id} type="source" position={Position.Bottom} className="!w-2.5 !h-2.5 !bg-primary !border-2 !border-card" />
               </div>
             ))}
           </div>
