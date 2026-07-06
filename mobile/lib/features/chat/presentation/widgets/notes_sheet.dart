@@ -294,7 +294,9 @@ class _NotesSheetState extends ConsumerState<_NotesSheet> {
               ],
             ),
           ),
-        ),
+        ],
+      ),
+    ),
       ],
     );
   }
