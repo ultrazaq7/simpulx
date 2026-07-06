@@ -58,6 +58,10 @@ class MessageBubble extends StatelessWidget {
     final theme = Theme.of(context);
     final mine = message.isMine;
     final isDark = theme.brightness == Brightness.dark;
+    // Simpuler (AI) authored this outbound message — canonical violet mark,
+    // matching the web inbox bubble.
+    final isBot = message.senderType == MessageSenderType.bot;
+    final simpulerColor = isDark ? const Color(0xFFC4B5FD) : const Color(0xFF7C3AED);
     // Real WhatsApp uses a solid, non-transparent bubble fill and the SAME
     // text colour for both outgoing and incoming bubbles (only the bg hue
     // differs) — that's why fg no longer branches on `mine`.
@@ -137,6 +141,18 @@ class MessageBubble extends StatelessWidget {
           crossAxisAlignment: CrossAxisAlignment.start,
           mainAxisSize: MainAxisSize.min,
           children: [
+            if (isBot)
+              Padding(
+                padding: const EdgeInsets.only(left: 2, bottom: 3),
+                child: Row(
+                  mainAxisSize: MainAxisSize.min,
+                  children: [
+                    Icon(Icons.auto_awesome, size: 11, color: simpulerColor),
+                    const SizedBox(width: 3),
+                    Text('Simpuler', style: TextStyle(fontSize: 10.5, fontWeight: FontWeight.w700, color: simpulerColor)),
+                  ],
+                ),
+              ),
             if (message.hasMedia)
               _MediaContent(
                 message: message,
