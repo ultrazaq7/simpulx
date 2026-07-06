@@ -21,7 +21,7 @@ SUBJECT_AI_ACTIVITY = "events.ai.activity"  # live Simpuler phase for the inbox 
 
 COOLDOWN_SEC = 45          # burst debounce: max ~1 LLM analyze per conversation / 45s
 JUNK_CONF = 0.7            # min detect_junk() confidence to auto-set spam/lost (FR-34/BR-44)
-GHOST_FOLLOWUPS = 2        # >= this many follow-ups with no genuine reply -> ghosted (FR-34)
+GHOST_FOLLOWUPS = 3        # after this many touches with no genuine reply -> ghosted (FR-34); sends 2 touches, ghosts on the 3rd
 _ENTITY_CATS = {"Model/Brand Interest", "Price/Financing", "Visit/Showroom"}
 
 
@@ -160,7 +160,7 @@ async def handle_followup(broker, pool, org_id: str, conv_id: str, log) -> None:
     async with pool.acquire() as conn:
         conv = await conn.fetchrow(
             """SELECT cv.is_bot_active, cv.ai_agent_id, cv.followup_count,
-                      cv.car_brand, cv.car_model, cv.city,
+                      cv.car_brand, cv.car_model, cv.city, cv.window_expires_at,
                       a.system_prompt, a.model
                  FROM conversations cv
                  LEFT JOIN ai_agents a ON a.id = cv.ai_agent_id
@@ -206,12 +206,22 @@ async def handle_followup(broker, pool, org_id: str, conv_id: str, log) -> None:
         if ctx:
             finance_ctx = f"\n\n{ctx}\n"
 
+    # WhatsApp only allows free-form messages inside the 24h service window.
+    # Outside it a follow-up would need an approved template (not wired yet), so
+    # skip the send rather than let it fail. The lead is left for a future reply.
+    win = conv["window_expires_at"]
+    if win is not None and win <= datetime.now(timezone.utc):
+        log.info("followup skipped: outside 24h window", extra={"conv": conv_id})
+        return
+
     system_prompt = (conv["system_prompt"] if conv and conv["system_prompt"] else "You are a helpful sales assistant.") + finance_ctx
     history = await _load_history(pool, conv_id, None)
+    # Copy varies by touch number (gentle -> direct -> closing) so repeat nudges
+    # don't read like the same message twice.
     reply = await llm.draft_followup(
         system_prompt, history,
         "Tolong buatkan pesan follow-up untuk customer ini.",
-        model=conv["model"],
+        model=conv["model"], touch=(conv["followup_count"] or 1),
     )
     if reply:
         await broker.publish(SUBJECT_OUTBOUND, org_id, {

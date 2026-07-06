@@ -355,14 +355,29 @@ async def stream_reply(system_prompt: str, history: Optional[List[dict]],
                     break
 
 
+def _followup_tone(touch: int) -> str:
+    """Vary the copy by touch number (WS-E). Touch 1 keeps the base instruction
+    identical (cache-safe); later touches shift the angle so repeat nudges to a
+    silent lead don't read like the same message twice."""
+    if touch <= 1:
+        return ""
+    if touch == 2:
+        return (" Ini follow-up KEDUA (lead belum membalas follow-up sebelumnya): ganti "
+                "sudut pesan, jangan mengulang kalimat yang sama, tawarkan bantuan konkret "
+                "(mis. simulasi cicilan, unit ready, atau jadwal), tetap sopan dan singkat.")
+    return (" Ini follow-up TERAKHIR (lead beberapa kali tidak membalas): sampaikan dengan "
+            "sopan bahwa kamu menutup percakapan untuk sekarang, tetapi tetap terbuka kapan "
+            "pun mereka ingin melanjutkan. Singkat, tanpa memaksa.")
+
+
 async def draft_followup(system_prompt: str, history: Optional[List[dict]],
-                         user_message: str, model: Optional[str] = None) -> str:
+                         user_message: str, model: Optional[str] = None, touch: int = 1) -> str:
     """Hasilkan satu pesan follow-up singkat. Mengembalikan string reply."""
     if not (settings.llm_provider == "anthropic" and settings.anthropic_api_key):
         return "Halo kak, masih berminat dengan unitnya? Ada yang bisa kami bantu?"
     system = [{
         "type": "text",
-        "text": (system_prompt or "You are a helpful sales assistant.") + "\n\n" + FOLLOWUP_INSTRUCTION,
+        "text": (system_prompt or "You are a helpful sales assistant.") + "\n\n" + FOLLOWUP_INSTRUCTION + _followup_tone(touch),
         "cache_control": {"type": "ephemeral"},
     }]
     obj = await _anthropic_call(system, history or [], user_message, model or settings.llm_model, 256)

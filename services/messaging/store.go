@@ -232,6 +232,9 @@ func (s *store) insertInbound(ctx context.Context, orgID, convID, msgType, body,
 		        -- A fresh customer message restarts the follow-up reminder cadence.
 		        followup_notify_count = 0,
 		        last_followup_notified_at = NULL,
+		        -- A fresh customer message also restarts the AI auto-follow-up
+		        -- cadence; this stops an engaged (re-replying) lead being ghosted.
+		        followup_count = 0,
 		        updated_at = now()
 		  WHERE id = $1 RETURNING assigned_agent_id, unread_count`,
 		convID, previewText,

@@ -508,16 +508,31 @@ func (a *app) runFollowUpCron(ctx context.Context) {
 }
 
 func (a *app) triggerFollowUps(ctx context.Context) {
+	// Multi-touch cadence (WS-E). A silent lead is nudged up to 3 times with
+	// widening gaps; the touches that actually SEND stay inside WhatsApp's 24h
+	// window (the ai-agent skips any that fall outside it, since free-form is only
+	// allowed in-window). A customer reply resets followup_count, restarting this.
 	rows, err := a.st.pool.Query(ctx, `
 		SELECT id::text, organization_id::text
 		FROM conversations
 		WHERE is_bot_active = true
 		  AND status = 'open'
-		  AND last_contact_message_at IS NOT NULL
-		  AND last_contact_message_at < NOW() - INTERVAL '4 hours'
-		  AND (last_agent_message_at IS NULL OR last_agent_message_at < last_contact_message_at)
-		  AND followup_count < 3
 		  AND NOT classification_locked
+		  AND last_contact_message_at IS NOT NULL
+		  AND followup_count < 3
+		  AND (
+		    -- Touch 1: customer went quiet ~4h after their message; we haven't replied.
+		    ( followup_count = 0
+		      AND last_contact_message_at < NOW() - INTERVAL '4 hours'
+		      AND (last_agent_message_at IS NULL OR last_agent_message_at < last_contact_message_at) )
+		    OR
+		    -- Touches 2-3: we already followed up, customer still silent, widening gap
+		    -- (8h, then 16h) since our last outreach.
+		    ( followup_count >= 1
+		      AND last_agent_message_at IS NOT NULL
+		      AND last_contact_message_at < last_agent_message_at
+		      AND last_agent_message_at < NOW() - (INTERVAL '8 hours' * followup_count) )
+		  )
 	`)
 	if err != nil {
 		a.log.Warn("failed to fetch followups", "err", err)
