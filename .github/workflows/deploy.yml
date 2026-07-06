@@ -198,23 +198,20 @@ jobs:
           aws ecr get-login-password --region ap-southeast-3 | docker login --username AWS --password-stdin 825621302344.dkr.ecr.ap-southeast-3.amazonaws.com
           export IMAGE_TAG=__TAG__
           DC="docker compose --env-file .env -f deploy/docker/compose.yml -f deploy/docker/compose.prod.yml"
+          echo "-- disk --"; df -h / | tail -1
+          echo "-- web BEFORE --"; docker ps --filter name=web --format '{{.Image}} {{.Status}}' || true
           echo "-- pre-deploy cleanup --"
-          # Free disk BEFORE pulling to avoid 'no space left on device'.
-          # Drop images older than 3 days, all build cache, and dangling images.
           docker image prune -af --filter until=72h >/dev/null 2>&1 || true
           docker builder prune -af >/dev/null 2>&1 || true
           docker container prune -f >/dev/null 2>&1 || true
-          echo "-- pull --"
-          $DC pull
-          echo "-- migrate (dedicated step, not on boot) --"
-          $DC run --rm -e MIGRATE_ONLY=true gateway
-          echo "-- start --"
-          # --pull always + --force-recreate: a successful build can push a new image
-          # to the same :sha tag; without forcing, up -d sometimes keeps the old
-          # container so new code never goes live. Force a clean replace.
-          $DC up -d --pull always --force-recreate --remove-orphans
-          echo "-- running web image --"
-          docker inspect --format '{{.Config.Image}} {{.Image}}' "$(docker compose --env-file .env -f deploy/docker/compose.yml -f deploy/docker/compose.prod.yml ps -q web)" || true
+          echo "-- pull (web lines only) --"
+          $DC pull 2>&1 | grep -iE "web|error|denied|not found" | tail -6 || true
+          echo "-- migrate --"
+          $DC run --rm -e MIGRATE_ONLY=true gateway >/dev/null 2>&1 && echo "migrate ok" || echo "migrate FAILED"
+          echo "-- up (web lines only) --"
+          $DC up -d --pull always --force-recreate --remove-orphans 2>&1 | grep -iE "web|error|recreat|creat" | tail -8 || true
+          echo "-- web AFTER --"; docker ps --filter name=web --format '{{.Image}} {{.Status}}' || true
+          docker inspect --format 'running-image={{.Config.Image}}' "$($DC ps -q web)" 2>/dev/null || true
           echo "-- refresh caddy --"
           $DC restart caddy
           # Post-deploy: clean up anything the new deploy left behind.
