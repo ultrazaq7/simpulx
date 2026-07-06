@@ -399,6 +399,7 @@ export default function Composer({
                 aiOpen ? "bg-amber-100 text-amber-800" : "text-amber-700 hover:bg-amber-100",
               )}
             >
+              <Sparkles className={cn("w-3.5 h-3.5", aiState === "streaming" && "animate-pulse")} />
               Smart Summary
             </button>
           )}
