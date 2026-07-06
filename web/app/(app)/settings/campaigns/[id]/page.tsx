@@ -266,11 +266,7 @@ function CatalogTab({ id, segment, notify }: { id: string; segment?: string; not
     <div className="space-y-5">
       <div className="rounded-lg border border-dashed border-border p-5 text-center">
         <div className="w-11 h-11 rounded-xl bg-primary/10 text-primary grid place-items-center mx-auto mb-3"><Upload className="w-5 h-5" /></div>
-        <p className="text-[13.5px] font-semibold text-foreground">Upload a pricelist (CSV, Excel, or PDF)</p>
-        <p className="text-[12px] text-muted-foreground mt-0.5 max-w-[540px] mx-auto">
-          CSV/Excel columns: item_name (or brand + model), variant, location/city, category, price (or otr_price); other columns become per-row attributes (dp, tenor, emi, ...).
-          A PDF pricelist is read by the AI and extracted into the same fields. A new upload replaces this campaign&apos;s catalog.
-        </p>
+        <p className="text-[13.5px] font-semibold text-foreground mb-3">Upload a pricelist (CSV, Excel, or PDF)</p>
         <input ref={fileRef} type="file" accept=".csv,text/csv,.pdf,application/pdf,.xlsx,.xls,application/vnd.openxmlformats-officedocument.spreadsheetml.sheet" className="hidden" onChange={onFile} />
         <button onClick={() => fileRef.current?.click()} disabled={busy}
           className="inline-flex items-center gap-2 px-3.5 h-9 mt-3 bg-primary text-white rounded-md text-sm font-semibold hover:bg-primary-dark shadow-sm transition-all outline-none disabled:opacity-50">

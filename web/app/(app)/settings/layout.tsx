@@ -4,7 +4,7 @@
 // scroll position) never remounts — fixing the scroll-jump that the old per-page
 // SettingsLayout had. Active section is derived from the pathname, so the URL is
 // always the source of truth (no more ?section= facade).
-import { type ReactNode, useState, useEffect, useRef } from "react";
+import { type ReactNode, useState, useEffect, useLayoutEffect, useRef } from "react";
 import Link from "next/link";
 import { usePathname } from "next/navigation";
 import {
@@ -56,6 +56,8 @@ const GROUPS: { titleKey: string; items: NavItem[] }[] = [
   },
 ];
 
+const useIsoLayoutEffect = typeof document !== "undefined" ? useLayoutEffect : useEffect;
+
 export default function SettingsLayout({ children }: { children: ReactNode }) {
   const pathname = usePathname() || "";
   const { can } = usePermissions();
@@ -69,18 +71,15 @@ export default function SettingsLayout({ children }: { children: ReactNode }) {
   const [isSuper, setIsSuper] = useState(false);
   useEffect(() => { api.platformAccess().then((r) => setIsSuper(r.super_admin)).catch(() => {}); }, []);
 
-  // On a full refresh the sidebar remounts at scrollTop 0, hiding the active item
-  // if it sits far down. Scroll the NAV CONTAINER (not the page) to reveal it.
-  const activeRef = useRef<HTMLAnchorElement | null>(null);
+  // Persist the sidebar scroll position and restore it BEFORE paint on a refresh,
+  // so it never flashes to the top and jumps back.
   const navScrollRef = useRef<HTMLDivElement | null>(null);
-  useEffect(() => {
-    const el = activeRef.current, box = navScrollRef.current;
-    if (!el || !box) return;
-    const top = el.offsetTop, bottom = top + el.offsetHeight;
-    if (top < box.scrollTop || bottom > box.scrollTop + box.clientHeight) {
-      box.scrollTop = Math.max(0, top - box.clientHeight / 2 + el.offsetHeight / 2);
-    }
-  }, [isSuper]);
+  useIsoLayoutEffect(() => {
+    const box = navScrollRef.current;
+    if (!box) return;
+    const saved = sessionStorage.getItem("simpulx_settings_navscroll");
+    if (saved) box.scrollTop = Number(saved) || 0;
+  }, []);
 
   // Hide sections the role can't access; drop groups that become empty.
   const groups = [
@@ -132,7 +131,7 @@ export default function SettingsLayout({ children }: { children: ReactNode }) {
         "max-lg:hidden shrink-0 border-r border-border bg-card flex flex-col transition-[width] duration-200",
         collapsed ? "w-[64px]" : "w-[260px]",
       )}>
-        <div ref={navScrollRef} className="flex-1 overflow-y-auto overflow-x-hidden py-3 min-h-0">
+        <div ref={navScrollRef} onScroll={(e) => sessionStorage.setItem("simpulx_settings_navscroll", String(e.currentTarget.scrollTop))} className="flex-1 overflow-y-auto overflow-x-hidden py-3 min-h-0">
           {groups.map((g, gi) => (
             <div key={g.titleKey} className="mb-5">
               {!collapsed && (
@@ -148,7 +147,6 @@ export default function SettingsLayout({ children }: { children: ReactNode }) {
                     <Link
                       href={s.href}
                       scroll={false}
-                      ref={sel ? activeRef : undefined}
                       className={cn(
                         "rounded-md py-2.5 flex items-center text-left outline-none transition-colors",
                         collapsed ? "mx-2 px-0 justify-center" : "mx-3 px-3.5 gap-3",

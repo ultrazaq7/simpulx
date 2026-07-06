@@ -74,6 +74,7 @@ export default function AccountPage() {
 
   // Profile data
   const user = getUser();
+  const roleLabel = user?.is_super_admin ? "Super Admin" : (user?.role || "—");
   const [name, setName] = useState(user?.name || "");
   const [origName, setOrigName] = useState(user?.name || "");
   const [saving, setSaving] = useState(false);
@@ -267,7 +268,7 @@ export default function AccountPage() {
               <input ref={avatarInputRef} type="file" accept="image/*" className="hidden" onChange={(e) => { const f = e.target.files?.[0]; if (f) uploadAvatar(f); e.target.value = ""; }} />
               <div>
                 <p className="text-[18px] font-bold text-foreground">{user?.name || "—"}</p>
-                <p className="text-[13px] text-muted-foreground capitalize">{user?.role || "—"}</p>
+                <p className="text-[13px] text-muted-foreground capitalize">{roleLabel}</p>
               </div>
             </div>
 
@@ -324,7 +325,7 @@ export default function AccountPage() {
                 <label className="block text-[11px] font-bold uppercase tracking-wider text-muted-foreground mb-1.5">{tr("account.role")}</label>
                 <input
                   type="text"
-                  value={user?.role || "—"}
+                  value={roleLabel}
                   readOnly
                   className="w-full h-11 px-4 rounded-lg border border-input bg-muted/30 text-[14px] text-foreground/60 outline-none cursor-not-allowed capitalize"
                 />
