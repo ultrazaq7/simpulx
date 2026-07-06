@@ -111,6 +111,19 @@ function FlowNode({ data, selected }: NodeProps<AppNode>) {
   const m = meta(data.kind);
   const title = m.label;
   const isTrigger = data.kind === "trigger";
+  // Per-option source handles: an Auto Reply with reply buttons / a list gets one
+  // source handle per option (handle id = its callback id) so each option can
+  // branch to its own downstream node. walkFlow routes a tapped button to the
+  // edge whose handle == the button's callback id.
+  const inter = data.kind === "send_message"
+    ? String(data.config.interactive ?? (data.config.message_type === "buttons" || data.config.message_type === "list" ? data.config.message_type : "none"))
+    : "none";
+  const rawOpts = inter === "buttons" ? data.config.buttons
+    : inter === "list" ? (Array.isArray(data.config.sections) ? (data.config.sections[0] as { rows?: unknown[] } | undefined)?.rows : undefined)
+    : undefined;
+  const options: { id: string; title: string }[] = Array.isArray(rawOpts)
+    ? (rawOpts as { id?: string; title?: string }[]).map((o, i) => ({ id: String(o?.id || o?.title || `opt${i}`), title: String(o?.title || `Option ${i + 1}`) }))
+    : [];
   return (
     <div className={cn(
       "w-[260px] rounded-lg bg-card border-[1.5px] shadow-sm transition-all",
@@ -131,6 +144,16 @@ function FlowNode({ data, selected }: NodeProps<AppNode>) {
           )}
         </div>
         <p className="text-[11.5px] text-muted-foreground mt-2 line-clamp-2 break-words">{summary(data.kind, data.config, data.triggerType)}</p>
+        {options.length > 0 && (
+          <div className="mt-2 space-y-1">
+            {options.map((opt) => (
+              <div key={opt.id} className="relative flex items-center rounded-md border border-border bg-muted/50 pl-2 pr-3 py-1 text-[11px] font-medium text-foreground">
+                <span className="truncate">{opt.title}</span>
+                <Handle id={opt.id} type="source" position={Position.Right} className="!w-2.5 !h-2.5 !bg-primary !border-2 !border-card" />
+              </div>
+            ))}
+          </div>
+        )}
       </div>
       {data.kind === "condition" ? (
         <>
@@ -141,7 +164,7 @@ function FlowNode({ data, selected }: NodeProps<AppNode>) {
           <Handle id="match" type="source" position={Position.Bottom} style={{ left: "26%" }} className="!w-2.5 !h-2.5 !bg-emerald-500 !border-2 !border-card" />
           <Handle id="else" type="source" position={Position.Bottom} style={{ left: "74%" }} className="!w-2.5 !h-2.5 !bg-slate-400 !border-2 !border-card" />
         </>
-      ) : (
+      ) : options.length > 0 ? null : (
         <Handle type="source" position={Position.Bottom} className="!w-2.5 !h-2.5 !bg-primary !border-2 !border-card" />
       )}
     </div>

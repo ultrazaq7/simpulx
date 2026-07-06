@@ -355,13 +355,8 @@ func (a *app) walkFlow(ctx context.Context, orgID, convID, contactID string, r a
 
 	executed := 0
 	seen := map[string]bool{}
-	for _, tid := range triggerIDs {
-		// Each trigger node gates its own branch by its conditions.
-		if !a.triggerNodeMatches(ctx, orgID, r.TriggerType, byID[tid].Config, in, contactID, convID) {
-			continue
-		}
-		cur := firstTo(tid)
-		for i := 0; cur != "" && i < 100; i++ {
+	walkBranch := func(start string) {
+		for cur, i := start, 0; cur != "" && i < 100; i++ {
 			if seen[cur] {
 				break
 			}
@@ -395,6 +390,30 @@ func (a *app) walkFlow(ctx context.Context, orgID, convID, contactID string, r a
 				cur = firstTo(cur)
 			}
 		}
+	}
+
+	// Button / interactive reply: resume the flow from the tapped option's branch
+	// (an edge whose handle == the button/list callback id), NOT from the trigger.
+	// This drives conversational, per-button branching within one flow.
+	if in.payload != "" {
+		routed := false
+		for _, e := range f.Edges {
+			if e.Handle != "" && strings.EqualFold(e.Handle, in.payload) {
+				walkBranch(e.To)
+				routed = true
+			}
+		}
+		if routed {
+			return executed
+		}
+	}
+
+	// Normal inbound: run every trigger node whose conditions match.
+	for _, tid := range triggerIDs {
+		if !a.triggerNodeMatches(ctx, orgID, r.TriggerType, byID[tid].Config, in, contactID, convID) {
+			continue
+		}
+		walkBranch(firstTo(tid))
 	}
 	return executed
 }
