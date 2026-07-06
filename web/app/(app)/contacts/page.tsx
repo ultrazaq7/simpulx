@@ -17,6 +17,7 @@ import { StageMenu } from "@/app/(app)/inbox/components/StageMenu";
 import LostReasonDialog from "@/app/(app)/inbox/components/LostReasonDialog";
 import { Select } from "@/components/Select";
 import { MultiSelect } from "@/components/ui/multi-select";
+import SidePanel from "@/components/SidePanel";
 
 type ModalState = { mode: "add" } | { mode: "edit"; contact: Contact } | null;
 
@@ -678,14 +679,16 @@ function ContactModal({ state, allTags, onClose, onSaved }: {
   }
 
   return (
-    <div className="fixed inset-0 z-[100] flex items-center justify-center p-4">
-      <div className="absolute inset-0 bg-black/40 backdrop-blur-[2px] animate-fade-in" onClick={onClose} />
-      <div className="relative w-[440px] rounded-lg border border-border bg-card shadow-2xl animate-scale-in">
-        <div className="flex items-center px-5 py-3.5 border-b border-border">
-          <p className="font-bold text-[15px] text-foreground flex-1">{editing ? "Edit contact" : "Add contact"}</p>
-          <button onClick={onClose} className="p-1 rounded-md text-muted-foreground hover:bg-muted hover:text-foreground outline-none"><X className="w-[18px] h-[18px]" /></button>
-        </div>
-        <div className="p-5 space-y-4">
+    <SidePanel
+      open
+      onClose={onClose}
+      title={editing ? "Edit contact" : "Add contact"}
+      width="sm"
+      busy={saving}
+      onApply={save}
+      applyLabel={editing ? "Save changes" : "Add contact"}
+    >
+        <div className="space-y-4">
           {err && <div className="px-3 py-2 rounded-md bg-red-50 border border-red-200 text-red-600 text-[13px] font-medium">{err}</div>}
           <div className="space-y-1.5">
             <label className="text-[12px] font-bold text-foreground/80">Full name</label>
@@ -735,14 +738,7 @@ function ContactModal({ state, allTags, onClose, onSaved }: {
             </div>
           )}
         </div>
-        <div className="flex items-center justify-end gap-2 px-5 py-3 border-t border-border">
-          <button onClick={onClose} className="px-3 py-1.5 rounded-md text-sm font-semibold text-foreground/70 hover:bg-muted outline-none">Cancel</button>
-          <button onClick={save} disabled={saving} className="px-4 py-1.5 rounded-md text-sm font-semibold text-white bg-primary hover:bg-primary-dark disabled:opacity-60 outline-none inline-flex items-center gap-2 transition-colors">
-            {saving && <Loader2 className="w-4 h-4 animate-spin" />}{editing ? "Save changes" : "Add contact"}
-          </button>
-        </div>
-      </div>
-    </div>
+    </SidePanel>
   );
 }
 

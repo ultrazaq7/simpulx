@@ -3,13 +3,14 @@
 // Captures leads from ad platforms / external systems via an API key; each lead
 // opens a conversation in the inbox attributed to its source.
 import { useEffect, useState } from "react";
-import { Plus, RefreshCw, Pencil, Trash2, Copy, RotateCw, Plug, Key, Loader2, X, Search } from "lucide-react";
+import { Plus, RefreshCw, Pencil, Trash2, Copy, RotateCw, Plug, Key, Search } from "lucide-react";
 import { api } from "@/lib/api";
 import { Select } from "@/components/Select";
+import SidePanel from "@/components/SidePanel";
 import { cn, fmtDateTimeShort } from "@/lib/utils";
 import { Tip } from "@/components/ui/tooltip";
 import type { WebApiSource, Campaign, SourcePlatform } from "@/lib/types";
-import { useToast, FieldLabel, INPUT_CLASS, PrimaryButton, GhostButton } from "../_shared";
+import { useToast, FieldLabel, INPUT_CLASS, PrimaryButton } from "../_shared";
 import { WebApiWizard } from "./WebApiWizard";
 
 const API = process.env.NEXT_PUBLIC_API_URL || "http://localhost:8080";
@@ -177,8 +178,6 @@ function WebApiDialog({ state, campaigns, onClose, onSaved, onError }: {
     finally { setSaving(false); }
   }
 
-  if (!state.open) return null;
-
   const fields = [
     { label: "Name", value: name, set: setName, placeholder: "e.g. Meta Ads", autoFocus: true },
     { label: "Slug (optional)", value: slug, set: setSlug, placeholder: "auto-generated from name" },
@@ -187,41 +186,34 @@ function WebApiDialog({ state, campaigns, onClose, onSaved, onError }: {
   ];
 
   return (
-    <div className="fixed inset-0 z-[100] flex items-center justify-center p-4">
-      <div className="absolute inset-0 bg-black/40 backdrop-blur-[2px] animate-fade-in" onClick={onClose} />
-      <div className="relative bg-card rounded-lg border border-border shadow-2xl w-full max-w-sm animate-scale-in">
-        <div className="flex items-center justify-between px-5 py-3.5 border-b border-border">
-          <h2 className="text-[15px] font-bold text-foreground">{isEdit ? "Edit API source" : "New API source"}</h2>
-          <button onClick={onClose} className="p-1 rounded-md text-muted-foreground hover:bg-muted hover:text-foreground outline-none transition-colors"><X className="w-[18px] h-[18px]" /></button>
-        </div>
-        <div className="px-5 py-5 flex flex-col gap-4">
-          {fields.map((f) => (
-            <div key={f.label}>
-              <FieldLabel>{f.label}</FieldLabel>
-              <input type="text" value={f.value} onChange={(e) => f.set(e.target.value)} autoFocus={f.autoFocus} placeholder={f.placeholder}
-                className={INPUT_CLASS} />
-            </div>
-          ))}
-          <div>
-            <FieldLabel>Platform</FieldLabel>
-            <Select value={platform} onChange={(v) => setPlatform(v as SourcePlatform)} searchable={false}
-              options={(Object.keys(PLATFORM_LABELS) as SourcePlatform[]).map((k) => ({ value: k, label: PLATFORM_LABELS[k] }))} />
-            <p className="text-[11.5px] text-muted-foreground mt-1">Shown consistently as the lead source across Contacts, exports, and logs.</p>
+    <SidePanel
+      open={state.open}
+      onClose={onClose}
+      title={isEdit ? "Edit API source" : "New API source"}
+      width="sm"
+      busy={saving}
+      onApply={save}
+      applyLabel={isEdit ? "Save" : "Create"}
+    >
+      <div className="flex flex-col gap-4">
+        {fields.map((f) => (
+          <div key={f.label}>
+            <FieldLabel>{f.label}</FieldLabel>
+            <input type="text" value={f.value} onChange={(e) => f.set(e.target.value)} autoFocus={f.autoFocus} placeholder={f.placeholder}
+              className={INPUT_CLASS} />
           </div>
-          <div>
-            <FieldLabel>Route to campaign</FieldLabel>
-            <Select value={campaignId} onChange={setCampaignId} placeholder="No campaign"
-              options={[{ value: "", label: "No campaign" }, ...campaigns.map((c) => ({ value: c.id, label: c.name }))]} />
-          </div>
+        ))}
+        <div>
+          <FieldLabel>Platform</FieldLabel>
+          <Select value={platform} onChange={(v) => setPlatform(v as SourcePlatform)} searchable={false}
+            options={(Object.keys(PLATFORM_LABELS) as SourcePlatform[]).map((k) => ({ value: k, label: PLATFORM_LABELS[k] }))} />
         </div>
-        <div className="flex justify-end gap-2 px-5 py-3.5 border-t border-border">
-          <GhostButton onClick={onClose}>Cancel</GhostButton>
-          <PrimaryButton onClick={save} disabled={saving}>
-            {saving ? <Loader2 className="w-4 h-4 animate-spin" /> : null}
-            {isEdit ? "Save" : "Create"}
-          </PrimaryButton>
+        <div>
+          <FieldLabel>Route to campaign</FieldLabel>
+          <Select value={campaignId} onChange={setCampaignId} placeholder="No campaign"
+            options={[{ value: "", label: "No campaign" }, ...campaigns.map((c) => ({ value: c.id, label: c.name }))]} />
         </div>
       </div>
-    </div>
+    </SidePanel>
   );
 }
