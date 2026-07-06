@@ -221,7 +221,7 @@ func (s *server) handleUpdateCampaign(w http.ResponseWriter, r *http.Request) {
 		   routing_strategy = COALESCE(NULLIF($6,''), routing_strategy),
 		   ad_source_ids = COALESCE($7, ad_source_ids),
 		   keywords = COALESCE($8, keywords),
-		   channel_id = NULLIF($9,'')::uuid,
+		   channel_id = COALESCE(NULLIF($9,'')::uuid, channel_id),
 		   calling_enabled = COALESCE($10, calling_enabled),
 		   segment = COALESCE(NULLIF($11,''), segment),
 		   brand = COALESCE(NULLIF($12,''), brand),

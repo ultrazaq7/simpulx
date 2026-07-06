@@ -1000,6 +1000,10 @@ function MarketingAnalytics() {
         )}
         <DateRangeFilter value={{ preset: dateRange, from: fFrom, to: fTo }}
           onChange={(v) => { setDateRange(v.preset); setFFrom(v.from); setFTo(v.to); }} />
+        {(accountFilter.length > 0 || campaignFilter.length > 0 || sourceFilter.length > 0 || dateRange !== "all") && (
+          <button onClick={() => { setAccountFilter([]); setCampaignFilter([]); setSourceFilter([]); setDateRange("all"); setFFrom(""); setFTo(""); }}
+            className="text-[12px] font-semibold text-primary hover:underline outline-none">Clear</button>
+        )}
       </div>
 
       {loading ? (
