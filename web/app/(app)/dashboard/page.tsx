@@ -507,6 +507,15 @@ function ManagerDashboard() {
   const filtersRef = useRef({ fChannel, fCampaign, fAgent, fSource, fFrom, fTo });
   filtersRef.current = { fChannel, fCampaign, fAgent, fSource, fFrom, fTo };
 
+  // Carry the active filters into a KPI card's inbox link so the inbox opens
+  // matching the card's count. Source/date have no inbox equivalent, so skip them.
+  const cardFilterQS = [
+    fCampaign.length ? `campaign=${fCampaign.join(",")}` : "",
+    fAgent.length ? `agent=${fAgent.join(",")}` : "",
+    fChannel.length ? `channel=${fChannel.join(",")}` : "",
+  ].filter(Boolean).join("&");
+  const metricHref = (h: string) => cardFilterQS ? `${h}${h.includes("?") ? "&" : "?"}${cardFilterQS}` : h;
+
   const reloadReports = useCallback(() => {
     const { fChannel, fCampaign, fAgent, fSource, fFrom, fTo } = filtersRef.current;
     const f = {
@@ -616,7 +625,7 @@ function ManagerDashboard() {
             );
 
             return m.href
-              ? <Link key={m.key} href={m.href} className={base}>{inner}</Link>
+              ? <Link key={m.key} href={metricHref(m.href)} className={base}>{inner}</Link>
               : <div key={m.key} className={base}>{inner}</div>;
           })}
         </div>

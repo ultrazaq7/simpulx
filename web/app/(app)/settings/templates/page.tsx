@@ -750,9 +750,9 @@ function Modal({ children, onClose, title, header, maxW, noPad }: {
 }) {
   useEscClose(true, onClose);
   return (
-    <div className="fixed inset-0 z-[100] flex items-center justify-center p-4">
+    <div className="fixed inset-0 z-[100]">
       <div className="absolute inset-0 bg-black/40 backdrop-blur-[2px] animate-fade-in" onClick={onClose} />
-      <div className={cn("relative bg-card rounded-lg border border-border shadow-2xl w-full max-h-[92vh] flex flex-col animate-scale-in", maxW)}>
+      <div className={cn("absolute inset-y-0 right-0 bg-card border-l border-border shadow-2xl w-full flex flex-col animate-slide-in-right", maxW)}>
         {header ? (
           <div className="flex items-center px-4 py-3 border-b border-border shrink-0">{header}</div>
         ) : title ? (

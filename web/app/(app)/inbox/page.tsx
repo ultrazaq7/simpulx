@@ -86,6 +86,11 @@ export default function InboxPage() {
     if (sp.get("unreplied") === "1") setNeedsReplyOnly(true);
     if (sp.get("assigned") === "unassigned") setUnassignedOnly(true); // dashboard Unassigned card
     const lr = sp.get("lost_reason"); if (lr) setLostReasonFilter(lr); // Lost-reasons chart drill-in
+    // Dashboard KPI cards carry their active filters so the inbox opens matching
+    // the card's count (source/date have no inbox equivalent, so they don't map).
+    const camp = sp.get("campaign"); if (camp) setFilterCampaigns(camp.split(","));
+    const agent = sp.get("agent"); if (agent) setFilterAgents(agent.split(","));
+    const channel = sp.get("channel"); if (channel) setFilterChannels(channel.split(","));
     pendingStageRef.current = sp.get("stage");
     if (c) setActiveId(c); // deep-link to a conversation (Copy link to message)
   }, []);
