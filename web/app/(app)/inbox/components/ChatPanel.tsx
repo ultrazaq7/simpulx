@@ -751,6 +751,7 @@ export default function ChatPanel({
               aiSummary={active?.lead_summary}
               uploadProgress={uploadProgress}
               onAddNote={onAddNote}
+              smartSummaryEnabled={active?.campaign_smart_summary !== false}
             />
           </>
         )}

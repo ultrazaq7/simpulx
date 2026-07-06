@@ -41,6 +41,7 @@ export interface Conversation {
   purchase_timeframe: string | null;
   lost_reason: string | null;
   campaign_segment?: string | null;
+  campaign_smart_summary?: boolean;
   lead_fields?: Record<string, string> | null;
   lead_summary: string | null;
   suggested_action: string | null;
@@ -424,6 +425,7 @@ export interface CampaignDetail extends Campaign {
   ai_auto_reply?: boolean;
   ai_language?: string | null;         // id | en
   ai_dynamic_language?: boolean;
+  ai_smart_summary?: boolean;          // show the composer Smart Summary button
   intake_form_id?: string | null;
 }
 export interface CampaignAnalyticsRow {

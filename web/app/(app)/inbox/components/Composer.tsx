@@ -33,13 +33,14 @@ interface ComposerProps {
   aiSummary?: string | null;
   uploadProgress?: number | null; // 0-100 while an attachment uploads
   onAddNote?: (body: string) => Promise<void>; // AI Smart Summary -> Confirm posts a note
+  smartSummaryEnabled?: boolean;               // per-campaign toggle; hides the button when false
 }
 
 export default function Composer({
   draft, setDraft, tab, setTab, quickReplies,
   pendingFiles, pendingPreviews, fileRef, onFile, cancelSendFile, removePendingFile,
   busy, onSubmit, notify, onSendVoice, windowExpired, phone, conversationId, callingEnabled, onRequestCall,
-  aiSummary, uploadProgress, onAddNote,
+  aiSummary, uploadProgress, onAddNote, smartSummaryEnabled = true,
 }: ComposerProps) {
   const [showQR, setShowQR] = useState(false);
   const [emojiOpen, setEmojiOpen] = useState(false);
@@ -388,8 +389,8 @@ export default function Composer({
 
           <div className="flex-1" />
 
-          {/* AI Smart Summary — Internal note tab only */}
-          {note && (
+          {/* AI Smart Summary — Internal note tab only, and only if the campaign enables it */}
+          {note && smartSummaryEnabled && (
             <button
               type="button"
               onClick={openAI}

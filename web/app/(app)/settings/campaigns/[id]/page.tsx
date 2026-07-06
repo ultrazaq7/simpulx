@@ -170,23 +170,24 @@ function AITab({ campaign, onSaved, onError }: { campaign: CampaignDetail; onSav
   const init = {
     segment: campaign.segment ?? "", brand: campaign.brand ?? "",
     autoReply: campaign.ai_auto_reply ?? false, lang: campaign.ai_language ?? "id",
-    dynLang: campaign.ai_dynamic_language ?? true,
+    dynLang: campaign.ai_dynamic_language ?? true, smartSummary: campaign.ai_smart_summary ?? true,
   };
   const [segment, setSegment] = useState(init.segment);
   const [brand, setBrand] = useState(init.brand);
   const [autoReply, setAutoReply] = useState(init.autoReply);
   const [lang, setLang] = useState(init.lang);
   const [dynLang, setDynLang] = useState(init.dynLang);
+  const [smartSummary, setSmartSummary] = useState(init.smartSummary);
   const [saving, setSaving] = useState(false);
 
-  const changedCount = [segment !== init.segment, brand.trim() !== init.brand, autoReply !== init.autoReply, lang !== init.lang, dynLang !== init.dynLang].filter(Boolean).length;
-  function reset() { setSegment(init.segment); setBrand(init.brand); setAutoReply(init.autoReply); setLang(init.lang); setDynLang(init.dynLang); }
+  const changedCount = [segment !== init.segment, brand.trim() !== init.brand, autoReply !== init.autoReply, lang !== init.lang, dynLang !== init.dynLang, smartSummary !== init.smartSummary].filter(Boolean).length;
+  function reset() { setSegment(init.segment); setBrand(init.brand); setAutoReply(init.autoReply); setLang(init.lang); setDynLang(init.dynLang); setSmartSummary(init.smartSummary); }
 
   async function save() {
     setSaving(true);
     try {
-      await api.updateCampaign(campaign.id, { segment, brand: brand.trim(), ai_auto_reply: autoReply, ai_language: lang, ai_dynamic_language: dynLang });
-      onSaved({ ...campaign, segment, brand: brand.trim(), ai_auto_reply: autoReply, ai_language: lang, ai_dynamic_language: dynLang });
+      await api.updateCampaign(campaign.id, { segment, brand: brand.trim(), ai_auto_reply: autoReply, ai_language: lang, ai_dynamic_language: dynLang, ai_smart_summary: smartSummary });
+      onSaved({ ...campaign, segment, brand: brand.trim(), ai_auto_reply: autoReply, ai_language: lang, ai_dynamic_language: dynLang, ai_smart_summary: smartSummary });
     } catch (e) { onError(String(e)); } finally { setSaving(false); }
   }
   return (
@@ -194,6 +195,10 @@ function AITab({ campaign, onSaved, onError }: { campaign: CampaignDetail; onSav
       <div className="flex items-center justify-between rounded-lg border border-border p-3">
         <p className="text-[13.5px] font-semibold text-foreground">Auto-reply</p>
         <Toggle on={autoReply} onToggle={() => setAutoReply((v) => !v)} />
+      </div>
+      <div className="flex items-center justify-between rounded-lg border border-border p-3">
+        <p className="text-[13.5px] font-semibold text-foreground">Smart Summary</p>
+        <Toggle on={smartSummary} onToggle={() => setSmartSummary((v) => !v)} />
       </div>
       <div className="grid grid-cols-2 gap-4">
         <div><FieldLabel>Segment</FieldLabel>
