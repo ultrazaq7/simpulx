@@ -209,7 +209,12 @@ jobs:
           echo "-- migrate (dedicated step, not on boot) --"
           $DC run --rm -e MIGRATE_ONLY=true gateway
           echo "-- start --"
-          $DC up -d
+          # --pull always + --force-recreate: a successful build can push a new image
+          # to the same :sha tag; without forcing, up -d sometimes keeps the old
+          # container so new code never goes live. Force a clean replace.
+          $DC up -d --pull always --force-recreate --remove-orphans
+          echo "-- running web image --"
+          docker inspect --format '{{.Config.Image}} {{.Image}}' "$(docker compose --env-file .env -f deploy/docker/compose.yml -f deploy/docker/compose.prod.yml ps -q web)" || true
           echo "-- refresh caddy --"
           $DC restart caddy
           # Post-deploy: clean up anything the new deploy left behind.
