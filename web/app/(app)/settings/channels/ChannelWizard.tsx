@@ -14,6 +14,7 @@ import { api, getUser } from "@/lib/api";
 import { cn } from "@/lib/utils";
 import { isMetaSignupConfigured, launchWhatsAppSignup } from "@/lib/fbSignup";
 import { FieldLabel, INPUT_CLASS, PrimaryButton } from "../_shared";
+import { WizardModal } from "./WizardModal";
 
 const API = process.env.NEXT_PUBLIC_API_URL || "http://localhost:8080";
 const WA_WEBHOOK_URL = `${API}/webhook/whatsapp`;
@@ -37,73 +38,36 @@ export function ChannelWizard({ onClose, onDone, onError }: {
 
   function finish(res: Result) { setResult(res); setStep(2); }
 
+  const footer = (
+    <>
+      {step === 1 && (
+        <button onClick={() => setStep(0)} className="inline-flex items-center gap-1.5 px-4 h-9 rounded-md border border-border text-sm font-semibold text-foreground/80 hover:bg-muted transition-colors outline-none">
+          <ArrowLeft className="w-4 h-4" /> Back
+        </button>
+      )}
+      <div className="flex-1" />
+      {step === 0 && (
+        <button onClick={() => type && setStep(1)} disabled={!type}
+          className="px-5 h-9 rounded-md bg-primary text-white text-sm font-semibold hover:bg-primary-dark disabled:opacity-40 disabled:cursor-not-allowed shadow-sm hover:shadow-brand-md transition-all outline-none">
+          Continue
+        </button>
+      )}
+      {step === 2 && (
+        <PrimaryButton onClick={() => onDone(result?.status === "connected" ? "Channel connected" : "Channel added")}>
+          Done
+        </PrimaryButton>
+      )}
+    </>
+  );
+
   return (
-    <div className="fixed inset-0 z-[100] flex items-center justify-center p-4">
-      <div className="absolute inset-0 bg-black/45 backdrop-blur-[2px] animate-fade-in" onClick={onClose} />
-      <div className="relative w-full max-w-[760px] max-h-[88vh] rounded-xl border border-border bg-card shadow-2xl animate-scale-in flex flex-col">
-        {/* Header */}
-        <div className="flex items-center gap-3 px-6 py-4 border-b border-border shrink-0">
-          <div className="w-9 h-9 rounded-lg bg-primary/10 text-primary grid place-items-center"><RadioTower className="w-5 h-5" /></div>
-          <div className="flex-1 min-w-0">
-            <p className="font-bold text-[16px] text-foreground leading-tight">Create channel</p>
-            <p className="text-[12px] text-muted-foreground">Step {step + 1} of {STEPS.length}: {STEPS[step]}</p>
-          </div>
-          <button onClick={onClose} className="p-1.5 rounded-md text-muted-foreground hover:bg-muted hover:text-foreground outline-none"><X className="w-5 h-5" /></button>
-        </div>
-
-        {/* Step indicator */}
-        <div className="flex items-center px-6 pt-4 shrink-0">
-          {STEPS.map((s, i) => {
-            const done = i < step, active = i === step;
-            return (
-              <div key={s} className="flex items-center flex-1 last:flex-none">
-                <div className="flex items-center gap-2">
-                  <div className={cn("w-7 h-7 rounded-full grid place-items-center text-[12px] font-bold shrink-0 transition-colors",
-                    done ? "bg-success text-white" : active ? "bg-primary text-white" : "bg-muted text-muted-foreground")}>
-                    {done ? <Check className="w-3.5 h-3.5" /> : i + 1}
-                  </div>
-                  <span className={cn("text-[12.5px] font-semibold whitespace-nowrap hidden sm:block", active ? "text-foreground" : "text-muted-foreground")}>{s}</span>
-                </div>
-                {i < STEPS.length - 1 && <div className={cn("h-0.5 flex-1 mx-3 rounded-full", done ? "bg-success" : "bg-border")} />}
-              </div>
-            );
-          })}
-        </div>
-
-        {/* Body */}
-        <div className="flex-1 overflow-y-auto px-6 py-6 min-h-0">
-          {step === 0 && <SelectStep selected={type} onSelect={setType} />}
-          {step === 1 && meta && (
-            <DetailsStep
-              type={type} saving={saving} setSaving={setSaving}
-              onConnected={finish} onError={onError}
-            />
-          )}
-          {step === 2 && result && meta && <DoneStep meta={meta} result={result} />}
-        </div>
-
-        {/* Footer */}
-        <div className="flex items-center gap-2 px-6 py-4 border-t border-border shrink-0">
-          {step === 1 && (
-            <button onClick={() => setStep(0)} className="inline-flex items-center gap-1.5 px-4 h-9 rounded-md border border-border text-sm font-semibold text-foreground/80 hover:bg-muted transition-colors outline-none">
-              <ArrowLeft className="w-4 h-4" /> Back
-            </button>
-          )}
-          <div className="flex-1" />
-          {step === 0 && (
-            <button onClick={() => type && setStep(1)} disabled={!type}
-              className="px-5 h-9 rounded-md bg-primary text-white text-sm font-semibold hover:bg-primary-dark disabled:opacity-40 disabled:cursor-not-allowed shadow-sm hover:shadow-brand-md transition-all outline-none">
-              Continue
-            </button>
-          )}
-          {step === 2 && (
-            <PrimaryButton onClick={() => onDone(result?.status === "connected" ? "Channel connected" : "Channel added")}>
-              Done
-            </PrimaryButton>
-          )}
-        </div>
-      </div>
-    </div>
+    <WizardModal title="Create channel" icon={<RadioTower className="w-5 h-5" />} steps={STEPS} step={step} onClose={onClose} footer={footer}>
+      {step === 0 && <SelectStep selected={type} onSelect={setType} />}
+      {step === 1 && meta && (
+        <DetailsStep type={type} saving={saving} setSaving={setSaving} onConnected={finish} onError={onError} />
+      )}
+      {step === 2 && result && meta && <DoneStep meta={meta} result={result} />}
+    </WizardModal>
   );
 }
 

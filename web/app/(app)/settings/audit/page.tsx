@@ -178,8 +178,8 @@ export default function SystemLogsPage() {
           <input value={fLabel} onChange={(e) => setFLabel(e.target.value)} placeholder="Label"
             className="w-[140px] h-9 px-3 rounded-md border border-input bg-background text-sm text-foreground placeholder:text-muted-foreground/70 outline-none focus:border-primary" />
         )}
-        {showConvFilters && (fCampaign.length > 0 || fChannel.length > 0 || fLabel) && (
-          <button onClick={() => { setFCampaign([]); setFChannel([]); setFLabel(""); }} className="text-[12px] font-semibold text-primary hover:underline outline-none">Clear</button>
+        {((showConvFilters && (fCampaign.length > 0 || fChannel.length > 0 || !!fLabel)) || (showRange && dr.preset !== "30d")) && (
+          <button onClick={() => { setFCampaign([]); setFChannel([]); setFLabel(""); setDr({ preset: "30d", ...presetRange("30d") }); }} className="text-[12px] font-semibold text-primary hover:underline outline-none">Clear</button>
         )}
         <div className="flex-1" />
         {showExportBtn && (
