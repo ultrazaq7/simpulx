@@ -12,7 +12,7 @@ import {
   Globe, GitFork, Trash2, Loader2, X, Save, Undo2, Redo2,
   Braces, ToggleRight, Sheet, ClipboardList, UserMinus, Ban,
   FolderMinus, Scissors, Mail, Milestone, Flame, Image as ImageIcon,
-  RefreshCw,
+  RefreshCw, LayoutGrid,
 } from "lucide-react";
 import type { LucideIcon } from "lucide-react";
 import { Tip } from "@/components/ui/tooltip";
@@ -167,11 +167,14 @@ function FlowNode({ data, selected }: NodeProps<AppNode>) {
           <p className="text-[11.5px] text-muted-foreground mt-2 line-clamp-2 break-words">{summary(data.kind, data.config, data.triggerType)}</p>
         )}
         {options.length > 0 && (
-          <div className="mt-2.5 flex gap-1.5 pb-1">
+          // Each button owns a source handle at its own bottom-center, so a branch
+          // line leaves exactly from that button (like the Criteria Router's ports).
+          <div className="mt-2.5 flex gap-1.5 pb-3">
             {options.map((opt, i) => (
-              <div key={opt.id} className="flex-1 flex items-center justify-center gap-1 rounded-md border border-border bg-muted/50 px-1.5 py-1.5 text-[10px] font-medium text-foreground">
+              <div key={opt.id} className="relative flex-1 flex items-center justify-center gap-1 rounded-md border border-border bg-muted/50 px-1.5 py-1.5 text-[10px] font-medium text-foreground">
                 <span className="grid place-items-center w-4 h-4 rounded bg-primary/15 text-primary text-[8px] font-bold shrink-0">{i + 1}</span>
                 <span className="truncate">{opt.title}</span>
+                <Handle id={opt.id} type="source" position={Position.Bottom} className="!w-2.5 !h-2.5 !bg-primary !border-2 !border-card !-bottom-[13px]" />
               </div>
             ))}
           </div>
@@ -186,14 +189,7 @@ function FlowNode({ data, selected }: NodeProps<AppNode>) {
           <Handle id="match" type="source" position={Position.Bottom} style={{ left: "26%" }} className="!w-2.5 !h-2.5 !bg-emerald-500 !border-2 !border-card" />
           <Handle id="else" type="source" position={Position.Bottom} style={{ left: "74%" }} className="!w-2.5 !h-2.5 !bg-slate-400 !border-2 !border-card" />
         </>
-      ) : options.length > 0 ? (
-        // One handle per button, positioned along the node's bottom edge centered under each button.
-        options.map((opt, i) => (
-          <Handle key={opt.id} id={opt.id} type="source" position={Position.Bottom}
-            style={{ left: `${Math.round(((i + 0.5) / options.length) * 100)}%` }}
-            className="!w-2.5 !h-2.5 !bg-primary !border-2 !border-card" />
-        ))
-      ) : (
+      ) : options.length > 0 ? null : (
         <Handle type="source" position={Position.Bottom} className="!w-2.5 !h-2.5 !bg-primary !border-2 !border-card" />
       )}
     </div>
@@ -243,11 +239,48 @@ function toModel(nodes: AppNode[], edges: Edge[]) {
   };
 }
 
+// Clean top-down layered ("tree") layout: depth = distance from a root (a node
+// with no incoming edge), siblings spread horizontally and centered per level.
+// Keeps the downward flow the builder is designed around.
+function autoLayout(nodes: AppNode[], edges: Edge[]): AppNode[] {
+  if (nodes.length === 0) return nodes;
+  const NODE_W = 260, X_GAP = 56, ROW_H = 210;
+  const ids = new Set(nodes.map((n) => n.id));
+  const children: Record<string, string[]> = {};
+  const indeg: Record<string, number> = {};
+  nodes.forEach((n) => { children[n.id] = []; indeg[n.id] = 0; });
+  edges.forEach((e) => { if (ids.has(e.source) && ids.has(e.target)) { children[e.source].push(e.target); indeg[e.target]++; } });
+  // Roots: no incoming edge (trigger first for a stable order).
+  const roots = nodes.filter((n) => indeg[n.id] === 0).map((n) => n.id)
+    .sort((a) => (a === "trigger" ? -1 : 0));
+  const levels: string[][] = [];
+  const seen = new Set<string>();
+  let frontier = roots.length ? roots : [nodes[0].id];
+  while (frontier.length) {
+    const row = frontier.filter((idn) => !seen.has(idn));
+    if (row.length === 0) break;
+    row.forEach((idn) => seen.add(idn));
+    levels.push(row);
+    frontier = row.flatMap((idn) => children[idn].filter((c) => !seen.has(c)));
+  }
+  // Disconnected leftovers get their own trailing row.
+  const leftover = nodes.filter((n) => !seen.has(n.id)).map((n) => n.id);
+  if (leftover.length) levels.push(leftover);
+  const pos: Record<string, { x: number; y: number }> = {};
+  levels.forEach((row, d) => {
+    const totalW = row.length * NODE_W + (row.length - 1) * X_GAP;
+    let x = -totalW / 2 + NODE_W / 2;
+    row.forEach((idn) => { pos[idn] = { x, y: d * ROW_H }; x += NODE_W + X_GAP; });
+  });
+  const minX = Math.min(...Object.values(pos).map((p) => p.x));
+  return nodes.map((n) => ({ ...n, position: pos[n.id] ? { x: pos[n.id].x - minX + 80, y: pos[n.id].y + 40 } : n.position }));
+}
+
 // ── Page ────────────────────────────────────────────────────────────────────
 function Builder() {
   const { id } = useParams<{ id: string }>();
   const router = useRouter();
-  const { screenToFlowPosition } = useReactFlow();
+  const { fitView } = useReactFlow();
   const wrapRef = useRef<HTMLDivElement>(null);
 
   const [auto, setAuto] = useState<AutomationDetail | null>(null);
@@ -327,11 +360,21 @@ function Builder() {
   const onConnect = useCallback((c: Connection) => { pushHistory(); setEdges((eds) => addEdge({ ...c, animated: true, style: { stroke: "#94A3B8", strokeWidth: 1.6 }, label: c.sourceHandle === "match" ? "Match" : c.sourceHandle === "else" ? "Else" : undefined }, eds)); setDirty(true); }, [setEdges, pushHistory]);
   const markDirty = useCallback(() => setDirty(true), []);
 
+  function tidy() {
+    pushHistory();
+    setNodes((nds) => autoLayout(nds, edges));
+    setDirty(true);
+    setTimeout(() => fitView({ padding: 0.3, duration: 300, maxZoom: 1 }), 60);
+  }
+
   function addNode(kind: string) {
     setPaletteOpen(false);
     pushHistory();
-    const rect = wrapRef.current?.getBoundingClientRect();
-    const pos = rect ? screenToFlowPosition({ x: rect.left + rect.width / 2, y: rect.top + rect.height / 2 }) : { x: 240, y: 240 };
+    // Drop the new node below whatever is lowest (or below the selected node),
+    // so nodes never pile up on top of each other at the viewport center.
+    const anchor = selId ? nodes.find((n) => n.id === selId) : null;
+    const maxY = nodes.length ? Math.max(...nodes.map((n) => n.position.y)) : 40;
+    const pos = { x: anchor ? anchor.position.x : 120, y: (anchor ? Math.max(anchor.position.y, maxY) : maxY) + 190 };
     const nid = `n${Date.now()}`;
     const data: NodeData = kind === "trigger"
       ? { kind, config: {}, triggerType: auto?.trigger_type ?? "new_message" }
@@ -388,6 +431,7 @@ function Builder() {
         <div className="flex-1" />
         <Tip label="Undo (Ctrl+Z)"><button onClick={undo} className="p-2 rounded-md text-muted-foreground hover:bg-muted hover:text-foreground outline-none transition-colors"><Undo2 className="w-[18px] h-[18px]" /></button></Tip>
         <Tip label="Redo (Ctrl+Y)"><button onClick={redo} className="p-2 rounded-md text-muted-foreground hover:bg-muted hover:text-foreground outline-none transition-colors"><Redo2 className="w-[18px] h-[18px]" /></button></Tip>
+        <Tip label="Auto-arrange nodes"><button onClick={tidy} className="p-2 rounded-md text-muted-foreground hover:bg-muted hover:text-foreground outline-none transition-colors"><LayoutGrid className="w-[18px] h-[18px]" /></button></Tip>
         <button onClick={() => setPaletteOpen((v) => !v)} className="inline-flex items-center gap-1.5 px-3 h-9 rounded-md border border-border text-[13px] font-semibold text-foreground/80 hover:bg-muted transition-colors outline-none"><Plus className="w-4 h-4" /> Add node</button>
         <label className="inline-flex items-center gap-2 cursor-pointer mx-1">
           <span className="relative inline-flex">

@@ -60,8 +60,9 @@ export default function SettingsLayout({ children }: { children: ReactNode }) {
   const pathname = usePathname() || "";
   const { can } = usePermissions();
   const { t } = useI18n();
-  const [collapsed, setCollapsed] = useState(false);
-  useEffect(() => { setCollapsed(localStorage.getItem("simpulx_settings_collapsed") === "1"); }, []);
+  // Lazy-init from localStorage so a refresh renders the collapsed sidebar
+  // immediately (no expand-then-collapse flash).
+  const [collapsed, setCollapsed] = useState<boolean>(() => typeof window !== "undefined" && localStorage.getItem("simpulx_settings_collapsed") === "1");
   const toggle = () => setCollapsed((c) => { const n = !c; localStorage.setItem("simpulx_settings_collapsed", n ? "1" : "0"); return n; });
 
   // Platform is visible only to the super admin (a configured email, not a role).
@@ -69,9 +70,17 @@ export default function SettingsLayout({ children }: { children: ReactNode }) {
   useEffect(() => { api.platformAccess().then((r) => setIsSuper(r.super_admin)).catch(() => {}); }, []);
 
   // On a full refresh the sidebar remounts at scrollTop 0, hiding the active item
-  // if it sits far down. Bring it into view once on mount.
+  // if it sits far down. Scroll the NAV CONTAINER (not the page) to reveal it.
   const activeRef = useRef<HTMLAnchorElement | null>(null);
-  useEffect(() => { activeRef.current?.scrollIntoView({ block: "nearest" }); }, [isSuper]);
+  const navScrollRef = useRef<HTMLDivElement | null>(null);
+  useEffect(() => {
+    const el = activeRef.current, box = navScrollRef.current;
+    if (!el || !box) return;
+    const top = el.offsetTop, bottom = top + el.offsetHeight;
+    if (top < box.scrollTop || bottom > box.scrollTop + box.clientHeight) {
+      box.scrollTop = Math.max(0, top - box.clientHeight / 2 + el.offsetHeight / 2);
+    }
+  }, [isSuper]);
 
   // Hide sections the role can't access; drop groups that become empty.
   const groups = [
@@ -123,7 +132,7 @@ export default function SettingsLayout({ children }: { children: ReactNode }) {
         "max-lg:hidden shrink-0 border-r border-border bg-card flex flex-col transition-[width] duration-200",
         collapsed ? "w-[64px]" : "w-[260px]",
       )}>
-        <div className="flex-1 overflow-y-auto overflow-x-hidden py-3 min-h-0">
+        <div ref={navScrollRef} className="flex-1 overflow-y-auto overflow-x-hidden py-3 min-h-0">
           {groups.map((g, gi) => (
             <div key={g.titleKey} className="mb-5">
               {!collapsed && (
