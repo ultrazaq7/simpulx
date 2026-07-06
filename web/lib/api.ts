@@ -449,9 +449,14 @@ export const api = {
   listCampaigns: () => req<Campaign[]>("/api/campaigns"),
   getCampaignAnalytics: () => req<CampaignAnalyticsRow[]>("/api/analytics/campaigns"),
   getCampaign: (id: string) => req<CampaignDetail>(`/api/campaigns/${id}`),
+  getCampaignCredits: (id: string) => req<{ allocated_credits: number; used_credits: number; low_balance_threshold: number; remaining_credits: number }>(`/api/campaigns/${id}/credits`),
+  allocateCampaignCredits: (id: string, input: { allocated_credits?: number; low_balance_threshold?: number }) =>
+    req(`/api/campaigns/${id}/credits/allocate`, { method: "POST", body: JSON.stringify(input) }),
+  getCampaignUsage: (id: string) => req<{ day: string; credits: number }[]>(`/api/campaigns/${id}/usage`),
+  getSubscription: () => req<{ package_name: string; status: string; renewal_date: string | null; quotas: Record<string, number>; used_users: number; used_simpuler_credits: number; used_custom_fields: number }>("/api/subscription"),
   createCampaign: (input: { name: string; dealer_name?: string; routing_strategy?: string; channel_id?: string; ad_source_ids?: string[]; keywords?: string[]; agent_ids?: string[]; supervisor_ids?: string[]; calling_enabled?: boolean }) =>
     req<{ id: string }>("/api/campaigns", { method: "POST", body: JSON.stringify(input) }),
-  updateCampaign: (id: string, patch: { name?: string; dealer_name?: string; status?: string; routing_strategy?: string; channel_id?: string; ad_source_ids?: string[]; keywords?: string[]; agent_ids?: string[]; supervisor_ids?: string[]; calling_enabled?: boolean }) =>
+  updateCampaign: (id: string, patch: { name?: string; dealer_name?: string; status?: string; routing_strategy?: string; channel_id?: string; ad_source_ids?: string[]; keywords?: string[]; agent_ids?: string[]; supervisor_ids?: string[]; calling_enabled?: boolean; segment?: string; brand?: string; ai_auto_reply?: boolean; ai_language?: string; ai_dynamic_language?: boolean; intake_form_id?: string }) =>
     req(`/api/campaigns/${id}`, { method: "PATCH", body: JSON.stringify(patch) }),
   deleteCampaign: (id: string) => req(`/api/campaigns/${id}`, { method: "DELETE" }),
   // ── Branches (sub-units of a campaign) ──
