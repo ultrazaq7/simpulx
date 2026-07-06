@@ -1,7 +1,7 @@
 "use client";
 import { useEffect, useState } from "react";
 import { useRouter } from "next/navigation";
-import { Loader2, Plus, Boxes, Pencil, Building2 } from "lucide-react";
+import { Loader2, Plus, Pencil, Building2 } from "lucide-react";
 import { api } from "@/lib/api";
 import { cn, fmtDateTimeShort } from "@/lib/utils";
 import type { OrgRow } from "@/lib/types";
@@ -41,20 +41,13 @@ export default function PlatformPage() {
     <>
       {ToastHost}
       <div className="px-6 pt-6 pb-6 max-w-[1180px] mx-auto w-full h-full flex flex-col min-h-0">
-        <div className="flex items-center justify-between gap-4 mb-4 px-4 py-3 rounded-lg border border-border bg-card shadow-xs shrink-0">
-          <div className="flex items-center gap-2.5 min-w-0">
-            <div className="w-9 h-9 rounded-lg bg-primary/10 text-primary grid place-items-center shrink-0"><Boxes className="w-[18px] h-[18px]" /></div>
-            <div className="min-w-0">
-              <h1 className="text-[15px] font-bold text-foreground leading-tight">Platform</h1>
-            </div>
-          </div>
-          <button onClick={() => setPanel({ mode: "create" })}
-            className="inline-flex items-center gap-2 px-3.5 h-9 bg-primary text-white rounded-md text-sm font-semibold hover:bg-primary-dark shadow-sm transition-all outline-none shrink-0">
-            <Plus className="w-4 h-4" />New organization
-          </button>
-        </div>
-
         <div className="bg-card rounded-lg border border-border shadow-xs overflow-hidden flex-1 min-h-0 flex flex-col">
+          <div className="p-3 flex items-center justify-end border-b border-border shrink-0">
+            <button onClick={() => setPanel({ mode: "create" })}
+              className="inline-flex items-center gap-2 px-3.5 h-9 bg-primary text-white rounded-md text-sm font-semibold hover:bg-primary-dark shadow-sm transition-all outline-none">
+              <Plus className="w-4 h-4" />New organization
+            </button>
+          </div>
           <div className="overflow-auto flex-1 min-h-0">
             <table className="w-full text-sm min-w-[920px] whitespace-nowrap">
               <thead className="sticky top-0 z-10">
