@@ -202,6 +202,9 @@ func (s *sender) sendInteractive(ctx context.Context, t sendTarget, p *events.In
 		}
 		interactive["type"] = "list"
 		interactive["action"] = map[string]any{"button": btn, "sections": sections}
+	case "location_request":
+		interactive["type"] = "location_request_message"
+		interactive["action"] = map[string]any{"name": "send_location"}
 	default: // buttons
 		btns := make([]map[string]any, 0, len(p.Buttons))
 		for _, b := range p.Buttons {

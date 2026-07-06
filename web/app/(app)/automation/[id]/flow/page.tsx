@@ -478,7 +478,7 @@ function AutoReplyConfig({ c, set, forms }: { c: Record<string, unknown>; set: (
       {/* Optional interactive: reply buttons or a list menu. */}
       <Field label="Interactive (optional)">
         <Select value={interactive} searchable={false} onChange={(v) => set("interactive", v)} className="w-full"
-          options={[{ value: "none", label: "None (text / image only)" }, { value: "buttons", label: "Reply buttons" }, { value: "list", label: "List menu" }, { value: "flow", label: "WhatsApp Flow button" }]} />
+          options={[{ value: "none", label: "None (text / image only)" }, { value: "buttons", label: "Reply buttons" }, { value: "list", label: "List menu" }, { value: "flow", label: "WhatsApp Flow button" }, { value: "location_request", label: "Request location" }]} />
       </Field>
 
       {interactive === "flow" && <>

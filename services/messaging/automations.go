@@ -514,7 +514,7 @@ func (a *app) execStep(ctx context.Context, orgID, convID, contactID string, s a
 			}
 			return
 		}
-		if interactive == "buttons" || interactive == "list" {
+		if interactive == "buttons" || interactive == "list" || interactive == "location_request" {
 			// A list can't carry an image header on WhatsApp, so send its image (if
 			// any) as a separate message first. Buttons keep the image as a header.
 			if interactive == "list" {
@@ -864,6 +864,8 @@ func buildInteractive(vars map[string]string, params map[string]any, mt string) 
 		if len(out.Sections) == 0 {
 			return nil
 		}
+	case "location_request":
+		// body-only; sendInteractive emits the WhatsApp send-location request
 	default:
 		return nil
 	}
