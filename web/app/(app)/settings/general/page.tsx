@@ -1,10 +1,11 @@
 "use client";
 import { useEffect, useMemo, useState } from "react";
 import { useRouter } from "next/navigation";
-import { Loader2, Globe, Clock, Building2, Copy, Check, Phone } from "lucide-react";
+import { Loader2, Globe, Clock, Building2, Phone, Coins } from "lucide-react";
 import { api, getUser } from "@/lib/api";
 import { loadPermissions, canWith } from "@/lib/permissions";
 import { Select } from "@/components/Select";
+import { cn } from "@/lib/utils";
 import type { OrgSettings } from "@/lib/types";
 import { useToast, PageBody, SettingsCard, FieldLabel, PrimaryButton, initials } from "../_shared";
 import { useI18n } from "@/lib/i18n";
@@ -53,6 +54,24 @@ function Panel({ icon: Icon, title, children, className }: { icon: any; title: s
   );
 }
 
+type Sub = { package_name: string; status: string; quotas: Record<string, number>; used_users: number; used_simpuler_credits: number; used_custom_fields: number };
+
+function QuotaRow({ label, used, limit }: { label: string; used: number; limit?: number }) {
+  const pct = limit && limit > 0 ? Math.min(100, Math.round((used / limit) * 100)) : 0;
+  const near = limit && limit > 0 && used / limit >= 0.85;
+  return (
+    <div>
+      <div className="flex items-center justify-between text-[12.5px] mb-1">
+        <span className="text-foreground/80">{label}</span>
+        <span className="tabular-nums font-semibold text-foreground">{used}{limit ? ` / ${limit}` : ""}</span>
+      </div>
+      <div className="h-2 rounded-full bg-muted overflow-hidden">
+        <div className={cn("h-full rounded-full", near ? "bg-amber-500" : "bg-primary")} style={{ width: `${limit ? pct : 0}%` }} />
+      </div>
+    </div>
+  );
+}
+
 export default function GeneralSettingsPage() {
   const router = useRouter();
   const { notify, ToastHost } = useToast();
@@ -68,13 +87,12 @@ export default function GeneralSettingsPage() {
       if (!ok) router.replace("/settings");
     });
   }, [router]);
-  const [orgId, setOrgId] = useState("");
   const [name, setName] = useState("");
   const [origName, setOrigName] = useState("");
   const [settings, setSettings] = useState<OrgSettings>({});
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
-  const [copied, setCopied] = useState(false);
+  const [sub, setSub] = useState<Sub | null>(null);
 
   const [locale, setLocale] = useState("en");
   const [origLocale, setOrigLocale] = useState("en");
@@ -87,7 +105,6 @@ export default function GeneralSettingsPage() {
 
   useEffect(() => {
     api.getOrganization().then((o) => {
-      setOrgId(o.id);
       setName(o.name || ""); setOrigName(o.name || "");
       const s = o.settings ?? {};
       setSettings(s);
@@ -98,6 +115,7 @@ export default function GeneralSettingsPage() {
       const c = (s as Record<string, string>).country_code || "62";
       setCountry(c); setOrigCountry(c);
     }).catch(() => {}).finally(() => setLoading(false));
+    api.getSubscription().then(setSub).catch(() => {});
   }, []);
 
   const dirty = name.trim() !== origName || locale !== origLocale || timezone !== origTimezone || country !== origCountry;
@@ -114,12 +132,6 @@ export default function GeneralSettingsPage() {
       notify("Settings saved");
     } catch (e) { notify(String(e), "error"); }
     finally { setSaving(false); }
-  }
-
-  function copyOrgId() {
-    navigator.clipboard.writeText(orgId);
-    setCopied(true);
-    setTimeout(() => setCopied(false), 2000);
   }
 
   if (loading || allowed !== true) return (
@@ -139,7 +151,7 @@ export default function GeneralSettingsPage() {
       <div className="grid grid-cols-1 lg:grid-cols-2 gap-5">
         {/* ── Workspace ── */}
         <Panel icon={Building2} title="Workspace">
-          <div className="flex items-center gap-4 mb-5">
+          <div className="flex items-center gap-4">
             <div className="w-14 h-14 rounded-xl bg-primary/10 text-primary-text grid place-items-center text-lg font-bold shrink-0">
               {initials(name) || <Building2 className="w-6 h-6" />}
             </div>
@@ -148,15 +160,6 @@ export default function GeneralSettingsPage() {
               <input type="text" value={name} onChange={(e) => setName(e.target.value)} placeholder="Your company or workspace name"
                 className="w-full h-9 px-3 rounded-md border border-input bg-background text-[13.5px] text-foreground placeholder:text-muted-foreground/70 outline-none transition-shadow focus:border-primary focus:ring-2 focus:ring-primary/20" />
             </div>
-          </div>
-          <div className="border-t border-border pt-4 flex items-center justify-between gap-3">
-            <div className="min-w-0">
-              <p className="text-[11px] font-bold uppercase tracking-wider text-muted-foreground mb-0.5">Workspace ID</p>
-              <p className="text-[13px] font-mono text-foreground/80 truncate">{orgId || "—"}</p>
-            </div>
-            <button onClick={copyOrgId} className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-md text-[12px] font-semibold text-muted-foreground hover:text-foreground hover:bg-muted transition-colors outline-none shrink-0">
-              {copied ? <><Check className="w-3.5 h-3.5 text-primary" /> Copied</> : <><Copy className="w-3.5 h-3.5" /> Copy</>}
-            </button>
           </div>
         </Panel>
 
@@ -176,6 +179,26 @@ export default function GeneralSettingsPage() {
               <Select value={country} onChange={setCountry} options={COUNTRY_CODES} />
             </div>
           </div>
+        </Panel>
+
+        {/* ── Subscription ── */}
+        <Panel icon={Coins} title="Subscription" className="lg:col-span-2">
+          {sub ? (
+            <div className="space-y-4">
+              <div className="flex items-center gap-2">
+                <span className="text-[15px] font-bold text-foreground capitalize">{sub.package_name}</span>
+                <span className="px-2 py-0.5 rounded-md text-[10px] font-bold bg-success/10 text-success capitalize">{sub.status}</span>
+              </div>
+              <div className="grid grid-cols-1 sm:grid-cols-3 gap-5">
+                <QuotaRow label="Team members" used={sub.used_users} limit={sub.quotas?.users} />
+                <QuotaRow label="Simpuler credits (this month)" used={sub.used_simpuler_credits} limit={sub.quotas?.simpuler_credits} />
+                <QuotaRow label="Custom fields" used={sub.used_custom_fields} limit={sub.quotas?.custom_fields} />
+              </div>
+              <p className="text-[11.5px] text-muted-foreground">Credit pools and package are managed by Simpulx. Allocate a campaign&apos;s share in its Credits &amp; Usage tab.</p>
+            </div>
+          ) : (
+            <div className="flex justify-center py-6"><Loader2 className="w-5 h-5 animate-spin text-muted-foreground" /></div>
+          )}
         </Panel>
       </div>
     </PageBody>
