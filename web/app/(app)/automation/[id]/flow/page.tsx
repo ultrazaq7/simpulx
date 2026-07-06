@@ -147,9 +147,12 @@ function FlowNode({ data, selected }: NodeProps<AppNode>) {
         {options.length > 0 && (
           <div className="mt-2 space-y-1.5">
             {options.map((opt, i) => (
-              <div key={opt.id} className="flex items-center gap-1.5 rounded-md border border-border bg-muted/50 px-2 py-1 text-[11px] font-medium text-foreground">
+              <div key={opt.id} className="relative flex items-center gap-1.5 rounded-md border border-border bg-muted/50 px-2 py-1.5 text-[11px] font-medium text-foreground">
                 <span className="grid place-items-center w-4 h-4 rounded bg-primary/15 text-primary text-[8px] font-bold shrink-0">{i + 1}</span>
-                <span className="truncate">{opt.title}</span>
+                <span className="truncate flex-1">{opt.title}</span>
+                <Handle id={opt.id} type="source" position={Position.Right}
+                  style={{ top: "50%", right: -1 }}
+                  className="!w-2.5 !h-2.5 !bg-primary !border-2 !border-card !absolute" />
               </div>
             ))}
           </div>
@@ -164,15 +167,7 @@ function FlowNode({ data, selected }: NodeProps<AppNode>) {
           <Handle id="match" type="source" position={Position.Bottom} style={{ left: "26%" }} className="!w-2.5 !h-2.5 !bg-emerald-500 !border-2 !border-card" />
           <Handle id="else" type="source" position={Position.Bottom} style={{ left: "74%" }} className="!w-2.5 !h-2.5 !bg-slate-400 !border-2 !border-card" />
         </>
-      ) : options.length > 0 ? (
-        // One source port per option, evenly spread along the node's bottom edge
-        // (left→right matches the buttons top→bottom). Numbered to map back to the row.
-        options.map((opt, i) => (
-          <Handle key={opt.id} id={opt.id} type="source" position={Position.Bottom}
-            style={{ left: `${Math.round(((i + 1) / (options.length + 1)) * 100)}%` }}
-            className="!w-2.5 !h-2.5 !bg-primary !border-2 !border-card" />
-        ))
-      ) : (
+      ) : options.length > 0 ? null : (
         <Handle type="source" position={Position.Bottom} className="!w-2.5 !h-2.5 !bg-primary !border-2 !border-card" />
       )}
     </div>
