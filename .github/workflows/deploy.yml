@@ -193,6 +193,12 @@ jobs:
           aws ecr get-login-password --region ap-southeast-3 | docker login --username AWS --password-stdin 825621302344.dkr.ecr.ap-southeast-3.amazonaws.com
           export IMAGE_TAG=__TAG__
           DC="docker compose --env-file .env -f deploy/docker/compose.yml -f deploy/docker/compose.prod.yml"
+          echo "-- pre-deploy cleanup --"
+          # Free disk BEFORE pulling to avoid 'no space left on device'.
+          # Drop images older than 3 days, all build cache, and dangling images.
+          docker image prune -af --filter until=72h >/dev/null 2>&1 || true
+          docker builder prune -af >/dev/null 2>&1 || true
+          docker container prune -f >/dev/null 2>&1 || true
           echo "-- pull --"
           $DC pull
           echo "-- migrate (dedicated step, not on boot) --"
@@ -201,11 +207,10 @@ jobs:
           $DC up -d
           echo "-- refresh caddy --"
           $DC restart caddy
+          # Post-deploy: clean up anything the new deploy left behind.
           docker image prune -f >/dev/null 2>&1 || true
-          # Self-clean so the box never hits 100% disk mid-deploy. Keep the last
-          # 7 days (for quick rollback); drop older build cache + unused images.
-          docker builder prune -af --filter until=168h >/dev/null 2>&1 || true
-          docker image prune -af --filter until=168h >/dev/null 2>&1 || true
+          docker builder prune -af --filter until=72h >/dev/null 2>&1 || true
+          docker image prune -af --filter until=72h >/dev/null 2>&1 || true
           echo "-- status --"
           $DC ps
           '
