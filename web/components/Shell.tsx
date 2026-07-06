@@ -6,7 +6,7 @@ import {
   MessageCircle, Settings, MessageSquareText,
   ChevronLeft, ChevronRight, Bell, LogOut, User as UserIcon,
   CheckCircle2, Loader2, ChevronDown, Activity, LayoutDashboard, MessagesSquare, Users, SlidersHorizontal, Megaphone, Wrench, Globe, Boxes,
-  ScrollText, BarChart3, ShieldCheck, FileText, RadioTower, GitBranch, Plug, Search, ClipboardList, Building2, Building, FormInput, Menu
+  ScrollText, BarChart3, ShieldCheck, FileText, RadioTower, GitBranch, Plug, Search, ClipboardList, Building2, Building, FormInput, Menu, Zap
 } from "lucide-react";
 import { WS_URL } from "@/lib/api";
 import { api, clearSession, getToken, getUser, setSession } from "@/lib/api";
@@ -81,14 +81,14 @@ const PAGE_TITLES: Record<string, { category: string; title: string; icon?: any 
   // Settings sub-pages (more specific than "/settings" so each gets its own title + icon).
   "/settings/general": { category: "PREFERENCES", title: "General" },
   "/settings/company-details": { category: "COMPANY SETTINGS", title: "Company Details", icon: Building },
-  "/settings/custom-fields": { category: "FIELDS", title: "Custom Fields" },
-  "/settings/user-management": { category: "COMPANY SETTINGS", title: "User Management" },
-  "/settings/roles": { category: "ROLES", title: "Roles & Permissions" },
-  "/settings/campaigns": { category: "CAMPAIGNS", title: "Campaigns" },
-  "/settings/templates": { category: "TEMPLATES", title: "Message Templates" },
-  "/settings/automation": { category: "AUTOMATION", title: "Automation" },
-  "/settings/wa-forms": { category: "FORMS", title: "WhatsApp Forms" },
-  "/settings/quick-replies": { category: "TEMPLATES", title: "Quick Replies" },
+  "/settings/custom-fields": { category: "CHANNELS", title: "Custom Fields", icon: FormInput },
+  "/settings/user-management": { category: "COMPANY SETTINGS", title: "User Management", icon: UserIcon },
+  "/settings/roles": { category: "COMPANY SETTINGS", title: "Roles & Permissions", icon: ShieldCheck },
+  "/settings/campaigns": { category: "CHANNELS", title: "Campaigns", icon: Building2 },
+  "/settings/templates": { category: "CHANNELS", title: "Message Templates", icon: FileText },
+  "/settings/automation": { category: "CHANNELS", title: "Automation", icon: GitBranch },
+  "/settings/wa-forms": { category: "CHANNELS", title: "WhatsApp Forms", icon: ClipboardList },
+  "/settings/quick-replies": { category: "CHANNELS", title: "Quick Replies", icon: Zap },
   "/settings/channels": { category: "CHANNELS", title: "Channel & Integrations" },
   "/settings/platform": { category: "PLATFORM", title: "Platform", icon: Boxes },
   "/settings/ads": { category: "ANALYTICS", title: "Ad Performance" },
