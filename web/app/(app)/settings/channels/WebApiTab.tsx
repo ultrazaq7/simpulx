@@ -107,7 +107,7 @@ export function WebApiTab() {
                   </div>
                   <div className="min-w-0 flex-1 hidden md:flex items-center gap-2 px-2.5 py-1.5 rounded-lg bg-muted/50">
                     <Key className="w-[15px] h-[15px] text-muted-foreground shrink-0" />
-                    <span className="font-mono text-xs text-muted-foreground flex-1 truncate">{p.api_key.slice(0, 10)}{"•".repeat(14)}</span>
+                    <span className="text-xs text-muted-foreground flex-1 truncate">{p.api_key.slice(0, 10)}{"•".repeat(14)}</span>
                     <Tip label="Copy key"><button onClick={() => copy(p.api_key, "API key copied")} className="p-1 outline-none text-muted-foreground hover:text-foreground transition-colors"><Copy className="w-[15px] h-[15px]" /></button></Tip>
                     <Tip label="Regenerate key"><button onClick={() => regen(p)} className="p-1 outline-none text-muted-foreground hover:text-foreground transition-colors"><RotateCw className="w-[15px] h-[15px]" /></button></Tip>
                   </div>

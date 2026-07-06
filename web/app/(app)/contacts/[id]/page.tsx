@@ -417,7 +417,7 @@ function Row({ icon: Icon, label, value, mono }: { icon: any; label: string; val
       <Icon className="w-4 h-4 text-muted-foreground mt-0.5 shrink-0" />
       <div className="min-w-0 flex-1">
         <p className="text-[11px] text-muted-foreground">{label}</p>
-        <div className={cn("text-[13px] font-semibold text-foreground break-words", mono && "font-mono")}>{value}</div>
+        <div className={cn("text-[13px] font-semibold text-foreground break-words", mono && "")}>{value}</div>
       </div>
     </div>
   );

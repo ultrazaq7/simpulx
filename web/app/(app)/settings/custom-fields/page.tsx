@@ -66,7 +66,7 @@ export default function CustomFieldsPage() {
                 <tr key={f.id} className="border-b border-border/60 hover:bg-muted/50 transition-colors">
                   <td className="px-4 py-2.5">
                     <p className="text-[13px] font-semibold text-foreground truncate">{f.label}</p>
-                    <p className="text-[11.5px] text-muted-foreground truncate font-mono">{f.key}</p>
+                    <p className="text-[11.5px] text-muted-foreground truncate">{f.key}</p>
                   </td>
                   <td className="px-4 py-2.5"><span className="inline-flex px-2 py-0.5 rounded-md text-[11px] font-medium bg-muted text-foreground">{TYPE_LABEL[f.type] || f.type}</span></td>
                   <td className="px-4 py-2.5 text-right tabular-nums text-[12.5px] text-muted-foreground">{f.type === "select" ? (f.options?.length ?? 0) : "-"}</td>
@@ -153,7 +153,7 @@ function CustomFieldDialog({ editing, count, onClose, onSaved, onError }: {
             </div>
           </div>
         )}
-        {isEdit && <p className="text-[11.5px] text-muted-foreground">The field key <span className="font-mono">{editing!.key}</span> can&apos;t change (keeps existing values linked).</p>}
+        {isEdit && <p className="text-[11.5px] text-muted-foreground">The field key <span className="">{editing!.key}</span> can&apos;t change (keeps existing values linked).</p>}
       </div>
     </SidePanel>
   );

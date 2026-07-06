@@ -176,7 +176,7 @@ function ReadOnlyRow({ label, value }: { label: string; value: string }) {
     <div>
       <FieldLabel>{label}</FieldLabel>
       <div className="flex items-center gap-2 h-9 px-3 rounded-md border border-input bg-muted/50">
-        <span className="flex-1 truncate font-mono text-[12px] text-muted-foreground">{value}</span>
+        <span className="flex-1 truncate text-[12px] text-muted-foreground">{value}</span>
         <button onClick={copy} className="shrink-0 text-muted-foreground hover:text-foreground outline-none transition-colors">
           {copied ? <Check className="w-4 h-4 text-success" /> : <Copy className="w-4 h-4" />}
         </button>

@@ -602,7 +602,7 @@ function AutoReplyConfig({ c, set, forms }: { c: Record<string, unknown>; set: (
                 </div>
                 <div className="flex gap-1.5 items-center">
                   <span className="text-[10px] font-bold uppercase tracking-wide text-muted-foreground shrink-0">Callback ID</span>
-                  <input value={String(b?.id ?? "")} onChange={(e) => { const arr = [...buttons]; arr[i] = { ...arr[i], id: e.target.value }; set("buttons", arr); }} placeholder="auto-generated" className={cn(INP, "flex-1 !h-8 font-mono text-[12px]")} />
+                  <input value={String(b?.id ?? "")} onChange={(e) => { const arr = [...buttons]; arr[i] = { ...arr[i], id: e.target.value }; set("buttons", arr); }} placeholder="auto-generated" className={cn(INP, "flex-1 !h-8 text-[12px]")} />
                   <Tip label="Regenerate id"><button type="button" onClick={() => { const arr = [...buttons]; arr[i] = { ...arr[i], id: genCallbackId() }; set("buttons", arr); }} className="p-1.5 rounded-md text-muted-foreground hover:bg-muted hover:text-foreground outline-none shrink-0"><RefreshCw className="w-3.5 h-3.5" /></button></Tip>
                 </div>
               </div>

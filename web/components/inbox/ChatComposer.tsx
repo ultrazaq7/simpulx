@@ -280,7 +280,7 @@ export function ChatComposer({ loadConvs, queryClient }: { loadConvs: () => void
             <div className="flex-1 flex items-center justify-center gap-3">
               <div className={`w-2.5 h-2.5 rounded-full bg-red-500 ${isPaused ? "" : "animate-pulse"}`} />
               <span className={`text-sm font-bold ${isPaused ? "text-slate-500" : "text-red-500"}`}>{isPaused ? "Paused" : "Recording"}</span>
-              <span className="text-sm font-mono text-slate-700">
+              <span className="text-sm text-slate-700">
                 {Math.floor(recordTime / 60).toString().padStart(2, "0")}:{(recordTime % 60).toString().padStart(2, "0")}
               </span>
             </div>

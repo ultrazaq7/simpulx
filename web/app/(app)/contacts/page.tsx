@@ -389,7 +389,7 @@ export default function ContactsPage() {
                   <td className="px-3 py-2 whitespace-nowrap">
                     {c.source_id ? (
                       <span className="inline-flex items-center gap-1.5">
-                        <span className="font-mono text-[12px] text-foreground/80 max-w-[130px] truncate">{c.source_id}</span>
+                        <span className="text-[12px] text-foreground/80 max-w-[130px] truncate">{c.source_id}</span>
                         <button onClick={() => { navigator.clipboard?.writeText(c.source_id!); setToast(t("contacts.sourceIdCopied")); }} className="p-0.5 rounded text-muted-foreground/60 hover:text-foreground hover:bg-muted" aria-label="Copy source id"><Copy className="w-3.5 h-3.5" /></button>
                       </span>
                     ) : <span className="text-muted-foreground">-</span>}

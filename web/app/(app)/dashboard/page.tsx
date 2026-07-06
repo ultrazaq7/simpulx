@@ -1209,7 +1209,7 @@ function MarketingAnalytics() {
                       </div>
                     </td>
                     <td className="px-4 py-2.5">
-                      <div className="font-mono text-[12px] text-foreground">{cr.source_id}</div>
+                      <div className="text-[12px] text-foreground">{cr.source_id}</div>
                       {cr.headline && <div className="text-[11px] text-muted-foreground max-w-[220px] truncate">{cr.headline}</div>}
                     </td>
                     <td className="px-4 py-2.5 text-right tabular-nums">{cr.spend > 0 ? money(cr.spend) : "-"}</td>

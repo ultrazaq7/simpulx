@@ -30,7 +30,7 @@ function CopyField({ label, value, mono }: { label: string; value: string; mono?
     <div>
       <FieldLabel>{label}</FieldLabel>
       <div className="flex items-center gap-2 h-9 px-3 rounded-md border border-input bg-muted/50">
-        <span className={`flex-1 truncate text-[12px] text-foreground/80 ${mono ? "font-mono" : ""}`}>{value}</span>
+        <span className={`flex-1 truncate text-[12px] text-foreground/80 ${mono ? "" : ""}`}>{value}</span>
         <button onClick={() => { navigator.clipboard.writeText(value); setCopied(true); setTimeout(() => setCopied(false), 1500); }}
           className="shrink-0 text-muted-foreground hover:text-foreground outline-none transition-colors">
           {copied ? <Check className="w-4 h-4 text-success" /> : <Copy className="w-4 h-4" />}
@@ -140,7 +140,7 @@ export function WebApiWizard({ campaigns, onClose, onCreated }: {
 
           <div>
             <FieldLabel>Sample payload</FieldLabel>
-            <div className="relative bg-sidebar text-[#D1FAE5] rounded-lg p-3 font-mono text-[11.5px] overflow-x-auto">
+            <div className="relative bg-sidebar text-[#D1FAE5] rounded-lg p-3 text-[11.5px] overflow-x-auto">
               <button onClick={() => navigator.clipboard.writeText(httpSample)} className="absolute top-2 right-2 p-1 text-white/60 hover:text-white outline-none"><Copy className="w-[15px] h-[15px]" /></button>
               <pre className="m-0 whitespace-pre-wrap">{httpSample}</pre>
             </div>

@@ -182,7 +182,7 @@ export function MessageTimeline({
                       {/* Text Rendering */}
                       {m.body && (
                         <div className={`text-[13px] leading-relaxed break-words whitespace-pre-wrap ${
-                          (m.type === "template" || m.type === "interactive" || m.type === "button") ? "font-mono text-[12px] bg-black/5 p-2 rounded border border-black/10" : ""
+                          (m.type === "template" || m.type === "interactive" || m.type === "button") ? "text-[12px] bg-black/5 p-2 rounded border border-black/10" : ""
                         }`}>
                           {m.type === "template" && <span className="font-bold text-[10px] uppercase block mb-1 opacity-60">Template Message</span>}
                           {m.body}

@@ -207,7 +207,7 @@ function ChannelRow({ c, onTest, onToggle, onEdit, onDelete }: {
       </div>
       <div className="min-w-0 flex-1 hidden md:flex items-center gap-2">
         {ref ? (
-          <span className="inline-flex items-center px-2.5 h-7 rounded-full border border-success/40 bg-success/[0.07] text-[12px] font-semibold text-success font-mono truncate max-w-full">{ref}</span>
+          <span className="inline-flex items-center px-2.5 h-7 rounded-full border border-success/40 bg-success/[0.07] text-[12px] font-semibold text-success truncate max-w-full">{ref}</span>
         ) : (
           <span className="inline-flex items-center px-2.5 h-7 rounded-full border border-border bg-muted/50 text-[12px] font-medium text-muted-foreground">Not configured</span>
         )}

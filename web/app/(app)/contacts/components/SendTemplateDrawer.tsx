@@ -106,7 +106,7 @@ export default function SendTemplateDrawer({ open, onClose, contactIds, contactN
             <div className="space-y-2">
               {variables.map((v, i) => (
                 <div key={v} className="flex items-center gap-2">
-                  <span className="w-9 shrink-0 text-[12px] font-mono text-muted-foreground">{`{{${i + 1}}}`}</span>
+                  <span className="w-9 shrink-0 text-[12px] text-muted-foreground">{`{{${i + 1}}}`}</span>
                   <input value={values[v] || ""} onChange={(e) => setValues((p) => ({ ...p, [v]: e.target.value }))}
                     placeholder={v}
                     className="flex-1 h-9 px-3 rounded-md border border-input bg-background text-[13px] outline-none focus:border-primary focus:ring-2 focus:ring-primary/20" />
