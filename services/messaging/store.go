@@ -302,6 +302,15 @@ func (s *store) insertOutbound(ctx context.Context, orgID, convID, senderType, s
 		return "", err
 	}
 
+	// Meter Simpuler credits (WS-F): each bot (AI) reply debits 1 credit from the
+	// conversation's campaign. Agent/system/broadcast sends are not metered.
+	if senderType == "bot" {
+		_, _ = tx.Exec(ctx,
+			`UPDATE campaign_credits SET used_credits = used_credits + 1, updated_at = now()
+			  WHERE campaign_id = (SELECT campaign_id FROM conversations WHERE id = $1)`,
+			convID)
+	}
+
 	var assignedAgentID *string
 	err = tx.QueryRow(ctx,
 		`UPDATE conversations

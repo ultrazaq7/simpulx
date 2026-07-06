@@ -247,6 +247,21 @@ async def maybe_nurture(broker, pool, org_id: str, conv_id: str, message_id, bod
     if recent_bot and recent_bot > 0:
         return
 
+    # Credit gate (WS-F): if the campaign has a credit allocation and it's used up,
+    # the AI stands down to a human (the lead is never dropped).
+    async with pool.acquire() as conn:
+        cc = await conn.fetchrow(
+            """SELECT cc.allocated_credits, cc.used_credits
+                 FROM campaign_credits cc
+                 JOIN conversations cv ON cv.campaign_id = cc.campaign_id
+                WHERE cv.id = $1""",
+            conv_id,
+        )
+    if cc and cc["allocated_credits"] > 0 and cc["used_credits"] >= cc["allocated_credits"]:
+        log.info("nurture skipped: campaign credits exhausted", extra={"conv": conv_id})
+        await _ai_handoff(broker, pool, org_id, conv_id, row["agent_id"], log)
+        return
+
     # Language rule (consistent, with optional dynamic matching to the contact).
     lang = (row["ai_language"] or "id").lower()
     lang_name = _LANG_NAMES.get(lang, "Bahasa Indonesia")

@@ -324,6 +324,12 @@ func main() {
 	mux.HandleFunc("POST /api/campaigns/{id}/branches", s.requireAuth(s.gate("manage_campaigns", s.handleCreateBranch)))
 	mux.HandleFunc("PATCH /api/branches/{id}", s.requireAuth(s.gate("manage_campaigns", s.handleUpdateBranch)))
 	mux.HandleFunc("DELETE /api/branches/{id}", s.requireAuth(s.gate("manage_campaigns", s.handleDeleteBranch)))
+	// Simpuler credits (org subscription pool + per-campaign allocation/usage).
+	mux.HandleFunc("GET /api/subscription", s.requireAuth(s.handleGetSubscription))
+	mux.HandleFunc("PATCH /api/subscription", s.requireAuth(s.handleUpdateSubscription))
+	mux.HandleFunc("GET /api/campaigns/{id}/credits", s.requireAuth(s.handleGetCampaignCredits))
+	mux.HandleFunc("POST /api/campaigns/{id}/credits/allocate", s.requireAuth(s.gate("manage_campaigns", s.handleAllocateCampaignCredits)))
+	mux.HandleFunc("GET /api/campaigns/{id}/usage", s.requireAuth(s.handleCampaignUsage))
 	mux.HandleFunc("POST /api/uploads", s.requireAuth(s.handleUpload))
 
 	// Proxy media directly to minio
