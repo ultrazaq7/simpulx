@@ -14,6 +14,7 @@ from simpulx_common import llm
 
 from classifier import classify, is_trivial, STRONG_INTENT, detect_junk
 import lead_score
+import segments
 
 SUBJECT_OUTBOUND = "events.message.outbound"
 
@@ -48,9 +49,11 @@ async def handle_inbound(broker, pool, env: dict, data: dict, log) -> None:
         conv = await conn.fetchrow(
             """SELECT cv.ai_agent_id, cv.ai_extracted_at,
                       cv.car_brand, cv.car_model, cv.city, cv.purchase_timeframe,
+                      cmp.segment,
                       a.system_prompt, a.model
                  FROM conversations cv
                  LEFT JOIN ai_agents a ON a.id = cv.ai_agent_id
+                 LEFT JOIN campaigns cmp ON cmp.id = cv.campaign_id
                 WHERE cv.id = $1""",
             conv_id,
         )
@@ -66,7 +69,10 @@ async def handle_inbound(broker, pool, env: dict, data: dict, log) -> None:
 
     system_prompt = conv["system_prompt"] or "You are a helpful sales assistant."
     history = await _load_history(pool, conv_id, message_id)
-    result = await llm.analyze(system_prompt, history, body, model=conv["model"])
+    # Non-automotive segments also extract their own qualifier fields (WS-B).
+    # extra_fields is empty for automotive/unset -> analyze() is unchanged.
+    extra_fields = segments.extra_fields_for(conv["segment"])
+    result = await llm.analyze(system_prompt, history, body, model=conv["model"], extra_fields=extra_fields)
 
     ptf = result.get("purchase_timeframe")
     ptf_str = f"{ptf} days" if ptf is not None else None
@@ -94,6 +100,21 @@ async def handle_inbound(broker, pool, env: dict, data: dict, log) -> None:
             result.get("recommended_action"), result.get("action_reason"),
             result.get("action_confidence"),
         )
+    # Merge non-automotive qualifier fields into metadata.lead_fields (best effort).
+    lead_fields = result.get("fields") if extra_fields else None
+    if lead_fields:
+        try:
+            async with pool.acquire() as conn:
+                await conn.execute(
+                    """UPDATE conversations
+                          SET metadata = COALESCE(metadata,'{}'::jsonb)
+                              || jsonb_build_object('lead_fields',
+                                   COALESCE(metadata->'lead_fields','{}'::jsonb) || $2::jsonb)
+                        WHERE id = $1""",
+                    conv_id, json.dumps(lead_fields),
+                )
+        except Exception:  # noqa: BLE001
+            log.exception("lead_fields write failed", extra={"conv": conv_id})
     log.info("lead analyzed", extra={"conv": conv_id, "reason": reason})
     await broker.publish("events.conversation.updated", org_id, {"conversation_id": conv_id})
 
@@ -321,8 +342,15 @@ async def maybe_nurture(broker, pool, org_id: str, conv_id: str, message_id, bod
             "conversation_id": conv_id, "form_id": row["intake_form_id"],
         })
 
-    # Hand off once info is complete OR the model flagged readiness.
-    fields_done = all(row[f] is not None for f in ("car_model", "city", "purchase_timeframe"))
+    # Hand off once info is complete OR the model flagged readiness. "Complete"
+    # is segment-aware (WS-B): automotive uses its native columns; other segments
+    # check their required qualifier keys in metadata.lead_fields.
+    if segments.is_automotive(row["segment"]):
+        fields_done = all(row[f] is not None for f in ("car_model", "city", "purchase_timeframe"))
+    else:
+        req = segments.required_keys(row["segment"])
+        lf = meta.get("lead_fields") or {}
+        fields_done = bool(req) and all(lf.get(k) for k in req)
     if result.get("ready_for_handoff") or fields_done:
         await _ai_handoff(broker, pool, org_id, conv_id, row["agent_id"], log)
 

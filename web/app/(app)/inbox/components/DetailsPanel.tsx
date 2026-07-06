@@ -5,6 +5,7 @@ import { X, Copy, User, Phone, Hash, MessageSquare, Clock, StickyNote, Tag as Ta
 import { api } from "@/lib/api";
 import { initials, channelColor, channelTextColor, channelLabel, fmtDate, fmtTime, fmtDateTimeShort, cn } from "@/lib/utils";
 import { Tip } from "@/components/ui/tooltip";
+import { isAutomotive, segmentFields } from "@/lib/segments";
 import type { Conversation, InternalNote, Message } from "@/lib/types";
 
 function rewriteLocalMedia(url: string): string {
@@ -249,10 +250,18 @@ export default function DetailsPanel({ active, onClose, copyText, notes, onAddNo
                 <DetailRow icon={StickyNote} label="Lost reason" value={humanize(active.lost_reason)} />
               )}
               <DetailRow icon={Hash} label="Interest level" value={active.interest_level ? humanize(active.interest_level) : "-"} />
-              <DetailRow icon={Hash} label="Brand" value={active.car_brand || "-"} />
-              <DetailRow icon={Hash} label="Model" value={active.car_model || "-"} />
-              <DetailRow icon={Hash} label="City" value={active.city || "-"} />
-              <DetailRow icon={Clock} label="Purchase time" value={active.purchase_timeframe ? humanize(active.purchase_timeframe) : "-"} />
+              {isAutomotive(active.campaign_segment) ? (
+                <>
+                  <DetailRow icon={Hash} label="Brand" value={active.car_brand || "-"} />
+                  <DetailRow icon={Hash} label="Model" value={active.car_model || "-"} />
+                  <DetailRow icon={Hash} label="City" value={active.city || "-"} />
+                  <DetailRow icon={Clock} label="Purchase time" value={active.purchase_timeframe ? humanize(active.purchase_timeframe) : "-"} />
+                </>
+              ) : (
+                segmentFields(active.campaign_segment).map((f) => (
+                  <DetailRow key={f.key} icon={Hash} label={f.label} value={active.lead_fields?.[f.key] || "-"} />
+                ))
+              )}
             </div>
           </div>
         )}

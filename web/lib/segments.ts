@@ -1,0 +1,69 @@
+// Segment schema registry (WS-B) - mirrors services/ai-agent/segments.py.
+// Automotive is native (car_brand/car_model/city/purchase_timeframe columns);
+// every other segment stores its qualifiers in the conversation's lead_fields
+// (metadata->'lead_fields'). Keys are the normalized (lowercased) campaign
+// segment labels used in the campaign form.
+
+export type SegmentField = { key: string; label: string };
+
+export const SEGMENT_SCHEMAS: Record<string, SegmentField[]> = {
+  "property / real estate": [
+    { key: "property_type", label: "Property type" },
+    { key: "location", label: "Preferred location" },
+    { key: "budget", label: "Budget" },
+    { key: "purchase_timeframe", label: "Timeframe" },
+  ],
+  "finance": [
+    { key: "product", label: "Product" },
+    { key: "loan_amount", label: "Loan amount" },
+    { key: "tenor", label: "Tenor" },
+    { key: "purpose", label: "Purpose" },
+  ],
+  "insurance": [
+    { key: "insurance_type", label: "Insurance type" },
+    { key: "coverage", label: "Coverage" },
+    { key: "budget", label: "Budget" },
+  ],
+  "retail / fmcg": [
+    { key: "product", label: "Product" },
+    { key: "quantity", label: "Quantity" },
+    { key: "budget", label: "Budget" },
+  ],
+  "education": [
+    { key: "program", label: "Program" },
+    { key: "level", label: "Level" },
+    { key: "intake", label: "Intake" },
+  ],
+  "healthcare": [
+    { key: "service", label: "Service" },
+    { key: "preferred_date", label: "Preferred date" },
+  ],
+  "travel & hospitality": [
+    { key: "destination", label: "Destination" },
+    { key: "dates", label: "Dates" },
+    { key: "pax", label: "Travelers" },
+    { key: "budget", label: "Budget" },
+  ],
+  "food & beverage": [
+    { key: "item", label: "Item" },
+    { key: "quantity", label: "Quantity" },
+    { key: "event_date", label: "Event date" },
+  ],
+  "services": [
+    { key: "service", label: "Service needed" },
+    { key: "location", label: "Location" },
+    { key: "budget", label: "Budget" },
+  ],
+};
+
+const norm = (segment?: string | null) => (segment || "").trim().toLowerCase();
+
+// Unset/empty behaves as automotive (the prior, native behaviour).
+export function isAutomotive(segment?: string | null): boolean {
+  const s = norm(segment);
+  return s === "" || s === "automotive";
+}
+
+export function segmentFields(segment?: string | null): SegmentField[] {
+  return SEGMENT_SCHEMAS[norm(segment)] || [];
+}

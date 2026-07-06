@@ -158,9 +158,21 @@ def _as_float(v):
         return None
 
 
-def _shape_analyze(obj: dict) -> dict:
+def _extra_fields_instruction(extra_fields: List[dict]) -> str:
+    """Appended ONLY for non-automotive segments (WS-B). Automotive passes no
+    extra_fields, so the base instruction (and its cache prefix) is unchanged."""
+    labels = "; ".join(f'{f["key"]} = {f["label"]}' for f in extra_fields)
+    keys = ", ".join(f'"{f["key"]}"' for f in extra_fields)
+    return (
+        "\nTAMBAHAN EKSTRAKSI: selain field di atas, ekstrak juga data prospek berikut "
+        f"({labels}). Sertakan sebagai objek \"fields\" pada JSON, berisi key: {keys}. "
+        "Nilai = string ringkas apa adanya dari percakapan, atau null bila tak disebut."
+    )
+
+
+def _shape_analyze(obj: dict, extra_fields: Optional[List[dict]] = None) -> dict:
     ptf = _as_int(obj.get("purchase_timeframe"))
-    return {
+    out = {
         "car_brand": obj.get("car_brand"),
         "car_model": obj.get("car_model"),
         "city": obj.get("city"),
@@ -172,6 +184,11 @@ def _shape_analyze(obj: dict) -> dict:
         "action_reason": obj.get("action_reason"),
         "action_confidence": _as_float(obj.get("action_confidence")),
     }
+    if extra_fields:
+        raw = obj.get("fields")
+        allowed = {f["key"] for f in extra_fields}
+        out["fields"] = {k: v for k, v in raw.items() if k in allowed and v not in (None, "")} if isinstance(raw, dict) else {}
+    return out
 
 
 def _mock_analyze(user_message: str) -> dict:
@@ -185,19 +202,27 @@ def _mock_analyze(user_message: str) -> dict:
 
 
 async def analyze(system_prompt: str, history: Optional[List[dict]],
-                  user_message: str, model: Optional[str] = None) -> dict:
-    """Ekstraksi field + ringkasan/saran untuk sales. Tanpa balasan chat."""
+                  user_message: str, model: Optional[str] = None,
+                  extra_fields: Optional[List[dict]] = None) -> dict:
+    """Ekstraksi field + ringkasan/saran untuk sales. Tanpa balasan chat.
+
+    extra_fields (WS-B): non-automotive segment fields to ALSO extract, returned
+    under result["fields"]. When None/empty (automotive or unset segment) the
+    prompt, its cache prefix, and the result shape are all UNCHANGED."""
     if not (settings.llm_provider == "anthropic" and settings.anthropic_api_key):
         return _mock_analyze(user_message)
     # Static per-agent prefix (system_prompt + instruksi) di-cache -> hemat input
     # token lintas pesan untuk agent yang sama.
+    instruction = ANALYZE_INSTRUCTION
+    if extra_fields:
+        instruction += _extra_fields_instruction(extra_fields)
     system = [{
         "type": "text",
-        "text": (system_prompt or "You are a helpful sales assistant.") + "\n\n" + ANALYZE_INSTRUCTION,
+        "text": (system_prompt or "You are a helpful sales assistant.") + "\n\n" + instruction,
         "cache_control": {"type": "ephemeral"},
     }]
     obj = await _anthropic_call(system, history or [], user_message, model or settings.llm_model, 400)
-    return _shape_analyze(obj)
+    return _shape_analyze(obj, extra_fields)
 
 
 async def stream_summary(system_prompt: str, history: Optional[List[dict]],

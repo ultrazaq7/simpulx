@@ -39,6 +39,8 @@ export interface Conversation {
   city: string | null;
   purchase_timeframe: string | null;
   lost_reason: string | null;
+  campaign_segment?: string | null;
+  lead_fields?: Record<string, string> | null;
   lead_summary: string | null;
   suggested_action: string | null;
   suggested_action_reason: string | null;
