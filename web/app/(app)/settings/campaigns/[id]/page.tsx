@@ -5,7 +5,7 @@ import { ArrowLeft, Loader2, Coins, Sparkles, BarChart3, Database, Upload, Trash
 import * as XLSX from "xlsx";
 import { api } from "@/lib/api";
 import { Select } from "@/components/Select";
-import { cn } from "@/lib/utils";
+import { cn, fmtDuration } from "@/lib/utils";
 import type { CampaignDetail, CampaignAnalyticsRow, CatalogItem } from "@/lib/types";
 import { useToast, PageBody, FieldLabel, INPUT_CLASS, PrimaryButton } from "../../_shared";
 
@@ -88,7 +88,7 @@ function OverviewTab({ id }: { id: string }) {
   const stats = [
     { label: "Leads", value: row.leads },
     { label: "Replied", value: row.replied },
-    { label: "Avg 1st response", value: `${Math.round(row.avg_rt_min)}m` },
+    { label: "Avg 1st response", value: row.avg_rt_min > 0 ? fmtDuration(row.avg_rt_min) : "-" },
     { label: "Within 5 min", value: `${Math.round(row.within_5_pct)}%` },
     { label: "Call attempts", value: row.call_attempts },
     { label: "Qualified", value: row.qualified },

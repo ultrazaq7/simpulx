@@ -71,15 +71,7 @@ export default function SettingsLayout({ children }: { children: ReactNode }) {
   const [isSuper, setIsSuper] = useState(false);
   useEffect(() => { api.platformAccess().then((r) => setIsSuper(r.super_admin)).catch(() => {}); }, []);
 
-  // Persist the sidebar scroll position and restore it BEFORE paint on a refresh,
-  // so it never flashes to the top and jumps back.
   const navScrollRef = useRef<HTMLDivElement | null>(null);
-  useIsoLayoutEffect(() => {
-    const box = navScrollRef.current;
-    if (!box) return;
-    const saved = sessionStorage.getItem("simpulx_settings_navscroll");
-    if (saved) box.scrollTop = Number(saved) || 0;
-  }, []);
 
   // Hide sections the role can't access; drop groups that become empty.
   const groups = [
@@ -88,6 +80,17 @@ export default function SettingsLayout({ children }: { children: ReactNode }) {
       .filter((g) => g.items.length > 0),
     ...(isSuper ? [{ titleKey: "Platform", items: [{ key: "platform", labelKey: "Platform", icon: Boxes, href: "/settings/platform", perm: "" }] }] : []),
   ];
+
+  // Persist + restore the sidebar scroll BEFORE paint. Keyed on the item count so
+  // it re-applies once the async nav (permissions + Platform) finishes rendering,
+  // otherwise scrollTop is clamped to 0 before the list is tall enough.
+  const navCount = groups.reduce((n, g) => n + g.items.length, 0);
+  useIsoLayoutEffect(() => {
+    const box = navScrollRef.current;
+    if (!box || navCount === 0) return;
+    const saved = Number(sessionStorage.getItem("simpulx_settings_navscroll") || 0);
+    if (saved && box.scrollHeight > box.clientHeight) box.scrollTop = saved;
+  }, [navCount, collapsed]);
 
   // Active item = the nav href that is a prefix of the current path (so nested
   // routes like /settings/automation/<id>/flow keep "Automation" highlighted).
