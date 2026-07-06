@@ -729,6 +729,28 @@ func (s *server) captureFlowResponse(ctx context.Context, orgID, fromPhone, cont
 	}
 	s.log.Info("wa flow response captured", "org", orgID, "flow", flowID, "from", fromPhone)
 
+	// Expose each answer as a contact attribute (callback_payload_<field>) so an
+	// automation's Set-Contact-Attribute node can map it via a
+	// {callback_payload_<field>} merge field. contactVars already surfaces every
+	// contact attribute, so no messaging-side change is needed.
+	if contactID != nil && len(answers) > 0 {
+		cp := make(map[string]string, len(answers))
+		for k, v := range answers {
+			if sv, ok := v.(string); ok {
+				cp["callback_payload_"+k] = sv
+			} else {
+				b, _ := json.Marshal(v)
+				cp["callback_payload_"+k] = string(b)
+			}
+		}
+		cpJSON, _ := json.Marshal(cp)
+		if _, uerr := s.pool.Exec(ctx,
+			`UPDATE contacts SET attributes = COALESCE(attributes,'{}'::jsonb) || $2::jsonb, updated_at=now()
+			  WHERE id=$1::uuid`, *contactID, string(cpJSON)); uerr != nil {
+			s.log.Warn("nfm_reply: contact attribute merge failed", "err", uerr)
+		}
+	}
+
 	if flowID != "" {
 		s.maybeAppendFlowSheet(ctx, orgID, flowID, contactName, fromPhone, answers)
 	}
