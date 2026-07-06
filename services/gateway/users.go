@@ -56,6 +56,13 @@ func (s *server) handleListUsers(w http.ResponseWriter, r *http.Request) {
 		http.Error(w, err.Error(), http.StatusInternalServerError)
 		return
 	}
+	// Display-only "Super Admin" marker (not a selectable role): the UI shows it as
+	// the role label for whoever is the platform super admin.
+	for _, row := range rows {
+		email, _ := row["email"].(string)
+		role, _ := row["role"].(string)
+		row["is_super_admin"] = s.superAdminByEmail(email, role)
+	}
 	writeJSON(w, rows)
 }
 

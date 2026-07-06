@@ -36,11 +36,11 @@ var hardcodedSuperAdmins = map[string]bool{"admin@simpulx.com": true}
 // isSuperAdmin looks up the caller fresh from the DB (by user id) so a stale or
 // forged token claim can't escalate. A user is a platform super admin if their
 // email is hardcoded, matches SUPER_ADMIN_EMAIL, OR their role is "superadmin".
-func (s *server) isSuperAdmin(ctx context.Context, a authInfo) bool {
-	var email, role string
-	if err := s.pool.QueryRow(ctx, `SELECT email, role FROM users WHERE id=$1`, a.UserID).Scan(&email, &role); err != nil {
-		return false
-	}
+// superAdminByEmail is the single source of truth for "is this user the platform
+// super admin": a hardcoded email, the SUPER_ADMIN_EMAIL override, or a
+// "superadmin" role. Used both for access checks and for the display-only role
+// label (the UI shows "Super Admin" without it being a selectable role).
+func (s *server) superAdminByEmail(email, role string) bool {
 	e := strings.ToLower(strings.TrimSpace(email))
 	if hardcodedSuperAdmins[e] {
 		return true
@@ -49,6 +49,14 @@ func (s *server) isSuperAdmin(ctx context.Context, a authInfo) bool {
 		return true
 	}
 	return strings.EqualFold(strings.TrimSpace(role), "superadmin")
+}
+
+func (s *server) isSuperAdmin(ctx context.Context, a authInfo) bool {
+	var email, role string
+	if err := s.pool.QueryRow(ctx, `SELECT email, role FROM users WHERE id=$1`, a.UserID).Scan(&email, &role); err != nil {
+		return false
+	}
+	return s.superAdminByEmail(email, role)
 }
 
 // requireSuperAdmin gates platform endpoints; non-super-admins get 404 so the

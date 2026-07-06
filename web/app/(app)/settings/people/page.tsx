@@ -138,7 +138,11 @@ export default function PeopleSettingsPage() {
               ) : paged.length === 0 ? (
                 <tr><td colSpan={7} className="text-center py-16 text-muted-foreground">No people found</td></tr>
               ) : paged.map((u) => {
-                const rc = ROLE_COLOR[u.role] ?? "#64748B";
+                // Platform super admin shows a distinct "Super Admin" label (display
+                // only; it is never a selectable role in the dropdown/filter).
+                const isSuper = u.is_super_admin;
+                const rc = isSuper ? "#7C3AED" : (ROLE_COLOR[u.role] ?? "#64748B");
+                const roleLabel = isSuper ? "Super Admin" : u.role;
                 return (
                   <tr key={u.id} className="border-b border-border/60 hover:bg-muted/50 transition-colors">
                     <td className="px-4 py-2.5">
@@ -158,7 +162,7 @@ export default function PeopleSettingsPage() {
                     </td>
                     <td className="px-4 py-2.5">
                       <span className="inline-flex px-2 py-0.5 rounded-md text-[10.5px] font-bold capitalize"
-                        style={{ backgroundColor: rc + "1a", color: rc }}>{u.role}</span>
+                        style={{ backgroundColor: rc + "1a", color: rc }}>{roleLabel}</span>
                     </td>
                     <td className="px-4 py-2.5"><CellChips items={u.campaign_names} empty="-" /></td>
                     <td className="px-4 py-2.5">

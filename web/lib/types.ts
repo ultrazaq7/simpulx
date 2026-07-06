@@ -554,6 +554,7 @@ export interface UserAccount {
   full_name: string;
   email: string;
   role: string;          // owner | admin | manager | agent
+  is_super_admin?: boolean; // platform super admin (display-only label, not a role)
   status: string;        // active | inactive (operational gate)
   is_online: boolean;    // presence (cosmetic)
   is_inactive?: boolean;        // billing: account paused

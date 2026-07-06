@@ -58,7 +58,7 @@ func (s *server) handleMe(w http.ResponseWriter, r *http.Request) {
 	name, email := a.Name, ""
 	var avatar *string
 	_ = s.pool.QueryRow(r.Context(), `SELECT full_name, email, avatar_url FROM users WHERE id=$1`, a.UserID).Scan(&name, &email, &avatar)
-	writeJSON(w, map[string]any{"id": a.UserID, "org_id": a.OrgID, "role": a.Role, "name": name, "email": email, "avatar": derefStr(avatar)})
+	writeJSON(w, map[string]any{"id": a.UserID, "org_id": a.OrgID, "role": a.Role, "name": name, "email": email, "avatar": derefStr(avatar), "is_super_admin": s.superAdminByEmail(email, a.Role)})
 }
 
 // ── GET /api/conversations?status= ──────────────────────────
