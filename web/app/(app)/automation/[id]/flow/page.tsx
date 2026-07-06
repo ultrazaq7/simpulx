@@ -8,7 +8,7 @@ import {
 } from "@xyflow/react";
 import "@xyflow/react/dist/style.css";
 import {
-  ArrowLeft, Plus, Zap, MessageCircle, FileText, User, Building2, Tag, Flag,
+  ArrowLeft, Plus, Zap, MessageCircle, FileText, User, Sparkles, Tag, Flag,
   Globe, GitFork, Trash2, Loader2, X, Save, Undo2, Redo2,
   Braces, ToggleRight, Sheet, ClipboardList, UserMinus, Ban,
   FolderMinus, Scissors, Mail, Milestone, Flame, Image as ImageIcon,
@@ -33,12 +33,12 @@ const META: Record<string, Meta> = {
   send_form: { label: "Send WhatsApp Form", Icon: ClipboardList, accent: "#2D8B73", kicker: "DO", desc: ACTIONS.send_form.desc },
   assign_agent: { label: "Assign to team member", Icon: User, accent: "#0891B2", kicker: "DO", desc: ACTIONS.assign_agent.desc },
   unassign_team: { label: "Unassign from team", Icon: UserMinus, accent: "#0891B2", kicker: "DO", desc: ACTIONS.unassign_team.desc },
-  assign_campaign: { label: "Add to campaign", Icon: Building2, accent: "#0891B2", kicker: "DO", desc: ACTIONS.assign_campaign.desc },
-  remove_campaign: { label: "Remove from campaign", Icon: Building2, accent: "#0891B2", kicker: "DO", desc: ACTIONS.remove_campaign.desc },
+  assign_campaign: { label: "Add to campaign", Icon: Sparkles, accent: "#0891B2", kicker: "DO", desc: ACTIONS.assign_campaign.desc },
+  remove_campaign: { label: "Remove from campaign", Icon: FolderMinus, accent: "#0891B2", kicker: "DO", desc: ACTIONS.remove_campaign.desc },
   blacklist: { label: "Mark blacklisted", Icon: Ban, accent: "#DC2626", kicker: "DO", desc: ACTIONS.blacklist.desc },
   send_email: { label: "Send email notification", Icon: Mail, accent: "#2563EB", kicker: "DO", desc: ACTIONS.send_email.desc },
-  add_tag: { label: "Add label", Icon: Tag, accent: "#D97706", kicker: "DO", desc: ACTIONS.add_tag.desc },
-  remove_tag: { label: "Remove label", Icon: Scissors, accent: "#D97706", kicker: "DO", desc: ACTIONS.remove_tag.desc },
+  add_tag: { label: "Add tag", Icon: Tag, accent: "#D97706", kicker: "DO", desc: ACTIONS.add_tag.desc },
+  remove_tag: { label: "Remove tag", Icon: Scissors, accent: "#D97706", kicker: "DO", desc: ACTIONS.remove_tag.desc },
   set_contact_attribute: { label: "Set contact attribute", Icon: Braces, accent: "#7C3AED", kicker: "DO", desc: ACTIONS.set_contact_attribute.desc },
   set_priority: { label: "Set priority", Icon: Flag, accent: "#DC2626", kicker: "DO", desc: ACTIONS.set_priority.desc },
   set_stage: { label: "Set stage", Icon: Milestone, accent: "#7C3AED", kicker: "DO", desc: ACTIONS.set_stage.desc },
@@ -178,16 +178,12 @@ function FlowNode({ data, selected }: NodeProps<AppNode>) {
       </div>
       {data.kind === "condition" ? (
         <>
-          <div className="flex justify-between px-4 pb-3 -mt-1">
-            <div className="flex flex-col items-center gap-1">
-              <span className="text-[8px] font-bold text-emerald-600">MATCH</span>
-              <Handle id="match" type="source" position={Position.Bottom} style={{ position: "relative", transform: "none", left: 0, top: 0 }} className="!w-2.5 !h-2.5 !bg-emerald-500 !border-2 !border-card" />
-            </div>
-            <div className="flex flex-col items-center gap-1">
-              <span className="text-[8px] font-bold text-slate-400">ELSE</span>
-              <Handle id="else" type="source" position={Position.Bottom} style={{ position: "relative", transform: "none", left: 0, top: 0 }} className="!w-2.5 !h-2.5 !bg-slate-400 !border-2 !border-card" />
-            </div>
+          <div className="flex justify-between px-6 pb-1.5 -mt-1">
+            <span className="text-[8px] font-bold text-emerald-600">MATCH</span>
+            <span className="text-[8px] font-bold text-slate-400">ELSE</span>
           </div>
+          <Handle id="match" type="source" position={Position.Bottom} style={{ left: "26%" }} className="!w-2.5 !h-2.5 !bg-emerald-500 !border-2 !border-card" />
+          <Handle id="else" type="source" position={Position.Bottom} style={{ left: "74%" }} className="!w-2.5 !h-2.5 !bg-slate-400 !border-2 !border-card" />
         </>
       ) : options.length > 0 ? (
         // One handle per button, positioned along the node's bottom edge centered under each button.
