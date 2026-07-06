@@ -46,7 +46,9 @@ export async function registerPush(onForeground?: () => void) {
 // unregisterPush removes this browser's FCM token on logout — both server-side
 // (so the gateway stops pushing) and client-side (invalidate the token) — so a
 // logged-out tab never receives notifications. Best-effort.
-export async function unregisterPush() {
+// authToken: JWT captured by logout() before the session is cleared, so the
+// server-side token removal authenticates despite running after clearSession.
+export async function unregisterPush(authToken?: string) {
   if (typeof window === "undefined" || !VAPID_KEY) return;
   try {
     const messaging = await getMessagingClient();
@@ -56,7 +58,7 @@ export async function unregisterPush() {
       vapidKey: VAPID_KEY,
       serviceWorkerRegistration: swReg || undefined,
     }).catch(() => null);
-    if (token) await api.unregisterFCMToken(token).catch(() => {});
+    if (token) await api.unregisterFCMToken(token, authToken).catch(() => {});
     await deleteToken(messaging).catch(() => {});
   } catch { /* best effort */ }
   registered = false;

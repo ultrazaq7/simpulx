@@ -283,8 +283,17 @@ export const api = {
     req(`/api/conversations/${id}/snooze`, { method: "POST", body: JSON.stringify({ until }) }),
   registerFCMToken: (token: string, platform = "web") =>
     req("/api/users/fcm-token", { method: "POST", body: JSON.stringify({ token, platform }) }),
-  unregisterFCMToken: (token: string) =>
-    req("/api/users/fcm-token", { method: "DELETE", body: JSON.stringify({ token }) }),
+  // authToken lets logout pass a JWT captured BEFORE clearSession, so this DELETE
+  // still authenticates even though it runs async after the session is cleared
+  // (otherwise the server never drops the token and keeps pushing post-logout).
+  unregisterFCMToken: (token: string, authToken?: string) => {
+    const jwt = authToken ?? getToken();
+    return fetch(`${API}/api/users/fcm-token`, {
+      method: "DELETE",
+      headers: { "Content-Type": "application/json", ...(jwt ? { Authorization: `Bearer ${jwt}` } : {}) },
+      body: JSON.stringify({ token }),
+    }).then(() => {});
+  },
   listNotifications: () => req<{ notifications: AppNotification[]; unread: number }>("/api/notifications"),
   markNotificationsRead: (id?: string) =>
     req("/api/notifications/read", { method: "POST", body: JSON.stringify(id ? { id } : {}) }),

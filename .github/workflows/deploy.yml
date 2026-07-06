@@ -138,6 +138,11 @@ jobs:
             ${{ env.ECR }}/${{ matrix.name }}:latest
           cache-from: type=gha,scope=${{ matrix.name }}
           cache-to: type=gha,mode=max,scope=${{ matrix.name }}
+          # The web gha cache went stale (served a COPY/build layer from before new
+          # routes existed, so fresh source produced an old image -> new pages 404'd).
+          # Build web without cache so the layer can't be reused; cache-to still
+          # refreshes the scope with correct layers.
+          no-cache: ${{ matrix.name == 'web' }}
           provenance: false
 
       # ── Unchanged: re-tag the existing :latest as :sha (no rebuild) ──

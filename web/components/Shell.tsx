@@ -395,8 +395,12 @@ export function Shell({ children }: { children: ReactNode }) {
   // dance can take seconds), so fire them in the background — never awaited.
   // api.logout() reads the refresh token synchronously before the session clears.
   function logout() {
+    // Capture the JWT BEFORE clearing the session: unregisterPush runs its async
+    // FCM dance and its server-side token DELETE lands after clearSession, so
+    // without this the DELETE 401s and the backend keeps pushing post-logout.
+    const jwt = getToken() || undefined;
     api.logout().catch(() => {});
-    unregisterPush().catch(() => {});
+    unregisterPush(jwt).catch(() => {});
     clearSession();
     router.replace("/login");
   }
