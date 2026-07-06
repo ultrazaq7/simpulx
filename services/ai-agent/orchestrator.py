@@ -17,11 +17,21 @@ import lead_score
 import segments
 
 SUBJECT_OUTBOUND = "events.message.outbound"
+SUBJECT_AI_ACTIVITY = "events.ai.activity"  # live Simpuler phase for the inbox (WS-C)
 
 COOLDOWN_SEC = 45          # burst debounce: max ~1 LLM analyze per conversation / 45s
 JUNK_CONF = 0.7            # min detect_junk() confidence to auto-set spam/lost (FR-34/BR-44)
 GHOST_FOLLOWUPS = 2        # >= this many follow-ups with no genuine reply -> ghosted (FR-34)
 _ENTITY_CATS = {"Model/Brand Interest", "Price/Financing", "Visit/Showroom"}
+
+
+async def _publish_activity(broker, org_id: str, conv_id: str, phase: str, log) -> None:
+    """Emit a live Simpuler phase (thinking|replied|handoff) for the inbox. Best
+    effort: a transient indicator must never break the reply flow."""
+    try:
+        await broker.publish(SUBJECT_AI_ACTIVITY, org_id, {"conversation_id": conv_id, "phase": phase})
+    except Exception:  # noqa: BLE001
+        log.debug("ai activity publish failed", extra={"conv": conv_id})
 
 
 async def handle_inbound(broker, pool, env: dict, data: dict, log) -> None:
@@ -315,9 +325,11 @@ async def maybe_nurture(broker, pool, org_id: str, conv_id: str, message_id, bod
 
     system_prompt = (row["system_prompt"] or "You are a helpful sales assistant.") + ctx + "\n\n" + lang_rule + finance_ctx
     history = await _load_history(pool, conv_id, message_id)
+    await _publish_activity(broker, org_id, conv_id, "thinking", log)
     result = await llm.nurture(system_prompt, history, body, model=row["model"])
     reply = (result.get("reply") or "").strip()
     if not reply:
+        await _publish_activity(broker, org_id, conv_id, "replied", log)  # clear the indicator
         return
 
     meta = row["metadata"] if isinstance(row["metadata"], dict) else json.loads(row["metadata"] or "{}")
@@ -327,6 +339,7 @@ async def maybe_nurture(broker, pool, org_id: str, conv_id: str, message_id, bod
     await broker.publish(SUBJECT_OUTBOUND, org_id, {
         "conversation_id": conv_id, "sender_type": "bot", "type": "text", "body": reply,
     })
+    await _publish_activity(broker, org_id, conv_id, "replied", log)
     async with pool.acquire() as conn:
         await conn.execute(
             """UPDATE conversations
@@ -357,6 +370,7 @@ async def maybe_nurture(broker, pool, org_id: str, conv_id: str, message_id, bod
 
 async def _ai_handoff(broker, pool, org_id: str, conv_id: str, agent_id, log) -> None:
     """Stand the bot down and notify a human that a nurtured lead is ready."""
+    await _publish_activity(broker, org_id, conv_id, "handoff", log)
     async with pool.acquire() as conn:
         await conn.execute("UPDATE conversations SET is_bot_active = false, updated_at = now() WHERE id = $1", conv_id)
         recipients = [agent_id] if agent_id else [

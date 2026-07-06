@@ -30,6 +30,9 @@ const (
 	// receives it. A prior "cmd.ai.draft_followup" value silently failed to publish
 	// (no stream matched the subject) so 4h auto follow-ups never fired.
 	SubjectCmdAIDraftFollowup = "events.ai.draft_followup"
+	// SubjectAIActivity is a transient Simpuler phase (thinking|replied|handoff)
+	// forwarded to the inbox for a live "Simpuler is ..." indicator (WS-C).
+	SubjectAIActivity = "events.ai.activity"
 
 	StreamName     = "EVENTS"
 	StreamSubjects = "events.>"

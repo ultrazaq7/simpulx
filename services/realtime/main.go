@@ -92,6 +92,7 @@ func main() {
 		{events.SubjectAgentDeactivated, "realtime-deactivated"},
 		{events.SubjectAuditCreated, "realtime-audit"},
 		{events.SubjectCallUpdated, "realtime-call"},
+		{events.SubjectAIActivity, "realtime-ai-activity"},
 	}
 	for _, s := range subs {
 		if err := bus.Subscribe(s.subject, s.durable, forward); err != nil {

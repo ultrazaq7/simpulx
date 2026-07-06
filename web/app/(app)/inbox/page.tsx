@@ -128,6 +128,11 @@ export default function InboxPage() {
 
   const active = convs.find((c) => c.id === activeId) || null;
 
+  // Live Simpuler phase per conversation (WS-C). "thinking" drives a typing
+  // indicator; a safety timer clears it if the "replied"/"handoff" signal is lost.
+  const [aiActivity, setAiActivity] = useState<Record<string, string>>({});
+  const aiTimers = useRef<Record<string, ReturnType<typeof setTimeout>>>({});
+
   const queryClient = useQueryClient();
   const messagesQuery = useInfiniteQuery({
     queryKey: ["messages", activeId],
@@ -230,7 +235,26 @@ export default function InboxPage() {
       if (!ev) return;
       const aid = activeIdRef.current;
       const data = ev.data || ev;
+
+      // Transient Simpuler phase — drives the "typing" indicator; never touches the list.
+      if (ev.type === "ai.activity" && data?.conversation_id) {
+        const cid: string = data.conversation_id;
+        const clearAi = () => { setAiActivity((m) => { if (!(cid in m)) return m; const n = { ...m }; delete n[cid]; return n; }); if (aiTimers.current[cid]) { clearTimeout(aiTimers.current[cid]); delete aiTimers.current[cid]; } };
+        if (data.phase === "thinking") {
+          setAiActivity((m) => ({ ...m, [cid]: "thinking" }));
+          if (aiTimers.current[cid]) clearTimeout(aiTimers.current[cid]);
+          aiTimers.current[cid] = setTimeout(clearAi, 20000);
+        } else { clearAi(); }
+        return;
+      }
+
       const isMsg = ev.type === "message.persisted" && data && data.conversation_id === aid;
+      // A bot reply landing clears any lingering "typing" indicator for that conversation.
+      if (ev.type === "message.persisted" && data?.sender_type === "bot" && data.conversation_id) {
+        const cid: string = data.conversation_id;
+        setAiActivity((m) => { if (!(cid in m)) return m; const n = { ...m }; delete n[cid]; return n; });
+        if (aiTimers.current[cid]) { clearTimeout(aiTimers.current[cid]); delete aiTimers.current[cid]; }
+      }
       if (aid && isMsg) {
         // Append the new message straight into the cache so it shows instantly. The
         // persisted event carries the message, so we don't wait on a refetch that can
@@ -489,6 +513,7 @@ export default function InboxPage() {
         <ChatPanel
           className={cn(!activeId && "max-lg:hidden")}
           onBack={() => setActiveId(null)}
+          aiThinking={!!active && aiActivity[active.id] === "thinking"}
           active={active}
           timeline={timeline}
           messagesQuery={messagesQuery}

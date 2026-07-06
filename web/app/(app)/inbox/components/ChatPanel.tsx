@@ -3,7 +3,7 @@ import { useState, useEffect, useCallback, useMemo } from "react";
 import {
   MessageSquare, ChevronRight, ChevronLeft, Check, Copy, X, Search,
   CheckCircle, RotateCcw, PanelRight, Lock, ChevronUp, ChevronDown,
-  Download, XCircle, User, FileText, Video, Clock,
+  Download, XCircle, User, FileText, Video, Clock, Sparkles,
 } from "lucide-react";
 import { cn, fmtTime, initials, channelColor, channelTextColor } from "@/lib/utils";
 import { Tip } from "@/components/ui/tooltip";
@@ -200,6 +200,7 @@ export interface ChatPanelProps {
   onAddNote?: (body: string) => Promise<void>; // post an internal note (AI Smart Summary -> Confirm)
   className?: string; // parent-controlled responsive visibility (mobile single-pane)
   onBack?: () => void; // mobile: return to the conversation list
+  aiThinking?: boolean; // Simpuler is drafting a reply for this conversation (WS-C)
 }
 
 export default function ChatPanel({
@@ -210,7 +211,7 @@ export default function ChatPanel({
   pendingFiles, pendingPreviews, fileRef, onFile, cancelSendFile, removePendingFile,
   busy, onSubmit, onSendVoice, showDetails, onToggleDetails, notify, showAgent, onForward,
   agents, canAssign, onReassign, onUnassign, onSnooze,
-  uploadProgress, onAddNote, className, onBack,
+  uploadProgress, onAddNote, className, onBack, aiThinking,
 }: ChatPanelProps) {
   const [assignOpen, setAssignOpen] = useState(false);
   const [assignQuery, setAssignQuery] = useState("");
@@ -714,6 +715,19 @@ export default function ChatPanel({
                 })}
               </div>
             </div>
+
+            {/* Live Simpuler indicator (WS-C): shows while the bot drafts a reply. */}
+            {aiThinking && (
+              <div className="px-4 pb-1.5 pt-0.5 flex items-center gap-2 text-[12px] font-medium text-violet-600">
+                <Sparkles className="w-3.5 h-3.5" />
+                <span>Simpuler is typing</span>
+                <span className="flex gap-0.5">
+                  <span className="w-1 h-1 rounded-full bg-violet-500 animate-bounce [animation-delay:-0.2s]" />
+                  <span className="w-1 h-1 rounded-full bg-violet-500 animate-bounce [animation-delay:-0.1s]" />
+                  <span className="w-1 h-1 rounded-full bg-violet-500 animate-bounce" />
+                </span>
+              </div>
+            )}
 
             {/* ── Composer ── */}
             <Composer
