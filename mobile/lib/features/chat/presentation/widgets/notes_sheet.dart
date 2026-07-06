@@ -35,12 +35,44 @@ class _NotesSheet extends ConsumerStatefulWidget {
 
 class _NotesSheetState extends ConsumerState<_NotesSheet> {
   final _controller = TextEditingController();
+  final _scrollController = ScrollController();
   bool _adding = false;
+  bool _summarizing = false;
+  bool _showScrollTop = false;
+
+  @override
+  void initState() {
+    super.initState();
+    _scrollController.addListener(() {
+      final show = _scrollController.hasClients && _scrollController.offset > 300;
+      if (show != _showScrollTop) setState(() => _showScrollTop = show);
+    });
+  }
 
   @override
   void dispose() {
     _controller.dispose();
+    _scrollController.dispose();
     super.dispose();
+  }
+
+  // Generate an AI Smart Summary and drop it into the note field for review
+  // before the agent posts it (mirrors the web composer's Smart Summary).
+  Future<void> _generateSummary() async {
+    setState(() => _summarizing = true);
+    final buf = StringBuffer();
+    try {
+      await for (final delta
+          in ref.read(chatRepositoryProvider).streamSummary(widget.conversationId)) {
+        buf.write(delta);
+      }
+      if (!mounted) return;
+      _controller.text = buf.toString().trim();
+    } catch (_) {
+      if (mounted) AppSnackbar.show(context, 'Could not generate summary', isError: true);
+    } finally {
+      if (mounted) setState(() => _summarizing = false);
+    }
   }
 
   Future<void> _add() async {
@@ -66,12 +98,26 @@ class _NotesSheetState extends ConsumerState<_NotesSheet> {
     final async = ref.watch(notesProvider(widget.conversationId));
     return Column(
       children: [
-        const Padding(
-          padding: EdgeInsets.fromLTRB(16, 8, 16, 8),
-          child: Align(
-            alignment: Alignment.centerLeft,
-            child: Text('Internal notes',
-                style: TextStyle(fontSize: 16, fontWeight: FontWeight.w700)),
+        Padding(
+          padding: const EdgeInsets.fromLTRB(16, 8, 8, 8),
+          child: Row(
+            children: [
+              const Expanded(
+                child: Text('Internal notes',
+                    style: TextStyle(fontSize: 16, fontWeight: FontWeight.w700)),
+              ),
+              TextButton.icon(
+                onPressed: _summarizing ? null : _generateSummary,
+                icon: _summarizing
+                    ? const SizedBox(
+                        width: 16,
+                        height: 16,
+                        child: CircularProgressIndicator(strokeWidth: 2),
+                      )
+                    : const Icon(Icons.auto_awesome, size: 18),
+                label: const Text('Smart Summary'),
+              ),
+            ],
           ),
         ),
         const Divider(height: 1),
@@ -91,7 +137,9 @@ class _NotesSheetState extends ConsumerState<_NotesSheet> {
                   message: 'Notes are visible only to your team.',
                 );
               }
-              return ListView.builder(
+              return Stack(children: [
+                ListView.builder(
+                controller: _scrollController,
                 padding: const EdgeInsets.all(12),
                 itemCount: notes.length,
                 itemBuilder: (context, i) {
@@ -121,7 +169,20 @@ class _NotesSheetState extends ConsumerState<_NotesSheet> {
                     ),
                   );
                 },
-              );
+              ),
+              if (_showScrollTop)
+                Positioned(
+                  right: 16,
+                  bottom: 16,
+                  child: FloatingActionButton.small(
+                    heroTag: 'notesScrollTop',
+                    onPressed: () => _scrollController.animateTo(0,
+                        duration: const Duration(milliseconds: 300),
+                        curve: Curves.easeOut),
+                    child: const Icon(Icons.arrow_upward),
+                  ),
+                ),
+              ]);
             },
           ),
         ),
