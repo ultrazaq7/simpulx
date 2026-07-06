@@ -468,7 +468,7 @@ func (s *server) syncMetaAccount(ctx context.Context, accountID, orgID string) e
 	// Account name + currency (best-effort).
 	if cur, nm, err := metaAccountInfo(ctx, extID, token); err == nil {
 		currency, name = cur, nm
-		_, _ = s.pool.Exec(ctx, `UPDATE ad_accounts SET currency=NULLIF($2,''), name=COALESCE(NULLIF($3,''),name) WHERE id=$1`, accountID, currency, name)
+		_, _ = s.pool.Exec(ctx, `UPDATE ad_accounts SET currency=NULLIF($2,''), name=COALESCE(NULLIF($3,''),name), updated_at=now() WHERE id=$1`, accountID, currency, name)
 	}
 
 	until := time.Now().Format("2006-01-02")

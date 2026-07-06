@@ -91,7 +91,9 @@ const PAGE_TITLES: Record<string, { category: string; title: string; icon?: any 
   "/settings/ads": { category: "ANALYTICS", title: "Ad Performance" },
   "/settings/integrations": { category: "INTEGRATIONS", title: "Web API Sources" },
   "/settings/audit": { category: "SYSTEM", title: "System Logs" },
+  "/settings/notifications": { category: "PREFERENCES", title: "Notifications" },
   "/settings": { category: "PREFERENCES", title: "Settings" },
+  "/account": { category: "ACCOUNT", title: "My Account" },
   "/account": { category: "ACCOUNT", title: "Account Settings" },
 };
 

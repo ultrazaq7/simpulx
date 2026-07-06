@@ -137,9 +137,9 @@ export default function GeneralSettingsPage() {
   );
 
   return (
-    <PageBody maxWidth={760}>
+    <PageBody maxWidth={1000}>
       {ToastHost}
-      <div className="space-y-9 pt-1 pb-24">
+      <div className="bg-card border border-border rounded-xl shadow-xs p-6 sm:p-8 mb-24 space-y-9">
         <Section title="Company">
           <div className="flex items-center gap-4">
             <div className="w-14 h-14 rounded-full bg-primary/10 text-primary-text grid place-items-center text-lg font-bold shrink-0">
