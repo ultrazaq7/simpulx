@@ -20,6 +20,7 @@ import { Tip } from "@/components/ui/tooltip";
 import { lostReasonLabel } from "@/app/(app)/inbox/components/LostReasonDialog";
 import type { Stats, Analytics, DashboardCards, AdPerformance, AdBreakdown, Channel, Campaign, Agent } from "@/lib/types";
 import { cn, fmtDuration } from "@/lib/utils";
+import DateRangeFilter from "@/components/DateRangeFilter";
 
 type Metric = {
   key: string; label: string; Icon: any; color: string;
@@ -374,27 +375,8 @@ function AgentDashboard() {
           options={campaigns.map((c) => ({ value: c.id, label: c.name }))} />
         <MultiSelect value={fSource} onChange={setFSource} placeholder="All sources" className="w-[160px]"
           options={SOURCE_OPTIONS} />
-        <Select value={dateRange} searchable={false} className="w-[150px]"
-          onChange={(v) => { setDateRange(v); if (v !== "custom") { const r = presetRange(v); setFFrom(r.from); setFTo(r.to); } }}
-          options={[
-            { value: "all", label: "All time" },
-            { value: "today", label: "Today" },
-            { value: "7d", label: "Last 7 days" },
-            { value: "30d", label: "Last 30 days" },
-            { value: "90d", label: "Last 90 days" },
-            { value: "month", label: "This month" },
-            { value: "lastmonth", label: "Last month" },
-            { value: "custom", label: "Custom range" },
-          ]} />
-        {dateRange === "custom" && (
-          <div className="flex items-center gap-1.5 text-[12px] text-muted-foreground">
-            <input type="date" value={fFrom} max={fTo || undefined} onChange={(e) => setFFrom(e.target.value)}
-              className="h-9 px-2 rounded-md border border-input bg-background text-[13px] text-foreground outline-none focus:border-primary" />
-            <span>to</span>
-            <input type="date" value={fTo} min={fFrom || undefined} onChange={(e) => setFTo(e.target.value)}
-              className="h-9 px-2 rounded-md border border-input bg-background text-[13px] text-foreground outline-none focus:border-primary" />
-          </div>
-        )}
+        <DateRangeFilter value={{ preset: dateRange, from: fFrom, to: fTo }}
+          onChange={(v) => { setDateRange(v.preset); setFFrom(v.from); setFTo(v.to); }} />
         {(fCampaign.length || fSource.length || dateRange !== "all") && (
           <button onClick={() => { setFCampaign([]); setFSource([]); setFFrom(""); setFTo(""); setDateRange("all"); }} className="text-[12px] font-semibold text-primary hover:underline outline-none">Clear</button>
         )}
@@ -594,27 +576,8 @@ function ManagerDashboard() {
             options={agentList.map((a) => ({ value: a.id, label: a.full_name }))} />
           <MultiSelect value={fSource} onChange={setFSource} placeholder="All sources" className="w-[160px]"
             options={SOURCE_OPTIONS} />
-          <Select value={dateRange} searchable={false} className="w-[150px]"
-            onChange={(v) => { setDateRange(v); if (v !== "custom") { const r = presetRange(v); setFFrom(r.from); setFTo(r.to); } }}
-            options={[
-              { value: "all", label: "All time" },
-              { value: "today", label: "Today" },
-              { value: "7d", label: "Last 7 days" },
-              { value: "30d", label: "Last 30 days" },
-              { value: "90d", label: "Last 90 days" },
-              { value: "month", label: "This month" },
-              { value: "lastmonth", label: "Last month" },
-              { value: "custom", label: "Custom range" },
-            ]} />
-          {dateRange === "custom" && (
-            <div className="flex items-center gap-1.5 text-[12px] text-muted-foreground">
-              <input type="date" value={fFrom} max={fTo || undefined} onChange={(e) => setFFrom(e.target.value)}
-                className="h-9 px-2 rounded-md border border-input bg-background text-[13px] text-foreground outline-none focus:border-primary" />
-              <span>to</span>
-              <input type="date" value={fTo} min={fFrom || undefined} onChange={(e) => setFTo(e.target.value)}
-                className="h-9 px-2 rounded-md border border-input bg-background text-[13px] text-foreground outline-none focus:border-primary" />
-            </div>
-          )}
+          <DateRangeFilter value={{ preset: dateRange, from: fFrom, to: fTo }}
+            onChange={(v) => { setDateRange(v.preset); setFFrom(v.from); setFTo(v.to); }} />
           {(fChannel.length || fCampaign.length || fAgent.length || fSource.length || dateRange !== "all") && (
             <button onClick={() => { setFChannel([]); setFCampaign([]); setFAgent([]); setFSource([]); setFFrom(""); setFTo(""); setDateRange("all"); }} className="text-[12px] font-semibold text-primary hover:underline outline-none">Clear</button>
           )}
@@ -1019,27 +982,8 @@ function MarketingAnalytics() {
           <MultiSelect value={sourceFilter} onChange={setSourceFilter} options={sourceOptions} placeholder="All sources" className="w-[170px]" />
         )}
         <MultiSelect value={campaignFilter} onChange={setCampaignFilter} options={campaignOptions} placeholder="All campaigns" className="w-[200px]" />
-        <Select value={dateRange} searchable={false} className="w-[150px]"
-          onChange={(v) => { setDateRange(v); if (v !== "custom") { const r = presetRange(v); setFFrom(r.from); setFTo(r.to); } }}
-          options={[
-            { value: "all", label: "All time" },
-            { value: "today", label: "Today" },
-            { value: "7d", label: "Last 7 days" },
-            { value: "30d", label: "Last 30 days" },
-            { value: "90d", label: "Last 90 days" },
-            { value: "month", label: "This month" },
-            { value: "lastmonth", label: "Last month" },
-            { value: "custom", label: "Custom range" },
-          ]} />
-        {dateRange === "custom" && (
-          <div className="flex items-center gap-1.5 text-[12px] text-muted-foreground">
-            <input type="date" value={fFrom} max={fTo || undefined} onChange={(e) => setFFrom(e.target.value)}
-              className="h-9 px-2 rounded-md border border-input bg-background text-[13px] text-foreground outline-none focus:border-primary" />
-            <span>to</span>
-            <input type="date" value={fTo} min={fFrom || undefined} onChange={(e) => setFTo(e.target.value)}
-              className="h-9 px-2 rounded-md border border-input bg-background text-[13px] text-foreground outline-none focus:border-primary" />
-          </div>
-        )}
+        <DateRangeFilter value={{ preset: dateRange, from: fFrom, to: fTo }}
+          onChange={(v) => { setDateRange(v.preset); setFFrom(v.from); setFTo(v.to); }} />
       </div>
 
       {loading ? (

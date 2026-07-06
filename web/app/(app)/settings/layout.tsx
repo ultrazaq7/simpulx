@@ -81,15 +81,18 @@ export default function SettingsLayout({ children }: { children: ReactNode }) {
     ...(isSuper ? [{ titleKey: "Platform", items: [{ key: "platform", labelKey: "Platform", icon: Boxes, href: "/settings/platform", perm: "" }] }] : []),
   ];
 
-  // Persist + restore the sidebar scroll BEFORE paint. Keyed on the item count so
-  // it re-applies once the async nav (permissions + Platform) finishes rendering,
-  // otherwise scrollTop is clamped to 0 before the list is tall enough.
+  // Persist + restore the sidebar scroll. Re-applies whenever the nav content
+  // changes (async permissions + Platform, and the collapse toggle change width/
+  // height) and once more on a rAF, so a refresh lands back where you were.
   const navCount = groups.reduce((n, g) => n + g.items.length, 0);
   useIsoLayoutEffect(() => {
     const box = navScrollRef.current;
     if (!box || navCount === 0) return;
     const saved = Number(sessionStorage.getItem("simpulx_settings_navscroll") || 0);
-    if (saved && box.scrollHeight > box.clientHeight) box.scrollTop = saved;
+    if (!saved) return;
+    box.scrollTop = saved;
+    const raf = requestAnimationFrame(() => { if (box.scrollTop !== saved) box.scrollTop = saved; });
+    return () => cancelAnimationFrame(raf);
   }, [navCount, collapsed]);
 
   // Active item = the nav href that is a prefix of the current path (so nested
