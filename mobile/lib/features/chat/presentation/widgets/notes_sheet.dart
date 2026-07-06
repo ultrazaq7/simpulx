@@ -168,7 +168,7 @@ class _NotesSheetState extends ConsumerState<_NotesSheet> {
                         Text(n.body, style: TextStyle(color: Theme.of(context).colorScheme.onSurface)),
                         const SizedBox(height: 6),
                         Text(
-                          '${n.author} - ${formatDayLabel(n.createdAt)} ${formatBubbleTime(n.createdAt)}',
+                          '${n.author} - ${formatHistoryTimestamp(n.createdAt)}',
                           style: const TextStyle(
                               fontSize: 11, color: AppColors.textMuted),
                         ),
