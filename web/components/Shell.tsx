@@ -6,7 +6,7 @@ import {
   MessageCircle, Settings, MessageSquareText,
   ChevronLeft, ChevronRight, Bell, LogOut, User as UserIcon,
   CheckCircle2, Loader2, ChevronDown, Activity, LayoutDashboard, MessagesSquare, Users, SlidersHorizontal, Megaphone, Wrench, Globe, Boxes,
-  ScrollText, BarChart3, ShieldCheck, FileText, RadioTower, GitBranch, Plug, Search, ClipboardList, Building2, FormInput, Menu
+  ScrollText, BarChart3, ShieldCheck, FileText, RadioTower, GitBranch, Plug, Search, ClipboardList, Building2, Building, FormInput, Menu
 } from "lucide-react";
 import { WS_URL } from "@/lib/api";
 import { api, clearSession, getToken, getUser, setSession } from "@/lib/api";
@@ -80,8 +80,9 @@ const PAGE_TITLES: Record<string, { category: string; title: string; icon?: any 
   "/integrations": { category: "SETUP", title: "Web API" },
   // Settings sub-pages (more specific than "/settings" so each gets its own title + icon).
   "/settings/general": { category: "PREFERENCES", title: "General" },
+  "/settings/company-details": { category: "COMPANY SETTINGS", title: "Company Details", icon: Building },
   "/settings/custom-fields": { category: "FIELDS", title: "Custom Fields" },
-  "/settings/people": { category: "TEAM", title: "Team Members" },
+  "/settings/user-management": { category: "COMPANY SETTINGS", title: "User Management" },
   "/settings/roles": { category: "ROLES", title: "Roles & Permissions" },
   "/settings/campaigns": { category: "CAMPAIGNS", title: "Campaigns" },
   "/settings/templates": { category: "TEMPLATES", title: "Message Templates" },
@@ -95,7 +96,6 @@ const PAGE_TITLES: Record<string, { category: string; title: string; icon?: any 
   "/settings/audit": { category: "SYSTEM", title: "System Logs" },
   "/settings/notifications": { category: "PREFERENCES", title: "Notifications" },
   "/settings": { category: "PREFERENCES", title: "Settings" },
-  "/account": { category: "ACCOUNT", title: "Account Settings" },
 };
 
 const CATEGORY_ICONS: Record<string, any> = {
@@ -111,6 +111,7 @@ const CATEGORY_ICONS: Record<string, any> = {
   "ACCOUNT": UserIcon,
   "TEAM": UserIcon,
   "ROLES": ShieldCheck,
+  "COMPANY SETTINGS": Building,
   "TEMPLATES": FileText,
   "FORMS": ClipboardList,
   "CHANNELS": RadioTower,
@@ -617,7 +618,7 @@ export function Shell({ children }: { children: ReactNode }) {
             {/* Manage Account CTA */}
             <div className="px-4 py-3 border-b border-border">
               <Link
-                href="/account"
+                href="/settings/general"
                 onClick={() => setUserMenuOpen(false)}
                 className="w-full h-9 rounded-lg border border-primary text-primary text-[13px] font-semibold flex items-center justify-center hover:bg-primary/5 transition-colors"
               >

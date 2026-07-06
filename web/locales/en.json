@@ -45,6 +45,9 @@
   },
   "settings": {
     "general": "General",
+    "company_details": "Company Details",
+    "company_settings": "Company Settings",
+    "user_management": "User Management",
     "custom_fields": "Custom Fields",
     "workspace": "Workspace",
     "workspace_id": "Workspace ID",

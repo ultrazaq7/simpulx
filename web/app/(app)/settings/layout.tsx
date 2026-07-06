@@ -9,8 +9,8 @@ import Link from "next/link";
 import { usePathname } from "next/navigation";
 import {
   Settings, FormInput, Bell, User, ShieldCheck,
-  Building2, FileText, GitBranch, RadioTower, Clock, ClipboardList,
-  PanelLeftClose, PanelLeftOpen, Boxes, Zap,
+  Building2, Building, FileText, GitBranch, RadioTower, Clock, ClipboardList,
+  PanelLeftClose, PanelLeftOpen, Boxes, Zap, SlidersHorizontal,
 } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { api, getUser } from "@/lib/api";
@@ -25,15 +25,16 @@ type NavItem = { key: string; labelKey: string; icon: any; href: string; perm: s
 
 const GROUPS: { titleKey: string; items: NavItem[] }[] = [
   {
-    titleKey: "settings.general",
+    titleKey: "menu.preferences",
     items: [
-      { key: "general", labelKey: "settings.general", icon: Settings, href: "/settings/general", perm: "view_settings" },
+      { key: "general", labelKey: "settings.general", icon: SlidersHorizontal, href: "/settings/general", perm: "view_settings" },
     ],
   },
   {
-    titleKey: "settings.team",
+    titleKey: "settings.company_settings",
     items: [
-      { key: "people", labelKey: "settings.team", icon: User, href: "/settings/people", perm: "manage_team" },
+      { key: "company-details", labelKey: "settings.company_details", icon: Building, href: "/settings/company-details", perm: "view_settings" },
+      { key: "user-management", labelKey: "settings.user_management", icon: User, href: "/settings/user-management", perm: "manage_team" },
       { key: "roles", labelKey: "settings.roles", icon: ShieldCheck, href: "/settings/roles", perm: "manage_roles" },
     ],
   },
@@ -116,7 +117,7 @@ export default function SettingsLayout({ children }: { children: ReactNode }) {
     center();
     const raf = requestAnimationFrame(center);
     return () => cancelAnimationFrame(raf);
-  }, [navCount, collapsed, activeHref]);
+  }, [navCount, collapsed]);
 
   // Flat item list for the mobile horizontal nav strip (groups collapse away).
   const flatItems = groups.flatMap((g) => g.items);
