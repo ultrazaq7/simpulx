@@ -5,7 +5,7 @@ import Link from "next/link";
 import {
   MessageCircle, Settings, MessageSquareText,
   ChevronLeft, ChevronRight, Bell, LogOut, User as UserIcon,
-  CheckCircle2, Loader2, ChevronDown, Activity, LayoutDashboard, MessagesSquare, Users, SlidersHorizontal, Megaphone, Wrench, Globe,
+  CheckCircle2, Loader2, ChevronDown, Activity, LayoutDashboard, MessagesSquare, Users, SlidersHorizontal, Megaphone, Wrench, Globe, Boxes,
   ScrollText, BarChart3, ShieldCheck, FileText, RadioTower, GitBranch, Plug, Search, ClipboardList, Building2, FormInput, Menu
 } from "lucide-react";
 import { WS_URL } from "@/lib/api";
@@ -87,7 +87,7 @@ const PAGE_TITLES: Record<string, { category: string; title: string; icon?: any 
   "/settings/automation": { category: "AUTOMATION", title: "Automation" },
   "/settings/wa-forms": { category: "FORMS", title: "WhatsApp Forms" },
   "/settings/channels": { category: "CHANNELS", title: "Channel & Integrations" },
-  "/settings/platform": { category: "PLATFORM", title: "Platform" },
+  "/settings/platform": { category: "PLATFORM", title: "Platform", icon: Boxes },
   "/settings/ads": { category: "ANALYTICS", title: "Ad Performance" },
   "/settings/integrations": { category: "INTEGRATIONS", title: "Web API Sources" },
   "/settings/audit": { category: "SYSTEM", title: "System Logs" },
@@ -598,6 +598,10 @@ export function Shell({ children }: { children: ReactNode }) {
               <div className="min-w-0">
                 <p className="text-[14px] font-bold text-foreground truncate">{user.name}</p>
                 <p className="text-[12px] text-muted-foreground truncate">{user.email || user.role}</p>
+                <span className="inline-flex mt-1 px-2 py-0.5 rounded-md text-[10px] font-bold capitalize"
+                  style={user.is_super_admin ? { backgroundColor: "#7C3AED1a", color: "#7C3AED" } : { backgroundColor: "var(--muted)", color: "var(--muted-foreground)" }}>
+                  {user.is_super_admin ? "Super Admin" : user.role}
+                </span>
               </div>
             </div>
 

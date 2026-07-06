@@ -4,7 +4,7 @@
 // scroll position) never remounts — fixing the scroll-jump that the old per-page
 // SettingsLayout had. Active section is derived from the pathname, so the URL is
 // always the source of truth (no more ?section= facade).
-import { type ReactNode, useState, useEffect } from "react";
+import { type ReactNode, useState, useEffect, useRef } from "react";
 import Link from "next/link";
 import { usePathname } from "next/navigation";
 import {
@@ -67,6 +67,11 @@ export default function SettingsLayout({ children }: { children: ReactNode }) {
   // Platform is visible only to the super admin (a configured email, not a role).
   const [isSuper, setIsSuper] = useState(false);
   useEffect(() => { api.platformAccess().then((r) => setIsSuper(r.super_admin)).catch(() => {}); }, []);
+
+  // On a full refresh the sidebar remounts at scrollTop 0, hiding the active item
+  // if it sits far down. Bring it into view once on mount.
+  const activeRef = useRef<HTMLAnchorElement | null>(null);
+  useEffect(() => { activeRef.current?.scrollIntoView({ block: "nearest" }); }, [isSuper]);
 
   // Hide sections the role can't access; drop groups that become empty.
   const groups = [
@@ -134,6 +139,7 @@ export default function SettingsLayout({ children }: { children: ReactNode }) {
                     <Link
                       href={s.href}
                       scroll={false}
+                      ref={sel ? activeRef : undefined}
                       className={cn(
                         "rounded-md py-2.5 flex items-center text-left outline-none transition-colors",
                         collapsed ? "mx-2 px-0 justify-center" : "mx-3 px-3.5 gap-3",

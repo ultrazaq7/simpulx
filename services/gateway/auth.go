@@ -184,7 +184,7 @@ func (s *server) handleLogin(w http.ResponseWriter, r *http.Request) {
 	writeJSON(w, map[string]any{
 		"token":         token,
 		"refresh_token": refresh,
-		"user":          map[string]any{"id": id, "org_id": orgID, "role": role, "name": name, "email": body.Email, "is_online": true, "avatar": derefStr(avatar)},
+		"user":          map[string]any{"id": id, "org_id": orgID, "role": role, "name": name, "email": body.Email, "is_online": true, "avatar": derefStr(avatar), "is_super_admin": s.superAdminByEmail(body.Email, role)},
 	})
 }
 

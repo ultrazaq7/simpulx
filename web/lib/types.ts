@@ -7,6 +7,7 @@ export interface User {
   status?: string;
   is_online?: boolean;
   avatar?: string;
+  is_super_admin?: boolean; // platform super admin (display label, not a role)
 }
 
 export interface Conversation {
