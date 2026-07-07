@@ -1066,9 +1066,9 @@ function MarketingAnalytics() {
         <div className="overflow-x-auto flex-1">
           <table className="w-full text-sm">
             <thead>
-              <tr className="bg-primary text-primary-foreground">
+              <tr className="bg-muted/40 border-b border-border">
                 {["Source", "Impressions", "Clicks", "CTR", "Leads", "CVR"].map((h, i) => (
-                  <th key={h} className={cn("px-3 py-2 text-[11px] font-bold uppercase tracking-wider", i === 0 ? "text-left" : "text-right")}>{h}</th>
+                  <th key={h} className={cn("px-3 py-2 text-[11px] font-bold uppercase tracking-wider text-muted-foreground", i === 0 ? "text-left" : "text-right")}>{h}</th>
                 ))}
               </tr>
             </thead>
