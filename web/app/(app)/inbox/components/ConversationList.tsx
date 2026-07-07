@@ -161,7 +161,7 @@ interface ConversationListProps {
   onFilterChannelsChange: (v: string[]) => void;
   // Date scope carried from a dashboard drill-in (backend filter; no date picker
   // here). Counts toward the active-filter strip so "Clear all" resets it too.
-  dateScope?: { from: string; to: string };
+  dateScope?: { from: string; to: string; source: string };
   onClearDateScope?: () => void;
   className?: string; // parent-controlled responsive visibility (mobile single-pane)
 }
@@ -341,7 +341,7 @@ export default function ConversationList({
     filterStages.length + filterCampaigns.length + filterInterests.length + filterStatuses.length + filterAgents.length + filterChannels.length +
     (followUpOnly ? 1 : 0) + (unreadOnly ? 1 : 0) + (needsReplyOnly ? 1 : 0) + (unassignedOnly ? 1 : 0) +
     (responded ? 1 : 0) + (unresponded ? 1 : 0) + (lastByCustomer ? 1 : 0) + (lastByBot ? 1 : 0) + (lostReasonFilter ? 1 : 0) + (query ? 1 : 0) +
-    ((dateScope?.from || dateScope?.to) ? 1 : 0);
+    ((dateScope?.from || dateScope?.to || dateScope?.source) ? 1 : 0);
 
   const clearAll = () => {
     onQueryChange("");

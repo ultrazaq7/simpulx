@@ -180,10 +180,10 @@ export default function InboxPage() {
 
   // Date scope carried from a dashboard drill-in (?from=&to=). Surfaced as a
   // dismissible chip (the only date affordance in the inbox); clearing reloads all.
-  const [dateScope, setDateScope] = useState<{ from: string; to: string }>(() => {
-    if (typeof window === "undefined") return { from: "", to: "" };
+  const [dateScope, setDateScope] = useState<{ from: string; to: string; source: string }>(() => {
+    if (typeof window === "undefined") return { from: "", to: "", source: "" };
     const sp = new URLSearchParams(window.location.search);
-    return { from: sp.get("from") || "", to: sp.get("to") || "" };
+    return { from: sp.get("from") || "", to: sp.get("to") || "", source: sp.get("source") || "" };
   });
   const dateScopeRef = useRef(dateScope);
   dateScopeRef.current = dateScope;
@@ -191,8 +191,8 @@ export default function InboxPage() {
   // --- Data loaders ---
   const loadConvs = useCallback(async () => {
     try {
-      const { from, to } = dateScopeRef.current;
-      const list = (await api.listConversations("", from, to)) || [];
+      const { from, to, source } = dateScopeRef.current;
+      const list = (await api.listConversations("", from, to, source)) || [];
       const aid = activeIdRef.current;
       // The conversation you're viewing is always read - never show its badge.
       setConvs(aid ? list.map((c) => (c.id === aid ? { ...c, unread_count: 0 } : c)) : list);
@@ -200,12 +200,13 @@ export default function InboxPage() {
   }, []);
 
   const clearDateScope = useCallback(() => {
-    dateScopeRef.current = { from: "", to: "" };
-    setDateScope({ from: "", to: "" });
+    dateScopeRef.current = { from: "", to: "", source: "" };
+    setDateScope({ from: "", to: "", source: "" });
     if (typeof window !== "undefined") {
       const url = new URL(window.location.href);
       url.searchParams.delete("from");
       url.searchParams.delete("to");
+      url.searchParams.delete("source");
       window.history.replaceState({}, "", url.toString());
     }
     loadConvs();

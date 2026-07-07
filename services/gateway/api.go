@@ -99,10 +99,10 @@ func (s *server) handleListConversations(w http.ResponseWriter, r *http.Request)
 		visibility = strings.ReplaceAll(visibility, "$3", "$"+fmt.Sprint(len(args)))
 	}
 
-	// Optional created_at range, evaluated in the workspace timezone so it lines up
-	// with the dashboard's date-scoped counts. Carried by dashboard drill-ins via
-	// ?from=&to=; there is intentionally no date picker in the inbox UI.
-	dateFilter := ""
+	// Optional scope carried by dashboard drill-ins so the inbox matches the card's
+	// count: a created_at range (workspace tz) and/or a lead source. There is no
+	// date/source picker in the inbox UI; both are cleared via the "Clear all" strip.
+	scopeFilter := ""
 	fromS, toS := r.URL.Query().Get("from"), r.URL.Query().Get("to")
 	if fromS != "" || toS != "" {
 		orgTz := "Asia/Jakarta"
@@ -111,12 +111,16 @@ func (s *server) handleListConversations(w http.ResponseWriter, r *http.Request)
 		tzIdx := len(args)
 		if fromS != "" {
 			args = append(args, fromS)
-			dateFilter += fmt.Sprintf(" AND cv.created_at >= ($%d::date AT TIME ZONE $%d)", len(args), tzIdx)
+			scopeFilter += fmt.Sprintf(" AND cv.created_at >= ($%d::date AT TIME ZONE $%d)", len(args), tzIdx)
 		}
 		if toS != "" {
 			args = append(args, toS)
-			dateFilter += fmt.Sprintf(" AND cv.created_at < (($%d::date + 1) AT TIME ZONE $%d)", len(args), tzIdx)
+			scopeFilter += fmt.Sprintf(" AND cv.created_at < (($%d::date + 1) AT TIME ZONE $%d)", len(args), tzIdx)
 		}
+	}
+	if src := r.URL.Query().Get("source"); src != "" {
+		args = append(args, strings.Split(src, ","))
+		scopeFilter += fmt.Sprintf(" AND %s = ANY($%d)", sourceClassifyExpr("cv"), len(args))
 	}
 
 	rows, err := s.queryMaps(r.Context(),
@@ -157,7 +161,7 @@ func (s *server) handleListConversations(w http.ResponseWriter, r *http.Request)
 		   LEFT JOIN campaigns cmp ON cmp.id = cv.campaign_id
 		   LEFT JOIN channels ch ON ch.id = cmp.channel_id
 		  WHERE cv.organization_id = $1
-		    AND ($2 = '' OR cv.status = $2)`+qFilter+visibility+`
+		    AND ($2 = '' OR cv.status = $2)`+qFilter+visibility+scopeFilter+`
 		  ORDER BY cv.last_message_at DESC NULLS LAST
 		  LIMIT 100`,
 		args...,
