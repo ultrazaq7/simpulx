@@ -377,14 +377,18 @@ class _LeadContextCard extends StatelessWidget {
           if (c.lostReason != null && c.lostReason!.isNotEmpty)
             _row(context, 'Lost reason',
                 c.lostReason![0].toUpperCase() + c.lostReason!.substring(1).replaceAll('_', ' ')),
-          _row(context, 'Interest',
-              c.interestLevel != null && c.interestLevel!.isNotEmpty
-                  ? c.interestLevel![0].toUpperCase() + c.interestLevel!.substring(1)
-                  : '-'),
-          _row(context, 'Brand', _orDash(c.carBrand)),
-          _row(context, 'Model', _orDash(c.carModel)),
-          _row(context, 'City', _orDash(c.city)),
-          _row(context, 'Purchase time', _orDash(c.purchaseTimeframe)),
+          // Only show fields the AI has captured — empty ones are hidden.
+          if (c.interestLevel != null && c.interestLevel!.isNotEmpty)
+            _row(context, 'Interest',
+                c.interestLevel![0].toUpperCase() + c.interestLevel!.substring(1)),
+          if (c.carBrand != null && c.carBrand!.isNotEmpty)
+            _row(context, 'Brand', c.carBrand!),
+          if (c.carModel != null && c.carModel!.isNotEmpty)
+            _row(context, 'Model', c.carModel!),
+          if (c.city != null && c.city!.isNotEmpty)
+            _row(context, 'City', c.city!),
+          if (c.purchaseTimeframe != null && c.purchaseTimeframe!.isNotEmpty)
+            _row(context, 'Purchase time', c.purchaseTimeframe!),
           _row(context, 'Assigned', c.agentName ?? 'Unassigned'),
           if (c.campaignName != null) _row(context, 'Campaign', c.campaignName!),
           _row(context, 'Source', c.sourceLabel),
@@ -401,9 +405,6 @@ class _LeadContextCard extends StatelessWidget {
       ),
     );
   }
-
-  String _orDash(String? v) =>
-      (v != null && v.trim().isNotEmpty) ? v : '-';
 
   Future<void> _openUrl(String url) async {
     var u = url.trim();
