@@ -948,16 +948,31 @@ function MarketingAnalytics() {
   const campaignOptions = useMemo(() => campaigns.map((c) => ({ value: c.campaign_id, label: c.campaign_name })), [campaigns]);
   const accountOptions = useMemo(() => accounts.map((a) => ({ value: a.id, label: a.name || "Ad account" })), [accounts]);
   const shown = campaignFilter.length ? campaigns.filter((c) => campaignFilter.includes(c.campaign_id)) : campaigns;
-  const t = shown.reduce((a, c) => ({
+  // Leads/sales are attributed via conversations (the per-campaign rollup).
+  const t0 = shown.reduce((a, c) => ({
     spend: a.spend + c.spend, leads: a.leads + c.leads, sales: a.sales + c.sales,
     clicks: a.clicks + c.clicks, impressions: a.impressions + c.impressions, results: a.results + c.results,
   }), { spend: 0, leads: 0, sales: 0, clicks: 0, impressions: 0, results: 0 });
+  // Ad-delivery metrics (spend/impressions/clicks) come straight from the daily
+  // ad_metrics, which are NOT gated on the ad->campaign mapping. So the Ad spend
+  // card + funnel show the real numbers (matching the Source table) even before
+  // any ad campaign is mapped to one of our campaigns. The daily query is scoped
+  // by the same date/campaign/source/account filters, so this stays in sync.
+  const adDelivery = (perf?.daily || []).reduce((a, d) => ({
+    impressions: a.impressions + (d.impressions || 0), clicks: a.clicks + (d.clicks || 0), spend: a.spend + (d.spend || 0),
+  }), { impressions: 0, clicks: 0, spend: 0 });
+  const t = { ...t0, impressions: adDelivery.impressions, clicks: adDelivery.clicks, spend: adDelivery.spend };
+  // Grand total for the Source table = sum of its own rows (the table always
+  // shows every source; it's the cross-filter control, so its footer stays full).
+  const srcTotals = (perf?.sources || []).reduce((a, s) => ({
+    impressions: a.impressions + s.impressions, clicks: a.clicks + s.clicks, leads: a.leads + s.leads,
+  }), { impressions: 0, clicks: 0, leads: 0 });
   const cpl = t.leads > 0 ? t.spend / t.leads : 0;
   const cpa = t.sales > 0 ? t.spend / t.sales : 0;
   const convRate = t.leads > 0 ? (t.sales / t.leads) * 100 : 0;
   const money = (n: number) => `${currency ? currency + " " : ""}${fmtMoney(n)}`;
   const creatives = perf?.creatives || [];
-  const hasSpend = hasAccounts && campaigns.length > 0;
+  const hasSpend = hasAccounts && (campaigns.length > 0 || adDelivery.impressions > 0);
 
   // Empty only when there is neither ad spend data nor any ad-attributed lead
   // for the selected range. Rendered INLINE (below the toolbar) so the date
@@ -1099,11 +1114,11 @@ function MarketingAnalytics() {
             <tfoot>
               <tr className="border-t-2 border-border font-bold">
                 <td className="px-3 py-3">Grand total</td>
-                <td className="px-3 py-3 text-right tabular-nums">{fmtInt(t.impressions)}</td>
-                <td className="px-3 py-3 text-right tabular-nums">{fmtInt(t.clicks)}</td>
-                <td className="px-3 py-3 text-right tabular-nums">{(t.impressions > 0 ? (t.clicks / t.impressions) * 100 : 0).toFixed(2)}%</td>
-                <td className="px-3 py-3 text-right tabular-nums">{fmtInt(t.leads)}</td>
-                <td className="px-3 py-3 text-right tabular-nums">{(t.clicks > 0 ? (t.leads / t.clicks) * 100 : 0).toFixed(2)}%</td>
+                <td className="px-3 py-3 text-right tabular-nums">{fmtInt(srcTotals.impressions)}</td>
+                <td className="px-3 py-3 text-right tabular-nums">{fmtInt(srcTotals.clicks)}</td>
+                <td className="px-3 py-3 text-right tabular-nums">{(srcTotals.impressions > 0 ? (srcTotals.clicks / srcTotals.impressions) * 100 : 0).toFixed(2)}%</td>
+                <td className="px-3 py-3 text-right tabular-nums">{fmtInt(srcTotals.leads)}</td>
+                <td className="px-3 py-3 text-right tabular-nums">{(srcTotals.clicks > 0 ? (srcTotals.leads / srcTotals.clicks) * 100 : 0).toFixed(2)}%</td>
               </tr>
             </tfoot>
           </table>
