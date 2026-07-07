@@ -487,6 +487,19 @@ function ManagerDashboard() {
   const [stats, setStats] = useState<Stats | null>(null);
   const [analytics, setAnalytics] = useState<Analytics | null>(null);
   const [tab, setTab] = useState<"overview" | "marketing">("overview");
+  // Persist the active view in the URL (?tab=ads) so a reload stays on the same
+  // tab instead of snapping back to Overview.
+  useEffect(() => {
+    const t = new URLSearchParams(window.location.search).get("tab");
+    if (t === "ads" || t === "marketing") setTab("marketing");
+  }, []);
+  const selectTab = useCallback((t: "overview" | "marketing") => {
+    setTab(t);
+    const sp = new URLSearchParams(window.location.search);
+    if (t === "marketing") sp.set("tab", "ads"); else sp.delete("tab");
+    const qs = sp.toString();
+    window.history.replaceState(null, "", qs ? `?${qs}` : window.location.pathname);
+  }, []);
   const [fChannel, setFChannel] = useState<string[]>([]);
   const [fCampaign, setFCampaign] = useState<string[]>([]);
   const [fAgent, setFAgent] = useState<string[]>([]);
@@ -563,7 +576,7 @@ function ManagerDashboard() {
           {(["overview", "marketing"] as const).map((t) => (
             <button
               key={t}
-              onClick={() => setTab(t)}
+              onClick={() => selectTab(t)}
               className={cn(
                 "inline-flex items-center gap-1.5 px-3 h-7 rounded text-[12.5px] font-semibold transition-colors outline-none",
                 tab === t ? "bg-card text-foreground shadow-xs" : "text-muted-foreground hover:text-foreground",
@@ -1070,13 +1083,10 @@ function MarketingAnalytics() {
         </div>
       </Card>
 
-      {/* Source performance — click a row to cross-filter the whole page (Looker-style). */}
+      {/* Source performance — read-only breakdown of ad delivery + leads by source. */}
       <div className="bg-card rounded-lg border border-border shadow-xs overflow-hidden flex flex-col">
-        <div className="px-4 py-3 border-b border-border flex items-center justify-between">
+        <div className="px-4 py-3 border-b border-border">
           <p className="font-bold text-[14px] text-foreground leading-tight">Source performance</p>
-          {sourceFilter.length > 0 && (
-            <button onClick={() => setSourceFilter([])} className="text-[11px] font-semibold text-primary hover:underline outline-none">Reset filter</button>
-          )}
         </div>
         <div className="overflow-x-auto flex-1">
           <table className="w-full text-sm">
@@ -1094,12 +1104,10 @@ function MarketingAnalytics() {
                 const rows = perf?.sources || [];
                 const maxCvr = Math.max(...rows.map((s) => s.cvr), 1);
                 return rows.map((s) => {
-                  const active = sourceFilter.includes(s.source);
                   const heat = s.cvr / maxCvr;
                   const bg = `rgba(45, 139, 115, ${heat * 0.85})`; // on-brand green CVR heat
                   return (
-                    <tr key={s.source} onClick={() => setSourceFilter(active ? [] : [s.source])}
-                      className={cn("border-b border-border/60 cursor-pointer transition-colors", active ? "bg-primary/[0.08]" : "hover:bg-muted/50")}>
+                    <tr key={s.source} className="border-b border-border/60">
                       <td className="px-3 py-2 font-semibold text-foreground">{s.label}</td>
                       <td className="px-3 py-2 text-right tabular-nums text-foreground/80">{fmtInt(s.impressions)}</td>
                       <td className="px-3 py-2 text-right tabular-nums text-foreground/80">{fmtInt(s.clicks)}</td>
