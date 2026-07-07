@@ -84,6 +84,20 @@ export default function ContactsPage() {
       showCampaignFilter ? api.listCampaigns().catch(() => []) : Promise.resolve([]),
     ]).then(([c, a, cm]) => { setContacts(c as Contact[]); setAgents(a as Agent[]); setCampaigns(cm as Campaign[]); setLoading(false); });
   }, []); // eslint-disable-line react-hooks/exhaustive-deps
+  // Realtime: refresh when a lead changes (new message / status / stage /
+  // assignment / delete). Debounced so a burst of events triggers one refetch.
+  useEffect(() => {
+    let t: ReturnType<typeof setTimeout> | null = null;
+    const onWs = (e: Event) => {
+      const type = (e as CustomEvent).detail?.type;
+      if (["message.persisted", "conversation.updated", "conversation.assigned", "conversation.closed", "contact.deleted"].includes(type)) {
+        if (t) clearTimeout(t);
+        t = setTimeout(reload, 800);
+      }
+    };
+    window.addEventListener("ws_message", onWs);
+    return () => { window.removeEventListener("ws_message", onWs); if (t) clearTimeout(t); };
+  }, []); // eslint-disable-line react-hooks/exhaustive-deps
   useEffect(() => { api.getOrganization().then((o) => setOrgTz(((o.settings as Record<string, string>)?.timezone) || "")).catch(() => {}); }, []);
   useEffect(() => { api.listStages().then((s) => setStages(s || [])).catch(() => {}); }, []);
   useEffect(() => { api.listDispositions().then((d) => setDispositions(d || [])).catch(() => {}); }, []);
