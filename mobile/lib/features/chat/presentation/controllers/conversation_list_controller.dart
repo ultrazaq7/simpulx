@@ -22,6 +22,17 @@ class ConversationListController extends AsyncNotifier<List<Conversation>> {
       final event = next.value;
       if (event != null) _onEvent(event);
     });
+    // Cache-first: render the last snapshot instantly, then refresh in the
+    // background, so opening the inbox doesn't block on the network round-trip.
+    final cache = ref.read(appCacheProvider);
+    final cached = cache.getJsonList(AppCache.kConversations);
+    if (cached != null && cached.isNotEmpty) {
+      Future.microtask(refresh);
+      return cached
+          .whereType<Map>()
+          .map((e) => ConversationModel.fromJson(e.cast<String, dynamic>()))
+          .toList();
+    }
     return _fetch();
   }
 
