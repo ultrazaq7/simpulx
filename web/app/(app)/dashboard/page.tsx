@@ -9,7 +9,7 @@ import {
   BarChart3, MessageSquare, Inbox, Flame, Timer,
   TrendingDown, ChevronRight, Zap, Mail, Reply, Trophy, Ban,
   CircleDollarSign, MousePointerClick, Spotlight, Target, Eye, Filter as FilterIcon,
-  Image as ImageIcon, MapPin, ChartPie,
+  Image as ImageIcon, MapPin, ChartPie, Percent,
 } from "lucide-react";
 
 import { api, getUser } from "@/lib/api";
@@ -973,13 +973,16 @@ function MarketingAnalytics() {
     { label: "Lead to purchase", value: `${convRate.toFixed(1)}%`, Icon: Target, color: "#EF4444" },
   ];
 
+  // Funnel: Impressions -> Clicks -> CTR% -> Leads, in a single on-brand green ramp.
+  // Widths narrow by count (CTR sits between clicks and leads); CTR shows the rate.
+  const ctrPct = t.impressions > 0 ? (t.clicks / t.impressions) * 100 : 0;
+  const fW = (v: number) => Math.max((v / Math.max(t.impressions, 1)) * 100, 40);
   const funnel = [
-    { label: "Impressions", value: t.impressions, color: "#94A3B8", Icon: Eye },
-    { label: "Clicks", value: t.clicks, color: "#0EA5E9", Icon: MousePointerClick },
-    { label: "Leads (chats)", value: t.leads, color: "#2D8B73", Icon: MessageSquare },
-    { label: "Conversions", value: t.sales, color: "#059669", Icon: Trophy },
+    { label: "Impressions", display: fmtInt(t.impressions), w: 100, color: "#9EC7BB", Icon: Eye },
+    { label: "Clicks", display: fmtInt(t.clicks), w: fW(t.clicks), color: "#5CAF98", Icon: MousePointerClick },
+    { label: "CTR", display: `${ctrPct.toFixed(2)}%`, w: (fW(t.clicks) + fW(t.leads)) / 2, color: "#2D8B73", Icon: Percent },
+    { label: "Leads (chats)", display: fmtInt(t.leads), w: fW(t.leads), color: "#1C6B56", Icon: MessageSquare },
   ];
-  const fTop = Math.max(funnel[0].value, 1);
 
   const daily = (perf?.daily || []).map((d) => {
     const dt = new Date(d.date);
@@ -1035,16 +1038,15 @@ function MarketingAnalytics() {
         <div className="p-4">
           <div className="flex flex-col gap-0.5">
             {funnel.map((s, i) => {
-              const minW = 35; // Increased min width so text doesn't bleed out visually
-              const topW = Math.max(((i === 0 ? s.value : funnel[i - 1].value) / fTop) * 100, minW);
-              const botW = Math.max((s.value / fTop) * 100, minW);
+              const topW = i === 0 ? s.w : funnel[i - 1].w;
+              const botW = s.w;
               const clip = `polygon(${(100 - topW) / 2}% 0, ${(100 + topW) / 2}% 0, ${(100 + botW) / 2}% 100%, ${(100 - botW) / 2}% 100%)`;
               return (
                 <div key={s.label} className="relative h-[54px] flex items-center justify-center text-white">
                   <div className="absolute inset-0 transition-all duration-500" style={{ backgroundColor: s.color, clipPath: clip }} />
                   <div className="relative text-center leading-none z-10 drop-shadow-md">
                     <p className="text-[10px] font-semibold uppercase tracking-wide opacity-90 flex items-center justify-center gap-1"><s.Icon className="w-3 h-3" />{s.label}</p>
-                    <p className="text-[18px] font-extrabold tabular-nums mt-1">{fmtInt(s.value)}</p>
+                    <p className="text-[18px] font-extrabold tabular-nums mt-1">{s.display}</p>
                   </div>
                 </div>
               );
