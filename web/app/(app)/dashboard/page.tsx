@@ -1035,13 +1035,14 @@ function MarketingAnalytics() {
         <div className="p-4">
           <div className="flex flex-col gap-0.5">
             {funnel.map((s, i) => {
-              const topW = Math.max(((i === 0 ? s.value : funnel[i - 1].value) / fTop) * 100, 14);
-              const botW = Math.max((s.value / fTop) * 100, 14);
+              const minW = 35; // Increased min width so text doesn't bleed out visually
+              const topW = Math.max(((i === 0 ? s.value : funnel[i - 1].value) / fTop) * 100, minW);
+              const botW = Math.max((s.value / fTop) * 100, minW);
               const clip = `polygon(${(100 - topW) / 2}% 0, ${(100 + topW) / 2}% 0, ${(100 + botW) / 2}% 100%, ${(100 - botW) / 2}% 100%)`;
               return (
-                <div key={s.label} className="relative h-[54px] flex items-center justify-center text-white transition-all duration-500"
-                  style={{ backgroundColor: s.color, clipPath: clip }}>
-                  <div className="text-center leading-none">
+                <div key={s.label} className="relative h-[54px] flex items-center justify-center text-white">
+                  <div className="absolute inset-0 transition-all duration-500" style={{ backgroundColor: s.color, clipPath: clip }} />
+                  <div className="relative text-center leading-none z-10 drop-shadow-md">
                     <p className="text-[10px] font-semibold uppercase tracking-wide opacity-90 flex items-center justify-center gap-1"><s.Icon className="w-3 h-3" />{s.label}</p>
                     <p className="text-[18px] font-extrabold tabular-nums mt-1">{fmtInt(s.value)}</p>
                   </div>
@@ -1052,35 +1053,58 @@ function MarketingAnalytics() {
         </div>
       </Card>
 
-      {/* Step conversion rates — visual companion to the funnel */}
-      <Card title="Step conversion rates" subtitle="How efficiently each step converts">
-        <div className="p-4 flex flex-col justify-center gap-5">
-          {(() => {
-            const steps = [
-              { label: "Click-through rate", sub: "Impressions → Clicks", rate: t.impressions > 0 ? (t.clicks / t.impressions) * 100 : 0, color: "#0EA5E9" },
-              { label: "Lead capture rate", sub: "Clicks → Leads", rate: t.clicks > 0 ? (t.leads / t.clicks) * 100 : 0, color: "#2D8B73" },
-              { label: "Purchase rate", sub: "Leads → Conversions", rate: t.leads > 0 ? (t.sales / t.leads) * 100 : 0, color: "#059669" },
-            ];
-            return steps.map((s) => (
-              <div key={s.label} className="flex items-center gap-4">
-                <div className="relative w-14 h-14 shrink-0">
-                  <svg viewBox="0 0 36 36" className="w-full h-full -rotate-90">
-                    <circle cx="18" cy="18" r="15.5" fill="none" stroke="currentColor" className="text-muted/40" strokeWidth="3" />
-                    <circle cx="18" cy="18" r="15.5" fill="none" stroke={s.color} strokeWidth="3"
-                      strokeDasharray={`${Math.min(s.rate, 100) * 0.974} 97.4`}
-                      strokeLinecap="round" className="transition-all duration-700" />
-                  </svg>
-                  <span className="absolute inset-0 flex items-center justify-center text-[11px] font-bold tabular-nums text-foreground">{s.rate.toFixed(1)}%</span>
-                </div>
-                <div className="min-w-0">
-                  <p className="text-[13px] font-semibold text-foreground leading-snug">{s.label}</p>
-                  <p className="text-[11px] text-muted-foreground">{s.sub}</p>
-                </div>
-              </div>
-            ));
-          })()}
+      {/* Campaign Performance table next to funnel */}
+      <div className="bg-card rounded-lg border border-border shadow-xs overflow-hidden flex flex-col">
+        <div className="px-4 py-3 border-b border-border flex items-center justify-between">
+          <p className="font-bold text-[14px] text-foreground leading-tight">Campaign Performance</p>
         </div>
-      </Card>
+        <div className="overflow-x-auto flex-1">
+          <table className="w-full text-sm">
+            <thead>
+              <tr className="bg-[#DA291C] text-white">
+                <th className="px-3 py-2 text-[11px] font-bold uppercase tracking-wider text-left">Source</th>
+                <th className="px-3 py-2 text-[11px] font-bold uppercase tracking-wider text-right">Impressions ▾</th>
+                <th className="px-3 py-2 text-[11px] font-bold uppercase tracking-wider text-right">Clicks</th>
+                <th className="px-3 py-2 text-[11px] font-bold uppercase tracking-wider text-right">CTR</th>
+                <th className="px-3 py-2 text-[11px] font-bold uppercase tracking-wider text-right">Leads</th>
+                <th className="px-3 py-2 text-[11px] font-bold uppercase tracking-wider text-right">CVR</th>
+              </tr>
+            </thead>
+            <tbody>
+              {(() => {
+                const maxCvr = Math.max(...shown.map(c => c.clicks > 0 ? (c.leads / c.clicks) * 100 : 0), 1);
+                return shown.slice().sort((a, b) => b.impressions - a.impressions).map((c) => {
+                  const ctr = c.impressions > 0 ? (c.clicks / c.impressions) * 100 : 0;
+                  const cvr = c.clicks > 0 ? (c.leads / c.clicks) * 100 : 0;
+                  const heat = cvr / maxCvr;
+                  // Teal heat map for CVR
+                  const bg = `rgba(13, 148, 136, ${heat * 0.8})`; 
+                  return (
+                    <tr key={c.campaign_id} className="border-b border-border/60 hover:bg-muted/50 transition-colors">
+                      <td className="px-3 py-2 font-semibold text-foreground truncate max-w-[150px]">{c.campaign_name}</td>
+                      <td className="px-3 py-2 text-right tabular-nums">{fmtInt(c.impressions)}</td>
+                      <td className="px-3 py-2 text-right tabular-nums">{fmtInt(c.clicks)}</td>
+                      <td className="px-3 py-2 text-right tabular-nums">{ctr.toFixed(2)}%</td>
+                      <td className="px-3 py-2 text-right tabular-nums">{fmtInt(c.leads)}</td>
+                      <td className="px-3 py-2 text-right tabular-nums font-semibold" style={{ backgroundColor: bg }}>{cvr.toFixed(2)}%</td>
+                    </tr>
+                  );
+                });
+              })()}
+            </tbody>
+            <tfoot>
+              <tr className="border-t-2 border-border font-bold">
+                <td className="px-3 py-3">Grand total</td>
+                <td className="px-3 py-3 text-right tabular-nums">{fmtInt(t.impressions)}</td>
+                <td className="px-3 py-3 text-right tabular-nums">{fmtInt(t.clicks)}</td>
+                <td className="px-3 py-3 text-right tabular-nums">{(t.impressions > 0 ? (t.clicks / t.impressions) * 100 : 0).toFixed(2)}%</td>
+                <td className="px-3 py-3 text-right tabular-nums">{fmtInt(t.leads)}</td>
+                <td className="px-3 py-3 text-right tabular-nums">{(t.clicks > 0 ? (t.leads / t.clicks) * 100 : 0).toFixed(2)}%</td>
+              </tr>
+            </tfoot>
+          </table>
+        </div>
+      </div>
       </div>
 
       {/* Timeline split in two: Awareness (impressions + reach) and Engagement
