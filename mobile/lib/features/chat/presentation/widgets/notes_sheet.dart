@@ -59,6 +59,11 @@ class _NotesSheetState extends ConsumerState<_NotesSheet> {
       final show = _scrollController.hasClients && _scrollController.offset > 300;
       if (show != _showScrollTop) setState(() => _showScrollTop = show);
     });
+    // Re-fetch the conversation so the Smart Summary button reflects the latest
+    // campaign toggle without needing an app restart (the cached copy is stale).
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      if (mounted) ref.invalidate(conversationByIdProvider(widget.conversationId));
+    });
   }
 
   @override
@@ -114,6 +119,10 @@ class _NotesSheetState extends ConsumerState<_NotesSheet> {
   @override
   Widget build(BuildContext context) {
     final async = ref.watch(notesProvider(widget.conversationId));
+    // Prefer the freshly-fetched conversation's flag; fall back to the value passed
+    // in until it resolves, so toggling Smart Summary reflects without a restart.
+    final freshConv = ref.watch(conversationByIdProvider(widget.conversationId));
+    final showSummary = freshConv.asData?.value.campaignSmartSummary ?? widget.smartSummaryEnabled;
     return Column(
       children: [
         Padding(
@@ -124,7 +133,7 @@ class _NotesSheetState extends ConsumerState<_NotesSheet> {
                 child: Text('Internal notes',
                     style: TextStyle(fontSize: 16, fontWeight: FontWeight.w700)),
               ),
-              if (widget.smartSummaryEnabled)
+              if (showSummary)
                 TextButton.icon(
                   onPressed: _summarizing ? null : _generateSummary,
                   icon: _summarizing
