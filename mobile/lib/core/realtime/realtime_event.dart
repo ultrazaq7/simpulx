@@ -24,6 +24,7 @@ class RealtimeEvent {
   bool get isConversationAssigned => type == 'conversation.assigned';
   bool get isConversationClosed => type == 'conversation.closed';
   bool get isConversationUpdated => type == 'conversation.updated';
+  bool get isCampaignUpdated => type == 'campaign.updated';
   bool get isCallUpdated => type == 'call.updated';
   bool get isContactDeleted => type == 'contact.deleted';
 
@@ -104,6 +105,17 @@ class ConversationUpdatedPayload {
     final raw = _s('snoozed_until');
     return raw == null ? null : DateTime.tryParse(raw);
   }
+}
+
+/// Typed view over a `campaign.updated` payload (see backend
+/// `events.CampaignUpdated`). Only changed AI-toggle fields are set.
+class CampaignUpdatedPayload {
+  const CampaignUpdatedPayload(this._d);
+  final Map<String, dynamic> _d;
+
+  String get campaignId => (_d['campaign_id'] ?? '') as String;
+  bool? get smartSummary => _d['smart_summary'] as bool?;
+  bool? get autoReply => _d['auto_reply'] as bool?;
 }
 
 /// Typed view over a `conversation.closed` payload.

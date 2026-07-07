@@ -18,6 +18,7 @@ const (
 	SubjectConversationAssigned = "events.conversation.assigned"
 	SubjectConversationClosed   = "events.conversation.closed"
 	SubjectConversationUpdated  = "events.conversation.updated"
+	SubjectCampaignUpdated      = "events.campaign.updated"
 	SubjectContactDeleted       = "events.contact.deleted"
 	SubjectBroadcastRequested   = "events.broadcast.requested"
 	SubjectAgentDeactivated     = "events.agent.deactivated"
@@ -249,6 +250,16 @@ type ConversationUpdated struct {
 
 type CmdAIDraftFollowup struct {
 	ConversationID string `json:"conversation_id"`
+}
+
+// CampaignUpdated is broadcast when a campaign's AI settings change (e.g. the
+// Smart Summary / Auto-reply toggles) so connected clients update the affected
+// conversations' flags in realtime, without a reload/app restart. Only the
+// changed fields are set.
+type CampaignUpdated struct {
+	CampaignID   string `json:"campaign_id"`
+	SmartSummary *bool  `json:"smart_summary,omitempty"`
+	AutoReply    *bool  `json:"auto_reply,omitempty"`
 }
 
 type AgentDeactivated struct {

@@ -4,6 +4,8 @@ import (
 	"context"
 	"encoding/json"
 	"net/http"
+
+	"github.com/simpulx/v2/libs/go/events"
 )
 
 // ── Campaigns (per-branch sub-tenant on the shared OTO number) ──
@@ -249,6 +251,15 @@ func (s *server) handleUpdateCampaign(w http.ResponseWriter, r *http.Request) {
 			http.Error(w, err.Error(), http.StatusInternalServerError)
 			return
 		}
+	}
+	// Broadcast an AI-toggle change so connected clients update the affected
+	// conversations' Smart Summary / Auto-reply flags in realtime (no reload).
+	if b.AISmartSummary != nil || b.AIAutoReply != nil {
+		_ = s.bus.Publish(events.SubjectCampaignUpdated, a.OrgID, events.CampaignUpdated{
+			CampaignID:   r.PathValue("id"),
+			SmartSummary: b.AISmartSummary,
+			AutoReply:    b.AIAutoReply,
+		})
 	}
 	writeJSON(w, map[string]any{"status": "updated"})
 }

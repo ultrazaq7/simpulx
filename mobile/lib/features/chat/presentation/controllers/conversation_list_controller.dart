@@ -154,6 +154,14 @@ class ConversationListController extends AsyncNotifier<List<Conversation>> {
       _patchStatus(p.conversationId, status: 'closed');
       return;
     }
+    // A campaign's AI toggle (Smart Summary / Auto-reply) changed: re-fetch the
+    // list so conversation flags update, and drop cached single-conversation
+    // copies so an open thread/notes sheet reflects it live (no app restart).
+    if (event.isCampaignUpdated) {
+      refresh();
+      ref.invalidate(conversationByIdProvider);
+      return;
+    }
     // A deleted contact removes its conversations from the inbox in realtime.
     if (event.isContactDeleted) {
       final ids = ContactDeletedPayload(event.data).conversationIds.toSet();
