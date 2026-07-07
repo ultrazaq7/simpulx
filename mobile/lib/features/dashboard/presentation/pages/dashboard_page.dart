@@ -13,17 +13,11 @@ import '../../../chat/presentation/controllers/inbox_filter.dart';
 import '../../domain/dashboard_cards.dart';
 import '../../domain/manager_analytics.dart';
 import '../dashboard_providers.dart';
-import '../../../contacts/presentation/controllers/contacts_providers.dart';
 
 /// Agent-first dashboard: a greeting + actionable counts. Each card drills into
 /// the filtered inbox. Built for <=5s comprehension.
 class DashboardPage extends ConsumerWidget {
   const DashboardPage({super.key});
-
-  void _drillContacts(WidgetRef ref, BuildContext context, InboxFilter filter) {
-    ref.read(contactsFilterProvider.notifier).set(filter);
-    context.go('/contacts');
-  }
 
   void _drillChat(WidgetRef ref, BuildContext context, InboxFilter filter) {
     ref.read(inboxFilterProvider.notifier).set(filter);
@@ -57,7 +51,6 @@ class DashboardPage extends ConsumerWidget {
             cards: cards,
             showManager: user?.role.isManagerTier ?? false,
             onDrillChat: (filter) => _drillChat(ref, context, filter),
-            onDrillContacts: (filter) => _drillContacts(ref, context, filter),
           ),
         ),
       ),
@@ -110,14 +103,12 @@ class _DashboardBody extends StatelessWidget {
     required this.cards,
     required this.showManager,
     required this.onDrillChat,
-    required this.onDrillContacts,
   });
 
   final String firstName;
   final DashboardCards cards;
   final bool showManager;
   final void Function(InboxFilter filter) onDrillChat;
-  final void Function(InboxFilter filter) onDrillContacts;
 
   @override
   Widget build(BuildContext context) {
@@ -169,8 +160,8 @@ class _DashboardBody extends StatelessWidget {
         EntranceFade(
           delay: const Duration(milliseconds: 130),
           child: showManager
-              ? _ManagerSection(onDrill: onDrillContacts)
-              : _AgentAnalyticsSection(onDrill: onDrillContacts),
+              ? _ManagerSection(onDrill: onDrillChat)
+              : _AgentAnalyticsSection(onDrill: onDrillChat),
         ),
       ],
     );
