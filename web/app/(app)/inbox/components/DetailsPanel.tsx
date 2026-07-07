@@ -243,23 +243,24 @@ export default function DetailsPanel({ active, onClose, copyText, notes, onAddNo
             </div>
 
             <p className="text-[10px] font-bold uppercase tracking-wider text-muted-foreground mb-1">Lead qualification</p>
+            {/* Only render fields the AI has actually captured — empty ones are hidden. */}
             <div>
-              <DetailRow icon={Hash} label="Stage" value={active.stage_name || "-"} />
+              {active.stage_name && <DetailRow icon={Hash} label="Stage" value={active.stage_name} />}
               {/* Lost reason sits directly under the stage while the lead is Lost. */}
               {active.stage_name?.toLowerCase().startsWith("lost") && active.lost_reason && (
                 <DetailRow icon={StickyNote} label="Lost reason" value={humanize(active.lost_reason)} />
               )}
-              <DetailRow icon={Hash} label="Interest level" value={active.interest_level ? humanize(active.interest_level) : "-"} />
+              {active.interest_level && <DetailRow icon={Hash} label="Interest level" value={humanize(active.interest_level)} />}
               {isAutomotive(active.campaign_segment) ? (
                 <>
-                  <DetailRow icon={Hash} label="Brand" value={active.car_brand || "-"} />
-                  <DetailRow icon={Hash} label="Model" value={active.car_model || "-"} />
-                  <DetailRow icon={Hash} label="City" value={active.city || "-"} />
-                  <DetailRow icon={Clock} label="Purchase time" value={active.purchase_timeframe ? humanize(active.purchase_timeframe) : "-"} />
+                  {active.car_brand && <DetailRow icon={Hash} label="Brand" value={active.car_brand} />}
+                  {active.car_model && <DetailRow icon={Hash} label="Model" value={active.car_model} />}
+                  {active.city && <DetailRow icon={Hash} label="City" value={active.city} />}
+                  {active.purchase_timeframe && <DetailRow icon={Clock} label="Purchase time" value={humanize(active.purchase_timeframe)} />}
                 </>
               ) : (
                 segmentFields(active.campaign_segment).map((f) => (
-                  <DetailRow key={f.key} icon={Hash} label={f.label} value={active.lead_fields?.[f.key] || "-"} />
+                  active.lead_fields?.[f.key] ? <DetailRow key={f.key} icon={Hash} label={f.label} value={active.lead_fields[f.key]} /> : null
                 ))
               )}
             </div>
