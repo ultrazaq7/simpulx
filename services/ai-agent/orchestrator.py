@@ -43,17 +43,19 @@ async def handle_inbound(broker, pool, env: dict, data: dict, log) -> None:
     if not body:
         return  # no text to process (e.g. media without caption)
 
-    # (1) Rules classifier (0 token) + (2) buy-potential score (CatBoost). Both
-    # run for EVERY inbound and keep the CRM live even when the LLM is skipped.
+    # (1) Rules classifier (0 token) — fast, and needed by the auto-reply gate.
     cr = await classify_and_update(pool, org_id, conv_id, log)
-    await lead_score.score_and_update(pool, conv_id, log)
 
-    # (2.5) AI auto-reply nurture — only when the conversation's campaign opted in.
-    # Runs independently of the extraction gate below. Never raises to the caller.
+    # (2) AI auto-reply nurture FIRST so the customer-facing reply isn't blocked by
+    # scoring/extraction below. Only fires when the campaign opted in; never raises.
     try:
         await maybe_nurture(broker, pool, org_id, conv_id, message_id, body, cr, log)
     except Exception:  # noqa: BLE001
         log.exception("nurture failed", extra={"conv": conv_id})
+
+    # (3) Buy-potential score (CatBoost) — AFTER the reply so it never adds latency
+    # to it, but still keeps the CRM live even when the LLM extraction is skipped.
+    await lead_score.score_and_update(pool, conv_id, log)
 
     async with pool.acquire() as conn:
         conv = await conn.fetchrow(
