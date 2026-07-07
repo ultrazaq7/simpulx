@@ -1135,12 +1135,12 @@ function MarketingAnalytics() {
         </div>
       </Card>
       </>
-      ) : (
+      ) : hasAccounts === false ? (
         <div className="mb-5 flex items-center gap-2 rounded-lg border border-border bg-muted/40 px-4 py-3 text-[13px] text-muted-foreground">
           <CircleDollarSign className="w-4 h-4 text-muted-foreground/70 shrink-0" />
           Connect a Meta ad account to add spend, cost per lead and ROI. The lead attribution below works without it.
         </div>
-      )}
+      ) : null}
 
       {/* Per ad / creative: which click-to-WhatsApp ad drove leads + conversions */}
       <Card title="Per ad / creative" subtitle="Leads to conversions by click-to-WhatsApp ad" className="mt-5">
