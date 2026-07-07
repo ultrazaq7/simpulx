@@ -195,6 +195,10 @@ class ChatThreadController extends ChangeNotifier {
     if (!event.isMessagePersisted) return;
     final payload = MessagePersistedPayload(event.data);
     if (payload.conversationId != conversationId) return;
+    // A status-refresh ping (sent -> delivered -> read) is published as a pseudo
+    // message.persisted carrying ONLY the conversation id. It's not a real
+    // message, so appending it would draw a blank "Unsupported message" bubble.
+    if (payload.messageId.isEmpty) return;
 
     final messages = [..._state.messages];
 

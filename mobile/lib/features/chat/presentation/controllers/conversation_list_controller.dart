@@ -205,6 +205,10 @@ class ConversationListController extends AsyncNotifier<List<Conversation>> {
     final list = state.value;
     if (list == null) return;
     final payload = MessagePersistedPayload(event.data);
+    // A status-refresh ping (sent -> delivered -> read) carries only the
+    // conversation id. It isn't a new message, so it must not bump the row to the
+    // top or inflate the unread count.
+    if (payload.messageId.isEmpty) return;
     // The async-media re-publish carries the full message (type + preview), so we
     // process it too — otherwise a media/sticker/document whose first (placeholder)
     // event was missed never shows in the list until a manual refresh. It is NOT a
