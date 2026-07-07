@@ -1,6 +1,7 @@
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import '../../../../core/providers/app_providers.dart';
+import '../../../../core/realtime/realtime_client.dart';
 import '../../../../core/realtime/realtime_event.dart';
 import '../../../../core/realtime/realtime_providers.dart';
 import '../../../../core/storage/app_cache.dart';
@@ -12,6 +13,10 @@ import 'chat_providers.dart';
 /// Inbox list. Loads `GET /api/conversations` and keeps it live by folding in
 /// realtime `message.persisted` / assignment / status events.
 class ConversationListController extends AsyncNotifier<List<Conversation>> {
+  // Tracks whether the socket has ever connected, so we can tell a fresh
+  // connect (initial load already covers it) from a RE-connect after a drop.
+  bool _hasConnected = false;
+
   // Fetch every status (open/snoozed/closed). Closing or snoozing a lead must
   // KEEP it in the inbox with an updated status badge, not make it vanish; the
   // client-side InboxFilter narrows the view when the user wants. Backend
@@ -21,6 +26,19 @@ class ConversationListController extends AsyncNotifier<List<Conversation>> {
     ref.listen(realtimeEventsProvider, (_, next) {
       final event = next.value;
       if (event != null) _onEvent(event);
+    });
+    // The socket doesn't replay events it missed while disconnected, so a brief
+    // drop could leave the inbox stale until the next event. Catch up by
+    // refetching whenever the socket RE-connects (not on the first connect,
+    // which the initial load already covers) — this is what makes the list
+    // stay live 100% without a manual pull-to-refresh.
+    ref.listen(realtimeStatusProvider, (_, next) {
+      if (next.value != RealtimeStatus.connected) return;
+      if (_hasConnected) {
+        refresh();
+      } else {
+        _hasConnected = true;
+      }
     });
     // Cache-first: render the last snapshot instantly, then refresh in the
     // background, so opening the inbox doesn't block on the network round-trip.

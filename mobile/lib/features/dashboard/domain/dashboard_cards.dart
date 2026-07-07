@@ -25,6 +25,13 @@ class DashboardCards {
         unread: asInt(json['unread']),
       );
 
+  Map<String, dynamic> toJson() => {
+        'open': open,
+        'hot': hot,
+        'unreplied': unreplied,
+        'unread': unread,
+      };
+
   static const empty =
       DashboardCards(open: 0, hot: 0, unreplied: 0, unread: 0);
 }

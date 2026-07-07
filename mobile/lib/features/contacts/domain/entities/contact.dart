@@ -60,6 +60,37 @@ class Contact extends Equatable {
   final String? city;
   final String? purchaseTimeframe;
 
+  /// Serializes back to the `GET /api/contacts` row shape so the list can be
+  /// cached on disk and restored via [ContactModel.fromJson] (cache-first).
+  Map<String, dynamic> toJson() => {
+        'id': id,
+        'full_name': fullName,
+        'phone': phone,
+        'source_channel': sourceChannel,
+        'channel_name': channelName,
+        'tags': tags,
+        'blacklisted': blacklisted,
+        'created_at': createdAt?.toIso8601String(),
+        'last_message_at': lastMessageAt?.toIso8601String(),
+        'interest_level': interestLevel,
+        'stage_name': stageName,
+        'ai_summary': aiSummary,
+        'lead_score': leadScore,
+        'assigned_agent_id': assignedAgentId,
+        'agent_name': agentName,
+        'conversation_id': conversationId,
+        'campaign_name': campaignName,
+        'lost_reason': lostReason,
+        'source_id': sourceId,
+        'source_url': sourceUrl,
+        'web_api_source_name': webApiSourceName,
+        'web_api_source_platform': webApiSourcePlatform,
+        'car_brand': carBrand,
+        'car_model': carModel,
+        'city': city,
+        'purchase_timeframe': purchaseTimeframe,
+      };
+
   String get displayName => fullName.trim().isNotEmpty ? fullName : phone;
 
   /// Accurate, specific lead source label (matches the web): a CTWA referral

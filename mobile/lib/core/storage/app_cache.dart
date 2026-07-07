@@ -17,6 +17,8 @@ class AppCache {
   static const kThemeMode = 'theme_mode';
   static const kCachedUser = 'cached_user';
   static const kConversations = 'conversations_snapshot';
+  static const kContacts = 'contacts_snapshot';
+  static const kDashboard = 'dashboard_snapshot';
 
   /// Initialize Hive and open the cache box. Call once during bootstrap.
   static Future<AppCache> init() async {

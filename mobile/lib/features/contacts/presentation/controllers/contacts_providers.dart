@@ -4,9 +4,12 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import '../../../../core/error/result.dart';
 import '../../../../core/providers/app_providers.dart';
+import '../../../../core/realtime/realtime_client.dart';
 import '../../../../core/realtime/realtime_event.dart';
 import '../../../../core/realtime/realtime_providers.dart';
+import '../../../../core/storage/app_cache.dart';
 import '../../data/datasources/contacts_remote_datasource.dart';
+import '../../data/models/contact_model.dart';
 import '../../data/repositories/contacts_repository_impl.dart';
 import '../../domain/entities/contact.dart';
 import '../../domain/entities/contact_activity.dart';
@@ -29,9 +32,21 @@ final contactsFilterProvider = NotifierProvider<InboxFilterController, InboxFilt
 /// context (stage/interest/agent/conversation_id).
 class ContactsController extends AsyncNotifier<List<Contact>> {
   Timer? _debounce;
+  bool _hasConnected = false;
 
   @override
-  Future<List<Contact>> build() {
+  Future<List<Contact>> build() async {
+    // The socket doesn't replay missed events, so refetch on every RE-connect
+    // (not the first connect) to catch up any lead changes that happened while
+    // the socket was briefly down — keeps the list live without a manual pull.
+    ref.listen(realtimeStatusProvider, (_, next) {
+      if (next.value != RealtimeStatus.connected) return;
+      if (_hasConnected) {
+        _scheduleRefresh(const Duration(milliseconds: 300), priority: true);
+      } else {
+        _hasConnected = true;
+      }
+    });
     // Stay live with the backend: any message / stage / status / assignment
     // change (from this device, another agent, or the web) refreshes the leads
     // list so the contact's latest-thread context never goes stale. Debounced so
@@ -60,6 +75,17 @@ class ContactsController extends AsyncNotifier<List<Contact>> {
       }
     });
     ref.onDispose(() => _debounce?.cancel());
+    // Cache-first: paint the last leads snapshot instantly, then refresh in the
+    // background, so opening Contacts never blocks on the network round-trip.
+    final cache = ref.read(appCacheProvider);
+    final cached = cache.getJsonList(AppCache.kContacts);
+    if (cached != null && cached.isNotEmpty) {
+      Future.microtask(refresh);
+      return cached
+          .whereType<Map>()
+          .map((e) => ContactModel.fromJson(e.cast<String, dynamic>()))
+          .toList();
+    }
     return _fetch();
   }
 
@@ -72,8 +98,26 @@ class ContactsController extends AsyncNotifier<List<Contact>> {
   }
 
   Future<List<Contact>> _fetch() async {
+    final cache = ref.read(appCacheProvider);
     final result = await ref.read(contactsRepositoryProvider).list();
-    return result.fold((failure) => throw failure, (list) => list);
+    return result.fold(
+      (failure) {
+        // Network failed: serve the last cached leads if we have one.
+        final cached = cache.getJsonList(AppCache.kContacts);
+        if (cached != null && cached.isNotEmpty) {
+          return cached
+              .whereType<Map>()
+              .map((e) => ContactModel.fromJson(e.cast<String, dynamic>()))
+              .toList();
+        }
+        throw failure;
+      },
+      (list) {
+        // Persist a snapshot so the next open renders instantly.
+        cache.setJson(AppCache.kContacts, list.map((c) => c.toJson()).toList());
+        return list;
+      },
+    );
   }
 
   Future<void> refresh() async {
