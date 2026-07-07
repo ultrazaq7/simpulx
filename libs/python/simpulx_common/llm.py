@@ -145,11 +145,16 @@ async def _anthropic_call(system_blocks: list, history: List[dict],
 
 
 CATALOG_EXTRACT_INSTRUCTION = (
-    "Kamu mengekstrak DAFTAR item dari dokumen pricelist/katalog (brosur, daftar harga). "
-    "Untuk SETIAP item/baris keluarkan objek dengan field: "
-    "item_name (nama produk/unit, WAJIB), variant_name, location_name (kota/area), "
-    "category_type, headline_price (harga utama sebagai INTEGER tanpa titik/koma/simbol), "
-    "attributes (objek berisi field relevan lain: dp, tenor, emi/cicilan, ukuran, dsb; nilai apa adanya). "
+    "Kamu mengekstrak DAFTAR item dari dokumen pricelist/katalog/tabel kredit (brosur, daftar harga, paket cicilan). "
+    "PENTING: dokumen bisa punya layout 2 kolom (dua tabel bersebelahan di satu halaman) - baca dan ekstrak KEDUA sisi. "
+    "Untuk SETIAP item keluarkan objek: item_name (nama produk/unit, WAJIB), variant_name, location_name (kota/area), "
+    "category_type, headline_price (harga utama/OTR sebagai INTEGER tanpa titik/koma/simbol), "
+    "attributes (objek berisi field relevan lain: dp/tdp, tenor, emi/angsuran/cicilan, ukuran, dsb; nilai apa adanya). "
+    "KHUSUS TABEL KREDIT/CICILAN: satu kendaraan punya harga OTR lalu beberapa baris tenor (mis. 12/24/36/48/60 bulan) "
+    "dengan kolom Angsuran/EMI dan TDP/DP. Untuk pola ini keluarkan SATU baris per (kendaraan x tenor): "
+    "item_name = nama kendaraan, headline_price = harga OTR kendaraan, "
+    "attributes = {\"tenor\": <bulan int>, \"angsuran\": <angsuran int>, \"tdp\": <tdp int>}. "
+    "ABAIKAN baris kosong atau bertanda #N/A / N/A. Ekstrak SEMUA baris, jangan dipotong. "
     "Data yang tidak ada -> null. Balas HANYA JSON valid: {\"rows\": [ {..} ]}. "
     "Jika dokumen scan tanpa teks terbaca, balas {\"rows\": [], \"warning\": \"scanned\"}."
 )
@@ -171,7 +176,7 @@ async def extract_catalog(pdf_b64: str, segment: Optional[str] = None,
             _URL,
             headers={"x-api-key": settings.anthropic_api_key,
                      "anthropic-version": _HEADERS_VERSION, "content-type": "application/json"},
-            json={"model": model or settings.llm_model, "max_tokens": 4096,
+            json={"model": model or settings.llm_model, "max_tokens": 16384,
                   "messages": [{"role": "user", "content": content}]},
         )
         resp.raise_for_status()
