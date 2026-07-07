@@ -1055,40 +1055,42 @@ function MarketingAnalytics() {
         </div>
       </Card>
 
-      {/* Campaign Performance table next to funnel */}
+      {/* Source performance — click a row to cross-filter the whole page (Looker-style). */}
       <div className="bg-card rounded-lg border border-border shadow-xs overflow-hidden flex flex-col">
         <div className="px-4 py-3 border-b border-border flex items-center justify-between">
-          <p className="font-bold text-[14px] text-foreground leading-tight">Campaign Performance</p>
+          <p className="font-bold text-[14px] text-foreground leading-tight">Source performance</p>
+          {sourceFilter.length > 0 && (
+            <button onClick={() => setSourceFilter([])} className="text-[11px] font-semibold text-primary hover:underline outline-none">Reset filter</button>
+          )}
         </div>
         <div className="overflow-x-auto flex-1">
           <table className="w-full text-sm">
             <thead>
-              <tr className="bg-[#DA291C] text-white">
-                <th className="px-3 py-2 text-[11px] font-bold uppercase tracking-wider text-left">Source</th>
-                <th className="px-3 py-2 text-[11px] font-bold uppercase tracking-wider text-right">Impressions ▾</th>
-                <th className="px-3 py-2 text-[11px] font-bold uppercase tracking-wider text-right">Clicks</th>
-                <th className="px-3 py-2 text-[11px] font-bold uppercase tracking-wider text-right">CTR</th>
-                <th className="px-3 py-2 text-[11px] font-bold uppercase tracking-wider text-right">Leads</th>
-                <th className="px-3 py-2 text-[11px] font-bold uppercase tracking-wider text-right">CVR</th>
+              <tr className="bg-primary text-primary-foreground">
+                {["Source", "Impressions", "Clicks", "CTR", "Leads", "CVR"].map((h, i) => (
+                  <th key={h} className={cn("px-3 py-2 text-[11px] font-bold uppercase tracking-wider", i === 0 ? "text-left" : "text-right")}>{h}</th>
+                ))}
               </tr>
             </thead>
             <tbody>
-              {(() => {
-                const maxCvr = Math.max(...shown.map(c => c.clicks > 0 ? (c.leads / c.clicks) * 100 : 0), 1);
-                return shown.slice().sort((a, b) => b.impressions - a.impressions).map((c) => {
-                  const ctr = c.impressions > 0 ? (c.clicks / c.impressions) * 100 : 0;
-                  const cvr = c.clicks > 0 ? (c.leads / c.clicks) * 100 : 0;
-                  const heat = cvr / maxCvr;
-                  // Teal heat map for CVR
-                  const bg = `rgba(13, 148, 136, ${heat * 0.8})`; 
+              {(perf?.sources || []).length === 0 ? (
+                <tr><td colSpan={6} className="px-3 py-10 text-center text-[13px] text-muted-foreground">No source data in this range</td></tr>
+              ) : (() => {
+                const rows = perf?.sources || [];
+                const maxCvr = Math.max(...rows.map((s) => s.cvr), 1);
+                return rows.map((s) => {
+                  const active = sourceFilter.includes(s.source);
+                  const heat = s.cvr / maxCvr;
+                  const bg = `rgba(45, 139, 115, ${heat * 0.85})`; // on-brand green CVR heat
                   return (
-                    <tr key={c.campaign_id} className="border-b border-border/60 hover:bg-muted/50 transition-colors">
-                      <td className="px-3 py-2 font-semibold text-foreground truncate max-w-[150px]">{c.campaign_name}</td>
-                      <td className="px-3 py-2 text-right tabular-nums">{fmtInt(c.impressions)}</td>
-                      <td className="px-3 py-2 text-right tabular-nums">{fmtInt(c.clicks)}</td>
-                      <td className="px-3 py-2 text-right tabular-nums">{ctr.toFixed(2)}%</td>
-                      <td className="px-3 py-2 text-right tabular-nums">{fmtInt(c.leads)}</td>
-                      <td className="px-3 py-2 text-right tabular-nums font-semibold" style={{ backgroundColor: bg }}>{cvr.toFixed(2)}%</td>
+                    <tr key={s.source} onClick={() => setSourceFilter(active ? [] : [s.source])}
+                      className={cn("border-b border-border/60 cursor-pointer transition-colors", active ? "bg-primary/[0.08]" : "hover:bg-muted/50")}>
+                      <td className="px-3 py-2 font-semibold text-foreground">{s.label}</td>
+                      <td className="px-3 py-2 text-right tabular-nums text-foreground/80">{fmtInt(s.impressions)}</td>
+                      <td className="px-3 py-2 text-right tabular-nums text-foreground/80">{fmtInt(s.clicks)}</td>
+                      <td className="px-3 py-2 text-right tabular-nums text-foreground/80">{s.ctr.toFixed(2)}%</td>
+                      <td className="px-3 py-2 text-right tabular-nums text-foreground/80">{fmtInt(s.leads)}</td>
+                      <td className={cn("px-3 py-2 text-right tabular-nums font-semibold", heat > 0.5 ? "text-white" : "text-foreground")} style={{ backgroundColor: bg }}>{s.cvr.toFixed(2)}%</td>
                     </tr>
                   );
                 });

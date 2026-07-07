@@ -519,11 +519,105 @@ func (s *server) handleAdPerformance(w http.ResponseWriter, r *http.Request) {
 		}
 	}
 
+	// Per-source performance table (Looker-style): ad impressions/clicks/spend by
+	// platform (meta|google|tiktok) merged with leads by the lead-source classifier
+	// (adds website/direct). Ignores the source filter so it stays a full breakdown
+	// you can cross-filter from; respects the date/campaign/account scope.
+	platArgs := []any{a.OrgID, from, to}
+	platQ := `SELECT ac.platform, sum(am.impressions)::bigint AS impressions, sum(am.clicks)::bigint AS clicks, sum(am.spend)::float8 AS spend
+	            FROM ad_metrics am JOIN ad_campaigns ac ON ac.id = am.ad_campaign_id
+	           WHERE am.organization_id=$1 AND am.date BETWEEN $2 AND $3`
+	if len(campIDs) > 0 {
+		platArgs = append(platArgs, campIDs)
+		platQ += fmt.Sprintf(" AND ac.id IN (SELECT ad_campaign_id FROM ad_campaign_campaigns WHERE campaign_id = ANY($%d::uuid[]))", len(platArgs))
+	}
+	if len(accountIDs) > 0 {
+		platArgs = append(platArgs, accountIDs)
+		platQ += fmt.Sprintf(" AND ac.ad_account_id::text = ANY($%d::text[])", len(platArgs))
+	}
+	platQ += " GROUP BY ac.platform"
+	platRows, _ := s.queryMaps(r.Context(), platQ, platArgs...)
+
+	srcArgs := []any{a.OrgID, from, to}
+	srcQ := `SELECT ` + sourceClassifyExpr("cv") + ` AS source, count(*)::bigint AS leads
+	           FROM conversations cv
+	          WHERE cv.organization_id=$1 AND cv.created_at::date BETWEEN $2 AND $3 AND cv.campaign_id IS NOT NULL`
+	if len(campIDs) > 0 {
+		srcArgs = append(srcArgs, campIDs)
+		srcQ += fmt.Sprintf(" AND cv.campaign_id = ANY($%d::uuid[])", len(srcArgs))
+	}
+	srcQ += " GROUP BY 1"
+	srcRows, _ := s.queryMaps(r.Context(), srcQ, srcArgs...)
+
+	type srcAgg struct {
+		impressions, clicks, leads int64
+		spend                      float64
+	}
+	gi := func(v any) int64 {
+		if n, ok := v.(int64); ok {
+			return n
+		}
+		return 0
+	}
+	gf := func(v any) float64 {
+		if f, ok := v.(float64); ok {
+			return f
+		}
+		return 0
+	}
+	byKey := map[string]*srcAgg{}
+	platToKey := map[string]string{"meta": "meta_ads", "tiktok": "tiktok_ads", "google": "google_ads"}
+	for _, pr := range platRows {
+		key := platToKey[fmt.Sprint(pr["platform"])]
+		if key == "" {
+			continue
+		}
+		agg := byKey[key]
+		if agg == nil {
+			agg = &srcAgg{}
+			byKey[key] = agg
+		}
+		agg.impressions += gi(pr["impressions"])
+		agg.clicks += gi(pr["clicks"])
+		agg.spend += gf(pr["spend"])
+	}
+	for _, sr := range srcRows {
+		key := fmt.Sprint(sr["source"])
+		agg := byKey[key]
+		if agg == nil {
+			agg = &srcAgg{}
+			byKey[key] = agg
+		}
+		agg.leads += gi(sr["leads"])
+	}
+	srcOrder := []string{"meta_ads", "tiktok_ads", "google_ads", "website", "direct"}
+	srcLabels := map[string]string{"meta_ads": "Meta Ads", "tiktok_ads": "TikTok Ads", "google_ads": "Google Ads", "website": "Website", "direct": "Direct"}
+	sources := []map[string]any{}
+	for _, k := range srcOrder {
+		agg := byKey[k]
+		if agg == nil {
+			continue
+		}
+		ctr, cvr := 0.0, 0.0
+		if agg.impressions > 0 {
+			ctr = float64(agg.clicks) / float64(agg.impressions) * 100
+		}
+		if agg.clicks > 0 {
+			cvr = float64(agg.leads) / float64(agg.clicks) * 100
+		}
+		sources = append(sources, map[string]any{
+			"source": k, "label": srcLabels[k],
+			"impressions": agg.impressions, "clicks": agg.clicks, "spend": agg.spend,
+			"leads": agg.leads, "ctr": ctr, "cvr": cvr,
+		})
+	}
+
 	writeJSON(w, map[string]any{
 		"from": from, "to": to,
 		"campaigns": campRows,
 		"daily":     dailyRows,
 		"creatives": creativeRows,
+		"sources":   sources,
 		"age":       age,
 		"gender":    gender,
 		"region":    region,

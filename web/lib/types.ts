@@ -361,11 +361,18 @@ export interface AdBreakdown {
   value: string;
   impressions: number; reach: number; clicks: number; results: number; spend: number;
 }
+export interface AdPerfSource {
+  source: string;   // meta_ads | tiktok_ads | google_ads | website | direct
+  label: string;
+  impressions: number; clicks: number; spend: number;
+  leads: number; ctr: number; cvr: number;
+}
 export interface AdPerformance {
   from: string; to: string;
   campaigns: AdPerfCampaign[];
   daily: AdPerfDaily[];
   creatives: AdPerfCreative[];
+  sources?: AdPerfSource[];
   age?: AdBreakdown[];
   gender?: AdBreakdown[];
   region?: AdBreakdown[];
