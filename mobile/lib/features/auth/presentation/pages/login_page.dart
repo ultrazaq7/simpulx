@@ -4,6 +4,7 @@ import 'package:go_router/go_router.dart';
 
 import '../../../../app/theme/app_colors.dart';
 import '../../../../app/theme/app_spacing.dart';
+import '../../../../core/i18n/i18n.dart';
 import '../controllers/auth_controller.dart';
 
 /// Email/password sign-in against `POST /auth/login`. On success the session
@@ -39,13 +40,13 @@ class _LoginPageState extends ConsumerState<LoginPage> {
 
   String? _validateEmail(String? v) {
     final value = v?.trim() ?? '';
-    if (value.isEmpty) return 'Enter your email';
-    if (!value.contains('@') || !value.contains('.')) return 'Enter a valid email';
+    if (value.isEmpty) return 'Enter your email'.tr(context);
+    if (!value.contains('@') || !value.contains('.')) return 'Enter a valid email'.tr(context);
     return null;
   }
 
   String? _validatePassword(String? v) {
-    if ((v ?? '').isEmpty) return 'Enter your password';
+    if ((v ?? '').isEmpty) return 'Enter your password'.tr(context);
     return null;
   }
 
@@ -120,9 +121,9 @@ class _LoginPageState extends ConsumerState<LoginPage> {
                       keyboardType: TextInputType.emailAddress,
                       textInputAction: TextInputAction.next,
                       autofillHints: const [AutofillHints.email],
-                      decoration: const InputDecoration(
-                        labelText: 'Email',
-                        prefixIcon: Icon(Icons.mail_outline_rounded),
+                      decoration: InputDecoration(
+                        labelText: 'Email'.tr(context),
+                        prefixIcon: const Icon(Icons.mail_outline_rounded),
                       ),
                       validator: _validateEmail,
                     ),
@@ -135,7 +136,7 @@ class _LoginPageState extends ConsumerState<LoginPage> {
                       autofillHints: const [AutofillHints.password],
                       onFieldSubmitted: (_) => _submit(),
                       decoration: InputDecoration(
-                        labelText: 'Password',
+                        labelText: 'Password'.tr(context),
                         prefixIcon: const Icon(Icons.lock_outline_rounded),
                         suffixIcon: IconButton(
                           icon: Icon(_obscure
@@ -153,7 +154,7 @@ class _LoginPageState extends ConsumerState<LoginPage> {
                         onPressed: state.isSubmitting
                             ? null
                             : () => context.push('/forgot-password'),
-                        child: const Text('Forgot password?'),
+                        child: Text('Forgot password?'.tr(context)),
                       ),
                     ),
                     if (state.errorMessage != null) ...[
@@ -173,7 +174,7 @@ class _LoginPageState extends ConsumerState<LoginPage> {
                                     AlwaysStoppedAnimation(Colors.white),
                               ),
                             )
-                          : const Text('Sign in'),
+                          : Text('Sign in'.tr(context)),
                     ),
                   ],
                 ),

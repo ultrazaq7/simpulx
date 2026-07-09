@@ -4,6 +4,7 @@ import 'package:go_router/go_router.dart';
 
 import '../../../../app/theme/app_colors.dart';
 import '../../../../app/theme/app_spacing.dart';
+import '../../../../core/i18n/i18n.dart';
 import '../controllers/auth_controller.dart';
 
 /// Completes a password reset from an email deep link
@@ -62,7 +63,7 @@ class _ResetPasswordPageState extends ConsumerState<ResetPasswordPage> {
     final invalidToken = widget.token.isEmpty;
 
     return Scaffold(
-      appBar: AppBar(title: const Text('New password')),
+      appBar: AppBar(title: Text('New password'.tr(context))),
       body: SafeArea(
         child: Center(
           child: ConstrainedBox(
@@ -72,9 +73,9 @@ class _ResetPasswordPageState extends ConsumerState<ResetPasswordPage> {
               child: invalidToken
                   ? _Message(
                       icon: Icons.link_off_rounded,
-                      title: 'Invalid link',
+                      title: 'Invalid link'.tr(context),
                       message:
-                          'This reset link is missing or malformed. Request a new one.',
+                          'This reset link is missing or malformed. Request a new one.'.tr(context),
                     )
                   : _done
                       ? Column(
@@ -82,13 +83,13 @@ class _ResetPasswordPageState extends ConsumerState<ResetPasswordPage> {
                           children: [
                             _Message(
                               icon: Icons.check_circle_outline_rounded,
-                              title: 'Password updated',
-                              message: 'You can now sign in with your new password.',
+                              title: 'Password updated'.tr(context),
+                              message: 'You can now sign in with your new password.'.tr(context),
                             ),
                             const SizedBox(height: AppSpacing.xl),
                             ElevatedButton(
                               onPressed: () => context.go('/login'),
-                              child: const Text('Back to sign in'),
+                              child: Text('Back to sign in'.tr(context)),
                             ),
                           ],
                         )
@@ -98,7 +99,7 @@ class _ResetPasswordPageState extends ConsumerState<ResetPasswordPage> {
                             crossAxisAlignment: CrossAxisAlignment.stretch,
                             children: [
                               Text(
-                                'Choose a new password (at least 8 characters).',
+                                'Choose a new password (at least 8 characters).'.tr(context),
                                 style: theme.textTheme.bodyMedium?.copyWith(
                                     color: AppColors.textSecondary),
                               ),
@@ -107,12 +108,12 @@ class _ResetPasswordPageState extends ConsumerState<ResetPasswordPage> {
                                 controller: _password,
                                 enabled: !_submitting,
                                 obscureText: true,
-                                decoration: const InputDecoration(
-                                  labelText: 'New password',
-                                  prefixIcon: Icon(Icons.lock_outline_rounded),
+                                decoration: InputDecoration(
+                                  labelText: 'New password'.tr(context),
+                                  prefixIcon: const Icon(Icons.lock_outline_rounded),
                                 ),
                                 validator: (v) => (v ?? '').length < 8
-                                    ? 'At least 8 characters'
+                                    ? 'At least 8 characters'.tr(context)
                                     : null,
                               ),
                               const SizedBox(height: AppSpacing.md),
@@ -121,12 +122,12 @@ class _ResetPasswordPageState extends ConsumerState<ResetPasswordPage> {
                                 enabled: !_submitting,
                                 obscureText: true,
                                 onFieldSubmitted: (_) => _submit(),
-                                decoration: const InputDecoration(
-                                  labelText: 'Confirm password',
-                                  prefixIcon: Icon(Icons.lock_outline_rounded),
+                                decoration: InputDecoration(
+                                  labelText: 'Confirm password'.tr(context),
+                                  prefixIcon: const Icon(Icons.lock_outline_rounded),
                                 ),
                                 validator: (v) => v != _password.text
-                                    ? 'Passwords do not match'
+                                    ? 'Passwords do not match'.tr(context)
                                     : null,
                               ),
                               if (_error != null) ...[
@@ -149,7 +150,7 @@ class _ResetPasswordPageState extends ConsumerState<ResetPasswordPage> {
                                               Colors.white),
                                         ),
                                       )
-                                    : const Text('Update password'),
+                                    : Text('Update password'.tr(context)),
                               ),
                             ],
                           ),

@@ -3,6 +3,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import '../../../../app/theme/app_colors.dart';
 import '../../../../app/theme/app_spacing.dart';
+import '../../../../core/i18n/i18n.dart';
 import '../controllers/auth_controller.dart';
 
 /// Requests a password-reset email via `POST /auth/forgot-password`.
@@ -54,7 +55,7 @@ class _ForgotPasswordPageState extends ConsumerState<ForgotPasswordPage> {
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
     return Scaffold(
-      appBar: AppBar(title: const Text('Reset password')),
+      appBar: AppBar(title: Text('Reset password'.tr(context))),
       body: SafeArea(
         child: Align(
           alignment: const Alignment(0, -0.3),
@@ -69,12 +70,12 @@ class _ForgotPasswordPageState extends ConsumerState<ForgotPasswordPage> {
                         const Icon(Icons.mark_email_read_outlined,
                             color: AppColors.primary, size: 44),
                         const SizedBox(height: AppSpacing.lg),
-                        Text('Check your email',
+                        Text('Check your email'.tr(context),
                             style: theme.textTheme.titleMedium
                                 ?.copyWith(fontWeight: FontWeight.w700)),
                         const SizedBox(height: AppSpacing.sm),
                         Text(
-                          'If an account exists for that email, a reset link is on its way.',
+                          'If an account exists for that email, a reset link is on its way.'.tr(context),
                           textAlign: TextAlign.center,
                           style: theme.textTheme.bodyMedium
                               ?.copyWith(color: AppColors.textSecondary),
@@ -89,7 +90,7 @@ class _ForgotPasswordPageState extends ConsumerState<ForgotPasswordPage> {
                           const Icon(Icons.lock_reset_rounded, size: 72, color: AppColors.primary),
                           const SizedBox(height: AppSpacing.lg),
                           Text(
-                            'Enter your account email and we will send a reset link.',
+                            'Enter your account email and we will send a reset link.'.tr(context),
                             style: theme.textTheme.bodyMedium
                                 ?.copyWith(color: AppColors.textSecondary),
                           ),
@@ -98,15 +99,15 @@ class _ForgotPasswordPageState extends ConsumerState<ForgotPasswordPage> {
                             controller: _email,
                             enabled: !_submitting,
                             keyboardType: TextInputType.emailAddress,
-                            decoration: const InputDecoration(
-                              labelText: 'Email',
-                              prefixIcon: Icon(Icons.mail_outline_rounded),
+                            decoration: InputDecoration(
+                              labelText: 'Email'.tr(context),
+                              prefixIcon: const Icon(Icons.mail_outline_rounded),
                             ),
                             validator: (v) {
                               final value = v?.trim() ?? '';
-                              if (value.isEmpty) return 'Enter your email';
+                              if (value.isEmpty) return 'Enter your email'.tr(context);
                               if (!value.contains('@')) {
-                                return 'Enter a valid email';
+                                return 'Enter a valid email'.tr(context);
                               }
                               return null;
                             },
@@ -130,7 +131,7 @@ class _ForgotPasswordPageState extends ConsumerState<ForgotPasswordPage> {
                                           Colors.white),
                                     ),
                                   )
-                                : const Text('Send reset link'),
+                                : Text('Send reset link'.tr(context)),
                           ),
                         ],
                       ),
