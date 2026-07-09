@@ -587,6 +587,11 @@ export default function InboxPage() {
             notes={notes}
             messages={messages}
             channelName={channels.find((ch) => ch.type === active.channel)?.name}
+            showAgent={showAgent}
+            agents={agents}
+            canAssign={showAgent}
+            onReassign={(agentId) => doAction(() => api.assign(active!.id, agentId), "Conversation reassigned")}
+            onUnassign={() => doAction(() => api.unassign(active!.id), "Conversation unassigned")}
             onAddNote={async (body) => {
               if (!activeId) return;
               await api.addNote(activeId, body);

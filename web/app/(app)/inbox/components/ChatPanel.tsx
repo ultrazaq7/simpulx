@@ -214,12 +214,9 @@ export default function ChatPanel({
   agents, canAssign, onReassign, onUnassign, onSnooze,
   uploadProgress, onAddNote, className, onBack, aiThinking,
 }: ChatPanelProps) {
-  const [assignOpen, setAssignOpen] = useState(false);
-  const [assignQuery, setAssignQuery] = useState("");
   const [statusOpen, setStatusOpen] = useState(false);
   // Esc closes these header dropdowns (topmost-first), and registering them on
   // the shared stack also makes the inbox's "Esc closes conversation" defer.
-  useEscClose(assignOpen, () => { setAssignOpen(false); setAssignQuery(""); });
   useEscClose(statusOpen, () => setStatusOpen(false));
   const [snoozeOpen, setSnoozeOpen] = useState(false);
   const [customSnooze, setCustomSnooze] = useState("");
@@ -355,7 +352,7 @@ export default function ChatPanel({
             {/* ── Chat Header ── */}
             {/* Wraps to a second row on mobile (too many controls to fit one
                 narrow row); stays a single fixed-height row on desktop. */}
-            <div className="shrink-0 flex flex-wrap lg:flex-nowrap items-center px-3 gap-2 py-2 lg:py-0 min-h-14 lg:h-14 border-b border-border bg-card">
+            <div className="shrink-0 flex flex-nowrap items-center px-3 gap-2 py-2 lg:py-0 min-h-14 lg:h-14 border-b border-border bg-card overflow-x-auto [scrollbar-width:none] [&::-webkit-scrollbar]:hidden">
               {/* Back to list — mobile only */}
               {onBack && (
                 <button aria-label="Back to conversations" onClick={onBack} className="lg:hidden -ml-1 p-1 rounded-md text-muted-foreground hover:bg-muted hover:text-foreground outline-none shrink-0">
@@ -426,74 +423,7 @@ export default function ChatPanel({
                   line break). */}
               <div className="max-lg:hidden flex-1" />
 
-              {/* Assigned agent (manager/admin) — clickable to (re)assign / unassign */}
-              {showAgent && (canAssign ? (
-                <div className="relative">
-                  <button
-                    type="button"
-                    onClick={() => setAssignOpen((v) => !v)}
-                    className={cn("inline-flex items-center gap-1 px-2 h-6 rounded-md text-[11px] font-semibold max-w-[170px] outline-none transition-colors", active.agent_name ? "bg-muted text-muted-foreground hover:bg-muted/70" : "bg-amber-50 text-amber-700 hover:bg-amber-100")}
-                  >
-                    <User className="w-3 h-3 shrink-0" />
-                    <span className="truncate">{active.agent_name || "Unassigned"}</span>
-                    <ChevronDown className={cn("w-3 h-3 shrink-0 opacity-60 transition-transform", assignOpen && "rotate-180")} />
-                  </button>
-                  {assignOpen && (
-                    <>
-                      <div className="fixed inset-0 z-40" onClick={() => setAssignOpen(false)} />
-                      <div className="absolute right-0 top-full mt-1 z-50 w-60 max-h-[340px] flex flex-col rounded-lg border border-border bg-popover shadow-xl animate-scale-in">
-                        <div className="p-2 border-b border-border shrink-0">
-                          <div className="relative">
-                            <Search className="absolute left-2.5 top-1/2 -translate-y-1/2 w-3.5 h-3.5 text-muted-foreground pointer-events-none" />
-                            <input autoFocus value={assignQuery} onChange={(e) => setAssignQuery(e.target.value)} placeholder="Search name or email..."
-                              className="w-full h-8 pl-8 pr-2 rounded-md border border-input bg-background text-[13px] outline-none focus:border-primary" />
-                          </div>
-                        </div>
-                        <div className="overflow-auto py-1 flex-1 min-h-0">
-                          <p className="px-3 py-1 text-[10px] font-bold uppercase tracking-wider text-muted-foreground">Assign to</p>
-                          {(() => {
-                            const q = assignQuery.trim().toLowerCase();
-                            const matches = (agents || []).filter((ag) => ag.full_name.toLowerCase().includes(q) || (ag.email || "").toLowerCase().includes(q));
-                            if (matches.length === 0) return <p className="text-center text-xs text-muted-foreground py-3">No agents</p>;
-                            return matches.map((ag) => (
-                              <button
-                                key={ag.id}
-                                type="button"
-                                onClick={() => { onReassign?.(ag.id); setAssignOpen(false); setAssignQuery(""); }}
-                                className={cn("w-full flex items-center gap-2.5 px-3 py-1.5 text-left hover:bg-muted outline-none", ag.id === active.assigned_agent_id ? "bg-primary/[0.04]" : "")}
-                              >
-                                <User className={cn("w-3.5 h-3.5 shrink-0", ag.id === active.assigned_agent_id ? "text-primary" : "opacity-70")} />
-                                <div className="min-w-0 flex-1">
-                                  <p className={cn("text-[13px] truncate", ag.id === active.assigned_agent_id ? "text-primary font-semibold" : "text-foreground/90")}>{ag.full_name}</p>
-                                  {ag.email && <p className="text-[11px] text-muted-foreground truncate">{ag.email}</p>}
-                                </div>
-                                {ag.id === active.assigned_agent_id && <Check className="w-3.5 h-3.5 shrink-0 text-primary" />}
-                              </button>
-                            ));
-                          })()}
-                          {active.assigned_agent_id && (
-                            <>
-                              <div className="my-1 border-t border-border" />
-                              <button
-                                type="button"
-                                onClick={() => { onUnassign?.(); setAssignOpen(false); setAssignQuery(""); }}
-                                className="w-full flex items-center gap-2 px-3 py-1.5 text-[13px] text-left text-amber-700 hover:bg-amber-50 outline-none"
-                              >
-                                <XCircle className="w-3.5 h-3.5 shrink-0" />Unassign
-                              </button>
-                            </>
-                          )}
-                        </div>
-                      </div>
-                    </>
-                  )}
-                </div>
-              ) : (
-                <span className={cn("inline-flex items-center gap-1 px-2 h-6 rounded-md text-[11px] font-semibold max-w-[150px]", active.agent_name ? "bg-muted text-muted-foreground" : "bg-amber-50 text-amber-700")}>
-                  <User className="w-3 h-3 shrink-0" />
-                  <span className="truncate">{active.agent_name || "Unassigned"}</span>
-                </span>
-              ))}
+
 
               {/* Status action dropdown: Open / Snooze / Closed */}
               <div className="relative">

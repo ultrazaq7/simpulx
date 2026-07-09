@@ -1,12 +1,12 @@
 "use client";
 import { useEffect, useState } from "react";
 import Link from "next/link";
-import { X, Copy, User, Phone, Hash, MessageSquare, Clock, StickyNote, Tag as TagIcon, Plus, Paperclip, Download, FileText, Image as ImageIcon, Video, Mic, Trash2 } from "lucide-react";
+import { X, Copy, User, Phone, Hash, MessageSquare, Clock, StickyNote, Tag as TagIcon, Plus, Paperclip, Download, FileText, Image as ImageIcon, Video, Mic, Trash2, Check, ChevronDown, Search, XCircle } from "lucide-react";
 import { api } from "@/lib/api";
 import { initials, channelColor, channelTextColor, channelLabel, fmtDate, fmtTime, fmtDateTimeShort, cn } from "@/lib/utils";
 import { Tip } from "@/components/ui/tooltip";
 import { isAutomotive, segmentFields } from "@/lib/segments";
-import type { Conversation, InternalNote, Message } from "@/lib/types";
+import type { Agent, Conversation, InternalNote, Message } from "@/lib/types";
 
 function rewriteLocalMedia(url: string): string {
   if (typeof window !== "undefined" && window.location.hostname === "localhost" && url.includes("ngrok-free.dev")) {
@@ -96,9 +96,14 @@ interface DetailsPanelProps {
   onDeleteNote: (noteId: string) => void | Promise<void>;
   messages?: Message[];
   channelName?: string; // real channel name (e.g. "Testing Channel"), not the type
+  showAgent?: boolean;
+  agents?: Agent[];
+  canAssign?: boolean;
+  onReassign?: (agentId: string) => void;
+  onUnassign?: () => void;
 }
 
-export default function DetailsPanel({ active, onClose, copyText, notes, onAddNote, onDeleteNote, messages, channelName }: DetailsPanelProps) {
+export default function DetailsPanel({ active, onClose, copyText, notes, onAddNote, onDeleteNote, messages, channelName, showAgent, agents, canAssign, onReassign, onUnassign }: DetailsPanelProps) {
   const media = (messages || []).filter((m) => m.media_url && m.type !== "sticker"); // stickers are not attachments
   const mediaFiles = media.filter((m) => m.type === "image" || m.type === "video");
   const docFiles = media.filter((m) => !(m.type === "image" || m.type === "video"));
@@ -109,7 +114,9 @@ export default function DetailsPanel({ active, onClose, copyText, notes, onAddNo
   const [tags, setTags] = useState<string[]>(active.tags ?? []);
   const [tagOpen, setTagOpen] = useState(false);
   const [tagDraft, setTagDraft] = useState("");
-  useEffect(() => { setTags(active.tags ?? []); setTagOpen(false); setTagDraft(""); }, [active.id]); // eslint-disable-line react-hooks/exhaustive-deps
+  const [assignOpen, setAssignOpen] = useState(false);
+  const [assignQuery, setAssignQuery] = useState("");
+  useEffect(() => { setTags(active.tags ?? []); setTagOpen(false); setTagDraft(""); setAssignOpen(false); setAssignQuery(""); }, [active.id]); // eslint-disable-line react-hooks/exhaustive-deps
 
 
 
@@ -228,6 +235,92 @@ export default function DetailsPanel({ active, onClose, copyText, notes, onAddNo
                 />
               )}
             </div>
+
+            {/* Assigned agent (manager/admin can reassign) */}
+            {showAgent && (
+              <div className="mb-5">
+                <div className="flex items-center justify-between mb-2">
+                  <p className="text-[10px] font-bold uppercase tracking-wider text-muted-foreground flex items-center gap-1.5"><User className="w-3.5 h-3.5 text-primary" />Assigned agent</p>
+                </div>
+                {canAssign ? (
+                  <div className="relative">
+                    <button
+                      type="button"
+                      onClick={() => setAssignOpen((v) => !v)}
+                      className={cn(
+                        "w-full flex items-center gap-2 px-3 py-2 rounded-lg border text-left text-[13px] font-semibold transition-colors outline-none",
+                        active.agent_name
+                          ? "border-border bg-background text-foreground hover:bg-muted"
+                          : "border-amber-200 bg-amber-50 text-amber-700 hover:bg-amber-100",
+                      )}
+                    >
+                      <User className="w-4 h-4 shrink-0 opacity-60" />
+                      <span className="flex-1 truncate">{active.agent_name || "Unassigned"}</span>
+                      <ChevronDown className={cn("w-3.5 h-3.5 shrink-0 opacity-60 transition-transform", assignOpen && "rotate-180")} />
+                    </button>
+                    {assignOpen && (
+                      <>
+                        <div className="fixed inset-0 z-40" onClick={() => { setAssignOpen(false); setAssignQuery(""); }} />
+                        <div className="absolute left-0 right-0 top-full mt-1 z-50 max-h-[340px] flex flex-col rounded-lg border border-border bg-popover shadow-xl animate-scale-in">
+                          <div className="p-2 border-b border-border shrink-0">
+                            <div className="relative">
+                              <Search className="absolute left-2.5 top-1/2 -translate-y-1/2 w-3.5 h-3.5 text-muted-foreground pointer-events-none" />
+                              <input autoFocus value={assignQuery} onChange={(e) => setAssignQuery(e.target.value)} placeholder="Search name or email..."
+                                className="w-full h-8 pl-8 pr-2 rounded-md border border-input bg-background text-[13px] outline-none focus:border-primary" />
+                            </div>
+                          </div>
+                          <div className="overflow-auto py-1 flex-1 min-h-0">
+                            <p className="px-3 py-1 text-[10px] font-bold uppercase tracking-wider text-muted-foreground">Assign to</p>
+                            {(() => {
+                              const q = assignQuery.trim().toLowerCase();
+                              const matches = (agents || []).filter((ag) => ag.full_name.toLowerCase().includes(q) || (ag.email || "").toLowerCase().includes(q));
+                              if (matches.length === 0) return <p className="text-center text-xs text-muted-foreground py-3">No agents</p>;
+                              return matches.map((ag) => (
+                                <button
+                                  key={ag.id}
+                                  type="button"
+                                  onClick={() => { onReassign?.(ag.id); setAssignOpen(false); setAssignQuery(""); }}
+                                  className={cn("w-full flex items-center gap-2.5 px-3 py-1.5 text-left hover:bg-muted outline-none", ag.id === active.assigned_agent_id ? "bg-primary/[0.04]" : "")}
+                                >
+                                  <User className={cn("w-3.5 h-3.5 shrink-0", ag.id === active.assigned_agent_id ? "text-primary" : "opacity-70")} />
+                                  <div className="min-w-0 flex-1">
+                                    <p className={cn("text-[13px] truncate", ag.id === active.assigned_agent_id ? "text-primary font-semibold" : "text-foreground/90")}>{ag.full_name}</p>
+                                    {ag.email && <p className="text-[11px] text-muted-foreground truncate">{ag.email}</p>}
+                                  </div>
+                                  {ag.id === active.assigned_agent_id && <Check className="w-3.5 h-3.5 shrink-0 text-primary" />}
+                                </button>
+                              ));
+                            })()}
+                            {active.assigned_agent_id && (
+                              <>
+                                <div className="my-1 border-t border-border" />
+                                <button
+                                  type="button"
+                                  onClick={() => { onUnassign?.(); setAssignOpen(false); setAssignQuery(""); }}
+                                  className="w-full flex items-center gap-2 px-3 py-1.5 text-[13px] text-left text-amber-700 hover:bg-amber-50 outline-none"
+                                >
+                                  <XCircle className="w-3.5 h-3.5 shrink-0" />Unassign
+                                </button>
+                              </>
+                            )}
+                          </div>
+                        </div>
+                      </>
+                    )}
+                  </div>
+                ) : active.agent_name ? (
+                  <p className="text-xs font-semibold text-foreground flex items-center gap-2">
+                    <User className="w-4 h-4 opacity-60" />
+                    {active.agent_name}
+                  </p>
+                ) : (
+                  <p className="text-xs text-amber-700 font-semibold flex items-center gap-2">
+                    <User className="w-4 h-4" />
+                    Unassigned
+                  </p>
+                )}
+              </div>
+            )}
 
             <p className="text-[10px] font-bold uppercase tracking-wider text-muted-foreground mb-1">Customer details</p>
             <div className="mb-5">
