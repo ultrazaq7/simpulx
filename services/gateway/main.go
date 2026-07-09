@@ -266,6 +266,8 @@ func main() {
 	// Ad performance (Meta live; TikTok + Google share the same model).
 	mux.HandleFunc("GET /api/ad-accounts", s.requireAuth(s.handleListAdAccounts))
 	mux.HandleFunc("POST /api/ad-accounts", s.requireAuth(s.gate("manage_channels", s.handleCreateAdAccount)))
+	mux.HandleFunc("POST /api/auth/google-ads/connect", s.requireAuth(s.gate("manage_channels", s.handleGoogleAdsConnect)))
+	mux.HandleFunc("GET /api/auth/google-ads/callback", s.handleGoogleAdsCallback)
 	mux.HandleFunc("PATCH /api/ad-accounts/{id}", s.requireAuth(s.gate("manage_channels", s.handlePatchAdAccount)))
 	mux.HandleFunc("DELETE /api/ad-accounts/{id}", s.requireAuth(s.gate("manage_channels", s.handleDeleteAdAccount)))
 	mux.HandleFunc("POST /api/ad-accounts/{id}/sync", s.requireAuth(s.gate("manage_channels", s.handleSyncAdAccount)))

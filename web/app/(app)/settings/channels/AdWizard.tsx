@@ -27,10 +27,6 @@ export function AdWizard({ onClose, onConnected }: { onClose: () => void; onConn
   const [accountId, setAccountId] = useState("");
   const [name, setName] = useState("");
   const [token, setToken] = useState("");
-  const [devToken, setDevToken] = useState("");
-  const [loginCid, setLoginCid] = useState("");
-  const [clientId, setClientId] = useState("");
-  const [clientSecret, setClientSecret] = useState("");
   const [saving, setSaving] = useState(false);
   const [err, setErr] = useState("");
   const [result, setResult] = useState<{ syncError?: string } | null>(null);
@@ -41,24 +37,26 @@ export function AdWizard({ onClose, onConnected }: { onClose: () => void; onConn
   const accountPlaceholder = platform === "meta" ? "e.g. 1234567890 (without act_)" : platform === "tiktok" ? "TikTok advertiser id" : "e.g. 123-456-7890";
   const tokenLabel = platform === "google" ? "OAuth refresh token" : "Access token";
   const tokenHint = platform === "meta" ? "A long-lived token (or system-user token) with the ads_read permission."
-    : platform === "tiktok" ? "A TikTok for Business access token with reporting access."
-      : "An OAuth refresh token for an account with access to this customer.";
+    : "A TikTok for Business access token with reporting access.";
 
   const ourCampOptions = useMemo(
     () => ourCampaigns.map((c) => ({ value: c.id, label: c.name })),
     [ourCampaigns]);
 
   async function connect() {
-    if (!accountId.trim() || !token.trim()) { setErr("Account id and access token are required."); return; }
-    if (platform === "google" && (!devToken.trim() || !clientId.trim() || !clientSecret.trim())) {
-      setErr("Google needs a developer token, client id and client secret."); return;
+    if (platform === "google") {
+      if (!accountId.trim()) { setErr("Customer id is required."); return; }
+      setSaving(true); setErr("");
+      try {
+        const res = await api.connectGoogleAds(accountId.trim(), name.trim() || undefined);
+        window.location.href = res.url;
+      } catch (e: any) { setErr(e?.message || "Failed to start Google Ads connection"); setSaving(false); }
+      return;
     }
+    if (!accountId.trim() || !token.trim()) { setErr("Account id and access token are required."); return; }
     setSaving(true); setErr("");
     try {
-      const config = platform === "google"
-        ? { developer_token: devToken.trim(), login_customer_id: loginCid.trim(), client_id: clientId.trim(), client_secret: clientSecret.trim() }
-        : undefined;
-      const r = await api.createAdAccount({ platform, external_account_id: accountId.trim(), name: name.trim() || undefined, access_token: token.trim(), config });
+      const r = await api.createAdAccount({ platform, external_account_id: accountId.trim(), name: name.trim() || undefined, access_token: token.trim() });
       setResult({ syncError: r?.sync_error });
       // The first sync ran server-side; pull this account's campaigns so they can be mapped now.
       try {
@@ -80,7 +78,7 @@ export function AdWizard({ onClose, onConnected }: { onClose: () => void; onConn
   const footer =
     step === 0 ? (<><div className="flex-1" /><ContinueButton onClick={() => platform && setStep(1)} disabled={!platform} /></>)
     : step === 1 ? (<><BackButton onClick={() => { setErr(""); setStep(0); }} /><div className="flex-1" />
-        <PrimaryButton onClick={connect} disabled={saving}>{saving ? <Loader2 className="w-4 h-4 animate-spin" /> : null}Connect</PrimaryButton></>)
+        <PrimaryButton onClick={connect} disabled={saving}>{saving ? <Loader2 className="w-4 h-4 animate-spin" /> : null}{platform === "google" ? "Sign in with Google" : "Connect"}</PrimaryButton></>)
     : (<><div className="flex-1" /><PrimaryButton onClick={() => onConnected(result?.syncError ? `Connected, but sync failed: ${result.syncError}` : "Ad account connected")}>Done</PrimaryButton></>);
 
   return (
@@ -101,15 +99,8 @@ export function AdWizard({ onClose, onConnected }: { onClose: () => void; onConn
           {err && <div className="px-3 py-2 rounded-md bg-destructive/10 border border-destructive/20 text-destructive text-[13px] font-medium">{err}</div>}
           <WizardField label={accountLabel} value={accountId} onChange={setAccountId} placeholder={accountPlaceholder} autoFocus />
           <WizardField label="Display name (optional)" value={name} onChange={setName} placeholder="e.g. Main ad account" />
-          <WizardField label={tokenLabel} value={token} onChange={setToken} type="password" hint={tokenHint} />
-          {platform === "google" && (
-            <div className="flex flex-col gap-3 pt-1 border-t border-border">
-              <p className="text-[12px] font-bold text-foreground/80 pt-2">Google Ads credentials</p>
-              <WizardField label="Developer token" value={devToken} onChange={setDevToken} />
-              <WizardField label="OAuth client id" value={clientId} onChange={setClientId} />
-              <WizardField label="OAuth client secret" value={clientSecret} onChange={setClientSecret} type="password" />
-              <WizardField label="Login customer id (manager account, optional)" value={loginCid} onChange={setLoginCid} />
-            </div>
+          {platform !== "google" && (
+            <WizardField label={tokenLabel} value={token} onChange={setToken} type="password" hint={tokenHint} />
           )}
         </div>
       )}

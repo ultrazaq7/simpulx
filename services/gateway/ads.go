@@ -7,6 +7,9 @@ import (
 	"net/http"
 	"net/url"
 	"strconv"
+	"os"
+	"github.com/google/uuid"
+	"github.com/simpulx/v2/libs/go/config"
 	"strings"
 	"time"
 )
@@ -63,7 +66,12 @@ func (s *server) handleCreateAdAccount(w http.ResponseWriter, r *http.Request) {
 	}
 	if b.Platform == "google" {
 		// Google customer ids are digits only (strip dashes).
-		b.ExternalAccountID = strings.Map(func(r rune) rune { if r >= '0' && r <= '9' { return r }; return -1 }, b.ExternalAccountID)
+		b.ExternalAccountID = strings.Map(func(r rune) rune {
+			if r >= '0' && r <= '9' {
+				return r
+			}
+			return -1
+		}, b.ExternalAccountID)
 	}
 	if b.ExternalAccountID == "" || b.AccessToken == "" {
 		http.Error(w, "account id and access token are required", http.StatusBadRequest)
@@ -1082,9 +1090,9 @@ func (s *server) syncGoogleAccount(ctx context.Context, accountID, orgID string)
 	if err != nil {
 		return err
 	}
-	devToken := cfgStr(cfg, "developer_token")
-	clientID := cfgStr(cfg, "client_id")
-	clientSecret := cfgStr(cfg, "client_secret")
+	devToken := os.Getenv("GOOGLE_ADS_DEVELOPER_TOKEN")
+	clientID := os.Getenv("GOOGLE_ADS_CLIENT_ID")
+	clientSecret := os.Getenv("GOOGLE_ADS_CLIENT_SECRET")
 	loginCID := strings.ReplaceAll(cfgStr(cfg, "login_customer_id"), "-", "")
 	if devToken == "" || clientID == "" || clientSecret == "" {
 		err := fmt.Errorf("google requires developer_token, client_id and client_secret")
@@ -1291,4 +1299,100 @@ func (s *server) syncStaleAdAccounts(ctx context.Context) {
 			s.log.Info("ad auto-sync ok", "account", a.id, "platform", a.platform)
 		}
 	}
+}
+
+// -- Google Ads OAuth -----------------------------------------
+
+type oauthState struct {
+	OrgID      string `json:"org_id"`
+	UserID     string `json:"user_id"`
+	CustomerID string `json:"customer_id"`
+	Name       string `json:"name"`
+}
+
+func (s *server) handleGoogleAdsConnect(w http.ResponseWriter, r *http.Request) {
+	a, _ := authFrom(r.Context())
+	var body struct {
+		CustomerID string `json:"customer_id"`
+		Name       string `json:"name"`
+	}
+	if err := json.NewDecoder(r.Body).Decode(&body); err != nil {
+		http.Error(w, "bad request", http.StatusBadRequest)
+		return
+	}
+
+	stateID := uuid.New().String()
+	b, _ := json.Marshal(oauthState{OrgID: a.OrgID, UserID: a.UserID, CustomerID: body.CustomerID, Name: body.Name})
+	s.rdb.Set(r.Context(), "oauth:googleads:"+stateID, b, 15*time.Minute)
+
+	clientID := os.Getenv("GOOGLE_ADS_CLIENT_ID")
+	redirectURI := os.Getenv("GOOGLE_ADS_REDIRECT_URL")
+
+	url := fmt.Sprintf("https://accounts.google.com/o/oauth2/v2/auth?client_id=%s&redirect_uri=%s&response_type=code&scope=%s&access_type=offline&prompt=consent&state=%s",
+		clientID, url.QueryEscape(redirectURI), url.QueryEscape("https://www.googleapis.com/auth/adwords"), stateID)
+
+	writeJSON(w, map[string]string{"url": url})
+}
+
+func (s *server) handleGoogleAdsCallback(w http.ResponseWriter, r *http.Request) {
+	code := r.URL.Query().Get("code")
+	stateID := r.URL.Query().Get("state")
+	if code == "" || stateID == "" {
+		http.Error(w, "missing code or state", http.StatusBadRequest)
+		return
+	}
+
+	b, err := s.rdb.Get(r.Context(), "oauth:googleads:"+stateID).Bytes()
+	if err != nil {
+		http.Error(w, "invalid or expired state", http.StatusBadRequest)
+		return
+	}
+	var state oauthState
+	json.Unmarshal(b, &state)
+
+	clientID := os.Getenv("GOOGLE_ADS_CLIENT_ID")
+	clientSecret := os.Getenv("GOOGLE_ADS_CLIENT_SECRET")
+	redirectURI := os.Getenv("GOOGLE_ADS_REDIRECT_URL")
+
+	data := url.Values{}
+	data.Set("client_id", clientID)
+	data.Set("client_secret", clientSecret)
+	data.Set("code", code)
+	data.Set("redirect_uri", redirectURI)
+	data.Set("grant_type", "authorization_code")
+
+	resp, err := adHTTP.PostForm("https://oauth2.googleapis.com/token", data)
+	if err != nil {
+		http.Error(w, "failed to exchange token", http.StatusInternalServerError)
+		return
+	}
+	defer resp.Body.Close()
+
+	var tokenResp struct {
+		RefreshToken string `json:"refresh_token"`
+	}
+	if err := json.NewDecoder(resp.Body).Decode(&tokenResp); err != nil || tokenResp.RefreshToken == "" {
+		http.Error(w, "no refresh token received (maybe you need to revoke access first)", http.StatusBadRequest)
+		return
+	}
+
+	cfg, _ := json.Marshal(map[string]any{}) // config is empty now, credentials are in .env
+	var id string
+	err = s.pool.QueryRow(r.Context(),
+		`INSERT INTO ad_accounts (organization_id, platform, external_account_id, name, access_token, config)
+		 VALUES (,'google',,,,)
+		 ON CONFLICT (organization_id, platform, external_account_id)
+		 DO UPDATE SET access_token = EXCLUDED.access_token, name = COALESCE(NULLIF(EXCLUDED.name,''), ad_accounts.name),
+		               config = EXCLUDED.config, status='connected', last_error=NULL
+		 RETURNING id::text`,
+		state.OrgID, state.CustomerID, state.Name, tokenResp.RefreshToken, cfg).Scan(&id)
+	if err != nil {
+		http.Error(w, err.Error(), http.StatusInternalServerError)
+		return
+	}
+
+	go s.syncAccount(context.Background(), id, state.OrgID, "google")
+
+	appBase := config.Get("APP_BASE_URL", "http://localhost:3000")
+	http.Redirect(w, r, appBase+"/settings/channels?connected=google", http.StatusTemporaryRedirect)
 }
