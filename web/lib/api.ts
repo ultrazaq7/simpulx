@@ -330,6 +330,10 @@ export const api = {
     req(`/api/conversations/${convId}/notes`, { method: "POST", body: JSON.stringify({ body }) }),
   deleteNote: (convId: string, noteId: string) => req(`/api/conversations/${convId}/notes/${noteId}`, { method: "DELETE" }),
   listStages: () => req<import("./types").Stage[]>("/api/stages"),
+  createStage: (body: { name: string; sort_order?: number }) => req<{ id: string }>("/api/stages", { method: "POST", body: JSON.stringify(body) }),
+  updateStage: (id: string, body: { name?: string; sort_order?: number }) => req<void>(`/api/stages/${id}`, { method: "PATCH", body: JSON.stringify(body) }),
+  deleteStage: (id: string) => req<void>(`/api/stages/${id}`, { method: "DELETE" }),
+  reorderStages: (ids: string[]) => req<void>("/api/stages/reorder", { method: "POST", body: JSON.stringify({ ids }) }),
   listDispositions: () => req<import("./types").Disposition[]>("/api/dispositions"),
   patchConversation: (id: string, patch: { stage_id?: string; disposition_id?: string; interest_level?: string; unread_count?: number; lost_reason?: string; status?: string }) =>
     req(`/api/conversations/${id}`, { method: "PATCH", body: JSON.stringify(patch) }),

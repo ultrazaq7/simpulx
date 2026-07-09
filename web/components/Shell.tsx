@@ -6,7 +6,7 @@ import {
   MessageCircle, Settings, MessageSquareText,
   ChevronLeft, ChevronRight, Bell, LogOut, User as UserIcon,
   CheckCircle2, Loader2, ChevronDown, Activity, LayoutDashboard, MessagesSquare, Users, SlidersHorizontal, Megaphone, Wrench, Globe, Boxes,
-  ScrollText, BarChart3, ShieldCheck, FileText, RadioTower, GitBranch, Plug, Search, ClipboardList, Building2, Building, FormInput, Menu, Zap
+  ScrollText, BarChart3, ShieldCheck, FileText, RadioTower, GitBranch, Plug, Search, ClipboardList, Building2, Building, FormInput, Menu, Zap, ListOrdered
 } from "lucide-react";
 import { WS_URL } from "@/lib/api";
 import { api, clearSession, getToken, getUser, setSession } from "@/lib/api";
@@ -82,6 +82,7 @@ const PAGE_TITLES: Record<string, { category: string; title: string; icon?: any 
   "/settings/general": { category: "PREFERENCES", title: "General" },
   "/settings/company-details": { category: "COMPANY SETTINGS", title: "Company Details", icon: Building },
   "/settings/custom-fields": { category: "CHANNELS", title: "Custom Fields", icon: FormInput },
+  "/settings/stages": { category: "CHANNELS", title: "Pipeline Stages", icon: ListOrdered },
   "/settings/user-management": { category: "COMPANY SETTINGS", title: "User Management", icon: UserIcon },
   "/settings/roles": { category: "COMPANY SETTINGS", title: "Roles & Permissions", icon: ShieldCheck },
   "/settings/campaigns": { category: "CHANNELS", title: "Campaigns", icon: Building2 },

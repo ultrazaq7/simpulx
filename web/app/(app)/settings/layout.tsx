@@ -8,7 +8,7 @@ import { type ReactNode, useState, useEffect, useLayoutEffect, useRef } from "re
 import Link from "next/link";
 import { usePathname } from "next/navigation";
 import {
-  Settings, FormInput, Bell, User, ShieldCheck,
+  Settings, FormInput, Bell, User, ShieldCheck, ListOrdered,
   Building2, Building, FileText, GitBranch, RadioTower, Clock, ClipboardList,
   PanelLeftClose, PanelLeftOpen, Boxes, Zap, SlidersHorizontal,
 } from "lucide-react";
@@ -47,6 +47,7 @@ const GROUPS: { titleKey: string; items: NavItem[] }[] = [
       { key: "wa-forms", labelKey: "settings.forms", icon: ClipboardList, href: "/settings/wa-forms", perm: "view_automation" },
       { key: "quick-replies", labelKey: "Quick Replies", icon: Zap, href: "/settings/quick-replies", perm: "view_settings" },
       { key: "custom-fields", labelKey: "settings.custom_fields", icon: FormInput, href: "/settings/custom-fields", perm: "view_settings" },
+      { key: "stages", labelKey: "settings.pipeline_stages", icon: ListOrdered, href: "/settings/stages", perm: "view_settings" },
       // Channel & Integrations merges messaging channels, Web API lead sources and ad accounts.
       { key: "channels", labelKey: "settings.channels_integrations", icon: RadioTower, href: "/settings/channels", perm: "manage_channels" },
     ],

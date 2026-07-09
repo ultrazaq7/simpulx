@@ -19,7 +19,8 @@ import { IndonesiaMap } from "@/components/IndonesiaMap";
 import { Tip } from "@/components/ui/tooltip";
 import { lostReasonLabel } from "@/app/(app)/inbox/components/LostReasonDialog";
 import type { Stats, Analytics, DashboardCards, AdPerformance, AdBreakdown, Channel, Campaign, Agent } from "@/lib/types";
-import { cn, fmtDuration } from "@/lib/utils";
+import { cn, fmtDuration, stageLabel } from "@/lib/utils";
+import { useI18n } from "@/lib/i18n";
 import DateRangeFilter from "@/components/DateRangeFilter";
 
 type Metric = {
@@ -261,6 +262,7 @@ function InterestSplit({ funnel }: { funnel: Analytics["funnel"] | undefined }) 
 // Stage split rows: leads by pipeline stage, colored to match the funnel chips.
 // Lost is a terminal outcome (not a pipeline stage) so it sits at the bottom, in red.
 function StageSplit({ stages, lost }: { stages?: Analytics["stages"]; lost?: number }) {
+  const { t } = useI18n();
   if (!stages || stages.length === 0) {
     return <div className="py-10 text-center text-sm text-muted-foreground">No pipeline data yet</div>;
   }
@@ -288,7 +290,7 @@ function StageSplit({ stages, lost }: { stages?: Analytics["stages"]; lost?: num
             className="group/st flex items-center gap-3 px-2 py-2 rounded-md hover:bg-muted transition-colors"
           >
             <span className="w-2.5 h-2.5 rounded-full shrink-0" style={{ backgroundColor: color }} />
-            <span className="text-sm font-medium flex-1 text-foreground/90">{s.name}</span>
+            <span className="text-sm font-medium flex-1 text-foreground/90">{stageLabel(t, s)}</span>
             <div className="flex-[2]"><ProgressBar value={total > 0 ? (s.count / total) * 100 : 0} color={color} /></div>
             <span className="text-sm font-bold min-w-[28px] text-right tabular-nums" style={{ color }}>{s.count}</span>
             <ChevronRight className="w-4 h-4 text-muted-foreground/40 group-hover/st:text-muted-foreground shrink-0" />
@@ -301,7 +303,7 @@ function StageSplit({ stages, lost }: { stages?: Analytics["stages"]; lost?: num
           className="group/st flex items-center gap-3 px-2 py-2 mt-1 pt-2.5 border-t border-border/60 rounded-md hover:bg-muted transition-colors"
         >
           <span className="w-2.5 h-2.5 rounded-full shrink-0" style={{ backgroundColor: "#EF4444" }} />
-          <span className="text-sm font-medium flex-1 text-foreground/90">Lost</span>
+          <span className="text-sm font-medium flex-1 text-foreground/90">{t("stages.lost_not_purchase")}</span>
           <div className="flex-[2]"><ProgressBar value={total > 0 ? (lostCount / total) * 100 : 0} color="#EF4444" /></div>
           <span className="text-sm font-bold min-w-[28px] text-right tabular-nums" style={{ color: "#EF4444" }}>{lostCount}</span>
           <ChevronRight className="w-4 h-4 text-muted-foreground/40 group-hover/st:text-muted-foreground shrink-0" />

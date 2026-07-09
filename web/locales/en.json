@@ -49,6 +49,7 @@
     "company_settings": "Company Settings",
     "user_management": "User Management",
     "custom_fields": "Custom Fields",
+    "pipeline_stages": "Pipeline Stages",
     "workspace": "Workspace",
     "workspace_id": "Workspace ID",
     "workspace_name": "Workspace name",
@@ -210,5 +211,15 @@
     "sourceIdCopied": "Source ID copied",
     "viewDetails": "View details",
     "chat": "Chat"
+  },
+  "stages": {
+    "new": "New Lead",
+    "contacted": "Contacted",
+    "qualified": "Qualified",
+    "appointment": "Appointment",
+    "test_drive": "Negotiation",
+    "booking": "Purchase",
+    "lost_not_purchase": "Lost",
+    "lost_purchase": "Lost (Bought Elsewhere)"
   }
 }

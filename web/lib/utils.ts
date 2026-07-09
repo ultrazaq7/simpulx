@@ -1,8 +1,40 @@
 import { clsx, type ClassValue } from "clsx"
 import { twMerge } from "tailwind-merge"
+import enLocale from "@/locales/en.json"
 
 export function cn(...inputs: ClassValue[]) {
   return twMerge(clsx(inputs))
+}
+
+type StageLike = { name: string; system_key?: string | null };
+
+// Localize a pipeline stage name (bilingual). A system stage (has system_key)
+// that still holds its canonical English default is translated via
+// t("stages.<key>"); a custom stage or a renamed system stage keeps its stored
+// name. This lets default stages follow the language toggle while a dealer's own
+// rename shows exactly as typed.
+export function stageLabel(t: (k: string) => string, stage: StageLike | null | undefined): string {
+  if (!stage) return "";
+  const sk = stage.system_key;
+  const enStages = (enLocale as { stages?: Record<string, string> }).stages;
+  if (sk && enStages && enStages[sk] && stage.name === enStages[sk]) {
+    const key = `stages.${sk}`;
+    const tr = t(key);
+    return tr === key ? stage.name : tr;
+  }
+  return stage.name;
+}
+
+// Same, when a call site only has the stage NAME (resolves system_key from the
+// loaded stages list).
+export function stageLabelByName(
+  t: (k: string) => string,
+  stages: StageLike[] | undefined | null,
+  name: string | null | undefined,
+): string {
+  if (!name) return "";
+  const st = stages?.find((s) => s.name === name);
+  return st ? stageLabel(t, st) : name;
 }
 
 // Org-wide date format (set in Settings > General). Cached in localStorage so the

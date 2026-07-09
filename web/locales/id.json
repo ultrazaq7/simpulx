@@ -46,6 +46,7 @@
   "settings": {
     "general": "Umum",
     "custom_fields": "Custom Fields",
+    "pipeline_stages": "Tahap Pipeline",
     "workspace": "Ruang Kerja",
     "workspace_id": "ID Ruang Kerja",
     "workspace_name": "Nama ruang kerja",
@@ -207,5 +208,15 @@
     "sourceIdCopied": "Source ID disalin",
     "viewDetails": "Lihat detail",
     "chat": "Obrolan"
+  },
+  "stages": {
+    "new": "Prospek Baru",
+    "contacted": "Dihubungi",
+    "qualified": "Memenuhi Syarat",
+    "appointment": "Janji Temu",
+    "test_drive": "Negosiasi",
+    "booking": "Pembelian",
+    "lost_not_purchase": "Kalah",
+    "lost_purchase": "Kalah (Beli di Tempat Lain)"
   }
 }

@@ -8,7 +8,7 @@ import {
 
 import { api, getUser } from "@/lib/api";
 import { usePermissions } from "@/lib/permissions";
-import { initials, channelColor, channelTextColor, channelLabel, avatarColor, fmtDate, fmtDateTimeShort, fmtExportTs, cn } from "@/lib/utils";
+import { initials, channelColor, channelTextColor, channelLabel, avatarColor, fmtDate, fmtDateTimeShort, fmtExportTs, cn, stageLabelByName } from "@/lib/utils";
 import type { Contact, Agent, Campaign, Message, Stage, Conversation, Disposition, CustomField } from "@/lib/types";
 import { Tip } from "@/components/ui/tooltip";
 import MessageBubble, { rewriteLocalMedia } from "@/app/(app)/inbox/components/MessageBubble";
@@ -516,7 +516,7 @@ export default function ContactsPage() {
                         />
                       </div>
                     ) : c.stage_name ? (
-                      <span className="inline-flex px-2 py-0.5 rounded-md text-[11px] font-semibold bg-primary/10 text-primary">{c.stage_name}</span>
+                      <span className="inline-flex px-2 py-0.5 rounded-md text-[11px] font-semibold bg-primary/10 text-primary">{stageLabelByName(t, stages, c.stage_name)}</span>
                     ) : <span className="text-muted-foreground">-</span>}
                   </td>
                   )}

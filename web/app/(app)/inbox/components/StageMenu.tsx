@@ -2,8 +2,9 @@
 import { useState, useRef, useEffect } from "react";
 import { createPortal } from "react-dom";
 import { ChevronDown, Check, XCircle } from "lucide-react";
-import { cn } from "@/lib/utils";
+import { cn, stageLabel } from "@/lib/utils";
 import { useEscClose } from "@/lib/useEscClose";
+import { useI18n } from "@/lib/i18n";
 import type { Stage } from "@/lib/types";
 
 // --- Stage color map (semantic data colors) ---
@@ -37,6 +38,7 @@ export function StageMenu({
   onMarkOutcome: () => void;
   align?: "left" | "right";
 }) {
+  const { t } = useI18n();
   const [open, setOpen] = useState(false);
   const [pos, setPos] = useState<{ top: number; left: number } | null>(null);
   const btnRef = useRef<HTMLButtonElement>(null);
@@ -66,7 +68,7 @@ export function StageMenu({
         className="flex items-center gap-1.5 px-2.5 h-8 rounded-l-md text-[13px] font-semibold text-foreground hover:bg-muted transition-colors outline-none"
       >
         <span className="w-2.5 h-2.5 rounded-full shrink-0" style={{ backgroundColor: current ? getDotColor(current.name) : "hsl(var(--muted-foreground))" }} />
-        {current?.name || "Select stage"}
+        {current ? stageLabel(t, current) : "Select stage"}
         <ChevronDown className="w-3.5 h-3.5 text-muted-foreground" />
       </button>
 
@@ -88,7 +90,7 @@ export function StageMenu({
                 className="w-full flex items-center gap-2 px-3 py-2 text-[13px] font-medium text-foreground/90 hover:bg-muted outline-none"
               >
                 <span className="w-2.5 h-2.5 rounded-full shrink-0" style={{ backgroundColor: getDotColor(s.name) }} />
-                {s.name}
+                {stageLabel(t, s)}
                 {s.id === currentStageId && <Check className="w-4 h-4 text-primary ml-auto" />}
               </button>
             ))}
