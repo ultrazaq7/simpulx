@@ -172,6 +172,7 @@ func main() {
 	})
 
 	// ── Auth ──
+	mux.HandleFunc("POST /public/account-deletion", authRL(s.handleAccountDeletionRequest))
 	mux.HandleFunc("POST /auth/login", authRL(s.handleLogin))
 	mux.HandleFunc("POST /auth/forgot-password", authRL(s.handleForgotPassword))
 	mux.HandleFunc("POST /public/account-deletion", authRL(s.handleAccountDeletionRequest))
