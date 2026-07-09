@@ -3,7 +3,7 @@ import { useEffect, useMemo, useRef, useState } from "react";
 import { useRouter } from "next/navigation";
 import {
   Search, UserPlus, Download, Pencil, ChevronsLeft, ChevronsRight, ChevronLeft, ChevronRight,
-  Users, User, X, XCircle, Loader2, Tag as TagIcon, MoreVertical, MessageSquare, Trash2, Upload, ChevronDown, Eye, Ban, Copy, Check,
+  Users, User, X, XCircle, Loader2, Tag as TagIcon, MoreVertical, MessageSquare, Trash2, Upload, ChevronDown, Eye, Ban, Copy, Check, SlidersHorizontal,
 } from "lucide-react";
 
 import { api, getUser } from "@/lib/api";
@@ -39,6 +39,36 @@ function interestColor(level?: string | null): string {
   return level === "hot" ? "#EF4444" : level === "warm" ? "#F59E0B" : level === "cold" ? "#3B82F6" : "#9CA3AF";
 }
 
+// Buy-potential heat: green (high) / amber (mid) / grey (low).
+function scoreColor(n: number): string {
+  return n >= 70 ? "#2D8B73" : n >= 40 ? "#F59E0B" : "#9CA3AF";
+}
+
+// Toggleable table columns (Name and Actions are always shown). The picker
+// defaults to the lead-focused set; metadata columns start hidden. The choice
+// persists per browser in localStorage.
+type ColKey =
+  | "phone" | "stage" | "interest" | "score" | "agent" | "campaign" | "source"
+  | "source_id" | "source_url" | "labels" | "channel" | "created" | "updated" | "blacklisted";
+const CONTACT_COLUMNS: { key: ColKey; label: string; def: boolean }[] = [
+  { key: "phone", label: "Phone", def: true },
+  { key: "stage", label: "Stage", def: true },
+  { key: "interest", label: "Interest", def: true },
+  { key: "score", label: "Lead score", def: true },
+  { key: "agent", label: "Agent", def: true },
+  { key: "campaign", label: "Campaign", def: true },
+  { key: "source", label: "Source", def: true },
+  { key: "source_id", label: "Source ID", def: false },
+  { key: "source_url", label: "Source URL", def: false },
+  { key: "labels", label: "Labels", def: true },
+  { key: "channel", label: "Channel", def: false },
+  { key: "created", label: "Created", def: true },
+  { key: "updated", label: "Updated", def: false },
+  { key: "blacklisted", label: "Blacklisted", def: false },
+];
+const CONTACT_COLS_KEY = "simpulx_contact_cols";
+const DEFAULT_COLS = CONTACT_COLUMNS.filter((c) => c.def).map((c) => c.key);
+
 import { useI18n } from "@/lib/i18n";
 
 export default function ContactsPage() {
@@ -64,7 +94,17 @@ export default function ContactsPage() {
   const [orgTz, setOrgTz] = useState<string>("");
   const [selected, setSelected] = useState<Set<string>>(new Set());
   const [bulkBusy, setBulkBusy] = useState(false);
+  const [visibleCols, setVisibleCols] = useState<Set<string>>(() => new Set(DEFAULT_COLS));
+  const [colsMenuOpen, setColsMenuOpen] = useState(false);
   const importRef = useRef<HTMLInputElement>(null);
+  const show = (k: ColKey) => visibleCols.has(k);
+  const colCount = 3 + visibleCols.size; // select + name + actions are always shown
+  const toggleCol = (k: ColKey) => setVisibleCols((s) => {
+    const n = new Set(s);
+    if (n.has(k)) n.delete(k); else n.add(k);
+    try { localStorage.setItem(CONTACT_COLS_KEY, JSON.stringify([...n])); } catch { /* ignore */ }
+    return n;
+  });
 
   const router = useRouter();
   const { can } = usePermissions();
@@ -161,11 +201,22 @@ export default function ContactsPage() {
       reload();
     } catch { setToast("Could not update"); }
   }
-  // Close row / add menus on outside click.
+  // Close row / add / columns menus on outside click.
   useEffect(() => {
-    const onDoc = () => { setMenuId(null); setAddMenuOpen(false); };
+    const onDoc = () => { setMenuId(null); setAddMenuOpen(false); setColsMenuOpen(false); };
     window.addEventListener("click", onDoc);
     return () => window.removeEventListener("click", onDoc);
+  }, []);
+
+  // Restore the saved column visibility (client-only, so it never mismatches SSR).
+  useEffect(() => {
+    try {
+      const raw = localStorage.getItem(CONTACT_COLS_KEY);
+      if (raw) {
+        const keys = (JSON.parse(raw) as string[]).filter((k) => CONTACT_COLUMNS.some((c) => c.key === k));
+        setVisibleCols(new Set(keys));
+      }
+    } catch { /* ignore */ }
   }, []);
 
   const tagOptions = useMemo(() => {
@@ -296,6 +347,27 @@ export default function ContactsPage() {
           {showCampaignFilter && <MultiSelect value={filterCampaigns} onChange={setFilterCampaigns} placeholder={t("common.allCampaigns")} options={campaignOptions} className="w-[160px]" />}
           {activeFilters > 0 && <button onClick={clearFilters} className="text-[11px] font-semibold text-primary hover:underline outline-none">{t("common.clear")}</button>}
           <div className="flex-1" />
+          <div className="relative inline-flex" onClick={(e) => e.stopPropagation()}>
+            <button onClick={() => setColsMenuOpen((o) => !o)} className="inline-flex items-center gap-1.5 px-3 h-9 rounded-md border border-border bg-background text-[13px] font-medium text-foreground hover:bg-muted outline-none transition-colors">
+              <SlidersHorizontal className="w-4 h-4 text-muted-foreground" />Columns
+            </button>
+            {colsMenuOpen && (
+              <div className="absolute right-0 top-full mt-1 w-56 bg-popover border border-border rounded-lg shadow-xl z-50 py-1.5 animate-scale-in origin-top-right max-h-[70vh] overflow-auto">
+                <div className="flex items-center justify-between px-3 py-1">
+                  <span className="text-[11px] font-bold uppercase tracking-wider text-muted-foreground">Columns</span>
+                  <button onClick={() => { setVisibleCols(new Set(DEFAULT_COLS)); try { localStorage.setItem(CONTACT_COLS_KEY, JSON.stringify(DEFAULT_COLS)); } catch { /* ignore */ } }} className="text-[11px] font-semibold text-primary hover:underline outline-none">Reset</button>
+                </div>
+                {CONTACT_COLUMNS.map((col) => (
+                  <button key={col.key} onClick={() => toggleCol(col.key)} className="w-full flex items-center gap-2.5 px-3 py-1.5 text-[13px] text-foreground hover:bg-muted outline-none">
+                    <span className={cn("w-4 h-4 rounded border grid place-items-center shrink-0", show(col.key) ? "bg-primary border-primary text-white" : "border-input")}>
+                      {show(col.key) && <Check className="w-3 h-3" />}
+                    </span>
+                    {col.label}
+                  </button>
+                ))}
+              </div>
+            )}
+          </div>
           {canCreate && (
             <div className="relative inline-flex" onClick={(e) => e.stopPropagation()}>
               <button onClick={() => setModal({ mode: "add" })} className="inline-flex items-center gap-2 px-3.5 h-9 bg-primary text-white rounded-l-md text-sm font-semibold hover:bg-primary-dark shadow-sm transition-all outline-none">
@@ -339,15 +411,29 @@ export default function ContactsPage() {
             <thead className="sticky top-0 z-10">
               <tr className="border-b border-border bg-muted">
                 <TH className="w-10"><span className="sr-only">Select</span><input type="checkbox" aria-label="Select all contacts" className="rounded border-input accent-primary" checked={paged.length > 0 && paged.every((c) => selected.has(c.id))} onChange={(e) => setSelected((s) => { const n = new Set(s); if (e.target.checked) paged.forEach((c) => n.add(c.id)); else paged.forEach((c) => n.delete(c.id)); return n; })} /></TH>
-                <TH>{t("contacts.contactName")}</TH><TH>{t("contacts.phone")}</TH><TH>{t("contacts.stage")}</TH><TH>{t("contacts.interest")}</TH><TH>{t("contacts.agent")}</TH><TH>{t("settings.campaigns")}</TH><TH>{t("contacts.source")}</TH><TH>Source ID</TH><TH>Source URL</TH>
-                <TH>Labels</TH><TH>Channel</TH><TH>{t("contacts.created")}</TH><TH>Updated</TH><TH>Blacklisted</TH><TH className="text-right">{t("common.actions")}</TH>
+                <TH>{t("contacts.contactName")}</TH>
+                {show("phone") && <TH>{t("contacts.phone")}</TH>}
+                {show("stage") && <TH>{t("contacts.stage")}</TH>}
+                {show("interest") && <TH>{t("contacts.interest")}</TH>}
+                {show("score") && <TH>Lead score</TH>}
+                {show("agent") && <TH>{t("contacts.agent")}</TH>}
+                {show("campaign") && <TH>{t("settings.campaigns")}</TH>}
+                {show("source") && <TH>{t("contacts.source")}</TH>}
+                {show("source_id") && <TH>Source ID</TH>}
+                {show("source_url") && <TH>Source URL</TH>}
+                {show("labels") && <TH>Labels</TH>}
+                {show("channel") && <TH>Channel</TH>}
+                {show("created") && <TH>{t("contacts.created")}</TH>}
+                {show("updated") && <TH>Updated</TH>}
+                {show("blacklisted") && <TH>Blacklisted</TH>}
+                <TH className="text-right">{t("common.actions")}</TH>
               </tr>
             </thead>
             <tbody>
               {loading ? Array(8).fill(0).map((_, i) => (
-                <tr key={i}><td colSpan={16} className="px-3 py-2"><div className="h-9 skeleton rounded-md" /></td></tr>
+                <tr key={i}><td colSpan={colCount} className="px-3 py-2"><div className="h-9 skeleton rounded-md" /></td></tr>
               )) : paged.length === 0 ? (
-                <tr><td colSpan={16} className="text-center py-16">
+                <tr><td colSpan={colCount} className="text-center py-16">
                   <div className="w-12 h-12 rounded-xl bg-muted grid place-items-center mx-auto mb-3"><Users className="w-6 h-6 text-muted-foreground/50" /></div>
                   <p className="font-semibold text-foreground mb-0.5">{t("contacts.noContactsFound")}</p>
                   <p className="text-sm text-muted-foreground">{query || activeFilters ? "Try different filters." : "New contacts will appear here."}</p>
@@ -364,7 +450,8 @@ export default function ContactsPage() {
                       <button onClick={() => router.push(`/contacts/${c.id}`)} className="font-semibold text-[13px] text-foreground truncate max-w-[180px] text-left hover:text-primary hover:underline outline-none">{c.full_name || c.phone || "Unknown"}</button>
                     </div>
                   </td>
-                  <td className="px-3 py-2 font-medium text-foreground/90 tabular-nums whitespace-nowrap">{c.phone || "-"}</td>
+                  {show("phone") && <td className="px-3 py-2 font-medium text-foreground/90 tabular-nums whitespace-nowrap">{c.phone || "-"}</td>}
+                  {show("stage") && (
                   <td className="px-3 py-2 whitespace-nowrap">
                     {canEdit && c.conversation_id ? (
                       <div className="inline-flex items-center h-7 rounded-md border border-border bg-background overflow-hidden">
@@ -379,6 +466,8 @@ export default function ContactsPage() {
                       <span className="inline-flex px-2 py-0.5 rounded-md text-[11px] font-semibold bg-primary/10 text-primary">{c.stage_name}</span>
                     ) : <span className="text-muted-foreground">-</span>}
                   </td>
+                  )}
+                  {show("interest") && (
                   <td className="px-3 py-2 whitespace-nowrap">
                     {canEdit && c.conversation_id ? (
                       <Select value={c.interest_level || ""} searchable={false} onChange={(v) => setInterest(c, v)} className="w-[104px]"
@@ -388,6 +477,16 @@ export default function ContactsPage() {
                         style={{ backgroundColor: interestColor(c.interest_level) + "1A", color: interestColor(c.interest_level) }}>{c.interest_level}</span>
                     ) : <span className="text-muted-foreground">-</span>}
                   </td>
+                  )}
+                  {show("score") && (
+                  <td className="px-3 py-2 whitespace-nowrap">
+                    {typeof c.lead_score === "number" ? (
+                      <span className="inline-flex px-2 py-0.5 rounded-md text-[11px] font-bold tabular-nums"
+                        style={{ backgroundColor: scoreColor(c.lead_score) + "1A", color: scoreColor(c.lead_score) }}>{c.lead_score}</span>
+                    ) : <span className="text-muted-foreground">-</span>}
+                  </td>
+                  )}
+                  {show("agent") && (
                   <td className="px-3 py-2 text-foreground/80 whitespace-nowrap">
                     {showAgentFilter && c.conversation_id ? (
                       <AgentAssignCell
@@ -399,8 +498,10 @@ export default function ContactsPage() {
                       />
                     ) : (c.agent_name || <span className="text-muted-foreground">{t("common.unassigned")}</span>)}
                   </td>
-                  <td className="px-3 py-2 text-foreground/80 whitespace-nowrap">{c.campaign_name || <span className="text-muted-foreground">-</span>}</td>
-                  <td className="px-3 py-2 text-foreground/80 whitespace-nowrap">{sourceLabel(c)}</td>
+                  )}
+                  {show("campaign") && <td className="px-3 py-2 text-foreground/80 whitespace-nowrap">{c.campaign_name || <span className="text-muted-foreground">-</span>}</td>}
+                  {show("source") && <td className="px-3 py-2 text-foreground/80 whitespace-nowrap">{sourceLabel(c)}</td>}
+                  {show("source_id") && (
                   <td className="px-3 py-2 whitespace-nowrap">
                     {c.source_id ? (
                       <span className="inline-flex items-center gap-1.5">
@@ -409,9 +510,13 @@ export default function ContactsPage() {
                       </span>
                     ) : <span className="text-muted-foreground">-</span>}
                   </td>
+                  )}
+                  {show("source_url") && (
                   <td className="px-3 py-2 whitespace-nowrap">
                     {c.source_url ? <a href={c.source_url} target="_blank" rel="noreferrer" className="text-[12px] text-primary hover:underline">Link</a> : <span className="text-muted-foreground">-</span>}
                   </td>
+                  )}
+                  {show("labels") && (
                   <td className="px-3 py-2">
                     {(c.tags && c.tags.length) ? (
                       <div className="flex flex-wrap gap-1 max-w-[160px]">
@@ -422,19 +527,24 @@ export default function ContactsPage() {
                       </div>
                     ) : <span className="text-muted-foreground">-</span>}
                   </td>
+                  )}
+                  {show("channel") && (
                   <td className="px-3 py-2 whitespace-nowrap">
                     <span className="inline-flex px-2 py-0.5 rounded-md text-[11px] font-semibold"
                       style={{ backgroundColor: channelColor(c.source_channel) + "15", color: channelTextColor(c.source_channel) }}>
                       {c.channel_name || channelLabel(c.source_channel)}
                     </span>
                   </td>
-                  <td className="px-3 py-2 text-muted-foreground text-[12px] whitespace-nowrap">{fmtDateTimeShort(c.created_at)}</td>
-                  <td className="px-3 py-2 text-muted-foreground text-[12px] whitespace-nowrap">{c.updated_at ? fmtDateTimeShort(c.updated_at) : "-"}</td>
+                  )}
+                  {show("created") && <td className="px-3 py-2 text-muted-foreground text-[12px] whitespace-nowrap">{fmtDateTimeShort(c.created_at)}</td>}
+                  {show("updated") && <td className="px-3 py-2 text-muted-foreground text-[12px] whitespace-nowrap">{c.updated_at ? fmtDateTimeShort(c.updated_at) : "-"}</td>}
+                  {show("blacklisted") && (
                   <td className="px-3 py-2">
                     <span className={cn("inline-flex px-2 py-0.5 rounded-md text-[11px] font-semibold", c.blacklisted ? "bg-red-50 text-red-600" : "bg-muted text-muted-foreground")}>
                       {c.blacklisted ? t("common.yes") : t("common.no")}
                     </span>
                   </td>
+                  )}
                   <td className="px-3 py-2 text-right">
                     <div className="relative inline-block" onClick={(e) => e.stopPropagation()}>
                       <button aria-label="Contact actions" onClick={() => setMenuId(menuId === c.id ? null : c.id)} className="p-1.5 rounded-md hover:bg-muted text-muted-foreground hover:text-foreground outline-none transition-colors"><MoreVertical className="w-4 h-4" /></button>
