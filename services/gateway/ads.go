@@ -1506,3 +1506,108 @@ func (s *server) handleMetaAdsCallback(w http.ResponseWriter, r *http.Request) {
 	appBase := config.Get("APP_BASE_URL", "http://localhost:3000")
 	http.Redirect(w, r, appBase+"/settings/channels?connected=meta", http.StatusTemporaryRedirect)
 }
+
+// -- TikTok Ads OAuth ---------------------------------------
+
+func (s *server) handleTikTokAdsConnect(w http.ResponseWriter, r *http.Request) {
+	a, _ := authFrom(r.Context())
+	if a.OrgID == "" {
+		http.Error(w, "unauthorized", http.StatusUnauthorized)
+		return
+	}
+
+	var body struct {
+		AdvertiserID string `json:"advertiser_id"`
+		Name         string `json:"name"`
+	}
+	if err := json.NewDecoder(r.Body).Decode(&body); err != nil || body.AdvertiserID == "" {
+		http.Error(w, "bad request", http.StatusBadRequest)
+		return
+	}
+
+	stateID := uuid.New().String()
+	b, _ := json.Marshal(oauthState{OrgID: a.OrgID, UserID: a.UserID, CustomerID: body.AdvertiserID, Name: body.Name})
+	s.rdb.Set(r.Context(), "oauth:tiktokads:"+stateID, b, 15*time.Minute)
+
+	appID := os.Getenv("TIKTOK_APP_ID")
+	redirectURI := os.Getenv("TIKTOK_REDIRECT_URL")
+
+	url := fmt.Sprintf("https://business-api.tiktok.com/portal/auth?app_id=%s&state=%s&redirect_uri=%s",
+		appID, stateID, url.QueryEscape(redirectURI))
+
+	writeJSON(w, map[string]string{"url": url})
+}
+
+func (s *server) handleTikTokAdsCallback(w http.ResponseWriter, r *http.Request) {
+	code := r.URL.Query().Get("auth_code")
+	stateID := r.URL.Query().Get("state")
+	if code == "" || stateID == "" {
+		http.Error(w, "missing auth_code or state", http.StatusBadRequest)
+		return
+	}
+
+	val, err := s.rdb.Get(r.Context(), "oauth:tiktokads:"+stateID).Result()
+	if err != nil {
+		http.Error(w, "invalid or expired state", http.StatusBadRequest)
+		return
+	}
+	var st oauthState
+	json.Unmarshal([]byte(val), &st)
+
+	appID := os.Getenv("TIKTOK_APP_ID")
+	secret := os.Getenv("TIKTOK_APP_SECRET")
+
+	bodyBytes, _ := json.Marshal(map[string]string{
+		"app_id":    appID,
+		"secret":    secret,
+		"auth_code": code,
+	})
+
+	req, _ := http.NewRequest("POST", "https://business-api.tiktok.com/open_api/v1.3/oauth2/access_token/", bytes.NewReader(bodyBytes))
+	req.Header.Set("Content-Type", "application/json")
+
+	resp, err := http.DefaultClient.Do(req)
+	if err != nil {
+		http.Error(w, "failed to get token: "+err.Error(), http.StatusInternalServerError)
+		return
+	}
+	defer resp.Body.Close()
+
+	var res struct {
+		Code int `json:"code"`
+		Data struct {
+			AccessToken          string `json:"access_token"`
+			AdvertiserIDs        []string `json:"advertiser_ids"`
+		} `json:"data"`
+		Message string `json:"message"`
+	}
+	if err := json.NewDecoder(resp.Body).Decode(&res); err != nil {
+		http.Error(w, "failed to decode response", http.StatusInternalServerError)
+		return
+	}
+	if res.Code != 0 || res.Data.AccessToken == "" {
+		http.Error(w, "tiktok oauth error: "+res.Message, http.StatusBadRequest)
+		return
+	}
+
+	cfg, _ := json.Marshal(map[string]any{})
+	var id string
+	err = s.pool.QueryRow(r.Context(),
+		`INSERT INTO ad_accounts (organization_id, platform, external_account_id, name, access_token, config)
+		 VALUES ($1,'tiktok',$2,$3,$4,$5)
+		 ON CONFLICT (organization_id, platform, external_account_id)
+		 DO UPDATE SET access_token = EXCLUDED.access_token, name = COALESCE(NULLIF(EXCLUDED.name,''), ad_accounts.name),
+		               config = EXCLUDED.config, status='connected', last_error=NULL
+		 RETURNING id::text`,
+		st.OrgID, st.CustomerID, st.Name, res.Data.AccessToken, cfg).Scan(&id)
+
+	if err != nil {
+		http.Error(w, "db error: "+err.Error(), http.StatusInternalServerError)
+		return
+	}
+
+	go s.syncAccount(context.Background(), id, st.OrgID, "tiktok")
+
+	s.rdb.Del(r.Context(), "oauth:tiktokads:"+stateID)
+	http.Redirect(w, r, "https://app.simpulx.com/settings/channels?success=tiktok_ads_connected", http.StatusTemporaryRedirect)
+}

@@ -529,6 +529,8 @@ export const api = {
     req<{ url: string }>("/api/auth/google-ads/connect", { method: "POST", body: JSON.stringify({ customer_id, name }) }),
   connectMetaAds: (account_id: string, name?: string) =>
     req<{ url: string }>("/api/auth/meta-ads/connect", { method: "POST", body: JSON.stringify({ account_id, name }) }),
+  connectTikTokAds: (advertiser_id: string, name?: string) =>
+    req<{ url: string }>("/api/auth/tiktok-ads/connect", { method: "POST", body: JSON.stringify({ advertiser_id, name }) }),
   updateAdAccount: (id: string, patch: { name?: string; external_account_id?: string; access_token?: string }) =>
     req<{ status: string }>(`/api/ad-accounts/${id}`, { method: "PATCH", body: JSON.stringify(patch) }),
   deleteAdAccount: (id: string) => req<void>(`/api/ad-accounts/${id}`, { method: "DELETE" }),
