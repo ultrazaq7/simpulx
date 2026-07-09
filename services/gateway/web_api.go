@@ -2,6 +2,7 @@ package main
 
 import (
 	"encoding/json"
+	"fmt"
 	"net/http"
 	"strings"
 
@@ -164,17 +165,67 @@ func (s *server) handleDeleteWebAPISource(w http.ResponseWriter, r *http.Request
 // contact, attributes it to the source, opens a conversation, and (if the
 // source is mapped to a campaign) routes round-robin to a campaign agent.
 func (s *server) handleIngestLead(w http.ResponseWriter, r *http.Request) {
-	key := r.Header.Get("X-API-Key")
-	if key == "" {
-		http.Error(w, "missing X-API-Key", http.StatusUnauthorized)
+	var payload map[string]any
+	if err := json.NewDecoder(r.Body).Decode(&payload); err != nil {
+		http.Error(w, "invalid json payload", http.StatusBadRequest)
 		return
 	}
-	var b struct {
-		Phone   string `json:"phone"`
-		Name    string `json:"name"`
-		Message string `json:"message"`
+
+	// 1. Extract API Key (Header > Query > Payload)
+	key := r.Header.Get("X-API-Key")
+	if key == "" {
+		key = r.URL.Query().Get("key")
 	}
-	if err := json.NewDecoder(r.Body).Decode(&b); err != nil || b.Phone == "" {
+	if key == "" {
+		key = r.URL.Query().Get("api_key")
+	}
+	if key == "" {
+		if k, ok := payload["google_key"].(string); ok {
+			key = k
+		}
+	}
+	if key == "" {
+		http.Error(w, "missing API Key", http.StatusUnauthorized)
+		return
+	}
+
+	// 2. Extract Phone, Name, Message
+	var phone, name, message string
+
+	// Check if this is a Google Ads Lead Form payload
+	if ucd, ok := payload["user_column_data"].([]any); ok {
+		for _, colAny := range ucd {
+			col, ok := colAny.(map[string]any)
+			if !ok {
+				continue
+			}
+			colName, _ := col["column_name"].(string)
+			colVal, _ := col["string_value"].(string)
+			colName = strings.ToLower(colName)
+			if strings.Contains(colName, "phone") {
+				phone = colVal
+			} else if strings.Contains(colName, "name") {
+				name = colVal
+			}
+		}
+		// Google Ads doesn't typically send a custom "message" field, but we can store campaign info
+		if formID, ok := payload["form_id"]; ok {
+			message = fmt.Sprintf("Lead from Google Ads Form ID: %v", formID)
+		}
+	} else {
+		// Standard Simpulx Payload
+		if p, ok := payload["phone"].(string); ok {
+			phone = p
+		}
+		if n, ok := payload["name"].(string); ok {
+			name = n
+		}
+		if m, ok := payload["message"].(string); ok {
+			message = m
+		}
+	}
+
+	if phone == "" {
 		http.Error(w, "phone required", http.StatusBadRequest)
 		return
 	}
@@ -200,7 +251,7 @@ func (s *server) handleIngestLead(w http.ResponseWriter, r *http.Request) {
 		 DO UPDATE SET full_name = COALESCE(NULLIF(EXCLUDED.full_name,''), contacts.full_name),
 		               web_api_source_id = EXCLUDED.web_api_source_id, updated_at = now()
 		 RETURNING id::text`,
-		orgID, b.Phone, b.Name, srcID, slug).Scan(&contactID)
+		orgID, phone, name, srcID, slug).Scan(&contactID)
 	if err != nil {
 		http.Error(w, err.Error(), http.StatusInternalServerError)
 		return
@@ -219,7 +270,7 @@ func (s *server) handleIngestLead(w http.ResponseWriter, r *http.Request) {
 			 VALUES ($1,$2,'web_api','open',true) RETURNING id::text`,
 			orgID, contactID).Scan(&convID)
 	}
-	msg := b.Message
+	msg := message
 	if msg == "" {
 		msg = "New lead from " + slug
 	}
