@@ -219,7 +219,7 @@
     "appointment": "Appointment",
     "test_drive": "Negotiation",
     "booking": "Purchase",
-    "lost_not_purchase": "Lost",
-    "lost_purchase": "Lost (Bought Elsewhere)"
+    "lost_not_purchase": "Lost Not Purchase",
+    "lost_purchase": "Lost Purchase"
   }
 }

@@ -2,15 +2,32 @@
 
 import { useState } from "react";
 
+const API = process.env.NEXT_PUBLIC_API_URL || "http://localhost:8080";
+
 export default function DeleteAccountPage() {
   const [email, setEmail] = useState("");
   const [reason, setReason] = useState("");
   const [submitted, setSubmitted] = useState(false);
+  const [submitting, setSubmitting] = useState(false);
+  const [error, setError] = useState("");
 
-  const handleSubmit = (e: React.FormEvent) => {
+  const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
-    // In production, this would send a request to the backend
-    setSubmitted(true);
+    setError("");
+    setSubmitting(true);
+    try {
+      const res = await fetch(`${API}/public/account-deletion`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ email: email.trim(), reason: reason.trim() }),
+      });
+      if (!res.ok) throw new Error((await res.text()) || "Request failed");
+      setSubmitted(true);
+    } catch {
+      setError("Could not submit your request. Please email support@simpulx.com to delete your account.");
+    } finally {
+      setSubmitting(false);
+    }
   };
 
   return (
@@ -187,21 +204,27 @@ export default function DeleteAccountPage() {
               to cancel the request.
             </p>
 
+            {error && (
+              <p style={{ fontSize: 13, color: "#DC2626", margin: "0 0 12px", lineHeight: 1.5 }}>
+                {error}
+              </p>
+            )}
             <button
               type="submit"
+              disabled={submitting}
               style={{
                 width: "100%",
                 padding: "12px",
-                background: "#DC2626",
+                background: submitting ? "#F87171" : "#DC2626",
                 color: "#fff",
                 border: "none",
                 borderRadius: 8,
                 fontSize: 14,
                 fontWeight: 600,
-                cursor: "pointer",
+                cursor: submitting ? "not-allowed" : "pointer",
               }}
             >
-              Request Account Deletion
+              {submitting ? "Submitting…" : "Request Account Deletion"}
             </button>
           </form>
         ) : (

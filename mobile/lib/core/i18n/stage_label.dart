@@ -12,8 +12,8 @@ const Map<String, String> _stageId = {
   'Appointment': 'Janji Temu',
   'Negotiation': 'Negosiasi',
   'Purchase': 'Pembelian',
-  'Lost': 'Batal Tidak Pembelian',
-  'Lost (Bought Elsewhere)': 'Batal Pembelian',
+  'Lost Not Purchase': 'Batal Tidak Pembelian',
+  'Lost Purchase': 'Batal Pembelian',
 };
 
 /// Localized display name for a pipeline stage (null/empty safe).

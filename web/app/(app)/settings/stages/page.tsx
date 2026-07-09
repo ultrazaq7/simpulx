@@ -111,7 +111,7 @@ export default function StagesPage() {
   return (
     <div className="px-6 py-6 w-full h-full overflow-auto">
       {ToastHost}
-      <div className="max-w-3xl mx-auto flex flex-col gap-5">
+      <div className="w-full flex flex-col gap-5">
         {canEdit && (
           <div className="flex justify-end">
             <PrimaryButton onClick={() => setDlg({ open: true, editing: null })}><Plus className="w-4 h-4" />Add stage</PrimaryButton>
