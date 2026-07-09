@@ -1,0 +1,38 @@
+name: iOS Build
+
+# Builds the Flutter iOS app on a GitHub-hosted macOS runner (Xcode preinstalled),
+# so iOS can be compiled/verified without a local Mac. Runs on demand and on
+# mobile changes. Signing + TestFlight upload is a separate job below, gated on
+# whether the Apple secrets are configured (so the verify build always runs).
+
+on:
+  workflow_dispatch:
+  push:
+    branches: [main]
+    paths:
+      - "mobile/**"
+      - ".github/workflows/ios.yml"
+
+jobs:
+  verify:
+    name: Build (no codesign)
+    runs-on: macos-latest
+    defaults:
+      run:
+        working-directory: mobile
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: subosito/flutter-action@v2
+        with:
+          flutter-version: "3.41.9"
+          channel: stable
+          cache: true
+
+      - run: flutter --version
+      - run: flutter pub get
+
+      # iOS has a single Runner scheme (no per-flavor schemes like Android), so we
+      # don't pass --flavor; the prod endpoint is selected via the Dart define.
+      - name: Build iOS (release, unsigned)
+        run: flutter build ios --release --no-codesign --dart-define=FLAVOR=prod
