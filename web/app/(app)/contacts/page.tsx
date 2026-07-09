@@ -619,9 +619,9 @@ export default function ContactsPage() {
         </div>
 
         {/* Pagination */}
-        <div className="flex items-center py-3 px-4 border-t border-border shrink-0">
-          <span className="text-[13px] font-semibold text-muted-foreground tabular-nums">{filtered.length} contact{filtered.length === 1 ? "" : "s"}</span>
-          <div className="flex-1 flex justify-center items-center gap-1">
+        <div className="flex flex-wrap items-center gap-2 py-3 px-4 border-t border-border shrink-0">
+          <span className="text-[13px] font-semibold text-muted-foreground tabular-nums shrink-0">{filtered.length} contact{filtered.length === 1 ? "" : "s"}</span>
+          <div className="flex-1 flex justify-center items-center gap-1 min-w-[160px]">
             <button aria-label="First page" disabled={page <= 1} onClick={() => setPage(1)} className="p-1 rounded-md text-muted-foreground hover:bg-muted disabled:opacity-30 outline-none"><ChevronsLeft className="w-[18px] h-[18px]" /></button>
             <button aria-label="Previous page" disabled={page <= 1} onClick={() => setPage(page - 1)} className="p-1 rounded-md text-muted-foreground hover:bg-muted disabled:opacity-30 outline-none"><ChevronLeft className="w-[18px] h-[18px]" /></button>
             <span className="px-3 py-1 rounded-md border border-primary/40 text-primary text-[13px] font-bold min-w-[32px] text-center tabular-nums">{page}</span>
@@ -629,7 +629,7 @@ export default function ContactsPage() {
             <button aria-label="Next page" disabled={page >= totalPages} onClick={() => setPage(page + 1)} className="p-1 rounded-md text-muted-foreground hover:bg-muted disabled:opacity-30 outline-none"><ChevronRight className="w-[18px] h-[18px]" /></button>
             <button aria-label="Last page" disabled={page >= totalPages} onClick={() => setPage(totalPages)} className="p-1 rounded-md text-muted-foreground hover:bg-muted disabled:opacity-30 outline-none"><ChevronsRight className="w-[18px] h-[18px]" /></button>
           </div>
-          <div className="flex items-center gap-2">
+          <div className="hidden sm:flex items-center gap-2">
             <span className="text-[13px] text-muted-foreground">Per page</span>
             <Select value={String(rowsPerPage)} onChange={(v) => { setRowsPerPage(Number(v)); setPage(1); }}
               options={[50, 100, 200, 500].map((n) => ({ value: String(n), label: String(n) }))} className="w-[88px]" align="right" searchable={false} />

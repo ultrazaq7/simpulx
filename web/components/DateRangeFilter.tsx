@@ -105,7 +105,7 @@ export default function DateRangeFilter({ value, onChange, align = "left" }: {
         {label}<ChevronDown className="w-4 h-4 text-muted-foreground" />
       </button>
       {open && (
-        <div className={cn("absolute z-50 mt-1.5 w-[300px] rounded-xl border border-border bg-popover shadow-xl p-2", align === "right" ? "right-0" : "left-0")}>
+        <div className={cn("absolute z-50 mt-1.5 w-[300px] max-w-[calc(100vw-2rem)] rounded-xl border border-border bg-popover shadow-xl p-2", autoAlign === "right" ? "right-0" : "left-0")}>
           <div className="flex flex-col">
             {PRESETS.map(([k, l]) => (
               <button key={k} onClick={() => choosePreset(k)}

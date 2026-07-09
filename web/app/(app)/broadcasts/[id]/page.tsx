@@ -330,9 +330,9 @@ function MessagesTab({ recipients, name }: { recipients: BroadcastRecipient[]; n
         </div>
 
         {/* pagination */}
-        <div className="flex items-center py-3 px-4 border-t border-border shrink-0">
-          <span className="text-[13px] font-semibold text-muted-foreground tabular-nums">{filtered.length} recipient{filtered.length === 1 ? "" : "s"}</span>
-          <div className="flex-1 flex justify-center items-center gap-1">
+        <div className="flex flex-wrap items-center gap-2 py-3 px-4 border-t border-border shrink-0">
+          <span className="text-[13px] font-semibold text-muted-foreground tabular-nums shrink-0">{filtered.length} recipient{filtered.length === 1 ? "" : "s"}</span>
+          <div className="flex-1 flex justify-center items-center gap-1 min-w-[160px]">
             <button disabled={page <= 1} onClick={() => setPage(1)} className="p-1 rounded-md text-muted-foreground hover:bg-muted hover:text-foreground disabled:opacity-30 disabled:cursor-not-allowed outline-none transition-colors"><ChevronsLeft className="w-[18px] h-[18px]" /></button>
             <button disabled={page <= 1} onClick={() => setPage(page - 1)} className="p-1 rounded-md text-muted-foreground hover:bg-muted hover:text-foreground disabled:opacity-30 disabled:cursor-not-allowed outline-none transition-colors"><ChevronLeft className="w-[18px] h-[18px]" /></button>
             <span className="px-3 py-1 rounded-md border border-primary/40 text-primary text-[13px] font-bold min-w-[32px] text-center tabular-nums">{page}</span>
@@ -340,7 +340,7 @@ function MessagesTab({ recipients, name }: { recipients: BroadcastRecipient[]; n
             <button disabled={page >= totalPages} onClick={() => setPage(page + 1)} className="p-1 rounded-md text-muted-foreground hover:bg-muted hover:text-foreground disabled:opacity-30 disabled:cursor-not-allowed outline-none transition-colors"><ChevronRight className="w-[18px] h-[18px]" /></button>
             <button disabled={page >= totalPages} onClick={() => setPage(totalPages)} className="p-1 rounded-md text-muted-foreground hover:bg-muted hover:text-foreground disabled:opacity-30 disabled:cursor-not-allowed outline-none transition-colors"><ChevronsRight className="w-[18px] h-[18px]" /></button>
           </div>
-          <div className="flex items-center gap-2">
+          <div className="hidden sm:flex items-center gap-2">
             <span className="text-[13px] text-muted-foreground">Per page</span>
             <Select value={String(perPage)} onChange={(v) => setPerPage(Number(v))} align="right" className="w-[76px]"
               options={[25, 50, 100].map((n) => ({ value: String(n), label: String(n) }))} />
