@@ -5,6 +5,7 @@ import 'package:go_router/go_router.dart';
 import '../../../../app/theme/app_colors.dart';
 import '../../../../core/error/failure.dart';
 import '../../../../core/i18n/i18n.dart';
+import '../../../../core/i18n/stage_label.dart';
 import '../../../../core/realtime/realtime_client.dart';
 import '../../../../core/realtime/realtime_providers.dart';
 import '../../../../core/session/session_controller.dart';
@@ -251,7 +252,7 @@ class _ChatListPageState extends ConsumerState<ChatListPage> {
                             ),
                             for (final stage in stages)
                               ChoiceChip(
-                                label: Text(stage.name),
+                                label: Text(stageLabel(context, stage.name)),
                                 selected: filter.stageName == stage.name,
                                 onSelected: (_) => ref
                                     .read(inboxFilterProvider.notifier)

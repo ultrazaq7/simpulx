@@ -5,6 +5,7 @@ import 'package:go_router/go_router.dart';
 
 import '../../../../app/theme/app_colors.dart';
 import '../../../../core/error/failure.dart';
+import '../../../../core/i18n/stage_label.dart';
 import '../../../../core/widgets/entrance_fade.dart';
 import '../../../../core/session/session_controller.dart';
 import '../../../../core/widgets/app_error_view.dart';
@@ -413,7 +414,7 @@ class _StageSplitCard extends StatelessWidget {
         children: [
           Container(width: 8, height: 8, decoration: BoxDecoration(color: color, shape: BoxShape.circle)),
           const SizedBox(width: 8),
-          Expanded(child: Text(s.name, style: const TextStyle(fontSize: 13, fontWeight: FontWeight.w500))),
+          Expanded(child: Text(stageLabel(context, s.name), style: const TextStyle(fontSize: 13, fontWeight: FontWeight.w500))),
           SizedBox(
             width: 100,
             child: ClipRRect(

@@ -6,6 +6,7 @@ import 'package:url_launcher/url_launcher.dart';
 
 import '../../../../app/theme/app_colors.dart';
 import '../../../../app/theme/app_spacing.dart';
+import '../../../../core/i18n/stage_label.dart';
 import '../../../../core/utils/time_format.dart';
 import '../../../../core/widgets/app_loader.dart';
 import '../../../../core/widgets/app_snackbar.dart';
@@ -373,7 +374,7 @@ class _LeadContextCard extends StatelessWidget {
       child: Column(
         children: [
           // ── Lead qualification (AI-generated), matching the web ──
-          _row(context, 'Stage', c.stageName ?? 'Unset'),
+          _row(context, 'Stage', c.stageName != null ? stageLabel(context, c.stageName) : 'Unset'),
           if (c.lostReason != null && c.lostReason!.isNotEmpty)
             _row(context, 'Lost reason',
                 c.lostReason![0].toUpperCase() + c.lostReason!.substring(1).replaceAll('_', ' ')),

@@ -4,6 +4,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import '../../../../app/theme/app_colors.dart';
 import '../../../../core/i18n/i18n.dart';
+import '../../../../core/i18n/stage_label.dart';
 import '../../../../core/session/session_controller.dart';
 import '../../../../core/widgets/app_snackbar.dart';
 import '../../domain/entities/conversation.dart';
@@ -56,7 +57,7 @@ class _ActionsSheet extends ConsumerWidget {
                 ListTile(
                   title: Text(live.displayName,
                       style: const TextStyle(fontWeight: FontWeight.w700)),
-                  subtitle: Text(live.stageName ?? 'No stage'),
+                  subtitle: Text(live.stageName != null ? stageLabel(context, live.stageName) : 'No stage'.tr(context)),
                   trailing: actions.busy
                       ? const SizedBox(
                           width: 18,
@@ -88,7 +89,7 @@ class _ActionsSheet extends ConsumerWidget {
                   leading: const Icon(Icons.timeline_rounded,
                       color: AppColors.primary),
                   title: Text('Move stage'.tr(context)),
-                  subtitle: Text(live.stageName ?? 'Not set'.tr(context)),
+                  subtitle: Text(live.stageName != null ? stageLabel(context, live.stageName) : 'Not set'.tr(context)),
                   onTap: () => _pickStage(context, ref, actions, convId, live),
                 ),
                 // The lost reason sits right under the stage while the lead is in
@@ -220,7 +221,7 @@ class _ActionsSheet extends ConsumerWidget {
                             ? AppColors.primary
                             : AppColors.textMuted,
                       ),
-                      title: Text(s.name),
+                      title: Text(stageLabel(context, s.name)),
                       selected: s.name == conversation.stageName,
                       onTap: () {
                         ref
@@ -347,7 +348,7 @@ class _ActionsSheet extends ConsumerWidget {
                             ? AppColors.primary
                             : AppColors.textMuted,
                       ),
-                      title: Text(s.name),
+                      title: Text(stageLabel(context, s.name)),
                       onTap: () => _do(context, sheetContext,
                           actions.closeWithStage(s.id), 'Closed as ${s.name}'),
                     ),

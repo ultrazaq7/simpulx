@@ -4,6 +4,7 @@ import 'package:go_router/go_router.dart';
 
 import '../../../../app/theme/app_colors.dart';
 import '../../../../core/error/failure.dart';
+import '../../../../core/i18n/stage_label.dart';
 import '../../../../core/session/session_controller.dart';
 import '../../../../core/widgets/app_empty_state.dart';
 import '../../../../core/widgets/app_error_view.dart';
@@ -233,7 +234,7 @@ class _ContactsPageState extends ConsumerState<ContactsPage> {
                           ),
                           for (final s in stages)
                             ChoiceChip(
-                              label: Text(s.name),
+                              label: Text(stageLabel(context, s.name)),
                               selected: _stage == s.name,
                               onSelected: (_) =>
                                   update(() => _stage = s.name),

@@ -303,7 +303,7 @@ function StageSplit({ stages, lost }: { stages?: Analytics["stages"]; lost?: num
           className="group/st flex items-center gap-3 px-2 py-2 mt-1 pt-2.5 border-t border-border/60 rounded-md hover:bg-muted transition-colors"
         >
           <span className="w-2.5 h-2.5 rounded-full shrink-0" style={{ backgroundColor: "#EF4444" }} />
-          <span className="text-sm font-medium flex-1 text-foreground/90">{t("stages.lost_not_purchase")}</span>
+          <span className="text-sm font-medium flex-1 text-foreground/90">{t("dashboard.stageLost")}</span>
           <div className="flex-[2]"><ProgressBar value={total > 0 ? (lostCount / total) * 100 : 0} color="#EF4444" /></div>
           <span className="text-sm font-bold min-w-[28px] text-right tabular-nums" style={{ color: "#EF4444" }}>{lostCount}</span>
           <ChevronRight className="w-4 h-4 text-muted-foreground/40 group-hover/st:text-muted-foreground shrink-0" />
