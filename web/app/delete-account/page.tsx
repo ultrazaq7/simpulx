@@ -16,7 +16,7 @@ export default function DeleteAccountPage() {
     setError("");
     setSubmitting(true);
     try {
-      const res = await fetch(`${API}/public/account-deletion`, {
+      const res = await fetch(`${API}/api/public/account-deletion`, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ email: email.trim(), reason: reason.trim() }),
