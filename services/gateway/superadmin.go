@@ -196,6 +196,12 @@ func (s *server) handleCreateOrg(w http.ResponseWriter, r *http.Request) {
 		http.Error(w, "could not create owner (email may already be in use): "+err.Error(), http.StatusBadRequest)
 		return
 	}
+	// Seed the default pipeline + outcome dispositions so the new org has a
+	// working inbox/CRM from the first login (see migration 0086).
+	if _, err := tx.Exec(r.Context(), `SELECT seed_org_pipeline($1::uuid)`, orgID); err != nil {
+		http.Error(w, "could not seed pipeline: "+err.Error(), http.StatusInternalServerError)
+		return
+	}
 	if err := tx.Commit(r.Context()); err != nil {
 		http.Error(w, err.Error(), http.StatusInternalServerError)
 		return
