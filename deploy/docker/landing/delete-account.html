@@ -1,0 +1,186 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Delete Account - Simpulx</title>
+    <meta name="description" content="Request account deletion for Simpulx.">
+    <link rel="icon" type="image/png" href="/favicon.png">
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&display=swap" rel="stylesheet">
+    <style>
+        *, *::before, *::after { margin: 0; padding: 0; box-sizing: border-box; }
+        :root {
+            --bg: #07120F;
+            --bg-2: #0A1A16;
+            --card: #0F2420;
+            --green: #2D8B73;
+            --green-light: #3FBE9E;
+            --amber: #F5A623;
+            --text: #EAF2F0;
+            --muted: #8FA8A4;
+            --border: #1B342F;
+            --danger: #DC2626;
+            --danger-bg: #450a0a;
+            --danger-border: #7f1d1d;
+        }
+        body {
+            font-family: 'Inter', -apple-system, sans-serif;
+            background: var(--bg); color: var(--text); line-height: 1.6;
+            -webkit-font-smoothing: antialiased;
+            display: flex; flex-direction: column; min-height: 100vh;
+        }
+        a { text-decoration: none; color: inherit; }
+        
+        nav { padding: 20px 0; border-bottom: 1px solid var(--border); background: var(--bg-2); }
+        .nav-inner { max-width: 1120px; margin: 0 auto; padding: 0 24px; display: flex; align-items: center; justify-content: space-between; }
+        .nav-brand { display: flex; align-items: center; gap: 10px; font-weight: 800; font-size: 20px; letter-spacing: -0.02em; }
+        .nav-brand img { width: 30px; height: 30px; border-radius: 8px; }
+        .accent { color: var(--amber); }
+        
+        main { flex: 1; display: flex; align-items: center; justify-content: center; padding: 60px 24px; position: relative; overflow: hidden; }
+        
+        .glow { position: absolute; border-radius: 50%; filter: blur(120px); opacity: 0.3; z-index: 0; pointer-events: none; }
+        .glow.g1 { width: 500px; height: 500px; background: rgba(45,139,115,0.4); top: -100px; left: 50%; transform: translateX(-50%); }
+
+        .card { 
+            position: relative; z-index: 1; max-width: 520px; width: 100%;
+            background: var(--card); border: 1px solid var(--border);
+            border-radius: 16px; padding: 48px 40px;
+            box-shadow: 0 25px 50px rgba(0,0,0,0.5);
+        }
+
+        .header { text-align: center; margin-bottom: 32px; }
+        .icon-box { 
+            width: 48px; height: 48px; border-radius: 12px; background: var(--green);
+            display: inline-flex; align-items: center; justify-content: center; margin-bottom: 16px;
+        }
+        h1 { font-size: 24px; font-weight: 700; margin-bottom: 8px; }
+        .desc { font-size: 14px; color: var(--muted); }
+
+        .warning-box {
+            background: var(--danger-bg); border: 1px solid var(--danger-border);
+            border-radius: 10px; padding: 16px 20px; margin-bottom: 24px;
+        }
+        .warning-box h3 { font-size: 13px; font-weight: 600; color: #fca5a5; margin-bottom: 8px; }
+        .warning-box ul { font-size: 13px; color: #fecaca; margin: 0; padding-left: 20px; line-height: 1.8; }
+
+        .form-group { margin-bottom: 16px; }
+        label { display: block; font-size: 14px; font-weight: 500; color: var(--text); margin-bottom: 6px; }
+        input, textarea {
+            width: 100%; padding: 12px 14px; background: rgba(255,255,255,0.05);
+            border: 1px solid var(--border); border-radius: 8px; color: var(--text);
+            font-size: 14px; outline: none; font-family: inherit; transition: border-color .2s;
+        }
+        input:focus, textarea:focus { border-color: var(--green-light); }
+        textarea { resize: vertical; min-height: 80px; }
+
+        .retention { font-size: 12px; color: var(--muted); margin: 20px 0; line-height: 1.6; }
+        .retention a { color: var(--green-light); }
+
+        .btn {
+            display: block; width: 100%; padding: 14px; background: var(--danger);
+            color: #fff; border: none; border-radius: 8px; font-size: 14px; font-weight: 600;
+            cursor: pointer; transition: background .2s; text-align: center;
+        }
+        .btn:hover { background: #b91c1c; }
+
+        .success-state { display: none; text-align: center; padding: 20px 0; }
+        .success-icon {
+            width: 64px; height: 64px; border-radius: 50%; background: rgba(45,139,115,0.2);
+            display: inline-flex; align-items: center; justify-content: center; margin-bottom: 16px;
+        }
+        .success-state h2 { font-size: 20px; font-weight: 600; margin-bottom: 8px; }
+        .success-state p { font-size: 14px; color: var(--muted); }
+
+        footer { text-align: center; padding: 24px 0; border-top: 1px solid var(--border); }
+        .foot-copy { font-size: 12px; color: var(--muted); }
+        .foot-copy a { color: var(--green-light); }
+        
+        @media (max-width: 480px) { .card { padding: 32px 24px; } }
+    </style>
+</head>
+<body>
+    <nav>
+        <div class="nav-inner">
+            <a href="/" class="nav-brand"><img src="/favicon.png" alt="Simpulx"><span>Simpul<span class="accent">x</span></span></a>
+            <a href="/" style="font-size:14px; color:var(--muted); font-weight:500;">Back to Home</a>
+        </div>
+    </nav>
+
+    <main>
+        <div class="glow g1"></div>
+        <div class="card">
+            <div id="form-state">
+                <div class="header">
+                    <div class="icon-box">
+                        <svg width="24" height="24" viewBox="0 0 24 24" fill="none">
+                            <path d="M20 6L9 17L4 12" stroke="white" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round"/>
+                        </svg>
+                    </div>
+                    <h1>Delete Your Simpulx Account</h1>
+                    <p class="desc">Submitting this form will initiate the deletion of your account and all associated data.</p>
+                </div>
+
+                <form id="deleteForm">
+                    <div class="warning-box">
+                        <h3>⚠️ The following data will be permanently deleted:</h3>
+                        <ul>
+                            <li>Your profile and account credentials</li>
+                            <li>All conversation history and messages</li>
+                            <li>Contacts and customer data</li>
+                            <li>Campaign and broadcast history</li>
+                            <li>Uploaded media and files</li>
+                        </ul>
+                    </div>
+
+                    <div class="form-group">
+                        <label for="email">Email address associated with your account *</label>
+                        <input type="email" id="email" required placeholder="you@example.com">
+                    </div>
+
+                    <div class="form-group">
+                        <label for="reason">Reason for leaving (optional)</label>
+                        <textarea id="reason" placeholder="Tell us why you're leaving..."></textarea>
+                    </div>
+
+                    <p class="retention">
+                        Your deletion request will be processed within 30 days. During this period, you may contact 
+                        <a href="mailto:support@simpulx.com">support@simpulx.com</a> to cancel the request.
+                    </p>
+
+                    <button type="submit" class="btn">Request Account Deletion</button>
+                </form>
+            </div>
+
+            <div id="success-state" class="success-state">
+                <div class="success-icon">
+                    <svg width="32" height="32" viewBox="0 0 24 24" fill="none">
+                        <path d="M20 6L9 17L4 12" stroke="#3FBE9E" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round"/>
+                    </svg>
+                </div>
+                <h2>Request Submitted</h2>
+                <p>We've received your deletion request for <strong id="submitted-email"></strong>. Your account and data will be deleted within 30 days. You'll receive a confirmation email once the process is complete.</p>
+            </div>
+        </div>
+    </main>
+
+    <footer>
+        <div class="foot-copy">
+            &copy; <span id="year"></span> Simpulx. All rights reserved. &middot; <a href="/privacy.html">Privacy Policy</a>
+        </div>
+    </footer>
+
+    <script>
+        document.getElementById('year').textContent = new Date().getFullYear();
+        document.getElementById('deleteForm').addEventListener('submit', function(e) {
+            e.preventDefault();
+            const email = document.getElementById('email').value;
+            document.getElementById('submitted-email').textContent = email;
+            document.getElementById('form-state').style.display = 'none';
+            document.getElementById('success-state').style.display = 'block';
+        });
+    </script>
+</body>
+</html>
