@@ -66,7 +66,7 @@ class ChatRemoteDataSource {
         ApiEndpoints.messages(conversationId),
         queryParameters: {
           'limit': limit,
-          if (cursor != null) 'cursor': cursor,
+          'cursor': ?cursor,
         },
       );
       final map = (res.data as Map).cast<String, dynamic>();
@@ -234,11 +234,11 @@ class ChatRemoteDataSource {
       await _dio.patch(
         ApiEndpoints.conversation(conversationId),
         data: {
-          if (stageId != null) 'stage_id': stageId,
-          if (dispositionId != null) 'disposition_id': dispositionId,
-          if (interestLevel != null) 'interest_level': interestLevel,
-          if (status != null) 'status': status,
-          if (lostReason != null) 'lost_reason': lostReason,
+          'stage_id': ?stageId,
+          'disposition_id': ?dispositionId,
+          'interest_level': ?interestLevel,
+          'status': ?status,
+          'lost_reason': ?lostReason,
         },
       );
     } on DioException catch (e) {
@@ -255,8 +255,7 @@ class ChatRemoteDataSource {
       _post(ApiEndpoints.assign(conversationId), {
         if (unassign)
           'unassign': true
-        else if (agentId != null)
-          'agent_id': agentId,
+        else 'agent_id': ?agentId,
       });
 
   Future<void> snooze(String conversationId, DateTime until) => _post(

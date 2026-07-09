@@ -32,7 +32,7 @@ Future<void> showMediaViewer(
   return Navigator.of(context, rootNavigator: true).push(
     PageRouteBuilder<void>(
       opaque: true,
-      pageBuilder: (_, anim, __) => FadeTransition(
+      pageBuilder: (_, anim, _) => FadeTransition(
         opacity: anim,
         child: _MediaGallery(items: items, initialIndex: startIdx),
       ),
@@ -261,7 +261,7 @@ class _MediaPage extends StatelessWidget {
                   child: CircularProgressIndicator(
                       strokeWidth: 2, color: Colors.white),
                 ),
-                errorWidget: (_, _, _) => const Column(
+                errorWidget: (_, _, _) => Column(
                   mainAxisSize: MainAxisSize.min,
                   mainAxisAlignment: MainAxisAlignment.center,
                   children: [

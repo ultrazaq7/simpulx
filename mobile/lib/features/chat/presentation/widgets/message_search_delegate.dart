@@ -65,7 +65,7 @@ class MessageSearchDelegate extends SearchDelegate<Message?> {
   @override
   Widget buildResults(BuildContext context) {
     if (query.trim().isEmpty && _filterDate == null) {
-      return const Center(child: Text('Type to search or select a date'.tr(context)));
+      return Center(child: Text('Type to search or select a date'.tr(context)));
     }
 
     final repo = ref.read(chatRepositoryProvider);
@@ -77,16 +77,16 @@ class MessageSearchDelegate extends SearchDelegate<Message?> {
           return const Center(child: CircularProgressIndicator());
         }
         if (snapshot.hasError) {
-          return const Center(child: Text('Error searching messages'.tr(context)));
+          return Center(child: Text('Error searching messages'.tr(context)));
         }
         final result = snapshot.data;
         if (result == null || result.isErr) {
-          return const Center(child: Text('Could not load results'.tr(context)));
+          return Center(child: Text('Could not load results'.tr(context)));
         }
 
         final messages = result.valueOrNull ?? [];
         if (messages.isEmpty) {
-          return const Center(child: Text('No messages found'.tr(context)));
+          return Center(child: Text('No messages found'.tr(context)));
         }
 
         return ListView.builder(
@@ -105,6 +105,6 @@ class MessageSearchDelegate extends SearchDelegate<Message?> {
 
   @override
   Widget buildSuggestions(BuildContext context) {
-    return const Center(child: Text('Search by text or date'.tr(context)));
+    return Center(child: Text('Search by text or date'.tr(context)));
   }
 }

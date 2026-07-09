@@ -203,7 +203,7 @@ class _ActionsSheet extends ConsumerWidget {
               padding: EdgeInsets.all(24),
               child: Center(child: CircularProgressIndicator(strokeWidth: 2)),
             ),
-            error: (_, _) => const Padding(
+            error: (_, _) => Padding(
               padding: EdgeInsets.all(24),
               child: Text('Could not load stages'.tr(context)),
             ),
@@ -317,7 +317,7 @@ class _ActionsSheet extends ConsumerWidget {
               padding: EdgeInsets.all(24),
               child: Center(child: CircularProgressIndicator(strokeWidth: 2)),
             ),
-            error: (_, _) => const Padding(
+            error: (_, _) => Padding(
               padding: EdgeInsets.all(24),
               child: Text('Could not load stages'.tr(context)),
             ),
@@ -325,13 +325,13 @@ class _ActionsSheet extends ConsumerWidget {
               child: ListView(
                 shrinkWrap: true,
                 children: [
-                  const Padding(
+                  Padding(
                     padding: EdgeInsets.fromLTRB(16, 4, 16, 4),
                     child: Text('Close as'.tr(context),
                         style: TextStyle(
                             fontSize: 16, fontWeight: FontWeight.w700)),
                   ),
-                  const Padding(
+                  Padding(
                     padding: EdgeInsets.fromLTRB(16, 0, 16, 8),
                     child: Text('Choose the final stage to close this lead.'.tr(context),
                         style: TextStyle(
@@ -466,7 +466,7 @@ class _ActionsSheet extends ConsumerWidget {
               return ListView(
                 controller: scrollController,
                 children: [
-                  const Padding(
+                  Padding(
                     padding: EdgeInsets.fromLTRB(20, 4, 20, 12),
                     child: Text('Why is this lead lost?'.tr(context),
                         style: TextStyle(fontSize: 17, fontWeight: FontWeight.w700)),
@@ -548,7 +548,7 @@ class _ActionsSheet extends ConsumerWidget {
               padding: EdgeInsets.all(24),
               child: Center(child: CircularProgressIndicator(strokeWidth: 2)),
             ),
-            error: (_, _) => const Padding(
+            error: (_, _) => Padding(
               padding: EdgeInsets.all(24),
               child: Text('Could not load agents'.tr(context)),
             ),

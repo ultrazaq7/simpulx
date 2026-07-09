@@ -259,7 +259,7 @@ class _ChatListPageState extends ConsumerState<ChatListPage> {
                           ],
                         ),
                         loading: () => const CircularProgressIndicator(),
-                        error: (_, __) => Text('Failed to load stages'.tr(context)),
+                        error: (_, _) => Text('Failed to load stages'.tr(context)),
                       );
                     },
                   ),
@@ -441,21 +441,21 @@ class _ChatListPageState extends ConsumerState<ChatListPage> {
                       });
                     },
                     itemBuilder: (context) => [
-                      const PopupMenuItem(
+                      PopupMenuItem(
                           value: 'Phone',
                           child: Row(children: [
                             Icon(Icons.phone_outlined, size: 20),
                             SizedBox(width: 12),
                             Text('Phone'.tr(context))
                           ])),
-                      const PopupMenuItem(
+                      PopupMenuItem(
                           value: 'Name',
                           child: Row(children: [
                             Icon(Icons.person_outline_rounded, size: 20),
                             SizedBox(width: 12),
                             Text('Name'.tr(context))
                           ])),
-                      const PopupMenuItem(
+                      PopupMenuItem(
                           value: 'Messages',
                           child: Row(children: [
                             Icon(Icons.chat_bubble_outline_rounded, size: 20),

@@ -704,7 +704,7 @@ class _PdfPreviewState extends State<_PdfPreview> {
       final cacheDir = await getTemporaryDirectory();
       final uri = Uri.tryParse(widget.url);
       final fileName = uri?.pathSegments.last ?? widget.url.hashCode.toString();
-      final imgPath = '${cacheDir.path}/preview_${fileName}.png';
+      final imgPath = '${cacheDir.path}/preview_$fileName.png';
       
       if (File(imgPath).existsSync()) {
         if (mounted) setState(() { _imagePath = imgPath; _loading = false; });

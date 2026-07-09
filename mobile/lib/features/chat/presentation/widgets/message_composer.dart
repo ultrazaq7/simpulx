@@ -2,15 +2,14 @@ import 'dart:async';
 
 import 'package:cached_network_image/cached_network_image.dart';
 import 'package:flutter/material.dart';
-import 'package:flutter/services.dart';
 import '../../../../core/utils/haptics.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import '../../../../app/theme/app_colors.dart';
+import '../../../../core/i18n/i18n.dart';
 import '../../../../core/network/api_endpoints.dart';
 import '../../../../core/providers/app_providers.dart';
 import '../../domain/entities/lead_lookups.dart';
-import '../../../../core/utils/time_format.dart';
 import '../../../../core/widgets/app_snackbar.dart';
 import '../controllers/chat_actions_providers.dart';
 import '../controllers/chat_providers.dart';
@@ -399,8 +398,8 @@ class _QuickReplyPopup extends ConsumerWidget {
             onTap: () => showCreateShortcut(context, ref),
           ),
           if (matches.isEmpty)
-            const Padding(
-              padding: EdgeInsets.symmetric(vertical: 14),
+            Padding(
+              padding: const EdgeInsets.symmetric(vertical: 14),
               child: Center(
                 child: Text('No shortcuts yet, add one above.'.tr(context),
                     style: TextStyle(color: AppColors.textSecondary)),

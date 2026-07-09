@@ -201,8 +201,8 @@ class _CustomCameraPageState extends State<CustomCameraPage> {
                 ),
                 
                 // Instructions
-                const Padding(
-                  padding: EdgeInsets.only(bottom: 16),
+                Padding(
+                  padding: const EdgeInsets.only(bottom: 16),
                   child: Text('Hold for video, tap for photo'.tr(context),
                     style: TextStyle(color: Colors.white70, fontSize: 12),
                   ),

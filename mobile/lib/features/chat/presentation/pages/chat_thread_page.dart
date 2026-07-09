@@ -11,7 +11,6 @@ import 'package:url_launcher/url_launcher.dart';
 
 import '../../../../app/theme/app_colors.dart';
 import '../../../../core/i18n/i18n.dart';
-import '../../../../core/utils/haptics.dart';
 import '../../../../core/utils/time_format.dart';
 import '../../../../core/widgets/app_error_view.dart';
 import '../../../../core/widgets/app_skeleton.dart';
@@ -19,7 +18,6 @@ import '../../../../core/widgets/app_snackbar.dart';
 import '../../../calls/presentation/call_controller.dart';
 import '../../domain/entities/conversation.dart';
 import '../../domain/entities/message.dart';
-import '../../domain/repositories/chat_repository.dart';
 import '../controllers/chat_providers.dart';
 import '../controllers/chat_thread_controller.dart';
 import '../controllers/conversation_list_controller.dart';
@@ -356,7 +354,7 @@ class _ChatThreadPageState extends ConsumerState<ChatThreadPage>
                   );
                 }
                 if (s.isEmpty) {
-                  return const Center(
+                  return Center(
                     child: Padding(
                       padding: EdgeInsets.all(24),
                       child: Text('No messages yet. Say hello!'.tr(context),

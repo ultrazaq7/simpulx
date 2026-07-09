@@ -130,7 +130,7 @@ class _NotesSheetState extends ConsumerState<_NotesSheet> {
           padding: const EdgeInsets.fromLTRB(16, 8, 8, 8),
           child: Row(
             children: [
-              const Expanded(
+              Expanded(
                 child: Text('Internal notes'.tr(context),
                     style: TextStyle(fontSize: 16, fontWeight: FontWeight.w700)),
               ),

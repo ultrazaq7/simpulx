@@ -443,7 +443,7 @@ class _Window24hBadge extends StatelessWidget {
         color: AppColors.hot,
         borderRadius: BorderRadius.circular(20),
       ),
-      child: const Row(
+      child: Row(
         mainAxisSize: MainAxisSize.min,
         children: [
           Icon(Icons.schedule_rounded, size: 10, color: Colors.white),
