@@ -499,9 +499,11 @@ object NotificationHelper {
     }
 
     /**
-     * Plain reminder/alert notification (follow-up, snooze, bell). Uses a STABLE
-     * id per (type + conversation) so repeated/duplicate pushes collapse into one
-     * instead of stacking, and tapping opens the conversation (or dashboard).
+     * Reminder/alert notification (follow-up, snooze, lead-ready). Rendered with
+     * the SAME MessagingStyle + avatar-left + merged app badge as the chat and
+     * call notifications, so every Simpulx notification looks consistent — just
+     * without the Reply/Mark-read actions (it's an alert, not a message). Keeps a
+     * STABLE id per (type + conversation) so duplicate pushes collapse into one.
      */
     fun showAlertNotification(
         context: Context,
@@ -512,13 +514,41 @@ object NotificationHelper {
     ) {
         ensureChannel(context)
 
+        val name = title.ifBlank { "Simpulx" }
         val route = if (chatId.isNotEmpty()) "/chat/$chatId" else "/dashboard"
+
+        // Same avatar-left + app-badge-overlay conversation rendering as chat.
+        val avatar = generateInitialAvatar(name)
+        val person = Person.Builder()
+            .setName(name)
+            .setIcon(IconCompat.createWithBitmap(avatar))
+            .setImportant(true)
+            .build()
+
+        val shortcutId = if (chatId.isNotEmpty()) "chat_$chatId" else "alert_$type"
+        val shortcut = ShortcutInfoCompat.Builder(context, shortcutId)
+            .setLongLived(true)
+            .setShortLabel(name)
+            .setIcon(IconCompat.createWithBitmap(avatar))
+            .setIntent(
+                Intent(context, MainActivity::class.java)
+                    .setAction(Intent.ACTION_VIEW)
+                    .putExtra("chat_id", chatId)
+            )
+            .setPerson(person)
+            .setCategories(setOf("com.simpulx.app.category.SHARE_TARGET"))
+            .build()
+        ShortcutManagerCompat.pushDynamicShortcut(context, shortcut)
+
+        val style = NotificationCompat.MessagingStyle(Person.Builder().setName("You").build())
+            .addMessage(body.ifEmpty { "New update" }, System.currentTimeMillis(), person)
+
+        val stableId = (type + ":" + chatId).hashCode()
         val tapIntent = Intent(context, MainActivity::class.java).apply {
             action = "com.simpulx.app.ACTION_TAP_NOTIFICATION"
             flags = Intent.FLAG_ACTIVITY_SINGLE_TOP or Intent.FLAG_ACTIVITY_CLEAR_TOP
             putExtra("route", route)
         }
-        val stableId = (type + ":" + chatId).hashCode()
         val contentIntent = PendingIntent.getActivity(
             context, stableId, tapIntent,
             PendingIntent.FLAG_UPDATE_CURRENT or PendingIntent.FLAG_IMMUTABLE
@@ -526,9 +556,8 @@ object NotificationHelper {
 
         val notification = NotificationCompat.Builder(context, CHANNEL_ID)
             .setSmallIcon(R.drawable.ic_notification)
-            .setContentTitle(title.ifEmpty { "Simpulx" })
-            .setContentText(body)
-            .setStyle(NotificationCompat.BigTextStyle().bigText(body))
+            .setShortcutId(shortcutId)
+            .setStyle(style)
             .setCategory(NotificationCompat.CATEGORY_REMINDER)
             .setPriority(NotificationCompat.PRIORITY_HIGH)
             .setAutoCancel(true)
