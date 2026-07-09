@@ -1396,3 +1396,113 @@ func (s *server) handleGoogleAdsCallback(w http.ResponseWriter, r *http.Request)
 	appBase := config.Get("APP_BASE_URL", "http://localhost:3000")
 	http.Redirect(w, r, appBase+"/settings/channels?connected=google", http.StatusTemporaryRedirect)
 }
+
+
+// -- Meta Ads OAuth -----------------------------------------
+
+func (s *server) handleMetaAdsConnect(w http.ResponseWriter, r *http.Request) {
+	a, _ := authFrom(r.Context())
+	if a.OrgID == "" {
+		http.Error(w, "unauthorized", http.StatusUnauthorized)
+		return
+	}
+
+	var body struct {
+		AccountID string `json:"account_id"`
+		Name      string `json:"name"`
+	}
+	if err := json.NewDecoder(r.Body).Decode(&body); err != nil || body.AccountID == "" {
+		http.Error(w, "bad request", http.StatusBadRequest)
+		return
+	}
+
+	stateID := uuid.New().String()
+	b, _ := json.Marshal(oauthState{OrgID: a.OrgID, UserID: a.UserID, CustomerID: body.AccountID, Name: body.Name})
+	s.rdb.Set(r.Context(), "oauth:metaads:"+stateID, b, 15*time.Minute)
+
+	clientID := os.Getenv("META_CLIENT_ID")
+	redirectURI := os.Getenv("META_REDIRECT_URL")
+
+	// Graph API OAuth URL
+	url := fmt.Sprintf("https://www.facebook.com/v19.0/dialog/oauth?client_id=%s&redirect_uri=%s&state=%s&scope=%s",
+		clientID, url.QueryEscape(redirectURI), stateID, url.QueryEscape("ads_read,leads_retrieval,pages_show_list,pages_manage_ads"))
+
+	writeJSON(w, map[string]string{"url": url})
+}
+
+func (s *server) handleMetaAdsCallback(w http.ResponseWriter, r *http.Request) {
+	code := r.URL.Query().Get("code")
+	stateID := r.URL.Query().Get("state")
+	if code == "" || stateID == "" {
+		http.Error(w, "missing code or state", http.StatusBadRequest)
+		return
+	}
+
+	b, err := s.rdb.Get(r.Context(), "oauth:metaads:"+stateID).Bytes()
+	if err != nil {
+		http.Error(w, "invalid or expired state", http.StatusBadRequest)
+		return
+	}
+	var state oauthState
+	json.Unmarshal(b, &state)
+
+	clientID := os.Getenv("META_CLIENT_ID")
+	clientSecret := os.Getenv("META_APP_SECRET")
+	redirectURI := os.Getenv("META_REDIRECT_URL")
+
+	// 1. Exchange code for short-lived token
+	tokenURL := fmt.Sprintf("https://graph.facebook.com/v19.0/oauth/access_token?client_id=%s&redirect_uri=%s&client_secret=%s&code=%s",
+		clientID, url.QueryEscape(redirectURI), clientSecret, code)
+
+	resp, err := http.Get(tokenURL)
+	if err != nil {
+		http.Error(w, "failed to exchange token", http.StatusInternalServerError)
+		return
+	}
+	defer resp.Body.Close()
+
+	var tokenResp struct {
+		AccessToken string `json:"access_token"`
+	}
+	if err := json.NewDecoder(resp.Body).Decode(&tokenResp); err != nil || tokenResp.AccessToken == "" {
+		http.Error(w, "failed to get access token", http.StatusBadRequest)
+		return
+	}
+
+	// 2. Exchange for long-lived token
+	longTokenURL := fmt.Sprintf("https://graph.facebook.com/v19.0/oauth/access_token?grant_type=fb_exchange_token&client_id=%s&client_secret=%s&fb_exchange_token=%s",
+		clientID, clientSecret, tokenResp.AccessToken)
+	resp2, err := http.Get(longTokenURL)
+	if err != nil {
+		http.Error(w, "failed to get long-lived token", http.StatusInternalServerError)
+		return
+	}
+	defer resp2.Body.Close()
+
+	var longTokenResp struct {
+		AccessToken string `json:"access_token"`
+	}
+	if err := json.NewDecoder(resp2.Body).Decode(&longTokenResp); err == nil && longTokenResp.AccessToken != "" {
+		tokenResp.AccessToken = longTokenResp.AccessToken
+	}
+
+	cfg, _ := json.Marshal(map[string]any{})
+	var id string
+	err = s.pool.QueryRow(r.Context(),
+		`INSERT INTO ad_accounts (organization_id, platform, external_account_id, name, access_token, config)
+		 VALUES ($1,'meta',$2,$3,$4,$5)
+		 ON CONFLICT (organization_id, platform, external_account_id)
+		 DO UPDATE SET access_token = EXCLUDED.access_token, name = COALESCE(NULLIF(EXCLUDED.name,''), ad_accounts.name),
+		               config = EXCLUDED.config, status='connected', last_error=NULL
+		 RETURNING id::text`,
+		state.OrgID, state.CustomerID, state.Name, tokenResp.AccessToken, cfg).Scan(&id)
+	if err != nil {
+		http.Error(w, err.Error(), http.StatusInternalServerError)
+		return
+	}
+
+	go s.syncAccount(context.Background(), id, state.OrgID, "meta")
+
+	appBase := config.Get("APP_BASE_URL", "http://localhost:3000")
+	http.Redirect(w, r, appBase+"/settings/channels?connected=meta", http.StatusTemporaryRedirect)
+}

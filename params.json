@@ -1,0 +1,5 @@
+{
+    "commands":  [
+                     "echo \u0027GOOGLE_ADS_CLIENT_ID=380463044744-8rledh0pd5b0blg4gig43lti3ln4nk3b.apps.googleusercontent.com\u0027 | sudo tee -a /opt/simpulx/.env\necho \u0027GOOGLE_ADS_CLIENT_SECRET=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\u0027 | sudo tee -a /opt/simpulx/.env\necho \u0027GOOGLE_ADS_REDIRECT_URL=https://app.simpulx.com/api/auth/google-ads/callback\u0027 | sudo tee -a /opt/simpulx/.env\necho \u0027GOOGLE_ADS_DEVELOPER_TOKEN=RJ2vklQOO9Uu3JPyO-ktUQ\u0027 | sudo tee -a /opt/simpulx/.env\ncd /opt/simpulx\nsudo -u ubuntu docker compose --env-file .env -f deploy/docker/compose.yml -f deploy/docker/compose.prod.yml up -d"
+                 ]
+}

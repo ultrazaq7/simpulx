@@ -10,6 +10,7 @@ import 'package:path/path.dart' as p;
 import 'package:url_launcher/url_launcher.dart';
 
 import '../../../../app/theme/app_colors.dart';
+import '../../../../core/i18n/i18n.dart';
 import '../../../../core/utils/haptics.dart';
 import '../../../../core/utils/time_format.dart';
 import '../../../../core/widgets/app_error_view.dart';
@@ -132,8 +133,8 @@ class _ChatThreadPageState extends ConsumerState<ChatThreadPage>
             ListTile(
               leading: const Icon(Icons.wifi_calling_3_rounded,
                   color: AppColors.whatsapp),
-              title: const Text('Call over WhatsApp'),
-              subtitle: const Text('In-app voice call'),
+              title: Text('Call over WhatsApp'.tr(context)),
+              subtitle: Text('In-app voice call'.tr(context)),
               onTap: () {
                 Navigator.of(sheetContext).pop();
                 ref.read(callControllerProvider.notifier).startOutbound(
@@ -145,7 +146,7 @@ class _ChatThreadPageState extends ConsumerState<ChatThreadPage>
             ),
             ListTile(
               leading: const Icon(Icons.call_outlined),
-              title: const Text('Phone dialer'),
+              title: Text('Phone dialer'.tr(context)),
               onTap: () {
                 Navigator.of(sheetContext).pop();
                 _call(conv.contactPhone);
@@ -161,7 +162,7 @@ class _ChatThreadPageState extends ConsumerState<ChatThreadPage>
   Future<void> _call(String phone) async {
     final messenger = ScaffoldMessenger.of(context);
     if (phone.isEmpty) {
-      AppSnackbar.show(context, 'No phone number for this contact', isError: true);
+      AppSnackbar.show(context, 'No phone number for this contact'.tr(context), isError: true);
       return;
     }
     final normalized = phone.startsWith('+') ? phone : '+$phone';
@@ -174,7 +175,7 @@ class _ChatThreadPageState extends ConsumerState<ChatThreadPage>
       );
     } catch (_) {
       if (context.mounted) {
-        AppSnackbar.show(context, 'Could not open the dialer', isError: true);
+        AppSnackbar.show(context, 'Could not open the dialer'.tr(context), isError: true);
       }
     }
   }
@@ -188,17 +189,17 @@ class _ChatThreadPageState extends ConsumerState<ChatThreadPage>
           children: [
             ListTile(
               leading: const Icon(Icons.photo_camera_outlined),
-              title: const Text('Camera'),
+              title: Text('Camera'.tr(context)),
               onTap: () => Navigator.of(context).pop('camera'),
             ),
             ListTile(
               leading: const Icon(Icons.photo_library_outlined),
-              title: const Text('Media library'),
+              title: Text('Media library'.tr(context)),
               onTap: () => Navigator.of(context).pop('gallery'),
             ),
             ListTile(
               leading: const Icon(Icons.insert_drive_file_outlined),
-              title: const Text('Document'),
+              title: Text('Document'.tr(context)),
               onTap: () => Navigator.of(context).pop('file'),
             ),
           ],
@@ -358,8 +359,7 @@ class _ChatThreadPageState extends ConsumerState<ChatThreadPage>
                   return const Center(
                     child: Padding(
                       padding: EdgeInsets.all(24),
-                      child: Text(
-                        'No messages yet. Say hello!',
+                      child: Text('No messages yet. Say hello!'.tr(context),
                         style: TextStyle(color: AppColors.textSecondary),
                       ),
                     ),
@@ -410,8 +410,7 @@ class _ChatThreadPageState extends ConsumerState<ChatThreadPage>
                       size: 16, color: AppColors.danger),
                   const SizedBox(width: 8),
                   Expanded(
-                    child: Text(
-                      '24-hour window closed. Only template messages can be sent.',
+                    child: Text('24-hour window closed. Only template messages can be sent.'.tr(context),
                       style: const TextStyle(
                           fontSize: 12,
                           fontWeight: FontWeight.w600,
@@ -426,7 +425,7 @@ class _ChatThreadPageState extends ConsumerState<ChatThreadPage>
                             const EdgeInsets.symmetric(horizontal: 8),
                         minimumSize: Size.zero,
                         tapTargetSize: MaterialTapTargetSize.shrinkWrap),
-                    child: const Text('Template',
+                    child: Text('Template'.tr(context),
                         style: TextStyle(
                             fontSize: 12, fontWeight: FontWeight.w700)),
                   ),
@@ -627,7 +626,7 @@ class _ThreadAppBar extends StatelessWidget implements PreferredSizeWidget {
                         GestureDetector(
                           onTap: () {
                             Clipboard.setData(ClipboardData(text: c.contactPhone));
-                            AppSnackbar.show(context, 'Phone number copied');
+                            AppSnackbar.show(context, 'Phone number copied'.tr(context));
                           },
                           child: const Icon(Icons.copy_rounded, size: 14, color: AppColors.textSecondary),
                         ),

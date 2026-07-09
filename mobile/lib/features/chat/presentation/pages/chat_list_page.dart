@@ -148,8 +148,7 @@ class _ChatListPageState extends ConsumerState<ChatListPage> {
                 children: [
                   Row(
                     children: [
-                      const Text(
-                        'Advanced Filters',
+                      Text('Advanced Filters'.tr(context),
                         style: TextStyle(
                           fontSize: 17,
                           fontWeight: FontWeight.w700,
@@ -159,13 +158,12 @@ class _ChatListPageState extends ConsumerState<ChatListPage> {
                       TextButton(
                         onPressed: () =>
                             ref.read(inboxFilterProvider.notifier).clear(),
-                        child: const Text('Reset'),
+                        child: Text('Reset'.tr(context)),
                       ),
                     ],
                   ),
                   const SizedBox(height: 16),
-                  const Text(
-                    'Interest Level',
+                  Text('Interest Level'.tr(context),
                     style: TextStyle(fontWeight: FontWeight.w700, fontSize: 13),
                   ),
                   const SizedBox(height: 8),
@@ -173,7 +171,7 @@ class _ChatListPageState extends ConsumerState<ChatListPage> {
                     spacing: 8,
                     children: [
                       ChoiceChip(
-                        label: const Text('All'),
+                        label: Text('All'.tr(context)),
                         selected: filter.interestLevel == null,
                         onSelected: (_) => ref
                             .read(inboxFilterProvider.notifier)
@@ -203,8 +201,7 @@ class _ChatListPageState extends ConsumerState<ChatListPage> {
                     ],
                   ),
                   const SizedBox(height: 16),
-                  const Text(
-                    'Status',
+                  Text('Status'.tr(context),
                     style: TextStyle(fontWeight: FontWeight.w700, fontSize: 13),
                   ),
                   const SizedBox(height: 8),
@@ -212,7 +209,7 @@ class _ChatListPageState extends ConsumerState<ChatListPage> {
                     spacing: 8,
                     children: [
                       ChoiceChip(
-                        label: const Text('All'),
+                        label: Text('All'.tr(context)),
                         selected: filter.status == null,
                         onSelected: (_) => ref
                             .read(inboxFilterProvider.notifier)
@@ -231,8 +228,7 @@ class _ChatListPageState extends ConsumerState<ChatListPage> {
                     ],
                   ),
                   const SizedBox(height: 16),
-                  const Text(
-                    'Stage',
+                  Text('Stage'.tr(context),
                     style: TextStyle(fontWeight: FontWeight.w700, fontSize: 13),
                   ),
                   const SizedBox(height: 8),
@@ -244,7 +240,7 @@ class _ChatListPageState extends ConsumerState<ChatListPage> {
                           spacing: 8,
                           children: [
                             ChoiceChip(
-                              label: const Text('All'),
+                              label: Text('All'.tr(context)),
                               selected: filter.stageName == null,
                               onSelected: (_) => ref
                                   .read(inboxFilterProvider.notifier)
@@ -263,7 +259,7 @@ class _ChatListPageState extends ConsumerState<ChatListPage> {
                           ],
                         ),
                         loading: () => const CircularProgressIndicator(),
-                        error: (_, __) => const Text('Failed to load stages'),
+                        error: (_, __) => Text('Failed to load stages'.tr(context)),
                       );
                     },
                   ),
@@ -290,8 +286,7 @@ class _ChatListPageState extends ConsumerState<ChatListPage> {
                       return Column(
                         crossAxisAlignment: CrossAxisAlignment.start,
                         children: [
-                          const Text(
-                            'Campaign',
+                          Text('Campaign'.tr(context),
                             style: TextStyle(
                               fontWeight: FontWeight.w700,
                               fontSize: 13,
@@ -335,8 +330,7 @@ class _ChatListPageState extends ConsumerState<ChatListPage> {
                         return Column(
                           crossAxisAlignment: CrossAxisAlignment.start,
                           children: [
-                            const Text(
-                              'Agent',
+                            Text('Agent'.tr(context),
                               style: TextStyle(
                                 fontWeight: FontWeight.w700,
                                 fontSize: 13,
@@ -367,7 +361,7 @@ class _ChatListPageState extends ConsumerState<ChatListPage> {
                       style: FilledButton.styleFrom(
                         minimumSize: const Size.fromHeight(48),
                       ),
-                      child: const Text('Apply'),
+                      child: Text('Apply'.tr(context)),
                     ),
                   ),
                 ],
@@ -452,21 +446,21 @@ class _ChatListPageState extends ConsumerState<ChatListPage> {
                           child: Row(children: [
                             Icon(Icons.phone_outlined, size: 20),
                             SizedBox(width: 12),
-                            Text('Phone')
+                            Text('Phone'.tr(context))
                           ])),
                       const PopupMenuItem(
                           value: 'Name',
                           child: Row(children: [
                             Icon(Icons.person_outline_rounded, size: 20),
                             SizedBox(width: 12),
-                            Text('Name')
+                            Text('Name'.tr(context))
                           ])),
                       const PopupMenuItem(
                           value: 'Messages',
                           child: Row(children: [
                             Icon(Icons.chat_bubble_outline_rounded, size: 20),
                             SizedBox(width: 12),
-                            Text('Messages')
+                            Text('Messages'.tr(context))
                           ])),
                     ],
                     offset: const Offset(0, 48),
@@ -732,8 +726,7 @@ class _InboxFilterChips extends StatelessWidget {
                         const SizedBox(width: 4),
                         ConstrainedBox(
                           constraints: const BoxConstraints(maxWidth: 140),
-                          child: const Text(
-                            'Clear all',
+                          child: Text('Clear all'.tr(context),
                             maxLines: 1,
                             overflow: TextOverflow.ellipsis,
                             style: const TextStyle(
@@ -874,7 +867,7 @@ class _SearchableChipListState extends State<_SearchableChipList> {
           runSpacing: 4,
           children: [
             ChoiceChip(
-              label: const Text('All'),
+              label: Text('All'.tr(context)),
               selected: widget.selected == null,
               onSelected: (_) => widget.onSelected(null),
             ),

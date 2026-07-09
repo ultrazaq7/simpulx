@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import '../../../../app/theme/app_colors.dart';
+import '../../../../core/i18n/i18n.dart';
 import '../../../../core/utils/time_format.dart';
 import '../../../../core/widgets/app_empty_state.dart';
 import '../../../../core/widgets/app_snackbar.dart';
@@ -90,7 +91,7 @@ class _NotesSheetState extends ConsumerState<_NotesSheet> {
       setState(() => _aiSummary = buf.toString().trim());
     } catch (_) {
       if (mounted) {
-        AppSnackbar.show(context, 'Could not generate summary', isError: true);
+        AppSnackbar.show(context, 'Could not generate summary'.tr(context), isError: true);
         setState(() => _aiSummary = null);
       }
     } finally {
@@ -130,7 +131,7 @@ class _NotesSheetState extends ConsumerState<_NotesSheet> {
           child: Row(
             children: [
               const Expanded(
-                child: Text('Internal notes',
+                child: Text('Internal notes'.tr(context),
                     style: TextStyle(fontSize: 16, fontWeight: FontWeight.w700)),
               ),
               if (showSummary)
@@ -143,7 +144,7 @@ class _NotesSheetState extends ConsumerState<_NotesSheet> {
                           child: CircularProgressIndicator(strokeWidth: 2),
                         )
                       : const Icon(Icons.auto_awesome, size: 18),
-                  label: const Text('Smart Summary'),
+                  label: Text('Smart Summary'.tr(context)),
                 ),
             ],
           ),
@@ -235,7 +236,7 @@ class _NotesSheetState extends ConsumerState<_NotesSheet> {
                         children: [
                           const Icon(Icons.auto_awesome, size: 16, color: AppColors.brandAmber),
                           const SizedBox(width: 6),
-                          const Text('Smart Summary', style: TextStyle(fontWeight: FontWeight.w700, color: AppColors.brandAmber, fontSize: 13)),
+                          Text('Smart Summary'.tr(context), style: TextStyle(fontWeight: FontWeight.w700, color: AppColors.brandAmber, fontSize: 13)),
                           const Spacer(),
                           if (!_summarizing)
                             InkWell(
@@ -261,7 +262,7 @@ class _NotesSheetState extends ConsumerState<_NotesSheet> {
                                 padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
                                 minimumSize: Size.zero,
                               ),
-                              child: const Text('Clear', style: TextStyle(fontSize: 12, fontWeight: FontWeight.bold)),
+                              child: Text('Clear'.tr(context), style: TextStyle(fontSize: 12, fontWeight: FontWeight.bold)),
                             ),
                             const SizedBox(width: 8),
                             FilledButton.icon(
@@ -277,7 +278,7 @@ class _NotesSheetState extends ConsumerState<_NotesSheet> {
                                 minimumSize: Size.zero,
                               ),
                               icon: const Icon(Icons.check, size: 14),
-                              label: const Text('Add as note', style: TextStyle(fontSize: 12, fontWeight: FontWeight.bold)),
+                              label: Text('Add as note'.tr(context), style: TextStyle(fontSize: 12, fontWeight: FontWeight.bold)),
                             ),
                           ],
                         ),

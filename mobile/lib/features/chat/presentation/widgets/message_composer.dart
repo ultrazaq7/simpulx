@@ -217,7 +217,7 @@ class _MessageComposerState extends ConsumerState<MessageComposer> {
   Future<void> _startRecording() async {
     final ok = await _voice.start();
     if (!ok && mounted) {
-      AppSnackbar.show(context, 'Microphone permission is required', isError: true);
+      AppSnackbar.show(context, 'Microphone permission is required'.tr(context), isError: true);
     }
   }
 
@@ -352,7 +352,7 @@ class _MessageComposerState extends ConsumerState<MessageComposer> {
         const SizedBox(width: 8),
         Text('$m:$s', style: const TextStyle(fontWeight: FontWeight.w600)),
         const Spacer(),
-        const Text('Recording...',
+        Text('Recording...'.tr(context),
             style: TextStyle(color: AppColors.textSecondary)),
         const SizedBox(width: 8),
         _RoundButton(
@@ -393,7 +393,7 @@ class _QuickReplyPopup extends ConsumerWidget {
           ListTile(
             dense: true,
             leading: const Icon(Icons.add_rounded, color: AppColors.primary),
-            title: const Text('New shortcut',
+            title: Text('New shortcut'.tr(context),
                 style: TextStyle(
                     color: AppColors.primary, fontWeight: FontWeight.w700)),
             onTap: () => showCreateShortcut(context, ref),
@@ -402,7 +402,7 @@ class _QuickReplyPopup extends ConsumerWidget {
             const Padding(
               padding: EdgeInsets.symmetric(vertical: 14),
               child: Center(
-                child: Text('No shortcuts yet, add one above.',
+                child: Text('No shortcuts yet, add one above.'.tr(context),
                     style: TextStyle(color: AppColors.textSecondary)),
               ),
             )
@@ -413,7 +413,7 @@ class _QuickReplyPopup extends ConsumerWidget {
                 leading: CircleAvatar(
                   radius: 14,
                   backgroundColor: AppColors.primary.withValues(alpha: 0.1),
-                  child: const Text('/',
+                  child: Text('/'.tr(context),
                       style: TextStyle(
                           color: AppColors.primaryDark,
                           fontWeight: FontWeight.w700,
@@ -501,7 +501,7 @@ class _CreateShortcutFormState extends State<_CreateShortcutForm> {
         mainAxisSize: MainAxisSize.min,
         crossAxisAlignment: CrossAxisAlignment.stretch,
         children: [
-          const Text('New shortcut',
+          Text('New shortcut'.tr(context),
               style: TextStyle(fontSize: 16, fontWeight: FontWeight.w700)),
           const SizedBox(height: 12),
           TextField(
@@ -531,7 +531,7 @@ class _CreateShortcutFormState extends State<_CreateShortcutForm> {
                     height: 18,
                     child: CircularProgressIndicator(
                         strokeWidth: 2, color: Colors.white))
-                : const Text('Save'),
+                : Text('Save'.tr(context)),
           ),
         ],
       ),

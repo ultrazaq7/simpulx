@@ -4,6 +4,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import '../../../../app/theme/app_colors.dart';
+import '../../../../core/i18n/i18n.dart';
 import '../../../../core/session/session_controller.dart';
 import '../../../../core/utils/time_format.dart';
 import '../../domain/entities/conversation.dart';
@@ -334,7 +335,7 @@ class _PreviewWidget extends StatelessWidget {
     final style = theme.textTheme.bodyMedium?.copyWith(color: color, fontWeight: weight);
 
     if (preview == null || preview!.isEmpty) {
-      return Text('No messages yet', maxLines: 1, overflow: TextOverflow.ellipsis, style: style);
+      return Text('No messages yet'.tr(context), maxLines: 1, overflow: TextOverflow.ellipsis, style: style);
     }
 
     // Check for media type indicators (emoji-prefixed from controller or [bracket] from server).
@@ -447,7 +448,7 @@ class _Window24hBadge extends StatelessWidget {
         children: [
           Icon(Icons.schedule_rounded, size: 10, color: Colors.white),
           SizedBox(width: 2),
-          Text('24H',
+          Text('24H'.tr(context),
               style: TextStyle(
                   fontSize: 9,
                   fontWeight: FontWeight.w700,

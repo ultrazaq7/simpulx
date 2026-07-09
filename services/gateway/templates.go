@@ -68,21 +68,21 @@ func (s *server) setTemplateCampaigns(ctx context.Context, templateID string, ca
 }
 
 type templateInput struct {
-	Name        string          `json:"name"`
-	Category    string          `json:"category"`
-	Language    string          `json:"language"`
-	HeaderType  string          `json:"header_type"`
-	HeaderText  string          `json:"header_text"`
-	HeaderMediaURL string       `json:"header_media_url"`
-	Body        string          `json:"body"`
-	Footer      string          `json:"footer"`
-	Buttons     json.RawMessage `json:"buttons"`
-	Variables   json.RawMessage `json:"variables"`
-	ChannelID   string          `json:"channel_id"`
+	Name           string          `json:"name"`
+	Category       string          `json:"category"`
+	Language       string          `json:"language"`
+	HeaderType     string          `json:"header_type"`
+	HeaderText     string          `json:"header_text"`
+	HeaderMediaURL string          `json:"header_media_url"`
+	Body           string          `json:"body"`
+	Footer         string          `json:"footer"`
+	Buttons        json.RawMessage `json:"buttons"`
+	Variables      json.RawMessage `json:"variables"`
+	ChannelID      string          `json:"channel_id"`
 	// TemplateType: standard | carousel | call_permission | request_contact.
-	TemplateType string          `json:"template_type"`
+	TemplateType string `json:"template_type"`
 	// Components: structured extras (e.g. carousel cards) that don't fit the flat columns.
-	Components   json.RawMessage `json:"components"`
+	Components json.RawMessage `json:"components"`
 	// CampaignIDs scopes the template to specific campaigns. nil = leave as-is
 	// (on update) / none (on create); [] = clear all links (visible to all).
 	CampaignIDs *[]string `json:"campaign_ids"`

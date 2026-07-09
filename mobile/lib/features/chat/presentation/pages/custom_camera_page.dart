@@ -1,4 +1,5 @@
 import 'dart:async';
+import '../../../../core/i18n/i18n.dart';
 
 import 'package:camera/camera.dart';
 import 'package:flutter/material.dart';
@@ -202,8 +203,7 @@ class _CustomCameraPageState extends State<CustomCameraPage> {
                 // Instructions
                 const Padding(
                   padding: EdgeInsets.only(bottom: 16),
-                  child: Text(
-                    'Hold for video, tap for photo',
+                  child: Text('Hold for video, tap for photo'.tr(context),
                     style: TextStyle(color: Colors.white70, fontSize: 12),
                   ),
                 )

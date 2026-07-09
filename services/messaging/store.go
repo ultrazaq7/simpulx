@@ -769,7 +769,6 @@ func (s *store) routeToBranch(ctx context.Context, branchID string, convID strin
 	}
 }
 
-
 // sendTarget mengambil data yang diperlukan untuk mengirim outbound. ChannelType
 // memilih sender (whatsapp vs viber); ExternalID = psid/Viber user id untuk
 // channel non-WhatsApp (kontak Viber tidak punya nomor telepon).

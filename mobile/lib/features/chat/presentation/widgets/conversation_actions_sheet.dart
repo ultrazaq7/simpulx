@@ -78,7 +78,7 @@ class _ActionsSheet extends ConsumerWidget {
                         if (ok) {
                           AppSnackbar.show(context, 'Interest set to ${level[0].toUpperCase()}${level.substring(1)}');
                         } else {
-                          AppSnackbar.show(context, 'Failed to update interest', isError: true);
+                          AppSnackbar.show(context, 'Failed to update interest'.tr(context), isError: true);
                         }
                       }
                     });
@@ -180,7 +180,7 @@ class _ActionsSheet extends ConsumerWidget {
         AppSnackbar.show(context, successMsg);
       }
     } else {
-      AppSnackbar.show(context, 'Action failed. Try again.', isError: true);
+      AppSnackbar.show(context, 'Action failed. Try again.'.tr(context), isError: true);
     }
   }
 
@@ -205,7 +205,7 @@ class _ActionsSheet extends ConsumerWidget {
             ),
             error: (_, _) => const Padding(
               padding: EdgeInsets.all(24),
-              child: Text('Could not load stages'),
+              child: Text('Could not load stages'.tr(context)),
             ),
             data: (stages) => SafeArea(
               child: ListView(
@@ -232,7 +232,7 @@ class _ActionsSheet extends ConsumerWidget {
                             if (ok) {
                               AppSnackbar.show(context, 'Stage moved to ${s.name}');
                             } else {
-                              AppSnackbar.show(context, 'Failed to update stage', isError: true);
+                              AppSnackbar.show(context, 'Failed to update stage'.tr(context), isError: true);
                             }
                           }
                         });
@@ -242,7 +242,7 @@ class _ActionsSheet extends ConsumerWidget {
                   const Divider(),
                   ListTile(
                     leading: const Icon(Icons.cancel_outlined, color: AppColors.danger),
-                    title: const Text('Mark as Lost', style: TextStyle(color: AppColors.danger)),
+                    title: Text('Mark as Lost'.tr(context), style: TextStyle(color: AppColors.danger)),
                     onTap: () {
                       Navigator.of(sheetContext).pop();
                       _pickLostReason(context, actions);
@@ -269,12 +269,12 @@ class _ActionsSheet extends ConsumerWidget {
           children: [
             ListTile(
               leading: const Icon(Icons.check_circle_outline_rounded),
-              title: const Text('Open'),
+              title: Text('Open'.tr(context)),
               onTap: () => _do(context, sheetContext, actions.reopen(), 'Status set to Open'),
             ),
             ListTile(
               leading: const Icon(Icons.snooze_outlined),
-              title: const Text('Snooze'),
+              title: Text('Snooze'.tr(context)),
               onTap: () {
                 Navigator.of(sheetContext).pop();
                 _pickSnooze(context, actions);
@@ -282,8 +282,8 @@ class _ActionsSheet extends ConsumerWidget {
             ),
             ListTile(
               leading: const Icon(Icons.close_rounded),
-              title: const Text('Close'),
-              subtitle: const Text('Pick the final stage first'),
+              title: Text('Close'.tr(context)),
+              subtitle: Text('Pick the final stage first'.tr(context)),
               onTap: () {
                 // Closing requires recording where the lead ended in the pipeline.
                 Navigator.of(sheetContext).pop();
@@ -319,7 +319,7 @@ class _ActionsSheet extends ConsumerWidget {
             ),
             error: (_, _) => const Padding(
               padding: EdgeInsets.all(24),
-              child: Text('Could not load stages'),
+              child: Text('Could not load stages'.tr(context)),
             ),
             data: (stages) => SafeArea(
               child: ListView(
@@ -327,13 +327,13 @@ class _ActionsSheet extends ConsumerWidget {
                 children: [
                   const Padding(
                     padding: EdgeInsets.fromLTRB(16, 4, 16, 4),
-                    child: Text('Close as',
+                    child: Text('Close as'.tr(context),
                         style: TextStyle(
                             fontSize: 16, fontWeight: FontWeight.w700)),
                   ),
                   const Padding(
                     padding: EdgeInsets.fromLTRB(16, 0, 16, 8),
-                    child: Text('Choose the final stage to close this lead.',
+                    child: Text('Choose the final stage to close this lead.'.tr(context),
                         style: TextStyle(
                             fontSize: 12.5, color: AppColors.textSecondary)),
                   ),
@@ -356,7 +356,7 @@ class _ActionsSheet extends ConsumerWidget {
                   ListTile(
                     leading: const Icon(Icons.do_not_disturb_on_rounded,
                         color: AppColors.danger),
-                    title: const Text('Mark as Lost',
+                    title: Text('Mark as Lost'.tr(context),
                         style: TextStyle(color: AppColors.danger)),
                     onTap: () {
                       Navigator.of(sheetContext).pop();
@@ -399,7 +399,7 @@ class _ActionsSheet extends ConsumerWidget {
             const Divider(),
             ListTile(
               leading: const Icon(Icons.edit_calendar_outlined),
-              title: const Text('Custom time...'),
+              title: Text('Custom time...'.tr(context)),
               onTap: () async {
                 final date = await showDatePicker(
                   context: context,
@@ -468,7 +468,7 @@ class _ActionsSheet extends ConsumerWidget {
                 children: [
                   const Padding(
                     padding: EdgeInsets.fromLTRB(20, 4, 20, 12),
-                    child: Text('Why is this lead lost?',
+                    child: Text('Why is this lead lost?'.tr(context),
                         style: TextStyle(fontSize: 17, fontWeight: FontWeight.w700)),
                   ),
                   for (var i = 0; i < groups.length; i++)
@@ -550,14 +550,14 @@ class _ActionsSheet extends ConsumerWidget {
             ),
             error: (_, _) => const Padding(
               padding: EdgeInsets.all(24),
-              child: Text('Could not load agents'),
+              child: Text('Could not load agents'.tr(context)),
             ),
             data: (agents) => ListView(
               shrinkWrap: true,
               children: [
                 ListTile(
                   leading: const Icon(Icons.person_off_outlined),
-                  title: const Text('Unassign'),
+                  title: Text('Unassign'.tr(context)),
                   onTap: () => _do(context, sheetContext, actions.assign(unassign: true), 'Unassigned conversation'),
                 ),
                 const Divider(height: 1),
@@ -602,7 +602,7 @@ class _InterestRow extends StatelessWidget {
       padding: const EdgeInsets.fromLTRB(16, 10, 16, 10),
       child: Row(
         children: [
-          const Text('Interest', style: TextStyle(fontWeight: FontWeight.w600)),
+          Text('Interest'.tr(context), style: TextStyle(fontWeight: FontWeight.w600)),
           const SizedBox(width: 12),
           for (final level in const ['hot', 'warm', 'cold'])
             Padding(

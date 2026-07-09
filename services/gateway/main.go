@@ -589,10 +589,10 @@ func (s *server) ingest(ctx context.Context, p waWebhook) {
 					}()
 				}
 				evt := events.MessageReceived{
-					Channel:       "whatsapp",
-					PhoneNumberID: val.Metadata.PhoneNumberID,
-					From:          m.From,
-					ContactName:   contactName,
+					Channel:           "whatsapp",
+					PhoneNumberID:     val.Metadata.PhoneNumberID,
+					From:              m.From,
+					ContactName:       contactName,
 					Referral:          m.referralSourceID(),
 					ReferralURL:       m.referralSourceURL(),
 					ReferralImageURL:  m.referralImageURL(),

@@ -44,13 +44,15 @@ export function AdWizard({ onClose, onConnected }: { onClose: () => void; onConn
     [ourCampaigns]);
 
   async function connect() {
-    if (platform === "google") {
-      if (!accountId.trim()) { setErr("Customer id is required."); return; }
+    if (platform === "google" || platform === "meta") {
+      if (!accountId.trim()) { setErr(platform === "google" ? "Customer id is required." : "Ad account id is required."); return; }
       setSaving(true); setErr("");
       try {
-        const res = await api.connectGoogleAds(accountId.trim(), name.trim() || undefined);
+        const res = platform === "google" 
+          ? await api.connectGoogleAds(accountId.trim(), name.trim() || undefined)
+          : await api.connectMetaAds(accountId.trim(), name.trim() || undefined);
         window.location.href = res.url;
-      } catch (e: any) { setErr(e?.message || "Failed to start Google Ads connection"); setSaving(false); }
+      } catch (e: any) { setErr(e?.message || `Failed to start ${PLATFORMS[platform]?.label} connection`); setSaving(false); }
       return;
     }
     if (!accountId.trim() || !token.trim()) { setErr("Account id and access token are required."); return; }
@@ -78,7 +80,7 @@ export function AdWizard({ onClose, onConnected }: { onClose: () => void; onConn
   const footer =
     step === 0 ? (<><div className="flex-1" /><ContinueButton onClick={() => platform && setStep(1)} disabled={!platform} /></>)
     : step === 1 ? (<><BackButton onClick={() => { setErr(""); setStep(0); }} /><div className="flex-1" />
-        <PrimaryButton onClick={connect} disabled={saving}>{saving ? <Loader2 className="w-4 h-4 animate-spin" /> : null}{platform === "google" ? "Sign in with Google" : "Connect"}</PrimaryButton></>)
+        <PrimaryButton onClick={connect} disabled={saving}>{saving ? <Loader2 className="w-4 h-4 animate-spin" /> : null}{platform === "google" ? "Sign in with Google" : platform === "meta" ? "Sign in with Facebook" : "Connect"}</PrimaryButton></>)
     : (<><div className="flex-1" /><PrimaryButton onClick={() => onConnected(result?.syncError ? `Connected, but sync failed: ${result.syncError}` : "Ad account connected")}>Done</PrimaryButton></>);
 
   return (
@@ -99,7 +101,7 @@ export function AdWizard({ onClose, onConnected }: { onClose: () => void; onConn
           {err && <div className="px-3 py-2 rounded-md bg-destructive/10 border border-destructive/20 text-destructive text-[13px] font-medium">{err}</div>}
           <WizardField label={accountLabel} value={accountId} onChange={setAccountId} placeholder={accountPlaceholder} autoFocus />
           <WizardField label="Display name (optional)" value={name} onChange={setName} placeholder="e.g. Main ad account" />
-          {platform !== "google" && (
+          {platform !== "google" && platform !== "meta" && (
             <WizardField label={tokenLabel} value={token} onChange={setToken} type="password" hint={tokenHint} />
           )}
         </div>

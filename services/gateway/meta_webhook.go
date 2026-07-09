@@ -21,7 +21,9 @@ type metaWebhook struct {
 	Entry  []struct {
 		ID        string `json:"id"` // page id / ig business account id
 		Messaging []struct {
-			Sender  struct{ ID string `json:"id"` } `json:"sender"`
+			Sender struct {
+				ID string `json:"id"`
+			} `json:"sender"`
 			Message *struct {
 				Mid         string `json:"mid"`
 				Text        string `json:"text"`

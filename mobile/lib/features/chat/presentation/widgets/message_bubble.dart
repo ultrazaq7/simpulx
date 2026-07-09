@@ -14,6 +14,7 @@ import 'package:pdfx/pdfx.dart';
 import 'package:video_player/video_player.dart';
 
 import '../../../../app/theme/app_colors.dart';
+import '../../../../core/i18n/i18n.dart';
 import '../../../../core/network/api_endpoints.dart';
 import '../../../../core/providers/app_providers.dart';
 import '../../../../core/utils/time_format.dart';
@@ -149,7 +150,7 @@ class MessageBubble extends StatelessWidget {
                   children: [
                     Icon(Icons.auto_awesome, size: 11, color: simpulerColor),
                     const SizedBox(width: 3),
-                    Text('Simpuler', style: TextStyle(fontSize: 10.5, fontWeight: FontWeight.w700, color: simpulerColor)),
+                    Text('Simpuler'.tr(context), style: TextStyle(fontSize: 10.5, fontWeight: FontWeight.w700, color: simpulerColor)),
                   ],
                 ),
               ),
@@ -253,11 +254,11 @@ class MessageBubble extends StatelessWidget {
           children: [
             ListTile(
               leading: const Icon(Icons.copy_rounded),
-              title: const Text('Copy'),
+              title: Text('Copy'.tr(context)),
               onTap: () {
                 Clipboard.setData(ClipboardData(text: message.body));
                 Navigator.of(sheetContext).pop();
-                AppSnackbar.show(context, 'Copied');
+                AppSnackbar.show(context, 'Copied'.tr(context));
               },
             ),
           ],
@@ -502,7 +503,7 @@ class _MediaContent extends StatelessWidget {
                 children: [
                   const Icon(Icons.videocam_rounded, size: 14, color: Colors.white),
                   const SizedBox(width: 4),
-                  Text('Video', style: const TextStyle(color: Colors.white, fontSize: 11, fontWeight: FontWeight.w600)),
+                  Text('Video'.tr(context), style: const TextStyle(color: Colors.white, fontSize: 11, fontWeight: FontWeight.w600)),
                 ],
               ),
             ),
@@ -567,7 +568,7 @@ class _MediaContent extends StatelessWidget {
                     style: TextStyle(color: fg, fontWeight: FontWeight.w600, fontSize: 13),
                   ),
                   const SizedBox(height: 2),
-                  Text('Document', style: TextStyle(color: fg.withValues(alpha: 0.7), fontSize: 11)),
+                  Text('Document'.tr(context), style: TextStyle(color: fg.withValues(alpha: 0.7), fontSize: 11)),
                 ],
               ),
             ),
@@ -589,7 +590,7 @@ class _MediaContent extends StatelessWidget {
 
   Future<void> _openDocument(BuildContext context, String url) async {
     try {
-      AppSnackbar.show(context, 'Opening document...');
+      AppSnackbar.show(context, 'Opening document...'.tr(context));
       final cacheDir = await getTemporaryDirectory();
       final fileName = _fileName(url, message.body);
       final filePath = '${cacheDir.path}/$fileName';
@@ -600,12 +601,12 @@ class _MediaContent extends StatelessWidget {
       final result = await OpenFilex.open(filePath);
       if (result.type != ResultType.done) {
         if (context.mounted) {
-           AppSnackbar.show(context, 'No app found to open this document', isError: true);
+           AppSnackbar.show(context, 'No app found to open this document'.tr(context), isError: true);
         }
       }
     } catch (e) {
       if (context.mounted) {
-        AppSnackbar.show(context, 'Failed to open document', isError: true);
+        AppSnackbar.show(context, 'Failed to open document'.tr(context), isError: true);
       }
     }
   }
@@ -735,7 +736,7 @@ class _PdfPreviewState extends State<_PdfPreview> {
   
   Future<void> _openDocument(BuildContext context) async {
     try {
-      AppSnackbar.show(context, 'Opening document...');
+      AppSnackbar.show(context, 'Opening document...'.tr(context));
       final cacheDir = await getTemporaryDirectory();
       final uri = Uri.tryParse(widget.url);
       final fileName = uri?.pathSegments.last ?? widget.url.hashCode.toString();
@@ -747,12 +748,12 @@ class _PdfPreviewState extends State<_PdfPreview> {
       final result = await OpenFilex.open(filePath);
       if (result.type != ResultType.done) {
         if (context.mounted) {
-           AppSnackbar.show(context, 'No app found to open this document', isError: true);
+           AppSnackbar.show(context, 'No app found to open this document'.tr(context), isError: true);
         }
       }
     } catch (e) {
       if (context.mounted) {
-        AppSnackbar.show(context, 'Failed to open document', isError: true);
+        AppSnackbar.show(context, 'Failed to open document'.tr(context), isError: true);
       }
     }
   }
@@ -805,8 +806,7 @@ class _PdfPreviewState extends State<_PdfPreview> {
                           overflow: TextOverflow.ellipsis,
                           style: TextStyle(color: widget.fg, fontSize: 13, fontWeight: FontWeight.w600),
                         ),
-                        Text(
-                          'PDF Document',
+                        Text('PDF Document'.tr(context),
                           style: TextStyle(color: widget.fg.withValues(alpha: 0.7), fontSize: 11),
                         ),
                       ],
@@ -930,7 +930,7 @@ class _ReferralCard extends StatelessWidget {
                     Row(mainAxisSize: MainAxisSize.min, children: [
                       Icon(Icons.open_in_new_rounded, size: 13, color: AppColors.primary),
                       const SizedBox(width: 3),
-                      Text('View ad',
+                      Text('View ad'.tr(context),
                           style: TextStyle(color: AppColors.primary, fontSize: 12, fontWeight: FontWeight.w600)),
                     ]),
                   ],
@@ -1134,7 +1134,7 @@ class _LocationCard extends StatelessWidget {
                     child: Container(
                       padding: const EdgeInsets.symmetric(horizontal: 2),
                       color: Colors.white.withValues(alpha: 0.6),
-                      child: const Text('© OpenStreetMap',
+                      child: Text('© OpenStreetMap'.tr(context),
                           style: TextStyle(fontSize: 7, color: Colors.black54)),
                     ),
                   ),

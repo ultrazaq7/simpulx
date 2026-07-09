@@ -61,11 +61,11 @@ type waChange struct {
 }
 
 type waValue struct {
-	MessagingProduct string          `json:"messaging_product"`
-	Metadata         waMetadata      `json:"metadata"`
-	Contacts         []waContact     `json:"contacts"`
-	Messages         []waMessage     `json:"messages"`
-	Statuses         []waStatus      `json:"statuses"`
+	MessagingProduct string      `json:"messaging_product"`
+	Metadata         waMetadata  `json:"metadata"`
+	Contacts         []waContact `json:"contacts"`
+	Messages         []waMessage `json:"messages"`
+	Statuses         []waStatus  `json:"statuses"`
 	// Calls carries the raw "calls" array from the WhatsApp Business Calling API
 	// webhook (field == "calls"). Kept raw so the call processor can decode the
 	// full lifecycle shape (connect/terminate, SDP, direction, duration).
@@ -161,7 +161,7 @@ type waMessage struct {
 		CtwaClid     string `json:"ctwa_clid"`
 		Headline     string `json:"headline"`
 		Body         string `json:"body"`
-		MediaType    string `json:"media_type"`  // image | video
+		MediaType    string `json:"media_type"` // image | video
 		ImageURL     string `json:"image_url"`
 		VideoURL     string `json:"video_url"`
 		ThumbnailURL string `json:"thumbnail_url"`

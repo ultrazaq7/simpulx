@@ -212,4 +212,3 @@ func mustRedisOpts(url string) *redis.Options {
 	}
 	return opt
 }
-

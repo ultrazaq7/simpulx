@@ -241,7 +241,7 @@ func (s *server) handleGetConversation(w http.ResponseWriter, r *http.Request) {
 // it directly (IDOR). Rules:
 //   - admin/owner : any conversation in their org
 //   - manager     : strictly conversations in their campaigns/branches (campaign_agents
-//                   / branch_agents); unrouted leads are admin/owner only
+//     / branch_agents); unrouted leads are admin/owner only
 //   - agent       : only conversations assigned to them
 //
 // Returns (allowed, found). found=false means the conversation does not exist in

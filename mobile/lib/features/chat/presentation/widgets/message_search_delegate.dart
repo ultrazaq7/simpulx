@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import '../../../../app/theme/app_colors.dart';
+import '../../../../core/i18n/i18n.dart';
 import '../../domain/entities/message.dart';
 import '../controllers/chat_providers.dart';
 import 'message_bubble.dart';
@@ -64,7 +65,7 @@ class MessageSearchDelegate extends SearchDelegate<Message?> {
   @override
   Widget buildResults(BuildContext context) {
     if (query.trim().isEmpty && _filterDate == null) {
-      return const Center(child: Text('Type to search or select a date'));
+      return const Center(child: Text('Type to search or select a date'.tr(context)));
     }
 
     final repo = ref.read(chatRepositoryProvider);
@@ -76,16 +77,16 @@ class MessageSearchDelegate extends SearchDelegate<Message?> {
           return const Center(child: CircularProgressIndicator());
         }
         if (snapshot.hasError) {
-          return const Center(child: Text('Error searching messages'));
+          return const Center(child: Text('Error searching messages'.tr(context)));
         }
         final result = snapshot.data;
         if (result == null || result.isErr) {
-          return const Center(child: Text('Could not load results'));
+          return const Center(child: Text('Could not load results'.tr(context)));
         }
 
         final messages = result.valueOrNull ?? [];
         if (messages.isEmpty) {
-          return const Center(child: Text('No messages found'));
+          return const Center(child: Text('No messages found'.tr(context)));
         }
 
         return ListView.builder(
@@ -104,6 +105,6 @@ class MessageSearchDelegate extends SearchDelegate<Message?> {
 
   @override
   Widget buildSuggestions(BuildContext context) {
-    return const Center(child: Text('Search by text or date'));
+    return const Center(child: Text('Search by text or date'.tr(context)));
   }
 }

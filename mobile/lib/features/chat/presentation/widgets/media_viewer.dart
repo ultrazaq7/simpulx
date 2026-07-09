@@ -1,4 +1,5 @@
 import 'dart:io';
+import '../../../../core/i18n/i18n.dart';
 
 import 'package:cached_network_image/cached_network_image.dart';
 import 'package:flutter/material.dart';
@@ -94,7 +95,7 @@ class _MediaGalleryState extends State<_MediaGallery> {
       if (!hasAccess) await Gal.requestAccess();
       
       if (!mounted) return;
-      AppSnackbar.show(context, 'Saving...');
+      AppSnackbar.show(context, 'Saving...'.tr(context));
       
       if (item.isNetwork) {
         final cacheDir = await getTemporaryDirectory();
@@ -106,9 +107,9 @@ class _MediaGalleryState extends State<_MediaGallery> {
       } else {
         item.isVideo ? await Gal.putVideo(item.url) : await Gal.putImage(item.url);
       }
-      if (mounted) AppSnackbar.show(context, 'Saved to device');
+      if (mounted) AppSnackbar.show(context, 'Saved to device'.tr(context));
     } catch (e) {
-      if (mounted) AppSnackbar.show(context, 'Failed to save', isError: true);
+      if (mounted) AppSnackbar.show(context, 'Failed to save'.tr(context), isError: true);
     }
   }
 
@@ -267,7 +268,7 @@ class _MediaPage extends StatelessWidget {
                     Icon(Icons.broken_image_outlined,
                         color: Colors.white54, size: 48),
                     SizedBox(height: 8),
-                    Text('Could not load image',
+                    Text('Could not load image'.tr(context),
                         style: TextStyle(color: Colors.white54)),
                   ],
                 ),
