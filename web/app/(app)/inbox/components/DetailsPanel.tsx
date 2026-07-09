@@ -128,6 +128,7 @@ export default function DetailsPanel({ active, onClose, copyText, notes, onAddNo
     const t = raw.trim().replace(/,$/, "");
     if (t && !tags.includes(t)) saveTags([...tags, t]);
     setTagDraft("");
+    setTagOpen(false);
   };
 
   const submitNote = async () => {
@@ -236,89 +237,78 @@ export default function DetailsPanel({ active, onClose, copyText, notes, onAddNo
               )}
             </div>
 
-            {/* Assigned agent (manager/admin can reassign) */}
+            {/* Assigned agent (manager/admin can reassign) — compact DetailRow style */}
             {showAgent && (
               <div className="mb-5">
-                <div className="flex items-center justify-between mb-2">
-                  <p className="text-[10px] font-bold uppercase tracking-wider text-muted-foreground flex items-center gap-1.5"><User className="w-3.5 h-3.5 text-primary" />Assigned agent</p>
-                </div>
-                {canAssign ? (
-                  <div className="relative">
-                    <button
-                      type="button"
-                      onClick={() => setAssignOpen((v) => !v)}
-                      className={cn(
-                        "w-full flex items-center gap-2 px-3 py-2 rounded-lg border text-left text-[13px] font-semibold transition-colors outline-none",
-                        active.agent_name
-                          ? "border-border bg-background text-foreground hover:bg-muted"
-                          : "border-amber-200 bg-amber-50 text-amber-700 hover:bg-amber-100",
-                      )}
-                    >
-                      <User className="w-4 h-4 shrink-0 opacity-60" />
-                      <span className="flex-1 truncate">{active.agent_name || "Unassigned"}</span>
-                      <ChevronDown className={cn("w-3.5 h-3.5 shrink-0 opacity-60 transition-transform", assignOpen && "rotate-180")} />
-                    </button>
-                    {assignOpen && (
-                      <>
-                        <div className="fixed inset-0 z-40" onClick={() => { setAssignOpen(false); setAssignQuery(""); }} />
-                        <div className="absolute left-0 right-0 top-full mt-1 z-50 max-h-[340px] flex flex-col rounded-lg border border-border bg-popover shadow-xl animate-scale-in">
-                          <div className="p-2 border-b border-border shrink-0">
-                            <div className="relative">
-                              <Search className="absolute left-2.5 top-1/2 -translate-y-1/2 w-3.5 h-3.5 text-muted-foreground pointer-events-none" />
-                              <input autoFocus value={assignQuery} onChange={(e) => setAssignQuery(e.target.value)} placeholder="Search name or email..."
-                                className="w-full h-8 pl-8 pr-2 rounded-md border border-input bg-background text-[13px] outline-none focus:border-primary" />
+                <div className="flex gap-3 py-2 border-b border-border/50">
+                  <User className="w-4 h-4 text-muted-foreground/60 mt-0.5 shrink-0" />
+                  <div className="flex-1 min-w-0">
+                    <p className="text-[10px] font-bold uppercase tracking-wider text-muted-foreground mb-0.5">Assigned agent</p>
+                    {canAssign ? (
+                      <div className="relative">
+                        <button
+                          type="button"
+                          onClick={() => setAssignOpen((v) => !v)}
+                          className="flex items-center gap-1 outline-none group"
+                        >
+                          <span className={cn("text-xs font-semibold truncate", active.agent_name ? "text-foreground" : "text-amber-700")}>{active.agent_name || "Unassigned"}</span>
+                          <ChevronDown className={cn("w-3 h-3 shrink-0 text-muted-foreground/60 transition-transform", assignOpen && "rotate-180")} />
+                        </button>
+                        {assignOpen && (
+                          <>
+                            <div className="fixed inset-0 z-40" onClick={() => { setAssignOpen(false); setAssignQuery(""); }} />
+                            <div className="absolute left-0 top-full mt-1 z-50 w-60 max-h-[340px] flex flex-col rounded-lg border border-border bg-popover shadow-xl animate-scale-in">
+                              <div className="p-2 border-b border-border shrink-0">
+                                <div className="relative">
+                                  <Search className="absolute left-2.5 top-1/2 -translate-y-1/2 w-3.5 h-3.5 text-muted-foreground pointer-events-none" />
+                                  <input autoFocus value={assignQuery} onChange={(e) => setAssignQuery(e.target.value)} placeholder="Search name or email..."
+                                    className="w-full h-8 pl-8 pr-2 rounded-md border border-input bg-background text-[13px] outline-none focus:border-primary" />
+                                </div>
+                              </div>
+                              <div className="overflow-auto py-1 flex-1 min-h-0">
+                                <p className="px-3 py-1 text-[10px] font-bold uppercase tracking-wider text-muted-foreground">Assign to</p>
+                                {(() => {
+                                  const q = assignQuery.trim().toLowerCase();
+                                  const matches = (agents || []).filter((ag) => ag.full_name.toLowerCase().includes(q) || (ag.email || "").toLowerCase().includes(q));
+                                  if (matches.length === 0) return <p className="text-center text-xs text-muted-foreground py-3">No agents</p>;
+                                  return matches.map((ag) => (
+                                    <button
+                                      key={ag.id}
+                                      type="button"
+                                      onClick={() => { onReassign?.(ag.id); setAssignOpen(false); setAssignQuery(""); }}
+                                      className={cn("w-full flex items-center gap-2.5 px-3 py-1.5 text-left hover:bg-muted outline-none", ag.id === active.assigned_agent_id ? "bg-primary/[0.04]" : "")}
+                                    >
+                                      <User className={cn("w-3.5 h-3.5 shrink-0", ag.id === active.assigned_agent_id ? "text-primary" : "opacity-70")} />
+                                      <div className="min-w-0 flex-1">
+                                        <p className={cn("text-[13px] truncate", ag.id === active.assigned_agent_id ? "text-primary font-semibold" : "text-foreground/90")}>{ag.full_name}</p>
+                                        {ag.email && <p className="text-[11px] text-muted-foreground truncate">{ag.email}</p>}
+                                      </div>
+                                      {ag.id === active.assigned_agent_id && <Check className="w-3.5 h-3.5 shrink-0 text-primary" />}
+                                    </button>
+                                  ));
+                                })()}
+                                {active.assigned_agent_id && (
+                                  <>
+                                    <div className="my-1 border-t border-border" />
+                                    <button
+                                      type="button"
+                                      onClick={() => { onUnassign?.(); setAssignOpen(false); setAssignQuery(""); }}
+                                      className="w-full flex items-center gap-2 px-3 py-1.5 text-[13px] text-left text-amber-700 hover:bg-amber-50 outline-none"
+                                    >
+                                      <XCircle className="w-3.5 h-3.5 shrink-0" />Unassign
+                                    </button>
+                                  </>
+                                )}
+                              </div>
                             </div>
-                          </div>
-                          <div className="overflow-auto py-1 flex-1 min-h-0">
-                            <p className="px-3 py-1 text-[10px] font-bold uppercase tracking-wider text-muted-foreground">Assign to</p>
-                            {(() => {
-                              const q = assignQuery.trim().toLowerCase();
-                              const matches = (agents || []).filter((ag) => ag.full_name.toLowerCase().includes(q) || (ag.email || "").toLowerCase().includes(q));
-                              if (matches.length === 0) return <p className="text-center text-xs text-muted-foreground py-3">No agents</p>;
-                              return matches.map((ag) => (
-                                <button
-                                  key={ag.id}
-                                  type="button"
-                                  onClick={() => { onReassign?.(ag.id); setAssignOpen(false); setAssignQuery(""); }}
-                                  className={cn("w-full flex items-center gap-2.5 px-3 py-1.5 text-left hover:bg-muted outline-none", ag.id === active.assigned_agent_id ? "bg-primary/[0.04]" : "")}
-                                >
-                                  <User className={cn("w-3.5 h-3.5 shrink-0", ag.id === active.assigned_agent_id ? "text-primary" : "opacity-70")} />
-                                  <div className="min-w-0 flex-1">
-                                    <p className={cn("text-[13px] truncate", ag.id === active.assigned_agent_id ? "text-primary font-semibold" : "text-foreground/90")}>{ag.full_name}</p>
-                                    {ag.email && <p className="text-[11px] text-muted-foreground truncate">{ag.email}</p>}
-                                  </div>
-                                  {ag.id === active.assigned_agent_id && <Check className="w-3.5 h-3.5 shrink-0 text-primary" />}
-                                </button>
-                              ));
-                            })()}
-                            {active.assigned_agent_id && (
-                              <>
-                                <div className="my-1 border-t border-border" />
-                                <button
-                                  type="button"
-                                  onClick={() => { onUnassign?.(); setAssignOpen(false); setAssignQuery(""); }}
-                                  className="w-full flex items-center gap-2 px-3 py-1.5 text-[13px] text-left text-amber-700 hover:bg-amber-50 outline-none"
-                                >
-                                  <XCircle className="w-3.5 h-3.5 shrink-0" />Unassign
-                                </button>
-                              </>
-                            )}
-                          </div>
-                        </div>
-                      </>
+                          </>
+                        )}
+                      </div>
+                    ) : (
+                      <p className={cn("text-xs font-semibold truncate", active.agent_name ? "text-foreground" : "text-amber-700")}>{active.agent_name || "Unassigned"}</p>
                     )}
                   </div>
-                ) : active.agent_name ? (
-                  <p className="text-xs font-semibold text-foreground flex items-center gap-2">
-                    <User className="w-4 h-4 opacity-60" />
-                    {active.agent_name}
-                  </p>
-                ) : (
-                  <p className="text-xs text-amber-700 font-semibold flex items-center gap-2">
-                    <User className="w-4 h-4" />
-                    Unassigned
-                  </p>
-                )}
+                </div>
               </div>
             )}
 

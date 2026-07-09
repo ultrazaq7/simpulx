@@ -352,7 +352,7 @@ export default function ChatPanel({
             {/* ── Chat Header ── */}
             {/* Wraps to a second row on mobile (too many controls to fit one
                 narrow row); stays a single fixed-height row on desktop. */}
-            <div className="shrink-0 flex flex-nowrap items-center px-3 gap-2 py-2 lg:py-0 min-h-14 lg:h-14 border-b border-border bg-card overflow-x-auto [scrollbar-width:none] [&::-webkit-scrollbar]:hidden">
+            <div className="shrink-0 flex flex-wrap lg:flex-nowrap items-center px-3 gap-2 py-2 lg:py-0 min-h-14 lg:h-14 border-b border-border bg-card">
               {/* Back to list — mobile only */}
               {onBack && (
                 <button aria-label="Back to conversations" onClick={onBack} className="lg:hidden -ml-1 p-1 rounded-md text-muted-foreground hover:bg-muted hover:text-foreground outline-none shrink-0">
