@@ -27,6 +27,7 @@ export function AdWizard({ onClose, onConnected }: { onClose: () => void; onConn
   const [accountId, setAccountId] = useState("");
   const [name, setName] = useState("");
   const [token, setToken] = useState("");
+  const [manualToken, setManualToken] = useState(false);
   const [saving, setSaving] = useState(false);
   const [err, setErr] = useState("");
   const [result, setResult] = useState<{ syncError?: string } | null>(null);
@@ -44,7 +45,7 @@ export function AdWizard({ onClose, onConnected }: { onClose: () => void; onConn
     [ourCampaigns]);
 
   async function connect() {
-    if (platform === "google" || platform === "meta") {
+    if (platform === "google" || (platform === "meta" && !manualToken)) {
       if (!accountId.trim()) { setErr(platform === "google" ? "Customer id is required." : "Ad account id is required."); return; }
       setSaving(true); setErr("");
       try {
@@ -80,7 +81,7 @@ export function AdWizard({ onClose, onConnected }: { onClose: () => void; onConn
   const footer =
     step === 0 ? (<><div className="flex-1" /><ContinueButton onClick={() => platform && setStep(1)} disabled={!platform} /></>)
     : step === 1 ? (<><BackButton onClick={() => { setErr(""); setStep(0); }} /><div className="flex-1" />
-        <PrimaryButton onClick={connect} disabled={saving}>{saving ? <Loader2 className="w-4 h-4 animate-spin" /> : null}{platform === "google" ? "Sign in with Google" : platform === "meta" ? "Sign in with Facebook" : "Connect"}</PrimaryButton></>)
+        <PrimaryButton onClick={connect} disabled={saving}>{saving ? <Loader2 className="w-4 h-4 animate-spin" /> : null}{platform === "google" ? "Sign in with Google" : (platform === "meta" && !manualToken) ? "Sign in with Facebook" : "Connect"}</PrimaryButton></>)
     : (<><div className="flex-1" /><PrimaryButton onClick={() => onConnected(result?.syncError ? `Connected, but sync failed: ${result.syncError}` : "Ad account connected")}>Done</PrimaryButton></>);
 
   return (
@@ -101,9 +102,15 @@ export function AdWizard({ onClose, onConnected }: { onClose: () => void; onConn
           {err && <div className="px-3 py-2 rounded-md bg-destructive/10 border border-destructive/20 text-destructive text-[13px] font-medium">{err}</div>}
           <WizardField label={accountLabel} value={accountId} onChange={setAccountId} placeholder={accountPlaceholder} autoFocus />
           <WizardField label="Display name (optional)" value={name} onChange={setName} placeholder="e.g. Main ad account" />
-          {platform !== "google" && platform !== "meta" && (
-            <WizardField label={tokenLabel} value={token} onChange={setToken} type="password" hint={tokenHint} />
+          {platform === "meta" && (
+            <label className="flex items-center gap-2 mt-2">
+              <input type="checkbox" checked={manualToken} onChange={(e) => setManualToken(e.target.checked)} className="rounded border-border text-primary focus:ring-primary" />
+              <span className="text-[13px] text-muted-foreground">Advanced: Use manual System User Token (Permanent)</span>
+            </label>
           )}
+          {(platform !== "google" && platform !== "meta") || (platform === "meta" && manualToken) ? (
+            <WizardField label={tokenLabel} value={token} onChange={setToken} type="password" hint={tokenHint} />
+          ) : null}
         </div>
       )}
 
