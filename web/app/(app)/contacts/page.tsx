@@ -3,7 +3,7 @@ import { useEffect, useMemo, useRef, useState } from "react";
 import { useRouter } from "next/navigation";
 import {
   Search, UserPlus, Download, Pencil, ChevronsLeft, ChevronsRight, ChevronLeft, ChevronRight,
-  Users, User, X, XCircle, Loader2, Tag as TagIcon, MoreVertical, MessageSquare, Trash2, Upload, ChevronDown, Eye, Ban, Copy, Check, SlidersHorizontal,
+  Users, User, X, XCircle, Loader2, Tag as TagIcon, MoreVertical, MessageSquare, Trash2, Upload, ChevronDown, Eye, Ban, Copy, Check, SlidersHorizontal, Send,
 } from "lucide-react";
 
 import { api, getUser } from "@/lib/api";
@@ -18,6 +18,7 @@ import LostReasonDialog from "@/app/(app)/inbox/components/LostReasonDialog";
 import { Select } from "@/components/Select";
 import { MultiSelect } from "@/components/ui/multi-select";
 import SidePanel from "@/components/SidePanel";
+import SendTemplateDrawer from "./components/SendTemplateDrawer";
 
 type ModalState = { mode: "add" } | { mode: "edit"; contact: Contact } | null;
 
@@ -94,6 +95,8 @@ export default function ContactsPage() {
   const [orgTz, setOrgTz] = useState<string>("");
   const [selected, setSelected] = useState<Set<string>>(new Set());
   const [bulkBusy, setBulkBusy] = useState(false);
+  const [bulkMenu, setBulkMenu] = useState<null | "stage" | "interest" | "agent">(null);
+  const [tplOpen, setTplOpen] = useState(false);
   const [visibleCols, setVisibleCols] = useState<Set<string>>(() => new Set(DEFAULT_COLS));
   const [colsMenuOpen, setColsMenuOpen] = useState(false);
   const importRef = useRef<HTMLInputElement>(null);
@@ -115,6 +118,7 @@ export default function ContactsPage() {
   const canEdit = can("edit_contacts");
   const canDelete = can("delete_contacts");
   const canExport = can("export_contacts");
+  const canInitiate = can("initiate_chats");
 
   const reload = () => api.listContacts().then(setContacts).catch(() => {});
   useEffect(() => {
@@ -203,7 +207,7 @@ export default function ContactsPage() {
   }
   // Close row / add / columns menus on outside click.
   useEffect(() => {
-    const onDoc = () => { setMenuId(null); setAddMenuOpen(false); setColsMenuOpen(false); };
+    const onDoc = () => { setMenuId(null); setAddMenuOpen(false); setColsMenuOpen(false); setBulkMenu(null); };
     window.addEventListener("click", onDoc);
     return () => window.removeEventListener("click", onDoc);
   }, []);
@@ -322,6 +326,23 @@ export default function ContactsPage() {
     }));
     reload(); clearSel(); setBulkBusy(false); setToast(`Label "${l}" added to ${ids.length}`);
   }
+  // Bulk stage / interest / agent via the dedicated endpoint, which routes each
+  // change through the contact's conversation (attribution) when one exists.
+  async function bulkSet(set: { stage_id?: string; interest_level?: string; assigned_agent_id?: string }, label: string) {
+    setBulkMenu(null);
+    setBulkBusy(true);
+    const ids = [...selected];
+    try {
+      const res = await api.bulkUpdateContacts({ contact_ids: ids, set });
+      const skipped = res.skipped?.length || 0;
+      setToast(`${label} for ${res.updated} contact${res.updated === 1 ? "" : "s"}${skipped ? ` (${skipped} skipped)` : ""}`);
+      reload(); clearSel();
+    } catch {
+      setToast("Could not update selection");
+    } finally {
+      setBulkBusy(false);
+    }
+  }
   async function toggleBlacklist(c: Contact) {
     const next = !c.blacklisted;
     setContacts((p) => p.map((x) => (x.id === c.id ? { ...x, blacklisted: next } : x)));
@@ -331,6 +352,28 @@ export default function ContactsPage() {
 
   const TH = ({ children, className }: { children?: React.ReactNode; className?: string }) =>
     <th className={cn("px-3 py-2 text-left text-[11px] font-bold uppercase tracking-wider text-muted-foreground whitespace-nowrap", className)}>{children}</th>;
+
+  // A compact bulk-action dropdown (Stage / Interest / Assign) in the selection bar.
+  const bulkDropdown = (key: "stage" | "interest" | "agent", label: string,
+    items: { label: string; value: string; dot?: string }[], onPick: (value: string) => void) => (
+    <div className="relative" onClick={(e) => e.stopPropagation()}>
+      <button onClick={() => setBulkMenu(bulkMenu === key ? null : key)} disabled={bulkBusy}
+        className="inline-flex items-center gap-1.5 px-3 h-8 rounded-md border border-border bg-background text-[13px] font-medium hover:bg-muted disabled:opacity-50 outline-none transition-colors">
+        {label}<ChevronDown className="w-3.5 h-3.5 text-muted-foreground" />
+      </button>
+      {bulkMenu === key && (
+        <div className="absolute right-0 top-full mt-1 w-48 bg-popover border border-border rounded-lg shadow-xl z-50 py-1 animate-scale-in origin-top-right max-h-[50vh] overflow-auto">
+          {items.map((it) => (
+            <button key={it.value || "__none__"} onClick={() => onPick(it.value)}
+              className="w-full flex items-center gap-2 px-3 py-2 text-[13px] text-foreground hover:bg-muted outline-none">
+              {it.dot && <span className="w-2 h-2 rounded-full shrink-0" style={{ backgroundColor: it.dot }} />}
+              {it.label}
+            </button>
+          ))}
+        </div>
+      )}
+    </div>
+  );
 
   return (
     <div className="h-full flex flex-col px-4 pt-4 pb-4 min-h-0">
@@ -395,9 +438,19 @@ export default function ContactsPage() {
 
         {/* Bulk action bar */}
         {selected.size > 0 && (
-          <div className="flex items-center gap-2 px-3 py-2 mb-2 rounded-lg border border-primary/30 bg-primary/[0.06] shrink-0">
+          <div className="flex items-center gap-2 px-3 py-2 mb-2 rounded-lg border border-primary/30 bg-primary/[0.06] shrink-0 flex-wrap">
             <span className="text-[13px] font-semibold text-foreground">{selected.size} {t("contacts.selected")}</span>
             <div className="flex-1" />
+            {canEdit && stages.length > 0 && bulkDropdown("stage", t("contacts.stage"),
+              stages.map((s) => ({ label: s.name, value: s.id })),
+              (id) => bulkSet({ stage_id: id }, `Stage set to ${stages.find((s) => s.id === id)?.name || "stage"}`))}
+            {canEdit && bulkDropdown("interest", t("contacts.interest"),
+              [{ label: "Hot", value: "hot", dot: interestColor("hot") }, { label: "Warm", value: "warm", dot: interestColor("warm") }, { label: "Cold", value: "cold", dot: interestColor("cold") }],
+              (v) => bulkSet({ interest_level: v }, `Interest set to ${v}`))}
+            {showAgentFilter && bulkDropdown("agent", t("contacts.agent"),
+              [{ label: t("common.unassigned"), value: "" }, ...agents.map((a) => ({ label: a.full_name, value: a.id }))],
+              (v) => bulkSet({ assigned_agent_id: v }, v ? `Assigned to ${agents.find((a) => a.id === v)?.full_name || "agent"}` : "Unassigned"))}
+            {canInitiate && <button onClick={() => setTplOpen(true)} disabled={bulkBusy} className="inline-flex items-center gap-1.5 px-3 h-8 rounded-md border border-border text-[13px] font-medium hover:bg-muted disabled:opacity-50"><Send className="w-3.5 h-3.5" />Send Template</button>}
             {canEdit && <button onClick={bulkLabel} disabled={bulkBusy} className="inline-flex items-center gap-1.5 px-3 h-8 rounded-md border border-border text-[13px] font-medium hover:bg-muted disabled:opacity-50"><TagIcon className="w-3.5 h-3.5" />{t("contacts.addLabel")}</button>}
             {canEdit && <button onClick={bulkBlacklist} disabled={bulkBusy} className="inline-flex items-center gap-1.5 px-3 h-8 rounded-md border border-border text-[13px] font-medium hover:bg-muted disabled:opacity-50"><Ban className="w-3.5 h-3.5" />{t("contacts.blacklist")}</button>}
             {canDelete && <button onClick={bulkDelete} disabled={bulkBusy} className="inline-flex items-center gap-1.5 px-3 h-8 rounded-md border border-destructive/40 text-destructive text-[13px] font-medium hover:bg-destructive/10 disabled:opacity-50"><Trash2 className="w-3.5 h-3.5" />{t("common.delete")}</button>}
@@ -589,6 +642,8 @@ export default function ContactsPage() {
           onClose={() => setModal(null)} onSaved={(msg) => { setModal(null); reload(); setToast(msg); }} />
       )}
       {chatContact && <ChatPopup contact={chatContact} onClose={() => setChatContact(null)} notify={(m) => setToast(m)} />}
+      <SendTemplateDrawer open={tplOpen} onClose={() => setTplOpen(false)} contactIds={[...selected]}
+        onSent={(msg) => { setTplOpen(false); setToast(msg); clearSel(); reload(); }} />
       <LostReasonDialog
         open={!!outcomeFor}
         onClose={() => setOutcomeFor(null)}
