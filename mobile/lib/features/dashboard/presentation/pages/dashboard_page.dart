@@ -385,6 +385,14 @@ class _StageSplitCard extends StatelessWidget {
     // "Lost" is now a stage in the list, so the total is simply the stage sum
     // and every row's share adds up to 100%.
     final total = stages.fold<int>(0, (s, x) => s + x.count);
+
+    final activeStages = stages.where((s) => !s.name.toLowerCase().startsWith('lost')).toList();
+    final lostStages = stages.where((s) => s.name.toLowerCase().startsWith('lost')).toList();
+    final lostCount = lostStages.fold<int>(0, (sum, s) => sum + s.count);
+    if (lostStages.isNotEmpty) {
+      activeStages.add(StageStat(name: 'Lost', count: lostCount, sortOrder: 99));
+    }
+
     return _Card(
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
@@ -399,8 +407,8 @@ class _StageSplitCard extends StatelessWidget {
             ],
           ),
           const SizedBox(height: 12),
-          for (var i = 0; i < stages.length; i++)
-            _buildStageRow(context, stages[i], i, total),
+          for (var i = 0; i < activeStages.length; i++)
+            _buildStageRow(context, activeStages[i], i, total),
         ],
       ),
     );
@@ -415,7 +423,11 @@ class _StageSplitCard extends StatelessWidget {
     return InkWell(
       onTap: onDrill != null
           ? () {
-              onDrill!(InboxFilter(stageName: s.name));
+              if (s.name == 'Lost') {
+                onDrill!(const InboxFilter(status: 'closed'));
+              } else {
+                onDrill!(InboxFilter(stageName: s.name));
+              }
             }
           : null,
       borderRadius: BorderRadius.circular(4),
