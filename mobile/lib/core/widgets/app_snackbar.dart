@@ -4,14 +4,13 @@ class AppSnackbar {
   static void show(BuildContext context, String message, {bool isError = false}) {
     final scaffold = ScaffoldMessenger.of(context);
     final theme = Theme.of(context);
-    // WhatsApp-style solid toast. Colors are keyed directly off the active
-    // brightness (not the ColorScheme, which a custom theme may pin to a single
-    // value) so the bar always follows the theme and flips correctly when it's
-    // toggled: a dark bar on a light theme, a light bar on a dark theme.
+    // Toast MATCHES the active theme: a light bar with dark text on the light
+    // theme, a dark bar with white text on the dark theme. Keyed off brightness
+    // so it follows the theme (and flips) consistently when it's changed.
     final isDark = theme.brightness == Brightness.dark;
-    final bg = isDark ? const Color(0xFFE9EDEF) : const Color(0xFF202C33);
-    final fg = isDark ? const Color(0xFF111B21) : Colors.white;
-    final errorFg = isDark ? const Color(0xFFC62828) : const Color(0xFFFF6B6B);
+    final bg = isDark ? const Color(0xFF2A3942) : const Color(0xFFE9EDEF);
+    final fg = isDark ? Colors.white : const Color(0xFF1C2B33);
+    final errorFg = isDark ? const Color(0xFFFF6B6B) : const Color(0xFFD32F2F);
 
     // Animate the previous toast out first so a rapid second call slides in
     // cleanly instead of snapping.

@@ -210,6 +210,17 @@ class SettingsPage extends ConsumerWidget {
 
   void _showThemePicker(
       BuildContext context, WidgetRef ref, ThemeMode current) {
+    // Apply the theme, close the sheet, then show the confirmation AFTER the
+    // next frame so the toast itself renders in the newly-applied theme rather
+    // than the one that was active when it was tapped.
+    void pick(ThemeMode? v, String label) {
+      if (v != null) ref.read(themeModeProvider.notifier).setThemeMode(v);
+      Navigator.of(context).pop();
+      WidgetsBinding.instance.addPostFrameCallback((_) {
+        if (context.mounted) AppSnackbar.show(context, label);
+      });
+    }
+
     showModalBottomSheet<void>(
       context: context,
       showDragHandle: true,
@@ -230,31 +241,19 @@ class SettingsPage extends ConsumerWidget {
               subtitle: Text('Follow device theme'.tr(context)),
               value: ThemeMode.system,
               groupValue: current,
-              onChanged: (v) {
-                if (v != null) ref.read(themeModeProvider.notifier).setThemeMode(v);
-                Navigator.of(context).pop();
-                AppSnackbar.show(context, 'Theme set to System Default'.tr(context));
-              },
+              onChanged: (v) => pick(v, 'Theme set to System Default'.tr(context)),
             ),
             RadioListTile<ThemeMode>(
               title: Text('Light'.tr(context)),
               value: ThemeMode.light,
               groupValue: current,
-              onChanged: (v) {
-                if (v != null) ref.read(themeModeProvider.notifier).setThemeMode(v);
-                Navigator.of(context).pop();
-                AppSnackbar.show(context, 'Theme set to Light'.tr(context));
-              },
+              onChanged: (v) => pick(v, 'Theme set to Light'.tr(context)),
             ),
             RadioListTile<ThemeMode>(
               title: Text('Dark'.tr(context)),
               value: ThemeMode.dark,
               groupValue: current,
-              onChanged: (v) {
-                if (v != null) ref.read(themeModeProvider.notifier).setThemeMode(v);
-                Navigator.of(context).pop();
-                AppSnackbar.show(context, 'Theme set to Dark'.tr(context));
-              },
+              onChanged: (v) => pick(v, 'Theme set to Dark'.tr(context)),
             ),
             const SizedBox(height: 8),
           ],

@@ -19,6 +19,7 @@ import { Select } from "@/components/Select";
 import { MultiSelect } from "@/components/ui/multi-select";
 import SidePanel from "@/components/SidePanel";
 import { Toast } from "@/components/Toast";
+import { useConfirm, usePrompt } from "@/components/ConfirmDialog";
 import SendTemplateDrawer from "./components/SendTemplateDrawer";
 
 type ModalState = { mode: "add" } | { mode: "edit"; contact: Contact } | null;
@@ -93,6 +94,8 @@ export default function ContactsPage() {
   const [menuId, setMenuId] = useState<string | null>(null);
   const [addMenuOpen, setAddMenuOpen] = useState(false);
   const [toast, setToast] = useState<string | null>(null);
+  const { confirm, ConfirmHost } = useConfirm();
+  const { prompt, PromptHost } = usePrompt();
   const [orgTz, setOrgTz] = useState<string>("");
   const [selected, setSelected] = useState<Set<string>>(new Set());
   const [bulkBusy, setBulkBusy] = useState(false);
@@ -290,7 +293,7 @@ export default function ContactsPage() {
   }
 
   async function remove(c: Contact) {
-    if (!confirm(`Delete "${c.full_name || c.phone}"? This also removes its conversations.`)) return;
+    if (!(await confirm({ title: "Delete contact?", message: `This removes "${c.full_name || c.phone}" and its conversations. This cannot be undone.`, danger: true, confirmLabel: "Delete" }))) return;
     try { await api.deleteContact(c.id); setContacts((p) => p.filter((x) => x.id !== c.id)); setToast("Contact deleted"); }
     catch (e: any) { setToast(e?.message || "Delete failed"); }
   }
@@ -299,7 +302,7 @@ export default function ContactsPage() {
   const toggleSel = (id: string) => setSelected((s) => { const n = new Set(s); n.has(id) ? n.delete(id) : n.add(id); return n; });
   const clearSel = () => setSelected(new Set());
   async function bulkDelete() {
-    if (!confirm(`Delete ${selected.size} contact(s)? This also removes their conversations.`)) return;
+    if (!(await confirm({ title: `Delete ${selected.size} contact(s)?`, message: "This also removes their conversations. This cannot be undone.", danger: true, confirmLabel: "Delete" }))) return;
     setBulkBusy(true);
     const ids = [...selected];
     await Promise.allSettled(ids.map((id) => api.deleteContact(id)));
@@ -314,7 +317,7 @@ export default function ContactsPage() {
     clearSel(); setBulkBusy(false); setToast(`${ids.length} contact(s) blacklisted`);
   }
   async function bulkLabel() {
-    const label = prompt("Add a label to the selected contacts:");
+    const label = await prompt({ title: "Add label", message: "Add a label to the selected contacts.", placeholder: "e.g. VIP, Follow-up", confirmLabel: "Add label" });
     if (!label || !label.trim()) return;
     const l = label.trim();
     setBulkBusy(true);
@@ -362,7 +365,7 @@ export default function ContactsPage() {
         {label}<ChevronDown className="w-3.5 h-3.5 text-muted-foreground" />
       </button>
       {bulkMenu === key && (
-        <div className="absolute right-0 top-full mt-1 w-48 bg-popover border border-border rounded-lg shadow-xl z-50 py-1 animate-scale-in origin-top-right max-h-[50vh] overflow-auto">
+        <div className="absolute right-0 bottom-full mb-1 w-48 bg-popover border border-border rounded-lg shadow-xl z-50 py-1 animate-scale-in origin-bottom-right max-h-[50vh] overflow-auto">
           {items.map((it) => (
             <button key={it.value || "__none__"} onClick={() => onPick(it.value)}
               className="w-full flex items-center gap-2 px-3 py-2 text-[13px] text-foreground hover:bg-muted outline-none">
@@ -657,6 +660,8 @@ export default function ContactsPage() {
       />
 
       {toast && <Toast msg={toast} onClose={() => setToast(null)} />}
+      {ConfirmHost}
+      {PromptHost}
     </div>
   );
 }
