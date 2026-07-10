@@ -1,7 +1,6 @@
 import 'dart:async';
 
 import 'package:cached_network_image/cached_network_image.dart';
-import 'package:emoji_picker_flutter/emoji_picker_flutter.dart';
 import 'package:flutter/material.dart';
 import '../../../../core/utils/haptics.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
@@ -32,7 +31,7 @@ class MessageComposer extends ConsumerStatefulWidget {
 
   final String conversationId;
   final void Function(String text) onSend;
-  final Future<String?> Function()? onAttach;
+  final VoidCallback? onAttach;
   final VoidCallback? onCamera;
 
   /// Called with the recorded voice-note file path when sent.
@@ -51,7 +50,6 @@ class _MessageComposerState extends ConsumerState<MessageComposer> {
   final _focusNode = FocusNode();
   final _voice = VoiceRecorder();
   bool _canSend = false;
-  bool _showEmoji = false; // emoji panel open (mutually exclusive with keyboard)
   String? _slashQuery; // non-null while the text is a "/..." shortcut query
 
   // WhatsApp-style link preview while composing: first URL in the draft shows
@@ -66,56 +64,6 @@ class _MessageComposerState extends ConsumerState<MessageComposer> {
     super.initState();
     _controller.addListener(_onTextChanged);
     _voice.addListener(_onVoiceChanged);
-    // Opening the keyboard hides the emoji panel (they occupy the same space).
-    _focusNode.addListener(() {
-      if (_focusNode.hasFocus && _showEmoji) setState(() => _showEmoji = false);
-    });
-  }
-
-  void _toggleEmoji() {
-    Haptics.selection;
-    if (_showEmoji) {
-      setState(() => _showEmoji = false);
-      _focusNode.requestFocus();
-    } else {
-      FocusScope.of(context).unfocus();
-      setState(() => _showEmoji = true);
-    }
-  }
-
-  /// WhatsApp-style emoji keyboard (categories, search, recents, skin tones).
-  /// The [textEditingController] wiring inserts at the cursor for us.
-  Widget _emojiPicker(ThemeData theme) {
-    final bg = theme.colorScheme.surface;
-    return SizedBox(
-      height: 280,
-      child: EmojiPicker(
-        textEditingController: _controller,
-        config: Config(
-          height: 280,
-          emojiViewConfig: EmojiViewConfig(
-            backgroundColor: bg,
-            columns: 8,
-            emojiSizeMax: 26,
-            buttonMode: ButtonMode.MATERIAL,
-          ),
-          categoryViewConfig: CategoryViewConfig(
-            backgroundColor: bg,
-            indicatorColor: AppColors.primary,
-            iconColor: AppColors.textSecondary,
-            iconColorSelected: AppColors.primary,
-            backspaceColor: AppColors.primary,
-            dividerColor: AppColors.border,
-          ),
-          bottomActionBarConfig: BottomActionBarConfig(
-            backgroundColor: bg,
-            buttonColor: AppColors.primary,
-            buttonIconColor: Colors.white,
-            showSearchViewButton: false,
-          ),
-        ),
-      ),
-    );
   }
 
   void _onTextChanged() {
@@ -308,7 +256,6 @@ class _MessageComposerState extends ConsumerState<MessageComposer> {
               padding: const EdgeInsets.fromLTRB(8, 8, 8, 8),
               child: _voice.recording ? _recordingBar() : _inputBar(),
             ),
-            if (_showEmoji && !_voice.recording) _emojiPicker(theme),
           ],
         ),
       ),
@@ -323,12 +270,9 @@ class _MessageComposerState extends ConsumerState<MessageComposer> {
         IconButton(
           icon: const Icon(Icons.add_circle_outline_rounded),
           color: AppColors.textSecondary,
-          onPressed: () async {
+          onPressed: () {
             Haptics.selection;
-            final action = await widget.onAttach?.call();
-            if (action == 'emoji') {
-              _toggleEmoji();
-            }
+            widget.onAttach?.call();
           },
           tooltip: 'Attach'.tr(context),
         ),

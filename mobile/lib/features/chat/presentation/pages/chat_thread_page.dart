@@ -179,7 +179,7 @@ class _ChatThreadPageState extends ConsumerState<ChatThreadPage>
     }
   }
 
-  Future<String?> _attach() async {
+  Future<void> _attach() async {
     final choice = await showModalBottomSheet<String>(
       context: context,
       showDragHandle: true,
@@ -190,11 +190,6 @@ class _ChatThreadPageState extends ConsumerState<ChatThreadPage>
               leading: const Icon(Icons.photo_camera_outlined),
               title: Text('Camera'.tr(context)),
               onTap: () => Navigator.of(context).pop('camera'),
-            ),
-            ListTile(
-              leading: const Icon(Icons.emoji_emotions_outlined),
-              title: Text('Emoji'.tr(context)),
-              onTap: () => Navigator.of(context).pop('emoji'),
             ),
             ListTile(
               leading: const Icon(Icons.photo_library_outlined),
@@ -210,15 +205,11 @@ class _ChatThreadPageState extends ConsumerState<ChatThreadPage>
         ),
       ),
     );
-    if (choice == null) return null;
+    if (choice == null) return;
 
     if (choice == 'camera') {
       await _openCustomCamera();
-      return null;
-    }
-    
-    if (choice == 'emoji') {
-      return 'emoji';
+      return;
     }
 
     if (choice == 'file') {
@@ -230,7 +221,7 @@ class _ChatThreadPageState extends ConsumerState<ChatThreadPage>
               MediaPreviewItem(picked.path!, picked.name, MessageType.document),
         ]);
       }
-      return null;
+      return;
     }
 
     // gallery
