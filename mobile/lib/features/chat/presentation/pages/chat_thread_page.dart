@@ -640,18 +640,18 @@ class _ThreadAppBar extends StatelessWidget implements PreferredSizeWidget {
         IconButton(
           onPressed: onCall,
           icon: const Icon(Icons.call_rounded),
-          tooltip: 'Call',
+          tooltip: 'Call'.tr(context),
         ),
         IconButton(
           onPressed: onSearch,
           icon: const Icon(Icons.search_rounded),
-          tooltip: 'Search messages',
+          tooltip: 'Search messages'.tr(context),
         ),
         const SizedBox(width: 4),
         IconButton(
           icon: const Icon(Icons.more_vert_rounded),
           onPressed: onMore,
-          tooltip: 'Lead actions',
+          tooltip: 'Lead actions'.tr(context),
         ),
       ],
     );

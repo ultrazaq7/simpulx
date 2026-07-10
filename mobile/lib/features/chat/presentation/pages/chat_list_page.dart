@@ -218,7 +218,8 @@ class _ChatListPageState extends ConsumerState<ChatListPage> {
                       for (final status in const ['open', 'closed', 'snoozed'])
                         ChoiceChip(
                           label: Text(
-                            status[0].toUpperCase() + status.substring(1),
+                            (status[0].toUpperCase() + status.substring(1))
+                                .tr(context),
                           ),
                           selected: filter.status == status,
                           onSelected: (_) => ref
@@ -390,13 +391,13 @@ class _ChatListPageState extends ConsumerState<ChatListPage> {
           const _RealtimeDot(),
           IconButton(
             icon: const Icon(Icons.tune_rounded),
-            tooltip: 'Advanced Filters',
+            tooltip: 'Advanced Filters'.tr(context),
             onPressed: _showFilters,
           ),
           // Sort dropdown
           PopupMenuButton<String>(
             icon: const Icon(Icons.swap_vert_rounded),
-            tooltip: 'Sort',
+            tooltip: 'Sort'.tr(context),
             onSelected: (v) => setState(() {
               _sortType = v;
               _visible = 25;
@@ -508,8 +509,9 @@ class _ChatListPageState extends ConsumerState<ChatListPage> {
                       textInputAction: TextInputAction.search,
                       decoration: InputDecoration(
                         hintText: _searchType == 'Phone'
-                            ? 'Search Number'
-                            : 'Search ${_searchType.toLowerCase()}',
+                            ? 'Search Number'.tr(context)
+                            : 'Search {type}'.trp(context,
+                                {'type': _searchType.tr(context).toLowerCase()}),
                         isDense: true,
                         suffixIcon: _query.isEmpty
                             ? null
@@ -846,7 +848,7 @@ class _SearchableChipListState extends State<_SearchableChipList> {
           child: TextField(
             controller: _ctrl,
             decoration: InputDecoration(
-              hintText: 'Search...',
+              hintText: 'Search...'.tr(context),
               prefixIcon: const Icon(Icons.search_rounded, size: 20),
               isDense: true,
               contentPadding: const EdgeInsets.symmetric(

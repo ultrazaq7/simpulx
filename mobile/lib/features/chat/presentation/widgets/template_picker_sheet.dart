@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import '../../../../app/theme/app_colors.dart';
+import '../../../../core/i18n/i18n.dart';
 import '../../../../core/widgets/app_empty_state.dart';
 import '../../domain/entities/lead_lookups.dart';
 import '../controllers/chat_actions_providers.dart';
@@ -58,7 +59,8 @@ class _TemplateWizardState extends ConsumerState<_TemplateWizard> {
               const Icon(Icons.description_outlined,
                   color: AppColors.primary, size: 20),
               const SizedBox(width: 8),
-              Text(_selected == null ? 'Send template' : 'Preview',
+              Text(
+                  (_selected == null ? 'Send template' : 'Preview').tr(context),
                   style: const TextStyle(
                       fontSize: 16, fontWeight: FontWeight.w700)),
             ],
@@ -69,16 +71,17 @@ class _TemplateWizardState extends ConsumerState<_TemplateWizard> {
           child: async.when(
             loading: () =>
                 const Center(child: CircularProgressIndicator(strokeWidth: 2)),
-            error: (_, _) => const AppEmptyState(
+            error: (_, _) => AppEmptyState(
               icon: Icons.description_outlined,
-              title: 'Could not load templates',
+              title: 'Could not load templates'.tr(context),
             ),
             data: (templates) {
               if (templates.isEmpty) {
-                return const AppEmptyState(
+                return AppEmptyState(
                   icon: Icons.description_outlined,
-                  title: 'No templates',
-                  message: 'Create message templates on the web dashboard.',
+                  title: 'No templates'.tr(context),
+                  message:
+                      'Create message templates on the web dashboard.'.tr(context),
                 );
               }
               return _selected == null
@@ -162,7 +165,7 @@ class _TemplateWizardState extends ConsumerState<_TemplateWizard> {
               child: FilledButton.icon(
                 onPressed: _send,
                 icon: const Icon(Icons.send_rounded, size: 18),
-                label: Text('Use "${t.name}"'),
+                label: Text('Use "{name}"'.trp(context, {'name': t.name})),
                 style: FilledButton.styleFrom(
                     minimumSize: const Size.fromHeight(50)),
               ),

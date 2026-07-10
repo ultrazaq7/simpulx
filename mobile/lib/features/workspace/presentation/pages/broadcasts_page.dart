@@ -3,6 +3,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import '../../../../app/theme/app_colors.dart';
 import '../../../../core/error/failure.dart';
+import '../../../../core/i18n/i18n.dart';
 import '../../../../core/utils/time_format.dart';
 import '../../../../core/widgets/app_empty_state.dart';
 import '../../../../core/widgets/app_error_view.dart';
@@ -19,7 +20,7 @@ class BroadcastsPage extends ConsumerWidget {
   Widget build(BuildContext context, WidgetRef ref) {
     final async = ref.watch(broadcastsProvider);
     return Scaffold(
-      appBar: AppBar(title: const Text('Broadcasts')),
+      appBar: AppBar(title: Text('Broadcasts'.tr(context))),
       body: async.when(
         loading: () => const AppLoader(),
         error: (e, _) => AppErrorView(
@@ -31,10 +32,11 @@ class BroadcastsPage extends ConsumerWidget {
           child: list.isEmpty
               ? ListView(children: [
                   SizedBox(height: MediaQuery.of(context).size.height * 0.2),
-                  const AppEmptyState(
+                  AppEmptyState(
                     icon: Icons.campaign_outlined,
-                    title: 'No broadcasts',
-                    message: 'Create campaigns on the web; monitor and send here.',
+                    title: 'No broadcasts'.tr(context),
+                    message: 'Create campaigns on the web; monitor and send here.'
+                        .tr(context),
                   ),
                 ])
               : ListView.separated(
@@ -56,26 +58,28 @@ class BroadcastsPage extends ConsumerWidget {
     WidgetRef ref,
     BroadcastSummary b,
   ) async {
-    final messenger = ScaffoldMessenger.of(context);
     final ok = await showDialog<bool>(
       context: context,
       builder: (_) => AlertDialog(
-        title: Text('Send "${b.name}"?'),
-        content: Text(
-            'This will queue the broadcast to ${b.totalRecipients} recipients.'),
+        title: Text('Send "{name}"?'.trp(context, {'name': b.name})),
+        content: Text('This will queue the broadcast to {count} recipients.'
+            .trp(context, {'count': b.totalRecipients})),
         actions: [
           TextButton(
               onPressed: () => Navigator.pop(context, false),
-              child: const Text('Cancel')),
+              child: Text('Cancel'.tr(context))),
           FilledButton(
               onPressed: () => Navigator.pop(context, true),
-              child: const Text('Send')),
+              child: Text('Send'.tr(context))),
         ],
       ),
     );
     if (ok != true) return;
     final sent = await ref.read(broadcastsProvider.notifier).send(b.id);
-    AppSnackbar.show(context, sent ? 'Broadcast queued' : 'Could not send broadcast', isError: !sent);
+    if (!context.mounted) return;
+    AppSnackbar.show(context,
+        sent ? 'Broadcast queued'.tr(context) : 'Could not send broadcast'.tr(context),
+        isError: !sent);
   }
 }
 
@@ -129,12 +133,14 @@ class _BroadcastCard extends StatelessWidget {
           const SizedBox(height: 6),
           Row(
             children: [
-              Text('${b.sentCount}/${b.totalRecipients} sent',
+              Text(
+                  '{sent}/{total} sent'.trp(
+                      context, {'sent': b.sentCount, 'total': b.totalRecipients}),
                   style: const TextStyle(
                       fontSize: 12, color: AppColors.textSecondary)),
               if (b.failedCount > 0) ...[
                 const SizedBox(width: 10),
-                Text('${b.failedCount} failed',
+                Text('{count} failed'.trp(context, {'count': b.failedCount}),
                     style: const TextStyle(
                         fontSize: 12, color: AppColors.danger)),
               ],
@@ -146,7 +152,7 @@ class _BroadcastCard extends StatelessWidget {
                     visualDensity: VisualDensity.compact,
                     padding: const EdgeInsets.symmetric(horizontal: 14),
                   ),
-                  child: const Text('Send now'),
+                  child: Text('Send now'.tr(context)),
                 ),
             ],
           ),
@@ -176,7 +182,7 @@ class _StatusChip extends StatelessWidget {
         color: _color.withValues(alpha: 0.12),
         borderRadius: BorderRadius.circular(999),
       ),
-      child: Text(status,
+      child: Text(status.tr(context),
           style: TextStyle(
               fontSize: 11, color: _color, fontWeight: FontWeight.w700)),
     );

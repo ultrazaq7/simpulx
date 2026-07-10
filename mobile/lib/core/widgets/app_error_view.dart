@@ -3,6 +3,7 @@ import 'package:flutter/material.dart';
 import '../../app/theme/app_colors.dart';
 import '../../app/theme/app_spacing.dart';
 import '../error/failure.dart';
+import '../i18n/i18n.dart';
 
 /// Standard error view with a retry affordance. Pass a [Failure] to surface its
 /// message, or a raw [message].
@@ -16,7 +17,7 @@ class AppErrorView extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
-    final text = message ?? failure?.message ?? 'Something went wrong';
+    final text = message ?? failure?.message ?? 'Something went wrong'.tr(context);
     final isNetwork = failure is NetworkFailure;
 
     return Center(
@@ -42,7 +43,7 @@ class AppErrorView extends StatelessWidget {
               OutlinedButton.icon(
                 onPressed: onRetry,
                 icon: const Icon(Icons.refresh_rounded, size: 18),
-                label: const Text('Retry'),
+                label: Text('Retry'.tr(context)),
               ),
             ],
           ],

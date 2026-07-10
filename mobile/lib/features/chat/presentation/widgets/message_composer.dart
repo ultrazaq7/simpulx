@@ -272,7 +272,7 @@ class _MessageComposerState extends ConsumerState<MessageComposer> {
             Haptics.selection;
             widget.onAttach?.call();
           },
-          tooltip: 'Attach',
+          tooltip: 'Attach'.tr(context),
         ),
         Expanded(
           child: ConstrainedBox(
@@ -284,7 +284,7 @@ class _MessageComposerState extends ConsumerState<MessageComposer> {
               textCapitalization: TextCapitalization.sentences,
               keyboardType: TextInputType.multiline,
               decoration: InputDecoration(
-                hintText: 'Message',
+                hintText: 'Message'.tr(context),
                 isDense: true,
                 contentPadding:
                     const EdgeInsets.symmetric(horizontal: 14, vertical: 10),
@@ -301,7 +301,7 @@ class _MessageComposerState extends ConsumerState<MessageComposer> {
                           _controller.selection = TextSelection.collapsed(offset: 1);
                         });
                       },
-                      tooltip: 'Shortcuts',
+                      tooltip: 'Shortcuts'.tr(context),
                     ),
                     IconButton(
                       icon: const Icon(Icons.library_books_rounded, size: 20),
@@ -310,7 +310,7 @@ class _MessageComposerState extends ConsumerState<MessageComposer> {
                         Haptics.selection;
                         showTemplatePicker(context, widget.conversationId);
                       },
-                      tooltip: 'Templates',
+                      tooltip: 'Templates'.tr(context),
                     ),
                   ],
                 ),
@@ -345,7 +345,7 @@ class _MessageComposerState extends ConsumerState<MessageComposer> {
           icon: const Icon(Icons.delete_outline_rounded),
           color: AppColors.danger,
           onPressed: _voice.cancel,
-          tooltip: 'Cancel',
+          tooltip: 'Cancel'.tr(context),
         ),
         const _PulsingDot(),
         const SizedBox(width: 8),
@@ -511,14 +511,14 @@ class _CreateShortcutFormState extends State<_CreateShortcutForm> {
           const SizedBox(height: 8),
           TextField(
             controller: _title,
-            decoration: const InputDecoration(hintText: 'Title (optional)'),
+            decoration: InputDecoration(hintText: 'Title (optional)'.tr(context)),
           ),
           const SizedBox(height: 8),
           TextField(
             controller: _body,
             minLines: 2,
             maxLines: 5,
-            decoration: const InputDecoration(hintText: 'Message text'),
+            decoration: InputDecoration(hintText: 'Message text'.tr(context)),
           ),
           const SizedBox(height: 16),
           FilledButton(

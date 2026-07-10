@@ -154,16 +154,16 @@ class _NotesSheetState extends ConsumerState<_NotesSheet> {
           child: async.when(
             loading: () =>
                 const Center(child: CircularProgressIndicator(strokeWidth: 2)),
-            error: (_, _) => const AppEmptyState(
+            error: (_, _) => AppEmptyState(
               icon: Icons.sticky_note_2_outlined,
-              title: 'Could not load notes',
+              title: 'Could not load notes'.tr(context),
             ),
             data: (notes) {
               if (notes.isEmpty) {
-                return const AppEmptyState(
+                return AppEmptyState(
                   icon: Icons.sticky_note_2_outlined,
-                  title: 'No notes yet',
-                  message: 'Notes are visible only to your team.',
+                  title: 'No notes yet'.tr(context),
+                  message: 'Notes are visible only to your team.'.tr(context),
                 );
               }
               return Stack(children: [
@@ -295,8 +295,8 @@ class _NotesSheetState extends ConsumerState<_NotesSheet> {
                     controller: _controller,
                     minLines: 1,
                     maxLines: 4,
-                    decoration: const InputDecoration(
-                      hintText: 'Add a note for your team',
+                    decoration: InputDecoration(
+                      hintText: 'Add a note for your team'.tr(context),
                       isDense: true,
                     ),
                   ),

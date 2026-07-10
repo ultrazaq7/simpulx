@@ -37,7 +37,7 @@ class MessageSearchDelegate extends SearchDelegate<Message?> {
             showResults(context); // re-trigger search
           }
         },
-        tooltip: 'Filter by date',
+        tooltip: 'Filter by date'.tr(context),
       ),
       if (query.isNotEmpty || _filterDate != null)
         IconButton(

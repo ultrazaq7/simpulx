@@ -3,6 +3,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import '../../../../app/theme/app_colors.dart';
 import '../../../../core/error/failure.dart';
+import '../../../../core/i18n/i18n.dart';
 import '../../../../core/widgets/app_empty_state.dart';
 import '../../../../core/widgets/app_error_view.dart';
 import '../../../../core/widgets/app_loader.dart';
@@ -16,7 +17,7 @@ class TeamPage extends ConsumerWidget {
   Widget build(BuildContext context, WidgetRef ref) {
     final async = ref.watch(agentsProvider);
     return Scaffold(
-      appBar: AppBar(title: const Text('Team')),
+      appBar: AppBar(title: Text('Team'.tr(context))),
       body: async.when(
         loading: () => const AppLoader(),
         error: (e, _) => AppErrorView(
@@ -25,9 +26,9 @@ class TeamPage extends ConsumerWidget {
         ),
         data: (agents) {
           if (agents.isEmpty) {
-            return const AppEmptyState(
+            return AppEmptyState(
               icon: Icons.groups_outlined,
-              title: 'No team members',
+              title: 'No team members'.tr(context),
             );
           }
           final online = agents.where((a) => a.isOnline).length;
@@ -37,7 +38,9 @@ class TeamPage extends ConsumerWidget {
                 padding: const EdgeInsets.fromLTRB(16, 12, 16, 4),
                 child: Align(
                   alignment: Alignment.centerLeft,
-                  child: Text('$online of ${agents.length} online',
+                  child: Text(
+                      '{online} of {total} online'.trp(
+                          context, {'online': online, 'total': agents.length}),
                       style: const TextStyle(
                           color: AppColors.textSecondary, fontSize: 13)),
                 ),
@@ -85,8 +88,10 @@ class TeamPage extends ConsumerWidget {
                       ),
                       title: Text(a.name,
                           style: const TextStyle(fontWeight: FontWeight.w600)),
-                      subtitle: Text(a.isOnline ? 'Online' : 'Offline'),
-                      trailing: Text('${a.openCount} open',
+                      subtitle: Text(
+                          (a.isOnline ? 'Online' : 'Offline').tr(context)),
+                      trailing: Text(
+                          '{count} open'.trp(context, {'count': a.openCount}),
                           style: const TextStyle(
                               color: AppColors.textSecondary, fontSize: 13)),
                     );

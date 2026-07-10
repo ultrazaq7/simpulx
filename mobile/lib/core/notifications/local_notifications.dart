@@ -8,6 +8,7 @@ import 'package:flutter_local_notifications/flutter_local_notifications.dart';
 import 'package:path_provider/path_provider.dart';
 
 import '../config/app_config.dart';
+import '../i18n/i18n.dart';
 import '../network/dio_client.dart';
 import '../storage/secure_store.dart';
 import 'notification_payload.dart';
@@ -38,12 +39,12 @@ class LocalNotifications {
           DarwinNotificationCategory(
             'missed_call',
             actions: [
-              DarwinNotificationAction.plain('callback', 'Call back'),
+              DarwinNotificationAction.plain('callback', trStatic('Call back')),
               // Inline text reply, same concept as the chat Reply action.
               DarwinNotificationAction.text(
                 'message',
-                'Message',
-                buttonTitle: 'Send',
+                trStatic('Send message'),
+                buttonTitle: trStatic('Send'),
               ),
             ],
           ),
@@ -405,7 +406,7 @@ class LocalNotifications {
   ) async {
     final name = (payload.contactName?.trim().isNotEmpty ?? false)
         ? payload.contactName!.trim()
-        : 'Missed call';
+        : trStatic('Missed call');
 
     String? avatarPath;
     try {
@@ -427,13 +428,15 @@ class LocalNotifications {
       playSound: false,
       enableVibration: false,
       autoCancel: true,
-      actions: const [
-        AndroidNotificationAction('callback', 'Call back',
+      actions: [
+        AndroidNotificationAction('callback', trStatic('Call back'),
             showsUserInterface: true),
         // Inline reply, same as the chat Reply action.
-        AndroidNotificationAction('message', 'Message',
+        AndroidNotificationAction('message', trStatic('Send message'),
             showsUserInterface: false,
-            inputs: [AndroidNotificationActionInput(label: 'Message...')]),
+            inputs: [
+              AndroidNotificationActionInput(label: trStatic('Message...'))
+            ]),
       ],
     );
 
@@ -453,7 +456,7 @@ class LocalNotifications {
     await plugin.show(
       id: id,
       title: name,
-      body: 'Missed voice call',
+      body: trStatic('Missed voice call'),
       notificationDetails: NotificationDetails(android: android, iOS: ios),
       payload: payload.encodeRoute(),
     );
@@ -506,9 +509,9 @@ class LocalNotifications {
       );
     } else if (isCall) {
       style = BigTextStyleInformation(
-        'Incoming voice call',
+        trStatic('Incoming voice call'),
         contentTitle: payload.title,
-        summaryText: 'Simpulx Voice Call',
+        summaryText: trStatic('Simpulx Voice Call'),
       );
     } else {
       style = BigTextStyleInformation(payload.body);
@@ -558,15 +561,17 @@ class LocalNotifications {
       actions: [
         // ── Message actions ──
         if (isMessage) ...[
-          const AndroidNotificationAction(
+          AndroidNotificationAction(
             'reply',
-            'Reply',
+            trStatic('Reply'),
             showsUserInterface: false,
-            inputs: [AndroidNotificationActionInput(label: 'Type a message...')],
+            inputs: [
+              AndroidNotificationActionInput(label: trStatic('Type a message...'))
+            ],
           ),
-          const AndroidNotificationAction(
+          AndroidNotificationAction(
             'mark_read',
-            'Mark as read',
+            trStatic('Mark as read'),
             showsUserInterface: false,
           ),
         ],
@@ -644,9 +649,9 @@ class LocalNotifications {
       );
     } else if (isCall) {
       style = BigTextStyleInformation(
-        'Incoming voice call',
+        trStatic('Incoming voice call'),
         contentTitle: payload.title,
-        summaryText: 'Simpulx Voice Call',
+        summaryText: trStatic('Simpulx Voice Call'),
       );
     } else {
       style = BigTextStyleInformation(payload.body);
@@ -674,15 +679,17 @@ class LocalNotifications {
           : AudioAttributesUsage.notification,
       actions: [
         if (isMessage) ...[
-          const AndroidNotificationAction(
+          AndroidNotificationAction(
             'reply',
-            'Reply',
+            trStatic('Reply'),
             showsUserInterface: false,
-            inputs: [AndroidNotificationActionInput(label: 'Type a message...')],
+            inputs: [
+              AndroidNotificationActionInput(label: trStatic('Type a message...'))
+            ],
           ),
-          const AndroidNotificationAction(
+          AndroidNotificationAction(
             'mark_read',
-            'Mark as read',
+            trStatic('Mark as read'),
             showsUserInterface: false,
           ),
         ],

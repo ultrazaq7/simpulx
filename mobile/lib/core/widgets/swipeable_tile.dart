@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_slidable/flutter_slidable.dart';
+import '../i18n/i18n.dart';
 import '../utils/animation_constants.dart';
 import '../utils/haptics.dart';
 
@@ -114,7 +115,7 @@ class _SwipeableConversationTileState extends State<SwipeableConversationTile>
                             Icon(action.icon, color: Colors.white, size: 24),
                             const SizedBox(height: 4),
                             Text(
-                              action.label,
+                              action.label.tr(context),
                               style: const TextStyle(
                                 color: Colors.white,
                                 fontSize: 11,
@@ -149,7 +150,7 @@ class _SwipeableConversationTileState extends State<SwipeableConversationTile>
                             Icon(action.icon, color: Colors.white, size: 24),
                             const SizedBox(height: 4),
                             Text(
-                              action.label,
+                              action.label.tr(context),
                               style: const TextStyle(
                                 color: Colors.white,
                                 fontSize: 11,

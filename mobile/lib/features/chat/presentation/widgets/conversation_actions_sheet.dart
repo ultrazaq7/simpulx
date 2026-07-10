@@ -76,7 +76,11 @@ class _ActionsSheet extends ConsumerWidget {
                     actions.setInterest(level).then((ok) {
                       if (context.mounted) {
                         if (ok) {
-                          AppSnackbar.show(context, 'Interest set to ${level[0].toUpperCase()}${level.substring(1)}');
+                          AppSnackbar.show(
+                              context,
+                              'Interest set to {v}'.trp(context, {
+                                'v': level[0].toUpperCase() + level.substring(1)
+                              }));
                         } else {
                           AppSnackbar.show(context, 'Failed to update interest'.tr(context), isError: true);
                         }
@@ -230,7 +234,10 @@ class _ActionsSheet extends ConsumerWidget {
                         actions.setStage(s.id).then((ok) {
                           if (context.mounted) {
                             if (ok) {
-                              AppSnackbar.show(context, 'Stage moved to ${s.name}');
+                              AppSnackbar.show(
+                                  context,
+                                  'Stage moved to {v}'.trp(
+                                      context, {'v': stageLabel(context, s.name)}));
                             } else {
                               AppSnackbar.show(context, 'Failed to update stage'.tr(context), isError: true);
                             }
@@ -389,32 +396,44 @@ class _ActionsSheet extends ConsumerWidget {
           children: [
             for (final entry in presets.entries)
               ListTile(
-                title: Text(entry.key),
+                title: Text(entry.key.tr(context)),
                 trailing: Text(
                   DateFormat('E, MMM d • HH:mm').format(entry.value),
                   style: const TextStyle(color: AppColors.textMuted, fontSize: 13),
                 ),
-                onTap: () => _do(context, sheetContext, actions.snooze(entry.value), 'Snoozed until ${entry.key}'),
+                onTap: () => _do(context, sheetContext, actions.snooze(entry.value),
+                    'Snoozed until {time}'.trp(context, {'time': entry.key.tr(context)})),
               ),
             const Divider(),
             ListTile(
               leading: const Icon(Icons.edit_calendar_outlined),
               title: Text('Custom time...'.tr(context)),
               onTap: () async {
+                // Default the pickers to the device's current date/time.
+                final start = DateTime.now();
                 final date = await showDatePicker(
                   context: context,
-                  initialDate: now.add(const Duration(days: 1)),
-                  firstDate: now,
-                  lastDate: now.add(const Duration(days: 365)),
+                  initialDate: start,
+                  firstDate: start,
+                  lastDate: start.add(const Duration(days: 365)),
                 );
                 if (date == null || !context.mounted) return;
                 final time = await showTimePicker(
                   context: context,
-                  initialTime: const TimeOfDay(hour: 9, minute: 0),
+                  initialTime: TimeOfDay.now(),
                 );
                 if (time == null || !context.mounted) return;
-                final dt = DateTime(date.year, date.month, date.day, time.hour, time.minute);
-                _do(context, sheetContext, actions.snooze(dt), 'Snoozed until custom time');
+                final dt = DateTime(
+                    date.year, date.month, date.day, time.hour, time.minute);
+                // Reject a moment that has already passed.
+                if (!dt.isAfter(DateTime.now())) {
+                  AppSnackbar.show(
+                      context, "Can't snooze to a past time".tr(context),
+                      isError: true);
+                  return;
+                }
+                _do(context, sheetContext, actions.snooze(dt),
+                    'Snoozed until custom time'.tr(context));
               },
             ),
           ],
@@ -480,9 +499,9 @@ class _ActionsSheet extends ConsumerWidget {
                         child: Icon(groups[i].$3,
                             color: groups[i].$4 ? AppColors.danger : AppColors.primary),
                       ),
-                      title: Text(groups[i].$1,
+                      title: Text(groups[i].$1.tr(context),
                           style: const TextStyle(fontWeight: FontWeight.w700)),
-                      subtitle: Text(groups[i].$2),
+                      subtitle: Text(groups[i].$2.tr(context)),
                       trailing: const Icon(Icons.chevron_right_rounded),
                       onTap: () => setSheetState(() => gi = i),
                     ),
@@ -502,7 +521,7 @@ class _ActionsSheet extends ConsumerWidget {
                         icon: const Icon(Icons.arrow_back_rounded),
                         onPressed: () => setSheetState(() => gi = null),
                       ),
-                      Text(g.$1,
+                      Text(g.$1.tr(context),
                           style: const TextStyle(
                               fontSize: 16, fontWeight: FontWeight.w700)),
                     ],
@@ -510,7 +529,7 @@ class _ActionsSheet extends ConsumerWidget {
                 ),
                 for (final r in g.$5)
                   ListTile(
-                    title: Text(r.$2),
+                    title: Text(r.$2.tr(context)),
                     onTap: () {
                       final cat = g.$4 ? 'spam' : 'lost';
                       // The "Purchase" group means lost-but-bought-elsewhere.
@@ -520,7 +539,8 @@ class _ActionsSheet extends ConsumerWidget {
                         sheetContext,
                         actions.setDisposition(cat,
                             lostReason: r.$1, didPurchase: didPurchase),
-                        'Marked as lost: ${r.$2}',
+                        'Marked as lost: {reason}'
+                            .trp(context, {'reason': r.$2.tr(context)}),
                       );
                     },
                   ),

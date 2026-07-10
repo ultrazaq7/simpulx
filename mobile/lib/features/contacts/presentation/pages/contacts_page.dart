@@ -3,6 +3,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 
 import '../../../../app/theme/app_colors.dart';
+import '../../../../core/i18n/i18n.dart';
 import '../../../../core/error/failure.dart';
 import '../../../../core/i18n/stage_label.dart';
 import '../../../../core/session/session_controller.dart';
@@ -171,7 +172,7 @@ class _ContactsPageState extends ConsumerState<ContactsPage> {
                     children: [
                       Row(
                         children: [
-                          const Text('Advanced Filters',
+                          Text('Advanced Filters'.tr(context),
                               style: TextStyle(
                                   fontSize: 17, fontWeight: FontWeight.w700)),
                           const Spacer(),
@@ -183,12 +184,12 @@ class _ContactsPageState extends ConsumerState<ContactsPage> {
                               _campaign = null;
                               _agentFilter = null;
                             }),
-                            child: const Text('Reset'),
+                            child: Text('Reset'.tr(context)),
                           ),
                         ],
                       ),
                       const SizedBox(height: 16),
-                      const Text('Interest Level',
+                      Text('Interest Level'.tr(context),
                           style: TextStyle(
                               fontWeight: FontWeight.w700, fontSize: 13)),
                       const SizedBox(height: 8),
@@ -196,7 +197,7 @@ class _ContactsPageState extends ConsumerState<ContactsPage> {
                         spacing: 8,
                         children: [
                           ChoiceChip(
-                            label: const Text('All'),
+                            label: Text('All'.tr(context)),
                             selected: _interest == null,
                             onSelected: (_) => update(() => _interest = null),
                           ),
@@ -219,7 +220,7 @@ class _ContactsPageState extends ConsumerState<ContactsPage> {
                         ],
                       ),
                       const SizedBox(height: 16),
-                      const Text('Stage',
+                      Text('Stage'.tr(context),
                           style: TextStyle(
                               fontWeight: FontWeight.w700, fontSize: 13)),
                       const SizedBox(height: 8),
@@ -228,7 +229,7 @@ class _ContactsPageState extends ConsumerState<ContactsPage> {
                         runSpacing: 8,
                         children: [
                           ChoiceChip(
-                            label: const Text('All'),
+                            label: Text('All'.tr(context)),
                             selected: _stage == null,
                             onSelected: (_) => update(() => _stage = null),
                           ),
@@ -258,7 +259,7 @@ class _ContactsPageState extends ConsumerState<ContactsPage> {
                             crossAxisAlignment: CrossAxisAlignment.start,
                             children: [
                               const SizedBox(height: 16),
-                              const Text('Campaign',
+                              Text('Campaign'.tr(context),
                                   style: TextStyle(fontWeight: FontWeight.w700, fontSize: 13)),
                               const SizedBox(height: 8),
                               _SearchableChipList(
@@ -288,7 +289,7 @@ class _ContactsPageState extends ConsumerState<ContactsPage> {
                               crossAxisAlignment: CrossAxisAlignment.start,
                               children: [
                                 const SizedBox(height: 16),
-                                const Text('Agent',
+                                Text('Agent'.tr(context),
                                     style: TextStyle(fontWeight: FontWeight.w700, fontSize: 13)),
                                 const SizedBox(height: 8),
                                 _SearchableChipList(
@@ -302,7 +303,7 @@ class _ContactsPageState extends ConsumerState<ContactsPage> {
                         ),
                       if (isManager) ...[
                         const SizedBox(height: 16),
-                        const Text('Assignment',
+                        Text('Assignment'.tr(context),
                             style: TextStyle(
                                 fontWeight: FontWeight.w700, fontSize: 13)),
                         const SizedBox(height: 8),
@@ -315,7 +316,7 @@ class _ContactsPageState extends ConsumerState<ContactsPage> {
                               ('unassigned', 'Unassigned'),
                             ])
                               ChoiceChip(
-                                label: Text(opt.$2),
+                                label: Text(opt.$2.tr(context)),
                                 selected: _assignment == opt.$1,
                                 onSelected: (_) =>
                                     update(() => _assignment = opt.$1),
@@ -330,7 +331,7 @@ class _ContactsPageState extends ConsumerState<ContactsPage> {
                           onPressed: () => Navigator.of(context).pop(),
                           style: FilledButton.styleFrom(
                               minimumSize: const Size.fromHeight(48)),
-                          child: const Text('Apply'),
+                          child: Text('Apply'.tr(context)),
                         ),
                       ),
                     ],
@@ -376,12 +377,14 @@ class _ContactsPageState extends ConsumerState<ContactsPage> {
 
     return Scaffold(
       appBar: AppBar(
-        title: Text(count != null ? 'Contacts ($count)' : 'Contacts'),
+        title: Text(count != null
+            ? 'Contacts ({count})'.trp(context, {'count': count})
+            : 'Contacts'.tr(context)),
         actions: [
           // Add contact button
           IconButton(
             icon: const Icon(Icons.person_add_alt_1_rounded),
-            tooltip: 'Add Contact',
+            tooltip: 'Add Contact'.tr(context),
             onPressed: () async {
               final id = await showContactForm(context);
               if (id != null && context.mounted) context.push('/contacts/$id');
@@ -392,7 +395,7 @@ class _ContactsPageState extends ConsumerState<ContactsPage> {
             children: [
               IconButton(
                 icon: const Icon(Icons.tune_rounded),
-                tooltip: 'Filters',
+                tooltip: 'Filters'.tr(context),
                 onPressed: _showFilters,
               ),
               if (_activeFilters > 0)
@@ -419,7 +422,7 @@ class _ContactsPageState extends ConsumerState<ContactsPage> {
           // Sort dropdown
           PopupMenuButton<String>(
             icon: const Icon(Icons.swap_vert_rounded),
-            tooltip: 'Sort',
+            tooltip: 'Sort'.tr(context),
             onSelected: (v) => setState(() => _sortType = v),
             itemBuilder: (_) => [
               for (final sort in const ['Oldest', 'Latest', 'Score', 'Name'])
@@ -432,7 +435,7 @@ class _ContactsPageState extends ConsumerState<ContactsPage> {
                       else
                         const SizedBox(width: 18),
                       const SizedBox(width: 8),
-                      Text(sort),
+                      Text(sort.tr(context)),
                     ],
                   ),
                 ),
@@ -448,7 +451,7 @@ class _ContactsPageState extends ConsumerState<ContactsPage> {
               onChanged: (v) => setState(() => _query = v),
               textInputAction: TextInputAction.search,
               decoration: InputDecoration(
-                hintText: 'Search name or phone',
+                hintText: 'Search name or phone'.tr(context),
                 prefixIcon: const Icon(Icons.search_rounded, size: 20),
                 isDense: true,
                 suffixIcon: _query.isEmpty
@@ -496,8 +499,7 @@ class _ContactsPageState extends ConsumerState<ContactsPage> {
                                 Icon(Icons.filter_alt_rounded, size: 14, color: AppColors.primary),
                                 const SizedBox(width: 6),
                                 Flexible(
-                                  child: Text(
-                                    'Clear all',
+                                  child: Text('Clear all'.tr(context),
                                     maxLines: 1,
                                     overflow: TextOverflow.ellipsis,
                                     style: const TextStyle(
@@ -530,10 +532,12 @@ class _ContactsPageState extends ConsumerState<ContactsPage> {
                       SizedBox(height: MediaQuery.of(context).size.height * 0.2),
                       AppEmptyState(
                         icon: Icons.contacts_outlined,
-                        title: list.isEmpty ? 'No contacts' : 'No matches',
-                        message: list.isEmpty
-                            ? 'Add a lead with the + button.'
-                            : 'Try a different search or filter.',
+                        title: (list.isEmpty ? 'No contacts' : 'No matches')
+                            .tr(context),
+                        message: (list.isEmpty
+                                ? 'Add a lead with the + button.'
+                                : 'Try a different search or filter.')
+                            .tr(context),
                       ),
                     ],
                   )
@@ -609,7 +613,7 @@ class _SearchableChipListState extends State<_SearchableChipList> {
           child: TextField(
             controller: _ctrl,
             decoration: InputDecoration(
-              hintText: 'Search...',
+              hintText: 'Search...'.tr(context),
               prefixIcon: const Icon(Icons.search_rounded, size: 20),
               isDense: true,
               contentPadding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
@@ -627,7 +631,7 @@ class _SearchableChipListState extends State<_SearchableChipList> {
           runSpacing: 4,
           children: [
             ChoiceChip(
-              label: const Text('All'),
+              label: Text('All'.tr(context)),
               selected: widget.selected == null,
               onSelected: (_) => widget.onSelected(null),
             ),

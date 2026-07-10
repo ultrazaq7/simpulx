@@ -5,6 +5,8 @@ import 'package:intl/intl.dart';
 import 'package:url_launcher/url_launcher.dart';
 
 import '../../../../app/theme/app_colors.dart';
+import '../../../../core/i18n/i18n.dart';
+import '../../../../core/i18n/stage_label.dart';
 import '../../domain/entities/contact.dart';
 import '../controllers/contacts_providers.dart';
 
@@ -145,8 +147,7 @@ class _ContactTileState extends ConsumerState<ContactTile> {
                     child: Row(
                       mainAxisSize: MainAxisSize.min,
                       children: [
-                        Text(
-                          'History',
+                        Text('History'.tr(context),
                           style: theme.textTheme.bodySmall?.copyWith(
                             color: muted,
                             fontWeight: FontWeight.w600,
@@ -174,7 +175,7 @@ class _ContactTileState extends ConsumerState<ContactTile> {
                       onPressed: () =>
                           context.push('/chat/${c.conversationId}'),
                       icon: const Icon(Icons.chat_rounded, size: 16),
-                      label: const Text('CHAT'),
+                      label: Text('CHAT'.tr(context)),
                       style: OutlinedButton.styleFrom(
                         foregroundColor: AppColors.info,
                         side: const BorderSide(color: AppColors.info),
@@ -196,7 +197,7 @@ class _ContactTileState extends ConsumerState<ContactTile> {
                   OutlinedButton.icon(
                     onPressed: () => _dial(c.phone),
                     icon: const Icon(Icons.phone_rounded, size: 17),
-                    label: const Text('CALL'),
+                    label: Text('CALL'.tr(context)),
                     style: OutlinedButton.styleFrom(
                       foregroundColor: AppColors.success,
                       side: const BorderSide(color: AppColors.success),
@@ -288,12 +289,12 @@ class _HistorySection extends ConsumerWidget {
           width: 16,
           child: CircularProgressIndicator(strokeWidth: 2),
         ),
-        error: (_, _) => Text('Failed to load history',
+        error: (_, _) => Text('Failed to load history'.tr(context),
             style: theme.textTheme.bodySmall
                 ?.copyWith(color: AppColors.danger)),
         data: (activities) {
           if (activities.isEmpty) {
-            return Text('No history yet',
+            return Text('No history yet'.tr(context),
                 style: theme.textTheme.bodySmall?.copyWith(color: muted));
           }
           final sorted = activities.reversed.take(2).toList();
@@ -342,8 +343,7 @@ class _HistorySection extends ConsumerWidget {
                 ),
                 child: Padding(
                   padding: const EdgeInsets.only(top: 2),
-                  child: Text(
-                    'See More →',
+                  child: Text('See More →'.tr(context),
                     style: theme.textTheme.bodySmall?.copyWith(
                       color: AppColors.primary,
                       fontWeight: FontWeight.w600,
@@ -465,7 +465,7 @@ class _StageBadge extends StatelessWidget {
         border: Border.all(color: color.withValues(alpha: 0.35)),
       ),
       child: Text(
-        '$stageName ▸',
+        '${stageLabel(context, stageName)} ▸',
         style: TextStyle(
           color: color.withValues(alpha: 1.0),
           fontSize: 11,

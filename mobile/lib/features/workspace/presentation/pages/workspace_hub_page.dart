@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:go_router/go_router.dart';
 
 import '../../../../app/theme/app_colors.dart';
+import '../../../../core/i18n/i18n.dart';
 
 /// Role-gated back-office hub (reached from Settings). High-value manager tools
 /// are native; deeper configuration stays on the web dashboard.
@@ -11,7 +12,7 @@ class WorkspaceHubPage extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      appBar: AppBar(title: const Text('Workspace')),
+      appBar: AppBar(title: Text('Workspace'.tr(context))),
       body: ListView(
         children: [
           const _SectionLabel('Manage here'),
@@ -48,8 +49,9 @@ class _Tile extends StatelessWidget {
   Widget build(BuildContext context) {
     return ListTile(
       leading: Icon(icon, color: AppColors.primary),
-      title: Text(title, style: const TextStyle(fontWeight: FontWeight.w600)),
-      subtitle: Text(subtitle),
+      title: Text(title.tr(context),
+          style: const TextStyle(fontWeight: FontWeight.w600)),
+      subtitle: Text(subtitle.tr(context)),
       trailing: const Icon(Icons.chevron_right_rounded),
       onTap: onTap,
     );
@@ -71,7 +73,7 @@ class _InfoTile extends StatelessWidget {
               size: 18, color: AppColors.textMuted),
           const SizedBox(width: 8),
           Expanded(
-            child: Text(text,
+            child: Text(text.tr(context),
                 style: const TextStyle(
                     color: AppColors.textSecondary, fontSize: 13, height: 1.4)),
           ),
@@ -89,7 +91,7 @@ class _SectionLabel extends StatelessWidget {
   Widget build(BuildContext context) {
     return Padding(
       padding: const EdgeInsets.fromLTRB(16, 16, 16, 8),
-      child: Text(text.toUpperCase(),
+      child: Text(text.tr(context).toUpperCase(),
           style: const TextStyle(
               color: AppColors.textMuted,
               letterSpacing: 0.6,

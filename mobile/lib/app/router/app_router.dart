@@ -3,6 +3,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 
+import '../../core/i18n/i18n.dart';
 import '../../core/session/session_controller.dart';
 import '../../features/auth/presentation/pages/forgot_password_page.dart';
 import '../../features/auth/presentation/pages/login_page.dart';
@@ -282,14 +283,14 @@ class _CallRoutePageState extends ConsumerState<_CallRoutePage> {
         WidgetsBinding.instance.addPostFrameCallback((_) => _leave());
       }
     });
-    return const Scaffold(
+    return Scaffold(
       body: Center(
         child: Column(
           mainAxisAlignment: MainAxisAlignment.center,
           children: [
-            CircularProgressIndicator(),
-            SizedBox(height: 16),
-            Text('Setting up call...'),
+            const CircularProgressIndicator(),
+            const SizedBox(height: 16),
+            Text('Setting up call...'.tr(context)),
           ],
         ),
       ),

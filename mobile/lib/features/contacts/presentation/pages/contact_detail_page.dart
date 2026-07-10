@@ -5,6 +5,7 @@ import 'package:go_router/go_router.dart';
 import 'package:url_launcher/url_launcher.dart';
 
 import '../../../../app/theme/app_colors.dart';
+import '../../../../core/i18n/i18n.dart';
 import '../../../../app/theme/app_spacing.dart';
 import '../../../../core/i18n/stage_label.dart';
 import '../../../../core/utils/time_format.dart';
@@ -87,7 +88,7 @@ class _ContactDetailPageState extends ConsumerState<ContactDetailPage>
     if (contact == null) {
       return Scaffold(
         appBar: AppBar(
-          title: const Text('Contact'),
+          title: Text('Contact'.tr(context)),
           shape: Border(
             bottom: BorderSide(
               color: Theme.of(context).brightness == Brightness.dark 
@@ -103,7 +104,7 @@ class _ContactDetailPageState extends ConsumerState<ContactDetailPage>
 
     return Scaffold(
       appBar: AppBar(
-        title: const Text('Contact Details'),
+        title: Text('Contact Details'.tr(context)),
         shape: Border(
           bottom: BorderSide(
             color: Theme.of(context).brightness == Brightness.dark 
@@ -114,7 +115,7 @@ class _ContactDetailPageState extends ConsumerState<ContactDetailPage>
         actions: [
           IconButton(
             icon: const Icon(Icons.edit_outlined),
-            tooltip: 'Edit',
+            tooltip: 'Edit'.tr(context),
             onPressed: () => showContactForm(context, existing: c),
           ),
           const SizedBox(width: 8),
@@ -186,9 +187,9 @@ class _ContactDetailPageState extends ConsumerState<ContactDetailPage>
                   fontSize: 13, fontWeight: FontWeight.w600),
               unselectedLabelStyle: const TextStyle(
                   fontSize: 13, fontWeight: FontWeight.w500),
-              tabs: const [
-                Tab(text: 'Overview'),
-                Tab(text: 'History'),
+              tabs: [
+                Tab(text: 'Overview'.tr(context)),
+                Tab(text: 'History'.tr(context)),
               ],
             ),
           ),
@@ -259,7 +260,7 @@ class _IdentityCard extends StatelessWidget {
                       GestureDetector(
                         onTap: () {
                           Clipboard.setData(ClipboardData(text: c.phone));
-                          AppSnackbar.show(context, 'Phone number copied');
+                          AppSnackbar.show(context, 'Phone number copied'.tr(context));
                         },
                         child: Icon(Icons.copy_rounded, size: 14, color: theme.colorScheme.onSurfaceVariant),
                       ),
@@ -273,10 +274,10 @@ class _IdentityCard extends StatelessWidget {
                     if (c.channelName != null)
                       _Pill(text: c.channelName!),
                     // Accurate source (e.g. "Ad"), not the raw channel.
-                    _Pill(text: c.sourceLabel),
+                    _Pill(text: c.sourceLabel.tr(context)),
                     for (final t in c.tags) _Pill(text: t),
                     if (c.blacklisted)
-                      const _Pill(text: 'Blacklisted', danger: true),
+                      _Pill(text: 'Blacklisted'.tr(context), danger: true),
                   ],
                 ),
               ],
@@ -348,7 +349,7 @@ class _ActionButton extends StatelessWidget {
                     color: enabled ? AppColors.primary : AppColors.textMuted,
                     size: 22),
                 const SizedBox(height: 4),
-                Text(label,
+                Text(label.tr(context),
                     style: TextStyle(
                         fontSize: 11,
                         fontWeight: FontWeight.w600,
@@ -374,10 +375,13 @@ class _LeadContextCard extends StatelessWidget {
       child: Column(
         children: [
           // ── Lead qualification (AI-generated), matching the web ──
-          _row(context, 'Stage', c.stageName != null ? stageLabel(context, c.stageName) : 'Unset'),
+          _row(context, 'Stage',
+              c.stageName != null ? stageLabel(context, c.stageName) : 'Unset'.tr(context)),
           if (c.lostReason != null && c.lostReason!.isNotEmpty)
             _row(context, 'Lost reason',
-                c.lostReason![0].toUpperCase() + c.lostReason!.substring(1).replaceAll('_', ' ')),
+                (c.lostReason![0].toUpperCase() +
+                        c.lostReason!.substring(1).replaceAll('_', ' '))
+                    .tr(context)),
           // Only show fields the AI has captured — empty ones are hidden.
           if (c.interestLevel != null && c.interestLevel!.isNotEmpty)
             _row(context, 'Interest',
@@ -390,9 +394,9 @@ class _LeadContextCard extends StatelessWidget {
             _row(context, 'City', c.city!),
           if (c.purchaseTimeframe != null && c.purchaseTimeframe!.isNotEmpty)
             _row(context, 'Purchase time', c.purchaseTimeframe!),
-          _row(context, 'Assigned', c.agentName ?? 'Unassigned'),
+          _row(context, 'Assigned', c.agentName ?? 'Unassigned'.tr(context)),
           if (c.campaignName != null) _row(context, 'Campaign', c.campaignName!),
-          _row(context, 'Source', c.sourceLabel),
+          _row(context, 'Source', c.sourceLabel.tr(context)),
           if (c.sourceId != null && c.sourceId!.isNotEmpty)
             _row(context, 'Source ID', c.sourceId!),
           if (c.sourceUrl != null && c.sourceUrl!.isNotEmpty)
@@ -437,7 +441,7 @@ class _LeadContextCard extends StatelessWidget {
         children: [
           SizedBox(
             width: 100,
-            child: Text(label,
+            child: Text(label.tr(context),
                 style: TextStyle(
                     color: Theme.of(context).colorScheme.onSurfaceVariant, fontSize: 13)),
           ),
@@ -485,11 +489,11 @@ class _HistoryCardState extends ConsumerState<_HistoryCard> {
                       height: 18,
                       child: CircularProgressIndicator(strokeWidth: 2))),
             ),
-            error: (_, _) => Text('Could not load history',
+            error: (_, _) => Text('Could not load history'.tr(context),
                 style: theme.textTheme.bodySmall?.copyWith(color: muted)),
             data: (raw) {
               if (raw.isEmpty) {
-                return Text('No changes yet.',
+                return Text('No changes yet.'.tr(context),
                     style: theme.textTheme.bodySmall?.copyWith(color: muted));
               }
               // Backend returns newest-first; display oldest-first (ascending).
@@ -519,8 +523,9 @@ class _HistoryCardState extends ConsumerState<_HistoryCard> {
                             children: [
                               Text(
                                 _expanded
-                                    ? 'Show less'
-                                    : 'Show ${events.length - _collapsedCount} more',
+                                    ? 'Show less'.tr(context)
+                                    : 'Show {count} more'.trp(context,
+                                        {'count': events.length - _collapsedCount}),
                                 style: const TextStyle(
                                     color: AppColors.primary,
                                     fontWeight: FontWeight.w600,
@@ -548,6 +553,37 @@ class _HistoryCardState extends ConsumerState<_HistoryCard> {
   }
 }
 
+/// Translated mirror of [ContactActivity.label]: same shape as the web history,
+/// but each phrase is localized and the stage value goes through [stageLabel].
+String _activityLabel(BuildContext context, ContactActivity e) {
+  String d(String k) => (e.detail[k] ?? '').toString();
+  switch (e.type) {
+    case 'stage_changed':
+      final raw = d('stage_name').isNotEmpty ? d('stage_name') : d('stage_id');
+      final v = raw.isNotEmpty ? stageLabel(context, raw) : '-';
+      return 'Stage changed to {v}'.trp(context, {'v': v});
+    case 'status_changed':
+      final v = d('status').isNotEmpty ? d('status') : '-';
+      return 'Status set to {v}'.trp(context, {'v': v.tr(context)});
+    case 'interest_changed':
+      final v = d('interest_level').isNotEmpty ? d('interest_level') : '-';
+      return 'Interest set to {v}'.trp(context, {'v': v});
+    case 'assigned':
+      final a = d('agent_name');
+      return a.isNotEmpty
+          ? 'Assigned to {a}'.trp(context, {'a': a})
+          : 'Assigned'.tr(context);
+    case 'closed':
+      return 'Conversation closed'.tr(context);
+    case 'reopened':
+      return 'Conversation reopened'.tr(context);
+    case 'handoff':
+      return 'Handed off to a human agent'.tr(context);
+    default:
+      return e.type.replaceAll('_', ' ');
+  }
+}
+
 class _HistoryRow extends StatelessWidget {
   const _HistoryRow({required this.event, required this.isLast});
   final ContactActivity event;
@@ -570,7 +606,7 @@ class _HistoryRow extends StatelessWidget {
           ),
           const SizedBox(width: 8),
           Expanded(
-            child: Text(event.label,
+            child: Text(_activityLabel(context, event),
                 style: const TextStyle(
                     fontSize: 13, fontWeight: FontWeight.w500)),
           ),
@@ -609,10 +645,10 @@ class _LeadScoreCard extends StatelessWidget {
               const Icon(Icons.insights_rounded,
                   size: 16, color: AppColors.primary),
               const SizedBox(width: 6),
-              const Text('Buy potential',
+              Text('Buy potential'.tr(context),
                   style: TextStyle(fontWeight: FontWeight.w700, fontSize: 13)),
               const Spacer(),
-              Text(_band,
+              Text(_band.tr(context),
                   style: TextStyle(
                       color: _color,
                       fontWeight: FontWeight.w700,
@@ -631,7 +667,7 @@ class _LeadScoreCard extends StatelessWidget {
                       color: _color,
                       height: 1)),
               const SizedBox(width: 2),
-              Text('/100',
+              Text('/100'.tr(context),
                   style: TextStyle(
                       color: Theme.of(context).colorScheme.onSurfaceVariant,
                       fontWeight: FontWeight.w600)),

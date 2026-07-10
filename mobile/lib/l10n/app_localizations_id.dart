@@ -12,7 +12,7 @@ class AppLocalizationsId extends AppLocalizations {
   String get appName => 'Simpulx';
 
   @override
-  String get navDashboard => 'Dasbor';
+  String get navDashboard => 'Dashboard';
 
   @override
   String get navChat => 'Chat';

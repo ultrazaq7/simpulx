@@ -4,6 +4,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 
 import '../../../../app/theme/app_colors.dart';
+import '../../../../core/i18n/i18n.dart';
 import '../../../../app/theme/app_spacing.dart';
 import '../../../../core/notifications/notification_prefs.dart';
 import '../../../../core/providers/locale_provider.dart';
@@ -25,7 +26,9 @@ class SettingsPage extends ConsumerWidget {
     final themeMode = ref.watch(themeModeProvider);
 
     String langName(Locale? l) {
-      if (l == null) return 'System Default';
+      // Language names are shown as endonyms (their own language) regardless of
+      // UI locale, matching how OS language pickers behave.
+      if (l == null) return 'System Default'.tr(context);
       switch (l.languageCode) {
         case 'id':
           return 'Indonesia';
@@ -38,18 +41,18 @@ class SettingsPage extends ConsumerWidget {
     String themeName(ThemeMode m) {
       switch (m) {
         case ThemeMode.light:
-          return 'Light';
+          return 'Light'.tr(context);
         case ThemeMode.dark:
-          return 'Dark';
+          return 'Dark'.tr(context);
         case ThemeMode.system:
         default:
-          return 'System Default';
+          return 'System Default'.tr(context);
       }
     }
 
     return Scaffold(
       appBar: AppBar(
-        title: const Text('Settings'),
+        title: Text('Settings'.tr(context)),
         bottom: const PreferredSize(
           preferredSize: Size.fromHeight(1),
           child: Divider(height: 1),
@@ -66,25 +69,25 @@ class SettingsPage extends ConsumerWidget {
               _OnlineStatusTile(),
               ListTile(
                 leading: const Icon(Icons.key_rounded),
-                title: const Text('Account'),
-                subtitle: const Text('Change password'),
+                title: Text('Account'.tr(context)),
+                subtitle: Text('Change password'.tr(context)),
                 onTap: () => _showProfile(context),
               ),
               ListTile(
                 leading: const Icon(Icons.notifications_none_rounded),
-                title: const Text('Notifications'),
-                subtitle: const Text('Message & Alerts'),
+                title: Text('Notifications'.tr(context)),
+                subtitle: Text('Message & Alerts'.tr(context)),
                 onTap: () => _showNotificationPrefs(context),
               ),
               ListTile(
                 leading: const Icon(Icons.language_rounded),
-                title: const Text('Language'),
+                title: Text('Language'.tr(context)),
                 subtitle: Text(langName(locale)),
                 onTap: () => _showLanguagePicker(context, ref, locale),
               ),
               ListTile(
                 leading: const Icon(Icons.palette_outlined),
-                title: const Text('Theme'),
+                title: Text('Theme'.tr(context)),
                 subtitle: Text(themeName(themeMode)),
                 onTap: () => _showThemePicker(context, ref, themeMode),
               ),
@@ -109,7 +112,7 @@ class SettingsPage extends ConsumerWidget {
                       onPressed: () =>
                           ref.read(authControllerProvider.notifier).signOut(),
                       icon: const Icon(Icons.logout_rounded, size: 18),
-                      label: const Text('Sign out'),
+                      label: Text('Sign out'.tr(context)),
                     ),
                     const SizedBox(height: AppSpacing.xl),
                     RichText(
@@ -136,8 +139,7 @@ class SettingsPage extends ConsumerWidget {
                       ),
                     ),
                     const SizedBox(height: 2),
-                    Text(
-                      'v1.0.0',
+                    Text('v1.0.0'.tr(context),
                       style: Theme.of(context).textTheme.labelSmall?.copyWith(
                             color: AppColors.textMuted.withValues(alpha: 0.6),
                           ),
@@ -160,43 +162,43 @@ class SettingsPage extends ConsumerWidget {
         child: Column(
           mainAxisSize: MainAxisSize.min,
           children: [
-            const Padding(
-              padding: EdgeInsets.fromLTRB(16, 0, 16, 8),
+            Padding(
+              padding: const EdgeInsets.fromLTRB(16, 0, 16, 8),
               child: Align(
                 alignment: Alignment.centerLeft,
-                child: Text('Language',
+                child: Text('Language'.tr(context),
                     style: TextStyle(fontSize: 16, fontWeight: FontWeight.w700)),
               ),
             ),
             RadioListTile<Locale?>(
-              title: const Text('System Default'),
-              subtitle: const Text('Follow device language'),
+              title: Text('System Default'.tr(context)),
+              subtitle: Text('Follow device language'.tr(context)),
               value: null,
               groupValue: current,
               onChanged: (v) {
                 ref.read(localeProvider.notifier).setLocale(null);
                 Navigator.of(context).pop();
-                AppSnackbar.show(context, 'Language set to System Default');
+                AppSnackbar.show(context, 'Language set to System Default'.tr(context));
               },
             ),
             RadioListTile<Locale?>(
-              title: const Text('English'),
+              title: Text('English'.tr(context)),
               value: const Locale('en'),
               groupValue: current,
               onChanged: (v) {
                 ref.read(localeProvider.notifier).setLocale(const Locale('en'));
                 Navigator.of(context).pop();
-                AppSnackbar.show(context, 'Language set to English');
+                AppSnackbar.show(context, 'Language set to English'.tr(context));
               },
             ),
             RadioListTile<Locale?>(
-              title: const Text('Indonesia'),
+              title: Text('Indonesia'.tr(context)),
               value: const Locale('id'),
               groupValue: current,
               onChanged: (v) {
                 ref.read(localeProvider.notifier).setLocale(const Locale('id'));
                 Navigator.of(context).pop();
-                AppSnackbar.show(context, 'Bahasa diubah ke Indonesia');
+                AppSnackbar.show(context, 'Bahasa diubah ke Indonesia'.tr(context));
               },
             ),
             const SizedBox(height: 8),
@@ -215,43 +217,43 @@ class SettingsPage extends ConsumerWidget {
         child: Column(
           mainAxisSize: MainAxisSize.min,
           children: [
-            const Padding(
-              padding: EdgeInsets.fromLTRB(16, 0, 16, 8),
+            Padding(
+              padding: const EdgeInsets.fromLTRB(16, 0, 16, 8),
               child: Align(
                 alignment: Alignment.centerLeft,
-                child: Text('Theme',
+                child: Text('Theme'.tr(context),
                     style: TextStyle(fontSize: 16, fontWeight: FontWeight.w700)),
               ),
             ),
             RadioListTile<ThemeMode>(
-              title: const Text('System Default'),
-              subtitle: const Text('Follow device theme'),
+              title: Text('System Default'.tr(context)),
+              subtitle: Text('Follow device theme'.tr(context)),
               value: ThemeMode.system,
               groupValue: current,
               onChanged: (v) {
                 if (v != null) ref.read(themeModeProvider.notifier).setThemeMode(v);
                 Navigator.of(context).pop();
-                AppSnackbar.show(context, 'Theme set to System Default');
+                AppSnackbar.show(context, 'Theme set to System Default'.tr(context));
               },
             ),
             RadioListTile<ThemeMode>(
-              title: const Text('Light'),
+              title: Text('Light'.tr(context)),
               value: ThemeMode.light,
               groupValue: current,
               onChanged: (v) {
                 if (v != null) ref.read(themeModeProvider.notifier).setThemeMode(v);
                 Navigator.of(context).pop();
-                AppSnackbar.show(context, 'Theme set to Light');
+                AppSnackbar.show(context, 'Theme set to Light'.tr(context));
               },
             ),
             RadioListTile<ThemeMode>(
-              title: const Text('Dark'),
+              title: Text('Dark'.tr(context)),
               value: ThemeMode.dark,
               groupValue: current,
               onChanged: (v) {
                 if (v != null) ref.read(themeModeProvider.notifier).setThemeMode(v);
                 Navigator.of(context).pop();
-                AppSnackbar.show(context, 'Theme set to Dark');
+                AppSnackbar.show(context, 'Theme set to Dark'.tr(context));
               },
             ),
             const SizedBox(height: 8),
@@ -271,7 +273,7 @@ class _OnlineStatusTile extends ConsumerWidget {
 
     return SwitchListTile.adaptive(
       secondary: _PulsingDot(isOnline: isOnline),
-      title: Text(isOnline ? 'Online' : 'Offline'),
+      title: Text((isOnline ? 'Online' : 'Offline').tr(context)),
       value: isOnline,
       activeThumbColor: AppColors.success,
       onChanged: (v) =>
@@ -466,15 +468,15 @@ class _ProfileSheetState extends ConsumerState<_ProfileSheet> {
     final current = _current.text;
     final next = _new.text;
     if (current.isEmpty || next.isEmpty) {
-      setState(() => _error = 'Fill in both password fields');
+      setState(() => _error = 'Fill in both password fields'.tr(context));
       return;
     }
     if (next.length < 8) {
-      setState(() => _error = 'New password must be at least 8 characters');
+      setState(() => _error = 'New password must be at least 8 characters'.tr(context));
       return;
     }
     if (next != _confirm.text) {
-      setState(() => _error = 'New passwords do not match');
+      setState(() => _error = 'New passwords do not match'.tr(context));
       return;
     }
     setState(() {
@@ -493,7 +495,7 @@ class _ProfileSheetState extends ConsumerState<_ProfileSheet> {
       }),
       (_) {
         setState(() => _saving = false);
-        AppSnackbar.show(context, 'Password updated');
+        AppSnackbar.show(context, 'Password updated'.tr(context));
         Navigator.of(context).pop();
       },
     );
@@ -509,7 +511,7 @@ class _ProfileSheetState extends ConsumerState<_ProfileSheet> {
           mainAxisSize: MainAxisSize.min,
           crossAxisAlignment: CrossAxisAlignment.stretch,
           children: [
-            const Text('Profile',
+            Text('Profile'.tr(context),
                 style: TextStyle(fontSize: 17, fontWeight: FontWeight.w700)),
             const SizedBox(height: 12),
             Row(
@@ -544,8 +546,7 @@ class _ProfileSheetState extends ConsumerState<_ProfileSheet> {
               ],
             ),
             const SizedBox(height: 20),
-            const Text(
-              'CHANGE PASSWORD',
+            Text('CHANGE PASSWORD'.tr(context),
               style: TextStyle(
                 color: AppColors.textMuted,
                 letterSpacing: 0.6,
@@ -557,21 +558,22 @@ class _ProfileSheetState extends ConsumerState<_ProfileSheet> {
             TextField(
               controller: _current,
               obscureText: true,
-              decoration: const InputDecoration(labelText: 'Current password'),
+              decoration:
+                  InputDecoration(labelText: 'Current password'.tr(context)),
             ),
             const SizedBox(height: 8),
             TextField(
               controller: _new,
               obscureText: true,
-              decoration: const InputDecoration(
-                  labelText: 'New password (min 8 characters)'),
+              decoration: InputDecoration(
+                  labelText: 'New password (min 8 characters)'.tr(context)),
             ),
             const SizedBox(height: 8),
             TextField(
               controller: _confirm,
               obscureText: true,
-              decoration:
-                  const InputDecoration(labelText: 'Confirm new password'),
+              decoration: InputDecoration(
+                  labelText: 'Confirm new password'.tr(context)),
             ),
             if (_error != null) ...[
               const SizedBox(height: 10),
@@ -590,7 +592,7 @@ class _ProfileSheetState extends ConsumerState<_ProfileSheet> {
                       height: 18,
                       child: CircularProgressIndicator(
                           strokeWidth: 2, color: Colors.white))
-                  : const Text('Update password'),
+                  : Text('Update password'.tr(context)),
             ),
           ],
         ),
@@ -610,41 +612,41 @@ class _NotificationPrefsSheet extends ConsumerWidget {
       child: Column(
         mainAxisSize: MainAxisSize.min,
         children: [
-          const Padding(
-            padding: EdgeInsets.fromLTRB(16, 0, 16, 8),
+          Padding(
+            padding: const EdgeInsets.fromLTRB(16, 0, 16, 8),
             child: Align(
               alignment: Alignment.centerLeft,
-              child: Text('Notifications',
+              child: Text('Notifications'.tr(context),
                   style: TextStyle(fontSize: 16, fontWeight: FontWeight.w700)),
             ),
           ),
           SwitchListTile.adaptive(
-            title: const Text('Incoming messages'),
+            title: Text('Incoming messages'.tr(context)),
             value: prefs.messages,
             onChanged: controller.setMessages,
           ),
           SwitchListTile.adaptive(
-            title: const Text('Incoming calls'),
+            title: Text('Incoming calls'.tr(context)),
             value: prefs.calls,
             onChanged: controller.setCalls,
           ),
           SwitchListTile.adaptive(
-            title: const Text('New leads'),
+            title: Text('New leads'.tr(context)),
             value: prefs.leads,
             onChanged: controller.setLeads,
           ),
           SwitchListTile.adaptive(
-            title: const Text('Follow-up reminders'),
+            title: Text('Follow-up reminders'.tr(context)),
             value: prefs.followUps,
             onChanged: controller.setFollowUps,
           ),
           SwitchListTile.adaptive(
-            title: const Text('Assignments'),
+            title: Text('Assignments'.tr(context)),
             value: prefs.assignments,
             onChanged: controller.setAssignments,
           ),
           SwitchListTile.adaptive(
-            title: const Text('Performance alerts'),
+            title: Text('Performance alerts'.tr(context)),
             value: prefs.performance,
             onChanged: controller.setPerformance,
           ),

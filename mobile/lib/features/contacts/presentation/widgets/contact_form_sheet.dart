@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import '../../../../app/theme/app_spacing.dart';
+import '../../../../core/i18n/i18n.dart';
 import '../../domain/entities/contact.dart';
 import '../controllers/contacts_providers.dart';
 
@@ -96,7 +97,7 @@ class _ContactFormState extends ConsumerState<_ContactForm> {
           mainAxisSize: MainAxisSize.min,
           crossAxisAlignment: CrossAxisAlignment.stretch,
           children: [
-            Text(_isEdit ? 'Edit contact' : 'New contact',
+            Text((_isEdit ? 'Edit contact' : 'New contact').tr(context),
                 style: const TextStyle(
                     fontSize: 16, fontWeight: FontWeight.w700)),
             const SizedBox(height: AppSpacing.lg),
@@ -104,9 +105,9 @@ class _ContactFormState extends ConsumerState<_ContactForm> {
               controller: _name,
               enabled: !_saving,
               textCapitalization: TextCapitalization.words,
-              decoration: const InputDecoration(
-                labelText: 'Full name',
-                prefixIcon: Icon(Icons.person_outline_rounded),
+              decoration: InputDecoration(
+                labelText: 'Full name'.tr(context),
+                prefixIcon: const Icon(Icons.person_outline_rounded),
               ),
             ),
             const SizedBox(height: AppSpacing.md),
@@ -114,13 +115,13 @@ class _ContactFormState extends ConsumerState<_ContactForm> {
               controller: _phone,
               enabled: !_saving,
               keyboardType: TextInputType.phone,
-              decoration: const InputDecoration(
-                labelText: 'Phone (E.164, e.g. 628123...)',
-                prefixIcon: Icon(Icons.phone_outlined),
+              decoration: InputDecoration(
+                labelText: 'Phone number'.tr(context),
+                prefixIcon: const Icon(Icons.phone_outlined),
               ),
               validator: (_) {
                 if (_name.text.trim().isEmpty && _phone.text.trim().isEmpty) {
-                  return 'Enter a name or phone';
+                  return 'Enter a name or phone'.tr(context);
                 }
                 return null;
               },
@@ -140,7 +141,7 @@ class _ContactFormState extends ConsumerState<_ContactForm> {
                       child: CircularProgressIndicator(
                           strokeWidth: 2.4, color: Colors.white),
                     )
-                  : Text(_isEdit ? 'Save' : 'Create contact'),
+                  : Text((_isEdit ? 'Save' : 'Create contact').tr(context)),
             ),
           ],
         ),

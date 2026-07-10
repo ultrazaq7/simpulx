@@ -4,6 +4,7 @@ import 'package:go_router/go_router.dart';
 
 
 import '../../../../app/theme/app_colors.dart';
+import '../../../../core/i18n/i18n.dart';
 import '../../../../core/error/failure.dart';
 import '../../../../core/i18n/stage_label.dart';
 import '../../../../core/widgets/entrance_fade.dart';
@@ -129,7 +130,7 @@ class _DashboardBody extends StatelessWidget {
       padding: const EdgeInsets.all(16),
       children: [
         Text(
-          _dateLine(),
+          _dateLine(context),
           style: theme.textTheme.labelMedium?.copyWith(
             color: AppColors.textMuted,
             fontWeight: FontWeight.w600,
@@ -138,7 +139,9 @@ class _DashboardBody extends StatelessWidget {
         ),
         const SizedBox(height: 2),
         Text(
-          firstName.isEmpty ? 'Welcome back' : 'Hi $firstName',
+          firstName.isEmpty
+              ? 'Hi'.tr(context)
+              : 'Hi {name}'.trp(context, {'name': firstName}),
           style: theme.textTheme.headlineSmall
               ?.copyWith(fontWeight: FontWeight.w800),
         ),
@@ -168,7 +171,7 @@ class _DashboardBody extends StatelessWidget {
     );
   }
 
-  String _dateLine() {
+  String _dateLine(BuildContext context) {
     const days = [
       'Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday', 'Saturday',
       'Sunday'
@@ -178,8 +181,9 @@ class _DashboardBody extends StatelessWidget {
       'Nov', 'Dec'
     ];
     final now = DateTime.now();
-    return '${days[now.weekday - 1]}, ${now.day} ${months[now.month - 1]}'
-        .toUpperCase();
+    final day = days[now.weekday - 1].tr(context);
+    final mon = months[now.month - 1].tr(context);
+    return '$day, ${now.day} $mon'.toUpperCase();
   }
 }
 
@@ -250,7 +254,7 @@ class _ActionCard extends StatelessWidget {
               ),
               const Spacer(),
               Text(
-                data.label,
+                data.label.tr(context),
                 style: TextStyle(
                     fontSize: 14,
                     fontWeight: FontWeight.w700,
@@ -286,13 +290,13 @@ class _ManagerSection extends ConsumerWidget {
           ),
           error: (_, _) => GestureDetector(
             onTap: () => ref.invalidate(managerAnalyticsProvider),
-            child: const _Card(
+            child: _Card(
               child: Row(
                 mainAxisAlignment: MainAxisAlignment.center,
                 children: [
                   Icon(Icons.refresh, size: 16, color: AppColors.textSecondary),
                   SizedBox(width: 8),
-                  Text('Could not load analytics. Tap to retry.',
+                  Text('Could not load analytics. Tap to retry.'.tr(context),
                       style: TextStyle(color: AppColors.textSecondary)),
                 ],
               ),
@@ -385,7 +389,7 @@ class _StageSplitCard extends StatelessWidget {
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          const Text('Stage Breakdown',
+          Text('Stage Breakdown'.tr(context),
               style: TextStyle(fontWeight: FontWeight.w700, fontSize: 14)),
           const SizedBox(height: 12),
           for (var i = 0; i < stages.length; i++)
@@ -414,9 +418,15 @@ class _StageSplitCard extends StatelessWidget {
         children: [
           Container(width: 8, height: 8, decoration: BoxDecoration(color: color, shape: BoxShape.circle)),
           const SizedBox(width: 8),
-          Expanded(child: Text(stageLabel(context, s.name), style: const TextStyle(fontSize: 13, fontWeight: FontWeight.w500))),
+          Expanded(
+            child: Text(stageLabel(context, s.name),
+                maxLines: 1,
+                overflow: TextOverflow.ellipsis,
+                style: const TextStyle(fontSize: 13, fontWeight: FontWeight.w500)),
+          ),
+          const SizedBox(width: 12),
           SizedBox(
-            width: 100,
+            width: 64,
             child: ClipRRect(
               borderRadius: BorderRadius.circular(3),
               child: LinearProgressIndicator(
@@ -466,7 +476,7 @@ class _LostAnalysisCard extends StatelessWidget {
             children: [
               Icon(Icons.trending_down_rounded, size: 18, color: AppColors.danger),
               const SizedBox(width: 8),
-              const Text('Lost Analysis',
+              Text('Lost Analysis'.tr(context),
                   style: TextStyle(fontWeight: FontWeight.w700, fontSize: 14)),
             ],
           ),
@@ -480,7 +490,7 @@ class _LostAnalysisCard extends StatelessWidget {
                         fontSize: 36, fontWeight: FontWeight.w800, color: AppColors.danger)),
               ),
               const SizedBox(width: 8),
-              Text('total lost leads',
+              Text('total lost leads'.tr(context),
                   style: TextStyle(fontSize: 13, color: AppColors.textSecondary)),
               if (analytics.junk > 0) ...[
                 const Spacer(),
@@ -518,7 +528,7 @@ class _LostAnalysisCard extends StatelessWidget {
                       Text('$lossRate%',
                           style: const TextStyle(
                               fontSize: 20, fontWeight: FontWeight.w800, color: AppColors.danger)),
-                      const Text('Loss rate',
+                      Text('Loss rate'.tr(context),
                           style: TextStyle(fontSize: 11, fontWeight: FontWeight.w600, color: AppColors.danger)),
                     ],
                   ),
@@ -537,7 +547,7 @@ class _LostAnalysisCard extends StatelessWidget {
                       Text('$purchaseRate%',
                           style: const TextStyle(
                               fontSize: 20, fontWeight: FontWeight.w800, color: AppColors.success)),
-                      const Text('Purchase rate',
+                      Text('Purchase rate'.tr(context),
                           style: TextStyle(fontSize: 11, fontWeight: FontWeight.w600, color: AppColors.success)),
                     ],
                   ),
@@ -562,7 +572,7 @@ class _InterestSplitCard extends StatelessWidget {
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          const Text('Interest Split',
+          Text('Interest Split'.tr(context),
               style: TextStyle(fontWeight: FontWeight.w700, fontSize: 14)),
           const SizedBox(height: 14),
           _InterestRow('Hot', a.hot, a.total, color: AppColors.hot,
@@ -571,7 +581,7 @@ class _InterestSplitCard extends StatelessWidget {
               onTap: () => onDrill(const InboxFilter(interestLevel: 'warm'))),
           _InterestRow('Cold', a.cold, a.total, color: AppColors.cold,
               onTap: () => onDrill(const InboxFilter(interestLevel: 'cold'))),
-          _InterestRow('Unclassified', a.unknown, a.total, color: AppColors.textMuted,
+          _InterestRow('Unclassified'.tr(context), a.unknown, a.total, color: AppColors.textMuted,
               onTap: null), // Unclassified usually doesn't have a direct filter or is just empty string
         ],
       ),
@@ -688,7 +698,7 @@ class _Metric extends StatelessWidget {
       children: [
         Text(value,
             style: const TextStyle(fontSize: 20, fontWeight: FontWeight.w800)),
-        Text(label,
+        Text(label.tr(context),
             style:
                 const TextStyle(fontSize: 12, color: AppColors.textSecondary)),
       ],
@@ -712,21 +722,21 @@ class _LeaderboardCard extends StatelessWidget {
             children: [
               const Icon(Icons.groups_rounded, size: 18, color: AppColors.primary),
               const SizedBox(width: 8),
-              const Text('Team Performance',
+              Text('Team Performance'.tr(context),
                   style: TextStyle(fontWeight: FontWeight.w700, fontSize: 14)),
             ],
           ),
           const SizedBox(height: 12),
           // Table header
-          const Padding(
-            padding: EdgeInsets.only(bottom: 6),
+          Padding(
+            padding: const EdgeInsets.only(bottom: 6),
             child: Row(
               children: [
-                Expanded(flex: 3, child: Text('Agent', style: TextStyle(fontSize: 11, fontWeight: FontWeight.w700, color: AppColors.textMuted))),
-                Expanded(flex: 1, child: Text('Leads', textAlign: TextAlign.center, style: TextStyle(fontSize: 11, fontWeight: FontWeight.w700, color: AppColors.textMuted))),
-                Expanded(flex: 1, child: Text('Won', textAlign: TextAlign.center, style: TextStyle(fontSize: 11, fontWeight: FontWeight.w700, color: AppColors.textMuted))),
-                Expanded(flex: 1, child: Text('Avg RT', textAlign: TextAlign.center, style: TextStyle(fontSize: 11, fontWeight: FontWeight.w700, color: AppColors.textMuted))),
-                Expanded(flex: 1, child: Text('<5m', textAlign: TextAlign.right, style: TextStyle(fontSize: 11, fontWeight: FontWeight.w700, color: AppColors.textMuted))),
+                Expanded(flex: 3, child: Text('Agent'.tr(context), style: TextStyle(fontSize: 11, fontWeight: FontWeight.w700, color: AppColors.textMuted))),
+                Expanded(flex: 1, child: Text('Leads'.tr(context), textAlign: TextAlign.center, style: TextStyle(fontSize: 11, fontWeight: FontWeight.w700, color: AppColors.textMuted))),
+                Expanded(flex: 1, child: Text('Won'.tr(context), textAlign: TextAlign.center, style: TextStyle(fontSize: 11, fontWeight: FontWeight.w700, color: AppColors.textMuted))),
+                Expanded(flex: 1, child: Text('Avg RT'.tr(context), textAlign: TextAlign.center, style: TextStyle(fontSize: 11, fontWeight: FontWeight.w700, color: AppColors.textMuted))),
+                Expanded(flex: 1, child: Text('<5m'.tr(context), textAlign: TextAlign.right, style: TextStyle(fontSize: 11, fontWeight: FontWeight.w700, color: AppColors.textMuted))),
               ],
             ),
           ),
@@ -799,7 +809,7 @@ class _LostReasonsCard extends StatelessWidget {
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          const Text('Lost Reasons',
+          Text('Lost Reasons'.tr(context),
               style: TextStyle(fontWeight: FontWeight.w700, fontSize: 14)),
           const SizedBox(height: 12),
           for (var i = 0; i < reasons.take(6).length; i++)
@@ -816,7 +826,7 @@ class _LostReasonsCard extends StatelessWidget {
                   Row(
                     children: [
                       Expanded(
-                        child: Text(reasons[i].reason,
+                        child: Text(reasons[i].reason.tr(context),
                             maxLines: 1,
                             overflow: TextOverflow.ellipsis,
                             style: const TextStyle(fontSize: 13, fontWeight: FontWeight.w500)),
@@ -885,7 +895,7 @@ class _AgentAnalyticsSection extends ConsumerWidget {
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
         const SizedBox(height: 24),
-        Text('My Performance',
+        Text('My Performance'.tr(context),
             style: Theme.of(context)
                 .textTheme
                 .titleMedium
@@ -898,13 +908,13 @@ class _AgentAnalyticsSection extends ConsumerWidget {
           ),
           error: (_, _) => GestureDetector(
             onTap: () => ref.invalidate(managerAnalyticsProvider),
-            child: const _Card(
+            child: _Card(
               child: Row(
                 mainAxisAlignment: MainAxisAlignment.center,
                 children: [
                   Icon(Icons.refresh, size: 16, color: AppColors.textSecondary),
                   SizedBox(width: 8),
-                  Text('Could not load analytics. Tap to retry.',
+                  Text('Could not load analytics. Tap to retry.'.tr(context),
                       style: TextStyle(color: AppColors.textSecondary)),
                 ],
               ),
