@@ -792,19 +792,14 @@ class _AboutScreenState extends State<_AboutScreen>
                           );
                         },
                         child: Container(
-                          width: 110,
-                          height: 110,
+                          width: 66,
+                          height: 66,
+                          padding: const EdgeInsets.all(7),
                           decoration: BoxDecoration(
-                            boxShadow: [
-                              BoxShadow(
-                                color:
-                                    AppColors.primary.withValues(alpha: 0.30),
-                                blurRadius: 40,
-                                spreadRadius: 4,
-                              ),
-                            ],
+                            color: AppColors.primary.withValues(alpha: 0.10),
+                            borderRadius: BorderRadius.circular(20),
                           ),
-                          child: Image.asset('assets/images/logo.png',
+                          child: Image.asset('assets/images/simpulx_logo.png',
                               fit: BoxFit.contain),
                         ),
                       ),
