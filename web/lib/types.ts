@@ -453,6 +453,7 @@ export interface CampaignDetail extends Campaign {
   ai_dynamic_language?: boolean;
   ai_smart_summary?: boolean;          // show the composer Smart Summary button
   intake_form_id?: string | null;
+  monthly_budget?: number | null;      // optional user-set monthly ad budget
 }
 export interface CampaignAnalyticsRow {
   id: string;

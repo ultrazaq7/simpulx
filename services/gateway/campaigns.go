@@ -102,7 +102,7 @@ func (s *server) handleGetCampaign(w http.ResponseWriter, r *http.Request) {
 		        to_jsonb(c.ad_source_ids) AS ad_source_ids, to_jsonb(c.keywords) AS keywords,
 		        c.lead_count, c.channel_id::text AS channel_id, c.calling_enabled,
 		        c.segment, c.brand, c.ai_auto_reply, c.ai_language, c.ai_dynamic_language, c.ai_smart_summary,
-		        c.intake_form_id::text AS intake_form_id,
+		        c.intake_form_id::text AS intake_form_id, c.monthly_budget,
 		        COALESCE((SELECT jsonb_agg(ca.user_id::text) FROM campaign_agents ca WHERE ca.campaign_id = c.id AND ca.in_rotation), '[]'::jsonb) AS agent_ids,
 		        COALESCE((SELECT jsonb_agg(ca.user_id::text) FROM campaign_agents ca WHERE ca.campaign_id = c.id AND NOT ca.in_rotation), '[]'::jsonb) AS supervisor_ids
 		   FROM campaigns c WHERE c.id = $1 AND c.organization_id = $2`,
@@ -136,8 +136,9 @@ type campaignInput struct {
 	AIAutoReply       *bool  `json:"ai_auto_reply"`
 	AILanguage        string `json:"ai_language"`         // id | en
 	AIDynamicLanguage *bool  `json:"ai_dynamic_language"` // match the contact's language
-	AISmartSummary    *bool  `json:"ai_smart_summary"`    // show the composer Smart Summary button
-	IntakeFormID      string `json:"intake_form_id"`
+	AISmartSummary    *bool    `json:"ai_smart_summary"`    // show the composer Smart Summary button
+	IntakeFormID      string   `json:"intake_form_id"`
+	MonthlyBudget     *float64 `json:"monthly_budget"` // optional user-set monthly ad budget
 }
 
 // keywordsConflict returns the first keyword already claimed by ANOTHER campaign
@@ -232,11 +233,13 @@ func (s *server) handleUpdateCampaign(w http.ResponseWriter, r *http.Request) {
 		   ai_dynamic_language = COALESCE($15, ai_dynamic_language),
 		   intake_form_id = CASE WHEN $16 = '' THEN intake_form_id WHEN $16 = 'none' THEN NULL ELSE $16::uuid END,
 		   ai_smart_summary = COALESCE($17, ai_smart_summary),
+		   monthly_budget = COALESCE($18, monthly_budget),
 		   updated_at = now()
 		 WHERE id=$1 AND organization_id=$2`,
 		r.PathValue("id"), a.OrgID, b.Name, b.DealerName, b.Status, b.RoutingStrategy,
 		nilIfEmptySlice(b.AdSourceIDs), nilIfEmptySlice(b.Keywords), b.ChannelID, b.CallingEnabled,
 		b.Segment, b.Brand, b.AIAutoReply, b.AILanguage, b.AIDynamicLanguage, b.IntakeFormID, b.AISmartSummary,
+		b.MonthlyBudget,
 	)
 	if err != nil {
 		http.Error(w, err.Error(), http.StatusInternalServerError)

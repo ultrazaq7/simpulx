@@ -69,7 +69,7 @@ export default function CampaignDetailPage() {
               ))}
             </div>
             <div className="mt-6">
-              {tab === "overview" && <OverviewTab id={id} />}
+              {tab === "overview" && <OverviewTab id={id} budget={campaign.monthly_budget ?? null} onBudget={(v) => setCampaign((c) => (c ? { ...c, monthly_budget: v } : c))} notify={notify} />}
               {tab === "credits" && <CreditsTab id={id} notify={notify} />}
               {tab === "ai" && <AITab campaign={campaign} onSaved={(c) => { setCampaign(c); notify("AI settings saved"); }} onError={(m) => notify(m, "error")} />}
               {tab === "catalog" && <CatalogTab id={id} segment={campaign.segment ?? undefined} notify={notify} />}
@@ -297,10 +297,77 @@ function Ga4Panel({ campaignId, from, to }: { campaignId: string; from: string; 
   );
 }
 
+// Budget utilization: a user-set monthly ad budget vs actual spend (Cost) for the
+// range → Media budget / Cost / Budget left / Utilization %, with a bar.
+function BudgetPanel({ id, budget, spend, onBudget, notify }: {
+  id: string; budget: number | null; spend: number;
+  onBudget: (v: number | null) => void; notify: (m: string, s?: "success" | "error") => void;
+}) {
+  const [editing, setEditing] = useState(false);
+  const [val, setVal] = useState(budget != null ? String(budget) : "");
+  const [saving, setSaving] = useState(false);
+  useEffect(() => { setVal(budget != null ? String(budget) : ""); }, [budget]);
+
+  async function save() {
+    const n = val.trim() === "" ? null : Number(val);
+    if (n != null && (isNaN(n) || n < 0)) { notify("Enter a valid budget", "error"); return; }
+    setSaving(true);
+    try {
+      await api.updateCampaign(id, { monthly_budget: n });
+      onBudget(n); setEditing(false); notify("Budget saved");
+    } catch (e) { notify(String(e), "error"); }
+    finally { setSaving(false); }
+  }
+
+  const left = budget != null ? budget - spend : 0;
+  const util = budget && budget > 0 ? (spend / budget) * 100 : 0;
+
+  return (
+    <div className="rounded-xl border border-border p-4">
+      <div className="flex items-center justify-between mb-3">
+        <p className="text-[13px] font-semibold text-foreground">Budget utilization</p>
+        {!editing && <button onClick={() => setEditing(true)} className="text-[12px] font-semibold text-primary hover:underline outline-none">{budget != null ? "Edit budget" : "Set budget"}</button>}
+      </div>
+      {editing ? (
+        <div className="flex items-center gap-2 flex-wrap">
+          <div className="relative">
+            <span className="absolute left-3 top-1/2 -translate-y-1/2 text-[13px] text-muted-foreground">Rp</span>
+            <input value={val} onChange={(e) => setVal(e.target.value.replace(/[^0-9.]/g, ""))} placeholder="Monthly budget" inputMode="numeric"
+              className="h-9 pl-9 pr-3 rounded-md border border-input bg-background text-[13px] text-foreground outline-none focus:border-primary focus:ring-2 focus:ring-primary/20 w-[200px]" />
+          </div>
+          <button onClick={save} disabled={saving} className="inline-flex items-center gap-1.5 px-3.5 h-9 rounded-md bg-primary text-white text-[13px] font-semibold hover:bg-primary-dark disabled:opacity-50 outline-none">{saving && <Loader2 className="w-4 h-4 animate-spin" />}Save</button>
+          <button onClick={() => { setEditing(false); setVal(budget != null ? String(budget) : ""); }} className="px-3.5 h-9 rounded-md border border-border text-[13px] font-medium hover:bg-muted outline-none">Cancel</button>
+        </div>
+      ) : budget == null ? (
+        <p className="text-[13px] text-muted-foreground">No budget set. Set a monthly budget to track utilization against spend.</p>
+      ) : (
+        <>
+          <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
+            {[
+              { label: "Media budget", value: money(budget), accent: "text-foreground" },
+              { label: "Cost", value: money(spend), accent: "text-foreground" },
+              { label: "Budget left", value: money(left), accent: left < 0 ? "text-destructive" : "text-foreground" },
+              { label: "Utilization", value: util.toFixed(1) + "%", accent: util > 100 ? "text-destructive" : "text-foreground" },
+            ].map((x) => (
+              <div key={x.label} className="rounded-lg border border-border bg-card p-3">
+                <p className={cn("text-lg font-bold tabular-nums", x.accent)}>{x.value}</p>
+                <p className="text-[11.5px] text-muted-foreground mt-0.5">{x.label}</p>
+              </div>
+            ))}
+          </div>
+          <div className="mt-3 h-2.5 rounded-full bg-muted overflow-hidden">
+            <div className={cn("h-full rounded-full transition-all", util > 100 ? "bg-destructive" : "bg-primary")} style={{ width: `${Math.min(100, util)}%` }} />
+          </div>
+        </>
+      )}
+    </div>
+  );
+}
+
 // Per-campaign report: reuses the lead analytics + ad-performance scoped to this
 // campaign to render the Heroleads-style campaign report (ad funnel, source
 // performance table, and leads over time).
-function OverviewTab({ id }: { id: string }) {
+function OverviewTab({ id, budget, onBudget, notify }: { id: string; budget: number | null; onBudget: (v: number | null) => void; notify: (m: string, s?: "success" | "error") => void }) {
   const [row, setRow] = useState<CampaignAnalyticsRow | null>(null);
   const [perf, setPerf] = useState<AdPerformance | null>(null);
   const [loading, setLoading] = useState(true);
@@ -396,6 +463,9 @@ function OverviewTab({ id }: { id: string }) {
           <Stat label="Qualified" value={row.qualified} />
         </div>
       )}
+
+      {/* Budget utilization */}
+      <BudgetPanel id={id} budget={budget} spend={tot.spend} onBudget={onBudget} notify={notify} />
 
       {/* Source performance table */}
       <div className="rounded-xl border border-border overflow-hidden">

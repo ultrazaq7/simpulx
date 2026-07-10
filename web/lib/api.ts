@@ -492,7 +492,7 @@ export const api = {
   deleteOrg: (id: string) => req(`/api/platform/orgs/${id}`, { method: "DELETE" }),
   createCampaign: (input: { name: string; dealer_name?: string; routing_strategy?: string; channel_id?: string; ad_source_ids?: string[]; keywords?: string[]; agent_ids?: string[]; supervisor_ids?: string[]; calling_enabled?: boolean }) =>
     req<{ id: string }>("/api/campaigns", { method: "POST", body: JSON.stringify(input) }),
-  updateCampaign: (id: string, patch: { name?: string; dealer_name?: string; status?: string; routing_strategy?: string; channel_id?: string; ad_source_ids?: string[]; keywords?: string[]; agent_ids?: string[]; supervisor_ids?: string[]; calling_enabled?: boolean; segment?: string; brand?: string; ai_auto_reply?: boolean; ai_language?: string; ai_dynamic_language?: boolean; ai_smart_summary?: boolean; intake_form_id?: string }) =>
+  updateCampaign: (id: string, patch: { name?: string; dealer_name?: string; status?: string; routing_strategy?: string; channel_id?: string; ad_source_ids?: string[]; keywords?: string[]; agent_ids?: string[]; supervisor_ids?: string[]; calling_enabled?: boolean; segment?: string; brand?: string; ai_auto_reply?: boolean; ai_language?: string; ai_dynamic_language?: boolean; ai_smart_summary?: boolean; intake_form_id?: string; monthly_budget?: number | null }) =>
     req(`/api/campaigns/${id}`, { method: "PATCH", body: JSON.stringify(patch) }),
   deleteCampaign: (id: string) => req(`/api/campaigns/${id}`, { method: "DELETE" }),
   // ── Branches (sub-units of a campaign) ──
