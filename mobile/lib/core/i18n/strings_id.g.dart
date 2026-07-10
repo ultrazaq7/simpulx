@@ -424,4 +424,7 @@ const Map<String, String> kStringsId = {
   'Simpulx Voice Call': 'Panggilan Suara Simpulx',
   'Added {time}': 'Ditambahkan {time}',
   '{count} leads': '{count} prospek',
+  // Media preview-before-send
+  '{n} items': '{n} item',
+  'Add a caption...': 'Tambahkan keterangan...',
 };

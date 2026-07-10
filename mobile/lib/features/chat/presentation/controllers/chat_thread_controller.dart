@@ -137,7 +137,9 @@ class ChatThreadController extends ChangeNotifier {
     String filePath, {
     String? filename,
     MessageType previewType = MessageType.image,
+    String? caption,
   }) async {
+    final cap = (caption ?? '').trim();
     final tempId = 'local-${DateTime.now().microsecondsSinceEpoch}';
     final now = DateTime.now();
     _emit(_withMessages([
@@ -147,7 +149,7 @@ class ChatThreadController extends ChangeNotifier {
         direction: MessageDirection.outbound,
         senderType: MessageSenderType.agent,
         type: previewType,
-        body: '',
+        body: cap,
         mediaUrl: filePath, // local path until uploaded
         status: MessageStatus.sending,
         createdAt: now,
@@ -170,7 +172,7 @@ class ChatThreadController extends ChangeNotifier {
         direction: MessageDirection.outbound,
         senderType: MessageSenderType.agent,
         type: messageTypeFromWire(media.type),
-        body: '',
+        body: cap,
         mediaUrl: media.url,
         status: MessageStatus.sending,
         createdAt: m.createdAt,
@@ -180,7 +182,7 @@ class ChatThreadController extends ChangeNotifier {
 
     final sent = await _repo.sendMessage(
       conversationId,
-      body: '',
+      body: cap,
       type: media.type,
       mediaUrl: media.url,
     );

@@ -27,6 +27,7 @@ import '../widgets/message_composer.dart';
 import '../widgets/message_search_delegate.dart';
 import '../widgets/template_picker_sheet.dart';
 import 'custom_camera_page.dart';
+import 'media_preview_page.dart';
 
 /// Full-screen conversation thread (no bottom nav). Optimistic send + realtime
 /// append; scroll up to load older history.
@@ -205,7 +206,6 @@ class _ChatThreadPageState extends ConsumerState<ChatThreadPage>
       ),
     );
     if (choice == null) return;
-    final ctrl = ref.read(chatThreadControllerProvider(widget.conversationId));
 
     if (choice == 'camera') {
       await _openCustomCamera();
@@ -215,12 +215,11 @@ class _ChatThreadPageState extends ConsumerState<ChatThreadPage>
     if (choice == 'file') {
       final result = await FilePicker.platform.pickFiles(type: FileType.any, allowMultiple: true);
       if (result != null && result.files.isNotEmpty) {
-        for (final picked in result.files) {
-          if (picked.path != null) {
-            await ctrl.attachAndSend(picked.path!,
-                filename: picked.name, previewType: MessageType.document);
-          }
-        }
+        await _previewAndSend([
+          for (final picked in result.files)
+            if (picked.path != null)
+              MediaPreviewItem(picked.path!, picked.name, MessageType.document),
+        ]);
       }
       return;
     }
@@ -228,10 +227,35 @@ class _ChatThreadPageState extends ConsumerState<ChatThreadPage>
     // gallery
     if (choice == 'gallery') {
       final files = await ImagePicker().pickMultipleMedia(imageQuality: 80, maxWidth: 1600);
-      for (final file in files) {
-        final isVideo = file.path.toLowerCase().endsWith('.mp4') || file.path.toLowerCase().endsWith('.mov');
-        await ctrl.attachAndSend(file.path, filename: file.name, previewType: isVideo ? MessageType.video : MessageType.image);
-      }
+      await _previewAndSend([
+        for (final file in files)
+          MediaPreviewItem(file.path, file.name, _mediaType(file.path)),
+      ]);
+    }
+  }
+
+  MessageType _mediaType(String path) {
+    final lower = path.toLowerCase();
+    return (lower.endsWith('.mp4') || lower.endsWith('.mov'))
+        ? MessageType.video
+        : MessageType.image;
+  }
+
+  /// Show the WhatsApp-style preview screen for the picked items, then send each
+  /// with the caption (attached to the first item) once the user hits send.
+  Future<void> _previewAndSend(List<MediaPreviewItem> items) async {
+    if (items.isEmpty || !mounted) return;
+    final result = await Navigator.of(context).push<MediaPreviewResult>(
+      MaterialPageRoute(builder: (_) => MediaPreviewPage(items: items)),
+    );
+    if (result == null || result.items.isEmpty) return;
+    final ctrl = ref.read(chatThreadControllerProvider(widget.conversationId));
+    for (var i = 0; i < result.items.length; i++) {
+      final it = result.items[i];
+      await ctrl.attachAndSend(it.path,
+          filename: it.name,
+          previewType: it.type,
+          caption: i == 0 ? result.caption : null);
     }
   }
 
@@ -244,19 +268,17 @@ class _ChatThreadPageState extends ConsumerState<ChatThreadPage>
     if (result['gallery'] == true) {
       // Launch standard gallery instead (allow multiple)
       final files = await ImagePicker().pickMultipleMedia(imageQuality: 80, maxWidth: 1600);
-      final ctrl = ref.read(chatThreadControllerProvider(widget.conversationId));
-      for (final file in files) {
-        final isVideo = file.path.toLowerCase().endsWith('.mp4') || file.path.toLowerCase().endsWith('.mov');
-        await ctrl.attachAndSend(file.path, filename: file.name, previewType: isVideo ? MessageType.video : MessageType.image);
-      }
+      await _previewAndSend([
+        for (final file in files)
+          MediaPreviewItem(file.path, file.name, _mediaType(file.path)),
+      ]);
       return;
     }
 
     final path = result['path'] as String?;
     final type = result['type'] as MessageType?;
     if (path != null && type != null) {
-      final ctrl = ref.read(chatThreadControllerProvider(widget.conversationId));
-      await ctrl.attachAndSend(path, filename: p.basename(path), previewType: type);
+      await _previewAndSend([MediaPreviewItem(path, p.basename(path), type)]);
     }
   }
 
