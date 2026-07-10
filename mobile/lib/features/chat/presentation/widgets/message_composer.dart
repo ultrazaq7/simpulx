@@ -32,7 +32,7 @@ class MessageComposer extends ConsumerStatefulWidget {
 
   final String conversationId;
   final void Function(String text) onSend;
-  final VoidCallback? onAttach;
+  final Future<String?> Function()? onAttach;
   final VoidCallback? onCamera;
 
   /// Called with the recorded voice-note file path when sent.
@@ -321,19 +321,14 @@ class _MessageComposerState extends ConsumerState<MessageComposer> {
       crossAxisAlignment: CrossAxisAlignment.end,
       children: [
         IconButton(
-          icon: Icon(_showEmoji
-              ? Icons.keyboard_rounded
-              : Icons.emoji_emotions_outlined),
-          color: AppColors.textSecondary,
-          onPressed: _toggleEmoji,
-          tooltip: 'Emoji'.tr(context),
-        ),
-        IconButton(
           icon: const Icon(Icons.add_circle_outline_rounded),
           color: AppColors.textSecondary,
-          onPressed: () {
+          onPressed: () async {
             Haptics.selection;
-            widget.onAttach?.call();
+            final action = await widget.onAttach?.call();
+            if (action == 'emoji') {
+              _toggleEmoji();
+            }
           },
           tooltip: 'Attach'.tr(context),
         ),
