@@ -6,20 +6,26 @@ import { cn } from "@/lib/utils";
 import { Info } from "lucide-react";
 import { Tip } from "@/components/ui/tooltip";
 import { Toast, type ToastSeverity } from "@/components/Toast";
+import { useConfirm } from "@/components/ConfirmDialog";
 
 export type { ToastSeverity };
 
-// useToast centralizes the toast pattern every settings page repeats. Rendering
-// and the auto-dismiss timer/countdown live in the shared <Toast/> component.
+// useToast centralizes the toast pattern every settings page repeats, and also
+// exposes an in-app confirm() (replacing window.confirm). ToastHost renders both
+// the toast and the confirm dialog, so pages just render {ToastHost} once.
 export function useToast() {
   const [toast, setToast] = useState<{ msg: string; severity: ToastSeverity } | null>(null);
   const notify = (msg: string, severity: ToastSeverity = "success") => setToast({ msg, severity });
+  const { confirm, ConfirmHost } = useConfirm();
 
-  const ToastHost = toast ? (
-    <Toast msg={toast.msg} severity={toast.severity} onClose={() => setToast(null)} />
-  ) : null;
+  const ToastHost = (
+    <>
+      {toast && <Toast msg={toast.msg} severity={toast.severity} onClose={() => setToast(null)} />}
+      {ConfirmHost}
+    </>
+  );
 
-  return { notify, ToastHost };
+  return { notify, confirm, ToastHost };
 }
 
 // PageHeader: a clean, title-less header row. Left = optional meta/filters,

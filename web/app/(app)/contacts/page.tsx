@@ -1,6 +1,5 @@
 "use client";
 import { useEffect, useMemo, useRef, useState } from "react";
-import { createPortal } from "react-dom";
 import { useRouter } from "next/navigation";
 import {
   Search, UserPlus, Download, Pencil, ChevronsLeft, ChevronsRight, ChevronLeft, ChevronRight,
@@ -21,7 +20,6 @@ import { MultiSelect } from "@/components/ui/multi-select";
 import SidePanel from "@/components/SidePanel";
 import { Toast } from "@/components/Toast";
 import { useConfirm, usePrompt } from "@/components/ConfirmDialog";
-import UnsavedBar from "@/components/UnsavedBar";
 import SendTemplateDrawer from "./components/SendTemplateDrawer";
 
 type ModalState = { mode: "add" } | { mode: "edit"; contact: Contact } | null;
@@ -101,13 +99,17 @@ export default function ContactsPage() {
   const [orgTz, setOrgTz] = useState<string>("");
   const [selected, setSelected] = useState<Set<string>>(new Set());
   const [bulkBusy, setBulkBusy] = useState(false);
-  const [bulkMenu, setBulkMenu] = useState<null | { key: "stage" | "interest" | "agent"; rect: DOMRect }>(null);
-  // Staged field edits (stage / interest / agent), applied optimistically to the
-  // rows and committed together via the floating "You have updated N fields" bar
-  // (Save) or discarded (Cancel) — same pattern as the settings forms.
-  const [pendingEdits, setPendingEdits] = useState<Record<string, { stage_id?: string; interest_level?: string; assigned_agent_id?: string | null }>>({});
-  const [savingEdits, setSavingEdits] = useState(false);
-  const editCount = Object.values(pendingEdits).reduce((n, e) => n + Object.keys(e).length, 0);
+  // Bulk edit is a right-side drawer ("Edit N contacts"): pick Stage / Interest /
+  // Agent (Stage reuses the dotted picker + the lost-reason wizard), then Apply
+  // to all selected. undefined = leave that field unchanged.
+  const [bulkEditOpen, setBulkEditOpen] = useState(false);
+  const [bStage, setBStage] = useState<string | undefined>(undefined);
+  const [bLost, setBLost] = useState<{ reason: string; category: "lost" | "spam" } | undefined>(undefined);
+  const [bInterest, setBInterest] = useState<string | undefined>(undefined);
+  const [bAgent, setBAgent] = useState<string | null | undefined>(undefined);
+  const [bulkOutcomeOpen, setBulkOutcomeOpen] = useState(false);
+  const [bulkApplying, setBulkApplying] = useState(false);
+  const openBulkEdit = () => { setBStage(undefined); setBLost(undefined); setBInterest(undefined); setBAgent(undefined); setBulkEditOpen(true); };
   const [tplOpen, setTplOpen] = useState(false);
   const [visibleCols, setVisibleCols] = useState<Set<string>>(() => new Set(DEFAULT_COLS));
   const [colsMenuOpen, setColsMenuOpen] = useState(false);
@@ -341,46 +343,40 @@ export default function ContactsPage() {
   }
   // Bulk stage / interest / agent via the dedicated endpoint, which routes each
   // change through the contact's conversation (attribution) when one exists.
-  // Bulk field-sets STAGE the change for every selected contact; the floating
-  // "You have updated N fields" bar commits (Save) or discards (Cancel). Inline
-  // single-row edits (above) stay immediate.
-  function bulkSet(set: { stage_id?: string; interest_level?: string; assigned_agent_id?: string }) {
-    setBulkMenu(null);
+  // Apply the drawer's picked fields to every selected contact. Stage/interest/
+  // agent go through one bulk update; a lost/spam outcome is applied per contact
+  // (it needs the conversation) with the chosen reason.
+  const bulkEditDirty = bStage !== undefined || bLost !== undefined || bInterest !== undefined || bAgent !== undefined;
+  async function applyBulkEdit() {
+    if (!bulkEditDirty) return;
     const ids = [...selected];
-    const display: Partial<Contact> = {};
-    if (set.stage_id !== undefined) { display.stage_id = set.stage_id || null; display.stage_name = stages.find((s) => s.id === set.stage_id)?.name ?? null; }
-    if (set.interest_level !== undefined) display.interest_level = set.interest_level || null;
-    if (set.assigned_agent_id !== undefined) { display.assigned_agent_id = set.assigned_agent_id || null; display.agent_name = set.assigned_agent_id ? (agents.find((a) => a.id === set.assigned_agent_id)?.full_name || null) : null; }
-    setContacts((p) => p.map((c) => (selected.has(c.id) ? { ...c, ...display } : c)));
-    setPendingEdits((p) => {
-      const next = { ...p };
-      for (const id of ids) next[id] = { ...next[id], ...set };
-      return next;
-    });
-  }
-  async function saveEdits() {
-    const ids = Object.keys(pendingEdits);
-    if (ids.length === 0) return;
-    setSavingEdits(true);
-    const results = await Promise.allSettled(ids.map((id) => {
-      const e = pendingEdits[id];
-      const patch: Record<string, unknown> = {};
-      if (e.stage_id !== undefined) patch.stage_id = e.stage_id;
-      if (e.interest_level !== undefined) patch.interest_level = e.interest_level;
-      if (e.assigned_agent_id !== undefined) patch.assigned_agent_id = e.assigned_agent_id ?? "";
-      return api.updateContact(id, patch);
-    }));
-    setSavingEdits(false);
-    const failed = results.filter((r) => r.status === "rejected").length;
-    setPendingEdits({});
-    clearSel();
-    if (failed > 0) { setToast(`Saved with ${failed} error${failed === 1 ? "" : "s"}`); reload(); }
-    else setToast(`Saved ${ids.length} contact${ids.length === 1 ? "" : "s"}`);
-  }
-  function cancelEdits() {
-    setPendingEdits({});
-    clearSel();
-    reload();
+    setBulkApplying(true);
+    try {
+      const set: { stage_id?: string; interest_level?: string; assigned_agent_id?: string } = {};
+      if (bStage !== undefined) set.stage_id = bStage;
+      if (bInterest !== undefined) set.interest_level = bInterest;
+      if (bAgent !== undefined) set.assigned_agent_id = bAgent ?? "";
+      if (Object.keys(set).length) await api.bulkUpdateContacts({ contact_ids: ids, set });
+      if (bLost) {
+        const disp = bLost.category === "spam"
+          ? dispositions.find((d) => d.category === "spam")
+          : (dispositions.find((d) => d.name?.toLowerCase() === "lost") || dispositions.find((d) => d.category === "lost"));
+        const lostStage = stages.find((s) => s.system_key === "lost_not_purchase");
+        const targets = contacts.filter((c) => selected.has(c.id) && c.conversation_id);
+        await Promise.allSettled(targets.map((c) => {
+          const patch: Record<string, string> = { lost_reason: bLost.reason, status: "closed" };
+          if (disp) patch.disposition_id = disp.id;
+          if (lostStage) patch.stage_id = lostStage.id;
+          return api.patchConversation(c.conversation_id!, patch);
+        }));
+      }
+      setToast(`Updated ${ids.length} contact${ids.length === 1 ? "" : "s"}`);
+      setBulkEditOpen(false); clearSel(); reload();
+    } catch {
+      setToast("Could not update selection");
+    } finally {
+      setBulkApplying(false);
+    }
   }
   async function toggleBlacklist(c: Contact) {
     const next = !c.blacklisted;
@@ -391,38 +387,6 @@ export default function ContactsPage() {
 
   const TH = ({ children, className }: { children?: React.ReactNode; className?: string }) =>
     <th className={cn("px-3 py-2 text-left text-[11px] font-bold uppercase tracking-wider text-muted-foreground whitespace-nowrap", className)}>{children}</th>;
-
-  // A compact bulk-action dropdown (Stage / Interest / Assign) in the selection
-  // bar. The menu is rendered in a portal positioned from the trigger's rect so
-  // it opens UPWARD and is never clipped by the bar's horizontal-scroll overflow.
-  const bulkDropdown = (key: "stage" | "interest" | "agent", label: string,
-    items: { label: string; value: string; dot?: string }[], onPick: (value: string) => void) => (
-    <div className="relative shrink-0">
-      <button
-        onClick={(e) => setBulkMenu(bulkMenu?.key === key ? null : { key, rect: e.currentTarget.getBoundingClientRect() })}
-        disabled={bulkBusy}
-        className="inline-flex items-center gap-1.5 px-3 h-8 rounded-md border border-border bg-background text-[13px] font-medium hover:bg-muted disabled:opacity-50 outline-none transition-colors">
-        {label}<ChevronDown className="w-3.5 h-3.5 text-muted-foreground" />
-      </button>
-      {bulkMenu?.key === key && createPortal(
-        <>
-          <div className="fixed inset-0 z-[60]" onClick={() => setBulkMenu(null)} />
-          <div
-            className="fixed z-[61] w-48 bg-popover border border-border rounded-lg shadow-xl py-1 max-h-[50vh] overflow-auto animate-scale-in origin-bottom"
-            style={{ left: Math.max(8, bulkMenu.rect.right - 192), bottom: window.innerHeight - bulkMenu.rect.top + 6 }}>
-            {items.map((it) => (
-              <button key={it.value || "__none__"} onClick={() => { onPick(it.value); setBulkMenu(null); }}
-                className="w-full flex items-center gap-2 px-3 py-2 text-[13px] text-foreground hover:bg-muted outline-none">
-                {it.dot && <span className="w-2 h-2 rounded-full shrink-0" style={{ backgroundColor: it.dot }} />}
-                {it.label}
-              </button>
-            ))}
-          </div>
-        </>,
-        document.body,
-      )}
-    </div>
-  );
 
   return (
     <div className="h-full flex flex-col px-4 pt-4 pb-4 min-h-0">
@@ -487,22 +451,14 @@ export default function ContactsPage() {
 
         {/* Bulk action bar — floating, sticky at the bottom-center */}
         {selected.size > 0 && (
-          <div className={`pointer-events-none fixed inset-x-0 z-40 flex justify-center px-4 ${editCount > 0 ? "bottom-[84px]" : "bottom-6"}`}>
+          <div className="pointer-events-none fixed inset-x-0 z-40 flex justify-center px-4 bottom-6">
             <div className="pointer-events-auto flex items-center gap-1 max-w-[calc(100vw-2rem)] overflow-x-auto rounded-xl border border-border bg-popover/95 backdrop-blur px-2 py-2 shadow-2xl ring-1 ring-black/5 animate-toast-in">
               <div className="flex items-center gap-2 pl-1.5 pr-2 shrink-0">
                 <span className="inline-flex items-center justify-center min-w-[22px] h-[22px] px-1.5 rounded-full bg-primary text-white text-[12px] font-bold tabular-nums">{selected.size}</span>
                 <span className="text-[13px] font-semibold text-foreground whitespace-nowrap">{t("contacts.selected")}</span>
               </div>
               <div className="w-px h-6 bg-border mx-0.5 shrink-0" />
-              {canEdit && stages.length > 0 && bulkDropdown("stage", t("contacts.stage"),
-                stages.map((s) => ({ label: s.name, value: s.id })),
-                (id) => bulkSet({ stage_id: id }))}
-              {canEdit && bulkDropdown("interest", t("contacts.interest"),
-                [{ label: "Hot", value: "hot", dot: interestColor("hot") }, { label: "Warm", value: "warm", dot: interestColor("warm") }, { label: "Cold", value: "cold", dot: interestColor("cold") }],
-                (v) => bulkSet({ interest_level: v }))}
-              {showAgentFilter && bulkDropdown("agent", t("contacts.agent"),
-                [{ label: t("common.unassigned"), value: "" }, ...agents.map((a) => ({ label: a.full_name, value: a.id }))],
-                (v) => bulkSet({ assigned_agent_id: v }))}
+              {canEdit && <button onClick={openBulkEdit} className="inline-flex items-center gap-1.5 px-3 h-8 rounded-md border border-border text-[13px] font-medium hover:bg-muted shrink-0"><Pencil className="w-3.5 h-3.5" />Edit</button>}
               {canInitiate && <button onClick={() => setTplOpen(true)} disabled={bulkBusy} className="inline-flex items-center gap-1.5 px-3 h-8 rounded-md border border-border text-[13px] font-medium hover:bg-muted disabled:opacity-50 shrink-0"><Send className="w-3.5 h-3.5" />Send Template</button>}
               {canEdit && <button onClick={bulkLabel} disabled={bulkBusy} className="inline-flex items-center gap-1.5 px-3 h-8 rounded-md border border-border text-[13px] font-medium hover:bg-muted disabled:opacity-50 shrink-0"><TagIcon className="w-3.5 h-3.5" />{t("contacts.addLabel")}</button>}
               {canEdit && <button onClick={bulkBlacklist} disabled={bulkBusy} className="inline-flex items-center gap-1.5 px-3 h-8 rounded-md border border-border text-[13px] font-medium hover:bg-muted disabled:opacity-50 shrink-0"><Ban className="w-3.5 h-3.5" />{t("contacts.blacklist")}</button>}
@@ -705,10 +661,70 @@ export default function ContactsPage() {
         onSubmit={(reason, category) => { if (outcomeFor) markOutcome(outcomeFor, reason, category); setOutcomeFor(null); }}
       />
 
+      {/* Bulk edit drawer: set Stage / Interest / Agent for all selected. */}
+      {bulkEditOpen && (
+        <SidePanel open onClose={() => setBulkEditOpen(false)}
+          title={`Edit ${selected.size} contact${selected.size === 1 ? "" : "s"}`}
+          description="Apply to every selected contact. Leave a field blank to keep it unchanged."
+          width="md" busy={bulkApplying} onApply={applyBulkEdit} applyLabel={`Apply to ${selected.size}`}>
+          <div className="flex flex-col gap-5">
+            {canEdit && stages.length > 0 && (
+              <div>
+                <label className="block text-[11px] font-bold uppercase tracking-wider text-muted-foreground mb-1.5">Stage</label>
+                {bLost ? (
+                  <div className="flex items-center justify-between px-3 h-9 rounded-md border border-border bg-background">
+                    <span className="text-[13px] font-medium text-red-600 flex items-center gap-1.5"><XCircle className="w-3.5 h-3.5" />Mark as lost: {bLost.reason}</span>
+                    <button onClick={() => setBLost(undefined)} className="text-[12px] text-muted-foreground hover:text-foreground outline-none">Clear</button>
+                  </div>
+                ) : (
+                  <div className="flex items-center gap-2">
+                    <div className="inline-flex rounded-md border border-border bg-background">
+                      <StageMenu stages={stages} currentStageId={bStage ?? null}
+                        onSelect={(id) => { setBStage(id); setBLost(undefined); }}
+                        onMarkOutcome={() => setBulkOutcomeOpen(true)} />
+                    </div>
+                    {bStage !== undefined && <button onClick={() => setBStage(undefined)} className="text-[12px] text-muted-foreground hover:text-foreground outline-none">Clear</button>}
+                  </div>
+                )}
+              </div>
+            )}
+            {canEdit && (
+              <div>
+                <label className="block text-[11px] font-bold uppercase tracking-wider text-muted-foreground mb-1.5">Interest</label>
+                <div className="flex items-center gap-1.5 flex-wrap">
+                  {(["hot", "warm", "cold"] as const).map((lv) => (
+                    <button key={lv} onClick={() => setBInterest(lv)}
+                      className={`inline-flex items-center gap-1.5 px-3 h-8 rounded-md border text-[13px] font-medium capitalize outline-none ${bInterest === lv ? "border-primary bg-primary/10 text-primary" : "border-border hover:bg-muted"}`}>
+                      <span className="w-2 h-2 rounded-full" style={{ backgroundColor: interestColor(lv) }} />{lv}
+                    </button>
+                  ))}
+                  {bInterest !== undefined && <button onClick={() => setBInterest(undefined)} className="text-[12px] text-muted-foreground hover:text-foreground ml-1 outline-none">Clear</button>}
+                </div>
+              </div>
+            )}
+            {showAgentFilter && (
+              <div>
+                <label className="block text-[11px] font-bold uppercase tracking-wider text-muted-foreground mb-1.5">Agent</label>
+                <div className="flex items-center gap-2">
+                  <Select value={bAgent === null ? "__unassign__" : (bAgent ?? "")}
+                    onChange={(v) => setBAgent(v === "__unassign__" ? null : v)}
+                    placeholder="Leave unchanged" className="w-[240px]"
+                    options={[{ value: "__unassign__", label: "Unassign" }, ...agents.map((a) => ({ value: a.id, label: a.full_name }))]} />
+                  {bAgent !== undefined && <button onClick={() => setBAgent(undefined)} className="text-[12px] text-muted-foreground hover:text-foreground outline-none">Clear</button>}
+                </div>
+              </div>
+            )}
+          </div>
+        </SidePanel>
+      )}
+      {bulkOutcomeOpen && (
+        <LostReasonDialog open onClose={() => setBulkOutcomeOpen(false)}
+          onSubmit={(reason, category) => { setBLost({ reason, category }); setBStage(undefined); setBulkOutcomeOpen(false); }} />
+      )}
+
       {toast && <Toast msg={toast} onClose={() => setToast(null)} />}
       {ConfirmHost}
       {PromptHost}
-      <UnsavedBar count={editCount} saving={savingEdits} onSave={saveEdits} onCancel={cancelEdits} saveLabel="Save changes" />
     </div>
   );
 }
