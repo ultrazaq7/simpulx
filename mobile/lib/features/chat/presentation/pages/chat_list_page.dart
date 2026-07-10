@@ -386,7 +386,7 @@ class _ChatListPageState extends ConsumerState<ChatListPage> {
 
     return Scaffold(
       appBar: AppBar(
-        title: Text('Chats'.tr(context)),
+        title: Text('Chat'.tr(context)),
         actions: [
           const _RealtimeDot(),
           IconButton(

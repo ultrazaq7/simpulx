@@ -33,6 +33,10 @@ class CallController extends Notifier<CallSession?> {
   Timer? _pickupPoll;
   Timer? _permissionPoll;
   Timer? _incomingPoll;
+  // The `call.updated` sdp_answer can arrive more than once; applying the answer
+  // twice throws (setRemoteDescription on an already-stable peer) and surfaced
+  // as a bogus "Audio connection failed". Apply it exactly once per call.
+  bool _answerApplied = false;
   static const _channel = MethodChannel('simpulx_notification');
 
   /// How long we ring an outbound call before giving up as "No answer". Without
@@ -527,11 +531,14 @@ class CallController extends Notifier<CallSession?> {
       return;
     }
 
-    // Outbound: the customer answered -> apply the SDP answer.
+    // Outbound: the customer answered -> apply the SDP answer, exactly once
+    // (duplicate call.updated events would otherwise re-apply it and throw).
     if (!s.inbound &&
+        !_answerApplied &&
         p.sdpAnswer != null &&
         p.sdpAnswer!.isNotEmpty &&
         s.phase != CallPhase.connected) {
+      _answerApplied = true;
       _applyAnswer(p.sdpAnswer!);
       return;
     }
@@ -569,6 +576,7 @@ class CallController extends Notifier<CallSession?> {
       }
       _startPickupDetector();
     } catch (e) {
+      if (kDebugMode) debugPrint('[call] applyAnswer failed: $e');
       _fail('Audio connection failed');
     }
   }
@@ -599,6 +607,7 @@ class CallController extends Notifier<CallSession?> {
   }
 
   void _cleanup(CallPhase phase, {String? message}) {
+    _answerApplied = false;
     _stopRingback();
     _cancelRingTimeout();
     _stopStatusWatchdog();

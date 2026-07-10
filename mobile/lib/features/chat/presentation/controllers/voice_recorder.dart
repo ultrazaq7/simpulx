@@ -13,11 +13,22 @@ class VoiceRecorder extends ChangeNotifier {
   bool _recording = false;
   bool get recording => _recording;
 
+  bool _paused = false;
+  bool get paused => _paused;
+
   Duration _elapsed = Duration.zero;
   Duration get elapsed => _elapsed;
 
   Timer? _timer;
   String? _path;
+
+  void _startTimer() {
+    _timer?.cancel();
+    _timer = Timer.periodic(const Duration(seconds: 1), (_) {
+      _elapsed += const Duration(seconds: 1);
+      notifyListeners();
+    });
+  }
 
   /// Returns false if microphone permission was denied.
   Future<bool> start() async {
@@ -29,13 +40,37 @@ class VoiceRecorder extends ChangeNotifier {
       path: _path!,
     );
     _recording = true;
+    _paused = false;
     _elapsed = Duration.zero;
-    _timer = Timer.periodic(const Duration(seconds: 1), (_) {
-      _elapsed += const Duration(seconds: 1);
-      notifyListeners();
-    });
+    _startTimer();
     notifyListeners();
     return true;
+  }
+
+  /// Pause the recording (keeps the file open; resume continues it).
+  Future<void> pause() async {
+    if (!_recording || _paused) return;
+    try {
+      await _recorder.pause();
+    } catch (_) {
+      return;
+    }
+    _timer?.cancel();
+    _paused = true;
+    notifyListeners();
+  }
+
+  /// Resume a paused recording.
+  Future<void> resume() async {
+    if (!_recording || !_paused) return;
+    try {
+      await _recorder.resume();
+    } catch (_) {
+      return;
+    }
+    _paused = false;
+    _startTimer();
+    notifyListeners();
   }
 
   /// Stops and returns the recorded file path (or null if too short / failed).
@@ -43,6 +78,7 @@ class VoiceRecorder extends ChangeNotifier {
     _timer?.cancel();
     final path = await _recorder.stop();
     _recording = false;
+    _paused = false;
     notifyListeners();
     // Discard sub-second taps.
     if (_elapsed.inMilliseconds < 800) {
@@ -56,6 +92,7 @@ class VoiceRecorder extends ChangeNotifier {
     _timer?.cancel();
     final path = await _recorder.stop();
     _recording = false;
+    _paused = false;
     notifyListeners();
     await _safeDelete(path ?? _path);
   }

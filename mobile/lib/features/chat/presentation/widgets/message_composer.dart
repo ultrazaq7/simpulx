@@ -1,6 +1,7 @@
 import 'dart:async';
 
 import 'package:cached_network_image/cached_network_image.dart';
+import 'package:emoji_picker_flutter/emoji_picker_flutter.dart';
 import 'package:flutter/material.dart';
 import '../../../../core/utils/haptics.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
@@ -47,8 +48,10 @@ class _MessageComposerState extends ConsumerState<MessageComposer> {
   static final Map<String, Map<String, dynamic>?> _lpCache = {};
 
   final _controller = TextEditingController();
+  final _focusNode = FocusNode();
   final _voice = VoiceRecorder();
   bool _canSend = false;
+  bool _showEmoji = false; // emoji panel open (mutually exclusive with keyboard)
   String? _slashQuery; // non-null while the text is a "/..." shortcut query
 
   // WhatsApp-style link preview while composing: first URL in the draft shows
@@ -63,6 +66,55 @@ class _MessageComposerState extends ConsumerState<MessageComposer> {
     super.initState();
     _controller.addListener(_onTextChanged);
     _voice.addListener(_onVoiceChanged);
+    // Opening the keyboard hides the emoji panel (they occupy the same space).
+    _focusNode.addListener(() {
+      if (_focusNode.hasFocus && _showEmoji) setState(() => _showEmoji = false);
+    });
+  }
+
+  void _toggleEmoji() {
+    Haptics.selection;
+    if (_showEmoji) {
+      setState(() => _showEmoji = false);
+      _focusNode.requestFocus();
+    } else {
+      FocusScope.of(context).unfocus();
+      setState(() => _showEmoji = true);
+    }
+  }
+
+  /// WhatsApp-style emoji keyboard (categories, search, recents, skin tones).
+  /// The [textEditingController] wiring inserts at the cursor for us.
+  Widget _emojiPicker(ThemeData theme) {
+    final bg = theme.colorScheme.surface;
+    return SizedBox(
+      height: 280,
+      child: EmojiPicker(
+        textEditingController: _controller,
+        config: Config(
+          height: 280,
+          emojiViewConfig: EmojiViewConfig(
+            backgroundColor: bg,
+            columns: 8,
+            emojiSizeMax: 26,
+            buttonMode: ButtonMode.MATERIAL,
+          ),
+          categoryViewConfig: CategoryViewConfig(
+            backgroundColor: bg,
+            indicatorColor: AppColors.primary,
+            iconColor: AppColors.textSecondary,
+            iconColorSelected: AppColors.primary,
+            backspaceColor: AppColors.primary,
+            dividerColor: AppColors.border,
+          ),
+          bottomActionBarConfig: BottomActionBarConfig(
+            backgroundColor: bg,
+            buttonColor: AppColors.primary,
+            buttonIconColor: Colors.white,
+          ),
+        ),
+      ),
+    );
   }
 
   void _onTextChanged() {
@@ -128,6 +180,7 @@ class _MessageComposerState extends ConsumerState<MessageComposer> {
     _voice.removeListener(_onVoiceChanged);
     _voice.dispose();
     _controller.dispose();
+    _focusNode.dispose();
     super.dispose();
   }
 
@@ -254,6 +307,7 @@ class _MessageComposerState extends ConsumerState<MessageComposer> {
               padding: const EdgeInsets.fromLTRB(8, 8, 8, 8),
               child: _voice.recording ? _recordingBar() : _inputBar(),
             ),
+            if (_showEmoji && !_voice.recording) _emojiPicker(theme),
           ],
         ),
       ),
@@ -265,6 +319,14 @@ class _MessageComposerState extends ConsumerState<MessageComposer> {
     return Row(
       crossAxisAlignment: CrossAxisAlignment.end,
       children: [
+        IconButton(
+          icon: Icon(_showEmoji
+              ? Icons.keyboard_rounded
+              : Icons.emoji_emotions_outlined),
+          color: AppColors.textSecondary,
+          onPressed: _toggleEmoji,
+          tooltip: 'Emoji'.tr(context),
+        ),
         IconButton(
           icon: const Icon(Icons.add_circle_outline_rounded),
           color: AppColors.textSecondary,
@@ -279,6 +341,7 @@ class _MessageComposerState extends ConsumerState<MessageComposer> {
             constraints: const BoxConstraints(maxHeight: 120),
             child: TextField(
               controller: _controller,
+              focusNode: _focusNode,
               minLines: 1,
               maxLines: 5,
               textCapitalization: TextCapitalization.sentences,
@@ -339,6 +402,7 @@ class _MessageComposerState extends ConsumerState<MessageComposer> {
   Widget _recordingBar() {
     final m = _voice.elapsed.inMinutes.remainder(60).toString();
     final s = _voice.elapsed.inSeconds.remainder(60).toString().padLeft(2, '0');
+    final paused = _voice.paused;
     return Row(
       children: [
         IconButton(
@@ -347,13 +411,25 @@ class _MessageComposerState extends ConsumerState<MessageComposer> {
           onPressed: _voice.cancel,
           tooltip: 'Cancel'.tr(context),
         ),
-        const _PulsingDot(),
+        paused
+            ? const Icon(Icons.pause_rounded,
+                size: 14, color: AppColors.textSecondary)
+            : const _PulsingDot(),
         const SizedBox(width: 8),
         Text('$m:$s', style: const TextStyle(fontWeight: FontWeight.w600)),
         const Spacer(),
-        Text('Recording...'.tr(context),
+        Text(paused ? 'Paused'.tr(context) : 'Recording...'.tr(context),
             style: TextStyle(color: AppColors.textSecondary)),
         const SizedBox(width: 8),
+        _RoundButton(
+          icon: paused ? Icons.mic_rounded : Icons.pause_rounded,
+          filled: false,
+          onTap: () {
+            Haptics.selection;
+            paused ? _voice.resume() : _voice.pause();
+          },
+        ),
+        const SizedBox(width: 6),
         _RoundButton(
             icon: Icons.send_rounded, filled: true, onTap: _stopAndSend),
       ],
