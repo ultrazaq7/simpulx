@@ -428,8 +428,6 @@ class _StageSplitCard extends StatelessWidget {
           Expanded(
             flex: 5,
             child: Text(stageLabel(context, s.name),
-                maxLines: 1,
-                overflow: TextOverflow.ellipsis,
                 style: const TextStyle(fontSize: 13, fontWeight: FontWeight.w500)),
           ),
           const SizedBox(width: 12),

@@ -807,7 +807,7 @@ class _AboutScreenState extends State<_AboutScreen>
                               ),
                             ],
                           ),
-                          child: Image.asset('assets/images/simpulx_logo.png',
+                          child: Image.asset('assets/images/logo.png',
                               fit: BoxFit.contain),
                         ),
                       ),
