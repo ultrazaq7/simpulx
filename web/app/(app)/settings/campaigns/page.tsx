@@ -9,6 +9,7 @@ import type { Campaign, UserAccount, Channel } from "@/lib/types";
 import { Select } from "@/components/Select";
 import { MultiSelect } from "@/components/ui/multi-select";
 import { CampaignWizard } from "./CampaignWizard";
+import { Toast as ToastView } from "@/components/Toast";
 
 type Toast = { msg: string; sev: "success" | "error" } | null;
 
@@ -25,7 +26,6 @@ export default function CampaignsPage() {
   const [toast, setToast] = useState<Toast>(null);
   const router = useRouter();
 
-  useEffect(() => { if (!toast) return; const t = setTimeout(() => setToast(null), 4000); return () => clearTimeout(t); }, [toast]);
 
   async function load() {
     setLoading(true);
@@ -139,13 +139,7 @@ export default function CampaignsPage() {
           onError={(m) => setToast({ msg: m, sev: "error" })} />
       )}
 
-      {toast && (
-        <div className="fixed bottom-6 left-6 z-[110] animate-scale-in">
-          <div className={cn("flex items-center gap-2 px-4 py-2.5 rounded-lg shadow-xl text-sm font-semibold text-white", toast.sev === "error" ? "bg-[#DC2626]" : "bg-[#2D8B73]")}>
-            {toast.msg}<button onClick={() => setToast(null)} className="p-0.5 outline-none"><X className="w-4 h-4" /></button>
-          </div>
-        </div>
-      )}
+      {toast && <ToastView msg={toast.msg} severity={toast.sev} onClose={() => setToast(null)} />}
     </div>
   );
 }

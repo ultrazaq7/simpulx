@@ -19,6 +19,7 @@ import { Tip } from "@/components/ui/tooltip";
 import { Select } from "@/components/Select";
 
 import { api } from "@/lib/api";
+import { Toast as ToastView } from "@/components/Toast";
 import { ACTIONS, TRIGGERS, eventLabel } from "@/lib/automationMeta";
 import { cn } from "@/lib/utils";
 import { useEscClose } from "@/lib/useEscClose";
@@ -355,7 +356,6 @@ function Builder() {
     api.listAgents().then((as) => setAgents(as.map((a) => ({ id: a.id, name: a.full_name })))).catch(() => {});
     api.listStages().then((ss) => setStages(ss.map((s) => ({ id: s.id, name: s.name })))).catch(() => {});
   }, [id]); // eslint-disable-line react-hooks/exhaustive-deps
-  useEffect(() => { if (!toast) return; const t = setTimeout(() => setToast(null), 3000); return () => clearTimeout(t); }, [toast]);
 
   const onConnect = useCallback((c: Connection) => { pushHistory(); setEdges((eds) => addEdge({ ...c, animated: true, style: { stroke: "#94A3B8", strokeWidth: 1.6 }, label: c.sourceHandle === "match" ? "Match" : c.sourceHandle === "else" ? "Else" : undefined }, eds)); setDirty(true); }, [setEdges, pushHistory]);
   const markDirty = useCallback(() => setDirty(true), []);
@@ -500,11 +500,7 @@ function Builder() {
         )}
       </div>
 
-      {toast && (
-        <div className="fixed bottom-6 left-6 z-[120] animate-scale-in">
-          <div className="px-4 py-2.5 rounded-lg bg-foreground text-background text-sm font-semibold shadow-xl">{toast}</div>
-        </div>
-      )}
+      {toast && <ToastView msg={toast} onClose={() => setToast(null)} />}
     </div>
   );
 }

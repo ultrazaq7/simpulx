@@ -11,6 +11,7 @@ import { Select } from "@/components/Select";
 import { MultiSelect } from "@/components/ui/multi-select";
 import { Tip } from "@/components/ui/tooltip";
 import { cn, fmtDateTimeShort } from "@/lib/utils";
+import { Toast as ToastView } from "@/components/Toast";
 import type {
   WaFlow, WaFlowDetail, WaFlowResponse, FlowDefinition, FlowScreen,
   FlowComponent, FlowComponentType, Channel,
@@ -54,10 +55,7 @@ export default function WaFormsPage() {
   const [channels, setChannels] = useState<Channel[]>([]);
   const [channelFilter, setChannelFilter] = useState<string[]>([]);
 
-  const flash = (ok: boolean, text: string) => {
-    setToast({ ok, text });
-    setTimeout(() => setToast(null), 3500);
-  };
+  const flash = (ok: boolean, text: string) => setToast({ ok, text });
 
   const load = useCallback(async () => {
     try {
@@ -246,15 +244,7 @@ export default function WaFormsPage() {
       )}
       {viewing && <ResponseViewer r={viewing} onClose={() => setViewing(null)} />}
 
-      {toast && (
-        <div className={cn(
-          "fixed bottom-6 right-6 z-50 flex items-center gap-2 px-4 py-3 rounded-lg shadow-lg text-sm font-medium",
-          toast.ok ? "bg-success text-white" : "bg-destructive text-white"
-        )}>
-          {toast.ok ? <CheckCircle2 className="w-4 h-4" /> : <AlertCircle className="w-4 h-4" />}
-          {toast.text}
-        </div>
-      )}
+      {toast && <ToastView msg={toast.text} severity={toast.ok ? "success" : "error"} onClose={() => setToast(null)} />}
     </div>
   );
 }

@@ -141,6 +141,17 @@ input, textarea, select, button { font-family: inherit; }
 .animate-toast-in { animation: toastIn 0.22s cubic-bezier(0.16, 1, 0.3, 1); }
 @keyframes toastRing { from { stroke-dashoffset: 0; } to { stroke-dashoffset: 56.549; } }
 
+/* Recharts gives its SVG elements a tabindex, so clicking a line/area/pie/bar
+   draws the app's brand focus ring right across the chart (the ugly dark-green
+   "focus line"). Suppress it on every chart element. */
+.recharts-wrapper:focus,
+.recharts-wrapper:focus-visible,
+.recharts-wrapper *:focus,
+.recharts-wrapper *:focus-visible,
+.recharts-surface:focus,
+.recharts-sector:focus,
+.recharts-layer:focus { outline: none !important; }
+
 /* Streaming-summary bullet entrance: fade + slide-up + tiny blur lift */
 @keyframes bulletIn {
   from { opacity: 0; transform: translateY(6px); filter: blur(1px); }

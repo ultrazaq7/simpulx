@@ -12,10 +12,10 @@ import type { Agent, Channel, Conversation, Disposition, InternalNote, Message, 
 import ChatPanel, { type Item } from "./components/ChatPanel";
 import ConversationList, { type SortMode } from "./components/ConversationList";
 import DetailsPanel from "./components/DetailsPanel";
+import { Toast as ToastView } from "@/components/Toast";
 
 // --- Toast helper ----------------------------------------
 type Toast = { msg: string; severity: "success" | "info" | "warning" | "error" };
-const TOAST_BG: Record<string, string> = { error: "bg-[#DC2626]", warning: "bg-[#F59E0B]", info: "bg-[#2D8B73]", success: "bg-[#2D8B73]" };
 
 // WhatsApp Cloud API media caps. Reject oversize on the client so the user gets an
 // instant, specific reason instead of a request that spins and silently fails.
@@ -49,7 +49,6 @@ export default function InboxPage() {
   const [dispositions, setDispositions] = useState<Disposition[]>([]);
   const [agents, setAgents] = useState<Agent[]>([]);
   const [toast, setToast] = useState<Toast | null>(null);
-  useEffect(() => { if (!toast) return; const t = setTimeout(() => setToast(null), 3000); return () => clearTimeout(t); }, [toast]);
   const [showDetails, setShowDetails] = useState(false);
   const [forwardText, setForwardText] = useState<string | null>(null);
 
@@ -629,14 +628,7 @@ export default function InboxPage() {
       )}
 
       {/* ── Toast ── */}
-      {toast && (
-        <div className="fixed bottom-6 left-6 z-50 animate-in slide-in-from-bottom-4">
-          <div className={cn("flex items-center gap-2 px-4 py-2.5 rounded-lg shadow-lg text-sm font-semibold text-white min-w-[280px] max-w-[460px]", TOAST_BG[toast.severity] ?? TOAST_BG.success)}>
-            {toast.msg}
-            <button onClick={() => setToast(null)} className="p-0.5 outline-none shrink-0 ml-auto"><X className="w-4 h-4" /></button>
-          </div>
-        </div>
-      )}
+      {toast && <ToastView msg={toast.msg} severity={toast.severity === "error" ? "error" : "success"} onClose={() => setToast(null)} />}
     </>
   );
 }
