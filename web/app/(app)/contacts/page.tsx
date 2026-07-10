@@ -1,5 +1,6 @@
 "use client";
 import { useEffect, useMemo, useRef, useState } from "react";
+import { createPortal } from "react-dom";
 import { useRouter } from "next/navigation";
 import {
   Search, UserPlus, Download, Pencil, ChevronsLeft, ChevronsRight, ChevronLeft, ChevronRight,
@@ -13,7 +14,7 @@ import type { Contact, Agent, Campaign, Message, Stage, Conversation, Dispositio
 import { Tip } from "@/components/ui/tooltip";
 import MessageBubble, { rewriteLocalMedia } from "@/app/(app)/inbox/components/MessageBubble";
 import Composer from "@/app/(app)/inbox/components/Composer";
-import { StageMenu } from "@/app/(app)/inbox/components/StageMenu";
+import { StageMenu, getDotColor } from "@/app/(app)/inbox/components/StageMenu";
 import LostReasonDialog from "@/app/(app)/inbox/components/LostReasonDialog";
 import { Select } from "@/components/Select";
 import { MultiSelect } from "@/components/ui/multi-select";
@@ -109,7 +110,8 @@ export default function ContactsPage() {
   const [bAgent, setBAgent] = useState<string | null | undefined>(undefined);
   const [bulkOutcomeOpen, setBulkOutcomeOpen] = useState(false);
   const [bulkApplying, setBulkApplying] = useState(false);
-  const openBulkEdit = () => { setBStage(undefined); setBLost(undefined); setBInterest(undefined); setBAgent(undefined); setBulkEditOpen(true); };
+  const [editRect, setEditRect] = useState<DOMRect | null>(null);
+  const openBulkEdit = (rect: DOMRect) => { setBStage(undefined); setBLost(undefined); setBInterest(undefined); setBAgent(undefined); setEditRect(rect); setBulkEditOpen(true); };
   const [tplOpen, setTplOpen] = useState(false);
   const [visibleCols, setVisibleCols] = useState<Set<string>>(() => new Set(DEFAULT_COLS));
   const [colsMenuOpen, setColsMenuOpen] = useState(false);
@@ -347,6 +349,10 @@ export default function ContactsPage() {
   // agent go through one bulk update; a lost/spam outcome is applied per contact
   // (it needs the conversation) with the chosen reason.
   const bulkEditDirty = bStage !== undefined || bLost !== undefined || bInterest !== undefined || bAgent !== undefined;
+  const onStagePick = (v: string) => {
+    if (v === "__lost__") { setBulkOutcomeOpen(true); return; }
+    setBStage(v || undefined); setBLost(undefined);
+  };
   async function applyBulkEdit() {
     if (!bulkEditDirty) return;
     const ids = [...selected];
@@ -458,7 +464,7 @@ export default function ContactsPage() {
                 <span className="text-[13px] font-semibold text-foreground whitespace-nowrap">{t("contacts.selected")}</span>
               </div>
               <div className="w-px h-6 bg-border mx-0.5 shrink-0" />
-              {canEdit && <button onClick={openBulkEdit} className="inline-flex items-center gap-1.5 px-3 h-8 rounded-md border border-border text-[13px] font-medium hover:bg-muted shrink-0"><Pencil className="w-3.5 h-3.5" />Edit</button>}
+              {canEdit && <button onClick={(e) => openBulkEdit(e.currentTarget.getBoundingClientRect())} className="inline-flex items-center gap-1.5 px-3 h-8 rounded-md border border-border text-[13px] font-medium hover:bg-muted shrink-0"><Pencil className="w-3.5 h-3.5" />Edit</button>}
               {canInitiate && <button onClick={() => setTplOpen(true)} disabled={bulkBusy} className="inline-flex items-center gap-1.5 px-3 h-8 rounded-md border border-border text-[13px] font-medium hover:bg-muted disabled:opacity-50 shrink-0"><Send className="w-3.5 h-3.5" />Send Template</button>}
               {canEdit && <button onClick={bulkLabel} disabled={bulkBusy} className="inline-flex items-center gap-1.5 px-3 h-8 rounded-md border border-border text-[13px] font-medium hover:bg-muted disabled:opacity-50 shrink-0"><TagIcon className="w-3.5 h-3.5" />{t("contacts.addLabel")}</button>}
               {canEdit && <button onClick={bulkBlacklist} disabled={bulkBusy} className="inline-flex items-center gap-1.5 px-3 h-8 rounded-md border border-border text-[13px] font-medium hover:bg-muted disabled:opacity-50 shrink-0"><Ban className="w-3.5 h-3.5" />{t("contacts.blacklist")}</button>}
@@ -661,61 +667,54 @@ export default function ContactsPage() {
         onSubmit={(reason, category) => { if (outcomeFor) markOutcome(outcomeFor, reason, category); setOutcomeFor(null); }}
       />
 
-      {/* Bulk edit drawer: set Stage / Interest / Agent for all selected. */}
-      {bulkEditOpen && (
-        <SidePanel open onClose={() => setBulkEditOpen(false)}
-          title={`Edit ${selected.size} contact${selected.size === 1 ? "" : "s"}`}
-          description="Apply to every selected contact. Leave a field blank to keep it unchanged."
-          width="md" busy={bulkApplying} onApply={applyBulkEdit} applyLabel={`Apply to ${selected.size}`}>
-          <div className="flex flex-col gap-5">
-            {canEdit && stages.length > 0 && (
-              <div>
-                <label className="block text-[11px] font-bold uppercase tracking-wider text-muted-foreground mb-1.5">Stage</label>
-                {bLost ? (
-                  <div className="flex items-center justify-between px-3 h-9 rounded-md border border-border bg-background">
-                    <span className="text-[13px] font-medium text-red-600 flex items-center gap-1.5"><XCircle className="w-3.5 h-3.5" />Mark as lost: {bLost.reason}</span>
-                    <button onClick={() => setBLost(undefined)} className="text-[12px] text-muted-foreground hover:text-foreground outline-none">Clear</button>
-                  </div>
-                ) : (
-                  <div className="flex items-center gap-2">
-                    <div className="inline-flex rounded-md border border-border bg-background">
-                      <StageMenu stages={stages} currentStageId={bStage ?? null}
-                        onSelect={(id) => { setBStage(id); setBLost(undefined); }}
-                        onMarkOutcome={() => setBulkOutcomeOpen(true)} />
-                    </div>
-                    {bStage !== undefined && <button onClick={() => setBStage(undefined)} className="text-[12px] text-muted-foreground hover:text-foreground outline-none">Clear</button>}
-                  </div>
-                )}
-              </div>
-            )}
-            {canEdit && (
-              <div>
-                <label className="block text-[11px] font-bold uppercase tracking-wider text-muted-foreground mb-1.5">Interest</label>
-                <div className="flex items-center gap-1.5 flex-wrap">
-                  {(["hot", "warm", "cold"] as const).map((lv) => (
-                    <button key={lv} onClick={() => setBInterest(lv)}
-                      className={`inline-flex items-center gap-1.5 px-3 h-8 rounded-md border text-[13px] font-medium capitalize outline-none ${bInterest === lv ? "border-primary bg-primary/10 text-primary" : "border-border hover:bg-muted"}`}>
-                      <span className="w-2 h-2 rounded-full" style={{ backgroundColor: interestColor(lv) }} />{lv}
-                    </button>
-                  ))}
-                  {bInterest !== undefined && <button onClick={() => setBInterest(undefined)} className="text-[12px] text-muted-foreground hover:text-foreground ml-1 outline-none">Clear</button>}
+      {/* Bulk edit: a compact popover above the Edit button — Stage / Interest /
+          Agent dropdowns + Apply. */}
+      {bulkEditOpen && editRect && createPortal(
+        <>
+          <div className="fixed inset-0 z-[70]" onClick={() => setBulkEditOpen(false)} />
+          <div className="fixed z-[71] w-[300px] bg-popover border border-border rounded-xl shadow-2xl p-3.5 animate-scale-in"
+            style={{
+              left: Math.min(Math.max(8, editRect.left + editRect.width / 2 - 150), window.innerWidth - 308),
+              bottom: window.innerHeight - editRect.top + 8,
+            }}>
+            <div className="flex items-center justify-between mb-3">
+              <p className="text-[13px] font-bold text-foreground">Edit {selected.size} contact{selected.size === 1 ? "" : "s"}</p>
+              <button onClick={() => setBulkEditOpen(false)} className="p-0.5 rounded text-muted-foreground hover:text-foreground outline-none"><X className="w-4 h-4" /></button>
+            </div>
+            <div className="flex flex-col gap-3">
+              {canEdit && stages.length > 0 && (
+                <div>
+                  <label className="block text-[11px] font-semibold text-muted-foreground mb-1">Stage</label>
+                  <Select value={bLost ? "__lost__" : (bStage ?? "")} onChange={onStagePick} placeholder="Leave unchanged"
+                    options={[
+                      ...stages.filter((s) => !(s.system_key || "").startsWith("lost") && !s.name.toLowerCase().startsWith("lost")).map((s) => ({ value: s.id, label: s.name, dot: getDotColor(s.name) })),
+                      { value: "__lost__", label: "Mark as lost / spam", dot: "#DC2626" },
+                    ]} />
                 </div>
-              </div>
-            )}
-            {showAgentFilter && (
-              <div>
-                <label className="block text-[11px] font-bold uppercase tracking-wider text-muted-foreground mb-1.5">Agent</label>
-                <div className="flex items-center gap-2">
-                  <Select value={bAgent === null ? "__unassign__" : (bAgent ?? "")}
-                    onChange={(v) => setBAgent(v === "__unassign__" ? null : v)}
-                    placeholder="Leave unchanged" className="w-[240px]"
+              )}
+              {canEdit && (
+                <div>
+                  <label className="block text-[11px] font-semibold text-muted-foreground mb-1">Interest</label>
+                  <Select value={bInterest ?? ""} onChange={(v) => setBInterest(v || undefined)} placeholder="Leave unchanged"
+                    options={[{ value: "hot", label: "Hot", dot: interestColor("hot") }, { value: "warm", label: "Warm", dot: interestColor("warm") }, { value: "cold", label: "Cold", dot: interestColor("cold") }]} />
+                </div>
+              )}
+              {showAgentFilter && (
+                <div>
+                  <label className="block text-[11px] font-semibold text-muted-foreground mb-1">Agent</label>
+                  <Select value={bAgent === null ? "__unassign__" : (bAgent ?? "")} onChange={(v) => setBAgent(v === "__unassign__" ? null : (v || undefined))} placeholder="Leave unchanged"
                     options={[{ value: "__unassign__", label: "Unassign" }, ...agents.map((a) => ({ value: a.id, label: a.full_name }))]} />
-                  {bAgent !== undefined && <button onClick={() => setBAgent(undefined)} className="text-[12px] text-muted-foreground hover:text-foreground outline-none">Clear</button>}
                 </div>
-              </div>
-            )}
+              )}
+              {bLost && <p className="text-[11px] text-red-600 flex items-center gap-1"><XCircle className="w-3 h-3" />Mark as lost: {bLost.reason}</p>}
+              <button onClick={applyBulkEdit} disabled={!bulkEditDirty || bulkApplying}
+                className="mt-0.5 w-full h-9 rounded-md bg-primary text-white text-[13px] font-semibold hover:bg-primary-dark disabled:opacity-50 inline-flex items-center justify-center gap-1.5 outline-none">
+                {bulkApplying && <Loader2 className="w-4 h-4 animate-spin" />}Apply to {selected.size}
+              </button>
+            </div>
           </div>
-        </SidePanel>
+        </>,
+        document.body,
       )}
       {bulkOutcomeOpen && (
         <LostReasonDialog open onClose={() => setBulkOutcomeOpen(false)}

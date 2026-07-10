@@ -39,7 +39,7 @@ function maxPlaceholder(body: string) {
 }
 
 export default function TemplatesPage() {
-  const { notify, ToastHost } = useToast();
+  const { notify, confirm, ToastHost } = useToast();
   const [rows, setRows] = useState<Template[]>([]);
   const [channels, setChannels] = useState<Channel[]>([]);
   const [campaigns, setCampaigns] = useState<Campaign[]>([]);
@@ -88,7 +88,7 @@ export default function TemplatesPage() {
     catch (e) { notify(String(e), "error"); }
   }
   async function remove(t: Template) {
-    if (!confirm(`Delete template "${t.name}"?`)) return;
+    if (!(await confirm({ title: "Delete template?", message: `Delete "${t.name}"? This can't be undone.`, danger: true, confirmLabel: "Delete" }))) return;
     try { const r = await api.deleteTemplate(t.id); notify(r.warning || "Template deleted", r.warning ? "info" : "success"); load(); }
     catch (e) { notify(String(e), "error"); }
   }
