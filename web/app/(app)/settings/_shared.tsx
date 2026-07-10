@@ -1,34 +1,22 @@
 "use client";
 // Shared building blocks for the settings section: a toast hook and small bits
 // reused across the split setting pages. Keeps each page focused on its own data.
-import { useEffect, useState, type ReactNode } from "react";
+import { useState, type ReactNode } from "react";
 import { cn } from "@/lib/utils";
-import { X, Info } from "lucide-react";
+import { Info } from "lucide-react";
 import { Tip } from "@/components/ui/tooltip";
+import { Toast, type ToastSeverity } from "@/components/Toast";
 
-export type ToastSeverity = "success" | "error" | "info";
+export type { ToastSeverity };
 
-// useToast centralizes the toast pattern every settings page repeats.
+// useToast centralizes the toast pattern every settings page repeats. Rendering
+// and the auto-dismiss timer/countdown live in the shared <Toast/> component.
 export function useToast() {
   const [toast, setToast] = useState<{ msg: string; severity: ToastSeverity } | null>(null);
   const notify = (msg: string, severity: ToastSeverity = "success") => setToast({ msg, severity });
 
-  useEffect(() => {
-    if (!toast) return;
-    const t = setTimeout(() => setToast(null), 3500);
-    return () => clearTimeout(t);
-  }, [toast]);
-
   const ToastHost = toast ? (
-    <div className="fixed bottom-6 left-6 z-[110] animate-scale-in">
-      <div className={cn(
-        "flex items-center gap-2 px-4 py-2.5 rounded-lg shadow-xl text-sm font-semibold text-white max-w-[460px]",
-        toast.severity === "error" ? "bg-destructive" : "bg-primary",
-      )}>
-        {toast.msg}
-        <button onClick={() => setToast(null)} className="p-0.5 outline-none shrink-0 hover:opacity-80 transition-opacity"><X className="w-4 h-4" /></button>
-      </div>
-    </div>
+    <Toast msg={toast.msg} severity={toast.severity} onClose={() => setToast(null)} />
   ) : null;
 
   return { notify, ToastHost };

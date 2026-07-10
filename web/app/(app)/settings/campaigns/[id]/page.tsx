@@ -1,12 +1,14 @@
 "use client";
-import { useEffect, useRef, useState } from "react";
-import { useParams, useRouter } from "next/navigation";
+import { useEffect, useMemo, useRef, useState } from "react";
+import { useParams, useRouter, useSearchParams } from "next/navigation";
 import { ArrowLeft, Loader2, Coins, Sparkles, BarChart3, Database, Upload, Trash2 } from "lucide-react";
 import * as XLSX from "xlsx";
+import { AreaChart, Area, XAxis, YAxis, CartesianGrid, Tooltip as RTooltip, ResponsiveContainer } from "recharts";
 import { api } from "@/lib/api";
 import { Select } from "@/components/Select";
+import DateRangeFilter, { presetRange } from "@/components/DateRangeFilter";
 import { cn, fmtDuration } from "@/lib/utils";
-import type { CampaignDetail, CampaignAnalyticsRow, CatalogItem } from "@/lib/types";
+import type { CampaignDetail, CampaignAnalyticsRow, CatalogItem, AdPerformance } from "@/lib/types";
 import { useToast, PageBody, FieldLabel, INPUT_CLASS } from "../../_shared";
 import UnsavedBar from "@/components/UnsavedBar";
 
@@ -16,8 +18,17 @@ type Tab = "overview" | "credits" | "ai" | "catalog";
 export default function CampaignDetailPage() {
   const { id } = useParams<{ id: string }>();
   const router = useRouter();
+  const searchParams = useSearchParams();
   const { notify, ToastHost } = useToast();
-  const [tab, setTab] = useState<Tab>("overview");
+  // Persist the active tab in the URL so a refresh keeps you on the same tab
+  // instead of snapping back to Overview.
+  const TAB_KEYS: Tab[] = ["overview", "credits", "ai", "catalog"];
+  const urlTab = searchParams.get("tab") as Tab | null;
+  const [tab, setTabState] = useState<Tab>(urlTab && TAB_KEYS.includes(urlTab) ? urlTab : "overview");
+  const setTab = (t: Tab) => {
+    setTabState(t);
+    router.replace(`/settings/campaigns/${id}?tab=${t}`, { scroll: false });
+  };
   const [campaign, setCampaign] = useState<CampaignDetail | null>(null);
   const [loading, setLoading] = useState(true);
 
@@ -78,25 +89,153 @@ function Stat({ label, value, accent }: { label: string; value: string | number;
   );
 }
 
+const money = (n: number) => "Rp " + Math.round(n).toLocaleString("id-ID");
+const num = (n: number) => Math.round(n).toLocaleString("id-ID");
+const pctFmt = (n: number) => n.toFixed(2) + "%";
+
+// Per-campaign report: reuses the lead analytics + ad-performance scoped to this
+// campaign to render the Heroleads-style campaign report (ad funnel, source
+// performance table, and leads over time).
 function OverviewTab({ id }: { id: string }) {
   const [row, setRow] = useState<CampaignAnalyticsRow | null>(null);
+  const [perf, setPerf] = useState<AdPerformance | null>(null);
   const [loading, setLoading] = useState(true);
+  const [dateRange, setDateRange] = useState("30d");
+  const [fFrom, setFFrom] = useState(() => presetRange("30d").from);
+  const [fTo, setFTo] = useState(() => presetRange("30d").to);
+
   useEffect(() => {
-    api.getCampaignAnalytics().then((rows) => setRow(rows.find((r) => r.id === id) ?? null)).catch(() => {}).finally(() => setLoading(false));
+    api.getCampaignAnalytics().then((rows) => setRow(rows.find((r) => r.id === id) ?? null)).catch(() => {});
   }, [id]);
-  if (loading) return <Loader2 className="w-5 h-5 animate-spin text-muted-foreground" />;
-  if (!row) return <p className="text-[13px] text-muted-foreground">No data yet for this campaign.</p>;
-  const stats = [
-    { label: "Leads", value: row.leads },
-    { label: "Replied", value: row.replied },
-    { label: "Avg 1st response", value: row.avg_rt_min > 0 ? fmtDuration(row.avg_rt_min) : "-" },
-    { label: "Within 5 min", value: `${Math.round(row.within_5_pct)}%` },
-    { label: "Call attempts", value: row.call_attempts },
-    { label: "Qualified", value: row.qualified },
+  useEffect(() => {
+    setLoading(true);
+    const { from, to } = dateRange === "custom" ? { from: fFrom, to: fTo } : presetRange(dateRange);
+    api.adPerformance(from || undefined, to || undefined, [id])
+      .then((p) => setPerf(p as AdPerformance)).catch(() => setPerf(null)).finally(() => setLoading(false));
+  }, [id, dateRange, fFrom, fTo]);
+
+  const sources = useMemo(() => perf?.sources ?? [], [perf]);
+  const tot = useMemo(() => sources.reduce((a, s) => ({
+    spend: a.spend + s.spend, impressions: a.impressions + s.impressions,
+    clicks: a.clicks + s.clicks, leads: a.leads + s.leads,
+  }), { spend: 0, impressions: 0, clicks: 0, leads: 0 }), [sources]);
+  const ctr = tot.impressions > 0 ? (tot.clicks / tot.impressions) * 100 : 0;
+  const cpc = tot.clicks > 0 ? tot.spend / tot.clicks : 0;
+  const cpl = tot.leads > 0 ? tot.spend / tot.leads : 0;
+  const daily = useMemo(() => (perf?.daily ?? []).map((d) => ({ date: (d.date ?? "").slice(5), leads: d.leads })), [perf]);
+
+  const funnel = [
+    { label: "Impressions", value: num(tot.impressions), accent: "text-foreground" },
+    { label: "Clicks", value: num(tot.clicks), accent: "text-foreground" },
+    { label: "CTR", value: pctFmt(ctr), accent: "text-foreground" },
+    { label: "Leads", value: num(tot.leads), accent: "text-primary" },
+    { label: "Cost / lead", value: tot.leads > 0 ? money(cpl) : "-", accent: "text-foreground" },
   ];
+
   return (
-    <div className="grid grid-cols-2 sm:grid-cols-3 gap-3">
-      {stats.map((s) => <Stat key={s.label} label={s.label} value={s.value} />)}
+    <div className="flex flex-col gap-5">
+      <div className="flex items-center justify-between flex-wrap gap-2">
+        <p className="text-[13px] font-semibold text-foreground">Campaign report</p>
+        <DateRangeFilter value={{ preset: dateRange, from: fFrom, to: fTo }} align="right"
+          onChange={(v) => { setDateRange(v.preset); setFFrom(v.from); setFTo(v.to); }} />
+      </div>
+
+      {/* Ad funnel KPIs */}
+      <div className="grid grid-cols-2 sm:grid-cols-5 gap-3">
+        {funnel.map((f) => (
+          <div key={f.label} className="rounded-lg border border-border bg-card p-4">
+            <p className={cn("text-xl font-bold tabular-nums", f.accent)}>{f.value}</p>
+            <p className="text-[12px] text-muted-foreground mt-0.5">{f.label}</p>
+          </div>
+        ))}
+      </div>
+
+      {/* Lead KPIs */}
+      {row && (
+        <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
+          <Stat label="Replied" value={row.replied} />
+          <Stat label="Avg 1st response" value={row.avg_rt_min > 0 ? fmtDuration(row.avg_rt_min) : "-"} />
+          <Stat label="Within 5 min" value={`${Math.round(row.within_5_pct)}%`} />
+          <Stat label="Qualified" value={row.qualified} />
+        </div>
+      )}
+
+      {/* Source performance table */}
+      <div className="rounded-xl border border-border overflow-hidden">
+        <div className="px-4 py-2.5 border-b border-border bg-muted/40"><p className="text-[13px] font-semibold text-foreground">Source performance</p></div>
+        <div className="overflow-x-auto">
+          <table className="w-full text-[13px] whitespace-nowrap">
+            <thead>
+              <tr className="border-b border-border bg-muted/60 text-muted-foreground text-[11px] uppercase tracking-wider">
+                {["Source", "Cost", "Impressions", "Clicks", "CTR", "CPC", "Leads", "CPL"].map((h, i) => (
+                  <th key={h} className={cn("px-3 py-2 font-bold", i === 0 ? "text-left" : "text-right")}>{h}</th>
+                ))}
+              </tr>
+            </thead>
+            <tbody>
+              {loading ? (
+                <tr><td colSpan={8} className="px-3 py-8 text-center text-muted-foreground"><Loader2 className="w-5 h-5 animate-spin inline" /></td></tr>
+              ) : sources.length === 0 ? (
+                <tr><td colSpan={8} className="px-3 py-8 text-center text-muted-foreground">No ad data in this range</td></tr>
+              ) : sources.map((s) => {
+                const sCtr = s.impressions > 0 ? (s.clicks / s.impressions) * 100 : 0;
+                const sCpc = s.clicks > 0 ? s.spend / s.clicks : 0;
+                const sCpl = s.leads > 0 ? s.spend / s.leads : 0;
+                return (
+                  <tr key={s.source} className="border-b border-border/60">
+                    <td className="px-3 py-2 font-medium text-foreground">{s.label}</td>
+                    <td className="px-3 py-2 text-right tabular-nums">{money(s.spend)}</td>
+                    <td className="px-3 py-2 text-right tabular-nums">{num(s.impressions)}</td>
+                    <td className="px-3 py-2 text-right tabular-nums">{num(s.clicks)}</td>
+                    <td className="px-3 py-2 text-right tabular-nums">{pctFmt(sCtr)}</td>
+                    <td className="px-3 py-2 text-right tabular-nums">{s.clicks > 0 ? money(sCpc) : "-"}</td>
+                    <td className="px-3 py-2 text-right tabular-nums font-semibold text-primary">{num(s.leads)}</td>
+                    <td className="px-3 py-2 text-right tabular-nums">{s.leads > 0 ? money(sCpl) : "-"}</td>
+                  </tr>
+                );
+              })}
+            </tbody>
+            {!loading && sources.length > 0 && (
+              <tfoot>
+                <tr className="border-t-2 border-border font-bold bg-muted/40">
+                  <td className="px-3 py-2">Grand total</td>
+                  <td className="px-3 py-2 text-right tabular-nums">{money(tot.spend)}</td>
+                  <td className="px-3 py-2 text-right tabular-nums">{num(tot.impressions)}</td>
+                  <td className="px-3 py-2 text-right tabular-nums">{num(tot.clicks)}</td>
+                  <td className="px-3 py-2 text-right tabular-nums">{pctFmt(ctr)}</td>
+                  <td className="px-3 py-2 text-right tabular-nums">{tot.clicks > 0 ? money(cpc) : "-"}</td>
+                  <td className="px-3 py-2 text-right tabular-nums text-primary">{num(tot.leads)}</td>
+                  <td className="px-3 py-2 text-right tabular-nums">{tot.leads > 0 ? money(cpl) : "-"}</td>
+                </tr>
+              </tfoot>
+            )}
+          </table>
+        </div>
+      </div>
+
+      {/* Leads over time (single series — keep one axis) */}
+      {daily.length > 0 && (
+        <div className="rounded-xl border border-border p-4">
+          <p className="text-[13px] font-semibold text-foreground mb-3">Leads over time</p>
+          <div className="h-[220px]">
+            <ResponsiveContainer width="100%" height="100%">
+              <AreaChart data={daily} margin={{ top: 6, right: 8, left: -18, bottom: 0 }}>
+                <defs>
+                  <linearGradient id="leadFill" x1="0" y1="0" x2="0" y2="1">
+                    <stop offset="0%" stopColor="#2D8B73" stopOpacity={0.28} />
+                    <stop offset="100%" stopColor="#2D8B73" stopOpacity={0} />
+                  </linearGradient>
+                </defs>
+                <CartesianGrid strokeDasharray="3 3" stroke="rgba(0,0,0,0.06)" vertical={false} />
+                <XAxis dataKey="date" tick={{ fontSize: 11 }} axisLine={false} tickLine={false} minTickGap={24} />
+                <YAxis tick={{ fontSize: 11 }} axisLine={false} tickLine={false} width={40} allowDecimals={false} />
+                <RTooltip />
+                <Area type="monotone" dataKey="leads" stroke="#2D8B73" strokeWidth={2} fill="url(#leadFill)" />
+              </AreaChart>
+            </ResponsiveContainer>
+          </div>
+        </div>
+      )}
     </div>
   );
 }

@@ -9,6 +9,7 @@ import {
 import { api } from "@/lib/api";
 import { MultiSelect } from "@/components/ui/multi-select";
 import SidePanel from "@/components/SidePanel";
+import { Toast } from "@/components/Toast";
 import { cn, fmtDateTimeShort } from "@/lib/utils";
 import type { AdAccount, AdCampaignRow, Campaign } from "@/lib/types";
 import { AdWizard } from "./AdWizard";
@@ -41,7 +42,6 @@ export function AdvertisingTab() {
     setLoading(false);
   }
   useEffect(() => { loadAll(); }, []); // eslint-disable-line react-hooks/exhaustive-deps
-  useEffect(() => { if (!toast) return; const t = setTimeout(() => setToast(null), 2800); return () => clearTimeout(t); }, [toast]);
 
   async function sync(id: string) {
     setSyncing(id);
@@ -146,7 +146,7 @@ export function AdvertisingTab() {
           onError={(m) => setToast(m)}
         />
       )}
-      {toast && <div className="fixed bottom-6 left-6 z-[110] animate-scale-in"><div className="px-4 py-2.5 rounded-lg bg-[#2D8B73] text-white text-sm font-semibold shadow-xl">{toast}</div></div>}
+      {toast && <Toast msg={toast} onClose={() => setToast(null)} />}
     </div>
   );
 }

@@ -18,6 +18,7 @@ import LostReasonDialog from "@/app/(app)/inbox/components/LostReasonDialog";
 import { Select } from "@/components/Select";
 import { MultiSelect } from "@/components/ui/multi-select";
 import SidePanel from "@/components/SidePanel";
+import { Toast } from "@/components/Toast";
 import SendTemplateDrawer from "./components/SendTemplateDrawer";
 
 type ModalState = { mode: "add" } | { mode: "edit"; contact: Contact } | null;
@@ -145,7 +146,6 @@ export default function ContactsPage() {
   useEffect(() => { api.getOrganization().then((o) => setOrgTz(((o.settings as Record<string, string>)?.timezone) || "")).catch(() => {}); }, []);
   useEffect(() => { api.listStages().then((s) => setStages(s || [])).catch(() => {}); }, []);
   useEffect(() => { api.listDispositions().then((d) => setDispositions(d || [])).catch(() => {}); }, []);
-  useEffect(() => { if (!toast) return; const t = setTimeout(() => setToast(null), 2500); return () => clearTimeout(t); }, [toast]);
 
   // Lead edits go through updateContact, which routes to the contact's
   // conversation when it has one, else to the contact-level fallback columns
@@ -436,25 +436,31 @@ export default function ContactsPage() {
           <input ref={importRef} type="file" accept=".csv,text/csv" className="hidden" onChange={(e) => { const f = e.target.files?.[0]; if (f) importCsv(f); e.target.value = ""; }} />
         </div>
 
-        {/* Bulk action bar */}
+        {/* Bulk action bar — floating, sticky at the bottom-center */}
         {selected.size > 0 && (
-          <div className="flex items-center gap-2 px-3 py-2 mb-2 rounded-lg border border-primary/30 bg-primary/[0.06] shrink-0 flex-wrap">
-            <span className="text-[13px] font-semibold text-foreground">{selected.size} {t("contacts.selected")}</span>
-            <div className="flex-1" />
-            {canEdit && stages.length > 0 && bulkDropdown("stage", t("contacts.stage"),
-              stages.map((s) => ({ label: s.name, value: s.id })),
-              (id) => bulkSet({ stage_id: id }, `Stage set to ${stages.find((s) => s.id === id)?.name || "stage"}`))}
-            {canEdit && bulkDropdown("interest", t("contacts.interest"),
-              [{ label: "Hot", value: "hot", dot: interestColor("hot") }, { label: "Warm", value: "warm", dot: interestColor("warm") }, { label: "Cold", value: "cold", dot: interestColor("cold") }],
-              (v) => bulkSet({ interest_level: v }, `Interest set to ${v}`))}
-            {showAgentFilter && bulkDropdown("agent", t("contacts.agent"),
-              [{ label: t("common.unassigned"), value: "" }, ...agents.map((a) => ({ label: a.full_name, value: a.id }))],
-              (v) => bulkSet({ assigned_agent_id: v }, v ? `Assigned to ${agents.find((a) => a.id === v)?.full_name || "agent"}` : "Unassigned"))}
-            {canInitiate && <button onClick={() => setTplOpen(true)} disabled={bulkBusy} className="inline-flex items-center gap-1.5 px-3 h-8 rounded-md border border-border text-[13px] font-medium hover:bg-muted disabled:opacity-50"><Send className="w-3.5 h-3.5" />Send Template</button>}
-            {canEdit && <button onClick={bulkLabel} disabled={bulkBusy} className="inline-flex items-center gap-1.5 px-3 h-8 rounded-md border border-border text-[13px] font-medium hover:bg-muted disabled:opacity-50"><TagIcon className="w-3.5 h-3.5" />{t("contacts.addLabel")}</button>}
-            {canEdit && <button onClick={bulkBlacklist} disabled={bulkBusy} className="inline-flex items-center gap-1.5 px-3 h-8 rounded-md border border-border text-[13px] font-medium hover:bg-muted disabled:opacity-50"><Ban className="w-3.5 h-3.5" />{t("contacts.blacklist")}</button>}
-            {canDelete && <button onClick={bulkDelete} disabled={bulkBusy} className="inline-flex items-center gap-1.5 px-3 h-8 rounded-md border border-destructive/40 text-destructive text-[13px] font-medium hover:bg-destructive/10 disabled:opacity-50"><Trash2 className="w-3.5 h-3.5" />{t("common.delete")}</button>}
-            <button onClick={clearSel} className="px-3 h-8 rounded-md text-[13px] font-medium text-muted-foreground hover:bg-muted">{t("common.clear")}</button>
+          <div className="pointer-events-none fixed inset-x-0 bottom-6 z-40 flex justify-center px-4">
+            <div className="pointer-events-auto flex items-center gap-1 max-w-[calc(100vw-2rem)] overflow-x-auto rounded-xl border border-border bg-popover/95 backdrop-blur px-2 py-2 shadow-2xl ring-1 ring-black/5 animate-toast-in">
+              <div className="flex items-center gap-2 pl-1.5 pr-2 shrink-0">
+                <span className="inline-flex items-center justify-center min-w-[22px] h-[22px] px-1.5 rounded-full bg-primary text-white text-[12px] font-bold tabular-nums">{selected.size}</span>
+                <span className="text-[13px] font-semibold text-foreground whitespace-nowrap">{t("contacts.selected")}</span>
+              </div>
+              <div className="w-px h-6 bg-border mx-0.5 shrink-0" />
+              {canEdit && stages.length > 0 && bulkDropdown("stage", t("contacts.stage"),
+                stages.map((s) => ({ label: s.name, value: s.id })),
+                (id) => bulkSet({ stage_id: id }, `Stage set to ${stages.find((s) => s.id === id)?.name || "stage"}`))}
+              {canEdit && bulkDropdown("interest", t("contacts.interest"),
+                [{ label: "Hot", value: "hot", dot: interestColor("hot") }, { label: "Warm", value: "warm", dot: interestColor("warm") }, { label: "Cold", value: "cold", dot: interestColor("cold") }],
+                (v) => bulkSet({ interest_level: v }, `Interest set to ${v}`))}
+              {showAgentFilter && bulkDropdown("agent", t("contacts.agent"),
+                [{ label: t("common.unassigned"), value: "" }, ...agents.map((a) => ({ label: a.full_name, value: a.id }))],
+                (v) => bulkSet({ assigned_agent_id: v }, v ? `Assigned to ${agents.find((a) => a.id === v)?.full_name || "agent"}` : "Unassigned"))}
+              {canInitiate && <button onClick={() => setTplOpen(true)} disabled={bulkBusy} className="inline-flex items-center gap-1.5 px-3 h-8 rounded-md border border-border text-[13px] font-medium hover:bg-muted disabled:opacity-50 shrink-0"><Send className="w-3.5 h-3.5" />Send Template</button>}
+              {canEdit && <button onClick={bulkLabel} disabled={bulkBusy} className="inline-flex items-center gap-1.5 px-3 h-8 rounded-md border border-border text-[13px] font-medium hover:bg-muted disabled:opacity-50 shrink-0"><TagIcon className="w-3.5 h-3.5" />{t("contacts.addLabel")}</button>}
+              {canEdit && <button onClick={bulkBlacklist} disabled={bulkBusy} className="inline-flex items-center gap-1.5 px-3 h-8 rounded-md border border-border text-[13px] font-medium hover:bg-muted disabled:opacity-50 shrink-0"><Ban className="w-3.5 h-3.5" />{t("contacts.blacklist")}</button>}
+              {canDelete && <button onClick={bulkDelete} disabled={bulkBusy} className="inline-flex items-center gap-1.5 px-3 h-8 rounded-md border border-destructive/40 text-destructive text-[13px] font-medium hover:bg-destructive/10 disabled:opacity-50 shrink-0"><Trash2 className="w-3.5 h-3.5" />{t("common.delete")}</button>}
+              <div className="w-px h-6 bg-border mx-0.5 shrink-0" />
+              <button onClick={clearSel} aria-label="Clear selection" className="inline-flex items-center justify-center w-8 h-8 rounded-md text-muted-foreground hover:bg-muted hover:text-foreground shrink-0"><X className="w-4 h-4" /></button>
+            </div>
           </div>
         )}
 
@@ -650,11 +656,7 @@ export default function ContactsPage() {
         onSubmit={(reason, category) => { if (outcomeFor) markOutcome(outcomeFor, reason, category); setOutcomeFor(null); }}
       />
 
-      {toast && (
-        <div className="fixed bottom-6 left-6 z-[110] animate-scale-in">
-          <div className="px-3 py-2 rounded-lg bg-[#2D8B73] text-white text-sm font-semibold shadow-xl">{toast}</div>
-        </div>
-      )}
+      {toast && <Toast msg={toast} onClose={() => setToast(null)} />}
     </div>
   );
 }
