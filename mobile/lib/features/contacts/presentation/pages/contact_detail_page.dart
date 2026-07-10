@@ -16,6 +16,7 @@ import '../../../chat/presentation/widgets/conversation_actions_sheet.dart';
 import '../../../chat/presentation/widgets/notes_sheet.dart';
 import '../../domain/entities/contact.dart';
 import '../../domain/entities/contact_activity.dart';
+import '../activity_label.dart';
 import '../controllers/contacts_providers.dart';
 import '../widgets/contact_form_sheet.dart';
 
@@ -553,37 +554,6 @@ class _HistoryCardState extends ConsumerState<_HistoryCard> {
   }
 }
 
-/// Translated mirror of [ContactActivity.label]: same shape as the web history,
-/// but each phrase is localized and the stage value goes through [stageLabel].
-String _activityLabel(BuildContext context, ContactActivity e) {
-  String d(String k) => (e.detail[k] ?? '').toString();
-  switch (e.type) {
-    case 'stage_changed':
-      final raw = d('stage_name').isNotEmpty ? d('stage_name') : d('stage_id');
-      final v = raw.isNotEmpty ? stageLabel(context, raw) : '-';
-      return 'Stage changed to {v}'.trp(context, {'v': v});
-    case 'status_changed':
-      final v = d('status').isNotEmpty ? d('status') : '-';
-      return 'Status set to {v}'.trp(context, {'v': v.tr(context)});
-    case 'interest_changed':
-      final v = d('interest_level').isNotEmpty ? d('interest_level') : '-';
-      return 'Interest set to {v}'.trp(context, {'v': v});
-    case 'assigned':
-      final a = d('agent_name');
-      return a.isNotEmpty
-          ? 'Assigned to {a}'.trp(context, {'a': a})
-          : 'Assigned'.tr(context);
-    case 'closed':
-      return 'Conversation closed'.tr(context);
-    case 'reopened':
-      return 'Conversation reopened'.tr(context);
-    case 'handoff':
-      return 'Handed off to a human agent'.tr(context);
-    default:
-      return e.type.replaceAll('_', ' ');
-  }
-}
-
 class _HistoryRow extends StatelessWidget {
   const _HistoryRow({required this.event, required this.isLast});
   final ContactActivity event;
@@ -606,7 +576,7 @@ class _HistoryRow extends StatelessWidget {
           ),
           const SizedBox(width: 8),
           Expanded(
-            child: Text(_activityLabel(context, event),
+            child: Text(activityLabel(context, event),
                 style: const TextStyle(
                     fontSize: 13, fontWeight: FontWeight.w500)),
           ),

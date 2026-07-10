@@ -21,7 +21,7 @@ import { lostReasonLabel } from "@/app/(app)/inbox/components/LostReasonDialog";
 import type { Stats, Analytics, DashboardCards, AdPerformance, AdBreakdown, Channel, Campaign, Agent } from "@/lib/types";
 import { cn, fmtDuration, stageLabel } from "@/lib/utils";
 import { useI18n } from "@/lib/i18n";
-import DateRangeFilter from "@/components/DateRangeFilter";
+import DateRangeFilter, { presetRange } from "@/components/DateRangeFilter";
 
 type Metric = {
   key: string; label: string; Icon: any; color: string;
@@ -65,21 +65,9 @@ function buildChartData(analytics: Analytics | null, all = false) {
 }
 
 // Date-range presets -> local YYYY-MM-DD (backend evaluates them in the org tz).
-function fmtLocalDate(d: Date) { return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, "0")}-${String(d.getDate()).padStart(2, "0")}`; }
-function presetRange(key: string): { from: string; to: string } {
-  const today = new Date();
-  const t = fmtLocalDate(today);
-  const back = (n: number) => { const d = new Date(today); d.setDate(today.getDate() - n); return fmtLocalDate(d); };
-  switch (key) {
-    case "today": return { from: t, to: t };
-    case "7d": return { from: back(6), to: t };
-    case "30d": return { from: back(29), to: t };
-    case "90d": return { from: back(89), to: t };
-    case "month": return { from: fmtLocalDate(new Date(today.getFullYear(), today.getMonth(), 1)), to: t };
-    case "lastmonth": return { from: fmtLocalDate(new Date(today.getFullYear(), today.getMonth() - 1, 1)), to: fmtLocalDate(new Date(today.getFullYear(), today.getMonth(), 0)) };
-    default: return { from: "", to: "" };
-  }
-}
+// Date-range presets come from the canonical `presetRange` in DateRangeFilter,
+// so the dashboard never drifts out of sync with the picker (a stale local copy
+// was silently returning an empty range for "yesterday"/"last 30 days").
 
 function CustomTooltip({ active, payload, label }: any) {
   if (!active || !payload?.length) return null;

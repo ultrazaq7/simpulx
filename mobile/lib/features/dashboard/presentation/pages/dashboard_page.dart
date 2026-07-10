@@ -389,8 +389,15 @@ class _StageSplitCard extends StatelessWidget {
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          Text('Stage Breakdown'.tr(context),
-              style: TextStyle(fontWeight: FontWeight.w700, fontSize: 14)),
+          Row(
+            children: [
+              Expanded(
+                child: Text('Stage Breakdown'.tr(context),
+                    style: TextStyle(fontWeight: FontWeight.w700, fontSize: 14)),
+              ),
+              _TotalBadge(total),
+            ],
+          ),
           const SizedBox(height: 12),
           for (var i = 0; i < stages.length; i++)
             _buildStageRow(context, stages[i], i, total),
@@ -572,8 +579,15 @@ class _InterestSplitCard extends StatelessWidget {
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          Text('Interest Split'.tr(context),
-              style: TextStyle(fontWeight: FontWeight.w700, fontSize: 14)),
+          Row(
+            children: [
+              Expanded(
+                child: Text('Interest Split'.tr(context),
+                    style: TextStyle(fontWeight: FontWeight.w700, fontSize: 14)),
+              ),
+              _TotalBadge(a.total),
+            ],
+          ),
           const SizedBox(height: 14),
           _InterestRow('Hot', a.hot, a.total, color: AppColors.hot,
               onTap: () => onDrill(const InboxFilter(interestLevel: 'hot'))),
@@ -584,6 +598,31 @@ class _InterestSplitCard extends StatelessWidget {
           _InterestRow('Unclassified'.tr(context), a.unknown, a.total, color: AppColors.textMuted,
               onTap: null), // Unclassified usually doesn't have a direct filter or is just empty string
         ],
+      ),
+    );
+  }
+}
+
+/// Small pill showing a breakdown card's total lead count, top-right of the header.
+class _TotalBadge extends StatelessWidget {
+  const _TotalBadge(this.total);
+  final int total;
+
+  @override
+  Widget build(BuildContext context) {
+    return Container(
+      padding: const EdgeInsets.symmetric(horizontal: 9, vertical: 3),
+      decoration: BoxDecoration(
+        color: AppColors.primary.withValues(alpha: 0.10),
+        borderRadius: BorderRadius.circular(999),
+      ),
+      child: Text(
+        '{count} leads'.trp(context, {'count': total}),
+        style: const TextStyle(
+          fontSize: 12,
+          fontWeight: FontWeight.w700,
+          color: AppColors.primary,
+        ),
       ),
     );
   }

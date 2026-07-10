@@ -7,6 +7,7 @@ import 'package:url_launcher/url_launcher.dart';
 import '../../../../app/theme/app_colors.dart';
 import '../../../../core/i18n/i18n.dart';
 import '../../../../core/i18n/stage_label.dart';
+import '../activity_label.dart';
 import '../../domain/entities/contact.dart';
 import '../controllers/contacts_providers.dart';
 
@@ -117,7 +118,8 @@ class _ContactTileState extends ConsumerState<ContactTile> {
                       // Duration since entry
                       if (c.createdAt != null)
                         Text(
-                          'Added ${_timeSince(c.createdAt!)}',
+                          'Added {time}'
+                              .trp(context, {'time': _timeSince(c.createdAt!)}),
                           style: theme.textTheme.bodySmall?.copyWith(
                             color: muted,
                             fontSize: 11.5,
@@ -239,24 +241,32 @@ class _ContactTileState extends ConsumerState<ContactTile> {
     return parts.join(' / ');
   }
 
-  /// Human-readable relative time from [dt] until now.
+  /// Human-readable relative time from [dt] until now. Locale-aware without a
+  /// context: Indonesian uses h/mg/bln/thn/j + "lalu", English uses d/w/mo/y/h
+  /// + "ago".
   static String _timeSince(DateTime dt) {
     final diff = DateTime.now().difference(dt);
+    final id = kActiveLocaleCode == 'id';
+    final ago = id ? 'lalu' : 'ago';
     if (diff.inDays >= 365) {
       final y = diff.inDays ~/ 365;
-      return '${y}y ago';
+      return id ? '${y}thn $ago' : '${y}y $ago';
     }
     if (diff.inDays >= 30) {
       final m = diff.inDays ~/ 30;
-      return '${m}mo ago';
+      return id ? '${m}bln $ago' : '${m}mo $ago';
     }
     if (diff.inDays >= 7) {
       final w = diff.inDays ~/ 7;
-      return '${w}w ago';
+      return id ? '${w}mg $ago' : '${w}w $ago';
     }
-    if (diff.inDays >= 1) return '${diff.inDays}d ago';
-    if (diff.inHours >= 1) return '${diff.inHours}h ago';
-    return 'just now';
+    if (diff.inDays >= 1) {
+      return id ? '${diff.inDays}h $ago' : '${diff.inDays}d $ago';
+    }
+    if (diff.inHours >= 1) {
+      return id ? '${diff.inHours}j $ago' : '${diff.inHours}h $ago';
+    }
+    return id ? 'baru saja' : 'just now';
   }
 
   static Future<void> _dial(String phone) async {
@@ -325,7 +335,7 @@ class _HistorySection extends ConsumerWidget {
                       // Activity label
                       Expanded(
                         child: Text(
-                          a.label,
+                          activityLabel(context, a),
                           maxLines: 2,
                           overflow: TextOverflow.ellipsis,
                           style: theme.textTheme.bodySmall?.copyWith(

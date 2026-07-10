@@ -15,7 +15,7 @@ class MessageSearchDelegate extends SearchDelegate<Message?> {
   DateTime? _filterDate;
 
   @override
-  String get searchFieldLabel => 'Search messages...';
+  String get searchFieldLabel => trStatic('Search messages...');
 
   @override
   List<Widget> buildActions(BuildContext context) {

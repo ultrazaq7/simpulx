@@ -144,7 +144,7 @@ class _ChatThreadPageState extends ConsumerState<ChatThreadPage>
             ),
             ListTile(
               leading: const Icon(Icons.call_outlined),
-              title: Text('Phone dialer'.tr(context)),
+              title: Text('Phone'.tr(context)),
               onTap: () {
                 Navigator.of(sheetContext).pop();
                 _call(conv.contactPhone);
@@ -173,7 +173,7 @@ class _ChatThreadPageState extends ConsumerState<ChatThreadPage>
       );
     } catch (_) {
       if (context.mounted) {
-        AppSnackbar.show(context, 'Could not open the dialer'.tr(context), isError: true);
+        AppSnackbar.show(context, 'Could not open the phone'.tr(context), isError: true);
       }
     }
   }
