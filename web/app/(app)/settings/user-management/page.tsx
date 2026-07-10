@@ -25,7 +25,7 @@ function relativeTime(iso: string | null): string {
 }
 
 export default function PeopleSettingsPage() {
-  const { notify, ToastHost } = useToast();
+  const { notify, confirm, ToastHost } = useToast();
   const [rows, setRows] = useState<UserAccount[]>([]);
   const [loading, setLoading] = useState(true);
   const [search, setSearch] = useState("");
@@ -55,12 +55,14 @@ export default function PeopleSettingsPage() {
   }, []);
 
   async function remove(u: UserAccount) {
-    if (!confirm(`Remove ${u.full_name}? This is permanent: they lose access and their open leads are reassigned. Past history stays for the record. To pause an account temporarily, use Deactivate instead.`)) return;
+    if (!(await confirm({ title: `Remove ${u.full_name}?`, message: "This is permanent: they lose access and their open leads are reassigned. Past history stays for the record. To pause an account temporarily, use Deactivate instead.", danger: true, confirmLabel: "Remove" }))) return;
     try { await api.deleteUser(u.id); notify("User removed", "info"); load(); }
     catch (e) { notify(String(e), "error"); }
   }
   async function toggleStatus(u: UserAccount) {
-    try { await api.updateUser(u.id, { status: u.status === "active" ? "inactive" : "active" }); notify(`User ${u.status === "active" ? "deactivated" : "activated"}`); load(); }
+    const deactivating = u.status === "active";
+    if (deactivating && !(await confirm({ title: "Deactivate account?", message: `${u.full_name} will lose access until reactivated. Their leads and history stay intact.`, danger: true, confirmLabel: "Deactivate" }))) return;
+    try { await api.updateUser(u.id, { status: deactivating ? "inactive" : "active" }); notify(`User ${deactivating ? "deactivated" : "activated"}`); load(); }
     catch (e) { notify(String(e), "error"); }
   }
   const [exporting, setExporting] = useState(false);

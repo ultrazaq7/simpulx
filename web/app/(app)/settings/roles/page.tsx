@@ -1,6 +1,6 @@
 "use client";
-import { useEffect, useMemo, useRef, useState } from "react";
-import { Plus, Lock, X, Loader2, ChevronLeft, ChevronRight } from "lucide-react";
+import { useEffect, useMemo, useState } from "react";
+import { Plus, Lock, X, Loader2 } from "lucide-react";
 import { api, getUser } from "@/lib/api";
 import { cn } from "@/lib/utils";
 import SidePanel from "@/components/SidePanel";
@@ -62,15 +62,16 @@ function defaultFor(role: string, key: string): boolean {
   if (LOCKED.includes(role)) return true;
   if (role === "manager") return key !== "manage_roles" && key !== "manage_channels";
   if (role === "agent") {
+    // Mirrors web/lib/permissions.ts AGENT_PERMS and services/gateway/permissions.go.
     return ["menu_dashboard", "menu_chats", "menu_contacts", "menu_settings",
       "view_dashboard", "view_team_chats", "view_contacts", "create_contacts",
-      "edit_contacts", "close_chats", "view_settings"].includes(key);
+      "edit_contacts", "close_chats", "view_settings", "initiate_chats"].includes(key);
   }
   return false;
 }
 
 export default function RolesSettingsPage() {
-  const { notify, ToastHost } = useToast();
+  const { notify, confirm, ToastHost } = useToast();
   const me = getUser();
   const canEdit = me?.role === "admin" || me?.role === "owner";
 
@@ -134,8 +135,8 @@ export default function RolesSettingsPage() {
     setCustomRoles((c) => ({ ...c, [key]: label }));
     setNewRole(""); setAddOpen(false); setDirty(true);
   }
-  function deleteRole(key: string) {
-    if (!confirm(`Delete custom role "${customRoles[key] || key}"?`)) return;
+  async function deleteRole(key: string) {
+    if (!(await confirm({ title: "Delete role?", message: `Delete custom role "${customRoles[key] || key}"?`, danger: true, confirmLabel: "Delete" }))) return;
     setMatrix((m) => { const next = { ...m }; delete next[key]; return next; });
     setCustomRoles((c) => { const next = { ...c }; delete next[key]; return next; });
     setDirty(true);
@@ -143,23 +144,9 @@ export default function RolesSettingsPage() {
 
   const roleLabel = (r: string) => customRoles[r] || r.charAt(0).toUpperCase() + r.slice(1);
 
-  // Horizontal slide for the role columns (modern arrow nav, no visible scrollbar).
-  const scrollRef = useRef<HTMLDivElement>(null);
-  const [canLeft, setCanLeft] = useState(false);
-  const [canRight, setCanRight] = useState(false);
-  const updateArrows = () => {
-    const el = scrollRef.current;
-    if (!el) return;
-    setCanLeft(el.scrollLeft > 4);
-    setCanRight(el.scrollLeft + el.clientWidth < el.scrollWidth - 4);
-  };
-  const slide = (dir: number) => scrollRef.current?.scrollBy({ left: dir * 216, behavior: "smooth" });
-  useEffect(() => {
-    updateArrows();
-    const onResize = () => updateArrows();
-    window.addEventListener("resize", onResize);
-    return () => window.removeEventListener("resize", onResize);
-  }, [roles.length, loading]); // eslint-disable-line react-hooks/exhaustive-deps
+  // One role at a time: pick a role from the list, tick its permission checklist.
+  const [selectedRole, setSelectedRole] = useState("agent");
+  const activeRole = roles.includes(selectedRole) ? selectedRole : roles[0];
 
   if (loading) return <PageBody><div className="flex justify-center py-20"><Loader2 className="w-6 h-6 animate-spin text-muted-foreground" /></div></PageBody>;
 
@@ -168,14 +155,6 @@ export default function RolesSettingsPage() {
       {ToastHost}
       <div className="flex items-center gap-3 mb-4">
         <div className="flex-1" />
-        {(canLeft || canRight) && (
-          <div className="flex items-center gap-1 mr-1">
-            <button onClick={() => slide(-1)} disabled={!canLeft} aria-label="Scroll roles left"
-              className="p-1.5 rounded-md border border-border text-muted-foreground hover:bg-muted hover:text-foreground disabled:opacity-30 disabled:cursor-default outline-none transition-colors"><ChevronLeft className="w-4 h-4" /></button>
-            <button onClick={() => slide(1)} disabled={!canRight} aria-label="Scroll roles right"
-              className="p-1.5 rounded-md border border-border text-muted-foreground hover:bg-muted hover:text-foreground disabled:opacity-30 disabled:cursor-default outline-none transition-colors"><ChevronRight className="w-4 h-4" /></button>
-          </div>
-        )}
         {canEdit && <button onClick={() => setAddOpen(true)} className="inline-flex items-center gap-1.5 px-3 py-1.5 border border-border rounded-md text-sm font-semibold text-foreground hover:bg-muted outline-none transition-colors"><Plus className="w-4 h-4" />Create role</button>}
         {canEdit && (
           <PrimaryButton onClick={save} disabled={saving || !dirty}>
@@ -184,67 +163,65 @@ export default function RolesSettingsPage() {
         )}
       </div>
 
-      <SettingsCard className="overflow-hidden">
-        <div ref={scrollRef} onScroll={updateArrows} className="overflow-x-auto [scrollbar-width:none] [&::-webkit-scrollbar]:hidden">
-          <div className="min-w-full">
-            {/* Header row */}
-            <div className="flex min-w-full bg-muted border-b border-border">
-              <div className="w-[240px] shrink-0 sticky left-0 z-10 bg-muted px-4 py-3">
-                <p className="text-[11px] font-semibold text-muted-foreground uppercase tracking-wider">Permission</p>
-              </div>
-              {roles.map((r) => (
-                <div key={r} className="flex-1 min-w-[104px] flex items-center justify-center gap-1 py-3">
-                  <span className="text-[12.5px] font-semibold capitalize text-foreground">{roleLabel(r)}</span>
-                  {LOCKED.includes(r) && <Lock className="w-3 h-3 text-muted-foreground" />}
-                  {customRoles[r] && canEdit && (
-                    <button onClick={() => deleteRole(r)} className="p-0.5 outline-none text-muted-foreground hover:text-destructive transition-colors"><X className="w-[13px] h-[13px]" /></button>
-                  )}
-                </div>
-              ))}
-            </div>
-
-            {GROUPS.map((g) => (
-              <div key={g.group}>
-                <div className="flex">
-                  <div className="w-[240px] shrink-0 sticky left-0 z-10 bg-card px-4 pt-4 pb-1.5">
-                    <p className="text-[11px] font-semibold text-muted-foreground uppercase tracking-wider">{g.group}</p>
-                  </div>
-                  <div className="flex-1" />
-                </div>
-                {g.perms.map((p) => (
-                  <div key={p.key} className="flex min-w-full border-b border-border/50">
-                    <div className="w-[240px] shrink-0 sticky left-0 z-10 bg-card px-4 py-2.5">
-                      <span className="text-[13px] text-foreground">{p.label}</span>
-                    </div>
-                    {roles.map((r) => {
-                      const locked = LOCKED.includes(r) || !canEdit;
-                      return (
-                        <div key={r} className="flex-1 min-w-[104px] flex justify-center py-2.5">
-                          <input
-                            type="checkbox"
-                            aria-label={`${p.label} for ${r}`}
-                            checked={!!matrix[r]?.[p.key]}
-                            disabled={locked}
-                            onChange={() => toggle(r, p.key)}
-                            className="w-4 h-4 rounded border-border text-primary accent-primary disabled:opacity-40 cursor-pointer disabled:cursor-default"
-                          />
-                        </div>
-                      );
-                    })}
-                  </div>
-                ))}
+      <div className="flex flex-col md:flex-row gap-4 items-start">
+        {/* Role list — pick one to edit its checklist */}
+        <div className="w-full md:w-56 shrink-0">
+          <div className="flex md:flex-col gap-1 overflow-x-auto md:overflow-visible [scrollbar-width:none] [&::-webkit-scrollbar]:hidden">
+            {roles.map((r) => (
+              <div key={r} onClick={() => setSelectedRole(r)}
+                className={cn("flex items-center gap-2 px-3 py-2 rounded-lg cursor-pointer transition-colors shrink-0",
+                  activeRole === r ? "bg-primary/10 text-primary" : "text-foreground hover:bg-muted")}>
+                <span className="text-[13px] font-semibold capitalize flex-1 truncate">{roleLabel(r)}</span>
+                {LOCKED.includes(r) && <Lock className="w-3.5 h-3.5 opacity-60" />}
+                {customRoles[r] && canEdit && (
+                  <button onClick={(e) => { e.stopPropagation(); deleteRole(r); }} aria-label={`Delete ${roleLabel(r)}`}
+                    className="p-0.5 rounded text-muted-foreground hover:text-destructive outline-none transition-colors"><X className="w-3.5 h-3.5" /></button>
+                )}
               </div>
             ))}
           </div>
         </div>
-      </SettingsCard>
+
+        {/* Selected role's permission checklist */}
+        <SettingsCard className="flex-1 min-w-0 w-full">
+          <div className="flex items-center gap-2 px-5 py-3.5 border-b border-border">
+            <span className="text-[14px] font-bold capitalize text-foreground">{roleLabel(activeRole)}</span>
+            {LOCKED.includes(activeRole) && (
+              <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-md bg-muted text-[11px] font-semibold text-muted-foreground"><Lock className="w-3 h-3" />Full access</span>
+            )}
+            <div className="flex-1" />
+            <span className="text-[12px] text-muted-foreground tabular-nums">{ALL_PERM_KEYS.filter((k) => matrix[activeRole]?.[k]).length}/{ALL_PERM_KEYS.length}</span>
+          </div>
+          <div className="p-5 space-y-5">
+            {GROUPS.map((g) => (
+              <div key={g.group}>
+                <p className="text-[11px] font-bold tracking-wider text-muted-foreground uppercase mb-2">{g.group}</p>
+                <div className="rounded-lg border border-border divide-y divide-border overflow-hidden">
+                  {g.perms.map((p) => {
+                    const locked = LOCKED.includes(activeRole) || !canEdit;
+                    return (
+                      <label key={p.key} className={cn("flex items-center gap-3 px-4 py-2.5 transition-colors", locked ? "cursor-default" : "cursor-pointer hover:bg-muted/40")}>
+                        <span className="flex-1 text-[13px] text-foreground">{p.label}</span>
+                        <input type="checkbox" aria-label={`${p.label} for ${roleLabel(activeRole)}`}
+                          checked={!!matrix[activeRole]?.[p.key]} disabled={locked}
+                          onChange={() => toggle(activeRole, p.key)}
+                          className="w-4 h-4 rounded border-border text-primary accent-primary disabled:opacity-40 cursor-pointer disabled:cursor-default" />
+                      </label>
+                    );
+                  })}
+                </div>
+              </div>
+            ))}
+          </div>
+        </SettingsCard>
+      </div>
 
       {/* Add Role drawer */}
       <SidePanel
         open={addOpen}
         onClose={() => setAddOpen(false)}
         title="Create custom role"
-        description="Add a role, then set its permissions in the matrix."
+        description="Add a role, then tick its permissions in the checklist."
         width="sm"
         onApply={addRole}
         applyLabel="Create"

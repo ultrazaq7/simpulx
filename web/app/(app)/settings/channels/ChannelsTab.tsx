@@ -45,7 +45,7 @@ function Toggle({ checked, onChange }: { checked: boolean; onChange: () => void 
 }
 
 export function ChannelsTab() {
-  const { notify, ToastHost } = useToast();
+  const { notify, confirm, ToastHost } = useToast();
   const [channels, setChannels] = useState<Channel[]>([]);
   const [loading, setLoading] = useState(true);
   const [query, setQuery] = useState("");
@@ -73,7 +73,7 @@ export function ChannelsTab() {
     catch (e) { notify(String(e), "error"); }
   }
   async function remove(c: Channel) {
-    if (!confirm(`Delete "${c.name}"? This cannot be undone.`)) return;
+    if (!(await confirm({ title: "Delete channel?", message: `Delete "${c.name}"? This cannot be undone.`, danger: true, confirmLabel: "Delete" }))) return;
     try { await api.deleteChannel(c.id); notify("Channel deleted"); load(); }
     catch (e) { notify(String(e), "error"); }
   }
@@ -163,7 +163,7 @@ export function ChannelsTab() {
 
       {wizardOpen && (
         <ChannelWizard
-          onClose={() => setWizardOpen(false)}
+          onClose={() => { setWizardOpen(false); load(); }}
           onDone={(msg) => { setWizardOpen(false); notify(msg); load(); }}
           onError={(msg) => notify(msg, "error")}
         />

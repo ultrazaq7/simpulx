@@ -15,7 +15,7 @@ import { useToast, FieldLabel, INPUT_CLASS, PrimaryButton } from "../_shared";
 const TYPE_LABEL: Record<string, string> = { text: "Text", number: "Number", date: "Date", select: "Dropdown" };
 
 export default function CustomFieldsPage() {
-  const { notify, ToastHost } = useToast();
+  const { notify, confirm, ToastHost } = useToast();
   const [fields, setFields] = useState<CustomField[]>([]);
   const [loading, setLoading] = useState(true);
   const [dlg, setDlg] = useState<{ open: boolean; editing: CustomField | null }>({ open: false, editing: null });
@@ -29,7 +29,7 @@ export default function CustomFieldsPage() {
   useEffect(() => { load(); }, []);
 
   async function remove(f: CustomField) {
-    if (!confirm(`Delete custom field "${f.label}"? Existing values are kept but no longer shown.`)) return;
+    if (!(await confirm({ title: "Delete custom field?", message: `Delete "${f.label}"? Existing values are kept but no longer shown.`, danger: true, confirmLabel: "Delete" }))) return;
     try { await api.deleteCustomField(f.id); notify("Custom field deleted"); load(); }
     catch (e) { notify(String(e), "error"); }
   }

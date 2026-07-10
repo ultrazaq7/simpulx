@@ -457,7 +457,7 @@ export default function ContactsPage() {
 
         {/* Bulk action bar — floating, sticky at the bottom-center */}
         {selected.size > 0 && (
-          <div className="pointer-events-none fixed inset-x-0 z-40 flex justify-center px-4 bottom-6">
+          <div className="pointer-events-none fixed inset-x-0 z-40 flex justify-center px-4 bottom-16">
             <div className="pointer-events-auto flex items-center gap-1 max-w-[calc(100vw-2rem)] overflow-x-auto rounded-xl border border-border bg-popover/95 backdrop-blur px-2 py-2 shadow-2xl ring-1 ring-black/5 animate-toast-in">
               <div className="flex items-center gap-2 pl-1.5 pr-2 shrink-0">
                 <span className="inline-flex items-center justify-center min-w-[22px] h-[22px] px-1.5 rounded-full bg-primary text-white text-[12px] font-bold tabular-nums">{selected.size}</span>

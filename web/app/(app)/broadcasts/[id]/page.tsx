@@ -11,6 +11,7 @@ import { Tip } from "@/components/ui/tooltip";
 
 import { api } from "@/lib/api";
 import { Select } from "@/components/Select";
+import { useConfirm } from "@/components/ConfirmDialog";
 import { fmtDate, cn } from "@/lib/utils";
 import type { BroadcastDetail, BroadcastRecipient } from "@/lib/types";
 
@@ -28,6 +29,7 @@ export default function BroadcastDetailPage() {
   const [loading, setLoading] = useState(true);
   const [tab, setTab] = useState<"general" | "messages">("general");
   const [busy, setBusy] = useState(false);
+  const { confirm, ConfirmHost } = useConfirm();
 
   async function load() {
     setLoading(true);
@@ -44,7 +46,8 @@ export default function BroadcastDetailPage() {
     try { await api.retryBroadcast(d.id); await load(); } catch { /* ignore */ } finally { setBusy(false); }
   }
   async function remove() {
-    if (!d || !confirm(`Delete "${d.name}"? This cannot be undone.`)) return;
+    if (!d) return;
+    if (!(await confirm({ title: "Delete broadcast?", message: `Delete "${d.name}"? This cannot be undone.`, danger: true, confirmLabel: "Delete" }))) return;
     setBusy(true);
     try { await api.deleteBroadcast(d.id); router.push("/broadcasts"); } catch { setBusy(false); }
   }
@@ -59,6 +62,7 @@ export default function BroadcastDetailPage() {
 
   return (
     <div className="flex flex-col h-full min-h-0">
+      {ConfirmHost}
       {/* Header */}
       <div className="flex items-center gap-3 px-4 py-3 border-b border-border bg-card shrink-0">
         <button onClick={() => router.push("/broadcasts")} className="p-1.5 rounded-md text-muted-foreground hover:bg-muted hover:text-foreground outline-none"><ArrowLeft className="w-5 h-5" /></button>

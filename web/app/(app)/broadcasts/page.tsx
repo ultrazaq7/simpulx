@@ -10,6 +10,7 @@ import {
 import type { LucideIcon } from "lucide-react";
 import { Tip } from "@/components/ui/tooltip";
 import { Toast as ToastView } from "@/components/Toast";
+import { useConfirm } from "@/components/ConfirmDialog";
 
 import { api } from "@/lib/api";
 import { Select } from "@/components/Select";
@@ -44,6 +45,7 @@ export default function BroadcastsPage() {
   const [wizardOpen, setWizardOpen] = useState(false);
   const [busyId, setBusyId] = useState<string | null>(null);
   const [toast, setToast] = useState<Toast>(null);
+  const { confirm, ConfirmHost } = useConfirm();
   const [query, setQuery] = useState("");
   const [page, setPage] = useState(1);
   const [perPage, setPerPage] = useState(25);
@@ -66,14 +68,14 @@ export default function BroadcastsPage() {
   useEffect(() => { if (page > totalPages) setPage(totalPages); }, [page, totalPages]);
 
   async function sendNow(b: Broadcast) {
-    if (!confirm(`Send "${b.name}" to ${b.total_recipients} recipient${b.total_recipients === 1 ? "" : "s"} now? This cannot be undone.`)) return;
+    if (!(await confirm({ title: "Send broadcast now?", message: `Send "${b.name}" to ${b.total_recipients} recipient${b.total_recipients === 1 ? "" : "s"} now? This cannot be undone.`, confirmLabel: "Send now" }))) return;
     setBusyId(b.id);
     try { await api.sendBroadcast(b.id); setToast({ msg: "Broadcast is sending", sev: "success" }); load(); }
     catch (e) { setToast({ msg: String(e), sev: "error" }); }
     finally { setBusyId(null); }
   }
   async function remove(b: Broadcast) {
-    if (!confirm(`Delete "${b.name}"? This cannot be undone.`)) return;
+    if (!(await confirm({ title: "Delete broadcast?", message: `Delete "${b.name}"? This cannot be undone.`, danger: true, confirmLabel: "Delete" }))) return;
     setBusyId(b.id);
     try { await api.deleteBroadcast(b.id); setToast({ msg: "Broadcast deleted", sev: "success" }); load(); }
     catch (e) { setToast({ msg: String(e), sev: "error" }); }
@@ -159,6 +161,7 @@ export default function BroadcastsPage() {
       )}
 
       {toast && <ToastView msg={toast.msg} severity={toast.sev} onClose={() => setToast(null)} />}
+      {ConfirmHost}
     </div>
   );
 }

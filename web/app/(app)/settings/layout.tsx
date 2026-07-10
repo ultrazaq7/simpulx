@@ -10,7 +10,7 @@ import { usePathname } from "next/navigation";
 import {
   Settings, FormInput, Bell, User, ShieldCheck, ListOrdered,
   Building2, Building, FileText, GitBranch, RadioTower, Clock, ClipboardList,
-  PanelLeftClose, PanelLeftOpen, Boxes, Zap, SlidersHorizontal,
+  PanelLeftClose, PanelLeftOpen, Boxes, Zap, SlidersHorizontal, ChevronRight,
 } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { api, getUser } from "@/lib/api";
@@ -70,6 +70,10 @@ export default function SettingsLayout({ children }: { children: ReactNode }) {
   // immediately (no expand-then-collapse flash).
   const [collapsed, setCollapsed] = useState<boolean>(() => typeof window !== "undefined" && localStorage.getItem("simpulx_settings_collapsed") === "1");
   const toggle = () => setCollapsed((c) => { const n = !c; localStorage.setItem("simpulx_settings_collapsed", n ? "1" : "0"); return n; });
+  // Which collapsible sections are expanded. The section holding the active
+  // route auto-expands; users can toggle the rest open/closed.
+  const [openSections, setOpenSections] = useState<Record<string, boolean>>({});
+  const toggleSection = (key: string) => setOpenSections((p) => ({ ...p, [key]: !p[key] }));
   // Esc collapses the settings sidebar. It mounts after Shell, so it sits ABOVE
   // the main sidebar on the shared LIFO stack -> Esc collapses this one first,
   // then the main sidebar (the order requested).
@@ -102,6 +106,12 @@ export default function SettingsLayout({ children }: { children: ReactNode }) {
     .filter((href) => pathname === href || pathname.startsWith(href + "/"))
     .sort((a, b) => b.length - a.length)[0];
 
+  // Auto-expand the section that contains the active page.
+  useEffect(() => {
+    const active = groups.find((g) => g.items.some((i) => i.href === activeHref));
+    if (active) setOpenSections((p) => (p[active.titleKey] ? p : { ...p, [active.titleKey]: true }));
+  }, [activeHref]); // eslint-disable-line react-hooks/exhaustive-deps
+
   // Bring the active section into view on load / route change. Deterministic
   // (center the active item in the nav viewport) rather than restoring a saved
   // pixel offset — so a reload deep in the list (e.g. Platform at the bottom)
@@ -130,7 +140,6 @@ export default function SettingsLayout({ children }: { children: ReactNode }) {
       <div className="lg:hidden shrink-0 border-b border-border bg-card overflow-x-auto">
         <div className="flex items-center gap-1 px-2 py-2 w-max">
           {flatItems.map((s) => {
-            const Icon = s.icon;
             const sel = s.href === activeHref;
             return (
               <Link
@@ -138,11 +147,10 @@ export default function SettingsLayout({ children }: { children: ReactNode }) {
                 href={s.href}
                 scroll={false}
                 className={cn(
-                  "inline-flex items-center gap-1.5 px-3 h-9 rounded-full text-[13px] whitespace-nowrap outline-none transition-colors",
+                  "inline-flex items-center px-3.5 h-9 rounded-full text-[13px] whitespace-nowrap outline-none transition-colors",
                   sel ? "bg-primary/[0.12] text-primary font-semibold" : "text-muted-foreground hover:bg-muted font-medium",
                 )}
               >
-                <Icon className="w-4 h-4 shrink-0" />
                 {t(s.labelKey)}
               </Link>
             );
@@ -150,60 +158,68 @@ export default function SettingsLayout({ children }: { children: ReactNode }) {
         </div>
       </div>
 
-      {/* Settings sidebar — desktop only; mounted once, persists across child navigation */}
-      <div className={cn(
-        "max-lg:hidden shrink-0 border-r border-border bg-card flex flex-col transition-[width] duration-200",
-        collapsed ? "w-[64px]" : "w-[260px]",
-      )}>
-        <div ref={navScrollRef} className="flex-1 overflow-y-auto overflow-x-hidden py-3 min-h-0">
-          {groups.map((g, gi) => (
-            <div key={g.titleKey} className="mb-5">
-              {!collapsed && (
-                <p className="px-5 mb-2.5 text-[11px] font-bold uppercase tracking-wider text-muted-foreground">
-                  {t(g.titleKey)}
-                </p>
-              )}
-              <div className="space-y-0.5">
-                {g.items.map((s) => {
-                  const Icon = s.icon;
-                  const sel = s.href === activeHref;
-                  const link = (
-                    <Link
-                      ref={sel ? activeItemRef : undefined}
-                      href={s.href}
-                      scroll={false}
-                      className={cn(
-                        "rounded-md py-2.5 flex items-center text-left outline-none transition-colors",
-                        collapsed ? "mx-2 px-0 justify-center" : "mx-3 px-3.5 gap-3",
-                        sel
-                          ? "bg-muted text-foreground"
-                          : "text-muted-foreground hover:bg-muted/60 hover:text-foreground",
-                      )}
-                    >
-                      <Icon className={cn("w-[18px] h-[18px] shrink-0", sel ? "text-foreground" : "text-muted-foreground")} />
-                      {!collapsed && <span className={cn("text-[13.5px]", sel ? "font-semibold" : "font-medium")}>{t(s.labelKey)}</span>}
-                    </Link>
-                  );
-                  return collapsed
-                    ? <Tip key={s.key} label={t(s.labelKey)} side="right">{link}</Tip>
-                    : <div key={s.key}>{link}</div>;
-                })}
-              </div>
-              {!collapsed && gi < groups.length - 1 && <div className="mx-5 mt-5 border-t border-border/50" />}
-            </div>
-          ))}
-        </div>
-
-        {/* Collapse toggle — pinned at the bottom */}
-        <div className={cn("shrink-0 border-t border-border p-2 flex", collapsed ? "justify-center" : "justify-end")}>
-          <Tip label={collapsed ? "Expand" : "Collapse"} side={collapsed ? "right" : "top"}>
+      {/* Settings sidebar — desktop only; text-only for an enterprise look.
+          Collapsed hides the panel, leaving a slim expand tab. */}
+      {collapsed ? (
+        <div className="max-lg:hidden shrink-0 border-r border-border bg-card flex flex-col items-center py-3">
+          <Tip label="Expand" side="right">
             <button onClick={toggle}
               className="p-1.5 rounded-md text-muted-foreground hover:bg-muted hover:text-foreground outline-none transition-colors">
-              {collapsed ? <PanelLeftOpen className="w-[18px] h-[18px]" /> : <PanelLeftClose className="w-[18px] h-[18px]" />}
+              <PanelLeftOpen className="w-[18px] h-[18px]" />
             </button>
           </Tip>
         </div>
-      </div>
+      ) : (
+        <div className="max-lg:hidden shrink-0 w-[260px] border-r border-border bg-card flex flex-col">
+          <div ref={navScrollRef} className="flex-1 overflow-y-auto overflow-x-hidden py-3 min-h-0">
+            {groups.map((g) => {
+              const open = !!openSections[g.titleKey];
+              return (
+                <div key={g.titleKey} className="px-2 mb-0.5">
+                  <button onClick={() => toggleSection(g.titleKey)}
+                    className="w-full flex items-center gap-2 px-3 py-2.5 rounded-md text-left text-foreground hover:bg-muted/50 outline-none transition-colors">
+                    <span className="flex-1 text-[14px] font-bold">{t(g.titleKey)}</span>
+                    <ChevronRight className={cn("w-4 h-4 shrink-0 text-muted-foreground transition-transform duration-200", open && "rotate-90")} />
+                  </button>
+                  {open && (
+                    <div className="mt-0.5 mb-1 space-y-0.5">
+                      {g.items.map((s) => {
+                        const sel = s.href === activeHref;
+                        return (
+                          <Link
+                            key={s.key}
+                            ref={sel ? activeItemRef : undefined}
+                            href={s.href}
+                            scroll={false}
+                            className={cn(
+                              "block rounded-md py-2 pl-6 pr-3 text-[13px] outline-none transition-colors",
+                              sel
+                                ? "bg-muted text-foreground font-semibold"
+                                : "text-muted-foreground hover:bg-muted/60 hover:text-foreground",
+                            )}
+                          >
+                            {t(s.labelKey)}
+                          </Link>
+                        );
+                      })}
+                    </div>
+                  )}
+                </div>
+              );
+            })}
+          </div>
+
+          {/* Collapse toggle — pinned at the bottom */}
+          <div className="shrink-0 border-t border-border p-2 flex justify-end">
+            <Tip label="Collapse" side="top">
+              <button onClick={toggle}
+                className="p-1.5 rounded-md text-muted-foreground hover:bg-muted hover:text-foreground outline-none transition-colors">
+                <PanelLeftClose className="w-[18px] h-[18px]" />
+              </button>
+            </Tip>
+          </div>
+        </div>
+      )}
 
       {/* Page content — only this remounts on navigation. overflow-hidden so the
           area never shows its own scrollbar; each page scrolls internally. */}

@@ -10,6 +10,7 @@ import { api } from "@/lib/api";
 import { MultiSelect } from "@/components/ui/multi-select";
 import SidePanel from "@/components/SidePanel";
 import { Toast } from "@/components/Toast";
+import { useConfirm } from "@/components/ConfirmDialog";
 import { cn, fmtDateTimeShort } from "@/lib/utils";
 import type { AdAccount, AdCampaignRow, Campaign } from "@/lib/types";
 import { AdWizard } from "./AdWizard";
@@ -29,6 +30,7 @@ export function AdvertisingTab() {
   const [connectOpen, setConnectOpen] = useState(false);
   const [manageId, setManageId] = useState<string | null>(null);
   const [toast, setToast] = useState<string | null>(null);
+  const { confirm, ConfirmHost } = useConfirm();
   const [search, setSearch] = useState("");
 
   async function loadAll() {
@@ -50,7 +52,7 @@ export function AdvertisingTab() {
     finally { setSyncing(null); }
   }
   async function remove(a: AdAccount) {
-    if (!confirm(`Disconnect ${a.name || a.external_account_id}? Its metrics will be removed.`)) return;
+    if (!(await confirm({ title: "Disconnect ad account?", message: `Disconnect ${a.name || a.external_account_id}? Its metrics will be removed.`, danger: true, confirmLabel: "Disconnect" }))) return;
     try { await api.deleteAdAccount(a.id); setToast("Disconnected"); setManageId(null); await loadAll(); }
     catch { setToast("Failed"); }
   }
@@ -132,7 +134,7 @@ export function AdvertisingTab() {
         </div>
       </div>
 
-      {connectOpen && <AdWizard onClose={() => setConnectOpen(false)} onConnected={(msg) => { setConnectOpen(false); setToast(msg); loadAll(); }} />}
+      {connectOpen && <AdWizard onClose={() => { setConnectOpen(false); loadAll(); }} onConnected={(msg) => { setConnectOpen(false); setToast(msg); loadAll(); }} />}
       {managed && (
         <AdAccountDialog
           account={managed}
@@ -147,6 +149,7 @@ export function AdvertisingTab() {
         />
       )}
       {toast && <Toast msg={toast} onClose={() => setToast(null)} />}
+      {ConfirmHost}
     </div>
   );
 }

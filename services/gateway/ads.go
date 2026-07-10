@@ -7,6 +7,7 @@ import (
 	"fmt"
 	"net/http"
 	"net/url"
+	"sort"
 	"strconv"
 	"os"
 	"github.com/google/uuid"
@@ -548,8 +549,10 @@ func (s *server) handleAdPerformance(w http.ResponseWriter, r *http.Request) {
 	platRows, _ := s.queryMaps(r.Context(), platQ, platArgs...)
 
 	srcArgs := []any{a.OrgID, from, to}
-	srcQ := `SELECT ` + sourceClassifyExpr("cv") + ` AS source, count(*)::bigint AS leads
+	srcQ := `SELECT ` + sourceClassifyExpr("cv") + ` AS source, count(*)::bigint AS leads,
+	                count(*) FILTER (WHERE d.category='won')::bigint AS purchases
 	           FROM conversations cv
+	           LEFT JOIN dispositions d ON d.id = cv.disposition_id
 	          WHERE cv.organization_id=$1 AND cv.created_at::date BETWEEN $2 AND $3 AND cv.campaign_id IS NOT NULL`
 	if len(campIDs) > 0 {
 		srcArgs = append(srcArgs, campIDs)
@@ -559,8 +562,8 @@ func (s *server) handleAdPerformance(w http.ResponseWriter, r *http.Request) {
 	srcRows, _ := s.queryMaps(r.Context(), srcQ, srcArgs...)
 
 	type srcAgg struct {
-		impressions, clicks, leads int64
-		spend                      float64
+		impressions, clicks, leads, purchases int64
+		spend                                 float64
 	}
 	gi := func(v any) int64 {
 		if n, ok := v.(int64); ok {
@@ -598,6 +601,7 @@ func (s *server) handleAdPerformance(w http.ResponseWriter, r *http.Request) {
 			byKey[key] = agg
 		}
 		agg.leads += gi(sr["leads"])
+		agg.purchases += gi(sr["purchases"])
 	}
 	srcOrder := []string{"meta_ads", "tiktok_ads", "google_ads", "website", "direct"}
 	srcLabels := map[string]string{"meta_ads": "Meta Ads", "tiktok_ads": "TikTok Ads", "google_ads": "Google Ads", "website": "Website", "direct": "Direct"}
@@ -617,7 +621,7 @@ func (s *server) handleAdPerformance(w http.ResponseWriter, r *http.Request) {
 		sources = append(sources, map[string]any{
 			"source": k, "label": srcLabels[k],
 			"impressions": agg.impressions, "clicks": agg.clicks, "spend": agg.spend,
-			"leads": agg.leads, "ctr": ctr, "cvr": cvr,
+			"leads": agg.leads, "purchases": agg.purchases, "ctr": ctr, "cvr": cvr,
 		})
 	}
 
@@ -1189,6 +1193,158 @@ func (s *server) syncGoogleAccount(ctx context.Context, accountID, orgID string)
 	}
 	_, _ = s.pool.Exec(ctx, `UPDATE ad_accounts SET last_synced_at=now(), status='connected', last_error=NULL WHERE id=$1`, accountID)
 	return nil
+}
+
+// ── Google Ads: top keywords (for the ads report) ────────────
+// GET /api/ads/keywords?from&to — reuses the connected Google ad account's
+// OAuth to run a keyword_view GAQL query. Account-level (all Google campaigns).
+// Degrades to an empty list (not an error) when no Google account is connected
+// or the call fails, so the report panel simply hides.
+func (s *server) handleAdsKeywords(w http.ResponseWriter, r *http.Request) {
+	a, _ := authFrom(r.Context())
+	var accountID string
+	err := s.pool.QueryRow(r.Context(),
+		`SELECT id::text FROM ad_accounts
+		  WHERE organization_id=$1 AND platform='google' AND COALESCE(access_token,'')<>''
+		  ORDER BY last_synced_at DESC NULLS LAST LIMIT 1`, a.OrgID).Scan(&accountID)
+	if err != nil {
+		writeJSON(w, []any{})
+		return
+	}
+	rows, err := s.googleTopKeywords(r.Context(), accountID, a.OrgID, r.URL.Query().Get("from"), r.URL.Query().Get("to"))
+	if err != nil {
+		writeJSON(w, []any{})
+		return
+	}
+	writeJSON(w, rows)
+}
+
+func (s *server) googleTopKeywords(ctx context.Context, accountID, orgID, from, to string) ([]map[string]any, error) {
+	customerID, refreshToken, cfg, err := s.loadAdAccount(ctx, accountID, orgID)
+	if err != nil {
+		return nil, err
+	}
+	devToken := os.Getenv("GOOGLE_ADS_DEVELOPER_TOKEN")
+	clientID := os.Getenv("GOOGLE_ADS_CLIENT_ID")
+	clientSecret := os.Getenv("GOOGLE_ADS_CLIENT_SECRET")
+	loginCID := strings.ReplaceAll(cfgStr(cfg, "login_customer_id"), "-", "")
+	if devToken == "" || clientID == "" || clientSecret == "" {
+		return nil, fmt.Errorf("google ads not configured")
+	}
+
+	// refresh -> access token
+	form := url.Values{}
+	form.Set("client_id", clientID)
+	form.Set("client_secret", clientSecret)
+	form.Set("refresh_token", refreshToken)
+	form.Set("grant_type", "refresh_token")
+	req, _ := http.NewRequestWithContext(ctx, http.MethodPost, "https://oauth2.googleapis.com/token", strings.NewReader(form.Encode()))
+	req.Header.Set("Content-Type", "application/x-www-form-urlencoded")
+	resp, err := adHTTP.Do(req)
+	if err != nil {
+		return nil, err
+	}
+	var tok struct {
+		AccessToken string `json:"access_token"`
+	}
+	_ = json.NewDecoder(resp.Body).Decode(&tok)
+	resp.Body.Close()
+	if tok.AccessToken == "" {
+		return nil, fmt.Errorf("could not refresh google token")
+	}
+
+	if from == "" || to == "" {
+		to = time.Now().Format("2006-01-02")
+		from = time.Now().AddDate(0, 0, -30).Format("2006-01-02")
+	}
+	gaql := fmt.Sprintf(`{"query":"SELECT ad_group_criterion.keyword.text, ad_group_criterion.keyword.match_type, metrics.impressions, metrics.clicks, metrics.cost_micros, metrics.conversions FROM keyword_view WHERE segments.date BETWEEN '%s' AND '%s' AND ad_group_criterion.status != 'REMOVED' ORDER BY metrics.impressions DESC LIMIT 50"}`, from, to)
+	u := fmt.Sprintf("https://googleads.googleapis.com/v17/customers/%s/googleAds:searchStream", customerID)
+	greq, _ := http.NewRequestWithContext(ctx, http.MethodPost, u, strings.NewReader(gaql))
+	greq.Header.Set("Authorization", "Bearer "+tok.AccessToken)
+	greq.Header.Set("developer-token", devToken)
+	if loginCID != "" {
+		greq.Header.Set("login-customer-id", loginCID)
+	}
+	greq.Header.Set("Content-Type", "application/json")
+	gresp, err := adHTTP.Do(greq)
+	if err != nil {
+		return nil, err
+	}
+	defer gresp.Body.Close()
+
+	var batches []struct {
+		Results []struct {
+			AdGroupCriterion struct {
+				Keyword struct {
+					Text      string `json:"text"`
+					MatchType string `json:"matchType"`
+				} `json:"keyword"`
+			} `json:"adGroupCriterion"`
+			Metrics struct {
+				Impressions string  `json:"impressions"`
+				Clicks      string  `json:"clicks"`
+				CostMicros  string  `json:"costMicros"`
+				Conversions float64 `json:"conversions"`
+			} `json:"metrics"`
+		} `json:"results"`
+		Error *struct {
+			Message string `json:"message"`
+		} `json:"error"`
+	}
+	if err := json.NewDecoder(gresp.Body).Decode(&batches); err != nil {
+		return nil, err
+	}
+
+	// keyword_view repeats a keyword across ad groups; aggregate by text.
+	type kwAgg struct {
+		text        string
+		matchType   string
+		impressions int64
+		clicks      int64
+		conv        int64
+		cost        float64
+	}
+	byKey := map[string]*kwAgg{}
+	for _, b := range batches {
+		if b.Error != nil {
+			return nil, fmt.Errorf("google: %s", b.Error.Message)
+		}
+		for _, r := range b.Results {
+			text := r.AdGroupCriterion.Keyword.Text
+			if text == "" {
+				continue
+			}
+			key := strings.ToLower(text)
+			g := byKey[key]
+			if g == nil {
+				g = &kwAgg{text: text, matchType: r.AdGroupCriterion.Keyword.MatchType}
+				byKey[key] = g
+			}
+			g.impressions += atoiSafe(r.Metrics.Impressions)
+			g.clicks += atoiSafe(r.Metrics.Clicks)
+			g.conv += int64(r.Metrics.Conversions)
+			g.cost += atofSafe(r.Metrics.CostMicros) / 1e6
+		}
+	}
+	rows := make([]map[string]any, 0, len(byKey))
+	for _, g := range byKey {
+		ctr := 0.0
+		if g.impressions > 0 {
+			ctr = float64(g.clicks) / float64(g.impressions) * 100
+		}
+		rows = append(rows, map[string]any{
+			"keyword": g.text, "match_type": g.matchType,
+			"impressions": g.impressions, "clicks": g.clicks,
+			"ctr": ctr, "cost": g.cost, "conversions": g.conv,
+		})
+	}
+	sort.Slice(rows, func(i, j int) bool {
+		return rows[i]["impressions"].(int64) > rows[j]["impressions"].(int64)
+	})
+	if len(rows) > 10 {
+		rows = rows[:10]
+	}
+	return rows, nil
 }
 
 // ── shared upsert / http helpers ─────────────────────────────

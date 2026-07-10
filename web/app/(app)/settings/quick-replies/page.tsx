@@ -3,7 +3,7 @@
 // here (list) and used from the inbox composer's quick-reply picker.
 import { useEffect, useState } from "react";
 import { Plus, Trash2, Loader2 } from "lucide-react";
-import { api } from "@/lib/api";
+import { api, getUser } from "@/lib/api";
 import { cn, fmtDateTimeShort } from "@/lib/utils";
 import { Select } from "@/components/Select";
 import { Tip } from "@/components/ui/tooltip";
@@ -12,7 +12,10 @@ import type { QuickReply } from "@/lib/types";
 import { useToast, FieldLabel, INPUT_CLASS } from "../_shared";
 
 export default function QuickRepliesPage() {
-  const { notify, ToastHost } = useToast();
+  const { notify, confirm, ToastHost } = useToast();
+  const me = getUser();
+  // Shared library: admins/owners manage any reply; others manage their own.
+  const canManage = (q: QuickReply) => me?.role === "admin" || me?.role === "owner" || !q.created_by || q.created_by === me?.id;
   const [items, setItems] = useState<QuickReply[]>([]);
   const [loading, setLoading] = useState(true);
   const [dlgOpen, setDlgOpen] = useState(false);
@@ -26,7 +29,7 @@ export default function QuickRepliesPage() {
   useEffect(() => { load(); }, []);
 
   async function remove(q: QuickReply) {
-    if (!confirm(`Delete quick reply "/${q.shortcut}"?`)) return;
+    if (!(await confirm({ title: "Delete quick reply?", message: `Delete "/${q.shortcut}"? This can't be undone.`, danger: true, confirmLabel: "Delete" }))) return;
     try { await api.deleteQuickReply(q.id); notify("Quick reply deleted"); load(); }
     catch (e) { notify(String(e), "error"); }
   }
@@ -51,24 +54,25 @@ export default function QuickRepliesPage() {
           <table className="w-full text-sm min-w-[720px] whitespace-nowrap">
             <thead className="sticky top-0 z-10">
               <tr className="border-b border-border bg-muted/40 backdrop-blur">
-                {["Shortcut", "Title", "Message", "Created", ""].map((h) => (
+                {["Shortcut", "Title", "Message", "Author", "Created", ""].map((h) => (
                   <th key={h} className={cn("px-4 py-2.5 text-[11px] font-bold uppercase tracking-wider text-muted-foreground", h === "" ? "text-right w-20" : "text-left")}>{h}</th>
                 ))}
               </tr>
             </thead>
             <tbody>
               {loading ? (
-                <tr><td colSpan={5} className="text-center py-16"><Loader2 className="w-6 h-6 animate-spin text-muted-foreground mx-auto" /></td></tr>
+                <tr><td colSpan={6} className="text-center py-16"><Loader2 className="w-6 h-6 animate-spin text-muted-foreground mx-auto" /></td></tr>
               ) : items.length === 0 ? (
-                <tr><td colSpan={5} className="text-center py-16 text-[13px] text-muted-foreground">No quick replies yet</td></tr>
+                <tr><td colSpan={6} className="text-center py-16 text-[13px] text-muted-foreground">No quick replies yet</td></tr>
               ) : paged.map((q) => (
                 <tr key={q.id} className="border-b border-border/60 hover:bg-muted/50 transition-colors">
                   <td className="px-4 py-2.5"><span className="inline-flex px-1.5 py-0.5 rounded text-[11.5px] font-bold bg-primary/10 text-primary">/{q.shortcut}</span></td>
                   <td className="px-4 py-2.5 text-[13px] font-medium text-foreground truncate max-w-[220px]">{q.title || "-"}</td>
                   <td className="px-4 py-2.5 text-[12.5px] text-muted-foreground truncate max-w-[360px]">{q.body}</td>
+                  <td className="px-4 py-2.5 text-[12.5px] text-muted-foreground truncate max-w-[160px]">{q.created_by_name || "-"}</td>
                   <td className="px-4 py-2.5 text-[12.5px] text-muted-foreground">{q.created_at ? fmtDateTimeShort(q.created_at) : "-"}</td>
                   <td className="px-4 py-2.5 text-right whitespace-nowrap">
-                    <Tip label="Delete"><button onClick={() => remove(q)} className="p-1.5 rounded-md hover:bg-red-50 outline-none transition-colors text-red-500"><Trash2 className="w-[17px] h-[17px]" /></button></Tip>
+                    {canManage(q) && <Tip label="Delete"><button onClick={() => remove(q)} className="p-1.5 rounded-md hover:bg-red-50 outline-none transition-colors text-red-500"><Trash2 className="w-[17px] h-[17px]" /></button></Tip>}
                   </td>
                 </tr>
               ))}

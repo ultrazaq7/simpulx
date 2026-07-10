@@ -21,7 +21,7 @@ const isPristine = (s: Stage) => !!s.system_key && EN_STAGES[s.system_key] === s
 
 export default function StagesPage() {
   const { t } = useI18n();
-  const { notify, ToastHost } = useToast();
+  const { notify, confirm, ToastHost } = useToast();
   const [stages, setStages] = useState<Stage[]>([]);
   const [loading, setLoading] = useState(true);
   const [busy, setBusy] = useState(false);
@@ -56,7 +56,7 @@ export default function StagesPage() {
   }
 
   async function remove(s: Stage) {
-    if (!confirm(`Delete stage "${stageLabel(t, s)}"? Leads at this stage will have no stage.`)) return;
+    if (!(await confirm({ title: "Delete stage?", message: `Delete "${stageLabel(t, s)}"? Leads at this stage will have no stage.`, danger: true, confirmLabel: "Delete" }))) return;
     try { await api.deleteStage(s.id); notify("Stage deleted"); load(); }
     catch (e) { notify(String(e), "error"); }
   }

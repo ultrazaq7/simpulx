@@ -4,13 +4,14 @@ import { useParams, useRouter, useSearchParams } from "next/navigation";
 import { ArrowLeft, Loader2, Coins, Sparkles, BarChart3, Database, Upload, Trash2, Download, ChevronDown, FileText, FileSpreadsheet } from "lucide-react";
 import * as XLSX from "xlsx";
 import { AreaChart, Area, XAxis, YAxis, CartesianGrid, Tooltip as RTooltip, ResponsiveContainer, PieChart, Pie, Cell } from "recharts";
-import { api } from "@/lib/api";
+import { api, getToken, getUser } from "@/lib/api";
 import { Select } from "@/components/Select";
 import DateRangeFilter, { presetRange } from "@/components/DateRangeFilter";
 import { IndonesiaMap } from "@/components/IndonesiaMap";
 import { cn, fmtDuration } from "@/lib/utils";
 import type { CampaignDetail, CampaignAnalyticsRow, CatalogItem, AdPerformance, AdBreakdown, Ga4Report } from "@/lib/types";
 import { useToast, PageBody, FieldLabel, INPUT_CLASS } from "../../_shared";
+import { useConfirm } from "@/components/ConfirmDialog";
 import UnsavedBar from "@/components/UnsavedBar";
 
 const SEGMENTS = ["Automotive", "Property / Real Estate", "Finance", "Insurance", "Retail / FMCG", "Education", "Healthcare", "Travel & Hospitality", "Food & Beverage", "Services", "Other"];
@@ -20,7 +21,7 @@ export default function CampaignDetailPage() {
   const { id } = useParams<{ id: string }>();
   const router = useRouter();
   const searchParams = useSearchParams();
-  const { notify, ToastHost } = useToast();
+  const { notify, confirm, ToastHost } = useToast();
   // Persist the active tab in the URL so a refresh keeps you on the same tab
   // instead of snapping back to Overview.
   const TAB_KEYS: Tab[] = ["overview", "credits", "ai", "catalog"];
@@ -48,7 +49,7 @@ export default function CampaignDetailPage() {
     <PageBody wide>
       {ToastHost}
       <div className="max-w-[1040px]">
-        <button onClick={() => router.push("/settings/campaigns")} className="inline-flex items-center gap-1.5 text-[13px] text-muted-foreground hover:text-foreground mb-3 outline-none">
+        <button onClick={() => router.push("/settings/campaigns")} className="no-print inline-flex items-center gap-1.5 text-[13px] text-muted-foreground hover:text-foreground mb-3 outline-none">
           <ArrowLeft className="w-4 h-4" /> Campaigns
         </button>
         {loading ? (
@@ -56,15 +57,15 @@ export default function CampaignDetailPage() {
         ) : !campaign ? (
           <p className="text-muted-foreground">Campaign not found.</p>
         ) : (
-          <div className="bg-card border border-border rounded-xl shadow-xs p-6 sm:p-8">
+          <div className="print-root bg-card border border-border rounded-xl shadow-xs p-6 sm:p-8">
             <h1 className="text-xl font-bold text-foreground">{campaign.name}</h1>
             {campaign.dealer_name && <p className="text-[13px] text-muted-foreground">{campaign.dealer_name}</p>}
-            <div className="flex gap-1 mt-5 border-b border-border">
+            <div className="no-print flex gap-1 mt-5 border-b border-border overflow-x-auto [scrollbar-width:none] [&::-webkit-scrollbar]:hidden">
               {tabs.map((t) => (
                 <button key={t.key} onClick={() => setTab(t.key)}
-                  className={cn("inline-flex items-center gap-1.5 px-3.5 py-2 text-[13px] font-semibold border-b-2 -mb-px transition-colors outline-none",
+                  className={cn("inline-flex items-center gap-1.5 px-3.5 py-2 text-[13px] font-semibold border-b-2 -mb-px transition-colors outline-none shrink-0 whitespace-nowrap",
                     tab === t.key ? "border-primary text-primary" : "border-transparent text-muted-foreground hover:text-foreground")}>
-                  <t.Icon className="w-4 h-4" /> {t.label}
+                  <t.Icon className="w-4 h-4 shrink-0" /> {t.label}
                 </button>
               ))}
             </div>
@@ -372,9 +373,12 @@ function OverviewTab({ id, budget, onBudget, notify }: { id: string; budget: num
   const [perf, setPerf] = useState<AdPerformance | null>(null);
   const [loading, setLoading] = useState(true);
   const [exportOpen, setExportOpen] = useState(false);
-  const [dateRange, setDateRange] = useState("30d");
-  const [fFrom, setFFrom] = useState(() => presetRange("30d").from);
-  const [fTo, setFTo] = useState(() => presetRange("30d").to);
+  // Seed the range from the URL when present (the headless PDF route navigates
+  // with ?preset/from/to so the exported report matches the on-screen range).
+  const sp = useSearchParams();
+  const [dateRange, setDateRange] = useState(() => sp.get("preset") || "30d");
+  const [fFrom, setFFrom] = useState(() => sp.get("from") || presetRange(sp.get("preset") || "30d").from);
+  const [fTo, setFTo] = useState(() => sp.get("to") || presetRange(sp.get("preset") || "30d").to);
 
   useEffect(() => {
     api.getCampaignAnalytics().then((rows) => setRow(rows.find((r) => r.id === id) ?? null)).catch(() => {});
@@ -415,16 +419,34 @@ function OverviewTab({ id, budget, onBudget, notify }: { id: string; budget: num
     const total = ["Grand total", Math.round(tot.spend), tot.impressions, tot.clicks, ctr.toFixed(2) + "%", tot.clicks > 0 ? Math.round(cpc) : "-", tot.leads, tot.leads > 0 ? Math.round(cpl) : "-"];
     downloadCsv(`campaign-report-${dateRange}.csv`, toCsv([header, ...body, total]));
   };
-  // TODO: replace with the server-side headless-Chromium print route for a
-  // pixel-exact, multi-page PDF. Browser print-to-PDF is the interim.
-  const exportPdf = () => window.print();
+  // One-click PDF via the server-side headless-Chromium route, which renders the
+  // real report page (same @media print CSS) for a pixel-exact document. Falls
+  // back to the browser print dialog if the headless route is unavailable.
+  const exportPdf = async () => {
+    const { from, to } = dateRange === "custom" ? { from: fFrom, to: fTo } : presetRange(dateRange);
+    try {
+      const res = await fetch(`/api/campaigns/${id}/report-pdf`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ token: getToken(), user: getUser(), tab: "overview", preset: dateRange, from, to }),
+      });
+      const blob = await res.blob();
+      if (!res.ok || blob.type !== "application/pdf") throw new Error("headless unavailable");
+      const url = URL.createObjectURL(blob);
+      const a = document.createElement("a");
+      a.href = url; a.download = `campaign-report-${dateRange}.pdf`; a.click();
+      URL.revokeObjectURL(url);
+    } catch {
+      window.print(); // print CSS renders the same report-only layout
+    }
+  };
 
   return (
     <div className="flex flex-col gap-5">
       <div className="flex items-center justify-between flex-wrap gap-2">
         <p className="text-[13px] font-semibold text-foreground">Campaign report</p>
         <div className="flex items-center gap-2">
-          <div className="relative">
+          <div className="no-print relative">
             <button onClick={() => setExportOpen((o) => !o)} disabled={sources.length === 0}
               className="inline-flex items-center gap-1.5 h-9 px-3 rounded-md border border-border bg-background text-[13px] font-medium text-foreground hover:bg-muted disabled:opacity-50 outline-none transition-colors">
               <Download className="w-4 h-4" /> Export <ChevronDown className="w-3.5 h-3.5 text-muted-foreground" />
@@ -693,6 +715,7 @@ function CatalogTab({ id, segment, notify }: { id: string; segment?: string; not
   const [rows, setRows] = useState<CatalogItem[] | null>(null);
   const [busy, setBusy] = useState(false);
   const fileRef = useRef<HTMLInputElement>(null);
+  const { confirm, ConfirmHost } = useConfirm();
 
   function load() { api.getCampaignCatalog(id).then(setRows).catch(() => setRows([])); }
   useEffect(load, [id]); // eslint-disable-line react-hooks/exhaustive-deps
@@ -728,7 +751,7 @@ function CatalogTab({ id, segment, notify }: { id: string; segment?: string; not
   }
 
   async function clearAll() {
-    if (!confirm("Remove all catalog rows for this campaign? The bot will fall back to the shared pricing table.")) return;
+    if (!(await confirm({ title: "Clear catalog?", message: "Remove all catalog rows for this campaign? The bot will fall back to the shared pricing table.", danger: true, confirmLabel: "Clear" }))) return;
     setBusy(true);
     try { await api.clearCampaignCatalog(id); notify("Catalog cleared"); load(); }
     catch (e) { notify(String(e), "error"); } finally { setBusy(false); }
@@ -739,6 +762,7 @@ function CatalogTab({ id, segment, notify }: { id: string; segment?: string; not
 
   return (
     <div className="space-y-5">
+      {ConfirmHost}
       <div className="rounded-lg border border-dashed border-border p-5 text-center">
         <div className="w-11 h-11 rounded-xl bg-primary/10 text-primary grid place-items-center mx-auto mb-3"><Upload className="w-5 h-5" /></div>
         <p className="text-[13.5px] font-semibold text-foreground mb-3">Upload a pricelist (CSV, Excel, or PDF)</p>

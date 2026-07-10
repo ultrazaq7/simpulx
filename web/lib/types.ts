@@ -267,6 +267,8 @@ export interface QuickReply {
   title: string;
   body: string;
   created_at: string;
+  created_by?: string;
+  created_by_name?: string;
 }
 
 export interface InternalNote {
@@ -365,7 +367,11 @@ export interface AdPerfSource {
   source: string;   // meta_ads | tiktok_ads | google_ads | website | direct
   label: string;
   impressions: number; clicks: number; spend: number;
-  leads: number; ctr: number; cvr: number;
+  leads: number; purchases: number; ctr: number; cvr: number;
+}
+export interface AdKeyword {
+  keyword: string; match_type: string;
+  impressions: number; clicks: number; ctr: number; cost: number; conversions: number;
 }
 export interface AdPerformance {
   from: string; to: string;

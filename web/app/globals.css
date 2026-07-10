@@ -348,3 +348,29 @@ a:focus:not(:focus-visible) { outline: none; }
 }
 .react-flow__edge-text { font-size: 10px; }
 .react-flow__edge-textbg { fill: hsl(var(--card)); }
+
+/* Print / PDF export: render ONLY the marked report (.print-root), dropping the
+   app shell, nav and in-report controls (.no-print). Drives the ads report PDF
+   export — both window.print() and the headless (puppeteer) route render the
+   real page through these rules, so the PDF matches the on-screen report. */
+@media print {
+  /* Un-clip the app's h-full / overflow-hidden scroll containers so the full
+     report flows across pages instead of being cut to one viewport. */
+  html, body { background: #fff !important; height: auto !important; overflow: visible !important; }
+  body * { visibility: hidden !important; overflow: visible !important; }
+  .print-root, .print-root * { visibility: visible !important; }
+  .print-root {
+    position: absolute !important;
+    left: 0 !important; top: 0 !important;
+    width: 100% !important;
+    max-width: none !important;
+    margin: 0 !important;
+    border: none !important;
+    box-shadow: none !important;
+    background: #fff !important;
+  }
+  .no-print, .no-print * { display: none !important; }
+  /* Keep cards/charts from splitting awkwardly across pages. */
+  .print-avoid-break { break-inside: avoid; page-break-inside: avoid; }
+  @page { size: A4; margin: 12mm; }
+}

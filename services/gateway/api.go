@@ -1658,9 +1658,15 @@ func (s *server) renderTemplate(ctx context.Context, orgID, templateID string) (
 // ── Quick replies ───────────────────────────────────────────
 func (s *server) handleListQuickReplies(w http.ResponseWriter, r *http.Request) {
 	a, _ := authFrom(r.Context())
+	// Quick replies are a SHARED, org-wide team library: everyone sees every
+	// reply (including ones agents create), not just their own. created_by is
+	// surfaced so the UI can label authorship and gate who may edit/delete.
 	rows, err := s.queryMaps(r.Context(),
-		`SELECT id::text AS id, shortcut, title, body, created_at
-		   FROM quick_replies WHERE organization_id=$1 AND created_by=$2 ORDER BY shortcut`, a.OrgID, a.UserID)
+		`SELECT q.id::text AS id, q.shortcut, q.title, q.body, q.created_at,
+		        q.created_by::text AS created_by, u.full_name AS created_by_name
+		   FROM quick_replies q
+		   LEFT JOIN users u ON u.id = q.created_by
+		  WHERE q.organization_id=$1 ORDER BY q.shortcut`, a.OrgID)
 	if err != nil {
 		http.Error(w, err.Error(), http.StatusInternalServerError)
 		return
@@ -1695,8 +1701,16 @@ func (s *server) handleCreateQuickReply(w http.ResponseWriter, r *http.Request) 
 
 func (s *server) handleDeleteQuickReply(w http.ResponseWriter, r *http.Request) {
 	a, _ := authFrom(r.Context())
-	_, err := s.pool.Exec(r.Context(),
-		`DELETE FROM quick_replies WHERE id=$1 AND organization_id=$2 AND created_by=$3`, r.PathValue("id"), a.OrgID, a.UserID)
+	// Admins/owners can manage any reply in the shared library; everyone else
+	// can only remove replies they authored.
+	var err error
+	if a.Role == "owner" || a.Role == "admin" {
+		_, err = s.pool.Exec(r.Context(),
+			`DELETE FROM quick_replies WHERE id=$1 AND organization_id=$2`, r.PathValue("id"), a.OrgID)
+	} else {
+		_, err = s.pool.Exec(r.Context(),
+			`DELETE FROM quick_replies WHERE id=$1 AND organization_id=$2 AND created_by=$3`, r.PathValue("id"), a.OrgID, a.UserID)
+	}
 	if err != nil {
 		http.Error(w, err.Error(), http.StatusInternalServerError)
 		return

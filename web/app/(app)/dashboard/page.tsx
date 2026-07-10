@@ -18,7 +18,7 @@ import { MultiSelect } from "@/components/ui/multi-select";
 import { IndonesiaMap } from "@/components/IndonesiaMap";
 import { Tip } from "@/components/ui/tooltip";
 import { lostReasonLabel } from "@/app/(app)/inbox/components/LostReasonDialog";
-import type { Stats, Analytics, DashboardCards, AdPerformance, AdBreakdown, Channel, Campaign, Agent } from "@/lib/types";
+import type { Stats, Analytics, DashboardCards, AdPerformance, AdKeyword, AdBreakdown, Channel, Campaign, Agent } from "@/lib/types";
 import { cn, fmtDuration, stageLabel } from "@/lib/utils";
 import { useI18n } from "@/lib/i18n";
 import DateRangeFilter, { presetRange } from "@/components/DateRangeFilter";
@@ -408,7 +408,7 @@ function AgentDashboard() {
         <Card title="Your stages" subtitle="Leads by pipeline stage">
           <StageSplit stages={analytics?.stages} lost={analytics?.funnel?.lost} />
         </Card>
-        <Card title="Interest split" subtitle="Buying intent split">
+        <Card title="Interest level" subtitle="Buying intent split">
           <InterestSplit funnel={funnel} />
         </Card>
       </div>
@@ -648,7 +648,7 @@ function ManagerDashboard() {
           </Card>
 
           {/* Interest Level - clickable rows deep-link to filtered inbox */}
-          <Card title="Interest split">
+          <Card title="Interest level">
             <InterestSplit funnel={funnel} />
           </Card>
         </div>
@@ -920,6 +920,7 @@ function MarketingAnalytics() {
   const [accountFilter, setAccountFilter] = useState<string[]>([]);
   const [accounts, setAccounts] = useState<{ id: string; name?: string | null }[]>([]);
   const [perf, setPerf] = useState<AdPerformance | null>(null);
+  const [keywords, setKeywords] = useState<AdKeyword[]>([]);
   const [currency, setCurrency] = useState("");
   const [platforms, setPlatforms] = useState<string[]>([]);
   const [hasAccounts, setHasAccounts] = useState<boolean | null>(null);
@@ -931,9 +932,11 @@ function MarketingAnalytics() {
     Promise.all([
       api.adPerformance(from || undefined, to || undefined, campaignFilter.length ? campaignFilter : undefined, sourceFilter.length ? sourceFilter : undefined, accountFilter.length ? accountFilter : undefined).catch(() => null),
       api.listAdAccounts().catch(() => []),
-    ]).then(([p, accts]) => {
+      api.adKeywords(from || undefined, to || undefined).catch(() => []),
+    ]).then(([p, accts, kws]) => {
       if (!alive) return;
       setPerf(p as AdPerformance | null);
+      setKeywords((kws as AdKeyword[]) || []);
       const a = (accts as { id: string; name?: string | null; currency?: string | null; platform?: string | null }[]) || [];
       setAccounts(a);
       setHasAccounts(a.length > 0);
@@ -968,8 +971,8 @@ function MarketingAnalytics() {
   // Grand total for the Source table = sum of its own rows (the table always
   // shows every source; it's the cross-filter control, so its footer stays full).
   const srcTotals = (perf?.sources || []).reduce((a, s) => ({
-    impressions: a.impressions + s.impressions, clicks: a.clicks + s.clicks, leads: a.leads + s.leads,
-  }), { impressions: 0, clicks: 0, leads: 0 });
+    impressions: a.impressions + s.impressions, clicks: a.clicks + s.clicks, leads: a.leads + s.leads, purchases: a.purchases + s.purchases,
+  }), { impressions: 0, clicks: 0, leads: 0, purchases: 0 });
   const cpl = t.leads > 0 ? t.spend / t.leads : 0;
   const cpa = t.sales > 0 ? t.spend / t.sales : 0;
   const convRate = t.leads > 0 ? (t.sales / t.leads) * 100 : 0;
@@ -984,7 +987,7 @@ function MarketingAnalytics() {
 
   const roiCards = [
     { label: "Ad spend", value: money(t.spend), Icon: CircleDollarSign, color: "#F59E0B" },
-    { label: "Leads (chats)", value: fmtInt(t.leads), Icon: MessageSquare, color: "#2D8B73" },
+    { label: "Leads", value: fmtInt(t.leads), Icon: MessageSquare, color: "#2D8B73" },
     { label: "Cost / lead", value: money(cpl), Icon: Target, color: "#6366F1" },
     { label: "Conversions", value: fmtInt(t.sales), Icon: Trophy, color: "#059669" },
     { label: "Cost / conversion", value: money(cpa), Icon: CircleDollarSign, color: "#0EA5E9" },
@@ -999,7 +1002,7 @@ function MarketingAnalytics() {
     { label: "Impressions", display: fmtInt(t.impressions), w: 100, color: "#9EC7BB", Icon: Eye },
     { label: "Clicks", display: fmtInt(t.clicks), w: fW(t.clicks), color: "#5CAF98", Icon: MousePointerClick },
     { label: "CTR", display: `${ctrPct.toFixed(2)}%`, w: (fW(t.clicks) + fW(t.leads)) / 2, color: "#2D8B73", Icon: Percent },
-    { label: "Leads (chats)", display: fmtInt(t.leads), w: fW(t.leads), color: "#1C6B56", Icon: MessageSquare },
+    { label: "Leads", display: fmtInt(t.leads), w: fW(t.leads), color: "#1C6B56", Icon: MessageSquare },
   ];
 
   const daily = (perf?.daily || []).map((d) => {
@@ -1082,14 +1085,14 @@ function MarketingAnalytics() {
           <table className="w-full text-sm">
             <thead>
               <tr className="bg-muted/40 border-b border-border">
-                {["Source", "Impressions", "Clicks", "CTR", "Leads", "CVR"].map((h, i) => (
+                {["Source", "Impressions", "Clicks", "CTR", "Leads", "Purchase", "CVR"].map((h, i) => (
                   <th key={h} className={cn("px-3 py-2 text-[11px] font-bold uppercase tracking-wider text-muted-foreground", i === 0 ? "text-left" : "text-right")}>{h}</th>
                 ))}
               </tr>
             </thead>
             <tbody>
               {(perf?.sources || []).length === 0 ? (
-                <tr><td colSpan={6} className="px-3 py-10 text-center text-[13px] text-muted-foreground">No source data in this range</td></tr>
+                <tr><td colSpan={7} className="px-3 py-10 text-center text-[13px] text-muted-foreground">No source data in this range</td></tr>
               ) : (() => {
                 const rows = perf?.sources || [];
                 const maxCvr = Math.max(...rows.map((s) => s.cvr), 1);
@@ -1103,6 +1106,7 @@ function MarketingAnalytics() {
                       <td className="px-3 py-2 text-right tabular-nums text-foreground/80">{fmtInt(s.clicks)}</td>
                       <td className="px-3 py-2 text-right tabular-nums text-foreground/80">{s.ctr.toFixed(2)}%</td>
                       <td className="px-3 py-2 text-right tabular-nums text-foreground/80">{fmtInt(s.leads)}</td>
+                      <td className="px-3 py-2 text-right tabular-nums font-semibold text-foreground">{fmtInt(s.purchases)}</td>
                       <td className={cn("px-3 py-2 text-right tabular-nums font-semibold", heat > 0.5 ? "text-white" : "text-foreground")} style={{ backgroundColor: bg }}>{s.cvr.toFixed(2)}%</td>
                     </tr>
                   );
@@ -1116,6 +1120,7 @@ function MarketingAnalytics() {
                 <td className="px-3 py-3 text-right tabular-nums">{fmtInt(srcTotals.clicks)}</td>
                 <td className="px-3 py-3 text-right tabular-nums">{(srcTotals.impressions > 0 ? (srcTotals.clicks / srcTotals.impressions) * 100 : 0).toFixed(2)}%</td>
                 <td className="px-3 py-3 text-right tabular-nums">{fmtInt(srcTotals.leads)}</td>
+                <td className="px-3 py-3 text-right tabular-nums">{fmtInt(srcTotals.purchases)}</td>
                 <td className="px-3 py-3 text-right tabular-nums">{(srcTotals.clicks > 0 ? (srcTotals.leads / srcTotals.clicks) * 100 : 0).toFixed(2)}%</td>
               </tr>
             </tfoot>
@@ -1124,6 +1129,41 @@ function MarketingAnalytics() {
       </div>
       </div>
 
+      {/* Top Google keywords — only shown when a Google Ads account is connected
+          and keyword_view returns rows for the range. */}
+      {keywords.length > 0 && (
+        <div className="bg-card rounded-lg border border-border shadow-xs overflow-hidden mb-5">
+          <div className="px-4 py-3 border-b border-border flex items-baseline gap-2">
+            <p className="font-bold text-[14px] text-foreground leading-tight">Top Google keywords</p>
+            <span className="text-[11px] text-muted-foreground">by impressions</span>
+          </div>
+          <div className="overflow-x-auto">
+            <table className="w-full text-sm">
+              <thead>
+                <tr className="bg-muted/40 border-b border-border">
+                  {["Keyword", "Match", "Impressions", "Clicks", "CTR", "Cost", "Conv."].map((h, i) => (
+                    <th key={h} className={cn("px-3 py-2 text-[11px] font-bold uppercase tracking-wider text-muted-foreground", i <= 1 ? "text-left" : "text-right")}>{h}</th>
+                  ))}
+                </tr>
+              </thead>
+              <tbody>
+                {keywords.map((k, i) => (
+                  <tr key={k.keyword + i} className="border-b border-border/60">
+                    <td className="px-3 py-2 font-semibold text-foreground max-w-[280px] truncate">{k.keyword}</td>
+                    <td className="px-3 py-2 text-[12px] text-muted-foreground capitalize">{(k.match_type || "").toLowerCase()}</td>
+                    <td className="px-3 py-2 text-right tabular-nums text-foreground/80">{fmtInt(k.impressions)}</td>
+                    <td className="px-3 py-2 text-right tabular-nums text-foreground/80">{fmtInt(k.clicks)}</td>
+                    <td className="px-3 py-2 text-right tabular-nums text-foreground/80">{k.ctr.toFixed(2)}%</td>
+                    <td className="px-3 py-2 text-right tabular-nums text-foreground/80">{money(k.cost)}</td>
+                    <td className="px-3 py-2 text-right tabular-nums text-foreground/80">{fmtInt(k.conversions)}</td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          </div>
+        </div>
+      )}
+
       {/* Timeline split in two: Awareness (impressions + reach) and Engagement
           (link clicks + leads). Each is a single-axis line chart so the two
           series share one scale instead of a confusing dual axis. */}
@@ -1131,7 +1171,7 @@ function MarketingAnalytics() {
         <TimelineChart title="Awareness" subtitle="Daily impressions and reach" data={daily}
           series={[{ key: "impressions", name: "Impressions", color: "#2563EB" }, { key: "reach", name: "Reach", color: "#10B981" }]} />
         <TimelineChart title="Engagement" subtitle="Daily link clicks and leads" data={daily}
-          series={[{ key: "clicks", name: "Link clicks", color: "#F59E0B" }, { key: "leads", name: "Leads (chats)", color: "#2D8B73" }]} />
+          series={[{ key: "clicks", name: "Link clicks", color: "#F59E0B" }, { key: "leads", name: "Leads", color: "#2D8B73" }]} />
       </div>
 
       {/* Demographic performance donuts */}

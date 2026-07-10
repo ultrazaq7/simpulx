@@ -547,6 +547,12 @@ export const api = {
     const qs = q.toString();
     return req<import("./types").AdPerformance>(`/api/ad-performance${qs ? "?" + qs : ""}`);
   },
+  adKeywords: (from?: string, to?: string) => {
+    const q = new URLSearchParams();
+    if (from) q.set("from", from); if (to) q.set("to", to);
+    const qs = q.toString();
+    return req<import("./types").AdKeyword[]>(`/api/ads/keywords${qs ? "?" + qs : ""}`);
+  },
   // ── GA4 (landing-page performance) ──
   getCampaignGa4: (id: string, from?: string, to?: string) => {
     const q = new URLSearchParams();

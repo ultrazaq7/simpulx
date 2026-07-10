@@ -17,7 +17,7 @@ export default function AutomationPage() {
   const router = useRouter();
   const { can } = usePermissions();
   const canManage = can("manage_automation");
-  const { notify, ToastHost } = useToast();
+  const { notify, confirm, ToastHost } = useToast();
   const [rows, setRows] = useState<Automation[]>([]);
   const [channels, setChannels] = useState<Channel[]>([]);
   const [loading, setLoading] = useState(true);
@@ -45,7 +45,7 @@ export default function AutomationPage() {
     catch (e) { notify(String(e), "error"); }
   }
   async function remove(r: Automation) {
-    if (!confirm(`Delete automation "${r.name}"?`)) return;
+    if (!(await confirm({ title: "Delete automation?", message: `Delete "${r.name}"? This can't be undone.`, danger: true, confirmLabel: "Delete" }))) return;
     try { await api.deleteAutomation(r.id); notify("Automation deleted"); load(); }
     catch (e) { notify(String(e), "error"); }
   }

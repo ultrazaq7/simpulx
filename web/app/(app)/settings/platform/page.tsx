@@ -8,6 +8,7 @@ import type { OrgRow } from "@/lib/types";
 import { Select } from "@/components/Select";
 import SidePanel from "@/components/SidePanel";
 import { useToast, FieldLabel, INPUT_CLASS, initials } from "../_shared";
+import { useConfirm } from "@/components/ConfirmDialog";
 
 const PACKAGES = ["starter", "growth", "scale", "enterprise"];
 const STATUSES = ["active", "trial", "expired"];
@@ -134,6 +135,7 @@ function OrgPanel({ mode, org, onClose, onDone, onError }: {
   onClose: () => void; onDone: (msg: string) => void; onError: (msg: string) => void;
 }) {
   const isEdit = mode === "edit";
+  const { confirm, ConfirmHost } = useConfirm();
   const [name, setName] = useState(org?.name ?? "");
   const [ownerName, setOwnerName] = useState("");
   const [ownerEmail, setOwnerEmail] = useState("");
@@ -196,7 +198,7 @@ function OrgPanel({ mode, org, onClose, onDone, onError }: {
           <div className="pt-3 border-t border-border">
             <button type="button" disabled={busy}
               onClick={async () => {
-                if (!confirm(`Delete "${org.name}"? This permanently removes the organization and all its users, campaigns and data.`)) return;
+                if (!(await confirm({ title: "Delete organization?", message: `Delete "${org.name}"? This permanently removes the organization and all its users, campaigns and data.`, danger: true, confirmLabel: "Delete" }))) return;
                 setBusy(true);
                 try { await api.deleteOrg(org.id); onDone("Organization deleted"); }
                 catch (e) { onError(String(e)); } finally { setBusy(false); }
@@ -207,6 +209,7 @@ function OrgPanel({ mode, org, onClose, onDone, onError }: {
           </div>
         )}
       </div>
+      {ConfirmHost}
     </SidePanel>
   );
 }

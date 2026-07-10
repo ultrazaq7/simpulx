@@ -12,6 +12,7 @@ import { MultiSelect } from "@/components/ui/multi-select";
 import { Tip } from "@/components/ui/tooltip";
 import { cn, fmtDateTimeShort } from "@/lib/utils";
 import { Toast as ToastView } from "@/components/Toast";
+import { useConfirm, usePrompt } from "@/components/ConfirmDialog";
 import type {
   WaFlow, WaFlowDetail, WaFlowResponse, FlowDefinition, FlowScreen,
   FlowComponent, FlowComponentType, Channel,
@@ -56,6 +57,8 @@ export default function WaFormsPage() {
   const [channelFilter, setChannelFilter] = useState<string[]>([]);
 
   const flash = (ok: boolean, text: string) => setToast({ ok, text });
+  const { confirm, ConfirmHost } = useConfirm();
+  const { prompt, PromptHost } = usePrompt();
 
   const load = useCallback(async () => {
     try {
@@ -109,7 +112,7 @@ export default function WaFormsPage() {
   }
 
   async function send(f: WaFlow) {
-    const to = window.prompt("Send this form to which WhatsApp number? (with country code, no +)");
+    const to = await prompt({ title: "Send form", message: "Send this form to which WhatsApp number? (with country code, no +)", placeholder: "62812xxxxxxx", confirmLabel: "Send" });
     if (!to) return;
     setBusy(f.id);
     try {
@@ -123,7 +126,7 @@ export default function WaFormsPage() {
   }
 
   async function remove(id: string) {
-    if (!window.confirm("Delete this form?")) return;
+    if (!(await confirm({ title: "Delete form?", message: "This can't be undone.", danger: true, confirmLabel: "Delete" }))) return;
     try {
       await api.deleteFlow(id);
       load();
@@ -245,6 +248,8 @@ export default function WaFormsPage() {
       {viewing && <ResponseViewer r={viewing} onClose={() => setViewing(null)} />}
 
       {toast && <ToastView msg={toast.text} severity={toast.ok ? "success" : "error"} onClose={() => setToast(null)} />}
+      {ConfirmHost}
+      {PromptHost}
     </div>
   );
 }

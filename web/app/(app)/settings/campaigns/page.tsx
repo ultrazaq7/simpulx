@@ -10,6 +10,7 @@ import { Select } from "@/components/Select";
 import { MultiSelect } from "@/components/ui/multi-select";
 import { CampaignWizard } from "./CampaignWizard";
 import { Toast as ToastView } from "@/components/Toast";
+import { useConfirm } from "@/components/ConfirmDialog";
 
 type Toast = { msg: string; sev: "success" | "error" } | null;
 
@@ -24,6 +25,7 @@ export default function CampaignsPage() {
   const [rowsPerPage, setRowsPerPage] = useState(10);
   const [dlg, setDlg] = useState<{ open: boolean; id: string | null }>({ open: false, id: null });
   const [toast, setToast] = useState<Toast>(null);
+  const { confirm, ConfirmHost } = useConfirm();
   const router = useRouter();
 
 
@@ -37,7 +39,7 @@ export default function CampaignsPage() {
   useEffect(() => { load(); }, []);
 
   async function remove(c: Campaign) {
-    if (!confirm(`Delete campaign "${c.name}"? Conversations stay but lose their campaign tag.`)) return;
+    if (!(await confirm({ title: "Delete campaign?", message: `Delete "${c.name}"? Conversations stay but lose their campaign tag.`, danger: true, confirmLabel: "Delete" }))) return;
     try { await api.deleteCampaign(c.id); setToast({ msg: "Campaign deleted", sev: "success" }); load(); }
     catch (e) { setToast({ msg: String(e), sev: "error" }); }
   }
@@ -140,6 +142,7 @@ export default function CampaignsPage() {
       )}
 
       {toast && <ToastView msg={toast.msg} severity={toast.sev} onClose={() => setToast(null)} />}
+      {ConfirmHost}
     </div>
   );
 }

@@ -25,7 +25,7 @@ const PLATFORM_COLORS: Record<SourcePlatform, string> = {
 };
 
 export function WebApiTab() {
-  const { notify, ToastHost } = useToast();
+  const { notify, confirm, ToastHost } = useToast();
   const [rows, setRows] = useState<WebApiSource[]>([]);
   const [campaigns, setCampaigns] = useState<Campaign[]>([]);
   const [loading, setLoading] = useState(true);
@@ -48,12 +48,12 @@ export function WebApiTab() {
     try { await api.updateWebApiSource(p.id, { is_active: !p.is_active }); load(); } catch (e) { notify(String(e), "error"); }
   }
   async function regen(p: WebApiSource) {
-    if (!confirm(`Regenerate the API key for "${p.name}"? The current key stops working.`)) return;
+    if (!(await confirm({ title: "Regenerate API key?", message: `Regenerate the API key for "${p.name}"? The current key stops working.`, danger: true, confirmLabel: "Regenerate" }))) return;
     try { const r = await api.regenerateWebApiKey(p.id); notify("API key regenerated"); copy(r.api_key, "New key copied"); load(); }
     catch (e) { notify(String(e), "error"); }
   }
   async function remove(p: WebApiSource) {
-    if (!confirm(`Delete API source "${p.name}"?`)) return;
+    if (!(await confirm({ title: "Delete API source?", message: `Delete "${p.name}"? This can't be undone.`, danger: true, confirmLabel: "Delete" }))) return;
     try { await api.deleteWebApiSource(p.id); notify("API source deleted"); load(); }
     catch (e) { notify(String(e), "error"); }
   }
@@ -88,7 +88,7 @@ export function WebApiTab() {
               <Plug className="w-11 h-11 text-muted-foreground/30 mx-auto mb-2" />
               <p className="font-bold text-foreground mb-1">No API sources yet</p>
               <p className="text-[13px] text-muted-foreground mb-4">Connect an ad platform or external system to capture leads via the Web API.</p>
-              <PrimaryButton onClick={() => setDlg({ open: true, editing: null })}>
+              <PrimaryButton onClick={() => setWizardOpen(true)}>
                 <Plus className="w-4 h-4" />Add API source
               </PrimaryButton>
             </div>
@@ -138,7 +138,7 @@ export function WebApiTab() {
 
       {wizardOpen && (
         <WebApiWizard campaigns={campaigns}
-          onClose={() => setWizardOpen(false)}
+          onClose={() => { setWizardOpen(false); load(); }}
           onCreated={(m) => { setWizardOpen(false); notify(m); load(); }} />
       )}
     </div>

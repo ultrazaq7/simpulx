@@ -171,7 +171,7 @@
     "negotiation": "Negosiasi",
     "pctPurchase": "% Pembelian",
     "adSpend": "Pengeluaran iklan",
-    "leadsChats": "Prospek (chat)",
+    "leadsChats": "Prospek",
     "costPerLead": "Biaya / prospek",
     "conversions": "Konversi",
     "costPerConversion": "Biaya / konversi",
@@ -207,7 +207,7 @@
     "noContactsFound": "Kontak tidak ditemukan",
     "sourceIdCopied": "Source ID disalin",
     "viewDetails": "Lihat detail",
-    "chat": "Obrolan"
+    "chat": "Chat"
   },
   "stages": {
     "new": "Prospek Baru",

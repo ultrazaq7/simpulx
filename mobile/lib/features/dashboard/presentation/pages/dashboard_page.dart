@@ -116,7 +116,7 @@ class _DashboardBody extends StatelessWidget {
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
     final items = <_CardData>[
-      _CardData('Open leads', cards.open, Icons.inbox_rounded,
+      _CardData('Active', cards.open, Icons.inbox_rounded,
           AppColors.primary, InboxFilter.open),
       _CardData('Hot', cards.hot, Icons.local_fire_department_rounded,
           AppColors.hot, InboxFilter.hot),

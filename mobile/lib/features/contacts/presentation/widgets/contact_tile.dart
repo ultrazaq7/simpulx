@@ -466,13 +466,16 @@ class _StageBadge extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    const color = AppColors.warning;
+    // Soft, premium slate instead of the loud amber — reads calm on both the
+    // light and dark themes as a neutral pipeline-stage chip.
+    final isDark = Theme.of(context).brightness == Brightness.dark;
+    final color = isDark ? const Color(0xFF94A3B8) : const Color(0xFF64748B);
     return Container(
       padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
       decoration: BoxDecoration(
-        color: color.withValues(alpha: 0.14),
+        color: color.withValues(alpha: isDark ? 0.16 : 0.12),
         borderRadius: BorderRadius.circular(6),
-        border: Border.all(color: color.withValues(alpha: 0.35)),
+        border: Border.all(color: color.withValues(alpha: 0.32)),
       ),
       child: Text(
         '${stageLabel(context, stageName)} ▸',

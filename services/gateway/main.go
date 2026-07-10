@@ -281,6 +281,7 @@ func main() {
 	mux.HandleFunc("GET /api/ad-campaigns", s.requireAuth(s.handleListAdCampaigns))
 	mux.HandleFunc("PATCH /api/ad-campaigns/{id}", s.requireAuth(s.gate("manage_channels", s.handlePatchAdCampaign)))
 	mux.HandleFunc("GET /api/ad-performance", s.requireAuth(s.handleAdPerformance))
+	mux.HandleFunc("GET /api/ads/keywords", s.requireAuth(s.handleAdsKeywords))
 
 	mux.HandleFunc("GET /api/automations", s.requireAuth(s.gate("view_automation", s.handleListAutomations)))
 	mux.HandleFunc("POST /api/automations", s.requireAuth(s.gate("manage_automation", s.handleCreateAutomation)))
