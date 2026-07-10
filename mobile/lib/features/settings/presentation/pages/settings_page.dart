@@ -792,18 +792,15 @@ class _AboutScreenState extends State<_AboutScreen>
                           );
                         },
                         child: Container(
-                          width: 88,
-                          height: 88,
-                          padding: const EdgeInsets.all(10),
+                          width: 110,
+                          height: 110,
                           decoration: BoxDecoration(
-                            color: AppColors.primary.withValues(alpha: 0.12),
-                            borderRadius: BorderRadius.circular(26),
                             boxShadow: [
                               BoxShadow(
                                 color:
                                     AppColors.primary.withValues(alpha: 0.30),
-                                blurRadius: 32,
-                                spreadRadius: 1,
+                                blurRadius: 40,
+                                spreadRadius: 4,
                               ),
                             ],
                           ),
