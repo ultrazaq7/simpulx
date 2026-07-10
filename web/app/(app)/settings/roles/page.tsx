@@ -1,10 +1,10 @@
 "use client";
 import { useEffect, useMemo, useState } from "react";
-import { Plus, Lock, X, Loader2 } from "lucide-react";
+import { Plus, Lock, Loader2, ChevronLeft, ChevronDown, Pencil, Trash2 } from "lucide-react";
 import { api, getUser } from "@/lib/api";
 import { cn } from "@/lib/utils";
 import SidePanel from "@/components/SidePanel";
-import { useToast, PageBody, SettingsCard, FieldLabel, INPUT_CLASS, PrimaryButton } from "../_shared";
+import { useToast, PageBody, SettingsCard, FieldLabel, INPUT_CLASS, PrimaryButton, GhostButton, ROLE_PERMS } from "../_shared";
 
 type Perm = { key: string; label: string };
 const GROUPS: { group: string; perms: Perm[] }[] = [
@@ -144,77 +144,123 @@ export default function RolesSettingsPage() {
 
   const roleLabel = (r: string) => customRoles[r] || r.charAt(0).toUpperCase() + r.slice(1);
 
-  // One role at a time: pick a role from the list, tick its permission checklist.
-  const [selectedRole, setSelectedRole] = useState("agent");
-  const activeRole = roles.includes(selectedRole) ? selectedRole : roles[0];
+  // Qontak-style: a roles LIST, then an Edit view per role with a grouped
+  // Feature | Permission checklist.
+  const [editing, setEditing] = useState<string | null>(null);
+  const [openGroups, setOpenGroups] = useState<Record<string, boolean>>({});
+  const permCount = (r: string) => ALL_PERM_KEYS.filter((k) => matrix[r]?.[k]).length;
 
   if (loading) return <PageBody><div className="flex justify-center py-20"><Loader2 className="w-6 h-6 animate-spin text-muted-foreground" /></div></PageBody>;
 
   return (
     <PageBody wide>
       {ToastHost}
-      <div className="flex items-center gap-3 mb-4">
-        <div className="flex-1" />
-        {canEdit && <button onClick={() => setAddOpen(true)} className="inline-flex items-center gap-1.5 px-3 py-1.5 border border-border rounded-md text-sm font-semibold text-foreground hover:bg-muted outline-none transition-colors"><Plus className="w-4 h-4" />Create role</button>}
-        {canEdit && (
-          <PrimaryButton onClick={save} disabled={saving || !dirty}>
-            {saving ? <Loader2 className="w-4 h-4 animate-spin" /> : dirty ? "Save changes" : "Saved"}
-          </PrimaryButton>
-        )}
-      </div>
-
-      <div className="flex flex-col md:flex-row gap-4 items-start">
-        {/* Role list — pick one to edit its checklist */}
-        <div className="w-full md:w-56 shrink-0">
-          <div className="flex md:flex-col gap-1 overflow-x-auto md:overflow-visible [scrollbar-width:none] [&::-webkit-scrollbar]:hidden">
-            {roles.map((r) => (
-              <div key={r} onClick={() => setSelectedRole(r)}
-                className={cn("flex items-center gap-2 px-3 py-2 rounded-lg cursor-pointer transition-colors shrink-0",
-                  activeRole === r ? "bg-primary/10 text-primary" : "text-foreground hover:bg-muted")}>
-                <span className="text-[13px] font-semibold capitalize flex-1 truncate">{roleLabel(r)}</span>
-                {LOCKED.includes(r) && <Lock className="w-3.5 h-3.5 opacity-60" />}
-                {customRoles[r] && canEdit && (
-                  <button onClick={(e) => { e.stopPropagation(); deleteRole(r); }} aria-label={`Delete ${roleLabel(r)}`}
-                    className="p-0.5 rounded text-muted-foreground hover:text-destructive outline-none transition-colors"><X className="w-3.5 h-3.5" /></button>
-                )}
+      {editing ? (
+        /* ── Edit role ── */
+        <div className="max-w-[840px]">
+          <button onClick={() => setEditing(null)} className="inline-flex items-center gap-1.5 text-[13px] text-muted-foreground hover:text-foreground mb-3 outline-none">
+            <ChevronLeft className="w-4 h-4" /> Roles
+          </button>
+          <div className="flex items-center gap-3 mb-4">
+            <div className="min-w-0">
+              <div className="flex items-center gap-2">
+                <h2 className="text-lg font-bold capitalize text-foreground">{roleLabel(editing)}</h2>
+                {LOCKED.includes(editing) && <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-md bg-muted text-[11px] font-semibold text-muted-foreground"><Lock className="w-3 h-3" />Full access</span>}
               </div>
-            ))}
-          </div>
-        </div>
-
-        {/* Selected role's permission checklist */}
-        <SettingsCard className="flex-1 min-w-0 w-full">
-          <div className="flex items-center gap-2 px-5 py-3.5 border-b border-border">
-            <span className="text-[14px] font-bold capitalize text-foreground">{roleLabel(activeRole)}</span>
-            {LOCKED.includes(activeRole) && (
-              <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-md bg-muted text-[11px] font-semibold text-muted-foreground"><Lock className="w-3 h-3" />Full access</span>
-            )}
+              <p className="text-[12px] text-muted-foreground">{ROLE_PERMS[editing] || "Custom role"}</p>
+            </div>
             <div className="flex-1" />
-            <span className="text-[12px] text-muted-foreground tabular-nums">{ALL_PERM_KEYS.filter((k) => matrix[activeRole]?.[k]).length}/{ALL_PERM_KEYS.length}</span>
+            {canEdit && !LOCKED.includes(editing) && (
+              <>
+                <GhostButton onClick={() => setEditing(null)}>Cancel</GhostButton>
+                <PrimaryButton onClick={save} disabled={saving || !dirty}>
+                  {saving ? <Loader2 className="w-4 h-4 animate-spin" /> : dirty ? "Save changes" : "Saved"}
+                </PrimaryButton>
+              </>
+            )}
           </div>
-          <div className="p-5 space-y-5">
-            {GROUPS.map((g) => (
-              <div key={g.group}>
-                <p className="text-[11px] font-bold tracking-wider text-muted-foreground uppercase mb-2">{g.group}</p>
-                <div className="rounded-lg border border-border divide-y divide-border overflow-hidden">
-                  {g.perms.map((p) => {
-                    const locked = LOCKED.includes(activeRole) || !canEdit;
+          <SettingsCard className="overflow-hidden">
+            <div className="flex items-center px-5 py-2.5 bg-muted/40 border-b border-border">
+              <span className="flex-1 text-[11px] font-bold uppercase tracking-wider text-muted-foreground">Feature</span>
+              <span className="text-[11px] font-bold uppercase tracking-wider text-muted-foreground">Permission</span>
+            </div>
+            {GROUPS.map((g) => {
+              const open = openGroups[g.group] ?? true;
+              return (
+                <div key={g.group} className="border-b border-border last:border-b-0">
+                  <button onClick={() => setOpenGroups((o) => ({ ...o, [g.group]: !open }))}
+                    className="w-full flex items-center gap-2 px-4 py-3 hover:bg-muted/30 outline-none transition-colors">
+                    <ChevronDown className={cn("w-4 h-4 text-muted-foreground transition-transform", !open && "-rotate-90")} />
+                    <span className="text-[13px] font-bold text-foreground">{g.group}</span>
+                  </button>
+                  {open && g.perms.map((p) => {
+                    const locked = LOCKED.includes(editing) || !canEdit;
                     return (
-                      <label key={p.key} className={cn("flex items-center gap-3 px-4 py-2.5 transition-colors", locked ? "cursor-default" : "cursor-pointer hover:bg-muted/40")}>
+                      <label key={p.key} className={cn("flex items-center gap-3 pl-10 pr-5 py-2.5 border-t border-border/50 transition-colors", locked ? "cursor-default" : "cursor-pointer hover:bg-muted/30")}>
                         <span className="flex-1 text-[13px] text-foreground">{p.label}</span>
-                        <input type="checkbox" aria-label={`${p.label} for ${roleLabel(activeRole)}`}
-                          checked={!!matrix[activeRole]?.[p.key]} disabled={locked}
-                          onChange={() => toggle(activeRole, p.key)}
+                        <input type="checkbox" aria-label={`${p.label} for ${roleLabel(editing)}`}
+                          checked={!!matrix[editing]?.[p.key]} disabled={locked}
+                          onChange={() => toggle(editing, p.key)}
                           className="w-4 h-4 rounded border-border text-primary accent-primary disabled:opacity-40 cursor-pointer disabled:cursor-default" />
                       </label>
                     );
                   })}
                 </div>
-              </div>
-            ))}
+              );
+            })}
+          </SettingsCard>
+        </div>
+      ) : (
+        /* ── Roles list ── */
+        <>
+          <div className="flex items-center gap-3 mb-4">
+            <div className="flex-1" />
+            {canEdit && dirty && (
+              <PrimaryButton onClick={save} disabled={saving}>{saving ? <Loader2 className="w-4 h-4 animate-spin" /> : "Save changes"}</PrimaryButton>
+            )}
+            {canEdit && <button onClick={() => setAddOpen(true)} className="inline-flex items-center gap-1.5 px-3 py-1.5 border border-border rounded-md text-sm font-semibold text-foreground hover:bg-muted outline-none transition-colors"><Plus className="w-4 h-4" />Create role</button>}
           </div>
-        </SettingsCard>
-      </div>
+          <SettingsCard className="overflow-hidden">
+            <div className="overflow-x-auto">
+              <table className="w-full text-sm min-w-[520px]">
+                <thead>
+                  <tr className="bg-muted/40 border-b border-border">
+                    <th className="text-left px-5 py-3 text-[11px] font-bold uppercase tracking-wider text-muted-foreground">Role name</th>
+                    <th className="text-left px-4 py-3 text-[11px] font-bold uppercase tracking-wider text-muted-foreground hidden sm:table-cell">Type</th>
+                    <th className="text-right px-4 py-3 text-[11px] font-bold uppercase tracking-wider text-muted-foreground">Permissions</th>
+                    <th className="px-4 py-3 w-28"></th>
+                  </tr>
+                </thead>
+                <tbody>
+                  {roles.map((r) => (
+                    <tr key={r} className="border-b border-border/60 last:border-b-0 hover:bg-muted/30 transition-colors">
+                      <td className="px-5 py-3">
+                        <div className="flex items-center gap-2">
+                          <span className="text-[13.5px] font-semibold capitalize text-foreground">{roleLabel(r)}</span>
+                          {LOCKED.includes(r) && <Lock className="w-3.5 h-3.5 text-muted-foreground" />}
+                        </div>
+                        <p className="text-[12px] text-muted-foreground truncate max-w-[380px]">{ROLE_PERMS[r] || "Custom role"}</p>
+                      </td>
+                      <td className="px-4 py-3 hidden sm:table-cell">
+                        <span className={cn("inline-flex px-2 py-0.5 rounded-md text-[11px] font-semibold", customRoles[r] ? "bg-primary/10 text-primary" : "bg-muted text-muted-foreground")}>{customRoles[r] ? "Custom" : "Built-in"}</span>
+                      </td>
+                      <td className="px-4 py-3 text-right tabular-nums text-[12.5px] text-muted-foreground whitespace-nowrap">{LOCKED.includes(r) ? "Full access" : `${permCount(r)} / ${ALL_PERM_KEYS.length}`}</td>
+                      <td className="px-4 py-3">
+                        <div className="flex items-center justify-end gap-1">
+                          <button onClick={() => setEditing(r)} className="inline-flex items-center gap-1.5 px-2.5 py-1.5 rounded-md text-[13px] font-medium text-foreground hover:bg-muted outline-none transition-colors"><Pencil className="w-3.5 h-3.5 text-muted-foreground" />{LOCKED.includes(r) || !canEdit ? "View" : "Edit"}</button>
+                          {customRoles[r] && canEdit && (
+                            <button onClick={() => deleteRole(r)} aria-label={`Delete ${roleLabel(r)}`} className="p-1.5 rounded-md text-muted-foreground hover:text-destructive hover:bg-muted outline-none transition-colors"><Trash2 className="w-4 h-4" /></button>
+                          )}
+                        </div>
+                      </td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+            </div>
+          </SettingsCard>
+        </>
+      )}
 
       {/* Add Role drawer */}
       <SidePanel

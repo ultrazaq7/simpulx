@@ -10,6 +10,7 @@ import {
   TrendingDown, ChevronRight, Zap, Mail, Reply, Trophy, Ban,
   CircleDollarSign, MousePointerClick, Spotlight, Target, Eye, Filter as FilterIcon,
   Image as ImageIcon, MapPin, ChartPie, Percent,
+  Download, FileText, FileSpreadsheet, ChevronDown,
 } from "lucide-react";
 
 import { api, getUser } from "@/lib/api";
@@ -921,6 +922,7 @@ function MarketingAnalytics() {
   const [accounts, setAccounts] = useState<{ id: string; name?: string | null }[]>([]);
   const [perf, setPerf] = useState<AdPerformance | null>(null);
   const [keywords, setKeywords] = useState<AdKeyword[]>([]);
+  const [exportOpen, setExportOpen] = useState(false);
   const [currency, setCurrency] = useState("");
   const [platforms, setPlatforms] = useState<string[]>([]);
   const [hasAccounts, setHasAccounts] = useState<boolean | null>(null);
@@ -948,7 +950,17 @@ function MarketingAnalytics() {
   }, [dateRange, fFrom, fTo, campaignFilter, sourceFilter, accountFilter]);
 
   const PLATFORM_LABELS: Record<string, string> = { meta: "Meta Ads", google: "Google Ads", tiktok: "TikTok Ads" };
-  const sourceOptions = useMemo(() => platforms.map((p) => ({ value: p, label: PLATFORM_LABELS[p] || p })), [platforms]);
+  // Source options come from connected platforms AND any ad platform actually
+  // present in the report (so the filter shows even with a single account).
+  const sourceOptions = useMemo(() => {
+    const set = new Map<string, string>();
+    platforms.forEach((p) => set.set(p, PLATFORM_LABELS[p] || p));
+    (perf?.sources || []).forEach((s) => {
+      const p = s.source.replace(/_ads$/, "");
+      if (p === "meta" || p === "tiktok" || p === "google") set.set(p, s.label);
+    });
+    return Array.from(set, ([value, label]) => ({ value, label }));
+  }, [platforms, perf]);
 
   const campaigns = perf?.campaigns || [];
   const campaignOptions = useMemo(() => campaigns.map((c) => ({ value: c.campaign_id, label: c.campaign_name })), [campaigns]);
@@ -1013,16 +1025,31 @@ function MarketingAnalytics() {
     };
   }).reverse(); // chart reads left (oldest) -> right (newest)
 
+  // CSV of the source-performance breakdown (matches the on-screen table).
+  const exportAdsCsv = () => {
+    const rows = perf?.sources || [];
+    const esc = (v: string | number) => { const s = String(v ?? ""); return /[",\n]/.test(s) ? `"${s.replace(/"/g, '""')}"` : s; };
+    const header = ["Source", "Impressions", "Clicks", "CTR", "Leads", "Purchase", "CVR"];
+    const body = rows.map((s) => [s.label, s.impressions, s.clicks, s.ctr.toFixed(2) + "%", s.leads, s.purchases, s.cvr.toFixed(2) + "%"]);
+    const total = ["Grand total", srcTotals.impressions, srcTotals.clicks,
+      (srcTotals.impressions > 0 ? (srcTotals.clicks / srcTotals.impressions) * 100 : 0).toFixed(2) + "%",
+      srcTotals.leads, srcTotals.purchases,
+      (srcTotals.clicks > 0 ? (srcTotals.leads / srcTotals.clicks) * 100 : 0).toFixed(2) + "%"];
+    const csv = [header, ...body, total].map((r) => r.map(esc).join(",")).join("\n");
+    const url = URL.createObjectURL(new Blob([csv], { type: "text/csv;charset=utf-8" }));
+    const a = document.createElement("a"); a.href = url; a.download = `ads-report-${dateRange}.csv`; a.click(); URL.revokeObjectURL(url);
+  };
+
   return (
-    <div className="p-4">
+    <div className="p-4 print-root">
       {/* Toolbar — left-aligned with a filter icon, matching the Overview tab. */}
-      <div className="flex items-center gap-2 mb-4 flex-wrap">
+      <div className="no-print flex items-center gap-2 mb-4 flex-wrap">
         <FilterIcon className="w-4 h-4 text-muted-foreground" />
         {accountOptions.length > 1 && (
           <MultiSelect value={accountFilter} onChange={setAccountFilter} options={accountOptions} placeholder="All accounts" className="w-[180px]" />
         )}
         <MultiSelect value={campaignFilter} onChange={setCampaignFilter} options={campaignOptions} placeholder="All campaigns" className="w-[200px]" />
-        {sourceOptions.length > 1 && (
+        {sourceOptions.length > 0 && (
           <MultiSelect value={sourceFilter} onChange={setSourceFilter} options={sourceOptions} placeholder="All sources" className="w-[170px]" />
         )}
         <DateRangeFilter value={{ preset: dateRange, from: fFrom, to: fTo }}
@@ -1031,6 +1058,22 @@ function MarketingAnalytics() {
           <button onClick={() => { setAccountFilter([]); setCampaignFilter([]); setSourceFilter([]); setDateRange("all"); setFFrom(""); setFTo(""); }}
             className="text-[12px] font-semibold text-primary hover:underline outline-none">Clear</button>
         )}
+        <div className="flex-1" />
+        <div className="relative">
+          <button onClick={() => setExportOpen((o) => !o)} disabled={!hasSpend}
+            className="inline-flex items-center gap-1.5 h-9 px-3 rounded-md border border-border bg-background text-[13px] font-medium text-foreground hover:bg-muted disabled:opacity-50 outline-none transition-colors">
+            <Download className="w-4 h-4" /> Export <ChevronDown className="w-3.5 h-3.5 text-muted-foreground" />
+          </button>
+          {exportOpen && (
+            <>
+              <div className="fixed inset-0 z-40" onClick={() => setExportOpen(false)} />
+              <div className="absolute right-0 top-full mt-1 w-40 bg-popover border border-border rounded-lg shadow-xl z-50 py-1 animate-scale-in origin-top-right">
+                <button onClick={() => { setExportOpen(false); window.print(); }} className="w-full flex items-center gap-2 px-3 py-2 text-[13px] text-foreground hover:bg-muted outline-none"><FileText className="w-4 h-4 text-muted-foreground" /> PDF</button>
+                <button onClick={() => { setExportOpen(false); exportAdsCsv(); }} className="w-full flex items-center gap-2 px-3 py-2 text-[13px] text-foreground hover:bg-muted outline-none"><FileSpreadsheet className="w-4 h-4 text-muted-foreground" /> CSV</button>
+              </div>
+            </>
+          )}
+        </div>
       </div>
 
       {loading ? (

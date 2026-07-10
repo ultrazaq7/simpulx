@@ -161,13 +161,15 @@ export default function SettingsLayout({ children }: { children: ReactNode }) {
       {/* Settings sidebar — desktop only; text-only for an enterprise look.
           Collapsed hides the panel, leaving a slim expand tab. */}
       {collapsed ? (
-        <div className="max-lg:hidden shrink-0 border-r border-border bg-card flex flex-col items-center py-3">
-          <Tip label="Expand" side="right">
-            <button onClick={toggle}
-              className="p-1.5 rounded-md text-muted-foreground hover:bg-muted hover:text-foreground outline-none transition-colors">
-              <PanelLeftOpen className="w-[18px] h-[18px]" />
-            </button>
-          </Tip>
+        <div className="max-lg:hidden shrink-0 border-r border-border bg-card flex flex-col justify-end">
+          <div className="p-2 border-t border-border flex justify-center">
+            <Tip label="Expand" side="right">
+              <button onClick={toggle}
+                className="p-1.5 rounded-md text-muted-foreground hover:bg-primary/10 hover:text-primary hover:scale-110 outline-none transition-all duration-200">
+                <PanelLeftOpen className="w-[18px] h-[18px]" />
+              </button>
+            </Tip>
+          </div>
         </div>
       ) : (
         <div className="max-lg:hidden shrink-0 w-[260px] border-r border-border bg-card flex flex-col">
@@ -213,7 +215,7 @@ export default function SettingsLayout({ children }: { children: ReactNode }) {
           <div className="shrink-0 border-t border-border p-2 flex justify-end">
             <Tip label="Collapse" side="top">
               <button onClick={toggle}
-                className="p-1.5 rounded-md text-muted-foreground hover:bg-muted hover:text-foreground outline-none transition-colors">
+                className="p-1.5 rounded-md text-muted-foreground hover:bg-primary/10 hover:text-primary hover:scale-110 outline-none transition-all duration-200">
                 <PanelLeftClose className="w-[18px] h-[18px]" />
               </button>
             </Tip>

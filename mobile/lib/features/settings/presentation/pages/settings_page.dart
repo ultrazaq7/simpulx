@@ -224,17 +224,13 @@ class SettingsPage extends ConsumerWidget {
       context: context,
       barrierDismissible: true,
       barrierLabel: 'About',
-      barrierColor: Colors.black.withValues(alpha: 0.55),
-      transitionDuration: const Duration(milliseconds: 420),
-      pageBuilder: (ctx, animation, secondaryAnimation) => const _AboutDialog(),
+      barrierColor: Colors.black.withValues(alpha: 0.4),
+      transitionDuration: const Duration(milliseconds: 480),
+      pageBuilder: (ctx, animation, secondaryAnimation) => const _AboutScreen(),
       transitionBuilder: (ctx, anim, secondary, child) {
-        final curved = CurvedAnimation(parent: anim, curve: Curves.easeOutBack);
         return FadeTransition(
-          opacity: anim,
-          child: ScaleTransition(
-            scale: Tween<double>(begin: 0.85, end: 1.0).animate(curved),
-            child: child,
-          ),
+          opacity: CurvedAnimation(parent: anim, curve: Curves.easeOutCubic),
+          child: child,
         );
       },
     );
@@ -697,20 +693,20 @@ class _NotificationPrefsSheet extends ConsumerWidget {
   }
 }
 
-/// WhatsApp-style "About" card shown when the Simpulx wordmark is tapped. The
-/// logo sits inside a soft brand glow that gently pulses.
-class _AboutDialog extends StatefulWidget {
-  const _AboutDialog();
+/// Full-screen "About" shown when the Simpulx wordmark is tapped: a brand
+/// gradient backdrop with the logo sitting in a layered, pulsing glow.
+class _AboutScreen extends StatefulWidget {
+  const _AboutScreen();
 
   @override
-  State<_AboutDialog> createState() => _AboutDialogState();
+  State<_AboutScreen> createState() => _AboutScreenState();
 }
 
-class _AboutDialogState extends State<_AboutDialog>
+class _AboutScreenState extends State<_AboutScreen>
     with SingleTickerProviderStateMixin {
   late final AnimationController _glow = AnimationController(
     vsync: this,
-    duration: const Duration(milliseconds: 2200),
+    duration: const Duration(milliseconds: 2600),
   )..repeat(reverse: true);
 
   @override
@@ -722,114 +718,154 @@ class _AboutDialogState extends State<_AboutDialog>
   @override
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
-    return Center(
-      child: Material(
-        color: Colors.transparent,
-        child: Container(
-          width: 320,
-          padding: const EdgeInsets.symmetric(horizontal: 28, vertical: 34),
-          decoration: BoxDecoration(
-            color: theme.colorScheme.surface,
-            borderRadius: BorderRadius.circular(26),
-            boxShadow: [
-              BoxShadow(
-                color: Colors.black.withValues(alpha: 0.28),
-                blurRadius: 44,
-                offset: const Offset(0, 14),
-              ),
-            ],
+    final isDark = theme.brightness == Brightness.dark;
+    return Material(
+      color: Colors.transparent,
+      child: Container(
+        decoration: BoxDecoration(
+          gradient: LinearGradient(
+            begin: Alignment.topCenter,
+            end: Alignment.bottomCenter,
+            colors: isDark
+                ? const [Color(0xFF0C201C), Color(0xFF060F0D)]
+                : const [Color(0xFFF1FAF7), Colors.white],
           ),
-          child: Column(
-            mainAxisSize: MainAxisSize.min,
+        ),
+        child: SafeArea(
+          child: Stack(
             children: [
-              // Logo inside a pulsing brand glow.
-              AnimatedBuilder(
-                animation: _glow,
-                builder: (context, child) {
-                  final t = _glow.value;
-                  return Container(
-                    width: 104,
-                    height: 104,
-                    alignment: Alignment.center,
-                    decoration: BoxDecoration(
-                      shape: BoxShape.circle,
-                      gradient: RadialGradient(colors: [
-                        AppColors.primary.withValues(alpha: 0.16 + 0.14 * t),
-                        AppColors.primary.withValues(alpha: 0.0),
-                      ]),
-                      boxShadow: [
-                        BoxShadow(
-                          color: AppColors.primary.withValues(alpha: 0.22 + 0.22 * t),
-                          blurRadius: 22 + 18 * t,
-                          spreadRadius: 1 + 3 * t,
+              Align(
+                alignment: Alignment.topRight,
+                child: Padding(
+                  padding: const EdgeInsets.all(8),
+                  child: IconButton(
+                    icon: Icon(Icons.close_rounded,
+                        color: isDark ? Colors.white70 : Colors.black54),
+                    onPressed: () => Navigator.of(context).pop(),
+                  ),
+                ),
+              ),
+              Center(
+                child: SingleChildScrollView(
+                  padding: const EdgeInsets.symmetric(
+                      horizontal: 32, vertical: 40),
+                  child: Column(
+                    mainAxisSize: MainAxisSize.min,
+                    children: [
+                      // Logo inside a layered, pulsing brand glow.
+                      AnimatedBuilder(
+                        animation: _glow,
+                        builder: (context, child) {
+                          final t = _glow.value;
+                          return SizedBox(
+                            width: 210,
+                            height: 210,
+                            child: Stack(
+                              alignment: Alignment.center,
+                              children: [
+                                Container(
+                                  width: 150 + 34 * t,
+                                  height: 150 + 34 * t,
+                                  decoration: BoxDecoration(
+                                    shape: BoxShape.circle,
+                                    gradient: RadialGradient(colors: [
+                                      AppColors.primary
+                                          .withValues(alpha: 0.20 + 0.16 * t),
+                                      AppColors.primary.withValues(alpha: 0.0),
+                                    ]),
+                                  ),
+                                ),
+                                Container(
+                                  width: 124,
+                                  height: 124,
+                                  decoration: BoxDecoration(
+                                    shape: BoxShape.circle,
+                                    border: Border.all(
+                                        color: AppColors.primary.withValues(
+                                            alpha: 0.16 + 0.16 * t),
+                                        width: 1.2),
+                                  ),
+                                ),
+                                child!,
+                              ],
+                            ),
+                          );
+                        },
+                        child: Container(
+                          width: 88,
+                          height: 88,
+                          padding: const EdgeInsets.all(10),
+                          decoration: BoxDecoration(
+                            color: AppColors.primary.withValues(alpha: 0.12),
+                            borderRadius: BorderRadius.circular(26),
+                            boxShadow: [
+                              BoxShadow(
+                                color:
+                                    AppColors.primary.withValues(alpha: 0.30),
+                                blurRadius: 32,
+                                spreadRadius: 1,
+                              ),
+                            ],
+                          ),
+                          child: Image.asset('assets/images/simpulx_logo.png',
+                              fit: BoxFit.contain),
                         ),
-                      ],
-                    ),
-                    child: child,
-                  );
-                },
-                child: Container(
-                  width: 66,
-                  height: 66,
-                  padding: const EdgeInsets.all(7),
-                  decoration: BoxDecoration(
-                    color: AppColors.primary.withValues(alpha: 0.10),
-                    borderRadius: BorderRadius.circular(20),
+                      ),
+                      const SizedBox(height: 30),
+                      RichText(
+                        text: TextSpan(
+                          text: 'Simpul',
+                          style: theme.textTheme.headlineMedium?.copyWith(
+                            fontWeight: FontWeight.w800,
+                            letterSpacing: 0.5,
+                            color: isDark
+                                ? Colors.white
+                                : const Color(0xFF0F1F1B),
+                          ),
+                          children: const [
+                            TextSpan(
+                                text: 'x',
+                                style:
+                                    TextStyle(color: AppColors.brandAmber)),
+                          ],
+                        ),
+                      ),
+                      const SizedBox(height: 8),
+                      Text(
+                        'Customer Engagement Platform'.tr(context),
+                        textAlign: TextAlign.center,
+                        style: theme.textTheme.bodyMedium
+                            ?.copyWith(color: AppColors.textMuted),
+                      ),
+                      const SizedBox(height: 30),
+                      Container(
+                        padding: const EdgeInsets.symmetric(
+                            horizontal: 16, vertical: 7),
+                        decoration: BoxDecoration(
+                          color: AppColors.primary.withValues(alpha: 0.12),
+                          borderRadius: BorderRadius.circular(999),
+                          border: Border.all(
+                              color:
+                                  AppColors.primary.withValues(alpha: 0.25)),
+                        ),
+                        child: Text(
+                          'Version 1.0.0'.tr(context),
+                          style: theme.textTheme.labelLarge?.copyWith(
+                            color: AppColors.primary,
+                            fontWeight: FontWeight.w700,
+                          ),
+                        ),
+                      ),
+                      const SizedBox(height: 22),
+                      Text(
+                        '© 2026 Simpulx'.tr(context),
+                        style: theme.textTheme.labelMedium?.copyWith(
+                            color:
+                                AppColors.textMuted.withValues(alpha: 0.7)),
+                      ),
+                    ],
                   ),
-                  child: Image.asset('assets/images/simpulx_logo.png',
-                      fit: BoxFit.contain),
                 ),
-              ),
-              const SizedBox(height: 22),
-              RichText(
-                text: TextSpan(
-                  text: 'Simpul',
-                  style: theme.textTheme.headlineSmall?.copyWith(
-                    fontWeight: FontWeight.w800,
-                    letterSpacing: 0.4,
-                    color: theme.colorScheme.onSurface,
-                  ),
-                  children: const [
-                    TextSpan(
-                        text: 'x',
-                        style: TextStyle(color: AppColors.brandAmber)),
-                  ],
-                ),
-              ),
-              const SizedBox(height: 6),
-              Text(
-                'Customer Engagement Platform'.tr(context),
-                textAlign: TextAlign.center,
-                style: theme.textTheme.bodySmall
-                    ?.copyWith(color: AppColors.textMuted),
-              ),
-              const SizedBox(height: 20),
-              Container(
-                padding:
-                    const EdgeInsets.symmetric(horizontal: 14, vertical: 6),
-                decoration: BoxDecoration(
-                  color: AppColors.primary.withValues(alpha: 0.10),
-                  borderRadius: BorderRadius.circular(999),
-                ),
-                child: Text(
-                  'Version 1.0.0'.tr(context),
-                  style: theme.textTheme.labelMedium?.copyWith(
-                    color: AppColors.primary,
-                    fontWeight: FontWeight.w700,
-                  ),
-                ),
-              ),
-              const SizedBox(height: 18),
-              Text(
-                '© 2026 Simpulx'.tr(context),
-                style: theme.textTheme.labelSmall?.copyWith(
-                    color: AppColors.textMuted.withValues(alpha: 0.7)),
-              ),
-              const SizedBox(height: 3),
-              Text(
-                'Made in Indonesia'.tr(context),
-                style: theme.textTheme.labelSmall?.copyWith(
-                    color: AppColors.textMuted.withValues(alpha: 0.5)),
               ),
             ],
           ),

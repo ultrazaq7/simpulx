@@ -426,14 +426,15 @@ class _StageSplitCard extends StatelessWidget {
           Container(width: 8, height: 8, decoration: BoxDecoration(color: color, shape: BoxShape.circle)),
           const SizedBox(width: 8),
           Expanded(
+            flex: 5,
             child: Text(stageLabel(context, s.name),
                 maxLines: 1,
                 overflow: TextOverflow.ellipsis,
                 style: const TextStyle(fontSize: 13, fontWeight: FontWeight.w500)),
           ),
           const SizedBox(width: 12),
-          SizedBox(
-            width: 64,
+          Expanded(
+            flex: 6,
             child: ClipRRect(
               borderRadius: BorderRadius.circular(3),
               child: LinearProgressIndicator(

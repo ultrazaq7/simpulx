@@ -2,11 +2,14 @@ package main
 
 import (
 	"bytes"
+	"context"
 	"encoding/json"
 	"io"
 	"net/http"
 	"strconv"
 	"time"
+
+	"github.com/google/uuid"
 )
 
 // ── Segment-generic campaign catalog / KB (WS-A) ────────────────────────────
@@ -124,9 +127,11 @@ func (s *server) handleUploadCatalog(w http.ResponseWriter, r *http.Request) {
 	writeJSON(w, map[string]any{"inserted": inserted, "replaced": b.Replace})
 }
 
-// POST /api/campaigns/{id}/catalog/extract {pdf_base64, segment?} — forward a
-// pricelist PDF to the ai-agent for LLM extraction (WS-A). Returns {rows, warning}
-// for the client to review and import via POST .../catalog.
+// POST /api/campaigns/{id}/catalog/extract {pdf_base64, segment?} — kick off an
+// ASYNC LLM extraction (WS-A). LLM PDF extraction can take minutes, which blows
+// past the edge proxy's ~100s timeout (a 502). So this returns a job id
+// immediately and runs the extraction in the background (server-to-server, no
+// proxy), stashing the result in Redis. The client polls .../extract/{job}.
 func (s *server) handleExtractCatalog(w http.ResponseWriter, r *http.Request) {
 	a, _ := authFrom(r.Context())
 	cid := r.PathValue("id")
@@ -144,24 +149,68 @@ func (s *server) handleExtractCatalog(w http.ResponseWriter, r *http.Request) {
 		http.Error(w, "not found", http.StatusNotFound)
 		return
 	}
+	jobID := uuid.NewString()
+	key := "catalog_extract:" + a.OrgID + ":" + jobID
+	// Mark pending, then run the extraction detached from the request.
+	_ = s.rdb.Set(r.Context(), key, `{"status":"pending"}`, 20*time.Minute).Err()
 	payload, _ := json.Marshal(map[string]any{"pdf_base64": b.PDFBase64, "segment": b.Segment})
-	req, err := http.NewRequestWithContext(r.Context(), http.MethodPost, s.aiAgentURL+"/extract/catalog", bytes.NewReader(payload))
+	go s.runCatalogExtract(key, payload)
+	w.WriteHeader(http.StatusAccepted)
+	writeJSON(w, map[string]any{"job_id": jobID, "status": "pending"})
+}
+
+// runCatalogExtract performs the ai-agent call in the background and writes the
+// terminal state ({status:"done", rows,...} or {status:"error", error}) to Redis.
+func (s *server) runCatalogExtract(key string, payload []byte) {
+	ctx, cancel := context.WithTimeout(context.Background(), 5*time.Minute)
+	defer cancel()
+	store := func(v any) {
+		rb, _ := json.Marshal(v)
+		_ = s.rdb.Set(context.Background(), key, string(rb), 20*time.Minute).Err()
+	}
+	req, err := http.NewRequestWithContext(ctx, http.MethodPost, s.aiAgentURL+"/extract/catalog", bytes.NewReader(payload))
 	if err != nil {
-		http.Error(w, err.Error(), http.StatusInternalServerError)
+		store(map[string]any{"status": "error", "error": "internal error"})
 		return
 	}
 	req.Header.Set("content-type", "application/json")
-	// LLM PDF extraction is slow; give it more room than the shared 30s client.
-	client := &http.Client{Timeout: 150 * time.Second}
+	client := &http.Client{Timeout: 5 * time.Minute}
 	resp, err := client.Do(req)
 	if err != nil {
-		http.Error(w, "extraction service unavailable", http.StatusBadGateway)
+		store(map[string]any{"status": "error", "error": "extraction service unavailable"})
 		return
 	}
 	defer resp.Body.Close()
+	body, _ := io.ReadAll(resp.Body)
+	if resp.StatusCode != http.StatusOK {
+		store(map[string]any{"status": "error", "error": "extraction failed"})
+		return
+	}
+	// ai-agent body is {rows, warning?} (or {error}); merge it under status:done.
+	var inner map[string]any
+	if err := json.Unmarshal(body, &inner); err != nil {
+		store(map[string]any{"status": "error", "error": "bad extraction response"})
+		return
+	}
+	result := map[string]any{"status": "done"}
+	for k, v := range inner {
+		result[k] = v
+	}
+	store(result)
+}
+
+// GET /api/campaigns/{id}/catalog/extract/{job} — poll an extraction job. Returns
+// {status:"pending"|"done"|"error"|"expired", rows?, warning?, error?}.
+func (s *server) handleExtractCatalogStatus(w http.ResponseWriter, r *http.Request) {
+	a, _ := authFrom(r.Context())
+	key := "catalog_extract:" + a.OrgID + ":" + r.PathValue("job")
+	val, err := s.rdb.Get(r.Context(), key).Result()
+	if err != nil {
+		writeJSON(w, map[string]any{"status": "expired"})
+		return
+	}
 	w.Header().Set("content-type", "application/json")
-	w.WriteHeader(resp.StatusCode)
-	_, _ = io.Copy(w, resp.Body)
+	_, _ = w.Write([]byte(val))
 }
 
 // DELETE /api/campaigns/{id}/catalog — clear a campaign's catalog.
