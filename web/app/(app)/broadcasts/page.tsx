@@ -9,6 +9,7 @@ import {
 } from "lucide-react";
 import type { LucideIcon } from "lucide-react";
 import { Tip } from "@/components/ui/tooltip";
+import { Toast as ToastView } from "@/components/Toast";
 
 import { api } from "@/lib/api";
 import { Select } from "@/components/Select";
@@ -52,7 +53,6 @@ export default function BroadcastsPage() {
     try { setRows(await api.listBroadcasts()); } catch { /* ignore */ } finally { setLoading(false); }
   }
   useEffect(() => { load(); }, []);
-  useEffect(() => { if (!toast) return; const t = setTimeout(() => setToast(null), 3500); return () => clearTimeout(t); }, [toast]);
 
   const filtered = useMemo(() => {
     const q = query.trim().toLowerCase();
@@ -158,14 +158,7 @@ export default function BroadcastsPage() {
         />
       )}
 
-      {toast && (
-        <div className="fixed bottom-6 left-6 z-[120] animate-scale-in">
-          <div className={cn("px-4 py-2.5 rounded-lg text-sm font-semibold shadow-xl text-white",
-            toast.sev === "error" ? "bg-[#DC2626]" : "bg-[#2D8B73]")}>
-            {toast.msg}
-          </div>
-        </div>
-      )}
+      {toast && <ToastView msg={toast.msg} severity={toast.sev} onClose={() => setToast(null)} />}
     </div>
   );
 }

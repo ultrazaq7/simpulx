@@ -161,48 +161,41 @@ export default function ContactsPage() {
   // Lead edits go through updateContact, which routes to the contact's
   // conversation when it has one, else to the contact-level fallback columns
   // (migration 0078) - so manual leads without a conversation are editable too.
-  // Inline edits stage the change (optimistic row update + pendingEdits) instead
-  // of hitting the API; the Save bar commits them.
-  function stageEdit(id: string, patch: { stage_id?: string; interest_level?: string; assigned_agent_id?: string | null }) {
-    setPendingEdits((p) => ({ ...p, [id]: { ...p[id], ...patch } }));
-  }
-  function setStage(c: Contact, stageId: string) {
+  // Inline edits apply immediately (optimistic + API), confirmed by a snackbar.
+  async function setStage(c: Contact, stageId: string) {
     const name = stages.find((s) => s.id === stageId)?.name ?? null;
+    const prevStageId = c.stage_id, prevName = c.stage_name;
     setContacts((p) => p.map((x) => (x.id === c.id ? { ...x, stage_id: stageId || null, stage_name: name } : x)));
-    stageEdit(c.id, { stage_id: stageId });
+    try {
+      await api.updateContact(c.id, { stage_id: stageId });
+      setToast(name ? `Stage updated to ${name}` : "Stage cleared");
+    } catch {
+      setContacts((p) => p.map((x) => (x.id === c.id ? { ...x, stage_id: prevStageId, stage_name: prevName } : x)));
+      setToast("Could not update stage");
+    }
   }
-  function setInterest(c: Contact, level: string) {
+  async function setInterest(c: Contact, level: string) {
+    const prev = c.interest_level;
     setContacts((p) => p.map((x) => (x.id === c.id ? { ...x, interest_level: level || null } : x)));
-    stageEdit(c.id, { interest_level: level });
+    try {
+      await api.updateContact(c.id, { interest_level: level });
+      setToast(level ? `Interest set to ${level}` : "Interest cleared");
+    } catch {
+      setContacts((p) => p.map((x) => (x.id === c.id ? { ...x, interest_level: prev } : x)));
+      setToast("Could not update interest");
+    }
   }
-  function reassignAgent(c: Contact, agentId: string | null) {
+  async function reassignAgent(c: Contact, agentId: string | null) {
+    const prevAgentId = c.assigned_agent_id, prevAgentName = c.agent_name;
     const newAgent = agentId ? agents.find((a) => a.id === agentId) : null;
     setContacts((p) => p.map((x) => (x.id === c.id ? { ...x, assigned_agent_id: agentId, agent_name: newAgent?.full_name || null } : x)));
-    stageEdit(c.id, { assigned_agent_id: agentId });
-  }
-  async function saveEdits() {
-    const ids = Object.keys(pendingEdits);
-    if (ids.length === 0) return;
-    setSavingEdits(true);
-    const results = await Promise.allSettled(ids.map((id) => {
-      const e = pendingEdits[id];
-      const patch: Record<string, unknown> = {};
-      if (e.stage_id !== undefined) patch.stage_id = e.stage_id;
-      if (e.interest_level !== undefined) patch.interest_level = e.interest_level;
-      if (e.assigned_agent_id !== undefined) patch.assigned_agent_id = e.assigned_agent_id ?? "";
-      return api.updateContact(id, patch);
-    }));
-    setSavingEdits(false);
-    const failed = results.filter((r) => r.status === "rejected").length;
-    setPendingEdits({});
-    clearSel();
-    if (failed > 0) { setToast(`Saved with ${failed} error${failed === 1 ? "" : "s"}`); reload(); }
-    else setToast(`Saved ${ids.length} contact${ids.length === 1 ? "" : "s"}`);
-  }
-  function cancelEdits() {
-    setPendingEdits({});
-    clearSel();
-    reload(); // discard the optimistic changes, re-fetch server truth
+    try {
+      await api.updateContact(c.id, { assigned_agent_id: agentId || "" });
+      setToast(agentId ? `Assigned to ${newAgent?.full_name || "agent"}` : "Unassigned");
+    } catch {
+      setContacts((p) => p.map((x) => (x.id === c.id ? { ...x, assigned_agent_id: prevAgentId, agent_name: prevAgentName } : x)));
+      setToast("Could not reassign");
+    }
   }
   // Lost / Spam are terminal outcomes (dispositions), mirroring the inbox stage menu.
   async function markOutcome(c: Contact, reason: string, category: "lost" | "spam", didPurchase = false) {
@@ -225,7 +218,9 @@ export default function ContactsPage() {
   }
   // Close row / add / columns menus on outside click.
   useEffect(() => {
-    const onDoc = () => { setMenuId(null); setAddMenuOpen(false); setColsMenuOpen(false); setBulkMenu(null); };
+    // NB: bulkMenu is a portal with its own backdrop; don't close it here or the
+    // opening click would immediately shut it (making items unclickable).
+    const onDoc = () => { setMenuId(null); setAddMenuOpen(false); setColsMenuOpen(false); };
     window.addEventListener("click", onDoc);
     return () => window.removeEventListener("click", onDoc);
   }, []);
@@ -346,9 +341,9 @@ export default function ContactsPage() {
   }
   // Bulk stage / interest / agent via the dedicated endpoint, which routes each
   // change through the contact's conversation (attribution) when one exists.
-  // Bulk field-sets STAGE the change for every selected contact (optimistic +
-  // pendingEdits); the Save bar commits. Non-field bulk actions (blacklist,
-  // delete, add label, send template) stay immediate.
+  // Bulk field-sets STAGE the change for every selected contact; the floating
+  // "You have updated N fields" bar commits (Save) or discards (Cancel). Inline
+  // single-row edits (above) stay immediate.
   function bulkSet(set: { stage_id?: string; interest_level?: string; assigned_agent_id?: string }) {
     setBulkMenu(null);
     const ids = [...selected];
@@ -362,6 +357,30 @@ export default function ContactsPage() {
       for (const id of ids) next[id] = { ...next[id], ...set };
       return next;
     });
+  }
+  async function saveEdits() {
+    const ids = Object.keys(pendingEdits);
+    if (ids.length === 0) return;
+    setSavingEdits(true);
+    const results = await Promise.allSettled(ids.map((id) => {
+      const e = pendingEdits[id];
+      const patch: Record<string, unknown> = {};
+      if (e.stage_id !== undefined) patch.stage_id = e.stage_id;
+      if (e.interest_level !== undefined) patch.interest_level = e.interest_level;
+      if (e.assigned_agent_id !== undefined) patch.assigned_agent_id = e.assigned_agent_id ?? "";
+      return api.updateContact(id, patch);
+    }));
+    setSavingEdits(false);
+    const failed = results.filter((r) => r.status === "rejected").length;
+    setPendingEdits({});
+    clearSel();
+    if (failed > 0) { setToast(`Saved with ${failed} error${failed === 1 ? "" : "s"}`); reload(); }
+    else setToast(`Saved ${ids.length} contact${ids.length === 1 ? "" : "s"}`);
+  }
+  function cancelEdits() {
+    setPendingEdits({});
+    clearSel();
+    reload();
   }
   async function toggleBlacklist(c: Contact) {
     const next = !c.blacklisted;
