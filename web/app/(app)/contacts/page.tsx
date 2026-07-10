@@ -1,5 +1,6 @@
 "use client";
 import { useEffect, useMemo, useRef, useState } from "react";
+import { createPortal } from "react-dom";
 import { useRouter } from "next/navigation";
 import {
   Search, UserPlus, Download, Pencil, ChevronsLeft, ChevronsRight, ChevronLeft, ChevronRight,
@@ -20,6 +21,7 @@ import { MultiSelect } from "@/components/ui/multi-select";
 import SidePanel from "@/components/SidePanel";
 import { Toast } from "@/components/Toast";
 import { useConfirm, usePrompt } from "@/components/ConfirmDialog";
+import UnsavedBar from "@/components/UnsavedBar";
 import SendTemplateDrawer from "./components/SendTemplateDrawer";
 
 type ModalState = { mode: "add" } | { mode: "edit"; contact: Contact } | null;
@@ -99,7 +101,13 @@ export default function ContactsPage() {
   const [orgTz, setOrgTz] = useState<string>("");
   const [selected, setSelected] = useState<Set<string>>(new Set());
   const [bulkBusy, setBulkBusy] = useState(false);
-  const [bulkMenu, setBulkMenu] = useState<null | "stage" | "interest" | "agent">(null);
+  const [bulkMenu, setBulkMenu] = useState<null | { key: "stage" | "interest" | "agent"; rect: DOMRect }>(null);
+  // Staged field edits (stage / interest / agent), applied optimistically to the
+  // rows and committed together via the floating "You have updated N fields" bar
+  // (Save) or discarded (Cancel) — same pattern as the settings forms.
+  const [pendingEdits, setPendingEdits] = useState<Record<string, { stage_id?: string; interest_level?: string; assigned_agent_id?: string | null }>>({});
+  const [savingEdits, setSavingEdits] = useState(false);
+  const editCount = Object.values(pendingEdits).reduce((n, e) => n + Object.keys(e).length, 0);
   const [tplOpen, setTplOpen] = useState(false);
   const [visibleCols, setVisibleCols] = useState<Set<string>>(() => new Set(DEFAULT_COLS));
   const [colsMenuOpen, setColsMenuOpen] = useState(false);
@@ -153,41 +161,48 @@ export default function ContactsPage() {
   // Lead edits go through updateContact, which routes to the contact's
   // conversation when it has one, else to the contact-level fallback columns
   // (migration 0078) - so manual leads without a conversation are editable too.
-  async function setStage(c: Contact, stageId: string) {
+  // Inline edits stage the change (optimistic row update + pendingEdits) instead
+  // of hitting the API; the Save bar commits them.
+  function stageEdit(id: string, patch: { stage_id?: string; interest_level?: string; assigned_agent_id?: string | null }) {
+    setPendingEdits((p) => ({ ...p, [id]: { ...p[id], ...patch } }));
+  }
+  function setStage(c: Contact, stageId: string) {
     const name = stages.find((s) => s.id === stageId)?.name ?? null;
-    const prevStageId = c.stage_id, prevName = c.stage_name;
     setContacts((p) => p.map((x) => (x.id === c.id ? { ...x, stage_id: stageId || null, stage_name: name } : x)));
-    try {
-      await api.updateContact(c.id, { stage_id: stageId });
-      setToast(name ? `Stage updated to ${name}` : "Stage cleared");
-    } catch {
-      setContacts((p) => p.map((x) => (x.id === c.id ? { ...x, stage_id: prevStageId, stage_name: prevName } : x)));
-      setToast("Could not update stage");
-    }
+    stageEdit(c.id, { stage_id: stageId });
   }
-  async function setInterest(c: Contact, level: string) {
-    const prev = c.interest_level;
+  function setInterest(c: Contact, level: string) {
     setContacts((p) => p.map((x) => (x.id === c.id ? { ...x, interest_level: level || null } : x)));
-    try {
-      await api.updateContact(c.id, { interest_level: level });
-      setToast(level ? `Interest set to ${level}` : "Interest cleared");
-    } catch {
-      setContacts((p) => p.map((x) => (x.id === c.id ? { ...x, interest_level: prev } : x)));
-      setToast("Could not update interest");
-    }
+    stageEdit(c.id, { interest_level: level });
   }
-  async function reassignAgent(c: Contact, agentId: string | null) {
-    const prevAgentId = c.assigned_agent_id;
-    const prevAgentName = c.agent_name;
+  function reassignAgent(c: Contact, agentId: string | null) {
     const newAgent = agentId ? agents.find((a) => a.id === agentId) : null;
     setContacts((p) => p.map((x) => (x.id === c.id ? { ...x, assigned_agent_id: agentId, agent_name: newAgent?.full_name || null } : x)));
-    try {
-      await api.updateContact(c.id, { assigned_agent_id: agentId || "" });
-      setToast(agentId ? `Assigned to ${newAgent?.full_name || "agent"}` : "Unassigned");
-    } catch {
-      setContacts((p) => p.map((x) => (x.id === c.id ? { ...x, assigned_agent_id: prevAgentId, agent_name: prevAgentName } : x)));
-      setToast("Could not reassign");
-    }
+    stageEdit(c.id, { assigned_agent_id: agentId });
+  }
+  async function saveEdits() {
+    const ids = Object.keys(pendingEdits);
+    if (ids.length === 0) return;
+    setSavingEdits(true);
+    const results = await Promise.allSettled(ids.map((id) => {
+      const e = pendingEdits[id];
+      const patch: Record<string, unknown> = {};
+      if (e.stage_id !== undefined) patch.stage_id = e.stage_id;
+      if (e.interest_level !== undefined) patch.interest_level = e.interest_level;
+      if (e.assigned_agent_id !== undefined) patch.assigned_agent_id = e.assigned_agent_id ?? "";
+      return api.updateContact(id, patch);
+    }));
+    setSavingEdits(false);
+    const failed = results.filter((r) => r.status === "rejected").length;
+    setPendingEdits({});
+    clearSel();
+    if (failed > 0) { setToast(`Saved with ${failed} error${failed === 1 ? "" : "s"}`); reload(); }
+    else setToast(`Saved ${ids.length} contact${ids.length === 1 ? "" : "s"}`);
+  }
+  function cancelEdits() {
+    setPendingEdits({});
+    clearSel();
+    reload(); // discard the optimistic changes, re-fetch server truth
   }
   // Lost / Spam are terminal outcomes (dispositions), mirroring the inbox stage menu.
   async function markOutcome(c: Contact, reason: string, category: "lost" | "spam", didPurchase = false) {
@@ -331,20 +346,22 @@ export default function ContactsPage() {
   }
   // Bulk stage / interest / agent via the dedicated endpoint, which routes each
   // change through the contact's conversation (attribution) when one exists.
-  async function bulkSet(set: { stage_id?: string; interest_level?: string; assigned_agent_id?: string }, label: string) {
+  // Bulk field-sets STAGE the change for every selected contact (optimistic +
+  // pendingEdits); the Save bar commits. Non-field bulk actions (blacklist,
+  // delete, add label, send template) stay immediate.
+  function bulkSet(set: { stage_id?: string; interest_level?: string; assigned_agent_id?: string }) {
     setBulkMenu(null);
-    setBulkBusy(true);
     const ids = [...selected];
-    try {
-      const res = await api.bulkUpdateContacts({ contact_ids: ids, set });
-      const skipped = res.skipped?.length || 0;
-      setToast(`${label} for ${res.updated} contact${res.updated === 1 ? "" : "s"}${skipped ? ` (${skipped} skipped)` : ""}`);
-      reload(); clearSel();
-    } catch {
-      setToast("Could not update selection");
-    } finally {
-      setBulkBusy(false);
-    }
+    const display: Partial<Contact> = {};
+    if (set.stage_id !== undefined) { display.stage_id = set.stage_id || null; display.stage_name = stages.find((s) => s.id === set.stage_id)?.name ?? null; }
+    if (set.interest_level !== undefined) display.interest_level = set.interest_level || null;
+    if (set.assigned_agent_id !== undefined) { display.assigned_agent_id = set.assigned_agent_id || null; display.agent_name = set.assigned_agent_id ? (agents.find((a) => a.id === set.assigned_agent_id)?.full_name || null) : null; }
+    setContacts((p) => p.map((c) => (selected.has(c.id) ? { ...c, ...display } : c)));
+    setPendingEdits((p) => {
+      const next = { ...p };
+      for (const id of ids) next[id] = { ...next[id], ...set };
+      return next;
+    });
   }
   async function toggleBlacklist(c: Contact) {
     const next = !c.blacklisted;
@@ -356,24 +373,34 @@ export default function ContactsPage() {
   const TH = ({ children, className }: { children?: React.ReactNode; className?: string }) =>
     <th className={cn("px-3 py-2 text-left text-[11px] font-bold uppercase tracking-wider text-muted-foreground whitespace-nowrap", className)}>{children}</th>;
 
-  // A compact bulk-action dropdown (Stage / Interest / Assign) in the selection bar.
+  // A compact bulk-action dropdown (Stage / Interest / Assign) in the selection
+  // bar. The menu is rendered in a portal positioned from the trigger's rect so
+  // it opens UPWARD and is never clipped by the bar's horizontal-scroll overflow.
   const bulkDropdown = (key: "stage" | "interest" | "agent", label: string,
     items: { label: string; value: string; dot?: string }[], onPick: (value: string) => void) => (
-    <div className="relative" onClick={(e) => e.stopPropagation()}>
-      <button onClick={() => setBulkMenu(bulkMenu === key ? null : key)} disabled={bulkBusy}
+    <div className="relative shrink-0">
+      <button
+        onClick={(e) => setBulkMenu(bulkMenu?.key === key ? null : { key, rect: e.currentTarget.getBoundingClientRect() })}
+        disabled={bulkBusy}
         className="inline-flex items-center gap-1.5 px-3 h-8 rounded-md border border-border bg-background text-[13px] font-medium hover:bg-muted disabled:opacity-50 outline-none transition-colors">
         {label}<ChevronDown className="w-3.5 h-3.5 text-muted-foreground" />
       </button>
-      {bulkMenu === key && (
-        <div className="absolute right-0 bottom-full mb-1 w-48 bg-popover border border-border rounded-lg shadow-xl z-50 py-1 animate-scale-in origin-bottom-right max-h-[50vh] overflow-auto">
-          {items.map((it) => (
-            <button key={it.value || "__none__"} onClick={() => onPick(it.value)}
-              className="w-full flex items-center gap-2 px-3 py-2 text-[13px] text-foreground hover:bg-muted outline-none">
-              {it.dot && <span className="w-2 h-2 rounded-full shrink-0" style={{ backgroundColor: it.dot }} />}
-              {it.label}
-            </button>
-          ))}
-        </div>
+      {bulkMenu?.key === key && createPortal(
+        <>
+          <div className="fixed inset-0 z-[60]" onClick={() => setBulkMenu(null)} />
+          <div
+            className="fixed z-[61] w-48 bg-popover border border-border rounded-lg shadow-xl py-1 max-h-[50vh] overflow-auto animate-scale-in origin-bottom"
+            style={{ left: Math.max(8, bulkMenu.rect.right - 192), bottom: window.innerHeight - bulkMenu.rect.top + 6 }}>
+            {items.map((it) => (
+              <button key={it.value || "__none__"} onClick={() => { onPick(it.value); setBulkMenu(null); }}
+                className="w-full flex items-center gap-2 px-3 py-2 text-[13px] text-foreground hover:bg-muted outline-none">
+                {it.dot && <span className="w-2 h-2 rounded-full shrink-0" style={{ backgroundColor: it.dot }} />}
+                {it.label}
+              </button>
+            ))}
+          </div>
+        </>,
+        document.body,
       )}
     </div>
   );
@@ -441,7 +468,7 @@ export default function ContactsPage() {
 
         {/* Bulk action bar — floating, sticky at the bottom-center */}
         {selected.size > 0 && (
-          <div className="pointer-events-none fixed inset-x-0 bottom-6 z-40 flex justify-center px-4">
+          <div className={`pointer-events-none fixed inset-x-0 z-40 flex justify-center px-4 ${editCount > 0 ? "bottom-[84px]" : "bottom-6"}`}>
             <div className="pointer-events-auto flex items-center gap-1 max-w-[calc(100vw-2rem)] overflow-x-auto rounded-xl border border-border bg-popover/95 backdrop-blur px-2 py-2 shadow-2xl ring-1 ring-black/5 animate-toast-in">
               <div className="flex items-center gap-2 pl-1.5 pr-2 shrink-0">
                 <span className="inline-flex items-center justify-center min-w-[22px] h-[22px] px-1.5 rounded-full bg-primary text-white text-[12px] font-bold tabular-nums">{selected.size}</span>
@@ -450,13 +477,13 @@ export default function ContactsPage() {
               <div className="w-px h-6 bg-border mx-0.5 shrink-0" />
               {canEdit && stages.length > 0 && bulkDropdown("stage", t("contacts.stage"),
                 stages.map((s) => ({ label: s.name, value: s.id })),
-                (id) => bulkSet({ stage_id: id }, `Stage set to ${stages.find((s) => s.id === id)?.name || "stage"}`))}
+                (id) => bulkSet({ stage_id: id }))}
               {canEdit && bulkDropdown("interest", t("contacts.interest"),
                 [{ label: "Hot", value: "hot", dot: interestColor("hot") }, { label: "Warm", value: "warm", dot: interestColor("warm") }, { label: "Cold", value: "cold", dot: interestColor("cold") }],
-                (v) => bulkSet({ interest_level: v }, `Interest set to ${v}`))}
+                (v) => bulkSet({ interest_level: v }))}
               {showAgentFilter && bulkDropdown("agent", t("contacts.agent"),
                 [{ label: t("common.unassigned"), value: "" }, ...agents.map((a) => ({ label: a.full_name, value: a.id }))],
-                (v) => bulkSet({ assigned_agent_id: v }, v ? `Assigned to ${agents.find((a) => a.id === v)?.full_name || "agent"}` : "Unassigned"))}
+                (v) => bulkSet({ assigned_agent_id: v }))}
               {canInitiate && <button onClick={() => setTplOpen(true)} disabled={bulkBusy} className="inline-flex items-center gap-1.5 px-3 h-8 rounded-md border border-border text-[13px] font-medium hover:bg-muted disabled:opacity-50 shrink-0"><Send className="w-3.5 h-3.5" />Send Template</button>}
               {canEdit && <button onClick={bulkLabel} disabled={bulkBusy} className="inline-flex items-center gap-1.5 px-3 h-8 rounded-md border border-border text-[13px] font-medium hover:bg-muted disabled:opacity-50 shrink-0"><TagIcon className="w-3.5 h-3.5" />{t("contacts.addLabel")}</button>}
               {canEdit && <button onClick={bulkBlacklist} disabled={bulkBusy} className="inline-flex items-center gap-1.5 px-3 h-8 rounded-md border border-border text-[13px] font-medium hover:bg-muted disabled:opacity-50 shrink-0"><Ban className="w-3.5 h-3.5" />{t("contacts.blacklist")}</button>}
@@ -662,6 +689,7 @@ export default function ContactsPage() {
       {toast && <Toast msg={toast} onClose={() => setToast(null)} />}
       {ConfirmHost}
       {PromptHost}
+      <UnsavedBar count={editCount} saving={savingEdits} onSave={saveEdits} onCancel={cancelEdits} saveLabel="Save changes" />
     </div>
   );
 }
