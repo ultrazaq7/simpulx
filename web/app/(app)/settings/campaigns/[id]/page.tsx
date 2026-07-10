@@ -1,14 +1,15 @@
 "use client";
 import { useEffect, useMemo, useRef, useState } from "react";
 import { useParams, useRouter, useSearchParams } from "next/navigation";
-import { ArrowLeft, Loader2, Coins, Sparkles, BarChart3, Database, Upload, Trash2 } from "lucide-react";
+import { ArrowLeft, Loader2, Coins, Sparkles, BarChart3, Database, Upload, Trash2, Download, ChevronDown, FileText, FileSpreadsheet } from "lucide-react";
 import * as XLSX from "xlsx";
-import { AreaChart, Area, XAxis, YAxis, CartesianGrid, Tooltip as RTooltip, ResponsiveContainer } from "recharts";
+import { AreaChart, Area, XAxis, YAxis, CartesianGrid, Tooltip as RTooltip, ResponsiveContainer, PieChart, Pie, Cell } from "recharts";
 import { api } from "@/lib/api";
 import { Select } from "@/components/Select";
 import DateRangeFilter, { presetRange } from "@/components/DateRangeFilter";
+import { IndonesiaMap } from "@/components/IndonesiaMap";
 import { cn, fmtDuration } from "@/lib/utils";
-import type { CampaignDetail, CampaignAnalyticsRow, CatalogItem, AdPerformance } from "@/lib/types";
+import type { CampaignDetail, CampaignAnalyticsRow, CatalogItem, AdPerformance, AdBreakdown } from "@/lib/types";
 import { useToast, PageBody, FieldLabel, INPUT_CLASS } from "../../_shared";
 import UnsavedBar from "@/components/UnsavedBar";
 
@@ -93,6 +94,87 @@ const money = (n: number) => "Rp " + Math.round(n).toLocaleString("id-ID");
 const num = (n: number) => Math.round(n).toLocaleString("id-ID");
 const pctFmt = (n: number) => n.toFixed(2) + "%";
 
+function toCsv(rows: (string | number)[][]): string {
+  return rows.map((r) => r.map((c) => {
+    const s = String(c);
+    return /[",\n]/.test(s) ? `"${s.replace(/"/g, '""')}"` : s;
+  }).join(",")).join("\n");
+}
+function downloadCsv(name: string, csv: string) {
+  const blob = new Blob(["﻿" + csv], { type: "text/csv;charset=utf-8" });
+  const url = URL.createObjectURL(blob);
+  const a = document.createElement("a");
+  a.href = url; a.download = name; a.click();
+  URL.revokeObjectURL(url);
+}
+
+const DONUT_COLORS = ["#2D8B73", "#6366F1", "#F97316", "#A5B4FC", "#8B5E34", "#14B8A6", "#EAB308", "#EC4899"];
+
+type BreakdownMetric = "reach" | "impressions" | "results";
+
+// Age / gender donut from Meta demographic breakdowns. One metric (reach, else
+// impressions, else results) drives the whole chart so shares always match.
+function Donut({ title, data }: { title: string; data?: AdBreakdown[] }) {
+  const rows = (data || []).filter((r) => (r.value || "").toLowerCase() !== "unknown");
+  const sum = (k: BreakdownMetric) => rows.reduce((a, b) => a + (b[k] || 0), 0);
+  const metric: BreakdownMetric = sum("reach") > 0 ? "reach" : sum("impressions") > 0 ? "impressions" : "results";
+  const total = sum(metric);
+  const chart = rows
+    .map((b, i) => ({ name: b.value, value: b[metric] || 0, color: DONUT_COLORS[i % DONUT_COLORS.length] }))
+    .filter((x) => x.value > 0)
+    .sort((a, b) => b.value - a.value);
+  return (
+    <div className="rounded-xl border border-border p-4">
+      <p className="text-[13px] font-semibold text-foreground mb-2">{title}</p>
+      {chart.length === 0 ? (
+        <div className="h-[160px] grid place-items-center text-[13px] text-muted-foreground">No demographic data yet</div>
+      ) : (
+        <div className="flex items-center gap-4">
+          <div className="w-[42%] shrink-0 h-[160px]">
+            <ResponsiveContainer width="100%" height="100%">
+              <PieChart>
+                <Pie data={chart} dataKey="value" nameKey="name" innerRadius={42} outerRadius={66} paddingAngle={2} stroke="none">
+                  {chart.map((c) => <Cell key={c.name} fill={c.color} />)}
+                </Pie>
+                <RTooltip />
+              </PieChart>
+            </ResponsiveContainer>
+          </div>
+          <div className="flex-1 space-y-1 min-w-0">
+            {chart.map((c) => (
+              <div key={c.name} className="flex items-center gap-2 text-[12px]">
+                <span className="w-2.5 h-2.5 rounded-full shrink-0" style={{ backgroundColor: c.color }} />
+                <span className="flex-1 truncate text-foreground/90 capitalize">{c.name}</span>
+                <span className="tabular-nums font-semibold text-foreground">{total > 0 ? ((c.value / total) * 100).toFixed(1) : 0}%</span>
+              </div>
+            ))}
+          </div>
+        </div>
+      )}
+    </div>
+  );
+}
+
+// Province-level location performance on the Indonesia choropleth.
+function LocationPanel({ data }: { data?: AdBreakdown[] }) {
+  const rows = (data || []).filter((r) => (r.value || "").toLowerCase() !== "unknown");
+  const sumResults = rows.reduce((a, b) => a + (b.results || 0), 0);
+  const sumImpr = rows.reduce((a, b) => a + (b.impressions || 0), 0);
+  const metric: "results" | "impressions" = sumResults > 0 ? "results" : "impressions";
+  const ranked = rows
+    .map((b) => ({ name: b.value, value: b[metric] || 0 }))
+    .filter((x) => x.value > 0)
+    .sort((a, b) => b.value - a.value)
+    .slice(0, 12);
+  if (ranked.length === 0 || sumImpr === 0) return null;
+  return (
+    <div className="rounded-xl border border-border p-4">
+      <p className="text-[13px] font-semibold text-foreground mb-3">Top locations {metric === "results" ? "(leads)" : "(reach)"}</p>
+      <IndonesiaMap points={ranked} />
+    </div>
+  );
+}
+
 // Per-campaign report: reuses the lead analytics + ad-performance scoped to this
 // campaign to render the Heroleads-style campaign report (ad funnel, source
 // performance table, and leads over time).
@@ -100,6 +182,7 @@ function OverviewTab({ id }: { id: string }) {
   const [row, setRow] = useState<CampaignAnalyticsRow | null>(null);
   const [perf, setPerf] = useState<AdPerformance | null>(null);
   const [loading, setLoading] = useState(true);
+  const [exportOpen, setExportOpen] = useState(false);
   const [dateRange, setDateRange] = useState("30d");
   const [fFrom, setFFrom] = useState(() => presetRange("30d").from);
   const [fTo, setFTo] = useState(() => presetRange("30d").to);
@@ -132,12 +215,44 @@ function OverviewTab({ id }: { id: string }) {
     { label: "Cost / lead", value: tot.leads > 0 ? money(cpl) : "-", accent: "text-foreground" },
   ];
 
+  const exportCsv = () => {
+    const header = ["Source", "Cost", "Impressions", "Clicks", "CTR", "CPC", "Leads", "CPL"];
+    const body = sources.map((s) => {
+      const sCtr = s.impressions > 0 ? (s.clicks / s.impressions) * 100 : 0;
+      const sCpc = s.clicks > 0 ? s.spend / s.clicks : 0;
+      const sCpl = s.leads > 0 ? s.spend / s.leads : 0;
+      return [s.label, Math.round(s.spend), s.impressions, s.clicks, sCtr.toFixed(2) + "%", s.clicks > 0 ? Math.round(sCpc) : "-", s.leads, s.leads > 0 ? Math.round(sCpl) : "-"];
+    });
+    const total = ["Grand total", Math.round(tot.spend), tot.impressions, tot.clicks, ctr.toFixed(2) + "%", tot.clicks > 0 ? Math.round(cpc) : "-", tot.leads, tot.leads > 0 ? Math.round(cpl) : "-"];
+    downloadCsv(`campaign-report-${dateRange}.csv`, toCsv([header, ...body, total]));
+  };
+  // TODO: replace with the server-side headless-Chromium print route for a
+  // pixel-exact, multi-page PDF. Browser print-to-PDF is the interim.
+  const exportPdf = () => window.print();
+
   return (
     <div className="flex flex-col gap-5">
       <div className="flex items-center justify-between flex-wrap gap-2">
         <p className="text-[13px] font-semibold text-foreground">Campaign report</p>
-        <DateRangeFilter value={{ preset: dateRange, from: fFrom, to: fTo }} align="right"
-          onChange={(v) => { setDateRange(v.preset); setFFrom(v.from); setFTo(v.to); }} />
+        <div className="flex items-center gap-2">
+          <div className="relative">
+            <button onClick={() => setExportOpen((o) => !o)} disabled={sources.length === 0}
+              className="inline-flex items-center gap-1.5 h-9 px-3 rounded-md border border-border bg-background text-[13px] font-medium text-foreground hover:bg-muted disabled:opacity-50 outline-none transition-colors">
+              <Download className="w-4 h-4" /> Export <ChevronDown className="w-3.5 h-3.5 text-muted-foreground" />
+            </button>
+            {exportOpen && (
+              <>
+                <div className="fixed inset-0 z-40" onClick={() => setExportOpen(false)} />
+                <div className="absolute right-0 top-full mt-1 w-40 bg-popover border border-border rounded-lg shadow-xl z-50 py-1 animate-scale-in origin-top-right">
+                  <button onClick={() => { setExportOpen(false); exportPdf(); }} className="w-full flex items-center gap-2 px-3 py-2 text-[13px] text-foreground hover:bg-muted outline-none"><FileText className="w-4 h-4 text-muted-foreground" /> PDF</button>
+                  <button onClick={() => { setExportOpen(false); exportCsv(); }} className="w-full flex items-center gap-2 px-3 py-2 text-[13px] text-foreground hover:bg-muted outline-none"><FileSpreadsheet className="w-4 h-4 text-muted-foreground" /> CSV</button>
+                </div>
+              </>
+            )}
+          </div>
+          <DateRangeFilter value={{ preset: dateRange, from: fFrom, to: fTo }} align="right"
+            onChange={(v) => { setDateRange(v.preset); setFFrom(v.from); setFTo(v.to); }} />
+        </div>
       </div>
 
       {/* Ad funnel KPIs */}
@@ -236,6 +351,17 @@ function OverviewTab({ id }: { id: string }) {
           </div>
         </div>
       )}
+
+      {/* Demographics */}
+      {((perf?.age?.length ?? 0) > 0 || (perf?.gender?.length ?? 0) > 0) && (
+        <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+          <Donut title="Age" data={perf?.age} />
+          <Donut title="Gender" data={perf?.gender} />
+        </div>
+      )}
+
+      {/* Location */}
+      <LocationPanel data={perf?.region} />
     </div>
   );
 }
