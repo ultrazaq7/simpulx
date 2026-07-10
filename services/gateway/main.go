@@ -275,6 +275,9 @@ func main() {
 	mux.HandleFunc("PATCH /api/ad-accounts/{id}", s.requireAuth(s.gate("manage_channels", s.handlePatchAdAccount)))
 	mux.HandleFunc("DELETE /api/ad-accounts/{id}", s.requireAuth(s.gate("manage_channels", s.handleDeleteAdAccount)))
 	mux.HandleFunc("POST /api/ad-accounts/{id}/sync", s.requireAuth(s.gate("manage_channels", s.handleSyncAdAccount)))
+	mux.HandleFunc("GET /api/ga4-connections", s.requireAuth(s.handleListGa4Connections))
+	mux.HandleFunc("POST /api/ga4-connections", s.requireAuth(s.gate("manage_channels", s.handleCreateGa4Connection)))
+	mux.HandleFunc("DELETE /api/ga4-connections/{id}", s.requireAuth(s.gate("manage_channels", s.handleDeleteGa4Connection)))
 	mux.HandleFunc("GET /api/ad-campaigns", s.requireAuth(s.handleListAdCampaigns))
 	mux.HandleFunc("PATCH /api/ad-campaigns/{id}", s.requireAuth(s.gate("manage_channels", s.handlePatchAdCampaign)))
 	mux.HandleFunc("GET /api/ad-performance", s.requireAuth(s.handleAdPerformance))
@@ -333,6 +336,7 @@ func main() {
 	mux.HandleFunc("PATCH /api/campaigns/{id}", s.requireAuth(s.gate("manage_campaigns", s.handleUpdateCampaign)))
 	mux.HandleFunc("DELETE /api/campaigns/{id}", s.requireAuth(s.gate("manage_campaigns", s.handleDeleteCampaign)))
 	// Branches (sub-units of a campaign / branch-group).
+	mux.HandleFunc("GET /api/campaigns/{id}/ga4", s.requireAuth(s.handleCampaignGa4Report))
 	mux.HandleFunc("GET /api/campaigns/{id}/branches", s.requireAuth(s.handleListBranches))
 	mux.HandleFunc("POST /api/campaigns/{id}/branches", s.requireAuth(s.gate("manage_campaigns", s.handleCreateBranch)))
 	mux.HandleFunc("PATCH /api/branches/{id}", s.requireAuth(s.gate("manage_campaigns", s.handleUpdateBranch)))

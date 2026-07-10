@@ -9,7 +9,7 @@ import { Select } from "@/components/Select";
 import DateRangeFilter, { presetRange } from "@/components/DateRangeFilter";
 import { IndonesiaMap } from "@/components/IndonesiaMap";
 import { cn, fmtDuration } from "@/lib/utils";
-import type { CampaignDetail, CampaignAnalyticsRow, CatalogItem, AdPerformance, AdBreakdown } from "@/lib/types";
+import type { CampaignDetail, CampaignAnalyticsRow, CatalogItem, AdPerformance, AdBreakdown, Ga4Report } from "@/lib/types";
 import { useToast, PageBody, FieldLabel, INPUT_CLASS } from "../../_shared";
 import UnsavedBar from "@/components/UnsavedBar";
 
@@ -171,6 +171,128 @@ function LocationPanel({ data }: { data?: AdBreakdown[] }) {
     <div className="rounded-xl border border-border p-4">
       <p className="text-[13px] font-semibold text-foreground mb-3">Top locations {metric === "results" ? "(leads)" : "(reach)"}</p>
       <IndonesiaMap points={ranked} />
+    </div>
+  );
+}
+
+const pct01 = (n: number) => (n * 100).toFixed(2) + "%";
+const fmtSec = (s: number) => {
+  const m = Math.floor(s / 60);
+  const sec = Math.round(s % 60);
+  return `${m}:${String(sec).padStart(2, "0")}`;
+};
+
+// GA4 landing-page performance. Fetches the campaign's GA4 report; if no property
+// is connected it shows an inline connect form (property id + OAuth refresh token
+// with the analytics.readonly scope), mapping the property to this campaign.
+function Ga4Panel({ campaignId, from, to }: { campaignId: string; from: string; to: string }) {
+  const [report, setReport] = useState<Ga4Report | null>(null);
+  const [loading, setLoading] = useState(true);
+  const [showForm, setShowForm] = useState(false);
+  const [propertyId, setPropertyId] = useState("");
+  const [refreshToken, setRefreshToken] = useState("");
+  const [busy, setBusy] = useState(false);
+  const [nonce, setNonce] = useState(0);
+
+  useEffect(() => {
+    setLoading(true);
+    let alive = true;
+    api.getCampaignGa4(campaignId, from || undefined, to || undefined)
+      .then((r) => { if (alive) setReport(r); })
+      .catch(() => { if (alive) setReport(null); })
+      .finally(() => { if (alive) setLoading(false); });
+    return () => { alive = false; };
+  }, [campaignId, from, to, nonce]);
+
+  async function connect() {
+    if (!propertyId.trim() || !refreshToken.trim()) return;
+    setBusy(true);
+    try {
+      await api.createGa4Connection({ property_id: propertyId.trim(), refresh_token: refreshToken.trim(), campaign_id: campaignId });
+      setShowForm(false); setPropertyId(""); setRefreshToken(""); setNonce((n) => n + 1);
+    } catch { /* surfaced via reload */ }
+    finally { setBusy(false); }
+  }
+
+  const t = report?.totals;
+  const tiles = t ? [
+    { label: "Total users", value: num(t.total_users) },
+    { label: "Active users", value: num(t.active_users) },
+    { label: "New users", value: num(t.new_users) },
+    { label: "Sessions", value: num(t.sessions) },
+    { label: "Engaged sessions", value: num(t.engaged_sessions) },
+    { label: "Engagement rate", value: pct01(t.engagement_rate) },
+    { label: "Avg engagement", value: fmtSec(t.avg_engagement_sec) },
+    { label: "Views", value: num(t.views) },
+  ] : [];
+
+  return (
+    <div className="rounded-xl border border-border p-4">
+      <div className="flex items-center justify-between mb-3">
+        <p className="text-[13px] font-semibold text-foreground">Landing page performance <span className="text-muted-foreground font-normal">· GA4</span></p>
+        {report?.connected && !showForm && (
+          <button onClick={() => setShowForm(true)} className="text-[12px] font-semibold text-primary hover:underline outline-none">Reconnect</button>
+        )}
+      </div>
+
+      {loading ? (
+        <div className="h-24 grid place-items-center"><Loader2 className="w-5 h-5 animate-spin text-muted-foreground" /></div>
+      ) : (!report?.connected || showForm) ? (
+        <div className="rounded-lg border border-dashed border-border p-5 text-center">
+          <p className="text-[13px] font-semibold text-foreground">Connect Google Analytics 4</p>
+          <p className="text-[12px] text-muted-foreground mt-1 mb-3">Show landing-page sessions, engagement and users for this campaign.</p>
+          {showForm || !report?.connected ? (
+            <div className="max-w-[420px] mx-auto flex flex-col gap-2 text-left">
+              <input value={propertyId} onChange={(e) => setPropertyId(e.target.value)} placeholder="GA4 property ID (e.g. 123456789)" className={INPUT_CLASS} />
+              <input value={refreshToken} onChange={(e) => setRefreshToken(e.target.value)} placeholder="OAuth refresh token (analytics.readonly)" className={INPUT_CLASS} />
+              <div className="flex justify-end gap-2 mt-1">
+                {showForm && <button onClick={() => setShowForm(false)} className="px-3.5 h-9 rounded-md border border-border text-[13px] font-medium hover:bg-muted outline-none">Cancel</button>}
+                <button onClick={connect} disabled={busy || !propertyId.trim() || !refreshToken.trim()} className="inline-flex items-center gap-1.5 px-3.5 h-9 rounded-md bg-primary text-white text-[13px] font-semibold hover:bg-primary-dark disabled:opacity-50 outline-none">
+                  {busy && <Loader2 className="w-4 h-4 animate-spin" />} Connect
+                </button>
+              </div>
+              {report?.error && <p className="text-[12px] text-destructive">{report.error}</p>}
+            </div>
+          ) : null}
+        </div>
+      ) : report.error ? (
+        <p className="text-[13px] text-destructive">{report.error}</p>
+      ) : (
+        <>
+          <div className="grid grid-cols-2 sm:grid-cols-4 gap-3 mb-4">
+            {tiles.map((x) => (
+              <div key={x.label} className="rounded-lg border border-border bg-card p-3">
+                <p className="text-lg font-bold tabular-nums text-foreground">{x.value}</p>
+                <p className="text-[11.5px] text-muted-foreground mt-0.5">{x.label}</p>
+              </div>
+            ))}
+          </div>
+          <div className="overflow-x-auto">
+            <table className="w-full text-[13px] whitespace-nowrap">
+              <thead>
+                <tr className="border-b border-border text-muted-foreground text-[11px] uppercase tracking-wider">
+                  {["Landing page", "Views", "Sessions", "New users", "Engagement"].map((h, i) => (
+                    <th key={h} className={cn("px-3 py-2 font-bold", i === 0 ? "text-left" : "text-right")}>{h}</th>
+                  ))}
+                </tr>
+              </thead>
+              <tbody>
+                {report.rows.length === 0 ? (
+                  <tr><td colSpan={5} className="px-3 py-6 text-center text-muted-foreground">No landing-page data in this range</td></tr>
+                ) : report.rows.map((r, i) => (
+                  <tr key={i} className="border-b border-border/60">
+                    <td className="px-3 py-2 max-w-[280px] truncate text-foreground" title={r.landing_page}>{r.landing_page || "(not set)"}</td>
+                    <td className="px-3 py-2 text-right tabular-nums">{num(r.views)}</td>
+                    <td className="px-3 py-2 text-right tabular-nums">{num(r.sessions)}</td>
+                    <td className="px-3 py-2 text-right tabular-nums">{num(r.new_users)}</td>
+                    <td className="px-3 py-2 text-right tabular-nums">{pct01(r.engagement_rate)}</td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          </div>
+        </>
+      )}
     </div>
   );
 }
@@ -362,6 +484,11 @@ function OverviewTab({ id }: { id: string }) {
 
       {/* Location */}
       <LocationPanel data={perf?.region} />
+
+      {/* GA4 landing-page performance */}
+      <Ga4Panel campaignId={id}
+        from={dateRange === "custom" ? fFrom : presetRange(dateRange).from}
+        to={dateRange === "custom" ? fTo : presetRange(dateRange).to} />
     </div>
   );
 }

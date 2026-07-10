@@ -378,6 +378,25 @@ export interface AdPerformance {
   region?: AdBreakdown[];
 }
 
+// GA4 landing-page performance (from the GA4 Data API).
+export interface Ga4Row {
+  landing_page: string;
+  sessions: number;
+  engaged_sessions: number;
+  engagement_rate: number;   // 0..1
+  avg_engagement_sec: number;
+  views: number;
+  total_users: number;
+  active_users: number;
+  new_users: number;
+}
+export interface Ga4Report {
+  connected: boolean;
+  error?: string;
+  rows: Ga4Row[];
+  totals?: Omit<Ga4Row, "landing_page">;
+}
+
 export interface Channel {
   id: string;
   type: string;            // whatsapp | messenger | instagram | telegram | ...
