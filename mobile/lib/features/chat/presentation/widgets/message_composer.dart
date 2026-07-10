@@ -111,6 +111,7 @@ class _MessageComposerState extends ConsumerState<MessageComposer> {
             backgroundColor: bg,
             buttonColor: AppColors.primary,
             buttonIconColor: Colors.white,
+            showSearchViewButton: false,
           ),
         ),
       ),
