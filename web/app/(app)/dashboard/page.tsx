@@ -1,5 +1,5 @@
 "use client";
-import { useEffect, useState, useMemo, useRef, useCallback } from "react";
+import { useEffect, useState, useMemo, useRef, useCallback, useId } from "react";
 import Link from "next/link";
 import {
   AreaChart, Area, XAxis, YAxis, CartesianGrid, Tooltip as RechartsTooltip,
@@ -9,7 +9,7 @@ import {
   BarChart3, MessageSquare, Inbox, Flame, Timer,
   TrendingDown, ChevronRight, ChevronsLeft, Zap, Mail, Reply, Trophy, Ban,
   CircleDollarSign, MousePointerClick, Spotlight, Target, Eye, Filter as FilterIcon,
-  Image as ImageIcon, MapPin, Percent,
+  Image as ImageIcon, MapPin, Percent, ArrowUpRight, ArrowDownRight,
   Download, FileText, FileSpreadsheet, ChevronDown,
 } from "lucide-react";
 
@@ -152,28 +152,58 @@ function Card({ title, subtitle, icon: Icon, iconColor, children, className, act
   );
 }
 
-// Premium KPI tile: colored accent bar + tinted icon chip + corner glow + big number.
-// Replaces the old flat, hairline-divided metric strip. Used by Overview + Ads Report.
-function StatCard({ label, value, Icon, color, href }: {
-  label: string; value: string | number; Icon: any; color: string; href?: string;
-}) {
-  const card = (
-    <div className="group relative overflow-hidden rounded-xl border border-border bg-card shadow-sm hover:shadow-md hover:-translate-y-0.5 transition-all duration-200">
-      <div className="absolute inset-x-0 top-0 h-[3px]" style={{ background: color }} />
-      <div className="absolute -right-7 -top-7 w-24 h-24 rounded-full" style={{ background: color, opacity: 0.07 }} />
-      <div className="relative p-4">
-        <div className="flex items-center justify-between mb-3">
-          <div className="w-10 h-10 rounded-lg grid place-items-center shrink-0" style={{ background: color + "1A" }}>
-            <Icon className="w-5 h-5" style={{ color }} />
-          </div>
-          {href && <ChevronRight className="w-4 h-4 text-muted-foreground/40 group-hover:text-foreground group-hover:translate-x-0.5 transition-all" />}
-        </div>
-        <p className="text-[10.5px] font-bold uppercase tracking-wider text-muted-foreground truncate">{label}</p>
-        <p className="text-[24px] font-extrabold text-foreground leading-none tabular-nums mt-1.5 truncate">{value}</p>
-      </div>
+// Tiny area sparkline for a KPI card (real series only; no fabrication).
+function Sparkline({ data, color }: { data: number[]; color: string }) {
+  const id = useId().replace(/[:]/g, "");
+  if (!data || data.length < 2) return <div className="h-10 mt-2" />;
+  const d = data.map((v, i) => ({ i, v }));
+  return (
+    <div className="h-10 mt-2 -mx-1">
+      <ResponsiveContainer width="100%" height="100%">
+        <AreaChart data={d} margin={{ top: 4, right: 2, left: 2, bottom: 0 }}>
+          <defs>
+            <linearGradient id={`spark-${id}`} x1="0" y1="0" x2="0" y2="1">
+              <stop offset="0%" stopColor={color} stopOpacity={0.22} />
+              <stop offset="100%" stopColor={color} stopOpacity={0} />
+            </linearGradient>
+          </defs>
+          <Area type="monotone" dataKey="v" stroke={color} strokeWidth={1.75} fill={`url(#spark-${id})`} dot={false} isAnimationActive={false} />
+        </AreaChart>
+      </ResponsiveContainer>
     </div>
   );
-  return href ? <Link href={href} className="block outline-none rounded-xl">{card}</Link> : card;
+}
+
+// KPI tile matching the reference dashboard: icon chip + label, big value, trend delta,
+// and a mini sparkline (rendered only when a real daily series exists). Clean white card.
+function StatCard({ label, value, Icon, color, href, series, delta }: {
+  label: string; value: string | number; Icon: any; color: string; href?: string;
+  series?: number[]; delta?: { pct: number; note: string } | null;
+}) {
+  const up = delta ? delta.pct >= 0 : false;
+  const card = (
+    <div className="group rounded-2xl border border-border bg-card p-4 hover:shadow-md transition-shadow">
+      <div className="flex items-center justify-between gap-2">
+        <div className="flex items-center gap-2.5 min-w-0">
+          <div className="w-9 h-9 rounded-xl grid place-items-center shrink-0" style={{ background: color + "14" }}>
+            <Icon className="w-[18px] h-[18px]" style={{ color }} />
+          </div>
+          <span className="text-[11px] font-semibold uppercase tracking-wide text-muted-foreground truncate">{label}</span>
+        </div>
+        {href && <ChevronRight className="w-4 h-4 text-muted-foreground/40 group-hover:text-foreground transition-colors shrink-0" />}
+      </div>
+      <p className="text-[26px] font-extrabold text-foreground leading-none tabular-nums mt-3 truncate">{value}</p>
+      {delta ? (
+        <p className={cn("mt-1.5 text-[11px] font-medium flex items-center gap-1", up ? "text-emerald-600" : "text-red-500")}>
+          {up ? <ArrowUpRight className="w-3.5 h-3.5" /> : <ArrowDownRight className="w-3.5 h-3.5" />}
+          <span className="font-bold">{Math.abs(delta.pct)}%</span>
+          <span className="text-muted-foreground font-normal">{delta.note}</span>
+        </p>
+      ) : <div className="mt-1.5 h-4" />}
+      <Sparkline data={series || []} color={color} />
+    </div>
+  );
+  return href ? <Link href={href} className="block outline-none rounded-2xl">{card}</Link> : card;
 }
 
 // Responsive grid for a row of StatCards.
@@ -610,6 +640,15 @@ function ManagerDashboard() {
   const funnel = analytics?.funnel;
   const agents = analytics?.agents || [];
   const chartData = buildChartData(analytics, true); // all days; bounded by the date filter when applied
+  // Real daily series for KPI sparklines (no fabrication) + a same-vs-previous delta.
+  const dLeads = (analytics?.daily || []).map((d) => d.leads);
+  const dReplied = (analytics?.daily || []).map((d) => d.replied);
+  const seriesDelta = (s?: number[]): { pct: number; note: string } | null => {
+    if (!s || s.length < 2) return null;
+    const prev = s[s.length - 2], last = s[s.length - 1];
+    if (prev === 0) return last > 0 ? { pct: 100, note: "vs prev day" } : null;
+    return { pct: Math.round(((last - prev) / prev) * 100), note: "vs prev day" };
+  };
 
   const reportNav = [{ key: "overview" as const, label: "Overview" }, { key: "marketing" as const, label: "Ads Report" }, { key: "creatives" as const, label: "Creative Insights" }];
 
@@ -700,7 +739,10 @@ function ManagerDashboard() {
             else if (m.key === "won") val = analytics?.funnel?.won ?? 0;
             else if (m.key === "avg_rt") val = analytics?.response_time?.avg_min ?? 0;
             else val = (stats as any)[m.key] ?? 0;
-            return <StatCard key={m.key} label={m.label} value={m.fmt ? m.fmt(val) : val} Icon={m.Icon} color={m.color} href={m.href ? metricHref(m.href) : undefined} />;
+            // Sparkline + delta only where a real daily series exists (leads, replied).
+            const series = m.key === "total_leads" ? dLeads : m.key === "replied" ? dReplied : undefined;
+            return <StatCard key={m.key} label={m.label} value={m.fmt ? m.fmt(val) : val} Icon={m.Icon} color={m.color}
+              href={m.href ? metricHref(m.href) : undefined} series={series} delta={seriesDelta(series)} />;
           })}
         </StatGrid>
 
