@@ -19,10 +19,11 @@ import { MultiSelect } from "@/components/ui/multi-select";
 import { IndonesiaMap } from "@/components/IndonesiaMap";
 import { Tip } from "@/components/ui/tooltip";
 import { lostReasonLabel } from "@/app/(app)/inbox/components/LostReasonDialog";
-import type { Stats, Analytics, DashboardCards, AdPerformance, AdKeyword, AdBreakdown, Channel, Campaign, Agent } from "@/lib/types";
+import type { Stats, Analytics, DashboardCards, AdPerformance, AdKeyword, AdBreakdown, Channel, Campaign, Agent, Conversation, Ga4Report } from "@/lib/types";
 import { cn, fmtDuration, stageLabel } from "@/lib/utils";
 import { useI18n } from "@/lib/i18n";
 import DateRangeFilter, { presetRange } from "@/components/DateRangeFilter";
+import { AdsReportView } from "@/app/report/ads/AdsReportView";
 
 type Metric = {
   key: string; label: string; Icon: any; color: string;
@@ -989,6 +990,9 @@ function MarketingAnalytics() {
   const [accounts, setAccounts] = useState<{ id: string; name?: string | null }[]>([]);
   const [perf, setPerf] = useState<AdPerformance | null>(null);
   const [keywords, setKeywords] = useState<AdKeyword[]>([]);
+  const [leads, setLeads] = useState<Conversation[]>([]);
+  const [ga4, setGa4] = useState<Ga4Report | null>(null);
+  const [camps, setCamps] = useState<Campaign[]>([]);
   const [exportOpen, setExportOpen] = useState(false);
   const [currency, setCurrency] = useState("");
   const [platforms, setPlatforms] = useState<string[]>([]);
@@ -1002,10 +1006,16 @@ function MarketingAnalytics() {
       api.adPerformance(from || undefined, to || undefined, campaignFilter.length ? campaignFilter : undefined, sourceFilter.length ? sourceFilter : undefined, accountFilter.length ? accountFilter : undefined).catch(() => null),
       api.listAdAccounts().catch(() => []),
       api.adKeywords(from || undefined, to || undefined).catch(() => []),
-    ]).then(([p, accts, kws]) => {
+      api.listConversations("", from || "", to || "", "", "").catch(() => []),
+      api.getOrgGa4(from || undefined, to || undefined).catch(() => null),
+      api.listCampaigns().catch(() => []),
+    ]).then(([p, accts, kws, lds, g, cps]) => {
       if (!alive) return;
       setPerf(p as AdPerformance | null);
       setKeywords((kws as AdKeyword[]) || []);
+      setLeads((lds as Conversation[]) || []);
+      setGa4(g as Ga4Report | null);
+      setCamps((cps as Campaign[]) || []);
       const a = (accts as { id: string; name?: string | null; currency?: string | null; platform?: string | null }[]) || [];
       setAccounts(a);
       setHasAccounts(a.length > 0);
@@ -1055,6 +1065,8 @@ function MarketingAnalytics() {
   const cpl = t.leads > 0 ? t.spend / t.leads : 0;
   const cpa = t.sales > 0 ? t.spend / t.sales : 0;
   const convRate = t.leads > 0 ? (t.sales / t.leads) * 100 : 0;
+  const { from: rFrom, to: rTo } = dateRange === "custom" ? { from: fFrom, to: fTo } : presetRange(dateRange);
+  const rangeLabel = rFrom && rTo ? `${rFrom} to ${rTo}` : "All time";
   const money = (n: number) => `${currency ? currency + " " : ""}${fmtMoney(n)}`;
   const creatives = perf?.creatives || [];
   const hasSpend = hasAccounts && (campaigns.length > 0 || adDelivery.impressions > 0);
@@ -1064,34 +1076,9 @@ function MarketingAnalytics() {
   // filter stays reachable — picking an empty range must not trap the user.
   const isEmpty = !hasSpend && creatives.length === 0;
 
-  const roiCards = [
-    { label: "Ad spend", value: money(t.spend), Icon: CircleDollarSign, color: "#F59E0B" },
-    { label: "Leads", value: fmtInt(t.leads), Icon: MessageSquare, color: "#2D8B73" },
-    { label: "Cost / lead", value: money(cpl), Icon: Target, color: "#6366F1" },
-    { label: "Conversions", value: fmtInt(t.sales), Icon: Trophy, color: "#059669" },
-    { label: "Cost / conversion", value: money(cpa), Icon: CircleDollarSign, color: "#0EA5E9" },
-    { label: "Lead to purchase", value: `${convRate.toFixed(1)}%`, Icon: Target, color: "#EF4444" },
-  ];
-
-  // Funnel: Impressions -> Clicks -> CTR% -> Leads, in a single on-brand green ramp.
-  // Widths narrow by count (CTR sits between clicks and leads); CTR shows the rate.
+  // The Ads Report body is the shared <AdsReportView> (identical to the PDF). CTR is
+  // kept here only because the CSV export summary references it.
   const ctrPct = t.impressions > 0 ? (t.clicks / t.impressions) * 100 : 0;
-  // Trapezoid funnel (top width tapers to bottom) in the Heroleads palette:
-  // navy impressions -> orange clicks -> magenta CTR -> blue leads.
-  const funnel = [
-    { label: "Impressions", display: fmtInt(t.impressions), top: 100, bot: 88, color: "#0b1220" },
-    { label: "Clicks", display: fmtInt(t.clicks), top: 88, bot: 74, color: "#FF4A17" },
-    { label: "CTR %", display: `${ctrPct.toFixed(2)}%`, top: 74, bot: 60, color: "#FF1C6B" },
-    { label: "Leads", display: fmtInt(t.leads), top: 60, bot: 46, color: "#1D4ED8" },
-  ];
-
-  const daily = (perf?.daily || []).map((d) => {
-    const dt = new Date(d.date);
-    return {
-      date: isNaN(dt.getTime()) ? d.date : `${String(dt.getDate()).padStart(2, "0")}/${String(dt.getMonth() + 1).padStart(2, "0")}`,
-      spend: d.spend || 0, impressions: d.impressions || 0, reach: d.reach || 0, clicks: d.clicks || 0, leads: d.leads || 0,
-    };
-  }).reverse(); // chart reads left (oldest) -> right (newest)
 
   // Full raw analytics export (same shape as the old campaign report): summary +
   // per-source + daily timeline + age/gender/region demographics, each a labelled
@@ -1201,186 +1188,7 @@ function MarketingAnalytics() {
       ) : (<>
       {hasSpend ? (
       <>
-      {/* ROI KPI tiles */}
-      <StatGrid className="mb-5">
-        {roiCards.map((c) => (
-          <StatCard key={c.label} label={c.label} value={c.value} Icon={c.Icon} color={c.color} />
-        ))}
-      </StatGrid>
-
-      {/* Marketing funnel + Conversion rates side-by-side */}
-      <div className="grid grid-cols-1 lg:grid-cols-2 gap-4 mb-5">
-      <Card title="Marketing funnel" subtitle="Impression to click to chat to conversion">
-        {/* Trapezoid funnel (clip-path) narrowing top -> bottom, Heroleads palette. */}
-        <div className="p-4">
-          <div className="flex flex-col items-stretch">
-            {funnel.map((s) => {
-              const tl = (100 - s.top) / 2, tr = (100 + s.top) / 2, bl = (100 - s.bot) / 2, br = (100 + s.bot) / 2;
-              return (
-                <div key={s.label} style={{ background: s.color, clipPath: `polygon(${tl}% 0, ${tr}% 0, ${br}% 100%, ${bl}% 100%)` }}
-                  className="h-16 flex flex-col items-center justify-center text-center text-white">
-                  <p className="text-[9.5px] font-semibold uppercase tracking-wide opacity-90">{s.label}</p>
-                  <p className="text-[19px] font-extrabold tabular-nums leading-tight">{s.display}</p>
-                </div>
-              );
-            })}
-          </div>
-        </div>
-      </Card>
-
-      {/* Source performance — read-only breakdown of ad delivery + leads by source. */}
-      <div className="bg-card rounded-lg border border-border shadow-xs overflow-hidden flex flex-col">
-        <div className="px-4 py-3 border-b border-border">
-          <p className="font-bold text-[14px] text-foreground leading-tight">Source performance</p>
-        </div>
-        <div className="overflow-x-auto flex-1">
-          <table className="w-full text-sm">
-            <thead>
-              <tr className="bg-muted/40 border-b border-border">
-                {["Source", "Cost", "Impressions", "Clicks", "CTR", "CPC", "Leads", "CPL", "Purchase", "CVR"].map((h, i) => (
-                  <th key={h} className={cn("px-3 py-2 text-[11px] font-bold uppercase tracking-wider text-muted-foreground", i === 0 ? "text-left" : "text-right")}>{h}</th>
-                ))}
-              </tr>
-            </thead>
-            <tbody>
-              {(perf?.sources || []).length === 0 ? (
-                <tr><td colSpan={10} className="px-3 py-10 text-center text-[13px] text-muted-foreground">No source data in this range</td></tr>
-              ) : (() => {
-                const rows = perf?.sources || [];
-                const maxCvr = Math.max(...rows.map((s) => s.cvr), 1);
-                return rows.map((s) => {
-                  const heat = s.cvr / maxCvr;
-                  const bg = `rgba(45, 139, 115, ${heat * 0.85})`; // on-brand green CVR heat
-                  const cpc = s.clicks > 0 ? s.spend / s.clicks : 0;
-                  const cpl = s.leads > 0 ? s.spend / s.leads : 0;
-                  return (
-                    <tr key={s.source} className="border-b border-border/60">
-                      <td className="px-3 py-2 font-semibold text-foreground">{s.label}</td>
-                      <td className="px-3 py-2 text-right tabular-nums text-foreground/80">{money(s.spend)}</td>
-                      <td className="px-3 py-2 text-right tabular-nums text-foreground/80">{fmtInt(s.impressions)}</td>
-                      <td className="px-3 py-2 text-right tabular-nums text-foreground/80">{fmtInt(s.clicks)}</td>
-                      <td className="px-3 py-2 text-right tabular-nums text-foreground/80">{s.ctr.toFixed(2)}%</td>
-                      <td className="px-3 py-2 text-right tabular-nums text-foreground/80">{s.clicks > 0 ? money(cpc) : "-"}</td>
-                      <td className="px-3 py-2 text-right tabular-nums text-foreground/80">{fmtInt(s.leads)}</td>
-                      <td className="px-3 py-2 text-right tabular-nums text-foreground/80">{s.leads > 0 ? money(cpl) : "-"}</td>
-                      <td className="px-3 py-2 text-right tabular-nums font-semibold text-foreground">{fmtInt(s.purchases)}</td>
-                      <td className={cn("px-3 py-2 text-right tabular-nums font-semibold", heat > 0.5 ? "text-white" : "text-foreground")} style={{ backgroundColor: bg }}>{s.cvr.toFixed(2)}%</td>
-                    </tr>
-                  );
-                });
-              })()}
-            </tbody>
-            <tfoot>
-              <tr className="border-t-2 border-border font-bold">
-                <td className="px-3 py-3">Grand total</td>
-                <td className="px-3 py-3 text-right tabular-nums">{money(srcTotals.spend)}</td>
-                <td className="px-3 py-3 text-right tabular-nums">{fmtInt(srcTotals.impressions)}</td>
-                <td className="px-3 py-3 text-right tabular-nums">{fmtInt(srcTotals.clicks)}</td>
-                <td className="px-3 py-3 text-right tabular-nums">{(srcTotals.impressions > 0 ? (srcTotals.clicks / srcTotals.impressions) * 100 : 0).toFixed(2)}%</td>
-                <td className="px-3 py-3 text-right tabular-nums">{srcTotals.clicks > 0 ? money(srcTotals.spend / srcTotals.clicks) : "-"}</td>
-                <td className="px-3 py-3 text-right tabular-nums">{fmtInt(srcTotals.leads)}</td>
-                <td className="px-3 py-3 text-right tabular-nums">{srcTotals.leads > 0 ? money(srcTotals.spend / srcTotals.leads) : "-"}</td>
-                <td className="px-3 py-3 text-right tabular-nums">{fmtInt(srcTotals.purchases)}</td>
-                <td className="px-3 py-3 text-right tabular-nums">{(srcTotals.clicks > 0 ? (srcTotals.leads / srcTotals.clicks) * 100 : 0).toFixed(2)}%</td>
-              </tr>
-            </tfoot>
-          </table>
-        </div>
-      </div>
-      </div>
-
-      {/* Top Google keywords — only shown when a Google Ads account is connected
-          and keyword_view returns rows for the range. */}
-      {keywords.length > 0 && (
-        <div className="bg-card rounded-lg border border-border shadow-xs overflow-hidden mb-5">
-          <div className="px-4 py-3 border-b border-border flex items-baseline gap-2">
-            <p className="font-bold text-[14px] text-foreground leading-tight">Top Google keywords</p>
-            <span className="text-[11px] text-muted-foreground">by impressions</span>
-          </div>
-          <div className="overflow-x-auto">
-            <table className="w-full text-sm">
-              <thead>
-                <tr className="bg-muted/40 border-b border-border">
-                  {["Keyword", "Match", "Impressions", "Clicks", "CTR", "Cost", "Conv."].map((h, i) => (
-                    <th key={h} className={cn("px-3 py-2 text-[11px] font-bold uppercase tracking-wider text-muted-foreground", i <= 1 ? "text-left" : "text-right")}>{h}</th>
-                  ))}
-                </tr>
-              </thead>
-              <tbody>
-                {keywords.map((k, i) => (
-                  <tr key={k.keyword + i} className="border-b border-border/60">
-                    <td className="px-3 py-2 font-semibold text-foreground max-w-[280px] truncate">{k.keyword}</td>
-                    <td className="px-3 py-2 text-[12px] text-muted-foreground capitalize">{(k.match_type || "").toLowerCase()}</td>
-                    <td className="px-3 py-2 text-right tabular-nums text-foreground/80">{fmtInt(k.impressions)}</td>
-                    <td className="px-3 py-2 text-right tabular-nums text-foreground/80">{fmtInt(k.clicks)}</td>
-                    <td className="px-3 py-2 text-right tabular-nums text-foreground/80">{k.ctr.toFixed(2)}%</td>
-                    <td className="px-3 py-2 text-right tabular-nums text-foreground/80">{money(k.cost)}</td>
-                    <td className="px-3 py-2 text-right tabular-nums text-foreground/80">{fmtInt(k.conversions)}</td>
-                  </tr>
-                ))}
-              </tbody>
-            </table>
-          </div>
-        </div>
-      )}
-
-      {/* Timeline split in two: Awareness (impressions + reach) and Engagement
-          (link clicks + leads). Each is a single-axis line chart so the two
-          series share one scale instead of a confusing dual axis. */}
-      <div className="grid grid-cols-1 lg:grid-cols-2 gap-4 mb-5">
-        <TimelineChart title="Awareness" subtitle="Daily impressions and reach" data={daily}
-          series={[{ key: "impressions", name: "Impressions", color: "#2563EB" }, { key: "reach", name: "Reach", color: "#10B981" }]} />
-        <TimelineChart title="Engagement" subtitle="Daily link clicks and leads" data={daily}
-          series={[{ key: "clicks", name: "Link clicks", color: "#F59E0B" }, { key: "leads", name: "Leads", color: "#2D8B73" }]} />
-      </div>
-
-      {/* Demographic performance donuts */}
-      <div className="grid grid-cols-1 md:grid-cols-2 gap-4 mb-5">
-        <BreakdownDonut title="Age performance" data={perf?.age} />
-        <BreakdownDonut title="Gender performance" data={perf?.gender} />
-      </div>
-
-      {/* Location performance (province-level) */}
-      <LocationPerformance data={perf?.region} currency={currency} />
-
-      {/* Per-campaign ROI table */}
-      <Card title="Campaign ROI" subtitle="Spend to leads to conversions, per campaign">
-        <div className="overflow-x-auto">
-          <table className="w-full text-sm">
-            <thead>
-              <tr className="border-b border-border bg-muted/40">
-                {["Campaign", "Spend", "Impressions", "Clicks", "Leads", "Cost / lead", "Conversions", "Cost / conv", "Lead to purchase"].map((h, idx) => (
-                  <th key={h} className={cn("px-4 py-2.5 text-[11px] font-bold uppercase tracking-wider text-muted-foreground", idx === 0 ? "text-left" : "text-right")}>{h}</th>
-                ))}
-              </tr>
-            </thead>
-            <tbody>
-              {shown.length === 0 ? (
-                <tr><td colSpan={9} className="text-center py-12 text-muted-foreground">No campaigns in range</td></tr>
-              ) : shown.slice().sort((a, b) => b.spend - a.spend).map((c) => {
-                const ccpl = c.leads > 0 ? c.spend / c.leads : 0;
-                const ccpa = c.sales > 0 ? c.spend / c.sales : 0;
-                const cr = c.leads > 0 ? (c.sales / c.leads) * 100 : 0;
-                return (
-                  <tr key={c.campaign_id} className="border-b border-border/60 hover:bg-muted/50 transition-colors">
-                    <td className="px-4 py-2.5 font-semibold text-foreground">{c.campaign_name}</td>
-                    <td className="px-4 py-2.5 text-right tabular-nums">{money(c.spend)}</td>
-                    <td className="px-4 py-2.5 text-right tabular-nums text-muted-foreground">{fmtInt(c.impressions)}</td>
-                    <td className="px-4 py-2.5 text-right tabular-nums text-muted-foreground">{fmtInt(c.clicks)}</td>
-                    <td className="px-4 py-2.5 text-right tabular-nums font-semibold text-primary">{fmtInt(c.leads)}</td>
-                    <td className="px-4 py-2.5 text-right tabular-nums">{c.leads > 0 ? money(ccpl) : "-"}</td>
-                    <td className="px-4 py-2.5 text-right tabular-nums font-bold text-[#059669]">{fmtInt(c.sales)}</td>
-                    <td className="px-4 py-2.5 text-right tabular-nums">{c.sales > 0 ? money(ccpa) : "-"}</td>
-                    <td className="px-4 py-2.5 text-right">
-                      <Badge label={c.leads > 0 ? `${cr.toFixed(1)}%` : "-"} bg={cr >= 20 ? "#E8F5E9" : cr > 0 ? "#FFF3E0" : "#F1F5F9"} text={cr >= 20 ? "#2E7D32" : cr > 0 ? "#E65100" : "#64748B"} />
-                    </td>
-                  </tr>
-                );
-              })}
-            </tbody>
-          </table>
-        </div>
-      </Card>
+      <AdsReportView perf={perf} keywords={keywords} leads={leads} ga4={ga4} camps={camps} campaigns={campaignFilter} rangeLabel={rangeLabel} />
       </>
       ) : hasAccounts === false ? (
         <div className="mb-5 flex items-center gap-2 rounded-lg border border-border bg-muted/40 px-4 py-3 text-[13px] text-muted-foreground">
