@@ -49,6 +49,7 @@ export function CampaignWizard({ campaignId, users, channels, onClose, onDone, o
   const [supervisors, setSupervisors] = useState<string[]>([]);
   const [adSources, setAdSources] = useState("");
   const [keywords, setKeywords] = useState("");
+  const [monthlyBudget, setMonthlyBudget] = useState(""); // monthly ad budget (Rp) for budget utilization
 
   // AI assistant
   const [segment, setSegment] = useState("");
@@ -79,6 +80,7 @@ export function CampaignWizard({ campaignId, users, channels, onClose, onDone, o
           setAdSources((c.ad_source_ids ?? []).join(", "));
           setSegment(c.segment ?? ""); setBrand(c.brand ?? ""); setAiAutoReply(c.ai_auto_reply ?? false);
           setAiLanguage(c.ai_language ?? "id"); setAiDynamicLanguage(c.ai_dynamic_language ?? true); setIntakeFormId(c.intake_form_id ?? "");
+          setMonthlyBudget(c.monthly_budget != null ? String(c.monthly_budget) : "");
           setBranches((brs as any[]).map((b) => ({
             key: `b${++keySeq}`, id: b.id, name: b.name,
             adSources: (b.ad_source_ids ?? []).join(", "), agentIds: b.agent_ids ?? [], supervisorIds: b.supervisor_ids ?? [], webSourceIds: b.web_source_ids ?? [],
@@ -118,6 +120,7 @@ export function CampaignWizard({ campaignId, users, channels, onClose, onDone, o
         agent_ids: defaultAgents, supervisor_ids: supervisors, calling_enabled: callingEnabled,
         segment, brand: brand.trim(), ai_auto_reply: aiAutoReply, ai_language: aiLanguage,
         ai_dynamic_language: aiDynamicLanguage, intake_form_id: intakeFormId || "none",
+        monthly_budget: monthlyBudget.trim() === "" ? null : Number(monthlyBudget.replace(/[^0-9.]/g, "")),
       };
       let cid = campaignId;
       if (isEdit) await api.updateCampaign(cid!, payload);
@@ -179,6 +182,7 @@ export function CampaignWizard({ campaignId, users, channels, onClose, onDone, o
           </div>
           <WizardField label="CTWA ad source IDs (used when no branch matches)" value={adSources} onChange={setAdSources} placeholder="ad_honda_brio_2026" hint="Per-branch ad sources are set in step 2. These campaign-level IDs route leads when no branch matches." />
           <WizardField label="Keywords in first message (comma separated)" value={keywords} onChange={setKeywords} placeholder="brio, honda" />
+          <WizardField label="Monthly ad budget (Rp, optional)" value={monthlyBudget} onChange={(v) => setMonthlyBudget(v.replace(/[^0-9.]/g, ""))} placeholder="200000000" hint="Powers Budget Utilization in the Ads Report (media budget vs actual spend). Leave blank to skip." />
 
           {/* AI Assistant */}
           <div className="rounded-xl border border-border overflow-hidden">
