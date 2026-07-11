@@ -92,9 +92,14 @@ function AdsReportPrint() {
 
   const dailyLeads = (perf?.daily ?? []).map((d) => ({ date: fmtDay(d.date), leads: d.leads }));
   const region = dem(perf?.region);
-  const mapPoints = region.map((b) => ({ name: b.value, value: b.impressions }));
+  // Heroleads maps "Ad spend by province" -> prefer spend; fall back to reach if a
+  // source doesn't split spend regionally.
+  const regionBySpend = region.some((b) => b.spend > 0);
+  const mapPoints = region.map((b) => ({ name: b.value, value: regionBySpend ? b.spend : b.impressions }));
   // Budget = sum of the (selected) campaigns' monthly budgets vs actual spend.
-  const budget = camps.filter((c) => campaigns.length === 0 || campaigns.includes(c.id)).reduce((a, c) => a + ((c as { monthly_budget?: number | null }).monthly_budget || 0), 0);
+  const selectedCamps = camps.filter((c) => campaigns.length === 0 || campaigns.includes(c.id));
+  const headerSub = selectedCamps.length === 1 ? selectedCamps[0].name : "Ads Performance Report";
+  const budget = selectedCamps.reduce((a, c) => a + ((c as { monthly_budget?: number | null }).monthly_budget || 0), 0);
   const budgetLeft = budget - tot.spend;
   const util = budget > 0 ? (tot.spend / budget) * 100 : 0;
   const gt = ga4?.totals;
@@ -111,7 +116,7 @@ function AdsReportPrint() {
         </div>
         <div style={{ textAlign: "center" }}>
           <div style={{ fontSize: 19, fontWeight: 800, letterSpacing: 1.5 }}>CAMPAIGN DASHBOARD</div>
-          <div style={{ fontSize: 11.5, color: "rgba(255,255,255,.7)", letterSpacing: 0.3 }}>Ads Performance Report</div>
+          <div style={{ fontSize: 11.5, color: "rgba(255,255,255,.7)", letterSpacing: 0.3 }}>{headerSub}</div>
         </div>
         <div style={{ justifySelf: "end", fontSize: 12, border: "1px solid rgba(255,255,255,.25)", padding: "5px 12px", borderRadius: 6, whiteSpace: "nowrap" }}>{rangeLabel}</div>
       </div>
@@ -122,11 +127,11 @@ function AdsReportPrint() {
           {funnel.map((f) => {
             const tl = (100 - f.top) / 2, tr = (100 + f.top) / 2, bl = (100 - f.bot) / 2, br = (100 + f.bot) / 2;
             return (
-              <div key={f.label} style={{ width: "100%", height: 64, background: f.c, color: "#fff",
+              <div key={f.label} style={{ width: "100%", height: 82, background: f.c, color: "#fff",
                 display: "flex", flexDirection: "column", alignItems: "center", justifyContent: "center",
                 clipPath: `polygon(${tl}% 0, ${tr}% 0, ${br}% 100%, ${bl}% 100%)` }}>
-                <div style={{ fontSize: 10, fontWeight: 700, opacity: 0.9, letterSpacing: 0.5 }}>{f.label}</div>
-                <div style={{ fontSize: 22, fontWeight: 800, lineHeight: 1.1 }}>{f.value}</div>
+                <div style={{ fontSize: 10.5, fontWeight: 700, opacity: 0.9, letterSpacing: 0.6 }}>{f.label}</div>
+                <div style={{ fontSize: 25, fontWeight: 800, lineHeight: 1.05 }}>{f.value}</div>
               </div>
             );
           })}
