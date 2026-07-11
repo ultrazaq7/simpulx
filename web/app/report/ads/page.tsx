@@ -77,11 +77,13 @@ function AdsReportPrint() {
   const leadVals = sources.map((s) => s.leads);
   const lMin = Math.min(0, ...leadVals), lMax = Math.max(1, ...leadVals);
 
+  // Funnel segments as stacked trapezoids (top width tapers to bottom width) so the
+  // shape reads as a real funnel, matching the Heroleads reference.
   const funnel = [
-    { label: "IMPRESSIONS", value: num(tot.impressions), w: 100, c: "#16233A" },
-    { label: "CLICKS", value: num(tot.clicks), w: 78, c: "#FF5A1F" },
-    { label: "CTR%", value: pct(ctr), w: 58, c: "#FF2D78" },
-    { label: "LEADS", value: num(tot.leads), w: 40, c: "#2D6CFF" },
+    { label: "IMPRESSIONS", value: num(tot.impressions), top: 100, bot: 84, c: "#16233A" },
+    { label: "CLICKS", value: num(tot.clicks), top: 84, bot: 66, c: "#FF5A1F" },
+    { label: "CTR%", value: pct(ctr), top: 66, bot: 48, c: "#FF2D78" },
+    { label: "LEADS", value: num(tot.leads), top: 48, bot: 32, c: "#2D6CFF" },
   ];
 
   const dem = (arr?: AdBreakdown[]) => (arr || []).filter((b) => (b.value || "").toLowerCase() !== "unknown");
@@ -100,27 +102,34 @@ function AdsReportPrint() {
   return (
     <div className="print-root" data-report-ready={ready ? "1" : "0"}
       style={{ width: 980, margin: "0 auto", background: "#fff", color: "#0f172a", fontFamily: "Inter, Arial, sans-serif", padding: 0 }}>
-      {/* Header */}
-      <div style={{ background: "#0b0f17", color: "#fff", padding: "14px 22px", display: "flex", alignItems: "center", justifyContent: "space-between", borderRadius: 10 }}>
-        <div style={{ display: "flex", alignItems: "center", gap: 12 }}>
-          <div style={{ background: "#DC2626", color: "#fff", fontWeight: 800, fontSize: 13, padding: "4px 8px", borderRadius: 4, letterSpacing: 0.5 }}>Simpulx</div>
-          <div>
-            <div style={{ fontSize: 18, fontWeight: 800, letterSpacing: 1 }}>CAMPAIGN DASHBOARD</div>
-            <div style={{ fontSize: 12, color: "rgba(255,255,255,.7)" }}>Ads Performance Report</div>
-          </div>
+      {/* Header: logo left, title centered, date range right (Heroleads layout) */}
+      <div style={{ background: "#0b0f17", color: "#fff", padding: "14px 22px", display: "grid", gridTemplateColumns: "1fr auto 1fr", alignItems: "center", borderRadius: 10 }}>
+        <div style={{ display: "flex", alignItems: "center", gap: 9 }}>
+          {/* eslint-disable-next-line @next/next/no-img-element */}
+          <img src="/simpulx_logo.png" alt="Simpulx" style={{ height: 30, width: "auto", display: "block" }} />
+          <span style={{ fontSize: 15, fontWeight: 800, letterSpacing: 0.3 }}>Simpulx</span>
         </div>
-        <div style={{ fontSize: 12, border: "1px solid rgba(255,255,255,.25)", padding: "5px 12px", borderRadius: 6 }}>{rangeLabel}</div>
+        <div style={{ textAlign: "center" }}>
+          <div style={{ fontSize: 19, fontWeight: 800, letterSpacing: 1.5 }}>CAMPAIGN DASHBOARD</div>
+          <div style={{ fontSize: 11.5, color: "rgba(255,255,255,.7)", letterSpacing: 0.3 }}>Ads Performance Report</div>
+        </div>
+        <div style={{ justifySelf: "end", fontSize: 12, border: "1px solid rgba(255,255,255,.25)", padding: "5px 12px", borderRadius: 6, whiteSpace: "nowrap" }}>{rangeLabel}</div>
       </div>
 
       {/* Funnel + Campaign performance table */}
       <div style={{ display: "grid", gridTemplateColumns: "230px 1fr", gap: 16, marginTop: 16 }}>
-        <div style={{ display: "flex", flexDirection: "column", alignItems: "center", gap: 4 }}>
-          {funnel.map((f) => (
-            <div key={f.label} style={{ width: `${f.w}%`, background: f.c, color: "#fff", borderRadius: 6, padding: "10px 6px", textAlign: "center" }}>
-              <div style={{ fontSize: 10, fontWeight: 700, opacity: 0.9, letterSpacing: 0.5 }}>{f.label}</div>
-              <div style={{ fontSize: 20, fontWeight: 800 }}>{f.value}</div>
-            </div>
-          ))}
+        <div style={{ display: "flex", flexDirection: "column", alignItems: "stretch", gap: 0 }}>
+          {funnel.map((f) => {
+            const tl = (100 - f.top) / 2, tr = (100 + f.top) / 2, bl = (100 - f.bot) / 2, br = (100 + f.bot) / 2;
+            return (
+              <div key={f.label} style={{ width: "100%", height: 64, background: f.c, color: "#fff",
+                display: "flex", flexDirection: "column", alignItems: "center", justifyContent: "center",
+                clipPath: `polygon(${tl}% 0, ${tr}% 0, ${br}% 100%, ${bl}% 100%)` }}>
+                <div style={{ fontSize: 10, fontWeight: 700, opacity: 0.9, letterSpacing: 0.5 }}>{f.label}</div>
+                <div style={{ fontSize: 22, fontWeight: 800, lineHeight: 1.1 }}>{f.value}</div>
+              </div>
+            );
+          })}
         </div>
 
         <div style={{ border: "1px solid #e5e7eb", borderRadius: 10, overflow: "hidden" }}>
