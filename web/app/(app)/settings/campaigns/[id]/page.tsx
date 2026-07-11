@@ -1,47 +1,30 @@
 "use client";
-import { useEffect, useMemo, useRef, useState } from "react";
-import Link from "next/link";
+// Campaign detail = SETUP only (Credits, AI Assistant, Catalog). All reporting
+// lives on the Dashboard, so this page has no report/PDF anymore.
+import { useEffect, useRef, useState } from "react";
 import { useParams, useRouter, useSearchParams } from "next/navigation";
-import { ArrowLeft, Loader2, Upload, Trash2, Download, ChevronDown, FileText, FileSpreadsheet } from "lucide-react";
+import { ArrowLeft, Loader2, Coins, Sparkles, Database, Upload, Trash2, X } from "lucide-react";
 import * as XLSX from "xlsx";
-import { AreaChart, Area, LineChart, Line, BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip as RTooltip, ResponsiveContainer, PieChart, Pie, Cell } from "recharts";
-import { api, getToken, getUser } from "@/lib/api";
+import { api } from "@/lib/api";
 import { Select } from "@/components/Select";
-import DateRangeFilter, { presetRange } from "@/components/DateRangeFilter";
-import { IndonesiaMap } from "@/components/IndonesiaMap";
-import { cn, fmtDuration, fmtDateTimeShort } from "@/lib/utils";
-import type { CampaignDetail, CampaignAnalyticsRow, CatalogItem, AdPerformance, AdBreakdown, AdKeyword, Ga4Report, Conversation, Template } from "@/lib/types";
+import { cn } from "@/lib/utils";
+import type { CampaignDetail, CatalogItem, Template } from "@/lib/types";
 import { useToast, PageBody, FieldLabel, INPUT_CLASS } from "../../_shared";
 import { useConfirm } from "@/components/ConfirmDialog";
 import UnsavedBar from "@/components/UnsavedBar";
 
 const SEGMENTS = ["Automotive", "Property / Real Estate", "Finance", "Insurance", "Retail / FMCG", "Education", "Healthcare", "Travel & Hospitality", "Food & Beverage", "Services", "Other"];
-type Tab = "general" | "ads" | "credits" | "ai" | "catalog";
-
-// Left sub-menu (Settings-style) grouping the campaign's reports and setup pages.
-const CAMPAIGN_NAV: { title: string; items: { key: Tab; label: string }[] }[] = [
-  { title: "Reports", items: [
-    { key: "general", label: "General Report" },
-    { key: "ads", label: "Ads Report" },
-  ] },
-  { title: "Configuration", items: [
-    { key: "credits", label: "Credits & Usage" },
-    { key: "ai", label: "AI Assistant" },
-    { key: "catalog", label: "Catalog & Pricing" },
-  ] },
-];
+type Tab = "credits" | "ai" | "catalog";
 
 export default function CampaignDetailPage() {
   const { id } = useParams<{ id: string }>();
   const router = useRouter();
   const searchParams = useSearchParams();
-  const { notify, confirm, ToastHost } = useToast();
-  // Persist the active tab in the URL so a refresh keeps you on the same page
-  // instead of snapping back. "overview" is the legacy key for the general report.
-  const TAB_KEYS: Tab[] = ["general", "ads", "credits", "ai", "catalog"];
-  const rawTab = searchParams.get("tab");
-  const urlTab: Tab | null = rawTab === "overview" ? "general" : (rawTab as Tab | null);
-  const [tab, setTabState] = useState<Tab>(urlTab && TAB_KEYS.includes(urlTab) ? urlTab : "general");
+  const { notify, ToastHost } = useToast();
+  // Persist the active tab in the URL so a refresh keeps you on the same page.
+  const TAB_KEYS: Tab[] = ["credits", "ai", "catalog"];
+  const urlTab = searchParams.get("tab") as Tab | null;
+  const [tab, setTabState] = useState<Tab>(urlTab && TAB_KEYS.includes(urlTab) ? urlTab : "credits");
   const setTab = (t: Tab) => {
     setTabState(t);
     router.replace(`/settings/campaigns/${id}?tab=${t}`, { scroll: false });
@@ -53,13 +36,17 @@ export default function CampaignDetailPage() {
     api.getCampaign(id).then(setCampaign).catch((e) => notify(String(e), "error")).finally(() => setLoading(false));
   }, [id]); // eslint-disable-line react-hooks/exhaustive-deps
 
-  const reportKind: "general" | "ads" = tab === "ads" ? "ads" : "general";
+  const tabs: { key: Tab; label: string; Icon: typeof Coins }[] = [
+    { key: "credits", label: "Credits & Usage", Icon: Coins },
+    { key: "ai", label: "AI Assistant", Icon: Sparkles },
+    { key: "catalog", label: "Catalog & Pricing", Icon: Database },
+  ];
 
   return (
     <PageBody wide>
       {ToastHost}
-      <div className="max-w-[1160px]">
-        <button onClick={() => router.push("/settings/campaigns")} className="no-print inline-flex items-center gap-1.5 text-[13px] text-muted-foreground hover:text-foreground mb-3 outline-none">
+      <div className="max-w-[1040px]">
+        <button onClick={() => router.push("/settings/campaigns")} className="inline-flex items-center gap-1.5 text-[13px] text-muted-foreground hover:text-foreground mb-3 outline-none">
           <ArrowLeft className="w-4 h-4" /> Campaigns
         </button>
         {loading ? (
@@ -67,45 +54,22 @@ export default function CampaignDetailPage() {
         ) : !campaign ? (
           <p className="text-muted-foreground">Campaign not found.</p>
         ) : (
-          <div className="flex flex-col lg:flex-row gap-5 items-start">
-            {/* Left sub-menu — Settings-style. Hidden in the exported PDF. */}
-            <aside className="no-print w-full lg:w-[210px] shrink-0 lg:sticky lg:top-2">
-              <div className="min-w-0 mb-3">
-                <h1 className="text-[17px] font-bold text-foreground leading-tight truncate">{campaign.name}</h1>
-                {campaign.dealer_name && <p className="text-[12px] text-muted-foreground truncate">{campaign.dealer_name}</p>}
-              </div>
-              {/* Mobile: horizontal chip strip. Desktop: grouped vertical nav. */}
-              <nav className="flex lg:flex-col gap-1 overflow-x-auto lg:overflow-visible [scrollbar-width:none] [&::-webkit-scrollbar]:hidden">
-                {CAMPAIGN_NAV.map((group) => (
-                  <div key={group.title} className="lg:mb-1.5 shrink-0 flex lg:block gap-1">
-                    <p className="hidden lg:block px-3 pt-2 pb-1 text-[11px] font-bold uppercase tracking-wider text-muted-foreground/70">{group.title}</p>
-                    {group.items.map((it) => {
-                      const sel = tab === it.key;
-                      return (
-                        <button key={it.key} onClick={() => setTab(it.key)}
-                          className={cn("block w-full text-left rounded-md px-3 py-2 text-[13px] whitespace-nowrap outline-none transition-colors",
-                            sel ? "bg-muted text-foreground font-semibold" : "text-muted-foreground hover:bg-muted/60 hover:text-foreground")}>
-                          {it.label}
-                        </button>
-                      );
-                    })}
-                  </div>
-                ))}
-              </nav>
-            </aside>
-
-            {/* Content card — the report body is the PDF root. */}
-            <div className="min-w-0 flex-1 w-full">
-              <div className="print-root bg-card border border-border rounded-xl shadow-xs p-5 sm:p-7">
-                {(tab === "general" || tab === "ads") && (
-                  <ReportView kind={reportKind} id={id} name={campaign.name} dealer={campaign.dealer_name ?? null}
-                    budget={campaign.monthly_budget ?? null}
-                    onBudget={(v) => setCampaign((c) => (c ? { ...c, monthly_budget: v } : c))} notify={notify} />
-                )}
-                {tab === "credits" && <CreditsTab id={id} notify={notify} />}
-                {tab === "ai" && <AITab campaign={campaign} onSaved={(c) => { setCampaign(c); notify("AI settings saved"); }} onError={(m) => notify(m, "error")} />}
-                {tab === "catalog" && <CatalogTab id={id} segment={campaign.segment ?? undefined} notify={notify} />}
-              </div>
+          <div className="bg-card border border-border rounded-xl shadow-xs p-6 sm:p-8">
+            <h1 className="text-xl font-bold text-foreground">{campaign.name}</h1>
+            {campaign.dealer_name && <p className="text-[13px] text-muted-foreground">{campaign.dealer_name}</p>}
+            <div className="flex gap-1 mt-5 border-b border-border overflow-x-auto [scrollbar-width:none] [&::-webkit-scrollbar]:hidden">
+              {tabs.map((t) => (
+                <button key={t.key} onClick={() => setTab(t.key)}
+                  className={cn("inline-flex items-center gap-1.5 px-3.5 py-2 text-[13px] font-semibold border-b-2 -mb-px transition-colors outline-none shrink-0 whitespace-nowrap",
+                    tab === t.key ? "border-primary text-primary" : "border-transparent text-muted-foreground hover:text-foreground")}>
+                  <t.Icon className="w-4 h-4 shrink-0" /> {t.label}
+                </button>
+              ))}
+            </div>
+            <div className="mt-6">
+              {tab === "credits" && <CreditsTab id={id} notify={notify} />}
+              {tab === "ai" && <AITab campaign={campaign} onSaved={(c) => { setCampaign(c); notify("AI settings saved"); }} onError={(m) => notify(m, "error")} />}
+              {tab === "catalog" && <CatalogTab id={id} segment={campaign.segment ?? undefined} notify={notify} />}
             </div>
           </div>
         )}
@@ -119,642 +83,6 @@ function Stat({ label, value, accent }: { label: string; value: string | number;
     <div className="rounded-lg border border-border bg-card p-4">
       <p className={cn("text-2xl font-bold tabular-nums", accent ?? "text-foreground")}>{value}</p>
       <p className="text-[12px] text-muted-foreground mt-0.5">{label}</p>
-    </div>
-  );
-}
-
-const money = (n: number) => "Rp " + Math.round(n).toLocaleString("id-ID");
-const num = (n: number) => Math.round(n).toLocaleString("id-ID");
-const pctFmt = (n: number) => n.toFixed(2) + "%";
-const MONTHS = ["Jan", "Feb", "Mar", "Apr", "May", "Jun", "Jul", "Aug", "Sep", "Oct", "Nov", "Dec"];
-// "2026-07-04T00:00:00Z" / "2026-07-04" → "Jul 4" for chart axes (drop the raw ISO tail).
-const fmtDay = (iso: string) => {
-  const m = /^(\d{4})-(\d{2})-(\d{2})/.exec(iso || "");
-  return m ? `${MONTHS[+m[2] - 1]} ${+m[3]}` : iso;
-};
-
-function toCsv(rows: (string | number)[][]): string {
-  return rows.map((r) => r.map((c) => {
-    const s = String(c);
-    return /[",\n]/.test(s) ? `"${s.replace(/"/g, '""')}"` : s;
-  }).join(",")).join("\n");
-}
-function downloadCsv(name: string, csv: string) {
-  const blob = new Blob(["﻿" + csv], { type: "text/csv;charset=utf-8" });
-  const url = URL.createObjectURL(blob);
-  const a = document.createElement("a");
-  a.href = url; a.download = name; a.click();
-  URL.revokeObjectURL(url);
-}
-
-const DONUT_COLORS = ["#2D8B73", "#6366F1", "#F97316", "#A5B4FC", "#8B5E34", "#14B8A6", "#EAB308", "#EC4899"];
-
-type BreakdownMetric = "reach" | "impressions" | "results";
-
-// Age / gender donut from Meta demographic breakdowns. One metric (reach, else
-// impressions, else results) drives the whole chart so shares always match.
-function Donut({ title, data }: { title: string; data?: AdBreakdown[] }) {
-  const rows = (data || []).filter((r) => (r.value || "").toLowerCase() !== "unknown");
-  const sum = (k: BreakdownMetric) => rows.reduce((a, b) => a + (b[k] || 0), 0);
-  const metric: BreakdownMetric = sum("reach") > 0 ? "reach" : sum("impressions") > 0 ? "impressions" : "results";
-  const total = sum(metric);
-  const chart = rows
-    .map((b, i) => ({ name: b.value, value: b[metric] || 0, color: DONUT_COLORS[i % DONUT_COLORS.length] }))
-    .filter((x) => x.value > 0)
-    .sort((a, b) => b.value - a.value);
-  return (
-    <div className="rounded-xl border border-border p-4">
-      <p className="text-[13px] font-semibold text-foreground mb-2">{title}</p>
-      {chart.length === 0 ? (
-        <div className="h-[160px] grid place-items-center text-[13px] text-muted-foreground">No demographic data yet</div>
-      ) : (
-        <div className="flex items-center gap-4">
-          <div className="w-[42%] shrink-0 h-[160px]">
-            <ResponsiveContainer width="100%" height="100%">
-              <PieChart>
-                <Pie data={chart} dataKey="value" nameKey="name" innerRadius={42} outerRadius={66} paddingAngle={2} stroke="none">
-                  {chart.map((c) => <Cell key={c.name} fill={c.color} />)}
-                </Pie>
-                <RTooltip />
-              </PieChart>
-            </ResponsiveContainer>
-          </div>
-          <div className="flex-1 space-y-1 min-w-0">
-            {chart.map((c) => (
-              <div key={c.name} className="flex items-center gap-2 text-[12px]">
-                <span className="w-2.5 h-2.5 rounded-full shrink-0" style={{ backgroundColor: c.color }} />
-                <span className="flex-1 truncate text-foreground/90 capitalize">{c.name}</span>
-                <span className="tabular-nums font-semibold text-foreground">{total > 0 ? ((c.value / total) * 100).toFixed(1) : 0}%</span>
-              </div>
-            ))}
-          </div>
-        </div>
-      )}
-    </div>
-  );
-}
-
-// Province-level location performance on the Indonesia choropleth.
-function LocationPanel({ data }: { data?: AdBreakdown[] }) {
-  const rows = (data || []).filter((r) => (r.value || "").toLowerCase() !== "unknown");
-  const sumResults = rows.reduce((a, b) => a + (b.results || 0), 0);
-  const sumImpr = rows.reduce((a, b) => a + (b.impressions || 0), 0);
-  const metric: "results" | "impressions" = sumResults > 0 ? "results" : "impressions";
-  const ranked = rows
-    .map((b) => ({ name: b.value, value: b[metric] || 0 }))
-    .filter((x) => x.value > 0)
-    .sort((a, b) => b.value - a.value)
-    .slice(0, 12);
-  if (ranked.length === 0 || sumImpr === 0) return null;
-  return (
-    <div className="rounded-xl border border-border p-4">
-      <p className="text-[13px] font-semibold text-foreground mb-3">Top locations {metric === "results" ? "(leads)" : "(reach)"}</p>
-      <IndonesiaMap points={ranked} />
-    </div>
-  );
-}
-
-const pct01 = (n: number) => (n * 100).toFixed(2) + "%";
-const fmtSec = (s: number) => {
-  const m = Math.floor(s / 60);
-  const sec = Math.round(s % 60);
-  return `${m}:${String(sec).padStart(2, "0")}`;
-};
-
-// GA4 landing-page performance (read-only). Renders the campaign's GA4 report
-// when a property is connected; connecting/syncing GA4 now lives in
-// Settings → Channel & Integrations → Analytics, so this panel only prompts the
-// user there instead of embedding the OAuth/property form in the report.
-function Ga4Panel({ campaignId, from, to }: { campaignId: string; from: string; to: string }) {
-  const [report, setReport] = useState<Ga4Report | null>(null);
-  const [loading, setLoading] = useState(true);
-
-  useEffect(() => {
-    setLoading(true);
-    let alive = true;
-    api.getCampaignGa4(campaignId, from || undefined, to || undefined)
-      .then((r) => { if (alive) setReport(r); })
-      .catch(() => { if (alive) setReport(null); })
-      .finally(() => { if (alive) setLoading(false); });
-    return () => { alive = false; };
-  }, [campaignId, from, to]);
-
-  const t = report?.totals;
-  const tiles = t ? [
-    { label: "Total users", value: num(t.total_users) },
-    { label: "Active users", value: num(t.active_users) },
-    { label: "New users", value: num(t.new_users) },
-    { label: "Sessions", value: num(t.sessions) },
-    { label: "Engaged sessions", value: num(t.engaged_sessions) },
-    { label: "Engagement rate", value: pct01(t.engagement_rate) },
-    { label: "Avg engagement", value: fmtSec(t.avg_engagement_sec) },
-    { label: "Views", value: num(t.views) },
-  ] : [];
-
-  return (
-    <div className="rounded-xl border border-border p-4">
-      <div className="flex items-center justify-between mb-3">
-        <p className="text-[13px] font-semibold text-foreground">Landing page performance <span className="text-muted-foreground font-normal">· GA4</span></p>
-      </div>
-
-      {loading ? (
-        <div className="h-24 grid place-items-center"><Loader2 className="w-5 h-5 animate-spin text-muted-foreground" /></div>
-      ) : !report?.connected ? (
-        <div className="no-print rounded-lg border border-dashed border-border p-5 text-center">
-          <p className="text-[13px] font-semibold text-foreground">Google Analytics 4 not connected</p>
-          <p className="text-[12px] text-muted-foreground mt-1 mb-3">Connect GA4 to see landing-page sessions, engagement and users for this campaign.</p>
-          <Link href="/settings/channels?tab=analytics" className="inline-flex items-center gap-1.5 px-3.5 h-9 rounded-md bg-primary text-white text-[13px] font-semibold hover:bg-primary-dark outline-none">
-            Connect in Channel &amp; Integrations
-          </Link>
-        </div>
-      ) : report.error ? (
-        <p className="text-[13px] text-destructive">{report.error}</p>
-      ) : (
-        <>
-          <div className="grid grid-cols-2 sm:grid-cols-4 gap-3 mb-4">
-            {tiles.map((x) => (
-              <div key={x.label} className="rounded-lg border border-border bg-card p-3">
-                <p className="text-lg font-bold tabular-nums text-foreground">{x.value}</p>
-                <p className="text-[11.5px] text-muted-foreground mt-0.5">{x.label}</p>
-              </div>
-            ))}
-          </div>
-          <div className="overflow-x-auto">
-            <table className="w-full text-[13px] whitespace-nowrap">
-              <thead>
-                <tr className="border-b border-border text-muted-foreground text-[11px] uppercase tracking-wider">
-                  {["Landing page", "Views", "Sessions", "New users", "Engagement"].map((h, i) => (
-                    <th key={h} className={cn("px-3 py-2 font-bold", i === 0 ? "text-left" : "text-right")}>{h}</th>
-                  ))}
-                </tr>
-              </thead>
-              <tbody>
-                {report.rows.length === 0 ? (
-                  <tr><td colSpan={5} className="px-3 py-6 text-center text-muted-foreground">No landing-page data in this range</td></tr>
-                ) : report.rows.map((r, i) => (
-                  <tr key={i} className="border-b border-border/60">
-                    <td className="px-3 py-2 max-w-[280px] truncate text-foreground" title={r.landing_page}>{r.landing_page || "(not set)"}</td>
-                    <td className="px-3 py-2 text-right tabular-nums">{num(r.views)}</td>
-                    <td className="px-3 py-2 text-right tabular-nums">{num(r.sessions)}</td>
-                    <td className="px-3 py-2 text-right tabular-nums">{num(r.new_users)}</td>
-                    <td className="px-3 py-2 text-right tabular-nums">{pct01(r.engagement_rate)}</td>
-                  </tr>
-                ))}
-              </tbody>
-            </table>
-          </div>
-        </>
-      )}
-    </div>
-  );
-}
-
-// Budget utilization: a user-set monthly ad budget vs actual spend (Cost) for the
-// range → Media budget / Cost / Budget left / Utilization %, with a bar.
-function BudgetPanel({ id, budget, spend, onBudget, notify }: {
-  id: string; budget: number | null; spend: number;
-  onBudget: (v: number | null) => void; notify: (m: string, s?: "success" | "error") => void;
-}) {
-  const [editing, setEditing] = useState(false);
-  const [val, setVal] = useState(budget != null ? String(budget) : "");
-  const [saving, setSaving] = useState(false);
-  useEffect(() => { setVal(budget != null ? String(budget) : ""); }, [budget]);
-
-  async function save() {
-    const n = val.trim() === "" ? null : Number(val);
-    if (n != null && (isNaN(n) || n < 0)) { notify("Enter a valid budget", "error"); return; }
-    setSaving(true);
-    try {
-      await api.updateCampaign(id, { monthly_budget: n });
-      onBudget(n); setEditing(false); notify("Budget saved");
-    } catch (e) { notify(String(e), "error"); }
-    finally { setSaving(false); }
-  }
-
-  const left = budget != null ? budget - spend : 0;
-  const util = budget && budget > 0 ? (spend / budget) * 100 : 0;
-
-  return (
-    <div className="rounded-xl border border-border p-4">
-      <div className="flex items-center justify-between mb-3">
-        <p className="text-[13px] font-semibold text-foreground">Budget utilization</p>
-        {!editing && <button onClick={() => setEditing(true)} className="text-[12px] font-semibold text-primary hover:underline outline-none">{budget != null ? "Edit budget" : "Set budget"}</button>}
-      </div>
-      {editing ? (
-        <div className="flex items-center gap-2 flex-wrap">
-          <div className="relative">
-            <span className="absolute left-3 top-1/2 -translate-y-1/2 text-[13px] text-muted-foreground">Rp</span>
-            <input value={val} onChange={(e) => setVal(e.target.value.replace(/[^0-9.]/g, ""))} placeholder="Monthly budget" inputMode="numeric"
-              className="h-9 pl-9 pr-3 rounded-md border border-input bg-background text-[13px] text-foreground outline-none focus:border-primary focus:ring-2 focus:ring-primary/20 w-[200px]" />
-          </div>
-          <button onClick={save} disabled={saving} className="inline-flex items-center gap-1.5 px-3.5 h-9 rounded-md bg-primary text-white text-[13px] font-semibold hover:bg-primary-dark disabled:opacity-50 outline-none">{saving && <Loader2 className="w-4 h-4 animate-spin" />}Save</button>
-          <button onClick={() => { setEditing(false); setVal(budget != null ? String(budget) : ""); }} className="px-3.5 h-9 rounded-md border border-border text-[13px] font-medium hover:bg-muted outline-none">Cancel</button>
-        </div>
-      ) : budget == null ? (
-        <p className="text-[13px] text-muted-foreground">No budget set. Set a monthly budget to track utilization against spend.</p>
-      ) : (
-        <>
-          <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
-            {[
-              { label: "Media budget", value: money(budget), accent: "text-foreground" },
-              { label: "Cost", value: money(spend), accent: "text-foreground" },
-              { label: "Budget left", value: money(left), accent: left < 0 ? "text-destructive" : "text-foreground" },
-              { label: "Utilization", value: util.toFixed(1) + "%", accent: util > 100 ? "text-destructive" : "text-foreground" },
-            ].map((x) => (
-              <div key={x.label} className="rounded-lg border border-border bg-card p-3">
-                <p className={cn("text-lg font-bold tabular-nums", x.accent)}>{x.value}</p>
-                <p className="text-[11.5px] text-muted-foreground mt-0.5">{x.label}</p>
-              </div>
-            ))}
-          </div>
-          <div className="mt-3 h-2.5 rounded-full bg-muted overflow-hidden">
-            <div className={cn("h-full rounded-full transition-all", util > 100 ? "bg-destructive" : "bg-primary")} style={{ width: `${Math.min(100, util)}%` }} />
-          </div>
-        </>
-      )}
-    </div>
-  );
-}
-
-// Per-campaign report: reuses the lead analytics + ad-performance scoped to this
-// campaign. `kind` picks which slice to render — "general" is the executive
-// dashboard (funnel, source table, KPIs, budget, leads); "ads" is the ad-platform
-// deep dive (breakdown chart, keywords, spend, demographics, GA4).
-function ReportView({ kind, id, name, dealer, budget, onBudget, notify }: { kind: "general" | "ads"; id: string; name: string; dealer: string | null; budget: number | null; onBudget: (v: number | null) => void; notify: (m: string, s?: "success" | "error") => void }) {
-  const isGeneral = kind === "general";
-  const [row, setRow] = useState<CampaignAnalyticsRow | null>(null);
-  const [perf, setPerf] = useState<AdPerformance | null>(null);
-  const [keywords, setKeywords] = useState<AdKeyword[]>([]);
-  const [leads, setLeads] = useState<Conversation[]>([]);
-  const [loading, setLoading] = useState(true);
-  const [exportOpen, setExportOpen] = useState(false);
-  // Seed the range from the URL when present (the headless PDF route navigates
-  // with ?preset/from/to so the exported report matches the on-screen range).
-  const sp = useSearchParams();
-  const [dateRange, setDateRange] = useState(() => sp.get("preset") || "30d");
-  const [fFrom, setFFrom] = useState(() => sp.get("from") || presetRange(sp.get("preset") || "30d").from);
-  const [fTo, setFTo] = useState(() => sp.get("to") || presetRange(sp.get("preset") || "30d").to);
-
-  useEffect(() => {
-    api.getCampaignAnalytics().then((rows) => setRow(rows.find((r) => r.id === id) ?? null)).catch(() => {});
-  }, [id]);
-  useEffect(() => {
-    setLoading(true);
-    const { from, to } = dateRange === "custom" ? { from: fFrom, to: fTo } : presetRange(dateRange);
-    api.adPerformance(from || undefined, to || undefined, [id])
-      .then((p) => setPerf(p as AdPerformance)).catch(() => setPerf(null)).finally(() => setLoading(false));
-    api.adKeywords(from || undefined, to || undefined).then((k) => setKeywords(k || [])).catch(() => setKeywords([]));
-    api.listConversations("", from || "", to || "", "", id).then((c) => setLeads(c || [])).catch(() => setLeads([]));
-  }, [id, dateRange, fFrom, fTo]);
-
-  const sources = useMemo(() => perf?.sources ?? [], [perf]);
-  const tot = useMemo(() => sources.reduce((a, s) => ({
-    spend: a.spend + s.spend, impressions: a.impressions + s.impressions,
-    clicks: a.clicks + s.clicks, leads: a.leads + s.leads,
-  }), { spend: 0, impressions: 0, clicks: 0, leads: 0 }), [sources]);
-  const ctr = tot.impressions > 0 ? (tot.clicks / tot.impressions) * 100 : 0;
-  const cpc = tot.clicks > 0 ? tot.spend / tot.clicks : 0;
-  const cpl = tot.leads > 0 ? tot.spend / tot.leads : 0;
-  const daily = useMemo(() => (perf?.daily ?? []).map((d) => ({ date: fmtDay(d.date ?? ""), leads: d.leads })), [perf]);
-  // Clicks/impressions use null for zero-days so the log-scale line skips them.
-  const dailyPerf = useMemo(() => (perf?.daily ?? []).map((d) => ({
-    date: fmtDay(d.date ?? ""),
-    impressions: d.impressions > 0 ? d.impressions : null,
-    clicks: d.clicks > 0 ? d.clicks : null,
-    spend: Math.round(d.spend || 0),
-  })), [perf]);
-  const kw = useMemo(() => keywords.slice(0, 10), [keywords]);
-  const kwMax = useMemo(() => Math.max(1, ...kw.map((k) => k.impressions)), [kw]);
-  const logW = (v: number) => Math.max(2, (Math.log10((v || 0) + 1) / Math.log10(kwMax + 1)) * 100);
-
-  // Full raw analytics export: summary + per-source + daily timeline + age/gender/
-  // region demographics, each as its own labelled block in one CSV.
-  const exportCsv = () => {
-    const rows: (string | number)[][] = [];
-    const blank = () => rows.push([]);
-    rows.push(["SUMMARY"]);
-    rows.push(["Metric", "Value"]);
-    rows.push(["Impressions", tot.impressions], ["Clicks", tot.clicks], ["CTR", ctr.toFixed(2) + "%"],
-      ["Leads", tot.leads], ["Cost", Math.round(tot.spend)], ["CPC", tot.clicks > 0 ? Math.round(cpc) : 0],
-      ["CPL", tot.leads > 0 ? Math.round(cpl) : 0]);
-    blank();
-    rows.push(["SOURCE PERFORMANCE"]);
-    rows.push(["Source", "Cost", "Impressions", "Clicks", "CTR", "CPC", "Leads", "CPL"]);
-    sources.forEach((s) => {
-      const sCtr = s.impressions > 0 ? (s.clicks / s.impressions) * 100 : 0;
-      const sCpc = s.clicks > 0 ? s.spend / s.clicks : 0;
-      const sCpl = s.leads > 0 ? s.spend / s.leads : 0;
-      rows.push([s.label, Math.round(s.spend), s.impressions, s.clicks, sCtr.toFixed(2) + "%", s.clicks > 0 ? Math.round(sCpc) : 0, s.leads, s.leads > 0 ? Math.round(sCpl) : 0]);
-    });
-    rows.push(["Grand total", Math.round(tot.spend), tot.impressions, tot.clicks, ctr.toFixed(2) + "%", tot.clicks > 0 ? Math.round(cpc) : 0, tot.leads, tot.leads > 0 ? Math.round(cpl) : 0]);
-    blank();
-    const dailyRaw = perf?.daily ?? [];
-    if (dailyRaw.length) {
-      rows.push(["DAILY PERFORMANCE"]);
-      rows.push(["Date", "Impressions", "Reach", "Clicks", "Results", "Leads", "Spend"]);
-      dailyRaw.forEach((d) => rows.push([d.date, d.impressions, d.reach, d.clicks, d.results, d.leads, Math.round(d.spend || 0)]));
-      blank();
-    }
-    const dem = (title: string, arr?: AdBreakdown[]) => {
-      if (!arr?.length) return;
-      rows.push([title]);
-      rows.push(["Value", "Impressions", "Reach", "Clicks", "Results", "Spend"]);
-      arr.forEach((b) => rows.push([b.value, b.impressions, b.reach, b.clicks, b.results, Math.round(b.spend || 0)]));
-      blank();
-    };
-    dem("AGE BREAKDOWN", perf?.age);
-    dem("GENDER BREAKDOWN", perf?.gender);
-    dem("REGION BREAKDOWN", perf?.region);
-    downloadCsv(`${kind}-report-${dateRange}.csv`, toCsv(rows));
-  };
-  // One-click PDF via the server-side headless-Chromium route, which renders the
-  // real report page (same @media print CSS) for a pixel-exact document. Falls
-  // back to the browser print dialog if the headless route is unavailable.
-  const exportPdf = async () => {
-    const { from, to } = dateRange === "custom" ? { from: fFrom, to: fTo } : presetRange(dateRange);
-    try {
-      const res = await fetch(`/api/campaigns/${id}/report-pdf`, {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ token: getToken(), user: getUser(), tab: kind, preset: dateRange, from, to }),
-      });
-      const blob = await res.blob();
-      if (!res.ok || blob.type !== "application/pdf") throw new Error("headless unavailable");
-      const url = URL.createObjectURL(blob);
-      const a = document.createElement("a");
-      a.href = url; a.download = `${kind}-report-${dateRange}.pdf`; a.click();
-      URL.revokeObjectURL(url);
-    } catch {
-      window.print(); // print CSS renders the same report-only layout
-    }
-  };
-
-  const rng = dateRange === "custom" ? { from: fFrom, to: fTo } : presetRange(dateRange);
-  const rangeLabel = rng.from && rng.to ? `${rng.from} to ${rng.to}` : "All time";
-
-  return (
-    <div className="flex flex-col gap-5">
-      <div className="no-print flex items-center justify-between flex-wrap gap-2">
-        <p className="text-[13px] font-semibold text-foreground">{isGeneral ? "General report" : "Ads report"}</p>
-        <div className="flex items-center gap-2">
-          <div className="no-print relative">
-            <button onClick={() => setExportOpen((o) => !o)} disabled={sources.length === 0}
-              className="inline-flex items-center gap-1.5 h-9 px-3 rounded-md border border-border bg-background text-[13px] font-medium text-foreground hover:bg-muted disabled:opacity-50 outline-none transition-colors">
-              <Download className="w-4 h-4" /> Export <ChevronDown className="w-3.5 h-3.5 text-muted-foreground" />
-            </button>
-            {exportOpen && (
-              <>
-                <div className="fixed inset-0 z-40" onClick={() => setExportOpen(false)} />
-                <div className="absolute right-0 top-full mt-1 w-40 bg-popover border border-border rounded-lg shadow-xl z-50 py-1 animate-scale-in origin-top-right">
-                  <button onClick={() => { setExportOpen(false); exportPdf(); }} className="w-full flex items-center gap-2 px-3 py-2 text-[13px] text-foreground hover:bg-muted outline-none"><FileText className="w-4 h-4 text-muted-foreground" /> PDF</button>
-                  <button onClick={() => { setExportOpen(false); exportCsv(); }} className="w-full flex items-center gap-2 px-3 py-2 text-[13px] text-foreground hover:bg-muted outline-none"><FileSpreadsheet className="w-4 h-4 text-muted-foreground" /> CSV</button>
-                </div>
-              </>
-            )}
-          </div>
-          <DateRangeFilter value={{ preset: dateRange, from: fFrom, to: fTo }} align="right"
-            onChange={(v) => { setDateRange(v.preset); setFFrom(v.from); setFTo(v.to); }} />
-        </div>
-      </div>
-
-      {/* Heroleads-style report banner (this drives the PDF header) */}
-      <div className="rounded-xl bg-neutral-900 text-white px-5 py-3.5 flex items-center justify-between gap-3 flex-wrap">
-        <div className="min-w-0">
-          <p className="text-[16px] font-extrabold tracking-wide uppercase leading-tight">{isGeneral ? "Campaign Dashboard" : "Ads Performance Report"}</p>
-          <p className="text-[12.5px] text-white/70 truncate">{name}{dealer ? ` · ${dealer}` : ""}</p>
-        </div>
-        <p className="text-[11px] text-white/70 whitespace-nowrap">{rangeLabel}</p>
-      </div>
-
-      {/* Conversion funnel (left) + campaign performance table (right) */}
-      {isGeneral && (
-      <div className="grid grid-cols-1 sm:grid-cols-[190px_1fr] gap-4 items-start">
-        <div className="print-avoid-break rounded-xl border border-border bg-card p-4 flex flex-col items-center gap-1.5">
-          {[
-            { label: "Impressions", value: num(tot.impressions), w: 100, c: "#F97316" },
-            { label: "Clicks", value: num(tot.clicks), w: 80, c: "#F97316" },
-            { label: "CTR %", value: pctFmt(ctr), w: 60, c: "#EA580C" },
-            { label: "Leads", value: num(tot.leads), w: 44, c: "#DC2626" },
-          ].map((f) => (
-            <div key={f.label} style={{ width: `${f.w}%`, backgroundColor: f.c }}
-              className="rounded-md py-2.5 px-2 text-center text-white shadow-sm">
-              <p className="text-[9.5px] font-semibold uppercase tracking-wide opacity-90">{f.label}</p>
-              <p className="text-[17px] font-extrabold tabular-nums leading-tight">{f.value}</p>
-            </div>
-          ))}
-        </div>
-
-        <div className="print-avoid-break rounded-xl border border-border overflow-hidden">
-          <div className="px-4 py-2.5 border-b border-border bg-muted/40"><p className="text-[13px] font-semibold text-foreground">Campaign performance</p></div>
-          <div className="overflow-x-auto">
-            <table className="w-full text-[13px] whitespace-nowrap">
-            <thead>
-              <tr className="border-b border-border bg-muted/60 text-muted-foreground text-[11px] uppercase tracking-wider">
-                {["Source", "Cost", "Impressions", "Clicks", "CTR", "CPC", "Leads", "CPL"].map((h, i) => (
-                  <th key={h} className={cn("px-3 py-2 font-bold", i === 0 ? "text-left" : "text-right")}>{h}</th>
-                ))}
-              </tr>
-            </thead>
-            <tbody>
-              {loading ? (
-                <tr><td colSpan={8} className="px-3 py-8 text-center text-muted-foreground"><Loader2 className="w-5 h-5 animate-spin inline" /></td></tr>
-              ) : sources.length === 0 ? (
-                <tr><td colSpan={8} className="px-3 py-8 text-center text-muted-foreground">No ad data in this range</td></tr>
-              ) : sources.map((s) => {
-                const sCtr = s.impressions > 0 ? (s.clicks / s.impressions) * 100 : 0;
-                const sCpc = s.clicks > 0 ? s.spend / s.clicks : 0;
-                const sCpl = s.leads > 0 ? s.spend / s.leads : 0;
-                return (
-                  <tr key={s.source} className="border-b border-border/60">
-                    <td className="px-3 py-2 font-medium text-foreground">{s.label}</td>
-                    <td className="px-3 py-2 text-right tabular-nums">{money(s.spend)}</td>
-                    <td className="px-3 py-2 text-right tabular-nums">{num(s.impressions)}</td>
-                    <td className="px-3 py-2 text-right tabular-nums">{num(s.clicks)}</td>
-                    <td className="px-3 py-2 text-right tabular-nums">{pctFmt(sCtr)}</td>
-                    <td className="px-3 py-2 text-right tabular-nums">{s.clicks > 0 ? money(sCpc) : "-"}</td>
-                    <td className="px-3 py-2 text-right tabular-nums font-semibold text-primary">{num(s.leads)}</td>
-                    <td className="px-3 py-2 text-right tabular-nums">{s.leads > 0 ? money(sCpl) : "-"}</td>
-                  </tr>
-                );
-              })}
-            </tbody>
-            {!loading && sources.length > 0 && (
-              <tfoot>
-                <tr className="border-t-2 border-border font-bold bg-muted/40">
-                  <td className="px-3 py-2">Grand total</td>
-                  <td className="px-3 py-2 text-right tabular-nums">{money(tot.spend)}</td>
-                  <td className="px-3 py-2 text-right tabular-nums">{num(tot.impressions)}</td>
-                  <td className="px-3 py-2 text-right tabular-nums">{num(tot.clicks)}</td>
-                  <td className="px-3 py-2 text-right tabular-nums">{pctFmt(ctr)}</td>
-                  <td className="px-3 py-2 text-right tabular-nums">{tot.clicks > 0 ? money(cpc) : "-"}</td>
-                  <td className="px-3 py-2 text-right tabular-nums text-primary">{num(tot.leads)}</td>
-                  <td className="px-3 py-2 text-right tabular-nums">{tot.leads > 0 ? money(cpl) : "-"}</td>
-                </tr>
-              </tfoot>
-            )}
-          </table>
-          </div>
-        </div>
-      </div>
-      )}
-
-      {/* Lead KPIs */}
-      {isGeneral && row && (
-        <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
-          <Stat label="Replied" value={row.replied} />
-          <Stat label="Avg 1st response" value={row.avg_rt_min > 0 ? fmtDuration(row.avg_rt_min) : "-"} />
-          <Stat label="Within 5 min" value={`${Math.round(row.within_5_pct)}%`} />
-          <Stat label="Qualified" value={row.qualified} />
-        </div>
-      )}
-
-      {/* Budget utilization */}
-      {isGeneral && <BudgetPanel id={id} budget={budget} spend={tot.spend} onBudget={onBudget} notify={notify} />}
-
-      {/* Leads over time (single series — keep one axis) */}
-      {isGeneral && daily.length > 0 && (
-        <div className="rounded-xl border border-border p-4">
-          <p className="text-[13px] font-semibold text-foreground mb-3">Leads over time</p>
-          <div className="h-[220px]">
-            <ResponsiveContainer width="100%" height="100%">
-              <AreaChart data={daily} margin={{ top: 6, right: 8, left: -18, bottom: 0 }}>
-                <defs>
-                  <linearGradient id="leadFill" x1="0" y1="0" x2="0" y2="1">
-                    <stop offset="0%" stopColor="#2D8B73" stopOpacity={0.28} />
-                    <stop offset="100%" stopColor="#2D8B73" stopOpacity={0} />
-                  </linearGradient>
-                </defs>
-                <CartesianGrid strokeDasharray="3 3" stroke="rgba(0,0,0,0.06)" vertical={false} />
-                <XAxis dataKey="date" tick={{ fontSize: 11 }} axisLine={false} tickLine={false} minTickGap={24} />
-                <YAxis tick={{ fontSize: 11 }} axisLine={false} tickLine={false} width={40} allowDecimals={false} />
-                <RTooltip />
-                <Area type="monotone" dataKey="leads" stroke="#2D8B73" strokeWidth={2} fill="url(#leadFill)" />
-              </AreaChart>
-            </ResponsiveContainer>
-          </div>
-        </div>
-      )}
-
-      {/* Campaign performance breakdown — clicks + impressions (log scale) */}
-      {!isGeneral && dailyPerf.length > 0 && (
-        <div className="print-avoid-break rounded-xl border border-border p-4">
-          <div className="flex items-center justify-between mb-3">
-            <p className="text-[13px] font-semibold text-foreground">Campaign performance breakdown</p>
-            <div className="flex items-center gap-3 text-[10px] text-muted-foreground">
-              <span className="flex items-center gap-1"><span className="w-3 h-0.5 bg-[#F97316] inline-block" />Clicks</span>
-              <span className="flex items-center gap-1"><span className="w-3 h-0.5 bg-neutral-800 inline-block" />Impressions</span>
-            </div>
-          </div>
-          <div className="h-[240px]">
-            <ResponsiveContainer width="100%" height="100%">
-              <LineChart data={dailyPerf} margin={{ top: 6, right: 8, left: -4, bottom: 0 }}>
-                <CartesianGrid strokeDasharray="3 3" stroke="rgba(0,0,0,0.06)" vertical={false} />
-                <XAxis dataKey="date" tick={{ fontSize: 10 }} axisLine={false} tickLine={false} minTickGap={28} />
-                <YAxis scale="log" domain={[1, "auto"]} allowDataOverflow tick={{ fontSize: 10 }} axisLine={false} tickLine={false} width={46}
-                  tickFormatter={(v) => v >= 1e6 ? `${(v / 1e6).toFixed(0)}M` : v >= 1000 ? `${(v / 1000).toFixed(0)}k` : `${v}`} />
-                <RTooltip formatter={(v) => num(Number(v))} />
-                <Line type="monotone" dataKey="impressions" name="Impressions" stroke="#262626" strokeWidth={1.6} dot={false} connectNulls />
-                <Line type="monotone" dataKey="clicks" name="Clicks" stroke="#F97316" strokeWidth={1.6} dot={false} connectNulls />
-              </LineChart>
-            </ResponsiveContainer>
-          </div>
-        </div>
-      )}
-
-      {/* Google top search keywords */}
-      {!isGeneral && kw.length > 0 && (
-        <div className="print-avoid-break rounded-xl border border-border p-4">
-          <div className="flex items-center justify-between mb-3">
-            <p className="text-[13px] font-semibold text-foreground">Google top {kw.length} search keywords</p>
-            <div className="flex items-center gap-3 text-[10px] text-muted-foreground">
-              <span className="flex items-center gap-1"><span className="w-2.5 h-2.5 rounded-sm bg-[#F97316]" />Clicks</span>
-              <span className="flex items-center gap-1"><span className="w-2.5 h-2.5 rounded-sm bg-neutral-800" />Impressions</span>
-            </div>
-          </div>
-          <div className="space-y-2.5">
-            {kw.map((k, i) => (
-              <div key={k.keyword + i} className="grid grid-cols-[minmax(90px,150px)_1fr] items-center gap-3">
-                <span className="text-[11px] text-foreground truncate" title={k.keyword}>{k.keyword}</span>
-                <div className="space-y-1">
-                  <div className="flex items-center gap-2"><div className="h-2.5 rounded-sm bg-[#F97316]" style={{ width: `${logW(k.clicks)}%` }} /><span className="text-[10px] tabular-nums text-muted-foreground shrink-0">{num(k.clicks)}</span></div>
-                  <div className="flex items-center gap-2"><div className="h-2.5 rounded-sm bg-neutral-800" style={{ width: `${logW(k.impressions)}%` }} /><span className="text-[10px] tabular-nums text-muted-foreground shrink-0">{num(k.impressions)}</span></div>
-                </div>
-              </div>
-            ))}
-          </div>
-        </div>
-      )}
-
-      {/* Monthly spending performance — daily cost */}
-      {!isGeneral && dailyPerf.length > 0 && (
-        <div className="print-avoid-break rounded-xl border border-border p-4">
-          <p className="text-[13px] font-semibold text-foreground mb-3">Monthly spending performance</p>
-          <div className="h-[200px]">
-            <ResponsiveContainer width="100%" height="100%">
-              <BarChart data={dailyPerf} margin={{ top: 6, right: 8, left: 6, bottom: 0 }}>
-                <CartesianGrid strokeDasharray="3 3" stroke="rgba(0,0,0,0.06)" vertical={false} />
-                <XAxis dataKey="date" tick={{ fontSize: 10 }} axisLine={false} tickLine={false} minTickGap={28} />
-                <YAxis tick={{ fontSize: 10 }} axisLine={false} tickLine={false} width={56}
-                  tickFormatter={(v) => v >= 1e6 ? `${(v / 1e6).toFixed(0)}M` : v >= 1000 ? `${(v / 1000).toFixed(0)}k` : `${v}`} />
-                <RTooltip formatter={(v) => money(Number(v))} />
-                <Bar dataKey="spend" name="Cost" fill="#F97316" radius={[2, 2, 0, 0]} />
-              </BarChart>
-            </ResponsiveContainer>
-          </div>
-        </div>
-      )}
-
-      {/* Latest leads */}
-      {isGeneral && leads.length > 0 && (
-        <div className="print-avoid-break rounded-xl border border-border overflow-hidden">
-          <div className="px-4 py-2.5 border-b border-border bg-muted/40 flex items-center justify-between">
-            <p className="text-[13px] font-semibold text-foreground">Latest leads</p>
-            <span className="text-[11px] text-muted-foreground">{leads.length} total</span>
-          </div>
-          <div className="overflow-x-auto">
-            <table className="w-full text-[12.5px] whitespace-nowrap">
-              <thead>
-                <tr className="border-b border-border bg-muted/60 text-muted-foreground text-[11px] uppercase tracking-wider">
-                  {["Date", "Name", "Phone", "Source", "Status"].map((h, i) => (
-                    <th key={h} className={cn("px-3 py-2 font-bold text-left", i > 2 && "hidden sm:table-cell")}>{h}</th>
-                  ))}
-                </tr>
-              </thead>
-              <tbody>
-                {leads.slice(0, 10).map((l) => (
-                  <tr key={l.id} className="border-b border-border/60">
-                    <td className="px-3 py-2 text-muted-foreground">{l.last_message_at ? fmtDateTimeShort(l.last_message_at) : "-"}</td>
-                    <td className="px-3 py-2 font-medium text-foreground">{l.contact_name || "Unknown"}</td>
-                    <td className="px-3 py-2 tabular-nums text-muted-foreground">{l.contact_phone || "-"}</td>
-                    <td className="px-3 py-2 text-muted-foreground capitalize hidden sm:table-cell">{l.channel || "-"}</td>
-                    <td className="px-3 py-2 hidden sm:table-cell">
-                      <span className="inline-flex px-2 py-0.5 rounded-md text-[11px] font-semibold bg-muted text-foreground/80">{l.stage_name || l.status}</span>
-                    </td>
-                  </tr>
-                ))}
-              </tbody>
-            </table>
-          </div>
-        </div>
-      )}
-
-      {/* Demographics */}
-      {!isGeneral && ((perf?.age?.length ?? 0) > 0 || (perf?.gender?.length ?? 0) > 0) && (
-        <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-          <Donut title="Age" data={perf?.age} />
-          <Donut title="Gender" data={perf?.gender} />
-        </div>
-      )}
-
-      {/* Location */}
-      {!isGeneral && <LocationPanel data={perf?.region} />}
-
-      {/* GA4 landing-page performance (read-only — connect/sync lives in Channel & Integrations) */}
-      {!isGeneral && (
-        <Ga4Panel campaignId={id}
-          from={dateRange === "custom" ? fFrom : presetRange(dateRange).from}
-          to={dateRange === "custom" ? fTo : presetRange(dateRange).to} />
-      )}
     </div>
   );
 }
@@ -907,6 +235,7 @@ type CatalogRowInput = { item_name: string; variant_name?: string; location_name
 function CatalogTab({ id, segment, notify }: { id: string; segment?: string; notify: (m: string, s?: "success" | "error") => void }) {
   const [rows, setRows] = useState<CatalogItem[] | null>(null);
   const [busy, setBusy] = useState(false);
+  const [editing, setEditing] = useState<CatalogItem | null>(null); // row open in the edit drawer
   const fileRef = useRef<HTMLInputElement>(null);
   const { confirm, ConfirmHost } = useConfirm();
   // Live upload progress so the user sees WHAT the system is doing (not a blind spinner).
@@ -991,24 +320,30 @@ function CatalogTab({ id, segment, notify }: { id: string; segment?: string; not
           </div>
         </div>
       )}
-      <div className="rounded-lg border border-dashed border-border p-5 text-center">
-        <div className="w-11 h-11 rounded-xl bg-primary/10 text-primary grid place-items-center mx-auto mb-3"><Upload className="w-5 h-5" /></div>
-        <p className="text-[13.5px] font-semibold text-foreground mb-3">Upload a pricelist (CSV, Excel, or PDF)</p>
-        <input ref={fileRef} type="file" accept=".csv,text/csv,.pdf,application/pdf,.xlsx,.xls,application/vnd.openxmlformats-officedocument.spreadsheetml.sheet" className="hidden" onChange={onFile} />
-        <button onClick={() => fileRef.current?.click()} disabled={busy}
-          className="inline-flex items-center gap-2 px-3.5 h-9 mt-3 bg-primary text-white rounded-md text-sm font-semibold hover:bg-primary-dark shadow-sm transition-all outline-none disabled:opacity-50">
-          {busy ? <Loader2 className="w-4 h-4 animate-spin" /> : <Upload className="w-4 h-4" />}Choose file
-        </button>
-      </div>
-
-      <div className="flex items-center justify-between">
-        <p className="text-[13px] text-muted-foreground"><span className="font-semibold text-foreground tabular-nums">{rows.length}</span> item{rows.length === 1 ? "" : "s"} in this campaign&apos;s catalog</p>
-        {rows.length > 0 && (
-          <button onClick={clearAll} disabled={busy} className="inline-flex items-center gap-1.5 text-[12.5px] font-semibold text-red-500 hover:text-red-600 outline-none disabled:opacity-50">
-            <Trash2 className="w-4 h-4" />Clear all
+      <input ref={fileRef} type="file" accept=".csv,text/csv,.pdf,application/pdf,.xlsx,.xls,application/vnd.openxmlformats-officedocument.spreadsheetml.sheet" className="hidden" onChange={onFile} />
+      {/* Upload dropzone only shows for an empty catalog; once populated it's replaced by a compact Replace/Clear header. */}
+      {rows.length === 0 ? (
+        <div className="rounded-lg border border-dashed border-border p-5 text-center">
+          <div className="w-11 h-11 rounded-xl bg-primary/10 text-primary grid place-items-center mx-auto mb-3"><Upload className="w-5 h-5" /></div>
+          <p className="text-[13.5px] font-semibold text-foreground mb-3">Upload a pricelist (CSV, Excel, or PDF)</p>
+          <button onClick={() => fileRef.current?.click()} disabled={busy}
+            className="inline-flex items-center gap-2 px-3.5 h-9 mt-3 bg-primary text-white rounded-md text-sm font-semibold hover:bg-primary-dark shadow-sm transition-all outline-none disabled:opacity-50">
+            {busy ? <Loader2 className="w-4 h-4 animate-spin" /> : <Upload className="w-4 h-4" />}Choose file
           </button>
-        )}
-      </div>
+        </div>
+      ) : (
+        <div className="flex items-center justify-between flex-wrap gap-2">
+          <p className="text-[13px] text-muted-foreground"><span className="font-semibold text-foreground tabular-nums">{rows.length}</span> item{rows.length === 1 ? "" : "s"} in this campaign&apos;s catalog. Click a row to edit.</p>
+          <div className="flex items-center gap-2">
+            <button onClick={() => fileRef.current?.click()} disabled={busy} className="inline-flex items-center gap-1.5 h-9 px-3 rounded-md border border-border bg-background text-[12.5px] font-semibold text-foreground hover:bg-muted outline-none disabled:opacity-50">
+              {busy ? <Loader2 className="w-4 h-4 animate-spin" /> : <Upload className="w-4 h-4" />}Replace pricelist
+            </button>
+            <button onClick={clearAll} disabled={busy} className="inline-flex items-center gap-1.5 h-9 px-3 rounded-md text-[12.5px] font-semibold text-red-500 hover:bg-red-50 outline-none disabled:opacity-50">
+              <Trash2 className="w-4 h-4" />Clear all
+            </button>
+          </div>
+        </div>
+      )}
 
       {rows.length > 0 && (
         <div className="rounded-lg border border-border overflow-hidden">
@@ -1023,7 +358,7 @@ function CatalogTab({ id, segment, notify }: { id: string; segment?: string; not
               </thead>
               <tbody>
                 {rows.slice(0, 200).map((r) => (
-                  <tr key={r.id} className="border-b border-border/60">
+                  <tr key={r.id} onClick={() => setEditing(r)} className="border-b border-border/60 cursor-pointer hover:bg-muted/50 transition-colors">
                     <td className="px-3 py-2 text-[13px] font-medium text-foreground">{r.item_name}</td>
                     <td className="px-3 py-2 text-[12.5px] text-muted-foreground">{r.variant_name || ""}</td>
                     <td className="px-3 py-2 text-[12.5px] text-muted-foreground">{r.location_name || ""}</td>
@@ -1037,7 +372,92 @@ function CatalogTab({ id, segment, notify }: { id: string; segment?: string; not
           {rows.length > 200 && <p className="px-3 py-2 text-[11.5px] text-muted-foreground border-t border-border">Showing first 200 of {rows.length}.</p>}
         </div>
       )}
+
+      {editing && (
+        <CatalogRowDrawer campaignId={id} row={editing} onClose={() => setEditing(null)}
+          onSaved={() => { setEditing(null); load(); }} notify={notify} />
+      )}
     </div>
+  );
+}
+
+// Right-side edit drawer for one catalog row (item / variant / location / price +
+// free-form attributes). Saves via PATCH, or deletes the row.
+function CatalogRowDrawer({ campaignId, row, onClose, onSaved, notify }: {
+  campaignId: string; row: CatalogItem; onClose: () => void; onSaved: () => void;
+  notify: (m: string, s?: "success" | "error") => void;
+}) {
+  const [item, setItem] = useState(row.item_name);
+  const [variant, setVariant] = useState(row.variant_name ?? "");
+  const [location, setLocation] = useState(row.location_name ?? "");
+  const [price, setPrice] = useState(row.headline_price != null ? String(row.headline_price) : "");
+  const [attrs, setAttrs] = useState<{ k: string; v: string }[]>(
+    Object.entries(row.attributes || {}).map(([k, v]) => ({ k, v: String(v ?? "") })),
+  );
+  const [saving, setSaving] = useState(false);
+  const setAttr = (i: number, patch: Partial<{ k: string; v: string }>) =>
+    setAttrs((a) => a.map((x, j) => (j === i ? { ...x, ...patch } : x)));
+
+  async function save() {
+    if (!item.trim()) { notify("Item name is required", "error"); return; }
+    setSaving(true);
+    try {
+      const attributes: Record<string, unknown> = {};
+      attrs.forEach(({ k, v }) => { if (k.trim()) attributes[k.trim()] = v; });
+      await api.updateCatalogRow(campaignId, row.id, {
+        item_name: item.trim(), variant_name: variant.trim(), location_name: location.trim(),
+        category_type: row.category_type ?? "",
+        headline_price: price.trim() === "" ? null : Number(price.replace(/[^0-9.]/g, "")),
+        attributes,
+      });
+      notify("Row updated"); onSaved();
+    } catch (e) { notify(String(e), "error"); } finally { setSaving(false); }
+  }
+  async function remove() {
+    setSaving(true);
+    try { await api.deleteCatalogRow(campaignId, row.id); notify("Row deleted"); onSaved(); }
+    catch (e) { notify(String(e), "error"); setSaving(false); }
+  }
+
+  return (
+    <>
+      <div className="fixed inset-0 z-[60] bg-black/30" onClick={onClose} />
+      <div className="fixed inset-y-0 right-0 z-[61] w-[400px] max-w-[calc(100vw-2rem)] bg-card border-l border-border shadow-2xl flex flex-col animate-slide-in-right">
+        <div className="flex items-center justify-between px-5 h-14 border-b border-border shrink-0">
+          <p className="text-[14px] font-bold text-foreground">Edit catalog row</p>
+          <button onClick={onClose} className="p-1.5 rounded-md text-muted-foreground hover:bg-muted outline-none"><X className="w-4 h-4" /></button>
+        </div>
+        <div className="flex-1 overflow-y-auto p-5 space-y-3.5">
+          <div><FieldLabel>Item name</FieldLabel><input value={item} onChange={(e) => setItem(e.target.value)} className={INPUT_CLASS} /></div>
+          <div><FieldLabel>Variant</FieldLabel><input value={variant} onChange={(e) => setVariant(e.target.value)} className={INPUT_CLASS} /></div>
+          <div><FieldLabel>Location</FieldLabel><input value={location} onChange={(e) => setLocation(e.target.value)} className={INPUT_CLASS} /></div>
+          <div><FieldLabel>Price (Rp)</FieldLabel><input value={price} inputMode="numeric" onChange={(e) => setPrice(e.target.value.replace(/[^0-9.]/g, ""))} placeholder="e.g. 420000000" className={INPUT_CLASS} /></div>
+          <div>
+            <div className="flex items-center justify-between mb-1">
+              <FieldLabel>Attributes</FieldLabel>
+              <button onClick={() => setAttrs((a) => [...a, { k: "", v: "" }])} className="text-[12px] font-semibold text-primary hover:underline outline-none">+ Add</button>
+            </div>
+            <div className="space-y-2">
+              {attrs.length === 0 && <p className="text-[12px] text-muted-foreground">No attributes (e.g. dp, tenor, emi).</p>}
+              {attrs.map((a, i) => (
+                <div key={i} className="flex items-center gap-2">
+                  <input value={a.k} onChange={(e) => setAttr(i, { k: e.target.value })} placeholder="key" className={cn(INPUT_CLASS, "flex-1")} />
+                  <input value={a.v} onChange={(e) => setAttr(i, { v: e.target.value })} placeholder="value" className={cn(INPUT_CLASS, "flex-1")} />
+                  <button onClick={() => setAttrs((arr) => arr.filter((_, j) => j !== i))} className="p-2 rounded-md text-muted-foreground hover:text-destructive hover:bg-destructive/10 outline-none shrink-0"><Trash2 className="w-4 h-4" /></button>
+                </div>
+              ))}
+            </div>
+          </div>
+        </div>
+        <div className="flex items-center justify-between gap-2 px-5 h-16 border-t border-border shrink-0">
+          <button onClick={remove} disabled={saving} className="inline-flex items-center gap-1.5 h-9 px-3 rounded-md text-[13px] font-semibold text-red-500 hover:bg-red-50 outline-none disabled:opacity-50"><Trash2 className="w-4 h-4" />Delete</button>
+          <div className="flex items-center gap-2">
+            <button onClick={onClose} className="h-9 px-3.5 rounded-md border border-border text-[13px] font-medium hover:bg-muted outline-none">Cancel</button>
+            <button onClick={save} disabled={saving} className="inline-flex items-center gap-1.5 h-9 px-4 rounded-md bg-primary text-white text-[13px] font-semibold hover:bg-primary-dark disabled:opacity-50 outline-none">{saving && <Loader2 className="w-4 h-4 animate-spin" />}Save</button>
+          </div>
+        </div>
+      </div>
+    </>
   );
 }
 

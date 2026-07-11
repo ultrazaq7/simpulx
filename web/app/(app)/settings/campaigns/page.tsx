@@ -73,16 +73,16 @@ export default function CampaignsPage() {
           <table className="w-full text-sm min-w-[920px] whitespace-nowrap">
             <thead>
               <tr className="border-b border-border bg-muted/40">
-                {["Campaign", "Status", "Channel", "Agents", "Chats", "Leads", "Routing", "Created", "Updated", ""].map((h) => (
-                  <th key={h} className={cn("px-4 py-2.5 text-[11px] font-bold uppercase tracking-wider text-muted-foreground", ["Agents", "Chats", "Leads"].includes(h) ? "text-right" : h === "" ? "text-right w-20" : "text-left")}>{h}</th>
+                {["Campaign", "Status", "Channel", "Agents", "Routing", "Created", "Updated", ""].map((h) => (
+                  <th key={h} className={cn("px-4 py-2.5 text-[11px] font-bold uppercase tracking-wider text-muted-foreground", h === "Agents" ? "text-right" : h === "" ? "text-right w-20" : "text-left")}>{h}</th>
                 ))}
               </tr>
             </thead>
             <tbody>
               {loading ? (
-                <tr><td colSpan={10} className="text-center py-16"><Loader2 className="w-6 h-6 animate-spin text-muted-foreground mx-auto" /></td></tr>
+                <tr><td colSpan={8} className="text-center py-16"><Loader2 className="w-6 h-6 animate-spin text-muted-foreground mx-auto" /></td></tr>
               ) : paged.length === 0 ? (
-                <tr><td colSpan={10} className="text-center py-16">
+                <tr><td colSpan={8} className="text-center py-16">
                   <div className="w-12 h-12 rounded-xl bg-muted grid place-items-center mx-auto mb-3"><Megaphone className="w-6 h-6 text-muted-foreground/50" /></div>
                   <p className="font-semibold text-foreground mb-0.5">{search || channelFilter.length ? "No matching campaigns" : "No campaigns yet"}</p>
                   <p className="text-[13px] text-muted-foreground">Create a campaign to start routing its leads.</p>
@@ -102,8 +102,6 @@ export default function CampaignsPage() {
                       : <span className="text-[12px] text-amber-600">Not set</span>}
                   </td>
                   <td className="px-4 py-2.5 text-right font-semibold text-[13px] text-foreground tabular-nums">{c.agent_count}</td>
-                  <td className="px-4 py-2.5 text-right font-semibold text-[13px] tabular-nums">{c.conversations}</td>
-                  <td className="px-4 py-2.5 text-right font-semibold text-[13px] tabular-nums">{c.lead_count}</td>
                   <td className="px-4 py-2.5 text-[12.5px] text-muted-foreground capitalize">{c.routing_strategy.replace("_", " ")}</td>
                   <td className="px-4 py-2.5 text-[12.5px] text-muted-foreground whitespace-nowrap">{fmtDateTimeShort(c.created_at)}</td>
                   <td className="px-4 py-2.5 text-[12.5px] text-muted-foreground whitespace-nowrap">{fmtDateTimeShort(c.updated_at)}</td>

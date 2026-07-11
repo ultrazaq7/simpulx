@@ -495,6 +495,9 @@ export const api = {
     }
     return { rows: [], error: "Extraction timed out" };
   },
+  updateCatalogRow: (id: string, rowId: string, patch: { item_name: string; variant_name?: string; location_name?: string; category_type?: string; headline_price?: number | null; attributes?: Record<string, unknown> }) =>
+    req<{ updated: boolean }>(`/api/campaigns/${id}/catalog/${rowId}`, { method: "PATCH", body: JSON.stringify(patch) }),
+  deleteCatalogRow: (id: string, rowId: string) => req<{ deleted: boolean }>(`/api/campaigns/${id}/catalog/${rowId}`, { method: "DELETE" }),
   clearCampaignCatalog: (id: string) => req<{ deleted: number }>(`/api/campaigns/${id}/catalog`, { method: "DELETE" }),
   getSubscription: () => req<{ package_name: string; status: string; renewal_date: string | null; quotas: Record<string, number>; used_users: number; used_simpuler_credits: number; used_custom_fields: number }>("/api/subscription"),
   // ── Platform super admin (email-gated, not a role) ──

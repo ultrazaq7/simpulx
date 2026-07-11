@@ -238,6 +238,72 @@ func (s *server) handleExtractCatalogStatus(w http.ResponseWriter, r *http.Reque
 	_, _ = w.Write([]byte(val))
 }
 
+// PATCH /api/campaigns/{id}/catalog/{row} — edit one catalog row in place.
+func (s *server) handleUpdateCatalogRow(w http.ResponseWriter, r *http.Request) {
+	a, _ := authFrom(r.Context())
+	cid := r.PathValue("id")
+	rowID := r.PathValue("row")
+	var b struct {
+		ItemName     string          `json:"item_name"`
+		VariantName  string          `json:"variant_name"`
+		LocationName string          `json:"location_name"`
+		CategoryType string          `json:"category_type"`
+		HeadlinePrice *float64       `json:"headline_price"`
+		Attributes   json.RawMessage `json:"attributes"`
+	}
+	if err := json.NewDecoder(r.Body).Decode(&b); err != nil {
+		http.Error(w, "bad request", http.StatusBadRequest)
+		return
+	}
+	if strings.TrimSpace(b.ItemName) == "" {
+		http.Error(w, "item_name required", http.StatusBadRequest)
+		return
+	}
+	attrs := b.Attributes
+	if len(attrs) == 0 {
+		attrs = json.RawMessage("{}")
+	}
+	// Scope by campaign + org so one org can never edit another's rows.
+	tag, err := s.pool.Exec(r.Context(),
+		`UPDATE campaign_catalog cc
+		    SET item_name=$4, variant_name=NULLIF($5,''), location_name=NULLIF($6,''),
+		        category_type=NULLIF($7,''), headline_price=$8, attributes=$9::jsonb
+		  FROM campaigns c
+		 WHERE cc.id=$1::uuid AND cc.campaign_id=$2::uuid
+		   AND c.id=cc.campaign_id AND c.organization_id=$3`,
+		rowID, cid, a.OrgID, b.ItemName, b.VariantName, b.LocationName, b.CategoryType, b.HeadlinePrice, attrs)
+	if err != nil {
+		http.Error(w, err.Error(), http.StatusInternalServerError)
+		return
+	}
+	if tag.RowsAffected() == 0 {
+		http.Error(w, "not found", http.StatusNotFound)
+		return
+	}
+	writeJSON(w, map[string]any{"updated": true})
+}
+
+// DELETE /api/campaigns/{id}/catalog/{row} — delete one catalog row.
+func (s *server) handleDeleteCatalogRow(w http.ResponseWriter, r *http.Request) {
+	a, _ := authFrom(r.Context())
+	cid := r.PathValue("id")
+	rowID := r.PathValue("row")
+	tag, err := s.pool.Exec(r.Context(),
+		`DELETE FROM campaign_catalog cc USING campaigns c
+		  WHERE cc.id=$1::uuid AND cc.campaign_id=$2::uuid
+		    AND c.id=cc.campaign_id AND c.organization_id=$3`,
+		rowID, cid, a.OrgID)
+	if err != nil {
+		http.Error(w, err.Error(), http.StatusInternalServerError)
+		return
+	}
+	if tag.RowsAffected() == 0 {
+		http.Error(w, "not found", http.StatusNotFound)
+		return
+	}
+	writeJSON(w, map[string]any{"deleted": true})
+}
+
 // DELETE /api/campaigns/{id}/catalog — clear a campaign's catalog.
 func (s *server) handleClearCatalog(w http.ResponseWriter, r *http.Request) {
 	a, _ := authFrom(r.Context())

@@ -10,7 +10,7 @@ import { usePathname, useSearchParams } from "next/navigation";
 import {
   Settings, FormInput, Bell, User, ShieldCheck, ListOrdered,
   Building2, Building, FileText, GitBranch, RadioTower, Clock, ClipboardList,
-  ChevronsLeft, Boxes, Zap, SlidersHorizontal, ChevronRight, Plug, LineChart, Megaphone,
+  ChevronsLeft, Boxes, Zap, SlidersHorizontal, ChevronRight, Plug, Megaphone,
 } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { api, getUser } from "@/lib/api";
@@ -35,12 +35,12 @@ const GROUPS: { titleKey: string; items: NavItem[] }[] = [
       { key: "company-details", labelKey: "settings.company_details", icon: Building, href: "/settings/company-details", perm: "view_settings" },
       { key: "user-management", labelKey: "settings.user_management", icon: User, href: "/settings/user-management", perm: "manage_team" },
       { key: "roles", labelKey: "settings.roles", icon: ShieldCheck, href: "/settings/roles", perm: "manage_roles" },
+      { key: "campaigns", labelKey: "settings.campaigns", icon: Building2, href: "/settings/campaigns", perm: "manage_campaigns" },
     ],
   },
   {
-    titleKey: "Workspace",
+    titleKey: "Customizations",
     items: [
-      { key: "campaigns", labelKey: "settings.campaigns", icon: Building2, href: "/settings/campaigns", perm: "manage_campaigns" },
       { key: "templates", labelKey: "settings.templates", icon: FileText, href: "/settings/templates", perm: "view_settings" },
       { key: "automation", labelKey: "settings.automations", icon: GitBranch, href: "/settings/automation", perm: "view_automation" },
       { key: "wa-forms", labelKey: "settings.forms", icon: ClipboardList, href: "/settings/wa-forms", perm: "view_automation" },
@@ -55,9 +55,8 @@ const GROUPS: { titleKey: string; items: NavItem[] }[] = [
     titleKey: "Channel & Integrations",
     items: [
       { key: "ci-channel", labelKey: "Channel", icon: RadioTower, href: "/settings/channels?tab=channels", perm: "manage_channels" },
-      { key: "ci-webapi", labelKey: "Web API Forms", icon: Plug, href: "/settings/channels?tab=webapi", perm: "manage_channels" },
-      { key: "ci-ads", labelKey: "Ads Account", icon: Megaphone, href: "/settings/channels?tab=advertising", perm: "manage_channels" },
-      { key: "ci-analytics", labelKey: "Analytics", icon: LineChart, href: "/settings/channels?tab=analytics", perm: "manage_channels" },
+      { key: "ci-webapi", labelKey: "Web API", icon: Plug, href: "/settings/channels?tab=webapi", perm: "manage_channels" },
+      { key: "ci-ads", labelKey: "Ads & Analytics", icon: Megaphone, href: "/settings/channels?tab=ads-analytics", perm: "manage_channels" },
     ],
   },
   {
@@ -114,7 +113,7 @@ export default function SettingsLayout({ children }: { children: ReactNode }) {
     ...GROUPS
       .map((g) => ({ ...g, items: g.items.filter((i) => can(i.perm)) }))
       .filter((g) => g.items.length > 0),
-    ...(isSuper ? [{ titleKey: "Platform", items: [{ key: "platform", labelKey: "Platform", icon: Boxes, href: "/settings/platform", perm: "" }] }] : []),
+    ...(isSuper ? [{ titleKey: "Platform", items: [{ key: "platform", labelKey: "Organization", icon: Boxes, href: "/settings/platform", perm: "" }] }] : []),
   ];
 
   const navCount = groups.reduce((n, g) => n + g.items.length, 0);

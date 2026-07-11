@@ -1,62 +1,42 @@
 "use client";
-// Channel & Integrations — one home for every connection. Top tabs switch between
-// messaging Channels, Web API lead sources, and Advertising. The active tab is
-// URL-driven (?tab=channels|webapi|advertising) so deep links and the redirects
-// from the old /settings/integrations and /settings/ads routes land correctly.
-import { Suspense } from "react";
-import { useRouter, usePathname, useSearchParams } from "next/navigation";
-import { RadioTower, Plug, BarChart3, LineChart } from "lucide-react";
+// Channel & Integrations. Each connection type is its own standalone page, driven
+// by the settings sidebar via ?tab (channels | webapi | ads-analytics). No top tab
+// bar anymore; Ads & Analytics combines ad accounts + GA4 behind a small toggle.
+// Old ?tab=advertising / ?tab=analytics deep-links still resolve here.
+import { Suspense, useState } from "react";
+import { useSearchParams } from "next/navigation";
 import { cn } from "@/lib/utils";
-import { useI18n } from "@/lib/i18n";
 import { ChannelsTab } from "./ChannelsTab";
 import { WebApiTab } from "./WebApiTab";
 import { AdvertisingTab } from "./AdvertisingTab";
 import { Ga4Tab } from "./Ga4Tab";
 
-const TABS = [
-  { key: "channels", labelKey: "Channel", icon: RadioTower },
-  { key: "webapi", labelKey: "Web API Forms", icon: Plug },
-  { key: "advertising", labelKey: "Ads Account", icon: BarChart3 },
-  { key: "analytics", labelKey: "Analytics", icon: LineChart },
-];
-
 function ChannelsIntegrations() {
-  const router = useRouter();
-  const pathname = usePathname() || "/settings/channels";
   const params = useSearchParams();
-  const { t } = useI18n();
-
   const requested = params.get("tab") || "channels";
-  const active = TABS.some((x) => x.key === requested) ? requested : "channels";
-  const go = (key: string) => router.replace(`${pathname}?tab=${key}`, { scroll: false });
+  const tab = requested === "advertising" || requested === "analytics" ? "ads-analytics" : requested;
+  const [adsView, setAdsView] = useState<"ads" | "analytics">(requested === "analytics" ? "analytics" : "ads");
 
-  return (
-    <div className="flex flex-col h-full min-h-0">
-      {/* Title + tabs */}
-      <div className="px-6 pt-5 shrink-0 border-b border-border bg-card">
-        <div className="flex items-center gap-1">
-          {TABS.map((x) => {
-            const Icon = x.icon; const sel = active === x.key;
-            return (
-              <button key={x.key} onClick={() => go(x.key)}
-                className={cn("inline-flex items-center gap-2 px-3.5 h-10 text-[13.5px] font-semibold border-b-2 -mb-px transition-colors outline-none",
-                  sel ? "border-primary text-primary" : "border-transparent text-muted-foreground hover:text-foreground")}>
-                <Icon className="w-[17px] h-[17px]" />{t(x.labelKey)}
-              </button>
-            );
-          })}
+  if (tab === "webapi") return <WebApiTab />;
+  if (tab === "ads-analytics") {
+    return (
+      <div className="flex flex-col h-full min-h-0">
+        <div className="px-6 pt-4 shrink-0 border-b border-border bg-card flex items-center gap-1">
+          {([["ads", "Ad Accounts"], ["analytics", "Analytics (GA4)"]] as const).map(([k, label]) => (
+            <button key={k} onClick={() => setAdsView(k)}
+              className={cn("inline-flex items-center px-3.5 h-10 text-[13.5px] font-semibold border-b-2 -mb-px transition-colors outline-none",
+                adsView === k ? "border-primary text-primary" : "border-transparent text-muted-foreground hover:text-foreground")}>
+              {label}
+            </button>
+          ))}
+        </div>
+        <div className="flex-1 min-h-0 overflow-hidden bg-background">
+          {adsView === "ads" ? <AdvertisingTab /> : <Ga4Tab />}
         </div>
       </div>
-
-      {/* Active tab */}
-      <div className="flex-1 min-h-0 overflow-hidden bg-background">
-        {active === "channels" && <ChannelsTab />}
-        {active === "webapi" && <WebApiTab />}
-        {active === "advertising" && <AdvertisingTab />}
-        {active === "analytics" && <Ga4Tab />}
-      </div>
-    </div>
-  );
+    );
+  }
+  return <ChannelsTab />;
 }
 
 export default function ChannelsIntegrationsPage() {
