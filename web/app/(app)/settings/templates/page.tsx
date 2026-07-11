@@ -8,6 +8,7 @@ import {
 import { api } from "@/lib/api";
 import { Select } from "@/components/Select";
 import { MultiSelect } from "@/components/ui/multi-select";
+import { FilterButton, FilterDrawer, FilterField } from "@/components/FilterDrawer";
 import { fmtDateTimeShort, cn } from "@/lib/utils";
 import { useEscClose } from "@/lib/useEscClose";
 import { Tip } from "@/components/ui/tooltip";
@@ -48,6 +49,9 @@ export default function TemplatesPage() {
   const [statusFilter, setStatusFilter] = useState<string[]>([]);
   const [channelFilter, setChannelFilter] = useState<string[]>([]);
   const [campaignFilter, setCampaignFilter] = useState<string[]>([]);
+  const [filterOpen, setFilterOpen] = useState(false);
+  const activeFilters = statusFilter.length + channelFilter.length + campaignFilter.length;
+  const clearFilters = () => { setStatusFilter([]); setChannelFilter([]); setCampaignFilter([]); };
   const [page, setPage] = useState(0);
   const [rowsPerPage, setRowsPerPage] = useState(10);
 
@@ -107,12 +111,13 @@ export default function TemplatesPage() {
             <input type="text" placeholder="Search templates" value={query} onChange={(e) => setQuery(e.target.value)}
               className="w-full h-9 pl-9 pr-3 rounded-md border border-input bg-muted text-sm text-foreground placeholder:text-muted-foreground/70 outline-none transition-shadow focus:border-primary" />
           </div>
-          <MultiSelect value={statusFilter} onChange={setStatusFilter} placeholder="All statuses" className="min-w-[140px]"
-            options={Object.keys(STATUS_COLOR).map((s) => ({ value: s, label: s }))} />
-          <MultiSelect value={channelFilter} onChange={setChannelFilter} placeholder="All channels" className="min-w-[150px]"
-            options={channels.map((c) => ({ value: c.id, label: c.name }))} />
-          <MultiSelect value={campaignFilter} onChange={setCampaignFilter} placeholder="All campaigns" className="min-w-[160px]"
-            options={filterCampaigns.map((c) => ({ value: c.id, label: c.name }))} />
+          <FilterButton count={activeFilters} onClick={() => setFilterOpen(true)} />
+          {activeFilters > 0 && <button onClick={clearFilters} className="text-[11px] font-semibold text-primary hover:underline outline-none">Clear</button>}
+          <FilterDrawer open={filterOpen} onClose={() => setFilterOpen(false)} onClear={clearFilters} canClear={activeFilters > 0}>
+            <FilterField label="Status"><MultiSelect value={statusFilter} onChange={setStatusFilter} placeholder="All statuses" className="w-full" options={Object.keys(STATUS_COLOR).map((s) => ({ value: s, label: s }))} /></FilterField>
+            <FilterField label="Channels"><MultiSelect value={channelFilter} onChange={setChannelFilter} placeholder="All channels" className="w-full" options={channels.map((c) => ({ value: c.id, label: c.name }))} /></FilterField>
+            <FilterField label="Campaigns"><MultiSelect value={campaignFilter} onChange={setCampaignFilter} placeholder="All campaigns" className="w-full" options={filterCampaigns.map((c) => ({ value: c.id, label: c.name }))} /></FilterField>
+          </FilterDrawer>
           <Tip label="Refresh"><button onClick={load} className="p-1.5 rounded-md hover:bg-muted outline-none transition-colors"><RefreshCw className="w-[18px] h-[18px] text-muted-foreground" /></button></Tip>
           <div className="flex-1" />
           <PrimaryButton onClick={openNew}><Plus className="w-4 h-4" />New template</PrimaryButton>

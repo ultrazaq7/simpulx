@@ -5,6 +5,7 @@ import { Search, Plus, RefreshCw, GitBranch, Pencil, Trash2, Zap, Sparkles } fro
 import { api } from "@/lib/api";
 import { Select } from "@/components/Select";
 import { MultiSelect } from "@/components/ui/multi-select";
+import { FilterButton, FilterDrawer, FilterField } from "@/components/FilterDrawer";
 import { usePermissions } from "@/lib/permissions";
 import { fmtDate, cn } from "@/lib/utils";
 import { Tip } from "@/components/ui/tooltip";
@@ -24,6 +25,9 @@ export default function AutomationPage() {
   const [query, setQuery] = useState("");
   const [triggerFilter, setTriggerFilter] = useState<string[]>([]);
   const [channelFilter, setChannelFilter] = useState<string[]>([]);
+  const [filterOpen, setFilterOpen] = useState(false);
+  const activeFilters = triggerFilter.length + channelFilter.length;
+  const clearFilters = () => { setTriggerFilter([]); setChannelFilter([]); };
   const [editing, setEditing] = useState<Automation | null>(null);
   const [dialogOpen, setDialogOpen] = useState(false);
 
@@ -61,10 +65,12 @@ export default function AutomationPage() {
           <input type="text" placeholder="Search automations" value={query} onChange={(e) => setQuery(e.target.value)}
             className="w-full h-9 pl-9 pr-3 rounded-md border border-input bg-muted text-sm text-foreground placeholder:text-muted-foreground/70 outline-none transition-shadow focus:border-primary" />
         </div>
-        <MultiSelect value={triggerFilter} onChange={setTriggerFilter} placeholder="All events" className="min-w-[180px]"
-          options={EVENT_GROUPS.flatMap((g) => g.events).map((e) => ({ value: e.value, label: e.label }))} />
-        <MultiSelect value={channelFilter} onChange={setChannelFilter} placeholder="All channels" className="min-w-[180px]"
-          options={channels.map((c) => ({ value: c.id, label: c.name }))} />
+        <FilterButton count={activeFilters} onClick={() => setFilterOpen(true)} />
+        {activeFilters > 0 && <button onClick={clearFilters} className="text-[11px] font-semibold text-primary hover:underline outline-none">Clear</button>}
+        <FilterDrawer open={filterOpen} onClose={() => setFilterOpen(false)} onClear={clearFilters} canClear={activeFilters > 0}>
+          <FilterField label="Events"><MultiSelect value={triggerFilter} onChange={setTriggerFilter} placeholder="All events" className="w-full" options={EVENT_GROUPS.flatMap((g) => g.events).map((e) => ({ value: e.value, label: e.label }))} /></FilterField>
+          <FilterField label="Channels"><MultiSelect value={channelFilter} onChange={setChannelFilter} placeholder="All channels" className="w-full" options={channels.map((c) => ({ value: c.id, label: c.name }))} /></FilterField>
+        </FilterDrawer>
         <Tip label="Refresh"><button onClick={load} className="p-1.5 rounded-md hover:bg-muted outline-none transition-colors"><RefreshCw className="w-[18px] h-[18px] text-muted-foreground" /></button></Tip>
         <div className="flex-1" />
         {canManage && (

@@ -5,6 +5,7 @@ import { api } from "@/lib/api";
 import { cn } from "@/lib/utils";
 import type { AuditEntry, LogMessage, LogConversation, LogCall, LogActivity, ExportJob, Campaign, Channel } from "@/lib/types";
 import { MultiSelect } from "@/components/ui/multi-select";
+import { FilterButton, FilterDrawer, FilterField } from "@/components/FilterDrawer";
 import DateRangeFilter, { presetRange, type DateRangeValue } from "@/components/DateRangeFilter";
 import { useToast } from "../_shared";
 import { rewriteLocalMedia } from "@/app/(app)/inbox/components/MessageBubble";
@@ -83,6 +84,9 @@ export default function SystemLogsPage() {
   const [fCampaign, setFCampaign] = useState<string[]>([]);
   const [fChannel, setFChannel] = useState<string[]>([]);
   const [fLabel, setFLabel] = useState("");
+  const [filterOpen, setFilterOpen] = useState(false);
+  const activeFilters = fCampaign.length + fChannel.length + (fLabel ? 1 : 0);
+  const clearFilters = () => { setFCampaign([]); setFChannel([]); setFLabel(""); };
   const [campaigns, setCampaigns] = useState<Campaign[]>([]);
   const [channels, setChannels] = useState<Channel[]>([]);
   useEffect(() => {
@@ -168,18 +172,15 @@ export default function SystemLogsPage() {
         {showRange && <DateRangeFilter value={dr} onChange={setDr} />}
         {showConvFilters && (
           <>
-            <MultiSelect value={fCampaign} onChange={setFCampaign} placeholder="All campaigns" className="w-[170px]"
-              options={campaigns.map((c) => ({ value: c.id, label: c.name }))} />
-            <MultiSelect value={fChannel} onChange={setFChannel} placeholder="All channels" className="w-[160px]"
-              options={channels.map((c) => ({ value: c.id, label: c.name }))} />
+            <FilterButton count={activeFilters} onClick={() => setFilterOpen(true)} />
+            {activeFilters > 0 && <button onClick={clearFilters} className="text-[12px] font-semibold text-primary hover:underline outline-none">Clear</button>}
+            <FilterDrawer open={filterOpen} onClose={() => setFilterOpen(false)} onClear={clearFilters} canClear={activeFilters > 0}>
+              <FilterField label="Campaigns"><MultiSelect value={fCampaign} onChange={setFCampaign} placeholder="All campaigns" className="w-full" options={campaigns.map((c) => ({ value: c.id, label: c.name }))} /></FilterField>
+              <FilterField label="Channels"><MultiSelect value={fChannel} onChange={setFChannel} placeholder="All channels" className="w-full" options={channels.map((c) => ({ value: c.id, label: c.name }))} /></FilterField>
+              {showLabel && <FilterField label="Label"><input value={fLabel} onChange={(e) => setFLabel(e.target.value)} placeholder="Label"
+                className="w-full h-9 px-3 rounded-md border border-input bg-background text-sm text-foreground placeholder:text-muted-foreground/70 outline-none focus:border-primary" /></FilterField>}
+            </FilterDrawer>
           </>
-        )}
-        {showLabel && (
-          <input value={fLabel} onChange={(e) => setFLabel(e.target.value)} placeholder="Label"
-            className="w-[140px] h-9 px-3 rounded-md border border-input bg-background text-sm text-foreground placeholder:text-muted-foreground/70 outline-none focus:border-primary" />
-        )}
-        {((showConvFilters && (fCampaign.length > 0 || fChannel.length > 0 || !!fLabel)) || (showRange && dr.preset !== "30d")) && (
-          <button onClick={() => { setFCampaign([]); setFChannel([]); setFLabel(""); setDr({ preset: "30d", ...presetRange("30d") }); }} className="text-[12px] font-semibold text-primary hover:underline outline-none">Clear</button>
         )}
         <div className="flex-1" />
         {showExportBtn && (

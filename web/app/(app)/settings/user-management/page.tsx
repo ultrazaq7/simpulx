@@ -5,6 +5,7 @@ import { Search, MoreHorizontal, User, Loader2, Eye, EyeOff, X, Plus, Activity, 
 import { api, getUser } from "@/lib/api";
 import { Select } from "@/components/Select";
 import { MultiSelect } from "@/components/ui/multi-select";
+import { FilterButton, FilterDrawer, FilterField } from "@/components/FilterDrawer";
 import SidePanel from "@/components/SidePanel";
 const cap = (s: string) => s ? s[0].toUpperCase() + s.slice(1) : s;
 import { fmtDate, fmtDateTimeShort, cn } from "@/lib/utils";
@@ -35,6 +36,9 @@ export default function PeopleSettingsPage() {
   const [campaignFilter, setCampaignFilter] = useState<string[]>([]);
   const [channelFilter, setChannelFilter] = useState<string[]>([]);
   const [statusFilter, setStatusFilter] = useState<string[]>([]);
+  const [filterOpen, setFilterOpen] = useState(false);
+  const activeFilters = roleFilter.length + campaignFilter.length + channelFilter.length + statusFilter.length;
+  const clearFilters = () => { setRoleFilter([]); setCampaignFilter([]); setChannelFilter([]); setStatusFilter([]); };
   const [page, setPage] = useState(0);
   const [rowsPerPage, setRowsPerPage] = useState(10);
   const [dlg, setDlg] = useState<{ open: boolean; editing: UserAccount | null }>({ open: false, editing: null });
@@ -107,14 +111,14 @@ export default function PeopleSettingsPage() {
             <input type="text" placeholder="Search by name or email" value={search} onChange={(e) => setSearch(e.target.value)}
               className="w-full h-9 pl-9 pr-3 rounded-md border border-input bg-muted text-sm text-foreground placeholder:text-muted-foreground/70 outline-none transition-shadow focus:border-primary" />
           </div>
-          <MultiSelect value={roleFilter} onChange={setRoleFilter} placeholder="All roles" className="min-w-[128px]"
-            options={ROLES.map((r) => ({ value: r, label: cap(r) }))} />
-          <MultiSelect value={campaignFilter} onChange={setCampaignFilter} placeholder="All campaigns" className="min-w-[140px]"
-            options={campaigns.map((c) => ({ value: c.name, label: c.name }))} />
-          <MultiSelect value={channelFilter} onChange={setChannelFilter} placeholder="All channels" className="min-w-[136px]"
-            options={channels.map((c) => ({ value: c.id, label: c.name }))} />
-          <MultiSelect value={statusFilter} onChange={setStatusFilter} placeholder="All statuses" className="min-w-[136px]"
-            options={[{ value: "active", label: "Active" }, { value: "inactive", label: "Inactive" }]} />
+          <FilterButton count={activeFilters} onClick={() => setFilterOpen(true)} />
+          {activeFilters > 0 && <button onClick={clearFilters} className="text-[11px] font-semibold text-primary hover:underline outline-none">Clear</button>}
+          <FilterDrawer open={filterOpen} onClose={() => setFilterOpen(false)} onClear={clearFilters} canClear={activeFilters > 0}>
+            <FilterField label="Roles"><MultiSelect value={roleFilter} onChange={setRoleFilter} placeholder="All roles" className="w-full" options={ROLES.map((r) => ({ value: r, label: cap(r) }))} /></FilterField>
+            <FilterField label="Campaigns"><MultiSelect value={campaignFilter} onChange={setCampaignFilter} placeholder="All campaigns" className="w-full" options={campaigns.map((c) => ({ value: c.name, label: c.name }))} /></FilterField>
+            <FilterField label="Channels"><MultiSelect value={channelFilter} onChange={setChannelFilter} placeholder="All channels" className="w-full" options={channels.map((c) => ({ value: c.id, label: c.name }))} /></FilterField>
+            <FilterField label="Status"><MultiSelect value={statusFilter} onChange={setStatusFilter} placeholder="All statuses" className="w-full" options={[{ value: "active", label: "Active" }, { value: "inactive", label: "Inactive" }]} /></FilterField>
+          </FilterDrawer>
           <div className="flex items-center gap-2 ml-auto">
             <GhostButton onClick={exportTeam} disabled={exporting}>
               {exporting ? <Loader2 className="w-4 h-4 animate-spin" /> : <Download className="w-4 h-4" />}Export
