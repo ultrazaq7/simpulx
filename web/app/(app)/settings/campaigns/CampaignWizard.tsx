@@ -187,7 +187,7 @@ export function CampaignWizard({ campaignId, users, channels, onClose, onDone, o
           </div>
           <WizardField label="CTWA ad source IDs (used when no branch matches)" value={adSources} onChange={setAdSources} placeholder="ad_honda_brio_2026" hint="Per-branch ad sources are set in step 2. These campaign-level IDs route leads when no branch matches." />
           <WizardField label="Keywords in first message (comma separated)" value={keywords} onChange={setKeywords} placeholder="brio, honda" />
-          <WizardField label="Monthly ad budget (Rp, optional)" value={monthlyBudget} onChange={(v) => setMonthlyBudget(v.replace(/[^0-9.]/g, ""))} placeholder="200000000" hint="Powers Budget Utilization in the Ads Report (media budget vs actual spend). Leave blank to skip." />
+          <WizardField label="Total budget (Rp, optional)" value={monthlyBudget} onChange={(v) => setMonthlyBudget(v.replace(/[^0-9.]/g, ""))} placeholder="200000000" hint="Total ad budget for this campaign. Powers Budget Utilization in the Ads Report (budget vs actual spend). Leave blank to skip." />
 
           {/* AI Assistant */}
           <div className="rounded-xl border border-border overflow-hidden">

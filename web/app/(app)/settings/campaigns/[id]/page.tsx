@@ -157,7 +157,8 @@ function AITab({ campaign, onSaved, onError }: { campaign: CampaignDetail; onSav
     segment: campaign.segment ?? "", brand: campaign.brand ?? "",
     autoReply: campaign.ai_auto_reply ?? false, lang: campaign.ai_language ?? "id",
     dynLang: campaign.ai_dynamic_language ?? true, smartSummary: campaign.ai_smart_summary ?? true,
-    followupTpl: campaign.followup_template_id ?? "",
+    followupTpl: campaign.followup_template_id ?? "", intakeForm: campaign.intake_form_id ?? "",
+    budget: campaign.monthly_budget != null ? String(campaign.monthly_budget) : "",
   };
   const [segment, setSegment] = useState(init.segment);
   const [brand, setBrand] = useState(init.brand);
@@ -166,7 +167,10 @@ function AITab({ campaign, onSaved, onError }: { campaign: CampaignDetail; onSav
   const [dynLang, setDynLang] = useState(init.dynLang);
   const [smartSummary, setSmartSummary] = useState(init.smartSummary);
   const [followupTpl, setFollowupTpl] = useState(init.followupTpl);
+  const [intakeForm, setIntakeForm] = useState(init.intakeForm);
+  const [budget, setBudget] = useState(init.budget);
   const [templates, setTemplates] = useState<Template[]>([]);
+  const [forms, setForms] = useState<{ id: string; name: string }[]>([]);
   const [saving, setSaving] = useState(false);
 
   // Only APPROVED templates can be sent outside the 24h window.
@@ -174,17 +178,19 @@ function AITab({ campaign, onSaved, onError }: { campaign: CampaignDetail; onSav
     api.listTemplates({ campaign_id: campaign.id })
       .then((t) => setTemplates((t || []).filter((x) => x.status === "APPROVED")))
       .catch(() => setTemplates([]));
+    api.listFlows().then((fs) => setForms((fs || []).map((f) => ({ id: f.id, name: f.name })))).catch(() => setForms([]));
   }, [campaign.id]);
 
-  const changedCount = [segment !== init.segment, brand.trim() !== init.brand, autoReply !== init.autoReply, lang !== init.lang, dynLang !== init.dynLang, smartSummary !== init.smartSummary, followupTpl !== init.followupTpl].filter(Boolean).length;
-  function reset() { setSegment(init.segment); setBrand(init.brand); setAutoReply(init.autoReply); setLang(init.lang); setDynLang(init.dynLang); setSmartSummary(init.smartSummary); setFollowupTpl(init.followupTpl); }
+  const changedCount = [segment !== init.segment, brand.trim() !== init.brand, autoReply !== init.autoReply, lang !== init.lang, dynLang !== init.dynLang, smartSummary !== init.smartSummary, followupTpl !== init.followupTpl, intakeForm !== init.intakeForm, budget.trim() !== init.budget].filter(Boolean).length;
+  function reset() { setSegment(init.segment); setBrand(init.brand); setAutoReply(init.autoReply); setLang(init.lang); setDynLang(init.dynLang); setSmartSummary(init.smartSummary); setFollowupTpl(init.followupTpl); setIntakeForm(init.intakeForm); setBudget(init.budget); }
 
   async function save() {
     setSaving(true);
     try {
-      const patch = { segment, brand: brand.trim(), ai_auto_reply: autoReply, ai_language: lang, ai_dynamic_language: dynLang, ai_smart_summary: smartSummary, followup_template_id: followupTpl || "none" };
+      const mb = budget.trim() === "" ? null : Number(budget.replace(/[^0-9.]/g, ""));
+      const patch = { segment, brand: brand.trim(), ai_auto_reply: autoReply, ai_language: lang, ai_dynamic_language: dynLang, ai_smart_summary: smartSummary, followup_template_id: followupTpl || "none", intake_form_id: intakeForm || "none", monthly_budget: mb };
       await api.updateCampaign(campaign.id, patch);
-      onSaved({ ...campaign, segment, brand: brand.trim(), ai_auto_reply: autoReply, ai_language: lang, ai_dynamic_language: dynLang, ai_smart_summary: smartSummary, followup_template_id: followupTpl || null });
+      onSaved({ ...campaign, segment, brand: brand.trim(), ai_auto_reply: autoReply, ai_language: lang, ai_dynamic_language: dynLang, ai_smart_summary: smartSummary, followup_template_id: followupTpl || null, intake_form_id: intakeForm || null, monthly_budget: mb });
     } catch (e) { onError(String(e)); } finally { setSaving(false); }
   }
   return (
@@ -220,6 +226,15 @@ function AITab({ campaign, onSaved, onError }: { campaign: CampaignDetail; onSav
         {templates.length === 0 && (
           <p className="text-[11.5px] text-muted-foreground mt-1">No approved templates yet. Create one and get it approved under Templates to enable day 1/3/7 follow-ups.</p>
         )}
+      </div>
+      <div>
+        <FieldLabel hint="The AI auto-sends this WhatsApp form on its first reply to collect full lead details.">Intake form (auto-sent on first reply)</FieldLabel>
+        <Select value={intakeForm} onChange={setIntakeForm} placeholder="No form" searchable
+          options={[{ value: "", label: "No form" }, ...forms.map((f) => ({ value: f.id, label: f.name }))]} />
+      </div>
+      <div>
+        <FieldLabel hint="Total ad budget for this campaign. Powers Budget Utilization in the Ads Report (budget vs actual spend). Leave blank to skip.">Total budget (Rp)</FieldLabel>
+        <input value={budget} onChange={(e) => setBudget(e.target.value.replace(/[^0-9.]/g, ""))} placeholder="200000000" className={INPUT_CLASS} />
       </div>
       <UnsavedBar count={changedCount} saving={saving} onSave={save} onCancel={reset} saveLabel="Save AI settings" />
     </div>
