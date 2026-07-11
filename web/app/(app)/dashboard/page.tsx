@@ -549,6 +549,20 @@ function ManagerDashboard() {
     return () => { window.removeEventListener("ws_message", handler); clearTimeout(timer); };
   }, [reloadReports]);
 
+  // Shift+C hides/shows the reports rail (unless typing in a field) — same as Settings.
+  useEffect(() => {
+    const onKey = (e: KeyboardEvent) => {
+      const el = document.activeElement as HTMLElement | null;
+      if (el && (el.tagName === "INPUT" || el.tagName === "TEXTAREA" || el.isContentEditable)) return;
+      if (e.shiftKey && (e.key === "C" || e.key === "c") && !e.metaKey && !e.ctrlKey && !e.altKey) {
+        e.preventDefault();
+        setRailCollapsed((c) => !c);
+      }
+    };
+    window.addEventListener("keydown", onKey);
+    return () => window.removeEventListener("keydown", onKey);
+  }, []);
+
   if (!stats) return (
     <div className="p-4">
       <Skeleton className="h-20 mb-4" />
@@ -584,7 +598,7 @@ function ManagerDashboard() {
             </nav>
           </div>
           <div className="shrink-0 border-t border-border p-2 flex justify-end">
-            <Tip label="Hide reports menu" side="top">
+            <Tip label="Hide reports (shift + C)" side="top">
               <button onClick={() => setRailCollapsed(true)} aria-label="Collapse reports menu"
                 className="p-1.5 rounded-md text-muted-foreground hover:bg-primary/10 hover:text-primary hover:scale-110 outline-none transition-all duration-200">
                 <ChevronsLeft className="w-[18px] h-[18px]" />
@@ -607,10 +621,10 @@ function ManagerDashboard() {
         </div>
       </div>
 
-      {/* Floating expand tab when collapsed */}
-      <div className={cn("max-lg:hidden absolute left-0 bottom-3 z-20 transition-opacity duration-200",
+      {/* Floating expand tab attached to the thin strip (layer 2) when collapsed */}
+      <div className={cn("max-lg:hidden absolute left-4 bottom-3 z-20 transition-opacity duration-200",
         railCollapsed ? "opacity-100" : "opacity-0 pointer-events-none")}>
-        <Tip label="Show reports menu" side="right">
+        <Tip label="Show reports (shift + C)" side="right">
           <button onClick={() => setRailCollapsed(false)} aria-label="Expand reports menu"
             className="flex items-center justify-center h-9 w-6 hover:w-9 rounded-r-full border border-l-0 border-border bg-card shadow-md text-muted-foreground hover:text-primary transition-all duration-200 outline-none">
             <ChevronRight className="w-4 h-4 shrink-0" />
