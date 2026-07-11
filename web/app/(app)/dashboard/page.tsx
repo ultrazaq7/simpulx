@@ -477,17 +477,19 @@ export default function DashboardPage() {
 function ManagerDashboard() {
   const [stats, setStats] = useState<Stats | null>(null);
   const [analytics, setAnalytics] = useState<Analytics | null>(null);
-  const [tab, setTab] = useState<"overview" | "marketing">("overview");
-  // Persist the active view in the URL (?tab=ads) so a reload stays on the same
-  // tab instead of snapping back to Overview.
+  const [tab, setTab] = useState<"overview" | "marketing" | "creatives">("overview");
+  // Persist the active view in the URL (?tab=ads|creatives) so a reload stays put.
   useEffect(() => {
     const t = new URLSearchParams(window.location.search).get("tab");
     if (t === "ads" || t === "marketing") setTab("marketing");
+    else if (t === "creatives") setTab("creatives");
   }, []);
-  const selectTab = useCallback((t: "overview" | "marketing") => {
+  const selectTab = useCallback((t: "overview" | "marketing" | "creatives") => {
     setTab(t);
     const sp = new URLSearchParams(window.location.search);
-    if (t === "marketing") sp.set("tab", "ads"); else sp.delete("tab");
+    if (t === "marketing") sp.set("tab", "ads");
+    else if (t === "creatives") sp.set("tab", "creatives");
+    else sp.delete("tab");
     const qs = sp.toString();
     window.history.replaceState(null, "", qs ? `?${qs}` : window.location.pathname);
   }, []);
@@ -574,7 +576,7 @@ function ManagerDashboard() {
   const agents = analytics?.agents || [];
   const chartData = buildChartData(analytics, true); // all days; bounded by the date filter when applied
 
-  const reportNav = [{ key: "overview" as const, label: "Overview" }, { key: "marketing" as const, label: "Ads Report" }];
+  const reportNav = [{ key: "overview" as const, label: "Overview" }, { key: "marketing" as const, label: "Ads Report" }, { key: "creatives" as const, label: "Per Creative" }];
 
   return (
     <div className="relative flex flex-col lg:flex-row h-full min-h-0">
@@ -634,7 +636,7 @@ function ManagerDashboard() {
 
       <div className="flex-1 min-w-0 overflow-y-auto">
 
-      {tab === "marketing" ? <MarketingAnalytics /> : (
+      {tab === "marketing" ? <MarketingAnalytics /> : tab === "creatives" ? <CreativeReport /> : (
       <div className="p-4">
         {/* â”€â”€ Filters â”€â”€ */}
         <div className="flex items-center gap-2 mb-4 flex-wrap">
@@ -1047,8 +1049,6 @@ function MarketingAnalytics() {
   const money = (n: number) => `${currency ? currency + " " : ""}${fmtMoney(n)}`;
   const creatives = perf?.creatives || [];
   const hasSpend = hasAccounts && (campaigns.length > 0 || adDelivery.impressions > 0);
-  const rng = dateRange === "custom" ? { from: fFrom, to: fTo } : presetRange(dateRange);
-  const rangeLabel = rng.from && rng.to ? `${rng.from} to ${rng.to}` : "All time";
 
   // Empty only when there is neither ad spend data nor any ad-attributed lead
   // for the selected range. Rendered INLINE (below the toolbar) so the date
@@ -1173,14 +1173,6 @@ function MarketingAnalytics() {
       ) : (<>
       {hasSpend ? (
       <>
-      {/* Heroleads-style report banner (drives the PDF header) */}
-      <div className="rounded-xl bg-neutral-900 text-white px-5 py-3.5 flex items-center justify-between gap-3 flex-wrap mb-5">
-        <div className="min-w-0">
-          <p className="text-[16px] font-extrabold tracking-wide uppercase leading-tight">Ads Performance Report</p>
-          <p className="text-[12.5px] text-white/70 truncate">All campaigns and sources</p>
-        </div>
-        <p className="text-[11px] text-white/70 whitespace-nowrap">{rangeLabel}</p>
-      </div>
       {/* ROI cards */}
       <div className="flex flex-wrap bg-card rounded-lg border border-border shadow-xs mb-5 overflow-hidden">
         {roiCards.map((c, i) => (
@@ -1364,9 +1356,55 @@ function MarketingAnalytics() {
           Connect a Meta ad account to add spend, cost per lead and ROI. The lead attribution below works without it.
         </div>
       ) : null}
+      </>)}
+    </div>
+  );
+}
 
-      {/* Per ad / creative: which click-to-WhatsApp ad drove leads + conversions */}
-      <Card title="Per ad / creative" subtitle="Leads to conversions by click-to-WhatsApp ad" className="mt-5">
+// Per-creative report — its own page so creative-level insight has room to grow.
+// Which click-to-WhatsApp ad drove leads + conversions, with its own date +
+// campaign filters (independent of the Ads Report).
+function CreativeReport() {
+  const [dateRange, setDateRange] = useState("30d");
+  const [fFrom, setFFrom] = useState(() => presetRange("30d").from);
+  const [fTo, setFTo] = useState(() => presetRange("30d").to);
+  const [campaignFilter, setCampaignFilter] = useState<string[]>([]);
+  const [perf, setPerf] = useState<AdPerformance | null>(null);
+  const [currency, setCurrency] = useState("");
+  const [loading, setLoading] = useState(true);
+
+  useEffect(() => {
+    const { from, to } = dateRange === "custom" ? { from: fFrom, to: fTo } : presetRange(dateRange);
+    let alive = true;
+    Promise.all([
+      api.adPerformance(from || undefined, to || undefined, campaignFilter.length ? campaignFilter : undefined).catch(() => null),
+      api.listAdAccounts().catch(() => []),
+    ]).then(([p, accts]) => {
+      if (!alive) return;
+      setPerf(p as AdPerformance | null);
+      const a = (accts as { currency?: string | null }[]) || [];
+      setCurrency(a.find((x) => x.currency)?.currency || "");
+    }).finally(() => { if (alive) setLoading(false); });
+    return () => { alive = false; };
+  }, [dateRange, fFrom, fTo, campaignFilter]);
+
+  const money = (n: number) => `${currency ? currency + " " : ""}${fmtMoney(n)}`;
+  const creatives = perf?.creatives || [];
+  const campaignOptions = (perf?.campaigns || []).map((c) => ({ value: c.campaign_id, label: c.campaign_name }));
+
+  return (
+    <div className="p-4">
+      <div className="flex items-center gap-2 mb-4 flex-wrap">
+        <FilterIcon className="w-4 h-4 text-muted-foreground" />
+        <MultiSelect value={campaignFilter} onChange={setCampaignFilter} options={campaignOptions} placeholder="All campaigns" className="w-[200px]" />
+        <DateRangeFilter value={{ preset: dateRange, from: fFrom, to: fTo }}
+          onChange={(v) => { setDateRange(v.preset); setFFrom(v.from); setFTo(v.to); }} />
+      </div>
+
+      <Card title="Per ad / creative" subtitle="Leads to conversions by click-to-WhatsApp ad">
+        {loading ? (
+          <div className="p-4"><Skeleton className="h-40" /></div>
+        ) : (
         <div className="overflow-x-auto">
           <table className="w-full text-sm">
             <thead>
@@ -1377,9 +1415,9 @@ function MarketingAnalytics() {
               </tr>
             </thead>
             <tbody>
-              {(perf?.creatives || []).length === 0 ? (
+              {creatives.length === 0 ? (
                 <tr><td colSpan={10} className="text-center py-12 text-muted-foreground">No ad-attributed leads in range</td></tr>
-              ) : (perf?.creatives || []).map((cr) => {
+              ) : creatives.map((cr) => {
                 const rate = cr.leads > 0 ? (cr.sales / cr.leads) * 100 : 0;
                 const ccpl = cr.leads > 0 ? cr.spend / cr.leads : 0;
                 const ccpa = cr.sales > 0 ? cr.spend / cr.sales : 0;
@@ -1417,8 +1455,8 @@ function MarketingAnalytics() {
             </tbody>
           </table>
         </div>
+        )}
       </Card>
-      </>)}
     </div>
   );
 }
