@@ -661,7 +661,7 @@ function ManagerDashboard() {
             if (m.key === "total_leads") val = analytics?.funnel?.total ?? 0;
             else if (m.key === "replied") val = analytics?.funnel?.replied ?? 0;
             else if (m.key === "won") val = analytics?.funnel?.won ?? 0;
-            else if (m.key === "avg_rt") val = analytics?.response_time?.median_min ?? 0;
+            else if (m.key === "avg_rt") val = analytics?.response_time?.avg_min ?? 0;
             else val = (stats as any)[m.key] ?? 0;
             const Icon = m.Icon;
 
