@@ -5,6 +5,9 @@
 FROM node:20-alpine AS deps
 WORKDIR /app
 COPY package.json package-lock.json ./
+# Don't download puppeteer's bundled Chromium (it's glibc; we use Alpine's system
+# chromium at runtime). Saves image size and avoids a musl/glibc mismatch.
+ENV PUPPETEER_SKIP_DOWNLOAD=true
 RUN --mount=type=cache,target=/root/.npm npm ci
 
 FROM node:20-alpine AS build
@@ -30,9 +33,13 @@ RUN --mount=type=cache,target=/app/.next/cache npm run build
 
 FROM node:20-alpine AS run
 WORKDIR /app
+# Chromium + fonts so puppeteer can render the headless PDF reports.
+RUN apk add --no-cache chromium nss freetype harfbuzz ca-certificates ttf-freefont
 ENV NODE_ENV=production \
     NEXT_TELEMETRY_DISABLED=1 \
-    PORT=3000
+    PORT=3000 \
+    PUPPETEER_SKIP_DOWNLOAD=true \
+    PUPPETEER_EXECUTABLE_PATH=/usr/bin/chromium-browser
 # Standalone output bundles a minimal server + only the deps it needs.
 COPY --from=build /app/.next/standalone ./
 COPY --from=build /app/.next/static ./.next/static

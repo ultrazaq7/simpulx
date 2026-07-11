@@ -25,7 +25,7 @@ export async function POST(req: NextRequest) {
 
   let browser: Awaited<ReturnType<typeof puppeteer.launch>> | undefined;
   try {
-    browser = await puppeteer.launch({ headless: true, args: ["--no-sandbox", "--disable-setuid-sandbox", "--disable-dev-shm-usage"] });
+    browser = await puppeteer.launch({ headless: true, executablePath: process.env.PUPPETEER_EXECUTABLE_PATH || undefined, args: ["--no-sandbox", "--disable-setuid-sandbox", "--disable-dev-shm-usage"] });
     const page = await browser.newPage();
     await page.setViewport({ width: 1100, height: 1600, deviceScaleFactor: 2 });
     await page.evaluateOnNewDocument((data: { token: string; user: string }) => {

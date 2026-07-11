@@ -2,6 +2,12 @@
 const nextConfig = {
   reactStrictMode: true,
   output: "standalone", // lean production image (server.js + minimal deps)
+  // puppeteer must NOT be webpack-bundled (dynamic requires + a browser binary);
+  // keep it external so the standalone server can require it at runtime. It drives
+  // the headless PDF routes (/api/ads-report/pdf, /api/campaigns/[id]/report-pdf).
+  experimental: {
+    serverComponentsExternalPackages: ["puppeteer"],
+  },
   // Cache the brand/static assets so the logo, favicon, and splash don't refetch
   // on every page load (they change rarely; a week keeps them fresh enough).
   async headers() {
