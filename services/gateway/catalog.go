@@ -4,9 +4,11 @@ import (
 	"bytes"
 	"context"
 	"encoding/json"
+	"fmt"
 	"io"
 	"net/http"
 	"strconv"
+	"strings"
 	"time"
 
 	"github.com/google/uuid"
@@ -155,7 +157,6 @@ func (s *server) handleExtractCatalog(w http.ResponseWriter, r *http.Request) {
 	_ = s.rdb.Set(r.Context(), key, `{"status":"pending"}`, 20*time.Minute).Err()
 	payload, _ := json.Marshal(map[string]any{"pdf_base64": b.PDFBase64, "segment": b.Segment})
 	go s.runCatalogExtract(key, payload)
-	w.WriteHeader(http.StatusAccepted)
 	writeJSON(w, map[string]any{"job_id": jobID, "status": "pending"})
 }
 
@@ -183,7 +184,16 @@ func (s *server) runCatalogExtract(key string, payload []byte) {
 	defer resp.Body.Close()
 	body, _ := io.ReadAll(resp.Body)
 	if resp.StatusCode != http.StatusOK {
-		store(map[string]any{"status": "error", "error": "extraction failed"})
+		// Surface the ai-agent's real error (truncated) instead of a generic one,
+		// so the user knows whether it's config, a bad PDF, or a service issue.
+		msg := strings.TrimSpace(string(body))
+		if len(msg) > 300 {
+			msg = msg[:300]
+		}
+		if msg == "" {
+			msg = fmt.Sprintf("extraction failed (%d)", resp.StatusCode)
+		}
+		store(map[string]any{"status": "error", "error": msg})
 		return
 	}
 	// ai-agent body is {rows, warning?} (or {error}); merge it under status:done.

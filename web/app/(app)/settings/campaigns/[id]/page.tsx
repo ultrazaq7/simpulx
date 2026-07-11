@@ -733,8 +733,11 @@ function CatalogTab({ id, segment, notify }: { id: string; segment?: string; not
         notify("Extracting from PDF, this can take up to a minute...", "success");
         const res = await api.extractCatalogPdf(id, { pdf_base64: fileToBase64(await file.arrayBuffer()), segment });
         if (res.error) { notify(`Extraction failed: ${res.error}`, "error"); return; }
-        if (res.warning === "scanned") { notify("This looks like a scanned PDF (no readable text). Use a text PDF or a CSV.", "error"); return; }
+        if (res.warning === "scanned") { notify("This looks like a scanned PDF (no readable text). Use a text PDF, or upload a CSV/Excel.", "error"); return; }
+        if (res.warning === "no_llm") { notify("PDF extraction is not enabled on the server. Upload a CSV or Excel file instead.", "error"); return; }
+        if (res.warning === "parse_failed") { notify("Could not read this PDF automatically. Try a cleaner text PDF, or upload a CSV/Excel.", "error"); return; }
         parsed = res.rows || [];
+        if (parsed.length === 0) { notify("No pricing rows were found in this PDF. Try a CSV/Excel export instead.", "error"); return; }
       } else if (isExcel) {
         const wb = XLSX.read(await file.arrayBuffer(), { type: "array" });
         const sheet = wb.Sheets[wb.SheetNames[0]];
@@ -742,7 +745,7 @@ function CatalogTab({ id, segment, notify }: { id: string; segment?: string; not
       } else {
         parsed = parseCatalogCsv(await file.text());
       }
-      if (parsed.length === 0) { notify("No rows found in the file.", "error"); return; }
+      if (parsed.length === 0) { notify("No rows found. Make sure the first row is a header (e.g. item_name, price).", "error"); return; }
       const month = new Date().toISOString().slice(0, 7);
       const res = await api.uploadCampaignCatalog(id, { replace: true, segment, source_ref: file.name, effective_month: month, rows: parsed });
       notify(`Imported ${res.inserted} item${res.inserted === 1 ? "" : "s"}${isPdf ? " from PDF" : ""}`);
