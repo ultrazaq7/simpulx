@@ -2,6 +2,12 @@ import { NextRequest, NextResponse } from "next/server";
 import { existsSync } from "fs";
 import puppeteer from "puppeteer";
 
+// NOTE ON THE PATH: this handler lives under /report/* (NOT /api/*) on purpose.
+// Caddy reverse-proxies every /api/* request to the Go gateway (deploy/docker/Caddyfile),
+// so a Next API route at /api/... is shadowed and never reached from the browser -- the
+// client got the gateway's 404 and fell back to window.print() (the dashboard). /report/*
+// falls through Caddy's catch-all to the web container, so this route is actually reachable.
+
 // Alpine's chromium package binary path varies (/usr/bin/chromium-browser on older
 // releases, /usr/bin/chromium on newer). Resolve at runtime so launch doesn't fail
 // on a wrong hardcoded path.
@@ -19,13 +25,13 @@ function resolveChrome(): string | undefined {
 // ads-report-pdf-template.
 //
 // Navigation prefers the INTERNAL loopback (http://127.0.0.1:$PORT) so the page HTML
-// is always reachable from inside the container — no dependency on the public domain
+// is always reachable from inside the container -- no dependency on the public domain
 // resolving/hairpinning back through Caddy/Cloudflare, which is the fragile part when
 // a box tries to reach its own public hostname. The template's client-side api.* calls
 // still hit the public NEXT_PUBLIC_API_URL, but the gateway sets CORS
 // `Access-Control-Allow-Origin: *` (services/gateway/api.go), so those work cross-origin.
 // If the loopback nav ever fails we fall back to the public origin.
-// We DO NOT use networkidle0 — the app shell keeps long-lived requests (fonts,
+// We DO NOT use networkidle0 -- the app shell keeps long-lived requests (fonts,
 // lame.min.js, api) alive, so networkidle0 can hang past the timeout and throw, which
 // is what made the client fall back to window.print() (the dashboard). domcontentloaded
 // + an explicit wait on [data-report-ready] is deterministic.

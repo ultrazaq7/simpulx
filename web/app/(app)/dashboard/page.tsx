@@ -1136,7 +1136,9 @@ function MarketingAnalytics() {
   const exportAdsPdf = async () => {
     const { from, to } = dateRange === "custom" ? { from: fFrom, to: fTo } : presetRange(dateRange);
     try {
-      const res = await fetch("/api/ads-report/pdf", {
+      // /report/ads/pdf (NOT /api/*): Caddy proxies /api/* to the gateway, so a Next
+      // API route under /api is unreachable from the browser. /report/* hits the web app.
+      const res = await fetch("/report/ads/pdf", {
         method: "POST", headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ token: getToken(), user: getUser(), preset: dateRange, from, to, campaigns: campaignFilter.join(",") }),
       });

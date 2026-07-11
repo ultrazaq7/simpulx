@@ -1,6 +1,6 @@
 "use client";
 // Dedicated, print-only Ads Report template (decoupled from the on-theme dashboard).
-// The headless PDF route (/api/ads-report/pdf) seeds the session token into
+// The headless PDF route (/report/ads/pdf) seeds the session token into
 // localStorage, navigates here with ?preset/from/to/campaigns, waits for
 // [data-report-ready], isolates .print-root and prints. Layout matches the
 // Heroleads "Campaign Dashboard" reference. See memory ads-report-pdf-template.
