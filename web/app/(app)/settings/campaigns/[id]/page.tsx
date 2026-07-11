@@ -70,7 +70,7 @@ export default function CampaignDetailPage() {
               ))}
             </div>
             <div className="mt-6">
-              {tab === "overview" && <OverviewTab id={id} budget={campaign.monthly_budget ?? null} onBudget={(v) => setCampaign((c) => (c ? { ...c, monthly_budget: v } : c))} notify={notify} />}
+              {tab === "overview" && <OverviewTab id={id} name={campaign.name} budget={campaign.monthly_budget ?? null} onBudget={(v) => setCampaign((c) => (c ? { ...c, monthly_budget: v } : c))} notify={notify} />}
               {tab === "credits" && <CreditsTab id={id} notify={notify} />}
               {tab === "ai" && <AITab campaign={campaign} onSaved={(c) => { setCampaign(c); notify("AI settings saved"); }} onError={(m) => notify(m, "error")} />}
               {tab === "catalog" && <CatalogTab id={id} segment={campaign.segment ?? undefined} notify={notify} />}
@@ -368,7 +368,7 @@ function BudgetPanel({ id, budget, spend, onBudget, notify }: {
 // Per-campaign report: reuses the lead analytics + ad-performance scoped to this
 // campaign to render the Heroleads-style campaign report (ad funnel, source
 // performance table, and leads over time).
-function OverviewTab({ id, budget, onBudget, notify }: { id: string; budget: number | null; onBudget: (v: number | null) => void; notify: (m: string, s?: "success" | "error") => void }) {
+function OverviewTab({ id, name, budget, onBudget, notify }: { id: string; name: string; budget: number | null; onBudget: (v: number | null) => void; notify: (m: string, s?: "success" | "error") => void }) {
   const [row, setRow] = useState<CampaignAnalyticsRow | null>(null);
   const [perf, setPerf] = useState<AdPerformance | null>(null);
   const [loading, setLoading] = useState(true);
@@ -400,24 +400,45 @@ function OverviewTab({ id, budget, onBudget, notify }: { id: string; budget: num
   const cpl = tot.leads > 0 ? tot.spend / tot.leads : 0;
   const daily = useMemo(() => (perf?.daily ?? []).map((d) => ({ date: (d.date ?? "").slice(5), leads: d.leads })), [perf]);
 
-  const funnel = [
-    { label: "Impressions", value: num(tot.impressions), accent: "text-foreground" },
-    { label: "Clicks", value: num(tot.clicks), accent: "text-foreground" },
-    { label: "CTR", value: pctFmt(ctr), accent: "text-foreground" },
-    { label: "Leads", value: num(tot.leads), accent: "text-primary" },
-    { label: "Cost / lead", value: tot.leads > 0 ? money(cpl) : "-", accent: "text-foreground" },
-  ];
-
+  // Full raw analytics export: summary + per-source + daily timeline + age/gender/
+  // region demographics, each as its own labelled block in one CSV.
   const exportCsv = () => {
-    const header = ["Source", "Cost", "Impressions", "Clicks", "CTR", "CPC", "Leads", "CPL"];
-    const body = sources.map((s) => {
+    const rows: (string | number)[][] = [];
+    const blank = () => rows.push([]);
+    rows.push(["SUMMARY"]);
+    rows.push(["Metric", "Value"]);
+    rows.push(["Impressions", tot.impressions], ["Clicks", tot.clicks], ["CTR", ctr.toFixed(2) + "%"],
+      ["Leads", tot.leads], ["Cost", Math.round(tot.spend)], ["CPC", tot.clicks > 0 ? Math.round(cpc) : 0],
+      ["CPL", tot.leads > 0 ? Math.round(cpl) : 0]);
+    blank();
+    rows.push(["SOURCE PERFORMANCE"]);
+    rows.push(["Source", "Cost", "Impressions", "Clicks", "CTR", "CPC", "Leads", "CPL"]);
+    sources.forEach((s) => {
       const sCtr = s.impressions > 0 ? (s.clicks / s.impressions) * 100 : 0;
       const sCpc = s.clicks > 0 ? s.spend / s.clicks : 0;
       const sCpl = s.leads > 0 ? s.spend / s.leads : 0;
-      return [s.label, Math.round(s.spend), s.impressions, s.clicks, sCtr.toFixed(2) + "%", s.clicks > 0 ? Math.round(sCpc) : "-", s.leads, s.leads > 0 ? Math.round(sCpl) : "-"];
+      rows.push([s.label, Math.round(s.spend), s.impressions, s.clicks, sCtr.toFixed(2) + "%", s.clicks > 0 ? Math.round(sCpc) : 0, s.leads, s.leads > 0 ? Math.round(sCpl) : 0]);
     });
-    const total = ["Grand total", Math.round(tot.spend), tot.impressions, tot.clicks, ctr.toFixed(2) + "%", tot.clicks > 0 ? Math.round(cpc) : "-", tot.leads, tot.leads > 0 ? Math.round(cpl) : "-"];
-    downloadCsv(`campaign-report-${dateRange}.csv`, toCsv([header, ...body, total]));
+    rows.push(["Grand total", Math.round(tot.spend), tot.impressions, tot.clicks, ctr.toFixed(2) + "%", tot.clicks > 0 ? Math.round(cpc) : 0, tot.leads, tot.leads > 0 ? Math.round(cpl) : 0]);
+    blank();
+    const dailyRaw = perf?.daily ?? [];
+    if (dailyRaw.length) {
+      rows.push(["DAILY PERFORMANCE"]);
+      rows.push(["Date", "Impressions", "Reach", "Clicks", "Results", "Leads", "Spend"]);
+      dailyRaw.forEach((d) => rows.push([d.date, d.impressions, d.reach, d.clicks, d.results, d.leads, Math.round(d.spend || 0)]));
+      blank();
+    }
+    const dem = (title: string, arr?: AdBreakdown[]) => {
+      if (!arr?.length) return;
+      rows.push([title]);
+      rows.push(["Value", "Impressions", "Reach", "Clicks", "Results", "Spend"]);
+      arr.forEach((b) => rows.push([b.value, b.impressions, b.reach, b.clicks, b.results, Math.round(b.spend || 0)]));
+      blank();
+    };
+    dem("AGE BREAKDOWN", perf?.age);
+    dem("GENDER BREAKDOWN", perf?.gender);
+    dem("REGION BREAKDOWN", perf?.region);
+    downloadCsv(`campaign-report-${dateRange}.csv`, toCsv(rows));
   };
   // One-click PDF via the server-side headless-Chromium route, which renders the
   // real report page (same @media print CSS) for a pixel-exact document. Falls
@@ -441,9 +462,12 @@ function OverviewTab({ id, budget, onBudget, notify }: { id: string; budget: num
     }
   };
 
+  const rng = dateRange === "custom" ? { from: fFrom, to: fTo } : presetRange(dateRange);
+  const rangeLabel = rng.from && rng.to ? `${rng.from} to ${rng.to}` : "All time";
+
   return (
     <div className="flex flex-col gap-5">
-      <div className="flex items-center justify-between flex-wrap gap-2">
+      <div className="no-print flex items-center justify-between flex-wrap gap-2">
         <p className="text-[13px] font-semibold text-foreground">Campaign report</p>
         <div className="flex items-center gap-2">
           <div className="no-print relative">
@@ -466,34 +490,36 @@ function OverviewTab({ id, budget, onBudget, notify }: { id: string; budget: num
         </div>
       </div>
 
-      {/* Ad funnel KPIs */}
-      <div className="grid grid-cols-2 sm:grid-cols-5 gap-3">
-        {funnel.map((f) => (
-          <div key={f.label} className="rounded-lg border border-border bg-card p-4">
-            <p className={cn("text-xl font-bold tabular-nums", f.accent)}>{f.value}</p>
-            <p className="text-[12px] text-muted-foreground mt-0.5">{f.label}</p>
-          </div>
-        ))}
+      {/* Heroleads-style report banner (this drives the PDF header) */}
+      <div className="rounded-xl bg-neutral-900 text-white px-5 py-3.5 flex items-center justify-between gap-3 flex-wrap">
+        <div className="min-w-0">
+          <p className="text-[16px] font-extrabold tracking-wide uppercase leading-tight">Campaign Dashboard</p>
+          <p className="text-[12.5px] text-white/70 truncate">{name}</p>
+        </div>
+        <p className="text-[11px] text-white/70 whitespace-nowrap">{rangeLabel}</p>
       </div>
 
-      {/* Lead KPIs */}
-      {row && (
-        <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
-          <Stat label="Replied" value={row.replied} />
-          <Stat label="Avg 1st response" value={row.avg_rt_min > 0 ? fmtDuration(row.avg_rt_min) : "-"} />
-          <Stat label="Within 5 min" value={`${Math.round(row.within_5_pct)}%`} />
-          <Stat label="Qualified" value={row.qualified} />
+      {/* Conversion funnel (left) + campaign performance table (right) */}
+      <div className="grid grid-cols-1 lg:grid-cols-[210px_1fr] gap-4 items-start">
+        <div className="print-avoid-break rounded-xl border border-border bg-card p-4 flex flex-col items-center gap-1.5">
+          {[
+            { label: "Impressions", value: num(tot.impressions), w: 100, c: "#F97316" },
+            { label: "Clicks", value: num(tot.clicks), w: 80, c: "#F97316" },
+            { label: "CTR %", value: pctFmt(ctr), w: 60, c: "#EA580C" },
+            { label: "Leads", value: num(tot.leads), w: 44, c: "#DC2626" },
+          ].map((f) => (
+            <div key={f.label} style={{ width: `${f.w}%`, backgroundColor: f.c }}
+              className="rounded-md py-2.5 px-2 text-center text-white shadow-sm">
+              <p className="text-[9.5px] font-semibold uppercase tracking-wide opacity-90">{f.label}</p>
+              <p className="text-[17px] font-extrabold tabular-nums leading-tight">{f.value}</p>
+            </div>
+          ))}
         </div>
-      )}
 
-      {/* Budget utilization */}
-      <BudgetPanel id={id} budget={budget} spend={tot.spend} onBudget={onBudget} notify={notify} />
-
-      {/* Source performance table */}
-      <div className="rounded-xl border border-border overflow-hidden">
-        <div className="px-4 py-2.5 border-b border-border bg-muted/40"><p className="text-[13px] font-semibold text-foreground">Source performance</p></div>
-        <div className="overflow-x-auto">
-          <table className="w-full text-[13px] whitespace-nowrap">
+        <div className="print-avoid-break rounded-xl border border-border overflow-hidden">
+          <div className="px-4 py-2.5 border-b border-border bg-muted/40"><p className="text-[13px] font-semibold text-foreground">Campaign performance</p></div>
+          <div className="overflow-x-auto">
+            <table className="w-full text-[13px] whitespace-nowrap">
             <thead>
               <tr className="border-b border-border bg-muted/60 text-muted-foreground text-[11px] uppercase tracking-wider">
                 {["Source", "Cost", "Impressions", "Clicks", "CTR", "CPC", "Leads", "CPL"].map((h, i) => (
@@ -539,8 +565,22 @@ function OverviewTab({ id, budget, onBudget, notify }: { id: string; budget: num
               </tfoot>
             )}
           </table>
+          </div>
         </div>
       </div>
+
+      {/* Lead KPIs */}
+      {row && (
+        <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
+          <Stat label="Replied" value={row.replied} />
+          <Stat label="Avg 1st response" value={row.avg_rt_min > 0 ? fmtDuration(row.avg_rt_min) : "-"} />
+          <Stat label="Within 5 min" value={`${Math.round(row.within_5_pct)}%`} />
+          <Stat label="Qualified" value={row.qualified} />
+        </div>
+      )}
+
+      {/* Budget utilization */}
+      <BudgetPanel id={id} budget={budget} spend={tot.spend} onBudget={onBudget} notify={notify} />
 
       {/* Leads over time (single series — keep one axis) */}
       {daily.length > 0 && (
