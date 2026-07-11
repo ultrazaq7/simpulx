@@ -39,7 +39,7 @@ const METRICS: Metric[] = [
   // "Replied", which counts customers who replied back).
   { key: "replied", label: "Handled", Icon: Reply, color: "#0284C7" },
   { key: "won", label: "Purchase", Icon: Trophy, color: "#059669" },
-  { key: "avg_rt", label: "Avg first response", Icon: Timer, color: "#7C3AED", fmt: fmtDuration },
+  { key: "avg_rt", label: "Avg response time", Icon: Timer, color: "#7C3AED", fmt: fmtDuration },
 ];
 
 // Same canonical keys used everywhere else (contacts, exports, logs).
@@ -1047,6 +1047,8 @@ function MarketingAnalytics() {
   const money = (n: number) => `${currency ? currency + " " : ""}${fmtMoney(n)}`;
   const creatives = perf?.creatives || [];
   const hasSpend = hasAccounts && (campaigns.length > 0 || adDelivery.impressions > 0);
+  const rng = dateRange === "custom" ? { from: fFrom, to: fTo } : presetRange(dateRange);
+  const rangeLabel = rng.from && rng.to ? `${rng.from} to ${rng.to}` : "All time";
 
   // Empty only when there is neither ad spend data nor any ad-attributed lead
   // for the selected range. Rendered INLINE (below the toolbar) so the date
@@ -1081,17 +1083,50 @@ function MarketingAnalytics() {
     };
   }).reverse(); // chart reads left (oldest) -> right (newest)
 
-  // CSV of the source-performance breakdown (matches the on-screen table).
+  // Full raw analytics export (same shape as the old campaign report): summary +
+  // per-source + daily timeline + age/gender/region demographics, each a labelled
+  // block in one CSV.
   const exportAdsCsv = () => {
-    const rows = perf?.sources || [];
     const esc = (v: string | number) => { const s = String(v ?? ""); return /[",\n]/.test(s) ? `"${s.replace(/"/g, '""')}"` : s; };
-    const header = ["Source", "Impressions", "Clicks", "CTR", "Leads", "Purchase", "CVR"];
-    const body = rows.map((s) => [s.label, s.impressions, s.clicks, s.ctr.toFixed(2) + "%", s.leads, s.purchases, s.cvr.toFixed(2) + "%"]);
-    const total = ["Grand total", srcTotals.impressions, srcTotals.clicks,
-      (srcTotals.impressions > 0 ? (srcTotals.clicks / srcTotals.impressions) * 100 : 0).toFixed(2) + "%",
-      srcTotals.leads, srcTotals.purchases,
-      (srcTotals.clicks > 0 ? (srcTotals.leads / srcTotals.clicks) * 100 : 0).toFixed(2) + "%"];
-    const csv = [header, ...body, total].map((r) => r.map(esc).join(",")).join("\n");
+    const rows: (string | number)[][] = [];
+    const blank = () => rows.push([]);
+    rows.push(["SUMMARY"]);
+    rows.push(["Metric", "Value"]);
+    rows.push(["Impressions", t.impressions], ["Clicks", t.clicks], ["CTR", ctrPct.toFixed(2) + "%"],
+      ["Leads", t.leads], ["Conversions", t.sales], ["Cost", Math.round(t.spend)],
+      ["Cost/lead", t.leads > 0 ? Math.round(cpl) : 0], ["Cost/conversion", t.sales > 0 ? Math.round(cpa) : 0],
+      ["Lead to purchase", convRate.toFixed(2) + "%"]);
+    blank();
+    const srcs = perf?.sources || [];
+    if (srcs.length) {
+      const srcSpend = srcs.reduce((a, s) => a + s.spend, 0);
+      rows.push(["SOURCE PERFORMANCE"]);
+      rows.push(["Source", "Cost", "Impressions", "Clicks", "CTR", "Leads", "Purchase", "CVR"]);
+      srcs.forEach((s) => rows.push([s.label, Math.round(s.spend), s.impressions, s.clicks, s.ctr.toFixed(2) + "%", s.leads, s.purchases, s.cvr.toFixed(2) + "%"]));
+      rows.push(["Grand total", Math.round(srcSpend), srcTotals.impressions, srcTotals.clicks,
+        (srcTotals.impressions > 0 ? (srcTotals.clicks / srcTotals.impressions) * 100 : 0).toFixed(2) + "%",
+        srcTotals.leads, srcTotals.purchases,
+        (srcTotals.clicks > 0 ? (srcTotals.leads / srcTotals.clicks) * 100 : 0).toFixed(2) + "%"]);
+      blank();
+    }
+    const dailyRaw = perf?.daily || [];
+    if (dailyRaw.length) {
+      rows.push(["DAILY PERFORMANCE"]);
+      rows.push(["Date", "Impressions", "Reach", "Clicks", "Results", "Leads", "Spend"]);
+      dailyRaw.forEach((d) => rows.push([d.date, d.impressions, d.reach, d.clicks, d.results, d.leads, Math.round(d.spend || 0)]));
+      blank();
+    }
+    const dem = (title: string, arr?: AdBreakdown[]) => {
+      if (!arr?.length) return;
+      rows.push([title]);
+      rows.push(["Value", "Impressions", "Reach", "Clicks", "Results", "Spend"]);
+      arr.forEach((b) => rows.push([b.value, b.impressions, b.reach, b.clicks, b.results, Math.round(b.spend || 0)]));
+      blank();
+    };
+    dem("AGE BREAKDOWN", perf?.age);
+    dem("GENDER BREAKDOWN", perf?.gender);
+    dem("REGION BREAKDOWN", perf?.region);
+    const csv = rows.map((r) => r.map(esc).join(",")).join("\n");
     const url = URL.createObjectURL(new Blob([csv], { type: "text/csv;charset=utf-8" }));
     const a = document.createElement("a"); a.href = url; a.download = `ads-report-${dateRange}.csv`; a.click(); URL.revokeObjectURL(url);
   };
@@ -1137,6 +1172,14 @@ function MarketingAnalytics() {
       ) : (<>
       {hasSpend ? (
       <>
+      {/* Heroleads-style report banner (drives the PDF header) */}
+      <div className="rounded-xl bg-neutral-900 text-white px-5 py-3.5 flex items-center justify-between gap-3 flex-wrap mb-5">
+        <div className="min-w-0">
+          <p className="text-[16px] font-extrabold tracking-wide uppercase leading-tight">Ads Performance Report</p>
+          <p className="text-[12.5px] text-white/70 truncate">All campaigns and sources</p>
+        </div>
+        <p className="text-[11px] text-white/70 whitespace-nowrap">{rangeLabel}</p>
+      </div>
       {/* ROI cards */}
       <div className="flex flex-wrap bg-card rounded-lg border border-border shadow-xs mb-5 overflow-hidden">
         {roiCards.map((c, i) => (
