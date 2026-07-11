@@ -1409,6 +1409,38 @@ function CreativeReport() {
   const creatives = perf?.creatives || [];
   const campaignOptions = (perf?.campaigns || []).map((c) => ({ value: c.campaign_id, label: c.campaign_name }));
 
+  // Ranked + insight-driving aggregates.
+  const ranked = [...creatives].sort((a, b) => b.leads - a.leads || b.spend - a.spend);
+  const tot = creatives.reduce((a, c) => ({ spend: a.spend + c.spend, impressions: a.impressions + c.impressions, clicks: a.clicks + c.clicks, leads: a.leads + c.leads, sales: a.sales + c.sales }), { spend: 0, impressions: 0, clicks: 0, leads: 0, sales: 0 });
+  const avgCpl = tot.leads > 0 ? tot.spend / tot.leads : 0;
+  const withLeads = creatives.filter((c) => c.leads > 0 && c.spend > 0);
+  const bestCpl = withLeads.length ? withLeads.reduce((b, c) => (c.spend / c.leads < b.spend / b.leads ? c : b)) : null;
+  const top = ranked.find((c) => c.leads > 0) || null;
+  const wasted = creatives.filter((c) => c.spend > 0 && c.leads === 0);
+  const wastedSpend = wasted.reduce((a, c) => a + c.spend, 0);
+  const bestCvr = creatives.reduce((m, c) => Math.max(m, c.leads > 0 ? (c.sales / c.leads) * 100 : 0), 0);
+  const name = (c: { headline: string | null; source_id: string }) => c.headline || `Ad ${c.source_id}`;
+
+  const kpis = [
+    { label: "Ad spend", value: money(tot.spend) },
+    { label: "Creatives", value: fmtInt(creatives.length) },
+    { label: "Leads", value: fmtInt(tot.leads) },
+    { label: "Conversions", value: fmtInt(tot.sales) },
+    { label: "Avg cost / lead", value: tot.leads > 0 ? money(avgCpl) : "-" },
+    { label: "Best lead to buy", value: bestCvr > 0 ? bestCvr.toFixed(1) + "%" : "-" },
+  ];
+
+  const Thumb = ({ c, size }: { c: AdPerformance["creatives"][number]; size: number }) => (
+    <div className="relative rounded-lg border border-border bg-muted/60 overflow-hidden grid place-items-center text-muted-foreground/50 shrink-0" style={{ width: size, height: size }}>
+      <ImageIcon className="w-5 h-5" />
+      {c.image_url && (
+        <a href={c.source_url || c.image_url} target="_blank" rel="noreferrer" className="absolute inset-0">
+          <img src={c.image_url} alt={c.headline || "Ad creative"} loading="lazy" onError={(e) => { e.currentTarget.style.display = "none"; }} className="w-full h-full object-cover" />
+        </a>
+      )}
+    </div>
+  );
+
   return (
     <div className="p-4">
       <div className="flex items-center gap-2 mb-4 flex-wrap">
@@ -1418,62 +1450,119 @@ function CreativeReport() {
           onChange={(v) => { setDateRange(v.preset); setFFrom(v.from); setFTo(v.to); }} />
       </div>
 
-      <Card title="Per ad / creative" subtitle="Leads to conversions by click-to-WhatsApp ad">
-        {loading ? (
-          <div className="p-4"><Skeleton className="h-40" /></div>
-        ) : (
-        <div className="overflow-x-auto">
-          <table className="w-full text-sm">
-            <thead>
-              <tr className="border-b border-border bg-muted/40">
-                {["Creative", "Ad / source id", "Spend", "Impressions", "Clicks", "Leads", "Cost / lead", "Conversions", "Cost / conv", "Lead to purchase"].map((h, idx) => (
-                  <th key={h} className={cn("px-4 py-2.5 text-[11px] font-bold uppercase tracking-wider text-muted-foreground", idx <= 1 ? "text-left" : "text-right")}>{h}</th>
-                ))}
-              </tr>
-            </thead>
-            <tbody>
-              {creatives.length === 0 ? (
-                <tr><td colSpan={10} className="text-center py-12 text-muted-foreground">No ad-attributed leads in range</td></tr>
-              ) : creatives.map((cr) => {
-                const rate = cr.leads > 0 ? (cr.sales / cr.leads) * 100 : 0;
-                const ccpl = cr.leads > 0 ? cr.spend / cr.leads : 0;
-                const ccpa = cr.sales > 0 ? cr.spend / cr.sales : 0;
-                return (
-                  <tr key={cr.source_id} className="border-b border-border/60 hover:bg-muted/50 transition-colors">
-                    <td className="px-4 py-2 w-20">
-                      <div className="relative w-16 h-16 rounded-lg border border-border bg-muted/60 overflow-hidden grid place-items-center text-muted-foreground/50">
-                        <ImageIcon className="w-5 h-5" />
-                        {cr.image_url && (
-                          <Tip label={cr.headline || ""}>
-                            <a href={cr.source_url || cr.image_url} target="_blank" rel="noreferrer" className="absolute inset-0">
-                              <img src={cr.image_url} alt={cr.headline || "Ad creative"} loading="lazy" onError={(e) => { e.currentTarget.style.display = "none"; }} className="w-full h-full object-cover" />
-                            </a>
-                          </Tip>
-                        )}
-                      </div>
-                    </td>
-                    <td className="px-4 py-2.5">
-                      <div className="text-[12px] text-foreground">{cr.source_id}</div>
-                      {cr.headline && <div className="text-[11px] text-muted-foreground max-w-[220px] truncate">{cr.headline}</div>}
-                    </td>
-                    <td className="px-4 py-2.5 text-right tabular-nums">{cr.spend > 0 ? money(cr.spend) : "-"}</td>
-                    <td className="px-4 py-2.5 text-right tabular-nums text-muted-foreground">{cr.impressions > 0 ? fmtInt(cr.impressions) : "-"}</td>
-                    <td className="px-4 py-2.5 text-right tabular-nums text-muted-foreground">{cr.clicks > 0 ? fmtInt(cr.clicks) : "-"}</td>
-                    <td className="px-4 py-2.5 text-right tabular-nums font-semibold text-primary">{fmtInt(cr.leads)}</td>
-                    <td className="px-4 py-2.5 text-right tabular-nums">{cr.leads > 0 && cr.spend > 0 ? money(ccpl) : "-"}</td>
-                    <td className="px-4 py-2.5 text-right tabular-nums font-bold text-[#059669]">{fmtInt(cr.sales)}</td>
-                    <td className="px-4 py-2.5 text-right tabular-nums">{cr.sales > 0 && cr.spend > 0 ? money(ccpa) : "-"}</td>
-                    <td className="px-4 py-2.5 text-right">
-                      <Badge label={cr.leads > 0 ? `${rate.toFixed(1)}%` : "-"} bg={rate >= 20 ? "#E8F5E9" : rate > 0 ? "#FFF3E0" : "#F1F5F9"} text={rate >= 20 ? "#2E7D32" : rate > 0 ? "#E65100" : "#64748B"} />
-                    </td>
-                  </tr>
-                );
-              })}
-            </tbody>
-          </table>
+      {loading ? (
+        <div className="py-8"><Skeleton className="h-20 mb-4" /><Skeleton className="h-[280px]" /></div>
+      ) : creatives.length === 0 ? (
+        <div className="py-20 text-center">
+          <div className="w-12 h-12 rounded-xl bg-muted grid place-items-center mx-auto mb-3"><ImageIcon className="w-6 h-6 text-muted-foreground/50" /></div>
+          <p className="font-semibold text-foreground mb-0.5">No creative data in range</p>
+          <p className="text-sm text-muted-foreground">Connect a Meta ad account with click-to-WhatsApp ads to see per-creative insight.</p>
         </div>
-        )}
-      </Card>
+      ) : (
+      <>
+        {/* KPI summary */}
+        <div className="flex flex-wrap bg-card rounded-lg border border-border shadow-xs mb-5 overflow-hidden">
+          {kpis.map((k, i) => (
+            <div key={k.label} className={cn("flex-1 min-w-[130px] px-4 py-3.5", i < kpis.length - 1 && "border-r border-border")}>
+              <p className="text-[10px] font-semibold text-muted-foreground uppercase tracking-wide leading-tight truncate">{k.label}</p>
+              <p className="text-[18px] xl:text-[20px] font-extrabold text-foreground leading-none tabular-nums mt-1 truncate">{k.value}</p>
+            </div>
+          ))}
+        </div>
+
+        {/* Insight cards: top performer, cheapest lead, wasted spend */}
+        <div className="grid grid-cols-1 md:grid-cols-3 gap-4 mb-5">
+          <Card title="Top creative" subtitle="Most leads in range">
+            <div className="p-4">
+              {top ? (
+                <div className="flex items-center gap-3">
+                  <Thumb c={top} size={56} />
+                  <div className="min-w-0">
+                    <p className="text-[13px] font-semibold text-foreground truncate">{name(top)}</p>
+                    <p className="text-[11.5px] text-muted-foreground truncate">{fmtInt(top.leads)} leads · {top.leads > 0 && top.spend > 0 ? `${money(top.spend / top.leads)}/lead` : "-"}</p>
+                  </div>
+                </div>
+              ) : <p className="text-[13px] text-muted-foreground">No creative drove a lead yet.</p>}
+            </div>
+          </Card>
+          <Card title="Cheapest lead" subtitle="Lowest cost per lead">
+            <div className="p-4">
+              {bestCpl ? (
+                <div className="flex items-center gap-3">
+                  <Thumb c={bestCpl} size={56} />
+                  <div className="min-w-0">
+                    <p className="text-[13px] font-semibold text-foreground truncate">{name(bestCpl)}</p>
+                    <p className="text-[11.5px] text-[#059669] font-semibold">{money(bestCpl.spend / bestCpl.leads)}/lead · {fmtInt(bestCpl.leads)} leads</p>
+                  </div>
+                </div>
+              ) : <p className="text-[13px] text-muted-foreground">No cost-per-lead data yet.</p>}
+            </div>
+          </Card>
+          <Card title="Wasted spend" subtitle="Spend with zero leads">
+            <div className="p-4">
+              {wasted.length ? (
+                <div className="flex items-center gap-3">
+                  <div className="w-14 h-14 rounded-lg bg-amber-50 grid place-items-center shrink-0"><TrendingDown className="w-6 h-6 text-amber-600" /></div>
+                  <div className="min-w-0">
+                    <p className="text-[18px] font-extrabold text-amber-600 tabular-nums leading-none">{money(wastedSpend)}</p>
+                    <p className="text-[11.5px] text-muted-foreground mt-1">{wasted.length} creative{wasted.length === 1 ? "" : "s"} spent but got no leads</p>
+                  </div>
+                </div>
+              ) : <p className="text-[13px] text-muted-foreground">No wasted spend. Every paid creative got a lead.</p>}
+            </div>
+          </Card>
+        </div>
+
+        {/* Creative cards */}
+        <div className="grid grid-cols-1 lg:grid-cols-2 gap-4 mb-5">
+          {ranked.map((cr, i) => {
+            const ctr = cr.impressions > 0 ? (cr.clicks / cr.impressions) * 100 : 0;
+            const cpl = cr.leads > 0 ? cr.spend / cr.leads : 0;
+            const cvr = cr.leads > 0 ? (cr.sales / cr.leads) * 100 : 0;
+            const leadRate = cr.clicks > 0 ? (cr.leads / cr.clicks) * 100 : 0;
+            const cells = [
+              { l: "Spend", v: cr.spend > 0 ? money(cr.spend) : "-" },
+              { l: "Impressions", v: fmtInt(cr.impressions) },
+              { l: "Clicks", v: fmtInt(cr.clicks) },
+              { l: "CTR", v: `${ctr.toFixed(2)}%` },
+              { l: "Leads", v: fmtInt(cr.leads), hi: true },
+              { l: "Cost / lead", v: cr.leads > 0 && cr.spend > 0 ? money(cpl) : "-" },
+              { l: "Conversions", v: fmtInt(cr.sales) },
+              { l: "Lead to buy", v: cr.leads > 0 ? `${cvr.toFixed(1)}%` : "-" },
+            ];
+            return (
+              <div key={cr.source_id} className="rounded-xl border border-border bg-card shadow-xs overflow-hidden">
+                <div className="flex items-start gap-3 p-3.5 border-b border-border">
+                  <Thumb c={cr} size={64} />
+                  <div className="min-w-0 flex-1">
+                    <div className="flex items-center gap-2">
+                      <span className="inline-flex items-center justify-center w-5 h-5 rounded-md bg-primary/[0.12] text-primary text-[11px] font-bold shrink-0">{i + 1}</span>
+                      <p className="text-[13.5px] font-semibold text-foreground truncate">{name(cr)}</p>
+                    </div>
+                    <p className="text-[11px] text-muted-foreground truncate mt-0.5">{cr.source_id}</p>
+                    {cr.body && <p className="text-[11px] text-muted-foreground/80 line-clamp-2 mt-1">{cr.body}</p>}
+                  </div>
+                </div>
+                <div className="grid grid-cols-4 divide-x divide-border">
+                  {cells.map((c) => (
+                    <div key={c.l} className="px-3 py-2.5">
+                      <p className="text-[9.5px] font-semibold text-muted-foreground uppercase tracking-wide truncate">{c.l}</p>
+                      <p className={cn("text-[13.5px] font-bold tabular-nums mt-0.5 truncate", c.hi ? "text-primary" : "text-foreground")}>{c.v}</p>
+                    </div>
+                  ))}
+                </div>
+                <div className="px-3.5 py-2.5 border-t border-border">
+                  <div className="flex items-center justify-between text-[10.5px] text-muted-foreground mb-1">
+                    <span>Click to lead</span><span className="tabular-nums font-semibold text-foreground">{leadRate.toFixed(1)}%</span>
+                  </div>
+                  <div className="h-2 rounded-full bg-muted overflow-hidden"><div className="h-full rounded-full bg-primary" style={{ width: `${Math.min(100, leadRate)}%` }} /></div>
+                </div>
+              </div>
+            );
+          })}
+        </div>
+      </>
+      )}
     </div>
   );
 }
