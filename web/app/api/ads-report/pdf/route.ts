@@ -1,5 +1,16 @@
 import { NextRequest, NextResponse } from "next/server";
+import { existsSync } from "fs";
 import puppeteer from "puppeteer";
+
+// Alpine's chromium package binary path varies (/usr/bin/chromium-browser on older
+// releases, /usr/bin/chromium on newer). Resolve at runtime so launch doesn't fail
+// on a wrong hardcoded path.
+function resolveChrome(): string | undefined {
+  for (const p of [process.env.PUPPETEER_EXECUTABLE_PATH, "/usr/bin/chromium-browser", "/usr/bin/chromium"]) {
+    if (p && existsSync(p)) return p;
+  }
+  return undefined;
+}
 
 // Server-side headless-Chromium PDF of the DEDICATED ads-report template
 // (/report/ads), decoupled from the on-theme dashboard. Seeds the session token
@@ -25,7 +36,7 @@ export async function POST(req: NextRequest) {
 
   let browser: Awaited<ReturnType<typeof puppeteer.launch>> | undefined;
   try {
-    browser = await puppeteer.launch({ headless: true, executablePath: process.env.PUPPETEER_EXECUTABLE_PATH || undefined, args: ["--no-sandbox", "--disable-setuid-sandbox", "--disable-dev-shm-usage"] });
+    browser = await puppeteer.launch({ headless: true, executablePath: resolveChrome(), args: ["--no-sandbox", "--disable-setuid-sandbox", "--disable-dev-shm-usage", "--no-zygote"] });
     const page = await browser.newPage();
     await page.setViewport({ width: 1100, height: 1600, deviceScaleFactor: 2 });
     await page.evaluateOnNewDocument((data: { token: string; user: string }) => {
@@ -56,6 +67,7 @@ export async function POST(req: NextRequest) {
       headers: { "Content-Type": "application/pdf", "Content-Disposition": 'attachment; filename="ads-report.pdf"', "Cache-Control": "no-store" },
     });
   } catch (e) {
+    console.error("[ads-report-pdf] failed:", e);
     return NextResponse.json({ error: String(e) }, { status: 500 });
   } finally {
     if (browser) { try { await browser.close(); } catch { /* ignore */ } }

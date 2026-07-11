@@ -10,8 +10,8 @@ import { WizardModal, WizardCard, WizardField, BackButton, ContinueButton } from
 import { PrimaryButton } from "../_shared";
 
 const PLATFORMS: Record<string, { label: string; sub: string; color: string }> = {
-  meta:   { label: "Meta", sub: "Facebook / Instagram Ads", color: "#1877F2" },
-  tiktok: { label: "TikTok", sub: "TikTok for Business", color: "#111111" },
+  meta:   { label: "Meta Ads", sub: "Facebook / Instagram Ads", color: "#1877F2" },
+  tiktok: { label: "TikTok Ads", sub: "TikTok for Business", color: "#111111" },
   google: { label: "Google Ads", sub: "Google Ads API", color: "#EA4335" },
 };
 
