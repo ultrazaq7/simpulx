@@ -579,6 +579,13 @@ export const api = {
     const qs = q.toString();
     return req<import("./types").Ga4Report>(`/api/campaigns/${id}/ga4${qs ? "?" + qs : ""}`);
   },
+  getOrgGa4: (from?: string, to?: string) => {
+    const q = new URLSearchParams();
+    if (from) q.set("from", from);
+    if (to) q.set("to", to);
+    const qs = q.toString();
+    return req<import("./types").Ga4Report>(`/api/ga4/report${qs ? "?" + qs : ""}`);
+  },
   createGa4Connection: (body: { property_id: string; refresh_token: string; campaign_id?: string; name?: string }) =>
     req<{ id: string }>("/api/ga4-connections", { method: "POST", body: JSON.stringify(body) }),
   listGa4Connections: () => req<import("./types").Ga4Connection[]>("/api/ga4-connections"),

@@ -343,6 +343,7 @@ func main() {
 	mux.HandleFunc("DELETE /api/campaigns/{id}", s.requireAuth(s.gate("manage_campaigns", s.handleDeleteCampaign)))
 	// Branches (sub-units of a campaign / branch-group).
 	mux.HandleFunc("GET /api/campaigns/{id}/ga4", s.requireAuth(s.handleCampaignGa4Report))
+	mux.HandleFunc("GET /api/ga4/report", s.requireAuth(s.handleOrgGa4Report))
 	mux.HandleFunc("GET /api/campaigns/{id}/branches", s.requireAuth(s.handleListBranches))
 	mux.HandleFunc("POST /api/campaigns/{id}/branches", s.requireAuth(s.gate("manage_campaigns", s.handleCreateBranch)))
 	mux.HandleFunc("PATCH /api/branches/{id}", s.requireAuth(s.gate("manage_campaigns", s.handleUpdateBranch)))

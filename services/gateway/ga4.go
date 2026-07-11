@@ -137,6 +137,51 @@ func (s *server) handleCampaignGa4Report(w http.ResponseWriter, r *http.Request)
 	writeJSON(w, report)
 }
 
+// GET /api/ga4/report?from&to — org-wide landing-page performance for the Ads
+// Report PDF (not scoped to a campaign): uses the unmapped (org-wide) GA4
+// connection if present, else the most recent one.
+func (s *server) handleOrgGa4Report(w http.ResponseWriter, r *http.Request) {
+	a, _ := authFrom(r.Context())
+	var propertyID, refreshToken string
+	err := s.pool.QueryRow(r.Context(),
+		`SELECT property_id, refresh_token FROM ga4_connections
+		  WHERE organization_id=$1 ORDER BY (campaign_id IS NULL) DESC, created_at DESC LIMIT 1`,
+		a.OrgID).Scan(&propertyID, &refreshToken)
+	if err != nil {
+		writeJSON(w, map[string]any{"connected": false, "rows": []any{}})
+		return
+	}
+	from := r.URL.Query().Get("from")
+	to := r.URL.Query().Get("to")
+	if from == "" {
+		from = "28daysAgo"
+	}
+	if to == "" {
+		to = "today"
+	}
+	fail := func(msg string) {
+		_, _ = s.pool.Exec(r.Context(),
+			`UPDATE ga4_connections SET last_error=$2 WHERE property_id=$1 AND organization_id=$3`,
+			propertyID, msg, a.OrgID)
+		writeJSON(w, map[string]any{"connected": true, "error": msg, "rows": []any{}})
+	}
+	token, err := ga4AccessToken(r.Context(), refreshToken)
+	if err != nil {
+		fail(err.Error())
+		return
+	}
+	report, err := ga4RunReport(r.Context(), propertyID, token, from, to)
+	if err != nil {
+		fail(err.Error())
+		return
+	}
+	_, _ = s.pool.Exec(r.Context(),
+		`UPDATE ga4_connections SET last_synced_at=now(), last_error=NULL WHERE property_id=$1 AND organization_id=$2`,
+		propertyID, a.OrgID)
+	report["connected"] = true
+	writeJSON(w, report)
+}
+
 // ── Sign-in-with-Google for GA4 ────────────────────────────────────────────
 // One-click GA4 connect so users never hand-copy a refresh token. Reuses the
 // Google Ads OAuth client (same Google Cloud project) but asks for the

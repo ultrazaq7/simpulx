@@ -6,16 +6,18 @@
 // Heroleads "Campaign Dashboard" reference. See memory ads-report-pdf-template.
 import { Suspense, useEffect, useMemo, useState } from "react";
 import { useSearchParams } from "next/navigation";
-import { LineChart, Line, BarChart, Bar, XAxis, YAxis, CartesianGrid, ResponsiveContainer } from "recharts";
+import { LineChart, Line, AreaChart, Area, BarChart, Bar, XAxis, YAxis, CartesianGrid, ResponsiveContainer } from "recharts";
 import { api } from "@/lib/api";
 import { presetRange } from "@/components/DateRangeFilter";
-import type { AdPerformance, AdKeyword, Conversation, AdBreakdown } from "@/lib/types";
+import { IndonesiaMap } from "@/components/IndonesiaMap";
+import type { AdPerformance, AdKeyword, Conversation, AdBreakdown, Ga4Report, Campaign } from "@/lib/types";
 
 const num = (n: number) => Math.round(n || 0).toLocaleString("en-US");
 const money = (n: number) => "Rp " + Math.round(n || 0).toLocaleString("id-ID");
 const pct = (n: number) => (n || 0).toFixed(2) + "%";
 const MONTHS = ["Jan", "Feb", "Mar", "Apr", "May", "Jun", "Jul", "Aug", "Sep", "Oct", "Nov", "Dec"];
 const fmtDay = (iso: string) => { const m = /^(\d{4})-(\d{2})-(\d{2})/.exec(iso || ""); return m ? `${MONTHS[+m[2] - 1]} ${+m[3]}` : iso; };
+const fmtSec = (s: number) => { const m = Math.floor((s || 0) / 60); const sec = Math.round((s || 0) % 60); return `${m}:${String(sec).padStart(2, "0")}`; };
 
 // Heatmap tint for a table cell: 0 (bad) -> red-ish, 1 (good) -> green.
 function heat(v: number, min: number, max: number, invert = false) {
@@ -36,6 +38,8 @@ function AdsReportPrint() {
   const [perf, setPerf] = useState<AdPerformance | null>(null);
   const [keywords, setKeywords] = useState<AdKeyword[]>([]);
   const [leads, setLeads] = useState<Conversation[]>([]);
+  const [ga4, setGa4] = useState<Ga4Report | null>(null);
+  const [camps, setCamps] = useState<Campaign[]>([]);
   const [ready, setReady] = useState(false);
 
   useEffect(() => {
@@ -43,8 +47,11 @@ function AdsReportPrint() {
       api.adPerformance(from || undefined, to || undefined, campaigns.length ? campaigns : undefined).catch(() => null),
       api.adKeywords(from || undefined, to || undefined).catch(() => []),
       api.listConversations("", from || "", to || "", "", "").catch(() => []),
-    ]).then(([p, k, l]) => {
+      api.getOrgGa4(from || undefined, to || undefined).catch(() => null),
+      api.listCampaigns().catch(() => []),
+    ]).then(([p, k, l, g, c]) => {
       setPerf(p as AdPerformance | null); setKeywords((k as AdKeyword[]) || []); setLeads((l as Conversation[]) || []);
+      setGa4(g as Ga4Report | null); setCamps((c as Campaign[]) || []);
       // Two frames so recharts has laid out before the headless snapshot.
       requestAnimationFrame(() => requestAnimationFrame(() => setReady(true)));
     });
@@ -80,6 +87,15 @@ function AdsReportPrint() {
   const dem = (arr?: AdBreakdown[]) => (arr || []).filter((b) => (b.value || "").toLowerCase() !== "unknown");
   const age = dem(perf?.age), gender = dem(perf?.gender);
   const demMax = (arr: AdBreakdown[]) => Math.max(1, ...arr.map((b) => b.impressions));
+
+  const dailyLeads = (perf?.daily ?? []).map((d) => ({ date: fmtDay(d.date), leads: d.leads }));
+  const region = dem(perf?.region);
+  const mapPoints = region.map((b) => ({ name: b.value, value: b.impressions }));
+  // Budget = sum of the (selected) campaigns' monthly budgets vs actual spend.
+  const budget = camps.filter((c) => campaigns.length === 0 || campaigns.includes(c.id)).reduce((a, c) => a + ((c as { monthly_budget?: number | null }).monthly_budget || 0), 0);
+  const budgetLeft = budget - tot.spend;
+  const util = budget > 0 ? (tot.spend / budget) * 100 : 0;
+  const gt = ga4?.totals;
 
   return (
     <div className="print-root" data-report-ready={ready ? "1" : "0"}
@@ -197,6 +213,45 @@ function AdsReportPrint() {
         )}
       </div>
 
+      {/* Gender demography + Monthly leads breakdown */}
+      <div style={{ display: "grid", gridTemplateColumns: gender.length > 0 ? "300px 1fr" : "1fr", gap: 16, marginTop: 16 }}>
+        {gender.length > 0 && (
+          <Section title="Gender Demography">
+            <div style={{ display: "flex", flexDirection: "column", gap: 8 }}>
+              {gender.map((b) => {
+                const total = gender.reduce((a, x) => a + x.impressions, 0) || 1;
+                return (
+                  <div key={b.value}>
+                    <div style={{ display: "flex", justifyContent: "space-between", fontSize: 11, marginBottom: 3 }}>
+                      <span style={{ textTransform: "capitalize" }}>{b.value}</span>
+                      <span style={{ color: "#64748b" }}>{((b.impressions / total) * 100).toFixed(1)}%</span>
+                    </div>
+                    <div style={{ height: 8, borderRadius: 4, background: "#eef2f7", overflow: "hidden" }}>
+                      <div style={{ height: "100%", background: b.value.toLowerCase() === "female" ? "#FF2D78" : "#2D6CFF", width: `${(b.impressions / total) * 100}%` }} />
+                    </div>
+                  </div>
+                );
+              })}
+            </div>
+          </Section>
+        )}
+        {dailyLeads.length > 0 && (
+          <Section title="Monthly Leads Performance Breakdown">
+            <div style={{ height: 190 }}>
+              <ResponsiveContainer width="100%" height="100%">
+                <AreaChart data={dailyLeads} margin={{ top: 6, right: 8, left: -18, bottom: 0 }}>
+                  <defs><linearGradient id="lg" x1="0" y1="0" x2="0" y2="1"><stop offset="0%" stopColor="#2D8B73" stopOpacity={0.3} /><stop offset="100%" stopColor="#2D8B73" stopOpacity={0} /></linearGradient></defs>
+                  <CartesianGrid strokeDasharray="3 3" stroke="#eef2f7" vertical={false} />
+                  <XAxis dataKey="date" tick={{ fontSize: 9 }} axisLine={false} tickLine={false} minTickGap={24} />
+                  <YAxis tick={{ fontSize: 9 }} axisLine={false} tickLine={false} width={34} allowDecimals={false} />
+                  <Area type="monotone" dataKey="leads" stroke="#2D8B73" strokeWidth={2} fill="url(#lg)" isAnimationActive={false} />
+                </AreaChart>
+              </ResponsiveContainer>
+            </div>
+          </Section>
+        )}
+      </div>
+
       {/* Latest leads */}
       {leads.length > 0 && (
         <Section title="Latest Leads">
@@ -234,6 +289,67 @@ function AdsReportPrint() {
                 <Bar dataKey="spend" fill="#FF5A1F" radius={[2, 2, 0, 0]} isAnimationActive={false} />
               </BarChart>
             </ResponsiveContainer>
+          </div>
+        </Section>
+      )}
+
+      {/* Budget utilization cards */}
+      {budget > 0 && (
+        <div className="print-avoid-break" style={{ display: "grid", gridTemplateColumns: "repeat(4,1fr)", gap: 12, marginTop: 16 }}>
+          {[
+            { label: "Media Budget", value: money(budget), accent: false },
+            { label: "Cost", value: money(tot.spend), accent: true },
+            { label: "Budget Left", value: money(budgetLeft), c: budgetLeft < 0 ? "#DC2626" : "#0f172a" },
+            { label: "Budget Utilization", value: util.toFixed(2) + "%", accent: true, c: util > 100 ? "#DC2626" : "#fff" },
+          ].map((b) => (
+            <div key={b.label} style={{ border: "1px solid #e5e7eb", borderRadius: 10, padding: "12px 14px", background: b.accent ? "#FF5A1F" : "#fff", color: b.accent ? "#fff" : (b.c || "#0f172a") }}>
+              <div style={{ fontSize: 11, opacity: b.accent ? 0.9 : 0.7 }}>{b.label}</div>
+              <div style={{ fontSize: 18, fontWeight: 800, color: b.accent ? (b.c || "#fff") : (b.c || "#0f172a") }}>{b.value}</div>
+            </div>
+          ))}
+        </div>
+      )}
+
+      {/* Landing Page Performance (GA4) */}
+      {ga4?.connected && gt && (
+        <Section title="Landing Page Performance">
+          <div style={{ display: "grid", gridTemplateColumns: "repeat(4,1fr)", gap: 10, marginBottom: 12 }}>
+            {([["Total users", num(gt.total_users)], ["Active users", num(gt.active_users)], ["New users", num(gt.new_users)], ["Sessions", num(gt.sessions)],
+              ["Engaged sessions", num(gt.engaged_sessions)], ["Engagement rate", (gt.engagement_rate * 100).toFixed(1) + "%"], ["Avg engagement", fmtSec(gt.avg_engagement_sec)], ["Views", num(gt.views)]] as [string, string][]).map(([l, v]) => (
+              <div key={l} style={{ border: "1px solid #e5e7eb", borderRadius: 8, padding: "8px 10px" }}>
+                <div style={{ fontSize: 15, fontWeight: 800 }}>{v}</div>
+                <div style={{ fontSize: 10, color: "#64748b" }}>{l}</div>
+              </div>
+            ))}
+          </div>
+          {ga4.rows.length > 0 && (
+            <table style={{ width: "100%", borderCollapse: "collapse", fontSize: 11 }}>
+              <thead>
+                <tr style={{ borderBottom: "1px solid #e5e7eb", color: "#64748b" }}>
+                  {["Landing page", "Views", "Sessions", "New users", "Engagement"].map((h, i) => (<th key={h} style={{ padding: "5px 8px", textAlign: i === 0 ? "left" : "right", fontSize: 9.5, fontWeight: 700 }}>{h}</th>))}
+                </tr>
+              </thead>
+              <tbody>
+                {ga4.rows.slice(0, 8).map((r, i) => (
+                  <tr key={i} style={{ borderBottom: "1px solid #f1f5f9" }}>
+                    <td style={{ padding: "5px 8px", maxWidth: 320, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>{r.landing_page || "(not set)"}</td>
+                    <td style={{ padding: "5px 8px", textAlign: "right" }}>{num(r.views)}</td>
+                    <td style={{ padding: "5px 8px", textAlign: "right" }}>{num(r.sessions)}</td>
+                    <td style={{ padding: "5px 8px", textAlign: "right" }}>{num(r.new_users)}</td>
+                    <td style={{ padding: "5px 8px", textAlign: "right" }}>{(r.engagement_rate * 100).toFixed(1)}%</td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          )}
+        </Section>
+      )}
+
+      {/* Top locations (province reach) */}
+      {mapPoints.length > 0 && (
+        <Section title="Top Locations (reach)">
+          <div style={{ height: 300 }}>
+            <IndonesiaMap points={mapPoints} isMoney={false} money={num} />
           </div>
         </Section>
       )}
