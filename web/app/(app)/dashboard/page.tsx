@@ -13,7 +13,7 @@ import {
   Download, FileText, FileSpreadsheet, ChevronDown,
 } from "lucide-react";
 
-import { api, getUser } from "@/lib/api";
+import { api, getUser, getToken } from "@/lib/api";
 import { Select } from "@/components/Select";
 import { MultiSelect } from "@/components/ui/multi-select";
 import { IndonesiaMap } from "@/components/IndonesiaMap";
@@ -1132,6 +1132,23 @@ function MarketingAnalytics() {
     const a = document.createElement("a"); a.href = url; a.download = `ads-report-${dateRange}.csv`; a.click(); URL.revokeObjectURL(url);
   };
 
+  // PDF via the dedicated Heroleads template + headless route (not window.print).
+  const exportAdsPdf = async () => {
+    const { from, to } = dateRange === "custom" ? { from: fFrom, to: fTo } : presetRange(dateRange);
+    try {
+      const res = await fetch("/api/ads-report/pdf", {
+        method: "POST", headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ token: getToken(), user: getUser(), preset: dateRange, from, to, campaigns: campaignFilter.join(",") }),
+      });
+      const blob = await res.blob();
+      if (!res.ok || blob.type !== "application/pdf") throw new Error("headless unavailable");
+      const url = URL.createObjectURL(blob);
+      const a = document.createElement("a"); a.href = url; a.download = `ads-report-${dateRange}.pdf`; a.click(); URL.revokeObjectURL(url);
+    } catch {
+      window.print(); // fallback if headless Chromium isn't available
+    }
+  };
+
   return (
     <div className="p-4 print-root">
       {/* Toolbar — left-aligned with a filter icon, matching the Overview tab. */}
@@ -1160,7 +1177,7 @@ function MarketingAnalytics() {
             <>
               <div className="fixed inset-0 z-40" onClick={() => setExportOpen(false)} />
               <div className="absolute right-0 top-full mt-1 w-40 bg-popover border border-border rounded-lg shadow-xl z-50 py-1 animate-scale-in origin-top-right">
-                <button onClick={() => { setExportOpen(false); window.print(); }} className="w-full flex items-center gap-2 px-3 py-2 text-[13px] text-foreground hover:bg-muted outline-none"><FileText className="w-4 h-4 text-muted-foreground" /> PDF</button>
+                <button onClick={() => { setExportOpen(false); exportAdsPdf(); }} className="w-full flex items-center gap-2 px-3 py-2 text-[13px] text-foreground hover:bg-muted outline-none"><FileText className="w-4 h-4 text-muted-foreground" /> PDF</button>
                 <button onClick={() => { setExportOpen(false); exportAdsCsv(); }} className="w-full flex items-center gap-2 px-3 py-2 text-[13px] text-foreground hover:bg-muted outline-none"><FileSpreadsheet className="w-4 h-4 text-muted-foreground" /> CSV</button>
               </div>
             </>
