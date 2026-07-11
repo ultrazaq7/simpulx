@@ -96,7 +96,13 @@ LOST_REASONS = [
 _ABUSIVE = [r"\banjing\b", r"\bbangsat\b", r"\bkontol\b", r"\bmemek\b", r"\bgoblok\b",
             r"\btolol\b", r"\bbabi\b", r"\bngentot\b", r"\basu\b", r"\bjancok\b",
             r"\bkampret\b", r"\bbrengsek\b", r"\bbgst\b", r"\bbangke\b"]
-_ABUSIVE_RE = re.compile("|".join(_ABUSIVE), re.IGNORECASE)
+# Obscene / lewd (sexual) content — "konten senonoh". High-precision, word-boundary
+# so ordinary product chat is never caught. Bucketed the same as abusive (spam).
+_OBSCENE = [r"\bngewe\b", r"\bngentod\b", r"\bcoli\b", r"\bcolmek\b", r"\bsange\b",
+            r"\bngaceng\b", r"\bpepek\b", r"\bpeler\b", r"\bjembut\b", r"\btoket\b",
+            r"\bbugil\b", r"\btelanjang\b", r"\bbokep\b", r"\bhorny\b", r"\bbispak\b",
+            r"\bbisyar\b", r"\bpukimak\b", r"\btempik\b", r"\bnyepong\b", r"\bcrot\b"]
+_ABUSIVE_RE = re.compile("|".join(_ABUSIVE + _OBSCENE), re.IGNORECASE)
 _URL_RE = re.compile(r"(https?://|www\.|wa\.me/|fb\.me/|t\.me/|bit\.ly/)", re.IGNORECASE)
 
 
@@ -116,7 +122,7 @@ def detect_junk(customer_messages: List[str]) -> dict:
                 "confidence": 0.85, "reason": "Job-seeker / driver-recruitment, not a buyer."}
     if _ABUSIVE_RE.search(low):
         return {"is_junk": True, "category": "spam", "lost_reason": "abusive",
-                "confidence": 0.80, "reason": "Abusive language detected."}
+                "confidence": 0.85, "reason": "Abusive or obscene content detected."}
     urls = len(_URL_RE.findall(low))
     norm = [re.sub(r"\s+", " ", m.strip().lower()) for m in msgs]
     repeated_blast = len(norm) >= 3 and len(set(norm)) == 1
@@ -128,7 +134,8 @@ def detect_junk(customer_messages: List[str]) -> dict:
 
 class Classification(TypedDict):
     interest: str | None      # hot | warm | cold | None
-    stage_key: str            # new | engaged | considering | high_intent | closing
+    stage_key: str            # AI ceiling is "qualified": new | contacted | qualified
+                              # (appointment / spk are human-confirmed, never auto-set)
     disposition_key: str | None
     categories: List[str]
     off_topic: bool
@@ -146,10 +153,14 @@ def classify(customer_messages: List[str], ad_clicks: int = 0) -> Classification
     has_intent = len(categories) > 0
 
     # ---- stage ----
+    # The AI auto-advances a lead only as far as "qualified". "appointment" and
+    # "spk" (a booked visit / signed order) are real-world commitments that a
+    # human must confirm, so the classifier NEVER auto-selects a stage past
+    # "qualified" from chat text alone — even on a strong/closing signal.
     if has_strong and any(c == "Strong/Closing" for c in categories):
-        stage_key, confidence = "spk", 0.92
+        stage_key, confidence = "qualified", 0.92
     elif has_strong:
-        stage_key, confidence = "appointment", 0.80
+        stage_key, confidence = "qualified", 0.80
     elif any(c in CONSIDERING_INTENT for c in categories):
         stage_key, confidence = "qualified", 0.66
     elif reply_count >= 1:
@@ -175,8 +186,9 @@ def classify(customer_messages: List[str], ad_clicks: int = 0) -> Classification
     if off_topic:
         reason = "Off-topic: looks like a job-seeker / driver-recruitment lead, not a buyer."
         confidence = max(confidence, 0.85)
-    elif stage_key == "spk":
-        reason = "Strong closing signal detected (" + ", ".join(categories) + ")."
+    elif has_strong:
+        reason = ("Strong buying signal detected (" + ", ".join(categories)
+                  + ") - marked qualified; a human confirms the appointment/SPK.")
     elif categories:
         reason = "Detected buying intent: " + ", ".join(categories) + "."
     elif reply_count >= 1:

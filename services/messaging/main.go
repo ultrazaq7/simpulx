@@ -508,10 +508,15 @@ func (a *app) runFollowUpCron(ctx context.Context) {
 }
 
 func (a *app) triggerFollowUps(ctx context.Context) {
-	// Multi-touch cadence (WS-E). A silent lead is nudged up to 3 times with
-	// widening gaps; the touches that actually SEND stay inside WhatsApp's 24h
-	// window (the ai-agent skips any that fall outside it, since free-form is only
-	// allowed in-window). A customer reply resets followup_count, restarting this.
+	// Multi-touch cadence (WS-E), anchored to the customer's last message so a
+	// silent lead is nudged on a widening schedule; a genuine reply resets
+	// followup_count + last_contact_message_at, restarting the cadence.
+	//   touch 1 @ 12h, touch 2 @ 20h  -> inside WhatsApp's 24h window: free-form
+	//                                     LLM nudges (no template needed).
+	//   touch 3 @ 1d, touch 4 @ 3d, touch 5 @ 7d -> outside the 24h window: these
+	//     need an approved WhatsApp template (configured per campaign). Until one
+	//     exists the ai-agent skips the send, but the count still advances so the
+	//     lead is closed out on schedule (see autoMarkNoResponseLost).
 	rows, err := a.st.pool.Query(ctx, `
 		SELECT id::text, organization_id::text
 		FROM conversations
@@ -519,19 +524,13 @@ func (a *app) triggerFollowUps(ctx context.Context) {
 		  AND status = 'open'
 		  AND NOT classification_locked
 		  AND last_contact_message_at IS NOT NULL
-		  AND followup_count < 3
+		  AND followup_count < 5
 		  AND (
-		    -- Touch 1: customer went quiet ~4h after their message; we haven't replied.
-		    ( followup_count = 0
-		      AND last_contact_message_at < NOW() - INTERVAL '4 hours'
-		      AND (last_agent_message_at IS NULL OR last_agent_message_at < last_contact_message_at) )
-		    OR
-		    -- Touches 2-3: we already followed up, customer still silent, widening gap
-		    -- (8h, then 16h) since our last outreach.
-		    ( followup_count >= 1
-		      AND last_agent_message_at IS NOT NULL
-		      AND last_contact_message_at < last_agent_message_at
-		      AND last_agent_message_at < NOW() - (INTERVAL '8 hours' * followup_count) )
+		    (followup_count = 0 AND last_contact_message_at < NOW() - INTERVAL '12 hours')
+		    OR (followup_count = 1 AND last_contact_message_at < NOW() - INTERVAL '20 hours')
+		    OR (followup_count = 2 AND last_contact_message_at < NOW() - INTERVAL '24 hours')
+		    OR (followup_count = 3 AND last_contact_message_at < NOW() - INTERVAL '3 days')
+		    OR (followup_count = 4 AND last_contact_message_at < NOW() - INTERVAL '7 days')
 		  )
 	`)
 	if err != nil {
@@ -559,5 +558,41 @@ func (a *app) triggerFollowUps(ctx context.Context) {
 		if err := a.bus.Publish(events.SubjectCmdAIDraftFollowup, t.orgID, payload); err != nil {
 			a.log.Warn("failed to trigger ai followup", "err", err, "conv", t.convID)
 		}
+	}
+
+	a.autoMarkNoResponseLost(ctx)
+}
+
+// autoMarkNoResponseLost closes out leads that ran the full follow-up cadence
+// (all 5 touches, ~1 day past the final 7d nudge) without ever replying: it
+// sets the Lost disposition (lost_reason 'ghosted' = no response), moves them to
+// the Lost stage, and stands the bot down. Abusive/spam is handled separately and
+// immediately (classification_locked), so this only touches genuine-but-silent
+// leads. Reversible: a fresh customer reply resets followup_count and the D
+// re-engagement path can revive the lead.
+func (a *app) autoMarkNoResponseLost(ctx context.Context) {
+	_, err := a.st.pool.Exec(ctx, `
+		UPDATE conversations cv SET
+		  disposition_id = COALESCE(cv.disposition_id,
+		     (SELECT id FROM dispositions d
+		        WHERE d.organization_id = cv.organization_id AND d.system_key = 'lost' LIMIT 1)),
+		  lost_reason = COALESCE(cv.lost_reason, 'ghosted'),
+		  stage_id = COALESCE(
+		     (SELECT id FROM stages s
+		        WHERE s.organization_id = cv.organization_id AND s.system_key = 'lost_not_purchase' LIMIT 1),
+		     cv.stage_id),
+		  ai_stage = 'lost_not_purchase',
+		  interest_level = 'cold',
+		  is_bot_active = false,
+		  updated_at = now()
+		WHERE cv.is_bot_active = true
+		  AND cv.status = 'open'
+		  AND NOT cv.classification_locked
+		  AND cv.followup_count >= 5
+		  AND cv.last_contact_message_at IS NOT NULL
+		  AND cv.last_contact_message_at < NOW() - INTERVAL '8 days'
+	`)
+	if err != nil {
+		a.log.Warn("auto-mark no-response lost failed", "err", err)
 	}
 }

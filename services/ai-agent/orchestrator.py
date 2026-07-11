@@ -21,7 +21,8 @@ SUBJECT_AI_ACTIVITY = "events.ai.activity"  # live Simpuler phase for the inbox 
 
 COOLDOWN_SEC = 45          # burst debounce: max ~1 LLM analyze per conversation / 45s
 JUNK_CONF = 0.7            # min detect_junk() confidence to auto-set spam/lost (FR-34/BR-44)
-GHOST_FOLLOWUPS = 3        # after this many touches with no genuine reply -> ghosted (FR-34); sends 2 touches, ghosts on the 3rd
+# Follow-up cadence + the terminal "no response -> Lost" close-out live in the
+# messaging cron (services/messaging/main.go); the ai-agent only drafts each touch.
 _ENTITY_CATS = {"Model/Brand Interest", "Price/Financing", "Visit/Showroom"}
 
 
@@ -158,48 +159,24 @@ def _should_analyze(cr: Optional[dict], conv, body: str) -> tuple[bool, str]:
 
 
 async def handle_followup(broker, pool, org_id: str, conv_id: str, log) -> None:
-    """Buat satu pesan auto-followup jika idle 4 jam."""
+    """Draft one auto follow-up for a silent lead. The multi-touch cadence + the
+    terminal "no response -> Lost" close-out live in the messaging cron
+    (triggerFollowUps / autoMarkNoResponseLost); this only drafts the touch that
+    the cron scheduled."""
     async with pool.acquire() as conn:
         conv = await conn.fetchrow(
             """SELECT cv.is_bot_active, cv.ai_agent_id, cv.followup_count,
                       cv.car_brand, cv.car_model, cv.city, cv.window_expires_at,
+                      cmp.ai_language, cmp.ai_dynamic_language,
                       a.system_prompt, a.model
                  FROM conversations cv
                  LEFT JOIN ai_agents a ON a.id = cv.ai_agent_id
+                 LEFT JOIN campaigns cmp ON cmp.id = cv.campaign_id
                 WHERE cv.id = $1""",
             conv_id,
         )
     if conv is None or not conv["is_bot_active"] or conv["ai_agent_id"] is None:
         return
-
-    # Ghost / non-responder (FR-34): after >= GHOST_FOLLOWUPS follow-ups with NO genuine
-    # customer reply, this was never a real lead -> quarantine as spam/ghosted + stop the
-    # bot. Reversible; keeps a human-set disposition; respects classification_locked.
-    if (conv["followup_count"] or 0) >= GHOST_FOLLOWUPS:
-        async with pool.acquire() as conn:
-            genuine = await conn.fetchval(
-                """SELECT count(*) FROM messages
-                    WHERE conversation_id = $1 AND direction = 'inbound'
-                      AND sender_type = 'contact' AND COALESCE(genuine, true)
-                      AND body IS NOT NULL AND body <> ''""",
-                conv_id,
-            )
-        if genuine == 0:
-            async with pool.acquire() as conn:
-                spam_id = await conn.fetchval(
-                    "SELECT id FROM dispositions WHERE organization_id = $1 AND system_key = 'spam'",
-                    org_id,
-                )
-                await conn.execute(
-                    """UPDATE conversations SET
-                         disposition_id = COALESCE(disposition_id, $2),
-                         lost_reason = COALESCE(lost_reason, 'ghosted'),
-                         interest_level = 'cold', is_bot_active = false, updated_at = now()
-                       WHERE id = $1 AND classification_locked = false""",
-                    conv_id, spam_id,
-                )
-            log.info("lead ghosted (no genuine reply)", extra={"conv": conv_id})
-            return
 
     finance_ctx = ""
     if conv and conv["car_brand"] and conv["car_model"]:
@@ -208,15 +185,25 @@ async def handle_followup(broker, pool, org_id: str, conv_id: str, log) -> None:
         if ctx:
             finance_ctx = f"\n\n{ctx}\n"
 
-    # WhatsApp only allows free-form messages inside the 24h service window.
-    # Outside it a follow-up would need an approved template (not wired yet), so
-    # skip the send rather than let it fail. The lead is left for a future reply.
+    # WhatsApp only allows free-form messages inside the 24h service window. Touches
+    # 1-2 (12h, 20h) fall inside it; the later touches (1d/3d/7d) fall outside and
+    # need an approved template (configured per campaign - not wired yet), so skip
+    # the send rather than let it fail. The cron still advances the cadence.
     win = conv["window_expires_at"]
     if win is not None and win <= datetime.now(timezone.utc):
-        log.info("followup skipped: outside 24h window", extra={"conv": conv_id})
+        log.info("followup skipped: outside 24h window (needs template)", extra={"conv": conv_id})
         return
 
-    system_prompt = (conv["system_prompt"] if conv and conv["system_prompt"] else "You are a helpful sales assistant.") + finance_ctx
+    # Follow-ups honour the campaign's language setting, same as live replies (A).
+    lang = ((conv["ai_language"] if conv else None) or "id").lower()
+    lang_name = _LANG_NAMES.get(lang, "Bahasa Indonesia")
+    if conv and conv["ai_dynamic_language"]:
+        lang_rule = f"Reply in the SAME language the customer used. If it is unclear, default to {lang_name}."
+    else:
+        lang_rule = f"Always reply in {lang_name}, regardless of the customer's language."
+
+    system_prompt = ((conv["system_prompt"] if conv and conv["system_prompt"] else "You are a helpful sales assistant.")
+                     + "\n\n" + lang_rule + finance_ctx)
     history = await _load_history(pool, conv_id, None)
     # Copy varies by touch number (gentle -> direct -> closing) so repeat nudges
     # don't read like the same message twice.
@@ -249,7 +236,7 @@ async def maybe_nurture(broker, pool, org_id: str, conv_id: str, message_id, bod
     async with pool.acquire() as conn:
         row = await conn.fetchrow(
             """SELECT cv.is_bot_active, cv.assigned_agent_id::text AS agent_id,
-                      cv.campaign_id::text AS campaign_id,
+                      cv.campaign_id::text AS campaign_id, cv.classification_locked,
                       cv.car_brand, cv.car_model, cv.city, cv.purchase_timeframe,
                       COALESCE(cv.metadata, '{}'::jsonb) AS metadata,
                       a.system_prompt, a.model,
@@ -264,10 +251,27 @@ async def maybe_nurture(broker, pool, org_id: str, conv_id: str, message_id, bod
         )
     if row is None or not row["ai_auto_reply"]:
         return  # campaign didn't opt into AI auto-reply
-    if not row["is_bot_active"]:
-        return  # bot already stood down (handed off / paused)
     if cr and (cr.get("is_junk") or cr.get("off_topic")):
-        return  # don't auto-reply to spam / off-topic
+        return  # never reply to (or re-engage) spam / off-topic
+    if not row["is_bot_active"]:
+        # D: re-engage a lead the AI handed off but NO human ever picked up. Only
+        # when the customer messages again, the lead isn't locked (spam), and no
+        # human reply exists - so a genuine, still-waiting lead is never left dead.
+        if row["classification_locked"]:
+            return  # terminal/spam lead - stay down
+        async with pool.acquire() as conn:
+            human = await conn.fetchval(
+                """SELECT count(*) FROM messages
+                    WHERE conversation_id = $1 AND direction = 'outbound'
+                      AND sender_type NOT IN ('bot', 'system')""",
+                conv_id,
+            )
+        if human and human > 0:
+            return  # a human is handling this lead - respect the handoff
+        async with pool.acquire() as conn:
+            await conn.execute(
+                "UPDATE conversations SET is_bot_active = true, updated_at = now() WHERE id = $1", conv_id)
+        log.info("nurture re-engaged (handoff, no human pickup)", extra={"conv": conv_id})
 
     async with pool.acquire() as conn:
         # Human takeover: if a human (agent/user) already replied, stand down.
@@ -444,16 +448,20 @@ async def classify_and_update(pool, org_id: str, conv_id: str, log) -> Optional[
     reason = junk["reason"] if is_junk else c["reason"]
     confidence = junk["confidence"] if is_junk else c["confidence"]
     lost_reason = junk["lost_reason"] if is_junk else None
+    # Junk (abusive / obscene / repeated spam) is terminal: alongside the 'spam'
+    # disposition above, move it straight to the Lost stage so it leaves the active
+    # funnel, and stand the bot down (handled in the UPDATE below).
+    stage_key = "lost_not_purchase" if is_junk else c["stage_key"]
 
     # Diff vs stored classification -> drives the LLM gate.
     prev_cats = _as_list(prev["cats"]) if prev else []
     changed = (prev is None or prev["interest_level"] != interest
-               or prev["ai_stage"] != c["stage_key"])
+               or prev["ai_stage"] != stage_key)
     new_strong_intent = any(cat in STRONG_INTENT and cat not in prev_cats for cat in c["categories"])
 
     async with pool.acquire() as conn:
         stage_id = await conn.fetchval(
-            "SELECT id FROM stages WHERE organization_id = $1 AND system_key = $2", org_id, c["stage_key"]
+            "SELECT id FROM stages WHERE organization_id = $1 AND system_key = $2", org_id, stage_key
         )
         disp_id = None
         if disp_key:
@@ -472,20 +480,22 @@ async def classify_and_update(pool, org_id: str, conv_id: str, log) -> Optional[
                  ai_confidence = $7,
                  ai_analyzed_at = now(),
                  metadata = COALESCE(metadata, '{}'::jsonb) || jsonb_build_object('intent_categories', $8::jsonb),
-                 classification_locked = CASE 
+                 classification_locked = CASE
                      WHEN $10 = true THEN true  -- keep locked if it is junk
                      WHEN $2 IN ('warm', 'hot') THEN false -- unlock if there is real buying intent
-                     ELSE classification_locked 
+                     ELSE classification_locked
                  END,
+                 -- Junk stands the bot down immediately (no reply, no follow-up).
+                 is_bot_active = CASE WHEN $10 = true THEN false ELSE is_bot_active END,
                  updated_at = now()
                WHERE id = $1 AND (classification_locked = false OR $2 IN ('warm', 'hot'))""",
-            conv_id, interest, c["stage_key"], stage_id, disp_id,
+            conv_id, interest, stage_key, stage_id, disp_id,
             reason, confidence, json.dumps(c["categories"]), lost_reason, is_junk,
         )
     log.info("lead classified", extra={"conv": conv_id, "interest": interest,
-                                       "stage": c["stage_key"], "junk": is_junk})
+                                       "stage": stage_key, "junk": is_junk})
     return {
-        "interest": interest, "stage_key": c["stage_key"], "categories": c["categories"],
+        "interest": interest, "stage_key": stage_key, "categories": c["categories"],
         "off_topic": c["off_topic"], "is_junk": is_junk, "changed": changed,
         "new_strong_intent": new_strong_intent,
     }
