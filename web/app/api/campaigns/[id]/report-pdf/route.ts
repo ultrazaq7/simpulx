@@ -78,7 +78,8 @@ export async function POST(req: NextRequest, { params }: { params: { id: string 
       document.body.style.cssText +=
         ";height:auto;overflow:visible;background:#fff;margin:0;padding:16px";
     });
-    await new Promise((r) => setTimeout(r, 300));
+    // Give recharts' ResponsiveContainer time to re-measure after the DOM move.
+    await new Promise((r) => setTimeout(r, 700));
     const pdf = await page.pdf({
       printBackground: true,
       format: "A4",

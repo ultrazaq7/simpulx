@@ -349,11 +349,18 @@ a:focus:not(:focus-visible) { outline: none; }
 .react-flow__edge-text { font-size: 10px; }
 .react-flow__edge-textbg { fill: hsl(var(--card)); }
 
+/* Keep report cards/charts from splitting across page breaks. Declared OUTSIDE
+   @media print so it also applies in the headless (puppeteer) render, which uses
+   screen media — otherwise page.pdf would slice cards mid-way. */
+.print-avoid-break { break-inside: avoid; page-break-inside: avoid; }
+
 /* Print / PDF export: render ONLY the marked report (.print-root), dropping the
    app shell, nav and in-report controls (.no-print). Drives the ads report PDF
    export — both window.print() and the headless (puppeteer) route render the
    real page through these rules, so the PDF matches the on-screen report. */
 @media print {
+  /* Force background colors (funnel, bars) to print in the browser dialog path. */
+  * { -webkit-print-color-adjust: exact !important; print-color-adjust: exact !important; }
   /* Un-clip the app's h-full / overflow-hidden scroll containers so the full
      report flows across pages instead of being cut to one viewport. */
   html, body { background: #fff !important; height: auto !important; overflow: visible !important; }

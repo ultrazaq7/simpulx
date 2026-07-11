@@ -514,7 +514,7 @@ function OverviewTab({ id, name, budget, onBudget, notify }: { id: string; name:
       </div>
 
       {/* Conversion funnel (left) + campaign performance table (right) */}
-      <div className="grid grid-cols-1 lg:grid-cols-[210px_1fr] gap-4 items-start">
+      <div className="grid grid-cols-1 sm:grid-cols-[190px_1fr] gap-4 items-start">
         <div className="print-avoid-break rounded-xl border border-border bg-card p-4 flex flex-col items-center gap-1.5">
           {[
             { label: "Impressions", value: num(tot.impressions), w: 100, c: "#F97316" },
