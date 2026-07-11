@@ -1,13 +1,14 @@
 "use client";
-// Analytics (GA4) — folded into Channel & Integrations. Connect a Google
-// Analytics 4 property with one click (Sign in with Google) so the campaign
-// reports can show landing-page sessions, engagement and users. No manual
-// refresh-token copy needed; an advanced manual entry stays as a fallback.
+// Analytics (GA4) — folded into Channel & Integrations. A clean list of connected
+// GA4 properties plus a "Connect analytics" wizard (right side panel), matching the
+// Connect ad account flow: Sign in with Google (one click), then pick a property.
+// An advanced manual entry (property id + refresh token) stays as a fallback.
 import { useCallback, useEffect, useState } from "react";
 import { useRouter, useSearchParams } from "next/navigation";
-import { Loader2, Trash2, LineChart, RefreshCw, AlertTriangle, ChevronDown } from "lucide-react";
+import { Loader2, Trash2, LineChart, RefreshCw, AlertTriangle, ChevronDown, Plus } from "lucide-react";
 import { api } from "@/lib/api";
 import { Select } from "@/components/Select";
+import SidePanel from "@/components/SidePanel";
 import { cn, fmtDateTimeShort } from "@/lib/utils";
 import type { Ga4Connection, Ga4Property, Campaign } from "@/lib/types";
 import { useToast, FieldLabel, INPUT_CLASS, PrimaryButton } from "../_shared";
@@ -34,7 +35,9 @@ export function Ga4Tab() {
   const [loading, setLoading] = useState(true);
   const [signingIn, setSigningIn] = useState(false);
 
-  // After the Google redirect: property picker state.
+  const [connectOpen, setConnectOpen] = useState(false); // the connect wizard (side panel)
+
+  // Property picker step (after the Google redirect).
   const [pending, setPending] = useState(false);
   const [props, setProps] = useState<Ga4Property[]>([]);
   const [pickProperty, setPickProperty] = useState("");
@@ -59,13 +62,15 @@ export function Ga4Tab() {
 
   useEffect(() => { load(); }, [load]);
 
-  // Handle the Google sign-in return (?ga4=connected / ?ga4_error=...).
+  // Handle the Google sign-in return (?ga4=connected / ?ga4_error=...): reopen the
+  // wizard on the property-picker step so the flow feels continuous.
   useEffect(() => {
     const err = params.get("ga4_error");
     const ok = params.get("ga4");
     if (!err && !ok) return;
     if (err) notify(err, "error");
     if (ok === "connected") {
+      setConnectOpen(true);
       setLoadingProps(true);
       api.ga4PendingProperties()
         .then((r) => {
@@ -77,9 +82,13 @@ export function Ga4Tab() {
         .catch(() => {})
         .finally(() => setLoadingProps(false));
     }
-    // Clean the URL so a refresh doesn't re-trigger.
     router.replace("/settings/channels?tab=analytics", { scroll: false });
   }, [params]); // eslint-disable-line react-hooks/exhaustive-deps
+
+  function closeWizard() {
+    setConnectOpen(false); setPending(false); setProps([]); setPickProperty(""); setPickCampaign("");
+    setManualOpen(false); setMProperty(""); setMToken(""); setMCampaign("");
+  }
 
   async function signIn() {
     setSigningIn(true);
@@ -97,14 +106,9 @@ export function Ga4Tab() {
     setFinishing(true);
     try {
       const prop = props.find((p) => p.property_id === pickProperty);
-      await api.finishGa4Connection({
-        property_id: pickProperty,
-        name: prop ? prop.display_name : undefined,
-        campaign_id: pickCampaign || undefined,
-      });
+      await api.finishGa4Connection({ property_id: pickProperty, name: prop?.display_name, campaign_id: pickCampaign || undefined });
       notify("Google Analytics connected");
-      setPending(false); setProps([]); setPickProperty(""); setPickCampaign("");
-      load();
+      closeWizard(); load();
     } catch (e) { notify(String(e), "error"); }
     finally { setFinishing(false); }
   }
@@ -115,8 +119,7 @@ export function Ga4Tab() {
     try {
       await api.createGa4Connection({ property_id: mProperty.trim(), refresh_token: mToken.trim(), campaign_id: mCampaign || undefined });
       notify("Google Analytics connected");
-      setManualOpen(false); setMProperty(""); setMToken(""); setMCampaign("");
-      load();
+      closeWizard(); load();
     } catch (e) { notify(String(e), "error"); }
     finally { setMBusy(false); }
   }
@@ -128,101 +131,43 @@ export function Ga4Tab() {
   }
 
   const campaignOptions = [{ value: "", label: "All campaigns (org-wide)" }, ...campaigns.map((c) => ({ value: c.id, label: c.name }))];
+  const connectBtn = (
+    <button onClick={() => setConnectOpen(true)} className="inline-flex items-center gap-2 px-3.5 h-9 bg-primary text-white rounded-md text-sm font-semibold hover:bg-primary-dark shadow-sm transition-all outline-none">
+      <Plus className="w-4 h-4" />Connect analytics
+    </button>
+  );
 
   return (
-    <div className="px-6 py-6 w-full h-full overflow-y-auto">
+    <div className="px-6 py-6 w-full h-full flex flex-col min-h-0">
       {ToastHost}
-      <div className="max-w-[860px] mx-auto flex flex-col gap-5">
-        {/* Connect card */}
-        <div className="bg-card border border-border rounded-xl shadow-xs p-6">
-          <div className="flex items-start gap-3">
-            <div className="w-10 h-10 rounded-lg bg-muted grid place-items-center shrink-0"><LineChart className="w-5 h-5 text-muted-foreground" /></div>
-            <div className="min-w-0 flex-1">
-              <h2 className="text-[15px] font-bold text-foreground">Google Analytics 4</h2>
-              <p className="text-[13px] text-muted-foreground mt-0.5">Connect a GA4 property to show landing-page sessions, engagement and users in your campaign reports.</p>
-            </div>
+      <div className="bg-card border border-border rounded-lg shadow-xs overflow-hidden flex-1 min-h-0 flex flex-col">
+        {/* Toolbar */}
+        <div className="p-3 flex items-center gap-2.5 border-b border-border flex-wrap shrink-0">
+          <div className="min-w-0">
+            <p className="text-[13.5px] font-bold text-foreground">Google Analytics 4</p>
+            <p className="text-[11.5px] text-muted-foreground">Connect a GA4 property to show landing-page sessions, engagement and users in your reports.</p>
           </div>
-
-          {loadingProps ? (
-            <div className="h-16 grid place-items-center mt-4"><Loader2 className="w-5 h-5 animate-spin text-muted-foreground" /></div>
-          ) : pending ? (
-            /* Property picker after Google sign-in */
-            <div className="mt-5 rounded-lg border border-primary/30 bg-primary/[0.04] p-4 flex flex-col gap-3">
-              <p className="text-[13px] font-semibold text-foreground">Google connected. Choose the property to sync.</p>
-              {props.length === 0 ? (
-                <p className="text-[13px] text-muted-foreground">No GA4 properties were found for this Google account. Make sure the account has access to a GA4 property, then try again.</p>
-              ) : (
-                <>
-                  <div>
-                    <FieldLabel>GA4 property</FieldLabel>
-                    <Select value={pickProperty} onChange={setPickProperty}
-                      options={props.map((p) => ({ value: p.property_id, label: `${p.display_name} · ${p.account_name} (${p.property_id})` }))} />
-                  </div>
-                  <div>
-                    <FieldLabel>Map to campaign (optional)</FieldLabel>
-                    <Select value={pickCampaign} onChange={setPickCampaign} options={campaignOptions} placeholder="All campaigns (org-wide)" />
-                  </div>
-                  <div className="flex justify-end gap-2">
-                    <button onClick={() => { setPending(false); setProps([]); }} className="px-3.5 h-9 rounded-md border border-border text-[13px] font-medium hover:bg-muted outline-none">Cancel</button>
-                    <PrimaryButton onClick={finishConnect} disabled={finishing || !pickProperty}>
-                      {finishing && <Loader2 className="w-4 h-4 animate-spin" />} Connect property
-                    </PrimaryButton>
-                  </div>
-                </>
-              )}
-            </div>
-          ) : (
-            <div className="mt-5 flex flex-col gap-3">
-              <button onClick={signIn} disabled={signingIn}
-                className="inline-flex items-center justify-center gap-2.5 h-11 px-5 rounded-md border border-border bg-card text-[14px] font-semibold text-foreground hover:bg-muted disabled:opacity-60 outline-none transition-colors self-start shadow-xs">
-                {signingIn ? <Loader2 className="w-4 h-4 animate-spin" /> : <GoogleG className="w-5 h-5" />}
-                Sign in with Google
-              </button>
-              <p className="text-[12px] text-muted-foreground">We request read-only access (analytics.readonly). You pick the property after signing in.</p>
-
-              {/* Advanced manual fallback */}
-              <button onClick={() => setManualOpen((o) => !o)} className="inline-flex items-center gap-1 text-[12px] font-semibold text-muted-foreground hover:text-foreground outline-none self-start mt-1">
-                <ChevronDown className={cn("w-3.5 h-3.5 transition-transform", manualOpen && "rotate-180")} /> Enter a property ID and refresh token manually
-              </button>
-              {manualOpen && (
-                <div className="rounded-lg border border-border p-4 flex flex-col gap-2.5">
-                  <div>
-                    <FieldLabel>GA4 property ID</FieldLabel>
-                    <input value={mProperty} onChange={(e) => setMProperty(e.target.value)} placeholder="e.g. 123456789" className={INPUT_CLASS} />
-                  </div>
-                  <div>
-                    <FieldLabel>OAuth refresh token (analytics.readonly)</FieldLabel>
-                    <input value={mToken} onChange={(e) => setMToken(e.target.value)} placeholder="1//0g..." className={INPUT_CLASS} />
-                  </div>
-                  <div>
-                    <FieldLabel>Map to campaign (optional)</FieldLabel>
-                    <Select value={mCampaign} onChange={setMCampaign} options={campaignOptions} placeholder="All campaigns (org-wide)" />
-                  </div>
-                  <div className="flex justify-end">
-                    <PrimaryButton onClick={manualConnect} disabled={mBusy || !mProperty.trim() || !mToken.trim()}>
-                      {mBusy && <Loader2 className="w-4 h-4 animate-spin" />} Connect
-                    </PrimaryButton>
-                  </div>
-                </div>
-              )}
-            </div>
-          )}
+          <div className="flex-1" />
+          <button onClick={load} className="inline-flex items-center gap-1.5 h-9 px-3 rounded-md border border-border bg-background text-[12.5px] font-medium text-muted-foreground hover:text-foreground hover:bg-muted outline-none"><RefreshCw className="w-3.5 h-3.5" /> Refresh</button>
+          {connectBtn}
         </div>
 
-        {/* Connected properties */}
-        <div className="bg-card border border-border rounded-xl shadow-xs overflow-hidden">
-          <div className="px-5 py-3 border-b border-border flex items-center justify-between">
-            <p className="text-[13px] font-semibold text-foreground">Connected properties</p>
-            <button onClick={load} className="inline-flex items-center gap-1.5 text-[12px] font-medium text-muted-foreground hover:text-foreground outline-none"><RefreshCw className="w-3.5 h-3.5" /> Refresh</button>
-          </div>
+        {/* List */}
+        <div className="overflow-auto flex-1 min-h-0 p-4">
           {loading ? (
-            <div className="h-24 grid place-items-center"><Loader2 className="w-5 h-5 animate-spin text-muted-foreground" /></div>
+            <div className="h-40 grid place-items-center"><Loader2 className="w-6 h-6 animate-spin text-primary" /></div>
           ) : conns.length === 0 ? (
-            <p className="px-5 py-8 text-center text-[13px] text-muted-foreground">No GA4 property connected yet.</p>
+            <div className="py-16 text-center">
+              <div className="w-12 h-12 rounded-xl bg-muted grid place-items-center mx-auto mb-3"><LineChart className="w-6 h-6 text-muted-foreground/50" /></div>
+              <p className="font-semibold text-foreground mb-0.5">No GA4 property connected</p>
+              <p className="text-sm text-muted-foreground mb-4">Connect a property to see landing-page sessions, engagement and users in your reports.</p>
+              {connectBtn}
+            </div>
           ) : (
-            <div className="divide-y divide-border">
+            <div className="rounded-lg border border-border divide-y divide-border overflow-hidden">
               {conns.map((c) => (
-                <div key={c.id} className="flex items-center gap-3 px-5 py-3">
+                <div key={c.id} className="flex items-center gap-3 px-4 py-2.5 hover:bg-muted/40 transition-colors">
+                  <div className="w-9 h-9 rounded-lg bg-muted grid place-items-center shrink-0"><LineChart className="w-[18px] h-[18px] text-muted-foreground" /></div>
                   <div className="min-w-0 flex-1">
                     <p className="text-[13.5px] font-semibold text-foreground truncate">{c.name || `Property ${c.property_id}`}</p>
                     <p className="text-[11.5px] text-muted-foreground truncate">
@@ -242,6 +187,75 @@ export function Ga4Tab() {
           )}
         </div>
       </div>
+
+      {/* Connect wizard (right side panel) */}
+      <SidePanel open={connectOpen} onClose={closeWizard} title="Connect Google Analytics"
+        description="Read-only access (analytics.readonly). You pick the property after signing in.">
+        {loadingProps ? (
+          <div className="h-24 grid place-items-center"><Loader2 className="w-5 h-5 animate-spin text-muted-foreground" /></div>
+        ) : pending ? (
+          /* Step 2: property picker after Google sign-in */
+          <div className="flex flex-col gap-3">
+            <p className="text-[13px] font-semibold text-foreground">Google connected. Choose the property to sync.</p>
+            {props.length === 0 ? (
+              <p className="text-[13px] text-muted-foreground">No GA4 properties were found for this Google account. Make sure the account has access to a GA4 property (and that the Analytics Admin API is enabled), then try again.</p>
+            ) : (
+              <>
+                <div>
+                  <FieldLabel>GA4 property</FieldLabel>
+                  <Select value={pickProperty} onChange={setPickProperty}
+                    options={props.map((p) => ({ value: p.property_id, label: `${p.display_name} · ${p.account_name} (${p.property_id})` }))} />
+                </div>
+                <div>
+                  <FieldLabel>Map to campaign (optional)</FieldLabel>
+                  <Select value={pickCampaign} onChange={setPickCampaign} options={campaignOptions} placeholder="All campaigns (org-wide)" />
+                </div>
+                <div className="flex justify-end gap-2 pt-1">
+                  <button onClick={() => { setPending(false); setProps([]); }} className="px-3.5 h-9 rounded-md border border-border text-[13px] font-medium hover:bg-muted outline-none">Back</button>
+                  <PrimaryButton onClick={finishConnect} disabled={finishing || !pickProperty}>
+                    {finishing && <Loader2 className="w-4 h-4 animate-spin" />} Connect property
+                  </PrimaryButton>
+                </div>
+              </>
+            )}
+          </div>
+        ) : (
+          /* Step 1: sign in with Google + advanced manual fallback */
+          <div className="flex flex-col gap-3">
+            <button onClick={signIn} disabled={signingIn}
+              className="inline-flex items-center justify-center gap-2.5 h-11 px-5 rounded-md border border-border bg-card text-[14px] font-semibold text-foreground hover:bg-muted disabled:opacity-60 outline-none transition-colors shadow-xs">
+              {signingIn ? <Loader2 className="w-4 h-4 animate-spin" /> : <GoogleG className="w-5 h-5" />}
+              Sign in with Google
+            </button>
+            <p className="text-[12px] text-muted-foreground">We open Google&apos;s consent screen, then bring you back here to pick a property.</p>
+
+            <button onClick={() => setManualOpen((o) => !o)} className="inline-flex items-center gap-1 text-[12px] font-semibold text-muted-foreground hover:text-foreground outline-none self-start mt-1">
+              <ChevronDown className={cn("w-3.5 h-3.5 transition-transform", manualOpen && "rotate-180")} /> Enter a property ID and refresh token manually
+            </button>
+            {manualOpen && (
+              <div className="rounded-lg border border-border p-4 flex flex-col gap-2.5">
+                <div>
+                  <FieldLabel>GA4 property ID</FieldLabel>
+                  <input value={mProperty} onChange={(e) => setMProperty(e.target.value)} placeholder="e.g. 123456789" className={INPUT_CLASS} />
+                </div>
+                <div>
+                  <FieldLabel>OAuth refresh token (analytics.readonly)</FieldLabel>
+                  <input value={mToken} onChange={(e) => setMToken(e.target.value)} placeholder="1//0g..." className={INPUT_CLASS} />
+                </div>
+                <div>
+                  <FieldLabel>Map to campaign (optional)</FieldLabel>
+                  <Select value={mCampaign} onChange={setMCampaign} options={campaignOptions} placeholder="All campaigns (org-wide)" />
+                </div>
+                <div className="flex justify-end">
+                  <PrimaryButton onClick={manualConnect} disabled={mBusy || !mProperty.trim() || !mToken.trim()}>
+                    {mBusy && <Loader2 className="w-4 h-4 animate-spin" />} Connect
+                  </PrimaryButton>
+                </div>
+              </div>
+            )}
+          </div>
+        )}
+      </SidePanel>
     </div>
   );
 }
