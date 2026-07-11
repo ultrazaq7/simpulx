@@ -873,6 +873,15 @@ function CatalogTab({ id, segment, notify }: { id: string; segment?: string; not
   const [busy, setBusy] = useState(false);
   const fileRef = useRef<HTMLInputElement>(null);
   const { confirm, ConfirmHost } = useConfirm();
+  // Live upload progress so the user sees WHAT the system is doing (not a blind spinner).
+  const [progress, setProgress] = useState<{ phase: string; started: number } | null>(null);
+  const [elapsed, setElapsed] = useState(0);
+  useEffect(() => {
+    if (!progress) { setElapsed(0); return; }
+    setElapsed(Math.floor((Date.now() - progress.started) / 1000));
+    const t = setInterval(() => setElapsed(Math.floor((Date.now() - progress.started) / 1000)), 1000);
+    return () => clearInterval(t);
+  }, [progress]);
 
   function load() { api.getCampaignCatalog(id).then(setRows).catch(() => setRows([])); }
   useEffect(load, [id]); // eslint-disable-line react-hooks/exhaustive-deps
@@ -880,6 +889,8 @@ function CatalogTab({ id, segment, notify }: { id: string; segment?: string; not
   async function onFile(e: React.ChangeEvent<HTMLInputElement>) {
     const file = e.target.files?.[0]; e.target.value = "";
     if (!file) return;
+    const started = Date.now();
+    const step = (phase: string) => setProgress((p) => ({ phase, started: p?.started ?? started }));
     setBusy(true);
     try {
       const lower = file.name.toLowerCase();
@@ -887,8 +898,10 @@ function CatalogTab({ id, segment, notify }: { id: string; segment?: string; not
       const isExcel = lower.endsWith(".xlsx") || lower.endsWith(".xls") || file.type.includes("spreadsheet") || file.type.includes("excel");
       let parsed: CatalogRowInput[];
       if (isPdf) {
-        notify("Extracting from PDF, this can take up to a minute...", "success");
-        const res = await api.extractCatalogPdf(id, { pdf_base64: fileToBase64(await file.arrayBuffer()), segment });
+        step("Reading your PDF file...");
+        const b64 = fileToBase64(await file.arrayBuffer());
+        step("Simpuler is reading and extracting rows from your pricelist (this can take up to a minute)...");
+        const res = await api.extractCatalogPdf(id, { pdf_base64: b64, segment });
         if (res.error) { notify(`Extraction failed: ${res.error}`, "error"); return; }
         if (res.warning === "scanned") { notify("This looks like a scanned PDF (no readable text). Use a text PDF, or upload a CSV/Excel.", "error"); return; }
         if (res.warning === "no_llm") { notify("PDF extraction is not enabled on the server. Upload a CSV or Excel file instead.", "error"); return; }
@@ -896,18 +909,21 @@ function CatalogTab({ id, segment, notify }: { id: string; segment?: string; not
         parsed = res.rows || [];
         if (parsed.length === 0) { notify("No pricing rows were found in this PDF. Try a CSV/Excel export instead.", "error"); return; }
       } else if (isExcel) {
+        step("Reading your Excel file...");
         const wb = XLSX.read(await file.arrayBuffer(), { type: "array" });
         const sheet = wb.Sheets[wb.SheetNames[0]];
         parsed = parseCatalogRows(XLSX.utils.sheet_to_json(sheet, { header: 1, raw: false, defval: "" }) as (string | number | null)[][]);
       } else {
+        step("Reading your CSV file...");
         parsed = parseCatalogCsv(await file.text());
       }
       if (parsed.length === 0) { notify("No rows found. Make sure the first row is a header (e.g. item_name, price).", "error"); return; }
+      step(`Found ${parsed.length} item${parsed.length === 1 ? "" : "s"}. Saving to the catalog...`);
       const month = new Date().toISOString().slice(0, 7);
       const res = await api.uploadCampaignCatalog(id, { replace: true, segment, source_ref: file.name, effective_month: month, rows: parsed });
       notify(`Imported ${res.inserted} item${res.inserted === 1 ? "" : "s"}${isPdf ? " from PDF" : ""}`);
       load();
-    } catch (err) { notify(String(err), "error"); } finally { setBusy(false); }
+    } catch (err) { notify(String(err), "error"); } finally { setBusy(false); setProgress(null); }
   }
 
   async function clearAll() {
@@ -923,6 +939,20 @@ function CatalogTab({ id, segment, notify }: { id: string; segment?: string; not
   return (
     <div className="space-y-5">
       {ConfirmHost}
+      {progress && (
+        <div className="fixed bottom-6 right-6 z-[70] w-[340px] max-w-[calc(100vw-2rem)] rounded-xl border border-border bg-card shadow-2xl p-4 animate-slide-in-right">
+          <div className="flex items-start gap-3">
+            <Loader2 className="w-5 h-5 mt-0.5 shrink-0 animate-spin text-primary" />
+            <div className="min-w-0 flex-1">
+              <p className="text-[13px] font-semibold text-foreground leading-snug">{progress.phase}</p>
+              <p className="text-[11px] text-muted-foreground mt-1 tabular-nums">{elapsed}s elapsed</p>
+              <div className="mt-2 h-1 rounded-full bg-muted overflow-hidden">
+                <div className="h-full w-1/3 rounded-full bg-primary animate-indeterminate" />
+              </div>
+            </div>
+          </div>
+        </div>
+      )}
       <div className="rounded-lg border border-dashed border-border p-5 text-center">
         <div className="w-11 h-11 rounded-xl bg-primary/10 text-primary grid place-items-center mx-auto mb-3"><Upload className="w-5 h-5" /></div>
         <p className="text-[13.5px] font-semibold text-foreground mb-3">Upload a pricelist (CSV, Excel, or PDF)</p>

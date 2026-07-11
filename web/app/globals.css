@@ -191,6 +191,10 @@ input, textarea, select, button { font-family: inherit; }
 }
 .animate-slide-in-left { animation: slideInLeft 0.2s ease-out; }
 
+/* Indeterminate progress bar (catalog upload phases). */
+@keyframes indeterminate { from { transform: translateX(-120%); } to { transform: translateX(360%); } }
+.animate-indeterminate { animation: indeterminate 1.3s ease-in-out infinite; }
+
 /* Filter panel slide-in from right */
 @keyframes slideInRight {
   from { opacity: 0; transform: translateX(100%); }
