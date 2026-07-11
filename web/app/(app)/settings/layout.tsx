@@ -173,8 +173,9 @@ export default function SettingsLayout({ children }: { children: ReactNode }) {
         "max-lg:hidden shrink-0 border-r border-border bg-card overflow-hidden transition-[width] duration-300 ease-in-out",
         collapsed ? "w-4" : "w-[260px]",
       )}>
-        {/* Fixed-width inner nav so it clips cleanly as the panel slides. */}
-        <div className="w-[260px] h-full flex flex-col">
+        {/* Fixed-width inner nav so it clips cleanly as the panel slides. Fades out
+            when collapsed so the active item's colour never bleeds into the strip. */}
+        <div className={cn("w-[260px] h-full flex flex-col transition-opacity duration-200", collapsed && "opacity-0")}>
           <div ref={navScrollRef} className="flex-1 overflow-y-auto overflow-x-hidden py-3 min-h-0">
             {groups.map((g) => {
               const open = !!openSections[g.titleKey];
@@ -225,8 +226,8 @@ export default function SettingsLayout({ children }: { children: ReactNode }) {
         </div>
       </div>
 
-      {/* Floating tab on the collapsed strip — fades in when hidden, reopens the menu. */}
-      <div className={cn("max-lg:hidden absolute left-0 bottom-3 z-20 transition-opacity duration-200",
+      {/* Floating tab attached to the strip (layer 2) — fades in when hidden. */}
+      <div className={cn("max-lg:hidden absolute left-4 bottom-3 z-20 transition-opacity duration-200",
         collapsed ? "opacity-100" : "opacity-0 pointer-events-none")}>
         <Tip label="View more (shift + C)" side="right">
           <button onClick={toggle} aria-label="Expand settings menu"
