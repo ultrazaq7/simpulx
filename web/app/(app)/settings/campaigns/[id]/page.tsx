@@ -236,6 +236,9 @@ function CatalogTab({ id, segment, notify }: { id: string; segment?: string; not
   const [rows, setRows] = useState<CatalogItem[] | null>(null);
   const [busy, setBusy] = useState(false);
   const [editing, setEditing] = useState<CatalogItem | null>(null); // row open in the edit drawer
+  const [locations, setLocations] = useState<string[]>([]); // apply these location(s) to the uploaded rows
+  const [locInput, setLocInput] = useState("");
+  const addLoc = (v: string) => { const t = v.trim(); if (t && !locations.some((l) => l.toLowerCase() === t.toLowerCase())) setLocations((ls) => [...ls, t]); setLocInput(""); };
   const fileRef = useRef<HTMLInputElement>(null);
   const { confirm, ConfirmHost } = useConfirm();
   // Live upload progress so the user sees WHAT the system is doing (not a blind spinner).
@@ -285,9 +288,14 @@ function CatalogTab({ id, segment, notify }: { id: string; segment?: string; not
         parsed = parseCatalogCsv(await file.text());
       }
       if (parsed.length === 0) { notify("No rows found. Make sure the first row is a header (e.g. item_name, price).", "error"); return; }
-      step(`Found ${parsed.length} item${parsed.length === 1 ? "" : "s"}. Saving to the catalog...`);
+      // Apply the chosen location(s): rows that don't already carry a location get
+      // tagged; with several locations a row is duplicated once per location so the
+      // pricelist applies to each city.
+      const finalRows = locations.length === 0 ? parsed
+        : parsed.flatMap((r) => r.location_name ? [r] : locations.map((loc) => ({ ...r, location_name: loc })));
+      step(`Found ${parsed.length} item${parsed.length === 1 ? "" : "s"}${locations.length ? ` x ${locations.length} location${locations.length === 1 ? "" : "s"}` : ""}. Saving to the catalog...`);
       const month = new Date().toISOString().slice(0, 7);
-      const res = await api.uploadCampaignCatalog(id, { replace: true, segment, source_ref: file.name, effective_month: month, rows: parsed });
+      const res = await api.uploadCampaignCatalog(id, { replace: true, segment, source_ref: file.name, effective_month: month, rows: finalRows });
       notify(`Imported ${res.inserted} item${res.inserted === 1 ? "" : "s"}${isPdf ? " from PDF" : ""}`);
       load();
     } catch (err) { notify(String(err), "error"); } finally { setBusy(false); setProgress(null); }
@@ -321,6 +329,30 @@ function CatalogTab({ id, segment, notify }: { id: string; segment?: string; not
         </div>
       )}
       <input ref={fileRef} type="file" accept=".csv,text/csv,.pdf,application/pdf,.xlsx,.xls,application/vnd.openxmlformats-officedocument.spreadsheetml.sheet" className="hidden" onChange={onFile} />
+
+      {/* Ask which location(s) this pricelist is for BEFORE uploading. Type a city
+          and press Enter (or comma) to add a chip. Applied to rows without a
+          location; multiple cities duplicate each row per city. */}
+      <div className="rounded-lg border border-border p-3.5">
+        <FieldLabel hint="Rows without a location column get tagged with these. Add more than one to apply the same pricelist to several cities. Leave empty if the file already has a location column.">Location(s) for this pricelist</FieldLabel>
+        <div className="flex flex-wrap items-center gap-1.5 rounded-md border border-input bg-background px-2 py-1.5 focus-within:border-primary focus-within:ring-2 focus-within:ring-primary/20">
+          {locations.map((loc) => (
+            <span key={loc} className="inline-flex items-center gap-1 rounded-md bg-primary/[0.12] text-primary text-[12.5px] font-medium pl-2 pr-1 py-0.5">
+              {loc}
+              <button onClick={() => setLocations((ls) => ls.filter((l) => l !== loc))} className="rounded hover:bg-primary/20 outline-none"><X className="w-3 h-3" /></button>
+            </span>
+          ))}
+          <input value={locInput} onChange={(e) => setLocInput(e.target.value)}
+            onKeyDown={(e) => {
+              if (e.key === "Enter" || e.key === ",") { e.preventDefault(); addLoc(locInput); }
+              else if (e.key === "Backspace" && !locInput && locations.length) setLocations((ls) => ls.slice(0, -1));
+            }}
+            onBlur={() => locInput.trim() && addLoc(locInput)}
+            placeholder={locations.length ? "Add another city..." : "e.g. Jakarta, then Enter"}
+            className="flex-1 min-w-[140px] bg-transparent text-[13px] text-foreground outline-none py-0.5" />
+        </div>
+      </div>
+
       {/* Upload dropzone only shows for an empty catalog; once populated it's replaced by a compact Replace/Clear header. */}
       {rows.length === 0 ? (
         <div className="rounded-lg border border-dashed border-border p-5 text-center">
