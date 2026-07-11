@@ -278,6 +278,11 @@ func main() {
 	mux.HandleFunc("GET /api/ga4-connections", s.requireAuth(s.handleListGa4Connections))
 	mux.HandleFunc("POST /api/ga4-connections", s.requireAuth(s.gate("manage_channels", s.handleCreateGa4Connection)))
 	mux.HandleFunc("DELETE /api/ga4-connections/{id}", s.requireAuth(s.gate("manage_channels", s.handleDeleteGa4Connection)))
+	// GA4 sign-in-with-Google (one-click connect, no manual refresh token).
+	mux.HandleFunc("POST /api/ga4/oauth/start", s.requireAuth(s.gate("manage_channels", s.handleGa4OAuthStart)))
+	mux.HandleFunc("GET /api/auth/ga4/callback", s.handleGa4Callback)
+	mux.HandleFunc("GET /api/ga4/properties", s.requireAuth(s.handleGa4PendingProperties))
+	mux.HandleFunc("POST /api/ga4/finish", s.requireAuth(s.gate("manage_channels", s.handleGa4Finish)))
 	mux.HandleFunc("GET /api/ad-campaigns", s.requireAuth(s.handleListAdCampaigns))
 	mux.HandleFunc("PATCH /api/ad-campaigns/{id}", s.requireAuth(s.gate("manage_channels", s.handlePatchAdCampaign)))
 	mux.HandleFunc("GET /api/ad-performance", s.requireAuth(s.handleAdPerformance))

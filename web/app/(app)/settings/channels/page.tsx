@@ -5,17 +5,19 @@
 // from the old /settings/integrations and /settings/ads routes land correctly.
 import { Suspense } from "react";
 import { useRouter, usePathname, useSearchParams } from "next/navigation";
-import { RadioTower, Plug, BarChart3 } from "lucide-react";
+import { RadioTower, Plug, BarChart3, LineChart } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { useI18n } from "@/lib/i18n";
 import { ChannelsTab } from "./ChannelsTab";
 import { WebApiTab } from "./WebApiTab";
 import { AdvertisingTab } from "./AdvertisingTab";
+import { Ga4Tab } from "./Ga4Tab";
 
 const TABS = [
-  { key: "channels", labelKey: "settings.channels", icon: RadioTower },
-  { key: "webapi", labelKey: "settings.tab_web_api", icon: Plug },
-  { key: "advertising", labelKey: "settings.tab_advertising", icon: BarChart3 },
+  { key: "channels", labelKey: "Channel", icon: RadioTower },
+  { key: "webapi", labelKey: "Web API Forms", icon: Plug },
+  { key: "advertising", labelKey: "Ads Account", icon: BarChart3 },
+  { key: "analytics", labelKey: "Analytics", icon: LineChart },
 ];
 
 function ChannelsIntegrations() {
@@ -51,6 +53,7 @@ function ChannelsIntegrations() {
         {active === "channels" && <ChannelsTab />}
         {active === "webapi" && <WebApiTab />}
         {active === "advertising" && <AdvertisingTab />}
+        {active === "analytics" && <Ga4Tab />}
       </div>
     </div>
   );

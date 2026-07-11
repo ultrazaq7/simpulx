@@ -9,6 +9,10 @@ import (
 	"os"
 	"strconv"
 	"strings"
+	"time"
+
+	"github.com/google/uuid"
+	"github.com/simpulx/v2/libs/go/config"
 )
 
 // GA4 (Google Analytics 4) connections. Connect a property (property id + an
@@ -131,6 +135,225 @@ func (s *server) handleCampaignGa4Report(w http.ResponseWriter, r *http.Request)
 		propertyID, a.OrgID)
 	report["connected"] = true
 	writeJSON(w, report)
+}
+
+// ── Sign-in-with-Google for GA4 ────────────────────────────────────────────
+// One-click GA4 connect so users never hand-copy a refresh token. Reuses the
+// Google Ads OAuth client (same Google Cloud project) but asks for the
+// analytics.readonly scope and lands on our GA4 callback. Flow:
+//   1. POST /api/ga4/oauth/start → returns the Google consent URL.
+//   2. Google redirects to GET /api/auth/ga4/callback → we exchange the code for
+//      a refresh token and stash it as a short-lived "pending" entry per org.
+//   3. GET /api/ga4/properties → lists the account's GA4 properties (Admin API).
+//   4. POST /api/ga4/finish {property_id, campaign_id?} → persists the connection.
+
+type ga4OAuthState struct {
+	OrgID       string `json:"org_id"`
+	UserID      string `json:"user_id"`
+	RedirectURI string `json:"redirect_uri"`
+}
+
+type ga4Property struct {
+	PropertyID  string `json:"property_id"`
+	DisplayName string `json:"display_name"`
+	AccountName string `json:"account_name"`
+}
+
+// ga4RedirectURI resolves the OAuth redirect. Prefer an explicit env (must match
+// the Google Cloud console), else derive it from the incoming request.
+func ga4RedirectURI(r *http.Request) string {
+	if v := os.Getenv("GA4_REDIRECT_URL"); v != "" {
+		return v
+	}
+	scheme := r.Header.Get("X-Forwarded-Proto")
+	if scheme == "" {
+		if r.TLS != nil {
+			scheme = "https"
+		} else if strings.HasPrefix(r.Host, "localhost") || strings.HasPrefix(r.Host, "127.0.0.1") {
+			scheme = "http"
+		} else {
+			scheme = "https"
+		}
+	}
+	return scheme + "://" + r.Host + "/api/auth/ga4/callback"
+}
+
+// POST /api/ga4/oauth/start → {url}
+func (s *server) handleGa4OAuthStart(w http.ResponseWriter, r *http.Request) {
+	a, _ := authFrom(r.Context())
+	clientID := os.Getenv("GOOGLE_ADS_CLIENT_ID")
+	if clientID == "" {
+		http.Error(w, "Google sign-in is not configured on this server", http.StatusServiceUnavailable)
+		return
+	}
+	redirectURI := ga4RedirectURI(r)
+	stateID := uuid.New().String()
+	b, _ := json.Marshal(ga4OAuthState{OrgID: a.OrgID, UserID: a.UserID, RedirectURI: redirectURI})
+	s.rdb.Set(r.Context(), "oauth:ga4:"+stateID, b, 15*time.Minute)
+	authURL := fmt.Sprintf(
+		"https://accounts.google.com/o/oauth2/v2/auth?client_id=%s&redirect_uri=%s&response_type=code&scope=%s&access_type=offline&prompt=consent&include_granted_scopes=true&state=%s",
+		url.QueryEscape(clientID), url.QueryEscape(redirectURI),
+		url.QueryEscape("https://www.googleapis.com/auth/analytics.readonly"), stateID)
+	writeJSON(w, map[string]string{"url": authURL})
+}
+
+// GET /api/auth/ga4/callback — Google redirects here with ?code&state. Always
+// redirects back to the Analytics page (with ?ga4=connected or ?ga4_error=...).
+func (s *server) handleGa4Callback(w http.ResponseWriter, r *http.Request) {
+	appBase := config.Get("APP_BASE_URL", "http://localhost:3000")
+	fail := func(msg string) {
+		http.Redirect(w, r, appBase+"/settings/channels?tab=analytics&ga4_error="+url.QueryEscape(msg), http.StatusTemporaryRedirect)
+	}
+	code := r.URL.Query().Get("code")
+	stateID := r.URL.Query().Get("state")
+	if code == "" || stateID == "" {
+		fail("Google sign-in was cancelled")
+		return
+	}
+	raw, err := s.rdb.Get(r.Context(), "oauth:ga4:"+stateID).Bytes()
+	if err != nil {
+		fail("sign-in session expired, please try again")
+		return
+	}
+	s.rdb.Del(r.Context(), "oauth:ga4:"+stateID)
+	var st ga4OAuthState
+	json.Unmarshal(raw, &st)
+
+	data := url.Values{}
+	data.Set("client_id", os.Getenv("GOOGLE_ADS_CLIENT_ID"))
+	data.Set("client_secret", os.Getenv("GOOGLE_ADS_CLIENT_SECRET"))
+	data.Set("code", code)
+	data.Set("redirect_uri", st.RedirectURI)
+	data.Set("grant_type", "authorization_code")
+	resp, err := adHTTP.PostForm("https://oauth2.googleapis.com/token", data)
+	if err != nil {
+		fail("could not reach Google to complete sign-in")
+		return
+	}
+	defer resp.Body.Close()
+	var tok struct {
+		RefreshToken string `json:"refresh_token"`
+	}
+	if err := json.NewDecoder(resp.Body).Decode(&tok); err != nil || tok.RefreshToken == "" {
+		fail("no refresh token received (revoke prior access at myaccount.google.com and retry)")
+		return
+	}
+	// Stash the refresh token as a pending, org-scoped entry; the user then picks
+	// which GA4 property to attach (listing properties needs this token).
+	s.rdb.Set(r.Context(), "ga4:pending:"+st.OrgID, tok.RefreshToken, 20*time.Minute)
+	http.Redirect(w, r, appBase+"/settings/channels?tab=analytics&ga4=connected", http.StatusTemporaryRedirect)
+}
+
+// GET /api/ga4/properties — after Google sign-in, list the account's GA4
+// properties so the user can pick which to connect.
+func (s *server) handleGa4PendingProperties(w http.ResponseWriter, r *http.Request) {
+	a, _ := authFrom(r.Context())
+	rt, err := s.rdb.Get(r.Context(), "ga4:pending:"+a.OrgID).Result()
+	if err != nil || rt == "" {
+		writeJSON(w, map[string]any{"pending": false, "properties": []ga4Property{}})
+		return
+	}
+	props, err := ga4ListProperties(r.Context(), rt)
+	if err != nil {
+		writeJSON(w, map[string]any{"pending": true, "error": err.Error(), "properties": []ga4Property{}})
+		return
+	}
+	writeJSON(w, map[string]any{"pending": true, "properties": props})
+}
+
+// POST /api/ga4/finish {property_id, name?, campaign_id?} — persist the connection
+// using the pending refresh token from the Google sign-in.
+func (s *server) handleGa4Finish(w http.ResponseWriter, r *http.Request) {
+	a, _ := authFrom(r.Context())
+	var b struct {
+		PropertyID string  `json:"property_id"`
+		Name       string  `json:"name"`
+		CampaignID *string `json:"campaign_id"`
+	}
+	if err := json.NewDecoder(r.Body).Decode(&b); err != nil || strings.TrimSpace(b.PropertyID) == "" {
+		http.Error(w, "property_id required", http.StatusBadRequest)
+		return
+	}
+	rt, err := s.rdb.Get(r.Context(), "ga4:pending:"+a.OrgID).Result()
+	if err != nil || rt == "" {
+		http.Error(w, "no pending Google sign-in; please connect again", http.StatusBadRequest)
+		return
+	}
+	propertyID := strings.TrimPrefix(strings.TrimSpace(b.PropertyID), "properties/")
+	var campID any
+	if b.CampaignID != nil && *b.CampaignID != "" {
+		campID = *b.CampaignID
+	}
+	var id string
+	err = s.pool.QueryRow(r.Context(),
+		`INSERT INTO ga4_connections (organization_id, property_id, refresh_token, name, campaign_id)
+		 VALUES ($1,$2,$3,NULLIF($4,''),$5) RETURNING id::text`,
+		a.OrgID, propertyID, rt, b.Name, campID).Scan(&id)
+	if err != nil {
+		http.Error(w, err.Error(), http.StatusInternalServerError)
+		return
+	}
+	s.rdb.Del(r.Context(), "ga4:pending:"+a.OrgID)
+	s.audit(r.Context(), a, "connected", "ga4_connection", id, map[string]any{"property": propertyID, "via": "oauth"})
+	writeJSON(w, map[string]any{"id": id})
+}
+
+// ga4ListProperties enumerates the account's GA4 properties via the Admin API
+// accountSummaries endpoint (needs analytics.readonly).
+func ga4ListProperties(ctx context.Context, refreshToken string) ([]ga4Property, error) {
+	token, err := ga4AccessToken(ctx, refreshToken)
+	if err != nil {
+		return nil, err
+	}
+	out := []ga4Property{}
+	pageToken := ""
+	for {
+		u := "https://analyticsadmin.googleapis.com/v1beta/accountSummaries?pageSize=200"
+		if pageToken != "" {
+			u += "&pageToken=" + url.QueryEscape(pageToken)
+		}
+		req, _ := http.NewRequestWithContext(ctx, http.MethodGet, u, nil)
+		req.Header.Set("Authorization", "Bearer "+token)
+		resp, err := adHTTP.Do(req)
+		if err != nil {
+			return nil, err
+		}
+		var body struct {
+			AccountSummaries []struct {
+				DisplayName       string `json:"displayName"`
+				PropertySummaries []struct {
+					Property    string `json:"property"`
+					DisplayName string `json:"displayName"`
+				} `json:"propertySummaries"`
+			} `json:"accountSummaries"`
+			NextPageToken string `json:"nextPageToken"`
+			Error         struct {
+				Message string `json:"message"`
+			} `json:"error"`
+		}
+		err = json.NewDecoder(resp.Body).Decode(&body)
+		resp.Body.Close()
+		if err != nil {
+			return nil, err
+		}
+		if body.Error.Message != "" {
+			return nil, fmt.Errorf("ga4: %s", body.Error.Message)
+		}
+		for _, acc := range body.AccountSummaries {
+			for _, p := range acc.PropertySummaries {
+				out = append(out, ga4Property{
+					PropertyID:  strings.TrimPrefix(p.Property, "properties/"),
+					DisplayName: p.DisplayName,
+					AccountName: acc.DisplayName,
+				})
+			}
+		}
+		if body.NextPageToken == "" {
+			break
+		}
+		pageToken = body.NextPageToken
+	}
+	return out, nil
 }
 
 // ga4AccessToken exchanges a stored refresh token for a short-lived access token

@@ -403,6 +403,25 @@ export interface Ga4Report {
   totals?: Omit<Ga4Row, "landing_page">;
 }
 
+// A connected GA4 property (org-scoped, optionally mapped to one campaign).
+export interface Ga4Connection {
+  id: string;
+  property_id: string;
+  name: string;
+  campaign_id: string | null;
+  campaign_name: string | null;
+  last_synced_at: string | null;
+  last_error: string | null;
+  created_at: string;
+}
+
+// A GA4 property discovered during Sign-in-with-Google (Admin API).
+export interface Ga4Property {
+  property_id: string;
+  display_name: string;
+  account_name: string;
+}
+
 export interface Channel {
   id: string;
   type: string;            // whatsapp | messenger | instagram | telegram | ...

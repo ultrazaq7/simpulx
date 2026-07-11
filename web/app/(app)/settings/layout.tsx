@@ -6,11 +6,11 @@
 // always the source of truth (no more ?section= facade).
 import { type ReactNode, useState, useEffect, useLayoutEffect, useRef } from "react";
 import Link from "next/link";
-import { usePathname } from "next/navigation";
+import { usePathname, useSearchParams } from "next/navigation";
 import {
   Settings, FormInput, Bell, User, ShieldCheck, ListOrdered,
   Building2, Building, FileText, GitBranch, RadioTower, Clock, ClipboardList,
-  ChevronsLeft, Boxes, Zap, SlidersHorizontal, ChevronRight,
+  ChevronsLeft, Boxes, Zap, SlidersHorizontal, ChevronRight, Plug, LineChart, Megaphone,
 } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { api, getUser } from "@/lib/api";
@@ -38,7 +38,7 @@ const GROUPS: { titleKey: string; items: NavItem[] }[] = [
     ],
   },
   {
-    titleKey: "settings.channels",
+    titleKey: "Workspace",
     items: [
       { key: "campaigns", labelKey: "settings.campaigns", icon: Building2, href: "/settings/campaigns", perm: "manage_campaigns" },
       { key: "templates", labelKey: "settings.templates", icon: FileText, href: "/settings/templates", perm: "view_settings" },
@@ -47,8 +47,17 @@ const GROUPS: { titleKey: string; items: NavItem[] }[] = [
       { key: "quick-replies", labelKey: "Quick Replies", icon: Zap, href: "/settings/quick-replies", perm: "view_settings" },
       { key: "custom-fields", labelKey: "settings.custom_fields", icon: FormInput, href: "/settings/custom-fields", perm: "view_settings" },
       { key: "stages", labelKey: "settings.pipeline_stages", icon: ListOrdered, href: "/settings/stages", perm: "view_settings" },
-      // Channel & Integrations merges messaging channels, Web API lead sources and ad accounts.
-      { key: "channels", labelKey: "settings.channels_integrations", icon: RadioTower, href: "/settings/channels", perm: "manage_channels" },
+    ],
+  },
+  {
+    // Every external connection lives here, one item per type (deep-links to the
+    // Channel & Integrations page tab). Kept a distinct section below Workspace.
+    titleKey: "Channel & Integrations",
+    items: [
+      { key: "ci-channel", labelKey: "Channel", icon: RadioTower, href: "/settings/channels?tab=channels", perm: "manage_channels" },
+      { key: "ci-webapi", labelKey: "Web API Forms", icon: Plug, href: "/settings/channels?tab=webapi", perm: "manage_channels" },
+      { key: "ci-ads", labelKey: "Ads Account", icon: Megaphone, href: "/settings/channels?tab=advertising", perm: "manage_channels" },
+      { key: "ci-analytics", labelKey: "Analytics", icon: LineChart, href: "/settings/channels?tab=analytics", perm: "manage_channels" },
     ],
   },
   {
@@ -63,6 +72,8 @@ const useIsoLayoutEffect = typeof document !== "undefined" ? useLayoutEffect : u
 
 export default function SettingsLayout({ children }: { children: ReactNode }) {
   const pathname = usePathname() || "";
+  const search = useSearchParams();
+  const curTab = search.get("tab");
   const { can } = usePermissions();
   const { t } = useI18n();
   // Settings always opens expanded when you enter it (clicking Settings shows the
@@ -108,18 +119,28 @@ export default function SettingsLayout({ children }: { children: ReactNode }) {
 
   const navCount = groups.reduce((n, g) => n + g.items.length, 0);
 
-  // Active item = the nav href that is a prefix of the current path (so nested
+  // Active item = the nav item whose href matches the current path (so nested
   // routes like /settings/automation/<id>/flow keep "Automation" highlighted).
-  const activeHref = groups.flatMap((g) => g.items)
-    .map((i) => i.href)
-    .filter((href) => pathname === href || pathname.startsWith(href + "/"))
-    .sort((a, b) => b.length - a.length)[0];
+  // Query-aware: the Channel & Integrations items all live on /settings/channels
+  // and differ only by ?tab, so we compare the tab too (defaulting to "channels").
+  const hrefActive = (href: string): boolean => {
+    const qi = href.indexOf("?");
+    const base = qi === -1 ? href : href.slice(0, qi);
+    if (pathname !== base && !pathname.startsWith(base + "/")) return false;
+    if (qi === -1) return true;
+    const want = new URLSearchParams(href.slice(qi + 1)).get("tab");
+    return (curTab ?? "channels") === want;
+  };
+  const activeItem = groups.flatMap((g) => g.items)
+    .filter((i) => hrefActive(i.href))
+    .sort((a, b) => b.href.length - a.href.length)[0];
+  const activeKey = activeItem?.key;
 
   // Auto-expand the section that contains the active page.
   useEffect(() => {
-    const active = groups.find((g) => g.items.some((i) => i.href === activeHref));
+    const active = groups.find((g) => g.items.some((i) => i.key === activeKey));
     if (active) setOpenSections((p) => (p[active.titleKey] ? p : { ...p, [active.titleKey]: true }));
-  }, [activeHref]); // eslint-disable-line react-hooks/exhaustive-deps
+  }, [activeKey]); // eslint-disable-line react-hooks/exhaustive-deps
 
   // Bring the active section into view on load / route change. Deterministic
   // (center the active item in the nav viewport) rather than restoring a saved
@@ -149,7 +170,7 @@ export default function SettingsLayout({ children }: { children: ReactNode }) {
       <div className="lg:hidden shrink-0 border-b border-border bg-card overflow-x-auto">
         <div className="flex items-center gap-1 px-2 py-2 w-max">
           {flatItems.map((s) => {
-            const sel = s.href === activeHref;
+            const sel = s.key === activeKey;
             return (
               <Link
                 key={s.key}
@@ -189,7 +210,7 @@ export default function SettingsLayout({ children }: { children: ReactNode }) {
                   {open && (
                     <div className="mt-0.5 mb-1 space-y-0.5">
                       {g.items.map((s) => {
-                        const sel = s.href === activeHref;
+                        const sel = s.key === activeKey;
                         return (
                           <Link
                             key={s.key}

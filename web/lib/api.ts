@@ -578,6 +578,13 @@ export const api = {
   },
   createGa4Connection: (body: { property_id: string; refresh_token: string; campaign_id?: string; name?: string }) =>
     req<{ id: string }>("/api/ga4-connections", { method: "POST", body: JSON.stringify(body) }),
+  listGa4Connections: () => req<import("./types").Ga4Connection[]>("/api/ga4-connections"),
+  deleteGa4Connection: (id: string) => req<{ ok: boolean }>(`/api/ga4-connections/${id}`, { method: "DELETE" }),
+  // Sign-in-with-Google flow (no manual refresh token).
+  ga4OAuthUrl: () => req<{ url: string }>("/api/ga4/oauth/start", { method: "POST", body: "{}" }),
+  ga4PendingProperties: () => req<{ pending: boolean; error?: string; properties: import("./types").Ga4Property[] }>("/api/ga4/properties"),
+  finishGa4Connection: (body: { property_id: string; name?: string; campaign_id?: string }) =>
+    req<{ id: string }>("/api/ga4/finish", { method: "POST", body: JSON.stringify(body) }),
   // ── Automations ──
   listAutomations: () => req<Automation[]>("/api/automations"),
   getAutomation: (id: string) => req<AutomationDetail>(`/api/automations/${id}`),

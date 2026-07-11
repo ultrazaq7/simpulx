@@ -1,7 +1,8 @@
 "use client";
 import { useEffect, useMemo, useRef, useState } from "react";
+import Link from "next/link";
 import { useParams, useRouter, useSearchParams } from "next/navigation";
-import { ArrowLeft, Loader2, Coins, Sparkles, BarChart3, Database, Upload, Trash2, Download, ChevronDown, FileText, FileSpreadsheet } from "lucide-react";
+import { ArrowLeft, Loader2, Upload, Trash2, Download, ChevronDown, FileText, FileSpreadsheet } from "lucide-react";
 import * as XLSX from "xlsx";
 import { AreaChart, Area, LineChart, Line, BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip as RTooltip, ResponsiveContainer, PieChart, Pie, Cell } from "recharts";
 import { api, getToken, getUser } from "@/lib/api";
@@ -15,18 +16,32 @@ import { useConfirm } from "@/components/ConfirmDialog";
 import UnsavedBar from "@/components/UnsavedBar";
 
 const SEGMENTS = ["Automotive", "Property / Real Estate", "Finance", "Insurance", "Retail / FMCG", "Education", "Healthcare", "Travel & Hospitality", "Food & Beverage", "Services", "Other"];
-type Tab = "overview" | "credits" | "ai" | "catalog";
+type Tab = "general" | "ads" | "credits" | "ai" | "catalog";
+
+// Left sub-menu (Settings-style) grouping the campaign's reports and setup pages.
+const CAMPAIGN_NAV: { title: string; items: { key: Tab; label: string }[] }[] = [
+  { title: "Reports", items: [
+    { key: "general", label: "General Report" },
+    { key: "ads", label: "Ads Report" },
+  ] },
+  { title: "Configuration", items: [
+    { key: "credits", label: "Credits & Usage" },
+    { key: "ai", label: "AI Assistant" },
+    { key: "catalog", label: "Catalog & Pricing" },
+  ] },
+];
 
 export default function CampaignDetailPage() {
   const { id } = useParams<{ id: string }>();
   const router = useRouter();
   const searchParams = useSearchParams();
   const { notify, confirm, ToastHost } = useToast();
-  // Persist the active tab in the URL so a refresh keeps you on the same tab
-  // instead of snapping back to Overview.
-  const TAB_KEYS: Tab[] = ["overview", "credits", "ai", "catalog"];
-  const urlTab = searchParams.get("tab") as Tab | null;
-  const [tab, setTabState] = useState<Tab>(urlTab && TAB_KEYS.includes(urlTab) ? urlTab : "overview");
+  // Persist the active tab in the URL so a refresh keeps you on the same page
+  // instead of snapping back. "overview" is the legacy key for the general report.
+  const TAB_KEYS: Tab[] = ["general", "ads", "credits", "ai", "catalog"];
+  const rawTab = searchParams.get("tab");
+  const urlTab: Tab | null = rawTab === "overview" ? "general" : (rawTab as Tab | null);
+  const [tab, setTabState] = useState<Tab>(urlTab && TAB_KEYS.includes(urlTab) ? urlTab : "general");
   const setTab = (t: Tab) => {
     setTabState(t);
     router.replace(`/settings/campaigns/${id}?tab=${t}`, { scroll: false });
@@ -38,17 +53,12 @@ export default function CampaignDetailPage() {
     api.getCampaign(id).then(setCampaign).catch((e) => notify(String(e), "error")).finally(() => setLoading(false));
   }, [id]); // eslint-disable-line react-hooks/exhaustive-deps
 
-  const tabs: { key: Tab; label: string; Icon: typeof Coins }[] = [
-    { key: "overview", label: "Overview", Icon: BarChart3 },
-    { key: "credits", label: "Credits & Usage", Icon: Coins },
-    { key: "ai", label: "AI Assistant", Icon: Sparkles },
-    { key: "catalog", label: "Catalog & Pricing", Icon: Database },
-  ];
+  const reportKind: "general" | "ads" = tab === "ads" ? "ads" : "general";
 
   return (
     <PageBody wide>
       {ToastHost}
-      <div className="max-w-[1040px]">
+      <div className="max-w-[1160px]">
         <button onClick={() => router.push("/settings/campaigns")} className="no-print inline-flex items-center gap-1.5 text-[13px] text-muted-foreground hover:text-foreground mb-3 outline-none">
           <ArrowLeft className="w-4 h-4" /> Campaigns
         </button>
@@ -57,23 +67,45 @@ export default function CampaignDetailPage() {
         ) : !campaign ? (
           <p className="text-muted-foreground">Campaign not found.</p>
         ) : (
-          <div className="print-root bg-card border border-border rounded-xl shadow-xs p-6 sm:p-8">
-            <h1 className="text-xl font-bold text-foreground">{campaign.name}</h1>
-            {campaign.dealer_name && <p className="text-[13px] text-muted-foreground">{campaign.dealer_name}</p>}
-            <div className="no-print flex gap-1 mt-5 border-b border-border overflow-x-auto [scrollbar-width:none] [&::-webkit-scrollbar]:hidden">
-              {tabs.map((t) => (
-                <button key={t.key} onClick={() => setTab(t.key)}
-                  className={cn("inline-flex items-center gap-1.5 px-3.5 py-2 text-[13px] font-semibold border-b-2 -mb-px transition-colors outline-none shrink-0 whitespace-nowrap",
-                    tab === t.key ? "border-primary text-primary" : "border-transparent text-muted-foreground hover:text-foreground")}>
-                  <t.Icon className="w-4 h-4 shrink-0" /> {t.label}
-                </button>
-              ))}
-            </div>
-            <div className="mt-6">
-              {tab === "overview" && <OverviewTab id={id} name={campaign.name} budget={campaign.monthly_budget ?? null} onBudget={(v) => setCampaign((c) => (c ? { ...c, monthly_budget: v } : c))} notify={notify} />}
-              {tab === "credits" && <CreditsTab id={id} notify={notify} />}
-              {tab === "ai" && <AITab campaign={campaign} onSaved={(c) => { setCampaign(c); notify("AI settings saved"); }} onError={(m) => notify(m, "error")} />}
-              {tab === "catalog" && <CatalogTab id={id} segment={campaign.segment ?? undefined} notify={notify} />}
+          <div className="flex flex-col lg:flex-row gap-5 items-start">
+            {/* Left sub-menu — Settings-style. Hidden in the exported PDF. */}
+            <aside className="no-print w-full lg:w-[210px] shrink-0 lg:sticky lg:top-2">
+              <div className="min-w-0 mb-3">
+                <h1 className="text-[17px] font-bold text-foreground leading-tight truncate">{campaign.name}</h1>
+                {campaign.dealer_name && <p className="text-[12px] text-muted-foreground truncate">{campaign.dealer_name}</p>}
+              </div>
+              {/* Mobile: horizontal chip strip. Desktop: grouped vertical nav. */}
+              <nav className="flex lg:flex-col gap-1 overflow-x-auto lg:overflow-visible [scrollbar-width:none] [&::-webkit-scrollbar]:hidden">
+                {CAMPAIGN_NAV.map((group) => (
+                  <div key={group.title} className="lg:mb-1.5 shrink-0 flex lg:block gap-1">
+                    <p className="hidden lg:block px-3 pt-2 pb-1 text-[11px] font-bold uppercase tracking-wider text-muted-foreground/70">{group.title}</p>
+                    {group.items.map((it) => {
+                      const sel = tab === it.key;
+                      return (
+                        <button key={it.key} onClick={() => setTab(it.key)}
+                          className={cn("block w-full text-left rounded-md px-3 py-2 text-[13px] whitespace-nowrap outline-none transition-colors",
+                            sel ? "bg-muted text-foreground font-semibold" : "text-muted-foreground hover:bg-muted/60 hover:text-foreground")}>
+                          {it.label}
+                        </button>
+                      );
+                    })}
+                  </div>
+                ))}
+              </nav>
+            </aside>
+
+            {/* Content card — the report body is the PDF root. */}
+            <div className="min-w-0 flex-1 w-full">
+              <div className="print-root bg-card border border-border rounded-xl shadow-xs p-5 sm:p-7">
+                {(tab === "general" || tab === "ads") && (
+                  <ReportView kind={reportKind} id={id} name={campaign.name} dealer={campaign.dealer_name ?? null}
+                    budget={campaign.monthly_budget ?? null}
+                    onBudget={(v) => setCampaign((c) => (c ? { ...c, monthly_budget: v } : c))} notify={notify} />
+                )}
+                {tab === "credits" && <CreditsTab id={id} notify={notify} />}
+                {tab === "ai" && <AITab campaign={campaign} onSaved={(c) => { setCampaign(c); notify("AI settings saved"); }} onError={(m) => notify(m, "error")} />}
+                {tab === "catalog" && <CatalogTab id={id} segment={campaign.segment ?? undefined} notify={notify} />}
+              </div>
             </div>
           </div>
         )}
@@ -94,6 +126,12 @@ function Stat({ label, value, accent }: { label: string; value: string | number;
 const money = (n: number) => "Rp " + Math.round(n).toLocaleString("id-ID");
 const num = (n: number) => Math.round(n).toLocaleString("id-ID");
 const pctFmt = (n: number) => n.toFixed(2) + "%";
+const MONTHS = ["Jan", "Feb", "Mar", "Apr", "May", "Jun", "Jul", "Aug", "Sep", "Oct", "Nov", "Dec"];
+// "2026-07-04T00:00:00Z" / "2026-07-04" → "Jul 4" for chart axes (drop the raw ISO tail).
+const fmtDay = (iso: string) => {
+  const m = /^(\d{4})-(\d{2})-(\d{2})/.exec(iso || "");
+  return m ? `${MONTHS[+m[2] - 1]} ${+m[3]}` : iso;
+};
 
 function toCsv(rows: (string | number)[][]): string {
   return rows.map((r) => r.map((c) => {
@@ -183,17 +221,13 @@ const fmtSec = (s: number) => {
   return `${m}:${String(sec).padStart(2, "0")}`;
 };
 
-// GA4 landing-page performance. Fetches the campaign's GA4 report; if no property
-// is connected it shows an inline connect form (property id + OAuth refresh token
-// with the analytics.readonly scope), mapping the property to this campaign.
+// GA4 landing-page performance (read-only). Renders the campaign's GA4 report
+// when a property is connected; connecting/syncing GA4 now lives in
+// Settings → Channel & Integrations → Analytics, so this panel only prompts the
+// user there instead of embedding the OAuth/property form in the report.
 function Ga4Panel({ campaignId, from, to }: { campaignId: string; from: string; to: string }) {
   const [report, setReport] = useState<Ga4Report | null>(null);
   const [loading, setLoading] = useState(true);
-  const [showForm, setShowForm] = useState(false);
-  const [propertyId, setPropertyId] = useState("");
-  const [refreshToken, setRefreshToken] = useState("");
-  const [busy, setBusy] = useState(false);
-  const [nonce, setNonce] = useState(0);
 
   useEffect(() => {
     setLoading(true);
@@ -203,17 +237,7 @@ function Ga4Panel({ campaignId, from, to }: { campaignId: string; from: string; 
       .catch(() => { if (alive) setReport(null); })
       .finally(() => { if (alive) setLoading(false); });
     return () => { alive = false; };
-  }, [campaignId, from, to, nonce]);
-
-  async function connect() {
-    if (!propertyId.trim() || !refreshToken.trim()) return;
-    setBusy(true);
-    try {
-      await api.createGa4Connection({ property_id: propertyId.trim(), refresh_token: refreshToken.trim(), campaign_id: campaignId });
-      setShowForm(false); setPropertyId(""); setRefreshToken(""); setNonce((n) => n + 1);
-    } catch { /* surfaced via reload */ }
-    finally { setBusy(false); }
-  }
+  }, [campaignId, from, to]);
 
   const t = report?.totals;
   const tiles = t ? [
@@ -231,30 +255,17 @@ function Ga4Panel({ campaignId, from, to }: { campaignId: string; from: string; 
     <div className="rounded-xl border border-border p-4">
       <div className="flex items-center justify-between mb-3">
         <p className="text-[13px] font-semibold text-foreground">Landing page performance <span className="text-muted-foreground font-normal">· GA4</span></p>
-        {report?.connected && !showForm && (
-          <button onClick={() => setShowForm(true)} className="text-[12px] font-semibold text-primary hover:underline outline-none">Reconnect</button>
-        )}
       </div>
 
       {loading ? (
         <div className="h-24 grid place-items-center"><Loader2 className="w-5 h-5 animate-spin text-muted-foreground" /></div>
-      ) : (!report?.connected || showForm) ? (
-        <div className="rounded-lg border border-dashed border-border p-5 text-center">
-          <p className="text-[13px] font-semibold text-foreground">Connect Google Analytics 4</p>
-          <p className="text-[12px] text-muted-foreground mt-1 mb-3">Show landing-page sessions, engagement and users for this campaign.</p>
-          {showForm || !report?.connected ? (
-            <div className="max-w-[420px] mx-auto flex flex-col gap-2 text-left">
-              <input value={propertyId} onChange={(e) => setPropertyId(e.target.value)} placeholder="GA4 property ID (e.g. 123456789)" className={INPUT_CLASS} />
-              <input value={refreshToken} onChange={(e) => setRefreshToken(e.target.value)} placeholder="OAuth refresh token (analytics.readonly)" className={INPUT_CLASS} />
-              <div className="flex justify-end gap-2 mt-1">
-                {showForm && <button onClick={() => setShowForm(false)} className="px-3.5 h-9 rounded-md border border-border text-[13px] font-medium hover:bg-muted outline-none">Cancel</button>}
-                <button onClick={connect} disabled={busy || !propertyId.trim() || !refreshToken.trim()} className="inline-flex items-center gap-1.5 px-3.5 h-9 rounded-md bg-primary text-white text-[13px] font-semibold hover:bg-primary-dark disabled:opacity-50 outline-none">
-                  {busy && <Loader2 className="w-4 h-4 animate-spin" />} Connect
-                </button>
-              </div>
-              {report?.error && <p className="text-[12px] text-destructive">{report.error}</p>}
-            </div>
-          ) : null}
+      ) : !report?.connected ? (
+        <div className="no-print rounded-lg border border-dashed border-border p-5 text-center">
+          <p className="text-[13px] font-semibold text-foreground">Google Analytics 4 not connected</p>
+          <p className="text-[12px] text-muted-foreground mt-1 mb-3">Connect GA4 to see landing-page sessions, engagement and users for this campaign.</p>
+          <Link href="/settings/channels?tab=analytics" className="inline-flex items-center gap-1.5 px-3.5 h-9 rounded-md bg-primary text-white text-[13px] font-semibold hover:bg-primary-dark outline-none">
+            Connect in Channel &amp; Integrations
+          </Link>
         </div>
       ) : report.error ? (
         <p className="text-[13px] text-destructive">{report.error}</p>
@@ -366,9 +377,11 @@ function BudgetPanel({ id, budget, spend, onBudget, notify }: {
 }
 
 // Per-campaign report: reuses the lead analytics + ad-performance scoped to this
-// campaign to render the Heroleads-style campaign report (ad funnel, source
-// performance table, and leads over time).
-function OverviewTab({ id, name, budget, onBudget, notify }: { id: string; name: string; budget: number | null; onBudget: (v: number | null) => void; notify: (m: string, s?: "success" | "error") => void }) {
+// campaign. `kind` picks which slice to render — "general" is the executive
+// dashboard (funnel, source table, KPIs, budget, leads); "ads" is the ad-platform
+// deep dive (breakdown chart, keywords, spend, demographics, GA4).
+function ReportView({ kind, id, name, dealer, budget, onBudget, notify }: { kind: "general" | "ads"; id: string; name: string; dealer: string | null; budget: number | null; onBudget: (v: number | null) => void; notify: (m: string, s?: "success" | "error") => void }) {
+  const isGeneral = kind === "general";
   const [row, setRow] = useState<CampaignAnalyticsRow | null>(null);
   const [perf, setPerf] = useState<AdPerformance | null>(null);
   const [keywords, setKeywords] = useState<AdKeyword[]>([]);
@@ -402,10 +415,10 @@ function OverviewTab({ id, name, budget, onBudget, notify }: { id: string; name:
   const ctr = tot.impressions > 0 ? (tot.clicks / tot.impressions) * 100 : 0;
   const cpc = tot.clicks > 0 ? tot.spend / tot.clicks : 0;
   const cpl = tot.leads > 0 ? tot.spend / tot.leads : 0;
-  const daily = useMemo(() => (perf?.daily ?? []).map((d) => ({ date: (d.date ?? "").slice(5), leads: d.leads })), [perf]);
+  const daily = useMemo(() => (perf?.daily ?? []).map((d) => ({ date: fmtDay(d.date ?? ""), leads: d.leads })), [perf]);
   // Clicks/impressions use null for zero-days so the log-scale line skips them.
   const dailyPerf = useMemo(() => (perf?.daily ?? []).map((d) => ({
-    date: (d.date ?? "").slice(5),
+    date: fmtDay(d.date ?? ""),
     impressions: d.impressions > 0 ? d.impressions : null,
     clicks: d.clicks > 0 ? d.clicks : null,
     spend: Math.round(d.spend || 0),
@@ -452,7 +465,7 @@ function OverviewTab({ id, name, budget, onBudget, notify }: { id: string; name:
     dem("AGE BREAKDOWN", perf?.age);
     dem("GENDER BREAKDOWN", perf?.gender);
     dem("REGION BREAKDOWN", perf?.region);
-    downloadCsv(`campaign-report-${dateRange}.csv`, toCsv(rows));
+    downloadCsv(`${kind}-report-${dateRange}.csv`, toCsv(rows));
   };
   // One-click PDF via the server-side headless-Chromium route, which renders the
   // real report page (same @media print CSS) for a pixel-exact document. Falls
@@ -463,13 +476,13 @@ function OverviewTab({ id, name, budget, onBudget, notify }: { id: string; name:
       const res = await fetch(`/api/campaigns/${id}/report-pdf`, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ token: getToken(), user: getUser(), tab: "overview", preset: dateRange, from, to }),
+        body: JSON.stringify({ token: getToken(), user: getUser(), tab: kind, preset: dateRange, from, to }),
       });
       const blob = await res.blob();
       if (!res.ok || blob.type !== "application/pdf") throw new Error("headless unavailable");
       const url = URL.createObjectURL(blob);
       const a = document.createElement("a");
-      a.href = url; a.download = `campaign-report-${dateRange}.pdf`; a.click();
+      a.href = url; a.download = `${kind}-report-${dateRange}.pdf`; a.click();
       URL.revokeObjectURL(url);
     } catch {
       window.print(); // print CSS renders the same report-only layout
@@ -482,7 +495,7 @@ function OverviewTab({ id, name, budget, onBudget, notify }: { id: string; name:
   return (
     <div className="flex flex-col gap-5">
       <div className="no-print flex items-center justify-between flex-wrap gap-2">
-        <p className="text-[13px] font-semibold text-foreground">Campaign report</p>
+        <p className="text-[13px] font-semibold text-foreground">{isGeneral ? "General report" : "Ads report"}</p>
         <div className="flex items-center gap-2">
           <div className="no-print relative">
             <button onClick={() => setExportOpen((o) => !o)} disabled={sources.length === 0}
@@ -507,13 +520,14 @@ function OverviewTab({ id, name, budget, onBudget, notify }: { id: string; name:
       {/* Heroleads-style report banner (this drives the PDF header) */}
       <div className="rounded-xl bg-neutral-900 text-white px-5 py-3.5 flex items-center justify-between gap-3 flex-wrap">
         <div className="min-w-0">
-          <p className="text-[16px] font-extrabold tracking-wide uppercase leading-tight">Campaign Dashboard</p>
-          <p className="text-[12.5px] text-white/70 truncate">{name}</p>
+          <p className="text-[16px] font-extrabold tracking-wide uppercase leading-tight">{isGeneral ? "Campaign Dashboard" : "Ads Performance Report"}</p>
+          <p className="text-[12.5px] text-white/70 truncate">{name}{dealer ? ` · ${dealer}` : ""}</p>
         </div>
         <p className="text-[11px] text-white/70 whitespace-nowrap">{rangeLabel}</p>
       </div>
 
       {/* Conversion funnel (left) + campaign performance table (right) */}
+      {isGeneral && (
       <div className="grid grid-cols-1 sm:grid-cols-[190px_1fr] gap-4 items-start">
         <div className="print-avoid-break rounded-xl border border-border bg-card p-4 flex flex-col items-center gap-1.5">
           {[
@@ -582,9 +596,10 @@ function OverviewTab({ id, name, budget, onBudget, notify }: { id: string; name:
           </div>
         </div>
       </div>
+      )}
 
       {/* Lead KPIs */}
-      {row && (
+      {isGeneral && row && (
         <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
           <Stat label="Replied" value={row.replied} />
           <Stat label="Avg 1st response" value={row.avg_rt_min > 0 ? fmtDuration(row.avg_rt_min) : "-"} />
@@ -594,10 +609,10 @@ function OverviewTab({ id, name, budget, onBudget, notify }: { id: string; name:
       )}
 
       {/* Budget utilization */}
-      <BudgetPanel id={id} budget={budget} spend={tot.spend} onBudget={onBudget} notify={notify} />
+      {isGeneral && <BudgetPanel id={id} budget={budget} spend={tot.spend} onBudget={onBudget} notify={notify} />}
 
       {/* Leads over time (single series — keep one axis) */}
-      {daily.length > 0 && (
+      {isGeneral && daily.length > 0 && (
         <div className="rounded-xl border border-border p-4">
           <p className="text-[13px] font-semibold text-foreground mb-3">Leads over time</p>
           <div className="h-[220px]">
@@ -621,7 +636,7 @@ function OverviewTab({ id, name, budget, onBudget, notify }: { id: string; name:
       )}
 
       {/* Campaign performance breakdown — clicks + impressions (log scale) */}
-      {dailyPerf.length > 0 && (
+      {!isGeneral && dailyPerf.length > 0 && (
         <div className="print-avoid-break rounded-xl border border-border p-4">
           <div className="flex items-center justify-between mb-3">
             <p className="text-[13px] font-semibold text-foreground">Campaign performance breakdown</p>
@@ -647,7 +662,7 @@ function OverviewTab({ id, name, budget, onBudget, notify }: { id: string; name:
       )}
 
       {/* Google top search keywords */}
-      {kw.length > 0 && (
+      {!isGeneral && kw.length > 0 && (
         <div className="print-avoid-break rounded-xl border border-border p-4">
           <div className="flex items-center justify-between mb-3">
             <p className="text-[13px] font-semibold text-foreground">Google top {kw.length} search keywords</p>
@@ -671,7 +686,7 @@ function OverviewTab({ id, name, budget, onBudget, notify }: { id: string; name:
       )}
 
       {/* Monthly spending performance — daily cost */}
-      {dailyPerf.length > 0 && (
+      {!isGeneral && dailyPerf.length > 0 && (
         <div className="print-avoid-break rounded-xl border border-border p-4">
           <p className="text-[13px] font-semibold text-foreground mb-3">Monthly spending performance</p>
           <div className="h-[200px]">
@@ -690,7 +705,7 @@ function OverviewTab({ id, name, budget, onBudget, notify }: { id: string; name:
       )}
 
       {/* Latest leads */}
-      {leads.length > 0 && (
+      {isGeneral && leads.length > 0 && (
         <div className="print-avoid-break rounded-xl border border-border overflow-hidden">
           <div className="px-4 py-2.5 border-b border-border bg-muted/40 flex items-center justify-between">
             <p className="text-[13px] font-semibold text-foreground">Latest leads</p>
@@ -724,7 +739,7 @@ function OverviewTab({ id, name, budget, onBudget, notify }: { id: string; name:
       )}
 
       {/* Demographics */}
-      {((perf?.age?.length ?? 0) > 0 || (perf?.gender?.length ?? 0) > 0) && (
+      {!isGeneral && ((perf?.age?.length ?? 0) > 0 || (perf?.gender?.length ?? 0) > 0) && (
         <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
           <Donut title="Age" data={perf?.age} />
           <Donut title="Gender" data={perf?.gender} />
@@ -732,12 +747,14 @@ function OverviewTab({ id, name, budget, onBudget, notify }: { id: string; name:
       )}
 
       {/* Location */}
-      <LocationPanel data={perf?.region} />
+      {!isGeneral && <LocationPanel data={perf?.region} />}
 
-      {/* GA4 landing-page performance */}
-      <Ga4Panel campaignId={id}
-        from={dateRange === "custom" ? fFrom : presetRange(dateRange).from}
-        to={dateRange === "custom" ? fTo : presetRange(dateRange).to} />
+      {/* GA4 landing-page performance (read-only — connect/sync lives in Channel & Integrations) */}
+      {!isGeneral && (
+        <Ga4Panel campaignId={id}
+          from={dateRange === "custom" ? fFrom : presetRange(dateRange).from}
+          to={dateRange === "custom" ? fTo : presetRange(dateRange).to} />
+      )}
     </div>
   );
 }
