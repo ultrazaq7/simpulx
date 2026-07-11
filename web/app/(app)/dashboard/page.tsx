@@ -7,9 +7,9 @@ import {
 } from "recharts";
 import {
   BarChart3, MessageSquare, Inbox, Flame, Timer,
-  TrendingDown, ChevronRight, Zap, Mail, Reply, Trophy, Ban,
+  TrendingDown, ChevronRight, ChevronsLeft, Zap, Mail, Reply, Trophy, Ban,
   CircleDollarSign, MousePointerClick, Spotlight, Target, Eye, Filter as FilterIcon,
-  Image as ImageIcon, MapPin, ChartPie, Percent,
+  Image as ImageIcon, MapPin, Percent,
   Download, FileText, FileSpreadsheet, ChevronDown,
 } from "lucide-react";
 
@@ -501,6 +501,7 @@ function ManagerDashboard() {
   const [channels, setChannels] = useState<Channel[]>([]);
   const [campaigns, setCampaigns] = useState<Campaign[]>([]);
   const [agentList, setAgentList] = useState<Agent[]>([]);
+  const [railCollapsed, setRailCollapsed] = useState(false); // hide/show the reports rail
 
   useEffect(() => {
     api.listChannels().then((c) => setChannels(c || [])).catch(() => {});
@@ -559,26 +560,63 @@ function ManagerDashboard() {
   const agents = analytics?.agents || [];
   const chartData = buildChartData(analytics, true); // all days; bounded by the date filter when applied
 
+  const reportNav = [{ key: "overview" as const, label: "Overview" }, { key: "marketing" as const, label: "Ads Report" }];
+
   return (
-    <div className="flex flex-col lg:flex-row h-full min-h-0">
-      {/* Report sub-menu (Settings-style rail) */}
-      <aside className="shrink-0 border-b lg:border-b-0 lg:border-r border-border bg-card lg:w-[210px]">
-        <div className="px-3 py-3">
-          <p className="hidden lg:block px-3 pt-1 pb-1.5 text-[11px] font-bold uppercase tracking-wider text-muted-foreground/70">Reports</p>
-          <nav className="flex lg:flex-col gap-1 overflow-x-auto lg:overflow-visible [scrollbar-width:none] [&::-webkit-scrollbar]:hidden">
-            {[{ key: "overview" as const, label: "Overview", Icon: ChartPie }, { key: "marketing" as const, label: "Ads Report", Icon: BarChart3 }].map(({ key, label, Icon }) => {
-              const sel = tab === key;
-              return (
+    <div className="relative flex flex-col lg:flex-row h-full min-h-0">
+      {/* Report rail (Settings-style, text-only). Width animates so it slides to a
+          thin strip when hidden; a floating tab reopens it. */}
+      <aside className={cn(
+        "max-lg:hidden shrink-0 border-r border-border bg-card overflow-hidden transition-[width] duration-300 ease-in-out",
+        railCollapsed ? "w-4" : "w-[210px]",
+      )}>
+        <div className={cn("w-[210px] h-full flex flex-col transition-opacity duration-200", railCollapsed && "opacity-0")}>
+          <div className="flex-1 overflow-y-auto px-3 py-3">
+            <p className="px-3 pt-1 pb-1.5 text-[11px] font-bold uppercase tracking-wider text-muted-foreground/70">Reports</p>
+            <nav className="flex flex-col gap-1">
+              {reportNav.map(({ key, label }) => (
                 <button key={key} onClick={() => selectTab(key)}
-                  className={cn("inline-flex items-center gap-2 rounded-md px-3 py-2 text-[13px] whitespace-nowrap outline-none transition-colors",
-                    sel ? "bg-muted text-foreground font-semibold" : "text-muted-foreground hover:bg-muted/60 hover:text-foreground")}>
-                  <Icon className="w-4 h-4 shrink-0" />{label}
+                  className={cn("block w-full text-left rounded-md px-3 py-2 text-[13px] whitespace-nowrap outline-none transition-colors",
+                    tab === key ? "bg-muted text-foreground font-semibold" : "text-muted-foreground hover:bg-muted/60 hover:text-foreground")}>
+                  {label}
                 </button>
-              );
-            })}
-          </nav>
+              ))}
+            </nav>
+          </div>
+          <div className="shrink-0 border-t border-border p-2 flex justify-end">
+            <Tip label="Hide reports menu" side="top">
+              <button onClick={() => setRailCollapsed(true)} aria-label="Collapse reports menu"
+                className="p-1.5 rounded-md text-muted-foreground hover:bg-primary/10 hover:text-primary hover:scale-110 outline-none transition-all duration-200">
+                <ChevronsLeft className="w-[18px] h-[18px]" />
+              </button>
+            </Tip>
+          </div>
         </div>
       </aside>
+
+      {/* Mobile: horizontal chip strip */}
+      <div className="lg:hidden shrink-0 border-b border-border bg-card overflow-x-auto">
+        <div className="flex items-center gap-1 px-3 py-2 w-max">
+          {reportNav.map(({ key, label }) => (
+            <button key={key} onClick={() => selectTab(key)}
+              className={cn("inline-flex items-center px-3.5 h-9 rounded-full text-[13px] whitespace-nowrap outline-none transition-colors",
+                tab === key ? "bg-primary/[0.12] text-primary font-semibold" : "text-muted-foreground hover:bg-muted font-medium")}>
+              {label}
+            </button>
+          ))}
+        </div>
+      </div>
+
+      {/* Floating expand tab when collapsed */}
+      <div className={cn("max-lg:hidden absolute left-0 bottom-3 z-20 transition-opacity duration-200",
+        railCollapsed ? "opacity-100" : "opacity-0 pointer-events-none")}>
+        <Tip label="Show reports menu" side="right">
+          <button onClick={() => setRailCollapsed(false)} aria-label="Expand reports menu"
+            className="flex items-center justify-center h-9 w-6 hover:w-9 rounded-r-full border border-l-0 border-border bg-card shadow-md text-muted-foreground hover:text-primary transition-all duration-200 outline-none">
+            <ChevronRight className="w-4 h-4 shrink-0" />
+          </button>
+        </Tip>
+      </div>
 
       <div className="flex-1 min-w-0 overflow-y-auto">
 
