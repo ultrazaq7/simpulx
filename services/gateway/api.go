@@ -122,6 +122,11 @@ func (s *server) handleListConversations(w http.ResponseWriter, r *http.Request)
 		args = append(args, strings.Split(src, ","))
 		scopeFilter += fmt.Sprintf(" AND %s = ANY($%d)", sourceClassifyExpr("cv"), len(args))
 	}
+	// Optional single-campaign scope (used by the per-campaign report's Latest Leads).
+	if camp := r.URL.Query().Get("campaign"); camp != "" {
+		args = append(args, camp)
+		scopeFilter += fmt.Sprintf(" AND cv.campaign_id = $%d::uuid", len(args))
+	}
 
 	rows, err := s.queryMaps(r.Context(),
 		`SELECT cv.id::text AS id, cv.status, cv.channel, cv.is_bot_active,

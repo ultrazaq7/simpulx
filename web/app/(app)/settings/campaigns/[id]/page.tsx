@@ -3,13 +3,13 @@ import { useEffect, useMemo, useRef, useState } from "react";
 import { useParams, useRouter, useSearchParams } from "next/navigation";
 import { ArrowLeft, Loader2, Coins, Sparkles, BarChart3, Database, Upload, Trash2, Download, ChevronDown, FileText, FileSpreadsheet } from "lucide-react";
 import * as XLSX from "xlsx";
-import { AreaChart, Area, XAxis, YAxis, CartesianGrid, Tooltip as RTooltip, ResponsiveContainer, PieChart, Pie, Cell } from "recharts";
+import { AreaChart, Area, LineChart, Line, BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip as RTooltip, ResponsiveContainer, PieChart, Pie, Cell } from "recharts";
 import { api, getToken, getUser } from "@/lib/api";
 import { Select } from "@/components/Select";
 import DateRangeFilter, { presetRange } from "@/components/DateRangeFilter";
 import { IndonesiaMap } from "@/components/IndonesiaMap";
-import { cn, fmtDuration } from "@/lib/utils";
-import type { CampaignDetail, CampaignAnalyticsRow, CatalogItem, AdPerformance, AdBreakdown, Ga4Report } from "@/lib/types";
+import { cn, fmtDuration, fmtDateTimeShort } from "@/lib/utils";
+import type { CampaignDetail, CampaignAnalyticsRow, CatalogItem, AdPerformance, AdBreakdown, AdKeyword, Ga4Report, Conversation } from "@/lib/types";
 import { useToast, PageBody, FieldLabel, INPUT_CLASS } from "../../_shared";
 import { useConfirm } from "@/components/ConfirmDialog";
 import UnsavedBar from "@/components/UnsavedBar";
@@ -371,6 +371,8 @@ function BudgetPanel({ id, budget, spend, onBudget, notify }: {
 function OverviewTab({ id, name, budget, onBudget, notify }: { id: string; name: string; budget: number | null; onBudget: (v: number | null) => void; notify: (m: string, s?: "success" | "error") => void }) {
   const [row, setRow] = useState<CampaignAnalyticsRow | null>(null);
   const [perf, setPerf] = useState<AdPerformance | null>(null);
+  const [keywords, setKeywords] = useState<AdKeyword[]>([]);
+  const [leads, setLeads] = useState<Conversation[]>([]);
   const [loading, setLoading] = useState(true);
   const [exportOpen, setExportOpen] = useState(false);
   // Seed the range from the URL when present (the headless PDF route navigates
@@ -388,6 +390,8 @@ function OverviewTab({ id, name, budget, onBudget, notify }: { id: string; name:
     const { from, to } = dateRange === "custom" ? { from: fFrom, to: fTo } : presetRange(dateRange);
     api.adPerformance(from || undefined, to || undefined, [id])
       .then((p) => setPerf(p as AdPerformance)).catch(() => setPerf(null)).finally(() => setLoading(false));
+    api.adKeywords(from || undefined, to || undefined).then((k) => setKeywords(k || [])).catch(() => setKeywords([]));
+    api.listConversations("", from || "", to || "", "", id).then((c) => setLeads(c || [])).catch(() => setLeads([]));
   }, [id, dateRange, fFrom, fTo]);
 
   const sources = useMemo(() => perf?.sources ?? [], [perf]);
@@ -399,6 +403,16 @@ function OverviewTab({ id, name, budget, onBudget, notify }: { id: string; name:
   const cpc = tot.clicks > 0 ? tot.spend / tot.clicks : 0;
   const cpl = tot.leads > 0 ? tot.spend / tot.leads : 0;
   const daily = useMemo(() => (perf?.daily ?? []).map((d) => ({ date: (d.date ?? "").slice(5), leads: d.leads })), [perf]);
+  // Clicks/impressions use null for zero-days so the log-scale line skips them.
+  const dailyPerf = useMemo(() => (perf?.daily ?? []).map((d) => ({
+    date: (d.date ?? "").slice(5),
+    impressions: d.impressions > 0 ? d.impressions : null,
+    clicks: d.clicks > 0 ? d.clicks : null,
+    spend: Math.round(d.spend || 0),
+  })), [perf]);
+  const kw = useMemo(() => keywords.slice(0, 10), [keywords]);
+  const kwMax = useMemo(() => Math.max(1, ...kw.map((k) => k.impressions)), [kw]);
+  const logW = (v: number) => Math.max(2, (Math.log10((v || 0) + 1) / Math.log10(kwMax + 1)) * 100);
 
   // Full raw analytics export: summary + per-source + daily timeline + age/gender/
   // region demographics, each as its own labelled block in one CSV.
@@ -602,6 +616,109 @@ function OverviewTab({ id, name, budget, onBudget, notify }: { id: string; name:
                 <Area type="monotone" dataKey="leads" stroke="#2D8B73" strokeWidth={2} fill="url(#leadFill)" />
               </AreaChart>
             </ResponsiveContainer>
+          </div>
+        </div>
+      )}
+
+      {/* Campaign performance breakdown — clicks + impressions (log scale) */}
+      {dailyPerf.length > 0 && (
+        <div className="print-avoid-break rounded-xl border border-border p-4">
+          <div className="flex items-center justify-between mb-3">
+            <p className="text-[13px] font-semibold text-foreground">Campaign performance breakdown</p>
+            <div className="flex items-center gap-3 text-[10px] text-muted-foreground">
+              <span className="flex items-center gap-1"><span className="w-3 h-0.5 bg-[#F97316] inline-block" />Clicks</span>
+              <span className="flex items-center gap-1"><span className="w-3 h-0.5 bg-neutral-800 inline-block" />Impressions</span>
+            </div>
+          </div>
+          <div className="h-[240px]">
+            <ResponsiveContainer width="100%" height="100%">
+              <LineChart data={dailyPerf} margin={{ top: 6, right: 8, left: -4, bottom: 0 }}>
+                <CartesianGrid strokeDasharray="3 3" stroke="rgba(0,0,0,0.06)" vertical={false} />
+                <XAxis dataKey="date" tick={{ fontSize: 10 }} axisLine={false} tickLine={false} minTickGap={28} />
+                <YAxis scale="log" domain={[1, "auto"]} allowDataOverflow tick={{ fontSize: 10 }} axisLine={false} tickLine={false} width={46}
+                  tickFormatter={(v) => v >= 1e6 ? `${(v / 1e6).toFixed(0)}M` : v >= 1000 ? `${(v / 1000).toFixed(0)}k` : `${v}`} />
+                <RTooltip formatter={(v) => num(Number(v))} />
+                <Line type="monotone" dataKey="impressions" name="Impressions" stroke="#262626" strokeWidth={1.6} dot={false} connectNulls />
+                <Line type="monotone" dataKey="clicks" name="Clicks" stroke="#F97316" strokeWidth={1.6} dot={false} connectNulls />
+              </LineChart>
+            </ResponsiveContainer>
+          </div>
+        </div>
+      )}
+
+      {/* Google top search keywords */}
+      {kw.length > 0 && (
+        <div className="print-avoid-break rounded-xl border border-border p-4">
+          <div className="flex items-center justify-between mb-3">
+            <p className="text-[13px] font-semibold text-foreground">Google top {kw.length} search keywords</p>
+            <div className="flex items-center gap-3 text-[10px] text-muted-foreground">
+              <span className="flex items-center gap-1"><span className="w-2.5 h-2.5 rounded-sm bg-[#F97316]" />Clicks</span>
+              <span className="flex items-center gap-1"><span className="w-2.5 h-2.5 rounded-sm bg-neutral-800" />Impressions</span>
+            </div>
+          </div>
+          <div className="space-y-2.5">
+            {kw.map((k, i) => (
+              <div key={k.keyword + i} className="grid grid-cols-[minmax(90px,150px)_1fr] items-center gap-3">
+                <span className="text-[11px] text-foreground truncate" title={k.keyword}>{k.keyword}</span>
+                <div className="space-y-1">
+                  <div className="flex items-center gap-2"><div className="h-2.5 rounded-sm bg-[#F97316]" style={{ width: `${logW(k.clicks)}%` }} /><span className="text-[10px] tabular-nums text-muted-foreground shrink-0">{num(k.clicks)}</span></div>
+                  <div className="flex items-center gap-2"><div className="h-2.5 rounded-sm bg-neutral-800" style={{ width: `${logW(k.impressions)}%` }} /><span className="text-[10px] tabular-nums text-muted-foreground shrink-0">{num(k.impressions)}</span></div>
+                </div>
+              </div>
+            ))}
+          </div>
+        </div>
+      )}
+
+      {/* Monthly spending performance — daily cost */}
+      {dailyPerf.length > 0 && (
+        <div className="print-avoid-break rounded-xl border border-border p-4">
+          <p className="text-[13px] font-semibold text-foreground mb-3">Monthly spending performance</p>
+          <div className="h-[200px]">
+            <ResponsiveContainer width="100%" height="100%">
+              <BarChart data={dailyPerf} margin={{ top: 6, right: 8, left: 6, bottom: 0 }}>
+                <CartesianGrid strokeDasharray="3 3" stroke="rgba(0,0,0,0.06)" vertical={false} />
+                <XAxis dataKey="date" tick={{ fontSize: 10 }} axisLine={false} tickLine={false} minTickGap={28} />
+                <YAxis tick={{ fontSize: 10 }} axisLine={false} tickLine={false} width={56}
+                  tickFormatter={(v) => v >= 1e6 ? `${(v / 1e6).toFixed(0)}M` : v >= 1000 ? `${(v / 1000).toFixed(0)}k` : `${v}`} />
+                <RTooltip formatter={(v) => money(Number(v))} />
+                <Bar dataKey="spend" name="Cost" fill="#F97316" radius={[2, 2, 0, 0]} />
+              </BarChart>
+            </ResponsiveContainer>
+          </div>
+        </div>
+      )}
+
+      {/* Latest leads */}
+      {leads.length > 0 && (
+        <div className="print-avoid-break rounded-xl border border-border overflow-hidden">
+          <div className="px-4 py-2.5 border-b border-border bg-muted/40 flex items-center justify-between">
+            <p className="text-[13px] font-semibold text-foreground">Latest leads</p>
+            <span className="text-[11px] text-muted-foreground">{leads.length} total</span>
+          </div>
+          <div className="overflow-x-auto">
+            <table className="w-full text-[12.5px] whitespace-nowrap">
+              <thead>
+                <tr className="border-b border-border bg-muted/60 text-muted-foreground text-[11px] uppercase tracking-wider">
+                  {["Date", "Name", "Phone", "Source", "Status"].map((h, i) => (
+                    <th key={h} className={cn("px-3 py-2 font-bold text-left", i > 2 && "hidden sm:table-cell")}>{h}</th>
+                  ))}
+                </tr>
+              </thead>
+              <tbody>
+                {leads.slice(0, 10).map((l) => (
+                  <tr key={l.id} className="border-b border-border/60">
+                    <td className="px-3 py-2 text-muted-foreground">{l.last_message_at ? fmtDateTimeShort(l.last_message_at) : "-"}</td>
+                    <td className="px-3 py-2 font-medium text-foreground">{l.contact_name || "Unknown"}</td>
+                    <td className="px-3 py-2 tabular-nums text-muted-foreground">{l.contact_phone || "-"}</td>
+                    <td className="px-3 py-2 text-muted-foreground capitalize hidden sm:table-cell">{l.channel || "-"}</td>
+                    <td className="px-3 py-2 hidden sm:table-cell">
+                      <span className="inline-flex px-2 py-0.5 rounded-md text-[11px] font-semibold bg-muted text-foreground/80">{l.stage_name || l.status}</span>
+                    </td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
           </div>
         </div>
       )}

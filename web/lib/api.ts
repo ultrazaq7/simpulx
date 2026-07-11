@@ -221,12 +221,13 @@ export const api = {
     }
   },
   me: () => req<User>("/api/me"),
-  listConversations: (status = "", from = "", to = "", source = "") => {
+  listConversations: (status = "", from = "", to = "", source = "", campaign = "") => {
     const q = new URLSearchParams();
     if (status) q.set("status", status);
     if (from) q.set("from", from);
     if (to) q.set("to", to);
     if (source) q.set("source", source);
+    if (campaign) q.set("campaign", campaign);
     const qs = q.toString();
     return req<Conversation[]>(`/api/conversations${qs ? "?" + qs : ""}`);
   },
