@@ -7,6 +7,7 @@ Pesan follow-up ditangani handle_followup (cron berbasis waktu).
 from __future__ import annotations
 
 import json
+import re
 from datetime import datetime, timezone
 from typing import List, Optional
 
@@ -24,6 +25,18 @@ JUNK_CONF = 0.7            # min detect_junk() confidence to auto-set spam/lost 
 # Follow-up cadence + the terminal "no response -> Lost" close-out live in the
 # messaging cron (services/messaging/main.go); the ai-agent only drafts each touch.
 _ENTITY_CATS = {"Model/Brand Interest", "Price/Financing", "Visit/Showroom"}
+
+
+_TPL_PLACEHOLDER_RE = re.compile(r"\{\{\s*(\d+)\s*\}\}")
+
+
+def _template_body_params(body: str, ctx_values: List[str]) -> List[str]:
+    """Fill {{1}}..{{n}} in an approved template body with the given context values,
+    padded with '' so the count ALWAYS matches what WhatsApp expects (a mismatch
+    makes Meta reject the send)."""
+    nums = [int(n) for n in _TPL_PLACEHOLDER_RE.findall(body or "")]
+    n = max(nums) if nums else 0
+    return [(ctx_values[i] if i < len(ctx_values) else "") for i in range(n)]
 
 
 async def _publish_activity(broker, org_id: str, conv_id: str, phase: str, log) -> None:
@@ -168,14 +181,46 @@ async def handle_followup(broker, pool, org_id: str, conv_id: str, log) -> None:
             """SELECT cv.is_bot_active, cv.ai_agent_id, cv.followup_count,
                       cv.car_brand, cv.car_model, cv.city, cv.window_expires_at,
                       cmp.ai_language, cmp.ai_dynamic_language,
+                      cmp.name AS campaign_name, cmp.dealer_name,
+                      ct.name AS contact_name,
+                      ft.name AS ft_name, ft.language AS ft_language,
+                      ft.status AS ft_status, ft.body AS ft_body,
                       a.system_prompt, a.model
                  FROM conversations cv
                  LEFT JOIN ai_agents a ON a.id = cv.ai_agent_id
                  LEFT JOIN campaigns cmp ON cmp.id = cv.campaign_id
+                 LEFT JOIN contacts ct ON ct.id = cv.contact_id
+                 LEFT JOIN message_templates ft ON ft.id = cmp.followup_template_id
                 WHERE cv.id = $1""",
             conv_id,
         )
     if conv is None or not conv["is_bot_active"] or conv["ai_agent_id"] is None:
+        return
+
+    # WhatsApp only allows free-form messages inside the 24h service window. Touches
+    # 1-2 (12h, 20h) fall inside it; the later touches (1d/3d/7d) fall outside. For
+    # those, send the campaign's APPROVED follow-up template (B) if one is set;
+    # otherwise skip the send (the cron still advances the cadence and eventually
+    # closes the lead to Lost).
+    win = conv["window_expires_at"]
+    if win is not None and win <= datetime.now(timezone.utc):
+        if conv["ft_name"] and (conv["ft_status"] or "").upper() == "APPROVED":
+            params = _template_body_params(
+                conv["ft_body"],
+                [conv["contact_name"] or "kak",
+                 conv["dealer_name"] or conv["campaign_name"] or "",
+                 conv["campaign_name"] or ""],
+            )
+            await broker.publish(SUBJECT_OUTBOUND, org_id, {
+                "conversation_id": conv_id, "sender_type": "bot", "type": "template",
+                "template": {"name": conv["ft_name"],
+                             "language": conv["ft_language"] or "id",
+                             "body_params": params},
+            })
+            log.info("followup template sent (outside 24h window)",
+                     extra={"conv": conv_id, "template": conv["ft_name"]})
+        else:
+            log.info("followup skipped: outside 24h window (no approved template)", extra={"conv": conv_id})
         return
 
     finance_ctx = ""
@@ -184,15 +229,6 @@ async def handle_followup(broker, pool, org_id: str, conv_id: str, log) -> None:
         ctx = await finance_rag.get_finance_context(pool, conv["car_brand"], conv["car_model"], conv["city"])
         if ctx:
             finance_ctx = f"\n\n{ctx}\n"
-
-    # WhatsApp only allows free-form messages inside the 24h service window. Touches
-    # 1-2 (12h, 20h) fall inside it; the later touches (1d/3d/7d) fall outside and
-    # need an approved template (configured per campaign - not wired yet), so skip
-    # the send rather than let it fail. The cron still advances the cadence.
-    win = conv["window_expires_at"]
-    if win is not None and win <= datetime.now(timezone.utc):
-        log.info("followup skipped: outside 24h window (needs template)", extra={"conv": conv_id})
-        return
 
     # Follow-ups honour the campaign's language setting, same as live replies (A).
     lang = ((conv["ai_language"] if conv else None) or "id").lower()

@@ -10,7 +10,7 @@ import { Select } from "@/components/Select";
 import DateRangeFilter, { presetRange } from "@/components/DateRangeFilter";
 import { IndonesiaMap } from "@/components/IndonesiaMap";
 import { cn, fmtDuration, fmtDateTimeShort } from "@/lib/utils";
-import type { CampaignDetail, CampaignAnalyticsRow, CatalogItem, AdPerformance, AdBreakdown, AdKeyword, Ga4Report, Conversation } from "@/lib/types";
+import type { CampaignDetail, CampaignAnalyticsRow, CatalogItem, AdPerformance, AdBreakdown, AdKeyword, Ga4Report, Conversation, Template } from "@/lib/types";
 import { useToast, PageBody, FieldLabel, INPUT_CLASS } from "../../_shared";
 import { useConfirm } from "@/components/ConfirmDialog";
 import UnsavedBar from "@/components/UnsavedBar";
@@ -829,6 +829,7 @@ function AITab({ campaign, onSaved, onError }: { campaign: CampaignDetail; onSav
     segment: campaign.segment ?? "", brand: campaign.brand ?? "",
     autoReply: campaign.ai_auto_reply ?? false, lang: campaign.ai_language ?? "id",
     dynLang: campaign.ai_dynamic_language ?? true, smartSummary: campaign.ai_smart_summary ?? true,
+    followupTpl: campaign.followup_template_id ?? "",
   };
   const [segment, setSegment] = useState(init.segment);
   const [brand, setBrand] = useState(init.brand);
@@ -836,16 +837,26 @@ function AITab({ campaign, onSaved, onError }: { campaign: CampaignDetail; onSav
   const [lang, setLang] = useState(init.lang);
   const [dynLang, setDynLang] = useState(init.dynLang);
   const [smartSummary, setSmartSummary] = useState(init.smartSummary);
+  const [followupTpl, setFollowupTpl] = useState(init.followupTpl);
+  const [templates, setTemplates] = useState<Template[]>([]);
   const [saving, setSaving] = useState(false);
 
-  const changedCount = [segment !== init.segment, brand.trim() !== init.brand, autoReply !== init.autoReply, lang !== init.lang, dynLang !== init.dynLang, smartSummary !== init.smartSummary].filter(Boolean).length;
-  function reset() { setSegment(init.segment); setBrand(init.brand); setAutoReply(init.autoReply); setLang(init.lang); setDynLang(init.dynLang); setSmartSummary(init.smartSummary); }
+  // Only APPROVED templates can be sent outside the 24h window.
+  useEffect(() => {
+    api.listTemplates({ campaign_id: campaign.id })
+      .then((t) => setTemplates((t || []).filter((x) => x.status === "APPROVED")))
+      .catch(() => setTemplates([]));
+  }, [campaign.id]);
+
+  const changedCount = [segment !== init.segment, brand.trim() !== init.brand, autoReply !== init.autoReply, lang !== init.lang, dynLang !== init.dynLang, smartSummary !== init.smartSummary, followupTpl !== init.followupTpl].filter(Boolean).length;
+  function reset() { setSegment(init.segment); setBrand(init.brand); setAutoReply(init.autoReply); setLang(init.lang); setDynLang(init.dynLang); setSmartSummary(init.smartSummary); setFollowupTpl(init.followupTpl); }
 
   async function save() {
     setSaving(true);
     try {
-      await api.updateCampaign(campaign.id, { segment, brand: brand.trim(), ai_auto_reply: autoReply, ai_language: lang, ai_dynamic_language: dynLang, ai_smart_summary: smartSummary });
-      onSaved({ ...campaign, segment, brand: brand.trim(), ai_auto_reply: autoReply, ai_language: lang, ai_dynamic_language: dynLang, ai_smart_summary: smartSummary });
+      const patch = { segment, brand: brand.trim(), ai_auto_reply: autoReply, ai_language: lang, ai_dynamic_language: dynLang, ai_smart_summary: smartSummary, followup_template_id: followupTpl || "none" };
+      await api.updateCampaign(campaign.id, patch);
+      onSaved({ ...campaign, segment, brand: brand.trim(), ai_auto_reply: autoReply, ai_language: lang, ai_dynamic_language: dynLang, ai_smart_summary: smartSummary, followup_template_id: followupTpl || null });
     } catch (e) { onError(String(e)); } finally { setSaving(false); }
   }
   return (
@@ -873,6 +884,14 @@ function AITab({ campaign, onSaved, onError }: { campaign: CampaignDetail; onSav
             <Toggle on={dynLang} onToggle={() => setDynLang((v) => !v)} />
           </div>
         </div>
+      </div>
+      <div>
+        <FieldLabel hint="Auto follow-up nudges a silent lead at 12h and 20h with free-form AI messages (inside WhatsApp's 24h window). Later touches at day 1, 3 and 7 fall outside the window, so they need an approved template. No template = those later touches are skipped; the lead is still auto-closed to Lost if there's no reply.">Follow-up template</FieldLabel>
+        <Select value={followupTpl} onChange={setFollowupTpl}
+          options={[{ value: "", label: "None (skip out-of-window follow-ups)" }, ...templates.map((t) => ({ value: t.id, label: `${t.name} (${t.language})` }))]} />
+        {templates.length === 0 && (
+          <p className="text-[11.5px] text-muted-foreground mt-1">No approved templates yet. Create one and get it approved under Templates to enable day 1/3/7 follow-ups.</p>
+        )}
       </div>
       <UnsavedBar count={changedCount} saving={saving} onSave={save} onCancel={reset} saveLabel="Save AI settings" />
     </div>
