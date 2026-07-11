@@ -191,6 +191,63 @@ async def extract_catalog(pdf_b64: str, segment: Optional[str] = None,
     return {"rows": rows if isinstance(rows, list) else [], "warning": obj.get("warning")}
 
 
+async def extract_catalog_stream(pdf_b64: str, segment: Optional[str] = None,
+                                 model: Optional[str] = None) -> AsyncIterator[dict]:
+    """Streaming variant of extract_catalog. Yields progress events while Claude
+    generates so the caller can report real sub-progress:
+      {"type":"progress","rows":N}  -> N item rows extracted so far
+      {"type":"done","rows":[...],"warning":...}
+      {"type":"error","error":"..."}
+    """
+    if not (settings.llm_provider == "anthropic" and settings.anthropic_api_key):
+        yield {"type": "done", "rows": [], "warning": "no_llm"}
+        return
+    hint = f" Segmen bisnis: {segment}." if segment else ""
+    content = [
+        {"type": "document", "source": {"type": "base64", "media_type": "application/pdf", "data": pdf_b64}},
+        {"type": "text", "text": CATALOG_EXTRACT_INSTRUCTION + hint},
+    ]
+    body = {"model": model or settings.llm_model, "max_tokens": 16384, "stream": True,
+            "messages": [{"role": "user", "content": content}]}
+    headers = {"x-api-key": settings.anthropic_api_key,
+               "anthropic-version": _HEADERS_VERSION, "content-type": "application/json"}
+    parts: list[str] = []
+    last_n = -1
+    try:
+        async with httpx.AsyncClient(timeout=240) as client:
+            async with client.stream("POST", _URL, headers=headers, json=body) as resp:
+                if resp.status_code != 200:
+                    await resp.aread()
+                    yield {"type": "error", "error": f"llm http {resp.status_code}"}
+                    return
+                async for line in resp.aiter_lines():
+                    if not line.startswith("data:"):
+                        continue
+                    try:
+                        evt = json.loads(line[5:].strip())
+                    except Exception:  # noqa: BLE001
+                        continue
+                    if evt.get("type") == "content_block_delta":
+                        d = evt.get("delta", {})
+                        if d.get("type") == "text_delta":
+                            parts.append(d.get("text", ""))
+                            # Each catalog row carries an "item_name" key; count them
+                            # in the accumulating JSON as a live "rows so far" signal.
+                            n = "".join(parts).count('"item_name"')
+                            if n != last_n:
+                                last_n = n
+                                yield {"type": "progress", "rows": n}
+    except Exception as e:  # noqa: BLE001
+        yield {"type": "error", "error": str(e)}
+        return
+    obj = _parse_json("".join(parts))
+    if not isinstance(obj, dict):
+        yield {"type": "done", "rows": [], "warning": "parse_failed"}
+        return
+    rows = obj.get("rows")
+    yield {"type": "done", "rows": rows if isinstance(rows, list) else [], "warning": obj.get("warning")}
+
+
 def _as_int(v):
     try:
         return int(v) if v is not None else None

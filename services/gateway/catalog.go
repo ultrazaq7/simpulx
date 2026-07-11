@@ -1,11 +1,11 @@
 package main
 
 import (
+	"bufio"
 	"bytes"
 	"context"
 	"encoding/json"
 	"fmt"
-	"io"
 	"net/http"
 	"strconv"
 	"strings"
@@ -175,6 +175,7 @@ func (s *server) runCatalogExtract(key string, payload []byte) {
 		return
 	}
 	req.Header.Set("content-type", "application/json")
+	req.Header.Set("accept", "text/event-stream")
 	client := &http.Client{Timeout: 5 * time.Minute}
 	resp, err := client.Do(req)
 	if err != nil {
@@ -182,31 +183,45 @@ func (s *server) runCatalogExtract(key string, payload []byte) {
 		return
 	}
 	defer resp.Body.Close()
-	body, _ := io.ReadAll(resp.Body)
 	if resp.StatusCode != http.StatusOK {
-		// Surface the ai-agent's real error (truncated) instead of a generic one,
-		// so the user knows whether it's config, a bad PDF, or a service issue.
-		msg := strings.TrimSpace(string(body))
-		if len(msg) > 300 {
-			msg = msg[:300]
-		}
-		if msg == "" {
-			msg = fmt.Sprintf("extraction failed (%d)", resp.StatusCode)
-		}
-		store(map[string]any{"status": "error", "error": msg})
+		store(map[string]any{"status": "error", "error": fmt.Sprintf("extraction failed (%d)", resp.StatusCode)})
 		return
 	}
-	// ai-agent body is {rows, warning?} (or {error}); merge it under status:done.
-	var inner map[string]any
-	if err := json.Unmarshal(body, &inner); err != nil {
-		store(map[string]any{"status": "error", "error": "bad extraction response"})
+	// The ai-agent streams SSE progress events; relay each to Redis so the client
+	// poll sees live "rows extracted so far", then the final rows on done.
+	sc := bufio.NewScanner(resp.Body)
+	sc.Buffer(make([]byte, 0, 64*1024), 16*1024*1024) // the final "done" event carries all rows
+	for sc.Scan() {
+		line := strings.TrimSpace(sc.Text())
+		if !strings.HasPrefix(line, "data:") {
+			continue
+		}
+		var evt map[string]any
+		if json.Unmarshal([]byte(strings.TrimSpace(line[5:])), &evt) != nil {
+			continue
+		}
+		switch evt["type"] {
+		case "progress":
+			store(map[string]any{"status": "pending", "stage": "extracting", "rows_found": evt["rows"]})
+		case "done":
+			result := map[string]any{"status": "done"}
+			for k, v := range evt {
+				if k != "type" {
+					result[k] = v
+				}
+			}
+			store(result)
+			return
+		case "error":
+			store(map[string]any{"status": "error", "error": evt["error"]})
+			return
+		}
+	}
+	if sc.Err() != nil {
+		store(map[string]any{"status": "error", "error": "extraction stream error"})
 		return
 	}
-	result := map[string]any{"status": "done"}
-	for k, v := range inner {
-		result[k] = v
-	}
-	store(result)
+	store(map[string]any{"status": "error", "error": "extraction ended unexpectedly"})
 }
 
 // GET /api/campaigns/{id}/catalog/extract/{job} — poll an extraction job. Returns

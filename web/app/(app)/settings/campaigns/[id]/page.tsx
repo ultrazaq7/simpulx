@@ -900,8 +900,10 @@ function CatalogTab({ id, segment, notify }: { id: string; segment?: string; not
       if (isPdf) {
         step("Reading your PDF file...");
         const b64 = fileToBase64(await file.arrayBuffer());
-        step("Simpuler is reading and extracting rows from your pricelist (this can take up to a minute)...");
-        const res = await api.extractCatalogPdf(id, { pdf_base64: b64, segment });
+        step("Simpuler is reading your pricelist...");
+        const res = await api.extractCatalogPdf(id, { pdf_base64: b64, segment }, (info) => {
+          if (info.rows && info.rows > 0) step(`Simpuler extracted ${info.rows} item${info.rows === 1 ? "" : "s"} so far...`);
+        });
         if (res.error) { notify(`Extraction failed: ${res.error}`, "error"); return; }
         if (res.warning === "scanned") { notify("This looks like a scanned PDF (no readable text). Use a text PDF, or upload a CSV/Excel.", "error"); return; }
         if (res.warning === "no_llm") { notify("PDF extraction is not enabled on the server. Upload a CSV or Excel file instead.", "error"); return; }

@@ -480,18 +480,18 @@ export const api = {
     req<{ inserted: number; replaced: boolean }>(`/api/campaigns/${id}/catalog`, { method: "POST", body: JSON.stringify(input) }),
   // PDF pricelist -> LLM extraction (via ai-agent). Async: start a job, then poll
   // its status so a slow extraction never trips the edge proxy's ~100s timeout.
-  extractCatalogPdf: async (id: string, input: { pdf_base64: string; segment?: string }) => {
+  extractCatalogPdf: async (id: string, input: { pdf_base64: string; segment?: string }, onProgress?: (info: { stage?: string; rows?: number }) => void) => {
     type Row = { item_name: string; variant_name?: string; location_name?: string; category_type?: string; headline_price?: number | null; attributes?: Record<string, unknown> };
-    type Res = { status?: string; rows?: Row[]; warning?: string; error?: string };
+    type Res = { status?: string; stage?: string; rows_found?: number; rows?: Row[]; warning?: string; error?: string };
     const start = await req<{ job_id: string }>(`/api/campaigns/${id}/catalog/extract`, { method: "POST", body: JSON.stringify(input) });
     const deadline = Date.now() + 5 * 60 * 1000;
     while (Date.now() < deadline) {
-      await new Promise((r) => setTimeout(r, 2500));
+      await new Promise((r) => setTimeout(r, 1500));
       const st = await req<Res>(`/api/campaigns/${id}/catalog/extract/${start.job_id}`);
       if (st.status === "done") return { rows: st.rows ?? [], warning: st.warning, error: st.error };
       if (st.status === "error") return { rows: [], error: st.error || "Extraction failed" };
       if (st.status === "expired") return { rows: [], error: "Extraction expired, please retry" };
-      // pending -> keep polling
+      onProgress?.({ stage: st.stage, rows: st.rows_found }); // pending -> report live progress
     }
     return { rows: [], error: "Extraction timed out" };
   },

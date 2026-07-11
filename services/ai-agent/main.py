@@ -98,15 +98,22 @@ class ExtractCatalogReq(BaseModel):
 
 @app.post("/extract/catalog")
 async def extract_catalog(req: ExtractCatalogReq):
-    """Extract catalog rows from a pricelist PDF via Claude (WS-A). The gateway
-    forwards the upload here; the caller reviews/imports the returned rows."""
-    if not req.pdf_base64:
-        return {"rows": [], "error": "no pdf"}
-    try:
-        return await llm.extract_catalog(req.pdf_base64, segment=req.segment)
-    except Exception as e:  # noqa: BLE001
-        log.exception("catalog extract failed")
-        return {"rows": [], "error": str(e)}
+    """Extract catalog rows from a pricelist PDF via Claude (WS-A), STREAMED as SSE
+    so the gateway can relay live sub-progress (rows extracted so far). Emits
+    `data: {type:"progress"|"done"|"error", ...}` events; the gateway forwards the
+    final rows to the client to review/import."""
+    async def gen():
+        if not req.pdf_base64:
+            yield f"data: {json.dumps({'type': 'done', 'rows': [], 'error': 'no pdf'})}\n\n"
+            return
+        try:
+            async for evt in llm.extract_catalog_stream(req.pdf_base64, segment=req.segment):
+                yield f"data: {json.dumps(evt)}\n\n"
+        except Exception as e:  # noqa: BLE001
+            log.exception("catalog extract failed")
+            yield f"data: {json.dumps({'type': 'error', 'error': str(e)})}\n\n"
+
+    return StreamingResponse(gen(), media_type="text/event-stream")
 
 
 class SummaryReq(BaseModel):
