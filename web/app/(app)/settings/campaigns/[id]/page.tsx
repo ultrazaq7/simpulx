@@ -288,11 +288,11 @@ function CatalogTab({ id, segment, notify }: { id: string; segment?: string; not
         parsed = parseCatalogCsv(await file.text());
       }
       if (parsed.length === 0) { notify("No rows found. Make sure the first row is a header (e.g. item_name, price).", "error"); return; }
-      // Apply the chosen location(s): rows that don't already carry a location get
-      // tagged; with several locations a row is duplicated once per location so the
-      // pricelist applies to each city.
+      // The chosen location chips OVERRIDE whatever location the file had: every row
+      // is duplicated once per selected city so the pricelist covers each location.
+      // Leave the chips empty to keep the file's own location column.
       const finalRows = locations.length === 0 ? parsed
-        : parsed.flatMap((r) => r.location_name ? [r] : locations.map((loc) => ({ ...r, location_name: loc })));
+        : parsed.flatMap((r) => locations.map((loc) => ({ ...r, location_name: loc })));
       step(`Found ${parsed.length} item${parsed.length === 1 ? "" : "s"}${locations.length ? ` x ${locations.length} location${locations.length === 1 ? "" : "s"}` : ""}. Saving to the catalog...`);
       const month = new Date().toISOString().slice(0, 7);
       const res = await api.uploadCampaignCatalog(id, { replace: true, segment, source_ref: file.name, effective_month: month, rows: finalRows });
