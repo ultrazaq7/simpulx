@@ -3,10 +3,9 @@
 // PDF page (/report/ads) and the dashboard Ads Report tab, so what you see on screen is
 // exactly what you export. Purely presentational: it takes already-fetched data as props.
 //
-// Visual spec traced from the Heroleads "Campaign Dashboard" reference: light-gray
-// canvas, white panels with soft shadows + rounded corners, ORANGE (#FF5722) accent for
-// table headers / bars / budget, colored trapezoid funnel, heatmap table (CTR orange,
-// Leads green, CPL yellow), dense charts.
+// Heroleads LAYOUT with the Simpulx brand: light-gray canvas, white soft-shadow panels,
+// GREEN (#2D8B73) accent for table headers / bars / budget, a green stacked funnel,
+// heatmap table (Leads green, CPL yellow), dense charts.
 import { LineChart, Line, AreaChart, Area, BarChart, Bar, XAxis, YAxis, CartesianGrid, ResponsiveContainer } from "recharts";
 import { IndonesiaMap } from "@/components/IndonesiaMap";
 import type { AdPerformance, AdPerfSource, AdKeyword, Conversation, AdBreakdown, Ga4Report, Campaign } from "@/lib/types";
@@ -18,12 +17,14 @@ const MONTHS = ["Jan", "Feb", "Mar", "Apr", "May", "Jun", "Jul", "Aug", "Sep", "
 const fmtDay = (iso: string) => { const m = /^(\d{4})-(\d{2})-(\d{2})/.exec(iso || ""); return m ? `${MONTHS[+m[2] - 1]} ${+m[3]}` : iso; };
 const fmtSec = (s: number) => { const m = Math.floor((s || 0) / 60); const sec = Math.round((s || 0) % 60); return `${m}:${String(sec).padStart(2, "0")}`; };
 
-// Heroleads palette.
-const ORANGE = "#FF5722";        // accent: table headers, bars, budget
-const ORANGE_HI = "#FF3D00";     // funnel clicks / breakdown clicks line
-const NAVY = "#0b1220";          // funnel impressions / breakdown impressions line
-const MAGENTA = "#FF1E6F";       // funnel CTR
-const BLUE = "#1565D8";          // funnel leads
+// Heroleads layout, Simpulx brand palette (green accent, not orange).
+const GREEN = "#2D8B73";        // brand accent: table headers, bars, budget
+const GREEN_DK = "#1E5C4C";     // deep green: chart "clicks" line/bars
+const NAVY = "#0b1220";          // header / chart "impressions" line
+const MAGENTA = "#FF1E6F";       // gender: female
+const BLUE = "#1565D8";          // gender: male
+// On-brand green funnel ramp (dark -> light as it narrows).
+const FUNNEL = ["#14503C", "#1E7A5F", "#2D8B73", "#5FB89E"];
 const CANVAS = "#eceff3";
 const PANEL = "0 1px 3px rgba(15,23,42,.10), 0 1px 2px rgba(15,23,42,.06)";
 const clamp = (t: number) => Math.max(0, Math.min(1, t || 0));
@@ -66,12 +67,12 @@ export function AdsReportView({ perf, keywords, leads, ga4, camps, campaigns, ra
   const cplVals = sources.filter((s) => s.leads > 0).map(srcCpl);
   const maxCpl = Math.max(1, ...cplVals), minCpl = Math.min(...(cplVals.length ? cplVals : [0]));
 
-  // Trapezoid funnel (top width tapers to bottom).
+  // Stacked funnel bars that narrow by step (the original look), on a green ramp.
   const funnel = [
-    { label: "IMPRESSIONS", value: num(tot.impressions), top: 100, bot: 82, c: NAVY },
-    { label: "CLICKS", value: num(tot.clicks), top: 82, bot: 66, c: ORANGE_HI },
-    { label: "CTR%", value: pct(ctr), top: 66, bot: 50, c: MAGENTA },
-    { label: "LEADS", value: num(tot.leads), top: 50, bot: 34, c: BLUE },
+    { label: "IMPRESSIONS", value: num(tot.impressions), w: 100, c: FUNNEL[0] },
+    { label: "CLICKS", value: num(tot.clicks), w: 80, c: FUNNEL[1] },
+    { label: "CTR%", value: pct(ctr), w: 62, c: FUNNEL[2] },
+    { label: "LEADS", value: num(tot.leads), w: 46, c: FUNNEL[3] },
   ];
 
   const dem = (arr?: AdBreakdown[]) => (arr || []).filter((b) => (b.value || "").toLowerCase() !== "unknown");
@@ -110,25 +111,20 @@ export function AdsReportView({ perf, keywords, leads, ga4, camps, campaigns, ra
 
       {/* Funnel + Campaign performance table */}
       <div style={{ display: "grid", gridTemplateColumns: "220px 1fr", gap: 14, marginTop: 14 }}>
-        <div style={{ display: "flex", flexDirection: "column", alignItems: "stretch", gap: 0 }}>
-          {funnel.map((f) => {
-            const tl = (100 - f.top) / 2, tr = (100 + f.top) / 2, bl = (100 - f.bot) / 2, br = (100 + f.bot) / 2;
-            return (
-              <div key={f.label} style={{ width: "100%", height: 80, background: f.c, color: "#fff",
-                display: "flex", flexDirection: "column", alignItems: "center", justifyContent: "center",
-                clipPath: `polygon(${tl}% 0, ${tr}% 0, ${br}% 100%, ${bl}% 100%)` }}>
-                <div style={{ fontSize: 11, fontWeight: 700, opacity: 0.92, letterSpacing: 0.6 }}>{f.label}</div>
-                <div style={{ fontSize: 26, fontWeight: 800, lineHeight: 1.05 }}>{f.value}</div>
-              </div>
-            );
-          })}
+        <div style={{ display: "flex", flexDirection: "column", alignItems: "center", gap: 7 }}>
+          {funnel.map((f) => (
+            <div key={f.label} style={{ width: `${f.w}%`, background: f.c, color: "#fff", borderRadius: 9, padding: "13px 8px", textAlign: "center", boxShadow: PANEL }}>
+              <div style={{ fontSize: 10.5, fontWeight: 700, opacity: 0.92, letterSpacing: 0.5 }}>{f.label}</div>
+              <div style={{ fontSize: 23, fontWeight: 800, lineHeight: 1.05 }}>{f.value}</div>
+            </div>
+          ))}
         </div>
 
         <Panel pad={false}>
           <div style={{ padding: "10px 14px", fontSize: 13, fontWeight: 700 }}>Campaign Performance</div>
           <table style={{ width: "100%", borderCollapse: "collapse", fontSize: 12 }}>
             <thead>
-              <tr style={{ background: ORANGE, color: "#fff" }}>
+              <tr style={{ background: GREEN, color: "#fff" }}>
                 {["SOURCE", "COST", "IMPRESSIONS", "CLICKS", "CTR", "CPC", "LEADS", "CPL"].map((h, i) => (
                   <th key={h} style={{ padding: "8px 10px", textAlign: i === 0 ? "left" : "right", fontWeight: 700, fontSize: 10.5 }}>{h}</th>
                 ))}
@@ -166,7 +162,7 @@ export function AdsReportView({ perf, keywords, leads, ga4, camps, campaigns, ra
       </div>
 
       {/* Campaign Performance Breakdown (log) */}
-      <Section title="Campaign Performance Breakdown" legend={[[ORANGE_HI, "Clicks"], [NAVY, "Impressions"]]}>
+      <Section title="Campaign Performance Breakdown" legend={[[GREEN_DK, "Clicks"], [NAVY, "Impressions"]]}>
         <div style={{ height: 220 }}>
           <ResponsiveContainer width="100%" height="100%">
             <LineChart data={dailyPerf} margin={{ top: 6, right: 8, left: -4, bottom: 0 }}>
@@ -175,7 +171,7 @@ export function AdsReportView({ perf, keywords, leads, ga4, camps, campaigns, ra
               <YAxis scale="log" domain={[1, "auto"]} allowDataOverflow tick={{ fontSize: 9, fill: "#94a3b8" }} axisLine={false} tickLine={false} width={44}
                 tickFormatter={(v) => v >= 1e6 ? `${(v / 1e6).toFixed(0)}M` : v >= 1000 ? `${(v / 1000).toFixed(0)}k` : `${v}`} />
               <Line type="monotone" dataKey="impressions" stroke={NAVY} strokeWidth={2} dot={sparse ? { r: 2.5, fill: NAVY } : false} connectNulls isAnimationActive={false} />
-              <Line type="monotone" dataKey="clicks" stroke={ORANGE_HI} strokeWidth={2} dot={sparse ? { r: 2.5, fill: ORANGE_HI } : false} connectNulls isAnimationActive={false} />
+              <Line type="monotone" dataKey="clicks" stroke={GREEN_DK} strokeWidth={2} dot={sparse ? { r: 2.5, fill: GREEN_DK } : false} connectNulls isAnimationActive={false} />
             </LineChart>
           </ResponsiveContainer>
         </div>
@@ -184,13 +180,13 @@ export function AdsReportView({ perf, keywords, leads, ga4, camps, campaigns, ra
       {/* Google top keywords + Age demography */}
       <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 14, marginTop: 12 }}>
         {kw.length > 0 && (
-          <Section title="Google Top 10 Search Keywords" legend={[[ORANGE_HI, "Clicks"], [NAVY, "Impressions"]]}>
+          <Section title="Google Top 10 Search Keywords" legend={[[GREEN_DK, "Clicks"], [NAVY, "Impressions"]]}>
             <div style={{ display: "flex", flexDirection: "column", gap: 7 }}>
               {kw.map((k, i) => (
                 <div key={k.keyword + i} style={{ display: "grid", gridTemplateColumns: "110px 1fr", gap: 8, alignItems: "center" }}>
                   <span style={{ fontSize: 10, whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis" }} title={k.keyword}>{k.keyword}</span>
                   <div>
-                    <div style={{ display: "flex", alignItems: "center", gap: 6 }}><div style={{ height: 9, borderRadius: 2, background: ORANGE_HI, width: `${logW(k.clicks)}%` }} /><span style={{ fontSize: 9, color: "#64748b" }}>{num(k.clicks)}</span></div>
+                    <div style={{ display: "flex", alignItems: "center", gap: 6 }}><div style={{ height: 9, borderRadius: 2, background: GREEN_DK, width: `${logW(k.clicks)}%` }} /><span style={{ fontSize: 9, color: "#64748b" }}>{num(k.clicks)}</span></div>
                     <div style={{ display: "flex", alignItems: "center", gap: 6, marginTop: 2 }}><div style={{ height: 9, borderRadius: 2, background: NAVY, width: `${logW(k.impressions)}%` }} /><span style={{ fontSize: 9, color: "#64748b" }}>{num(k.impressions)}</span></div>
                   </div>
                 </div>
@@ -199,7 +195,7 @@ export function AdsReportView({ perf, keywords, leads, ga4, camps, campaigns, ra
           </Section>
         )}
         {age.length > 0 && (
-          <Section title="Age Demography" legend={[[NAVY, "Impressions"], [ORANGE_HI, "Clicks"]]}>
+          <Section title="Age Demography" legend={[[NAVY, "Impressions"], [GREEN_DK, "Clicks"]]}>
             <div style={{ display: "flex", flexDirection: "column", gap: 8 }}>
               {age.map((b) => {
                 const aMaxClicks = Math.max(1, ...age.map((x) => x.clicks));
@@ -208,7 +204,7 @@ export function AdsReportView({ perf, keywords, leads, ga4, camps, campaigns, ra
                     <span style={{ fontSize: 10 }}>{b.value}</span>
                     <div>
                       <div style={{ display: "flex", alignItems: "center", gap: 6 }}><div style={{ height: 9, borderRadius: 2, background: NAVY, width: `${(b.impressions / demMax(age)) * 100}%` }} /><span style={{ fontSize: 9, color: "#64748b" }}>{num(b.impressions)}</span></div>
-                      <div style={{ display: "flex", alignItems: "center", gap: 6, marginTop: 2 }}><div style={{ height: 9, borderRadius: 2, background: ORANGE_HI, width: `${(b.clicks / aMaxClicks) * 100}%` }} /><span style={{ fontSize: 9, color: "#64748b" }}>{num(b.clicks)}</span></div>
+                      <div style={{ display: "flex", alignItems: "center", gap: 6, marginTop: 2 }}><div style={{ height: 9, borderRadius: 2, background: GREEN_DK, width: `${(b.clicks / aMaxClicks) * 100}%` }} /><span style={{ fontSize: 9, color: "#64748b" }}>{num(b.clicks)}</span></div>
                     </div>
                   </div>
                 );
@@ -245,11 +241,11 @@ export function AdsReportView({ perf, keywords, leads, ga4, camps, campaigns, ra
             <div style={{ height: 200 }}>
               <ResponsiveContainer width="100%" height="100%">
                 <AreaChart data={dailyLeads} margin={{ top: 6, right: 8, left: -18, bottom: 0 }}>
-                  <defs><linearGradient id="lg" x1="0" y1="0" x2="0" y2="1"><stop offset="0%" stopColor={ORANGE} stopOpacity={0.35} /><stop offset="100%" stopColor={ORANGE} stopOpacity={0.02} /></linearGradient></defs>
+                  <defs><linearGradient id="lg" x1="0" y1="0" x2="0" y2="1"><stop offset="0%" stopColor={GREEN} stopOpacity={0.35} /><stop offset="100%" stopColor={GREEN} stopOpacity={0.02} /></linearGradient></defs>
                   <CartesianGrid strokeDasharray="3 3" stroke="#eef2f7" vertical={false} />
                   <XAxis dataKey="date" tick={{ fontSize: 9, fill: "#94a3b8" }} axisLine={false} tickLine={false} minTickGap={24} />
                   <YAxis tick={{ fontSize: 9, fill: "#94a3b8" }} axisLine={false} tickLine={false} width={34} allowDecimals={false} />
-                  <Area type="monotone" dataKey="leads" stroke={ORANGE} strokeWidth={2} fill="url(#lg)" dot={sparse ? { r: 2.5, fill: ORANGE } : false} isAnimationActive={false} />
+                  <Area type="monotone" dataKey="leads" stroke={GREEN} strokeWidth={2} fill="url(#lg)" dot={sparse ? { r: 2.5, fill: GREEN } : false} isAnimationActive={false} />
                 </AreaChart>
               </ResponsiveContainer>
             </div>
@@ -262,7 +258,7 @@ export function AdsReportView({ perf, keywords, leads, ga4, camps, campaigns, ra
         <Section title="Latest Leads">
           <table style={{ width: "100%", borderCollapse: "collapse", fontSize: 11.5 }}>
             <thead>
-              <tr style={{ background: ORANGE, color: "#fff" }}>
+              <tr style={{ background: GREEN, color: "#fff" }}>
                 {["DATE", "NAME", "PHONE", "SOURCE", "STATUS"].map((h) => (<th key={h} style={{ padding: "7px 10px", textAlign: "left", fontSize: 10, fontWeight: 700 }}>{h}</th>))}
               </tr>
             </thead>
@@ -283,7 +279,7 @@ export function AdsReportView({ perf, keywords, leads, ga4, camps, campaigns, ra
 
       {/* Monthly spending */}
       {dailyPerf.length > 0 && (
-        <Section title="Monthly Spending Performance" legend={[[ORANGE, "Cost"]]}>
+        <Section title="Monthly Spending Performance" legend={[[GREEN, "Cost"]]}>
           <div style={{ height: 200 }}>
             <ResponsiveContainer width="100%" height="100%">
               <BarChart data={dailyPerf} margin={{ top: 6, right: 8, left: 6, bottom: 0 }}>
@@ -291,7 +287,7 @@ export function AdsReportView({ perf, keywords, leads, ga4, camps, campaigns, ra
                 <XAxis dataKey="date" tick={{ fontSize: 9, fill: "#94a3b8" }} axisLine={false} tickLine={false} minTickGap={24} />
                 <YAxis tick={{ fontSize: 9, fill: "#94a3b8" }} axisLine={false} tickLine={false} width={52}
                   tickFormatter={(v) => v >= 1e6 ? `${(v / 1e6).toFixed(0)}M` : v >= 1000 ? `${(v / 1000).toFixed(0)}k` : `${v}`} />
-                <Bar dataKey="spend" fill={ORANGE} radius={[3, 3, 0, 0]} isAnimationActive={false} />
+                <Bar dataKey="spend" fill={GREEN} radius={[3, 3, 0, 0]} isAnimationActive={false} />
               </BarChart>
             </ResponsiveContainer>
           </div>
@@ -307,7 +303,7 @@ export function AdsReportView({ perf, keywords, leads, ga4, camps, campaigns, ra
             { label: "Budget Left", value: money(budgetLeft), accent: false, c: budgetLeft < 0 ? "#DC2626" : "#0f172a" },
             { label: "Budget Utilization", value: util.toFixed(2) + "%", accent: true },
           ].map((b) => (
-            <div key={b.label} style={{ borderRadius: 10, padding: "13px 15px", background: b.accent ? ORANGE : "#fff", color: b.accent ? "#fff" : (b.c || "#0f172a"), boxShadow: PANEL }}>
+            <div key={b.label} style={{ borderRadius: 10, padding: "13px 15px", background: b.accent ? GREEN : "#fff", color: b.accent ? "#fff" : (b.c || "#0f172a"), boxShadow: PANEL }}>
               <div style={{ fontSize: 11, opacity: b.accent ? 0.92 : 0.6 }}>{b.label}</div>
               <div style={{ fontSize: 19, fontWeight: 800, marginTop: 3 }}>{b.value}</div>
             </div>
