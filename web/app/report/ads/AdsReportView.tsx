@@ -2,9 +2,14 @@
 // Shared Heroleads-style Ads Report layout, rendered identically by BOTH the headless
 // PDF page (/report/ads) and the dashboard Ads Report tab, so what you see on screen is
 // exactly what you export. Purely presentational: it takes already-fetched data as props.
+//
+// Visual spec traced from the Heroleads "Campaign Dashboard" reference: light-gray
+// canvas, white panels with soft shadows + rounded corners, ORANGE (#FF5722) accent for
+// table headers / bars / budget, colored trapezoid funnel, heatmap table (CTR orange,
+// Leads green, CPL yellow), dense charts.
 import { LineChart, Line, AreaChart, Area, BarChart, Bar, XAxis, YAxis, CartesianGrid, ResponsiveContainer } from "recharts";
 import { IndonesiaMap } from "@/components/IndonesiaMap";
-import type { AdPerformance, AdKeyword, Conversation, AdBreakdown, Ga4Report, Campaign } from "@/lib/types";
+import type { AdPerformance, AdPerfSource, AdKeyword, Conversation, AdBreakdown, Ga4Report, Campaign } from "@/lib/types";
 
 const num = (n: number) => Math.round(n || 0).toLocaleString("en-US");
 const money = (n: number) => "Rp " + Math.round(n || 0).toLocaleString("id-ID");
@@ -13,14 +18,19 @@ const MONTHS = ["Jan", "Feb", "Mar", "Apr", "May", "Jun", "Jul", "Aug", "Sep", "
 const fmtDay = (iso: string) => { const m = /^(\d{4})-(\d{2})-(\d{2})/.exec(iso || ""); return m ? `${MONTHS[+m[2] - 1]} ${+m[3]}` : iso; };
 const fmtSec = (s: number) => { const m = Math.floor((s || 0) / 60); const sec = Math.round((s || 0) % 60); return `${m}:${String(sec).padStart(2, "0")}`; };
 
-// Heatmap tint for a table cell: 0 (bad) -> red-ish, 1 (good) -> green.
-function heat(v: number, min: number, max: number, invert = false) {
-  if (max <= min) return undefined;
-  let t = (v - min) / (max - min);
-  if (invert) t = 1 - t;
-  const hue = 8 + t * 122; // red(8) -> green(130)
-  return `hsl(${hue} 72% 90%)`;
-}
+// Heroleads palette.
+const ORANGE = "#FF5722";        // accent: table headers, bars, budget
+const ORANGE_HI = "#FF3D00";     // funnel clicks / breakdown clicks line
+const NAVY = "#0b1220";          // funnel impressions / breakdown impressions line
+const MAGENTA = "#FF1E6F";       // funnel CTR
+const BLUE = "#1565D8";          // funnel leads
+const CANVAS = "#eceff3";
+const PANEL = "0 1px 3px rgba(15,23,42,.10), 0 1px 2px rgba(15,23,42,.06)";
+const clamp = (t: number) => Math.max(0, Math.min(1, t || 0));
+// Heatmap tints matching the reference cells.
+const tintGreen = (t: number) => `rgba(34,197,94,${(0.08 + clamp(t) * 0.42).toFixed(3)})`;
+const tintYellow = (t: number) => `rgba(245,196,0,${(0.08 + clamp(t) * 0.5).toFixed(3)})`;
+const tintOrange = (t: number) => `rgba(255,87,34,${(0.06 + clamp(t) * 0.34).toFixed(3)})`;
 
 export function AdsReportView({ perf, keywords, leads, ga4, camps, campaigns, rangeLabel, width = 980 }: {
   perf: AdPerformance | null;
@@ -43,19 +53,25 @@ export function AdsReportView({ perf, keywords, leads, ga4, camps, campaigns, ra
   const dailyPerf = (perf?.daily ?? []).map((d) => ({
     date: fmtDay(d.date), impressions: d.impressions > 0 ? d.impressions : null, clicks: d.clicks > 0 ? d.clicks : null, spend: Math.round(d.spend || 0),
   }));
+  const sparse = dailyPerf.length <= 12; // show dots when there are few points so the line reads
   const kw = keywords.slice(0, 10);
   const kwMax = Math.max(1, ...kw.map((k) => k.impressions));
   const logW = (v: number) => Math.max(2, (Math.log10((v || 0) + 1) / Math.log10(kwMax + 1)) * 100);
 
-  const leadVals = sources.map((s) => s.leads);
-  const lMin = Math.min(0, ...leadVals), lMax = Math.max(1, ...leadVals);
+  // Heatmap ranges for the campaign-performance table.
+  const srcCtr = (s: AdPerfSource) => (s.impressions > 0 ? (s.clicks / s.impressions) * 100 : 0);
+  const srcCpl = (s: AdPerfSource) => (s.leads > 0 ? s.spend / s.leads : 0);
+  const maxLeads = Math.max(1, ...sources.map((s) => s.leads));
+  const maxCtr = Math.max(0.0001, ...sources.map(srcCtr));
+  const cplVals = sources.filter((s) => s.leads > 0).map(srcCpl);
+  const maxCpl = Math.max(1, ...cplVals), minCpl = Math.min(...(cplVals.length ? cplVals : [0]));
 
-  // Funnel segments as stacked trapezoids (top width tapers to bottom width).
+  // Trapezoid funnel (top width tapers to bottom).
   const funnel = [
-    { label: "IMPRESSIONS", value: num(tot.impressions), top: 100, bot: 84, c: "#16233A" },
-    { label: "CLICKS", value: num(tot.clicks), top: 84, bot: 66, c: "#FF5A1F" },
-    { label: "CTR%", value: pct(ctr), top: 66, bot: 48, c: "#FF2D78" },
-    { label: "LEADS", value: num(tot.leads), top: 48, bot: 32, c: "#2D6CFF" },
+    { label: "IMPRESSIONS", value: num(tot.impressions), top: 100, bot: 82, c: NAVY },
+    { label: "CLICKS", value: num(tot.clicks), top: 82, bot: 66, c: ORANGE_HI },
+    { label: "CTR%", value: pct(ctr), top: 66, bot: 50, c: MAGENTA },
+    { label: "LEADS", value: num(tot.leads), top: 50, bot: 34, c: BLUE },
   ];
 
   const dem = (arr?: AdBreakdown[]) => (arr || []).filter((b) => (b.value || "").toLowerCase() !== "unknown");
@@ -73,108 +89,109 @@ export function AdsReportView({ perf, keywords, leads, ga4, camps, campaigns, ra
   const util = budget > 0 ? (tot.spend / budget) * 100 : 0;
   const gt = ga4?.totals;
 
+  const td = { padding: "8px 10px", textAlign: "right" as const };
+  const tdL = { padding: "8px 10px", textAlign: "left" as const };
+
   return (
-    <div style={{ width, maxWidth: "100%", margin: "0 auto", background: "#fff", color: "#0f172a", fontFamily: "Inter, Arial, sans-serif", padding: 0 }}>
-      {/* Header: logo left, title centered, date range right (Heroleads layout) */}
-      <div style={{ background: "#0b0f17", color: "#fff", padding: "14px 22px", display: "grid", gridTemplateColumns: "1fr auto 1fr", alignItems: "center", borderRadius: 10 }}>
+    <div style={{ width, maxWidth: "100%", margin: "0 auto", background: CANVAS, color: "#0f172a", fontFamily: "Inter, Arial, sans-serif", padding: 14, borderRadius: 12 }}>
+      {/* Header */}
+      <div style={{ background: NAVY, color: "#fff", padding: "16px 22px", display: "grid", gridTemplateColumns: "1fr auto 1fr", alignItems: "center", borderRadius: 10, boxShadow: PANEL }}>
         <div style={{ display: "flex", alignItems: "center", gap: 9 }}>
           {/* eslint-disable-next-line @next/next/no-img-element */}
           <img src="/simpulx_logo.png" alt="Simpulx" style={{ height: 30, width: "auto", display: "block" }} />
           <span style={{ fontSize: 15, fontWeight: 800, letterSpacing: 0.3 }}>Simpulx</span>
         </div>
         <div style={{ textAlign: "center" }}>
-          <div style={{ fontSize: 19, fontWeight: 800, letterSpacing: 1.5 }}>CAMPAIGN DASHBOARD</div>
-          <div style={{ fontSize: 11.5, color: "rgba(255,255,255,.7)", letterSpacing: 0.3 }}>{headerSub}</div>
+          <div style={{ fontSize: 20, fontWeight: 800, letterSpacing: 1.5 }}>CAMPAIGN DASHBOARD</div>
+          <div style={{ fontSize: 12, color: "rgba(255,255,255,.72)", letterSpacing: 0.3 }}>{headerSub}</div>
         </div>
-        <div style={{ justifySelf: "end", fontSize: 12, border: "1px solid rgba(255,255,255,.25)", padding: "5px 12px", borderRadius: 6, whiteSpace: "nowrap" }}>{rangeLabel}</div>
+        <div style={{ justifySelf: "end", fontSize: 12, background: "rgba(255,255,255,.1)", border: "1px solid rgba(255,255,255,.2)", padding: "6px 12px", borderRadius: 6, whiteSpace: "nowrap" }}>{rangeLabel}</div>
       </div>
 
       {/* Funnel + Campaign performance table */}
-      <div style={{ display: "grid", gridTemplateColumns: "230px 1fr", gap: 16, marginTop: 16 }}>
+      <div style={{ display: "grid", gridTemplateColumns: "220px 1fr", gap: 14, marginTop: 14 }}>
         <div style={{ display: "flex", flexDirection: "column", alignItems: "stretch", gap: 0 }}>
           {funnel.map((f) => {
             const tl = (100 - f.top) / 2, tr = (100 + f.top) / 2, bl = (100 - f.bot) / 2, br = (100 + f.bot) / 2;
             return (
-              <div key={f.label} style={{ width: "100%", height: 82, background: f.c, color: "#fff",
+              <div key={f.label} style={{ width: "100%", height: 80, background: f.c, color: "#fff",
                 display: "flex", flexDirection: "column", alignItems: "center", justifyContent: "center",
                 clipPath: `polygon(${tl}% 0, ${tr}% 0, ${br}% 100%, ${bl}% 100%)` }}>
-                <div style={{ fontSize: 10.5, fontWeight: 700, opacity: 0.9, letterSpacing: 0.6 }}>{f.label}</div>
-                <div style={{ fontSize: 25, fontWeight: 800, lineHeight: 1.05 }}>{f.value}</div>
+                <div style={{ fontSize: 11, fontWeight: 700, opacity: 0.92, letterSpacing: 0.6 }}>{f.label}</div>
+                <div style={{ fontSize: 26, fontWeight: 800, lineHeight: 1.05 }}>{f.value}</div>
               </div>
             );
           })}
         </div>
 
-        <div style={{ border: "1px solid #e5e7eb", borderRadius: 10, overflow: "hidden" }}>
-          <div style={{ padding: "9px 14px", background: "#f8fafc", fontSize: 13, fontWeight: 700, borderBottom: "1px solid #e5e7eb" }}>Campaign Performance</div>
+        <Panel pad={false}>
+          <div style={{ padding: "10px 14px", fontSize: 13, fontWeight: 700 }}>Campaign Performance</div>
           <table style={{ width: "100%", borderCollapse: "collapse", fontSize: 12 }}>
             <thead>
-              <tr style={{ background: "#DC2626", color: "#fff" }}>
+              <tr style={{ background: ORANGE, color: "#fff" }}>
                 {["SOURCE", "COST", "IMPRESSIONS", "CLICKS", "CTR", "CPC", "LEADS", "CPL"].map((h, i) => (
-                  <th key={h} style={{ padding: "7px 10px", textAlign: i === 0 ? "left" : "right", fontWeight: 700, fontSize: 10.5 }}>{h}</th>
+                  <th key={h} style={{ padding: "8px 10px", textAlign: i === 0 ? "left" : "right", fontWeight: 700, fontSize: 10.5 }}>{h}</th>
                 ))}
               </tr>
             </thead>
             <tbody>
               {sources.map((s) => {
-                const sCtr = s.impressions > 0 ? (s.clicks / s.impressions) * 100 : 0;
-                const sCpc = s.clicks > 0 ? s.spend / s.clicks : 0;
-                const sCpl = s.leads > 0 ? s.spend / s.leads : 0;
+                const sCtr = srcCtr(s), sCpc = s.clicks > 0 ? s.spend / s.clicks : 0, sCpl = srcCpl(s);
                 return (
                   <tr key={s.source} style={{ borderBottom: "1px solid #eef2f7" }}>
-                    <td style={{ padding: "7px 10px", fontWeight: 600 }}>{s.label}</td>
-                    <td style={{ padding: "7px 10px", textAlign: "right" }}>{money(s.spend)}</td>
-                    <td style={{ padding: "7px 10px", textAlign: "right" }}>{num(s.impressions)}</td>
-                    <td style={{ padding: "7px 10px", textAlign: "right" }}>{num(s.clicks)}</td>
-                    <td style={{ padding: "7px 10px", textAlign: "right" }}>{pct(sCtr)}</td>
-                    <td style={{ padding: "7px 10px", textAlign: "right" }}>{s.clicks > 0 ? money(sCpc) : "-"}</td>
-                    <td style={{ padding: "7px 10px", textAlign: "right", fontWeight: 700, background: heat(s.leads, lMin, lMax) }}>{num(s.leads)}</td>
-                    <td style={{ padding: "7px 10px", textAlign: "right", background: s.leads > 0 ? heat(sCpl, 0, Math.max(1, ...sources.map((x) => x.leads > 0 ? x.spend / x.leads : 0)), true) : undefined }}>{s.leads > 0 ? money(sCpl) : "-"}</td>
+                    <td style={{ ...tdL, fontWeight: 600 }}>{s.label}</td>
+                    <td style={td}>{money(s.spend)}</td>
+                    <td style={td}>{num(s.impressions)}</td>
+                    <td style={td}>{num(s.clicks)}</td>
+                    <td style={{ ...td, background: tintOrange(sCtr / maxCtr) }}>{pct(sCtr)}</td>
+                    <td style={td}>{s.clicks > 0 ? money(sCpc) : "-"}</td>
+                    <td style={{ ...td, fontWeight: 700, background: tintGreen(s.leads / maxLeads) }}>{num(s.leads)}</td>
+                    <td style={{ ...td, background: s.leads > 0 ? tintYellow(maxCpl > minCpl ? 1 - (sCpl - minCpl) / (maxCpl - minCpl) : 0.5) : undefined }}>{s.leads > 0 ? money(sCpl) : "-"}</td>
                   </tr>
                 );
               })}
               <tr style={{ borderTop: "2px solid #cbd5e1", fontWeight: 700, background: "#f8fafc" }}>
-                <td style={{ padding: "7px 10px" }}>Grand total</td>
-                <td style={{ padding: "7px 10px", textAlign: "right" }}>{money(tot.spend)}</td>
-                <td style={{ padding: "7px 10px", textAlign: "right" }}>{num(tot.impressions)}</td>
-                <td style={{ padding: "7px 10px", textAlign: "right" }}>{num(tot.clicks)}</td>
-                <td style={{ padding: "7px 10px", textAlign: "right" }}>{pct(ctr)}</td>
-                <td style={{ padding: "7px 10px", textAlign: "right" }}>{tot.clicks > 0 ? money(cpc) : "-"}</td>
-                <td style={{ padding: "7px 10px", textAlign: "right" }}>{num(tot.leads)}</td>
-                <td style={{ padding: "7px 10px", textAlign: "right" }}>{tot.leads > 0 ? money(cpl) : "-"}</td>
+                <td style={tdL}>Grand total</td>
+                <td style={td}>{money(tot.spend)}</td>
+                <td style={td}>{num(tot.impressions)}</td>
+                <td style={td}>{num(tot.clicks)}</td>
+                <td style={td}>{pct(ctr)}</td>
+                <td style={td}>{tot.clicks > 0 ? money(cpc) : "-"}</td>
+                <td style={td}>{num(tot.leads)}</td>
+                <td style={td}>{tot.leads > 0 ? money(cpl) : "-"}</td>
               </tr>
             </tbody>
           </table>
-        </div>
+        </Panel>
       </div>
 
       {/* Campaign Performance Breakdown (log) */}
-      <Section title="Campaign Performance Breakdown" legend={[["#FF5A1F", "Clicks"], ["#0b0f17", "Impressions"]]}>
-        <div style={{ height: 210 }}>
+      <Section title="Campaign Performance Breakdown" legend={[[ORANGE_HI, "Clicks"], [NAVY, "Impressions"]]}>
+        <div style={{ height: 220 }}>
           <ResponsiveContainer width="100%" height="100%">
             <LineChart data={dailyPerf} margin={{ top: 6, right: 8, left: -4, bottom: 0 }}>
               <CartesianGrid strokeDasharray="3 3" stroke="#eef2f7" vertical={false} />
-              <XAxis dataKey="date" tick={{ fontSize: 9 }} axisLine={false} tickLine={false} minTickGap={24} />
-              <YAxis scale="log" domain={[1, "auto"]} allowDataOverflow tick={{ fontSize: 9 }} axisLine={false} tickLine={false} width={44}
+              <XAxis dataKey="date" tick={{ fontSize: 9, fill: "#94a3b8" }} axisLine={false} tickLine={false} minTickGap={24} />
+              <YAxis scale="log" domain={[1, "auto"]} allowDataOverflow tick={{ fontSize: 9, fill: "#94a3b8" }} axisLine={false} tickLine={false} width={44}
                 tickFormatter={(v) => v >= 1e6 ? `${(v / 1e6).toFixed(0)}M` : v >= 1000 ? `${(v / 1000).toFixed(0)}k` : `${v}`} />
-              <Line type="monotone" dataKey="impressions" stroke="#0b0f17" strokeWidth={1.5} dot={false} connectNulls isAnimationActive={false} />
-              <Line type="monotone" dataKey="clicks" stroke="#FF5A1F" strokeWidth={1.5} dot={false} connectNulls isAnimationActive={false} />
+              <Line type="monotone" dataKey="impressions" stroke={NAVY} strokeWidth={2} dot={sparse ? { r: 2.5, fill: NAVY } : false} connectNulls isAnimationActive={false} />
+              <Line type="monotone" dataKey="clicks" stroke={ORANGE_HI} strokeWidth={2} dot={sparse ? { r: 2.5, fill: ORANGE_HI } : false} connectNulls isAnimationActive={false} />
             </LineChart>
           </ResponsiveContainer>
         </div>
       </Section>
 
       {/* Google top keywords + Age demography */}
-      <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 16, marginTop: 16 }}>
+      <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 14, marginTop: 12 }}>
         {kw.length > 0 && (
-          <Section title="Google Top 10 Search Keywords" legend={[["#FF5A1F", "Clicks"], ["#0b0f17", "Impressions"]]}>
+          <Section title="Google Top 10 Search Keywords" legend={[[ORANGE_HI, "Clicks"], [NAVY, "Impressions"]]}>
             <div style={{ display: "flex", flexDirection: "column", gap: 7 }}>
               {kw.map((k, i) => (
                 <div key={k.keyword + i} style={{ display: "grid", gridTemplateColumns: "110px 1fr", gap: 8, alignItems: "center" }}>
                   <span style={{ fontSize: 10, whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis" }} title={k.keyword}>{k.keyword}</span>
                   <div>
-                    <div style={{ display: "flex", alignItems: "center", gap: 6 }}><div style={{ height: 9, borderRadius: 2, background: "#FF5A1F", width: `${logW(k.clicks)}%` }} /><span style={{ fontSize: 9, color: "#64748b" }}>{num(k.clicks)}</span></div>
-                    <div style={{ display: "flex", alignItems: "center", gap: 6, marginTop: 2 }}><div style={{ height: 9, borderRadius: 2, background: "#0b0f17", width: `${logW(k.impressions)}%` }} /><span style={{ fontSize: 9, color: "#64748b" }}>{num(k.impressions)}</span></div>
+                    <div style={{ display: "flex", alignItems: "center", gap: 6 }}><div style={{ height: 9, borderRadius: 2, background: ORANGE_HI, width: `${logW(k.clicks)}%` }} /><span style={{ fontSize: 9, color: "#64748b" }}>{num(k.clicks)}</span></div>
+                    <div style={{ display: "flex", alignItems: "center", gap: 6, marginTop: 2 }}><div style={{ height: 9, borderRadius: 2, background: NAVY, width: `${logW(k.impressions)}%` }} /><span style={{ fontSize: 9, color: "#64748b" }}>{num(k.impressions)}</span></div>
                   </div>
                 </div>
               ))}
@@ -182,7 +199,7 @@ export function AdsReportView({ perf, keywords, leads, ga4, camps, campaigns, ra
           </Section>
         )}
         {age.length > 0 && (
-          <Section title="Age Demography" legend={[["#0b0f17", "Impressions"], ["#FF5A1F", "Clicks"]]}>
+          <Section title="Age Demography" legend={[[NAVY, "Impressions"], [ORANGE_HI, "Clicks"]]}>
             <div style={{ display: "flex", flexDirection: "column", gap: 8 }}>
               {age.map((b) => {
                 const aMaxClicks = Math.max(1, ...age.map((x) => x.clicks));
@@ -190,8 +207,8 @@ export function AdsReportView({ perf, keywords, leads, ga4, camps, campaigns, ra
                   <div key={b.value} style={{ display: "grid", gridTemplateColumns: "56px 1fr", gap: 8, alignItems: "center" }}>
                     <span style={{ fontSize: 10 }}>{b.value}</span>
                     <div>
-                      <div style={{ display: "flex", alignItems: "center", gap: 6 }}><div style={{ height: 9, borderRadius: 2, background: "#0b0f17", width: `${(b.impressions / demMax(age)) * 100}%` }} /><span style={{ fontSize: 9, color: "#64748b" }}>{num(b.impressions)}</span></div>
-                      <div style={{ display: "flex", alignItems: "center", gap: 6, marginTop: 2 }}><div style={{ height: 9, borderRadius: 2, background: "#FF5A1F", width: `${(b.clicks / aMaxClicks) * 100}%` }} /><span style={{ fontSize: 9, color: "#64748b" }}>{num(b.clicks)}</span></div>
+                      <div style={{ display: "flex", alignItems: "center", gap: 6 }}><div style={{ height: 9, borderRadius: 2, background: NAVY, width: `${(b.impressions / demMax(age)) * 100}%` }} /><span style={{ fontSize: 9, color: "#64748b" }}>{num(b.impressions)}</span></div>
+                      <div style={{ display: "flex", alignItems: "center", gap: 6, marginTop: 2 }}><div style={{ height: 9, borderRadius: 2, background: ORANGE_HI, width: `${(b.clicks / aMaxClicks) * 100}%` }} /><span style={{ fontSize: 9, color: "#64748b" }}>{num(b.clicks)}</span></div>
                     </div>
                   </div>
                 );
@@ -202,7 +219,7 @@ export function AdsReportView({ perf, keywords, leads, ga4, camps, campaigns, ra
       </div>
 
       {/* Gender demography + Monthly leads breakdown */}
-      <div style={{ display: "grid", gridTemplateColumns: gender.length > 0 ? "300px 1fr" : "1fr", gap: 16, marginTop: 16 }}>
+      <div style={{ display: "grid", gridTemplateColumns: gender.length > 0 ? "300px 1fr" : "1fr", gap: 14, marginTop: 12 }}>
         {gender.length > 0 && (
           <Section title="Gender Demography">
             <div style={{ display: "flex", flexDirection: "column", gap: 8 }}>
@@ -215,7 +232,7 @@ export function AdsReportView({ perf, keywords, leads, ga4, camps, campaigns, ra
                       <span style={{ color: "#64748b" }}>{((b.impressions / total) * 100).toFixed(1)}%</span>
                     </div>
                     <div style={{ height: 8, borderRadius: 4, background: "#eef2f7", overflow: "hidden" }}>
-                      <div style={{ height: "100%", background: b.value.toLowerCase() === "female" ? "#FF2D78" : "#2D6CFF", width: `${(b.impressions / total) * 100}%` }} />
+                      <div style={{ height: "100%", background: b.value.toLowerCase() === "female" ? MAGENTA : BLUE, width: `${(b.impressions / total) * 100}%` }} />
                     </div>
                   </div>
                 );
@@ -225,14 +242,14 @@ export function AdsReportView({ perf, keywords, leads, ga4, camps, campaigns, ra
         )}
         {dailyLeads.length > 0 && (
           <Section title="Monthly Leads Performance Breakdown">
-            <div style={{ height: 190 }}>
+            <div style={{ height: 200 }}>
               <ResponsiveContainer width="100%" height="100%">
                 <AreaChart data={dailyLeads} margin={{ top: 6, right: 8, left: -18, bottom: 0 }}>
-                  <defs><linearGradient id="lg" x1="0" y1="0" x2="0" y2="1"><stop offset="0%" stopColor="#2D8B73" stopOpacity={0.3} /><stop offset="100%" stopColor="#2D8B73" stopOpacity={0} /></linearGradient></defs>
+                  <defs><linearGradient id="lg" x1="0" y1="0" x2="0" y2="1"><stop offset="0%" stopColor={ORANGE} stopOpacity={0.35} /><stop offset="100%" stopColor={ORANGE} stopOpacity={0.02} /></linearGradient></defs>
                   <CartesianGrid strokeDasharray="3 3" stroke="#eef2f7" vertical={false} />
-                  <XAxis dataKey="date" tick={{ fontSize: 9 }} axisLine={false} tickLine={false} minTickGap={24} />
-                  <YAxis tick={{ fontSize: 9 }} axisLine={false} tickLine={false} width={34} allowDecimals={false} />
-                  <Area type="monotone" dataKey="leads" stroke="#2D8B73" strokeWidth={2} fill="url(#lg)" isAnimationActive={false} />
+                  <XAxis dataKey="date" tick={{ fontSize: 9, fill: "#94a3b8" }} axisLine={false} tickLine={false} minTickGap={24} />
+                  <YAxis tick={{ fontSize: 9, fill: "#94a3b8" }} axisLine={false} tickLine={false} width={34} allowDecimals={false} />
+                  <Area type="monotone" dataKey="leads" stroke={ORANGE} strokeWidth={2} fill="url(#lg)" dot={sparse ? { r: 2.5, fill: ORANGE } : false} isAnimationActive={false} />
                 </AreaChart>
               </ResponsiveContainer>
             </div>
@@ -245,18 +262,18 @@ export function AdsReportView({ perf, keywords, leads, ga4, camps, campaigns, ra
         <Section title="Latest Leads">
           <table style={{ width: "100%", borderCollapse: "collapse", fontSize: 11.5 }}>
             <thead>
-              <tr style={{ background: "#DC2626", color: "#fff" }}>
-                {["DATE", "NAME", "PHONE", "SOURCE", "STATUS"].map((h) => (<th key={h} style={{ padding: "6px 10px", textAlign: "left", fontSize: 10, fontWeight: 700 }}>{h}</th>))}
+              <tr style={{ background: ORANGE, color: "#fff" }}>
+                {["DATE", "NAME", "PHONE", "SOURCE", "STATUS"].map((h) => (<th key={h} style={{ padding: "7px 10px", textAlign: "left", fontSize: 10, fontWeight: 700 }}>{h}</th>))}
               </tr>
             </thead>
             <tbody>
               {leads.slice(0, 10).map((l) => (
                 <tr key={l.id} style={{ borderBottom: "1px solid #eef2f7" }}>
-                  <td style={{ padding: "6px 10px", color: "#64748b" }}>{l.last_message_at ? new Date(l.last_message_at).toLocaleString("en-GB") : "-"}</td>
-                  <td style={{ padding: "6px 10px", fontWeight: 600 }}>{l.contact_name || "Unknown"}</td>
-                  <td style={{ padding: "6px 10px", color: "#64748b" }}>{l.contact_phone || "-"}</td>
-                  <td style={{ padding: "6px 10px", color: "#64748b", textTransform: "capitalize" }}>{l.channel || "-"}</td>
-                  <td style={{ padding: "6px 10px" }}>{l.stage_name || l.status}</td>
+                  <td style={{ padding: "7px 10px", color: "#64748b" }}>{l.last_message_at ? new Date(l.last_message_at).toLocaleString("en-GB") : "-"}</td>
+                  <td style={{ padding: "7px 10px", fontWeight: 600 }}>{l.contact_name || "Unknown"}</td>
+                  <td style={{ padding: "7px 10px", color: "#64748b" }}>{l.contact_phone || "-"}</td>
+                  <td style={{ padding: "7px 10px", color: "#64748b", textTransform: "capitalize" }}>{l.channel || "-"}</td>
+                  <td style={{ padding: "7px 10px" }}>{l.stage_name || l.status}</td>
                 </tr>
               ))}
             </tbody>
@@ -266,15 +283,15 @@ export function AdsReportView({ perf, keywords, leads, ga4, camps, campaigns, ra
 
       {/* Monthly spending */}
       {dailyPerf.length > 0 && (
-        <Section title="Monthly Spending Performance" legend={[["#FF5A1F", "Cost"]]}>
-          <div style={{ height: 190 }}>
+        <Section title="Monthly Spending Performance" legend={[[ORANGE, "Cost"]]}>
+          <div style={{ height: 200 }}>
             <ResponsiveContainer width="100%" height="100%">
               <BarChart data={dailyPerf} margin={{ top: 6, right: 8, left: 6, bottom: 0 }}>
                 <CartesianGrid strokeDasharray="3 3" stroke="#eef2f7" vertical={false} />
-                <XAxis dataKey="date" tick={{ fontSize: 9 }} axisLine={false} tickLine={false} minTickGap={24} />
-                <YAxis tick={{ fontSize: 9 }} axisLine={false} tickLine={false} width={52}
+                <XAxis dataKey="date" tick={{ fontSize: 9, fill: "#94a3b8" }} axisLine={false} tickLine={false} minTickGap={24} />
+                <YAxis tick={{ fontSize: 9, fill: "#94a3b8" }} axisLine={false} tickLine={false} width={52}
                   tickFormatter={(v) => v >= 1e6 ? `${(v / 1e6).toFixed(0)}M` : v >= 1000 ? `${(v / 1000).toFixed(0)}k` : `${v}`} />
-                <Bar dataKey="spend" fill="#FF5A1F" radius={[2, 2, 0, 0]} isAnimationActive={false} />
+                <Bar dataKey="spend" fill={ORANGE} radius={[3, 3, 0, 0]} isAnimationActive={false} />
               </BarChart>
             </ResponsiveContainer>
           </div>
@@ -283,16 +300,16 @@ export function AdsReportView({ perf, keywords, leads, ga4, camps, campaigns, ra
 
       {/* Budget utilization cards */}
       {budget > 0 && (
-        <div className="print-avoid-break" style={{ display: "grid", gridTemplateColumns: "repeat(4,1fr)", gap: 12, marginTop: 16 }}>
+        <div className="print-avoid-break" style={{ display: "grid", gridTemplateColumns: "repeat(4,1fr)", gap: 12, marginTop: 12 }}>
           {[
             { label: "Media Budget", value: money(budget), accent: false },
             { label: "Cost", value: money(tot.spend), accent: true },
-            { label: "Budget Left", value: money(budgetLeft), c: budgetLeft < 0 ? "#DC2626" : "#0f172a" },
-            { label: "Budget Utilization", value: util.toFixed(2) + "%", accent: true, c: util > 100 ? "#DC2626" : "#fff" },
+            { label: "Budget Left", value: money(budgetLeft), accent: false, c: budgetLeft < 0 ? "#DC2626" : "#0f172a" },
+            { label: "Budget Utilization", value: util.toFixed(2) + "%", accent: true },
           ].map((b) => (
-            <div key={b.label} style={{ border: "1px solid #e5e7eb", borderRadius: 10, padding: "12px 14px", background: b.accent ? "#FF5A1F" : "#fff", color: b.accent ? "#fff" : (b.c || "#0f172a") }}>
-              <div style={{ fontSize: 11, opacity: b.accent ? 0.9 : 0.7 }}>{b.label}</div>
-              <div style={{ fontSize: 18, fontWeight: 800, color: b.accent ? (b.c || "#fff") : (b.c || "#0f172a") }}>{b.value}</div>
+            <div key={b.label} style={{ borderRadius: 10, padding: "13px 15px", background: b.accent ? ORANGE : "#fff", color: b.accent ? "#fff" : (b.c || "#0f172a"), boxShadow: PANEL }}>
+              <div style={{ fontSize: 11, opacity: b.accent ? 0.92 : 0.6 }}>{b.label}</div>
+              <div style={{ fontSize: 19, fontWeight: 800, marginTop: 3 }}>{b.value}</div>
             </div>
           ))}
         </div>
@@ -304,8 +321,8 @@ export function AdsReportView({ perf, keywords, leads, ga4, camps, campaigns, ra
           <div style={{ display: "grid", gridTemplateColumns: "repeat(4,1fr)", gap: 10, marginBottom: 12 }}>
             {([["Total users", num(gt.total_users)], ["Active users", num(gt.active_users)], ["New users", num(gt.new_users)], ["Sessions", num(gt.sessions)],
               ["Engaged sessions", num(gt.engaged_sessions)], ["Engagement rate", (gt.engagement_rate * 100).toFixed(1) + "%"], ["Avg engagement", fmtSec(gt.avg_engagement_sec)], ["Views", num(gt.views)]] as [string, string][]).map(([l, v]) => (
-              <div key={l} style={{ border: "1px solid #e5e7eb", borderRadius: 8, padding: "8px 10px" }}>
-                <div style={{ fontSize: 15, fontWeight: 800 }}>{v}</div>
+              <div key={l} style={{ background: "#f8fafc", borderRadius: 8, padding: "9px 11px" }}>
+                <div style={{ fontSize: 16, fontWeight: 800 }}>{v}</div>
                 <div style={{ fontSize: 10, color: "#64748b" }}>{l}</div>
               </div>
             ))}
@@ -345,9 +362,14 @@ export function AdsReportView({ perf, keywords, leads, ga4, camps, campaigns, ra
   );
 }
 
+// White panel with a soft shadow on the gray canvas (the Heroleads card look).
+function Panel({ children, pad = true }: { children: React.ReactNode; pad?: boolean }) {
+  return <div className="print-avoid-break" style={{ background: "#fff", borderRadius: 10, boxShadow: PANEL, overflow: "hidden", padding: pad ? 14 : 0 }}>{children}</div>;
+}
+
 function Section({ title, legend, children }: { title: string; legend?: [string, string][]; children: React.ReactNode }) {
   return (
-    <div className="print-avoid-break" style={{ border: "1px solid #e5e7eb", borderRadius: 10, padding: 14, marginTop: 16, background: "#fff" }}>
+    <Panel>
       <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", marginBottom: 10 }}>
         <div style={{ fontSize: 13, fontWeight: 700 }}>{title}</div>
         {legend && (
@@ -357,6 +379,6 @@ function Section({ title, legend, children }: { title: string; legend?: [string,
         )}
       </div>
       {children}
-    </div>
+    </Panel>
   );
 }
