@@ -125,25 +125,59 @@ function Badge({ label, bg, text }: { label: string; bg: string; text: string })
   );
 }
 
-// Card shell - crisp, layered, enterprise
-function Card({ title, subtitle, icon: Icon, iconColor, children, className }: {
+// Card shell - layered, with an accent-dot header for a premium analytics feel.
+function Card({ title, subtitle, icon: Icon, iconColor, children, className, action }: {
   title?: string; subtitle?: string; icon?: any; iconColor?: string;
-  children: React.ReactNode; className?: string;
+  children: React.ReactNode; className?: string; action?: React.ReactNode;
 }) {
   return (
-    <div className={cn("bg-card rounded-lg border border-border shadow-xs overflow-hidden", className)}>
+    <div className={cn("bg-card rounded-xl border border-border shadow-sm overflow-hidden", className)}>
       {title && (
-        <div className="px-4 py-3 border-b border-border flex items-center gap-2.5">
-          {Icon && <Icon className="w-[18px] h-[18px]" style={{ color: iconColor }} />}
-          <div>
-            <p className="font-bold text-[14px] text-foreground leading-tight">{title}</p>
-            {subtitle && <p className="text-xs text-muted-foreground">{subtitle}</p>}
+        <div className="px-5 py-3.5 border-b border-border flex items-center gap-2.5">
+          {Icon ? (
+            <Icon className="w-[18px] h-[18px]" style={{ color: iconColor }} />
+          ) : (
+            <span className="w-1.5 h-4 rounded-full shrink-0" style={{ background: iconColor || "var(--primary, #2D8B73)" }} />
+          )}
+          <div className="min-w-0">
+            <p className="font-bold text-[14px] text-foreground leading-tight truncate">{title}</p>
+            {subtitle && <p className="text-xs text-muted-foreground truncate">{subtitle}</p>}
           </div>
+          {action && <div className="ml-auto shrink-0">{action}</div>}
         </div>
       )}
       {children}
     </div>
   );
+}
+
+// Premium KPI tile: colored accent bar + tinted icon chip + corner glow + big number.
+// Replaces the old flat, hairline-divided metric strip. Used by Overview + Ads Report.
+function StatCard({ label, value, Icon, color, href }: {
+  label: string; value: string | number; Icon: any; color: string; href?: string;
+}) {
+  const card = (
+    <div className="group relative overflow-hidden rounded-xl border border-border bg-card shadow-sm hover:shadow-md hover:-translate-y-0.5 transition-all duration-200">
+      <div className="absolute inset-x-0 top-0 h-[3px]" style={{ background: color }} />
+      <div className="absolute -right-7 -top-7 w-24 h-24 rounded-full" style={{ background: color, opacity: 0.07 }} />
+      <div className="relative p-4">
+        <div className="flex items-center justify-between mb-3">
+          <div className="w-10 h-10 rounded-lg grid place-items-center shrink-0" style={{ background: color + "1A" }}>
+            <Icon className="w-5 h-5" style={{ color }} />
+          </div>
+          {href && <ChevronRight className="w-4 h-4 text-muted-foreground/40 group-hover:text-foreground group-hover:translate-x-0.5 transition-all" />}
+        </div>
+        <p className="text-[10.5px] font-bold uppercase tracking-wider text-muted-foreground truncate">{label}</p>
+        <p className="text-[24px] font-extrabold text-foreground leading-none tabular-nums mt-1.5 truncate">{value}</p>
+      </div>
+    </div>
+  );
+  return href ? <Link href={href} className="block outline-none rounded-xl">{card}</Link> : card;
+}
+
+// Responsive grid for a row of StatCards.
+function StatGrid({ children, className }: { children: React.ReactNode; className?: string }) {
+  return <div className={cn("grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-6 gap-3", className)}>{children}</div>;
 }
 
 // Shared 7-day area chart (real analytics.daily) with honest empty + single-day states
@@ -656,43 +690,18 @@ function ManagerDashboard() {
           )}
         </div>
 
-        {/* â”€â”€ Metric Strip â”€â”€ */}
-        <div className="flex flex-wrap bg-card rounded-lg border border-border shadow-xs mb-5 overflow-hidden">
-          {METRICS.map((m, i) => {
+        {/* â”€â”€ KPI tiles â”€â”€ */}
+        <StatGrid className="mb-5">
+          {METRICS.map((m) => {
             let val: number;
             if (m.key === "total_leads") val = analytics?.funnel?.total ?? 0;
             else if (m.key === "replied") val = analytics?.funnel?.replied ?? 0;
             else if (m.key === "won") val = analytics?.funnel?.won ?? 0;
             else if (m.key === "avg_rt") val = analytics?.response_time?.avg_min ?? 0;
             else val = (stats as any)[m.key] ?? 0;
-            const Icon = m.Icon;
-
-            const inner = (
-              <>
-                <div className="w-9 h-9 rounded-lg grid place-items-center shrink-0" style={{ backgroundColor: m.color + "14" }}>
-                  <Icon className="w-[18px] h-[18px]" style={{ color: m.color }} />
-                </div>
-                <div className="min-w-0">
-                  <p className="text-[10px] font-semibold text-muted-foreground uppercase tracking-wide leading-tight truncate flex items-center gap-1">
-                    {m.label}
-                    {m.href && <ChevronRight className="w-3 h-3 opacity-0 group-hover/metric:opacity-100 transition-opacity shrink-0" />}
-                  </p>
-                  <p className="text-[22px] font-extrabold text-foreground leading-none tracking-tight tabular-nums mt-1 whitespace-nowrap">{m.fmt ? m.fmt(val) : val}</p>
-                </div>
-              </>
-            );
-
-            const base = cn(
-              "group/metric flex-1 min-w-[150px] flex items-center gap-3 px-4 py-3.5 transition-colors",
-              i < METRICS.length - 1 && "border-r border-border",
-              m.href ? "hover:bg-primary/[0.04] cursor-pointer" : "",
-            );
-
-            return m.href
-              ? <Link key={m.key} href={metricHref(m.href)} className={base}>{inner}</Link>
-              : <div key={m.key} className={base}>{inner}</div>;
+            return <StatCard key={m.key} label={m.label} value={m.fmt ? m.fmt(val) : val} Icon={m.Icon} color={m.color} href={m.href ? metricHref(m.href) : undefined} />;
           })}
-        </div>
+        </StatGrid>
 
         {/* â”€â”€ Area Chart (real, last 7 days) â”€â”€ */}
         <Card title="Overview" subtitle={fFrom || fTo ? `${fFrom || "start"} to ${fTo || "now"}` : "All time"} className="mb-5">
@@ -1192,18 +1201,12 @@ function MarketingAnalytics() {
       ) : (<>
       {hasSpend ? (
       <>
-      {/* ROI cards */}
-      <div className="flex flex-wrap bg-card rounded-lg border border-border shadow-xs mb-5 overflow-hidden">
-        {roiCards.map((c, i) => (
-          <div key={c.label} className={cn("flex-1 min-w-[150px] flex items-center gap-3 px-4 py-3.5", i < roiCards.length - 1 && "border-r border-border")}>
-            <div className="w-9 h-9 rounded-lg grid place-items-center shrink-0" style={{ backgroundColor: c.color + "14" }}><c.Icon className="w-[18px] h-[18px]" style={{ color: c.color }} /></div>
-            <div className="min-w-0">
-              <p className="text-[10px] font-semibold text-muted-foreground uppercase tracking-wide leading-tight truncate">{c.label}</p>
-              <p className="text-[18px] xl:text-[20px] font-extrabold text-foreground leading-none tabular-nums mt-1 truncate">{c.value}</p>
-            </div>
-          </div>
+      {/* ROI KPI tiles */}
+      <StatGrid className="mb-5">
+        {roiCards.map((c) => (
+          <StatCard key={c.label} label={c.label} value={c.value} Icon={c.Icon} color={c.color} />
         ))}
-      </div>
+      </StatGrid>
 
       {/* Marketing funnel + Conversion rates side-by-side */}
       <div className="grid grid-cols-1 lg:grid-cols-2 gap-4 mb-5">
