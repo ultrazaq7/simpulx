@@ -50,6 +50,8 @@ export function CampaignWizard({ campaignId, users, channels, onClose, onDone, o
   const [adSources, setAdSources] = useState("");
   const [keywords, setKeywords] = useState("");
   const [monthlyBudget, setMonthlyBudget] = useState(""); // monthly ad budget (Rp) for budget utilization
+  const [followupTpl, setFollowupTpl] = useState(""); // approved template for out-of-window follow-ups
+  const [templates, setTemplates] = useState<{ id: string; name: string; language: string }[]>([]);
 
   // AI assistant
   const [segment, setSegment] = useState("");
@@ -71,6 +73,7 @@ export function CampaignWizard({ campaignId, users, channels, onClose, onDone, o
   useEffect(() => {
     api.listWebApiSources().then(setWebSources).catch(() => {});
     api.listFlows().then((fs) => setForms((fs || []).map((f) => ({ id: f.id, name: f.name })))).catch(() => {});
+    api.listTemplates().then((t) => setTemplates((t || []).filter((x) => x.status === "APPROVED").map((x) => ({ id: x.id, name: x.name, language: x.language })))).catch(() => {});
     if (campaignId) {
       Promise.all([api.getCampaign(campaignId), api.listCampaignBranches(campaignId).catch(() => [])])
         .then(([c, brs]) => {
@@ -81,6 +84,7 @@ export function CampaignWizard({ campaignId, users, channels, onClose, onDone, o
           setSegment(c.segment ?? ""); setBrand(c.brand ?? ""); setAiAutoReply(c.ai_auto_reply ?? false);
           setAiLanguage(c.ai_language ?? "id"); setAiDynamicLanguage(c.ai_dynamic_language ?? true); setIntakeFormId(c.intake_form_id ?? "");
           setMonthlyBudget(c.monthly_budget != null ? String(c.monthly_budget) : "");
+          setFollowupTpl(c.followup_template_id ?? "");
           setBranches((brs as any[]).map((b) => ({
             key: `b${++keySeq}`, id: b.id, name: b.name,
             adSources: (b.ad_source_ids ?? []).join(", "), agentIds: b.agent_ids ?? [], supervisorIds: b.supervisor_ids ?? [], webSourceIds: b.web_source_ids ?? [],
@@ -121,6 +125,7 @@ export function CampaignWizard({ campaignId, users, channels, onClose, onDone, o
         segment, brand: brand.trim(), ai_auto_reply: aiAutoReply, ai_language: aiLanguage,
         ai_dynamic_language: aiDynamicLanguage, intake_form_id: intakeFormId || "none",
         monthly_budget: monthlyBudget.trim() === "" ? null : Number(monthlyBudget.replace(/[^0-9.]/g, "")),
+        followup_template_id: followupTpl || "none",
       };
       let cid = campaignId;
       if (isEdit) await api.updateCampaign(cid!, payload);
@@ -224,6 +229,10 @@ export function CampaignWizard({ campaignId, users, channels, onClose, onDone, o
               <div><FieldLabel hint="The AI sends this WhatsApp form on the first response to collect complete lead details.">Intake form (auto-sent on first reply)</FieldLabel>
                 <Select value={intakeFormId} onChange={setIntakeFormId} placeholder="No form" searchable
                   options={[{ value: "", label: "No form" }, ...forms.map((f) => ({ value: f.id, label: f.name }))]} />
+              </div>
+              <div><FieldLabel hint="Approved WhatsApp template for out-of-window follow-ups (day 1/3/7). Free-form nudges at 12h/20h don't need it. Only APPROVED templates appear.">Follow-up template</FieldLabel>
+                <Select value={followupTpl} onChange={setFollowupTpl} placeholder="None" searchable
+                  options={[{ value: "", label: "None (skip out-of-window follow-ups)" }, ...templates.map((t) => ({ value: t.id, label: `${t.name} (${t.language})` }))]} />
               </div>
             </div>
           </div>
