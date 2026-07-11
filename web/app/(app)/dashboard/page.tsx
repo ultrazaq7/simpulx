@@ -560,24 +560,27 @@ function ManagerDashboard() {
   const chartData = buildChartData(analytics, true); // all days; bounded by the date filter when applied
 
   return (
-    <>
-      {/* View switch: Overview âŸ· Ads */}
-      <div className="px-4 pt-4">
-        <div className="inline-flex p-0.5 rounded-md bg-muted border border-border">
-          {(["overview", "marketing"] as const).map((t) => (
-            <button
-              key={t}
-              onClick={() => selectTab(t)}
-              className={cn(
-                "inline-flex items-center gap-1.5 px-3 h-7 rounded text-[12.5px] font-semibold transition-colors outline-none",
-                tab === t ? "bg-card text-foreground shadow-xs" : "text-muted-foreground hover:text-foreground",
-              )}
-            >
-              {t === "overview" ? <><ChartPie className="w-3.5 h-3.5" /> Overview</> : <><BarChart3 className="w-3.5 h-3.5" /> Ads</>}
-            </button>
-          ))}
+    <div className="flex flex-col lg:flex-row h-full min-h-0">
+      {/* Report sub-menu (Settings-style rail) */}
+      <aside className="shrink-0 border-b lg:border-b-0 lg:border-r border-border bg-card lg:w-[210px]">
+        <div className="px-3 py-3">
+          <p className="hidden lg:block px-3 pt-1 pb-1.5 text-[11px] font-bold uppercase tracking-wider text-muted-foreground/70">Reports</p>
+          <nav className="flex lg:flex-col gap-1 overflow-x-auto lg:overflow-visible [scrollbar-width:none] [&::-webkit-scrollbar]:hidden">
+            {[{ key: "overview" as const, label: "Overview", Icon: ChartPie }, { key: "marketing" as const, label: "Ads Report", Icon: BarChart3 }].map(({ key, label, Icon }) => {
+              const sel = tab === key;
+              return (
+                <button key={key} onClick={() => selectTab(key)}
+                  className={cn("inline-flex items-center gap-2 rounded-md px-3 py-2 text-[13px] whitespace-nowrap outline-none transition-colors",
+                    sel ? "bg-muted text-foreground font-semibold" : "text-muted-foreground hover:bg-muted/60 hover:text-foreground")}>
+                  <Icon className="w-4 h-4 shrink-0" />{label}
+                </button>
+              );
+            })}
+          </nav>
         </div>
-      </div>
+      </aside>
+
+      <div className="flex-1 min-w-0 overflow-y-auto">
 
       {tab === "marketing" ? <MarketingAnalytics /> : (
       <div className="p-4">
@@ -722,7 +725,8 @@ function ManagerDashboard() {
         </div>
       </div>
       )}
-    </>
+      </div>
+    </div>
   );
 }
 
