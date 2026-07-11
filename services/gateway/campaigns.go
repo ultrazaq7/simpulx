@@ -19,7 +19,7 @@ func (s *server) handleListCampaigns(w http.ResponseWriter, r *http.Request) {
 	rows, err := s.queryMaps(r.Context(),
 		`SELECT c.id::text AS id, c.name, c.dealer_name, c.status, c.routing_strategy,
 		        to_jsonb(c.ad_source_ids) AS ad_source_ids, to_jsonb(c.keywords) AS keywords,
-		        c.lead_count, c.created_at, c.updated_at,
+		        c.lead_count, c.monthly_budget, c.created_at, c.updated_at,
 		        c.channel_id::text AS channel_id, ch.name AS channel_name, c.calling_enabled,
 		        (SELECT count(*) FROM campaign_agents ca WHERE ca.campaign_id = c.id) AS agent_count,
 		        COALESCE((SELECT jsonb_agg(u.full_name ORDER BY u.full_name)
