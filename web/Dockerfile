@@ -35,8 +35,14 @@ FROM node:20-alpine AS run
 WORKDIR /app
 # Chromium + fonts so puppeteer can render the headless PDF reports.
 RUN apk add --no-cache chromium nss freetype harfbuzz ca-certificates ttf-freefont
+# HOSTNAME=0.0.0.0: Docker auto-sets HOSTNAME to the container id, and Next's
+# standalone server binds to process.env.HOSTNAME. Without this it binds to the
+# container ip only, so 127.0.0.1 is unreachable inside the container -- which is
+# exactly the loopback the headless PDF route (app/api/ads-report/pdf) navigates to.
+# Binding 0.0.0.0 keeps Caddy's web:3000 working AND makes the loopback reachable.
 ENV NODE_ENV=production \
     NEXT_TELEMETRY_DISABLED=1 \
+    HOSTNAME=0.0.0.0 \
     PORT=3000 \
     PUPPETEER_SKIP_DOWNLOAD=true \
     PUPPETEER_EXECUTABLE_PATH=/usr/bin/chromium-browser
