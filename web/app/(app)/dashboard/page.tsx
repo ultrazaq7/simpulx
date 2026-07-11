@@ -576,7 +576,7 @@ function ManagerDashboard() {
   const agents = analytics?.agents || [];
   const chartData = buildChartData(analytics, true); // all days; bounded by the date filter when applied
 
-  const reportNav = [{ key: "overview" as const, label: "Overview" }, { key: "marketing" as const, label: "Ads Report" }, { key: "creatives" as const, label: "Per Creative" }];
+  const reportNav = [{ key: "overview" as const, label: "Overview" }, { key: "marketing" as const, label: "Ads Report" }, { key: "creatives" as const, label: "Creative Insights" }];
 
   return (
     <div className="relative flex flex-col lg:flex-row h-full min-h-0">
