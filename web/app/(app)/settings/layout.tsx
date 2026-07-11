@@ -10,7 +10,7 @@ import { usePathname } from "next/navigation";
 import {
   Settings, FormInput, Bell, User, ShieldCheck, ListOrdered,
   Building2, Building, FileText, GitBranch, RadioTower, Clock, ClipboardList,
-  PanelLeftClose, PanelLeftOpen, Boxes, Zap, SlidersHorizontal, ChevronRight,
+  PanelLeftClose, Boxes, Zap, SlidersHorizontal, ChevronRight,
 } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { api, getUser } from "@/lib/api";
@@ -66,10 +66,10 @@ export default function SettingsLayout({ children }: { children: ReactNode }) {
   const pathname = usePathname() || "";
   const { can } = usePermissions();
   const { t } = useI18n();
-  // Lazy-init from localStorage so a refresh renders the collapsed sidebar
-  // immediately (no expand-then-collapse flash).
-  const [collapsed, setCollapsed] = useState<boolean>(() => typeof window !== "undefined" && localStorage.getItem("simpulx_settings_collapsed") === "1");
-  const toggle = () => setCollapsed((c) => { const n = !c; localStorage.setItem("simpulx_settings_collapsed", n ? "1" : "0"); return n; });
+  // Settings always opens expanded when you enter it (clicking Settings shows the
+  // menu); collapsing only lasts for the current visit, so a fresh entry re-opens.
+  const [collapsed, setCollapsed] = useState(false);
+  const toggle = () => setCollapsed((c) => !c);
   // Which collapsible sections are expanded. The section holding the active
   // route auto-expands; users can toggle the rest open/closed.
   const [openSections, setOpenSections] = useState<Record<string, boolean>>({});
@@ -134,7 +134,7 @@ export default function SettingsLayout({ children }: { children: ReactNode }) {
   const flatItems = groups.flatMap((g) => g.items);
 
   return (
-    <div className="flex flex-col lg:flex-row h-full min-h-0">
+    <div className="relative flex flex-col lg:flex-row h-full min-h-0">
       {/* Mobile: horizontal scrollable section strip (the vertical sidebar
           doesn't fit next to content below lg). */}
       <div className="lg:hidden shrink-0 border-b border-border bg-card overflow-x-auto">
@@ -161,15 +161,15 @@ export default function SettingsLayout({ children }: { children: ReactNode }) {
       {/* Settings sidebar — desktop only; text-only for an enterprise look.
           Collapsed hides the panel, leaving a slim expand tab. */}
       {collapsed ? (
-        <div className="max-lg:hidden shrink-0 border-r border-border bg-card flex flex-col justify-end">
-          <div className="p-2 border-t border-border flex justify-center">
-            <Tip label="Expand" side="right">
-              <button onClick={toggle}
-                className="p-1.5 rounded-md text-muted-foreground hover:bg-primary/10 hover:text-primary hover:scale-110 outline-none transition-all duration-200">
-                <PanelLeftOpen className="w-[18px] h-[18px]" />
-              </button>
-            </Tip>
-          </div>
+        /* No panel when hidden — just a floating tab at the edge that lengthens on
+           hover (Qontak-style). The settings content takes the full width. */
+        <div className="max-lg:hidden absolute left-0 top-1/2 -translate-y-1/2 z-20">
+          <Tip label="View more" side="right">
+            <button onClick={toggle} aria-label="Expand settings menu"
+              className="flex items-center justify-center h-11 w-5 hover:w-9 rounded-r-xl border border-l-0 border-border bg-card shadow-md text-muted-foreground hover:text-primary transition-all duration-200 outline-none">
+              <ChevronRight className="w-4 h-4 shrink-0" />
+            </button>
+          </Tip>
         </div>
       ) : (
         <div className="max-lg:hidden shrink-0 w-[260px] border-r border-border bg-card flex flex-col">
