@@ -1076,13 +1076,13 @@ function MarketingAnalytics() {
   // Funnel: Impressions -> Clicks -> CTR% -> Leads, in a single on-brand green ramp.
   // Widths narrow by count (CTR sits between clicks and leads); CTR shows the rate.
   const ctrPct = t.impressions > 0 ? (t.clicks / t.impressions) * 100 : 0;
-  // Stacked funnel bars narrowing on a fixed ramp, orange -> red (matches the
-  // campaign report look).
+  // Trapezoid funnel (top width tapers to bottom) in the Heroleads palette:
+  // navy impressions -> orange clicks -> magenta CTR -> blue leads.
   const funnel = [
-    { label: "Impressions", display: fmtInt(t.impressions), w: 100, color: "#F97316" },
-    { label: "Clicks", display: fmtInt(t.clicks), w: 80, color: "#F97316" },
-    { label: "CTR %", display: `${ctrPct.toFixed(2)}%`, w: 60, color: "#EA580C" },
-    { label: "Leads", display: fmtInt(t.leads), w: 44, color: "#DC2626" },
+    { label: "Impressions", display: fmtInt(t.impressions), top: 100, bot: 88, color: "#0b1220" },
+    { label: "Clicks", display: fmtInt(t.clicks), top: 88, bot: 74, color: "#FF4A17" },
+    { label: "CTR %", display: `${ctrPct.toFixed(2)}%`, top: 74, bot: 60, color: "#FF1C6B" },
+    { label: "Leads", display: fmtInt(t.leads), top: 60, bot: 46, color: "#1D4ED8" },
   ];
 
   const daily = (perf?.daily || []).map((d) => {
@@ -1211,17 +1211,19 @@ function MarketingAnalytics() {
       {/* Marketing funnel + Conversion rates side-by-side */}
       <div className="grid grid-cols-1 lg:grid-cols-2 gap-4 mb-5">
       <Card title="Marketing funnel" subtitle="Impression to click to chat to conversion">
-        {/* Stacked funnel bars narrowing on a fixed ramp, orange -> red (matches
-            the campaign report). */}
+        {/* Trapezoid funnel (clip-path) narrowing top -> bottom, Heroleads palette. */}
         <div className="p-4">
-          <div className="flex flex-col items-center gap-1.5">
-            {funnel.map((s) => (
-              <div key={s.label} style={{ width: `${s.w}%`, backgroundColor: s.color }}
-                className="rounded-md py-2.5 px-2 text-center text-white shadow-sm transition-all duration-500">
-                <p className="text-[9.5px] font-semibold uppercase tracking-wide opacity-90">{s.label}</p>
-                <p className="text-[17px] font-extrabold tabular-nums leading-tight">{s.display}</p>
-              </div>
-            ))}
+          <div className="flex flex-col items-stretch">
+            {funnel.map((s) => {
+              const tl = (100 - s.top) / 2, tr = (100 + s.top) / 2, bl = (100 - s.bot) / 2, br = (100 + s.bot) / 2;
+              return (
+                <div key={s.label} style={{ background: s.color, clipPath: `polygon(${tl}% 0, ${tr}% 0, ${br}% 100%, ${bl}% 100%)` }}
+                  className="h-16 flex flex-col items-center justify-center text-center text-white">
+                  <p className="text-[9.5px] font-semibold uppercase tracking-wide opacity-90">{s.label}</p>
+                  <p className="text-[19px] font-extrabold tabular-nums leading-tight">{s.display}</p>
+                </div>
+              );
+            })}
           </div>
         </div>
       </Card>
