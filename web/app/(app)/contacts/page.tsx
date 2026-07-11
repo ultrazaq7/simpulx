@@ -115,6 +115,7 @@ export default function ContactsPage() {
   const [tplOpen, setTplOpen] = useState(false);
   const [visibleCols, setVisibleCols] = useState<Set<string>>(() => new Set(DEFAULT_COLS));
   const [colsMenuOpen, setColsMenuOpen] = useState(false);
+  const [filterOpen, setFilterOpen] = useState(false);
   const importRef = useRef<HTMLInputElement>(null);
   const show = (k: ColKey) => visibleCols.has(k);
   const colCount = 3 + visibleCols.size; // select + name + actions are always shown
@@ -404,9 +405,11 @@ export default function ContactsPage() {
             <input type="text" placeholder={t("contacts.searchNameOrPhone")} value={query} onChange={(e) => setQuery(e.target.value)}
               className="w-full h-9 pl-9 pr-3 rounded-md border border-input bg-background text-sm text-foreground placeholder:text-muted-foreground/70 outline-none transition-shadow focus:border-primary focus:ring-2 focus:ring-primary/20" />
           </div>
-          <MultiSelect value={filterTags} onChange={setFilterTags} placeholder={t("contacts.allLabels")} options={tagOptions} className="w-[150px]" />
-          {showAgentFilter && <MultiSelect value={filterAgents} onChange={setFilterAgents} placeholder={t("common.allAgents")} options={agentOptions} className="w-[150px]" />}
-          {showCampaignFilter && <MultiSelect value={filterCampaigns} onChange={setFilterCampaigns} placeholder={t("common.allCampaigns")} options={campaignOptions} className="w-[160px]" />}
+          <button onClick={() => setFilterOpen(true)}
+            className="inline-flex items-center gap-1.5 px-3 h-9 rounded-md border border-border bg-background text-[13px] font-medium text-foreground hover:bg-muted outline-none transition-colors">
+            <SlidersHorizontal className="w-4 h-4 text-muted-foreground" />Filter
+            {activeFilters > 0 && <span className="ml-0.5 min-w-[18px] h-[18px] px-1 rounded-full bg-primary text-white text-[11px] font-bold grid place-items-center tabular-nums">{activeFilters}</span>}
+          </button>
           {activeFilters > 0 && <button onClick={clearFilters} className="text-[11px] font-semibold text-primary hover:underline outline-none">{t("common.clear")}</button>}
           <div className="flex-1" />
           <div className="relative inline-flex" onClick={(e) => e.stopPropagation()}>
@@ -719,6 +722,41 @@ export default function ContactsPage() {
       {bulkOutcomeOpen && (
         <LostReasonDialog open onClose={() => setBulkOutcomeOpen(false)}
           onSubmit={(reason, category) => { setBLost({ reason, category }); setBStage(undefined); setBulkOutcomeOpen(false); }} />
+      )}
+
+      {/* Filter drawer (right) */}
+      {filterOpen && (
+        <>
+          <div className="fixed inset-0 bg-black/30 z-[60] animate-in" onClick={() => setFilterOpen(false)} />
+          <div className="fixed right-0 top-0 h-full w-[320px] max-w-[90vw] bg-card border-l border-border shadow-2xl z-[60] flex flex-col animate-slide-in-right">
+            <div className="flex items-center justify-between px-4 h-14 border-b border-border shrink-0">
+              <p className="text-[14px] font-bold text-foreground">Filters</p>
+              <button onClick={() => setFilterOpen(false)} className="p-1.5 rounded-md hover:bg-muted text-muted-foreground hover:text-foreground outline-none transition-colors"><X className="w-[18px] h-[18px]" /></button>
+            </div>
+            <div className="flex-1 overflow-y-auto p-4 space-y-4">
+              <div>
+                <label className="block text-[12px] font-bold text-foreground/80 mb-1.5">{t("contacts.allLabels")}</label>
+                <MultiSelect value={filterTags} onChange={setFilterTags} placeholder={t("contacts.allLabels")} options={tagOptions} className="w-full" />
+              </div>
+              {showAgentFilter && (
+                <div>
+                  <label className="block text-[12px] font-bold text-foreground/80 mb-1.5">{t("common.allAgents")}</label>
+                  <MultiSelect value={filterAgents} onChange={setFilterAgents} placeholder={t("common.allAgents")} options={agentOptions} className="w-full" />
+                </div>
+              )}
+              {showCampaignFilter && (
+                <div>
+                  <label className="block text-[12px] font-bold text-foreground/80 mb-1.5">{t("common.allCampaigns")}</label>
+                  <MultiSelect value={filterCampaigns} onChange={setFilterCampaigns} placeholder={t("common.allCampaigns")} options={campaignOptions} className="w-full" />
+                </div>
+              )}
+            </div>
+            <div className="flex items-center gap-2 px-4 py-3 border-t border-border shrink-0">
+              <button onClick={clearFilters} disabled={activeFilters === 0} className="flex-1 h-9 rounded-md border border-border text-[13px] font-semibold text-foreground hover:bg-muted disabled:opacity-50 outline-none transition-colors">{t("common.clear")}</button>
+              <button onClick={() => setFilterOpen(false)} className="flex-1 h-9 rounded-md bg-primary text-white text-[13px] font-semibold hover:bg-primary-dark outline-none transition-colors">Apply</button>
+            </div>
+          </div>
+        </>
       )}
 
       {toast && <Toast msg={toast} onClose={() => setToast(null)} />}

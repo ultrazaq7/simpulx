@@ -191,6 +191,13 @@ input, textarea, select, button { font-family: inherit; }
 }
 .animate-slide-in-left { animation: slideInLeft 0.2s ease-out; }
 
+/* Filter panel slide-in from right */
+@keyframes slideInRight {
+  from { opacity: 0; transform: translateX(100%); }
+  to { opacity: 1; transform: translateX(0); }
+}
+.animate-slide-in-right { animation: slideInRight 0.2s ease-out; }
+
 @keyframes shimmer { 100% { transform: translateX(100%); } }
 
 /* Pop-in header icon animation (runs once on mount) */

@@ -74,6 +74,19 @@ export default function SettingsLayout({ children }: { children: ReactNode }) {
   // route auto-expands; users can toggle the rest open/closed.
   const [openSections, setOpenSections] = useState<Record<string, boolean>>({});
   const toggleSection = (key: string) => setOpenSections((p) => ({ ...p, [key]: !p[key] }));
+  // Shift+C hides/shows the settings sidebar (unless typing in a field).
+  useEffect(() => {
+    const onKey = (e: KeyboardEvent) => {
+      const el = document.activeElement as HTMLElement | null;
+      if (el && (el.tagName === "INPUT" || el.tagName === "TEXTAREA" || el.isContentEditable)) return;
+      if (e.shiftKey && (e.key === "C" || e.key === "c") && !e.metaKey && !e.ctrlKey && !e.altKey) {
+        e.preventDefault();
+        setCollapsed((c) => !c);
+      }
+    };
+    window.addEventListener("keydown", onKey);
+    return () => window.removeEventListener("keydown", onKey);
+  }, []);
   // Esc collapses the settings sidebar. It mounts after Shell, so it sits ABOVE
   // the main sidebar on the shared LIFO stack -> Esc collapses this one first,
   // then the main sidebar (the order requested).
@@ -163,10 +176,10 @@ export default function SettingsLayout({ children }: { children: ReactNode }) {
       {collapsed ? (
         /* No panel when hidden — just a floating tab at the edge that lengthens on
            hover (Qontak-style). The settings content takes the full width. */
-        <div className="max-lg:hidden absolute left-0 top-1/2 -translate-y-1/2 z-20">
-          <Tip label="View more" side="right">
+        <div className="max-lg:hidden absolute left-0 bottom-3 z-20">
+          <Tip label="View more (shift + C)" side="right">
             <button onClick={toggle} aria-label="Expand settings menu"
-              className="flex items-center justify-center h-11 w-5 hover:w-9 rounded-r-xl border border-l-0 border-border bg-card shadow-md text-muted-foreground hover:text-primary transition-all duration-200 outline-none">
+              className="flex items-center justify-center h-9 w-6 hover:w-10 rounded-r-full border border-l-0 border-border bg-card shadow-md text-muted-foreground hover:text-primary transition-all duration-200 outline-none">
               <ChevronRight className="w-4 h-4 shrink-0" />
             </button>
           </Tip>
