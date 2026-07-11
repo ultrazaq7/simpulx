@@ -7,7 +7,7 @@ import { Loader2 } from "lucide-react";
 
 export default function AdsRedirect() {
   const router = useRouter();
-  useEffect(() => { router.replace("/settings/channels?tab=advertising"); }, [router]);
+  useEffect(() => { router.replace("/settings/ads-analytics"); }, [router]);
   return (
     <div className="grid place-items-center h-full">
       <Loader2 className="w-6 h-6 animate-spin text-muted-foreground" />

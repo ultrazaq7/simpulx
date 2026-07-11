@@ -25,7 +25,7 @@ function GoogleG({ className }: { className?: string }) {
   );
 }
 
-export function Ga4Tab() {
+export function Ga4Tab({ embedded }: { embedded?: boolean } = {}) {
   const router = useRouter();
   const params = useSearchParams();
   const { notify, confirm, ToastHost } = useToast();
@@ -82,7 +82,7 @@ export function Ga4Tab() {
         .catch(() => {})
         .finally(() => setLoadingProps(false));
     }
-    router.replace("/settings/channels?tab=analytics", { scroll: false });
+    router.replace("/settings/ads-analytics", { scroll: false });
   }, [params]); // eslint-disable-line react-hooks/exhaustive-deps
 
   function closeWizard() {
@@ -138,9 +138,9 @@ export function Ga4Tab() {
   );
 
   return (
-    <div className="px-6 py-6 w-full h-full flex flex-col min-h-0">
+    <div className={cn("px-6 py-6 w-full", !embedded && "h-full flex flex-col min-h-0")}>
       {ToastHost}
-      <div className="bg-card border border-border rounded-lg shadow-xs overflow-hidden flex-1 min-h-0 flex flex-col">
+      <div className={cn("bg-card border border-border rounded-lg shadow-xs overflow-hidden flex flex-col", !embedded && "flex-1 min-h-0")}>
         {/* Toolbar */}
         <div className="p-3 flex items-center gap-2.5 border-b border-border flex-wrap shrink-0">
           <div className="min-w-0">
@@ -153,7 +153,7 @@ export function Ga4Tab() {
         </div>
 
         {/* List */}
-        <div className="overflow-auto flex-1 min-h-0 p-4">
+        <div className={cn("p-4", !embedded && "overflow-auto flex-1 min-h-0")}>
           {loading ? (
             <div className="h-40 grid place-items-center"><Loader2 className="w-6 h-6 animate-spin text-primary" /></div>
           ) : conns.length === 0 ? (

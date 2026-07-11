@@ -247,7 +247,7 @@ func (s *server) handleGa4OAuthStart(w http.ResponseWriter, r *http.Request) {
 func (s *server) handleGa4Callback(w http.ResponseWriter, r *http.Request) {
 	appBase := config.Get("APP_BASE_URL", "http://localhost:3000")
 	fail := func(msg string) {
-		http.Redirect(w, r, appBase+"/settings/channels?tab=analytics&ga4_error="+url.QueryEscape(msg), http.StatusTemporaryRedirect)
+		http.Redirect(w, r, appBase+"/settings/ads-analytics?ga4_error="+url.QueryEscape(msg), http.StatusTemporaryRedirect)
 	}
 	code := r.URL.Query().Get("code")
 	stateID := r.URL.Query().Get("state")
@@ -286,7 +286,7 @@ func (s *server) handleGa4Callback(w http.ResponseWriter, r *http.Request) {
 	// Stash the refresh token as a pending, org-scoped entry; the user then picks
 	// which GA4 property to attach (listing properties needs this token).
 	s.rdb.Set(r.Context(), "ga4:pending:"+st.OrgID, tok.RefreshToken, 20*time.Minute)
-	http.Redirect(w, r, appBase+"/settings/channels?tab=analytics&ga4=connected", http.StatusTemporaryRedirect)
+	http.Redirect(w, r, appBase+"/settings/ads-analytics?ga4=connected", http.StatusTemporaryRedirect)
 }
 
 // GET /api/ga4/properties — after Google sign-in, list the account's GA4

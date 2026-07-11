@@ -7,7 +7,7 @@ import { Loader2 } from "lucide-react";
 
 export default function IntegrationsRedirect() {
   const router = useRouter();
-  useEffect(() => { router.replace("/settings/channels?tab=webapi"); }, [router]);
+  useEffect(() => { router.replace("/settings/web-api"); }, [router]);
   return (
     <div className="grid place-items-center h-full">
       <Loader2 className="w-6 h-6 animate-spin text-muted-foreground" />

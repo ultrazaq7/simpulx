@@ -21,7 +21,7 @@ const PLATFORMS: Record<string, { label: string }> = {
   google: { label: "Google Ads" },
 };
 
-export function AdvertisingTab() {
+export function AdvertisingTab({ embedded }: { embedded?: boolean } = {}) {
   const [accounts, setAccounts] = useState<AdAccount[]>([]);
   const [adCampaigns, setAdCampaigns] = useState<AdCampaignRow[]>([]);
   const [ourCampaigns, setOurCampaigns] = useState<Campaign[]>([]);
@@ -70,8 +70,8 @@ export function AdvertisingTab() {
   const managed = accounts.find((a) => a.id === manageId) || null;
 
   return (
-    <div className="px-6 py-6 w-full h-full flex flex-col min-h-0">
-      <div className="bg-card border border-border rounded-lg shadow-xs overflow-hidden flex-1 min-h-0 flex flex-col">
+    <div className={cn("px-6 py-6 w-full", !embedded && "h-full flex flex-col min-h-0")}>
+      <div className={cn("bg-card border border-border rounded-lg shadow-xs overflow-hidden flex flex-col", !embedded && "flex-1 min-h-0")}>
         {/* Toolbar */}
         <div className="p-3 flex items-center gap-2.5 border-b border-border flex-wrap shrink-0">
           <div className="relative w-[240px]">
@@ -85,7 +85,7 @@ export function AdvertisingTab() {
           </button>
         </div>
 
-        <div className="overflow-auto flex-1 min-h-0 p-4">
+        <div className={cn("p-4", !embedded && "overflow-auto flex-1 min-h-0")}>
         {loading ? (
           <div className="h-40 grid place-items-center"><Loader2 className="w-6 h-6 animate-spin text-primary" /></div>
         ) : accounts.length === 0 ? (

@@ -54,9 +54,9 @@ const GROUPS: { titleKey: string; items: NavItem[] }[] = [
     // Channel & Integrations page tab). Kept a distinct section below Workspace.
     titleKey: "Channel & Integrations",
     items: [
-      { key: "ci-channel", labelKey: "Channel", icon: RadioTower, href: "/settings/channels?tab=channels", perm: "manage_channels" },
-      { key: "ci-webapi", labelKey: "Web API", icon: Plug, href: "/settings/channels?tab=webapi", perm: "manage_channels" },
-      { key: "ci-ads", labelKey: "Ads & Analytics", icon: Megaphone, href: "/settings/channels?tab=ads-analytics", perm: "manage_channels" },
+      { key: "ci-channel", labelKey: "Channel", icon: RadioTower, href: "/settings/channels", perm: "manage_channels" },
+      { key: "ci-webapi", labelKey: "Web API", icon: Plug, href: "/settings/web-api", perm: "manage_channels" },
+      { key: "ci-ads", labelKey: "Ads & Analytics", icon: Megaphone, href: "/settings/ads-analytics", perm: "manage_channels" },
     ],
   },
   {
