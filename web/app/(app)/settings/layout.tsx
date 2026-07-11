@@ -10,13 +10,12 @@ import { usePathname } from "next/navigation";
 import {
   Settings, FormInput, Bell, User, ShieldCheck, ListOrdered,
   Building2, Building, FileText, GitBranch, RadioTower, Clock, ClipboardList,
-  PanelLeftClose, Boxes, Zap, SlidersHorizontal, ChevronRight,
+  ChevronsLeft, Boxes, Zap, SlidersHorizontal, ChevronRight,
 } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { api, getUser } from "@/lib/api";
 import { usePermissions } from "@/lib/permissions";
 import { useI18n } from "@/lib/i18n";
-import { useEscClose } from "@/lib/useEscClose";
 import { Tip } from "@/components/ui/tooltip";
 
 // perm = permission key gating this section. Items without a dedicated perm in
@@ -87,10 +86,7 @@ export default function SettingsLayout({ children }: { children: ReactNode }) {
     window.addEventListener("keydown", onKey);
     return () => window.removeEventListener("keydown", onKey);
   }, []);
-  // Esc collapses the settings sidebar. It mounts after Shell, so it sits ABOVE
-  // the main sidebar on the shared LIFO stack -> Esc collapses this one first,
-  // then the main sidebar (the order requested).
-  useEscClose(!collapsed, () => { setCollapsed(true); localStorage.setItem("simpulx_settings_collapsed", "1"); }, -2);
+  // Esc intentionally does NOT collapse the settings sidebar — only Shift+C toggles it.
 
   // Platform is visible only to the super admin (a configured email, not a role).
   // Lazy-init from the cached session so the Platform item renders immediately on
@@ -171,21 +167,14 @@ export default function SettingsLayout({ children }: { children: ReactNode }) {
         </div>
       </div>
 
-      {/* Settings sidebar — desktop only; text-only for an enterprise look.
-          Collapsed hides the panel, leaving a slim expand tab. */}
-      {collapsed ? (
-        /* No panel when hidden — just a floating tab at the edge that lengthens on
-           hover (Qontak-style). The settings content takes the full width. */
-        <div className="max-lg:hidden absolute left-0 bottom-3 z-20">
-          <Tip label="View more (shift + C)" side="right">
-            <button onClick={toggle} aria-label="Expand settings menu"
-              className="flex items-center justify-center h-9 w-6 hover:w-10 rounded-r-full border border-l-0 border-border bg-card shadow-md text-muted-foreground hover:text-primary transition-all duration-200 outline-none">
-              <ChevronRight className="w-4 h-4 shrink-0" />
-            </button>
-          </Tip>
-        </div>
-      ) : (
-        <div className="max-lg:hidden shrink-0 w-[260px] border-r border-border bg-card flex flex-col">
+      {/* Settings sidebar — the WIDTH animates so it slides open/closed; collapsed
+          leaves a thin bordered strip, and a floating tab fades in to reopen it. */}
+      <div className={cn(
+        "max-lg:hidden shrink-0 border-r border-border bg-card overflow-hidden transition-[width] duration-300 ease-in-out",
+        collapsed ? "w-4" : "w-[260px]",
+      )}>
+        {/* Fixed-width inner nav so it clips cleanly as the panel slides. */}
+        <div className="w-[260px] h-full flex flex-col">
           <div ref={navScrollRef} className="flex-1 overflow-y-auto overflow-x-hidden py-3 min-h-0">
             {groups.map((g) => {
               const open = !!openSections[g.titleKey];
@@ -226,15 +215,26 @@ export default function SettingsLayout({ children }: { children: ReactNode }) {
 
           {/* Collapse toggle — pinned at the bottom */}
           <div className="shrink-0 border-t border-border p-2 flex justify-end">
-            <Tip label="Collapse" side="top">
-              <button onClick={toggle}
+            <Tip label="View less (shift + C)" side="top">
+              <button onClick={toggle} aria-label="Collapse settings menu"
                 className="p-1.5 rounded-md text-muted-foreground hover:bg-primary/10 hover:text-primary hover:scale-110 outline-none transition-all duration-200">
-                <PanelLeftClose className="w-[18px] h-[18px]" />
+                <ChevronsLeft className="w-[18px] h-[18px]" />
               </button>
             </Tip>
           </div>
         </div>
-      )}
+      </div>
+
+      {/* Floating tab on the collapsed strip — fades in when hidden, reopens the menu. */}
+      <div className={cn("max-lg:hidden absolute left-0 bottom-3 z-20 transition-opacity duration-200",
+        collapsed ? "opacity-100" : "opacity-0 pointer-events-none")}>
+        <Tip label="View more (shift + C)" side="right">
+          <button onClick={toggle} aria-label="Expand settings menu"
+            className="flex items-center justify-center h-9 w-6 hover:w-9 rounded-r-full border border-l-0 border-border bg-card shadow-md text-muted-foreground hover:text-primary transition-all duration-200 outline-none">
+            <ChevronRight className="w-4 h-4 shrink-0" />
+          </button>
+        </Tip>
+      </div>
 
       {/* Page content — only this remounts on navigation. overflow-hidden so the
           area never shows its own scrollbar; each page scrolls internally. */}
