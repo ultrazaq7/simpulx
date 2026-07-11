@@ -1041,8 +1041,8 @@ function MarketingAnalytics() {
   // Grand total for the Source table = sum of its own rows (the table always
   // shows every source; it's the cross-filter control, so its footer stays full).
   const srcTotals = (perf?.sources || []).reduce((a, s) => ({
-    impressions: a.impressions + s.impressions, clicks: a.clicks + s.clicks, leads: a.leads + s.leads, purchases: a.purchases + s.purchases,
-  }), { impressions: 0, clicks: 0, leads: 0, purchases: 0 });
+    impressions: a.impressions + s.impressions, clicks: a.clicks + s.clicks, leads: a.leads + s.leads, purchases: a.purchases + s.purchases, spend: a.spend + s.spend,
+  }), { impressions: 0, clicks: 0, leads: 0, purchases: 0, spend: 0 });
   const cpl = t.leads > 0 ? t.spend / t.leads : 0;
   const cpa = t.sales > 0 ? t.spend / t.sales : 0;
   const convRate = t.leads > 0 ? (t.sales / t.leads) * 100 : 0;
@@ -1230,27 +1230,32 @@ function MarketingAnalytics() {
           <table className="w-full text-sm">
             <thead>
               <tr className="bg-muted/40 border-b border-border">
-                {["Source", "Impressions", "Clicks", "CTR", "Leads", "Purchase", "CVR"].map((h, i) => (
+                {["Source", "Cost", "Impressions", "Clicks", "CTR", "CPC", "Leads", "CPL", "Purchase", "CVR"].map((h, i) => (
                   <th key={h} className={cn("px-3 py-2 text-[11px] font-bold uppercase tracking-wider text-muted-foreground", i === 0 ? "text-left" : "text-right")}>{h}</th>
                 ))}
               </tr>
             </thead>
             <tbody>
               {(perf?.sources || []).length === 0 ? (
-                <tr><td colSpan={7} className="px-3 py-10 text-center text-[13px] text-muted-foreground">No source data in this range</td></tr>
+                <tr><td colSpan={10} className="px-3 py-10 text-center text-[13px] text-muted-foreground">No source data in this range</td></tr>
               ) : (() => {
                 const rows = perf?.sources || [];
                 const maxCvr = Math.max(...rows.map((s) => s.cvr), 1);
                 return rows.map((s) => {
                   const heat = s.cvr / maxCvr;
                   const bg = `rgba(45, 139, 115, ${heat * 0.85})`; // on-brand green CVR heat
+                  const cpc = s.clicks > 0 ? s.spend / s.clicks : 0;
+                  const cpl = s.leads > 0 ? s.spend / s.leads : 0;
                   return (
                     <tr key={s.source} className="border-b border-border/60">
                       <td className="px-3 py-2 font-semibold text-foreground">{s.label}</td>
+                      <td className="px-3 py-2 text-right tabular-nums text-foreground/80">{money(s.spend)}</td>
                       <td className="px-3 py-2 text-right tabular-nums text-foreground/80">{fmtInt(s.impressions)}</td>
                       <td className="px-3 py-2 text-right tabular-nums text-foreground/80">{fmtInt(s.clicks)}</td>
                       <td className="px-3 py-2 text-right tabular-nums text-foreground/80">{s.ctr.toFixed(2)}%</td>
+                      <td className="px-3 py-2 text-right tabular-nums text-foreground/80">{s.clicks > 0 ? money(cpc) : "-"}</td>
                       <td className="px-3 py-2 text-right tabular-nums text-foreground/80">{fmtInt(s.leads)}</td>
+                      <td className="px-3 py-2 text-right tabular-nums text-foreground/80">{s.leads > 0 ? money(cpl) : "-"}</td>
                       <td className="px-3 py-2 text-right tabular-nums font-semibold text-foreground">{fmtInt(s.purchases)}</td>
                       <td className={cn("px-3 py-2 text-right tabular-nums font-semibold", heat > 0.5 ? "text-white" : "text-foreground")} style={{ backgroundColor: bg }}>{s.cvr.toFixed(2)}%</td>
                     </tr>
@@ -1261,10 +1266,13 @@ function MarketingAnalytics() {
             <tfoot>
               <tr className="border-t-2 border-border font-bold">
                 <td className="px-3 py-3">Grand total</td>
+                <td className="px-3 py-3 text-right tabular-nums">{money(srcTotals.spend)}</td>
                 <td className="px-3 py-3 text-right tabular-nums">{fmtInt(srcTotals.impressions)}</td>
                 <td className="px-3 py-3 text-right tabular-nums">{fmtInt(srcTotals.clicks)}</td>
                 <td className="px-3 py-3 text-right tabular-nums">{(srcTotals.impressions > 0 ? (srcTotals.clicks / srcTotals.impressions) * 100 : 0).toFixed(2)}%</td>
+                <td className="px-3 py-3 text-right tabular-nums">{srcTotals.clicks > 0 ? money(srcTotals.spend / srcTotals.clicks) : "-"}</td>
                 <td className="px-3 py-3 text-right tabular-nums">{fmtInt(srcTotals.leads)}</td>
+                <td className="px-3 py-3 text-right tabular-nums">{srcTotals.leads > 0 ? money(srcTotals.spend / srcTotals.leads) : "-"}</td>
                 <td className="px-3 py-3 text-right tabular-nums">{fmtInt(srcTotals.purchases)}</td>
                 <td className="px-3 py-3 text-right tabular-nums">{(srcTotals.clicks > 0 ? (srcTotals.leads / srcTotals.clicks) * 100 : 0).toFixed(2)}%</td>
               </tr>
