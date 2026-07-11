@@ -156,7 +156,7 @@ export function AdvertisingTab({ embedded }: { embedded?: boolean } = {}) {
 
 // Manage one connection: edit name / account id / access token, and map its ad
 // campaigns to our campaigns. Replaces the old global mapping table.
-function AdAccountDialog({ account, adCampaigns, ourCampaigns, onMap, onSync, syncing, onClose, onSaved, onError }: {
+export function AdAccountDialog({ account, adCampaigns, ourCampaigns, onMap, onSync, syncing, onClose, onSaved, onError }: {
   account: AdAccount; adCampaigns: AdCampaignRow[]; ourCampaigns: Campaign[];
   onMap: (adCampId: string, campaignIds: string[]) => void; onSync: () => void; syncing: boolean;
   onClose: () => void; onSaved: (m: string) => void; onError: (m: string) => void;
