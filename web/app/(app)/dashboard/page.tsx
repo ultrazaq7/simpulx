@@ -1320,9 +1320,15 @@ function MarketingAnalytics() {
   const kw = keywords.slice(0, 10);
   const kwMax = Math.max(1, ...kw.map((k) => k.impressions), ...kw.map((k) => k.clicks));
   const logW = (v: number) => Math.max(2, (Math.log10((v || 0) + 1) / Math.log10(kwMax + 1)) * 100);
+  // Age demography as SHARE (%), so impressions and clicks read on one comparable
+  // scale (raw counts were on two different scales -> 15 clicks looked as long as
+  // 823 impressions). Bars are scaled to the largest share; labels show the %.
   const ageRows = (perf?.age || []).filter((b) => (b.value || "").toLowerCase() !== "unknown");
-  const ageMaxImp = Math.max(1, ...ageRows.map((b) => b.impressions));
-  const ageMaxClk = Math.max(1, ...ageRows.map((b) => b.clicks));
+  const ageTotImp = ageRows.reduce((a, b) => a + b.impressions, 0) || 1;
+  const ageTotClk = ageRows.reduce((a, b) => a + b.clicks, 0) || 1;
+  const ageImprShare = (b: AdBreakdown) => (b.impressions / ageTotImp) * 100;
+  const ageClkShare = (b: AdBreakdown) => (b.clicks / ageTotClk) * 100;
+  const ageMaxShare = Math.max(1, ...ageRows.map(ageImprShare), ...ageRows.map(ageClkShare));
   const gt = ga4?.totals;
 
   // Full raw analytics export (same shape as the old campaign report): summary +
@@ -1464,12 +1470,25 @@ function MarketingAnalytics() {
       </div>
 
       {/* Funnel + insights (left column) beside Source performance (right) */}
-      <div className="grid grid-cols-1 lg:grid-cols-[360px_1fr] gap-4 mb-5 items-start">
+      <div className="grid grid-cols-1 lg:grid-cols-[340px_1fr] gap-4 mb-5 items-start">
       <div className="flex flex-col gap-4">
-      <Card title="Marketing funnel" subtitle="Impression to purchase conversion">
+      {/* Marketing funnel card with info tooltip + 3-dot menu */}
+      <div className="bg-card rounded-xl border border-border shadow-xs overflow-hidden">
+        <div className="px-4 py-3 border-b border-border flex items-center justify-between">
+          <div className="flex items-center gap-2">
+            <p className="font-bold text-[14px] text-foreground leading-tight">Marketing funnel</p>
+            <Tip label="Shows the conversion progression from ad impressions through to purchases" side="top">
+              <span className="text-muted-foreground/50 cursor-help"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><circle cx="12" cy="12" r="10"/><path d="M12 16v-4"/><path d="M12 8h.01"/></svg></span>
+            </Tip>
+          </div>
+          <button className="p-1 rounded-md text-muted-foreground/50 hover:text-muted-foreground hover:bg-muted transition-colors outline-none">
+            <svg width="16" height="16" viewBox="0 0 24 24" fill="currentColor"><circle cx="12" cy="5" r="1.5"/><circle cx="12" cy="12" r="1.5"/><circle cx="12" cy="19" r="1.5"/></svg>
+          </button>
+        </div>
+        <p className="px-4 pt-1.5 text-[11.5px] text-muted-foreground">Impression to purchase conversion</p>
         {/* True funnel: clip-path trapezoids narrowing on an on-brand green ramp,
             each with its step-to-step conversion rate at the right. */}
-        <div className="p-4">
+        <div className="p-4 pt-3">
           <div className="flex flex-col">
             {funnelSteps.map((s, i) => {
               const top = FUNNEL_W[i], bot = FUNNEL_W[i + 1] ?? 0.3;
@@ -1477,31 +1496,31 @@ function MarketingAnalytics() {
               return (
                 <div key={s.label} className="flex items-center gap-2">
                   <div className="flex-1 min-w-0">
-                    <div className="relative flex flex-col items-center justify-center text-center text-white px-4"
-                      style={{ height: 54, background: FUNNEL_RAMP[i], clipPath: clip, WebkitClipPath: clip, marginTop: i ? -1 : 0 }}>
+                    <div className="relative flex flex-col items-center justify-center text-center text-white px-3"
+                      style={{ height: 46, background: FUNNEL_RAMP[i], clipPath: clip, WebkitClipPath: clip, marginTop: i ? -1 : 0 }}>
                       <div className="flex items-center gap-1.5">
-                        <s.Icon className="w-3.5 h-3.5 opacity-90 shrink-0" />
-                        <span className="text-[16px] font-extrabold tabular-nums leading-none">{s.value}</span>
+                        <s.Icon className="w-3 h-3 opacity-90 shrink-0" />
+                        <span className="text-[13.5px] font-extrabold tabular-nums leading-none">{s.value}</span>
                       </div>
-                      <span className="text-[9.5px] font-medium opacity-90 mt-0.5">{s.label}</span>
+                      <span className="text-[9px] font-medium opacity-90 mt-0.5">{s.label}</span>
                     </div>
                   </div>
-                  <span className="shrink-0 flex justify-end" style={{ width: 58 }}>
-                    <span className="inline-block px-2 py-0.5 rounded-md bg-muted text-[11px] font-bold tabular-nums text-foreground/70">{s.rate.toFixed(2)}%</span>
+                  <span className="shrink-0 flex justify-end" style={{ width: 52 }}>
+                    <span className="inline-block px-1.5 py-0.5 rounded-md bg-muted text-[10.5px] font-bold tabular-nums text-foreground/70">{s.rate.toFixed(2)}%</span>
                   </span>
                 </div>
               );
             })}
           </div>
           <div className="mt-3 pt-3 border-t border-border flex items-center justify-between gap-2">
-            <span className="text-[11px] text-muted-foreground">Overall conversion rate from impression to purchase</span>
-            <span className="text-[12px] font-bold tabular-nums text-primary shrink-0">{overallConv.toFixed(2)}%</span>
+            <span className="text-[10.5px] text-muted-foreground">Overall conversion rate from impression to purchase</span>
+            <span className="text-[11.5px] font-bold tabular-nums text-primary shrink-0">{overallConv.toFixed(2)}%</span>
           </div>
         </div>
-      </Card>
+      </div>
 
       {insights.length > 0 && (
-        <Card>
+        <div className="bg-card rounded-xl border border-border shadow-xs overflow-hidden">
           <div className="px-4 py-3 border-b border-border flex items-center gap-2">
             <Sparkles className="w-[18px] h-[18px] text-primary" />
             <p className="font-bold text-[14px] text-foreground leading-tight">Campaign insights</p>
@@ -1516,21 +1535,30 @@ function MarketingAnalytics() {
               </div>
             ))}
           </div>
-        </Card>
+        </div>
       )}
       </div>
 
       {/* Source performance (right of the funnel) */}
-      <div className="bg-card rounded-lg border border-border shadow-xs overflow-hidden">
-        <div className="px-4 py-3 border-b border-border">
-          <p className="font-bold text-[14px] text-foreground leading-tight">Source performance</p>
+      <div className="bg-card rounded-xl border border-border shadow-xs overflow-hidden">
+        <div className="px-4 py-3 border-b border-border flex items-center justify-between">
+          <div className="flex items-center gap-2">
+            <p className="font-bold text-[14px] text-foreground leading-tight">Source performance</p>
+            <Tip label="Ad performance broken down by traffic source" side="top">
+              <span className="text-muted-foreground/50 cursor-help"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><circle cx="12" cy="12" r="10"/><path d="M12 16v-4"/><path d="M12 8h.01"/></svg></span>
+            </Tip>
+          </div>
+          <div className="flex items-center gap-1">
+            <button className="p-1.5 rounded-md text-muted-foreground hover:text-foreground hover:bg-muted transition-colors outline-none"><BarChart3 className="w-4 h-4" /></button>
+            <button className="p-1.5 rounded-md text-muted-foreground hover:text-foreground hover:bg-muted transition-colors outline-none"><TrendingUp className="w-4 h-4" /></button>
+          </div>
         </div>
         <div className="overflow-x-auto">
-          <table className="w-full text-sm">
+          <table className="w-full text-xs">
             <thead>
               <tr className="bg-muted/40 border-b border-border">
                 {["Source", "Cost", "Impressions", "Clicks", "CTR", "CPC", "Leads", "CPL", "Purchase", "CVR"].map((h, i) => (
-                  <th key={h} className={cn("px-3 py-2 text-[11px] font-bold uppercase tracking-wider text-muted-foreground", i === 0 ? "text-left" : "text-right")}>{h}</th>
+                  <th key={h} className={cn("px-2.5 py-2 text-[10px] font-bold uppercase tracking-wider text-muted-foreground whitespace-nowrap", i === 0 ? "text-left" : "text-right")}>{h}</th>
                 ))}
               </tr>
             </thead>
@@ -1543,54 +1571,57 @@ function MarketingAnalytics() {
                   const ser = srcSeries[s.source];
                   return (
                     <tr key={s.source} className="border-b border-border/60 align-top">
-                      <td className="px-3 py-2.5">
-                        <div className="flex items-center gap-2"><SourceIcon source={s.source} /><span className="font-semibold text-foreground whitespace-nowrap">{s.label}</span></div>
+                      <td className="px-2.5 py-2">
+                        <div className="flex items-center gap-1.5"><SourceIcon source={s.source} /><span className="font-semibold text-foreground whitespace-nowrap text-[12px]">{s.label}</span></div>
                       </td>
-                      <td className="px-3 py-2.5 text-right">
+                      <td className="px-2.5 py-2 text-right">
                         <div className="tabular-nums text-foreground/80 whitespace-nowrap">{money(s.spend)}</div>
                         {hasPrev && s.spend > 0 && <div className="flex justify-end mt-0.5"><Delta cur={s.spend} prev={prevSrcSpend[s.source] ?? 0} higherIsBetter={null} /></div>}
                       </td>
-                      <td className="px-3 py-2.5 text-right">
+                      <td className="px-2.5 py-2 text-right">
                         <div className="tabular-nums text-foreground/80">{fmtInt(s.impressions)}</div>
-                        {ser && ser.impressions.length > 1 && <div className="flex justify-end mt-1"><MiniBars data={ser.impressions} color="#2D8B73" /></div>}
+                        {ser && ser.impressions.length > 1 && <div className="flex justify-end mt-1"><MiniBars data={ser.impressions} color="#2D8B73" w={56} h={16} /></div>}
                       </td>
-                      <td className="px-3 py-2.5 text-right tabular-nums text-foreground/80">{fmtInt(s.clicks)}</td>
-                      <td className="px-3 py-2.5 text-right">
+                      <td className="px-2.5 py-2 text-right tabular-nums text-foreground/80">{fmtInt(s.clicks)}</td>
+                      <td className="px-2.5 py-2 text-right">
                         <div className="tabular-nums text-foreground/80">{s.ctr.toFixed(2)}%</div>
-                        {ser && ser.ctr.length > 1 && <div className="flex justify-end mt-1"><Spark data={ser.ctr} color="#6366F1" w={64} h={18} fill={false} /></div>}
+                        {ser && ser.ctr.length > 1 && <div className="flex justify-end mt-1"><Spark data={ser.ctr} color="#6366F1" w={52} h={16} fill={false} /></div>}
                       </td>
-                      <td className="px-3 py-2.5 text-right tabular-nums text-foreground/80 whitespace-nowrap">{s.clicks > 0 ? money(cpc) : "-"}</td>
-                      <td className="px-3 py-2.5 text-right">
+                      <td className="px-2.5 py-2 text-right tabular-nums text-foreground/80 whitespace-nowrap">{s.clicks > 0 ? money(cpc) : "-"}</td>
+                      <td className="px-2.5 py-2 text-right">
                         <div className="tabular-nums text-foreground/80">{fmtInt(s.leads)}</div>
                         {s.leads > 0 && (
-                          <div className="mt-1.5 ml-auto h-1.5 rounded-full bg-muted overflow-hidden" style={{ width: 46 }}>
+                          <div className="mt-1 ml-auto h-1.5 rounded-full bg-muted overflow-hidden" style={{ width: 40 }}>
                             <div className="h-full rounded-full" style={{ width: `${(s.leads / srcMaxLeads) * 100}%`, background: "#2D8B73" }} />
                           </div>
                         )}
                       </td>
-                      <td className="px-3 py-2.5 text-right tabular-nums text-foreground/80 whitespace-nowrap">{s.leads > 0 ? money(cpl) : "-"}</td>
-                      <td className="px-3 py-2.5 text-right tabular-nums font-semibold text-foreground">{fmtInt(s.purchases)}</td>
-                      <td className="px-3 py-2.5 text-right">
-                        <span className={cn("inline-flex px-2 py-0.5 rounded-md text-[11px] font-bold tabular-nums", s.cvr > 0 ? "bg-primary text-white" : "bg-muted text-muted-foreground")}>{s.cvr.toFixed(2)}%</span>
+                      <td className="px-2.5 py-2 text-right tabular-nums text-foreground/80 whitespace-nowrap">{s.leads > 0 ? money(cpl) : "-"}</td>
+                      <td className="px-2.5 py-2 text-right tabular-nums font-semibold text-foreground">{fmtInt(s.purchases)}</td>
+                      <td className="px-2.5 py-2 text-right">
+                        <span className={cn("inline-flex px-1.5 py-0.5 rounded-md text-[10.5px] font-bold tabular-nums", s.cvr > 0 ? "bg-primary text-white" : "bg-muted text-muted-foreground")}>{s.cvr.toFixed(2)}%</span>
                       </td>
                     </tr>
                   );
                 })}
             </tbody>
             <tfoot>
-              <tr className="border-t-2 border-border font-bold">
-                <td className="px-3 py-3">Grand total</td>
-                <td className="px-3 py-3 text-right tabular-nums whitespace-nowrap">{money(srcTotals.spend)}</td>
-                <td className="px-3 py-3 text-right tabular-nums">{fmtInt(srcTotals.impressions)}</td>
-                <td className="px-3 py-3 text-right tabular-nums">{fmtInt(srcTotals.clicks)}</td>
-                <td className="px-3 py-3 text-right tabular-nums">{(srcTotals.impressions > 0 ? (srcTotals.clicks / srcTotals.impressions) * 100 : 0).toFixed(2)}%</td>
-                <td className="px-3 py-3 text-right tabular-nums whitespace-nowrap">{srcTotals.clicks > 0 ? money(srcTotals.spend / srcTotals.clicks) : "-"}</td>
-                <td className="px-3 py-3 text-right tabular-nums">{fmtInt(srcTotals.leads)}</td>
-                <td className="px-3 py-3 text-right tabular-nums whitespace-nowrap">{srcTotals.leads > 0 ? money(srcTotals.spend / srcTotals.leads) : "-"}</td>
-                <td className="px-3 py-3 text-right tabular-nums">{fmtInt(srcTotals.purchases)}</td>
-                <td className="px-3 py-3 text-right">
+              <tr className="border-t-2 border-border font-bold text-[12px]">
+                <td className="px-2.5 py-2.5">Grand total</td>
+                <td className="px-2.5 py-2.5 text-right">
+                  <div className="tabular-nums whitespace-nowrap">{money(srcTotals.spend)}</div>
+                  {hasPrev && srcTotals.spend > 0 && <div className="flex justify-end mt-0.5"><Delta cur={srcTotals.spend} prev={prev?.spend ?? 0} higherIsBetter={null} /></div>}
+                </td>
+                <td className="px-2.5 py-2.5 text-right tabular-nums">{fmtInt(srcTotals.impressions)}</td>
+                <td className="px-2.5 py-2.5 text-right tabular-nums">{fmtInt(srcTotals.clicks)}</td>
+                <td className="px-2.5 py-2.5 text-right tabular-nums">{(srcTotals.impressions > 0 ? (srcTotals.clicks / srcTotals.impressions) * 100 : 0).toFixed(2)}%</td>
+                <td className="px-2.5 py-2.5 text-right tabular-nums whitespace-nowrap">{srcTotals.clicks > 0 ? money(srcTotals.spend / srcTotals.clicks) : "-"}</td>
+                <td className="px-2.5 py-2.5 text-right tabular-nums">{fmtInt(srcTotals.leads)}</td>
+                <td className="px-2.5 py-2.5 text-right tabular-nums whitespace-nowrap">{srcTotals.leads > 0 ? money(srcTotals.spend / srcTotals.leads) : "-"}</td>
+                <td className="px-2.5 py-2.5 text-right tabular-nums">{fmtInt(srcTotals.purchases)}</td>
+                <td className="px-2.5 py-2.5 text-right">
                   {(() => { const gcvr = srcTotals.clicks > 0 ? (srcTotals.leads / srcTotals.clicks) * 100 : 0; return (
-                    <span className={cn("inline-flex px-2 py-0.5 rounded-md text-[11px] font-bold tabular-nums", gcvr > 0 ? "bg-primary text-white" : "bg-muted text-muted-foreground")}>{gcvr.toFixed(2)}%</span>
+                    <span className={cn("inline-flex px-1.5 py-0.5 rounded-md text-[10.5px] font-bold tabular-nums", gcvr > 0 ? "bg-primary text-white" : "bg-muted text-muted-foreground")}>{gcvr.toFixed(2)}%</span>
                   ); })()}
                 </td>
               </tr>
@@ -1707,13 +1738,13 @@ function MarketingAnalytics() {
             {ageRows.length === 0 ? (
               <div className="py-10 text-center text-sm text-muted-foreground">No data</div>
             ) : (
-              <div className="flex flex-col gap-3">
+              <div className="flex flex-col gap-3.5">
                 {ageRows.map((b) => (
-                  <div key={b.value} className="grid grid-cols-[56px_1fr] gap-2 items-center">
-                    <span className="text-[11px] text-foreground">{b.value}</span>
-                    <div>
-                      <div className="flex items-center gap-2"><div className="h-2 rounded-sm" style={{ width: `${(b.impressions / ageMaxImp) * 100}%`, background: "#0b1220" }} /><span className="text-[10px] text-muted-foreground tabular-nums">{fmtInt(b.impressions)}</span></div>
-                      <div className="flex items-center gap-2 mt-1"><div className="h-2 rounded-sm" style={{ width: `${(b.clicks / ageMaxClk) * 100}%`, background: "#2D8B73" }} /><span className="text-[10px] text-muted-foreground tabular-nums">{fmtInt(b.clicks)}</span></div>
+                  <div key={b.value} className="grid grid-cols-[52px_1fr] gap-3 items-center">
+                    <span className="text-[11px] font-medium text-foreground">{b.value}</span>
+                    <div className="flex flex-col gap-1.5">
+                      <div className="flex items-center gap-2"><div className="flex-1 h-2 rounded-full bg-muted overflow-hidden"><div className="h-full rounded-full" style={{ width: `${(ageImprShare(b) / ageMaxShare) * 100}%`, background: "#0b1220" }} /></div><span className="text-[10px] font-semibold text-foreground/70 tabular-nums w-9 text-right">{ageImprShare(b).toFixed(1)}%</span></div>
+                      <div className="flex items-center gap-2"><div className="flex-1 h-2 rounded-full bg-muted overflow-hidden"><div className="h-full rounded-full" style={{ width: `${(ageClkShare(b) / ageMaxShare) * 100}%`, background: "#2D8B73" }} /></div><span className="text-[10px] font-semibold text-foreground/70 tabular-nums w-9 text-right">{ageClkShare(b).toFixed(1)}%</span></div>
                     </div>
                   </div>
                 ))}
