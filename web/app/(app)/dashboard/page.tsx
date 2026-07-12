@@ -1069,11 +1069,12 @@ function MarketingAnalytics() {
   const ctrPct = t.impressions > 0 ? (t.clicks / t.impressions) * 100 : 0;
   // Stacked funnel bars narrowing on a fixed ramp, orange -> red (matches the
   // campaign report look).
+  // On-brand green funnel ramp (light -> dark as it narrows).
   const funnel = [
-    { label: "Impressions", display: fmtInt(t.impressions), w: 100, color: "#F97316" },
-    { label: "Clicks", display: fmtInt(t.clicks), w: 80, color: "#F97316" },
-    { label: "CTR %", display: `${ctrPct.toFixed(2)}%`, w: 60, color: "#EA580C" },
-    { label: "Leads", display: fmtInt(t.leads), w: 44, color: "#DC2626" },
+    { label: "Impressions", display: fmtInt(t.impressions), w: 100, color: "#4FB295" },
+    { label: "Clicks", display: fmtInt(t.clicks), w: 80, color: "#2D8B73" },
+    { label: "CTR %", display: `${ctrPct.toFixed(2)}%`, w: 60, color: "#26735F" },
+    { label: "Leads", display: fmtInt(t.leads), w: 44, color: "#1E5C4C" },
   ];
 
   const daily = (perf?.daily || []).map((d) => {
@@ -1205,11 +1206,9 @@ function MarketingAnalytics() {
         ))}
       </div>
 
-      {/* Marketing funnel + Conversion rates side-by-side */}
-      <div className="grid grid-cols-1 lg:grid-cols-2 gap-4 mb-5">
-      <Card title="Marketing funnel" subtitle="Impression to click to chat to conversion">
-        {/* Stacked funnel bars narrowing on a fixed ramp, orange -> red (matches
-            the campaign report). */}
+      {/* Marketing funnel (compact) + full-width Source performance below */}
+      <Card title="Marketing funnel" subtitle="Impression to click to chat to conversion" className="mb-5 lg:max-w-md">
+        {/* Stacked funnel bars narrowing on a fixed ramp, on-brand green. */}
         <div className="p-4">
           <div className="flex flex-col items-center gap-1.5">
             {funnel.map((s) => (
@@ -1223,12 +1222,12 @@ function MarketingAnalytics() {
         </div>
       </Card>
 
-      {/* Source performance — read-only breakdown of ad delivery + leads by source. */}
-      <div className="bg-card rounded-lg border border-border shadow-xs overflow-hidden flex flex-col">
+      {/* Source performance — full width, read-only breakdown of delivery + leads by source. */}
+      <div className="bg-card rounded-lg border border-border shadow-xs overflow-hidden mb-5">
         <div className="px-4 py-3 border-b border-border">
           <p className="font-bold text-[14px] text-foreground leading-tight">Source performance</p>
         </div>
-        <div className="overflow-x-auto flex-1">
+        <div className="overflow-x-auto">
           <table className="w-full text-sm">
             <thead>
               <tr className="bg-muted/40 border-b border-border">
@@ -1281,7 +1280,6 @@ function MarketingAnalytics() {
             </tfoot>
           </table>
         </div>
-      </div>
       </div>
 
       {/* Top Google keywords — only shown when a Google Ads account is connected
