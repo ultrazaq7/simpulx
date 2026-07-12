@@ -113,6 +113,64 @@ func (s *server) handleExportTeam(w http.ResponseWriter, r *http.Request) {
 	cw.Flush()
 }
 
+// ── GET /api/system-logs/conversations/{id}/export ───────────
+// One conversation's full message transcript as conversation-<id>.csv. Used by
+// the per-row Export action in the System Logs conversation table.
+func (s *server) handleExportConversation(w http.ResponseWriter, r *http.Request) {
+	a, _ := authFrom(r.Context())
+	id := r.PathValue("id")
+	if id == "" {
+		http.Error(w, "conversation id required", http.StatusBadRequest)
+		return
+	}
+	// Ownership guard: only export a conversation in the caller's org.
+	var exists bool
+	if err := s.pool.QueryRow(r.Context(),
+		`SELECT true FROM conversations WHERE id=$1 AND organization_id=$2`, id, a.OrgID).Scan(&exists); err != nil || !exists {
+		http.Error(w, "not found", http.StatusNotFound)
+		return
+	}
+
+	rows, err := s.queryMaps(r.Context(),
+		`SELECT m.created_at,
+		        CASE WHEN m.direction='inbound' THEN 'Incoming' ELSE 'Outgoing' END AS direction,
+		        CASE WHEN m.direction='inbound' THEN ct.full_name
+		             ELSE COALESCE(u.full_name, CASE WHEN m.sender_type='bot' THEN 'Bot' END) END AS sender,
+		        m.type AS message_type, COALESCE(m.body,'') AS message,
+		        CASE WHEN m.status IN ('sent','delivered','read') THEN 'sent'
+		             WHEN m.status='queued' THEN 'pending'
+		             WHEN m.status='failed' THEN 'failed' ELSE m.status END AS send_status,
+		        CASE WHEN m.status='read' THEN 'read' ELSE '' END AS read_status,
+		        COALESCE(m.media_url,'') AS file_url
+		   FROM messages m
+		   LEFT JOIN conversations cv ON cv.id = m.conversation_id
+		   LEFT JOIN contacts ct ON ct.id = cv.contact_id
+		   LEFT JOIN users u ON u.id = m.sender_id
+		  WHERE m.conversation_id=$1 AND m.organization_id=$2
+		  ORDER BY m.created_at ASC`, id, a.OrgID)
+	if err != nil {
+		http.Error(w, err.Error(), http.StatusInternalServerError)
+		return
+	}
+
+	loc := s.orgLocation(r.Context(), a.OrgID)
+	w.Header().Set("Content-Type", "text/csv; charset=utf-8")
+	w.Header().Set("Content-Disposition", fmt.Sprintf("attachment; filename=\"conversation-%s.csv\"", id))
+	_, _ = w.Write([]byte("\xEF\xBB\xBF")) // UTF-8 BOM for Excel
+
+	cw := csv.NewWriter(w)
+	_ = cw.Write([]string{"Created At", "Direction", "Sender", "Message Type", "Message", "Send Status", "Read Status", "File Url"})
+	keys := []string{"created_at", "direction", "sender", "message_type", "message", "send_status", "read_status", "file_url"}
+	for _, row := range rows {
+		rec := make([]string, len(keys))
+		for i, k := range keys {
+			rec[i] = csvVal(row[k], loc)
+		}
+		_ = cw.Write(rec)
+	}
+	cw.Flush()
+}
+
 // ── GET /api/export/chats ────────────────────────────────────
 func (s *server) handleExportChats(w http.ResponseWriter, r *http.Request) {
 	a, _ := authFrom(r.Context())

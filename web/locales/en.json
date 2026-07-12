@@ -6,7 +6,8 @@
     "broadcasts": "Broadcasts",
     "drip": "Drip campaigns",
     "forms": "WhatsApp Forms",
-    "settings": "Settings"
+    "settings": "Settings",
+    "systemLogs": "System Logs"
   },
   "menu": {
     "manage_account": "Manage account",
@@ -1179,7 +1180,8 @@
     "removedFromBlacklist": "Removed from blacklist",
     "saveFailed": "Save failed",
     "stageCleared": "Stage cleared",
-    "updateFailed": "Update failed"
+    "updateFailed": "Update failed",
+    "email": "Email"
   },
   "stages": {
     "new": "New Lead",
@@ -2023,5 +2025,37 @@
   "roles": {
     "g1": "Sidebar Menu",
     "g2": "Chats"
+  },
+  "syslog": {
+    "s1": "Customer Name",
+    "s2": "Customer Number",
+    "s3": "Customer Email",
+    "s4": "Message Type",
+    "s5": "Send Status",
+    "s6": "Read Status",
+    "s7": "Billable",
+    "s8": "Message Cost",
+    "s9": "AI Deducted",
+    "s10": "Contact Number",
+    "s11": "Chat Initiation Time",
+    "s12": "Assigned At",
+    "s13": "First Response Time",
+    "s14": "Avg. Response Time",
+    "s15": "Closing Time",
+    "s16": "Current Conversation Status",
+    "s17": "Incoming",
+    "s18": "Outgoing",
+    "s19": "Login",
+    "s20": "Logout",
+    "s21": "Activated",
+    "s22": "Deactivated",
+    "s23": "Deleted",
+    "s24": "DATE",
+    "s25": "NAME",
+    "s26": "PHONE",
+    "s27": "EMAIL",
+    "s28": "SOURCE",
+    "s29": "STATUS",
+    "s30": "INTEREST"
   }
 }

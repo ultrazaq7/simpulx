@@ -475,7 +475,7 @@ func (s *server) handleAdPerformance(w http.ResponseWriter, r *http.Request) {
 
 	// Latest leads with a classified source -> the Latest Leads table
 	// (Date | Name | Phone | Channel | Source | Stage).
-	rlq := `SELECT cv.id AS conversation_id, cv.created_at, ct.full_name AS contact_name, ct.phone AS contact_phone, cv.channel, cv.interest_level, ` + sourceClassifyExpr("cv") + ` AS source, st.name AS stage
+	rlq := `SELECT cv.id::text AS conversation_id, cv.created_at, ct.full_name AS contact_name, ct.phone AS contact_phone, ct.email AS contact_email, cv.channel, cv.interest_level, ` + sourceClassifyExpr("cv") + ` AS source, st.name AS stage
 	          FROM conversations cv
 	          LEFT JOIN contacts ct ON ct.id = cv.contact_id
 	          LEFT JOIN stages st ON st.id = cv.stage_id

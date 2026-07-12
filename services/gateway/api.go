@@ -149,7 +149,7 @@ func (s *server) handleListConversations(w http.ResponseWriter, r *http.Request)
 		        cmp.segment AS campaign_segment, COALESCE(cmp.ai_smart_summary, true) AS campaign_smart_summary, cv.metadata->'lead_fields' AS lead_fields,
 		        cv.lead_summary, cv.suggested_action, cv.suggested_action_reason,
 		        cv.suggested_action_confidence, cv.lead_score, cv.call_attempts,
-		        ct.full_name AS contact_name, ct.phone AS contact_phone,
+		        ct.full_name AS contact_name, ct.phone AS contact_phone, ct.email AS contact_email,
 		        cv.assigned_agent_id::text AS assigned_agent_id,
 		        u.full_name AS agent_name,
 		        cv.stage_id::text AS stage_id, s.name AS stage_name,
@@ -210,7 +210,7 @@ func (s *server) handleGetConversation(w http.ResponseWriter, r *http.Request) {
 		        cmp.segment AS campaign_segment, COALESCE(cmp.ai_smart_summary, true) AS campaign_smart_summary, cv.metadata->'lead_fields' AS lead_fields,
 		        cv.lead_summary, cv.suggested_action, cv.suggested_action_reason,
 		        cv.suggested_action_confidence, cv.lead_score, cv.call_attempts,
-		        ct.full_name AS contact_name, ct.phone AS contact_phone,
+		        ct.full_name AS contact_name, ct.phone AS contact_phone, ct.email AS contact_email,
 		        cv.assigned_agent_id::text AS assigned_agent_id,
 		        u.full_name AS agent_name,
 		        cv.stage_id::text AS stage_id, s.name AS stage_name,
@@ -1805,7 +1805,7 @@ func (s *server) handleListContacts(w http.ResponseWriter, r *http.Request) {
 		filter += " AND " + managerScope("lc", len(args))
 	}
 
-	query := fmt.Sprintf(`SELECT ct.id::text AS id, ct.full_name, ct.phone, ct.source_channel, ct.created_at,
+	query := fmt.Sprintf(`SELECT ct.id::text AS id, ct.full_name, ct.phone, ct.email, ct.source_channel, ct.created_at,
 		        ct.updated_at, ct.blacklisted, ct.web_api_source_id::text AS web_api_source_id,
 		        COALESCE(ct.tags, '{}') AS tags, COALESCE(ct.attributes, '{}'::jsonb) AS attributes,
 		        COALESCE(lc.interest_level, ct.interest_level) AS interest_level,
@@ -1990,9 +1990,10 @@ func (s *server) handleAssign(w http.ResponseWriter, r *http.Request) {
 	if !s.guardConversation(w, r, convID) {
 		return
 	}
-	// Manual (re)assign / unassign is a supervisory action: owner/admin/manager only.
-	if a.Role != "owner" && a.Role != "admin" && a.Role != "manager" {
-		http.Error(w, "forbidden", http.StatusForbidden)
+	// Manual (re)assign / unassign is a supervisory action, gated by the
+	// assign_chats permission (owner/admin always pass; manager has it by default).
+	if !s.hasPerm(r.Context(), a, "assign_chats") {
+		http.Error(w, "forbidden: missing permission 'assign_chats'", http.StatusForbidden)
 		return
 	}
 	// Inject the actor so the conversation service can attribute the audit event.

@@ -459,6 +459,17 @@ export const api = {
     a.href = url; a.download = `teams-${stamp}.csv`; a.click();
     URL.revokeObjectURL(url);
   },
+  // One conversation's full transcript as conversation-<id>.csv (authenticated).
+  async downloadConversationCsv(id: string): Promise<void> {
+    const token = getToken();
+    const res = await fetch(`${API}/api/system-logs/conversations/${id}/export`, { headers: token ? { Authorization: `Bearer ${token}` } : {} });
+    if (!res.ok) throw new Error((await res.text().catch(() => "")) || "Export failed");
+    const blob = await res.blob();
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement("a");
+    a.href = url; a.download = `conversation-${id}.csv`; a.click();
+    URL.revokeObjectURL(url);
+  },
   // ── Web API lead sources ──
   listWebApiSources: () => req<WebApiSource[]>("/api/web-api-sources"),
   createWebApiSource: (input: { name: string; slug?: string; auto_template_name?: string; webhook_url?: string; campaign_id?: string; platform?: SourcePlatform }) =>

@@ -1934,14 +1934,14 @@ function MarketingAnalytics() {
           <table className="w-full text-sm">
             <thead>
               <tr className="bg-muted/40 border-b border-border">
-                {["Date", "Name", "Phone Number", "Channel", "Source", "Stage", "Interest"].map((h) => (
+                {["Date", "Name", "Phone Number", "Email", "Channel", "Source", "Stage", "Interest"].map((h) => (
                   <th key={h} className="px-3 py-2 text-left text-[11px] font-bold uppercase tracking-wider text-muted-foreground">{t(h)}</th>
                 ))}
               </tr>
             </thead>
             <tbody>
               {recentLeads.length === 0 ? (
-                <tr><td colSpan={7} className="px-3 py-12">
+                <tr><td colSpan={8} className="px-3 py-12">
                   <div className="flex flex-col items-center justify-center text-center">
                     <div className="w-12 h-12 rounded-full bg-muted grid place-items-center mb-3"><Inbox className="w-5 h-5 text-muted-foreground/60" /></div>
                     <p className="text-[13px] font-semibold text-foreground">{t("dashboard.noLeadsAvailable")}</p>
@@ -1954,6 +1954,7 @@ function MarketingAnalytics() {
                   <td className="px-3 py-2 text-muted-foreground whitespace-nowrap">{l.created_at ? new Date(l.created_at).toLocaleString("en-US", { month: "short", day: "numeric", year: "numeric", hour: "numeric", minute: "2-digit", second: "2-digit", hour12: true }) : "-"}</td>
                   <td className="px-3 py-2 font-semibold text-foreground">{l.contact_name || t("broadcasts.unknown")}</td>
                   <td className="px-3 py-2 text-muted-foreground tabular-nums">{l.contact_phone || "-"}</td>
+                  <td className="px-3 py-2 text-muted-foreground">{l.contact_email || "-"}</td>
                   <td className="px-3 py-2 text-muted-foreground capitalize">{l.channel || "-"}</td>
                   <td className="px-3 py-2 text-muted-foreground">{SRC_LABELS[l.source] || l.source || "-"}</td>
                   <td className="px-3 py-2 text-foreground">{l.stage || "-"}</td>

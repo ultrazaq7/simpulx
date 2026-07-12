@@ -298,7 +298,7 @@ export function AdsReportView({ perf, keywords, leads, ga4, camps, campaigns, ra
           <table style={{ width: "100%", borderCollapse: "collapse", fontSize: 11.5 }}>
             <thead>
               <tr style={{ background: GREEN, color: "#fff" }}>
-                {["DATE", "NAME", "PHONE", "SOURCE", "STATUS", "INTEREST"].map((h) => (<th key={h} style={{ padding: "7px 10px", textAlign: "left", fontSize: 10, fontWeight: 700 }}>{h}</th>))}
+                {["DATE", "NAME", "PHONE", "EMAIL", "SOURCE", "STATUS", "INTEREST"].map((h) => (<th key={h} style={{ padding: "7px 10px", textAlign: "left", fontSize: 10, fontWeight: 700 }}>{t(h)}</th>))}
               </tr>
             </thead>
             <tbody>
@@ -310,6 +310,7 @@ export function AdsReportView({ perf, keywords, leads, ga4, camps, campaigns, ra
                     <td style={{ padding: "7px 10px", color: "#64748b", whiteSpace: "nowrap" }}>{l.last_message_at ? new Date(l.last_message_at).toLocaleString("en-US", { month: "short", day: "numeric", year: "numeric", hour: "numeric", minute: "2-digit", second: "2-digit", hour12: true }) : "-"}</td>
                     <td style={{ padding: "7px 10px", fontWeight: 600 }}>{l.contact_name || t("broadcasts.unknown")}</td>
                     <td style={{ padding: "7px 10px", color: "#64748b" }}>{l.contact_phone || "-"}</td>
+                    <td style={{ padding: "7px 10px", color: "#64748b" }}>{l.contact_email || "-"}</td>
                     <td style={{ padding: "7px 10px", color: "#64748b", textTransform: "capitalize" }}>{l.channel || "-"}</td>
                     <td style={{ padding: "7px 10px" }}>{l.stage_name || l.status}</td>
                     <td style={{ padding: "7px 10px" }}>

@@ -6,7 +6,8 @@
     "broadcasts": "Broadcast",
     "drip": "Drip campaign",
     "forms": "WhatsApp Forms",
-    "settings": "Pengaturan"
+    "settings": "Pengaturan",
+    "systemLogs": "Log Sistem"
   },
   "menu": {
     "manage_account": "Kelola akun",
@@ -1029,7 +1030,7 @@
     "noSourceDataInThis": "Tidak ada data sumber di rentang ini",
     "noWastedSpendEveryPaid": "Tidak ada belanja terbuang. Setiap materi iklan berbayar menghasilkan prospek.",
     "overallConversionRateFromImpression": "Tingkat konversi keseluruhan dari impresi ke pembelian",
-    "overview": "Ikhtisar",
+    "overview": "Overview",
     "performanceOverTheSelectedRange": "Performa selama rentang yang dipilih",
     "purchases": "Pembelian",
     "reports": "Laporan",
@@ -1179,7 +1180,8 @@
     "removedFromBlacklist": "Dihapus dari daftar hitam",
     "saveFailed": "Gagal menyimpan",
     "stageCleared": "Tahap dikosongkan",
-    "updateFailed": "Pembaruan gagal"
+    "updateFailed": "Pembaruan gagal",
+    "email": "Email"
   },
   "stages": {
     "new": "Prospek Baru",
@@ -1977,7 +1979,7 @@
   "report": {
     "campaignDashboard": "DASBOR KAMPANYE",
     "googleAnalyticsIsNotConnected": "Google Analytics belum terhubung.",
-    "marketingFunnel": "Corong Pemasaran",
+    "marketingFunnel": "Marketing Funnel",
     "monthlyLeadsPerformanceBreakdown": "Rincian Performa Prospek Bulanan",
     "noAgeBreakdownInThis": "Tidak ada rincian usia dalam rentang ini.",
     "noGenderBreakdownInThis": "Tidak ada rincian gender dalam rentang ini.",
@@ -2023,5 +2025,37 @@
   "roles": {
     "g1": "Menu Sidebar",
     "g2": "Chat"
+  },
+  "syslog": {
+    "s1": "Nama Pelanggan",
+    "s2": "Nomor Pelanggan",
+    "s3": "Email Pelanggan",
+    "s4": "Tipe Pesan",
+    "s5": "Status Kirim",
+    "s6": "Status Baca",
+    "s7": "Billable",
+    "s8": "Biaya Pesan",
+    "s9": "AI Terpotong",
+    "s10": "Nomor Kontak",
+    "s11": "Waktu Mulai Chat",
+    "s12": "Ditugaskan Pada",
+    "s13": "Waktu Respons Pertama",
+    "s14": "Rata-rata Waktu Respons",
+    "s15": "Waktu Penutupan",
+    "s16": "Status Percakapan Saat Ini",
+    "s17": "Masuk",
+    "s18": "Keluar",
+    "s19": "Login",
+    "s20": "Keluar",
+    "s21": "Diaktifkan",
+    "s22": "Dinonaktifkan",
+    "s23": "Dihapus",
+    "s24": "TANGGAL",
+    "s25": "NAMA",
+    "s26": "TELEPON",
+    "s27": "EMAIL",
+    "s28": "SUMBER",
+    "s29": "STATUS",
+    "s30": "MINAT"
   }
 }

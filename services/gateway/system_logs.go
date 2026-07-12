@@ -90,6 +90,8 @@ func (s *server) handleLogMessages(w http.ResponseWriter, r *http.Request) {
 	          LEFT JOIN contacts ct ON ct.id = cv.contact_id
 	          LEFT JOIN users u ON u.id = m.sender_id
 	          LEFT JOIN channels ch ON ch.id = cv.channel_id
+	          LEFT JOIN campaigns cmpm ON cmpm.id = cv.campaign_id
+	          LEFT JOIN campaign_branches brm ON brm.id = cv.branch_id
 	          LEFT JOIN LATERAL (
 	            SELECT referral_source, referral_url FROM conversation_attributions
 	             WHERE conversation_id = cv.id ORDER BY created_at DESC LIMIT 1
@@ -100,6 +102,7 @@ func (s *server) handleLogMessages(w http.ResponseWriter, r *http.Request) {
 	             m.media_url AS file_url, m.status, COALESCE(m.external_id, m.id::text) AS message_id,
 	             cv.id::text AS conversation_id, cv.channel_id::text AS channel_id, ch.name AS channel_name,
 	             cv.contact_id::text AS contact_id, ct.full_name AS contact_name, ct.phone AS contact_phone,
+	             ct.email AS contact_email, COALESCE(brm.name, cmpm.name) AS campaign_name,
 	             u.full_name AS agent_name, u.email AS agent_email,
 	             att.referral_source AS source_id, att.referral_url AS source_url
 	      ` + base + fmt.Sprintf(" ORDER BY m.created_at DESC LIMIT %d OFFSET %d", p.limit, p.offset)
@@ -120,29 +123,48 @@ func (s *server) handleLogConversations(w http.ResponseWriter, r *http.Request) 
 	df, args := dateFilter("cv.created_at", p, args)
 	cf, args := convFilter("cv", p, args)
 
-	base := `FROM conversations cv
+	// Shared joins. assigned_at = first 'assigned' event; avg_response_sec = mean
+	// gap from each customer message to the agent's next reply (window pass over
+	// the thread). LATERALs must sit in FROM, before WHERE.
+	joins := `FROM conversations cv
 	          LEFT JOIN users u ON u.id = cv.assigned_agent_id
 	          LEFT JOIN campaigns cmp ON cmp.id = cv.campaign_id
 	          LEFT JOIN campaign_branches br ON br.id = cv.branch_id
 	          LEFT JOIN contacts ct ON ct.id = cv.contact_id
-	          LEFT JOIN dispositions disp ON disp.id = cv.disposition_id
-	         WHERE cv.organization_id = $1` + df + cf
-
-	q := `SELECT u.full_name AS agent_name, u.email AS email, COALESCE(br.name, cmp.name) AS campaign_name,
-	             ct.full_name AS customer_name, disp.name AS disposition, ct.phone AS contact_number,
-	             cv.created_at AS assigned_at, cv.closed_at,
+	          LEFT JOIN stages st ON st.id = cv.stage_id
+	          LEFT JOIN LATERAL (
+	            SELECT min(created_at) AS assigned_at FROM conversation_events
+	             WHERE conversation_id = cv.id AND type = 'assigned'
+	          ) asg ON true
+	          LEFT JOIN LATERAL (
+	            SELECT AVG(EXTRACT(EPOCH FROM (created_at - prev_in)))::int AS avg_sec FROM (
+	              SELECT created_at, direction,
+	                     MAX(created_at) FILTER (WHERE direction='inbound')
+	                       OVER (ORDER BY created_at ROWS BETWEEN UNBOUNDED PRECEDING AND CURRENT ROW) AS prev_in,
+	                     LAG(direction) OVER (ORDER BY created_at) AS prev_dir
+	                FROM messages WHERE conversation_id = cv.id
+	            ) w WHERE direction='outbound' AND prev_dir='inbound'
+	          ) rt ON true`
+	where := ` WHERE cv.organization_id = $1` + df + cf
+	sel := `SELECT u.full_name AS agent_name, u.email AS agent_email,
+	             COALESCE(br.name, cmp.name) AS campaign_name,
+	             ct.full_name AS customer_name, ct.phone AS contact_number,
+	             st.name AS stage, cv.interest_level AS interest_level,
+	             cv.created_at AS chat_initiation, asg.assigned_at AS assigned_at,
 	             COALESCE(EXTRACT(EPOCH FROM (cv.first_responsed_at - cv.created_at))::int, 0) AS first_response_sec,
-	             COALESCE(EXTRACT(EPOCH FROM (cv.closed_at - cv.created_at))::int, 0) AS closing_sec,
-	             (SELECT count(*) FROM messages mm WHERE mm.conversation_id = cv.id AND mm.direction='outbound' AND mm.sender_type='agent')::int AS agent_messages,
-	             cv.status, cv.created_at AS chat_initiation, cv.id::text AS id
-	      ` + base + fmt.Sprintf(" ORDER BY cv.created_at DESC LIMIT %d OFFSET %d", p.limit, p.offset)
+	             COALESCE(rt.avg_sec, 0) AS avg_response_sec,
+	             cv.closed_at AS closing_at, cv.status, cv.id::text AS id
+	      ` + joins + where
+	q := sel + fmt.Sprintf(" ORDER BY cv.created_at DESC LIMIT %d OFFSET %d", p.limit, p.offset)
+	// Count on a lean FROM (no LATERALs — they don't change the row count).
+	countBase := `FROM conversations cv WHERE cv.organization_id = $1` + df + cf
 
 	rows, err := s.queryMaps(r.Context(), q, args...)
 	if err != nil {
 		http.Error(w, err.Error(), http.StatusInternalServerError)
 		return
 	}
-	s.countAndRespond(w, r, "SELECT count(*) "+base, rows, args)
+	s.countAndRespond(w, r, "SELECT count(*) "+countBase, rows, args)
 }
 
 // GET /api/system-logs/activity — agent presence / lifecycle events.

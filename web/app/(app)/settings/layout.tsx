@@ -32,7 +32,7 @@ const GROUPS: { titleKey: string; items: NavItem[] }[] = [
   {
     titleKey: "settings.company_settings",
     items: [
-      { key: "company-details", labelKey: "settings.company_details", icon: Building, href: "/settings/company-details", perm: "view_settings" },
+      { key: "company-details", labelKey: "settings.company_details", icon: Building, href: "/settings/company-details", perm: "view_company_details" },
       { key: "user-management", labelKey: "settings.user_management", icon: User, href: "/settings/user-management", perm: "manage_team" },
       { key: "roles", labelKey: "settings.roles", icon: ShieldCheck, href: "/settings/roles", perm: "manage_roles" },
       { key: "campaigns", labelKey: "settings.campaigns", icon: Building2, href: "/settings/campaigns", perm: "manage_campaigns" },
@@ -57,12 +57,6 @@ const GROUPS: { titleKey: string; items: NavItem[] }[] = [
       { key: "ci-channel", labelKey: "Channel", icon: RadioTower, href: "/settings/channels", perm: "manage_channels" },
       { key: "ci-webapi", labelKey: "Web API", icon: Plug, href: "/settings/web-api", perm: "manage_channels" },
       { key: "ci-ads", labelKey: "Ads & Analytics", icon: Megaphone, href: "/settings/ads-analytics", perm: "manage_channels" },
-    ],
-  },
-  {
-    titleKey: "System",
-    items: [
-      { key: "audit", labelKey: "settings.audit", icon: Clock, href: "/settings/audit", perm: "menu_audit_log" },
     ],
   },
 ];

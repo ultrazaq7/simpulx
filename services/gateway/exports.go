@@ -174,9 +174,10 @@ func (s *server) orgLocation(ctx context.Context, orgID string) *time.Location {
 
 func exportDateCol(kind string) string {
 	switch kind {
-	case "messages", "conversations":
-		// Both are message-level dumps, filtered on the message timestamp.
-		return "m.created_at"
+	case "messages":
+		return "m.created_at" // message-level dump
+	case "conversations":
+		return "cv.created_at" // one row per conversation
 	case "calls":
 		return "c.created_at"
 	case "activity":
@@ -191,18 +192,58 @@ func exportDateCol(kind string) string {
 // (data-train/*.csv) so drops flow straight into the training pipeline.
 func exportQuery(kind string) (string, []string, []string) {
 	switch kind {
-	case "messages", "conversations":
-		// Both are message-level dumps in the SmartKonek training CSV shape. They
-		// differ only in the AI-credit column header ("AI Wallet Deducted" vs
-		// "AI Credits"). Every column the reference exports carries is emitted; a
-		// field with no source in our schema is emitted empty rather than dropped.
-		aiHeader := "AI Wallet Deducted"
-		if kind == "conversations" {
-			aiHeader = "AI Credits"
+	case "conversations":
+		// One row per unique conversation (summary + SLA), mirroring the System
+		// Logs conversation table. assigned_at = first 'assigned' event;
+		// avg_response_sec = mean gap from each customer message to the agent's
+		// next reply.
+		keys := []string{
+			"agent_name", "agent_email", "campaign_name", "customer_name", "contact_number", "contact_email",
+			"stage", "interest_level", "chat_initiation", "assigned_at",
+			"first_response_sec", "avg_response_sec", "closing_at", "status", "conversation_id",
 		}
 		headers := []string{
+			"Agent Name", "Agent Email", "Campaign", "Customer Name", "Contact Number", "Customer Email",
+			"Stage", "Interest Level", "Chat Initiation Time", "Assigned At",
+			"First Response Time (sec)", "Avg Response Time (sec)", "Closing Time", "Status", "Conversation ID",
+		}
+		q := `SELECT u.full_name AS agent_name, u.email AS agent_email,
+		        COALESCE(br.name, cmp.name) AS campaign_name,
+		        ct.full_name AS customer_name, ct.phone AS contact_number, ct.email AS contact_email,
+		        st.name AS stage, cv.interest_level AS interest_level,
+		        cv.created_at AS chat_initiation, asg.assigned_at AS assigned_at,
+		        COALESCE(EXTRACT(EPOCH FROM (cv.first_responsed_at - cv.created_at))::int, 0) AS first_response_sec,
+		        COALESCE(rt.avg_sec, 0) AS avg_response_sec,
+		        cv.closed_at AS closing_at, cv.status, cv.id::text AS conversation_id
+		      FROM conversations cv
+		          LEFT JOIN users u ON u.id = cv.assigned_agent_id
+		          LEFT JOIN campaigns cmp ON cmp.id = cv.campaign_id
+		          LEFT JOIN campaign_branches br ON br.id = cv.branch_id
+		          LEFT JOIN contacts ct ON ct.id = cv.contact_id
+		          LEFT JOIN stages st ON st.id = cv.stage_id
+		          LEFT JOIN LATERAL (
+		            SELECT min(created_at) AS assigned_at FROM conversation_events
+		             WHERE conversation_id = cv.id AND type = 'assigned'
+		          ) asg ON true
+		          LEFT JOIN LATERAL (
+		            SELECT AVG(EXTRACT(EPOCH FROM (created_at - prev_in)))::int AS avg_sec FROM (
+		              SELECT created_at, direction,
+		                     MAX(created_at) FILTER (WHERE direction='inbound')
+		                       OVER (ORDER BY created_at ROWS BETWEEN UNBOUNDED PRECEDING AND CURRENT ROW) AS prev_in,
+		                     LAG(direction) OVER (ORDER BY created_at) AS prev_dir
+		                FROM messages WHERE conversation_id = cv.id
+		            ) w WHERE direction='outbound' AND prev_dir='inbound'
+		          ) rt ON true
+		         WHERE cv.organization_id = $1%s ORDER BY cv.created_at DESC`
+		return q, headers, keys
+	case "messages":
+		// Message-level dump in the SmartKonek training CSV shape. Every column the
+		// reference exports carries is emitted; a field with no source in our schema
+		// is emitted empty rather than dropped.
+		aiHeader := "AI Wallet Deducted"
+		headers := []string{
 			"File Name", "Channel Id", "Contact ID", "Contact Name", "Sender/Agent Name",
-			"Agent Email", "Direction", "Call Duration (in sec)", "Error Message", "Billable",
+			"Agent Name", "Agent Email", "Campaign", "Direction", "Call Duration (in sec)", "Error Message", "Billable",
 			"Cost Currency", "Message Cost", aiHeader, "Created At", "Updated At",
 			"Call ID", "Recording Url", "Connect Status", "Call Status", "Message Type",
 			"Message ID", "Message", "File Url", "File Caption", "Read Status",
@@ -210,7 +251,7 @@ func exportQuery(kind string) (string, []string, []string) {
 		}
 		keys := []string{
 			"file_name", "channel_id", "contact_id", "contact_name", "sender_name",
-			"agent_email", "direction", "call_duration", "error_message", "billable",
+			"agent_name", "agent_email", "campaign_name", "direction", "call_duration", "error_message", "billable",
 			"cost_currency", "message_cost", "ai_credits", "created_at", "updated_at",
 			"call_id", "recording_url", "connect_status", "call_status", "message_type",
 			"message_id", "message", "file_url", "file_caption", "read_status",
@@ -223,7 +264,9 @@ func exportQuery(kind string) (string, []string, []string) {
 		        ct.full_name                               AS contact_name,
 		        CASE WHEN m.direction='inbound' THEN ct.full_name
 		             ELSE COALESCE(u.full_name, CASE WHEN m.sender_type='bot' THEN 'Bot' END) END AS sender_name,
+		        u.full_name                                AS agent_name,
 		        u.email                                    AS agent_email,
+		        COALESCE(brx.name, cmpx.name)              AS campaign_name,
 		        CASE WHEN m.direction='inbound' THEN 'Incoming' ELSE 'Outgoing' END AS direction,
 		        ''                                         AS call_duration,
 		        COALESCE(m.metadata->>'error','')          AS error_message,
@@ -264,6 +307,8 @@ func exportQuery(kind string) (string, []string, []string) {
 		          JOIN conversations cv ON cv.id = m.conversation_id
 		          LEFT JOIN contacts ct ON ct.id = cv.contact_id
 		          LEFT JOIN users u ON u.id = m.sender_id
+		          LEFT JOIN campaigns cmpx ON cmpx.id = cv.campaign_id
+		          LEFT JOIN campaign_branches brx ON brx.id = cv.branch_id
 		          LEFT JOIN web_api_sources was ON was.id = ct.web_api_source_id
 		          LEFT JOIN LATERAL (
 		            SELECT referral_source, referral_url FROM conversation_attributions

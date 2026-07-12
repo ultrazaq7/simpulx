@@ -25,6 +25,7 @@ export interface Conversation {
   last_outbound_status?: string | null; // sent | delivered | read | failed (last outbound msg)
   contact_name: string | null;
   contact_phone: string | null;
+  contact_email?: string | null;
   assigned_agent_id: string | null;
   agent_name: string | null;
   interest_level: string | null;
@@ -282,6 +283,7 @@ export interface Contact {
   id: string;
   full_name: string | null;
   phone: string | null;
+  email: string | null;
   source_channel: string | null;
   interest_level: string | null;
   stage_id?: string | null;
@@ -379,6 +381,7 @@ export interface AdPerfRecentLead {
   created_at: string;
   contact_name: string | null;
   contact_phone: string | null;
+  contact_email: string | null;
   channel: string;
   source: string;         // classified: meta_ads | tiktok_ads | google_ads | website | direct
   stage: string | null;
@@ -575,14 +578,17 @@ export interface LogMessage {
   file_url: string | null; status: string; message_id: string;
   conversation_id: string; channel_id: string | null; channel_name: string | null;
   contact_id: string | null; contact_name: string | null; contact_phone: string | null;
+  contact_email: string | null; campaign_name: string | null;
   agent_name: string | null; agent_email: string | null;
   source_id: string | null; source_url: string | null;
 }
 export interface LogConversation {
-  agent_name: string | null; email: string | null; campaign_name: string | null;
-  customer_name: string | null; disposition: string | null; contact_number: string | null;
-  assigned_at: string | null; closed_at: string | null; first_response_sec: number; closing_sec: number;
-  agent_messages: number; status: string; chat_initiation: string | null; id: string;
+  agent_name: string | null; agent_email: string | null; campaign_name: string | null;
+  customer_name: string | null; contact_number: string | null;
+  stage: string | null; interest_level: string | null;
+  chat_initiation: string | null; assigned_at: string | null;
+  first_response_sec: number; avg_response_sec: number;
+  closing_at: string | null; status: string; id: string;
 }
 export interface LogCall {
   direction: string | null; name: string | null; phone: string | null; duration_seconds: number;

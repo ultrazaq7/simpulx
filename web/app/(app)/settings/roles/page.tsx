@@ -47,6 +47,7 @@ const GROUPS: { group: string; perms: Perm[] }[] = [
   ] },
   { group: "Settings", perms: [
     { key: "view_settings", label: "View Settings" },
+    { key: "view_company_details", label: "View Company Details" },
     { key: "manage_channels", label: "Manage Channels" },
     { key: "manage_team", label: "Manage Team Members" },
     { key: "manage_roles", label: "Manage Roles & Permissions" },

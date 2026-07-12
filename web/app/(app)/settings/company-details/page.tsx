@@ -127,7 +127,7 @@ export default function GeneralSettingsPage() {
   const [allowed, setAllowed] = useState<boolean | null>(null);
   useEffect(() => {
     loadPermissions().then((doc) => {
-      const ok = canWith(doc, getUser()?.role, "view_settings");
+      const ok = canWith(doc, getUser()?.role, "view_company_details");
       setAllowed(ok);
       if (!ok) router.replace("/settings");
     });
