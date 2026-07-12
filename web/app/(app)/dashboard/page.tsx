@@ -1486,18 +1486,17 @@ function MarketingAnalytics() {
           </button>
         </div>
         <p className="px-4 pt-1.5 text-[11.5px] text-muted-foreground">Impression to purchase conversion</p>
-        {/* Connected trapezoid funnel matching the reference design */}
+        {/* Centered rounded-bar funnel with small gaps, matching reference */}
         <div className="p-4 pt-3">
-          <div className="flex flex-col">
+          <div className="flex flex-col gap-[3px]">
             {funnelSteps.map((s, i) => {
-              const W = [0.96, 0.80, 0.65, 0.52, 0.40, 0.30];
-              const top = W[i], bot = W[i + 1] ?? 0.24;
-              const clip = `polygon(${((1 - top) / 2 * 100).toFixed(2)}% 0, ${((1 + top) / 2 * 100).toFixed(2)}% 0, ${((1 + bot) / 2 * 100).toFixed(2)}% 100%, ${((1 - bot) / 2 * 100).toFixed(2)}% 100%)`;
+              const widths = [88, 72, 58, 46, 36];
+              const w = widths[i] ?? 36;
               return (
                 <div key={s.label} className="flex items-center gap-3">
-                  <div className="flex-1 min-w-0">
-                    <div className="relative flex items-center justify-center gap-1.5 text-white"
-                      style={{ height: 50, background: FUNNEL_RAMP[i], clipPath: clip, WebkitClipPath: clip, marginTop: i ? -1 : 0 }}>
+                  <div className="flex-1 min-w-0 flex justify-center">
+                    <div className="flex items-center justify-center gap-1.5 text-white rounded-md w-full py-2.5"
+                      style={{ maxWidth: `${w}%`, background: FUNNEL_RAMP[i] }}>
                       <s.Icon className="w-3.5 h-3.5 opacity-90 shrink-0" />
                       <div className="text-center min-w-0">
                         <span className="text-[14px] font-extrabold tabular-nums leading-none">{s.value}</span>
