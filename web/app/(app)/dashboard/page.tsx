@@ -1486,27 +1486,26 @@ function MarketingAnalytics() {
           </button>
         </div>
         <p className="px-4 pt-1.5 text-[11.5px] text-muted-foreground">Impression to purchase conversion</p>
-        {/* Horizontal bar funnel: left-aligned rounded bars, progressively shorter */}
+        {/* Connected trapezoid funnel matching the reference design */}
         <div className="p-4 pt-3">
-          <div className="flex flex-col gap-1.5">
+          <div className="flex flex-col">
             {funnelSteps.map((s, i) => {
-              const widths = [100, 78, 62, 50, 40];
-              const w = widths[i] ?? 40;
+              const W = [0.96, 0.80, 0.65, 0.52, 0.40, 0.30];
+              const top = W[i], bot = W[i + 1] ?? 0.24;
+              const clip = `polygon(${((1 - top) / 2 * 100).toFixed(2)}% 0, ${((1 + top) / 2 * 100).toFixed(2)}% 0, ${((1 + bot) / 2 * 100).toFixed(2)}% 100%, ${((1 - bot) / 2 * 100).toFixed(2)}% 100%)`;
               return (
                 <div key={s.label} className="flex items-center gap-3">
-                  <div className="flex-1 min-w-0 flex justify-center">
-                    <div style={{ width: `${w}%` }}>
-                      <div className="flex items-center gap-2 text-white px-3 py-2 rounded-lg"
-                        style={{ background: FUNNEL_RAMP[i] }}>
-                        <s.Icon className="w-3.5 h-3.5 opacity-90 shrink-0" />
-                        <div className="min-w-0">
-                          <span className="text-[14px] font-extrabold tabular-nums leading-none">{s.value}</span>
-                          <span className="text-[9px] font-medium opacity-80 block mt-0.5">{s.label}</span>
-                        </div>
+                  <div className="flex-1 min-w-0">
+                    <div className="relative flex items-center justify-center gap-1.5 text-white"
+                      style={{ height: 50, background: FUNNEL_RAMP[i], clipPath: clip, WebkitClipPath: clip, marginTop: i ? -1 : 0 }}>
+                      <s.Icon className="w-3.5 h-3.5 opacity-90 shrink-0" />
+                      <div className="text-center min-w-0">
+                        <span className="text-[14px] font-extrabold tabular-nums leading-none">{s.value}</span>
+                        <span className="text-[9px] font-medium opacity-80 block mt-0.5">{s.label}</span>
                       </div>
                     </div>
                   </div>
-                  <span className="text-[11px] font-semibold tabular-nums text-foreground/60 whitespace-nowrap">{s.rate.toFixed(2)}%</span>
+                  <span className="shrink-0 text-[11px] font-semibold tabular-nums text-foreground/60 whitespace-nowrap" style={{ width: 52 }}>{s.rate.toFixed(2)}%</span>
                 </div>
               );
             })}
