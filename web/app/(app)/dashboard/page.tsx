@@ -1206,8 +1206,9 @@ function MarketingAnalytics() {
         ))}
       </div>
 
-      {/* Marketing funnel (compact) + full-width Source performance below */}
-      <Card title="Marketing funnel" subtitle="Impression to click to chat to conversion" className="mb-5 lg:max-w-md">
+      {/* Marketing funnel (compact, left) + Source performance (right) */}
+      <div className="grid grid-cols-1 lg:grid-cols-[360px_1fr] gap-4 mb-5 items-start">
+      <Card title="Marketing funnel" subtitle="Impression to click to chat to conversion">
         {/* Stacked funnel bars narrowing on a fixed ramp, on-brand green. */}
         <div className="p-4">
           <div className="flex flex-col items-center gap-1.5">
@@ -1222,8 +1223,8 @@ function MarketingAnalytics() {
         </div>
       </Card>
 
-      {/* Source performance — full width, read-only breakdown of delivery + leads by source. */}
-      <div className="bg-card rounded-lg border border-border shadow-xs overflow-hidden mb-5">
+      {/* Source performance (right of the funnel) */}
+      <div className="bg-card rounded-lg border border-border shadow-xs overflow-hidden">
         <div className="px-4 py-3 border-b border-border">
           <p className="font-bold text-[14px] text-foreground leading-tight">Source performance</p>
         </div>
@@ -1280,6 +1281,7 @@ function MarketingAnalytics() {
             </tfoot>
           </table>
         </div>
+      </div>
       </div>
 
       {/* Top Google keywords — only shown when a Google Ads account is connected
