@@ -1,4 +1,5 @@
 "use client";
+import { useI18n } from "@/lib/i18n";
 import { useEffect, useState } from "react";
 import { Bell, Loader2, Mail, MessageSquare, Volume2 } from "lucide-react";
 import { api } from "@/lib/api";
@@ -14,6 +15,7 @@ const NOTIF_TILES: { key: keyof import("@/lib/types").OrgNotifications; title: s
 const NOTIF_DEFAULTS = { newMessages: true, newConversations: true, emailDigest: false, sound: true };
 
 export default function NotificationsSettingsPage() {
+  const { t } = useI18n();
   const { notify, ToastHost } = useToast();
   const [settings, setSettings] = useState<OrgSettings>({});
   const [prefs, setPrefs] = useState<Record<string, boolean>>(NOTIF_DEFAULTS);
@@ -28,7 +30,7 @@ export default function NotificationsSettingsPage() {
   }, []);
 
   async function save(payload: Record<string, boolean>) {
-    try { await api.updateOrganization({ settings: { ...settings, notifications: payload } }); notify("Notification settings saved"); }
+    try { await api.updateOrganization({ settings: { ...settings, notifications: payload } }); notify(t("settings.notificationSettingsSaved")); }
     catch (e) { notify(String(e), "error"); }
   }
 
@@ -43,24 +45,24 @@ export default function NotificationsSettingsPage() {
   return (
     <PageBody maxWidth={680}>
       {ToastHost}
-      <SectionLabel>Notifications</SectionLabel>
+      <SectionLabel>{t("components.notifications")}</SectionLabel>
       <SettingsCard>
-        {NOTIF_TILES.map((t, i) => {
-          const Icon = t.icon;
+        {NOTIF_TILES.map((tile, i) => {
+          const Icon = tile.icon;
           return (
-            <div key={t.key} className={`flex items-center px-5 py-4 gap-4 ${i ? "border-t border-border" : ""} transition-colors hover:bg-muted/30`}>
+            <div key={tile.key} className={`flex items-center px-5 py-4 gap-4 ${i ? "border-t border-border" : ""} transition-colors hover:bg-muted/30`}>
               <div className="w-9 h-9 rounded-lg grid place-items-center bg-primary/[0.07] text-primary shrink-0">
                 <Icon className="w-[18px] h-[18px]" />
               </div>
               <div className="flex-1">
-                <p className="text-sm font-semibold text-foreground">{t.title}</p>
+                <p className="text-sm font-semibold text-foreground">{t(tile.title)}</p>
               </div>
               <label className="relative inline-flex items-center cursor-pointer">
                 <input
                   type="checkbox"
-                  checked={!!prefs[t.key]}
+                  checked={!!prefs[tile.key]}
                   onChange={(e) => {
-                    const next = { ...prefs, [t.key]: e.target.checked };
+                    const next = { ...prefs, [tile.key]: e.target.checked };
                     setPrefs(next); save(next);
                   }}
                   className="sr-only peer"

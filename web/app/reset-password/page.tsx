@@ -1,4 +1,5 @@
 "use client";
+import { useI18n } from "@/lib/i18n";
 import { useEffect, useState } from "react";
 import { useRouter } from "next/navigation";
 import { Lock, EyeOff, Eye, CheckCircle2, Loader2, AlertCircle } from "lucide-react";
@@ -6,6 +7,7 @@ import { api } from "@/lib/api";
 import { cn } from "@/lib/utils";
 
 export default function ResetPasswordPage() {
+  const { t } = useI18n();
   const router = useRouter();
   const [token, setToken] = useState<string | null>(null);
   const [password, setPassword] = useState("");
@@ -22,14 +24,14 @@ export default function ResetPasswordPage() {
   async function submit(e: React.FormEvent) {
     e.preventDefault();
     setError("");
-    if (password.length < 8) { setError("Password must be at least 8 characters"); return; }
-    if (password !== confirm) { setError("Passwords do not match"); return; }
+    if (password.length < 8) { setError(t("auth.passwordMustBeAtLeast")); return; }
+    if (password !== confirm) { setError(t("auth.passwordsDoNotMatch")); return; }
     setLoading(true);
     try {
       await api.resetPassword(token || "", password);
       setDone(true);
     } catch (err: any) {
-      setError(err.message || "Reset failed");
+      setError(err.message || t("auth.resetFailed"));
     } finally { setLoading(false); }
   }
 
@@ -41,10 +43,10 @@ export default function ResetPasswordPage() {
       {/* Logo */}
       <div className="mb-7 flex items-center gap-2.5 animate-fade-in">
         <div className="w-10 h-10 rounded-lg overflow-hidden shadow-md">
-          <img src="/simpulx_logo.png" alt="Simpulx" className="w-full h-full object-cover" />
+          <img src="/simpulx_logo.png" alt={t("auth.simpulx")} className="w-full h-full object-cover" />
         </div>
         <span className="text-[20px] font-extrabold tracking-tight text-foreground">
-          Simpul<span className="text-amber">x</span>
+          {t("auth.simpul")}<span className="text-amber">x</span>
         </span>
       </div>
 
@@ -54,28 +56,28 @@ export default function ResetPasswordPage() {
             <div className="w-14 h-14 rounded-xl mx-auto mb-5 grid place-items-center bg-primary/10 text-primary">
               <CheckCircle2 className="w-7 h-7" />
             </div>
-            <h2 className="text-xl font-bold text-foreground mb-2">Password reset</h2>
+            <h2 className="text-xl font-bold text-foreground mb-2">{t("auth.passwordReset")}</h2>
             <p className="text-muted-foreground text-[13px] leading-relaxed mb-7">
-              Your password has been updated. You can now sign in with your new password.
+              {t("auth.yourPasswordHasBeenUpdated")}
             </p>
-            <button onClick={() => router.push("/login")} className={primaryBtn}>Sign in</button>
+            <button onClick={() => router.push("/login")} className={primaryBtn}>{t("auth.signIn")}</button>
           </div>
         ) : token === null ? (
           <div className="bg-card p-8 rounded-xl border border-border shadow-lg text-center">
             <div className="w-14 h-14 rounded-xl mx-auto mb-5 grid place-items-center bg-red-50 text-red-600">
               <AlertCircle className="w-7 h-7" />
             </div>
-            <h3 className="text-xl font-bold text-foreground mb-2">Invalid link</h3>
+            <h3 className="text-xl font-bold text-foreground mb-2">{t("auth.invalidLink")}</h3>
             <p className="text-muted-foreground text-[13px] leading-relaxed mb-7">
-              This password reset link is invalid or has expired. Please request a new one.
+              {t("auth.thisPasswordResetLinkIs")}
             </p>
-            <button onClick={() => router.push("/forgot-password")} className={primaryBtn}>Request new link</button>
+            <button onClick={() => router.push("/forgot-password")} className={primaryBtn}>{t("auth.requestNewLink")}</button>
           </div>
         ) : (
           <>
             <div className="mb-6">
-              <h1 className="text-[24px] font-bold tracking-tight text-foreground">Set new password</h1>
-              <p className="mt-1 text-[14px] text-muted-foreground">Choose a new password for your account.</p>
+              <h1 className="text-[24px] font-bold tracking-tight text-foreground">{t("auth.setNewPassword")}</h1>
+              <p className="mt-1 text-[14px] text-muted-foreground">{t("auth.chooseANewPasswordFor")}</p>
             </div>
 
             {error && (
@@ -86,7 +88,7 @@ export default function ResetPasswordPage() {
 
             <form onSubmit={submit} className="flex flex-col gap-4">
               <div className="space-y-1.5">
-                <label className="text-[12px] font-bold text-foreground/80">New password</label>
+                <label className="text-[12px] font-bold text-foreground/80">{t("auth.newPassword")}</label>
                 <div className="relative">
                   <Lock className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-muted-foreground pointer-events-none" />
                   <input
@@ -95,7 +97,7 @@ export default function ResetPasswordPage() {
                     onChange={(e) => setPassword(e.target.value)}
                     required
                     autoFocus
-                    placeholder="At least 8 characters"
+                    placeholder={t("auth.atLeast8Characters")}
                     className={inputCls}
                   />
                   <button
@@ -109,7 +111,7 @@ export default function ResetPasswordPage() {
               </div>
 
               <div className="space-y-1.5">
-                <label className="text-[12px] font-bold text-foreground/80">Confirm password</label>
+                <label className="text-[12px] font-bold text-foreground/80">{t("auth.confirmPassword")}</label>
                 <div className="relative">
                   <Lock className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-muted-foreground pointer-events-none" />
                   <input
@@ -117,21 +119,21 @@ export default function ResetPasswordPage() {
                     value={confirm}
                     onChange={(e) => setConfirm(e.target.value)}
                     required
-                    placeholder="Re-enter password"
+                    placeholder={t("auth.reEnterPassword")}
                     className={inputCls}
                   />
                 </div>
               </div>
 
               <button type="submit" disabled={loading} className={cn(primaryBtn, "mt-1")}>
-                {loading ? <Loader2 className="w-4 h-4 animate-spin" /> : "Set new password"}
+                {loading ? <Loader2 className="w-4 h-4 animate-spin" /> : t("auth.setNewPassword")}
               </button>
             </form>
           </>
         )}
 
         <p className="text-center mt-8 text-[11px] text-muted-foreground/60 font-medium tracking-wide">
-          © {new Date().getFullYear()} Simpulx. All rights reserved.
+          © {new Date().getFullYear()} {t("auth.simpulxAllRightsReserved")}
         </p>
       </div>
     </div>

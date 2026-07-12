@@ -1,4 +1,5 @@
 "use client";
+import { useI18n } from "@/lib/i18n";
 import { useState, useRef, useEffect, useMemo } from "react";
 import { createPortal } from "react-dom";
 import { ChevronDown, Search, Check } from "lucide-react";
@@ -20,6 +21,7 @@ interface MenuPos { left: number; width: number; maxH: number; up: boolean; top?
 // so it escapes overflow-hidden ancestors (cards, dialogs) and flips up when low
 // on space; a high z-index keeps it above modals.
 export function MultiSelect({ options, value, onChange, placeholder = "Select...", className }: MultiSelectProps) {
+  const { t } = useI18n();
   const [open, setOpen] = useState(false);
   const [q, setQ] = useState("");
   const [pos, setPos] = useState<MenuPos>({ left: 0, width: 0, maxH: 320, up: false });
@@ -100,7 +102,7 @@ export function MultiSelect({ options, value, onChange, placeholder = "Select...
             <div className="p-2 border-b border-border shrink-0">
               <div className="relative">
                 <Search className="absolute left-2.5 top-1/2 -translate-y-1/2 w-4 h-4 text-muted-foreground pointer-events-none" />
-                <input autoFocus value={q} onChange={(e) => setQ(e.target.value)} placeholder="Search..."
+                <input autoFocus value={q} onChange={(e) => setQ(e.target.value)} placeholder={t("components.search2")}
                   className="w-full h-9 pl-9 pr-3 rounded-md border border-input bg-background text-[13px] text-foreground placeholder:text-muted-foreground/70 outline-none focus:border-primary focus:ring-2 focus:ring-primary/20" />
               </div>
             </div>
@@ -109,11 +111,11 @@ export function MultiSelect({ options, value, onChange, placeholder = "Select...
             {options.length > 0 && (
               <button type="button" onClick={() => onChange(allSelected ? [] : options.map((o) => o.value))}
                 className="w-full px-3 py-1.5 mb-1 border-b border-border/60 text-[12px] font-semibold text-primary hover:bg-muted text-left outline-none">
-                {allSelected ? "Clear all" : "Select all"}
+                {allSelected ? t("components.clearAll") : t("components.selectAll")}
               </button>
             )}
             {filtered.length === 0 ? (
-              <p className="text-center text-xs text-muted-foreground py-4">No results</p>
+              <p className="text-center text-xs text-muted-foreground py-4">{t("components.noResults")}</p>
             ) : filtered.map((o) => {
               const sel = value.includes(o.value);
               return (

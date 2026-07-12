@@ -1,4 +1,5 @@
 "use client";
+import { useI18n } from "@/lib/i18n";
 import { useEffect, useMemo, useState } from "react";
 import { Send } from "lucide-react";
 import { api } from "@/lib/api";
@@ -16,6 +17,7 @@ export default function SendTemplateDrawer({ open, onClose, contactIds, contactN
   contactName?: string | null;
   onSent: (msg: string) => void;
 }) {
+  const { t } = useI18n();
   const [channels, setChannels] = useState<Channel[]>([]);
   const [templates, setTemplates] = useState<Template[]>([]);
   const [channelId, setChannelId] = useState("");
@@ -76,7 +78,7 @@ export default function SendTemplateDrawer({ open, onClose, contactIds, contactN
     <SidePanel
       open={open}
       onClose={onClose}
-      title="Send template"
+      title={t("automation.sendTemplate")}
       description={count === 1 ? `Start a chat with ${contactName || "this contact"}.` : `Message ${count} contacts.`}
       width="md"
       busy={sending}
@@ -87,22 +89,22 @@ export default function SendTemplateDrawer({ open, onClose, contactIds, contactN
       <div className="flex flex-col gap-4">
         {channels.length > 1 && (
           <div>
-            <label className="text-[12px] font-bold text-foreground/80 mb-1.5 block">Channel</label>
+            <label className="text-[12px] font-bold text-foreground/80 mb-1.5 block">{t("components.channel")}</label>
             <Select value={channelId} onChange={setChannelId}
               options={channels.map((c) => ({ value: c.id, label: c.name }))} />
           </div>
         )}
 
         <div>
-          <label className="text-[12px] font-bold text-foreground/80 mb-1.5 block">Template</label>
+          <label className="text-[12px] font-bold text-foreground/80 mb-1.5 block">{t("broadcasts.template")}</label>
           <Select value={templateId} onChange={(v) => { setTemplateId(v); setValues({}); }}
-            placeholder={templates.length === 0 ? "No approved templates" : "Choose a template"}
+            placeholder={templates.length === 0 ? t("contacts.noApprovedTemplates") : t("contacts.chooseATemplate")}
             options={templates.map((t) => ({ value: t.id, label: `${t.name} (${t.language})` }))} />
         </div>
 
         {sel && variables.length > 0 && (
           <div>
-            <p className="text-[12px] font-bold text-foreground/80 mb-2">Fill variables</p>
+            <p className="text-[12px] font-bold text-foreground/80 mb-2">{t("contacts.fillVariables")}</p>
             <div className="space-y-2">
               {variables.map((v, i) => (
                 <div key={v} className="flex items-center gap-2">
@@ -118,7 +120,7 @@ export default function SendTemplateDrawer({ open, onClose, contactIds, contactN
 
         {sel && (
           <div>
-            <p className="text-[12px] font-bold text-foreground/70 mb-2">Preview</p>
+            <p className="text-[12px] font-bold text-foreground/70 mb-2">{t("broadcasts.preview")}</p>
             <div className="rounded-lg bg-[#ECE5DD] p-3">
               <div className="max-w-[240px] rounded-lg rounded-tl-sm bg-white px-3 pt-2 pb-1.5 shadow-sm">
                 <p className="text-[12px] leading-relaxed text-[#303030] whitespace-pre-wrap break-words">{preview}</p>
@@ -128,7 +130,7 @@ export default function SendTemplateDrawer({ open, onClose, contactIds, contactN
         )}
 
         {err && <p className="text-[12px] text-destructive">{err}</p>}
-        <p className="text-[11.5px] text-muted-foreground">Only approved WhatsApp templates can start a conversation outside the 24 hour window.</p>
+        <p className="text-[11.5px] text-muted-foreground">{t("contacts.onlyApprovedWhatsappTemplatesCan")}</p>
       </div>
     </SidePanel>
   );

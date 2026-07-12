@@ -1,4 +1,5 @@
 "use client";
+import { useI18n } from "@/lib/i18n";
 // Custom Fields — org-defined typed contact fields (text / number / date /
 // dropdown). Values attach to each contact (contact.attributes) and power the
 // contact form, contact detail and automations.
@@ -15,6 +16,7 @@ import { useToast, FieldLabel, INPUT_CLASS, PrimaryButton } from "../_shared";
 const TYPE_LABEL: Record<string, string> = { text: "Text", number: "Number", date: "Date", select: "Dropdown" };
 
 export default function CustomFieldsPage() {
+  const { t } = useI18n();
   const { notify, confirm, ToastHost } = useToast();
   const [fields, setFields] = useState<CustomField[]>([]);
   const [loading, setLoading] = useState(true);
@@ -30,7 +32,7 @@ export default function CustomFieldsPage() {
 
   async function remove(f: CustomField) {
     if (!(await confirm({ title: "Delete custom field?", message: `Delete "${f.label}"? Existing values are kept but no longer shown.`, danger: true, confirmLabel: "Delete" }))) return;
-    try { await api.deleteCustomField(f.id); notify("Custom field deleted"); load(); }
+    try { await api.deleteCustomField(f.id); notify(t("settings.customFieldDeleted")); load(); }
     catch (e) { notify(String(e), "error"); }
   }
 
@@ -45,7 +47,7 @@ export default function CustomFieldsPage() {
       {ToastHost}
       <div className="bg-card border border-border rounded-lg shadow-xs overflow-hidden flex-1 min-h-0 flex flex-col">
         <div className="p-3 flex items-center justify-end gap-3 border-b border-border shrink-0">
-          <PrimaryButton onClick={() => setDlg({ open: true, editing: null })}><Plus className="w-4 h-4" />Add field</PrimaryButton>
+          <PrimaryButton onClick={() => setDlg({ open: true, editing: null })}><Plus className="w-4 h-4" />{t("settings.addField")}</PrimaryButton>
         </div>
 
         <div className="overflow-auto flex-1 min-h-0">
@@ -53,7 +55,7 @@ export default function CustomFieldsPage() {
             <thead className="sticky top-0 z-10">
               <tr className="border-b border-border bg-muted/40 backdrop-blur">
                 {["Field", "Type", "Options", "Created", "Updated", ""].map((h) => (
-                  <th key={h} className={cn("px-4 py-2.5 text-[11px] font-bold uppercase tracking-wider text-muted-foreground", h === "Options" ? "text-right" : h === "" ? "text-right w-20" : "text-left")}>{h}</th>
+                  <th key={h} className={cn("px-4 py-2.5 text-[11px] font-bold uppercase tracking-wider text-muted-foreground", h === "Options" ? "text-right" : h === "" ? "text-right w-20" : "text-left")}>{t(h)}</th>
                 ))}
               </tr>
             </thead>
@@ -61,7 +63,7 @@ export default function CustomFieldsPage() {
               {loading ? (
                 <tr><td colSpan={6} className="text-center py-16"><Loader2 className="w-6 h-6 animate-spin text-muted-foreground mx-auto" /></td></tr>
               ) : fields.length === 0 ? (
-                <tr><td colSpan={6} className="text-center py-16 text-[13px] text-muted-foreground">No custom fields yet</td></tr>
+                <tr><td colSpan={6} className="text-center py-16 text-[13px] text-muted-foreground">{t("settings.noCustomFieldsYet")}</td></tr>
               ) : paged.map((f) => (
                 <tr key={f.id} className="border-b border-border/60 hover:bg-muted/50 transition-colors">
                   <td className="px-4 py-2.5">
@@ -73,8 +75,8 @@ export default function CustomFieldsPage() {
                   <td className="px-4 py-2.5 text-[12.5px] text-muted-foreground">{f.created_at ? fmtDateTimeShort(f.created_at) : "-"}</td>
                   <td className="px-4 py-2.5 text-[12.5px] text-muted-foreground">{f.updated_at ? fmtDateTimeShort(f.updated_at) : "-"}</td>
                   <td className="px-4 py-2.5 text-right whitespace-nowrap">
-                    <Tip label="Edit"><button onClick={() => setDlg({ open: true, editing: f })} className="p-1.5 rounded-md hover:bg-muted outline-none transition-colors text-muted-foreground hover:text-foreground"><Pencil className="w-[17px] h-[17px]" /></button></Tip>
-                    <Tip label="Delete"><button onClick={() => remove(f)} className="p-1.5 rounded-md hover:bg-red-50 outline-none transition-colors text-red-500"><Trash2 className="w-[17px] h-[17px]" /></button></Tip>
+                    <Tip label={t("common.edit")}><button onClick={() => setDlg({ open: true, editing: f })} className="p-1.5 rounded-md hover:bg-muted outline-none transition-colors text-muted-foreground hover:text-foreground"><Pencil className="w-[17px] h-[17px]" /></button></Tip>
+                    <Tip label={t("common.delete")}><button onClick={() => remove(f)} className="p-1.5 rounded-md hover:bg-red-50 outline-none transition-colors text-red-500"><Trash2 className="w-[17px] h-[17px]" /></button></Tip>
                   </td>
                 </tr>
               ))}
@@ -86,9 +88,9 @@ export default function CustomFieldsPage() {
           <span className="text-muted-foreground tabular-nums">{fields.length} total</span>
           <div className="flex items-center gap-2">
             <Select value={String(rowsPerPage)} onChange={(v) => { setRowsPerPage(Number(v)); setPage(0); }} options={[10, 25, 50].map((n) => ({ value: String(n), label: String(n) }))} className="w-[72px]" align="right" />
-            <span className="text-muted-foreground mx-2 tabular-nums">Page {page + 1} of {totalPages}</span>
-            <button disabled={page <= 0} onClick={() => setPage(page - 1)} className="px-2.5 h-7 rounded-md border border-border text-xs font-semibold disabled:opacity-30 hover:bg-muted outline-none">Prev</button>
-            <button disabled={page >= totalPages - 1} onClick={() => setPage(page + 1)} className="px-2.5 h-7 rounded-md border border-border text-xs font-semibold disabled:opacity-30 hover:bg-muted outline-none">Next</button>
+            <span className="text-muted-foreground mx-2 tabular-nums">{t("settings.page")} {page + 1} of {totalPages}</span>
+            <button disabled={page <= 0} onClick={() => setPage(page - 1)} className="px-2.5 h-7 rounded-md border border-border text-xs font-semibold disabled:opacity-30 hover:bg-muted outline-none">{t("settings.prev")}</button>
+            <button disabled={page >= totalPages - 1} onClick={() => setPage(page + 1)} className="px-2.5 h-7 rounded-md border border-border text-xs font-semibold disabled:opacity-30 hover:bg-muted outline-none">{t("settings.next")}</button>
           </div>
         </div>
       </div>
@@ -105,6 +107,7 @@ function CustomFieldDialog({ editing, count, onClose, onSaved, onError }: {
   editing: CustomField | null; count: number;
   onClose: () => void; onSaved: (m: string) => void; onError: (m: string) => void;
 }) {
+  const { t } = useI18n();
   const isEdit = !!editing;
   const [label, setLabel] = useState(editing?.label ?? "");
   const [type, setType] = useState<CustomFieldType>((editing?.type as CustomFieldType) ?? "text");
@@ -112,12 +115,12 @@ function CustomFieldDialog({ editing, count, onClose, onSaved, onError }: {
   const [saving, setSaving] = useState(false);
 
   async function save() {
-    if (!label.trim()) { onError("Label is required"); return; }
+    if (!label.trim()) { onError(t("settings.labelIsRequired")); return; }
     setSaving(true);
     try {
       const opts = type === "select" ? options.map((o) => o.trim()).filter(Boolean) : [];
-      if (isEdit) { await api.updateCustomField(editing!.id, { label: label.trim(), type, options: opts }); onSaved("Custom field updated"); }
-      else { await api.createCustomField({ label: label.trim(), type, options: opts, sort_order: count }); onSaved("Custom field created"); }
+      if (isEdit) { await api.updateCustomField(editing!.id, { label: label.trim(), type, options: opts }); onSaved(t("settings.customFieldUpdated")); }
+      else { await api.createCustomField({ label: label.trim(), type, options: opts, sort_order: count }); onSaved(t("settings.customFieldCreated")); }
     } catch (e) { onError(String(e)); }
     finally { setSaving(false); }
   }
@@ -126,22 +129,22 @@ function CustomFieldDialog({ editing, count, onClose, onSaved, onError }: {
     <SidePanel
       open
       onClose={onClose}
-      title={isEdit ? "Edit custom field" : "New custom field"}
-      description="Typed field stored on every contact."
+      title={isEdit ? t("settings.editCustomField") : t("settings.newCustomField")}
+      description={t("settings.typedFieldStoredOnEvery")}
       width="sm"
       busy={saving}
       onApply={save}
       applyLabel={isEdit ? "Save" : "Create"}
     >
       <div className="flex flex-col gap-4">
-        <div><FieldLabel>Label</FieldLabel><input value={label} onChange={(e) => setLabel(e.target.value)} autoFocus placeholder="e.g. Budget" className={INPUT_CLASS} /></div>
-        <div><FieldLabel>Type</FieldLabel>
+        <div><FieldLabel>{t("settings.label")}</FieldLabel><input value={label} onChange={(e) => setLabel(e.target.value)} autoFocus placeholder={t("settings.eGBudget")} className={INPUT_CLASS} /></div>
+        <div><FieldLabel>{t("settings.type")}</FieldLabel>
           <Select value={type} searchable={false} onChange={(v) => setType(v as CustomFieldType)}
             options={[{ value: "text", label: "Text" }, { value: "number", label: "Number" }, { value: "date", label: "Date" }, { value: "select", label: "Dropdown" }]} />
         </div>
         {type === "select" && (
           <div>
-            <FieldLabel>Options</FieldLabel>
+            <FieldLabel>{t("settings.options")}</FieldLabel>
             <div className="space-y-1.5">
               {options.map((o, i) => (
                 <div key={i} className="flex gap-1.5 items-center">
@@ -149,11 +152,11 @@ function CustomFieldDialog({ editing, count, onClose, onSaved, onError }: {
                   <button type="button" onClick={() => setOptions(options.filter((_, j) => j !== i))} className="px-1.5 text-muted-foreground hover:text-destructive text-lg leading-none">×</button>
                 </div>
               ))}
-              <button type="button" onClick={() => setOptions([...options, ""])} className="text-[12.5px] font-semibold text-primary hover:underline">+ Add option</button>
+              <button type="button" onClick={() => setOptions([...options, ""])} className="text-[12.5px] font-semibold text-primary hover:underline">{t("settings.addOption")}</button>
             </div>
           </div>
         )}
-        {isEdit && <p className="text-[11.5px] text-muted-foreground">The field key <span className="">{editing!.key}</span> can&apos;t change (keeps existing values linked).</p>}
+        {isEdit && <p className="text-[11.5px] text-muted-foreground">{t("settings.theFieldKey")} <span className="">{editing!.key}</span> {t("settings.canTChangeKeepsExisting")}</p>}
       </div>
     </SidePanel>
   );

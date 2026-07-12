@@ -49,11 +49,11 @@ export default function LoginPage() {
       {/* Brand */}
       <div className="relative z-10 mb-7 flex flex-col items-center gap-3 animate-fade-in">
         <div className="w-16 h-16 rounded-2xl overflow-hidden shadow-[0_16px_40px_-12px_rgba(0,0,0,0.6)] ring-1 ring-white/10">
-          <img src="/simpulx_logo.png" alt="Simpulx" className="w-full h-full object-cover" />
+          <img src="/simpulx_logo.png" alt={t("auth.simpulx")} className="w-full h-full object-cover" />
         </div>
         <div className="text-center">
           <h1 className="text-[26px] font-extrabold tracking-tight text-white leading-none">
-            Simpul<span className="text-amber">x</span>
+            {t("auth.simpul")}<span className="text-amber">x</span>
           </h1>
         </div>
       </div>
@@ -149,7 +149,7 @@ export default function LoginPage() {
       </div>
 
       <p className="relative z-10 mt-6 text-[11px] text-white/30 font-medium tracking-wide">
-        © {new Date().getFullYear()} Simpulx. {t("login.allRightsReserved")}
+        © {new Date().getFullYear()} {t("login.simpulx")} {t("login.allRightsReserved")}
       </p>
     </div>
   );

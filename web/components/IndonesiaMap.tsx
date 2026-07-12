@@ -1,4 +1,5 @@
 "use client";
+import { useI18n } from "@/lib/i18n";
 import { useEffect, useMemo, useRef, useState } from "react";
 
 // Choropleth map of Indonesia, dependency-free. We load a real provinces GeoJSON
@@ -44,6 +45,7 @@ const VB_W = 960;
 export interface MapPoint { name: string; value: number }
 
 export function IndonesiaMap({ points, isMoney, money }: { points: MapPoint[]; isMoney?: boolean; money?: (n: number) => string }) {
+  const { t } = useI18n();
   const [geo, setGeo] = useState<Geo | null>(null);
   const [hover, setHover] = useState<{ name: string; value: number; x: number; y: number } | null>(null);
   const wrapRef = useRef<HTMLDivElement>(null);
@@ -200,7 +202,7 @@ export function IndonesiaMap({ points, isMoney, money }: { points: MapPoint[]; i
               <span className="w-1.5 h-1.5 rounded-full bg-white/90" />
               <span className="text-[12px] font-semibold capitalize whitespace-nowrap">{label(hover.name)}</span>
             </div>
-            <div className="text-[11px] tabular-nums opacity-80 mt-0.5 pl-3">{hover.value > 0 ? fmt(hover.value) : "No data"}</div>
+            <div className="text-[11px] tabular-nums opacity-80 mt-0.5 pl-3">{hover.value > 0 ? fmt(hover.value) : t("components.noData")}</div>
           </div>
           <div className="w-2.5 h-2.5 bg-[#356B5A]/90 rotate-45 mx-auto -mt-[5px] rounded-[2px]" />
         </div>

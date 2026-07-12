@@ -1,4 +1,5 @@
 "use client";
+import { useI18n } from "@/lib/i18n";
 import { useEffect, useMemo, useRef, useState } from "react";
 import { useRouter } from "next/navigation";
 import {
@@ -21,6 +22,7 @@ interface CmdItem {
 // A Linear/Superhuman-style command palette: Cmd/Ctrl-K to jump to any
 // conversation or navigate the app, fully keyboard-driven.
 export default function CommandPalette({ open, onClose }: { open: boolean; onClose: () => void }) {
+  const { t } = useI18n();
   const router = useRouter();
   const [query, setQuery] = useState("");
   const [convs, setConvs] = useState<Conversation[]>([]);
@@ -100,22 +102,22 @@ export default function CommandPalette({ open, onClose }: { open: boolean; onClo
   return (
     <div className="fixed inset-0 z-[200] flex items-start justify-center pt-[14vh] px-4" onClick={onClose}>
       <div className="absolute inset-0 bg-foreground/30 backdrop-blur-[2px] animate-fade-in" />
-      <div role="dialog" aria-modal="true" aria-label="Command palette" className="relative w-full max-w-[600px] bg-card rounded-xl border border-border shadow-2xl overflow-hidden animate-scale-in" onClick={(e) => e.stopPropagation()}>
+      <div role="dialog" aria-modal="true" aria-label={t("components.commandPalette")} className="relative w-full max-w-[600px] bg-card rounded-xl border border-border shadow-2xl overflow-hidden animate-scale-in" onClick={(e) => e.stopPropagation()}>
         <div className="flex items-center gap-2.5 px-4 h-14 border-b border-border">
           <Search className="w-[18px] h-[18px] text-muted-foreground shrink-0" />
           <input
             ref={inputRef}
-            aria-label="Search conversations or jump to a section"
+            aria-label={t("components.searchConversationsOrJumpTo")}
             value={query}
             onChange={(e) => setQuery(e.target.value)}
-            placeholder="Search conversations or jump to..."
+            placeholder={t("components.searchConversationsOrJumpTo2")}
             className="flex-1 bg-transparent text-[15px] text-foreground placeholder:text-muted-foreground/70 outline-none border-0"
           />
           <kbd className="text-[10px] font-semibold text-muted-foreground bg-muted px-1.5 py-0.5 rounded">ESC</kbd>
         </div>
         <div ref={listRef} className="max-h-[52vh] overflow-y-auto py-2">
           {items.length === 0 ? (
-            <div className="px-4 py-10 text-center text-sm text-muted-foreground">No results for &ldquo;{query}&rdquo;</div>
+            <div className="px-4 py-10 text-center text-sm text-muted-foreground">{t("components.noResultsFor")}{query}&rdquo;</div>
           ) : groups.map((g) => (
             <div key={g.name} className="mb-1">
               <p className="px-4 py-1 text-[10px] font-bold uppercase tracking-wider text-muted-foreground">{g.name}</p>
@@ -133,7 +135,7 @@ export default function CommandPalette({ open, onClose }: { open: boolean; onClo
                     <span className={cn("w-7 h-7 grid place-items-center shrink-0", i === active ? "text-primary" : "text-muted-foreground")}><it.icon className="w-[18px] h-[18px]" /></span>
                   ) : null}
                   <span className="flex-1 min-w-0">
-                    <span className={cn("block text-[13.5px] truncate", i === active ? "text-foreground font-semibold" : "text-foreground/90 font-medium")}>{it.label}</span>
+                    <span className={cn("block text-[13.5px] truncate", i === active ? "text-foreground font-semibold" : "text-foreground/90 font-medium")}>{t(it.label)}</span>
                     {it.sub && <span className="block text-[11.5px] text-muted-foreground truncate">{it.sub}</span>}
                   </span>
                   {i === active && <CornerDownLeft className="w-3.5 h-3.5 text-muted-foreground shrink-0" />}
@@ -145,7 +147,7 @@ export default function CommandPalette({ open, onClose }: { open: boolean; onClo
         <div className="flex items-center gap-3 px-4 h-9 border-t border-border text-[11px] text-muted-foreground bg-muted/30">
           <span className="flex items-center gap-1"><ArrowUp className="w-3 h-3" /><ArrowDown className="w-3 h-3" />navigate</span>
           <span className="flex items-center gap-1"><CornerDownLeft className="w-3 h-3" />open</span>
-          <span className="ml-auto font-semibold">Cmd K</span>
+          <span className="ml-auto font-semibold">{t("components.cmdK")}</span>
         </div>
       </div>
     </div>

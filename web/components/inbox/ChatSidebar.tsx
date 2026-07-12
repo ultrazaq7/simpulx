@@ -1,5 +1,6 @@
 "use client";
 
+import { useI18n } from "@/lib/i18n";
 import { useState, useEffect } from "react";
 import { useInbox } from "./InboxContext";
 import { formatCountdown } from "./SharedTypes";
@@ -10,6 +11,7 @@ import { MultiSelect } from "@/components/ui/multi-select";
 import { Input } from "@/components/ui/input";
 
 export function ChatSidebar() {
+  const { t } = useI18n();
   const {
     activeId, setActiveId, shown, filter, setFilter, query, setQuery,
     sortNewest, setSortNewest, showFilters, setShowFilters,
@@ -32,19 +34,19 @@ export function ChatSidebar() {
           <div className="flex-1">
             <Select value={filter} onValueChange={(v) => setFilter(v || "")}>
               <SelectTrigger className="h-8 text-sm font-semibold border-slate-200">
-                <SelectValue placeholder="All" />
+                <SelectValue placeholder={t("broadcasts.all")} />
               </SelectTrigger>
               <SelectContent>
-                <SelectItem value="all">All ({convs.length})</SelectItem>
-                <SelectItem value="open">Open ({convs.filter(c => c.status === "open").length})</SelectItem>
-                <SelectItem value="pending">Pending ({convs.filter(c => c.status === "pending").length})</SelectItem>
-                <SelectItem value="closed">Closed ({convs.filter(c => c.status === "closed").length})</SelectItem>
-                <SelectItem value="unassigned">Unassigned ({convs.filter(c => !c.assigned_agent_id).length})</SelectItem>
+                <SelectItem value="all">{t("components.all")}{convs.length})</SelectItem>
+                <SelectItem value="open">{t("components.open")}{convs.filter(c => c.status === "open").length})</SelectItem>
+                <SelectItem value="pending">{t("components.pending")}{convs.filter(c => c.status === "pending").length})</SelectItem>
+                <SelectItem value="closed">{t("components.closed")}{convs.filter(c => c.status === "closed").length})</SelectItem>
+                <SelectItem value="unassigned">{t("components.unassigned")}{convs.filter(c => !c.assigned_agent_id).length})</SelectItem>
               </SelectContent>
             </Select>
           </div>
           
-          <button onClick={() => setSortNewest(!sortNewest)} title={sortNewest ? "Newest first" : "Oldest first"} className="p-1.5 text-slate-500 hover:text-slate-900 hover:bg-slate-100 rounded-md transition-colors">
+          <button onClick={() => setSortNewest(!sortNewest)} title={sortNewest ? t("components.newestFirst") : t("components.oldestFirst")} className="p-1.5 text-slate-500 hover:text-slate-900 hover:bg-slate-100 rounded-md transition-colors">
             <ArrowDownUp className={`w-4 h-4 transition-transform ${!sortNewest ? "scale-y-[-1]" : ""}`} />
           </button>
           <button onClick={() => setShowFilters(!showFilters)} className={`p-1.5 rounded-md transition-colors ${showFilters ? "text-amber-600 bg-amber-50" : "text-slate-500 hover:text-slate-900 hover:bg-slate-100"}`}>
@@ -57,14 +59,14 @@ export function ChatSidebar() {
           <div className="flex flex-col gap-2 mb-3 animate-in fade-in slide-in-from-top-2 duration-200">
             <div className="flex gap-2">
               <MultiSelect
-                placeholder="Channel"
+                placeholder={t("components.channel")}
                 value={filterChannel}
                 onChange={setFilterChannel}
                 options={["whatsapp", "instagram", "telegram", "webchat", "email"].map(ch => ({ label: ch.charAt(0).toUpperCase() + ch.slice(1), value: ch }))}
                 className="flex-1"
               />
               <MultiSelect
-                placeholder="Interest"
+                placeholder={t("contacts.interest")}
                 value={filterInterest}
                 onChange={setFilterInterest}
                 options={[
@@ -75,7 +77,7 @@ export function ChatSidebar() {
                 className="flex-1"
               />
               <MultiSelect
-                placeholder="Campaign"
+                placeholder={t("automation.campaign")}
                 value={filterCampaign}
                 onChange={setFilterCampaign}
                 options={Array.from(new Map(convs.filter((c) => c.campaign_id).map((c) => [c.campaign_id as string, c.campaign_name])).entries()).map(([id, name]) => ({
@@ -87,7 +89,7 @@ export function ChatSidebar() {
             </div>
             <div className="flex gap-2">
               <MultiSelect
-                placeholder="Agent"
+                placeholder={t("contacts.agent")}
                 value={filterAgent}
                 onChange={setFilterAgent}
                 options={[
@@ -97,7 +99,7 @@ export function ChatSidebar() {
                 className="flex-1"
               />
               <MultiSelect
-                placeholder="Stage"
+                placeholder={t("contacts.stage")}
                 value={filterStage}
                 onChange={setFilterStage}
                 options={stages.map(s => ({ label: s.name, value: s.id }))}
@@ -112,7 +114,7 @@ export function ChatSidebar() {
           <Input 
             value={query} 
             onChange={(e) => setQuery(e.target.value)} 
-            placeholder="Search" 
+            placeholder={t("components.search")} 
             className="pl-9 h-9 text-sm bg-slate-50 border-slate-200 focus-visible:ring-amber-500" 
           />
         </div>
@@ -123,8 +125,8 @@ export function ChatSidebar() {
         {shown.length === 0 ? (
           <div className="flex flex-col items-center justify-center h-full text-slate-400 px-4 text-center">
             <MessageSquare className="w-12 h-12 mb-2 text-slate-200" />
-            <p className="text-sm font-semibold text-slate-600">No conversations</p>
-            <p className="text-xs">New chats land here automatically</p>
+            <p className="text-sm font-semibold text-slate-600">{t("components.noConversations")}</p>
+            <p className="text-xs">{t("components.newChatsLandHereAutomatically")}</p>
           </div>
         ) : shown.map(c => {
           const isActive = c.id === activeId;
@@ -154,7 +156,7 @@ export function ChatSidebar() {
               <div className="flex-1 min-w-0">
                 <div className="flex justify-between items-center gap-2 mb-0.5">
                   <div className="flex items-center gap-1.5 min-w-0">
-                    <h4 className={`text-sm font-bold truncate ${c.unread_count ? 'text-blue-700' : 'text-slate-900'}`}>{c.contact_name || c.contact_phone || "Unnamed"}</h4>
+                    <h4 className={`text-sm font-bold truncate ${c.unread_count ? 'text-blue-700' : 'text-slate-900'}`}>{c.contact_name || c.contact_phone || t("components.unnamed")}</h4>
                     {!!c.unread_count && (
                       <span className="flex-shrink-0 flex items-center justify-center min-w-4 h-4 rounded-full bg-blue-500 text-[10px] font-bold text-white px-1 shadow-sm">
                         {c.unread_count > 99 ? '99+' : c.unread_count}
@@ -186,12 +188,12 @@ export function ChatSidebar() {
                 
                 <div className="flex items-center justify-between mt-1">
                   <p className="text-xs text-slate-500 truncate flex items-center gap-1 flex-1">
-                    {c.last_message_preview === "[audio]" ? <><Mic className="w-3.5 h-3.5" /> Voice message</> :
-                     c.last_message_preview === "[image]" ? <><Camera className="w-3.5 h-3.5" /> Photo</> :
-                     c.last_message_preview === "[video]" ? <><Video className="w-3.5 h-3.5" /> Video</> :
-                     c.last_message_preview === "[document]" ? <><FileText className="w-3.5 h-3.5" /> Document</> :
-                     c.last_message_preview === "[sticker]" ? <><Smile className="w-3.5 h-3.5" /> Sticker</> :
-                     c.last_message_preview || "No messages yet"}
+                    {c.last_message_preview === "[audio]" ? <><Mic className="w-3.5 h-3.5" /> {t("components.voiceMessage")}</> :
+                     c.last_message_preview === "[image]" ? <><Camera className="w-3.5 h-3.5" /> {t("components.photo")}</> :
+                     c.last_message_preview === "[video]" ? <><Video className="w-3.5 h-3.5" /> {t("components.video")}</> :
+                     c.last_message_preview === "[document]" ? <><FileText className="w-3.5 h-3.5" /> {t("components.document")}</> :
+                     c.last_message_preview === "[sticker]" ? <><Smile className="w-3.5 h-3.5" /> {t("components.sticker")}</> :
+                     c.last_message_preview || t("components.noMessagesYet")}
                   </p>
                   {c.last_message_preview && responder === "agent" && <CheckCircle2 className="w-3.5 h-3.5 text-blue-500 shrink-0 ml-1" />}
                 </div>

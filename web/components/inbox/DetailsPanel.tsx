@@ -1,4 +1,5 @@
 "use client";
+import { useI18n } from "@/lib/i18n";
 import { useState } from "react";
 import { useInbox } from "./InboxContext";
 import { X, User, Copy, Tag, MessageSquare, Clock, Bot, MapPin, Box, Hash, Lock } from "lucide-react";
@@ -26,6 +27,7 @@ function DetailRow({ icon, label, value, onCopy }: { icon: React.ReactNode; labe
 }
 
 export function DetailsPanel() {
+  const { t } = useI18n();
   const { active, activeId, setRightPanel, notes, notify, copyText } = useInbox();
   const queryClient = useQueryClient();
   const [tab, setTab] = useState<"info" | "notes">("info");
@@ -38,14 +40,14 @@ export function DetailsPanel() {
     await api.addNote(activeId, noteDraft.trim());
     setNoteDraft("");
     queryClient.invalidateQueries({ queryKey: ["notes", activeId] });
-    notify("Note added");
+    notify(t("components.noteAdded"));
   }
 
   return (
     <div className="w-[320px] shrink-0 flex flex-col border-l border-slate-200 bg-white">
       {/* Header */}
       <div className="px-5 py-3.5 flex items-center border-b border-slate-200 bg-slate-50">
-        <h3 className="font-bold text-sm text-slate-900 flex-1">Details</h3>
+        <h3 className="font-bold text-sm text-slate-900 flex-1">{t("components.details")}</h3>
         <button onClick={() => setRightPanel(null)} className="p-1.5 text-slate-400 hover:text-slate-900 hover:bg-slate-200 rounded-md transition-colors">
           <X className="w-4 h-4" />
         </button>
@@ -59,7 +61,7 @@ export function DetailsPanel() {
             {initials(active.contact_name || active.contact_phone)}
           </div>
           <div className="min-w-0">
-            <h4 className="font-bold text-base text-slate-900 truncate mb-1">{active.contact_name || "Unnamed"}</h4>
+            <h4 className="font-bold text-base text-slate-900 truncate mb-1">{active.contact_name || t("components.unnamed")}</h4>
             {active.contact_phone && (
               <div className="flex items-center gap-1 group/copy">
                 <span className="text-xs text-slate-500 font-medium">{active.contact_phone}</span>
@@ -75,10 +77,10 @@ export function DetailsPanel() {
       {/* Tabs */}
       <div className="flex px-2 border-b border-slate-200">
         <button onClick={() => setTab("info")} className={`flex-1 flex items-center justify-center gap-2 py-3 text-xs font-bold transition-colors ${tab === "info" ? "text-slate-900 border-b-2 border-slate-900" : "text-slate-500 hover:text-slate-700 border-b-2 border-transparent"}`}>
-          <User className="w-4 h-4" /> Contact
+          <User className="w-4 h-4" /> {t("broadcasts.contact")}
         </button>
         <button onClick={() => setTab("notes")} className={`flex-1 flex items-center justify-center gap-2 py-3 text-xs font-bold transition-colors ${tab === "notes" ? "text-amber-700 border-b-2 border-amber-500" : "text-slate-500 hover:text-slate-700 border-b-2 border-transparent"}`}>
-          <Lock className="w-4 h-4" /> Notes
+          <Lock className="w-4 h-4" /> {t("components.notes")}
         </button>
       </div>
 
@@ -86,24 +88,24 @@ export function DetailsPanel() {
       <div className="flex-1 overflow-y-auto">
         {tab === "info" && (
           <div className="p-5">
-            <h5 className="text-[10px] font-bold text-slate-400 uppercase tracking-widest mb-4">Customer details</h5>
-            <DetailRow icon={<User className="w-4 h-4" />} label="Full name" value={active.contact_name || "Unknown"} />
-            <DetailRow icon={<Hash className="w-4 h-4" />} label="Phone" value={active.contact_phone || "None"} onCopy={active.contact_phone ? () => copyText(active.contact_phone!) : undefined} />
-            <DetailRow icon={<Tag className="w-4 h-4" />} label="Channel" value={active.channel || "Unknown"} />
-            {active.campaign_name && <DetailRow icon={<Tag className="w-4 h-4" />} label="Campaign" value={active.campaign_name} />}
-            <DetailRow icon={<MessageSquare className="w-4 h-4" />} label="Status" value={active.status} />
-            <DetailRow icon={<Clock className="w-4 h-4" />} label="Last message" value={fmtDate(active.last_message_at) || "No messages"} />
-            <DetailRow icon={<Bot className="w-4 h-4" />} label="AI active" value={active.is_bot_active ? "Yes" : "No"} />
+            <h5 className="text-[10px] font-bold text-slate-400 uppercase tracking-widest mb-4">{t("components.customerDetails")}</h5>
+            <DetailRow icon={<User className="w-4 h-4" />} label={t("account.name")} value={active.contact_name || "Unknown"} />
+            <DetailRow icon={<Hash className="w-4 h-4" />} label={t("contacts.phone")} value={active.contact_phone || "None"} onCopy={active.contact_phone ? () => copyText(active.contact_phone!) : undefined} />
+            <DetailRow icon={<Tag className="w-4 h-4" />} label={t("components.channel")} value={active.channel || "Unknown"} />
+            {active.campaign_name && <DetailRow icon={<Tag className="w-4 h-4" />} label={t("automation.campaign")} value={active.campaign_name} />}
+            <DetailRow icon={<MessageSquare className="w-4 h-4" />} label={t("automation.status")} value={active.status} />
+            <DetailRow icon={<Clock className="w-4 h-4" />} label={t("components.lastMessage")} value={fmtDate(active.last_message_at) || "No messages"} />
+            <DetailRow icon={<Bot className="w-4 h-4" />} label={t("components.aiActive")} value={active.is_bot_active ? "Yes" : "No"} />
 
-            <h5 className="text-[10px] font-bold text-slate-400 uppercase tracking-widest mt-8 mb-4">Lead Qualification</h5>
-            <DetailRow icon={<Tag className="w-4 h-4" />} label="Interest Level" value={active.interest_level || "Unknown"} />
-            <DetailRow icon={<Box className="w-4 h-4" />} label="Brand" value={active.car_brand || "Unknown"} />
-            <DetailRow icon={<Box className="w-4 h-4" />} label="Model" value={active.car_model || "Unknown"} />
-            <DetailRow icon={<MapPin className="w-4 h-4" />} label="City" value={active.city || "Unknown"} />
-            <DetailRow icon={<Clock className="w-4 h-4" />} label="Purchase time" value={active.purchase_timeframe || "Unknown"} />
+            <h5 className="text-[10px] font-bold text-slate-400 uppercase tracking-widest mt-8 mb-4">{t("components.leadQualification")}</h5>
+            <DetailRow icon={<Tag className="w-4 h-4" />} label={t("components.interestLevel")} value={active.interest_level || "Unknown"} />
+            <DetailRow icon={<Box className="w-4 h-4" />} label={t("components.brand")} value={active.car_brand || "Unknown"} />
+            <DetailRow icon={<Box className="w-4 h-4" />} label={t("components.model")} value={active.car_model || "Unknown"} />
+            <DetailRow icon={<MapPin className="w-4 h-4" />} label={t("components.city")} value={active.city || "Unknown"} />
+            <DetailRow icon={<Clock className="w-4 h-4" />} label={t("components.purchaseTime")} value={active.purchase_timeframe || "Unknown"} />
 
             {active.lost_reason && (
-              <DetailRow icon={<Lock className="w-4 h-4" />} label="Lost Reason" value={active.lost_reason} />
+              <DetailRow icon={<Lock className="w-4 h-4" />} label={t("components.lostReason")} value={active.lost_reason} />
             )}
           </div>
         )}
@@ -114,7 +116,7 @@ export function DetailsPanel() {
               <textarea 
                 value={noteDraft} 
                 onChange={e => setNoteDraft(e.target.value)} 
-                placeholder="Add an internal note..." 
+                placeholder={t("components.addAnInternalNote")} 
                 className="w-full h-20 p-3 text-sm rounded-xl border border-amber-200 bg-amber-50/50 focus:border-amber focus:ring-2 focus:ring-amber/20-400 focus:ring-1 focus:ring-amber-400 outline-none resize-none placeholder:text-amber-700/50 text-amber-900 transition-all"
               />
               <button 
@@ -122,17 +124,17 @@ export function DetailsPanel() {
                 disabled={!noteDraft.trim()} 
                 className="w-full mt-2 py-2 rounded-lg bg-amber-500 hover:bg-amber-600 disabled:opacity-50 disabled:hover:bg-amber-500 text-white text-xs font-bold transition-colors"
               >
-                Add note
+                {t("components.addNote")}
               </button>
             </div>
             
             <div className="space-y-3">
               {notes.length === 0 ? (
-                <p className="text-center text-sm text-slate-400 py-4">No internal notes yet</p>
+                <p className="text-center text-sm text-slate-400 py-4">{t("components.noInternalNotesYet")}</p>
               ) : notes.map(n => (
                 <div key={n.id} className="p-4 rounded-xl border border-amber-200 bg-amber-50">
                   <p className="text-sm text-amber-900 mb-2">{n.body}</p>
-                  <span className="text-[10px] font-bold text-amber-700/60 block uppercase tracking-wider">{n.author || "Unknown"} • {fmtTime(n.created_at)}</span>
+                  <span className="text-[10px] font-bold text-amber-700/60 block uppercase tracking-wider">{n.author || t("broadcasts.unknown")} • {fmtTime(n.created_at)}</span>
                 </div>
               ))}
             </div>

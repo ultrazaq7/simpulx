@@ -1,5 +1,6 @@
 "use client";
 
+import { useI18n } from "@/lib/i18n";
 import { useInbox } from "./InboxContext";
 import { X, Search as SearchIcon, FileText } from "lucide-react";
 import { fmtDate, fmtTime } from "@/lib/utils";
@@ -7,6 +8,7 @@ import type { Message } from "@/lib/types";
 import { Input } from "@/components/ui/input";
 
 export function SearchPanel() {
+  const { t } = useI18n();
   const { setRightPanel, searchQuery, setSearchQuery, searchQueryObj, debouncedSearch, jumpToMessage } = useInbox();
 
   return (
@@ -16,7 +18,7 @@ export function SearchPanel() {
         <button onClick={() => setRightPanel(null)} className="p-1.5 -ml-1.5 mr-2 text-slate-400 hover:text-slate-900 hover:bg-slate-200 rounded-md transition-colors">
           <X className="w-4 h-4" />
         </button>
-        <h3 className="font-bold text-sm text-slate-900 flex-1">Search messages</h3>
+        <h3 className="font-bold text-sm text-slate-900 flex-1">{t("components.searchMessages")}</h3>
       </div>
 
       {/* Input */}
@@ -26,7 +28,7 @@ export function SearchPanel() {
           <Input 
             value={searchQuery} 
             onChange={(e) => setSearchQuery(e.target.value)} 
-            placeholder="Search in this chat..." 
+            placeholder={t("components.searchInThisChat")} 
             className="pl-9 pr-9 h-9 text-sm bg-white border-slate-200 focus-visible:ring-amber-500 rounded-lg" 
           />
           {searchQuery && (
@@ -40,7 +42,7 @@ export function SearchPanel() {
       {/* Results */}
       <div className="flex-1 overflow-y-auto">
         {searchQueryObj.isLoading ? (
-          <p className="p-6 text-center text-xs font-medium text-slate-400">Searching...</p>
+          <p className="p-6 text-center text-xs font-medium text-slate-400">{t("components.searching")}</p>
         ) : searchQueryObj.data?.data && searchQueryObj.data.data.length > 0 ? (
           searchQueryObj.data.data.map((m: Message) => (
             <div key={m.id} onClick={() => jumpToMessage(m.id)} className="p-4 border-b border-slate-100 hover:bg-slate-50 cursor-pointer transition-colors group">
@@ -54,11 +56,11 @@ export function SearchPanel() {
             </div>
           ))
         ) : debouncedSearch.length >= 2 ? (
-          <p className="p-6 text-center text-xs font-medium text-slate-400">No messages found.</p>
+          <p className="p-6 text-center text-xs font-medium text-slate-400">{t("components.noMessagesFound")}</p>
         ) : (
           <div className="p-10 flex flex-col items-center justify-center text-slate-400">
             <SearchIcon className="w-8 h-8 mb-3 opacity-20" />
-            <p className="text-xs font-medium text-center">Search for messages, links, or files in this conversation.</p>
+            <p className="text-xs font-medium text-center">{t("components.searchForMessagesLinksOr")}</p>
           </div>
         )}
       </div>

@@ -1,4 +1,5 @@
 "use client";
+import { useI18n } from "@/lib/i18n";
 // Polished agent multi-select: avatar chips, search, select-all, removable pills.
 // Used in the campaign wizard (per branch) and anywhere agents are picked.
 import { useState, useMemo, useRef, useEffect } from "react";
@@ -30,6 +31,7 @@ function Avatar({ id, name, size = 22 }: { id: string; name: string; size?: numb
 export function AgentMultiSelect({ options, selected, onChange, placeholder = "Select agents" }: {
   options: AgentOption[]; selected: string[]; onChange: (v: string[]) => void; placeholder?: string;
 }) {
+  const { t } = useI18n();
   const [open, setOpen] = useState(false);
   const [q, setQ] = useState("");
   const ref = useRef<HTMLDivElement>(null);
@@ -62,18 +64,18 @@ export function AgentMultiSelect({ options, selected, onChange, placeholder = "S
         <div className="absolute left-0 right-0 top-full mt-1.5 z-50 rounded-lg border border-border bg-popover shadow-xl p-2 animate-scale-in">
           <div className="relative mb-1.5">
             <Search className="absolute left-2.5 top-1/2 -translate-y-1/2 w-4 h-4 text-muted-foreground pointer-events-none" />
-            <input autoFocus value={q} onChange={(e) => setQ(e.target.value)} placeholder="Search agents"
+            <input autoFocus value={q} onChange={(e) => setQ(e.target.value)} placeholder={t("components.searchAgents")}
               className="w-full h-8 pl-8 pr-2 rounded-md border border-input bg-background text-[12.5px] outline-none focus:border-primary" />
           </div>
           {options.length > 0 && (
             <button type="button" onClick={() => onChange(allSel ? [] : options.map((o) => o.id))}
               className="w-full flex items-center gap-2 px-2 py-1.5 rounded-md hover:bg-muted text-left text-[12px] font-semibold text-primary outline-none">
-              {allSel ? "Clear all" : "Select all"}
+              {allSel ? t("components.clearAll") : t("components.selectAll")}
             </button>
           )}
           <div className="max-h-56 overflow-auto -mx-1 px-1">
             {filtered.length === 0 ? (
-              <p className="text-xs text-muted-foreground text-center py-5">No agents</p>
+              <p className="text-xs text-muted-foreground text-center py-5">{t("components.noAgents")}</p>
             ) : filtered.map((o) => {
               const c = selected.includes(o.id);
               return (

@@ -236,8 +236,8 @@ export default function SettingsLayout({ children }: { children: ReactNode }) {
 
           {/* Collapse toggle — pinned at the bottom */}
           <div className="shrink-0 border-t border-border p-2 flex justify-end">
-            <Tip label="View less (shift + C)" side="top">
-              <button onClick={toggle} aria-label="Collapse settings menu"
+            <Tip label={t("settings.viewLessShiftC")} side="top">
+              <button onClick={toggle} aria-label={t("settings.collapseSettingsMenu")}
                 className="p-1.5 rounded-md text-muted-foreground hover:bg-primary/10 hover:text-primary hover:scale-110 outline-none transition-all duration-200">
                 <ChevronsLeft className="w-[18px] h-[18px]" />
               </button>
@@ -249,8 +249,8 @@ export default function SettingsLayout({ children }: { children: ReactNode }) {
       {/* Floating tab attached to the strip (layer 2) — fades in when hidden. */}
       <div className={cn("max-lg:hidden absolute left-4 bottom-3 z-20 transition-opacity duration-200",
         collapsed ? "opacity-100" : "opacity-0 pointer-events-none")}>
-        <Tip label="View more (shift + C)" side="right">
-          <button onClick={toggle} aria-label="Expand settings menu"
+        <Tip label={t("settings.viewMoreShiftC")} side="right">
+          <button onClick={toggle} aria-label={t("settings.expandSettingsMenu")}
             className="flex items-center justify-center h-9 w-6 hover:w-9 rounded-r-full border border-l-0 border-border bg-card shadow-md text-muted-foreground hover:text-primary transition-all duration-200 outline-none">
             <ChevronRight className="w-4 h-4 shrink-0" />
           </button>

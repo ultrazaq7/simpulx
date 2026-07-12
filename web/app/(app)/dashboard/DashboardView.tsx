@@ -170,10 +170,11 @@ function MiniBars({ data, color, w = 64, h = 20 }: { data: number[]; color: stri
 function Delta({ cur, prev, higherIsBetter = true as boolean | null, className }: {
   cur: number; prev: number; higherIsBetter?: boolean | null; className?: string;
 }) {
+  const { t } = useI18n();
   // No prior baseline (prev = 0 while cur > 0): "100%" would be misleading, so
   // label it as new instead of inventing a growth figure.
   if (prev === 0 && cur !== 0) {
-    return <span className={cn("inline-flex items-center text-[11px] font-semibold text-muted-foreground", className)}>New</span>;
+    return <span className={cn("inline-flex items-center text-[11px] font-semibold text-muted-foreground", className)}>{t("dashboard.new")}</span>;
   }
   const diff = cur - prev;
   const flat = prev === 0 ? cur === 0 : Math.abs(diff / prev) < 0.0005;
@@ -324,13 +325,14 @@ function Card({ title, subtitle, icon: Icon, iconColor, children, className }: {
 
 // Shared 7-day area chart (real analytics.daily) with honest empty + single-day states
 function OverviewChart({ data }: { data: { date: string; leads: number; replied: number }[] }) {
+  const { t } = useI18n();
   if (data.length === 0) return (
     <div className="h-[280px] flex flex-col items-center justify-center text-center">
       <div className="w-12 h-12 rounded-xl bg-muted grid place-items-center mb-3">
         <BarChart3 className="w-6 h-6 text-muted-foreground/50" />
       </div>
-      <p className="text-[13px] font-semibold text-foreground">No activity yet</p>
-      <p className="text-xs text-muted-foreground">Daily leads and replies will show here</p>
+      <p className="text-[13px] font-semibold text-foreground">{t("dashboard.noActivityYet")}</p>
+      <p className="text-xs text-muted-foreground">{t("dashboard.dailyLeadsDesc")}</p>
     </div>
   );
   return (
@@ -370,10 +372,11 @@ function TimelineChart({ title, subtitle, data, series }: {
   data: Record<string, number | string>[];
   series: { key: string; name: string; color: string }[];
 }) {
+  const { t } = useI18n();
   return (
     <Card title={title} subtitle={subtitle}>
       <div className="px-4 py-4">
-        {data.length === 0 ? <div className="h-[260px] grid place-items-center text-sm text-muted-foreground">No daily data</div> : (
+        {data.length === 0 ? <div className="h-[260px] grid place-items-center text-sm text-muted-foreground">{t("dashboard.noDailyData")}</div> : (
           <ResponsiveContainer width="100%" height={260}>
             <LineChart data={data} margin={{ top: 12, right: 12, left: -12, bottom: 0 }}>
               <CartesianGrid strokeDasharray="4 4" stroke="rgba(0,0,0,0.05)" vertical={false} />
@@ -395,6 +398,7 @@ function TimelineChart({ title, subtitle, data, series }: {
 
 // Interest split rows (clickable deep-link to filtered inbox)
 function InterestSplit({ funnel }: { funnel: Analytics["funnel"] | undefined }) {
+  const { t } = useI18n();
   if (!funnel) return null;
   const rows = [
     { label: "Hot", value: funnel.hot, color: "#EF4444", href: "/inbox?interest=hot" },
@@ -408,7 +412,7 @@ function InterestSplit({ funnel }: { funnel: Analytics["funnel"] | undefined }) 
         const inner = (
           <>
             <span className="w-2.5 h-2.5 rounded-full shrink-0" style={{ backgroundColor: row.color }} />
-            <span className="text-sm font-medium flex-1 text-foreground/90">{row.label}</span>
+            <span className="text-sm font-medium flex-1 text-foreground/90">{t(row.label)}</span>
             <div className="flex-[2]"><ProgressBar value={funnel.total > 0 ? (row.value / funnel.total) * 100 : 0} color={row.color} /></div>
             <span className="text-sm font-bold min-w-[28px] text-right tabular-nums" style={{ color: row.color }}>{row.value}</span>
             {row.href && <ChevronRight className="w-4 h-4 text-muted-foreground/40 group-hover/int:text-muted-foreground" />}
@@ -429,7 +433,7 @@ function InterestSplit({ funnel }: { funnel: Analytics["funnel"] | undefined }) 
 function StageSplit({ stages, lost }: { stages?: Analytics["stages"]; lost?: number }) {
   const { t } = useI18n();
   if (!stages || stages.length === 0) {
-    return <div className="py-10 text-center text-sm text-muted-foreground">No pipeline data yet</div>;
+    return <div className="py-10 text-center text-sm text-muted-foreground">{t("dashboard.noPipelineDataYet")}</div>;
   }
   // "Lost" is a real stage but a terminal outcome: keep it OUT of the pipeline
   // list and pin it to the bottom in red, shown once (no duplicate row). Its
@@ -489,7 +493,7 @@ const FUNNEL_COLORS = ["#A7DACE", "#7FC9B8", "#57B8A1", "#2D8B73", "#26735F", "#
 
 // â”€â”€ Agent dashboard: action-center (essentials only, no org analytics, no lead score) â”€â”€
 const AGENT_CARDS = [
-  { key: "open", label: "My open", sub: "Active conversations", Icon: MessageSquare, color: "#2D8B73", href: "/inbox?status=open" },
+  { key: "open", label: "Active", sub: "Active conversations", Icon: MessageSquare, color: "#2D8B73", href: "/inbox?status=open" },
   { key: "hot", label: "Hot leads", sub: "High buying intent", Icon: Flame, color: "#EF4444", href: "/inbox?interest=hot" },
   { key: "unreplied", label: "Awaiting reply", sub: "You haven't replied yet", Icon: Zap, color: "#F59E0B", href: "/inbox?unreplied=1" },
   { key: "unread", label: "Unread", sub: "New, not opened", Icon: Mail, color: "#6366F1", href: "/inbox?unread=1" },
@@ -498,6 +502,7 @@ const AGENT_CARDS = [
 ] as const;
 
 function AgentDashboard() {
+  const { t } = useI18n();
   const [cards, setCards] = useState<DashboardCards | null>(null);
   const [analytics, setAnalytics] = useState<Analytics | null>(null);
   const [analyticsDone, setAnalyticsDone] = useState(false);
@@ -538,14 +543,14 @@ function AgentDashboard() {
       {/* Filters - same controls as the manager Overview. */}
       <div className="flex items-center gap-2 mb-4 flex-wrap">
         <FilterIcon className="w-4 h-4 text-muted-foreground" />
-        <MultiSelect value={fCampaign} onChange={setFCampaign} placeholder="All campaigns" className="w-[180px]"
+        <MultiSelect value={fCampaign} onChange={setFCampaign} placeholder={t("common.allCampaigns")} className="w-[180px]"
           options={campaigns.map((c) => ({ value: c.id, label: c.name }))} />
-        <MultiSelect value={fSource} onChange={setFSource} placeholder="All sources" className="w-[160px]"
+        <MultiSelect value={fSource} onChange={setFSource} placeholder={t("dashboard.allSources")} className="w-[160px]"
           options={SOURCE_OPTIONS} />
         <DateRangeFilter value={{ preset: dateRange, from: fFrom, to: fTo }}
           onChange={(v) => { setDateRange(v.preset); setFFrom(v.from); setFTo(v.to); }} />
         {(fCampaign.length || fSource.length || dateRange !== "all") && (
-          <button onClick={() => { setFCampaign([]); setFSource([]); setFFrom(""); setFTo(""); setDateRange("all"); }} className="text-[12px] font-semibold text-primary hover:underline outline-none">Clear</button>
+          <button onClick={() => { setFCampaign([]); setFSource([]); setFFrom(""); setFTo(""); setDateRange("all"); }} className="text-[12px] font-semibold text-primary hover:underline outline-none">{t("common.clear")}</button>
         )}
       </div>
 
@@ -566,8 +571,8 @@ function AgentDashboard() {
               {v === null
                 ? <div className="skeleton rounded h-7 w-12" />
                 : <p className="text-[28px] font-extrabold text-foreground leading-none tabular-nums">{v}</p>}
-              <p className="text-[13px] font-bold text-foreground mt-2">{c.label}</p>
-              <p className="text-[11px] text-muted-foreground">{c.sub}</p>
+              <p className="text-[13px] font-bold text-foreground mt-2">{t(c.label)}</p>
+              <p className="text-[11px] text-muted-foreground">{t(c.sub)}</p>
             </>
           );
           const cls = "group bg-card rounded-lg border border-border shadow-xs p-4 hover:shadow-md hover:border-primary/30 transition-all";
@@ -578,25 +583,25 @@ function AgentDashboard() {
       </div>
 
       {/* Personal activity */}
-      <Card title="Your activity" subtitle={fFrom || fTo ? `${fFrom || "start"} to ${fTo || "now"}` : "All time"} className="mb-4">
+      <Card title={t("dashboard.yourActivity")} subtitle={fFrom || fTo ? `${fFrom || "start"} to ${fTo || "now"}` : t("common.allTime")} className="mb-4">
         <div className="px-4 py-4"><OverviewChart data={buildChartData(analytics, true)} /></div>
       </Card>
       <div className="grid grid-cols-1 lg:grid-cols-2 gap-4">
-        <Card title="Your stages" subtitle="Leads by pipeline stage">
+        <Card title={t("dashboard.yourStages")} subtitle={t("dashboard.stageBreakdownSub")}>
           <StageSplit stages={analytics?.stages} lost={analytics?.funnel?.lost} />
         </Card>
-        <Card title="Interest level" subtitle="Buying intent split">
+        <Card title={t("dashboard.interestLevel")} subtitle={t("dashboard.interestLevelSub")}>
           <InterestSplit funnel={funnel} />
         </Card>
       </div>
 
       {/* Lost analysis */}
       <div className="grid grid-cols-1 md:grid-cols-2 gap-4 mt-4">
-        <Card title="Lost analysis" icon={TrendingDown} iconColor="#EF4444">
+        <Card title={t("dashboard.lostAnalysis")} icon={TrendingDown} iconColor="#EF4444">
           <div className="p-4">
             <div className="flex items-baseline gap-2 mb-4">
               <span className="text-4xl font-extrabold text-[#EF4444] leading-none tabular-nums">{analytics?.lost ?? 0}</span>
-              <span className="text-sm text-muted-foreground font-medium">total lost leads</span>
+              <span className="text-sm text-muted-foreground font-medium">{t("dashboard.totalLostLeads")}</span>
               {(analytics?.junk ?? 0) > 0 && (
                 <span className="ml-auto inline-flex items-center gap-1 px-2 py-0.5 rounded-md bg-amber-50 text-amber-700 text-[11px] font-semibold tabular-nums">
                   <Ban className="w-3 h-3" />{analytics!.junk} spam
@@ -607,18 +612,18 @@ function AgentDashboard() {
               <div className="flex gap-3">
                 <div className="flex-1 p-3 rounded-lg bg-red-50 text-center">
                   <p className="text-xl font-extrabold text-[#EF4444] tabular-nums">{funnel.total > 0 ? Math.round(((analytics?.lost ?? 0) / funnel.total) * 100) : 0}%</p>
-                  <p className="text-xs text-[#991B1B] font-semibold">Loss rate</p>
+                  <p className="text-xs text-[#991B1B] font-semibold">{t("dashboard.lossRate")}</p>
                 </div>
                 <div className="flex-1 p-3 rounded-lg bg-green-50 text-center">
                   <p className="text-xl font-extrabold text-[#059669] tabular-nums">{funnel.total > 0 ? Math.round(((funnel.won ?? 0) / funnel.total) * 100) : 0}%</p>
-                  <p className="text-xs text-[#065F46] font-semibold">Purchase rate</p>
+                  <p className="text-xs text-[#065F46] font-semibold">{t("dashboard.purchaseRate")}</p>
                 </div>
               </div>
             )}
           </div>
         </Card>
 
-        <Card title="Lost reasons">
+        <Card title={t("dashboard.lostReasons")}>
           <div className="p-4">
             {(analytics?.lost_reasons && analytics.lost_reasons.length > 0) ? (
               analytics.lost_reasons.map((r, i) => {
@@ -635,7 +640,7 @@ function AgentDashboard() {
                 );
               })
             ) : (
-              <div className="py-8 text-center"><p className="text-sm text-muted-foreground">No lost reason data available</p></div>
+              <div className="py-8 text-center"><p className="text-sm text-muted-foreground">{t("dashboard.noLostReasonData")}</p></div>
             )}
           </div>
         </Card>
@@ -656,6 +661,7 @@ export default function DashboardView({ initialTab = "overview" }: { initialTab?
 }
 
 function ManagerDashboard({ initialTab }: { initialTab: ReportTab }) {
+  const { t } = useI18n();
   const [stats, setStats] = useState<Stats | null>(null);
   const [analytics, setAnalytics] = useState<Analytics | null>(null);
   const tab = initialTab;
@@ -764,20 +770,20 @@ function ManagerDashboard({ initialTab }: { initialTab: ReportTab }) {
       )}>
         <div className={cn("w-[210px] h-full flex flex-col transition-opacity duration-200", railCollapsed && "opacity-0")}>
           <div className="flex-1 overflow-y-auto px-3 py-3">
-            <p className="px-3 pt-1 pb-1.5 text-[11px] font-bold uppercase tracking-wider text-muted-foreground/70">Reports</p>
+            <p className="px-3 pt-1 pb-1.5 text-[11px] font-bold uppercase tracking-wider text-muted-foreground/70">{t("dashboard.reports")}</p>
             <nav className="flex flex-col gap-1">
               {reportNav.map(({ key, label, href }) => (
                 <Link key={key} href={href}
                   className={cn("block w-full text-left rounded-md px-3 py-2 text-[13px] whitespace-nowrap outline-none transition-colors",
                     tab === key ? "bg-muted text-foreground font-semibold" : "text-muted-foreground hover:bg-muted/60 hover:text-foreground")}>
-                  {label}
+                  {t(label)}
                 </Link>
               ))}
             </nav>
           </div>
           <div className="shrink-0 border-t border-border p-2 flex justify-end">
-            <Tip label="Hide reports (shift + C)" side="top">
-              <button onClick={() => setRailCollapsed(true)} aria-label="Collapse reports menu"
+            <Tip label={t("dashboard.hideReportsShiftC")} side="top">
+              <button onClick={() => setRailCollapsed(true)} aria-label={t("dashboard.collapseReportsMenu")}
                 className="p-1.5 rounded-md text-muted-foreground hover:bg-primary/10 hover:text-primary hover:scale-110 outline-none transition-all duration-200">
                 <ChevronsLeft className="w-[18px] h-[18px]" />
               </button>
@@ -793,7 +799,7 @@ function ManagerDashboard({ initialTab }: { initialTab: ReportTab }) {
             <Link key={key} href={href}
               className={cn("inline-flex items-center px-3.5 h-9 rounded-full text-[13px] whitespace-nowrap outline-none transition-colors",
                 tab === key ? "bg-primary/[0.12] text-primary font-semibold" : "text-muted-foreground hover:bg-muted font-medium")}>
-              {label}
+              {t(label)}
             </Link>
           ))}
         </div>
@@ -802,8 +808,8 @@ function ManagerDashboard({ initialTab }: { initialTab: ReportTab }) {
       {/* Floating expand tab attached to the thin strip (layer 2) when collapsed */}
       <div className={cn("max-lg:hidden absolute left-4 bottom-3 z-20 transition-opacity duration-200",
         railCollapsed ? "opacity-100" : "opacity-0 pointer-events-none")}>
-        <Tip label="Show reports (shift + C)" side="right">
-          <button onClick={() => setRailCollapsed(false)} aria-label="Expand reports menu"
+        <Tip label={t("dashboard.showReportsShiftC")} side="right">
+          <button onClick={() => setRailCollapsed(false)} aria-label={t("dashboard.expandReportsMenu")}
             className="flex items-center justify-center h-9 w-6 hover:w-9 rounded-r-full border border-l-0 border-border bg-card shadow-md text-muted-foreground hover:text-primary transition-all duration-200 outline-none">
             <ChevronRight className="w-4 h-4 shrink-0" />
           </button>
@@ -817,18 +823,18 @@ function ManagerDashboard({ initialTab }: { initialTab: ReportTab }) {
         {/* â”€â”€ Filters â”€â”€ */}
         <div className="flex items-center gap-2 mb-4 flex-wrap">
           <FilterIcon className="w-4 h-4 text-muted-foreground" />
-          <MultiSelect value={fChannel} onChange={setFChannel} placeholder="All channels" className="w-[160px]"
+          <MultiSelect value={fChannel} onChange={setFChannel} placeholder={t("common.allChannels")} className="w-[160px]"
             options={channels.map((c) => ({ value: c.id, label: c.name }))} />
-          <MultiSelect value={fCampaign} onChange={setFCampaign} placeholder="All campaigns" className="w-[180px]"
+          <MultiSelect value={fCampaign} onChange={setFCampaign} placeholder={t("common.allCampaigns")} className="w-[180px]"
             options={campaigns.map((c) => ({ value: c.id, label: c.name }))} />
-          <MultiSelect value={fAgent} onChange={setFAgent} placeholder="All agents" className="w-[160px]"
+          <MultiSelect value={fAgent} onChange={setFAgent} placeholder={t("common.allAgents")} className="w-[160px]"
             options={agentList.map((a) => ({ value: a.id, label: a.full_name }))} />
-          <MultiSelect value={fSource} onChange={setFSource} placeholder="All sources" className="w-[160px]"
+          <MultiSelect value={fSource} onChange={setFSource} placeholder={t("dashboard.allSources")} className="w-[160px]"
             options={SOURCE_OPTIONS} />
           <DateRangeFilter value={{ preset: dateRange, from: fFrom, to: fTo }}
             onChange={(v) => { setDateRange(v.preset); setFFrom(v.from); setFTo(v.to); }} />
           {(fChannel.length || fCampaign.length || fAgent.length || fSource.length || dateRange !== "all") && (
-            <button onClick={() => { setFChannel([]); setFCampaign([]); setFAgent([]); setFSource([]); setFFrom(""); setFTo(""); setDateRange("all"); }} className="text-[12px] font-semibold text-primary hover:underline outline-none">Clear</button>
+            <button onClick={() => { setFChannel([]); setFCampaign([]); setFAgent([]); setFSource([]); setFFrom(""); setFTo(""); setDateRange("all"); }} className="text-[12px] font-semibold text-primary hover:underline outline-none">{t("common.clear")}</button>
           )}
         </div>
 
@@ -850,7 +856,7 @@ function ManagerDashboard({ initialTab }: { initialTab: ReportTab }) {
                     <Icon className="w-4 h-4" style={{ color: m.color }} />
                   </div>
                   <p className="text-[10px] font-semibold text-muted-foreground uppercase tracking-wide leading-tight truncate flex items-center gap-1">
-                    {m.label}
+                    {t(m.label)}
                     {m.href && <ChevronRight className="w-3 h-3 opacity-0 group-hover/metric:opacity-100 transition-opacity shrink-0" />}
                   </p>
                 </div>
@@ -870,24 +876,24 @@ function ManagerDashboard({ initialTab }: { initialTab: ReportTab }) {
         </div>
 
         {/* â”€â”€ Area Chart (real, last 7 days) â”€â”€ */}
-        <Card title="Overview" subtitle={fFrom || fTo ? `${fFrom || "start"} to ${fTo || "now"}` : "All time"} className="mb-5">
+        <Card title={t("dashboard.overview")} subtitle={fFrom || fTo ? `${fFrom || "start"} to ${fTo || "now"}` : t("common.allTime")} className="mb-5">
           <div className="px-4 py-4"><OverviewChart data={chartData} /></div>
         </Card>
 
         <div className="grid grid-cols-1 lg:grid-cols-2 gap-4 mb-5">
           {/* Stage breakdown - leads per stage incl. Lost pinned at the bottom */}
-          <Card title="Stage breakdown" subtitle="Leads by pipeline stage">
+          <Card title={t("dashboard.stageBreakdown")} subtitle={t("dashboard.stageBreakdownSub")}>
             <StageSplit stages={analytics?.stages} lost={analytics?.funnel?.lost} />
           </Card>
 
           {/* Interest Level - clickable rows deep-link to filtered inbox */}
-          <Card title="Interest level">
+          <Card title={t("dashboard.interestLevel")}>
             <InterestSplit funnel={funnel} />
           </Card>
         </div>
 
         {/* Agent performance - activity + pipeline, per agent x branch */}
-        <PerfTables label="Agent" showBranch rows={agents.map((a) => ({
+        <PerfTables label={t("contacts.agent")} showBranch rows={agents.map((a) => ({
           name: a.agent, branch: a.branch, leads: a.leads, total_chat: a.total_chat, replied: a.replied,
           avg_rt_min: a.avg_rt_min, avg_resp_min: a.avg_resp_min, within_5_pct: a.within_5_pct,
           call_attempts: a.call_attempts, call_duration_sec: a.call_duration_sec,
@@ -896,15 +902,15 @@ function ManagerDashboard({ initialTab }: { initialTab: ReportTab }) {
 
         {/* Lost Analysis */}
         <div className="grid grid-cols-1 md:grid-cols-2 gap-4 mt-5">
-          <Card title="Lost analysis" icon={TrendingDown} iconColor="#EF4444">
+          <Card title={t("dashboard.lostAnalysis")} icon={TrendingDown} iconColor="#EF4444">
             <div className="p-4">
               <div className="flex items-baseline gap-2 mb-4">
                 <span className="text-4xl font-extrabold text-[#EF4444] leading-none tabular-nums">
                   {analytics?.lost ?? stats?.lost ?? 0}
                 </span>
-                <span className="text-sm text-muted-foreground font-medium">total lost leads</span>
+                <span className="text-sm text-muted-foreground font-medium">{t("dashboard.totalLostLeads")}</span>
                 {(analytics?.junk ?? 0) > 0 && (
-                  <span title="Spam / junk leads, counted separately so they never inflate the loss rate" className="ml-auto inline-flex items-center gap-1 px-2 py-0.5 rounded-md bg-amber-50 text-amber-700 text-[11px] font-semibold tabular-nums">
+                  <span title={t("dashboard.spamJunkLeadsCountedSeparately")} className="ml-auto inline-flex items-center gap-1 px-2 py-0.5 rounded-md bg-amber-50 text-amber-700 text-[11px] font-semibold tabular-nums">
                     <Ban className="w-3 h-3" />{analytics!.junk} spam
                   </span>
                 )}
@@ -915,20 +921,20 @@ function ManagerDashboard({ initialTab }: { initialTab: ReportTab }) {
                     <p className="text-xl font-extrabold text-[#EF4444] tabular-nums">
                       {funnel.total > 0 ? Math.round(((analytics?.lost ?? 0) / funnel.total) * 100) : 0}%
                     </p>
-                    <p className="text-xs text-[#991B1B] font-semibold">Loss rate</p>
+                    <p className="text-xs text-[#991B1B] font-semibold">{t("dashboard.lossRate")}</p>
                   </div>
                   <div className="flex-1 p-3 rounded-lg bg-green-50 text-center">
                     <p className="text-xl font-extrabold text-[#059669] tabular-nums">
                       {funnel.total > 0 ? Math.round(((funnel.won ?? 0) / funnel.total) * 100) : 0}%
                     </p>
-                    <p className="text-xs text-[#065F46] font-semibold">Purchase rate</p>
+                    <p className="text-xs text-[#065F46] font-semibold">{t("dashboard.purchaseRate")}</p>
                   </div>
                 </div>
               )}
             </div>
           </Card>
 
-          <Card title="Lost reasons">
+          <Card title={t("dashboard.lostReasons")}>
             <div className="p-4">
               {(analytics?.lost_reasons && analytics.lost_reasons.length > 0) ? (
                 analytics.lost_reasons.map((r, i) => {
@@ -946,7 +952,7 @@ function ManagerDashboard({ initialTab }: { initialTab: ReportTab }) {
                 })
               ) : (
                 <div className="py-8 text-center">
-                  <p className="text-sm text-muted-foreground">No lost reason data available</p>
+                  <p className="text-sm text-muted-foreground">{t("dashboard.noLostReasonData")}</p>
                 </div>
               )}
             </div>
@@ -971,15 +977,16 @@ const TH2 = ({ children, right }: { children: React.ReactNode; right?: boolean }
 const pctOf = (n: number, d: number) => d > 0 ? `${Math.round((n / d) * 100)}%` : "-";
 
 function PerfTables({ rows, label, showBranch }: { rows: PerfRow[]; label: string; showBranch?: boolean }) {
-  if (rows.length === 0) return <Card title={`${label} performance`}><div className="py-12 text-center text-sm text-muted-foreground">No data yet</div></Card>;
+  const { t } = useI18n();
+  if (rows.length === 0) return <Card title={t("dashboard.xPerformance", { x: t(label) })}><div className="py-12 text-center text-sm text-muted-foreground">{t("dashboard.noDataYet")}</div></Card>;
   return (
     <div className="space-y-4">
-      <Card title={`${label} activity and SLA`}>
+      <Card title={t("dashboard.xActivitySla", { x: t(label) })}>
         <div className="overflow-x-auto">
           <table className="w-full text-sm">
             <thead><tr className="border-b border-border bg-muted/40">
-              <TH2>{label}</TH2>{showBranch && <TH2>Branch</TH2>}
-              <TH2 right>Leads</TH2><TH2 right>Handled</TH2><TH2 right>Avg 1st resp</TH2><TH2 right>Avg resp</TH2><TH2 right>Within 5m</TH2><TH2 right>Total chat</TH2><TH2 right>Call attempts</TH2><TH2 right>Call duration</TH2>
+              <TH2>{t(label)}</TH2>{showBranch && <TH2>{t("dashboard.branch")}</TH2>}
+              <TH2 right>{t("dashboard.leadsChats")}</TH2><TH2 right>{t("dashboard.responded")}</TH2><TH2 right>{t("dashboard.avg1stResp")}</TH2><TH2 right>{t("dashboard.avgResp")}</TH2><TH2 right>{t("dashboard.within5m")}</TH2><TH2 right>{t("dashboard.totalChat")}</TH2><TH2 right>{t("dashboard.callAttempts")}</TH2><TH2 right>{t("dashboard.callDuration")}</TH2>
             </tr></thead>
             <tbody>
               {rows.map((r, i) => (
@@ -1004,8 +1011,8 @@ function PerfTables({ rows, label, showBranch }: { rows: PerfRow[]; label: strin
         <div className="overflow-x-auto">
           <table className="w-full text-sm">
             <thead><tr className="border-b border-border bg-muted/40">
-              <TH2>{label}</TH2>{showBranch && <TH2>Branch</TH2>}
-              <TH2 right>Leads</TH2><TH2 right>Updated</TH2><TH2 right>% Updated</TH2><TH2 right>Contacted</TH2><TH2 right>Qualified</TH2><TH2 right>Appointment</TH2><TH2 right>Negotiation</TH2><TH2 right>Purchase</TH2><TH2 right>% Purchase</TH2><TH2 right>Lost</TH2>
+              <TH2>{label}</TH2>{showBranch && <TH2>{t("dashboard.branch")}</TH2>}
+              <TH2 right>{t("dashboard.leadsChats")}</TH2><TH2 right>{t("dashboard.updated")}</TH2><TH2 right>{t("dashboard.pctUpdated")}</TH2><TH2 right>{t("stages.contacted")}</TH2><TH2 right>{t("stages.qualified")}</TH2><TH2 right>{t("stages.appointment")}</TH2><TH2 right>{t("stages.test_drive")}</TH2><TH2 right>{t("stages.booking")}</TH2><TH2 right>{t("dashboard.pctPurchase")}</TH2><TH2 right>{t("dashboard.stageLost")}</TH2>
             </tr></thead>
             <tbody>
               {rows.map((r, i) => (
@@ -1041,6 +1048,7 @@ const DONUT_COLORS = ["#6366F1", "#F97316", "#A5B4FC", "#EAE2D6", "#111827", "#C
 // Demographic donut (age / gender), shown by results, falling back to
 // impressions when there are no results yet.
 function BreakdownDonut({ title, data }: { title: string; data?: AdBreakdown[] }) {
+  const { t } = useI18n();
   const rows = (data || []).filter((r) => (r.value || "").toLowerCase() !== "unknown");
   const sum = (k: "reach" | "impressions" | "results") => rows.reduce((a, b) => a + (b[k] || 0), 0);
   // Meta "results" is sparse/unreliable for click-to-WhatsApp, so demographics
@@ -1057,7 +1065,7 @@ function BreakdownDonut({ title, data }: { title: string; data?: AdBreakdown[] }
   return (
     <Card title={title} subtitle={label}>
       {chart.length === 0 ? (
-        <div className="h-[220px] grid place-items-center text-sm text-muted-foreground">No demographic data yet</div>
+        <div className="h-[220px] grid place-items-center text-sm text-muted-foreground">{t("dashboard.noDemographicDataYet")}</div>
       ) : (
         <div className="p-4 flex items-center gap-4">
           <div className="w-[45%] shrink-0">
@@ -1089,6 +1097,7 @@ function BreakdownDonut({ title, data }: { title: string; data?: AdBreakdown[] }
 // with a heat bar per row. Meta ad insights only expose geography down to the
 // region level (province/state) outside the US, so this is province-granular.
 function LocationPerformance({ data, currency }: { data?: AdBreakdown[]; currency: string }) {
+  const { t } = useI18n();
   const money = (n: number) => `${currency ? currency + " " : ""}${fmtMoney(n)}`;
   const rows = (data || []).filter((r) => (r.value || "").toLowerCase() !== "unknown");
   const sum = (k: "results" | "spend" | "impressions") => rows.reduce((a, b) => a + (b[k] || 0), 0);
@@ -1106,11 +1115,11 @@ function LocationPerformance({ data, currency }: { data?: AdBreakdown[]; currenc
     .slice(0, 12);
   const max = ranked.length ? ranked[0].value : 0;
   return (
-    <Card title="Top locations" subtitle={label} className="mt-5 mb-5">
+    <Card title={t("dashboard.topLocations")} subtitle={label} className="mt-5 mb-5">
       {ranked.length === 0 ? (
         <div className="h-[200px] grid place-items-center text-sm text-muted-foreground flex-col gap-2">
           <MapPin className="w-6 h-6 text-muted-foreground/40" />
-          No location data yet
+          {t("dashboard.noLocationDataYet")}
         </div>
       ) : (
         <div className="p-4 grid grid-cols-1 lg:grid-cols-2 gap-5 items-start">
@@ -1145,6 +1154,7 @@ function LocationPerformance({ data, currency }: { data?: AdBreakdown[]; currenc
 }
 
 function MarketingAnalytics() {
+  const { t } = useI18n();
   const router = useRouter();
   // Same date filter as the Overview tab (preset keys + custom range).
   const [dateRange, setDateRange] = useState("30d");
@@ -1233,15 +1243,15 @@ function MarketingAnalytics() {
   const adDelivery = (perf?.daily || []).reduce((a, d) => ({
     impressions: a.impressions + (d.impressions || 0), clicks: a.clicks + (d.clicks || 0), spend: a.spend + (d.spend || 0),
   }), { impressions: 0, clicks: 0, spend: 0 });
-  const t = { ...t0, impressions: adDelivery.impressions, clicks: adDelivery.clicks, spend: adDelivery.spend };
+  const tot = { ...t0, impressions: adDelivery.impressions, clicks: adDelivery.clicks, spend: adDelivery.spend };
   // Grand total for the Source table = sum of its own rows (the table always
   // shows every source; it's the cross-filter control, so its footer stays full).
   const srcTotals = (perf?.sources || []).reduce((a, s) => ({
     impressions: a.impressions + s.impressions, clicks: a.clicks + s.clicks, leads: a.leads + s.leads, purchases: a.purchases + s.purchases, spend: a.spend + s.spend,
   }), { impressions: 0, clicks: 0, leads: 0, purchases: 0, spend: 0 });
-  const cpl = t.leads > 0 ? t.spend / t.leads : 0;
-  const cpa = t.sales > 0 ? t.spend / t.sales : 0;
-  const convRate = t.leads > 0 ? (t.sales / t.leads) * 100 : 0;
+  const cpl = tot.leads > 0 ? tot.spend / tot.leads : 0;
+  const cpa = tot.sales > 0 ? tot.spend / tot.sales : 0;
+  const convRate = tot.leads > 0 ? (tot.sales / tot.leads) * 100 : 0;
   const money = (n: number) => `${currency ? currency + " " : ""}${fmtMoney(n)}`;
   const creatives = perf?.creatives || [];
   const hasSpend = hasAccounts && (campaigns.length > 0 || adDelivery.impressions > 0);
@@ -1251,7 +1261,7 @@ function MarketingAnalytics() {
   // filter stays reachable — picking an empty range must not trap the user.
   const isEmpty = !hasSpend && creatives.length === 0;
 
-  const ctrPct = t.impressions > 0 ? (t.clicks / t.impressions) * 100 : 0;
+  const ctrPct = tot.impressions > 0 ? (tot.clicks / tot.impressions) * 100 : 0;
 
   // Only days with actual activity chart; all-zero rows (no delivery, no leads)
   // would just stretch the axis with dead dates.
@@ -1295,10 +1305,10 @@ function MarketingAnalytics() {
   // KPI cards: value + sparkline + delta vs the prior window. `higher` picks the
   // favourable direction (null = neutral, e.g. spend, where up/down is not a verdict).
   const roiCards = [
-    { label: "Ad spend", value: money(t.spend), Icon: CircleDollarSign, color: "#F59E0B", series: sSpend, cur: t.spend, prev: prev?.spend ?? 0, higher: null as boolean | null },
-    { label: "Leads", value: fmtInt(t.leads), Icon: MessageSquare, color: "#2D8B73", series: sLeads, cur: t.leads, prev: prev?.leads ?? 0, higher: true },
+    { label: "Ad spend", value: money(tot.spend), Icon: CircleDollarSign, color: "#F59E0B", series: sSpend, cur: tot.spend, prev: prev?.spend ?? 0, higher: null as boolean | null },
+    { label: "Leads", value: fmtInt(tot.leads), Icon: MessageSquare, color: "#2D8B73", series: sLeads, cur: tot.leads, prev: prev?.leads ?? 0, higher: true },
     { label: "Cost / lead", value: money(cpl), Icon: Target, color: "#6366F1", series: sCpl, cur: cpl, prev: prevCpl, higher: false },
-    { label: "Conversions", value: fmtInt(t.sales), Icon: Trophy, color: "#059669", series: sSales, cur: t.sales, prev: prev?.sales ?? 0, higher: true },
+    { label: "Conversions", value: fmtInt(tot.sales), Icon: Trophy, color: "#059669", series: sSales, cur: tot.sales, prev: prev?.sales ?? 0, higher: true },
     { label: "Cost / conversion", value: money(cpa), Icon: CircleDollarSign, color: "#0EA5E9", series: sCpa, cur: cpa, prev: prevCpa, higher: false },
     { label: "Lead to purchase", value: `${convRate.toFixed(1)}%`, Icon: Target, color: "#EF4444", series: sL2p, cur: convRate, prev: prevL2p, higher: true },
   ];
@@ -1306,11 +1316,11 @@ function MarketingAnalytics() {
   // Funnel steps Impressions -> Clicks -> CTR -> Leads -> Purchases. Right-side pill
   // = conversion from the previous count step; footer = impression -> purchase.
   const funnelSteps = [
-    { label: "Impressions", value: fmtInt(t.impressions), rate: 100, Icon: Eye },
-    { label: "Clicks", value: fmtInt(t.clicks), rate: t.impressions > 0 ? (t.clicks / t.impressions) * 100 : 0, Icon: MousePointerClick },
+    { label: "Impressions", value: fmtInt(tot.impressions), rate: 100, Icon: Eye },
+    { label: "Clicks", value: fmtInt(tot.clicks), rate: tot.impressions > 0 ? (tot.clicks / tot.impressions) * 100 : 0, Icon: MousePointerClick },
     { label: "CTR", value: `${ctrPct.toFixed(2)}%`, rate: ctrPct, Icon: Percent },
-    { label: "Leads", value: fmtInt(t.leads), rate: t.clicks > 0 ? (t.leads / t.clicks) * 100 : 0, Icon: Users },
-    { label: "Purchases", value: fmtInt(t.sales), rate: t.leads > 0 ? (t.sales / t.leads) * 100 : 0, Icon: ShoppingCart },
+    { label: "Leads", value: fmtInt(tot.leads), rate: tot.clicks > 0 ? (tot.leads / tot.clicks) * 100 : 0, Icon: Users },
+    { label: "Purchases", value: fmtInt(tot.sales), rate: tot.leads > 0 ? (tot.sales / tot.leads) * 100 : 0, Icon: ShoppingCart },
   ];
   // Funnel geometry: one continuous cone silhouette (100% -> 20% width) sliced
   // into stages with the gap cut out, so the slanted edges run straight through
@@ -1319,7 +1329,7 @@ function MarketingAnalytics() {
   const funnelSpan = funnelSteps.length * FUNNEL_H + (funnelSteps.length - 1) * FUNNEL_GAP;
   const funnelWAt = (y: number) => 100 - (100 - FUNNEL_END) * (y / funnelSpan);
   const FUNNEL_RAMP = ["#1E5C4C", "#26735F", "#2D8B73", "#4DA184", "#CBE7DB"]; // sequential dark->mint; last step takes dark text
-  const overallConv = t.impressions > 0 ? (t.sales / t.impressions) * 100 : 0;
+  const overallConv = tot.impressions > 0 ? (tot.sales / tot.impressions) * 100 : 0;
 
   // Per-source daily series (from the enriched daily_sources) for the in-cell
   // sparklines, plus prior-window spend per source for the Cost trend arrow.
@@ -1340,14 +1350,14 @@ function MarketingAnalytics() {
   const topSrc = [...(perf?.sources || [])].filter((s) => s.leads > 0).sort((a, b) => b.cvr - a.cvr)[0];
   // Each insight: colored headline (tinted for metric callouts) + plain detail.
   const insights: { Icon: any; color: string; title: string; desc: string; tint?: boolean }[] = [];
-  if (t.impressions > 0) {
+  if (tot.impressions > 0) {
     insights.push(ctrPct >= CTR_BENCH
       ? { Icon: TrendingUp, color: "#059669", tint: true, title: `CTR ${ctrPct.toFixed(2)}%`, desc: `is above the ${CTR_BENCH.toFixed(2)}% benchmark. Good job!` }
       : { Icon: TrendingDown, color: "#EF4444", tint: true, title: `CTR ${ctrPct.toFixed(2)}%`, desc: `is below the ${CTR_BENCH.toFixed(2)}% benchmark. Consider refreshing creatives.` });
   }
-  if (t.leads > 0) insights.push({ Icon: Target, color: "#6366F1", tint: true, title: `CPL ${money(cpl)}`, desc: "average cost per lead in this range." });
-  if (t.leads > 0 && t.sales > 0) insights.push({ Icon: Trophy, color: "#059669", tint: true, title: `Lead to purchase ${convRate.toFixed(1)}%`, desc: `${fmtInt(t.sales)} of ${fmtInt(t.leads)} leads purchased.` });
-  if (t.leads > 0 && t.sales === 0) insights.push({ Icon: AlertTriangle, color: "#F59E0B", title: "No conversions yet.", desc: "Consider optimizing the landing page or follow-up process." });
+  if (tot.leads > 0) insights.push({ Icon: Target, color: "#6366F1", tint: true, title: `CPL ${money(cpl)}`, desc: "average cost per lead in this range." });
+  if (tot.leads > 0 && tot.sales > 0) insights.push({ Icon: Trophy, color: "#059669", tint: true, title: `Lead to purchase ${convRate.toFixed(1)}%`, desc: `${fmtInt(tot.sales)} of ${fmtInt(tot.leads)} leads purchased.` });
+  if (tot.leads > 0 && tot.sales === 0) insights.push({ Icon: AlertTriangle, color: "#F59E0B", title: "No conversions yet.", desc: "Consider optimizing the landing page or follow-up process." });
   if (topSrc) insights.push({ Icon: Award, color: "#0EA5E9", title: "Top performing source", desc: `${topSrc.label} (${topSrc.cvr.toFixed(2)}% CVR).` });
 
   // Monthly Spending Performance: per-day share (labels) + Total / Avg / Lowest / Highest.
@@ -1382,8 +1392,8 @@ function MarketingAnalytics() {
 
   // Budget = sum of the (selected) campaigns' monthly budgets vs actual spend.
   const budget = camps.filter((c) => campaignFilter.length === 0 || campaignFilter.includes(c.id)).reduce((a, c) => a + ((c as { monthly_budget?: number | null }).monthly_budget || 0), 0);
-  const budgetLeft = budget - t.spend;
-  const budgetUtil = budget > 0 ? (t.spend / budget) * 100 : 0;
+  const budgetLeft = budget - tot.spend;
+  const budgetUtil = budget > 0 ? (tot.spend / budget) * 100 : 0;
 
   // Keyword bars (log-scaled widths) + age bars for the demography row.
   const kw = keywords.slice(0, 10);
@@ -1410,9 +1420,9 @@ function MarketingAnalytics() {
     const blank = () => rows.push([]);
     rows.push(["SUMMARY"]);
     rows.push(["Metric", "Value"]);
-    rows.push(["Impressions", t.impressions], ["Clicks", t.clicks], ["CTR", ctrPct.toFixed(2) + "%"],
-      ["Leads", t.leads], ["Conversions", t.sales], ["Cost", Math.round(t.spend)],
-      ["Cost/lead", t.leads > 0 ? Math.round(cpl) : 0], ["Cost/conversion", t.sales > 0 ? Math.round(cpa) : 0],
+    rows.push(["Impressions", tot.impressions], ["Clicks", tot.clicks], ["CTR", ctrPct.toFixed(2) + "%"],
+      ["Leads", tot.leads], ["Conversions", tot.sales], ["Cost", Math.round(tot.spend)],
+      ["Cost/lead", tot.leads > 0 ? Math.round(cpl) : 0], ["Cost/conversion", tot.sales > 0 ? Math.round(cpa) : 0],
       ["Lead to purchase", convRate.toFixed(2) + "%"]);
     blank();
     const srcs = perf?.sources || [];
@@ -1509,23 +1519,23 @@ function MarketingAnalytics() {
       <div className="no-print flex items-center gap-2 mb-4 flex-wrap">
         <FilterIcon className="w-4 h-4 text-muted-foreground" />
         {accountOptions.length > 1 && (
-          <MultiSelect value={accountFilter} onChange={setAccountFilter} options={accountOptions} placeholder="All accounts" className="w-[180px]" />
+          <MultiSelect value={accountFilter} onChange={setAccountFilter} options={accountOptions} placeholder={t("dashboard.allAccounts")} className="w-[180px]" />
         )}
-        <MultiSelect value={campaignFilter} onChange={setCampaignFilter} options={campaignOptions} placeholder="All campaigns" className="w-[200px]" />
+        <MultiSelect value={campaignFilter} onChange={setCampaignFilter} options={campaignOptions} placeholder={t("common.allCampaigns")} className="w-[200px]" />
         {sourceOptions.length > 0 && (
-          <MultiSelect value={sourceFilter} onChange={setSourceFilter} options={sourceOptions} placeholder="All sources" className="w-[170px]" />
+          <MultiSelect value={sourceFilter} onChange={setSourceFilter} options={sourceOptions} placeholder={t("dashboard.allSources")} className="w-[170px]" />
         )}
         <DateRangeFilter value={{ preset: dateRange, from: fFrom, to: fTo }}
           onChange={(v) => { setDateRange(v.preset); setFFrom(v.from); setFTo(v.to); }} />
         {(accountFilter.length > 0 || campaignFilter.length > 0 || sourceFilter.length > 0 || dateRange !== "all") && (
           <button onClick={() => { setAccountFilter([]); setCampaignFilter([]); setSourceFilter([]); setDateRange("all"); setFFrom(""); setFTo(""); }}
-            className="text-[12px] font-semibold text-primary hover:underline outline-none">Clear</button>
+            className="text-[12px] font-semibold text-primary hover:underline outline-none">{t("common.clear")}</button>
         )}
         <div className="flex-1" />
         <div className="relative">
           <button onClick={() => setExportOpen((o) => !o)} disabled={!hasSpend || !!pdfStage}
             className="inline-flex items-center gap-1.5 h-9 px-3 rounded-md border border-border bg-background text-[13px] font-medium text-foreground hover:bg-muted disabled:opacity-50 outline-none transition-colors">
-            <Download className="w-4 h-4" /> Export <ChevronDown className="w-3.5 h-3.5 text-muted-foreground" />
+            <Download className="w-4 h-4" /> {t("contacts.export")} <ChevronDown className="w-3.5 h-3.5 text-muted-foreground" />
           </button>
           {exportOpen && (
             <>
@@ -1550,7 +1560,7 @@ function MarketingAnalytics() {
           <div key={c.label} className="bg-card rounded-lg border border-border shadow-xs p-4 flex flex-col">
             <div className="flex items-center gap-2 mb-2.5">
               <div className="w-8 h-8 rounded-full grid place-items-center shrink-0" style={{ backgroundColor: c.color + "14" }}><c.Icon className="w-4 h-4" style={{ color: c.color }} /></div>
-              <p className="text-[10px] font-semibold text-muted-foreground uppercase tracking-wide leading-tight truncate">{c.label}</p>
+              <p className="text-[10px] font-semibold text-muted-foreground uppercase tracking-wide leading-tight truncate">{t(c.label)}</p>
             </div>
             <p className="text-[22px] font-extrabold text-foreground leading-none tabular-nums truncate">{c.value}</p>
             <div className="mt-1.5 flex items-center gap-1.5 min-h-[16px]">
@@ -1571,12 +1581,12 @@ function MarketingAnalytics() {
         <div className="px-4 pt-3.5 flex items-start justify-between">
           <div>
             <div className="flex items-center gap-2">
-              <p className="font-bold text-[14px] text-foreground leading-tight">Marketing funnel</p>
-              <Tip label="Shows the conversion progression from ad impressions through to purchases" side="top">
+              <p className="font-bold text-[14px] text-foreground leading-tight">{t("dashboard.marketingFunnel")}</p>
+              <Tip label={t("dashboard.showsTheConversionProgressionFrom")} side="top">
                 <span className="text-muted-foreground/50 cursor-help"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><circle cx="12" cy="12" r="10"/><path d="M12 16v-4"/><path d="M12 8h.01"/></svg></span>
               </Tip>
             </div>
-            <p className="mt-0.5 text-[11.5px] text-muted-foreground">Impression to purchase conversion</p>
+            <p className="mt-0.5 text-[11.5px] text-muted-foreground">{t("dashboard.impressionToPurchaseConversion")}</p>
           </div>
         </div>
         {/* Pointy trapezoid funnel (continuous cone, rounded corners via SVG)
@@ -1596,7 +1606,7 @@ function MarketingAnalytics() {
                       <s.Icon className="w-4 h-4 opacity-90 shrink-0" />
                       <div className="text-center min-w-0">
                         <span className="text-[16px] font-extrabold tabular-nums leading-none">{s.value}</span>
-                        <span className="text-[10px] font-medium opacity-85 block mt-0.5">{s.label}</span>
+                        <span className="text-[10px] font-medium opacity-85 block mt-0.5">{t(s.label)}</span>
                       </div>
                     </FunnelTrapezoid>
                   </div>
@@ -1608,7 +1618,7 @@ function MarketingAnalytics() {
             })}
           </div>
           <div className="mt-3 flex items-center justify-between gap-2 rounded-lg border border-border/70 bg-muted/40 px-3 py-2">
-            <span className="text-[10.5px] text-muted-foreground">Overall conversion rate from impression to purchase</span>
+            <span className="text-[10.5px] text-muted-foreground">{t("dashboard.overallConversionRateFromImpression")}</span>
             <span className="text-[12px] font-extrabold tabular-nums text-foreground shrink-0">{overallConv.toFixed(2)}%</span>
           </div>
         </div>
@@ -1620,8 +1630,8 @@ function MarketingAnalytics() {
       <div className="bg-card rounded-xl border border-border shadow-xs overflow-hidden">
         <div className="px-4 py-3 border-b border-border flex items-center justify-between">
           <div className="flex items-center gap-2">
-            <p className="font-bold text-[14px] text-foreground leading-tight">Source performance</p>
-            <Tip label="Ad performance broken down by traffic source" side="top">
+            <p className="font-bold text-[14px] text-foreground leading-tight">{t("dashboard.sourcePerformance")}</p>
+            <Tip label={t("dashboard.adPerformanceBrokenDownBy")} side="top">
               <span className="text-muted-foreground/50 cursor-help"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><circle cx="12" cy="12" r="10"/><path d="M12 16v-4"/><path d="M12 8h.01"/></svg></span>
             </Tip>
           </div>
@@ -1631,13 +1641,13 @@ function MarketingAnalytics() {
             <thead>
               <tr className="bg-muted/40 border-b border-border">
                 {["Source", "Cost", "Impressions", "Clicks", "CTR", "CPC", "Leads", "CPL", "CVR"].map((h, i) => (
-                  <th key={h} className={cn("px-2.5 py-2 text-[10px] font-bold uppercase tracking-wider text-muted-foreground whitespace-nowrap", i === 0 ? "text-left" : "text-right")}>{h}</th>
+                  <th key={h} className={cn("px-2.5 py-2 text-[10px] font-bold uppercase tracking-wider text-muted-foreground whitespace-nowrap", i === 0 ? "text-left" : "text-right")}>{t(h)}</th>
                 ))}
               </tr>
             </thead>
             <tbody>
               {(perf?.sources || []).length === 0 ? (
-                <tr><td colSpan={10} className="px-3 py-10 text-center text-[13px] text-muted-foreground">No source data in this range</td></tr>
+                <tr><td colSpan={10} className="px-3 py-10 text-center text-[13px] text-muted-foreground">{t("dashboard.noSourceDataInThis")}</td></tr>
               ) : (perf?.sources || []).map((s) => {
                   const cpc = s.clicks > 0 ? s.spend / s.clicks : 0;
                   const cpl = s.leads > 0 ? s.spend / s.leads : 0;
@@ -1645,7 +1655,7 @@ function MarketingAnalytics() {
                   return (
                     <tr key={s.source} className="border-b border-border/60 align-top">
                       <td className="px-2.5 py-2">
-                        <div className="flex items-center gap-1.5"><SourceIcon source={s.source} /><span className="font-semibold text-foreground whitespace-nowrap text-[12px]">{s.label}</span></div>
+                        <div className="flex items-center gap-1.5"><SourceIcon source={s.source} /><span className="font-semibold text-foreground whitespace-nowrap text-[12px]">{t(s.label)}</span></div>
                       </td>
                       <td className="px-2.5 py-2 text-right">
                         <div className="tabular-nums text-foreground/80 whitespace-nowrap">{money(s.spend)}</div>
@@ -1679,7 +1689,7 @@ function MarketingAnalytics() {
             </tbody>
             <tfoot>
               <tr className="border-t-2 border-border font-bold text-[12px]">
-                <td className="px-2.5 py-2.5">Grand total</td>
+                <td className="px-2.5 py-2.5">{t("dashboard.grandTotal")}</td>
                 <td className="px-2.5 py-2.5 text-right">
                   <div className="tabular-nums whitespace-nowrap">{money(srcTotals.spend)}</div>
                   {hasPrev && srcTotals.spend > 0 && <div className="flex justify-end mt-0.5"><Delta cur={srcTotals.spend} prev={prev?.spend ?? 0} higherIsBetter={null} /></div>}
@@ -1707,7 +1717,7 @@ function MarketingAnalytics() {
         <div className="bg-card rounded-xl border border-border shadow-xs mb-5 overflow-hidden">
           <div className="px-4 py-3 border-b border-border flex items-center gap-2">
             <Sparkles className="w-[18px] h-[18px] text-primary" />
-            <p className="font-bold text-[14px] text-foreground leading-tight">Insights</p>
+            <p className="font-bold text-[14px] text-foreground leading-tight">{t("dashboard.insights")}</p>
           </div>
           <div className="p-4 grid grid-cols-1 sm:grid-cols-2 xl:grid-cols-4 gap-x-6 gap-y-4">
             {insights.map((ins, i) => (
@@ -1716,8 +1726,8 @@ function MarketingAnalytics() {
                   <ins.Icon className="w-[18px] h-[18px]" style={{ color: ins.color }} />
                 </span>
                 <div className="min-w-0">
-                  <p className="text-[13px] font-bold leading-tight text-foreground" style={ins.tint ? { color: ins.color } : undefined}>{ins.title}</p>
-                  <p className="text-[12px] text-foreground/75 leading-snug mt-0.5">{ins.desc}</p>
+                  <p className="text-[13px] font-bold leading-tight text-foreground" style={ins.tint ? { color: ins.color } : undefined}>{t(ins.title)}</p>
+                  <p className="text-[12px] text-foreground/75 leading-snug mt-0.5">{t(ins.desc)}</p>
                 </div>
               </div>
             ))}
@@ -1728,22 +1738,22 @@ function MarketingAnalytics() {
       {/* Campaign Performance - impressions vs clicks over the range */}
       <Card className="mb-5">
         <div className="px-4 py-3 border-b border-border">
-          <p className="font-bold text-[14px] text-foreground leading-tight">Campaign Performance Breakdown</p>
-          <p className="text-xs text-muted-foreground">Performance over the selected range</p>
+          <p className="font-bold text-[14px] text-foreground leading-tight">{t("dashboard.campaignPerformanceBreakdown")}</p>
+          <p className="text-xs text-muted-foreground">{t("dashboard.performanceOverTheSelectedRange")}</p>
         </div>
         <div className="p-4">
           {/* Totals double as the series toggles (click to show/hide a series);
               one control instead of a stat row + duplicate chip legend. */}
           <div className="flex flex-wrap items-start gap-x-6 gap-y-3 mb-4">
             {[
-              { label: "Impressions", color: "#0b1220", total: t.impressions, prev: prev?.impressions ?? 0, show: showImpr, toggle: () => setShowImpr((v) => !v) },
-              { label: "Clicks", color: "#2D8B73", total: t.clicks, prev: prev?.clicks ?? 0, show: showClk, toggle: () => setShowClk((v) => !v) },
+              { label: "Impressions", color: "#0b1220", total: tot.impressions, prev: prev?.impressions ?? 0, show: showImpr, toggle: () => setShowImpr((v) => !v) },
+              { label: "Clicks", color: "#2D8B73", total: tot.clicks, prev: prev?.clicks ?? 0, show: showClk, toggle: () => setShowClk((v) => !v) },
             ].map((m) => (
-              <button key={m.label} onClick={m.toggle} aria-pressed={m.show} title={m.show ? `Hide ${m.label}` : `Show ${m.label}`}
+              <button key={m.label} onClick={m.toggle} aria-pressed={m.show} title={m.show ? `Hide ${t(m.label)}` : `Show ${t(m.label)}`}
                 className={cn("text-left rounded-lg px-2.5 py-1.5 -ml-1 hover:bg-muted/50 transition-all outline-none", !m.show && "opacity-40")}>
                 <div className="flex items-center gap-1.5">
                   <span className="w-2 h-2 rounded-full" style={{ background: m.color }} />
-                  <span className="text-[11px] font-semibold text-muted-foreground">{m.label}</span>
+                  <span className="text-[11px] font-semibold text-muted-foreground">{t(m.label)}</span>
                 </div>
                 <div className="flex items-baseline gap-2 mt-0.5">
                   <span className="text-[20px] font-extrabold text-foreground tabular-nums leading-none">{fmtInt(m.total)}</span>
@@ -1754,7 +1764,7 @@ function MarketingAnalytics() {
             ))}
           </div>
           {dailyLog.length === 0 ? (
-            <div className="py-10 text-center text-sm text-muted-foreground">No data</div>
+            <div className="py-10 text-center text-sm text-muted-foreground">{t("components.noData")}</div>
           ) : (
             <div className="h-[260px]">
               <ResponsiveContainer width="100%" height="100%">
@@ -1779,16 +1789,16 @@ function MarketingAnalytics() {
 
       {/* Google Top 10 Keywords (left) + Facebook Age Demography (right) */}
       <div className="grid grid-cols-1 lg:grid-cols-2 gap-4 mb-5 items-stretch">
-        <Card title="Google Top 10 Search Keywords" subtitle="Clicks vs impressions">
+        <Card title={t("dashboard.googleTop10SearchKeywords")} subtitle={t("dashboard.clicksVsImpressions")}>
           <div className="p-4">
             {kw.length === 0 ? (
               <div className="py-12 flex flex-col items-center justify-center text-center">
                 <div className="w-12 h-12 rounded-full bg-muted grid place-items-center mb-3"><Search className="w-5 h-5 text-muted-foreground/60" /></div>
-                <p className="text-[13px] font-semibold text-foreground">No search keywords yet</p>
-                <p className="text-xs text-muted-foreground mt-0.5 max-w-[240px]">Google Search Console hasn&apos;t collected enough data.</p>
+                <p className="text-[13px] font-semibold text-foreground">{t("dashboard.noSearchKeywordsYet")}</p>
+                <p className="text-xs text-muted-foreground mt-0.5 max-w-[240px]">{t("dashboard.googleSearchConsoleHasnT")}</p>
                 <button onClick={refreshKeywords} disabled={kwRefreshing}
                   className="mt-4 inline-flex items-center gap-1.5 h-8 px-3 rounded-md border border-border bg-background text-[12px] font-medium text-foreground hover:bg-muted disabled:opacity-50 outline-none transition-colors">
-                  <RefreshCw className={cn("w-3.5 h-3.5", kwRefreshing && "animate-spin")} /> Refresh
+                  <RefreshCw className={cn("w-3.5 h-3.5", kwRefreshing && "animate-spin")} /> {t("broadcasts.refresh")}
                 </button>
               </div>
             ) : (
@@ -1809,17 +1819,17 @@ function MarketingAnalytics() {
         <div className="bg-card rounded-lg border border-border shadow-xs overflow-hidden">
           <div className="px-4 py-3 border-b border-border flex items-center justify-between gap-2">
             <div>
-              <p className="font-bold text-[14px] text-foreground leading-tight">Age Demography</p>
-              <p className="text-xs text-muted-foreground">Impressions vs link clicks</p>
+              <p className="font-bold text-[14px] text-foreground leading-tight">{t("dashboard.ageDemography")}</p>
+              <p className="text-xs text-muted-foreground">{t("dashboard.impressionsVsLinkClicks")}</p>
             </div>
             <div className="flex items-center gap-3 shrink-0">
-              <span className="flex items-center gap-1.5 text-[10px] text-muted-foreground"><span className="w-2.5 h-2.5 rounded-full" style={{ background: "#0b1220" }} />Impressions</span>
-              <span className="flex items-center gap-1.5 text-[10px] text-muted-foreground"><span className="w-2.5 h-2.5 rounded-full" style={{ background: "#2D8B73" }} />Link Clicks</span>
+              <span className="flex items-center gap-1.5 text-[10px] text-muted-foreground"><span className="w-2.5 h-2.5 rounded-full" style={{ background: "#0b1220" }} />{t("dashboard.impressions")}</span>
+              <span className="flex items-center gap-1.5 text-[10px] text-muted-foreground"><span className="w-2.5 h-2.5 rounded-full" style={{ background: "#2D8B73" }} />{t("dashboard.linkClicks")}</span>
             </div>
           </div>
           <div className="p-4">
             {ageRows.length === 0 ? (
-              <div className="py-10 text-center text-sm text-muted-foreground">No data</div>
+              <div className="py-10 text-center text-sm text-muted-foreground">{t("components.noData")}</div>
             ) : (
               <div className="flex flex-col gap-3.5">
                 {ageRows.map((b) => (
@@ -1839,10 +1849,10 @@ function MarketingAnalytics() {
 
       {/* Gender Demography (left, like the PDF) + Monthly Leads Performance */}
       <div className="grid grid-cols-1 lg:grid-cols-[300px_1fr] gap-4 mb-5 items-stretch">
-      <Card title="Gender Demography" subtitle="Impression share">
+      <Card title={t("dashboard.genderDemography")} subtitle={t("dashboard.impressionShare")}>
         <div className="p-4">
           {genderRows.length === 0 ? (
-            <div className="py-10 text-center text-sm text-muted-foreground">No data</div>
+            <div className="py-10 text-center text-sm text-muted-foreground">{t("components.noData")}</div>
           ) : (
             <div className="flex flex-col gap-4">
               {genderRows.map((b) => {
@@ -1867,18 +1877,18 @@ function MarketingAnalytics() {
       </Card>
 
       {/* Monthly Leads Performance - total + delta beside the by-source area */}
-      <Card title="Monthly Leads Performance" subtitle="Leads by source over time">
+      <Card title={t("dashboard.monthlyLeadsPerformance")} subtitle={t("dashboard.leadsBySourceOverTime")}>
         <div className="p-4">
           {leadsBySource.length === 0 ? (
-            <div className="py-10 text-center text-sm text-muted-foreground">No data</div>
+            <div className="py-10 text-center text-sm text-muted-foreground">{t("components.noData")}</div>
           ) : (
             <div className="grid grid-cols-1 lg:grid-cols-[170px_1fr] gap-4 items-center">
               <div className="flex flex-col">
-                <p className="text-[34px] font-extrabold text-foreground leading-none tabular-nums">{fmtInt(t.leads)}</p>
-                <p className="text-[12px] text-muted-foreground mt-1">Leads</p>
+                <p className="text-[34px] font-extrabold text-foreground leading-none tabular-nums">{fmtInt(tot.leads)}</p>
+                <p className="text-[12px] text-muted-foreground mt-1">{t("dashboard.leadsChats")}</p>
                 {hasPrev && (
                   <div className="mt-2 flex items-center gap-1.5">
-                    <Delta cur={t.leads} prev={prev?.leads ?? 0} higherIsBetter={true} />
+                    <Delta cur={tot.leads} prev={prev?.leads ?? 0} higherIsBetter={true} />
                     <span className="text-[10px] text-muted-foreground">{cmpLabel}</span>
                   </div>
                 )}
@@ -1915,9 +1925,9 @@ function MarketingAnalytics() {
       {/* Latest Leads - Date | Name | Phone | Channel | Source | Stage */}
       <div className="bg-card rounded-lg border border-border shadow-xs overflow-hidden mb-5">
         <div className="px-4 py-3 border-b border-border flex items-center justify-between gap-2">
-          <p className="font-bold text-[14px] text-foreground leading-tight">Latest Leads</p>
+          <p className="font-bold text-[14px] text-foreground leading-tight">{t("dashboard.latestLeads")}</p>
           <Link href="/inbox" className="inline-flex items-center gap-1 h-8 px-3 rounded-md border border-border bg-background text-[12px] font-medium text-foreground hover:bg-muted outline-none transition-colors">
-            View All Leads <ChevronRight className="w-3.5 h-3.5 text-muted-foreground" />
+            {t("dashboard.viewAllLeads")} <ChevronRight className="w-3.5 h-3.5 text-muted-foreground" />
           </Link>
         </div>
         <div className="overflow-x-auto">
@@ -1925,7 +1935,7 @@ function MarketingAnalytics() {
             <thead>
               <tr className="bg-muted/40 border-b border-border">
                 {["Date", "Name", "Phone Number", "Channel", "Source", "Stage", "Interest"].map((h) => (
-                  <th key={h} className="px-3 py-2 text-left text-[11px] font-bold uppercase tracking-wider text-muted-foreground">{h}</th>
+                  <th key={h} className="px-3 py-2 text-left text-[11px] font-bold uppercase tracking-wider text-muted-foreground">{t(h)}</th>
                 ))}
               </tr>
             </thead>
@@ -1934,15 +1944,15 @@ function MarketingAnalytics() {
                 <tr><td colSpan={7} className="px-3 py-12">
                   <div className="flex flex-col items-center justify-center text-center">
                     <div className="w-12 h-12 rounded-full bg-muted grid place-items-center mb-3"><Inbox className="w-5 h-5 text-muted-foreground/60" /></div>
-                    <p className="text-[13px] font-semibold text-foreground">No leads available</p>
-                    <p className="text-xs text-muted-foreground mt-0.5">New leads will appear here</p>
+                    <p className="text-[13px] font-semibold text-foreground">{t("dashboard.noLeadsAvailable")}</p>
+                    <p className="text-xs text-muted-foreground mt-0.5">{t("dashboard.newLeadsWillAppearHere")}</p>
                   </div>
                 </td></tr>
               ) : recentLeads.map((l, i) => (
                 <tr key={i} onClick={() => l.conversation_id && router.push(`/inbox?c=${l.conversation_id}`)}
                   className="border-b border-border/60 cursor-pointer hover:bg-muted/40 transition-colors">
                   <td className="px-3 py-2 text-muted-foreground whitespace-nowrap">{l.created_at ? new Date(l.created_at).toLocaleString("en-US", { month: "short", day: "numeric", year: "numeric", hour: "numeric", minute: "2-digit", second: "2-digit", hour12: true }) : "-"}</td>
-                  <td className="px-3 py-2 font-semibold text-foreground">{l.contact_name || "Unknown"}</td>
+                  <td className="px-3 py-2 font-semibold text-foreground">{l.contact_name || t("broadcasts.unknown")}</td>
                   <td className="px-3 py-2 text-muted-foreground tabular-nums">{l.contact_phone || "-"}</td>
                   <td className="px-3 py-2 text-muted-foreground capitalize">{l.channel || "-"}</td>
                   <td className="px-3 py-2 text-muted-foreground">{SRC_LABELS[l.source] || l.source || "-"}</td>
@@ -1964,10 +1974,10 @@ function MarketingAnalytics() {
       </div>
 
       {/* Monthly Spending Performance - daily spend bars + share labels + summary */}
-      <Card title="Monthly Spending Performance" subtitle="Daily ad spend" className="mb-5">
+      <Card title={t("dashboard.monthlySpendingPerformance")} subtitle={t("dashboard.dailyAdSpend")} className="mb-5">
         <div className="p-4">
           {daily.length === 0 ? (
-            <div className="py-10 text-center text-sm text-muted-foreground">No data</div>
+            <div className="py-10 text-center text-sm text-muted-foreground">{t("components.noData")}</div>
           ) : (
             <>
               <div className="h-[240px]">
@@ -1999,7 +2009,7 @@ function MarketingAnalytics() {
                   <div key={s.label} className="flex items-center gap-2.5">
                     <span className="w-9 h-9 rounded-lg grid place-items-center shrink-0" style={{ backgroundColor: "#2D8B7314" }}><s.Icon className="w-4 h-4 text-primary" /></span>
                     <div className="min-w-0">
-                      <p className="text-[11px] text-muted-foreground truncate">{s.label}</p>
+                      <p className="text-[11px] text-muted-foreground truncate">{t(s.label)}</p>
                       <p className="text-[16px] font-extrabold text-foreground tabular-nums leading-tight truncate">{s.value}</p>
                       {s.sub && <p className="text-[11px] font-semibold text-primary tabular-nums">{s.sub}</p>}
                     </div>
@@ -2015,12 +2025,12 @@ function MarketingAnalytics() {
       <div className="grid grid-cols-2 lg:grid-cols-4 gap-3 mb-5">
         {[
           { label: "Media Budget", value: money(budget), accent: false, danger: false },
-          { label: "Cost", value: money(t.spend), accent: true, danger: false },
+          { label: "Cost", value: money(tot.spend), accent: true, danger: false },
           { label: "Budget Left", value: money(budgetLeft), accent: false, danger: budgetLeft < 0 },
           { label: "Budget Utilization", value: `${budgetUtil.toFixed(2)}%`, accent: true, danger: false },
         ].map((b) => (
           <div key={b.label} className={cn("rounded-lg border p-4 shadow-xs", b.accent ? "bg-primary border-transparent text-white" : "bg-card border-border")}>
-            <p className={cn("text-[11px]", b.accent ? "text-white/80" : "text-muted-foreground")}>{b.label}</p>
+            <p className={cn("text-[11px]", b.accent ? "text-white/80" : "text-muted-foreground")}>{t(b.label)}</p>
             <p className={cn("text-[20px] font-extrabold tabular-nums mt-1", b.danger ? "text-red-500" : b.accent ? "text-white" : "text-foreground")}>{b.value}</p>
           </div>
         ))}
@@ -2028,10 +2038,10 @@ function MarketingAnalytics() {
 
       {/* Landing Page Performance (left) + Top Locations map (right) */}
       <div className="grid grid-cols-1 lg:grid-cols-2 gap-4 mb-5 items-stretch">
-        <Card title="Landing Page Performance" subtitle="GA4 sessions and engagement">
+        <Card title={t("dashboard.landingPagePerformance")} subtitle={t("dashboard.ga4SessionsAndEngagement")}>
           <div className="p-4">
             {!(ga4?.connected && gt) ? (
-              <div className="py-10 text-center text-sm text-muted-foreground">No data{ga4 && !ga4.connected ? " - connect GA4 in Channel & Integrations" : ""}</div>
+              <div className="py-10 text-center text-sm text-muted-foreground">{t("components.noData")}{ga4 && !ga4.connected ? t("dashboard.connectGa4InChannelIntegrations") : ""}</div>
             ) : (
               <>
                 <div className="grid grid-cols-2 sm:grid-cols-4 gap-2.5">
@@ -2044,18 +2054,18 @@ function MarketingAnalytics() {
                 </div>
                 {ga4.rows.length > 0 && (
                   <table className="w-full text-[12px] mt-3">
-                    <thead><tr className="text-muted-foreground border-b border-border">{["Landing page", "Views", "Sessions", "Eng."].map((h, i) => (<th key={h} className={cn("py-1.5 px-2 text-[10px] font-bold uppercase", i === 0 ? "text-left" : "text-right")}>{h}</th>))}</tr></thead>
-                    <tbody>{ga4.rows.slice(0, 6).map((r, i) => (<tr key={i} className="border-b border-border/60"><td className="py-1.5 px-2 max-w-[220px] truncate text-foreground">{r.landing_page || "(not set)"}</td><td className="py-1.5 px-2 text-right tabular-nums text-muted-foreground">{fmtInt(r.views)}</td><td className="py-1.5 px-2 text-right tabular-nums text-muted-foreground">{fmtInt(r.sessions)}</td><td className="py-1.5 px-2 text-right tabular-nums text-muted-foreground">{(r.engagement_rate * 100).toFixed(0)}%</td></tr>))}</tbody>
+                    <thead><tr className="text-muted-foreground border-b border-border">{["Landing page", "Views", "Sessions", "Eng."].map((h, i) => (<th key={h} className={cn("py-1.5 px-2 text-[10px] font-bold uppercase", i === 0 ? "text-left" : "text-right")}>{t(h)}</th>))}</tr></thead>
+                    <tbody>{ga4.rows.slice(0, 6).map((r, i) => (<tr key={i} className="border-b border-border/60"><td className="py-1.5 px-2 max-w-[220px] truncate text-foreground">{r.landing_page || t("dashboard.notSet")}</td><td className="py-1.5 px-2 text-right tabular-nums text-muted-foreground">{fmtInt(r.views)}</td><td className="py-1.5 px-2 text-right tabular-nums text-muted-foreground">{fmtInt(r.sessions)}</td><td className="py-1.5 px-2 text-right tabular-nums text-muted-foreground">{(r.engagement_rate * 100).toFixed(0)}%</td></tr>))}</tbody>
                   </table>
                 )}
               </>
             )}
           </div>
         </Card>
-        <Card title="Top Locations" subtitle="Ad reach by province">
+        <Card title={t("dashboard.topLocations2")} subtitle={t("dashboard.adReachByProvince")}>
           <div className="p-4">
             {(perf?.region || []).filter((b) => (b.value || "").toLowerCase() !== "unknown").length === 0 ? (
-              <div className="py-10 text-center text-sm text-muted-foreground">No data</div>
+              <div className="py-10 text-center text-sm text-muted-foreground">{t("components.noData")}</div>
             ) : (
               <div className="h-[300px]">
                 <IndonesiaMap points={(perf?.region || []).filter((b) => (b.value || "").toLowerCase() !== "unknown").map((b) => ({ name: b.value, value: b.impressions }))} isMoney={false} money={fmtInt} />
@@ -2069,7 +2079,7 @@ function MarketingAnalytics() {
       ) : hasAccounts === false ? (
         <div className="mb-5 flex items-center gap-2 rounded-lg border border-border bg-muted/40 px-4 py-3 text-[13px] text-muted-foreground">
           <CircleDollarSign className="w-4 h-4 text-muted-foreground/70 shrink-0" />
-          Connect a Meta ad account to add spend, cost per lead and ROI. The lead attribution below works without it.
+          {t("dashboard.connectAMetaAdAccount")}
         </div>
       ) : null}
       </>)}
@@ -2081,6 +2091,7 @@ function MarketingAnalytics() {
 // Which click-to-WhatsApp ad drove leads + conversions, with its own date +
 // campaign filters (independent of the Ads Report).
 function CreativeReport() {
+  const { t } = useI18n();
   const [dateRange, setDateRange] = useState("30d");
   const [fFrom, setFFrom] = useState(() => presetRange("30d").from);
   const [fTo, setFTo] = useState(() => presetRange("30d").to);
@@ -2133,27 +2144,27 @@ function CreativeReport() {
     { label: "Best lead to buy", value: bestCvr > 0 ? bestCvr.toFixed(1) + "%" : "-", Icon: TrendingUp, color: "#EF4444" },
   ];
 
-  const Thumb = ({ c, size }: { c: AdPerformance["creatives"][number]; size: number }) => (
+  const Thumb = ({ c, size }: { c: AdPerformance["creatives"][number]; size: number }) => { const { t } = useI18n(); return ((
     <div className="relative rounded-lg border border-border bg-muted/60 overflow-hidden grid place-items-center text-muted-foreground/50 shrink-0" style={{ width: size, height: size }}>
       <ImageIcon className="w-5 h-5" />
       {c.image_url && (
         <a href={c.source_url || c.image_url} target="_blank" rel="noreferrer" className="absolute inset-0">
-          <img src={c.image_url} alt={c.headline || "Ad creative"} loading="lazy" onError={(e) => { e.currentTarget.style.display = "none"; }} className="w-full h-full object-cover" />
+          <img src={c.image_url} alt={c.headline || t("dashboard.adCreative")} loading="lazy" onError={(e) => { e.currentTarget.style.display = "none"; }} className="w-full h-full object-cover" />
         </a>
       )}
     </div>
-  );
+  )); };
 
   return (
     <div className="p-4">
       <div className="flex items-center gap-2 mb-4 flex-wrap">
         <FilterIcon className="w-4 h-4 text-muted-foreground" />
-        <MultiSelect value={campaignFilter} onChange={setCampaignFilter} options={campaignOptions} placeholder="All campaigns" className="w-[200px]" />
+        <MultiSelect value={campaignFilter} onChange={setCampaignFilter} options={campaignOptions} placeholder={t("common.allCampaigns")} className="w-[200px]" />
         <DateRangeFilter value={{ preset: dateRange, from: fFrom, to: fTo }}
           onChange={(v) => { setDateRange(v.preset); setFFrom(v.from); setFTo(v.to); }} />
         {(campaignFilter.length > 0 || dateRange !== "30d") && (
           <button onClick={() => { setCampaignFilter([]); setDateRange("30d"); const r = presetRange("30d"); setFFrom(r.from); setFTo(r.to); }}
-            className="text-[12px] font-semibold text-primary hover:underline outline-none">Clear</button>
+            className="text-[12px] font-semibold text-primary hover:underline outline-none">{t("common.clear")}</button>
         )}
       </div>
 
@@ -2162,8 +2173,8 @@ function CreativeReport() {
       ) : creatives.length === 0 ? (
         <div className="py-20 text-center">
           <div className="w-12 h-12 rounded-xl bg-muted grid place-items-center mx-auto mb-3"><ImageIcon className="w-6 h-6 text-muted-foreground/50" /></div>
-          <p className="font-semibold text-foreground mb-0.5">No creative data in range</p>
-          <p className="text-sm text-muted-foreground">Connect a Meta ad account with click-to-WhatsApp ads to see per-creative insight.</p>
+          <p className="font-semibold text-foreground mb-0.5">{t("dashboard.noCreativeDataInRange")}</p>
+          <p className="text-sm text-muted-foreground">{t("dashboard.connectAMetaAdAccount2")}</p>
         </div>
       ) : (
       <>
@@ -2175,7 +2186,7 @@ function CreativeReport() {
                 <div className="w-8 h-8 rounded-full grid place-items-center shrink-0" style={{ backgroundColor: k.color + "14" }}>
                   <k.Icon className="w-4 h-4" style={{ color: k.color }} />
                 </div>
-                <p className="text-[10px] font-semibold text-muted-foreground uppercase tracking-wide leading-tight truncate">{k.label}</p>
+                <p className="text-[10px] font-semibold text-muted-foreground uppercase tracking-wide leading-tight truncate">{t(k.label)}</p>
               </div>
               <p className="text-[22px] font-extrabold text-foreground leading-none tabular-nums truncate">{k.value}</p>
             </div>
@@ -2184,45 +2195,45 @@ function CreativeReport() {
 
         {/* Insight cards: top performer, cheapest lead, wasted spend */}
         <div className="grid grid-cols-1 md:grid-cols-3 gap-4 mb-5">
-          <Card title="Top creative" subtitle="Most leads in range">
+          <Card title={t("dashboard.topCreative")} subtitle={t("dashboard.mostLeadsInRange")}>
             <div className="p-4">
               {top ? (
                 <div className="flex items-center gap-3">
                   <Thumb c={top} size={56} />
                   <div className="min-w-0">
                     <p className="text-[13px] font-semibold text-foreground truncate">{name(top)}</p>
-                    <p className="text-[10.5px] text-muted-foreground/80 truncate">Ad ID {top.source_id}</p>
-                    <p className="text-[11.5px] text-muted-foreground truncate">{fmtInt(top.leads)} leads · {top.leads > 0 && top.spend > 0 ? `${money(top.spend / top.leads)}/lead` : "-"}</p>
+                    <p className="text-[10.5px] text-muted-foreground/80 truncate">{t("dashboard.adId")} {top.source_id}</p>
+                    <p className="text-[11.5px] text-muted-foreground truncate">{fmtInt(top.leads)} {t("dashboard.leads")} {top.leads > 0 && top.spend > 0 ? `${money(top.spend / top.leads)}/lead` : "-"}</p>
                   </div>
                 </div>
-              ) : <p className="text-[13px] text-muted-foreground">No creative drove a lead yet.</p>}
+              ) : <p className="text-[13px] text-muted-foreground">{t("dashboard.noCreativeDroveALead")}</p>}
             </div>
           </Card>
-          <Card title="Cheapest lead" subtitle="Lowest cost per lead">
+          <Card title={t("dashboard.cheapestLead")} subtitle={t("dashboard.lowestCostPerLead")}>
             <div className="p-4">
               {bestCpl ? (
                 <div className="flex items-center gap-3">
                   <Thumb c={bestCpl} size={56} />
                   <div className="min-w-0">
                     <p className="text-[13px] font-semibold text-foreground truncate">{name(bestCpl)}</p>
-                    <p className="text-[10.5px] text-muted-foreground/80 truncate">Ad ID {bestCpl.source_id}</p>
-                    <p className="text-[11.5px] text-[#059669] font-semibold">{money(bestCpl.spend / bestCpl.leads)}/lead · {fmtInt(bestCpl.leads)} leads</p>
+                    <p className="text-[10.5px] text-muted-foreground/80 truncate">{t("dashboard.adId")} {bestCpl.source_id}</p>
+                    <p className="text-[11.5px] text-[#059669] font-semibold">{money(bestCpl.spend / bestCpl.leads)}{t("dashboard.lead")} {fmtInt(bestCpl.leads)} leads</p>
                   </div>
                 </div>
-              ) : <p className="text-[13px] text-muted-foreground">No cost-per-lead data yet.</p>}
+              ) : <p className="text-[13px] text-muted-foreground">{t("dashboard.noCostPerLeadData")}</p>}
             </div>
           </Card>
-          <Card title="Wasted spend" subtitle="Spend with zero leads">
+          <Card title={t("dashboard.wastedSpend")} subtitle={t("dashboard.spendWithZeroLeads")}>
             <div className="p-4">
               {wasted.length ? (
                 <div className="flex items-center gap-3">
                   <div className="w-14 h-14 rounded-lg bg-amber-50 grid place-items-center shrink-0"><TrendingDown className="w-6 h-6 text-amber-600" /></div>
                   <div className="min-w-0">
                     <p className="text-[18px] font-extrabold text-amber-600 tabular-nums leading-none">{money(wastedSpend)}</p>
-                    <p className="text-[11.5px] text-muted-foreground mt-1">{wasted.length} creative{wasted.length === 1 ? "" : "s"} spent but got no leads</p>
+                    <p className="text-[11.5px] text-muted-foreground mt-1">{wasted.length} creative{wasted.length === 1 ? "" : "s"} {t("dashboard.spentButGotNoLeads")}</p>
                   </div>
                 </div>
-              ) : <p className="text-[13px] text-muted-foreground">No wasted spend. Every paid creative got a lead.</p>}
+              ) : <p className="text-[13px] text-muted-foreground">{t("dashboard.noWastedSpendEveryPaid")}</p>}
             </div>
           </Card>
         </div>
@@ -2262,7 +2273,7 @@ function CreativeReport() {
                       <p className="text-[13.5px] font-semibold text-foreground truncate">{name(cr)}</p>
                       {badge && <span className={cn("inline-flex px-2 py-0.5 rounded-full text-[10px] font-bold shrink-0", badge.cls)}>{badge.t}</span>}
                     </div>
-                    <p className="text-[11px] text-muted-foreground truncate mt-0.5">Ad ID {cr.source_id}</p>
+                    <p className="text-[11px] text-muted-foreground truncate mt-0.5">{t("dashboard.adId")} {cr.source_id}</p>
                     {cr.body && <p className="text-[11px] text-muted-foreground/80 line-clamp-2 mt-1">{cr.body}</p>}
                   </div>
                 </div>
@@ -2276,7 +2287,7 @@ function CreativeReport() {
                 </div>
                 <div className="px-3.5 py-2.5 border-t border-border">
                   <div className="flex items-center justify-between text-[10.5px] text-muted-foreground mb-1">
-                    <span>Click to lead</span><span className="tabular-nums font-semibold text-foreground">{leadRate.toFixed(1)}%</span>
+                    <span>{t("dashboard.clickToLead")}</span><span className="tabular-nums font-semibold text-foreground">{leadRate.toFixed(1)}%</span>
                   </div>
                   <div className="h-2 rounded-full bg-muted overflow-hidden"><div className="h-full rounded-full bg-primary" style={{ width: `${Math.min(100, leadRate)}%` }} /></div>
                 </div>

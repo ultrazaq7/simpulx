@@ -1,5 +1,6 @@
 "use client";
 
+import { useI18n } from "@/lib/i18n";
 import { useRef, useEffect } from "react";
 import { useVirtualizer } from "@tanstack/react-virtual";
 import { useInbox } from "./InboxContext";
@@ -14,6 +15,7 @@ export function MessageTimeline({
   timeline: TimelineItem[], 
   messagesQuery: any 
 }) {
+  const { t } = useI18n();
   const { active, highlightMsgId, setPreviewMediaId } = useInbox();
   const bodyRef = useRef<HTMLDivElement>(null);
   
@@ -65,7 +67,7 @@ export function MessageTimeline({
 
   return (
     <div ref={bodyRef} className="flex-1 overflow-y-auto px-4 py-6 flex flex-col bg-slate-50 relative">
-      {messagesQuery.isFetchingNextPage && <p className="text-center text-xs text-slate-400 my-2">Loading older messages...</p>}
+      {messagesQuery.isFetchingNextPage && <p className="text-center text-xs text-slate-400 my-2">{t("components.loadingOlderMessages")}</p>}
       <div style={{ height: rowVirtualizer.getTotalSize(), width: "100%", position: "relative" }}>
         {rowVirtualizer.getVirtualItems().map((virtualRow) => {
           const it = timeline[virtualRow.index];
@@ -84,10 +86,10 @@ export function MessageTimeline({
               <div className="ml-auto max-w-[72%] rounded-xl border-l-4 border-amber-500 bg-amber-50 px-4 py-3 shadow-sm my-2">
                 <div className="flex items-center gap-1.5 mb-1">
                   <Lock className="w-3 h-3 text-amber-700" />
-                  <span className="text-[10px] font-bold uppercase tracking-wider text-amber-700">Internal note</span>
+                  <span className="text-[10px] font-bold uppercase tracking-wider text-amber-700">{t("components.internalNote")}</span>
                 </div>
                 <p className="text-sm text-slate-800 whitespace-pre-wrap">{it.n.body}</p>
-                <span className="text-[10px] text-amber-600/70 mt-1.5 block font-medium">{it.n.author || "Unknown"} • {fmtTime(it.n.created_at)}</span>
+                <span className="text-[10px] text-amber-600/70 mt-1.5 block font-medium">{it.n.author || t("broadcasts.unknown")} • {fmtTime(it.n.created_at)}</span>
               </div>
             );
           } else {
@@ -118,7 +120,7 @@ export function MessageTimeline({
                         <Activity className="w-4 h-4 text-slate-500" />
                       )}
                       <span className={`text-[10.5px] font-bold uppercase tracking-widest ${isAttribution ? "text-indigo-700" : "text-slate-600"}`}>
-                        {isAttribution ? "Attribution Event" : "Audit Trail"}
+                        {isAttribution ? t("components.attributionEvent") : t("components.auditTrail")}
                       </span>
                     </div>
                     
@@ -158,20 +160,20 @@ export function MessageTimeline({
                       {m.media_url && (
                         <div className={`mb-2 ${!m.body ? "mb-0" : ""}`}>
                           {m.type === "image" ? (
-                            <img src={getMediaUrl(m)} onClick={() => setPreviewMediaId(m.id)} className="max-h-60 max-w-full rounded-lg cursor-pointer" alt="Attachment" />
+                            <img src={getMediaUrl(m)} onClick={() => setPreviewMediaId(m.id)} className="max-h-60 max-w-full rounded-lg cursor-pointer" alt={t("components.attachment")} />
                           ) : m.type === "video" ? (
                             <video src={getMediaUrl(m)} onClick={() => setPreviewMediaId(m.id)} className="max-h-60 max-w-full rounded-lg cursor-pointer" />
                           ) : m.type === "audio" ? (
                             <audio src={getMediaUrl(m)} controls className="w-60" />
                           ) : m.type === "sticker" ? (
-                            <img src={getMediaUrl(m)} className="w-32 h-32 object-contain bg-transparent drop-shadow-sm" alt="Sticker" />
+                            <img src={getMediaUrl(m)} className="w-32 h-32 object-contain bg-transparent drop-shadow-sm" alt={t("components.sticker")} />
                           ) : (
                             <a href={getMediaUrl(m)} target="_blank" rel="noreferrer" className={`flex items-center gap-3 p-2 rounded-lg cursor-pointer transition-colors ${out ? "bg-white/10 hover:bg-white/20 text-white" : "bg-slate-100 hover:bg-slate-200 text-slate-800"}`}>
                               <div className={`w-8 h-8 rounded-full flex items-center justify-center shrink-0 ${out ? "bg-white/20 text-white" : "bg-slate-200 text-slate-500"}`}>
                                 <FileText className="w-4 h-4" />
                               </div>
                               <div className="flex-1 min-w-0">
-                                <p className="text-xs font-semibold truncate">Attachment</p>
+                                <p className="text-xs font-semibold truncate">{t("components.attachment")}</p>
                                 <p className="text-[10px] opacity-70 truncate">{m.media_url.split('/').pop()}</p>
                               </div>
                             </a>
@@ -184,7 +186,7 @@ export function MessageTimeline({
                         <div className={`text-[13px] leading-relaxed break-words whitespace-pre-wrap ${
                           (m.type === "template" || m.type === "interactive" || m.type === "button") ? "text-[12px] bg-black/5 p-2 rounded border border-black/10" : ""
                         }`}>
-                          {m.type === "template" && <span className="font-bold text-[10px] uppercase block mb-1 opacity-60">Template Message</span>}
+                          {m.type === "template" && <span className="font-bold text-[10px] uppercase block mb-1 opacity-60">{t("components.templateMessage")}</span>}
                           {m.body}
                         </div>
                       )}

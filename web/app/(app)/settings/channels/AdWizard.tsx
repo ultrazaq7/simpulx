@@ -1,4 +1,5 @@
 "use client";
+import { useI18n } from "@/lib/i18n";
 // Connect a data source — ONE wizard for ad accounts AND Google Analytics.
 // Step 0 picks the source (Meta / TikTok / Google Ads / GA4); the rest of the flow
 // adapts. Ad platforms: Credentials > Map campaigns. GA4: Sign in > Pick property.
@@ -36,6 +37,7 @@ function Tile({ color, kind }: { color: string; kind: "ads" | "ga4" }) {
 
 // resumeGa4Pick: reopen straight on the GA4 property picker after the Google redirect.
 export function AdWizard({ onClose, onConnected, resumeGa4Pick }: { onClose: () => void; onConnected: (msg: string) => void; resumeGa4Pick?: boolean }) {
+  const { t } = useI18n();
   const [step, setStep] = useState(resumeGa4Pick ? 2 : 0);
   const [platform, setPlatform] = useState(resumeGa4Pick ? "ga4" : "");
   const [accountId, setAccountId] = useState("");
@@ -84,7 +86,7 @@ export function AdWizard({ onClose, onConnected, resumeGa4Pick }: { onClose: () 
 
   async function connect() {
     if (platform === "google" || ((platform === "meta" || platform === "tiktok") && !manualToken)) {
-      if (!accountId.trim()) { setErr(platform === "google" ? "Customer id is required." : platform === "tiktok" ? "Advertiser id is required." : "Ad account id is required."); return; }
+      if (!accountId.trim()) { setErr(platform === "google" ? t("settings.customerIdIsRequired") : platform === "tiktok" ? t("settings.advertiserIdIsRequired") : t("settings.adAccountIdIsRequired")); return; }
       setSaving(true); setErr("");
       try {
         if (platform === "google") {
@@ -100,7 +102,7 @@ export function AdWizard({ onClose, onConnected, resumeGa4Pick }: { onClose: () 
       } catch (e: any) { setErr(e?.message || `Failed to start ${PLATFORMS[platform]?.label} connection`); setSaving(false); }
       return;
     }
-    if (!accountId.trim() || !token.trim()) { setErr("Account id and access token are required."); return; }
+    if (!accountId.trim() || !token.trim()) { setErr(t("settings.accountIdAndAccessToken")); return; }
     setSaving(true); setErr("");
     try {
       const r = await api.createAdAccount({ platform, external_account_id: accountId.trim(), name: name.trim() || undefined, access_token: token.trim() });
@@ -112,7 +114,7 @@ export function AdWizard({ onClose, onConnected, resumeGa4Pick }: { onClose: () 
         setAdCampaigns((adc as AdCampaignRow[]).filter((c) => c.account_name === acctName));
       } catch { /* mapping step just shows the empty state */ }
       setStep(2);
-    } catch (e: any) { setErr(e?.message || "Failed to connect"); }
+    } catch (e: any) { setErr(e?.message || t("settings.failedToConnect")); }
     finally { setSaving(false); }
   }
 
@@ -128,7 +130,7 @@ export function AdWizard({ onClose, onConnected, resumeGa4Pick }: { onClose: () 
     catch (e: any) { setErr(e?.message || String(e)); setSaving(false); }
   }
   async function ga4ManualConnect() {
-    if (!accountId.trim() || !gaManualToken.trim()) { setErr("Property id and refresh token are required."); return; }
+    if (!accountId.trim() || !gaManualToken.trim()) { setErr(t("settings.propertyIdAndRefreshToken")); return; }
     setSaving(true); setErr("");
     try {
       await api.createGa4Connection({ property_id: accountId.trim(), refresh_token: gaManualToken.trim(), campaign_id: gaCampaign || undefined });
@@ -149,15 +151,15 @@ export function AdWizard({ onClose, onConnected, resumeGa4Pick }: { onClose: () 
     step === 0 ? (<><div className="flex-1" /><ContinueButton onClick={() => platform && setStep(1)} disabled={!platform} /></>)
     : step === 1 && isGa4 ? (<><BackButton onClick={() => { setErr(""); setStep(0); }} /><div className="flex-1" /></>)
     : step === 1 ? (<><BackButton onClick={() => { setErr(""); setStep(0); }} /><div className="flex-1" />
-        <PrimaryButton onClick={connect} disabled={saving}>{saving ? <Loader2 className="w-4 h-4 animate-spin" /> : null}{platform === "google" ? "Sign in with Google" : (platform === "meta" && !manualToken) ? "Sign in with Facebook" : (platform === "tiktok" && !manualToken) ? "Sign in with TikTok" : "Connect"}</PrimaryButton></>)
-    : isGa4 ? (<><div className="flex-1" /><PrimaryButton onClick={ga4Finish} disabled={saving || !gaProperty}>{saving && <Loader2 className="w-4 h-4 animate-spin" />} Connect property</PrimaryButton></>)
-    : (<><div className="flex-1" /><PrimaryButton onClick={() => onConnected(result?.syncError ? `Connected, but sync failed: ${result.syncError}` : "Ad account connected")}>Done</PrimaryButton></>);
+        <PrimaryButton onClick={connect} disabled={saving}>{saving ? <Loader2 className="w-4 h-4 animate-spin" /> : null}{platform === "google" ? t("settings.signInWithGoogle") : (platform === "meta" && !manualToken) ? t("settings.signInWithFacebook") : (platform === "tiktok" && !manualToken) ? t("settings.signInWithTiktok") : t("settings.connect")}</PrimaryButton></>)
+    : isGa4 ? (<><div className="flex-1" /><PrimaryButton onClick={ga4Finish} disabled={saving || !gaProperty}>{saving && <Loader2 className="w-4 h-4 animate-spin" />} {t("settings.connectProperty")}</PrimaryButton></>)
+    : (<><div className="flex-1" /><PrimaryButton onClick={() => onConnected(result?.syncError ? `Connected, but sync failed: ${result.syncError}` : "Ad account connected")}>{t("inbox.done")}</PrimaryButton></>);
 
   return (
-    <WizardModal title="Connect a data source" icon={<BarChart3 className="w-5 h-5" />} steps={STEPS} step={step} onClose={onClose} footer={footer}>
+    <WizardModal title={t("settings.connectADataSource")} icon={<BarChart3 className="w-5 h-5" />} steps={STEPS} step={step} onClose={onClose} footer={footer}>
       {step === 0 && (
         <div>
-          <p className="text-[13.5px] text-muted-foreground mb-4">Choose what to connect. Ad platforms pull spend, results and cost per lead; Google Analytics adds landing-page sessions and engagement.</p>
+          <p className="text-[13.5px] text-muted-foreground mb-4">{t("settings.chooseWhatToConnectAd")}</p>
           <div className="grid grid-cols-1 sm:grid-cols-2 gap-2.5">
             {Object.entries(PLATFORMS).map(([v, p]) => (
               <WizardCard key={v} icon={<Tile color={p.color} kind={p.kind} />} title={p.label} desc={p.sub} active={platform === v} onClick={() => setPlatform(v)} />
@@ -171,11 +173,11 @@ export function AdWizard({ onClose, onConnected, resumeGa4Pick }: { onClose: () 
         <div className="flex flex-col gap-4">
           {err && <div className="px-3 py-2 rounded-md bg-destructive/10 border border-destructive/20 text-destructive text-[13px] font-medium">{err}</div>}
           <WizardField label={accountLabel} value={accountId} onChange={setAccountId} placeholder={accountPlaceholder} autoFocus />
-          <WizardField label="Display name (optional)" value={name} onChange={setName} placeholder="e.g. Main ad account" />
+          <WizardField label={t("settings.displayNameOptional")} value={name} onChange={setName} placeholder={t("settings.eGMainAdAccount")} />
           {(platform === "meta" || platform === "tiktok") && (
             <label className="flex items-center gap-2 mt-2">
               <input type="checkbox" checked={manualToken} onChange={(e) => setManualToken(e.target.checked)} className="rounded border-border text-primary focus:ring-primary" />
-              <span className="text-[13px] text-muted-foreground">Advanced: Use manual Access Token (Permanent)</span>
+              <span className="text-[13px] text-muted-foreground">{t("settings.advancedUseManualAccessToken")}</span>
             </label>
           )}
           {(platform !== "google" && platform !== "meta" && platform !== "tiktok") || ((platform === "meta" || platform === "tiktok") && manualToken) ? (
@@ -190,21 +192,21 @@ export function AdWizard({ onClose, onConnected, resumeGa4Pick }: { onClose: () 
           {err && <div className="px-3 py-2 rounded-md bg-destructive/10 border border-destructive/20 text-destructive text-[13px] font-medium">{err}</div>}
           <button onClick={ga4SignIn} disabled={saving}
             className="inline-flex items-center justify-center gap-2.5 h-11 px-5 rounded-md border border-border bg-card text-[14px] font-semibold text-foreground hover:bg-muted disabled:opacity-60 outline-none transition-colors shadow-xs">
-            {saving ? <Loader2 className="w-4 h-4 animate-spin" /> : <GoogleG className="w-5 h-5" />} Sign in with Google
+            {saving ? <Loader2 className="w-4 h-4 animate-spin" /> : <GoogleG className="w-5 h-5" />} {t("settings.signInWithGoogle")}
           </button>
-          <p className="text-[12px] text-muted-foreground">Read-only access (analytics.readonly). We open Google&apos;s consent screen, then bring you back here to pick a property.</p>
+          <p className="text-[12px] text-muted-foreground">{t("settings.readOnlyAccessAnalyticsReadonly")}</p>
           <div>
-            <FieldLabel>Map to campaign (optional)</FieldLabel>
-            <Select value={gaCampaign} onChange={setGaCampaign} options={gaCampaignOptions} placeholder="All campaigns (org-wide)" />
+            <FieldLabel>{t("settings.mapToCampaignOptional")}</FieldLabel>
+            <Select value={gaCampaign} onChange={setGaCampaign} options={gaCampaignOptions} placeholder={t("settings.allCampaignsOrgWide")} />
           </div>
           <button onClick={() => setGaManualOpen((o) => !o)} className="inline-flex items-center gap-1 text-[12px] font-semibold text-muted-foreground hover:text-foreground outline-none self-start mt-1">
-            <ChevronDown className={`w-3.5 h-3.5 transition-transform ${gaManualOpen ? "rotate-180" : ""}`} /> Enter a property id and refresh token manually
+            <ChevronDown className={`w-3.5 h-3.5 transition-transform ${gaManualOpen ? "rotate-180" : ""}`} /> {t("settings.enterAPropertyIdAnd")}
           </button>
           {gaManualOpen && (
             <div className="rounded-lg border border-border p-4 flex flex-col gap-2.5">
-              <div><FieldLabel>GA4 property id</FieldLabel><input value={accountId} onChange={(e) => setAccountId(e.target.value)} placeholder="e.g. 123456789" className={INPUT_CLASS} /></div>
-              <div><FieldLabel>OAuth refresh token (analytics.readonly)</FieldLabel><input value={gaManualToken} onChange={(e) => setGaManualToken(e.target.value)} placeholder="1//0g..." className={INPUT_CLASS} /></div>
-              <div className="flex justify-end"><PrimaryButton onClick={ga4ManualConnect} disabled={saving || !accountId.trim() || !gaManualToken.trim()}>{saving && <Loader2 className="w-4 h-4 animate-spin" />} Connect</PrimaryButton></div>
+              <div><FieldLabel>{t("settings.ga4PropertyId")}</FieldLabel><input value={accountId} onChange={(e) => setAccountId(e.target.value)} placeholder="e.g. 123456789" className={INPUT_CLASS} /></div>
+              <div><FieldLabel>{t("settings.oauthRefreshTokenAnalyticsReadonly")}</FieldLabel><input value={gaManualToken} onChange={(e) => setGaManualToken(e.target.value)} placeholder="1//0g..." className={INPUT_CLASS} /></div>
+              <div className="flex justify-end"><PrimaryButton onClick={ga4ManualConnect} disabled={saving || !accountId.trim() || !gaManualToken.trim()}>{saving && <Loader2 className="w-4 h-4 animate-spin" />} {t("settings.connect")}</PrimaryButton></div>
             </div>
           )}
         </div>
@@ -217,14 +219,14 @@ export function AdWizard({ onClose, onConnected, resumeGa4Pick }: { onClose: () 
           {gaLoadingProps ? (
             <div className="h-24 grid place-items-center"><Loader2 className="w-5 h-5 animate-spin text-muted-foreground" /></div>
           ) : gaProps.length === 0 ? (
-            <p className="text-[13px] text-muted-foreground">No GA4 properties were found for this Google account. Make sure it has access to a GA4 property (and the Analytics Admin API is enabled), then try again.</p>
+            <p className="text-[13px] text-muted-foreground">{t("settings.noGa4PropertiesWereFound")}</p>
           ) : (
             <>
-              <p className="text-[13px] font-semibold text-foreground">Google connected. Choose the property to sync.</p>
-              <div><FieldLabel>GA4 property</FieldLabel>
+              <p className="text-[13px] font-semibold text-foreground">{t("settings.googleConnectedChooseTheProperty")}</p>
+              <div><FieldLabel>{t("settings.ga4Property")}</FieldLabel>
                 <Select value={gaProperty} onChange={setGaProperty} options={gaProps.map((p) => ({ value: p.property_id, label: `${p.display_name} · ${p.account_name} (${p.property_id})` }))} /></div>
-              <div><FieldLabel>Map to campaign (optional)</FieldLabel>
-                <Select value={gaCampaign} onChange={setGaCampaign} options={gaCampaignOptions} placeholder="All campaigns (org-wide)" /></div>
+              <div><FieldLabel>{t("settings.mapToCampaignOptional")}</FieldLabel>
+                <Select value={gaCampaign} onChange={setGaCampaign} options={gaCampaignOptions} placeholder={t("settings.allCampaignsOrgWide")} /></div>
             </>
           )}
         </div>
@@ -237,10 +239,10 @@ export function AdWizard({ onClose, onConnected, resumeGa4Pick }: { onClose: () 
             <div className="inline-flex mb-3"><Tile color={PLATFORMS[platform]?.color || "#1877F2"} kind="ads" /></div>
             <div className="flex items-center justify-center gap-2 mb-1">
               <CheckCircle2 className={result?.syncError ? "w-5 h-5 text-warning" : "w-5 h-5 text-success"} />
-              <p className="font-bold text-[16px] text-foreground">{PLATFORMS[platform]?.label} account connected</p>
+              <p className="font-bold text-[16px] text-foreground">{PLATFORMS[platform]?.label} {t("settings.accountConnected")}</p>
             </div>
             <p className="text-[13px] text-muted-foreground max-w-[460px] mx-auto">
-              {result?.syncError ? "Connected, but the first sync failed. Fix the token from the account card, then sync." : "Map this account's campaigns to yours so spend ties to leads on the Dashboard."}
+              {result?.syncError ? t("settings.connectedButTheFirstSync") : t("settings.mapThisAccountSCampaigns")}
             </p>
           </div>
 
@@ -249,20 +251,20 @@ export function AdWizard({ onClose, onConnected, resumeGa4Pick }: { onClose: () 
               <AlertTriangle className="w-4 h-4 shrink-0 mt-px text-warning" />{result.syncError}
             </div>
           ) : adCampaigns.length === 0 ? (
-            <p className="text-[12.5px] text-muted-foreground py-3 text-center bg-muted/40 rounded-md">No campaigns synced yet. You can map them later from the account's Edit dialog.</p>
+            <p className="text-[12.5px] text-muted-foreground py-3 text-center bg-muted/40 rounded-md">{t("settings.noCampaignsSyncedYetYou")}</p>
           ) : (
             <div>
-              <p className="text-[11px] font-bold uppercase tracking-wider text-muted-foreground mb-2">Map campaigns (optional)</p>
+              <p className="text-[11px] font-bold uppercase tracking-wider text-muted-foreground mb-2">{t("settings.mapCampaignsOptional")}</p>
               <div className="flex flex-col divide-y divide-border/60 rounded-md border border-border overflow-hidden max-h-[280px] overflow-y-auto">
                 {adCampaigns.map((ac) => (
                   <div key={ac.id} className="flex items-center gap-2 px-3 py-2.5">
                     <Link2 className="w-3.5 h-3.5 text-muted-foreground shrink-0" />
                     <span className="text-[13px] font-medium text-foreground flex-1 truncate">{ac.name}</span>
-                    <MultiSelect value={ac.campaign_ids || (ac.campaign_id ? [ac.campaign_id] : [])} onChange={(v) => map(ac.id, v)} options={ourCampOptions} placeholder="Not mapped" className="w-[200px]" />
+                    <MultiSelect value={ac.campaign_ids || (ac.campaign_id ? [ac.campaign_id] : [])} onChange={(v) => map(ac.id, v)} options={ourCampOptions} placeholder={t("settings.notMapped")} className="w-[200px]" />
                   </div>
                 ))}
               </div>
-              <p className="text-[11px] text-muted-foreground/70 mt-2">You can change these anytime from the account's Edit dialog.</p>
+              <p className="text-[11px] text-muted-foreground/70 mt-2">{t("settings.youCanChangeTheseAnytime")}</p>
             </div>
           )}
         </div>

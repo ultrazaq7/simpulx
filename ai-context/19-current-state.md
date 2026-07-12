@@ -2,6 +2,28 @@
 
 Snapshot as of **2026-06-17**. This is the honest "what actually works right now" doc.
 
+## Web app full i18n pass — EN/ID via t() everywhere (2026-07-13)
+
+The web app is now fully localized (English default + Bahasa Indonesia), driven by
+`web/lib/i18n.tsx` (`useI18n()` / `t("key")`, JSON dicts in `web/locales/{en,id}.json`).
+Coverage grew from ~225 keys to **~1,700**; `t()` call sites in code went from 47 to ~1,200.
+
+- **Tooling (repeatable, in `scripts/`):** `i18n_scan_web.mjs` AST-extracts user-facing
+  strings (JSX text, whitelisted attrs, `notify`/`setToast`/`onError`/… args, header-row
+  arrays, ternary/`||` fallbacks) into `translations/web_inventory.csv`, pre-filling Indonesian
+  from `translations/id_map*.json`. `i18n_merge_locales.mjs` folds new keys into the locale
+  JSON. `i18n_apply_web.mjs` is the codemod that wraps literals in `t()` and injects the hook +
+  import. Re-run scan→merge→apply after adding pages; the scanner reports what's still English.
+- **Reverse-lookup fallback:** `t()` accepts the English source string itself as a key
+  (gettext-style) — used by module-scope constant arrays (nav/meta/option lists) that can't call
+  the hook. `web/lib/i18n.tsx` builds an EN-text→key index for this.
+- **Deliberately NOT translated (product decisions):** lead temperature `Hot`/`Warm`/`Cold`
+  (kept English in ID), `"All rights reserved."`, the `OUTREACH` page category, brand words.
+  `Creative Insights` → ID `Insight Materi Iklan`; dashboard `My open` card renamed to `Active`
+  (ID `Aktif`); page title `My Inbox` → `Chat`.
+- Verified by rendering pages in both languages via puppeteer (login, dashboard, inbox,
+  contacts, broadcasts, settings). `next build` + `tsc --noEmit` clean.
+
 ## CI/CD Level 1: build in CI -> ECR -> EC2 pulls + migrations off-boot (2026-06-20)
 
 Deploys no longer build on the prod EC2. **GitHub Actions builds all 8 images natively on

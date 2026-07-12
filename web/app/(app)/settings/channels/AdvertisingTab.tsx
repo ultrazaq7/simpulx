@@ -1,4 +1,5 @@
 "use client";
+import { useI18n } from "@/lib/i18n";
 // Advertising — folded into Channel & Integrations as the "Advertising" tab.
 // SETUP ONLY: connect Meta / TikTok / Google ad accounts, edit a connection, and
 // map its ad campaigns to ours. Reporting (spend, cost-per-lead) lives on the Dashboard.
@@ -22,6 +23,7 @@ const PLATFORMS: Record<string, { label: string }> = {
 };
 
 export function AdvertisingTab({ embedded }: { embedded?: boolean } = {}) {
+  const { t } = useI18n();
   const [accounts, setAccounts] = useState<AdAccount[]>([]);
   const [adCampaigns, setAdCampaigns] = useState<AdCampaignRow[]>([]);
   const [ourCampaigns, setOurCampaigns] = useState<Campaign[]>([]);
@@ -47,19 +49,19 @@ export function AdvertisingTab({ embedded }: { embedded?: boolean } = {}) {
 
   async function sync(id: string) {
     setSyncing(id);
-    try { await api.syncAdAccount(id); setToast("Synced"); await loadAll(); }
-    catch (e: any) { setToast(e?.message || "Sync failed"); }
+    try { await api.syncAdAccount(id); setToast(t("settings.synced")); await loadAll(); }
+    catch (e: any) { setToast(e?.message || t("settings.syncFailed")); }
     finally { setSyncing(null); }
   }
   async function remove(a: AdAccount) {
     if (!(await confirm({ title: "Disconnect ad account?", message: `Disconnect ${a.name || a.external_account_id}? Its metrics will be removed.`, danger: true, confirmLabel: "Disconnect" }))) return;
-    try { await api.deleteAdAccount(a.id); setToast("Disconnected"); setManageId(null); await loadAll(); }
-    catch { setToast("Failed"); }
+    try { await api.deleteAdAccount(a.id); setToast(t("settings.disconnected")); setManageId(null); await loadAll(); }
+    catch { setToast(t("broadcasts.failed")); }
   }
   async function map(adCampId: string, campaignIds: string[]) {
     setAdCampaigns((p) => p.map((x) => (x.id === adCampId ? { ...x, campaign_ids: campaignIds, campaign_id: campaignIds[0] || null } : x)));
     try { await api.mapAdCampaign(adCampId, campaignIds); await loadAll(); }
-    catch { setToast("Could not map"); }
+    catch { setToast(t("settings.couldNotMap")); }
   }
 
   const q = search.trim().toLowerCase();
@@ -76,12 +78,12 @@ export function AdvertisingTab({ embedded }: { embedded?: boolean } = {}) {
         <div className="p-3 flex items-center gap-2.5 border-b border-border flex-wrap shrink-0">
           <div className="relative w-[240px]">
             <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-muted-foreground pointer-events-none" />
-            <input type="text" placeholder="Search accounts" value={search} onChange={(e) => setSearch(e.target.value)}
+            <input type="text" placeholder={t("settings.searchAccounts")} value={search} onChange={(e) => setSearch(e.target.value)}
               className="w-full h-9 pl-9 pr-3 rounded-md border border-input bg-muted text-sm text-foreground placeholder:text-muted-foreground/70 outline-none transition-shadow focus:border-primary focus:ring-2 focus:ring-primary/20" />
           </div>
           <div className="flex-1" />
           <button onClick={() => setConnectOpen(true)} className="inline-flex items-center gap-2 px-3.5 h-9 bg-primary text-white rounded-md text-sm font-semibold hover:bg-primary-dark shadow-sm transition-all outline-none">
-            <Plus className="w-4 h-4" />Connect ad account
+            <Plus className="w-4 h-4" />{t("settings.connectAdAccount")}
           </button>
         </div>
 
@@ -91,9 +93,9 @@ export function AdvertisingTab({ embedded }: { embedded?: boolean } = {}) {
         ) : accounts.length === 0 ? (
           <div className="py-16 text-center">
             <div className="w-12 h-12 rounded-xl bg-muted grid place-items-center mx-auto mb-3"><BarChart3 className="w-6 h-6 text-muted-foreground/50" /></div>
-            <p className="font-semibold text-foreground mb-0.5">No ad account connected</p>
-            <p className="text-sm text-muted-foreground mb-4">Connect a Meta ad account, then map its campaigns. Spend and results show on the Dashboard.</p>
-            <button onClick={() => setConnectOpen(true)} className="inline-flex items-center gap-2 px-4 h-9 bg-primary text-white rounded-md text-sm font-semibold hover:bg-primary-dark shadow-sm outline-none"><Plus className="w-4 h-4" />Connect ad account</button>
+            <p className="font-semibold text-foreground mb-0.5">{t("settings.noAdAccountConnected")}</p>
+            <p className="text-sm text-muted-foreground mb-4">{t("settings.connectAMetaAdAccount")}</p>
+            <button onClick={() => setConnectOpen(true)} className="inline-flex items-center gap-2 px-4 h-9 bg-primary text-white rounded-md text-sm font-semibold hover:bg-primary-dark shadow-sm outline-none"><Plus className="w-4 h-4" />{t("settings.connectAdAccount")}</button>
           </div>
         ) : (
           <div className="rounded-lg border border-border divide-y divide-border overflow-hidden">
@@ -108,23 +110,23 @@ export function AdvertisingTab({ embedded }: { embedded?: boolean } = {}) {
                   <div className="min-w-0 flex-1 hidden md:block">
                     {a.last_error ? (
                       <button onClick={() => setManageId(a.id)} className="text-left text-[11.5px] text-red-600 flex items-start gap-1 hover:underline outline-none max-w-full">
-                        <AlertTriangle className="w-3.5 h-3.5 shrink-0 mt-px" /><span className="line-clamp-1">{a.last_error} — fix the token</span>
+                        <AlertTriangle className="w-3.5 h-3.5 shrink-0 mt-px" /><span className="line-clamp-1">{a.last_error} {t("settings.fixTheToken")}</span>
                       </button>
                     ) : (
                       <span className="text-[11.5px] text-muted-foreground">
-                        {a.campaign_count > 0 ? `${a.campaign_count} campaign${a.campaign_count === 1 ? "" : "s"}${mapped ? ` · ${mapped} mapped` : ""}` : (a.last_synced_at ? "No campaigns" : "Never synced")}
+                        {a.campaign_count > 0 ? `${a.campaign_count} campaign${a.campaign_count === 1 ? "" : "s"}${mapped ? ` · ${mapped} mapped` : ""}` : (a.last_synced_at ? t("settings.noCampaigns") : t("settings.neverSynced"))}
                       </span>
                     )}
                   </div>
                   <div className="hidden lg:flex flex-col items-end shrink-0 text-[11px] text-muted-foreground leading-tight whitespace-nowrap">
-                    <span>Created {fmtDateTimeShort(a.created_at)}</span>
-                    {a.updated_at && <span>Updated {fmtDateTimeShort(a.updated_at)}</span>}
+                    <span>{t("contacts.created")} {fmtDateTimeShort(a.created_at)}</span>
+                    {a.updated_at && <span>{t("dashboard.updated")} {fmtDateTimeShort(a.updated_at)}</span>}
                   </div>
                   <span className={cn("px-2 py-0.5 rounded-md text-[11px] font-semibold shrink-0", a.status === "error" ? "bg-red-50 text-red-600" : "bg-emerald-50 text-emerald-600")}>{a.status}</span>
                   <div className="flex items-center gap-0.5 shrink-0">
-                    <button onClick={() => setManageId(a.id)} className="p-1.5 rounded-md hover:bg-muted text-muted-foreground hover:text-foreground outline-none transition-colors" title="Edit / map"><Pencil className="w-4 h-4" /></button>
-                    <button onClick={() => sync(a.id)} disabled={syncing === a.id} className="p-1.5 rounded-md hover:bg-muted text-primary outline-none disabled:opacity-50 transition-colors" title="Sync now"><RefreshCw className={cn("w-4 h-4", syncing === a.id && "animate-spin")} /></button>
-                    <button onClick={() => remove(a)} className="p-1.5 rounded-md hover:bg-muted text-destructive outline-none transition-colors" title="Disconnect"><Trash2 className="w-4 h-4" /></button>
+                    <button onClick={() => setManageId(a.id)} className="p-1.5 rounded-md hover:bg-muted text-muted-foreground hover:text-foreground outline-none transition-colors" title={t("settings.editMap")}><Pencil className="w-4 h-4" /></button>
+                    <button onClick={() => sync(a.id)} disabled={syncing === a.id} className="p-1.5 rounded-md hover:bg-muted text-primary outline-none disabled:opacity-50 transition-colors" title={t("settings.syncNow")}><RefreshCw className={cn("w-4 h-4", syncing === a.id && "animate-spin")} /></button>
+                    <button onClick={() => remove(a)} className="p-1.5 rounded-md hover:bg-muted text-destructive outline-none transition-colors" title={t("settings.disconnect")}><Trash2 className="w-4 h-4" /></button>
                   </div>
                 </div>
               );
@@ -161,6 +163,7 @@ export function AdAccountDialog({ account, adCampaigns, ourCampaigns, onMap, onS
   onMap: (adCampId: string, campaignIds: string[]) => void; onSync: () => void; syncing: boolean;
   onClose: () => void; onSaved: (m: string) => void; onError: (m: string) => void;
 }) {
+  const { t } = useI18n();
   const [name, setName] = useState(account.name || "");
   const [extId, setExtId] = useState(account.external_account_id || "");
   const [token, setToken] = useState("");
@@ -176,7 +179,7 @@ export function AdAccountDialog({ account, adCampaigns, ourCampaigns, onMap, onS
         external_account_id: extId.trim() || undefined,
         access_token: token.trim() || undefined,
       });
-      onSaved(token.trim() ? "Connection updated — syncing" : "Connection updated");
+      onSaved(token.trim() ? t("settings.connectionUpdatedSyncing") : t("settings.connectionUpdated"));
       if (token.trim()) onSync();
       onClose();
     } catch (e) { onError(String(e)); }
@@ -206,14 +209,14 @@ export function AdAccountDialog({ account, adCampaigns, ourCampaigns, onMap, onS
 
         {/* Connection */}
         <div className="flex flex-col gap-3">
-          <p className="text-[11px] font-bold uppercase tracking-wider text-muted-foreground">Connection</p>
-          <div><label className={L}>Display name</label><input value={name} onChange={(e) => setName(e.target.value)} placeholder="e.g. Main Meta account" className={F} /></div>
-          <div><label className={L}>Account ID</label><input value={extId} onChange={(e) => setExtId(e.target.value)} placeholder="e.g. 1234567890" className={F} /></div>
+          <p className="text-[11px] font-bold uppercase tracking-wider text-muted-foreground">{t("settings.connection")}</p>
+          <div><label className={L}>{t("settings.displayName")}</label><input value={name} onChange={(e) => setName(e.target.value)} placeholder={t("settings.eGMainMetaAccount")} className={F} /></div>
+          <div><label className={L}>{t("settings.accountId")}</label><input value={extId} onChange={(e) => setExtId(e.target.value)} placeholder="e.g. 1234567890" className={F} /></div>
           <div>
-            <label className={L}>Access token</label>
+            <label className={L}>{t("settings.accessToken")}</label>
             <div className="relative">
               <KeyRound className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-muted-foreground pointer-events-none" />
-              <input type="password" value={token} onChange={(e) => setToken(e.target.value)} placeholder="Leave blank to keep current" className={cn(F, "pl-9")} autoComplete="off" />
+              <input type="password" value={token} onChange={(e) => setToken(e.target.value)} placeholder={t("settings.leaveBlankToKeepCurrent")} className={cn(F, "pl-9")} autoComplete="off" />
             </div>
           </div>
         </div>
@@ -221,13 +224,13 @@ export function AdAccountDialog({ account, adCampaigns, ourCampaigns, onMap, onS
         {/* Campaign mapping */}
         <div className="flex flex-col gap-2 border-t border-border pt-4">
           <div className="flex items-center justify-between">
-            <p className="text-[11px] font-bold uppercase tracking-wider text-muted-foreground">Map campaigns</p>
+            <p className="text-[11px] font-bold uppercase tracking-wider text-muted-foreground">{t("settings.mapCampaigns")}</p>
             <button onClick={onSync} disabled={syncing} className="inline-flex items-center gap-1.5 text-[12px] font-semibold text-primary hover:underline outline-none disabled:opacity-50">
-              <RefreshCw className={cn("w-3.5 h-3.5", syncing && "animate-spin")} />Sync
+              <RefreshCw className={cn("w-3.5 h-3.5", syncing && "animate-spin")} />{t("settings.sync")}
             </button>
           </div>
           {adCampaigns.length === 0 ? (
-            <p className="text-[12.5px] text-muted-foreground py-3 text-center bg-muted/40 rounded-md">No campaigns yet. Sync this account to pull them.</p>
+            <p className="text-[12.5px] text-muted-foreground py-3 text-center bg-muted/40 rounded-md">{t("settings.noCampaignsYetSyncThis")}</p>
           ) : (
             <div className="flex flex-col divide-y divide-border/60 rounded-md border border-border overflow-hidden">
               {adCampaigns.map((ac) => (
@@ -238,7 +241,7 @@ export function AdAccountDialog({ account, adCampaigns, ourCampaigns, onMap, onS
                     value={ac.campaign_ids || (ac.campaign_id ? [ac.campaign_id] : [])}
                     onChange={(v) => onMap(ac.id, v)}
                     options={ourCampOptions}
-                    placeholder="Not mapped"
+                    placeholder={t("settings.notMapped")}
                     className="w-[220px]"
                   />
                 </div>

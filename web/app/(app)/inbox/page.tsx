@@ -1,4 +1,5 @@
 "use client";
+import { useI18n } from "@/lib/i18n";
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { useInfiniteQuery, useQueryClient } from "@tanstack/react-query";
 import { useVirtualizer } from "@tanstack/react-virtual";
@@ -33,6 +34,7 @@ function fileTooLargeMessage(f: File): string | null {
 // MAIN PAGE
 // -
 export default function InboxPage() {
+  const { t } = useI18n();
   // --- Core state ---
   const [convs, setConvs] = useState<Conversation[]>([]);
   const [convsLoading, setConvsLoading] = useState(true);
@@ -388,14 +390,14 @@ export default function InboxPage() {
     if (tab === 1) {
       await api.addNote(activeId, draft.trim()); setDraft("");
       setNotes((await api.getNotes(activeId)) || []);
-      notify("Note added");
+      notify(t("components.noteAdded"));
       return;
     }
     setBusy(true);
     try {
       await api.sendMessage(activeId, draft.trim()); setDraft("");
       queryClient.invalidateQueries({ queryKey: ["messages", activeId] }); loadConvs();
-    } catch { notify("Failed to send", "error"); }
+    } catch { notify(t("contacts.failedToSend"), "error"); }
     finally { setBusy(false); }
   }
 
@@ -436,9 +438,9 @@ export default function InboxPage() {
       pendingPreviews.forEach(p => p && URL.revokeObjectURL(p));
       setDraft(""); setPendingFiles([]); setPendingPreviews([]);
       queryClient.invalidateQueries({ queryKey: ["messages", activeId] }); loadConvs();
-      notify(uploads.length > 1 ? "Files sent" : "File sent");
+      notify(uploads.length > 1 ? t("components.filesSent") : t("inbox.fileSent"));
     } catch (err) {
-      notify(err instanceof Error ? err.message : "Upload failed", "error");
+      notify(err instanceof Error ? err.message : t("components.uploadFailed"), "error");
     }
     finally { setBusy(false); setUploadProgress(null); }
   }
@@ -480,7 +482,7 @@ export default function InboxPage() {
   async function doAction(fn: () => Promise<any>, successMsg: string) {
     setBusy(true);
     try { await fn(); await loadConvs(); if (activeId) queryClient.invalidateQueries({ queryKey: ["messages", activeId] }); notify(successMsg); }
-    catch { notify("Action failed", "error"); }
+    catch { notify(t("inbox.actionFailed"), "error"); }
     finally { setBusy(false); }
   }
 
@@ -496,7 +498,7 @@ export default function InboxPage() {
     notify(`${label} updated`);
   }
 
-  function copyText(text: string) { navigator.clipboard.writeText(text); notify("Copied to clipboard", "info"); }
+  function copyText(text: string) { navigator.clipboard.writeText(text); notify(t("contacts.copiedToClipboard"), "info"); }
 
   // -
   return (
@@ -586,7 +588,7 @@ export default function InboxPage() {
             if (!activeId) return;
             await api.addNote(activeId, body);
             setNotes((await api.getNotes(activeId)) || []);
-            notify("Note added");
+            notify(t("components.noteAdded"));
           }}
         />
 
@@ -608,13 +610,13 @@ export default function InboxPage() {
               if (!activeId) return;
               await api.addNote(activeId, body);
               setNotes((await api.getNotes(activeId)) || []);
-              notify("Note added");
+              notify(t("components.noteAdded"));
             }}
             onDeleteNote={async (noteId) => {
               if (!activeId) return;
               await api.deleteNote(activeId, noteId);
               setNotes((await api.getNotes(activeId)) || []);
-              notify("Note deleted");
+              notify(t("inbox.noteDeleted"));
             }}
           />
         )}
@@ -627,15 +629,15 @@ export default function InboxPage() {
           convs={convs}
           onClose={() => setForwardText(null)}
           onSend={async (convId) => {
-            const t = forwardText;
+            const txt = forwardText;
             setForwardText(null);
-            if (!t) return;
+            if (!txt) return;
             try {
-              await api.sendMessage(convId, t);
-              notify("Message forwarded");
+              await api.sendMessage(convId, txt);
+              notify(t("inbox.messageForwarded"));
               if (convId === activeId) queryClient.invalidateQueries({ queryKey: ["messages", convId] });
               loadConvs();
-            } catch { notify("Forward failed", "error"); }
+            } catch { notify(t("inbox.forwardFailed"), "error"); }
           }}
         />
       )}
@@ -650,27 +652,28 @@ export default function InboxPage() {
 function ForwardPicker({ text, convs, onClose, onSend }: {
   text: string; convs: Conversation[]; onClose: () => void; onSend: (convId: string) => void;
 }) {
+  const { t } = useI18n();
   const [q, setQ] = useState("");
   const shown = convs.filter((c) => (c.contact_name || c.contact_phone || "").toLowerCase().includes(q.toLowerCase()));
   return (
     <div className="fixed inset-0 z-[120] flex items-center justify-center p-4">
       <div className="absolute inset-0 bg-black/40 backdrop-blur-[2px] animate-fade-in" onClick={onClose} />
-      <div role="dialog" aria-modal="true" aria-label="Forward message" className="relative w-[440px] max-h-[80vh] flex flex-col rounded-lg border border-border bg-card shadow-2xl animate-scale-in">
+      <div role="dialog" aria-modal="true" aria-label={t("inbox.forwardMessage")} className="relative w-[440px] max-h-[80vh] flex flex-col rounded-lg border border-border bg-card shadow-2xl animate-scale-in">
         <div className="px-5 py-3.5 border-b border-border flex items-center">
-          <p className="font-bold text-[15px] text-foreground flex-1">Forward message</p>
-          <button aria-label="Close" onClick={onClose} className="p-1 rounded-md text-muted-foreground hover:bg-muted hover:text-foreground outline-none"><X className="w-[18px] h-[18px]" /></button>
+          <p className="font-bold text-[15px] text-foreground flex-1">{t("inbox.forwardMessage")}</p>
+          <button aria-label={t("components.close")} onClick={onClose} className="p-1 rounded-md text-muted-foreground hover:bg-muted hover:text-foreground outline-none"><X className="w-[18px] h-[18px]" /></button>
         </div>
         <div className="p-3 border-b border-border">
           <p className="text-[12px] text-muted-foreground mb-2 px-1 line-clamp-2 italic">&ldquo;{text}&rdquo;</p>
           <div className="relative">
             <Search className="absolute left-2.5 top-1/2 -translate-y-1/2 w-4 h-4 text-muted-foreground pointer-events-none" />
-            <input autoFocus value={q} onChange={(e) => setQ(e.target.value)} placeholder="Search conversations"
+            <input autoFocus value={q} onChange={(e) => setQ(e.target.value)} placeholder={t("inbox.searchConversations")}
               className="w-full h-9 pl-9 pr-3 rounded-md border border-input bg-background text-[13px] text-foreground placeholder:text-muted-foreground/70 outline-none focus:border-primary focus:ring-2 focus:ring-primary/20" />
           </div>
         </div>
         <div className="flex-1 overflow-auto p-1.5">
           {shown.length === 0 ? (
-            <p className="text-center text-sm text-muted-foreground py-8">No conversations</p>
+            <p className="text-center text-sm text-muted-foreground py-8">{t("components.noConversations")}</p>
           ) : shown.map((c) => (
             <button key={c.id} onClick={() => onSend(c.id)} className="w-full flex items-center gap-3 px-2.5 py-2 rounded-lg hover:bg-muted text-left outline-none transition-colors">
               <div className="w-9 h-9 rounded-full grid place-items-center text-xs font-bold shrink-0 ring-1 ring-inset ring-black/5"
@@ -678,7 +681,7 @@ function ForwardPicker({ text, convs, onClose, onSend }: {
                 {initials(c.contact_name || c.contact_phone)}
               </div>
               <div className="flex-1 min-w-0">
-                <p className="text-[13px] font-semibold text-foreground truncate">{c.contact_name || c.contact_phone || "Unknown"}</p>
+                <p className="text-[13px] font-semibold text-foreground truncate">{c.contact_name || c.contact_phone || t("broadcasts.unknown")}</p>
                 {c.contact_phone && <p className="text-[11px] text-muted-foreground tabular-nums truncate">{c.contact_phone}</p>}
               </div>
             </button>

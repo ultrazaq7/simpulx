@@ -1,4 +1,5 @@
 "use client";
+import { useI18n } from "@/lib/i18n";
 import { useState, useRef, useEffect, useMemo } from "react";
 import { ChevronDown, ChevronLeft, ChevronRight, Calendar } from "lucide-react";
 import { cn } from "@/lib/utils";
@@ -38,6 +39,7 @@ export default function DateRangeFilter({ value, onChange, align = "left" }: {
   onChange: (v: DateRangeValue) => void;
   align?: "left" | "right";
 }) {
+  const { t } = useI18n();
   const [open, setOpen] = useState(false);
   // The calendar stays collapsed behind the DATE RANGE field until the user opens
   // it (clicks the field / icon), matching the enterprise reference.
@@ -102,7 +104,7 @@ export default function DateRangeFilter({ value, onChange, align = "left" }: {
     <div ref={ref} className="relative">
       <button onClick={() => setOpen((v) => !v)}
         className="inline-flex items-center gap-1.5 h-9 px-3 rounded-md border border-input bg-background text-[13px] font-medium text-foreground hover:bg-muted outline-none transition-colors">
-        {label}<ChevronDown className="w-4 h-4 text-muted-foreground" />
+        {t(label)}<ChevronDown className="w-4 h-4 text-muted-foreground" />
       </button>
       {open && (
         <div className={cn("absolute z-50 mt-1.5 w-[300px] max-w-[calc(100vw-2rem)] rounded-xl border border-border bg-popover shadow-xl p-2", autoAlign === "right" ? "right-0" : "left-0")}>
@@ -113,12 +115,12 @@ export default function DateRangeFilter({ value, onChange, align = "left" }: {
             ))}
           </div>
           <div className="mt-2 pt-2 border-t border-border">
-            <p className="px-1 mb-1.5 text-[11px] font-bold uppercase tracking-wider text-muted-foreground">Date range</p>
+            <p className="px-1 mb-1.5 text-[11px] font-bold uppercase tracking-wider text-muted-foreground">{t("components.dateRange")}</p>
             <button type="button" onClick={() => setShowCal((v) => !v)}
               className={cn("w-full flex items-center gap-2 px-2 h-9 rounded-md border bg-background text-[12px] outline-none transition-colors overflow-hidden", showCal ? "border-primary ring-2 ring-primary/20" : "border-input hover:border-muted-foreground/40")}>
               <Calendar className="w-3.5 h-3.5 text-muted-foreground shrink-0" />
               <span className={cn("truncate min-w-0 tabular-nums", lo ? "text-foreground" : "text-muted-foreground/60")}>
-                {lo ? us(lo) : "MM/DD/YYYY"} <span className="text-muted-foreground/50">–</span> {hi ? us(hi) : "MM/DD/YYYY"}
+                {lo ? us(lo) : t("components.mmDdYyyy")} <span className="text-muted-foreground/50">–</span> {hi ? us(hi) : t("components.mmDdYyyy")}
               </span>
             </button>
             {showCal && (<div className="mt-2">

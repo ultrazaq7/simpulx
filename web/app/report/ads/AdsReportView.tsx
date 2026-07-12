@@ -1,4 +1,5 @@
 "use client";
+import { useI18n } from "@/lib/i18n";
 // Shared Heroleads-style Ads Report layout, rendered identically by BOTH the headless
 // PDF page (/report/ads) and the dashboard Ads Report tab, so what you see on screen is
 // exactly what you export. Purely presentational: it takes already-fetched data as props.
@@ -45,6 +46,7 @@ export function AdsReportView({ perf, keywords, leads, ga4, camps, campaigns, ra
   rangeLabel: string;
   width?: number;
 }) {
+  const { t } = useI18n();
   const sources = perf?.sources ?? [];
   const tot = sources.reduce((a, s) => ({
     spend: a.spend + s.spend, impressions: a.impressions + s.impressions, clicks: a.clicks + s.clicks, leads: a.leads + s.leads,
@@ -118,11 +120,11 @@ export function AdsReportView({ perf, keywords, leads, ga4, camps, campaigns, ra
       <div style={{ background: GREEN_DK, color: "#fff", padding: "16px 22px", display: "grid", gridTemplateColumns: "1fr auto 1fr", alignItems: "center", borderRadius: 10, boxShadow: PANEL }}>
         <div style={{ display: "flex", alignItems: "center", gap: 9 }}>
           {/* eslint-disable-next-line @next/next/no-img-element */}
-          <img src="/simpulx_logo.png" alt="Simpulx" style={{ height: 30, width: "auto", display: "block" }} />
-          <span style={{ fontSize: 15, fontWeight: 800, letterSpacing: 0.3 }}>Simpulx</span>
+          <img src="/simpulx_logo.png" alt={t("auth.simpulx")} style={{ height: 30, width: "auto", display: "block" }} />
+          <span style={{ fontSize: 15, fontWeight: 800, letterSpacing: 0.3 }}>{t("auth.simpulx")}</span>
         </div>
         <div style={{ textAlign: "center" }}>
-          <div style={{ fontSize: 20, fontWeight: 800, letterSpacing: 1.5 }}>CAMPAIGN DASHBOARD</div>
+          <div style={{ fontSize: 20, fontWeight: 800, letterSpacing: 1.5 }}>{t("report.campaignDashboard")}</div>
           <div style={{ fontSize: 12, color: "rgba(255,255,255,.72)", letterSpacing: 0.3 }}>{headerSub}</div>
         </div>
         <div style={{ justifySelf: "end", fontSize: 12, background: "rgba(255,255,255,.1)", border: "1px solid rgba(255,255,255,.2)", padding: "6px 12px", borderRadius: 6, whiteSpace: "nowrap" }}>{rangeLabel}</div>
@@ -142,17 +144,17 @@ export function AdsReportView({ perf, keywords, leads, ga4, camps, campaigns, ra
       {/* Funnel + Campaign performance table */}
       <div className="print-avoid-break" style={{ display: "grid", gridTemplateColumns: "390px 1fr", gap: 14, paddingTop: 14, alignItems: "start" }}>
         <Panel>
-          <div style={{ fontSize: 13, fontWeight: 700 }}>Marketing Funnel</div>
-          <div style={{ fontSize: 10.5, color: "#64748b", marginTop: 2, marginBottom: 12 }}>Impression to purchase conversion</div>
+          <div style={{ fontSize: 13, fontWeight: 700 }}>{t("report.marketingFunnel")}</div>
+          <div style={{ fontSize: 10.5, color: "#64748b", marginTop: 2, marginBottom: 12 }}>{t("dashboard.impressionToPurchaseConversion")}</div>
           <PdfFunnel steps={funnelSteps} width={362} />
           <div style={{ marginTop: 12, display: "flex", alignItems: "center", justifyContent: "space-between", gap: 8, background: "#f8fafc", border: "1px solid #eef2f6", borderRadius: 8, padding: "8px 12px" }}>
-            <span style={{ fontSize: 10, color: "#64748b" }}>Overall conversion rate from impression to purchase</span>
+            <span style={{ fontSize: 10, color: "#64748b" }}>{t("dashboard.overallConversionRateFromImpression")}</span>
             <span style={{ fontSize: 12, fontWeight: 800, whiteSpace: "nowrap" }}>{pct(overallConv)}</span>
           </div>
         </Panel>
 
         <Panel pad={false}>
-          <div style={{ padding: "10px 14px", fontSize: 13, fontWeight: 700 }}>Campaign Performance</div>
+          <div style={{ padding: "10px 14px", fontSize: 13, fontWeight: 700 }}>{t("components.campaignPerformance")}</div>
           <table style={{ width: "100%", borderCollapse: "collapse", fontSize: 12 }}>
             <thead>
               <tr style={{ background: GREEN, color: "#fff" }}>
@@ -166,7 +168,7 @@ export function AdsReportView({ perf, keywords, leads, ga4, camps, campaigns, ra
                 const sCtr = srcCtr(s), sCpc = s.clicks > 0 ? s.spend / s.clicks : 0, sCpl = srcCpl(s);
                 return (
                   <tr key={s.source} style={{ borderBottom: "1px solid #eef2f7" }}>
-                    <td style={{ ...tdL, fontWeight: 600 }}>{s.label}</td>
+                    <td style={{ ...tdL, fontWeight: 600 }}>{t(s.label)}</td>
                     <td style={td}>{money(s.spend)}</td>
                     <td style={td}>{num(s.impressions)}</td>
                     <td style={td}>{num(s.clicks)}</td>
@@ -178,7 +180,7 @@ export function AdsReportView({ perf, keywords, leads, ga4, camps, campaigns, ra
                 );
               })}
               <tr style={{ borderTop: "2px solid #cbd5e1", fontWeight: 700, background: "#f8fafc" }}>
-                <td style={tdL}>Grand total</td>
+                <td style={tdL}>{t("dashboard.grandTotal")}</td>
                 <td style={td}>{money(tot.spend)}</td>
                 <td style={td}>{num(tot.impressions)}</td>
                 <td style={td}>{num(tot.clicks)}</td>
@@ -193,7 +195,7 @@ export function AdsReportView({ perf, keywords, leads, ga4, camps, campaigns, ra
       </div>
 
       {/* Campaign Performance Breakdown (log) */}
-      <Section mt title="Campaign Performance Breakdown" legend={[[GREEN_DK, "Clicks"], [NAVY, "Impressions"]]}>
+      <Section mt title={t("dashboard.campaignPerformanceBreakdown")} legend={[[GREEN_DK, "Clicks"], [NAVY, "Impressions"]]}>
         <div style={{ height: 320 }}>
           <ResponsiveContainer width="100%" height="100%">
             <LineChart data={dailyPerf} margin={{ top: 6, right: 8, left: -4, bottom: 0 }}>
@@ -210,8 +212,8 @@ export function AdsReportView({ perf, keywords, leads, ga4, camps, campaigns, ra
 
       {/* Google top keywords + Age demography */}
       <div className="print-avoid-break" style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 14, paddingTop: 12 }}>
-        <Section title="Google Top 10 Search Keywords" legend={[[GREEN_DK, "Clicks"], [NAVY, "Impressions"]]}>
-          {kw.length === 0 ? <EmptyNote text="No Google keyword data in this range." /> : (
+        <Section title={t("dashboard.googleTop10SearchKeywords")} legend={[[GREEN_DK, "Clicks"], [NAVY, "Impressions"]]}>
+          {kw.length === 0 ? <EmptyNote text={t("report.noGoogleKeywordDataIn")} /> : (
             <div style={{ display: "flex", flexDirection: "column", gap: 7 }}>
               {kw.map((k, i) => (
                 <div key={k.keyword + i} style={{ display: "grid", gridTemplateColumns: "110px 1fr", gap: 8, alignItems: "center" }}>
@@ -225,8 +227,8 @@ export function AdsReportView({ perf, keywords, leads, ga4, camps, campaigns, ra
             </div>
           )}
         </Section>
-        <Section title="Age Demography" legend={[[NAVY, "Impressions"], [GREEN_DK, "Clicks"]]}>
-          {age.length === 0 ? <EmptyNote text="No age breakdown in this range." /> : (() => {
+        <Section title={t("dashboard.ageDemography")} legend={[[NAVY, "Impressions"], [GREEN_DK, "Clicks"]]}>
+          {age.length === 0 ? <EmptyNote text={t("report.noAgeBreakdownInThis")} /> : (() => {
             // Shares (%) on one comparable scale, matching the dashboard: raw
             // impressions vs clicks are on two different magnitudes.
             const totImp = age.reduce((a, b) => a + b.impressions, 0) || 1;
@@ -253,8 +255,8 @@ export function AdsReportView({ perf, keywords, leads, ga4, camps, campaigns, ra
 
       {/* Gender demography + Monthly leads breakdown */}
       <div className="print-avoid-break" style={{ display: "grid", gridTemplateColumns: "300px 1fr", gap: 14, paddingTop: 12 }}>
-        <Section title="Gender Demography">
-          {gender.length === 0 ? <EmptyNote text="No gender breakdown in this range." /> : (
+        <Section title={t("dashboard.genderDemography")}>
+          {gender.length === 0 ? <EmptyNote text={t("report.noGenderBreakdownInThis")} /> : (
             <div style={{ display: "flex", flexDirection: "column", gap: 8 }}>
               {gender.map((b) => {
                 const total = gender.reduce((a, x) => a + x.impressions, 0) || 1;
@@ -273,8 +275,8 @@ export function AdsReportView({ perf, keywords, leads, ga4, camps, campaigns, ra
             </div>
           )}
         </Section>
-        <Section title="Monthly Leads Performance Breakdown">
-          {dailyLeads.length === 0 ? <EmptyNote text="No lead data in this range." /> : (
+        <Section title={t("report.monthlyLeadsPerformanceBreakdown")}>
+          {dailyLeads.length === 0 ? <EmptyNote text={t("report.noLeadDataInThis")} /> : (
             <div style={{ height: 200 }}>
               <ResponsiveContainer width="100%" height="100%">
                 <AreaChart data={dailyLeads} margin={{ top: 6, right: 8, left: -18, bottom: 0 }}>
@@ -291,8 +293,8 @@ export function AdsReportView({ perf, keywords, leads, ga4, camps, campaigns, ra
       </div>
 
       {/* Latest leads */}
-      <Section mt title="Latest Leads">
-        {leads.length === 0 ? <EmptyNote text="No leads in this range." /> : (
+      <Section mt title={t("dashboard.latestLeads")}>
+        {leads.length === 0 ? <EmptyNote text={t("report.noLeadsInThisRange")} /> : (
           <table style={{ width: "100%", borderCollapse: "collapse", fontSize: 11.5 }}>
             <thead>
               <tr style={{ background: GREEN, color: "#fff" }}>
@@ -306,7 +308,7 @@ export function AdsReportView({ perf, keywords, leads, ga4, camps, campaigns, ra
                 return (
                   <tr key={l.id} style={{ borderBottom: "1px solid #eef2f7" }}>
                     <td style={{ padding: "7px 10px", color: "#64748b", whiteSpace: "nowrap" }}>{l.last_message_at ? new Date(l.last_message_at).toLocaleString("en-US", { month: "short", day: "numeric", year: "numeric", hour: "numeric", minute: "2-digit", second: "2-digit", hour12: true }) : "-"}</td>
-                    <td style={{ padding: "7px 10px", fontWeight: 600 }}>{l.contact_name || "Unknown"}</td>
+                    <td style={{ padding: "7px 10px", fontWeight: 600 }}>{l.contact_name || t("broadcasts.unknown")}</td>
                     <td style={{ padding: "7px 10px", color: "#64748b" }}>{l.contact_phone || "-"}</td>
                     <td style={{ padding: "7px 10px", color: "#64748b", textTransform: "capitalize" }}>{l.channel || "-"}</td>
                     <td style={{ padding: "7px 10px" }}>{l.stage_name || l.status}</td>
@@ -324,8 +326,8 @@ export function AdsReportView({ perf, keywords, leads, ga4, camps, campaigns, ra
       </Section>
 
       {/* Monthly spending */}
-      <Section mt title="Monthly Spending Performance" legend={[[GREEN, "Cost"]]}>
-        {dailyPerf.length === 0 ? <EmptyNote text="No spend data in this range." /> : (
+      <Section mt title={t("dashboard.monthlySpendingPerformance")} legend={[[GREEN, "Cost"]]}>
+        {dailyPerf.length === 0 ? <EmptyNote text={t("report.noSpendDataInThis")} /> : (
           <div style={{ height: 200 }}>
             <ResponsiveContainer width="100%" height="100%">
               <BarChart data={dailyPerf} margin={{ top: 6, right: 8, left: 6, bottom: 0 }}>
@@ -350,7 +352,7 @@ export function AdsReportView({ perf, keywords, leads, ga4, camps, campaigns, ra
             { label: "Budget Utilization", value: util.toFixed(2) + "%", accent: true },
           ].map((b) => (
             <div key={b.label} style={{ borderRadius: 10, padding: "13px 15px", background: b.accent ? GREEN : "#fff", color: b.accent ? "#fff" : (b.c || "#0f172a"), boxShadow: PANEL }}>
-              <div style={{ fontSize: 11, opacity: b.accent ? 0.92 : 0.6 }}>{b.label}</div>
+              <div style={{ fontSize: 11, opacity: b.accent ? 0.92 : 0.6 }}>{t(b.label)}</div>
               <div style={{ fontSize: 19, fontWeight: 800, marginTop: 3 }}>{b.value}</div>
             </div>
           ))}
@@ -360,8 +362,8 @@ export function AdsReportView({ perf, keywords, leads, ga4, camps, campaigns, ra
       {/* Landing Page Performance (GA4, left) + Top locations (right) in one row.
           Both always present so the report structure stays consistent. */}
       <div className="print-avoid-break" style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 14, paddingTop: 12, alignItems: "start" }}>
-      <Section title="Landing Page Performance">
-        {!ga4?.connected ? <EmptyNote text="Google Analytics is not connected." /> : !gt ? <EmptyNote text="No landing-page data in this range." /> : (<>
+      <Section title={t("dashboard.landingPagePerformance")}>
+        {!ga4?.connected ? <EmptyNote text={t("report.googleAnalyticsIsNotConnected")} /> : !gt ? <EmptyNote text={t("report.noLandingPageDataIn")} /> : (<>
           <div style={{ display: "grid", gridTemplateColumns: "repeat(2,1fr)", gap: 10, marginBottom: 12 }}>
             {([["Total users", num(gt.total_users)], ["Active users", num(gt.active_users)], ["New users", num(gt.new_users)], ["Sessions", num(gt.sessions)],
               ["Engaged sessions", num(gt.engaged_sessions)], ["Engagement rate", (gt.engagement_rate * 100).toFixed(1) + "%"], ["Avg engagement", fmtSec(gt.avg_engagement_sec)], ["Views", num(gt.views)]] as [string, string][]).map(([l, v]) => (
@@ -375,13 +377,13 @@ export function AdsReportView({ perf, keywords, leads, ga4, camps, campaigns, ra
             <table style={{ width: "100%", borderCollapse: "collapse", fontSize: 11 }}>
               <thead>
                 <tr style={{ borderBottom: "1px solid #e5e7eb", color: "#64748b" }}>
-                  {["Landing page", "Views", "Sessions", "New users", "Engagement"].map((h, i) => (<th key={h} style={{ padding: "5px 8px", textAlign: i === 0 ? "left" : "right", fontSize: 9.5, fontWeight: 700 }}>{h}</th>))}
+                  {["Landing page", "Views", "Sessions", "New users", "Engagement"].map((h, i) => (<th key={h} style={{ padding: "5px 8px", textAlign: i === 0 ? "left" : "right", fontSize: 9.5, fontWeight: 700 }}>{t(h)}</th>))}
                 </tr>
               </thead>
               <tbody>
                 {ga4.rows.slice(0, 8).map((r, i) => (
                   <tr key={i} style={{ borderBottom: "1px solid #f1f5f9" }}>
-                    <td style={{ padding: "5px 8px", maxWidth: 320, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>{r.landing_page || "(not set)"}</td>
+                    <td style={{ padding: "5px 8px", maxWidth: 320, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>{r.landing_page || t("dashboard.notSet")}</td>
                     <td style={{ padding: "5px 8px", textAlign: "right" }}>{num(r.views)}</td>
                     <td style={{ padding: "5px 8px", textAlign: "right" }}>{num(r.sessions)}</td>
                     <td style={{ padding: "5px 8px", textAlign: "right" }}>{num(r.new_users)}</td>
@@ -395,8 +397,8 @@ export function AdsReportView({ perf, keywords, leads, ga4, camps, campaigns, ra
       </Section>
 
       {/* Top locations (province) */}
-      <Section title={regionBySpend ? "Top Locations (ad spend by province)" : "Top Locations (reach)"}>
-        {mapPoints.length === 0 ? <EmptyNote text="No location data in this range." /> : (
+      <Section title={regionBySpend ? t("report.topLocationsAdSpendBy") : t("report.topLocationsReach")}>
+        {mapPoints.length === 0 ? <EmptyNote text={t("report.noLocationDataInThis")} /> : (
           <div style={{ height: 300 }}>
             <IndonesiaMap points={mapPoints} isMoney={regionBySpend} money={regionBySpend ? money : num} />
           </div>
@@ -415,6 +417,7 @@ function PdfFunnel({ steps, width }: {
   steps: { label: string; value: string; rate: string; Icon: any }[];
   width: number;
 }) {
+  const { t } = useI18n();
   const H = 52, G = 4, END = 20, R = 6;
   const pillW = 54, gap = 8, aw = width - pillW - gap;
   const total = steps.length * H + (steps.length - 1) * G;
@@ -444,7 +447,7 @@ function PdfFunnel({ steps, width }: {
                 <s.Icon style={{ width: 15, height: 15, opacity: 0.9, flexShrink: 0 }} />
                 <div style={{ textAlign: "center", minWidth: 0 }}>
                   <div style={{ fontSize: 15, fontWeight: 800, lineHeight: 1 }}>{s.value}</div>
-                  <div style={{ fontSize: 9.5, fontWeight: 500, opacity: 0.85, marginTop: 2 }}>{s.label}</div>
+                  <div style={{ fontSize: 9.5, fontWeight: 500, opacity: 0.85, marginTop: 2 }}>{t(s.label)}</div>
                 </div>
               </div>
             </div>

@@ -1,4 +1,5 @@
 "use client";
+import { useI18n } from "@/lib/i18n";
 import { useCallback, useEffect, useMemo, useState } from "react";
 import type { ReactNode } from "react";
 import {
@@ -43,6 +44,7 @@ const STATUS_BADGE: Record<string, string> = {
 };
 
 export default function WaFormsPage() {
+  const { t } = useI18n();
   const [tab, setTab] = useState<"forms" | "responses">("forms");
   const [flows, setFlows] = useState<WaFlow[] | null>(null);
   const [responses, setResponses] = useState<WaFlowResponse[] | null>(null);
@@ -188,23 +190,23 @@ export default function WaFormsPage() {
               className="w-full h-9 pl-9 pr-3 rounded-md border border-input bg-background text-sm text-foreground placeholder:text-muted-foreground/70 outline-none transition-shadow focus:border-primary focus:ring-2 focus:ring-primary/20" />
           </div>
           {tab === "forms" && (
-            <MultiSelect value={channelFilter} onChange={setChannelFilter} placeholder="All channels" className="min-w-[170px]"
+            <MultiSelect value={channelFilter} onChange={setChannelFilter} placeholder={t("common.allChannels")} className="min-w-[170px]"
               options={channels.map((c) => ({ value: c.id, label: c.name }))} />
           )}
-          <Tip label="Refresh"><button onClick={() => { load(); if (tab === "responses") api.listFlowResponses().then(setResponses).catch(() => {}); }}
+          <Tip label={t("broadcasts.refresh")}><button onClick={() => { load(); if (tab === "responses") api.listFlowResponses().then(setResponses).catch(() => {}); }}
             className="p-1.5 rounded-md text-muted-foreground hover:bg-muted hover:text-foreground transition-colors outline-none">
             <RefreshCw className="w-[18px] h-[18px]" />
           </button></Tip>
           <div className="flex-1" />
           {tab === "responses" && (
             <button onClick={exportCsv} className="inline-flex items-center gap-1.5 px-3.5 h-9 rounded-md border border-border text-sm font-medium text-muted-foreground hover:bg-muted outline-none">
-              <Download className="w-4 h-4" /> Export
+              <Download className="w-4 h-4" /> {t("contacts.export")}
             </button>
           )}
           <button onClick={createForm} disabled={busy === "create"}
             className="inline-flex items-center gap-2 px-3.5 h-9 bg-primary text-white rounded-md text-sm font-semibold hover:bg-primary-dark shadow-sm transition-all outline-none disabled:opacity-50">
             {busy === "create" ? <Loader2 className="w-4 h-4 animate-spin" /> : <Plus className="w-4 h-4" />}
-            Create WhatsApp Form
+            {t("settings.createWhatsappForm")}
           </button>
         </div>
 
@@ -214,7 +216,7 @@ export default function WaFormsPage() {
             <div className="py-16 text-center text-muted-foreground"><Loader2 className="w-5 h-5 animate-spin inline" /></div>
           ) : filtered.length === 0 ? (
             <div className="py-16 text-center text-sm text-muted-foreground">
-              {tab === "forms" ? "No forms yet. Create your first WhatsApp Form." : "No responses yet."}
+              {tab === "forms" ? t("settings.noFormsYetCreateYour") : t("settings.noResponsesYet")}
             </div>
           ) : tab === "forms" ? (
             <FormsTable flows={paged as WaFlow[]} busy={busy} onEdit={openEditor} onPublish={publish} onSend={send} onDelete={remove} />
@@ -227,15 +229,15 @@ export default function WaFormsPage() {
         <div className="flex flex-wrap items-center gap-2 py-3 px-4 border-t border-border shrink-0">
           <span className="text-[13px] font-semibold text-muted-foreground tabular-nums shrink-0">{filtered.length} {noun}{filtered.length === 1 ? "" : "s"}</span>
           <div className="flex-1 flex justify-center items-center gap-1 min-w-[160px]">
-            <button aria-label="First page" disabled={page <= 1} onClick={() => setPage(1)} className="p-1 rounded-md text-muted-foreground hover:bg-muted hover:text-foreground disabled:opacity-30 disabled:cursor-not-allowed outline-none transition-colors"><ChevronsLeft className="w-[18px] h-[18px]" /></button>
-            <button aria-label="Previous page" disabled={page <= 1} onClick={() => setPage(page - 1)} className="p-1 rounded-md text-muted-foreground hover:bg-muted hover:text-foreground disabled:opacity-30 disabled:cursor-not-allowed outline-none transition-colors"><ChevronLeft className="w-[18px] h-[18px]" /></button>
+            <button aria-label={t("broadcasts.firstPage")} disabled={page <= 1} onClick={() => setPage(1)} className="p-1 rounded-md text-muted-foreground hover:bg-muted hover:text-foreground disabled:opacity-30 disabled:cursor-not-allowed outline-none transition-colors"><ChevronsLeft className="w-[18px] h-[18px]" /></button>
+            <button aria-label={t("broadcasts.previousPage")} disabled={page <= 1} onClick={() => setPage(page - 1)} className="p-1 rounded-md text-muted-foreground hover:bg-muted hover:text-foreground disabled:opacity-30 disabled:cursor-not-allowed outline-none transition-colors"><ChevronLeft className="w-[18px] h-[18px]" /></button>
             <span className="px-3 py-1 rounded-md border border-primary/40 text-primary text-[13px] font-bold min-w-[32px] text-center tabular-nums">{page}</span>
             <span className="text-[13px] text-muted-foreground tabular-nums">/ {totalPages}</span>
-            <button aria-label="Next page" disabled={page >= totalPages} onClick={() => setPage(page + 1)} className="p-1 rounded-md text-muted-foreground hover:bg-muted hover:text-foreground disabled:opacity-30 disabled:cursor-not-allowed outline-none transition-colors"><ChevronRight className="w-[18px] h-[18px]" /></button>
-            <button aria-label="Last page" disabled={page >= totalPages} onClick={() => setPage(totalPages)} className="p-1 rounded-md text-muted-foreground hover:bg-muted hover:text-foreground disabled:opacity-30 disabled:cursor-not-allowed outline-none transition-colors"><ChevronsRight className="w-[18px] h-[18px]" /></button>
+            <button aria-label={t("broadcasts.nextPage")} disabled={page >= totalPages} onClick={() => setPage(page + 1)} className="p-1 rounded-md text-muted-foreground hover:bg-muted hover:text-foreground disabled:opacity-30 disabled:cursor-not-allowed outline-none transition-colors"><ChevronRight className="w-[18px] h-[18px]" /></button>
+            <button aria-label={t("broadcasts.lastPage")} disabled={page >= totalPages} onClick={() => setPage(totalPages)} className="p-1 rounded-md text-muted-foreground hover:bg-muted hover:text-foreground disabled:opacity-30 disabled:cursor-not-allowed outline-none transition-colors"><ChevronsRight className="w-[18px] h-[18px]" /></button>
           </div>
           <div className="hidden sm:flex items-center gap-2">
-            <span className="text-[13px] text-muted-foreground">Per page</span>
+            <span className="text-[13px] text-muted-foreground">{t("broadcasts.perPage")}</span>
             <Select value={String(perPage)} onChange={(v) => setPerPage(Number(v))} align="right" className="w-[72px]"
               options={[10, 25, 50].map((n) => ({ value: String(n), label: String(n) }))} />
           </div>
@@ -260,15 +262,16 @@ function FormsTable({ flows, busy, onEdit, onPublish, onSend, onDelete }: {
   onEdit: (id: string) => void; onPublish: (id: string) => void;
   onSend: (f: WaFlow) => void; onDelete: (id: string) => void;
 }) {
+  const { t } = useI18n();
   return (
     <table className="w-full text-sm">
       <thead>
         <tr className="border-b border-border bg-muted/40 text-left">
-          <th className="px-4 py-2.5 text-[11px] font-bold uppercase tracking-wider text-muted-foreground">Name</th>
-          <th className="px-4 py-2.5 text-[11px] font-bold uppercase tracking-wider text-muted-foreground">Status</th>
-          <th className="px-4 py-2.5 text-[11px] font-bold uppercase tracking-wider text-muted-foreground">Responses</th>
-          <th className="px-4 py-2.5 text-[11px] font-bold uppercase tracking-wider text-muted-foreground">Updated</th>
-          <th className="px-4 py-2.5 text-[11px] font-bold uppercase tracking-wider text-muted-foreground text-right">Actions</th>
+          <th className="px-4 py-2.5 text-[11px] font-bold uppercase tracking-wider text-muted-foreground">{t("inbox.name")}</th>
+          <th className="px-4 py-2.5 text-[11px] font-bold uppercase tracking-wider text-muted-foreground">{t("automation.status")}</th>
+          <th className="px-4 py-2.5 text-[11px] font-bold uppercase tracking-wider text-muted-foreground">{t("broadcasts.responses")}</th>
+          <th className="px-4 py-2.5 text-[11px] font-bold uppercase tracking-wider text-muted-foreground">{t("dashboard.updated")}</th>
+          <th className="px-4 py-2.5 text-[11px] font-bold uppercase tracking-wider text-muted-foreground text-right">{t("common.actions")}</th>
         </tr>
       </thead>
       <tbody className="divide-y divide-border">
@@ -285,10 +288,10 @@ function FormsTable({ flows, busy, onEdit, onPublish, onSend, onDelete }: {
               <td className="px-4 py-3 text-muted-foreground">{fmtDateTimeShort(f.updated_at || "")}</td>
               <td className="px-4 py-3">
                 <div className="flex items-center justify-end gap-1">
-                  <IconBtn title="Edit" onClick={() => onEdit(f.id)}><Pencil className="w-4 h-4" /></IconBtn>
-                  <IconBtn title="Publish" loading={busy === f.id} onClick={() => onPublish(f.id)}><Rocket className="w-4 h-4" /></IconBtn>
-                  <IconBtn title="Send test" disabled={f.status !== "published"} onClick={() => onSend(f)}><Send className="w-4 h-4" /></IconBtn>
-                  <IconBtn title="Delete" onClick={() => onDelete(f.id)}><Trash2 className="w-4 h-4 text-destructive" /></IconBtn>
+                  <IconBtn title={t("common.edit")} onClick={() => onEdit(f.id)}><Pencil className="w-4 h-4" /></IconBtn>
+                  <IconBtn title={t("settings.publish")} loading={busy === f.id} onClick={() => onPublish(f.id)}><Rocket className="w-4 h-4" /></IconBtn>
+                  <IconBtn title={t("settings.sendTest")} disabled={f.status !== "published"} onClick={() => onSend(f)}><Send className="w-4 h-4" /></IconBtn>
+                  <IconBtn title={t("common.delete")} onClick={() => onDelete(f.id)}><Trash2 className="w-4 h-4 text-destructive" /></IconBtn>
                 </div>
               </td>
             </tr>
@@ -311,15 +314,16 @@ function IconBtn({ children, title, onClick, disabled, loading }: { children: Re
 
 // ── Responses table ─────────────────────────────────────────
 function ResponsesTable({ responses, onView }: { responses: WaFlowResponse[]; onView: (r: WaFlowResponse) => void }) {
+  const { t } = useI18n();
   return (
     <table className="w-full text-sm">
       <thead>
         <tr className="border-b border-border bg-muted/40 text-left">
-          <th className="px-4 py-2.5 text-[11px] font-bold uppercase tracking-wider text-muted-foreground">Form</th>
-          <th className="px-4 py-2.5 text-[11px] font-bold uppercase tracking-wider text-muted-foreground">Contact</th>
-          <th className="px-4 py-2.5 text-[11px] font-bold uppercase tracking-wider text-muted-foreground">Phone</th>
-          <th className="px-4 py-2.5 text-[11px] font-bold uppercase tracking-wider text-muted-foreground">Received</th>
-          <th className="px-4 py-2.5 text-[11px] font-bold uppercase tracking-wider text-muted-foreground text-right">View</th>
+          <th className="px-4 py-2.5 text-[11px] font-bold uppercase tracking-wider text-muted-foreground">{t("automation.form")}</th>
+          <th className="px-4 py-2.5 text-[11px] font-bold uppercase tracking-wider text-muted-foreground">{t("broadcasts.contact")}</th>
+          <th className="px-4 py-2.5 text-[11px] font-bold uppercase tracking-wider text-muted-foreground">{t("contacts.phone")}</th>
+          <th className="px-4 py-2.5 text-[11px] font-bold uppercase tracking-wider text-muted-foreground">{t("settings.received")}</th>
+          <th className="px-4 py-2.5 text-[11px] font-bold uppercase tracking-wider text-muted-foreground text-right">{t("settings.view")}</th>
         </tr>
       </thead>
       <tbody className="divide-y divide-border">
@@ -330,7 +334,7 @@ function ResponsesTable({ responses, onView }: { responses: WaFlowResponse[]; on
             <td className="px-4 py-3 tabular-nums text-muted-foreground">{r.contact_phone}</td>
             <td className="px-4 py-3 text-muted-foreground">{fmtDateTimeShort(r.received_at)}</td>
             <td className="px-4 py-3 text-right">
-              <IconBtn title="View" onClick={() => onView(r)}><Eye className="w-4 h-4" /></IconBtn>
+              <IconBtn title={t("settings.view")} onClick={() => onView(r)}><Eye className="w-4 h-4" /></IconBtn>
             </td>
           </tr>
         ))}
@@ -340,8 +344,9 @@ function ResponsesTable({ responses, onView }: { responses: WaFlowResponse[]; on
 }
 
 function ResponseViewer({ r, onClose }: { r: WaFlowResponse; onClose: () => void }) {
+  const { t } = useI18n();
   return (
-    <Modal onClose={onClose} title={r.flow_name || "Response"}>
+    <Modal onClose={onClose} title={r.flow_name || t("settings.response")}>
       <div className="p-5 space-y-3 text-sm">
         <p className="text-muted-foreground">{r.contact_name} · {r.contact_phone} · {fmtDateTimeShort(r.received_at)}</p>
         <div className="divide-y divide-border rounded-lg border border-border">
@@ -372,6 +377,7 @@ function FlowBuilder({ flow, channels, onClose, onSaved, onFlash }: {
   flow: WaFlowDetail; channels: Channel[]; onClose: () => void; onSaved: () => void;
   onFlash: (ok: boolean, t: string) => void;
 }) {
+  const { t } = useI18n();
   const [step, setStep] = useState(0);
   const [name, setName] = useState(flow.name);
   const [category, setCategory] = useState((flow.categories && flow.categories[0]) || "LEAD_GENERATION");
@@ -431,7 +437,7 @@ function FlowBuilder({ flow, channels, onClose, onSaved, onFlash }: {
       <header className="shrink-0 border-b border-border px-6 h-16 flex items-center gap-4">
         <div className="flex items-center gap-2.5 min-w-0">
           <FileText className="w-5 h-5 text-primary shrink-0" />
-          <span className="text-sm text-muted-foreground truncate">{name || "New form"}</span>
+          <span className="text-sm text-muted-foreground truncate">{name || t("settings.newForm")}</span>
         </div>
         <div className="flex-1 flex items-center justify-center gap-2">
           {WIZARD_STEPS.map((label, i) => (
@@ -454,32 +460,32 @@ function FlowBuilder({ flow, channels, onClose, onSaved, onFlash }: {
           <div className="h-full overflow-y-auto">
             <div className="max-w-xl mx-auto py-10 px-6 space-y-7">
               <div>
-                <h2 className="text-lg font-bold text-foreground">Set up your form</h2>
-                <p className="text-sm text-muted-foreground">Name it and pick what it&apos;s for. You can change this later.</p>
+                <h2 className="text-lg font-bold text-foreground">{t("settings.setUpYourForm")}</h2>
+                <p className="text-sm text-muted-foreground">{t("settings.nameItAndPickWhat")}</p>
               </div>
               <div>
-                <label className="block text-sm font-semibold mb-1.5">Form name</label>
+                <label className="block text-sm font-semibold mb-1.5">{t("settings.formName")}</label>
                 <input value={name} onChange={(e) => setName(e.target.value)} autoFocus
                   className="w-full px-3.5 py-2.5 rounded-lg border border-border bg-background text-sm outline-none focus:border-primary"
-                  placeholder="e.g. Test drive booking" />
+                  placeholder={t("settings.eGTestDriveBooking")} />
               </div>
               <div>
-                <label className="block text-sm font-semibold mb-2">Category</label>
+                <label className="block text-sm font-semibold mb-2">{t("settings.category")}</label>
                 <div className="flex flex-wrap gap-2">
                   {CATEGORIES.map((c) => (
                     <button key={c.v} onClick={() => setCategory(c.v)}
                       className={cn("px-3.5 py-1.5 rounded-full text-sm border transition-colors",
                         category === c.v ? "border-primary bg-primary/10 text-primary-text font-medium" : "border-border text-muted-foreground hover:bg-muted")}>
-                      {c.label}
+                      {t(c.label)}
                     </button>
                   ))}
                 </div>
               </div>
               <div>
-                <label className="block text-sm font-semibold mb-1.5">WhatsApp channel</label>
-                <Select value={channelId} onChange={setChannelId} placeholder="Default WhatsApp channel"
+                <label className="block text-sm font-semibold mb-1.5">{t("broadcasts.whatsappChannel")}</label>
+                <Select value={channelId} onChange={setChannelId} placeholder={t("settings.defaultWhatsappChannel")}
                   options={[{ value: "", label: "Default WhatsApp channel" }, ...channels.map((c) => ({ value: c.id, label: c.name }))]} />
-                <p className="text-xs text-muted-foreground mt-1.5">Which connected number this form publishes and sends from.</p>
+                <p className="text-xs text-muted-foreground mt-1.5">{t("settings.whichConnectedNumberThisForm")}</p>
               </div>
             </div>
           </div>
@@ -495,14 +501,14 @@ function FlowBuilder({ flow, channels, onClose, onSaved, onFlash }: {
                   <div key={i} className={cn("group flex items-center gap-1.5 px-2 py-2 rounded-md cursor-pointer text-sm",
                     i === sel ? "bg-primary/10 text-primary-text" : "hover:bg-muted")} onClick={() => setSel(i)}>
                     <GripVertical className="w-3.5 h-3.5 opacity-40" />
-                    <span className="flex-1 truncate">{s.title || "Screen"}</span>
+                    <span className="flex-1 truncate">{s.title || t("settings.screen")}</span>
                     <button onClick={(e) => { e.stopPropagation(); update(def.screens.filter((_, x) => x !== i)); setSel(0); }}
                       className="opacity-0 group-hover:opacity-100"><X className="w-3.5 h-3.5" /></button>
                   </div>
                 ))}
               </div>
               <button onClick={addScreen} className="mt-2 w-full inline-flex items-center justify-center gap-1.5 px-2 py-2 rounded-md border border-dashed border-border text-sm text-primary hover:bg-muted">
-                <Plus className="w-3.5 h-3.5" /> Add screen
+                <Plus className="w-3.5 h-3.5" /> {t("settings.addScreen")}
               </button>
             </div>
 
@@ -511,15 +517,15 @@ function FlowBuilder({ flow, channels, onClose, onSaved, onFlash }: {
               {!screen ? (
                 <div className="h-full grid place-items-center text-center">
                   <div>
-                    <p className="text-sm text-muted-foreground mb-3">No screens yet.</p>
+                    <p className="text-sm text-muted-foreground mb-3">{t("settings.noScreensYet")}</p>
                     <button onClick={addScreen} className="inline-flex items-center gap-1.5 px-3.5 py-2 rounded-lg bg-primary text-primary-foreground text-sm font-medium">
-                      <Plus className="w-4 h-4" /> Add your first screen
+                      <Plus className="w-4 h-4" /> {t("settings.addYourFirstScreen")}
                     </button>
                   </div>
                 </div>
               ) : (
                 <div className="max-w-md">
-                  <label className="block text-xs font-semibold text-muted-foreground mb-1">Screen title</label>
+                  <label className="block text-xs font-semibold text-muted-foreground mb-1">{t("settings.screenTitle")}</label>
                   <input value={screen.title} onChange={(e) => patchScreen(sel, { title: e.target.value })}
                     className="w-full mb-4 px-3 py-2 rounded-lg border border-border bg-background text-sm outline-none focus:border-primary" />
                   <div className="space-y-3">
@@ -535,7 +541,7 @@ function FlowBuilder({ flow, channels, onClose, onSaved, onFlash }: {
 
             {/* Preview */}
             <div className="border-l border-border bg-muted/30 p-4 overflow-y-auto">
-              <p className="text-xs font-semibold text-muted-foreground mb-3 text-center">Live preview</p>
+              <p className="text-xs font-semibold text-muted-foreground mb-3 text-center">{t("broadcasts.livePreview")}</p>
               <Preview screen={screen} />
             </div>
           </div>
@@ -544,21 +550,21 @@ function FlowBuilder({ flow, channels, onClose, onSaved, onFlash }: {
         {step === 2 && (
           <div className="h-full overflow-y-auto">
             <div className="max-w-2xl mx-auto py-10 px-6">
-              <h2 className="text-lg font-bold text-foreground mb-1">Review &amp; publish</h2>
-              <p className="text-sm text-muted-foreground mb-6">Publishing pushes this form to WhatsApp so you can send it to contacts.</p>
+              <h2 className="text-lg font-bold text-foreground mb-1">{t("settings.reviewPublish")}</h2>
+              <p className="text-sm text-muted-foreground mb-6">{t("settings.publishingPushesThisFormTo")}</p>
               <div className="grid grid-cols-2 gap-4 mb-6">
-                <Stat label="Screens" value={def.screens.length} />
-                <Stat label="Fields collected" value={inputs.length} />
+                <Stat label={t("settings.screens")} value={def.screens.length} />
+                <Stat label={t("settings.fieldsCollected")} value={inputs.length} />
               </div>
               <div className="rounded-lg border border-border divide-y divide-border">
                 {def.screens.map((s, i) => (
                   <div key={i} className="px-4 py-3">
-                    <p className="text-sm font-semibold text-foreground mb-1">{i + 1}. {s.title || "Screen"}</p>
+                    <p className="text-sm font-semibold text-foreground mb-1">{i + 1}. {s.title || t("settings.screen")}</p>
                     <div className="flex flex-wrap gap-1.5">
                       {s.components.filter((c) => isInput(c.type)).map((c, x) => (
                         <span key={x} className="px-2 py-0.5 rounded-md bg-muted text-xs text-muted-foreground">{c.label || c.name}</span>
                       ))}
-                      {s.components.filter((c) => isInput(c.type)).length === 0 && <span className="text-xs text-muted-foreground">No input fields</span>}
+                      {s.components.filter((c) => isInput(c.type)).length === 0 && <span className="text-xs text-muted-foreground">{t("settings.noInputFields")}</span>}
                     </div>
                   </div>
                 ))}
@@ -570,8 +576,8 @@ function FlowBuilder({ flow, channels, onClose, onSaved, onFlash }: {
                   <div className="flex items-start gap-2.5">
                     <Sheet className="w-5 h-5 text-success mt-0.5" />
                     <div>
-                      <p className="text-sm font-semibold text-foreground">Send responses to Google Sheets</p>
-                      <p className="text-xs text-muted-foreground">Append every submission as a new row.</p>
+                      <p className="text-sm font-semibold text-foreground">{t("settings.sendResponsesToGoogleSheets")}</p>
+                      <p className="text-xs text-muted-foreground">{t("settings.appendEverySubmissionAsA")}</p>
                     </div>
                   </div>
                   <button onClick={() => setSheetEnabled((v) => !v)}
@@ -582,21 +588,21 @@ function FlowBuilder({ flow, channels, onClose, onSaved, onFlash }: {
                 {/* Service-account email — always visible so the user knows who to share the sheet with. */}
                 {saEmail ? (
                   <div className="mt-3 rounded-md border border-border bg-muted/40 p-2.5">
-                    <p className="text-[11px] font-semibold text-muted-foreground mb-1">Share your Google Sheet (Editor) with this account:</p>
+                    <p className="text-[11px] font-semibold text-muted-foreground mb-1">{t("automation.shareYourGoogleSheetEditor")}</p>
                     <div className="flex items-center gap-1.5">
                       <code className="flex-1 text-[12px] text-foreground break-all select-all">{saEmail}</code>
                       <button onClick={() => { navigator.clipboard?.writeText(saEmail); setSaCopied(true); setTimeout(() => setSaCopied(false), 1500); }}
-                        className="shrink-0 px-2 h-6 rounded border border-border text-[11px] font-medium hover:bg-muted outline-none">{saCopied ? "Copied" : "Copy"}</button>
+                        className="shrink-0 px-2 h-6 rounded border border-border text-[11px] font-medium hover:bg-muted outline-none">{saCopied ? t("automation.copied") : t("automation.copy")}</button>
                     </div>
                   </div>
                 ) : (
-                  <p className="mt-3 text-xs text-amber-600">Google Sheets isn&apos;t connected yet. An admin needs to add the service-account key on the server.</p>
+                  <p className="mt-3 text-xs text-amber-600">{t("settings.googleSheetsIsnTConnected")}</p>
                 )}
                 {sheetEnabled && (
                   <div className="mt-3 space-y-2">
-                    <input value={sheetUrl} onChange={(e) => setSheetUrl(e.target.value)} placeholder="Paste Google Sheet URL"
+                    <input value={sheetUrl} onChange={(e) => setSheetUrl(e.target.value)} placeholder={t("settings.pasteGoogleSheetUrl")}
                       className="w-full px-3 py-2 rounded-lg border border-border bg-background text-sm outline-none focus:border-primary" />
-                    <input value={sheetTab} onChange={(e) => setSheetTab(e.target.value)} placeholder="Tab name (default: Sheet1)"
+                    <input value={sheetTab} onChange={(e) => setSheetTab(e.target.value)} placeholder={t("settings.tabNameDefaultSheet1")}
                       className="w-full px-3 py-2 rounded-lg border border-border bg-background text-sm outline-none focus:border-primary" />
                   </div>
                 )}
@@ -610,22 +616,22 @@ function FlowBuilder({ flow, channels, onClose, onSaved, onFlash }: {
       <footer className="shrink-0 border-t border-border px-6 h-16 flex items-center justify-between">
         <button onClick={step === 0 ? onClose : () => setStep(step - 1)}
           className="px-4 py-2 rounded-lg text-sm font-medium text-muted-foreground hover:bg-muted">
-          {step === 0 ? "Cancel" : "Back"}
+          {step === 0 ? t("common.cancel") : t("account.back")}
         </button>
         <div className="flex items-center gap-2">
           <button onClick={() => persist(false)} disabled={saving}
             className="px-4 py-2 rounded-lg border border-border text-sm font-medium hover:bg-muted disabled:opacity-50">
-            {saving ? <Loader2 className="w-4 h-4 animate-spin" /> : "Save draft"}
+            {saving ? <Loader2 className="w-4 h-4 animate-spin" /> : t("settings.saveDraft")}
           </button>
           {step < WIZARD_STEPS.length - 1 ? (
             <button onClick={() => setStep(step + 1)} disabled={!canNext}
               className="px-5 py-2 rounded-lg bg-primary text-primary-foreground text-sm font-semibold hover:opacity-90 disabled:opacity-40">
-              Next
+              {t("settings.next")}
             </button>
           ) : (
             <button onClick={() => persist(true)} disabled={saving}
               className="px-5 py-2 rounded-lg bg-primary text-primary-foreground text-sm font-semibold hover:opacity-90 disabled:opacity-50 inline-flex items-center gap-2">
-              <Rocket className="w-4 h-4" /> Publish to WhatsApp
+              <Rocket className="w-4 h-4" /> {t("settings.publishToWhatsapp")}
             </button>
           )}
         </div>
@@ -644,6 +650,7 @@ function Stat({ label, value }: { label: string; value: number }) {
 }
 
 function CompEditor({ c, onChange, onRemove }: { c: FlowComponent; onChange: (p: Partial<FlowComponent>) => void; onRemove: () => void }) {
+  const { t } = useI18n();
   const label = PALETTE.find((p) => p.type === c.type)?.label || c.type;
   return (
     <div className="rounded-lg border border-border p-3 bg-card">
@@ -654,10 +661,10 @@ function CompEditor({ c, onChange, onRemove }: { c: FlowComponent; onChange: (p:
       {isInput(c.type) ? (
         <>
           <input value={c.label || ""} onChange={(e) => onChange({ label: e.target.value, name: c.name || slug(e.target.value) })}
-            placeholder="Question / label" className="w-full mb-2 px-2.5 py-1.5 rounded-md border border-border bg-background text-sm outline-none focus:border-primary" />
+            placeholder={t("settings.questionLabel")} className="w-full mb-2 px-2.5 py-1.5 rounded-md border border-border bg-background text-sm outline-none focus:border-primary" />
           {hasOptions(c.type) && (
             <div className="mb-2 space-y-1.5">
-              <p className="text-[11px] font-semibold text-muted-foreground">Options</p>
+              <p className="text-[11px] font-semibold text-muted-foreground">{t("settings.options")}</p>
               {(c.options || []).map((opt, oi) => (
                 <div key={oi} className="group flex items-center gap-1.5">
                   <span className="grid place-items-center w-5 h-7 text-[11px] text-muted-foreground/60 shrink-0">{oi + 1}</span>
@@ -665,41 +672,42 @@ function CompEditor({ c, onChange, onRemove }: { c: FlowComponent; onChange: (p:
                     placeholder={`Option ${oi + 1}`}
                     className="flex-1 h-8 px-2.5 rounded-md border border-border bg-background text-sm outline-none focus:border-primary" />
                   <button onClick={() => onChange({ options: (c.options || []).filter((_, x) => x !== oi) })}
-                    className="p-1 rounded-md text-muted-foreground/50 hover:text-destructive hover:bg-muted shrink-0" title="Remove option">
+                    className="p-1 rounded-md text-muted-foreground/50 hover:text-destructive hover:bg-muted shrink-0" title={t("settings.removeOption")}>
                     <X className="w-3.5 h-3.5" />
                   </button>
                 </div>
               ))}
               <button onClick={() => onChange({ options: [...(c.options || []), ""] })}
                 className="inline-flex items-center gap-1.5 h-8 px-2.5 rounded-md border border-dashed border-border text-sm text-primary hover:bg-muted font-medium">
-                <Plus className="w-3.5 h-3.5" /> Add option
+                <Plus className="w-3.5 h-3.5" /> {t("settings.addOption2")}
               </button>
             </div>
           )}
           <label className="flex items-center gap-2 text-xs text-muted-foreground">
-            <input type="checkbox" checked={!!c.required} onChange={(e) => onChange({ required: e.target.checked })} /> Required
+            <input type="checkbox" checked={!!c.required} onChange={(e) => onChange({ required: e.target.checked })} /> {t("settings.required")}
           </label>
         </>
       ) : (
         <textarea value={c.text || ""} onChange={(e) => onChange({ text: e.target.value })}
-          placeholder="Text" rows={2} className="w-full px-2.5 py-1.5 rounded-md border border-border bg-background text-sm outline-none focus:border-primary" />
+          placeholder={t("settings.text")} rows={2} className="w-full px-2.5 py-1.5 rounded-md border border-border bg-background text-sm outline-none focus:border-primary" />
       )}
     </div>
   );
 }
 
 function AddComponent({ onAdd }: { onAdd: (t: FlowComponentType) => void }) {
+  const { t } = useI18n();
   const [open, setOpen] = useState(false);
   return (
     <div className="relative mt-3">
       <button onClick={() => setOpen((o) => !o)} className="inline-flex items-center gap-1.5 px-3 py-2 rounded-lg border border-border text-sm text-primary hover:bg-muted">
-        <Plus className="w-4 h-4" /> Add Content <ChevronDown className="w-3.5 h-3.5" />
+        <Plus className="w-4 h-4" /> {t("settings.addContent")} <ChevronDown className="w-3.5 h-3.5" />
       </button>
       {open && (
         <div className="absolute z-10 mt-1 w-56 max-h-72 overflow-y-auto rounded-lg border border-border bg-popover shadow-lg p-1">
           {PALETTE.map((p) => (
             <button key={p.type} onClick={() => { onAdd(p.type); setOpen(false); }}
-              className="w-full text-left px-3 py-2 rounded-md text-sm hover:bg-muted">{p.label}</button>
+              className="w-full text-left px-3 py-2 rounded-md text-sm hover:bg-muted">{t(p.label)}</button>
           ))}
         </div>
       )}
@@ -709,6 +717,7 @@ function AddComponent({ onAdd }: { onAdd: (t: FlowComponentType) => void }) {
 
 // WhatsApp-style preview of a screen.
 function Preview({ screen }: { screen?: FlowScreen }) {
+  const { t } = useI18n();
   if (!screen) return null;
   return (
     <div className="mx-auto w-[240px] rounded-2xl overflow-hidden border border-border bg-white shadow-sm">
@@ -721,7 +730,7 @@ function Preview({ screen }: { screen?: FlowScreen }) {
           if (c.type === "caption") return <p key={i} className="text-[#667781] text-[11px]">{c.text}</p>;
           return (
             <div key={i}>
-              <p className="text-[11px] text-[#667781] mb-1">{c.label}{c.required ? " *" : ""}</p>
+              <p className="text-[11px] text-[#667781] mb-1">{t(c.label ?? "")}{c.required ? " *" : ""}</p>
               {c.type === "text_area" ? (
                 <div className="h-12 rounded-md border border-[#D1D7DB] bg-white" />
               ) : hasOptions(c.type) ? (
@@ -736,7 +745,7 @@ function Preview({ screen }: { screen?: FlowScreen }) {
             </div>
           );
         })}
-        <div className="mt-2 rounded-md bg-[#008069] text-white text-center text-xs py-1.5 font-medium">Continue</div>
+        <div className="mt-2 rounded-md bg-[#008069] text-white text-center text-xs py-1.5 font-medium">{t("broadcasts.continue")}</div>
       </div>
     </div>
   );

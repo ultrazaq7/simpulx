@@ -1,10 +1,12 @@
 "use client";
+import { useI18n } from "@/lib/i18n";
 import { useState } from "react";
 import { useRouter } from "next/navigation";
 import { Mail, ArrowLeft, MailCheck, Loader2 } from "lucide-react";
 import { api } from "@/lib/api";
 
 export default function ForgotPasswordPage() {
+  const { t } = useI18n();
   const router = useRouter();
   const [email, setEmail] = useState("");
   const [error, setError] = useState("");
@@ -18,7 +20,7 @@ export default function ForgotPasswordPage() {
       await api.forgotPassword(email.trim());
       setSent(true);
     } catch (err: any) {
-      setError(err.message || "Something went wrong");
+      setError(err.message || t("auth.somethingWentWrong"));
     } finally { setLoading(false); }
   }
 
@@ -27,10 +29,10 @@ export default function ForgotPasswordPage() {
       {/* Logo */}
       <div className="mb-7 flex items-center gap-2.5 animate-fade-in">
         <div className="w-10 h-10 rounded-lg overflow-hidden shadow-md">
-          <img src="/simpulx_logo.png" alt="Simpulx" className="w-full h-full object-cover" />
+          <img src="/simpulx_logo.png" alt={t("auth.simpulx")} className="w-full h-full object-cover" />
         </div>
         <span className="text-[20px] font-extrabold tracking-tight text-foreground">
-          Simpul<span className="text-amber">x</span>
+          {t("auth.simpul")}<span className="text-amber">x</span>
         </span>
       </div>
 
@@ -40,22 +42,22 @@ export default function ForgotPasswordPage() {
             <div className="w-14 h-14 rounded-xl mx-auto mb-5 grid place-items-center bg-primary/10 text-primary">
               <MailCheck className="w-7 h-7" />
             </div>
-            <h2 className="text-xl font-bold text-foreground mb-2">Check your email</h2>
+            <h2 className="text-xl font-bold text-foreground mb-2">{t("auth.checkYourEmail")}</h2>
             <p className="text-muted-foreground text-[13px] leading-relaxed mb-7">
-              If an account exists for <b className="text-foreground">{email}</b>, we have sent a link to reset your password.
+              {t("auth.ifAnAccountExistsFor")} <b className="text-foreground">{email}</b>{t("auth.weHaveSentALink")}
             </p>
             <button
               onClick={() => router.push("/login")}
               className="w-full h-11 inline-flex items-center justify-center gap-2 rounded-lg border border-border bg-card text-foreground/80 font-semibold text-[13.5px] hover:bg-muted transition-colors outline-none"
             >
-              <ArrowLeft className="w-4 h-4" /> Back to sign in
+              <ArrowLeft className="w-4 h-4" /> {t("auth.backToSignIn")}
             </button>
           </div>
         ) : (
           <>
             <div className="mb-6">
-              <h1 className="text-[24px] font-bold tracking-tight text-foreground">Reset password</h1>
-              <p className="mt-1 text-[14px] text-muted-foreground">Enter your email and we'll send you a reset link.</p>
+              <h1 className="text-[24px] font-bold tracking-tight text-foreground">{t("auth.resetPassword")}</h1>
+              <p className="mt-1 text-[14px] text-muted-foreground">{t("auth.enterYourEmailAndWe")}</p>
             </div>
 
             {error && (
@@ -66,7 +68,7 @@ export default function ForgotPasswordPage() {
 
             <form onSubmit={submit} className="flex flex-col gap-4">
               <div className="space-y-1.5">
-                <label className="text-[12px] font-bold text-foreground/80">Email address</label>
+                <label className="text-[12px] font-bold text-foreground/80">{t("account.email")}</label>
                 <div className="relative">
                   <Mail className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-muted-foreground pointer-events-none" />
                   <input
@@ -86,7 +88,7 @@ export default function ForgotPasswordPage() {
                 disabled={loading}
                 className="w-full h-11 mt-1 inline-flex items-center justify-center rounded-lg bg-primary hover:bg-primary-dark text-white font-bold text-[13.5px] shadow-sm hover:shadow-brand-md transition-all disabled:opacity-60 outline-none"
               >
-                {loading ? <Loader2 className="w-4 h-4 animate-spin" /> : "Send reset link"}
+                {loading ? <Loader2 className="w-4 h-4 animate-spin" /> : t("auth.sendResetLink")}
               </button>
             </form>
 
@@ -94,13 +96,13 @@ export default function ForgotPasswordPage() {
               onClick={() => router.push("/login")}
               className="flex items-center justify-center gap-2 mt-5 w-full text-muted-foreground hover:text-primary transition-colors text-[13px] font-medium outline-none"
             >
-              <ArrowLeft className="w-4 h-4" /> Back to sign in
+              <ArrowLeft className="w-4 h-4" /> {t("auth.backToSignIn")}
             </button>
           </>
         )}
 
         <p className="text-center mt-8 text-[11px] text-muted-foreground/60 font-medium tracking-wide">
-          © {new Date().getFullYear()} Simpulx. All rights reserved.
+          © {new Date().getFullYear()} {t("auth.simpulxAllRightsReserved")}
         </p>
       </div>
     </div>

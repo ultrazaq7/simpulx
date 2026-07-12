@@ -1,4 +1,5 @@
 "use client";
+import { useI18n } from "@/lib/i18n";
 import { useEffect, useRef } from "react";
 import { X } from "lucide-react";
 import { cn } from "@/lib/utils";
@@ -19,6 +20,7 @@ export function Toast({
   onClose: () => void;
   durationMs?: number;
 }) {
+  const { t } = useI18n();
   // Keep the auto-dismiss timer stable across parent re-renders.
   const onCloseRef = useRef(onClose);
   onCloseRef.current = onClose;
@@ -41,7 +43,7 @@ export function Toast({
         <span className="min-w-0 break-words">{msg}</span>
         <button
           onClick={onClose}
-          aria-label="Close"
+          aria-label={t("components.close")}
           className="relative grid place-items-center w-7 h-7 shrink-0 rounded-full hover:bg-white/15 outline-none transition-colors"
         >
           <svg className="absolute inset-0 w-7 h-7 -rotate-90" viewBox="0 0 24 24" aria-hidden>

@@ -1,4 +1,5 @@
 "use client";
+import { useI18n } from "@/lib/i18n";
 import { useEffect, useMemo, useRef, useState } from "react";
 import { useRouter } from "next/navigation";
 import {
@@ -37,6 +38,7 @@ type Toast = { msg: string; sev: "success" | "error" } | null;
 // List page
 // ════════════════════════════════════════════════════════════════════════════
 export default function BroadcastsPage() {
+  const { t } = useI18n();
   const router = useRouter();
   const { can } = usePermissions();
   const canSend = can("send_broadcasts");
@@ -89,17 +91,17 @@ export default function BroadcastsPage() {
         <div className="p-3 flex items-center gap-3 border-b border-border shrink-0">
           <div className="relative w-[300px] max-w-[45vw]">
             <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-muted-foreground pointer-events-none" />
-            <input value={query} onChange={(e) => setQuery(e.target.value)} placeholder="Search broadcasts"
+            <input value={query} onChange={(e) => setQuery(e.target.value)} placeholder={t("broadcasts.searchBroadcasts")}
               className="w-full h-9 pl-9 pr-3 rounded-md border border-input bg-background text-sm text-foreground placeholder:text-muted-foreground/70 outline-none transition-shadow focus:border-primary focus:ring-2 focus:ring-primary/20" />
           </div>
-          <Tip label="Refresh"><button onClick={load} className="p-1.5 rounded-md text-muted-foreground hover:bg-muted hover:text-foreground transition-colors outline-none">
+          <Tip label={t("broadcasts.refresh")}><button onClick={load} className="p-1.5 rounded-md text-muted-foreground hover:bg-muted hover:text-foreground transition-colors outline-none">
             <RefreshCw className={cn("w-[18px] h-[18px]", loading && "animate-spin")} />
           </button></Tip>
           <div className="flex-1" />
           {canSend && (
             <button onClick={() => setWizardOpen(true)}
               className="inline-flex items-center gap-2 px-3.5 h-9 bg-primary text-white rounded-md text-sm font-semibold hover:bg-primary-dark shadow-sm hover:shadow-brand-md transition-all outline-none">
-              <Megaphone className="w-4 h-4" /> New broadcast
+              <Megaphone className="w-4 h-4" /> {t("broadcasts.newBroadcast")}
             </button>
           )}
         </div>
@@ -110,7 +112,7 @@ export default function BroadcastsPage() {
             <thead>
               <tr className="border-b border-border bg-muted/40">
                 {["Broadcast", "Status", "Audience", "Delivery", "Created", ""].map((h, i) => (
-                  <th key={i} className="px-4 py-2.5 text-left text-[11px] font-bold uppercase tracking-wider text-muted-foreground">{h || <span className="sr-only">Actions</span>}</th>
+                  <th key={i} className="px-4 py-2.5 text-left text-[11px] font-bold uppercase tracking-wider text-muted-foreground">{h ? t(h) : <span className="sr-only">{t("common.actions")}</span>}</th>
                 ))}
               </tr>
             </thead>
@@ -122,7 +124,7 @@ export default function BroadcastsPage() {
                   <td colSpan={6} className="py-16">
                     {rows.length === 0
                       ? <EmptyState onCreate={() => setWizardOpen(true)} canCreate={canSend} />
-                      : <p className="text-center text-sm text-muted-foreground">No broadcasts match your search.</p>}
+                      : <p className="text-center text-sm text-muted-foreground">{t("broadcasts.noBroadcastsMatchYourSearch")}</p>}
                   </td>
                 </tr>
               ) : paged.map((b) => (
@@ -136,17 +138,17 @@ export default function BroadcastsPage() {
 
         {/* Pagination */}
         <div className="flex flex-wrap items-center gap-2 py-3 px-4 border-t border-border shrink-0">
-          <span className="text-[13px] font-semibold text-muted-foreground tabular-nums shrink-0">{filtered.length} broadcast{filtered.length === 1 ? "" : "s"}</span>
+          <span className="text-[13px] font-semibold text-muted-foreground tabular-nums shrink-0">{t("broadcasts.nBroadcasts", { n: filtered.length })}</span>
           <div className="flex-1 flex justify-center items-center gap-1 min-w-[160px]">
-            <button aria-label="First page" disabled={page <= 1} onClick={() => setPage(1)} className="p-1 rounded-md text-muted-foreground hover:bg-muted hover:text-foreground disabled:opacity-30 disabled:cursor-not-allowed outline-none transition-colors"><ChevronsLeft className="w-[18px] h-[18px]" /></button>
-            <button aria-label="Previous page" disabled={page <= 1} onClick={() => setPage(page - 1)} className="p-1 rounded-md text-muted-foreground hover:bg-muted hover:text-foreground disabled:opacity-30 disabled:cursor-not-allowed outline-none transition-colors"><ChevronLeft className="w-[18px] h-[18px]" /></button>
+            <button aria-label={t("broadcasts.firstPage")} disabled={page <= 1} onClick={() => setPage(1)} className="p-1 rounded-md text-muted-foreground hover:bg-muted hover:text-foreground disabled:opacity-30 disabled:cursor-not-allowed outline-none transition-colors"><ChevronsLeft className="w-[18px] h-[18px]" /></button>
+            <button aria-label={t("broadcasts.previousPage")} disabled={page <= 1} onClick={() => setPage(page - 1)} className="p-1 rounded-md text-muted-foreground hover:bg-muted hover:text-foreground disabled:opacity-30 disabled:cursor-not-allowed outline-none transition-colors"><ChevronLeft className="w-[18px] h-[18px]" /></button>
             <span className="px-3 py-1 rounded-md border border-primary/40 text-primary text-[13px] font-bold min-w-[32px] text-center tabular-nums">{page}</span>
             <span className="text-[13px] text-muted-foreground tabular-nums">/ {totalPages}</span>
-            <button aria-label="Next page" disabled={page >= totalPages} onClick={() => setPage(page + 1)} className="p-1 rounded-md text-muted-foreground hover:bg-muted hover:text-foreground disabled:opacity-30 disabled:cursor-not-allowed outline-none transition-colors"><ChevronRight className="w-[18px] h-[18px]" /></button>
-            <button aria-label="Last page" disabled={page >= totalPages} onClick={() => setPage(totalPages)} className="p-1 rounded-md text-muted-foreground hover:bg-muted hover:text-foreground disabled:opacity-30 disabled:cursor-not-allowed outline-none transition-colors"><ChevronsRight className="w-[18px] h-[18px]" /></button>
+            <button aria-label={t("broadcasts.nextPage")} disabled={page >= totalPages} onClick={() => setPage(page + 1)} className="p-1 rounded-md text-muted-foreground hover:bg-muted hover:text-foreground disabled:opacity-30 disabled:cursor-not-allowed outline-none transition-colors"><ChevronRight className="w-[18px] h-[18px]" /></button>
+            <button aria-label={t("broadcasts.lastPage")} disabled={page >= totalPages} onClick={() => setPage(totalPages)} className="p-1 rounded-md text-muted-foreground hover:bg-muted hover:text-foreground disabled:opacity-30 disabled:cursor-not-allowed outline-none transition-colors"><ChevronsRight className="w-[18px] h-[18px]" /></button>
           </div>
           <div className="hidden sm:flex items-center gap-2">
-            <span className="text-[13px] text-muted-foreground">Per page</span>
+            <span className="text-[13px] text-muted-foreground">{t("broadcasts.perPage")}</span>
             <Select value={String(perPage)} onChange={(v) => setPerPage(Number(v))} align="right" className="w-[72px]"
               options={[10, 25, 50].map((n) => ({ value: String(n), label: String(n) }))} />
           </div>
@@ -167,17 +169,18 @@ export default function BroadcastsPage() {
 }
 
 function EmptyState({ onCreate, canCreate }: { onCreate: () => void; canCreate: boolean }) {
+  const { t } = useI18n();
   return (
     <div className="grid place-items-center text-center">
       <div className="w-16 h-16 rounded-2xl bg-primary/10 grid place-items-center mb-4">
         <Megaphone className="w-8 h-8 text-primary" />
       </div>
-      <p className="font-bold text-foreground">No broadcasts yet</p>
-      <p className="text-sm text-muted-foreground mt-1 mb-4">Send bulk messages to your contacts at once.</p>
+      <p className="font-bold text-foreground">{t("broadcasts.noBroadcastsYet")}</p>
+      <p className="text-sm text-muted-foreground mt-1 mb-4">{t("broadcasts.sendBulkMessagesToYour")}</p>
       {canCreate && (
         <button onClick={onCreate}
           className="inline-flex items-center gap-2 px-4 h-9 bg-primary text-white rounded-md text-sm font-semibold hover:bg-primary-dark shadow-sm hover:shadow-brand-md transition-all outline-none">
-          <Plus className="w-4 h-4" /> Create first broadcast
+          <Plus className="w-4 h-4" /> {t("broadcasts.createFirstBroadcast")}
         </button>
       )}
     </div>
@@ -185,6 +188,7 @@ function EmptyState({ onCreate, canCreate }: { onCreate: () => void; canCreate: 
 }
 
 function BroadcastRow({ b, busy, canManage, onOpen, onSend, onDelete }: { b: Broadcast; busy: boolean; canManage: boolean; onOpen: () => void; onSend: () => void; onDelete: () => void }) {
+  const { t } = useI18n();
   const sm = statusMeta(b.status);
   const isTemplate = !!b.template_name;
   const preview = isTemplate ? b.template_name! : (b.body?.trim() || "No message");
@@ -201,7 +205,7 @@ function BroadcastRow({ b, busy, canManage, onOpen, onSend, onDelete }: { b: Bro
           <div className="min-w-0">
             <div className="flex items-center gap-2">
               <p className="font-semibold text-[13px] text-foreground truncate max-w-[260px]">{b.name}</p>
-              {isTemplate && <span className="inline-flex px-1.5 py-0.5 rounded bg-muted text-muted-foreground text-[9px] font-bold uppercase tracking-wide shrink-0">Template</span>}
+              {isTemplate && <span className="inline-flex px-1.5 py-0.5 rounded bg-muted text-muted-foreground text-[9px] font-bold uppercase tracking-wide shrink-0">{t("broadcasts.template")}</span>}
             </div>
             <p className="text-[11.5px] text-muted-foreground truncate max-w-[300px]">{preview}</p>
           </div>
@@ -209,10 +213,10 @@ function BroadcastRow({ b, busy, canManage, onOpen, onSend, onDelete }: { b: Bro
       </td>
       {/* Status */}
       <td className="px-4 py-2.5">
-        <span className={cn("inline-flex px-2 py-0.5 rounded-md text-[10px] font-bold uppercase tracking-wide capitalize", sm.cls)}>{b.status}</span>
+        <span className={cn("inline-flex px-2 py-0.5 rounded-md text-[10px] font-bold uppercase tracking-wide capitalize", sm.cls)}>{t(b.status)}</span>
       </td>
       {/* Audience */}
-      <td className="px-4 py-2.5 text-[12.5px] text-muted-foreground whitespace-nowrap">{AUDIENCE_LABEL[b.audience || "all"] ?? "All contacts"}</td>
+      <td className="px-4 py-2.5 text-[12.5px] text-muted-foreground whitespace-nowrap">{AUDIENCE_LABEL[b.audience || "all"] ?? t("broadcasts.allContacts")}</td>
       {/* Delivery */}
       <td className="px-4 py-2.5">
         <div className="min-w-[130px]">
@@ -234,12 +238,12 @@ function BroadcastRow({ b, busy, canManage, onOpen, onSend, onDelete }: { b: Bro
           {canManage && canSend && (
             <button onClick={stop(onSend)} disabled={busy}
               className="inline-flex items-center gap-1.5 px-2.5 h-8 border border-primary/40 text-primary rounded-md text-[12.5px] font-semibold hover:bg-primary/5 disabled:opacity-50 transition-colors outline-none whitespace-nowrap">
-              {busy ? <Loader2 className="w-3.5 h-3.5 animate-spin" /> : <Send className="w-3.5 h-3.5" />} Send now
+              {busy ? <Loader2 className="w-3.5 h-3.5 animate-spin" /> : <Send className="w-3.5 h-3.5" />} {t("broadcasts.sendNow")}
             </button>
           )}
-          <Tip label="See details"><button onClick={stop(onOpen)} className="p-1.5 rounded-md text-muted-foreground hover:bg-muted hover:text-foreground transition-colors outline-none"><ChevronRight className="w-[18px] h-[18px]" /></button></Tip>
+          <Tip label={t("broadcasts.seeDetails")}><button onClick={stop(onOpen)} className="p-1.5 rounded-md text-muted-foreground hover:bg-muted hover:text-foreground transition-colors outline-none"><ChevronRight className="w-[18px] h-[18px]" /></button></Tip>
           {canManage && (
-            <Tip label="Delete"><button onClick={stop(onDelete)} disabled={busy}
+            <Tip label={t("common.delete")}><button onClick={stop(onDelete)} disabled={busy}
               className="p-1.5 rounded-md text-muted-foreground hover:bg-destructive/10 hover:text-destructive disabled:opacity-50 transition-colors outline-none"><Trash2 className="w-[18px] h-[18px]" /></button></Tip>
           )}
         </div>
@@ -254,6 +258,7 @@ function BroadcastRow({ b, busy, canManage, onOpen, onSend, onDelete }: { b: Bro
 const STEPS = ["Name", "Channel", "Audience", "Message", "Review"] as const;
 
 function BroadcastWizard({ onClose, onDone }: { onClose: () => void; onDone: (msg: string) => void }) {
+  const { t } = useI18n();
   const [step, setStep] = useState(0);
 
   // form state
@@ -396,28 +401,28 @@ function BroadcastWizard({ onClose, onDone }: { onClose: () => void; onDone: (ms
     <SidePanel
       open
       onClose={onClose}
-      title="New broadcast"
+      title={t("broadcasts.newBroadcast")}
       description={`Step ${step + 1} of ${STEPS.length}: ${STEPS[step]}`}
       width="lg"
       footer={
         <div className="flex items-center gap-2 w-full">
           {step > 0 && (
             <button onClick={() => setStep(step - 1)} className="inline-flex items-center gap-1.5 px-4 h-9 rounded-md border border-border text-sm font-semibold text-foreground/80 hover:bg-muted transition-colors outline-none">
-              <ArrowLeft className="w-4 h-4" /> Back
+              <ArrowLeft className="w-4 h-4" /> {t("account.back")}
             </button>
           )}
           <div className="flex-1" />
           {step < STEPS.length - 1 ? (
             <button onClick={() => setStep(step + 1)} disabled={!canProceed}
               className="px-5 h-9 rounded-md bg-primary text-white text-sm font-semibold hover:bg-primary-dark disabled:opacity-40 disabled:cursor-not-allowed shadow-sm hover:shadow-brand-md transition-all outline-none">
-              Continue
+              {t("broadcasts.continue")}
             </button>
           ) : (
             <button onClick={submit} disabled={saving}
               className={cn("inline-flex items-center gap-2 px-5 h-9 rounded-md text-sm font-semibold text-white disabled:opacity-50 transition-all outline-none shadow-sm",
                 sendNow ? "bg-primary hover:bg-primary-dark hover:shadow-brand-md" : "bg-muted-foreground hover:opacity-90")}>
               {saving && <Loader2 className="w-4 h-4 animate-spin" />}
-              {sendNow ? "Create & send" : "Save as draft"}
+              {sendNow ? t("broadcasts.createSend") : t("broadcasts.saveAsDraft")}
             </button>
           )}
         </div>
@@ -474,10 +479,11 @@ function BroadcastWizard({ onClose, onDone }: { onClose: () => void; onDone: (ms
 
 // ── Step 0: Name ───────────────────────────────────────────────────────────
 function NameStep({ name, setName }: { name: string; setName: (v: string) => void }) {
+  const { t } = useI18n();
   return (
     <div>
-      <StepHead title="Broadcast name" hint="Give your broadcast a recognizable name for internal reference." />
-      <input value={name} onChange={(e) => setName(e.target.value)} autoFocus placeholder="e.g. Promo Ramadan 2026"
+      <StepHead title={t("broadcasts.broadcastName")} hint={t("broadcasts.giveYourBroadcastARecognizable")} />
+      <input value={name} onChange={(e) => setName(e.target.value)} autoFocus placeholder={t("broadcasts.eGPromoRamadan2026")}
         className="w-full h-11 px-3.5 rounded-md border border-input bg-background text-sm text-foreground placeholder:text-muted-foreground/70 outline-none transition-shadow focus:border-primary focus:ring-2 focus:ring-primary/20" />
     </div>
   );
@@ -488,21 +494,22 @@ function ChannelStep({ type, setType, channels, channelId, setChannelId, setTemp
   type: "template" | "text"; setType: (v: "template" | "text") => void; channels: Channel[];
   channelId: string | null; setChannelId: (v: string) => void; setTemplateId: (v: null) => void;
 }) {
+  const { t } = useI18n();
   return (
     <div className="space-y-6">
       <div>
-        <p className="text-[13px] font-bold text-foreground mb-2.5">Message type</p>
+        <p className="text-[13px] font-bold text-foreground mb-2.5">{t("automation.messageType")}</p>
         <div className="grid grid-cols-2 gap-3">
           <OptionCard selected={type === "template"} onClick={() => { setType("template"); setTemplateId(null); }}
-            Icon={FileText} title="WhatsApp template" subtitle="Use pre-approved templates" />
+            Icon={FileText} title={t("broadcasts.whatsappTemplate")} subtitle={t("broadcasts.usePreApprovedTemplates")} />
           <OptionCard selected={type === "text"} onClick={() => { setType("text"); setTemplateId(null); }}
-            Icon={MessageSquare} title="Text message" subtitle="Send a plain text message" />
+            Icon={MessageSquare} title={t("broadcasts.textMessage")} subtitle={t("broadcasts.sendAPlainTextMessage")} />
         </div>
       </div>
       <div>
-        <StepHead title="WhatsApp channel" hint="Select the number to send from." sm />
+        <StepHead title={t("broadcasts.whatsappChannel")} hint={t("broadcasts.selectTheNumberToSend")} sm />
         {channels.length === 0 ? (
-          <Notice>No WhatsApp channels configured.</Notice>
+          <Notice>{t("broadcasts.noWhatsappChannelsConfigured")}</Notice>
         ) : (
           <div className="space-y-2">
             {channels.map((ch) => {
@@ -534,23 +541,24 @@ function AudienceStep(p: {
   contacts: Contact[]; selectedIds: Set<string>; toggleContact: (id: string) => void;
   contactSearch: string; setContactSearch: (v: string) => void; onImport: () => void;
 }) {
+  const { t } = useI18n();
   const toggleTag = (t: string) => { const n = new Set(p.filterTags); n.has(t) ? n.delete(t) : n.add(t); p.setFilterTags(n); };
   return (
     <div>
-      <StepHead title="Audience" hint="Target all contacts or pick specific contacts only." />
+      <StepHead title={t("broadcasts.audience")} hint={t("broadcasts.targetAllContactsOrPick")} />
       <div className="grid grid-cols-2 gap-3">
         <OptionCard selected={p.audienceMode === "all"} onClick={() => p.setAudienceMode("all")}
-          Icon={Users} title="All contacts" subtitle="Every contact with a phone" />
+          Icon={Users} title={t("broadcasts.allContacts")} subtitle={t("broadcasts.everyContactWithAPhone")} />
         <OptionCard selected={p.audienceMode === "selected"} onClick={() => p.setAudienceMode("selected")}
-          Icon={UserPlus} title="Selected contacts" subtitle="Pick specific contacts" />
+          Icon={UserPlus} title={t("broadcasts.selectedContacts")} subtitle={t("broadcasts.pickSpecificContacts")} />
       </div>
 
       {p.audienceMode === "all" && (
         <div className="mt-6">
-          <p className="text-[13px] font-bold text-foreground">Filter by labels <span className="text-muted-foreground font-medium">(optional)</span></p>
-          <p className="text-[12px] text-muted-foreground mt-0.5 mb-3">Only send to contacts with any selected label. Leave empty to send to all.</p>
+          <p className="text-[13px] font-bold text-foreground">{t("broadcasts.filterByLabels")} <span className="text-muted-foreground font-medium">(optional)</span></p>
+          <p className="text-[12px] text-muted-foreground mt-0.5 mb-3">{t("broadcasts.onlySendToContactsWith")}</p>
           {p.allTags.length === 0 ? (
-            <div className="px-3 py-2.5 rounded-md bg-muted/50 text-[12px] text-muted-foreground">No labels found across contacts.</div>
+            <div className="px-3 py-2.5 rounded-md bg-muted/50 text-[12px] text-muted-foreground">{t("broadcasts.noLabelsFoundAcrossContacts")}</div>
           ) : (
             <div className="flex flex-wrap gap-2">
               {p.allTags.map((t) => {
@@ -567,7 +575,7 @@ function AudienceStep(p: {
           )}
           {p.filterTags.size > 0 && (
             <p className="text-[12px] font-semibold text-primary mt-2.5">
-              {p.filterTags.size} tag{p.filterTags.size === 1 ? "" : "s"} selected - ~{p.estRecipients} recipients
+              {p.filterTags.size} tag{p.filterTags.size === 1 ? "" : "s"} {t("broadcasts.selected")}{p.estRecipients} recipients
             </p>
           )}
         </div>
@@ -577,12 +585,12 @@ function AudienceStep(p: {
         <div className="mt-6">
           <div className="relative mb-3">
             <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-muted-foreground pointer-events-none" />
-            <input value={p.contactSearch} onChange={(e) => p.setContactSearch(e.target.value)} placeholder="Search by name or phone"
+            <input value={p.contactSearch} onChange={(e) => p.setContactSearch(e.target.value)} placeholder={t("broadcasts.searchByNameOrPhone")}
               className="w-full h-10 pl-9 pr-3 rounded-md border border-input bg-background text-sm text-foreground placeholder:text-muted-foreground/70 outline-none focus:border-primary focus:ring-2 focus:ring-primary/20" />
           </div>
           <div className="rounded-md border border-border max-h-[240px] overflow-y-auto divide-y divide-border">
             {p.contacts.length === 0 ? (
-              <div className="px-4 py-6 text-center text-[13px] text-muted-foreground">No contacts found.</div>
+              <div className="px-4 py-6 text-center text-[13px] text-muted-foreground">{t("broadcasts.noContactsFound")}</div>
             ) : p.contacts.map((c) => {
               const phone = (c.phone || "").trim();
               const can = phone.length > 0;
@@ -596,8 +604,8 @@ function AudienceStep(p: {
                     {sel && <Check className="w-3 h-3 text-white" />}
                   </span>
                   <div className="flex-1 min-w-0">
-                    <p className="text-[13px] font-semibold text-foreground truncate">{c.full_name || c.phone || "Unknown"}</p>
-                    <p className={cn("text-[11.5px]", can ? "text-muted-foreground" : "text-destructive")}>{phone || "No phone number"}</p>
+                    <p className="text-[13px] font-semibold text-foreground truncate">{c.full_name || c.phone || t("broadcasts.unknown")}</p>
+                    <p className={cn("text-[11.5px]", can ? "text-muted-foreground" : "text-destructive")}>{phone || t("broadcasts.noPhoneNumber")}</p>
                   </div>
                 </button>
               );
@@ -605,7 +613,7 @@ function AudienceStep(p: {
           </div>
           <button onClick={p.onImport}
             className="inline-flex items-center gap-1.5 px-3 h-8 mt-3 rounded-md border border-border text-[13px] font-semibold text-foreground/80 hover:bg-muted transition-colors outline-none">
-            <Upload className="w-4 h-4" /> Import phone numbers
+            <Upload className="w-4 h-4" /> {t("broadcasts.importPhoneNumbers")}
           </button>
           <p className="text-[12px] text-muted-foreground mt-2.5">{p.selectedIds.size} contact{p.selectedIds.size === 1 ? "" : "s"} selected</p>
         </div>
@@ -621,20 +629,21 @@ function MessageStep(p: {
   previewBody: string; testCandidates: Contact[]; testContactId: string | null; setTestContactId: (v: string) => void;
   canTest: boolean; sendTest: () => void; sendingTest: boolean; testFlash: string; audienceMode: "all" | "selected";
 }) {
+  const { t } = useI18n();
   return (
     <div className="grid grid-cols-[1fr_auto] gap-6">
       <div className="min-w-0">
         {p.type === "text" ? (
           <>
-            <StepHead title="Message content" hint="Write your broadcast message and send a test first." />
-            <textarea value={p.textMessage} onChange={(e) => p.setTextMessage(e.target.value)} rows={6} autoFocus placeholder="Type your message here..."
+            <StepHead title={t("broadcasts.messageContent")} hint={t("broadcasts.writeYourBroadcastMessageAnd")} />
+            <textarea value={p.textMessage} onChange={(e) => p.setTextMessage(e.target.value)} rows={6} autoFocus placeholder={t("broadcasts.typeYourMessageHere")}
               className="w-full px-3.5 py-3 rounded-md border border-input bg-background text-sm text-foreground placeholder:text-muted-foreground/70 outline-none resize-none focus:border-primary focus:ring-2 focus:ring-primary/20" />
           </>
         ) : (
           <>
-            <StepHead title="Select template" hint="Choose a pre-approved WhatsApp template to send." />
+            <StepHead title={t("broadcasts.selectTemplate")} hint={t("broadcasts.chooseAPreApprovedWhatsapp")} />
             {p.approvedTemplates.length === 0 ? (
-              <Notice>No approved templates found for this channel.</Notice>
+              <Notice>{t("broadcasts.noApprovedTemplatesFoundFor")}</Notice>
             ) : (
               <div className="space-y-2.5">
                 {p.approvedTemplates.map((t) => {
@@ -659,32 +668,32 @@ function MessageStep(p: {
 
         {/* Test section */}
         <div className="mt-5 rounded-md border border-border p-4">
-          <p className="text-[13px] font-bold text-foreground">Test message</p>
-          <p className="text-[12px] text-muted-foreground mt-0.5 mb-3">Send a test to one contact before launching the full broadcast.</p>
+          <p className="text-[13px] font-bold text-foreground">{t("broadcasts.testMessage")}</p>
+          <p className="text-[12px] text-muted-foreground mt-0.5 mb-3">{t("broadcasts.sendATestToOne")}</p>
           <div className="mb-3">
             <Select
               value={p.testContactId ?? ""}
               onChange={p.setTestContactId}
               disabled={p.testCandidates.length === 0}
-              placeholder={p.testCandidates.length === 0 ? "No contacts available" : "Select a contact"}
+              placeholder={p.testCandidates.length === 0 ? t("broadcasts.noContactsAvailable") : t("broadcasts.selectAContact")}
               options={p.testCandidates.map((c) => ({ value: c.id, label: `${c.full_name || "Contact"} - ${c.phone}` }))}
             />
           </div>
           <button onClick={p.sendTest} disabled={!p.canTest || p.sendingTest}
             className="w-full inline-flex items-center justify-center gap-2 h-9 rounded-md border border-border text-[13px] font-semibold text-foreground/80 hover:bg-muted disabled:opacity-50 transition-colors outline-none">
             {p.sendingTest ? <Loader2 className="w-4 h-4 animate-spin" /> : <Send className="w-4 h-4" />}
-            {p.sendingTest ? "Sending test..." : "Send test message"}
+            {p.sendingTest ? t("broadcasts.sendingTest") : t("broadcasts.sendTestMessage")}
           </button>
           {p.testFlash && <p className="text-[12px] font-semibold text-success mt-2">{p.testFlash}</p>}
           {p.testCandidates.length === 0 && (
             <p className="text-[11.5px] text-destructive mt-2">
-              {p.audienceMode === "selected" ? "Select at least one contact with a phone number." : "No contacts with a phone number available."}
+              {p.audienceMode === "selected" ? t("broadcasts.selectAtLeastOneContact") : t("broadcasts.noContactsWithAPhone")}
             </p>
           )}
         </div>
       </div>
 
-      <DevicePreview title={p.type === "template" ? "Template preview" : "Live preview"} content={p.previewBody}
+      <DevicePreview title={p.type === "template" ? t("broadcasts.templatePreview") : t("broadcasts.livePreview")} content={p.previewBody}
         footer={p.type === "template" && p.template ? `Template - ${p.template.name} (${p.template.language})` : undefined} />
     </div>
   );
@@ -696,6 +705,7 @@ function ReviewStep(p: {
   filterTags: Set<string>; selectedCount: number; template: Template | null; textMessage: string;
   previewBody: string; costEstimate: string; sendNow: boolean; setSendNow: (v: boolean) => void;
 }) {
+  const { t } = useI18n();
   const audienceLabel = p.audienceMode === "selected"
     ? `Selected (${p.selectedCount} contacts)`
     : p.filterTags.size > 0 ? `All with tags: ${Array.from(p.filterTags).join(", ")}` : "All contacts with a phone";
@@ -710,7 +720,7 @@ function ReviewStep(p: {
   return (
     <div className="grid grid-cols-[1fr_auto] gap-6">
       <div className="min-w-0">
-        <StepHead title="Review & confirm" />
+        <StepHead title={t("broadcasts.reviewConfirm")} />
         <div className="rounded-md border border-border divide-y divide-border">
           {rows.map(([k, v]) => (
             <div key={k} className="flex gap-3 px-4 py-2.5">
@@ -724,9 +734,9 @@ function ReviewStep(p: {
         <div className="mt-4 flex items-start gap-3 p-3.5 rounded-md bg-warning/10 border border-warning/25">
           <Info className="w-[18px] h-[18px] text-warning shrink-0 mt-0.5" />
           <div>
-            <p className="text-[13px] font-bold text-foreground">Estimated cost</p>
+            <p className="text-[13px] font-bold text-foreground">{t("broadcasts.estimatedCost")}</p>
             <p className="text-[12.5px] font-semibold text-warning mt-0.5">{p.costEstimate}</p>
-            <p className="text-[11px] text-muted-foreground mt-0.5">Based on Meta WhatsApp Business pricing. Actual cost may vary.</p>
+            <p className="text-[11px] text-muted-foreground mt-0.5">{t("broadcasts.basedOnMetaWhatsappBusiness")}</p>
           </div>
         </div>
 
@@ -737,13 +747,13 @@ function ReviewStep(p: {
             <span className={cn("absolute top-0.5 left-0.5 w-5 h-5 rounded-full bg-white shadow transition-transform", p.sendNow && "translate-x-4")} />
           </button>
           <div>
-            <p className="text-[14px] font-semibold text-foreground">Send immediately</p>
-            <p className="text-[12px] text-muted-foreground">Toggle off to save as a draft first.</p>
+            <p className="text-[14px] font-semibold text-foreground">{t("broadcasts.sendImmediately")}</p>
+            <p className="text-[12px] text-muted-foreground">{t("broadcasts.toggleOffToSaveAs")}</p>
           </div>
         </div>
       </div>
 
-      <DevicePreview title="Final preview" content={p.previewBody}
+      <DevicePreview title={t("broadcasts.finalPreview")} content={p.previewBody}
         footer={p.type === "template" && p.template ? `Template - ${p.template.name} (${p.template.language})` : undefined} />
     </div>
   );
@@ -753,6 +763,7 @@ function ReviewStep(p: {
 function ImportContactsDialog({ contacts, onClose, onMatched }: {
   contacts: Contact[]; onClose: () => void; onMatched: (ids: string[], matched: number, total: number) => void;
 }) {
+  const { t } = useI18n();
   const ref = useRef<HTMLTextAreaElement>(null);
   const [error, setError] = useState("");
   function doImport() {
@@ -760,7 +771,7 @@ function ImportContactsDialog({ contacts, onClose, onMatched }: {
     const phones = Array.from(new Set(
       raw.replace(/[,;]/g, "\n").split(/\s+/).map((p) => p.trim().replace(/[^0-9+]/g, "")).filter((p) => p.length >= 8),
     ));
-    if (phones.length === 0) { setError("No valid phone numbers found."); return; }
+    if (phones.length === 0) { setError(t("broadcasts.noValidPhoneNumbersFound")); return; }
     const ids: string[] = [];
     for (const c of contacts) {
       const cp = (c.phone || "").replace(/[^0-9+]/g, "");
@@ -776,18 +787,18 @@ function ImportContactsDialog({ contacts, onClose, onMatched }: {
       <div className="relative w-[440px] rounded-lg border border-border bg-card shadow-2xl animate-scale-in">
         <div className="flex items-center gap-2 px-5 py-3.5 border-b border-border">
           <Upload className="w-[18px] h-[18px] text-primary" />
-          <p className="font-bold text-[15px] text-foreground flex-1">Import phone numbers</p>
+          <p className="font-bold text-[15px] text-foreground flex-1">{t("broadcasts.importPhoneNumbers")}</p>
           <button onClick={onClose} className="p-1 rounded-md text-muted-foreground hover:bg-muted outline-none"><X className="w-[18px] h-[18px]" /></button>
         </div>
         <div className="p-5">
-          <p className="text-[12.5px] text-muted-foreground mb-3">Paste phone numbers separated by commas, newlines, or spaces. Matching contacts are auto-selected.</p>
-          <textarea ref={ref} rows={6} placeholder={"+628123456789, +628987654321\nor one per line..."}
+          <p className="text-[12.5px] text-muted-foreground mb-3">{t("broadcasts.pastePhoneNumbersSeparatedBy")}</p>
+          <textarea ref={ref} rows={6} placeholder={t("broadcasts.628123456789628987654321OrOnePer")}
             className="w-full px-3 py-2.5 rounded-md border border-input bg-background text-sm text-foreground placeholder:text-muted-foreground/70 outline-none resize-none focus:border-primary focus:ring-2 focus:ring-primary/20" />
           {error && <p className="text-[12px] text-destructive font-medium mt-2">{error}</p>}
         </div>
         <div className="flex justify-end gap-2 px-5 py-3 border-t border-border">
-          <button onClick={onClose} className="px-3 py-1.5 rounded-md text-sm font-semibold text-foreground/70 hover:bg-muted outline-none">Cancel</button>
-          <button onClick={doImport} className="px-4 py-1.5 rounded-md bg-primary text-white text-sm font-semibold hover:bg-primary-dark outline-none">Import & match</button>
+          <button onClick={onClose} className="px-3 py-1.5 rounded-md text-sm font-semibold text-foreground/70 hover:bg-muted outline-none">{t("common.cancel")}</button>
+          <button onClick={doImport} className="px-4 py-1.5 rounded-md bg-primary text-white text-sm font-semibold hover:bg-primary-dark outline-none">{t("broadcasts.importMatch")}</button>
         </div>
       </div>
     </div>
@@ -825,6 +836,7 @@ function Notice({ children }: { children: React.ReactNode }) {
 }
 
 function DevicePreview({ title, content, footer }: { title: string; content: string; footer?: string }) {
+  const { t } = useI18n();
   const now = new Date();
   const time = `${now.getHours()}:${String(now.getMinutes()).padStart(2, "0")}`;
   return (
@@ -838,7 +850,7 @@ function DevicePreview({ title, content, footer }: { title: string; content: str
             <ArrowLeft className="w-3.5 h-3.5 text-white" />
             <div className="w-6 h-6 rounded-full bg-[#128C7E] grid place-items-center"><Users className="w-3.5 h-3.5 text-white" /></div>
             <div className="leading-tight">
-              <p className="text-[11px] font-semibold text-white">Contact</p>
+              <p className="text-[11px] font-semibold text-white">{t("broadcasts.contact")}</p>
               <p className="text-[8.5px] text-white/70">online</p>
             </div>
           </div>
@@ -855,7 +867,7 @@ function DevicePreview({ title, content, footer }: { title: string; content: str
           </div>
           {/* input bar */}
           <div className="flex items-center gap-1.5 px-2 py-1.5 bg-[#F0F0F0]">
-            <div className="flex-1 h-6 rounded-full bg-white px-2.5 flex items-center"><span className="text-[10px] text-[#B0B6BA]">Type a message</span></div>
+            <div className="flex-1 h-6 rounded-full bg-white px-2.5 flex items-center"><span className="text-[10px] text-[#B0B6BA]">{t("broadcasts.typeAMessage")}</span></div>
             <div className="w-6 h-6 rounded-full bg-[#075E54] grid place-items-center"><Send className="w-3 h-3 text-white" /></div>
           </div>
         </div>

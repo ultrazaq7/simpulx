@@ -1,4 +1,5 @@
 "use client";
+import { useI18n } from "@/lib/i18n";
 // Campaign detail = SETUP only (Credits, AI Assistant, Catalog). All reporting
 // lives on the Dashboard, so this page has no report/PDF anymore.
 import { useEffect, useRef, useState } from "react";
@@ -17,6 +18,7 @@ const SEGMENTS = ["Automotive", "Property / Real Estate", "Finance", "Insurance"
 type Tab = "credits" | "ai" | "catalog";
 
 export default function CampaignDetailPage() {
+  const { t } = useI18n();
   const { id } = useParams<{ id: string }>();
   const router = useRouter();
   const searchParams = useSearchParams();
@@ -47,28 +49,28 @@ export default function CampaignDetailPage() {
       {ToastHost}
       <div className="max-w-[1040px]">
         <button onClick={() => router.push("/settings/campaigns")} className="inline-flex items-center gap-1.5 text-[13px] text-muted-foreground hover:text-foreground mb-3 outline-none">
-          <ArrowLeft className="w-4 h-4" /> Campaigns
+          <ArrowLeft className="w-4 h-4" /> {t("settings.campaigns")}
         </button>
         {loading ? (
           <div className="grid place-items-center py-24"><Loader2 className="w-6 h-6 animate-spin text-muted-foreground" /></div>
         ) : !campaign ? (
-          <p className="text-muted-foreground">Campaign not found.</p>
+          <p className="text-muted-foreground">{t("settings.campaignNotFound")}</p>
         ) : (
           <div className="bg-card border border-border rounded-xl shadow-xs p-6 sm:p-8">
             <h1 className="text-xl font-bold text-foreground">{campaign.name}</h1>
             {campaign.dealer_name && <p className="text-[13px] text-muted-foreground">{campaign.dealer_name}</p>}
             <div className="flex gap-1 mt-5 border-b border-border overflow-x-auto [scrollbar-width:none] [&::-webkit-scrollbar]:hidden">
-              {tabs.map((t) => (
-                <button key={t.key} onClick={() => setTab(t.key)}
+              {tabs.map((tb) => (
+                <button key={tb.key} onClick={() => setTab(tb.key)}
                   className={cn("inline-flex items-center gap-1.5 px-3.5 py-2 text-[13px] font-semibold border-b-2 -mb-px transition-colors outline-none shrink-0 whitespace-nowrap",
-                    tab === t.key ? "border-primary text-primary" : "border-transparent text-muted-foreground hover:text-foreground")}>
-                  <t.Icon className="w-4 h-4 shrink-0" /> {t.label}
+                    tab === tb.key ? "border-primary text-primary" : "border-transparent text-muted-foreground hover:text-foreground")}>
+                  <tb.Icon className="w-4 h-4 shrink-0" /> {t(tb.label)}
                 </button>
               ))}
             </div>
             <div className="mt-6">
               {tab === "credits" && <CreditsTab id={id} notify={notify} />}
-              {tab === "ai" && <AITab campaign={campaign} onSaved={(c) => { setCampaign(c); notify("AI settings saved"); }} onError={(m) => notify(m, "error")} />}
+              {tab === "ai" && <AITab campaign={campaign} onSaved={(c) => { setCampaign(c); notify(t("settings.aiSettingsSaved")); }} onError={(m) => notify(m, "error")} />}
               {tab === "catalog" && <CatalogTab id={id} segment={campaign.segment ?? undefined} notify={notify} />}
             </div>
           </div>
@@ -88,6 +90,7 @@ function Stat({ label, value, accent }: { label: string; value: string | number;
 }
 
 function CreditsTab({ id, notify }: { id: string; notify: (m: string, s?: "success" | "error") => void }) {
+  const { t } = useI18n();
   const [credits, setCredits] = useState<{ allocated_credits: number; used_credits: number; remaining_credits: number; low_balance_threshold: number } | null>(null);
   const [usage, setUsage] = useState<{ day: string; credits: number }[]>([]);
   const [alloc, setAlloc] = useState("");
@@ -102,7 +105,7 @@ function CreditsTab({ id, notify }: { id: string; notify: (m: string, s?: "succe
     setSaving(true);
     try {
       await api.allocateCampaignCredits(id, { allocated_credits: Number(alloc) || 0, low_balance_threshold: Number(threshold) || 0 });
-      notify("Credits updated"); load();
+      notify(t("settings.creditsUpdated")); load();
     } catch (e) { notify(String(e), "error"); } finally { setSaving(false); }
   }
   if (!credits) return <Loader2 className="w-5 h-5 animate-spin text-muted-foreground" />;
@@ -113,25 +116,25 @@ function CreditsTab({ id, notify }: { id: string; notify: (m: string, s?: "succe
   return (
     <div className="space-y-5">
       <div className="grid grid-cols-3 gap-3">
-        <Stat label="Allocated" value={credits.allocated_credits} />
-        <Stat label="Used" value={credits.used_credits} />
-        <Stat label="Remaining" value={credits.remaining_credits} accent={low ? "text-amber-600" : undefined} />
+        <Stat label={t("settings.allocated")} value={credits.allocated_credits} />
+        <Stat label={t("settings.used")} value={credits.used_credits} />
+        <Stat label={t("settings.remaining")} value={credits.remaining_credits} accent={low ? "text-amber-600" : undefined} />
       </div>
-      {low && <p className="text-[13px] text-amber-600 font-medium">Low balance. Top up before the AI stands down on this campaign.</p>}
-      {credits.allocated_credits === 0 && <p className="text-[13px] text-muted-foreground">No allocation set: AI replies aren&apos;t capped. Set a cap below to meter this campaign.</p>}
+      {low && <p className="text-[13px] text-amber-600 font-medium">{t("settings.lowBalanceTopUpBefore")}</p>}
+      {credits.allocated_credits === 0 && <p className="text-[13px] text-muted-foreground">{t("settings.noAllocationSetAiReplies")}</p>}
 
       <div className="rounded-lg border border-border p-4 space-y-3">
-        <p className="text-[13px] font-semibold text-foreground">Allocation</p>
+        <p className="text-[13px] font-semibold text-foreground">{t("settings.allocation")}</p>
         <div className="grid grid-cols-2 gap-3">
-          <div><FieldLabel>Allocated credits</FieldLabel><input type="number" min={0} value={alloc} onChange={(e) => setAlloc(e.target.value)} className={INPUT_CLASS} /></div>
-          <div><FieldLabel>Low-balance alert at</FieldLabel><input type="number" min={0} value={threshold} onChange={(e) => setThreshold(e.target.value)} className={INPUT_CLASS} /></div>
+          <div><FieldLabel>{t("settings.allocatedCredits")}</FieldLabel><input type="number" min={0} value={alloc} onChange={(e) => setAlloc(e.target.value)} className={INPUT_CLASS} /></div>
+          <div><FieldLabel>{t("settings.lowBalanceAlertAt")}</FieldLabel><input type="number" min={0} value={threshold} onChange={(e) => setThreshold(e.target.value)} className={INPUT_CLASS} /></div>
         </div>
       </div>
       <UnsavedBar count={allocChangedCount} saving={saving} onSave={save} onCancel={resetAlloc} saveLabel="Save allocation" />
 
       <div className="rounded-lg border border-border p-4">
-        <p className="text-[13px] font-semibold text-foreground mb-3">Usage (last 30 days)</p>
-        {usage.length === 0 ? <p className="text-[13px] text-muted-foreground">No AI replies yet.</p> : (
+        <p className="text-[13px] font-semibold text-foreground mb-3">{t("settings.usageLast30Days")}</p>
+        {usage.length === 0 ? <p className="text-[13px] text-muted-foreground">{t("settings.noAiRepliesYet")}</p> : (
           <div className="flex items-end gap-1 h-24">
             {usage.map((u) => (
               <div key={u.day} className="flex-1 min-w-[3px] rounded-t bg-primary/70" style={{ height: `${Math.max(4, (u.credits / maxUsage) * 100)}%` }} title={`${u.day}: ${u.credits}`} />
@@ -153,6 +156,7 @@ function Toggle({ on, onToggle }: { on: boolean; onToggle: () => void }) {
 }
 
 function AITab({ campaign, onSaved, onError }: { campaign: CampaignDetail; onSaved: (c: CampaignDetail) => void; onError: (m: string) => void }) {
+  const { t } = useI18n();
   const init = {
     segment: campaign.segment ?? "", brand: campaign.brand ?? "",
     autoReply: campaign.ai_auto_reply ?? false, lang: campaign.ai_language ?? "id",
@@ -196,44 +200,44 @@ function AITab({ campaign, onSaved, onError }: { campaign: CampaignDetail; onSav
   return (
     <div className="space-y-4 max-w-[560px]">
       <div className="flex items-center justify-between rounded-lg border border-border p-3">
-        <p className="text-[13.5px] font-semibold text-foreground">Auto-reply</p>
+        <p className="text-[13.5px] font-semibold text-foreground">{t("settings.autoReply")}</p>
         <Toggle on={autoReply} onToggle={() => setAutoReply((v) => !v)} />
       </div>
       <div className="flex items-center justify-between rounded-lg border border-border p-3">
-        <p className="text-[13.5px] font-semibold text-foreground">Smart Summary</p>
+        <p className="text-[13.5px] font-semibold text-foreground">{t("inbox.smartSummary")}</p>
         <Toggle on={smartSummary} onToggle={() => setSmartSummary((v) => !v)} />
       </div>
       <div className="grid grid-cols-2 gap-4">
-        <div><FieldLabel>Segment</FieldLabel>
-          <Select value={segment} onChange={setSegment} placeholder="Not set" searchable
+        <div><FieldLabel>{t("settings.segment")}</FieldLabel>
+          <Select value={segment} onChange={setSegment} placeholder={t("settings.notSet")} searchable
             options={[{ value: "", label: "Not set" }, ...SEGMENTS.map((s) => ({ value: s, label: s }))]} /></div>
-        <div><FieldLabel>Brand</FieldLabel><input value={brand} onChange={(e) => setBrand(e.target.value)} placeholder="e.g. Mitsubishi XFORCE" className={INPUT_CLASS} /></div>
+        <div><FieldLabel>{t("components.brand")}</FieldLabel><input value={brand} onChange={(e) => setBrand(e.target.value)} placeholder={t("settings.eGMitsubishiXforce")} className={INPUT_CLASS} /></div>
       </div>
       <div className="grid grid-cols-2 gap-4">
-        <div><FieldLabel>Reply language</FieldLabel>
+        <div><FieldLabel>{t("settings.replyLanguage")}</FieldLabel>
           <Select value={lang} onChange={setLang} searchable={false} options={[{ value: "id", label: "Indonesian" }, { value: "en", label: "English" }]} /></div>
         <div className="flex items-end">
           <div className="flex items-center justify-between gap-3 w-full rounded-lg border border-border p-3">
-            <p className="text-[13px] font-medium text-foreground">Match contact&apos;s language</p>
+            <p className="text-[13px] font-medium text-foreground">{t("settings.matchContactSLanguage")}</p>
             <Toggle on={dynLang} onToggle={() => setDynLang((v) => !v)} />
           </div>
         </div>
       </div>
       <div>
-        <FieldLabel hint="Auto follow-up nudges a silent lead at 12h and 20h with free-form AI messages (inside WhatsApp's 24h window). Later touches at day 1, 3 and 7 fall outside the window, so they need an approved template. No template = those later touches are skipped; the lead is still auto-closed to Lost if there's no reply.">Follow-up template</FieldLabel>
+        <FieldLabel hint={t("settings.autoFollowUpNudgesA")}>{t("settings.followUpTemplate")}</FieldLabel>
         <Select value={followupTpl} onChange={setFollowupTpl}
           options={[{ value: "", label: "None (skip out-of-window follow-ups)" }, ...templates.map((t) => ({ value: t.id, label: `${t.name} (${t.language})` }))]} />
         {templates.length === 0 && (
-          <p className="text-[11.5px] text-muted-foreground mt-1">No approved templates yet. Create one and get it approved under Templates to enable day 1/3/7 follow-ups.</p>
+          <p className="text-[11.5px] text-muted-foreground mt-1">{t("settings.noApprovedTemplatesYetCreate")}</p>
         )}
       </div>
       <div>
-        <FieldLabel hint="The AI auto-sends this WhatsApp form on its first reply to collect full lead details.">Intake form (auto-sent on first reply)</FieldLabel>
-        <Select value={intakeForm} onChange={setIntakeForm} placeholder="No form" searchable
+        <FieldLabel hint={t("settings.theAiAutoSendsThis")}>{t("settings.intakeFormAutoSentOn")}</FieldLabel>
+        <Select value={intakeForm} onChange={setIntakeForm} placeholder={t("settings.noForm")} searchable
           options={[{ value: "", label: "No form" }, ...forms.map((f) => ({ value: f.id, label: f.name }))]} />
       </div>
       <div>
-        <FieldLabel hint="Total ad budget for this campaign. Powers Budget Utilization in the Ads Report (budget vs actual spend). Leave blank to skip.">Total budget (Rp)</FieldLabel>
+        <FieldLabel hint={t("settings.totalAdBudgetForThis")}>{t("settings.totalBudgetRp")}</FieldLabel>
         <input value={budget} onChange={(e) => setBudget(e.target.value.replace(/[^0-9.]/g, ""))} placeholder="200000000" className={INPUT_CLASS} />
       </div>
       <UnsavedBar count={changedCount} saving={saving} onSave={save} onCancel={reset} saveLabel="Save AI settings" />
@@ -248,6 +252,7 @@ function AITab({ campaign, onSaved, onError }: { campaign: CampaignDetail; onSav
 type CatalogRowInput = { item_name: string; variant_name?: string; location_name?: string; category_type?: string; headline_price?: number | null; attributes?: Record<string, unknown> };
 
 function CatalogTab({ id, segment, notify }: { id: string; segment?: string; notify: (m: string, s?: "success" | "error") => void }) {
+  const { t } = useI18n();
   const [rows, setRows] = useState<CatalogItem[] | null>(null);
   const [busy, setBusy] = useState(false);
   const [editing, setEditing] = useState<CatalogItem | null>(null); // row open in the edit drawer
@@ -288,11 +293,11 @@ function CatalogTab({ id, segment, notify }: { id: string; segment?: string; not
           if (info.rows && info.rows > 0) step(`Simpuler extracted ${info.rows} item${info.rows === 1 ? "" : "s"} so far...`);
         });
         if (res.error) { notify(`Extraction failed: ${res.error}`, "error"); return; }
-        if (res.warning === "scanned") { notify("This looks like a scanned PDF (no readable text). Use a text PDF, or upload a CSV/Excel.", "error"); return; }
-        if (res.warning === "no_llm") { notify("PDF extraction is not enabled on the server. Upload a CSV or Excel file instead.", "error"); return; }
-        if (res.warning === "parse_failed") { notify("Could not read this PDF automatically. Try a cleaner text PDF, or upload a CSV/Excel.", "error"); return; }
+        if (res.warning === "scanned") { notify(t("settings.thisLooksLikeAScanned"), "error"); return; }
+        if (res.warning === "no_llm") { notify(t("settings.pdfExtractionIsNotEnabled"), "error"); return; }
+        if (res.warning === "parse_failed") { notify(t("settings.couldNotReadThisPdf"), "error"); return; }
         parsed = res.rows || [];
-        if (parsed.length === 0) { notify("No pricing rows were found in this PDF. Try a CSV/Excel export instead.", "error"); return; }
+        if (parsed.length === 0) { notify(t("settings.noPricingRowsWereFound"), "error"); return; }
       } else if (isExcel) {
         step("Reading your Excel file...");
         const wb = XLSX.read(await file.arrayBuffer(), { type: "array" });
@@ -302,7 +307,7 @@ function CatalogTab({ id, segment, notify }: { id: string; segment?: string; not
         step("Reading your CSV file...");
         parsed = parseCatalogCsv(await file.text());
       }
-      if (parsed.length === 0) { notify("No rows found. Make sure the first row is a header (e.g. item_name, price).", "error"); return; }
+      if (parsed.length === 0) { notify(t("settings.noRowsFoundMakeSure"), "error"); return; }
       // The chosen location chips OVERRIDE whatever location the file had: every row
       // is duplicated once per selected city so the pricelist covers each location.
       // Leave the chips empty to keep the file's own location column.
@@ -319,7 +324,7 @@ function CatalogTab({ id, segment, notify }: { id: string; segment?: string; not
   async function clearAll() {
     if (!(await confirm({ title: "Clear catalog?", message: "Remove all catalog rows for this campaign? The bot will fall back to the shared pricing table.", danger: true, confirmLabel: "Clear" }))) return;
     setBusy(true);
-    try { await api.clearCampaignCatalog(id); notify("Catalog cleared"); load(); }
+    try { await api.clearCampaignCatalog(id); notify(t("settings.catalogCleared")); load(); }
     catch (e) { notify(String(e), "error"); } finally { setBusy(false); }
   }
 
@@ -335,7 +340,7 @@ function CatalogTab({ id, segment, notify }: { id: string; segment?: string; not
             <Loader2 className="w-5 h-5 mt-0.5 shrink-0 animate-spin text-primary" />
             <div className="min-w-0 flex-1">
               <p className="text-[13px] font-semibold text-foreground leading-snug">{progress.phase}</p>
-              <p className="text-[11px] text-muted-foreground mt-1 tabular-nums">{elapsed}s elapsed</p>
+              <p className="text-[11px] text-muted-foreground mt-1 tabular-nums">{elapsed}{t("settings.sElapsed")}</p>
               <div className="mt-2 h-1 rounded-full bg-muted overflow-hidden">
                 <div className="h-full w-1/3 rounded-full bg-primary animate-indeterminate" />
               </div>
@@ -349,7 +354,7 @@ function CatalogTab({ id, segment, notify }: { id: string; segment?: string; not
           and press Enter (or comma) to add a chip. Applied to rows without a
           location; multiple cities duplicate each row per city. */}
       <div className="rounded-lg border border-border p-3.5">
-        <FieldLabel hint="Rows without a location column get tagged with these. Add more than one to apply the same pricelist to several cities. Leave empty if the file already has a location column.">Location(s) for this pricelist</FieldLabel>
+        <FieldLabel hint={t("settings.rowsWithoutALocationColumn")}>{t("settings.locationSForThisPricelist")}</FieldLabel>
         <div className="flex flex-wrap items-center gap-1.5 rounded-md border border-input bg-background px-2 py-1.5 focus-within:border-primary focus-within:ring-2 focus-within:ring-primary/20">
           {locations.map((loc) => (
             <span key={loc} className="inline-flex items-center gap-1 rounded-md bg-primary/[0.12] text-primary text-[12.5px] font-medium pl-2 pr-1 py-0.5">
@@ -363,7 +368,7 @@ function CatalogTab({ id, segment, notify }: { id: string; segment?: string; not
               else if (e.key === "Backspace" && !locInput && locations.length) setLocations((ls) => ls.slice(0, -1));
             }}
             onBlur={() => locInput.trim() && addLoc(locInput)}
-            placeholder={locations.length ? "Add another city..." : "e.g. Jakarta, then Enter"}
+            placeholder={locations.length ? t("settings.addAnotherCity") : t("settings.eGJakartaThenEnter")}
             className="flex-1 min-w-[140px] bg-transparent text-[13px] text-foreground outline-none py-0.5" />
         </div>
       </div>
@@ -372,21 +377,21 @@ function CatalogTab({ id, segment, notify }: { id: string; segment?: string; not
       {rows.length === 0 ? (
         <div className="rounded-lg border border-dashed border-border p-5 text-center">
           <div className="w-11 h-11 rounded-xl bg-primary/10 text-primary grid place-items-center mx-auto mb-3"><Upload className="w-5 h-5" /></div>
-          <p className="text-[13.5px] font-semibold text-foreground mb-3">Upload a pricelist (CSV, Excel, or PDF)</p>
+          <p className="text-[13.5px] font-semibold text-foreground mb-3">{t("settings.uploadAPricelistCsvExcel")}</p>
           <button onClick={() => fileRef.current?.click()} disabled={busy}
             className="inline-flex items-center gap-2 px-3.5 h-9 mt-3 bg-primary text-white rounded-md text-sm font-semibold hover:bg-primary-dark shadow-sm transition-all outline-none disabled:opacity-50">
-            {busy ? <Loader2 className="w-4 h-4 animate-spin" /> : <Upload className="w-4 h-4" />}Choose file
+            {busy ? <Loader2 className="w-4 h-4 animate-spin" /> : <Upload className="w-4 h-4" />}{t("settings.chooseFile")}
           </button>
         </div>
       ) : (
         <div className="flex items-center justify-between flex-wrap gap-2">
-          <p className="text-[13px] text-muted-foreground"><span className="font-semibold text-foreground tabular-nums">{rows.length}</span> item{rows.length === 1 ? "" : "s"} in this campaign&apos;s catalog. Click a row to edit.</p>
+          <p className="text-[13px] text-muted-foreground"><span className="font-semibold text-foreground tabular-nums">{rows.length}</span> item{rows.length === 1 ? "" : "s"} {t("settings.inThisCampaignSCatalog")}</p>
           <div className="flex items-center gap-2">
             <button onClick={() => fileRef.current?.click()} disabled={busy} className="inline-flex items-center gap-1.5 h-9 px-3 rounded-md border border-border bg-background text-[12.5px] font-semibold text-foreground hover:bg-muted outline-none disabled:opacity-50">
-              {busy ? <Loader2 className="w-4 h-4 animate-spin" /> : <Upload className="w-4 h-4" />}Replace pricelist
+              {busy ? <Loader2 className="w-4 h-4 animate-spin" /> : <Upload className="w-4 h-4" />}{t("settings.replacePricelist")}
             </button>
             <button onClick={clearAll} disabled={busy} className="inline-flex items-center gap-1.5 h-9 px-3 rounded-md text-[12.5px] font-semibold text-red-500 hover:bg-red-50 outline-none disabled:opacity-50">
-              <Trash2 className="w-4 h-4" />Clear all
+              <Trash2 className="w-4 h-4" />{t("components.clearAll")}
             </button>
           </div>
         </div>
@@ -399,7 +404,7 @@ function CatalogTab({ id, segment, notify }: { id: string; segment?: string; not
               <thead className="sticky top-0 bg-muted/60 backdrop-blur">
                 <tr className="border-b border-border">
                   {["Item", "Variant", "Location", "Price", "Attributes"].map((h) => (
-                    <th key={h} className={cn("px-3 py-2 text-[11px] font-bold uppercase tracking-wider text-muted-foreground", h === "Price" ? "text-right" : "text-left")}>{h}</th>
+                    <th key={h} className={cn("px-3 py-2 text-[11px] font-bold uppercase tracking-wider text-muted-foreground", h === "Price" ? "text-right" : "text-left")}>{t(h)}</th>
                   ))}
                 </tr>
               </thead>
@@ -416,7 +421,7 @@ function CatalogTab({ id, segment, notify }: { id: string; segment?: string; not
               </tbody>
             </table>
           </div>
-          {rows.length > 200 && <p className="px-3 py-2 text-[11.5px] text-muted-foreground border-t border-border">Showing first 200 of {rows.length}.</p>}
+          {rows.length > 200 && <p className="px-3 py-2 text-[11.5px] text-muted-foreground border-t border-border">{t("settings.showingFirst200Of")} {rows.length}.</p>}
         </div>
       )}
 
@@ -434,6 +439,7 @@ function CatalogRowDrawer({ campaignId, row, onClose, onSaved, notify }: {
   campaignId: string; row: CatalogItem; onClose: () => void; onSaved: () => void;
   notify: (m: string, s?: "success" | "error") => void;
 }) {
+  const { t } = useI18n();
   const [item, setItem] = useState(row.item_name);
   const [variant, setVariant] = useState(row.variant_name ?? "");
   const [location, setLocation] = useState(row.location_name ?? "");
@@ -446,7 +452,7 @@ function CatalogRowDrawer({ campaignId, row, onClose, onSaved, notify }: {
     setAttrs((a) => a.map((x, j) => (j === i ? { ...x, ...patch } : x)));
 
   async function save() {
-    if (!item.trim()) { notify("Item name is required", "error"); return; }
+    if (!item.trim()) { notify(t("settings.itemNameIsRequired"), "error"); return; }
     setSaving(true);
     try {
       const attributes: Record<string, unknown> = {};
@@ -457,12 +463,12 @@ function CatalogRowDrawer({ campaignId, row, onClose, onSaved, notify }: {
         headline_price: price.trim() === "" ? null : Number(price.replace(/[^0-9.]/g, "")),
         attributes,
       });
-      notify("Row updated"); onSaved();
+      notify(t("settings.rowUpdated")); onSaved();
     } catch (e) { notify(String(e), "error"); } finally { setSaving(false); }
   }
   async function remove() {
     setSaving(true);
-    try { await api.deleteCatalogRow(campaignId, row.id); notify("Row deleted"); onSaved(); }
+    try { await api.deleteCatalogRow(campaignId, row.id); notify(t("settings.rowDeleted")); onSaved(); }
     catch (e) { notify(String(e), "error"); setSaving(false); }
   }
 
@@ -471,21 +477,21 @@ function CatalogRowDrawer({ campaignId, row, onClose, onSaved, notify }: {
       <div className="fixed inset-0 z-[60] bg-black/30" onClick={onClose} />
       <div className="fixed inset-y-0 right-0 z-[61] w-[400px] max-w-[calc(100vw-2rem)] bg-card border-l border-border shadow-2xl flex flex-col animate-slide-in-right">
         <div className="flex items-center justify-between px-5 h-14 border-b border-border shrink-0">
-          <p className="text-[14px] font-bold text-foreground">Edit catalog row</p>
+          <p className="text-[14px] font-bold text-foreground">{t("settings.editCatalogRow")}</p>
           <button onClick={onClose} className="p-1.5 rounded-md text-muted-foreground hover:bg-muted outline-none"><X className="w-4 h-4" /></button>
         </div>
         <div className="flex-1 overflow-y-auto p-5 space-y-3.5">
-          <div><FieldLabel>Item name</FieldLabel><input value={item} onChange={(e) => setItem(e.target.value)} className={INPUT_CLASS} /></div>
-          <div><FieldLabel>Variant</FieldLabel><input value={variant} onChange={(e) => setVariant(e.target.value)} className={INPUT_CLASS} /></div>
-          <div><FieldLabel>Location</FieldLabel><input value={location} onChange={(e) => setLocation(e.target.value)} className={INPUT_CLASS} /></div>
-          <div><FieldLabel>Price (Rp)</FieldLabel><input value={price} inputMode="numeric" onChange={(e) => setPrice(e.target.value.replace(/[^0-9.]/g, ""))} placeholder="e.g. 420000000" className={INPUT_CLASS} /></div>
+          <div><FieldLabel>{t("settings.itemName")}</FieldLabel><input value={item} onChange={(e) => setItem(e.target.value)} className={INPUT_CLASS} /></div>
+          <div><FieldLabel>{t("settings.variant")}</FieldLabel><input value={variant} onChange={(e) => setVariant(e.target.value)} className={INPUT_CLASS} /></div>
+          <div><FieldLabel>{t("components.location")}</FieldLabel><input value={location} onChange={(e) => setLocation(e.target.value)} className={INPUT_CLASS} /></div>
+          <div><FieldLabel>{t("settings.priceRp")}</FieldLabel><input value={price} inputMode="numeric" onChange={(e) => setPrice(e.target.value.replace(/[^0-9.]/g, ""))} placeholder="e.g. 420000000" className={INPUT_CLASS} /></div>
           <div>
             <div className="flex items-center justify-between mb-1">
-              <FieldLabel>Attributes</FieldLabel>
-              <button onClick={() => setAttrs((a) => [...a, { k: "", v: "" }])} className="text-[12px] font-semibold text-primary hover:underline outline-none">+ Add</button>
+              <FieldLabel>{t("settings.attributes")}</FieldLabel>
+              <button onClick={() => setAttrs((a) => [...a, { k: "", v: "" }])} className="text-[12px] font-semibold text-primary hover:underline outline-none">{t("settings.add")}</button>
             </div>
             <div className="space-y-2">
-              {attrs.length === 0 && <p className="text-[12px] text-muted-foreground">No attributes (e.g. dp, tenor, emi).</p>}
+              {attrs.length === 0 && <p className="text-[12px] text-muted-foreground">{t("settings.noAttributesEGDp")}</p>}
               {attrs.map((a, i) => (
                 <div key={i} className="flex items-center gap-2">
                   <input value={a.k} onChange={(e) => setAttr(i, { k: e.target.value })} placeholder="key" className={cn(INPUT_CLASS, "flex-1")} />
@@ -497,10 +503,10 @@ function CatalogRowDrawer({ campaignId, row, onClose, onSaved, notify }: {
           </div>
         </div>
         <div className="flex items-center justify-between gap-2 px-5 h-16 border-t border-border shrink-0">
-          <button onClick={remove} disabled={saving} className="inline-flex items-center gap-1.5 h-9 px-3 rounded-md text-[13px] font-semibold text-red-500 hover:bg-red-50 outline-none disabled:opacity-50"><Trash2 className="w-4 h-4" />Delete</button>
+          <button onClick={remove} disabled={saving} className="inline-flex items-center gap-1.5 h-9 px-3 rounded-md text-[13px] font-semibold text-red-500 hover:bg-red-50 outline-none disabled:opacity-50"><Trash2 className="w-4 h-4" />{t("common.delete")}</button>
           <div className="flex items-center gap-2">
-            <button onClick={onClose} className="h-9 px-3.5 rounded-md border border-border text-[13px] font-medium hover:bg-muted outline-none">Cancel</button>
-            <button onClick={save} disabled={saving} className="inline-flex items-center gap-1.5 h-9 px-4 rounded-md bg-primary text-white text-[13px] font-semibold hover:bg-primary-dark disabled:opacity-50 outline-none">{saving && <Loader2 className="w-4 h-4 animate-spin" />}Save</button>
+            <button onClick={onClose} className="h-9 px-3.5 rounded-md border border-border text-[13px] font-medium hover:bg-muted outline-none">{t("common.cancel")}</button>
+            <button onClick={save} disabled={saving} className="inline-flex items-center gap-1.5 h-9 px-4 rounded-md bg-primary text-white text-[13px] font-semibold hover:bg-primary-dark disabled:opacity-50 outline-none">{saving && <Loader2 className="w-4 h-4 animate-spin" />}{t("common.save")}</button>
           </div>
         </div>
       </div>

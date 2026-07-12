@@ -1,5 +1,6 @@
 "use client";
 
+import { useI18n } from "@/lib/i18n";
 import { useState, useRef } from "react";
 import { useInbox } from "./InboxContext";
 import { Send, Lock, Mic, Paperclip, Zap, Smile, FileText, Loader2, Pause, Play, Trash2, X } from "lucide-react";
@@ -8,6 +9,7 @@ import EmojiPicker from "emoji-picker-react";
 import { api } from "@/lib/api";
 
 export function ChatComposer({ loadConvs, queryClient }: { loadConvs: () => void, queryClient: any }) {
+  const { t } = useI18n();
   const { activeId, quickReplies, notify } = useInbox();
   const [draft, setDraft] = useState("");
   const [tab, setTab] = useState<0 | 1>(0); // 0 = reply, 1 = note
@@ -36,9 +38,9 @@ export function ChatComposer({ loadConvs, queryClient }: { loadConvs: () => void
         await api.addNote(activeId, draft.trim()); 
         setDraft("");
         queryClient.invalidateQueries({ queryKey: ["notes", activeId] });
-        notify("Note added");
+        notify(t("components.noteAdded"));
       } catch {
-        notify("Failed to add note", "error");
+        notify(t("components.failedToAddNote"), "error");
       } finally {
         setBusy(false);
       }
@@ -98,9 +100,9 @@ export function ChatComposer({ loadConvs, queryClient }: { loadConvs: () => void
       setPendingFiles([]);
       queryClient.invalidateQueries({ queryKey: ["messages", activeId] }); 
       loadConvs();
-      notify("Files sent");
+      notify(t("components.filesSent"));
     } catch { 
-      notify("Upload failed", "error"); 
+      notify(t("components.uploadFailed"), "error"); 
     } finally { 
       setBusy(false); 
     }
@@ -132,7 +134,7 @@ export function ChatComposer({ loadConvs, queryClient }: { loadConvs: () => void
       setRecordTime(0);
       recordIntervalRef.current = setInterval(() => setRecordTime(p => p + 1), 1000);
     } catch {
-      notify("Microphone access denied", "error");
+      notify(t("components.microphoneAccessDenied"), "error");
     }
   }
 
@@ -210,7 +212,7 @@ export function ChatComposer({ loadConvs, queryClient }: { loadConvs: () => void
           await api.sendMedia(activeId, "audio", fileUrl, "");
           queryClient.invalidateQueries({ queryKey: ["messages", activeId] }); loadConvs();
         } catch (e: any) {
-          notify(e.message || "Audio error", "error");
+          notify(e.message || t("components.audioError"), "error");
         } finally {
           setBusy(false); resolve();
         }
@@ -228,7 +230,7 @@ export function ChatComposer({ loadConvs, queryClient }: { loadConvs: () => void
         {showQR && (
           <div className="max-h-48 overflow-y-auto border-b border-slate-100 bg-slate-50/80 backdrop-blur">
             {quickReplies.length === 0 ? (
-              <p className="p-4 text-sm text-slate-400 text-center">No quick replies yet</p>
+              <p className="p-4 text-sm text-slate-400 text-center">{t("components.noQuickRepliesYet")}</p>
             ) : quickReplies.map((q) => (
               <button key={q.id} onClick={() => { setDraft(q.body); setShowQR(false); notify(`Quick reply "${q.shortcut}" inserted`, "info"); }}
                       className="w-full text-left px-4 py-3 border-b border-slate-100 hover:bg-slate-100 transition-colors">
@@ -244,8 +246,8 @@ export function ChatComposer({ loadConvs, queryClient }: { loadConvs: () => void
 
         {/* Tabs */}
         <div className="flex items-center px-2 pt-2 gap-4">
-          <button onClick={() => setTab(0)} className={`px-2 py-1 text-xs font-bold transition-colors ${tab === 0 ? "text-slate-900 border-b-2 border-slate-900" : "text-slate-400 hover:text-slate-600 border-b-2 border-transparent"}`}>Reply</button>
-          <button onClick={() => setTab(1)} className={`px-2 py-1 text-xs font-bold transition-colors ${tab === 1 ? "text-amber-700 border-b-2 border-amber-500" : "text-slate-400 hover:text-slate-600 border-b-2 border-transparent"}`}>Internal Note</button>
+          <button onClick={() => setTab(0)} className={`px-2 py-1 text-xs font-bold transition-colors ${tab === 0 ? "text-slate-900 border-b-2 border-slate-900" : "text-slate-400 hover:text-slate-600 border-b-2 border-transparent"}`}>{t("components.reply")}</button>
+          <button onClick={() => setTab(1)} className={`px-2 py-1 text-xs font-bold transition-colors ${tab === 1 ? "text-amber-700 border-b-2 border-amber-500" : "text-slate-400 hover:text-slate-600 border-b-2 border-transparent"}`}>{t("components.internalNote2")}</button>
         </div>
 
         {/* File Previews */}
@@ -279,7 +281,7 @@ export function ChatComposer({ loadConvs, queryClient }: { loadConvs: () => void
             </button>
             <div className="flex-1 flex items-center justify-center gap-3">
               <div className={`w-2.5 h-2.5 rounded-full bg-red-500 ${isPaused ? "" : "animate-pulse"}`} />
-              <span className={`text-sm font-bold ${isPaused ? "text-slate-500" : "text-red-500"}`}>{isPaused ? "Paused" : "Recording"}</span>
+              <span className={`text-sm font-bold ${isPaused ? "text-slate-500" : "text-red-500"}`}>{isPaused ? t("automation.paused") : t("components.recording")}</span>
               <span className="text-sm text-slate-700">
                 {Math.floor(recordTime / 60).toString().padStart(2, "0")}:{(recordTime % 60).toString().padStart(2, "0")}
               </span>
@@ -297,7 +299,7 @@ export function ChatComposer({ loadConvs, queryClient }: { loadConvs: () => void
               value={draft} 
               onChange={e => setDraft(e.target.value)}
               onKeyDown={e => { if (e.key === "Enter" && !e.shiftKey) { e.preventDefault(); submit(); } }}
-              placeholder={tab === 0 ? "Type your message here..." : "Add an internal note (visible to your team only)..."}
+              placeholder={tab === 0 ? t("broadcasts.typeYourMessageHere") : t("components.addAnInternalNoteVisible")}
               className={`w-full bg-transparent border-none outline-none resize-none min-h-[60px] max-h-[150px] px-4 py-3 text-sm placeholder:text-slate-400 ${tab === 1 ? "text-amber-900" : "text-slate-900"}`}
             />
             

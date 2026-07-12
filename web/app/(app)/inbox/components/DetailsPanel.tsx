@@ -1,4 +1,5 @@
 "use client";
+import { useI18n } from "@/lib/i18n";
 import { useEffect, useState } from "react";
 import Link from "next/link";
 import { X, Copy, User, Phone, Hash, MessageSquare, Clock, StickyNote, Tag as TagIcon, Plus, Paperclip, Download, FileText, Image as ImageIcon, Video, Mic, Trash2, Check, ChevronDown, Search, XCircle } from "lucide-react";
@@ -67,6 +68,7 @@ function AttachmentSection({ title, items, empty }: { title: string; items: Mess
 function DetailRow({ icon: Icon, label, value, copyable, onCopy }: {
   icon: any; label: string; value: string; copyable?: boolean; onCopy?: () => void;
 }) {
+  const { t } = useI18n();
   return (
     <div className="flex gap-3 py-2 border-b border-border/50 last:border-0">
       <Icon className="w-4 h-4 text-muted-foreground/60 mt-0.5 shrink-0" />
@@ -75,7 +77,7 @@ function DetailRow({ icon: Icon, label, value, copyable, onCopy }: {
         <div className="flex items-center gap-1">
           <p className="text-xs font-semibold text-foreground truncate">{value}</p>
           {copyable && (
-            <Tip label="Copy">
+            <Tip label={t("automation.copy")}>
               <button onClick={onCopy} className="p-0.5 rounded hover:bg-muted outline-none text-primary/70 hover:text-primary">
                 <Copy className="w-3 h-3" />
               </button>
@@ -104,6 +106,7 @@ interface DetailsPanelProps {
 }
 
 export default function DetailsPanel({ active, onClose, copyText, notes, onAddNote, onDeleteNote, messages, channelName, showAgent, agents, canAssign, onReassign, onUnassign }: DetailsPanelProps) {
+  const { t } = useI18n();
   const media = (messages || []).filter((m) => m.media_url && m.type !== "sticker"); // stickers are not attachments
   const mediaFiles = media.filter((m) => m.type === "image" || m.type === "video");
   const docFiles = media.filter((m) => !(m.type === "image" || m.type === "video"));
@@ -144,8 +147,8 @@ export default function DetailsPanel({ active, onClose, copyText, notes, onAddNo
       <div className="w-80 shrink-0 flex flex-col border-l border-border bg-card max-lg:fixed max-lg:inset-y-0 max-lg:right-0 max-lg:z-50 max-lg:w-[85vw] max-lg:max-w-sm max-lg:shadow-2xl">
       {/* Header */}
       <div className="h-14 shrink-0 px-4 flex items-center border-b border-border">
-        <p className="font-bold text-sm flex-1 text-foreground">Details</p>
-        <button aria-label="Close details" onClick={onClose} className="p-1 rounded-md text-muted-foreground hover:bg-muted hover:text-foreground outline-none">
+        <p className="font-bold text-sm flex-1 text-foreground">{t("components.details")}</p>
+        <button aria-label={t("inbox.closeDetails")} onClick={onClose} className="p-1 rounded-md text-muted-foreground hover:bg-muted hover:text-foreground outline-none">
           <X className="w-[18px] h-[18px]" />
         </button>
       </div>
@@ -164,16 +167,16 @@ export default function DetailsPanel({ active, onClose, copyText, notes, onAddNo
           </div>
           <div className="min-w-0">
             {active.contact_id ? (
-              <Link href={`/contacts/${active.contact_id}`} className="font-bold text-[15px] text-foreground truncate hover:text-primary hover:underline outline-none block" title="View contact details">
-                {active.contact_name || "Unknown"}
+              <Link href={`/contacts/${active.contact_id}`} className="font-bold text-[15px] text-foreground truncate hover:text-primary hover:underline outline-none block" title={t("inbox.viewContactDetails")}>
+                {active.contact_name || t("broadcasts.unknown")}
               </Link>
             ) : (
-              <p className="font-bold text-[15px] text-foreground truncate">{active.contact_name || "Unknown"}</p>
+              <p className="font-bold text-[15px] text-foreground truncate">{active.contact_name || t("broadcasts.unknown")}</p>
             )}
             {active.contact_phone && (
               <div className="flex items-center gap-1">
                 <span className="text-xs text-muted-foreground tabular-nums">{active.contact_phone}</span>
-                <button aria-label="Copy phone number" onClick={() => copyText(active.contact_phone!)} className="p-0.5 rounded hover:bg-muted outline-none text-primary/70 hover:text-primary">
+                <button aria-label={t("inbox.copyPhoneNumber")} onClick={() => copyText(active.contact_phone!)} className="p-0.5 rounded hover:bg-muted outline-none text-primary/70 hover:text-primary">
                   <Copy className="w-[11px] h-[11px]" />
                 </button>
               </div>
@@ -213,11 +216,11 @@ export default function DetailsPanel({ active, onClose, copyText, notes, onAddNo
             {/* Labels (the contact's tags, editable inline) */}
             <div className="mb-5">
               <div className="flex items-center justify-between mb-2">
-                <p className="text-[10px] font-bold uppercase tracking-wider text-muted-foreground flex items-center gap-1.5"><TagIcon className="w-3.5 h-3.5 text-primary" />Labels</p>
-                <Tip label="Add label"><button onClick={() => setTagOpen((v) => !v)} className="p-1 rounded-md text-muted-foreground hover:bg-muted hover:text-foreground outline-none"><Plus className="w-3.5 h-3.5" /></button></Tip>
+                <p className="text-[10px] font-bold uppercase tracking-wider text-muted-foreground flex items-center gap-1.5"><TagIcon className="w-3.5 h-3.5 text-primary" />{t("contacts.labels")}</p>
+                <Tip label={t("contacts.addLabel")}><button onClick={() => setTagOpen((v) => !v)} className="p-1 rounded-md text-muted-foreground hover:bg-muted hover:text-foreground outline-none"><Plus className="w-3.5 h-3.5" /></button></Tip>
               </div>
               <div className="flex flex-wrap gap-1.5">
-                {tags.length === 0 && !tagOpen && <span className="text-xs text-muted-foreground">No labels yet</span>}
+                {tags.length === 0 && !tagOpen && <span className="text-xs text-muted-foreground">{t("inbox.noLabelsYet")}</span>}
                 {tags.map((t) => (
                   <span key={t} className="inline-flex items-center gap-1 px-2.5 py-0.5 rounded-full bg-primary/10 text-primary text-[11px] font-semibold">
                     {t}
@@ -231,7 +234,7 @@ export default function DetailsPanel({ active, onClose, copyText, notes, onAddNo
                   value={tagDraft}
                   onChange={(e) => setTagDraft(e.target.value)}
                   onKeyDown={(e) => { if ((e.key === "Enter" || e.key === ",") && tagDraft.trim()) { e.preventDefault(); addTag(tagDraft); } else if (e.key === "Escape") { setTagOpen(false); setTagDraft(""); } }}
-                  placeholder="Add a label and press Enter"
+                  placeholder={t("contacts.addALabelAndPress")}
                   className="mt-2 w-full h-8 px-3 rounded-md border border-input bg-background text-[13px] text-foreground placeholder:text-muted-foreground/70 outline-none focus:border-primary focus:ring-2 focus:ring-primary/20"
                 />
               )}
@@ -243,7 +246,7 @@ export default function DetailsPanel({ active, onClose, copyText, notes, onAddNo
                 <div className="flex gap-3 py-2 border-b border-border/50">
                   <User className="w-4 h-4 text-muted-foreground/60 mt-0.5 shrink-0" />
                   <div className="flex-1 min-w-0">
-                    <p className="text-[10px] font-bold uppercase tracking-wider text-muted-foreground mb-0.5">Assigned agent</p>
+                    <p className="text-[10px] font-bold uppercase tracking-wider text-muted-foreground mb-0.5">{t("inbox.assignedAgent")}</p>
                     {canAssign ? (
                       <div className="relative">
                         <button
@@ -251,7 +254,7 @@ export default function DetailsPanel({ active, onClose, copyText, notes, onAddNo
                           onClick={() => setAssignOpen((v) => !v)}
                           className="flex items-center gap-1 outline-none group"
                         >
-                          <span className={cn("text-xs font-semibold truncate", active.agent_name ? "text-foreground" : "text-amber-700")}>{active.agent_name || "Unassigned"}</span>
+                          <span className={cn("text-xs font-semibold truncate", active.agent_name ? "text-foreground" : "text-amber-700")}>{active.agent_name || t("dashboard.unassigned")}</span>
                           <ChevronDown className={cn("w-3 h-3 shrink-0 text-muted-foreground/60 transition-transform", assignOpen && "rotate-180")} />
                         </button>
                         {assignOpen && (
@@ -261,16 +264,16 @@ export default function DetailsPanel({ active, onClose, copyText, notes, onAddNo
                               <div className="p-2 border-b border-border shrink-0">
                                 <div className="relative">
                                   <Search className="absolute left-2.5 top-1/2 -translate-y-1/2 w-3.5 h-3.5 text-muted-foreground pointer-events-none" />
-                                  <input autoFocus value={assignQuery} onChange={(e) => setAssignQuery(e.target.value)} placeholder="Search name or email..."
+                                  <input autoFocus value={assignQuery} onChange={(e) => setAssignQuery(e.target.value)} placeholder={t("inbox.searchNameOrEmail")}
                                     className="w-full h-8 pl-8 pr-2 rounded-md border border-input bg-background text-[13px] outline-none focus:border-primary" />
                                 </div>
                               </div>
                               <div className="overflow-auto py-1 flex-1 min-h-0">
-                                <p className="px-3 py-1 text-[10px] font-bold uppercase tracking-wider text-muted-foreground">Assign to</p>
+                                <p className="px-3 py-1 text-[10px] font-bold uppercase tracking-wider text-muted-foreground">{t("contacts.assignTo")}</p>
                                 {(() => {
                                   const q = assignQuery.trim().toLowerCase();
                                   const matches = (agents || []).filter((ag) => ag.full_name.toLowerCase().includes(q) || (ag.email || "").toLowerCase().includes(q));
-                                  if (matches.length === 0) return <p className="text-center text-xs text-muted-foreground py-3">No agents</p>;
+                                  if (matches.length === 0) return <p className="text-center text-xs text-muted-foreground py-3">{t("components.noAgents")}</p>;
                                   return matches.map((ag) => (
                                     <button
                                       key={ag.id}
@@ -295,7 +298,7 @@ export default function DetailsPanel({ active, onClose, copyText, notes, onAddNo
                                       onClick={() => { onUnassign?.(); setAssignOpen(false); setAssignQuery(""); }}
                                       className="w-full flex items-center gap-2 px-3 py-1.5 text-[13px] text-left text-amber-700 hover:bg-amber-50 outline-none"
                                     >
-                                      <XCircle className="w-3.5 h-3.5 shrink-0" />Unassign
+                                      <XCircle className="w-3.5 h-3.5 shrink-0" />{t("contacts.unassign")}
                                     </button>
                                   </>
                                 )}
@@ -305,45 +308,45 @@ export default function DetailsPanel({ active, onClose, copyText, notes, onAddNo
                         )}
                       </div>
                     ) : (
-                      <p className={cn("text-xs font-semibold truncate", active.agent_name ? "text-foreground" : "text-amber-700")}>{active.agent_name || "Unassigned"}</p>
+                      <p className={cn("text-xs font-semibold truncate", active.agent_name ? "text-foreground" : "text-amber-700")}>{active.agent_name || t("dashboard.unassigned")}</p>
                     )}
                   </div>
                 </div>
               </div>
             )}
 
-            <p className="text-[10px] font-bold uppercase tracking-wider text-muted-foreground mb-1">Customer details</p>
+            <p className="text-[10px] font-bold uppercase tracking-wider text-muted-foreground mb-1">{t("components.customerDetails")}</p>
             <div className="mb-5">
-              <DetailRow icon={User} label="Full name" value={active.contact_name || "Unknown"} />
-              <DetailRow icon={Phone} label="Phone" value={active.contact_phone || "None"} copyable={!!active.contact_phone} onCopy={() => active.contact_phone && copyText(active.contact_phone)} />
-              <DetailRow icon={Hash} label="Channel" value={channelName || channelLabel(active.channel)} />
-              {active.campaign_name && <DetailRow icon={Hash} label="Campaign" value={active.campaign_name} />}
-              <DetailRow icon={MessageSquare} label="Status" value={humanize(active.status)} />
-              <DetailRow icon={Clock} label="Last message" value={active.last_message_at ? fmtDateTimeShort(active.last_message_at) : "No messages"} />
+              <DetailRow icon={User} label={t("account.name")} value={active.contact_name || "Unknown"} />
+              <DetailRow icon={Phone} label={t("contacts.phone")} value={active.contact_phone || "None"} copyable={!!active.contact_phone} onCopy={() => active.contact_phone && copyText(active.contact_phone)} />
+              <DetailRow icon={Hash} label={t("components.channel")} value={channelName || channelLabel(active.channel)} />
+              {active.campaign_name && <DetailRow icon={Hash} label={t("automation.campaign")} value={active.campaign_name} />}
+              <DetailRow icon={MessageSquare} label={t("automation.status")} value={humanize(active.status)} />
+              <DetailRow icon={Clock} label={t("components.lastMessage")} value={active.last_message_at ? fmtDateTimeShort(active.last_message_at) : "No messages"} />
               {active.status === "snoozed" && active.snoozed_until && (
-                <DetailRow icon={Clock} label="Snoozed until" value={`${fmtDate(active.snoozed_until)} ${fmtTime(active.snoozed_until)}`} />
+                <DetailRow icon={Clock} label={t("inbox.snoozedUntil")} value={`${fmtDate(active.snoozed_until)} ${fmtTime(active.snoozed_until)}`} />
               )}
             </div>
 
-            <p className="text-[10px] font-bold uppercase tracking-wider text-muted-foreground mb-1">Lead qualification</p>
+            <p className="text-[10px] font-bold uppercase tracking-wider text-muted-foreground mb-1">{t("contacts.leadQualification")}</p>
             {/* Only render fields the AI has actually captured — empty ones are hidden. */}
             <div>
-              {active.stage_name && <DetailRow icon={Hash} label="Stage" value={active.stage_name} />}
+              {active.stage_name && <DetailRow icon={Hash} label={t("contacts.stage")} value={active.stage_name} />}
               {/* Lost reason sits directly under the stage while the lead is Lost. */}
               {active.stage_name?.toLowerCase().startsWith("lost") && active.lost_reason && (
-                <DetailRow icon={StickyNote} label="Lost reason" value={humanize(active.lost_reason)} />
+                <DetailRow icon={StickyNote} label={t("contacts.lostReason")} value={humanize(active.lost_reason)} />
               )}
-              {active.interest_level && <DetailRow icon={Hash} label="Interest level" value={humanize(active.interest_level)} />}
+              {active.interest_level && <DetailRow icon={Hash} label={t("dashboard.interestLevel")} value={humanize(active.interest_level)} />}
               {isAutomotive(active.campaign_segment) ? (
                 <>
-                  {active.car_brand && <DetailRow icon={Hash} label="Brand" value={active.car_brand} />}
-                  {active.car_model && <DetailRow icon={Hash} label="Model" value={active.car_model} />}
-                  {active.city && <DetailRow icon={Hash} label="City" value={active.city} />}
-                  {active.purchase_timeframe && <DetailRow icon={Clock} label="Purchase time" value={humanize(active.purchase_timeframe)} />}
+                  {active.car_brand && <DetailRow icon={Hash} label={t("components.brand")} value={active.car_brand} />}
+                  {active.car_model && <DetailRow icon={Hash} label={t("components.model")} value={active.car_model} />}
+                  {active.city && <DetailRow icon={Hash} label={t("components.city")} value={active.city} />}
+                  {active.purchase_timeframe && <DetailRow icon={Clock} label={t("components.purchaseTime")} value={humanize(active.purchase_timeframe)} />}
                 </>
               ) : (
                 segmentFields(active.campaign_segment).map((f) => (
-                  active.lead_fields?.[f.key] ? <DetailRow key={f.key} icon={Hash} label={f.label} value={active.lead_fields[f.key]} /> : null
+                  active.lead_fields?.[f.key] ? <DetailRow key={f.key} icon={Hash} label={t(f.label)} value={active.lead_fields[f.key]} /> : null
                 ))
               )}
             </div>
@@ -351,8 +354,8 @@ export default function DetailsPanel({ active, onClose, copyText, notes, onAddNo
         )}
         {tab === "files" && (
           <div className="p-4 space-y-5">
-            <AttachmentSection title="Media" items={mediaFiles} empty="No photos or videos yet" />
-            <AttachmentSection title="Documents" items={docFiles} empty="No documents yet" />
+            <AttachmentSection title={t("inbox.media")} items={mediaFiles} empty={t("inbox.noPhotosOrVideosYet")} />
+            <AttachmentSection title={t("inbox.documents")} items={docFiles} empty={t("inbox.noDocumentsYet")} />
           </div>
         )}
         {tab === "notes" && (
@@ -362,7 +365,7 @@ export default function DetailsPanel({ active, onClose, copyText, notes, onAddNo
                 value={noteDraft}
                 onChange={(e) => setNoteDraft(e.target.value)}
                 rows={2}
-                placeholder="Add a note (visible to your team only)"
+                placeholder={t("contacts.addANoteVisibleTo")}
                 className="w-full rounded-md border border-input bg-background px-3 py-2 text-[13px] outline-none resize-none focus:border-amber focus:ring-2 focus:ring-amber/20"
               />
               <button
@@ -370,7 +373,7 @@ export default function DetailsPanel({ active, onClose, copyText, notes, onAddNo
                 disabled={!noteDraft.trim()}
                 className="mt-1.5 px-3 py-1.5 rounded-md text-xs font-semibold text-white bg-amber hover:bg-amber/90 disabled:opacity-50 outline-none transition-colors"
               >
-                Add note
+                {t("components.addNote")}
               </button>
             </div>
             {notes.length === 0 ? (
@@ -378,13 +381,13 @@ export default function DetailsPanel({ active, onClose, copyText, notes, onAddNo
                 <div className="w-10 h-10 rounded-lg bg-muted grid place-items-center mb-2">
                   <StickyNote className="w-5 h-5 text-muted-foreground/50" />
                 </div>
-                <p className="text-sm text-muted-foreground">No internal notes yet</p>
+                <p className="text-sm text-muted-foreground">{t("components.noInternalNotesYet")}</p>
               </div>
             ) : (
               notes.map((n) => (
                 <div key={n.id} className="mb-2.5 p-3 rounded-lg border border-amber-200 bg-amber-50 relative group">
                   <p className="text-xs text-foreground whitespace-pre-wrap pr-5">{n.body}</p>
-                  <p className="text-[11px] text-muted-foreground mt-1">{n.author || "Unknown"} - {fmtTime(n.created_at)}</p>
+                  <p className="text-[11px] text-muted-foreground mt-1">{n.author || t("broadcasts.unknown")} - {fmtTime(n.created_at)}</p>
                   <button onClick={() => onDeleteNote(n.id)} className="absolute top-2 right-2 p-1.5 rounded-md hover:bg-amber-200 text-amber-700/50 hover:text-amber-800 opacity-0 group-hover:opacity-100 transition-opacity outline-none">
                     <Trash2 className="w-3.5 h-3.5" />
                   </button>

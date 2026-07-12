@@ -1,4 +1,5 @@
 "use client";
+import { useI18n } from "@/lib/i18n";
 import { useState, useRef, useEffect } from "react";
 import { createPortal } from "react-dom";
 import { ChevronDown, Search, Check } from "lucide-react";
@@ -28,6 +29,7 @@ export function Select({
   align?: "left" | "right";
   size?: "sm" | "md"; // "sm" = compact trigger (dense tables)
 }) {
+  const { t } = useI18n();
   const [open, setOpen] = useState(false);
   const [q, setQ] = useState("");
   const [pos, setPos] = useState<MenuPos>({ left: 0, width: 0, maxH: 320, up: false });
@@ -37,7 +39,7 @@ export function Select({
   const current = options.find((o) => o.value === value);
   // Search box on for every dropdown (opt out with searchable={false}).
   const showSearch = searchable ?? true;
-  const filtered = q ? options.filter((o) => o.label.toLowerCase().includes(q.toLowerCase())) : options;
+  const filtered = q ? options.filter((o) => t(o.label).toLowerCase().includes(q.toLowerCase())) : options;
 
   // Esc closes the menu (topmost-first via the shared LIFO stack).
   useEscClose(open, () => { setOpen(false); setQ(""); });
@@ -89,7 +91,7 @@ export function Select({
         )}
       >
         {current?.dot && <span className="w-2 h-2 rounded-full shrink-0" style={{ backgroundColor: current.dot }} />}
-        <span className={cn("flex-1 truncate", current ? "text-foreground" : "text-muted-foreground")}>{current?.label || placeholder}</span>
+        <span className={cn("flex-1 truncate", current ? "text-foreground" : "text-muted-foreground")}>{current ? t(current.label) : placeholder}</span>
         <ChevronDown className={cn("text-muted-foreground shrink-0 transition-transform", size === "sm" ? "w-3.5 h-3.5" : "w-4 h-4", open && "rotate-180")} />
       </button>
 
@@ -110,7 +112,7 @@ export function Select({
                   autoFocus
                   value={q}
                   onChange={(e) => setQ(e.target.value)}
-                  placeholder="Search..."
+                  placeholder={t("components.search2")}
                   className="w-full h-9 pl-9 pr-3 rounded-md border border-input bg-background text-[13px] text-foreground placeholder:text-muted-foreground outline-none focus:border-primary focus:ring-2 focus:ring-primary/20"
                 />
               </div>
@@ -118,7 +120,7 @@ export function Select({
           )}
           <div className="overflow-auto py-1 flex-1 min-h-0">
             {filtered.length === 0 ? (
-              <p className="text-center text-xs text-muted-foreground py-4">No results</p>
+              <p className="text-center text-xs text-muted-foreground py-4">{t("components.noResults")}</p>
             ) : filtered.map((o) => (
               <button
                 key={o.value}
@@ -131,7 +133,7 @@ export function Select({
                 )}
               >
                 {o.dot && <span className="w-2 h-2 rounded-full shrink-0" style={{ backgroundColor: o.dot }} />}
-                <span className="flex-1 truncate">{o.label}</span>
+                <span className="flex-1 truncate">{t(o.label)}</span>
                 {o.value === value && <Check className="w-4 h-4 shrink-0" />}
               </button>
             ))}

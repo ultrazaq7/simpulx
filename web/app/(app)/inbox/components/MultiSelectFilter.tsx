@@ -1,4 +1,5 @@
 "use client";
+import { useI18n } from "@/lib/i18n";
 import { useState, useMemo, useCallback } from "react";
 import { Search, ListFilter, X, ChevronDown, Check } from "lucide-react";
 import { cn } from "@/lib/utils";
@@ -22,13 +23,14 @@ interface MultiSelectFilterProps {
 export default function MultiSelectFilter({
   label, icon, options, selected, onChange, variant = "chip",
 }: MultiSelectFilterProps) {
+  const { t } = useI18n();
   const [open, setOpen] = useState(false);
   const [search, setSearch] = useState("");
 
   const filtered = useMemo(() => {
     if (!search.trim()) return options;
     const q = search.toLowerCase();
-    return options.filter((o) => o.label.toLowerCase().includes(q));
+    return options.filter((o) => t(o.label).toLowerCase().includes(q));
   }, [options, search]);
 
   const has = selected.length > 0;
@@ -49,14 +51,14 @@ export default function MultiSelectFilter({
             autoFocus
             value={search}
             onChange={(e) => setSearch(e.target.value)}
-            placeholder={`Search ${label.toLowerCase()}`}
+            placeholder={t("common.searchX", { x: t(label).toLowerCase() })}
             className="w-full h-8 pl-8 pr-2 rounded-md border border-input bg-background text-[12.5px] outline-none focus:border-primary"
           />
         </div>
       )}
       <div className="max-h-52 overflow-auto -mx-1 px-1">
         {filtered.length === 0 ? (
-          <p className="text-xs text-muted-foreground text-center py-5">No matches</p>
+          <p className="text-xs text-muted-foreground text-center py-5">{t("inbox.noMatches")}</p>
         ) : (
           filtered.map((opt) => {
             const checked = selected.includes(opt.value);
@@ -73,7 +75,7 @@ export default function MultiSelectFilter({
                 )}>
                   {checked && <Check className="w-3 h-3" strokeWidth={3} />}
                 </span>
-                <span className="text-[13px] font-medium text-foreground/90 truncate">{opt.label}</span>
+                <span className="text-[13px] font-medium text-foreground/90 truncate">{t(opt.label)}</span>
               </button>
             );
           })
@@ -96,7 +98,7 @@ export default function MultiSelectFilter({
           )}
         >
           <span className={cn("truncate", has ? "font-semibold text-foreground" : "text-muted-foreground")}>
-            {has ? `${selected.length} selected` : "Any"}
+            {has ? `${selected.length} selected` : t("inbox.any")}
           </span>
           <span className="flex items-center gap-1 shrink-0">
             {has && (

@@ -1,4 +1,5 @@
 "use client";
+import { useI18n } from "@/lib/i18n";
 import { useEffect, useMemo, useRef, useState } from "react";
 import {
   Search, Plus, Pencil, Trash2, Send, RefreshCw, Loader2, X, ChevronLeft,
@@ -40,6 +41,7 @@ function maxPlaceholder(body: string) {
 }
 
 export default function TemplatesPage() {
+  const { t: tr } = useI18n();
   const { notify, confirm, ToastHost } = useToast();
   const [rows, setRows] = useState<Template[]>([]);
   const [channels, setChannels] = useState<Channel[]>([]);
@@ -88,12 +90,12 @@ export default function TemplatesPage() {
   useEffect(() => { setPage(0); }, [query, statusFilter, channelFilter, campaignFilter]);
 
   async function submit(t: Template) {
-    try { const r = await api.submitTemplate(t.id); notify(r.simulated ? "Submitted - auto-approved (mock mode)" : "Submitted to Meta for review"); load(); }
+    try { const r = await api.submitTemplate(t.id); notify(r.simulated ? tr("settings.submittedAutoApprovedMockMode") : tr("settings.submittedToMetaForReview")); load(); }
     catch (e) { notify(String(e), "error"); }
   }
   async function remove(t: Template) {
     if (!(await confirm({ title: "Delete template?", message: `Delete "${t.name}"? This can't be undone.`, danger: true, confirmLabel: "Delete" }))) return;
-    try { const r = await api.deleteTemplate(t.id); notify(r.warning || "Template deleted", r.warning ? "info" : "success"); load(); }
+    try { const r = await api.deleteTemplate(t.id); notify(r.warning || tr("settings.templateDeleted"), r.warning ? "info" : "success"); load(); }
     catch (e) { notify(String(e), "error"); }
   }
 
@@ -108,19 +110,19 @@ export default function TemplatesPage() {
         <div className="p-3 flex items-center gap-3 border-b border-border flex-wrap shrink-0">
           <div className="relative w-[240px]">
             <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-muted-foreground pointer-events-none" />
-            <input type="text" placeholder="Search templates" value={query} onChange={(e) => setQuery(e.target.value)}
+            <input type="text" placeholder={tr("settings.searchTemplates")} value={query} onChange={(e) => setQuery(e.target.value)}
               className="w-full h-9 pl-9 pr-3 rounded-md border border-input bg-muted text-sm text-foreground placeholder:text-muted-foreground/70 outline-none transition-shadow focus:border-primary" />
           </div>
           <FilterButton count={activeFilters} onClick={() => setFilterOpen(true)} />
-          {activeFilters > 0 && <button onClick={clearFilters} className="text-[11px] font-semibold text-primary hover:underline outline-none">Clear</button>}
+          {activeFilters > 0 && <button onClick={clearFilters} className="text-[11px] font-semibold text-primary hover:underline outline-none">{tr("common.clear")}</button>}
           <FilterDrawer open={filterOpen} onClose={() => setFilterOpen(false)} onClear={clearFilters} canClear={activeFilters > 0}>
-            <FilterField label="Status"><MultiSelect value={statusFilter} onChange={setStatusFilter} placeholder="All statuses" className="w-full" options={Object.keys(STATUS_COLOR).map((s) => ({ value: s, label: s }))} /></FilterField>
-            <FilterField label="Channels"><MultiSelect value={channelFilter} onChange={setChannelFilter} placeholder="All channels" className="w-full" options={channels.map((c) => ({ value: c.id, label: c.name }))} /></FilterField>
-            <FilterField label="Campaigns"><MultiSelect value={campaignFilter} onChange={setCampaignFilter} placeholder="All campaigns" className="w-full" options={filterCampaigns.map((c) => ({ value: c.id, label: c.name }))} /></FilterField>
+            <FilterField label={tr("automation.status")}><MultiSelect value={statusFilter} onChange={setStatusFilter} placeholder={tr("settings.allStatuses")} className="w-full" options={Object.keys(STATUS_COLOR).map((s) => ({ value: s, label: s }))} /></FilterField>
+            <FilterField label={tr("settings.channels")}><MultiSelect value={channelFilter} onChange={setChannelFilter} placeholder={tr("common.allChannels")} className="w-full" options={channels.map((c) => ({ value: c.id, label: c.name }))} /></FilterField>
+            <FilterField label={tr("settings.campaigns")}><MultiSelect value={campaignFilter} onChange={setCampaignFilter} placeholder={tr("common.allCampaigns")} className="w-full" options={filterCampaigns.map((c) => ({ value: c.id, label: c.name }))} /></FilterField>
           </FilterDrawer>
-          <Tip label="Refresh"><button onClick={load} className="p-1.5 rounded-md hover:bg-muted outline-none transition-colors"><RefreshCw className="w-[18px] h-[18px] text-muted-foreground" /></button></Tip>
+          <Tip label={tr("broadcasts.refresh")}><button onClick={load} className="p-1.5 rounded-md hover:bg-muted outline-none transition-colors"><RefreshCw className="w-[18px] h-[18px] text-muted-foreground" /></button></Tip>
           <div className="flex-1" />
-          <PrimaryButton onClick={openNew}><Plus className="w-4 h-4" />New template</PrimaryButton>
+          <PrimaryButton onClick={openNew}><Plus className="w-4 h-4" />{tr("settings.newTemplate")}</PrimaryButton>
         </div>
 
         <div className="overflow-auto flex-1 min-h-0">
@@ -128,7 +130,7 @@ export default function TemplatesPage() {
           <thead>
             <tr className="border-b border-border bg-muted/40">
               {["Name", "Category", "Scope", "Language", "Status", "Updated", "Actions"].map((h) => (
-                <th key={h} className={cn("px-4 py-2.5 text-[11px] font-bold uppercase tracking-wider text-muted-foreground", h === "Actions" ? "text-right" : "text-left")}>{h}</th>
+                <th key={h} className={cn("px-4 py-2.5 text-[11px] font-bold uppercase tracking-wider text-muted-foreground", h === "Actions" ? "text-right" : "text-left")}>{tr(h)}</th>
               ))}
             </tr>
           </thead>
@@ -137,8 +139,8 @@ export default function TemplatesPage() {
               <tr key={i}><td colSpan={7} className="px-4 py-3"><div className="h-7 rounded-md skeleton" /></td></tr>
             )) : filtered.length === 0 ? (
               <tr><td colSpan={7} className="text-center py-12">
-                <p className="font-semibold text-foreground mb-1">No templates yet</p>
-                <p className="text-xs text-muted-foreground">Create a WhatsApp template and submit it for approval.</p>
+                <p className="font-semibold text-foreground mb-1">{tr("settings.noTemplatesYet")}</p>
+                <p className="text-xs text-muted-foreground">{tr("settings.createAWhatsappTemplateAnd")}</p>
               </td></tr>
             ) : paged.map((t) => {
               const sc = STATUS_COLOR[t.status] ?? STATUS_COLOR.DRAFT;
@@ -152,18 +154,18 @@ export default function TemplatesPage() {
                   </td>
                   <td className="px-4 py-2.5"><span className="inline-flex px-2 py-0.5 rounded-md text-[10px] font-bold" style={{ backgroundColor: cc + "1a", color: cc }}>{t.category}</span></td>
                   <td className="px-4 py-2.5">
-                    <p className="text-[12px] text-foreground">{channelName(t.channel_id) ?? "All channels"}</p>
-                    <p className="text-[11px] text-muted-foreground">{nCamp > 0 ? `${nCamp} campaign${nCamp > 1 ? "s" : ""}` : "All campaigns"}</p>
+                    <p className="text-[12px] text-foreground">{channelName(t.channel_id) ?? tr("common.allChannels")}</p>
+                    <p className="text-[11px] text-muted-foreground">{nCamp > 0 ? `${nCamp} campaign${nCamp > 1 ? "s" : ""}` : tr("common.allCampaigns")}</p>
                   </td>
                   <td className="px-4 py-2.5 text-[12.5px] text-foreground">{t.language}</td>
                   <td className="px-4 py-2.5"><span className="inline-flex px-2 py-0.5 rounded-md text-[10px] font-bold" style={{ backgroundColor: sc.bg, color: sc.fg }}>{t.status}</span></td>
                   <td className="px-4 py-2.5 text-[12.5px] text-muted-foreground">{fmtDateTimeShort(t.updated_at)}</td>
                   <td className="px-4 py-2.5 text-right">
                     {(t.status === "DRAFT" || t.status === "REJECTED") && (
-                      <Tip label="Submit to Meta"><button onClick={() => submit(t)} className="p-1.5 rounded-md hover:bg-muted outline-none transition-colors"><Send className="w-[17px] h-[17px] text-primary" /></button></Tip>
+                      <Tip label={tr("settings.submitToMeta")}><button onClick={() => submit(t)} className="p-1.5 rounded-md hover:bg-muted outline-none transition-colors"><Send className="w-[17px] h-[17px] text-primary" /></button></Tip>
                     )}
-                    <Tip label="Edit"><button onClick={() => openEdit(t)} className="p-1.5 rounded-md hover:bg-muted outline-none transition-colors"><Pencil className="w-[17px] h-[17px] text-muted-foreground" /></button></Tip>
-                    <Tip label="Delete"><button onClick={() => remove(t)} className="p-1.5 rounded-md hover:bg-muted outline-none transition-colors"><Trash2 className="w-[17px] h-[17px] text-destructive" /></button></Tip>
+                    <Tip label={tr("common.edit")}><button onClick={() => openEdit(t)} className="p-1.5 rounded-md hover:bg-muted outline-none transition-colors"><Pencil className="w-[17px] h-[17px] text-muted-foreground" /></button></Tip>
+                    <Tip label={tr("common.delete")}><button onClick={() => remove(t)} className="p-1.5 rounded-md hover:bg-muted outline-none transition-colors"><Trash2 className="w-[17px] h-[17px] text-destructive" /></button></Tip>
                   </td>
                 </tr>
               );
@@ -178,9 +180,9 @@ export default function TemplatesPage() {
           <div className="flex items-center gap-2">
             <Select value={String(rowsPerPage)} onChange={(v) => { setRowsPerPage(Number(v)); setPage(0); }} align="right" className="w-[72px]"
               options={[10, 25, 50].map((n) => ({ value: String(n), label: String(n) }))} />
-            <span className="text-muted-foreground mx-2 tabular-nums">Page {page + 1} of {totalPages}</span>
-            <button disabled={page <= 0} onClick={() => setPage(page - 1)} className="px-2.5 h-7 rounded-md border border-border text-xs font-semibold disabled:opacity-30 hover:bg-muted outline-none transition-colors">Prev</button>
-            <button disabled={page >= totalPages - 1} onClick={() => setPage(page + 1)} className="px-2.5 h-7 rounded-md border border-border text-xs font-semibold disabled:opacity-30 hover:bg-muted outline-none transition-colors">Next</button>
+            <span className="text-muted-foreground mx-2 tabular-nums">{tr("settings.page")} {page + 1} of {totalPages}</span>
+            <button disabled={page <= 0} onClick={() => setPage(page - 1)} className="px-2.5 h-7 rounded-md border border-border text-xs font-semibold disabled:opacity-30 hover:bg-muted outline-none transition-colors">{tr("settings.prev")}</button>
+            <button disabled={page >= totalPages - 1} onClick={() => setPage(page + 1)} className="px-2.5 h-7 rounded-md border border-border text-xs font-semibold disabled:opacity-30 hover:bg-muted outline-none transition-colors">{tr("settings.next")}</button>
           </div>
         </div>
       </SettingsCard>
@@ -205,6 +207,7 @@ function PhonePreview({ headerType, headerText, headerMediaUrl, body, footer, bu
   headerType: string; headerText: string; headerMediaUrl?: string; body: string; footer: string;
   buttons: TemplateButton[]; vars: string[]; cards: CarouselCard[]; ttype: TemplateType;
 }) {
+  const { t: tr } = useI18n();
   const effButtons = ttype === "call_permission" ? [{ type: "QUICK_REPLY", text: "Allow" } as TemplateButton, { type: "QUICK_REPLY", text: "Don't allow" } as TemplateButton]
     : ttype === "request_contact" ? [{ type: "QUICK_REPLY", text: "Share contact info" } as TemplateButton]
     : buttons;
@@ -213,12 +216,12 @@ function PhonePreview({ headerType, headerText, headerMediaUrl, body, footer, bu
       <div className="h-9 bg-[#075E54]" />
       <div className="px-3 py-3 min-h-[360px] max-h-[440px] overflow-y-auto" style={{ backgroundColor: "#E5DDD5", backgroundImage: "radial-gradient(rgba(0,0,0,0.04) 1px,transparent 1px)", backgroundSize: "14px 14px" }}>
         <div className="bg-[#FFF6D6] rounded-lg px-2.5 py-1.5 text-[10.5px] text-[#54656F] text-center mb-3 shadow-sm">
-          This business uses a secure service from Meta to manage this chat. Tap to learn more
+          {tr("settings.thisBusinessUsesASecure")}
         </div>
         {ttype === "carousel" ? (
           <>
             <div className="bg-white rounded-lg rounded-tl-none p-2.5 shadow-sm max-w-[210px] mb-2">
-              <p className="text-[13px] whitespace-pre-wrap text-[#111B21]">{renderBody(body, vars) || "Your message body will appear here."}</p>
+              <p className="text-[13px] whitespace-pre-wrap text-[#111B21]">{renderBody(body, vars) || tr("settings.yourMessageBodyWillAppear")}</p>
               <p className="text-[10px] text-[#8696A0] text-right mt-0.5">16:42</p>
             </div>
             <div className="flex gap-2 overflow-x-auto pb-1">
@@ -233,7 +236,7 @@ function PhonePreview({ headerType, headerText, headerMediaUrl, body, footer, bu
                   </div>
                   {c.body && <p className="text-[11.5px] text-[#111B21] mt-1 whitespace-pre-wrap">{renderBody(c.body, vars)}</p>}
                   {c.buttons?.map((b, j) => (
-                    <div key={j} className="mt-1 border-t border-[#E9EDEF] pt-1 text-center text-[#1DA1F2] font-semibold text-[12px]">{b.text || "Button"}</div>
+                    <div key={j} className="mt-1 border-t border-[#E9EDEF] pt-1 text-center text-[#1DA1F2] font-semibold text-[12px]">{b.text || tr("settings.button")}</div>
                   ))}
                 </div>
               ))}
@@ -250,7 +253,7 @@ function PhonePreview({ headerType, headerText, headerMediaUrl, body, footer, bu
                     : headerType}
                 </div>
               )}
-              <p className="text-[13px] whitespace-pre-wrap text-[#111B21]">{renderBody(body, vars) || "Your message body will appear here."}</p>
+              <p className="text-[13px] whitespace-pre-wrap text-[#111B21]">{renderBody(body, vars) || tr("settings.yourMessageBodyWillAppear")}</p>
               {footer && <p className="text-[10.5px] text-[#667781] mt-1.5">{footer}</p>}
               <p className="text-[10px] text-[#8696A0] text-right mt-0.5">16:42</p>
             </div>
@@ -258,7 +261,7 @@ function PhonePreview({ headerType, headerText, headerMediaUrl, body, footer, bu
               <div className="mt-1.5 flex flex-col gap-1 max-w-[210px]">
                 {effButtons.map((b, i) => (
                   <div key={i} className="bg-white rounded-lg py-1.5 text-center text-[#1DA1F2] font-semibold text-[12.5px] shadow-sm flex items-center justify-center gap-1.5">
-                    {b.type === "PHONE_NUMBER" && <Phone className="w-3.5 h-3.5" />}{b.text || "Button"}
+                    {b.type === "PHONE_NUMBER" && <Phone className="w-3.5 h-3.5" />}{b.text || tr("settings.button")}
                   </div>
                 ))}
               </div>
@@ -272,16 +275,17 @@ function PhonePreview({ headerType, headerText, headerMediaUrl, body, footer, bu
 
 // ──────────────────────────── Step 0: create chooser ────────────────────────
 function CreateChooser({ onClose, onBlank, onLibrary }: { onClose: () => void; onBlank: () => void; onLibrary: () => void }) {
+  const { t: tr } = useI18n();
   return (
-    <Modal onClose={onClose} title="Create template" maxW="max-w-3xl">
+    <Modal onClose={onClose} title={tr("settings.createTemplate")} maxW="max-w-3xl">
       <div className="px-6 py-5">
-        <p className="text-[13px] font-semibold text-foreground mb-4">Choose how to create a template</p>
+        <p className="text-[13px] font-semibold text-foreground mb-4">{tr("settings.chooseHowToCreateA")}</p>
         <div className="grid grid-cols-2 gap-4">
-          <ChooserCard onClick={onBlank} accent="#BAE0F2" Icon={Pencil} title="Use a blank template"
-            desc="Create your template from scratch. Once you finish creating your template, it must be submitted for review."
+          <ChooserCard onClick={onBlank} accent="#BAE0F2" Icon={Pencil} title={tr("settings.useABlankTemplate")}
+            desc={tr("settings.createYourTemplateFromScratch")}
             cta="Create new template" />
-          <ChooserCard onClick={onLibrary} accent="#BBF7D0" Icon={LibraryBig} title="Browse the WhatsApp template library"
-            desc="Get started faster with pre-written templates. Use one as is or customize the content to your needs."
+          <ChooserCard onClick={onLibrary} accent="#BBF7D0" Icon={LibraryBig} title={tr("settings.browseTheWhatsappTemplateLibrary")}
+            desc={tr("settings.getStartedFasterWithPre")}
             cta="Browse templates" />
         </div>
       </div>
@@ -305,6 +309,7 @@ function ChooserCard({ onClick, accent, Icon, title, desc, cta }: { onClick: () 
 
 // ──────────────────────────── Template library modal ────────────────────────
 function TemplateLibrary({ onClose, onBack, onPick }: { onClose: () => void; onBack: () => void; onPick: (t: LibraryTemplate, lang: string) => void }) {
+  const { t: tr } = useI18n();
   const [q, setQ] = useState("");
   const [lang, setLang] = useState("en");
   const [cats, setCats] = useState<string[]>([]);
@@ -334,10 +339,10 @@ function TemplateLibrary({ onClose, onBack, onPick }: { onClose: () => void; onB
       header={
         <div className="flex items-center gap-3 w-full">
           <button onClick={onBack} className="p-1 rounded-md text-muted-foreground hover:bg-muted outline-none"><ChevronLeft className="w-[18px] h-[18px]" /></button>
-          <h2 className="text-[15px] font-bold text-foreground">Template Library</h2>
+          <h2 className="text-[15px] font-bold text-foreground">{tr("settings.templateLibrary")}</h2>
           <div className="relative flex-1 max-w-[340px]">
             <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-muted-foreground pointer-events-none" />
-            <input value={q} onChange={(e) => setQ(e.target.value)} placeholder="Search templates..."
+            <input value={q} onChange={(e) => setQ(e.target.value)} placeholder={tr("settings.searchTemplates2")}
               className="w-full h-9 pl-9 pr-3 rounded-md border border-input bg-background text-sm outline-none focus:border-primary" />
           </div>
           <div className="w-[150px]"><Select value={lang} onChange={setLang} options={LIBRARY_LANGS} /></div>
@@ -348,7 +353,7 @@ function TemplateLibrary({ onClose, onBack, onPick }: { onClose: () => void; onB
       <div className="flex h-[60vh] min-h-[420px]">
         {/* Filters */}
         <div className="w-[230px] shrink-0 border-r border-border overflow-y-auto p-4">
-          <p className="text-[11px] font-bold uppercase tracking-wider text-muted-foreground mb-2">Category</p>
+          <p className="text-[11px] font-bold uppercase tracking-wider text-muted-foreground mb-2">{tr("settings.category")}</p>
           <div className="flex flex-col gap-1.5 mb-5">
             {CATEGORIES.filter((c) => catCounts[c]).map((c) => (
               <label key={c} className="flex items-center gap-2 text-[13px] text-foreground cursor-pointer">
@@ -357,7 +362,7 @@ function TemplateLibrary({ onClose, onBack, onPick }: { onClose: () => void; onB
               </label>
             ))}
           </div>
-          <p className="text-[11px] font-bold uppercase tracking-wider text-muted-foreground mb-2">Topics</p>
+          <p className="text-[11px] font-bold uppercase tracking-wider text-muted-foreground mb-2">{tr("settings.topics")}</p>
           <div className="flex flex-col gap-1.5">
             {TEMPLATE_TOPICS.filter((t) => topicCounts[t]).map((t) => (
               <label key={t} className="flex items-center gap-2 text-[13px] text-foreground cursor-pointer">
@@ -369,7 +374,7 @@ function TemplateLibrary({ onClose, onBack, onPick }: { onClose: () => void; onB
         </div>
         {/* Grid */}
         <div className="flex-1 overflow-y-auto p-4" style={{ backgroundColor: "#F0F6F2" }}>
-          <p className="text-[12.5px] text-muted-foreground mb-3">Showing {results.length} result{results.length !== 1 ? "s" : ""}</p>
+          <p className="text-[12.5px] text-muted-foreground mb-3">{tr("settings.showing")} {results.length} result{results.length !== 1 ? "s" : ""}</p>
           <div className="grid grid-cols-3 gap-3">
             {results.map((t) => {
               const lt = localizeLibrary(t, lang);
@@ -397,6 +402,7 @@ function TemplateForm({ editing, prefill, prefillLang, channels, campaigns, onCl
   editing: Template | null; prefill: LibraryTemplate | null; prefillLang?: string; channels: Channel[]; campaigns: Campaign[];
   onClose: () => void; onSaved: (m: string) => void; onError: (m: string) => void;
 }) {
+  const { t: tr } = useI18n();
   const isEdit = !!editing;
   const init = editing ?? prefill;
   const [name, setName] = useState(init?.name ?? "");
@@ -486,8 +492,8 @@ function TemplateForm({ editing, prefill, prefillLang, channels, campaigns, onCl
     };
   }
   function validate() {
-    if (!name.trim() || !body.trim()) { onError("Name and body are required"); return false; }
-    if (!/^[a-z0-9_]+$/.test(name.trim())) { onError("Name must be lowercase letters, numbers and underscores"); return false; }
+    if (!name.trim() || !body.trim()) { onError(tr("settings.nameAndBodyAreRequired")); return false; }
+    if (!/^[a-z0-9_]+$/.test(name.trim())) { onError(tr("settings.nameMustBeLowercaseLetters")); return false; }
     return true;
   }
   async function save(thenSubmit: boolean) {
@@ -499,51 +505,51 @@ function TemplateForm({ editing, prefill, prefillLang, channels, campaigns, onCl
       else { const r = await api.createTemplate(buildPayload()); id = r.id; }
       if (thenSubmit && id) {
         const r = await api.submitTemplate(id);
-        onSaved(r.simulated ? "Submitted - auto-approved (mock mode)" : "Submitted to Meta for review");
-      } else onSaved(isEdit ? "Template updated (draft)" : "Template saved as draft");
+        onSaved(r.simulated ? tr("settings.submittedAutoApprovedMockMode") : tr("settings.submittedToMetaForReview"));
+      } else onSaved(isEdit ? tr("settings.templateUpdatedDraft") : tr("settings.templateSavedAsDraft"));
     } catch (e) { onError(String(e)); }
     finally { setSaving(false); }
   }
   function copyCurl() {
     const payload = { name: name.trim() || "template_name", language, category, components: buildPayload() };
     const curl = `curl -X POST 'https://graph.facebook.com/v21.0/<WABA_ID>/message_templates' \\\n  -H 'Authorization: Bearer <TOKEN>' \\\n  -H 'Content-Type: application/json' \\\n  -d '${JSON.stringify(payload)}'`;
-    navigator.clipboard?.writeText(curl).then(() => onSaved("cURL copied to clipboard")).catch(() => onError("Copy failed"));
+    navigator.clipboard?.writeText(curl).then(() => onSaved(tr("settings.curlCopiedToClipboard"))).catch(() => onError(tr("settings.copyFailed")));
   }
 
   const subTypes = TYPES_BY_CATEGORY[category] ?? ["standard"];
 
   return (
-    <Modal onClose={onClose} maxW="max-w-5xl" noPad title={isEdit ? "Edit Message Template" : "Create Message Template"}>
+    <Modal onClose={onClose} maxW="max-w-5xl" noPad title={isEdit ? tr("settings.editMessageTemplate") : tr("settings.createMessageTemplate")}>
       <div className="flex flex-1 min-h-0">
         {/* Form */}
         <div className="flex-1 overflow-y-auto px-5 py-5 flex flex-col gap-4 min-w-0">
           <div className="flex gap-3">
             <div className="flex-1">
-              <FieldLabel>Name<Counter v={name.length} max={512} /></FieldLabel>
+              <FieldLabel>{tr("inbox.name")}<Counter v={name.length} max={512} /></FieldLabel>
               <input value={name} onChange={(e) => setName(e.target.value.toLowerCase())} disabled={isEdit} maxLength={512}
                 placeholder="template_name" className={cn(INPUT_CLASS, "disabled:bg-muted disabled:text-muted-foreground")} />
             </div>
             <div className="w-[180px]">
-              <FieldLabel>Language</FieldLabel>
+              <FieldLabel>{tr("settings.language")}</FieldLabel>
               <Select value={language} onChange={setLanguage} options={LANGS} />
             </div>
           </div>
 
           <div>
-            <FieldLabel>Category</FieldLabel>
+            <FieldLabel>{tr("settings.category")}</FieldLabel>
             <Select value={category} onChange={(v) => setCategory(v as typeof CATEGORIES[number])} options={CATEGORIES.map((c) => ({ value: c, label: c.charAt(0) + c.slice(1).toLowerCase() }))} />
           </div>
 
           {/* Simpulx scope */}
           <div className="flex gap-3">
             <div className="flex-1">
-              <FieldLabel>Channel</FieldLabel>
-              <Select value={channelId} onChange={(v) => { setChannelId(v); setCampaignIds([]); }} placeholder="All channels"
+              <FieldLabel>{tr("components.channel")}</FieldLabel>
+              <Select value={channelId} onChange={(v) => { setChannelId(v); setCampaignIds([]); }} placeholder={tr("common.allChannels")}
                 options={[{ value: "", label: "All channels" }, ...channels.map((c) => ({ value: c.id, label: c.name }))]} />
             </div>
             <div className="flex-1">
-              <FieldLabel>Campaigns (empty = all)</FieldLabel>
-              <MultiSelect value={campaignIds} onChange={setCampaignIds} placeholder="All campaigns"
+              <FieldLabel>{tr("settings.campaignsEmptyAll")}</FieldLabel>
+              <MultiSelect value={campaignIds} onChange={setCampaignIds} placeholder={tr("common.allCampaigns")}
                 options={campaigns.filter((c) => !channelId || c.channel_id === channelId).map((c) => ({ value: c.id, label: c.name }))} />
             </div>
           </div>
@@ -551,13 +557,13 @@ function TemplateForm({ editing, prefill, prefillLang, channels, campaigns, onCl
           {/* Sub-type tabs */}
           {subTypes.length > 1 && (
             <div>
-              <FieldLabel>Select {category.charAt(0) + category.slice(1).toLowerCase()} Template</FieldLabel>
+              <FieldLabel>{tr("contacts.select")} {category.charAt(0) + category.slice(1).toLowerCase()} {tr("broadcasts.template")}</FieldLabel>
               <div className="flex flex-wrap gap-2">
                 {subTypes.map((tp) => (
                   <button key={tp} onClick={() => setTtype(tp)}
                     className={cn("px-3 h-9 rounded-md border text-[12.5px] font-semibold transition-colors outline-none",
                       ttype === tp ? "border-primary bg-primary text-primary-foreground" : "border-input text-foreground hover:bg-muted")}>
-                    {TEMPLATE_TYPES[tp].label}
+                    {tr(TEMPLATE_TYPES[tp].label)}
                   </button>
                 ))}
               </div>
@@ -568,27 +574,27 @@ function TemplateForm({ editing, prefill, prefillLang, channels, campaigns, onCl
             <>
               <div className="flex gap-3">
                 <div className="w-[160px]">
-                  <FieldLabel>Header</FieldLabel>
+                  <FieldLabel>{tr("automation.header")}</FieldLabel>
                   <Select value={headerType} onChange={setHeaderType} options={["NONE", "TEXT", "IMAGE", "VIDEO", "DOCUMENT"].map((h) => ({ value: h, label: h }))} />
                 </div>
-                {headerType === "TEXT" && <div className="flex-1"><FieldLabel>Header text</FieldLabel><input value={headerText} onChange={(e) => setHeaderText(e.target.value)} className={INPUT_CLASS} /></div>}
+                {headerType === "TEXT" && <div className="flex-1"><FieldLabel>{tr("settings.headerText")}</FieldLabel><input value={headerText} onChange={(e) => setHeaderText(e.target.value)} className={INPUT_CLASS} /></div>}
               </div>
               {["IMAGE", "VIDEO", "DOCUMENT"].includes(headerType) && (
                 <div>
-                  <FieldLabel>Sample {headerType.toLowerCase()} (required by Meta)</FieldLabel>
+                  <FieldLabel>{tr("settings.sample")} {headerType.toLowerCase()} {tr("settings.requiredByMeta")}</FieldLabel>
                   <div className="flex items-center gap-2 mb-2">
                     <label className={cn("inline-flex items-center gap-1.5 h-8 px-3 rounded-md text-[12.5px] font-semibold cursor-pointer outline-none text-white", uploading ? "bg-primary/60" : "bg-primary hover:bg-primary/90")}>
                       {uploading ? <Loader2 className="w-3.5 h-3.5 animate-spin" /> : <Upload className="w-3.5 h-3.5" />}
-                      Choose file
+                      {tr("settings.chooseFile")}
                       <input type="file" className="hidden"
                         accept={headerType === "VIDEO" ? "video/*" : headerType === "DOCUMENT" ? "application/pdf" : "image/*"}
                         onChange={(e) => { const f = e.target.files?.[0]; if (f) uploadHeaderMedia(f); e.target.value = ""; }} />
                     </label>
                     {headerMediaUrl
-                      ? <span className="inline-flex items-center gap-1 text-[11.5px] text-emerald-600 font-medium truncate max-w-[180px]"><ImageIcon className="w-3.5 h-3.5 shrink-0" />Uploaded</span>
-                      : <span className="text-[11.5px] text-muted-foreground">No sample yet</span>}
+                      ? <span className="inline-flex items-center gap-1 text-[11.5px] text-emerald-600 font-medium truncate max-w-[180px]"><ImageIcon className="w-3.5 h-3.5 shrink-0" />{tr("settings.uploaded")}</span>
+                      : <span className="text-[11.5px] text-muted-foreground">{tr("settings.noSampleYet")}</span>}
                   </div>
-                  <input value={headerMediaUrl} onChange={(e) => setHeaderMediaUrl(e.target.value)} placeholder="...or paste a media URL (https://...)" className={cn(INPUT_CLASS, "h-8")} />
+                  <input value={headerMediaUrl} onChange={(e) => setHeaderMediaUrl(e.target.value)} placeholder={tr("settings.orPasteAMediaUrl")} className={cn(INPUT_CLASS, "h-8")} />
                 </div>
               )}
             </>
@@ -596,18 +602,18 @@ function TemplateForm({ editing, prefill, prefillLang, channels, campaigns, onCl
 
           {/* Body + toolbar */}
           <div>
-            <FieldLabel>Body<Counter v={body.length} max={1024} /></FieldLabel>
+            <FieldLabel>{tr("automation.body")}<Counter v={body.length} max={1024} /></FieldLabel>
             <textarea ref={bodyRef} value={body} onChange={(e) => setBody(e.target.value)} rows={5} maxLength={1024}
-              placeholder="Hi {{1}}, ..." className="w-full px-3 py-2 rounded-md border border-input bg-background text-sm text-foreground outline-none resize-none transition-shadow focus:border-primary" />
+              placeholder={tr("settings.hi1")} className="w-full px-3 py-2 rounded-md border border-input bg-background text-sm text-foreground outline-none resize-none transition-shadow focus:border-primary" />
             <div className="flex items-center gap-1 mt-1.5 relative">
-              <ToolBtn onClick={() => surround("*")} title="Bold"><Bold className="w-4 h-4" /></ToolBtn>
-              <ToolBtn onClick={() => surround("_")} title="Italic"><Italic className="w-4 h-4" /></ToolBtn>
-              <ToolBtn onClick={() => surround("~")} title="Strikethrough"><Strikethrough className="w-4 h-4" /></ToolBtn>
-              <ToolBtn onClick={() => setEmojiOpen((o) => !o)} title="Emoji"><Smile className="w-4 h-4" /></ToolBtn>
-              <Tip label="WhatsApp formatting: *bold*, _italic_, ~strike~"><span className="p-1.5 text-muted-foreground"><Info className="w-4 h-4" /></span></Tip>
+              <ToolBtn onClick={() => surround("*")} title={tr("settings.bold")}><Bold className="w-4 h-4" /></ToolBtn>
+              <ToolBtn onClick={() => surround("_")} title={tr("settings.italic")}><Italic className="w-4 h-4" /></ToolBtn>
+              <ToolBtn onClick={() => surround("~")} title={tr("settings.strikethrough")}><Strikethrough className="w-4 h-4" /></ToolBtn>
+              <ToolBtn onClick={() => setEmojiOpen((o) => !o)} title={tr("inbox.emoji")}><Smile className="w-4 h-4" /></ToolBtn>
+              <Tip label={tr("settings.whatsappFormattingBoldItalicStrike")}><span className="p-1.5 text-muted-foreground"><Info className="w-4 h-4" /></span></Tip>
               <div className="flex-1" />
               <button onClick={addVariable} className="inline-flex items-center gap-1 h-8 px-2.5 rounded-md border border-input text-[12.5px] font-semibold text-foreground hover:bg-muted outline-none">
-                <Plus className="w-3.5 h-3.5" />Add Variable
+                <Plus className="w-3.5 h-3.5" />{tr("settings.addVariable")}
               </button>
               {emojiOpen && (
                 <div className="absolute top-9 left-0 z-10 bg-popover border border-border rounded-md shadow-lg p-2 grid grid-cols-6 gap-1">
@@ -621,7 +627,7 @@ function TemplateForm({ editing, prefill, prefillLang, channels, campaigns, onCl
 
           {placeholderCount > 0 && (
             <div>
-              <FieldLabel>Sample values</FieldLabel>
+              <FieldLabel>{tr("settings.sampleValues")}</FieldLabel>
               <div className="flex flex-col gap-2">
                 {vars.map((v, i) => (
                   <div key={i} className="flex items-center gap-2">
@@ -636,8 +642,8 @@ function TemplateForm({ editing, prefill, prefillLang, channels, campaigns, onCl
           {/* Carousel cards */}
           {ttype === "carousel" && (
             <div>
-              <FieldLabel>Carousel Cards</FieldLabel>
-              <p className="text-[11.5px] text-muted-foreground mb-2">Display your products - create a carousel of images and buttons for up to 10 cards.</p>
+              <FieldLabel>{tr("settings.carouselCards")}</FieldLabel>
+              <p className="text-[11.5px] text-muted-foreground mb-2">{tr("settings.displayYourProductsCreateA")}</p>
               <div className="flex gap-2 mb-3">
                 {cards.map((c, i) => (
                   <button key={i} onClick={() => setActiveCard(i)}
@@ -652,12 +658,12 @@ function TemplateForm({ editing, prefill, prefillLang, channels, campaigns, onCl
               {cards[activeCard] && (
                 <div className="rounded-lg border border-border p-3 flex flex-col gap-3">
                   <div className="flex items-center justify-between">
-                    <p className="text-[12.5px] font-bold text-foreground">Edit Card Content</p>
+                    <p className="text-[12.5px] font-bold text-foreground">{tr("settings.editCardContent")}</p>
                     {cards.length > 1 && <button onClick={() => removeCard(activeCard)} className="p-1 text-destructive hover:bg-muted rounded outline-none"><Trash2 className="w-4 h-4" /></button>}
                   </div>
                   <div>
-                    <p className="text-[12px] font-semibold text-foreground mb-1">Media</p>
-                    <p className="text-[11px] text-muted-foreground mb-1.5">Upload either an image or video.</p>
+                    <p className="text-[12px] font-semibold text-foreground mb-1">{tr("inbox.media")}</p>
+                    <p className="text-[11px] text-muted-foreground mb-1.5">{tr("settings.uploadEitherAnImageOr")}</p>
                     <div className="flex items-center gap-4 mb-2 text-[12.5px]">
                       {(["IMAGE", "VIDEO"] as const).map((mt) => (
                         <label key={mt} className="flex items-center gap-1.5 cursor-pointer">
@@ -669,19 +675,19 @@ function TemplateForm({ editing, prefill, prefillLang, channels, campaigns, onCl
                     <div className="flex items-center gap-2 mb-2">
                       <label className={cn("inline-flex items-center gap-1.5 h-8 px-3 rounded-md text-[12.5px] font-semibold cursor-pointer outline-none text-white", uploading ? "bg-primary/60" : "bg-primary hover:bg-primary/90")}>
                         {uploading ? <Loader2 className="w-3.5 h-3.5 animate-spin" /> : <Upload className="w-3.5 h-3.5" />}
-                        Choose file
+                        {tr("settings.chooseFile")}
                         <input type="file" accept={cards[activeCard].media_type === "VIDEO" ? "video/*" : "image/*"} className="hidden"
                           onChange={(e) => { const f = e.target.files?.[0]; if (f) uploadCardMedia(activeCard, f); e.target.value = ""; }} />
                       </label>
                       {cards[activeCard].media_url
-                        ? <span className="inline-flex items-center gap-1 text-[11.5px] text-emerald-600 font-medium truncate max-w-[170px]"><ImageIcon className="w-3.5 h-3.5 shrink-0" />Uploaded</span>
-                        : <span className="text-[11.5px] text-muted-foreground">Sample {cards[activeCard].media_type.toLowerCase()} required</span>}
+                        ? <span className="inline-flex items-center gap-1 text-[11.5px] text-emerald-600 font-medium truncate max-w-[170px]"><ImageIcon className="w-3.5 h-3.5 shrink-0" />{tr("settings.uploaded")}</span>
+                        : <span className="text-[11.5px] text-muted-foreground">{tr("settings.sample")} {cards[activeCard].media_type.toLowerCase()} required</span>}
                     </div>
                     <input value={cards[activeCard].media_url ?? ""} onChange={(e) => setCard(activeCard, { ...cards[activeCard], media_url: e.target.value })}
-                      placeholder="...or paste a media URL (https://...)" className={cn(INPUT_CLASS, "h-8")} />
+                      placeholder={tr("settings.orPasteAMediaUrl")} className={cn(INPUT_CLASS, "h-8")} />
                   </div>
                   <div>
-                    <p className="text-[12px] font-semibold text-foreground mb-1">Card content (optional)</p>
+                    <p className="text-[12px] font-semibold text-foreground mb-1">{tr("settings.cardContentOptional")}</p>
                     <textarea value={cards[activeCard].body} onChange={(e) => setCard(activeCard, { ...cards[activeCard], body: e.target.value })} rows={2}
                       className="w-full px-3 py-2 rounded-md border border-input bg-background text-sm outline-none resize-none focus:border-primary" />
                   </div>
@@ -691,26 +697,26 @@ function TemplateForm({ editing, prefill, prefillLang, channels, campaigns, onCl
           )}
 
           {ttype === "call_permission" && (
-            <Locked icon={Phone} text="A call permission request adds Allow / Don't allow buttons automatically. Custom buttons are not available for this type." />
+            <Locked icon={Phone} text={tr("settings.aCallPermissionRequestAdds")} />
           )}
           {ttype === "request_contact" && (
-            <Locked icon={UserRound} text="A request contact info template adds a button that asks the customer to share their contact details." />
+            <Locked icon={UserRound} text={tr("settings.aRequestContactInfoTemplate")} />
           )}
 
           {ttype !== "carousel" && (
-            <div><FieldLabel>Footer (optional)<Counter v={footer.length} max={60} /></FieldLabel>
-              <input value={footer} onChange={(e) => setFooter(e.target.value)} maxLength={60} placeholder="Reply STOP to opt out" className={INPUT_CLASS} /></div>
+            <div><FieldLabel>{tr("automation.footerOptional")}<Counter v={footer.length} max={60} /></FieldLabel>
+              <input value={footer} onChange={(e) => setFooter(e.target.value)} maxLength={60} placeholder={tr("settings.replyStopToOptOut")} className={INPUT_CLASS} /></div>
           )}
 
           {supportsButtons && (
             <div>
-              <FieldLabel>Buttons</FieldLabel>
+              <FieldLabel>{tr("settings.buttons")}</FieldLabel>
               <div className="flex flex-col gap-2">
                 {buttons.map((b, i) => (
                   <div key={i} className="flex gap-2">
                     <Select value={b.type} onChange={(v) => setButton(i, { ...b, type: v as TemplateButton["type"] })} className="w-[150px]"
                       options={[{ value: "QUICK_REPLY", label: "Quick reply" }, { value: "URL", label: "Visit URL" }, { value: "PHONE_NUMBER", label: "Call phone" }]} />
-                    <input placeholder="Button text" value={b.text} onChange={(e) => setButton(i, { ...b, text: e.target.value })} className={cn(INPUT_CLASS, "flex-1")} />
+                    <input placeholder={tr("settings.buttonText")} value={b.text} onChange={(e) => setButton(i, { ...b, text: e.target.value })} className={cn(INPUT_CLASS, "flex-1")} />
                     {b.type === "URL" && <input placeholder="https://..." value={b.url ?? ""} onChange={(e) => setButton(i, { ...b, url: e.target.value })} className={cn(INPUT_CLASS, "flex-1")} />}
                     {b.type === "PHONE_NUMBER" && <input placeholder="+62..." value={b.phone ?? ""} onChange={(e) => setButton(i, { ...b, phone: e.target.value })} className={cn(INPUT_CLASS, "flex-1")} />}
                     <button onClick={() => removeButton(i)} className="p-1.5 rounded-md hover:bg-muted outline-none text-destructive transition-colors"><Trash2 className="w-[18px] h-[18px]" /></button>
@@ -718,7 +724,7 @@ function TemplateForm({ editing, prefill, prefillLang, channels, campaigns, onCl
                 ))}
                 {buttons.length < 3 && (
                   <button onClick={addButton} className="inline-flex items-center gap-1 text-sm text-primary font-semibold hover:underline outline-none self-start">
-                    <Plus className="w-4 h-4" />Add a button
+                    <Plus className="w-4 h-4" />{tr("settings.addAButton")}
                   </button>
                 )}
               </div>
@@ -728,18 +734,18 @@ function TemplateForm({ editing, prefill, prefillLang, channels, campaigns, onCl
 
         {/* Preview */}
         <div className="w-[320px] shrink-0 border-l border-border bg-muted/30 overflow-y-auto px-5 py-5">
-          <p className="text-center text-[13px] font-bold text-foreground mb-3">Preview</p>
+          <p className="text-center text-[13px] font-bold text-foreground mb-3">{tr("broadcasts.preview")}</p>
           <PhonePreview headerType={headerType} headerText={headerText} headerMediaUrl={headerMediaUrl} body={body} footer={footer} buttons={buttons} vars={vars} cards={cards} ttype={ttype} />
         </div>
       </div>
 
       {/* Footer */}
       <div className="flex items-center justify-between gap-2 px-5 py-3.5 border-t border-border shrink-0">
-        <GhostButton onClick={copyCurl}><Terminal className="w-4 h-4" />Copy as cURL</GhostButton>
+        <GhostButton onClick={copyCurl}><Terminal className="w-4 h-4" />{tr("settings.copyAsCurl")}</GhostButton>
         <div className="flex gap-2">
-          <GhostButton onClick={onClose}>Cancel</GhostButton>
-          <GhostButton onClick={() => save(false)}>{saving ? <Loader2 className="w-4 h-4 animate-spin" /> : null}Save as draft</GhostButton>
-          <PrimaryButton onClick={() => save(true)} disabled={saving}>{saving ? <Loader2 className="w-4 h-4 animate-spin" /> : null}Submit for approval</PrimaryButton>
+          <GhostButton onClick={onClose}>{tr("common.cancel")}</GhostButton>
+          <GhostButton onClick={() => save(false)}>{saving ? <Loader2 className="w-4 h-4 animate-spin" /> : null}{tr("broadcasts.saveAsDraft")}</GhostButton>
+          <PrimaryButton onClick={() => save(true)} disabled={saving}>{saving ? <Loader2 className="w-4 h-4 animate-spin" /> : null}{tr("settings.submitForApproval")}</PrimaryButton>
         </div>
       </div>
     </Modal>

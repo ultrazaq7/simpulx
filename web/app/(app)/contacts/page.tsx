@@ -197,10 +197,10 @@ export default function ContactsPage() {
     setContacts((p) => p.map((x) => (x.id === c.id ? { ...x, stage_id: stageId || null, stage_name: name } : x)));
     try {
       await api.updateContact(c.id, { stage_id: stageId });
-      setToast(name ? `Stage updated to ${name}` : "Stage cleared");
+      setToast(name ? `Stage updated to ${name}` : t("contacts.stageCleared"));
     } catch {
       setContacts((p) => p.map((x) => (x.id === c.id ? { ...x, stage_id: prevStageId, stage_name: prevName } : x)));
-      setToast("Could not update stage");
+      setToast(t("contacts.couldNotUpdateStage"));
     }
   }
   async function setInterest(c: Contact, level: string) {
@@ -208,10 +208,10 @@ export default function ContactsPage() {
     setContacts((p) => p.map((x) => (x.id === c.id ? { ...x, interest_level: level || null } : x)));
     try {
       await api.updateContact(c.id, { interest_level: level });
-      setToast(level ? `Interest set to ${level}` : "Interest cleared");
+      setToast(level ? `Interest set to ${level}` : t("contacts.interestCleared"));
     } catch {
       setContacts((p) => p.map((x) => (x.id === c.id ? { ...x, interest_level: prev } : x)));
-      setToast("Could not update interest");
+      setToast(t("contacts.couldNotUpdateInterest"));
     }
   }
   async function reassignAgent(c: Contact, agentId: string | null) {
@@ -220,15 +220,15 @@ export default function ContactsPage() {
     setContacts((p) => p.map((x) => (x.id === c.id ? { ...x, assigned_agent_id: agentId, agent_name: newAgent?.full_name || null } : x)));
     try {
       await api.updateContact(c.id, { assigned_agent_id: agentId || "" });
-      setToast(agentId ? `Assigned to ${newAgent?.full_name || "agent"}` : "Unassigned");
+      setToast(agentId ? `Assigned to ${newAgent?.full_name || "agent"}` : t("dashboard.unassigned"));
     } catch {
       setContacts((p) => p.map((x) => (x.id === c.id ? { ...x, assigned_agent_id: prevAgentId, agent_name: prevAgentName } : x)));
-      setToast("Could not reassign");
+      setToast(t("contacts.couldNotReassign"));
     }
   }
   // Lost / Spam are terminal outcomes (dispositions), mirroring the inbox stage menu.
   async function markOutcome(c: Contact, reason: string, category: "lost" | "spam", didPurchase = false) {
-    if (!c.conversation_id) { setToast("No conversation yet for this contact"); return; }
+    if (!c.conversation_id) { setToast(t("contacts.noConversationYetForThis")); return; }
     const disp = category === "spam"
       ? dispositions.find((d) => d.category === "spam")
       : (dispositions.find((d) => d.name?.toLowerCase() === "lost") || dispositions.find((d) => d.category === "lost"));
@@ -241,9 +241,9 @@ export default function ContactsPage() {
     if (lostStage) patch.stage_id = lostStage.id;
     try {
       await api.patchConversation(c.conversation_id, patch);
-      setToast(category === "spam" ? "Marked as spam" : "Marked as lost");
+      setToast(category === "spam" ? t("contacts.markedAsSpam") : t("contacts.markedAsLost"));
       reload();
-    } catch { setToast("Could not update"); }
+    } catch { setToast(t("contacts.couldNotUpdate")); }
   }
   // Close row / add / columns menus on outside click.
   useEffect(() => {
@@ -292,7 +292,7 @@ export default function ContactsPage() {
   const clearFilters = () => { setFilterTags([]); setFilterAgents([]); setFilterCampaigns([]); };
 
   function exportCsv() {
-    if (filtered.length === 0) { setToast("Nothing to export"); return; }
+    if (filtered.length === 0) { setToast(t("contacts.nothingToExport")); return; }
     const esc = (v: any) => `"${String(v ?? "").replace(/"/g, '""')}"`;
     const head = ["Name", "Phone", "Channel", "Stage", "Interest level", "Lost reason", "Lead score", "Agent", "Campaign", "Source", "Source Id", "Source Url", "Labels", "Blacklisted", "Created", "Updated"];
     const lines = filtered.map((c) => [
@@ -306,13 +306,13 @@ export default function ContactsPage() {
     const a = document.createElement("a");
     a.href = url; a.download = `contacts-${new Date().toISOString().slice(0, 10)}.csv`;
     a.click(); URL.revokeObjectURL(url);
-    setToast(`Exported ${filtered.length} contact${filtered.length === 1 ? "" : "s"}`);
+    setToast(t("contacts.exportedN", { n: filtered.length }));
   }
 
   async function importCsv(file: File) {
     const text = await file.text();
     const rows = text.split(/\r?\n/).map((l) => l.trim()).filter(Boolean);
-    if (rows.length === 0) { setToast("Empty file"); return; }
+    if (rows.length === 0) { setToast(t("contacts.emptyFile")); return; }
     // Detect header; map name/phone columns.
     const header = rows[0].toLowerCase();
     const hasHeader = /name|phone|nama|telepon|nomor/.test(header);
@@ -321,7 +321,7 @@ export default function ContactsPage() {
     const phoneIdx = cols.findIndex((h) => /phone|telepon|nomor|wa/.test(h));
     const dataRows = hasHeader ? rows.slice(1) : rows;
     let ok = 0;
-    setToast("Importing...");
+    setToast(t("contacts.importing"));
     for (const line of dataRows) {
       const parts = line.split(",").map((p) => p.trim().replace(/^"|"$/g, ""));
       const full_name = nameIdx >= 0 ? parts[nameIdx] : (parts.length > 1 ? parts[0] : "");
@@ -330,13 +330,13 @@ export default function ContactsPage() {
       try { await api.createContact({ full_name: full_name || undefined, phone: (phone || "").replace(/[^\d+]/g, "") || undefined }); ok++; } catch { /* skip dup/invalid */ }
     }
     await reload();
-    setToast(`Imported ${ok} contact${ok === 1 ? "" : "s"}`);
+    setToast(t("contacts.importedN", { n: ok }));
   }
 
   async function remove(c: Contact) {
     if (!(await confirm({ title: "Delete contact?", message: `This removes "${c.full_name || c.phone}" and its conversations. This cannot be undone.`, danger: true, confirmLabel: "Delete" }))) return;
-    try { await api.deleteContact(c.id); setContacts((p) => p.filter((x) => x.id !== c.id)); setToast("Contact deleted"); }
-    catch (e: any) { setToast(e?.message || "Delete failed"); }
+    try { await api.deleteContact(c.id); setContacts((p) => p.filter((x) => x.id !== c.id)); setToast(t("contacts.contactDeleted")); }
+    catch (e: any) { setToast(e?.message || t("contacts.deleteFailed")); }
   }
 
   // ── Bulk actions ──
@@ -348,14 +348,14 @@ export default function ContactsPage() {
     const ids = [...selected];
     await Promise.allSettled(ids.map((id) => api.deleteContact(id)));
     setContacts((p) => p.filter((c) => !selected.has(c.id)));
-    clearSel(); setBulkBusy(false); setToast(`${ids.length} contact(s) deleted`);
+    clearSel(); setBulkBusy(false); setToast(t("contacts.nDeleted", { n: ids.length }));
   }
   async function bulkBlacklist() {
     setBulkBusy(true);
     const ids = [...selected];
     await Promise.allSettled(ids.map((id) => api.updateContact(id, { blacklisted: true })));
     setContacts((p) => p.map((c) => (selected.has(c.id) ? { ...c, blacklisted: true } : c)));
-    clearSel(); setBulkBusy(false); setToast(`${ids.length} contact(s) blacklisted`);
+    clearSel(); setBulkBusy(false); setToast(t("contacts.nBlacklisted", { n: ids.length }));
   }
   async function bulkLabel() {
     const label = await prompt({ title: "Add label", message: "Add a label to the selected contacts.", placeholder: "e.g. VIP, Follow-up", confirmLabel: "Add label" });
@@ -403,10 +403,10 @@ export default function ContactsPage() {
           return api.patchConversation(c.conversation_id!, patch);
         }));
       }
-      setToast(`Updated ${ids.length} contact${ids.length === 1 ? "" : "s"}`);
+      setToast(t("contacts.updatedN", { n: ids.length }));
       setBulkEditOpen(false); clearSel(); reload();
     } catch {
-      setToast("Could not update selection");
+      setToast(t("contacts.couldNotUpdateSelection"));
     } finally {
       setBulkApplying(false);
     }
@@ -414,8 +414,8 @@ export default function ContactsPage() {
   async function toggleBlacklist(c: Contact) {
     const next = !c.blacklisted;
     setContacts((p) => p.map((x) => (x.id === c.id ? { ...x, blacklisted: next } : x)));
-    try { await api.updateContact(c.id, { blacklisted: next }); setToast(next ? "Contact blacklisted" : "Removed from blacklist"); }
-    catch { setContacts((p) => p.map((x) => (x.id === c.id ? { ...x, blacklisted: !next } : x))); setToast("Update failed"); }
+    try { await api.updateContact(c.id, { blacklisted: next }); setToast(next ? t("contacts.contactBlacklisted") : t("contacts.removedFromBlacklist")); }
+    catch { setContacts((p) => p.map((x) => (x.id === c.id ? { ...x, blacklisted: !next } : x))); setToast(t("contacts.updateFailed")); }
   }
 
   const TH = ({ children, className }: { children?: React.ReactNode; className?: string }) =>
@@ -433,7 +433,7 @@ export default function ContactsPage() {
           </div>
           <button onClick={() => setFilterOpen(true)}
             className="inline-flex items-center gap-1.5 px-3 h-8 rounded-md border border-border bg-background text-[13px] font-medium text-foreground hover:bg-muted outline-none transition-colors">
-            <SlidersHorizontal className="w-4 h-4 text-muted-foreground" />Filter
+            <SlidersHorizontal className="w-4 h-4 text-muted-foreground" />{t("contacts.filter")}
             {activeFilters > 0 && <span className="ml-0.5 min-w-[18px] h-[18px] px-1 rounded-full bg-primary text-white text-[11px] font-bold grid place-items-center tabular-nums">{activeFilters}</span>}
           </button>
           {activeFilters > 0 && <button onClick={clearFilters} className="text-[11px] font-semibold text-primary hover:underline outline-none">{t("common.clear")}</button>}
@@ -441,24 +441,24 @@ export default function ContactsPage() {
           <button onClick={toggleCompact}
             className={cn("inline-flex items-center gap-1.5 px-3 h-8 rounded-md border text-[13px] font-medium outline-none transition-colors",
               compact ? "border-primary/40 bg-primary/[0.06] text-primary" : "border-border bg-background text-foreground hover:bg-muted")}>
-            <AlignJustify className="w-4 h-4" />Compact
+            <AlignJustify className="w-4 h-4" />{t("contacts.compact")}
           </button>
           <div className="relative inline-flex" onClick={(e) => e.stopPropagation()}>
             <button onClick={() => setColsMenuOpen((o) => !o)} className="inline-flex items-center gap-1.5 px-3 h-8 rounded-md border border-border bg-background text-[13px] font-medium text-foreground hover:bg-muted outline-none transition-colors">
-              <SlidersHorizontal className="w-4 h-4 text-muted-foreground" />Columns
+              <SlidersHorizontal className="w-4 h-4 text-muted-foreground" />{t("contacts.columns")}
             </button>
             {colsMenuOpen && (
               <div className="absolute right-0 top-full mt-1 w-56 bg-popover border border-border rounded-lg shadow-xl z-50 py-1.5 animate-scale-in origin-top-right max-h-[70vh] overflow-auto">
                 <div className="flex items-center justify-between px-3 py-1">
-                  <span className="text-[11px] font-bold uppercase tracking-wider text-muted-foreground">Columns</span>
-                  <button onClick={() => { setVisibleCols(new Set(DEFAULT_COLS)); try { localStorage.setItem(CONTACT_COLS_KEY, JSON.stringify(DEFAULT_COLS)); } catch { /* ignore */ } }} className="text-[11px] font-semibold text-primary hover:underline outline-none">Reset</button>
+                  <span className="text-[11px] font-bold uppercase tracking-wider text-muted-foreground">{t("contacts.columns")}</span>
+                  <button onClick={() => { setVisibleCols(new Set(DEFAULT_COLS)); try { localStorage.setItem(CONTACT_COLS_KEY, JSON.stringify(DEFAULT_COLS)); } catch { /* ignore */ } }} className="text-[11px] font-semibold text-primary hover:underline outline-none">{t("contacts.reset")}</button>
                 </div>
                 {CONTACT_COLUMNS.map((col) => (
                   <button key={col.key} onClick={() => toggleCol(col.key)} className="w-full flex items-center gap-2.5 px-3 py-1.5 text-[13px] text-foreground hover:bg-muted outline-none">
                     <span className={cn("w-4 h-4 rounded border grid place-items-center shrink-0", show(col.key) ? "bg-primary border-primary text-white" : "border-input")}>
                       {show(col.key) && <Check className="w-3 h-3" />}
                     </span>
-                    {col.label}
+                    {t(col.label)}
                   </button>
                 ))}
               </div>
@@ -469,7 +469,7 @@ export default function ContactsPage() {
               <button onClick={() => setModal({ mode: "add" })} className="inline-flex items-center gap-2 px-3.5 h-8 bg-primary text-white rounded-l-md text-sm font-semibold hover:bg-primary-dark shadow-sm transition-all outline-none">
                 <UserPlus className="w-4 h-4" />{t("contacts.addContact")}
               </button>
-              <button aria-label="More add options" onClick={() => setAddMenuOpen((o) => !o)} className="px-2 h-8 bg-primary text-white rounded-r-md border-l border-white/20 hover:bg-primary-dark outline-none transition-colors">
+              <button aria-label={t("contacts.moreAddOptions")} onClick={() => setAddMenuOpen((o) => !o)} className="px-2 h-8 bg-primary text-white rounded-r-md border-l border-white/20 hover:bg-primary-dark outline-none transition-colors">
                 <ChevronDown className="w-4 h-4" />
               </button>
               {addMenuOpen && (
@@ -498,13 +498,13 @@ export default function ContactsPage() {
                 <span className="text-[13px] font-semibold text-foreground whitespace-nowrap">{t("contacts.selected")}</span>
               </div>
               <div className="w-px h-6 bg-border mx-0.5 shrink-0" />
-              {canEdit && <button onClick={(e) => openBulkEdit(e.currentTarget.getBoundingClientRect())} className="inline-flex items-center gap-1.5 px-3 h-8 rounded-md border border-border text-[13px] font-medium hover:bg-muted shrink-0"><Pencil className="w-3.5 h-3.5" />Edit</button>}
-              {canInitiate && <button onClick={() => setTplOpen(true)} disabled={bulkBusy} className="inline-flex items-center gap-1.5 px-3 h-8 rounded-md border border-border text-[13px] font-medium hover:bg-muted disabled:opacity-50 shrink-0"><Send className="w-3.5 h-3.5" />Send Template</button>}
+              {canEdit && <button onClick={(e) => openBulkEdit(e.currentTarget.getBoundingClientRect())} className="inline-flex items-center gap-1.5 px-3 h-8 rounded-md border border-border text-[13px] font-medium hover:bg-muted shrink-0"><Pencil className="w-3.5 h-3.5" />{t("common.edit")}</button>}
+              {canInitiate && <button onClick={() => setTplOpen(true)} disabled={bulkBusy} className="inline-flex items-center gap-1.5 px-3 h-8 rounded-md border border-border text-[13px] font-medium hover:bg-muted disabled:opacity-50 shrink-0"><Send className="w-3.5 h-3.5" />{t("contacts.sendTemplate")}</button>}
               {canEdit && <button onClick={bulkLabel} disabled={bulkBusy} className="inline-flex items-center gap-1.5 px-3 h-8 rounded-md border border-border text-[13px] font-medium hover:bg-muted disabled:opacity-50 shrink-0"><TagIcon className="w-3.5 h-3.5" />{t("contacts.addLabel")}</button>}
               {canEdit && <button onClick={bulkBlacklist} disabled={bulkBusy} className="inline-flex items-center gap-1.5 px-3 h-8 rounded-md border border-border text-[13px] font-medium hover:bg-muted disabled:opacity-50 shrink-0"><Ban className="w-3.5 h-3.5" />{t("contacts.blacklist")}</button>}
               {canDelete && <button onClick={bulkDelete} disabled={bulkBusy} className="inline-flex items-center gap-1.5 px-3 h-8 rounded-md border border-destructive/40 text-destructive text-[13px] font-medium hover:bg-destructive/10 disabled:opacity-50 shrink-0"><Trash2 className="w-3.5 h-3.5" />{t("common.delete")}</button>}
               <div className="w-px h-6 bg-border mx-0.5 shrink-0" />
-              <button onClick={clearSel} aria-label="Clear selection" className="inline-flex items-center justify-center w-8 h-8 rounded-md text-muted-foreground hover:bg-muted hover:text-foreground shrink-0"><X className="w-4 h-4" /></button>
+              <button onClick={clearSel} aria-label={t("contacts.clearSelection")} className="inline-flex items-center justify-center w-8 h-8 rounded-md text-muted-foreground hover:bg-muted hover:text-foreground shrink-0"><X className="w-4 h-4" /></button>
             </div>
           </div>
         )}
@@ -514,21 +514,21 @@ export default function ContactsPage() {
           <table className={cn("w-full text-[12px] whitespace-nowrap", denseCls)}>
             <thead className="sticky top-0 z-10">
               <tr className="border-b border-border bg-muted">
-                <TH className="w-10"><span className="sr-only">Select</span><input type="checkbox" aria-label="Select all contacts" className="rounded border-input accent-primary" checked={paged.length > 0 && paged.every((c) => selected.has(c.id))} onChange={(e) => setSelected((s) => { const n = new Set(s); if (e.target.checked) paged.forEach((c) => n.add(c.id)); else paged.forEach((c) => n.delete(c.id)); return n; })} /></TH>
+                <TH className="w-10"><span className="sr-only">{t("contacts.select")}</span><input type="checkbox" aria-label={t("contacts.selectAllContacts")} className="rounded border-input accent-primary" checked={paged.length > 0 && paged.every((c) => selected.has(c.id))} onChange={(e) => setSelected((s) => { const n = new Set(s); if (e.target.checked) paged.forEach((c) => n.add(c.id)); else paged.forEach((c) => n.delete(c.id)); return n; })} /></TH>
                 <TH>{t("contacts.contactName")}</TH>
                 {show("stage") && <TH>{t("contacts.stage")}</TH>}
                 {show("interest") && <TH>{t("contacts.interest")}</TH>}
-                {show("score") && <TH>Lead score</TH>}
+                {show("score") && <TH>{t("contacts.leadScore")}</TH>}
                 {show("agent") && <TH>{t("contacts.agent")}</TH>}
                 {show("campaign") && <TH>{t("settings.campaigns")}</TH>}
                 {show("source") && <TH>{t("contacts.source")}</TH>}
-                {show("source_id") && <TH>Source ID</TH>}
-                {show("source_url") && <TH>Source URL</TH>}
-                {show("labels") && <TH>Labels</TH>}
-                {show("channel") && <TH>Channel</TH>}
+                {show("source_id") && <TH>{t("contacts.sourceId")}</TH>}
+                {show("source_url") && <TH>{t("contacts.sourceUrl")}</TH>}
+                {show("labels") && <TH>{t("contacts.labels")}</TH>}
+                {show("channel") && <TH>{t("components.channel")}</TH>}
                 {show("created") && <TH>{t("contacts.created")}</TH>}
-                {show("updated") && <TH>Updated</TH>}
-                {show("blacklisted") && <TH>Blacklisted</TH>}
+                {show("updated") && <TH>{t("dashboard.updated")}</TH>}
+                {show("blacklisted") && <TH>{t("contacts.blacklisted")}</TH>}
                 <TH className="text-right">{t("common.actions")}</TH>
               </tr>
             </thead>
@@ -539,7 +539,7 @@ export default function ContactsPage() {
                 <tr><td colSpan={colCount} className="text-center py-16">
                   <div className="w-12 h-12 rounded-xl bg-muted grid place-items-center mx-auto mb-3"><Users className="w-6 h-6 text-muted-foreground/50" /></div>
                   <p className="font-semibold text-foreground mb-0.5">{t("contacts.noContactsFound")}</p>
-                  <p className="text-sm text-muted-foreground">{query || activeFilters ? "Try different filters." : "New contacts will appear here."}</p>
+                  <p className="text-sm text-muted-foreground">{query || activeFilters ? t("contacts.tryDifferentFilters") : t("contacts.newContactsWillAppearHere")}</p>
                 </td></tr>
               ) : paged.map((c) => (
                 <tr key={c.id} className="border-b border-border/60 hover:bg-muted/50 transition-colors">
@@ -551,7 +551,7 @@ export default function ContactsPage() {
                         {initials(c.full_name || c.phone)}
                       </div>
                       <div className="min-w-0 leading-tight">
-                        <button onClick={() => router.push(`/contacts/${c.id}`)} className="block font-semibold text-[13px] text-foreground truncate max-w-[200px] text-left hover:text-primary hover:underline outline-none">{c.full_name || "Unknown"}</button>
+                        <button onClick={() => router.push(`/contacts/${c.id}`)} className="block font-semibold text-[13px] text-foreground truncate max-w-[200px] text-left hover:text-primary hover:underline outline-none">{c.full_name || t("broadcasts.unknown")}</button>
                         <span className="block text-[11px] text-muted-foreground tabular-nums truncate max-w-[200px]">{c.phone || "-"}</span>
                       </div>
                     </div>
@@ -580,7 +580,7 @@ export default function ContactsPage() {
                         options={[{ value: "", label: "Unset" }, { value: "hot", label: "Hot", dot: interestColor("hot") }, { value: "warm", label: "Warm", dot: interestColor("warm") }, { value: "cold", label: "Cold", dot: interestColor("cold") }]} />
                     ) : c.interest_level ? (
                       <span className="inline-flex px-2 py-0.5 rounded text-[10px] font-semibold capitalize"
-                        style={{ backgroundColor: interestColor(c.interest_level) + "1A", color: interestColor(c.interest_level) }}>{c.interest_level}</span>
+                        style={{ backgroundColor: interestColor(c.interest_level) + "1A", color: interestColor(c.interest_level) }}>{t(c.interest_level)}</span>
                     ) : <span className="text-muted-foreground">-</span>}
                   </td>
                   )}
@@ -614,14 +614,14 @@ export default function ContactsPage() {
                     {c.source_id ? (
                       <span className="inline-flex items-center gap-1.5">
                         <span className="text-[12px] text-foreground/80 max-w-[130px] truncate">{c.source_id}</span>
-                        <button onClick={() => { navigator.clipboard?.writeText(c.source_id!); setToast(t("contacts.sourceIdCopied")); }} className="p-0.5 rounded text-muted-foreground/60 hover:text-foreground hover:bg-muted" aria-label="Copy source id"><Copy className="w-3.5 h-3.5" /></button>
+                        <button onClick={() => { navigator.clipboard?.writeText(c.source_id!); setToast(t("contacts.sourceIdCopied")); }} className="p-0.5 rounded text-muted-foreground/60 hover:text-foreground hover:bg-muted" aria-label={t("contacts.copySourceId")}><Copy className="w-3.5 h-3.5" /></button>
                       </span>
                     ) : <span className="text-muted-foreground">-</span>}
                   </td>
                   )}
                   {show("source_url") && (
                   <td className="px-3 py-2 whitespace-nowrap">
-                    {c.source_url ? <a href={c.source_url} target="_blank" rel="noreferrer" className="text-[12px] text-primary hover:underline">Link</a> : <span className="text-muted-foreground">-</span>}
+                    {c.source_url ? <a href={c.source_url} target="_blank" rel="noreferrer" className="text-[12px] text-primary hover:underline">{t("contacts.link")}</a> : <span className="text-muted-foreground">-</span>}
                   </td>
                   )}
                   {show("labels") && (
@@ -655,7 +655,7 @@ export default function ContactsPage() {
                   )}
                   <td className="px-3 py-2 text-right">
                     <div className="relative inline-block" onClick={(e) => e.stopPropagation()}>
-                      <button aria-label="Contact actions" onClick={() => setMenuId(menuId === c.id ? null : c.id)} className="p-1.5 rounded-md hover:bg-muted text-muted-foreground hover:text-foreground outline-none transition-colors"><MoreVertical className="w-4 h-4" /></button>
+                      <button aria-label={t("contacts.contactActions")} onClick={() => setMenuId(menuId === c.id ? null : c.id)} className="p-1.5 rounded-md hover:bg-muted text-muted-foreground hover:text-foreground outline-none transition-colors"><MoreVertical className="w-4 h-4" /></button>
                       {menuId === c.id && (
                         <div className="absolute right-0 top-full mt-1 w-40 bg-popover border border-border rounded-lg shadow-xl z-20 py-1 animate-scale-in origin-top-right">
                           <button onClick={() => { setMenuId(null); router.push(`/contacts/${c.id}`); }} className="w-full flex items-center gap-2 px-3 py-2 text-[13px] text-foreground hover:bg-muted outline-none"><Eye className="w-4 h-4 text-muted-foreground" />{t("contacts.viewDetails")}</button>
@@ -675,17 +675,17 @@ export default function ContactsPage() {
 
         {/* Pagination */}
         <div className="flex flex-wrap items-center gap-2 py-2 px-4 border-t border-border shrink-0">
-          <span className="text-[13px] font-semibold text-muted-foreground tabular-nums shrink-0">{filtered.length} contact{filtered.length === 1 ? "" : "s"}</span>
+          <span className="text-[13px] font-semibold text-muted-foreground tabular-nums shrink-0">{t("contacts.nContacts", { n: filtered.length })}</span>
           <div className="flex-1 flex justify-center items-center gap-1 min-w-[160px]">
-            <button aria-label="First page" disabled={page <= 1} onClick={() => setPage(1)} className="p-1 rounded-md text-muted-foreground hover:bg-muted disabled:opacity-30 outline-none"><ChevronsLeft className="w-[18px] h-[18px]" /></button>
-            <button aria-label="Previous page" disabled={page <= 1} onClick={() => setPage(page - 1)} className="p-1 rounded-md text-muted-foreground hover:bg-muted disabled:opacity-30 outline-none"><ChevronLeft className="w-[18px] h-[18px]" /></button>
+            <button aria-label={t("broadcasts.firstPage")} disabled={page <= 1} onClick={() => setPage(1)} className="p-1 rounded-md text-muted-foreground hover:bg-muted disabled:opacity-30 outline-none"><ChevronsLeft className="w-[18px] h-[18px]" /></button>
+            <button aria-label={t("broadcasts.previousPage")} disabled={page <= 1} onClick={() => setPage(page - 1)} className="p-1 rounded-md text-muted-foreground hover:bg-muted disabled:opacity-30 outline-none"><ChevronLeft className="w-[18px] h-[18px]" /></button>
             <span className="px-3 py-1 rounded-md border border-primary/40 text-primary text-[13px] font-bold min-w-[32px] text-center tabular-nums">{page}</span>
             <span className="text-[13px] text-muted-foreground tabular-nums">/ {totalPages}</span>
-            <button aria-label="Next page" disabled={page >= totalPages} onClick={() => setPage(page + 1)} className="p-1 rounded-md text-muted-foreground hover:bg-muted disabled:opacity-30 outline-none"><ChevronRight className="w-[18px] h-[18px]" /></button>
-            <button aria-label="Last page" disabled={page >= totalPages} onClick={() => setPage(totalPages)} className="p-1 rounded-md text-muted-foreground hover:bg-muted disabled:opacity-30 outline-none"><ChevronsRight className="w-[18px] h-[18px]" /></button>
+            <button aria-label={t("broadcasts.nextPage")} disabled={page >= totalPages} onClick={() => setPage(page + 1)} className="p-1 rounded-md text-muted-foreground hover:bg-muted disabled:opacity-30 outline-none"><ChevronRight className="w-[18px] h-[18px]" /></button>
+            <button aria-label={t("broadcasts.lastPage")} disabled={page >= totalPages} onClick={() => setPage(totalPages)} className="p-1 rounded-md text-muted-foreground hover:bg-muted disabled:opacity-30 outline-none"><ChevronsRight className="w-[18px] h-[18px]" /></button>
           </div>
           <div className="hidden sm:flex items-center gap-2">
-            <span className="text-[13px] text-muted-foreground">Per page</span>
+            <span className="text-[13px] text-muted-foreground">{t("broadcasts.perPage")}</span>
             <Select value={String(rowsPerPage)} onChange={(v) => { setRowsPerPage(Number(v)); setPage(1); }}
               options={[50, 100, 200, 500].map((n) => ({ value: String(n), label: String(n) }))} className="w-[88px]" align="right" searchable={false} />
           </div>
@@ -716,14 +716,14 @@ export default function ContactsPage() {
               bottom: window.innerHeight - editRect.top + 8,
             }}>
             <div className="flex items-center justify-between mb-3">
-              <p className="text-[13px] font-bold text-foreground">Edit {selected.size} contact{selected.size === 1 ? "" : "s"}</p>
+              <p className="text-[13px] font-bold text-foreground">{t("common.edit")} {selected.size} contact{selected.size === 1 ? "" : "s"}</p>
               <button onClick={() => setBulkEditOpen(false)} className="p-0.5 rounded text-muted-foreground hover:text-foreground outline-none"><X className="w-4 h-4" /></button>
             </div>
             <div className="flex flex-col gap-3">
               {canEdit && stages.length > 0 && (
                 <div>
-                  <label className="block text-[11px] font-semibold text-muted-foreground mb-1">Stage</label>
-                  <Select value={bLost ? "__lost__" : (bStage ?? "")} onChange={onStagePick} placeholder="Leave unchanged"
+                  <label className="block text-[11px] font-semibold text-muted-foreground mb-1">{t("contacts.stage")}</label>
+                  <Select value={bLost ? "__lost__" : (bStage ?? "")} onChange={onStagePick} placeholder={t("contacts.leaveUnchanged")}
                     options={[
                       ...stages.filter((s) => !(s.system_key || "").startsWith("lost") && !s.name.toLowerCase().startsWith("lost")).map((s) => ({ value: s.id, label: s.name, dot: getDotColor(s.name) })),
                       { value: "__lost__", label: "Mark as lost / spam", dot: "#DC2626" },
@@ -732,22 +732,22 @@ export default function ContactsPage() {
               )}
               {canEdit && (
                 <div>
-                  <label className="block text-[11px] font-semibold text-muted-foreground mb-1">Interest</label>
-                  <Select value={bInterest ?? ""} onChange={(v) => setBInterest(v || undefined)} placeholder="Leave unchanged"
+                  <label className="block text-[11px] font-semibold text-muted-foreground mb-1">{t("contacts.interest")}</label>
+                  <Select value={bInterest ?? ""} onChange={(v) => setBInterest(v || undefined)} placeholder={t("contacts.leaveUnchanged")}
                     options={[{ value: "hot", label: "Hot", dot: interestColor("hot") }, { value: "warm", label: "Warm", dot: interestColor("warm") }, { value: "cold", label: "Cold", dot: interestColor("cold") }]} />
                 </div>
               )}
               {showAgentFilter && (
                 <div>
-                  <label className="block text-[11px] font-semibold text-muted-foreground mb-1">Agent</label>
-                  <Select value={bAgent === null ? "__unassign__" : (bAgent ?? "")} onChange={(v) => setBAgent(v === "__unassign__" ? null : (v || undefined))} placeholder="Leave unchanged"
+                  <label className="block text-[11px] font-semibold text-muted-foreground mb-1">{t("contacts.agent")}</label>
+                  <Select value={bAgent === null ? "__unassign__" : (bAgent ?? "")} onChange={(v) => setBAgent(v === "__unassign__" ? null : (v || undefined))} placeholder={t("contacts.leaveUnchanged")}
                     options={[{ value: "__unassign__", label: "Unassign" }, ...agents.map((a) => ({ value: a.id, label: a.full_name }))]} />
                 </div>
               )}
-              {bLost && <p className="text-[11px] text-red-600 flex items-center gap-1"><XCircle className="w-3 h-3" />Mark as lost: {bLost.reason}</p>}
+              {bLost && <p className="text-[11px] text-red-600 flex items-center gap-1"><XCircle className="w-3 h-3" />{t("contacts.markAsLost")} {bLost.reason}</p>}
               <button onClick={applyBulkEdit} disabled={!bulkEditDirty || bulkApplying}
                 className="mt-0.5 w-full h-9 rounded-md bg-primary text-white text-[13px] font-semibold hover:bg-primary-dark disabled:opacity-50 inline-flex items-center justify-center gap-1.5 outline-none">
-                {bulkApplying && <Loader2 className="w-4 h-4 animate-spin" />}Apply to {selected.size}
+                {bulkApplying && <Loader2 className="w-4 h-4 animate-spin" />}{t("contacts.applyTo")} {selected.size}
               </button>
             </div>
           </div>
@@ -765,7 +765,7 @@ export default function ContactsPage() {
           <div className="fixed inset-0 bg-black/30 z-[60] animate-in" onClick={() => setFilterOpen(false)} />
           <div className="fixed right-0 top-0 h-full w-[320px] max-w-[90vw] bg-card border-l border-border shadow-2xl z-[60] flex flex-col animate-slide-in-right">
             <div className="flex items-center justify-between px-4 h-14 border-b border-border shrink-0">
-              <p className="text-[14px] font-bold text-foreground">Filters</p>
+              <p className="text-[14px] font-bold text-foreground">{t("components.filters")}</p>
               <button onClick={() => setFilterOpen(false)} className="p-1.5 rounded-md hover:bg-muted text-muted-foreground hover:text-foreground outline-none transition-colors"><X className="w-[18px] h-[18px]" /></button>
             </div>
             <div className="flex-1 overflow-y-auto p-4 space-y-4">
@@ -788,7 +788,7 @@ export default function ContactsPage() {
             </div>
             <div className="flex items-center gap-2 px-4 py-3 border-t border-border shrink-0">
               <button onClick={clearFilters} disabled={activeFilters === 0} className="flex-1 h-9 rounded-md border border-border text-[13px] font-semibold text-foreground hover:bg-muted disabled:opacity-50 outline-none transition-colors">{t("common.clear")}</button>
-              <button onClick={() => setFilterOpen(false)} className="flex-1 h-9 rounded-md bg-primary text-white text-[13px] font-semibold hover:bg-primary-dark outline-none transition-colors">Apply</button>
+              <button onClick={() => setFilterOpen(false)} className="flex-1 h-9 rounded-md bg-primary text-white text-[13px] font-semibold hover:bg-primary-dark outline-none transition-colors">{t("components.apply")}</button>
             </div>
           </div>
         </>
@@ -808,6 +808,7 @@ export default function ContactsPage() {
 function ChatPopup({ contact, onClose, notify }: {
   contact: Contact; onClose: () => void; notify: (m: string, s?: "success" | "info" | "warning" | "error") => void;
 }) {
+  const { t } = useI18n();
   const convId = contact.conversation_id!;
   const [active, setActive] = useState<Conversation | null>(null);
   const [messages, setMessages] = useState<Message[]>([]);
@@ -875,16 +876,16 @@ function ChatPopup({ contact, onClose, notify }: {
       for (let i = 0; i < ups.length; i++) await api.sendMedia(convId, ups[i].type, ups[i].url, i === 0 ? draft.trim() : "");
       pendingPreviews.forEach((p) => p && URL.revokeObjectURL(p));
       setDraft(""); setPendingFiles([]); setPendingPreviews([]); await reload();
-    } catch (err) { notify(err instanceof Error ? err.message : "Upload failed", "error"); }
+    } catch (err) { notify(err instanceof Error ? err.message : t("components.uploadFailed"), "error"); }
     finally { setBusy(false); setUploadProgress(null); }
   }
   async function submit() {
     if (pendingFiles.length) { await confirmSendFile(); return; }
     if (!draft.trim()) return;
-    if (tab === 1) { try { await api.addNote(convId, draft.trim()); setDraft(""); notify("Note added"); } catch { notify("Could not add note", "error"); } return; }
+    if (tab === 1) { try { await api.addNote(convId, draft.trim()); setDraft(""); notify(t("components.noteAdded")); } catch { notify(t("contacts.couldNotAddNote"), "error"); } return; }
     setBusy(true);
     try { await api.sendMessage(convId, draft.trim()); setDraft(""); await reload(); }
-    catch { notify("Failed to send", "error"); } finally { setBusy(false); }
+    catch { notify(t("contacts.failedToSend"), "error"); } finally { setBusy(false); }
   }
   async function sendVoice(blob: Blob) {
     setBusy(true);
@@ -912,7 +913,7 @@ function ChatPopup({ contact, onClose, notify }: {
             {initials(contact.full_name || contact.phone)}
           </div>
           <div className="min-w-0 flex-1">
-            <p className="font-bold text-[14px] text-foreground truncate">{contact.full_name || contact.phone || "Unknown"}</p>
+            <p className="font-bold text-[14px] text-foreground truncate">{contact.full_name || contact.phone || t("broadcasts.unknown")}</p>
             <p className="text-[11.5px] text-muted-foreground tabular-nums">{contact.phone}</p>
           </div>
           <button onClick={onClose} className="p-1.5 rounded-md text-muted-foreground hover:bg-muted hover:text-foreground outline-none"><X className="w-[18px] h-[18px]" /></button>
@@ -923,13 +924,13 @@ function ChatPopup({ contact, onClose, notify }: {
           {loading ? (
             <div className="h-full grid place-items-center"><Loader2 className="w-6 h-6 animate-spin text-primary" /></div>
           ) : messages.length === 0 ? (
-            <p className="text-center text-[13px] text-muted-foreground py-8">No messages yet.</p>
+            <p className="text-center text-[13px] text-muted-foreground py-8">{t("contacts.noMessagesYet")}</p>
           ) : (
             <div className="space-y-1">
               {messages.map((m) => (
                 <MessageBubble key={m.id} m={m} active={activeConv} conversationId={convId}
                   onPreviewMedia={(id) => setPreviewId(id)}
-                  onCopyText={(t) => { navigator.clipboard.writeText(t); notify("Copied to clipboard", "info"); }}
+                  onCopyText={(txt) => { navigator.clipboard.writeText(txt); notify(t("contacts.copiedToClipboard"), "info"); }}
                   onUseInComposer={(t) => setDraft(t)} />
               ))}
             </div>
@@ -948,7 +949,7 @@ function ChatPopup({ contact, onClose, notify }: {
           phone={contact.phone} conversationId={convId}
           aiSummary={activeConv?.lead_summary}
           uploadProgress={uploadProgress}
-          onAddNote={async (body) => { await api.addNote(convId, body); notify("Note added"); }}
+          onAddNote={async (body) => { await api.addNote(convId, body); notify(t("components.noteAdded")); }}
         />
       </div>
 
@@ -969,6 +970,7 @@ const INPUT_CLS = "w-full h-10 px-3 rounded-md border border-input bg-background
 function ContactModal({ state, allTags, onClose, onSaved }: {
   state: Exclude<ModalState, null>; allTags: string[]; onClose: () => void; onSaved: (msg: string) => void;
 }) {
+  const { t } = useI18n();
   const editing = state.mode === "edit";
   const [name, setName] = useState(editing ? state.contact.full_name ?? "" : "");
   const [phone, setPhone] = useState(editing ? state.contact.phone ?? "" : "");
@@ -989,21 +991,21 @@ function ContactModal({ state, allTags, onClose, onSaved }: {
   const suggestions = allTags.filter((t) => !tags.includes(t) && t.toLowerCase().includes(tagDraft.toLowerCase()) && tagDraft.trim()).slice(0, 6);
 
   async function save() {
-    if (!name.trim() && !phone.trim()) { setErr("Enter a name or phone."); return; }
+    if (!name.trim() && !phone.trim()) { setErr(t("contacts.enterANameOrPhone")); return; }
     setSaving(true); setErr("");
     const attributes: Record<string, string> = {};
     for (const f of fields) attributes[f.key] = (attrs[f.key] ?? "").trim();
     try {
-      if (editing) { await api.updateContact(state.contact.id, { full_name: name.trim(), phone: phone.trim(), tags, attributes }); onSaved("Contact updated"); }
-      else { await api.createContact({ full_name: name.trim(), phone: phone.trim(), tags, attributes }); onSaved("Contact added"); }
-    } catch (e: any) { setErr(e?.message || "Save failed"); setSaving(false); }
+      if (editing) { await api.updateContact(state.contact.id, { full_name: name.trim(), phone: phone.trim(), tags, attributes }); onSaved(t("contacts.contactUpdated")); }
+      else { await api.createContact({ full_name: name.trim(), phone: phone.trim(), tags, attributes }); onSaved(t("contacts.contactAdded")); }
+    } catch (e: any) { setErr(e?.message || t("contacts.saveFailed")); setSaving(false); }
   }
 
   return (
     <SidePanel
       open
       onClose={onClose}
-      title={editing ? "Edit contact" : "Add contact"}
+      title={editing ? t("contacts.editContact") : t("contacts.addContact")}
       width="sm"
       busy={saving}
       onApply={save}
@@ -1012,15 +1014,15 @@ function ContactModal({ state, allTags, onClose, onSaved }: {
         <div className="space-y-4">
           {err && <div className="px-3 py-2 rounded-md bg-red-50 border border-red-200 text-red-600 text-[13px] font-medium">{err}</div>}
           <div className="space-y-1.5">
-            <label className="text-[12px] font-bold text-foreground/80">Full name</label>
-            <input value={name} onChange={(e) => setName(e.target.value)} autoFocus placeholder="e.g. Budi Santoso" className={INPUT_CLS} />
+            <label className="text-[12px] font-bold text-foreground/80">{t("account.name")}</label>
+            <input value={name} onChange={(e) => setName(e.target.value)} autoFocus placeholder={t("contacts.eGBudiSantoso")} className={INPUT_CLS} />
           </div>
           <div className="space-y-1.5">
-            <label className="text-[12px] font-bold text-foreground/80">Phone</label>
+            <label className="text-[12px] font-bold text-foreground/80">{t("contacts.phone")}</label>
             <input value={phone} onChange={(e) => setPhone(e.target.value)} placeholder="e.g. 628123456789" className={INPUT_CLS} />
           </div>
           <div className="space-y-1.5">
-            <label className="text-[12px] font-bold text-foreground/80">Labels</label>
+            <label className="text-[12px] font-bold text-foreground/80">{t("contacts.labels")}</label>
             <div className="flex flex-wrap items-center gap-1.5 rounded-md border border-input bg-background px-2 py-2">
               {tags.map((t) => (
                 <span key={t} className="inline-flex items-center gap-1 px-2 py-0.5 rounded-md bg-amber-50 text-amber-700 text-[11px] font-semibold">
@@ -1030,7 +1032,7 @@ function ContactModal({ state, allTags, onClose, onSaved }: {
               ))}
               <input value={tagDraft} onChange={(e) => setTagDraft(e.target.value)}
                 onKeyDown={(e) => { if ((e.key === "Enter" || e.key === ",") && tagDraft.trim()) { e.preventDefault(); addTag(tagDraft); } else if (e.key === "Backspace" && !tagDraft && tags.length) setTags((p) => p.slice(0, -1)); }}
-                placeholder={tags.length ? "" : "Add a label and press Enter"} className="flex-1 min-w-[100px] h-6 bg-transparent text-[13px] text-foreground placeholder:text-muted-foreground/70 outline-none" />
+                placeholder={tags.length ? "" : t("contacts.addALabelAndPress")} className="flex-1 min-w-[100px] h-6 bg-transparent text-[13px] text-foreground placeholder:text-muted-foreground/70 outline-none" />
             </div>
             {suggestions.length > 0 && (
               <div className="flex flex-wrap gap-1 pt-1">
@@ -1041,10 +1043,10 @@ function ContactModal({ state, allTags, onClose, onSaved }: {
 
           {fields.length > 0 && (
             <div className="space-y-3 pt-3 border-t border-border/60">
-              <p className="text-[11px] font-bold uppercase tracking-wider text-muted-foreground">Custom fields</p>
+              <p className="text-[11px] font-bold uppercase tracking-wider text-muted-foreground">{t("contacts.customFields")}</p>
               {fields.map((f) => (
                 <div key={f.id} className="space-y-1.5">
-                  <label className="text-[12px] font-bold text-foreground/80">{f.label}</label>
+                  <label className="text-[12px] font-bold text-foreground/80">{t(f.label)}</label>
                   {f.type === "select" ? (
                     <select value={attrs[f.key] ?? ""} onChange={(e) => setAttrs((p) => ({ ...p, [f.key]: e.target.value }))} className={INPUT_CLS}>
                       <option value="">—</option>
@@ -1071,6 +1073,7 @@ function AgentAssignCell({ agentName, assignedAgentId, agents, onReassign, onUna
   onReassign: (agentId: string) => void;
   onUnassign: () => void;
 }) {
+  const { t } = useI18n();
   const [open, setOpen] = useState(false);
   const [query, setQuery] = useState("");
   return (
@@ -1084,7 +1087,7 @@ function AgentAssignCell({ agentName, assignedAgentId, agents, onReassign, onUna
         )}
       >
         <User className="w-3 h-3 shrink-0" />
-        <span className="truncate">{agentName || "Unassigned"}</span>
+        <span className="truncate">{agentName || t("dashboard.unassigned")}</span>
         <ChevronDown className={cn("w-3 h-3 shrink-0 opacity-60 transition-transform", open && "rotate-180")} />
       </button>
       {open && (
@@ -1094,16 +1097,16 @@ function AgentAssignCell({ agentName, assignedAgentId, agents, onReassign, onUna
             <div className="p-2 border-b border-border shrink-0">
               <div className="relative">
                 <Search className="absolute left-2.5 top-1/2 -translate-y-1/2 w-3.5 h-3.5 text-muted-foreground pointer-events-none" />
-                <input autoFocus value={query} onChange={(e) => setQuery(e.target.value)} placeholder="Search agent..."
+                <input autoFocus value={query} onChange={(e) => setQuery(e.target.value)} placeholder={t("contacts.searchAgent")}
                   className="w-full h-8 pl-8 pr-2 rounded-md border border-input bg-background text-[13px] outline-none focus:border-primary" />
               </div>
             </div>
             <div className="overflow-auto py-1 flex-1 min-h-0">
-              <p className="px-3 py-1 text-[10px] font-bold uppercase tracking-wider text-muted-foreground">Assign to</p>
+              <p className="px-3 py-1 text-[10px] font-bold uppercase tracking-wider text-muted-foreground">{t("contacts.assignTo")}</p>
               {(() => {
                 const q = query.trim().toLowerCase();
                 const matches = agents.filter((ag) => ag.full_name.toLowerCase().includes(q) || (ag.email || "").toLowerCase().includes(q));
-                if (matches.length === 0) return <p className="text-center text-xs text-muted-foreground py-3">No agents</p>;
+                if (matches.length === 0) return <p className="text-center text-xs text-muted-foreground py-3">{t("components.noAgents")}</p>;
                 return matches.map((ag) => (
                   <button
                     key={ag.id}
@@ -1128,7 +1131,7 @@ function AgentAssignCell({ agentName, assignedAgentId, agents, onReassign, onUna
                     onClick={() => { onUnassign(); setOpen(false); setQuery(""); }}
                     className="w-full flex items-center gap-2 px-3 py-1.5 text-[13px] text-left text-amber-700 hover:bg-amber-50 outline-none"
                   >
-                    <XCircle className="w-3.5 h-3.5 shrink-0" />Unassign
+                    <XCircle className="w-3.5 h-3.5 shrink-0" />{t("contacts.unassign")}
                   </button>
                 </>
               )}

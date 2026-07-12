@@ -120,6 +120,7 @@ function QuotaRow({ label, used, limit }: { label: string; used: number; limit?:
 type Form = { name: string; industry: string; company_size: string; website: string; support_email: string; locale: string; timezone: string; country_code: string; date_format: string; working_hours: string };
 
 export default function GeneralSettingsPage() {
+  const { t } = useI18n();
   const router = useRouter();
   const { notify, ToastHost } = useToast();
   const { setLang } = useI18n();
@@ -164,14 +165,14 @@ export default function GeneralSettingsPage() {
   const changed = (Object.keys(form) as (keyof Form)[]).filter((k) => form[k] !== orig[k]);
 
   async function save() {
-    if (!form.name.trim()) { notify("Company name is required", "error"); return; }
+    if (!form.name.trim()) { notify(t("settings.companyNameIsRequired"), "error"); return; }
     setSaving(true);
     try {
       const next = { ...settings, industry: form.industry.trim(), company_size: form.company_size, website: form.website.trim(), support_email: form.support_email.trim(), locale: form.locale, timezone: form.timezone, country_code: form.country_code, date_format: form.date_format, working_hours: JSON.parse(form.working_hours) };
       await api.updateOrganization({ name: form.name.trim(), settings: next });
       setSettings(next); setOrig(form); setLang(form.locale);
       try { localStorage.setItem("simpulx_date_format", form.date_format); } catch { /* ignore */ }
-      notify("Changes saved");
+      notify(t("settings.changesSaved"));
     } catch (e) { notify(String(e), "error"); } finally { setSaving(false); }
   }
 
@@ -183,41 +184,41 @@ export default function GeneralSettingsPage() {
     <PageBody wide>
       {ToastHost}
       <div className="bg-card border border-border rounded-xl shadow-xs p-6 sm:p-8 mb-24 space-y-9 max-w-[1040px]">
-        <Section title="Company">
+        <Section title={t("settings.company")}>
           <div className="flex items-center gap-4">
             <div className="w-14 h-14 rounded-full bg-primary/10 text-primary-text grid place-items-center text-lg font-bold shrink-0">
               {initials(form.name) || <Building2 className="w-6 h-6" />}
             </div>
             <div className="flex-1 min-w-0">
-              <label className={LBL}>Company name</label>
-              <input value={form.name} onChange={(e) => set("name", e.target.value)} placeholder="Your company name" className={INPUT} />
+              <label className={LBL}>{t("settings.companyName")}</label>
+              <input value={form.name} onChange={(e) => set("name", e.target.value)} placeholder={t("settings.yourCompanyName")} className={INPUT} />
             </div>
           </div>
           <div className="grid grid-cols-1 sm:grid-cols-2 gap-5">
-            <div><label className={LBL}>Industry</label><input value={form.industry} onChange={(e) => set("industry", e.target.value)} placeholder="e.g. Automotive" className={INPUT} /></div>
-            <div><label className={LBL}>Company size</label><Select value={form.company_size} onChange={(v) => set("company_size", v)} options={COMPANY_SIZES} searchable={false} /></div>
-            <div><label className={LBL}>Website</label><input type="url" value={form.website} onChange={(e) => set("website", e.target.value)} placeholder="https://example.com" className={INPUT} /></div>
-            <div><label className={LBL}>Support email</label><input type="email" value={form.support_email} onChange={(e) => set("support_email", e.target.value)} placeholder="support@example.com" className={INPUT} /></div>
+            <div><label className={LBL}>{t("settings.industry")}</label><input value={form.industry} onChange={(e) => set("industry", e.target.value)} placeholder={t("settings.eGAutomotive")} className={INPUT} /></div>
+            <div><label className={LBL}>{t("settings.companySize")}</label><Select value={form.company_size} onChange={(v) => set("company_size", v)} options={COMPANY_SIZES} searchable={false} /></div>
+            <div><label className={LBL}>{t("dashboard.website")}</label><input type="url" value={form.website} onChange={(e) => set("website", e.target.value)} placeholder="https://example.com" className={INPUT} /></div>
+            <div><label className={LBL}>{t("settings.supportEmail")}</label><input type="email" value={form.support_email} onChange={(e) => set("support_email", e.target.value)} placeholder="support@example.com" className={INPUT} /></div>
           </div>
         </Section>
 
         <div className="border-t border-border" />
 
-        <Section title="Localization">
+        <Section title={t("settings.localization")}>
           <div className="grid grid-cols-1 sm:grid-cols-2 gap-5">
-            <div><label className={LBL}>Default language</label><Select value={form.locale} onChange={(v) => set("locale", v)} options={LANGUAGES} searchable={false} /></div>
-            <div><label className={LBL}>Default country code</label><Select value={form.country_code} onChange={(v) => set("country_code", v)} options={COUNTRY_CODES} /></div>
-            <div><label className={LBL}>Default timezone</label><Select value={form.timezone} onChange={(v) => set("timezone", v)} options={tzOptions} placeholder="Select timezone" /></div>
-            <div><label className={LBL}>Date format</label><Select value={form.date_format} onChange={(v) => set("date_format", v)} options={DATE_FORMATS} searchable={false} /></div>
+            <div><label className={LBL}>{t("settings.defaultLanguage")}</label><Select value={form.locale} onChange={(v) => set("locale", v)} options={LANGUAGES} searchable={false} /></div>
+            <div><label className={LBL}>{t("settings.defaultCountryCode")}</label><Select value={form.country_code} onChange={(v) => set("country_code", v)} options={COUNTRY_CODES} /></div>
+            <div><label className={LBL}>{t("settings.defaultTimezone")}</label><Select value={form.timezone} onChange={(v) => set("timezone", v)} options={tzOptions} placeholder={t("settings.selectTimezone")} /></div>
+            <div><label className={LBL}>{t("settings.dateFormat")}</label><Select value={form.date_format} onChange={(v) => set("date_format", v)} options={DATE_FORMATS} searchable={false} /></div>
           </div>
         </Section>
 
         <div className="border-t border-border" />
 
-        <Section title="Working hours">
+        <Section title={t("settings.workingHours")}>
           <div className="flex items-center gap-3">
             <Toggle checked={wh.enabled} onChange={(v) => setWh({ ...wh, enabled: v })} />
-            <span className="text-[13px] font-medium text-foreground">{wh.enabled ? "On" : "Off"}</span>
+            <span className="text-[13px] font-medium text-foreground">{wh.enabled ? t("settings.on") : t("settings.off")}</span>
           </div>
           {wh.enabled && (
             <div className="space-y-2.5 pt-1">
@@ -247,7 +248,7 @@ export default function GeneralSettingsPage() {
 
         <div className="border-t border-border" />
 
-        <Section title="Subscription">
+        <Section title={t("settings.subscription")}>
           {sub ? (
             <div className="space-y-4">
               <div className="flex items-center gap-2">
@@ -255,9 +256,9 @@ export default function GeneralSettingsPage() {
                 <span className="px-2 py-0.5 rounded-md text-[10px] font-bold bg-success/10 text-success capitalize">{sub.status}</span>
               </div>
               <div className="grid grid-cols-1 sm:grid-cols-3 gap-5">
-                <QuotaRow label="Team members" used={sub.used_users} limit={sub.quotas?.users} />
-                <QuotaRow label="Simpuler credits (this month)" used={sub.used_simpuler_credits} limit={sub.quotas?.simpuler_credits} />
-                <QuotaRow label="Custom fields" used={sub.used_custom_fields} limit={sub.quotas?.custom_fields} />
+                <QuotaRow label={t("settings.teamMembers")} used={sub.used_users} limit={sub.quotas?.users} />
+                <QuotaRow label={t("settings.simpulerCreditsThisMonth")} used={sub.used_simpuler_credits} limit={sub.quotas?.simpuler_credits} />
+                <QuotaRow label={t("contacts.customFields")} used={sub.used_custom_fields} limit={sub.quotas?.custom_fields} />
               </div>
             </div>
           ) : <div className="flex justify-center py-6"><Loader2 className="w-5 h-5 animate-spin text-muted-foreground" /></div>}

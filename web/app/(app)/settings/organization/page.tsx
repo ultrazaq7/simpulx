@@ -1,4 +1,5 @@
 "use client";
+import { useI18n } from "@/lib/i18n";
 import { useEffect, useState } from "react";
 import { useRouter } from "next/navigation";
 import { Loader2, Plus, Pencil, Building2, Trash2 } from "lucide-react";
@@ -17,6 +18,7 @@ const STATUSES = ["active", "trial", "expired"];
 // plus create-org and per-org credit-pool controls. Access is gated server-side
 // (email, not a role); a non-super-admin who reaches this URL just sees an error.
 export default function PlatformPage() {
+  const { t } = useI18n();
   const router = useRouter();
   const { notify, ToastHost } = useToast();
   const [rows, setRows] = useState<OrgRow[] | null>(null);
@@ -46,7 +48,7 @@ export default function PlatformPage() {
           <div className="p-3 flex items-center justify-end border-b border-border shrink-0">
             <button onClick={() => setPanel({ mode: "create" })}
               className="inline-flex items-center gap-2 px-3.5 h-9 bg-primary text-white rounded-md text-sm font-semibold hover:bg-primary-dark shadow-sm transition-all outline-none">
-              <Plus className="w-4 h-4" />New organization
+              <Plus className="w-4 h-4" />{t("settings.newOrganization")}
             </button>
           </div>
           <div className="overflow-auto flex-1 min-h-0">
@@ -55,7 +57,7 @@ export default function PlatformPage() {
                 <tr className="border-b border-border bg-muted/40 backdrop-blur">
                   {["Organization", "Package", "Status", "Users", "Campaigns", "Simpuler credits (mo)", "Created", ""].map((h) => (
                     <th key={h} className={cn("px-4 py-2.5 text-[11px] font-bold uppercase tracking-wider text-muted-foreground",
-                      ["Users", "Campaigns", "Simpuler credits (mo)"].includes(h) ? "text-right" : h === "" ? "text-right w-16" : "text-left")}>{h}</th>
+                      ["Users", "Campaigns", "Simpuler credits (mo)"].includes(h) ? "text-right" : h === "" ? "text-right w-16" : "text-left")}>{t(h)}</th>
                   ))}
                 </tr>
               </thead>
@@ -63,12 +65,12 @@ export default function PlatformPage() {
                 {rows === null ? (
                   <tr><td colSpan={8} className="text-center py-16"><Loader2 className="w-6 h-6 animate-spin text-muted-foreground mx-auto" /></td></tr>
                 ) : denied ? (
-                  <tr><td colSpan={8} className="text-center py-16 text-[13px] text-muted-foreground">You do not have platform access.</td></tr>
+                  <tr><td colSpan={8} className="text-center py-16 text-[13px] text-muted-foreground">{t("settings.youDoNotHavePlatform")}</td></tr>
                 ) : all.length === 0 ? (
                   <tr><td colSpan={8} className="text-center py-16">
                     <div className="w-12 h-12 rounded-xl bg-muted grid place-items-center mx-auto mb-3"><Building2 className="w-6 h-6 text-muted-foreground/50" /></div>
-                    <p className="font-semibold text-foreground mb-0.5">No organizations yet</p>
-                    <p className="text-[13px] text-muted-foreground">Create the first organization to get started.</p>
+                    <p className="font-semibold text-foreground mb-0.5">{t("settings.noOrganizationsYet")}</p>
+                    <p className="text-[13px] text-muted-foreground">{t("settings.createTheFirstOrganizationTo")}</p>
                   </td></tr>
                 ) : paged.map((o) => {
                   const pool = o.quotas?.simpuler_credits ?? 0;
@@ -108,9 +110,9 @@ export default function PlatformPage() {
             <div className="flex items-center gap-2">
               <Select value={String(rowsPerPage)} onChange={(v) => { setRowsPerPage(Number(v)); setPage(0); }}
                 options={[10, 25, 50].map((n) => ({ value: String(n), label: String(n) }))} className="w-[72px]" align="right" />
-              <span className="text-muted-foreground mx-2 tabular-nums">Page {page + 1} of {totalPages}</span>
-              <button disabled={page <= 0} onClick={() => setPage(page - 1)} className="px-2.5 h-7 rounded-md border border-border text-xs font-semibold disabled:opacity-30 hover:bg-muted outline-none">Prev</button>
-              <button disabled={page >= totalPages - 1} onClick={() => setPage(page + 1)} className="px-2.5 h-7 rounded-md border border-border text-xs font-semibold disabled:opacity-30 hover:bg-muted outline-none">Next</button>
+              <span className="text-muted-foreground mx-2 tabular-nums">{t("settings.page")} {page + 1} of {totalPages}</span>
+              <button disabled={page <= 0} onClick={() => setPage(page - 1)} className="px-2.5 h-7 rounded-md border border-border text-xs font-semibold disabled:opacity-30 hover:bg-muted outline-none">{t("settings.prev")}</button>
+              <button disabled={page >= totalPages - 1} onClick={() => setPage(page + 1)} className="px-2.5 h-7 rounded-md border border-border text-xs font-semibold disabled:opacity-30 hover:bg-muted outline-none">{t("settings.next")}</button>
             </div>
           </div>
         </div>
@@ -134,6 +136,7 @@ function OrgPanel({ mode, org, onClose, onDone, onError }: {
   mode: "create" | "edit"; org?: OrgRow;
   onClose: () => void; onDone: (msg: string) => void; onError: (msg: string) => void;
 }) {
+  const { t } = useI18n();
   const isEdit = mode === "edit";
   const { confirm, ConfirmHost } = useConfirm();
   const [name, setName] = useState(org?.name ?? "");
@@ -165,33 +168,33 @@ function OrgPanel({ mode, org, onClose, onDone, onError }: {
 
   return (
     <SidePanel open onClose={onClose} width="md" busy={busy}
-      title={isEdit ? (org?.name || "Edit organization") : "New organization"}
+      title={isEdit ? (org?.name || t("settings.editOrganization")) : t("settings.newOrganization")}
       onApply={submit} applyLabel={isEdit ? "Save" : "Create"} applyDisabled={!canSubmit}>
       <div className="space-y-4">
-        <div><FieldLabel>Company name</FieldLabel><input value={name} onChange={(e) => setName(e.target.value)} placeholder="Acme Motors" className={INPUT_CLASS} /></div>
+        <div><FieldLabel>{t("settings.companyName")}</FieldLabel><input value={name} onChange={(e) => setName(e.target.value)} placeholder={t("settings.acmeMotors")} className={INPUT_CLASS} /></div>
 
         {!isEdit && (
           <div className="rounded-lg border border-border p-3 space-y-3">
-            <p className="text-[12px] font-bold uppercase tracking-wider text-muted-foreground">Owner account</p>
-            <div><FieldLabel>Owner name</FieldLabel><input value={ownerName} onChange={(e) => setOwnerName(e.target.value)} placeholder="Full name" className={INPUT_CLASS} /></div>
-            <div><FieldLabel>Owner email</FieldLabel><input type="email" value={ownerEmail} onChange={(e) => setOwnerEmail(e.target.value)} placeholder="owner@company.com" className={INPUT_CLASS} /></div>
-            <div><FieldLabel>Temporary password</FieldLabel><input type="text" value={ownerPassword} onChange={(e) => setOwnerPassword(e.target.value)} placeholder="At least 8 characters" className={INPUT_CLASS} /><p className="text-[11px] text-muted-foreground mt-1">Share this with the owner; they can change it after signing in.</p></div>
+            <p className="text-[12px] font-bold uppercase tracking-wider text-muted-foreground">{t("settings.ownerAccount")}</p>
+            <div><FieldLabel>{t("settings.ownerName")}</FieldLabel><input value={ownerName} onChange={(e) => setOwnerName(e.target.value)} placeholder={t("account.name")} className={INPUT_CLASS} /></div>
+            <div><FieldLabel>{t("settings.ownerEmail")}</FieldLabel><input type="email" value={ownerEmail} onChange={(e) => setOwnerEmail(e.target.value)} placeholder="owner@company.com" className={INPUT_CLASS} /></div>
+            <div><FieldLabel>{t("settings.temporaryPassword")}</FieldLabel><input type="text" value={ownerPassword} onChange={(e) => setOwnerPassword(e.target.value)} placeholder={t("auth.atLeast8Characters")} className={INPUT_CLASS} /><p className="text-[11px] text-muted-foreground mt-1">{t("settings.shareThisWithTheOwner")}</p></div>
           </div>
         )}
 
         <div className="grid grid-cols-2 gap-4">
-          <div><FieldLabel>Package</FieldLabel><Select value={pkg} onChange={setPkg} searchable={false} options={PACKAGES.map((p) => ({ value: p, label: p.charAt(0).toUpperCase() + p.slice(1) }))} /></div>
-          {isEdit && <div><FieldLabel>Status</FieldLabel><Select value={status} onChange={setStatus} searchable={false} options={STATUSES.map((s) => ({ value: s, label: s.charAt(0).toUpperCase() + s.slice(1) }))} /></div>}
+          <div><FieldLabel>{t("settings.package")}</FieldLabel><Select value={pkg} onChange={setPkg} searchable={false} options={PACKAGES.map((p) => ({ value: p, label: p.charAt(0).toUpperCase() + p.slice(1) }))} /></div>
+          {isEdit && <div><FieldLabel>{t("automation.status")}</FieldLabel><Select value={status} onChange={setStatus} searchable={false} options={STATUSES.map((s) => ({ value: s, label: s.charAt(0).toUpperCase() + s.slice(1) }))} /></div>}
         </div>
 
         <div className="rounded-lg border border-border p-3 space-y-3">
-          <p className="text-[12px] font-bold uppercase tracking-wider text-muted-foreground">Quotas / credit pool</p>
+          <p className="text-[12px] font-bold uppercase tracking-wider text-muted-foreground">{t("settings.quotasCreditPool")}</p>
           <div className="grid grid-cols-3 gap-3">
-            <NumField label="Simpuler credits" value={credits} onChange={setCredits} />
-            <NumField label="Team members" value={users} onChange={setUsers} />
-            <NumField label="Custom fields" value={fields} onChange={setFields} />
+            <NumField label={t("settings.simpulerCredits")} value={credits} onChange={setCredits} />
+            <NumField label={t("settings.teamMembers")} value={users} onChange={setUsers} />
+            <NumField label={t("contacts.customFields")} value={fields} onChange={setFields} />
           </div>
-          <p className="text-[11px] text-muted-foreground">Simpuler credits are the org-wide monthly AI-reply pool. Each campaign draws from it via its Credits &amp; Usage allocation.</p>
+          <p className="text-[11px] text-muted-foreground">{t("settings.simpulerCreditsAreTheOrg")}</p>
         </div>
 
         {isEdit && org && (
@@ -204,7 +207,7 @@ function OrgPanel({ mode, org, onClose, onDone, onError }: {
                 catch (e) { onError(String(e)); } finally { setBusy(false); }
               }}
               className="inline-flex items-center gap-1.5 text-[13px] font-semibold text-red-600 hover:text-red-700 outline-none disabled:opacity-50">
-              <Trash2 className="w-4 h-4" />Delete organization
+              <Trash2 className="w-4 h-4" />{t("settings.deleteOrganization")}
             </button>
           </div>
         )}

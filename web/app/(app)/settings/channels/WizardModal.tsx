@@ -1,4 +1,5 @@
 "use client";
+import { useI18n } from "@/lib/i18n";
 // Shared wizard chrome used by the Create Channel / Connect Ad Account / Add API
 // Source wizards so all three look identical (header + numbered step indicator +
 // scrollable body + footer). Keeps each wizard focused on its own steps.
@@ -88,9 +89,10 @@ export function WizardField({ label, value, onChange, placeholder, type = "text"
 
 // Footer buttons shared across wizards.
 export function BackButton({ onClick }: { onClick: () => void }) {
+  const { t } = useI18n();
   return (
     <button onClick={onClick} className="inline-flex items-center gap-1.5 px-4 h-9 rounded-md border border-border text-sm font-semibold text-foreground/80 hover:bg-muted transition-colors outline-none">
-      Back
+      {t("account.back")}
     </button>
   );
 }

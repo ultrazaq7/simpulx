@@ -72,7 +72,7 @@ export function StageMenu({
         )}
       >
         <span className={cn("rounded-full shrink-0", compact ? "w-2 h-2" : "w-2.5 h-2.5")} style={{ backgroundColor: current ? getDotColor(current.name) : "hsl(var(--muted-foreground))" }} />
-        {current ? stageLabel(t, current) : "Select stage"}
+        {current ? stageLabel(t, current) : t("components.selectStage")}
         <ChevronDown className={cn("text-muted-foreground", compact ? "w-3 h-3" : "w-3.5 h-3.5")} />
       </button>
 
@@ -86,7 +86,7 @@ export function StageMenu({
               align === "right" ? "origin-top-right" : "origin-top-left",
             )}
           >
-            <p className="px-3 py-1.5 text-[10px] font-bold text-muted-foreground uppercase tracking-wider">Pipeline stage</p>
+            <p className="px-3 py-1.5 text-[10px] font-bold text-muted-foreground uppercase tracking-wider">{t("automation.pipelineStage")}</p>
             {stages.filter((s) => !(s.system_key || "").startsWith("lost") && !s.name.toLowerCase().startsWith("lost")).map((s) => (
               <button
                 key={s.id}
@@ -99,13 +99,13 @@ export function StageMenu({
               </button>
             ))}
             <div className="border-t border-border my-1" />
-            <p className="px-3 py-1.5 text-[10px] font-bold text-muted-foreground uppercase tracking-wider">Outcome</p>
+            <p className="px-3 py-1.5 text-[10px] font-bold text-muted-foreground uppercase tracking-wider">{t("inbox.outcome")}</p>
             <button
               onClick={() => { onMarkOutcome(); setOpen(false); }}
               className="w-full flex items-center gap-2 px-3 py-2 text-[13px] font-medium text-red-600 hover:bg-red-50 outline-none"
             >
               <XCircle className="w-3.5 h-3.5" />
-              Mark as lost / spam
+              {t("contacts.markAsLostSpam")}
             </button>
           </div>
         </>,

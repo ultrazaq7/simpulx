@@ -1,4 +1,5 @@
 "use client";
+import { useI18n } from "@/lib/i18n";
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { useParams, useRouter } from "next/navigation";
 import {
@@ -120,6 +121,7 @@ function triggerKeywords(c: Record<string, unknown>): string[] {
 
 // ── Custom node ─────────────────────────────────────────────────────────────
 function FlowNode({ data, selected }: NodeProps<AppNode>) {
+  const { t } = useI18n();
   const m = meta(data.kind);
   const title = m.label;
   const isTrigger = data.kind === "trigger";
@@ -151,10 +153,10 @@ function FlowNode({ data, selected }: NodeProps<AppNode>) {
           </div>
           <div className="min-w-0 flex-1">
             <p className="text-[9px] font-bold tracking-[0.09em]" style={{ color: m.accent }}>{m.kicker}</p>
-            <p className="text-[13px] font-bold text-foreground leading-tight truncate">{title}</p>
+            <p className="text-[13px] font-bold text-foreground leading-tight truncate">{t(title)}</p>
           </div>
           {!isTrigger && !EXECUTED.has(data.kind) && (
-            <Tip label="Configurable, not yet executed by the engine"><span className="text-[8.5px] font-bold uppercase text-amber-600 bg-amber-50 px-1.5 py-0.5 rounded">soon</span></Tip>
+            <Tip label={t("automation.configurableNotYetExecutedBy")}><span className="text-[8.5px] font-bold uppercase text-amber-600 bg-amber-50 px-1.5 py-0.5 rounded">soon</span></Tip>
           )}
         </div>
         {/* Trigger keywords as pills, otherwise plain summary */}
@@ -279,6 +281,7 @@ function autoLayout(nodes: AppNode[], edges: Edge[]): AppNode[] {
 
 // ── Page ────────────────────────────────────────────────────────────────────
 function Builder() {
+  const { t } = useI18n();
   const { id } = useParams<{ id: string }>();
   const router = useRouter();
   const { fitView } = useReactFlow();
@@ -388,7 +391,7 @@ function Builder() {
     setDirty(true);
   }
   function deleteNode(nodeId: string) {
-    if (nodeId === "trigger") { setToast("The trigger can't be deleted"); return; }
+    if (nodeId === "trigger") { setToast(t("automation.theTriggerCanTBe")); return; }
     pushHistory();
     setNodes((nds) => nds.filter((n) => n.id !== nodeId));
     setEdges((eds) => eds.filter((e) => e.source !== nodeId && e.target !== nodeId));
@@ -403,7 +406,7 @@ function Builder() {
     // now live in the flow graph, so the automation-level trigger_config is cleared.
     try {
       await api.updateAutomation(auto.id, { flow: model, trigger_config: {} });
-      setDirty(false); setToast("Flow saved");
+      setDirty(false); setToast(t("automation.flowSaved"));
     } catch (e) { setToast(String(e)); }
     finally { setSaving(false); }
   }
@@ -411,13 +414,13 @@ function Builder() {
     if (!auto) return;
     const next = !active; setActive(next);
     try { await api.updateAutomation(auto.id, { is_active: next }); }
-    catch { setActive(!next); setToast("Could not update status"); }
+    catch { setActive(!next); setToast(t("automation.couldNotUpdateStatus")); }
   }
 
   const selected = useMemo(() => nodes.find((n) => n.id === selId) ?? null, [nodes, selId]);
 
   if (loading) return <div className="grid place-items-center h-full"><Loader2 className="w-6 h-6 animate-spin text-muted-foreground" /></div>;
-  if (!auto) return <div className="p-8 text-muted-foreground">Automation not found.</div>;
+  if (!auto) return <div className="p-8 text-muted-foreground">{t("automation.automationNotFound")}</div>;
 
   return (
     <div className="flex flex-col h-full min-h-0">
@@ -426,23 +429,23 @@ function Builder() {
         <button onClick={() => router.push("/settings/automation")} className="p-1.5 rounded-md text-muted-foreground hover:bg-muted hover:text-foreground outline-none"><ArrowLeft className="w-5 h-5" /></button>
         <div className="min-w-0">
           <p className="font-bold text-[15px] text-foreground truncate">{auto.name}</p>
-          <p className="text-[11.5px] text-muted-foreground">Visual flow · {nodes.length} node{nodes.length === 1 ? "" : "s"} · trigger: {eventLabel(auto.trigger_type)}</p>
+          <p className="text-[11.5px] text-muted-foreground">{t("automation.visualFlow")} {nodes.length} node{nodes.length === 1 ? "" : "s"} {t("automation.trigger")} {t(eventLabel(auto.trigger_type))}</p>
         </div>
         <div className="flex-1" />
-        <Tip label="Undo (Ctrl+Z)"><button onClick={undo} className="p-2 rounded-md text-muted-foreground hover:bg-muted hover:text-foreground outline-none transition-colors"><Undo2 className="w-[18px] h-[18px]" /></button></Tip>
-        <Tip label="Redo (Ctrl+Y)"><button onClick={redo} className="p-2 rounded-md text-muted-foreground hover:bg-muted hover:text-foreground outline-none transition-colors"><Redo2 className="w-[18px] h-[18px]" /></button></Tip>
-        <Tip label="Auto-arrange nodes"><button onClick={tidy} className="p-2 rounded-md text-muted-foreground hover:bg-muted hover:text-foreground outline-none transition-colors"><LayoutGrid className="w-[18px] h-[18px]" /></button></Tip>
-        <button onClick={() => setPaletteOpen((v) => !v)} className="inline-flex items-center gap-1.5 px-3 h-9 rounded-md border border-border text-[13px] font-semibold text-foreground/80 hover:bg-muted transition-colors outline-none"><Plus className="w-4 h-4" /> Add node</button>
+        <Tip label={t("automation.undoCtrlZ")}><button onClick={undo} className="p-2 rounded-md text-muted-foreground hover:bg-muted hover:text-foreground outline-none transition-colors"><Undo2 className="w-[18px] h-[18px]" /></button></Tip>
+        <Tip label={t("automation.redoCtrlY")}><button onClick={redo} className="p-2 rounded-md text-muted-foreground hover:bg-muted hover:text-foreground outline-none transition-colors"><Redo2 className="w-[18px] h-[18px]" /></button></Tip>
+        <Tip label={t("automation.autoArrangeNodes")}><button onClick={tidy} className="p-2 rounded-md text-muted-foreground hover:bg-muted hover:text-foreground outline-none transition-colors"><LayoutGrid className="w-[18px] h-[18px]" /></button></Tip>
+        <button onClick={() => setPaletteOpen((v) => !v)} className="inline-flex items-center gap-1.5 px-3 h-9 rounded-md border border-border text-[13px] font-semibold text-foreground/80 hover:bg-muted transition-colors outline-none"><Plus className="w-4 h-4" /> {t("automation.addNode")}</button>
         <label className="inline-flex items-center gap-2 cursor-pointer mx-1">
           <span className="relative inline-flex">
             <input type="checkbox" checked={active} onChange={toggleActive} className="sr-only peer" />
             <span className="w-9 h-5 bg-muted rounded-full peer peer-checked:bg-primary transition-colors after:content-[''] after:absolute after:top-0.5 after:left-0.5 after:bg-white after:rounded-full after:h-4 after:w-4 after:shadow after:transition-all peer-checked:after:translate-x-4" />
           </span>
-          <span className="text-[12.5px] font-semibold text-muted-foreground">{active ? "Active" : "Paused"}</span>
+          <span className="text-[12.5px] font-semibold text-muted-foreground">{active ? t("dashboard.active") : t("automation.paused")}</span>
         </label>
         <button onClick={save} disabled={saving || !dirty}
           className="inline-flex items-center gap-1.5 px-4 h-9 bg-primary text-white rounded-md text-sm font-semibold hover:bg-primary-dark shadow-sm hover:shadow-brand-md disabled:opacity-50 transition-all outline-none">
-          {saving ? <Loader2 className="w-4 h-4 animate-spin" /> : <Save className="w-4 h-4" />}{dirty ? "Save" : "Saved"}
+          {saving ? <Loader2 className="w-4 h-4 animate-spin" /> : <Save className="w-4 h-4" />}{dirty ? t("common.save") : t("automation.saved")}
         </button>
       </div>
 
@@ -481,8 +484,8 @@ function Builder() {
                     <button key={k} onClick={() => addNode(k)} className="flex items-center gap-2.5 w-full px-3 py-1.5 hover:bg-muted text-left outline-none transition-colors">
                       <div className="w-7 h-7 rounded-md grid place-items-center shrink-0" style={{ backgroundColor: m.accent + "1a", color: m.accent }}><m.Icon className="w-[15px] h-[15px]" /></div>
                       <div className="min-w-0">
-                        <p className="text-[12.5px] font-semibold text-foreground flex items-center gap-1.5">{m.label}{!EXECUTED.has(k) && k !== "trigger" && <span className="text-[8px] font-bold uppercase text-amber-600">soon</span>}</p>
-                        <p className="text-[10.5px] text-muted-foreground truncate">{m.desc}</p>
+                        <p className="text-[12.5px] font-semibold text-foreground flex items-center gap-1.5">{t(m.label)}{!EXECUTED.has(k) && k !== "trigger" && <span className="text-[8px] font-bold uppercase text-amber-600">soon</span>}</p>
+                        <p className="text-[10.5px] text-muted-foreground truncate">{t(m.desc)}</p>
                       </div>
                     </button>
                   );
@@ -521,6 +524,7 @@ function genCallbackId(): string {
 
 // Inline image uploader (reuses POST /api/uploads). Shows a thumbnail + clear.
 function ImageUpload({ url, onChange }: { url: string; onChange: (u: string) => void }) {
+  const { t } = useI18n();
   const [busy, setBusy] = useState(false);
   const [err, setErr] = useState("");
   const inputRef = useRef<HTMLInputElement>(null);
@@ -543,7 +547,7 @@ function ImageUpload({ url, onChange }: { url: string; onChange: (u: string) => 
         <button type="button" onClick={() => inputRef.current?.click()} disabled={busy}
           className="flex flex-col items-center justify-center gap-1.5 w-full h-24 rounded-md border border-dashed border-border text-muted-foreground hover:border-primary/50 hover:text-primary transition-colors outline-none">
           {busy ? <Loader2 className="w-5 h-5 animate-spin" /> : <ImageIcon className="w-5 h-5" />}
-          <span className="text-[12px] font-medium">{busy ? "Uploading…" : "Upload image"}</span>
+          <span className="text-[12px] font-medium">{busy ? t("automation.uploading") : t("automation.uploadImage")}</span>
         </button>
       )}
       <input ref={inputRef} type="file" accept="image/*" className="hidden" onChange={(e) => pick(e.target.files?.[0])} />
@@ -553,6 +557,7 @@ function ImageUpload({ url, onChange }: { url: string; onChange: (u: string) => 
 }
 
 function AutoReplyConfig({ c, set, forms }: { c: Record<string, unknown>; set: (k: string, v: unknown) => void; forms: { id: string; name: string }[] }) {
+  const { t } = useI18n();
   // Composed reply: a body + an optional image + an optional interactive
   // (buttons/list). Legacy nodes used a single message_type; migrate on read.
   const legacy = String(c.message_type ?? "");
@@ -566,29 +571,29 @@ function AutoReplyConfig({ c, set, forms }: { c: Record<string, unknown>; set: (
   return (
     <>
       {/* Body — works standalone or combined with an image / buttons / list. */}
-      <Field label="Message"><textarea value={bodyVal} onChange={(e) => set("body", e.target.value)} rows={4} placeholder="Type the auto reply..." className={cn(INP, "resize-none h-auto py-2")} /></Field>
+      <Field label={t("automation.message")}><textarea value={bodyVal} onChange={(e) => set("body", e.target.value)} rows={4} placeholder={t("automation.typeTheAutoReply")} className={cn(INP, "resize-none h-auto py-2")} /></Field>
 
       {/* Optional image — becomes the header image when combined with buttons. */}
-      <Field label="Image (optional)"><ImageUpload url={String(c.media_url ?? "")} onChange={(u) => set("media_url", u)} /></Field>
+      <Field label={t("automation.imageOptional")}><ImageUpload url={String(c.media_url ?? "")} onChange={(u) => set("media_url", u)} /></Field>
 
       {/* Optional interactive: reply buttons or a list menu. */}
-      <Field label="Interactive (optional)">
+      <Field label={t("automation.interactiveOptional")}>
         <Select value={interactive} searchable={false} onChange={(v) => set("interactive", v)} className="w-full"
           options={[{ value: "none", label: "None (text / image only)" }, { value: "buttons", label: "Reply buttons" }, { value: "list", label: "List menu" }, { value: "flow", label: "WhatsApp Flow button" }, { value: "location_request", label: "Request location" }]} />
       </Field>
 
       {interactive === "flow" && <>
-        <Field label="WhatsApp Flow"><Select value={String(c.flow_id ?? "")} onChange={(v) => set("flow_id", v)} options={forms.map((f) => ({ value: f.id, label: f.name }))} placeholder="Select a published flow…" className="w-full" /></Field>
-        <Field label="Button label"><input value={String(c.flow_cta ?? "")} onChange={(e) => set("flow_cta", e.target.value)} placeholder="Get Offers" className={INP} /></Field>
-        {forms.length === 0 && <p className="text-[12px] text-amber-600">No published forms yet. Publish one in WhatsApp Forms first.</p>}
+        <Field label={t("automation.whatsappFlow")}><Select value={String(c.flow_id ?? "")} onChange={(v) => set("flow_id", v)} options={forms.map((f) => ({ value: f.id, label: f.name }))} placeholder={t("automation.selectAPublishedFlow")} className="w-full" /></Field>
+        <Field label={t("automation.buttonLabel")}><input value={String(c.flow_cta ?? "")} onChange={(e) => set("flow_cta", e.target.value)} placeholder={t("automation.getOffers")} className={INP} /></Field>
+        {forms.length === 0 && <p className="text-[12px] text-amber-600">{t("automation.noPublishedFormsYetPublish")}</p>}
       </>}
 
       {(interactive === "buttons" || interactive === "list") && (
-        <Field label="Footer (optional)"><input value={String(c.footer ?? "")} onChange={(e) => set("footer", e.target.value)} placeholder="Small footnote" className={INP} /></Field>
+        <Field label={t("automation.footerOptional")}><input value={String(c.footer ?? "")} onChange={(e) => set("footer", e.target.value)} placeholder={t("automation.smallFootnote")} className={INP} /></Field>
       )}
 
       {interactive === "buttons" && (
-        <Field label="Buttons (up to 3)">
+        <Field label={t("automation.buttonsUpTo3")}>
           <div className="space-y-2">
             {buttons.map((b, i) => (
               <div key={i} className="rounded-md border border-border/60 p-2 space-y-1.5">
@@ -597,32 +602,32 @@ function AutoReplyConfig({ c, set, forms }: { c: Record<string, unknown>; set: (
                   <button type="button" onClick={() => { const arr = [...buttons]; arr.splice(i, 1); set("buttons", arr); }} className="px-1.5 text-muted-foreground hover:text-destructive text-lg leading-none">×</button>
                 </div>
                 <div className="flex gap-1.5 items-center">
-                  <span className="text-[10px] font-bold uppercase tracking-wide text-muted-foreground shrink-0">Callback ID</span>
+                  <span className="text-[10px] font-bold uppercase tracking-wide text-muted-foreground shrink-0">{t("automation.callbackId")}</span>
                   <input value={String(b?.id ?? "")} onChange={(e) => { const arr = [...buttons]; arr[i] = { ...arr[i], id: e.target.value }; set("buttons", arr); }} placeholder="auto-generated" className={cn(INP, "flex-1 !h-8 text-[12px]")} />
-                  <Tip label="Regenerate id"><button type="button" onClick={() => { const arr = [...buttons]; arr[i] = { ...arr[i], id: genCallbackId() }; set("buttons", arr); }} className="p-1.5 rounded-md text-muted-foreground hover:bg-muted hover:text-foreground outline-none shrink-0"><RefreshCw className="w-3.5 h-3.5" /></button></Tip>
+                  <Tip label={t("automation.regenerateId")}><button type="button" onClick={() => { const arr = [...buttons]; arr[i] = { ...arr[i], id: genCallbackId() }; set("buttons", arr); }} className="p-1.5 rounded-md text-muted-foreground hover:bg-muted hover:text-foreground outline-none shrink-0"><RefreshCw className="w-3.5 h-3.5" /></button></Tip>
                 </div>
               </div>
             ))}
-            {buttons.length < 3 && <button type="button" onClick={() => set("buttons", [...buttons, { title: "", id: genCallbackId() }])} className="text-[12.5px] font-semibold text-primary hover:underline">+ Add button</button>}
+            {buttons.length < 3 && <button type="button" onClick={() => set("buttons", [...buttons, { title: "", id: genCallbackId() }])} className="text-[12.5px] font-semibold text-primary hover:underline">{t("automation.addButton")}</button>}
           </div>
-          <p className="text-[11.5px] text-muted-foreground mt-1.5">Callback IDs are auto-generated and editable. A <b>Button click</b> trigger can match on them.</p>
+          <p className="text-[11.5px] text-muted-foreground mt-1.5">{t("automation.callbackIdsAreAutoGenerated")} <b>{t("automation.buttonClick")}</b> {t("automation.triggerCanMatchOnThem")}</p>
         </Field>
       )}
 
       {interactive === "list" && <>
-        <Field label="List button label"><input value={String(c.button_text ?? "")} onChange={(e) => set("button_text", e.target.value)} placeholder="Menu" className={INP} /></Field>
-        <Field label="Section title (optional)"><input value={String(section0.title ?? "")} onChange={(e) => set("sections", [{ title: e.target.value, rows }])} placeholder="Choose an option" className={INP} /></Field>
-        {c.media_url ? <p className="text-[11.5px] text-amber-600">WhatsApp lists can&apos;t show a header image, so the image is sent as a separate message before the list.</p> : null}
-        <Field label="List items">
+        <Field label={t("automation.listButtonLabel")}><input value={String(c.button_text ?? "")} onChange={(e) => set("button_text", e.target.value)} placeholder={t("automation.menu")} className={INP} /></Field>
+        <Field label={t("automation.sectionTitleOptional")}><input value={String(section0.title ?? "")} onChange={(e) => set("sections", [{ title: e.target.value, rows }])} placeholder={t("automation.chooseAnOption")} className={INP} /></Field>
+        {c.media_url ? <p className="text-[11.5px] text-amber-600">{t("automation.whatsappListsCanTShow")}</p> : null}
+        <Field label={t("automation.listItems")}>
           <div className="space-y-1.5">
             {rows.map((r, i) => (
               <div key={i} className="flex gap-1.5 items-center">
                 <input value={String(r?.title ?? "")} onChange={(e) => { const arr = [...rows]; arr[i] = { ...arr[i], title: e.target.value }; setRows(arr); }} placeholder={`Item ${i + 1} title`} className={cn(INP, "flex-1")} />
-                <input value={String(r?.description ?? "")} onChange={(e) => { const arr = [...rows]; arr[i] = { ...arr[i], description: e.target.value }; setRows(arr); }} placeholder="description (optional)" className={cn(INP, "flex-1")} />
+                <input value={String(r?.description ?? "")} onChange={(e) => { const arr = [...rows]; arr[i] = { ...arr[i], description: e.target.value }; setRows(arr); }} placeholder={t("automation.descriptionOptional")} className={cn(INP, "flex-1")} />
                 <button type="button" onClick={() => { const arr = [...rows]; arr.splice(i, 1); setRows(arr); }} className="px-1.5 text-muted-foreground hover:text-destructive text-lg leading-none">×</button>
               </div>
             ))}
-            {rows.length < 10 && <button type="button" onClick={() => setRows([...rows, { title: "", description: "" }])} className="text-[12.5px] font-semibold text-primary hover:underline">+ Add item</button>}
+            {rows.length < 10 && <button type="button" onClick={() => setRows([...rows, { title: "", description: "" }])} className="text-[12.5px] font-semibold text-primary hover:underline">{t("automation.addItem")}</button>}
           </div>
         </Field>
       </>}
@@ -664,6 +669,7 @@ function legacyToCondition(triggerType: string | undefined, c: Record<string, un
 }
 
 function TriggerConditionsConfig({ triggerType, c, onChange }: { triggerType: string; c: Record<string, unknown>; onChange: (cfg: Record<string, unknown>) => void }) {
+  const { t } = useI18n();
   const conditions: Record<string, unknown>[] = Array.isArray(c.conditions) && (c.conditions as unknown[]).length
     ? (c.conditions as Record<string, unknown>[])
     : [legacyToCondition(triggerType, c)];
@@ -672,14 +678,14 @@ function TriggerConditionsConfig({ triggerType, c, onChange }: { triggerType: st
   const setType = (i: number, type: string) => write(conditions.map((cd, j) => (j === i ? { type } : cd)));
   return (
     <div className="space-y-3">
-      <p className="text-[12px] text-muted-foreground">Fires only when <b className="text-foreground/80">all</b> conditions below match.</p>
+      <p className="text-[12px] text-muted-foreground">{t("automation.firesOnlyWhen")} <b className="text-foreground/80">all</b> {t("automation.conditionsBelowMatch")}</p>
       {conditions.map((cd, i) => {
         const type = String(cd.type ?? "keyword_include");
         return (
           <div key={i} className="rounded-lg border border-border p-3 space-y-2.5 bg-muted/20">
             <div className="flex items-center gap-2">
               <Select value={type} onChange={(v) => setType(i, v)} className="flex-1"
-                options={TRIGGER_CONDITIONS.map((t) => ({ value: t.value, label: t.label + (t.soon ? " (soon)" : "") }))} />
+                options={TRIGGER_CONDITIONS.map((tc) => ({ value: tc.value, label: t(tc.label) + (tc.soon ? " (soon)" : "") }))} />
               {conditions.length > 1 && <button type="button" onClick={() => write(conditions.filter((_, j) => j !== i))} className="p-1 rounded-md text-muted-foreground hover:bg-destructive/10 hover:text-destructive outline-none"><X className="w-4 h-4" /></button>}
             </div>
             <CondFields type={type} cd={cd} patch={(p) => patch(i, p)} />
@@ -688,13 +694,14 @@ function TriggerConditionsConfig({ triggerType, c, onChange }: { triggerType: st
       })}
       <button type="button" onClick={() => write([...conditions, { type: "keyword_include" }])}
         className="inline-flex items-center gap-1.5 h-9 px-3 rounded-lg border border-dashed border-border text-[13px] font-semibold text-foreground/80 hover:border-primary/40 hover:bg-muted/40 outline-none">
-        <Plus className="w-4 h-4" /> Add trigger condition
+        <Plus className="w-4 h-4" /> {t("automation.addTriggerCondition")}
       </button>
     </div>
   );
 }
 
 function CondFields({ type, cd, patch }: { type: string; cd: Record<string, unknown>; patch: (p: Record<string, unknown>) => void }) {
+  const { t } = useI18n();
   const kws: string[] = Array.isArray(cd.keywords) ? (cd.keywords as string[]) : [];
   const [draft, setDraft] = useState("");
   const addKw = (raw: string) => { const parts = raw.split(",").map((k) => k.trim()).filter(Boolean); if (parts.length) { patch({ keywords: Array.from(new Set([...kws, ...parts])) }); setDraft(""); } };
@@ -708,43 +715,44 @@ function CondFields({ type, cd, patch }: { type: string; cd: Record<string, unkn
           ))}
           <input value={draft} onChange={(e) => setDraft(e.target.value)}
             onKeyDown={(e) => { if (e.key === "Enter" || e.key === ",") { e.preventDefault(); addKw(draft); } else if (e.key === "Backspace" && !draft && kws.length) patch({ keywords: kws.slice(0, -1) }); }}
-            onBlur={() => { if (draft) addKw(draft); }} placeholder={kws.length ? "" : "Type a keyword, Enter to add"} className="flex-1 min-w-[120px] bg-transparent outline-none text-sm py-0.5" />
+            onBlur={() => { if (draft) addKw(draft); }} placeholder={kws.length ? "" : t("automation.typeAKeywordEnterTo")} className="flex-1 min-w-[120px] bg-transparent outline-none text-sm py-0.5" />
         </div>
         {type === "keyword_include" && (
-          <Field label="Match mode"><Select value={String(cd.match_mode ?? "any")} onChange={(v) => patch({ match_mode: v })} searchable={false}
+          <Field label={t("automation.matchMode")}><Select value={String(cd.match_mode ?? "any")} onChange={(v) => patch({ match_mode: v })} searchable={false}
             options={[["any", "Contains any keyword"], ["all", "Contains all keywords"], ["starts_with", "Starts with a keyword"]].map(([v, l]) => ({ value: v, label: l }))} className="w-full" /></Field>
         )}
-        <label className="flex items-center gap-2 cursor-pointer"><input type="checkbox" checked={Boolean(cd.case_sensitive)} onChange={(e) => patch({ case_sensitive: e.target.checked })} className="w-4 h-4 rounded border-input text-primary focus:ring-primary/25" /><span className="text-[13px] font-medium text-foreground/80">Case sensitive</span></label>
+        <label className="flex items-center gap-2 cursor-pointer"><input type="checkbox" checked={Boolean(cd.case_sensitive)} onChange={(e) => patch({ case_sensitive: e.target.checked })} className="w-4 h-4 rounded border-input text-primary focus:ring-primary/25" /><span className="text-[13px] font-medium text-foreground/80">{t("automation.caseSensitive")}</span></label>
       </>
     );
   }
-  if (type === "regex_match") return <Field label="Regex pattern"><input value={String(cd.pattern ?? "")} onChange={(e) => patch({ pattern: e.target.value })} placeholder="^(hi|halo)\b" className={INP} /></Field>;
-  if (type === "callback_id") return <Field label="Callback id contains (optional)"><input value={String(cd.callback ?? "")} onChange={(e) => patch({ callback: e.target.value })} placeholder="e.g. daftar (blank = any button)" className={INP} /></Field>;
+  if (type === "regex_match") return <Field label={t("automation.regexPattern")}><input value={String(cd.pattern ?? "")} onChange={(e) => patch({ pattern: e.target.value })} placeholder="^(hi|halo)\b" className={INP} /></Field>;
+  if (type === "callback_id") return <Field label={t("automation.callbackIdContainsOptional")}><input value={String(cd.callback ?? "")} onChange={(e) => patch({ callback: e.target.value })} placeholder={t("automation.eGDaftarBlankAny")} className={INP} /></Field>;
   if (type === "message_type") {
     const sel: string[] = Array.isArray(cd.message_types) ? (cd.message_types as string[]) : [];
-    return <Field label="Message type is one of"><div className="flex flex-wrap gap-1.5">{MSG_TYPES.map((t) => { const on = sel.includes(t); return <button key={t} type="button" onClick={() => patch({ message_types: on ? sel.filter((x) => x !== t) : [...sel, t] })} className={cn("px-2 py-1 rounded-md text-[12px] font-medium border capitalize outline-none", on ? "bg-primary/10 border-primary/40 text-primary" : "border-border text-muted-foreground hover:bg-muted")}>{t}</button>; })}</div></Field>;
+    return <Field label={t("automation.messageTypeIsOneOf")}><div className="flex flex-wrap gap-1.5">{MSG_TYPES.map((t) => { const on = sel.includes(t); return <button key={t} type="button" onClick={() => patch({ message_types: on ? sel.filter((x) => x !== t) : [...sel, t] })} className={cn("px-2 py-1 rounded-md text-[12px] font-medium border capitalize outline-none", on ? "bg-primary/10 border-primary/40 text-primary" : "border-border text-muted-foreground hover:bg-muted")}>{t}</button>; })}</div></Field>;
   }
-  if (type === "file_type") return <Field label="File extensions (comma separated)"><input value={Array.isArray(cd.extensions) ? (cd.extensions as string[]).join(", ") : ""} onChange={(e) => patch({ extensions: e.target.value.split(",").map((x) => x.trim().replace(/^\./, "")).filter(Boolean) })} placeholder="pdf, xlsx, jpg" className={INP} /></Field>;
+  if (type === "file_type") return <Field label={t("automation.fileExtensionsCommaSeparated")}><input value={Array.isArray(cd.extensions) ? (cd.extensions as string[]).join(", ") : ""} onChange={(e) => patch({ extensions: e.target.value.split(",").map((x) => x.trim().replace(/^\./, "")).filter(Boolean) })} placeholder={t("automation.pdfXlsxJpg")} className={INP} /></Field>;
   if (type === "custom_condition") {
     const op = String(cd.operator ?? "equals");
     return (
       <div className="space-y-2">
-        <Field label="Contact attribute"><input value={String(cd.attribute ?? "")} onChange={(e) => patch({ attribute: e.target.value })} placeholder="attribute key (e.g. city)" className={INP} /></Field>
-        <Field label="Operator"><Select value={op} onChange={(v) => patch({ operator: v })} searchable={false} options={[["equals", "equals"], ["not_equals", "not equals"], ["contains", "contains"], ["is_set", "is set"], ["is_not_set", "is not set"]].map(([v, l]) => ({ value: v, label: l }))} className="w-full" /></Field>
-        {op !== "is_set" && op !== "is_not_set" && <Field label="Value"><input value={String(cd.value ?? "")} onChange={(e) => patch({ value: e.target.value })} placeholder="value" className={INP} /></Field>}
+        <Field label={t("automation.contactAttribute")}><input value={String(cd.attribute ?? "")} onChange={(e) => patch({ attribute: e.target.value })} placeholder={t("automation.attributeKeyEGCity")} className={INP} /></Field>
+        <Field label={t("automation.operator")}><Select value={op} onChange={(v) => patch({ operator: v })} searchable={false} options={[["equals", "equals"], ["not_equals", "not equals"], ["contains", "contains"], ["is_set", "is set"], ["is_not_set", "is not set"]].map(([v, l]) => ({ value: v, label: l }))} className="w-full" /></Field>
+        {op !== "is_set" && op !== "is_not_set" && <Field label={t("automation.value")}><input value={String(cd.value ?? "")} onChange={(e) => patch({ value: e.target.value })} placeholder="value" className={INP} /></Field>}
       </div>
     );
   }
   if (type === "office_hours" || type === "after_hours" || type === "template_message")
-    return <p className="text-[12px] text-amber-600">Configurable, but the engine doesn&apos;t evaluate this condition yet.</p>;
+    return <p className="text-[12px] text-amber-600">{t("automation.configurableButTheEngineDoesn")}</p>;
   // catalog_order, first_or_after_24h, individual_chat, all_messages -> no config
-  return <p className="text-[12.5px] text-muted-foreground">No extra configuration needed.</p>;
+  return <p className="text-[12.5px] text-muted-foreground">{t("automation.noExtraConfigurationNeeded")}</p>;
 }
 
 // ── Inspector (per-node config) ─────────────────────────────────────────────
 function Inspector({ node, triggerType, campaigns, forms, agents, stages, sheetEmail, onChange, onClose, onDelete }: {
   node: AppNode; triggerType: string; campaigns: { id: string; name: string }[]; forms: { id: string; name: string }[]; agents: { id: string; name: string }[]; stages: { id: string; name: string }[]; sheetEmail: string; onChange: (cfg: Record<string, unknown>) => void; onClose: () => void; onDelete: () => void;
 }) {
+  const { t } = useI18n();
   const pickById = (list: { id: string; name: string }[], idKey: string, nameKey: string) => (v: string) => onChange({ ...node.data.config, [idKey]: v, [nameKey]: list.find((x) => x.id === v)?.name || "" });
   const kind = node.data.kind;
   const c = node.data.config || {};
@@ -756,80 +764,80 @@ function Inspector({ node, triggerType, campaigns, forms, agents, stages, sheetE
     <>
       <div className="flex items-center gap-2.5 px-4 py-3 border-b border-border">
         <div className="w-8 h-8 rounded-md grid place-items-center shrink-0" style={{ backgroundColor: m.accent + "1a", color: m.accent }}><m.Icon className="w-[17px] h-[17px]" /></div>
-        <p className="font-bold text-[14px] text-foreground flex-1 truncate">{isTrigger ? eventLabel(triggerType) : m.label}</p>
+        <p className="font-bold text-[14px] text-foreground flex-1 truncate">{t(isTrigger ? eventLabel(triggerType) : m.label)}</p>
         <button onClick={onClose} className="p-1 rounded-md text-muted-foreground hover:bg-muted outline-none"><X className="w-[18px] h-[18px]" /></button>
       </div>
       <div className="flex-1 overflow-y-auto p-4 space-y-4">
         {!isTrigger && !EXECUTED.has(kind) && (
-          <div className="px-3 py-2 rounded-md bg-amber-50 border border-amber-200 text-[12px] text-amber-700 font-medium">Configurable now; the engine doesn&apos;t execute this action type yet.</div>
+          <div className="px-3 py-2 rounded-md bg-amber-50 border border-amber-200 text-[12px] text-amber-700 font-medium">{t("automation.configurableNowTheEngineDoesn")}</div>
         )}
         {isTrigger && <TriggerConditionsConfig triggerType={triggerType} c={c} onChange={onChange} />}
         {kind === "send_message" && <AutoReplyConfig c={c} set={set} forms={forms} />}
-        {kind === "send_template" && <Field label="Template name"><input value={String(c.template_name ?? "")} onChange={(e) => set("template_name", e.target.value)} placeholder="welcome_v1" className={INP} /></Field>}
+        {kind === "send_template" && <Field label={t("automation.templateName")}><input value={String(c.template_name ?? "")} onChange={(e) => set("template_name", e.target.value)} placeholder="welcome_v1" className={INP} /></Field>}
         {kind === "send_form" && <>
-          <Field label="Form"><Select value={String(c.form_id ?? "")} onChange={pickById(forms, "form_id", "form_name")} options={forms.map((f) => ({ value: f.id, label: f.name }))} placeholder="Search published form…" className="w-full" /></Field>
-          <Field label="Message text"><input value={String(c.body ?? "")} onChange={(e) => set("body", e.target.value)} placeholder="Please fill in this form" className={INP} /></Field>
-          <Field label="Button label"><input value={String(c.cta ?? "")} onChange={(e) => set("cta", e.target.value)} placeholder="Open form" className={INP} /></Field>
-          {forms.length === 0 && <p className="text-[12px] text-amber-600">No published forms yet. Publish one in WhatsApp Forms first.</p>}
+          <Field label={t("automation.form")}><Select value={String(c.form_id ?? "")} onChange={pickById(forms, "form_id", "form_name")} options={forms.map((f) => ({ value: f.id, label: f.name }))} placeholder={t("automation.searchPublishedForm")} className="w-full" /></Field>
+          <Field label={t("automation.messageText")}><input value={String(c.body ?? "")} onChange={(e) => set("body", e.target.value)} placeholder={t("automation.pleaseFillInThisForm")} className={INP} /></Field>
+          <Field label={t("automation.buttonLabel")}><input value={String(c.cta ?? "")} onChange={(e) => set("cta", e.target.value)} placeholder={t("automation.openForm")} className={INP} /></Field>
+          {forms.length === 0 && <p className="text-[12px] text-amber-600">{t("automation.noPublishedFormsYetPublish")}</p>}
         </>}
-        {kind === "assign_agent" && <Field label="Agent"><Select value={String(c.agent_id ?? "")} onChange={pickById(agents, "agent_id", "agent_name")} options={agents.map((a) => ({ value: a.id, label: a.name }))} placeholder="Search agent…" className="w-full" /></Field>}
-        {kind === "assign_campaign" && <Field label="Campaign"><Select value={String(c.campaign_id ?? "")} onChange={pickById(campaigns, "campaign_id", "campaign_name")} options={campaigns.map((cp) => ({ value: cp.id, label: cp.name }))} placeholder="Search campaign…" className="w-full" /></Field>}
-        {(kind === "add_tag" || kind === "remove_tag") && <Field label="Tags (comma separated)"><input value={Array.isArray(c.tags) ? (c.tags as string[]).join(", ") : ""} onChange={(e) => set("tags", e.target.value.split(",").map((t) => t.trim()).filter(Boolean))} placeholder="vip, pricing" className={INP} /></Field>}
+        {kind === "assign_agent" && <Field label={t("contacts.agent")}><Select value={String(c.agent_id ?? "")} onChange={pickById(agents, "agent_id", "agent_name")} options={agents.map((a) => ({ value: a.id, label: a.name }))} placeholder={t("automation.searchAgent")} className="w-full" /></Field>}
+        {kind === "assign_campaign" && <Field label={t("automation.campaign")}><Select value={String(c.campaign_id ?? "")} onChange={pickById(campaigns, "campaign_id", "campaign_name")} options={campaigns.map((cp) => ({ value: cp.id, label: cp.name }))} placeholder={t("automation.searchCampaign")} className="w-full" /></Field>}
+        {(kind === "add_tag" || kind === "remove_tag") && <Field label={t("automation.tagsCommaSeparated")}><input value={Array.isArray(c.tags) ? (c.tags as string[]).join(", ") : ""} onChange={(e) => set("tags", e.target.value.split(",").map((t) => t.trim()).filter(Boolean))} placeholder={t("automation.vipPricing")} className={INP} /></Field>}
         {kind === "set_contact_attribute" && <AttrMappings c={c} onChange={onChange} />}
-        {kind === "set_conversation_status" && <Field label="Status"><Select value={String(c.status ?? "open")} onChange={(v) => set("status", v)} searchable={false} options={["open", "snoozed", "closed"].map((p) => ({ value: p, label: p }))} className="w-full" /></Field>}
-        {kind === "set_stage" && <Field label="Pipeline stage">
-          <Select value={String(c.stage_id ?? "")} onChange={pickById(stages, "stage_id", "stage_name")} options={stages.map((s) => ({ value: s.id, label: s.name }))} placeholder="Search stage…" className="w-full" />
-          {stages.length === 0 && <p className="text-[12px] text-amber-600 mt-1.5">No pipeline stages defined yet.</p>}
+        {kind === "set_conversation_status" && <Field label={t("automation.status")}><Select value={String(c.status ?? "open")} onChange={(v) => set("status", v)} searchable={false} options={["open", "snoozed", "closed"].map((p) => ({ value: p, label: p }))} className="w-full" /></Field>}
+        {kind === "set_stage" && <Field label={t("automation.pipelineStage")}>
+          <Select value={String(c.stage_id ?? "")} onChange={pickById(stages, "stage_id", "stage_name")} options={stages.map((s) => ({ value: s.id, label: s.name }))} placeholder={t("automation.searchStage")} className="w-full" />
+          {stages.length === 0 && <p className="text-[12px] text-amber-600 mt-1.5">{t("automation.noPipelineStagesDefinedYet")}</p>}
         </Field>}
-        {kind === "set_interest" && <Field label="Interest level"><Select value={String(c.interest_level ?? "")} onChange={(v) => set("interest_level", v)} searchable={false} options={[["hot", "Hot"], ["warm", "Warm"], ["cold", "Cold"]].map(([v, l]) => ({ value: v, label: l }))} placeholder="Choose…" className="w-full" /></Field>}
+        {kind === "set_interest" && <Field label={t("dashboard.interestLevel")}><Select value={String(c.interest_level ?? "")} onChange={(v) => set("interest_level", v)} searchable={false} options={[["hot", "Hot"], ["warm", "Warm"], ["cold", "Cold"]].map(([v, l]) => ({ value: v, label: l }))} placeholder={t("automation.choose")} className="w-full" /></Field>}
         {kind === "google_sheet" && <>
-          <Field label="Google Sheet URL"><input value={String(c.sheet_url ?? "")} onChange={(e) => set("sheet_url", e.target.value)} placeholder="Paste the Sheet URL" className={INP} /></Field>
-          <Field label="Tab name"><input value={String(c.sheet_tab ?? "")} onChange={(e) => set("sheet_tab", e.target.value)} placeholder="Sheet1" className={INP} /></Field>
-          <Field label="Attributes to append (comma separated)"><input value={Array.isArray(c.attributes) ? (c.attributes as string[]).join(", ") : ""} onChange={(e) => set("attributes", e.target.value.split(",").map((t) => t.trim()).filter(Boolean))} placeholder="preferred_model, city" className={INP} /></Field>
-          <p className="text-[12px] text-muted-foreground">Row appended: timestamp, name, phone, then each attribute.</p>
+          <Field label={t("automation.googleSheetUrl")}><input value={String(c.sheet_url ?? "")} onChange={(e) => set("sheet_url", e.target.value)} placeholder={t("automation.pasteTheSheetUrl")} className={INP} /></Field>
+          <Field label={t("automation.tabName")}><input value={String(c.sheet_tab ?? "")} onChange={(e) => set("sheet_tab", e.target.value)} placeholder={t("automation.sheet1")} className={INP} /></Field>
+          <Field label={t("automation.attributesToAppendCommaSeparated")}><input value={Array.isArray(c.attributes) ? (c.attributes as string[]).join(", ") : ""} onChange={(e) => set("attributes", e.target.value.split(",").map((t) => t.trim()).filter(Boolean))} placeholder={t("automation.preferredModelCity")} className={INP} /></Field>
+          <p className="text-[12px] text-muted-foreground">{t("automation.rowAppendedTimestampNamePhone")}</p>
           <ShareWithSA email={sheetEmail} />
         </>}
-        {kind === "set_priority" && <Field label="Priority"><Select value={String(c.priority ?? "normal")} onChange={(v) => set("priority", v)} searchable={false} options={["low", "normal", "high", "urgent"].map((p) => ({ value: p, label: p }))} className="w-full" /></Field>}
-        {kind === "unassign_team" && <p className="text-[13px] text-muted-foreground">Clears the conversation&apos;s assigned agent. No configuration needed.</p>}
-        {kind === "remove_campaign" && <p className="text-[13px] text-muted-foreground">Clears the conversation&apos;s campaign. No configuration needed.</p>}
-        {kind === "blacklist" && <p className="text-[13px] text-muted-foreground">Blocks this contact from future outreach. No configuration needed.</p>}
+        {kind === "set_priority" && <Field label={t("automation.priority")}><Select value={String(c.priority ?? "normal")} onChange={(v) => set("priority", v)} searchable={false} options={["low", "normal", "high", "urgent"].map((p) => ({ value: p, label: p }))} className="w-full" /></Field>}
+        {kind === "unassign_team" && <p className="text-[13px] text-muted-foreground">{t("automation.clearsTheConversationSAssigned")}</p>}
+        {kind === "remove_campaign" && <p className="text-[13px] text-muted-foreground">{t("automation.clearsTheConversationSCampaign")}</p>}
+        {kind === "blacklist" && <p className="text-[13px] text-muted-foreground">{t("automation.blocksThisContactFromFuture")}</p>}
         {kind === "send_email" && <>
-          <Field label="To (email)"><input value={String(c.to ?? "")} onChange={(e) => set("to", e.target.value)} placeholder="sales@yourco.com" className={INP} /></Field>
-          <Field label="Subject"><input value={String(c.subject ?? "")} onChange={(e) => set("subject", e.target.value)} placeholder="New lead: {full_name}" className={INP} /></Field>
-          <Field label="Body"><textarea value={String(c.body ?? "")} onChange={(e) => set("body", e.target.value)} rows={4} placeholder="{full_name} ({phone}) just came in." className={cn(INP, "resize-none h-auto py-2")} /></Field>
-          <p className="text-[12px] text-muted-foreground">Sent via your configured SMTP. Supports {"{first_name}"}, {"{full_name}"}, {"{phone}"} and contact attributes.</p>
+          <Field label={t("automation.toEmail")}><input value={String(c.to ?? "")} onChange={(e) => set("to", e.target.value)} placeholder="sales@yourco.com" className={INP} /></Field>
+          <Field label={t("automation.subject")}><input value={String(c.subject ?? "")} onChange={(e) => set("subject", e.target.value)} placeholder={t("automation.newLeadFullName")} className={INP} /></Field>
+          <Field label={t("automation.body")}><textarea value={String(c.body ?? "")} onChange={(e) => set("body", e.target.value)} rows={4} placeholder={t("automation.fullNamePhoneJustCame")} className={cn(INP, "resize-none h-auto py-2")} /></Field>
+          <p className="text-[12px] text-muted-foreground">{t("automation.sentViaYourConfiguredSmtp")} {"{first_name}"}, {"{full_name}"}, {"{phone}"} {t("automation.andContactAttributes")}</p>
         </>}
-        {kind === "webhook_notify" && <Field label="Webhook URL"><input value={String(c.url ?? "")} onChange={(e) => set("url", e.target.value)} placeholder="https://..." className={INP} /></Field>}
+        {kind === "webhook_notify" && <Field label={t("automation.webhookUrl")}><input value={String(c.url ?? "")} onChange={(e) => set("url", e.target.value)} placeholder="https://..." className={INP} /></Field>}
         {kind === "rest_api" && <>
-          <Field label="Method"><Select value={String(c.method ?? "POST")} onChange={(v) => set("method", v)} searchable={false} options={["GET", "POST", "PUT", "PATCH", "DELETE"].map((m) => ({ value: m, label: m }))} className="w-full" /></Field>
+          <Field label={t("automation.method")}><Select value={String(c.method ?? "POST")} onChange={(v) => set("method", v)} searchable={false} options={["GET", "POST", "PUT", "PATCH", "DELETE"].map((m) => ({ value: m, label: m }))} className="w-full" /></Field>
           <Field label="URL"><input value={String(c.url ?? "")} onChange={(e) => set("url", e.target.value)} placeholder="https://api.example.com/hook" className={INP} /></Field>
-          <Field label="Headers">
+          <Field label={t("automation.headers")}>
             <div className="space-y-1.5">
               {(Array.isArray(c.headers) ? c.headers as Record<string, unknown>[] : []).map((h, i) => (
                 <div key={i} className="flex gap-1.5 items-center">
-                  <input value={String(h?.key ?? "")} onChange={(e) => { const arr = [...(c.headers as Record<string, unknown>[] ?? [])]; arr[i] = { ...arr[i], key: e.target.value }; set("headers", arr); }} placeholder="Header" className={cn(INP, "flex-1")} />
-                  <input value={String(h?.value ?? "")} onChange={(e) => { const arr = [...(c.headers as Record<string, unknown>[] ?? [])]; arr[i] = { ...arr[i], value: e.target.value }; set("headers", arr); }} placeholder="Value" className={cn(INP, "flex-1")} />
+                  <input value={String(h?.key ?? "")} onChange={(e) => { const arr = [...(c.headers as Record<string, unknown>[] ?? [])]; arr[i] = { ...arr[i], key: e.target.value }; set("headers", arr); }} placeholder={t("automation.header")} className={cn(INP, "flex-1")} />
+                  <input value={String(h?.value ?? "")} onChange={(e) => { const arr = [...(c.headers as Record<string, unknown>[] ?? [])]; arr[i] = { ...arr[i], value: e.target.value }; set("headers", arr); }} placeholder={t("automation.value")} className={cn(INP, "flex-1")} />
                   <button type="button" onClick={() => { const arr = [...(c.headers as Record<string, unknown>[] ?? [])]; arr.splice(i, 1); set("headers", arr); }} className="px-1.5 text-muted-foreground hover:text-destructive text-lg leading-none">×</button>
                 </div>
               ))}
-              <button type="button" onClick={() => set("headers", [...(Array.isArray(c.headers) ? c.headers as Record<string, unknown>[] : []), { key: "", value: "" }])} className="text-[12px] font-semibold text-primary hover:underline">+ Add header</button>
+              <button type="button" onClick={() => set("headers", [...(Array.isArray(c.headers) ? c.headers as Record<string, unknown>[] : []), { key: "", value: "" }])} className="text-[12px] font-semibold text-primary hover:underline">{t("automation.addHeader")}</button>
             </div>
           </Field>
-          <Field label="Body"><textarea value={String(c.body ?? "")} onChange={(e) => set("body", e.target.value)} rows={4} placeholder={'{"name": "{full_name}", "phone": "{phone}"}'} className={cn(INP, "resize-none h-auto py-2")} /></Field>
-          <p className="text-[12px] text-muted-foreground">URL, headers and body support {"{first_name}"}, {"{full_name}"}, {"{phone}"} and contact attributes.</p>
+          <Field label={t("automation.body")}><textarea value={String(c.body ?? "")} onChange={(e) => set("body", e.target.value)} rows={4} placeholder={'{"name": "{full_name}", "phone": "{phone}"}'} className={cn(INP, "resize-none h-auto py-2")} /></Field>
+          <p className="text-[12px] text-muted-foreground">{t("automation.urlHeadersAndBodySupport")} {"{first_name}"}, {"{full_name}"}, {"{phone}"} {t("automation.andContactAttributes")}</p>
         </>}
         {kind === "condition" && <>
-          <Field label="Contact attribute"><input value={String(c.attribute ?? "")} onChange={(e) => set("attribute", e.target.value)} placeholder="e.g. re_model, phone, full_name" className={INP} /></Field>
-          <Field label="Operator"><Select value={String(c.operator ?? "equals")} onChange={(v) => set("operator", v)} searchable={false} options={[["equals", "Equals"], ["not_equals", "Not equals"], ["contains", "Contains"], ["is_set", "Is set"], ["is_not_set", "Is not set"]].map(([v, l]) => ({ value: v, label: l }))} className="w-full" /></Field>
+          <Field label={t("automation.contactAttribute")}><input value={String(c.attribute ?? "")} onChange={(e) => set("attribute", e.target.value)} placeholder={t("automation.eGReModelPhone")} className={INP} /></Field>
+          <Field label={t("automation.operator")}><Select value={String(c.operator ?? "equals")} onChange={(v) => set("operator", v)} searchable={false} options={[["equals", "Equals"], ["not_equals", "Not equals"], ["contains", "Contains"], ["is_set", "Is set"], ["is_not_set", "Is not set"]].map(([v, l]) => ({ value: v, label: l }))} className="w-full" /></Field>
           {c.operator !== "is_set" && c.operator !== "is_not_set" && (
-            <Field label="Value"><input value={String(c.value ?? "")} onChange={(e) => set("value", e.target.value)} placeholder="e.g. Brio RS" className={INP} /></Field>
+            <Field label={t("automation.value")}><input value={String(c.value ?? "")} onChange={(e) => set("value", e.target.value)} placeholder={t("automation.eGBrioRs")} className={INP} /></Field>
           )}
-          <p className="text-[12px] text-muted-foreground">Connect the <b className="text-emerald-600">Match</b> handle for when it&apos;s true and <b className="text-slate-500">Else</b> for everything else.</p>
+          <p className="text-[12px] text-muted-foreground">{t("automation.connectThe")} <b className="text-emerald-600">{t("automation.match")}</b> {t("automation.handleForWhenItS")} <b className="text-slate-500">{t("automation.else")}</b> {t("automation.forEverythingElse")}</p>
         </>}
       </div>
       {!isTrigger && (
         <div className="px-4 py-3 border-t border-border">
-          <button onClick={onDelete} className="inline-flex items-center gap-1.5 px-3 h-9 w-full justify-center rounded-md border border-destructive/30 text-destructive text-[13px] font-semibold hover:bg-destructive/10 outline-none transition-colors"><Trash2 className="w-4 h-4" /> Delete node</button>
+          <button onClick={onDelete} className="inline-flex items-center gap-1.5 px-3 h-9 w-full justify-center rounded-md border border-destructive/30 text-destructive text-[13px] font-semibold hover:bg-destructive/10 outline-none transition-colors"><Trash2 className="w-4 h-4" /> {t("automation.deleteNode")}</button>
         </div>
       )}
     </>
@@ -845,25 +853,26 @@ function Field({ label, children }: { label: string; children: React.ReactNode }
 // {placeholders}). Matches the SmartKonek "Set Contact Attribute" node.
 type AttrRow = { attribute?: string; value?: string };
 function AttrMappings({ c, onChange }: { c: Record<string, unknown>; onChange: (cfg: Record<string, unknown>) => void }) {
+  const { t } = useI18n();
   const rows: AttrRow[] = Array.isArray(c.mappings)
     ? (c.mappings as AttrRow[])
     : (c.key ? [{ attribute: String(c.key), value: String(c.value ?? "") }] : [{ attribute: "", value: "" }]);
   const setRows = (r: AttrRow[]) => onChange({ ...c, mappings: r, key: undefined, value: undefined });
   return (
-    <Field label="Attribute mappings">
+    <Field label={t("automation.attributeMappings")}>
       <div className="space-y-1.5">
         {rows.map((row, i) => (
           <div key={i} className="flex items-center gap-1.5">
             <input value={row.attribute ?? ""} onChange={(e) => setRows(rows.map((x, j) => (j === i ? { ...x, attribute: e.target.value } : x)))}
               placeholder="attribute" className="w-[42%] h-8 px-2.5 rounded-md border border-input bg-background text-sm outline-none focus:border-primary" />
             <input value={row.value ?? ""} onChange={(e) => setRows(rows.map((x, j) => (j === i ? { ...x, value: e.target.value } : x)))}
-              placeholder="value or {field}" className="flex-1 h-8 px-2.5 rounded-md border border-input bg-background text-sm outline-none focus:border-primary" />
+              placeholder={t("automation.valueOrField")} className="flex-1 h-8 px-2.5 rounded-md border border-input bg-background text-sm outline-none focus:border-primary" />
             <button onClick={() => setRows(rows.filter((_, j) => j !== i))} className="p-1 rounded-md text-muted-foreground/50 hover:text-destructive hover:bg-muted shrink-0"><X className="w-3.5 h-3.5" /></button>
           </div>
         ))}
         <button onClick={() => setRows([...rows, { attribute: "", value: "" }])}
-          className="inline-flex items-center gap-1.5 h-8 px-2.5 rounded-md border border-dashed border-border text-sm text-primary hover:bg-muted font-medium"><Plus className="w-3.5 h-3.5" /> Add mapping</button>
-        <p className="text-[11.5px] text-muted-foreground">Use {"{first_name}"}, {"{full_name}"}, {"{phone}"} or any contact attribute in the value.</p>
+          className="inline-flex items-center gap-1.5 h-8 px-2.5 rounded-md border border-dashed border-border text-sm text-primary hover:bg-muted font-medium"><Plus className="w-3.5 h-3.5" /> {t("automation.addMapping")}</button>
+        <p className="text-[11.5px] text-muted-foreground">{t("automation.use")} {"{first_name}"}, {"{full_name}"}, {"{phone}"} {t("automation.orAnyContactAttributeIn")}</p>
       </div>
     </Field>
   );
@@ -871,15 +880,16 @@ function AttrMappings({ c, onChange }: { c: Record<string, unknown>; onChange: (
 
 // Shows the Google service-account email to share the sheet with (+ copy).
 function ShareWithSA({ email }: { email: string }) {
+  const { t } = useI18n();
   const [copied, setCopied] = useState(false);
-  if (!email) return <p className="text-[12px] text-amber-600">Google Sheets isn&apos;t connected yet (an admin must add the service-account key).</p>;
+  if (!email) return <p className="text-[12px] text-amber-600">{t("automation.googleSheetsIsnTConnected")}</p>;
   return (
     <div className="rounded-md border border-border bg-muted/40 p-2.5">
-      <p className="text-[11px] font-semibold text-muted-foreground mb-1">Share your Google Sheet (Editor) with this account:</p>
+      <p className="text-[11px] font-semibold text-muted-foreground mb-1">{t("automation.shareYourGoogleSheetEditor")}</p>
       <div className="flex items-center gap-1.5">
         <code className="flex-1 text-[11px] text-foreground break-all">{email}</code>
         <button onClick={() => { navigator.clipboard?.writeText(email); setCopied(true); setTimeout(() => setCopied(false), 1500); }}
-          className="shrink-0 px-2 h-6 rounded border border-border text-[11px] font-medium hover:bg-muted outline-none">{copied ? "Copied" : "Copy"}</button>
+          className="shrink-0 px-2 h-6 rounded border border-border text-[11px] font-medium hover:bg-muted outline-none">{copied ? t("automation.copied") : t("automation.copy")}</button>
       </div>
     </div>
   );

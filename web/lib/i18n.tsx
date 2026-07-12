@@ -41,6 +41,14 @@ for (const lang of Object.keys(locales)) {
   flatLocales[lang] = flatten(locales[lang]);
 }
 
+// Reverse index: English display text -> key. Lets t() accept the English
+// source string itself (gettext-style), which module-scope constant arrays
+// (nav items, option lists, meta configs) use as their msgid.
+const enTextToKey: Record<string, string> = {};
+for (const [key, value] of Object.entries(flatLocales.en)) {
+  if (!(value in enTextToKey)) enTextToKey[value] = key;
+}
+
 // ── Translation function ──
 function translate(
   key: string,
@@ -48,7 +56,11 @@ function translate(
   vars?: Record<string, string | number>,
 ): string {
   const dict = flatLocales[lang] ?? flatLocales.en;
-  let str = dict[key] ?? flatLocales.en[key] ?? key;
+  let str = dict[key] ?? flatLocales.en[key];
+  if (str === undefined) {
+    const viaEnglish = enTextToKey[key];
+    str = viaEnglish ? (dict[viaEnglish] ?? flatLocales.en[viaEnglish] ?? key) : key;
+  }
   if (vars) {
     for (const [k, v] of Object.entries(vars)) {
       str = str.replace(new RegExp(`\\{\\{\\s*${k}\\s*\\}\\}`, "g"), String(v));

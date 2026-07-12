@@ -1,4 +1,5 @@
 "use client";
+import { useI18n } from "@/lib/i18n";
 import { useEffect, useMemo, useState } from "react";
 import { useParams, useRouter } from "next/navigation";
 import {
@@ -56,6 +57,7 @@ function activityLabel(ev: import("@/lib/types").ContactActivity): string {
 }
 
 export default function ContactDetailsPage() {
+  const { t } = useI18n();
   const { id } = useParams<{ id: string }>();
   const router = useRouter();
   const [contact, setContact] = useState<Contact | null>(null);
@@ -166,8 +168,8 @@ export default function ContactDetailsPage() {
   if (!contact) return (
     <div className="grid place-items-center h-full text-center">
       <div>
-        <p className="font-semibold text-foreground mb-1">Contact not found</p>
-        <button onClick={() => router.push("/contacts")} className="text-[13px] font-semibold text-primary hover:underline outline-none">Back to contacts</button>
+        <p className="font-semibold text-foreground mb-1">{t("contacts.contactNotFound")}</p>
+        <button onClick={() => router.push("/contacts")} className="text-[13px] font-semibold text-primary hover:underline outline-none">{t("contacts.backToContacts")}</button>
       </div>
     </div>
   );
@@ -180,12 +182,12 @@ export default function ContactDetailsPage() {
       {/* Header */}
       <div className="flex items-center gap-3 px-4 py-3 border-b border-border bg-card shrink-0">
         <button onClick={() => router.push("/contacts")} className="p-1.5 rounded-md text-muted-foreground hover:bg-muted hover:text-foreground outline-none"><ArrowLeft className="w-5 h-5" /></button>
-        <p className="font-bold text-[15px] text-foreground">Contact details</p>
+        <p className="font-bold text-[15px] text-foreground">{t("components.contactDetails")}</p>
         <div className="flex-1" />
         {c.conversation_id && (
           <button onClick={() => router.push(`/inbox?c=${c.conversation_id}`)}
             className="inline-flex items-center gap-2 px-3.5 h-9 bg-primary text-white rounded-md text-[13px] font-semibold hover:bg-primary-dark shadow-sm transition-colors outline-none">
-            <MessageSquare className="w-4 h-4" />Open in inbox
+            <MessageSquare className="w-4 h-4" />{t("contacts.openInInbox")}
           </button>
         )}
       </div>
@@ -199,7 +201,7 @@ export default function ContactDetailsPage() {
               style={{ backgroundColor: chColor + "1A", color: chColor }}>
               {initials(c.full_name || c.phone)}
             </div>
-            <p className="mt-3 text-[16px] font-bold text-foreground">{c.full_name || c.phone || "Unknown"}</p>
+            <p className="mt-3 text-[16px] font-bold text-foreground">{c.full_name || c.phone || t("broadcasts.unknown")}</p>
             {c.phone && <p className="text-[12.5px] text-muted-foreground tabular-nums">{c.phone}</p>}
             {c.conversation_id ? (
               <div className="mt-2 flex items-center justify-center gap-1.5 flex-wrap">
@@ -217,19 +219,19 @@ export default function ContactDetailsPage() {
             ) : null}
           </div>
 
-          <Section title="Activity">
-            <Row icon={Calendar} label="Created" value={fmtDateTimeShort(c.created_at)} />
-            <Row icon={Clock} label="Last message" value={c.last_message_at ? fmtDateTimeShort(c.last_message_at) : "No messages"} />
+          <Section title={t("contacts.activity")}>
+            <Row icon={Calendar} label={t("contacts.created")} value={fmtDateTimeShort(c.created_at)} />
+            <Row icon={Clock} label={t("components.lastMessage")} value={c.last_message_at ? fmtDateTimeShort(c.last_message_at) : "No messages"} />
           </Section>
 
-          <Section title="Contact info">
-            <Row icon={Phone} label="Phone" value={c.phone || "-"} mono />
-            <Row icon={Mail} label="Email" value="-" />
-            <Row icon={RadioTower} label="Channel" value={c.channel_name || c.source_channel || "-"} />
+          <Section title={t("contacts.contactInfo")}>
+            <Row icon={Phone} label={t("contacts.phone")} value={c.phone || "-"} mono />
+            <Row icon={Mail} label={t("login.emailLabel")} value="-" />
+            <Row icon={RadioTower} label={t("components.channel")} value={c.channel_name || c.source_channel || "-"} />
           </Section>
 
           {customFields.length > 0 && (
-            <Section title="Custom fields">
+            <Section title={t("contacts.customFields")}>
               {customFields.map((f) => {
                 const v = (c.attributes as Record<string, unknown> | null | undefined)?.[f.key];
                 return <Row key={f.id} icon={FileText} label={f.label} value={v != null && String(v) !== "" ? String(v) : "-"} />;
@@ -253,21 +255,21 @@ export default function ContactDetailsPage() {
 
           <div className="flex-1 lg:overflow-y-auto p-4">
             {tab === "conversation" ? (
-              allMessages.length === 0 ? <Empty icon={MessageSquare} text="No messages yet." /> : (
+              allMessages.length === 0 ? <Empty icon={MessageSquare} text={t("contacts.noMessagesYet")} /> : (
                 <div className="space-y-2 max-w-[760px]">
-                  {threads.map((t) => (
-                    <div key={t.conv.id} className="space-y-2">
+                  {threads.map((th) => (
+                    <div key={th.conv.id} className="space-y-2">
                       {/* Thread separator — each is a distinct conversation instance. */}
                       <div className="flex items-center gap-2 pt-3 pb-1">
                         <div className="flex-1 h-px bg-border" />
                         <span className="text-[11px] text-muted-foreground whitespace-nowrap px-1">
-                          {t.conv.campaign_name || "Conversation"}
-                          {t.msgs[0] ? ` · ${fmtDate(t.msgs[0].created_at)}` : ""}
-                          {t.conv.status === "closed" ? " · closed" : ""}
+                          {th.conv.campaign_name || t("contacts.conversation")}
+                          {th.msgs[0] ? ` · ${fmtDate(th.msgs[0].created_at)}` : ""}
+                          {th.conv.status === "closed" ? t("contacts.closed") : ""}
                         </span>
                         <div className="flex-1 h-px bg-border" />
                       </div>
-                      {t.msgs.map((m) => {
+                      {th.msgs.map((m) => {
                         const out = m.direction === "outbound";
                         return (
                           <div key={m.id} className={cn("flex", out ? "justify-end" : "justify-start")}>
@@ -290,35 +292,35 @@ export default function ContactDetailsPage() {
                     <textarea
                       value={noteDraft}
                       onChange={(e) => setNoteDraft(e.target.value)}
-                      placeholder="Add a note (visible to your team only)"
+                      placeholder={t("contacts.addANoteVisibleTo")}
                       rows={3}
                       className="w-full resize-y rounded-md border border-input bg-background px-3 py-2 text-[13px] outline-none focus:border-primary focus:ring-2 focus:ring-primary/20"
                     />
                     <div className="mt-2 flex justify-end">
                       <button onClick={addContactNote} disabled={savingNote || !noteDraft.trim()}
                         className="inline-flex items-center gap-1.5 h-9 px-4 rounded-md bg-primary text-primary-foreground text-[13px] font-semibold hover:bg-primary/90 disabled:opacity-50 outline-none">
-                        {savingNote ? <Loader2 className="w-4 h-4 animate-spin" /> : <StickyNote className="w-4 h-4" />}Add note
+                        {savingNote ? <Loader2 className="w-4 h-4 animate-spin" /> : <StickyNote className="w-4 h-4" />}{t("components.addNote")}
                       </button>
                     </div>
                   </div>
                 ) : (
-                  <p className="text-[12.5px] text-muted-foreground">Notes are available once this contact has a conversation.</p>
+                  <p className="text-[12.5px] text-muted-foreground">{t("contacts.notesAreAvailableOnceThis")}</p>
                 )}
                 {notes.length === 0 ? (
-                  <p className="text-[12.5px] text-muted-foreground text-center py-6">No internal notes yet.</p>
+                  <p className="text-[12.5px] text-muted-foreground text-center py-6">{t("contacts.noInternalNotesYet")}</p>
                 ) : (
                   <div className="space-y-2.5">
                     {notes.map((n) => (
                       <div key={n.id} className="rounded-lg border border-amber-200 bg-amber-50 px-4 py-3">
                         <p className="text-[13px] text-foreground whitespace-pre-line">{n.body}</p>
-                        <p className="text-[11px] text-muted-foreground mt-1.5">{n.author || "Unknown"} · {fmtDateTimeShort(n.created_at)}</p>
+                        <p className="text-[11px] text-muted-foreground mt-1.5">{n.author || t("broadcasts.unknown")} · {fmtDateTimeShort(n.created_at)}</p>
                       </div>
                     ))}
                   </div>
                 )}
               </div>
             ) : tab === "media" ? (
-              media.length === 0 ? <Empty icon={ImageIcon} text="No media shared yet." /> : (
+              media.length === 0 ? <Empty icon={ImageIcon} text={t("contacts.noMediaSharedYet")} /> : (
                 <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 gap-3">
                   {media.map((m) => {
                     const kind = isMedia(m);
@@ -339,7 +341,7 @@ export default function ContactDetailsPage() {
                 </div>
               )
             ) : (
-              activity.length === 0 ? <Empty icon={Clock} text="No changes yet." /> : (
+              activity.length === 0 ? <Empty icon={Clock} text={t("contacts.noChangesYet")} /> : (
                 <div className="space-y-2.5 max-w-[760px]">
                   {activity.map((ev, i) => (
                     <div key={i} className="flex gap-3">
@@ -361,37 +363,37 @@ export default function ContactDetailsPage() {
 
         {/* ── Right: attributes ── */}
         <div className="border-t lg:border-t-0 lg:border-l border-border bg-card lg:overflow-y-auto p-5">
-          <Section title="Labels" first>
+          <Section title={t("contacts.labels")} first>
             {c.tags && c.tags.length > 0 ? (
               <div className="flex flex-wrap gap-1.5">
                 {c.tags.map((t) => (
                   <span key={t} className="inline-flex items-center gap-1 px-2 py-0.5 rounded-md bg-amber-50 text-amber-700 text-[11px] font-semibold"><TagIcon className="w-3 h-3" />{t}</span>
                 ))}
               </div>
-            ) : <p className="text-[12.5px] text-muted-foreground">No labels</p>}
+            ) : <p className="text-[12.5px] text-muted-foreground">{t("contacts.noLabels")}</p>}
           </Section>
 
-          <Section title="Lead qualification">
-            <Row icon={Layers} label="Stage" value={c.stage_name || "-"} />
-            {c.lost_reason && <Row icon={StickyNote} label="Lost reason" value={<span className="capitalize">{c.lost_reason.replace(/_/g, " ")}</span>} />}
-            <Row icon={Flame} label="Interest level" value={<span className="capitalize">{c.interest_level || "-"}</span>} />
-            <Row icon={TagIcon} label="Brand" value={c.car_brand || "-"} />
-            <Row icon={TagIcon} label="Model" value={c.car_model || "-"} />
-            <Row icon={TagIcon} label="City" value={c.city || "-"} />
-            <Row icon={Clock} label="Purchase time" value={c.purchase_timeframe || "-"} />
+          <Section title={t("contacts.leadQualification")}>
+            <Row icon={Layers} label={t("contacts.stage")} value={c.stage_name || "-"} />
+            {c.lost_reason && <Row icon={StickyNote} label={t("contacts.lostReason")} value={<span className="capitalize">{c.lost_reason.replace(/_/g, " ")}</span>} />}
+            <Row icon={Flame} label={t("dashboard.interestLevel")} value={<span className="capitalize">{c.interest_level || "-"}</span>} />
+            <Row icon={TagIcon} label={t("components.brand")} value={c.car_brand || "-"} />
+            <Row icon={TagIcon} label={t("components.model")} value={c.car_model || "-"} />
+            <Row icon={TagIcon} label={t("components.city")} value={c.city || "-"} />
+            <Row icon={Clock} label={t("components.purchaseTime")} value={c.purchase_timeframe || "-"} />
           </Section>
 
-          <Section title="Assignment">
-            <Row icon={Building2} label="Campaign" value={c.campaign_name || "-"} />
-            <Row icon={User} label="Agent" value={c.agent_name || "Unassigned"} />
+          <Section title={t("contacts.assignment")}>
+            <Row icon={Building2} label={t("automation.campaign")} value={c.campaign_name || "-"} />
+            <Row icon={User} label={t("contacts.agent")} value={c.agent_name || "Unassigned"} />
           </Section>
 
-          <Section title="Source">
-            <Row icon={Radio} label="Source" value={<span className="capitalize">{sourceLabel(c)}</span>} />
-            <Row icon={ExternalLink} label="Source ID" value={c.source_id || "-"} mono />
-            <Row icon={ExternalLink} label="Source URL" value={
+          <Section title={t("contacts.source")}>
+            <Row icon={Radio} label={t("contacts.source")} value={<span className="capitalize">{sourceLabel(c)}</span>} />
+            <Row icon={ExternalLink} label={t("contacts.sourceId")} value={c.source_id || "-"} mono />
+            <Row icon={ExternalLink} label={t("contacts.sourceUrl")} value={
               c.source_url
-                ? <a href={c.source_url} target="_blank" rel="noreferrer" className="inline-flex items-center gap-1 text-primary hover:underline"><ExternalLink className="w-3.5 h-3.5" />Open link</a>
+                ? <a href={c.source_url} target="_blank" rel="noreferrer" className="inline-flex items-center gap-1 text-primary hover:underline"><ExternalLink className="w-3.5 h-3.5" />{t("contacts.openLink")}</a>
                 : "-"
             } />
           </Section>

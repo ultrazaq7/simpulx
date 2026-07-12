@@ -1,4 +1,5 @@
 "use client";
+import { useI18n } from "@/lib/i18n";
 import { useEffect, useMemo, useRef, useState } from "react";
 import {
   MessageSquare, X, Filter, User, Phone, ChevronDown, Check, ArrowUpDown, Rows3,
@@ -24,13 +25,14 @@ const SEARCH_MODES: { value: SearchMode; label: string; icon: any }[] = [
 
 // Compact "search by" selector that sits inside the search box (snapshot 4 pattern).
 function SearchModeMenu({ mode, onChange }: { mode: SearchMode; onChange: (m: SearchMode) => void }) {
+  const { t } = useI18n();
   const [open, setOpen] = useState(false);
   useEscClose(open, () => setOpen(false));
   const current = SEARCH_MODES.find((m) => m.value === mode) ?? SEARCH_MODES[0];
   const CurrentIcon = current.icon;
   return (
     <div className="relative h-full">
-      <Tip label={`Search by ${current.label.toLowerCase()}`} side="bottom">
+      <Tip label={t("common.searchByX", { x: t(current.label).toLowerCase() })} side="bottom">
         <button
           type="button"
           onClick={() => setOpen((o) => !o)}
@@ -58,7 +60,7 @@ function SearchModeMenu({ mode, onChange }: { mode: SearchMode; onChange: (m: Se
                   )}
                 >
                   <Icon className="w-4 h-4 shrink-0" />
-                  {m.label}
+                  {t(m.label)}
                 </button>
               );
             })}
@@ -78,11 +80,12 @@ const SORT_LABELS: Record<SortMode, string> = {
 
 // Compact sort selector (SleekFlow pattern: a small popover off the up/down arrows).
 function SortMenu({ sort, onSortChange }: { sort: SortMode; onSortChange: (s: SortMode) => void }) {
+  const { t } = useI18n();
   const [open, setOpen] = useState(false);
   useEscClose(open, () => setOpen(false));
   return (
     <div className="relative shrink-0">
-      <Tip label="Sort" side="bottom">
+      <Tip label={t("inbox.sort")} side="bottom">
         <button
           type="button"
           onClick={() => setOpen((o) => !o)}
@@ -98,7 +101,7 @@ function SortMenu({ sort, onSortChange }: { sort: SortMode; onSortChange: (s: So
         <>
           <div className="fixed inset-0 z-40" onClick={() => setOpen(false)} />
           <div className="absolute right-0 top-full mt-1.5 z-50 w-44 rounded-lg border border-border bg-popover shadow-xl p-1 animate-scale-in origin-top-right">
-            <p className="px-2 py-1.5 text-[10px] font-bold uppercase tracking-wider text-muted-foreground">Sort by</p>
+            <p className="px-2 py-1.5 text-[10px] font-bold uppercase tracking-wider text-muted-foreground">{t("inbox.sortBy")}</p>
             {(["newest", "oldest", "priority", "waiting"] as SortMode[]).map((s) => (
               <button
                 key={s}
@@ -109,7 +112,7 @@ function SortMenu({ sort, onSortChange }: { sort: SortMode; onSortChange: (s: So
                   sort === s ? "bg-primary/10 text-primary font-semibold" : "text-foreground/80 hover:bg-muted",
                 )}
               >
-                {SORT_LABELS[s]}
+                {t(SORT_LABELS[s])}
                 {sort === s && <Check className="w-4 h-4 ml-auto" />}
               </button>
             ))}
@@ -186,6 +189,7 @@ export default function ConversationList({
   dateScope, onClearDateScope,
   className,
 }: ConversationListProps) {
+  const { t } = useI18n();
   const [filterOpen, setFilterOpen] = useState(false);
   const [searchMode, setSearchMode] = useState<SearchMode>("name");
   const [dense, setDense] = useState(false);
@@ -389,10 +393,10 @@ export default function ConversationList({
             <SearchModeMenu mode={searchMode} onChange={setSearchMode} />
             <input
               ref={searchInputRef}
-              aria-label="Search conversations"
+              aria-label={t("inbox.searchConversations")}
               value={query}
               onChange={(e) => onQueryChange(e.target.value)}
-              placeholder={searchMode === "messages" ? "Search messages" : `Search by ${searchMode}`}
+              placeholder={searchMode === "messages" ? t("components.searchMessages") : t("common.searchByX", { x: t(searchMode) })}
               className="flex-1 min-w-0 h-full px-2.5 bg-transparent border-0 text-[13px] text-foreground placeholder:text-muted-foreground/70 outline-none"
             />
             {query && (
@@ -408,10 +412,10 @@ export default function ConversationList({
           <SortMenu sort={sort} onSortChange={onSortChange} />
 
           <div className="relative shrink-0">
-            <Tip label="Filter" side="bottom">
+            <Tip label={t("contacts.filter")} side="bottom">
               <button
                 type="button"
-                aria-label="Filter conversations"
+                aria-label={t("inbox.filterConversations")}
                 onClick={() => setFilterOpen((v) => !v)}
                 className={cn(
                   "w-8 h-9 rounded-md grid place-items-center border transition-colors outline-none relative",
@@ -438,10 +442,10 @@ export default function ConversationList({
             )}
           </div>
 
-          <Tip label={dense ? "Comfortable rows" : "Compact rows"} side="bottom">
+          <Tip label={dense ? t("inbox.comfortableRows") : t("inbox.compactRows")} side="bottom">
             <button
               type="button"
-              aria-label={dense ? "Comfortable row density" : "Compact row density"}
+              aria-label={dense ? t("inbox.comfortableRowDensity") : t("inbox.compactRowDensity")}
               onClick={toggleDense}
               className={cn(
                 "shrink-0 w-8 h-9 rounded-md grid place-items-center border transition-colors outline-none",
@@ -461,7 +465,7 @@ export default function ConversationList({
             {shown.length} result{shown.length === 1 ? "" : "s"}
           </span>
           <button onClick={clearAll} className="text-[11px] font-semibold text-primary hover:underline outline-none">
-            Clear all
+            {t("components.clearAll")}
           </button>
         </div>
       )}
@@ -476,14 +480,14 @@ export default function ConversationList({
               <MessageSquare className="w-6 h-6 text-muted-foreground/50" />
             </div>
             <p className="text-[13px] font-semibold text-foreground">
-              {activeFiltersCount > 0 ? "No matching conversations" : "No conversations yet"}
+              {activeFiltersCount > 0 ? t("inbox.noMatchingConversations") : t("inbox.noConversationsYet")}
             </p>
             <p className="text-xs text-muted-foreground mt-0.5">
-              {activeFiltersCount > 0 ? "Try adjusting your filters" : "New chats land here automatically"}
+              {activeFiltersCount > 0 ? t("inbox.tryAdjustingYourFilters") : t("components.newChatsLandHereAutomatically")}
             </p>
             {activeFiltersCount > 0 && (
               <button onClick={clearAll} className="mt-3 text-xs font-semibold text-primary hover:underline outline-none">
-                Clear filters
+                {t("inbox.clearFilters")}
               </button>
             )}
           </div>

@@ -1,4 +1,5 @@
 "use client";
+import { useI18n } from "@/lib/i18n";
 import { useEffect, useMemo, useState } from "react";
 import { Plus, Lock, Loader2, ChevronLeft, ChevronDown, Pencil, Trash2 } from "lucide-react";
 import { api, getUser } from "@/lib/api";
@@ -71,6 +72,7 @@ function defaultFor(role: string, key: string): boolean {
 }
 
 export default function RolesSettingsPage() {
+  const { t } = useI18n();
   const { notify, confirm, ToastHost } = useToast();
   const me = getUser();
   const canEdit = me?.role === "admin" || me?.role === "owner";
@@ -121,7 +123,7 @@ export default function RolesSettingsPage() {
       for (const role of Object.keys(matrix)) { if (LOCKED.includes(role)) continue; toSave[role] = matrix[role]; }
       await api.updateRolePermissions({ matrix: toSave, custom_roles: customRoles });
       setDirty(false);
-      notify("Permissions saved");
+      notify(t("settings.permissionsSaved"));
     } catch (e) { notify(String(e), "error"); }
     finally { setSaving(false); }
   }
@@ -130,7 +132,7 @@ export default function RolesSettingsPage() {
     const label = newRole.trim();
     if (!label) return;
     const key = label.toLowerCase().replace(/[^a-z0-9]+/g, "_").replace(/^_|_$/g, "");
-    if (!key || matrix[key]) { notify("Role already exists", "error"); return; }
+    if (!key || matrix[key]) { notify(t("settings.roleAlreadyExists"), "error"); return; }
     setMatrix((m) => { const next = { ...m }; seedRole(next, key); return next; });
     setCustomRoles((c) => ({ ...c, [key]: label }));
     setNewRole(""); setAddOpen(false); setDirty(true);
@@ -159,30 +161,30 @@ export default function RolesSettingsPage() {
         /* ── Edit role ── */
         <div className="max-w-[840px]">
           <button onClick={() => setEditing(null)} className="inline-flex items-center gap-1.5 text-[13px] text-muted-foreground hover:text-foreground mb-3 outline-none">
-            <ChevronLeft className="w-4 h-4" /> Roles
+            <ChevronLeft className="w-4 h-4" /> {t("settings.roles2")}
           </button>
           <div className="flex items-center gap-3 mb-4">
             <div className="min-w-0">
               <div className="flex items-center gap-2">
                 <h2 className="text-lg font-bold capitalize text-foreground">{roleLabel(editing)}</h2>
-                {LOCKED.includes(editing) && <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-md bg-muted text-[11px] font-semibold text-muted-foreground"><Lock className="w-3 h-3" />Full access</span>}
+                {LOCKED.includes(editing) && <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-md bg-muted text-[11px] font-semibold text-muted-foreground"><Lock className="w-3 h-3" />{t("settings.fullAccess")}</span>}
               </div>
-              <p className="text-[12px] text-muted-foreground">{ROLE_PERMS[editing] || "Custom role"}</p>
+              <p className="text-[12px] text-muted-foreground">{ROLE_PERMS[editing] || t("settings.customRole")}</p>
             </div>
             <div className="flex-1" />
             {canEdit && !LOCKED.includes(editing) && (
               <>
-                <GhostButton onClick={() => setEditing(null)}>Cancel</GhostButton>
+                <GhostButton onClick={() => setEditing(null)}>{t("common.cancel")}</GhostButton>
                 <PrimaryButton onClick={save} disabled={saving || !dirty}>
-                  {saving ? <Loader2 className="w-4 h-4 animate-spin" /> : dirty ? "Save changes" : "Saved"}
+                  {saving ? <Loader2 className="w-4 h-4 animate-spin" /> : dirty ? t("account.save") : t("automation.saved")}
                 </PrimaryButton>
               </>
             )}
           </div>
           <SettingsCard className="overflow-hidden">
             <div className="flex items-center px-5 py-2.5 bg-muted/40 border-b border-border">
-              <span className="flex-1 text-[11px] font-bold uppercase tracking-wider text-muted-foreground">Feature</span>
-              <span className="text-[11px] font-bold uppercase tracking-wider text-muted-foreground">Permission</span>
+              <span className="flex-1 text-[11px] font-bold uppercase tracking-wider text-muted-foreground">{t("settings.feature")}</span>
+              <span className="text-[11px] font-bold uppercase tracking-wider text-muted-foreground">{t("settings.permission")}</span>
             </div>
             {GROUPS.map((g) => {
               const open = openGroups[g.group] ?? true;
@@ -191,14 +193,14 @@ export default function RolesSettingsPage() {
                   <button onClick={() => setOpenGroups((o) => ({ ...o, [g.group]: !open }))}
                     className="w-full flex items-center gap-2 px-4 py-3 hover:bg-muted/30 outline-none transition-colors">
                     <ChevronDown className={cn("w-4 h-4 text-muted-foreground transition-transform", !open && "-rotate-90")} />
-                    <span className="text-[13px] font-bold text-foreground">{g.group}</span>
+                    <span className="text-[13px] font-bold text-foreground">{t(g.group)}</span>
                   </button>
                   {open && g.perms.map((p) => {
                     const locked = LOCKED.includes(editing) || !canEdit;
                     return (
                       <label key={p.key} className={cn("flex items-center gap-3 pl-10 pr-5 py-2.5 border-t border-border/50 transition-colors", locked ? "cursor-default" : "cursor-pointer hover:bg-muted/30")}>
-                        <span className="flex-1 text-[13px] text-foreground">{p.label}</span>
-                        <input type="checkbox" aria-label={`${p.label} for ${roleLabel(editing)}`}
+                        <span className="flex-1 text-[13px] text-foreground">{t(p.label)}</span>
+                        <input type="checkbox" aria-label={`${t(p.label)} for ${roleLabel(editing)}`}
                           checked={!!matrix[editing]?.[p.key]} disabled={locked}
                           onChange={() => toggle(editing, p.key)}
                           className="w-4 h-4 rounded border-border text-primary accent-primary disabled:opacity-40 cursor-pointer disabled:cursor-default" />
@@ -216,18 +218,18 @@ export default function RolesSettingsPage() {
           <div className="flex items-center gap-3 mb-4">
             <div className="flex-1" />
             {canEdit && dirty && (
-              <PrimaryButton onClick={save} disabled={saving}>{saving ? <Loader2 className="w-4 h-4 animate-spin" /> : "Save changes"}</PrimaryButton>
+              <PrimaryButton onClick={save} disabled={saving}>{saving ? <Loader2 className="w-4 h-4 animate-spin" /> : t("account.save")}</PrimaryButton>
             )}
-            {canEdit && <button onClick={() => setAddOpen(true)} className="inline-flex items-center gap-1.5 px-3 py-1.5 border border-border rounded-md text-sm font-semibold text-foreground hover:bg-muted outline-none transition-colors"><Plus className="w-4 h-4" />Create role</button>}
+            {canEdit && <button onClick={() => setAddOpen(true)} className="inline-flex items-center gap-1.5 px-3 py-1.5 border border-border rounded-md text-sm font-semibold text-foreground hover:bg-muted outline-none transition-colors"><Plus className="w-4 h-4" />{t("settings.createRole")}</button>}
           </div>
           <SettingsCard className="overflow-hidden">
             <div className="overflow-x-auto">
               <table className="w-full text-sm min-w-[520px]">
                 <thead>
                   <tr className="bg-muted/40 border-b border-border">
-                    <th className="text-left px-5 py-3 text-[11px] font-bold uppercase tracking-wider text-muted-foreground">Role name</th>
-                    <th className="text-left px-4 py-3 text-[11px] font-bold uppercase tracking-wider text-muted-foreground hidden sm:table-cell">Type</th>
-                    <th className="text-right px-4 py-3 text-[11px] font-bold uppercase tracking-wider text-muted-foreground">Permissions</th>
+                    <th className="text-left px-5 py-3 text-[11px] font-bold uppercase tracking-wider text-muted-foreground">{t("settings.roleName")}</th>
+                    <th className="text-left px-4 py-3 text-[11px] font-bold uppercase tracking-wider text-muted-foreground hidden sm:table-cell">{t("settings.type")}</th>
+                    <th className="text-right px-4 py-3 text-[11px] font-bold uppercase tracking-wider text-muted-foreground">{t("settings.permissions")}</th>
                     <th className="px-4 py-3 w-28"></th>
                   </tr>
                 </thead>
@@ -239,15 +241,15 @@ export default function RolesSettingsPage() {
                           <span className="text-[13.5px] font-semibold capitalize text-foreground">{roleLabel(r)}</span>
                           {LOCKED.includes(r) && <Lock className="w-3.5 h-3.5 text-muted-foreground" />}
                         </div>
-                        <p className="text-[12px] text-muted-foreground truncate max-w-[380px]">{ROLE_PERMS[r] || "Custom role"}</p>
+                        <p className="text-[12px] text-muted-foreground truncate max-w-[380px]">{ROLE_PERMS[r] || t("settings.customRole")}</p>
                       </td>
                       <td className="px-4 py-3 hidden sm:table-cell">
-                        <span className={cn("inline-flex px-2 py-0.5 rounded-md text-[11px] font-semibold", customRoles[r] ? "bg-primary/10 text-primary" : "bg-muted text-muted-foreground")}>{customRoles[r] ? "Custom" : "Built-in"}</span>
+                        <span className={cn("inline-flex px-2 py-0.5 rounded-md text-[11px] font-semibold", customRoles[r] ? "bg-primary/10 text-primary" : "bg-muted text-muted-foreground")}>{customRoles[r] ? t("settings.custom") : t("settings.builtIn")}</span>
                       </td>
-                      <td className="px-4 py-3 text-right tabular-nums text-[12.5px] text-muted-foreground whitespace-nowrap">{LOCKED.includes(r) ? "Full access" : `${permCount(r)} / ${ALL_PERM_KEYS.length}`}</td>
+                      <td className="px-4 py-3 text-right tabular-nums text-[12.5px] text-muted-foreground whitespace-nowrap">{LOCKED.includes(r) ? t("settings.fullAccess") : `${permCount(r)} / ${ALL_PERM_KEYS.length}`}</td>
                       <td className="px-4 py-3">
                         <div className="flex items-center justify-end gap-1">
-                          <button onClick={() => setEditing(r)} className="inline-flex items-center gap-1.5 px-2.5 py-1.5 rounded-md text-[13px] font-medium text-foreground hover:bg-muted outline-none transition-colors"><Pencil className="w-3.5 h-3.5 text-muted-foreground" />{LOCKED.includes(r) || !canEdit ? "View" : "Edit"}</button>
+                          <button onClick={() => setEditing(r)} className="inline-flex items-center gap-1.5 px-2.5 py-1.5 rounded-md text-[13px] font-medium text-foreground hover:bg-muted outline-none transition-colors"><Pencil className="w-3.5 h-3.5 text-muted-foreground" />{LOCKED.includes(r) || !canEdit ? t("settings.view") : t("common.edit")}</button>
                           {customRoles[r] && canEdit && (
                             <button onClick={() => deleteRole(r)} aria-label={`Delete ${roleLabel(r)}`} className="p-1.5 rounded-md text-muted-foreground hover:text-destructive hover:bg-muted outline-none transition-colors"><Trash2 className="w-4 h-4" /></button>
                           )}
@@ -266,21 +268,21 @@ export default function RolesSettingsPage() {
       <SidePanel
         open={addOpen}
         onClose={() => setAddOpen(false)}
-        title="Create custom role"
-        description="Add a role, then tick its permissions in the checklist."
+        title={t("settings.createCustomRole")}
+        description={t("settings.addARoleThenTick")}
         width="sm"
         onApply={addRole}
         applyLabel="Create"
         applyDisabled={!newRole.trim()}
       >
-        <FieldLabel>Role name</FieldLabel>
+        <FieldLabel>{t("settings.roleName")}</FieldLabel>
         <input
           type="text"
           value={newRole}
           onChange={(e) => setNewRole(e.target.value)}
           onKeyDown={(e) => { if (e.key === "Enter" && newRole.trim()) addRole(); }}
           autoFocus
-          placeholder="e.g. Team Lead"
+          placeholder={t("settings.eGTeamLead")}
           className={INPUT_CLASS}
         />
       </SidePanel>

@@ -1,4 +1,5 @@
 "use client";
+import { useI18n } from "@/lib/i18n";
 import { useMemo, useState } from "react";
 import { Search, ChevronRight, ChevronLeft, Check, X } from "lucide-react";
 import { cn } from "@/lib/utils";
@@ -33,6 +34,7 @@ interface FilterPopoverProps {
 // category's searchable options on the right.
 // On mobile (< lg): fullscreen wizard with a stacked slide-in layout.
 export default function FilterPopover({ categories, toggles, activeCount, onClearAll, onClose }: FilterPopoverProps) {
+  const { t } = useI18n();
   const [activeKey, setActiveKey] = useState("");
   const [search, setSearch] = useState("");
   useEscClose(true, onClose); // mounted only while open
@@ -44,7 +46,7 @@ export default function FilterPopover({ categories, toggles, activeCount, onClea
     if (!activeCat) return [];
     if (!search.trim()) return activeCat.options;
     const q = search.toLowerCase();
-    return activeCat.options.filter((o) => o.label.toLowerCase().includes(q));
+    return activeCat.options.filter((o) => t(o.label).toLowerCase().includes(q));
   }, [activeCat, search]);
 
   const toggleOption = (value: string) => {
@@ -72,7 +74,7 @@ export default function FilterPopover({ categories, toggles, activeCount, onClea
               isActive ? "bg-primary/[0.07] text-primary" : "text-foreground/85 hover:bg-muted",
             )}
           >
-            <span className="truncate">{c.label}</span>
+            <span className="truncate">{t(c.label)}</span>
             {count > 0 && (
               <span className="ml-auto min-w-[18px] h-[18px] px-1 rounded-full bg-primary text-white text-[10px] font-bold grid place-items-center">{count}</span>
             )}
@@ -82,21 +84,21 @@ export default function FilterPopover({ categories, toggles, activeCount, onClea
       })}
 
       {toggles.length > 0 && <div className="my-1.5 mx-3 border-t border-border" />}
-      {toggles.map((t) => (
-        <div key={t.key}>
-        {t.dividerBefore && <div className="my-1.5 mx-3 border-t border-border" />}
+      {toggles.map((tg) => (
+        <div key={tg.key}>
+        {tg.dividerBefore && <div className="my-1.5 mx-3 border-t border-border" />}
         <button
           type="button"
-          onClick={t.onToggle}
+          onClick={tg.onToggle}
           className="w-full flex items-center gap-2.5 pl-4 pr-3 py-2 text-[13px] font-medium text-foreground/85 hover:bg-muted outline-none group"
         >
           <span className={cn(
             "w-[16px] h-[16px] rounded-[5px] border grid place-items-center shrink-0 transition-colors",
-            t.active ? "bg-primary border-primary text-white" : "border-input bg-background group-hover:border-primary/50",
+            tg.active ? "bg-primary border-primary text-white" : "border-input bg-background group-hover:border-primary/50",
           )}>
-            {t.active && <Check className="w-3 h-3" strokeWidth={3} />}
+            {tg.active && <Check className="w-3 h-3" strokeWidth={3} />}
           </span>
-          <span className="truncate">{t.label}</span>
+          <span className="truncate">{t(tg.label)}</span>
         </button>
         </div>
       ))}
@@ -107,7 +109,7 @@ export default function FilterPopover({ categories, toggles, activeCount, onClea
   const optionsPanel = activeCat && (
     <>
       <div className="flex items-center justify-between px-4 pt-3 pb-2">
-        <p className="text-[10px] font-bold uppercase tracking-wider text-muted-foreground">{activeCat.label}</p>
+        <p className="text-[10px] font-bold uppercase tracking-wider text-muted-foreground">{t(activeCat.label)}</p>
         <div className="flex items-center gap-2">
           <button
             type="button"
@@ -117,7 +119,7 @@ export default function FilterPopover({ categories, toggles, activeCount, onClea
             }}
             className="text-[11px] font-semibold text-muted-foreground hover:text-foreground hover:underline outline-none"
           >
-            Select all
+            {t("components.selectAll")}
           </button>
           {activeCat.selected.length > 0 && (
             <button
@@ -125,7 +127,7 @@ export default function FilterPopover({ categories, toggles, activeCount, onClea
               onClick={() => activeCat.onChange([])}
               className="text-[11px] font-semibold text-primary hover:underline outline-none"
             >
-              Clear
+              {t("common.clear")}
             </button>
           )}
         </div>
@@ -137,7 +139,7 @@ export default function FilterPopover({ categories, toggles, activeCount, onClea
           <input
             value={search}
             onChange={(e) => setSearch(e.target.value)}
-            placeholder={`Search ${activeCat.label.toLowerCase()}`}
+            placeholder={t("common.searchX", { x: t(activeCat.label).toLowerCase() })}
             className="w-full h-9 pl-8 pr-2 rounded-md border border-input bg-background text-[13px] outline-none focus:border-primary"
           />
         </div>
@@ -146,7 +148,7 @@ export default function FilterPopover({ categories, toggles, activeCount, onClea
       <div className="flex-1 overflow-y-auto px-2 pb-2">
         {filteredOptions.length === 0 ? (
           <p className="text-xs text-muted-foreground text-center py-8">
-            {activeCat.options.length === 0 ? "Nothing to filter here yet" : "No matches"}
+            {activeCat.options.length === 0 ? t("inbox.nothingToFilterHereYet") : t("inbox.noMatches")}
           </p>
         ) : (
           filteredOptions.map((opt) => {
@@ -165,7 +167,7 @@ export default function FilterPopover({ categories, toggles, activeCount, onClea
                   {checked && <Check className="w-3 h-3" strokeWidth={3} />}
                 </span>
                 {opt.color && <span className="w-2.5 h-2.5 rounded-full shrink-0" style={{ backgroundColor: opt.color }} />}
-                <span className="text-[13px] font-medium text-foreground/90 truncate">{opt.label}</span>
+                <span className="text-[13px] font-medium text-foreground/90 truncate">{t(opt.label)}</span>
               </button>
             );
           })
@@ -185,7 +187,7 @@ export default function FilterPopover({ categories, toggles, activeCount, onClea
         >
           {/* Left: categories + toggles */}
           <div className="w-[224px] shrink-0 border-r border-border flex flex-col">
-            <p className="px-4 pt-3 pb-2 text-[10px] font-bold uppercase tracking-wider text-muted-foreground">Filter</p>
+            <p className="px-4 pt-3 pb-2 text-[10px] font-bold uppercase tracking-wider text-muted-foreground">{t("contacts.filter")}</p>
             <div className="flex-1 overflow-y-auto pb-1">
               {categoryList}
             </div>
@@ -196,7 +198,7 @@ export default function FilterPopover({ categories, toggles, activeCount, onClea
               onClick={onClearAll}
               className="px-4 py-2.5 text-left text-[13px] font-semibold text-muted-foreground hover:text-foreground border-t border-border disabled:opacity-40 disabled:hover:text-muted-foreground outline-none transition-colors"
             >
-              Clear all
+              {t("components.clearAll")}
             </button>
           </div>
 
@@ -224,7 +226,7 @@ export default function FilterPopover({ categories, toggles, activeCount, onClea
               </button>
             ) : null}
             <p className="font-bold text-sm flex-1 text-foreground">
-              {activeCat ? activeCat.label : "Filters"}
+              {activeCat ? activeCat.label : t("components.filters")}
             </p>
             <button
               type="button"
@@ -258,14 +260,14 @@ export default function FilterPopover({ categories, toggles, activeCount, onClea
               onClick={onClearAll}
               className="flex-1 h-10 rounded-lg border border-border text-[13px] font-semibold text-muted-foreground hover:text-foreground disabled:opacity-40 outline-none transition-colors"
             >
-              Clear all ({activeCount})
+              {t("inbox.clearAll")}{activeCount})
             </button>
             <button
               type="button"
               onClick={onClose}
               className="flex-1 h-10 rounded-lg bg-primary text-white text-[13px] font-semibold hover:bg-primary/90 outline-none transition-colors"
             >
-              Done
+              {t("inbox.done")}
             </button>
           </div>
         </div>

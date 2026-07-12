@@ -1,4 +1,5 @@
 "use client";
+import { useI18n } from "@/lib/i18n";
 import { memo, useState, useRef, useEffect } from "react";
 import { createPortal } from "react-dom";
 import {
@@ -341,6 +342,7 @@ function MessageMenu({ out, text, link, onCopyText, onUseInComposer, onForward }
   out: boolean; text?: string; link?: string;
   onCopyText?: (t: string) => void; onUseInComposer?: (t: string) => void; onForward?: (t: string) => void;
 }) {
+  const { t } = useI18n();
   const [open, setOpen] = useState(false);
   const btnRef = useRef<HTMLButtonElement>(null);
   const [pos, setPos] = useState({ top: 0, left: 0, flipUp: false });
@@ -370,7 +372,7 @@ function MessageMenu({ out, text, link, onCopyText, onUseInComposer, onForward }
       <button
         ref={btnRef}
         onClick={handleOpen}
-        aria-label="Message actions"
+        aria-label={t("inbox.messageActions")}
         className={cn("p-1 rounded-md text-muted-foreground hover:bg-muted hover:text-foreground transition-opacity outline-none", open ? "opacity-100" : "opacity-0 group-hover:opacity-100")}
       >
         <MoreHorizontal className="w-4 h-4" />
@@ -386,10 +388,10 @@ function MessageMenu({ out, text, link, onCopyText, onUseInComposer, onForward }
               transform: pos.flipUp ? "translateY(-100%)" : undefined,
             }}
           >
-            {text && <Item icon={Copy} label="Copy message" onClick={() => onCopyText?.(text)} />}
-            {text && <Item icon={ClipboardPaste} label="Copy to message text box" onClick={() => onUseInComposer?.(text)} />}
-            {text && onForward && <Item icon={Forward} label="Forward" onClick={() => onForward(text)} />}
-            {link && <Item icon={Link2} label="Copy link to message" onClick={() => onCopyText?.(link)} />}
+            {text && <Item icon={Copy} label={t("inbox.copyMessage")} onClick={() => onCopyText?.(text)} />}
+            {text && <Item icon={ClipboardPaste} label={t("inbox.copyToMessageTextBox")} onClick={() => onUseInComposer?.(text)} />}
+            {text && onForward && <Item icon={Forward} label={t("inbox.forward")} onClick={() => onForward(text)} />}
+            {link && <Item icon={Link2} label={t("inbox.copyLinkToMessage")} onClick={() => onCopyText?.(link)} />}
           </div>
         </>,
         document.body,
@@ -411,6 +413,7 @@ interface MessageBubbleProps {
 }
 
 const MessageBubble = memo(function MessageBubble({ m, active, grouped, onPreviewMedia, conversationId, onCopyText, onUseInComposer, onForward }: MessageBubbleProps) {
+  const { t } = useI18n();
   const msgLink = conversationId && typeof window !== "undefined" ? `${window.location.origin}/inbox?c=${conversationId}` : undefined;
   const out = m.direction === "outbound";
   const bot = m.sender_type === "bot";
@@ -453,8 +456,8 @@ const MessageBubble = memo(function MessageBubble({ m, active, grouped, onPrevie
       <div className="flex justify-center my-1">
         <span className="inline-flex items-center gap-2 px-3 py-1 rounded-full bg-muted/70 text-[12px] font-medium text-foreground/70">
           {m.body
-            ? <><span className="text-[15px] leading-none">{m.body}</span> {out ? "You reacted" : "Reacted"} to a message</>
-            : <>{out ? "You removed" : "Removed"} a reaction</>}
+            ? <><span className="text-[15px] leading-none">{m.body}</span> {out ? t("inbox.youReacted") : t("inbox.reacted")} {t("inbox.toAMessage")}</>
+            : <>{out ? t("inbox.youRemoved") : t("inbox.removed")} {t("inbox.aReaction")}</>}
           <span className="text-[11px] text-muted-foreground tabular-nums">{fmtTime(m.created_at)}</span>
         </span>
       </div>
@@ -521,7 +524,7 @@ const MessageBubble = memo(function MessageBubble({ m, active, grouped, onPrevie
                   <p className={cn("text-[12px] leading-snug line-clamp-2 mt-0.5", out ? "text-white/80" : "text-muted-foreground")}>{referral!.body}</p>
                 )}
                 <span className={cn("mt-1 inline-flex items-center gap-1 text-[11px] font-semibold", out ? "text-white/90" : "text-primary")}>
-                  <ExternalLink className="w-3 h-3" /> View ad
+                  <ExternalLink className="w-3 h-3" /> {t("inbox.viewAd")}
                 </span>
               </div>
             </a>
@@ -536,9 +539,9 @@ const MessageBubble = memo(function MessageBubble({ m, active, grouped, onPrevie
                     {initials(c.name || "?")}
                   </div>
                   <div className="min-w-0">
-                    <p className={cn("text-[13px] font-semibold truncate", out ? "text-white" : "text-foreground")}>{c.name || "Contact"}</p>
+                    <p className={cn("text-[13px] font-semibold truncate", out ? "text-white" : "text-foreground")}>{c.name || t("broadcasts.contact")}</p>
                     <p className={cn("text-[11px] truncate inline-flex items-center gap-1", out ? "text-white/70" : "text-muted-foreground")}>
-                      <Phone className="w-3 h-3" />{c.phone || c.org || "Contact card"}
+                      <Phone className="w-3 h-3" />{c.phone || c.org || t("inbox.contactCard")}
                     </p>
                   </div>
                 </div>
@@ -562,10 +565,10 @@ const MessageBubble = memo(function MessageBubble({ m, active, grouped, onPrevie
                   onError={(e) => { (e.target as HTMLImageElement).style.display = "none"; }}
                 />
                 <MapPin className="absolute left-1/2 top-1/2 -translate-x-1/2 -translate-y-full w-6 h-6 text-[#EF4444] drop-shadow" fill="#EF4444" strokeWidth={1.5} />
-                <span className="absolute bottom-0.5 right-1 text-[8px] text-black/50 bg-white/60 px-0.5 rounded-sm">© OpenStreetMap</span>
+                <span className="absolute bottom-0.5 right-1 text-[8px] text-black/50 bg-white/60 px-0.5 rounded-sm">{t("inbox.openstreetmap")}</span>
               </div>
               <div className="px-2.5 py-2">
-                <p className={cn("text-[13px] font-semibold truncate", out ? "text-white" : "text-foreground")}>{location.name || "Location"}</p>
+                <p className={cn("text-[13px] font-semibold truncate", out ? "text-white" : "text-foreground")}>{location.name || t("components.location")}</p>
                 <p className={cn("text-[11px] truncate", out ? "text-white/70" : "text-muted-foreground")}>{location.address || `${location.latitude.toFixed(5)}, ${location.longitude.toFixed(5)}`}</p>
               </div>
             </a>
@@ -673,7 +676,7 @@ const MessageBubble = memo(function MessageBubble({ m, active, grouped, onPrevie
                 ? <StickerIcon className={cn("w-5 h-5", out ? "text-white/70" : "text-muted-foreground")} />
                 : <Loader2 className={cn("w-4 h-4 animate-spin", out ? "text-white/60" : "text-muted-foreground")} />}
               <span className={cn("text-[13px]", out ? "text-white/70" : "text-muted-foreground")}>
-                {m.type === "sticker" ? "Sticker" : m.type === "video" ? "Video" : m.type === "audio" ? "Voice message" : m.type === "image" ? "Photo" : "Document"}
+                {m.type === "sticker" ? t("components.sticker") : m.type === "video" ? t("components.video") : m.type === "audio" ? t("components.voiceMessage") : m.type === "image" ? t("components.photo") : t("components.document")}
               </span>
             </div>
           )}
@@ -682,7 +685,7 @@ const MessageBubble = memo(function MessageBubble({ m, active, grouped, onPrevie
           {isBlank && (
             <div className="px-2.5 py-1.5">
               <span className={cn("text-[13px] italic", out ? "text-white/70" : "text-muted-foreground")}>
-                {m.type === "unsupported" ? "This message can't be displayed" : m.type === "order" ? "🛒 Order" : "Unsupported message"}
+                {m.type === "unsupported" ? t("inbox.thisMessageCanTBe") : m.type === "order" ? t("inbox.order") : t("inbox.unsupportedMessage")}
               </span>
             </div>
           )}

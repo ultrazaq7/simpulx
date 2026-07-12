@@ -1,4 +1,5 @@
 "use client";
+import { useI18n } from "@/lib/i18n";
 import { useEffect, useMemo, useState } from "react";
 import { useParams, useRouter } from "next/navigation";
 import {
@@ -22,6 +23,7 @@ const STATUS_PILL: Record<string, string> = {
 };
 
 export default function BroadcastDetailPage() {
+  const { t } = useI18n();
   const { id } = useParams<{ id: string }>();
   const router = useRouter();
   const [d, setD] = useState<BroadcastDetail | null>(null);
@@ -53,7 +55,7 @@ export default function BroadcastDetailPage() {
   }
 
   if (loading) return <div className="grid place-items-center h-full"><Loader2 className="w-6 h-6 animate-spin text-muted-foreground" /></div>;
-  if (!d) return <div className="p-8 text-muted-foreground">Broadcast not found.</div>;
+  if (!d) return <div className="p-8 text-muted-foreground">{t("broadcasts.broadcastNotFound")}</div>;
 
   const isTemplate = !!d.template_name;
   const unitCost = isTemplate ? 0.0466 : 0.0118;
@@ -69,18 +71,18 @@ export default function BroadcastDetailPage() {
         <div className="min-w-0">
           <div className="flex items-center gap-2">
             <p className="font-bold text-[15px] text-foreground truncate">{d.name}</p>
-            <span className={cn("inline-flex px-2 py-0.5 rounded-md text-[10px] font-bold uppercase tracking-wide capitalize", STATUS_PILL[d.status] ?? STATUS_PILL.draft)}>{d.status}</span>
+            <span className={cn("inline-flex px-2 py-0.5 rounded-md text-[10px] font-bold uppercase tracking-wide capitalize", STATUS_PILL[d.status] ?? STATUS_PILL.draft)}>{t(d.status)}</span>
           </div>
-          <p className="text-[11.5px] text-muted-foreground">{isTemplate ? "Template broadcast" : "Text broadcast"} · {fmtDate(d.created_at)}</p>
+          <p className="text-[11.5px] text-muted-foreground">{isTemplate ? t("broadcasts.templateBroadcast") : t("broadcasts.textBroadcast")} · {fmtDate(d.created_at)}</p>
         </div>
         <div className="flex-1" />
         {d.failed_count > 0 && (
           <button onClick={retry} disabled={busy}
             className="inline-flex items-center gap-1.5 px-3 h-9 rounded-md border border-border text-[13px] font-semibold text-foreground/80 hover:bg-muted disabled:opacity-50 transition-colors outline-none">
-            {busy ? <Loader2 className="w-4 h-4 animate-spin" /> : <RotateCcw className="w-4 h-4" />} Re-run failed
+            {busy ? <Loader2 className="w-4 h-4 animate-spin" /> : <RotateCcw className="w-4 h-4" />} {t("broadcasts.reRunFailed")}
           </button>
         )}
-        <Tip label="Delete"><button onClick={remove} disabled={busy} className="p-2 rounded-md text-muted-foreground hover:bg-destructive/10 hover:text-destructive disabled:opacity-50 transition-colors outline-none"><Trash2 className="w-[18px] h-[18px]" /></button></Tip>
+        <Tip label={t("common.delete")}><button onClick={remove} disabled={busy} className="p-2 rounded-md text-muted-foreground hover:bg-destructive/10 hover:text-destructive disabled:opacity-50 transition-colors outline-none"><Trash2 className="w-[18px] h-[18px]" /></button></Tip>
       </div>
 
       {/* Tabs */}
@@ -119,6 +121,7 @@ function StatCard({ Icon, label, value, accent }: { Icon: LucideIcon; label: str
 }
 
 function Bar({ segments }: { segments: { label: string; value: number; cls: string }[] }) {
+  const { t } = useI18n();
   const total = Math.max(1, segments.reduce((s, x) => s + x.value, 0));
   return (
     <div>
@@ -129,7 +132,7 @@ function Bar({ segments }: { segments: { label: string; value: number; cls: stri
         {segments.map((s) => (
           <div key={s.label} className="flex items-center gap-1.5">
             <span className={cn("w-2.5 h-2.5 rounded-sm", s.cls)} />
-            <span className="text-[12px] text-muted-foreground">{s.label}</span>
+            <span className="text-[12px] text-muted-foreground">{t(s.label)}</span>
             <span className="text-[12px] font-bold text-foreground tabular-nums">{s.value}</span>
           </div>
         ))}
@@ -139,6 +142,7 @@ function Bar({ segments }: { segments: { label: string; value: number; cls: stri
 }
 
 function GeneralTab({ d, cost, responseRate, isTemplate }: { d: BroadcastDetail; cost: number; responseRate: number; isTemplate: boolean }) {
+  const { t } = useI18n();
   const meta: [string, string][] = [
     ["Campaign name", d.name],
     ["Type", isTemplate ? "WhatsApp template" : "Text message"],
@@ -154,19 +158,19 @@ function GeneralTab({ d, cost, responseRate, isTemplate }: { d: BroadcastDetail;
     <div className="space-y-4 max-w-[1100px]">
       {/* Stat cards */}
       <div className="grid grid-cols-2 md:grid-cols-4 xl:grid-cols-7 gap-3">
-        <StatCard Icon={Users} label="Recipients" value={String(d.total_recipients)} accent="text-info" />
-        <StatCard Icon={Send} label="Sent" value={String(d.sent_count)} accent="text-primary" />
-        <StatCard Icon={CheckCheck} label="Read" value={String(d.read_count)} accent="text-success" />
-        <StatCard Icon={MousePointerClick} label="Clicks" value={String(d.clicks)} accent="text-secondary" />
-        <StatCard Icon={MessageSquare} label="Responses" value={String(d.responses)} accent="text-amber" />
-        <StatCard Icon={Percent} label="Response rate" value={`${responseRate.toFixed(1)}%`} accent="text-success" />
-        <StatCard Icon={CircleDollarSign} label="Est. cost" value={`$${cost.toFixed(2)}`} accent="text-warning" />
+        <StatCard Icon={Users} label={t("broadcasts.recipients")} value={String(d.total_recipients)} accent="text-info" />
+        <StatCard Icon={Send} label={t("broadcasts.sent")} value={String(d.sent_count)} accent="text-primary" />
+        <StatCard Icon={CheckCheck} label={t("broadcasts.read")} value={String(d.read_count)} accent="text-success" />
+        <StatCard Icon={MousePointerClick} label={t("dashboard.clicks")} value={String(d.clicks)} accent="text-secondary" />
+        <StatCard Icon={MessageSquare} label={t("broadcasts.responses")} value={String(d.responses)} accent="text-amber" />
+        <StatCard Icon={Percent} label={t("broadcasts.responseRate")} value={`${responseRate.toFixed(1)}%`} accent="text-success" />
+        <StatCard Icon={CircleDollarSign} label={t("broadcasts.estCost")} value={`$${cost.toFixed(2)}`} accent="text-warning" />
       </div>
 
       {/* Breakdown bars */}
       <div className="grid md:grid-cols-2 gap-3">
         <div className="rounded-lg border border-border bg-card shadow-xs p-5">
-          <p className="text-[13px] font-bold text-foreground mb-3">Delivery status</p>
+          <p className="text-[13px] font-bold text-foreground mb-3">{t("broadcasts.deliveryStatus")}</p>
           <Bar segments={[
             { label: "Sent", value: d.sent_count, cls: "bg-primary" },
             { label: "Pending", value: d.pending_count, cls: "bg-muted-foreground/50" },
@@ -174,7 +178,7 @@ function GeneralTab({ d, cost, responseRate, isTemplate }: { d: BroadcastDetail;
           ]} />
         </div>
         <div className="rounded-lg border border-border bg-card shadow-xs p-5">
-          <p className="text-[13px] font-bold text-foreground mb-3">Read status</p>
+          <p className="text-[13px] font-bold text-foreground mb-3">{t("broadcasts.readStatus")}</p>
           <Bar segments={[
             { label: "Read", value: d.read_count, cls: "bg-success" },
             { label: "Delivered", value: Math.max(0, d.delivered_count - d.read_count), cls: "bg-info" },
@@ -188,13 +192,13 @@ function GeneralTab({ d, cost, responseRate, isTemplate }: { d: BroadcastDetail;
         <div className="rounded-lg border border-border bg-card shadow-xs divide-y divide-border">
           {meta.map(([k, v]) => (
             <div key={k} className="flex gap-3 px-5 py-3">
-              <span className="w-40 shrink-0 text-[12.5px] text-muted-foreground">{k}</span>
-              <span className="text-[13px] font-semibold text-foreground capitalize break-words min-w-0">{v}</span>
+              <span className="w-40 shrink-0 text-[12.5px] text-muted-foreground">{t(k)}</span>
+              <span className="text-[13px] font-semibold text-foreground capitalize break-words min-w-0">{t(v)}</span>
             </div>
           ))}
         </div>
         <div className="rounded-lg border border-border bg-card shadow-xs p-4 flex flex-col">
-          <p className="text-[13px] font-bold text-foreground mb-3 text-center shrink-0">Preview</p>
+          <p className="text-[13px] font-bold text-foreground mb-3 text-center shrink-0">{t("broadcasts.preview")}</p>
           <div className="rounded-[28px] border-[4px] border-[#2D2D44] bg-[#1A1A2E] p-1.5 shadow-xl flex-1 flex flex-col">
             <div className="rounded-[22px] overflow-hidden bg-[#ECE5DD] flex-1 flex flex-col">
               {/* WhatsApp chat header */}
@@ -208,7 +212,7 @@ function GeneralTab({ d, cost, responseRate, isTemplate }: { d: BroadcastDetail;
               {/* Conversation area */}
               <div className="flex-1 min-h-[200px] p-3 flex flex-col items-start" style={{ background: "#ECE5DD", backgroundImage: "radial-gradient(rgba(0,0,0,0.035) 1px,transparent 1px)", backgroundSize: "14px 14px" }}>
                 <div className="max-w-[210px] rounded-lg rounded-tl-sm bg-white px-3 pt-2 pb-1.5 shadow-sm">
-                  <p className="text-[11.5px] leading-relaxed text-[#303030] whitespace-pre-wrap break-words">{d.body || "(no message)"}</p>
+                  <p className="text-[11.5px] leading-relaxed text-[#303030] whitespace-pre-wrap break-words">{d.body || t("broadcasts.noMessage")}</p>
                   <p className="text-right text-[8.5px] text-[#8D9A9E] mt-1">11:44</p>
                 </div>
               </div>
@@ -230,6 +234,7 @@ const READ_BADGE: Record<string, string> = {
 type QuickFilter = "all" | "sent" | "pending" | "failed" | "clicked" | "responses";
 
 function MessagesTab({ recipients, name }: { recipients: BroadcastRecipient[]; name: string }) {
+  const { t } = useI18n();
   const [filter, setFilter] = useState<QuickFilter>("all");
   const [query, setQuery] = useState("");
   const [page, setPage] = useState(1);
@@ -281,18 +286,18 @@ function MessagesTab({ recipients, name }: { recipients: BroadcastRecipient[]; n
             <button key={f.key} onClick={() => setFilter(f.key)}
               className={cn("inline-flex items-center gap-1.5 px-2.5 h-8 rounded-md text-[12.5px] font-semibold transition-colors outline-none",
                 filter === f.key ? "bg-primary/10 text-primary" : "text-muted-foreground hover:bg-muted")}>
-              {f.label}<span className="text-[11px] tabular-nums opacity-70">{counts[f.key]}</span>
+              {t(f.label)}<span className="text-[11px] tabular-nums opacity-70">{counts[f.key]}</span>
             </button>
           ))}
         </div>
         <div className="flex-1" />
         <div className="relative w-[220px]">
           <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-muted-foreground pointer-events-none" />
-          <input value={query} onChange={(e) => setQuery(e.target.value)} placeholder="Search name or number"
+          <input value={query} onChange={(e) => setQuery(e.target.value)} placeholder={t("broadcasts.searchNameOrNumber")}
             className="w-full h-9 pl-9 pr-3 rounded-md border border-input bg-background text-sm text-foreground placeholder:text-muted-foreground/70 outline-none focus:border-primary focus:ring-2 focus:ring-primary/20" />
         </div>
         <button onClick={exportCsv} className="inline-flex items-center gap-1.5 px-3 h-9 rounded-md border border-border text-[13px] font-semibold text-foreground/80 hover:bg-muted transition-colors outline-none">
-          <Download className="w-4 h-4" /> Download
+          <Download className="w-4 h-4" /> {t("broadcasts.download")}
         </button>
       </div>
 
@@ -303,28 +308,28 @@ function MessagesTab({ recipients, name }: { recipients: BroadcastRecipient[]; n
             <thead className="sticky top-0 z-10">
               <tr className="border-b border-border bg-muted">
                 {["Customer", "Number", "Send status", "Read status", "Type", "CTA", "Responded"].map((h) => (
-                  <th key={h} className="px-4 py-2.5 text-left text-[11px] font-bold uppercase tracking-wider text-muted-foreground">{h}</th>
+                  <th key={h} className="px-4 py-2.5 text-left text-[11px] font-bold uppercase tracking-wider text-muted-foreground">{t(h)}</th>
                 ))}
               </tr>
             </thead>
             <tbody>
               {paged.length === 0 ? (
-                <tr><td colSpan={7} className="text-center py-12 text-muted-foreground text-sm">No recipients match this filter.</td></tr>
+                <tr><td colSpan={7} className="text-center py-12 text-muted-foreground text-sm">{t("broadcasts.noRecipientsMatchThisFilter")}</td></tr>
               ) : paged.map((r) => (
                 <tr key={r.id} className="border-b border-border/60 hover:bg-muted/40 transition-colors">
-                  <td className="px-4 py-2.5 font-semibold text-[13px] text-foreground">{r.contact_name || "Unknown"}</td>
+                  <td className="px-4 py-2.5 font-semibold text-[13px] text-foreground">{r.contact_name || t("broadcasts.unknown")}</td>
                   <td className="px-4 py-2.5 text-foreground/80 tabular-nums">{r.phone || "-"}</td>
                   <td className="px-4 py-2.5"><span className={cn("inline-flex px-2 py-0.5 rounded-md text-[11px] font-semibold capitalize", SEND_BADGE[r.send_status] ?? SEND_BADGE.pending)}>{r.send_status}</span></td>
                   <td className="px-4 py-2.5"><span className={cn("inline-flex px-2 py-0.5 rounded-md text-[11px] font-semibold capitalize", READ_BADGE[r.read_status] ?? READ_BADGE.pending)}>{r.read_status}</span></td>
                   <td className="px-4 py-2.5 text-muted-foreground capitalize">{r.type}</td>
                   <td className="px-4 py-2.5">
                     {r.clicked
-                      ? <span className="inline-flex items-center gap-1 text-secondary text-[12px] font-semibold"><MousePointerClick className="w-3.5 h-3.5" />{r.clicked_button || "Clicked"}</span>
+                      ? <span className="inline-flex items-center gap-1 text-secondary text-[12px] font-semibold"><MousePointerClick className="w-3.5 h-3.5" />{r.clicked_button || t("broadcasts.clicked")}</span>
                       : <span className="text-muted-foreground text-[12px]">-</span>}
                   </td>
                   <td className="px-4 py-2.5">
                     {r.responded
-                      ? <span className="inline-flex items-center gap-1 text-info text-[12px] font-semibold"><ArrowDownLeft className="w-3.5 h-3.5" />Replied</span>
+                      ? <span className="inline-flex items-center gap-1 text-info text-[12px] font-semibold"><ArrowDownLeft className="w-3.5 h-3.5" />{t("broadcasts.replied")}</span>
                       : <span className="text-muted-foreground text-[12px]">-</span>}
                   </td>
                 </tr>
@@ -345,7 +350,7 @@ function MessagesTab({ recipients, name }: { recipients: BroadcastRecipient[]; n
             <button disabled={page >= totalPages} onClick={() => setPage(totalPages)} className="p-1 rounded-md text-muted-foreground hover:bg-muted hover:text-foreground disabled:opacity-30 disabled:cursor-not-allowed outline-none transition-colors"><ChevronsRight className="w-[18px] h-[18px]" /></button>
           </div>
           <div className="hidden sm:flex items-center gap-2">
-            <span className="text-[13px] text-muted-foreground">Per page</span>
+            <span className="text-[13px] text-muted-foreground">{t("broadcasts.perPage")}</span>
             <Select value={String(perPage)} onChange={(v) => setPerPage(Number(v))} align="right" className="w-[76px]"
               options={[25, 50, 100].map((n) => ({ value: String(n), label: String(n) }))} />
           </div>

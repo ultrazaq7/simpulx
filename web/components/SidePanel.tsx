@@ -1,4 +1,5 @@
 "use client";
+import { useI18n } from "@/lib/i18n";
 import { useEffect, useState, type ReactNode } from "react";
 import { createPortal } from "react-dom";
 import { X, Loader2 } from "lucide-react";
@@ -36,6 +37,7 @@ export default function SidePanel({
   footer, onApply, applyLabel = "Apply", applyDisabled, onReset, resetLabel = "Reset",
   busy = false, cancelLabel = "Cancel",
 }: SidePanelProps) {
+  const { t } = useI18n();
   const [mounted, setMounted] = useState(false);
   const [shown, setShown] = useState(false);
 
@@ -94,7 +96,7 @@ export default function SidePanel({
           <button
             type="button"
             onClick={onClose}
-            aria-label="Close"
+            aria-label={t("components.close")}
             className="shrink-0 -mr-1 p-1.5 rounded-md text-muted-foreground hover:text-foreground hover:bg-muted transition-colors outline-none"
           >
             <X className="w-4 h-4" />

@@ -1,4 +1,5 @@
 "use client";
+import { useI18n } from "@/lib/i18n";
 // Create Channel — a real 3-step wizard (Select channel > Channel details >
 // Setting up channel). Each platform connects through its actual backend:
 //   - WhatsApp: Meta Embedded Signup (real FB popup -> auto-provision) OR Direct
@@ -29,6 +30,7 @@ export function ChannelWizard({ onClose, onDone, onError }: {
   onDone: (msg: string) => void;
   onError: (msg: string) => void;
 }) {
+  const { t } = useI18n();
   const [step, setStep] = useState(0);
   const [type, setType] = useState("");
   const [saving, setSaving] = useState(false);
@@ -42,26 +44,26 @@ export function ChannelWizard({ onClose, onDone, onError }: {
     <>
       {step === 1 && (
         <button onClick={() => setStep(0)} className="inline-flex items-center gap-1.5 px-4 h-9 rounded-md border border-border text-sm font-semibold text-foreground/80 hover:bg-muted transition-colors outline-none">
-          <ArrowLeft className="w-4 h-4" /> Back
+          <ArrowLeft className="w-4 h-4" /> {t("account.back")}
         </button>
       )}
       <div className="flex-1" />
       {step === 0 && (
         <button onClick={() => type && setStep(1)} disabled={!type}
           className="px-5 h-9 rounded-md bg-primary text-white text-sm font-semibold hover:bg-primary-dark disabled:opacity-40 disabled:cursor-not-allowed shadow-sm hover:shadow-brand-md transition-all outline-none">
-          Continue
+          {t("broadcasts.continue")}
         </button>
       )}
       {step === 2 && (
         <PrimaryButton onClick={() => onDone(result?.status === "connected" ? "Channel connected" : "Channel added")}>
-          Done
+          {t("inbox.done")}
         </PrimaryButton>
       )}
     </>
   );
 
   return (
-    <WizardModal title="Create channel" icon={<RadioTower className="w-5 h-5" />} steps={STEPS} step={step} onClose={onClose} footer={footer}>
+    <WizardModal title={t("settings.createChannel")} icon={<RadioTower className="w-5 h-5" />} steps={STEPS} step={step} onClose={onClose} footer={footer}>
       {step === 0 && <SelectStep selected={type} onSelect={setType} />}
       {step === 1 && meta && (
         <DetailsStep type={type} saving={saving} setSaving={setSaving} onConnected={finish} onError={onError} />
@@ -73,13 +75,14 @@ export function ChannelWizard({ onClose, onDone, onError }: {
 
 // ── Step 0: pick a platform ────────────────────────────────────────────────
 function SelectStep({ selected, onSelect }: { selected: string; onSelect: (t: string) => void }) {
+  const { t } = useI18n();
   // Testing (sandbox) is Owner-only: managers/agents/dealers never see it in the
   // wizard. Each org keeps a single testing channel, provisioned by its Owner.
   const isOwner = getUser()?.role === "owner";
   const catalog = CHANNEL_CATALOG.filter((c) => c.type !== "testing" || isOwner);
   return (
     <div>
-      <p className="text-[13.5px] text-muted-foreground mb-4">Choose the platform you want to connect. You can add more channels any time.</p>
+      <p className="text-[13.5px] text-muted-foreground mb-4">{t("settings.chooseThePlatformYouWant")}</p>
       <div className="grid grid-cols-1 sm:grid-cols-2 gap-2.5">
         {catalog.map((c) => {
           const active = selected === c.type;
@@ -98,7 +101,7 @@ function SelectStep({ selected, onSelect }: { selected: string; onSelect: (t: st
               <ChannelIcon type={c.type} size={40} />
               <div className="min-w-0 flex-1">
                 <p className="text-[13.5px] font-semibold text-foreground truncate">{c.name}</p>
-                <p className="text-[11.5px] text-muted-foreground truncate">{c.available ? c.blurb : "Coming soon"}</p>
+                <p className="text-[11.5px] text-muted-foreground truncate">{c.available ? t(c.blurb) : t("settings.comingSoon")}</p>
               </div>
               {active ? <CheckCircle2 className="w-5 h-5 text-primary shrink-0" />
                 : !c.available ? <Lock className="w-4 h-4 text-muted-foreground/40 shrink-0" /> : null}
@@ -153,6 +156,7 @@ function ReadOnlyRow({ label, value }: { label: string; value: string }) {
 function WhatsAppStep({ saving, setSaving, onConnected, onError }: {
   saving: boolean; setSaving: (v: boolean) => void; onConnected: (r: Result) => void; onError: (m: string) => void;
 }) {
+  const { t } = useI18n();
   const [method, setMethod] = useState<"facebook" | "manual">(isMetaSignupConfigured() ? "facebook" : "manual");
   const [name, setName] = useState("");
   const [displayId, setDisplayId] = useState("");
@@ -172,8 +176,8 @@ function WhatsAppStep({ saving, setSaving, onConnected, onError }: {
   }
 
   async function connectManual() {
-    if (!name.trim()) { onError("Channel name is required"); return; }
-    if (!phoneId.trim() || !waba.trim()) { onError("WABA ID and Phone Number ID are required"); return; }
+    if (!name.trim()) { onError(t("settings.channelNameIsRequired")); return; }
+    if (!phoneId.trim() || !waba.trim()) { onError(t("settings.wabaIdAndPhoneNumber")); return; }
     setSaving(true);
     try {
       const r = await api.createChannel({
@@ -191,46 +195,46 @@ function WhatsAppStep({ saving, setSaving, onConnected, onError }: {
       <div className="grid grid-cols-2 gap-2.5">
         <MethodCard
           active={method === "facebook"} disabled={!fbReady}
-          icon={<FbIcon className="w-5 h-5" />} title="Login with Facebook"
-          desc={fbReady ? "Connect or create a WhatsApp Business account in a few clicks." : "Set NEXT_PUBLIC_META_APP_ID / CONFIG_ID to enable."}
+          icon={<FbIcon className="w-5 h-5" />} title={t("settings.loginWithFacebook")}
+          desc={fbReady ? t("settings.connectOrCreateAWhatsapp") : t("settings.setNextPublicMetaApp")}
           onClick={() => fbReady && setMethod("facebook")}
         />
         <MethodCard
           active={method === "manual"}
-          icon={<KeyRound className="w-5 h-5" />} title="Direct Cloud API"
-          desc="Enter your WhatsApp Business Account credentials from Meta."
+          icon={<KeyRound className="w-5 h-5" />} title={t("settings.directCloudApi")}
+          desc={t("settings.enterYourWhatsappBusinessAccount")}
           onClick={() => setMethod("manual")}
         />
       </div>
 
-      <Field label="Channel name" value={name} onChange={setName} placeholder="e.g. Sales WhatsApp" autoFocus />
+      <Field label={t("settings.channelName")} value={name} onChange={setName} placeholder={t("settings.eGSalesWhatsapp")} autoFocus />
 
       {method === "facebook" ? (
         <div className="rounded-lg border border-border bg-muted/30 p-5 text-center">
           <p className="text-[13px] text-muted-foreground mb-4 max-w-[460px] mx-auto">
-            You will sign in with Facebook and pick (or create) a WhatsApp Business number. We finish the setup automatically: subscribe the app, register the number and connect the channel.
+            {t("settings.youWillSignInWith")}
           </p>
           <button onClick={loginWithFacebook} disabled={saving}
             className="inline-flex items-center gap-2 px-5 h-11 rounded-md bg-[#1877F2] text-white text-sm font-semibold hover:bg-[#0f6ae0] disabled:opacity-60 shadow-sm transition-all outline-none">
             {saving ? <Loader2 className="w-4 h-4 animate-spin" /> : <FbIcon className="w-4 h-4" />}
-            Login with Facebook
+            {t("settings.loginWithFacebook")}
           </button>
         </div>
       ) : (
         <>
           <div className="grid grid-cols-1 gap-4">
-            <ReadOnlyRow label="Webhook URL (set in Meta > WhatsApp > Configuration)" value={WA_WEBHOOK_URL} />
-            <ReadOnlyRow label="Verify token (must match META_VERIFY_TOKEN on the server)" value={WA_VERIFY_TOKEN || "your META_VERIFY_TOKEN"} />
+            <ReadOnlyRow label={t("settings.webhookUrlSetInMeta")} value={WA_WEBHOOK_URL} />
+            <ReadOnlyRow label={t("settings.verifyTokenMustMatchMeta")} value={WA_VERIFY_TOKEN || "your META_VERIFY_TOKEN"} />
           </div>
-          <Field label="System User Access Token" value={token} onChange={setToken} type="password" placeholder="EAAG..." hint="A permanent system-user token with whatsapp_business_messaging." />
+          <Field label={t("settings.systemUserAccessToken")} value={token} onChange={setToken} type="password" placeholder={t("settings.eaag")} hint={t("settings.aPermanentSystemUserToken")} />
           <div className="grid grid-cols-2 gap-4">
-            <Field label="WhatsApp Business Account ID" value={waba} onChange={setWaba} placeholder="WABA ID" />
-            <Field label="Phone Number ID" value={phoneId} onChange={setPhoneId} placeholder="Phone number ID" />
+            <Field label={t("settings.whatsappBusinessAccountId")} value={waba} onChange={setWaba} placeholder={t("settings.wabaId")} />
+            <Field label={t("settings.phoneNumberId2")} value={phoneId} onChange={setPhoneId} placeholder={t("settings.phoneNumberId")} />
           </div>
-          <Field label="Display number (optional)" value={displayId} onChange={setDisplayId} placeholder="+62 812 3456 7890" />
+          <Field label={t("settings.displayNumberOptional")} value={displayId} onChange={setDisplayId} placeholder="+62 812 3456 7890" />
           <div className="flex justify-end">
             <PrimaryButton onClick={connectManual} disabled={saving}>
-              {saving ? <Loader2 className="w-4 h-4 animate-spin" /> : null}Connect
+              {saving ? <Loader2 className="w-4 h-4 animate-spin" /> : null}{t("settings.connect")}
             </PrimaryButton>
           </div>
         </>
@@ -259,10 +263,11 @@ function MethodCard({ active, disabled, icon, title, desc, onClick }: {
 function ViberStep({ saving, setSaving, onConnected, onError }: {
   saving: boolean; setSaving: (v: boolean) => void; onConnected: (r: Result) => void; onError: (m: string) => void;
 }) {
+  const { t } = useI18n();
   const [name, setName] = useState("");
   const [token, setToken] = useState("");
   async function connect() {
-    if (!token.trim()) { onError("Viber auth token is required"); return; }
+    if (!token.trim()) { onError(t("settings.viberAuthTokenIsRequired")); return; }
     setSaving(true);
     try {
       const r = await api.connectViber({ auth_token: token.trim(), name: name.trim() || undefined });
@@ -273,13 +278,13 @@ function ViberStep({ saving, setSaving, onConnected, onError }: {
   return (
     <div className="flex flex-col gap-4">
       <p className="text-[13px] text-muted-foreground">
-        Create a Viber Public Account, then paste its authentication token from the Viber Admin Panel. We verify the token and register the inbound webhook for you.
+        {t("settings.createAViberPublicAccount")}
       </p>
-      <Field label="Channel name (optional)" value={name} onChange={setName} placeholder="e.g. Support Viber" autoFocus />
-      <Field label="Public Account auth token" value={token} onChange={setToken} type="password" placeholder="4453b6ac1234567a-..." hint="Found under Account > Edit Info > Webhook in the Viber Admin Panel." />
+      <Field label={t("settings.channelNameOptional")} value={name} onChange={setName} placeholder={t("settings.eGSupportViber")} autoFocus />
+      <Field label={t("settings.publicAccountAuthToken")} value={token} onChange={setToken} type="password" placeholder="4453b6ac1234567a-..." hint={t("settings.foundUnderAccountEditInfo")} />
       <div className="flex justify-end">
         <PrimaryButton onClick={connect} disabled={saving}>
-          {saving ? <Loader2 className="w-4 h-4 animate-spin" /> : null}Connect
+          {saving ? <Loader2 className="w-4 h-4 animate-spin" /> : null}{t("settings.connect")}
         </PrimaryButton>
       </div>
     </div>
@@ -290,9 +295,10 @@ function ViberStep({ saving, setSaving, onConnected, onError }: {
 function TestingStep({ saving, setSaving, onConnected, onError }: {
   saving: boolean; setSaving: (v: boolean) => void; onConnected: (r: Result) => void; onError: (m: string) => void;
 }) {
+  const { t } = useI18n();
   const [name, setName] = useState("");
   async function create() {
-    if (!name.trim()) { onError("Channel name is required"); return; }
+    if (!name.trim()) { onError(t("settings.channelNameIsRequired")); return; }
     setSaving(true);
     try {
       const r = await api.createChannel({ type: "whatsapp", name: name.trim(), config: { is_sandbox: true } });
@@ -302,11 +308,11 @@ function TestingStep({ saving, setSaving, onConnected, onError }: {
   }
   return (
     <div className="flex flex-col gap-4">
-      <p className="text-[13px] text-muted-foreground">A simulated sandbox channel. Actions here never reach real customers, so you can test flows safely.</p>
-      <Field label="Channel name" value={name} onChange={setName} placeholder="e.g. Test channel" autoFocus />
+      <p className="text-[13px] text-muted-foreground">{t("settings.aSimulatedSandboxChannelActions")}</p>
+      <Field label={t("settings.channelName")} value={name} onChange={setName} placeholder={t("settings.eGTestChannel")} autoFocus />
       <div className="flex justify-end">
         <PrimaryButton onClick={create} disabled={saving}>
-          {saving ? <Loader2 className="w-4 h-4 animate-spin" /> : null}Create
+          {saving ? <Loader2 className="w-4 h-4 animate-spin" /> : null}{t("inbox.create")}
         </PrimaryButton>
       </div>
     </div>
@@ -317,6 +323,7 @@ function TestingStep({ saving, setSaving, onConnected, onError }: {
 function MetaStep({ type, saving, setSaving, onConnected, onError }: {
   type: string; saving: boolean; setSaving: (v: boolean) => void; onConnected: (r: Result) => void; onError: (m: string) => void;
 }) {
+  const { t } = useI18n();
   const isIg = type === "instagram";
   const [name, setName] = useState("");
   const [displayId, setDisplayId] = useState("");
@@ -325,8 +332,8 @@ function MetaStep({ type, saving, setSaving, onConnected, onError }: {
   const [token, setToken] = useState("");
 
   async function connect() {
-    if (!name.trim()) { onError("Channel name is required"); return; }
-    if (!pageId.trim()) { onError("Page ID is required"); return; }
+    if (!name.trim()) { onError(t("settings.channelNameIsRequired")); return; }
+    if (!pageId.trim()) { onError(t("settings.pageIdIsRequired")); return; }
     setSaving(true);
     try {
       const config: Record<string, unknown> = { page_id: pageId.trim() };
@@ -342,14 +349,14 @@ function MetaStep({ type, saving, setSaving, onConnected, onError }: {
 
   return (
     <div className="flex flex-col gap-4">
-      <Field label="Channel name" value={name} onChange={setName} placeholder={isIg ? "e.g. Instagram DM" : "e.g. Facebook Page"} autoFocus />
-      <Field label="Page ID" value={pageId} onChange={setPageId} placeholder="Facebook Page ID" />
-      {isIg && <Field label="Instagram Account ID" value={igId} onChange={setIgId} placeholder="IG business account ID" />}
-      <Field label={isIg ? "Display handle (optional)" : "Page name (optional)"} value={displayId} onChange={setDisplayId} placeholder={isIg ? "@yourbrand" : "Your Page"} />
-      <Field label="Access token" value={token} onChange={setToken} type="password" placeholder="Page access token" />
+      <Field label={t("settings.channelName")} value={name} onChange={setName} placeholder={isIg ? t("settings.eGInstagramDm") : t("settings.eGFacebookPage")} autoFocus />
+      <Field label={t("settings.pageId")} value={pageId} onChange={setPageId} placeholder={t("settings.facebookPageId")} />
+      {isIg && <Field label={t("settings.instagramAccountId")} value={igId} onChange={setIgId} placeholder={t("settings.igBusinessAccountId")} />}
+      <Field label={isIg ? t("settings.displayHandleOptional") : t("settings.pageNameOptional")} value={displayId} onChange={setDisplayId} placeholder={isIg ? "@yourbrand" : t("settings.yourPage")} />
+      <Field label={t("settings.accessToken")} value={token} onChange={setToken} type="password" placeholder={t("settings.pageAccessToken")} />
       <div className="flex justify-end">
         <PrimaryButton onClick={connect} disabled={saving}>
-          {saving ? <Loader2 className="w-4 h-4 animate-spin" /> : null}Connect
+          {saving ? <Loader2 className="w-4 h-4 animate-spin" /> : null}{t("settings.connect")}
         </PrimaryButton>
       </div>
     </div>
@@ -358,6 +365,7 @@ function MetaStep({ type, saving, setSaving, onConnected, onError }: {
 
 // ── Step 2: done / setting up ──────────────────────────────────────────────
 function DoneStep({ meta, result }: { meta: ReturnType<typeof channelMeta>; result: Result }) {
+  const { t } = useI18n();
   const connected = result.status === "connected";
   return (
     <div className="text-center py-6">
@@ -370,8 +378,8 @@ function DoneStep({ meta, result }: { meta: ReturnType<typeof channelMeta>; resu
       </div>
       <p className="text-[13px] text-muted-foreground max-w-[460px] mx-auto">
         {connected
-          ? "The channel is live and ready to send and receive messages."
-          : "Run Test on the channel card to verify the connection and mark it connected."}
+          ? t("settings.theChannelIsLiveAnd")
+          : t("settings.runTestOnTheChannel")}
       </p>
       {result.warning && (
         <div className="mt-4 mx-auto max-w-[480px] px-3 py-2 rounded-md bg-warning/10 border border-warning/30 text-[12px] text-warning-foreground/90 text-left">

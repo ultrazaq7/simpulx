@@ -1,4 +1,5 @@
 "use client";
+import { useI18n } from "@/lib/i18n";
 // Web API lead sources — folded into Channel & Integrations as the "Web API" tab.
 // Captures leads from ad platforms / external systems via an API key; each lead
 // opens a conversation in the inbox attributed to its source.
@@ -25,6 +26,7 @@ const PLATFORM_COLORS: Record<SourcePlatform, string> = {
 };
 
 export function WebApiTab() {
+  const { t } = useI18n();
   const { notify, confirm, ToastHost } = useToast();
   const [rows, setRows] = useState<WebApiSource[]>([]);
   const [campaigns, setCampaigns] = useState<Campaign[]>([]);
@@ -49,12 +51,12 @@ export function WebApiTab() {
   }
   async function regen(p: WebApiSource) {
     if (!(await confirm({ title: "Regenerate API key?", message: `Regenerate the API key for "${p.name}"? The current key stops working.`, danger: true, confirmLabel: "Regenerate" }))) return;
-    try { const r = await api.regenerateWebApiKey(p.id); notify("API key regenerated"); copy(r.api_key, "New key copied"); load(); }
+    try { const r = await api.regenerateWebApiKey(p.id); notify(t("settings.apiKeyRegenerated")); copy(r.api_key, "New key copied"); load(); }
     catch (e) { notify(String(e), "error"); }
   }
   async function remove(p: WebApiSource) {
     if (!(await confirm({ title: "Delete API source?", message: `Delete "${p.name}"? This can't be undone.`, danger: true, confirmLabel: "Delete" }))) return;
-    try { await api.deleteWebApiSource(p.id); notify("API source deleted"); load(); }
+    try { await api.deleteWebApiSource(p.id); notify(t("settings.apiSourceDeleted")); load(); }
     catch (e) { notify(String(e), "error"); }
   }
 
@@ -65,15 +67,15 @@ export function WebApiTab() {
         <div className="p-3 flex items-center gap-3 border-b border-border flex-wrap shrink-0">
           <div className="relative w-[240px]">
             <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-muted-foreground pointer-events-none" />
-            <input type="text" placeholder="Search API sources" value={query} onChange={(e) => setQuery(e.target.value)}
+            <input type="text" placeholder={t("settings.searchApiSources")} value={query} onChange={(e) => setQuery(e.target.value)}
               className="w-full h-9 pl-9 pr-3 rounded-md border border-input bg-muted text-sm text-foreground placeholder:text-muted-foreground/70 outline-none transition-shadow focus:border-primary" />
           </div>
-          <Tip label="Refresh"><button onClick={load} className="p-1.5 rounded-md hover:bg-muted transition-colors outline-none">
+          <Tip label={t("broadcasts.refresh")}><button onClick={load} className="p-1.5 rounded-md hover:bg-muted transition-colors outline-none">
             <RefreshCw className="w-[18px] h-[18px] text-muted-foreground" />
           </button></Tip>
           <div className="flex-1" />
           <PrimaryButton onClick={() => setWizardOpen(true)}>
-            <Plus className="w-4 h-4" />Add API source
+            <Plus className="w-4 h-4" />{t("settings.addApiSource")}
           </PrimaryButton>
         </div>
 
@@ -86,10 +88,10 @@ export function WebApiTab() {
           ) : filtered.length === 0 ? (
             <div className="text-center py-16 rounded-lg bg-card">
               <Plug className="w-11 h-11 text-muted-foreground/30 mx-auto mb-2" />
-              <p className="font-bold text-foreground mb-1">No API sources yet</p>
-              <p className="text-[13px] text-muted-foreground mb-4">Connect an ad platform or external system to capture leads via the Web API.</p>
+              <p className="font-bold text-foreground mb-1">{t("settings.noApiSourcesYet")}</p>
+              <p className="text-[13px] text-muted-foreground mb-4">{t("settings.connectAnAdPlatformOr")}</p>
               <PrimaryButton onClick={() => setWizardOpen(true)}>
-                <Plus className="w-4 h-4" />Add API source
+                <Plus className="w-4 h-4" />{t("settings.addApiSource")}
               </PrimaryButton>
             </div>
           ) : (
@@ -109,21 +111,21 @@ export function WebApiTab() {
                   <div className="min-w-0 flex-1 hidden md:flex items-center gap-2 px-2.5 py-1.5 rounded-lg bg-muted/50">
                     <Key className="w-[15px] h-[15px] text-muted-foreground shrink-0" />
                     <span className="text-xs text-muted-foreground flex-1 truncate">{p.api_key.slice(0, 10)}{"•".repeat(14)}</span>
-                    <Tip label="Copy key"><button onClick={() => copy(p.api_key, "API key copied")} className="p-1 outline-none text-muted-foreground hover:text-foreground transition-colors"><Copy className="w-[15px] h-[15px]" /></button></Tip>
-                    <Tip label="Regenerate key"><button onClick={() => regen(p)} className="p-1 outline-none text-muted-foreground hover:text-foreground transition-colors"><RotateCw className="w-[15px] h-[15px]" /></button></Tip>
+                    <Tip label={t("settings.copyKey")}><button onClick={() => copy(p.api_key, "API key copied")} className="p-1 outline-none text-muted-foreground hover:text-foreground transition-colors"><Copy className="w-[15px] h-[15px]" /></button></Tip>
+                    <Tip label={t("settings.regenerateKey")}><button onClick={() => regen(p)} className="p-1 outline-none text-muted-foreground hover:text-foreground transition-colors"><RotateCw className="w-[15px] h-[15px]" /></button></Tip>
                   </div>
                   <div className="hidden lg:flex flex-col items-end shrink-0 text-[11px] text-muted-foreground leading-tight whitespace-nowrap">
-                    <span>Created {fmtDateTimeShort(p.created_at)}</span>
-                    {p.updated_at && <span>Updated {fmtDateTimeShort(p.updated_at)}</span>}
+                    <span>{t("contacts.created")} {fmtDateTimeShort(p.created_at)}</span>
+                    {p.updated_at && <span>{t("dashboard.updated")} {fmtDateTimeShort(p.updated_at)}</span>}
                   </div>
-                  <Tip label={p.is_active ? "Active" : "Disabled"}>
+                  <Tip label={p.is_active ? t("dashboard.active") : t("settings.disabled")}>
                     <label className="relative inline-flex items-center cursor-pointer shrink-0">
                       <input type="checkbox" checked={p.is_active} onChange={() => toggle(p)} className="sr-only peer" />
                       <div className="w-9 h-5 bg-muted rounded-full peer peer-checked:bg-primary after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:rounded-full after:h-4 after:w-4 after:transition-all peer-checked:after:translate-x-full" />
                     </label>
                   </Tip>
-                  <Tip label="Edit"><button onClick={() => setDlg({ open: true, editing: p })} className="p-1.5 rounded-md hover:bg-muted outline-none transition-colors shrink-0"><Pencil className="w-[18px] h-[18px] text-muted-foreground" /></button></Tip>
-                  <Tip label="Delete"><button onClick={() => remove(p)} className="p-1.5 rounded-md hover:bg-muted outline-none transition-colors shrink-0"><Trash2 className="w-[18px] h-[18px] text-destructive" /></button></Tip>
+                  <Tip label={t("common.edit")}><button onClick={() => setDlg({ open: true, editing: p })} className="p-1.5 rounded-md hover:bg-muted outline-none transition-colors shrink-0"><Pencil className="w-[18px] h-[18px] text-muted-foreground" /></button></Tip>
+                  <Tip label={t("common.delete")}><button onClick={() => remove(p)} className="p-1.5 rounded-md hover:bg-muted outline-none transition-colors shrink-0"><Trash2 className="w-[18px] h-[18px] text-destructive" /></button></Tip>
                 </div>
               ))}
             </div>
@@ -149,6 +151,7 @@ function WebApiDialog({ state, campaigns, onClose, onSaved, onError }: {
   state: { open: boolean; editing: WebApiSource | null }; campaigns: Campaign[];
   onClose: () => void; onSaved: (m: string) => void; onError: (m: string) => void;
 }) {
+  const { t } = useI18n();
   const isEdit = !!state.editing;
   const [name, setName] = useState("");
   const [slug, setSlug] = useState("");
@@ -168,12 +171,12 @@ function WebApiDialog({ state, campaigns, onClose, onSaved, onError }: {
   }, [state.open]); // eslint-disable-line react-hooks/exhaustive-deps
 
   async function save() {
-    if (!name.trim()) { onError("Name is required"); return; }
+    if (!name.trim()) { onError(t("account.name_required")); return; }
     setSaving(true);
     const payload = { name: name.trim(), slug: slug.trim() || undefined, auto_template_name: template.trim() || undefined, webhook_url: webhook.trim() || undefined, campaign_id: campaignId, platform };
     try {
-      if (isEdit) { await api.updateWebApiSource(state.editing!.id, payload); onSaved("API source updated"); }
-      else { await api.createWebApiSource(payload); onSaved("API source created"); }
+      if (isEdit) { await api.updateWebApiSource(state.editing!.id, payload); onSaved(t("settings.apiSourceUpdated")); }
+      else { await api.createWebApiSource(payload); onSaved(t("settings.apiSourceCreated")); }
     } catch (e) { onError(String(e)); }
     finally { setSaving(false); }
   }
@@ -189,7 +192,7 @@ function WebApiDialog({ state, campaigns, onClose, onSaved, onError }: {
     <SidePanel
       open={state.open}
       onClose={onClose}
-      title={isEdit ? "Edit API source" : "New API source"}
+      title={isEdit ? t("settings.editApiSource") : t("settings.newApiSource")}
       width="sm"
       busy={saving}
       onApply={save}
@@ -198,19 +201,19 @@ function WebApiDialog({ state, campaigns, onClose, onSaved, onError }: {
       <div className="flex flex-col gap-4">
         {fields.map((f) => (
           <div key={f.label}>
-            <FieldLabel>{f.label}</FieldLabel>
+            <FieldLabel>{t(f.label)}</FieldLabel>
             <input type="text" value={f.value} onChange={(e) => f.set(e.target.value)} autoFocus={f.autoFocus} placeholder={f.placeholder}
               className={INPUT_CLASS} />
           </div>
         ))}
         <div>
-          <FieldLabel>Platform</FieldLabel>
+          <FieldLabel>{t("settings.platform")}</FieldLabel>
           <Select value={platform} onChange={(v) => setPlatform(v as SourcePlatform)} searchable={false}
             options={(Object.keys(PLATFORM_LABELS) as SourcePlatform[]).map((k) => ({ value: k, label: PLATFORM_LABELS[k] }))} />
         </div>
         <div>
-          <FieldLabel>Route to campaign</FieldLabel>
-          <Select value={campaignId} onChange={setCampaignId} placeholder="No campaign"
+          <FieldLabel>{t("settings.routeToCampaign")}</FieldLabel>
+          <Select value={campaignId} onChange={setCampaignId} placeholder={t("settings.noCampaign")}
             options={[{ value: "", label: "No campaign" }, ...campaigns.map((c) => ({ value: c.id, label: c.name }))]} />
         </div>
       </div>

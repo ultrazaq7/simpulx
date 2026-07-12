@@ -1,4 +1,5 @@
 "use client";
+import { useI18n } from "@/lib/i18n";
 import { useState, useEffect, useCallback, useMemo } from "react";
 import {
   MessageSquare, ChevronRight, ChevronLeft, Check, Copy, X, Search,
@@ -56,6 +57,7 @@ function MediaGallery({ messages, currentId, active, onClose, onNavigate }: {
   messages: Message[]; currentId: string; active: Conversation | null;
   onClose: () => void; onNavigate: (id: string) => void;
 }) {
+  const { t } = useI18n();
   const index = messages.findIndex((m) => m.id === currentId);
   useEffect(() => {
     const h = (e: KeyboardEvent) => {
@@ -82,12 +84,12 @@ function MediaGallery({ messages, currentId, active, onClose, onNavigate }: {
           <p className="text-white/55 text-[11px]">{fmtTime(cur.created_at)} · {index + 1} of {messages.length}</p>
         </div>
         <div className="flex items-center gap-1">
-          <Tip label="Download" side="bottom">
+          <Tip label={t("broadcasts.download")} side="bottom">
             <a href={url} download target="_blank" rel="noreferrer" className="p-2 rounded-full text-white/80 hover:text-white hover:bg-white/10 transition-colors outline-none">
               <Download className="w-5 h-5" />
             </a>
           </Tip>
-          <Tip label="Close" side="bottom">
+          <Tip label={t("components.close")} side="bottom">
             <button onClick={onClose} className="p-2 rounded-full text-white/80 hover:text-white hover:bg-white/10 transition-colors outline-none">
               <X className="w-6 h-6" />
             </button>
@@ -105,12 +107,12 @@ function MediaGallery({ messages, currentId, active, onClose, onNavigate }: {
         )}
         <div className="max-w-full max-h-full flex items-center justify-center" onClick={(e) => e.stopPropagation()}>
           {kind === "image" ? (
-            <img src={url} className="max-w-full max-h-[80vh] object-contain rounded-md select-none" alt="Preview" />
+            <img src={url} className="max-w-full max-h-[80vh] object-contain rounded-md select-none" alt={t("broadcasts.preview")} />
           ) : kind === "video" ? (
             <video key={url} src={url} controls autoPlay className="max-w-full max-h-[80vh] object-contain rounded-md outline-none" />
           ) : (
             <div className="w-[min(90vw,900px)] h-[80vh] bg-white rounded-lg overflow-hidden">
-              <iframe src={url} className="w-full h-full border-none" title="Document preview" />
+              <iframe src={url} className="w-full h-full border-none" title={t("inbox.documentPreview")} />
             </div>
           )}
         </div>
@@ -214,6 +216,7 @@ export default function ChatPanel({
   agents, canAssign, onReassign, onUnassign, onSnooze,
   uploadProgress, onAddNote, className, onBack, aiThinking,
 }: ChatPanelProps) {
+  const { t } = useI18n();
   const [statusOpen, setStatusOpen] = useState(false);
   // Esc closes these header dropdowns (topmost-first), and registering them on
   // the shared stack also makes the inbox's "Esc closes conversation" defer.
@@ -241,7 +244,7 @@ export default function ChatPanel({
       const res = await api.requestCallPermission(active.id);
       setActiveCallStatus(res.status === "granted" ? "granted" : "requesting");
       setActiveCallId(res.call_id);
-      notify(res.status === "granted" ? "Customer already allowed calls, you can call now" : "Call permission request sent", "info");
+      notify(res.status === "granted" ? t("inbox.customerAlreadyAllowedCallsYou") : t("inbox.callPermissionRequestSent"), "info");
     } catch (err: unknown) {
       const msg = err instanceof Error ? err.message : "Failed to request call";
       notify(msg, "error");
@@ -331,12 +334,12 @@ export default function ChatPanel({
             
             {/* Title */}
             <h2 className="text-xl font-bold tracking-tight text-foreground mb-2 animate-empty-2">
-              Pick a conversation
+              {t("inbox.pickAConversation")}
             </h2>
             
             {/* Description */}
             <p className="text-[13px] text-muted-foreground max-w-[340px] leading-relaxed animate-empty-3">
-              New chats will open here with the full message history, customer context, and reply box ready.
+              {t("inbox.newChatsWillOpenHere")}
             </p>
             
             {/* Decorative line */}
@@ -344,7 +347,7 @@ export default function ChatPanel({
             
             {/* Bottom info */}
             <p className="mt-4 text-[11px] text-muted-foreground/60 animate-empty-4 flex items-center gap-1.5">
-              <Lock className="w-3 h-3" /> End-to-end encrypted
+              <Lock className="w-3 h-3" /> {t("inbox.endToEndEncrypted")}
             </p>
           </div>
         ) : (
@@ -355,7 +358,7 @@ export default function ChatPanel({
             <div className="shrink-0 flex flex-wrap lg:flex-nowrap items-center px-3 gap-2 py-2 lg:py-0 min-h-14 lg:h-14 border-b border-border bg-card">
               {/* Back to list — mobile only */}
               {onBack && (
-                <button aria-label="Back to conversations" onClick={onBack} className="lg:hidden -ml-1 p-1 rounded-md text-muted-foreground hover:bg-muted hover:text-foreground outline-none shrink-0">
+                <button aria-label={t("inbox.backToConversations")} onClick={onBack} className="lg:hidden -ml-1 p-1 rounded-md text-muted-foreground hover:bg-muted hover:text-foreground outline-none shrink-0">
                   <ChevronLeft className="w-5 h-5" />
                 </button>
               )}
@@ -369,12 +372,12 @@ export default function ChatPanel({
               {/* Contact name + phone (left) */}
               <div className="min-w-0 mr-2 shrink">
                 <p className="text-[14px] font-bold text-foreground truncate leading-tight">
-                  {active.contact_name || active.contact_phone || "Unknown"}
+                  {active.contact_name || active.contact_phone || t("broadcasts.unknown")}
                 </p>
                 {active.contact_phone && (
                   <div className="flex items-center gap-1 mt-0.5 min-w-0">
                     <span className="text-[11px] text-muted-foreground tabular-nums truncate">{active.contact_phone}</span>
-                    <button aria-label="Copy phone number" onClick={() => onCopyText(active.contact_phone!)} className="p-0.5 outline-none text-primary/70 hover:text-primary shrink-0">
+                    <button aria-label={t("inbox.copyPhoneNumber")} onClick={() => onCopyText(active.contact_phone!)} className="p-0.5 outline-none text-primary/70 hover:text-primary shrink-0">
                       <Copy className="w-[11px] h-[11px]" />
                     </button>
                   </div>
@@ -394,7 +397,7 @@ export default function ChatPanel({
                   onMarkOutcome={() => setOutcomeOpen(true)}
                 />
                 <div className="w-px h-full bg-border" />
-                <Tip label={nextStage ? `Next: ${nextStage.name}` : "Last stage"}>
+                <Tip label={nextStage ? `Next: ${nextStage.name}` : t("components.lastStage")}>
                   <button
                     disabled={!nextStage}
                     onClick={() => {
@@ -432,7 +435,7 @@ export default function ChatPanel({
                   onClick={() => setStatusOpen((v) => !v)}
                   className={cn("inline-flex items-center gap-1 px-2.5 h-7 rounded-md text-[11px] font-semibold capitalize outline-none transition-opacity hover:opacity-90", STATUS_CHIP[active.status] ?? STATUS_CHIP.closed)}
                 >
-                  {active.status}
+                  {t(active.status)}
                   <ChevronDown className={cn("w-3 h-3 transition-transform", statusOpen && "rotate-180")} />
                 </button>
                 {statusOpen && (
@@ -441,15 +444,15 @@ export default function ChatPanel({
                     <div className="absolute right-0 top-full mt-1 z-50 w-40 rounded-lg border border-border bg-popover shadow-xl py-1 animate-scale-in">
                       <button type="button" onClick={() => { setStatusOpen(false); if (active.status !== "open") onReopen(); }}
                         className="w-full flex items-center gap-2 px-3 py-1.5 text-[13px] text-left hover:bg-muted outline-none">
-                        <RotateCcw className="w-3.5 h-3.5 text-primary" />Open
+                        <RotateCcw className="w-3.5 h-3.5 text-primary" />{t("inbox.open")}
                       </button>
                       <button type="button" onClick={() => { setStatusOpen(false); setSnoozeOpen(true); }}
                         className="w-full flex items-center gap-2 px-3 py-1.5 text-[13px] text-left hover:bg-muted outline-none">
-                        <Clock className="w-3.5 h-3.5 text-amber-600" />Snooze
+                        <Clock className="w-3.5 h-3.5 text-amber-600" />{t("inbox.snooze")}
                       </button>
                       <button type="button" onClick={() => { setStatusOpen(false); setCloseStageId(active.stage_id || ""); setCloseStageOpen(true); }}
                         className="w-full flex items-center gap-2 px-3 py-1.5 text-[13px] text-left hover:bg-muted outline-none">
-                        <CheckCircle className="w-3.5 h-3.5 text-success" />Closed
+                        <CheckCircle className="w-3.5 h-3.5 text-success" />{t("inbox.closed")}
                       </button>
                     </div>
                   </>
@@ -462,7 +465,7 @@ export default function ChatPanel({
                   <div className="absolute inset-0 bg-black/40 backdrop-blur-[2px] animate-fade-in" onClick={() => setSnoozeOpen(false)} />
                   <div className="relative bg-card rounded-xl border border-border shadow-2xl w-full max-w-xs p-5 animate-scale-in">
                     <div className="flex items-center justify-between mb-4">
-                      <h3 className="text-[15px] font-bold text-foreground flex items-center gap-2"><Clock className="w-4 h-4 text-amber-600" />Snooze until</h3>
+                      <h3 className="text-[15px] font-bold text-foreground flex items-center gap-2"><Clock className="w-4 h-4 text-amber-600" />{t("inbox.snoozeUntil")}</h3>
                       <button onClick={() => setSnoozeOpen(false)} className="p-1 rounded-md text-muted-foreground hover:bg-muted outline-none"><X className="w-4 h-4" /></button>
                     </div>
                     <div className="grid grid-cols-2 gap-2 mb-4">
@@ -471,12 +474,12 @@ export default function ChatPanel({
                           className="px-3 py-2 rounded-lg border border-border text-[13px] font-medium text-foreground/90 hover:border-primary/40 hover:bg-muted outline-none transition-colors">{p.label}</button>
                       ))}
                     </div>
-                    <label className="block text-[11px] font-bold uppercase tracking-wider text-muted-foreground mb-1.5">Custom date &amp; time</label>
+                    <label className="block text-[11px] font-bold uppercase tracking-wider text-muted-foreground mb-1.5">{t("inbox.customDateTime")}</label>
                     <div className="flex gap-2">
                       <input type="datetime-local" value={customSnooze} onChange={(e) => setCustomSnooze(e.target.value)}
                         className="flex-1 min-w-0 h-9 px-3 rounded-md border border-input bg-background text-[13px] outline-none focus:border-primary" />
                       <button disabled={!customSnooze} onClick={() => { if (customSnooze) doSnooze(new Date(customSnooze)); }}
-                        className="px-3 h-9 rounded-md bg-primary text-white text-[13px] font-semibold disabled:opacity-50 outline-none">Set</button>
+                        className="px-3 h-9 rounded-md bg-primary text-white text-[13px] font-semibold disabled:opacity-50 outline-none">{t("inbox.set")}</button>
                     </div>
                   </div>
                 </div>
@@ -487,10 +490,10 @@ export default function ChatPanel({
                 <div className="fixed inset-0 z-[60] grid place-items-center">
                   <div className="absolute inset-0 bg-black/40 backdrop-blur-[2px] animate-fade-in" onClick={() => setCloseStageOpen(false)} />
                   <div className="relative bg-card rounded-xl border border-border shadow-2xl w-full max-w-sm p-5 animate-scale-in">
-                    <h3 className="text-[15px] font-bold text-foreground mb-1">Close conversation</h3>
-                    <p className="text-[12.5px] text-muted-foreground mb-4">Pick the final stage for this lead before closing.</p>
+                    <h3 className="text-[15px] font-bold text-foreground mb-1">{t("inbox.closeConversation")}</h3>
+                    <p className="text-[12.5px] text-muted-foreground mb-4">{t("inbox.pickTheFinalStageFor")}</p>
                     <div className="max-h-[300px] overflow-auto mb-4 -mx-1">
-                      <p className="px-2 py-1.5 text-[10px] font-bold text-muted-foreground uppercase tracking-wider">Pipeline stage</p>
+                      <p className="px-2 py-1.5 text-[10px] font-bold text-muted-foreground uppercase tracking-wider">{t("automation.pipelineStage")}</p>
                       {stages.filter((st) => !(st.system_key || "").startsWith("lost") && !st.name.toLowerCase().startsWith("lost")).map((st) => (
                         <button key={st.id} onClick={() => setCloseStageId(st.id)}
                           className={cn("w-full flex items-center gap-2 px-2 py-2 rounded-md text-[13px] text-left outline-none transition-colors",
@@ -501,25 +504,25 @@ export default function ChatPanel({
                         </button>
                       ))}
                       <div className="border-t border-border my-1" />
-                      <p className="px-2 py-1.5 text-[10px] font-bold text-muted-foreground uppercase tracking-wider">Outcome</p>
+                      <p className="px-2 py-1.5 text-[10px] font-bold text-muted-foreground uppercase tracking-wider">{t("inbox.outcome")}</p>
                       <button
                         onClick={() => { setCloseStageOpen(false); setOutcomeOpen(true); }}
                         className="w-full flex items-center gap-2 px-2 py-2 rounded-md text-[13px] text-left text-red-600 hover:bg-red-50 outline-none transition-colors">
                         <XCircle className="w-4 h-4 shrink-0" />
-                        Mark as lost / spam
+                        {t("contacts.markAsLostSpam")}
                       </button>
                     </div>
                     <div className="flex justify-end gap-2">
-                      <button onClick={() => setCloseStageOpen(false)} className="px-4 h-9 rounded-md border border-border text-[13px] font-semibold text-foreground/80 hover:bg-muted outline-none">Cancel</button>
+                      <button onClick={() => setCloseStageOpen(false)} className="px-4 h-9 rounded-md border border-border text-[13px] font-semibold text-foreground/80 hover:bg-muted outline-none">{t("common.cancel")}</button>
                       <button disabled={!closeStageId} onClick={() => { onStageChange(closeStageId); onResolve(); setCloseStageOpen(false); }}
-                        className="px-4 h-9 rounded-md bg-primary text-white text-[13px] font-semibold disabled:opacity-50 outline-none inline-flex items-center gap-1.5"><CheckCircle className="w-4 h-4" />Close</button>
+                        className="px-4 h-9 rounded-md bg-primary text-white text-[13px] font-semibold disabled:opacity-50 outline-none inline-flex items-center gap-1.5"><CheckCircle className="w-4 h-4" />{t("components.close")}</button>
                     </div>
                   </div>
                 </div>
               )}
 
               {/* Search messages */}
-              <Tip label="Search messages (Ctrl+F)">
+              <Tip label={t("inbox.searchMessagesCtrlF")}>
                 <button
                   onClick={() => setSearchOpen((v) => !v)}
                   className={cn(
@@ -532,7 +535,7 @@ export default function ChatPanel({
               </Tip>
 
               {/* Toggle details */}
-              <Tip label={showDetails ? "Hide details" : "Show details"}>
+              <Tip label={showDetails ? t("inbox.hideDetails") : t("inbox.showDetails")}>
                 <button
                   onClick={onToggleDetails}
                   className={cn(
@@ -553,7 +556,7 @@ export default function ChatPanel({
                   type="text"
                   value={searchTerm}
                   onChange={(e) => setSearchTerm(e.target.value)}
-                  placeholder="Search messages"
+                  placeholder={t("components.searchMessages")}
                   autoFocus
                   className="flex-1 h-7 text-sm outline-none bg-transparent text-foreground placeholder:text-muted-foreground/70"
                 />
@@ -563,19 +566,19 @@ export default function ChatPanel({
                   </span>
                 )}
                 {searchTerm.length >= 2 && searchMatches.length === 0 && (
-                  <span className="text-[11px] text-muted-foreground">No results</span>
+                  <span className="text-[11px] text-muted-foreground">{t("components.noResults")}</span>
                 )}
-                <Tip label="Previous match" side="bottom">
+                <Tip label={t("inbox.previousMatch")} side="bottom">
                   <button onClick={() => setSearchIdx((i) => (i > 0 ? i - 1 : searchMatches.length - 1))} disabled={searchMatches.length === 0} className="p-1 rounded hover:bg-muted disabled:opacity-30 outline-none">
                     <ChevronUp className="w-4 h-4 text-foreground/70" />
                   </button>
                 </Tip>
-                <Tip label="Next match" side="bottom">
+                <Tip label={t("inbox.nextMatch")} side="bottom">
                   <button onClick={() => setSearchIdx((i) => (i < searchMatches.length - 1 ? i + 1 : 0))} disabled={searchMatches.length === 0} className="p-1 rounded hover:bg-muted disabled:opacity-30 outline-none">
                     <ChevronDown className="w-4 h-4 text-foreground/70" />
                   </button>
                 </Tip>
-                <Tip label="Close search" side="bottom">
+                <Tip label={t("inbox.closeSearch")} side="bottom">
                   <button onClick={() => { setSearchOpen(false); setSearchTerm(""); }} className="p-1 rounded hover:bg-muted outline-none">
                     <X className="w-4 h-4 text-muted-foreground" />
                   </button>
@@ -587,7 +590,7 @@ export default function ChatPanel({
             <div ref={bodyRef} className="flex-1 overflow-auto px-4 pt-5 pb-10 flex flex-col">
               {messagesQuery.isLoading && timeline.length === 0 && <MessageThreadSkeleton />}
               {messagesQuery.isFetchingNextPage && (
-                <p className="text-center text-xs text-muted-foreground my-2">Loading older messages...</p>
+                <p className="text-center text-xs text-muted-foreground my-2">{t("components.loadingOlderMessages")}</p>
               )}
               {/* mt-auto bottom-anchors a short thread so the last message sits
                   just above the composer instead of leaving a big empty gap
@@ -608,7 +611,7 @@ export default function ChatPanel({
                       <div className="flex items-center gap-3 py-1">
                         <div className="flex-1 h-px bg-border" />
                         <span className="text-[11px] font-semibold text-muted-foreground bg-card px-3 py-1 rounded-full border border-border shadow-xs">
-                          {it.label}
+                          {t(it.label)}
                         </span>
                         <div className="flex-1 h-px bg-border" />
                       </div>
@@ -617,10 +620,10 @@ export default function ChatPanel({
                       <div className="ml-auto w-fit min-w-[180px] max-w-[72%] rounded-lg border border-amber-200 bg-amber-50 px-4 py-3 shadow-xs">
                         <div className="flex items-center gap-1.5 mb-1">
                           <Lock className="w-3 h-3 text-amber-700" />
-                          <span className="text-[10px] font-bold uppercase tracking-wider text-amber-700">Internal note</span>
+                          <span className="text-[10px] font-bold uppercase tracking-wider text-amber-700">{t("components.internalNote")}</span>
                         </div>
                         <p className="text-sm text-foreground whitespace-pre-line">{it.n.body}</p>
-                        <p className="text-xs text-muted-foreground mt-1">{it.n.author || "Unknown"} - {fmtTime(it.n.created_at)}</p>
+                        <p className="text-xs text-muted-foreground mt-1">{it.n.author || t("broadcasts.unknown")} - {fmtTime(it.n.created_at)}</p>
                       </div>
                     );
                     return (
@@ -655,7 +658,7 @@ export default function ChatPanel({
             {aiThinking && (
               <div className="px-4 pb-1.5 pt-0.5 flex items-center gap-2 text-[12px] font-medium text-violet-600">
                 <Sparkles className="w-3.5 h-3.5" />
-                <span>Simpuler is typing</span>
+                <span>{t("inbox.simpulerIsTyping")}</span>
                 <span className="flex gap-0.5">
                   <span className="w-1 h-1 rounded-full bg-violet-500 animate-bounce [animation-delay:-0.2s]" />
                   <span className="w-1 h-1 rounded-full bg-violet-500 animate-bounce [animation-delay:-0.1s]" />
@@ -702,7 +705,7 @@ export default function ChatPanel({
             if (spam) patch.disposition_id = spam.id;
             if (spamStage) patch.stage_id = spamStage.id;
             onOverride(patch, "Marked as spam");
-            if (!spam) notify("Spam disposition missing", "warning");
+            if (!spam) notify(t("inbox.spamDispositionMissing"), "warning");
           } else {
             // Route to "Lost Purchase" (bought elsewhere) or "Lost Not Purchase"
             // so the CURRENT STAGE reflects the outcome; keep the disposition for
@@ -715,7 +718,7 @@ export default function ChatPanel({
             if (lostStage) patch.stage_id = lostStage.id;
             if (lost) patch.disposition_id = lost.id;
             if (lostStage || lost) onOverride(patch, didPurchase ? "Marked lost (purchased elsewhere)" : "Marked as lost");
-            else { onOverride(patch, "Lost reason saved"); notify("Lost stage/disposition missing", "warning"); }
+            else { onOverride(patch, "Lost reason saved"); notify(t("inbox.lostStageDispositionMissing"), "warning"); }
           }
           setOutcomeOpen(false);
         }}

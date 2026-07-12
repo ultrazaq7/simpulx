@@ -1,4 +1,5 @@
 "use client";
+import { useI18n } from "@/lib/i18n";
 import { memo } from "react";
 import {
   Image as ImageIcon, Video, FileText, Headset, Bot, CheckCircle, Zap, Clock, Phone, Sticker, Mic, User, Building2,
@@ -47,6 +48,7 @@ function previewMedia(preview: string | null | undefined) {
 const ConversationCard = memo(function ConversationCard({
   conv: c, isActive, onClick, showAgent, channelName, dense,
 }: ConversationCardProps) {
+  const { t } = useI18n();
   const unread = c.unread_count > 0;
 
   const needsFollowUp = (c.interest_level === "hot" || c.interest_level === "warm") && unread;
@@ -106,7 +108,7 @@ const ConversationCard = memo(function ConversationCard({
             "min-w-0 truncate text-[13px] leading-snug",
             unread ? "font-semibold text-foreground" : "font-medium text-foreground/90",
           )}>
-            {c.contact_name || c.contact_phone || "Unknown"}
+            {c.contact_name || c.contact_phone || t("broadcasts.unknown")}
           </p>
           <span className="flex-1" />
           {!windowExpired ? (
@@ -144,13 +146,13 @@ const ConversationCard = memo(function ConversationCard({
         <div className={cn("flex items-center gap-1.5", dense ? "mt-0.5" : "mt-1")}>
           {/* Delivery status checkmarks for outbound */}
           {outboundStatus === "failed" ? (
-            <Tip label="Failed" side="top"><AlertCircle className="w-3 h-3 shrink-0 text-hot" /></Tip>
+            <Tip label={t("broadcasts.failed")} side="top"><AlertCircle className="w-3 h-3 shrink-0 text-hot" /></Tip>
           ) : outboundStatus === "read" ? (
-            <Tip label="Read" side="top"><CheckCheck className="w-3.5 h-3.5 shrink-0 text-info" /></Tip>
+            <Tip label={t("broadcasts.read")} side="top"><CheckCheck className="w-3.5 h-3.5 shrink-0 text-info" /></Tip>
           ) : outboundStatus === "delivered" ? (
-            <Tip label="Delivered" side="top"><CheckCheck className="w-3.5 h-3.5 shrink-0 text-muted-foreground" /></Tip>
+            <Tip label={t("broadcasts.delivered")} side="top"><CheckCheck className="w-3.5 h-3.5 shrink-0 text-muted-foreground" /></Tip>
           ) : outboundStatus === "sent" ? (
-            <Tip label="Sent" side="top"><Check className="w-3.5 h-3.5 shrink-0 text-muted-foreground" /></Tip>
+            <Tip label={t("broadcasts.sent")} side="top"><Check className="w-3.5 h-3.5 shrink-0 text-muted-foreground" /></Tip>
           ) : null}
           <Tip label={<span className="block max-w-[300px] whitespace-pre-wrap leading-snug text-left text-[12px]">{previewFull}</span>} side="bottom" align="start">
             <span className={cn(
@@ -158,20 +160,20 @@ const ConversationCard = memo(function ConversationCard({
               unread ? "text-foreground/85" : "text-muted-foreground",
             )}>
               {media ? (
-                <span className="inline-flex items-center gap-1 align-middle"><media.icon className="w-3.5 h-3.5 shrink-0" />{media.label}</span>
+                <span className="inline-flex items-center gap-1 align-middle"><media.icon className="w-3.5 h-3.5 shrink-0" />{t(media.label)}</span>
               ) : (
-                c.last_message_preview || <span className="italic text-muted-foreground/60">No messages yet</span>
+                c.last_message_preview || <span className="italic text-muted-foreground/60">{t("components.noMessagesYet")}</span>
               )}
             </span>
           </Tip>
           {c.status === "closed" ? (
-            <Tip label="Closed" side="top"><CheckCircle className="w-3.5 h-3.5 text-muted-foreground shrink-0" /></Tip>
+            <Tip label={t("inbox.closed")} side="top"><CheckCircle className="w-3.5 h-3.5 text-muted-foreground shrink-0" /></Tip>
           ) : c.status === "snoozed" ? (
-            <Tip label="Snoozed" side="top"><Clock className="w-3.5 h-3.5 text-warm shrink-0" /></Tip>
+            <Tip label={t("inbox.snoozed")} side="top"><Clock className="w-3.5 h-3.5 text-warm shrink-0" /></Tip>
           ) : needsCall ? (
-            <Tip label="Call this hot lead" side="top"><Phone className="w-3.5 h-3.5 text-info shrink-0" /></Tip>
+            <Tip label={t("inbox.callThisHotLead")} side="top"><Phone className="w-3.5 h-3.5 text-info shrink-0" /></Tip>
           ) : needsFollowUp ? (
-            <Tip label="Follow up now" side="top"><Zap className="w-3.5 h-3.5 text-warm shrink-0" /></Tip>
+            <Tip label={t("inbox.followUpNow")} side="top"><Zap className="w-3.5 h-3.5 text-warm shrink-0" /></Tip>
           ) : null}
           {unread && (
             <span className="shrink-0 min-w-[18px] h-[18px] px-1.5 rounded-full bg-primary text-primary-foreground text-[10px] font-semibold grid place-items-center tabular-nums animate-unread">

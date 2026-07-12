@@ -1,4 +1,5 @@
 "use client";
+import { useI18n } from "@/lib/i18n";
 import { useEffect, useMemo, useRef, useState } from "react";
 import { createPortal } from "react-dom";
 import { Search, MoreHorizontal, User, Loader2, Eye, EyeOff, X, Plus, Activity, Clock, Timer, CalendarDays, Download } from "lucide-react";
@@ -26,6 +27,7 @@ function relativeTime(iso: string | null): string {
 }
 
 export default function PeopleSettingsPage() {
+  const { t } = useI18n();
   const { notify, confirm, ToastHost } = useToast();
   const [rows, setRows] = useState<UserAccount[]>([]);
   const [loading, setLoading] = useState(true);
@@ -59,13 +61,13 @@ export default function PeopleSettingsPage() {
   }, []);
 
   async function remove(u: UserAccount) {
-    if (!(await confirm({ title: `Remove ${u.full_name}?`, message: "This is permanent: they lose access and their open leads are reassigned. Past history stays for the record. To pause an account temporarily, use Deactivate instead.", danger: true, confirmLabel: "Remove" }))) return;
-    try { await api.deleteUser(u.id); notify("User removed", "info"); load(); }
+    if (!(await confirm({ title: t("settings.removeX", { x: u.full_name }), message: "This is permanent: they lose access and their open leads are reassigned. Past history stays for the record. To pause an account temporarily, use Deactivate instead.", danger: true, confirmLabel: "Remove" }))) return;
+    try { await api.deleteUser(u.id); notify(t("settings.userRemoved"), "info"); load(); }
     catch (e) { notify(String(e), "error"); }
   }
   async function toggleStatus(u: UserAccount) {
     const deactivating = u.status === "active";
-    if (deactivating && !(await confirm({ title: "Deactivate account?", message: `${u.full_name} will lose access until reactivated. Their leads and history stay intact.`, danger: true, confirmLabel: "Deactivate" }))) return;
+    if (deactivating && !(await confirm({ title: "Deactivate account?", message: t("settings.deactivateMsg", { x: u.full_name }), danger: true, confirmLabel: "Deactivate" }))) return;
     try { await api.updateUser(u.id, { status: deactivating ? "inactive" : "active" }); notify(`User ${deactivating ? "deactivated" : "activated"}`); load(); }
     catch (e) { notify(String(e), "error"); }
   }
@@ -108,24 +110,24 @@ export default function PeopleSettingsPage() {
         <div className="p-3 flex items-center gap-2.5 border-b border-border flex-wrap shrink-0">
           <div className="relative w-[240px]">
             <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-muted-foreground pointer-events-none" />
-            <input type="text" placeholder="Search by name or email" value={search} onChange={(e) => setSearch(e.target.value)}
+            <input type="text" placeholder={t("settings.searchByNameOrEmail")} value={search} onChange={(e) => setSearch(e.target.value)}
               className="w-full h-9 pl-9 pr-3 rounded-md border border-input bg-muted text-sm text-foreground placeholder:text-muted-foreground/70 outline-none transition-shadow focus:border-primary" />
           </div>
           <FilterButton count={activeFilters} onClick={() => setFilterOpen(true)} />
-          {activeFilters > 0 && <button onClick={clearFilters} className="text-[11px] font-semibold text-primary hover:underline outline-none">Clear</button>}
+          {activeFilters > 0 && <button onClick={clearFilters} className="text-[11px] font-semibold text-primary hover:underline outline-none">{t("common.clear")}</button>}
           <FilterDrawer open={filterOpen} onClose={() => setFilterOpen(false)} onClear={clearFilters} canClear={activeFilters > 0}>
-            <FilterField label="Roles"><MultiSelect value={roleFilter} onChange={setRoleFilter} placeholder="All roles" className="w-full" options={ROLES.map((r) => ({ value: r, label: cap(r) }))} /></FilterField>
-            <FilterField label="Campaigns"><MultiSelect value={campaignFilter} onChange={setCampaignFilter} placeholder="All campaigns" className="w-full" options={campaigns.map((c) => ({ value: c.name, label: c.name }))} /></FilterField>
-            <FilterField label="Channels"><MultiSelect value={channelFilter} onChange={setChannelFilter} placeholder="All channels" className="w-full" options={channels.map((c) => ({ value: c.id, label: c.name }))} /></FilterField>
-            <FilterField label="Status"><MultiSelect value={statusFilter} onChange={setStatusFilter} placeholder="All statuses" className="w-full" options={[{ value: "active", label: "Active" }, { value: "inactive", label: "Inactive" }]} /></FilterField>
+            <FilterField label={t("settings.roles2")}><MultiSelect value={roleFilter} onChange={setRoleFilter} placeholder={t("settings.allRoles")} className="w-full" options={ROLES.map((r) => ({ value: r, label: cap(r) }))} /></FilterField>
+            <FilterField label={t("settings.campaigns")}><MultiSelect value={campaignFilter} onChange={setCampaignFilter} placeholder={t("common.allCampaigns")} className="w-full" options={campaigns.map((c) => ({ value: c.name, label: c.name }))} /></FilterField>
+            <FilterField label={t("settings.channels")}><MultiSelect value={channelFilter} onChange={setChannelFilter} placeholder={t("common.allChannels")} className="w-full" options={channels.map((c) => ({ value: c.id, label: c.name }))} /></FilterField>
+            <FilterField label={t("automation.status")}><MultiSelect value={statusFilter} onChange={setStatusFilter} placeholder={t("settings.allStatuses")} className="w-full" options={[{ value: "active", label: "Active" }, { value: "inactive", label: "Inactive" }]} /></FilterField>
           </FilterDrawer>
           <div className="flex items-center gap-2 ml-auto">
             <GhostButton onClick={exportTeam} disabled={exporting}>
-              {exporting ? <Loader2 className="w-4 h-4 animate-spin" /> : <Download className="w-4 h-4" />}Export
+              {exporting ? <Loader2 className="w-4 h-4 animate-spin" /> : <Download className="w-4 h-4" />}{t("contacts.export")}
             </GhostButton>
             {isPrivileged && (
               <PrimaryButton onClick={() => setDlg({ open: true, editing: null })}>
-                <Plus className="w-4 h-4" />Invite people
+                <Plus className="w-4 h-4" />{t("settings.invitePeople")}
               </PrimaryButton>
             )}
           </div>
@@ -136,7 +138,7 @@ export default function PeopleSettingsPage() {
             <thead>
               <tr className="border-b border-border bg-muted/40">
                 {["User", "Role", "Campaigns", "Status", "Last login", "Created", ""].map((h) => (
-                  <th key={h} className={cn("px-4 py-2.5 text-[11px] font-bold uppercase tracking-wider text-muted-foreground", h === "" ? "text-right w-12" : "text-left")}>{h || <span className="sr-only">Actions</span>}</th>
+                  <th key={h} className={cn("px-4 py-2.5 text-[11px] font-bold uppercase tracking-wider text-muted-foreground", h === "" ? "text-right w-12" : "text-left")}>{h ? t(h) : <span className="sr-only">{t("common.actions")}</span>}</th>
                 ))}
               </tr>
             </thead>
@@ -144,7 +146,7 @@ export default function PeopleSettingsPage() {
               {loading ? (
                 <tr><td colSpan={7} className="text-center py-16"><Loader2 className="w-6 h-6 animate-spin text-muted-foreground mx-auto" /></td></tr>
               ) : paged.length === 0 ? (
-                <tr><td colSpan={7} className="text-center py-16 text-muted-foreground">No people found</td></tr>
+                <tr><td colSpan={7} className="text-center py-16 text-muted-foreground">{t("settings.noPeopleFound")}</td></tr>
               ) : paged.map((u) => {
                 const rc = ROLE_COLOR[u.role] ?? "#64748B";
                 return (
@@ -159,7 +161,7 @@ export default function PeopleSettingsPage() {
                           {u.is_online && <span className="absolute bottom-0 right-0 w-2.5 h-2.5 rounded-full bg-success border-2 border-card" />}
                         </div>
                         <div className="min-w-0">
-                          <p className="text-sm font-semibold text-foreground truncate">{u.full_name}{u.id === me?.id ? " (You)" : ""}</p>
+                          <p className="text-sm font-semibold text-foreground truncate">{u.full_name}{u.id === me?.id ? t("settings.you") : ""}</p>
                           <p className="text-xs text-muted-foreground truncate">{u.email}</p>
                         </div>
                       </div>
@@ -175,7 +177,7 @@ export default function PeopleSettingsPage() {
                         <span className={cn("text-[12.5px] capitalize", u.status === "active" ? "text-foreground" : "text-muted-foreground")}>{u.status}</span>
                       </div>
                     </td>
-                    <td className="px-4 py-2.5 text-[12.5px] text-muted-foreground whitespace-nowrap">{u.last_login_at ? fmtDateTimeShort(u.last_login_at) : "Never"}</td>
+                    <td className="px-4 py-2.5 text-[12.5px] text-muted-foreground whitespace-nowrap">{u.last_login_at ? fmtDateTimeShort(u.last_login_at) : t("settings.never")}</td>
                     <td className="px-4 py-2.5 text-[12.5px] text-muted-foreground whitespace-nowrap">{fmtDateTimeShort(u.created_at)}</td>
                     <td className="px-4 py-2.5 text-right relative">
                       <UserRowMenu
@@ -204,9 +206,9 @@ export default function PeopleSettingsPage() {
           <div className="flex items-center gap-2">
             <Select value={String(rowsPerPage)} onChange={(v) => { setRowsPerPage(Number(v)); setPage(0); }} align="right" className="w-[72px]"
               options={[10, 25, 50].map((n) => ({ value: String(n), label: String(n) }))} />
-            <span className="text-muted-foreground mx-2 tabular-nums">Page {page + 1} of {totalPages}</span>
-            <button disabled={page <= 0} onClick={() => setPage(page - 1)} className="px-2.5 h-7 rounded-md border border-border text-xs font-semibold disabled:opacity-30 hover:bg-muted outline-none transition-colors">Prev</button>
-            <button disabled={page >= totalPages - 1} onClick={() => setPage(page + 1)} className="px-2.5 h-7 rounded-md border border-border text-xs font-semibold disabled:opacity-30 hover:bg-muted outline-none transition-colors">Next</button>
+            <span className="text-muted-foreground mx-2 tabular-nums">{t("settings.page")} {page + 1} of {totalPages}</span>
+            <button disabled={page <= 0} onClick={() => setPage(page - 1)} className="px-2.5 h-7 rounded-md border border-border text-xs font-semibold disabled:opacity-30 hover:bg-muted outline-none transition-colors">{t("settings.prev")}</button>
+            <button disabled={page >= totalPages - 1} onClick={() => setPage(page + 1)} className="px-2.5 h-7 rounded-md border border-border text-xs font-semibold disabled:opacity-30 hover:bg-muted outline-none transition-colors">{t("settings.next")}</button>
           </div>
         </div>
       </SettingsCard>
@@ -225,6 +227,7 @@ function UserRowMenu({ u, isOpen, onToggle, onClose, onEdit, onViewActivity, onT
   onEdit: () => void; onViewActivity: () => void; onToggleStatus: () => void; onRemove: () => void;
   isPrivileged: boolean; isMe: boolean;
 }) {
+  const { t } = useI18n();
   const btnRef = useRef<HTMLButtonElement>(null);
   const [pos, setPos] = useState<{ top: number; left: number; flipUp: boolean }>({ top: 0, left: 0, flipUp: false });
 
@@ -244,7 +247,7 @@ function UserRowMenu({ u, isOpen, onToggle, onClose, onEdit, onViewActivity, onT
 
   return (
     <>
-      <button ref={btnRef} aria-label="Member actions" onClick={handleToggle}
+      <button ref={btnRef} aria-label={t("settings.memberActions")} onClick={handleToggle}
         className="p-1 border border-border rounded-md hover:bg-muted transition-colors outline-none">
         <MoreHorizontal className="w-[18px] h-[18px] text-muted-foreground" />
       </button>
@@ -259,17 +262,17 @@ function UserRowMenu({ u, isOpen, onToggle, onClose, onEdit, onViewActivity, onT
             }
           >
             <button onClick={onViewActivity} className="w-full flex items-center gap-2 px-3 py-2 text-left text-[13px] text-foreground hover:bg-muted outline-none transition-colors">
-              <Activity className="w-3.5 h-3.5 text-muted-foreground" />View activity
+              <Activity className="w-3.5 h-3.5 text-muted-foreground" />{t("settings.viewActivity")}
             </button>
-            <button onClick={onEdit} className="w-full px-3 py-2 text-left text-[13px] text-foreground hover:bg-muted outline-none transition-colors">Edit user</button>
+            <button onClick={onEdit} className="w-full px-3 py-2 text-left text-[13px] text-foreground hover:bg-muted outline-none transition-colors">{t("settings.editUser")}</button>
             {isPrivileged && !isMe && (
               <button onClick={onToggleStatus} className="w-full px-3 py-2 text-left text-[13px] text-foreground hover:bg-muted outline-none transition-colors">
-                {u.status === "active" ? "Deactivate" : "Activate"}
+                {u.status === "active" ? t("settings.deactivate") : t("settings.activate")}
               </button>
             )}
             {isPrivileged && !isMe && <div className="border-t border-border my-0.5" />}
             {isPrivileged && !isMe && (
-              <button onClick={onRemove} className="w-full px-3 py-2 text-left text-[13px] text-destructive hover:bg-muted outline-none transition-colors">Remove</button>
+              <button onClick={onRemove} className="w-full px-3 py-2 text-left text-[13px] text-destructive hover:bg-muted outline-none transition-colors">{t("settings.remove")}</button>
             )}
           </div>
         </>,
@@ -303,6 +306,7 @@ function MetricCard({ icon: Icon, label, value, sub }: { icon: any; label: strin
 }
 
 function ActivityPanel({ user, onClose }: { user: UserAccount | null; onClose: () => void }) {
+  const { t } = useI18n();
   const [range, setRange] = useState<"7d" | "30d" | "month">("30d");
   const [data, setData] = useState<UserActivity | null>(null);
   const [loading, setLoading] = useState(false);
@@ -335,7 +339,7 @@ function ActivityPanel({ user, onClose }: { user: UserAccount | null; onClose: (
             </div>
             <div className="min-w-0">
               <h2 className="text-[15px] font-bold text-foreground truncate">{user.full_name}</h2>
-              <p className="text-xs text-muted-foreground truncate">Activity &amp; performance</p>
+              <p className="text-xs text-muted-foreground truncate">{t("settings.activityPerformance")}</p>
             </div>
           </div>
           <button onClick={onClose} className="p-1 rounded-md text-muted-foreground hover:bg-muted hover:text-foreground outline-none transition-colors"><X className="w-[18px] h-[18px]" /></button>
@@ -346,7 +350,7 @@ function ActivityPanel({ user, onClose }: { user: UserAccount | null; onClose: (
             <button key={val} onClick={() => setRange(val)}
               className={cn("px-2.5 h-7 rounded-md text-[12px] font-semibold transition-colors outline-none border",
                 range === val ? "bg-primary text-white border-primary" : "border-border text-muted-foreground hover:bg-muted")}>
-              {label}
+              {t(label)}
             </button>
           ))}
         </div>
@@ -360,17 +364,17 @@ function ActivityPanel({ user, onClose }: { user: UserAccount | null; onClose: (
             <>
               <div className="flex items-center gap-2 mb-4">
                 <span className={cn("w-2 h-2 rounded-full", data.presence.currently_online ? "bg-success" : "bg-muted-foreground/40")} />
-                <span className="text-[13px] font-medium text-foreground">{data.presence.currently_online ? "Online now" : "Offline"}</span>
-                <span className="text-[12px] text-muted-foreground">· last online {relativeTime(data.presence.last_online_at)}</span>
+                <span className="text-[13px] font-medium text-foreground">{data.presence.currently_online ? t("settings.onlineNow") : t("menu.offline")}</span>
+                <span className="text-[12px] text-muted-foreground">{t("settings.lastOnline")} {t(relativeTime(data.presence.last_online_at))}</span>
               </div>
               <div className="grid grid-cols-2 gap-3">
-                <MetricCard icon={Activity} label="Availability" value={`${data.presence.availability_pct}%`} sub="online time / period" />
-                <MetricCard icon={Clock} label="Online time" value={`${data.presence.online_hours} h`} sub={`${data.presence.sessions} session${data.presence.sessions === 1 ? "" : "s"}`} />
-                <MetricCard icon={Timer} label="Sessions" value={String(data.presence.sessions)} sub="online periods" />
-                <MetricCard icon={CalendarDays} label="Active (billing)" value={`${data.billing.active_days} d`} sub={data.billing.is_deleted ? "deleted" : data.billing.is_inactive ? "inactive" : "active"} />
+                <MetricCard icon={Activity} label={t("settings.availability")} value={`${data.presence.availability_pct}%`} sub="online time / period" />
+                <MetricCard icon={Clock} label={t("settings.onlineTime")} value={`${data.presence.online_hours} h`} sub={`${data.presence.sessions} session${data.presence.sessions === 1 ? "" : "s"}`} />
+                <MetricCard icon={Timer} label={t("settings.sessions")} value={String(data.presence.sessions)} sub="online periods" />
+                <MetricCard icon={CalendarDays} label={t("settings.activeBilling")} value={`${data.billing.active_days} d`} sub={data.billing.is_deleted ? "deleted" : data.billing.is_inactive ? "inactive" : "active"} />
               </div>
               <p className="text-[11px] text-muted-foreground/70 mt-4 leading-snug">
-                Presence powers performance metrics only; it does not affect lead distribution. Active days drive billing.
+                {t("settings.presencePowersPerformanceMetricsOnly")}
               </p>
             </>
           ) : null}
@@ -384,6 +388,7 @@ function UserDialog({ state, isPrivileged, onClose, onSaved, onError }: {
   state: { open: boolean; editing: UserAccount | null }; isPrivileged: boolean;
   onClose: () => void; onSaved: (m: string) => void; onError: (m: string) => void;
 }) {
+  const { t } = useI18n();
   const isEdit = !!state.editing;
   const [email, setEmail] = useState("");
   const [name, setName] = useState("");
@@ -399,17 +404,17 @@ function UserDialog({ state, isPrivileged, onClose, onSaved, onError }: {
   }, [state.open]); // eslint-disable-line react-hooks/exhaustive-deps
 
   async function save() {
-    if (!name.trim() || (!isEdit && !email.trim())) { onError("Name and email are required"); return; }
+    if (!name.trim() || (!isEdit && !email.trim())) { onError(t("settings.nameAndEmailAreRequired")); return; }
     setSaving(true);
     try {
       if (isEdit) {
         const patch: { full_name: string; email?: string; role?: string; password?: string } = { full_name: name.trim() };
         if (isPrivileged) { patch.email = email.trim(); patch.role = role; if (password.trim()) patch.password = password.trim(); }
         await api.updateUser(state.editing!.id, patch);
-        onSaved("User updated");
+        onSaved(t("settings.userUpdated"));
       } else {
         await api.createUser({ email: email.trim(), full_name: name.trim(), role, password: password.trim() || undefined });
-        onSaved("User invited");
+        onSaved(t("settings.userInvited"));
       }
     } catch (e) { onError(String(e)); }
     finally { setSaving(false); }
@@ -419,8 +424,8 @@ function UserDialog({ state, isPrivileged, onClose, onSaved, onError }: {
     <SidePanel
       open={state.open}
       onClose={onClose}
-      title={isEdit ? "Edit user" : "Invite people"}
-      description={isEdit ? "Update this team member's details." : "Add a team member to the workspace."}
+      title={isEdit ? t("settings.editUser") : t("settings.invitePeople")}
+      description={isEdit ? t("settings.updateThisTeamMemberS") : t("settings.addATeamMemberTo")}
       width="sm"
       busy={saving}
       onApply={save}
@@ -428,25 +433,25 @@ function UserDialog({ state, isPrivileged, onClose, onSaved, onError }: {
     >
       <div className="flex flex-col gap-4">
         <div>
-          <FieldLabel>Full name</FieldLabel>
+          <FieldLabel>{t("account.name")}</FieldLabel>
           <input type="text" value={name} onChange={(e) => setName(e.target.value)} autoFocus className={INPUT_CLASS} />
         </div>
         <div>
-          <FieldLabel>Email</FieldLabel>
+          <FieldLabel>{t("login.emailLabel")}</FieldLabel>
           <input type="email" value={email} onChange={(e) => setEmail(e.target.value)} disabled={isEdit && !isPrivileged}
             className={cn(INPUT_CLASS, "disabled:bg-muted disabled:text-muted-foreground")} />
-          {isEdit && !isPrivileged && <p className="text-xs text-muted-foreground/70 mt-1">Only admins can change email</p>}
+          {isEdit && !isPrivileged && <p className="text-xs text-muted-foreground/70 mt-1">{t("settings.onlyAdminsCanChangeEmail")}</p>}
         </div>
         {(isPrivileged || !isEdit) && (
           <div>
-            <FieldLabel>Role</FieldLabel>
+            <FieldLabel>{t("account.role")}</FieldLabel>
             <Select value={role} onChange={setRole} disabled={isEdit && !isPrivileged}
               options={ROLES.map((r) => ({ value: r, label: cap(r) }))} />
           </div>
         )}
         {(isPrivileged || !isEdit) && (
           <div>
-            <FieldLabel>{isEdit ? "Reset password (optional)" : "Temporary password (optional)"}</FieldLabel>
+            <FieldLabel>{isEdit ? t("settings.resetPasswordOptional") : t("settings.temporaryPasswordOptional")}</FieldLabel>
             <div className="relative">
               <input type={showPw ? "text" : "password"} value={password} onChange={(e) => setPassword(e.target.value)}
                 className={cn(INPUT_CLASS, "pr-9")} />
@@ -454,7 +459,7 @@ function UserDialog({ state, isPrivileged, onClose, onSaved, onError }: {
                 {showPw ? <Eye className="w-4 h-4" /> : <EyeOff className="w-4 h-4" />}
               </button>
             </div>
-            <p className="text-xs text-muted-foreground/70 mt-1">{isEdit ? "Leave blank to keep current password" : "Defaults to changeme123 if left blank"}</p>
+            <p className="text-xs text-muted-foreground/70 mt-1">{isEdit ? t("settings.leaveBlankToKeepCurrent2") : t("settings.defaultsToChangeme123IfLeft")}</p>
           </div>
         )}
       </div>

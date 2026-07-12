@@ -132,9 +132,9 @@ export default function AccountPage() {
   }, []);
 
   async function uploadAvatar(file: File) {
-    if (!file.type.startsWith("image/")) { notify("Please choose an image file", false); return; }
-    if (file.size > 5 * 1024 * 1024) { notify("Image too large (max 5 MB)", false); return; }
-    if (!user?.id) { notify("User not found", false); return; }
+    if (!file.type.startsWith("image/")) { notify(tr("settings.pleaseChooseAnImageFile"), false); return; }
+    if (file.size > 5 * 1024 * 1024) { notify(tr("settings.imageTooLargeMax5"), false); return; }
+    if (!user?.id) { notify(tr("settings.userNotFound"), false); return; }
     setAvatarUploading(true);
     try {
       const up = await api.uploadFile(file);
@@ -142,7 +142,7 @@ export default function AccountPage() {
       setAvatar(up.url);
       const token = getToken();
       if (token) setSession(token, { ...user, avatar: up.url } as any);
-      notify("Profile photo updated");
+      notify(tr("settings.profilePhotoUpdated"));
     } catch (e) { notify(String(e), false); }
     finally { setAvatarUploading(false); }
   }
@@ -151,8 +151,8 @@ export default function AccountPage() {
   // sticky UnsavedBar — no inline per-field save buttons. Email (needs
   // verification) and password (a security action) keep their own flows.
   async function saveAll() {
-    if (!name.trim()) { notify("Name is required", false); return; }
-    if (!user?.id) { notify("User not found", false); return; }
+    if (!name.trim()) { notify(tr("account.name_required"), false); return; }
+    if (!user?.id) { notify(tr("settings.userNotFound"), false); return; }
     setSaving(true);
     try {
       if (name.trim() !== origName) {
@@ -166,7 +166,7 @@ export default function AccountPage() {
         await api.updateOrganization({ settings: next });
         setSettings(next); setOrigTz(timezone);
       }
-      notify("Changes saved");
+      notify(tr("settings.changesSaved"));
     } catch (e) { notify(String(e), false); }
     finally { setSaving(false); }
   }
@@ -174,13 +174,13 @@ export default function AccountPage() {
   async function saveNotifPref(payload: Record<string, boolean>) {
     try {
       await api.updateOrganization({ settings: { ...settings, notifications: payload } });
-      notify("Notification settings saved");
+      notify(tr("settings.notificationSettingsSaved"));
     } catch (e) { notify(String(e), false); }
   }
 
   async function sendEmailVerification() {
     const next = email.trim();
-    if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(next)) { notify("Enter a valid email address", false); return; }
+    if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(next)) { notify(tr("settings.enterAValidEmailAddress"), false); return; }
     setEmailSaving(true);
     try {
       await api.requestEmailChange(next);
@@ -191,13 +191,13 @@ export default function AccountPage() {
   }
 
   async function changePassword() {
-    if (newPw.length < 8) { notify("New password must be at least 8 characters", false); return; }
-    if (newPw !== confirmPw) { notify("New passwords do not match", false); return; }
+    if (newPw.length < 8) { notify(tr("settings.newPasswordMustBeAt"), false); return; }
+    if (newPw !== confirmPw) { notify(tr("settings.newPasswordsDoNotMatch"), false); return; }
     setPwSaving(true);
     try {
       await api.changePassword(curPw, newPw);
       setCurPw(""); setNewPw(""); setConfirmPw("");
-      notify("Password updated");
+      notify(tr("settings.passwordUpdated"));
     } catch (e) { notify(String(e).replace(/^Error:\s*/, ""), false); }
     finally { setPwSaving(false); }
   }
@@ -231,7 +231,7 @@ export default function AccountPage() {
                   : "text-muted-foreground border-transparent hover:text-foreground",
               )}
             >
-              {t === "notifications" ? tr("account.tab_notifications") : t === "password" ? "Change Password" : tr("account.tab_profile")}
+              {t === "notifications" ? tr("account.tab_notifications") : t === "password" ? tr("settings.changePassword") : tr("account.tab_profile")}
             </button>
           ))}
         </div>
@@ -245,7 +245,7 @@ export default function AccountPage() {
                 type="button"
                 onClick={() => avatarInputRef.current?.click()}
                 className="relative w-16 h-16 rounded-full overflow-hidden shrink-0 shadow-md group outline-none focus-visible:ring-2 focus-visible:ring-primary"
-                aria-label="Change profile photo"
+                aria-label={tr("settings.changeProfilePhoto")}
               >
                 {avatar ? (
                   <img src={avatar} alt="" className="w-full h-full object-cover" />
@@ -298,17 +298,17 @@ export default function AccountPage() {
                         !emailSaving && emailValid ? "bg-primary text-white hover:bg-primary-dark shadow-sm" : "bg-muted text-muted-foreground cursor-not-allowed",
                       )}
                     >
-                      {emailSaving ? <Loader2 className="w-4 h-4 animate-spin" /> : <><MailCheck className="w-4 h-4" /> Verify</>}
+                      {emailSaving ? <Loader2 className="w-4 h-4 animate-spin" /> : <><MailCheck className="w-4 h-4" /> {tr("settings.verify")}</>}
                     </button>
                   )}
                 </div>
                 {pendingEmail ? (
                   <p className="text-[11px] text-amber-600 mt-1.5 flex items-start gap-1">
                     <MailCheck className="w-3.5 h-3.5 mt-px shrink-0" />
-                    <span>Verification link sent to <b>{pendingEmail}</b>. Confirm it from your inbox to activate the new email.</span>
+                    <span>{tr("settings.verificationLinkSentTo")} <b>{pendingEmail}</b>{tr("settings.confirmItFromYourInbox")}</span>
                   </p>
                 ) : emailChanged ? (
-                  <p className="text-[11px] text-muted-foreground/70 mt-1.5">We will email a verification link to the new address. The change applies only after you confirm it.</p>
+                  <p className="text-[11px] text-muted-foreground/70 mt-1.5">{tr("settings.weWillEmailAVerification")}</p>
                 ) : null}
               </div>
 
@@ -329,7 +329,7 @@ export default function AccountPage() {
               <h3 className="text-[16px] font-bold text-foreground mb-5">{tr("account.system_pref")}</h3>
               <div className="bg-card border border-border rounded-xl p-5">
                 <label className="block text-[11px] font-bold uppercase tracking-wider text-muted-foreground mb-1.5">{tr("account.your_timezone")}</label>
-                <Select value={timezone} options={tzSelectOptions} onChange={setTimezone} placeholder="Select timezone" />
+                <Select value={timezone} options={tzSelectOptions} onChange={setTimezone} placeholder={tr("settings.selectTimezone")} />
               </div>
             </div>
             </div>{/* /stack */}
@@ -342,10 +342,10 @@ export default function AccountPage() {
             <div className="max-w-2xl space-y-8">
             {/* Password */}
             <div>
-            <h3 className="text-[16px] font-bold text-foreground mb-5">Change Password</h3>
+            <h3 className="text-[16px] font-bold text-foreground mb-5">{tr("settings.changePassword")}</h3>
             <div className="bg-card border border-border rounded-xl p-5 space-y-4">
               <div>
-                <label className="block text-[11px] font-bold uppercase tracking-wider text-muted-foreground mb-1.5">Current password</label>
+                <label className="block text-[11px] font-bold uppercase tracking-wider text-muted-foreground mb-1.5">{tr("settings.currentPassword")}</label>
                 <input
                   type="password"
                   autoComplete="current-password"
@@ -356,7 +356,7 @@ export default function AccountPage() {
               </div>
               <div className="grid sm:grid-cols-2 gap-4">
                 <div>
-                  <label className="block text-[11px] font-bold uppercase tracking-wider text-muted-foreground mb-1.5">New password</label>
+                  <label className="block text-[11px] font-bold uppercase tracking-wider text-muted-foreground mb-1.5">{tr("auth.newPassword")}</label>
                   <input
                     type="password"
                     autoComplete="new-password"
@@ -366,7 +366,7 @@ export default function AccountPage() {
                   />
                 </div>
                 <div>
-                  <label className="block text-[11px] font-bold uppercase tracking-wider text-muted-foreground mb-1.5">Confirm new password</label>
+                  <label className="block text-[11px] font-bold uppercase tracking-wider text-muted-foreground mb-1.5">{tr("settings.confirmNewPassword")}</label>
                   <input
                     type="password"
                     autoComplete="new-password"
@@ -387,7 +387,7 @@ export default function AccountPage() {
                       : "bg-muted text-muted-foreground cursor-not-allowed",
                   )}
                 >
-                  {pwSaving ? <Loader2 className="w-4 h-4 animate-spin" /> : "Update password"}
+                  {pwSaving ? <Loader2 className="w-4 h-4 animate-spin" /> : tr("settings.updatePassword")}
                 </button>
               </div>
             </div>

@@ -1,4 +1,5 @@
 "use client";
+import { useI18n } from "@/lib/i18n";
 import { useState, useRef, useEffect } from "react";
 import { createPortal } from "react-dom";
 import { ChevronDown, Check } from "lucide-react";
@@ -22,6 +23,7 @@ export function InterestMenu({
   onSelect: (v: string) => void;
   align?: "left" | "right";
 }) {
+  const { t } = useI18n();
   const [open, setOpen] = useState(false);
   const [pos, setPos] = useState<{ top: number; left: number } | null>(null);
   const btnRef = useRef<HTMLButtonElement>(null);
@@ -46,14 +48,14 @@ export function InterestMenu({
 
   return (
     <div className="relative inline-flex">
-      <Tip label="Interest level">
+      <Tip label={t("dashboard.interestLevel")}>
         <button
           ref={btnRef}
           onClick={() => setOpen((v) => !v)}
           className="flex items-center gap-1.5 px-2.5 h-8 rounded-md border border-border bg-background text-[13px] font-semibold text-foreground hover:bg-muted transition-colors outline-none shrink-0"
         >
           <span className="w-2.5 h-2.5 rounded-full shrink-0" style={{ backgroundColor: current ? interestColor(current.value) : "hsl(var(--muted-foreground))" }} />
-          {current?.label || "Unset"}
+          {current?.label || t("contacts.unset")}
           <ChevronDown className="w-3.5 h-3.5 text-muted-foreground" />
         </button>
       </Tip>
@@ -68,13 +70,13 @@ export function InterestMenu({
               align === "right" ? "origin-top-right" : "origin-top-left",
             )}
           >
-            <p className="px-3 py-1.5 text-[10px] font-bold text-muted-foreground uppercase tracking-wider">Interest level</p>
+            <p className="px-3 py-1.5 text-[10px] font-bold text-muted-foreground uppercase tracking-wider">{t("dashboard.interestLevel")}</p>
             <button
               onClick={() => { onSelect(""); setOpen(false); }}
               className="w-full flex items-center gap-2 px-3 py-2 text-[13px] font-medium text-foreground/90 hover:bg-muted outline-none"
             >
               <span className="w-2.5 h-2.5 rounded-full shrink-0 border border-muted-foreground/40" />
-              Unset
+              {t("contacts.unset")}
               {cur === "" && <Check className="w-4 h-4 text-primary ml-auto" />}
             </button>
             {OPTS.map((o) => (
@@ -84,7 +86,7 @@ export function InterestMenu({
                 className="w-full flex items-center gap-2 px-3 py-2 text-[13px] font-medium text-foreground/90 hover:bg-muted outline-none"
               >
                 <span className="w-2.5 h-2.5 rounded-full shrink-0" style={{ backgroundColor: interestColor(o.value) }} />
-                {o.label}
+                {t(o.label)}
                 {cur === o.value && <Check className="w-4 h-4 text-primary ml-auto" />}
               </button>
             ))}

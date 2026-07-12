@@ -1,4 +1,5 @@
 "use client";
+import { useI18n } from "@/lib/i18n";
 import { useState, useRef, useEffect, useCallback } from "react";
 import { Smile, Paperclip, Zap, Send, Lock, X, FileText, Loader2, Clock, Phone, Mic, Trash2, Pause, Play, Sparkles, RefreshCw, Check, Plus } from "lucide-react";
 import EmojiPicker from "emoji-picker-react";
@@ -42,6 +43,7 @@ export default function Composer({
   busy, onSubmit, notify, onSendVoice, windowExpired, phone, conversationId, callingEnabled, onRequestCall,
   aiSummary, uploadProgress, onAddNote, smartSummaryEnabled = true,
 }: ComposerProps) {
+  const { t } = useI18n();
   const [showQR, setShowQR] = useState(false);
   const [emojiOpen, setEmojiOpen] = useState(false);
   // WhatsApp templates (approved only) the agent can drop into the message box.
@@ -55,10 +57,10 @@ export default function Composer({
   useEffect(() => { loadQR(); }, [loadQR]);
   const [qrForm, setQrForm] = useState<{ shortcut: string; title: string; body: string } | null>(null);
   async function saveQR() {
-    if (!qrForm || !qrForm.shortcut.trim() || !qrForm.body.trim()) { notify("Shortcut and message are required", "warning"); return; }
+    if (!qrForm || !qrForm.shortcut.trim() || !qrForm.body.trim()) { notify(t("inbox.shortcutAndMessageAreRequired"), "warning"); return; }
     const sc = qrForm.shortcut.trim().startsWith("/") ? qrForm.shortcut.trim() : "/" + qrForm.shortcut.trim();
-    try { await api.createQuickReply(sc, qrForm.title.trim() || sc, qrForm.body.trim()); setQrForm(null); loadQR(); notify("Shortcut saved"); }
-    catch (e) { notify(e instanceof Error ? e.message : "Could not save", "error"); }
+    try { await api.createQuickReply(sc, qrForm.title.trim() || sc, qrForm.body.trim()); setQrForm(null); loadQR(); notify(t("inbox.shortcutSaved")); }
+    catch (e) { notify(e instanceof Error ? e.message : t("inbox.couldNotSave"), "error"); }
   }
   // Inline "/code" autocomplete: the last token starting with "/" filters shortcuts.
   const slashMatch = draft.match(/(?:^|\s)(\/[^\s]*)$/)?.[1] || null;
@@ -155,7 +157,7 @@ export default function Composer({
       setTimeout(() => { setAiOpen(false); setAiConfirmed(false); }, 420);
     } catch {
       setAiConfirmed(false);
-      notify("Could not add note", "error");
+      notify(t("contacts.couldNotAddNote"), "error");
     }
   };
 
@@ -211,7 +213,7 @@ export default function Composer({
       }, 1000);
     } catch (err) {
       console.error("Microphone access denied:", err);
-      notify("Please allow microphone access to record voice messages", "error");
+      notify(t("inbox.pleaseAllowMicrophoneAccessTo"), "error");
     }
   };
 
@@ -319,7 +321,7 @@ export default function Composer({
           <div className="border-b border-border">
             <div className="max-h-[200px] overflow-auto">
               {qrList.length === 0 ? (
-                <p className="px-4 py-3 text-[13px] text-muted-foreground text-center">No shortcuts yet, add one below.</p>
+                <p className="px-4 py-3 text-[13px] text-muted-foreground text-center">{t("inbox.noShortcutsYetAddOne")}</p>
               ) : qrList.map((q) => (
                 <div key={q.id} className="group/qr flex items-start gap-2 px-4 py-2.5 border-b border-border/60 hover:bg-muted">
                   <div className="flex-1 min-w-0 cursor-pointer" onClick={() => { setDraft(q.body); setShowQR(false); notify(`"${q.shortcut}" inserted`, "info"); }}>
@@ -337,17 +339,17 @@ export default function Composer({
               <div className="p-3 bg-muted/40 border-t border-border space-y-2">
                 <div className="flex gap-2">
                   <input value={qrForm.shortcut} onChange={(e) => setQrForm({ ...qrForm, shortcut: e.target.value })} placeholder="/shortcut" className="w-28 h-8 px-2 rounded-md border border-input bg-background text-[12px] outline-none focus:border-primary" />
-                  <input value={qrForm.title} onChange={(e) => setQrForm({ ...qrForm, title: e.target.value })} placeholder="Title (optional)" className="flex-1 h-8 px-2 rounded-md border border-input bg-background text-[12px] outline-none focus:border-primary" />
+                  <input value={qrForm.title} onChange={(e) => setQrForm({ ...qrForm, title: e.target.value })} placeholder={t("inbox.titleOptional")} className="flex-1 h-8 px-2 rounded-md border border-input bg-background text-[12px] outline-none focus:border-primary" />
                 </div>
-                <textarea value={qrForm.body} onChange={(e) => setQrForm({ ...qrForm, body: e.target.value })} placeholder="Message text" rows={2} className="w-full px-2 py-1.5 rounded-md border border-input bg-background text-[12px] outline-none focus:border-primary resize-none" />
+                <textarea value={qrForm.body} onChange={(e) => setQrForm({ ...qrForm, body: e.target.value })} placeholder={t("automation.messageText")} rows={2} className="w-full px-2 py-1.5 rounded-md border border-input bg-background text-[12px] outline-none focus:border-primary resize-none" />
                 <div className="flex justify-end gap-2">
-                  <button onClick={() => setQrForm(null)} className="px-2.5 h-7 rounded-md text-[12px] font-semibold text-muted-foreground hover:bg-muted outline-none">Cancel</button>
-                  <button onClick={saveQR} className="px-3 h-7 rounded-md text-[12px] font-bold text-white bg-primary hover:bg-primary-dark outline-none">Save</button>
+                  <button onClick={() => setQrForm(null)} className="px-2.5 h-7 rounded-md text-[12px] font-semibold text-muted-foreground hover:bg-muted outline-none">{t("common.cancel")}</button>
+                  <button onClick={saveQR} className="px-3 h-7 rounded-md text-[12px] font-bold text-white bg-primary hover:bg-primary-dark outline-none">{t("common.save")}</button>
                 </div>
               </div>
             ) : (
               <button onClick={() => setQrForm({ shortcut: "", title: "", body: "" })} className="w-full flex items-center gap-1.5 px-4 py-2.5 text-[12px] font-semibold text-primary hover:bg-muted outline-none border-t border-border">
-                <Plus className="w-3.5 h-3.5" />New shortcut
+                <Plus className="w-3.5 h-3.5" />{t("inbox.newShortcut")}
               </button>
             )}
           </div>
@@ -369,7 +371,7 @@ export default function Composer({
         {showTemplates && (
           <TemplateWizard templates={templates}
             onClose={() => setShowTemplates(false)}
-            onUse={(text) => { setDraft(text); setShowTemplates(false); setTab(0); notify("Template inserted, review and send", "info"); }} />
+            onUse={(text) => { setDraft(text); setShowTemplates(false); setTab(0); notify(t("inbox.templateInsertedReviewAndSend"), "info"); }} />
         )}
 
         {/* Tabs */}
@@ -378,13 +380,13 @@ export default function Composer({
             onClick={() => setTab(0)}
             className={cn("text-[13px] font-semibold pb-1 border-b-2 transition-colors outline-none", tab === 0 ? "border-primary text-primary" : "border-transparent text-muted-foreground hover:text-foreground")}
           >
-            Reply
+            {t("components.reply")}
           </button>
           <button
             onClick={() => setTab(1)}
             className={cn("text-[13px] font-semibold pb-1 border-b-2 transition-colors outline-none", tab === 1 ? "border-amber-700 text-amber-700" : "border-transparent text-muted-foreground hover:text-foreground")}
           >
-            Internal note
+            {t("components.internalNote")}
           </button>
 
           <div className="flex-1" />
@@ -400,7 +402,7 @@ export default function Composer({
               )}
             >
               <Sparkles className={cn("w-3.5 h-3.5", aiState === "streaming" && "animate-pulse")} />
-              Smart Summary
+              {t("inbox.smartSummary")}
             </button>
           )}
         </div>
@@ -414,10 +416,10 @@ export default function Composer({
           )}>
             <div className="flex items-center gap-1.5 px-3 py-2 border-b border-amber-200 bg-amber-50">
               <Sparkles className="w-4 h-4 text-amber-700" />
-              <p className="text-[13px] font-bold text-foreground">Smart Summary</p>
+              <p className="text-[13px] font-bold text-foreground">{t("inbox.smartSummary")}</p>
               <div className="ml-auto flex items-center gap-0.5">
                 {aiState !== "streaming" && (
-                  <Tip label="Regenerate">
+                  <Tip label={t("inbox.regenerate")}>
                     <button onClick={generateAI} className="p-1 rounded text-muted-foreground hover:bg-muted hover:text-foreground outline-none">
                       <RefreshCw className="w-3.5 h-3.5" />
                     </button>
@@ -434,7 +436,7 @@ export default function Composer({
                 <div>
                   <div className="flex items-center gap-1.5 text-primary mb-2.5">
                     <Sparkles className="w-3.5 h-3.5 animate-pulse" />
-                    <span className="text-[12px] font-semibold">Summarizing the conversation…</span>
+                    <span className="text-[12px] font-semibold">{t("inbox.summarizingTheConversation")}</span>
                   </div>
                   <div className="space-y-2">
                     <div className="h-2.5 rounded skeleton w-[92%]" />
@@ -444,8 +446,8 @@ export default function Composer({
                 </div>
               ) : aiState === "error" ? (
                 <div className="py-2 text-center">
-                  <p className="text-xs text-muted-foreground mb-2">Could not generate a summary.</p>
-                  <button onClick={generateAI} className="text-[12px] font-semibold text-primary hover:underline outline-none">Try again</button>
+                  <p className="text-xs text-muted-foreground mb-2">{t("inbox.couldNotGenerateASummary")}</p>
+                  <button onClick={generateAI} className="text-[12px] font-semibold text-primary hover:underline outline-none">{t("inbox.tryAgain")}</button>
                 </div>
               ) : (
                 <ul className="space-y-1.5">
@@ -469,13 +471,13 @@ export default function Composer({
               <div className="flex items-center gap-2 px-3 py-2 border-t border-border bg-muted/30">
                 <button onClick={() => { setAiText(""); setAiState("idle"); setAiOpen(false); }}
                   className="text-[12px] font-semibold text-muted-foreground hover:text-foreground outline-none">
-                  Clear
+                  {t("common.clear")}
                 </button>
                 <div className="flex-1" />
                 <button onClick={confirmAI}
                   className="inline-flex items-center gap-1.5 h-7 px-3 rounded-md text-[12px] font-bold text-white bg-amber hover:bg-amber/90 outline-none transition-colors shadow-sm">
                   <Check className="w-3.5 h-3.5" />
-                  Add as note
+                  {t("inbox.addAsNote")}
                 </button>
               </div>
             )}
@@ -487,7 +489,7 @@ export default function Composer({
           <div className="flex items-center gap-2 px-4 py-2 bg-red-50 border-b border-red-200">
             <Clock className="w-4 h-4 text-red-700 shrink-0" />
             <p className="text-[12px] font-semibold text-red-700">
-              24-hour window closed. Only template messages can be sent.
+              {t("inbox.24HourWindowClosedOnly")}
             </p>
           </div>
         )}
@@ -558,7 +560,7 @@ export default function Composer({
               type="button"
               onClick={() => { setLinkPrevDismissed(linkPrev.url); setLinkPrev(null); }}
               className="px-2 text-muted-foreground hover:text-foreground outline-none shrink-0"
-              aria-label="Remove link preview"
+              aria-label={t("inbox.removeLinkPreview")}
             >
               <X className="w-4 h-4" />
             </button>
@@ -571,14 +573,14 @@ export default function Composer({
           value={draft}
           onChange={(e) => setDraft(e.target.value)}
           onKeyDown={(e) => { if (e.key === "Enter" && !e.shiftKey) { e.preventDefault(); onSubmit(); } }}
-          placeholder={note ? "Add an internal note (visible to your team only)" : "Type your message here"}
+          placeholder={note ? t("inbox.addAnInternalNoteVisible") : t("inbox.typeYourMessageHere")}
           className="block w-full border-none outline-none resize-none min-h-[56px] max-h-[150px] px-4 py-2 text-[13px] bg-transparent text-foreground placeholder:text-muted-foreground/70"
         />
 
         {/* Action row */}
         <div className="relative flex items-center gap-1 pl-3 pr-4 pb-3">
           {/* Emoji */}
-          <Tip label="Emoji">
+          <Tip label={t("inbox.emoji")}>
             <button onClick={() => setEmojiOpen((v) => !v)} className="p-1.5 rounded-md text-muted-foreground hover:bg-muted hover:text-foreground outline-none transition-colors">
               <Smile className="w-[18px] h-[18px]" />
             </button>
@@ -598,23 +600,23 @@ export default function Composer({
           )}
 
           <input ref={fileRef} type="file" multiple hidden onChange={onFile} />
-          <Tip label="Attach file">
+          <Tip label={t("inbox.attachFile")}>
             <button onClick={() => fileRef.current?.click()} disabled={busy} className="p-1.5 rounded-md text-muted-foreground hover:bg-muted hover:text-foreground outline-none disabled:opacity-50 transition-colors">
               <Paperclip className="w-[18px] h-[18px]" />
             </button>
           </Tip>
-          <Tip label="Quick replies">
+          <Tip label={t("inbox.quickReplies")}>
             <button onClick={() => { setShowQR((v) => !v); setShowTemplates(false); }} className={cn("p-1.5 rounded-md hover:bg-muted outline-none transition-colors", showQR ? "text-primary" : "text-muted-foreground hover:text-foreground")}>
               <Zap className="w-[18px] h-[18px]" />
             </button>
           </Tip>
-          <Tip label="Send template">
+          <Tip label={t("automation.sendTemplate")}>
             <button onClick={() => { setShowTemplates((v) => !v); setShowQR(false); }} className={cn("p-1.5 rounded-md hover:bg-muted outline-none transition-colors", showTemplates ? "text-primary" : "text-muted-foreground hover:text-foreground")}>
               <FileText className="w-[18px] h-[18px]" />
             </button>
           </Tip>
           {phone && !note && callingEnabled && (
-            <Tip label="Call via WhatsApp">
+            <Tip label={t("inbox.callViaWhatsapp")}>
               <button
                 onClick={() => {
                   if (onRequestCall) onRequestCall();
@@ -630,7 +632,7 @@ export default function Composer({
           <span className="text-[11px] text-muted-foreground tabular-nums mr-1">{draft.length}/4096</span>
 
           {!note && (
-            <Tip label="Record voice message">
+            <Tip label={t("inbox.recordVoiceMessage")}>
               <button
                 onClick={startRecording}
                 disabled={busy}
@@ -643,7 +645,7 @@ export default function Composer({
 
           <button
             onClick={onSubmit}
-            aria-label={note ? "Add internal note" : "Send message"}
+            aria-label={note ? t("inbox.addInternalNote") : t("inbox.sendMessage")}
             disabled={busy || (!draft.trim() && pendingFiles.length === 0)}
             className={cn(
               "w-10 h-10 shrink-0 rounded-full flex items-center justify-center text-white transition-colors disabled:opacity-50",
@@ -659,7 +661,7 @@ export default function Composer({
         {/* Recording UI - live mic waveform */}
         {isRecording && (
           <div className="flex items-center gap-3 px-3 py-2.5 min-h-[56px] bg-card rounded-lg">
-            <Tip label="Cancel recording">
+            <Tip label={t("inbox.cancelRecording")}>
               <button
                 onClick={cancelRecording}
                 className="p-2 rounded-full text-muted-foreground hover:text-red-500 hover:bg-red-50 outline-none transition-colors shrink-0"
@@ -672,7 +674,7 @@ export default function Composer({
               <span className="text-[13px] font-semibold text-foreground/80 tabular-nums">{formatTime(recordTime)}</span>
             </div>
             <canvas ref={canvasRef} width={480} height={32} className="flex-1 min-w-0 h-8" />
-            <Tip label={isPaused ? "Resume recording" : "Pause recording"}>
+            <Tip label={isPaused ? t("inbox.resumeRecording") : t("inbox.pauseRecording")}>
               <button
                 onClick={togglePause}
                 className="p-2 rounded-full text-foreground/70 hover:bg-muted outline-none transition-colors shrink-0"
@@ -680,7 +682,7 @@ export default function Composer({
                 {isPaused ? <Play className="w-5 h-5" /> : <Pause className="w-5 h-5" />}
               </button>
             </Tip>
-            <Tip label="Send voice message">
+            <Tip label={t("inbox.sendVoiceMessage")}>
               <button
                 onClick={stopAndSendRecording}
                 disabled={busy}

@@ -1,4 +1,5 @@
 "use client";
+import { useI18n } from "@/lib/i18n";
 // Shared building blocks for the settings section: a toast hook and small bits
 // reused across the split setting pages. Keeps each page focused on its own data.
 import { useState, type ReactNode } from "react";
@@ -79,9 +80,10 @@ export function SettingsCard({ children, className }: { children: ReactNode; cla
 // InfoHint: a small (i) button that reveals a description on hover, so fields can
 // stay clean instead of carrying verbose helper text underneath.
 export function InfoHint({ text }: { text: string }) {
+  const { t } = useI18n();
   return (
     <Tip label={text}>
-      <button type="button" tabIndex={-1} aria-label="More info"
+      <button type="button" tabIndex={-1} aria-label={t("settings.moreInfo")}
         className="inline-flex items-center justify-center w-4 h-4 rounded-full text-muted-foreground/60 hover:text-primary hover:bg-primary/10 transition-colors align-middle">
         <Info className="w-3.5 h-3.5" />
       </button>

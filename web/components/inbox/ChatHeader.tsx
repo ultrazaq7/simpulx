@@ -1,11 +1,13 @@
 "use client";
 
+import { useI18n } from "@/lib/i18n";
 import { useInbox } from "./InboxContext";
 import { Check, ChevronRight, ChevronDown, RotateCcw, CheckCircle, Search, PanelRight, MoreVertical } from "lucide-react";
 import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuSeparator, DropdownMenuTrigger } from "@/components/ui/dropdown-menu";
 import { api } from "@/lib/api";
 
 export function ChatHeader() {
+  const { t } = useI18n();
   const { active, convs, stages, setStage, override, doAction, rightPanel, setRightPanel, notify, copyText, getLastResponder } = useInbox();
   
   if (!active) return null;
@@ -50,7 +52,7 @@ export function ChatHeader() {
       {isSlaBreached && (
         <div className="bg-red-50 text-red-600 px-4 py-1.5 text-[11px] font-bold flex items-center justify-center gap-2 border-b border-red-100">
           <span className="w-1.5 h-1.5 rounded-full bg-red-500 animate-pulse" />
-          SLA BREACHED: Contact waiting for more than 15 minutes!
+          {t("components.slaBreachedContactWaitingFor")}
         </div>
       )}
       <div className="h-14 flex items-center px-4">
@@ -61,11 +63,11 @@ export function ChatHeader() {
             <DropdownMenu>
               <DropdownMenuTrigger className="flex items-center gap-2 px-3 h-full hover:bg-slate-100 transition-colors border-r border-slate-200">
                   <div className="w-2.5 h-2.5 rounded-full" style={{ backgroundColor: dotColor }} />
-                  <span className="text-xs font-bold text-slate-700 whitespace-nowrap">{currentStage?.name || "Select stage"}</span>
+                  <span className="text-xs font-bold text-slate-700 whitespace-nowrap">{currentStage?.name || t("components.selectStage")}</span>
                   <ChevronDown className="w-3 h-3 text-slate-400" />
               </DropdownMenuTrigger>
               <DropdownMenuContent align="start" className="w-56 p-1">
-                <div className="px-2 py-1.5 text-[10px] font-bold text-slate-400 uppercase tracking-wider">Progressing Stage</div>
+                <div className="px-2 py-1.5 text-[10px] font-bold text-slate-400 uppercase tracking-wider">{t("components.progressingStage")}</div>
                 {stages.filter((s) => !["lost", "no_reply", "no reply"].includes(s.name.toLowerCase())).map((s) => (
                   <DropdownMenuItem key={s.id} onClick={() => setStage(s.id)} className="text-xs font-medium cursor-pointer">
                     <div className="w-2.5 h-2.5 rounded-full mr-2" style={{ backgroundColor: getDotColor(s.name) }} />
@@ -77,7 +79,7 @@ export function ChatHeader() {
                 {stages.some((s) => ["lost", "no_reply", "no reply"].includes(s.name.toLowerCase())) && (
                   <>
                     <DropdownMenuSeparator />
-                    <div className="px-2 py-1.5 text-[10px] font-bold text-slate-400 uppercase tracking-wider">Lost Stage</div>
+                    <div className="px-2 py-1.5 text-[10px] font-bold text-slate-400 uppercase tracking-wider">{t("components.lostStage")}</div>
                     {stages.filter((s) => ["lost", "no_reply", "no reply"].includes(s.name.toLowerCase())).map((s) => (
                       <DropdownMenuItem key={s.id} onClick={() => setStage(s.id)} className="text-xs font-medium cursor-pointer">
                         <div className="w-2.5 h-2.5 rounded-full mr-2" style={{ backgroundColor: getDotColor(s.name) }} />
@@ -94,7 +96,7 @@ export function ChatHeader() {
               disabled={!nextStage} 
               onClick={() => { if (nextStage) { setStage(nextStage.id); notify(`Stage -> "${nextStage.name}"`); } }}
               className="w-8 h-full flex items-center justify-center text-slate-400 hover:text-amber-600 hover:bg-amber-50 disabled:opacity-30 disabled:hover:bg-transparent transition-colors"
-              title={nextStage ? `Next: ${nextStage.name}` : "Last stage"}
+              title={nextStage ? `Next: ${nextStage.name}` : t("components.lastStage")}
             >
               <ChevronRight className="w-4 h-4" />
             </button>
@@ -102,7 +104,7 @@ export function ChatHeader() {
 
           {/* Contact Info */}
           <div className="min-w-0 flex flex-col">
-            <h2 className="text-sm font-bold text-slate-900 truncate">{active.contact_name || active.contact_phone || "Unnamed"}</h2>
+            <h2 className="text-sm font-bold text-slate-900 truncate">{active.contact_name || active.contact_phone || t("components.unnamed")}</h2>
           </div>
         </div>
 
@@ -119,16 +121,16 @@ export function ChatHeader() {
           {active.status === "closed" && !hasActiveDuplicate && (
             <button onClick={() => doAction(() => api.patchConversation(active.id, { status: "open" } as any), "Conversation reopened")}
                     className="flex items-center gap-1.5 px-3 py-1.5 rounded-md border border-slate-200 text-xs font-bold text-slate-700 hover:bg-slate-50 transition-colors">
-              <RotateCcw className="w-3.5 h-3.5" /> Reopen
+              <RotateCcw className="w-3.5 h-3.5" /> {t("components.reopen")}
             </button>
           )}
 
           {active.status === "closed" && hasActiveDuplicate && (
-            <span className="text-[10px] text-slate-400 font-medium px-2">(Has another active chat)</span>
+            <span className="text-[10px] text-slate-400 font-medium px-2">{t("components.hasAnotherActiveChat")}</span>
           )}
 
           {active.status !== "closed" && (
-            <button onClick={() => doAction(() => api.close(active.id), "Conversation resolved")} title="Resolve conversation"
+            <button onClick={() => doAction(() => api.close(active.id), "Conversation resolved")} title={t("components.resolveConversation")}
                     className="p-1.5 text-emerald-600 hover:bg-emerald-50 rounded-md transition-colors">
               <CheckCircle className="w-5 h-5" />
             </button>
@@ -136,12 +138,12 @@ export function ChatHeader() {
 
         <div className="w-px h-6 bg-slate-200 mx-1" />
 
-        <button onClick={() => setRightPanel(rightPanel === "search" ? null : "search")} title="Search messages"
+        <button onClick={() => setRightPanel(rightPanel === "search" ? null : "search")} title={t("components.searchMessages")}
                 className={`p-1.5 rounded-md transition-colors ${rightPanel === "search" ? "bg-amber-50 text-amber-600" : "text-slate-500 hover:bg-slate-100 hover:text-slate-900"}`}>
           <Search className="w-4 h-4" />
         </button>
         
-        <button onClick={() => setRightPanel(rightPanel === "details" ? null : "details")} title="Contact details"
+        <button onClick={() => setRightPanel(rightPanel === "details" ? null : "details")} title={t("components.contactDetails")}
                 className={`p-1.5 rounded-md transition-colors ${rightPanel === "details" ? "bg-amber-50 text-amber-600" : "text-slate-500 hover:bg-slate-100 hover:text-slate-900"}`}>
           <PanelRight className="w-4 h-4" />
         </button>

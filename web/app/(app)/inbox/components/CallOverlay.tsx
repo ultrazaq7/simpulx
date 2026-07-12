@@ -1,4 +1,5 @@
 "use client";
+import { useI18n } from "@/lib/i18n";
 import { useState, useEffect, useRef, useCallback } from "react";
 import { Phone, PhoneOff, PhoneIncoming, Mic, MicOff, X, Loader2, Minus, GripHorizontal, ChevronUp } from "lucide-react";
 import { cn } from "@/lib/utils";
@@ -55,6 +56,7 @@ export default function CallOverlay({
   callId, conversationId, contactName, contactPhone, onClose, notify,
   direction = "outbound", sdpOffer = null, initialStatus,
 }: CallOverlayProps) {
+  const { t } = useI18n();
   const inbound = direction === "inbound";
   const [permStatus, setPermStatus] = useState<string>(inbound ? "granted" : "pending");
   const [callStatus, setCallStatus] = useState<string>(initialStatus || (inbound ? "incoming" : "requesting"));
@@ -229,7 +231,7 @@ export default function CallOverlay({
   };
 
   const acceptCall = async () => {
-    if (!sdpOffer) { notify("Missing call offer", "error"); return; }
+    if (!sdpOffer) { notify(t("inbox.missingCallOffer"), "error"); return; }
     try {
       setCallStatus("connecting");
       const stream = await navigator.mediaDevices.getUserMedia({ audio: true });
@@ -272,7 +274,7 @@ export default function CallOverlay({
       if (sender) await sender.replaceTrack(nt);
       streamRef.current?.getAudioTracks().forEach((t) => t.stop());
       streamRef.current = s; nt.enabled = !muted;
-    } catch { notify("Could not switch microphone", "error"); }
+    } catch { notify(t("inbox.couldNotSwitchMicrophone"), "error"); }
     setShowDevices(false);
   };
 
@@ -325,7 +327,7 @@ export default function CallOverlay({
         <div onPointerDown={startDrag} className="cursor-grab active:cursor-grabbing p-1 text-white/30"><GripHorizontal className="w-4 h-4" /></div>
         <div className="w-8 h-8 rounded-full bg-emerald-500 grid place-items-center text-white text-[11px] font-bold shrink-0">{initials(contactName)}</div>
         <div className="min-w-0 flex-1">
-          <p className="text-[12px] font-semibold text-white truncate leading-tight">{contactName || "Unknown"}</p>
+          <p className="text-[12px] font-semibold text-white truncate leading-tight">{contactName || t("broadcasts.unknown")}</p>
           <p className="text-[10.5px] text-emerald-400 tabular-nums leading-tight">{callStatus === "connected" ? fmt(elapsed) : statusLabel}</p>
         </div>
         <button onClick={() => setMinimized(false)} className="w-7 h-7 grid place-items-center rounded-full text-white/60 hover:bg-white/10 outline-none"><ChevronUp className="w-4 h-4" /></button>
@@ -367,9 +369,9 @@ export default function CallOverlay({
           <div className="w-16 h-16 rounded-full bg-emerald-500 grid place-items-center text-white text-xl font-bold mb-2 shadow-lg">
             {inbound && callStatus === "incoming" ? <PhoneIncoming className="w-7 h-7" /> : initials(contactName)}
           </div>
-          <p className="text-[15px] font-bold text-white truncate max-w-full">{contactName || "Unknown"}</p>
+          <p className="text-[15px] font-bold text-white truncate max-w-full">{contactName || t("broadcasts.unknown")}</p>
           {contactPhone && <p className="text-[12px] text-white/55 tabular-nums">{contactPhone}</p>}
-          {callStatus === "incoming" && <p className="text-[11px] text-emerald-400 mt-1 animate-pulse">is calling you…</p>}
+          {callStatus === "incoming" && <p className="text-[11px] text-emerald-400 mt-1 animate-pulse">{t("inbox.isCallingYou")}</p>}
         </div>
       </div>
 
@@ -378,13 +380,13 @@ export default function CallOverlay({
         {callStatus === "requesting" && (
           <div className="flex flex-col items-center gap-2 py-1">
             <Loader2 className="w-7 h-7 text-emerald-400 animate-spin" />
-            <p className="text-[11px] text-white/50">Waiting for customer to allow…</p>
+            <p className="text-[11px] text-white/50">{t("inbox.waitingForCustomerToAllow")}</p>
           </div>
         )}
 
         {callStatus === "granted" && (
           <button onClick={initiateCall} className="flex items-center gap-2 px-6 py-3 rounded-full bg-emerald-500 hover:bg-emerald-600 text-white font-bold text-sm shadow-lg outline-none">
-            <Phone className="w-5 h-5" />Call now
+            <Phone className="w-5 h-5" />{t("inbox.callNow")}
           </button>
         )}
 
@@ -408,11 +410,11 @@ export default function CallOverlay({
               <button onClick={openDevices} className="absolute -top-1 -right-1 w-5 h-5 rounded-full bg-[#23272F] border border-white/20 grid place-items-center text-white/70 hover:text-white outline-none"><ChevronUp className="w-3 h-3" /></button>
               {showDevices && (
                 <div className="absolute bottom-16 left-0 w-56 max-h-44 overflow-y-auto bg-[#2C313B] border border-white/10 rounded-lg shadow-xl p-1 z-10">
-                  <p className="px-2 py-1 text-[10px] uppercase tracking-wider text-white/40">Microphone</p>
-                  {devices.length === 0 ? <p className="px-2 py-1.5 text-[12px] text-white/50">No devices</p> :
+                  <p className="px-2 py-1 text-[10px] uppercase tracking-wider text-white/40">{t("inbox.microphone")}</p>
+                  {devices.length === 0 ? <p className="px-2 py-1.5 text-[12px] text-white/50">{t("inbox.noDevices")}</p> :
                     devices.map((d) => (
                       <button key={d.deviceId} onClick={() => pickDevice(d.deviceId)} className="w-full text-left px-2 py-1.5 rounded text-[12px] text-white/80 hover:bg-white/10 truncate outline-none">
-                        {d.label || "Microphone"}
+                        {d.label || t("inbox.microphone")}
                       </button>
                     ))}
                 </div>
@@ -426,14 +428,14 @@ export default function CallOverlay({
           <div className="flex flex-col items-center gap-1 py-1">
             {elapsed > 0 && <span className="text-lg font-bold text-white tabular-nums">{fmt(elapsed)}</span>}
             <p className="text-[11.5px] text-white/55">
-              {endReason === "agent_hangup" ? "You ended the call" :
-               endReason === "remote_hangup" ? "Customer ended the call" :
-               endReason === "permission_denied" ? "Customer declined" :
-               endReason === "rejected" || endReason === "declined" ? "Call declined" :
-               endReason || "Call ended"}
+              {endReason === "agent_hangup" ? t("inbox.youEndedTheCall") :
+               endReason === "remote_hangup" ? t("inbox.customerEndedTheCall") :
+               endReason === "permission_denied" ? t("inbox.customerDeclined") :
+               endReason === "rejected" || endReason === "declined" ? t("inbox.callDeclined") :
+               endReason || t("inbox.callEnded")}
             </p>
-            {recUrl && <p className="mt-1 text-[11px] text-emerald-400/80">Recording saved to Call Logs</p>}
-            <button onClick={onClose} className="mt-2 px-4 py-1.5 rounded-md text-[12px] font-semibold text-emerald-400 hover:bg-white/10 outline-none">Dismiss</button>
+            {recUrl && <p className="mt-1 text-[11px] text-emerald-400/80">{t("inbox.recordingSavedToCallLogs")}</p>}
+            <button onClick={onClose} className="mt-2 px-4 py-1.5 rounded-md text-[12px] font-semibold text-emerald-400 hover:bg-white/10 outline-none">{t("inbox.dismiss")}</button>
           </div>
         )}
       </div>

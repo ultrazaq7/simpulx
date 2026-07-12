@@ -1,4 +1,5 @@
 "use client";
+import { useI18n } from "@/lib/i18n";
 // Channels tab — the enterprise card list of connected messaging accounts plus
 // the Create Channel wizard. Platform selection lives inside the wizard (Step 1),
 // so this view is a clean, searchable, filterable list of real connections.
@@ -26,11 +27,12 @@ const STATUS: Record<string, { label: string; color: string; bg: string }> = {
 function isSandbox(c: Channel) { return c.type === "whatsapp" && Boolean((c.config as Record<string, any>)?.is_sandbox); }
 
 function StatusDot({ status }: { status: string }) {
+  const { t } = useI18n();
   const s = STATUS[status] ?? STATUS.disconnected;
   return (
     <span className="inline-flex items-center gap-1.5">
       <span className={cn("w-[7px] h-[7px] rounded-full", s.bg)} />
-      <span className={cn("text-xs font-semibold", s.color)}>{s.label}</span>
+      <span className={cn("text-xs font-semibold", s.color)}>{t(s.label)}</span>
     </span>
   );
 }
@@ -45,6 +47,7 @@ function Toggle({ checked, onChange }: { checked: boolean; onChange: () => void 
 }
 
 export function ChannelsTab() {
+  const { t } = useI18n();
   const { notify, confirm, ToastHost } = useToast();
   const [channels, setChannels] = useState<Channel[]>([]);
   const [loading, setLoading] = useState(true);
@@ -65,7 +68,7 @@ export function ChannelsTab() {
   useEffect(() => { setPage(1); }, [query, filter]);
 
   async function test(c: Channel) {
-    try { await api.testChannel(c.id); notify("Connection verified"); load(); }
+    try { await api.testChannel(c.id); notify(t("settings.connectionVerified")); load(); }
     catch (e) { notify(String(e), "error"); }
   }
   async function toggleActive(c: Channel) {
@@ -74,7 +77,7 @@ export function ChannelsTab() {
   }
   async function remove(c: Channel) {
     if (!(await confirm({ title: "Delete channel?", message: `Delete "${c.name}"? This cannot be undone.`, danger: true, confirmLabel: "Delete" }))) return;
-    try { await api.deleteChannel(c.id); notify("Channel deleted"); load(); }
+    try { await api.deleteChannel(c.id); notify(t("settings.channelDeleted")); load(); }
     catch (e) { notify(String(e), "error"); }
   }
 
@@ -103,24 +106,24 @@ export function ChannelsTab() {
         <div className="p-3 flex items-center gap-3 border-b border-border flex-wrap shrink-0">
           <div className="relative w-[240px]">
             <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-muted-foreground pointer-events-none" />
-            <input type="text" placeholder="Search channels" value={query} onChange={(e) => setQuery(e.target.value)}
+            <input type="text" placeholder={t("settings.searchChannels")} value={query} onChange={(e) => setQuery(e.target.value)}
               className="w-full h-9 pl-9 pr-3 rounded-md border border-input bg-muted text-sm text-foreground placeholder:text-muted-foreground/70 outline-none transition-shadow focus:border-primary" />
           </div>
-          <Tip label="Refresh"><button onClick={load} className="p-1.5 rounded-md hover:bg-muted transition-colors outline-none">
+          <Tip label={t("broadcasts.refresh")}><button onClick={load} className="p-1.5 rounded-md hover:bg-muted transition-colors outline-none">
             <RefreshCw className="w-[18px] h-[18px] text-muted-foreground" />
           </button></Tip>
           <div className="flex-1" />
           <PrimaryButton onClick={() => setWizardOpen(true)}>
-            <Plus className="w-4 h-4" />Create channel
+            <Plus className="w-4 h-4" />{t("settings.createChannel")}
           </PrimaryButton>
         </div>
 
         {/* Platform filter chips */}
         {platforms.length > 0 && (
           <div className="px-3 py-2 flex items-center gap-2 flex-wrap border-b border-border/70 bg-muted/30 shrink-0">
-            <Chip label="All" active={filter === "all"} onClick={() => setFilter("all")} />
+            <Chip label={t("broadcasts.all")} active={filter === "all"} onClick={() => setFilter("all")} />
             {platforms.map((m) => (
-              <Chip key={m.type} label={m.type === "testing" ? "Testing" : m.name} active={filter === m.type} onClick={() => setFilter(m.type)} />
+              <Chip key={m.type} label={m.type === "testing" ? t("settings.testing") : m.name} active={filter === m.type} onClick={() => setFilter(m.type)} />
             ))}
           </div>
         )}
@@ -132,9 +135,9 @@ export function ChannelsTab() {
           ) : visible.length === 0 ? (
             <div className="text-center py-16">
               <div className="inline-flex mb-3 opacity-80"><ChannelIcon type="whatsapp" size={56} radius={16} /></div>
-              <p className="font-bold text-foreground mb-1">{channels.length === 0 ? "No channels connected yet" : "No channels match your filters"}</p>
-              <p className="text-[13px] text-muted-foreground mb-4">{channels.length === 0 ? "Connect WhatsApp, Messenger, Instagram, Viber and more." : "Try a different search or filter."}</p>
-              {channels.length === 0 && <PrimaryButton onClick={() => setWizardOpen(true)}><Plus className="w-4 h-4" />Create channel</PrimaryButton>}
+              <p className="font-bold text-foreground mb-1">{channels.length === 0 ? t("settings.noChannelsConnectedYet") : t("settings.noChannelsMatchYourFilters")}</p>
+              <p className="text-[13px] text-muted-foreground mb-4">{channels.length === 0 ? t("settings.connectWhatsappMessengerInstagramViber") : t("settings.tryADifferentSearchOr")}</p>
+              {channels.length === 0 && <PrimaryButton onClick={() => setWizardOpen(true)}><Plus className="w-4 h-4" />{t("settings.createChannel")}</PrimaryButton>}
             </div>
           ) : (
             <div className="divide-y divide-border">
@@ -192,6 +195,7 @@ function Chip({ label, active, onClick }: { label: string; active: boolean; onCl
 function ChannelRow({ c, onTest, onToggle, onEdit, onDelete }: {
   c: Channel; onTest: (c: Channel) => void; onToggle: (c: Channel) => void; onEdit: (c: Channel) => void; onDelete: (c: Channel) => void;
 }) {
+  const { t } = useI18n();
   const sandbox = isSandbox(c);
   const iconType = sandbox ? "testing" : c.type;
   const typeLabel = sandbox ? "Testing channel" : channelMeta(c.type).name;
@@ -209,14 +213,14 @@ function ChannelRow({ c, onTest, onToggle, onEdit, onDelete }: {
         {ref ? (
           <span className="inline-flex items-center px-2.5 h-7 rounded-full border border-success/40 bg-success/[0.07] text-[12px] font-semibold text-success truncate max-w-full">{ref}</span>
         ) : (
-          <span className="inline-flex items-center px-2.5 h-7 rounded-full border border-border bg-muted/50 text-[12px] font-medium text-muted-foreground">Not configured</span>
+          <span className="inline-flex items-center px-2.5 h-7 rounded-full border border-border bg-muted/50 text-[12px] font-medium text-muted-foreground">{t("settings.notConfigured")}</span>
         )}
-        {c.connected_at && <span className="text-[11.5px] text-muted-foreground shrink-0">Created {fmtDateTimeShort(c.connected_at)}</span>}
+        {c.connected_at && <span className="text-[11.5px] text-muted-foreground shrink-0">{t("contacts.created")} {fmtDateTimeShort(c.connected_at)}</span>}
       </div>
       <div className="w-[120px] shrink-0 hidden sm:block"><StatusDot status={c.status} /></div>
-      <Tip label={c.is_active ? "Active" : "Disabled"}><span className="shrink-0"><Toggle checked={c.is_active} onChange={() => onToggle(c)} /></span></Tip>
+      <Tip label={c.is_active ? t("dashboard.active") : t("settings.disabled")}><span className="shrink-0"><Toggle checked={c.is_active} onChange={() => onToggle(c)} /></span></Tip>
       <button onClick={() => onTest(c)} className="inline-flex items-center gap-1.5 px-2.5 h-8 rounded-md border border-border text-[12.5px] font-semibold text-foreground hover:bg-muted transition-colors outline-none shrink-0">
-        <CheckCircle className="w-3.5 h-3.5" />Test
+        <CheckCircle className="w-3.5 h-3.5" />{t("settings.test")}
       </button>
       <div className="relative shrink-0">
         <button onClick={() => setMenu((m) => !m)} className="p-1.5 rounded-md hover:bg-muted outline-none transition-colors">
@@ -226,11 +230,11 @@ function ChannelRow({ c, onTest, onToggle, onEdit, onDelete }: {
           <>
             <div className="fixed inset-0 z-10" onClick={() => setMenu(false)} />
             <div className="absolute right-0 top-9 z-20 w-40 rounded-lg border border-border bg-card shadow-xl py-1 animate-scale-in">
-              <MenuItem icon={Pencil} label="Edit" onClick={() => { setMenu(false); onEdit(c); }} />
-              <LinkMenuItem icon={FileText} label="Templates" href="/settings/templates" onClick={() => setMenu(false)} />
-              <MenuItem icon={Power} label={c.is_active ? "Disable" : "Enable"} onClick={() => { setMenu(false); onToggle(c); }} />
+              <MenuItem icon={Pencil} label={t("common.edit")} onClick={() => { setMenu(false); onEdit(c); }} />
+              <LinkMenuItem icon={FileText} label={t("settings.templates")} href="/settings/templates" onClick={() => setMenu(false)} />
+              <MenuItem icon={Power} label={c.is_active ? t("settings.disable") : t("settings.enable")} onClick={() => { setMenu(false); onToggle(c); }} />
               <div className="my-1 border-t border-border/60" />
-              <MenuItem icon={Trash2} label="Delete" danger onClick={() => { setMenu(false); onDelete(c); }} />
+              <MenuItem icon={Trash2} label={t("common.delete")} danger onClick={() => { setMenu(false); onDelete(c); }} />
             </div>
           </>
         )}
@@ -262,6 +266,7 @@ function MenuItem({ icon: Icon, label, onClick, danger }: { icon: any; label: st
 function EditChannelDialog({ channel, onClose, onSaved, onError }: {
   channel: Channel; onClose: () => void; onSaved: (m: string) => void; onError: (m: string) => void;
 }) {
+  const { t } = useI18n();
   const isWa = channel.type === "whatsapp";
   const [name, setName] = useState(channel.name ?? "");
   const [displayId, setDisplayId] = useState(channel.display_id ?? "");
@@ -270,7 +275,7 @@ function EditChannelDialog({ channel, onClose, onSaved, onError }: {
   const [saving, setSaving] = useState(false);
 
   async function save() {
-    if (!name.trim()) { onError("Channel name is required"); return; }
+    if (!name.trim()) { onError(t("settings.channelNameIsRequired")); return; }
     setSaving(true);
     try {
       await api.updateChannel(channel.id, {
@@ -278,7 +283,7 @@ function EditChannelDialog({ channel, onClose, onSaved, onError }: {
         ...(token.trim() ? { access_token: token.trim() } : {}),
         ...(isWa ? { calling_enabled: calling } : {}),
       });
-      onSaved("Channel updated");
+      onSaved(t("settings.channelUpdated"));
     } catch (e) { onError(String(e)); }
     finally { setSaving(false); }
   }
@@ -289,27 +294,27 @@ function EditChannelDialog({ channel, onClose, onSaved, onError }: {
       <div className="relative bg-card rounded-lg border border-border shadow-2xl w-full max-w-lg animate-scale-in">
         <div className="flex items-center gap-3 px-5 py-3.5 border-b border-border">
           <ChannelIcon type={isSandbox(channel) ? "testing" : channel.type} size={32} />
-          <h2 className="text-[15px] font-bold text-foreground flex-1">Edit {channel.name}</h2>
+          <h2 className="text-[15px] font-bold text-foreground flex-1">{t("common.edit")} {channel.name}</h2>
           <button onClick={onClose} className="p-1 rounded-md text-muted-foreground hover:bg-muted hover:text-foreground outline-none transition-colors"><X className="w-[18px] h-[18px]" /></button>
         </div>
         <div className="px-5 py-5 flex flex-col gap-4">
-          <div><FieldLabel>Channel name</FieldLabel><input value={name} onChange={(e) => setName(e.target.value)} className={INPUT_CLASS} autoFocus /></div>
-          <div><FieldLabel>Display number / handle</FieldLabel><input value={displayId} onChange={(e) => setDisplayId(e.target.value)} className={INPUT_CLASS} placeholder="+62 812 3456 7890" /></div>
-          <div><FieldLabel>Access token (leave blank to keep)</FieldLabel><input type="password" value={token} onChange={(e) => setToken(e.target.value)} className={INPUT_CLASS} /></div>
+          <div><FieldLabel>{t("settings.channelName")}</FieldLabel><input value={name} onChange={(e) => setName(e.target.value)} className={INPUT_CLASS} autoFocus /></div>
+          <div><FieldLabel>{t("settings.displayNumberHandle")}</FieldLabel><input value={displayId} onChange={(e) => setDisplayId(e.target.value)} className={INPUT_CLASS} placeholder="+62 812 3456 7890" /></div>
+          <div><FieldLabel>{t("settings.accessTokenLeaveBlankTo")}</FieldLabel><input type="password" value={token} onChange={(e) => setToken(e.target.value)} className={INPUT_CLASS} /></div>
           {isWa && (
             <div className="flex items-center justify-between gap-3 rounded-lg border border-border p-3">
               <div className="min-w-0">
-                <p className="text-[13px] font-semibold text-foreground">WhatsApp calling</p>
-                <p className="text-[11.5px] text-muted-foreground mt-0.5">Show a call button in the inbox (opens WhatsApp and logs the attempt).</p>
+                <p className="text-[13px] font-semibold text-foreground">{t("settings.whatsappCalling")}</p>
+                <p className="text-[11.5px] text-muted-foreground mt-0.5">{t("settings.showACallButtonIn")}</p>
               </div>
               <Toggle checked={calling} onChange={() => setCalling((v) => !v)} />
             </div>
           )}
         </div>
         <div className="flex justify-end gap-2 px-5 py-3.5 border-t border-border">
-          <GhostButton onClick={onClose}>Cancel</GhostButton>
+          <GhostButton onClick={onClose}>{t("common.cancel")}</GhostButton>
           <PrimaryButton onClick={save} disabled={saving}>
-            {saving ? <Loader2 className="w-4 h-4 animate-spin" /> : null}Save
+            {saving ? <Loader2 className="w-4 h-4 animate-spin" /> : null}{t("common.save")}
           </PrimaryButton>
         </div>
       </div>

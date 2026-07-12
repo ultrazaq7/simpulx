@@ -1,4 +1,5 @@
 "use client";
+import { useI18n } from "@/lib/i18n";
 // Add API Source — 3-step wizard (Source type > Details > Done). The final step
 // reveals the generated API key + a ready-to-copy curl snippet, so connecting an
 // external lead source feels like a guided enterprise onboarding.
@@ -43,6 +44,7 @@ function CopyField({ label, value, mono }: { label: string; value: string; mono?
 export function WebApiWizard({ campaigns, onClose, onCreated }: {
   campaigns: Campaign[]; onClose: () => void; onCreated: (msg: string) => void;
 }) {
+  const { t } = useI18n();
   const [step, setStep] = useState(0);
   const [preset, setPreset] = useState("");
   const [name, setName] = useState("");
@@ -60,7 +62,7 @@ export function WebApiWizard({ campaigns, onClose, onCreated }: {
   }
 
   async function create() {
-    if (!name.trim()) { setErr("Name is required"); return; }
+    if (!name.trim()) { setErr(t("account.name_required")); return; }
     setSaving(true); setErr("");
     try {
       // The preset picked in step 0 IS the platform - send it, instead of
@@ -88,14 +90,14 @@ export function WebApiWizard({ campaigns, onClose, onCreated }: {
   const footer =
     step === 0 ? (<><div className="flex-1" /><ContinueButton onClick={() => preset && setStep(1)} disabled={!preset} /></>)
     : step === 1 ? (<><BackButton onClick={() => { setErr(""); setStep(0); }} /><div className="flex-1" />
-        <PrimaryButton onClick={create} disabled={saving}>{saving ? <Loader2 className="w-4 h-4 animate-spin" /> : null}Create</PrimaryButton></>)
-    : (<><div className="flex-1" /><PrimaryButton onClick={() => onCreated("API source created")}>Done</PrimaryButton></>);
+        <PrimaryButton onClick={create} disabled={saving}>{saving ? <Loader2 className="w-4 h-4 animate-spin" /> : null}{t("inbox.create")}</PrimaryButton></>)
+    : (<><div className="flex-1" /><PrimaryButton onClick={() => onCreated("API source created")}>{t("inbox.done")}</PrimaryButton></>);
 
   return (
-    <WizardModal title="Add API source" icon={<Plug className="w-5 h-5" />} steps={STEPS} step={step} onClose={onClose} footer={footer}>
+    <WizardModal title={t("settings.addApiSource")} icon={<Plug className="w-5 h-5" />} steps={STEPS} step={step} onClose={onClose} footer={footer}>
       {step === 0 && (
         <div>
-          <p className="text-[13.5px] text-muted-foreground mb-4">Pick where the leads come from. We generate an API key you point that source to.</p>
+          <p className="text-[13.5px] text-muted-foreground mb-4">{t("settings.pickWhereTheLeadsCome")}</p>
           <div className="grid grid-cols-1 sm:grid-cols-2 gap-2.5">
             {PRESETS.map((p) => (
               <WizardCard key={p.key} icon={<Tile color={p.color} />} title={p.label} desc={p.sub} active={preset === p.key} onClick={() => choosePreset(p)} />
@@ -107,16 +109,16 @@ export function WebApiWizard({ campaigns, onClose, onCreated }: {
       {step === 1 && (
         <div className="flex flex-col gap-4">
           {err && <div className="px-3 py-2 rounded-md bg-destructive/10 border border-destructive/20 text-destructive text-[13px] font-medium">{err}</div>}
-          <WizardField label="Name" value={name} onChange={setName} placeholder="e.g. Meta Ads" autoFocus />
-          <WizardField label="Slug (optional)" value={slug} onChange={setSlug} placeholder="auto-generated from name" />
+          <WizardField label={t("inbox.name")} value={name} onChange={setName} placeholder={t("settings.eGMetaAds")} autoFocus />
+          <WizardField label={t("settings.slugOptional")} value={slug} onChange={setSlug} placeholder="auto-generated from name" />
           <div>
-            <FieldLabel>Route to campaign (optional)</FieldLabel>
-            <Select value={campaignId} onChange={setCampaignId} placeholder="No campaign"
+            <FieldLabel>{t("settings.routeToCampaignOptional")}</FieldLabel>
+            <Select value={campaignId} onChange={setCampaignId} placeholder={t("settings.noCampaign")}
               options={[{ value: "", label: "No campaign" }, ...campaigns.map((c) => ({ value: c.id, label: c.name }))]} />
-            <p className="text-[11.5px] text-muted-foreground mt-1">Leads from this source are attributed to the campaign and round-robin assigned to its agents.</p>
+            <p className="text-[11.5px] text-muted-foreground mt-1">{t("settings.leadsFromThisSourceAre")}</p>
           </div>
-          <WizardField label="Auto template (optional)" value={template} onChange={setTemplate} />
-          <WizardField label="Webhook URL (optional)" value={webhook} onChange={setWebhook} placeholder="https://..." />
+          <WizardField label={t("settings.autoTemplateOptional")} value={template} onChange={setTemplate} />
+          <WizardField label={t("settings.webhookUrlOptional")} value={webhook} onChange={setWebhook} placeholder="https://..." />
         </div>
       )}
 
@@ -126,20 +128,20 @@ export function WebApiWizard({ campaigns, onClose, onCreated }: {
             <div className="inline-flex mb-3"><Tile color={PRESETS.find((p) => p.key === preset)?.color || "#8B5CF6"} /></div>
             <div className="flex items-center justify-center gap-2 mb-1">
               <CheckCircle2 className="w-5 h-5 text-success" />
-              <p className="font-bold text-[16px] text-foreground">{name} is ready</p>
+              <p className="font-bold text-[16px] text-foreground">{name} {t("settings.isReady")}</p>
             </div>
-            <p className="text-[13px] text-muted-foreground max-w-[460px] mx-auto">Point your lead source at the endpoint below using this API key. Each lead opens a conversation in the inbox.</p>
+            <p className="text-[13px] text-muted-foreground max-w-[460px] mx-auto">{t("settings.pointYourLeadSourceAt")}</p>
           </div>
 
           <div className="flex items-center gap-2 px-3 py-2 rounded-lg bg-warning/10 border border-warning/30 text-[12px] text-foreground/80">
-            <Key className="w-4 h-4 shrink-0 text-warning" />Copy your API key now. You can always view it again from the source card.
+            <Key className="w-4 h-4 shrink-0 text-warning" />{t("settings.copyYourApiKeyNow")}
           </div>
 
-          <CopyField label="API key" value={created?.apiKey || ""} mono />
-          <CopyField label="Endpoint" value={`POST ${API}/v1/leads`} mono />
+          <CopyField label={t("settings.apiKey")} value={created?.apiKey || ""} mono />
+          <CopyField label={t("settings.endpoint")} value={`POST ${API}/v1/leads`} mono />
 
           <div>
-            <FieldLabel>Sample payload</FieldLabel>
+            <FieldLabel>{t("settings.samplePayload")}</FieldLabel>
             <div className="relative bg-sidebar text-[#D1FAE5] rounded-lg p-3 text-[11.5px] overflow-x-auto">
               <button onClick={() => navigator.clipboard.writeText(httpSample)} className="absolute top-2 right-2 p-1 text-white/60 hover:text-white outline-none"><Copy className="w-[15px] h-[15px]" /></button>
               <pre className="m-0 whitespace-pre-wrap">{httpSample}</pre>

@@ -73,7 +73,7 @@ const PAGE_TITLES: Record<string, { category: string; title: string; icon?: any 
   "/dashboard/campaign-performance": { category: "REPORTS", title: "Campaign Performance" },
   "/dashboard/creative-insights": { category: "REPORTS", title: "Creative Insights" },
   "/dashboard": { category: "REPORTS", title: "General Report" },
-  "/inbox": { category: "INBOX", title: "My Inbox" },
+  "/inbox": { category: "INBOX", title: "Chat" },
   "/contacts": { category: "GROUPS", title: "Contacts" },
   "/campaigns": { category: "CAMPAIGNS", title: "Campaigns" },
   "/broadcasts": { category: "OUTREACH", title: "Broadcasts" },
@@ -399,9 +399,9 @@ export function Shell({ children }: { children: ReactNode }) {
 
   useEffect(() => {
     const info = resolvePageInfo(pathname);
-    const base = info?.title ? `${info.title} - ${brand}` : brand;
+    const base = info?.title ? `${t(info.title)} - ${brand}` : brand;
     document.title = unreadCount > 0 ? `(${unreadCount}) ${base}` : base;
-  }, [pathname, brand, unreadCount]);
+  }, [pathname, brand, unreadCount, t]);
 
   useEffect(() => {
     if (!metaTitle) return;
@@ -496,7 +496,7 @@ export function Shell({ children }: { children: ReactNode }) {
       {/* Sidebar — in-flow rail on desktop, off-canvas drawer on mobile */}
       <div
         role="navigation"
-        aria-label="Main"
+        aria-label={t("components.main")}
         className={cn(
           "shrink-0 flex flex-col py-4 gap-0.5 bg-muted border-r border-border transition-[width,transform] duration-200 ease-out z-50 overflow-x-hidden",
           "max-lg:fixed max-lg:inset-y-0 max-lg:left-0 max-lg:z-[60] max-lg:shadow-2xl",
@@ -510,11 +510,11 @@ export function Shell({ children }: { children: ReactNode }) {
               "rounded-lg overflow-hidden shrink-0 shadow-md transition-[width,height] duration-200",
               expanded ? "w-9 h-9" : "w-8 h-8",
             )}>
-              <img src="/simpulx_logo.png" alt="Simpulx" className="w-full h-full object-cover" />
+              <img src="/simpulx_logo.png" alt={t("auth.simpulx")} className="w-full h-full object-cover" />
             </div>
             {expanded && (
               <span className="ml-3 text-[20px] font-extrabold tracking-tight text-foreground whitespace-nowrap">
-                Simpul<span className="text-amber">x</span>
+                {t("auth.simpul")}<span className="text-amber">x</span>
               </span>
             )}
           </Link>
@@ -526,7 +526,7 @@ export function Shell({ children }: { children: ReactNode }) {
         {/* Collapse rail toggle — desktop only (mobile uses the drawer). */}
         <div className={cn("px-4 pb-4 max-lg:hidden", sidebarOpen ? "flex justify-end" : "flex justify-center")}>
           <button
-            aria-label={sidebarOpen ? "Collapse sidebar" : "Expand sidebar"}
+            aria-label={sidebarOpen ? t("components.collapseSidebar") : t("components.expandSidebar")}
             onClick={() => setSidebarOpen(!sidebarOpen)}
             className="p-1 rounded-md text-muted-foreground border border-border hover:text-foreground hover:bg-foreground/5 transition-colors outline-none"
           >
@@ -542,7 +542,7 @@ export function Shell({ children }: { children: ReactNode }) {
         <div role="banner" className="h-16 shrink-0 flex items-center px-4 sm:px-5 gap-2 sm:gap-3 bg-card border-b border-border">
           {/* Hamburger — mobile only, opens the nav drawer */}
           <button
-            aria-label="Open menu"
+            aria-label={t("components.openMenu")}
             onClick={() => setMobileNavOpen(true)}
             className="lg:hidden -ml-1 p-2 rounded-lg text-muted-foreground hover:bg-muted hover:text-foreground transition-colors outline-none shrink-0"
           >
@@ -550,14 +550,14 @@ export function Shell({ children }: { children: ReactNode }) {
           </button>
           <div className="min-w-0">
             <p className="text-[10px] font-bold tracking-[0.12em] text-muted-foreground uppercase leading-none mb-1">
-              {pageInfo.category || " "}
+              {pageInfo.category ? t(pageInfo.category) : " "}
             </p>
             <h1 className="text-[19px] font-bold leading-normal truncate text-foreground flex items-center gap-2">
               {(() => {
                 const Icon = (pageInfo as any).icon || CATEGORY_ICONS[pageInfo.category] || Activity;
                 return <Icon key={pathname} className="w-[18px] h-[18px] text-primary animate-pop-icon shrink-0" />;
               })()}
-              {pageInfo.title}
+              {t(pageInfo.title)}
             </h1>
           </div>
 
@@ -569,13 +569,13 @@ export function Shell({ children }: { children: ReactNode }) {
             className="hidden sm:flex items-center gap-2 h-9 pl-2.5 pr-2 rounded-lg border border-border bg-muted/40 text-muted-foreground hover:bg-muted hover:text-foreground transition-colors outline-none"
           >
             <Search className="w-4 h-4" />
-            <span className="text-[13px]">Search</span>
+            <span className="text-[13px]">{t("components.search")}</span>
             <kbd className="text-[10px] font-semibold bg-card border border-border rounded px-1 py-0.5 leading-none">{"⌘"} K</kbd>
           </button>
 
           {/* Notifications */}
-          <Tip label="Notifications" side="bottom">
-            <button aria-label="Notifications" onClick={() => { const next = !notifOpen; setNotifOpen(next); setHasNotifs(false); if (next) loadNotifs(); }} className="p-2 rounded-lg text-muted-foreground hover:bg-muted hover:text-foreground transition-colors relative outline-none">
+          <Tip label={t("components.notifications")} side="bottom">
+            <button aria-label={t("components.notifications")} onClick={() => { const next = !notifOpen; setNotifOpen(next); setHasNotifs(false); if (next) loadNotifs(); }} className="p-2 rounded-lg text-muted-foreground hover:bg-muted hover:text-foreground transition-colors relative outline-none">
               <Bell className="w-[20px] h-[20px]" />
               {notifUnread > 0 ? (
                 <span className="absolute -top-0.5 -right-0.5 min-w-[16px] h-4 px-1 grid place-items-center text-[10px] font-bold text-white bg-red-500 rounded-full ring-2 ring-card">{notifUnread > 9 ? "9+" : notifUnread}</span>
@@ -620,7 +620,7 @@ export function Shell({ children }: { children: ReactNode }) {
                 <p className="text-[12px] text-muted-foreground truncate">{user.email || user.role}</p>
                 <span className="inline-flex mt-1 px-2 py-0.5 rounded-md text-[10px] font-bold capitalize"
                   style={user.is_super_admin ? { backgroundColor: "#7C3AED1a", color: "#7C3AED" } : { backgroundColor: "var(--muted)", color: "var(--muted-foreground)" }}>
-                  {user.is_super_admin ? "Super Admin" : user.role}
+                  {user.is_super_admin ? t("components.superAdmin") : user.role}
                 </span>
               </div>
             </div>
@@ -678,7 +678,7 @@ export function Shell({ children }: { children: ReactNode }) {
               >
                 <Globe className="w-4 h-4 text-muted-foreground shrink-0" />
                 <span className="text-[13px] font-medium text-foreground/85 flex-1">{t("menu.language")}</span>
-                <span className="text-[11px] font-semibold text-muted-foreground">{lang === "id" ? "Indonesia" : "English"}</span>
+                <span className="text-[11px] font-semibold text-muted-foreground">{lang === "id" ? t("components.indonesia") : t("components.english")}</span>
                 <ChevronDown className={cn("w-4 h-4 text-muted-foreground transition-transform", langOpen && "rotate-180")} />
               </button>
               {langOpen && (
@@ -725,12 +725,12 @@ export function Shell({ children }: { children: ReactNode }) {
           <div className="fixed inset-0 z-40" onClick={() => setNotifOpen(false)} />
           <div className="absolute top-16 right-20 w-80 bg-popover border border-border shadow-xl rounded-lg z-50 flex flex-col max-h-[560px] animate-scale-in origin-top-right">
             <div className="p-4 border-b border-border flex items-center justify-between">
-              <h3 className="font-bold text-[15px] text-foreground">Notifications</h3>
+              <h3 className="font-bold text-[15px] text-foreground">{t("components.notifications")}</h3>
               {notifUnread > 0 && (
                 <button
                   onClick={() => { api.markNotificationsRead().catch(() => {}); setNotifs((ns) => ns.map((n) => ({ ...n, read_at: n.read_at || new Date().toISOString() }))); setNotifUnread(0); }}
                   className="text-xs text-muted-foreground hover:text-foreground font-semibold"
-                >Mark all read</button>
+                >{t("components.markAllRead")}</button>
               )}
             </div>
             <div className="overflow-y-auto flex-1 p-2">
@@ -739,8 +739,8 @@ export function Shell({ children }: { children: ReactNode }) {
                   <div className="w-11 h-11 rounded-xl bg-muted grid place-items-center mb-2.5">
                     <CheckCircle2 className="w-6 h-6 text-primary/50" />
                   </div>
-                  <p className="text-[13px] text-foreground font-semibold">All caught up</p>
-                  <p className="text-xs text-muted-foreground">No new notifications</p>
+                  <p className="text-[13px] text-foreground font-semibold">{t("components.allCaughtUp")}</p>
+                  <p className="text-xs text-muted-foreground">{t("components.noNewNotifications")}</p>
                 </div>
               ) : (
                 <div className="flex flex-col gap-1">

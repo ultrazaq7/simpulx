@@ -1,4 +1,5 @@
 "use client";
+import { useI18n } from "@/lib/i18n";
 import { useEffect, useState, useCallback } from "react";
 import { Loader2, Download, PhoneIncoming, PhoneOutgoing, CheckCircle2, Clock, XCircle, AlertTriangle } from "lucide-react";
 import { api } from "@/lib/api";
@@ -42,6 +43,7 @@ function activityLabel(a: LogActivity): string {
 const activityReason = (a: LogActivity) => (a.detail && typeof (a.detail as any).reason === "string") ? (a.detail as any).reason : "-";
 
 function StatusBadge({ status }: { status: string }) {
+  const { t } = useI18n();
   const map: Record<string, { c: string; Icon: any; label: string }> = {
     completed: { c: "#16A34A", Icon: CheckCircle2, label: "Completed" },
     processing: { c: "#2563EB", Icon: Loader2, label: "Processing" },
@@ -51,7 +53,7 @@ function StatusBadge({ status }: { status: string }) {
   const s = map[status] || map.queued;
   return (
     <span className="inline-flex items-center gap-1.5 px-2 py-0.5 rounded-md text-[11px] font-bold" style={{ color: s.c, backgroundColor: s.c + "1a" }}>
-      <s.Icon className={cn("w-3 h-3", status === "processing" && "animate-spin")} />{s.label}
+      <s.Icon className={cn("w-3 h-3", status === "processing" && "animate-spin")} />{t(s.label)}
     </span>
   );
 }
@@ -66,6 +68,7 @@ function downloadCsv(name: string, header: string[], rows: (string | number | nu
 type ExportKind = "messages" | "conversations" | "calls" | "activity" | "system";
 
 export default function SystemLogsPage() {
+  const { t } = useI18n();
   const [tab, setTab] = useState<TabKey>("messages");
   const [dr, setDr] = useState<DateRangeValue>({ preset: "30d", ...presetRange("30d") });
   const [page, setPage] = useState(0);
@@ -132,10 +135,10 @@ export default function SystemLogsPage() {
     setExporting(kind);
     try {
       await api.createExport(kind, from || undefined, to || undefined, { campaign_id: fCampaign.length ? fCampaign.join(",") : undefined, channel_id: fChannel.length ? fChannel.join(",") : undefined, label: kind === "messages" ? (fLabel || undefined) : undefined });
-      notify("Export queued. Track it in the Downloads tab.");
+      notify(t("settings.exportQueuedTrackItIn"));
       setTab("downloads");
       setTimeout(fetchExports, 400);
-    } catch (e) { notify(e instanceof Error ? e.message : "Export failed", "error"); }
+    } catch (e) { notify(e instanceof Error ? e.message : t("settings.exportFailed"), "error"); }
     finally { setExporting(null); }
   }
 
@@ -158,11 +161,11 @@ export default function SystemLogsPage() {
     <div className="h-full flex flex-col px-6 py-5 min-h-0 overflow-hidden">
       {/* Tabs */}
       <div className="flex items-center border-b border-border shrink-0">
-        {TABS.map((t) => (
-          <button key={t.key} onClick={() => setTab(t.key)}
+        {TABS.map((tb) => (
+          <button key={tb.key} onClick={() => setTab(tb.key)}
             className={cn("px-3 py-2.5 text-sm font-semibold whitespace-nowrap border-b-2 -mb-px transition-colors outline-none",
-              tab === t.key ? "border-primary text-primary" : "border-transparent text-muted-foreground hover:text-foreground")}>
-            {t.label}
+              tab === tb.key ? "border-primary text-primary" : "border-transparent text-muted-foreground hover:text-foreground")}>
+            {t(tb.label)}
           </button>
         ))}
       </div>
@@ -173,11 +176,11 @@ export default function SystemLogsPage() {
         {showConvFilters && (
           <>
             <FilterButton count={activeFilters} onClick={() => setFilterOpen(true)} />
-            {activeFilters > 0 && <button onClick={clearFilters} className="text-[12px] font-semibold text-primary hover:underline outline-none">Clear</button>}
+            {activeFilters > 0 && <button onClick={clearFilters} className="text-[12px] font-semibold text-primary hover:underline outline-none">{t("common.clear")}</button>}
             <FilterDrawer open={filterOpen} onClose={() => setFilterOpen(false)} onClear={clearFilters} canClear={activeFilters > 0}>
-              <FilterField label="Campaigns"><MultiSelect value={fCampaign} onChange={setFCampaign} placeholder="All campaigns" className="w-full" options={campaigns.map((c) => ({ value: c.id, label: c.name }))} /></FilterField>
-              <FilterField label="Channels"><MultiSelect value={fChannel} onChange={setFChannel} placeholder="All channels" className="w-full" options={channels.map((c) => ({ value: c.id, label: c.name }))} /></FilterField>
-              {showLabel && <FilterField label="Label"><input value={fLabel} onChange={(e) => setFLabel(e.target.value)} placeholder="Label"
+              <FilterField label={t("settings.campaigns")}><MultiSelect value={fCampaign} onChange={setFCampaign} placeholder={t("common.allCampaigns")} className="w-full" options={campaigns.map((c) => ({ value: c.id, label: c.name }))} /></FilterField>
+              <FilterField label={t("settings.channels")}><MultiSelect value={fChannel} onChange={setFChannel} placeholder={t("common.allChannels")} className="w-full" options={channels.map((c) => ({ value: c.id, label: c.name }))} /></FilterField>
+              {showLabel && <FilterField label={t("settings.label")}><input value={fLabel} onChange={(e) => setFLabel(e.target.value)} placeholder={t("settings.label")}
                 className="w-full h-9 px-3 rounded-md border border-input bg-background text-sm text-foreground placeholder:text-muted-foreground/70 outline-none focus:border-primary" /></FilterField>}
             </FilterDrawer>
           </>
@@ -186,7 +189,7 @@ export default function SystemLogsPage() {
         {showExportBtn && (
           <button onClick={() => startExport(tab as ExportKind)} disabled={!!exporting}
             className="inline-flex items-center gap-2 px-3.5 h-9 rounded-md border border-border text-sm font-semibold text-foreground hover:bg-muted disabled:opacity-50 outline-none transition-colors">
-            {exporting ? <Loader2 className="w-4 h-4 animate-spin" /> : <Download className="w-4 h-4" />}Export
+            {exporting ? <Loader2 className="w-4 h-4 animate-spin" /> : <Download className="w-4 h-4" />}{t("contacts.export")}
           </button>
         )}
       </div>
@@ -199,19 +202,19 @@ export default function SystemLogsPage() {
               <table className="w-full text-sm">
                 <thead className="sticky top-0 z-10"><tr className="border-b border-border bg-muted">
                   {["Data", "Requested by", "Date range", "Filters", "Rows", "Status", "Created", "Action"].map((h, i) => (
-                    <th key={h} className={cn("px-4 py-2.5 text-[11px] font-bold uppercase tracking-wider text-muted-foreground whitespace-nowrap", i === 7 ? "text-right" : "text-left")}>{h}</th>
+                    <th key={h} className={cn("px-4 py-2.5 text-[11px] font-bold uppercase tracking-wider text-muted-foreground whitespace-nowrap", i === 7 ? "text-right" : "text-left")}>{t(h)}</th>
                   ))}
                 </tr></thead>
                 <tbody>
                   {exports.length === 0 ? (
-                    <tr><td colSpan={8} className="text-center py-12 text-muted-foreground">No exports yet. Use the Export button on any tab.</td></tr>
+                    <tr><td colSpan={8} className="text-center py-12 text-muted-foreground">{t("settings.noExportsYetUseThe")}</td></tr>
                   ) : exportsPaged.map((e) => {
                     const chips = [e.campaign_name, e.channel_name, e.label].filter(Boolean) as string[];
                     return (
                       <tr key={e.id} className="border-b border-border/60 hover:bg-muted/40">
                         <td className="px-4 py-2.5 font-semibold text-foreground capitalize whitespace-nowrap">{e.kind}</td>
                         <td className="px-4 py-2.5 text-foreground/80 whitespace-nowrap">{e.requested_by || "-"}</td>
-                        <td className="px-4 py-2.5 text-muted-foreground text-[12px] whitespace-nowrap">{e.date_from ? `${fmtDay(e.date_from)} - ${e.date_to ? fmtDay(e.date_to) : "now"}` : "All time"}</td>
+                        <td className="px-4 py-2.5 text-muted-foreground text-[12px] whitespace-nowrap">{e.date_from ? `${fmtDay(e.date_from)} - ${e.date_to ? fmtDay(e.date_to) : "now"}` : t("common.allTime")}</td>
                         <td className="px-4 py-2.5">
                           {chips.length === 0 ? <span className="text-muted-foreground text-[12px]">-</span> : (
                             <div className="flex flex-wrap gap-1">{chips.map((c) => <span key={c} className="inline-flex px-1.5 py-0.5 rounded-md bg-muted text-[10.5px] font-medium text-foreground/80">{c}</span>)}</div>
@@ -222,10 +225,10 @@ export default function SystemLogsPage() {
                         <td className="px-4 py-2.5 text-muted-foreground text-[12px] whitespace-nowrap">{fmtDT(e.created_at)}</td>
                         <td className="px-4 py-2.5 text-right whitespace-nowrap">
                           {e.status === "completed" && e.file_url
-                            ? <a href={rewriteLocalMedia(e.file_url)} download target="_blank" rel="noreferrer" className="inline-flex items-center gap-1.5 text-primary text-[13px] font-semibold hover:underline"><Download className="w-4 h-4" />Download</a>
+                            ? <a href={rewriteLocalMedia(e.file_url)} download target="_blank" rel="noreferrer" className="inline-flex items-center gap-1.5 text-primary text-[13px] font-semibold hover:underline"><Download className="w-4 h-4" />{t("broadcasts.download")}</a>
                             : e.status === "failed"
-                              ? <span className="text-[12px] text-destructive" title={e.error || ""}>Failed</span>
-                              : <span className="text-[12px] text-muted-foreground">Preparing</span>}
+                              ? <span className="text-[12px] text-destructive" title={e.error || ""}>{t("broadcasts.failed")}</span>
+                              : <span className="text-[12px] text-muted-foreground">{t("settings.preparing")}</span>}
                         </td>
                       </tr>
                     );
@@ -239,11 +242,11 @@ export default function SystemLogsPage() {
             <table className="w-full text-sm">
               <thead className="sticky top-0 bg-muted z-10">
                 <tr className="border-b border-border">
-                  {tab === "messages" && <><TH>Created</TH><TH>Direction</TH><TH>Contact</TH><TH>Phone</TH><TH>Agent</TH><TH>Type</TH><TH>Message</TH><TH>Status</TH></>}
-                  {tab === "conversations" && <><TH>Agent</TH><TH>Campaign</TH><TH>Customer</TH><TH>Contact</TH><TH>Status</TH><TH className="text-right">First resp (s)</TH><TH className="text-right">Closing (s)</TH><TH className="text-right">Agent msgs</TH><TH>Initiated</TH></>}
-                  {tab === "activity" && <><TH>Agent Name</TH><TH>Agent Email</TH><TH>Agent Activity</TH><TH>Offline Reason</TH><TH>Action At</TH></>}
-                  {tab === "calls" && <><TH>Type</TH><TH>Name</TH><TH>Phone Number</TH><TH className="text-right">Duration</TH><TH>Started At</TH><TH>Ended At</TH><TH>Agent</TH><TH>Status</TH><TH>Recording</TH></>}
-                  {tab === "system" && <><TH>When</TH><TH>Actor</TH><TH>Action</TH><TH>Entity</TH><TH>Detail</TH></>}
+                  {tab === "messages" && <><TH>{t("contacts.created")}</TH><TH>{t("settings.direction")}</TH><TH>{t("broadcasts.contact")}</TH><TH>{t("contacts.phone")}</TH><TH>{t("contacts.agent")}</TH><TH>{t("settings.type")}</TH><TH>{t("automation.message")}</TH><TH>{t("automation.status")}</TH></>}
+                  {tab === "conversations" && <><TH>{t("contacts.agent")}</TH><TH>{t("automation.campaign")}</TH><TH>{t("inbox.customer")}</TH><TH>{t("broadcasts.contact")}</TH><TH>{t("automation.status")}</TH><TH className="text-right">{t("settings.firstRespS")}</TH><TH className="text-right">{t("settings.closingS")}</TH><TH className="text-right">{t("settings.agentMsgs")}</TH><TH>{t("settings.initiated")}</TH></>}
+                  {tab === "activity" && <><TH>{t("settings.agentName")}</TH><TH>{t("settings.agentEmail")}</TH><TH>{t("settings.agentActivity")}</TH><TH>{t("settings.offlineReason")}</TH><TH>{t("settings.actionAt")}</TH></>}
+                  {tab === "calls" && <><TH>{t("settings.type")}</TH><TH>{t("inbox.name")}</TH><TH>{t("settings.phoneNumber")}</TH><TH className="text-right">{t("settings.duration")}</TH><TH>{t("settings.startedAt")}</TH><TH>{t("settings.endedAt")}</TH><TH>{t("contacts.agent")}</TH><TH>{t("automation.status")}</TH><TH>{t("components.recording")}</TH></>}
+                  {tab === "system" && <><TH>{t("settings.when")}</TH><TH>{t("settings.actor")}</TH><TH>{t("settings.action")}</TH><TH>{t("settings.entity")}</TH><TH>{t("settings.detail")}</TH></>}
                 </tr>
               </thead>
               <tbody>
@@ -251,11 +254,11 @@ export default function SystemLogsPage() {
                   <tr><td colSpan={cols[tab]} className="text-center py-16"><Loader2 className="w-6 h-6 animate-spin text-primary mx-auto" /></td></tr>
                 ) : err ? (
                   <tr><td colSpan={cols[tab]} className="text-center py-12">
-                    <div className="inline-flex items-center gap-2 text-destructive text-[13px] font-medium"><AlertTriangle className="w-4 h-4" />Could not load data: {err}</div>
-                    <div className="mt-2"><button onClick={fetchTab} className="text-[12px] font-semibold text-primary hover:underline outline-none">Retry</button></div>
+                    <div className="inline-flex items-center gap-2 text-destructive text-[13px] font-medium"><AlertTriangle className="w-4 h-4" />{t("settings.couldNotLoadData")} {err}</div>
+                    <div className="mt-2"><button onClick={fetchTab} className="text-[12px] font-semibold text-primary hover:underline outline-none">{t("settings.retry")}</button></div>
                   </td></tr>
                 ) : rowsLen === 0 ? (
-                  <tr><td colSpan={cols[tab]} className="text-center py-16 text-muted-foreground">No data found</td></tr>
+                  <tr><td colSpan={cols[tab]} className="text-center py-16 text-muted-foreground">{t("settings.noDataFound")}</td></tr>
                 ) : <>
                   {tab === "messages" && messages.map((m, i) => (
                     <tr key={m.message_id + i} className="border-b border-border/60 hover:bg-muted/40">
@@ -308,7 +311,7 @@ export default function SystemLogsPage() {
                       <td className="px-4 py-2.5">
                         {c.recording_url ? (
                           <a href={c.recording_url} download target="_blank" rel="noreferrer" className="inline-flex items-center gap-1.5 text-[12px] font-semibold text-primary hover:underline">
-                            <Download className="w-3.5 h-3.5" />Download
+                            <Download className="w-3.5 h-3.5" />{t("broadcasts.download")}
                           </a>
                         ) : <span className="text-muted-foreground/60 text-[12px]">-</span>}
                       </td>
@@ -319,7 +322,7 @@ export default function SystemLogsPage() {
                     return (
                       <tr key={a.id} className="border-b border-border/60 hover:bg-muted/40">
                         <td className="px-4 py-2.5 whitespace-nowrap text-muted-foreground text-[12px]">{fmtDT(a.created_at)}</td>
-                        <td className="px-4 py-2.5 font-medium text-foreground">{a.actor_name || "System"}</td>
+                        <td className="px-4 py-2.5 font-medium text-foreground">{a.actor_name || t("settings.system")}</td>
                         <td className="px-4 py-2.5"><span className="inline-flex px-2 py-0.5 rounded-md text-[11px] font-bold capitalize" style={{ backgroundColor: ac + "1a", color: ac }}>{a.action}</span></td>
                         <td className="px-4 py-2.5 text-foreground/80 capitalize">{a.entity_type}</td>
                         <td className="px-4 py-2.5 text-muted-foreground text-[12px] truncate max-w-[320px]">{detailText(a.detail)}</td>
@@ -337,9 +340,9 @@ export default function SystemLogsPage() {
           <div className="flex items-center justify-between px-4 py-2.5 border-t border-border text-sm shrink-0">
             <span className="text-muted-foreground tabular-nums">{total} total</span>
             <div className="flex items-center gap-2">
-              <span className="text-muted-foreground mx-2 tabular-nums">Page {page + 1} of {totalPages}</span>
-              <button disabled={page <= 0} onClick={() => setPage(page - 1)} className="px-2.5 h-7 rounded-md border border-border text-xs font-semibold disabled:opacity-30 hover:bg-muted outline-none transition-colors">Prev</button>
-              <button disabled={page >= totalPages - 1} onClick={() => setPage(page + 1)} className="px-2.5 h-7 rounded-md border border-border text-xs font-semibold disabled:opacity-30 hover:bg-muted outline-none transition-colors">Next</button>
+              <span className="text-muted-foreground mx-2 tabular-nums">{t("settings.page")} {page + 1} of {totalPages}</span>
+              <button disabled={page <= 0} onClick={() => setPage(page - 1)} className="px-2.5 h-7 rounded-md border border-border text-xs font-semibold disabled:opacity-30 hover:bg-muted outline-none transition-colors">{t("settings.prev")}</button>
+              <button disabled={page >= totalPages - 1} onClick={() => setPage(page + 1)} className="px-2.5 h-7 rounded-md border border-border text-xs font-semibold disabled:opacity-30 hover:bg-muted outline-none transition-colors">{t("settings.next")}</button>
             </div>
           </div>
         )}
@@ -349,9 +352,9 @@ export default function SystemLogsPage() {
           <div className="flex items-center justify-between px-4 py-2.5 border-t border-border text-sm shrink-0">
             <span className="text-muted-foreground tabular-nums">{exports.length} total</span>
             <div className="flex items-center gap-2">
-              <span className="text-muted-foreground mx-2 tabular-nums">Page {page + 1} of {dlTotalPages}</span>
-              <button disabled={page <= 0} onClick={() => setPage(page - 1)} className="px-2.5 h-7 rounded-md border border-border text-xs font-semibold disabled:opacity-30 hover:bg-muted outline-none transition-colors">Prev</button>
-              <button disabled={page >= dlTotalPages - 1} onClick={() => setPage(page + 1)} className="px-2.5 h-7 rounded-md border border-border text-xs font-semibold disabled:opacity-30 hover:bg-muted outline-none transition-colors">Next</button>
+              <span className="text-muted-foreground mx-2 tabular-nums">{t("settings.page")} {page + 1} of {dlTotalPages}</span>
+              <button disabled={page <= 0} onClick={() => setPage(page - 1)} className="px-2.5 h-7 rounded-md border border-border text-xs font-semibold disabled:opacity-30 hover:bg-muted outline-none transition-colors">{t("settings.prev")}</button>
+              <button disabled={page >= dlTotalPages - 1} onClick={() => setPage(page + 1)} className="px-2.5 h-7 rounded-md border border-border text-xs font-semibold disabled:opacity-30 hover:bg-muted outline-none transition-colors">{t("settings.next")}</button>
             </div>
           </div>
         )}

@@ -1,10 +1,12 @@
 "use client";
 
+import { useI18n } from "@/lib/i18n";
 import { useState } from "react";
 
 const API = process.env.NEXT_PUBLIC_API_URL || "http://localhost:8080";
 
 export default function DeleteAccountPage() {
+  const { t } = useI18n();
   const [email, setEmail] = useState("");
   const [reason, setReason] = useState("");
   const [submitted, setSubmitted] = useState(false);
@@ -24,7 +26,7 @@ export default function DeleteAccountPage() {
       if (!res.ok) throw new Error((await res.text()) || "Request failed");
       setSubmitted(true);
     } catch {
-      setError("Could not submit your request. Please email support@simpulx.com to delete your account.");
+      setError(t("delete-account.couldNotSubmitYourRequest"));
     } finally {
       setSubmitting(false);
     }
@@ -78,11 +80,10 @@ export default function DeleteAccountPage() {
               margin: "0 0 8px",
             }}
           >
-            Delete Your Simpulx Account
+            {t("delete-account.deleteYourSimpulxAccount")}
           </h1>
           <p style={{ fontSize: 14, color: "#6B7280", lineHeight: 1.6, margin: 0 }}>
-            We&apos;re sorry to see you go. Submitting this form will initiate the
-            deletion of your account and all associated data.
+            {t("delete-account.weReSorryToSee")}
           </p>
         </div>
 
@@ -106,7 +107,7 @@ export default function DeleteAccountPage() {
                   margin: "0 0 8px",
                 }}
               >
-                ⚠️ The following data will be permanently deleted:
+                {t("delete-account.theFollowingDataWillBe")}
               </p>
               <ul
                 style={{
@@ -117,11 +118,11 @@ export default function DeleteAccountPage() {
                   lineHeight: 1.8,
                 }}
               >
-                <li>Your profile and account credentials</li>
-                <li>All conversation history and messages</li>
-                <li>Contacts and customer data</li>
-                <li>Campaign and broadcast history</li>
-                <li>Uploaded media and files</li>
+                <li>{t("delete-account.yourProfileAndAccountCredentials")}</li>
+                <li>{t("delete-account.allConversationHistoryAndMessages")}</li>
+                <li>{t("delete-account.contactsAndCustomerData")}</li>
+                <li>{t("delete-account.campaignAndBroadcastHistory")}</li>
+                <li>{t("delete-account.uploadedMediaAndFiles")}</li>
               </ul>
             </div>
 
@@ -136,7 +137,7 @@ export default function DeleteAccountPage() {
                   marginBottom: 6,
                 }}
               >
-                Email address associated with your account *
+                {t("delete-account.emailAddressAssociatedWithYour")}
               </label>
               <input
                 type="email"
@@ -167,13 +168,13 @@ export default function DeleteAccountPage() {
                   marginBottom: 6,
                 }}
               >
-                Reason for leaving (optional)
+                {t("delete-account.reasonForLeavingOptional")}
               </label>
               <textarea
                 value={reason}
                 onChange={(e) => setReason(e.target.value)}
                 rows={3}
-                placeholder="Tell us why you're leaving..."
+                placeholder={t("delete-account.tellUsWhyYouRe")}
                 style={{
                   width: "100%",
                   padding: "10px 14px",
@@ -196,12 +197,11 @@ export default function DeleteAccountPage() {
                 lineHeight: 1.6,
               }}
             >
-              Your deletion request will be processed within 30 days. During this
-              period, you may contact{" "}
+              {t("delete-account.yourDeletionRequestWillBe")}{" "}
               <a href="mailto:support@simpulx.com" style={{ color: "#2D8B73" }}>
                 support@simpulx.com
               </a>{" "}
-              to cancel the request.
+              {t("delete-account.toCancelTheRequest")}
             </p>
 
             {error && (
@@ -224,7 +224,7 @@ export default function DeleteAccountPage() {
                 cursor: submitting ? "not-allowed" : "pointer",
               }}
             >
-              {submitting ? "Submitting…" : "Request Account Deletion"}
+              {submitting ? t("delete-account.submitting") : t("delete-account.requestAccountDeletion")}
             </button>
           </form>
         ) : (
@@ -246,12 +246,10 @@ export default function DeleteAccountPage() {
               </svg>
             </div>
             <h2 style={{ fontSize: 20, fontWeight: 600, color: "#111827", margin: "0 0 8px" }}>
-              Request Submitted
+              {t("delete-account.requestSubmitted")}
             </h2>
             <p style={{ fontSize: 14, color: "#6B7280", lineHeight: 1.6 }}>
-              We&apos;ve received your deletion request for <strong>{email}</strong>.
-              Your account and data will be deleted within 30 days. You&apos;ll receive
-              a confirmation email once the process is complete.
+              {t("delete-account.weVeReceivedYourDeletion")} <strong>{email}</strong>{t("delete-account.yourAccountAndDataWill")}
             </p>
           </div>
         )}
@@ -266,9 +264,9 @@ export default function DeleteAccountPage() {
           }}
         >
           <p style={{ fontSize: 12, color: "#9CA3AF", margin: 0 }}>
-            © {new Date().getFullYear()} Simpulx. All rights reserved. ·{" "}
+            © {new Date().getFullYear()} {t("delete-account.simpulxAllRightsReserved")}{" "}
             <a href="https://simpulx.com/privacy.html" style={{ color: "#2D8B73" }}>
-              Privacy Policy
+              {t("delete-account.privacyPolicy")}
             </a>
           </p>
         </div>

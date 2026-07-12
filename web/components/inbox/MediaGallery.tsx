@@ -1,5 +1,6 @@
 "use client";
 
+import { useI18n } from "@/lib/i18n";
 import { X, Download, ChevronLeft, ChevronRight, Video, FileText, File } from "lucide-react";
 import { initials, fmtDate, fmtTime, channelColor } from "@/lib/utils";
 import { getMediaUrl } from "./SharedTypes";
@@ -15,6 +16,7 @@ interface MediaGalleryProps {
 }
 
 export function MediaGallery({ currentPreview, mediaMessages, previewIndex, setPreviewMediaId, active }: MediaGalleryProps) {
+  const { t } = useI18n();
   if (!currentPreview) return null;
 
   return (
@@ -31,7 +33,7 @@ export function MediaGallery({ currentPreview, mediaMessages, previewIndex, setP
           </div>
           <div>
             <h3 className="text-white font-semibold text-sm">
-              {currentPreview.direction === "inbound" ? (active?.contact_name || active?.contact_phone || "Contact") : "You"}
+              {currentPreview.direction === "inbound" ? (active?.contact_name || active?.contact_phone || t("broadcasts.contact")) : t("components.you")}
             </h3>
             <p className="text-white/60 text-xs">
               {fmtDate(currentPreview.created_at)} at {fmtTime(currentPreview.created_at)}
@@ -61,14 +63,14 @@ export function MediaGallery({ currentPreview, mediaMessages, previewIndex, setP
 
         <div className="w-full h-full flex items-center justify-center min-h-0">
           {currentPreview.type === "image" ? (
-            <img src={getMediaUrl(currentPreview)} className="max-w-full max-h-full object-contain drop-shadow-2xl" alt="Preview" />
+            <img src={getMediaUrl(currentPreview)} className="max-w-full max-h-full object-contain drop-shadow-2xl" alt={t("broadcasts.preview")} />
           ) : currentPreview.type === "video" ? (
             <div className="w-full h-full max-w-5xl min-h-0 flex justify-center drop-shadow-2xl">
               <CustomVideoPlayer src={getMediaUrl(currentPreview)} />
             </div>
           ) : (
             <div className="w-full h-full max-w-4xl bg-white rounded-xl overflow-hidden drop-shadow-2xl">
-              <iframe src={getMediaUrl(currentPreview)} className="w-full h-full border-none" title="Document Preview" />
+              <iframe src={getMediaUrl(currentPreview)} className="w-full h-full border-none" title={t("components.documentPreview")} />
             </div>
           )}
         </div>
@@ -92,7 +94,7 @@ export function MediaGallery({ currentPreview, mediaMessages, previewIndex, setP
                 className={`w-16 h-16 shrink-0 rounded-lg overflow-hidden border-2 transition-all ${idx === previewIndex ? 'border-amber-500 opacity-100 scale-110' : 'border-transparent opacity-50 hover:opacity-100'}`}
               >
                 {m.type === "image" ? (
-                  <img src={getMediaUrl(m)} className="w-full h-full object-cover" alt="Thumbnail" />
+                  <img src={getMediaUrl(m)} className="w-full h-full object-cover" alt={t("components.thumbnail")} />
                 ) : m.type === "video" ? (
                   <div className="w-full h-full relative bg-black">
                     <video src={getMediaUrl(m) + "#t=0.1"} className="w-full h-full object-cover" preload="metadata" />

@@ -1,4 +1,5 @@
 "use client";
+import { useI18n } from "@/lib/i18n";
 import { useEffect, useState } from "react";
 import { Loader2 } from "lucide-react";
 import { api } from "@/lib/api";
@@ -8,6 +9,7 @@ import { useToast, PageBody, SectionLabel, SettingsCard, FieldLabel, INPUT_CLASS
 const BRAND_DEFAULTS = { page_title: "Simpulx", meta_title: "Simpulx - Omnichannel WhatsApp Business Platform for Modern Teams" };
 
 export default function BrandingSettingsPage() {
+  const { t } = useI18n();
   const { notify, ToastHost } = useToast();
   const [settings, setSettings] = useState<OrgSettings>({});
   const [pageTitle, setPageTitle] = useState(BRAND_DEFAULTS.page_title);
@@ -35,7 +37,7 @@ export default function BrandingSettingsPage() {
       await api.updateOrganization({ settings: { ...settings, branding: { page_title: pageTitle.trim(), meta_title: metaTitle.trim() } } });
       if (typeof document !== "undefined") document.title = `Settings - ${pageTitle.trim()}`;
       setOrigPageTitle(pageTitle.trim()); setOrigMetaTitle(metaTitle.trim());
-      notify("Branding saved");
+      notify(t("settings.brandingSaved"));
     } catch (e) { notify(String(e), "error"); }
     finally { setSaving(false); }
   }
@@ -51,35 +53,35 @@ export default function BrandingSettingsPage() {
   return (
     <PageBody maxWidth={680}>
       {ToastHost}
-      <SectionLabel>Branding</SectionLabel>
+      <SectionLabel>{t("settings.branding")}</SectionLabel>
       <SettingsCard className="p-5">
         <div className="flex flex-col gap-5">
           <div>
-            <FieldLabel>Page title</FieldLabel>
+            <FieldLabel>{t("settings.pageTitle")}</FieldLabel>
             <input
               type="text"
               value={pageTitle}
               onChange={(e) => setPageTitle(e.target.value)}
-              placeholder="Simpulx"
+              placeholder={t("auth.simpulx")}
               className={INPUT_CLASS}
             />
             <p className="text-xs text-muted-foreground/70 mt-1.5">
-              Browser tab shows <b>{`{page} - ${pageTitle || "Simpulx"}`}</b> (e.g. <b>{`Dashboard - ${pageTitle || "Simpulx"}`}</b>).
+              {t("settings.browserTabShows")} <b>{`{page} - ${pageTitle || "Simpulx"}`}</b> (e.g. <b>{`Dashboard - ${pageTitle || "Simpulx"}`}</b>).
             </p>
           </div>
           <div>
-            <FieldLabel>Meta title</FieldLabel>
+            <FieldLabel>{t("settings.metaTitle")}</FieldLabel>
             <textarea
               value={metaTitle}
               onChange={(e) => setMetaTitle(e.target.value)}
               rows={2}
-              placeholder="Used for the page meta/description tag"
+              placeholder={t("settings.usedForThePageMeta")}
               className="w-full px-3 py-2 rounded-md border border-input bg-background text-sm text-foreground outline-none resize-none transition-shadow focus:border-primary"
             />
           </div>
           <div className="flex justify-end">
             <PrimaryButton onClick={save} disabled={saving || !dirty}>
-              {saving ? <Loader2 className="w-4 h-4 animate-spin" /> : dirty ? "Save changes" : "Saved"}
+              {saving ? <Loader2 className="w-4 h-4 animate-spin" /> : dirty ? t("account.save") : t("automation.saved")}
             </PrimaryButton>
           </div>
         </div>

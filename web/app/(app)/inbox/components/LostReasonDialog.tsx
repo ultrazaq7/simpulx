@@ -1,4 +1,5 @@
 "use client";
+import { useI18n } from "@/lib/i18n";
 import { useState } from "react";
 import { X, ShoppingBag, XCircle, Ban, ChevronRight, ChevronLeft } from "lucide-react";
 import { cn } from "@/lib/utils";
@@ -66,6 +67,7 @@ interface LostReasonDialogProps {
 }
 
 export default function LostReasonDialog({ open, onClose, onSubmit }: LostReasonDialogProps) {
+  const { t } = useI18n();
   // Step 1: pick a type (group). Step 2: pick a specific reason within it.
   const [group, setGroup] = useState<Group | null>(null);
   const [reason, setReason] = useState<string | null>(null);
@@ -79,19 +81,19 @@ export default function LostReasonDialog({ open, onClose, onSubmit }: LostReason
   return (
     <div className="fixed inset-0 z-[100] flex items-center justify-center p-4">
       <div className="absolute inset-0 bg-black/40 backdrop-blur-[2px] animate-fade-in" onClick={close} />
-      <div role="dialog" aria-modal="true" aria-label="Why is this lead lost" className="relative w-[460px] max-h-[85vh] flex flex-col rounded-lg border border-border bg-card shadow-2xl animate-scale-in">
+      <div role="dialog" aria-modal="true" aria-label={t("inbox.whyIsThisLeadLost")} className="relative w-[460px] max-h-[85vh] flex flex-col rounded-lg border border-border bg-card shadow-2xl animate-scale-in">
         {/* Header */}
         <div className="flex items-center px-5 py-3.5 border-b border-border">
           {group && (
-            <button aria-label="Back" onClick={back} className="p-1 -ml-1 mr-2 rounded-md text-muted-foreground hover:bg-muted hover:text-foreground outline-none">
+            <button aria-label={t("account.back")} onClick={back} className="p-1 -ml-1 mr-2 rounded-md text-muted-foreground hover:bg-muted hover:text-foreground outline-none">
               <ChevronLeft className="w-[18px] h-[18px]" />
             </button>
           )}
           <div className="flex-1">
-            <p className="font-bold text-[15px] text-foreground">{group ? group.title : "Why is this lead lost?"}</p>
-            <p className="text-xs text-muted-foreground">{group ? `${group.subtitle} - pick the closest reason` : "Choose the outcome type."}</p>
+            <p className="font-bold text-[15px] text-foreground">{group ? group.title : t("inbox.whyIsThisLeadLost2")}</p>
+            <p className="text-xs text-muted-foreground">{group ? `${t(group.subtitle)} - ${t("inbox.pickClosestReason")}` : t("inbox.chooseTheOutcomeType")}</p>
           </div>
-          <button aria-label="Close" onClick={close} className="p-1 rounded-md text-muted-foreground hover:bg-muted hover:text-foreground outline-none">
+          <button aria-label={t("components.close")} onClick={close} className="p-1 rounded-md text-muted-foreground hover:bg-muted hover:text-foreground outline-none">
             <X className="w-[18px] h-[18px]" />
           </button>
         </div>
@@ -107,7 +109,7 @@ export default function LostReasonDialog({ open, onClose, onSubmit }: LostReason
                 </span>
                 <span className="flex-1 min-w-0">
                   <span className="block text-[14px] font-bold text-foreground">{g.title}</span>
-                  <span className="block text-[12px] text-muted-foreground">{g.subtitle}</span>
+                  <span className="block text-[12px] text-muted-foreground">{t(g.subtitle)}</span>
                 </span>
                 <ChevronRight className="w-4 h-4 text-muted-foreground/50 shrink-0" />
               </button>
@@ -127,7 +129,7 @@ export default function LostReasonDialog({ open, onClose, onSubmit }: LostReason
                         ? (isSpam ? "bg-red-50 border-red-500 text-red-600" : "bg-primary/10 border-primary text-primary")
                         : "bg-card border-border text-foreground/70 hover:bg-muted",
                     )}>
-                    {r.label}
+                    {t(r.label)}
                   </button>
                 );
               })}
@@ -138,7 +140,7 @@ export default function LostReasonDialog({ open, onClose, onSubmit }: LostReason
         {/* Footer */}
         <div className="flex items-center justify-end gap-2 px-5 py-3 border-t border-border">
           <button onClick={group ? back : close} className="px-3 py-1.5 rounded-md text-sm font-semibold text-foreground/70 hover:bg-muted outline-none">
-            {group ? "Back" : "Cancel"}
+            {group ? t("account.back") : t("common.cancel")}
           </button>
           {group && (
             <button onClick={submit} disabled={!reason}
@@ -146,7 +148,7 @@ export default function LostReasonDialog({ open, onClose, onSubmit }: LostReason
                 "px-4 py-1.5 rounded-md text-sm font-semibold text-white outline-none disabled:opacity-50 transition-colors",
                 isSpam ? "bg-red-500 hover:bg-red-600" : "bg-primary hover:bg-primary-dark",
               )}>
-              {isSpam ? "Mark as Spam" : "Mark as Lost"}
+              {isSpam ? t("inbox.markAsSpam") : t("inbox.markAsLost")}
             </button>
           )}
         </div>
