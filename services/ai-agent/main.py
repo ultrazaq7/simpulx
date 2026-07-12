@@ -55,7 +55,7 @@ async def on_draft_followup(env: dict) -> bool:
 @asynccontextmanager
 async def lifespan(app: FastAPI):
     state["pool"] = await get_pool()
-    state["broker"] = await Broker.connect(settings.nats_url)
+    state["broker"] = await Broker.connect(settings.nats_url, log=log)
     await state["broker"].subscribe("events.message.persisted", "ai-agent", on_persisted)
     await state["broker"].subscribe("events.ai.draft_followup", "ai-agent-followup", on_draft_followup)
     log.info("ai-agent subscribed (provider=%s, embed=%s)", settings.llm_provider, settings.embed_provider)
