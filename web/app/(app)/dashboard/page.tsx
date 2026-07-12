@@ -1,5 +1,5 @@
 "use client";
-import { useEffect, useState, useMemo, useRef, useCallback, useId } from "react";
+import { useEffect, useState, useMemo, useRef, useCallback } from "react";
 import Link from "next/link";
 import {
   AreaChart, Area, XAxis, YAxis, CartesianGrid, Tooltip as RechartsTooltip,
@@ -9,7 +9,7 @@ import {
   BarChart3, MessageSquare, Inbox, Flame, Timer,
   TrendingDown, ChevronRight, ChevronsLeft, Zap, Mail, Reply, Trophy, Ban,
   CircleDollarSign, MousePointerClick, Spotlight, Target, Eye, Filter as FilterIcon,
-  Image as ImageIcon, MapPin, Percent, ArrowUpRight, ArrowDownRight,
+  Image as ImageIcon, MapPin, Percent,
   Download, FileText, FileSpreadsheet, ChevronDown,
 } from "lucide-react";
 
@@ -19,11 +19,10 @@ import { MultiSelect } from "@/components/ui/multi-select";
 import { IndonesiaMap } from "@/components/IndonesiaMap";
 import { Tip } from "@/components/ui/tooltip";
 import { lostReasonLabel } from "@/app/(app)/inbox/components/LostReasonDialog";
-import type { Stats, Analytics, DashboardCards, AdPerformance, AdKeyword, AdBreakdown, Channel, Campaign, Agent, Conversation, Ga4Report } from "@/lib/types";
+import type { Stats, Analytics, DashboardCards, AdPerformance, AdKeyword, AdBreakdown, Channel, Campaign, Agent } from "@/lib/types";
 import { cn, fmtDuration, stageLabel } from "@/lib/utils";
 import { useI18n } from "@/lib/i18n";
 import DateRangeFilter, { presetRange } from "@/components/DateRangeFilter";
-import { AdsReportView } from "@/app/report/ads/AdsReportView";
 
 type Metric = {
   key: string; label: string; Icon: any; color: string;
@@ -126,89 +125,25 @@ function Badge({ label, bg, text }: { label: string; bg: string; text: string })
   );
 }
 
-// Card shell - layered, with an accent-dot header for a premium analytics feel.
-function Card({ title, subtitle, icon: Icon, iconColor, children, className, action }: {
+// Card shell - crisp, layered, enterprise
+function Card({ title, subtitle, icon: Icon, iconColor, children, className }: {
   title?: string; subtitle?: string; icon?: any; iconColor?: string;
-  children: React.ReactNode; className?: string; action?: React.ReactNode;
+  children: React.ReactNode; className?: string;
 }) {
   return (
-    <div className={cn("bg-card rounded-xl border border-border shadow-sm overflow-hidden", className)}>
+    <div className={cn("bg-card rounded-lg border border-border shadow-xs overflow-hidden", className)}>
       {title && (
-        <div className="px-5 py-3.5 border-b border-border flex items-center gap-2.5">
-          {Icon ? (
-            <Icon className="w-[18px] h-[18px]" style={{ color: iconColor }} />
-          ) : (
-            <span className="w-1.5 h-4 rounded-full shrink-0" style={{ background: iconColor || "var(--primary, #2D8B73)" }} />
-          )}
-          <div className="min-w-0">
-            <p className="font-bold text-[14px] text-foreground leading-tight truncate">{title}</p>
-            {subtitle && <p className="text-xs text-muted-foreground truncate">{subtitle}</p>}
+        <div className="px-4 py-3 border-b border-border flex items-center gap-2.5">
+          {Icon && <Icon className="w-[18px] h-[18px]" style={{ color: iconColor }} />}
+          <div>
+            <p className="font-bold text-[14px] text-foreground leading-tight">{title}</p>
+            {subtitle && <p className="text-xs text-muted-foreground">{subtitle}</p>}
           </div>
-          {action && <div className="ml-auto shrink-0">{action}</div>}
         </div>
       )}
       {children}
     </div>
   );
-}
-
-// Tiny area sparkline for a KPI card (real series only; no fabrication).
-function Sparkline({ data, color }: { data: number[]; color: string }) {
-  const id = useId().replace(/[:]/g, "");
-  if (!data || data.length < 2) return <div className="h-10 mt-2" />;
-  const d = data.map((v, i) => ({ i, v }));
-  return (
-    <div className="h-10 mt-2 -mx-1">
-      <ResponsiveContainer width="100%" height="100%">
-        <AreaChart data={d} margin={{ top: 4, right: 2, left: 2, bottom: 0 }}>
-          <defs>
-            <linearGradient id={`spark-${id}`} x1="0" y1="0" x2="0" y2="1">
-              <stop offset="0%" stopColor={color} stopOpacity={0.22} />
-              <stop offset="100%" stopColor={color} stopOpacity={0} />
-            </linearGradient>
-          </defs>
-          <Area type="monotone" dataKey="v" stroke={color} strokeWidth={1.75} fill={`url(#spark-${id})`} dot={false} isAnimationActive={false} />
-        </AreaChart>
-      </ResponsiveContainer>
-    </div>
-  );
-}
-
-// KPI tile matching the reference dashboard: icon chip + label, big value, trend delta,
-// and a mini sparkline (rendered only when a real daily series exists). Clean white card.
-function StatCard({ label, value, Icon, color, href, series, delta }: {
-  label: string; value: string | number; Icon: any; color: string; href?: string;
-  series?: number[]; delta?: { pct: number; note: string } | null;
-}) {
-  const up = delta ? delta.pct >= 0 : false;
-  const card = (
-    <div className="group rounded-2xl border border-border bg-card p-4 hover:shadow-md transition-shadow">
-      <div className="flex items-center justify-between gap-2">
-        <div className="flex items-center gap-2.5 min-w-0">
-          <div className="w-9 h-9 rounded-xl grid place-items-center shrink-0" style={{ background: color + "14" }}>
-            <Icon className="w-[18px] h-[18px]" style={{ color }} />
-          </div>
-          <span className="text-[11px] font-semibold uppercase tracking-wide text-muted-foreground truncate">{label}</span>
-        </div>
-        {href && <ChevronRight className="w-4 h-4 text-muted-foreground/40 group-hover:text-foreground transition-colors shrink-0" />}
-      </div>
-      <p className="text-[26px] font-extrabold text-foreground leading-none tabular-nums mt-3 truncate">{value}</p>
-      {delta ? (
-        <p className={cn("mt-1.5 text-[11px] font-medium flex items-center gap-1", up ? "text-emerald-600" : "text-red-500")}>
-          {up ? <ArrowUpRight className="w-3.5 h-3.5" /> : <ArrowDownRight className="w-3.5 h-3.5" />}
-          <span className="font-bold">{Math.abs(delta.pct)}%</span>
-          <span className="text-muted-foreground font-normal">{delta.note}</span>
-        </p>
-      ) : <div className="mt-1.5 h-4" />}
-      <Sparkline data={series || []} color={color} />
-    </div>
-  );
-  return href ? <Link href={href} className="block outline-none rounded-2xl">{card}</Link> : card;
-}
-
-// Responsive grid for a row of StatCards.
-function StatGrid({ children, className }: { children: React.ReactNode; className?: string }) {
-  return <div className={cn("grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-6 gap-3", className)}>{children}</div>;
 }
 
 // Shared 7-day area chart (real analytics.daily) with honest empty + single-day states
@@ -374,65 +309,6 @@ function StageSplit({ stages, lost }: { stages?: Analytics["stages"]; lost?: num
 // One in-brand green ramp (light -> deep) instead of a rainbow: stays in the
 // design system and reads as funnel progression.
 const FUNNEL_COLORS = ["#A7DACE", "#7FC9B8", "#57B8A1", "#2D8B73", "#26735F", "#1E5C4C", "#174539"];
-
-// Pipeline overview: horizontal stage cards with the step-to-step conversion between
-// them (reference dashboard's "Pipeline overview"). Built from real stage counts.
-function PipelineOverview({ stages }: { stages?: Analytics["stages"] }) {
-  const s = (stages || []).filter((x) => !(x.system_key || "").startsWith("lost")).sort((a, b) => a.sort_order - b.sort_order);
-  if (s.length === 0) return null;
-  return (
-    <div className="p-4 overflow-x-auto">
-      <div className="flex items-stretch gap-1.5 min-w-max">
-        {s.flatMap((st, i) => {
-          const color = FUNNEL_COLORS[Math.min(i, FUNNEL_COLORS.length - 1)];
-          const card = (
-            <div key={`c-${st.system_key}`} className="flex-1 min-w-[116px] rounded-xl border border-border bg-card px-3 py-3 text-center">
-              <span className="inline-block w-2.5 h-2.5 rounded-full mb-2" style={{ background: color }} />
-              <p className="text-[10.5px] font-semibold uppercase tracking-wide text-muted-foreground truncate">{st.name}</p>
-              <p className="text-[22px] font-extrabold text-foreground tabular-nums leading-none mt-1">{st.count}</p>
-            </div>
-          );
-          if (i === s.length - 1) return [card];
-          const conv = s[i].count > 0 ? Math.round((s[i + 1].count / s[i].count) * 100) : 0;
-          const arrow = (
-            <div key={`a-${st.system_key}`} className="flex flex-col items-center justify-center px-0.5 shrink-0">
-              <ChevronRight className="w-4 h-4 text-muted-foreground/40" />
-              <span className="text-[10px] font-bold tabular-nums text-primary">{conv}%</span>
-            </div>
-          );
-          return [card, arrow];
-        })}
-      </div>
-    </div>
-  );
-}
-
-// Top agents by first-response time (reference dashboard). Fastest first; real data only.
-function TopAgents({ agents }: { agents: Analytics["agents"] }) {
-  const AV = ["#2D8B73", "#6366F1", "#F59E0B", "#0EA5E9", "#EC4899"];
-  const ranked = agents.filter((a) => a.avg_rt_min > 0).sort((a, b) => a.avg_rt_min - b.avg_rt_min).slice(0, 5);
-  if (ranked.length === 0) return <div className="py-10 text-center text-sm text-muted-foreground">No response-time data yet</div>;
-  const max = Math.max(...ranked.map((a) => a.avg_rt_min));
-  const initials = (n: string) => (n || "?").split(" ").filter(Boolean).map((w) => w[0]).slice(0, 2).join("").toUpperCase() || "?";
-  return (
-    <div className="p-4 flex flex-col gap-3.5">
-      {ranked.map((a, i) => (
-        <div key={a.agent + i} className="flex items-center gap-3">
-          <div className="w-8 h-8 rounded-full grid place-items-center text-white text-[11px] font-bold shrink-0" style={{ background: AV[i % AV.length] }}>{initials(a.agent)}</div>
-          <div className="min-w-0 flex-1">
-            <div className="flex items-center justify-between gap-2">
-              <span className="text-[13px] font-semibold text-foreground truncate">{a.agent || "Unknown"}</span>
-              <span className="text-[12px] font-bold tabular-nums text-foreground shrink-0">{fmtDuration(a.avg_rt_min)}</span>
-            </div>
-            <div className="mt-1.5 h-1.5 rounded-full bg-muted overflow-hidden">
-              <div className="h-full rounded-full" style={{ width: `${Math.max(6, (a.avg_rt_min / max) * 100)}%`, background: AV[i % AV.length] }} />
-            </div>
-          </div>
-        </div>
-      ))}
-    </div>
-  );
-}
 
 
 // â”€â”€ Agent dashboard: action-center (essentials only, no org analytics, no lead score) â”€â”€
@@ -699,15 +575,6 @@ function ManagerDashboard() {
   const funnel = analytics?.funnel;
   const agents = analytics?.agents || [];
   const chartData = buildChartData(analytics, true); // all days; bounded by the date filter when applied
-  // Real daily series for KPI sparklines (no fabrication) + a same-vs-previous delta.
-  const dLeads = (analytics?.daily || []).map((d) => d.leads);
-  const dReplied = (analytics?.daily || []).map((d) => d.replied);
-  const seriesDelta = (s?: number[]): { pct: number; note: string } | null => {
-    if (!s || s.length < 2) return null;
-    const prev = s[s.length - 2], last = s[s.length - 1];
-    if (prev === 0) return last > 0 ? { pct: 100, note: "vs prev day" } : null;
-    return { pct: Math.round(((last - prev) / prev) * 100), note: "vs prev day" };
-  };
 
   const reportNav = [{ key: "overview" as const, label: "Overview" }, { key: "marketing" as const, label: "Ads Report" }, { key: "creatives" as const, label: "Creative Insights" }];
 
@@ -789,33 +656,50 @@ function ManagerDashboard() {
           )}
         </div>
 
-        {/* â”€â”€ KPI tiles â”€â”€ */}
-        <StatGrid className="mb-5">
-          {METRICS.map((m) => {
+        {/* â”€â”€ Metric Strip â”€â”€ */}
+        <div className="flex flex-wrap bg-card rounded-lg border border-border shadow-xs mb-5 overflow-hidden">
+          {METRICS.map((m, i) => {
             let val: number;
             if (m.key === "total_leads") val = analytics?.funnel?.total ?? 0;
             else if (m.key === "replied") val = analytics?.funnel?.replied ?? 0;
             else if (m.key === "won") val = analytics?.funnel?.won ?? 0;
             else if (m.key === "avg_rt") val = analytics?.response_time?.avg_min ?? 0;
             else val = (stats as any)[m.key] ?? 0;
-            // Sparkline + delta only where a real daily series exists (leads, replied).
-            const series = m.key === "total_leads" ? dLeads : m.key === "replied" ? dReplied : undefined;
-            return <StatCard key={m.key} label={m.label} value={m.fmt ? m.fmt(val) : val} Icon={m.Icon} color={m.color}
-              href={m.href ? metricHref(m.href) : undefined} series={series} delta={seriesDelta(series)} />;
+            const Icon = m.Icon;
+
+            const inner = (
+              <>
+                <div className="w-9 h-9 rounded-lg grid place-items-center shrink-0" style={{ backgroundColor: m.color + "14" }}>
+                  <Icon className="w-[18px] h-[18px]" style={{ color: m.color }} />
+                </div>
+                <div className="min-w-0">
+                  <p className="text-[10px] font-semibold text-muted-foreground uppercase tracking-wide leading-tight truncate flex items-center gap-1">
+                    {m.label}
+                    {m.href && <ChevronRight className="w-3 h-3 opacity-0 group-hover/metric:opacity-100 transition-opacity shrink-0" />}
+                  </p>
+                  <p className="text-[22px] font-extrabold text-foreground leading-none tracking-tight tabular-nums mt-1 whitespace-nowrap">{m.fmt ? m.fmt(val) : val}</p>
+                </div>
+              </>
+            );
+
+            const base = cn(
+              "group/metric flex-1 min-w-[150px] flex items-center gap-3 px-4 py-3.5 transition-colors",
+              i < METRICS.length - 1 && "border-r border-border",
+              m.href ? "hover:bg-primary/[0.04] cursor-pointer" : "",
+            );
+
+            return m.href
+              ? <Link key={m.key} href={metricHref(m.href)} className={base}>{inner}</Link>
+              : <div key={m.key} className={base}>{inner}</div>;
           })}
-        </StatGrid>
+        </div>
 
         {/* â”€â”€ Area Chart (real, last 7 days) â”€â”€ */}
         <Card title="Overview" subtitle={fFrom || fTo ? `${fFrom || "start"} to ${fTo || "now"}` : "All time"} className="mb-5">
           <div className="px-4 py-4"><OverviewChart data={chartData} /></div>
         </Card>
 
-        {/* Pipeline overview - stage cards + step conversion */}
-        <Card title="Pipeline overview" subtitle="Leads by stage and step conversion" className="mb-5">
-          <PipelineOverview stages={analytics?.stages} />
-        </Card>
-
-        <div className="grid grid-cols-1 lg:grid-cols-3 gap-4 mb-5">
+        <div className="grid grid-cols-1 lg:grid-cols-2 gap-4 mb-5">
           {/* Stage breakdown - leads per stage incl. Lost pinned at the bottom */}
           <Card title="Stage breakdown" subtitle="Leads by pipeline stage">
             <StageSplit stages={analytics?.stages} lost={analytics?.funnel?.lost} />
@@ -824,11 +708,6 @@ function ManagerDashboard() {
           {/* Interest Level - clickable rows deep-link to filtered inbox */}
           <Card title="Interest level">
             <InterestSplit funnel={funnel} />
-          </Card>
-
-          {/* Top agents by first-response time */}
-          <Card title="Top agents" subtitle="By response time">
-            <TopAgents agents={agents} />
           </Card>
         </div>
 
@@ -1101,9 +980,6 @@ function MarketingAnalytics() {
   const [accounts, setAccounts] = useState<{ id: string; name?: string | null }[]>([]);
   const [perf, setPerf] = useState<AdPerformance | null>(null);
   const [keywords, setKeywords] = useState<AdKeyword[]>([]);
-  const [leads, setLeads] = useState<Conversation[]>([]);
-  const [ga4, setGa4] = useState<Ga4Report | null>(null);
-  const [camps, setCamps] = useState<Campaign[]>([]);
   const [exportOpen, setExportOpen] = useState(false);
   const [currency, setCurrency] = useState("");
   const [platforms, setPlatforms] = useState<string[]>([]);
@@ -1117,16 +993,10 @@ function MarketingAnalytics() {
       api.adPerformance(from || undefined, to || undefined, campaignFilter.length ? campaignFilter : undefined, sourceFilter.length ? sourceFilter : undefined, accountFilter.length ? accountFilter : undefined).catch(() => null),
       api.listAdAccounts().catch(() => []),
       api.adKeywords(from || undefined, to || undefined).catch(() => []),
-      api.listConversations("", from || "", to || "", "", "").catch(() => []),
-      api.getOrgGa4(from || undefined, to || undefined).catch(() => null),
-      api.listCampaigns().catch(() => []),
-    ]).then(([p, accts, kws, lds, g, cps]) => {
+    ]).then(([p, accts, kws]) => {
       if (!alive) return;
       setPerf(p as AdPerformance | null);
       setKeywords((kws as AdKeyword[]) || []);
-      setLeads((lds as Conversation[]) || []);
-      setGa4(g as Ga4Report | null);
-      setCamps((cps as Campaign[]) || []);
       const a = (accts as { id: string; name?: string | null; currency?: string | null; platform?: string | null }[]) || [];
       setAccounts(a);
       setHasAccounts(a.length > 0);
@@ -1176,8 +1046,6 @@ function MarketingAnalytics() {
   const cpl = t.leads > 0 ? t.spend / t.leads : 0;
   const cpa = t.sales > 0 ? t.spend / t.sales : 0;
   const convRate = t.leads > 0 ? (t.sales / t.leads) * 100 : 0;
-  const { from: rFrom, to: rTo } = dateRange === "custom" ? { from: fFrom, to: fTo } : presetRange(dateRange);
-  const rangeLabel = rFrom && rTo ? `${rFrom} to ${rTo}` : "All time";
   const money = (n: number) => `${currency ? currency + " " : ""}${fmtMoney(n)}`;
   const creatives = perf?.creatives || [];
   const hasSpend = hasAccounts && (campaigns.length > 0 || adDelivery.impressions > 0);
@@ -1187,9 +1055,34 @@ function MarketingAnalytics() {
   // filter stays reachable — picking an empty range must not trap the user.
   const isEmpty = !hasSpend && creatives.length === 0;
 
-  // The Ads Report body is the shared <AdsReportView> (identical to the PDF). CTR is
-  // kept here only because the CSV export summary references it.
+  const roiCards = [
+    { label: "Ad spend", value: money(t.spend), Icon: CircleDollarSign, color: "#F59E0B" },
+    { label: "Leads", value: fmtInt(t.leads), Icon: MessageSquare, color: "#2D8B73" },
+    { label: "Cost / lead", value: money(cpl), Icon: Target, color: "#6366F1" },
+    { label: "Conversions", value: fmtInt(t.sales), Icon: Trophy, color: "#059669" },
+    { label: "Cost / conversion", value: money(cpa), Icon: CircleDollarSign, color: "#0EA5E9" },
+    { label: "Lead to purchase", value: `${convRate.toFixed(1)}%`, Icon: Target, color: "#EF4444" },
+  ];
+
+  // Funnel: Impressions -> Clicks -> CTR% -> Leads, in a single on-brand green ramp.
+  // Widths narrow by count (CTR sits between clicks and leads); CTR shows the rate.
   const ctrPct = t.impressions > 0 ? (t.clicks / t.impressions) * 100 : 0;
+  // Stacked funnel bars narrowing on a fixed ramp, orange -> red (matches the
+  // campaign report look).
+  const funnel = [
+    { label: "Impressions", display: fmtInt(t.impressions), w: 100, color: "#F97316" },
+    { label: "Clicks", display: fmtInt(t.clicks), w: 80, color: "#F97316" },
+    { label: "CTR %", display: `${ctrPct.toFixed(2)}%`, w: 60, color: "#EA580C" },
+    { label: "Leads", display: fmtInt(t.leads), w: 44, color: "#DC2626" },
+  ];
+
+  const daily = (perf?.daily || []).map((d) => {
+    const dt = new Date(d.date);
+    return {
+      date: isNaN(dt.getTime()) ? d.date : `${String(dt.getDate()).padStart(2, "0")}/${String(dt.getMonth() + 1).padStart(2, "0")}`,
+      spend: d.spend || 0, impressions: d.impressions || 0, reach: d.reach || 0, clicks: d.clicks || 0, leads: d.leads || 0,
+    };
+  }).reverse(); // chart reads left (oldest) -> right (newest)
 
   // Full raw analytics export (same shape as the old campaign report): summary +
   // per-source + daily timeline + age/gender/region demographics, each a labelled
@@ -1299,7 +1192,190 @@ function MarketingAnalytics() {
       ) : (<>
       {hasSpend ? (
       <>
-      <AdsReportView perf={perf} keywords={keywords} leads={leads} ga4={ga4} camps={camps} campaigns={campaignFilter} rangeLabel={rangeLabel} />
+      {/* ROI cards */}
+      <div className="flex flex-wrap bg-card rounded-lg border border-border shadow-xs mb-5 overflow-hidden">
+        {roiCards.map((c, i) => (
+          <div key={c.label} className={cn("flex-1 min-w-[150px] flex items-center gap-3 px-4 py-3.5", i < roiCards.length - 1 && "border-r border-border")}>
+            <div className="w-9 h-9 rounded-lg grid place-items-center shrink-0" style={{ backgroundColor: c.color + "14" }}><c.Icon className="w-[18px] h-[18px]" style={{ color: c.color }} /></div>
+            <div className="min-w-0">
+              <p className="text-[10px] font-semibold text-muted-foreground uppercase tracking-wide leading-tight truncate">{c.label}</p>
+              <p className="text-[18px] xl:text-[20px] font-extrabold text-foreground leading-none tabular-nums mt-1 truncate">{c.value}</p>
+            </div>
+          </div>
+        ))}
+      </div>
+
+      {/* Marketing funnel + Conversion rates side-by-side */}
+      <div className="grid grid-cols-1 lg:grid-cols-2 gap-4 mb-5">
+      <Card title="Marketing funnel" subtitle="Impression to click to chat to conversion">
+        {/* Stacked funnel bars narrowing on a fixed ramp, orange -> red (matches
+            the campaign report). */}
+        <div className="p-4">
+          <div className="flex flex-col items-center gap-1.5">
+            {funnel.map((s) => (
+              <div key={s.label} style={{ width: `${s.w}%`, backgroundColor: s.color }}
+                className="rounded-md py-2.5 px-2 text-center text-white shadow-sm transition-all duration-500">
+                <p className="text-[9.5px] font-semibold uppercase tracking-wide opacity-90">{s.label}</p>
+                <p className="text-[17px] font-extrabold tabular-nums leading-tight">{s.display}</p>
+              </div>
+            ))}
+          </div>
+        </div>
+      </Card>
+
+      {/* Source performance — read-only breakdown of ad delivery + leads by source. */}
+      <div className="bg-card rounded-lg border border-border shadow-xs overflow-hidden flex flex-col">
+        <div className="px-4 py-3 border-b border-border">
+          <p className="font-bold text-[14px] text-foreground leading-tight">Source performance</p>
+        </div>
+        <div className="overflow-x-auto flex-1">
+          <table className="w-full text-sm">
+            <thead>
+              <tr className="bg-muted/40 border-b border-border">
+                {["Source", "Cost", "Impressions", "Clicks", "CTR", "CPC", "Leads", "CPL", "Purchase", "CVR"].map((h, i) => (
+                  <th key={h} className={cn("px-3 py-2 text-[11px] font-bold uppercase tracking-wider text-muted-foreground", i === 0 ? "text-left" : "text-right")}>{h}</th>
+                ))}
+              </tr>
+            </thead>
+            <tbody>
+              {(perf?.sources || []).length === 0 ? (
+                <tr><td colSpan={10} className="px-3 py-10 text-center text-[13px] text-muted-foreground">No source data in this range</td></tr>
+              ) : (() => {
+                const rows = perf?.sources || [];
+                const maxCvr = Math.max(...rows.map((s) => s.cvr), 1);
+                return rows.map((s) => {
+                  const heat = s.cvr / maxCvr;
+                  const bg = `rgba(45, 139, 115, ${heat * 0.85})`; // on-brand green CVR heat
+                  const cpc = s.clicks > 0 ? s.spend / s.clicks : 0;
+                  const cpl = s.leads > 0 ? s.spend / s.leads : 0;
+                  return (
+                    <tr key={s.source} className="border-b border-border/60">
+                      <td className="px-3 py-2 font-semibold text-foreground">{s.label}</td>
+                      <td className="px-3 py-2 text-right tabular-nums text-foreground/80">{money(s.spend)}</td>
+                      <td className="px-3 py-2 text-right tabular-nums text-foreground/80">{fmtInt(s.impressions)}</td>
+                      <td className="px-3 py-2 text-right tabular-nums text-foreground/80">{fmtInt(s.clicks)}</td>
+                      <td className="px-3 py-2 text-right tabular-nums text-foreground/80">{s.ctr.toFixed(2)}%</td>
+                      <td className="px-3 py-2 text-right tabular-nums text-foreground/80">{s.clicks > 0 ? money(cpc) : "-"}</td>
+                      <td className="px-3 py-2 text-right tabular-nums text-foreground/80">{fmtInt(s.leads)}</td>
+                      <td className="px-3 py-2 text-right tabular-nums text-foreground/80">{s.leads > 0 ? money(cpl) : "-"}</td>
+                      <td className="px-3 py-2 text-right tabular-nums font-semibold text-foreground">{fmtInt(s.purchases)}</td>
+                      <td className={cn("px-3 py-2 text-right tabular-nums font-semibold", heat > 0.5 ? "text-white" : "text-foreground")} style={{ backgroundColor: bg }}>{s.cvr.toFixed(2)}%</td>
+                    </tr>
+                  );
+                });
+              })()}
+            </tbody>
+            <tfoot>
+              <tr className="border-t-2 border-border font-bold">
+                <td className="px-3 py-3">Grand total</td>
+                <td className="px-3 py-3 text-right tabular-nums">{money(srcTotals.spend)}</td>
+                <td className="px-3 py-3 text-right tabular-nums">{fmtInt(srcTotals.impressions)}</td>
+                <td className="px-3 py-3 text-right tabular-nums">{fmtInt(srcTotals.clicks)}</td>
+                <td className="px-3 py-3 text-right tabular-nums">{(srcTotals.impressions > 0 ? (srcTotals.clicks / srcTotals.impressions) * 100 : 0).toFixed(2)}%</td>
+                <td className="px-3 py-3 text-right tabular-nums">{srcTotals.clicks > 0 ? money(srcTotals.spend / srcTotals.clicks) : "-"}</td>
+                <td className="px-3 py-3 text-right tabular-nums">{fmtInt(srcTotals.leads)}</td>
+                <td className="px-3 py-3 text-right tabular-nums">{srcTotals.leads > 0 ? money(srcTotals.spend / srcTotals.leads) : "-"}</td>
+                <td className="px-3 py-3 text-right tabular-nums">{fmtInt(srcTotals.purchases)}</td>
+                <td className="px-3 py-3 text-right tabular-nums">{(srcTotals.clicks > 0 ? (srcTotals.leads / srcTotals.clicks) * 100 : 0).toFixed(2)}%</td>
+              </tr>
+            </tfoot>
+          </table>
+        </div>
+      </div>
+      </div>
+
+      {/* Top Google keywords — only shown when a Google Ads account is connected
+          and keyword_view returns rows for the range. */}
+      {keywords.length > 0 && (
+        <div className="bg-card rounded-lg border border-border shadow-xs overflow-hidden mb-5">
+          <div className="px-4 py-3 border-b border-border flex items-baseline gap-2">
+            <p className="font-bold text-[14px] text-foreground leading-tight">Top Google keywords</p>
+            <span className="text-[11px] text-muted-foreground">by impressions</span>
+          </div>
+          <div className="overflow-x-auto">
+            <table className="w-full text-sm">
+              <thead>
+                <tr className="bg-muted/40 border-b border-border">
+                  {["Keyword", "Match", "Impressions", "Clicks", "CTR", "Cost", "Conv."].map((h, i) => (
+                    <th key={h} className={cn("px-3 py-2 text-[11px] font-bold uppercase tracking-wider text-muted-foreground", i <= 1 ? "text-left" : "text-right")}>{h}</th>
+                  ))}
+                </tr>
+              </thead>
+              <tbody>
+                {keywords.map((k, i) => (
+                  <tr key={k.keyword + i} className="border-b border-border/60">
+                    <td className="px-3 py-2 font-semibold text-foreground max-w-[280px] truncate">{k.keyword}</td>
+                    <td className="px-3 py-2 text-[12px] text-muted-foreground capitalize">{(k.match_type || "").toLowerCase()}</td>
+                    <td className="px-3 py-2 text-right tabular-nums text-foreground/80">{fmtInt(k.impressions)}</td>
+                    <td className="px-3 py-2 text-right tabular-nums text-foreground/80">{fmtInt(k.clicks)}</td>
+                    <td className="px-3 py-2 text-right tabular-nums text-foreground/80">{k.ctr.toFixed(2)}%</td>
+                    <td className="px-3 py-2 text-right tabular-nums text-foreground/80">{money(k.cost)}</td>
+                    <td className="px-3 py-2 text-right tabular-nums text-foreground/80">{fmtInt(k.conversions)}</td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          </div>
+        </div>
+      )}
+
+      {/* Timeline split in two: Awareness (impressions + reach) and Engagement
+          (link clicks + leads). Each is a single-axis line chart so the two
+          series share one scale instead of a confusing dual axis. */}
+      <div className="grid grid-cols-1 lg:grid-cols-2 gap-4 mb-5">
+        <TimelineChart title="Awareness" subtitle="Daily impressions and reach" data={daily}
+          series={[{ key: "impressions", name: "Impressions", color: "#2563EB" }, { key: "reach", name: "Reach", color: "#10B981" }]} />
+        <TimelineChart title="Engagement" subtitle="Daily link clicks and leads" data={daily}
+          series={[{ key: "clicks", name: "Link clicks", color: "#F59E0B" }, { key: "leads", name: "Leads", color: "#2D8B73" }]} />
+      </div>
+
+      {/* Demographic performance donuts */}
+      <div className="grid grid-cols-1 md:grid-cols-2 gap-4 mb-5">
+        <BreakdownDonut title="Age performance" data={perf?.age} />
+        <BreakdownDonut title="Gender performance" data={perf?.gender} />
+      </div>
+
+      {/* Location performance (province-level) */}
+      <LocationPerformance data={perf?.region} currency={currency} />
+
+      {/* Per-campaign ROI table */}
+      <Card title="Campaign ROI" subtitle="Spend to leads to conversions, per campaign">
+        <div className="overflow-x-auto">
+          <table className="w-full text-sm">
+            <thead>
+              <tr className="border-b border-border bg-muted/40">
+                {["Campaign", "Spend", "Impressions", "Clicks", "Leads", "Cost / lead", "Conversions", "Cost / conv", "Lead to purchase"].map((h, idx) => (
+                  <th key={h} className={cn("px-4 py-2.5 text-[11px] font-bold uppercase tracking-wider text-muted-foreground", idx === 0 ? "text-left" : "text-right")}>{h}</th>
+                ))}
+              </tr>
+            </thead>
+            <tbody>
+              {shown.length === 0 ? (
+                <tr><td colSpan={9} className="text-center py-12 text-muted-foreground">No campaigns in range</td></tr>
+              ) : shown.slice().sort((a, b) => b.spend - a.spend).map((c) => {
+                const ccpl = c.leads > 0 ? c.spend / c.leads : 0;
+                const ccpa = c.sales > 0 ? c.spend / c.sales : 0;
+                const cr = c.leads > 0 ? (c.sales / c.leads) * 100 : 0;
+                return (
+                  <tr key={c.campaign_id} className="border-b border-border/60 hover:bg-muted/50 transition-colors">
+                    <td className="px-4 py-2.5 font-semibold text-foreground">{c.campaign_name}</td>
+                    <td className="px-4 py-2.5 text-right tabular-nums">{money(c.spend)}</td>
+                    <td className="px-4 py-2.5 text-right tabular-nums text-muted-foreground">{fmtInt(c.impressions)}</td>
+                    <td className="px-4 py-2.5 text-right tabular-nums text-muted-foreground">{fmtInt(c.clicks)}</td>
+                    <td className="px-4 py-2.5 text-right tabular-nums font-semibold text-primary">{fmtInt(c.leads)}</td>
+                    <td className="px-4 py-2.5 text-right tabular-nums">{c.leads > 0 ? money(ccpl) : "-"}</td>
+                    <td className="px-4 py-2.5 text-right tabular-nums font-bold text-[#059669]">{fmtInt(c.sales)}</td>
+                    <td className="px-4 py-2.5 text-right tabular-nums">{c.sales > 0 ? money(ccpa) : "-"}</td>
+                    <td className="px-4 py-2.5 text-right">
+                      <Badge label={c.leads > 0 ? `${cr.toFixed(1)}%` : "-"} bg={cr >= 20 ? "#E8F5E9" : cr > 0 ? "#FFF3E0" : "#F1F5F9"} text={cr >= 20 ? "#2E7D32" : cr > 0 ? "#E65100" : "#64748B"} />
+                    </td>
+                  </tr>
+                );
+              })}
+            </tbody>
+          </table>
+        </div>
+      </Card>
       </>
       ) : hasAccounts === false ? (
         <div className="mb-5 flex items-center gap-2 rounded-lg border border-border bg-muted/40 px-4 py-3 text-[13px] text-muted-foreground">
