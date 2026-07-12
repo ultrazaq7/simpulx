@@ -1336,44 +1336,6 @@ function MarketingAnalytics() {
       {/* Location performance (province-level) */}
       <LocationPerformance data={perf?.region} currency={currency} />
 
-      {/* Per-campaign ROI table */}
-      <Card title="Campaign ROI" subtitle="Spend to leads to conversions, per campaign">
-        <div className="overflow-x-auto">
-          <table className="w-full text-sm">
-            <thead>
-              <tr className="border-b border-border bg-muted/40">
-                {["Campaign", "Spend", "Impressions", "Clicks", "Leads", "Cost / lead", "Conversions", "Cost / conv", "Lead to purchase"].map((h, idx) => (
-                  <th key={h} className={cn("px-4 py-2.5 text-[11px] font-bold uppercase tracking-wider text-muted-foreground", idx === 0 ? "text-left" : "text-right")}>{h}</th>
-                ))}
-              </tr>
-            </thead>
-            <tbody>
-              {shown.length === 0 ? (
-                <tr><td colSpan={9} className="text-center py-12 text-muted-foreground">No campaigns in range</td></tr>
-              ) : shown.slice().sort((a, b) => b.spend - a.spend).map((c) => {
-                const ccpl = c.leads > 0 ? c.spend / c.leads : 0;
-                const ccpa = c.sales > 0 ? c.spend / c.sales : 0;
-                const cr = c.leads > 0 ? (c.sales / c.leads) * 100 : 0;
-                return (
-                  <tr key={c.campaign_id} className="border-b border-border/60 hover:bg-muted/50 transition-colors">
-                    <td className="px-4 py-2.5 font-semibold text-foreground">{c.campaign_name}</td>
-                    <td className="px-4 py-2.5 text-right tabular-nums">{money(c.spend)}</td>
-                    <td className="px-4 py-2.5 text-right tabular-nums text-muted-foreground">{fmtInt(c.impressions)}</td>
-                    <td className="px-4 py-2.5 text-right tabular-nums text-muted-foreground">{fmtInt(c.clicks)}</td>
-                    <td className="px-4 py-2.5 text-right tabular-nums font-semibold text-primary">{fmtInt(c.leads)}</td>
-                    <td className="px-4 py-2.5 text-right tabular-nums">{c.leads > 0 ? money(ccpl) : "-"}</td>
-                    <td className="px-4 py-2.5 text-right tabular-nums font-bold text-[#059669]">{fmtInt(c.sales)}</td>
-                    <td className="px-4 py-2.5 text-right tabular-nums">{c.sales > 0 ? money(ccpa) : "-"}</td>
-                    <td className="px-4 py-2.5 text-right">
-                      <Badge label={c.leads > 0 ? `${cr.toFixed(1)}%` : "-"} bg={cr >= 20 ? "#E8F5E9" : cr > 0 ? "#FFF3E0" : "#F1F5F9"} text={cr >= 20 ? "#2E7D32" : cr > 0 ? "#E65100" : "#64748B"} />
-                    </td>
-                  </tr>
-                );
-              })}
-            </tbody>
-          </table>
-        </div>
-      </Card>
       </>
       ) : hasAccounts === false ? (
         <div className="mb-5 flex items-center gap-2 rounded-lg border border-border bg-muted/40 px-4 py-3 text-[13px] text-muted-foreground">
