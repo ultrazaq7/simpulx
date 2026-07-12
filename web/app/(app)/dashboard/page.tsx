@@ -1252,6 +1252,11 @@ function MarketingAnalytics() {
 
   // Clicks vs Impressions per day (log line needs positive values -> null for 0).
   const dailyLog = daily.map((d) => ({ date: d.date, impressions: d.impressions > 0 ? d.impressions : null, clicks: d.clicks > 0 ? d.clicks : null }));
+  // Log-axis ticks at powers of 10 only: one gridline per decade instead of the
+  // noisy 1-2-5 default, so the log chart stays readable.
+  const dailyLogMax = Math.max(1, ...dailyLog.map((d) => Math.max(d.impressions || 0, d.clicks || 0)));
+  const logTicks: number[] = [];
+  for (let p = 1; p <= dailyLogMax * 10 && logTicks.length < 8; p *= 10) logTicks.push(p);
 
   // ── Trend baselines: the prior equal-length window ("vs last N days"). ──
   const prev = prevPerf ? adTotals(prevPerf, campaignFilter) : null;
@@ -1343,13 +1348,18 @@ function MarketingAnalytics() {
   const SRC_COLORS: Record<string, string> = { meta_ads: "#2D8B73", tiktok_ads: "#111827", google_ads: "#EA4335", website: "#6366F1", direct: "#94A3B8" };
   const dayLabel = (iso: string) => { const dt = new Date(iso); return isNaN(dt.getTime()) ? iso : `${String(dt.getDate()).padStart(2, "0")}/${String(dt.getMonth() + 1).padStart(2, "0")}`; };
   const leadSourceKeys = Array.from(new Set((perf?.daily_sources || []).map((r) => r.source)));
+  // Pivot over the FULL daily timeline (not just dates that have leads) and
+  // zero-fill every source, so bars sit on a complete axis instead of a sparse
+  // one (sparse rows made stacked areas float as disconnected blobs).
   const leadsBySource = (() => {
     const byDate = new Map<string, Record<string, number>>();
+    for (const d of perf?.daily || []) if (!byDate.has(d.date)) byDate.set(d.date, {});
     for (const r of perf?.daily_sources || []) {
       if (!byDate.has(r.date)) byDate.set(r.date, {});
       byDate.get(r.date)![r.source] = (byDate.get(r.date)![r.source] || 0) + r.leads;
     }
-    return Array.from(byDate.entries()).sort((a, b) => a[0].localeCompare(b[0])).map(([date, m]) => ({ date: dayLabel(date), ...m }));
+    return Array.from(byDate.entries()).sort((a, b) => a[0].localeCompare(b[0]))
+      .map(([date, m]) => ({ date: dayLabel(date), ...Object.fromEntries(leadSourceKeys.map((k) => [k, m[k] || 0])) }));
   })();
   const recentLeads = perf?.recent_leads || [];
 
@@ -1512,8 +1522,8 @@ function MarketingAnalytics() {
       </div>
 
       {/* Funnel + insights (left column) beside Source performance (right).
-          Column tracks the reference proportion (~31%) with a 340px floor. */}
-      <div className="grid grid-cols-1 lg:grid-cols-[minmax(340px,31%)_1fr] gap-4 mb-5 items-start">
+          Column tracks the reference proportion (~33%) with a 360px floor. */}
+      <div className="grid grid-cols-1 lg:grid-cols-[minmax(360px,33%)_1fr] gap-4 mb-5 items-start">
       <div className="flex flex-col gap-4">
       {/* Marketing funnel card with info tooltip + 3-dot menu */}
       <div className="bg-card rounded-xl border border-border shadow-xs overflow-hidden">
@@ -1685,13 +1695,15 @@ function MarketingAnalytics() {
           <p className="text-xs text-muted-foreground">Performance over the selected range</p>
         </div>
         <div className="p-4">
-          {/* Totals + delta vs the prior window */}
-          <div className="flex flex-wrap items-start gap-x-10 gap-y-3 mb-3">
+          {/* Totals double as the series toggles (click to show/hide a series);
+              one control instead of a stat row + duplicate chip legend. */}
+          <div className="flex flex-wrap items-start gap-x-6 gap-y-3 mb-4">
             {[
-              { label: "Impressions", color: "#0b1220", total: t.impressions, prev: prev?.impressions ?? 0 },
-              { label: "Clicks", color: "#2D8B73", total: t.clicks, prev: prev?.clicks ?? 0 },
+              { label: "Impressions", color: "#0b1220", total: t.impressions, prev: prev?.impressions ?? 0, show: showImpr, toggle: () => setShowImpr((v) => !v) },
+              { label: "Clicks", color: "#2D8B73", total: t.clicks, prev: prev?.clicks ?? 0, show: showClk, toggle: () => setShowClk((v) => !v) },
             ].map((m) => (
-              <div key={m.label}>
+              <button key={m.label} onClick={m.toggle} aria-pressed={m.show} title={m.show ? `Hide ${m.label}` : `Show ${m.label}`}
+                className={cn("text-left rounded-lg px-2.5 py-1.5 -ml-1 hover:bg-muted/50 transition-all outline-none", !m.show && "opacity-40")}>
                 <div className="flex items-center gap-1.5">
                   <span className="w-2 h-2 rounded-full" style={{ background: m.color }} />
                   <span className="text-[11px] font-semibold text-muted-foreground">{m.label}</span>
@@ -1701,19 +1713,6 @@ function MarketingAnalytics() {
                   {hasPrev && <Delta cur={m.total} prev={m.prev} higherIsBetter={true} />}
                 </div>
                 {hasPrev && <span className="text-[10px] text-muted-foreground">{cmpLabel}</span>}
-              </div>
-            ))}
-          </div>
-          {/* Series toggle chips */}
-          <div className="flex items-center gap-2 mb-3">
-            {[
-              { label: "Impressions", color: "#0b1220", show: showImpr, toggle: () => setShowImpr((v) => !v) },
-              { label: "Clicks", color: "#2D8B73", show: showClk, toggle: () => setShowClk((v) => !v) },
-            ].map((c) => (
-              <button key={c.label} onClick={c.toggle}
-                className={cn("inline-flex items-center gap-1.5 h-7 px-2.5 rounded-full border text-[12px] font-medium transition-colors outline-none",
-                  c.show ? "border-border bg-muted/60 text-foreground" : "border-border/60 text-muted-foreground/50")}>
-                <span className="w-2 h-2 rounded-full" style={{ background: c.show ? c.color : "#cbd5e1" }} />{c.label}
               </button>
             ))}
           </div>
@@ -1724,16 +1723,16 @@ function MarketingAnalytics() {
               <ResponsiveContainer width="100%" height="100%">
                 <AreaChart data={dailyLog} margin={{ top: 6, right: 12, left: 0, bottom: 0 }}>
                   <defs>
-                    <linearGradient id="cpImpr" x1="0" y1="0" x2="0" y2="1"><stop offset="0%" stopColor="#0b1220" stopOpacity={0.13} /><stop offset="100%" stopColor="#0b1220" stopOpacity={0.01} /></linearGradient>
-                    <linearGradient id="cpClk" x1="0" y1="0" x2="0" y2="1"><stop offset="0%" stopColor="#2D8B73" stopOpacity={0.22} /><stop offset="100%" stopColor="#2D8B73" stopOpacity={0.02} /></linearGradient>
+                    <linearGradient id="cpImpr" x1="0" y1="0" x2="0" y2="1"><stop offset="0%" stopColor="#0b1220" stopOpacity={0.07} /><stop offset="100%" stopColor="#0b1220" stopOpacity={0} /></linearGradient>
+                    <linearGradient id="cpClk" x1="0" y1="0" x2="0" y2="1"><stop offset="0%" stopColor="#2D8B73" stopOpacity={0.16} /><stop offset="100%" stopColor="#2D8B73" stopOpacity={0.01} /></linearGradient>
                   </defs>
-                  <CartesianGrid strokeDasharray="3 3" stroke="#e5e7eb" vertical={false} />
+                  <CartesianGrid stroke="rgba(148,163,184,0.16)" vertical={false} />
                   <XAxis dataKey="date" tick={{ fontSize: 11, fill: "#94a3b8" }} axisLine={false} tickLine={false} minTickGap={24} />
-                  <YAxis scale="log" domain={[1, "auto"]} allowDataOverflow tick={{ fontSize: 11, fill: "#94a3b8" }} axisLine={false} tickLine={false} width={46}
+                  <YAxis scale="log" domain={[1, logTicks[logTicks.length - 1] ?? 10]} ticks={logTicks} allowDataOverflow tick={{ fontSize: 11, fill: "#94a3b8" }} axisLine={false} tickLine={false} width={42}
                     tickFormatter={(v) => v >= 1e6 ? `${(v / 1e6).toFixed(0)}M` : v >= 1000 ? `${(v / 1000).toFixed(0)}k` : `${v}`} />
-                  <RechartsTooltip content={<AdsTooltip />} cursor={{ stroke: "rgba(0,0,0,0.08)" }} />
-                  {showImpr && <Area type="monotone" dataKey="impressions" name="Impressions" stroke="#0b1220" strokeWidth={2} fill="url(#cpImpr)" dot={dailyLog.length <= 12 ? { r: 3, fill: "#fff", stroke: "#0b1220", strokeWidth: 2 } : false} connectNulls isAnimationActive={false} />}
-                  {showClk && <Area type="monotone" dataKey="clicks" name="Clicks" stroke="#2D8B73" strokeWidth={2} fill="url(#cpClk)" dot={dailyLog.length <= 12 ? { r: 3, fill: "#fff", stroke: "#2D8B73", strokeWidth: 2 } : false} connectNulls isAnimationActive={false} />}
+                  <RechartsTooltip content={<AdsTooltip />} cursor={{ stroke: "rgba(100,116,139,0.3)", strokeDasharray: "4 4" }} />
+                  {showImpr && <Area type="monotone" dataKey="impressions" name="Impressions" stroke="#0b1220" strokeWidth={2} fill="url(#cpImpr)" dot={false} activeDot={{ r: 4, fill: "#fff", stroke: "#0b1220", strokeWidth: 2 }} connectNulls isAnimationActive={false} />}
+                  {showClk && <Area type="monotone" dataKey="clicks" name="Clicks" stroke="#2D8B73" strokeWidth={2} fill="url(#cpClk)" dot={false} activeDot={{ r: 4, fill: "#fff", stroke: "#2D8B73", strokeWidth: 2 }} connectNulls isAnimationActive={false} />}
                 </AreaChart>
               </ResponsiveContainer>
             </div>
@@ -1826,25 +1825,19 @@ function MarketingAnalytics() {
                 </div>
               </div>
               <div className="h-[240px]">
+                {/* Stacked daily bars: discrete small counts read as bars, not as
+                    interpolated areas (sparse areas rendered as floating blobs). */}
                 <ResponsiveContainer width="100%" height="100%">
-                  <AreaChart data={leadsBySource} margin={{ top: 6, right: 12, left: 0, bottom: 0 }}>
-                    <defs>
-                      {leadSourceKeys.map((k) => (
-                        <linearGradient key={k} id={`ls-${k}`} x1="0" y1="0" x2="0" y2="1">
-                          <stop offset="0%" stopColor={SRC_COLORS[k] || "#94a3b8"} stopOpacity={0.35} />
-                          <stop offset="100%" stopColor={SRC_COLORS[k] || "#94a3b8"} stopOpacity={0.02} />
-                        </linearGradient>
-                      ))}
-                    </defs>
-                    <CartesianGrid strokeDasharray="3 3" stroke="#e5e7eb" vertical={false} />
+                  <BarChart data={leadsBySource} margin={{ top: 6, right: 12, left: 0, bottom: 0 }} barCategoryGap="35%">
+                    <CartesianGrid stroke="rgba(148,163,184,0.16)" vertical={false} />
                     <XAxis dataKey="date" tick={{ fontSize: 11, fill: "#94a3b8" }} axisLine={false} tickLine={false} minTickGap={24} />
                     <YAxis tick={{ fontSize: 11, fill: "#94a3b8" }} axisLine={false} tickLine={false} width={34} allowDecimals={false} />
-                    <RechartsTooltip content={<AdsTooltip />} cursor={{ stroke: "rgba(0,0,0,0.08)" }} />
-                    {leadSourceKeys.map((k) => (
-                      <Area key={k} type="monotone" dataKey={k} name={SRC_LABELS[k] || k} stackId="1" stroke={SRC_COLORS[k] || "#94a3b8"} strokeWidth={2} fill={`url(#ls-${k})`}
-                        dot={leadsBySource.length <= 12 ? { r: 2.5, fill: "#fff", stroke: SRC_COLORS[k] || "#94a3b8", strokeWidth: 2 } : false} isAnimationActive={false} />
+                    <RechartsTooltip content={<AdsTooltip />} cursor={{ fill: "rgba(148,163,184,0.08)" }} />
+                    {leadSourceKeys.map((k, idx) => (
+                      <Bar key={k} dataKey={k} name={SRC_LABELS[k] || k} stackId="a" fill={SRC_COLORS[k] || "#94a3b8"} maxBarSize={22}
+                        radius={idx === leadSourceKeys.length - 1 ? [3, 3, 0, 0] : 0} isAnimationActive={false} />
                     ))}
-                  </AreaChart>
+                  </BarChart>
                 </ResponsiveContainer>
               </div>
             </div>
