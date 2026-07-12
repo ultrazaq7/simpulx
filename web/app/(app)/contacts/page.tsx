@@ -5,6 +5,7 @@ import { useRouter } from "next/navigation";
 import {
   Search, UserPlus, Download, Pencil, ChevronsLeft, ChevronsRight, ChevronLeft, ChevronRight,
   Users, User, X, XCircle, Loader2, Tag as TagIcon, MoreVertical, MessageSquare, Trash2, Upload, ChevronDown, Eye, Ban, Copy, Check, SlidersHorizontal, Send,
+  Infinity as InfinityIcon, Music2, Globe, MessageCircle, AlignJustify,
 } from "lucide-react";
 
 import { api, getUser } from "@/lib/api";
@@ -39,6 +40,25 @@ function sourceLabel(c: Contact): string {
   return c.source_channel ? channelLabel(c.source_channel) : "Direct";
 }
 
+// Source brand mark (tinted lucide glyph) for faster scanning of the Source column.
+const SOURCE_ICONS: Record<string, { Icon: any; color: string }> = {
+  "Meta Ads": { Icon: InfinityIcon, color: "#0866FF" },
+  "TikTok Ads": { Icon: Music2, color: "#111827" },
+  "Google Ads": { Icon: Search, color: "#EA4335" },
+  "WhatsApp": { Icon: MessageCircle, color: "#25D366" },
+  "Website": { Icon: Globe, color: "#6366F1" },
+  "Direct": { Icon: Globe, color: "#64748B" },
+};
+function SourceCell({ label }: { label: string }) {
+  const it = SOURCE_ICONS[label] || { Icon: Globe, color: "#64748B" };
+  return (
+    <span className="inline-flex items-center gap-1.5">
+      <span className="w-5 h-5 rounded grid place-items-center shrink-0" style={{ background: it.color + "14" }}><it.Icon className="w-3 h-3" style={{ color: it.color }} /></span>
+      <span className="text-foreground/80">{label}</span>
+    </span>
+  );
+}
+
 function interestColor(level?: string | null): string {
   return level === "hot" ? "#EF4444" : level === "warm" ? "#F59E0B" : level === "cold" ? "#3B82F6" : "#9CA3AF";
 }
@@ -51,11 +71,11 @@ function scoreColor(n: number): string {
 // Toggleable table columns (Name and Actions are always shown). The picker
 // defaults to the lead-focused set; metadata columns start hidden. The choice
 // persists per browser in localStorage.
+// Phone lives under the name (2-line contact cell), so it is no longer its own column.
 type ColKey =
-  | "phone" | "stage" | "interest" | "score" | "agent" | "campaign" | "source"
+  | "stage" | "interest" | "score" | "agent" | "campaign" | "source"
   | "source_id" | "source_url" | "labels" | "channel" | "created" | "updated" | "blacklisted";
 const CONTACT_COLUMNS: { key: ColKey; label: string; def: boolean }[] = [
-  { key: "phone", label: "Phone", def: true },
   { key: "stage", label: "Stage", def: true },
   { key: "interest", label: "Interest", def: true },
   { key: "score", label: "Lead score", def: true },
@@ -115,10 +135,14 @@ export default function ContactsPage() {
   const [tplOpen, setTplOpen] = useState(false);
   const [visibleCols, setVisibleCols] = useState<Set<string>>(() => new Set(DEFAULT_COLS));
   const [colsMenuOpen, setColsMenuOpen] = useState(false);
+  const [compact, setCompact] = useState(true); // dense rows by default; toggle to comfortable
+  const toggleCompact = () => setCompact((c) => { const n = !c; try { localStorage.setItem("simpulx_contact_compact", n ? "1" : "0"); } catch { /* ignore */ } return n; });
   const [filterOpen, setFilterOpen] = useState(false);
   const importRef = useRef<HTMLInputElement>(null);
   const show = (k: ColKey) => visibleCols.has(k);
   const colCount = 3 + visibleCols.size; // select + name + actions are always shown
+  // Row density is driven at the table level (overrides each cell's own py-*).
+  const denseCls = compact ? "[&_tbody_td]:py-1.5" : "[&_tbody_td]:py-2.5";
   const toggleCol = (k: ColKey) => setVisibleCols((s) => {
     const n = new Set(s);
     if (n.has(k)) n.delete(k); else n.add(k);
@@ -238,6 +262,8 @@ export default function ContactsPage() {
         const keys = (JSON.parse(raw) as string[]).filter((k) => CONTACT_COLUMNS.some((c) => c.key === k));
         setVisibleCols(new Set(keys));
       }
+      const dens = localStorage.getItem("simpulx_contact_compact");
+      if (dens !== null) setCompact(dens === "1");
     } catch { /* ignore */ }
   }, []);
 
@@ -399,21 +425,26 @@ export default function ContactsPage() {
     <div className="h-full flex flex-col px-4 pt-4 pb-4 min-h-0">
       <div className="bg-card rounded-lg border border-border shadow-xs overflow-hidden flex flex-col flex-1 min-h-0">
         {/* Toolbar */}
-        <div className="p-3 flex items-center gap-2 border-b border-border shrink-0 flex-wrap">
-          <div className="relative w-[280px] max-w-[45vw]">
+        <div className="px-3 py-2.5 flex items-center gap-2 border-b border-border shrink-0 flex-wrap">
+          <div className="relative w-[260px] max-w-[45vw]">
             <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-muted-foreground pointer-events-none" />
             <input type="text" placeholder={t("contacts.searchNameOrPhone")} value={query} onChange={(e) => setQuery(e.target.value)}
-              className="w-full h-9 pl-9 pr-3 rounded-md border border-input bg-background text-sm text-foreground placeholder:text-muted-foreground/70 outline-none transition-shadow focus:border-primary focus:ring-2 focus:ring-primary/20" />
+              className="w-full h-8 pl-9 pr-3 rounded-md border border-input bg-background text-sm text-foreground placeholder:text-muted-foreground/70 outline-none transition-shadow focus:border-primary focus:ring-2 focus:ring-primary/20" />
           </div>
           <button onClick={() => setFilterOpen(true)}
-            className="inline-flex items-center gap-1.5 px-3 h-9 rounded-md border border-border bg-background text-[13px] font-medium text-foreground hover:bg-muted outline-none transition-colors">
+            className="inline-flex items-center gap-1.5 px-3 h-8 rounded-md border border-border bg-background text-[13px] font-medium text-foreground hover:bg-muted outline-none transition-colors">
             <SlidersHorizontal className="w-4 h-4 text-muted-foreground" />Filter
             {activeFilters > 0 && <span className="ml-0.5 min-w-[18px] h-[18px] px-1 rounded-full bg-primary text-white text-[11px] font-bold grid place-items-center tabular-nums">{activeFilters}</span>}
           </button>
           {activeFilters > 0 && <button onClick={clearFilters} className="text-[11px] font-semibold text-primary hover:underline outline-none">{t("common.clear")}</button>}
           <div className="flex-1" />
+          <button onClick={toggleCompact}
+            className={cn("inline-flex items-center gap-1.5 px-3 h-8 rounded-md border text-[13px] font-medium outline-none transition-colors",
+              compact ? "border-primary/40 bg-primary/[0.06] text-primary" : "border-border bg-background text-foreground hover:bg-muted")}>
+            <AlignJustify className="w-4 h-4" />Compact
+          </button>
           <div className="relative inline-flex" onClick={(e) => e.stopPropagation()}>
-            <button onClick={() => setColsMenuOpen((o) => !o)} className="inline-flex items-center gap-1.5 px-3 h-9 rounded-md border border-border bg-background text-[13px] font-medium text-foreground hover:bg-muted outline-none transition-colors">
+            <button onClick={() => setColsMenuOpen((o) => !o)} className="inline-flex items-center gap-1.5 px-3 h-8 rounded-md border border-border bg-background text-[13px] font-medium text-foreground hover:bg-muted outline-none transition-colors">
               <SlidersHorizontal className="w-4 h-4 text-muted-foreground" />Columns
             </button>
             {colsMenuOpen && (
@@ -435,10 +466,10 @@ export default function ContactsPage() {
           </div>
           {canCreate && (
             <div className="relative inline-flex" onClick={(e) => e.stopPropagation()}>
-              <button onClick={() => setModal({ mode: "add" })} className="inline-flex items-center gap-2 px-3.5 h-9 bg-primary text-white rounded-l-md text-sm font-semibold hover:bg-primary-dark shadow-sm transition-all outline-none">
+              <button onClick={() => setModal({ mode: "add" })} className="inline-flex items-center gap-2 px-3.5 h-8 bg-primary text-white rounded-l-md text-sm font-semibold hover:bg-primary-dark shadow-sm transition-all outline-none">
                 <UserPlus className="w-4 h-4" />{t("contacts.addContact")}
               </button>
-              <button aria-label="More add options" onClick={() => setAddMenuOpen((o) => !o)} className="px-2 h-9 bg-primary text-white rounded-r-md border-l border-white/20 hover:bg-primary-dark outline-none transition-colors">
+              <button aria-label="More add options" onClick={() => setAddMenuOpen((o) => !o)} className="px-2 h-8 bg-primary text-white rounded-r-md border-l border-white/20 hover:bg-primary-dark outline-none transition-colors">
                 <ChevronDown className="w-4 h-4" />
               </button>
               {addMenuOpen && (
@@ -480,12 +511,11 @@ export default function ContactsPage() {
 
         {/* Table (fills remaining height) */}
         <div className="overflow-auto flex-1 min-h-0">
-          <table className="w-full text-[13px] whitespace-nowrap">
+          <table className={cn("w-full text-[13px] whitespace-nowrap", denseCls)}>
             <thead className="sticky top-0 z-10">
               <tr className="border-b border-border bg-muted">
                 <TH className="w-10"><span className="sr-only">Select</span><input type="checkbox" aria-label="Select all contacts" className="rounded border-input accent-primary" checked={paged.length > 0 && paged.every((c) => selected.has(c.id))} onChange={(e) => setSelected((s) => { const n = new Set(s); if (e.target.checked) paged.forEach((c) => n.add(c.id)); else paged.forEach((c) => n.delete(c.id)); return n; })} /></TH>
                 <TH>{t("contacts.contactName")}</TH>
-                {show("phone") && <TH>{t("contacts.phone")}</TH>}
                 {show("stage") && <TH>{t("contacts.stage")}</TH>}
                 {show("interest") && <TH>{t("contacts.interest")}</TH>}
                 {show("score") && <TH>Lead score</TH>}
@@ -516,14 +546,16 @@ export default function ContactsPage() {
                   <td className="px-3 py-2"><input type="checkbox" aria-label={`Select ${c.full_name || c.phone || "contact"}`} className="rounded border-input accent-primary" checked={selected.has(c.id)} onChange={() => toggleSel(c.id)} /></td>
                   <td className="px-3 py-2">
                     <div className="flex items-center gap-2.5">
-                      <div className="w-7 h-7 rounded-full grid place-items-center text-[10px] font-bold text-white shrink-0"
+                      <div className="w-8 h-8 rounded-full grid place-items-center text-[11px] font-bold text-white shrink-0"
                         style={{ backgroundColor: avatarColor(c.full_name || c.phone) }}>
                         {initials(c.full_name || c.phone)}
                       </div>
-                      <button onClick={() => router.push(`/contacts/${c.id}`)} className="font-semibold text-[13px] text-foreground truncate max-w-[180px] text-left hover:text-primary hover:underline outline-none">{c.full_name || c.phone || "Unknown"}</button>
+                      <div className="min-w-0 leading-tight">
+                        <button onClick={() => router.push(`/contacts/${c.id}`)} className="block font-semibold text-[13px] text-foreground truncate max-w-[200px] text-left hover:text-primary hover:underline outline-none">{c.full_name || "Unknown"}</button>
+                        <span className="block text-[11px] text-muted-foreground tabular-nums truncate max-w-[200px]">{c.phone || "-"}</span>
+                      </div>
                     </div>
                   </td>
-                  {show("phone") && <td className="px-3 py-2 font-medium text-foreground/90 tabular-nums whitespace-nowrap">{c.phone || "-"}</td>}
                   {show("stage") && (
                   <td className="px-3 py-2 whitespace-nowrap">
                     {canEdit && c.conversation_id ? (
@@ -554,8 +586,10 @@ export default function ContactsPage() {
                   {show("score") && (
                   <td className="px-3 py-2 whitespace-nowrap">
                     {typeof c.lead_score === "number" ? (
-                      <span className="inline-flex px-2 py-0.5 rounded-md text-[11px] font-bold tabular-nums"
-                        style={{ backgroundColor: scoreColor(c.lead_score) + "1A", color: scoreColor(c.lead_score) }}>{c.lead_score}</span>
+                      // No badge: plain number; green + bold only when it's a high score.
+                      scoreColor(c.lead_score) === "#2D8B73"
+                        ? <span className="text-[13px] font-bold tabular-nums text-[#2D8B73]">{c.lead_score}</span>
+                        : <span className="text-[13px] font-medium tabular-nums text-foreground/80">{c.lead_score}</span>
                     ) : <span className="text-muted-foreground">-</span>}
                   </td>
                   )}
@@ -573,7 +607,7 @@ export default function ContactsPage() {
                   </td>
                   )}
                   {show("campaign") && <td className="px-3 py-2 text-foreground/80 whitespace-nowrap">{c.campaign_name || <span className="text-muted-foreground">-</span>}</td>}
-                  {show("source") && <td className="px-3 py-2 text-foreground/80 whitespace-nowrap">{sourceLabel(c)}</td>}
+                  {show("source") && <td className="px-3 py-2 whitespace-nowrap"><SourceCell label={sourceLabel(c)} /></td>}
                   {show("source_id") && (
                   <td className="px-3 py-2 whitespace-nowrap">
                     {c.source_id ? (
@@ -639,7 +673,7 @@ export default function ContactsPage() {
         </div>
 
         {/* Pagination */}
-        <div className="flex flex-wrap items-center gap-2 py-3 px-4 border-t border-border shrink-0">
+        <div className="flex flex-wrap items-center gap-2 py-2 px-4 border-t border-border shrink-0">
           <span className="text-[13px] font-semibold text-muted-foreground tabular-nums shrink-0">{filtered.length} contact{filtered.length === 1 ? "" : "s"}</span>
           <div className="flex-1 flex justify-center items-center gap-1 min-w-[160px]">
             <button aria-label="First page" disabled={page <= 1} onClick={() => setPage(1)} className="p-1 rounded-md text-muted-foreground hover:bg-muted disabled:opacity-30 outline-none"><ChevronsLeft className="w-[18px] h-[18px]" /></button>

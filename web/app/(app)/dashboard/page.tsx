@@ -1,16 +1,18 @@
 "use client";
-import { useEffect, useState, useMemo, useRef, useCallback } from "react";
+import { useEffect, useState, useMemo, useRef, useCallback, useId } from "react";
 import Link from "next/link";
 import {
   AreaChart, Area, XAxis, YAxis, CartesianGrid, Tooltip as RechartsTooltip,
-  Legend, ResponsiveContainer, LineChart, Line, PieChart, Pie, Cell, BarChart, Bar,
+  Legend, ResponsiveContainer, LineChart, Line, PieChart, Pie, Cell, BarChart, Bar, LabelList,
 } from "recharts";
 import {
   BarChart3, MessageSquare, Inbox, Flame, Timer,
-  TrendingDown, ChevronRight, ChevronsLeft, Zap, Mail, Reply, Trophy, Ban,
+  TrendingDown, TrendingUp, ChevronRight, ChevronsLeft, Zap, Mail, Reply, Trophy, Ban,
   CircleDollarSign, MousePointerClick, Spotlight, Target, Eye, Filter as FilterIcon,
   Image as ImageIcon, MapPin, Percent,
   Download, FileText, FileSpreadsheet, ChevronDown,
+  ArrowUpRight, ArrowDownRight, ArrowRight, Users, ShoppingCart,
+  Infinity as InfinityIcon, Music2, Globe, Sparkles, Award, AlertTriangle, RefreshCw, Search,
 } from "lucide-react";
 
 import { api, getUser, getToken } from "@/lib/api";
@@ -115,6 +117,129 @@ function ProgressBar({ value, color, height = 8 }: { value: number; color: strin
 
 function Skeleton({ className }: { className?: string }) {
   return <div className={cn("skeleton rounded-lg", className)} />;
+}
+
+// ── Ads Report: inline mini-charts + trend deltas ─────────────────────────────
+// Tiny SVG sparkline (line, optional soft area fill). `stretch` fills the parent
+// width (KPI cards); otherwise a fixed size for table cells. viewBox + non-scaling
+// stroke keeps the line crisp at any width.
+function Spark({ data, color, w = 120, h = 34, fill = true, stretch = false }: {
+  data: number[]; color: string; w?: number; h?: number; fill?: boolean; stretch?: boolean;
+}) {
+  const gid = "sp" + useId().replace(/:/g, ""); // useId() has colons -> invalid in url(#..)
+  const pts = data.length ? data : [0, 0];
+  const max = Math.max(...pts), min = Math.min(...pts);
+  const span = max - min || 1;
+  const n = pts.length;
+  const x = (i: number) => (n === 1 ? w : (i / (n - 1)) * w);
+  const y = (v: number) => h - 2 - ((v - min) / span) * (h - 4);
+  const line = pts.map((v, i) => `${i === 0 ? "M" : "L"}${x(i).toFixed(1)},${y(v).toFixed(1)}`).join(" ");
+  const area = `${line} L${w.toFixed(1)},${h} L0,${h} Z`;
+  return (
+    <svg viewBox={`0 0 ${w} ${h}`} preserveAspectRatio="none" style={stretch ? { width: "100%", height: h } : { width: w, height: h }}>
+      {fill && (
+        <defs><linearGradient id={gid} x1="0" y1="0" x2="0" y2="1">
+          <stop offset="0%" stopColor={color} stopOpacity={0.22} /><stop offset="100%" stopColor={color} stopOpacity={0} />
+        </linearGradient></defs>
+      )}
+      {fill && <path d={area} fill={`url(#${gid})`} />}
+      <path d={line} fill="none" stroke={color} strokeWidth={1.5} strokeLinejoin="round" strokeLinecap="round" vectorEffect="non-scaling-stroke" />
+    </svg>
+  );
+}
+
+// Tiny SVG bar histogram for a table cell (e.g. daily impressions per source).
+function MiniBars({ data, color, w = 64, h = 20 }: { data: number[]; color: string; w?: number; h?: number }) {
+  const pts = data.length ? data : [0];
+  const max = Math.max(...pts, 1);
+  const bw = w / pts.length;
+  return (
+    <svg viewBox={`0 0 ${w} ${h}`} preserveAspectRatio="none" style={{ width: w, height: h }}>
+      {pts.map((v, i) => {
+        const bh = Math.max(1, (v / max) * (h - 2));
+        return <rect key={i} x={i * bw + bw * 0.15} y={h - bh} width={Math.max(0.6, bw * 0.7)} height={bh} rx={0.4} fill={color} opacity={0.5} />;
+      })}
+    </svg>
+  );
+}
+
+// Arrow + % change vs a prior baseline. `higherIsBetter` picks the colour
+// (green favourable / red unfavourable); null = neutral (grey) for e.g. spend.
+function Delta({ cur, prev, higherIsBetter = true as boolean | null, className }: {
+  cur: number; prev: number; higherIsBetter?: boolean | null; className?: string;
+}) {
+  const diff = cur - prev;
+  const flat = prev === 0 ? cur === 0 : Math.abs(diff / prev) < 0.0005;
+  const pct = prev === 0 ? (cur === 0 ? 0 : 100) : (diff / prev) * 100;
+  const up = diff > 0;
+  const color = flat || higherIsBetter === null ? "#64748B" : (higherIsBetter === up ? "#059669" : "#DC2626");
+  const Arrow = flat ? ArrowRight : up ? ArrowUpRight : ArrowDownRight;
+  return (
+    <span className={cn("inline-flex items-center gap-0.5 text-[11px] font-semibold tabular-nums", className)} style={{ color }}>
+      <Arrow className="w-3 h-3 shrink-0" />{flat ? "0%" : `${Math.abs(pct).toFixed(1)}%`}
+    </span>
+  );
+}
+
+// Per-source brand mark (lucide glyphs tinted to each channel).
+const SRC_ICONS: Record<string, { Icon: any; color: string }> = {
+  meta_ads: { Icon: InfinityIcon, color: "#0866FF" },
+  tiktok_ads: { Icon: Music2, color: "#111827" },
+  google_ads: { Icon: Search, color: "#EA4335" },
+  website: { Icon: Globe, color: "#6366F1" },
+  direct: { Icon: Globe, color: "#64748B" },
+};
+function SourceIcon({ source }: { source: string }) {
+  const it = SRC_ICONS[source] || { Icon: Globe, color: "#64748B" };
+  return (
+    <span className="w-6 h-6 rounded-md grid place-items-center shrink-0" style={{ background: it.color + "14" }}>
+      <it.Icon className="w-3.5 h-3.5" style={{ color: it.color }} />
+    </span>
+  );
+}
+
+// Previous window of equal length ending the day before `from` (for "vs last N days").
+function prevRange(from: string, to: string): { from: string; to: string } | null {
+  if (!from || !to) return null;
+  const f = new Date(from + "T00:00:00"), t = new Date(to + "T00:00:00");
+  if (isNaN(f.getTime()) || isNaN(t.getTime())) return null;
+  const days = Math.round((t.getTime() - f.getTime()) / 86400000) + 1;
+  const pt = new Date(f); pt.setDate(pt.getDate() - 1);
+  const pf = new Date(pt); pf.setDate(pf.getDate() - (days - 1));
+  const fmt = (d: Date) => `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, "0")}-${String(d.getDate()).padStart(2, "0")}`;
+  return { from: fmt(pf), to: fmt(pt) };
+}
+
+// Modern branded chart tooltip (matches the green CustomTooltip look). `fmt`
+// formats each value (e.g. money for spend); defaults to a thousands-grouped int.
+function AdsTooltip({ active, payload, label, fmt }: any) {
+  if (!active || !payload?.length) return null;
+  const f = fmt || ((v: number) => Number(v ?? 0).toLocaleString());
+  return (
+    <div className="rounded-md bg-[#356B5A]/90 backdrop-blur-sm px-3 py-2 shadow-md min-w-[150px]">
+      <p className="text-[11px] font-semibold text-white/70 mb-1.5">{label}</p>
+      {payload.filter((p: any) => p.value != null).map((p: any) => (
+        <div key={p.dataKey} className="flex items-center gap-2 mb-0.5 last:mb-0">
+          <span className="w-2 h-2 rounded-full shrink-0 ring-1 ring-white/40" style={{ backgroundColor: p.color || p.stroke || p.fill }} />
+          <span className="text-xs text-white/80">{p.name}</span>
+          <span className="text-xs font-bold text-white tabular-nums ml-auto">{f(Number(p.value ?? 0))}</span>
+        </div>
+      ))}
+    </div>
+  );
+}
+
+// Roll a report up to the totals the KPI cards compare on (delivery from daily
+// ad_metrics; leads/sales from the per-campaign rollup, honouring the campaign filter).
+function adTotals(perf: AdPerformance | null, campaignFilter: string[]) {
+  const camps = perf?.campaigns || [];
+  const shown = campaignFilter.length ? camps.filter((c) => campaignFilter.includes(c.campaign_id)) : camps;
+  const leads = shown.reduce((a, c) => a + c.leads, 0);
+  const sales = shown.reduce((a, c) => a + c.sales, 0);
+  const ad = (perf?.daily || []).reduce((a, d) => ({
+    impressions: a.impressions + (d.impressions || 0), clicks: a.clicks + (d.clicks || 0), spend: a.spend + (d.spend || 0),
+  }), { impressions: 0, clicks: 0, spend: 0 });
+  return { leads, sales, ...ad };
 }
 
 function Badge({ label, bg, text }: { label: string; bg: string; text: string }) {
@@ -979,7 +1104,11 @@ function MarketingAnalytics() {
   const [accountFilter, setAccountFilter] = useState<string[]>([]);
   const [accounts, setAccounts] = useState<{ id: string; name?: string | null }[]>([]);
   const [perf, setPerf] = useState<AdPerformance | null>(null);
+  const [prevPerf, setPrevPerf] = useState<AdPerformance | null>(null); // prior equal-length window, for "vs last period" deltas
   const [keywords, setKeywords] = useState<AdKeyword[]>([]);
+  const [kwRefreshing, setKwRefreshing] = useState(false);
+  const [showImpr, setShowImpr] = useState(true); // Campaign Performance series toggles
+  const [showClk, setShowClk] = useState(true);
   const [camps, setCamps] = useState<Campaign[]>([]);
   const [ga4, setGa4] = useState<Ga4Report | null>(null);
   const [exportOpen, setExportOpen] = useState(false);
@@ -991,15 +1120,23 @@ function MarketingAnalytics() {
   useEffect(() => {
     const { from, to } = dateRange === "custom" ? { from: fFrom, to: fTo } : presetRange(dateRange);
     let alive = true;
+    // Prior equal-length window (for the "vs last N days" trend deltas). Skipped
+    // for the all-time range, where there is no meaningful baseline to compare to.
+    const pr = prevRange(from, to);
+    const prevReq = pr
+      ? api.adPerformance(pr.from, pr.to, campaignFilter.length ? campaignFilter : undefined, sourceFilter.length ? sourceFilter : undefined, accountFilter.length ? accountFilter : undefined).catch(() => null)
+      : Promise.resolve(null);
     Promise.all([
       api.adPerformance(from || undefined, to || undefined, campaignFilter.length ? campaignFilter : undefined, sourceFilter.length ? sourceFilter : undefined, accountFilter.length ? accountFilter : undefined).catch(() => null),
       api.listAdAccounts().catch(() => []),
       api.adKeywords(from || undefined, to || undefined).catch(() => []),
       api.listCampaigns().catch(() => []),
       api.getOrgGa4(from || undefined, to || undefined).catch(() => null),
-    ]).then(([p, accts, kws, cps, g]) => {
+      prevReq,
+    ]).then(([p, accts, kws, cps, g, pp]) => {
       if (!alive) return;
       setPerf(p as AdPerformance | null);
+      setPrevPerf(pp as AdPerformance | null);
       setKeywords((kws as AdKeyword[]) || []);
       setCamps((cps as Campaign[]) || []);
       setGa4(g as Ga4Report | null);
@@ -1061,38 +1198,98 @@ function MarketingAnalytics() {
   // filter stays reachable — picking an empty range must not trap the user.
   const isEmpty = !hasSpend && creatives.length === 0;
 
-  const roiCards = [
-    { label: "Ad spend", value: money(t.spend), Icon: CircleDollarSign, color: "#F59E0B" },
-    { label: "Leads", value: fmtInt(t.leads), Icon: MessageSquare, color: "#2D8B73" },
-    { label: "Cost / lead", value: money(cpl), Icon: Target, color: "#6366F1" },
-    { label: "Conversions", value: fmtInt(t.sales), Icon: Trophy, color: "#059669" },
-    { label: "Cost / conversion", value: money(cpa), Icon: CircleDollarSign, color: "#0EA5E9" },
-    { label: "Lead to purchase", value: `${convRate.toFixed(1)}%`, Icon: Target, color: "#EF4444" },
-  ];
-
-  // Funnel: Impressions -> Clicks -> CTR% -> Leads, in a single on-brand green ramp.
-  // Widths narrow by count (CTR sits between clicks and leads); CTR shows the rate.
   const ctrPct = t.impressions > 0 ? (t.clicks / t.impressions) * 100 : 0;
-  // Stacked funnel bars narrowing on a fixed ramp, orange -> red (matches the
-  // campaign report look).
-  // On-brand green funnel ramp (light -> dark as it narrows).
-  const funnel = [
-    { label: "Impressions", display: fmtInt(t.impressions), w: 100, color: "#4FB295" },
-    { label: "Clicks", display: fmtInt(t.clicks), w: 80, color: "#2D8B73" },
-    { label: "CTR %", display: `${ctrPct.toFixed(2)}%`, w: 60, color: "#26735F" },
-    { label: "Leads", display: fmtInt(t.leads), w: 44, color: "#1E5C4C" },
-  ];
 
   const daily = (perf?.daily || []).map((d) => {
     const dt = new Date(d.date);
     return {
       date: isNaN(dt.getTime()) ? d.date : `${String(dt.getDate()).padStart(2, "0")}/${String(dt.getMonth() + 1).padStart(2, "0")}`,
-      spend: d.spend || 0, impressions: d.impressions || 0, reach: d.reach || 0, clicks: d.clicks || 0, leads: d.leads || 0,
+      spend: d.spend || 0, impressions: d.impressions || 0, reach: d.reach || 0, clicks: d.clicks || 0, leads: d.leads || 0, sales: d.sales || 0,
     };
   }).reverse(); // chart reads left (oldest) -> right (newest)
 
   // Clicks vs Impressions per day (log line needs positive values -> null for 0).
   const dailyLog = daily.map((d) => ({ date: d.date, impressions: d.impressions > 0 ? d.impressions : null, clicks: d.clicks > 0 ? d.clicks : null }));
+
+  // ── Trend baselines: the prior equal-length window ("vs last N days"). ──
+  const prev = prevPerf ? adTotals(prevPerf, campaignFilter) : null;
+  const hasPrev = prev != null;
+  const rangeDays = (() => {
+    const { from, to } = dateRange === "custom" ? { from: fFrom, to: fTo } : presetRange(dateRange);
+    if (!from || !to) return 0;
+    const f = new Date(from + "T00:00:00"), tt = new Date(to + "T00:00:00");
+    return isNaN(f.getTime()) || isNaN(tt.getTime()) ? 0 : Math.round((tt.getTime() - f.getTime()) / 86400000) + 1;
+  })();
+  const cmpLabel = rangeDays > 0 ? `vs last ${rangeDays} days` : "vs previous period";
+
+  // KPI sparkline series (daily runs oldest -> newest).
+  const sSpend = daily.map((d) => d.spend);
+  const sLeads = daily.map((d) => d.leads);
+  const sCpl = daily.map((d) => (d.leads > 0 ? d.spend / d.leads : 0));
+  const sSales = daily.map((d) => d.sales);
+  const sCpa = daily.map((d) => (d.sales > 0 ? d.spend / d.sales : 0));
+  const sL2p = daily.map((d) => (d.leads > 0 ? (d.sales / d.leads) * 100 : 0));
+  const prevCpl = prev && prev.leads > 0 ? prev.spend / prev.leads : 0;
+  const prevCpa = prev && prev.sales > 0 ? prev.spend / prev.sales : 0;
+  const prevL2p = prev && prev.leads > 0 ? (prev.sales / prev.leads) * 100 : 0;
+
+  // KPI cards: value + sparkline + delta vs the prior window. `higher` picks the
+  // favourable direction (null = neutral, e.g. spend, where up/down is not a verdict).
+  const roiCards = [
+    { label: "Ad spend", value: money(t.spend), Icon: CircleDollarSign, color: "#F59E0B", series: sSpend, cur: t.spend, prev: prev?.spend ?? 0, higher: null as boolean | null },
+    { label: "Leads", value: fmtInt(t.leads), Icon: MessageSquare, color: "#2D8B73", series: sLeads, cur: t.leads, prev: prev?.leads ?? 0, higher: true },
+    { label: "Cost / lead", value: money(cpl), Icon: Target, color: "#6366F1", series: sCpl, cur: cpl, prev: prevCpl, higher: false },
+    { label: "Conversions", value: fmtInt(t.sales), Icon: Trophy, color: "#059669", series: sSales, cur: t.sales, prev: prev?.sales ?? 0, higher: true },
+    { label: "Cost / conversion", value: money(cpa), Icon: CircleDollarSign, color: "#0EA5E9", series: sCpa, cur: cpa, prev: prevCpa, higher: false },
+    { label: "Lead to purchase", value: `${convRate.toFixed(1)}%`, Icon: Target, color: "#EF4444", series: sL2p, cur: convRate, prev: prevL2p, higher: true },
+  ];
+
+  // Funnel steps Impressions -> Clicks -> CTR -> Leads -> Purchases. Right-side pill
+  // = conversion from the previous count step; footer = impression -> purchase.
+  const funnelSteps = [
+    { label: "Impressions", value: fmtInt(t.impressions), rate: 100, Icon: Eye },
+    { label: "Clicks", value: fmtInt(t.clicks), rate: t.impressions > 0 ? (t.clicks / t.impressions) * 100 : 0, Icon: MousePointerClick },
+    { label: "CTR", value: `${ctrPct.toFixed(2)}%`, rate: ctrPct, Icon: Percent },
+    { label: "Leads", value: fmtInt(t.leads), rate: t.clicks > 0 ? (t.leads / t.clicks) * 100 : 0, Icon: Users },
+    { label: "Purchases", value: fmtInt(t.sales), rate: t.leads > 0 ? (t.sales / t.leads) * 100 : 0, Icon: ShoppingCart },
+  ];
+  const FUNNEL_W = [1.0, 0.86, 0.72, 0.58, 0.44, 0.32]; // top width fraction per step + final tip
+  const FUNNEL_RAMP = ["#1E5C4C", "#26735F", "#2D8B73", "#3F9D84", "#5FB89E"];
+  const overallConv = t.impressions > 0 ? (t.sales / t.impressions) * 100 : 0;
+
+  // Per-source daily series (from the enriched daily_sources) for the in-cell
+  // sparklines, plus prior-window spend per source for the Cost trend arrow.
+  const srcSeries: Record<string, { impressions: number[]; ctr: number[]; leads: number[] }> = {};
+  for (const r of perf?.daily_sources || []) {
+    const s = srcSeries[r.source] || (srcSeries[r.source] = { impressions: [], ctr: [], leads: [] });
+    const imp = r.impressions || 0, clk = r.clicks || 0;
+    s.impressions.push(imp);
+    s.ctr.push(imp > 0 ? (clk / imp) * 100 : 0);
+    s.leads.push(r.leads || 0);
+  }
+  const prevSrcSpend: Record<string, number> = {};
+  for (const s of prevPerf?.sources || []) prevSrcSpend[s.source] = s.spend;
+  const srcMaxLeads = Math.max(1, ...(perf?.sources || []).map((s) => s.leads));
+
+  // Campaign insights: honest heuristics from the totals above.
+  const CTR_BENCH = 2.0;
+  const topSrc = [...(perf?.sources || [])].filter((s) => s.leads > 0).sort((a, b) => b.cvr - a.cvr)[0];
+  const insights: { Icon: any; color: string; text: string }[] = [];
+  if (t.impressions > 0) {
+    insights.push(ctrPct >= CTR_BENCH
+      ? { Icon: TrendingUp, color: "#059669", text: `CTR ${ctrPct.toFixed(2)}% is above the ${CTR_BENCH.toFixed(2)}% benchmark. Good job!` }
+      : { Icon: TrendingDown, color: "#EF4444", text: `CTR ${ctrPct.toFixed(2)}% is below the ${CTR_BENCH.toFixed(2)}% benchmark. Consider refreshing creatives.` });
+  }
+  if (t.leads > 0) insights.push({ Icon: Target, color: "#6366F1", text: `Average cost per lead is ${money(cpl)}.` });
+  if (t.leads > 0 && t.sales === 0) insights.push({ Icon: AlertTriangle, color: "#F59E0B", text: "No conversions yet. Consider optimizing the landing page or follow-up process." });
+  if (topSrc) insights.push({ Icon: Award, color: "#0EA5E9", text: `Top performing source: ${topSrc.label} (${topSrc.cvr.toFixed(2)}% CVR).` });
+
+  // Monthly Spending Performance: per-day share (labels) + Total / Avg / Lowest / Highest.
+  const totalSpend = daily.reduce((a, d) => a + d.spend, 0);
+  const spendDays = daily.filter((d) => d.spend > 0);
+  const avgDailySpend = spendDays.length ? totalSpend / spendDays.length : 0;
+  const lowestDay = spendDays.length ? spendDays.reduce((a, b) => (b.spend < a.spend ? b : a)) : null;
+  const highestDay = spendDays.length ? spendDays.reduce((a, b) => (b.spend > a.spend ? b : a)) : null;
 
   // Monthly Leads Performance Breakdown: pivot daily_sources into one series per source.
   const SRC_LABELS: Record<string, string> = { meta_ads: "Meta Ads", tiktok_ads: "TikTok Ads", google_ads: "Google Ads", website: "Website", direct: "Direct" };
@@ -1171,6 +1368,18 @@ function MarketingAnalytics() {
     const a = document.createElement("a"); a.href = url; a.download = `ads-report-${dateRange}.csv`; a.click(); URL.revokeObjectURL(url);
   };
 
+  // Re-pull Google keywords for the current range (the empty-state Refresh button).
+  const refreshKeywords = async () => {
+    const { from, to } = dateRange === "custom" ? { from: fFrom, to: fTo } : presetRange(dateRange);
+    setKwRefreshing(true);
+    try {
+      const kws = await api.adKeywords(from || undefined, to || undefined);
+      setKeywords(kws || []);
+    } catch { /* leave the empty state in place */ } finally {
+      setKwRefreshing(false);
+    }
+  };
+
   // PDF via the dedicated Heroleads template + headless route (not window.print).
   const exportAdsPdf = async () => {
     const { from, to } = dateRange === "custom" ? { from: fFrom, to: fTo } : presetRange(dateRange);
@@ -1231,35 +1440,78 @@ function MarketingAnalytics() {
       ) : (<>
       {hasSpend ? (
       <>
-      {/* ROI cards */}
-      <div className="flex flex-wrap bg-card rounded-lg border border-border shadow-xs mb-5 overflow-hidden">
-        {roiCards.map((c, i) => (
-          <div key={c.label} className={cn("flex-1 min-w-[150px] flex items-center gap-3 px-4 py-3.5", i < roiCards.length - 1 && "border-r border-border")}>
-            <div className="w-9 h-9 rounded-lg grid place-items-center shrink-0" style={{ backgroundColor: c.color + "14" }}><c.Icon className="w-[18px] h-[18px]" style={{ color: c.color }} /></div>
-            <div className="min-w-0">
+      {/* KPI cards — value + trend vs the prior window + sparkline */}
+      <div className="grid grid-cols-2 md:grid-cols-3 xl:grid-cols-6 gap-3 mb-5">
+        {roiCards.map((c) => (
+          <div key={c.label} className="bg-card rounded-lg border border-border shadow-xs p-4 flex flex-col">
+            <div className="flex items-center gap-2 mb-2.5">
+              <div className="w-8 h-8 rounded-full grid place-items-center shrink-0" style={{ backgroundColor: c.color + "14" }}><c.Icon className="w-4 h-4" style={{ color: c.color }} /></div>
               <p className="text-[10px] font-semibold text-muted-foreground uppercase tracking-wide leading-tight truncate">{c.label}</p>
-              <p className="text-[18px] xl:text-[20px] font-extrabold text-foreground leading-none tabular-nums mt-1 truncate">{c.value}</p>
             </div>
+            <p className="text-[22px] font-extrabold text-foreground leading-none tabular-nums truncate">{c.value}</p>
+            <div className="mt-1.5 flex items-center gap-1.5 min-h-[16px]">
+              {hasPrev && <Delta cur={c.cur} prev={c.prev} higherIsBetter={c.higher} />}
+              {hasPrev && <span className="text-[10px] text-muted-foreground truncate">{cmpLabel}</span>}
+            </div>
+            <div className="mt-2.5"><Spark data={c.series} color={c.color} h={30} stretch /></div>
           </div>
         ))}
       </div>
 
-      {/* Marketing funnel (compact, left) + Source performance (right) - equal height */}
-      <div className="grid grid-cols-1 lg:grid-cols-[360px_1fr] gap-4 mb-5 items-stretch">
-      <Card title="Marketing funnel" subtitle="Impression to click to chat to conversion">
-        {/* Stacked funnel bars narrowing on a fixed ramp, on-brand green. */}
+      {/* Funnel + insights (left column) beside Source performance (right) */}
+      <div className="grid grid-cols-1 lg:grid-cols-[360px_1fr] gap-4 mb-5 items-start">
+      <div className="flex flex-col gap-4">
+      <Card title="Marketing funnel" subtitle="Impression to purchase conversion">
+        {/* True funnel: clip-path trapezoids narrowing on an on-brand green ramp,
+            each with its step-to-step conversion rate at the right. */}
         <div className="p-4">
-          <div className="flex flex-col items-center gap-1.5">
-            {funnel.map((s) => (
-              <div key={s.label} style={{ width: `${s.w}%`, backgroundColor: s.color }}
-                className="rounded-md py-2.5 px-2 text-center text-white shadow-sm transition-all duration-500">
-                <p className="text-[9.5px] font-semibold uppercase tracking-wide opacity-90">{s.label}</p>
-                <p className="text-[17px] font-extrabold tabular-nums leading-tight">{s.display}</p>
-              </div>
-            ))}
+          <div className="flex flex-col">
+            {funnelSteps.map((s, i) => {
+              const top = FUNNEL_W[i], bot = FUNNEL_W[i + 1] ?? 0.3;
+              const clip = `polygon(${((1 - top) / 2 * 100).toFixed(2)}% 0, ${((1 + top) / 2 * 100).toFixed(2)}% 0, ${((1 + bot) / 2 * 100).toFixed(2)}% 100%, ${((1 - bot) / 2 * 100).toFixed(2)}% 100%)`;
+              return (
+                <div key={s.label} className="flex items-center gap-2">
+                  <div className="flex-1 min-w-0">
+                    <div className="relative flex flex-col items-center justify-center text-center text-white px-4"
+                      style={{ height: 54, background: FUNNEL_RAMP[i], clipPath: clip, WebkitClipPath: clip, marginTop: i ? -1 : 0 }}>
+                      <div className="flex items-center gap-1.5">
+                        <s.Icon className="w-3.5 h-3.5 opacity-90 shrink-0" />
+                        <span className="text-[16px] font-extrabold tabular-nums leading-none">{s.value}</span>
+                      </div>
+                      <span className="text-[9.5px] font-medium opacity-90 mt-0.5">{s.label}</span>
+                    </div>
+                  </div>
+                  <span className="w-14 shrink-0 text-right text-[11px] font-bold tabular-nums text-foreground/70">{s.rate.toFixed(2)}%</span>
+                </div>
+              );
+            })}
+          </div>
+          <div className="mt-3 pt-3 border-t border-border flex items-center justify-between gap-2">
+            <span className="text-[11px] text-muted-foreground">Overall conversion rate from impression to purchase</span>
+            <span className="text-[12px] font-bold tabular-nums text-primary shrink-0">{overallConv.toFixed(2)}%</span>
           </div>
         </div>
       </Card>
+
+      {insights.length > 0 && (
+        <Card>
+          <div className="px-4 py-3 border-b border-border flex items-center gap-2">
+            <Sparkles className="w-[18px] h-[18px] text-primary" />
+            <p className="font-bold text-[14px] text-foreground leading-tight">Campaign insights</p>
+          </div>
+          <div className="p-4 flex flex-col gap-3">
+            {insights.map((ins, i) => (
+              <div key={i} className="flex items-start gap-2.5">
+                <span className="w-5 h-5 rounded-full grid place-items-center shrink-0 mt-0.5" style={{ backgroundColor: ins.color + "1f" }}>
+                  <ins.Icon className="w-3 h-3" style={{ color: ins.color }} />
+                </span>
+                <p className="text-[12.5px] text-foreground/80 leading-snug">{ins.text}</p>
+              </div>
+            ))}
+          </div>
+        </Card>
+      )}
+      </div>
 
       {/* Source performance (right of the funnel) */}
       <div className="bg-card rounded-lg border border-border shadow-xs overflow-hidden">
@@ -1286,18 +1538,37 @@ function MarketingAnalytics() {
                   const bg = `rgba(45, 139, 115, ${heat * 0.85})`; // on-brand green CVR heat
                   const cpc = s.clicks > 0 ? s.spend / s.clicks : 0;
                   const cpl = s.leads > 0 ? s.spend / s.leads : 0;
+                  const ser = srcSeries[s.source];
                   return (
-                    <tr key={s.source} className="border-b border-border/60">
-                      <td className="px-3 py-2 font-semibold text-foreground">{s.label}</td>
-                      <td className="px-3 py-2 text-right tabular-nums text-foreground/80">{money(s.spend)}</td>
-                      <td className="px-3 py-2 text-right tabular-nums text-foreground/80">{fmtInt(s.impressions)}</td>
-                      <td className="px-3 py-2 text-right tabular-nums text-foreground/80">{fmtInt(s.clicks)}</td>
-                      <td className="px-3 py-2 text-right tabular-nums text-foreground/80">{s.ctr.toFixed(2)}%</td>
-                      <td className="px-3 py-2 text-right tabular-nums text-foreground/80">{s.clicks > 0 ? money(cpc) : "-"}</td>
-                      <td className="px-3 py-2 text-right tabular-nums text-foreground/80">{fmtInt(s.leads)}</td>
-                      <td className="px-3 py-2 text-right tabular-nums text-foreground/80">{s.leads > 0 ? money(cpl) : "-"}</td>
-                      <td className="px-3 py-2 text-right tabular-nums font-semibold text-foreground">{fmtInt(s.purchases)}</td>
-                      <td className={cn("px-3 py-2 text-right tabular-nums font-semibold", heat > 0.5 ? "text-white" : "text-foreground")} style={{ backgroundColor: bg }}>{s.cvr.toFixed(2)}%</td>
+                    <tr key={s.source} className="border-b border-border/60 align-top">
+                      <td className="px-3 py-2.5">
+                        <div className="flex items-center gap-2"><SourceIcon source={s.source} /><span className="font-semibold text-foreground whitespace-nowrap">{s.label}</span></div>
+                      </td>
+                      <td className="px-3 py-2.5 text-right">
+                        <div className="tabular-nums text-foreground/80">{money(s.spend)}</div>
+                        {hasPrev && s.spend > 0 && <div className="flex justify-end mt-0.5"><Delta cur={s.spend} prev={prevSrcSpend[s.source] ?? 0} higherIsBetter={null} /></div>}
+                      </td>
+                      <td className="px-3 py-2.5 text-right">
+                        <div className="tabular-nums text-foreground/80">{fmtInt(s.impressions)}</div>
+                        {ser && ser.impressions.length > 1 && <div className="flex justify-end mt-1"><MiniBars data={ser.impressions} color="#2D8B73" /></div>}
+                      </td>
+                      <td className="px-3 py-2.5 text-right tabular-nums text-foreground/80">{fmtInt(s.clicks)}</td>
+                      <td className="px-3 py-2.5 text-right">
+                        <div className="tabular-nums text-foreground/80">{s.ctr.toFixed(2)}%</div>
+                        {ser && ser.ctr.length > 1 && <div className="flex justify-end mt-1"><Spark data={ser.ctr} color="#6366F1" w={64} h={18} fill={false} /></div>}
+                      </td>
+                      <td className="px-3 py-2.5 text-right tabular-nums text-foreground/80">{s.clicks > 0 ? money(cpc) : "-"}</td>
+                      <td className="px-3 py-2.5 text-right">
+                        <div className="tabular-nums text-foreground/80">{fmtInt(s.leads)}</div>
+                        {s.leads > 0 && (
+                          <div className="mt-1.5 ml-auto h-1.5 rounded-full bg-muted overflow-hidden" style={{ width: 46 }}>
+                            <div className="h-full rounded-full" style={{ width: `${(s.leads / srcMaxLeads) * 100}%`, background: "#2D8B73" }} />
+                          </div>
+                        )}
+                      </td>
+                      <td className="px-3 py-2.5 text-right tabular-nums text-foreground/80">{s.leads > 0 ? money(cpl) : "-"}</td>
+                      <td className="px-3 py-2.5 text-right tabular-nums font-semibold text-foreground">{fmtInt(s.purchases)}</td>
+                      <td className={cn("px-3 py-2.5 text-right tabular-nums font-semibold", heat > 0.5 ? "text-white" : "text-foreground")} style={{ backgroundColor: bg }}>{s.cvr.toFixed(2)}%</td>
                     </tr>
                   );
                 });
@@ -1322,24 +1593,63 @@ function MarketingAnalytics() {
       </div>
       </div>
 
-      {/* Campaign Performance Breakdown - clicks vs impressions (log), full width */}
-      <Card title="Campaign Performance Breakdown" subtitle="Clicks vs impressions per day" className="mb-5">
+      {/* Campaign Performance - impressions vs clicks over the range */}
+      <Card className="mb-5">
+        <div className="px-4 py-3 border-b border-border">
+          <p className="font-bold text-[14px] text-foreground leading-tight">Campaign Performance</p>
+          <p className="text-xs text-muted-foreground">Performance over the selected range</p>
+        </div>
         <div className="p-4">
+          {/* Totals + delta vs the prior window */}
+          <div className="flex flex-wrap items-start gap-x-10 gap-y-3 mb-3">
+            {[
+              { label: "Impressions", color: "#0b1220", total: t.impressions, prev: prev?.impressions ?? 0 },
+              { label: "Clicks", color: "#2D8B73", total: t.clicks, prev: prev?.clicks ?? 0 },
+            ].map((m) => (
+              <div key={m.label}>
+                <div className="flex items-center gap-1.5">
+                  <span className="w-2 h-2 rounded-full" style={{ background: m.color }} />
+                  <span className="text-[11px] font-semibold text-muted-foreground">{m.label}</span>
+                </div>
+                <div className="flex items-baseline gap-2 mt-0.5">
+                  <span className="text-[20px] font-extrabold text-foreground tabular-nums leading-none">{fmtInt(m.total)}</span>
+                  {hasPrev && <Delta cur={m.total} prev={m.prev} higherIsBetter={true} />}
+                </div>
+                {hasPrev && <span className="text-[10px] text-muted-foreground">{cmpLabel}</span>}
+              </div>
+            ))}
+          </div>
+          {/* Series toggle chips */}
+          <div className="flex items-center gap-2 mb-3">
+            {[
+              { label: "Impressions", color: "#0b1220", show: showImpr, toggle: () => setShowImpr((v) => !v) },
+              { label: "Clicks", color: "#2D8B73", show: showClk, toggle: () => setShowClk((v) => !v) },
+            ].map((c) => (
+              <button key={c.label} onClick={c.toggle}
+                className={cn("inline-flex items-center gap-1.5 h-7 px-2.5 rounded-full border text-[12px] font-medium transition-colors outline-none",
+                  c.show ? "border-border bg-muted/60 text-foreground" : "border-border/60 text-muted-foreground/50")}>
+                <span className="w-2 h-2 rounded-full" style={{ background: c.show ? c.color : "#cbd5e1" }} />{c.label}
+              </button>
+            ))}
+          </div>
           {dailyLog.length === 0 ? (
             <div className="py-10 text-center text-sm text-muted-foreground">No data</div>
           ) : (
             <div className="h-[260px]">
               <ResponsiveContainer width="100%" height="100%">
-                <LineChart data={dailyLog} margin={{ top: 6, right: 12, left: 0, bottom: 0 }}>
+                <AreaChart data={dailyLog} margin={{ top: 6, right: 12, left: 0, bottom: 0 }}>
+                  <defs>
+                    <linearGradient id="cpImpr" x1="0" y1="0" x2="0" y2="1"><stop offset="0%" stopColor="#0b1220" stopOpacity={0.13} /><stop offset="100%" stopColor="#0b1220" stopOpacity={0.01} /></linearGradient>
+                    <linearGradient id="cpClk" x1="0" y1="0" x2="0" y2="1"><stop offset="0%" stopColor="#2D8B73" stopOpacity={0.22} /><stop offset="100%" stopColor="#2D8B73" stopOpacity={0.02} /></linearGradient>
+                  </defs>
                   <CartesianGrid strokeDasharray="3 3" stroke="#e5e7eb" vertical={false} />
                   <XAxis dataKey="date" tick={{ fontSize: 11, fill: "#94a3b8" }} axisLine={false} tickLine={false} minTickGap={24} />
                   <YAxis scale="log" domain={[1, "auto"]} allowDataOverflow tick={{ fontSize: 11, fill: "#94a3b8" }} axisLine={false} tickLine={false} width={46}
                     tickFormatter={(v) => v >= 1e6 ? `${(v / 1e6).toFixed(0)}M` : v >= 1000 ? `${(v / 1000).toFixed(0)}k` : `${v}`} />
-                  <RechartsTooltip />
-                  <Legend />
-                  <Line type="monotone" dataKey="impressions" name="Impressions" stroke="#0b1220" strokeWidth={2} dot={false} connectNulls isAnimationActive={false} />
-                  <Line type="monotone" dataKey="clicks" name="Clicks" stroke="#2D8B73" strokeWidth={2} dot={false} connectNulls isAnimationActive={false} />
-                </LineChart>
+                  <RechartsTooltip content={<AdsTooltip />} cursor={{ stroke: "rgba(0,0,0,0.08)" }} />
+                  {showImpr && <Area type="monotone" dataKey="impressions" name="Impressions" stroke="#0b1220" strokeWidth={2} fill="url(#cpImpr)" dot={dailyLog.length <= 12 ? { r: 3, fill: "#fff", stroke: "#0b1220", strokeWidth: 2 } : false} connectNulls isAnimationActive={false} />}
+                  {showClk && <Area type="monotone" dataKey="clicks" name="Clicks" stroke="#2D8B73" strokeWidth={2} fill="url(#cpClk)" dot={dailyLog.length <= 12 ? { r: 3, fill: "#fff", stroke: "#2D8B73", strokeWidth: 2 } : false} connectNulls isAnimationActive={false} />}
+                </AreaChart>
               </ResponsiveContainer>
             </div>
           )}
@@ -1351,7 +1661,15 @@ function MarketingAnalytics() {
         <Card title="Google Top 10 Search Keywords" subtitle="Clicks vs impressions">
           <div className="p-4">
             {kw.length === 0 ? (
-              <div className="py-10 text-center text-sm text-muted-foreground">No data</div>
+              <div className="py-12 flex flex-col items-center justify-center text-center">
+                <div className="w-12 h-12 rounded-full bg-muted grid place-items-center mb-3"><Search className="w-5 h-5 text-muted-foreground/60" /></div>
+                <p className="text-[13px] font-semibold text-foreground">No search keywords yet</p>
+                <p className="text-xs text-muted-foreground mt-0.5 max-w-[240px]">Google Search Console hasn&apos;t collected enough data.</p>
+                <button onClick={refreshKeywords} disabled={kwRefreshing}
+                  className="mt-4 inline-flex items-center gap-1.5 h-8 px-3 rounded-md border border-border bg-background text-[12px] font-medium text-foreground hover:bg-muted disabled:opacity-50 outline-none transition-colors">
+                  <RefreshCw className={cn("w-3.5 h-3.5", kwRefreshing && "animate-spin")} /> Refresh
+                </button>
+              </div>
             ) : (
               <div className="flex flex-col gap-2.5">
                 {kw.map((k, i) => (
@@ -1367,7 +1685,17 @@ function MarketingAnalytics() {
             )}
           </div>
         </Card>
-        <Card title="Facebook Age Demography" subtitle="Impressions vs link clicks">
+        <div className="bg-card rounded-lg border border-border shadow-xs overflow-hidden">
+          <div className="px-4 py-3 border-b border-border flex items-center justify-between gap-2">
+            <div>
+              <p className="font-bold text-[14px] text-foreground leading-tight">Facebook Age Demography</p>
+              <p className="text-xs text-muted-foreground">Impressions vs link clicks</p>
+            </div>
+            <div className="flex items-center gap-3 shrink-0">
+              <span className="flex items-center gap-1.5 text-[10px] text-muted-foreground"><span className="w-2.5 h-2.5 rounded-full" style={{ background: "#0b1220" }} />Impressions</span>
+              <span className="flex items-center gap-1.5 text-[10px] text-muted-foreground"><span className="w-2.5 h-2.5 rounded-full" style={{ background: "#2D8B73" }} />Link Clicks</span>
+            </div>
+          </div>
           <div className="p-4">
             {ageRows.length === 0 ? (
               <div className="py-10 text-center text-sm text-muted-foreground">No data</div>
@@ -1385,36 +1713,55 @@ function MarketingAnalytics() {
               </div>
             )}
           </div>
-        </Card>
+        </div>
       </div>
 
-      {/* Monthly Leads Performance Breakdown - stacked area by source */}
-      <Card title="Monthly Leads Performance Breakdown" subtitle="Leads by source over time" className="mb-5">
+      {/* Monthly Leads Performance - total + delta beside the by-source area */}
+      <Card title="Monthly Leads Performance" subtitle="Leads by source over time" className="mb-5">
         <div className="p-4">
           {leadsBySource.length === 0 ? (
             <div className="py-10 text-center text-sm text-muted-foreground">No data</div>
           ) : (
-            <div className="h-[240px]">
-              <ResponsiveContainer width="100%" height="100%">
-                <AreaChart data={leadsBySource} margin={{ top: 6, right: 12, left: 0, bottom: 0 }}>
-                  <defs>
-                    {leadSourceKeys.map((k) => (
-                      <linearGradient key={k} id={`ls-${k}`} x1="0" y1="0" x2="0" y2="1">
-                        <stop offset="0%" stopColor={SRC_COLORS[k] || "#94a3b8"} stopOpacity={0.35} />
-                        <stop offset="100%" stopColor={SRC_COLORS[k] || "#94a3b8"} stopOpacity={0.02} />
-                      </linearGradient>
-                    ))}
-                  </defs>
-                  <CartesianGrid strokeDasharray="3 3" stroke="#e5e7eb" vertical={false} />
-                  <XAxis dataKey="date" tick={{ fontSize: 11, fill: "#94a3b8" }} axisLine={false} tickLine={false} minTickGap={24} />
-                  <YAxis tick={{ fontSize: 11, fill: "#94a3b8" }} axisLine={false} tickLine={false} width={34} allowDecimals={false} />
-                  <RechartsTooltip />
-                  <Legend />
+            <div className="grid grid-cols-1 lg:grid-cols-[170px_1fr] gap-4 items-center">
+              <div className="flex flex-col">
+                <p className="text-[34px] font-extrabold text-foreground leading-none tabular-nums">{fmtInt(t.leads)}</p>
+                <p className="text-[12px] text-muted-foreground mt-1">Leads</p>
+                {hasPrev && (
+                  <div className="mt-2 flex items-center gap-1.5">
+                    <Delta cur={t.leads} prev={prev?.leads ?? 0} higherIsBetter={true} />
+                    <span className="text-[10px] text-muted-foreground">{cmpLabel}</span>
+                  </div>
+                )}
+                <div className="mt-4 flex flex-col gap-1.5">
                   {leadSourceKeys.map((k) => (
-                    <Area key={k} type="monotone" dataKey={k} name={SRC_LABELS[k] || k} stackId="1" stroke={SRC_COLORS[k] || "#94a3b8"} strokeWidth={2} fill={`url(#ls-${k})`} isAnimationActive={false} />
+                    <span key={k} className="flex items-center gap-1.5 text-[11px] text-muted-foreground">
+                      <span className="w-2.5 h-2.5 rounded-full shrink-0" style={{ background: SRC_COLORS[k] || "#94a3b8" }} />{SRC_LABELS[k] || k}
+                    </span>
                   ))}
-                </AreaChart>
-              </ResponsiveContainer>
+                </div>
+              </div>
+              <div className="h-[240px]">
+                <ResponsiveContainer width="100%" height="100%">
+                  <AreaChart data={leadsBySource} margin={{ top: 6, right: 12, left: 0, bottom: 0 }}>
+                    <defs>
+                      {leadSourceKeys.map((k) => (
+                        <linearGradient key={k} id={`ls-${k}`} x1="0" y1="0" x2="0" y2="1">
+                          <stop offset="0%" stopColor={SRC_COLORS[k] || "#94a3b8"} stopOpacity={0.35} />
+                          <stop offset="100%" stopColor={SRC_COLORS[k] || "#94a3b8"} stopOpacity={0.02} />
+                        </linearGradient>
+                      ))}
+                    </defs>
+                    <CartesianGrid strokeDasharray="3 3" stroke="#e5e7eb" vertical={false} />
+                    <XAxis dataKey="date" tick={{ fontSize: 11, fill: "#94a3b8" }} axisLine={false} tickLine={false} minTickGap={24} />
+                    <YAxis tick={{ fontSize: 11, fill: "#94a3b8" }} axisLine={false} tickLine={false} width={34} allowDecimals={false} />
+                    <RechartsTooltip content={<AdsTooltip />} cursor={{ stroke: "rgba(0,0,0,0.08)" }} />
+                    {leadSourceKeys.map((k) => (
+                      <Area key={k} type="monotone" dataKey={k} name={SRC_LABELS[k] || k} stackId="1" stroke={SRC_COLORS[k] || "#94a3b8"} strokeWidth={2} fill={`url(#ls-${k})`}
+                        dot={leadsBySource.length <= 12 ? { r: 2.5, fill: "#fff", stroke: SRC_COLORS[k] || "#94a3b8", strokeWidth: 2 } : false} isAnimationActive={false} />
+                    ))}
+                  </AreaChart>
+                </ResponsiveContainer>
+              </div>
             </div>
           )}
         </div>
@@ -1422,8 +1769,11 @@ function MarketingAnalytics() {
 
       {/* Latest Leads - Date | Name | Phone | Channel | Source | Stage */}
       <div className="bg-card rounded-lg border border-border shadow-xs overflow-hidden mb-5">
-        <div className="px-4 py-3 border-b border-border">
+        <div className="px-4 py-3 border-b border-border flex items-center justify-between gap-2">
           <p className="font-bold text-[14px] text-foreground leading-tight">Latest Leads</p>
+          <Link href="/inbox" className="inline-flex items-center gap-1 h-8 px-3 rounded-md border border-border bg-background text-[12px] font-medium text-foreground hover:bg-muted outline-none transition-colors">
+            View All Leads <ChevronRight className="w-3.5 h-3.5 text-muted-foreground" />
+          </Link>
         </div>
         <div className="overflow-x-auto">
           <table className="w-full text-sm">
@@ -1436,7 +1786,13 @@ function MarketingAnalytics() {
             </thead>
             <tbody>
               {recentLeads.length === 0 ? (
-                <tr><td colSpan={6} className="px-3 py-10 text-center text-[13px] text-muted-foreground">No data</td></tr>
+                <tr><td colSpan={6} className="px-3 py-12">
+                  <div className="flex flex-col items-center justify-center text-center">
+                    <div className="w-12 h-12 rounded-full bg-muted grid place-items-center mb-3"><Inbox className="w-5 h-5 text-muted-foreground/60" /></div>
+                    <p className="text-[13px] font-semibold text-foreground">No leads available</p>
+                    <p className="text-xs text-muted-foreground mt-0.5">New leads will appear here</p>
+                  </div>
+                </td></tr>
               ) : recentLeads.map((l, i) => (
                 <tr key={i} className="border-b border-border/60">
                   <td className="px-3 py-2 text-muted-foreground whitespace-nowrap">{l.created_at ? new Date(l.created_at).toLocaleString("en-GB") : "-"}</td>
@@ -1452,24 +1808,50 @@ function MarketingAnalytics() {
         </div>
       </div>
 
-      {/* Monthly Spending Performance - daily spend bars */}
+      {/* Monthly Spending Performance - daily spend bars + share labels + summary */}
       <Card title="Monthly Spending Performance" subtitle="Daily ad spend" className="mb-5">
         <div className="p-4">
           {daily.length === 0 ? (
             <div className="py-10 text-center text-sm text-muted-foreground">No data</div>
           ) : (
-            <div className="h-[240px]">
-              <ResponsiveContainer width="100%" height="100%">
-                <BarChart data={daily} margin={{ top: 6, right: 12, left: 6, bottom: 0 }}>
-                  <CartesianGrid strokeDasharray="3 3" stroke="#e5e7eb" vertical={false} />
-                  <XAxis dataKey="date" tick={{ fontSize: 11, fill: "#94a3b8" }} axisLine={false} tickLine={false} minTickGap={24} />
-                  <YAxis tick={{ fontSize: 11, fill: "#94a3b8" }} axisLine={false} tickLine={false} width={54}
-                    tickFormatter={(v) => v >= 1e6 ? `${(v / 1e6).toFixed(0)}M` : v >= 1000 ? `${(v / 1000).toFixed(0)}k` : `${v}`} />
-                  <RechartsTooltip />
-                  <Bar dataKey="spend" name="Cost" fill="#2D8B73" radius={[3, 3, 0, 0]} isAnimationActive={false} />
-                </BarChart>
-              </ResponsiveContainer>
-            </div>
+            <>
+              <div className="h-[240px]">
+                <ResponsiveContainer width="100%" height="100%">
+                  <BarChart data={daily} margin={{ top: 20, right: 12, left: 6, bottom: 0 }}>
+                    <CartesianGrid strokeDasharray="3 3" stroke="#e5e7eb" vertical={false} />
+                    <XAxis dataKey="date" tick={{ fontSize: 11, fill: "#94a3b8" }} axisLine={false} tickLine={false} minTickGap={24} />
+                    <YAxis tick={{ fontSize: 11, fill: "#94a3b8" }} axisLine={false} tickLine={false} width={54}
+                      tickFormatter={(v) => v >= 1e6 ? `${(v / 1e6).toFixed(0)}M` : v >= 1000 ? `${(v / 1000).toFixed(0)}k` : `${v}`} />
+                    <RechartsTooltip content={<AdsTooltip fmt={money} />} cursor={{ fill: "rgba(45,139,115,0.06)" }} />
+                    <Bar dataKey="spend" name="Cost" fill="#2D8B73" radius={[3, 3, 0, 0]} isAnimationActive={false}>
+                      {daily.length <= 14 && <LabelList dataKey="spend" position="top" content={(props: any) => {
+                        const { x, y, width, value } = props;
+                        if (totalSpend <= 0 || value == null) return null;
+                        return <text x={Number(x) + Number(width) / 2} y={Number(y) - 6} textAnchor="middle" fontSize={11} fontWeight={700} fill="#2D8B73">{`${(Number(value) / totalSpend * 100).toFixed(1)}%`}</text>;
+                      }} />}
+                    </Bar>
+                  </BarChart>
+                </ResponsiveContainer>
+              </div>
+              {/* Summary: Total / Avg daily / Lowest / Highest */}
+              <div className="mt-4 grid grid-cols-2 lg:grid-cols-4 gap-3 rounded-lg border border-border bg-muted/30 p-3">
+                {[
+                  { label: "Total Spend", value: money(totalSpend), sub: "", Icon: CircleDollarSign },
+                  { label: "Avg. Daily Spend", value: money(avgDailySpend), sub: "", Icon: TrendingUp },
+                  { label: "Lowest Day", value: lowestDay ? lowestDay.date : "-", sub: lowestDay ? money(lowestDay.spend) : "", Icon: ArrowDownRight },
+                  { label: "Highest Day", value: highestDay ? highestDay.date : "-", sub: highestDay ? money(highestDay.spend) : "", Icon: ArrowUpRight },
+                ].map((s) => (
+                  <div key={s.label} className="flex items-center gap-2.5">
+                    <span className="w-9 h-9 rounded-lg grid place-items-center shrink-0" style={{ backgroundColor: "#2D8B7314" }}><s.Icon className="w-4 h-4 text-primary" /></span>
+                    <div className="min-w-0">
+                      <p className="text-[11px] text-muted-foreground truncate">{s.label}</p>
+                      <p className="text-[16px] font-extrabold text-foreground tabular-nums leading-tight truncate">{s.value}</p>
+                      {s.sub && <p className="text-[11px] font-semibold text-primary tabular-nums">{s.sub}</p>}
+                    </div>
+                  </div>
+                ))}
+              </div>
+            </>
           )}
         </div>
       </Card>

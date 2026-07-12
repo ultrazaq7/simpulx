@@ -438,44 +438,40 @@ func (s *server) handleAdPerformance(w http.ResponseWriter, r *http.Request) {
 	// (Meta "results" is often 0 for click/reach-optimised ads). Merged into the
 	// daily rows so the Timeline can show leads instead of Meta results. Leads are
 	// WhatsApp conversations (source-agnostic), so only the campaign filter applies.
-	lq := `SELECT created_at::date AS d, count(*)::bigint AS leads
-	         FROM conversations
-	        WHERE organization_id=$1 AND created_at::date BETWEEN $2 AND $3 AND campaign_id IS NOT NULL`
+	lq := `SELECT cv.created_at::date AS d, count(*)::bigint AS leads,
+	              count(*) FILTER (WHERE st.sort_order = (SELECT max(sort_order) FROM stages WHERE organization_id=$1))::bigint AS sales
+	         FROM conversations cv LEFT JOIN stages st ON st.id = cv.stage_id
+	        WHERE cv.organization_id=$1 AND cv.created_at::date BETWEEN $2 AND $3 AND cv.campaign_id IS NOT NULL`
 	largs := []any{a.OrgID, from, to}
 	if len(campIDs) > 0 {
 		largs = append(largs, campIDs)
-		lq += fmt.Sprintf(" AND campaign_id = ANY($%d::uuid[])", len(largs))
+		lq += fmt.Sprintf(" AND cv.campaign_id = ANY($%d::uuid[])", len(largs))
 	}
 	lq += " GROUP BY 1"
 	leadRows, _ := s.queryMaps(r.Context(), lq, largs...)
 	leadsByDate := map[string]int64{}
+	salesByDate := map[string]int64{}
 	for _, lr := range leadRows {
 		if d, ok := lr["d"].(time.Time); ok {
+			day := d.Format("2006-01-02")
 			if n, ok := lr["leads"].(int64); ok {
-				leadsByDate[d.Format("2006-01-02")] = n
+				leadsByDate[day] = n
+			}
+			if n, ok := lr["sales"].(int64); ok {
+				salesByDate[day] = n
 			}
 		}
 	}
 	for _, dr := range dailyRows {
 		if d, ok := dr["date"].(time.Time); ok {
-			dr["leads"] = leadsByDate[d.Format("2006-01-02")]
+			day := d.Format("2006-01-02")
+			dr["leads"] = leadsByDate[day]
+			dr["sales"] = salesByDate[day]
 		} else {
 			dr["leads"] = int64(0)
+			dr["sales"] = int64(0)
 		}
 	}
-
-	// Daily leads split by the classified source -> the per-source stacked area.
-	// Same scope as the aggregate daily-leads query, plus the source classifier.
-	dsq := `SELECT created_at::date AS date, ` + sourceClassifyExpr("") + ` AS source, count(*)::bigint AS leads
-	          FROM conversations
-	         WHERE organization_id=$1 AND created_at::date BETWEEN $2 AND $3 AND campaign_id IS NOT NULL`
-	dsargs := []any{a.OrgID, from, to}
-	if len(campIDs) > 0 {
-		dsargs = append(dsargs, campIDs)
-		dsq += fmt.Sprintf(" AND campaign_id = ANY($%d::uuid[])", len(dsargs))
-	}
-	dsq += " GROUP BY 1, 2 ORDER BY 1"
-	dailySources, _ := s.queryMaps(r.Context(), dsq, dsargs...)
 
 	// Latest leads with a classified source -> the Latest Leads table
 	// (Date | Name | Phone | Channel | Source | Stage).
@@ -650,6 +646,95 @@ func (s *server) handleAdPerformance(w http.ResponseWriter, r *http.Request) {
 			"leads": agg.leads, "purchases": agg.purchases, "ctr": ctr, "cvr": cvr,
 		})
 	}
+
+	// Per-source daily series: ad delivery (impressions/clicks/spend) by platform
+	// merged with leads by the source classifier, keyed on (source, day). Powers
+	// the in-cell sparklines in the Source performance table and the per-source
+	// leads area chart. Same date/campaign/account scope as the aggregate views.
+	type dsAgg struct {
+		impressions, clicks, leads int64
+		spend                      float64
+	}
+	dsByKey := map[string]map[string]*dsAgg{}
+	dsTouch := func(src, day string) *dsAgg {
+		m := dsByKey[src]
+		if m == nil {
+			m = map[string]*dsAgg{}
+			dsByKey[src] = m
+		}
+		ag := m[day]
+		if ag == nil {
+			ag = &dsAgg{}
+			m[day] = ag
+		}
+		return ag
+	}
+	// (a) ad delivery per platform per day -> source key.
+	ddArgs := []any{a.OrgID, from, to}
+	ddQ := `SELECT am.date, ac.platform,
+	               sum(am.impressions)::bigint impressions, sum(am.clicks)::bigint clicks, sum(am.spend)::float8 spend
+	          FROM ad_metrics am JOIN ad_campaigns ac ON ac.id = am.ad_campaign_id
+	         WHERE am.organization_id=$1 AND am.date BETWEEN $2 AND $3`
+	if len(campIDs) > 0 {
+		ddArgs = append(ddArgs, campIDs)
+		ddQ += fmt.Sprintf(" AND ac.id IN (SELECT ad_campaign_id FROM ad_campaign_campaigns WHERE campaign_id = ANY($%d::uuid[]))", len(ddArgs))
+	}
+	if len(platforms) > 0 {
+		ddArgs = append(ddArgs, platforms)
+		ddQ += fmt.Sprintf(" AND ac.platform = ANY($%d::text[])", len(ddArgs))
+	}
+	if len(accountIDs) > 0 {
+		ddArgs = append(ddArgs, accountIDs)
+		ddQ += fmt.Sprintf(" AND ac.ad_account_id::text = ANY($%d::text[])", len(ddArgs))
+	}
+	ddQ += " GROUP BY am.date, ac.platform"
+	ddRows, _ := s.queryMaps(r.Context(), ddQ, ddArgs...)
+	for _, dr := range ddRows {
+		day, _ := dr["date"].(time.Time)
+		key := platToKey[fmt.Sprint(dr["platform"])]
+		if key == "" || day.IsZero() {
+			continue
+		}
+		ag := dsTouch(key, day.Format("2006-01-02"))
+		ag.impressions += gi(dr["impressions"])
+		ag.clicks += gi(dr["clicks"])
+		ag.spend += gf(dr["spend"])
+	}
+	// (b) leads per source per day (classifier).
+	dsq := `SELECT created_at::date AS date, ` + sourceClassifyExpr("") + ` AS source, count(*)::bigint AS leads
+	          FROM conversations
+	         WHERE organization_id=$1 AND created_at::date BETWEEN $2 AND $3 AND campaign_id IS NOT NULL`
+	dsargs := []any{a.OrgID, from, to}
+	if len(campIDs) > 0 {
+		dsargs = append(dsargs, campIDs)
+		dsq += fmt.Sprintf(" AND campaign_id = ANY($%d::uuid[])", len(dsargs))
+	}
+	dsq += " GROUP BY 1, 2"
+	dsLeadRows, _ := s.queryMaps(r.Context(), dsq, dsargs...)
+	for _, dr := range dsLeadRows {
+		day, _ := dr["date"].(time.Time)
+		src := fmt.Sprint(dr["source"])
+		if day.IsZero() || src == "" {
+			continue
+		}
+		dsTouch(src, day.Format("2006-01-02")).leads += gi(dr["leads"])
+	}
+	dailySources := []map[string]any{}
+	for src, byDay := range dsByKey {
+		for day, ag := range byDay {
+			dailySources = append(dailySources, map[string]any{
+				"date": day, "source": src,
+				"impressions": ag.impressions, "clicks": ag.clicks, "spend": ag.spend, "leads": ag.leads,
+			})
+		}
+	}
+	sort.Slice(dailySources, func(i, j int) bool {
+		di, dj := dailySources[i]["date"].(string), dailySources[j]["date"].(string)
+		if di != dj {
+			return di < dj
+		}
+		return dailySources[i]["source"].(string) < dailySources[j]["source"].(string)
+	})
 
 	writeJSON(w, map[string]any{
 		"from": from, "to": to,

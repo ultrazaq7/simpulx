@@ -347,7 +347,7 @@ export interface AdPerfCampaign {
 }
 export interface AdPerfDaily {
   date: string;
-  impressions: number; reach: number; clicks: number; results: number; spend: number; leads: number;
+  impressions: number; reach: number; clicks: number; results: number; spend: number; leads: number; sales: number;
 }
 export interface AdPerfCreative {
   source_id: string;
@@ -373,7 +373,7 @@ export interface AdKeyword {
   keyword: string; match_type: string;
   impressions: number; clicks: number; ctr: number; cost: number; conversions: number;
 }
-export interface AdPerfDailySource { date: string; source: string; leads: number }
+export interface AdPerfDailySource { date: string; source: string; leads: number; impressions?: number; clicks?: number; spend?: number }
 export interface AdPerfRecentLead {
   created_at: string;
   contact_name: string | null;
