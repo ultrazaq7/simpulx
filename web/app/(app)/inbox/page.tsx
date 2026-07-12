@@ -132,6 +132,19 @@ export default function InboxPage() {
 
   const active = convs.find((c) => c.id === activeId) || null;
 
+  // Deep-linked conversation (?c=) that isn't in the loaded list (closed, out of
+  // the current scope, or beyond the page): fetch it by id once and prepend, so
+  // links from the dashboard always open the chat instead of a blank pane.
+  const deepLinkFetchedRef = useRef<Set<string>>(new Set());
+  useEffect(() => {
+    const id = activeId;
+    if (!id || convs.some((c) => c.id === id) || deepLinkFetchedRef.current.has(id)) return;
+    deepLinkFetchedRef.current.add(id);
+    api.getConversation(id)
+      .then((c) => { if (c?.id) setConvs((prev) => (prev.some((x) => x.id === c.id) ? prev : [c, ...prev])); })
+      .catch(() => { /* gone or no access; leave the pane empty */ });
+  }, [activeId, convs]);
+
   // Live Simpuler phase per conversation (WS-C). "thinking" drives a typing
   // indicator; a safety timer clears it if the "replied"/"handoff" signal is lost.
   const [aiActivity, setAiActivity] = useState<Record<string, string>>({});

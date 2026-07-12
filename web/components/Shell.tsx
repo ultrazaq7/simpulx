@@ -69,9 +69,10 @@ const NAV_BOTTOM = [
 const SIDEBAR_W = 72;
 
 const PAGE_TITLES: Record<string, { category: string; title: string; icon?: any }> = {
+  "/dashboard/general-report": { category: "REPORTS", title: "General Report" },
   "/dashboard/campaign-performance": { category: "REPORTS", title: "Campaign Performance" },
   "/dashboard/creative-insights": { category: "REPORTS", title: "Creative Insights" },
-  "/dashboard": { category: "REPORTS", title: "Overview" },
+  "/dashboard": { category: "REPORTS", title: "General Report" },
   "/inbox": { category: "INBOX", title: "My Inbox" },
   "/contacts": { category: "GROUPS", title: "Contacts" },
   "/campaigns": { category: "CAMPAIGNS", title: "Campaigns" },

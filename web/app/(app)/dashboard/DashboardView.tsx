@@ -17,6 +17,7 @@ import {
 } from "lucide-react";
 
 import { api, getUser, getToken } from "@/lib/api";
+import { Toast, type ToastSeverity } from "@/components/Toast";
 import { Select } from "@/components/Select";
 import { MultiSelect } from "@/components/ui/multi-select";
 import { IndonesiaMap } from "@/components/IndonesiaMap";
@@ -655,19 +656,9 @@ export default function DashboardView({ initialTab = "overview" }: { initialTab?
 }
 
 function ManagerDashboard({ initialTab }: { initialTab: ReportTab }) {
-  const router = useRouter();
   const [stats, setStats] = useState<Stats | null>(null);
   const [analytics, setAnalytics] = useState<Analytics | null>(null);
   const tab = initialTab;
-  // Legacy deep-links: /dashboard?tab=ads|creatives moved to their own routes.
-  useEffect(() => {
-    const t = new URLSearchParams(window.location.search).get("tab");
-    if (t === "ads" || t === "marketing") router.replace("/dashboard/campaign-performance");
-    else if (t === "creatives") router.replace("/dashboard/creative-insights");
-  }, [router]);
-  const selectTab = useCallback((t: ReportTab) => {
-    router.push(t === "marketing" ? "/dashboard/campaign-performance" : t === "creatives" ? "/dashboard/creative-insights" : "/dashboard");
-  }, [router]);
   const [fChannel, setFChannel] = useState<string[]>([]);
   const [fCampaign, setFCampaign] = useState<string[]>([]);
   const [fAgent, setFAgent] = useState<string[]>([]);
@@ -714,17 +705,21 @@ function ManagerDashboard({ initialTab }: { initialTab: ReportTab }) {
     api.getAnalytics(f).then(setAnalytics).catch((e) => console.error('[mgr-analytics]', e));
   }, []);
 
+  // Overview-only data: the other report routes must not wait on (or refetch)
+  // the overview stats/analytics — that double fetch was the page-switch lag.
   useEffect(() => {
+    if (tab !== "overview") return;
     reloadReports();
-  }, [fChannel, fCampaign, fAgent, fSource, fFrom, fTo, reloadReports]);
+  }, [tab, fChannel, fCampaign, fAgent, fSource, fFrom, fTo, reloadReports]);
 
   // Auto-refresh on WebSocket events (debounced)
   useEffect(() => {
+    if (tab !== "overview") return;
     let timer: NodeJS.Timeout;
     const handler = () => { clearTimeout(timer); timer = setTimeout(reloadReports, 3000); };
     window.addEventListener("ws_message", handler);
     return () => { window.removeEventListener("ws_message", handler); clearTimeout(timer); };
-  }, [reloadReports]);
+  }, [tab, reloadReports]);
 
   // Shift+C hides/shows the reports rail (unless typing in a field) — same as Settings.
   useEffect(() => {
@@ -740,7 +735,9 @@ function ManagerDashboard({ initialTab }: { initialTab: ReportTab }) {
     return () => window.removeEventListener("keydown", onKey);
   }, []);
 
-  if (!stats) return (
+  // Only the overview blocks on its own data; the other reports render their
+  // own loaders immediately.
+  if (tab === "overview" && !stats) return (
     <div className="p-4">
       <Skeleton className="h-20 mb-4" />
       <Skeleton className="h-[300px]" />
@@ -751,7 +748,11 @@ function ManagerDashboard({ initialTab }: { initialTab: ReportTab }) {
   const agents = analytics?.agents || [];
   const chartData = buildChartData(analytics, true); // all days; bounded by the date filter when applied
 
-  const reportNav = [{ key: "overview" as const, label: "General Report" }, { key: "marketing" as const, label: "Campaign Performance" }, { key: "creatives" as const, label: "Creative Insights" }];
+  const reportNav = [
+    { key: "overview" as const, label: "General Report", href: "/dashboard/general-report" },
+    { key: "marketing" as const, label: "Campaign Performance", href: "/dashboard/campaign-performance" },
+    { key: "creatives" as const, label: "Creative Insights", href: "/dashboard/creative-insights" },
+  ];
 
   return (
     <div className="relative flex flex-col lg:flex-row h-full min-h-0">
@@ -765,12 +766,12 @@ function ManagerDashboard({ initialTab }: { initialTab: ReportTab }) {
           <div className="flex-1 overflow-y-auto px-3 py-3">
             <p className="px-3 pt-1 pb-1.5 text-[11px] font-bold uppercase tracking-wider text-muted-foreground/70">Reports</p>
             <nav className="flex flex-col gap-1">
-              {reportNav.map(({ key, label }) => (
-                <button key={key} onClick={() => selectTab(key)}
+              {reportNav.map(({ key, label, href }) => (
+                <Link key={key} href={href}
                   className={cn("block w-full text-left rounded-md px-3 py-2 text-[13px] whitespace-nowrap outline-none transition-colors",
                     tab === key ? "bg-muted text-foreground font-semibold" : "text-muted-foreground hover:bg-muted/60 hover:text-foreground")}>
                   {label}
-                </button>
+                </Link>
               ))}
             </nav>
           </div>
@@ -788,12 +789,12 @@ function ManagerDashboard({ initialTab }: { initialTab: ReportTab }) {
       {/* Mobile: horizontal chip strip */}
       <div className="lg:hidden shrink-0 border-b border-border bg-card overflow-x-auto">
         <div className="flex items-center gap-1 px-3 py-2 w-max">
-          {reportNav.map(({ key, label }) => (
-            <button key={key} onClick={() => selectTab(key)}
+          {reportNav.map(({ key, label, href }) => (
+            <Link key={key} href={href}
               className={cn("inline-flex items-center px-3.5 h-9 rounded-full text-[13px] whitespace-nowrap outline-none transition-colors",
                 tab === key ? "bg-primary/[0.12] text-primary font-semibold" : "text-muted-foreground hover:bg-muted font-medium")}>
               {label}
-            </button>
+            </Link>
           ))}
         </div>
       </div>
@@ -1162,6 +1163,8 @@ function MarketingAnalytics() {
   const [camps, setCamps] = useState<Campaign[]>([]);
   const [ga4, setGa4] = useState<Ga4Report | null>(null);
   const [exportOpen, setExportOpen] = useState(false);
+  const [pdfStage, setPdfStage] = useState<string | null>(null); // PDF export snackbar stage
+  const [toast, setToast] = useState<{ msg: string; severity: ToastSeverity } | null>(null);
   const [currency, setCurrency] = useState("");
   const [platforms, setPlatforms] = useState<string[]>([]);
   const [hasAccounts, setHasAccounts] = useState<boolean | null>(null);
@@ -1459,8 +1462,16 @@ function MarketingAnalytics() {
   };
 
   // PDF via the dedicated Heroleads template + headless route (not window.print).
+  // The render takes ~5-15s and the route can't stream progress, so a snackbar
+  // advances honest elapsed-time stages while the request is in flight.
   const exportAdsPdf = async () => {
     const { from, to } = dateRange === "custom" ? { from: fFrom, to: fTo } : presetRange(dateRange);
+    setPdfStage("Preparing report data...");
+    const timers = [
+      setTimeout(() => setPdfStage("Rendering charts..."), 2500),
+      setTimeout(() => setPdfStage("Generating PDF pages..."), 7000),
+      setTimeout(() => setPdfStage("Still working on it..."), 20000),
+    ];
     try {
       // /report/ads/pdf (NOT /api/*): Caddy proxies /api/* to the gateway, so a Next
       // API route under /api is unreachable from the browser. /report/* hits the web app.
@@ -1472,13 +1483,28 @@ function MarketingAnalytics() {
       if (!res.ok || blob.type !== "application/pdf") throw new Error("headless unavailable");
       const url = URL.createObjectURL(blob);
       const a = document.createElement("a"); a.href = url; a.download = `ads-report-${dateRange}.pdf`; a.click(); URL.revokeObjectURL(url);
+      setToast({ msg: "PDF downloaded.", severity: "success" });
     } catch {
+      setToast({ msg: "PDF export is unavailable right now. Opening the print dialog instead.", severity: "error" });
       window.print(); // fallback if headless Chromium isn't available
+    } finally {
+      timers.forEach(clearTimeout);
+      setPdfStage(null);
     }
   };
 
   return (
     <div className="p-4 print-root">
+      {/* PDF export snackbar: persistent while generating, then a result toast. */}
+      {pdfStage && (
+        <div className="no-print fixed bottom-6 right-6 z-[120] animate-toast-in">
+          <div className="flex items-center gap-3 px-4 py-2.5 rounded-xl shadow-2xl ring-1 ring-black/10 bg-primary text-white text-[13.5px] font-semibold max-w-[min(420px,calc(100vw-3rem))]">
+            <RefreshCw className="w-4 h-4 animate-spin shrink-0" />
+            <span className="min-w-0">{pdfStage}</span>
+          </div>
+        </div>
+      )}
+      {toast && <Toast msg={toast.msg} severity={toast.severity} onClose={() => setToast(null)} />}
       {/* Toolbar — left-aligned with a filter icon, matching the Overview tab. */}
       <div className="no-print flex items-center gap-2 mb-4 flex-wrap">
         <FilterIcon className="w-4 h-4 text-muted-foreground" />
@@ -1497,7 +1523,7 @@ function MarketingAnalytics() {
         )}
         <div className="flex-1" />
         <div className="relative">
-          <button onClick={() => setExportOpen((o) => !o)} disabled={!hasSpend}
+          <button onClick={() => setExportOpen((o) => !o)} disabled={!hasSpend || !!pdfStage}
             className="inline-flex items-center gap-1.5 h-9 px-3 rounded-md border border-border bg-background text-[13px] font-medium text-foreground hover:bg-muted disabled:opacity-50 outline-none transition-colors">
             <Download className="w-4 h-4" /> Export <ChevronDown className="w-3.5 h-3.5 text-muted-foreground" />
           </button>
@@ -2165,6 +2191,7 @@ function CreativeReport() {
                   <Thumb c={top} size={56} />
                   <div className="min-w-0">
                     <p className="text-[13px] font-semibold text-foreground truncate">{name(top)}</p>
+                    <p className="text-[10.5px] text-muted-foreground/80 truncate">Ad ID {top.source_id}</p>
                     <p className="text-[11.5px] text-muted-foreground truncate">{fmtInt(top.leads)} leads · {top.leads > 0 && top.spend > 0 ? `${money(top.spend / top.leads)}/lead` : "-"}</p>
                   </div>
                 </div>
@@ -2178,6 +2205,7 @@ function CreativeReport() {
                   <Thumb c={bestCpl} size={56} />
                   <div className="min-w-0">
                     <p className="text-[13px] font-semibold text-foreground truncate">{name(bestCpl)}</p>
+                    <p className="text-[10.5px] text-muted-foreground/80 truncate">Ad ID {bestCpl.source_id}</p>
                     <p className="text-[11.5px] text-[#059669] font-semibold">{money(bestCpl.spend / bestCpl.leads)}/lead · {fmtInt(bestCpl.leads)} leads</p>
                   </div>
                 </div>

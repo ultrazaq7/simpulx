@@ -221,6 +221,7 @@ export const api = {
     }
   },
   me: () => req<User>("/api/me"),
+  getConversation: (id: string) => req<Conversation>(`/api/conversations/${id}`),
   listConversations: (status = "", from = "", to = "", source = "", campaign = "") => {
     const q = new URLSearchParams();
     if (status) q.set("status", status);

@@ -129,7 +129,7 @@ export function AdsReportView({ perf, keywords, leads, ga4, camps, campaigns, ra
       </div>
 
       {/* KPI summary — mirrors the dashboard Ads Report KPI row */}
-      <div style={{ display: "grid", gridTemplateColumns: "repeat(6,1fr)", gap: 12, marginTop: 14 }}>
+      <div className="print-avoid-break" style={{ display: "grid", gridTemplateColumns: "repeat(6,1fr)", gap: 12, paddingTop: 14 }}>
         {([["Ad spend", money(tot.spend)], ["Impressions", num(tot.impressions)], ["Clicks", num(tot.clicks)],
           ["Leads", num(tot.leads)], ["Cost / lead", tot.leads > 0 ? money(cpl) : "-"], ["Purchases", num(purchases)]] as [string, string][]).map(([l, v]) => (
           <div key={l} style={{ background: "#fff", borderRadius: 10, boxShadow: PANEL, padding: "11px 13px" }}>
@@ -140,7 +140,7 @@ export function AdsReportView({ perf, keywords, leads, ga4, camps, campaigns, ra
       </div>
 
       {/* Funnel + Campaign performance table */}
-      <div style={{ display: "grid", gridTemplateColumns: "390px 1fr", gap: 14, marginTop: 14, alignItems: "start" }}>
+      <div className="print-avoid-break" style={{ display: "grid", gridTemplateColumns: "390px 1fr", gap: 14, paddingTop: 14, alignItems: "start" }}>
         <Panel>
           <div style={{ fontSize: 13, fontWeight: 700 }}>Marketing Funnel</div>
           <div style={{ fontSize: 10.5, color: "#64748b", marginTop: 2, marginBottom: 12 }}>Impression to purchase conversion</div>
@@ -209,7 +209,7 @@ export function AdsReportView({ perf, keywords, leads, ga4, camps, campaigns, ra
       </Section>
 
       {/* Google top keywords + Age demography */}
-      <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 14, marginTop: 12 }}>
+      <div className="print-avoid-break" style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 14, paddingTop: 12 }}>
         <Section title="Google Top 10 Search Keywords" legend={[[GREEN_DK, "Clicks"], [NAVY, "Impressions"]]}>
           {kw.length === 0 ? <EmptyNote text="No Google keyword data in this range." /> : (
             <div style={{ display: "flex", flexDirection: "column", gap: 7 }}>
@@ -252,7 +252,7 @@ export function AdsReportView({ perf, keywords, leads, ga4, camps, campaigns, ra
       </div>
 
       {/* Gender demography + Monthly leads breakdown */}
-      <div style={{ display: "grid", gridTemplateColumns: "300px 1fr", gap: 14, marginTop: 12 }}>
+      <div className="print-avoid-break" style={{ display: "grid", gridTemplateColumns: "300px 1fr", gap: 14, paddingTop: 12 }}>
         <Section title="Gender Demography">
           {gender.length === 0 ? <EmptyNote text="No gender breakdown in this range." /> : (
             <div style={{ display: "flex", flexDirection: "column", gap: 8 }}>
@@ -342,7 +342,7 @@ export function AdsReportView({ perf, keywords, leads, ga4, camps, campaigns, ra
 
       {/* Budget utilization cards */}
       {budget > 0 && (
-        <div className="print-avoid-break" style={{ display: "grid", gridTemplateColumns: "repeat(4,1fr)", gap: 12, marginTop: 12 }}>
+        <div className="print-avoid-break" style={{ display: "grid", gridTemplateColumns: "repeat(4,1fr)", gap: 12, paddingTop: 12 }}>
           {[
             { label: "Media Budget", value: money(budget), accent: false },
             { label: "Cost", value: money(tot.spend), accent: true },
@@ -359,7 +359,7 @@ export function AdsReportView({ perf, keywords, leads, ga4, camps, campaigns, ra
 
       {/* Landing Page Performance (GA4, left) + Top locations (right) in one row.
           Both always present so the report structure stays consistent. */}
-      <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 14, marginTop: 12, alignItems: "start" }}>
+      <div className="print-avoid-break" style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 14, paddingTop: 12, alignItems: "start" }}>
       <Section title="Landing Page Performance">
         {!ga4?.connected ? <EmptyNote text="Google Analytics is not connected." /> : !gt ? <EmptyNote text="No landing-page data in this range." /> : (<>
           <div style={{ display: "grid", gridTemplateColumns: "repeat(2,1fr)", gap: 10, marginBottom: 12 }}>
@@ -480,5 +480,8 @@ function Section({ title, legend, mt = false, children }: { title: string; legen
       {children}
     </Panel>
   );
-  return mt ? <div style={{ marginTop: 12 }}>{panel}</div> : panel;
+  // paddingTop (NOT marginTop): margins are truncated at page breaks, so a
+  // section pushed to a new page would sit flush against the page top. Padding
+  // is part of the avoid-break box and travels with it across the break.
+  return mt ? <div className="print-avoid-break" style={{ paddingTop: 12 }}>{panel}</div> : panel;
 }

@@ -41,7 +41,7 @@ const GROUPS: { titleKey: string; items: NavItem[] }[] = [
   {
     titleKey: "Customizations",
     items: [
-      { key: "templates", labelKey: "settings.templates", icon: FileText, href: "/settings/templates", perm: "view_settings" },
+      { key: "templates", labelKey: "Message Templates", icon: FileText, href: "/settings/templates", perm: "view_settings" },
       { key: "automation", labelKey: "settings.automations", icon: GitBranch, href: "/settings/automation", perm: "view_automation" },
       { key: "wa-forms", labelKey: "settings.forms", icon: ClipboardList, href: "/settings/wa-forms", perm: "view_automation" },
       { key: "quick-replies", labelKey: "Quick Replies", icon: Zap, href: "/settings/quick-replies", perm: "view_settings" },
@@ -60,7 +60,7 @@ const GROUPS: { titleKey: string; items: NavItem[] }[] = [
     ],
   },
   {
-    titleKey: "settings.audit",
+    titleKey: "System",
     items: [
       { key: "audit", labelKey: "settings.audit", icon: Clock, href: "/settings/audit", perm: "menu_audit_log" },
     ],
