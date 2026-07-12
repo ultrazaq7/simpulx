@@ -1486,28 +1486,25 @@ function MarketingAnalytics() {
           </button>
         </div>
         <p className="px-4 pt-1.5 text-[11.5px] text-muted-foreground">Impression to purchase conversion</p>
-        {/* True funnel: clip-path trapezoids narrowing on an on-brand green ramp,
-            each with its step-to-step conversion rate at the right. */}
+        {/* Horizontal bar funnel: left-aligned rounded bars, progressively shorter */}
         <div className="p-4 pt-3">
-          <div className="flex flex-col">
+          <div className="flex flex-col gap-1.5">
             {funnelSteps.map((s, i) => {
-              const top = FUNNEL_W[i], bot = FUNNEL_W[i + 1] ?? 0.3;
-              const clip = `polygon(${((1 - top) / 2 * 100).toFixed(2)}% 0, ${((1 + top) / 2 * 100).toFixed(2)}% 0, ${((1 + bot) / 2 * 100).toFixed(2)}% 100%, ${((1 - bot) / 2 * 100).toFixed(2)}% 100%)`;
+              const widths = [100, 78, 62, 50, 40];
+              const w = widths[i] ?? 40;
               return (
-                <div key={s.label} className="flex items-center gap-2">
-                  <div className="flex-1 min-w-0">
-                    <div className="relative flex flex-col items-center justify-center text-center text-white px-3"
-                      style={{ height: 46, background: FUNNEL_RAMP[i], clipPath: clip, WebkitClipPath: clip, marginTop: i ? -1 : 0 }}>
-                      <div className="flex items-center gap-1.5">
-                        <s.Icon className="w-3 h-3 opacity-90 shrink-0" />
-                        <span className="text-[13.5px] font-extrabold tabular-nums leading-none">{s.value}</span>
+                <div key={s.label} className="flex items-center gap-3">
+                  <div style={{ width: `${w}%` }}>
+                    <div className="flex items-center gap-2 text-white px-3 py-2 rounded-lg"
+                      style={{ background: FUNNEL_RAMP[i] }}>
+                      <s.Icon className="w-3.5 h-3.5 opacity-90 shrink-0" />
+                      <div className="min-w-0">
+                        <span className="text-[14px] font-extrabold tabular-nums leading-none">{s.value}</span>
+                        <span className="text-[9px] font-medium opacity-80 block mt-0.5">{s.label}</span>
                       </div>
-                      <span className="text-[9px] font-medium opacity-90 mt-0.5">{s.label}</span>
                     </div>
                   </div>
-                  <span className="shrink-0 flex justify-end" style={{ width: 52 }}>
-                    <span className="inline-block px-1.5 py-0.5 rounded-md bg-muted text-[10.5px] font-bold tabular-nums text-foreground/70">{s.rate.toFixed(2)}%</span>
-                  </span>
+                  <span className="text-[11px] font-semibold tabular-nums text-foreground/60 whitespace-nowrap">{s.rate.toFixed(2)}%</span>
                 </div>
               );
             })}
