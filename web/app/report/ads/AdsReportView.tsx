@@ -48,19 +48,30 @@ export function AdsReportView({ perf, keywords, leads, ga4, camps, campaigns, ra
   const sources = perf?.sources ?? [];
   const tot = sources.reduce((a, s) => ({
     spend: a.spend + s.spend, impressions: a.impressions + s.impressions, clicks: a.clicks + s.clicks, leads: a.leads + s.leads,
-    purchases: a.purchases + (s.purchases || 0),
-  }), { spend: 0, impressions: 0, clicks: 0, leads: 0, purchases: 0 });
+  }), { spend: 0, impressions: 0, clicks: 0, leads: 0 });
+  // Purchases = campaign-rollup sales (stage-based), the same figure the
+  // dashboard funnel shows — sources.purchases counts dispositions instead
+  // and diverges (0 vs 1) when a won lead has no disposition set.
+  const purchases = (perf?.campaigns ?? [])
+    .filter((c) => campaigns.length === 0 || campaigns.includes(c.campaign_id))
+    .reduce((a, c) => a + (c.sales || 0), 0);
   const ctr = tot.impressions > 0 ? (tot.clicks / tot.impressions) * 100 : 0;
   const cpc = tot.clicks > 0 ? tot.spend / tot.clicks : 0;
   const cpl = tot.leads > 0 ? tot.spend / tot.leads : 0;
-  const overallConv = tot.impressions > 0 ? (tot.purchases / tot.impressions) * 100 : 0;
+  const overallConv = tot.impressions > 0 ? (purchases / tot.impressions) * 100 : 0;
 
-  // Skip all-zero days so the axes only span dates that actually have activity.
-  const activeDaily = (perf?.daily ?? []).filter((d) =>
-    (d.impressions || 0) + (d.clicks || 0) + (d.spend || 0) + (d.leads || 0) > 0);
+  // Skip all-zero days so the axes only span dates that actually have activity,
+  // and sort ascending — the API returns newest-first, charts read left->right.
+  const activeDaily = (perf?.daily ?? [])
+    .filter((d) => (d.impressions || 0) + (d.clicks || 0) + (d.spend || 0) + (d.leads || 0) > 0)
+    .sort((a, b) => (a.date || "").localeCompare(b.date || ""));
   const dailyPerf = activeDaily.map((d) => ({
     date: fmtDay(d.date), impressions: d.impressions > 0 ? d.impressions : null, clicks: d.clicks > 0 ? d.clicks : null, spend: Math.round(d.spend || 0),
   }));
+  // Log-axis ticks at powers of 10 only (one gridline per decade).
+  const perfMax = Math.max(1, ...dailyPerf.map((d) => Math.max(d.impressions || 0, d.clicks || 0)));
+  const logTicks: number[] = [];
+  for (let p = 1; p <= perfMax * 10 && logTicks.length < 8; p *= 10) logTicks.push(p);
   const sparse = dailyPerf.length <= 12; // show dots when there are few points so the line reads
   const kw = keywords.slice(0, 10);
   const kwMax = Math.max(1, ...kw.map((k) => k.impressions));
@@ -81,7 +92,7 @@ export function AdsReportView({ perf, keywords, leads, ga4, camps, campaigns, ra
     { label: "Clicks", value: num(tot.clicks), rate: pct(tot.impressions > 0 ? (tot.clicks / tot.impressions) * 100 : 0), Icon: MousePointerClick },
     { label: "CTR", value: pct(ctr), rate: pct(ctr), Icon: Percent },
     { label: "Leads", value: num(tot.leads), rate: pct(tot.clicks > 0 ? (tot.leads / tot.clicks) * 100 : 0), Icon: Users },
-    { label: "Purchases", value: num(tot.purchases), rate: pct(tot.leads > 0 ? (tot.purchases / tot.leads) * 100 : 0), Icon: ShoppingCart },
+    { label: "Purchases", value: num(purchases), rate: pct(tot.leads > 0 ? (purchases / tot.leads) * 100 : 0), Icon: ShoppingCart },
   ];
 
   const dem = (arr?: AdBreakdown[]) => (arr || []).filter((b) => (b.value || "").toLowerCase() !== "unknown");
@@ -104,8 +115,8 @@ export function AdsReportView({ perf, keywords, leads, ga4, camps, campaigns, ra
 
   return (
     <div style={{ width, maxWidth: "100%", margin: "0 auto", background: CANVAS, color: "#0f172a", fontFamily: "Inter, Arial, sans-serif", padding: 14, borderRadius: 12 }}>
-      {/* Header */}
-      <div style={{ background: NAVY, color: "#fff", padding: "16px 22px", display: "grid", gridTemplateColumns: "1fr auto 1fr", alignItems: "center", borderRadius: 10, boxShadow: PANEL }}>
+      {/* Header — deep brand green (matches the funnel top / app theme) */}
+      <div style={{ background: GREEN_DK, color: "#fff", padding: "16px 22px", display: "grid", gridTemplateColumns: "1fr auto 1fr", alignItems: "center", borderRadius: 10, boxShadow: PANEL }}>
         <div style={{ display: "flex", alignItems: "center", gap: 9 }}>
           {/* eslint-disable-next-line @next/next/no-img-element */}
           <img src="/simpulx_logo.png" alt="Simpulx" style={{ height: 30, width: "auto", display: "block" }} />
@@ -121,7 +132,7 @@ export function AdsReportView({ perf, keywords, leads, ga4, camps, campaigns, ra
       {/* KPI summary — mirrors the dashboard Ads Report KPI row */}
       <div style={{ display: "grid", gridTemplateColumns: "repeat(6,1fr)", gap: 12, marginTop: 14 }}>
         {([["Ad spend", money(tot.spend)], ["Impressions", num(tot.impressions)], ["Clicks", num(tot.clicks)],
-          ["Leads", num(tot.leads)], ["Cost / lead", tot.leads > 0 ? money(cpl) : "-"], ["Purchases", num(tot.purchases)]] as [string, string][]).map(([l, v]) => (
+          ["Leads", num(tot.leads)], ["Cost / lead", tot.leads > 0 ? money(cpl) : "-"], ["Purchases", num(purchases)]] as [string, string][]).map(([l, v]) => (
           <div key={l} style={{ background: "#fff", borderRadius: 10, boxShadow: PANEL, padding: "11px 13px" }}>
             <div style={{ fontSize: 9.5, fontWeight: 700, color: "#64748b", textTransform: "uppercase", letterSpacing: 0.5, whiteSpace: "nowrap" }}>{l}</div>
             <div style={{ fontSize: 18, fontWeight: 800, marginTop: 4, whiteSpace: "nowrap" }}>{v}</div>
@@ -130,11 +141,11 @@ export function AdsReportView({ perf, keywords, leads, ga4, camps, campaigns, ra
       </div>
 
       {/* Funnel + Campaign performance table */}
-      <div style={{ display: "grid", gridTemplateColumns: "320px 1fr", gap: 14, marginTop: 14, alignItems: "start" }}>
+      <div style={{ display: "grid", gridTemplateColumns: "390px 1fr", gap: 14, marginTop: 14, alignItems: "start" }}>
         <Panel>
           <div style={{ fontSize: 13, fontWeight: 700 }}>Marketing Funnel</div>
           <div style={{ fontSize: 10.5, color: "#64748b", marginTop: 2, marginBottom: 12 }}>Impression to purchase conversion</div>
-          <PdfFunnel steps={funnelSteps} width={292} />
+          <PdfFunnel steps={funnelSteps} width={362} />
           <div style={{ marginTop: 12, display: "flex", alignItems: "center", justifyContent: "space-between", gap: 8, background: "#f8fafc", border: "1px solid #eef2f6", borderRadius: 8, padding: "8px 12px" }}>
             <span style={{ fontSize: 10, color: "#64748b" }}>Overall conversion rate from impression to purchase</span>
             <span style={{ fontSize: 12, fontWeight: 800, whiteSpace: "nowrap" }}>{pct(overallConv)}</span>
@@ -184,12 +195,12 @@ export function AdsReportView({ perf, keywords, leads, ga4, camps, campaigns, ra
 
       {/* Campaign Performance Breakdown (log) */}
       <Section mt title="Campaign Performance Breakdown" legend={[[GREEN_DK, "Clicks"], [NAVY, "Impressions"]]}>
-        <div style={{ height: 220 }}>
+        <div style={{ height: 320 }}>
           <ResponsiveContainer width="100%" height="100%">
             <LineChart data={dailyPerf} margin={{ top: 6, right: 8, left: -4, bottom: 0 }}>
               <CartesianGrid strokeDasharray="3 3" stroke="#eef2f7" vertical={false} />
               <XAxis dataKey="date" tick={{ fontSize: 9, fill: "#94a3b8" }} axisLine={false} tickLine={false} minTickGap={24} />
-              <YAxis scale="log" domain={[1, "auto"]} allowDataOverflow tick={{ fontSize: 9, fill: "#94a3b8" }} axisLine={false} tickLine={false} width={44}
+              <YAxis scale="log" domain={[1, logTicks[logTicks.length - 1] ?? 10]} ticks={logTicks} allowDataOverflow tick={{ fontSize: 9, fill: "#94a3b8" }} axisLine={false} tickLine={false} width={44}
                 tickFormatter={(v) => v >= 1e6 ? `${(v / 1e6).toFixed(0)}M` : v >= 1000 ? `${(v / 1000).toFixed(0)}k` : `${v}`} />
               <Line type="monotone" dataKey="impressions" stroke={NAVY} strokeWidth={2} dot={sparse ? { r: 2.5, fill: NAVY } : false} connectNulls isAnimationActive={false} />
               <Line type="monotone" dataKey="clicks" stroke={GREEN_DK} strokeWidth={2} dot={sparse ? { r: 2.5, fill: GREEN_DK } : false} connectNulls isAnimationActive={false} />
@@ -341,11 +352,12 @@ export function AdsReportView({ perf, keywords, leads, ga4, camps, campaigns, ra
         </div>
       )}
 
-      {/* Landing Page Performance (GA4) — always present so the report structure
-          stays consistent; explains itself when not connected or empty. */}
-      <Section mt title="Landing Page Performance">
+      {/* Landing Page Performance (GA4, left) + Top locations (right) in one row.
+          Both always present so the report structure stays consistent. */}
+      <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 14, marginTop: 12, alignItems: "start" }}>
+      <Section title="Landing Page Performance">
         {!ga4?.connected ? <EmptyNote text="Google Analytics is not connected." /> : !gt ? <EmptyNote text="No landing-page data in this range." /> : (<>
-          <div style={{ display: "grid", gridTemplateColumns: "repeat(4,1fr)", gap: 10, marginBottom: 12 }}>
+          <div style={{ display: "grid", gridTemplateColumns: "repeat(2,1fr)", gap: 10, marginBottom: 12 }}>
             {([["Total users", num(gt.total_users)], ["Active users", num(gt.active_users)], ["New users", num(gt.new_users)], ["Sessions", num(gt.sessions)],
               ["Engaged sessions", num(gt.engaged_sessions)], ["Engagement rate", (gt.engagement_rate * 100).toFixed(1) + "%"], ["Avg engagement", fmtSec(gt.avg_engagement_sec)], ["Views", num(gt.views)]] as [string, string][]).map(([l, v]) => (
               <div key={l} style={{ background: "#f8fafc", borderRadius: 8, padding: "9px 11px" }}>
@@ -378,13 +390,14 @@ export function AdsReportView({ perf, keywords, leads, ga4, camps, campaigns, ra
       </Section>
 
       {/* Top locations (province) */}
-      <Section mt title={regionBySpend ? "Top Locations (ad spend by province)" : "Top Locations (reach)"}>
+      <Section title={regionBySpend ? "Top Locations (ad spend by province)" : "Top Locations (reach)"}>
         {mapPoints.length === 0 ? <EmptyNote text="No location data in this range." /> : (
           <div style={{ height: 300 }}>
             <IndonesiaMap points={mapPoints} isMoney={regionBySpend} money={regionBySpend ? money : num} />
           </div>
         )}
       </Section>
+      </div>
     </div>
   );
 }

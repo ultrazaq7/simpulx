@@ -69,6 +69,8 @@ const NAV_BOTTOM = [
 const SIDEBAR_W = 72;
 
 const PAGE_TITLES: Record<string, { category: string; title: string; icon?: any }> = {
+  "/dashboard/campaign-performance": { category: "REPORTS", title: "Campaign Performance" },
+  "/dashboard/creative-insights": { category: "REPORTS", title: "Creative Insights" },
   "/dashboard": { category: "OVERVIEW", title: "Dashboard" },
   "/inbox": { category: "INBOX", title: "My Inbox" },
   "/contacts": { category: "GROUPS", title: "Contacts" },
@@ -101,6 +103,7 @@ const PAGE_TITLES: Record<string, { category: string; title: string; icon?: any 
 
 const CATEGORY_ICONS: Record<string, any> = {
   "OVERVIEW": LayoutDashboard,
+  "REPORTS": BarChart3,
   "INBOX": MessagesSquare,
   "GROUPS": Users,
   "CAMPAIGNS": Building2,

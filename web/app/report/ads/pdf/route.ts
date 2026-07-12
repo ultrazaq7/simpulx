@@ -111,7 +111,9 @@ export async function POST(req: NextRequest) {
     // A4 printable width at these margins is only ~733 CSS px, and Chromium's
     // page.pdf does NOT auto-fit -- without scaling the right ~28% of every page
     // was simply clipped off. 733 / 1012 ≈ 0.72.
-    const pdf = await page.pdf({ printBackground: true, format: "A4", scale: 0.72, margin: { top: "10mm", bottom: "10mm", left: "8mm", right: "8mm" } });
+    // Top margin 14mm: sections pushed to a new page by break-inside:avoid lose
+    // their CSS margin at the break, so the page margin alone provides the gap.
+    const pdf = await page.pdf({ printBackground: true, format: "A4", scale: 0.72, margin: { top: "14mm", bottom: "12mm", left: "8mm", right: "8mm" } });
     return new NextResponse(Buffer.from(pdf), {
       headers: { "Content-Type": "application/pdf", "Content-Disposition": 'attachment; filename="ads-report.pdf"', "Cache-Control": "no-store" },
     });
