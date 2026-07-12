@@ -301,7 +301,12 @@ func managerScope(alias string, idx int) string {
 // alias is the conversations table alias ("" for none, e.g. "cv"), used to
 // build both the conversation id and contact_id column references.
 func sourceClassifyExpr(alias string) string {
-	p := ""
+	// Always qualify the correlated columns: with an empty alias the bare `id`
+	// inside "EXISTS (SELECT 1 FROM conversation_attributions att WHERE
+	// att.conversation_id = id)" resolves to att.id (never true), so every
+	// attributed lead silently classified as 'direct'. Callers without an alias
+	// must be selecting FROM the bare `conversations` table.
+	p := "conversations."
 	if alias != "" {
 		p = alias + "."
 	}

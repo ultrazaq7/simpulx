@@ -475,7 +475,7 @@ func (s *server) handleAdPerformance(w http.ResponseWriter, r *http.Request) {
 
 	// Latest leads with a classified source -> the Latest Leads table
 	// (Date | Name | Phone | Channel | Source | Stage).
-	rlq := `SELECT cv.created_at, ct.full_name AS contact_name, ct.phone AS contact_phone, cv.channel, ` + sourceClassifyExpr("cv") + ` AS source, st.name AS stage
+	rlq := `SELECT cv.created_at, ct.full_name AS contact_name, ct.phone AS contact_phone, cv.channel, cv.interest_level, ` + sourceClassifyExpr("cv") + ` AS source, st.name AS stage
 	          FROM conversations cv
 	          LEFT JOIN contacts ct ON ct.id = cv.contact_id
 	          LEFT JOIN stages st ON st.id = cv.stage_id
@@ -497,7 +497,12 @@ func (s *server) handleAdPerformance(w http.ResponseWriter, r *http.Request) {
 	cq := `SELECT att.referral_source AS source_id,
 	              max(att.referral_url) AS source_url,
 	              COALESCE((array_agg(att.referral_image_url) FILTER (WHERE att.referral_image_url IS NOT NULL))[1], max(acr.image_url)) AS image_url,
-	              COALESCE((array_agg(att.referral_headline)  FILTER (WHERE att.referral_headline  IS NOT NULL))[1], max(acr.title)) AS headline,
+	              -- Prefer the synced Marketing-API creative title: the CTWA referral
+	              -- headline is usually the button/greeting text ("Chat with us"),
+	              -- not the ad's real headline.
+	              COALESCE(NULLIF(max(acr.title), ''),
+	                       (array_agg(att.referral_headline) FILTER (WHERE att.referral_headline IS NOT NULL
+	                          AND att.referral_headline NOT IN ('Chat with us', 'Chat on WhatsApp')))[1]) AS headline,
 	              COALESCE((array_agg(att.referral_body)      FILTER (WHERE att.referral_body      IS NOT NULL))[1], max(acr.body)) AS body,
 	              COALESCE(max(sp.spend), 0) AS spend,
 	              COALESCE(max(sp.impressions), 0) AS impressions,
@@ -975,6 +980,15 @@ type metaAd struct {
 				Title    string `json:"title"`
 			} `json:"video_data"`
 		} `json:"object_story_spec"`
+		// Dynamic/CTWA ads keep their texts here instead of object_story_spec.
+		AssetFeed struct {
+			Titles []struct {
+				Text string `json:"text"`
+			} `json:"titles"`
+			Bodies []struct {
+				Text string `json:"text"`
+			} `json:"bodies"`
+		} `json:"asset_feed_spec"`
 	} `json:"creative"`
 }
 
@@ -982,7 +996,7 @@ type metaAd struct {
 // upserts ad_creatives (keyed by ad_id). One paginated call per account.
 func (s *server) syncMetaAdCreatives(ctx context.Context, accountID, orgID, extID, token string) {
 	q := url.Values{}
-	q.Set("fields", "id,creative{thumbnail_url,image_url,title,body,object_story_spec{link_data{message,name,picture},video_data{image_url,message,title}}}")
+	q.Set("fields", "id,creative{thumbnail_url,image_url,title,body,object_story_spec{link_data{message,name,picture},video_data{image_url,message,title}},asset_feed_spec{titles,bodies}}")
 	q.Set("limit", "200")
 	q.Set("access_token", token)
 	next := fmt.Sprintf("https://graph.facebook.com/%s/act_%s/ads?%s", metaGraphVersion, extID, q.Encode())
@@ -1004,8 +1018,15 @@ func (s *server) syncMetaAdCreatives(ctx context.Context, accountID, orgID, extI
 		for _, ad := range payload.Data {
 			c := ad.Creative
 			img := firstNonEmpty(c.ImageURL, c.ObjectStory.LinkData.Picture, c.ObjectStory.VideoData.ImageURL, c.ThumbnailURL)
-			title := firstNonEmpty(c.Title, c.ObjectStory.LinkData.Name, c.ObjectStory.VideoData.Title)
-			body := firstNonEmpty(c.Body, c.ObjectStory.LinkData.Message, c.ObjectStory.VideoData.Message)
+			afTitle, afBody := "", ""
+			if len(c.AssetFeed.Titles) > 0 {
+				afTitle = c.AssetFeed.Titles[0].Text
+			}
+			if len(c.AssetFeed.Bodies) > 0 {
+				afBody = c.AssetFeed.Bodies[0].Text
+			}
+			title := firstNonEmpty(c.Title, c.ObjectStory.LinkData.Name, c.ObjectStory.VideoData.Title, afTitle)
+			body := firstNonEmpty(c.Body, c.ObjectStory.LinkData.Message, c.ObjectStory.VideoData.Message, afBody)
 			if ad.ID == "" || img == "" {
 				continue
 			}
