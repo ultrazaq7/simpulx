@@ -1494,13 +1494,15 @@ function MarketingAnalytics() {
               const w = widths[i] ?? 40;
               return (
                 <div key={s.label} className="flex items-center gap-3">
-                  <div style={{ width: `${w}%` }}>
-                    <div className="flex items-center gap-2 text-white px-3 py-2 rounded-lg"
-                      style={{ background: FUNNEL_RAMP[i] }}>
-                      <s.Icon className="w-3.5 h-3.5 opacity-90 shrink-0" />
-                      <div className="min-w-0">
-                        <span className="text-[14px] font-extrabold tabular-nums leading-none">{s.value}</span>
-                        <span className="text-[9px] font-medium opacity-80 block mt-0.5">{s.label}</span>
+                  <div className="flex-1 min-w-0 flex justify-center">
+                    <div style={{ width: `${w}%` }}>
+                      <div className="flex items-center gap-2 text-white px-3 py-2 rounded-lg"
+                        style={{ background: FUNNEL_RAMP[i] }}>
+                        <s.Icon className="w-3.5 h-3.5 opacity-90 shrink-0" />
+                        <div className="min-w-0">
+                          <span className="text-[14px] font-extrabold tabular-nums leading-none">{s.value}</span>
+                          <span className="text-[9px] font-medium opacity-80 block mt-0.5">{s.label}</span>
+                        </div>
                       </div>
                     </div>
                   </div>
