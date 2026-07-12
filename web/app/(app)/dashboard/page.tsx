@@ -168,6 +168,11 @@ function MiniBars({ data, color, w = 64, h = 20 }: { data: number[]; color: stri
 function Delta({ cur, prev, higherIsBetter = true as boolean | null, className }: {
   cur: number; prev: number; higherIsBetter?: boolean | null; className?: string;
 }) {
+  // No prior baseline (prev = 0 while cur > 0): "100%" would be misleading, so
+  // label it as new instead of inventing a growth figure.
+  if (prev === 0 && cur !== 0) {
+    return <span className={cn("inline-flex items-center text-[11px] font-semibold text-muted-foreground", className)}>New</span>;
+  }
   const diff = cur - prev;
   const flat = prev === 0 ? cur === 0 : Math.abs(diff / prev) < 0.0005;
   const pct = prev === 0 ? (cur === 0 ? 0 : 100) : (diff / prev) * 100;
@@ -1532,12 +1537,7 @@ function MarketingAnalytics() {
             <tbody>
               {(perf?.sources || []).length === 0 ? (
                 <tr><td colSpan={10} className="px-3 py-10 text-center text-[13px] text-muted-foreground">No source data in this range</td></tr>
-              ) : (() => {
-                const rows = perf?.sources || [];
-                const maxCvr = Math.max(...rows.map((s) => s.cvr), 1);
-                return rows.map((s) => {
-                  const heat = s.cvr / maxCvr;
-                  const bg = `rgba(45, 139, 115, ${heat * 0.85})`; // on-brand green CVR heat
+              ) : (perf?.sources || []).map((s) => {
                   const cpc = s.clicks > 0 ? s.spend / s.clicks : 0;
                   const cpl = s.leads > 0 ? s.spend / s.leads : 0;
                   const ser = srcSeries[s.source];
@@ -1547,7 +1547,7 @@ function MarketingAnalytics() {
                         <div className="flex items-center gap-2"><SourceIcon source={s.source} /><span className="font-semibold text-foreground whitespace-nowrap">{s.label}</span></div>
                       </td>
                       <td className="px-3 py-2.5 text-right">
-                        <div className="tabular-nums text-foreground/80">{money(s.spend)}</div>
+                        <div className="tabular-nums text-foreground/80 whitespace-nowrap">{money(s.spend)}</div>
                         {hasPrev && s.spend > 0 && <div className="flex justify-end mt-0.5"><Delta cur={s.spend} prev={prevSrcSpend[s.source] ?? 0} higherIsBetter={null} /></div>}
                       </td>
                       <td className="px-3 py-2.5 text-right">
@@ -1559,7 +1559,7 @@ function MarketingAnalytics() {
                         <div className="tabular-nums text-foreground/80">{s.ctr.toFixed(2)}%</div>
                         {ser && ser.ctr.length > 1 && <div className="flex justify-end mt-1"><Spark data={ser.ctr} color="#6366F1" w={64} h={18} fill={false} /></div>}
                       </td>
-                      <td className="px-3 py-2.5 text-right tabular-nums text-foreground/80">{s.clicks > 0 ? money(cpc) : "-"}</td>
+                      <td className="px-3 py-2.5 text-right tabular-nums text-foreground/80 whitespace-nowrap">{s.clicks > 0 ? money(cpc) : "-"}</td>
                       <td className="px-3 py-2.5 text-right">
                         <div className="tabular-nums text-foreground/80">{fmtInt(s.leads)}</div>
                         {s.leads > 0 && (
@@ -1568,26 +1568,31 @@ function MarketingAnalytics() {
                           </div>
                         )}
                       </td>
-                      <td className="px-3 py-2.5 text-right tabular-nums text-foreground/80">{s.leads > 0 ? money(cpl) : "-"}</td>
+                      <td className="px-3 py-2.5 text-right tabular-nums text-foreground/80 whitespace-nowrap">{s.leads > 0 ? money(cpl) : "-"}</td>
                       <td className="px-3 py-2.5 text-right tabular-nums font-semibold text-foreground">{fmtInt(s.purchases)}</td>
-                      <td className={cn("px-3 py-2.5 text-right tabular-nums font-semibold", heat > 0.5 ? "text-white" : "text-foreground")} style={{ backgroundColor: bg }}>{s.cvr.toFixed(2)}%</td>
+                      <td className="px-3 py-2.5 text-right">
+                        <span className={cn("inline-flex px-2 py-0.5 rounded-md text-[11px] font-bold tabular-nums", s.cvr > 0 ? "bg-primary text-white" : "bg-muted text-muted-foreground")}>{s.cvr.toFixed(2)}%</span>
+                      </td>
                     </tr>
                   );
-                });
-              })()}
+                })}
             </tbody>
             <tfoot>
               <tr className="border-t-2 border-border font-bold">
                 <td className="px-3 py-3">Grand total</td>
-                <td className="px-3 py-3 text-right tabular-nums">{money(srcTotals.spend)}</td>
+                <td className="px-3 py-3 text-right tabular-nums whitespace-nowrap">{money(srcTotals.spend)}</td>
                 <td className="px-3 py-3 text-right tabular-nums">{fmtInt(srcTotals.impressions)}</td>
                 <td className="px-3 py-3 text-right tabular-nums">{fmtInt(srcTotals.clicks)}</td>
                 <td className="px-3 py-3 text-right tabular-nums">{(srcTotals.impressions > 0 ? (srcTotals.clicks / srcTotals.impressions) * 100 : 0).toFixed(2)}%</td>
-                <td className="px-3 py-3 text-right tabular-nums">{srcTotals.clicks > 0 ? money(srcTotals.spend / srcTotals.clicks) : "-"}</td>
+                <td className="px-3 py-3 text-right tabular-nums whitespace-nowrap">{srcTotals.clicks > 0 ? money(srcTotals.spend / srcTotals.clicks) : "-"}</td>
                 <td className="px-3 py-3 text-right tabular-nums">{fmtInt(srcTotals.leads)}</td>
-                <td className="px-3 py-3 text-right tabular-nums">{srcTotals.leads > 0 ? money(srcTotals.spend / srcTotals.leads) : "-"}</td>
+                <td className="px-3 py-3 text-right tabular-nums whitespace-nowrap">{srcTotals.leads > 0 ? money(srcTotals.spend / srcTotals.leads) : "-"}</td>
                 <td className="px-3 py-3 text-right tabular-nums">{fmtInt(srcTotals.purchases)}</td>
-                <td className="px-3 py-3 text-right tabular-nums">{(srcTotals.clicks > 0 ? (srcTotals.leads / srcTotals.clicks) * 100 : 0).toFixed(2)}%</td>
+                <td className="px-3 py-3 text-right">
+                  {(() => { const gcvr = srcTotals.clicks > 0 ? (srcTotals.leads / srcTotals.clicks) * 100 : 0; return (
+                    <span className={cn("inline-flex px-2 py-0.5 rounded-md text-[11px] font-bold tabular-nums", gcvr > 0 ? "bg-primary text-white" : "bg-muted text-muted-foreground")}>{gcvr.toFixed(2)}%</span>
+                  ); })()}
+                </td>
               </tr>
             </tfoot>
           </table>
