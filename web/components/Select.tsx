@@ -16,7 +16,7 @@ interface MenuPos { left: number; width: number; maxH: number; up: boolean; top?
 // The menu is portaled to <body> with fixed positioning so it never gets clipped
 // by an overflow-hidden ancestor (cards, dialogs), and flips up when low on space.
 export function Select({
-  value, options, onChange, placeholder = "Select...", className, searchable, disabled,
+  value, options, onChange, placeholder = "Select...", className, searchable, disabled, size = "md",
 }: {
   value: string;
   options: SelectOption[];
@@ -26,6 +26,7 @@ export function Select({
   searchable?: boolean;
   disabled?: boolean;
   align?: "left" | "right";
+  size?: "sm" | "md"; // "sm" = compact trigger (dense tables)
 }) {
   const [open, setOpen] = useState(false);
   const [q, setQ] = useState("");
@@ -82,13 +83,14 @@ export function Select({
         disabled={disabled}
         onClick={() => setOpen((v) => !v)}
         className={cn(
-          "w-full h-9 px-3 flex items-center gap-2 rounded-md border bg-background text-[13px] text-left outline-none transition-shadow disabled:opacity-50 disabled:cursor-not-allowed",
+          "w-full flex items-center rounded-md border bg-background text-left outline-none transition-shadow disabled:opacity-50 disabled:cursor-not-allowed",
+          size === "sm" ? "h-6 px-2 gap-1.5 text-[11px]" : "h-9 px-3 gap-2 text-[13px]",
           open ? "border-primary ring-2 ring-primary/20" : "border-input hover:border-muted-foreground/30",
         )}
       >
         {current?.dot && <span className="w-2 h-2 rounded-full shrink-0" style={{ backgroundColor: current.dot }} />}
         <span className={cn("flex-1 truncate", current ? "text-foreground" : "text-muted-foreground")}>{current?.label || placeholder}</span>
-        <ChevronDown className={cn("w-4 h-4 text-muted-foreground shrink-0 transition-transform", open && "rotate-180")} />
+        <ChevronDown className={cn("text-muted-foreground shrink-0 transition-transform", size === "sm" ? "w-3.5 h-3.5" : "w-4 h-4", open && "rotate-180")} />
       </button>
 
       {open && typeof document !== "undefined" && createPortal(

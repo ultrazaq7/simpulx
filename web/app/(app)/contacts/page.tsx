@@ -511,7 +511,7 @@ export default function ContactsPage() {
 
         {/* Table (fills remaining height) */}
         <div className="overflow-auto flex-1 min-h-0">
-          <table className={cn("w-full text-[13px] whitespace-nowrap", denseCls)}>
+          <table className={cn("w-full text-[12px] whitespace-nowrap", denseCls)}>
             <thead className="sticky top-0 z-10">
               <tr className="border-b border-border bg-muted">
                 <TH className="w-10"><span className="sr-only">Select</span><input type="checkbox" aria-label="Select all contacts" className="rounded border-input accent-primary" checked={paged.length > 0 && paged.every((c) => selected.has(c.id))} onChange={(e) => setSelected((s) => { const n = new Set(s); if (e.target.checked) paged.forEach((c) => n.add(c.id)); else paged.forEach((c) => n.delete(c.id)); return n; })} /></TH>
@@ -559,26 +559,27 @@ export default function ContactsPage() {
                   {show("stage") && (
                   <td className="px-3 py-2 whitespace-nowrap">
                     {canEdit && c.conversation_id ? (
-                      <div className="inline-flex items-center h-7 rounded-md border border-border bg-background overflow-hidden">
+                      <div className="inline-flex items-center rounded-md border border-border bg-background overflow-hidden">
                         <StageMenu
                           stages={stages}
                           currentStageId={c.stage_id || null}
                           onSelect={(id) => setStage(c, id)}
                           onMarkOutcome={() => setOutcomeFor(c)}
+                          compact
                         />
                       </div>
                     ) : c.stage_name ? (
-                      <span className="inline-flex px-2 py-0.5 rounded-md text-[11px] font-semibold bg-primary/10 text-primary">{stageLabelByName(t, stages, c.stage_name)}</span>
+                      <span className="inline-flex px-2 py-0.5 rounded text-[10px] font-semibold bg-primary/10 text-primary">{stageLabelByName(t, stages, c.stage_name)}</span>
                     ) : <span className="text-muted-foreground">-</span>}
                   </td>
                   )}
                   {show("interest") && (
                   <td className="px-3 py-2 whitespace-nowrap">
                     {canEdit && c.conversation_id ? (
-                      <Select value={c.interest_level || ""} searchable={false} onChange={(v) => setInterest(c, v)} className="w-[104px]"
+                      <Select value={c.interest_level || ""} searchable={false} size="sm" onChange={(v) => setInterest(c, v)} className="w-[92px]"
                         options={[{ value: "", label: "Unset" }, { value: "hot", label: "Hot", dot: interestColor("hot") }, { value: "warm", label: "Warm", dot: interestColor("warm") }, { value: "cold", label: "Cold", dot: interestColor("cold") }]} />
                     ) : c.interest_level ? (
-                      <span className="inline-flex px-2 py-0.5 rounded-md text-[11px] font-semibold capitalize"
+                      <span className="inline-flex px-2 py-0.5 rounded text-[10px] font-semibold capitalize"
                         style={{ backgroundColor: interestColor(c.interest_level) + "1A", color: interestColor(c.interest_level) }}>{c.interest_level}</span>
                     ) : <span className="text-muted-foreground">-</span>}
                   </td>

@@ -30,13 +30,14 @@ export function getDotColor(name: string): string {
 // Shared by the inbox chat header and the Contacts table so both behave identically.
 // The menu renders in a portal so it never gets clipped by a scrolling table.
 export function StageMenu({
-  stages, currentStageId, onSelect, onMarkOutcome, align = "left",
+  stages, currentStageId, onSelect, onMarkOutcome, align = "left", compact = false,
 }: {
   stages: Stage[];
   currentStageId: string | null;
   onSelect: (id: string) => void;
   onMarkOutcome: () => void;
   align?: "left" | "right";
+  compact?: boolean; // denser trigger for the compact Contacts table
 }) {
   const { t } = useI18n();
   const [open, setOpen] = useState(false);
@@ -65,11 +66,14 @@ export function StageMenu({
       <button
         ref={btnRef}
         onClick={() => setOpen((v) => !v)}
-        className="flex items-center gap-1.5 px-2.5 h-8 rounded-l-md text-[13px] font-semibold text-foreground hover:bg-muted transition-colors outline-none"
+        className={cn(
+          "flex items-center font-semibold text-foreground hover:bg-muted transition-colors outline-none",
+          compact ? "gap-1 px-2 h-6 rounded-md text-[11px]" : "gap-1.5 px-2.5 h-8 rounded-l-md text-[13px]",
+        )}
       >
-        <span className="w-2.5 h-2.5 rounded-full shrink-0" style={{ backgroundColor: current ? getDotColor(current.name) : "hsl(var(--muted-foreground))" }} />
+        <span className={cn("rounded-full shrink-0", compact ? "w-2 h-2" : "w-2.5 h-2.5")} style={{ backgroundColor: current ? getDotColor(current.name) : "hsl(var(--muted-foreground))" }} />
         {current ? stageLabel(t, current) : "Select stage"}
-        <ChevronDown className="w-3.5 h-3.5 text-muted-foreground" />
+        <ChevronDown className={cn("text-muted-foreground", compact ? "w-3 h-3" : "w-3.5 h-3.5")} />
       </button>
 
       {open && pos && typeof document !== "undefined" && createPortal(

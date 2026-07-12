@@ -1253,7 +1253,7 @@ function MarketingAnalytics() {
     { label: "Leads", value: fmtInt(t.leads), rate: t.clicks > 0 ? (t.leads / t.clicks) * 100 : 0, Icon: Users },
     { label: "Purchases", value: fmtInt(t.sales), rate: t.leads > 0 ? (t.sales / t.leads) * 100 : 0, Icon: ShoppingCart },
   ];
-  const FUNNEL_W = [1.0, 0.86, 0.72, 0.58, 0.44, 0.32]; // top width fraction per step + final tip
+  const FUNNEL_W = [1.0, 0.90, 0.80, 0.70, 0.60, 0.50]; // top width fraction per step + final tip (gentle funnel)
   const FUNNEL_RAMP = ["#1E5C4C", "#26735F", "#2D8B73", "#3F9D84", "#5FB89E"];
   const overallConv = t.impressions > 0 ? (t.sales / t.impressions) * 100 : 0;
 
@@ -1481,7 +1481,9 @@ function MarketingAnalytics() {
                       <span className="text-[9.5px] font-medium opacity-90 mt-0.5">{s.label}</span>
                     </div>
                   </div>
-                  <span className="w-14 shrink-0 text-right text-[11px] font-bold tabular-nums text-foreground/70">{s.rate.toFixed(2)}%</span>
+                  <span className="shrink-0 flex justify-end" style={{ width: 58 }}>
+                    <span className="inline-block px-2 py-0.5 rounded-md bg-muted text-[11px] font-bold tabular-nums text-foreground/70">{s.rate.toFixed(2)}%</span>
+                  </span>
                 </div>
               );
             })}
