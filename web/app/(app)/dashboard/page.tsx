@@ -186,6 +186,43 @@ function Delta({ cur, prev, higherIsBetter = true as boolean | null, className }
   );
 }
 
+// One marketing-funnel stage: a trapezoid with rounded corners, drawn as an SVG
+// path (clip-path polygons can't round corners). Width is measured so the corner
+// radius stays true px across the responsive card.
+function FunnelTrapezoid({ topPct, botPct, fill, color, h = 52, r = 6, children }: {
+  topPct: number; botPct: number; fill: string; color: string; h?: number; r?: number; children: React.ReactNode;
+}) {
+  const ref = useRef<HTMLDivElement>(null);
+  const [w, setW] = useState(0);
+  useEffect(() => {
+    const el = ref.current; if (!el) return;
+    const ro = new ResizeObserver((es) => setW(es[0].contentRect.width));
+    ro.observe(el);
+    return () => ro.disconnect();
+  }, []);
+  let d = "";
+  if (w > 0) {
+    const wt = (topPct / 100) * w, wb = (botPct / 100) * w;
+    const xtl = (w - wt) / 2, xtr = (w + wt) / 2, xbl = (w - wb) / 2, xbr = (w + wb) / 2;
+    // Unit vectors along the slanted sides, to back off r before each corner curve.
+    const rdx = xbr - xtr, rlen = Math.hypot(rdx, h), rux = rdx / rlen, ruy = h / rlen;
+    const ldx = xtl - xbl, llen = Math.hypot(ldx, h), lux = ldx / llen, luy = -h / llen;
+    d = `M ${xtl + r} 0 L ${xtr - r} 0 Q ${xtr} 0 ${xtr + rux * r} ${ruy * r}` +
+      ` L ${xbr - rux * r} ${h - ruy * r} Q ${xbr} ${h} ${xbr - r} ${h} L ${xbl + r} ${h}` +
+      ` Q ${xbl} ${h} ${xbl + lux * r} ${h + luy * r} L ${xtl - lux * r} ${-luy * r} Q ${xtl} 0 ${xtl + r} 0 Z`;
+  }
+  return (
+    <div ref={ref} className="relative" style={{ height: h }}>
+      {d && (
+        <svg width={w} height={h} className="absolute inset-0 block" aria-hidden="true">
+          <path d={d} fill={fill} />
+        </svg>
+      )}
+      <div className="absolute inset-0 flex items-center justify-center gap-1.5" style={{ color }}>{children}</div>
+    </div>
+  );
+}
+
 // Per-source brand mark (lucide glyphs tinted to each channel).
 const SRC_ICONS: Record<string, { Icon: any; color: string }> = {
   meta_ads: { Icon: InfinityIcon, color: "#0866FF" },
@@ -1258,8 +1295,13 @@ function MarketingAnalytics() {
     { label: "Leads", value: fmtInt(t.leads), rate: t.clicks > 0 ? (t.leads / t.clicks) * 100 : 0, Icon: Users },
     { label: "Purchases", value: fmtInt(t.sales), rate: t.leads > 0 ? (t.sales / t.leads) * 100 : 0, Icon: ShoppingCart },
   ];
-  const FUNNEL_W = [1.0, 0.90, 0.80, 0.70, 0.60, 0.50]; // top width fraction per step + final tip (gentle funnel)
-  const FUNNEL_RAMP = ["#1E5C4C", "#26735F", "#2D8B73", "#3F9D84", "#5FB89E"];
+  // Funnel geometry: one continuous cone silhouette (100% -> 20% width) sliced
+  // into stages with the gap cut out, so the slanted edges run straight through
+  // the gaps. Stage top/bottom widths are sampled from the cone at stage bounds.
+  const FUNNEL_H = 52, FUNNEL_GAP = 4, FUNNEL_END = 20;
+  const funnelSpan = funnelSteps.length * FUNNEL_H + (funnelSteps.length - 1) * FUNNEL_GAP;
+  const funnelWAt = (y: number) => 100 - (100 - FUNNEL_END) * (y / funnelSpan);
+  const FUNNEL_RAMP = ["#1E5C4C", "#26735F", "#2D8B73", "#4DA184", "#CBE7DB"]; // sequential dark->mint; last step takes dark text
   const overallConv = t.impressions > 0 ? (t.sales / t.impressions) * 100 : 0;
 
   // Per-source daily series (from the enriched daily_sources) for the in-cell
@@ -1469,49 +1511,57 @@ function MarketingAnalytics() {
         ))}
       </div>
 
-      {/* Funnel + insights (left column) beside Source performance (right) */}
-      <div className="grid grid-cols-1 lg:grid-cols-[340px_1fr] gap-4 mb-5 items-start">
+      {/* Funnel + insights (left column) beside Source performance (right).
+          Column tracks the reference proportion (~31%) with a 340px floor. */}
+      <div className="grid grid-cols-1 lg:grid-cols-[minmax(340px,31%)_1fr] gap-4 mb-5 items-start">
       <div className="flex flex-col gap-4">
       {/* Marketing funnel card with info tooltip + 3-dot menu */}
       <div className="bg-card rounded-xl border border-border shadow-xs overflow-hidden">
-        <div className="px-4 py-3 border-b border-border flex items-center justify-between">
-          <div className="flex items-center gap-2">
-            <p className="font-bold text-[14px] text-foreground leading-tight">Marketing funnel</p>
-            <Tip label="Shows the conversion progression from ad impressions through to purchases" side="top">
-              <span className="text-muted-foreground/50 cursor-help"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><circle cx="12" cy="12" r="10"/><path d="M12 16v-4"/><path d="M12 8h.01"/></svg></span>
-            </Tip>
+        <div className="px-4 pt-3.5 flex items-start justify-between">
+          <div>
+            <div className="flex items-center gap-2">
+              <p className="font-bold text-[14px] text-foreground leading-tight">Marketing funnel</p>
+              <Tip label="Shows the conversion progression from ad impressions through to purchases" side="top">
+                <span className="text-muted-foreground/50 cursor-help"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><circle cx="12" cy="12" r="10"/><path d="M12 16v-4"/><path d="M12 8h.01"/></svg></span>
+              </Tip>
+            </div>
+            <p className="mt-0.5 text-[11.5px] text-muted-foreground">Impression to purchase conversion</p>
           </div>
           <button className="p-1 rounded-md text-muted-foreground/50 hover:text-muted-foreground hover:bg-muted transition-colors outline-none">
             <svg width="16" height="16" viewBox="0 0 24 24" fill="currentColor"><circle cx="12" cy="5" r="1.5"/><circle cx="12" cy="12" r="1.5"/><circle cx="12" cy="19" r="1.5"/></svg>
           </button>
         </div>
-        <p className="px-4 pt-1.5 text-[11.5px] text-muted-foreground">Impression to purchase conversion</p>
-        {/* Centered rounded-bar funnel with small gaps, matching reference */}
-        <div className="p-4 pt-3">
-          <div className="flex flex-col gap-[3px]">
+        {/* Pointy trapezoid funnel (continuous cone, rounded corners via SVG)
+            with dotted leaders out to bordered conversion pills, matching reference */}
+        <div className="p-4 pt-3.5">
+          <div className="flex flex-col" style={{ gap: FUNNEL_GAP }}>
             {funnelSteps.map((s, i) => {
-              const widths = [88, 72, 58, 46, 36];
-              const w = widths[i] ?? 36;
+              const top = funnelWAt(i * (FUNNEL_H + FUNNEL_GAP));
+              const bot = funnelWAt(i * (FUNNEL_H + FUNNEL_GAP) + FUNNEL_H);
+              const mid = (top + bot) / 2;
+              const last = i === funnelSteps.length - 1;
               return (
-                <div key={s.label} className="flex items-center gap-3">
-                  <div className="flex-1 min-w-0 flex justify-center">
-                    <div className="flex items-center justify-center gap-1.5 text-white rounded-md w-full py-2.5"
-                      style={{ maxWidth: `${w}%`, background: FUNNEL_RAMP[i] }}>
-                      <s.Icon className="w-3.5 h-3.5 opacity-90 shrink-0" />
+                <div key={s.label} className="flex items-center gap-2.5">
+                  <div className="relative flex-1 min-w-0">
+                    <div className="absolute top-1/2 right-0 border-t border-dotted border-border" style={{ left: `calc(${50 + mid / 2}% + 5px)` }} />
+                    <FunnelTrapezoid topPct={top} botPct={bot} fill={FUNNEL_RAMP[i]} color={last ? FUNNEL_RAMP[0] : "#fff"} h={FUNNEL_H}>
+                      <s.Icon className="w-[15px] h-[15px] opacity-90 shrink-0" />
                       <div className="text-center min-w-0">
-                        <span className="text-[14px] font-extrabold tabular-nums leading-none">{s.value}</span>
-                        <span className="text-[9px] font-medium opacity-80 block mt-0.5">{s.label}</span>
+                        <span className="text-[15px] font-extrabold tabular-nums leading-none">{s.value}</span>
+                        <span className="text-[9.5px] font-medium opacity-85 block mt-0.5">{s.label}</span>
                       </div>
-                    </div>
+                    </FunnelTrapezoid>
                   </div>
-                  <span className="shrink-0 text-[11px] font-semibold tabular-nums text-foreground/60 whitespace-nowrap" style={{ width: 52 }}>{s.rate.toFixed(2)}%</span>
+                  <span className="shrink-0 w-[58px] h-[30px] grid place-items-center rounded-lg border border-border bg-background text-[12px] font-bold tabular-nums text-foreground">
+                    {i === 0 ? "100%" : `${s.rate.toFixed(2)}%`}
+                  </span>
                 </div>
               );
             })}
           </div>
-          <div className="mt-3 pt-3 border-t border-border flex items-center justify-between gap-2">
+          <div className="mt-3 flex items-center justify-between gap-2 rounded-lg border border-border/70 bg-muted/40 px-3 py-2">
             <span className="text-[10.5px] text-muted-foreground">Overall conversion rate from impression to purchase</span>
-            <span className="text-[11.5px] font-bold tabular-nums text-primary shrink-0">{overallConv.toFixed(2)}%</span>
+            <span className="text-[12px] font-extrabold tabular-nums text-foreground shrink-0">{overallConv.toFixed(2)}%</span>
           </div>
         </div>
       </div>
