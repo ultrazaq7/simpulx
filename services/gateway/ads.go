@@ -475,8 +475,10 @@ func (s *server) handleAdPerformance(w http.ResponseWriter, r *http.Request) {
 
 	// Latest leads with a classified source -> the Latest Leads table
 	// (Date | Name | Phone | Channel | Source | Stage).
-	rlq := `SELECT cv.created_at, cv.contact_name, cv.contact_phone, cv.channel, ` + sourceClassifyExpr("cv") + ` AS source, st.name AS stage
-	          FROM conversations cv LEFT JOIN stages st ON st.id = cv.stage_id
+	rlq := `SELECT cv.created_at, ct.full_name AS contact_name, ct.phone AS contact_phone, cv.channel, ` + sourceClassifyExpr("cv") + ` AS source, st.name AS stage
+	          FROM conversations cv
+	          LEFT JOIN contacts ct ON ct.id = cv.contact_id
+	          LEFT JOIN stages st ON st.id = cv.stage_id
 	         WHERE cv.organization_id=$1 AND cv.created_at::date BETWEEN $2 AND $3 AND cv.campaign_id IS NOT NULL`
 	rlargs := []any{a.OrgID, from, to}
 	if len(campIDs) > 0 {
@@ -484,7 +486,10 @@ func (s *server) handleAdPerformance(w http.ResponseWriter, r *http.Request) {
 		rlq += fmt.Sprintf(" AND cv.campaign_id = ANY($%d::uuid[])", len(rlargs))
 	}
 	rlq += " ORDER BY cv.created_at DESC LIMIT 10"
-	recentLeads, _ := s.queryMaps(r.Context(), rlq, rlargs...)
+	recentLeads, rlErr := s.queryMaps(r.Context(), rlq, rlargs...)
+	if rlErr != nil {
+		s.log.Warn("ads recent_leads query failed", "err", rlErr)
+	}
 
 	// Per ad/creative: leads + conversions grouped by the click-to-WhatsApp ad id
 	// (conversation_attributions.referral_source). Spend stays campaign-level (Meta
