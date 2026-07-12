@@ -203,9 +203,16 @@ jobs:
           echo "-- disk --"; df -h / | tail -1
           echo "-- web BEFORE --"; docker ps --filter name=web --format "{{.Image}} {{.Status}}" || true
           echo "-- pre-deploy cleanup --"
-          docker image prune -af --filter until=72h >/dev/null 2>&1 || true
+          # Prune ALL unused images (no age filter). Rapid same-day web rebuilds
+          # (no-cache -> a fresh multi-GB image every commit) pile up; a 72h filter
+          # never removes them, the disk hits 100%, and then --force-recreate deletes
+          # caddy WITHOUT being able to recreate it (ENOSPC) -> nothing on :443 ->
+          # Cloudflare 521. Everything is re-pullable from ECR, so dropping old local
+          # tags here is safe (rollback just re-pulls).
+          docker image prune -af >/dev/null 2>&1 || true
           docker builder prune -af >/dev/null 2>&1 || true
           docker container prune -f >/dev/null 2>&1 || true
+          echo "-- disk after cleanup --"; df -h / | tail -1
           echo "-- pull (web lines only) --"
           $DC pull 2>&1 | grep -iE "web|error|denied|not found" | tail -6 || true
           echo "-- migrate --"
@@ -221,6 +228,12 @@ jobs:
           docker image prune -af --filter until=72h >/dev/null 2>&1 || true
           echo "-- status --"
           $DC ps
+          # Fail the deploy LOUDLY here if the edge is down, instead of leaving a
+          # silent 521 for the health-check step to discover. force-recreate on a full
+          # disk is the known way caddy ends up gone (see pre-deploy cleanup note).
+          echo "-- edge check --"
+          ss -ltn | grep -q ":443 " || { echo "FATAL: nothing listening on :443 (caddy down)"; docker ps -a --filter name=caddy; exit 1; }
+          echo "edge ok: :443 is listening"
           '
           REMOTE
           SCRIPT="${SCRIPT/__TAG__/$TAG}"
