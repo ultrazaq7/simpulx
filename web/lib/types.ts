@@ -373,10 +373,21 @@ export interface AdKeyword {
   keyword: string; match_type: string;
   impressions: number; clicks: number; ctr: number; cost: number; conversions: number;
 }
+export interface AdPerfDailySource { date: string; source: string; leads: number }
+export interface AdPerfRecentLead {
+  created_at: string;
+  contact_name: string | null;
+  contact_phone: string | null;
+  channel: string;
+  source: string;         // classified: meta_ads | tiktok_ads | google_ads | website | direct
+  stage: string | null;
+}
 export interface AdPerformance {
   from: string; to: string;
   campaigns: AdPerfCampaign[];
   daily: AdPerfDaily[];
+  daily_sources?: AdPerfDailySource[];
+  recent_leads?: AdPerfRecentLead[];
   creatives: AdPerfCreative[];
   sources?: AdPerfSource[];
   age?: AdBreakdown[];

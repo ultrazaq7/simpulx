@@ -3,7 +3,7 @@ import { useEffect, useState, useMemo, useRef, useCallback } from "react";
 import Link from "next/link";
 import {
   AreaChart, Area, XAxis, YAxis, CartesianGrid, Tooltip as RechartsTooltip,
-  Legend, ResponsiveContainer, LineChart, Line, PieChart, Pie, Cell,
+  Legend, ResponsiveContainer, LineChart, Line, PieChart, Pie, Cell, BarChart, Bar,
 } from "recharts";
 import {
   BarChart3, MessageSquare, Inbox, Flame, Timer,
@@ -19,7 +19,7 @@ import { MultiSelect } from "@/components/ui/multi-select";
 import { IndonesiaMap } from "@/components/IndonesiaMap";
 import { Tip } from "@/components/ui/tooltip";
 import { lostReasonLabel } from "@/app/(app)/inbox/components/LostReasonDialog";
-import type { Stats, Analytics, DashboardCards, AdPerformance, AdKeyword, AdBreakdown, Channel, Campaign, Agent } from "@/lib/types";
+import type { Stats, Analytics, DashboardCards, AdPerformance, AdKeyword, AdBreakdown, Channel, Campaign, Agent, Ga4Report } from "@/lib/types";
 import { cn, fmtDuration, stageLabel } from "@/lib/utils";
 import { useI18n } from "@/lib/i18n";
 import DateRangeFilter, { presetRange } from "@/components/DateRangeFilter";
@@ -980,6 +980,8 @@ function MarketingAnalytics() {
   const [accounts, setAccounts] = useState<{ id: string; name?: string | null }[]>([]);
   const [perf, setPerf] = useState<AdPerformance | null>(null);
   const [keywords, setKeywords] = useState<AdKeyword[]>([]);
+  const [camps, setCamps] = useState<Campaign[]>([]);
+  const [ga4, setGa4] = useState<Ga4Report | null>(null);
   const [exportOpen, setExportOpen] = useState(false);
   const [currency, setCurrency] = useState("");
   const [platforms, setPlatforms] = useState<string[]>([]);
@@ -993,10 +995,14 @@ function MarketingAnalytics() {
       api.adPerformance(from || undefined, to || undefined, campaignFilter.length ? campaignFilter : undefined, sourceFilter.length ? sourceFilter : undefined, accountFilter.length ? accountFilter : undefined).catch(() => null),
       api.listAdAccounts().catch(() => []),
       api.adKeywords(from || undefined, to || undefined).catch(() => []),
-    ]).then(([p, accts, kws]) => {
+      api.listCampaigns().catch(() => []),
+      api.getOrgGa4(from || undefined, to || undefined).catch(() => null),
+    ]).then(([p, accts, kws, cps, g]) => {
       if (!alive) return;
       setPerf(p as AdPerformance | null);
       setKeywords((kws as AdKeyword[]) || []);
+      setCamps((cps as Campaign[]) || []);
+      setGa4(g as Ga4Report | null);
       const a = (accts as { id: string; name?: string | null; currency?: string | null; platform?: string | null }[]) || [];
       setAccounts(a);
       setHasAccounts(a.length > 0);
@@ -1084,6 +1090,38 @@ function MarketingAnalytics() {
       spend: d.spend || 0, impressions: d.impressions || 0, reach: d.reach || 0, clicks: d.clicks || 0, leads: d.leads || 0,
     };
   }).reverse(); // chart reads left (oldest) -> right (newest)
+
+  // Clicks vs Impressions per day (log line needs positive values -> null for 0).
+  const dailyLog = daily.map((d) => ({ date: d.date, impressions: d.impressions > 0 ? d.impressions : null, clicks: d.clicks > 0 ? d.clicks : null }));
+
+  // Monthly Leads Performance Breakdown: pivot daily_sources into one series per source.
+  const SRC_LABELS: Record<string, string> = { meta_ads: "Meta Ads", tiktok_ads: "TikTok Ads", google_ads: "Google Ads", website: "Website", direct: "Direct" };
+  const SRC_COLORS: Record<string, string> = { meta_ads: "#2D8B73", tiktok_ads: "#111827", google_ads: "#EA4335", website: "#6366F1", direct: "#94A3B8" };
+  const dayLabel = (iso: string) => { const dt = new Date(iso); return isNaN(dt.getTime()) ? iso : `${String(dt.getDate()).padStart(2, "0")}/${String(dt.getMonth() + 1).padStart(2, "0")}`; };
+  const leadSourceKeys = Array.from(new Set((perf?.daily_sources || []).map((r) => r.source)));
+  const leadsBySource = (() => {
+    const byDate = new Map<string, Record<string, number>>();
+    for (const r of perf?.daily_sources || []) {
+      if (!byDate.has(r.date)) byDate.set(r.date, {});
+      byDate.get(r.date)![r.source] = (byDate.get(r.date)![r.source] || 0) + r.leads;
+    }
+    return Array.from(byDate.entries()).sort((a, b) => a[0].localeCompare(b[0])).map(([date, m]) => ({ date: dayLabel(date), ...m }));
+  })();
+  const recentLeads = perf?.recent_leads || [];
+
+  // Budget = sum of the (selected) campaigns' monthly budgets vs actual spend.
+  const budget = camps.filter((c) => campaignFilter.length === 0 || campaignFilter.includes(c.id)).reduce((a, c) => a + ((c as { monthly_budget?: number | null }).monthly_budget || 0), 0);
+  const budgetLeft = budget - t.spend;
+  const budgetUtil = budget > 0 ? (t.spend / budget) * 100 : 0;
+
+  // Keyword bars (log-scaled widths) + age bars for the demography row.
+  const kw = keywords.slice(0, 10);
+  const kwMax = Math.max(1, ...kw.map((k) => k.impressions), ...kw.map((k) => k.clicks));
+  const logW = (v: number) => Math.max(2, (Math.log10((v || 0) + 1) / Math.log10(kwMax + 1)) * 100);
+  const ageRows = (perf?.age || []).filter((b) => (b.value || "").toLowerCase() !== "unknown");
+  const ageMaxImp = Math.max(1, ...ageRows.map((b) => b.impressions));
+  const ageMaxClk = Math.max(1, ...ageRows.map((b) => b.clicks));
+  const gt = ga4?.totals;
 
   // Full raw analytics export (same shape as the old campaign report): summary +
   // per-source + daily timeline + age/gender/region demographics, each a labelled
@@ -1206,8 +1244,8 @@ function MarketingAnalytics() {
         ))}
       </div>
 
-      {/* Marketing funnel (compact, left) + Source performance (right) */}
-      <div className="grid grid-cols-1 lg:grid-cols-[360px_1fr] gap-4 mb-5 items-start">
+      {/* Marketing funnel (compact, left) + Source performance (right) - equal height */}
+      <div className="grid grid-cols-1 lg:grid-cols-[360px_1fr] gap-4 mb-5 items-stretch">
       <Card title="Marketing funnel" subtitle="Impression to click to chat to conversion">
         {/* Stacked funnel bars narrowing on a fixed ramp, on-brand green. */}
         <div className="p-4">
@@ -1284,59 +1322,211 @@ function MarketingAnalytics() {
       </div>
       </div>
 
-      {/* Top Google keywords — only shown when a Google Ads account is connected
-          and keyword_view returns rows for the range. */}
-      {keywords.length > 0 && (
-        <div className="bg-card rounded-lg border border-border shadow-xs overflow-hidden mb-5">
-          <div className="px-4 py-3 border-b border-border flex items-baseline gap-2">
-            <p className="font-bold text-[14px] text-foreground leading-tight">Top Google keywords</p>
-            <span className="text-[11px] text-muted-foreground">by impressions</span>
-          </div>
-          <div className="overflow-x-auto">
-            <table className="w-full text-sm">
-              <thead>
-                <tr className="bg-muted/40 border-b border-border">
-                  {["Keyword", "Match", "Impressions", "Clicks", "CTR", "Cost", "Conv."].map((h, i) => (
-                    <th key={h} className={cn("px-3 py-2 text-[11px] font-bold uppercase tracking-wider text-muted-foreground", i <= 1 ? "text-left" : "text-right")}>{h}</th>
-                  ))}
-                </tr>
-              </thead>
-              <tbody>
-                {keywords.map((k, i) => (
-                  <tr key={k.keyword + i} className="border-b border-border/60">
-                    <td className="px-3 py-2 font-semibold text-foreground max-w-[280px] truncate">{k.keyword}</td>
-                    <td className="px-3 py-2 text-[12px] text-muted-foreground capitalize">{(k.match_type || "").toLowerCase()}</td>
-                    <td className="px-3 py-2 text-right tabular-nums text-foreground/80">{fmtInt(k.impressions)}</td>
-                    <td className="px-3 py-2 text-right tabular-nums text-foreground/80">{fmtInt(k.clicks)}</td>
-                    <td className="px-3 py-2 text-right tabular-nums text-foreground/80">{k.ctr.toFixed(2)}%</td>
-                    <td className="px-3 py-2 text-right tabular-nums text-foreground/80">{money(k.cost)}</td>
-                    <td className="px-3 py-2 text-right tabular-nums text-foreground/80">{fmtInt(k.conversions)}</td>
-                  </tr>
-                ))}
-              </tbody>
-            </table>
-          </div>
+      {/* Campaign Performance Breakdown - clicks vs impressions (log), full width */}
+      <Card title="Campaign Performance Breakdown" subtitle="Clicks vs impressions per day" className="mb-5">
+        <div className="p-4">
+          {dailyLog.length === 0 ? (
+            <div className="py-10 text-center text-sm text-muted-foreground">No data</div>
+          ) : (
+            <div className="h-[260px]">
+              <ResponsiveContainer width="100%" height="100%">
+                <LineChart data={dailyLog} margin={{ top: 6, right: 12, left: 0, bottom: 0 }}>
+                  <CartesianGrid strokeDasharray="3 3" stroke="#e5e7eb" vertical={false} />
+                  <XAxis dataKey="date" tick={{ fontSize: 11, fill: "#94a3b8" }} axisLine={false} tickLine={false} minTickGap={24} />
+                  <YAxis scale="log" domain={[1, "auto"]} allowDataOverflow tick={{ fontSize: 11, fill: "#94a3b8" }} axisLine={false} tickLine={false} width={46}
+                    tickFormatter={(v) => v >= 1e6 ? `${(v / 1e6).toFixed(0)}M` : v >= 1000 ? `${(v / 1000).toFixed(0)}k` : `${v}`} />
+                  <RechartsTooltip />
+                  <Legend />
+                  <Line type="monotone" dataKey="impressions" name="Impressions" stroke="#0b1220" strokeWidth={2} dot={false} connectNulls isAnimationActive={false} />
+                  <Line type="monotone" dataKey="clicks" name="Clicks" stroke="#2D8B73" strokeWidth={2} dot={false} connectNulls isAnimationActive={false} />
+                </LineChart>
+              </ResponsiveContainer>
+            </div>
+          )}
         </div>
-      )}
+      </Card>
 
-      {/* Timeline split in two: Awareness (impressions + reach) and Engagement
-          (link clicks + leads). Each is a single-axis line chart so the two
-          series share one scale instead of a confusing dual axis. */}
-      <div className="grid grid-cols-1 lg:grid-cols-2 gap-4 mb-5">
-        <TimelineChart title="Awareness" subtitle="Daily impressions and reach" data={daily}
-          series={[{ key: "impressions", name: "Impressions", color: "#2563EB" }, { key: "reach", name: "Reach", color: "#10B981" }]} />
-        <TimelineChart title="Engagement" subtitle="Daily link clicks and leads" data={daily}
-          series={[{ key: "clicks", name: "Link clicks", color: "#F59E0B" }, { key: "leads", name: "Leads", color: "#2D8B73" }]} />
+      {/* Google Top 10 Keywords (left) + Facebook Age Demography (right) */}
+      <div className="grid grid-cols-1 lg:grid-cols-2 gap-4 mb-5 items-stretch">
+        <Card title="Google Top 10 Search Keywords" subtitle="Clicks vs impressions">
+          <div className="p-4">
+            {kw.length === 0 ? (
+              <div className="py-10 text-center text-sm text-muted-foreground">No data</div>
+            ) : (
+              <div className="flex flex-col gap-2.5">
+                {kw.map((k, i) => (
+                  <div key={k.keyword + i} className="grid grid-cols-[130px_1fr] gap-2 items-center">
+                    <span className="text-[11px] text-foreground truncate" title={k.keyword}>{k.keyword}</span>
+                    <div>
+                      <div className="flex items-center gap-2"><div className="h-2 rounded-sm" style={{ width: `${logW(k.clicks)}%`, background: "#2D8B73" }} /><span className="text-[10px] text-muted-foreground tabular-nums">{fmtInt(k.clicks)}</span></div>
+                      <div className="flex items-center gap-2 mt-1"><div className="h-2 rounded-sm" style={{ width: `${logW(k.impressions)}%`, background: "#0b1220" }} /><span className="text-[10px] text-muted-foreground tabular-nums">{fmtInt(k.impressions)}</span></div>
+                    </div>
+                  </div>
+                ))}
+              </div>
+            )}
+          </div>
+        </Card>
+        <Card title="Facebook Age Demography" subtitle="Impressions vs link clicks">
+          <div className="p-4">
+            {ageRows.length === 0 ? (
+              <div className="py-10 text-center text-sm text-muted-foreground">No data</div>
+            ) : (
+              <div className="flex flex-col gap-3">
+                {ageRows.map((b) => (
+                  <div key={b.value} className="grid grid-cols-[56px_1fr] gap-2 items-center">
+                    <span className="text-[11px] text-foreground">{b.value}</span>
+                    <div>
+                      <div className="flex items-center gap-2"><div className="h-2 rounded-sm" style={{ width: `${(b.impressions / ageMaxImp) * 100}%`, background: "#0b1220" }} /><span className="text-[10px] text-muted-foreground tabular-nums">{fmtInt(b.impressions)}</span></div>
+                      <div className="flex items-center gap-2 mt-1"><div className="h-2 rounded-sm" style={{ width: `${(b.clicks / ageMaxClk) * 100}%`, background: "#2D8B73" }} /><span className="text-[10px] text-muted-foreground tabular-nums">{fmtInt(b.clicks)}</span></div>
+                    </div>
+                  </div>
+                ))}
+              </div>
+            )}
+          </div>
+        </Card>
       </div>
 
-      {/* Demographic performance donuts */}
-      <div className="grid grid-cols-1 md:grid-cols-2 gap-4 mb-5">
-        <BreakdownDonut title="Age performance" data={perf?.age} />
-        <BreakdownDonut title="Gender performance" data={perf?.gender} />
+      {/* Monthly Leads Performance Breakdown - stacked area by source */}
+      <Card title="Monthly Leads Performance Breakdown" subtitle="Leads by source over time" className="mb-5">
+        <div className="p-4">
+          {leadsBySource.length === 0 ? (
+            <div className="py-10 text-center text-sm text-muted-foreground">No data</div>
+          ) : (
+            <div className="h-[240px]">
+              <ResponsiveContainer width="100%" height="100%">
+                <AreaChart data={leadsBySource} margin={{ top: 6, right: 12, left: 0, bottom: 0 }}>
+                  <defs>
+                    {leadSourceKeys.map((k) => (
+                      <linearGradient key={k} id={`ls-${k}`} x1="0" y1="0" x2="0" y2="1">
+                        <stop offset="0%" stopColor={SRC_COLORS[k] || "#94a3b8"} stopOpacity={0.35} />
+                        <stop offset="100%" stopColor={SRC_COLORS[k] || "#94a3b8"} stopOpacity={0.02} />
+                      </linearGradient>
+                    ))}
+                  </defs>
+                  <CartesianGrid strokeDasharray="3 3" stroke="#e5e7eb" vertical={false} />
+                  <XAxis dataKey="date" tick={{ fontSize: 11, fill: "#94a3b8" }} axisLine={false} tickLine={false} minTickGap={24} />
+                  <YAxis tick={{ fontSize: 11, fill: "#94a3b8" }} axisLine={false} tickLine={false} width={34} allowDecimals={false} />
+                  <RechartsTooltip />
+                  <Legend />
+                  {leadSourceKeys.map((k) => (
+                    <Area key={k} type="monotone" dataKey={k} name={SRC_LABELS[k] || k} stackId="1" stroke={SRC_COLORS[k] || "#94a3b8"} strokeWidth={2} fill={`url(#ls-${k})`} isAnimationActive={false} />
+                  ))}
+                </AreaChart>
+              </ResponsiveContainer>
+            </div>
+          )}
+        </div>
+      </Card>
+
+      {/* Latest Leads - Date | Name | Phone | Channel | Source | Stage */}
+      <div className="bg-card rounded-lg border border-border shadow-xs overflow-hidden mb-5">
+        <div className="px-4 py-3 border-b border-border">
+          <p className="font-bold text-[14px] text-foreground leading-tight">Latest Leads</p>
+        </div>
+        <div className="overflow-x-auto">
+          <table className="w-full text-sm">
+            <thead>
+              <tr className="bg-muted/40 border-b border-border">
+                {["Date", "Name", "Phone Number", "Channel", "Source", "Stage"].map((h) => (
+                  <th key={h} className="px-3 py-2 text-left text-[11px] font-bold uppercase tracking-wider text-muted-foreground">{h}</th>
+                ))}
+              </tr>
+            </thead>
+            <tbody>
+              {recentLeads.length === 0 ? (
+                <tr><td colSpan={6} className="px-3 py-10 text-center text-[13px] text-muted-foreground">No data</td></tr>
+              ) : recentLeads.map((l, i) => (
+                <tr key={i} className="border-b border-border/60">
+                  <td className="px-3 py-2 text-muted-foreground whitespace-nowrap">{l.created_at ? new Date(l.created_at).toLocaleString("en-GB") : "-"}</td>
+                  <td className="px-3 py-2 font-semibold text-foreground">{l.contact_name || "Unknown"}</td>
+                  <td className="px-3 py-2 text-muted-foreground tabular-nums">{l.contact_phone || "-"}</td>
+                  <td className="px-3 py-2 text-muted-foreground capitalize">{l.channel || "-"}</td>
+                  <td className="px-3 py-2 text-muted-foreground">{SRC_LABELS[l.source] || l.source || "-"}</td>
+                  <td className="px-3 py-2 text-foreground">{l.stage || "-"}</td>
+                </tr>
+              ))}
+            </tbody>
+          </table>
+        </div>
       </div>
 
-      {/* Location performance (province-level) */}
-      <LocationPerformance data={perf?.region} currency={currency} />
+      {/* Monthly Spending Performance - daily spend bars */}
+      <Card title="Monthly Spending Performance" subtitle="Daily ad spend" className="mb-5">
+        <div className="p-4">
+          {daily.length === 0 ? (
+            <div className="py-10 text-center text-sm text-muted-foreground">No data</div>
+          ) : (
+            <div className="h-[240px]">
+              <ResponsiveContainer width="100%" height="100%">
+                <BarChart data={daily} margin={{ top: 6, right: 12, left: 6, bottom: 0 }}>
+                  <CartesianGrid strokeDasharray="3 3" stroke="#e5e7eb" vertical={false} />
+                  <XAxis dataKey="date" tick={{ fontSize: 11, fill: "#94a3b8" }} axisLine={false} tickLine={false} minTickGap={24} />
+                  <YAxis tick={{ fontSize: 11, fill: "#94a3b8" }} axisLine={false} tickLine={false} width={54}
+                    tickFormatter={(v) => v >= 1e6 ? `${(v / 1e6).toFixed(0)}M` : v >= 1000 ? `${(v / 1000).toFixed(0)}k` : `${v}`} />
+                  <RechartsTooltip />
+                  <Bar dataKey="spend" name="Cost" fill="#2D8B73" radius={[3, 3, 0, 0]} isAnimationActive={false} />
+                </BarChart>
+              </ResponsiveContainer>
+            </div>
+          )}
+        </div>
+      </Card>
+
+      {/* Budget snapshot */}
+      <div className="grid grid-cols-2 lg:grid-cols-4 gap-3 mb-5">
+        {[
+          { label: "Media Budget", value: money(budget), accent: false, danger: false },
+          { label: "Cost", value: money(t.spend), accent: true, danger: false },
+          { label: "Budget Left", value: money(budgetLeft), accent: false, danger: budgetLeft < 0 },
+          { label: "Budget Utilization", value: `${budgetUtil.toFixed(2)}%`, accent: true, danger: false },
+        ].map((b) => (
+          <div key={b.label} className={cn("rounded-lg border p-4 shadow-xs", b.accent ? "bg-primary border-transparent text-white" : "bg-card border-border")}>
+            <p className={cn("text-[11px]", b.accent ? "text-white/80" : "text-muted-foreground")}>{b.label}</p>
+            <p className={cn("text-[20px] font-extrabold tabular-nums mt-1", b.danger ? "text-red-500" : b.accent ? "text-white" : "text-foreground")}>{b.value}</p>
+          </div>
+        ))}
+      </div>
+
+      {/* Landing Page Performance (left) + Top Locations map (right) */}
+      <div className="grid grid-cols-1 lg:grid-cols-2 gap-4 mb-5 items-stretch">
+        <Card title="Landing Page Performance" subtitle="GA4 sessions and engagement">
+          <div className="p-4">
+            {!(ga4?.connected && gt) ? (
+              <div className="py-10 text-center text-sm text-muted-foreground">No data{ga4 && !ga4.connected ? " - connect GA4 in Channel & Integrations" : ""}</div>
+            ) : (
+              <>
+                <div className="grid grid-cols-2 sm:grid-cols-4 gap-2.5">
+                  {([["Total users", fmtInt(gt.total_users)], ["Sessions", fmtInt(gt.sessions)], ["Views", fmtInt(gt.views)], ["New users", fmtInt(gt.new_users)], ["Engaged", fmtInt(gt.engaged_sessions)], ["Engagement", `${(gt.engagement_rate * 100).toFixed(1)}%`], ["Avg time", `${Math.floor(gt.avg_engagement_sec / 60)}:${String(Math.round(gt.avg_engagement_sec % 60)).padStart(2, "0")}`], ["Active users", fmtInt(gt.active_users)]] as [string, string][]).map(([l, v]) => (
+                    <div key={l} className="rounded-lg border border-border p-2.5">
+                      <p className="text-[17px] font-extrabold tabular-nums text-foreground">{v}</p>
+                      <p className="text-[10px] text-muted-foreground">{l}</p>
+                    </div>
+                  ))}
+                </div>
+                {ga4.rows.length > 0 && (
+                  <table className="w-full text-[12px] mt-3">
+                    <thead><tr className="text-muted-foreground border-b border-border">{["Landing page", "Views", "Sessions", "Eng."].map((h, i) => (<th key={h} className={cn("py-1.5 px-2 text-[10px] font-bold uppercase", i === 0 ? "text-left" : "text-right")}>{h}</th>))}</tr></thead>
+                    <tbody>{ga4.rows.slice(0, 6).map((r, i) => (<tr key={i} className="border-b border-border/60"><td className="py-1.5 px-2 max-w-[220px] truncate text-foreground">{r.landing_page || "(not set)"}</td><td className="py-1.5 px-2 text-right tabular-nums text-muted-foreground">{fmtInt(r.views)}</td><td className="py-1.5 px-2 text-right tabular-nums text-muted-foreground">{fmtInt(r.sessions)}</td><td className="py-1.5 px-2 text-right tabular-nums text-muted-foreground">{(r.engagement_rate * 100).toFixed(0)}%</td></tr>))}</tbody>
+                  </table>
+                )}
+              </>
+            )}
+          </div>
+        </Card>
+        <Card title="Top Locations" subtitle="Ad reach by province">
+          <div className="p-4">
+            {(perf?.region || []).filter((b) => (b.value || "").toLowerCase() !== "unknown").length === 0 ? (
+              <div className="py-10 text-center text-sm text-muted-foreground">No data</div>
+            ) : (
+              <div className="h-[300px]">
+                <IndonesiaMap points={(perf?.region || []).filter((b) => (b.value || "").toLowerCase() !== "unknown").map((b) => ({ name: b.value, value: b.impressions }))} isMoney={false} money={fmtInt} />
+              </div>
+            )}
+          </div>
+        </Card>
+      </div>
 
       </>
       ) : hasAccounts === false ? (

@@ -464,6 +464,32 @@ func (s *server) handleAdPerformance(w http.ResponseWriter, r *http.Request) {
 		}
 	}
 
+	// Daily leads split by the classified source -> the per-source stacked area.
+	// Same scope as the aggregate daily-leads query, plus the source classifier.
+	dsq := `SELECT created_at::date AS date, ` + sourceClassifyExpr("") + ` AS source, count(*)::bigint AS leads
+	          FROM conversations
+	         WHERE organization_id=$1 AND created_at::date BETWEEN $2 AND $3 AND campaign_id IS NOT NULL`
+	dsargs := []any{a.OrgID, from, to}
+	if len(campIDs) > 0 {
+		dsargs = append(dsargs, campIDs)
+		dsq += fmt.Sprintf(" AND campaign_id = ANY($%d::uuid[])", len(dsargs))
+	}
+	dsq += " GROUP BY 1, 2 ORDER BY 1"
+	dailySources, _ := s.queryMaps(r.Context(), dsq, dsargs...)
+
+	// Latest leads with a classified source -> the Latest Leads table
+	// (Date | Name | Phone | Channel | Source | Stage).
+	rlq := `SELECT cv.created_at, cv.contact_name, cv.contact_phone, cv.channel, ` + sourceClassifyExpr("cv") + ` AS source, st.name AS stage
+	          FROM conversations cv LEFT JOIN stages st ON st.id = cv.stage_id
+	         WHERE cv.organization_id=$1 AND cv.created_at::date BETWEEN $2 AND $3 AND cv.campaign_id IS NOT NULL`
+	rlargs := []any{a.OrgID, from, to}
+	if len(campIDs) > 0 {
+		rlargs = append(rlargs, campIDs)
+		rlq += fmt.Sprintf(" AND cv.campaign_id = ANY($%d::uuid[])", len(rlargs))
+	}
+	rlq += " ORDER BY cv.created_at DESC LIMIT 10"
+	recentLeads, _ := s.queryMaps(r.Context(), rlq, rlargs...)
+
 	// Per ad/creative: leads + conversions grouped by the click-to-WhatsApp ad id
 	// (conversation_attributions.referral_source). Spend stays campaign-level (Meta
 	// only syncs campaign insights), so this view is leads -> conversions only.
@@ -628,12 +654,14 @@ func (s *server) handleAdPerformance(w http.ResponseWriter, r *http.Request) {
 	writeJSON(w, map[string]any{
 		"from": from, "to": to,
 		"campaigns": campRows,
-		"daily":     dailyRows,
-		"creatives": creativeRows,
-		"sources":   sources,
-		"age":       age,
-		"gender":    gender,
-		"region":    region,
+		"daily":         dailyRows,
+		"creatives":     creativeRows,
+		"sources":       sources,
+		"daily_sources": dailySources,
+		"recent_leads":  recentLeads,
+		"age":           age,
+		"gender":        gender,
+		"region":        region,
 	})
 }
 
