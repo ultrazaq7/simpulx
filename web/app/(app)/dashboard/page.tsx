@@ -1545,14 +1545,14 @@ function MarketingAnalytics() {
                   <div className="relative flex-1 min-w-0">
                     <div className="absolute top-1/2 right-0 border-t border-dotted border-border" style={{ left: `calc(${50 + mid / 2}% + 5px)` }} />
                     <FunnelTrapezoid topPct={top} botPct={bot} fill={FUNNEL_RAMP[i]} color={last ? FUNNEL_RAMP[0] : "#fff"} h={FUNNEL_H}>
-                      <s.Icon className="w-[15px] h-[15px] opacity-90 shrink-0" />
+                      <s.Icon className="w-4 h-4 opacity-90 shrink-0" />
                       <div className="text-center min-w-0">
-                        <span className="text-[15px] font-extrabold tabular-nums leading-none">{s.value}</span>
-                        <span className="text-[9.5px] font-medium opacity-85 block mt-0.5">{s.label}</span>
+                        <span className="text-[16px] font-extrabold tabular-nums leading-none">{s.value}</span>
+                        <span className="text-[10px] font-medium opacity-85 block mt-0.5">{s.label}</span>
                       </div>
                     </FunnelTrapezoid>
                   </div>
-                  <span className="shrink-0 w-[58px] h-[30px] grid place-items-center rounded-lg border border-border bg-background text-[12px] font-bold tabular-nums text-foreground">
+                  <span className="shrink-0 w-[58px] h-[30px] grid place-items-center rounded-lg border border-border bg-background text-[12.5px] font-bold tabular-nums text-foreground">
                     {i === 0 ? "100%" : `${s.rate.toFixed(2)}%`}
                   </span>
                 </div>
