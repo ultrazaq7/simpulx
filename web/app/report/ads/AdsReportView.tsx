@@ -15,7 +15,7 @@ const num = (n: number) => Math.round(n || 0).toLocaleString("en-US");
 const money = (n: number) => "Rp " + Math.round(n || 0).toLocaleString("id-ID");
 const pct = (n: number) => (n || 0).toFixed(2) + "%";
 const MONTHS = ["Jan", "Feb", "Mar", "Apr", "May", "Jun", "Jul", "Aug", "Sep", "Oct", "Nov", "Dec"];
-const fmtDay = (iso: string) => { const m = /^(\d{4})-(\d{2})-(\d{2})/.exec(iso || ""); return m ? `${MONTHS[+m[2] - 1]} ${+m[3]}` : iso; };
+const fmtDay = (iso: string) => { const m = /^(\d{4})-(\d{2})-(\d{2})/.exec(iso || ""); return m ? `${MONTHS[+m[2] - 1]} ${+m[3]}, ${m[1]}` : iso; };
 const fmtSec = (s: number) => { const m = Math.floor((s || 0) / 60); const sec = Math.round((s || 0) % 60); return `${m}:${String(sec).padStart(2, "0")}`; };
 
 // Heroleads layout, Simpulx brand palette (green accent, not orange).
@@ -55,7 +55,10 @@ export function AdsReportView({ perf, keywords, leads, ga4, camps, campaigns, ra
   const cpl = tot.leads > 0 ? tot.spend / tot.leads : 0;
   const overallConv = tot.impressions > 0 ? (tot.purchases / tot.impressions) * 100 : 0;
 
-  const dailyPerf = (perf?.daily ?? []).map((d) => ({
+  // Skip all-zero days so the axes only span dates that actually have activity.
+  const activeDaily = (perf?.daily ?? []).filter((d) =>
+    (d.impressions || 0) + (d.clicks || 0) + (d.spend || 0) + (d.leads || 0) > 0);
+  const dailyPerf = activeDaily.map((d) => ({
     date: fmtDay(d.date), impressions: d.impressions > 0 ? d.impressions : null, clicks: d.clicks > 0 ? d.clicks : null, spend: Math.round(d.spend || 0),
   }));
   const sparse = dailyPerf.length <= 12; // show dots when there are few points so the line reads
@@ -85,7 +88,7 @@ export function AdsReportView({ perf, keywords, leads, ga4, camps, campaigns, ra
   const age = dem(perf?.age), gender = dem(perf?.gender);
   const demMax = (arr: AdBreakdown[]) => Math.max(1, ...arr.map((b) => b.impressions));
 
-  const dailyLeads = (perf?.daily ?? []).map((d) => ({ date: fmtDay(d.date), leads: d.leads }));
+  const dailyLeads = activeDaily.map((d) => ({ date: fmtDay(d.date), leads: d.leads }));
   const region = dem(perf?.region);
   const regionBySpend = region.some((b) => b.spend > 0);
   const mapPoints = region.map((b) => ({ name: b.value, value: regionBySpend ? b.spend : b.impressions }));
@@ -286,7 +289,7 @@ export function AdsReportView({ perf, keywords, leads, ga4, camps, campaigns, ra
                 const lvColor = lv === "hot" ? "#EF4444" : lv === "warm" ? "#F59E0B" : lv === "cold" ? "#3B82F6" : null;
                 return (
                   <tr key={l.id} style={{ borderBottom: "1px solid #eef2f7" }}>
-                    <td style={{ padding: "7px 10px", color: "#64748b" }}>{l.last_message_at ? new Date(l.last_message_at).toLocaleString("en-GB") : "-"}</td>
+                    <td style={{ padding: "7px 10px", color: "#64748b", whiteSpace: "nowrap" }}>{l.last_message_at ? new Date(l.last_message_at).toLocaleString("en-US", { month: "short", day: "numeric", year: "numeric", hour: "numeric", minute: "2-digit", second: "2-digit", hour12: true }) : "-"}</td>
                     <td style={{ padding: "7px 10px", fontWeight: 600 }}>{l.contact_name || "Unknown"}</td>
                     <td style={{ padding: "7px 10px", color: "#64748b" }}>{l.contact_phone || "-"}</td>
                     <td style={{ padding: "7px 10px", color: "#64748b", textTransform: "capitalize" }}>{l.channel || "-"}</td>

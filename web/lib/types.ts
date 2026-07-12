@@ -375,6 +375,7 @@ export interface AdKeyword {
 }
 export interface AdPerfDailySource { date: string; source: string; leads: number; impressions?: number; clicks?: number; spend?: number }
 export interface AdPerfRecentLead {
+  conversation_id: string;
   created_at: string;
   contact_name: string | null;
   contact_phone: string | null;

@@ -1,6 +1,7 @@
 "use client";
 import { useEffect, useState, useMemo, useRef, useCallback, useId } from "react";
 import Link from "next/link";
+import { useRouter } from "next/navigation";
 import {
   AreaChart, Area, XAxis, YAxis, CartesianGrid, Tooltip as RechartsTooltip,
   Legend, ResponsiveContainer, LineChart, Line, PieChart, Pie, Cell, BarChart, Bar, LabelList,
@@ -185,6 +186,13 @@ function Delta({ cur, prev, higherIsBetter = true as boolean | null, className }
     </span>
   );
 }
+
+// Chart axis / pivot date label: "Jul 4, 2026" (user-standard report format).
+const CHART_MONTHS = ["Jan", "Feb", "Mar", "Apr", "May", "Jun", "Jul", "Aug", "Sep", "Oct", "Nov", "Dec"];
+const chartDay = (iso: string) => {
+  const dt = new Date(iso);
+  return isNaN(dt.getTime()) ? iso : `${CHART_MONTHS[dt.getMonth()]} ${dt.getDate()}, ${dt.getFullYear()}`;
+};
 
 // One marketing-funnel stage: a trapezoid with rounded corners, drawn as an SVG
 // path (clip-path polygons can't round corners). Width is measured so the corner
@@ -1136,6 +1144,7 @@ function LocationPerformance({ data, currency }: { data?: AdBreakdown[]; currenc
 }
 
 function MarketingAnalytics() {
+  const router = useRouter();
   // Same date filter as the Overview tab (preset keys + custom range).
   const [dateRange, setDateRange] = useState("30d");
   const [fFrom, setFFrom] = useState(() => presetRange("30d").from);
@@ -1241,13 +1250,14 @@ function MarketingAnalytics() {
 
   const ctrPct = t.impressions > 0 ? (t.clicks / t.impressions) * 100 : 0;
 
-  const daily = (perf?.daily || []).map((d) => {
-    const dt = new Date(d.date);
-    return {
-      date: isNaN(dt.getTime()) ? d.date : `${String(dt.getDate()).padStart(2, "0")}/${String(dt.getMonth() + 1).padStart(2, "0")}`,
-      spend: d.spend || 0, impressions: d.impressions || 0, reach: d.reach || 0, clicks: d.clicks || 0, leads: d.leads || 0, sales: d.sales || 0,
-    };
-  }).reverse(); // chart reads left (oldest) -> right (newest)
+  // Only days with actual activity chart; all-zero rows (no delivery, no leads)
+  // would just stretch the axis with dead dates.
+  const activeDaily = (perf?.daily || []).filter((d) =>
+    (d.impressions || 0) + (d.clicks || 0) + (d.spend || 0) + (d.leads || 0) + (d.sales || 0) > 0);
+  const daily = activeDaily.map((d) => ({
+    date: chartDay(d.date),
+    spend: d.spend || 0, impressions: d.impressions || 0, reach: d.reach || 0, clicks: d.clicks || 0, leads: d.leads || 0, sales: d.sales || 0,
+  })).reverse(); // chart reads left (oldest) -> right (newest)
 
   // Clicks vs Impressions per day (log line needs positive values -> null for 0).
   const dailyLog = daily.map((d) => ({ date: d.date, impressions: d.impressions > 0 ? d.impressions : null, clicks: d.clicks > 0 ? d.clicks : null }));
@@ -1333,6 +1343,7 @@ function MarketingAnalytics() {
       : { Icon: TrendingDown, color: "#EF4444", tint: true, title: `CTR ${ctrPct.toFixed(2)}%`, desc: `is below the ${CTR_BENCH.toFixed(2)}% benchmark. Consider refreshing creatives.` });
   }
   if (t.leads > 0) insights.push({ Icon: Target, color: "#6366F1", tint: true, title: `CPL ${money(cpl)}`, desc: "average cost per lead in this range." });
+  if (t.leads > 0 && t.sales > 0) insights.push({ Icon: Trophy, color: "#059669", tint: true, title: `Lead to purchase ${convRate.toFixed(1)}%`, desc: `${fmtInt(t.sales)} of ${fmtInt(t.leads)} leads purchased.` });
   if (t.leads > 0 && t.sales === 0) insights.push({ Icon: AlertTriangle, color: "#F59E0B", title: "No conversions yet.", desc: "Consider optimizing the landing page or follow-up process." });
   if (topSrc) insights.push({ Icon: Award, color: "#0EA5E9", title: "Top performing source", desc: `${topSrc.label} (${topSrc.cvr.toFixed(2)}% CVR).` });
 
@@ -1346,20 +1357,18 @@ function MarketingAnalytics() {
   // Monthly Leads Performance Breakdown: pivot daily_sources into one series per source.
   const SRC_LABELS: Record<string, string> = { meta_ads: "Meta Ads", tiktok_ads: "TikTok Ads", google_ads: "Google Ads", website: "Website", direct: "Direct" };
   const SRC_COLORS: Record<string, string> = { meta_ads: "#2D8B73", tiktok_ads: "#111827", google_ads: "#EA4335", website: "#6366F1", direct: "#94A3B8" };
-  const dayLabel = (iso: string) => { const dt = new Date(iso); return isNaN(dt.getTime()) ? iso : `${String(dt.getDate()).padStart(2, "0")}/${String(dt.getMonth() + 1).padStart(2, "0")}`; };
   const leadSourceKeys = Array.from(new Set((perf?.daily_sources || []).map((r) => r.source)));
-  // Pivot over the FULL daily timeline (not just dates that have leads) and
-  // zero-fill every source, so bars sit on a complete axis instead of a sparse
-  // one (sparse rows made stacked areas float as disconnected blobs).
+  // Pivot over the ACTIVE daily timeline (dead dates dropped) and zero-fill every
+  // source, so lines run continuously without floating fragments or dead tails.
   const leadsBySource = (() => {
     const byDate = new Map<string, Record<string, number>>();
-    for (const d of perf?.daily || []) if (!byDate.has(d.date)) byDate.set(d.date, {});
+    for (const d of activeDaily) if (!byDate.has(d.date)) byDate.set(d.date, {});
     for (const r of perf?.daily_sources || []) {
       if (!byDate.has(r.date)) byDate.set(r.date, {});
       byDate.get(r.date)![r.source] = (byDate.get(r.date)![r.source] || 0) + r.leads;
     }
     return Array.from(byDate.entries()).sort((a, b) => a[0].localeCompare(b[0]))
-      .map(([date, m]) => ({ date: dayLabel(date), ...Object.fromEntries(leadSourceKeys.map((k) => [k, m[k] || 0])) }));
+      .map(([date, m]) => ({ date: chartDay(date), ...Object.fromEntries(leadSourceKeys.map((k) => [k, m[k] || 0])) }));
   })();
   const recentLeads = perf?.recent_leads || [];
 
@@ -1522,8 +1531,8 @@ function MarketingAnalytics() {
       </div>
 
       {/* Funnel (left column) beside Source performance (right).
-          Column tracks the reference proportion (~36%) with a 380px floor. */}
-      <div className="grid grid-cols-1 lg:grid-cols-[minmax(380px,36%)_1fr] gap-4 mb-5 items-start">
+          Column tracks the reference proportion (~40%) with a 420px floor. */}
+      <div className="grid grid-cols-1 lg:grid-cols-[minmax(420px,40%)_1fr] gap-4 mb-5 items-start">
       <div className="flex flex-col gap-4">
       {/* Marketing funnel card with info tooltip + 3-dot menu */}
       <div className="bg-card rounded-xl border border-border shadow-xs overflow-hidden">
@@ -1589,7 +1598,7 @@ function MarketingAnalytics() {
           <table className="w-full text-xs">
             <thead>
               <tr className="bg-muted/40 border-b border-border">
-                {["Source", "Cost", "Impressions", "Clicks", "CTR", "CPC", "Leads", "CPL", "Purchase", "CVR"].map((h, i) => (
+                {["Source", "Cost", "Impressions", "Clicks", "CTR", "CPC", "Leads", "CPL", "CVR"].map((h, i) => (
                   <th key={h} className={cn("px-2.5 py-2 text-[10px] font-bold uppercase tracking-wider text-muted-foreground whitespace-nowrap", i === 0 ? "text-left" : "text-right")}>{h}</th>
                 ))}
               </tr>
@@ -1629,7 +1638,6 @@ function MarketingAnalytics() {
                         )}
                       </td>
                       <td className="px-2.5 py-2 text-right tabular-nums text-foreground/80 whitespace-nowrap">{s.leads > 0 ? money(cpl) : "-"}</td>
-                      <td className="px-2.5 py-2 text-right tabular-nums font-semibold text-foreground">{fmtInt(s.purchases)}</td>
                       <td className="px-2.5 py-2 text-right">
                         <span className={cn("inline-flex px-1.5 py-0.5 rounded-md text-[10.5px] font-bold tabular-nums", s.cvr > 0 ? "bg-primary text-white" : "bg-muted text-muted-foreground")}>{s.cvr.toFixed(2)}%</span>
                       </td>
@@ -1650,7 +1658,6 @@ function MarketingAnalytics() {
                 <td className="px-2.5 py-2.5 text-right tabular-nums whitespace-nowrap">{srcTotals.clicks > 0 ? money(srcTotals.spend / srcTotals.clicks) : "-"}</td>
                 <td className="px-2.5 py-2.5 text-right tabular-nums">{fmtInt(srcTotals.leads)}</td>
                 <td className="px-2.5 py-2.5 text-right tabular-nums whitespace-nowrap">{srcTotals.leads > 0 ? money(srcTotals.spend / srcTotals.leads) : "-"}</td>
-                <td className="px-2.5 py-2.5 text-right tabular-nums">{fmtInt(srcTotals.purchases)}</td>
                 <td className="px-2.5 py-2.5 text-right">
                   {(() => { const gcvr = srcTotals.clicks > 0 ? (srcTotals.leads / srcTotals.clicks) * 100 : 0; return (
                     <span className={cn("inline-flex px-1.5 py-0.5 rounded-md text-[10.5px] font-bold tabular-nums", gcvr > 0 ? "bg-primary text-white" : "bg-muted text-muted-foreground")}>{gcvr.toFixed(2)}%</span>
@@ -1870,8 +1877,9 @@ function MarketingAnalytics() {
                   </div>
                 </td></tr>
               ) : recentLeads.map((l, i) => (
-                <tr key={i} className="border-b border-border/60">
-                  <td className="px-3 py-2 text-muted-foreground whitespace-nowrap">{l.created_at ? new Date(l.created_at).toLocaleString("en-GB") : "-"}</td>
+                <tr key={i} onClick={() => l.conversation_id && router.push(`/inbox?c=${l.conversation_id}`)}
+                  className="border-b border-border/60 cursor-pointer hover:bg-muted/40 transition-colors">
+                  <td className="px-3 py-2 text-muted-foreground whitespace-nowrap">{l.created_at ? new Date(l.created_at).toLocaleString("en-US", { month: "short", day: "numeric", year: "numeric", hour: "numeric", minute: "2-digit", second: "2-digit", hour12: true }) : "-"}</td>
                   <td className="px-3 py-2 font-semibold text-foreground">{l.contact_name || "Unknown"}</td>
                   <td className="px-3 py-2 text-muted-foreground tabular-nums">{l.contact_phone || "-"}</td>
                   <td className="px-3 py-2 text-muted-foreground capitalize">{l.channel || "-"}</td>

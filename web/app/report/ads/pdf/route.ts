@@ -107,7 +107,11 @@ export async function POST(req: NextRequest) {
     });
     // Let the layout settle after DOM surgery + any final chart paint.
     await new Promise((r) => setTimeout(r, 600));
-    const pdf = await page.pdf({ printBackground: true, format: "A4", margin: { top: "10mm", bottom: "10mm", left: "8mm", right: "8mm" } });
+    // scale: the template lays out at a fixed 980px (+2x16px body padding) but the
+    // A4 printable width at these margins is only ~733 CSS px, and Chromium's
+    // page.pdf does NOT auto-fit -- without scaling the right ~28% of every page
+    // was simply clipped off. 733 / 1012 ≈ 0.72.
+    const pdf = await page.pdf({ printBackground: true, format: "A4", scale: 0.72, margin: { top: "10mm", bottom: "10mm", left: "8mm", right: "8mm" } });
     return new NextResponse(Buffer.from(pdf), {
       headers: { "Content-Type": "application/pdf", "Content-Disposition": 'attachment; filename="ads-report.pdf"', "Cache-Control": "no-store" },
     });
