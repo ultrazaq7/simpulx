@@ -42,6 +42,7 @@ recovered_shell.txt
 shell_*.txt
 test_stats.go
 flow_backup.txt
+translations/i18n_apply_report.txt
 data-train/
 data/train_out/
 .build_ai.log
