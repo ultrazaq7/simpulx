@@ -97,7 +97,6 @@ export function AdsReportView({ perf, keywords, leads, ga4, camps, campaigns, ra
 
   const dem = (arr?: AdBreakdown[]) => (arr || []).filter((b) => (b.value || "").toLowerCase() !== "unknown");
   const age = dem(perf?.age), gender = dem(perf?.gender);
-  const demMax = (arr: AdBreakdown[]) => Math.max(1, ...arr.map((b) => b.impressions));
 
   const dailyLeads = activeDaily.map((d) => ({ date: fmtDay(d.date), leads: d.leads }));
   const region = dem(perf?.region);
@@ -227,22 +226,28 @@ export function AdsReportView({ perf, keywords, leads, ga4, camps, campaigns, ra
           )}
         </Section>
         <Section title="Age Demography" legend={[[NAVY, "Impressions"], [GREEN_DK, "Clicks"]]}>
-          {age.length === 0 ? <EmptyNote text="No age breakdown in this range." /> : (
-            <div style={{ display: "flex", flexDirection: "column", gap: 8 }}>
-              {age.map((b) => {
-                const aMaxClicks = Math.max(1, ...age.map((x) => x.clicks));
-                return (
+          {age.length === 0 ? <EmptyNote text="No age breakdown in this range." /> : (() => {
+            // Shares (%) on one comparable scale, matching the dashboard: raw
+            // impressions vs clicks are on two different magnitudes.
+            const totImp = age.reduce((a, b) => a + b.impressions, 0) || 1;
+            const totClk = age.reduce((a, b) => a + b.clicks, 0) || 1;
+            const iShare = (b: AdBreakdown) => (b.impressions / totImp) * 100;
+            const cShare = (b: AdBreakdown) => (b.clicks / totClk) * 100;
+            const maxShare = Math.max(1, ...age.map(iShare), ...age.map(cShare));
+            return (
+              <div style={{ display: "flex", flexDirection: "column", gap: 8 }}>
+                {age.map((b) => (
                   <div key={b.value} style={{ display: "grid", gridTemplateColumns: "56px 1fr", gap: 8, alignItems: "center" }}>
                     <span style={{ fontSize: 10 }}>{b.value}</span>
                     <div>
-                      <div style={{ display: "flex", alignItems: "center", gap: 6 }}><div style={{ height: 9, borderRadius: 2, background: NAVY, width: `${(b.impressions / demMax(age)) * 100}%` }} /><span style={{ fontSize: 9, color: "#64748b" }}>{num(b.impressions)}</span></div>
-                      <div style={{ display: "flex", alignItems: "center", gap: 6, marginTop: 2 }}><div style={{ height: 9, borderRadius: 2, background: GREEN_DK, width: `${(b.clicks / aMaxClicks) * 100}%` }} /><span style={{ fontSize: 9, color: "#64748b" }}>{num(b.clicks)}</span></div>
+                      <div style={{ display: "flex", alignItems: "center", gap: 6 }}><div style={{ height: 9, borderRadius: 2, background: NAVY, width: `${(iShare(b) / maxShare) * 100}%` }} /><span style={{ fontSize: 9, color: "#64748b" }}>{iShare(b).toFixed(1)}%</span></div>
+                      <div style={{ display: "flex", alignItems: "center", gap: 6, marginTop: 2 }}><div style={{ height: 9, borderRadius: 2, background: GREEN_DK, width: `${(cShare(b) / maxShare) * 100}%` }} /><span style={{ fontSize: 9, color: "#64748b" }}>{cShare(b).toFixed(1)}%</span></div>
                     </div>
                   </div>
-                );
-              })}
-            </div>
-          )}
+                ))}
+              </div>
+            );
+          })()}
         </Section>
       </div>
 

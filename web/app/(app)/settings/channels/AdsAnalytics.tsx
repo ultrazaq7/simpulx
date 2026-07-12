@@ -97,8 +97,8 @@ export function AdsAnalytics() {
   );
 
   return (
-    <div className="px-6 py-6 w-full">
-      <div className="bg-card border border-border rounded-lg shadow-xs overflow-hidden flex flex-col">
+    <div className="px-6 py-6 w-full h-full flex flex-col min-h-0">
+      <div className="bg-card border border-border rounded-lg shadow-xs overflow-hidden flex-1 min-h-0 flex flex-col">
         {/* Toolbar */}
         <div className="p-3 flex items-center gap-2.5 border-b border-border flex-wrap shrink-0">
           <div className="relative w-[240px]">
@@ -111,7 +111,7 @@ export function AdsAnalytics() {
           {connectBtn}
         </div>
 
-        <div className="p-4">
+        <div className="p-4 flex-1 min-h-0 overflow-y-auto">
           {loading ? (
             <div className="h-40 grid place-items-center"><Loader2 className="w-6 h-6 animate-spin text-primary" /></div>
           ) : total === 0 ? (

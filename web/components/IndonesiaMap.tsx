@@ -205,7 +205,6 @@ export function IndonesiaMap({ points, isMoney, money }: { points: MapPoint[]; i
           <div className="w-2.5 h-2.5 bg-[#356B5A]/90 rotate-45 mx-auto -mt-[5px] rounded-[2px]" />
         </div>
       )}
-      <div className="pointer-events-none absolute bottom-2 right-2 text-[10px] font-medium text-muted-foreground/70 bg-card/70 backdrop-blur-sm rounded px-1.5 py-0.5">drag to pan · scroll to zoom</div>
     </div>
   );
 }

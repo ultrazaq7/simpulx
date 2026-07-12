@@ -751,7 +751,7 @@ function ManagerDashboard({ initialTab }: { initialTab: ReportTab }) {
   const agents = analytics?.agents || [];
   const chartData = buildChartData(analytics, true); // all days; bounded by the date filter when applied
 
-  const reportNav = [{ key: "overview" as const, label: "Overview" }, { key: "marketing" as const, label: "Campaign Performance" }, { key: "creatives" as const, label: "Creative Insights" }];
+  const reportNav = [{ key: "overview" as const, label: "General Report" }, { key: "marketing" as const, label: "Campaign Performance" }, { key: "creatives" as const, label: "Creative Insights" }];
 
   return (
     <div className="relative flex flex-col lg:flex-row h-full min-h-0">
@@ -2231,9 +2231,10 @@ function CreativeReport() {
                   <div className="min-w-0 flex-1">
                     <div className="flex items-center gap-2">
                       <span className="inline-flex items-center justify-center w-5 h-5 rounded-md bg-primary/[0.12] text-primary text-[11px] font-bold shrink-0">{i + 1}</span>
-                      <p className="text-[13.5px] font-semibold text-foreground truncate" title={`Ad ID ${cr.source_id}`}>{name(cr)}</p>
+                      <p className="text-[13.5px] font-semibold text-foreground truncate">{name(cr)}</p>
                       {badge && <span className={cn("inline-flex px-2 py-0.5 rounded-full text-[10px] font-bold shrink-0", badge.cls)}>{badge.t}</span>}
                     </div>
+                    <p className="text-[11px] text-muted-foreground truncate mt-0.5">Ad ID {cr.source_id}</p>
                     {cr.body && <p className="text-[11px] text-muted-foreground/80 line-clamp-2 mt-1">{cr.body}</p>}
                   </div>
                 </div>

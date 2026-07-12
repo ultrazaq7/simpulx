@@ -113,7 +113,7 @@ export async function POST(req: NextRequest) {
     // was simply clipped off. 733 / 1012 ≈ 0.72.
     // Top margin 14mm: sections pushed to a new page by break-inside:avoid lose
     // their CSS margin at the break, so the page margin alone provides the gap.
-    const pdf = await page.pdf({ printBackground: true, format: "A4", scale: 0.72, margin: { top: "14mm", bottom: "12mm", left: "8mm", right: "8mm" } });
+    const pdf = await page.pdf({ printBackground: true, format: "A4", scale: 0.72, margin: { top: "18mm", bottom: "14mm", left: "8mm", right: "8mm" } });
     return new NextResponse(Buffer.from(pdf), {
       headers: { "Content-Type": "application/pdf", "Content-Disposition": 'attachment; filename="ads-report.pdf"', "Cache-Control": "no-store" },
     });
