@@ -7,6 +7,7 @@
 // GREEN (#2D8B73) accent for table headers / bars / budget, a green stacked funnel,
 // heatmap table (Leads green, CPL yellow), dense charts.
 import { LineChart, Line, AreaChart, Area, BarChart, Bar, XAxis, YAxis, CartesianGrid, ResponsiveContainer } from "recharts";
+import { Eye, MousePointerClick, Percent, Users, ShoppingCart } from "lucide-react";
 import { IndonesiaMap } from "@/components/IndonesiaMap";
 import type { AdPerformance, AdPerfSource, AdKeyword, Conversation, AdBreakdown, Ga4Report, Campaign } from "@/lib/types";
 
@@ -23,8 +24,9 @@ const GREEN_DK = "#1E5C4C";     // deep green: chart "clicks" line/bars
 const NAVY = "#0b1220";          // header / chart "impressions" line
 const MAGENTA = "#FF1E6F";       // gender: female
 const BLUE = "#1565D8";          // gender: male
-// On-brand green funnel ramp (dark -> light as it narrows).
-const FUNNEL = ["#14503C", "#1E7A5F", "#2D8B73", "#5FB89E"];
+// On-brand green funnel ramp (dark -> light as it narrows) — same ramp as the
+// dashboard Marketing funnel; the last (mint) step takes dark text.
+const FUNNEL = ["#1E5C4C", "#26735F", "#2D8B73", "#4DA184", "#CBE7DB"];
 const CANVAS = "#eceff3";
 const PANEL = "0 1px 3px rgba(15,23,42,.10), 0 1px 2px rgba(15,23,42,.06)";
 const clamp = (t: number) => Math.max(0, Math.min(1, t || 0));
@@ -46,10 +48,12 @@ export function AdsReportView({ perf, keywords, leads, ga4, camps, campaigns, ra
   const sources = perf?.sources ?? [];
   const tot = sources.reduce((a, s) => ({
     spend: a.spend + s.spend, impressions: a.impressions + s.impressions, clicks: a.clicks + s.clicks, leads: a.leads + s.leads,
-  }), { spend: 0, impressions: 0, clicks: 0, leads: 0 });
+    purchases: a.purchases + (s.purchases || 0),
+  }), { spend: 0, impressions: 0, clicks: 0, leads: 0, purchases: 0 });
   const ctr = tot.impressions > 0 ? (tot.clicks / tot.impressions) * 100 : 0;
   const cpc = tot.clicks > 0 ? tot.spend / tot.clicks : 0;
   const cpl = tot.leads > 0 ? tot.spend / tot.leads : 0;
+  const overallConv = tot.impressions > 0 ? (tot.purchases / tot.impressions) * 100 : 0;
 
   const dailyPerf = (perf?.daily ?? []).map((d) => ({
     date: fmtDay(d.date), impressions: d.impressions > 0 ? d.impressions : null, clicks: d.clicks > 0 ? d.clicks : null, spend: Math.round(d.spend || 0),
@@ -67,12 +71,14 @@ export function AdsReportView({ perf, keywords, leads, ga4, camps, campaigns, ra
   const cplVals = sources.filter((s) => s.leads > 0).map(srcCpl);
   const maxCpl = Math.max(1, ...cplVals), minCpl = Math.min(...(cplVals.length ? cplVals : [0]));
 
-  // Stacked funnel bars that narrow by step (the original look), on a green ramp.
-  const funnel = [
-    { label: "IMPRESSIONS", value: num(tot.impressions), w: 100, c: FUNNEL[0] },
-    { label: "CLICKS", value: num(tot.clicks), w: 80, c: FUNNEL[1] },
-    { label: "CTR%", value: pct(ctr), w: 62, c: FUNNEL[2] },
-    { label: "LEADS", value: num(tot.leads), w: 46, c: FUNNEL[3] },
+  // Same 5-step funnel as the dashboard Marketing funnel: pointy rounded
+  // trapezoids + conversion pills + overall footer.
+  const funnelSteps = [
+    { label: "Impressions", value: num(tot.impressions), rate: "100%", Icon: Eye },
+    { label: "Clicks", value: num(tot.clicks), rate: pct(tot.impressions > 0 ? (tot.clicks / tot.impressions) * 100 : 0), Icon: MousePointerClick },
+    { label: "CTR", value: pct(ctr), rate: pct(ctr), Icon: Percent },
+    { label: "Leads", value: num(tot.leads), rate: pct(tot.clicks > 0 ? (tot.leads / tot.clicks) * 100 : 0), Icon: Users },
+    { label: "Purchases", value: num(tot.purchases), rate: pct(tot.leads > 0 ? (tot.purchases / tot.leads) * 100 : 0), Icon: ShoppingCart },
   ];
 
   const dem = (arr?: AdBreakdown[]) => (arr || []).filter((b) => (b.value || "").toLowerCase() !== "unknown");
@@ -109,16 +115,28 @@ export function AdsReportView({ perf, keywords, leads, ga4, camps, campaigns, ra
         <div style={{ justifySelf: "end", fontSize: 12, background: "rgba(255,255,255,.1)", border: "1px solid rgba(255,255,255,.2)", padding: "6px 12px", borderRadius: 6, whiteSpace: "nowrap" }}>{rangeLabel}</div>
       </div>
 
+      {/* KPI summary — mirrors the dashboard Ads Report KPI row */}
+      <div style={{ display: "grid", gridTemplateColumns: "repeat(6,1fr)", gap: 12, marginTop: 14 }}>
+        {([["Ad spend", money(tot.spend)], ["Impressions", num(tot.impressions)], ["Clicks", num(tot.clicks)],
+          ["Leads", num(tot.leads)], ["Cost / lead", tot.leads > 0 ? money(cpl) : "-"], ["Purchases", num(tot.purchases)]] as [string, string][]).map(([l, v]) => (
+          <div key={l} style={{ background: "#fff", borderRadius: 10, boxShadow: PANEL, padding: "11px 13px" }}>
+            <div style={{ fontSize: 9.5, fontWeight: 700, color: "#64748b", textTransform: "uppercase", letterSpacing: 0.5, whiteSpace: "nowrap" }}>{l}</div>
+            <div style={{ fontSize: 18, fontWeight: 800, marginTop: 4, whiteSpace: "nowrap" }}>{v}</div>
+          </div>
+        ))}
+      </div>
+
       {/* Funnel + Campaign performance table */}
-      <div style={{ display: "grid", gridTemplateColumns: "220px 1fr", gap: 14, marginTop: 14 }}>
-        <div style={{ display: "flex", flexDirection: "column", alignItems: "center", gap: 7 }}>
-          {funnel.map((f) => (
-            <div key={f.label} style={{ width: `${f.w}%`, background: f.c, color: "#fff", borderRadius: 9, padding: "13px 8px", textAlign: "center", boxShadow: PANEL }}>
-              <div style={{ fontSize: 10.5, fontWeight: 700, opacity: 0.92, letterSpacing: 0.5 }}>{f.label}</div>
-              <div style={{ fontSize: 23, fontWeight: 800, lineHeight: 1.05 }}>{f.value}</div>
-            </div>
-          ))}
-        </div>
+      <div style={{ display: "grid", gridTemplateColumns: "320px 1fr", gap: 14, marginTop: 14, alignItems: "start" }}>
+        <Panel>
+          <div style={{ fontSize: 13, fontWeight: 700 }}>Marketing Funnel</div>
+          <div style={{ fontSize: 10.5, color: "#64748b", marginTop: 2, marginBottom: 12 }}>Impression to purchase conversion</div>
+          <PdfFunnel steps={funnelSteps} width={292} />
+          <div style={{ marginTop: 12, display: "flex", alignItems: "center", justifyContent: "space-between", gap: 8, background: "#f8fafc", border: "1px solid #eef2f6", borderRadius: 8, padding: "8px 12px" }}>
+            <span style={{ fontSize: 10, color: "#64748b" }}>Overall conversion rate from impression to purchase</span>
+            <span style={{ fontSize: 12, fontWeight: 800, whiteSpace: "nowrap" }}>{pct(overallConv)}</span>
+          </div>
+        </Panel>
 
         <Panel pad={false}>
           <div style={{ padding: "10px 14px", fontSize: 13, fontWeight: 700 }}>Campaign Performance</div>
@@ -162,7 +180,7 @@ export function AdsReportView({ perf, keywords, leads, ga4, camps, campaigns, ra
       </div>
 
       {/* Campaign Performance Breakdown (log) */}
-      <Section title="Campaign Performance Breakdown" legend={[[GREEN_DK, "Clicks"], [NAVY, "Impressions"]]}>
+      <Section mt title="Campaign Performance Breakdown" legend={[[GREEN_DK, "Clicks"], [NAVY, "Impressions"]]}>
         <div style={{ height: 220 }}>
           <ResponsiveContainer width="100%" height="100%">
             <LineChart data={dailyPerf} margin={{ top: 6, right: 8, left: -4, bottom: 0 }}>
@@ -179,8 +197,8 @@ export function AdsReportView({ perf, keywords, leads, ga4, camps, campaigns, ra
 
       {/* Google top keywords + Age demography */}
       <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 14, marginTop: 12 }}>
-        {kw.length > 0 && (
-          <Section title="Google Top 10 Search Keywords" legend={[[GREEN_DK, "Clicks"], [NAVY, "Impressions"]]}>
+        <Section title="Google Top 10 Search Keywords" legend={[[GREEN_DK, "Clicks"], [NAVY, "Impressions"]]}>
+          {kw.length === 0 ? <EmptyNote text="No Google keyword data in this range." /> : (
             <div style={{ display: "flex", flexDirection: "column", gap: 7 }}>
               {kw.map((k, i) => (
                 <div key={k.keyword + i} style={{ display: "grid", gridTemplateColumns: "110px 1fr", gap: 8, alignItems: "center" }}>
@@ -192,10 +210,10 @@ export function AdsReportView({ perf, keywords, leads, ga4, camps, campaigns, ra
                 </div>
               ))}
             </div>
-          </Section>
-        )}
-        {age.length > 0 && (
-          <Section title="Age Demography" legend={[[NAVY, "Impressions"], [GREEN_DK, "Clicks"]]}>
+          )}
+        </Section>
+        <Section title="Age Demography" legend={[[NAVY, "Impressions"], [GREEN_DK, "Clicks"]]}>
+          {age.length === 0 ? <EmptyNote text="No age breakdown in this range." /> : (
             <div style={{ display: "flex", flexDirection: "column", gap: 8 }}>
               {age.map((b) => {
                 const aMaxClicks = Math.max(1, ...age.map((x) => x.clicks));
@@ -210,14 +228,14 @@ export function AdsReportView({ perf, keywords, leads, ga4, camps, campaigns, ra
                 );
               })}
             </div>
-          </Section>
-        )}
+          )}
+        </Section>
       </div>
 
       {/* Gender demography + Monthly leads breakdown */}
-      <div style={{ display: "grid", gridTemplateColumns: gender.length > 0 ? "300px 1fr" : "1fr", gap: 14, marginTop: 12 }}>
-        {gender.length > 0 && (
-          <Section title="Gender Demography">
+      <div style={{ display: "grid", gridTemplateColumns: "300px 1fr", gap: 14, marginTop: 12 }}>
+        <Section title="Gender Demography">
+          {gender.length === 0 ? <EmptyNote text="No gender breakdown in this range." /> : (
             <div style={{ display: "flex", flexDirection: "column", gap: 8 }}>
               {gender.map((b) => {
                 const total = gender.reduce((a, x) => a + x.impressions, 0) || 1;
@@ -234,10 +252,10 @@ export function AdsReportView({ perf, keywords, leads, ga4, camps, campaigns, ra
                 );
               })}
             </div>
-          </Section>
-        )}
-        {dailyLeads.length > 0 && (
-          <Section title="Monthly Leads Performance Breakdown">
+          )}
+        </Section>
+        <Section title="Monthly Leads Performance Breakdown">
+          {dailyLeads.length === 0 ? <EmptyNote text="No lead data in this range." /> : (
             <div style={{ height: 200 }}>
               <ResponsiveContainer width="100%" height="100%">
                 <AreaChart data={dailyLeads} margin={{ top: 6, right: 8, left: -18, bottom: 0 }}>
@@ -249,37 +267,46 @@ export function AdsReportView({ perf, keywords, leads, ga4, camps, campaigns, ra
                 </AreaChart>
               </ResponsiveContainer>
             </div>
-          </Section>
-        )}
+          )}
+        </Section>
       </div>
 
       {/* Latest leads */}
-      {leads.length > 0 && (
-        <Section title="Latest Leads">
+      <Section mt title="Latest Leads">
+        {leads.length === 0 ? <EmptyNote text="No leads in this range." /> : (
           <table style={{ width: "100%", borderCollapse: "collapse", fontSize: 11.5 }}>
             <thead>
               <tr style={{ background: GREEN, color: "#fff" }}>
-                {["DATE", "NAME", "PHONE", "SOURCE", "STATUS"].map((h) => (<th key={h} style={{ padding: "7px 10px", textAlign: "left", fontSize: 10, fontWeight: 700 }}>{h}</th>))}
+                {["DATE", "NAME", "PHONE", "SOURCE", "STATUS", "INTEREST"].map((h) => (<th key={h} style={{ padding: "7px 10px", textAlign: "left", fontSize: 10, fontWeight: 700 }}>{h}</th>))}
               </tr>
             </thead>
             <tbody>
-              {leads.slice(0, 10).map((l) => (
-                <tr key={l.id} style={{ borderBottom: "1px solid #eef2f7" }}>
-                  <td style={{ padding: "7px 10px", color: "#64748b" }}>{l.last_message_at ? new Date(l.last_message_at).toLocaleString("en-GB") : "-"}</td>
-                  <td style={{ padding: "7px 10px", fontWeight: 600 }}>{l.contact_name || "Unknown"}</td>
-                  <td style={{ padding: "7px 10px", color: "#64748b" }}>{l.contact_phone || "-"}</td>
-                  <td style={{ padding: "7px 10px", color: "#64748b", textTransform: "capitalize" }}>{l.channel || "-"}</td>
-                  <td style={{ padding: "7px 10px" }}>{l.stage_name || l.status}</td>
-                </tr>
-              ))}
+              {leads.slice(0, 10).map((l) => {
+                const lv = (l.interest_level || "").toLowerCase();
+                const lvColor = lv === "hot" ? "#EF4444" : lv === "warm" ? "#F59E0B" : lv === "cold" ? "#3B82F6" : null;
+                return (
+                  <tr key={l.id} style={{ borderBottom: "1px solid #eef2f7" }}>
+                    <td style={{ padding: "7px 10px", color: "#64748b" }}>{l.last_message_at ? new Date(l.last_message_at).toLocaleString("en-GB") : "-"}</td>
+                    <td style={{ padding: "7px 10px", fontWeight: 600 }}>{l.contact_name || "Unknown"}</td>
+                    <td style={{ padding: "7px 10px", color: "#64748b" }}>{l.contact_phone || "-"}</td>
+                    <td style={{ padding: "7px 10px", color: "#64748b", textTransform: "capitalize" }}>{l.channel || "-"}</td>
+                    <td style={{ padding: "7px 10px" }}>{l.stage_name || l.status}</td>
+                    <td style={{ padding: "7px 10px" }}>
+                      {lvColor ? (
+                        <span style={{ display: "inline-block", padding: "2px 9px", borderRadius: 999, fontSize: 10, fontWeight: 700, textTransform: "capitalize", color: lvColor, background: lvColor + "1a" }}>{lv}</span>
+                      ) : <span style={{ color: "#94a3b8" }}>-</span>}
+                    </td>
+                  </tr>
+                );
+              })}
             </tbody>
           </table>
-        </Section>
-      )}
+        )}
+      </Section>
 
       {/* Monthly spending */}
-      {dailyPerf.length > 0 && (
-        <Section title="Monthly Spending Performance" legend={[[GREEN, "Cost"]]}>
+      <Section mt title="Monthly Spending Performance" legend={[[GREEN, "Cost"]]}>
+        {dailyPerf.length === 0 ? <EmptyNote text="No spend data in this range." /> : (
           <div style={{ height: 200 }}>
             <ResponsiveContainer width="100%" height="100%">
               <BarChart data={dailyPerf} margin={{ top: 6, right: 8, left: 6, bottom: 0 }}>
@@ -291,8 +318,8 @@ export function AdsReportView({ perf, keywords, leads, ga4, camps, campaigns, ra
               </BarChart>
             </ResponsiveContainer>
           </div>
-        </Section>
-      )}
+        )}
+      </Section>
 
       {/* Budget utilization cards */}
       {budget > 0 && (
@@ -311,9 +338,10 @@ export function AdsReportView({ perf, keywords, leads, ga4, camps, campaigns, ra
         </div>
       )}
 
-      {/* Landing Page Performance (GA4) */}
-      {ga4?.connected && gt && (
-        <Section title="Landing Page Performance">
+      {/* Landing Page Performance (GA4) — always present so the report structure
+          stays consistent; explains itself when not connected or empty. */}
+      <Section mt title="Landing Page Performance">
+        {!ga4?.connected ? <EmptyNote text="Google Analytics is not connected." /> : !gt ? <EmptyNote text="No landing-page data in this range." /> : (<>
           <div style={{ display: "grid", gridTemplateColumns: "repeat(4,1fr)", gap: 10, marginBottom: 12 }}>
             {([["Total users", num(gt.total_users)], ["Active users", num(gt.active_users)], ["New users", num(gt.new_users)], ["Sessions", num(gt.sessions)],
               ["Engaged sessions", num(gt.engaged_sessions)], ["Engagement rate", (gt.engagement_rate * 100).toFixed(1) + "%"], ["Avg engagement", fmtSec(gt.avg_engagement_sec)], ["Views", num(gt.views)]] as [string, string][]).map(([l, v]) => (
@@ -343,19 +371,73 @@ export function AdsReportView({ perf, keywords, leads, ga4, camps, campaigns, ra
               </tbody>
             </table>
           )}
-        </Section>
-      )}
+        </>)}
+      </Section>
 
       {/* Top locations (province) */}
-      {mapPoints.length > 0 && (
-        <Section title={regionBySpend ? "Top Locations (ad spend by province)" : "Top Locations (reach)"}>
+      <Section mt title={regionBySpend ? "Top Locations (ad spend by province)" : "Top Locations (reach)"}>
+        {mapPoints.length === 0 ? <EmptyNote text="No location data in this range." /> : (
           <div style={{ height: 300 }}>
             <IndonesiaMap points={mapPoints} isMoney={regionBySpend} money={regionBySpend ? money : num} />
           </div>
-        </Section>
-      )}
+        )}
+      </Section>
     </div>
   );
+}
+
+// Dashboard-identical marketing funnel at a FIXED pixel width (the PDF page has a
+// deterministic layout, so no measuring): one continuous cone silhouette
+// (100% -> 20%) sliced per stage with the gaps cut out, each stage an SVG
+// trapezoid with rounded corners, dotted leaders out to bordered rate pills.
+function PdfFunnel({ steps, width }: {
+  steps: { label: string; value: string; rate: string; Icon: any }[];
+  width: number;
+}) {
+  const H = 52, G = 4, END = 20, R = 6;
+  const pillW = 54, gap = 8, aw = width - pillW - gap;
+  const total = steps.length * H + (steps.length - 1) * G;
+  const wAt = (y: number) => 100 - (100 - END) * (y / total);
+  const trapPath = (wt: number, wb: number) => {
+    const xtl = (aw - wt) / 2, xtr = (aw + wt) / 2, xbl = (aw - wb) / 2, xbr = (aw + wb) / 2;
+    const rdx = xbr - xtr, rlen = Math.hypot(rdx, H), rux = rdx / rlen, ruy = H / rlen;
+    const ldx = xtl - xbl, llen = Math.hypot(ldx, H), lux = ldx / llen, luy = -H / llen;
+    return `M ${xtl + R} 0 L ${xtr - R} 0 Q ${xtr} 0 ${xtr + rux * R} ${ruy * R}` +
+      ` L ${xbr - rux * R} ${H - ruy * R} Q ${xbr} ${H} ${xbr - R} ${H} L ${xbl + R} ${H}` +
+      ` Q ${xbl} ${H} ${xbl + lux * R} ${H + luy * R} L ${xtl - lux * R} ${-luy * R} Q ${xtl} 0 ${xtl + R} 0 Z`;
+  };
+  return (
+    <div style={{ display: "flex", flexDirection: "column", gap: G }}>
+      {steps.map((s, i) => {
+        const top = (wAt(i * (H + G)) / 100) * aw, bot = (wAt(i * (H + G) + H) / 100) * aw;
+        const last = i === steps.length - 1;
+        const color = last ? FUNNEL[0] : "#fff";
+        return (
+          <div key={s.label} style={{ display: "flex", alignItems: "center", gap }}>
+            <div style={{ position: "relative", width: aw, height: H }}>
+              <div style={{ position: "absolute", top: "50%", right: 0, left: aw / 2 + (top + bot) / 4 + 5, borderTop: "1px dotted #cbd5e1" }} />
+              <svg width={aw} height={H} style={{ position: "absolute", inset: 0, display: "block" }} aria-hidden="true">
+                <path d={trapPath(top, bot)} fill={FUNNEL[i]} />
+              </svg>
+              <div style={{ position: "absolute", inset: 0, display: "flex", alignItems: "center", justifyContent: "center", gap: 6, color }}>
+                <s.Icon style={{ width: 15, height: 15, opacity: 0.9, flexShrink: 0 }} />
+                <div style={{ textAlign: "center", minWidth: 0 }}>
+                  <div style={{ fontSize: 15, fontWeight: 800, lineHeight: 1 }}>{s.value}</div>
+                  <div style={{ fontSize: 9.5, fontWeight: 500, opacity: 0.85, marginTop: 2 }}>{s.label}</div>
+                </div>
+              </div>
+            </div>
+            <span style={{ flexShrink: 0, width: pillW, height: 28, display: "grid", placeItems: "center", border: "1px solid #e2e8f0", background: "#fff", borderRadius: 8, fontSize: 11, fontWeight: 700, color: "#1e293b" }}>{s.rate}</span>
+          </div>
+        );
+      })}
+    </div>
+  );
+}
+
+// Consistent placeholder so empty sections still hold their place in the report.
+function EmptyNote({ text }: { text: string }) {
+  return <div style={{ padding: "24px 0", textAlign: "center", fontSize: 11, color: "#94a3b8" }}>{text}</div>;
 }
 
 // White panel with a soft shadow on the gray canvas (the Heroleads card look).
@@ -363,8 +445,8 @@ function Panel({ children, pad = true }: { children: React.ReactNode; pad?: bool
   return <div className="print-avoid-break" style={{ background: "#fff", borderRadius: 10, boxShadow: PANEL, overflow: "hidden", padding: pad ? 14 : 0 }}>{children}</div>;
 }
 
-function Section({ title, legend, children }: { title: string; legend?: [string, string][]; children: React.ReactNode }) {
-  return (
+function Section({ title, legend, mt = false, children }: { title: string; legend?: [string, string][]; mt?: boolean; children: React.ReactNode }) {
+  const panel = (
     <Panel>
       <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", marginBottom: 10 }}>
         <div style={{ fontSize: 13, fontWeight: 700 }}>{title}</div>
@@ -377,4 +459,5 @@ function Section({ title, legend, children }: { title: string; legend?: [string,
       {children}
     </Panel>
   );
+  return mt ? <div style={{ marginTop: 12 }}>{panel}</div> : panel;
 }
