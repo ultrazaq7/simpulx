@@ -375,6 +375,65 @@ function StageSplit({ stages, lost }: { stages?: Analytics["stages"]; lost?: num
 // design system and reads as funnel progression.
 const FUNNEL_COLORS = ["#A7DACE", "#7FC9B8", "#57B8A1", "#2D8B73", "#26735F", "#1E5C4C", "#174539"];
 
+// Pipeline overview: horizontal stage cards with the step-to-step conversion between
+// them (reference dashboard's "Pipeline overview"). Built from real stage counts.
+function PipelineOverview({ stages }: { stages?: Analytics["stages"] }) {
+  const s = (stages || []).filter((x) => !(x.system_key || "").startsWith("lost")).sort((a, b) => a.sort_order - b.sort_order);
+  if (s.length === 0) return null;
+  return (
+    <div className="p-4 overflow-x-auto">
+      <div className="flex items-stretch gap-1.5 min-w-max">
+        {s.flatMap((st, i) => {
+          const color = FUNNEL_COLORS[Math.min(i, FUNNEL_COLORS.length - 1)];
+          const card = (
+            <div key={`c-${st.system_key}`} className="flex-1 min-w-[116px] rounded-xl border border-border bg-card px-3 py-3 text-center">
+              <span className="inline-block w-2.5 h-2.5 rounded-full mb-2" style={{ background: color }} />
+              <p className="text-[10.5px] font-semibold uppercase tracking-wide text-muted-foreground truncate">{st.name}</p>
+              <p className="text-[22px] font-extrabold text-foreground tabular-nums leading-none mt-1">{st.count}</p>
+            </div>
+          );
+          if (i === s.length - 1) return [card];
+          const conv = s[i].count > 0 ? Math.round((s[i + 1].count / s[i].count) * 100) : 0;
+          const arrow = (
+            <div key={`a-${st.system_key}`} className="flex flex-col items-center justify-center px-0.5 shrink-0">
+              <ChevronRight className="w-4 h-4 text-muted-foreground/40" />
+              <span className="text-[10px] font-bold tabular-nums text-primary">{conv}%</span>
+            </div>
+          );
+          return [card, arrow];
+        })}
+      </div>
+    </div>
+  );
+}
+
+// Top agents by first-response time (reference dashboard). Fastest first; real data only.
+function TopAgents({ agents }: { agents: Analytics["agents"] }) {
+  const AV = ["#2D8B73", "#6366F1", "#F59E0B", "#0EA5E9", "#EC4899"];
+  const ranked = agents.filter((a) => a.avg_rt_min > 0).sort((a, b) => a.avg_rt_min - b.avg_rt_min).slice(0, 5);
+  if (ranked.length === 0) return <div className="py-10 text-center text-sm text-muted-foreground">No response-time data yet</div>;
+  const max = Math.max(...ranked.map((a) => a.avg_rt_min));
+  const initials = (n: string) => (n || "?").split(" ").filter(Boolean).map((w) => w[0]).slice(0, 2).join("").toUpperCase() || "?";
+  return (
+    <div className="p-4 flex flex-col gap-3.5">
+      {ranked.map((a, i) => (
+        <div key={a.agent + i} className="flex items-center gap-3">
+          <div className="w-8 h-8 rounded-full grid place-items-center text-white text-[11px] font-bold shrink-0" style={{ background: AV[i % AV.length] }}>{initials(a.agent)}</div>
+          <div className="min-w-0 flex-1">
+            <div className="flex items-center justify-between gap-2">
+              <span className="text-[13px] font-semibold text-foreground truncate">{a.agent || "Unknown"}</span>
+              <span className="text-[12px] font-bold tabular-nums text-foreground shrink-0">{fmtDuration(a.avg_rt_min)}</span>
+            </div>
+            <div className="mt-1.5 h-1.5 rounded-full bg-muted overflow-hidden">
+              <div className="h-full rounded-full" style={{ width: `${Math.max(6, (a.avg_rt_min / max) * 100)}%`, background: AV[i % AV.length] }} />
+            </div>
+          </div>
+        </div>
+      ))}
+    </div>
+  );
+}
+
 
 // â”€â”€ Agent dashboard: action-center (essentials only, no org analytics, no lead score) â”€â”€
 const AGENT_CARDS = [
@@ -751,7 +810,12 @@ function ManagerDashboard() {
           <div className="px-4 py-4"><OverviewChart data={chartData} /></div>
         </Card>
 
-        <div className="grid grid-cols-1 lg:grid-cols-2 gap-4 mb-5">
+        {/* Pipeline overview - stage cards + step conversion */}
+        <Card title="Pipeline overview" subtitle="Leads by stage and step conversion" className="mb-5">
+          <PipelineOverview stages={analytics?.stages} />
+        </Card>
+
+        <div className="grid grid-cols-1 lg:grid-cols-3 gap-4 mb-5">
           {/* Stage breakdown - leads per stage incl. Lost pinned at the bottom */}
           <Card title="Stage breakdown" subtitle="Leads by pipeline stage">
             <StageSplit stages={analytics?.stages} lost={analytics?.funnel?.lost} />
@@ -760,6 +824,11 @@ function ManagerDashboard() {
           {/* Interest Level - clickable rows deep-link to filtered inbox */}
           <Card title="Interest level">
             <InterestSplit funnel={funnel} />
+          </Card>
+
+          {/* Top agents by first-response time */}
+          <Card title="Top agents" subtitle="By response time">
+            <TopAgents agents={agents} />
           </Card>
         </div>
 
