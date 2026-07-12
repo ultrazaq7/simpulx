@@ -381,6 +381,7 @@ export interface AdPerfRecentLead {
   channel: string;
   source: string;         // classified: meta_ads | tiktok_ads | google_ads | website | direct
   stage: string | null;
+  interest_level: string | null; // hot | warm | cold (AI-inferred)
 }
 export interface AdPerformance {
   from: string; to: string;

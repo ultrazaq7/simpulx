@@ -824,8 +824,8 @@ function ManagerDashboard() {
         </div>
 
         {/* â”€â”€ Metric Strip â”€â”€ */}
-        <div className="flex flex-wrap bg-card rounded-lg border border-border shadow-xs mb-5 overflow-hidden">
-          {METRICS.map((m, i) => {
+        <div className="grid grid-cols-2 md:grid-cols-3 xl:grid-cols-6 gap-3 mb-5">
+          {METRICS.map((m) => {
             let val: number;
             if (m.key === "total_leads") val = analytics?.funnel?.total ?? 0;
             else if (m.key === "replied") val = analytics?.funnel?.replied ?? 0;
@@ -836,22 +836,21 @@ function ManagerDashboard() {
 
             const inner = (
               <>
-                <div className="w-9 h-9 rounded-lg grid place-items-center shrink-0" style={{ backgroundColor: m.color + "14" }}>
-                  <Icon className="w-[18px] h-[18px]" style={{ color: m.color }} />
-                </div>
-                <div className="min-w-0">
+                <div className="flex items-center gap-2 mb-2.5">
+                  <div className="w-8 h-8 rounded-full grid place-items-center shrink-0" style={{ backgroundColor: m.color + "14" }}>
+                    <Icon className="w-4 h-4" style={{ color: m.color }} />
+                  </div>
                   <p className="text-[10px] font-semibold text-muted-foreground uppercase tracking-wide leading-tight truncate flex items-center gap-1">
                     {m.label}
                     {m.href && <ChevronRight className="w-3 h-3 opacity-0 group-hover/metric:opacity-100 transition-opacity shrink-0" />}
                   </p>
-                  <p className="text-[22px] font-extrabold text-foreground leading-none tracking-tight tabular-nums mt-1 whitespace-nowrap">{m.fmt ? m.fmt(val) : val}</p>
                 </div>
+                <p className="text-[22px] font-extrabold text-foreground leading-none tracking-tight tabular-nums truncate">{m.fmt ? m.fmt(val) : val}</p>
               </>
             );
 
             const base = cn(
-              "group/metric flex-1 min-w-[150px] flex items-center gap-3 px-4 py-3.5 transition-colors",
-              i < METRICS.length - 1 && "border-r border-border",
+              "group/metric bg-card rounded-lg border border-border shadow-xs p-4 flex flex-col transition-colors",
               m.href ? "hover:bg-primary/[0.04] cursor-pointer" : "",
             );
 
@@ -1326,15 +1325,16 @@ function MarketingAnalytics() {
   // Campaign insights: honest heuristics from the totals above.
   const CTR_BENCH = 2.0;
   const topSrc = [...(perf?.sources || [])].filter((s) => s.leads > 0).sort((a, b) => b.cvr - a.cvr)[0];
-  const insights: { Icon: any; color: string; text: string }[] = [];
+  // Each insight: colored headline (tinted for metric callouts) + plain detail.
+  const insights: { Icon: any; color: string; title: string; desc: string; tint?: boolean }[] = [];
   if (t.impressions > 0) {
     insights.push(ctrPct >= CTR_BENCH
-      ? { Icon: TrendingUp, color: "#059669", text: `CTR ${ctrPct.toFixed(2)}% is above the ${CTR_BENCH.toFixed(2)}% benchmark. Good job!` }
-      : { Icon: TrendingDown, color: "#EF4444", text: `CTR ${ctrPct.toFixed(2)}% is below the ${CTR_BENCH.toFixed(2)}% benchmark. Consider refreshing creatives.` });
+      ? { Icon: TrendingUp, color: "#059669", tint: true, title: `CTR ${ctrPct.toFixed(2)}%`, desc: `is above the ${CTR_BENCH.toFixed(2)}% benchmark. Good job!` }
+      : { Icon: TrendingDown, color: "#EF4444", tint: true, title: `CTR ${ctrPct.toFixed(2)}%`, desc: `is below the ${CTR_BENCH.toFixed(2)}% benchmark. Consider refreshing creatives.` });
   }
-  if (t.leads > 0) insights.push({ Icon: Target, color: "#6366F1", text: `Average cost per lead is ${money(cpl)}.` });
-  if (t.leads > 0 && t.sales === 0) insights.push({ Icon: AlertTriangle, color: "#F59E0B", text: "No conversions yet. Consider optimizing the landing page or follow-up process." });
-  if (topSrc) insights.push({ Icon: Award, color: "#0EA5E9", text: `Top performing source: ${topSrc.label} (${topSrc.cvr.toFixed(2)}% CVR).` });
+  if (t.leads > 0) insights.push({ Icon: Target, color: "#6366F1", tint: true, title: `CPL ${money(cpl)}`, desc: "average cost per lead in this range." });
+  if (t.leads > 0 && t.sales === 0) insights.push({ Icon: AlertTriangle, color: "#F59E0B", title: "No conversions yet.", desc: "Consider optimizing the landing page or follow-up process." });
+  if (topSrc) insights.push({ Icon: Award, color: "#0EA5E9", title: "Top performing source", desc: `${topSrc.label} (${topSrc.cvr.toFixed(2)}% CVR).` });
 
   // Monthly Spending Performance: per-day share (labels) + Total / Avg / Lowest / Highest.
   const totalSpend = daily.reduce((a, d) => a + d.spend, 0);
@@ -1521,9 +1521,9 @@ function MarketingAnalytics() {
         ))}
       </div>
 
-      {/* Funnel + insights (left column) beside Source performance (right).
-          Column tracks the reference proportion (~33%) with a 360px floor. */}
-      <div className="grid grid-cols-1 lg:grid-cols-[minmax(360px,33%)_1fr] gap-4 mb-5 items-start">
+      {/* Funnel (left column) beside Source performance (right).
+          Column tracks the reference proportion (~36%) with a 380px floor. */}
+      <div className="grid grid-cols-1 lg:grid-cols-[minmax(380px,36%)_1fr] gap-4 mb-5 items-start">
       <div className="flex flex-col gap-4">
       {/* Marketing funnel card with info tooltip + 3-dot menu */}
       <div className="bg-card rounded-xl border border-border shadow-xs overflow-hidden">
@@ -1537,9 +1537,6 @@ function MarketingAnalytics() {
             </div>
             <p className="mt-0.5 text-[11.5px] text-muted-foreground">Impression to purchase conversion</p>
           </div>
-          <button className="p-1 rounded-md text-muted-foreground/50 hover:text-muted-foreground hover:bg-muted transition-colors outline-none">
-            <svg width="16" height="16" viewBox="0 0 24 24" fill="currentColor"><circle cx="12" cy="5" r="1.5"/><circle cx="12" cy="12" r="1.5"/><circle cx="12" cy="19" r="1.5"/></svg>
-          </button>
         </div>
         {/* Pointy trapezoid funnel (continuous cone, rounded corners via SVG)
             with dotted leaders out to bordered conversion pills, matching reference */}
@@ -1576,24 +1573,6 @@ function MarketingAnalytics() {
         </div>
       </div>
 
-      {insights.length > 0 && (
-        <div className="bg-card rounded-xl border border-border shadow-xs overflow-hidden">
-          <div className="px-4 py-3 border-b border-border flex items-center gap-2">
-            <Sparkles className="w-[18px] h-[18px] text-primary" />
-            <p className="font-bold text-[14px] text-foreground leading-tight">Campaign insights</p>
-          </div>
-          <div className="p-4 flex flex-col gap-3">
-            {insights.map((ins, i) => (
-              <div key={i} className="flex items-start gap-2.5">
-                <span className="w-5 h-5 rounded-full grid place-items-center shrink-0 mt-0.5" style={{ backgroundColor: ins.color + "1f" }}>
-                  <ins.Icon className="w-3 h-3" style={{ color: ins.color }} />
-                </span>
-                <p className="text-[12.5px] text-foreground/80 leading-snug">{ins.text}</p>
-              </div>
-            ))}
-          </div>
-        </div>
-      )}
       </div>
 
       {/* Source performance (right of the funnel) */}
@@ -1604,10 +1583,6 @@ function MarketingAnalytics() {
             <Tip label="Ad performance broken down by traffic source" side="top">
               <span className="text-muted-foreground/50 cursor-help"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><circle cx="12" cy="12" r="10"/><path d="M12 16v-4"/><path d="M12 8h.01"/></svg></span>
             </Tip>
-          </div>
-          <div className="flex items-center gap-1">
-            <button className="p-1.5 rounded-md text-muted-foreground hover:text-foreground hover:bg-muted transition-colors outline-none"><BarChart3 className="w-4 h-4" /></button>
-            <button className="p-1.5 rounded-md text-muted-foreground hover:text-foreground hover:bg-muted transition-colors outline-none"><TrendingUp className="w-4 h-4" /></button>
           </div>
         </div>
         <div className="overflow-x-auto">
@@ -1687,6 +1662,29 @@ function MarketingAnalytics() {
         </div>
       </div>
       </div>
+
+      {/* Insights - full-width horizontal strip below the funnel/source row */}
+      {insights.length > 0 && (
+        <div className="bg-card rounded-xl border border-border shadow-xs mb-5 overflow-hidden">
+          <div className="px-4 py-3 border-b border-border flex items-center gap-2">
+            <Sparkles className="w-[18px] h-[18px] text-primary" />
+            <p className="font-bold text-[14px] text-foreground leading-tight">Insights</p>
+          </div>
+          <div className="p-4 grid grid-cols-1 sm:grid-cols-2 xl:grid-cols-4 gap-x-6 gap-y-4">
+            {insights.map((ins, i) => (
+              <div key={i} className={cn("flex items-start gap-3", i > 0 && "xl:border-l xl:border-border/70 xl:pl-6")}>
+                <span className="w-10 h-10 rounded-full grid place-items-center shrink-0" style={{ backgroundColor: ins.color + "1a" }}>
+                  <ins.Icon className="w-[18px] h-[18px]" style={{ color: ins.color }} />
+                </span>
+                <div className="min-w-0">
+                  <p className="text-[13px] font-bold leading-tight text-foreground" style={ins.tint ? { color: ins.color } : undefined}>{ins.title}</p>
+                  <p className="text-[12px] text-foreground/75 leading-snug mt-0.5">{ins.desc}</p>
+                </div>
+              </div>
+            ))}
+          </div>
+        </div>
+      )}
 
       {/* Campaign Performance - impressions vs clicks over the range */}
       <Card className="mb-5">
@@ -1825,19 +1823,19 @@ function MarketingAnalytics() {
                 </div>
               </div>
               <div className="h-[240px]">
-                {/* Stacked daily bars: discrete small counts read as bars, not as
-                    interpolated areas (sparse areas rendered as floating blobs). */}
+                {/* One line per source over the zero-filled full timeline, so
+                    lines run continuously instead of floating fragments. */}
                 <ResponsiveContainer width="100%" height="100%">
-                  <BarChart data={leadsBySource} margin={{ top: 6, right: 12, left: 0, bottom: 0 }} barCategoryGap="35%">
+                  <LineChart data={leadsBySource} margin={{ top: 6, right: 12, left: 0, bottom: 0 }}>
                     <CartesianGrid stroke="rgba(148,163,184,0.16)" vertical={false} />
                     <XAxis dataKey="date" tick={{ fontSize: 11, fill: "#94a3b8" }} axisLine={false} tickLine={false} minTickGap={24} />
                     <YAxis tick={{ fontSize: 11, fill: "#94a3b8" }} axisLine={false} tickLine={false} width={34} allowDecimals={false} />
-                    <RechartsTooltip content={<AdsTooltip />} cursor={{ fill: "rgba(148,163,184,0.08)" }} />
-                    {leadSourceKeys.map((k, idx) => (
-                      <Bar key={k} dataKey={k} name={SRC_LABELS[k] || k} stackId="a" fill={SRC_COLORS[k] || "#94a3b8"} maxBarSize={22}
-                        radius={idx === leadSourceKeys.length - 1 ? [3, 3, 0, 0] : 0} isAnimationActive={false} />
+                    <RechartsTooltip content={<AdsTooltip />} cursor={{ stroke: "rgba(100,116,139,0.3)", strokeDasharray: "4 4" }} />
+                    {leadSourceKeys.map((k) => (
+                      <Line key={k} type="monotone" dataKey={k} name={SRC_LABELS[k] || k} stroke={SRC_COLORS[k] || "#94a3b8"} strokeWidth={2}
+                        dot={false} activeDot={{ r: 4, fill: "#fff", stroke: SRC_COLORS[k] || "#94a3b8", strokeWidth: 2 }} isAnimationActive={false} />
                     ))}
-                  </BarChart>
+                  </LineChart>
                 </ResponsiveContainer>
               </div>
             </div>
@@ -1857,14 +1855,14 @@ function MarketingAnalytics() {
           <table className="w-full text-sm">
             <thead>
               <tr className="bg-muted/40 border-b border-border">
-                {["Date", "Name", "Phone Number", "Channel", "Source", "Stage"].map((h) => (
+                {["Date", "Name", "Phone Number", "Channel", "Source", "Stage", "Interest"].map((h) => (
                   <th key={h} className="px-3 py-2 text-left text-[11px] font-bold uppercase tracking-wider text-muted-foreground">{h}</th>
                 ))}
               </tr>
             </thead>
             <tbody>
               {recentLeads.length === 0 ? (
-                <tr><td colSpan={6} className="px-3 py-12">
+                <tr><td colSpan={7} className="px-3 py-12">
                   <div className="flex flex-col items-center justify-center text-center">
                     <div className="w-12 h-12 rounded-full bg-muted grid place-items-center mb-3"><Inbox className="w-5 h-5 text-muted-foreground/60" /></div>
                     <p className="text-[13px] font-semibold text-foreground">No leads available</p>
@@ -1879,6 +1877,15 @@ function MarketingAnalytics() {
                   <td className="px-3 py-2 text-muted-foreground capitalize">{l.channel || "-"}</td>
                   <td className="px-3 py-2 text-muted-foreground">{SRC_LABELS[l.source] || l.source || "-"}</td>
                   <td className="px-3 py-2 text-foreground">{l.stage || "-"}</td>
+                  <td className="px-3 py-2">
+                    {(() => {
+                      const lv = (l.interest_level || "").toLowerCase();
+                      const c = lv === "hot" ? "#EF4444" : lv === "warm" ? "#F59E0B" : lv === "cold" ? "#3B82F6" : null;
+                      return c ? (
+                        <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-[11px] font-semibold capitalize" style={{ color: c, backgroundColor: c + "1a" }}>{lv}</span>
+                      ) : <span className="text-muted-foreground">-</span>;
+                    })()}
+                  </td>
                 </tr>
               ))}
             </tbody>
@@ -2041,15 +2048,19 @@ function CreativeReport() {
   const wasted = creatives.filter((c) => c.spend > 0 && c.leads === 0);
   const wastedSpend = wasted.reduce((a, c) => a + c.spend, 0);
   const bestCvr = creatives.reduce((m, c) => Math.max(m, c.leads > 0 ? (c.sales / c.leads) * 100 : 0), 0);
-  const name = (c: { headline: string | null; source_id: string }) => c.headline || `Ad ${c.source_id}`;
+  const avgCtr = tot.impressions > 0 ? (tot.clicks / tot.impressions) * 100 : 0;
+  // Title preference: real headline -> the ad's primary text (first words) ->
+  // the raw ad id. Referral "Chat with us" junk is filtered out server-side.
+  const name = (c: { headline: string | null; body?: string | null; source_id: string }) =>
+    c.headline || (c.body ? (c.body.length > 60 ? c.body.slice(0, 57) + "..." : c.body) : `Ad ${c.source_id}`);
 
   const kpis = [
-    { label: "Ad spend", value: money(tot.spend) },
-    { label: "Creatives", value: fmtInt(creatives.length) },
-    { label: "Leads", value: fmtInt(tot.leads) },
-    { label: "Conversions", value: fmtInt(tot.sales) },
-    { label: "Avg cost / lead", value: tot.leads > 0 ? money(avgCpl) : "-" },
-    { label: "Best lead to buy", value: bestCvr > 0 ? bestCvr.toFixed(1) + "%" : "-" },
+    { label: "Ad spend", value: money(tot.spend), Icon: CircleDollarSign, color: "#F59E0B" },
+    { label: "Creatives", value: fmtInt(creatives.length), Icon: ImageIcon, color: "#0EA5E9" },
+    { label: "Leads", value: fmtInt(tot.leads), Icon: MessageSquare, color: "#2D8B73" },
+    { label: "Conversions", value: fmtInt(tot.sales), Icon: Trophy, color: "#059669" },
+    { label: "Avg cost / lead", value: tot.leads > 0 ? money(avgCpl) : "-", Icon: Target, color: "#6366F1" },
+    { label: "Best lead to buy", value: bestCvr > 0 ? bestCvr.toFixed(1) + "%" : "-", Icon: TrendingUp, color: "#EF4444" },
   ];
 
   const Thumb = ({ c, size }: { c: AdPerformance["creatives"][number]; size: number }) => (
@@ -2082,12 +2093,17 @@ function CreativeReport() {
         </div>
       ) : (
       <>
-        {/* KPI summary */}
-        <div className="flex flex-wrap bg-card rounded-lg border border-border shadow-xs mb-5 overflow-hidden">
-          {kpis.map((k, i) => (
-            <div key={k.label} className={cn("flex-1 min-w-[130px] px-4 py-3.5", i < kpis.length - 1 && "border-r border-border")}>
-              <p className="text-[10px] font-semibold text-muted-foreground uppercase tracking-wide leading-tight truncate">{k.label}</p>
-              <p className="text-[18px] xl:text-[20px] font-extrabold text-foreground leading-none tabular-nums mt-1 truncate">{k.value}</p>
+        {/* KPI summary — same card anatomy as the Ads Report KPI row */}
+        <div className="grid grid-cols-2 md:grid-cols-3 xl:grid-cols-6 gap-3 mb-5">
+          {kpis.map((k) => (
+            <div key={k.label} className="bg-card rounded-lg border border-border shadow-xs p-4 flex flex-col">
+              <div className="flex items-center gap-2 mb-2.5">
+                <div className="w-8 h-8 rounded-full grid place-items-center shrink-0" style={{ backgroundColor: k.color + "14" }}>
+                  <k.Icon className="w-4 h-4" style={{ color: k.color }} />
+                </div>
+                <p className="text-[10px] font-semibold text-muted-foreground uppercase tracking-wide leading-tight truncate">{k.label}</p>
+              </div>
+              <p className="text-[22px] font-extrabold text-foreground leading-none tabular-nums truncate">{k.value}</p>
             </div>
           ))}
         </div>
@@ -2142,16 +2158,24 @@ function CreativeReport() {
             const cpl = cr.leads > 0 ? cr.spend / cr.leads : 0;
             const cvr = cr.leads > 0 ? (cr.sales / cr.leads) * 100 : 0;
             const leadRate = cr.clicks > 0 ? (cr.leads / cr.clicks) * 100 : 0;
+            // Verdicts vs the account average, so each number tells the user
+            // whether it is good or bad instead of standing alone.
+            const ctrTone = cr.impressions > 0 && avgCtr > 0 && Math.abs(ctr - avgCtr) / avgCtr > 0.1 ? (ctr > avgCtr ? "good" : "bad") : null;
+            const cplTone = cr.leads > 0 && cr.spend > 0 && avgCpl > 0 && Math.abs(cpl - avgCpl) / avgCpl > 0.1 ? (cpl < avgCpl ? "good" : "bad") : null;
+            const badge = cr === top ? { t: "Top leads", cls: "bg-primary/[0.12] text-primary" }
+              : cr === bestCpl ? { t: "Cheapest lead", cls: "bg-emerald-50 text-emerald-700" }
+              : cr.spend > 0 && cr.leads === 0 ? { t: "No leads", cls: "bg-amber-50 text-amber-700" } : null;
+            const toneCls = (tone: string | null) => tone === "good" ? "text-[#059669]" : tone === "bad" ? "text-[#DC2626]" : "text-foreground";
             const cells = [
               { l: "Spend", v: cr.spend > 0 ? money(cr.spend) : "-" },
               { l: "Impressions", v: fmtInt(cr.impressions) },
               { l: "Clicks", v: fmtInt(cr.clicks) },
-              { l: "CTR", v: `${ctr.toFixed(2)}%` },
+              { l: "CTR", v: `${ctr.toFixed(2)}%`, tone: ctrTone, tip: avgCtr > 0 ? `Account average ${avgCtr.toFixed(2)}%` : undefined },
               { l: "Leads", v: fmtInt(cr.leads), hi: true },
-              { l: "Cost / lead", v: cr.leads > 0 && cr.spend > 0 ? money(cpl) : "-" },
+              { l: "Cost / lead", v: cr.leads > 0 && cr.spend > 0 ? money(cpl) : "-", tone: cplTone, tip: avgCpl > 0 ? `Account average ${money(avgCpl)}` : undefined },
               { l: "Conversions", v: fmtInt(cr.sales) },
               { l: "Lead to buy", v: cr.leads > 0 ? `${cvr.toFixed(1)}%` : "-" },
-            ];
+            ] as { l: string; v: string; hi?: boolean; tone?: string | null; tip?: string }[];
             return (
               <div key={cr.source_id} className="rounded-xl border border-border bg-card shadow-xs overflow-hidden">
                 <div className="flex items-start gap-3 p-3.5 border-b border-border">
@@ -2160,6 +2184,7 @@ function CreativeReport() {
                     <div className="flex items-center gap-2">
                       <span className="inline-flex items-center justify-center w-5 h-5 rounded-md bg-primary/[0.12] text-primary text-[11px] font-bold shrink-0">{i + 1}</span>
                       <p className="text-[13.5px] font-semibold text-foreground truncate">{name(cr)}</p>
+                      {badge && <span className={cn("inline-flex px-2 py-0.5 rounded-full text-[10px] font-bold shrink-0", badge.cls)}>{badge.t}</span>}
                     </div>
                     <p className="text-[11px] text-muted-foreground truncate mt-0.5">{cr.source_id}</p>
                     {cr.body && <p className="text-[11px] text-muted-foreground/80 line-clamp-2 mt-1">{cr.body}</p>}
@@ -2167,9 +2192,9 @@ function CreativeReport() {
                 </div>
                 <div className="grid grid-cols-4 divide-x divide-border">
                   {cells.map((c) => (
-                    <div key={c.l} className="px-3 py-2.5">
+                    <div key={c.l} className="px-3 py-2.5" title={c.tip}>
                       <p className="text-[9.5px] font-semibold text-muted-foreground uppercase tracking-wide truncate">{c.l}</p>
-                      <p className={cn("text-[13.5px] font-bold tabular-nums mt-0.5 truncate", c.hi ? "text-primary" : "text-foreground")}>{c.v}</p>
+                      <p className={cn("text-[13.5px] font-bold tabular-nums mt-0.5 truncate", c.hi ? "text-primary" : toneCls(c.tone ?? null))}>{c.v}</p>
                     </div>
                   ))}
                 </div>
