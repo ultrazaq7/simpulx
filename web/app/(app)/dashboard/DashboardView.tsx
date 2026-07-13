@@ -24,7 +24,8 @@ import { IndonesiaMap } from "@/components/IndonesiaMap";
 import { Tip } from "@/components/ui/tooltip";
 import { lostReasonLabel } from "@/app/(app)/inbox/components/LostReasonDialog";
 import type { Stats, Analytics, DashboardCards, AdPerformance, AdKeyword, AdBreakdown, Channel, Campaign, Agent, Ga4Report } from "@/lib/types";
-import { cn, fmtDuration, stageLabel } from "@/lib/utils";
+import { cn, fmtDuration, stageLabel, readableTextOn, interestColor } from "@/lib/utils";
+import { stageColor } from "@/lib/leadColors";
 import { useI18n } from "@/lib/i18n";
 import DateRangeFilter, { presetRange } from "@/components/DateRangeFilter";
 
@@ -36,13 +37,13 @@ type Metric = {
 // Accurate, unambiguous: Replied = AGENT replied; Won = disposition won; Avg first
 // response = first agent reply after the customer's first message (bot excluded).
 const METRICS: Metric[] = [
-  { key: "total_leads", label: "Leads", Icon: BarChart3, color: "#6366F1", href: "/inbox" },
-  { key: "active", label: "Active", Icon: MessageSquare, color: "#2D8B73", href: "/inbox?status=open" },
+  { key: "total_leads", label: "Leads", Icon: BarChart3, color: "#2E7CE4", href: "/inbox" },
+  { key: "active", label: "Active", Icon: MessageSquare, color: "#0E5B54", href: "/inbox?status=open" },
   { key: "unassigned", label: "Unassigned", Icon: Inbox, color: "#E67E22", href: "/inbox?assigned=unassigned" },
   // "Handled" = leads the AGENT replied to (distinct from the Overview chart's
   // "Replied", which counts customers who replied back).
   { key: "replied", label: "Handled", Icon: Reply, color: "#0284C7" },
-  { key: "won", label: "Purchase", Icon: Trophy, color: "#059669" },
+  { key: "won", label: "Purchase", Icon: Trophy, color: "#16A34A" },
   { key: "avg_rt", label: "Avg response time", Icon: Timer, color: "#7C3AED", fmt: fmtDuration },
 ];
 
@@ -77,7 +78,7 @@ function buildChartData(analytics: Analytics | null, all = false) {
 function CustomTooltip({ active, payload, label }: any) {
   if (!active || !payload?.length) return null;
   return (
-    <div className="rounded-md bg-[#356B5A]/90 backdrop-blur-sm px-3 py-2 shadow-md min-w-[140px]">
+    <div className="rounded-md bg-[#0E5B54]/90 backdrop-blur-sm px-3 py-2 shadow-md min-w-[140px]">
       <p className="text-[11px] font-semibold text-white/70 mb-1.5">{label}</p>
       {payload.map((p: any) => (
         <div key={p.dataKey} className="flex items-center gap-2 mb-0.5 last:mb-0">
@@ -96,7 +97,7 @@ function DonutTooltip({ active, payload, total }: any) {
   const p = payload[0];
   const pct = total > 0 ? ((Number(p.value ?? 0) / total) * 100).toFixed(1) : "0";
   return (
-    <div className="rounded-md bg-[#356B5A]/90 backdrop-blur-sm px-3 py-1.5 shadow-md">
+    <div className="rounded-md bg-[#0E5B54]/90 backdrop-blur-sm px-3 py-1.5 shadow-md">
       <div className="flex items-center gap-1.5">
         <span className="w-2 h-2 rounded-full shrink-0 ring-1 ring-white/40" style={{ backgroundColor: p.payload?.color || p.color }} />
         <span className="text-xs font-semibold text-white capitalize">{p.name}</span>
@@ -180,7 +181,7 @@ function Delta({ cur, prev, higherIsBetter = true as boolean | null, className }
   const flat = prev === 0 ? cur === 0 : Math.abs(diff / prev) < 0.0005;
   const pct = prev === 0 ? (cur === 0 ? 0 : 100) : (diff / prev) * 100;
   const up = diff > 0;
-  const color = flat || higherIsBetter === null ? "#64748B" : (higherIsBetter === up ? "#059669" : "#DC2626");
+  const color = flat || higherIsBetter === null ? "#64748B" : (higherIsBetter === up ? "#16A34A" : "#DC2626");
   const Arrow = flat ? ArrowRight : up ? ArrowUpRight : ArrowDownRight;
   return (
     <span className={cn("inline-flex items-center gap-0.5 text-[11px] font-semibold tabular-nums", className)} style={{ color }}>
@@ -268,7 +269,7 @@ function AdsTooltip({ active, payload, label, fmt }: any) {
   if (!active || !payload?.length) return null;
   const f = fmt || ((v: number) => Number(v ?? 0).toLocaleString());
   return (
-    <div className="rounded-md bg-[#356B5A]/90 backdrop-blur-sm px-3 py-2 shadow-md min-w-[150px]">
+    <div className="rounded-md bg-[#0E5B54]/90 backdrop-blur-sm px-3 py-2 shadow-md min-w-[150px]">
       <p className="text-[11px] font-semibold text-white/70 mb-1.5">{label}</p>
       {payload.filter((p: any) => p.value != null).map((p: any) => (
         <div key={p.dataKey} className="flex items-center gap-2 mb-0.5 last:mb-0">
@@ -308,13 +309,13 @@ function Card({ title, subtitle, icon: Icon, iconColor, children, className }: {
   children: React.ReactNode; className?: string;
 }) {
   return (
-    <div className={cn("bg-card rounded-lg border border-border shadow-xs overflow-hidden", className)}>
+    <div className={cn("bg-card rounded-xl border border-border shadow-xs overflow-hidden", className)}>
       {title && (
-        <div className="px-4 py-3 border-b border-border flex items-center gap-2.5">
+        <div className="px-5 py-4 border-b border-border flex items-center gap-2.5">
           {Icon && <Icon className="w-[18px] h-[18px]" style={{ color: iconColor }} />}
           <div>
-            <p className="font-bold text-[14px] text-foreground leading-tight">{title}</p>
-            {subtitle && <p className="text-xs text-muted-foreground">{subtitle}</p>}
+            <p className="font-display font-bold text-[15px] text-foreground leading-tight tracking-tight">{title}</p>
+            {subtitle && <p className="text-xs text-muted-foreground mt-0.5">{subtitle}</p>}
           </div>
         </div>
       )}
@@ -340,8 +341,8 @@ function OverviewChart({ data }: { data: { date: string; leads: number; replied:
       <AreaChart data={data} margin={{ top: 10, right: 10, left: -20, bottom: 0 }}>
         <defs>
           <linearGradient id="colorLeads" x1="0" y1="0" x2="0" y2="1">
-            <stop offset="0%" stopColor="#2D8B73" stopOpacity={0.28} />
-            <stop offset="100%" stopColor="#2D8B73" stopOpacity={0.02} />
+            <stop offset="0%" stopColor="#0E5B54" stopOpacity={0.28} />
+            <stop offset="100%" stopColor="#0E5B54" stopOpacity={0.02} />
           </linearGradient>
           <linearGradient id="colorReplied" x1="0" y1="0" x2="0" y2="1">
             <stop offset="0%" stopColor="#0284C7" stopOpacity={0.22} />
@@ -354,9 +355,9 @@ function OverviewChart({ data }: { data: { date: string; leads: number; replied:
         <RechartsTooltip content={<CustomTooltip />} cursor={{ stroke: "rgba(0,0,0,0.08)" }} />
         <Legend iconType="circle" iconSize={8} wrapperStyle={{ fontSize: 12, paddingTop: 12 }}
           formatter={(v: string) => <span style={{ color: "#667085", fontWeight: 500 }}>{v}</span>} />
-        <Area type="monotone" dataKey="leads" name="Leads" stroke="#2D8B73" strokeWidth={2.5}
-          fill="url(#colorLeads)" dot={{ r: 3, fill: "#fff", stroke: "#2D8B73", strokeWidth: 2 }}
-          activeDot={{ r: 5, fill: "#2D8B73", stroke: "#fff", strokeWidth: 2 }} />
+        <Area type="monotone" dataKey="leads" name="Leads" stroke="#0E5B54" strokeWidth={2.5}
+          fill="url(#colorLeads)" dot={{ r: 3, fill: "#fff", stroke: "#0E5B54", strokeWidth: 2 }}
+          activeDot={{ r: 5, fill: "#0E5B54", stroke: "#fff", strokeWidth: 2 }} />
         <Area type="monotone" dataKey="replied" name="Replied" stroke="#0284C7" strokeWidth={2}
           fill="url(#colorReplied)" dot={{ r: 3, fill: "#fff", stroke: "#0284C7", strokeWidth: 2 }}
           activeDot={{ r: 5, fill: "#0284C7", stroke: "#fff", strokeWidth: 2 }} />
@@ -401,9 +402,9 @@ function InterestSplit({ funnel }: { funnel: Analytics["funnel"] | undefined }) 
   const { t } = useI18n();
   if (!funnel) return null;
   const rows = [
-    { label: "Hot", value: funnel.hot, color: "#EF4444", href: "/inbox?interest=hot" },
-    { label: "Warm", value: funnel.warm, color: "#F59E0B", href: "/inbox?interest=warm" },
-    { label: "Cold", value: funnel.cold, color: "#3B82F6", href: "/inbox?interest=cold" },
+    { label: "Hot", value: funnel.hot, color: interestColor("hot"), href: "/inbox?interest=hot" },
+    { label: "Warm", value: funnel.warm, color: interestColor("warm"), href: "/inbox?interest=warm" },
+    { label: "Cold", value: funnel.cold, color: interestColor("cold"), href: "/inbox?interest=cold" },
     { label: "Unclassified", value: funnel.unknown, color: "#9CA3AF", href: "" },
   ];
   return (
@@ -450,8 +451,8 @@ function StageSplit({ stages, lost }: { stages?: Analytics["stages"]; lost?: num
     : "/inbox?stage=Lost";
   return (
     <div className="p-2">
-      {pipeline.map((s, i) => {
-        const color = FUNNEL_COLORS[i % FUNNEL_COLORS.length];
+      {pipeline.map((s) => {
+        const color = stageColor(s.name);
         return (
           <Link
             key={s.system_key || s.name}
@@ -471,10 +472,10 @@ function StageSplit({ stages, lost }: { stages?: Analytics["stages"]; lost?: num
           href={lostHref}
           className="group/st flex items-center gap-3 px-2 py-2 mt-1 pt-2.5 border-t border-border/60 rounded-md hover:bg-muted transition-colors"
         >
-          <span className="w-2.5 h-2.5 rounded-full shrink-0" style={{ backgroundColor: "#EF4444" }} />
+          <span className="w-2.5 h-2.5 rounded-full shrink-0" style={{ backgroundColor: stageColor("lost") }} />
           <span className="text-sm font-medium flex-1 text-foreground/90">{t("dashboard.stageLost")}</span>
-          <div className="flex-[2]"><ProgressBar value={total > 0 ? (lostCount / total) * 100 : 0} color="#EF4444" /></div>
-          <span className="text-sm font-bold min-w-[28px] text-right tabular-nums" style={{ color: "#EF4444" }}>{lostCount}</span>
+          <div className="flex-[2]"><ProgressBar value={total > 0 ? (lostCount / total) * 100 : 0} color={stageColor("lost")} /></div>
+          <span className="text-sm font-bold min-w-[28px] text-right tabular-nums" style={{ color: stageColor("lost") }}>{lostCount}</span>
           <ChevronRight className="w-4 h-4 text-muted-foreground/40 group-hover/st:text-muted-foreground shrink-0" />
         </Link>
       )}
@@ -488,17 +489,17 @@ function StageSplit({ stages, lost }: { stages?: Analytics["stages"]; lost?: num
 // (New Lead -> Contacted -> Qualified -> Appointment -> Negotiation -> Purchase).
 // One in-brand green ramp (light -> deep) instead of a rainbow: stays in the
 // design system and reads as funnel progression.
-const FUNNEL_COLORS = ["#A7DACE", "#7FC9B8", "#57B8A1", "#2D8B73", "#26735F", "#1E5C4C", "#174539"];
+const FUNNEL_COLORS = ["#B7E4DA", "#7FCBBB", "#4FB6A4", "#1C8C7D", "#0E5B54", "#0A3F3A", "#08302C"];
 
 
 // â”€â”€ Agent dashboard: action-center (essentials only, no org analytics, no lead score) â”€â”€
 const AGENT_CARDS = [
-  { key: "open", label: "Active", sub: "Active conversations", Icon: MessageSquare, color: "#2D8B73", href: "/inbox?status=open" },
-  { key: "hot", label: "Hot leads", sub: "High buying intent", Icon: Flame, color: "#EF4444", href: "/inbox?interest=hot" },
-  { key: "unreplied", label: "Awaiting reply", sub: "You haven't replied yet", Icon: Zap, color: "#F59E0B", href: "/inbox?unreplied=1" },
-  { key: "unread", label: "Unread", sub: "New, not opened", Icon: Mail, color: "#6366F1", href: "/inbox?unread=1" },
-  { key: "purchase", label: "Purchased", sub: "Reached purchase", Icon: CircleDollarSign, color: "#059669", href: "" },
-  { key: "lost", label: "Lost", sub: "Marked lost", Icon: TrendingDown, color: "#EF4444", href: "" },
+  { key: "open", label: "Active", sub: "Active conversations", Icon: MessageSquare, color: "#0E5B54", href: "/inbox?status=open" },
+  { key: "hot", label: "Hot leads", sub: "High buying intent", Icon: Flame, color: "#C4362B", href: "/inbox?interest=hot" },
+  { key: "unreplied", label: "Awaiting reply", sub: "You haven't replied yet", Icon: Zap, color: "#C0791A", href: "/inbox?unreplied=1" },
+  { key: "unread", label: "Unread", sub: "New, not opened", Icon: Mail, color: "#2E7CE4", href: "/inbox?unread=1" },
+  { key: "purchase", label: "Purchased", sub: "Reached purchase", Icon: CircleDollarSign, color: "#16A34A", href: "" },
+  { key: "lost", label: "Lost", sub: "Marked lost", Icon: TrendingDown, color: "#DC2626", href: "" },
 ] as const;
 
 function AgentDashboard() {
@@ -597,10 +598,10 @@ function AgentDashboard() {
 
       {/* Lost analysis */}
       <div className="grid grid-cols-1 md:grid-cols-2 gap-4 mt-4">
-        <Card title={t("dashboard.lostAnalysis")} icon={TrendingDown} iconColor="#EF4444">
+        <Card title={t("dashboard.lostAnalysis")} icon={TrendingDown} iconColor="#DC2626">
           <div className="p-4">
             <div className="flex items-baseline gap-2 mb-4">
-              <span className="text-4xl font-extrabold text-[#EF4444] leading-none tabular-nums">{analytics?.lost ?? 0}</span>
+              <span className="text-4xl font-extrabold text-[#DC2626] leading-none tabular-nums">{analytics?.lost ?? 0}</span>
               <span className="text-sm text-muted-foreground font-medium">{t("dashboard.totalLostLeads")}</span>
               {(analytics?.junk ?? 0) > 0 && (
                 <span className="ml-auto inline-flex items-center gap-1 px-2 py-0.5 rounded-md bg-amber-50 text-amber-700 text-[11px] font-semibold tabular-nums">
@@ -611,11 +612,11 @@ function AgentDashboard() {
             {funnel && (
               <div className="flex gap-3">
                 <div className="flex-1 p-3 rounded-lg bg-red-50 text-center">
-                  <p className="text-xl font-extrabold text-[#EF4444] tabular-nums">{funnel.total > 0 ? Math.round(((analytics?.lost ?? 0) / funnel.total) * 100) : 0}%</p>
+                  <p className="text-xl font-extrabold text-[#DC2626] tabular-nums">{funnel.total > 0 ? Math.round(((analytics?.lost ?? 0) / funnel.total) * 100) : 0}%</p>
                   <p className="text-xs text-[#991B1B] font-semibold">{t("dashboard.lossRate")}</p>
                 </div>
                 <div className="flex-1 p-3 rounded-lg bg-green-50 text-center">
-                  <p className="text-xl font-extrabold text-[#059669] tabular-nums">{funnel.total > 0 ? Math.round(((funnel.won ?? 0) / funnel.total) * 100) : 0}%</p>
+                  <p className="text-xl font-extrabold text-[#16A34A] tabular-nums">{funnel.total > 0 ? Math.round(((funnel.won ?? 0) / funnel.total) * 100) : 0}%</p>
                   <p className="text-xs text-[#065F46] font-semibold">{t("dashboard.purchaseRate")}</p>
                 </div>
               </div>
@@ -633,9 +634,9 @@ function AgentDashboard() {
                     className="block mb-4 last:mb-0 -mx-1.5 px-1.5 py-1 rounded-md hover:bg-muted/50 transition-colors group/lr">
                     <div className="flex justify-between mb-1">
                       <span className="text-sm font-medium text-foreground/80 group-hover/lr:text-foreground">{lostReasonLabel(r.reason)}</span>
-                      <span className="text-sm font-bold text-[#EF4444] tabular-nums">{r.count}</span>
+                      <span className="text-sm font-bold text-[#DC2626] tabular-nums">{r.count}</span>
                     </div>
-                    <ProgressBar value={(r.count / maxCount) * 100} color={i === 0 ? "#EF4444" : i === 1 ? "#F97316" : "#FBBF24"} height={6} />
+                    <ProgressBar value={(r.count / maxCount) * 100} color={i === 0 ? "#DC2626" : i === 1 ? "#F97316" : "#FBBF24"} height={6} />
                   </Link>
                 );
               })
@@ -860,7 +861,7 @@ function ManagerDashboard({ initialTab }: { initialTab: ReportTab }) {
                     {m.href && <ChevronRight className="w-3 h-3 opacity-0 group-hover/metric:opacity-100 transition-opacity shrink-0" />}
                   </p>
                 </div>
-                <p className="text-[22px] font-extrabold text-foreground leading-none tracking-tight tabular-nums truncate">{m.fmt ? m.fmt(val) : val}</p>
+                <p className="font-mono text-[22px] font-semibold text-foreground leading-none tracking-tight tabular-nums truncate">{m.fmt ? m.fmt(val) : val}</p>
               </>
             );
 
@@ -902,10 +903,10 @@ function ManagerDashboard({ initialTab }: { initialTab: ReportTab }) {
 
         {/* Lost Analysis */}
         <div className="grid grid-cols-1 md:grid-cols-2 gap-4 mt-5">
-          <Card title={t("dashboard.lostAnalysis")} icon={TrendingDown} iconColor="#EF4444">
+          <Card title={t("dashboard.lostAnalysis")} icon={TrendingDown} iconColor="#DC2626">
             <div className="p-4">
               <div className="flex items-baseline gap-2 mb-4">
-                <span className="text-4xl font-extrabold text-[#EF4444] leading-none tabular-nums">
+                <span className="text-4xl font-extrabold text-[#DC2626] leading-none tabular-nums">
                   {analytics?.lost ?? stats?.lost ?? 0}
                 </span>
                 <span className="text-sm text-muted-foreground font-medium">{t("dashboard.totalLostLeads")}</span>
@@ -918,13 +919,13 @@ function ManagerDashboard({ initialTab }: { initialTab: ReportTab }) {
               {funnel && (
                 <div className="flex gap-3">
                   <div className="flex-1 p-3 rounded-lg bg-red-50 text-center">
-                    <p className="text-xl font-extrabold text-[#EF4444] tabular-nums">
+                    <p className="text-xl font-extrabold text-[#DC2626] tabular-nums">
                       {funnel.total > 0 ? Math.round(((analytics?.lost ?? 0) / funnel.total) * 100) : 0}%
                     </p>
                     <p className="text-xs text-[#991B1B] font-semibold">{t("dashboard.lossRate")}</p>
                   </div>
                   <div className="flex-1 p-3 rounded-lg bg-green-50 text-center">
-                    <p className="text-xl font-extrabold text-[#059669] tabular-nums">
+                    <p className="text-xl font-extrabold text-[#16A34A] tabular-nums">
                       {funnel.total > 0 ? Math.round(((funnel.won ?? 0) / funnel.total) * 100) : 0}%
                     </p>
                     <p className="text-xs text-[#065F46] font-semibold">{t("dashboard.purchaseRate")}</p>
@@ -944,9 +945,9 @@ function ManagerDashboard({ initialTab }: { initialTab: ReportTab }) {
                       className="block mb-4 last:mb-0 -mx-1.5 px-1.5 py-1 rounded-md hover:bg-muted/50 transition-colors group/lr">
                       <div className="flex justify-between mb-1">
                         <span className="text-sm font-medium text-foreground/80 group-hover/lr:text-foreground">{lostReasonLabel(r.reason)}</span>
-                        <span className="text-sm font-bold text-[#EF4444] tabular-nums">{r.count}</span>
+                        <span className="text-sm font-bold text-[#DC2626] tabular-nums">{r.count}</span>
                       </div>
-                      <ProgressBar value={(r.count / maxCount) * 100} color={i === 0 ? "#EF4444" : i === 1 ? "#F97316" : "#FBBF24"} height={6} />
+                      <ProgressBar value={(r.count / maxCount) * 100} color={i === 0 ? "#DC2626" : i === 1 ? "#F97316" : "#FBBF24"} height={6} />
                     </Link>
                   );
                 })
@@ -1028,7 +1029,7 @@ function PerfTables({ rows, label, showBranch }: { rows: PerfRow[]; label: strin
                   <td className="px-3 py-2.5 text-right tabular-nums">{r.negotiation}</td>
                   <td className="px-3 py-2.5 text-right font-bold text-[#16A34A] tabular-nums">{r.purchase}</td>
                   <td className="px-3 py-2.5 text-right"><Badge label={pctOf(r.purchase, r.leads)} bg="#E8F5E9" text="#2E7D32" /></td>
-                  <td className={cn("px-3 py-2.5 text-right font-bold tabular-nums", r.lost > 0 ? "text-[#EF4444]" : "text-muted-foreground")}>{r.lost}</td>
+                  <td className={cn("px-3 py-2.5 text-right font-bold tabular-nums", r.lost > 0 ? "text-[#DC2626]" : "text-muted-foreground")}>{r.lost}</td>
                 </tr>
               ))}
             </tbody>
@@ -1306,11 +1307,11 @@ function MarketingAnalytics() {
   // favourable direction (null = neutral, e.g. spend, where up/down is not a verdict).
   const roiCards = [
     { label: "Ad spend", value: money(tot.spend), Icon: CircleDollarSign, color: "#F59E0B", series: sSpend, cur: tot.spend, prev: prev?.spend ?? 0, higher: null as boolean | null },
-    { label: "Leads", value: fmtInt(tot.leads), Icon: MessageSquare, color: "#2D8B73", series: sLeads, cur: tot.leads, prev: prev?.leads ?? 0, higher: true },
+    { label: "Leads", value: fmtInt(tot.leads), Icon: MessageSquare, color: "#0E5B54", series: sLeads, cur: tot.leads, prev: prev?.leads ?? 0, higher: true },
     { label: "Cost / lead", value: money(cpl), Icon: Target, color: "#6366F1", series: sCpl, cur: cpl, prev: prevCpl, higher: false },
-    { label: "Conversions", value: fmtInt(tot.sales), Icon: Trophy, color: "#059669", series: sSales, cur: tot.sales, prev: prev?.sales ?? 0, higher: true },
+    { label: "Conversions", value: fmtInt(tot.sales), Icon: Trophy, color: "#16A34A", series: sSales, cur: tot.sales, prev: prev?.sales ?? 0, higher: true },
     { label: "Cost / conversion", value: money(cpa), Icon: CircleDollarSign, color: "#0EA5E9", series: sCpa, cur: cpa, prev: prevCpa, higher: false },
-    { label: "Lead to purchase", value: `${convRate.toFixed(1)}%`, Icon: Target, color: "#EF4444", series: sL2p, cur: convRate, prev: prevL2p, higher: true },
+    { label: "Lead to purchase", value: `${convRate.toFixed(1)}%`, Icon: Target, color: "#DC2626", series: sL2p, cur: convRate, prev: prevL2p, higher: true },
   ];
 
   // Funnel steps Impressions -> Clicks -> CTR -> Leads -> Purchases. Right-side pill
@@ -1328,7 +1329,7 @@ function MarketingAnalytics() {
   const FUNNEL_H = 52, FUNNEL_GAP = 4, FUNNEL_END = 20;
   const funnelSpan = funnelSteps.length * FUNNEL_H + (funnelSteps.length - 1) * FUNNEL_GAP;
   const funnelWAt = (y: number) => 100 - (100 - FUNNEL_END) * (y / funnelSpan);
-  const FUNNEL_RAMP = ["#1E5C4C", "#26735F", "#2D8B73", "#4DA184", "#CBE7DB"]; // sequential dark->mint; last step takes dark text
+  const FUNNEL_RAMP = ["#0A3F3A", "#0E5B54", "#1C8C7D", "#4FB6A4", "#B7E4DA"]; // sequential petrol dark->light; text color derives from luminance
   const overallConv = tot.impressions > 0 ? (tot.sales / tot.impressions) * 100 : 0;
 
   // Per-source daily series (from the enriched daily_sources) for the in-cell
@@ -1352,11 +1353,11 @@ function MarketingAnalytics() {
   const insights: { Icon: any; color: string; title: string; desc: string; tint?: boolean }[] = [];
   if (tot.impressions > 0) {
     insights.push(ctrPct >= CTR_BENCH
-      ? { Icon: TrendingUp, color: "#059669", tint: true, title: `CTR ${ctrPct.toFixed(2)}%`, desc: `is above the ${CTR_BENCH.toFixed(2)}% benchmark. Good job!` }
-      : { Icon: TrendingDown, color: "#EF4444", tint: true, title: `CTR ${ctrPct.toFixed(2)}%`, desc: `is below the ${CTR_BENCH.toFixed(2)}% benchmark. Consider refreshing creatives.` });
+      ? { Icon: TrendingUp, color: "#16A34A", tint: true, title: `CTR ${ctrPct.toFixed(2)}%`, desc: `is above the ${CTR_BENCH.toFixed(2)}% benchmark. Good job!` }
+      : { Icon: TrendingDown, color: "#DC2626", tint: true, title: `CTR ${ctrPct.toFixed(2)}%`, desc: `is below the ${CTR_BENCH.toFixed(2)}% benchmark. Consider refreshing creatives.` });
   }
   if (tot.leads > 0) insights.push({ Icon: Target, color: "#6366F1", tint: true, title: `CPL ${money(cpl)}`, desc: "average cost per lead in this range." });
-  if (tot.leads > 0 && tot.sales > 0) insights.push({ Icon: Trophy, color: "#059669", tint: true, title: `Lead to purchase ${convRate.toFixed(1)}%`, desc: `${fmtInt(tot.sales)} of ${fmtInt(tot.leads)} leads purchased.` });
+  if (tot.leads > 0 && tot.sales > 0) insights.push({ Icon: Trophy, color: "#16A34A", tint: true, title: `Lead to purchase ${convRate.toFixed(1)}%`, desc: `${fmtInt(tot.sales)} of ${fmtInt(tot.leads)} leads purchased.` });
   if (tot.leads > 0 && tot.sales === 0) insights.push({ Icon: AlertTriangle, color: "#F59E0B", title: "No conversions yet.", desc: "Consider optimizing the landing page or follow-up process." });
   if (topSrc) insights.push({ Icon: Award, color: "#0EA5E9", title: "Top performing source", desc: `${topSrc.label} (${topSrc.cvr.toFixed(2)}% CVR).` });
 
@@ -1369,7 +1370,7 @@ function MarketingAnalytics() {
 
   // Monthly Leads Performance Breakdown: pivot daily_sources into one series per source.
   const SRC_LABELS: Record<string, string> = { meta_ads: "Meta Ads", tiktok_ads: "TikTok Ads", google_ads: "Google Ads", website: "Website", direct: "Direct" };
-  const SRC_COLORS: Record<string, string> = { meta_ads: "#2D8B73", tiktok_ads: "#111827", google_ads: "#EA4335", website: "#6366F1", direct: "#94A3B8" };
+  const SRC_COLORS: Record<string, string> = { meta_ads: "#0E5B54", tiktok_ads: "#111827", google_ads: "#EA4335", website: "#6366F1", direct: "#94A3B8" };
   const leadSourceKeys = Array.from(new Set((perf?.daily_sources || []).map((r) => r.source)));
   // Pivot over the ACTIVE daily timeline (dead dates dropped) and zero-fill every
   // source, so lines run continuously without floating fragments or dead tails.
@@ -1557,12 +1558,12 @@ function MarketingAnalytics() {
       {/* KPI cards — value + trend vs the prior window + sparkline */}
       <div className="grid grid-cols-2 md:grid-cols-3 xl:grid-cols-6 gap-3 mb-5">
         {roiCards.map((c) => (
-          <div key={c.label} className="bg-card rounded-lg border border-border shadow-xs p-4 flex flex-col">
+          <div key={c.label} className="bg-card rounded-xl border border-border shadow-xs p-5 flex flex-col">
             <div className="flex items-center gap-2 mb-2.5">
               <div className="w-8 h-8 rounded-full grid place-items-center shrink-0" style={{ backgroundColor: c.color + "14" }}><c.Icon className="w-4 h-4" style={{ color: c.color }} /></div>
               <p className="text-[10px] font-semibold text-muted-foreground uppercase tracking-wide leading-tight truncate">{t(c.label)}</p>
             </div>
-            <p className="text-[22px] font-extrabold text-foreground leading-none tabular-nums truncate">{c.value}</p>
+            <p className="font-mono text-[22px] font-semibold text-foreground leading-none tracking-tight tabular-nums truncate">{c.value}</p>
             <div className="mt-1.5 flex items-center gap-1.5 min-h-[16px]">
               {hasPrev && <Delta cur={c.cur} prev={c.prev} higherIsBetter={c.higher} />}
               {hasPrev && <span className="text-[10px] text-muted-foreground truncate">{cmpLabel}</span>}
@@ -1597,12 +1598,11 @@ function MarketingAnalytics() {
               const top = funnelWAt(i * (FUNNEL_H + FUNNEL_GAP));
               const bot = funnelWAt(i * (FUNNEL_H + FUNNEL_GAP) + FUNNEL_H);
               const mid = (top + bot) / 2;
-              const last = i === funnelSteps.length - 1;
               return (
                 <div key={s.label} className="flex items-center gap-2.5">
                   <div className="relative flex-1 min-w-0">
                     <div className="absolute top-1/2 right-0 border-t border-dotted border-border" style={{ left: `calc(${50 + mid / 2}% + 5px)` }} />
-                    <FunnelTrapezoid topPct={top} botPct={bot} fill={FUNNEL_RAMP[i]} color={last ? FUNNEL_RAMP[0] : "#fff"} h={FUNNEL_H}>
+                    <FunnelTrapezoid topPct={top} botPct={bot} fill={FUNNEL_RAMP[i]} color={readableTextOn(FUNNEL_RAMP[i])} h={FUNNEL_H}>
                       <s.Icon className="w-4 h-4 opacity-90 shrink-0" />
                       <div className="text-center min-w-0">
                         <span className="text-[16px] font-extrabold tabular-nums leading-none">{s.value}</span>
@@ -1663,7 +1663,7 @@ function MarketingAnalytics() {
                       </td>
                       <td className="px-2.5 py-2 text-right">
                         <div className="tabular-nums text-foreground/80">{fmtInt(s.impressions)}</div>
-                        {ser && ser.impressions.length > 1 && <div className="flex justify-end mt-1"><MiniBars data={ser.impressions} color="#2D8B73" w={56} h={16} /></div>}
+                        {ser && ser.impressions.length > 1 && <div className="flex justify-end mt-1"><MiniBars data={ser.impressions} color="#0E5B54" w={56} h={16} /></div>}
                       </td>
                       <td className="px-2.5 py-2 text-right tabular-nums text-foreground/80">{fmtInt(s.clicks)}</td>
                       <td className="px-2.5 py-2 text-right">
@@ -1675,7 +1675,7 @@ function MarketingAnalytics() {
                         <div className="tabular-nums text-foreground/80">{fmtInt(s.leads)}</div>
                         {s.leads > 0 && (
                           <div className="mt-1 ml-auto h-1.5 rounded-full bg-muted overflow-hidden" style={{ width: 40 }}>
-                            <div className="h-full rounded-full" style={{ width: `${(s.leads / srcMaxLeads) * 100}%`, background: "#2D8B73" }} />
+                            <div className="h-full rounded-full" style={{ width: `${(s.leads / srcMaxLeads) * 100}%`, background: "#0E5B54" }} />
                           </div>
                         )}
                       </td>
@@ -1747,7 +1747,7 @@ function MarketingAnalytics() {
           <div className="flex flex-wrap items-start gap-x-6 gap-y-3 mb-4">
             {[
               { label: "Impressions", color: "#0b1220", total: tot.impressions, prev: prev?.impressions ?? 0, show: showImpr, toggle: () => setShowImpr((v) => !v) },
-              { label: "Clicks", color: "#2D8B73", total: tot.clicks, prev: prev?.clicks ?? 0, show: showClk, toggle: () => setShowClk((v) => !v) },
+              { label: "Clicks", color: "#0E5B54", total: tot.clicks, prev: prev?.clicks ?? 0, show: showClk, toggle: () => setShowClk((v) => !v) },
             ].map((m) => (
               <button key={m.label} onClick={m.toggle} aria-pressed={m.show} title={m.show ? `Hide ${t(m.label)}` : `Show ${t(m.label)}`}
                 className={cn("text-left rounded-lg px-2.5 py-1.5 -ml-1 hover:bg-muted/50 transition-all outline-none", !m.show && "opacity-40")}>
@@ -1771,7 +1771,7 @@ function MarketingAnalytics() {
                 <AreaChart data={dailyLog} margin={{ top: 6, right: 12, left: 0, bottom: 0 }}>
                   <defs>
                     <linearGradient id="cpImpr" x1="0" y1="0" x2="0" y2="1"><stop offset="0%" stopColor="#0b1220" stopOpacity={0.07} /><stop offset="100%" stopColor="#0b1220" stopOpacity={0} /></linearGradient>
-                    <linearGradient id="cpClk" x1="0" y1="0" x2="0" y2="1"><stop offset="0%" stopColor="#2D8B73" stopOpacity={0.16} /><stop offset="100%" stopColor="#2D8B73" stopOpacity={0.01} /></linearGradient>
+                    <linearGradient id="cpClk" x1="0" y1="0" x2="0" y2="1"><stop offset="0%" stopColor="#0E5B54" stopOpacity={0.16} /><stop offset="100%" stopColor="#0E5B54" stopOpacity={0.01} /></linearGradient>
                   </defs>
                   <CartesianGrid stroke="rgba(148,163,184,0.16)" vertical={false} />
                   <XAxis dataKey="date" tick={{ fontSize: 11, fill: "#94a3b8" }} axisLine={false} tickLine={false} minTickGap={24} />
@@ -1779,7 +1779,7 @@ function MarketingAnalytics() {
                     tickFormatter={(v) => v >= 1e6 ? `${(v / 1e6).toFixed(0)}M` : v >= 1000 ? `${(v / 1000).toFixed(0)}k` : `${v}`} />
                   <RechartsTooltip content={<AdsTooltip />} cursor={{ stroke: "rgba(100,116,139,0.3)", strokeDasharray: "4 4" }} />
                   {showImpr && <Area type="monotone" dataKey="impressions" name="Impressions" stroke="#0b1220" strokeWidth={2} fill="url(#cpImpr)" dot={false} activeDot={{ r: 4, fill: "#fff", stroke: "#0b1220", strokeWidth: 2 }} connectNulls isAnimationActive={false} />}
-                  {showClk && <Area type="monotone" dataKey="clicks" name="Clicks" stroke="#2D8B73" strokeWidth={2} fill="url(#cpClk)" dot={false} activeDot={{ r: 4, fill: "#fff", stroke: "#2D8B73", strokeWidth: 2 }} connectNulls isAnimationActive={false} />}
+                  {showClk && <Area type="monotone" dataKey="clicks" name="Clicks" stroke="#0E5B54" strokeWidth={2} fill="url(#cpClk)" dot={false} activeDot={{ r: 4, fill: "#fff", stroke: "#0E5B54", strokeWidth: 2 }} connectNulls isAnimationActive={false} />}
                 </AreaChart>
               </ResponsiveContainer>
             </div>
@@ -1807,7 +1807,7 @@ function MarketingAnalytics() {
                   <div key={k.keyword + i} className="grid grid-cols-[130px_1fr] gap-2 items-center">
                     <span className="text-[11px] text-foreground truncate" title={k.keyword}>{k.keyword}</span>
                     <div>
-                      <div className="flex items-center gap-2"><div className="h-2 rounded-sm" style={{ width: `${logW(k.clicks)}%`, background: "#2D8B73" }} /><span className="text-[10px] text-muted-foreground tabular-nums">{fmtInt(k.clicks)}</span></div>
+                      <div className="flex items-center gap-2"><div className="h-2 rounded-sm" style={{ width: `${logW(k.clicks)}%`, background: "#0E5B54" }} /><span className="text-[10px] text-muted-foreground tabular-nums">{fmtInt(k.clicks)}</span></div>
                       <div className="flex items-center gap-2 mt-1"><div className="h-2 rounded-sm" style={{ width: `${logW(k.impressions)}%`, background: "#0b1220" }} /><span className="text-[10px] text-muted-foreground tabular-nums">{fmtInt(k.impressions)}</span></div>
                     </div>
                   </div>
@@ -1824,7 +1824,7 @@ function MarketingAnalytics() {
             </div>
             <div className="flex items-center gap-3 shrink-0">
               <span className="flex items-center gap-1.5 text-[10px] text-muted-foreground"><span className="w-2.5 h-2.5 rounded-full" style={{ background: "#0b1220" }} />{t("dashboard.impressions")}</span>
-              <span className="flex items-center gap-1.5 text-[10px] text-muted-foreground"><span className="w-2.5 h-2.5 rounded-full" style={{ background: "#2D8B73" }} />{t("dashboard.linkClicks")}</span>
+              <span className="flex items-center gap-1.5 text-[10px] text-muted-foreground"><span className="w-2.5 h-2.5 rounded-full" style={{ background: "#0E5B54" }} />{t("dashboard.linkClicks")}</span>
             </div>
           </div>
           <div className="p-4">
@@ -1837,7 +1837,7 @@ function MarketingAnalytics() {
                     <span className="text-[11px] font-medium text-foreground">{b.value}</span>
                     <div className="flex flex-col gap-1.5">
                       <div className="flex items-center gap-2"><div className="flex-1 h-2 rounded-full bg-muted overflow-hidden"><div className="h-full rounded-full" style={{ width: `${(ageImprShare(b) / ageMaxShare) * 100}%`, background: "#0b1220" }} /></div><span className="text-[10px] font-semibold text-foreground/70 tabular-nums w-9 text-right">{ageImprShare(b).toFixed(1)}%</span></div>
-                      <div className="flex items-center gap-2"><div className="flex-1 h-2 rounded-full bg-muted overflow-hidden"><div className="h-full rounded-full" style={{ width: `${(ageClkShare(b) / ageMaxShare) * 100}%`, background: "#2D8B73" }} /></div><span className="text-[10px] font-semibold text-foreground/70 tabular-nums w-9 text-right">{ageClkShare(b).toFixed(1)}%</span></div>
+                      <div className="flex items-center gap-2"><div className="flex-1 h-2 rounded-full bg-muted overflow-hidden"><div className="h-full rounded-full" style={{ width: `${(ageClkShare(b) / ageMaxShare) * 100}%`, background: "#0E5B54" }} /></div><span className="text-[10px] font-semibold text-foreground/70 tabular-nums w-9 text-right">{ageClkShare(b).toFixed(1)}%</span></div>
                     </div>
                   </div>
                 ))}
@@ -1961,7 +1961,7 @@ function MarketingAnalytics() {
                   <td className="px-3 py-2">
                     {(() => {
                       const lv = (l.interest_level || "").toLowerCase();
-                      const c = lv === "hot" ? "#EF4444" : lv === "warm" ? "#F59E0B" : lv === "cold" ? "#3B82F6" : null;
+                      const c = (lv === "hot" || lv === "warm" || lv === "cold") ? interestColor(lv) : null;
                       return c ? (
                         <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-[11px] font-semibold capitalize" style={{ color: c, backgroundColor: c + "1a" }}>{lv}</span>
                       ) : <span className="text-muted-foreground">-</span>;
@@ -1989,11 +1989,11 @@ function MarketingAnalytics() {
                     <YAxis tick={{ fontSize: 11, fill: "#94a3b8" }} axisLine={false} tickLine={false} width={54}
                       tickFormatter={(v) => v >= 1e6 ? `${(v / 1e6).toFixed(0)}M` : v >= 1000 ? `${(v / 1000).toFixed(0)}k` : `${v}`} />
                     <RechartsTooltip content={<AdsTooltip fmt={money} />} cursor={{ fill: "rgba(45,139,115,0.06)" }} />
-                    <Bar dataKey="spend" name="Cost" fill="#2D8B73" radius={[3, 3, 0, 0]} isAnimationActive={false}>
+                    <Bar dataKey="spend" name="Cost" fill="#0E5B54" radius={[3, 3, 0, 0]} isAnimationActive={false}>
                       {daily.length <= 14 && <LabelList dataKey="spend" position="top" content={(props: any) => {
                         const { x, y, width, value } = props;
                         if (totalSpend <= 0 || value == null) return null;
-                        return <text x={Number(x) + Number(width) / 2} y={Number(y) - 6} textAnchor="middle" fontSize={11} fontWeight={700} fill="#2D8B73">{`${(Number(value) / totalSpend * 100).toFixed(1)}%`}</text>;
+                        return <text x={Number(x) + Number(width) / 2} y={Number(y) - 6} textAnchor="middle" fontSize={11} fontWeight={700} fill="#0E5B54">{`${(Number(value) / totalSpend * 100).toFixed(1)}%`}</text>;
                       }} />}
                     </Bar>
                   </BarChart>
@@ -2008,7 +2008,7 @@ function MarketingAnalytics() {
                   { label: "Highest Day", value: highestDay ? highestDay.date : "-", sub: highestDay ? money(highestDay.spend) : "", Icon: ArrowUpRight },
                 ].map((s) => (
                   <div key={s.label} className="flex items-center gap-2.5">
-                    <span className="w-9 h-9 rounded-lg grid place-items-center shrink-0" style={{ backgroundColor: "#2D8B7314" }}><s.Icon className="w-4 h-4 text-primary" /></span>
+                    <span className="w-9 h-9 rounded-lg grid place-items-center shrink-0" style={{ backgroundColor: "#0E5B5414" }}><s.Icon className="w-4 h-4 text-primary" /></span>
                     <div className="min-w-0">
                       <p className="text-[11px] text-muted-foreground truncate">{t(s.label)}</p>
                       <p className="text-[16px] font-extrabold text-foreground tabular-nums leading-tight truncate">{s.value}</p>
@@ -2139,10 +2139,10 @@ function CreativeReport() {
   const kpis = [
     { label: "Ad spend", value: money(tot.spend), Icon: CircleDollarSign, color: "#F59E0B" },
     { label: "Creatives", value: fmtInt(creatives.length), Icon: ImageIcon, color: "#0EA5E9" },
-    { label: "Leads", value: fmtInt(tot.leads), Icon: MessageSquare, color: "#2D8B73" },
-    { label: "Conversions", value: fmtInt(tot.sales), Icon: Trophy, color: "#059669" },
+    { label: "Leads", value: fmtInt(tot.leads), Icon: MessageSquare, color: "#0E5B54" },
+    { label: "Conversions", value: fmtInt(tot.sales), Icon: Trophy, color: "#16A34A" },
     { label: "Avg cost / lead", value: tot.leads > 0 ? money(avgCpl) : "-", Icon: Target, color: "#6366F1" },
-    { label: "Best lead to buy", value: bestCvr > 0 ? bestCvr.toFixed(1) + "%" : "-", Icon: TrendingUp, color: "#EF4444" },
+    { label: "Best lead to buy", value: bestCvr > 0 ? bestCvr.toFixed(1) + "%" : "-", Icon: TrendingUp, color: "#DC2626" },
   ];
 
   const Thumb = ({ c, size }: { c: AdPerformance["creatives"][number]; size: number }) => { const { t } = useI18n(); return ((
@@ -2182,14 +2182,14 @@ function CreativeReport() {
         {/* KPI summary — same card anatomy as the Ads Report KPI row */}
         <div className="grid grid-cols-2 md:grid-cols-3 xl:grid-cols-6 gap-3 mb-5">
           {kpis.map((k) => (
-            <div key={k.label} className="bg-card rounded-lg border border-border shadow-xs p-4 flex flex-col">
+            <div key={k.label} className="bg-card rounded-xl border border-border shadow-xs p-5 flex flex-col">
               <div className="flex items-center gap-2 mb-2.5">
                 <div className="w-8 h-8 rounded-full grid place-items-center shrink-0" style={{ backgroundColor: k.color + "14" }}>
                   <k.Icon className="w-4 h-4" style={{ color: k.color }} />
                 </div>
                 <p className="text-[10px] font-semibold text-muted-foreground uppercase tracking-wide leading-tight truncate">{t(k.label)}</p>
               </div>
-              <p className="text-[22px] font-extrabold text-foreground leading-none tabular-nums truncate">{k.value}</p>
+              <p className="font-mono text-[22px] font-semibold text-foreground leading-none tracking-tight tabular-nums truncate">{k.value}</p>
             </div>
           ))}
         </div>
@@ -2218,7 +2218,7 @@ function CreativeReport() {
                   <div className="min-w-0">
                     <p className="text-[13px] font-semibold text-foreground truncate">{name(bestCpl)}</p>
                     <p className="text-[10.5px] text-muted-foreground/80 truncate">{t("dashboard.adId")} {bestCpl.source_id}</p>
-                    <p className="text-[11.5px] text-[#059669] font-semibold">{money(bestCpl.spend / bestCpl.leads)}{t("dashboard.lead")} {fmtInt(bestCpl.leads)} leads</p>
+                    <p className="text-[11.5px] text-[#16A34A] font-semibold">{money(bestCpl.spend / bestCpl.leads)}{t("dashboard.lead")} {fmtInt(bestCpl.leads)} leads</p>
                   </div>
                 </div>
               ) : <p className="text-[13px] text-muted-foreground">{t("dashboard.noCostPerLeadData")}</p>}
@@ -2253,7 +2253,7 @@ function CreativeReport() {
             const badge = cr === top ? { t: "Top leads", cls: "bg-primary/[0.12] text-primary" }
               : cr === bestCpl ? { t: "Cheapest lead", cls: "bg-emerald-50 text-emerald-700" }
               : cr.spend > 0 && cr.leads === 0 ? { t: "No leads", cls: "bg-amber-50 text-amber-700" } : null;
-            const toneCls = (tone: string | null) => tone === "good" ? "text-[#059669]" : tone === "bad" ? "text-[#DC2626]" : "text-foreground";
+            const toneCls = (tone: string | null) => tone === "good" ? "text-[#16A34A]" : tone === "bad" ? "text-[#DC2626]" : "text-foreground";
             const cells = [
               { l: "Spend", v: cr.spend > 0 ? money(cr.spend) : "-" },
               { l: "Impressions", v: fmtInt(cr.impressions) },

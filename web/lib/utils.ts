@@ -195,10 +195,12 @@ export function channelColor(channel: string | undefined | null): string {
   return map[channel.toLowerCase()] || "#9CA3AF";
 }
 
+// Lead heat (temperature) — its own semantic axis, kept in sync with the --hot /
+// --warm / --cold design tokens. Distinct from brand (petrol) and pipeline stage.
 export function interestColor(val: string | undefined | null): string {
-  if (!val) return "#6B7280";
-  const map: Record<string, string> = { hot: "#EF4444", warm: "#F59E0B", cold: "#3B82F6" };
-  return map[val.toLowerCase()] || "#6B7280";
+  if (!val) return "#64748B";
+  const map: Record<string, string> = { hot: "#C4362B", warm: "#C0791A", cold: "#45657E" };
+  return map[val.toLowerCase()] || "#64748B";
 }
 
 // Darker channel color for TEXT on a light channel tint (the avatar pattern).
@@ -225,4 +227,19 @@ export function channelLabel(channel: string | undefined | null): string {
   };
   const k = channel.toLowerCase();
   return map[k] || (channel.charAt(0).toUpperCase() + channel.slice(1));
+}
+
+// Pick a readable text color (white ink or dark ink) for text placed ON a solid
+// hex background. Uses WCAG relative luminance so labels stay legible on every
+// step of a sequential ramp (fixes white-on-light-fill in funnel/gradient bars).
+export function readableTextOn(hex: string): string {
+  const m = hex.replace("#", "");
+  const full = m.length === 3 ? m.split("").map((c) => c + c).join("") : m;
+  const r = parseInt(full.slice(0, 2), 16) / 255;
+  const g = parseInt(full.slice(2, 4), 16) / 255;
+  const b = parseInt(full.slice(4, 6), 16) / 255;
+  const lin = (c: number) => (c <= 0.03928 ? c / 12.92 : Math.pow((c + 0.055) / 1.055, 2.4));
+  const L = 0.2126 * lin(r) + 0.7152 * lin(g) + 0.0722 * lin(b);
+  // Contrast vs white is (1.05)/(L+0.05); use dark ink once white drops below ~4.5:1.
+  return (1.05 / (L + 0.05)) >= 4.5 ? "#FFFFFF" : "#0C1614";
 }

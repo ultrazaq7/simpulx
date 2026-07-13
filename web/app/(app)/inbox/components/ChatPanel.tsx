@@ -18,6 +18,7 @@ import { MessageThreadSkeleton } from "./InboxSkeletons";
 import { StageMenu, getDotColor } from "./StageMenu";
 import { InterestMenu } from "./InterestMenu";
 import CallOverlay from "./CallOverlay";
+import { SimpulEmpty } from "@/components/simpul/SimpulEmpty";
 import { api } from "@/lib/api";
 import { useEscClose } from "@/lib/useEscClose";
 
@@ -320,52 +321,17 @@ export default function ChatPanel({
     <>
       <div className={cn("flex-1 flex flex-col min-w-0 bg-background", className)}>
         {!active ? (
-          /* WhatsApp-style Animated Empty State */
-          <div className="flex flex-col items-center justify-center h-full px-6 text-center bg-background">
-            {/* Animated Illustration */}
-            <div className="relative w-[200px] h-[160px] mb-8 animate-empty-1">
-              {/* Chat bubble left (incoming) */}
-              <div className="absolute left-2 top-6 animate-bubble-2">
-                <div className="bg-card border border-border rounded-2xl rounded-bl-sm px-4 py-2.5 shadow-sm max-w-[130px]">
-                  <div className="h-2 w-20 rounded-full bg-muted-foreground/20 mb-1.5" />
-                  <div className="h-2 w-14 rounded-full bg-muted-foreground/15" />
-                </div>
-              </div>
-              
-              {/* Chat bubble right (outgoing) */}
-              <div className="absolute right-2 top-[52px] animate-bubble-1">
-                <div className="bg-primary/10 border border-primary/20 rounded-2xl rounded-br-sm px-4 py-2.5 shadow-sm max-w-[140px]">
-                  <div className="h-2 w-24 rounded-full bg-primary/30 mb-1.5" />
-                  <div className="h-2 w-16 rounded-full bg-primary/20" />
-                </div>
-              </div>
-              
-              {/* Small chat bubble */}
-              <div className="absolute left-8 bottom-0 animate-bubble-1">
-                <div className="bg-card border border-border rounded-2xl rounded-bl-sm px-3 py-2 shadow-sm">
-                  <div className="h-2 w-12 rounded-full bg-muted-foreground/15" />
-                </div>
-              </div>
-            </div>
-            
-            {/* Title */}
-            <h2 className="text-xl font-bold tracking-tight text-foreground mb-2 animate-empty-2">
-              {t("inbox.pickAConversation")}
-            </h2>
-            
-            {/* Description */}
-            <p className="text-[13px] text-muted-foreground max-w-[340px] leading-relaxed animate-empty-3">
-              {t("inbox.newChatsWillOpenHere")}
-            </p>
-            
-            {/* Decorative line */}
-            <div className="mt-8 w-[340px] max-w-full border-t border-border animate-empty-4" />
-            
-            {/* Bottom info */}
-            <p className="mt-4 text-[11px] text-muted-foreground/60 animate-empty-4 flex items-center gap-1.5">
-              <Lock className="w-3 h-3" /> {t("inbox.endToEndEncrypted")}
-            </p>
-          </div>
+          /* Signature empty state — the Simpul thread (knot motif), not a generic
+             chat-bubble placeholder. */
+          <SimpulEmpty
+            title={t("inbox.pickAConversation")}
+            hint={t("inbox.newChatsWillOpenHere")}
+            action={
+              <span className="text-[11px] text-muted-foreground/60 flex items-center gap-1.5">
+                <Lock className="w-3 h-3" /> {t("inbox.endToEndEncrypted")}
+              </span>
+            }
+          />
         ) : (
           <>
             {/* ── Chat Header ── */}

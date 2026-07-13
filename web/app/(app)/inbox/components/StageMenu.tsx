@@ -5,25 +5,18 @@ import { ChevronDown, Check, XCircle } from "lucide-react";
 import { cn, stageLabel } from "@/lib/utils";
 import { useEscClose } from "@/lib/useEscClose";
 import { useI18n } from "@/lib/i18n";
+import { stageColor } from "@/lib/leadColors";
 import type { Stage } from "@/lib/types";
 
-// --- Stage color map (semantic data colors) ---
-// Sales funnel colors (must match the dashboard's FUNNEL_COLORS order):
-// New Lead -> Contacted -> Qualified -> Appointment -> Negotiation -> Purchase.
-export const stageColorMap: Record<string, string> = {
-  new_lead: "#6366F1", "new lead": "#6366F1",
-  contacted: "#0EA5E9",
-  qualified: "#14B8A6",
-  appointment: "#8B5CF6",
-  negotiation: "#F59E0B",
-  purchase: "#16A34A",
-  // legacy aliases (pre-rename) so old data still colors sensibly
-  test_drive: "#F59E0B", "test drive": "#F59E0B",
-  booking: "#16A34A",
-};
+// Stage colors now come from the single source of truth in lib/leadColors so a
+// stage is the same color in the inbox, the contacts table and every report.
+// getDotColor / stageColorMap are kept as thin wrappers for existing callers.
 export function getDotColor(name: string): string {
-  return stageColorMap[name.toLowerCase()] || stageColorMap[name.toLowerCase().replace(/\s+/g, "_")] || "#64748B";
+  return stageColor(name);
 }
+export const stageColorMap: Record<string, string> = new Proxy({}, {
+  get: (_t, key) => stageColor(String(key)),
+}) as Record<string, string>;
 
 // Pipeline stages = progress (New ... Purchase). Lost/Spam are terminal OUTCOMES
 // (dispositions + reason), not stages — so they live in their own section here.

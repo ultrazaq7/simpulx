@@ -9,8 +9,12 @@ module.exports = {
   theme: {
     extend: {
       fontFamily: {
-        // Inter (via --font-sans) with a native fallback while the font loads.
-        sans: ["var(--font-sans)", "system-ui", "-apple-system", "BlinkMacSystemFont", "Segoe UI", "Roboto", "Helvetica", "Arial", "sans-serif", "Apple Color Emoji", "Segoe UI Emoji", "Segoe UI Symbol", "Noto Color Emoji"],
+        // Body / UI — Geist Sans (via geist/font/sans -> --font-geist-sans).
+        sans: ["var(--font-geist-sans)", "system-ui", "-apple-system", "BlinkMacSystemFont", "Segoe UI", "Roboto", "Helvetica", "Arial", "sans-serif", "Apple Color Emoji", "Segoe UI Emoji", "Segoe UI Symbol", "Noto Color Emoji"],
+        // Display — Bricolage Grotesque (page titles, KPI numbers, empty-state headlines).
+        display: ["var(--font-display)", "var(--font-geist-sans)", "system-ui", "sans-serif"],
+        // Data / utility — Geist Mono (metrics, %, phone, timestamps, IDs). Tabular.
+        mono: ["var(--font-geist-mono)", "ui-monospace", "SFMono-Regular", "Menlo", "Consolas", "monospace"],
       },
       colors: {
         border: "hsl(var(--border))",
@@ -28,6 +32,21 @@ module.exports = {
         cold: { DEFAULT: "hsl(var(--cold))", bg: "hsl(var(--cold-bg))" },
         warm: { DEFAULT: "hsl(var(--warm))", bg: "hsl(var(--warm-bg))" },
         hot: { DEFAULT: "hsl(var(--hot))", bg: "hsl(var(--hot-bg))" },
+        // AI / automation (Simpuler) — reserved indigo, never a status color.
+        ai: {
+          DEFAULT: "hsl(var(--ai))",
+          foreground: "hsl(var(--ai-foreground))",
+          bg: "hsl(var(--ai-bg))",
+          text: "hsl(var(--ai-text))",
+        },
+        // Brand petrol scale (Simpul thread motif, gradients).
+        petrol: {
+          50: "hsl(var(--petrol-50))",
+          100: "hsl(var(--petrol-100))",
+          500: "hsl(var(--petrol-500))",
+          700: "hsl(var(--petrol-700))",
+          900: "hsl(var(--petrol-900))",
+        },
         amber: {
           DEFAULT: "hsl(var(--amber))",
           foreground: "hsl(var(--amber-foreground))",
@@ -93,12 +112,12 @@ module.exports = {
         lg: "0 12px 16px -4px rgb(16 24 40 / 0.08), 0 4px 6px -2px rgb(16 24 40 / 0.04)",
         xl: "0 20px 24px -4px rgb(16 24 40 / 0.10), 0 8px 8px -4px rgb(16 24 40 / 0.04)",
         "2xl": "0 24px 48px -12px rgb(16 24 40 / 0.18)",
-        "brand-md": "0 6px 16px -4px hsl(161 51% 36% / 0.30)",
+        "brand-md": "0 6px 16px -4px hsl(174 66% 30% / 0.30)",
         "inner-sm": "inset 0 1px 2px 0 rgb(16 24 40 / 0.06)",
       },
       backgroundImage: {
         "brand-gradient": "linear-gradient(135deg, hsl(var(--primary-light)) 0%, hsl(var(--primary)) 55%, hsl(var(--primary-dark)) 100%)",
-        "sidebar-gradient": "linear-gradient(180deg, hsl(156 36% 9%) 0%, hsl(156 38% 6%) 100%)",
+        "sidebar-gradient": "linear-gradient(180deg, hsl(176 70% 9%) 0%, hsl(178 74% 6%) 100%)",
       },
       keyframes: {
         shimmer: { "100%": { transform: "translateX(100%)" } },

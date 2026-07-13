@@ -50,7 +50,7 @@ export const CHANNEL_CATALOG: ChannelMeta[] = [
   {
     type: "messenger", name: "Facebook Messenger", color: "#0084FF", icon: Facebook,
     blurb: "Facebook Pages",
-    description: "Reply to Messenger conversations from your Facebook Pages directly inside the shared inbox.",
+    description: "Reply to Messenger conversations from your Facebook Pages directly inside the shared Chat.",
     available: true,
   },
   {
@@ -82,7 +82,7 @@ export const CHANNEL_CATALOG: ChannelMeta[] = [
   {
     type: "viber", name: "Viber", color: "#7360F2", icon: MessageCircle,
     blurb: "Public Account",
-    description: "Connect a Viber Public Account with its auth token to receive and reply to Viber messages in the shared inbox.",
+    description: "Connect a Viber Public Account with its auth token to receive and reply to Viber messages in the shared Chat.",
     available: true,
   },
 ];

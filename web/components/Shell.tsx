@@ -73,7 +73,7 @@ const PAGE_TITLES: Record<string, { category: string; title: string; icon?: any 
   "/dashboard/campaign-performance": { category: "REPORTS", title: "Campaign Performance" },
   "/dashboard/creative-insights": { category: "REPORTS", title: "Creative Insights" },
   "/dashboard": { category: "REPORTS", title: "General Report" },
-  "/inbox": { category: "INBOX", title: "Chat" },
+  "/inbox": { category: "CHAT", title: "Chat" },
   "/settings/logs/conversation": { category: "LOGS", title: "Conversations", icon: ScrollText },
   "/settings/logs/messages": { category: "LOGS", title: "Message History", icon: ScrollText },
   "/settings/logs/activity": { category: "LOGS", title: "User Activity", icon: ScrollText },
@@ -117,7 +117,7 @@ const CATEGORY_ICONS: Record<string, any> = {
   "CUSTOMIZATIONS": SlidersHorizontal,
   "CHANNEL & INTEGRATIONS": RadioTower,
   "PLATFORM": Boxes,
-  "INBOX": MessagesSquare,
+  "CHAT": MessagesSquare,
   "GROUPS": Users,
   "CAMPAIGNS": Building2,
   "OUTREACH": Megaphone,
@@ -459,12 +459,12 @@ export function Shell({ children }: { children: ReactNode }) {
         href={href}
         className={cn("group relative w-full block outline-none", expanded ? "px-2.5" : "px-2")}
       >
-        {active && <span aria-hidden className="absolute left-0 top-1/2 -translate-y-1/2 h-5 w-[3px] rounded-r-full bg-primary" />}
+        {active && <span aria-hidden className="absolute left-0 top-1/2 -translate-y-1/2 h-5 w-[3px] rounded-r-full bg-primary-light" />}
         <div className={cn(
           "h-10 rounded-lg flex items-center transition-colors duration-200",
           expanded ? "w-full justify-start" : "w-10 mx-auto justify-center",
-          // Darker, filled pill on the active tab (like the mobile bottom-nav).
-          active ? "bg-primary/[0.16]" : "hover:bg-foreground/[0.04]"
+          // Filled pill on the active tab, tinted onto the dark petrol rail.
+          active ? "bg-white/[0.10]" : "hover:bg-white/[0.06]"
         )}>
           <div className="relative w-10 h-10 shrink-0 flex items-center justify-center">
             {href === "/inbox" && unreadCount > 0 && (
@@ -475,17 +475,17 @@ export function Shell({ children }: { children: ReactNode }) {
             <Icon
               strokeWidth={active ? (cutout ? 2.5 : 2) : 1.75}
               fill={active && !noFill ? "currentColor" : "none"}
-              color={active && cutout ? "hsl(var(--background))" : "currentColor"}
+              color={active && cutout ? "hsl(var(--sidebar))" : "currentColor"}
               className={cn(
                 "w-[20px] h-[20px] transition-colors duration-200",
-                active ? cn("text-primary-text", cutout && "[&>*:first-child]:stroke-current") : "text-muted-foreground group-hover:text-foreground"
+                active ? cn("text-white", cutout && "[&>*:first-child]:stroke-current") : "text-sidebar-muted group-hover:text-white"
               )}
             />
           </div>
           {expanded && (
             <span className={cn(
               "text-[13px] font-semibold whitespace-nowrap",
-              active ? "text-primary-text" : "text-muted-foreground group-hover:text-foreground",
+              active ? "text-white" : "text-sidebar-muted group-hover:text-white",
             )}>
               {label}
             </span>
@@ -509,7 +509,7 @@ export function Shell({ children }: { children: ReactNode }) {
         role="navigation"
         aria-label={t("components.main")}
         className={cn(
-          "shrink-0 flex flex-col py-4 gap-0.5 bg-muted border-r border-border transition-[width,transform] duration-200 ease-out z-50 overflow-x-hidden",
+          "shrink-0 flex flex-col py-4 gap-0.5 bg-sidebar text-sidebar-foreground border-r border-sidebar-border transition-[width,transform] duration-200 ease-out z-50 overflow-x-hidden",
           "max-lg:fixed max-lg:inset-y-0 max-lg:left-0 max-lg:z-[60] max-lg:shadow-2xl",
           isMobile && !mobileNavOpen && "max-lg:-translate-x-full",
         )}
@@ -524,7 +524,7 @@ export function Shell({ children }: { children: ReactNode }) {
               <img src="/simpulx_logo.png" alt={t("auth.simpulx")} className="w-full h-full object-cover" />
             </div>
             {expanded && (
-              <span className="ml-3 text-[20px] font-extrabold tracking-tight text-foreground whitespace-nowrap">
+              <span className="ml-3 font-display text-[20px] font-extrabold tracking-tight text-white whitespace-nowrap">
                 {t("auth.simpul")}<span className="text-amber">x</span>
               </span>
             )}
@@ -539,7 +539,7 @@ export function Shell({ children }: { children: ReactNode }) {
           <button
             aria-label={sidebarOpen ? t("components.collapseSidebar") : t("components.expandSidebar")}
             onClick={() => setSidebarOpen(!sidebarOpen)}
-            className="p-1 rounded-md text-muted-foreground border border-border hover:text-foreground hover:bg-foreground/5 transition-colors outline-none"
+            className="p-1 rounded-md text-sidebar-muted border border-sidebar-border hover:text-white hover:bg-white/10 transition-colors outline-none"
           >
             {sidebarOpen ? <ChevronLeft className="w-[18px] h-[18px]" /> : <ChevronRight className="w-[18px] h-[18px]" />}
           </button>

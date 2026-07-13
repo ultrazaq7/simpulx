@@ -6,12 +6,12 @@ const SECTIONS: { title: string; items: [string, string][] }[] = [
   { title: "Navigation", items: [
     ["⌘ K", "Command palette"],
     ["g  d", "Go to Dashboard"],
-    ["g  i", "Go to Inbox"],
+    ["g  i", "Go to Chat"],
     ["g  c", "Go to Contacts"],
     ["g  b", "Go to Broadcasts"],
     ["g  s", "Go to Settings"],
   ] },
-  { title: "Inbox", items: [
+  { title: "Chat", items: [
     ["j  /  ↓", "Next conversation"],
     ["k  /  ↑", "Previous conversation"],
     ["/", "Focus search"],

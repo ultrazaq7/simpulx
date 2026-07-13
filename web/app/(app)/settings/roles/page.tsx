@@ -11,7 +11,7 @@ type Perm = { key: string; label: string };
 const GROUPS: { group: string; perms: Perm[] }[] = [
   { group: "Sidebar Menu", perms: [
     { key: "menu_dashboard", label: "Dashboard" },
-    { key: "menu_chats", label: "Inbox / Chats" },
+    { key: "menu_chats", label: "Chat" },
     { key: "menu_contacts", label: "Contacts" },
     { key: "menu_broadcasts", label: "Broadcasts" },
     { key: "menu_automation", label: "Automation" },
