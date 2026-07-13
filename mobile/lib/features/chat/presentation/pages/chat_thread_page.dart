@@ -11,6 +11,8 @@ import 'package:url_launcher/url_launcher.dart';
 
 import '../../../../app/theme/app_colors.dart';
 import '../../../../core/i18n/i18n.dart';
+import '../../../../core/realtime/realtime_event.dart';
+import '../../../../core/realtime/realtime_providers.dart';
 import '../../../../core/utils/time_format.dart';
 import '../../../../core/widgets/app_error_view.dart';
 import '../../../../core/widgets/app_skeleton.dart';
@@ -52,6 +54,9 @@ class _ChatThreadPageState extends ConsumerState<ChatThreadPage>
   bool _didInitialScroll = false;
   bool _showJump = false;
   double _lastBottomInset = 0;
+  bool _aiThinking = false;
+  StreamSubscription<RealtimeEvent>? _aiSub;
+  Timer? _aiTimer;
 
   /// Look up this conversation from the live inbox list (used when opened
   /// without a route `extra`, e.g. from a push notification or contact Chat).
@@ -69,11 +74,28 @@ class _ChatThreadPageState extends ConsumerState<ChatThreadPage>
     super.initState();
     _scroll.addListener(_onScroll);
     WidgetsBinding.instance.addObserver(this);
+    _aiSub = ref.read(realtimeClientProvider).events.listen((ev) {
+      if (!ev.isAiActivity) return;
+      final p = AiActivityPayload(ev.data);
+      if (p.conversationId != widget.conversationId) return;
+      if (p.phase == 'thinking') {
+        setState(() => _aiThinking = true);
+        _aiTimer?.cancel();
+        _aiTimer = Timer(const Duration(seconds: 30), () {
+          if (mounted) setState(() => _aiThinking = false);
+        });
+      } else {
+        _aiTimer?.cancel();
+        setState(() => _aiThinking = false);
+      }
+    });
   }
 
   @override
   void dispose() {
     WidgetsBinding.instance.removeObserver(this);
+    _aiSub?.cancel();
+    _aiTimer?.cancel();
     _scroll.removeListener(_onScroll);
     _scroll.dispose();
     super.dispose();
@@ -452,6 +474,32 @@ class _ChatThreadPageState extends ConsumerState<ChatThreadPage>
                 ],
               ),
             ),
+          // Simpuler typing indicator (right-aligned, above composer)
+          if (_aiThinking)
+            Container(
+              padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 6),
+              child: Row(
+                mainAxisAlignment: MainAxisAlignment.end,
+                children: [
+                  Icon(Icons.auto_awesome, size: 14, color: Colors.deepPurple.shade400),
+                  const SizedBox(width: 6),
+                  Text('Simpuler is typing'.tr(context),
+                      style: TextStyle(
+                          fontSize: 12,
+                          fontWeight: FontWeight.w600,
+                          color: Colors.deepPurple.shade400)),
+                  const SizedBox(width: 6),
+                  SizedBox(
+                    width: 20,
+                    height: 14,
+                    child: Row(
+                      mainAxisAlignment: MainAxisAlignment.center,
+                      children: List.generate(3, (i) => _BouncingDot(delay: i * 100)),
+                    ),
+                  ),
+                ],
+              ),
+            ),
           MessageComposer(
             conversationId: widget.conversationId,
             onSend: (text) => ref
@@ -686,5 +734,58 @@ class _ThreadAppBar extends StatelessWidget implements PreferredSizeWidget {
     if (parts.length == 1) return parts.first.substring(0, 1).toUpperCase();
     return (parts.first.substring(0, 1) + parts.last.substring(0, 1))
         .toUpperCase();
+  }
+}
+
+/// A single bouncing dot for the typing indicator animation.
+class _BouncingDot extends StatefulWidget {
+  const _BouncingDot({required this.delay});
+  final int delay; // ms
+
+  @override
+  State<_BouncingDot> createState() => _BouncingDotState();
+}
+
+class _BouncingDotState extends State<_BouncingDot>
+    with SingleTickerProviderStateMixin {
+  late final AnimationController _ctrl;
+  late final Animation<double> _anim;
+
+  @override
+  void initState() {
+    super.initState();
+    _ctrl = AnimationController(
+        vsync: this, duration: const Duration(milliseconds: 600));
+    _anim = Tween<double>(begin: 0, end: -4).animate(
+        CurvedAnimation(parent: _ctrl, curve: Curves.easeInOut));
+    Future.delayed(Duration(milliseconds: widget.delay), () {
+      if (mounted) _ctrl.repeat(reverse: true);
+    });
+  }
+
+  @override
+  void dispose() {
+    _ctrl.dispose();
+    super.dispose();
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    return AnimatedBuilder(
+      animation: _anim,
+      builder: (_, child) => Transform.translate(
+        offset: Offset(0, _anim.value),
+        child: child,
+      ),
+      child: Container(
+        width: 4,
+        height: 4,
+        margin: const EdgeInsets.symmetric(horizontal: 1),
+        decoration: BoxDecoration(
+          color: Colors.deepPurple.shade400,
+          shape: BoxShape.circle,
+        ),
+      ),
+    );
   }
 }

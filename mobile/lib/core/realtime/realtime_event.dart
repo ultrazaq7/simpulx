@@ -27,6 +27,7 @@ class RealtimeEvent {
   bool get isCampaignUpdated => type == 'campaign.updated';
   bool get isCallUpdated => type == 'call.updated';
   bool get isContactDeleted => type == 'contact.deleted';
+  bool get isAiActivity => type == 'ai.activity';
 
   static RealtimeEvent? tryParse(Map<String, dynamic> json) {
     final type = json['type'];
@@ -166,4 +167,13 @@ class CallUpdatedPayload {
   String? get endReason => _s('end_reason');
 
   bool get isInbound => direction == 'inbound';
+}
+
+/// Typed view over an `ai.activity` payload (Simpuler typing indicator).
+class AiActivityPayload {
+  const AiActivityPayload(this._d);
+  final Map<String, dynamic> _d;
+
+  String get conversationId => (_d['conversation_id'] ?? '') as String;
+  String get phase => (_d['phase'] ?? '') as String;
 }

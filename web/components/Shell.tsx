@@ -63,7 +63,6 @@ const NAV_TOP = [
 ];
 
 const NAV_BOTTOM = [
-  { href: "/system-logs", icon: ScrollText, labelKey: "nav.systemLogs", perm: "menu_audit_log", noFill: true },
   { href: "/settings", icon: Settings, labelKey: "nav.settings", perm: "menu_settings", noFill: true },
 ];
 
@@ -75,13 +74,13 @@ const PAGE_TITLES: Record<string, { category: string; title: string; icon?: any 
   "/dashboard/creative-insights": { category: "REPORTS", title: "Creative Insights" },
   "/dashboard": { category: "REPORTS", title: "General Report" },
   "/inbox": { category: "INBOX", title: "Chat" },
-  "/system-logs/conversation": { category: "SYSTEM", title: "Conversations", icon: ScrollText },
-  "/system-logs/messages": { category: "SYSTEM", title: "Message History", icon: ScrollText },
-  "/system-logs/activity": { category: "SYSTEM", title: "User Activity", icon: ScrollText },
-  "/system-logs/calls": { category: "SYSTEM", title: "Call Logs", icon: ScrollText },
-  "/system-logs/downloads": { category: "SYSTEM", title: "Downloads", icon: ScrollText },
-  "/system-logs/system": { category: "SYSTEM", title: "System Logs", icon: ScrollText },
-  "/system-logs": { category: "SYSTEM", title: "System Logs", icon: ScrollText },
+  "/settings/system-logs/conversation": { category: "SYSTEM", title: "Conversations", icon: ScrollText },
+  "/settings/system-logs/messages": { category: "SYSTEM", title: "Message History", icon: ScrollText },
+  "/settings/system-logs/activity": { category: "SYSTEM", title: "User Activity", icon: ScrollText },
+  "/settings/system-logs/calls": { category: "SYSTEM", title: "Call Logs", icon: ScrollText },
+  "/settings/system-logs/downloads": { category: "SYSTEM", title: "Downloads", icon: ScrollText },
+  "/settings/system-logs/system": { category: "SYSTEM", title: "System Logs", icon: ScrollText },
+  "/settings/system-logs": { category: "SYSTEM", title: "System Logs", icon: ScrollText },
   "/contacts": { category: "GROUPS", title: "Contacts" },
   "/campaigns": { category: "CAMPAIGNS", title: "Campaigns" },
   "/broadcasts": { category: "OUTREACH", title: "Broadcasts" },

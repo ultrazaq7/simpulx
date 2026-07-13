@@ -341,8 +341,9 @@ class _ActionButton extends StatelessWidget {
           child: Container(
             padding: const EdgeInsets.symmetric(vertical: 12),
             decoration: BoxDecoration(
-              color: theme.colorScheme.surfaceContainerHighest,
+              color: AppColors.brandGreenDark.withValues(alpha: 0.05),
               borderRadius: BorderRadius.circular(12),
+              border: Border.all(color: AppColors.brandGreenDark.withValues(alpha: 0.10)),
             ),
             child: Column(
               children: [
@@ -669,8 +670,9 @@ class _Card extends StatelessWidget {
       width: double.infinity,
       padding: const EdgeInsets.all(AppSpacing.lg),
       decoration: BoxDecoration(
-        color: Theme.of(context).colorScheme.surfaceContainerHighest.withValues(alpha: 0.5),
-        borderRadius: BorderRadius.circular(AppRadius.lg),
+        color: AppColors.brandGreenDark.withValues(alpha: 0.05),
+        borderRadius: BorderRadius.circular(16),
+        border: Border.all(color: AppColors.brandGreenDark.withValues(alpha: 0.10)),
       ),
       child: child,
     );

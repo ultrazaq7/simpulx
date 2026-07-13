@@ -231,6 +231,22 @@ export default function ChatPanel({
   const [activeCallId, setActiveCallId] = useState<string | null>(null);
   const [activeCallStatus, setActiveCallStatus] = useState<string>("requesting");
 
+  // ── Scroll-to-bottom button ──
+  const [showJump, setShowJump] = useState(false);
+  useEffect(() => {
+    const el = bodyRef.current;
+    if (!el) return;
+    const onScroll = () => {
+      const distFromBottom = el.scrollHeight - el.scrollTop - el.clientHeight;
+      setShowJump(distFromBottom > 400);
+    };
+    el.addEventListener("scroll", onScroll, { passive: true });
+    return () => el.removeEventListener("scroll", onScroll);
+  }, [bodyRef, active?.id]);
+  const jumpToBottom = useCallback(() => {
+    bodyRef.current?.scrollTo({ top: bodyRef.current.scrollHeight, behavior: "smooth" });
+  }, [bodyRef]);
+
   // All media messages in this conversation, in timeline order, for the slideable gallery.
   const mediaMessages = useMemo(
     () => timeline.filter((i): i is Extract<Item, { kind: "msg" }> => i.kind === "msg" && !!mediaKind(i.m)).map((i) => i.m),
@@ -587,7 +603,8 @@ export default function ChatPanel({
             )}
 
             {/* ── Message timeline ── */}
-            <div ref={bodyRef} className="flex-1 overflow-auto px-4 pt-5 pb-10 flex flex-col">
+            <div className="relative flex-1 min-h-0">
+            <div ref={bodyRef} className="absolute inset-0 overflow-auto px-4 pt-5 pb-10 flex flex-col">
               {messagesQuery.isLoading && timeline.length === 0 && <MessageThreadSkeleton />}
               {messagesQuery.isFetchingNextPage && (
                 <p className="text-center text-xs text-muted-foreground my-2">{t("components.loadingOlderMessages")}</p>
@@ -654,6 +671,17 @@ export default function ChatPanel({
               </div>
             </div>
 
+            {/* Scroll to bottom FAB */}
+            {showJump && (
+              <button
+                onClick={jumpToBottom}
+                className="absolute right-6 bottom-4 z-10 flex items-center justify-center w-9 h-9 rounded-full bg-card border border-border shadow-md hover:bg-muted transition-all"
+                aria-label="Scroll to bottom"
+              >
+                <ChevronDown className="w-5 h-5 text-muted-foreground" />
+              </button>
+            )}
+            </div>
 
             {/* ── Composer ── */}
             <Composer

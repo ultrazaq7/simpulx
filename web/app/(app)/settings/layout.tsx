@@ -10,7 +10,7 @@ import { usePathname, useSearchParams } from "next/navigation";
 import {
   Settings, FormInput, Bell, User, ShieldCheck, ListOrdered,
   Building2, Building, FileText, GitBranch, RadioTower, Clock, ClipboardList,
-  ChevronsLeft, Boxes, Zap, SlidersHorizontal, ChevronRight, Plug, Megaphone,
+  ChevronsLeft, Boxes, Zap, SlidersHorizontal, ChevronRight, Plug, Megaphone, ScrollText,
 } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { api, getUser } from "@/lib/api";
@@ -57,6 +57,12 @@ const GROUPS: { titleKey: string; items: NavItem[] }[] = [
       { key: "ci-channel", labelKey: "Channel", icon: RadioTower, href: "/settings/channels", perm: "manage_channels" },
       { key: "ci-webapi", labelKey: "Web API", icon: Plug, href: "/settings/web-api", perm: "manage_channels" },
       { key: "ci-ads", labelKey: "Ads & Analytics", icon: Megaphone, href: "/settings/ads-analytics", perm: "manage_channels" },
+    ],
+  },
+  {
+    titleKey: "System",
+    items: [
+      { key: "system-logs", labelKey: "System Logs", icon: ScrollText, href: "/settings/system-logs", perm: "menu_audit_log" },
     ],
   },
 ];
