@@ -654,18 +654,6 @@ export default function ChatPanel({
               </div>
             </div>
 
-            {/* Live Simpuler indicator (WS-C): shows while the bot drafts a reply. */}
-            {aiThinking && (
-              <div className="px-4 pb-1.5 pt-0.5 flex items-center gap-2 text-[12px] font-medium text-violet-600">
-                <Sparkles className="w-3.5 h-3.5" />
-                <span>{t("inbox.simpulerIsTyping")}</span>
-                <span className="flex gap-0.5">
-                  <span className="w-1 h-1 rounded-full bg-violet-500 animate-bounce [animation-delay:-0.2s]" />
-                  <span className="w-1 h-1 rounded-full bg-violet-500 animate-bounce [animation-delay:-0.1s]" />
-                  <span className="w-1 h-1 rounded-full bg-violet-500 animate-bounce" />
-                </span>
-              </div>
-            )}
 
             {/* ── Composer ── */}
             <Composer
@@ -685,6 +673,7 @@ export default function ChatPanel({
               uploadProgress={uploadProgress}
               onAddNote={onAddNote}
               smartSummaryEnabled={active?.campaign_smart_summary !== false}
+              aiThinking={aiThinking}
             />
           </>
         )}

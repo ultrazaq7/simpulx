@@ -35,13 +35,14 @@ interface ComposerProps {
   uploadProgress?: number | null; // 0-100 while an attachment uploads
   onAddNote?: (body: string) => Promise<void>; // AI Smart Summary -> Confirm posts a note
   smartSummaryEnabled?: boolean;               // per-campaign toggle; hides the button when false
+  aiThinking?: boolean;                          // Simpuler is drafting a reply (WS-C)
 }
 
 export default function Composer({
   draft, setDraft, tab, setTab, quickReplies,
   pendingFiles, pendingPreviews, fileRef, onFile, cancelSendFile, removePendingFile,
   busy, onSubmit, notify, onSendVoice, windowExpired, phone, conversationId, callingEnabled, onRequestCall,
-  aiSummary, uploadProgress, onAddNote, smartSummaryEnabled = true,
+  aiSummary, uploadProgress, onAddNote, smartSummaryEnabled = true, aiThinking,
 }: ComposerProps) {
   const { t } = useI18n();
   const [showQR, setShowQR] = useState(false);
@@ -308,6 +309,18 @@ export default function Composer({
 
   return (
     <div className="px-4 pb-4">
+      {/* Live Simpuler indicator (WS-C): shows while the bot drafts a reply. */}
+      {aiThinking && (
+        <div className="pb-1.5 pt-0.5 flex items-center justify-end gap-2 text-[12px] font-medium text-violet-600">
+          <Sparkles className="w-3.5 h-3.5" />
+          <span>{t("inbox.simpulerIsTyping")}</span>
+          <span className="flex gap-0.5">
+            <span className="w-1 h-1 rounded-full bg-violet-500 animate-bounce [animation-delay:-0.2s]" />
+            <span className="w-1 h-1 rounded-full bg-violet-500 animate-bounce [animation-delay:-0.1s]" />
+            <span className="w-1 h-1 rounded-full bg-violet-500 animate-bounce" />
+          </span>
+        </div>
+      )}
       <div
         className={cn(
           "relative rounded-lg border shadow-sm transition-all",
