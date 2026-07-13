@@ -74,13 +74,13 @@ const PAGE_TITLES: Record<string, { category: string; title: string; icon?: any 
   "/dashboard/creative-insights": { category: "REPORTS", title: "Creative Insights" },
   "/dashboard": { category: "REPORTS", title: "General Report" },
   "/inbox": { category: "INBOX", title: "Chat" },
-  "/settings/system-logs/conversation": { category: "SYSTEM", title: "Conversations", icon: ScrollText },
-  "/settings/system-logs/messages": { category: "SYSTEM", title: "Message History", icon: ScrollText },
-  "/settings/system-logs/activity": { category: "SYSTEM", title: "User Activity", icon: ScrollText },
-  "/settings/system-logs/calls": { category: "SYSTEM", title: "Call Logs", icon: ScrollText },
-  "/settings/system-logs/downloads": { category: "SYSTEM", title: "Downloads", icon: ScrollText },
-  "/settings/system-logs/system": { category: "SYSTEM", title: "System Logs", icon: ScrollText },
-  "/settings/system-logs": { category: "SYSTEM", title: "System Logs", icon: ScrollText },
+  "/settings/logs/conversation": { category: "LOGS", title: "Conversations", icon: ScrollText },
+  "/settings/logs/messages": { category: "LOGS", title: "Message History", icon: ScrollText },
+  "/settings/logs/activity": { category: "LOGS", title: "User Activity", icon: ScrollText },
+  "/settings/logs/calls": { category: "LOGS", title: "Call Logs", icon: ScrollText },
+  "/settings/logs/downloads": { category: "LOGS", title: "Downloads", icon: ScrollText },
+  "/settings/logs/system": { category: "LOGS", title: "System Logs", icon: ScrollText },
+  "/settings/logs": { category: "LOGS", title: "Logs", icon: ScrollText },
   "/contacts": { category: "GROUPS", title: "Contacts" },
   "/campaigns": { category: "CAMPAIGNS", title: "Campaigns" },
   "/broadcasts": { category: "OUTREACH", title: "Broadcasts" },
@@ -103,10 +103,10 @@ const PAGE_TITLES: Record<string, { category: string; title: string; icon?: any 
   "/settings/channels": { category: "CHANNEL & INTEGRATIONS", title: "Channel" },
   "/settings/web-api": { category: "CHANNEL & INTEGRATIONS", title: "Web API" },
   "/settings/ads-analytics": { category: "CHANNEL & INTEGRATIONS", title: "Ads & Analytics" },
-  "/settings/organization": { category: "PLATFORM", title: "Organization", icon: Boxes },
+  "/settings/platform": { category: "PLATFORM", title: "Platform", icon: Boxes },
   "/settings/ads": { category: "ANALYTICS", title: "Ad Performance" },
   "/settings/integrations": { category: "INTEGRATIONS", title: "Web API Sources" },
-  "/settings/audit": { category: "SYSTEM", title: "System Logs" },
+  "/settings/audit": { category: "LOGS", title: "Logs" },
   "/settings/notifications": { category: "PREFERENCES", title: "Notifications" },
   "/settings": { category: "PREFERENCES", title: "Settings" },
 };
@@ -390,7 +390,11 @@ export function Shell({ children }: { children: ReactNode }) {
       };
       ws.onclose = () => {
         if (isIntentionalClose) return;
-        const delay = Math.min(1000 * Math.pow(2, attempt), 30000);
+        // Fast first retry (~250ms) then exponential backoff capped at 30s, plus
+        // random jitter so a server restart doesn't make every client reconnect
+        // in lockstep (thundering herd).
+        const base = Math.min(250 * Math.pow(2, attempt), 30000);
+        const delay = base + Math.random() * Math.min(base, 1000);
         attempt++;
         reconnectTimer = setTimeout(connect, delay);
       };

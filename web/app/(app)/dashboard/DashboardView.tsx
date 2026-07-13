@@ -1949,7 +1949,7 @@ function MarketingAnalytics() {
                   </div>
                 </td></tr>
               ) : recentLeads.map((l, i) => (
-                <tr key={i} onClick={() => l.conversation_id && router.push(`/inbox?c=${l.conversation_id}`)}
+                <tr key={i} onClick={() => { if (l.contact_id) router.push(`/contacts/${l.contact_id}`); else if (l.conversation_id) router.push(`/inbox?c=${l.conversation_id}`); }}
                   className="border-b border-border/60 cursor-pointer hover:bg-muted/40 transition-colors">
                   <td className="px-3 py-2 text-muted-foreground whitespace-nowrap">{l.created_at ? new Date(l.created_at).toLocaleString("en-US", { month: "short", day: "numeric", year: "numeric", hour: "numeric", minute: "2-digit", second: "2-digit", hour12: true }) : "-"}</td>
                   <td className="px-3 py-2 font-semibold text-foreground">{l.contact_name || t("broadcasts.unknown")}</td>

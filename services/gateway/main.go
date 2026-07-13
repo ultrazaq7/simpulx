@@ -254,6 +254,7 @@ func main() {
 	mux.HandleFunc("POST /api/contacts/send-template", s.requireAuth(s.gate("initiate_chats", s.handleSendTemplateToContacts)))
 	mux.HandleFunc("PATCH /api/contacts/{id}", s.requireAuth(s.gate("edit_contacts", s.handleUpdateContact)))
 	mux.HandleFunc("DELETE /api/contacts/{id}", s.requireAuth(s.gate("delete_contacts", s.handleDeleteContact)))
+	mux.HandleFunc("GET /api/contacts/{id}", s.requireAuth(s.gate("view_contacts", s.handleGetContact)))
 	mux.HandleFunc("GET /api/contacts/{id}/activity", s.requireAuth(s.gate("view_contacts", s.handleContactActivity)))
 	mux.HandleFunc("GET /api/channels", s.requireAuth(s.handleListChannels))
 	mux.HandleFunc("POST /api/channels", s.requireAuth(s.gate("manage_channels", s.handleCreateChannel)))

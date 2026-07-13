@@ -26,6 +26,12 @@ import (
 
 const redisChannelPrefix = "rt:events:"
 
+// writeWait caps how long a single WebSocket write may block. Without it a slow
+// or half-open client makes WriteMessage hang forever, stalling that client's
+// stream (and its ping) until the 60s read deadline eventually reaps it. With it
+// a stuck write errors out -> writePump exits -> the client reconnects + refetches.
+const writeWait = 10 * time.Second
+
 // devSecret is the default JWT secret used in development. When the JWT_SECRET
 // matches this value, the /ws endpoint also accepts the legacy ?org= query param
 // for backward compatibility (dev only).
@@ -175,6 +181,7 @@ func writePump(c *client) {
 	for {
 		select {
 		case msg, ok := <-c.send:
+			_ = c.conn.SetWriteDeadline(time.Now().Add(writeWait))
 			if !ok {
 				_ = c.conn.WriteMessage(websocket.CloseMessage, nil)
 				return
@@ -183,6 +190,7 @@ func writePump(c *client) {
 				return
 			}
 		case <-ticker.C:
+			_ = c.conn.SetWriteDeadline(time.Now().Add(writeWait))
 			if err := c.conn.WriteMessage(websocket.PingMessage, nil); err != nil {
 				return
 			}

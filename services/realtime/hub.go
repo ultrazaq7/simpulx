@@ -46,15 +46,27 @@ func (h *hub) remove(c *client) {
 	}
 }
 
-// broadcast mengirim payload ke semua client pada org tertentu (non-blocking).
+// broadcast mengirim payload ke semua client pada org tertentu. Hot path pakai
+// RLock (broadcast antar-org tetap paralel). Client yang buffer-nya penuh
+// (terlalu lambat) DITUTUP, bukan diam-diam di-skip: kalau di-skip ia kehilangan
+// event permanen (baru muncul lagi kalau refresh manual). Dengan ditutup ia
+// reconnect lalu re-fetch, jadi tidak ada event yang hilang.
 func (h *hub) broadcast(orgID string, payload []byte) {
+	var slow []*client
 	h.mu.RLock()
-	defer h.mu.RUnlock()
 	for c := range h.clients[orgID] {
 		select {
 		case c.send <- payload:
 		default:
-			// buffer penuh — lewati agar tidak memblokir hub
+			slow = append(slow, c) // buffer penuh -> tandai untuk ditutup
 		}
+	}
+	h.mu.RUnlock()
+	// remove() butuh Lock (tidak bisa upgrade dari RLock), jadi lakukan di luar.
+	// Aman & idempotent: remove hanya close(c.send) kalau c masih di set, dan
+	// send hanya terjadi di bawah RLock (mutually exclusive dgn Lock), sehingga
+	// tidak pernah "send on closed channel".
+	for _, c := range slow {
+		h.remove(c)
 	}
 }

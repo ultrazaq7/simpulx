@@ -167,9 +167,11 @@ export default function DetailsPanel({ active, onClose, copyText, notes, onAddNo
           </div>
           <div className="min-w-0">
             {active.contact_id ? (
-              <Link href={`/contacts/${active.contact_id}`} className="font-bold text-[15px] text-foreground truncate hover:text-primary hover:underline outline-none block" title={t("inbox.viewContactDetails")}>
-                {active.contact_name || t("broadcasts.unknown")}
-              </Link>
+              <Tip label={t("inbox.viewContactDetails")} side="bottom" align="start">
+                <Link href={`/contacts/${active.contact_id}`} className="font-bold text-[15px] text-foreground truncate hover:text-primary hover:underline outline-none block">
+                  {active.contact_name || t("broadcasts.unknown")}
+                </Link>
+              </Tip>
             ) : (
               <p className="font-bold text-[15px] text-foreground truncate">{active.contact_name || t("broadcasts.unknown")}</p>
             )}

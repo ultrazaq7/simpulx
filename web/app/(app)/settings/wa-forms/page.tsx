@@ -173,8 +173,9 @@ export default function WaFormsPage() {
   return (
     <div className="px-4 pt-4 pb-4 h-full flex flex-col min-h-0">
       <div className="bg-card rounded-lg border border-border shadow-xs overflow-hidden flex flex-col flex-1 min-h-0">
-        {/* Toolbar: tabs + search + actions */}
-        <div className="p-3 flex items-center gap-3 border-b border-border shrink-0">
+        {/* Toolbar: tabs + search + actions. Wraps on narrow screens so the fixed
+            controls (search + channel filter + create) never overflow the row. */}
+        <div className="p-3 flex flex-wrap items-center gap-2 border-b border-border shrink-0">
           <div className="flex items-center gap-1 rounded-md bg-muted/60 p-0.5">
             {(["forms", "responses"] as const).map((t) => (
               <button key={t} onClick={() => setTab(t)}
@@ -184,7 +185,7 @@ export default function WaFormsPage() {
               </button>
             ))}
           </div>
-          <div className="relative w-[240px]">
+          <div className="relative w-[240px] max-w-[45vw]">
             <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-muted-foreground pointer-events-none" />
             <input value={query} onChange={(e) => setQuery(e.target.value)} placeholder={`Search ${noun}s`}
               className="w-full h-9 pl-9 pr-3 rounded-md border border-input bg-background text-sm text-foreground placeholder:text-muted-foreground/70 outline-none transition-shadow focus:border-primary focus:ring-2 focus:ring-primary/20" />
@@ -203,10 +204,10 @@ export default function WaFormsPage() {
               <Download className="w-4 h-4" /> {t("contacts.export")}
             </button>
           )}
-          <button onClick={createForm} disabled={busy === "create"}
-            className="inline-flex items-center gap-2 px-3.5 h-9 bg-primary text-white rounded-md text-sm font-semibold hover:bg-primary-dark shadow-sm transition-all outline-none disabled:opacity-50">
-            {busy === "create" ? <Loader2 className="w-4 h-4 animate-spin" /> : <Plus className="w-4 h-4" />}
-            {t("settings.createWhatsappForm")}
+          <button onClick={createForm} disabled={busy === "create"} aria-label={t("settings.createWhatsappForm")}
+            className="inline-flex items-center justify-center gap-2 h-9 px-3.5 max-sm:w-9 max-sm:px-0 bg-primary text-white rounded-md text-sm font-semibold hover:bg-primary-dark shadow-sm transition-all outline-none disabled:opacity-50">
+            {busy === "create" ? <Loader2 className="w-4 h-4 animate-spin shrink-0" /> : <Plus className="w-4 h-4 shrink-0" />}
+            <span className="max-sm:hidden">{t("settings.createWhatsappForm")}</span>
           </button>
         </div>
 

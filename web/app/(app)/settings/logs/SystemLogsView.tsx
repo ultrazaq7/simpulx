@@ -165,7 +165,7 @@ export default function SystemLogsView({ tab }: { tab: TabKey }) {
     try {
       await api.createExport(kind, from || undefined, to || undefined, { campaign_id: fCampaign.length ? fCampaign.join(",") : undefined, channel_id: fChannel.length ? fChannel.join(",") : undefined, label: kind === "messages" ? (fLabel || undefined) : undefined });
       notify(t("settings.exportQueuedTrackItIn"));
-      router.push(`/settings/system-logs/${TAB_SLUG.downloads}`);
+      router.push(`/settings/logs/${TAB_SLUG.downloads}`);
       setTimeout(fetchExports, 400);
     } catch (e) { notify(e instanceof Error ? e.message : t("settings.exportFailed"), "error"); }
     finally { setExporting(null); }
@@ -198,7 +198,7 @@ export default function SystemLogsView({ tab }: { tab: TabKey }) {
       {/* Tabs — each a standalone route */}
       <div className="flex items-center border-b border-border shrink-0 overflow-x-auto">
         {TABS.map((tb) => (
-          <Link key={tb.key} href={`/settings/system-logs/${TAB_SLUG[tb.key]}`}
+          <Link key={tb.key} href={`/settings/logs/${TAB_SLUG[tb.key]}`}
             className={cn("px-3 py-2.5 text-sm font-semibold whitespace-nowrap border-b-2 -mb-px transition-colors outline-none",
               tab === tb.key ? "border-primary text-primary" : "border-transparent text-muted-foreground hover:text-foreground")}>
             {t(tb.label)}

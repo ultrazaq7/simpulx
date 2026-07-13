@@ -127,6 +127,12 @@ func (s *server) handleListConversations(w http.ResponseWriter, r *http.Request)
 		args = append(args, camp)
 		scopeFilter += fmt.Sprintf(" AND cv.campaign_id = $%d::uuid", len(args))
 	}
+	// Optional single-contact scope (the contact-details page: this contact's threads,
+	// so it doesn't have to pull every conversation and filter client-side).
+	if contact := r.URL.Query().Get("contact"); contact != "" {
+		args = append(args, contact)
+		scopeFilter += fmt.Sprintf(" AND cv.contact_id = $%d::uuid", len(args))
+	}
 
 	rows, err := s.queryMaps(r.Context(),
 		`SELECT cv.id::text AS id, cv.status, cv.channel, cv.is_bot_active,
@@ -1790,22 +1796,10 @@ func (s *server) handleDeleteNote(w http.ResponseWriter, r *http.Request) {
 }
 
 // ── Contacts ────────────────────────────────────────────────
-func (s *server) handleListContacts(w http.ResponseWriter, r *http.Request) {
-	a, _ := authFrom(r.Context())
-
-	filter := "WHERE ct.organization_id=$1"
-	args := []any{a.OrgID}
-
-	if a.Role == "agent" {
-		args = append(args, a.UserID)
-		// Manual contacts have no conversation, so fall back to the contact owner.
-		filter += fmt.Sprintf(" AND COALESCE(lc.assigned_agent_id, ct.assigned_agent_id) = $%d", len(args))
-	} else if a.Role == "manager" {
-		args = append(args, a.UserID)
-		filter += " AND " + managerScope("lc", len(args))
-	}
-
-	query := fmt.Sprintf(`SELECT ct.id::text AS id, ct.full_name, ct.phone, ct.email, ct.source_channel, ct.created_at,
+// contactSelectSQL is the shared contact projection used by both the list and the
+// single-contact endpoints. `%s` is the WHERE filter; each caller appends its own
+// ORDER BY / LIMIT tail.
+const contactSelectSQL = `SELECT ct.id::text AS id, ct.full_name, ct.phone, ct.email, ct.source_channel, ct.created_at,
 		        ct.updated_at, ct.blacklisted, ct.web_api_source_id::text AS web_api_source_id,
 		        COALESCE(ct.tags, '{}') AS tags, COALESCE(ct.attributes, '{}'::jsonb) AS attributes,
 		        COALESCE(lc.interest_level, ct.interest_level) AS interest_level,
@@ -1835,8 +1829,24 @@ func (s *server) handleListContacts(w http.ResponseWriter, r *http.Request) {
 		      WHERE conversation_id = lc.conversation_id AND referral_source IS NOT NULL
 		      ORDER BY created_at DESC LIMIT 1
 		   ) att ON true
-		  %s
-		  ORDER BY ct.created_at DESC LIMIT 500`, filter)
+		  %s`
+
+func (s *server) handleListContacts(w http.ResponseWriter, r *http.Request) {
+	a, _ := authFrom(r.Context())
+
+	filter := "WHERE ct.organization_id=$1"
+	args := []any{a.OrgID}
+
+	if a.Role == "agent" {
+		args = append(args, a.UserID)
+		// Manual contacts have no conversation, so fall back to the contact owner.
+		filter += fmt.Sprintf(" AND COALESCE(lc.assigned_agent_id, ct.assigned_agent_id) = $%d", len(args))
+	} else if a.Role == "manager" {
+		args = append(args, a.UserID)
+		filter += " AND " + managerScope("lc", len(args))
+	}
+
+	query := fmt.Sprintf(contactSelectSQL, filter) + "\n  ORDER BY ct.created_at DESC LIMIT 500"
 
 	rows, err := s.queryMaps(r.Context(), query, args...)
 	if err != nil {
@@ -1844,6 +1854,36 @@ func (s *server) handleListContacts(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	writeJSON(w, rows)
+}
+
+// ── GET /api/contacts/{id} — one contact (tenant + role scoped) ──
+// Lets the contact-details page fetch a single contact directly instead of
+// pulling the whole /contacts list and .find()-ing it client-side. A contact the
+// caller isn't allowed to see returns 404 (IDOR guard), same as the inbox.
+func (s *server) handleGetContact(w http.ResponseWriter, r *http.Request) {
+	a, _ := authFrom(r.Context())
+	id := r.PathValue("id")
+
+	filter := "WHERE ct.organization_id=$1 AND ct.id=$2"
+	args := []any{a.OrgID, id}
+	if a.Role == "agent" {
+		args = append(args, a.UserID)
+		filter += fmt.Sprintf(" AND COALESCE(lc.assigned_agent_id, ct.assigned_agent_id) = $%d", len(args))
+	} else if a.Role == "manager" {
+		args = append(args, a.UserID)
+		filter += " AND " + managerScope("lc", len(args))
+	}
+
+	rows, err := s.queryMaps(r.Context(), fmt.Sprintf(contactSelectSQL, filter)+"\n  LIMIT 1", args...)
+	if err != nil {
+		http.Error(w, err.Error(), http.StatusInternalServerError)
+		return
+	}
+	if len(rows) == 0 {
+		http.Error(w, "not found", http.StatusNotFound)
+		return
+	}
+	writeJSON(w, rows[0])
 }
 
 // ── POST /api/contacts — manually create a contact ──────────

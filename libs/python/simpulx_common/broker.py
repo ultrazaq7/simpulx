@@ -20,6 +20,11 @@ import nats
 from nats.js import JetStreamContext
 from nats.js.api import ConsumerConfig
 
+# Max delivery attempts before JetStream stops redelivering. On the final failed
+# attempt we log the payload at ERROR and term() it, so a message is never dropped
+# silently (it can be seen / replayed from the logs) instead of vanishing.
+MAX_DELIVER = 3
+
 
 class Broker:
     def __init__(self, nc, js: JetStreamContext, log: logging.Logger | None = None):
@@ -91,21 +96,43 @@ class Broker:
             try:
                 ok = await handler(env)
             except Exception:  # noqa: BLE001
-                await msg.nak()
+                await self._fail(msg, subject, "handler raised")
                 return
             if ok:
                 await msg.ack()
             else:
-                await msg.nak()
+                await self._fail(msg, subject, "handler returned false")
 
         config = ConsumerConfig(
-            ack_wait=30.0,
-            max_deliver=3,
+            # Must comfortably exceed the slowest handler. The ai-agent runs up to
+            # two serial LLM calls per inbound (nurture ~60s + analyze ~120s), so a
+            # 30s ack_wait made handlers routinely miss the deadline -> JetStream
+            # redelivered -> after max_deliver the message was dropped with NO reply.
+            ack_wait=300.0,
+            max_deliver=MAX_DELIVER,
         )
         await self.js.subscribe(
             subject, durable=durable, queue=durable, cb=cb, manual_ack=True,
             config=config, idle_heartbeat=15.0, flow_control=True,
         )
+
+    async def _fail(self, msg, subject: str, reason: str) -> None:
+        """Handle a failed delivery. Redeliver (nak) until the last allowed attempt;
+        on that final attempt, log the payload at ERROR and term() so the message is
+        dropped LOUDLY (visible + replayable from logs) rather than silently."""
+        delivered = 0
+        try:
+            delivered = msg.metadata.num_delivered
+        except Exception:  # noqa: BLE001
+            pass
+        if delivered >= MAX_DELIVER:
+            self._log.error(
+                "message dropped after %d deliveries (%s) subject=%s payload=%s",
+                delivered, reason, subject, msg.data.decode(errors="replace"),
+            )
+            await msg.term()
+        else:
+            await msg.nak()
 
     async def _resubscribe_all(self) -> None:
         """Re-bind semua push subscriptions setelah NATS reconnect.

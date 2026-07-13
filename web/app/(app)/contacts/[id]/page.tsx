@@ -133,14 +133,15 @@ export default function ContactDetailsPage() {
     (async () => {
       setLoading(true);
       try {
-        const [contacts, convs] = await Promise.all([
-          api.listContacts().catch(() => []),
-          api.listConversations().catch(() => []),
+        // Fetch just THIS contact + its conversations (server-scoped) instead of
+        // pulling the whole contacts/conversations lists and filtering client-side.
+        const [c, convs] = await Promise.all([
+          api.getContact(id).catch(() => null),
+          api.listConversations("", "", "", "", "", id).catch(() => []),
         ]);
-        const c = (contacts || []).find((x) => x.id === id) || null;
         if (!alive) return;
         setContact(c);
-        // Every conversation tied to this contact, oldest first.
+        // This contact's conversations, oldest first (already scoped by the API).
         const mine = (convs || [])
           .filter((cv) => cv.contact_id === id)
           .sort((a, b) => (a.last_message_at || "").localeCompare(b.last_message_at || ""));
@@ -192,10 +193,12 @@ export default function ContactDetailsPage() {
         )}
       </div>
 
-      {/* Body: 3 columns on desktop; stacked + page-scroll on mobile */}
+      {/* Body: 3 columns on desktop; stacked + page-scroll on mobile. On mobile the
+          two info panels (identity + attributes) are grouped first via order-*, and
+          the conversation tabs come last, so attributes don't strand below the chat. */}
       <div className="flex-1 min-h-0 grid grid-cols-1 lg:grid-cols-[300px_1fr_300px] overflow-y-auto lg:overflow-hidden">
         {/* ── Left: identity ── */}
-        <div className="border-b lg:border-b-0 lg:border-r border-border bg-card lg:overflow-y-auto p-5">
+        <div className="max-lg:order-1 border-b lg:border-b-0 lg:border-r border-border bg-card lg:overflow-y-auto p-5">
           <div className="flex flex-col items-center text-center">
             <div className="w-20 h-20 rounded-full grid place-items-center text-2xl font-bold ring-1 ring-inset ring-black/5"
               style={{ backgroundColor: chColor + "1A", color: chColor }}>
@@ -242,7 +245,7 @@ export default function ContactDetailsPage() {
         </div>
 
         {/* ── Center: tabs ── */}
-        <div className="flex flex-col min-h-0 bg-background max-lg:min-h-[65vh]">
+        <div className="max-lg:order-3 max-lg:border-t max-lg:border-border flex flex-col min-h-0 bg-background max-lg:min-h-[65vh]">
           <div className="flex items-center gap-1 px-4 border-b border-border bg-card shrink-0">
             {([["conversation", `Conversation (${allMessages.length})`], ["notes", `Notes (${notes.length})`], ["media", `Media (${media.length})`], ["history", `History (${activity.length})`]] as const).map(([k, label]) => (
               <button key={k} onClick={() => setTab(k)}
@@ -362,7 +365,7 @@ export default function ContactDetailsPage() {
         </div>
 
         {/* ── Right: attributes ── */}
-        <div className="border-t lg:border-t-0 lg:border-l border-border bg-card lg:overflow-y-auto p-5">
+        <div className="max-lg:order-2 border-t lg:border-t-0 lg:border-l border-border bg-card lg:overflow-y-auto p-5">
           <Section title={t("contacts.labels")} first>
             {c.tags && c.tags.length > 0 ? (
               <div className="flex flex-wrap gap-1.5">

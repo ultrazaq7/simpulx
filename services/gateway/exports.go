@@ -199,18 +199,18 @@ func exportQuery(kind string) (string, []string, []string) {
 		// next reply.
 		keys := []string{
 			"agent_name", "agent_email", "campaign_name", "customer_name", "contact_number", "contact_email",
-			"stage", "interest_level", "chat_initiation", "assigned_at",
+			"stage", "lost_reason", "interest_level", "chat_initiation", "assigned_at",
 			"first_response_sec", "avg_response_sec", "closing_at", "status", "conversation_id",
 		}
 		headers := []string{
 			"Agent Name", "Agent Email", "Campaign", "Customer Name", "Contact Number", "Customer Email",
-			"Stage", "Interest Level", "Chat Initiation Time", "Assigned At",
+			"Stage", "Lost Reason", "Interest Level", "Chat Initiation Time", "Assigned At",
 			"First Response Time (sec)", "Avg Response Time (sec)", "Closing Time", "Status", "Conversation ID",
 		}
 		q := `SELECT u.full_name AS agent_name, u.email AS agent_email,
 		        COALESCE(br.name, cmp.name) AS campaign_name,
 		        ct.full_name AS customer_name, ct.phone AS contact_number, ct.email AS contact_email,
-		        st.name AS stage, cv.interest_level AS interest_level,
+		        st.name AS stage, cv.lost_reason AS lost_reason, cv.interest_level AS interest_level,
 		        cv.created_at AS chat_initiation, asg.assigned_at AS assigned_at,
 		        COALESCE(EXTRACT(EPOCH FROM (cv.first_responsed_at - cv.created_at))::int, 0) AS first_response_sec,
 		        COALESCE(rt.avg_sec, 0) AS avg_response_sec,

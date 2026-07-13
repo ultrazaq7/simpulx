@@ -99,9 +99,9 @@ export default function BroadcastsPage() {
           </button></Tip>
           <div className="flex-1" />
           {canSend && (
-            <button onClick={() => setWizardOpen(true)}
-              className="inline-flex items-center gap-2 px-3.5 h-9 bg-primary text-white rounded-md text-sm font-semibold hover:bg-primary-dark shadow-sm hover:shadow-brand-md transition-all outline-none">
-              <Megaphone className="w-4 h-4" /> {t("broadcasts.newBroadcast")}
+            <button onClick={() => setWizardOpen(true)} aria-label={t("broadcasts.newBroadcast")}
+              className="inline-flex items-center justify-center gap-2 h-9 px-3.5 max-sm:w-9 max-sm:px-0 bg-primary text-white rounded-md text-sm font-semibold hover:bg-primary-dark shadow-sm hover:shadow-brand-md transition-all outline-none">
+              <Megaphone className="w-4 h-4 shrink-0" /> <span className="max-sm:hidden">{t("broadcasts.newBroadcast")}</span>
             </button>
           )}
         </div>

@@ -2,12 +2,26 @@
 from __future__ import annotations
 
 import logging
+import re
+from contextlib import asynccontextmanager
 
 log = logging.getLogger("finance-rag")
 
 
+@asynccontextmanager
+async def _acquire(pool, conn):
+    """Yield `conn` if the caller passed one (reuse it, e.g. the connection holding
+    the nurture advisory lock), otherwise acquire and release a fresh pooled one."""
+    if conn is not None:
+        yield conn
+    else:
+        async with pool.acquire() as c:
+            yield c
+
+
 async def get_catalog_context(pool, campaign_id, brand: str, model: str,
-                              city: str = None, segment: str = None) -> str | None:
+                              city: str = None, segment: str = None,
+                              query: str = None, conn=None) -> str | None:
     """Segment-generic, CAMPAIGN-SCOPED catalog lookup (WS-A).
 
     Tries the per-campaign campaign_catalog first so one campaign never grounds
@@ -16,47 +30,101 @@ async def get_catalog_context(pool, campaign_id, brand: str, model: str,
     to the legacy global finance_packages lookup, so the live bot never loses its
     grounding. Safe to swap in for get_finance_context at any call site that has
     the conversation's campaign_id in scope.
+
+    `query` is the customer's latest message: when they name a specific trim
+    ("Ultimate"), the matching rows are floated to the top so the model answers
+    from THAT variant instead of the cheapest one it happens to see.
     """
     if campaign_id:
         try:
-            ctx = await _catalog_from_table(pool, campaign_id, brand, model, city)
+            ctx = await _catalog_from_table(pool, campaign_id, brand, model, city, query, conn=conn)
             if ctx:
                 return ctx
         except Exception as e:  # never let the new path break grounding
             log.warning(f"campaign_catalog lookup failed, falling back: {e}")
     # Fallback: legacy global finance_packages (automotive only).
-    return await get_finance_context(pool, brand, model, city)
+    return await get_finance_context(pool, brand, model, city, conn=conn)
+
+
+# Transmission / drivetrain / generic spec tokens that appear inside variant
+# names but DON'T identify a specific trim, so they must not trigger a variant
+# match on their own (e.g. "Exceed CVT" shouldn't be picked just because the
+# customer typed "cvt"; only a real trim word like "exceed"/"ultimate"/"gl" should).
+_GENERIC_VARIANT_TOKENS = {
+    "cvt", "at", "mt", "matic", "manual", "automatic", "ds", "cbu", "ckd",
+    "4x2", "4x4", "2wd", "4wd", "awd", "fwd", "rwd", "mpv", "suv", "cc",
+}
+
+
+def _variant_hits(query: str, rows) -> list:
+    """Rows whose variant/item the customer explicitly named. Matches on each
+    significant TRIM token of variant_name (e.g. 'ultimate', 'exceed', 'gls', 'gl')
+    as a whole word, so 'kalo ultimate otrnya berapa' hits the 'Ultimate' row and
+    not just the alphabetically/cheapest-first one. Generic transmission/spec
+    tokens are skipped so they never trigger a false variant match."""
+    if not query:
+        return []
+    q = f" {query.lower()} "
+    hits = []
+    for r in rows:
+        name = " ".join(x for x in (r["variant_name"], r["item_name"]) if x).strip().lower()
+        toks = [tk for tk in re.split(r"[\s/()-]+", name)
+                if len(tk) >= 2 and tk not in _GENERIC_VARIANT_TOKENS]
+        if any(f" {tk} " in q for tk in toks):
+            hits.append(r)
+    return hits
 
 
 async def _catalog_from_table(pool, campaign_id, brand: str, model: str,
-                              city: str = None) -> str | None:
+                              city: str = None, query: str = None, conn=None) -> str | None:
     """Query campaign_catalog for one campaign, matching item/variant on the
     lead's brand/model. Formats rows segment-agnostically (spine columns +
-    whatever segment-specific keys sit in the attributes jsonb)."""
+    whatever segment-specific keys sit in the attributes jsonb).
+
+    When brand/model aren't extracted yet the whole (campaign-scoped) catalog is
+    returned so even the FIRST turn is grounded; a named trim in `query` is then
+    used to rank so the customer's exact variant leads."""
     needle = (model or brand or "").strip()
-    if not needle:
-        return None
-    like = f"%{needle}%"
-    async with pool.acquire() as conn:
+    like = f"%{needle}%" if needle else "%"
+    async with _acquire(pool, conn) as conn:
         rows = await conn.fetch(
             """SELECT item_name, variant_name, location_name, category_type,
                       headline_price, attributes
                  FROM campaign_catalog
                 WHERE campaign_id = $1::uuid
-                  AND (item_name ILIKE $2 OR variant_name ILIKE $2
-                       OR $2 ILIKE '%' || item_name || '%')
-                ORDER BY variant_name NULLS LAST, headline_price ASC NULLS LAST
-                LIMIT 8""",
-            campaign_id, like,
+                  AND ($2 = '%' OR item_name ILIKE $2 OR variant_name ILIKE $2
+                       OR ($3 <> '' AND $3 ILIKE '%' || item_name || '%'))
+                ORDER BY item_name NULLS LAST, variant_name NULLS LAST, headline_price ASC NULLS LAST
+                LIMIT 40""",
+            campaign_id, like, needle,
         )
     if not rows:
         return None
-    # If a city was given and some rows match it, prefer those (else keep all).
-    if city:
+    rows = list(rows)
+
+    # If the customer named a specific trim, answer from THAT trim (city-preferred
+    # within it if possible). This must win over the plain city preference so a
+    # lead asking about "Ultimate" is never quoted the cheaper "Exceed" price.
+    focus_note = None
+    hits = _variant_hits(query, rows)
+    if hits:
+        if city:
+            cl = city.strip().lower()
+            city_hits = [r for r in hits if r["location_name"] and cl in r["location_name"].lower()]
+            hits = city_hits or hits
+        rest = [r for r in rows if r not in hits]
+        rows = hits + rest
+        focus_note = ("Customer menyebut varian/tipe spesifik; baris yang cocok sudah diletakkan "
+                      "PALING ATAS. Jawab pakai baris itu, jangan pakai varian lain.")
+    elif city:
+        # No specific trim named: keep the plain city preference (else keep all).
         cl = city.strip().lower()
         pref = [r for r in rows if r["location_name"] and cl in r["location_name"].lower()]
         if pref:
             rows = pref
+
+    # Bound what we inject (ranking already put the relevant rows first).
+    rows = rows[:10]
 
     def rupiah(v):
         try:
@@ -83,10 +151,13 @@ async def _catalog_from_table(pool, campaign_id, brand: str, model: str,
                 money = rupiah(v) if k in ("dp", "dp_amount", "emi", "plafon", "otr_price", "price") else None
                 parts.append(f"| {k}: {money or v}")
         lines.append("  " + f"{i}. " + " ".join(str(p) for p in parts if p))
-    lines.append("CATATAN UNTUK AI: Jika customer bertanya tentang harga/DP/cicilan, GUNAKAN angka dari atas. Jangan buat estimasi sendiri.")
+    if focus_note:
+        lines.append("CATATAN VARIAN: " + focus_note)
+    lines.append("CATATAN UNTUK AI: Jika customer bertanya tentang harga/DP/cicilan, GUNAKAN angka dari atas persis untuk varian yang ditanya. "
+                 "Jika varian yang ditanya TIDAK ADA di daftar, katakan datanya belum tersedia dan tawarkan cek ke tim; jangan buat estimasi atau pakai harga varian lain.")
     return "\n".join(lines)
 
-async def get_finance_context(pool, brand: str, model: str, city: str = None) -> str | None:
+async def get_finance_context(pool, brand: str, model: str, city: str = None, conn=None) -> str | None:
     """
     Mencari paket kredit yang cocok di tabel finance_packages
     berdasarkan brand dan model (dan opsional city).
@@ -110,7 +181,7 @@ async def get_finance_context(pool, brand: str, model: str, city: str = None) ->
                   "OR ($3 <> '' AND $3 ILIKE '%' || model_name || '%'))")
 
     try:
-        async with pool.acquire() as conn:
+        async with _acquire(pool, conn) as conn:
             rows = []
             if city:
                 rows = await conn.fetch(

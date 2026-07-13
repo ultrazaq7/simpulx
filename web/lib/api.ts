@@ -222,13 +222,14 @@ export const api = {
   },
   me: () => req<User>("/api/me"),
   getConversation: (id: string) => req<Conversation>(`/api/conversations/${id}`),
-  listConversations: (status = "", from = "", to = "", source = "", campaign = "") => {
+  listConversations: (status = "", from = "", to = "", source = "", campaign = "", contact = "") => {
     const q = new URLSearchParams();
     if (status) q.set("status", status);
     if (from) q.set("from", from);
     if (to) q.set("to", to);
     if (source) q.set("source", source);
     if (campaign) q.set("campaign", campaign);
+    if (contact) q.set("contact", contact);
     const qs = q.toString();
     return req<Conversation[]>(`/api/conversations${qs ? "?" + qs : ""}`);
   },
@@ -340,6 +341,7 @@ export const api = {
   patchConversation: (id: string, patch: { stage_id?: string; disposition_id?: string; interest_level?: string; unread_count?: number; lost_reason?: string; status?: string }) =>
     req(`/api/conversations/${id}`, { method: "PATCH", body: JSON.stringify(patch) }),
   listContacts: () => req<Contact[]>("/api/contacts"),
+  getContact: (id: string) => req<Contact>(`/api/contacts/${id}`),
   createContact: (body: { full_name?: string; phone?: string; tags?: string[]; attributes?: Record<string, unknown> }) =>
     req<Contact>("/api/contacts", { method: "POST", body: JSON.stringify(body) }),
   updateContact: (id: string, body: { full_name?: string; phone?: string; tags?: string[]; blacklisted?: boolean; attributes?: Record<string, unknown>; stage_id?: string; interest_level?: string; assigned_agent_id?: string }) =>

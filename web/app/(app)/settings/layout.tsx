@@ -22,7 +22,9 @@ import { Tip } from "@/components/ui/tooltip";
 // the matrix fall back to "view_settings" (anyone who can open Settings).
 type NavItem = { key: string; labelKey: string; icon: any; href: string; perm: string };
 
-const GROUPS: { titleKey: string; items: NavItem[] }[] = [
+// flat: render as a single top-level nav link (no collapsible section header),
+// using the item's label. Used for standalone destinations like Logs / Platform.
+const GROUPS: { titleKey: string; flat?: boolean; items: NavItem[] }[] = [
   {
     titleKey: "menu.preferences",
     items: [
@@ -60,9 +62,10 @@ const GROUPS: { titleKey: string; items: NavItem[] }[] = [
     ],
   },
   {
-    titleKey: "System",
+    titleKey: "Logs",
+    flat: true,
     items: [
-      { key: "system-logs", labelKey: "System Logs", icon: ScrollText, href: "/settings/system-logs", perm: "menu_audit_log" },
+      { key: "logs", labelKey: "Logs", icon: ScrollText, href: "/settings/logs", perm: "menu_audit_log" },
     ],
   },
 ];
@@ -113,7 +116,7 @@ export default function SettingsLayout({ children }: { children: ReactNode }) {
     ...GROUPS
       .map((g) => ({ ...g, items: g.items.filter((i) => can(i.perm)) }))
       .filter((g) => g.items.length > 0),
-    ...(isSuper ? [{ titleKey: "Platform", items: [{ key: "platform", labelKey: "Organization", icon: Boxes, href: "/settings/organization", perm: "" }] }] : []),
+    ...(isSuper ? [{ titleKey: "Platform", flat: true, items: [{ key: "platform", labelKey: "Platform", icon: Boxes, href: "/settings/platform", perm: "" }] }] : []),
   ];
 
   const navCount = groups.reduce((n, g) => n + g.items.length, 0);
@@ -198,6 +201,26 @@ export default function SettingsLayout({ children }: { children: ReactNode }) {
         <div className={cn("w-[260px] h-full flex flex-col transition-opacity duration-200", collapsed && "opacity-0")}>
           <div ref={navScrollRef} className="flex-1 overflow-y-auto overflow-x-hidden py-3 min-h-0">
             {groups.map((g) => {
+              // Flat group: a single top-level link (no collapsible section).
+              if (g.flat) {
+                const s = g.items[0];
+                const sel = s.key === activeKey;
+                return (
+                  <div key={g.titleKey} className="px-2 mb-0.5">
+                    <Link
+                      ref={sel ? activeItemRef : undefined}
+                      href={s.href}
+                      scroll={false}
+                      className={cn(
+                        "w-full flex items-center px-3 py-2.5 rounded-md text-left text-[14px] font-bold outline-none transition-colors",
+                        sel ? "bg-muted text-foreground" : "text-foreground hover:bg-muted/50",
+                      )}
+                    >
+                      {t(s.labelKey)}
+                    </Link>
+                  </div>
+                );
+              }
               const open = !!openSections[g.titleKey];
               return (
                 <div key={g.titleKey} className="px-2 mb-0.5">

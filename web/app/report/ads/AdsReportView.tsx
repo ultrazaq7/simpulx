@@ -10,7 +10,7 @@ import { useI18n } from "@/lib/i18n";
 import { LineChart, Line, AreaChart, Area, BarChart, Bar, XAxis, YAxis, CartesianGrid, ResponsiveContainer } from "recharts";
 import { Eye, MousePointerClick, Percent, Users, ShoppingCart } from "lucide-react";
 import { IndonesiaMap } from "@/components/IndonesiaMap";
-import type { AdPerformance, AdPerfSource, AdKeyword, Conversation, AdBreakdown, Ga4Report, Campaign } from "@/lib/types";
+import type { AdPerformance, AdPerfSource, AdKeyword, AdBreakdown, Ga4Report, Campaign } from "@/lib/types";
 
 const num = (n: number) => Math.round(n || 0).toLocaleString("en-US");
 const money = (n: number) => "Rp " + Math.round(n || 0).toLocaleString("id-ID");
@@ -30,16 +30,17 @@ const BLUE = "#1565D8";          // gender: male
 const FUNNEL = ["#1E5C4C", "#26735F", "#2D8B73", "#4DA184", "#CBE7DB"];
 const CANVAS = "#eceff3";
 const PANEL = "0 1px 3px rgba(15,23,42,.10), 0 1px 2px rgba(15,23,42,.06)";
+// Classified lead source -> label (kept in sync with the dashboard Latest Leads).
+const SRC_LABELS: Record<string, string> = { meta_ads: "Meta Ads", tiktok_ads: "TikTok Ads", google_ads: "Google Ads", website: "Website", direct: "Direct" };
 const clamp = (t: number) => Math.max(0, Math.min(1, t || 0));
 // Heatmap tints matching the reference cells.
 const tintGreen = (t: number) => `rgba(34,197,94,${(0.08 + clamp(t) * 0.42).toFixed(3)})`;
 const tintYellow = (t: number) => `rgba(245,196,0,${(0.08 + clamp(t) * 0.5).toFixed(3)})`;
 const tintOrange = (t: number) => `rgba(255,87,34,${(0.06 + clamp(t) * 0.34).toFixed(3)})`;
 
-export function AdsReportView({ perf, keywords, leads, ga4, camps, campaigns, rangeLabel, width = 980 }: {
+export function AdsReportView({ perf, keywords, ga4, camps, campaigns, rangeLabel, width = 980 }: {
   perf: AdPerformance | null;
   keywords: AdKeyword[];
-  leads: Conversation[];
   ga4: Ga4Report | null;
   camps: Campaign[];
   campaigns: string[];
@@ -292,27 +293,29 @@ export function AdsReportView({ perf, keywords, leads, ga4, camps, campaigns, ra
         </Section>
       </div>
 
-      {/* Latest leads */}
+      {/* Latest leads. Uses perf.recent_leads (same source as the dashboard) so the
+          Channel and classified Source columns are present and match on-screen. */}
       <Section mt title={t("dashboard.latestLeads")}>
-        {leads.length === 0 ? <EmptyNote text={t("report.noLeadsInThisRange")} /> : (
+        {(perf?.recent_leads?.length ?? 0) === 0 ? <EmptyNote text={t("report.noLeadsInThisRange")} /> : (
           <table style={{ width: "100%", borderCollapse: "collapse", fontSize: 11.5 }}>
             <thead>
               <tr style={{ background: GREEN, color: "#fff" }}>
-                {["DATE", "NAME", "PHONE", "EMAIL", "SOURCE", "STATUS", "INTEREST"].map((h) => (<th key={h} style={{ padding: "7px 10px", textAlign: "left", fontSize: 10, fontWeight: 700 }}>{t(h)}</th>))}
+                {["DATE", "NAME", "PHONE", "EMAIL", "CHANNEL", "SOURCE", "STATUS", "INTEREST"].map((h) => (<th key={h} style={{ padding: "7px 10px", textAlign: "left", fontSize: 10, fontWeight: 700 }}>{t(h)}</th>))}
               </tr>
             </thead>
             <tbody>
-              {leads.slice(0, 10).map((l) => {
+              {(perf?.recent_leads ?? []).slice(0, 10).map((l, i) => {
                 const lv = (l.interest_level || "").toLowerCase();
                 const lvColor = lv === "hot" ? "#EF4444" : lv === "warm" ? "#F59E0B" : lv === "cold" ? "#3B82F6" : null;
                 return (
-                  <tr key={l.id} style={{ borderBottom: "1px solid #eef2f7" }}>
-                    <td style={{ padding: "7px 10px", color: "#64748b", whiteSpace: "nowrap" }}>{l.last_message_at ? new Date(l.last_message_at).toLocaleString("en-US", { month: "short", day: "numeric", year: "numeric", hour: "numeric", minute: "2-digit", second: "2-digit", hour12: true }) : "-"}</td>
+                  <tr key={i} style={{ borderBottom: "1px solid #eef2f7" }}>
+                    <td style={{ padding: "7px 10px", color: "#64748b", whiteSpace: "nowrap" }}>{l.created_at ? new Date(l.created_at).toLocaleString("en-US", { month: "short", day: "numeric", year: "numeric", hour: "numeric", minute: "2-digit", second: "2-digit", hour12: true }) : "-"}</td>
                     <td style={{ padding: "7px 10px", fontWeight: 600 }}>{l.contact_name || t("broadcasts.unknown")}</td>
                     <td style={{ padding: "7px 10px", color: "#64748b" }}>{l.contact_phone || "-"}</td>
                     <td style={{ padding: "7px 10px", color: "#64748b" }}>{l.contact_email || "-"}</td>
                     <td style={{ padding: "7px 10px", color: "#64748b", textTransform: "capitalize" }}>{l.channel || "-"}</td>
-                    <td style={{ padding: "7px 10px" }}>{l.stage_name || l.status}</td>
+                    <td style={{ padding: "7px 10px", color: "#64748b" }}>{SRC_LABELS[l.source] || l.source || "-"}</td>
+                    <td style={{ padding: "7px 10px" }}>{l.stage || "-"}</td>
                     <td style={{ padding: "7px 10px" }}>
                       {lvColor ? (
                         <span style={{ display: "inline-block", padding: "2px 9px", borderRadius: 999, fontSize: 10, fontWeight: 700, textTransform: "capitalize", color: lvColor, background: lvColor + "1a" }}>{lv}</span>

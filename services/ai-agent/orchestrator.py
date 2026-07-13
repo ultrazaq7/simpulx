@@ -9,6 +9,7 @@ from __future__ import annotations
 import asyncio
 import json
 import re
+from contextlib import asynccontextmanager
 from datetime import datetime, timezone
 from typing import List, Optional
 
@@ -264,6 +265,65 @@ SUBJECT_NOTIFICATION = "events.notification.created"
 SUBJECT_SEND_FORM = "events.cmd.send_form"
 NURTURE_BURST_SEC = 20  # skip a fresh auto-reply if the bot just replied < this ago
 
+# One pending settle-then-reply task per conversation (in-memory dedupe), plus a
+# strong ref set so the background tasks aren't garbage-collected mid-flight.
+_PENDING_NURTURE: set[str] = set()
+_BG_TASKS: set = set()
+
+
+def _spawn_bg(coro) -> None:
+    t = asyncio.ensure_future(coro)
+    _BG_TASKS.add(t)
+    t.add_done_callback(_BG_TASKS.discard)
+
+
+async def _deferred_nurture(broker, pool, org_id: str, conv_id: str, message_id, body: str, log) -> None:
+    """Let the burst window settle OFF the message-ack path, then reply once.
+    Running this inline (via asyncio.sleep inside handle_inbound) held the
+    JetStream ack past ack_wait and got the message redelivered/dropped -> no
+    reply. maybe_nurture's own recent-bot / human-replied guards stop duplicates."""
+    try:
+        await asyncio.sleep(NURTURE_BURST_SEC)
+    finally:
+        _PENDING_NURTURE.discard(conv_id)
+    try:
+        await maybe_nurture(broker, pool, org_id, conv_id, message_id, body, None, log)
+    except Exception:  # noqa: BLE001
+        log.exception("deferred nurture failed", extra={"conv": conv_id})
+
+
+@asynccontextmanager
+async def _conv_reply_lock(pool, conv_id: str):
+    """Non-blocking Postgres advisory lock scoped to one conversation. Yields
+    (got, conn): got=True if this handler acquired it (owns reply generation),
+    False if another already holds it. Serializes the check->generate->send
+    critical section so two concurrent inbound handlers can't both fire a reply.
+    The yielded `conn` is REUSED for the section's queries (via _conn_or) so the
+    whole section holds a single pooled connection, not a lock conn plus query
+    conns."""
+    conn = await pool.acquire()
+    got = False
+    try:
+        # hashtextextended -> 64-bit key (vs hashtext's 32-bit), so two different
+        # conversations practically never collide onto the same lock slot.
+        got = bool(await conn.fetchval("SELECT pg_try_advisory_lock(hashtextextended($1, 0))", conv_id))
+        yield got, conn
+    finally:
+        if got:
+            await conn.execute("SELECT pg_advisory_unlock(hashtextextended($1, 0))", conv_id)
+        await pool.release(conn)
+
+
+@asynccontextmanager
+async def _conn_or(pool, conn):
+    """Yield `conn` if the caller passed one (reuse it — e.g. the connection holding
+    the advisory lock), otherwise acquire and release a fresh pooled connection."""
+    if conn is not None:
+        yield conn
+    else:
+        async with pool.acquire() as c:
+            yield c
+
 
 async def maybe_nurture(broker, pool, org_id: str, conv_id: str, message_id, body: str, cr, log) -> None:
     """AI auto-reply nurture. Gated by the conversation's campaign (ai_auto_reply).
@@ -310,7 +370,26 @@ async def maybe_nurture(broker, pool, org_id: str, conv_id: str, message_id, bod
                 "UPDATE conversations SET is_bot_active = true, updated_at = now() WHERE id = $1", conv_id)
         log.info("nurture re-engaged (handoff, no human pickup)", extra={"conv": conv_id})
 
-    async with pool.acquire() as conn:
+    # Serialize reply generation per conversation with a Postgres advisory lock so
+    # two concurrent inbound handlers can't both generate+send (double-reply). If
+    # another handler already holds it, DEFER (never drop) so this message still
+    # gets a reply once that one lands.
+    async with _conv_reply_lock(pool, conv_id) as (got_lock, lock_conn):
+        if not got_lock:
+            if conv_id not in _PENDING_NURTURE:
+                _PENDING_NURTURE.add(conv_id)
+                _spawn_bg(_deferred_nurture(broker, pool, org_id, conv_id, message_id, body, log))
+            return
+        await _generate_and_send_reply(broker, pool, lock_conn, org_id, conv_id, message_id, body, row, log)
+
+
+async def _generate_and_send_reply(broker, pool, conn, org_id: str, conv_id: str, message_id, body: str, row, log) -> None:
+    """Re-check under the advisory lock (human takeover / burst guard) then build the
+    prompt, generate ONE nurture reply, send it, auto-send the intake form on the
+    first turn, and hand off when the lead is ready. Runs while _conv_reply_lock is
+    held so it can never race a second inbound handler into a duplicate send. `conn`
+    is that lock connection, reused for every query here so the section holds one."""
+    async with _conn_or(pool, conn) as conn:
         # Human takeover: if a human (agent/user) already replied, stand down.
         human = await conn.fetchval(
             """SELECT count(*) FROM messages
@@ -330,24 +409,20 @@ async def maybe_nurture(broker, pool, org_id: str, conv_id: str, message_id, bod
             conv_id, str(NURTURE_BURST_SEC),
         )
     if recent_bot and recent_bot > 0:
-        # Defer: tunggu burst window habis, lalu reply sekali ke accumulated
-        # conversation. Kalau handler lain sudah reply selama kita tidur,
-        # re-check di bawah akan catch dan skip (cegah duplikat).
-        await asyncio.sleep(NURTURE_BURST_SEC)
-        async with pool.acquire() as conn:
-            still_burst = await conn.fetchval(
-                """SELECT count(*) FROM messages
-                    WHERE conversation_id = $1 AND direction = 'outbound' AND sender_type = 'bot'
-                      AND created_at > now() - ($2 || ' seconds')::interval""",
-                conv_id, str(NURTURE_BURST_SEC),
-            )
-        if still_burst and still_burst > 0:
-            return  # handler lain sudah reply — skip, cegah duplikat
-        # Fall through: generate reply using latest conversation history
+        # Bot replied moments ago. DEFER, but never by blocking here: sleeping in
+        # the handler holds the JetStream ack past ack_wait -> redelivery -> the
+        # message gets dropped after max_deliver (i.e. no reply at all). Schedule
+        # ONE settle-then-reply task per conversation off the ack path instead;
+        # when it re-runs after the window, recent_bot is clear so it replies once
+        # (a burst of inbounds collapses to a single task via _PENDING_NURTURE).
+        if conv_id not in _PENDING_NURTURE:
+            _PENDING_NURTURE.add(conv_id)
+            _spawn_bg(_deferred_nurture(broker, pool, org_id, conv_id, message_id, body, log))
+        return
 
     # Credit gate (WS-F): if the campaign has a credit allocation and it's used up,
     # the AI stands down to a human (the lead is never dropped).
-    async with pool.acquire() as conn:
+    async with _conn_or(pool, conn) as conn:
         cc = await conn.fetchrow(
             """SELECT cc.allocated_credits, cc.used_credits
                  FROM campaign_credits cc
@@ -357,7 +432,7 @@ async def maybe_nurture(broker, pool, org_id: str, conv_id: str, message_id, bod
         )
     if cc and cc["allocated_credits"] > 0 and cc["used_credits"] >= cc["allocated_credits"]:
         log.info("nurture skipped: campaign credits exhausted", extra={"conv": conv_id})
-        await _ai_handoff(broker, pool, org_id, conv_id, row["agent_id"], log)
+        await _ai_handoff(broker, pool, org_id, conv_id, row["agent_id"], log, conn=conn)
         return
 
     # Language rule (consistent, with optional dynamic matching to the contact).
@@ -381,16 +456,21 @@ async def maybe_nurture(broker, pool, org_id: str, conv_id: str, message_id, bod
         ctx += (f", on campaign '{row['campaign_name']}'. Only discuss what this business sells; "
                 f"politely decline and refocus if asked about competitors.")
 
+    # Catalog grounding on EVERY turn (not only once brand+model are extracted, which
+    # is throttled) so early price questions are grounded too. Falls back to the
+    # campaign's own brand, and passes the customer's message so a named trim leads.
     finance_ctx = ""
-    if row["car_brand"] and row["car_model"]:
+    if row["campaign_id"]:
         import finance_rag
         # Campaign-scoped catalog first (falls back to global finance_packages).
-        fc = await finance_rag.get_catalog_context(pool, row["campaign_id"], row["car_brand"], row["car_model"], row["city"], row["segment"])
+        fc = await finance_rag.get_catalog_context(
+            pool, row["campaign_id"], row["car_brand"] or row["brand"], row["car_model"],
+            row["city"], row["segment"], query=body, conn=conn)
         if fc:
             finance_ctx = f"\n\n{fc}\n"
 
     system_prompt = (row["system_prompt"] or "You are a helpful sales assistant.") + ctx + "\n\n" + lang_rule + finance_ctx
-    history = await _load_history(pool, conv_id, message_id)
+    history = await _load_history(pool, conv_id, message_id, conn=conn)
     await _publish_activity(broker, org_id, conv_id, "thinking", log)
     result = await llm.nurture(system_prompt, history, body, model=row["model"])
     reply = (result.get("reply") or "").strip()
@@ -406,7 +486,7 @@ async def maybe_nurture(broker, pool, org_id: str, conv_id: str, message_id, bod
         "conversation_id": conv_id, "sender_type": "bot", "type": "text", "body": reply,
     })
     await _publish_activity(broker, org_id, conv_id, "replied", log)
-    async with pool.acquire() as conn:
+    async with _conn_or(pool, conn) as conn:
         await conn.execute(
             """UPDATE conversations
                   SET metadata = COALESCE(metadata, '{}'::jsonb) || '{"ai_nurture_started": true}'::jsonb
@@ -431,13 +511,14 @@ async def maybe_nurture(broker, pool, org_id: str, conv_id: str, message_id, bod
         lf = meta.get("lead_fields") or {}
         fields_done = bool(req) and all(lf.get(k) for k in req)
     if result.get("ready_for_handoff") or fields_done:
-        await _ai_handoff(broker, pool, org_id, conv_id, row["agent_id"], log)
+        await _ai_handoff(broker, pool, org_id, conv_id, row["agent_id"], log, conn=conn)
 
 
-async def _ai_handoff(broker, pool, org_id: str, conv_id: str, agent_id, log) -> None:
-    """Stand the bot down and notify a human that a nurtured lead is ready."""
+async def _ai_handoff(broker, pool, org_id: str, conv_id: str, agent_id, log, conn=None) -> None:
+    """Stand the bot down and notify a human that a nurtured lead is ready. `conn`
+    reuses the caller's connection (e.g. the advisory-lock one) when provided."""
     await _publish_activity(broker, org_id, conv_id, "handoff", log)
-    async with pool.acquire() as conn:
+    async with _conn_or(pool, conn) as conn:
         await conn.execute("UPDATE conversations SET is_bot_active = false, updated_at = now() WHERE id = $1", conv_id)
         recipients = [agent_id] if agent_id else [
             r["id"] for r in await conn.fetch(
@@ -562,13 +643,13 @@ def _as_list(v) -> list:
         return []
 
 
-async def _load_history(pool, conv_id: str, exclude_message_id) -> List[dict]:
-    async with pool.acquire() as conn:
+async def _load_history(pool, conv_id: str, exclude_message_id, conn=None) -> List[dict]:
+    async with _conn_or(pool, conn) as conn:
         rows = await conn.fetch(
             """SELECT direction, body FROM messages
                 WHERE conversation_id = $1 AND ($2::uuid IS NULL OR id <> $2::uuid)
                   AND body IS NOT NULL AND body <> ''
-                ORDER BY created_at DESC LIMIT 8""",
+                ORDER BY created_at DESC LIMIT 16""",
             conv_id, exclude_message_id,
         )
     msgs = []
