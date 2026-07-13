@@ -19,9 +19,10 @@ class Settings:
     # client appends /v1/messages. Defaults to Anthropic direct.
     anthropic_base_url: str = os.getenv(
         "ANTHROPIC_BASE_URL", "https://api.anthropic.com")
-    # Routine extraction/summary runs on every eligible message, so default to
-    # Sonnet (not Opus) for cost. Per-agent ai_agents.model can still override.
-    llm_model: str = os.getenv("LLM_MODEL", "claude-sonnet-4-6")
+    # The live model is resolved at runtime from the Models API (llm.latest_sonnet_model:
+    # newest claude-sonnet-*). This is only the OFFLINE FALLBACK if that lookup fails,
+    # or an explicit override (set LLM_MODEL to pin a specific model, e.g. an Opus id).
+    llm_model: str = os.getenv("LLM_MODEL", "claude-sonnet-5")
 
     # Embeddings
     embed_provider: str = os.getenv("EMBED_PROVIDER", "local")  # local | openai

@@ -15,6 +15,8 @@ from __future__ import annotations
 import asyncio
 import json
 import logging
+import re
+import time
 from typing import AsyncIterator, List, Optional
 
 import httpx
@@ -25,7 +27,50 @@ log = logging.getLogger("llm")
 
 # Anthropic-compatible messages endpoint (direct, or via a configured gateway).
 _URL = settings.anthropic_base_url.rstrip("/") + "/v1/messages"
+_MODELS_URL = settings.anthropic_base_url.rstrip("/") + "/v1/models"
 _HEADERS_VERSION = "2023-06-01"
+
+# "Always use the latest Sonnet": resolved from the Models API at runtime and cached,
+# so it auto-upgrades whenever Anthropic ships a newer Sonnet — no code/DB change.
+# settings.llm_model is only the offline fallback used if that lookup ever fails.
+_SONNET_CACHE: dict = {"id": None, "at": 0.0}
+_SONNET_CACHE_TTL = 3600.0  # re-check the Models API at most hourly
+
+
+async def latest_sonnet_model() -> str:
+    """Newest `claude-sonnet-*` id from the Models API (cached hourly). On any failure
+    falls back to the last cached id, then settings.llm_model — so a slow or failing
+    Models lookup never blocks a reply."""
+    now = time.monotonic()
+    if _SONNET_CACHE["id"] and (now - _SONNET_CACHE["at"]) < _SONNET_CACHE_TTL:
+        return _SONNET_CACHE["id"]
+    try:
+        async with httpx.AsyncClient(timeout=10) as client:
+            resp = await client.get(
+                _MODELS_URL,
+                headers={"x-api-key": settings.anthropic_api_key, "anthropic-version": _HEADERS_VERSION},
+                params={"limit": 100},
+            )
+            resp.raise_for_status()
+            models = resp.json().get("data", [])
+        sonnets = [m for m in models if str(m.get("id", "")).startswith("claude-sonnet")]
+        if sonnets:
+            newest = max(sonnets, key=lambda m: m.get("created_at") or "")
+            _SONNET_CACHE.update(id=newest["id"], at=now)
+            log.info("latest sonnet resolved: %s", newest["id"])
+            return newest["id"]
+    except Exception as e:  # noqa: BLE001
+        log.warning("latest_sonnet lookup failed (%s); using fallback", e)
+    return _SONNET_CACHE["id"] or settings.llm_model
+
+
+async def _resolve_model(model: Optional[str]) -> str:
+    """Resolve the model to call. Empty, or ANY Sonnet id (e.g. a per-agent pin left
+    at an older Sonnet), maps to the LATEST Sonnet — so every agent auto-upgrades. A
+    deliberate non-Sonnet pin (e.g. an Opus id) is respected as chosen."""
+    if model and not model.startswith("claude-sonnet"):
+        return model
+    return await latest_sonnet_model()
 
 # Appended to every customer-facing instruction. Emoji read as unprofessional in a
 # B2B/dealer context, so the AI must never use them in messages it sends.
@@ -123,15 +168,36 @@ def _parse_json(text: str) -> dict:
         return {}
 
 
-async def _anthropic_call(system_blocks: list, history: List[dict],
-                          user_message: str, model: str, max_tokens: int) -> dict:
+_JSON_REPLY_RE = re.compile(r'"reply"\s*:\s*"((?:[^"\\]|\\.)*)"', re.S)
+
+
+def _salvage_reply(text: str) -> str:
+    """Fallback when the model ignores the 'reply ONLY as JSON' instruction and just
+    answers in prose (Sonnet can't be forced via prefill): use that prose as the reply
+    instead of dropping a perfectly good answer. If it's a broken JSON blob, pull the
+    reply field out; otherwise return the text as-is."""
+    t = (text or "").strip()
+    if not t:
+        return ""
+    if t.startswith("{") or t.startswith("```"):
+        m = _JSON_REPLY_RE.search(t)
+        return m.group(1).replace('\\"', '"').replace('\\n', '\n').strip() if m else ""
+    return t
+
+
+async def _anthropic_raw(system_blocks: list, history: List[dict],
+                         user_message: str, model: str, max_tokens: int) -> str:
+    """One Claude call -> raw response text. thinking is DISABLED: these are short,
+    structured calls with a small max_tokens, and Sonnet 5 runs adaptive thinking by
+    default when the field is omitted — which would eat the budget and truncate or
+    empty the reply."""
     messages = list(history) + [{"role": "user", "content": user_message}]
     async with httpx.AsyncClient(timeout=60) as client:
         resp = await client.post(
             _URL,
             headers={"x-api-key": settings.anthropic_api_key,
                      "anthropic-version": _HEADERS_VERSION, "content-type": "application/json"},
-            json={"model": model, "max_tokens": max_tokens,
+            json={"model": model, "max_tokens": max_tokens, "thinking": {"type": "disabled"},
                   "system": system_blocks, "messages": messages},
         )
         resp.raise_for_status()
@@ -140,8 +206,12 @@ async def _anthropic_call(system_blocks: list, history: List[dict],
     log.info("llm usage model=%s in=%s out=%s cache_read=%s cache_write=%s",
              model, u.get("input_tokens"), u.get("output_tokens"),
              u.get("cache_read_input_tokens"), u.get("cache_creation_input_tokens"))
-    text = "".join(b.get("text", "") for b in data.get("content", []) if b.get("type") == "text")
-    return _parse_json(text)
+    return "".join(b.get("text", "") for b in data.get("content", []) if b.get("type") == "text")
+
+
+async def _anthropic_call(system_blocks: list, history: List[dict],
+                          user_message: str, model: str, max_tokens: int) -> dict:
+    return _parse_json(await _anthropic_raw(system_blocks, history, user_message, model, max_tokens))
 
 
 CATALOG_EXTRACT_INSTRUCTION = (
@@ -176,7 +246,8 @@ async def extract_catalog(pdf_b64: str, segment: Optional[str] = None,
             _URL,
             headers={"x-api-key": settings.anthropic_api_key,
                      "anthropic-version": _HEADERS_VERSION, "content-type": "application/json"},
-            json={"model": model or settings.llm_model, "max_tokens": 16384,
+            json={"model": await _resolve_model(model), "max_tokens": 16384,
+                  "thinking": {"type": "disabled"},
                   "messages": [{"role": "user", "content": content}]},
         )
         resp.raise_for_status()
@@ -207,7 +278,8 @@ async def extract_catalog_stream(pdf_b64: str, segment: Optional[str] = None,
         {"type": "document", "source": {"type": "base64", "media_type": "application/pdf", "data": pdf_b64}},
         {"type": "text", "text": CATALOG_EXTRACT_INSTRUCTION + hint},
     ]
-    body = {"model": model or settings.llm_model, "max_tokens": 16384, "stream": True,
+    body = {"model": await _resolve_model(model), "max_tokens": 16384, "stream": True,
+            "thinking": {"type": "disabled"},
             "messages": [{"role": "user", "content": content}]}
     headers = {"x-api-key": settings.anthropic_api_key,
                "anthropic-version": _HEADERS_VERSION, "content-type": "application/json"}
@@ -325,7 +397,7 @@ async def analyze(system_prompt: str, history: Optional[List[dict]],
         "text": (system_prompt or "You are a helpful sales assistant.") + "\n\n" + instruction,
         "cache_control": {"type": "ephemeral"},
     }]
-    obj = await _anthropic_call(system, history or [], user_message, model or settings.llm_model, 400)
+    obj = await _anthropic_call(system, history or [], user_message, await _resolve_model(model), 400)
     return _shape_analyze(obj, extra_fields)
 
 
@@ -353,8 +425,9 @@ async def stream_summary(system_prompt: str, history: Optional[List[dict]],
     }]
     messages = list(history or []) + [{"role": "user", "content": "Write the sales briefing now."}]
     payload = {
-        "model": model or settings.llm_model,
+        "model": await _resolve_model(model),
         "max_tokens": 600,
+        "thinking": {"type": "disabled"},
         "system": system,
         "messages": messages,
         "stream": True,
@@ -420,8 +493,9 @@ async def stream_reply(system_prompt: str, history: Optional[List[dict]],
     if not msgs or msgs[-1].get("role") != "user":
         msgs.append({"role": "user", "content": "Write the next reply to send now."})
     payload = {
-        "model": model or settings.llm_model,
+        "model": await _resolve_model(model),
         "max_tokens": 400,
+        "thinking": {"type": "disabled"},
         "system": system,
         "messages": msgs,
         "stream": True,
@@ -484,8 +558,8 @@ async def draft_followup(system_prompt: str, history: Optional[List[dict]],
         "text": (system_prompt or "You are a helpful sales assistant.") + "\n\n" + FOLLOWUP_INSTRUCTION + _followup_tone(touch),
         "cache_control": {"type": "ephemeral"},
     }]
-    obj = await _anthropic_call(system, history or [], user_message, model or settings.llm_model, 256)
-    return (obj.get("reply") or "").strip()
+    text = await _anthropic_raw(system, history or [], user_message, await _resolve_model(model), 256)
+    return (_parse_json(text).get("reply") or "").strip() or _salvage_reply(text)
 
 
 NURTURE_INSTRUCTION = (
@@ -523,6 +597,7 @@ async def nurture(system_prompt: str, history: Optional[List[dict]],
         "text": (system_prompt or "You are a helpful sales assistant.") + "\n\n" + NURTURE_INSTRUCTION,
         "cache_control": {"type": "ephemeral"},
     }]
-    obj = await _anthropic_call(system, history or [], user_message, model or settings.llm_model, 400)
-    return {"reply": (obj.get("reply") or "").strip(),
-            "ready_for_handoff": bool(obj.get("ready_for_handoff"))}
+    text = await _anthropic_raw(system, history or [], user_message, await _resolve_model(model), 400)
+    obj = _parse_json(text)
+    reply = (obj.get("reply") or "").strip() or _salvage_reply(text)
+    return {"reply": reply, "ready_for_handoff": bool(obj.get("ready_for_handoff"))}
