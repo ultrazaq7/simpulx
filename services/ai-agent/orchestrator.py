@@ -6,6 +6,7 @@ Pesan follow-up ditangani handle_followup (cron berbasis waktu).
 """
 from __future__ import annotations
 
+import asyncio
 import json
 import re
 from datetime import datetime, timezone
@@ -329,7 +330,20 @@ async def maybe_nurture(broker, pool, org_id: str, conv_id: str, message_id, bod
             conv_id, str(NURTURE_BURST_SEC),
         )
     if recent_bot and recent_bot > 0:
-        return
+        # Defer: tunggu burst window habis, lalu reply sekali ke accumulated
+        # conversation. Kalau handler lain sudah reply selama kita tidur,
+        # re-check di bawah akan catch dan skip (cegah duplikat).
+        await asyncio.sleep(NURTURE_BURST_SEC)
+        async with pool.acquire() as conn:
+            still_burst = await conn.fetchval(
+                """SELECT count(*) FROM messages
+                    WHERE conversation_id = $1 AND direction = 'outbound' AND sender_type = 'bot'
+                      AND created_at > now() - ($2 || ' seconds')::interval""",
+                conv_id, str(NURTURE_BURST_SEC),
+            )
+        if still_burst and still_burst > 0:
+            return  # handler lain sudah reply — skip, cegah duplikat
+        # Fall through: generate reply using latest conversation history
 
     # Credit gate (WS-F): if the campaign has a credit allocation and it's used up,
     # the AI stands down to a human (the lead is never dropped).
