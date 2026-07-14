@@ -11,6 +11,7 @@ import {
 import { api, getUser } from "@/lib/api";
 import { usePermissions } from "@/lib/permissions";
 import { initials, channelColor, channelTextColor, channelLabel, avatarColor, fmtDate, fmtDateTimeShort, fmtExportTs, cn, stageLabelByName } from "@/lib/utils";
+import { ScoreBadge } from "@/components/ScoreBadge";
 import type { Contact, Agent, Campaign, Message, Stage, Conversation, Disposition, CustomField } from "@/lib/types";
 import { Tip } from "@/components/ui/tooltip";
 import ChatPopup from "@/components/ChatPopup";
@@ -63,9 +64,6 @@ function interestColor(level?: string | null): string {
 }
 
 // Buy-potential heat: green (high) / amber (mid) / grey (low).
-function scoreColor(n: number): string {
-  return n >= 70 ? "#0E5B54" : n >= 40 ? "#C0791A" : "#64748B";
-}
 
 // Toggleable table columns (Name and Actions are always shown). The picker
 // defaults to the lead-focused set; metadata columns start hidden. The choice
@@ -590,17 +588,9 @@ export default function ContactsPage() {
                   )}
                   {show("score") && (
                   <td className="px-3 py-2 whitespace-nowrap">
-                    {typeof c.lead_score === "number" ? (() => {
-                      // Consistent mono badge, tinted by score tier (high=petrol,
-                      // mid=warm, low=slate).
-                      const col = scoreColor(c.lead_score);
-                      return (
-                        <span className="inline-flex items-center px-2 py-0.5 rounded-md font-mono text-[12px] font-semibold tabular-nums"
-                          style={{ backgroundColor: col + "1A", color: col }}>
-                          {c.lead_score}
-                        </span>
-                      );
-                    })() : <span className="text-muted-foreground">-</span>}
+                    {typeof c.lead_score === "number"
+                      ? <ScoreBadge score={c.lead_score} size={26} />
+                      : <span className="text-muted-foreground">-</span>}
                   </td>
                   )}
                   {show("agent") && (

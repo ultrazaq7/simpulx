@@ -8,6 +8,7 @@ import {
 } from "lucide-react";
 import { api } from "@/lib/api";
 import { initials, channelColor, fmtDate, fmtTime, relTime, fmtDateTimeShort, cn, channelLabel } from "@/lib/utils";
+import { ScoreBadge } from "@/components/ScoreBadge";
 import type { Contact, Conversation, Message, InternalNote } from "@/lib/types";
 import { StageMenu } from "../../inbox/components/StageMenu";
 import { InterestMenu } from "../../inbox/components/InterestMenu";
@@ -204,7 +205,10 @@ export default function ContactDetailsPage() {
               style={{ backgroundColor: chColor + "1A", color: chColor }}>
               {initials(c.full_name || c.phone)}
             </div>
-            <p className="mt-3 text-[16px] font-bold text-foreground">{c.full_name || c.phone || t("broadcasts.unknown")}</p>
+            <div className="mt-3 flex items-center justify-center gap-2">
+              <p className="text-[16px] font-bold text-foreground">{c.full_name || c.phone || t("broadcasts.unknown")}</p>
+              {typeof c.lead_score === "number" && <ScoreBadge score={c.lead_score} size={28} />}
+            </div>
             {c.phone && <p className="text-[12.5px] text-muted-foreground tabular-nums">{c.phone}</p>}
             {c.conversation_id ? (
               <div className="mt-2 flex items-center justify-center gap-1.5 flex-wrap">

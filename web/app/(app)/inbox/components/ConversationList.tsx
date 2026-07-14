@@ -301,7 +301,7 @@ export default function ConversationList({
         sorted.sort((a, b) => new Date(a.last_message_at || 0).getTime() - new Date(b.last_message_at || 0).getTime());
         break;
       case "priority":
-        // lead_score is a hidden sort signal only (BR-28) — never shown to agents.
+        // Sort by lead score (also surfaced as a ScoreBadge in the detail panels).
         sorted.sort((a, b) => (b.lead_score || 0) - (a.lead_score || 0));
         break;
       case "waiting":

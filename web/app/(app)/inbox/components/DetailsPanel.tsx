@@ -5,6 +5,7 @@ import Link from "next/link";
 import { X, Copy, User, Phone, Hash, MessageSquare, Clock, StickyNote, Tag as TagIcon, Plus, Paperclip, Download, FileText, Image as ImageIcon, Video, Mic, Trash2, Check, ChevronDown, Search, XCircle } from "lucide-react";
 import { api } from "@/lib/api";
 import { initials, channelColor, channelTextColor, channelLabel, fmtDate, fmtTime, fmtDateTimeShort, cn } from "@/lib/utils";
+import { ScoreBadge } from "@/components/ScoreBadge";
 import { Tip } from "@/components/ui/tooltip";
 import { isAutomotive, segmentFields } from "@/lib/segments";
 import type { Agent, Conversation, InternalNote, Message } from "@/lib/types";
@@ -166,15 +167,20 @@ export default function DetailsPanel({ active, onClose, copyText, notes, onAddNo
 
           </div>
           <div className="min-w-0">
-            {active.contact_id ? (
-              <Tip label={t("inbox.viewContactDetails")} side="bottom" align="start">
-                <Link href={`/contacts/${active.contact_id}`} className="font-bold text-[15px] text-foreground truncate hover:text-primary hover:underline outline-none block">
-                  {active.contact_name || t("broadcasts.unknown")}
-                </Link>
-              </Tip>
-            ) : (
-              <p className="font-bold text-[15px] text-foreground truncate">{active.contact_name || t("broadcasts.unknown")}</p>
-            )}
+            <div className="flex items-center gap-2 min-w-0">
+              {active.contact_id ? (
+                <Tip label={t("inbox.viewContactDetails")} side="bottom" align="start">
+                  <Link href={`/contacts/${active.contact_id}`} className="font-bold text-[15px] text-foreground truncate hover:text-primary hover:underline outline-none block">
+                    {active.contact_name || t("broadcasts.unknown")}
+                  </Link>
+                </Tip>
+              ) : (
+                <p className="font-bold text-[15px] text-foreground truncate">{active.contact_name || t("broadcasts.unknown")}</p>
+              )}
+              {typeof active.lead_score === "number" && (
+                <Tip label={t("contacts.leadScore")} side="top"><span><ScoreBadge score={active.lead_score} size={28} /></span></Tip>
+              )}
+            </div>
             {active.contact_phone && (
               <div className="flex items-center gap-1">
                 <span className="text-xs text-muted-foreground tabular-nums">{active.contact_phone}</span>

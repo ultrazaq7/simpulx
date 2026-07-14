@@ -243,3 +243,9 @@ export function readableTextOn(hex: string): string {
   // Contrast vs white is (1.05)/(L+0.05); use dark ink once white drops below ~4.5:1.
   return (1.05 / (L + 0.05)) >= 4.5 ? "#FFFFFF" : "#0C1614";
 }
+
+// Lead-score tier color (0-100): high=petrol green, mid=amber, low=slate. Shared
+// by the contacts table and the inbox card so the same score reads identically.
+export function scoreColor(n: number): string {
+  return n >= 70 ? "#0E5B54" : n >= 40 ? "#C0791A" : "#64748B";
+}
