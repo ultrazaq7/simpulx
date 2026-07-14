@@ -36,9 +36,12 @@ type catalogRow struct {
 func (s *server) handleListCatalog(w http.ResponseWriter, r *http.Request) {
 	a, _ := authFrom(r.Context())
 	cid := r.PathValue("id")
-	limit := 500
+	// Default high enough to show a whole pricelist: one upload is (items x tenors x
+	// locations) rows, which easily tops 500 — and because rows are ORDER BY item_name,
+	// a 500 cap silently hid everything late in the alphabet (e.g. XForce under "X").
+	limit := 20000
 	if v := r.URL.Query().Get("limit"); v != "" {
-		if n, err := strconv.Atoi(v); err == nil && n > 0 && n <= 5000 {
+		if n, err := strconv.Atoi(v); err == nil && n > 0 && n <= 20000 {
 			limit = n
 		}
 	}
