@@ -198,6 +198,9 @@ export default function ConversationList({
   const [unresponded, setUnresponded] = useState(false);
   const [lastByCustomer, setLastByCustomer] = useState(false);
   const [lastByBot, setLastByBot] = useState(false);
+  // AI handling: Simpuler currently auto-replies (is_bot_active) vs a human owns it.
+  const [aiHandled, setAiHandled] = useState(false);
+  const [manualHandled, setManualHandled] = useState(false);
   const searchInputRef = useRef<HTMLInputElement>(null);
   const shownRef = useRef<Conversation[]>([]);
 
@@ -286,6 +289,8 @@ export default function ConversationList({
     if (unresponded) list = list.filter((c) => c.customer_responded === undefined ? c.last_message_direction === "contact" : !c.customer_responded);
     if (lastByCustomer) list = list.filter((c) => c.last_sender_type === "contact");
     if (lastByBot) list = list.filter((c) => c.last_sender_type === "bot");
+    if (aiHandled) list = list.filter((c) => c.is_bot_active);
+    if (manualHandled) list = list.filter((c) => !c.is_bot_active);
 
     const sorted = [...list];
     switch (sort) {
@@ -309,7 +314,7 @@ export default function ConversationList({
         break;
     }
     return sorted;
-  }, [convs, query, searchMode, filterStatuses, filterStages, filterCampaigns, filterInterests, filterAgents, filterChannels, channels, followUpOnly, unreadOnly, needsReplyOnly, unassignedOnly, lostReasonFilter, responded, unresponded, lastByCustomer, lastByBot, sort]);
+  }, [convs, query, searchMode, filterStatuses, filterStages, filterCampaigns, filterInterests, filterAgents, filterChannels, channels, followUpOnly, unreadOnly, needsReplyOnly, unassignedOnly, lostReasonFilter, responded, unresponded, lastByCustomer, lastByBot, aiHandled, manualHandled, sort]);
 
   shownRef.current = shown;
 
@@ -344,7 +349,7 @@ export default function ConversationList({
   const activeFiltersCount =
     filterStages.length + filterCampaigns.length + filterInterests.length + filterStatuses.length + filterAgents.length + filterChannels.length +
     (followUpOnly ? 1 : 0) + (unreadOnly ? 1 : 0) + (needsReplyOnly ? 1 : 0) + (unassignedOnly ? 1 : 0) +
-    (responded ? 1 : 0) + (unresponded ? 1 : 0) + (lastByCustomer ? 1 : 0) + (lastByBot ? 1 : 0) + (lostReasonFilter ? 1 : 0) + (query ? 1 : 0) +
+    (responded ? 1 : 0) + (unresponded ? 1 : 0) + (lastByCustomer ? 1 : 0) + (lastByBot ? 1 : 0) + (aiHandled ? 1 : 0) + (manualHandled ? 1 : 0) + (lostReasonFilter ? 1 : 0) + (query ? 1 : 0) +
     ((dateScope?.from || dateScope?.to || dateScope?.source) ? 1 : 0);
 
   const clearAll = () => {
@@ -363,6 +368,8 @@ export default function ConversationList({
     setUnresponded(false);
     setLastByCustomer(false);
     setLastByBot(false);
+    setAiHandled(false);
+    setManualHandled(false);
     onClearLostReason?.();
     onClearDateScope?.();
   };
@@ -382,6 +389,8 @@ export default function ConversationList({
     { key: "responded", label: "Responded chat", active: responded, onToggle: () => setResponded((v) => !v) },
     { key: "lastcustomer", label: "Last message by customer", active: lastByCustomer, onToggle: () => setLastByCustomer((v) => !v), dividerBefore: true },
     { key: "lastbot", label: "Last message by bot", active: lastByBot, onToggle: () => setLastByBot((v) => !v) },
+    { key: "aihandled", label: t("inbox.aiFilterAuto"), active: aiHandled, onToggle: () => { setAiHandled((v) => !v); setManualHandled(false); }, dividerBefore: true },
+    { key: "manualhandled", label: t("inbox.aiFilterManual"), active: manualHandled, onToggle: () => { setManualHandled((v) => !v); setAiHandled(false); } },
   ];
 
   return (

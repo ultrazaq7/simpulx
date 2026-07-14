@@ -7,6 +7,7 @@ import { cn } from "@/lib/utils";
 import { api } from "@/lib/api";
 import { Tip } from "@/components/ui/tooltip";
 import TemplateWizard from "./TemplateWizard";
+import { AiStatusBadge } from "./AiStatusBadge";
 import type { QuickReply, Template } from "@/lib/types";
 
 interface ComposerProps {
@@ -36,6 +37,9 @@ interface ComposerProps {
   onAddNote?: (body: string) => Promise<void>; // AI Smart Summary -> Confirm posts a note
   smartSummaryEnabled?: boolean;               // per-campaign toggle; hides the button when false
   aiThinking?: boolean;                          // Simpuler is drafting a reply (WS-C)
+  isBotActive?: boolean;                         // Simpuler currently auto-replies to this chat
+  agentName?: string | null;                     // assigned agent (for "Manual · {name}")
+  onToggleBot?: (active: boolean) => void;       // AI takeover (false) / hand back to Simpuler (true)
 }
 
 export default function Composer({
@@ -43,6 +47,7 @@ export default function Composer({
   pendingFiles, pendingPreviews, fileRef, onFile, cancelSendFile, removePendingFile,
   busy, onSubmit, notify, onSendVoice, windowExpired, phone, conversationId, callingEnabled, onRequestCall,
   aiSummary, uploadProgress, onAddNote, smartSummaryEnabled = true, aiThinking,
+  isBotActive, agentName, onToggleBot,
 }: ComposerProps) {
   const { t } = useI18n();
   const [showQR, setShowQR] = useState(false);
@@ -274,7 +279,7 @@ export default function Composer({
           const bh = Math.max(3, v * (h - 4));
           const x = i * bw + bw * 0.25;
           const y = (h - bh) / 2;
-          g.fillStyle = isPaused ? "#CBD5E1" : "#2D8B73";
+          g.fillStyle = isPaused ? "#CBD5E1" : "#0E5B54";
           if (g.roundRect) { g.beginPath(); g.roundRect(x, y, bw * 0.5, bh, 2); g.fill(); }
           else g.fillRect(x, y, bw * 0.5, bh);
         }
@@ -311,13 +316,13 @@ export default function Composer({
     <div className="px-4 pb-4">
       {/* Live Simpuler indicator (WS-C): shows while the bot drafts a reply. */}
       {aiThinking && (
-        <div className="pb-1.5 pt-0.5 flex items-center justify-end gap-2 text-[12px] font-medium text-violet-600">
+        <div className="pb-1.5 pt-0.5 flex items-center justify-end gap-2 text-[12px] font-medium text-ai-text">
           <Sparkles className="w-3.5 h-3.5" />
           <span>{t("inbox.simpulerIsTyping")}</span>
           <span className="flex gap-0.5">
-            <span className="w-1 h-1 rounded-full bg-violet-500 animate-bounce [animation-delay:-0.2s]" />
-            <span className="w-1 h-1 rounded-full bg-violet-500 animate-bounce [animation-delay:-0.1s]" />
-            <span className="w-1 h-1 rounded-full bg-violet-500 animate-bounce" />
+            <span className="w-1 h-1 rounded-full bg-ai animate-bounce [animation-delay:-0.2s]" />
+            <span className="w-1 h-1 rounded-full bg-ai animate-bounce [animation-delay:-0.1s]" />
+            <span className="w-1 h-1 rounded-full bg-ai animate-bounce" />
           </span>
         </div>
       )}
@@ -403,6 +408,22 @@ export default function Composer({
           </button>
 
           <div className="flex-1" />
+
+          {/* Reply tab: AI handling indicator + one-click takeover (AI = indigo,
+              human = petrol). Sits in the same top-right slot the old Smart Reply
+              button used. Internal note tab: Smart Summary (unchanged). */}
+          {!note && onToggleBot && (
+            <div className="mb-1">
+              <AiStatusBadge
+                isBotActive={!!isBotActive}
+                processing={aiThinking}
+                agentName={agentName}
+                busy={busy}
+                onTakeOver={() => onToggleBot(false)}
+                onRelease={() => onToggleBot(true)}
+              />
+            </div>
+          )}
 
           {/* Smart Summary — Internal note tab only, and only if the campaign enables it */}
           {note && smartSummaryEnabled && (

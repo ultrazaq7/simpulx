@@ -43,6 +43,7 @@ export interface Conversation {
   lost_reason: string | null;
   campaign_segment?: string | null;
   campaign_smart_summary?: boolean;
+  campaign_auto_reply?: boolean; // campaign has Simpuler auto-reply enabled (gates the AI takeover control)
   lead_fields?: Record<string, string> | null;
   lead_summary: string | null;
   suggested_action: string | null;

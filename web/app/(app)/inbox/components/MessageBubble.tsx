@@ -489,7 +489,7 @@ const MessageBubble = memo(function MessageBubble({ m, active, grouped, onPrevie
         {/* Sender label: only on the first of a group, and only for outbound (1:1
             inbound is always the contact, so the name there is just noise). */}
         {!grouped && (out || bot || broadcast) && (
-          <p className={cn("text-[10px] font-semibold mb-0.5 px-0.5 inline-flex items-center gap-0.5", bot ? "text-violet-600" : broadcast ? "text-amber-700" : "text-muted-foreground")}>
+          <p className={cn("text-[10px] font-semibold mb-0.5 px-0.5 inline-flex items-center gap-0.5", bot ? "text-ai-text" : broadcast ? "text-amber-700" : "text-muted-foreground")}>
             {who} {bot && <Sparkles className="w-2.5 h-2.5" />}{broadcast && <Megaphone className="w-2.5 h-2.5" />}
           </p>
         )}
@@ -497,7 +497,11 @@ const MessageBubble = memo(function MessageBubble({ m, active, grouped, onPrevie
         <div
           className={cn(
             isSticker ? "" : "rounded-lg overflow-hidden shadow-sm",
-            isSticker ? "" : (out ? "bg-primary text-primary-foreground selection:bg-white/30 selection:text-white rounded-br-[4px]" : "bg-card text-foreground border border-border rounded-bl-[4px]"),
+            // Signature colour rule: an AI (Simpuler) reply is indigo, a human
+            // agent reply is petrol — so a reviewer sees at a glance who sent what.
+            isSticker ? "" : (out
+              ? (bot ? "bg-ai text-ai-foreground selection:bg-white/30 selection:text-white rounded-br-[4px]" : "bg-primary text-primary-foreground selection:bg-white/30 selection:text-white rounded-br-[4px]")
+              : "bg-card text-foreground border border-border rounded-bl-[4px]"),
             // No padding when media-only (image/video fill the bubble)
             (isImage || isVideo) && !m.body && !isSticker ? "" : "",
           )}

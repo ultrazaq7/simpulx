@@ -564,6 +564,7 @@ export default function InboxPage() {
           onOverride={override}
           onResolve={() => doAction(() => api.close(active!.id), "Conversation resolved")}
           onReopen={() => doAction(() => api.patchConversation(active!.id, { status: "open" } as any), "Conversation reopened")}
+          onToggleBot={(botOn) => doAction(() => api.toggleBot(active!.id, botOn), botOn ? "Handed back to Simpuler" : "You have taken over this chat")}
           onCopyText={copyText}
           draft={draft} setDraft={setDraft}
           tab={tab} setTab={setTab}

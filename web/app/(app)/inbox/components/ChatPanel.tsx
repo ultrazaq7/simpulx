@@ -205,6 +205,7 @@ export interface ChatPanelProps {
   className?: string; // parent-controlled responsive visibility (mobile single-pane)
   onBack?: () => void; // mobile: return to the conversation list
   aiThinking?: boolean; // Simpuler is drafting a reply for this conversation (WS-C)
+  onToggleBot?: (active: boolean) => void; // AI takeover (false) / hand back to Simpuler (true)
 }
 
 export default function ChatPanel({
@@ -215,7 +216,7 @@ export default function ChatPanel({
   pendingFiles, pendingPreviews, fileRef, onFile, cancelSendFile, removePendingFile,
   busy, onSubmit, onSendVoice, showDetails, onToggleDetails, notify, showAgent, onForward,
   agents, canAssign, onReassign, onUnassign, onSnooze,
-  uploadProgress, onAddNote, className, onBack, aiThinking,
+  uploadProgress, onAddNote, className, onBack, aiThinking, onToggleBot,
 }: ChatPanelProps) {
   const { t } = useI18n();
   const [statusOpen, setStatusOpen] = useState(false);
@@ -668,6 +669,9 @@ export default function ChatPanel({
               onAddNote={onAddNote}
               smartSummaryEnabled={active?.campaign_smart_summary !== false}
               aiThinking={aiThinking}
+              isBotActive={!!active?.is_bot_active}
+              agentName={active?.agent_name}
+              onToggleBot={active?.campaign_auto_reply ? onToggleBot : undefined}
             />
           </>
         )}

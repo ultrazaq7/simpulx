@@ -1794,6 +1794,16 @@
     "exportDetailedChatRecordsIncluding": "Ekspor catatan chat lengkap termasuk pelacakan SLA (waktu respons), aktivitas tindak lanjut, tahap pipeline, kualifikasi prospek, dan percobaan panggilan."
   },
   "inbox": {
+    "aiAuto": "Auto",
+    "aiProcessing": "Memproses",
+    "aiManual": "Manual",
+    "aiTakeOver": "Ambil alih",
+    "aiHandBack": "Serahkan ke Simpuler",
+    "aiSimpuler": "Simpuler",
+    "aiHandledBySimpuler": "Ditangani Simpuler",
+    "aiFilterAll": "Semua",
+    "aiFilterAuto": "Ditangani AI",
+    "aiFilterManual": "Manual",
     "openstreetmap": "© OpenStreetMap",
     "order": "🛒 Pesanan",
     "24HourWindowClosedOnly": "Jendela 24 jam sudah tertutup. Hanya pesan template yang bisa dikirim.",

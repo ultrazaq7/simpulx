@@ -1794,6 +1794,16 @@
     "exportDetailedChatRecordsIncluding": "Export detailed chat records including SLA tracking (response times), follow-up activity, pipeline stages, lead qualifications, and call attempts."
   },
   "inbox": {
+    "aiAuto": "Auto",
+    "aiProcessing": "Processing",
+    "aiManual": "Manual",
+    "aiTakeOver": "Take over",
+    "aiHandBack": "Hand to Simpuler",
+    "aiSimpuler": "Simpuler",
+    "aiHandledBySimpuler": "Handled by Simpuler",
+    "aiFilterAll": "All",
+    "aiFilterAuto": "AI handling",
+    "aiFilterManual": "Manual",
     "openstreetmap": "© OpenStreetMap",
     "order": "🛒 Order",
     "24HourWindowClosedOnly": "24-hour window closed. Only template messages can be sent.",

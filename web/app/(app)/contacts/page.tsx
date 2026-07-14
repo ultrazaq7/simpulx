@@ -64,7 +64,7 @@ function interestColor(level?: string | null): string {
 
 // Buy-potential heat: green (high) / amber (mid) / grey (low).
 function scoreColor(n: number): string {
-  return n >= 70 ? "#2D8B73" : n >= 40 ? "#F59E0B" : "#9CA3AF";
+  return n >= 70 ? "#0E5B54" : n >= 40 ? "#C0791A" : "#64748B";
 }
 
 // Toggleable table columns (Name and Actions are always shown). The picker
@@ -590,12 +590,17 @@ export default function ContactsPage() {
                   )}
                   {show("score") && (
                   <td className="px-3 py-2 whitespace-nowrap">
-                    {typeof c.lead_score === "number" ? (
-                      // No badge: plain number; green + bold only when it's a high score.
-                      scoreColor(c.lead_score) === "#2D8B73"
-                        ? <span className="text-[13px] font-bold tabular-nums text-[#2D8B73]">{c.lead_score}</span>
-                        : <span className="text-[13px] font-medium tabular-nums text-foreground/80">{c.lead_score}</span>
-                    ) : <span className="text-muted-foreground">-</span>}
+                    {typeof c.lead_score === "number" ? (() => {
+                      // Consistent mono badge, tinted by score tier (high=petrol,
+                      // mid=warm, low=slate).
+                      const col = scoreColor(c.lead_score);
+                      return (
+                        <span className="inline-flex items-center px-2 py-0.5 rounded-md font-mono text-[12px] font-semibold tabular-nums"
+                          style={{ backgroundColor: col + "1A", color: col }}>
+                          {c.lead_score}
+                        </span>
+                      );
+                    })() : <span className="text-muted-foreground">-</span>}
                   </td>
                   )}
                   {show("agent") && (

@@ -152,7 +152,7 @@ func (s *server) handleListConversations(w http.ResponseWriter, r *http.Request)
 		             AND m.direction = 'inbound' AND m.genuine = true) AS customer_responded,
 		        cv.interest_level, cv.ai_stage,
 		        cv.car_brand, cv.car_model, cv.city, cv.purchase_timeframe, cv.lost_reason,
-		        cmp.segment AS campaign_segment, COALESCE(cmp.ai_smart_summary, true) AS campaign_smart_summary, cv.metadata->'lead_fields' AS lead_fields,
+		        cmp.segment AS campaign_segment, COALESCE(cmp.ai_smart_summary, true) AS campaign_smart_summary, COALESCE(cmp.ai_auto_reply, false) AS campaign_auto_reply, cv.metadata->'lead_fields' AS lead_fields,
 		        cv.lead_summary, cv.suggested_action, cv.suggested_action_reason,
 		        cv.suggested_action_confidence, cv.lead_score, cv.call_attempts,
 		        ct.full_name AS contact_name, ct.phone AS contact_phone, ct.email AS contact_email,
@@ -213,7 +213,7 @@ func (s *server) handleGetConversation(w http.ResponseWriter, r *http.Request) {
 		             AND m.direction = 'inbound' AND m.genuine = true) AS customer_responded,
 		        cv.interest_level, cv.ai_stage,
 		        cv.car_brand, cv.car_model, cv.city, cv.purchase_timeframe, cv.lost_reason,
-		        cmp.segment AS campaign_segment, COALESCE(cmp.ai_smart_summary, true) AS campaign_smart_summary, cv.metadata->'lead_fields' AS lead_fields,
+		        cmp.segment AS campaign_segment, COALESCE(cmp.ai_smart_summary, true) AS campaign_smart_summary, COALESCE(cmp.ai_auto_reply, false) AS campaign_auto_reply, cv.metadata->'lead_fields' AS lead_fields,
 		        cv.lead_summary, cv.suggested_action, cv.suggested_action_reason,
 		        cv.suggested_action_confidence, cv.lead_score, cv.call_attempts,
 		        ct.full_name AS contact_name, ct.phone AS contact_phone, ct.email AS contact_email,
@@ -564,6 +564,12 @@ func mediaCategory(ct string) string {
 }
 
 // ── POST /api/conversations/{id}/bot {active} ───────────────
+// Drives AI takeover/release: active=false stops Simpuler auto-reply (a human
+// takes over), active=true hands the conversation back to Simpuler. On takeover
+// of an unassigned conversation we assign it to the acting agent so the chat
+// header can show "Manual · {name}". The change is logged to the conversation
+// timeline and broadcast (conversation.updated) so every client's AI badge
+// updates live without a reload.
 func (s *server) handleToggleBot(w http.ResponseWriter, r *http.Request) {
 	a, _ := authFrom(r.Context())
 	convID := r.PathValue("id")
@@ -574,12 +580,42 @@ func (s *server) handleToggleBot(w http.ResponseWriter, r *http.Request) {
 	if !s.guardConversation(w, r, convID) {
 		return
 	}
-	_, err := s.pool.Exec(r.Context(),
-		`UPDATE conversations SET is_bot_active = $3, updated_at = now()
-		  WHERE id = $1 AND organization_id = $2`, convID, a.OrgID, body.Active)
-	if err != nil {
-		http.Error(w, err.Error(), http.StatusInternalServerError)
-		return
+	// On takeover (bot off), claim the conversation for the acting agent when it
+	// is not already assigned — so "Manual · {name}" has a name to show.
+	if !body.Active {
+		_, err := s.pool.Exec(r.Context(),
+			`UPDATE conversations
+			    SET is_bot_active = false,
+			        assigned_agent_id = COALESCE(assigned_agent_id, $3::uuid),
+			        updated_at = now()
+			  WHERE id = $1 AND organization_id = $2`, convID, a.OrgID, a.UserID)
+		if err != nil {
+			http.Error(w, err.Error(), http.StatusInternalServerError)
+			return
+		}
+	} else {
+		_, err := s.pool.Exec(r.Context(),
+			`UPDATE conversations SET is_bot_active = true, updated_at = now()
+			  WHERE id = $1 AND organization_id = $2`, convID, a.OrgID)
+		if err != nil {
+			http.Error(w, err.Error(), http.StatusInternalServerError)
+			return
+		}
+	}
+	// Timeline entry (who took over / handed back).
+	evtType := "bot_released"
+	if !body.Active {
+		evtType = "bot_takeover"
+	}
+	_, _ = s.pool.Exec(r.Context(),
+		`INSERT INTO conversation_events (organization_id, conversation_id, type, actor_type, actor_id, detail)
+		 VALUES ($1, $2, $3, 'agent', $4::uuid, '{}'::jsonb)`,
+		a.OrgID, convID, evtType, a.UserID)
+	// Broadcast so every connected agent's AI badge updates instantly.
+	if err := s.bus.Publish(events.SubjectConversationUpdated, a.OrgID, events.ConversationUpdated{
+		ConversationID: convID,
+	}); err != nil {
+		s.log.Error("publish conversation.updated (bot toggle) failed", "err", err)
 	}
 	writeJSON(w, map[string]any{"is_bot_active": body.Active})
 }
