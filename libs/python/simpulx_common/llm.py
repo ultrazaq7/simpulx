@@ -643,56 +643,52 @@ async def draft_followup(system_prompt: str, history: Optional[List[dict]],
     return (_parse_json(text).get("reply") or "").strip() or _salvage_reply(text)
 
 
-NURTURE_INSTRUCTION = (
+# Nurture prompt = INTRO + <segment guidance> + RULES. The middle block (what info
+# to collect + the selling approach) is segment-specific and injected by the caller
+# via `segment_guidance` (built from segments.nurture_guidance). The INTRO/RULES are
+# segment-AGNOSTIC. An empty segment stays NEUTRAL -- it is NOT assumed automotive.
+_NURTURE_INTRO = (
     "INSTRUKSI: Kamu me-nurture lead lewat WhatsApp sebagai sales assistant. "
     "Balas natural, ramah, dan SINGKAT (1-3 kalimat), tidak memaksa. "
-    "Kumpulkan info kunci yang BELUM diketahui satu per satu (jangan bertubi-tubi): "
-    "unit/produk yang diminati, kota/domisili, skema (cash atau kredit) & budget, dan rencana waktu pembelian. "
-    "Tanyakan HANYA satu hal per pesan. "
-    # Anti "sotoy": jangan mengunci ke satu varian/tipe kalau lead belum menyebutnya sendiri.
-    "JANGAN SOK TAHU varian: kalau lead cuma menyebut nama model/merek umum, lewat keyword (mis. 'Pajero1', "
-    "'Xpander'), atau belum menyebut tipe/trim spesifik, JANGAN mengasumsikan atau menyebut satu varian/tipe "
-    "tertentu seolah lead sudah memilihnya, dan JANGAN memuji suatu tipe sebagai 'pilihan tepat'. Sebut modelnya "
-    "secara UMUM saja; kalau ada beberapa varian, bilang ada beberapa pilihan lalu tanyakan tipe mana yang diminati. "
-    "Baru kunci ke satu varian kalau lead menyebutnya SENDIRI secara eksplisit. "
-    # Pertanyaan harga/DP/cicilan/tenor/promo/stok/spek = pertanyaan INFO biasa: JAWAB, jangan oper ke manusia.
-    "Jika lead bertanya harga, DP, cicilan, tenor, promo, stok, atau spesifikasi: JAWAB dan bantu, jangan dead-end. "
-    "Gunakan angka dari data katalog/harga di atas bila tersedia. "
-    # Satuan tenor: data katalog pakai BULAN, lead sering ngomong TAHUN.
-    "PENTING soal tenor: data katalog memakai satuan BULAN (mis. 12/24/36/48/60 bln). Kalau lead menyebut tenor "
-    "dalam TAHUN, konversikan dulu: 1 tahun = 12 bulan, jadi '5 taun'/'5 tahun' = 60 bulan, '3 tahun' = 36 bulan, "
-    "dst. Cocokkan ke baris tenor yang sesuai di katalog. JANGAN bilang datanya belum ada kalau baris tenor itu "
-    "sebenarnya ADA di katalog, cuma beda satuan (tahun vs bulan). "
-    # Skenario terdekat: kalau katalog punya baris cicilan untuk tenor yang ditanya,
-    # SEBUTKAN angka yang ADA itu (jangan langsung oper ke tim leasing).
-    "Kalau lead menanyakan cicilan untuk tenor tertentu dan katalog PUNYA baris cicilan tenor itu, SEBUTKAN "
-    "cicilan & TDP dari katalog itu apa adanya, dan sebutkan DP/TDP yang berlaku untuk angka tsb. Jika DP yang "
-    "diminta lead BEDA dari TDP di katalog, tetap berikan angka katalog yang terdekat dulu, lalu tawarkan bantu "
-    "hitung ulang lewat tim untuk DP yang diminta - JANGAN cuma oper tanpa memberi angka yang sudah ADA di katalog. "
-    "Jika angka pastinya TIDAK ada di data, JANGAN mengarang angka; tetap membantu: jelaskan skemanya secara umum "
-    "lalu tawarkan bantu simulasi sambil menanyakan info yang kurang (mis. tenor atau DP yang diinginkan). Jangan menutup percakapan. "
-    # Handoff HANYA untuk sinyal jelas. Menanyakan harga/DP BUKAN sinyal siap transaksi.
+)
+
+_NURTURE_RULES = (
+    "Tanyakan info kunci satu per satu (jangan bertubi-tubi); HANYA satu hal per pesan. "
+    # Anti "sotoy": generic across segments (produk/paket/varian).
+    "JANGAN SOK TAHU: kalau lead cuma menyebut kategori/produk/layanan secara umum atau lewat keyword, JANGAN "
+    "mengasumsikan satu varian/tipe/paket spesifik seolah lead sudah memilihnya, dan JANGAN memuji suatu opsi "
+    "sebagai 'pilihan tepat'. Sebut secara umum; kalau ada beberapa pilihan, bilang ada beberapa opsi lalu tanyakan "
+    "yang mana. Baru kunci ke satu opsi kalau lead menyebutnya SENDIRI secara eksplisit. "
+    # Pertanyaan info (harga/stok/jadwal/spek) = JAWAB, jangan oper ke manusia.
+    "Jika lead bertanya harga, stok, promo, jadwal, atau spesifikasi: JAWAB dan bantu, jangan dead-end. Gunakan "
+    "angka/data dari katalog di atas bila tersedia; JANGAN mengarang angka. Jika data pastinya TIDAK ada, jelaskan "
+    "secara umum lalu tawarkan bantu cek/simulasi sambil menanyakan info yang kurang. Jangan menutup percakapan. "
+    # Handoff HANYA untuk sinyal jelas. Menanyakan harga/info BUKAN sinyal siap transaksi.
     "Set ready_for_handoff=true HANYA jika salah satu benar-benar terjadi: "
     "(a) lead SECARA EKSPLISIT minta bicara dengan sales/CS/manusia, ATAU "
-    "(b) lead berkomitmen nyata untuk bertransaksi (mis. minta booking/ambil unit, minta jadwal test drive dengan waktu, "
-    "atau minta lanjut proses pembelian). "
-    "JANGAN set handoff hanya karena lead menanyakan harga/DP/cicilan/tenor/spek, atau saat lead bilang cukup butuh "
-    "info dulu / masih tanya-tanya. Selama belum handoff, teruskan membantu SETIAP pesan lead."
+    "(b) lead berkomitmen nyata untuk lanjut (mis. minta booking/ambil, minta jadwal dengan waktu, atau minta lanjut "
+    "proses transaksi). "
+    "JANGAN set handoff hanya karena lead menanyakan harga/info, atau saat lead bilang cukup butuh info dulu / masih "
+    "tanya-tanya. Selama belum handoff, teruskan membantu SETIAP pesan lead."
     + NO_EMOJI_RULE +
     ' Balas HANYA JSON: {"reply": string, "ready_for_handoff": boolean}.'
 )
 
 
 async def nurture(system_prompt: str, history: Optional[List[dict]],
-                  user_message: str, model: Optional[str] = None) -> dict:
+                  user_message: str, model: Optional[str] = None,
+                  segment_guidance: str = "") -> dict:
     """Generate one nurture reply + a handoff decision.
+    `segment_guidance` is the segment-specific "info kunci + approach" block (from
+    segments.nurture_guidance); empty keeps the bot neutral (not automotive).
     Returns {"reply": str, "ready_for_handoff": bool}."""
     if not (settings.llm_provider == "anthropic" and settings.anthropic_api_key):
-        return {"reply": "Halo kak, boleh dibantu ya. Unit apa yang lagi dicari, dan domisili di kota mana?",
+        return {"reply": "Halo kak, boleh dibantu ya. Boleh tahu produk/layanan yang dicari dan domisili di kota mana?",
                 "ready_for_handoff": False}
+    instruction = _NURTURE_INTRO + (segment_guidance or "") + _NURTURE_RULES
     system = [{
         "type": "text",
-        "text": (system_prompt or "You are a helpful sales assistant.") + "\n\n" + NURTURE_INSTRUCTION,
+        "text": (system_prompt or "You are a helpful sales assistant.") + "\n\n" + instruction,
         "cache_control": {"type": "ephemeral"},
     }]
     text = await _anthropic_raw(system, history or [], user_message, await _resolve_model(model), 400)

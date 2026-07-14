@@ -472,7 +472,8 @@ async def _generate_and_send_reply(broker, pool, conn, org_id: str, conv_id: str
     system_prompt = (row["system_prompt"] or "You are a helpful sales assistant.") + ctx + "\n\n" + lang_rule + finance_ctx
     history = await _load_history(pool, conv_id, message_id, conn=conn)
     await _publish_activity(broker, org_id, conv_id, "thinking", log)
-    result = await llm.nurture(system_prompt, history, body, model=row["model"])
+    result = await llm.nurture(system_prompt, history, body, model=row["model"],
+                               segment_guidance=segments.nurture_guidance(row["segment"]))
     reply = (result.get("reply") or "").strip()
     if not reply:
         await _publish_activity(broker, org_id, conv_id, "replied", log)  # clear the indicator
