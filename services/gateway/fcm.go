@@ -155,6 +155,10 @@ func (s *server) initFCMPush(ctx context.Context) {
 				"type":           "new_message",
 			},
 			Android: &messaging.AndroidConfig{Priority: "high"},
+			// iOS renders natively from this aps alert (Android keeps its data-only
+			// native path; web ignores APNS). The Flutter client no longer draws a
+			// local notification on iOS, so there is exactly one, no duplicate.
+			APNS: apnsAlert(contactName, bodyText),
 		}
 
 		resp, err := fcmClient.SendEachForMulticast(ctx, pushMsg)
@@ -191,10 +195,18 @@ func (s *server) initFCMPush(ctx context.Context) {
 		if notifType == "" {
 			notifType = "notification"
 		}
+		// Localize the payload to the org's language HERE (the single send point)
+		// so Android's native Kotlin renderer and iOS both show the user's
+		// language without any client-side i18n. Falls back to English.
+		var locale string
+		_ = s.pool.QueryRow(ctx, `SELECT COALESCE(NULLIF(settings->>'locale',''),'en') FROM organizations WHERE id=$1`, env.OrgID).Scan(&locale)
+		title, bodyText := localizeNotif(n.Type, n.Title, n.Body, locale)
 		resp, err := fcmClient.SendEachForMulticast(ctx, &messaging.MulticastMessage{
 			Tokens:  tokens,
-			Data:    map[string]string{"title": n.Title, "body": n.Body, "conversationId": n.ConversationID, "type": notifType},
+			Data:    map[string]string{"title": title, "body": bodyText, "conversationId": n.ConversationID, "type": notifType},
 			Android: &messaging.AndroidConfig{Priority: "high"},
+			// iOS renders natively from this aps alert; Dart no longer draws it.
+			APNS: apnsAlert(title, bodyText),
 		})
 		if err != nil {
 			s.log.Error("FCM notification send error", "err", err)

@@ -29,6 +29,50 @@ function relAgo(iso: string): string {
   return `${Math.floor(s / 86400)}d`;
 }
 
+// Bell notifications are stored server-side as rendered ENGLISH text (the backend
+// has no i18n). We localize at render from the stable `type` + the known English
+// templates, extracting the dynamic name/form from the English source so existing
+// rows translate too. Anything unrecognized falls back to the raw stored text.
+type TFn = (key: string, vars?: Record<string, string | number>) => string;
+function localizeNotif(n: AppNotification, t: TFn): { title: string; body: string } {
+  const body = n.body ?? "";
+  switch (n.type) {
+    case "ai_handoff":
+      return { title: t("notifications.leadReadyTitle"), body: t("notifications.leadReadyBody") };
+    case "snooze_due":
+      return {
+        title: t("notifications.snoozeEndedTitle"),
+        body: t("notifications.followUpWith", { name: body.replace(/^Follow up with /, "") }),
+      };
+    case "snooze_reminder": {
+      const m = body.match(/^Snooze for (.*) is ending soon$/);
+      return {
+        title: n.title, // contact name — never translated
+        body: m ? t("notifications.snoozeEndingSoon", { name: m[1] })
+                : (body === "Snooze ending soon. Get ready to follow up." ? t("notifications.snoozeReadyBody") : body),
+      };
+    }
+    case "follow_up":
+      return {
+        title: n.title, // contact name — never translated
+        body: body === "Priority lead waiting for your reply. Follow up now."
+          ? t("notifications.priorityLeadBody")
+          : body === "Lead is waiting for your follow-up"
+            ? t("notifications.leadWaitingBody")
+            : body,
+      };
+    case "form_completed": {
+      const [name, form] = body.split(" completed ");
+      return {
+        title: t("notifications.leadDetailsReadyTitle"),
+        body: form !== undefined ? t("notifications.formCompletedBody", { name, form }) : body,
+      };
+    }
+    default:
+      return { title: n.title, body };
+  }
+}
+
 // One shared AudioContext, unlocked on the first user gesture (browsers block
 // audio until then). Re-using it avoids the "AudioContext was not allowed" warning
 // and leaking a context per notification.
@@ -755,7 +799,9 @@ export function Shell({ children }: { children: ReactNode }) {
                 </div>
               ) : (
                 <div className="flex flex-col gap-1">
-                  {notifs.map((n) => (
+                  {notifs.map((n) => {
+                    const loc = localizeNotif(n, t);
+                    return (
                     <button
                       key={n.id}
                       onClick={() => {
@@ -767,12 +813,13 @@ export function Shell({ children }: { children: ReactNode }) {
                     >
                       <div className="flex items-center gap-1.5 mb-0.5">
                         {!n.read_at && <span className="w-1.5 h-1.5 rounded-full bg-primary shrink-0" />}
-                        <p className="text-[13px] font-bold text-foreground flex-1 truncate">{n.title}</p>
+                        <p className="text-[13px] font-bold text-foreground flex-1 truncate">{loc.title}</p>
                         <span className="text-[10px] text-muted-foreground shrink-0">{relAgo(n.created_at)}</span>
                       </div>
-                      {n.body && <p className="text-xs text-muted-foreground leading-snug">{n.body}</p>}
+                      {loc.body && <p className="text-xs text-muted-foreground leading-snug">{loc.body}</p>}
                     </button>
-                  ))}
+                    );
+                  })}
                 </div>
               )}
             </div>

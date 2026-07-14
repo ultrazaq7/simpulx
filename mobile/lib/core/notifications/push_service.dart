@@ -45,15 +45,21 @@ class PushService {
     debugPrint('[PushService] initForeground called');
     await LocalNotifications.instance.init(onTapRoute: onTapRoute);
 
+    // iOS: let the OS render the aps alert the server now sends (foreground
+    // included), so notifications look/behave natively like Android's and the
+    // Dart layer never has to draw a standard notification (no duplicate).
+    if (Platform.isIOS) {
+      await _fcm.setForegroundNotificationPresentationOptions(
+          alert: true, badge: true, sound: true);
+    }
+
     // Handle foreground messages
     FirebaseMessaging.onMessage.listen((message) {
       debugPrint('[PushService] Foreground message: ${message.data}');
       // On Android, SimpulxMessagingService (native) renders EVERY push in all
       // app states (messages, calls, alerts) with the correct call lifecycle
       // (a call_ended push dismisses the ring instead of re-ringing). Showing a
-      // Flutter notification here as well double-posted the call - the second
-      // one even rang for ended/missed calls. iOS has no native handler, so it
-      // still needs this Flutter fallback.
+      // Flutter notification here as well double-posted the call.
       if (Platform.isAndroid) {
         debugPrint('[PushService] Skipping - native Kotlin handles all pushes');
         return;
@@ -64,7 +70,14 @@ class PushService {
         debugPrint('[PushService] Blocked by allow callback');
         return;
       }
-      debugPrint('[PushService] Showing notification...');
+      // iOS: standard notifications are rendered natively by the OS from the
+      // server's aps alert, so DON'T re-draw them here (that was the duplicate).
+      // Calls still need the Dart-rendered notification until CallKit lands.
+      if (payload.category != NotificationCategory.incomingCall) {
+        debugPrint('[PushService] iOS standard notif - native aps handles it');
+        return;
+      }
+      debugPrint('[PushService] Showing call notification...');
       LocalNotifications.instance.show(payload);
     });
 

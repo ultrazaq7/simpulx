@@ -2068,5 +2068,17 @@
     "s28": "SOURCE",
     "s29": "STATUS",
     "s30": "INTEREST"
+  },
+  "notifications": {
+    "leadReadyTitle": "Lead ready for you",
+    "leadReadyBody": "The AI assistant collected the details - this lead is warmed up and ready to handle.",
+    "snoozeEndedTitle": "Snooze ended",
+    "followUpWith": "Follow up with {{name}}",
+    "snoozeEndingSoon": "Snooze for {{name}} is ending soon",
+    "snoozeReadyBody": "Snooze ending soon. Get ready to follow up.",
+    "leadWaitingBody": "Lead is waiting for your follow-up",
+    "priorityLeadBody": "Priority lead waiting for your reply. Follow up now.",
+    "leadDetailsReadyTitle": "Lead details ready",
+    "formCompletedBody": "{{name}} completed {{form}}"
   }
 }
