@@ -105,7 +105,7 @@ class _ActionsSheet extends ConsumerWidget {
                     leading: const Icon(Icons.info_outline_rounded,
                         color: AppColors.danger),
                     title: Text('Lost reason'.tr(context)),
-                    subtitle: Text(_humanizeReason(live.lostReason!)),
+                    subtitle: Text(_reasonLabel(live.lostReason!).tr(context)),
                   ),
                 ListTile(
                   leading: Icon(_statusIcon(live.status),
@@ -166,6 +166,35 @@ class _ActionsSheet extends ConsumerWidget {
         'snoozed' => 'Snoozed',
         _ => 'Open',
       };
+
+  /// Canonical lost-reason code -> English source label. The English label is a
+  /// translation key (see [Tr.tr]), so the saved reason localizes the same way as
+  /// the picker that set it. Keep in sync with the `groups` list in
+  /// [_pickLostReason].
+  static const Map<String, String> _lostReasonLabels = {
+    'bought_other_brand': 'Another brand',
+    'bought_used_car': 'A used car instead',
+    'bought_elsewhere': 'Same brand, other dealer',
+    'competitor_promo': 'Competitor promo',
+    'out_of_area': 'Out of area',
+    'price_too_high': 'Price too high',
+    'financing_rejected': 'Financing rejected',
+    'no_budget': 'No budget / postponed',
+    'wrong_product': 'Wrong product / spec',
+    'changed_mind': 'Changed mind / not buying',
+    'trade_in_issue': 'Trade-in issue',
+    'no_response': 'No response',
+    'spam_junk': 'Spam',
+    'job_seeker': 'Job seeker',
+    'abusive': 'Abusive',
+    'wrong_number': 'Wrong number',
+    'duplicate': 'Duplicate',
+  };
+
+  /// The translatable English label for a saved lost-reason code, falling back to
+  /// a humanized form of the raw code for anything not in the map.
+  static String _reasonLabel(String code) =>
+      _lostReasonLabels[code] ?? _humanizeReason(code);
 
   /// Turn a lost-reason code ("price_too_high") into a readable label.
   static String _humanizeReason(String code) {
