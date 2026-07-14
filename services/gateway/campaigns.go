@@ -186,8 +186,8 @@ func (s *server) handleCreateCampaign(w http.ResponseWriter, r *http.Request) {
 	err := s.pool.QueryRow(r.Context(),
 		`INSERT INTO campaigns (organization_id, name, dealer_name, routing_strategy, ad_source_ids, keywords, channel_id, calling_enabled,
 		                        segment, brand, ai_auto_reply, ai_language, ai_dynamic_language, intake_form_id, ai_smart_summary)
-		 VALUES ($1,$2,NULLIF($3,''),$4,$5,$6,NULLIF($7,'')::uuid,COALESCE($8,true),
-		         NULLIF($9,''),NULLIF($10,''),COALESCE($11,false),$12,COALESCE($13,true),NULLIF($14,'')::uuid,COALESCE($15,true)) RETURNING id::text`,
+		 VALUES ($1,$2,NULLIF($3,''),$4,$5,$6,NULLIF(NULLIF($7,''),'none')::uuid,COALESCE($8,true),
+		         NULLIF($9,''),NULLIF($10,''),COALESCE($11,false),$12,COALESCE($13,true),NULLIF(NULLIF($14,''),'none')::uuid,COALESCE($15,true)) RETURNING id::text`,
 		a.OrgID, b.Name, b.DealerName, b.RoutingStrategy, b.AdSourceIDs, b.Keywords, b.ChannelID, b.CallingEnabled,
 		b.Segment, b.Brand, b.AIAutoReply, b.AILanguage, b.AIDynamicLanguage, b.IntakeFormID, b.AISmartSummary,
 	).Scan(&id)
