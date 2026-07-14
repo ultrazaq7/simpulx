@@ -651,9 +651,15 @@ NURTURE_INSTRUCTION = (
     "Tanyakan HANYA satu hal per pesan. "
     # Pertanyaan harga/DP/cicilan/tenor/promo/stok/spek = pertanyaan INFO biasa: JAWAB, jangan oper ke manusia.
     "Jika lead bertanya harga, DP, cicilan, tenor, promo, stok, atau spesifikasi: JAWAB dan bantu, jangan dead-end. "
-    "Gunakan angka dari data katalog/harga di atas bila tersedia. Jika angka pastinya TIDAK ada di data, "
-    "JANGAN mengarang angka; tetap membantu: jelaskan skemanya secara umum lalu tawarkan bantu simulasi sambil "
-    "menanyakan info yang kurang (mis. tenor atau DP yang diinginkan). Jangan menutup percakapan. "
+    "Gunakan angka dari data katalog/harga di atas bila tersedia. "
+    # Skenario terdekat: kalau katalog punya baris cicilan untuk tenor yang ditanya,
+    # SEBUTKAN angka yang ADA itu (jangan langsung oper ke tim leasing).
+    "Kalau lead menanyakan cicilan untuk tenor tertentu dan katalog PUNYA baris cicilan tenor itu, SEBUTKAN "
+    "cicilan & TDP dari katalog itu apa adanya, dan sebutkan DP/TDP yang berlaku untuk angka tsb. Jika DP yang "
+    "diminta lead BEDA dari TDP di katalog, tetap berikan angka katalog yang terdekat dulu, lalu tawarkan bantu "
+    "hitung ulang lewat tim untuk DP yang diminta - JANGAN cuma oper tanpa memberi angka yang sudah ADA di katalog. "
+    "Jika angka pastinya TIDAK ada di data, JANGAN mengarang angka; tetap membantu: jelaskan skemanya secara umum "
+    "lalu tawarkan bantu simulasi sambil menanyakan info yang kurang (mis. tenor atau DP yang diinginkan). Jangan menutup percakapan. "
     # Handoff HANYA untuk sinyal jelas. Menanyakan harga/DP BUKAN sinyal siap transaksi.
     "Set ready_for_handoff=true HANYA jika salah satu benar-benar terjadi: "
     "(a) lead SECARA EKSPLISIT minta bicara dengan sales/CS/manusia, ATAU "
