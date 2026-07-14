@@ -3,6 +3,7 @@ import { useI18n } from "@/lib/i18n";
 import { useState, useMemo, useCallback } from "react";
 import { Search, ListFilter, X, ChevronDown, Check } from "lucide-react";
 import { cn } from "@/lib/utils";
+import { useEscClose } from "@/lib/useEscClose";
 
 export interface FilterOption {
   value: string;
@@ -26,6 +27,9 @@ export default function MultiSelectFilter({
   const { t } = useI18n();
   const [open, setOpen] = useState(false);
   const [search, setSearch] = useState("");
+  // Esc closes THIS dropdown first (topmost-first via the shared LIFO stack) so a
+  // press inside a wizard/drawer dismisses the open menu, not the whole wizard.
+  useEscClose(open, () => { setOpen(false); setSearch(""); });
 
   const filtered = useMemo(() => {
     if (!search.trim()) return options;

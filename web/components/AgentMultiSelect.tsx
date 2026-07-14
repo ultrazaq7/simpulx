@@ -5,6 +5,7 @@ import { useI18n } from "@/lib/i18n";
 import { useState, useMemo, useRef, useEffect } from "react";
 import { Search, Check, ChevronDown, X, Users } from "lucide-react";
 import { cn } from "@/lib/utils";
+import { useEscClose } from "@/lib/useEscClose";
 
 export interface AgentOption { id: string; name: string }
 
@@ -40,6 +41,9 @@ export function AgentMultiSelect({ options, selected, onChange, placeholder = "S
     document.addEventListener("mousedown", h);
     return () => document.removeEventListener("mousedown", h);
   }, []);
+  // Esc closes THIS dropdown first (topmost-first via the shared LIFO stack) so a
+  // press inside a wizard/drawer dismisses the open menu, not the whole wizard.
+  useEscClose(open, () => { setOpen(false); setQ(""); });
 
   const filtered = useMemo(() => (q ? options.filter((o) => o.name.toLowerCase().includes(q.toLowerCase())) : options), [options, q]);
   const toggle = (id: string) => onChange(selected.includes(id) ? selected.filter((x) => x !== id) : [...selected, id]);

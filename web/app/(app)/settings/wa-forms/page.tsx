@@ -14,6 +14,7 @@ import { Tip } from "@/components/ui/tooltip";
 import { cn, fmtDateTimeShort } from "@/lib/utils";
 import { Toast as ToastView } from "@/components/Toast";
 import { useConfirm, usePrompt } from "@/components/ConfirmDialog";
+import { useEscClose } from "@/lib/useEscClose";
 import type {
   WaFlow, WaFlowDetail, WaFlowResponse, FlowDefinition, FlowScreen,
   FlowComponent, FlowComponentType, Channel,
@@ -699,6 +700,9 @@ function CompEditor({ c, onChange, onRemove }: { c: FlowComponent; onChange: (p:
 function AddComponent({ onAdd }: { onAdd: (t: FlowComponentType) => void }) {
   const { t } = useI18n();
   const [open, setOpen] = useState(false);
+  // Esc closes THIS menu first (topmost-first via the shared LIFO stack) so it
+  // never bubbles up and closes the surrounding editor/drawer.
+  useEscClose(open, () => setOpen(false));
   return (
     <div className="relative mt-3">
       <button onClick={() => setOpen((o) => !o)} className="inline-flex items-center gap-1.5 px-3 py-2 rounded-lg border border-border text-sm text-primary hover:bg-muted">
