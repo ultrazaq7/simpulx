@@ -168,6 +168,57 @@ def _parse_json(text: str) -> dict:
         return {}
 
 
+def _salvage_rows(text: str) -> list:
+    """Recover complete row objects from a possibly-truncated {"rows":[...]} blob.
+    If the model hits max_tokens mid-array the whole JSON won't parse, which would
+    otherwise drop EVERY row; this walks the array and keeps each fully-closed
+    object so a cut-off response still yields all the rows it managed to emit."""
+    lb = text.find("[", text.find('"rows"'))
+    if lb == -1:
+        return []
+    rows: list = []
+    buf = ""
+    depth = 0
+    in_obj = False
+    in_str = False
+    esc = False
+    for ch in text[lb + 1:]:
+        if in_str:
+            buf += ch
+            if esc:
+                esc = False
+            elif ch == "\\":
+                esc = True
+            elif ch == '"':
+                in_str = False
+            continue
+        if ch == '"':
+            in_str = True
+            buf += ch
+            continue
+        if ch == "{":
+            depth += 1
+            in_obj = True
+            buf += ch
+            continue
+        if ch == "}":
+            depth -= 1
+            buf += ch
+            if depth == 0 and in_obj:
+                try:
+                    rows.append(json.loads(buf))
+                except Exception:  # noqa: BLE001
+                    pass
+                buf = ""
+                in_obj = False
+            continue
+        if in_obj:
+            buf += ch
+        elif depth == 0 and ch == "]":
+            break
+    return rows
+
+
 _JSON_REPLY_RE = re.compile(r'"reply"\s*:\s*"((?:[^"\\]|\\.)*)"', re.S)
 
 
@@ -224,6 +275,9 @@ CATALOG_EXTRACT_INSTRUCTION = (
     "dengan kolom Angsuran/EMI dan TDP/DP. Untuk pola ini keluarkan SATU baris per (kendaraan x tenor): "
     "item_name = nama kendaraan, headline_price = harga OTR kendaraan, "
     "attributes = {\"tenor\": <bulan int>, \"angsuran\": <angsuran int>, \"tdp\": <tdp int>}. "
+    "Pindai SETIAP kolom dari ATAS ke BAWAH sampai habis - JANGAN lewati item paling "
+    "atas/kiri. Varian yang namanya mirip tapi beda (mis. 'Ultimate DS' vs 'Ultimate DS "
+    "Twotone', 'Exceed CVT' vs 'Exceed MT') adalah item TERPISAH; jangan digabung/di-dedup. "
     "ABAIKAN baris kosong atau bertanda #N/A / N/A. Ekstrak SEMUA baris, jangan dipotong. "
     "Data yang tidak ada -> null. Balas HANYA JSON valid: {\"rows\": [ {..} ]}. "
     "Jika dokumen scan tanpa teks terbaca, balas {\"rows\": [], \"warning\": \"scanned\"}."
@@ -241,25 +295,30 @@ async def extract_catalog(pdf_b64: str, segment: Optional[str] = None,
         {"type": "document", "source": {"type": "base64", "media_type": "application/pdf", "data": pdf_b64}},
         {"type": "text", "text": CATALOG_EXTRACT_INSTRUCTION + hint},
     ]
-    async with httpx.AsyncClient(timeout=120) as client:
+    async with httpx.AsyncClient(timeout=600) as client:
         resp = await client.post(
             _URL,
             headers={"x-api-key": settings.anthropic_api_key,
                      "anthropic-version": _HEADERS_VERSION, "content-type": "application/json"},
-            json={"model": await _resolve_model(model), "max_tokens": 16384,
+            json={"model": await _resolve_model(model), "max_tokens": 64000,
                   "thinking": {"type": "disabled"},
                   "messages": [{"role": "user", "content": content}]},
         )
         resp.raise_for_status()
         data = resp.json()
     u = data.get("usage", {})
-    log.info("catalog extract usage in=%s out=%s", u.get("input_tokens"), u.get("output_tokens"))
+    log.info("catalog extract usage in=%s out=%s stop=%s",
+             u.get("input_tokens"), u.get("output_tokens"), data.get("stop_reason"))
     text = "".join(b.get("text", "") for b in data.get("content", []) if b.get("type") == "text")
     obj = _parse_json(text)
-    if not isinstance(obj, dict):
-        return {"rows": [], "warning": "parse_failed"}
-    rows = obj.get("rows")
-    return {"rows": rows if isinstance(rows, list) else [], "warning": obj.get("warning")}
+    rows = obj.get("rows") if isinstance(obj, dict) else None
+    warning = obj.get("warning") if isinstance(obj, dict) else None
+    if not isinstance(rows, list) or data.get("stop_reason") == "max_tokens":
+        salvaged = _salvage_rows(text)
+        if len(salvaged) > (len(rows) if isinstance(rows, list) else 0):
+            rows = salvaged
+            warning = warning or "truncated"
+    return {"rows": rows if isinstance(rows, list) else [], "warning": warning}
 
 
 async def extract_catalog_stream(pdf_b64: str, segment: Optional[str] = None,
@@ -278,15 +337,19 @@ async def extract_catalog_stream(pdf_b64: str, segment: Optional[str] = None,
         {"type": "document", "source": {"type": "base64", "media_type": "application/pdf", "data": pdf_b64}},
         {"type": "text", "text": CATALOG_EXTRACT_INSTRUCTION + hint},
     ]
-    body = {"model": await _resolve_model(model), "max_tokens": 16384, "stream": True,
+    # 64k output ceiling (Sonnet supports 128k; streaming avoids HTTP timeouts) so a
+    # big multi-variant credit table isn't truncated at ~250-500 rows like the old
+    # 16k cap did. max_tokens is a ceiling, not billed unless generated.
+    body = {"model": await _resolve_model(model), "max_tokens": 64000, "stream": True,
             "thinking": {"type": "disabled"},
             "messages": [{"role": "user", "content": content}]}
     headers = {"x-api-key": settings.anthropic_api_key,
                "anthropic-version": _HEADERS_VERSION, "content-type": "application/json"}
     parts: list[str] = []
     last_n = -1
+    stop_reason: Optional[str] = None
     try:
-        async with httpx.AsyncClient(timeout=240) as client:
+        async with httpx.AsyncClient(timeout=600) as client:
             async with client.stream("POST", _URL, headers=headers, json=body) as resp:
                 if resp.status_code != 200:
                     await resp.aread()
@@ -299,7 +362,8 @@ async def extract_catalog_stream(pdf_b64: str, segment: Optional[str] = None,
                         evt = json.loads(line[5:].strip())
                     except Exception:  # noqa: BLE001
                         continue
-                    if evt.get("type") == "content_block_delta":
+                    etype = evt.get("type")
+                    if etype == "content_block_delta":
                         d = evt.get("delta", {})
                         if d.get("type") == "text_delta":
                             parts.append(d.get("text", ""))
@@ -309,15 +373,23 @@ async def extract_catalog_stream(pdf_b64: str, segment: Optional[str] = None,
                             if n != last_n:
                                 last_n = n
                                 yield {"type": "progress", "rows": n}
+                    elif etype == "message_delta":
+                        stop_reason = (evt.get("delta") or {}).get("stop_reason") or stop_reason
     except Exception as e:  # noqa: BLE001
         yield {"type": "error", "error": str(e)}
         return
-    obj = _parse_json("".join(parts))
-    if not isinstance(obj, dict):
-        yield {"type": "done", "rows": [], "warning": "parse_failed"}
-        return
-    rows = obj.get("rows")
-    yield {"type": "done", "rows": rows if isinstance(rows, list) else [], "warning": obj.get("warning")}
+    full = "".join(parts)
+    obj = _parse_json(full)
+    rows = obj.get("rows") if isinstance(obj, dict) else None
+    warning = obj.get("warning") if isinstance(obj, dict) else None
+    # Truncated mid-array (max_tokens) -> whole-JSON parse fails/drops rows: recover
+    # every fully-closed row object rather than losing the entire extraction.
+    if not isinstance(rows, list) or (stop_reason == "max_tokens" and rows is not None):
+        salvaged = _salvage_rows(full)
+        if len(salvaged) > (len(rows) if isinstance(rows, list) else 0):
+            rows = salvaged
+            warning = warning or ("truncated" if stop_reason == "max_tokens" else "parse_recovered")
+    yield {"type": "done", "rows": rows if isinstance(rows, list) else [], "warning": warning}
 
 
 def _as_int(v):

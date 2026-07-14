@@ -4,6 +4,8 @@ import (
 	"bufio"
 	"bytes"
 	"context"
+	"crypto/sha256"
+	"encoding/hex"
 	"encoding/json"
 	"fmt"
 	"net/http"
@@ -153,17 +155,31 @@ func (s *server) handleExtractCatalog(w http.ResponseWriter, r *http.Request) {
 	}
 	jobID := uuid.NewString()
 	key := "catalog_extract:" + a.OrgID + ":" + jobID
+
+	// Content-addressed cache: the extracted rows depend only on the PDF bytes (+
+	// segment hint), so a re-upload of the same pricelist reuses the prior result
+	// and spends ZERO LLM tokens. Scoped per-org. LLM extraction of a big pricelist
+	// is the expensive path, so this is the main token saver.
+	sum := sha256.Sum256([]byte(b.PDFBase64))
+	cacheKey := "catalog_extract_cache:" + a.OrgID + ":" + hex.EncodeToString(sum[:]) + ":" + b.Segment
+	if cached, err := s.rdb.Get(r.Context(), cacheKey).Result(); err == nil && cached != "" {
+		done := fmt.Sprintf(`{"status":"done","warning":"cached","rows":%s}`, cached)
+		_ = s.rdb.Set(r.Context(), key, done, 20*time.Minute).Err()
+		writeJSON(w, map[string]any{"job_id": jobID, "status": "pending", "cached": true})
+		return
+	}
+
 	// Mark pending, then run the extraction detached from the request.
 	_ = s.rdb.Set(r.Context(), key, `{"status":"pending"}`, 20*time.Minute).Err()
 	payload, _ := json.Marshal(map[string]any{"pdf_base64": b.PDFBase64, "segment": b.Segment})
-	go s.runCatalogExtract(key, payload)
+	go s.runCatalogExtract(key, cacheKey, payload)
 	writeJSON(w, map[string]any{"job_id": jobID, "status": "pending"})
 }
 
 // runCatalogExtract performs the ai-agent call in the background and writes the
 // terminal state ({status:"done", rows,...} or {status:"error", error}) to Redis.
-func (s *server) runCatalogExtract(key string, payload []byte) {
-	ctx, cancel := context.WithTimeout(context.Background(), 5*time.Minute)
+func (s *server) runCatalogExtract(key, cacheKey string, payload []byte) {
+	ctx, cancel := context.WithTimeout(context.Background(), 10*time.Minute)
 	defer cancel()
 	store := func(v any) {
 		rb, _ := json.Marshal(v)
@@ -176,7 +192,7 @@ func (s *server) runCatalogExtract(key string, payload []byte) {
 	}
 	req.Header.Set("content-type", "application/json")
 	req.Header.Set("accept", "text/event-stream")
-	client := &http.Client{Timeout: 5 * time.Minute}
+	client := &http.Client{Timeout: 10 * time.Minute}
 	resp, err := client.Do(req)
 	if err != nil {
 		store(map[string]any{"status": "error", "error": "extraction service unavailable"})
@@ -211,6 +227,14 @@ func (s *server) runCatalogExtract(key string, payload []byte) {
 				}
 			}
 			store(result)
+			// Cache the rows by content hash (30 days) so a re-upload of the same
+			// pricelist skips the LLM entirely. Only cache a non-empty extraction
+			// (never poison the cache with an empty/scanned result).
+			if rows, ok := result["rows"].([]any); ok && len(rows) > 0 {
+				if rb, err := json.Marshal(rows); err == nil {
+					_ = s.rdb.Set(context.Background(), cacheKey, string(rb), 30*24*time.Hour).Err()
+				}
+			}
 			return
 		case "error":
 			store(map[string]any{"status": "error", "error": evt["error"]})
