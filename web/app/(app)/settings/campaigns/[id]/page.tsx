@@ -4,9 +4,10 @@ import { useI18n } from "@/lib/i18n";
 // lives on the Dashboard, so this page has no report/PDF anymore.
 import { useEffect, useRef, useState } from "react";
 import { useParams, useRouter, useSearchParams } from "next/navigation";
-import { ArrowLeft, Loader2, Coins, Sparkles, Database, Upload, Trash2, X } from "lucide-react";
+import { ArrowLeft, Loader2, Coins, Sparkles, Database, Upload, Trash2, X, MapPin } from "lucide-react";
 import * as XLSX from "xlsx";
 import { api } from "@/lib/api";
+import { ID_CITIES, ID_CITY_GROUPS } from "@/lib/idCities";
 import { Select } from "@/components/Select";
 import { cn } from "@/lib/utils";
 import type { CampaignDetail, CatalogItem, Template } from "@/lib/types";
@@ -258,7 +259,14 @@ function CatalogTab({ id, segment, notify }: { id: string; segment?: string; not
   const [editing, setEditing] = useState<CatalogItem | null>(null); // row open in the edit drawer
   const [locations, setLocations] = useState<string[]>([]); // apply these location(s) to the uploaded rows
   const [locInput, setLocInput] = useState("");
-  const addLoc = (v: string) => { const t = v.trim(); if (t && !locations.some((l) => l.toLowerCase() === t.toLowerCase())) setLocations((ls) => [...ls, t]); setLocInput(""); };
+  const [locFocus, setLocFocus] = useState(false); // controls the type-ahead suggestion dropdown
+  // Add one or many cities, case-insensitively deduped against what's already chosen.
+  const addLocs = (cities: string[]) => setLocations((ls) => {
+    const have = new Set(ls.map((l) => l.toLowerCase()));
+    const add = cities.map((c) => c.trim()).filter((c) => c && !have.has(c.toLowerCase()));
+    return add.length ? [...ls, ...add] : ls;
+  });
+  const addLoc = (v: string) => { addLocs([v]); setLocInput(""); };
   const fileRef = useRef<HTMLInputElement>(null);
   const { confirm, ConfirmHost } = useConfirm();
   // Live upload progress so the user sees WHAT the system is doing (not a blind spinner).
@@ -277,6 +285,10 @@ function CatalogTab({ id, segment, notify }: { id: string; segment?: string; not
   async function onFile(e: React.ChangeEvent<HTMLInputElement>) {
     const file = e.target.files?.[0]; e.target.value = "";
     if (!file) return;
+    // Re-uploading over an existing catalog forces a fresh PDF extraction (skip the
+    // server's content-addressed cache) so a stale/partial cached read can't keep
+    // coming back on every retry. A first upload still benefits from the cache.
+    const isReupload = (rows?.length ?? 0) > 0;
     const started = Date.now();
     const step = (phase: string) => setProgress((p) => ({ phase, started: p?.started ?? started }));
     setBusy(true);
@@ -289,7 +301,7 @@ function CatalogTab({ id, segment, notify }: { id: string; segment?: string; not
         step("Reading your PDF file...");
         const b64 = fileToBase64(await file.arrayBuffer());
         step("Simpuler is reading your pricelist...");
-        const res = await api.extractCatalogPdf(id, { pdf_base64: b64, segment }, (info) => {
+        const res = await api.extractCatalogPdf(id, { pdf_base64: b64, segment, force: isReupload }, (info) => {
           if (info.rows && info.rows > 0) step(`Simpuler extracted ${info.rows} item${info.rows === 1 ? "" : "s"} so far...`);
         });
         if (res.error) { notify(`Extraction failed: ${res.error}`, "error"); return; }
@@ -316,7 +328,10 @@ function CatalogTab({ id, segment, notify }: { id: string; segment?: string; not
       step(`Found ${parsed.length} item${parsed.length === 1 ? "" : "s"}${locations.length ? ` x ${locations.length} location${locations.length === 1 ? "" : "s"}` : ""}. Saving to the catalog...`);
       const month = new Date().toISOString().slice(0, 7);
       const res = await api.uploadCampaignCatalog(id, { replace: true, segment, source_ref: file.name, effective_month: month, rows: finalRows });
-      notify(`Imported ${res.inserted} item${res.inserted === 1 ? "" : "s"}${isPdf ? " from PDF" : ""}`);
+      // Surface rows the server dropped for a missing name so a short/partial extraction
+      // is visible instead of silently ending up with fewer items than the file had.
+      const skippedNote = res.skipped > 0 ? ` (${res.skipped} skipped — missing name)` : "";
+      notify(`Imported ${res.inserted} item${res.inserted === 1 ? "" : "s"}${isPdf ? " from PDF" : ""}${skippedNote}`, res.skipped > 0 ? "error" : "success");
       load();
     } catch (err) { notify(String(err), "error"); } finally { setBusy(false); setProgress(null); }
   }
@@ -330,6 +345,21 @@ function CatalogTab({ id, segment, notify }: { id: string; segment?: string; not
 
   if (rows === null) return <Loader2 className="w-5 h-5 animate-spin text-muted-foreground" />;
   const fmtPrice = (v: number | null) => v == null ? "" : "Rp " + Math.round(v).toLocaleString("id-ID");
+
+  // Type-ahead: cities matching what's typed, not already chosen, best match first
+  // (exact > prefix > substring). Empty query -> no dropdown.
+  const q = locInput.trim().toLowerCase();
+  const suggestions = q
+    ? ID_CITIES
+        .filter((c) => c.toLowerCase().includes(q) && !locations.some((l) => l.toLowerCase() === c.toLowerCase()))
+        .sort((a, b) => {
+          const al = a.toLowerCase(), bl = b.toLowerCase();
+          const ar = al === q ? 0 : al.startsWith(q) ? 1 : 2;
+          const br = bl === q ? 0 : bl.startsWith(q) ? 1 : 2;
+          return ar - br || a.localeCompare(b);
+        })
+        .slice(0, 8)
+    : [];
 
   return (
     <div className="space-y-5">
@@ -350,26 +380,57 @@ function CatalogTab({ id, segment, notify }: { id: string; segment?: string; not
       )}
       <input ref={fileRef} type="file" accept=".csv,text/csv,.pdf,application/pdf,.xlsx,.xls,application/vnd.openxmlformats-officedocument.spreadsheetml.sheet" className="hidden" onChange={onFile} />
 
-      {/* Ask which location(s) this pricelist is for BEFORE uploading. Type a city
-          and press Enter (or comma) to add a chip. Applied to rows without a
-          location; multiple cities duplicate each row per city. */}
+      {/* Ask which location(s) this pricelist is for BEFORE uploading. Click a metro
+          group to add its cities at once, or type a city (with suggestions) and press
+          Enter to add a chip. Applied to rows without a location; multiple cities
+          duplicate each row per city. */}
       <div className="rounded-lg border border-border p-3.5">
         <FieldLabel hint={t("settings.rowsWithoutALocationColumn")}>{t("settings.locationSForThisPricelist")}</FieldLabel>
-        <div className="flex flex-wrap items-center gap-1.5 rounded-md border border-input bg-background px-2 py-1.5 focus-within:border-primary focus-within:ring-2 focus-within:ring-primary/20">
-          {locations.map((loc) => (
-            <span key={loc} className="inline-flex items-center gap-1 rounded-md bg-primary/[0.12] text-primary text-[12.5px] font-medium pl-2 pr-1 py-0.5">
-              {loc}
-              <button onClick={() => setLocations((ls) => ls.filter((l) => l !== loc))} className="rounded hover:bg-primary/20 outline-none"><X className="w-3 h-3" /></button>
-            </span>
+
+        {/* One-click metro-area presets (Jakarta / Jadetabek / Jabodetabek, …). */}
+        <div className="flex flex-wrap gap-1.5 mt-1 mb-2">
+          {ID_CITY_GROUPS.map((g) => (
+            <button key={g.label} type="button" onClick={() => addLocs(g.cities)} disabled={busy}
+              title={g.cities.join(", ")}
+              className="inline-flex items-center gap-1 rounded-full border border-border bg-muted/40 hover:bg-primary/10 hover:border-primary/40 hover:text-primary text-[12px] font-medium text-muted-foreground px-2.5 py-1 transition-colors outline-none disabled:opacity-50">
+              <MapPin className="w-3 h-3" />{g.label}
+              <span className="text-[10px] tabular-nums opacity-60">{g.cities.length}</span>
+            </button>
           ))}
-          <input value={locInput} onChange={(e) => setLocInput(e.target.value)}
-            onKeyDown={(e) => {
-              if (e.key === "Enter" || e.key === ",") { e.preventDefault(); addLoc(locInput); }
-              else if (e.key === "Backspace" && !locInput && locations.length) setLocations((ls) => ls.slice(0, -1));
-            }}
-            onBlur={() => locInput.trim() && addLoc(locInput)}
-            placeholder={locations.length ? t("settings.addAnotherCity") : t("settings.eGJakartaThenEnter")}
-            className="flex-1 min-w-[140px] bg-transparent text-[13px] text-foreground outline-none py-0.5" />
+        </div>
+
+        <div className="relative">
+          <div className="flex flex-wrap items-center gap-1.5 rounded-md border border-input bg-background px-2 py-1.5 focus-within:border-primary focus-within:ring-2 focus-within:ring-primary/20">
+            {locations.map((loc) => (
+              <span key={loc} className="inline-flex items-center gap-1 rounded-md bg-primary/[0.12] text-primary text-[12.5px] font-medium pl-2 pr-1 py-0.5">
+                {loc}
+                <button onClick={() => setLocations((ls) => ls.filter((l) => l !== loc))} className="rounded hover:bg-primary/20 outline-none"><X className="w-3 h-3" /></button>
+              </span>
+            ))}
+            <input value={locInput} onChange={(e) => setLocInput(e.target.value)}
+              onFocus={() => setLocFocus(true)}
+              onKeyDown={(e) => {
+                // Enter/comma commits the top suggestion if any, else the raw text.
+                if (e.key === "Enter" || e.key === ",") { e.preventDefault(); addLoc(suggestions[0] ?? locInput); }
+                else if (e.key === "Backspace" && !locInput && locations.length) setLocations((ls) => ls.slice(0, -1));
+                else if (e.key === "Escape") setLocFocus(false);
+              }}
+              onBlur={() => { setLocFocus(false); if (locInput.trim()) addLoc(locInput); }}
+              placeholder={locations.length ? t("settings.addAnotherCity") : t("settings.eGJakartaThenEnter")}
+              className="flex-1 min-w-[140px] bg-transparent text-[13px] text-foreground outline-none py-0.5" />
+          </div>
+          {locFocus && suggestions.length > 0 && (
+            <div className="absolute left-0 right-0 z-20 mt-1 rounded-md border border-border bg-card shadow-lg max-h-56 overflow-auto py-1">
+              {suggestions.map((c) => (
+                // onMouseDown (not onClick) + preventDefault fires before the input's
+                // blur, so picking a suggestion doesn't also commit the partial text.
+                <button key={c} type="button" onMouseDown={(e) => { e.preventDefault(); addLoc(c); }}
+                  className="flex w-full items-center gap-2 px-3 py-1.5 text-left text-[13px] text-foreground hover:bg-primary/10 outline-none">
+                  <MapPin className="w-3 h-3 shrink-0 text-muted-foreground" />{c}
+                </button>
+              ))}
+            </div>
+          )}
         </div>
       </div>
 

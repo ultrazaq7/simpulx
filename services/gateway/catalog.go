@@ -99,9 +99,10 @@ func (s *server) handleUploadCatalog(w http.ResponseWriter, r *http.Request) {
 			return
 		}
 	}
-	inserted := 0
+	inserted, skipped := 0, 0
 	for _, row := range b.Rows {
-		if row.ItemName == "" {
+		if strings.TrimSpace(row.ItemName) == "" {
+			skipped++ // a nameless row (e.g. a mis-extracted PDF cell) — count it so the caller sees it, don't just vanish it
 			continue
 		}
 		attrs := row.Attributes
@@ -128,7 +129,7 @@ func (s *server) handleUploadCatalog(w http.ResponseWriter, r *http.Request) {
 		http.Error(w, err.Error(), http.StatusInternalServerError)
 		return
 	}
-	writeJSON(w, map[string]any{"inserted": inserted, "replaced": b.Replace})
+	writeJSON(w, map[string]any{"inserted": inserted, "skipped": skipped, "replaced": b.Replace})
 }
 
 // POST /api/campaigns/{id}/catalog/extract {pdf_base64, segment?} — kick off an
@@ -142,6 +143,7 @@ func (s *server) handleExtractCatalog(w http.ResponseWriter, r *http.Request) {
 	var b struct {
 		PDFBase64 string `json:"pdf_base64"`
 		Segment   string `json:"segment"`
+		Force     bool   `json:"force"` // bypass the content-addressed cache and force a fresh LLM extraction
 	}
 	if err := json.NewDecoder(r.Body).Decode(&b); err != nil || b.PDFBase64 == "" {
 		http.Error(w, "pdf_base64 required", http.StatusBadRequest)
@@ -162,11 +164,17 @@ func (s *server) handleExtractCatalog(w http.ResponseWriter, r *http.Request) {
 	// is the expensive path, so this is the main token saver.
 	sum := sha256.Sum256([]byte(b.PDFBase64))
 	cacheKey := "catalog_extract_cache:" + a.OrgID + ":" + hex.EncodeToString(sum[:]) + ":" + b.Segment
-	if cached, err := s.rdb.Get(r.Context(), cacheKey).Result(); err == nil && cached != "" {
-		done := fmt.Sprintf(`{"status":"done","warning":"cached","rows":%s}`, cached)
-		_ = s.rdb.Set(r.Context(), key, done, 20*time.Minute).Err()
-		writeJSON(w, map[string]any{"job_id": jobID, "status": "pending", "cached": true})
-		return
+	// Skip the cache on an explicit re-extract: re-uploading the same pricelist means
+	// the caller wants a fresh read (the cached result may be stale or partial — e.g. a
+	// prior run that missed a model), not a 30-day-old echo. A fresh run still repopulates
+	// the cache below, so cross-campaign re-use of a good extraction is preserved.
+	if !b.Force {
+		if cached, err := s.rdb.Get(r.Context(), cacheKey).Result(); err == nil && cached != "" {
+			done := fmt.Sprintf(`{"status":"done","warning":"cached","rows":%s}`, cached)
+			_ = s.rdb.Set(r.Context(), key, done, 20*time.Minute).Err()
+			writeJSON(w, map[string]any{"job_id": jobID, "status": "pending", "cached": true})
+			return
+		}
 	}
 
 	// Mark pending, then run the extraction detached from the request.

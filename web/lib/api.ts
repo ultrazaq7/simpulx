@@ -491,10 +491,10 @@ export const api = {
   // ── Segment-generic campaign catalog / KB (per-campaign pricing) ──
   getCampaignCatalog: (id: string) => req<CatalogItem[]>(`/api/campaigns/${id}/catalog`),
   uploadCampaignCatalog: (id: string, input: { effective_month?: string; source_ref?: string; segment?: string; replace?: boolean; rows: { item_name: string; variant_name?: string; location_name?: string; category_type?: string; headline_price?: number | null; attributes?: Record<string, unknown> }[] }) =>
-    req<{ inserted: number; replaced: boolean }>(`/api/campaigns/${id}/catalog`, { method: "POST", body: JSON.stringify(input) }),
+    req<{ inserted: number; skipped: number; replaced: boolean }>(`/api/campaigns/${id}/catalog`, { method: "POST", body: JSON.stringify(input) }),
   // PDF pricelist -> LLM extraction (via ai-agent). Async: start a job, then poll
   // its status so a slow extraction never trips the edge proxy's ~100s timeout.
-  extractCatalogPdf: async (id: string, input: { pdf_base64: string; segment?: string }, onProgress?: (info: { stage?: string; rows?: number }) => void) => {
+  extractCatalogPdf: async (id: string, input: { pdf_base64: string; segment?: string; force?: boolean }, onProgress?: (info: { stage?: string; rows?: number }) => void) => {
     type Row = { item_name: string; variant_name?: string; location_name?: string; category_type?: string; headline_price?: number | null; attributes?: Record<string, unknown> };
     type Res = { status?: string; stage?: string; rows_found?: number; rows?: Row[]; warning?: string; error?: string };
     const start = await req<{ job_id: string }>(`/api/campaigns/${id}/catalog/extract`, { method: "POST", body: JSON.stringify(input) });
