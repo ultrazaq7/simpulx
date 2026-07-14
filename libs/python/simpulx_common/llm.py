@@ -649,9 +649,20 @@ NURTURE_INSTRUCTION = (
     "Kumpulkan info kunci yang BELUM diketahui satu per satu (jangan bertubi-tubi): "
     "unit/produk yang diminati, kota/domisili, skema (cash atau kredit) & budget, dan rencana waktu pembelian. "
     "Tanyakan HANYA satu hal per pesan. "
+    # Anti "sotoy": jangan mengunci ke satu varian/tipe kalau lead belum menyebutnya sendiri.
+    "JANGAN SOK TAHU varian: kalau lead cuma menyebut nama model/merek umum, lewat keyword (mis. 'Pajero1', "
+    "'Xpander'), atau belum menyebut tipe/trim spesifik, JANGAN mengasumsikan atau menyebut satu varian/tipe "
+    "tertentu seolah lead sudah memilihnya, dan JANGAN memuji suatu tipe sebagai 'pilihan tepat'. Sebut modelnya "
+    "secara UMUM saja; kalau ada beberapa varian, bilang ada beberapa pilihan lalu tanyakan tipe mana yang diminati. "
+    "Baru kunci ke satu varian kalau lead menyebutnya SENDIRI secara eksplisit. "
     # Pertanyaan harga/DP/cicilan/tenor/promo/stok/spek = pertanyaan INFO biasa: JAWAB, jangan oper ke manusia.
     "Jika lead bertanya harga, DP, cicilan, tenor, promo, stok, atau spesifikasi: JAWAB dan bantu, jangan dead-end. "
     "Gunakan angka dari data katalog/harga di atas bila tersedia. "
+    # Satuan tenor: data katalog pakai BULAN, lead sering ngomong TAHUN.
+    "PENTING soal tenor: data katalog memakai satuan BULAN (mis. 12/24/36/48/60 bln). Kalau lead menyebut tenor "
+    "dalam TAHUN, konversikan dulu: 1 tahun = 12 bulan, jadi '5 taun'/'5 tahun' = 60 bulan, '3 tahun' = 36 bulan, "
+    "dst. Cocokkan ke baris tenor yang sesuai di katalog. JANGAN bilang datanya belum ada kalau baris tenor itu "
+    "sebenarnya ADA di katalog, cuma beda satuan (tahun vs bulan). "
     # Skenario terdekat: kalau katalog punya baris cicilan untuk tenor yang ditanya,
     # SEBUTKAN angka yang ADA itu (jangan langsung oper ke tim leasing).
     "Kalau lead menanyakan cicilan untuk tenor tertentu dan katalog PUNYA baris cicilan tenor itu, SEBUTKAN "
