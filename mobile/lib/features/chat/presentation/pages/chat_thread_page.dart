@@ -20,6 +20,7 @@ import '../../../../core/widgets/app_snackbar.dart';
 import '../../../calls/presentation/call_controller.dart';
 import '../../domain/entities/conversation.dart';
 import '../../domain/entities/message.dart';
+import '../controllers/chat_actions_providers.dart';
 import '../controllers/chat_providers.dart';
 import '../controllers/chat_thread_controller.dart';
 import '../controllers/conversation_list_controller.dart';
@@ -367,6 +368,13 @@ class _ChatThreadPageState extends ConsumerState<ChatThreadPage>
           unreadCount: 0,
         );
 
+    // Once a human agent has replied, Simpuler stands down permanently for this
+    // conversation (orchestrator human-takeover guard), so "Hand to Simpuler"
+    // would be a no-op — it's hidden in that case.
+    final agentReplied = controller.state.messages.any((m) =>
+        m.direction == MessageDirection.outbound &&
+        m.senderType == MessageSenderType.agent);
+
     return Scaffold(
       appBar: _ThreadAppBar(
         conversation: conversation,
@@ -474,6 +482,18 @@ class _ChatThreadPageState extends ConsumerState<ChatThreadPage>
                 ],
               ),
             ),
+          // AI handling indicator + one-tap takeover (AI = indigo, human =
+          // brand). Hidden when the campaign has Simpuler auto-reply off.
+          if (conversation.campaignAutoReply)
+            _AiHandlingBar(
+              isBotActive: conversation.isBotActive,
+              processing: _aiThinking,
+              agentName: conversation.agentName,
+              canHandBack: !agentReplied,
+              onToggle: (active) => ref
+                  .read(conversationActionsProvider(widget.conversationId))
+                  .toggleBot(active),
+            ),
           // Simpuler typing indicator (right-aligned, above composer)
           if (_aiThinking)
             Container(
@@ -481,13 +501,13 @@ class _ChatThreadPageState extends ConsumerState<ChatThreadPage>
               child: Row(
                 mainAxisAlignment: MainAxisAlignment.end,
                 children: [
-                  Icon(Icons.auto_awesome, size: 14, color: Colors.deepPurple.shade400),
+                  const Icon(Icons.auto_awesome, size: 14, color: AppColors.ai),
                   const SizedBox(width: 6),
                   Text('Simpuler is typing'.tr(context),
-                      style: TextStyle(
+                      style: const TextStyle(
                           fontSize: 12,
                           fontWeight: FontWeight.w600,
-                          color: Colors.deepPurple.shade400)),
+                          color: AppColors.ai)),
                   const SizedBox(width: 6),
                   SizedBox(
                     width: 20,
@@ -785,6 +805,134 @@ class _BouncingDotState extends State<_BouncingDot>
           color: Colors.deepPurple.shade400,
           shape: BoxShape.circle,
         ),
+      ),
+    );
+  }
+}
+
+/// AI handling indicator + one-tap takeover, shown above the composer.
+/// Colour rule (matches web): Simpuler/AI = indigo, human agent = brand.
+class _AiHandlingBar extends StatelessWidget {
+  const _AiHandlingBar({
+    required this.isBotActive,
+    required this.processing,
+    required this.agentName,
+    required this.canHandBack,
+    required this.onToggle,
+  });
+
+  final bool isBotActive;
+  final bool processing;
+  final String? agentName;
+  final bool canHandBack;
+  final void Function(bool active) onToggle;
+
+  @override
+  Widget build(BuildContext context) {
+    final ai = isBotActive || processing;
+
+    final Widget statusChip;
+    if (processing) {
+      statusChip = _chip(
+        bg: AppColors.ai.withValues(alpha: 0.10),
+        fg: AppColors.ai,
+        icon: Icons.auto_awesome,
+        label: 'Processing'.tr(context),
+      );
+    } else if (isBotActive) {
+      statusChip = _chip(
+        bg: AppColors.ai.withValues(alpha: 0.10),
+        fg: AppColors.ai,
+        icon: Icons.smart_toy_outlined,
+        label: '${'Auto'.tr(context)} · ${'Simpuler'.tr(context)}',
+      );
+    } else {
+      final name = (agentName ?? '').trim();
+      statusChip = _chip(
+        bg: AppColors.primary.withValues(alpha: 0.10),
+        fg: AppColors.primaryDark,
+        icon: Icons.person_outline,
+        label: name.isEmpty
+            ? 'Manual'.tr(context)
+            : '${'Manual'.tr(context)} · $name',
+      );
+    }
+
+    Widget? action;
+    if (ai) {
+      action = _actionButton(
+        color: AppColors.primaryDark,
+        icon: Icons.pan_tool_alt_outlined,
+        label: 'Take over'.tr(context),
+        onTap: () => onToggle(false),
+      );
+    } else if (canHandBack) {
+      action = _actionButton(
+        color: AppColors.ai,
+        icon: Icons.smart_toy_outlined,
+        label: 'Hand to Simpuler'.tr(context),
+        onTap: () => onToggle(true),
+      );
+    }
+
+    return Container(
+      padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
+      decoration: const BoxDecoration(
+        border: Border(top: BorderSide(color: AppColors.border)),
+      ),
+      child: Row(
+        children: [
+          statusChip,
+          const Spacer(),
+          ?action,
+        ],
+      ),
+    );
+  }
+
+  Widget _chip({
+    required Color bg,
+    required Color fg,
+    required IconData icon,
+    required String label,
+  }) {
+    return Container(
+      padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 5),
+      decoration: BoxDecoration(
+        color: bg,
+        borderRadius: BorderRadius.circular(8),
+      ),
+      child: Row(
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          Icon(icon, size: 14, color: fg),
+          const SizedBox(width: 6),
+          Text(label,
+              style: TextStyle(
+                  fontSize: 12, fontWeight: FontWeight.w700, color: fg)),
+        ],
+      ),
+    );
+  }
+
+  Widget _actionButton({
+    required Color color,
+    required IconData icon,
+    required String label,
+    required VoidCallback onTap,
+  }) {
+    return OutlinedButton.icon(
+      onPressed: onTap,
+      icon: Icon(icon, size: 14, color: color),
+      label: Text(label,
+          style: TextStyle(
+              fontSize: 12, fontWeight: FontWeight.w700, color: color)),
+      style: OutlinedButton.styleFrom(
+        side: BorderSide(color: color.withValues(alpha: 0.4)),
+        padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
+        minimumSize: Size.zero,
+        tapTargetSize: MaterialTapTargetSize.shrinkWrap,
+        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
       ),
     );
   }

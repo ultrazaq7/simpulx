@@ -28,6 +28,7 @@ class Conversation extends Equatable {
     this.campaignName,
     this.lastOutboundStatus,
     this.campaignSmartSummary = true,
+    this.campaignAutoReply = false,
   });
 
   final String id;
@@ -54,6 +55,7 @@ class Conversation extends Equatable {
   final String? campaignName;
   final String? lastOutboundStatus; // sent | delivered | read | failed
   final bool campaignSmartSummary; // per-campaign Smart Summary toggle
+  final bool campaignAutoReply; // per-campaign Simpuler auto-reply (gates AI takeover)
 
   /// A closed lead that carries a lost reason is a "Lost" lead, not just closed.
   bool get isLost => status == 'closed' && (lostReason?.isNotEmpty ?? false);
@@ -88,6 +90,7 @@ class Conversation extends Equatable {
         'campaign_name': campaignName,
         'last_outbound_status': lastOutboundStatus,
         'campaign_smart_summary': campaignSmartSummary,
+        'campaign_auto_reply': campaignAutoReply,
       };
 
   String get displayName =>
@@ -134,6 +137,7 @@ class Conversation extends Equatable {
       campaignName: campaignName ?? this.campaignName,
       lastOutboundStatus: lastOutboundStatus ?? this.lastOutboundStatus,
       campaignSmartSummary: campaignSmartSummary,
+      campaignAutoReply: campaignAutoReply,
     );
   }
 
@@ -162,5 +166,6 @@ class Conversation extends Equatable {
         lostReason,
         campaignName,
         lastOutboundStatus,
+        campaignAutoReply,
       ];
 }

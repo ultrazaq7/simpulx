@@ -91,6 +91,7 @@ class ConversationListController extends AsyncNotifier<List<Conversation>> {
     String? status,
     DateTime? snoozedUntil,
     String? lostReason,
+    bool? isBotActive,
   }) {
     final list = state.value;
     if (list == null) return;
@@ -103,6 +104,7 @@ class ConversationListController extends AsyncNotifier<List<Conversation>> {
                 status: status,
                 snoozedUntil: snoozedUntil,
                 lostReason: lostReason,
+                isBotActive: isBotActive,
               )
             : c,
     ]);

@@ -186,8 +186,12 @@ class ConversationActionsController extends ChangeNotifier {
     return _run(() => _repo.patchConversation(conversationId, status: 'open'));
   }
 
-  Future<bool> toggleBot(bool active) =>
-      _run(() => _repo.toggleBot(conversationId, active));
+  Future<bool> toggleBot(bool active) {
+    // Optimistically flip the handling state so the badge updates instantly; the
+    // backend echoes conversation.updated to reconcile every client.
+    _inbox.patchLocal(conversationId, isBotActive: active);
+    return _run(() => _repo.toggleBot(conversationId, active));
+  }
 
   Future<bool> assign({String? agentId, bool unassign = false}) => _run(
       () => _repo.assign(conversationId, agentId: agentId, unassign: unassign),

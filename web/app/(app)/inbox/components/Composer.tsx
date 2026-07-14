@@ -40,6 +40,7 @@ interface ComposerProps {
   isBotActive?: boolean;                         // Simpuler currently auto-replies to this chat
   agentName?: string | null;                     // assigned agent (for "Manual · {name}")
   onToggleBot?: (active: boolean) => void;       // AI takeover (false) / hand back to Simpuler (true)
+  canHandBack?: boolean;                         // false once an agent replied (AI can't come back)
 }
 
 export default function Composer({
@@ -47,7 +48,7 @@ export default function Composer({
   pendingFiles, pendingPreviews, fileRef, onFile, cancelSendFile, removePendingFile,
   busy, onSubmit, notify, onSendVoice, windowExpired, phone, conversationId, callingEnabled, onRequestCall,
   aiSummary, uploadProgress, onAddNote, smartSummaryEnabled = true, aiThinking,
-  isBotActive, agentName, onToggleBot,
+  isBotActive, agentName, onToggleBot, canHandBack = true,
 }: ComposerProps) {
   const { t } = useI18n();
   const [showQR, setShowQR] = useState(false);
@@ -419,6 +420,7 @@ export default function Composer({
                 processing={aiThinking}
                 agentName={agentName}
                 busy={busy}
+                canHandBack={canHandBack}
                 onTakeOver={() => onToggleBot(false)}
                 onRelease={() => onToggleBot(true)}
               />

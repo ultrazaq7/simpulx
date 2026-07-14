@@ -233,6 +233,15 @@ export default function ChatPanel({
   const [activeCallId, setActiveCallId] = useState<string | null>(null);
   const [activeCallStatus, setActiveCallStatus] = useState<string>("requesting");
 
+  // Has a human agent replied in this thread? Once they have, Simpuler stands
+  // down permanently (orchestrator human-takeover guard), so handing back is a
+  // no-op — the "Hand to Simpuler" button is hidden in that case.
+  const agentReplied = useMemo(
+    () => timeline.some((it) => it.kind === "msg" && it.m.direction === "outbound"
+      && it.m.sender_type !== "bot" && it.m.sender_type !== "system"),
+    [timeline],
+  );
+
   // ── Scroll-to-bottom button ──
   const [showJump, setShowJump] = useState(false);
   useEffect(() => {
@@ -672,6 +681,7 @@ export default function ChatPanel({
               isBotActive={!!active?.is_bot_active}
               agentName={active?.agent_name}
               onToggleBot={active?.campaign_auto_reply ? onToggleBot : undefined}
+              canHandBack={!agentReplied}
             />
           </>
         )}

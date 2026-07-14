@@ -12,13 +12,17 @@ import { HandoffMark } from "@/components/simpul/Glyphs";
 // State is fed by live data (WS conversation.updated / ai.activity), so the badge
 // updates without a reload; the REST poll is the fallback.
 export function AiStatusBadge({
-  isBotActive, processing, agentName, busy, compact, onTakeOver, onRelease,
+  isBotActive, processing, agentName, busy, compact, canHandBack = true, onTakeOver, onRelease,
 }: {
   isBotActive: boolean;
   processing?: boolean;
   agentName?: string | null;
   busy?: boolean;
   compact?: boolean;
+  // Once an agent has replied in the thread, the AI stands down permanently for
+  // that conversation (orchestrator human-takeover guard), so handing back would
+  // do nothing — the button is hidden in that case.
+  canHandBack?: boolean;
   onTakeOver: () => void;
   onRelease: () => void;
 }) {
@@ -59,7 +63,7 @@ export function AiStatusBadge({
       <HandoffMark size={14} strokeWidth={2} />
       {t("inbox.aiTakeOver")}
     </button>
-  ) : (
+  ) : canHandBack ? (
     <button
       type="button"
       disabled={busy}
@@ -69,7 +73,7 @@ export function AiStatusBadge({
       <Bot className="w-3.5 h-3.5" />
       {t("inbox.aiHandBack")}
     </button>
-  );
+  ) : null;
 
   return (
     <div className={cn("flex items-center gap-1.5 shrink-0", compact && "gap-1")}>

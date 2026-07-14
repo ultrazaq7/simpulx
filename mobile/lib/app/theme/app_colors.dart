@@ -25,6 +25,9 @@ class AppColors {
   static const Color warning = Color(0xFFF59E0B);
   static const Color info = Color(0xFF3B82F6);
   static const Color purple = Color(0xFF8B5CF6);
+  // AI / automation (Simpuler) — reserved indigo, never a status colour. Matches
+  // the web rule: AI = indigo, human agent = brand (primary).
+  static const Color ai = Color(0xFF4E5CD6);
 
   // ── Interest / lead temperature ────────────────────────
   static const Color hot = Color(0xFFEF4444);
