@@ -95,12 +95,33 @@ async def _catalog_from_table(pool, campaign_id, brand: str, model: str,
                   AND ($2 = '%' OR item_name ILIKE $2 OR variant_name ILIKE $2
                        OR ($3 <> '' AND $3 ILIKE '%' || item_name || '%'))
                 ORDER BY item_name NULLS LAST, variant_name NULLS LAST, headline_price ASC NULLS LAST
-                LIMIT 40""",
+                LIMIT 300""",
             campaign_id, like, needle,
         )
     if not rows:
         return None
     rows = list(rows)
+
+    # Collapse credit rows to ONE entry per variant (item+variant+location). Each
+    # catalog row is a single (variant x tenor), so a trim is 5+ rows sharing one OTR;
+    # grouping first makes the injection budget count VARIANTS, not tenor-copies of the
+    # cheapest trim (which used to crowd every other trim out of the model's context).
+    _groups: dict = {}
+    _order: list = []
+    for r in rows:
+        k = (r["item_name"] or "", r["variant_name"] or "", r["location_name"] or "")
+        g = _groups.get(k)
+        if g is None:
+            g = {"item_name": r["item_name"], "variant_name": r["variant_name"],
+                 "location_name": r["location_name"], "category_type": r["category_type"],
+                 "headline_price": r["headline_price"], "attributes": r["attributes"] or {},
+                 "tenors": []}
+            _groups[k] = g
+            _order.append(k)
+        a = r["attributes"] or {}
+        if isinstance(a, dict) and a.get("tenor") not in (None, ""):
+            g["tenors"].append(a)
+    rows = [_groups[k] for k in _order]
 
     # If the customer named a specific trim, answer from THAT trim (city-preferred
     # within it if possible). This must win over the plain city preference so a
@@ -123,8 +144,8 @@ async def _catalog_from_table(pool, campaign_id, brand: str, model: str,
         if pref:
             rows = pref
 
-    # Bound what we inject (ranking already put the relevant rows first).
-    rows = rows[:10]
+    # Bound what we inject (ranking already put the relevant variants first).
+    rows = rows[:14]
 
     def rupiah(v):
         try:
@@ -141,18 +162,33 @@ async def _catalog_from_table(pool, campaign_id, brand: str, model: str,
             parts.append(f"({r['location_name']})")
         price = rupiah(r["headline_price"])
         if price:
-            parts.append(f"| Harga: {price}")
-        # Surface segment-specific fields from attributes (dp, tenor, emi, size, ...).
-        attrs = r["attributes"] or {}
-        if isinstance(attrs, dict):
-            for k, v in attrs.items():
-                if v in (None, ""):
-                    continue
-                money = rupiah(v) if k in ("dp", "dp_amount", "emi", "plafon", "otr_price", "price") else None
-                parts.append(f"| {k}: {money or v}")
+            parts.append(f"| OTR: {price}")
+        # Compact credit options collapsed from the per-tenor rows (tenor -> monthly
+        # installment [+ TDP]), so one variant stays one line.
+        tenors = sorted((a for a in r.get("tenors", []) if isinstance(a, dict)),
+                        key=lambda a: int(a.get("tenor") or 0))
+        if tenors:
+            sim = ", ".join(
+                f"{a.get('tenor')}bln {rupiah(a.get('angsuran')) or a.get('angsuran')}"
+                + (f"/TDP {rupiah(a.get('tdp'))}" if a.get("tdp") not in (None, '') else "")
+                for a in tenors if a.get("angsuran") not in (None, ""))
+            if sim:
+                parts.append(f"| Cicilan: {sim}")
+        else:
+            # Non-credit segments: surface whatever attributes exist (dp, size, ...).
+            attrs = r["attributes"] or {}
+            if isinstance(attrs, dict):
+                for k, v in attrs.items():
+                    if v in (None, ""):
+                        continue
+                    money = rupiah(v) if k in ("dp", "dp_amount", "emi", "plafon", "otr_price", "price") else None
+                    parts.append(f"| {k}: {money or v}")
         lines.append("  " + f"{i}. " + " ".join(str(p) for p in parts if p))
+    lines.append("CATATAN VARIAN: Daftar di atas memuat SEMUA varian/tipe yang tersedia untuk model & area ini. "
+                 "Untuk 'tipe tertinggi/termahal' pilih OTR TERBESAR; 'termurah/entry-level' pilih OTR terkecil. "
+                 "Jika varian yang ditanya ADA di daftar, harganya TERSEDIA -- jangan bilang belum ada data.")
     if focus_note:
-        lines.append("CATATAN VARIAN: " + focus_note)
+        lines.append("CATATAN FOKUS: " + focus_note)
     lines.append("CATATAN UNTUK AI: Jika customer bertanya tentang harga/DP/cicilan, GUNAKAN angka dari atas persis untuk varian yang ditanya. "
                  "Jika varian yang ditanya TIDAK ADA di daftar, katakan datanya belum tersedia dan tawarkan cek ke tim; jangan buat estimasi atau pakai harga varian lain.")
     return "\n".join(lines)
