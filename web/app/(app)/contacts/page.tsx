@@ -95,6 +95,11 @@ import { useI18n } from "@/lib/i18n";
 
 export default function ContactsPage() {
   const { t } = useI18n();
+  // View mode: "leads" = 1 row per conversation (default), "contacts" = 1 row per contact (legacy).
+  const [viewMode, setViewMode] = useState<"leads" | "contacts">(() => {
+    try { return (localStorage.getItem("simpulx_contact_view") as "leads" | "contacts") || "leads"; } catch { return "leads"; }
+  });
+  const toggleView = (m: "leads" | "contacts") => { setViewMode(m); try { localStorage.setItem("simpulx_contact_view", m); } catch { /* ignore */ } };
   const [contacts, setContacts] = useState<Contact[]>([]);
   const [agents, setAgents] = useState<Agent[]>([]);
   const [campaigns, setCampaigns] = useState<Campaign[]>([]);
@@ -159,14 +164,16 @@ export default function ContactsPage() {
   const canExport = can("export_contacts");
   const canInitiate = can("initiate_chats");
 
-  const reload = () => api.listContacts().then(setContacts).catch(() => {});
+  const fetchData = () => viewMode === "leads" ? api.listLeads() : api.listContacts();
+  const reload = () => fetchData().then(setContacts).catch(() => {});
   useEffect(() => {
+    setLoading(true);
     Promise.all([
-      api.listContacts().catch(() => []),
+      fetchData().catch(() => []),
       showAgentFilter ? api.listAgents().catch(() => []) : Promise.resolve([]),
       showCampaignFilter ? api.listCampaigns().catch(() => []) : Promise.resolve([]),
     ]).then(([c, a, cm]) => { setContacts(c as Contact[]); setAgents(a as Agent[]); setCampaigns(cm as Campaign[]); setLoading(false); });
-  }, []); // eslint-disable-line react-hooks/exhaustive-deps
+  }, [viewMode]); // eslint-disable-line react-hooks/exhaustive-deps
   // Realtime: refresh when a lead changes (new message / status / stage /
   // assignment / delete). Debounced so a burst of events triggers one refetch.
   useEffect(() => {
@@ -273,6 +280,8 @@ export default function ContactsPage() {
   const agentOptions = useMemo(() => [{ value: "__unassigned__", label: t("common.unassigned") }, ...agents.map((a) => ({ value: a.id, label: a.full_name }))], [agents]);
   const campaignOptions = useMemo(() => campaigns.map((c) => ({ value: c.id, label: c.name })), [campaigns]);
 
+  // In leads mode the unique key is conversation_id; in contacts mode it's id (contact id).
+  const rowKey = (c: Contact) => viewMode === "leads" ? (c.conversation_id || c.id) : c.id;
   const filtered = useMemo(() => {
     let list = contacts;
     if (query) list = list.filter((c) => (c.full_name || c.phone || "").toLowerCase().includes(query.toLowerCase()) || (c.phone || "").includes(query));
@@ -338,7 +347,7 @@ export default function ContactsPage() {
   }
 
   // ── Bulk actions ──
-  const toggleSel = (id: string) => setSelected((s) => { const n = new Set(s); n.has(id) ? n.delete(id) : n.add(id); return n; });
+  const toggleSel = (key: string) => setSelected((s) => { const n = new Set(s); n.has(key) ? n.delete(key) : n.add(key); return n; });
   const clearSel = () => setSelected(new Set());
   async function bulkDelete() {
     if (!(await confirm({ title: `Delete ${selected.size} contact(s)?`, message: "This also removes their conversations. This cannot be undone.", danger: true, confirmLabel: "Delete" }))) return;
@@ -435,6 +444,19 @@ export default function ContactsPage() {
             {activeFilters > 0 && <span className="ml-0.5 min-w-[18px] h-[18px] px-1 rounded-full bg-primary text-white text-[11px] font-bold grid place-items-center tabular-nums">{activeFilters}</span>}
           </button>
           {activeFilters > 0 && <button onClick={clearFilters} className="text-[11px] font-semibold text-primary hover:underline outline-none">{t("common.clear")}</button>}
+          {/* View toggle: Leads (per-conversation) vs Contacts (per-identity) */}
+          <div className="inline-flex rounded-md border border-border overflow-hidden">
+            <button onClick={() => toggleView("leads")}
+              className={cn("px-3 h-8 text-[13px] font-medium outline-none transition-colors",
+                viewMode === "leads" ? "bg-primary text-white" : "bg-background text-foreground hover:bg-muted")}>
+              Leads
+            </button>
+            <button onClick={() => toggleView("contacts")}
+              className={cn("px-3 h-8 text-[13px] font-medium outline-none transition-colors border-l border-border",
+                viewMode === "contacts" ? "bg-primary text-white" : "bg-background text-foreground hover:bg-muted")}>
+              Contacts
+            </button>
+          </div>
           <div className="flex-1" />
           <button onClick={toggleCompact}
             className={cn("inline-flex items-center gap-1.5 px-3 h-8 rounded-md border text-[13px] font-medium outline-none transition-colors",
@@ -512,7 +534,7 @@ export default function ContactsPage() {
           <table className={cn("w-full text-[12px] whitespace-nowrap", denseCls)}>
             <thead className="sticky top-0 z-10">
               <tr className="border-b border-border bg-muted">
-                <TH className="w-10"><span className="sr-only">{t("contacts.select")}</span><input type="checkbox" aria-label={t("contacts.selectAllContacts")} className="rounded border-input accent-primary" checked={paged.length > 0 && paged.every((c) => selected.has(c.id))} onChange={(e) => setSelected((s) => { const n = new Set(s); if (e.target.checked) paged.forEach((c) => n.add(c.id)); else paged.forEach((c) => n.delete(c.id)); return n; })} /></TH>
+                <TH className="w-10"><span className="sr-only">{t("contacts.select")}</span><input type="checkbox" aria-label={t("contacts.selectAllContacts")} className="rounded border-input accent-primary" checked={paged.length > 0 && paged.every((c) => selected.has(rowKey(c)))} onChange={(e) => setSelected((s) => { const n = new Set(s); if (e.target.checked) paged.forEach((c) => n.add(rowKey(c))); else paged.forEach((c) => n.delete(rowKey(c))); return n; })} /></TH>
                 <TH>{t("contacts.contactName")}</TH>
                 {show("email") && <TH>{t("contacts.email")}</TH>}
                 {show("stage") && <TH>{t("contacts.stage")}</TH>}
@@ -541,8 +563,8 @@ export default function ContactsPage() {
                   <p className="text-sm text-muted-foreground">{query || activeFilters ? t("contacts.tryDifferentFilters") : t("contacts.newContactsWillAppearHere")}</p>
                 </td></tr>
               ) : paged.map((c) => (
-                <tr key={c.id} className="border-b border-border/60 hover:bg-muted/50 transition-colors">
-                  <td className="px-3 py-2"><input type="checkbox" aria-label={`Select ${c.full_name || c.phone || "contact"}`} className="rounded border-input accent-primary" checked={selected.has(c.id)} onChange={() => toggleSel(c.id)} /></td>
+                <tr key={rowKey(c)} className="border-b border-border/60 hover:bg-muted/50 transition-colors">
+                  <td className="px-3 py-2"><input type="checkbox" aria-label={`Select ${c.full_name || c.phone || "contact"}`} className="rounded border-input accent-primary" checked={selected.has(rowKey(c))} onChange={() => toggleSel(rowKey(c))} /></td>
                   <td className="px-3 py-2">
                     <div className="flex items-center gap-2.5">
                       <div className="w-8 h-8 rounded-full grid place-items-center text-[11px] font-bold text-white shrink-0"
@@ -654,8 +676,8 @@ export default function ContactsPage() {
                   )}
                   <td className="px-3 py-2 text-right">
                     <div className="relative inline-block" onClick={(e) => e.stopPropagation()}>
-                      <button aria-label={t("contacts.contactActions")} onClick={() => setMenuId(menuId === c.id ? null : c.id)} className="p-1.5 rounded-md hover:bg-muted text-muted-foreground hover:text-foreground outline-none transition-colors"><MoreVertical className="w-4 h-4" /></button>
-                      {menuId === c.id && (
+                      <button aria-label={t("contacts.contactActions")} onClick={() => setMenuId(menuId === rowKey(c) ? null : rowKey(c))} className="p-1.5 rounded-md hover:bg-muted text-muted-foreground hover:text-foreground outline-none transition-colors"><MoreVertical className="w-4 h-4" /></button>
+                      {menuId === rowKey(c) && (
                         <div className="absolute right-0 top-full mt-1 w-40 bg-popover border border-border rounded-lg shadow-xl z-20 py-1 animate-scale-in origin-top-right">
                           <button onClick={() => { setMenuId(null); router.push(`/contacts/${c.id}`); }} className="w-full flex items-center gap-2 px-3 py-2 text-[13px] text-foreground hover:bg-muted outline-none"><Eye className="w-4 h-4 text-muted-foreground" />{t("contacts.viewDetails")}</button>
                           {canEdit && <button onClick={() => { setMenuId(null); setModal({ mode: "edit", contact: c }); }} className="w-full flex items-center gap-2 px-3 py-2 text-[13px] text-foreground hover:bg-muted outline-none"><Pencil className="w-4 h-4 text-muted-foreground" />{t("common.edit")}</button>}
@@ -674,7 +696,7 @@ export default function ContactsPage() {
 
         {/* Pagination */}
         <div className="flex flex-wrap items-center gap-2 py-2 px-4 border-t border-border shrink-0">
-          <span className="text-[13px] font-semibold text-muted-foreground tabular-nums shrink-0">{t("contacts.nContacts", { n: filtered.length })}</span>
+          <span className="text-[13px] font-semibold text-muted-foreground tabular-nums shrink-0">{viewMode === "leads" ? `${filtered.length} leads` : t("contacts.nContacts", { n: filtered.length })}</span>
           <div className="flex-1 flex justify-center items-center gap-1 min-w-[160px]">
             <button aria-label={t("broadcasts.firstPage")} disabled={page <= 1} onClick={() => setPage(1)} className="p-1 rounded-md text-muted-foreground hover:bg-muted disabled:opacity-30 outline-none"><ChevronsLeft className="w-[18px] h-[18px]" /></button>
             <button aria-label={t("broadcasts.previousPage")} disabled={page <= 1} onClick={() => setPage(page - 1)} className="p-1 rounded-md text-muted-foreground hover:bg-muted disabled:opacity-30 outline-none"><ChevronLeft className="w-[18px] h-[18px]" /></button>

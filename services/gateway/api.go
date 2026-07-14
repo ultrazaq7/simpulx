@@ -2175,3 +2175,59 @@ func (s *server) handleListLLMModels(w http.ResponseWriter, r *http.Request) {
 
 	writeJSON(w, models)
 }
+
+// ── Leads (conversation-centric contact list) ───────────────
+// leadSelectSQL returns 1 row per conversation (not per contact), so a contact
+// with conversations in 2 campaigns appears as 2 lead rows. The projection is
+// compatible with the Contact type on the frontend.
+const leadSelectSQL = `SELECT cv.id::text AS conversation_id, ct.id::text AS id, ct.id::text AS contact_id,
+		        ct.full_name, ct.phone, ct.email, ct.source_channel, ct.created_at,
+		        ct.updated_at, ct.blacklisted, ct.web_api_source_id::text AS web_api_source_id,
+		        COALESCE(ct.tags, '{}') AS tags, COALESCE(ct.attributes, '{}'::jsonb) AS attributes,
+		        cv.interest_level,
+		        cv.stage_id::text AS stage_id, ls.name AS stage_name, cv.last_message_at, cv.ai_reason AS ai_summary,
+		        cv.lead_score, cv.lost_reason,
+		        cv.car_brand, cv.car_model, cv.city, cv.purchase_timeframe,
+		        cv.assigned_agent_id::text AS assigned_agent_id, lu.full_name AS agent_name,
+		        cv.campaign_id::text AS campaign_id, lcmp.name AS campaign_name,
+		        lch.name AS channel_name,
+		        was.name AS web_api_source_name, was.platform AS web_api_source_platform,
+		        att.referral_source AS source_id, att.referral_url AS source_url
+		   FROM conversations cv
+		   JOIN contacts ct ON ct.id = cv.contact_id
+		   LEFT JOIN stages ls ON ls.id = cv.stage_id
+		   LEFT JOIN users lu ON lu.id = cv.assigned_agent_id
+		   LEFT JOIN campaigns lcmp ON lcmp.id = cv.campaign_id
+		   LEFT JOIN channels lch ON lch.id = cv.channel_id
+		   LEFT JOIN web_api_sources was ON was.id = ct.web_api_source_id
+		   LEFT JOIN LATERAL (
+		     SELECT referral_source, referral_url FROM conversation_attributions
+		      WHERE conversation_id = cv.id AND referral_source IS NOT NULL
+		      ORDER BY created_at DESC LIMIT 1
+		   ) att ON true
+		  %s`
+
+// GET /api/leads — conversation-centric contact list (1 row per conversation).
+func (s *server) handleListLeads(w http.ResponseWriter, r *http.Request) {
+	a, _ := authFrom(r.Context())
+
+	filter := "WHERE cv.organization_id=$1"
+	args := []any{a.OrgID}
+
+	if a.Role == "agent" {
+		args = append(args, a.UserID)
+		filter += fmt.Sprintf(" AND cv.assigned_agent_id = $%d", len(args))
+	} else if a.Role == "manager" {
+		args = append(args, a.UserID)
+		filter += " AND " + managerScope("cv", len(args))
+	}
+
+	query := fmt.Sprintf(leadSelectSQL, filter) + "\n  ORDER BY cv.last_message_at DESC NULLS LAST LIMIT 500"
+
+	rows, err := s.queryMaps(r.Context(), query, args...)
+	if err != nil {
+		http.Error(w, err.Error(), http.StatusInternalServerError)
+		return
+	}
+	writeJSON(w, rows)
+}
