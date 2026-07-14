@@ -4,7 +4,7 @@ import { useI18n } from "@/lib/i18n";
 // lives on the Dashboard, so this page has no report/PDF anymore.
 import { useEffect, useRef, useState } from "react";
 import { useParams, useRouter, useSearchParams } from "next/navigation";
-import { ArrowLeft, Loader2, Coins, Sparkles, Database, Upload, Trash2, X, MapPin } from "lucide-react";
+import { ArrowLeft, Loader2, Coins, Sparkles, Database, Upload, Trash2, X, MapPin, Search } from "lucide-react";
 import * as XLSX from "xlsx";
 import { api } from "@/lib/api";
 import { ID_CITIES, ID_CITY_GROUPS } from "@/lib/idCities";
@@ -257,6 +257,7 @@ function CatalogTab({ id, segment, notify }: { id: string; segment?: string; not
   const [rows, setRows] = useState<CatalogItem[] | null>(null);
   const [busy, setBusy] = useState(false);
   const [editing, setEditing] = useState<CatalogItem | null>(null); // row open in the edit drawer
+  const [catQuery, setCatQuery] = useState(""); // client-side filter over the catalog table
   const [locations, setLocations] = useState<string[]>([]); // apply these location(s) to the uploaded rows
   const [locInput, setLocInput] = useState("");
   const [locFocus, setLocFocus] = useState(false); // controls the type-ahead suggestion dropdown
@@ -361,6 +362,16 @@ function CatalogTab({ id, segment, notify }: { id: string; segment?: string; not
         .slice(0, 8)
     : [];
 
+  // Client-side filter so a specific item stays findable in a big catalog: the table
+  // only renders a slice and rows are alphabetical, so late letters (e.g. "X" for
+  // XForce) would otherwise sit past the cap and never show.
+  const catQ = catQuery.trim().toLowerCase();
+  const filteredRows = catQ
+    ? rows.filter((r) => (r.item_name || "").toLowerCase().includes(catQ)
+        || (r.variant_name || "").toLowerCase().includes(catQ)
+        || (r.location_name || "").toLowerCase().includes(catQ))
+    : rows;
+
   return (
     <div className="space-y-5">
       {ConfirmHost}
@@ -460,6 +471,13 @@ function CatalogTab({ id, segment, notify }: { id: string; segment?: string; not
 
       {rows.length > 0 && (
         <div className="rounded-lg border border-border overflow-hidden">
+          <div className="flex items-center gap-2 border-b border-border px-3 py-2">
+            <Search className="w-3.5 h-3.5 shrink-0 text-muted-foreground" />
+            <input value={catQuery} onChange={(e) => setCatQuery(e.target.value)}
+              placeholder={t("settings.searchCatalogItemVariantLocation")}
+              className="flex-1 bg-transparent text-[13px] text-foreground outline-none placeholder:text-muted-foreground" />
+            {catQuery && <button onClick={() => setCatQuery("")} className="rounded p-0.5 hover:bg-muted outline-none"><X className="w-3.5 h-3.5 text-muted-foreground" /></button>}
+          </div>
           <div className="overflow-x-auto max-h-[420px] overflow-y-auto">
             <table className="w-full text-sm min-w-[640px] whitespace-nowrap">
               <thead className="sticky top-0 bg-muted/60 backdrop-blur">
@@ -470,7 +488,7 @@ function CatalogTab({ id, segment, notify }: { id: string; segment?: string; not
                 </tr>
               </thead>
               <tbody>
-                {rows.slice(0, 200).map((r) => (
+                {filteredRows.slice(0, 1000).map((r) => (
                   <tr key={r.id} onClick={() => setEditing(r)} className="border-b border-border/60 cursor-pointer hover:bg-muted/50 transition-colors">
                     <td className="px-3 py-2 text-[13px] font-medium text-foreground">{r.item_name}</td>
                     <td className="px-3 py-2 text-[12.5px] text-muted-foreground">{r.variant_name || ""}</td>
@@ -482,7 +500,11 @@ function CatalogTab({ id, segment, notify }: { id: string; segment?: string; not
               </tbody>
             </table>
           </div>
-          {rows.length > 200 && <p className="px-3 py-2 text-[11.5px] text-muted-foreground border-t border-border">{t("settings.showingFirst200Of")} {rows.length}.</p>}
+          <p className="px-3 py-2 text-[11.5px] text-muted-foreground border-t border-border tabular-nums">
+            {filteredRows.length === 0
+              ? t("settings.noMatches")
+              : `${Math.min(filteredRows.length, 1000).toLocaleString("id-ID")} / ${filteredRows.length.toLocaleString("id-ID")}${catQ ? ` · "${catQuery.trim()}"` : ""}`}
+          </p>
         </div>
       )}
 
