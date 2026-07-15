@@ -611,9 +611,11 @@ func (s *server) handleToggleBot(w http.ResponseWriter, r *http.Request) {
 		`INSERT INTO conversation_events (organization_id, conversation_id, type, actor_type, actor_id, detail)
 		 VALUES ($1, $2, $3, 'agent', $4::uuid, '{}'::jsonb)`,
 		a.OrgID, convID, evtType, a.UserID)
-	// Broadcast so every connected agent's AI badge updates instantly.
+	// Broadcast so every connected agent's AI badge updates instantly. Carry the
+	// new bot state so clients can apply it live without a refetch.
 	if err := s.bus.Publish(events.SubjectConversationUpdated, a.OrgID, events.ConversationUpdated{
 		ConversationID: convID,
+		BotActive:      &body.Active,
 	}); err != nil {
 		s.log.Error("publish conversation.updated (bot toggle) failed", "err", err)
 	}

@@ -178,6 +178,13 @@ class ConversationListController extends AsyncNotifier<List<Conversation>> {
         stageId: p.stageId,
         snoozedUntil: p.snoozedUntil,
       );
+      // AI takeover/release: apply the new bot state live to the list AND drop the
+      // cached single-conversation copy so an OPEN thread's "Auto/Take over" badge
+      // updates instantly (not just after reopening).
+      if (p.botActive != null) {
+        patchLocal(p.conversationId, isBotActive: p.botActive);
+        ref.invalidate(conversationByIdProvider(p.conversationId));
+      }
       return;
     }
     if (event.isConversationClosed) {

@@ -880,12 +880,24 @@ class _AiHandlingBar extends StatelessWidget {
       decoration: const BoxDecoration(
         border: Border(top: BorderSide(color: AppColors.border)),
       ),
-      child: Row(
-        children: [
-          statusChip,
-          const Spacer(),
-          ?action,
-        ],
+      // Cross-fade when the mode flips (Auto -> Manual / takeover), so the change
+      // reads as a deliberate transition instead of a hard swap.
+      child: AnimatedSwitcher(
+        duration: const Duration(milliseconds: 220),
+        switchInCurve: Curves.easeOut,
+        switchOutCurve: Curves.easeIn,
+        transitionBuilder: (child, anim) => FadeTransition(
+          opacity: anim,
+          child: ScaleTransition(scale: Tween(begin: 0.98, end: 1.0).animate(anim), child: child),
+        ),
+        child: Row(
+          key: ValueKey(processing ? 'processing' : (isBotActive ? 'ai' : 'manual')),
+          children: [
+            statusChip,
+            const Spacer(),
+            ?action,
+          ],
+        ),
       ),
     );
   }

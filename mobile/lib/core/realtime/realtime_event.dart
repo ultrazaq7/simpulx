@@ -102,6 +102,11 @@ class ConversationUpdatedPayload {
   String? get stageId => _s('stage_id');
   String? get interestLevel => _s('interest_level');
   String? get lostReason => _s('lost_reason');
+  // AI takeover/release: true = bot on, false = human took over, null = unchanged.
+  bool? get botActive {
+    final v = _d['bot_active'];
+    return v is bool ? v : null;
+  }
   DateTime? get snoozedUntil {
     final raw = _s('snoozed_until');
     return raw == null ? null : DateTime.tryParse(raw);

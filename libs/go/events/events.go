@@ -246,6 +246,7 @@ type ConversationUpdated struct {
 	InterestLevel  string `json:"interest_level,omitempty"`
 	LostReason     string `json:"lost_reason,omitempty"`
 	SnoozedUntil   string `json:"snoozed_until,omitempty"` // RFC3339, set on snooze
+	BotActive      *bool  `json:"bot_active,omitempty"`    // set on AI takeover/release; nil = unchanged
 }
 
 type CmdAIDraftFollowup struct {
