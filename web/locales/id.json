@@ -2022,7 +2022,8 @@
     "c13": "PLATFORM",
     "c14": "ANALITIK",
     "c15": "INTEGRASI",
-    "c16": "SISTEM"
+    "c16": "SISTEM",
+    "c17": "KOTAK MASUK"
   },
   "eventGroup": {
     "g1": "Pesan",

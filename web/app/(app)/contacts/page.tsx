@@ -95,11 +95,8 @@ import { useI18n } from "@/lib/i18n";
 
 export default function ContactsPage() {
   const { t } = useI18n();
-  // View mode: "leads" = 1 row per conversation (default), "contacts" = 1 row per contact (legacy).
-  const [viewMode, setViewMode] = useState<"leads" | "contacts">(() => {
-    try { return (localStorage.getItem("simpulx_contact_view") as "leads" | "contacts") || "leads"; } catch { return "leads"; }
-  });
-  const toggleView = (m: "leads" | "contacts") => { setViewMode(m); try { localStorage.setItem("simpulx_contact_view", m); } catch { /* ignore */ } };
+  // Always the leads view: one row per conversation (a person on two campaigns is
+  // two leads). The per-identity "Contacts" view + its toggle were removed.
   const [contacts, setContacts] = useState<Contact[]>([]);
   const [agents, setAgents] = useState<Agent[]>([]);
   const [campaigns, setCampaigns] = useState<Campaign[]>([]);
@@ -164,7 +161,7 @@ export default function ContactsPage() {
   const canExport = can("export_contacts");
   const canInitiate = can("initiate_chats");
 
-  const fetchData = () => viewMode === "leads" ? api.listLeads() : api.listContacts();
+  const fetchData = () => api.listLeads();
   const reload = () => fetchData().then(setContacts).catch(() => {});
   useEffect(() => {
     setLoading(true);
@@ -173,7 +170,7 @@ export default function ContactsPage() {
       showAgentFilter ? api.listAgents().catch(() => []) : Promise.resolve([]),
       showCampaignFilter ? api.listCampaigns().catch(() => []) : Promise.resolve([]),
     ]).then(([c, a, cm]) => { setContacts(c as Contact[]); setAgents(a as Agent[]); setCampaigns(cm as Campaign[]); setLoading(false); });
-  }, [viewMode]); // eslint-disable-line react-hooks/exhaustive-deps
+  }, []); // eslint-disable-line react-hooks/exhaustive-deps
   // Realtime: refresh when a lead changes (new message / status / stage /
   // assignment / delete). Debounced so a burst of events triggers one refetch.
   useEffect(() => {
@@ -280,8 +277,8 @@ export default function ContactsPage() {
   const agentOptions = useMemo(() => [{ value: "__unassigned__", label: t("common.unassigned") }, ...agents.map((a) => ({ value: a.id, label: a.full_name }))], [agents]);
   const campaignOptions = useMemo(() => campaigns.map((c) => ({ value: c.id, label: c.name })), [campaigns]);
 
-  // In leads mode the unique key is conversation_id; in contacts mode it's id (contact id).
-  const rowKey = (c: Contact) => viewMode === "leads" ? (c.conversation_id || c.id) : c.id;
+  // One row per conversation (lead), so the unique key is the conversation id.
+  const rowKey = (c: Contact) => c.conversation_id || c.id;
   const filtered = useMemo(() => {
     let list = contacts;
     if (query) list = list.filter((c) => (c.full_name || c.phone || "").toLowerCase().includes(query.toLowerCase()) || (c.phone || "").includes(query));
@@ -444,19 +441,6 @@ export default function ContactsPage() {
             {activeFilters > 0 && <span className="ml-0.5 min-w-[18px] h-[18px] px-1 rounded-full bg-primary text-white text-[11px] font-bold grid place-items-center tabular-nums">{activeFilters}</span>}
           </button>
           {activeFilters > 0 && <button onClick={clearFilters} className="text-[11px] font-semibold text-primary hover:underline outline-none">{t("common.clear")}</button>}
-          {/* View toggle: Leads (per-conversation) vs Contacts (per-identity) */}
-          <div className="inline-flex rounded-md border border-border overflow-hidden">
-            <button onClick={() => toggleView("leads")}
-              className={cn("px-3 h-8 text-[13px] font-medium outline-none transition-colors",
-                viewMode === "leads" ? "bg-primary text-white" : "bg-background text-foreground hover:bg-muted")}>
-              Leads
-            </button>
-            <button onClick={() => toggleView("contacts")}
-              className={cn("px-3 h-8 text-[13px] font-medium outline-none transition-colors border-l border-border",
-                viewMode === "contacts" ? "bg-primary text-white" : "bg-background text-foreground hover:bg-muted")}>
-              Contacts
-            </button>
-          </div>
           <div className="flex-1" />
           <button onClick={toggleCompact}
             className={cn("inline-flex items-center gap-1.5 px-3 h-8 rounded-md border text-[13px] font-medium outline-none transition-colors",
@@ -696,7 +680,7 @@ export default function ContactsPage() {
 
         {/* Pagination */}
         <div className="flex flex-wrap items-center gap-2 py-2 px-4 border-t border-border shrink-0">
-          <span className="text-[13px] font-semibold text-muted-foreground tabular-nums shrink-0">{viewMode === "leads" ? `${filtered.length} leads` : t("contacts.nContacts", { n: filtered.length })}</span>
+          <span className="text-[13px] font-semibold text-muted-foreground tabular-nums shrink-0">{`${filtered.length} leads`}</span>
           <div className="flex-1 flex justify-center items-center gap-1 min-w-[160px]">
             <button aria-label={t("broadcasts.firstPage")} disabled={page <= 1} onClick={() => setPage(1)} className="p-1 rounded-md text-muted-foreground hover:bg-muted disabled:opacity-30 outline-none"><ChevronsLeft className="w-[18px] h-[18px]" /></button>
             <button aria-label={t("broadcasts.previousPage")} disabled={page <= 1} onClick={() => setPage(page - 1)} className="p-1 rounded-md text-muted-foreground hover:bg-muted disabled:opacity-30 outline-none"><ChevronLeft className="w-[18px] h-[18px]" /></button>

@@ -117,7 +117,7 @@ const PAGE_TITLES: Record<string, { category: string; title: string; icon?: any 
   "/dashboard/campaign-performance": { category: "REPORTS", title: "Campaign Performance" },
   "/dashboard/creative-insights": { category: "REPORTS", title: "Creative Insights" },
   "/dashboard": { category: "REPORTS", title: "General Report" },
-  "/inbox": { category: "CHAT", title: "Chat" },
+  "/inbox": { category: "INBOX", title: "Chat" },
   "/settings/logs/conversation": { category: "LOGS", title: "Conversations", icon: ScrollText },
   "/settings/logs/messages": { category: "LOGS", title: "Message History", icon: ScrollText },
   "/settings/logs/activity": { category: "LOGS", title: "User Activity", icon: ScrollText },

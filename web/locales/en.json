@@ -2022,7 +2022,8 @@
     "c13": "PLATFORM",
     "c14": "ANALYTICS",
     "c15": "INTEGRATIONS",
-    "c16": "SYSTEM"
+    "c16": "SYSTEM",
+    "c17": "INBOX"
   },
   "eventGroup": {
     "g1": "Messages",
