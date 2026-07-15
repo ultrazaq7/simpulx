@@ -55,7 +55,9 @@ import flutter_callkit_incoming
     let uuid = UUID(uuidString: callId) ?? UUID()
 
     if event == "ended" {
-      SwiftFlutterCallkitIncomingPlugin.sharedInstance?.endCall(uuid.uuidString)
+      // endCall takes a Data object (not an id string) in this plugin version.
+      let endData = flutter_callkit_incoming.Data(id: uuid.uuidString, nameCaller: "", handle: "", type: 0)
+      SwiftFlutterCallkitIncomingPlugin.sharedInstance?.endCall(endData)
       completion()
       return
     }
