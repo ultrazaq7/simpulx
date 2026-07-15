@@ -6,17 +6,17 @@ import { initializeApp, getApps, getApp, type FirebaseApp } from "firebase/app";
 import { getMessaging, getToken, deleteToken, onMessage, isSupported, type Messaging } from "firebase/messaging";
 
 const firebaseConfig = {
-  apiKey: "AIzaSyBZPxwDLJEzQ3vl25xXoWxpIVTXnxyB49U",
-  authDomain: "simpulx-1.firebaseapp.com",
-  projectId: "simpulx-1",
-  storageBucket: "simpulx-1.firebasestorage.app",
-  messagingSenderId: "1077409983428",
-  appId: "1:1077409983428:web:9950dd86dfd773dae35291",
-  measurementId: "G-F3TEV9FR9Z",
+  apiKey: "AIzaSyC2QHoUeQqW5CpWKQkyccrD7FcgUttJ-M4",
+  authDomain: "simpulx-ffbd1.firebaseapp.com",
+  projectId: "simpulx-ffbd1",
+  storageBucket: "simpulx-ffbd1.firebasestorage.app",
+  messagingSenderId: "96923905702",
+  appId: "1:96923905702:web:aa7c2f4fa426153b944e67",
+  measurementId: "G-R24N6GGB76",
 };
 
 // Web Push public key (Firebase console > Cloud Messaging > Web Push certificates).
-export const VAPID_KEY = "BLzgR8gfe4XgX9qffaC6PNbUtMArVWJdS55KtLI30S3eNK1ULfKWfzc2xAnpoCvQv-wzWgGRN2jrGbzDvvraDsc";
+export const VAPID_KEY = "BLGCzcY_8ycu0wGlWDeM_xzN0uG-XmXgXQOLwvj3i-XoylXNhdLTKs5l6xJ-SiTycNkpJkKCj0Yh8VxuqalcZt0";
 
 export function firebaseApp(): FirebaseApp {
   return getApps().length ? getApp() : initializeApp(firebaseConfig);

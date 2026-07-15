@@ -5,12 +5,12 @@ importScripts("https://www.gstatic.com/firebasejs/10.12.0/firebase-app-compat.js
 importScripts("https://www.gstatic.com/firebasejs/10.12.0/firebase-messaging-compat.js");
 
 firebase.initializeApp({
-  apiKey: "AIzaSyBZPxwDLJEzQ3vl25xXoWxpIVTXnxyB49U",
-  authDomain: "simpulx-1.firebaseapp.com",
-  projectId: "simpulx-1",
-  storageBucket: "simpulx-1.firebasestorage.app",
-  messagingSenderId: "1077409983428",
-  appId: "1:1077409983428:web:9950dd86dfd773dae35291",
+  apiKey: "AIzaSyC2QHoUeQqW5CpWKQkyccrD7FcgUttJ-M4",
+  authDomain: "simpulx-ffbd1.firebaseapp.com",
+  projectId: "simpulx-ffbd1",
+  storageBucket: "simpulx-ffbd1.firebasestorage.app",
+  messagingSenderId: "96923905702",
+  appId: "1:96923905702:web:aa7c2f4fa426153b944e67",
 });
 
 // Activate a new service worker immediately so updates don't require closing all
