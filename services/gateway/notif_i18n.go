@@ -11,7 +11,9 @@ import (
 // never draws a duplicate. `mutable-content` lets a future Notification Service
 // Extension enrich it (avatar/sender) without another server change. Android and
 // web ignore this block entirely.
-func apnsAlert(title, body string) *messaging.APNSConfig {
+// `category` maps to aps.category so iOS shows that category's actions on
+// long-press (e.g. the "message" category's inline Reply). Empty = no actions.
+func apnsAlert(title, body, category string) *messaging.APNSConfig {
 	return &messaging.APNSConfig{
 		Headers: map[string]string{"apns-priority": "10"},
 		Payload: &messaging.APNSPayload{
@@ -19,6 +21,7 @@ func apnsAlert(title, body string) *messaging.APNSConfig {
 				Alert:          &messaging.ApsAlert{Title: title, Body: body},
 				Sound:          "default",
 				MutableContent: true,
+				Category:       category,
 			},
 		},
 	}

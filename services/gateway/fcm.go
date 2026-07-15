@@ -59,6 +59,11 @@ func (s *server) initFCMPush(ctx context.Context) {
 		s.log.Info("FCM is running in MOCK mode. No actual pushes will be sent to Google.")
 	}
 
+	// APNs VoIP sender for iOS CallKit (nil when APNS_* env isn't set). iOS calls
+	// go through this instead of FCM, since VoIP push is the only way to ring a
+	// killed iOS app full-screen.
+	voip := newAPNSVoIP(s.log)
+
 	// Subscribe to message.persisted
 	err = s.bus.Subscribe(events.SubjectMessagePersisted, "gateway-fcm-push", func(env events.Envelope) error {
 		var msg events.MessagePersisted
@@ -158,7 +163,8 @@ func (s *server) initFCMPush(ctx context.Context) {
 			// iOS renders natively from this aps alert (Android keeps its data-only
 			// native path; web ignores APNS). The Flutter client no longer draws a
 			// local notification on iOS, so there is exactly one, no duplicate.
-			APNS: apnsAlert(contactName, bodyText),
+			// Category "message" surfaces the inline Reply action on long-press.
+			APNS: apnsAlert(contactName, bodyText, "message"),
 		}
 
 		resp, err := fcmClient.SendEachForMulticast(ctx, pushMsg)
@@ -206,7 +212,8 @@ func (s *server) initFCMPush(ctx context.Context) {
 			Data:    map[string]string{"title": title, "body": bodyText, "conversationId": n.ConversationID, "type": notifType},
 			Android: &messaging.AndroidConfig{Priority: "high"},
 			// iOS renders natively from this aps alert; Dart no longer draws it.
-			APNS: apnsAlert(title, bodyText),
+			// Bell notifications have no inline actions (no reply category).
+			APNS: apnsAlert(title, bodyText, ""),
 		})
 		if err != nil {
 			s.log.Error("FCM notification send error", "err", err)
@@ -240,24 +247,42 @@ func (s *server) initFCMPush(ctx context.Context) {
 
 		var rows []map[string]any
 		if c.AgentID != "" {
-			rows, _ = s.queryMaps(ctx, `SELECT DISTINCT token FROM fcm_tokens WHERE user_id=$1`, c.AgentID)
+			rows, _ = s.queryMaps(ctx, `SELECT DISTINCT token, COALESCE(platform,'') AS platform FROM fcm_tokens WHERE user_id=$1`, c.AgentID)
 		} else {
 			rows, _ = s.queryMaps(ctx, `
-				SELECT DISTINCT t.token
+				SELECT DISTINCT t.token, COALESCE(t.platform,'') AS platform
 				FROM fcm_tokens t
 				JOIN users u ON u.id = t.user_id
 				WHERE u.organization_id = $1 AND u.status = 'active'
 			`, env.OrgID)
 		}
 
+		// iOS rings via CallKit/VoIP (voipTokens); Android + web keep the FCM path.
+		// A regular 'iOS' token is skipped for calls so a device that also has a
+		// VoIP token doesn't get rung twice (and iOS has no full-screen intent).
 		tokens := make([]string, 0, len(rows))
+		voipTokens := make([]string, 0, len(rows))
 		for _, r := range rows {
-			if t, ok := r["token"].(string); ok && t != "" {
-				tokens = append(tokens, t)
+			t, _ := r["token"].(string)
+			if t == "" {
+				continue
+			}
+			switch p, _ := r["platform"].(string); p {
+			case "ios_voip":
+				voipTokens = append(voipTokens, t)
+			case "iOS", "ios":
+				// Delivered via VoIP/CallKit when APNs is configured. If it isn't
+				// (voip == nil), fall back to the FCM path so iOS calls still get
+				// *some* notification instead of nothing.
+				if voip == nil {
+					tokens = append(tokens, t)
+				}
+			default:
+				tokens = append(tokens, t) // Android + web
 			}
 		}
 
-		if len(tokens) == 0 || mockMode || fcmClient == nil {
+		if len(tokens) == 0 && len(voipTokens) == 0 {
 			return nil
 		}
 
@@ -315,15 +340,53 @@ func (s *server) initFCMPush(ctx context.Context) {
 			data["missed"] = strconv.FormatBool(missed)
 		}
 
-		resp, err := fcmClient.SendEachForMulticast(ctx, &messaging.MulticastMessage{
-			Tokens:  tokens,
-			Data:    data,
-			Android: &messaging.AndroidConfig{Priority: "high"},
-		})
-		if err != nil {
-			s.log.Error("FCM call push error", "err", err)
-		} else {
-			s.pruneInvalidTokens(ctx, tokens, resp)
+		// Android + web via FCM (native full-screen on Android).
+		if len(tokens) > 0 && !mockMode && fcmClient != nil {
+			resp, err := fcmClient.SendEachForMulticast(ctx, &messaging.MulticastMessage{
+				Tokens:  tokens,
+				Data:    data,
+				Android: &messaging.AndroidConfig{Priority: "high"},
+			})
+			if err != nil {
+				s.log.Error("FCM call push error", "err", err)
+			} else {
+				s.pruneInvalidTokens(ctx, tokens, resp)
+			}
+		}
+
+		// iOS via APNs VoIP -> CallKit. The device's PushKit delegate reports the
+		// call to CallKit (full-screen even when the app is killed); an "ended"
+		// event ends that CallKit call instead of ringing.
+		if len(voipTokens) > 0 && voip != nil {
+			callerDisplay := contactName
+			if callerDisplay == "" {
+				callerDisplay = contactPhone
+			}
+			ev := map[string]any{
+				"aps":            map[string]any{"content-available": 1},
+				"event":          c.CallStatus, // "incoming" | "ended"
+				"id":             c.CallID,      // CallKit call UUID (see AppDelegate glue)
+				"callId":         c.CallID,
+				"conversationId": c.ConversationID,
+				"nameCaller":     callerDisplay,
+				"handle":         contactPhone,
+				"hasVideo":       false,
+			}
+			if c.CallStatus == "ended" {
+				ev["missed"] = data["missed"] == "true"
+			}
+			payload, _ := json.Marshal(ev)
+			for _, t := range voipTokens {
+				status, reason, err := voip.push(ctx, t, payload)
+				if err != nil {
+					s.log.Error("APNs VoIP push failed", "err", err)
+				} else if status != 200 {
+					s.log.Warn("APNs VoIP push rejected", "status", status, "reason", reason, "callStatus", c.CallStatus)
+					if reason == "Unregistered" || reason == "BadDeviceToken" {
+						_, _ = s.pool.Exec(ctx, `DELETE FROM fcm_tokens WHERE token=$1 AND platform='ios_voip'`, t)
+					}
+				}
+			}
 		}
 		return nil
 	})

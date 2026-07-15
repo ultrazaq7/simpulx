@@ -1,3 +1,5 @@
+import 'dart:io';
+
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
@@ -6,6 +8,7 @@ import 'package:flutter/services.dart';
 import 'package:simpulx/l10n/app_localizations.dart';
 import 'package:wakelock_plus/wakelock_plus.dart';
 
+import '../core/calls/callkit_service.dart';
 import '../core/notifications/notification_prefs.dart';
 import '../core/notifications/notification_providers.dart';
 import '../core/providers/locale_provider.dart';
@@ -118,6 +121,11 @@ class _SimpulxAppState extends ConsumerState<SimpulxApp>
     push.onTokenRefresh.listen(
       (t) => repo.registerPushToken(token: t, platform: push.platform),
     );
+    // iOS: register the PushKit VoIP token + bridge CallKit actions to the call
+    // controller (Android uses FCM + full-screen intent instead).
+    if (Platform.isIOS) {
+      await CallKitService(ref, (route) => _navigateToRoute(router, route)).init();
+    }
     // Coming back into an authenticated session means we're online.
     ref.read(authControllerProvider.notifier).setPresence(true);
   }

@@ -34,8 +34,21 @@ class LocalNotifications {
         requestAlertPermission: false,
         requestBadgePermission: false,
         requestSoundPermission: false,
-        // Action buttons for the WhatsApp-style missed-call note on iOS.
+        // Action buttons on iOS. The 'message' category is the WhatsApp-style
+        // inline Reply on a chat notification (server sets aps.category=message);
+        // 'missed_call' adds Call back + reply to the missed-call note.
         notificationCategories: [
+          DarwinNotificationCategory(
+            'message',
+            actions: [
+              DarwinNotificationAction.text(
+                'reply',
+                trStatic('Reply'),
+                buttonTitle: trStatic('Send'),
+              ),
+            ],
+            options: {DarwinNotificationCategoryOption.allowInCarPlay},
+          ),
           DarwinNotificationCategory(
             'missed_call',
             actions: [
