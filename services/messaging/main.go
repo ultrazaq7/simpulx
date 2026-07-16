@@ -293,20 +293,30 @@ func (a *app) onStatusUpdated(env events.Envelope) error {
 		a.log.Warn("decode status updated", "err", err)
 		return nil
 	}
+	// Our own client-facing re-broadcast (below) carries a resolved message id and
+	// is relayed straight to WS; ignore it here so we don't reprocess in a loop.
+	if e.MessageID != "" {
+		return nil
+	}
 	ctx := context.Background()
 
-	convID, err := a.st.updateMessageStatus(ctx, e.ExternalID, e.Status)
+	msgID, convID, err := a.st.updateMessageStatus(ctx, e.ExternalID, e.Status)
 	if err != nil {
 		a.log.Warn("updateMessageStatus failed or not found", "ext_id", e.ExternalID, "err", err)
 		return nil
 	}
 
 	a.log.Info("message status updated", "conv", convID, "ext_id", e.ExternalID, "status", e.Status)
-	// Broadcast pseudo message.persisted to force UI refresh
-	dummy := events.MessagePersisted{
+	// Re-broadcast the status carrying the resolved conversation + message id so
+	// clients patch the exact bubble's tick (sent→delivered→read) and the inbox
+	// row's last-outbound status live — WhatsApp-style receipts, no refetch.
+	return a.bus.Publish(events.SubjectMessageStatusUpdated, env.OrgID, events.MessageStatusUpdated{
+		ExternalID:     e.ExternalID,
+		Status:         e.Status,
+		Timestamp:      e.Timestamp,
 		ConversationID: convID,
-	}
-	return a.bus.Publish(events.SubjectMessagePersisted, env.OrgID, dummy)
+		MessageID:      msgID,
+	})
 }
 
 func preview(s string) string {

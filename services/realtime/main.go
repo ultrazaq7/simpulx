@@ -100,6 +100,16 @@ func main() {
 		{events.SubjectAuditCreated, "realtime-audit"},
 		{events.SubjectCallUpdated, "realtime-call"},
 		{events.SubjectAIActivity, "realtime-ai-activity"},
+		// WhatsApp-grade live sync: forward the fuller event set so ticks, contact
+		// edits, notes, stage config, presence and call counters reach clients too.
+		{events.SubjectMessageStatusUpdated, "realtime-msg-status"},
+		{events.SubjectContactCreated, "realtime-contact-created"},
+		{events.SubjectContactUpdated, "realtime-contact-updated"},
+		{events.SubjectNoteCreated, "realtime-note-created"},
+		{events.SubjectNoteDeleted, "realtime-note-deleted"},
+		{events.SubjectStagesUpdated, "realtime-stages"},
+		{events.SubjectPresenceUpdated, "realtime-presence"},
+		{events.SubjectCallTracked, "realtime-call-tracked"},
 	}
 	for _, s := range subs {
 		if err := bus.Subscribe(s.subject, s.durable, forward); err != nil {

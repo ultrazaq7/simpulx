@@ -27,6 +27,9 @@ class RealtimeEvent {
   bool get isCampaignUpdated => type == 'campaign.updated';
   bool get isCallUpdated => type == 'call.updated';
   bool get isContactDeleted => type == 'contact.deleted';
+  bool get isContactUpdated => type == 'contact.updated';
+  bool get isContactCreated => type == 'contact.created';
+  bool get isMessageStatusUpdated => type == 'message.status.updated';
   bool get isAiActivity => type == 'ai.activity';
 
   static RealtimeEvent? tryParse(Map<String, dynamic> json) {
@@ -152,6 +155,36 @@ class ContactDeletedPayload {
     final raw = _d['conversation_ids'];
     return raw is List ? raw.map((e) => e.toString()).toList() : const [];
   }
+}
+
+/// Typed view over a `contact.created` / `contact.updated` payload (backend
+/// `events.ContactUpsert`). Lets clients patch the contact + the inbox row's name
+/// live without a refetch.
+class ContactUpsertPayload {
+  const ContactUpsertPayload(this._d);
+  final Map<String, dynamic> _d;
+
+  String get contactId => (_d['contact_id'] ?? '') as String;
+  String get name => (_d['name'] ?? '') as String;
+  String? get phone {
+    final v = _d['phone'];
+    final s = v?.toString() ?? '';
+    return s.isEmpty ? null : s;
+  }
+
+  int? get leadScore => _d['lead_score'] is int ? _d['lead_score'] as int : null;
+}
+
+/// Typed view over a `message.status.updated` payload (backend
+/// `events.MessageStatusUpdated`). Carries the resolved conversation + message id
+/// so a client patches the exact bubble's tick and the row's last-outbound status.
+class MessageStatusPayload {
+  const MessageStatusPayload(this._d);
+  final Map<String, dynamic> _d;
+
+  String get conversationId => (_d['conversation_id'] ?? '') as String;
+  String get messageId => (_d['message_id'] ?? '') as String;
+  String get status => (_d['status'] ?? '') as String;
 }
 
 /// Typed view over a `call.updated` payload (see backend `events.CallUpdated`).

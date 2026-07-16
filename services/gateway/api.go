@@ -1975,6 +1975,14 @@ func (s *server) handleCreateContact(w http.ResponseWriter, r *http.Request) {
 		http.Error(w, err.Error(), http.StatusInternalServerError)
 		return
 	}
+	// Realtime: the new contact shows up in every open contacts list live.
+	if cid, _ := rows[0]["id"].(string); cid != "" {
+		if err := s.bus.Publish(events.SubjectContactCreated, a.OrgID, events.ContactUpsert{
+			ContactID: cid, Name: body.FullName, Phone: body.Phone, Tags: tags,
+		}); err != nil {
+			s.log.Warn("publish contact.created failed", "err", err)
+		}
+	}
 	writeJSON(w, rows[0])
 }
 
@@ -2030,6 +2038,19 @@ func (s *server) handleUpdateContact(w http.ResponseWriter, r *http.Request) {
 		body.StageID, body.InterestLevel, body.AssignedAgent, canAssign); err != nil {
 		http.Error(w, err.Error(), http.StatusInternalServerError)
 		return
+	}
+	// Realtime: read back the current fields and broadcast so every client patches
+	// the contact (and the inbox row's name) live — no refetch.
+	var cName, cPhone string
+	var cTags []string
+	var cBlack bool
+	_ = s.pool.QueryRow(r.Context(),
+		`SELECT COALESCE(full_name,''), COALESCE(phone,''), COALESCE(tags,'{}'), COALESCE(blacklisted,false)
+		   FROM contacts WHERE id=$1 AND organization_id=$2`, id, a.OrgID).Scan(&cName, &cPhone, &cTags, &cBlack)
+	if err := s.bus.Publish(events.SubjectContactUpdated, a.OrgID, events.ContactUpsert{
+		ContactID: id, Name: cName, Phone: cPhone, Tags: cTags, Blacklisted: &cBlack,
+	}); err != nil {
+		s.log.Warn("publish contact.updated failed", "err", err)
 	}
 	w.WriteHeader(http.StatusNoContent)
 }

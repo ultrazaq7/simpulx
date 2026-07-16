@@ -94,6 +94,8 @@ class ConversationListController extends AsyncNotifier<List<Conversation>> {
     bool? isBotActive,
     String? agentName,
     String? assignedAgentId,
+    String? contactName,
+    String? lastOutboundStatus,
   }) {
     final list = state.value;
     if (list == null) return;
@@ -109,8 +111,22 @@ class ConversationListController extends AsyncNotifier<List<Conversation>> {
                 isBotActive: isBotActive,
                 agentName: agentName,
                 assignedAgentId: assignedAgentId,
+                contactName: contactName,
+                lastOutboundStatus: lastOutboundStatus,
               )
             : c,
+    ]);
+  }
+
+  /// A contact was edited (name/phone) elsewhere: patch every inbox row for that
+  /// contact so the displayed name updates live, no refetch.
+  void _patchContact(String contactId, {String? name}) {
+    if (contactId.isEmpty || name == null || name.isEmpty) return;
+    final list = state.value;
+    if (list == null) return;
+    state = AsyncData([
+      for (final c in list)
+        c.contactId == contactId ? c.copyWith(contactName: name) : c,
     ]);
   }
 
@@ -218,6 +234,21 @@ class ConversationListController extends AsyncNotifier<List<Conversation>> {
     if (event.isCampaignUpdated) {
       refresh();
       ref.invalidate(conversationByIdProvider);
+      return;
+    }
+    // Delivery/read receipt: advance the row's last-outbound tick live (WhatsApp
+    // sent→delivered→read) — no refetch. The open thread patches its own bubbles.
+    if (event.isMessageStatusUpdated) {
+      final p = MessageStatusPayload(event.data);
+      if (p.conversationId.isNotEmpty && p.status.isNotEmpty) {
+        patchLocal(p.conversationId, lastOutboundStatus: p.status);
+      }
+      return;
+    }
+    // A contact edit (name) elsewhere updates every matching inbox row live.
+    if (event.isContactUpdated || event.isContactCreated) {
+      final p = ContactUpsertPayload(event.data);
+      _patchContact(p.contactId, name: p.name);
       return;
     }
     // A deleted contact removes its conversations from the inbox in realtime.

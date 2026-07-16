@@ -273,6 +273,24 @@ export default function InboxPage() {
       const aid = activeIdRef.current;
       const data = ev.data || ev;
 
+      // Newer realtime subjects are consumed by the mobile app (live delivery ticks,
+      // contact edits, notes, stage config, presence, call counters). The web inbox
+      // doesn't apply them inline yet, so ignore them here — otherwise the generic
+      // loadConvs() fallback below would fire a full conversation refetch on every
+      // delivery receipt (which streams constantly). Prevents a refetch storm.
+      if (
+        ev.type === "message.status.updated" ||
+        ev.type === "note.created" ||
+        ev.type === "note.deleted" ||
+        ev.type === "stages.updated" ||
+        ev.type === "presence.updated" ||
+        ev.type === "call.tracked" ||
+        ev.type === "contact.created" ||
+        ev.type === "contact.updated"
+      ) {
+        return;
+      }
+
       // Transient Simpuler phase — drives the "typing" indicator; never touches the list.
       if (ev.type === "ai.activity" && data?.conversation_id) {
         const cid: string = data.conversation_id;

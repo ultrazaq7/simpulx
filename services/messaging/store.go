@@ -798,11 +798,12 @@ func (s *store) sendTarget(ctx context.Context, convID string) (sendTarget, erro
 	return t, err
 }
 
-// updateMessageStatus updates the status of an outbound message matched by externalID.
-func (s *store) updateMessageStatus(ctx context.Context, externalID, status string) (string, error) {
-	var convID string
-	err := s.pool.QueryRow(ctx,
-		`UPDATE messages SET status = $2 WHERE external_id = $1 RETURNING conversation_id::text`,
-		externalID, status).Scan(&convID)
-	return convID, err
+// updateMessageStatus updates the status of an outbound message matched by
+// externalID and returns the internal message id + conversation id so the caller
+// can broadcast a precise tick update (sent→delivered→read) to clients.
+func (s *store) updateMessageStatus(ctx context.Context, externalID, status string) (msgID, convID string, err error) {
+	err = s.pool.QueryRow(ctx,
+		`UPDATE messages SET status = $2 WHERE external_id = $1 RETURNING id::text, conversation_id::text`,
+		externalID, status).Scan(&msgID, &convID)
+	return msgID, convID, err
 }

@@ -194,6 +194,27 @@ class ChatThreadController extends ChangeNotifier {
 
   /// Reconcile optimistic bubbles and append inbound/other messages.
   void _onEvent(RealtimeEvent event) {
+    // Delivery/read receipt: advance the exact bubble's tick live (WhatsApp
+    // sent→delivered→read), only forward — never regress a further-along tick.
+    if (event.isMessageStatusUpdated) {
+      final p = MessageStatusPayload(event.data);
+      if (p.conversationId != conversationId || p.messageId.isEmpty) return;
+      final st = switch (p.status) {
+        'sent' => MessageStatus.sent,
+        'delivered' => MessageStatus.delivered,
+        'read' => MessageStatus.read,
+        'failed' => MessageStatus.failed,
+        _ => null,
+      };
+      if (st == null) return;
+      final messages = [..._state.messages];
+      final idx = messages.indexWhere((m) => m.id == p.messageId);
+      if (idx != -1 && st.index > messages[idx].status.index) {
+        messages[idx] = messages[idx].copyWith(status: st);
+        _emit(_withMessages(messages));
+      }
+      return;
+    }
     if (!event.isMessagePersisted) return;
     final payload = MessagePersistedPayload(event.data);
     if (payload.conversationId != conversationId) return;
