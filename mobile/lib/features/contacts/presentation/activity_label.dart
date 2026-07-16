@@ -37,7 +37,12 @@ String activityLabel(BuildContext context, ContactActivity e) {
       return 'Conversation reopened'.tr(context);
     case 'handoff':
       return 'Handed off to a human agent'.tr(context);
+    case 'bot_takeover':
+      return 'Agent took over'.tr(context);
+    case 'bot_released':
+      return 'Handed to Simpuler'.tr(context);
     default:
-      return e.type.replaceAll('_', ' ');
+      // Never show a raw lowercase code — Title-Case the event type.
+      return e.type.split('_').map(_cap).join(' ');
   }
 }

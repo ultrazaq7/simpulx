@@ -569,21 +569,55 @@ class _HistoryRow extends StatelessWidget {
     final theme = Theme.of(context);
     final muted = theme.colorScheme.onSurfaceVariant;
     final when = formatHistoryTimestamp(event.createdAt);
-    return Padding(
-      padding: EdgeInsets.only(bottom: isLast ? 0 : 8),
+    final actor = (event.actorName ?? '').trim();
+    // Timeline row: a hollow dot + connecting line on the left, then the event
+    // title and a "{when} · Updated by {actor}" subtitle.
+    return IntrinsicHeight(
       child: Row(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          SizedBox(
-            width: 100,
-            child: Text(when,
-                style: TextStyle(color: muted, fontSize: 13)),
+          Column(
+            children: [
+              Container(
+                margin: const EdgeInsets.only(top: 3),
+                width: 12,
+                height: 12,
+                decoration: BoxDecoration(
+                  shape: BoxShape.circle,
+                  color: theme.scaffoldBackgroundColor,
+                  border: Border.all(color: AppColors.primary, width: 2),
+                ),
+              ),
+              if (!isLast)
+                Expanded(
+                  child: Container(
+                    width: 2,
+                    margin: const EdgeInsets.symmetric(vertical: 2),
+                    color: muted.withValues(alpha: 0.25),
+                  ),
+                ),
+            ],
           ),
-          const SizedBox(width: 8),
+          const SizedBox(width: 12),
           Expanded(
-            child: Text(activityLabel(context, event),
-                style: const TextStyle(
-                    fontSize: 13, fontWeight: FontWeight.w500)),
+            child: Padding(
+              padding: EdgeInsets.only(bottom: isLast ? 0 : 16),
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Text(activityLabel(context, event),
+                      style: const TextStyle(
+                          fontSize: 14, fontWeight: FontWeight.w600)),
+                  const SizedBox(height: 2),
+                  Text(
+                    actor.isNotEmpty
+                        ? '$when · ${'Updated by {a}'.trp(context, {'a': actor})}'
+                        : when,
+                    style: TextStyle(color: muted, fontSize: 12),
+                  ),
+                ],
+              ),
+            ),
           ),
         ],
       ),

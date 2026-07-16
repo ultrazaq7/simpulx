@@ -89,10 +89,11 @@ class _ContactTileState extends ConsumerState<ContactTile> {
 
                   const SizedBox(height: 6),
 
-                  // Row 2: Phone / Car / City
+                  // Row 2: Phone / Model / City — allow 2 lines so the city isn't
+                  // clipped on a long model name.
                   Text(
                     _buildInfoLine(c),
-                    maxLines: 1,
+                    maxLines: 2,
                     overflow: TextOverflow.ellipsis,
                     style: theme.textTheme.bodyMedium?.copyWith(color: muted),
                   ),
@@ -229,14 +230,13 @@ class _ContactTileState extends ConsumerState<ContactTile> {
     );
   }
 
-  /// Builds the "phone / car / city" info line.
+  /// Builds the "phone / model / city" info line. The model already carries the
+  /// full name (e.g. "Pajero Sport Exceed 4x2 AT"), so the brand is NOT prepended
+  /// — it's redundant and pushed the city off-screen.
   static String _buildInfoLine(Contact c) {
     final parts = <String>[];
     if (c.phone.isNotEmpty) parts.add(c.phone);
-    final car = [c.carBrand, c.carModel]
-        .where((s) => s != null && s.isNotEmpty)
-        .join(' ');
-    if (car.isNotEmpty) parts.add(car);
+    if (c.carModel != null && c.carModel!.isNotEmpty) parts.add(c.carModel!);
     if (c.city != null && c.city!.isNotEmpty) parts.add(c.city!);
     return parts.join(' / ');
   }
@@ -400,7 +400,8 @@ class _InterestBadge extends StatelessWidget {
   }
 }
 
-/// Circled lead score (thin ring style).
+/// Radial lead-score ring: a progress arc filled to score/100 (matches the web
+/// ScoreBadge), with the score number centered.
 class _ScoreCircle extends StatelessWidget {
   const _ScoreCircle({required this.score});
   final int score;
@@ -413,24 +414,58 @@ class _ScoreCircle extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    return Container(
-      width: 32,
-      height: 32,
-      alignment: Alignment.center,
-      decoration: BoxDecoration(
-        shape: BoxShape.circle,
-        border: Border.all(color: _color, width: 1.8),
-      ),
-      child: Text(
-        '$score',
-        style: TextStyle(
+    return SizedBox(
+      width: 34,
+      height: 34,
+      child: CustomPaint(
+        painter: _ScoreRingPainter(
+          progress: score.clamp(0, 100) / 100,
           color: _color,
-          fontWeight: FontWeight.w800,
-          fontSize: 12,
+          track: _color.withValues(alpha: 0.18),
+        ),
+        child: Center(
+          child: Text(
+            '$score',
+            style: TextStyle(
+                color: _color, fontWeight: FontWeight.w800, fontSize: 12),
+          ),
         ),
       ),
     );
   }
+}
+
+class _ScoreRingPainter extends CustomPainter {
+  _ScoreRingPainter(
+      {required this.progress, required this.color, required this.track});
+  final double progress;
+  final Color color;
+  final Color track;
+
+  static const _twoPi = 6.2831853;
+  static const _top = -1.5707963; // -90° start
+
+  @override
+  void paint(Canvas canvas, Size size) {
+    const stroke = 3.0;
+    final rect = Offset(stroke / 2, stroke / 2) &
+        Size(size.width - stroke, size.height - stroke);
+    final base = Paint()
+      ..style = PaintingStyle.stroke
+      ..strokeWidth = stroke
+      ..color = track;
+    final arc = Paint()
+      ..style = PaintingStyle.stroke
+      ..strokeWidth = stroke
+      ..strokeCap = StrokeCap.round
+      ..color = color;
+    canvas.drawArc(rect, 0, _twoPi, false, base);
+    canvas.drawArc(rect, _top, _twoPi * progress, false, arc);
+  }
+
+  @override
+  bool shouldRepaint(covariant _ScoreRingPainter old) =>
+      old.progress != progress || old.color != color || old.track != track;
 }
 
 /// Source badge pill (e.g. "Ad", "OTO.Com", "WhatsApp").
