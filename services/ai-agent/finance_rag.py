@@ -258,9 +258,11 @@ async def _catalog_from_table(pool, campaign_id, model: str,
             "Harga di atas berasal dari area LAIN (kota tertera di tiap baris) dan BISA BERBEDA. "
             "JANGAN sebut angka di atas sebagai harga untuk area customer. "
             "JANGAN sebut angka harga sama sekali KECUALI customer SECARA EKSPLISIT menanyakan "
-            "harga/DP/cicilan. Kalau tidak ditanya, JANGAN pancing dengan angka. Kalau ditanya: "
-            "bilang data areanya belum tersedia, tawarkan cek ke tim, dan boleh sebut harga di atas "
-            "HANYA sebagai gambaran + WAJIB sebut nama kotanya.")
+            "harga/DP/cicilan. Kalau tidak ditanya, JANGAN pancing dengan angka. "
+            f"Kalau ditanya: WAJIB tetap SEBUTKAN angka dari daftar di atas sebagai gambaran "
+            f"lengkap dengan nama kotanya (contoh: 'di Jakarta OTR-nya Rp X'), lalu jelaskan data "
+            f"untuk {city} belum tersedia dan tawarkan cek ke tim. JANGAN menolak menjawab dan "
+            f"JANGAN menanyakan ulang kota customer -- kotanya sudah diketahui ({city}).")
     if focus_note:
         lines.append("CATATAN FOKUS: " + focus_note)
     lines.append("CATATAN UNTUK AI: Jika customer bertanya tentang harga/DP/cicilan, GUNAKAN angka dari atas persis untuk varian yang ditanya. "
