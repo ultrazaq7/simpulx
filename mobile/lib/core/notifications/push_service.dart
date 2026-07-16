@@ -87,16 +87,30 @@ class PushService {
     });
 
     // Handle when app opened from notification
-    FirebaseMessaging.onMessageOpenedApp.listen((message) {
-      debugPrint('[PushService] onMessageOpenedApp: ${message.data}');
+    // Route a tapped notification exactly ONCE. onMessageOpenedApp and
+    // getInitialMessage can BOTH deliver the same message on a cold start, which
+    // pushed the chat route twice — the thread ended up stacked on itself, so
+    // backing out of a chat opened from a notification showed it a second time.
+    final handledTaps = <String>{};
+    void routeOnce(RemoteMessage message, String source) {
+      final id = message.messageId ?? '';
+      if (id.isNotEmpty && !handledTaps.add(id)) {
+        debugPrint('[PushService] $source: tap already routed ($id), skipping');
+        return;
+      }
+      if (handledTaps.length > 50) handledTaps.clear();
+      debugPrint('[PushService] $source: ${message.data}');
       onTapRoute(NotificationPayload.fromData(message.data).route);
-    });
+    }
+
+    FirebaseMessaging.onMessageOpenedApp.listen(
+      (message) => routeOnce(message, 'onMessageOpenedApp'),
+    );
 
     // Handle cold start from notification
     final initial = await _fcm.getInitialMessage();
     if (initial != null) {
-      debugPrint('[PushService] getInitialMessage: ${initial.data}');
-      onTapRoute(NotificationPayload.fromData(initial.data).route);
+      routeOnce(initial, 'getInitialMessage');
     } else {
       debugPrint('[PushService] No initial message');
     }
