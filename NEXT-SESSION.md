@@ -1,160 +1,153 @@
-# Next session — pick up here
+# Next session — mulai dari sini
 
-Pre-launch (no active users). Budget Rp 2jt/mo. Prod: single `t4g.medium`, all 13
-containers incl. Postgres. Deploy = push to main (~2-4 min; poll the prod image tag).
-DB: `docker exec simpulx-v2-db psql -U simpulx -d simpulx_v2` (db name `simpulx_v2`).
-Org test: `00000000-0000-0000-0000-0000000000a1`. Catalog campaign:
-`5da74098-0518-41a7-8fea-1e08e6a715dd` (500 rows, Jakarta only, Mitsubishi).
+Pre-launch (belum ada user aktif). Budget Rp 2jt/bln. Prod: 1 `t4g.medium`, 13 container
+termasuk Postgres. Deploy = push ke main (~2-4 menit; pantau tag image di prod).
+DB: `docker exec simpulx-v2-db psql -U simpulx -d simpulx_v2` (nama DB `simpulx_v2`).
+Org test: `00000000-0000-0000-0000-0000000000a1`. Campaign katalog:
+`5da74098-0518-41a7-8fea-1e08e6a715dd` (500 baris, Jakarta, Mitsubishi).
 
-## Working rule that keeps paying off
-Verify against prod BEFORE building (3 premises retracted that way) and AFTER
-(drive the real path, not the function — `c07010d` passed every unit test and still
-dropped the row). Verifying the grounding fix immediately exposed a second bug I'd
-just introduced. Label verified vs assumed.
+**User minta semua balasan pakai Bahasa Indonesia santai (gua-lu).** Istilah teknis
+biarin Inggris. Commit message tetap Inggris (ikut gaya repo).
+
+## Aturan kerja yang terus terbukti berguna
+Verifikasi ke prod SEBELUM bangun DAN SESUDAH (lewat jalur asli, bukan unit test).
+Sesi ini: verifikasi nangkep 2 hal yang unit test lolosin — fix pertama yang kekerasan,
+dan bug tanda baca yang udah live berbulan-bulan. Bedain "terverifikasi" vs "diasumsikan".
 
 ---
 
-## DONE + VERIFIED this session (don't redo)
+## SELESAI + TERVERIFIKASI sesi ini (jangan diulang)
 
-| Commit | What | Proof |
+| Commit | Apa | Bukti |
 |---|---|---|
-| — | **P5 model compliance** | 8/8 live nurture replies obey `CATATAN AREA`, incl. 3 adversarial (model actively corrected a customer asserting the Jakarta price). The retracted-NULL premise stands retracted. |
-| `e303348` | **Ads OAuth tokens encrypted at rest** (AES-256-GCM) | Prod: token now `enc:v1:…`; backfill encrypted 1 plaintext row; real Meta sync decrypts + succeeds (`ad auto-sync ok`). Key `ADS_TOKEN_ENC_KEY` in `/opt/simpulx/.env` (backup `.env.bak-20260716-193911`). **Losing it = customers must reconnect.** |
-| `123922d` | **web_api keys hashed** (SHA-256, show-once) | Migration 0096 dropped the plaintext column. Live: correct key → 200 + contact created; wrong key → 401. |
-| `e56ff60` | **iOS mic permission primed at login** | `flutter analyze` clean. ⚠️ **NOT device-tested.** |
-| `1a12cf2` | **P4: unread badge patched from events** (no per-message refetch) | Structure verified: `listConversations` now only on mount/reconnect/seq-gap. ⚠️ **NOT browser-tested.** |
-| `ae29a91` + `049e188` | **Grounding chain fixed** (see below) | Turn-1 for "Xforce" now returns XFORCE Jakarta rows from the campaign's own catalog. Was: *Pajero Sport, Dipo Star Finance **Surabaya**, Bojonegoro*. |
-| — | **`finance_packages` TRUNCATED** | 332,821 rows / 67 MB → 0. Nothing depended on it (both campaigns have their own 500-row catalog). Recoverable from the nightly backup for 30 days. **100% catalog now.** |
+| `5a03c92` + `f0dd6d3` | **Fix anchoring** (tugas 1 — BERES) | Dites 2 sisi lewat `/debug/reply` (jalur orkestrasi asli). (a) gak nanya → nol angka, 2 run. (b) nanya varian spesifik → "OTR **di Jakarta** sekitar **Rp 426.850.000** … untuk area **Wamena belum tersedia**, boleh saya cek ke tim?" |
+| `5a03c92` | **3 call site legacy dipindah ke campaign catalog** | Follow-up (`orchestrator.py`), AI Smart Reply + summary (`main.py`) tadinya manggil `get_finance_context` global. Sejak `finance_packages` di-TRUNCATE (0 baris, terverifikasi) ketiganya `return None` = **kehilangan grounding harga total**. Sekarang semua lewat `get_catalog_context`. |
+| `02dc03d` | **Fix bug tanda baca `_variant_hits`** (ketemu pas verifikasi) | Turn-1 "halo saya minat Xforce, saya di Wamena" — **sebelum**: "fokus katalog kami adalah **Destinator**"; **sesudah**: "tertarik dengan **Xforce** … Exceed CVT atau Ultimate DS?" |
 
-### The grounding chain (was live, now fixed)
-Three linked causes made every branded campaign's **turn 1** ground on another
-dealer's cars:
-1. `needle = model or brand` → before extraction the needle became the campaign brand
-   ("Mitsubishi"), but `item_name` holds MODEL names ("XFORCE EXCEED CVT") → **0 rows**.
-   Fixed: match on **model only** (campaign_catalog is already campaign-scoped).
-2. 0 rows fell through to the **global `finance_packages`** — the exact cross-dealer
-   leak WS-A exists to prevent. Fixed: campaign has a catalog → **never** fall back.
-3. Extractor wrote competitor mentions as the lead's brand — a Mitsubishi campaign held
-   `{"brand":"Daihatsu","model":"Xforce"}`. Fixed: branded campaign ⇒ **pin** the lead's
-   brand to the campaign's.
-4. (found by verifying the fix) `LIMIT 300` over 500 rows ordered by `item_name` cut off
-   every XFORCE row (X sorts last) → turn 1 answered Destinator. Fixed: `LIMIT 3000`
-   (ranking runs in Python, so a truncated fetch ranks rows it never saw).
+### Detail bug tanda baca (kelas bug yang sama kayak `LIMIT 300` kemarin)
+`_variant_hits` nge-pad query lalu substring-test `" {tok} "`. Begitu ada tanda baca
+nempel di nama model, match GAGAL: `" xforce "` gak ada di `"...minat Xforce, saya..."`.
+Ranking balik ke urutan katalog → D sebelum X → peminat Xforce dijawab Destinator.
+Fix kemarin (`LIMIT 3000`) diverifikasi pakai query **tanpa** tanda baca, makanya lolos.
+Sekarang kedua sisi di-tokenize sama lalu dibandingin sebagai token.
+**Pelajaran: tes pakai kalimat customer asli, yang ada koma/titiknya.**
 
 ---
 
-## OPEN FINDING — not fixed, highest value next
+## TEMUAN TERBUKA (belum digarap, urut prioritas)
 
-### Anchoring: the AI volunteers prices nobody asked for
-**Verified 3/4 runs.** An out-of-area lead who only said *"saya minat Xforce, saya di
-Wamena"* (no price question) got *"Sebagai gambaran, di Jakarta OTR Rp 426.850.000"*
-unprompted. Same when they asked about **colour**. Not the wrong-city bug (the city is
-named correctly) — it's **anchoring**: the customer never asked, now expects 426jt, and
-the agent's real Wamena price will differ.
+### 1. `CATATAN AREA` telat 1-2 turn — anchoring turn-1 BELUM tertutup
+**Terverifikasi di kode** (`orchestrator.py:87-96`): nurture jalan **SEBELUM** ekstraksi
+(sengaja, biar balasan gak ke-block). Akibatnya `lead_fields` selalu telat 1 turn:
+- Turn 1: `lead_fields` kosong → `city=None` → **blok `if city_mismatch` gak pernah jalan**
+  → `CATATAN AREA` gak ada di prompt sama sekali.
+- Turn 2 (customer baru bilang "Wamena"): city masih belum keekstrak → tetap gak ada.
+- Turn 3+: baru aktif.
 
-Cause — last line of the `CATATAN AREA` note (`finance_rag.py`, ~line 222):
-> "**Boleh** sebut harga di atas **HANYA sebagai gambaran** dan WAJIB sebut nama kotanya."
+Artinya fix anchoring cuma jalan di **turn 3+**. Di turn 1-2 katalog (yang tiap barisnya
+ada "(Jakarta)") tetap diinjeksi dengan header *"Tawarkan Jika Relevan"* tanpa rem apa pun.
+**Catatan jujur:** premis handover ("anchoring kebukti 3/4 run di turn 1") **gak bisa gua
+verifikasi ulang** — gak ada pesan `426.850.000` tersimpan di `messages` prod (kemungkinan
+hasil tes yang gak dipersist). Di 3 run turn-1 sesi ini model **gak** anchoring, tapi itu
+bukan karena fix — kebetulan aja. Jadi risikonya masih ada, cuma belum kepegang remnya.
+**Opsi:** kasih rem harga yang gak bergantung `city` (mis. selalu larang nyodorin angka
+kalau gak ditanya), ATAU pindahin ekstraksi city ke depan nurture khusus turn 1.
+**Ini keputusan desain — OBROLIN dulu sama user.**
 
-`HANYA` limits it to "as an illustration", **not** to "only when asked". The model reads
-open permission and uses it.
+### 2. Upload katalog: reload page = job yatim (user nanya sesi ini)
+**Terverifikasi:** ekstraksi **gak** ke-terminate kalau koneksi putus/reload —
+`catalog.go:192` `go s.runCatalogExtract(...)` jalan detached pakai `context.Background()`
++ timeout 10 menit, hasil ke Redis TTL 20 menit. **Tapi** `job_id` cuma hidup di variabel
+lokal (`web/lib/api.ts:501`), gak disimpen ke localStorage → reload = gak bisa polling lagi
+→ user upload ulang. Peredam: cache content-addressed SHA256 (`catalog.go:168`) → upload
+ulang PDF sama = cache hit, 0 token. **Tapi** kalau upload ulang **sebelum** job pertama
+kelar, cache belum keisi → ekstraksi jalan 2x → **token kebayar 2x**.
+**Gap kedua:** gateway restart (deploy) pas job jalan → goroutine mati, Redis tetap
+`pending` → user polling sampai timeout 5 menit → "Extraction timed out".
+**Fix murah:** simpen `job_id` di localStorage per campaign + resume polling pas mount.
 
-**Fix (agreed, not yet applied):**
-```
-JANGAN sebut angka harga sama sekali KECUALI customer SECARA EKSPLISIT menanyakan
-harga/DP/cicilan. Kalau tidak ditanya, JANGAN pancing dengan angka. Kalau ditanya:
-bilang data areanya belum tersedia, tawarkan cek ke tim, dan boleh sebut harga di atas
-HANYA sebagai gambaran + WAJIB sebut nama kotanya.
-```
-**Must re-test both sides:** (a) didn't ask → no number, (b) asked → still gives the
-reference + names the city (don't let the fix make it refuse when asked).
-
----
-
-## AGREED, NOT STARTED — out-of-area → human agent (3 parts)
-Decided with the user; build in this order:
-1. **Persist covered cities on the campaign.** Today the cities come from **transient UI
-   chips** on upload — `page.tsx:327` does
-   `parsed.flatMap(r => locations.map(loc => ({...r, location_name: loc})))`, i.e. the
-   chips OVERRIDE the file and fan each product out per city (100 × 5 = the 500 rows).
-   Chips empty + file has no city column ⇒ **all NULL**. Nothing is stored on the
-   campaign, so "out of area" can't be decided deterministically.
-2. **Guard UI**: block + hint if no city chosen AND parsed rows carry no location.
-3. **Out-of-area ⇒ handoff.** `lead.city ∉ campaign.covered_cities` → hand to a human,
-   **with a note** ("luar area (Wamena) — cek domisili & serviceability").
-   *Rationale (user's, and correct):* KTP-vs-domicile/financing area is human judgment —
-   an out-of-town KTP living in the covered city is common and a real lead.
-   *Design:* let the AI collect the standard qualifiers FIRST, then hand off — a human
-   receiving a context-less lead is worse, and instant handoff floods agents.
-   **Note:** "collect then handoff" ALREADY works —
-   `if result.ready_for_handoff or fields_done: _ai_handoff(...)`. The gaps are only
-   (a) out-of-area is not itself a trigger, so a lead who bails mid-qualification never
-   reaches a human, (b) the handoff note is generic, (c) no persisted city list.
+### 3. `segment` gak kepakai di `get_catalog_context`
+Diagnostic IDE (pre-existing, bukan dari perubahan sesi ini). Parameter diterima tapi gak
+dipakai — gak ada efek fungsional. Bersihin atau pakai, terserah.
 
 ---
 
-## PRICING / UNIT ECONOMICS — decided
-Full analysis (grounded in prod `llm_usage` + the price table):
-https://claude.ai/code/artifact/915f1932-b731-43ba-89b0-fb496ef9e1d0
+## BELUM MULAI — out-of-area → agent manusia (3 bagian, tugas 2)
+Urutannya udah disepakati:
+1. **Simpen kota di campaign.** Sekarang kota cuma dari **chip UI transient** pas upload —
+   `page.tsx:327` bikin `parsed.flatMap(r => locations.map(loc => ({...r, location_name: loc})))`,
+   jadi chip OVERRIDE isi file dan nge-fan-out tiap produk per kota (100 × 5 = 500 baris).
+   Chip kosong + file gak ada kolom kota ⇒ **semua NULL**. Gak ada yang tersimpan di campaign,
+   jadi "luar area" gak bisa diputusin deterministik.
+2. **Guard UI**: blok + kasih hint kalau gak ada kota dipilih DAN baris hasil parse gak punya location.
+3. **Out-of-area ⇒ handoff** + **note** ("luar area (Wamena) — cek domisili & serviceability").
+   *Alasan user (dan ini bener):* KTP luar kota tapi domisili di kota itu = kasus nyata,
+   cuma manusia yang bisa mastiin.
+   **PENTING: "kumpulin info dulu baru handoff" UDAH JALAN** —
+   `if result.ready_for_handoff or fields_done: _ai_handoff(...)`. Yang kurang cuma
+   (a) out-of-area belum jadi trigger, (b) note-nya generik, (c) daftar kota belum disimpen.
 
-- **Cost/credit** (1 credit = 1 bot reply), from real tokens: **Rp 91–160 now**
-  (Sonnet-5 intro), **Rp 135–240 after 2026-08-31** (promo ends, +50%). Cold cache
-  (sparse org) is the expensive end — the catalog is re-cache-written per reply.
-- **Worst-case argo ≈ Rp 320/reply** (cold cache + full 400-token output + long history +
-  post-promo). Typical reply: Rp 80–160.
-- **Seats are the engine** (margin 63–87%) — keep Rp 200/150/100k, 200 bonus credits.
-- **Top-up floor Rp 350** (Enterprise 275 → 350): mathematically no single reply can lose
-  money, even worst-case. Booster 400, Pro 375. Discount curve flattened.
-- **Catalog extraction = FREE, final.** Fair: the LLM there serves the user's upload
-  convenience *and* gives Simpulx clean, consistent data — dual benefit. Uploads are
-  naturally rare (campaign start + occasional price change), so cost is bounded. Code
-  already charges 0 — **don't implement a charge.**
-- **Lead-data extract: keep FREE too** → clean model: **"1 credit = 1 AI reply to the
-  customer"**; lead scoring / data extraction / catalog = free, included.
-- ⚠️ **Quotation Section 4 is wrong** — it promises extraction costs 1 credit. Reword to
-  the clean model above, or PT Carbay's ledger won't match the document.
-- **Sample caveat:** cost figures come from n=49 (one day). Direction is solid (computed
-  from real tokens × the code's price table) but **don't hard-commit prices until ~5k+
-  messages**. Reconcile a full post-deploy UTC day's `SUM(cost_usd)` against the
-  Anthropic CSV.
+## LLM CONFIG (tugas 3) — Anthropic-only, FINAL. Jangan tawarin OpenAI lagi.
+Alasan nolak OpenAI: tier murah udah ada in-house (Haiku 4.5, $1/$5 = 3× lebih murah),
+prompt caching Anthropic load-bearing di struktur cost dan bakal ancur kalau di-split,
+dan masalah margin itu di pricing/metering — bukan "Claude mahal".
 
-## LLM CONFIG — decided (Anthropic-only), not yet applied
-Mixing OpenAI was considered and rejected: the cheap tier already exists in-house
-(Haiku 4.5, $1/$5 = 3× cheaper), Anthropic prompt caching is load-bearing in the cost
-structure and wouldn't survive a split, and the margin problem is pricing/metering, not
-"Claude is expensive".
-
-| Feature | Now | Target |
+| Fitur | Sekarang | Target |
 |---|---|---|
-| nurture, reply (customer-facing) | Sonnet 5 | **keep** — quality = conversion |
+| nurture, reply (customer-facing) | Sonnet 5 | **tetap** — kualitas = konversi |
 | extract, summary, catalog (backend) | Sonnet 5 | **Haiku 4.5** (3×) |
-| lead scoring | CatBoost | keep (free) |
+| lead scoring | CatBoost | tetap (gratis) |
 
-Second lever: **shrink the catalog injection** (14 rows → the asked variant + 3–4).
-`cache_write` of the ~2,600-token catalog is the biggest per-credit cost in sparse
-traffic — this is the largest per-credit lever, bigger than Haiku.
-Both together: worst-case argo Rp 320 → ~Rp 200.
+Lever kedua: **kecilin injeksi katalog** (14 baris → varian yang ditanya + 3-4).
+`cache_write` katalog ~2.600 token = biaya per-credit terbesar di traffic sepi — ini lever
+paling gede, lebih gede dari Haiku. Dua-duanya: argo worst-case Rp 320 → ~Rp 200.
+**Catatan:** injeksi dibatasi di `finance_rag.py` `rows = rows[:14]` (~baris 210).
 
----
+## P6 billing per-seat (tugas 4) — BUTUH SESI UTUH
+Butuh ledger membership append-only (kolom `users` sekarang state, bukan history;
+`inactive_since` ketimpa). Udah diputusin: `rate_per_user numeric(12,2)` +
+`currency text NOT NULL DEFAULT 'IDR'` di `org_subscriptions`; prorata harian, ada
+aktivitas sehari ⇒ sehari penuh kebilling. Kredit AI prepaid — `llm_usage` BUKAN sumber billing.
+**PERTANYAAN BUAT USER (belum dijawab): pembagi bulan pakai panjang asli (28/30/31) atau flat 30?**
 
-## STILL QUEUED
-- **P6 per-seat billing** — needs an append-only membership ledger (current `users`
-  columns are state, not history; `inactive_since` is overwritten). Decided: `rate_per_user
-  numeric(12,2)` + `currency text NOT NULL DEFAULT 'IDR'` on `org_subscriptions`; daily
-  proration, any activity on a day ⇒ that whole day bills. **Open question for the user:
-  divide by the month's real length (28/30/31) or a flat 30?** AI credits are prepaid —
-  `llm_usage` is NOT a billing source.
+## PRICING — udah diputusin
+Analisis lengkap: https://claude.ai/code/artifact/915f1932-b731-43ba-89b0-fb496ef9e1d0
+- Cost/credit real: **Rp 91-160** sekarang, **Rp 135-240** setelah 2026-08-31 (promo abis, +50%).
+- Argo worst-case ≈ **Rp 320/reply**. Reply tipikal: Rp 80-160.
+- **Seat itu mesinnya** (margin 63-87%) — tahan Rp 200/150/100k, bonus 200 kredit.
+- **Lantai top-up Rp 350** (Enterprise 275 → 350). Booster 400, Pro 375.
+- **Ekstraksi katalog GRATIS, final.** Kode udah charge 0 — **jangan bikin charge.**
+- **Ekstraksi lead-data GRATIS juga** → model bersih: **"1 kredit = 1 balasan AI ke customer"**.
+- ⚠️ **Quotation Section 4 SALAH** — di situ ditulis ekstraksi makan 1 kredit. Ganti ke model
+  bersih di atas, atau ledger PT Carbay gak match sama dokumen.
+- **Caveat sampel:** angka dari n=49 (1 hari). Arahnya solid tapi **jangan hard-commit harga
+  sebelum ~5k+ pesan**. Rekonsiliasi `SUM(cost_usd)` 1 hari UTC penuh vs CSV Anthropic.
+
+## MASIH ANTRE
 - **Android release** (Play Console): edge-to-edge ×2 (SDK 35 insets) + picture-in-picture.
-- **Device-test** the iOS mic fix; **browser-test** the P4 unread badge.
-- **P7 ads** (verified this session): cron lives in the gateway process with no leader
-  election → duplicate syncs once the gateway scales (dormant at 1 instance). Google Ads
-  quota claim is not code-verifiable — check the console.
-- **P3 S3 cutover** (bucket + 152 files staged; MinIO still live).
+- **Device-test** fix mic iOS (`e56ff60`); **browser-test** unread badge P4 (`1a12cf2`).
+- **P7 ads**: cron numpang di proses gateway tanpa leader election → sync dobel begitu
+  gateway di-scale (dorman di 1 instance). Klaim kuota Google Ads gak bisa dicek dari kode.
+- **P3 S3 cutover** (bucket + 152 file udah staged; MinIO masih live).
 
-## DO NOT
-- Don't buy Reserved Instances / RDS / t4g.large before a 1k load test.
-- Don't "fix" the Sonnet-5 promo pricing in `llm_usage.py` — $2/$10 until 2026-08-31 is
-  correct and the cutover is handled per call date.
-- Catalog cache is in **Redis** (`catalog_extract_cache:*`), not the DB. A fast reply =
-  cache hit. Use `force:true` or a different PDF to force real extraction.
-- In a `StreamingResponse`, code after the final `yield` is not guaranteed to run — do
-  side effects BEFORE the terminal event.
+## JANGAN
+- Jangan beli Reserved Instance / RDS / t4g.large sebelum load test 1k.
+- Jangan "benerin" harga promo Sonnet-5 di `llm_usage.py` — $2/$10 sampai 2026-08-31 itu BENAR.
+- Cache katalog ada di **Redis** (`catalog_extract_cache:*`), bukan DB. Balasan cepat = cache hit.
+  Pakai `force:true` atau PDF lain buat maksa ekstraksi beneran.
+- Di `StreamingResponse`, kode setelah `yield` terakhir gak dijamin jalan — side effect
+  DULUAN, sebelum event terminal.
+- `finance_packages` sengaja kosong (332rb baris → 0). **Jangan diisi ulang** — semua jalur
+  udah campaign-scoped sekarang.
+
+## Cara drive jalur asli (kepake terus, hemat waktu)
+`/debug/reply` manggil `orchestrator.handle_inbound` = jalur orkestrasi asli.
+Container **gak ada curl** — copy script python via `docker cp` (container ke-recreate tiap
+deploy, jadi copy ulang). Yang penting:
+- **Simpen pesan inbound ke `messages` DULU** + kirim `message_id`, kalau nggak classifier
+  dapat `cr=None` → `llm skipped` reason `no_signal` → ekstraksi gak jalan.
+- `psql -c` bungkus multi-statement jadi 1 transaksi: 1 statement gagal = **semua rollback**
+  (termasuk UPDATE yang keliatan sukses). Jalanin terpisah.
+- Ada unique index `idx_conv_active_contact_campaign` (contact_id, campaign_id) buat
+  `status <> 'closed'` → 1 contact = 1 conversation aktif per campaign. Bikin contact baru per tes.
+- Kolom contact itu `full_name`, bukan `name`.
