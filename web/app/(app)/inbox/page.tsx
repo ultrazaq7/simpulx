@@ -303,6 +303,34 @@ export default function InboxPage() {
         return;
       }
 
+      // Conversation-level change: merge the payload straight into the matching row
+      // so bot takeover ("Manual · {name}"), assignee, stage, status, interest and
+      // snooze update INSTANTLY — no full-list refetch (the old takeover lag). Only
+      // an assignment (which can move a chat in/out of this agent's scope) still
+      // reconciles the list.
+      if (ev.type === "conversation.updated" || ev.type === "conversation.assigned" || ev.type === "conversation.closed") {
+        const cid: string | undefined = data?.conversation_id;
+        if (cid) {
+          setConvs((prev) => prev.map((c) => {
+            if (c.id !== cid) return c;
+            const n = { ...c };
+            if (typeof data.bot_active === "boolean") n.is_bot_active = data.bot_active;
+            if (data.assigned_agent_id) n.assigned_agent_id = data.assigned_agent_id;
+            if (data.agent_name) n.agent_name = data.agent_name;
+            if (data.stage_id) n.stage_id = data.stage_id;
+            if (data.stage_name) n.stage_name = data.stage_name;
+            if (data.interest_level) n.interest_level = data.interest_level;
+            if (data.disposition_id) n.disposition_id = data.disposition_id;
+            if (data.snoozed_until !== undefined && data.snoozed_until !== null) n.snoozed_until = data.snoozed_until;
+            if (data.status) n.status = data.status;
+            if (ev.type === "conversation.closed") n.status = "closed";
+            return n;
+          }));
+        }
+        if (ev.type === "conversation.assigned") loadConvs();
+        return;
+      }
+
       const isMsg = ev.type === "message.persisted" && data && data.conversation_id === aid;
       // A bot reply landing clears any lingering "typing" indicator for that conversation.
       if (ev.type === "message.persisted" && data?.sender_type === "bot" && data.conversation_id) {
