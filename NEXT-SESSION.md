@@ -123,16 +123,33 @@ Per anniversary, bukan bulan kalender. Pembagi prorata = panjang periode itu (li
 periode anniversary bisa nyebrang 2 bulan, makanya pembagi HARUS panjang periode, bukan
 "jumlah hari di bulan".
 
-**Anchor-nya = tanggal SUBSCRIPTION DIAKTIFKAN BERBAYAR — BUKAN tanggal org dibuat.**
+**Anchor-nya = tanggal SUBSCRIPTION DIAKTIFKAN BERBAYAR — BUKAN tanggal org dibuat, dan
+BUKAN `org_subscriptions.created_at`.**
 Terverifikasi: org test dibuat **2026-06-17**, subscription-nya **2026-07-06** — **beda 19 hari**.
-Pakai `organizations.created_at` = anniversary meleset 19 hari.
-**Jebakan lanjutan:** `org_subscriptions.created_at` juga BUKAN anchor yang aman —
-`package_name` default `'starter'` + `status` default `'active'`, jadi row-nya bisa lahir
-otomatis pas org dibuat dalam keadaan "active" TANPA pembayaran apa pun.
+**`org_subscriptions.created_at` = tanggal orang BUKA HALAMAN**, bukan tanggal bayar:
+`subscription.go:14-16` (di dalam **GET** handler) jalanin
+`INSERT INTO org_subscriptions (organization_id) VALUES ($1) ON CONFLICT DO NOTHING`
+— cuma org_id, sisanya default. Komentarnya sendiri: *"Lazy-ensure a row"*. Gap 19 hari di atas
+= tanggal seseorang kebetulan buka halaman subscription.
 **Keputusan: simpen anchor EKSPLISIT** (`current_period_start` / `current_period_end`),
 di-set pas aktivasi berbayar pertama, di-roll tiap periode. JANGAN diturunkan dari `created_at`
 mana pun — `created_at` immutable, sedangkan anchor billing bisa PINDAH (upgrade/downgrade,
 cancel lalu reactivate, trial → paid).
+
+### ⚠️ 2 temuan dari klarifikasi user (2026-07-17): starter = paket BERBAYAR termurah, trial itu STATUS terpisah
+Claude sempat berasumsi `starter` = free tier — **SALAH, udah diretract.** Enum status di
+`0081_credits.sql`: `active | trial | expired`. Konsekuensi yang kebuka:
+
+1. **Org yang belum bayar tercatat `status='active'` di paket berbayar.** Default kolom status =
+   `'active'` (bukan `'trial'`), dan row-nya lahir dari page view (lihat di atas). Jadi siapa pun
+   yang buka halaman subscription = "active starter" tanpa pernah bayar/trial. **Begitu P6 nagih
+   semua `status='active'`, mereka keikut ketagih.** Perlu diputusin: default org baru = `'trial'`?
+   Event apa yang flip ke `'active'`?
+2. **Kuota kredit reset per BULAN KALENDER padahal langganan ANNIVERSARY.** `subscription.go:20-21`:
+   `count(*) ... WHERE sender_type='bot' AND created_at >= date_trunc('month', now())`.
+   Org dengan periode 17 Juli–16 Agustus dapat **reset kuota gratis tanggal 1 Agustus**, di tengah
+   periodenya. Kuota HARUS reset per periode billing, bukan `date_trunc('month')`.
+   Ini konsekuensi langsung dari keputusan anniversary — wajib digarap bareng P6.
 
 **Terverifikasi 2026-07-17 — tabel billing praktis belum ada:** `org_subscriptions` cuma punya
 `renewal_date` (date, **nullable**, isinya **NULL**), gak ada `period_start`/`period_end`.
