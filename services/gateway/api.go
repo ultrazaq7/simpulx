@@ -750,8 +750,8 @@ func (s *server) handlePatchConversation(w http.ResponseWriter, r *http.Request)
 			 VALUES ($1, $2, $3, 'agent', $4::uuid, $5::jsonb)`,
 			a.OrgID, convID, typ, a.UserID, string(d))
 	}
+	var stageName string
 	if b.StageID != nil && *b.StageID != "" {
-		var stageName string
 		_ = s.pool.QueryRow(r.Context(), `SELECT COALESCE(name,'') FROM stages WHERE id=$1`, *b.StageID).Scan(&stageName)
 		logEvt("stage_changed", map[string]any{"stage_id": *b.StageID, "stage_name": stageName})
 	}
@@ -769,6 +769,8 @@ func (s *server) handlePatchConversation(w http.ResponseWriter, r *http.Request)
 		StageID:        derefStr(b.StageID),
 		InterestLevel:  derefStr(b.InterestLevel),
 		LostReason:     derefStr(b.LostReason),
+		DispositionID:  derefStr(b.DispositionID),
+		StageName:      stageName,
 	}); err != nil {
 		s.log.Error("publish conversation.updated failed", "err", err)
 	}

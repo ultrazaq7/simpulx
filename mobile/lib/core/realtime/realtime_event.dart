@@ -100,6 +100,9 @@ class ConversationUpdatedPayload {
   String get conversationId => _s('conversation_id') ?? '';
   String? get status => _s('status');
   String? get stageId => _s('stage_id');
+  // Stage NAME carried directly so a freshly-created stage (unknown to a client's
+  // cached stage list) renders immediately without a lookup/refetch.
+  String? get stageName => _s('stage_name');
   String? get interestLevel => _s('interest_level');
   String? get lostReason => _s('lost_reason');
   // AI takeover/release: true = bot on, false = human took over, null = unchanged.

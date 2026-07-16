@@ -121,6 +121,8 @@ class ConversationListController extends AsyncNotifier<List<Conversation>> {
     String? status,
     String? interestLevel,
     String? stageId,
+    String? stageNameOverride,
+    String? lostReason,
     DateTime? snoozedUntil,
   }) {
     if (conversationId.isEmpty) return;
@@ -130,10 +132,14 @@ class ConversationListController extends AsyncNotifier<List<Conversation>> {
       refresh();
       return;
     }
-    // Resolve the stage name from the cached pipeline stages (the event carries
-    // only the id; the inbox renders the name).
-    String? stageName;
-    if (stageId != null) {
+    // Prefer the stage NAME carried by the event (covers a stage the client's
+    // cached list doesn't know yet); fall back to resolving from cached stages by
+    // id when the event only sent the id.
+    String? stageName =
+        (stageNameOverride != null && stageNameOverride.isNotEmpty)
+            ? stageNameOverride
+            : null;
+    if (stageName == null && stageId != null) {
       final stages = ref.read(stagesProvider).value;
       if (stages != null) {
         for (final s in stages) {
@@ -149,6 +155,7 @@ class ConversationListController extends AsyncNotifier<List<Conversation>> {
       status: status,
       interestLevel: interestLevel,
       stageName: stageName,
+      lostReason: lostReason,
       snoozedUntil: snoozedUntil,
     );
   }
@@ -180,6 +187,8 @@ class ConversationListController extends AsyncNotifier<List<Conversation>> {
         status: p.status,
         interestLevel: p.interestLevel,
         stageId: p.stageId,
+        stageNameOverride: p.stageName,
+        lostReason: p.lostReason,
         snoozedUntil: p.snoozedUntil,
       );
       // AI takeover/release: apply the new bot state AND the assignee live to the
