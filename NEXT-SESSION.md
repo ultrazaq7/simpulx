@@ -174,6 +174,50 @@ dari metering-nya, dan konsisten.
 berikutnya). Lebih aman buat cash flow tapi butuh credit/debit note dan ngebuang
 kesederhanaan "dihitung dari fakta, bukan tebakan di muka".
 
+### Desain invoicing — disepakati 2026-07-17
+- **Start Date Subscription di wizard superadmin** (`superadmin.go:178-190` — bikin
+  `organizations` + `org_subscriptions` + user owner dalam 1 transaksi). Itu jadi anchor
+  anniversary-nya. **Sekalian set `status` EKSPLISIT di situ** — sekarang gak di-set jadi
+  jatuh ke default `'active'`, dan `renewal_date` dibiarin NULL.
+- **Pas tanggal anniversary → auto-generate invoice + email.** TAPI **jangan email-only**:
+  arrears artinya wajib tau siapa nunggak, jadi tetep butuh tabel invoice sederhana
+  (org, period_start, period_end, amount, status, due_date, invoice_no). **Email = turunan
+  dari row itu, bukan penggantinya.**
+- **Lampirkan CSV rincian seat** (nama, email, tanggal aktif, jumlah hari terbilang, rate,
+  subtotal). Ini WAJIB, bukan nice-to-have: model "ada aktivitas sehari ⇒ sehari penuh"
+  pasti memicu "kok ditagih 7 seat, si A cuma login sekali" — CSV yang bikin model ini
+  bisa dipertahanin.
+- **REKOMENDASI CLAUDE — email 2 fase (user setuju konsepnya, eksekusi di sesi P6):**
+  Fase 1 (1-2 siklus): invoice row + CSV digenerate penuh, email ke **owner Simpulx** dulu
+  (shadow/dry-run) → cocokin nominal sama kenyataan. Fase 2: flip penerima ke **client**.
+  Kode sama, yang berubah cuma tujuan. Alasan: invoice pertama yang salah nominal ke
+  PT Carbay = kepercayaan yang susah balik, dan mesin proratanya belum pernah jalan sekali pun.
+
+### ⚠️ BELUM DIJAWAB — wajib beres SEBELUM invoice kekirim ke client
+1. **PPN & faktur pajak.** Simpulx/PT Carbay **PKP atau non-PKP?** PKP = wajib pungut PPN +
+   terbitin faktur pajak; non-PKP = **gak boleh** pungut. Nentuin isi invoice.
+   **Gak bisa dicek dari kode — TANYA USER.**
+2. **Nomor invoice.** Buat akuntansi biasanya harus berurutan & gak bolong → keputusan skema
+   (sequence), bukan tempelan.
+3. **Cara bayar.** Invoice ke client harus nyantumin transfer ke mana / VA / dll.
+4. **Jatuh tempo berapa hari + konsekuensi telat** (suspend / read-only / bot dimatiin?).
+5. **Event apa yang nge-flip `status` jadi `'active'`.**
+
+### DITOLAK sengaja — jangan dibangun (scope creep)
+User sempat ngusulin **pilih periode billing 1/3/6/12 bulan** + **on-demand/postpaid/prepaid**
+sekaligus. **Jangan.** Alasan:
+- **Arrears + 1 tahun = risiko kredit setahun** (customer pakai 12 bulan penuh baru ditagih).
+  Periode panjang cuma masuk akal kalau **prepaid**.
+- **Prepaid bertabrakan sama "seat-days aktual"** — gak bisa ngitung setahun ke depan dari
+  fakta, jadi maksa balik ke baseline+adjustment (model Stripe yang udah ditolak di atas).
+  Jadi ini BUKAN "bisa dua-duanya": bulanan→arrears, multi-period→prepaid+adjustment engine.
+- 3 model × 4 durasi = **12 kombinasi** buat produk yang belum punya 1 user aktif.
+- **Hybrid-nya udah ada:** seat = langganan bulanan, kredit AI = prepaid top-up on-demand.
+  Dua sumbu itu udah nutup "bayar tetap" + "bayar sesuai pakai".
+**Multi-period prepaid itu keputusan KOMERSIAL, bukan teknis** — selalu dateng bareng minta
+diskon. Bangun kalau ada customer nyata yang minta, karena saat itu baru ketauan diskonnya.
+**User udah setuju nunda ini** ("oke deh sesuai rekomendasi lu").
+
 ## PRICING — udah diputusin
 Analisis lengkap: https://claude.ai/code/artifact/915f1932-b731-43ba-89b0-fb496ef9e1d0
 - Cost/credit real: **Rp 91-160** sekarang, **Rp 135-240** setelah 2026-08-31 (promo abis, +50%).
