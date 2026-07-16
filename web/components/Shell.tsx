@@ -429,6 +429,16 @@ export function Shell({ children }: { children: ReactNode }) {
               }
             }
             refreshUnread();
+          } else if (
+            ev.type === "conversation.updated" ||
+            ev.type === "conversation.assigned" ||
+            ev.type === "conversation.closed"
+          ) {
+            // Reading a chat zeroes its unread_count and emits conversation.updated
+            // — but only message.persisted refreshed the badge, so the count went UP
+            // live and then STUCK: the sidebar kept showing unread long after the
+            // inbox was clear. Recount on the events that can clear it too.
+            refreshUnread();
           }
         } catch (err) {}
       };

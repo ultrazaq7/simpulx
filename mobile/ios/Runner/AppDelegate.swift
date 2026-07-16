@@ -11,6 +11,15 @@ import flutter_callkit_incoming
 @main
 @objc class AppDelegate: FlutterAppDelegate, FlutterImplicitEngineDelegate, PKPushRegistryDelegate {
 
+  // MUST be a stored property. As a local, the registry was deallocated the moment
+  // didFinishLaunching returned — taking its delegate with it — so iOS never
+  // handed us a VoIP token and no call push could ever arrive (the backend had
+  // nothing to send to: zero ios_voip tokens ever registered).
+  private var voipRegistry: PKPushRegistry?
+
+  // Used to hand a notification reply back to Dart (see userNotificationCenter).
+  private var notificationMessenger: FlutterBinaryMessenger?
+
   override func application(
     _ application: UIApplication,
     didFinishLaunchingWithOptions launchOptions: [UIApplication.LaunchOptionsKey: Any]?
@@ -20,11 +29,42 @@ import flutter_callkit_incoming
     let registry = PKPushRegistry(queue: DispatchQueue.main)
     registry.delegate = self
     registry.desiredPushTypes = [.voIP]
+    voipRegistry = registry
     return super.application(application, didFinishLaunchingWithOptions: launchOptions)
   }
 
   func didInitializeImplicitFlutterEngine(_ engineBridge: FlutterImplicitEngineBridge) {
     GeneratedPluginRegistrant.register(with: engineBridge.pluginRegistry)
+    notificationMessenger = engineBridge.pluginRegistry
+      .registrar(forPlugin: "SimpulxNotificationReply")?
+      .messenger()
+  }
+
+  // MARK: - Notification reply (iOS)
+
+  // The notification itself is rendered by iOS from the aps alert, NOT by
+  // flutter_local_notifications — and firebase_messaging owns the
+  // UNUserNotificationCenter delegate — so the plugin's Dart response callback
+  // never fired and typed replies were silently dropped. Handle the text response
+  // here and forward it to the SAME `onInlineReply` channel Android already uses.
+  override func userNotificationCenter(
+    _ center: UNUserNotificationCenter,
+    didReceive response: UNNotificationResponse,
+    withCompletionHandler completionHandler: @escaping () -> Void
+  ) {
+    if let textResponse = response as? UNTextInputNotificationResponse {
+      let userInfo = response.notification.request.content.userInfo
+      let chatId = (userInfo["conversationId"] as? String)
+        ?? (userInfo["conversation_id"] as? String) ?? ""
+      let text = textResponse.userText
+      if !chatId.isEmpty, !text.isEmpty, let messenger = notificationMessenger {
+        FlutterMethodChannel(name: "simpulx_notification", binaryMessenger: messenger)
+          .invokeMethod("onInlineReply", arguments: ["chatId": chatId, "replyText": text])
+      }
+      completionHandler()
+      return
+    }
+    super.userNotificationCenter(center, didReceive: response, withCompletionHandler: completionHandler)
   }
 
   // MARK: - PushKit VoIP

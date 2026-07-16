@@ -292,6 +292,10 @@ func (s *server) handleRequestCallPermission(w http.ResponseWriter, r *http.Requ
 		PermissionStatus: "pending", CallStatus: "requesting",
 	})
 
+	// An agent calling the customer is a human takeover just like replying: stand
+	// the bot down so it can't keep chatting underneath a live call.
+	s.standDownBot(r.Context(), a.OrgID, a.UserID, body.ConversationID)
+
 	w.Header().Set("Content-Type", "application/json")
 	json.NewEncoder(w).Encode(map[string]string{"call_id": callID, "status": "requesting"})
 }

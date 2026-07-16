@@ -444,6 +444,52 @@ func (s *server) handleSearchMessages(w http.ResponseWriter, r *http.Request) {
 }
 
 // ── POST /api/conversations/{id}/messages {body,type,media_url} ──
+// standDownBot flips a conversation to MANUAL because a human just engaged the
+// customer directly (sent a message, or placed a call). Claims the thread for the
+// acting agent when unassigned, records the takeover on the timeline, and
+// broadcasts conversation.updated so every client drops the "Hand to Simpuler"
+// button live — same shape handleToggleBot emits, so clients need no new handling.
+//
+// Without this the bot stayed "active" after an agent had already replied: the
+// takeover button never disappeared on its own and the bot could keep answering
+// on top of the human. Best-effort — never fail the send/call because of it.
+func (s *server) standDownBot(ctx context.Context, orgID, userID, convID string) {
+	tag, err := s.pool.Exec(ctx,
+		`UPDATE conversations
+		    SET is_bot_active = false,
+		        assigned_agent_id = COALESCE(assigned_agent_id, $3::uuid),
+		        updated_at = now()
+		  WHERE id = $1 AND organization_id = $2
+		    AND is_bot_active = true`, convID, orgID, userID)
+	if err != nil {
+		s.log.Warn("bot stand-down failed", "err", err, "conv", convID)
+		return
+	}
+	// Already manual -> nothing changed, so don't log or broadcast a no-op.
+	if tag.RowsAffected() == 0 {
+		return
+	}
+	_, _ = s.pool.Exec(ctx,
+		`INSERT INTO conversation_events (organization_id, conversation_id, type, actor_type, actor_id, detail)
+		 VALUES ($1, $2, 'bot_takeover', 'agent', $3::uuid, '{}'::jsonb)`,
+		orgID, convID, userID)
+	var agentID, agentName string
+	_ = s.pool.QueryRow(ctx,
+		`SELECT COALESCE(cv.assigned_agent_id::text, ''), COALESCE(u.full_name, '')
+		   FROM conversations cv
+		   LEFT JOIN users u ON u.id = cv.assigned_agent_id
+		  WHERE cv.id = $1 AND cv.organization_id = $2`, convID, orgID).Scan(&agentID, &agentName)
+	botActive := false
+	if err := s.bus.Publish(events.SubjectConversationUpdated, orgID, events.ConversationUpdated{
+		ConversationID:  convID,
+		BotActive:       &botActive,
+		AssignedAgentID: agentID,
+		AgentName:       agentName,
+	}); err != nil {
+		s.log.Warn("publish conversation.updated (bot stand-down) failed", "err", err)
+	}
+}
+
 func (s *server) handleSendMessage(w http.ResponseWriter, r *http.Request) {
 	a, _ := authFrom(r.Context())
 	convID := r.PathValue("id")
@@ -475,6 +521,9 @@ func (s *server) handleSendMessage(w http.ResponseWriter, r *http.Request) {
 		http.Error(w, err.Error(), http.StatusInternalServerError)
 		return
 	}
+	// A human just replied — the bot must stand down (and the takeover button
+	// disappear everywhere) instead of continuing to answer alongside the agent.
+	s.standDownBot(r.Context(), a.OrgID, a.UserID, convID)
 	writeJSON(w, map[string]any{"status": "queued"})
 }
 
