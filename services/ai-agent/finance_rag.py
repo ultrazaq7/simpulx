@@ -1,11 +1,28 @@
 """Retrieval Khusus untuk Simulasi Kredit (Finance Packages)."""
 from __future__ import annotations
 
+import json
 import logging
 import re
 from contextlib import asynccontextmanager
 
 log = logging.getLogger("finance-rag")
+
+
+def _as_dict(v):
+    """asyncpg returns a jsonb column as a JSON *string* (no codec is registered),
+    so `attributes` arrives as text, not a dict. Parse it so the per-tenor credit
+    fields (tenor/angsuran/tdp) are actually read — otherwise the model only ever
+    sees OTR and wrongly says the installment data isn't available."""
+    if isinstance(v, dict):
+        return v
+    if isinstance(v, str) and v.strip():
+        try:
+            d = json.loads(v)
+            return d if isinstance(d, dict) else {}
+        except Exception:
+            return {}
+    return {}
 
 
 @asynccontextmanager
@@ -114,12 +131,12 @@ async def _catalog_from_table(pool, campaign_id, brand: str, model: str,
         if g is None:
             g = {"item_name": r["item_name"], "variant_name": r["variant_name"],
                  "location_name": r["location_name"], "category_type": r["category_type"],
-                 "headline_price": r["headline_price"], "attributes": r["attributes"] or {},
+                 "headline_price": r["headline_price"], "attributes": _as_dict(r["attributes"]),
                  "tenors": []}
             _groups[k] = g
             _order.append(k)
-        a = r["attributes"] or {}
-        if isinstance(a, dict) and a.get("tenor") not in (None, ""):
+        a = _as_dict(r["attributes"])
+        if a.get("tenor") not in (None, ""):
             g["tenors"].append(a)
     rows = [_groups[k] for k in _order]
 
