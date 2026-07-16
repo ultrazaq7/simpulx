@@ -7,6 +7,7 @@ import (
 	"strings"
 
 	"github.com/google/uuid"
+	"github.com/simpulx/v2/libs/go/events"
 )
 
 // ── Web API lead sources ────────────────────────────────────
@@ -274,10 +275,11 @@ func (s *server) handleIngestLead(w http.ResponseWriter, r *http.Request) {
 	if msg == "" {
 		msg = "New lead from " + slug
 	}
+	var msgID string
 	if convID != "" {
-		_, _ = s.pool.Exec(ctx,
+		_ = s.pool.QueryRow(ctx,
 			`INSERT INTO messages (organization_id, conversation_id, direction, sender_type, type, body, status, genuine)
-			 VALUES ($1,$2,'inbound','contact','text',$3,'delivered',false)`, orgID, convID, msg)
+			 VALUES ($1,$2,'inbound','contact','text',$3,'delivered',false) RETURNING id::text`, orgID, convID, msg).Scan(&msgID)
 		_, _ = s.pool.Exec(ctx,
 			`UPDATE conversations SET last_message_at=now(), last_contact_message_at=now(),
 			        last_message_preview=LEFT($2,200), unread_count=unread_count+1, updated_at=now() WHERE id=$1`,
@@ -291,6 +293,24 @@ func (s *server) handleIngestLead(w http.ResponseWriter, r *http.Request) {
 			s.routeToBranch(ctx, branchID, convID)
 		} else if campaignID != "" {
 			s.routeToCampaign(ctx, campaignID, convID)
+		}
+	}
+
+	// Broadcast the inbound lead message AFTER routing so every open inbox pulls in
+	// the new conversation (already assigned) live — no manual refresh. This is the
+	// only realtime signal this path had been missing.
+	if convID != "" {
+		if err := s.bus.Publish(events.SubjectMessagePersisted, orgID, events.MessagePersisted{
+			ConversationID: convID,
+			ContactID:      contactID,
+			MessageID:      msgID,
+			Direction:      "inbound",
+			SenderType:     "contact",
+			Type:           "text",
+			Body:           msg,
+			Preview:        msg,
+		}); err != nil {
+			s.log.Error("publish message.persisted (web lead) failed", "err", err)
 		}
 	}
 
