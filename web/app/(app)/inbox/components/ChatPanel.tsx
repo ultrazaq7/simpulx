@@ -224,6 +224,7 @@ export default function ChatPanel({
   // the shared stack also makes the inbox's "Esc closes conversation" defer.
   useEscClose(statusOpen, () => setStatusOpen(false));
   const [snoozeOpen, setSnoozeOpen] = useState(false);
+  useEscClose(snoozeOpen, () => setSnoozeOpen(false));
   const [customSnooze, setCustomSnooze] = useState("");
   const [closeStageOpen, setCloseStageOpen] = useState(false);
   const [closeStageId, setCloseStageId] = useState("");
@@ -255,8 +256,12 @@ export default function ChatPanel({
     return () => el.removeEventListener("scroll", onScroll);
   }, [bodyRef, active?.id]);
   const jumpToBottom = useCallback(() => {
-    bodyRef.current?.scrollTo({ top: bodyRef.current.scrollHeight, behavior: "smooth" });
-  }, [bodyRef]);
+    // The thread is virtualized, so scrollTo(scrollHeight) undershoots the real
+    // last row. scrollToIndex lands exactly on the newest message, instantly.
+    if (timeline.length > 0) {
+      rowVirtualizer.scrollToIndex(timeline.length - 1, { align: "end" });
+    }
+  }, [rowVirtualizer, timeline.length]);
 
   // All media messages in this conversation, in timeline order, for the slideable gallery.
   const mediaMessages = useMemo(
@@ -285,6 +290,9 @@ export default function ChatPanel({
   const [searchOpen, setSearchOpen] = useState(false);
   const [searchTerm, setSearchTerm] = useState("");
   const [searchIdx, setSearchIdx] = useState(0);
+  // Register search on the shared ESC stack so it closes BEFORE the conversation
+  // (which sits on the stack at priority -1) — a raw handler lost that race.
+  useEscClose(searchOpen, () => { setSearchOpen(false); setSearchTerm(""); });
 
   const searchMatches = searchTerm.length >= 2
     ? timeline
@@ -312,14 +320,12 @@ export default function ChatPanel({
         e.preventDefault();
         setSearchOpen(true);
       }
-      if (e.key === "Escape" && searchOpen) {
-        setSearchOpen(false);
-        setSearchTerm("");
-      }
+      // Escape is handled by useEscClose (LIFO stack) so it closes search before
+      // the underlying conversation.
     };
     window.addEventListener("keydown", handler);
     return () => window.removeEventListener("keydown", handler);
-  }, [active, searchOpen]);
+  }, [active]);
 
   // Stage pipeline helpers
   const currentStageIdx = stages.findIndex((s) => s.id === active?.stage_id);

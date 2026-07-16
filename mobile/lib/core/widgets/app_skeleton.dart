@@ -112,6 +112,35 @@ class _TileSkeleton extends StatelessWidget {
 }
 
 /// Skeleton for a conversation thread: alternating left/right message bubbles.
+/// Skeleton for the AI-handling bar (above the composer) shown while the thread
+/// is still loading — avoids flashing a possibly-stale "Manual/Auto · {agent}"
+/// state before the real conversation resolves.
+class AiHandlingBarSkeleton extends StatelessWidget {
+  const AiHandlingBarSkeleton({super.key});
+
+  @override
+  Widget build(BuildContext context) {
+    final c = _SkeletonColors.of(context);
+    return Container(
+      padding: const EdgeInsets.fromLTRB(14, 9, 10, 9),
+      decoration: BoxDecoration(border: Border(top: BorderSide(color: c.block))),
+      child: Shimmer.fromColors(
+        baseColor: c.base,
+        highlightColor: c.highlight,
+        child: Row(
+          children: const [
+            _Block(width: 8, height: 8, shape: BoxShape.circle),
+            SizedBox(width: 9),
+            _Block(width: 120, height: 13),
+            Spacer(),
+            _Block(width: 116, height: 30, radius: 9),
+          ],
+        ),
+      ),
+    );
+  }
+}
+
 class MessageThreadSkeleton extends StatelessWidget {
   const MessageThreadSkeleton({super.key, this.bubbles = 8});
   final int bubbles;

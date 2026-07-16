@@ -370,12 +370,6 @@ class _ChatThreadPageState extends ConsumerState<ChatThreadPage>
           unreadCount: 0,
         );
 
-    // Once a human agent has replied, Simpuler stands down permanently for this
-    // conversation (orchestrator human-takeover guard), so "Hand to Simpuler"
-    // would be a no-op — it's hidden in that case.
-    final agentReplied = controller.state.messages.any((m) =>
-        m.direction == MessageDirection.outbound &&
-        m.senderType == MessageSenderType.agent);
 
     return Scaffold(
       appBar: _ThreadAppBar(
@@ -485,16 +479,30 @@ class _ChatThreadPageState extends ConsumerState<ChatThreadPage>
               ),
             ),
           // AI handling indicator + one-tap takeover (AI = indigo, human =
-          // brand). Hidden when the campaign has Simpuler auto-reply off.
+          // brand). Hidden when the campaign has Simpuler auto-reply off. While
+          // the thread is still loading, show a skeleton instead of flashing a
+          // possibly-stale Manual/Auto state.
           if (conversation.campaignAutoReply)
-            _AiHandlingBar(
-              isBotActive: conversation.isBotActive,
-              processing: _aiThinking,
-              agentName: conversation.agentName,
-              canHandBack: !agentReplied,
-              onToggle: (active) => ref
-                  .read(conversationActionsProvider(widget.conversationId))
-                  .toggleBot(active),
+            ListenableBuilder(
+              listenable: controller,
+              builder: (context, _) {
+                final s = controller.state;
+                if (s.initialLoading && s.messages.isEmpty) {
+                  return const AiHandlingBarSkeleton();
+                }
+                final replied = s.messages.any((m) =>
+                    m.direction == MessageDirection.outbound &&
+                    m.senderType == MessageSenderType.agent);
+                return _AiHandlingBar(
+                  isBotActive: conversation.isBotActive,
+                  processing: _aiThinking,
+                  agentName: conversation.agentName,
+                  canHandBack: !replied,
+                  onToggle: (active) => ref
+                      .read(conversationActionsProvider(widget.conversationId))
+                      .toggleBot(active),
+                );
+              },
             ),
           // Simpuler typing indicator (right-aligned, above composer)
           if (_aiThinking)
@@ -909,7 +917,13 @@ class _AiHandlingBar extends StatelessWidget {
       padding: const EdgeInsets.fromLTRB(14, 9, 10, 9),
       decoration: BoxDecoration(
         color: accent.withValues(alpha: 0.06),
-        border: const Border(top: BorderSide(color: AppColors.border)),
+        border: Border(
+          top: BorderSide(
+            color: Theme.of(context).brightness == Brightness.dark
+                ? AppColors.darkBorder
+                : AppColors.border,
+          ),
+        ),
       ),
       child: Row(
         children: [
