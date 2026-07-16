@@ -1,6 +1,8 @@
 package main
 
 import (
+	"crypto/sha256"
+	"encoding/hex"
 	"encoding/json"
 	"fmt"
 	"net/http"
@@ -17,7 +19,7 @@ import (
 func (s *server) handleListWebAPISources(w http.ResponseWriter, r *http.Request) {
 	a, _ := authFrom(r.Context())
 	rows, err := s.queryMaps(r.Context(),
-		`SELECT s.id::text AS id, s.name, s.slug, s.api_key, s.webhook_url,
+		`SELECT s.id::text AS id, s.name, s.slug, s.key_hint, s.webhook_url,
 		        s.auto_template_name, s.is_active, s.lead_count, s.created_at, s.updated_at,
 		        s.platform, s.campaign_id::text AS campaign_id, c.name AS campaign_name
 		   FROM web_api_sources s
@@ -35,6 +37,24 @@ func (s *server) handleListWebAPISources(w http.ResponseWriter, r *http.Request)
 
 func newAPIKey() string {
 	return "pk_" + strings.ReplaceAll(uuid.NewString(), "-", "")
+}
+
+// hashAPIKey is what we store and match on. SHA-256 (hex, lowercase) — the key
+// is high-entropy so no bcrypt work factor is needed, and inbound auth runs per
+// request. Must stay identical to the SQL backfill:
+// encode(digest(key,'sha256'),'hex').
+func hashAPIKey(key string) string {
+	sum := sha256.Sum256([]byte(key))
+	return hex.EncodeToString(sum[:])
+}
+
+// apiKeyHint is a masked identifier shown in the dashboard so a source is
+// recognizable without exposing the key (which we no longer store).
+func apiKeyHint(key string) string {
+	if len(key) < 12 {
+		return "pk_…"
+	}
+	return key[:8] + "…" + key[len(key)-4:]
 }
 
 type webAPISourceInput struct {
@@ -69,18 +89,20 @@ func (s *server) handleCreateWebAPISource(w http.ResponseWriter, r *http.Request
 		http.Error(w, "invalid platform", http.StatusBadRequest)
 		return
 	}
+	key := newAPIKey()
 	var id string
 	err := s.pool.QueryRow(r.Context(),
-		`INSERT INTO web_api_sources (organization_id, name, slug, api_key, auto_template_name, webhook_url, campaign_id, platform)
-		 VALUES ($1,$2,$3,$4,NULLIF($5,''),NULLIF($6,''),NULLIF($7,'')::uuid,$8) RETURNING id::text`,
-		a.OrgID, b.Name, b.Slug, newAPIKey(), b.AutoTemplateName, b.WebhookURL, b.CampaignID, b.Platform,
+		`INSERT INTO web_api_sources (organization_id, name, slug, api_key_hash, key_hint, auto_template_name, webhook_url, campaign_id, platform)
+		 VALUES ($1,$2,$3,$4,$5,NULLIF($6,''),NULLIF($7,''),NULLIF($8,'')::uuid,$9) RETURNING id::text`,
+		a.OrgID, b.Name, b.Slug, hashAPIKey(key), apiKeyHint(key), b.AutoTemplateName, b.WebhookURL, b.CampaignID, b.Platform,
 	).Scan(&id)
 	if err != nil {
 		http.Error(w, err.Error(), http.StatusInternalServerError)
 		return
 	}
 	s.audit(r.Context(), a, "created", "web_api_source", id, map[string]any{"name": b.Name, "platform": b.Platform})
-	writeJSON(w, map[string]any{"id": id})
+	// The plaintext key is returned exactly once — it is not recoverable later.
+	writeJSON(w, map[string]any{"id": id, "api_key": key})
 }
 
 // PATCH /api/web-api-sources/{id}
@@ -132,8 +154,8 @@ func (s *server) handleRegenerateWebAPIKey(w http.ResponseWriter, r *http.Reques
 	a, _ := authFrom(r.Context())
 	key := newAPIKey()
 	tag, err := s.pool.Exec(r.Context(),
-		`UPDATE web_api_sources SET api_key=$3, updated_at=now() WHERE id=$1 AND organization_id=$2`,
-		r.PathValue("id"), a.OrgID, key)
+		`UPDATE web_api_sources SET api_key_hash=$3, key_hint=$4, updated_at=now() WHERE id=$1 AND organization_id=$2`,
+		r.PathValue("id"), a.OrgID, hashAPIKey(key), apiKeyHint(key))
 	if err != nil {
 		http.Error(w, err.Error(), http.StatusInternalServerError)
 		return
@@ -237,7 +259,7 @@ func (s *server) handleIngestLead(w http.ResponseWriter, r *http.Request) {
 	err := s.pool.QueryRow(ctx,
 		`SELECT organization_id::text, id::text, slug,
 		        COALESCE(campaign_id::text,''), COALESCE(branch_id::text,'')
-		   FROM web_api_sources WHERE api_key=$1 AND is_active`, key).Scan(&orgID, &srcID, &slug, &campaignID, &branchID)
+		   FROM web_api_sources WHERE api_key_hash=$1 AND is_active`, hashAPIKey(key)).Scan(&orgID, &srcID, &slug, &campaignID, &branchID)
 	if err != nil {
 		http.Error(w, "invalid api key", http.StatusUnauthorized)
 		return

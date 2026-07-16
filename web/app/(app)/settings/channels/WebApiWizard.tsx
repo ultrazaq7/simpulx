@@ -76,10 +76,9 @@ export function WebApiWizard({ campaigns, onClose, onCreated }: {
         auto_template_name: template.trim() || undefined, webhook_url: webhook.trim() || undefined,
         campaign_id: campaignId || undefined, platform,
       });
-      // The create response carries only the id; fetch the row to reveal its key.
-      const all = await api.listWebApiSources().catch(() => []);
-      const row = all.find((x) => x.id === r.id);
-      setCreated({ apiKey: row?.api_key ?? "" });
+      // The full key is returned by create exactly once and never stored in
+      // readable form again — capture it here to show on the final step.
+      setCreated({ apiKey: r.api_key });
       setStep(2);
     } catch (e) { setErr(String(e)); }
     finally { setSaving(false); }

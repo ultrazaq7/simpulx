@@ -559,7 +559,7 @@ export interface WebApiSource {
   id: string;
   name: string;
   slug: string | null;
-  api_key: string;
+  key_hint: string | null; // masked identifier; the full key is shown only once at create/regenerate
   webhook_url: string | null;
   auto_template_name: string | null;
   campaign_id: string | null;

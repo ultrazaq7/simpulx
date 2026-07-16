@@ -4,7 +4,7 @@ import { useI18n } from "@/lib/i18n";
 // Captures leads from ad platforms / external systems via an API key; each lead
 // opens a conversation in the inbox attributed to its source.
 import { useEffect, useState } from "react";
-import { Plus, RefreshCw, Pencil, Trash2, Copy, RotateCw, Plug, Key, Search } from "lucide-react";
+import { Plus, RefreshCw, Pencil, Trash2, RotateCw, Plug, Key, Search } from "lucide-react";
 import { api } from "@/lib/api";
 import { Select } from "@/components/Select";
 import SidePanel from "@/components/SidePanel";
@@ -110,8 +110,9 @@ export function WebApiTab() {
                   </div>
                   <div className="min-w-0 flex-1 hidden md:flex items-center gap-2 px-2.5 py-1.5 rounded-lg bg-muted/50">
                     <Key className="w-[15px] h-[15px] text-muted-foreground shrink-0" />
-                    <span className="text-xs text-muted-foreground flex-1 truncate">{p.api_key.slice(0, 10)}{"•".repeat(14)}</span>
-                    <Tip label={t("settings.copyKey")}><button onClick={() => copy(p.api_key, "API key copied")} className="p-1 outline-none text-muted-foreground hover:text-foreground transition-colors"><Copy className="w-[15px] h-[15px]" /></button></Tip>
+                    {/* The key is stored hashed and shown in full only once at
+                        create/regenerate — here we can only show its masked hint. */}
+                    <span className="text-xs text-muted-foreground flex-1 truncate">{p.key_hint || `pk_${"•".repeat(14)}`}</span>
                     <Tip label={t("settings.regenerateKey")}><button onClick={() => regen(p)} className="p-1 outline-none text-muted-foreground hover:text-foreground transition-colors"><RotateCw className="w-[15px] h-[15px]" /></button></Tip>
                   </div>
                   <div className="hidden lg:flex flex-col items-end shrink-0 text-[11px] text-muted-foreground leading-tight whitespace-nowrap">
