@@ -47,11 +47,19 @@ const (
 )
 
 // Envelope adalah amplop umum semua event.
+//
+// Seq is a per-org monotonic sequence assigned by the realtime relay (NOT by
+// publishers) right before fan-out. Redis pub/sub is fire-and-forget: a client
+// that is mid-reconnect — or merely slow — loses events with no trace, and
+// without a sequence NOTHING ever notices, so the UI silently goes stale until a
+// manual reload. With it, a client that sees seq jump from 47 to 49 knows it
+// missed 48 and can reconcile. Zero on events that never went through the relay.
 type Envelope struct {
 	ID    string          `json:"id"`
 	Type  string          `json:"type"`
 	OrgID string          `json:"org_id"`
 	TS    time.Time       `json:"ts"`
+	Seq   int64           `json:"seq,omitempty"`
 	Data  json.RawMessage `json:"data"`
 }
 

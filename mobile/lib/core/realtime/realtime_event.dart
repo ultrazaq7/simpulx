@@ -12,6 +12,7 @@ class RealtimeEvent {
     required this.orgId,
     required this.ts,
     required this.data,
+    this.seq = 0,
   });
 
   final String id;
@@ -19,6 +20,10 @@ class RealtimeEvent {
   final String orgId;
   final DateTime ts;
   final Map<String, dynamic> data;
+
+  /// Per-org monotonic sequence stamped by the realtime relay, used to detect
+  /// events dropped by Redis pub/sub (see RealtimeClient.gaps). 0 = not stamped.
+  final int seq;
 
   bool get isMessagePersisted => type == 'message.persisted';
   bool get isConversationAssigned => type == 'conversation.assigned';
@@ -46,6 +51,9 @@ class RealtimeEvent {
       ts: DateTime.tryParse((json['ts'] ?? '') as String)?.toLocal() ??
           DateTime.now(),
       data: (json['data'] as Map?)?.cast<String, dynamic>() ?? const {},
+      // Omitted (0) on events the relay couldn't stamp — treated as "unknown"
+      // so gap detection never raises a false alarm.
+      seq: (json['seq'] as num?)?.toInt() ?? 0,
     );
   }
 }

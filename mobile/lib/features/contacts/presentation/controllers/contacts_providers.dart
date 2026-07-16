@@ -47,6 +47,13 @@ class ContactsController extends AsyncNotifier<List<Contact>> {
         _hasConnected = true;
       }
     });
+    // Same safety net as the inbox: a sequence gap means the socket was up but
+    // events were dropped (Redis pub/sub has no replay), so reconcile.
+    ref.listen(realtimeGapProvider, (_, next) {
+      if (next.value != null) {
+        _scheduleRefresh(const Duration(milliseconds: 300), priority: true);
+      }
+    });
     // Stay live with the backend: any message / stage / status / assignment
     // change (from this device, another agent, or the web) refreshes the leads
     // list so the contact's latest-thread context never goes stale. Debounced so

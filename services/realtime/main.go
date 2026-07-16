@@ -26,6 +26,11 @@ import (
 
 const redisChannelPrefix = "rt:events:"
 
+// Per-org realtime event counter (see forward()). Plain INCR key — if Redis is
+// wiped the counter restarts at 1, which clients handle as a "sequence went
+// backwards" reset and reconcile from.
+const redisSeqPrefix = "rt:seq:"
+
 // writeWait caps how long a single WebSocket write may block. Without it a slow
 // or half-open client makes WriteMessage hang forever, stalling that client's
 // stream (and its ping) until the 60s read deadline eventually reaps it. With it
@@ -84,7 +89,21 @@ func main() {
 
 	// 1) NATS -> Redis: satu instance (queue group) meneruskan tiap event yang
 	//    relevan untuk dashboard ke Redis.
+	//
+	// Stamp a per-org monotonic sequence right before fan-out so clients can
+	// DETECT dropped events. Redis pub/sub has no persistence or replay: a client
+	// that is mid-reconnect loses events silently, and with no sequence nothing
+	// ever notices — the UI just goes stale until a manual reload. INCR is atomic,
+	// so the sequence stays correct even with several realtime instances forwarding
+	// (the queue group means only one handles a given event anyway).
 	forward := func(env events.Envelope) error {
+		if seq, err := rdb.Incr(ctx, redisSeqPrefix+env.OrgID).Result(); err == nil {
+			env.Seq = seq
+		} else {
+			// Seq stays 0 -> clients treat it as "unknown" and skip gap detection
+			// for this event rather than raising a false alarm.
+			log.Warn("seq incr failed; event sent without sequence", "err", err, "org", env.OrgID)
+		}
 		raw, _ := json.Marshal(env)
 		return rdb.Publish(ctx, redisChannelPrefix+env.OrgID, raw).Err()
 	}

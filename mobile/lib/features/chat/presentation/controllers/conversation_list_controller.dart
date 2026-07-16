@@ -40,6 +40,12 @@ class ConversationListController extends AsyncNotifier<List<Conversation>> {
         _hasConnected = true;
       }
     });
+    // Reconnect-refetch only covers gaps we KNEW about (the socket dropped).
+    // Redis pub/sub can also silently swallow an event while the socket is up —
+    // the relay's sequence catches exactly that, so reconcile when it does.
+    ref.listen(realtimeGapProvider, (_, next) {
+      if (next.value != null) refresh();
+    });
     // Cache-first: render the last snapshot instantly, then refresh in the
     // background, so opening the inbox doesn't block on the network round-trip.
     final cache = ref.read(appCacheProvider);

@@ -35,6 +35,14 @@ final realtimeEventsProvider = StreamProvider<RealtimeEvent>((ref) {
   return ref.watch(realtimeClientProvider).events;
 });
 
+/// Fires when the socket was up but we provably MISSED events (a jump in the
+/// relay's per-org sequence). Redis pub/sub is fire-and-forget, so this is a real
+/// scenario, and nothing else can detect it. Controllers listen and refetch —
+/// this is what stops the inbox/leads going quietly stale until a manual reload.
+final realtimeGapProvider = StreamProvider<int>((ref) {
+  return ref.watch(realtimeClientProvider).gaps;
+});
+
 /// Connection status for a subtle UI indicator.
 final realtimeStatusProvider = StreamProvider<RealtimeStatus>((ref) {
   return ref.watch(realtimeClientProvider).status;

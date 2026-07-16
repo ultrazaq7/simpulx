@@ -29,6 +29,7 @@ class RealtimeClient {
 
   final _events = StreamController<RealtimeEvent>.broadcast();
   final _status = StreamController<RealtimeStatus>.broadcast();
+  final _gaps = StreamController<int>.broadcast();
 
   WebSocketChannel? _channel;
   StreamSubscription<dynamic>? _sub;
@@ -38,9 +39,19 @@ class RealtimeClient {
   bool _disposed = false;
   RealtimeStatus _current = RealtimeStatus.disconnected;
 
+  /// Highest per-org sequence seen on this connection; 0 = no baseline yet.
+  int _lastSeq = 0;
+  int _gapCount = 0;
+
   Stream<RealtimeEvent> get events => _events.stream;
   Stream<RealtimeStatus> get status => _status.stream;
   RealtimeStatus get currentStatus => _current;
+
+  /// Emits whenever a gap in the event sequence is detected — i.e. the socket was
+  /// up but we provably MISSED one or more events (Redis pub/sub is
+  /// fire-and-forget, so this happens for real). Listeners must reconcile by
+  /// refetching; without this the UI silently stays stale until a manual reload.
+  Stream<int> get gaps => _gaps.stream;
 
   /// Begin connecting and keep the connection alive (idempotent).
   void start() {
@@ -86,6 +97,10 @@ class RealtimeClient {
         return;
       }
       _attempt = 0;
+      // New connection -> the old sequence is meaningless (events during the gap
+      // are gone for good). Re-baseline on the next event; the refetch that the
+      // reconnect already triggers is what covers the missed window.
+      _lastSeq = 0;
       _setStatus(RealtimeStatus.connected);
       _sub = channel.stream.listen(
         _onData,
@@ -105,10 +120,32 @@ class RealtimeClient {
       final decoded = jsonDecode(raw);
       if (decoded is! Map<String, dynamic>) return;
       final event = RealtimeEvent.tryParse(decoded);
-      if (event != null) _events.add(event);
+      if (event == null) return;
+      _checkSequence(event.seq);
+      _events.add(event);
     } catch (_) {
       // Ignore malformed frames.
     }
+  }
+
+  /// Detect dropped events via the relay's per-org sequence.
+  ///
+  /// - seq == 0: the relay couldn't stamp it -> unknown, skip (no false alarm).
+  /// - no baseline yet: adopt it (the first event after connect can be any
+  ///   number; the reconnect refetch already covers what came before).
+  /// - seq <= last: duplicate/replay, or Redis was wiped and the counter
+  ///   restarted -> re-baseline and reconcile, since we can't reason about it.
+  /// - seq > last + 1: we provably missed (seq - last - 1) events -> reconcile.
+  void _checkSequence(int seq) {
+    if (seq <= 0) return;
+    final last = _lastSeq;
+    _lastSeq = seq;
+    if (last == 0) return; // first event on this connection: baseline only
+    if (seq == last + 1) return; // in order, nothing missed
+    if (kDebugMode) {
+      debugPrint('[realtime] sequence gap: $last -> $seq (resyncing)');
+    }
+    if (!_gaps.isClosed) _gaps.add(++_gapCount);
   }
 
   void _onClosed() {
@@ -149,5 +186,6 @@ class RealtimeClient {
     await _teardownSocket();
     await _events.close();
     await _status.close();
+    await _gaps.close();
   }
 }
