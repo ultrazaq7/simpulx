@@ -63,6 +63,12 @@ func (a *app) handleAssign(w http.ResponseWriter, r *http.Request) {
 			return
 		}
 		ag = agent{ID: body.AgentID}
+		// Carry the agent's name so ConversationAssigned renders "Manual · {name}"
+		// on every client with no follow-up fetch. The round-robin pickAgent path
+		// already fills Name; the manual-target path used to leave it empty.
+		_ = a.st.pool.QueryRow(ctx,
+			`SELECT full_name FROM users WHERE id=$1::uuid AND organization_id=$2`,
+			body.AgentID, meta.OrgID).Scan(&ag.Name)
 	} else {
 		picked, found, err := a.st.pickAgent(ctx, meta.OrgID)
 		if err != nil || !found {

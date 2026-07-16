@@ -77,8 +77,16 @@ func (s *server) applyContactLead(ctx context.Context, orgID, actorID string, co
 				return touched, err
 			}
 			touched = true
+			// Carry the agent name so clients render the new owner instantly (the
+			// id-only publish forced a refetch to resolve the name).
+			var agentName string
+			if aid := derefStr(agentID); aid != "" {
+				_ = s.pool.QueryRow(ctx,
+					`SELECT full_name FROM users WHERE id=$1::uuid AND organization_id=$2`,
+					aid, orgID).Scan(&agentName)
+			}
 			_ = s.bus.Publish(events.SubjectConversationAssigned, orgID, events.ConversationAssigned{
-				ConversationID: convID, AgentID: derefStr(agentID),
+				ConversationID: convID, AgentID: derefStr(agentID), AgentName: agentName,
 			})
 		}
 		return touched, nil
