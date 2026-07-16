@@ -144,12 +144,22 @@ async def _catalog_from_table(pool, campaign_id, brand: str, model: str,
     # within it if possible). This must win over the plain city preference so a
     # lead asking about "Ultimate" is never quoted the cheaper "Exceed" price.
     focus_note = None
+    # Set when the lead's city is known but NO row carries it. The rows we inject are
+    # then another city's prices, and quoting them as if they applied is the worst
+    # failure this module has: a wrong number stated confidently to a customer. Both
+    # branches below used to fall back to all rows silently -- keep the fallback (a
+    # neighbouring city's price is still useful context) but never let it pass as the
+    # lead's own price.
+    city_mismatch = False
     hits = _variant_hits(query, rows)
     if hits:
         if city:
             cl = city.strip().lower()
             city_hits = [r for r in hits if r["location_name"] and cl in r["location_name"].lower()]
-            hits = city_hits or hits
+            if city_hits:
+                hits = city_hits
+            else:
+                city_mismatch = True
         rest = [r for r in rows if r not in hits]
         rows = hits + rest
         focus_note = ("Customer menyebut varian/tipe spesifik; baris yang cocok sudah diletakkan "
@@ -160,6 +170,8 @@ async def _catalog_from_table(pool, campaign_id, brand: str, model: str,
         pref = [r for r in rows if r["location_name"] and cl in r["location_name"].lower()]
         if pref:
             rows = pref
+        else:
+            city_mismatch = True
 
     # Bound what we inject (ranking already put the relevant variants first).
     rows = rows[:14]
@@ -201,9 +213,19 @@ async def _catalog_from_table(pool, campaign_id, brand: str, model: str,
                     money = rupiah(v) if k in ("dp", "dp_amount", "emi", "plafon", "otr_price", "price") else None
                     parts.append(f"| {k}: {money or v}")
         lines.append("  " + f"{i}. " + " ".join(str(p) for p in parts if p))
-    lines.append("CATATAN VARIAN: Daftar di atas memuat SEMUA varian/tipe yang tersedia untuk model & area ini. "
+    # "untuk model & area ini" is only true when the rows actually carry the lead's
+    # city; on a mismatch it asserts the wrong city's prices are the lead's own.
+    area_claim = "model ini" if city_mismatch else "model & area ini"
+    lines.append(f"CATATAN VARIAN: Daftar di atas memuat SEMUA varian/tipe yang tersedia untuk {area_claim}. "
                  "Untuk 'tipe tertinggi/termahal' pilih OTR TERBESAR; 'termurah/entry-level' pilih OTR terkecil. "
                  "Jika varian yang ditanya ADA di daftar, harganya TERSEDIA -- jangan bilang belum ada data.")
+    if city_mismatch:
+        lines.append(
+            f"CATATAN AREA -- PENTING: TIDAK ADA data harga untuk area customer ({city}). "
+            "Harga di atas berasal dari area LAIN (kota tertera di tiap baris) dan BISA BERBEDA. "
+            "JANGAN sebut angka di atas sebagai harga untuk area customer. Kalau customer menanyakan "
+            "harga/DP/cicilan untuk areanya, katakan datanya belum tersedia untuk area itu dan tawarkan "
+            "cek ke tim. Boleh sebut harga di atas HANYA sebagai gambaran dan WAJIB sebut nama kotanya.")
     if focus_note:
         lines.append("CATATAN FOKUS: " + focus_note)
     lines.append("CATATAN UNTUK AI: Jika customer bertanya tentang harga/DP/cicilan, GUNAKAN angka dari atas persis untuk varian yang ditanya. "
