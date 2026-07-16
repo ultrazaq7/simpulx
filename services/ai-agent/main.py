@@ -133,18 +133,37 @@ async def extract_catalog(req: ExtractCatalogReq):
             yield f"data: {json.dumps({'type': 'done', 'rows': [], 'error': 'no pdf'})}\n\n"
             return
         usage: dict = {}
+        recorded = False
+
+        async def flush_usage():
+            # A catalog extraction has no conversation, so conversation_id stays NULL.
+            nonlocal recorded
+            if recorded or not req.organization_id:
+                return
+            recorded = True
+            await llm_usage.record(state["pool"], req.organization_id, None, "catalog", usage, log)
+
         try:
             async for evt in llm.extract_catalog_stream(req.pdf_base64, segment=req.segment,
                                                         usage_out=usage):
+                # Record BEFORE yielding a terminal event, never after the loop: the
+                # gateway returns the moment it reads `done`/`error` (see
+                # runCatalogExtract in services/gateway/catalog.go), closing the
+                # connection, which CANCELS this generator. Anything after that final
+                # yield silently never runs — no error, just a missing row.
+                # usage is already complete here: extract_catalog_stream only emits a
+                # terminal event once the upstream HTTP stream is fully consumed.
+                if evt.get("type") in ("done", "error"):
+                    await flush_usage()
                 yield f"data: {json.dumps(evt)}\n\n"
         except Exception as e:  # noqa: BLE001
             log.exception("catalog extract failed")
+            # A PDF that blew up halfway still burned tokens — that is exactly the
+            # spend worth seeing.
+            await flush_usage()
             yield f"data: {json.dumps({'type': 'error', 'error': str(e)})}\n\n"
-        # A catalog extraction has no conversation, so conversation_id stays NULL.
-        # Runs on the success and failure paths alike: a PDF that blew up halfway
-        # still burned tokens, and that is exactly the spend worth seeing.
-        if req.organization_id:
-            await llm_usage.record(state["pool"], req.organization_id, None, "catalog", usage, log)
+        # Backstop for a stream that ends without any terminal event; no-op otherwise.
+        await flush_usage()
 
     return StreamingResponse(gen(), media_type="text/event-stream")
 
