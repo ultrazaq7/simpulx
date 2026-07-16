@@ -213,8 +213,10 @@ async def handle_followup(broker, pool, org_id: str, conv_id: str, log) -> None:
     async with pool.acquire() as conn:
         conv = await conn.fetchrow(
             """SELECT cv.is_bot_active, cv.ai_agent_id, cv.followup_count,
+                      cv.campaign_id,
                       cv.window_expires_at, COALESCE(cv.metadata, '{}'::jsonb) AS metadata,
                       cmp.ai_language, cmp.ai_dynamic_language,
+                      cmp.segment, cmp.brand AS campaign_brand,
                       cmp.name AS campaign_name, cmp.dealer_name,
                       ct.name AS contact_name,
                       ft.name AS ft_name, ft.language AS ft_language,
@@ -259,9 +261,13 @@ async def handle_followup(broker, pool, org_id: str, conv_id: str, log) -> None:
 
     finance_ctx = ""
     _lf = _lead_fields(conv["metadata"]) if conv else {}
-    if _lf.get("brand") or _lf.get("model"):
+    if conv and conv["campaign_id"]:
         import finance_rag
-        ctx = await finance_rag.get_finance_context(pool, _lf.get("brand"), _lf.get("model"), _lf.get("city"))
+        # Campaign-scoped, same as the live reply path: a follow-up must never ground
+        # on another dealer's pricing either.
+        ctx = await finance_rag.get_catalog_context(
+            pool, conv["campaign_id"], (_lf.get("brand") or conv["campaign_brand"]),
+            _lf.get("model"), _lf.get("city"), conv["segment"])
         if ctx:
             finance_ctx = f"\n\n{ctx}\n"
 

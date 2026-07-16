@@ -256,9 +256,11 @@ async def _catalog_from_table(pool, campaign_id, model: str,
         lines.append(
             f"CATATAN AREA -- PENTING: TIDAK ADA data harga untuk area customer ({city}). "
             "Harga di atas berasal dari area LAIN (kota tertera di tiap baris) dan BISA BERBEDA. "
-            "JANGAN sebut angka di atas sebagai harga untuk area customer. Kalau customer menanyakan "
-            "harga/DP/cicilan untuk areanya, katakan datanya belum tersedia untuk area itu dan tawarkan "
-            "cek ke tim. Boleh sebut harga di atas HANYA sebagai gambaran dan WAJIB sebut nama kotanya.")
+            "JANGAN sebut angka di atas sebagai harga untuk area customer. "
+            "JANGAN sebut angka harga sama sekali KECUALI customer SECARA EKSPLISIT menanyakan "
+            "harga/DP/cicilan. Kalau tidak ditanya, JANGAN pancing dengan angka. Kalau ditanya: "
+            "bilang data areanya belum tersedia, tawarkan cek ke tim, dan boleh sebut harga di atas "
+            "HANYA sebagai gambaran + WAJIB sebut nama kotanya.")
     if focus_note:
         lines.append("CATATAN FOKUS: " + focus_note)
     lines.append("CATATAN UNTUK AI: Jika customer bertanya tentang harga/DP/cicilan, GUNAKAN angka dari atas persis untuk varian yang ditanya. "

@@ -184,6 +184,7 @@ async def summary_stream(req: SummaryReq):
         conv = await conn.fetchrow(
             """SELECT a.system_prompt, a.model,
                       COALESCE(cv.metadata, '{}'::jsonb) AS metadata,
+                      cv.campaign_id, cmp.segment, cmp.brand AS campaign_brand,
                       cmp.name AS campaign_name, cmp.dealer_name
                  FROM conversations cv
                  LEFT JOIN ai_agents a ON a.id = cv.ai_agent_id
@@ -194,9 +195,13 @@ async def summary_stream(req: SummaryReq):
 
     finance_ctx = ""
     _lf = _lead_fields(conv["metadata"]) if conv else {}
-    if _lf.get("brand") or _lf.get("model"):
+    if conv and conv["campaign_id"]:
         import finance_rag
-        ctx = await finance_rag.get_finance_context(pool, _lf.get("brand"), _lf.get("model"), _lf.get("city"))
+        # Campaign-scoped, same as the live reply path: a draft the agent sends to the
+        # customer must ground on THIS campaign's pricelist, never another dealer's.
+        ctx = await finance_rag.get_catalog_context(
+            pool, conv["campaign_id"], (_lf.get("brand") or conv["campaign_brand"]),
+            _lf.get("model"), _lf.get("city"), conv["segment"])
         if ctx:
             finance_ctx = f"\n\n{ctx}\n"
 
@@ -255,6 +260,7 @@ async def reply_stream(req: SummaryReq):
         conv = await conn.fetchrow(
             """SELECT a.system_prompt, a.model,
                       COALESCE(cv.metadata, '{}'::jsonb) AS metadata,
+                      cv.campaign_id, cmp.segment, cmp.brand AS campaign_brand,
                       cmp.name AS campaign_name, cmp.dealer_name
                  FROM conversations cv
                  LEFT JOIN ai_agents a ON a.id = cv.ai_agent_id
@@ -265,9 +271,13 @@ async def reply_stream(req: SummaryReq):
 
     finance_ctx = ""
     _lf = _lead_fields(conv["metadata"]) if conv else {}
-    if _lf.get("brand") or _lf.get("model"):
+    if conv and conv["campaign_id"]:
         import finance_rag
-        ctx = await finance_rag.get_finance_context(pool, _lf.get("brand"), _lf.get("model"), _lf.get("city"))
+        # Campaign-scoped, same as the live reply path: a draft the agent sends to the
+        # customer must ground on THIS campaign's pricelist, never another dealer's.
+        ctx = await finance_rag.get_catalog_context(
+            pool, conv["campaign_id"], (_lf.get("brand") or conv["campaign_brand"]),
+            _lf.get("model"), _lf.get("city"), conv["segment"])
         if ctx:
             finance_ctx = f"\n\n{ctx}\n"
 
