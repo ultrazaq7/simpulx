@@ -382,12 +382,20 @@ async def maybe_nurture(broker, pool, org_id: str, conv_id: str, message_id, bod
                       a.system_prompt, a.model,
                       cmp.ai_auto_reply, cmp.segment, cmp.brand, cmp.ai_language,
                       cmp.ai_dynamic_language, cmp.intake_form_id::text AS intake_form_id,
-                      cmp.name AS campaign_name, cmp.dealer_name
+                      cmp.name AS campaign_name, cmp.dealer_name,
+                      -- An ad opener (CTWA referral, or a wa.me link pre-filled with the
+                      -- campaign keyword) is NOT the lead's own words. messaging already
+                      -- flags those genuine=false; without reading it here the catalog
+                      -- would treat an ad's tracking param ("pajero1", "promo-dp-ringan")
+                      -- as a real question -- ranking on it, and worse, letting it open
+                      -- the price gate. Default TRUE so a missing/unknown id behaves as
+                      -- it did before (a real typed message).
+                      COALESCE((SELECT m.genuine FROM messages m WHERE m.id = $2), true) AS genuine
                  FROM conversations cv
                  LEFT JOIN ai_agents a ON a.id = cv.ai_agent_id
                  LEFT JOIN campaigns cmp ON cmp.id = cv.campaign_id
                 WHERE cv.id = $1""",
-            conv_id,
+            conv_id, message_id,
         )
     if row is None or not row["ai_auto_reply"]:
         return  # campaign didn't opt into AI auto-reply
@@ -507,9 +515,12 @@ async def _generate_and_send_reply(broker, pool, conn, org_id: str, conv_id: str
         import finance_rag
         # Campaign-scoped catalog first (falls back to global finance_packages).
         _lf = _lead_fields(row["metadata"])
+        # Only the lead's OWN words may rank variants or open the price gate; an ad
+        # opener is a tracking param, not a question.
         fc = await finance_rag.get_catalog_context(
             pool, row["campaign_id"], (_lf.get("brand") or row["brand"]), _lf.get("model"),
-            _lf.get("city"), row["segment"], query=body, conn=conn)
+            _lf.get("city"), row["segment"],
+            query=(body if row["genuine"] else None), conn=conn)
         if fc:
             finance_ctx = f"\n\n{fc}\n"
 

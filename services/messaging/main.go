@@ -153,9 +153,12 @@ func (a *app) onReceived(env events.Envelope) error {
 	} else if cID, ok := a.st.resolveCampaignByReferral(ctx, env.OrgID, e.Referral); ok {
 		campaignID, matched = cID, true
 	}
+	// Tracked because a keyword-routed body is an ad/link template pre-fill ("pajero1"),
+	// not something the lead typed -> it must not count as genuine below.
+	keywordRouted := false
 	if !matched {
 		if cID, ok := a.st.resolveCampaignByKeyword(ctx, env.OrgID, body); ok {
-			campaignID, matched = cID, true
+			campaignID, matched, keywordRouted = cID, true, true
 		}
 	}
 	if matched {
@@ -189,8 +192,11 @@ func (a *app) onReceived(env events.Envelope) error {
 	a.st.ensureAssigned(ctx, conv.ID)
 	// CTWA ad opener (referral) is template pre-fill, not genuinely typed -> not
 	// genuine, so the lead classifier ignores it (avoids biasing every ad lead).
+	// A keyword-routed body is the same thing arriving without a referral: a wa.me
+	// link pre-filled by the ad ("pajero1"). It used to count as genuine, so the AI
+	// read the ad's tracking param as the customer's own words -- and answered it.
 	// "unsupported" juga bukan konten asli (Meta tak mengirim isinya) -> not genuine.
-	genuine := e.Referral == "" && e.Message.Type != "unsupported"
+	genuine := e.Referral == "" && !keywordRouted && e.Message.Type != "unsupported"
 	// Simpan payload webhook mentah untuk pesan "unsupported" agar bisa diinspeksi
 	// dari DB (messages.metadata.raw_webhook) -- konten asli tak pernah hilang lagi.
 	meta := buildMessageMeta(e)
