@@ -54,7 +54,20 @@ function activityLabel(ev: import("@/lib/types").ContactActivity): string {
     case "closed": return "Conversation closed";
     case "reopened": return "Conversation reopened";
     case "handoff": return "Handed off to a human agent";
-    default: return ev.type.replace(/_/g, " ");
+    // Explicit labels for the AI takeover/release entries and contact edits —
+    // these used to fall through to the raw enum and render lowercase
+    // ("bot takeover") next to properly-cased rows.
+    case "bot_takeover": return "Bot Takeover";
+    case "bot_released": return "Bot Released";
+    case "contact_updated": return "Contact Updated";
+    case "snoozed": return "Snoozed";
+    case "unassigned": return "Unassigned";
+    // Any unknown/new event type still renders Title Cased instead of as a raw
+    // lowercase enum, so the timeline can never look broken again.
+    default:
+      return ev.type
+        .replace(/_/g, " ")
+        .replace(/\b\w/g, (c) => c.toUpperCase());
   }
 }
 
@@ -90,6 +103,35 @@ export default function ContactDetailsPage() {
   }
 
   useEffect(() => { if (id) api.getContactActivity(id).then(setActivity).catch(() => {}); }, [id]);
+  // Keep History live. It was fetched ONCE on mount, so it went stale the moment
+  // anything changed — including edits made right here in this tab. Stage /
+  // interest / assignment / takeover changes are exactly what this timeline is
+  // built from, so refetch when one lands (from this tab, another agent, or the
+  // mobile app). A read (conversation.updated carrying only unread_count) creates
+  // no history row, so it must not trigger a pointless refetch on every chat open.
+  useEffect(() => {
+    if (!id) return;
+    const onWs = (e: Event) => {
+      const ev = (e as CustomEvent).detail;
+      const type = ev?.type;
+      if (
+        type !== "conversation.updated" &&
+        type !== "conversation.assigned" &&
+        type !== "conversation.closed" &&
+        type !== "contact.updated"
+      ) return;
+      const d = ev?.data ?? {};
+      const readOnly =
+        type === "conversation.updated" &&
+        d.unread_count !== undefined &&
+        d.bot_active === undefined &&
+        !d.stage_id && !d.interest_level && !d.status && !d.assigned_agent_id;
+      if (readOnly) return;
+      api.getContactActivity(id).then(setActivity).catch(() => {});
+    };
+    window.addEventListener("ws_message", onWs);
+    return () => window.removeEventListener("ws_message", onWs);
+  }, [id]);
   useEffect(() => { api.listStages().then((ss) => setStages(ss.map((s) => ({ id: s.id, name: s.name })))).catch(() => {}); }, []);
   useEffect(() => { api.listCustomFields().then(setCustomFields).catch(() => {}); }, []);
 
