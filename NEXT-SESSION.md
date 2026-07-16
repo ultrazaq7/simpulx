@@ -119,11 +119,26 @@ mesti ditambal `min(hari, 30)`. Konsekuensi yang diterima: rate harian beda tiap
 (1 hari di Feb lebih mahal dari 1 hari di Jan).
 
 ### Periode billing — SUDAH DIJAWAB user (2026-07-17): ANNIVERSARY
-Per tanggal daftar org, bukan bulan kalender. Org daftar 17 Juli → periode 17 Juli–16 Agustus.
-Pembagi prorata = panjang periode itu (lihat di atas) — periode anniversary bisa nyebrang
-2 bulan, makanya pembagi HARUS panjang periode, bukan "jumlah hari di bulan".
-**Terverifikasi 2026-07-17:** `org_subscriptions` cuma punya `renewal_date` (date, **nullable**,
-isinya **NULL**) — gak ada `period_start`/`period_end`. Skemanya mesti dibangun dari nol.
+Per anniversary, bukan bulan kalender. Pembagi prorata = panjang periode itu (lihat di atas) —
+periode anniversary bisa nyebrang 2 bulan, makanya pembagi HARUS panjang periode, bukan
+"jumlah hari di bulan".
+
+**Anchor-nya = tanggal SUBSCRIPTION DIAKTIFKAN BERBAYAR — BUKAN tanggal org dibuat.**
+Terverifikasi: org test dibuat **2026-06-17**, subscription-nya **2026-07-06** — **beda 19 hari**.
+Pakai `organizations.created_at` = anniversary meleset 19 hari.
+**Jebakan lanjutan:** `org_subscriptions.created_at` juga BUKAN anchor yang aman —
+`package_name` default `'starter'` + `status` default `'active'`, jadi row-nya bisa lahir
+otomatis pas org dibuat dalam keadaan "active" TANPA pembayaran apa pun.
+**Keputusan: simpen anchor EKSPLISIT** (`current_period_start` / `current_period_end`),
+di-set pas aktivasi berbayar pertama, di-roll tiap periode. JANGAN diturunkan dari `created_at`
+mana pun — `created_at` immutable, sedangkan anchor billing bisa PINDAH (upgrade/downgrade,
+cancel lalu reactivate, trial → paid).
+
+**Terverifikasi 2026-07-17 — tabel billing praktis belum ada:** `org_subscriptions` cuma punya
+`renewal_date` (date, **nullable**, isinya **NULL**), gak ada `period_start`/`period_end`.
+Tabel yang ada cuma `org_subscriptions` + `campaign_credits` — **gak ada** tabel invoice,
+payment, atau paket/harga (`finance_packages` itu katalog mobil lama, bukan billing).
+P6 = bangun dari nol, bukan nambal.
 
 ### Arrears (nagih di belakang) — user memilih ini, dan koheren
 User bilang "baru bisa billed pas udah jalan anniversary, baru invoice terbit".
