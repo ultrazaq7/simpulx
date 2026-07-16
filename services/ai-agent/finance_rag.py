@@ -131,6 +131,12 @@ async def _catalog_from_table(pool, campaign_id, model: str,
     needle = (model or "").strip()
     like = f"%{needle}%" if needle else "%"
     async with _acquire(pool, conn) as conn:
+        # The LIMIT must cover the WHOLE campaign catalog, because ranking (variant
+        # hits + city preference) happens in Python below -- a truncated fetch ranks
+        # rows it never saw. At LIMIT 300 over a 500-row catalog ordered by item_name,
+        # every XFORCE row (X sorts last) was cut off: turn 1 asked about Xforce and
+        # got Destinator. Rows collapse to one entry per variant right after this, and
+        # the injection is capped at 14, so a wide fetch costs nothing in prompt size.
         rows = await conn.fetch(
             """SELECT item_name, variant_name, location_name, category_type,
                       headline_price, attributes
@@ -139,7 +145,7 @@ async def _catalog_from_table(pool, campaign_id, model: str,
                   AND ($2 = '%' OR item_name ILIKE $2 OR variant_name ILIKE $2
                        OR ($3 <> '' AND $3 ILIKE '%' || item_name || '%'))
                 ORDER BY item_name NULLS LAST, variant_name NULLS LAST, headline_price ASC NULLS LAST
-                LIMIT 300""",
+                LIMIT 3000""",
             campaign_id, like, needle,
         )
     if not rows:
