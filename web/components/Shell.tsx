@@ -210,6 +210,14 @@ export function Shell({ children }: { children: ReactNode }) {
   const orgSettingsRef = useRef<any>({});
   const convNamesRef = useRef<Map<string, string>>(new Map());
   const notifiedRef = useRef<Set<string>>(new Set());
+  // Per-conversation unread counts, kept in sync by patching from live events
+  // instead of refetching the whole list on every message (that was O(agents ×
+  // messages) full list queries — the pattern that melted Postgres at scale).
+  // The badge is the sum; a full refetch only reseeds this or reconciles a gap.
+  const convUnreadRef = useRef<Map<string, number>>(new Map());
+  // Last per-org event seq seen; a jump (48 -> 50) means we missed 49 and must
+  // reconcile. 0 = "unknown" (event never went through the relay) — skip.
+  const lastSeqRef = useRef<number>(0);
   
   const [unreadCount, setUnreadCount] = useState(0);
   const [hasNotifs, setHasNotifs] = useState(false);
@@ -356,11 +364,34 @@ export function Shell({ children }: { children: ReactNode }) {
       .catch(() => {});
   }, []);
 
+  const recomputeUnread = () => {
+    let sum = 0;
+    convUnreadRef.current.forEach((n) => { sum += n; });
+    setUnreadCount(sum);
+  };
+
+  // Patch one conversation's unread count from a live event (authoritative value
+  // carried by message.persisted / conversation.updated) — no network call.
+  const setConvUnread = (convId: string | undefined, count: number) => {
+    if (!convId) return;
+    convUnreadRef.current.set(convId, Math.max(0, count));
+    recomputeUnread();
+  };
+
+  // Full reconcile: refetch the list and rebuild the map. Runs only on mount, on
+  // a manual refreshUnread event, on reconnect, and on a detected seq gap — NOT
+  // per message.
   const refreshUnread = () => {
     api.listConversations().then((convs) => {
-      setUnreadCount(convs.reduce((acc, c) => acc + (c.unread_count || 0), 0));
-      // Cache id -> name so message notifications can show the contact's name.
-      convs.forEach((c) => { if (c.id) convNamesRef.current.set(c.id, c.contact_name || c.contact_phone || "New message"); });
+      const next = new Map<string, number>();
+      convs.forEach((c) => {
+        if (!c.id) return;
+        next.set(c.id, c.unread_count || 0);
+        // Cache id -> name so message notifications can show the contact's name.
+        convNamesRef.current.set(c.id, c.contact_name || c.contact_phone || "New message");
+      });
+      convUnreadRef.current = next;
+      recomputeUnread();
     }).catch(() => {});
   };
 
@@ -383,11 +414,27 @@ export function Shell({ children }: { children: ReactNode }) {
 
     const connect = () => {
       ws = new WebSocket(`${WS_URL}/ws?token=${getToken()}&org=${u.org_id}`);
-      ws.onopen = () => { attempt = 0; };
+      ws.onopen = () => {
+        // On a RE-connect we may have missed events while offline; the seq we had
+        // is now meaningless, so drop it and reconcile counts from the server.
+        // The first connection is already seeded by the mount-time refreshUnread.
+        if (attempt > 0) { lastSeqRef.current = 0; refreshUnread(); }
+        attempt = 0;
+      };
       ws.onmessage = (e) => {
         try {
           const ev = JSON.parse(e.data);
           window.dispatchEvent(new CustomEvent("ws_message", { detail: ev }));
+
+          // Gap detection: the relay stamps a per-org monotonic seq. If it jumps
+          // (e.g. 48 -> 50) we lost an event (Redis pub/sub is fire-and-forget)
+          // and our locally-patched unread counts may be stale — reconcile ONCE
+          // with a full refetch. seq 0 = event never went through the relay; skip.
+          const seq: number = typeof ev.seq === "number" ? ev.seq : 0;
+          if (seq > 0) {
+            if (lastSeqRef.current > 0 && seq > lastSeqRef.current + 1) refreshUnread();
+            if (seq > lastSeqRef.current) lastSeqRef.current = seq;
+          }
 
           const prefs = orgSettingsRef.current?.notifications || { sound: true, newMessages: true, newConversations: true };
           let payload = ev.data || ev;
@@ -417,28 +464,39 @@ export function Shell({ children }: { children: ReactNode }) {
             if (prefs.sound !== false) playBeep(1000, 0.25);
             loadNotifs();
           } else if (ev.type === "message.persisted") {
+            const convId: string | undefined = payload.conversation_id;
             const mine = !payload.assigned_agent_id || payload.assigned_agent_id === u.id;
+            const onThisConv = document.visibilityState === "visible" && !!convId && window.location.search.includes(`c=${convId}`);
             if (payload.direction === "inbound" && mine) {
-              const convId: string | undefined = payload.conversation_id;
               const mid = String(payload.message_id || `${convId}:${payload.preview}`);
-              const onThisConv = document.visibilityState === "visible" && !!convId && window.location.search.includes(`c=${convId}`);
               if (!notifiedRef.current.has(mid) && !onThisConv) {
                 notifiedRef.current.add(mid);
                 if (notifiedRef.current.size > 300) notifiedRef.current.clear();
                 if (prefs.sound !== false) playBeep(880, 0.15);
               }
             }
-            refreshUnread();
+            // Patch the badge from the event's authoritative unread_count instead
+            // of refetching the whole list per message. Skip the conv currently
+            // open+visible: reading it emits conversation.updated(0), and patching
+            // the incremented value here would just flicker. Only track convs that
+            // are mine or already in the map (i.e. visible at seed time) so the
+            // badge doesn't count other agents' threads.
+            if (!onThisConv && typeof payload.unread_count === "number" &&
+                (mine || convUnreadRef.current.has(convId!))) {
+              setConvUnread(convId, payload.unread_count);
+            }
           } else if (
             ev.type === "conversation.updated" ||
             ev.type === "conversation.assigned" ||
             ev.type === "conversation.closed"
           ) {
             // Reading a chat zeroes its unread_count and emits conversation.updated
-            // — but only message.persisted refreshed the badge, so the count went UP
-            // live and then STUCK: the sidebar kept showing unread long after the
-            // inbox was clear. Recount on the events that can clear it too.
-            refreshUnread();
+            // carrying the authoritative 0 — patch it directly (no refetch). This
+            // is what clears the badge that message.persisted raised. Events with
+            // no unread_count don't change the count; a seq gap reconciles the rest.
+            if (typeof payload.unread_count === "number") {
+              setConvUnread(payload.conversation_id, payload.unread_count);
+            }
           }
         } catch (err) {}
       };
