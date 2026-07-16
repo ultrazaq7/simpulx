@@ -86,10 +86,9 @@ ANALYZE_INSTRUCTION = (
     "pelanggan) dan (2) tandai bila lead batal. JANGAN menulis balasan chat.\n"
     "(Field kualifikasi prospek per-segmen — mis. model/kota/budget — diminta "
     "TERPISAH di objek 'fields' bila ada; jangan diulang di sini.)\n"
-    "Aturan: Jika lead LOST/batal beli, isi lost_reason HANYA dari enum ini: "
-    "bought_other_brand | bought_used_car | bought_elsewhere | competitor_promo | out_of_area | "
-    "price_too_high | financing_rejected | no_budget | postponed | wrong_product | changed_mind | "
-    "trade_in_issue. Jika belum lost, lost_reason=null. Data tak disebut -> null.\n"
+    "Aturan: Jika lead LOST/batal beli, isi lost_reason HANYA dari enum yang diberikan "
+    "(lihat 'PILIHAN lost_reason' di bawah). Jika belum lost, lost_reason=null. "
+    "Data tak disebut -> null.\n"
     "Ringkasan untuk sales SEMUA dalam Bahasa Indonesia:\n"
     "- summary: 1-3 kalimat inti kebutuhan customer (produk/unit diminati, budget, "
     "pertanyaan utama).\n"
@@ -427,6 +426,15 @@ def _extra_fields_instruction(extra_fields: List[dict]) -> str:
     )
 
 
+def _lost_reason_instruction(reasons: List[str]) -> str:
+    """The lost_reason enum is segment-specific (see segments.lost_reason_values),
+    so it is injected here instead of baked into the cached base instruction."""
+    return (
+        "\nPILIHAN lost_reason (pilih TEPAT SATU, HANYA dari daftar ini bila lead batal): "
+        + " | ".join(reasons) + "."
+    )
+
+
 def _shape_analyze(obj: dict, extra_fields: Optional[List[dict]] = None) -> dict:
     # Lead qualifiers (brand/model/city/timeframe/...) come via extra_fields ->
     # result["fields"], one segment-agnostic path — no dedicated car keys here.
@@ -454,19 +462,31 @@ def _mock_analyze(user_message: str) -> dict:
     }
 
 
+# Fallback lost_reason enum when a caller doesn't pass a segment-specific list
+# (kept in sync with segments._LOST_GENERIC + automotive). segments.lost_reason_values()
+# is the real source; this only guards a None caller so lost_reason is never open-ended.
+_DEFAULT_LOST_REASONS = [
+    "bought_elsewhere", "competitor_promo", "price_too_high", "no_budget", "postponed",
+    "wrong_product", "changed_mind", "out_of_area",
+    "bought_other_brand", "bought_used_car", "financing_rejected", "trade_in_issue",
+]
+
+
 async def analyze(system_prompt: str, history: Optional[List[dict]],
                   user_message: str, model: Optional[str] = None,
-                  extra_fields: Optional[List[dict]] = None) -> dict:
+                  extra_fields: Optional[List[dict]] = None,
+                  lost_reasons: Optional[List[str]] = None) -> dict:
     """Ekstraksi field + ringkasan/saran untuk sales. Tanpa balasan chat.
 
-    extra_fields (WS-B): non-automotive segment fields to ALSO extract, returned
-    under result["fields"]. When None/empty (automotive or unset segment) the
-    prompt, its cache prefix, and the result shape are all UNCHANGED."""
+    extra_fields (WS-B): per-segment qualifier fields to extract, returned under
+    result["fields"] (now for EVERY segment, automotive included).
+    lost_reasons: the segment-specific lost_reason enum to constrain the model to
+    (segments.lost_reason_values); falls back to a default set if not given."""
     if not (settings.llm_provider == "anthropic" and settings.anthropic_api_key):
         return _mock_analyze(user_message)
     # Static per-agent prefix (system_prompt + instruksi) di-cache -> hemat input
     # token lintas pesan untuk agent yang sama.
-    instruction = ANALYZE_INSTRUCTION
+    instruction = ANALYZE_INSTRUCTION + _lost_reason_instruction(lost_reasons or _DEFAULT_LOST_REASONS)
     if extra_fields:
         instruction += _extra_fields_instruction(extra_fields)
     system = [{

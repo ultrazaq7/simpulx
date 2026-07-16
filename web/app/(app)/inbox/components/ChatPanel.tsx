@@ -696,6 +696,7 @@ export default function ChatPanel({
       {/* ── Lost / Spam reason picker (FR-34) ── */}
       <LostReasonDialog
         open={outcomeOpen}
+        segment={active?.campaign_segment}
         onClose={() => setOutcomeOpen(false)}
         onSubmit={(reason, category, didPurchase) => {
           if (!active) { setOutcomeOpen(false); return; }

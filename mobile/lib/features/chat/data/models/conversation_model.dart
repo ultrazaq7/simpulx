@@ -29,6 +29,7 @@ class ConversationModel {
       snoozedUntil: asDateOrNull(json['snoozed_until']),
       lostReason: asStringOrNull(json['lost_reason']),
       campaignName: asStringOrNull(json['campaign_name']),
+      campaignSegment: asStringOrNull(json['campaign_segment']),
       lastOutboundStatus: asStringOrNull(json['last_outbound_status']),
       campaignSmartSummary: asBool(json['campaign_smart_summary'] ?? true),
       campaignAutoReply: asBool(json['campaign_auto_reply'] ?? false),

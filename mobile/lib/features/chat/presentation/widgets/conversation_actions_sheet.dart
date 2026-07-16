@@ -167,28 +167,110 @@ class _ActionsSheet extends ConsumerWidget {
         _ => 'Open',
       };
 
-  /// Canonical lost-reason code -> English source label. The English label is a
-  /// translation key (see [Tr.tr]), so the saved reason localizes the same way as
-  /// the picker that set it. Keep in sync with the `groups` list in
-  /// [_pickLostReason].
-  static const Map<String, String> _lostReasonLabels = {
-    'bought_other_brand': 'Another brand',
-    'bought_used_car': 'A used car instead',
-    'bought_elsewhere': 'Same brand, other dealer',
-    'competitor_promo': 'Competitor promo',
-    'out_of_area': 'Out of area',
-    'price_too_high': 'Price too high',
-    'financing_rejected': 'Financing rejected',
-    'no_budget': 'No budget / postponed',
-    'wrong_product': 'Wrong product / spec',
-    'changed_mind': 'Changed mind / not buying',
-    'trade_in_issue': 'Trade-in issue',
-    'no_response': 'No response',
+  // ── Segment-aware lost-reason taxonomy ─────────────────────────────────
+  // Mirrors services/ai-agent/segments.py EXACTLY. Each business reason is
+  // (code, English label); the English label doubles as the i18n key (see
+  // [Tr.tr]). Generic reasons apply to every segment; per-segment extras are
+  // appended. The "bought" group => did_purchase=true, "nobuy" => false.
+
+  /// Generic "bought elsewhere" reasons (the Purchase group) for every segment.
+  static const List<(String, String)> _lostGenericBought = [
+    ('bought_elsewhere', 'Bought elsewhere'),
+    ('competitor_promo', 'Competitor promo'),
+  ];
+
+  /// Generic "didn't buy" reasons (the Not Purchase group) for every segment.
+  static const List<(String, String)> _lostGenericNobuy = [
+    ('price_too_high', 'Price too high'),
+    ('no_budget', 'No budget'),
+    ('postponed', 'Postponed'),
+    ('wrong_product', 'Wrong product / spec'),
+    ('changed_mind', 'Changed mind'),
+    ('out_of_area', 'Out of area'),
+  ];
+
+  /// Segment-specific extras, keyed by the normalized (lowercase) campaign
+  /// segment. Each entry is (code, English label, isBought).
+  static const Map<String, List<(String, String, bool)>> _lostSegmentExtra = {
+    'automotive': [
+      ('bought_other_brand', 'Another brand', true),
+      ('bought_used_car', 'A used car instead', true),
+      ('financing_rejected', 'Financing rejected', false),
+      ('trade_in_issue', 'Trade-in issue', false),
+    ],
+    'property / real estate': [
+      ('bought_other_unit', 'Another property', true),
+      ('financing_rejected', 'Financing rejected', false),
+      ('location_mismatch', 'Location mismatch', false),
+    ],
+    'finance': [
+      ('financing_rejected', 'Financing rejected', false),
+      ('rate_too_high', 'Rate too high', false),
+      ('ineligible', 'Not eligible', false),
+    ],
+    'insurance': [
+      ('already_insured', 'Already insured', true),
+      ('premium_too_high', 'Premium too high', false),
+      ('coverage_insufficient', 'Coverage insufficient', false),
+    ],
+    'retail / fmcg': [
+      ('found_cheaper', 'Found cheaper', true),
+      ('out_of_stock', 'Out of stock', false),
+    ],
+    'education': [
+      ('enrolled_elsewhere', 'Enrolled elsewhere', true),
+      ('program_unavailable', 'Program unavailable', false),
+      ('schedule_conflict', 'Schedule conflict', false),
+    ],
+    'healthcare': [
+      ('chose_other_provider', 'Chose another provider', true),
+      ('schedule_conflict', 'Schedule conflict', false),
+    ],
+    'travel & hospitality': [
+      ('booked_elsewhere', 'Booked elsewhere', true),
+      ('dates_unavailable', 'Dates unavailable', false),
+    ],
+    'food & beverage': [
+      ('chose_other_vendor', 'Chose another vendor', true),
+      ('date_unavailable', 'Date unavailable', false),
+    ],
+    'services': [
+      ('hired_elsewhere', 'Hired elsewhere', true),
+      ('scope_mismatch', 'Scope mismatch', false),
+    ],
+  };
+
+  /// The two business groups' reason lists for a conversation [segment],
+  /// as `(bought, nobuy)`. An empty/unset segment => automotive; a non-empty
+  /// UNKNOWN segment => generic reasons only (matches the backend).
+  static (List<(String, String)>, List<(String, String)>) _reasonsForSegment(
+      String? segment) {
+    final key = (segment ?? '').trim().toLowerCase();
+    final resolved = key.isEmpty ? 'automotive' : key;
+    final bought = <(String, String)>[..._lostGenericBought];
+    final nobuy = <(String, String)>[..._lostGenericNobuy];
+    for (final r in _lostSegmentExtra[resolved] ?? const <(String, String, bool)>[]) {
+      (r.$3 ? bought : nobuy).add((r.$1, r.$2));
+    }
+    return (bought, nobuy);
+  }
+
+  /// Canonical lost-reason code -> English source label, covering EVERY segment
+  /// (generic + all segment extras) plus the universal spam/legacy codes. The
+  /// English label is a translation key (see [Tr.tr]), so a saved reason
+  /// localizes the same way as the picker that set it.
+  static final Map<String, String> _lostReasonLabels = {
+    for (final r in _lostGenericBought) r.$1: r.$2,
+    for (final r in _lostGenericNobuy) r.$1: r.$2,
+    for (final list in _lostSegmentExtra.values)
+      for (final r in list) r.$1: r.$2,
+    // Universal spam/junk group + legacy codes (not in the segment taxonomy).
     'spam_junk': 'Spam',
     'job_seeker': 'Job seeker',
     'abusive': 'Abusive',
     'wrong_number': 'Wrong number',
     'duplicate': 'Duplicate',
+    'no_response': 'No response',
   };
 
   /// The translatable English label for a saved lost-reason code, falling back to
@@ -281,7 +363,7 @@ class _ActionsSheet extends ConsumerWidget {
                     title: Text('Mark as Lost'.tr(context), style: TextStyle(color: AppColors.danger)),
                     onTap: () {
                       Navigator.of(sheetContext).pop();
-                      _pickLostReason(context, actions);
+                      _pickLostReason(context, actions, conversation.campaignSegment);
                     },
                   ),
                 ],
@@ -396,7 +478,7 @@ class _ActionsSheet extends ConsumerWidget {
                         style: TextStyle(color: AppColors.danger)),
                     onTap: () {
                       Navigator.of(sheetContext).pop();
-                      _pickLostReason(context, actions);
+                      _pickLostReason(context, actions, conversation.campaignSegment);
                     },
                   ),
                 ],
@@ -471,26 +553,17 @@ class _ActionsSheet extends ConsumerWidget {
     );
   }
 
-  void _pickLostReason(BuildContext context, ConversationActionsController actions) {
-    // Three lost TYPES (wizard step 1) -> specific reasons (step 2).
-    const groups = <(String, String, IconData, bool, List<(String, String)>)>[
-      ('Purchase', 'Bought elsewhere', Icons.shopping_bag_outlined, false, [
-        ('bought_other_brand', 'Another brand'),
-        ('bought_used_car', 'A used car instead'),
-        ('bought_elsewhere', 'Same brand, other dealer'),
-        ('competitor_promo', 'Competitor promo'),
-      ]),
-      ('Not Purchase', "Didn't buy", Icons.cancel_outlined, false, [
-        ('out_of_area', 'Out of area'),
-        ('price_too_high', 'Price too high'),
-        ('financing_rejected', 'Financing rejected'),
-        ('no_budget', 'No budget / postponed'),
-        ('wrong_product', 'Wrong product / spec'),
-        ('changed_mind', 'Changed mind / not buying'),
-        ('trade_in_issue', 'Trade-in issue'),
-        ('no_response', 'No response'),
-      ]),
-      ('Spam', 'Spam / invalid', Icons.block, true, [
+  void _pickLostReason(BuildContext context,
+      ConversationActionsController actions, String? segment) {
+    // The Purchase/Not-Purchase reasons are segment-aware (mirror the backend
+    // taxonomy); Spam is universal. Three lost TYPES (wizard step 1) -> specific
+    // reasons (step 2).
+    final (boughtReasons, nobuyReasons) = _reasonsForSegment(segment);
+    final groups = <(String, String, IconData, bool, List<(String, String)>)>[
+      ('Purchase', 'Bought elsewhere', Icons.shopping_bag_outlined, false,
+          boughtReasons),
+      ('Not Purchase', "Didn't buy", Icons.cancel_outlined, false, nobuyReasons),
+      ('Spam', 'Spam / invalid', Icons.block, true, const [
         ('spam_junk', 'Spam'),
         ('job_seeker', 'Job seeker'),
         ('abusive', 'Abusive'),

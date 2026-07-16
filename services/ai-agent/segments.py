@@ -1,9 +1,9 @@
 """Segment schema registry (WS-B).
 
 Drives what the Simpuler bot qualifies a lead on, per the conversation's campaign
-segment. AUTOMOTIVE is native: its fields live in dedicated conversation columns
-(car_brand/car_model/city/purchase_timeframe) and the extraction path is UNCHANGED.
-Every other segment stores its qualifiers in conversations.metadata->'lead_fields'.
+segment. EVERY segment (automotive included) stores its qualifier fields in
+conversations.metadata->'lead_fields'; there are no dedicated automotive columns —
+extraction, scoring, grounding, display and export all read lead_fields.
 
 Keys here are the normalized (lowercased) campaign segment labels used in the web
 campaign form. An unset/unknown segment behaves exactly like automotive did before
@@ -176,3 +176,85 @@ def extra_fields_for(segment) -> list[dict]:
 def required_keys(segment) -> list[str]:
     """Keys that mark a non-auto lead 'qualified' (all present -> ready to hand off)."""
     return [f["key"] for f in fields_for(segment)]
+
+
+# ── Lost-reason taxonomy (segment-aware) ──────────────────────────────────
+# Each reason is (value, group). group drives did_purchase downstream:
+#   "bought" -> did_purchase=true (the lead bought, just not from us)
+#   "nobuy"  -> did_purchase=false (no purchase happened)
+# Spam/junk reasons (spam_junk, job_seeker, abusive, ghosted, duplicate,
+# wrong_number) are UNIVERSAL and manual-only — they live in the classifier +
+# client UI, not here, because they are never business/segment specific.
+# _LOST_GENERIC applies to EVERY segment; _SEGMENT_LOST_EXTRA adds the reasons
+# that only make sense for a given segment (e.g. trade_in_issue for automotive).
+_LOST_GENERIC: list[tuple[str, str]] = [
+    ("bought_elsewhere", "bought"),   # bought the same thing from someone else
+    ("competitor_promo", "bought"),   # lost to a competitor's price/promo
+    ("price_too_high", "nobuy"),
+    ("no_budget", "nobuy"),
+    ("postponed", "nobuy"),
+    ("wrong_product", "nobuy"),
+    ("changed_mind", "nobuy"),
+    ("out_of_area", "nobuy"),
+]
+
+_SEGMENT_LOST_EXTRA: dict[str, list[tuple[str, str]]] = {
+    AUTOMOTIVE: [
+        ("bought_other_brand", "bought"),
+        ("bought_used_car", "bought"),
+        ("financing_rejected", "nobuy"),
+        ("trade_in_issue", "nobuy"),
+    ],
+    "property / real estate": [
+        ("bought_other_unit", "bought"),
+        ("financing_rejected", "nobuy"),   # KPR rejected
+        ("location_mismatch", "nobuy"),
+    ],
+    "finance": [
+        ("financing_rejected", "nobuy"),
+        ("rate_too_high", "nobuy"),
+        ("ineligible", "nobuy"),
+    ],
+    "insurance": [
+        ("already_insured", "bought"),
+        ("premium_too_high", "nobuy"),
+        ("coverage_insufficient", "nobuy"),
+    ],
+    "retail / fmcg": [
+        ("found_cheaper", "bought"),
+        ("out_of_stock", "nobuy"),
+    ],
+    "education": [
+        ("enrolled_elsewhere", "bought"),
+        ("program_unavailable", "nobuy"),
+        ("schedule_conflict", "nobuy"),
+    ],
+    "healthcare": [
+        ("chose_other_provider", "bought"),
+        ("schedule_conflict", "nobuy"),
+    ],
+    "travel & hospitality": [
+        ("booked_elsewhere", "bought"),
+        ("dates_unavailable", "nobuy"),
+    ],
+    "food & beverage": [
+        ("chose_other_vendor", "bought"),
+        ("date_unavailable", "nobuy"),
+    ],
+    "services": [
+        ("hired_elsewhere", "bought"),
+        ("scope_mismatch", "nobuy"),
+    ],
+}
+
+
+def lost_reasons(segment) -> list[tuple[str, str]]:
+    """Ordered [(value, group)] business lost-reasons valid for this segment
+    (generic + segment-specific). Unknown/empty segment -> automotive."""
+    key = _norm(segment) or AUTOMOTIVE
+    return _LOST_GENERIC + _SEGMENT_LOST_EXTRA.get(key, [])
+
+
+def lost_reason_values(segment) -> list[str]:
+    """Just the enum values for this segment (for the LLM analyze prompt)."""
+    return [v for v, _ in lost_reasons(segment)]

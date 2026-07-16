@@ -26,6 +26,7 @@ class Conversation extends Equatable {
     this.snoozedUntil,
     this.lostReason,
     this.campaignName,
+    this.campaignSegment,
     this.lastOutboundStatus,
     this.campaignSmartSummary = true,
     this.campaignAutoReply = false,
@@ -53,6 +54,7 @@ class Conversation extends Equatable {
   final DateTime? snoozedUntil;
   final String? lostReason; // set when a closed lead was marked Lost/Spam
   final String? campaignName;
+  final String? campaignSegment; // normalized campaign segment (drives lost-reason taxonomy)
   final String? lastOutboundStatus; // sent | delivered | read | failed
   final bool campaignSmartSummary; // per-campaign Smart Summary toggle
   final bool campaignAutoReply; // per-campaign Simpuler auto-reply (gates AI takeover)
@@ -88,6 +90,7 @@ class Conversation extends Equatable {
         'snoozed_until': snoozedUntil?.toIso8601String(),
         'lost_reason': lostReason,
         'campaign_name': campaignName,
+        'campaign_segment': campaignSegment,
         'last_outbound_status': lastOutboundStatus,
         'campaign_smart_summary': campaignSmartSummary,
         'campaign_auto_reply': campaignAutoReply,
@@ -136,6 +139,7 @@ class Conversation extends Equatable {
       snoozedUntil: snoozedUntil ?? this.snoozedUntil,
       lostReason: lostReason ?? this.lostReason,
       campaignName: campaignName ?? this.campaignName,
+      campaignSegment: campaignSegment,
       lastOutboundStatus: lastOutboundStatus ?? this.lastOutboundStatus,
       campaignSmartSummary: campaignSmartSummary,
       campaignAutoReply: campaignAutoReply,
@@ -166,6 +170,7 @@ class Conversation extends Equatable {
         snoozedUntil,
         lostReason,
         campaignName,
+        campaignSegment,
         lastOutboundStatus,
         campaignAutoReply,
       ];

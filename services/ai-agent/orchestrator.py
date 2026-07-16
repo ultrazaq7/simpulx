@@ -118,10 +118,12 @@ async def handle_inbound(broker, pool, env: dict, data: dict, log) -> None:
 
     system_prompt = conv["system_prompt"] or "You are a helpful sales assistant."
     history = await _load_history(pool, conv_id, message_id)
-    # Non-automotive segments also extract their own qualifier fields (WS-B).
-    # extra_fields is empty for automotive/unset -> analyze() is unchanged.
+    # Every segment extracts its own qualifier fields into lead_fields, and the
+    # lost_reason enum is constrained to what makes sense for this segment.
     extra_fields = segments.extra_fields_for(conv["segment"])
-    result = await llm.analyze(system_prompt, history, body, model=conv["model"], extra_fields=extra_fields)
+    lost_reasons = segments.lost_reason_values(conv["segment"])
+    result = await llm.analyze(system_prompt, history, body, model=conv["model"],
+                               extra_fields=extra_fields, lost_reasons=lost_reasons)
 
     async with pool.acquire() as conn:
         await conn.execute(
