@@ -108,7 +108,22 @@ Butuh ledger membership append-only (kolom `users` sekarang state, bukan history
 `inactive_since` ketimpa). Udah diputusin: `rate_per_user numeric(12,2)` +
 `currency text NOT NULL DEFAULT 'IDR'` di `org_subscriptions`; prorata harian, ada
 aktivitas sehari ⇒ sehari penuh kebilling. Kredit AI prepaid — `llm_usage` BUKAN sumber billing.
-**PERTANYAAN BUAT USER (belum dijawab): pembagi bulan pakai panjang asli (28/30/31) atau flat 30?**
+
+### Pembagi prorata — SUDAH DIJAWAB user: panjang asli, BUKAN flat 30
+Pembagi = **jumlah hari dalam PERIODE BILLING** (bukan "bulan kalender" — beda kalau
+renewal-nya anniversary dan periodenya nyebrang 2 bulan; kalau periode = bulan kalender
+dua definisi ini identik, jadi framing "panjang periode" aman di dua-duanya).
+*Alasan:* invariant "sebulan penuh = persis harga paket" kejaga sendiri tanpa clamp.
+Flat 30 melanggar: Januari 31 hari aktif → `31 × (rate/30)` = **103,3% harga paket**,
+mesti ditambal `min(hari, 30)`. Konsekuensi yang diterima: rate harian beda tiap periode
+(1 hari di Feb lebih mahal dari 1 hari di Jan).
+
+### ⚠️ PERTANYAAN PEMBUKA SESI P6 — TANYA USER DULU
+**Periode billing = bulan kalender (semua org tagih tanggal 1) atau anniversary
+(per tanggal daftar)?** Ini nentuin skema. **Terverifikasi 2026-07-17:** `org_subscriptions`
+cuma punya `renewal_date` (date, **nullable**) dan isinya **NULL** di satu-satunya row —
+gak ada `period_start`/`period_end`. Jadi periode billing **belum ditentukan sama sekali**,
+bukan sekadar belum diisi.
 
 ## PRICING — udah diputusin
 Analisis lengkap: https://claude.ai/code/artifact/915f1932-b731-43ba-89b0-fb496ef9e1d0
