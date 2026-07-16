@@ -83,15 +83,20 @@ func (s *server) handleCreateAdAccount(w http.ResponseWriter, r *http.Request) {
 		b.Config = map[string]any{}
 	}
 	cfg, _ := json.Marshal(b.Config)
+	encToken, err := encryptAdToken(b.AccessToken)
+	if err != nil {
+		http.Error(w, "could not secure access token", http.StatusInternalServerError)
+		return
+	}
 	var id string
-	err := s.pool.QueryRow(r.Context(),
+	err = s.pool.QueryRow(r.Context(),
 		`INSERT INTO ad_accounts (organization_id, platform, external_account_id, name, access_token, config)
 		 VALUES ($1,$2,$3,$4,$5,$6)
 		 ON CONFLICT (organization_id, platform, external_account_id)
 		 DO UPDATE SET access_token = EXCLUDED.access_token, name = COALESCE(NULLIF(EXCLUDED.name,''), ad_accounts.name),
 		               config = EXCLUDED.config, status='connected', last_error=NULL
 		 RETURNING id::text`,
-		a.OrgID, b.Platform, b.ExternalAccountID, b.Name, b.AccessToken, cfg).Scan(&id)
+		a.OrgID, b.Platform, b.ExternalAccountID, b.Name, encToken, cfg).Scan(&id)
 	if err != nil {
 		http.Error(w, err.Error(), http.StatusInternalServerError)
 		return
@@ -137,6 +142,13 @@ func (s *server) handlePatchAdAccount(w http.ResponseWriter, r *http.Request) {
 	if b.ExternalAccountID != nil {
 		extID = strings.TrimSpace(strings.TrimPrefix(*b.ExternalAccountID, "act_"))
 	}
+	// Empty token means "keep existing" (NULLIF guard below). encryptAdToken
+	// preserves "" as "" so that guard still fires; a real token is encrypted.
+	encToken, err := encryptAdToken(derefStr(b.AccessToken))
+	if err != nil {
+		http.Error(w, "could not secure access token", http.StatusInternalServerError)
+		return
+	}
 	tag, err := s.pool.Exec(r.Context(),
 		`UPDATE ad_accounts SET
 		   name = COALESCE(NULLIF($3,''), name),
@@ -145,7 +157,7 @@ func (s *server) handlePatchAdAccount(w http.ResponseWriter, r *http.Request) {
 		   status     = CASE WHEN NULLIF($5,'') IS NOT NULL THEN 'connected' ELSE status END,
 		   last_error = CASE WHEN NULLIF($5,'') IS NOT NULL THEN NULL ELSE last_error END
 		 WHERE id=$1 AND organization_id=$2`,
-		id, a.OrgID, derefStr(b.Name), extID, derefStr(b.AccessToken))
+		id, a.OrgID, derefStr(b.Name), extID, encToken)
 	if err != nil {
 		http.Error(w, err.Error(), http.StatusInternalServerError)
 		return
@@ -794,6 +806,10 @@ func (s *server) syncMetaAccount(ctx context.Context, accountID, orgID string) e
 	if token == "" {
 		return fmt.Errorf("no access token on file")
 	}
+	token, err := decryptAdToken(token)
+	if err != nil {
+		return fmt.Errorf("decrypt access token: %w", err)
+	}
 
 	// Account name + currency (best-effort).
 	if cur, nm, err := metaAccountInfo(ctx, extID, token); err == nil {
@@ -1152,6 +1168,10 @@ func (s *server) loadAdAccount(ctx context.Context, accountID, orgID string) (ex
 	_ = json.Unmarshal(raw, &cfg)
 	if token == "" {
 		return extID, token, cfg, fmt.Errorf("no access token on file")
+	}
+	token, err = decryptAdToken(token)
+	if err != nil {
+		return extID, "", cfg, fmt.Errorf("decrypt access token: %w", err)
 	}
 	return extID, token, cfg, nil
 }
@@ -1673,6 +1693,11 @@ func (s *server) handleGoogleAdsCallback(w http.ResponseWriter, r *http.Request)
 	}
 
 	cfg, _ := json.Marshal(map[string]any{}) // config is empty now, credentials are in .env
+	encToken, err := encryptAdToken(tokenResp.RefreshToken)
+	if err != nil {
+		http.Error(w, "could not secure refresh token", http.StatusInternalServerError)
+		return
+	}
 	var id string
 	err = s.pool.QueryRow(r.Context(),
 		`INSERT INTO ad_accounts (organization_id, platform, external_account_id, name, access_token, config)
@@ -1681,7 +1706,7 @@ func (s *server) handleGoogleAdsCallback(w http.ResponseWriter, r *http.Request)
 		 DO UPDATE SET access_token = EXCLUDED.access_token, name = COALESCE(NULLIF(EXCLUDED.name,''), ad_accounts.name),
 		               config = EXCLUDED.config, status='connected', last_error=NULL
 		 RETURNING id::text`,
-		state.OrgID, state.CustomerID, state.Name, tokenResp.RefreshToken, cfg).Scan(&id)
+		state.OrgID, state.CustomerID, state.Name, encToken, cfg).Scan(&id)
 	if err != nil {
 		http.Error(w, err.Error(), http.StatusInternalServerError)
 		return
@@ -1783,6 +1808,11 @@ func (s *server) handleMetaAdsCallback(w http.ResponseWriter, r *http.Request) {
 	}
 
 	cfg, _ := json.Marshal(map[string]any{})
+	encToken, err := encryptAdToken(tokenResp.AccessToken)
+	if err != nil {
+		http.Error(w, "could not secure access token", http.StatusInternalServerError)
+		return
+	}
 	var id string
 	err = s.pool.QueryRow(r.Context(),
 		`INSERT INTO ad_accounts (organization_id, platform, external_account_id, name, access_token, config)
@@ -1791,7 +1821,7 @@ func (s *server) handleMetaAdsCallback(w http.ResponseWriter, r *http.Request) {
 		 DO UPDATE SET access_token = EXCLUDED.access_token, name = COALESCE(NULLIF(EXCLUDED.name,''), ad_accounts.name),
 		               config = EXCLUDED.config, status='connected', last_error=NULL
 		 RETURNING id::text`,
-		state.OrgID, state.CustomerID, state.Name, tokenResp.AccessToken, cfg).Scan(&id)
+		state.OrgID, state.CustomerID, state.Name, encToken, cfg).Scan(&id)
 	if err != nil {
 		http.Error(w, err.Error(), http.StatusInternalServerError)
 		return
@@ -1887,6 +1917,11 @@ func (s *server) handleTikTokAdsCallback(w http.ResponseWriter, r *http.Request)
 	}
 
 	cfg, _ := json.Marshal(map[string]any{})
+	encToken, err := encryptAdToken(res.Data.AccessToken)
+	if err != nil {
+		http.Error(w, "could not secure access token", http.StatusInternalServerError)
+		return
+	}
 	var id string
 	err = s.pool.QueryRow(r.Context(),
 		`INSERT INTO ad_accounts (organization_id, platform, external_account_id, name, access_token, config)
@@ -1895,7 +1930,7 @@ func (s *server) handleTikTokAdsCallback(w http.ResponseWriter, r *http.Request)
 		 DO UPDATE SET access_token = EXCLUDED.access_token, name = COALESCE(NULLIF(EXCLUDED.name,''), ad_accounts.name),
 		               config = EXCLUDED.config, status='connected', last_error=NULL
 		 RETURNING id::text`,
-		st.OrgID, st.CustomerID, st.Name, res.Data.AccessToken, cfg).Scan(&id)
+		st.OrgID, st.CustomerID, st.Name, encToken, cfg).Scan(&id)
 
 	if err != nil {
 		http.Error(w, "db error: "+err.Error(), http.StatusInternalServerError)

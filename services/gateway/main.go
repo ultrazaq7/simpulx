@@ -404,6 +404,8 @@ func main() {
 
 	s.initFCMPush(ctx)
 	s.subscribeSendForm(ctx) // AI nurture -> auto-send intake form
+	initAdsTokenKey(log)     // load AES key for ad-account OAuth token encryption
+	s.backfillAdTokenEncryption(ctx) // encrypt any plaintext tokens still at rest
 	s.startAdSyncCron(ctx)   // daily ad metrics refresh (Meta/TikTok/Google)
 
 	// graceful shutdown
