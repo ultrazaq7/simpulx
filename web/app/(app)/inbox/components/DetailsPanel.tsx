@@ -7,7 +7,7 @@ import { api } from "@/lib/api";
 import { initials, channelColor, channelTextColor, channelLabel, fmtDate, fmtTime, fmtDateTimeShort, cn } from "@/lib/utils";
 import { ScoreBadge } from "@/components/ScoreBadge";
 import { Tip } from "@/components/ui/tooltip";
-import { isAutomotive, segmentFields } from "@/lib/segments";
+import { segmentFields } from "@/lib/segments";
 import type { Agent, Conversation, InternalNote, Message } from "@/lib/types";
 
 function rewriteLocalMedia(url: string): string {
@@ -345,18 +345,9 @@ export default function DetailsPanel({ active, onClose, copyText, notes, onAddNo
                 <DetailRow icon={StickyNote} label={t("contacts.lostReason")} value={humanize(active.lost_reason)} />
               )}
               {active.interest_level && <DetailRow icon={Hash} label={t("dashboard.interestLevel")} value={humanize(active.interest_level)} />}
-              {isAutomotive(active.campaign_segment) ? (
-                <>
-                  {active.car_brand && <DetailRow icon={Hash} label={t("components.brand")} value={active.car_brand} />}
-                  {active.car_model && <DetailRow icon={Hash} label={t("components.model")} value={active.car_model} />}
-                  {active.city && <DetailRow icon={Hash} label={t("components.city")} value={active.city} />}
-                  {active.purchase_timeframe && <DetailRow icon={Clock} label={t("components.purchaseTime")} value={humanize(active.purchase_timeframe)} />}
-                </>
-              ) : (
-                segmentFields(active.campaign_segment).map((f) => (
-                  active.lead_fields?.[f.key] ? <DetailRow key={f.key} icon={Hash} label={t(f.label)} value={active.lead_fields[f.key]} /> : null
-                ))
-              )}
+              {segmentFields(active.campaign_segment).map((f) => (
+                active.lead_fields?.[f.key] ? <DetailRow key={f.key} icon={Hash} label={t(f.label)} value={active.lead_fields[f.key]} /> : null
+              ))}
             </div>
           </div>
         )}

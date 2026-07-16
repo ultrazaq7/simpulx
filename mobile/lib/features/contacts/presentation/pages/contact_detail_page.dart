@@ -392,17 +392,9 @@ class _LeadContextCard extends StatelessWidget {
           if (c.interestLevel != null && c.interestLevel!.isNotEmpty)
             _row(context, 'Interest',
                 c.interestLevel![0].toUpperCase() + c.interestLevel!.substring(1)),
-          if (c.carBrand != null && c.carBrand!.isNotEmpty)
-            _row(context, 'Brand', c.carBrand!),
-          if (c.carModel != null && c.carModel!.isNotEmpty)
-            _row(context, 'Model', c.carModel!),
-          if (c.city != null && c.city!.isNotEmpty)
-            _row(context, 'City', c.city!),
-          if (c.purchaseTimeframe != null && c.purchaseTimeframe!.isNotEmpty)
-            _row(context, 'Purchase time', c.purchaseTimeframe!),
-          // Non-automotive segments: render the segment's own captured qualifier
-          // fields dynamically (the car rows above stay hidden when empty), so the
-          // detail isn't hardcoded to automotive.
+          // Segment-agnostic: render the segment's own captured qualifier fields
+          // (brand/model/city/purchase_timeframe for automotive, others elsewhere)
+          // dynamically from leadFields, so the detail isn't hardcoded to any segment.
           for (final e in c.leadFields.entries)
             _row(context, _humanizeFieldKey(e.key), e.value),
           _row(context, 'Assigned', c.agentName ?? 'Unassigned'.tr(context)),

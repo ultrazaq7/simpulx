@@ -191,7 +191,7 @@ func (s *server) handleExportChats(w http.ResponseWriter, r *http.Request) {
 		 SELECT cv.id, cv.status, cv.is_bot_active, cv.interest_level, cv.ai_stage,
 		        COALESCE(st.name, '-') AS stage_name,
 		        COALESCE(dp.name, '-') AS disposition_name,
-		        cv.car_brand, cv.car_model, cv.city, cv.purchase_timeframe, cv.lost_reason,
+		        cv.lost_reason,
 		        cv.followup_count, cv.call_attempts, cv.total_call_duration,
 		        COALESCE(rt.rt_min, 0) AS first_response_time_min,
 		        to_char(cv.created_at, 'YYYY-MM-DD HH24:MI:SS') AS created_at
@@ -213,7 +213,7 @@ func (s *server) handleExportChats(w http.ResponseWriter, r *http.Request) {
 	cw := csv.NewWriter(w)
 	_ = cw.Write([]string{
 		"Conversation ID", "Status", "AI Handled", "Interest Level", "Pipeline Stage", "Disposition",
-		"Car Brand", "Car Model", "City", "Purchase Timeframe", "Lost Reason",
+		"Lost Reason",
 		"Follow-up Count", "Call Attempts", "Call Duration (sec)", "First Response Time (min)", "Created At",
 	})
 
@@ -225,10 +225,6 @@ func (s *server) handleExportChats(w http.ResponseWriter, r *http.Request) {
 			fmt.Sprintf("%v", row["interest_level"]),
 			fmt.Sprintf("%v", row["stage_name"]),
 			fmt.Sprintf("%v", row["disposition_name"]),
-			fmt.Sprintf("%v", row["car_brand"]),
-			fmt.Sprintf("%v", row["car_model"]),
-			fmt.Sprintf("%v", row["city"]),
-			fmt.Sprintf("%v", row["purchase_timeframe"]),
 			fmt.Sprintf("%v", row["lost_reason"]),
 			fmt.Sprintf("%v", row["followup_count"]),
 			fmt.Sprintf("%v", row["call_attempts"]),

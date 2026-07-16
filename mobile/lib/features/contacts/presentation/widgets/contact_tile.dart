@@ -230,24 +230,31 @@ class _ContactTileState extends ConsumerState<ContactTile> {
     );
   }
 
-  /// Builds the "phone / model / city" info line. The model already carries the
-  /// full name (e.g. "Pajero Sport Exceed 4x2 AT"), so the brand is NOT prepended
-  /// — it's redundant and pushed the city off-screen.
+  /// Builds the segment-agnostic `phone / primary / city` info line from
+  /// leadFields. The primary qualifier is the segment's model value if present
+  /// (e.g. automotive's full model name "Pajero Sport Exceed 4x2 AT"), else the
+  /// first non-empty non-'brand' value; then the city if the segment has one.
   static String _buildInfoLine(Contact c) {
     final parts = <String>[];
     if (c.phone.isNotEmpty) parts.add(c.phone);
-    if (c.carModel != null && c.carModel!.isNotEmpty) {
-      parts.add(c.carModel!);
-    } else if (c.leadFields.isNotEmpty) {
-      // Non-automotive: surface the segment's own qualifier values (e.g. a
-      // property lead's type/budget) instead of empty car fields.
-      final vals = c.leadFields.values
-          .where((v) => v.trim().isNotEmpty)
-          .take(2)
-          .join(' · ');
-      if (vals.isNotEmpty) parts.add(vals);
+    final fields = c.leadFields;
+    final model = fields['model']?.trim();
+    String? primary;
+    if (model != null && model.isNotEmpty) {
+      primary = model;
+    } else {
+      for (final e in fields.entries) {
+        if (e.key == 'brand' || e.key == 'city') continue;
+        final v = e.value.trim();
+        if (v.isNotEmpty) {
+          primary = v;
+          break;
+        }
+      }
     }
-    if (c.city != null && c.city!.isNotEmpty) parts.add(c.city!);
+    if (primary != null && primary.isNotEmpty) parts.add(primary);
+    final city = fields['city']?.trim();
+    if (city != null && city.isNotEmpty) parts.add(city);
     return parts.join(' / ');
   }
 

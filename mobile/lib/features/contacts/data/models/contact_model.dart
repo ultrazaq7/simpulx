@@ -31,10 +31,6 @@ class ContactModel {
       sourceUrl: asStringOrNull(json['source_url']),
       webApiSourceName: asStringOrNull(json['web_api_source_name']),
       webApiSourcePlatform: asStringOrNull(json['web_api_source_platform']),
-      carBrand: asStringOrNull(json['car_brand']),
-      carModel: asStringOrNull(json['car_model']),
-      city: asStringOrNull(json['city']),
-      purchaseTimeframe: asStringOrNull(json['purchase_timeframe']),
       leadFields: _leadFields(json['lead_fields']),
     );
   }

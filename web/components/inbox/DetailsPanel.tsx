@@ -2,9 +2,10 @@
 import { useI18n } from "@/lib/i18n";
 import { useState } from "react";
 import { useInbox } from "./InboxContext";
-import { X, User, Copy, Tag, MessageSquare, Clock, Bot, MapPin, Box, Hash, Lock } from "lucide-react";
+import { X, User, Copy, Tag, MessageSquare, Clock, Bot, Box, Hash, Lock } from "lucide-react";
 import { initials, channelColor, fmtDate, fmtTime } from "@/lib/utils";
 import { api } from "@/lib/api";
+import { segmentFields } from "@/lib/segments";
 import { useQueryClient } from "@tanstack/react-query";
 
 function DetailRow({ icon, label, value, onCopy }: { icon: React.ReactNode; label: string; value: string; onCopy?: () => void }) {
@@ -99,10 +100,9 @@ export function DetailsPanel() {
 
             <h5 className="text-[10px] font-bold text-slate-400 uppercase tracking-widest mt-8 mb-4">{t("components.leadQualification")}</h5>
             <DetailRow icon={<Tag className="w-4 h-4" />} label={t("components.interestLevel")} value={active.interest_level || "Unknown"} />
-            <DetailRow icon={<Box className="w-4 h-4" />} label={t("components.brand")} value={active.car_brand || "Unknown"} />
-            <DetailRow icon={<Box className="w-4 h-4" />} label={t("components.model")} value={active.car_model || "Unknown"} />
-            <DetailRow icon={<MapPin className="w-4 h-4" />} label={t("components.city")} value={active.city || "Unknown"} />
-            <DetailRow icon={<Clock className="w-4 h-4" />} label={t("components.purchaseTime")} value={active.purchase_timeframe || "Unknown"} />
+            {segmentFields(active.campaign_segment).map((f) => (
+              active.lead_fields?.[f.key] ? <DetailRow key={f.key} icon={<Box className="w-4 h-4" />} label={t(f.label)} value={active.lead_fields[f.key]} /> : null
+            ))}
 
             {active.lost_reason && (
               <DetailRow icon={<Lock className="w-4 h-4" />} label={t("components.lostReason")} value={active.lost_reason} />

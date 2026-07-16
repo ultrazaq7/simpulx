@@ -182,7 +182,6 @@ class _ChatThreadPageState extends ConsumerState<ChatThreadPage>
 
   /// Call MVP: redirect to the dialer, then log the attempt (call tracking).
   Future<void> _call(String phone) async {
-    final messenger = ScaffoldMessenger.of(context);
     if (phone.isEmpty) {
       AppSnackbar.show(context, 'No phone number for this contact'.tr(context), isError: true);
       return;

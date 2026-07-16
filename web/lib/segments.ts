@@ -1,12 +1,17 @@
 // Segment schema registry (WS-B) - mirrors services/ai-agent/segments.py.
-// Automotive is native (car_brand/car_model/city/purchase_timeframe columns);
-// every other segment stores its qualifiers in the conversation's lead_fields
-// (metadata->'lead_fields'). Keys are the normalized (lowercased) campaign
-// segment labels used in the campaign form.
+// Every segment (automotive included) stores its qualifiers in the
+// conversation's lead_fields (metadata->'lead_fields'). Keys are the normalized
+// (lowercased) campaign segment labels used in the campaign form.
 
 export type SegmentField = { key: string; label: string };
 
 export const SEGMENT_SCHEMAS: Record<string, SegmentField[]> = {
+  "automotive": [
+    { key: "brand", label: "components.brand" },
+    { key: "model", label: "components.model" },
+    { key: "city", label: "components.city" },
+    { key: "purchase_timeframe", label: "components.purchaseTime" },
+  ],
   "property / real estate": [
     { key: "property_type", label: "Property type" },
     { key: "location", label: "Preferred location" },
@@ -65,5 +70,6 @@ export function isAutomotive(segment?: string | null): boolean {
 }
 
 export function segmentFields(segment?: string | null): SegmentField[] {
-  return SEGMENT_SCHEMAS[norm(segment)] || [];
+  // Unset/empty segment behaves as automotive (the prior, native default).
+  return SEGMENT_SCHEMAS[norm(segment) || "automotive"] || [];
 }

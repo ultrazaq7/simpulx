@@ -36,10 +36,6 @@ export interface Conversation {
   disposition_name: string | null;
   campaign_id: string | null;
   campaign_name: string | null;
-  car_brand: string | null;
-  car_model: string | null;
-  city: string | null;
-  purchase_timeframe: string | null;
   lost_reason: string | null;
   campaign_segment?: string | null;
   campaign_smart_summary?: boolean;
@@ -294,10 +290,6 @@ export interface Contact {
   stage_name: string | null;
   lost_reason?: string | null;
   lead_score?: number | null;
-  car_brand?: string | null;
-  car_model?: string | null;
-  city?: string | null;
-  purchase_timeframe?: string | null;
   campaign_segment?: string | null;
   lead_fields?: Record<string, string> | null;
   last_message_at: string | null;

@@ -19,6 +19,27 @@ from classifier import classify, is_trivial, STRONG_INTENT, detect_junk
 import lead_score
 import segments
 
+
+def _lead_fields(metadata) -> dict:
+    """Extract metadata.lead_fields as a dict. asyncpg may hand back jsonb as a
+    string (no codec registered), and lead_fields itself may be nested-stringified,
+    so unwrap both defensively. Returns {} on anything unexpected."""
+    m = metadata
+    if isinstance(m, str):
+        try:
+            m = json.loads(m)
+        except Exception:
+            return {}
+    if not isinstance(m, dict):
+        return {}
+    lf = m.get("lead_fields")
+    if isinstance(lf, str):
+        try:
+            lf = json.loads(lf)
+        except Exception:
+            return {}
+    return lf if isinstance(lf, dict) else {}
+
 SUBJECT_OUTBOUND = "events.message.outbound"
 SUBJECT_AI_ACTIVITY = "events.ai.activity"  # live Simpuler phase for the inbox (WS-C)
 
@@ -76,7 +97,7 @@ async def handle_inbound(broker, pool, env: dict, data: dict, log) -> None:
     async with pool.acquire() as conn:
         conv = await conn.fetchrow(
             """SELECT cv.ai_agent_id, cv.ai_extracted_at,
-                      cv.car_brand, cv.car_model, cv.city, cv.purchase_timeframe,
+                      COALESCE(cv.metadata, '{}'::jsonb) AS metadata,
                       cmp.segment,
                       a.system_prompt, a.model
                  FROM conversations cv
@@ -102,34 +123,27 @@ async def handle_inbound(broker, pool, env: dict, data: dict, log) -> None:
     extra_fields = segments.extra_fields_for(conv["segment"])
     result = await llm.analyze(system_prompt, history, body, model=conv["model"], extra_fields=extra_fields)
 
-    ptf = result.get("purchase_timeframe")
-    ptf_str = f"{ptf} days" if ptf is not None else None
-
     async with pool.acquire() as conn:
         await conn.execute(
             """UPDATE conversations SET
-                 car_brand = COALESCE($2, car_brand),
-                 car_model = COALESCE($3, car_model),
-                 city = COALESCE($4, city),
-                 purchase_timeframe = COALESCE($5, purchase_timeframe),
-                 lost_reason = COALESCE($6, lost_reason),
+                 lost_reason = COALESCE($2, lost_reason),
                  -- Advisory summary/next-step (latest message wins; null keeps prior).
-                 lead_summary = COALESCE($7, lead_summary),
-                 lead_priority = COALESCE($8, lead_priority),
-                 suggested_action = COALESCE($9, suggested_action),
-                 suggested_action_reason = COALESCE($10, suggested_action_reason),
-                 suggested_action_confidence = COALESCE($11, suggested_action_confidence),
+                 lead_summary = COALESCE($3, lead_summary),
+                 lead_priority = COALESCE($4, lead_priority),
+                 suggested_action = COALESCE($5, suggested_action),
+                 suggested_action_reason = COALESCE($6, suggested_action_reason),
+                 suggested_action_confidence = COALESCE($7, suggested_action_confidence),
                  ai_extracted_at = now()
                WHERE id = $1""",
             conv_id,
-            result.get("car_brand"), result.get("car_model"), result.get("city"),
-            ptf_str, result.get("lost_reason"),
+            result.get("lost_reason"),
             result.get("summary"), result.get("priority"),
             result.get("recommended_action"), result.get("action_reason"),
             result.get("action_confidence"),
         )
-    # Merge non-automotive qualifier fields into metadata.lead_fields (best effort).
-    lead_fields = result.get("fields") if extra_fields else None
+    # Merge the segment's qualifier fields into metadata.lead_fields (all segments,
+    # incl. automotive brand/model/city/timeframe). This is the ONE lead-data path.
+    lead_fields = result.get("fields")
     if lead_fields:
         try:
             async with pool.acquire() as conn:
@@ -167,7 +181,9 @@ def _should_analyze(cr: Optional[dict], conv, body: str) -> tuple[bool, str]:
         return True, "changed"
     if cr["new_strong_intent"]:
         return True, "new_strong_intent"
-    missing = any(conv[f] is None for f in ("car_brand", "car_model", "city", "purchase_timeframe"))
+    _req = segments.required_keys(conv["segment"])
+    _lf = _lead_fields(conv["metadata"])
+    missing = any(not _lf.get(k) for k in _req) if _req else False
     if missing and any(c in _ENTITY_CATS for c in cr["categories"]):
         return True, "fill_fields"
     return False, "no_change"
@@ -181,7 +197,7 @@ async def handle_followup(broker, pool, org_id: str, conv_id: str, log) -> None:
     async with pool.acquire() as conn:
         conv = await conn.fetchrow(
             """SELECT cv.is_bot_active, cv.ai_agent_id, cv.followup_count,
-                      cv.car_brand, cv.car_model, cv.city, cv.window_expires_at,
+                      cv.window_expires_at, COALESCE(cv.metadata, '{}'::jsonb) AS metadata,
                       cmp.ai_language, cmp.ai_dynamic_language,
                       cmp.name AS campaign_name, cmp.dealer_name,
                       ct.name AS contact_name,
@@ -226,9 +242,10 @@ async def handle_followup(broker, pool, org_id: str, conv_id: str, log) -> None:
         return
 
     finance_ctx = ""
-    if conv and conv["car_brand"] and conv["car_model"]:
+    _lf = _lead_fields(conv["metadata"]) if conv else {}
+    if _lf.get("brand") or _lf.get("model"):
         import finance_rag
-        ctx = await finance_rag.get_finance_context(pool, conv["car_brand"], conv["car_model"], conv["city"])
+        ctx = await finance_rag.get_finance_context(pool, _lf.get("brand"), _lf.get("model"), _lf.get("city"))
         if ctx:
             finance_ctx = f"\n\n{ctx}\n"
 
@@ -334,7 +351,6 @@ async def maybe_nurture(broker, pool, org_id: str, conv_id: str, message_id, bod
         row = await conn.fetchrow(
             """SELECT cv.is_bot_active, cv.assigned_agent_id::text AS agent_id,
                       cv.campaign_id::text AS campaign_id, cv.classification_locked,
-                      cv.car_brand, cv.car_model, cv.city, cv.purchase_timeframe,
                       COALESCE(cv.metadata, '{}'::jsonb) AS metadata,
                       a.system_prompt, a.model,
                       cmp.ai_auto_reply, cmp.segment, cmp.brand, cmp.ai_language,
@@ -463,9 +479,10 @@ async def _generate_and_send_reply(broker, pool, conn, org_id: str, conv_id: str
     if row["campaign_id"]:
         import finance_rag
         # Campaign-scoped catalog first (falls back to global finance_packages).
+        _lf = _lead_fields(row["metadata"])
         fc = await finance_rag.get_catalog_context(
-            pool, row["campaign_id"], row["car_brand"] or row["brand"], row["car_model"],
-            row["city"], row["segment"], query=body, conn=conn)
+            pool, row["campaign_id"], (_lf.get("brand") or row["brand"]), _lf.get("model"),
+            _lf.get("city"), row["segment"], query=body, conn=conn)
         if fc:
             finance_ctx = f"\n\n{fc}\n"
 
@@ -502,15 +519,12 @@ async def _generate_and_send_reply(broker, pool, conn, org_id: str, conv_id: str
             "conversation_id": conv_id, "form_id": row["intake_form_id"],
         })
 
-    # Hand off once info is complete OR the model flagged readiness. "Complete"
-    # is segment-aware (WS-B): automotive uses its native columns; other segments
-    # check their required qualifier keys in metadata.lead_fields.
-    if segments.is_automotive(row["segment"]):
-        fields_done = all(row[f] is not None for f in ("car_model", "city", "purchase_timeframe"))
-    else:
-        req = segments.required_keys(row["segment"])
-        lf = meta.get("lead_fields") or {}
-        fields_done = bool(req) and all(lf.get(k) for k in req)
+    # Hand off once info is complete OR the model flagged readiness. "Complete" is
+    # segment-agnostic now: every segment (automotive included) checks its required
+    # qualifier keys in metadata.lead_fields.
+    req = segments.required_keys(row["segment"])
+    lf = _lead_fields(row["metadata"])
+    fields_done = bool(req) and all(lf.get(k) for k in req)
     if result.get("ready_for_handoff") or fields_done:
         await _ai_handoff(broker, pool, org_id, conv_id, row["agent_id"], log, conn=conn)
 

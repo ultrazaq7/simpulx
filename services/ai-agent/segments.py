@@ -14,7 +14,16 @@ from __future__ import annotations
 AUTOMOTIVE = "automotive"
 
 # Per segment: ordered list of {key, label} the bot qualifies on.
+# Automotive is now a segment like any other — its qualifiers live in
+# metadata.lead_fields (brand/model/city/purchase_timeframe), NOT in dedicated
+# columns, so the platform has ONE segment-agnostic extraction/scoring/display path.
 SEGMENT_SCHEMAS: dict[str, list[dict]] = {
+    "automotive": [
+        {"key": "brand", "label": "Brand"},
+        {"key": "model", "label": "Model"},
+        {"key": "city", "label": "City"},
+        {"key": "purchase_timeframe", "label": "Timeframe"},
+    ],
     "property / real estate": [
         {"key": "property_type", "label": "Property type"},
         {"key": "location", "label": "Preferred location"},
@@ -152,14 +161,15 @@ def is_automotive(segment) -> bool:
 
 
 def fields_for(segment) -> list[dict]:
-    return SEGMENT_SCHEMAS.get(_norm(segment), [])
+    # Empty/unset segment behaves as automotive (the historical default).
+    key = _norm(segment) or AUTOMOTIVE
+    return SEGMENT_SCHEMAS.get(key, [])
 
 
 def extra_fields_for(segment) -> list[dict]:
-    """Non-native fields to extract into metadata.lead_fields. Empty for
-    automotive/unset so the live extraction path stays byte-for-byte identical."""
-    if is_automotive(segment):
-        return []
+    """Fields to extract into metadata.lead_fields — now for EVERY segment,
+    including automotive (whose brand/model/city no longer live in dedicated
+    columns), so extraction + display + scoring follow ONE segment-agnostic path."""
     return fields_for(segment)
 
 

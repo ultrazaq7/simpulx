@@ -106,7 +106,7 @@ async def _load_conversation(pool, conv_id: str):
         cv = await conn.fetchrow(
             """SELECT COALESCE(call_attempts, 0)      AS call_attempts,
                       COALESCE(total_call_duration, 0) AS total_call_duration,
-                      car_brand, car_model, city
+                      COALESCE(metadata, '{}'::jsonb)  AS metadata
                  FROM conversations WHERE id = $1""",
             conv_id,
         )
@@ -127,5 +127,23 @@ async def _load_conversation(pool, conv_id: str):
         "from_ad": ad_clicks > 0,
         "ad_clicks": int(ad_clicks),
     }
-    entities = {"brand": cv["car_brand"], "model": cv["car_model"], "city": cv["city"]} if cv else {}
+    # brand/model/city now live in metadata.lead_fields (segment-agnostic), so the
+    # scorer's categorical entities come from there instead of dedicated columns.
+    lf = {}
+    if cv:
+        m = cv["metadata"]
+        if isinstance(m, str):
+            try:
+                m = json.loads(m)
+            except Exception:
+                m = {}
+        if isinstance(m, dict):
+            raw = m.get("lead_fields")
+            if isinstance(raw, str):
+                try:
+                    raw = json.loads(raw)
+                except Exception:
+                    raw = {}
+            lf = raw if isinstance(raw, dict) else {}
+    entities = {"brand": lf.get("brand"), "model": lf.get("model"), "city": lf.get("city")}
     return turns, meta, entities

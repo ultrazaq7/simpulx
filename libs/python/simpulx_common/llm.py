@@ -82,28 +82,24 @@ NO_EMOJI_RULE = (
 # Instruksi statis (di-cache). analyze: ekstraksi + ringkasan untuk agent (BUKAN
 # untuk pelanggan). interest_level tetap milik rule classifier, jadi tak diminta.
 ANALYZE_INSTRUCTION = (
-    "Tugasmu: baca percakapan lalu (1) ekstrak data prospek dan (2) buat ringkasan "
-    "untuk sales (BUKAN balasan ke pelanggan). JANGAN menulis balasan chat.\n"
-    "Aturan: car_brand = MEREK saja (mis. 'Mitsubishi'). car_model = nama model "
-    "LENGKAP termasuk seri + varian/tipe yang disebut atau tersirat dari konteks "
-    "campaign/katalog (mis. 'Pajero Sport Exceed 4x2 AT'), JANGAN cuma varian/trim "
-    "('Exceed 4x2 AT'). Kalau customer hanya menyebut varian, gabungkan dengan seri "
-    "model dari konteks. purchase_timeframe = integer hari ('bulan depan'->30, 'minggu depan'->7, "
-    "'besok'->1). Jika lead LOST/batal beli, isi lost_reason HANYA dari enum ini: "
+    "Tugasmu: baca percakapan lalu (1) buat ringkasan untuk sales (BUKAN balasan ke "
+    "pelanggan) dan (2) tandai bila lead batal. JANGAN menulis balasan chat.\n"
+    "(Field kualifikasi prospek per-segmen — mis. model/kota/budget — diminta "
+    "TERPISAH di objek 'fields' bila ada; jangan diulang di sini.)\n"
+    "Aturan: Jika lead LOST/batal beli, isi lost_reason HANYA dari enum ini: "
     "bought_other_brand | bought_used_car | bought_elsewhere | competitor_promo | out_of_area | "
     "price_too_high | financing_rejected | no_budget | postponed | wrong_product | changed_mind | "
     "trade_in_issue. Jika belum lost, lost_reason=null. Data tak disebut -> null.\n"
     "Ringkasan untuk sales SEMUA dalam Bahasa Indonesia:\n"
-    "- summary: 1-3 kalimat inti kebutuhan customer (mobil diminati, budget/DP, "
-    "financing, pertanyaan utama).\n"
+    "- summary: 1-3 kalimat inti kebutuhan customer (produk/unit diminati, budget, "
+    "pertanyaan utama).\n"
     "- priority: 'high' | 'medium' | 'low' (high=sinyal beli kuat/siap closing, "
     "medium=menimbang, low=basa-basi/off-topic).\n"
     "- recommended_action: 'call' | 'message' | 'wait' | 'handoff' (saran tindakan, "
     "BUKAN auto-eksekusi).\n"
     "- action_reason: 1 kalimat alasan.\n"
     "- action_confidence: angka 0..1.\n"
-    'Balas HANYA JSON: {"car_brand": string|null, "car_model": string|null, '
-    '"city": string|null, "purchase_timeframe": number|null, "lost_reason": string|null, '
+    'Balas HANYA JSON: {"lost_reason": string|null, '
     '"summary": string|null, "priority": string|null, "recommended_action": string|null, '
     '"action_reason": string|null, "action_confidence": number|null}.'
 )
@@ -432,12 +428,9 @@ def _extra_fields_instruction(extra_fields: List[dict]) -> str:
 
 
 def _shape_analyze(obj: dict, extra_fields: Optional[List[dict]] = None) -> dict:
-    ptf = _as_int(obj.get("purchase_timeframe"))
+    # Lead qualifiers (brand/model/city/timeframe/...) come via extra_fields ->
+    # result["fields"], one segment-agnostic path — no dedicated car keys here.
     out = {
-        "car_brand": obj.get("car_brand"),
-        "car_model": obj.get("car_model"),
-        "city": obj.get("city"),
-        "purchase_timeframe": ptf,
         "lost_reason": obj.get("lost_reason"),
         "summary": obj.get("summary"),
         "priority": obj.get("priority"),
@@ -455,8 +448,7 @@ def _shape_analyze(obj: dict, extra_fields: Optional[List[dict]] = None) -> dict
 def _mock_analyze(user_message: str) -> dict:
     snippet = (user_message or "").strip().replace("\n", " ")[:160] or None
     return {
-        "car_brand": None, "car_model": None, "city": None,
-        "purchase_timeframe": None, "lost_reason": None,
+        "lost_reason": None,
         "summary": snippet, "priority": "medium", "recommended_action": "message",
         "action_reason": "Mock recommendation (no live LLM).", "action_confidence": 0.5,
     }

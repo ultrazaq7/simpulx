@@ -151,8 +151,8 @@ func (s *server) handleListConversations(w http.ResponseWriter, r *http.Request)
 		           WHERE m.conversation_id = cv.id
 		             AND m.direction = 'inbound' AND m.genuine = true) AS customer_responded,
 		        cv.interest_level, cv.ai_stage,
-		        cv.car_brand, cv.car_model, cv.city, cv.purchase_timeframe, cv.lost_reason,
 		        cmp.segment AS campaign_segment, COALESCE(cmp.ai_smart_summary, true) AS campaign_smart_summary, COALESCE(cmp.ai_auto_reply, false) AS campaign_auto_reply, cv.metadata->'lead_fields' AS lead_fields,
+		        cv.lost_reason,
 		        cv.lead_summary, cv.suggested_action, cv.suggested_action_reason,
 		        cv.suggested_action_confidence, cv.lead_score, cv.call_attempts,
 		        ct.full_name AS contact_name, ct.phone AS contact_phone, ct.email AS contact_email,
@@ -212,8 +212,8 @@ func (s *server) handleGetConversation(w http.ResponseWriter, r *http.Request) {
 		           WHERE m.conversation_id = cv.id
 		             AND m.direction = 'inbound' AND m.genuine = true) AS customer_responded,
 		        cv.interest_level, cv.ai_stage,
-		        cv.car_brand, cv.car_model, cv.city, cv.purchase_timeframe, cv.lost_reason,
 		        cmp.segment AS campaign_segment, COALESCE(cmp.ai_smart_summary, true) AS campaign_smart_summary, COALESCE(cmp.ai_auto_reply, false) AS campaign_auto_reply, cv.metadata->'lead_fields' AS lead_fields,
+		        cv.lost_reason,
 		        cv.lead_summary, cv.suggested_action, cv.suggested_action_reason,
 		        cv.suggested_action_confidence, cv.lead_score, cv.call_attempts,
 		        ct.full_name AS contact_name, ct.phone AS contact_phone, ct.email AS contact_email,
@@ -1875,7 +1875,6 @@ const contactSelectSQL = `SELECT ct.id::text AS id, ct.full_name, ct.phone, ct.e
 		        COALESCE(lc.interest_level, ct.interest_level) AS interest_level,
 		        COALESCE(lc.stage_id, ct.stage_id)::text AS stage_id, ls.name AS stage_name, lc.last_message_at, lc.ai_summary,
 		        lc.lead_score, lc.lost_reason,
-		        lc.car_brand, lc.car_model, lc.city, lc.purchase_timeframe,
 		        COALESCE(lc.metadata->'lead_fields', '{}'::jsonb) AS lead_fields,
 		        COALESCE(lc.assigned_agent_id, ct.assigned_agent_id)::text AS assigned_agent_id, lu.full_name AS agent_name,
 		        lc.campaign_id::text AS campaign_id, lcmp.name AS campaign_name, lcmp.segment AS campaign_segment,
@@ -1885,7 +1884,7 @@ const contactSelectSQL = `SELECT ct.id::text AS id, ct.full_name, ct.phone, ct.e
 		   FROM contacts ct
 		   LEFT JOIN LATERAL (
 		     SELECT id AS conversation_id, interest_level, stage_id, last_message_at, ai_reason AS ai_summary,
-		            lead_score, lost_reason, car_brand, car_model, city, purchase_timeframe,
+		            lead_score, lost_reason,
 		            assigned_agent_id, campaign_id, channel_id, branch_id, metadata
 		       FROM conversations WHERE contact_id=ct.id
 		      ORDER BY last_message_at DESC NULLS LAST LIMIT 1
@@ -2243,7 +2242,6 @@ const leadSelectSQL = `SELECT cv.id::text AS conversation_id, ct.id::text AS id,
 		        cv.interest_level,
 		        cv.stage_id::text AS stage_id, ls.name AS stage_name, cv.last_message_at, cv.ai_reason AS ai_summary,
 		        cv.lead_score, cv.lost_reason,
-		        cv.car_brand, cv.car_model, cv.city, cv.purchase_timeframe,
 		        cv.assigned_agent_id::text AS assigned_agent_id, lu.full_name AS agent_name,
 		        cv.campaign_id::text AS campaign_id, lcmp.name AS campaign_name,
 		        lch.name AS channel_name,

@@ -24,6 +24,27 @@ import orchestrator
 logging.basicConfig(level=logging.INFO, format="%(asctime)s %(levelname)s %(message)s")
 log = logging.getLogger("ai-agent")
 
+
+def _lead_fields(metadata) -> dict:
+    """Parse conversations.metadata->'lead_fields' into a dict (asyncpg returns
+    jsonb as str, so unwrap defensively). Segment-agnostic lead attributes live
+    here now (brand/model/city for automotive, arbitrary keys for other segments)."""
+    m = metadata
+    if isinstance(m, str):
+        try:
+            m = json.loads(m)
+        except Exception:
+            return {}
+    if not isinstance(m, dict):
+        return {}
+    lf = m.get("lead_fields")
+    if isinstance(lf, str):
+        try:
+            lf = json.loads(lf)
+        except Exception:
+            return {}
+    return lf if isinstance(lf, dict) else {}
+
 state: dict = {}
 
 
@@ -130,7 +151,8 @@ async def summary_stream(req: SummaryReq):
     pool = state["pool"]
     async with pool.acquire() as conn:
         conv = await conn.fetchrow(
-            """SELECT a.system_prompt, a.model, cv.car_brand, cv.car_model, cv.city,
+            """SELECT a.system_prompt, a.model,
+                      COALESCE(cv.metadata, '{}'::jsonb) AS metadata,
                       cmp.name AS campaign_name, cmp.dealer_name
                  FROM conversations cv
                  LEFT JOIN ai_agents a ON a.id = cv.ai_agent_id
@@ -138,11 +160,12 @@ async def summary_stream(req: SummaryReq):
                 WHERE cv.id = $1""",
             req.conversation_id,
         )
-    
+
     finance_ctx = ""
-    if conv and conv["car_brand"] and conv["car_model"]:
+    _lf = _lead_fields(conv["metadata"]) if conv else {}
+    if _lf.get("brand") or _lf.get("model"):
         import finance_rag
-        ctx = await finance_rag.get_finance_context(pool, conv["car_brand"], conv["car_model"], conv["city"])
+        ctx = await finance_rag.get_finance_context(pool, _lf.get("brand"), _lf.get("model"), _lf.get("city"))
         if ctx:
             finance_ctx = f"\n\n{ctx}\n"
 
@@ -193,7 +216,8 @@ async def reply_stream(req: SummaryReq):
     pool = state["pool"]
     async with pool.acquire() as conn:
         conv = await conn.fetchrow(
-            """SELECT a.system_prompt, a.model, cv.car_brand, cv.car_model, cv.city,
+            """SELECT a.system_prompt, a.model,
+                      COALESCE(cv.metadata, '{}'::jsonb) AS metadata,
                       cmp.name AS campaign_name, cmp.dealer_name
                  FROM conversations cv
                  LEFT JOIN ai_agents a ON a.id = cv.ai_agent_id
@@ -201,11 +225,12 @@ async def reply_stream(req: SummaryReq):
                 WHERE cv.id = $1""",
             req.conversation_id,
         )
-        
+
     finance_ctx = ""
-    if conv and conv["car_brand"] and conv["car_model"]:
+    _lf = _lead_fields(conv["metadata"]) if conv else {}
+    if _lf.get("brand") or _lf.get("model"):
         import finance_rag
-        ctx = await finance_rag.get_finance_context(pool, conv["car_brand"], conv["car_model"], conv["city"])
+        ctx = await finance_rag.get_finance_context(pool, _lf.get("brand"), _lf.get("model"), _lf.get("city"))
         if ctx:
             finance_ctx = f"\n\n{ctx}\n"
 

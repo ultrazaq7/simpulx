@@ -27,10 +27,6 @@ class Contact extends Equatable {
     this.sourceUrl,
     this.webApiSourceName,
     this.webApiSourcePlatform,
-    this.carBrand,
-    this.carModel,
-    this.city,
-    this.purchaseTimeframe,
     this.leadFields = const {},
   });
 
@@ -56,11 +52,7 @@ class Contact extends Equatable {
   final String? sourceUrl;
   final String? webApiSourceName;
   final String? webApiSourcePlatform; // meta | tiktok | google | other
-  final String? carBrand;
-  final String? carModel;
-  final String? city;
-  final String? purchaseTimeframe;
-  // Non-automotive segment qualifiers (property, finance, ...) extracted by the
+  // Segment qualifiers (property, finance, ...) extracted by the
   // AI into conversation.metadata.lead_fields. Empty for automotive.
   final Map<String, String> leadFields;
 
@@ -89,10 +81,6 @@ class Contact extends Equatable {
         'source_url': sourceUrl,
         'web_api_source_name': webApiSourceName,
         'web_api_source_platform': webApiSourcePlatform,
-        'car_brand': carBrand,
-        'car_model': carModel,
-        'city': city,
-        'purchase_timeframe': purchaseTimeframe,
       };
 
   String get displayName => fullName.trim().isNotEmpty ? fullName : phone;
@@ -161,10 +149,6 @@ class Contact extends Equatable {
         sourceUrl,
         webApiSourceName,
         webApiSourcePlatform,
-        carBrand,
-        carModel,
-        city,
-        purchaseTimeframe,
         leadFields,
       ];
 }
