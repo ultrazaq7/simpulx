@@ -19,6 +19,7 @@ from simpulx_common.broker import Broker
 from simpulx_common.db import get_pool
 from simpulx_common.settings import settings
 
+import llm_usage
 import orchestrator
 
 logging.basicConfig(level=logging.INFO, format="%(asctime)s %(levelname)s %(message)s")
@@ -115,6 +116,10 @@ async def debug_reply(req: DebugReply):
 class ExtractCatalogReq(BaseModel):
     pdf_base64: str
     segment: str | None = None
+    # Optional so an older gateway (mid-deploy, or a manual curl) still works — the
+    # extraction just goes unbilled to any org rather than failing. The gateway
+    # always sends it; see services/gateway/catalog.go.
+    organization_id: str | None = None
 
 
 @app.post("/extract/catalog")
@@ -127,12 +132,19 @@ async def extract_catalog(req: ExtractCatalogReq):
         if not req.pdf_base64:
             yield f"data: {json.dumps({'type': 'done', 'rows': [], 'error': 'no pdf'})}\n\n"
             return
+        usage: dict = {}
         try:
-            async for evt in llm.extract_catalog_stream(req.pdf_base64, segment=req.segment):
+            async for evt in llm.extract_catalog_stream(req.pdf_base64, segment=req.segment,
+                                                        usage_out=usage):
                 yield f"data: {json.dumps(evt)}\n\n"
         except Exception as e:  # noqa: BLE001
             log.exception("catalog extract failed")
             yield f"data: {json.dumps({'type': 'error', 'error': str(e)})}\n\n"
+        # A catalog extraction has no conversation, so conversation_id stays NULL.
+        # Runs on the success and failure paths alike: a PDF that blew up halfway
+        # still burned tokens, and that is exactly the spend worth seeing.
+        if req.organization_id:
+            await llm_usage.record(state["pool"], req.organization_id, None, "catalog", usage, log)
 
     return StreamingResponse(gen(), media_type="text/event-stream")
 
@@ -181,14 +193,20 @@ async def summary_stream(req: SummaryReq):
 
     async def gen():
         parts: list[str] = []
+        usage: dict = {}
         try:
-            async for chunk in llm.stream_summary(system_prompt, history, model=model, app_lang=req.app_lang):
+            async for chunk in llm.stream_summary(system_prompt, history, model=model,
+                                                  app_lang=req.app_lang, usage_out=usage):
                 parts.append(chunk)
                 yield f"data: {json.dumps({'text': chunk})}\n\n"
         except Exception:  # noqa: BLE001
             log.exception("summary stream failed")
+            # Record whatever usage the stream reported before it broke: a partial
+            # generation is still billed for the tokens it produced.
+            await llm_usage.record(pool, req.org_id, req.conversation_id, "summary", usage, log)
             yield f"data: {json.dumps({'error': 'generation failed'})}\n\n"
             return
+        await llm_usage.record(pool, req.org_id, req.conversation_id, "summary", usage, log)
         full = "".join(parts).strip()
         if full:
             try:
@@ -246,13 +264,18 @@ async def reply_stream(req: SummaryReq):
     history = await orchestrator._load_history(pool, req.conversation_id, None)
 
     async def gen():
+        usage: dict = {}
         try:
-            async for chunk in llm.stream_reply(system_prompt, history, model=model, app_lang=req.app_lang):
+            async for chunk in llm.stream_reply(system_prompt, history, model=model,
+                                                app_lang=req.app_lang, usage_out=usage):
                 yield f"data: {json.dumps({'text': chunk})}\n\n"
         except Exception:  # noqa: BLE001
             log.exception("reply stream failed")
+            # Partial generations are billed too — record before bailing out.
+            await llm_usage.record(pool, req.org_id, req.conversation_id, "reply", usage, log)
             yield f"data: {json.dumps({'error': 'generation failed'})}\n\n"
             return
+        await llm_usage.record(pool, req.org_id, req.conversation_id, "reply", usage, log)
         yield f"data: {json.dumps({'done': True})}\n\n"
 
     return StreamingResponse(

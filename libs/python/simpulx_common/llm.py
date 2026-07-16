@@ -235,8 +235,62 @@ def _salvage_reply(text: str) -> str:
     return t
 
 
+# --- token usage bubbling -------------------------------------------------------
+# llm.py has NO DB pool by design, so it never writes the llm_usage ledger itself.
+# Instead every entry point takes an optional `usage_out` dict and fills it in
+# place with the raw Anthropic usage + the model actually called; the caller (which
+# owns the pool and knows the org/conversation) does the INSERT via
+# services/ai-agent/llm_usage.py. A dict (not a return value) because the streaming
+# entry points are async generators and can't return one.
+#
+# Shape: {model, input_tokens, output_tokens, cache_read_input_tokens,
+#         cache_creation_input_tokens}. Left untouched when the call never reaches
+# Anthropic (mock provider / raises) -> caller records nothing, which is correct:
+# nothing was billed.
+
+
+def _fill_usage(usage_out: Optional[dict], model: str, u: dict) -> None:
+    """Copy one non-streaming response's usage block into usage_out."""
+    if usage_out is None:
+        return
+    usage_out.update(
+        model=model,
+        input_tokens=u.get("input_tokens"),
+        output_tokens=u.get("output_tokens"),
+        cache_read_input_tokens=u.get("cache_read_input_tokens"),
+        cache_creation_input_tokens=u.get("cache_creation_input_tokens"),
+    )
+
+
+def _accum_usage(usage_out: Optional[dict], evt: dict) -> None:
+    """Accumulate usage from one streaming SSE event.
+
+    Anthropic splits it across two events: `message_start` carries the model and
+    the input/cache counters, `message_delta` carries the running output_tokens
+    (the last one before message_stop is the final count). Safe to call on every
+    event — anything else is ignored."""
+    if usage_out is None:
+        return
+    etype = evt.get("type")
+    if etype == "message_start":
+        msg = evt.get("message") or {}
+        u = msg.get("usage") or {}
+        usage_out.update(
+            model=msg.get("model"),
+            input_tokens=u.get("input_tokens"),
+            output_tokens=u.get("output_tokens"),
+            cache_read_input_tokens=u.get("cache_read_input_tokens"),
+            cache_creation_input_tokens=u.get("cache_creation_input_tokens"),
+        )
+    elif etype == "message_delta":
+        out = (evt.get("usage") or {}).get("output_tokens")
+        if out is not None:
+            usage_out["output_tokens"] = out
+
+
 async def _anthropic_raw(system_blocks: list, history: List[dict],
-                         user_message: str, model: str, max_tokens: int) -> str:
+                         user_message: str, model: str, max_tokens: int,
+                         usage_out: Optional[dict] = None) -> str:
     """One Claude call -> raw response text. thinking is DISABLED: these are short,
     structured calls with a small max_tokens, and Sonnet 5 runs adaptive thinking by
     default when the field is omitted — which would eat the budget and truncate or
@@ -253,6 +307,7 @@ async def _anthropic_raw(system_blocks: list, history: List[dict],
         resp.raise_for_status()
         data = resp.json()
     u = data.get("usage", {})
+    _fill_usage(usage_out, data.get("model") or model, u)
     log.info("llm usage model=%s in=%s out=%s cache_read=%s cache_write=%s",
              model, u.get("input_tokens"), u.get("output_tokens"),
              u.get("cache_read_input_tokens"), u.get("cache_creation_input_tokens"))
@@ -260,8 +315,10 @@ async def _anthropic_raw(system_blocks: list, history: List[dict],
 
 
 async def _anthropic_call(system_blocks: list, history: List[dict],
-                          user_message: str, model: str, max_tokens: int) -> dict:
-    return _parse_json(await _anthropic_raw(system_blocks, history, user_message, model, max_tokens))
+                          user_message: str, model: str, max_tokens: int,
+                          usage_out: Optional[dict] = None) -> dict:
+    return _parse_json(await _anthropic_raw(system_blocks, history, user_message, model,
+                                            max_tokens, usage_out))
 
 
 CATALOG_EXTRACT_INSTRUCTION = (
@@ -293,9 +350,11 @@ CATALOG_EXTRACT_INSTRUCTION = (
 
 
 async def extract_catalog(pdf_b64: str, segment: Optional[str] = None,
-                          model: Optional[str] = None) -> dict:
+                          model: Optional[str] = None,
+                          usage_out: Optional[dict] = None) -> dict:
     """Extract catalog/pricelist rows from a PDF via Claude's document input (WS-A).
-    Returns {"rows": [...], "warning": str|None}. Rows match campaign_catalog's shape."""
+    Returns {"rows": [...], "warning": str|None}. Rows match campaign_catalog's shape.
+    usage_out: optional dict filled with this call's token usage (feature 'catalog')."""
     if not (settings.llm_provider == "anthropic" and settings.anthropic_api_key):
         return {"rows": [], "warning": "no_llm"}
     hint = f" Segmen bisnis: {segment}." if segment else ""
@@ -315,6 +374,7 @@ async def extract_catalog(pdf_b64: str, segment: Optional[str] = None,
         resp.raise_for_status()
         data = resp.json()
     u = data.get("usage", {})
+    _fill_usage(usage_out, data.get("model") or "", u)
     log.info("catalog extract usage in=%s out=%s stop=%s",
              u.get("input_tokens"), u.get("output_tokens"), data.get("stop_reason"))
     text = "".join(b.get("text", "") for b in data.get("content", []) if b.get("type") == "text")
@@ -330,12 +390,15 @@ async def extract_catalog(pdf_b64: str, segment: Optional[str] = None,
 
 
 async def extract_catalog_stream(pdf_b64: str, segment: Optional[str] = None,
-                                 model: Optional[str] = None) -> AsyncIterator[dict]:
+                                 model: Optional[str] = None,
+                                 usage_out: Optional[dict] = None) -> AsyncIterator[dict]:
     """Streaming variant of extract_catalog. Yields progress events while Claude
     generates so the caller can report real sub-progress:
       {"type":"progress","rows":N}  -> N item rows extracted so far
       {"type":"done","rows":[...],"warning":...}
       {"type":"error","error":"..."}
+    usage_out: optional dict filled with this call's token usage (feature 'catalog');
+    only complete once the generator has been fully consumed.
     """
     if not (settings.llm_provider == "anthropic" and settings.anthropic_api_key):
         yield {"type": "done", "rows": [], "warning": "no_llm"}
@@ -370,6 +433,7 @@ async def extract_catalog_stream(pdf_b64: str, segment: Optional[str] = None,
                         evt = json.loads(line[5:].strip())
                     except Exception:  # noqa: BLE001
                         continue
+                    _accum_usage(usage_out, evt)
                     etype = evt.get("type")
                     if etype == "content_block_delta":
                         d = evt.get("delta", {})
@@ -475,13 +539,15 @@ _DEFAULT_LOST_REASONS = [
 async def analyze(system_prompt: str, history: Optional[List[dict]],
                   user_message: str, model: Optional[str] = None,
                   extra_fields: Optional[List[dict]] = None,
-                  lost_reasons: Optional[List[str]] = None) -> dict:
+                  lost_reasons: Optional[List[str]] = None,
+                  usage_out: Optional[dict] = None) -> dict:
     """Ekstraksi field + ringkasan/saran untuk sales. Tanpa balasan chat.
 
     extra_fields (WS-B): per-segment qualifier fields to extract, returned under
     result["fields"] (now for EVERY segment, automotive included).
     lost_reasons: the segment-specific lost_reason enum to constrain the model to
-    (segments.lost_reason_values); falls back to a default set if not given."""
+    (segments.lost_reason_values); falls back to a default set if not given.
+    usage_out: optional dict filled with this call's token usage (feature 'extract')."""
     if not (settings.llm_provider == "anthropic" and settings.anthropic_api_key):
         return _mock_analyze(user_message)
     # Static per-agent prefix (system_prompt + instruksi) di-cache -> hemat input
@@ -494,17 +560,21 @@ async def analyze(system_prompt: str, history: Optional[List[dict]],
         "text": (system_prompt or "You are a helpful sales assistant.") + "\n\n" + instruction,
         "cache_control": {"type": "ephemeral"},
     }]
-    obj = await _anthropic_call(system, history or [], user_message, await _resolve_model(model), 400)
+    obj = await _anthropic_call(system, history or [], user_message,
+                                await _resolve_model(model), 400, usage_out)
     return _shape_analyze(obj, extra_fields)
 
 
 async def stream_summary(system_prompt: str, history: Optional[List[dict]],
                          model: Optional[str] = None,
-                         app_lang: Optional[str] = None) -> AsyncIterator[str]:
+                         app_lang: Optional[str] = None,
+                         usage_out: Optional[dict] = None) -> AsyncIterator[str]:
     """Stream a sales briefing for the active conversation, chunk by chunk.
     Generated fresh on demand (agent clicks 'AI Smart Summary'). Language follows
     the conversation; the fallback (when undetectable) follows the app UI language
-    (app_lang, default English). Falls back to a mock stream without a live LLM."""
+    (app_lang, default English). Falls back to a mock stream without a live LLM.
+    usage_out: optional dict filled with this call's token usage (feature 'summary');
+    only complete once the generator has been fully consumed."""
     if not (settings.llm_provider == "anthropic" and settings.anthropic_api_key):
         for word in _MOCK_SUMMARY.split(" "):
             yield word + " "
@@ -551,6 +621,7 @@ async def stream_summary(system_prompt: str, history: Optional[List[dict]],
                     evt = json.loads(data)
                 except Exception:  # noqa: BLE001
                     continue
+                _accum_usage(usage_out, evt)
                 etype = evt.get("type")
                 if etype == "content_block_delta":
                     delta = evt.get("delta") or {}
@@ -564,11 +635,14 @@ async def stream_summary(system_prompt: str, history: Optional[List[dict]],
 
 async def stream_reply(system_prompt: str, history: Optional[List[dict]],
                        model: Optional[str] = None,
-                       app_lang: Optional[str] = None) -> AsyncIterator[str]:
+                       app_lang: Optional[str] = None,
+                       usage_out: Optional[dict] = None) -> AsyncIterator[str]:
     """Stream a suggested next reply to SEND to the customer, chunk by chunk.
     One-shot suggestion for the composer's 'AI Smart Reply' (not persisted).
     Language follows the conversation; fallback follows app_lang. Mock without a
-    live LLM."""
+    live LLM.
+    usage_out: optional dict filled with this call's token usage (feature 'reply');
+    only complete once the generator has been fully consumed."""
     if not (settings.llm_provider == "anthropic" and settings.anthropic_api_key):
         for word in _MOCK_REPLY.split(" "):
             yield word + " "
@@ -619,6 +693,7 @@ async def stream_reply(system_prompt: str, history: Optional[List[dict]],
                     evt = json.loads(data)
                 except Exception:  # noqa: BLE001
                     continue
+                _accum_usage(usage_out, evt)
                 etype = evt.get("type")
                 if etype == "content_block_delta":
                     delta = evt.get("delta") or {}
@@ -646,8 +721,10 @@ def _followup_tone(touch: int) -> str:
 
 
 async def draft_followup(system_prompt: str, history: Optional[List[dict]],
-                         user_message: str, model: Optional[str] = None, touch: int = 1) -> str:
-    """Hasilkan satu pesan follow-up singkat. Mengembalikan string reply."""
+                         user_message: str, model: Optional[str] = None, touch: int = 1,
+                         usage_out: Optional[dict] = None) -> str:
+    """Hasilkan satu pesan follow-up singkat. Mengembalikan string reply.
+    usage_out: optional dict filled with this call's token usage (feature 'followup')."""
     if not (settings.llm_provider == "anthropic" and settings.anthropic_api_key):
         return "Halo kak, masih berminat dengan unitnya? Ada yang bisa kami bantu?"
     system = [{
@@ -655,7 +732,8 @@ async def draft_followup(system_prompt: str, history: Optional[List[dict]],
         "text": (system_prompt or "You are a helpful sales assistant.") + "\n\n" + FOLLOWUP_INSTRUCTION + _followup_tone(touch),
         "cache_control": {"type": "ephemeral"},
     }]
-    text = await _anthropic_raw(system, history or [], user_message, await _resolve_model(model), 256)
+    text = await _anthropic_raw(system, history or [], user_message,
+                                await _resolve_model(model), 256, usage_out)
     return (_parse_json(text).get("reply") or "").strip() or _salvage_reply(text)
 
 
@@ -693,11 +771,13 @@ _NURTURE_RULES = (
 
 async def nurture(system_prompt: str, history: Optional[List[dict]],
                   user_message: str, model: Optional[str] = None,
-                  segment_guidance: str = "") -> dict:
+                  segment_guidance: str = "",
+                  usage_out: Optional[dict] = None) -> dict:
     """Generate one nurture reply + a handoff decision.
     `segment_guidance` is the segment-specific "info kunci + approach" block (from
     segments.nurture_guidance); empty keeps the bot neutral (not automotive).
-    Returns {"reply": str, "ready_for_handoff": bool}."""
+    Returns {"reply": str, "ready_for_handoff": bool}.
+    usage_out: optional dict filled with this call's token usage (feature 'nurture')."""
     if not (settings.llm_provider == "anthropic" and settings.anthropic_api_key):
         return {"reply": "Halo kak, boleh dibantu ya. Boleh tahu produk/layanan yang dicari dan domisili di kota mana?",
                 "ready_for_handoff": False}
@@ -707,7 +787,8 @@ async def nurture(system_prompt: str, history: Optional[List[dict]],
         "text": (system_prompt or "You are a helpful sales assistant.") + "\n\n" + instruction,
         "cache_control": {"type": "ephemeral"},
     }]
-    text = await _anthropic_raw(system, history or [], user_message, await _resolve_model(model), 400)
+    text = await _anthropic_raw(system, history or [], user_message,
+                                await _resolve_model(model), 400, usage_out)
     obj = _parse_json(text)
     reply = (obj.get("reply") or "").strip() or _salvage_reply(text)
     return {"reply": reply, "ready_for_handoff": bool(obj.get("ready_for_handoff"))}

@@ -182,7 +182,13 @@ func (s *server) handleExtractCatalog(w http.ResponseWriter, r *http.Request) {
 
 	// Mark pending, then run the extraction detached from the request.
 	_ = s.rdb.Set(r.Context(), key, `{"status":"pending"}`, 20*time.Minute).Err()
-	payload, _ := json.Marshal(map[string]any{"pdf_base64": b.PDFBase64, "segment": b.Segment})
+	// organization_id is forwarded so the ai-agent can attribute the extraction's
+	// token spend in llm_usage — it is the only place the org is known on this path
+	// (the ai-agent has no auth context of its own). A cache hit returns above and
+	// spends no tokens, so it correctly records nothing.
+	payload, _ := json.Marshal(map[string]any{
+		"pdf_base64": b.PDFBase64, "segment": b.Segment, "organization_id": a.OrgID,
+	})
 	go s.runCatalogExtract(key, cacheKey, payload)
 	writeJSON(w, map[string]any{"job_id": jobID, "status": "pending"})
 }

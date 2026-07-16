@@ -15,10 +15,49 @@ Redis, NATS, MinIO. Region ap-southeast-3.
 
 ---
 
-## P1 — `llm_usage` table (do this first)
+## P1 — `llm_usage` table — DONE (2026-07-17), pending a live smoke test
 
-**Why:** we cannot compute cost-per-conversation. $4.97 was spent 1–16 Jul but the
-denominator is GONE: deleting a contact cascades away its conversations+messages.
+Built and verified against prod Postgres in a throwaway DB (migration applies, rows
+land, `record()` never raises, row survives its conversation being deleted, 0 FK
+constraints). NOT yet exercised by a real LLM call — see "Still to do" below.
+
+- `db/migrations/0095_llm_usage.sql` — applies via goose on gateway boot.
+- `services/ai-agent/llm_usage.py` — the ONLY place pricing lives. `record()` is
+  best-effort and swallows everything: cost telemetry must never break a reply.
+- `libs/python/simpulx_common/llm.py` — every entry point takes an optional
+  `usage_out` dict and fills it in place (a dict, not a return value, because the
+  streaming entry points are async generators). llm.py still has no DB pool.
+- Callers INSERT: `orchestrator.py` (extract/nurture/followup),
+  `main.py` (summary/reply/catalog).
+
+**Correction to the old plan:** the claim that "every Anthropic call funnels through
+`_anthropic_call()`" was wrong — it only covered `analyze`. `nurture`/`draft_followup`
+call `_anthropic_raw` directly, and `stream_summary`/`stream_reply`/`extract_catalog_stream`
+each do their own httpx call and **discarded usage entirely** (they had to be taught
+to read it out of the `message_start`/`message_delta` SSE events).
+
+**6th feature label:** `followup` was added beyond the spec's five. `draft_followup`
+(scheduled) is a different call from `nurture` (live auto-reply) — different prompt,
+different max_tokens (256 vs 400). Merging them would be unrecoverable once rows are
+written; relabelling later is trivial. `feature` is free text, no enum constraint.
+
+**Catalog needed an org.** `/extract/catalog` had no org_id; the gateway has it and
+now forwards it (`services/gateway/catalog.go`). `organization_id` is optional on the
+ai-agent request so a mid-deploy skew degrades to "unattributed", not a 500.
+
+### Still to do
+- **Live smoke test:** ~10 outbound + 1 catalog upload, then confirm rows.
+  NOTE: spamming one conversation will NOT produce one row per message — the
+  inbound path is gated by `COOLDOWN_SEC=45`, `NURTURE_BURST_SEC=20` and
+  `_should_analyze()`. Few rows there means the gates are working, not that logging
+  broke. For 1 row per call, hit many conversations, or `/summary/stream`+`/reply/stream`
+  (no cooldown).
+- **Reconcile against the invoice:** in ~2–4 weeks re-export the Anthropic usage CSV
+  and compare `SUM(cost_usd)` to the billed total. If llm_usage is lower, a call path
+  is still unlogged. This is the end-to-end proof the table is complete.
+
+**Why it exists:** we could not compute cost-per-conversation. ~$4.65 was spent 1–16 Jul
+but the denominator is GONE: deleting a contact cascades away its conversations+messages.
 Without this table every data cleanup destroys the ability to know if the business
 is profitable. No PII goes in it, so contact deletion is irrelevant to it.
 
@@ -59,12 +98,23 @@ Spend 1–16 Jul on the `simpulx` key: **$4.67**. Models are Sonnet 4.6 (79%) +
 Sonnet 5 (21%) — no Opus, model choice is fine. (An earlier Opus figure came from a
 DIFFERENT api key and is not ours — ignore it.)
 
-1. **Prompt caching currently LOSES money.**
-   `cache_write $0.46` vs `cache_read $0.02` → read/write ratio **0.04**. We pay the
-   +25% write premium and almost never read it back (5-min TTL expires at low
-   traffic). Disable caching in `llm.py` (`cache_control` in the analyze/nurture
-   system blocks) until volume justifies it; re-enable when `llm_usage` shows reads
-   materially exceed writes.
+1. ~~**Prompt caching currently LOSES money.**~~ **WRONG — do NOT disable caching.**
+   Retracted 2026-07-17 after recomputing from the raw usage CSV (`simpulx` key only).
+
+   The error: it compared the **cost** of reads ($0.03) to the **cost** of writes
+   ($0.45) and read 0.056 as "we never read the cache back". But reads are priced at
+   0.1x input and writes at 1.25x — a 12.5x gap is baked in, so the *cost* ratio looks
+   terrible even when caching is winning. It is not a signal.
+
+   The ratio that decides it is **tokens**: 110,827 read / 160,126 written = **0.692**.
+   Caching pays off when `1.25W + 0.1R < W + R`, i.e. **R/W > 0.278**. We are at 0.692
+   — **2.5x above break-even**. Actual: $0.479 paid with cache vs $0.616 those same
+   tokens would cost without it. **Caching is SAVING ~22%.** Disabling it would have
+   raised the bill. The "5-min TTL expires at low traffic" claim is also unsupported:
+   110k tokens demonstrably were read back.
+
+   Verified the same way the price table was: it reproduces the invoice to within 0.5%
+   ($4.6475 computed vs $4.67 reported). If you revisit this, use the token ratio.
 2. **Output = 73% of spend** ($3.41 / $4.67). Nurture replies are too long. Capping
    output length is the single biggest lever.
 
@@ -72,6 +122,11 @@ NOTE: cost-per-message CANNOT be computed from the DB — deleting contacts casc
 away the conversations/messages that generated this spend. That's exactly what P1
 fixes. Do not extrapolate per-message cost until `llm_usage` has real volume
 (~5k+ messages).
+
+Also confirmed from the CSV: 1h-TTL cache writes are **0** (everything uses the 5-min
+ephemeral TTL), which is why `llm_usage.cache_write` is a single column and is priced
+at 1.25x. If a 1h TTL is ever introduced, that column stops being sufficient — writes
+would need splitting by TTL, since 1h bills at 2x.
 
 ---
 

@@ -17,6 +17,7 @@ from simpulx_common import llm
 
 from classifier import classify, is_trivial, STRONG_INTENT, detect_junk
 import lead_score
+import llm_usage
 import segments
 
 
@@ -122,8 +123,11 @@ async def handle_inbound(broker, pool, env: dict, data: dict, log) -> None:
     # lost_reason enum is constrained to what makes sense for this segment.
     extra_fields = segments.extra_fields_for(conv["segment"])
     lost_reasons = segments.lost_reason_values(conv["segment"])
+    usage: dict = {}
     result = await llm.analyze(system_prompt, history, body, model=conv["model"],
-                               extra_fields=extra_fields, lost_reasons=lost_reasons)
+                               extra_fields=extra_fields, lost_reasons=lost_reasons,
+                               usage_out=usage)
+    await llm_usage.record(pool, org_id, conv_id, "extract", usage, log)
 
     async with pool.acquire() as conn:
         await conn.execute(
@@ -264,11 +268,16 @@ async def handle_followup(broker, pool, org_id: str, conv_id: str, log) -> None:
     history = await _load_history(pool, conv_id, None)
     # Copy varies by touch number (gentle -> direct -> closing) so repeat nudges
     # don't read like the same message twice.
+    usage: dict = {}
     reply = await llm.draft_followup(
         system_prompt, history,
         "Tolong buatkan pesan follow-up untuk customer ini.",
         model=conv["model"], touch=(conv["followup_count"] or 1),
+        usage_out=usage,
     )
+    # Recorded before the send gate below: the tokens are spent whether or not the
+    # draft turns out to be empty and gets dropped.
+    await llm_usage.record(pool, org_id, conv_id, "followup", usage, log)
     if reply:
         await broker.publish(SUBJECT_OUTBOUND, org_id, {
             "conversation_id": conv_id, "sender_type": "bot",
@@ -491,8 +500,14 @@ async def _generate_and_send_reply(broker, pool, conn, org_id: str, conv_id: str
     system_prompt = (row["system_prompt"] or "You are a helpful sales assistant.") + ctx + "\n\n" + lang_rule + finance_ctx
     history = await _load_history(pool, conv_id, message_id, conn=conn)
     await _publish_activity(broker, org_id, conv_id, "thinking", log)
+    usage: dict = {}
     result = await llm.nurture(system_prompt, history, body, model=row["model"],
-                               segment_guidance=segments.nurture_guidance(row["segment"]))
+                               segment_guidance=segments.nurture_guidance(row["segment"]),
+                               usage_out=usage)
+    # Recorded before the empty-reply return below: the tokens are billed either way.
+    # Reuses the advisory-lock connection this section already holds, so the ledger
+    # write doesn't take a second pool slot per in-flight reply.
+    await llm_usage.record(pool, org_id, conv_id, "nurture", usage, log, conn=conn)
     reply = (result.get("reply") or "").strip()
     if not reply:
         await _publish_activity(broker, org_id, conv_id, "replied", log)  # clear the indicator
