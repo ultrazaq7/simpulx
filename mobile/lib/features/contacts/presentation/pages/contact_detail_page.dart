@@ -84,7 +84,11 @@ class _ContactDetailPageState extends ConsumerState<ContactDetailPage>
 
   @override
   Widget build(BuildContext context) {
-    final contact = ref.watch(contactByIdProvider(widget.contactId));
+    // Prefer the loaded list copy; fall back to a by-id fetch so a contact that
+    // isn't in the (leads-only) list (e.g. opened from a chat) still loads instead
+    // of hanging on a spinner forever.
+    final contact = ref.watch(contactByIdProvider(widget.contactId)) ??
+        ref.watch(contactFetchProvider(widget.contactId)).value;
 
     if (contact == null) {
       return Scaffold(

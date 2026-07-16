@@ -68,6 +68,12 @@ class ContactsController extends AsyncNotifier<List<Contact>> {
         }
         return;
       }
+      // A contact edit/create (name/tags/phone, from any client) reflects in the
+      // leads list — low-frequency, so a quick reconcile is fine.
+      if (e.isContactUpdated || e.isContactCreated) {
+        _scheduleRefresh(const Duration(milliseconds: 500), priority: true);
+        return;
+      }
       if (e.isConversationAssigned || e.isConversationUpdated) {
         _scheduleRefresh(const Duration(milliseconds: 300), priority: true);
       } else if (e.isMessagePersisted || e.isConversationClosed) {
@@ -180,4 +186,13 @@ final contactByIdProvider = Provider.family<Contact?, String>((ref, id) {
     if (c.id == id) return c;
   }
   return null;
+});
+
+/// By-id fetch fallback: returns the list copy instantly when present, else
+/// fetches the contact so the detail screen never hangs for a contact that isn't
+/// in the loaded (leads-only) list (e.g. opened from a chat / deep link).
+final contactFetchProvider = FutureProvider.family<Contact?, String>((ref, id) async {
+  final inList = ref.watch(contactByIdProvider(id));
+  if (inList != null) return inList;
+  return ref.read(contactsRemoteDataSourceProvider).get(id);
 });

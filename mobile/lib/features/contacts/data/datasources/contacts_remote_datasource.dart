@@ -29,6 +29,18 @@ class ContactsRemoteDataSource {
     }
   }
 
+  /// GET /api/contacts/{id} -> one contact. Fallback for the detail screen when
+  /// the contact isn't in the loaded (leads-only) list, e.g. a non-lead contact
+  /// opened from a chat — otherwise the detail page hangs on a spinner.
+  Future<Contact> get(String id) async {
+    try {
+      final res = await _dio.get(ApiEndpoints.contact(id));
+      return ContactModel.fromJson((res.data as Map).cast<String, dynamic>());
+    } on DioException catch (e) {
+      throw ErrorMapper.fromDio(e);
+    }
+  }
+
   /// POST /api/contacts {full_name, phone, tags?} -> created row.
   Future<Contact> create({
     required String fullName,
