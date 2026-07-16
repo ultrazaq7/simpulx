@@ -236,7 +236,17 @@ class _ContactTileState extends ConsumerState<ContactTile> {
   static String _buildInfoLine(Contact c) {
     final parts = <String>[];
     if (c.phone.isNotEmpty) parts.add(c.phone);
-    if (c.carModel != null && c.carModel!.isNotEmpty) parts.add(c.carModel!);
+    if (c.carModel != null && c.carModel!.isNotEmpty) {
+      parts.add(c.carModel!);
+    } else if (c.leadFields.isNotEmpty) {
+      // Non-automotive: surface the segment's own qualifier values (e.g. a
+      // property lead's type/budget) instead of empty car fields.
+      final vals = c.leadFields.values
+          .where((v) => v.trim().isNotEmpty)
+          .take(2)
+          .join(' · ');
+      if (vals.isNotEmpty) parts.add(vals);
+    }
     if (c.city != null && c.city!.isNotEmpty) parts.add(c.city!);
     return parts.join(' / ');
   }

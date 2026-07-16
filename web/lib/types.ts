@@ -298,6 +298,8 @@ export interface Contact {
   car_model?: string | null;
   city?: string | null;
   purchase_timeframe?: string | null;
+  campaign_segment?: string | null;
+  lead_fields?: Record<string, string> | null;
   last_message_at: string | null;
   created_at: string;
   ai_summary?: string | null;

@@ -10,6 +10,7 @@ import { api } from "@/lib/api";
 import { initials, channelColor, fmtDate, fmtTime, relTime, fmtDateTimeShort, cn, channelLabel } from "@/lib/utils";
 import { ScoreBadge } from "@/components/ScoreBadge";
 import type { Contact, Conversation, Message, InternalNote } from "@/lib/types";
+import { isAutomotive, segmentFields } from "@/lib/segments";
 import { StageMenu } from "../../inbox/components/StageMenu";
 import { InterestMenu } from "../../inbox/components/InterestMenu";
 import LostReasonDialog from "../../inbox/components/LostReasonDialog";
@@ -384,10 +385,18 @@ export default function ContactDetailsPage() {
             <Row icon={Layers} label={t("contacts.stage")} value={c.stage_name || "-"} />
             {c.lost_reason && <Row icon={StickyNote} label={t("contacts.lostReason")} value={<span className="capitalize">{c.lost_reason.replace(/_/g, " ")}</span>} />}
             <Row icon={Flame} label={t("dashboard.interestLevel")} value={<span className="capitalize">{c.interest_level || "-"}</span>} />
-            <Row icon={TagIcon} label={t("components.brand")} value={c.car_brand || "-"} />
-            <Row icon={TagIcon} label={t("components.model")} value={c.car_model || "-"} />
-            <Row icon={TagIcon} label={t("components.city")} value={c.city || "-"} />
-            <Row icon={Clock} label={t("components.purchaseTime")} value={c.purchase_timeframe || "-"} />
+            {isAutomotive(c.campaign_segment) ? (
+              <>
+                {c.car_brand && <Row icon={TagIcon} label={t("components.brand")} value={c.car_brand} />}
+                {c.car_model && <Row icon={TagIcon} label={t("components.model")} value={c.car_model} />}
+                {c.city && <Row icon={TagIcon} label={t("components.city")} value={c.city} />}
+                {c.purchase_timeframe && <Row icon={Clock} label={t("components.purchaseTime")} value={c.purchase_timeframe} />}
+              </>
+            ) : (
+              segmentFields(c.campaign_segment).map((f) => (
+                c.lead_fields?.[f.key] ? <Row key={f.key} icon={TagIcon} label={t(f.label)} value={c.lead_fields![f.key]} /> : null
+              ))
+            )}
           </Section>
 
           <Section title={t("contacts.assignment")}>

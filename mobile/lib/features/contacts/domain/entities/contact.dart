@@ -31,6 +31,7 @@ class Contact extends Equatable {
     this.carModel,
     this.city,
     this.purchaseTimeframe,
+    this.leadFields = const {},
   });
 
   final String id;
@@ -59,6 +60,9 @@ class Contact extends Equatable {
   final String? carModel;
   final String? city;
   final String? purchaseTimeframe;
+  // Non-automotive segment qualifiers (property, finance, ...) extracted by the
+  // AI into conversation.metadata.lead_fields. Empty for automotive.
+  final Map<String, String> leadFields;
 
   /// Serializes back to the `GET /api/contacts` row shape so the list can be
   /// cached on disk and restored via [ContactModel.fromJson] (cache-first).
@@ -161,5 +165,6 @@ class Contact extends Equatable {
         carModel,
         city,
         purchaseTimeframe,
+        leadFields,
       ];
 }

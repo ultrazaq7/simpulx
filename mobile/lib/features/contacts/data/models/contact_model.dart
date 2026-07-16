@@ -1,3 +1,5 @@
+import 'dart:convert';
+
 import '../../../../core/utils/json_parse.dart';
 import '../../domain/entities/contact.dart';
 
@@ -33,11 +35,35 @@ class ContactModel {
       carModel: asStringOrNull(json['car_model']),
       city: asStringOrNull(json['city']),
       purchaseTimeframe: asStringOrNull(json['purchase_timeframe']),
+      leadFields: _leadFields(json['lead_fields']),
     );
   }
 
   static List<String> _tags(dynamic v) {
     if (v is List) return v.map((e) => e.toString()).toList();
     return const [];
+  }
+
+  /// Non-automotive segment qualifiers. Comes as a JSON object (or a JSON string
+  /// depending on the driver); coerce every value to a non-empty String.
+  static Map<String, String> _leadFields(dynamic v) {
+    dynamic m = v;
+    if (m is String) {
+      if (m.trim().isEmpty) return const {};
+      try {
+        m = jsonDecode(m);
+      } catch (_) {
+        return const {};
+      }
+    }
+    if (m is Map) {
+      final out = <String, String>{};
+      m.forEach((k, val) {
+        final s = val?.toString().trim() ?? '';
+        if (s.isNotEmpty) out[k.toString()] = s;
+      });
+      return out;
+    }
+    return const {};
   }
 }

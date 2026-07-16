@@ -400,6 +400,11 @@ class _LeadContextCard extends StatelessWidget {
             _row(context, 'City', c.city!),
           if (c.purchaseTimeframe != null && c.purchaseTimeframe!.isNotEmpty)
             _row(context, 'Purchase time', c.purchaseTimeframe!),
+          // Non-automotive segments: render the segment's own captured qualifier
+          // fields dynamically (the car rows above stay hidden when empty), so the
+          // detail isn't hardcoded to automotive.
+          for (final e in c.leadFields.entries)
+            _row(context, _humanizeFieldKey(e.key), e.value),
           _row(context, 'Assigned', c.agentName ?? 'Unassigned'.tr(context)),
           if (c.campaignName != null) _row(context, 'Campaign', c.campaignName!),
           _row(context, 'Source', c.sourceLabel.tr(context)),
@@ -558,6 +563,13 @@ class _HistoryCardState extends ConsumerState<_HistoryCard> {
     );
   }
 }
+
+/// snake_case / lower field key -> "Title Case" label for dynamic segment fields.
+String _humanizeFieldKey(String k) => k
+    .split(RegExp(r'[_\s]+'))
+    .where((w) => w.isNotEmpty)
+    .map((w) => w[0].toUpperCase() + w.substring(1))
+    .join(' ');
 
 class _HistoryRow extends StatelessWidget {
   const _HistoryRow({required this.event, required this.isLast});

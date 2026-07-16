@@ -1876,8 +1876,9 @@ const contactSelectSQL = `SELECT ct.id::text AS id, ct.full_name, ct.phone, ct.e
 		        COALESCE(lc.stage_id, ct.stage_id)::text AS stage_id, ls.name AS stage_name, lc.last_message_at, lc.ai_summary,
 		        lc.lead_score, lc.lost_reason,
 		        lc.car_brand, lc.car_model, lc.city, lc.purchase_timeframe,
+		        COALESCE(lc.metadata->'lead_fields', '{}'::jsonb) AS lead_fields,
 		        COALESCE(lc.assigned_agent_id, ct.assigned_agent_id)::text AS assigned_agent_id, lu.full_name AS agent_name,
-		        lc.campaign_id::text AS campaign_id, lcmp.name AS campaign_name,
+		        lc.campaign_id::text AS campaign_id, lcmp.name AS campaign_name, lcmp.segment AS campaign_segment,
 		        lc.conversation_id::text AS conversation_id, lch.name AS channel_name,
 		        was.name AS web_api_source_name, was.platform AS web_api_source_platform,
 		        att.referral_source AS source_id, att.referral_url AS source_url
@@ -1885,7 +1886,7 @@ const contactSelectSQL = `SELECT ct.id::text AS id, ct.full_name, ct.phone, ct.e
 		   LEFT JOIN LATERAL (
 		     SELECT id AS conversation_id, interest_level, stage_id, last_message_at, ai_reason AS ai_summary,
 		            lead_score, lost_reason, car_brand, car_model, city, purchase_timeframe,
-		            assigned_agent_id, campaign_id, channel_id, branch_id
+		            assigned_agent_id, campaign_id, channel_id, branch_id, metadata
 		       FROM conversations WHERE contact_id=ct.id
 		      ORDER BY last_message_at DESC NULLS LAST LIMIT 1
 		   ) lc ON true
