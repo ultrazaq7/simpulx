@@ -12,6 +12,9 @@
     <uses-permission android:name="android.permission.WAKE_LOCK"/>
     <uses-permission android:name="android.permission.USE_FULL_SCREEN_INTENT"/>
     <uses-permission android:name="android.permission.RECEIVE_BOOT_COMPLETED"/>
+    <!-- Keep an active call alive + show its ongoing notification when minimized -->
+    <uses-permission android:name="android.permission.FOREGROUND_SERVICE"/>
+    <uses-permission android:name="android.permission.FOREGROUND_SERVICE_MICROPHONE"/>
     <uses-permission android:name="android.permission.WRITE_EXTERNAL_STORAGE" android:maxSdkVersion="29" tools:replace="android:maxSdkVersion" />
     <uses-permission android:name="android.permission.READ_EXTERNAL_STORAGE" />
 
@@ -59,10 +62,18 @@
             </intent-filter>
         </service>
 
-        <!-- FCM: default channel + icon used for background/data-only notifications. -->
+        <!-- Foreground service that keeps an active call alive + shows its
+             WhatsApp-style ongoing-call notification while the app is minimized. -->
+        <service
+            android:name=".CallForegroundService"
+            android:exported="false"
+            android:foregroundServiceType="microphone" />
+
+        <!-- FCM: default channel + icon used for background/data-only notifications.
+             Keep the channel id in sync with NotificationHelper.CHANNEL_ID. -->
         <meta-data
             android:name="com.google.firebase.messaging.default_notification_channel_id"
-            android:value="incoming_message" />
+            android:value="incoming_message_v2" />
         <meta-data
             android:name="com.google.firebase.messaging.default_notification_icon"
             android:resource="@drawable/ic_notification" />
@@ -80,6 +91,7 @@
                 <action android:name="simpulx.ACTION_REPLY"/>
                 <action android:name="simpulx.ACTION_MARK_AS_READ"/>
                 <action android:name="simpulx.ACTION_REJECT_CALL"/>
+                <action android:name="simpulx.ACTION_HANGUP_CALL"/>
             </intent-filter>
         </receiver>
     </application>

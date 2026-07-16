@@ -218,6 +218,30 @@ class MainActivity : FlutterActivity() {
                             result.success(false)
                         }
                     }
+                    // Start/refresh the foreground service + WhatsApp-style ongoing
+                    // call notification (keeps an active call alive when minimized).
+                    "startOngoingCall" -> {
+                        try {
+                            CallForegroundService.start(
+                                context = this,
+                                chatId = call.argument<String>("chatId") ?: "",
+                                callId = call.argument<String>("callId") ?: "",
+                                contactName = call.argument<String>("contactName") ?: "",
+                                statusText = call.argument<String>("statusText") ?: "Ongoing call",
+                            )
+                            result.success(true)
+                        } catch (e: Exception) {
+                            result.success(false)
+                        }
+                    }
+                    "stopOngoingCall" -> {
+                        try {
+                            CallForegroundService.stop(this)
+                            result.success(true)
+                        } catch (e: Exception) {
+                            result.success(false)
+                        }
+                    }
                     // Mirror the user's in-app theme choice (light/dark/system) and
                     // push it into the SYSTEM via UiModeManager (API 31+), so the
                     // system-drawn splash of the next cold start follows the manual

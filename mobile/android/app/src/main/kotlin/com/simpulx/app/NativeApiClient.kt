@@ -68,6 +68,25 @@ object NativeApiClient {
     }
 
     /**
+     * End an ACTIVE call by hitting POST /api/calls/{callId}/end. Used by the
+     * ongoing-call notification's Hang up action.
+     */
+    fun endCall(context: Context, callId: String, onDone: () -> Unit) {
+        thread {
+            try {
+                val code = postWithAuth(context) { token ->
+                    postJson("$API_BASE_URL/api/calls/$callId/end", token, "{}")
+                }
+                Log.d(TAG, "endCall response: $code")
+            } catch (e: Exception) {
+                Log.e(TAG, "endCall failed", e)
+            } finally {
+                Handler(Looper.getMainLooper()).post { onDone() }
+            }
+        }
+    }
+
+    /**
      * Run an authenticated POST, refreshing the access token once on 401.
      * [call] receives the bearer token and returns the HTTP status code.
      */

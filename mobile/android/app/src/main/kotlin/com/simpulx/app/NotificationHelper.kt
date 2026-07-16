@@ -21,10 +21,26 @@ import androidx.core.graphics.drawable.IconCompat
  */
 object NotificationHelper {
 
-    private const val CHANNEL_ID = "incoming_message"
-    private const val CHANNEL_NAME = "Incoming messages"
-    private const val CALL_CHANNEL_ID = "incoming_call"
+    // NOTE: Android notification channels are IMMUTABLE after first creation —
+    // changing sound/vibration in code is ignored on devices that already created
+    // the channel. So when we change channel behaviour we bump the id (…_v2) to
+    // force a fresh channel. Keep CHANNEL_ID in sync with the FCM
+    // `default_notification_channel_id` meta-data in AndroidManifest.xml.
+    private const val CHANNEL_ID = "incoming_message_v2"
+    private const val CHANNEL_NAME = "Messages"
+    private const val CALL_CHANNEL_ID = "incoming_call_v2"
     private const val CALL_CHANNEL_NAME = "Incoming calls"
+    // Silent, low-importance channel for the persistent ACTIVE-call notification
+    // (WhatsApp-style ongoing call with a Hang up chip) — no sound/vibration since
+    // the call is already connected.
+    private const val ONGOING_CALL_CHANNEL_ID = "ongoing_call"
+    private const val ONGOING_CALL_CHANNEL_NAME = "Ongoing call"
+    // Fixed id for the single active-call notification (only one call at a time).
+    const val ONGOING_CALL_NOTIF_ID = 0x5CA11
+
+    // WhatsApp-like vibration pattern reused across message + call channels so
+    // every notification buzzes consistently: wait, buzz, pause, buzz.
+    private val MESSAGE_VIBRATION = longArrayOf(0, 400, 200, 400)
 
     /**
      * Merge avatar bitmap with a badge bitmap (ic_notification) at bottom-right.
@@ -576,7 +592,13 @@ object NotificationHelper {
                 val channel = NotificationChannel(
                     CHANNEL_ID, CHANNEL_NAME,
                     NotificationManager.IMPORTANCE_HIGH
-                )
+                ).apply {
+                    // Buzz on every message like WhatsApp (explicit so it never
+                    // depends on OEM defaults).
+                    enableVibration(true)
+                    vibrationPattern = MESSAGE_VIBRATION
+                    lockscreenVisibility = android.app.Notification.VISIBILITY_PRIVATE
+                }
                 manager.createNotificationChannel(channel)
             }
         }
@@ -604,6 +626,87 @@ object NotificationHelper {
                 manager.createNotificationChannel(channel)
             }
         }
+    }
+
+    private fun ensureOngoingCallChannel(context: Context) {
+        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) {
+            val manager = context.getSystemService(Context.NOTIFICATION_SERVICE) as NotificationManager
+            if (manager.getNotificationChannel(ONGOING_CALL_CHANNEL_ID) == null) {
+                val channel = NotificationChannel(
+                    ONGOING_CALL_CHANNEL_ID, ONGOING_CALL_CHANNEL_NAME,
+                    NotificationManager.IMPORTANCE_LOW
+                ).apply {
+                    lockscreenVisibility = android.app.Notification.VISIBILITY_PUBLIC
+                    setSound(null, null)
+                    enableVibration(false)
+                }
+                manager.createNotificationChannel(channel)
+            }
+        }
+    }
+
+    /**
+     * WhatsApp-style ONGOING (active) call notification: a persistent bar with the
+     * caller avatar and a single red "Hang up" chip, shown while an outbound or
+     * connected call is live so it stays visible when the app is minimized. Built
+     * here and posted by [CallForegroundService] via startForeground so the OS
+     * keeps the process (and the mic/WebRTC) alive in the background.
+     */
+    fun buildOngoingCallNotification(
+        context: Context,
+        chatId: String,
+        callId: String,
+        contactName: String,
+        statusText: String,
+    ): android.app.Notification {
+        ensureOngoingCallChannel(context)
+
+        // Tap -> reopen the live call screen.
+        val openIntent = Intent(context, MainActivity::class.java).apply {
+            action = "com.simpulx.app.ACTION_TAP_NOTIFICATION"
+            flags = Intent.FLAG_ACTIVITY_SINGLE_TOP or Intent.FLAG_ACTIVITY_CLEAR_TOP
+            putExtra("route", "/call/$chatId?callId=$callId")
+            putExtra("contactName", contactName)
+            putExtra("chatId", chatId)
+        }
+        val openPending = PendingIntent.getActivity(
+            context, chatId.hashCode() + 12, openIntent,
+            PendingIntent.FLAG_UPDATE_CURRENT or PendingIntent.FLAG_IMMUTABLE
+        )
+
+        // Hang up -> broadcast to ReplyReceiver (ends the call on the backend +
+        // stops the foreground service). The Dart side tears down WebRTC when the
+        // realtime "ended" event lands (WS is connected during a live call).
+        val hangupIntent = ReplyReceiver.getHangupCallIntent(context, chatId, callId)
+        val hangupPending = PendingIntent.getBroadcast(
+            context, chatId.hashCode() + 13, hangupIntent,
+            PendingIntent.FLAG_UPDATE_CURRENT or PendingIntent.FLAG_IMMUTABLE
+        )
+
+        val caller = Person.Builder()
+            .setName(if (contactName.isNotBlank()) contactName else "Unknown")
+            .setIcon(IconCompat.createWithBitmap(generateInitialAvatar(contactName)))
+            .setImportant(true)
+            .build()
+
+        return NotificationCompat.Builder(context, ONGOING_CALL_CHANNEL_ID)
+            .setSmallIcon(R.drawable.ic_notification)
+            .setStyle(NotificationCompat.CallStyle.forOngoingCall(caller, hangupPending))
+            .setContentText(statusText.ifEmpty { "Ongoing call" })
+            .setCategory(NotificationCompat.CATEGORY_CALL)
+            .setPriority(NotificationCompat.PRIORITY_DEFAULT)
+            .setVisibility(NotificationCompat.VISIBILITY_PUBLIC)
+            .setContentIntent(openPending)
+            .setOngoing(true)
+            .setAutoCancel(false)
+            .setColorized(true)
+            .build()
+    }
+
+    /** Cancel the active-call notification (id is fixed, single call at a time). */
+    fun cancelOngoingCallNotification(context: Context) {
+        val manager = context.getSystemService(Context.NOTIFICATION_SERVICE) as NotificationManager
+        manager.cancel(ONGOING_CALL_NOTIF_ID)
     }
 }
 

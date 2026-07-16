@@ -1,4 +1,5 @@
 import 'dart:async';
+import 'dart:io' show Platform;
 
 import 'package:flutter/foundation.dart';
 import 'package:flutter/services.dart';
@@ -120,6 +121,9 @@ class CallController extends Notifier<CallSession?> {
       }
       // Arm the no-answer timeout for the whole wait (ring included).
       _armRingTimeout();
+      // The outbound call is now live — show the ongoing-call notification so it
+      // stays visible (with Hang up) if the agent minimizes the app.
+      _syncOngoingCall('Calling…');
       // Wait for the `call.updated` sdp_answer -> ringing -> pickup.
     } catch (e) {
       _fail('Could not place the call');
@@ -134,6 +138,36 @@ class CallController extends Notifier<CallSession?> {
 
   void _stopRingback() {
     _channel.invokeMethod('stopRingback').catchError((_) {});
+  }
+
+  // ── Ongoing-call notification (WhatsApp-style) ──────────
+  // Android: a foreground service posts a persistent CallStyle notification with
+  // a Hang up chip and keeps the process (mic/WebRTC) alive when minimized.
+  // iOS: the call already survives backgrounding via the `audio`/`voip`
+  // background modes, so this is a no-op there (a native CallKit "pill" for
+  // outbound is a separate, device-tested follow-up).
+  bool _ongoingShown = false;
+
+  void _syncOngoingCall(String statusText) {
+    if (!Platform.isAndroid) return;
+    final s = state;
+    if (s == null) return;
+    _ongoingShown = true;
+    _channel.invokeMethod('startOngoingCall', {
+      'chatId': s.conversationId,
+      'callId': s.callId,
+      'contactName': s.contactName,
+      'statusText': statusText,
+    }).catchError((_) {});
+  }
+
+  void _stopOngoingCall() {
+    if (!_ongoingShown || !Platform.isAndroid) {
+      _ongoingShown = false;
+      return;
+    }
+    _ongoingShown = false;
+    _channel.invokeMethod('stopOngoingCall').catchError((_) {});
   }
 
   /// Give up on an unanswered outbound call after [_outboundRingTimeout].
@@ -255,6 +289,7 @@ class CallController extends Notifier<CallSession?> {
       phase: CallPhase.connected,
       connectedAt: DateTime.now(),
     );
+    _syncOngoingCall('Ongoing call');
     _startStatusWatchdog();
     // Tell the backend talk time starts NOW (the SDP answer fires at ring
     // time, so the server can't know pickup on its own). Best-effort.
@@ -382,6 +417,7 @@ class CallController extends Notifier<CallSession?> {
         phase: CallPhase.connected,
         connectedAt: DateTime.now(),
       );
+      _syncOngoingCall('Ongoing call');
       _startStatusWatchdog();
     } catch (e) {
       _fail('Could not answer the call');
@@ -557,6 +593,7 @@ class CallController extends Notifier<CallSession?> {
         phase: CallPhase.connected,
         connectedAt: s.connectedAt ?? DateTime.now(),
       );
+      _syncOngoingCall('Ongoing call');
       _startStatusWatchdog();
     }
   }
@@ -573,6 +610,7 @@ class CallController extends Notifier<CallSession?> {
       if (s != null && !s.inbound && s.phase != CallPhase.connected) {
         state = s.copyWith(phase: CallPhase.ringing, message: null);
         _startRingback();
+        _syncOngoingCall('Ringing…');
       }
       _startPickupDetector();
     } catch (e) {
@@ -618,6 +656,7 @@ class CallController extends Notifier<CallSession?> {
     _rtc = null;
     // Dismiss the native call notification when the call ends
     _dismissNativeCallNotification();
+    _stopOngoingCall();
     state = state?.copyWith(phase: phase, message: message) ??
         CallSession(
           callId: '',

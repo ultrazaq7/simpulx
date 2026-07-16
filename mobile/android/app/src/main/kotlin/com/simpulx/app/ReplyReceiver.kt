@@ -21,6 +21,7 @@ class ReplyReceiver : BroadcastReceiver() {
             ACTION_REPLY -> handleReply(context, intent, chatId)
             ACTION_MARK_AS_READ -> handleMarkAsRead(context, chatId)
             ACTION_REJECT_CALL -> handleRejectCall(context, chatId, callId)
+            ACTION_HANGUP_CALL -> handleHangupCall(context, chatId, callId)
         }
     }
 
@@ -78,10 +79,29 @@ class ReplyReceiver : BroadcastReceiver() {
         }
     }
 
+    /**
+     * Hang up an ACTIVE call from the ongoing-call notification: stop the
+     * foreground service (removes the notification) and end the call on the
+     * backend. The Dart side tears down WebRTC when the realtime "ended" event
+     * arrives (the WS is connected during a live call), so we don't need to reopen
+     * the app.
+     */
+    private fun handleHangupCall(context: Context, chatId: String, callId: String) {
+        CallForegroundService.stop(context)
+        NotificationHelper.cancelOngoingCallNotification(context)
+        Log.d("ReplyReceiver", "Hanging up call: $callId")
+        if (callId.isNotEmpty()) {
+            NativeApiClient.endCall(context, callId) {
+                Log.d("ReplyReceiver", "Call ended via API: $callId")
+            }
+        }
+    }
+
     companion object {
         const val ACTION_REPLY = "simpulx.ACTION_REPLY"
         const val ACTION_MARK_AS_READ = "simpulx.ACTION_MARK_AS_READ"
         const val ACTION_REJECT_CALL = "simpulx.ACTION_REJECT_CALL"
+        const val ACTION_HANGUP_CALL = "simpulx.ACTION_HANGUP_CALL"
 
         fun getReplyIntent(context: Context, chatId: String): Intent {
             return Intent(context, ReplyReceiver::class.java).apply {
@@ -100,6 +120,14 @@ class ReplyReceiver : BroadcastReceiver() {
         fun getRejectCallIntent(context: Context, chatId: String, callId: String): Intent {
             return Intent(context, ReplyReceiver::class.java).apply {
                 action = ACTION_REJECT_CALL
+                putExtra("chatId", chatId)
+                putExtra("callId", callId)
+            }
+        }
+
+        fun getHangupCallIntent(context: Context, chatId: String, callId: String): Intent {
+            return Intent(context, ReplyReceiver::class.java).apply {
+                action = ACTION_HANGUP_CALL
                 putExtra("chatId", chatId)
                 putExtra("callId", callId)
             }
