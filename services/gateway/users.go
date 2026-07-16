@@ -297,6 +297,12 @@ func (s *server) handleSetPresence(w http.ResponseWriter, r *http.Request) {
 			event = "online"
 		}
 		s.logUserActivity(r.Context(), a.OrgID, a.UserID, a.UserID, "presence", event, nil)
+		// Broadcast the transition so presence dots update live across clients.
+		if err := s.bus.Publish(events.SubjectPresenceUpdated, a.OrgID, events.PresenceUpdated{
+			UserID: a.UserID, IsOnline: b.Online,
+		}); err != nil {
+			s.log.Warn("publish presence.updated failed", "err", err)
+		}
 	}
 	writeJSON(w, map[string]any{"is_online": b.Online})
 }

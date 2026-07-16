@@ -672,16 +672,24 @@ func (s *server) handleTrackCall(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	_, err := s.pool.Exec(r.Context(),
+	var attempts, totalDur int
+	err := s.pool.QueryRow(r.Context(),
 		`UPDATE conversations
 		 SET call_attempts = call_attempts + 1,
 		     total_call_duration = total_call_duration + $3,
 		     updated_at = now()
-		 WHERE id=$1 AND organization_id=$2`,
-		convID, a.OrgID, body.DurationSeconds)
+		 WHERE id=$1 AND organization_id=$2
+		 RETURNING call_attempts, total_call_duration`,
+		convID, a.OrgID, body.DurationSeconds).Scan(&attempts, &totalDur)
 	if err != nil {
 		http.Error(w, err.Error(), http.StatusInternalServerError)
 		return
+	}
+	// Broadcast the new counters so the lead/contact card updates live on peers.
+	if err := s.bus.Publish(events.SubjectCallTracked, a.OrgID, events.CallTracked{
+		ConversationID: convID, CallAttempts: attempts, TotalCallDuration: totalDur,
+	}); err != nil {
+		s.log.Warn("publish call.tracked failed", "err", err)
 	}
 
 	writeJSON(w, map[string]any{"status": "recorded", "duration": body.DurationSeconds})
