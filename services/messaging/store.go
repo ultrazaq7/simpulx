@@ -91,6 +91,10 @@ type convInfo struct {
 	ID          string
 	IsBotActive bool
 	AIAgentID   *string
+	// Reopened is set when a closed thread was revived (status→open, stage reset)
+	// on this inbound, so the caller can broadcast a status change for clients that
+	// still show the thread as closed.
+	Reopened bool
 }
 
 // reopenWindow: a thread closed within this window (except the 30-day dormant
@@ -166,6 +170,7 @@ func (s *store) getOrCreateConversation(ctx context.Context, orgID, contactID, c
 		orgID, contactID, reopenWindow,
 	).Scan(&ci.ID, &ci.IsBotActive, &ci.AIAgentID)
 	if err == nil {
+		ci.Reopened = true
 		_ = tx.Commit(ctx)
 		return ci, false, nil
 	}

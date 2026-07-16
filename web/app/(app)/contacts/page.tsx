@@ -177,7 +177,7 @@ export default function ContactsPage() {
     let t: ReturnType<typeof setTimeout> | null = null;
     const onWs = (e: Event) => {
       const type = (e as CustomEvent).detail?.type;
-      if (["message.persisted", "conversation.updated", "conversation.assigned", "conversation.closed", "contact.deleted"].includes(type)) {
+      if (["message.persisted", "conversation.updated", "conversation.assigned", "conversation.closed", "contact.deleted", "contact.updated", "contact.created"].includes(type)) {
         if (t) clearTimeout(t);
         t = setTimeout(reload, 800);
       }

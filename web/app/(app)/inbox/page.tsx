@@ -279,7 +279,6 @@ export default function InboxPage() {
       // loadConvs() fallback below would fire a full conversation refetch on every
       // delivery receipt (which streams constantly). Prevents a refetch storm.
       if (
-        ev.type === "message.status.updated" ||
         ev.type === "note.created" ||
         ev.type === "note.deleted" ||
         ev.type === "stages.updated" ||
@@ -288,6 +287,31 @@ export default function InboxPage() {
         ev.type === "contact.created" ||
         ev.type === "contact.updated"
       ) {
+        return;
+      }
+
+      // Delivery/read receipt: advance the exact bubble's tick in the open thread
+      // and the row's last-outbound status — never regress, no refetch.
+      if (ev.type === "message.status.updated") {
+        const cid: string | undefined = data?.conversation_id;
+        const mid: string | undefined = data?.message_id;
+        const st: string | undefined = data?.status;
+        if (cid && mid && st) {
+          const rank: Record<string, number> = { sending: 0, queued: 1, sent: 2, delivered: 3, read: 4, failed: 5 };
+          queryClient.setQueryData(["messages", cid], (old: any) => {
+            if (!old?.pages?.length) return old;
+            let changed = false;
+            const pages = old.pages.map((p: any) => ({
+              ...p,
+              data: (p.data || []).map((m: any) => {
+                if (m.id === mid && (rank[st] ?? 0) > (rank[m.status] ?? 0)) { changed = true; return { ...m, status: st }; }
+                return m;
+              }),
+            }));
+            return changed ? { ...old, pages } : old;
+          });
+          setConvs((prev) => prev.map((c) => (c.id === cid ? { ...c, last_outbound_status: st } : c)));
+        }
         return;
       }
 

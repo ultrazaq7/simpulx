@@ -168,6 +168,15 @@ func (a *app) onReceived(env events.Envelope) error {
 		return err
 	}
 
+	// A revived (previously-closed) thread: broadcast the status flip so clients
+	// still showing it as closed correct it live — the inbound message.persisted
+	// alone doesn't carry a status change.
+	if conv.Reopened {
+		_ = a.bus.Publish(events.SubjectConversationUpdated, env.OrgID, events.ConversationUpdated{
+			ConversationID: conv.ID, Status: "open",
+		})
+	}
+
 	// 3.1 Multi-Touch Attribution Schema: Selalu simpan jejak klik iklan!
 	if e.Referral != "" {
 		cr := adCreative{ImageURL: e.ReferralImageURL, Headline: e.ReferralHeadline, Body: e.ReferralBody, MediaType: e.ReferralMediaType}
