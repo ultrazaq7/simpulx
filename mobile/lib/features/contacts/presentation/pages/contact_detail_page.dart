@@ -11,6 +11,7 @@ import '../../../../core/i18n/stage_label.dart';
 import '../../../../core/utils/time_format.dart';
 import '../../../../core/widgets/app_loader.dart';
 import '../../../../core/widgets/app_snackbar.dart';
+import '../../../../core/realtime/realtime_providers.dart';
 import '../../../chat/domain/entities/conversation.dart';
 import '../../../chat/presentation/widgets/conversation_actions_sheet.dart';
 import '../../../chat/presentation/widgets/notes_sheet.dart';
@@ -476,6 +477,22 @@ class _HistoryCardState extends ConsumerState<_HistoryCard> {
 
   @override
   Widget build(BuildContext context) {
+    // Stay live while History is on screen: stage / interest / status /
+    // assignment changes are EXACTLY what this timeline is built from, so refetch
+    // the moment one lands — whether it came from this device, another agent, or
+    // the web. Done here rather than in a list controller so it never depends on
+    // some other provider happening to be alive.
+    ref.listen(realtimeEventsProvider, (_, next) {
+      final e = next.value;
+      if (e == null) return;
+      if (e.isConversationUpdated ||
+          e.isConversationAssigned ||
+          e.isConversationClosed ||
+          e.isContactUpdated) {
+        ref.invalidate(contactActivityProvider(widget.contactId));
+      }
+    });
+
     final theme = Theme.of(context);
     final muted = theme.colorScheme.onSurfaceVariant;
     final async = ref.watch(contactActivityProvider(widget.contactId));

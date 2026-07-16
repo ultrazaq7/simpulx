@@ -91,9 +91,22 @@ class MainActivity : FlutterActivity() {
                 NotificationHelper.cancelCallNotification(this, chatId)
             }
 
-            // Answering from the lock screen must drop the keyguard so the agent
-            // lands in the live call, not stuck behind the lock.
-            if (android.os.Build.VERSION.SDK_INT >= android.os.Build.VERSION_CODES.O) {
+            // A ringing call must appear OVER the lock screen (WhatsApp-style) —
+            // without showWhenLocked/turnScreenOn the full-screen intent fires but
+            // Android refuses to draw the activity above the keyguard, so nothing
+            // appears until you unlock. Enabled only for call intents, never for
+            // ordinary notification taps: this is a CRM, so the inbox must NOT be
+            // readable off a locked phone.
+            val isCallIntent = route?.startsWith("/call/") == true
+            if (android.os.Build.VERSION.SDK_INT >= android.os.Build.VERSION_CODES.O_MR1) {
+                setShowWhenLocked(isCallIntent)
+                setTurnScreenOn(isCallIntent)
+            }
+
+            // Answering (a real tap, not the full-screen presentation) drops the
+            // keyguard so the agent lands in the live call instead of the lock.
+            if (isCallIntent && !fromFullScreen &&
+                android.os.Build.VERSION.SDK_INT >= android.os.Build.VERSION_CODES.O) {
                 val km = getSystemService(Context.KEYGUARD_SERVICE) as android.app.KeyguardManager
                 if (km.isKeyguardLocked) {
                     km.requestDismissKeyguard(this, null)

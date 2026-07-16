@@ -197,8 +197,15 @@ final contactsProvider =
 );
 
 /// A contact's history timeline (stage/status/interest/assignment changes).
+/// The contact's History timeline.
+///
+/// autoDispose is deliberate: as a plain family this cached FOREVER, so after
+/// changing a stage/interest the History tab kept replaying the stale snapshot —
+/// even after closing and reopening the screen. Disposing when nothing watches it
+/// guarantees a fresh fetch every time History is opened; live updates while it's
+/// ON screen come from the realtime listener in _HistoryCard.
 final contactActivityProvider =
-    FutureProvider.family<List<ContactActivity>, String>((ref, id) async {
+    FutureProvider.autoDispose.family<List<ContactActivity>, String>((ref, id) async {
   return ref.watch(contactsRemoteDataSourceProvider).activity(id);
 });
 
