@@ -33,6 +33,7 @@ class RealtimeEvent {
   bool get isStagesUpdated => type == 'stages.updated';
   bool get isNoteCreated => type == 'note.created';
   bool get isNoteDeleted => type == 'note.deleted';
+  bool get isPresenceUpdated => type == 'presence.updated';
   bool get isAiActivity => type == 'ai.activity';
 
   static RealtimeEvent? tryParse(Map<String, dynamic> json) {

@@ -275,7 +275,8 @@ func (s *server) handleUpdateUser(w http.ResponseWriter, r *http.Request) {
 func (s *server) handleSetPresence(w http.ResponseWriter, r *http.Request) {
 	a, _ := authFrom(r.Context())
 	var b struct {
-		Online bool `json:"online"`
+		Online bool   `json:"online"`
+		Reason string `json:"reason,omitempty"` // why the agent went offline (manual toggle)
 	}
 	if err := json.NewDecoder(r.Body).Decode(&b); err != nil {
 		http.Error(w, "bad request", http.StatusBadRequest)
@@ -293,10 +294,15 @@ func (s *server) handleSetPresence(w http.ResponseWriter, r *http.Request) {
 	}
 	if tag.RowsAffected() > 0 {
 		event := "offline"
+		var detail map[string]any
 		if b.Online {
 			event = "online"
+		} else if b.Reason != "" {
+			// Captured in the System Log > Activity feed so managers see WHY an agent
+			// went offline (break, lunch, meeting, ...).
+			detail = map[string]any{"reason": b.Reason}
 		}
-		s.logUserActivity(r.Context(), a.OrgID, a.UserID, a.UserID, "presence", event, nil)
+		s.logUserActivity(r.Context(), a.OrgID, a.UserID, a.UserID, "presence", event, detail)
 		// Broadcast the transition so presence dots update live across clients.
 		if err := s.bus.Publish(events.SubjectPresenceUpdated, a.OrgID, events.PresenceUpdated{
 			UserID: a.UserID, IsOnline: b.Online,

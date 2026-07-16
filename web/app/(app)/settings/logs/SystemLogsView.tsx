@@ -59,7 +59,7 @@ const sendStatus = (s?: string | null) => s === "failed" ? "Failed" : s === "que
 const readStatus = (s?: string | null) => s === "read" ? "Read" : (s === "sent" || s === "delivered") ? "Unread" : "-";
 const detailText = (detail: Record<string, unknown> | null) => detail ? Object.entries(detail).map(([k, v]) => `${k}: ${v}`).join(" · ") : "";
 function activityLabel(a: LogActivity): string {
-  if (a.kind === "presence") return a.event === "online" ? (a.detail && (a.detail as any).via === "login" ? "Login" : "Online") : "Logout";
+  if (a.kind === "presence") return a.event === "online" ? (a.detail && (a.detail as any).via === "login" ? "Login" : "Online") : ((a.detail as any)?.reason ? `Offline · ${(a.detail as any).reason}` : "Logout");
   if (a.kind === "lifecycle") return a.event === "active" ? "Activated" : a.event === "inactive" ? "Deactivated" : a.event === "deleted" ? "Deleted" : a.event;
   return a.event;
 }

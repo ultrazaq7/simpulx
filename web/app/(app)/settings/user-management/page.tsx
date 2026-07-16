@@ -59,6 +59,18 @@ export default function PeopleSettingsPage() {
     api.listCampaigns().then((c) => setCampaigns(c || [])).catch(() => {});
     api.listChannels().then((c) => setChannels(c || [])).catch(() => {});
   }, []);
+  // Live presence: an agent going online/away silently refreshes the list so the
+  // online/away dots update without a spinner.
+  useEffect(() => {
+    let t: ReturnType<typeof setTimeout> | null = null;
+    const onWs = (e: Event) => {
+      if ((e as CustomEvent).detail?.type !== "presence.updated") return;
+      if (t) clearTimeout(t);
+      t = setTimeout(() => { api.listUsers().then(setRows).catch(() => {}); }, 400);
+    };
+    window.addEventListener("ws_message", onWs);
+    return () => { window.removeEventListener("ws_message", onWs); if (t) clearTimeout(t); };
+  }, []);
 
   async function remove(u: UserAccount) {
     if (!(await confirm({ title: t("settings.removeX", { x: u.full_name }), message: "This is permanent: they lose access and their open leads are reassigned. Past history stays for the record. To pause an account temporarily, use Deactivate instead.", danger: true, confirmLabel: "Remove" }))) return;

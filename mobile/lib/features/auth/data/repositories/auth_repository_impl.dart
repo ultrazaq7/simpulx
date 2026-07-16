@@ -43,9 +43,9 @@ class AuthRepositoryImpl implements AuthRepository {
   }
 
   @override
-  Future<Result<void>> setPresence(bool online) async {
+  Future<Result<void>> setPresence(bool online, {String? reason}) async {
     try {
-      await _remote.setPresence(online);
+      await _remote.setPresence(online, reason: reason);
       return const Result.ok(null);
     } catch (e) {
       return Result.err(ErrorMapper.toFailure(e));

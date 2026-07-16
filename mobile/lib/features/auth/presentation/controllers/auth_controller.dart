@@ -87,12 +87,12 @@ class AuthController extends Notifier<AuthActionState> {
   }
 
   /// Optimistically flip presence, reverting on failure.
-  Future<void> setPresence(bool online) async {
+  Future<void> setPresence(bool online, {String? reason}) async {
     final current = ref.read(sessionControllerProvider).user;
     if (current != null) {
       _session.updateUser(current.copyWith(isOnline: online));
     }
-    final result = await _repo.setPresence(online);
+    final result = await _repo.setPresence(online, reason: reason);
     result.fold(
       (_) {
         if (current != null) _session.updateUser(current);

@@ -312,10 +312,59 @@ class _OnlineStatusTile extends ConsumerWidget {
       title: Text((isOnline ? 'Online' : 'Offline').tr(context)),
       value: isOnline,
       activeThumbColor: AppColors.success,
-      onChanged: (v) =>
-          ref.read(authControllerProvider.notifier).setPresence(v),
+      onChanged: (v) async {
+        final notifier = ref.read(authControllerProvider.notifier);
+        if (v) {
+          notifier.setPresence(true);
+          return;
+        }
+        // Going offline: ask why so it's captured in the System Log > Activity feed.
+        final reason = await _pickOfflineReason(context);
+        if (reason == null) return; // cancelled -> stay online
+        notifier.setPresence(false, reason: reason);
+      },
     );
   }
+}
+
+// Canonical (English) offline reasons — stored as-is in the activity log for
+// consistency; the dropdown displays them localized via `.tr()`.
+const _offlineReasons = <String>[
+  'Break',
+  'Lunch break',
+  'Meeting',
+  'Prayer',
+  'End of shift',
+  'Other',
+];
+
+Future<String?> _pickOfflineReason(BuildContext context) {
+  return showModalBottomSheet<String>(
+    context: context,
+    showDragHandle: true,
+    builder: (ctx) => SafeArea(
+      child: Column(
+        mainAxisSize: MainAxisSize.min,
+        crossAxisAlignment: CrossAxisAlignment.stretch,
+        children: [
+          Padding(
+            padding: const EdgeInsets.fromLTRB(20, 4, 20, 8),
+            child: Text(
+              'Why are you going offline?'.tr(ctx),
+              style: const TextStyle(fontSize: 16, fontWeight: FontWeight.w700),
+            ),
+          ),
+          for (final r in _offlineReasons)
+            ListTile(
+              dense: true,
+              title: Text(r.tr(ctx)),
+              onTap: () => Navigator.of(ctx).pop(r),
+            ),
+          const SizedBox(height: 8),
+        ],
+      ),
+    ),
+  );
 }
 
 /// Green dot that pulses when online.

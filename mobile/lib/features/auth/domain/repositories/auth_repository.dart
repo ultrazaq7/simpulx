@@ -14,7 +14,7 @@ abstract class AuthRepository {
   Future<Result<AuthUser>> currentUser();
 
   /// Set online/offline presence.
-  Future<Result<void>> setPresence(bool online);
+  Future<Result<void>> setPresence(bool online, {String? reason});
 
   /// Change the signed-in user's password (proves the current one).
   Future<Result<void>> changePassword({

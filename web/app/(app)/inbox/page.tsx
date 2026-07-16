@@ -280,10 +280,21 @@ export default function InboxPage() {
       // delivery receipt (which streams constantly). Prevents a refetch storm.
       if (
         ev.type === "presence.updated" ||
-        ev.type === "call.tracked" ||
         ev.type === "contact.created" ||
         ev.type === "contact.updated"
       ) {
+        return;
+      }
+
+      // Call logged: patch the row's counters so the "needs call" badge on a hot
+      // lead clears live once someone calls.
+      if (ev.type === "call.tracked") {
+        const cid: string | undefined = data?.conversation_id;
+        if (cid) {
+          setConvs((prev) => prev.map((c) => (c.id === cid
+            ? { ...c, call_attempts: data.call_attempts ?? c.call_attempts, total_call_duration: data.total_call_duration ?? (c as any).total_call_duration }
+            : c)));
+        }
         return;
       }
 

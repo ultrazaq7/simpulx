@@ -251,6 +251,12 @@ class ConversationListController extends AsyncNotifier<List<Conversation>> {
       ref.invalidate(stagesProvider);
       return;
     }
+    // An agent went online/offline: refetch the agents list so the team page and
+    // the assign sheet show live presence dots.
+    if (event.isPresenceUpdated) {
+      ref.invalidate(agentsProvider);
+      return;
+    }
     // An internal note added/removed elsewhere: refetch that conversation's notes
     // so a co-viewer sees it appear/disappear live.
     if (event.isNoteCreated || event.isNoteDeleted) {

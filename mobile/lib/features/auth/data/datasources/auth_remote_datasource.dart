@@ -54,10 +54,13 @@ class AuthRemoteDataSource {
     }
   }
 
-  /// PATCH /api/users/me/presence {online: bool}.
-  Future<void> setPresence(bool online) async {
+  /// PATCH /api/users/me/presence {online: bool, reason?: string}.
+  Future<void> setPresence(bool online, {String? reason}) async {
     try {
-      await _dio.patch(ApiEndpoints.presence, data: {'online': online});
+      await _dio.patch(ApiEndpoints.presence, data: {
+        'online': online,
+        if (reason != null && reason.isNotEmpty) 'reason': reason,
+      });
     } on DioException catch (e) {
       throw ErrorMapper.fromDio(e);
     }
