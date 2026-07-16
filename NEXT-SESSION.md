@@ -45,16 +45,45 @@ written; relabelling later is trivial. `feature` is free text, no enum constrain
 now forwards it (`services/gateway/catalog.go`). `organization_id` is optional on the
 ai-agent request so a mid-deploy skew degrades to "unattributed", not a 500.
 
+### Smoke test — done, and it caught a real bug
+
+First live run (8 nurture + 3 extract rows, cost_usd all populated, 0 record errors)
+wrote **no catalog row at all — silently, with no error**. Root cause (`c07010d`):
+`runCatalogExtract` returns the instant it reads the `done` event and its deferred
+`Body.Close()` drops the connection, which **cancels** the ai-agent's SSE generator.
+The `llm_usage.record()` call sat after the loop, so it never ran. A cancelled
+generator is not an exception — nothing logged.
+
+**The general trap, worth remembering:** in any `StreamingResponse`, code after the
+final `yield` is not guaranteed to run. Do side effects BEFORE yielding the terminal
+event. summary/reply happened to be safe (their record() already sits before
+`yield done`); catalog was not.
+
+**Why the pre-deploy verification missed it:** the probe called `record()` directly
+rather than through the StreamingResponse, so it tested the function but not its
+calling context. Only a real call through the gateway could surface this.
+
 ### Still to do
-- **Live smoke test:** ~10 outbound + 1 catalog upload, then confirm rows.
-  NOTE: spamming one conversation will NOT produce one row per message — the
-  inbound path is gated by `COOLDOWN_SEC=45`, `NURTURE_BURST_SEC=20` and
-  `_should_analyze()`. Few rows there means the gates are working, not that logging
-  broke. For 1 row per call, hit many conversations, or `/summary/stream`+`/reply/stream`
-  (no cooldown).
-- **Reconcile against the invoice:** in ~2–4 weeks re-export the Anthropic usage CSV
-  and compare `SUM(cost_usd)` to the billed total. If llm_usage is lower, a call path
-  is still unlogged. This is the end-to-end proof the table is complete.
+- **Re-test catalog after `c07010d` — STILL UNVERIFIED.** The retest after the fix was
+  served entirely from the gateway's Redis cache (`/extract/catalog` was called 0 times;
+  it returned instantly and correctly spent no tokens and wrote no row). The cache is
+  content-addressed on the PDF bytes, so re-uploading the same pricelist is a no-op.
+  To force a real extraction: use the UI's re-extract (`force: true` skips the cache by
+  design — catalog.go), upload a *different* PDF, or drop `catalog_extract_cache:*` from
+  Redis. **The cache is in REDIS, not the DB** — `campaign_catalog` is real imported
+  pricelist data (1000 rows), never a cache. Expect one `catalog` row, conversation_id NULL.
+  ("It came back fast" is the tell for a cache hit, not for a fast extraction.)
+- Cost gating: spamming one conversation does NOT give one row per message —
+  `COOLDOWN_SEC=45`, `NURTURE_BURST_SEC=20` and `_should_analyze()` gate the inbound
+  path. Few rows there means the gates work, not that logging broke. For 1 row per
+  call use many conversations, or `/summary/stream`+`/reply/stream` (no cooldown).
+- **Reconcile against the invoice:** the usage CSV is **daily granularity only**
+  (`usage_date_utc`, no hour), so a same-day compare is meaningless while the day
+  contains pre-deploy traffic. Wait for a full post-deploy UTC day, then compare
+  `SUM(cost_usd)` to that day's CSV row. If llm_usage is lower, a call path is still
+  unlogged. This is the end-to-end proof the table is complete.
+- One synthetic `catalog` row (~$0.0069, from a test PDF) exists in prod llm_usage.
+  Real spend, so it is not wrong — delete it only if a clean baseline matters.
 
 **Why it exists:** we could not compute cost-per-conversation. ~$4.65 was spent 1–16 Jul
 but the denominator is GONE: deleting a contact cascades away its conversations+messages.
@@ -161,6 +190,58 @@ Replace with local patching — the groundwork already exists:
   actually missed
 
 ---
+
+---
+
+## P5 — Catalog upload must not be allowed without a city (real bug, silent)
+
+`campaign_catalog.location_name` is nullable and is only ever populated by the LLM
+guessing a city out of the PDF. `campaigns` has **no city column at all**. When a
+pricelist has no city in it, every row lands with `location_name = NULL`.
+
+The damage is silent, in `services/ai-agent/finance_rag.py`:
+- line ~152: `hits = city_hits or hits`
+- line ~161: `if pref: rows = pref`
+
+Both **fall back to all rows** when the city filter matches nothing. So: the lead says
+"saya di Surabaya" → extraction stores city=Surabaya → finance_rag filters → 0 matches
+(location_name is NULL) → falls back → **the AI quotes another city's price as if it
+applied**. No error, no warning, and the wrong number is stated confidently to a customer.
+
+Fix direction (needs a decision first): add a city/location to the campaign or to the
+upload form, and use it as the default `location_name` for rows the PDF doesn't specify
+— then gate upload on it being set. Consider also making the finance_rag fallback loud
+(or refusing to quote) when a city is known for the lead but no row matches it: silently
+quoting the wrong city is worse than saying "let me check for your area".
+
+## P6 — Per-seat billing (llm_usage is NOT involved)
+
+AI credits are **prepaid** — the org buys credits up front and `campaign_credits`
+burns them down. So there is **no month-end AI invoice**, and llm_usage is not a
+billing source. The monthly invoice is per-seat only.
+
+Work: `rate_per_user` as a real `numeric` column on `org_subscriptions` (NOT inside the
+`quotas` jsonb — jsonb for money invites trouble); extend the existing superadmin org
+create/update handlers (`services/gateway/superadmin.go:153` already does users /
+simpuler_credits / custom_fields); one input in the platform wizard; CSV export of
+org × active users × rate. Assumptions to confirm: currency IDR, and seats counted at
+export time (no mid-month proration).
+
+**Where llm_usage actually pays off under a prepaid model — margin, not billing:**
+1 credit is debited **only** on a sent bot reply (`senderType == "bot"`,
+`services/messaging/store.go:317`). But tokens are spent on much more:
+
+| feature | sends a bot reply? | credit debited? |
+|---|---|---|
+| nurture, followup | yes | 1 |
+| extract, summary, reply, catalog | no | **none** |
+
+So a real share of AI spend debits no credit at all — the org pays for bot replies and
+gets lead analysis, summaries and catalog extraction free. First live sample (n=11, do
+NOT price off this): nurture $0.0544 billable vs extract $0.0137 + catalog $0.0069 free
+→ ~27% unbilled; cost/credit $0.0068 counting nurture only vs $0.0094 counting
+everything — 38% higher. Measure this properly once volume exists; it is the number
+that decides whether the credit price is profitable.
 
 ## DO NOT
 - **Don't buy Reserved Instances.** 1-year, non-cancellable, ~Rp 8–14jt, for an
