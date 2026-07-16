@@ -1,0 +1,12 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
+<plist version="1.0">
+<dict>
+	<!-- TestFlight and the App Store BOTH use the PRODUCTION APNs environment.
+	     Shipping "development" here (or omitting the entitlement entirely, which
+	     is what we were doing) means the app never registers with APNs, so no
+	     push, no badge, nothing. -->
+	<key>aps-environment</key>
+	<string>production</string>
+</dict>
+</plist>

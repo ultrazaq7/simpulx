@@ -26,7 +26,9 @@ object NotificationHelper {
     // the channel. So when we change channel behaviour we bump the id (…_v2) to
     // force a fresh channel. Keep CHANNEL_ID in sync with the FCM
     // `default_notification_channel_id` meta-data in AndroidManifest.xml.
-    private const val CHANNEL_ID = "incoming_message_v2"
+    // v3: lock-screen visibility went PUBLIC (v2 redacted content on the lock
+    // screen). Channels are immutable, so the id has to change to take effect.
+    private const val CHANNEL_ID = "incoming_message_v3"
     private const val CHANNEL_NAME = "Messages"
     // v3: the channel is now SILENT — IncomingCallRinger owns the looping ringtone
     // + repeating vibration (a channel sound only fires once and can be suppressed
@@ -44,6 +46,29 @@ object NotificationHelper {
     // WhatsApp-like vibration pattern reused across message + call channels so
     // every notification buzzes consistently: wait, buzz, pause, buzz.
     private val MESSAGE_VIBRATION = longArrayOf(0, 400, 200, 400)
+
+    // Superseded channel ids. Android keeps EVERY channel ever created visible in
+    // system settings, so bumping an id (the only way to change a channel's sound
+    // or visibility) leaves the old one behind — which showed up as duplicate
+    // "Incoming calls" / stale "Incoming messages" entries. Delete them.
+    private val LEGACY_CHANNEL_IDS = listOf(
+        "incoming_message", "incoming_message_v2",
+        "incoming_call", "incoming_call_v2",
+    )
+
+    /** Drop superseded channels so settings only lists the ones we actually use. */
+    private fun pruneLegacyChannels(context: Context) {
+        if (Build.VERSION.SDK_INT < Build.VERSION_CODES.O) return
+        val manager = context.getSystemService(Context.NOTIFICATION_SERVICE) as NotificationManager
+        for (id in LEGACY_CHANNEL_IDS) {
+            // Guard: never delete a channel that is currently in use.
+            if (id == CHANNEL_ID || id == CALL_CHANNEL_ID || id == ONGOING_CALL_CHANNEL_ID) continue
+            try {
+                manager.deleteNotificationChannel(id)
+            } catch (_: Exception) {
+            }
+        }
+    }
 
     /**
      * Merge avatar bitmap with a badge bitmap (ic_notification) at bottom-right.
@@ -240,8 +265,14 @@ object NotificationHelper {
             .setStyle(style)
             .setCategory(NotificationCompat.CATEGORY_MESSAGE)
             .setPriority(NotificationCompat.PRIORITY_HIGH)
+            // Show sender + message on the lock screen (WhatsApp parity).
+            .setVisibility(NotificationCompat.VISIBILITY_PUBLIC)
             .setAutoCancel(true)
-            .setOnlyAlertOnce(true)
+            // Every INCOMING message buzzes, like WhatsApp. Messages stack into one
+            // notification per thread, so onlyAlertOnce=true meant only the FIRST
+            // message of a thread ever alerted — every follow-up landed silently.
+            // (Our own sent replies still append silently — see appendSentMessage.)
+            .setOnlyAlertOnce(false)
             .setContentIntent(contentIntent) // Opens app on tap
             .addAction(replyAction)
             .addAction(markAsReadAction)
@@ -274,7 +305,12 @@ object NotificationHelper {
             val selfPerson = Person.Builder().setName("You").build()
             style.addMessage(messageText, System.currentTimeMillis(), selfPerson)
             builder.setStyle(style)
-            
+            // This rebuilds from the ACTIVE notification, which now alerts on every
+            // update (so incoming messages buzz like WhatsApp) — but our own sent
+            // reply must never buzz back at us, so silence this post explicitly.
+            builder.setOnlyAlertOnce(true)
+            builder.setSilent(true)
+
             // Re-notify to update UI and stop spinner
             manager.notify(chatId.hashCode(), builder.build())
         }
@@ -340,6 +376,21 @@ object NotificationHelper {
             PendingIntent.FLAG_UPDATE_CURRENT or PendingIntent.FLAG_IMMUTABLE
         )
 
+        // Full-screen intent: presenting the call UI is NOT the same as answering.
+        // It fires by itself (lock screen / heads-up) while the call is still
+        // ringing, so it must carry a marker — otherwise MainActivity treats it as
+        // an Answer tap, cancels the ring notification and STOPS the ringtone the
+        // instant the call screen appears.
+        val fullScreenIntent = Intent(answerIntent).apply {
+            putExtra("fromFullScreen", true)
+        }
+        val fullScreenPendingIntent = PendingIntent.getActivity(
+            context,
+            chatId.hashCode() + 14,
+            fullScreenIntent,
+            PendingIntent.FLAG_UPDATE_CURRENT or PendingIntent.FLAG_IMMUTABLE
+        )
+
         // Decline: broadcast to ReplyReceiver which calls the reject API
         val declineIntent = ReplyReceiver.getRejectCallIntent(context, chatId, callId)
         val declinePendingIntent = PendingIntent.getBroadcast(
@@ -372,7 +423,7 @@ object NotificationHelper {
             .setPriority(NotificationCompat.PRIORITY_MAX)
             .setVisibility(NotificationCompat.VISIBILITY_PUBLIC)
             .setContentIntent(answerPendingIntent)
-            .setFullScreenIntent(answerPendingIntent, true)
+            .setFullScreenIntent(fullScreenPendingIntent, true)
             .setAutoCancel(false)
             .setOngoing(true)
             .setColorized(true)
@@ -594,6 +645,7 @@ object NotificationHelper {
 
     private fun ensureChannel(context: Context) {
         if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) {
+            pruneLegacyChannels(context)
             val manager = context.getSystemService(Context.NOTIFICATION_SERVICE) as NotificationManager
             if (manager.getNotificationChannel(CHANNEL_ID) == null) {
                 val channel = NotificationChannel(
@@ -604,7 +656,10 @@ object NotificationHelper {
                     // depends on OEM defaults).
                     enableVibration(true)
                     vibrationPattern = MESSAGE_VIBRATION
-                    lockscreenVisibility = android.app.Notification.VISIBILITY_PRIVATE
+                    // Show sender + message on the lock screen like WhatsApp.
+                    // (PRIVATE here actively REDACTED the content — worse than the
+                    // default, which defers to the user's own lock-screen setting.)
+                    lockscreenVisibility = android.app.Notification.VISIBILITY_PUBLIC
                 }
                 manager.createNotificationChannel(channel)
             }
@@ -613,6 +668,7 @@ object NotificationHelper {
 
     private fun ensureCallChannel(context: Context) {
         if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) {
+            pruneLegacyChannels(context)
             val manager = context.getSystemService(Context.NOTIFICATION_SERVICE) as NotificationManager
             if (manager.getNotificationChannel(CALL_CHANNEL_ID) == null) {
                 val channel = NotificationChannel(

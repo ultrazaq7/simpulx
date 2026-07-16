@@ -2077,14 +2077,19 @@ func (s *server) handleUpdateContact(w http.ResponseWriter, r *http.Request) {
 	// it isn't duplicated per conversation) so "Contact updated · {who}" shows up.
 	if changed := changedContactFields(body.FullName, body.Phone, body.Tags, body.Blacklisted, attrsJSON); len(changed) > 0 {
 		d, _ := json.Marshal(map[string]any{"fields": changed, "name": cName})
-		_, _ = s.pool.Exec(r.Context(),
+		// Casts are explicit: inside an INSERT..SELECT, Postgres can't infer a bare
+		// parameter's type from the target column and errors out. Errors are logged,
+		// never swallowed — a silent failure here is exactly why History stayed empty.
+		if _, err := s.pool.Exec(r.Context(),
 			`INSERT INTO conversation_events (organization_id, conversation_id, type, actor_type, actor_id, detail)
-			 SELECT $1, cv.id, 'contact_updated', 'agent', $2::uuid, $3::jsonb
+			 SELECT $1::uuid, cv.id, 'contact_updated', 'agent', $2::uuid, $3::jsonb
 			   FROM conversations cv
-			  WHERE cv.contact_id = $4 AND cv.organization_id = $1
+			  WHERE cv.contact_id = $4::uuid AND cv.organization_id = $1::uuid
 			  ORDER BY cv.created_at DESC
 			  LIMIT 1`,
-			a.OrgID, a.UserID, string(d), id)
+			a.OrgID, a.UserID, string(d), id); err != nil {
+			s.log.Warn("history: contact_updated event insert failed", "err", err, "contact", id)
+		}
 	}
 	w.WriteHeader(http.StatusNoContent)
 }

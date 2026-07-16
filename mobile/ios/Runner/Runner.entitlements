@@ -1,0 +1,13 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
+<plist version="1.0">
+<dict>
+	<!-- Debug/dev builds talk to the APNs SANDBOX. Without an aps-environment
+	     entitlement the app cannot register for remote notifications AT ALL, so
+	     FCM never gets an APNs token, getToken() returns null, and no push (not
+	     even a badge) is ever delivered. Release/TestFlight uses the production
+	     variant — see RunnerRelease.entitlements. -->
+	<key>aps-environment</key>
+	<string>development</string>
+</dict>
+</plist>

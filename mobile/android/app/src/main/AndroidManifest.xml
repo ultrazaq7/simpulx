@@ -73,7 +73,7 @@
              Keep the channel id in sync with NotificationHelper.CHANNEL_ID. -->
         <meta-data
             android:name="com.google.firebase.messaging.default_notification_channel_id"
-            android:value="incoming_message_v2" />
+            android:value="incoming_message_v3" />
         <meta-data
             android:name="com.google.firebase.messaging.default_notification_icon"
             android:resource="@drawable/ic_notification" />

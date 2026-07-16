@@ -90,9 +90,17 @@ class ContactsController extends AsyncNotifier<List<Contact>> {
         }
         return;
       }
-      if (e.isConversationAssigned || e.isConversationUpdated) {
+      if (e.isConversationAssigned ||
+          e.isConversationUpdated ||
+          e.isConversationClosed) {
         _scheduleRefresh(const Duration(milliseconds: 300), priority: true);
-      } else if (e.isMessagePersisted || e.isConversationClosed) {
+        // These are EXACTLY the changes the contact History timeline is built
+        // from (stage / status / interest / assignment). Its per-contact provider
+        // is a one-shot cache, so without this the timeline never showed a change
+        // you just made until the screen was reopened. Invalidating the family is
+        // cheap: only a contact currently on screen refetches.
+        ref.invalidate(contactActivityProvider);
+      } else if (e.isMessagePersisted) {
         _scheduleRefresh(const Duration(seconds: 2));
       }
     });

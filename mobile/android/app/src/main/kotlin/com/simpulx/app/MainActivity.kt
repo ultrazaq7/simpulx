@@ -61,7 +61,13 @@ class MainActivity : FlutterActivity() {
             val route = intent.getStringExtra("route")
             val chatId = intent.getStringExtra("chatId")
             
-            if (chatId != null) {
+            // A full-screen intent PRESENTS the incoming-call UI while the call is
+            // still ringing — it is NOT an answer, so the ring notification and the
+            // ringtone must both stay. Only a real Answer tap clears them (and the
+            // in-app Accept/Decline does it via the cancelCallNotification channel
+            // method, so every path is still covered).
+            val fromFullScreen = intent.getBooleanExtra("fromFullScreen", false)
+            if (chatId != null && !fromFullScreen) {
                 // Answering: drop the ring notification AND stop the ringtone/vibration.
                 NotificationHelper.cancelCallNotification(this, chatId)
             }
