@@ -66,6 +66,14 @@ class _SimpulxAppState extends ConsumerState<SimpulxApp>
         debugPrint('[Push] onNotificationTap route: $route');
         final router = ref.read(routerProvider);
         _navigateToRoute(router, route);
+      } else if (call.method == 'onCallHangup') {
+        // Hang up pressed on the ongoing-call notification. The native side
+        // already ends the call on the backend, but the LOCAL call overlay must
+        // tear down now — waiting for the realtime "ended" event to come back
+        // left the caller staring at a live call screen while the customer had
+        // already been hung up on (and kept the mic hot).
+        debugPrint('[Push] onCallHangup from notification');
+        await ref.read(callControllerProvider.notifier).hangUp();
       }
     });
   }
@@ -106,9 +114,26 @@ class _SimpulxAppState extends ConsumerState<SimpulxApp>
     }
   }
 
+  /// Android 14+ no longer auto-grants USE_FULL_SCREEN_INTENT to apps that
+  /// aren't dialers/alarms, so an incoming call could only ever show as a
+  /// heads-up notification instead of the WhatsApp-style full-screen ring.
+  /// Ask once — if the user declines, calls still arrive as heads-up.
+  Future<void> _ensureFullScreenCallPermission() async {
+    if (!Platform.isAndroid) return;
+    try {
+      final ok = await _channel.invokeMethod<bool>('canUseFullScreenIntent');
+      if (ok == false) {
+        await _channel.invokeMethod('requestFullScreenIntentPermission');
+      }
+    } catch (_) {
+      // Best-effort: never block startup on this.
+    }
+  }
+
   Future<void> _initPush(GoRouter router) async {
     final push = ref.read(pushServiceProvider);
     await push.requestPermission();
+    await _ensureFullScreenCallPermission();
     await push.initForeground(
       onTapRoute: (route) => _navigateToRoute(router, route),
       allow: (category) =>

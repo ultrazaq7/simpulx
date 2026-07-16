@@ -89,6 +89,11 @@ class ReplyReceiver : BroadcastReceiver() {
         CallForegroundService.stop(context)
         NotificationHelper.cancelOngoingCallNotification(context)
         Log.d("ReplyReceiver", "Hanging up call: $callId")
+        // Tell the running app to tear its call overlay down NOW. Relying on the
+        // backend's realtime "ended" event to bounce back left the agent looking at
+        // a live call screen (mic still open) even though the customer had already
+        // been hung up on. App-internal broadcast: no-op if nothing is listening.
+        context.sendBroadcast(Intent(ACTION_LOCAL_CALL_HANGUP).setPackage(context.packageName))
         if (callId.isNotEmpty()) {
             NativeApiClient.endCall(context, callId) {
                 Log.d("ReplyReceiver", "Call ended via API: $callId")
@@ -101,6 +106,9 @@ class ReplyReceiver : BroadcastReceiver() {
         const val ACTION_MARK_AS_READ = "simpulx.ACTION_MARK_AS_READ"
         const val ACTION_REJECT_CALL = "simpulx.ACTION_REJECT_CALL"
         const val ACTION_HANGUP_CALL = "simpulx.ACTION_HANGUP_CALL"
+
+        /** App-internal: tells a running MainActivity to end the call in Dart too. */
+        const val ACTION_LOCAL_CALL_HANGUP = "simpulx.ACTION_LOCAL_CALL_HANGUP"
 
         fun getReplyIntent(context: Context, chatId: String): Intent {
             return Intent(context, ReplyReceiver::class.java).apply {

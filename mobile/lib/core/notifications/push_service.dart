@@ -31,7 +31,12 @@ class PushService {
       alert: true,
       badge: true,
       sound: true,
-      provisional: true, // Allow provisional (silent) permission on iOS
+      // NOT provisional. Provisional authorization on iOS means "deliver
+      // quietly": no prompt, but also NO banner, NO sound and NO icon badge —
+      // notifications only ever appear buried in Notification Center, which reads
+      // to the user as "notifications are completely broken". Ask for real
+      // authorization so iOS behaves like Android/WhatsApp.
+      provisional: false,
     );
     debugPrint('[PushService] Permission result: $result');
   }

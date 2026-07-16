@@ -29,8 +29,27 @@ class MainActivity : FlutterActivity() {
         super.attachBaseContext(newBase)
     }
 
+    // Receives the app-internal hang-up broadcast from the ongoing-call
+    // notification so Dart can tear the call overlay down immediately (see
+    // ReplyReceiver.handleHangupCall) instead of waiting for the realtime
+    // "ended" event to make a round trip through the backend.
+    private val hangupReceiver = object : android.content.BroadcastReceiver() {
+        override fun onReceive(context: Context?, intent: Intent?) {
+            flutterEngine?.dartExecutor?.binaryMessenger?.let { messenger ->
+                MethodChannel(messenger, CHANNEL).invokeMethod("onCallHangup", null)
+            }
+        }
+    }
+
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
+        val filter = android.content.IntentFilter(ReplyReceiver.ACTION_LOCAL_CALL_HANGUP)
+        if (android.os.Build.VERSION.SDK_INT >= android.os.Build.VERSION_CODES.TIRAMISU) {
+            registerReceiver(hangupReceiver, filter, Context.RECEIVER_NOT_EXPORTED)
+        } else {
+            @Suppress("UnspecifiedRegisterReceiverFlag")
+            registerReceiver(hangupReceiver, filter)
+        }
         handleIntent(intent)
     }
 
@@ -101,6 +120,10 @@ class MainActivity : FlutterActivity() {
 
     override fun onDestroy() {
         stopRingbackTone()
+        try {
+            unregisterReceiver(hangupReceiver)
+        } catch (_: Exception) {
+        }
         super.onDestroy()
     }
 
@@ -242,6 +265,38 @@ class MainActivity : FlutterActivity() {
                     "stopOngoingCall" -> {
                         try {
                             CallForegroundService.stop(this)
+                            result.success(true)
+                        } catch (e: Exception) {
+                            result.success(false)
+                        }
+                    }
+                    // Android 14 (API 34) stopped auto-granting USE_FULL_SCREEN_INTENT
+                    // to apps that aren't dialers/alarms — declaring it in the
+                    // manifest is no longer enough. Without it an incoming call can
+                    // only render as a heads-up notification, never the WhatsApp-style
+                    // full-screen ringing UI, so we have to ask the user for it.
+                    "canUseFullScreenIntent" -> {
+                        try {
+                            if (android.os.Build.VERSION.SDK_INT >= 34) {
+                                val nm = getSystemService(Context.NOTIFICATION_SERVICE) as NotificationManager
+                                result.success(nm.canUseFullScreenIntent())
+                            } else {
+                                result.success(true) // auto-granted below API 34
+                            }
+                        } catch (e: Exception) {
+                            result.success(true) // never block the caller on this
+                        }
+                    }
+                    "requestFullScreenIntentPermission" -> {
+                        try {
+                            if (android.os.Build.VERSION.SDK_INT >= 34) {
+                                startActivity(
+                                    Intent(
+                                        android.provider.Settings.ACTION_MANAGE_APP_USE_FULL_SCREEN_INTENT,
+                                        android.net.Uri.parse("package:$packageName")
+                                    )
+                                )
+                            }
                             result.success(true)
                         } catch (e: Exception) {
                             result.success(false)
