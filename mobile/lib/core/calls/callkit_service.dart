@@ -53,7 +53,7 @@ class CallKitService {
         case Event.actionCallDecline:
         case Event.actionCallEnded:
         case Event.actionCallTimeout:
-          await _endFromSystem();
+          await _endFromSystem(body);
           break;
         default:
           break;
@@ -94,10 +94,29 @@ class CallKitService {
   /// NOT the same as hanging up a live call — an OUTBOUND call reported to
   /// CallKit (or an already-answered inbound one) must hang up, only a still-
   /// ringing inbound call is a decline.
-  Future<void> _endFromSystem() async {
+  Future<void> _endFromSystem(Map<String, dynamic> body) async {
     try {
       final session = _ref.read(callControllerProvider);
-      if (session == null) return;
+      // No local session: the VoIP push woke us straight into CallKit and the
+      // agent declined from the lock screen without the app ever running, so Dart
+      // has no call state. Returning here meant the BACKEND WAS NEVER TOLD and the
+      // customer kept ringing on a call nobody would answer. Reject by the id the
+      // push carried instead — the same id CallKit is showing.
+      if (session == null) {
+        final extra = (body['extra'] is Map)
+            ? Map<String, dynamic>.from(body['extra'] as Map)
+            : <String, dynamic>{};
+        final callId =
+            (extra['callId'] ?? body['id'] ?? '').toString();
+        if (callId.isEmpty) return;
+        try {
+          await _ref.read(callsDataSourceProvider).reject(callId);
+          debugPrint('[CallKit] declined (no session) -> rejected $callId');
+        } catch (e) {
+          debugPrint('[CallKit] reject without session failed: $e');
+        }
+        return;
+      }
       // Already torn down — nothing to do (also stops endAllCalls() from
       // bouncing back into another hangUp).
       if (session.phase == CallPhase.ended || session.phase == CallPhase.failed) {

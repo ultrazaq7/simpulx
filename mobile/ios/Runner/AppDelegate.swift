@@ -20,6 +20,13 @@ import flutter_callkit_incoming
   // Used to hand a notification reply back to Dart (see userNotificationCenter).
   private var notificationMessenger: FlutterBinaryMessenger?
 
+  // Replies typed into a notification while the app was killed arrive BEFORE the
+  // Flutter engine exists (and before Dart installs its channel handler), so
+  // firing them at Dart immediately dropped them silently — the reply just never
+  // sent. Buffer instead and let Dart PULL them once it's up and authenticated;
+  // consuming clears the buffer, so a reply can never send twice.
+  private var pendingReplies: [[String: String]] = []
+
   override func application(
     _ application: UIApplication,
     didFinishLaunchingWithOptions launchOptions: [UIApplication.LaunchOptionsKey: Any]?
@@ -44,18 +51,25 @@ import flutter_callkit_incoming
     // set it directly whenever the unread count changes.
     if let messenger = notificationMessenger {
       FlutterMethodChannel(name: "simpulx_notification", binaryMessenger: messenger)
-        .setMethodCallHandler { call, result in
-          guard call.method == "setBadge" else {
+        .setMethodCallHandler { [weak self] call, result in
+          switch call.method {
+          case "setBadge":
+            let count = (call.arguments as? [String: Any])?["count"] as? Int ?? 0
+            if #available(iOS 16.0, *) {
+              UNUserNotificationCenter.current().setBadgeCount(count)
+            } else {
+              UIApplication.shared.applicationIconBadgeNumber = count
+            }
+            result(true)
+          case "consumePendingReplies":
+            // Atomically hand over and clear: Dart is up and authenticated now,
+            // so it can actually send these.
+            let out = self?.pendingReplies ?? []
+            self?.pendingReplies = []
+            result(out)
+          default:
             result(FlutterMethodNotImplemented)
-            return
           }
-          let count = (call.arguments as? [String: Any])?["count"] as? Int ?? 0
-          if #available(iOS 16.0, *) {
-            UNUserNotificationCenter.current().setBadgeCount(count)
-          } else {
-            UIApplication.shared.applicationIconBadgeNumber = count
-          }
-          result(true)
         }
     }
   }
@@ -77,9 +91,16 @@ import flutter_callkit_incoming
       let chatId = (userInfo["conversationId"] as? String)
         ?? (userInfo["conversation_id"] as? String) ?? ""
       let text = textResponse.userText
-      if !chatId.isEmpty, !text.isEmpty, let messenger = notificationMessenger {
-        FlutterMethodChannel(name: "simpulx_notification", binaryMessenger: messenger)
-          .invokeMethod("onInlineReply", arguments: ["chatId": chatId, "replyText": text])
+      if !chatId.isEmpty, !text.isEmpty {
+        // Always buffer. Firing straight at Dart lost the reply whenever this ran
+        // before the engine/handler existed — which is exactly the killed-app case
+        // where replying from a notification matters most. Dart drains this on
+        // startup AND on this ping, and draining clears it, so no double-send.
+        pendingReplies.append(["chatId": chatId, "replyText": text])
+        if let messenger = notificationMessenger {
+          FlutterMethodChannel(name: "simpulx_notification", binaryMessenger: messenger)
+            .invokeMethod("onPendingReplies", arguments: nil)
+        }
       }
       completionHandler()
       return

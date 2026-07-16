@@ -66,6 +66,10 @@ class _SimpulxAppState extends ConsumerState<SimpulxApp>
         debugPrint('[Push] onNotificationTap route: $route');
         final router = ref.read(routerProvider);
         _navigateToRoute(router, route);
+      } else if (call.method == 'onPendingReplies') {
+        // iOS buffered a reply typed into a notification (it can arrive before
+        // this handler even exists, so native never pushes it at us directly).
+        await _drainPendingReplies();
       } else if (call.method == 'onCallHangup') {
         // Hang up pressed on the ongoing-call notification. The native side
         // already ends the call on the backend, but the LOCAL call overlay must
@@ -130,6 +134,32 @@ class _SimpulxAppState extends ConsumerState<SimpulxApp>
     }
   }
 
+  /// Send any reply the user typed into an iOS notification while the app wasn't
+  /// running. Native buffers them because the reply lands before Flutter (and the
+  /// session) exists; consuming clears the buffer, so this can't double-send.
+  Future<void> _drainPendingReplies() async {
+    if (!Platform.isIOS) return;
+    try {
+      final raw = await _channel.invokeMethod<List<dynamic>>('consumePendingReplies');
+      if (raw == null || raw.isEmpty) return;
+      final chatRepo = ref.read(chatRepositoryProvider);
+      for (final item in raw) {
+        final m = (item as Map).cast<String, dynamic>();
+        final chatId = (m['chatId'] ?? '') as String;
+        final text = (m['replyText'] ?? '') as String;
+        if (chatId.isEmpty || text.isEmpty) continue;
+        try {
+          await chatRepo.sendMessage(chatId, body: text);
+          debugPrint('[Push] pending notification reply sent for $chatId');
+        } catch (e) {
+          debugPrint('[Push] pending reply send failed: $e');
+        }
+      }
+    } catch (_) {
+      // No native buffer (Android) or nothing pending.
+    }
+  }
+
   Future<void> _initPush(GoRouter router) async {
     final push = ref.read(pushServiceProvider);
     await push.requestPermission();
@@ -157,6 +187,9 @@ class _SimpulxAppState extends ConsumerState<SimpulxApp>
     }
     // Coming back into an authenticated session means we're online.
     ref.read(authControllerProvider.notifier).setPresence(true);
+    // Now that we're authenticated we can actually send: flush any reply typed
+    // into a notification while the app was killed.
+    await _drainPendingReplies();
   }
 
   /// Smart navigation that avoids duplicate routes.
