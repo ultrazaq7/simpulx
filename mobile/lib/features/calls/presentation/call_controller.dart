@@ -6,8 +6,7 @@ import 'package:flutter/services.dart';
 import 'package:flutter_callkit_incoming/entities/entities.dart';
 import 'package:flutter_callkit_incoming/flutter_callkit_incoming.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
-import 'package:record/record.dart';
-
+import '../../../core/calls/mic_permission.dart';
 import '../../../core/error/app_exception.dart';
 import '../../../core/providers/app_providers.dart';
 import '../../../core/realtime/realtime_event.dart';
@@ -406,16 +405,12 @@ class CallController extends Notifier<CallSession?> {
     _startIncomingPoll();
   }
 
-  /// Ensure the OS microphone permission is granted, prompting if it hasn't been
-  /// decided yet. Reuses the `record` plugin (already a dependency) so we don't
-  /// hit a raw getUserMedia failure mid-answer when the user never granted it.
-  Future<bool> _ensureMicPermission() async {
-    try {
-      return await AudioRecorder().hasPermission();
-    } catch (_) {
-      return false;
-    }
-  }
+  /// Ensure the OS microphone permission is granted. Normally a silent pass:
+  /// the permission is primed in the foreground right after login (see
+  /// `ensureMicPermission` / `_initPush`), so by answer-time it's already
+  /// granted. This is the last-line guard so the WebRTC layer never hits a raw
+  /// getUserMedia failure if priming was skipped or denied.
+  Future<bool> _ensureMicPermission() => ensureMicPermission();
 
   Future<void> acceptIncoming() async {
     final s = state;

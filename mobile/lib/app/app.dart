@@ -9,6 +9,7 @@ import 'package:simpulx/l10n/app_localizations.dart';
 import 'package:wakelock_plus/wakelock_plus.dart';
 
 import '../core/calls/callkit_service.dart';
+import '../core/calls/mic_permission.dart';
 import '../core/notifications/notification_prefs.dart';
 import '../core/notifications/notification_providers.dart';
 import '../core/providers/app_providers.dart';
@@ -163,6 +164,13 @@ class _SimpulxAppState extends ConsumerState<SimpulxApp>
   Future<void> _initPush(GoRouter router) async {
     final push = ref.read(pushServiceProvider);
     await push.requestPermission();
+    // Prime the microphone permission NOW, while the app is in the foreground
+    // just after login. Calls arrive via push and are answered from CallKit /
+    // the lock screen, where iOS cannot present a permission prompt — so if this
+    // is the first time it's asked, the answer errors into dead audio. Asking
+    // here means the answer-time check is already granted. Best-effort: a denial
+    // is surfaced later at answer-time, it must not block the rest of startup.
+    await ensureMicPermission();
     await _ensureFullScreenCallPermission();
     await push.initForeground(
       onTapRoute: (route) => _navigateToRoute(router, route),
