@@ -92,6 +92,22 @@ _GENERIC_VARIANT_TOKENS = {
 }
 
 
+# Price/finance intent in the customer's own words. Gates whether ANY figure reaches the
+# prompt at all: unasked-for pricing is anchoring (the lead now expects a number that the
+# agent's real quote will contradict), so the catalog ships as NAMES ONLY until asked.
+_PRICE_INTENT = re.compile(
+    r"(harga|harganya|hrg|otr|\bdp\b|uang muka|cicilan|angsuran|kredit|tenor|leasing|"
+    r"budget|bajet|termurah|termahal|paling murah|paling mahal|berapa|brp|berapaan|"
+    r"simulasi|promo|diskon|potongan|\bcash\b|bunga|tdp)", re.I)
+
+
+def _asks_price(query: str) -> bool:
+    """True when the customer's own message asks about price/finance. Deliberately wide:
+    a false positive only re-allows figures the model may still withhold, while a false
+    negative would make the bot dodge a real price question."""
+    return bool(query and _PRICE_INTENT.search(query))
+
+
 def _variant_hits(query: str, rows) -> list:
     """Rows whose variant/item the customer explicitly named. Matches on each
     significant TRIM token of variant_name (e.g. 'ultimate', 'exceed', 'gls', 'gl')
@@ -213,6 +229,36 @@ async def _catalog_from_table(pool, campaign_id, model: str,
         else:
             city_mismatch = True
 
+    # The FULL variant list, names only -- deduped across cities/tenors, never truncated.
+    # This exists because the priced injection below is capped, and a cap plus the
+    # alphabetical fetch order meant the model saw only the first few variants and was
+    # then told they were "SEMUA varian": a lead asking for a Pajero got "our catalog is
+    # Destinator". Names are cheap (~20 lines), so the model can always answer "what do
+    # you sell?" correctly and never has to guess a model.
+    _names: list = []
+    _seen: set = set()
+    for r in rows:
+        nm = " ".join(x for x in (r["item_name"], r["variant_name"]) if x).strip()
+        if nm and nm.lower() not in _seen:
+            _seen.add(nm.lower())
+            _names.append(nm)
+
+    catalog_lines = [f"[KATALOG CAMPAIGN INI -- DAFTAR LENGKAP ({len(_names)} varian yang dijual)]:"]
+    catalog_lines += [f"  - {nm}" for nm in _names]
+    catalog_lines.append(
+        "CATATAN KATALOG: daftar di atas LENGKAP dan satu-satunya yang dijual di campaign ini. "
+        "Kalau customer menyebut model yang TIDAK ada di daftar, JANGAN tawarkan model lain "
+        "sebagai gantinya dan JANGAN mengarang; tanyakan maksudnya atau tawarkan cek ke tim.")
+
+    # Prices are the expensive AND the risky part: quoting a number nobody asked for is
+    # anchoring. Until the customer actually asks, the catalog ships as names only.
+    if not _asks_price(query):
+        catalog_lines.append(
+            "CATATAN HARGA: customer BELUM menanyakan harga. Data harga sengaja TIDAK "
+            "disertakan. JANGAN sebut angka harga/DP/cicilan sama sekali dan JANGAN memancing "
+            "dengan angka. Kalau customer menanyakan harga, jawab bahwa kamu bantu cek dulu.")
+        return "\n".join(catalog_lines)
+
     # Bound what we inject (ranking already put the relevant variants first).
     rows = rows[:14]
 
@@ -222,7 +268,7 @@ async def _catalog_from_table(pool, campaign_id, model: str,
         except (TypeError, ValueError):
             return None
 
-    lines = ["[INFO KATALOG / HARGA TERBARU YANG TERSEDIA DI DATABASE (Tawarkan Jika Relevan)]:"]
+    lines = catalog_lines + ["", "[INFO HARGA UNTUK VARIAN YANG RELEVAN]:"]
     for i, r in enumerate(rows, 1):
         parts = [r["item_name"] or ""]
         if r["variant_name"]:
@@ -256,9 +302,12 @@ async def _catalog_from_table(pool, campaign_id, model: str,
     # "untuk model & area ini" is only true when the rows actually carry the lead's
     # city; on a mismatch it asserts the wrong city's prices are the lead's own.
     area_claim = "model ini" if city_mismatch else "model & area ini"
-    lines.append(f"CATATAN VARIAN: Daftar di atas memuat SEMUA varian/tipe yang tersedia untuk {area_claim}. "
+    lines.append(f"CATATAN VARIAN: Blok harga di atas memuat varian yang RELEVAN untuk {area_claim}, "
+                 "BUKAN seluruh katalog -- katalog lengkapnya ada di daftar nama paling atas. "
                  "Untuk 'tipe tertinggi/termahal' pilih OTR TERBESAR; 'termurah/entry-level' pilih OTR terkecil. "
-                 "Jika varian yang ditanya ADA di daftar, harganya TERSEDIA -- jangan bilang belum ada data.")
+                 "Jika varian yang ditanya ADA di blok harga, harganya TERSEDIA -- jangan bilang belum ada data. "
+                 "Jika varian ADA di daftar nama tapi TIDAK ada di blok harga, jangan bilang tidak dijual: "
+                 "bilang harganya perlu dicek ke tim.")
     if city_mismatch:
         lines.append(
             f"CATATAN AREA -- PENTING: TIDAK ADA data harga untuk area customer ({city}). "

@@ -261,7 +261,10 @@ async def reply_stream(req: SummaryReq):
             """SELECT a.system_prompt, a.model,
                       COALESCE(cv.metadata, '{}'::jsonb) AS metadata,
                       cv.campaign_id, cmp.segment, cmp.brand AS campaign_brand,
-                      cmp.name AS campaign_name, cmp.dealer_name
+                      cmp.name AS campaign_name, cmp.dealer_name,
+                      (SELECT m.body FROM messages m
+                        WHERE m.conversation_id = cv.id AND m.direction = 'inbound'
+                        ORDER BY m.created_at DESC LIMIT 1) AS last_inbound
                  FROM conversations cv
                  LEFT JOIN ai_agents a ON a.id = cv.ai_agent_id
                  LEFT JOIN campaigns cmp ON cmp.id = cv.campaign_id
@@ -275,9 +278,13 @@ async def reply_stream(req: SummaryReq):
         import finance_rag
         # Campaign-scoped, same as the live reply path: a draft the agent sends to the
         # customer must ground on THIS campaign's pricelist, never another dealer's.
+        # The customer's last message drives both variant ranking and the price gate --
+        # without it every draft counts as "didn't ask", so a real price question would
+        # get a draft with no price in it.
         ctx = await finance_rag.get_catalog_context(
             pool, conv["campaign_id"], (_lf.get("brand") or conv["campaign_brand"]),
-            _lf.get("model"), _lf.get("city"), conv["segment"])
+            _lf.get("model"), _lf.get("city"), conv["segment"],
+            query=conv["last_inbound"])
         if ctx:
             finance_ctx = f"\n\n{ctx}\n"
 
