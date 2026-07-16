@@ -118,12 +118,29 @@ Flat 30 melanggar: Januari 31 hari aktif → `31 × (rate/30)` = **103,3% harga 
 mesti ditambal `min(hari, 30)`. Konsekuensi yang diterima: rate harian beda tiap periode
 (1 hari di Feb lebih mahal dari 1 hari di Jan).
 
-### ⚠️ PERTANYAAN PEMBUKA SESI P6 — TANYA USER DULU
-**Periode billing = bulan kalender (semua org tagih tanggal 1) atau anniversary
-(per tanggal daftar)?** Ini nentuin skema. **Terverifikasi 2026-07-17:** `org_subscriptions`
-cuma punya `renewal_date` (date, **nullable**) dan isinya **NULL** di satu-satunya row —
-gak ada `period_start`/`period_end`. Jadi periode billing **belum ditentukan sama sekali**,
-bukan sekadar belum diisi.
+### Periode billing — SUDAH DIJAWAB user (2026-07-17): ANNIVERSARY
+Per tanggal daftar org, bukan bulan kalender. Org daftar 17 Juli → periode 17 Juli–16 Agustus.
+Pembagi prorata = panjang periode itu (lihat di atas) — periode anniversary bisa nyebrang
+2 bulan, makanya pembagi HARUS panjang periode, bukan "jumlah hari di bulan".
+**Terverifikasi 2026-07-17:** `org_subscriptions` cuma punya `renewal_date` (date, **nullable**,
+isinya **NULL**) — gak ada `period_start`/`period_end`. Skemanya mesti dibangun dari nol.
+
+### Arrears (nagih di belakang) — user memilih ini, dan koheren
+User bilang "baru bisa billed pas udah jalan anniversary, baru invoice terbit".
+**Catatan penting:** anniversary vs kalender dan bayar-di-muka vs di-belakang itu **2 sumbu
+terpisah** — default SaaS justru anniversary + bayar di MUKA. Yang maksa arrears di sini
+bukan anniversary, tapi keputusan metering **"ada aktivitas sehari ⇒ sehari penuh kebilling"**:
+seat-days aktual baru ketauan SETELAH periode lewat. Jadi arrears itu konsekuensi wajar
+dari metering-nya, dan konsisten.
+**Konsekuensi yang user udah diberi tau:**
+- Uang masuk telat 1 periode (daftar 17 Juli → invoice pertama 17 Agustus).
+- Ada risiko kredit (pakai sebulan penuh lalu nunggak). Peredam: kredit AI udah **prepaid**
+  (top-up), jadi cuma komponen seat yang kena arrears → risikonya kecil.
+- **BELUM DIPUTUSKAN — tanya user di sesi P6:** jatuh tempo invoice berapa hari, dan apa
+  yang terjadi kalau lewat (suspend? read-only? bot dimatiin?).
+**Ditolak (sengaja):** model Stripe (baseline seat di muka + adjust prorata di invoice
+berikutnya). Lebih aman buat cash flow tapi butuh credit/debit note dan ngebuang
+kesederhanaan "dihitung dari fakta, bukan tebakan di muka".
 
 ## PRICING — udah diputusin
 Analisis lengkap: https://claude.ai/code/artifact/915f1932-b731-43ba-89b0-fb496ef9e1d0
