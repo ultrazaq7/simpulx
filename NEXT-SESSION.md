@@ -1,5 +1,13 @@
 # Next session — mulai dari sini
 
+> ## ⚠️ REPO INI PUBLIK
+> Terverifikasi 2026-07-17: `api.github.com/repos/ultrazaq7/simpulx` balikin **200 tanpa auth**.
+> File ini ke-commit ke sana, jadi **apa pun yang ditulis di sini kepublikasi ke internet**,
+> dan git history bikin itu **permanen** walau file-nya dihapus belakangan.
+> **JANGAN tulis di sini:** NPWP, detail badan hukum, kredensial, isi `.env`, kunci, password.
+> Rahasia taro di `/opt/simpulx/.env` (pola yang udah dipakai: `ADS_TOKEN_ENC_KEY`, `SMTP_PASS`),
+> dan di file ini cukup rujuk namanya doang.
+
 Pre-launch (belum ada user aktif). Budget Rp 2jt/bln. Prod: 1 `t4g.medium`, 13 container
 termasuk Postgres. Deploy = push ke main (~2-4 menit; pantau tag image di prod).
 DB: `docker exec simpulx-v2-db psql -U simpulx -d simpulx_v2` (nama DB `simpulx_v2`).
@@ -218,12 +226,18 @@ Alternatif murah buat fase 1: CSV jadi **link download** (bukan lampiran), logo 
 Claude condong ke multipart karena tujuannya emang "resmi".
 
 ### ⚠️ BELUM DIJAWAB — wajib beres SEBELUM invoice kekirim ke client
-0. **Nama badan hukum penerbit invoice = PT apa?** Invoice resmi wajib nyantumin nama PT,
-   alamat, (dan NPWP kalau PKP). "PT Carbay" di dokumen ini keliatannya **CUSTOMER** (yang
-   dikasih quotation), bukan penerbit. Gak ada di kode — **TANYA USER.**
-1. **PPN & faktur pajak.** Penerbitnya **PKP atau non-PKP?** PKP = wajib pungut PPN +
-   terbitin faktur pajak; non-PKP = **gak boleh** pungut. Nentuin isi invoice.
-   **Gak bisa dicek dari kode — TANYA USER.**
+~~0. Nama badan hukum penerbit invoice~~ — **SUDAH DIJAWAB user (2026-07-17): pakai nama
+   "Simpulx" dulu.** Detail badan hukum (nama PT, NPWP, alamat) **SENGAJA GAK DITULIS
+   DI SINI** — lihat peringatan repo publik di bawah. Tanya user lagi pas invoice beneran
+   mau dikirim ke client (fase 2). "PT Carbay" = **CUSTOMER**, bukan penerbit.
+
+~~1. PPN & faktur pajak~~ — **SUDAH DIJAWAB user (2026-07-17): NON-PKP.**
+   ⇒ Invoice **TANPA PPN**, dan **DILARANG** pungut PPN. Jangan terbitin Faktur Pajak.
+   **TAPI jangan hardcode "tanpa PPN"** — bikin PPN sebagai field yang bisa dinyalain.
+   Ambang wajib PKP = omzet > Rp 4,8 M/tahun; begitu kelewat, invoice HARUS berubah.
+   *Catatan: NPWP ≠ PKP. Punya NPWP itu wajib buat semua badan usaha; PKP itu status
+   terpisah lewat SPPKP (Surat Pengukuhan PKP). Claude sempat diminta konfirmasi pakai
+   "Surat Penerbitan Akun Wajib Pajak" — itu BUKAN bukti PKP, itu kredensial akses Coretax.*
 2. **Nomor invoice.** Buat akuntansi biasanya harus berurutan & gak bolong → keputusan skema
    (sequence), bukan tempelan.
 3. **Cara bayar.** Invoice ke client harus nyantumin transfer ke mana / VA / dll.
