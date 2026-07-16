@@ -63,16 +63,23 @@ event. summary/reply happened to be safe (their record() already sits before
 rather than through the StreamingResponse, so it tested the function but not its
 calling context. Only a real call through the gateway could surface this.
 
-### Still to do
-- **Re-test catalog after `c07010d` — STILL UNVERIFIED.** The retest after the fix was
-  served entirely from the gateway's Redis cache (`/extract/catalog` was called 0 times;
-  it returned instantly and correctly spent no tokens and wrote no row). The cache is
-  content-addressed on the PDF bytes, so re-uploading the same pricelist is a no-op.
-  To force a real extraction: use the UI's re-extract (`force: true` skips the cache by
-  design — catalog.go), upload a *different* PDF, or drop `catalog_extract_cache:*` from
-  Redis. **The cache is in REDIS, not the DB** — `campaign_catalog` is real imported
-  pricelist data (1000 rows), never a cache. Expect one `catalog` row, conversation_id NULL.
-  ("It came back fast" is the tell for a cache hit, not for a fast extraction.)
+### Catalog re-test — DONE 2026-07-17. `c07010d` is PROVEN. Do not redo.
+Called through the **gateway** (the exact path that silently dropped the row), with a
+fresh PDF and `force: true`. Response carried no `"cached": true` and burned real
+tokens, so this was a real extraction, not the cache hit the two prior attempts got.
+
+Row that proves it, live in prod `llm_usage`:
+`5fcd8e31-b438-4ede-832a-9ecbe734f62f` | catalog | claude-sonnet-5 | 2897 in / 356 out |
+$0.009354 | conversation_id NULL | 2026-07-16 18:31:18Z (call was 18:31:13).
+
+`catalog` row count went 1 → 2 — **exactly one** new row, so the `recorded` guard in
+`flush_usage()` works and the post-loop backstop does not double-write. That was the
+real design risk in the fix, and it's now settled.
+
+**Pricing note — do NOT "fix" this.** The $0.009354 implies $2/M in, $10/M out for
+`claude-sonnet-5`. That is correct: Sonnet 5 is on **introductory pricing until
+2026-08-31**, reverting to $3/$15. `llm_usage.py:38-43` already prices per call date and
+cuts over automatically. Verified against the official model reference. Leave it alone.
 - Cost gating: spamming one conversation does NOT give one row per message —
   `COOLDOWN_SEC=45`, `NURTURE_BURST_SEC=20` and `_should_analyze()` gate the inbound
   path. Few rows there means the gates work, not that logging broke. For 1 row per
@@ -193,26 +200,52 @@ Replace with local patching — the groundwork already exists:
 
 ---
 
-## P5 — Catalog upload must not be allowed without a city (real bug, silent)
+## P5 — Wrong-city quoting. Silent fallback FIXED (`1423f92`); city column NOT started.
 
-`campaign_catalog.location_name` is nullable and is only ever populated by the LLM
-guessing a city out of the PDF. `campaigns` has **no city column at all**. When a
-pricelist has no city in it, every row lands with `location_name = NULL`.
+### ~~The bug is caused by `location_name = NULL`~~ — RETRACTED 2026-07-17.
+Checked prod before building: **500 catalog rows, all 500 carry a city, zero NULL.**
+(Also: 500 rows, not the 1000 this doc claimed.)
+```
+ Jakarta Pusat 100 | Jakarta Barat 100 | Jakarta Utara 100
+ Jakarta Selatan 100 | Jakarta Timur 100      total 500 | null_city 0
+```
+So gating upload on a city being set would **not have fixed the live bug** — the city is
+already set on every row. That work would have shipped without touching the thing burning.
 
-The damage is silent, in `services/ai-agent/finance_rag.py`:
-- line ~152: `hits = city_hits or hits`
-- line ~161: `if pref: rows = pref`
+**The real trigger is broader and fires today:** *no row matches the lead's city*. The
+catalog is Jakarta-only, so any lead outside Jakarta → 0 matches → fallback → Jakarta
+prices quoted to, say, a Surabaya customer. No NULL required. NULL was only ever one
+narrow path into a much wider hole.
 
-Both **fall back to all rows** when the city filter matches nothing. So: the lead says
-"saya di Surabaya" → extraction stores city=Surabaya → finance_rag filters → 0 matches
-(location_name is NULL) → falls back → **the AI quotes another city's price as if it
-applied**. No error, no warning, and the wrong number is stated confidently to a customer.
+### What actually made it dangerous (and what was fixed)
+The injected rows **already carry their city** (`finance_rag.py` prints `(Jakarta Pusat)`
+per line), so the model could see it. The kill was the note appended underneath:
+`"...SEMUA varian/tipe yang tersedia untuk model & area ini"` — on a mismatch that
+**asserts the wrong city's prices are the lead's own**. The model wasn't hallucinating;
+it was believing us.
 
-Fix direction (needs a decision first): add a city/location to the campaign or to the
-upload form, and use it as the default `location_name` for rows the PDF doesn't specify
-— then gate upload on it being set. Consider also making the finance_rag fallback loud
-(or refusing to quote) when a city is known for the lead but no row matches it: silently
-quoting the wrong city is worse than saying "let me check for your area".
+`1423f92` keeps the fallback (a neighbouring city's price is still useful grounding) but
+marks it: on mismatch it drops the `& area ini` claim and appends a `CATATAN AREA` note
+stating no data exists for the lead's area, that these are another city's prices, and
+that they may only be cited as a rough reference with the city named.
+
+**Verified** against the deployed image + real 500-row catalog, inside the prod container:
+| city requested | rows returned | area warning | claim |
+|---|---|---|---|
+| Surabaya | Jakarta (all 5) | **YES** | "model ini" |
+| Jakarta Pusat | Jakarta Pusat only | no | "model & area ini" |
+
+The Surabaya row *is* the bug reproduced. Jakarta Pusat is unchanged → no regression.
+
+### Still to do on P5
+- **Model compliance is UNVERIFIED.** Proven: the prompt now says the right thing.
+  NOT proven: the model actually obeys `CATATAN AREA` in a live conversation. Needs a
+  real out-of-Jakarta lead through the nurture path. This is the one that matters —
+  a note the model ignores is worth nothing.
+- **City column not started** (the original P5 spec; user still wants it). Adds a city to
+  `campaigns` → default `location_name` for rows the PDF omits → gate upload on it.
+  `campaigns` confirmed to have **no city column** (23 cols checked). This prevents the
+  future NULL case; it is *not* what fixes the live bug (already fixed above).
 
 ## P6 — Per-seat billing (llm_usage is NOT involved)
 
@@ -224,8 +257,39 @@ Work: `rate_per_user` as a real `numeric` column on `org_subscriptions` (NOT ins
 `quotas` jsonb — jsonb for money invites trouble); extend the existing superadmin org
 create/update handlers (`services/gateway/superadmin.go:153` already does users /
 simpuler_credits / custom_fields); one input in the platform wizard; CSV export of
-org × active users × rate. Assumptions to confirm: currency IDR, and seats counted at
-export time (no mid-month proration).
+org × active users × rate.
+
+### Decisions taken 2026-07-17 (both assumptions in the old plan were REJECTED)
+1. **Currency: IDR + a `currency` column from the start** (not bare IDR). So:
+   `rate_per_user numeric(12,2)` + `currency text NOT NULL DEFAULT 'IDR'`.
+2. **Seats: daily proration** — NOT "counted at export time". The old plan's
+   no-proration assumption is dead. Billing semantics, from the user verbatim:
+   > deactivate → bill stops **at that second**; reactivate → bill runs again **at that
+   > second**; delete → bill off **at that second**.
+
+### ⚠️ This makes P6 much bigger than the old plan. Read before starting.
+**There is no membership history, so proration cannot be built on the current schema.**
+`users` has `created_at`, `deleted_at`, `is_deleted`, `is_inactive`, `inactive_since`,
+`status` — all **current-state columns, not history**. A single `inactive_since` gets
+**overwritten**: deactivate → reactivate → deactivate leaves no trace of the first
+window. And reactivation is not hypothetical — the user named it as a supported flow, so
+this breaks on a first-class path, silently, in the org's favour or ours at random.
+Past months cannot be reconstructed at all.
+
+This is the `llm_usage` lesson again: **current state cannot answer a historical
+question.** Correct proration needs an **append-only membership ledger** (activate /
+deactivate / delete events, org+user+timestamp), seeded from `users.created_at` for
+existing users, and it is only accurate from the day it ships. That is its own piece of
+work — not a bolt-on to `superadmin.go`.
+
+**OPEN QUESTION — ask before building.** "Daily proration" and "off at that second"
+contradict each other. Does a user active for 6 hours bill as **1 whole day** (daily
+granularity) or **0.25 day** (duration-based)? The numbers differ. The ledger stores
+timestamps either way, so this decides the *export query*, not the schema — but decide
+it before writing the CSV.
+
+**Unchanged and still true:** AI credits are prepaid, so `llm_usage` is NOT a billing
+source. Do not build a monthly AI invoice from it.
 
 **Where llm_usage actually pays off under a prepaid model — margin, not billing:**
 1 credit is debited **only** on a sent bot reply (`senderType == "bot"`,
@@ -242,6 +306,32 @@ NOT price off this): nurture $0.0544 billable vs extract $0.0137 + catalog $0.00
 → ~27% unbilled; cost/credit $0.0068 counting nurture only vs $0.0094 counting
 everything — 38% higher. Measure this properly once volume exists; it is the number
 that decides whether the credit price is profitable.
+
+## P7 — Ads pipeline: 3 issues (ADDED 2026-07-17, **NONE VERIFIED — claims only**)
+
+⚠️ **Provenance: these came in as pasted analysis from another session/model. I did not
+check any of them against the code — no time. Treat every claim below as UNVERIFIED and
+check it before acting.** The reported shape is that the ads architecture is already
+sound: `startAdSyncCron` → daily sync → `ad_metrics`/`ad_campaigns`, and the dashboard
+reads local tables (`SUM` query) rather than hitting Google/Meta per page view. If true,
+that's the right pattern and needs no change — verify before "improving" it.
+
+1. **Google Ads Basic Access = 15k ops/day** (claimed). ~5 calls per ads account →
+   ~3k accounts hits the ceiling, then syncs fail silently. Fix is applying for Standard
+   Access. **Longest lead time of anything here because it depends on Google's approval,
+   not our code** — so if the quota claim checks out, start the application early.
+2. **Cron is in the gateway process** (claimed). Fine at 1 gateway; horizontal scaling
+   means every instance runs the same cron → duplicate syncs, 2-3x quota burn, duplicate
+   rows. **Must land before scaling the gateway, not after.** Options: Redis-lock leader
+   election, or split into a single-instance worker.
+3. **OAuth tokens in `ad_accounts`** (claimed). Unknown whether `access_token` is
+   encrypted at rest. If plaintext, anyone with DB read gets customers' Google/Meta ad
+   accounts. **Cheapest to check — do this one first**, it's a schema read.
+
+Verify (1) and (3) before (2): both are cheap reads, and (2) is only worth building once
+you know the quota ceiling is real.
+
+## P4 — NOT STARTED (see the P4 section above; still the 1k-concurrent blocker)
 
 ## DO NOT
 - **Don't buy Reserved Instances.** 1-year, non-cancellable, ~Rp 8–14jt, for an
