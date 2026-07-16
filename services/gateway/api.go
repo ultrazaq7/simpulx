@@ -1826,6 +1826,12 @@ func (s *server) handleAddNote(w http.ResponseWriter, r *http.Request) {
 		http.Error(w, err.Error(), http.StatusInternalServerError)
 		return
 	}
+	// Co-viewers of this conversation see the note appear live (they refetch notes).
+	if err := s.bus.Publish(events.SubjectNoteCreated, a.OrgID, events.NoteEvent{
+		ConversationID: convID, NoteID: id, AuthorID: a.UserID, Body: b.Body,
+	}); err != nil {
+		s.log.Warn("publish note.created failed", "err", err)
+	}
 	writeJSON(w, map[string]any{"id": id})
 }
 
@@ -1842,6 +1848,11 @@ func (s *server) handleDeleteNote(w http.ResponseWriter, r *http.Request) {
 	if err != nil {
 		http.Error(w, err.Error(), http.StatusInternalServerError)
 		return
+	}
+	if err := s.bus.Publish(events.SubjectNoteDeleted, a.OrgID, events.NoteEvent{
+		ConversationID: convID, NoteID: noteID,
+	}); err != nil {
+		s.log.Warn("publish note.deleted failed", "err", err)
 	}
 	writeJSON(w, map[string]any{"status": "deleted"})
 }

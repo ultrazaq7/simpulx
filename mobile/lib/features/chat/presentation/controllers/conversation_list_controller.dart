@@ -245,6 +245,19 @@ class ConversationListController extends AsyncNotifier<List<Conversation>> {
       }
       return;
     }
+    // Pipeline stage config changed (rename/add/reorder/delete): refetch the
+    // cached stage list so names/orders stay correct without an app reload.
+    if (event.isStagesUpdated) {
+      ref.invalidate(stagesProvider);
+      return;
+    }
+    // An internal note added/removed elsewhere: refetch that conversation's notes
+    // so a co-viewer sees it appear/disappear live.
+    if (event.isNoteCreated || event.isNoteDeleted) {
+      final cid = (event.data['conversation_id'] ?? '').toString();
+      if (cid.isNotEmpty) ref.invalidate(notesProvider(cid));
+      return;
+    }
     // A contact edit (name) elsewhere updates every matching inbox row live.
     if (event.isContactUpdated || event.isContactCreated) {
       final p = ContactUpsertPayload(event.data);

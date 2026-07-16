@@ -1,10 +1,22 @@
 package main
 
 import (
+	"context"
 	"encoding/json"
 	"net/http"
 	"strings"
+
+	"github.com/simpulx/v2/libs/go/events"
 )
+
+// publishStagesUpdated tells every client the org's pipeline stage config changed
+// (add/rename/reorder/delete) so they refetch the stage list — cached stage
+// names/orders stay correct without an app reload.
+func (s *server) publishStagesUpdated(ctx context.Context, orgID string) {
+	if err := s.bus.Publish(events.SubjectStagesUpdated, orgID, events.StagesUpdated{OrgID: orgID}); err != nil {
+		s.log.Warn("publish stages.updated failed", "err", err)
+	}
+}
 
 // Pipeline stage management (Settings > Pipeline Stages). Owner/admin only.
 // System stages (system_key set) can be renamed and reordered but not deleted —
@@ -60,6 +72,7 @@ func (s *server) handleCreateStage(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	s.audit(r.Context(), a, "created", "stage", id, map[string]any{"name": name})
+	s.publishStagesUpdated(r.Context(), a.OrgID)
 	writeJSON(w, map[string]any{"id": id})
 }
 
@@ -99,6 +112,7 @@ func (s *server) handleUpdateStage(w http.ResponseWriter, r *http.Request) {
 		http.Error(w, "not found", http.StatusNotFound)
 		return
 	}
+	s.publishStagesUpdated(r.Context(), a.OrgID)
 	writeJSON(w, map[string]any{"status": "updated"})
 }
 
@@ -126,6 +140,7 @@ func (s *server) handleDeleteStage(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	s.audit(r.Context(), a, "deleted", "stage", id, nil)
+	s.publishStagesUpdated(r.Context(), a.OrgID)
 	writeJSON(w, map[string]any{"status": "deleted"})
 }
 
@@ -160,5 +175,6 @@ func (s *server) handleReorderStages(w http.ResponseWriter, r *http.Request) {
 		http.Error(w, err.Error(), http.StatusInternalServerError)
 		return
 	}
+	s.publishStagesUpdated(r.Context(), a.OrgID)
 	writeJSON(w, map[string]any{"status": "reordered"})
 }

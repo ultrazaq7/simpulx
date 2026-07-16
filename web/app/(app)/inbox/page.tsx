@@ -279,14 +279,26 @@ export default function InboxPage() {
       // loadConvs() fallback below would fire a full conversation refetch on every
       // delivery receipt (which streams constantly). Prevents a refetch storm.
       if (
-        ev.type === "note.created" ||
-        ev.type === "note.deleted" ||
-        ev.type === "stages.updated" ||
         ev.type === "presence.updated" ||
         ev.type === "call.tracked" ||
         ev.type === "contact.created" ||
         ev.type === "contact.updated"
       ) {
+        return;
+      }
+
+      // Pipeline stage config changed elsewhere: refetch the stage list so the
+      // stage picker/labels stay correct without a reload.
+      if (ev.type === "stages.updated") {
+        api.listStages().then((res) => setStages(res || [])).catch(() => { });
+        return;
+      }
+      // Internal note added/removed on the OPEN conversation: refetch its notes so
+      // a co-viewer sees it live.
+      if (ev.type === "note.created" || ev.type === "note.deleted") {
+        if (aid && data?.conversation_id === aid) {
+          api.getNotes(aid).then((res) => setNotes(res || [])).catch(() => { });
+        }
         return;
       }
 
