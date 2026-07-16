@@ -282,11 +282,24 @@ deactivate / delete events, org+user+timestamp), seeded from `users.created_at` 
 existing users, and it is only accurate from the day it ships. That is its own piece of
 work — not a bolt-on to `superadmin.go`.
 
-**OPEN QUESTION — ask before building.** "Daily proration" and "off at that second"
-contradict each other. Does a user active for 6 hours bill as **1 whole day** (daily
-granularity) or **0.25 day** (duration-based)? The numbers differ. The ledger stores
-timestamps either way, so this decides the *export query*, not the schema — but decide
-it before writing the CSV.
+### ~~OPEN QUESTION: daily vs per-second~~ — RESOLVED 2026-07-17. Daily, rounded up.
+**Rule, from the user: any active history on a calendar day → that day bills FULL.**
+Not duration-based. A user active for 6 minutes on the 5th bills the 5th as a whole day.
+"Off at that second" describes when accrual *stops*, not the billing granularity.
+
+So the export is: **count DISTINCT calendar days on which the user had any active
+interval**, then charge `rate_per_user × (active_days / days_in_month)`. No hours, no
+seconds, no fractional days in the output. (Minor detail still to settle: divide by the
+real length of that month (28/30/31) or a flat 30? Pick one and write it down — it
+changes every invoice slightly.)
+
+**This does NOT remove the need for the ledger — it only simplifies the query.**
+Deactivated Jan 5, reactivated Jan 20 → active days are 1–5 and 20–31 = **17 days**
+(both boundary days count full). Deriving that needs every activate/deactivate event.
+`users.inactive_since` holds only the most recent one, so the current schema returns the
+last window and silently drops the rest. The ledger is what makes "which days was this
+user active" answerable at all; "full day" just means the ledger's timestamps get
+truncated to `::date` and de-duplicated at export time.
 
 **Unchanged and still true:** AI credits are prepaid, so `llm_usage` is NOT a billing
 source. Do not build a monthly AI invoice from it.
