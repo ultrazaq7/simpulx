@@ -1,6 +1,7 @@
 package main
 
 import (
+	"context"
 	"strings"
 
 	"firebase.google.com/go/v4/messaging"
@@ -13,17 +14,43 @@ import (
 // web ignore this block entirely.
 // `category` maps to aps.category so iOS shows that category's actions on
 // long-press (e.g. the "message" category's inline Reply). Empty = no actions.
-func apnsAlert(title, body, category string) *messaging.APNSConfig {
+// unreadBadgeFor counts the chats waiting on this user — the same thing Android's
+// launcher badge reflects (one notification per unread conversation), so iOS shows
+// a matching number. Scoped to conversations ASSIGNED to them: admins/managers
+// don't get a badge for leads that aren't theirs. Returns -1 on error so the push
+// simply goes out without a badge rather than clobbering the icon with 0.
+func (s *server) unreadBadgeFor(ctx context.Context, userID string) int {
+	if userID == "" {
+		return -1
+	}
+	var n int
+	if err := s.pool.QueryRow(ctx,
+		`SELECT count(*) FROM conversations
+		  WHERE assigned_agent_id = $1::uuid
+		    AND COALESCE(unread_count, 0) > 0
+		    AND status <> 'closed'`, userID).Scan(&n); err != nil {
+		s.log.Warn("unread badge count failed", "err", err, "user", userID)
+		return -1
+	}
+	return n
+}
+
+// apnsAlert builds the iOS payload. badge is the recipient's unread-chat count:
+// iOS can NOT compute an icon badge itself (Android does), so if the server never
+// sends one the app icon simply never shows a number. Pass -1 to omit it.
+func apnsAlert(title, body, category string, badge int) *messaging.APNSConfig {
+	aps := &messaging.Aps{
+		Alert:          &messaging.ApsAlert{Title: title, Body: body},
+		Sound:          "default",
+		MutableContent: true,
+		Category:       category,
+	}
+	if badge >= 0 {
+		aps.Badge = &badge
+	}
 	return &messaging.APNSConfig{
 		Headers: map[string]string{"apns-priority": "10"},
-		Payload: &messaging.APNSPayload{
-			Aps: &messaging.Aps{
-				Alert:          &messaging.ApsAlert{Title: title, Body: body},
-				Sound:          "default",
-				MutableContent: true,
-				Category:       category,
-			},
-		},
+		Payload: &messaging.APNSPayload{Aps: aps},
 	}
 }
 

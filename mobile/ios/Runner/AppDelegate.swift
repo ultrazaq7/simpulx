@@ -38,6 +38,26 @@ import flutter_callkit_incoming
     notificationMessenger = engineBridge.pluginRegistry
       .registrar(forPlugin: "SimpulxNotificationReply")?
       .messenger()
+
+    // The server sends the badge with each push, but only a push can change it —
+    // so reading a chat in-app would leave a stale number on the icon. Let Dart
+    // set it directly whenever the unread count changes.
+    if let messenger = notificationMessenger {
+      FlutterMethodChannel(name: "simpulx_notification", binaryMessenger: messenger)
+        .setMethodCallHandler { call, result in
+          guard call.method == "setBadge" else {
+            result(FlutterMethodNotImplemented)
+            return
+          }
+          let count = (call.arguments as? [String: Any])?["count"] as? Int ?? 0
+          if #available(iOS 16.0, *) {
+            UNUserNotificationCenter.current().setBadgeCount(count)
+          } else {
+            UIApplication.shared.applicationIconBadgeNumber = count
+          }
+          result(true)
+        }
+    }
   }
 
   // MARK: - Notification reply (iOS)

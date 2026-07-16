@@ -236,6 +236,22 @@ class _SimpulxAppState extends ConsumerState<SimpulxApp>
   Widget build(BuildContext context) {
     final router = ref.watch(routerProvider);
 
+    // iOS icon badge. The server stamps a badge on every push, but ONLY a push can
+    // change it — so reading a chat would leave a stale number stuck on the icon.
+    // Mirror the live unread count instead. Counted per CHAT (not per message) to
+    // match Android, where the launcher badges one notification per conversation.
+    // Android needs nothing here: it badges from its own notifications.
+    if (Platform.isIOS) {
+      ref.listen(conversationListProvider, (_, next) {
+        final list = next.value;
+        if (list == null) return;
+        final unreadChats = list.where((c) => c.unreadCount > 0).length;
+        _channel
+            .invokeMethod('setBadge', {'count': unreadChats})
+            .catchError((_) {});
+      });
+    }
+
     // Initialize push once the session is authenticated; tear down on logout.
     ref.listen<SessionState>(sessionControllerProvider, (_, next) {
       if (next.status == SessionStatus.authenticated && !_pushInited) {

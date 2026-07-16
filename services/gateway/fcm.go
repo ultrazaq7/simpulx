@@ -97,17 +97,19 @@ func (s *server) initFCMPush(ctx context.Context) {
 			contactName = "New message"
 		}
 
-		// Get tokens
+		// Get tokens. user_id comes along because the iOS badge is a PER-USER number:
+		// one multicast to everyone's tokens can't carry it (each agent has their own
+		// unread count), so we group by user and send one message per user below.
 		var rows []map[string]any
 		if assignedAgentID != nil {
-			rows, _ = s.queryMaps(ctx, `SELECT DISTINCT token FROM fcm_tokens WHERE user_id=$1`, *assignedAgentID)
+			rows, _ = s.queryMaps(ctx, `SELECT DISTINCT token, user_id::text AS user_id FROM fcm_tokens WHERE user_id=$1`, *assignedAgentID)
 		} else {
 			// Unassigned: only notify users who can actually SEE the lead (RBAC) —
 			// admins/owners (all) + managers of the conversation's campaign/branch.
 			// Previously this blasted EVERY active user, so agents got pushes for
 			// leads that were never (or no longer) routed to them.
 			rows, _ = s.queryMaps(ctx, `
-				SELECT DISTINCT t.token
+				SELECT DISTINCT t.token, t.user_id::text AS user_id
 				FROM fcm_tokens t
 				JOIN users u ON u.id = t.user_id
 				WHERE u.organization_id = $1 AND u.status = 'active'
@@ -125,11 +127,18 @@ func (s *server) initFCMPush(ctx context.Context) {
 			return nil
 		}
 
+		// Group by user so each one gets THEIR OWN badge number (iOS shows whatever
+		// the payload says; unlike Android it can't count for itself).
+		tokensByUser := make(map[string][]string, len(rows))
 		tokens := make([]string, 0, len(rows))
 		for _, r := range rows {
-			if t, ok := r["token"].(string); ok {
-				tokens = append(tokens, t)
+			t, ok := r["token"].(string)
+			if !ok {
+				continue
 			}
+			tokens = append(tokens, t)
+			uid, _ := r["user_id"].(string)
+			tokensByUser[uid] = append(tokensByUser[uid], t)
 		}
 
 		if len(tokens) == 0 {
@@ -150,29 +159,34 @@ func (s *server) initFCMPush(ctx context.Context) {
 		// Send via FCM
 		// Data-only (no Notification payload): the service worker renders it once.
 		// A Notification payload would be auto-shown AND re-shown by the SW (double).
-		pushMsg := &messaging.MulticastMessage{
-			Tokens: tokens,
-			Data: map[string]string{
-				"title":          contactName,
-				"body":           bodyText,
-				"conversationId": msg.ConversationID,
-				"contactId":      msg.ContactID,
-				"type":           "new_message",
-			},
-			Android: &messaging.AndroidConfig{Priority: "high"},
-			// iOS renders natively from this aps alert (Android keeps its data-only
-			// native path; web ignores APNS). The Flutter client no longer draws a
-			// local notification on iOS, so there is exactly one, no duplicate.
-			// Category "message" surfaces the inline Reply action on long-press.
-			APNS: apnsAlert(contactName, bodyText, "message"),
+		data := map[string]string{
+			"title":          contactName,
+			"body":           bodyText,
+			"conversationId": msg.ConversationID,
+			"contactId":      msg.ContactID,
+			"type":           "new_message",
 		}
-
-		resp, err := fcmClient.SendEachForMulticast(ctx, pushMsg)
-		if err != nil {
-			s.log.Error("FCM send error", "err", err)
-		} else {
-			s.log.Info("FCM sent", "successCount", resp.SuccessCount, "failureCount", resp.FailureCount)
-			s.pruneInvalidTokens(ctx, tokens, resp)
+		// One send per user: the aps badge is per-recipient, so a single multicast
+		// across everyone's tokens would give every agent the same (wrong) number.
+		for uid, userTokens := range tokensByUser {
+			badge := s.unreadBadgeFor(ctx, uid)
+			pushMsg := &messaging.MulticastMessage{
+				Tokens:  userTokens,
+				Data:    data,
+				Android: &messaging.AndroidConfig{Priority: "high"},
+				// iOS renders natively from this aps alert (Android keeps its data-only
+				// native path; web ignores APNS). The Flutter client no longer draws a
+				// local notification on iOS, so there is exactly one, no duplicate.
+				// Category "message" surfaces the inline Reply action on long-press.
+				APNS: apnsAlert(contactName, bodyText, "message", badge),
+			}
+			resp, err := fcmClient.SendEachForMulticast(ctx, pushMsg)
+			if err != nil {
+				s.log.Error("FCM send error", "err", err, "user", uid)
+				continue
+			}
+			s.log.Info("FCM sent", "successCount", resp.SuccessCount, "failureCount", resp.FailureCount, "badge", badge)
+			s.pruneInvalidTokens(ctx, userTokens, resp)
 		}
 		return nil
 	})
@@ -213,7 +227,9 @@ func (s *server) initFCMPush(ctx context.Context) {
 			Android: &messaging.AndroidConfig{Priority: "high"},
 			// iOS renders natively from this aps alert; Dart no longer draws it.
 			// Bell notifications have no inline actions (no reply category).
-			APNS: apnsAlert(title, bodyText, ""),
+			// badge=-1 omits it: a bell alert (snooze due, assignment) is not an
+			// unread chat, so it must not overwrite the icon's unread count.
+			APNS: apnsAlert(title, bodyText, "", -1),
 		})
 		if err != nil {
 			s.log.Error("FCM notification send error", "err", err)
