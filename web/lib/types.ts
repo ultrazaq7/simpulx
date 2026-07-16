@@ -282,6 +282,9 @@ export interface InternalNote {
 
 export interface Contact {
   id: string;
+  // In the leads view (/api/leads) `id` is the CONVERSATION id; the underlying
+  // contact id comes here. Contact-targeting calls (delete/blacklist) must use it.
+  contact_id?: string | null;
   full_name: string | null;
   phone: string | null;
   email: string | null;

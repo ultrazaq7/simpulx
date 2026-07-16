@@ -339,7 +339,10 @@ export default function ContactsPage() {
 
   async function remove(c: Contact) {
     if (!(await confirm({ title: "Delete contact?", message: `This removes "${c.full_name || c.phone}" and its conversations. This cannot be undone.`, danger: true, confirmLabel: "Delete" }))) return;
-    try { await api.deleteContact(c.id); setContacts((p) => p.filter((x) => x.id !== c.id)); setToast(t("contacts.contactDeleted")); }
+    // In the leads view `id` is the conversation id — delete must target the real
+    // contact id (contact_id), else the request 404s and the row silently stays.
+    const contactId = c.contact_id || c.id;
+    try { await api.deleteContact(contactId); setContacts((p) => p.filter((x) => (x.contact_id || x.id) !== contactId)); setToast(t("contacts.contactDeleted")); }
     catch (e: any) { setToast(e?.message || t("contacts.deleteFailed")); }
   }
 
@@ -349,17 +352,21 @@ export default function ContactsPage() {
   async function bulkDelete() {
     if (!(await confirm({ title: `Delete ${selected.size} contact(s)?`, message: "This also removes their conversations. This cannot be undone.", danger: true, confirmLabel: "Delete" }))) return;
     setBulkBusy(true);
-    const ids = [...selected];
-    await Promise.allSettled(ids.map((id) => api.deleteContact(id)));
-    setContacts((p) => p.filter((c) => !selected.has(c.id)));
-    clearSel(); setBulkBusy(false); setToast(t("contacts.nDeleted", { n: ids.length }));
+    // selected holds row keys (conversation ids in the leads view) — map to the
+    // real contact ids so the contact-delete calls actually hit a contact.
+    const rows = contacts.filter((c) => selected.has(rowKey(c)));
+    const contactIds = [...new Set(rows.map((c) => c.contact_id || c.id))];
+    await Promise.allSettled(contactIds.map((id) => api.deleteContact(id)));
+    setContacts((p) => p.filter((c) => !contactIds.includes(c.contact_id || c.id)));
+    clearSel(); setBulkBusy(false); setToast(t("contacts.nDeleted", { n: contactIds.length }));
   }
   async function bulkBlacklist() {
     setBulkBusy(true);
-    const ids = [...selected];
-    await Promise.allSettled(ids.map((id) => api.updateContact(id, { blacklisted: true })));
-    setContacts((p) => p.map((c) => (selected.has(c.id) ? { ...c, blacklisted: true } : c)));
-    clearSel(); setBulkBusy(false); setToast(t("contacts.nBlacklisted", { n: ids.length }));
+    const rows = contacts.filter((c) => selected.has(rowKey(c)));
+    const contactIds = [...new Set(rows.map((c) => c.contact_id || c.id))];
+    await Promise.allSettled(contactIds.map((id) => api.updateContact(id, { blacklisted: true })));
+    setContacts((p) => p.map((c) => (contactIds.includes(c.contact_id || c.id) ? { ...c, blacklisted: true } : c)));
+    clearSel(); setBulkBusy(false); setToast(t("contacts.nBlacklisted", { n: contactIds.length }));
   }
   async function bulkLabel() {
     const label = await prompt({ title: "Add label", message: "Add a label to the selected contacts.", placeholder: "e.g. VIP, Follow-up", confirmLabel: "Add label" });

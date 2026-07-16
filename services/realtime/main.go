@@ -110,6 +110,9 @@ func main() {
 		{events.SubjectStagesUpdated, "realtime-stages"},
 		{events.SubjectPresenceUpdated, "realtime-presence"},
 		{events.SubjectCallTracked, "realtime-call-tracked"},
+		// Forward bell notifications so the sidebar unread count refreshes live even
+		// for notifications with no accompanying message (snooze due, follow-up).
+		{events.SubjectNotificationCreated, "realtime-notification"},
 	}
 	for _, s := range subs {
 		if err := bus.Subscribe(s.subject, s.durable, forward); err != nil {
