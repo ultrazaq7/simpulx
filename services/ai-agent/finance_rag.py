@@ -54,13 +54,32 @@ async def get_catalog_context(pool, campaign_id, brand: str, model: str,
     """
     if campaign_id:
         try:
-            ctx = await _catalog_from_table(pool, campaign_id, brand, model, city, query, conn=conn)
+            ctx = await _catalog_from_table(pool, campaign_id, model, city, query, conn=conn)
             if ctx:
                 return ctx
+            # No row matched. If this campaign HAS a catalog, its own pricelist is the
+            # ONLY valid grounding -- falling through to the global finance_packages
+            # here is exactly the cross-dealer leak WS-A exists to prevent (it served
+            # another dealer's Surabaya packages into a Jakarta Mitsubishi campaign).
+            # Better ungrounded than grounded on someone else's prices.
+            if await _campaign_has_catalog(pool, campaign_id, conn=conn):
+                log.info("no catalog match for this campaign; staying ungrounded (no global fallback)")
+                return None
         except Exception as e:  # never let the new path break grounding
             log.warning(f"campaign_catalog lookup failed, falling back: {e}")
-    # Fallback: legacy global finance_packages (automotive only).
+    # Fallback: legacy global finance_packages (automotive only) -- only for campaigns
+    # that have no catalog of their own.
     return await get_finance_context(pool, brand, model, city, conn=conn)
+
+
+async def _campaign_has_catalog(pool, campaign_id, conn=None) -> bool:
+    """True when the campaign has any catalog row at all. Distinguishes 'this campaign
+    has no pricelist' (global fallback is fine) from 'it has one but nothing matched'
+    (falling back would leak another dealer's pricing)."""
+    async with _acquire(pool, conn) as c:
+        return bool(await c.fetchval(
+            "SELECT EXISTS(SELECT 1 FROM campaign_catalog WHERE campaign_id = $1::uuid)",
+            campaign_id))
 
 
 # Transmission / drivetrain / generic spec tokens that appear inside variant
@@ -92,7 +111,7 @@ def _variant_hits(query: str, rows) -> list:
     return hits
 
 
-async def _catalog_from_table(pool, campaign_id, brand: str, model: str,
+async def _catalog_from_table(pool, campaign_id, model: str,
                               city: str = None, query: str = None, conn=None) -> str | None:
     """Query campaign_catalog for one campaign, matching item/variant on the
     lead's brand/model. Formats rows segment-agnostically (spine columns +
@@ -101,7 +120,15 @@ async def _catalog_from_table(pool, campaign_id, brand: str, model: str,
     When brand/model aren't extracted yet the whole (campaign-scoped) catalog is
     returned so even the FIRST turn is grounded; a named trim in `query` is then
     used to rank so the customer's exact variant leads."""
-    needle = (model or brand or "").strip()
+    # Match on the MODEL only -- never the brand. campaign_catalog is already scoped by
+    # campaign_id, so brand adds nothing; worse, item_name holds MODEL names ("XFORCE
+    # EXCEED CVT"), so a brand needle ("Mitsubishi") matches ZERO rows. That silently
+    # defeated the "no model yet -> return the whole catalog so turn 1 is grounded"
+    # intent below on every branded campaign: turn 1 fell through to the global
+    # finance_packages and grounded the bot on another dealer's cars entirely.
+    # An empty needle is the point, not a bug: it returns this campaign's whole
+    # pricelist, and `query` then ranks the customer's model to the top.
+    needle = (model or "").strip()
     like = f"%{needle}%" if needle else "%"
     async with _acquire(pool, conn) as conn:
         rows = await conn.fetch(

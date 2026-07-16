@@ -99,7 +99,7 @@ async def handle_inbound(broker, pool, env: dict, data: dict, log) -> None:
         conv = await conn.fetchrow(
             """SELECT cv.ai_agent_id, cv.ai_extracted_at,
                       COALESCE(cv.metadata, '{}'::jsonb) AS metadata,
-                      cmp.segment,
+                      cmp.segment, cmp.brand AS campaign_brand,
                       a.system_prompt, a.model
                  FROM conversations cv
                  LEFT JOIN ai_agents a ON a.id = cv.ai_agent_id
@@ -150,6 +150,16 @@ async def handle_inbound(broker, pool, env: dict, data: dict, log) -> None:
     # Merge the segment's qualifier fields into metadata.lead_fields (all segments,
     # incl. automotive brand/model/city/timeframe). This is the ONE lead-data path.
     lead_fields = result.get("fields")
+    # A branded campaign is single-brand by construction: the lead arrived through
+    # THIS campaign's ad, so their brand is the campaign's brand -- full stop. The
+    # extractor doesn't know that and reads competitor mentions as the lead's own
+    # brand: a Mitsubishi campaign ended up with {"brand": "Daihatsu", "model":
+    # "Xforce"} (Xforce is a Mitsubishi). That corrupts the lead data the sales team
+    # reads AND poisons grounding downstream, where a wrong brand pulls another
+    # brand's rows out of the global finance_packages. Pin it instead of trusting
+    # the model. Brand-agnostic campaigns (no brand set) keep the extracted value.
+    if lead_fields and conv["campaign_brand"]:
+        lead_fields["brand"] = conv["campaign_brand"]
     if lead_fields:
         try:
             async with pool.acquire() as conn:
