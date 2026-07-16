@@ -393,8 +393,9 @@ export default function Composer({
             onUse={(text) => { setDraft(text); setShowTemplates(false); setTab(0); notify(t("inbox.templateInsertedReviewAndSend"), "info"); }} />
         )}
 
-        {/* Tabs */}
-        <div className="flex items-center gap-4 px-3 pt-1.5">
+        {/* Tabs. Wrap on narrow (mobile) widths so the AI status / "Hand to
+            Simpuler" chip drops to its own line instead of being clipped off-screen. */}
+        <div className="flex flex-wrap items-center gap-x-4 gap-y-1.5 px-3 pt-1.5">
           <button
             onClick={() => setTab(0)}
             className={cn("text-[13px] font-semibold pb-1 border-b-2 transition-colors outline-none", tab === 0 ? "border-primary text-primary" : "border-transparent text-muted-foreground hover:text-foreground")}
