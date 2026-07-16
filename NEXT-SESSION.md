@@ -187,14 +187,41 @@ kesederhanaan "dihitung dari fakta, bukan tebakan di muka".
   subtotal). Ini WAJIB, bukan nice-to-have: model "ada aktivitas sehari ⇒ sehari penuh"
   pasti memicu "kok ditagih 7 seat, si A cuma login sekali" — CSV yang bikin model ini
   bisa dipertahanin.
-- **REKOMENDASI CLAUDE — email 2 fase (user setuju konsepnya, eksekusi di sesi P6):**
-  Fase 1 (1-2 siklus): invoice row + CSV digenerate penuh, email ke **owner Simpulx** dulu
-  (shadow/dry-run) → cocokin nominal sama kenyataan. Fase 2: flip penerima ke **client**.
+- **Email 2 fase — USER SETUJU (2026-07-17):**
+  **Fase 1** (1-2 siklus): invoice row + CSV digenerate penuh, email ke **admin@simpulx.com**
+  (shadow/dry-run) → cocokin nominal sama kenyataan. **Fase 2:** flip penerima ke **client**.
   Kode sama, yang berubah cuma tujuan. Alasan: invoice pertama yang salah nominal ke
-  PT Carbay = kepercayaan yang susah balik, dan mesin proratanya belum pernah jalan sekali pun.
+  customer = kepercayaan yang susah balik, dan mesin proratanya belum pernah jalan sekali pun.
+- **Invoice harus RESMI + pakai logo app** (permintaan user) — kayak invoice SaaS lain.
+
+### Infra email — UDAH ADA, jangan bangun ulang (terverifikasi 2026-07-17)
+`libs/go/mailer/mailer.go` (SMTP via `net/smtp`, dipakai gateway buat password reset).
+Prod `/opt/simpulx/.env` udah keisi `SMTP_HOST/PORT/USER/PASS/FROM/FROM_NAME`.
+
+**⚠️ BAHAYA buat invoicing — `mailer.go:18-19`:**
+```go
+if host == "" || strings.TrimSpace(to) == "" { return false, nil }   // sent=false, err=NIL
+```
+Gagal **diam-diam tanpa error**. Wajar buat password reset (dev lokal), FATAL buat invoice
+arrears: env kereset pas deploy → invoice "terbit" di DB, email gak pernah nyampe, gak ada
+error, jatuh tempo jalan terus. **Invoicing WAJIB cek `sent == true`, bukan cuma `err != nil`.**
+Kalau `sent=false` → jangan tandai invoice "sent", retry + alert.
+
+**⚠️ Mailer BELUM dukung attachment.** Signature: `Send(to, subject, body string, html bool)`
+— HTML didukung (bagus buat invoice berlogo), tapi **gak ada attachment**. Permintaan user
+(CSV lampiran + logo + invoice resmi) semuanya numpuk di prasyarat yang sama:
+- CSV lampiran → butuh `multipart/mixed`
+- Logo (email client blokir remote image → idealnya embed CID) → butuh `multipart/related`
+- "Resmi kaya app lain" biasanya = **PDF invoice** dilampirin → butuh PDF generator + attachment
+**Jadi: perluas mailer ke multipart = prasyarat, sekali bangun ketiganya kebuka.**
+Alternatif murah buat fase 1: CSV jadi **link download** (bukan lampiran), logo pakai URL.
+Claude condong ke multipart karena tujuannya emang "resmi".
 
 ### ⚠️ BELUM DIJAWAB — wajib beres SEBELUM invoice kekirim ke client
-1. **PPN & faktur pajak.** Simpulx/PT Carbay **PKP atau non-PKP?** PKP = wajib pungut PPN +
+0. **Nama badan hukum penerbit invoice = PT apa?** Invoice resmi wajib nyantumin nama PT,
+   alamat, (dan NPWP kalau PKP). "PT Carbay" di dokumen ini keliatannya **CUSTOMER** (yang
+   dikasih quotation), bukan penerbit. Gak ada di kode — **TANYA USER.**
+1. **PPN & faktur pajak.** Penerbitnya **PKP atau non-PKP?** PKP = wajib pungut PPN +
    terbitin faktur pajak; non-PKP = **gak boleh** pungut. Nentuin isi invoice.
    **Gak bisa dicek dari kode — TANYA USER.**
 2. **Nomor invoice.** Buat akuntansi biasanya harus berurutan & gak bolong → keputusan skema
