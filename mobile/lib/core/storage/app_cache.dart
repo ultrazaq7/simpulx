@@ -19,6 +19,10 @@ class AppCache {
   static const kConversations = 'conversations_snapshot';
   static const kContacts = 'contacts_snapshot';
   static const kDashboard = 'dashboard_snapshot';
+  /// Marks that the app has run since it was installed. This box lives in app
+  /// storage, which IS wiped on uninstall — unlike the iOS Keychain — so its
+  /// absence identifies a fresh install (see bootstrap).
+  static const kInstallMarker = 'install_marker';
 
   /// Initialize Hive and open the cache box. Call once during bootstrap.
   static Future<AppCache> init() async {

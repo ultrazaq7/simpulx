@@ -1,3 +1,5 @@
+import 'dart:io' show Platform;
+
 import 'package:firebase_core/firebase_core.dart';
 import 'package:firebase_messaging/firebase_messaging.dart';
 import 'package:flutter/material.dart';
@@ -33,6 +35,22 @@ Future<void> bootstrap() async {
       appCacheProvider.overrideWithValue(cache),
     ],
   );
+
+  // iOS keeps Keychain entries across an app UNINSTALL (Android wipes them), so
+  // flutter_secure_storage handed a REINSTALLED app the previous session's tokens
+  // and it silently logged straight back in — uninstalling never signed you out.
+  // The Hive box above lives in app storage, which IS wiped on uninstall, so its
+  // marker being absent means "fresh install": drop the stale credentials before
+  // anything reads them.
+  if (Platform.isIOS && cache.getString(AppCache.kInstallMarker) == null) {
+    try {
+      await container.read(secureStoreProvider).clear();
+      debugPrint('Fresh install detected: cleared leftover Keychain session');
+    } catch (e) {
+      debugPrint('Fresh-install keychain clear failed: $e');
+    }
+  }
+  await cache.setString(AppCache.kInstallMarker, '1');
 
   // Resolve auth status before the first frame to avoid a login flash.
   await container.read(authControllerProvider.notifier).bootstrap();
