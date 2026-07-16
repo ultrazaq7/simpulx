@@ -11,6 +11,7 @@ import 'package:wakelock_plus/wakelock_plus.dart';
 import '../core/calls/callkit_service.dart';
 import '../core/notifications/notification_prefs.dart';
 import '../core/notifications/notification_providers.dart';
+import '../core/providers/app_providers.dart';
 import '../core/providers/locale_provider.dart';
 import '../core/realtime/realtime_providers.dart';
 import '../core/providers/theme_provider.dart';
@@ -114,12 +115,15 @@ class _SimpulxAppState extends ConsumerState<SimpulxApp>
           ref.read(notificationPrefsProvider).isEnabled(category),
     );
     final repo = ref.read(authRepositoryProvider);
+    // Stable per-device id so the server keeps ONE token row per device
+    // (reinstall/refresh replaces it) — kills duplicate push notifications.
+    final deviceId = await ref.read(secureStoreProvider).deviceId();
     final token = await push.getToken();
     if (token != null) {
-      await repo.registerPushToken(token: token, platform: push.platform);
+      await repo.registerPushToken(token: token, platform: push.platform, deviceId: deviceId);
     }
     push.onTokenRefresh.listen(
-      (t) => repo.registerPushToken(token: t, platform: push.platform),
+      (t) => repo.registerPushToken(token: t, platform: push.platform, deviceId: deviceId),
     );
     // iOS: register the PushKit VoIP token + bridge CallKit actions to the call
     // controller (Android uses FCM + full-screen intent instead).

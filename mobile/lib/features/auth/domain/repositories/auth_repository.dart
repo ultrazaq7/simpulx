@@ -26,6 +26,7 @@ abstract class AuthRepository {
   Future<void> registerPushToken({
     required String token,
     required String platform,
+    String? deviceId,
   });
 
   /// Unregister this device's push token on logout so the backend stops pushing.

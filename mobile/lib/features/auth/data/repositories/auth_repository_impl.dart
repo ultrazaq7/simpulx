@@ -72,8 +72,9 @@ class AuthRepositoryImpl implements AuthRepository {
   Future<void> registerPushToken({
     required String token,
     required String platform,
+    String? deviceId,
   }) =>
-      _remote.registerFcmToken(token: token, platform: platform);
+      _remote.registerFcmToken(token: token, platform: platform, deviceId: deviceId);
 
   @override
   Future<void> unregisterPushToken({required String token}) =>

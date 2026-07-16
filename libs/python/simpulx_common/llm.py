@@ -84,7 +84,11 @@ NO_EMOJI_RULE = (
 ANALYZE_INSTRUCTION = (
     "Tugasmu: baca percakapan lalu (1) ekstrak data prospek dan (2) buat ringkasan "
     "untuk sales (BUKAN balasan ke pelanggan). JANGAN menulis balasan chat.\n"
-    "Aturan: purchase_timeframe = integer hari ('bulan depan'->30, 'minggu depan'->7, "
+    "Aturan: car_brand = MEREK saja (mis. 'Mitsubishi'). car_model = nama model "
+    "LENGKAP termasuk seri + varian/tipe yang disebut atau tersirat dari konteks "
+    "campaign/katalog (mis. 'Pajero Sport Exceed 4x2 AT'), JANGAN cuma varian/trim "
+    "('Exceed 4x2 AT'). Kalau customer hanya menyebut varian, gabungkan dengan seri "
+    "model dari konteks. purchase_timeframe = integer hari ('bulan depan'->30, 'minggu depan'->7, "
     "'besok'->1). Jika lead LOST/batal beli, isi lost_reason HANYA dari enum ini: "
     "bought_other_brand | bought_used_car | bought_elsewhere | competitor_promo | out_of_area | "
     "price_too_high | financing_rejected | no_budget | postponed | wrong_product | changed_mind | "

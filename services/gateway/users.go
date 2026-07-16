@@ -503,17 +503,28 @@ func (s *server) handleRegisterFCMToken(w http.ResponseWriter, r *http.Request) 
 	var b struct {
 		Token    string `json:"token"`
 		Platform string `json:"platform"`
+		DeviceID string `json:"device_id"`
 	}
 	if err := json.NewDecoder(r.Body).Decode(&b); err != nil || b.Token == "" {
 		http.Error(w, "token required", http.StatusBadRequest)
 		return
 	}
 
+	// One row per device: when the client sends a stable device_id, drop that
+	// device's previous token(s) first so a reinstall / token-refresh REPLACES
+	// rather than accumulates (accumulated tokens → duplicate push notifications).
+	// Empty device_id (older clients) skips this and keeps the legacy upsert.
+	if b.DeviceID != "" {
+		_, _ = s.pool.Exec(r.Context(),
+			`DELETE FROM fcm_tokens WHERE user_id=$1 AND device_id=$2 AND token<>$3`,
+			a.UserID, b.DeviceID, b.Token)
+	}
+
 	_, err := s.pool.Exec(r.Context(),
-		`INSERT INTO fcm_tokens (user_id, token, platform)
-		 VALUES ($1, $2, $3)
-		 ON CONFLICT (user_id, token) DO UPDATE SET platform = EXCLUDED.platform, created_at = now()`,
-		a.UserID, b.Token, b.Platform)
+		`INSERT INTO fcm_tokens (user_id, token, platform, device_id)
+		 VALUES ($1, $2, $3, NULLIF($4,''))
+		 ON CONFLICT (user_id, token) DO UPDATE SET platform = EXCLUDED.platform, device_id = EXCLUDED.device_id, created_at = now()`,
+		a.UserID, b.Token, b.Platform, b.DeviceID)
 
 	if err != nil {
 		http.Error(w, err.Error(), http.StatusInternalServerError)

@@ -4,6 +4,21 @@ import { getMessagingClient, getToken, deleteToken, onMessage, VAPID_KEY } from 
 
 let registered = false;
 
+// Stable per-browser id sent with the FCM token so the server keeps ONE token
+// row per browser (a token refresh replaces it) — prevents duplicate web push.
+function browserDeviceId(): string {
+  try {
+    let id = localStorage.getItem("simpulx_device_id");
+    if (!id) {
+      id = (crypto.randomUUID && crypto.randomUUID()) || String(Date.now()) + Math.random().toString(16).slice(2);
+      localStorage.setItem("simpulx_device_id", id);
+    }
+    return id;
+  } catch {
+    return "";
+  }
+}
+
 // registerPush asks for notification permission, obtains an FCM token via the
 // service worker, and saves it so the gateway can push to this device. Foreground
 // messages trigger onForeground (e.g. refresh the bell). Best-effort + idempotent.
@@ -19,7 +34,7 @@ export async function registerPush(onForeground?: () => void) {
     const swReg = await navigator.serviceWorker.register("/firebase-messaging-sw.js");
     const token = await getToken(messaging, { vapidKey: VAPID_KEY, serviceWorkerRegistration: swReg });
     if (!token) return;
-    await api.registerFCMToken(token, "web").catch(() => {});
+    await api.registerFCMToken(token, "web", browserDeviceId()).catch(() => {});
     registered = true;
     // Foreground (tab focused): FCM doesn't auto-show data-only messages, so we
     // render the popup here. Background/closed is handled by the service worker.

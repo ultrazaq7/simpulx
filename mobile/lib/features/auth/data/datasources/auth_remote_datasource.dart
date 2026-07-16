@@ -84,15 +84,20 @@ class AuthRemoteDataSource {
     }
   }
 
-  /// POST /api/users/fcm-token {token, platform}.
+  /// POST /api/users/fcm-token {token, platform, device_id?}.
   Future<void> registerFcmToken({
     required String token,
     required String platform,
+    String? deviceId,
   }) async {
     try {
       await _dio.post(
         ApiEndpoints.fcmToken,
-        data: {'token': token, 'platform': platform},
+        data: {
+          'token': token,
+          'platform': platform,
+          if (deviceId != null && deviceId.isNotEmpty) 'device_id': deviceId,
+        },
       );
     } on DioException catch (e) {
       throw ErrorMapper.fromDio(e);

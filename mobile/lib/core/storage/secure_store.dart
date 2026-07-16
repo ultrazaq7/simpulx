@@ -1,4 +1,5 @@
 import 'dart:io';
+import 'dart:math';
 
 import 'package:flutter/services.dart';
 import 'package:flutter_secure_storage/flutter_secure_storage.dart';
@@ -25,7 +26,25 @@ class SecureStore {
 
   static const _kAccessToken = 'access_token';
   static const _kRefreshToken = 'refresh_token';
+  static const _kDeviceId = 'device_id';
   static const _nativeChannel = MethodChannel('simpulx_notification');
+
+  /// Stable per-install device id, sent with the FCM token so the server keeps
+  /// ONE token row per device (a reinstall/refresh replaces it) — prevents the
+  /// duplicate push notifications caused by accumulated stale tokens. Generated
+  /// once with a CSPRNG (no extra package); persisted and NOT wiped by clear(),
+  /// so it survives logout.
+  Future<String> deviceId() async {
+    var id = await _storage.read(key: _kDeviceId);
+    if (id == null || id.isEmpty) {
+      final r = Random.secure();
+      id = List<int>.generate(16, (_) => r.nextInt(256))
+          .map((b) => b.toRadixString(16).padLeft(2, '0'))
+          .join();
+      await _storage.write(key: _kDeviceId, value: id);
+    }
+    return id;
+  }
 
   Future<String?> readAccessToken() => _storage.read(key: _kAccessToken);
   Future<String?> readRefreshToken() => _storage.read(key: _kRefreshToken);
