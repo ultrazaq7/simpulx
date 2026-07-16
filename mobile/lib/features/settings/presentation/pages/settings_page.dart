@@ -241,18 +241,27 @@ class SettingsPage extends ConsumerWidget {
     // Apply the theme, close the sheet, then show the confirmation AFTER the
     // next frame so the toast itself renders in the newly-applied theme rather
     // than the one that was active when it was tapped.
-    void pick(ThemeMode? v, String label) {
+    Future<void> pick(ThemeMode? v, String label) async {
       final mode = v ?? current;
       if (v != null) ref.read(themeModeProvider.notifier).setThemeMode(v);
+      final fallback = MediaQuery.platformBrightnessOf(context);
+      Navigator.of(context).pop();
       // Resolve the brightness the app is switching TO, so the confirmation
       // toast renders in the new theme instead of reading a stale context
       // (which would show it inverted).
-      final target = switch (mode) {
-        ThemeMode.light => Brightness.light,
-        ThemeMode.dark => Brightness.dark,
-        ThemeMode.system => MediaQuery.platformBrightnessOf(context),
-      };
-      Navigator.of(context).pop();
+      final Brightness target;
+      switch (mode) {
+        case ThemeMode.light:
+          target = Brightness.light;
+        case ThemeMode.dark:
+          target = Brightness.dark;
+        case ThemeMode.system:
+          // NOT platformBrightness: it still reports the previous manual pick at
+          // this instant (the choice is mirrored into the system via
+          // UiModeManager), which made "System Default" show a light toast on a
+          // dark device. Read the real device setting instead.
+          target = await deviceSystemBrightness(fallback: fallback);
+      }
       WidgetsBinding.instance.addPostFrameCallback((_) {
         if (context.mounted) AppSnackbar.show(context, label, brightness: target);
       });

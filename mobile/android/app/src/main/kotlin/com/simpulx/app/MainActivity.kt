@@ -62,9 +62,8 @@ class MainActivity : FlutterActivity() {
             val chatId = intent.getStringExtra("chatId")
             
             if (chatId != null) {
-                // Cancel ongoing call notification if user tapped Answer
-                val manager = getSystemService(Context.NOTIFICATION_SERVICE) as NotificationManager
-                manager.cancel(chatId.hashCode() + 100)
+                // Answering: drop the ring notification AND stop the ringtone/vibration.
+                NotificationHelper.cancelCallNotification(this, chatId)
             }
 
             // Answering from the lock screen must drop the keyguard so the agent

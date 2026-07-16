@@ -72,6 +72,15 @@ class ContactsController extends AsyncNotifier<List<Contact>> {
       // leads list — low-frequency, so a quick reconcile is fine.
       if (e.isContactUpdated || e.isContactCreated) {
         _scheduleRefresh(const Duration(milliseconds: 500), priority: true);
+        // The detail screen's per-contact providers are one-shot caches, so an
+        // edit (from this device, another agent, or the web) never showed until
+        // the screen was reloaded, and the History timeline never picked up the
+        // new entry. Invalidate them for the edited contact so both go live.
+        final cid = ContactUpsertPayload(e.data).contactId;
+        if (cid.isNotEmpty) {
+          ref.invalidate(contactActivityProvider(cid));
+          ref.invalidate(contactFetchProvider(cid));
+        }
         return;
       }
       if (e.isConversationAssigned || e.isConversationUpdated) {

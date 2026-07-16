@@ -3,6 +3,8 @@ import 'dart:io' show Platform;
 
 import 'package:flutter/foundation.dart';
 import 'package:flutter/services.dart';
+import 'package:flutter_callkit_incoming/entities/entities.dart';
+import 'package:flutter_callkit_incoming/flutter_callkit_incoming.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:record/record.dart';
 
@@ -140,34 +142,67 @@ class CallController extends Notifier<CallSession?> {
     _channel.invokeMethod('stopRingback').catchError((_) {});
   }
 
-  // ── Ongoing-call notification (WhatsApp-style) ──────────
+  // ── Ongoing-call system presence (WhatsApp-style) ───────
   // Android: a foreground service posts a persistent CallStyle notification with
   // a Hang up chip and keeps the process (mic/WebRTC) alive when minimized.
-  // iOS: the call already survives backgrounding via the `audio`/`voip`
-  // background modes, so this is a no-op there (a native CallKit "pill" for
-  // outbound is a separate, device-tested follow-up).
+  // iOS: report the OUTBOUND call to CallKit so the system shows its native call
+  // UI / green pill while the app is backgrounded (inbound calls are already in
+  // CallKit via the PushKit VoIP push, so we must NOT report those again or the
+  // call would be duplicated).
   bool _ongoingShown = false;
 
   void _syncOngoingCall(String statusText) {
-    if (!Platform.isAndroid) return;
     final s = state;
     if (s == null) return;
-    _ongoingShown = true;
-    _channel.invokeMethod('startOngoingCall', {
-      'chatId': s.conversationId,
-      'callId': s.callId,
-      'contactName': s.contactName,
-      'statusText': statusText,
-    }).catchError((_) {});
+
+    if (Platform.isAndroid) {
+      _ongoingShown = true;
+      _channel.invokeMethod('startOngoingCall', {
+        'chatId': s.conversationId,
+        'callId': s.callId,
+        'contactName': s.contactName,
+        'statusText': statusText,
+      }).catchError((_) {});
+      return;
+    }
+
+    if (Platform.isIOS) {
+      // Inbound is already a CallKit call (PushKit) — don't double-report it.
+      if (s.inbound || _ongoingShown || s.callId.isEmpty) return;
+      _ongoingShown = true;
+      FlutterCallkitIncoming.startCall(CallKitParams(
+        id: s.callId,
+        nameCaller: s.contactName,
+        handle: s.contactPhone,
+        type: 0, // audio
+        appName: 'Simpulx',
+        extra: {
+          'conversationId': s.conversationId,
+          'callId': s.callId,
+          'handle': s.contactPhone,
+        },
+      )).catchError((_) {});
+    }
+  }
+
+  /// iOS only: tell CallKit the outbound call is actually connected so the system
+  /// UI stops showing "calling…" and starts its duration timer.
+  void _markSystemCallConnected() {
+    if (!Platform.isIOS || !_ongoingShown) return;
+    final s = state;
+    if (s == null || s.inbound || s.callId.isEmpty) return;
+    FlutterCallkitIncoming.setCallConnected(s.callId).catchError((_) {});
   }
 
   void _stopOngoingCall() {
-    if (!_ongoingShown || !Platform.isAndroid) {
-      _ongoingShown = false;
-      return;
-    }
+    if (!_ongoingShown) return;
     _ongoingShown = false;
-    _channel.invokeMethod('stopOngoingCall').catchError((_) {});
+    if (Platform.isAndroid) {
+      _channel.invokeMethod('stopOngoingCall').catchError((_) {});
+    } else if (Platform.isIOS) {
+      // Clears the CallKit call we reported for this outbound call.
+      FlutterCallkitIncoming.endAllCalls().catchError((_) {});
+    }
   }
 
   /// Give up on an unanswered outbound call after [_outboundRingTimeout].
@@ -290,6 +325,7 @@ class CallController extends Notifier<CallSession?> {
       connectedAt: DateTime.now(),
     );
     _syncOngoingCall('Ongoing call');
+    _markSystemCallConnected();
     _startStatusWatchdog();
     // Tell the backend talk time starts NOW (the SDP answer fires at ring
     // time, so the server can't know pickup on its own). Best-effort.

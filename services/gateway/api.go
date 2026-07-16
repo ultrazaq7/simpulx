@@ -2071,7 +2071,44 @@ func (s *server) handleUpdateContact(w http.ResponseWriter, r *http.Request) {
 	}); err != nil {
 		s.log.Warn("publish contact.updated failed", "err", err)
 	}
+	// History: a field edit left NO trace before — the contact History timeline
+	// reads conversation_events, and only stage/interest/assignment changes were
+	// ever logged. Record the edit (once, on the contact's most recent thread so
+	// it isn't duplicated per conversation) so "Contact updated · {who}" shows up.
+	if changed := changedContactFields(body.FullName, body.Phone, body.Tags, body.Blacklisted, attrsJSON); len(changed) > 0 {
+		d, _ := json.Marshal(map[string]any{"fields": changed, "name": cName})
+		_, _ = s.pool.Exec(r.Context(),
+			`INSERT INTO conversation_events (organization_id, conversation_id, type, actor_type, actor_id, detail)
+			 SELECT $1, cv.id, 'contact_updated', 'agent', $2::uuid, $3::jsonb
+			   FROM conversations cv
+			  WHERE cv.contact_id = $4 AND cv.organization_id = $1
+			  ORDER BY cv.created_at DESC
+			  LIMIT 1`,
+			a.OrgID, a.UserID, string(d), id)
+	}
 	w.WriteHeader(http.StatusNoContent)
+}
+
+// changedContactFields lists which contact fields an update actually touched,
+// for the history entry's detail payload.
+func changedContactFields(name, phone *string, tags *[]string, blacklisted *bool, attrs any) []string {
+	changed := make([]string, 0, 5)
+	if name != nil {
+		changed = append(changed, "name")
+	}
+	if phone != nil {
+		changed = append(changed, "phone")
+	}
+	if tags != nil {
+		changed = append(changed, "tags")
+	}
+	if blacklisted != nil {
+		changed = append(changed, "blacklisted")
+	}
+	if attrs != nil {
+		changed = append(changed, "fields")
+	}
+	return changed
 }
 
 // ── DELETE /api/contacts/{id} — remove a contact + its conversations ──

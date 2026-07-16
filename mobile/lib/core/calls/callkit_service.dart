@@ -6,6 +6,7 @@ import 'package:flutter_callkit_incoming/entities/entities.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import '../../features/auth/presentation/controllers/auth_controller.dart';
+import '../../features/calls/domain/call_session.dart';
 import '../../features/calls/presentation/call_controller.dart';
 
 /// iOS CallKit bridge (PushKit VoIP). The full-screen call UI itself is reported
@@ -52,7 +53,7 @@ class CallKitService {
         case Event.actionCallDecline:
         case Event.actionCallEnded:
         case Event.actionCallTimeout:
-          await _decline();
+          await _endFromSystem();
           break;
         default:
           break;
@@ -89,11 +90,27 @@ class CallKitService {
     if (conversationId.isNotEmpty) _onRoute('/chat/$conversationId');
   }
 
-  Future<void> _decline() async {
+  /// The system call UI ended the call. Route it correctly: declining a ring is
+  /// NOT the same as hanging up a live call — an OUTBOUND call reported to
+  /// CallKit (or an already-answered inbound one) must hang up, only a still-
+  /// ringing inbound call is a decline.
+  Future<void> _endFromSystem() async {
     try {
-      await _ref.read(callControllerProvider.notifier).rejectIncoming();
+      final session = _ref.read(callControllerProvider);
+      if (session == null) return;
+      // Already torn down — nothing to do (also stops endAllCalls() from
+      // bouncing back into another hangUp).
+      if (session.phase == CallPhase.ended || session.phase == CallPhase.failed) {
+        return;
+      }
+      final ctrl = _ref.read(callControllerProvider.notifier);
+      if (session.inbound && session.phase == CallPhase.incoming) {
+        await ctrl.rejectIncoming();
+      } else {
+        await ctrl.hangUp();
+      }
     } catch (e) {
-      debugPrint('[CallKit] decline failed: $e');
+      debugPrint('[CallKit] end failed: $e');
     }
   }
 }

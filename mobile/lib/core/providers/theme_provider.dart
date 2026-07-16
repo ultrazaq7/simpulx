@@ -21,6 +21,28 @@ Future<void> _mirrorThemeToNative(String mode) async {
   }
 }
 
+/// The REAL device brightness, bypassing any app-level override.
+///
+/// [MediaQuery.platformBrightnessOf] can't be trusted right after a theme switch:
+/// [_mirrorThemeToNative] pushes the user's pick into the SYSTEM via
+/// `UiModeManager`, so immediately after selecting "System Default" the platform
+/// brightness still reports the PREVIOUS manual pick (e.g. light) even though the
+/// device itself is dark — which made the confirmation toast render inverted.
+/// The native `getSystemBrightness` reads `Resources.getSystem()` directly, which
+/// the app's own override never touches.
+Future<Brightness> deviceSystemBrightness({required Brightness fallback}) async {
+  if (Platform.isAndroid) {
+    try {
+      final v = await _nativeChannel.invokeMethod<String>('getSystemBrightness');
+      if (v == 'dark') return Brightness.dark;
+      if (v == 'light') return Brightness.light;
+    } catch (_) {
+      // Fall back to the Flutter-reported brightness.
+    }
+  }
+  return fallback;
+}
+
 /// App theme mode override. Persists to local cache.
 ///
 /// Uses Flutter's built-in [ThemeMode.system] for the "System Default" option,

@@ -28,7 +28,10 @@ object NotificationHelper {
     // `default_notification_channel_id` meta-data in AndroidManifest.xml.
     private const val CHANNEL_ID = "incoming_message_v2"
     private const val CHANNEL_NAME = "Messages"
-    private const val CALL_CHANNEL_ID = "incoming_call_v2"
+    // v3: the channel is now SILENT — IncomingCallRinger owns the looping ringtone
+    // + repeating vibration (a channel sound only fires once and can be suppressed
+    // by the full-screen intent, which is why calls came in silent).
+    private const val CALL_CHANNEL_ID = "incoming_call_v3"
     private const val CALL_CHANNEL_NAME = "Incoming calls"
     // Silent, low-importance channel for the persistent ACTIVE-call notification
     // (WhatsApp-style ongoing call with a Hang up chip) — no sound/vibration since
@@ -377,14 +380,18 @@ object NotificationHelper {
 
         val manager = context.getSystemService(Context.NOTIFICATION_SERVICE) as NotificationManager
         manager.notify(chatId.hashCode() + 100, notification)
+        // Ring for real: looping ringtone + repeating vibration for the whole ring
+        // (the channel itself is silent — see CALL_CHANNEL_ID).
+        IncomingCallRinger.start(context)
     }
 
     /**
      * Cancel the active (ringing/ongoing) call notification for a conversation.
      * Called when the call ends, is declined, or is answered so it never lingers
-     * or re-rings.
+     * or re-rings. Always stops the ringtone/vibration too.
      */
     fun cancelCallNotification(context: Context, chatId: String) {
+        IncomingCallRinger.stop(context)
         val manager = context.getSystemService(Context.NOTIFICATION_SERVICE) as NotificationManager
         manager.cancel(chatId.hashCode() + 100)
     }
@@ -613,15 +620,11 @@ object NotificationHelper {
                     NotificationManager.IMPORTANCE_HIGH
                 ).apply {
                     lockscreenVisibility = android.app.Notification.VISIBILITY_PUBLIC
-                    setSound(
-                        android.provider.Settings.System.DEFAULT_RINGTONE_URI,
-                        android.media.AudioAttributes.Builder()
-                            .setUsage(android.media.AudioAttributes.USAGE_NOTIFICATION_RINGTONE)
-                            .setContentType(android.media.AudioAttributes.CONTENT_TYPE_SONIFICATION)
-                            .build()
-                    )
-                    vibrationPattern = longArrayOf(0, 1000, 500, 1000, 500, 1000)
-                    enableVibration(true)
+                    // Silent on purpose: IncomingCallRinger plays the LOOPING
+                    // ringtone + vibration for the whole ring. A channel sound
+                    // would only fire once and would double up with the ringer.
+                    setSound(null, null)
+                    enableVibration(false)
                 }
                 manager.createNotificationChannel(channel)
             }
