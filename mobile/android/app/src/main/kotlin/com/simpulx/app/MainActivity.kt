@@ -283,6 +283,28 @@ class MainActivity : FlutterActivity() {
                             result.success(false)
                         }
                     }
+                    // The call is over and its UI is gone. If the phone is STILL
+                    // locked, the agent answered from the lock screen and never
+                    // unlocked — so drop the show-over-keyguard privilege and go
+                    // back to the lock screen (WhatsApp behaviour). Without this the
+                    // app stays on top of the lock once the call ends, leaving the
+                    // whole CRM inbox readable on a locked phone. If the phone is
+                    // unlocked, the agent is using the app normally: do nothing.
+                    "callFinished" -> {
+                        try {
+                            if (android.os.Build.VERSION.SDK_INT >= android.os.Build.VERSION_CODES.O_MR1) {
+                                setShowWhenLocked(false)
+                                setTurnScreenOn(false)
+                            }
+                            val km = getSystemService(Context.KEYGUARD_SERVICE) as android.app.KeyguardManager
+                            if (km.isKeyguardLocked) {
+                                moveTaskToBack(true)
+                            }
+                            result.success(true)
+                        } catch (e: Exception) {
+                            result.success(false)
+                        }
+                    }
                     // Android 14 (API 34) stopped auto-granting USE_FULL_SCREEN_INTENT
                     // to apps that aren't dialers/alarms — declaring it in the
                     // manifest is no longer enough. Without it an incoming call can

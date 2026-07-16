@@ -513,6 +513,13 @@ class CallController extends Notifier<CallSession?> {
   void clear() {
     _autoClear?.cancel();
     state = null;
+    // The call UI is gone. If this call was answered from the lock screen, the
+    // app is currently drawing OVER the keyguard — leaving it there would expose
+    // the whole inbox on a locked phone. Tell native to drop that privilege and
+    // fall back to the lock screen (no-op when the phone is unlocked).
+    if (Platform.isAndroid) {
+      _channel.invokeMethod('callFinished').catchError((_) {});
+    }
   }
 
   // ── Realtime ───────────────────────────────────────────
