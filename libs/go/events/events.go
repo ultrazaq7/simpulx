@@ -318,6 +318,13 @@ type ConversationUpdated struct {
 	// instantly without a follow-up fetch (the source of the old takeover lag).
 	AssignedAgentID string `json:"assigned_agent_id,omitempty"`
 	AgentName       string `json:"agent_name,omitempty"`
+	// Set when a conversation is READ (server zeroes unread_count). Pointer so 0 is
+	// transmitted rather than dropped by omitempty — 0 is the whole point. Reading
+	// used to reset unread_count SILENTLY, so nothing told the clients: the inbox
+	// badge only cleared locally on the device that opened the chat, it never
+	// cleared on the web/other devices, and a list refetch racing the reset could
+	// resurrect the count on the very device that had just read it.
+	UnreadCount *int `json:"unread_count,omitempty"`
 	// DispositionID + StageName let clients render a disposition/lost outcome and a
 	// freshly-created stage's NAME without a refetch (stage_id alone is unknown to a
 	// client whose cached stage list predates the stage). LeadScore updates the score

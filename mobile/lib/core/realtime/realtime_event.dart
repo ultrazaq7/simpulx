@@ -125,6 +125,13 @@ class ConversationUpdatedPayload {
     final v = _d['bot_active'];
     return v is bool ? v : null;
   }
+  // Authoritative unread count, sent when a conversation is READ (server zeroes
+  // it). null = unchanged. Applying this is what clears the badge on every client
+  // — and on this one it beats a refetch that would otherwise resurrect the count.
+  int? get unreadCount {
+    final v = _d['unread_count'];
+    return v is num ? v.toInt() : null;
+  }
   // Carried alongside botActive on takeover so "Manual · {name}" shows instantly
   // (no refetch). Empty/absent when unchanged.
   String? get agentName => _s('agent_name');

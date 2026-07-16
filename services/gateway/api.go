@@ -404,8 +404,24 @@ func (s *server) handleGetMessages(w http.ResponseWriter, r *http.Request) {
 
 	// reset unread saat agen membuka percakapan (hanya di fetch halaman pertama)
 	if cursor == "" {
-		_, _ = s.pool.Exec(r.Context(),
-			`UPDATE conversations SET unread_count = 0 WHERE id = $1 AND organization_id = $2`, convID, a.OrgID)
+		tag, err := s.pool.Exec(r.Context(),
+			`UPDATE conversations SET unread_count = 0
+			  WHERE id = $1 AND organization_id = $2 AND COALESCE(unread_count,0) > 0`, convID, a.OrgID)
+		// Announce the read. This used to be silent, which broke the badge two ways:
+		// the web/other devices never learned the chat was read at all, and on the
+		// device that opened it a list refetch (resume/reconnect triggers one) could
+		// land AFTER this reset but return the pre-reset count — resurrecting the
+		// badge the user had just cleared. Emitting the authoritative 0 removes the
+		// race and syncs every client.
+		if err == nil && tag.RowsAffected() > 0 {
+			zero := 0
+			if err := s.bus.Publish(events.SubjectConversationUpdated, a.OrgID, events.ConversationUpdated{
+				ConversationID: convID,
+				UnreadCount:    &zero,
+			}); err != nil {
+				s.log.Warn("publish conversation.updated (read) failed", "err", err)
+			}
+		}
 	}
 
 	writeJSON(w, map[string]any{

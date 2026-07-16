@@ -102,6 +102,7 @@ class ConversationListController extends AsyncNotifier<List<Conversation>> {
     String? assignedAgentId,
     String? contactName,
     String? lastOutboundStatus,
+    int? unreadCount,
   }) {
     final list = state.value;
     if (list == null) return;
@@ -119,6 +120,7 @@ class ConversationListController extends AsyncNotifier<List<Conversation>> {
                 assignedAgentId: assignedAgentId,
                 contactName: contactName,
                 lastOutboundStatus: lastOutboundStatus,
+                unreadCount: unreadCount,
               )
             : c,
     ]);
@@ -226,6 +228,12 @@ class ConversationListController extends AsyncNotifier<List<Conversation>> {
           assignedAgentId: p.assignedAgentId,
         );
         ref.invalidate(conversationByIdProvider(p.conversationId));
+      }
+      // The chat was READ (server zeroed unread_count and now says so). Apply the
+      // authoritative count: this is what clears the badge when another device —
+      // or a notification tap that raced the list refetch — read the thread.
+      if (p.unreadCount != null) {
+        patchLocal(p.conversationId, unreadCount: p.unreadCount);
       }
       return;
     }
