@@ -107,6 +107,10 @@ class ConversationUpdatedPayload {
     final v = _d['bot_active'];
     return v is bool ? v : null;
   }
+  // Carried alongside botActive on takeover so "Manual · {name}" shows instantly
+  // (no refetch). Empty/absent when unchanged.
+  String? get agentName => _s('agent_name');
+  String? get assignedAgentId => _s('assigned_agent_id');
   DateTime? get snoozedUntil {
     final raw = _s('snoozed_until');
     return raw == null ? null : DateTime.tryParse(raw);

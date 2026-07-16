@@ -348,10 +348,12 @@ class _ChatThreadPageState extends ConsumerState<ChatThreadPage>
     final controller =
         ref.watch(chatThreadControllerProvider(widget.conversationId));
 
-    // Prefer the conversation passed via route extra; otherwise look it up live
-    // from the inbox list so opening from a notification or the contact's Chat
-    // button still shows the name/phone and enables calling.
-    Conversation? resolved = widget.conversation ?? _liveConversation();
+    // Prefer the LIVE inbox-list copy so an optimistic take-over and realtime
+    // `conversation.updated` (bot on/off, stage, status) reflect INSTANTLY in the
+    // AI bar/header. The route-extra snapshot is static — using it first froze the
+    // "Auto / Take over" state at open-time (tap had no visible effect). Fall back
+    // to the route extra (fast first paint) or a by-id fetch when the list lacks it.
+    Conversation? resolved = _liveConversation() ?? widget.conversation;
     // Opened from a push notification / deep link before the inbox list synced
     // (or when the current inbox filter excludes this lead): fetch it by id so
     // the header shows the real contact instead of a blank/nameless placeholder.
@@ -829,122 +831,160 @@ class _AiHandlingBar extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final ai = isBotActive || processing;
+    final bool ai = isBotActive || processing;
+    final Color accent = ai ? AppColors.ai : AppColors.primary;
 
-    final Widget statusChip;
+    // Status: leading word (accent, bold) + optional detail (muted).
+    final String lead;
+    final String detail;
+    final IconData icon;
     if (processing) {
-      statusChip = _chip(
-        bg: AppColors.ai.withValues(alpha: 0.10),
-        fg: AppColors.ai,
-        icon: Icons.auto_awesome,
-        label: 'Processing'.tr(context),
-      );
+      lead = 'Processing'.tr(context);
+      detail = '';
+      icon = Icons.auto_awesome;
     } else if (isBotActive) {
-      statusChip = _chip(
-        bg: AppColors.ai.withValues(alpha: 0.10),
-        fg: AppColors.ai,
-        icon: Icons.smart_toy_outlined,
-        label: '${'Auto'.tr(context)} · ${'Simpuler'.tr(context)}',
-      );
+      lead = 'Auto'.tr(context);
+      detail = 'Simpuler'.tr(context);
+      icon = Icons.smart_toy_rounded;
     } else {
-      final name = (agentName ?? '').trim();
-      statusChip = _chip(
-        bg: AppColors.primary.withValues(alpha: 0.10),
-        fg: AppColors.primaryDark,
-        icon: Icons.person_outline,
-        label: name.isEmpty
-            ? 'Manual'.tr(context)
-            : '${'Manual'.tr(context)} · $name',
-      );
+      lead = 'Manual'.tr(context);
+      detail = (agentName ?? '').trim();
+      icon = Icons.headset_mic_rounded;
     }
 
     Widget? action;
     if (ai) {
-      action = _actionButton(
-        color: AppColors.primaryDark,
-        icon: Icons.pan_tool_alt_outlined,
+      action = _pill(
+        filled: true,
+        color: AppColors.primary,
+        icon: Icons.pan_tool_alt_rounded,
         label: 'Take over'.tr(context),
         onTap: () => onToggle(false),
       );
     } else if (canHandBack) {
-      action = _actionButton(
+      action = _pill(
+        filled: false,
         color: AppColors.ai,
-        icon: Icons.smart_toy_outlined,
+        icon: Icons.smart_toy_rounded,
         label: 'Hand to Simpuler'.tr(context),
         onTap: () => onToggle(true),
       );
     }
 
-    return Container(
-      padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
-      decoration: const BoxDecoration(
-        border: Border(top: BorderSide(color: AppColors.border)),
-      ),
-      // Cross-fade when the mode flips (Auto -> Manual / takeover), so the change
-      // reads as a deliberate transition instead of a hard swap.
-      child: AnimatedSwitcher(
-        duration: const Duration(milliseconds: 220),
-        switchInCurve: Curves.easeOut,
-        switchOutCurve: Curves.easeIn,
-        transitionBuilder: (child, anim) => FadeTransition(
-          opacity: anim,
-          child: ScaleTransition(scale: Tween(begin: 0.98, end: 1.0).animate(anim), child: child),
+    // Keyed by content so the status cross-fades when the mode flips OR the
+    // agent name arrives ("Manual" -> "Manual · {name}") — smooth, not a jump.
+    final Widget status = Row(
+      key: ValueKey('$lead|$detail'),
+      mainAxisSize: MainAxisSize.min,
+      children: [
+        _dot(accent),
+        const SizedBox(width: 9),
+        Icon(icon, size: 16, color: accent),
+        const SizedBox(width: 7),
+        Flexible(
+          child: Text.rich(
+            TextSpan(children: [
+              TextSpan(
+                text: lead,
+                style: TextStyle(color: accent, fontWeight: FontWeight.w800),
+              ),
+              if (detail.isNotEmpty)
+                TextSpan(
+                  text: '  ·  $detail',
+                  style: const TextStyle(
+                      color: AppColors.textSecondary,
+                      fontWeight: FontWeight.w600),
+                ),
+            ]),
+            overflow: TextOverflow.ellipsis,
+            style: const TextStyle(fontSize: 13, letterSpacing: 0.1),
+          ),
         ),
-        child: Row(
-          key: ValueKey(processing ? 'processing' : (isBotActive ? 'ai' : 'manual')),
-          children: [
-            statusChip,
-            const Spacer(),
-            ?action,
-          ],
-        ),
-      ),
+      ],
     );
-  }
 
-  Widget _chip({
-    required Color bg,
-    required Color fg,
-    required IconData icon,
-    required String label,
-  }) {
-    return Container(
-      padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 5),
+    return AnimatedContainer(
+      duration: const Duration(milliseconds: 220),
+      curve: Curves.easeOut,
+      padding: const EdgeInsets.fromLTRB(14, 9, 10, 9),
       decoration: BoxDecoration(
-        color: bg,
-        borderRadius: BorderRadius.circular(8),
+        color: accent.withValues(alpha: 0.06),
+        border: const Border(top: BorderSide(color: AppColors.border)),
       ),
       child: Row(
-        mainAxisSize: MainAxisSize.min,
         children: [
-          Icon(icon, size: 14, color: fg),
-          const SizedBox(width: 6),
-          Text(label,
-              style: TextStyle(
-                  fontSize: 12, fontWeight: FontWeight.w700, color: fg)),
+          Expanded(
+            child: AnimatedSwitcher(
+              duration: const Duration(milliseconds: 200),
+              switchInCurve: Curves.easeOut,
+              switchOutCurve: Curves.easeIn,
+              transitionBuilder: (child, anim) => FadeTransition(
+                opacity: anim,
+                child: child,
+              ),
+              child: status,
+            ),
+          ),
+          const SizedBox(width: 8),
+          if (action != null)
+            AnimatedSwitcher(
+              duration: const Duration(milliseconds: 200),
+              transitionBuilder: (child, anim) => FadeTransition(
+                opacity: anim,
+                child: ScaleTransition(scale: anim, child: child),
+              ),
+              child: KeyedSubtree(key: ValueKey(ai), child: action),
+            ),
         ],
       ),
     );
   }
 
-  Widget _actionButton({
+  Widget _dot(Color color) => Container(
+        width: 8,
+        height: 8,
+        decoration: BoxDecoration(
+          color: color,
+          shape: BoxShape.circle,
+          boxShadow: [
+            BoxShadow(
+                color: color.withValues(alpha: 0.5),
+                blurRadius: 4,
+                spreadRadius: 0.5),
+          ],
+        ),
+      );
+
+  Widget _pill({
+    required bool filled,
     required Color color,
     required IconData icon,
     required String label,
     required VoidCallback onTap,
   }) {
-    return OutlinedButton.icon(
-      onPressed: onTap,
-      icon: Icon(icon, size: 14, color: color),
-      label: Text(label,
-          style: TextStyle(
-              fontSize: 12, fontWeight: FontWeight.w700, color: color)),
-      style: OutlinedButton.styleFrom(
-        side: BorderSide(color: color.withValues(alpha: 0.4)),
-        padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
-        minimumSize: Size.zero,
-        tapTargetSize: MaterialTapTargetSize.shrinkWrap,
-        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
+    final Color fg = filled ? Colors.white : color;
+    final Color bg = filled ? color : color.withValues(alpha: 0.10);
+    return Material(
+      color: bg,
+      borderRadius: BorderRadius.circular(9),
+      child: InkWell(
+        onTap: onTap,
+        borderRadius: BorderRadius.circular(9),
+        child: Padding(
+          padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 7),
+          child: Row(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              Icon(icon, size: 15, color: fg),
+              const SizedBox(width: 6),
+              Text(label,
+                  style: TextStyle(
+                      fontSize: 12.5,
+                      fontWeight: FontWeight.w700,
+                      color: fg)),
+            ],
+          ),
+        ),
       ),
     );
   }

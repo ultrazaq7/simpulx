@@ -611,11 +611,22 @@ func (s *server) handleToggleBot(w http.ResponseWriter, r *http.Request) {
 		`INSERT INTO conversation_events (organization_id, conversation_id, type, actor_type, actor_id, detail)
 		 VALUES ($1, $2, $3, 'agent', $4::uuid, '{}'::jsonb)`,
 		a.OrgID, convID, evtType, a.UserID)
+	// Read back the (possibly just-claimed) assignee + name so the event can carry
+	// "Manual · {name}" and clients render it INSTANTLY — no follow-up fetch, which
+	// was the source of the takeover lag.
+	var agentID, agentName string
+	_ = s.pool.QueryRow(r.Context(),
+		`SELECT COALESCE(cv.assigned_agent_id::text, ''), COALESCE(u.full_name, '')
+		   FROM conversations cv
+		   LEFT JOIN users u ON u.id = cv.assigned_agent_id
+		  WHERE cv.id = $1 AND cv.organization_id = $2`, convID, a.OrgID).Scan(&agentID, &agentName)
 	// Broadcast so every connected agent's AI badge updates instantly. Carry the
-	// new bot state so clients can apply it live without a refetch.
+	// new bot state AND the assignee so clients can apply it live without a refetch.
 	if err := s.bus.Publish(events.SubjectConversationUpdated, a.OrgID, events.ConversationUpdated{
-		ConversationID: convID,
-		BotActive:      &body.Active,
+		ConversationID:  convID,
+		BotActive:       &body.Active,
+		AssignedAgentID: agentID,
+		AgentName:       agentName,
 	}); err != nil {
 		s.log.Error("publish conversation.updated (bot toggle) failed", "err", err)
 	}

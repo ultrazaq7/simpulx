@@ -92,6 +92,8 @@ class ConversationListController extends AsyncNotifier<List<Conversation>> {
     DateTime? snoozedUntil,
     String? lostReason,
     bool? isBotActive,
+    String? agentName,
+    String? assignedAgentId,
   }) {
     final list = state.value;
     if (list == null) return;
@@ -105,6 +107,8 @@ class ConversationListController extends AsyncNotifier<List<Conversation>> {
                 snoozedUntil: snoozedUntil,
                 lostReason: lostReason,
                 isBotActive: isBotActive,
+                agentName: agentName,
+                assignedAgentId: assignedAgentId,
               )
             : c,
     ]);
@@ -178,11 +182,18 @@ class ConversationListController extends AsyncNotifier<List<Conversation>> {
         stageId: p.stageId,
         snoozedUntil: p.snoozedUntil,
       );
-      // AI takeover/release: apply the new bot state live to the list AND drop the
-      // cached single-conversation copy so an OPEN thread's "Auto/Take over" badge
-      // updates instantly (not just after reopening).
+      // AI takeover/release: apply the new bot state AND the assignee live to the
+      // list so an OPEN thread's badge flips to "Manual · {name}" INSTANTLY — the
+      // event now carries the agent, so no refetch is needed for the visible state.
+      // Still drop the cached by-id copy as a safety net for a conversation that
+      // isn't currently in the list (e.g. filtered out).
       if (p.botActive != null) {
-        patchLocal(p.conversationId, isBotActive: p.botActive);
+        patchLocal(
+          p.conversationId,
+          isBotActive: p.botActive,
+          agentName: p.agentName,
+          assignedAgentId: p.assignedAgentId,
+        );
         ref.invalidate(conversationByIdProvider(p.conversationId));
       }
       return;

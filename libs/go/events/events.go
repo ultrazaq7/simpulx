@@ -20,6 +20,13 @@ const (
 	SubjectConversationUpdated  = "events.conversation.updated"
 	SubjectCampaignUpdated      = "events.campaign.updated"
 	SubjectContactDeleted       = "events.contact.deleted"
+	SubjectContactCreated       = "events.contact.created" // new manual/imported contact -> add row live
+	SubjectContactUpdated       = "events.contact.updated" // name/phone/tags/blacklist/lead-score edit -> patch live
+	SubjectNoteCreated          = "events.note.created"    // internal note added -> append live for co-viewers
+	SubjectNoteDeleted          = "events.note.deleted"    // internal note removed -> drop live
+	SubjectStagesUpdated        = "events.stages.updated"  // pipeline stage config CRUD -> clients refetch stage list
+	SubjectPresenceUpdated      = "events.presence.updated" // agent online/away -> presence dots live
+	SubjectCallTracked          = "events.call.tracked"    // call attempt/duration increment -> lead card counters live
 	SubjectBroadcastRequested   = "events.broadcast.requested"
 	SubjectAgentDeactivated     = "events.agent.deactivated"
 	SubjectAuditCreated         = "events.audit.created"
@@ -134,6 +141,11 @@ type MessageStatusUpdated struct {
 	ExternalID string `json:"external_id"`
 	Status     string `json:"status"`
 	Timestamp  string `json:"timestamp"`
+	// Resolved by messaging when it updates the row, so clients can patch the exact
+	// bubble's tick (sent→delivered→read) and the inbox row's last-outbound status
+	// live — no external_id→message mapping needed on the client. Relayed to WS.
+	ConversationID string `json:"conversation_id,omitempty"`
+	MessageID      string `json:"message_id,omitempty"`
 }
 
 type MessageOutbound struct {
@@ -236,6 +248,53 @@ type ContactDeleted struct {
 	ConversationIDs []string `json:"conversation_ids"`
 }
 
+// ContactUpsert is published on contact create (SubjectContactCreated) and on any
+// field edit (SubjectContactUpdated) — name/phone/tags/blacklist/lead-score — so
+// clients patch the contact list AND the inbox row's contactName live, no refetch.
+type ContactUpsert struct {
+	ContactID   string   `json:"contact_id"`
+	Name        string   `json:"name"`
+	Phone       string   `json:"phone,omitempty"`
+	Tags        []string `json:"tags,omitempty"`
+	Blacklisted *bool    `json:"blacklisted,omitempty"`
+	LeadScore   *int     `json:"lead_score,omitempty"`
+}
+
+// NoteEvent is published when an internal note is added/removed so co-viewers of
+// the same conversation see it appear/disappear live.
+type NoteEvent struct {
+	ConversationID string `json:"conversation_id"`
+	NoteID         string `json:"note_id"`
+	AuthorID       string `json:"author_id,omitempty"`
+	AuthorName     string `json:"author_name,omitempty"`
+	Body           string `json:"body,omitempty"`      // set on create
+	CreatedAt      string `json:"created_at,omitempty"` // RFC3339, set on create
+}
+
+// StagesUpdated signals that the org's pipeline stage configuration changed
+// (add/rename/reorder/delete). No per-row data — clients refetch the stage list
+// so cached stage names/orders stay correct.
+type StagesUpdated struct {
+	OrgID string `json:"org_id,omitempty"`
+}
+
+// PresenceUpdated broadcasts an agent's online/away state so presence dots stay
+// live across clients.
+type PresenceUpdated struct {
+	UserID   string `json:"user_id"`
+	IsOnline bool   `json:"is_online"`
+	LastSeen string `json:"last_seen,omitempty"` // RFC3339
+}
+
+// CallTracked broadcasts a call-attempt / duration increment so the contact/lead
+// card counters update live on peers.
+type CallTracked struct {
+	ConversationID    string `json:"conversation_id,omitempty"`
+	ContactID         string `json:"contact_id,omitempty"`
+	CallAttempts      int    `json:"call_attempts"`
+	TotalCallDuration int    `json:"total_call_duration"`
+}
+
 // ConversationUpdated is broadcast when a conversation's stage, status,
 // interest level, or disposition changes so every connected agent's UI
 // refreshes in real time.
@@ -247,6 +306,17 @@ type ConversationUpdated struct {
 	LostReason     string `json:"lost_reason,omitempty"`
 	SnoozedUntil   string `json:"snoozed_until,omitempty"` // RFC3339, set on snooze
 	BotActive      *bool  `json:"bot_active,omitempty"`    // set on AI takeover/release; nil = unchanged
+	// Set alongside BotActive on takeover/release so clients render "Manual · {name}"
+	// instantly without a follow-up fetch (the source of the old takeover lag).
+	AssignedAgentID string `json:"assigned_agent_id,omitempty"`
+	AgentName       string `json:"agent_name,omitempty"`
+	// DispositionID + StageName let clients render a disposition/lost outcome and a
+	// freshly-created stage's NAME without a refetch (stage_id alone is unknown to a
+	// client whose cached stage list predates the stage). LeadScore updates the score
+	// badge live after an AI recompute.
+	DispositionID string `json:"disposition_id,omitempty"`
+	StageName     string `json:"stage_name,omitempty"`
+	LeadScore     *int   `json:"lead_score,omitempty"`
 }
 
 type CmdAIDraftFollowup struct {
