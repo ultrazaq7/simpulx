@@ -97,16 +97,23 @@ def _variant_hits(query: str, rows) -> list:
     significant TRIM token of variant_name (e.g. 'ultimate', 'exceed', 'gls', 'gl')
     as a whole word, so 'kalo ultimate otrnya berapa' hits the 'Ultimate' row and
     not just the alphabetically/cheapest-first one. Generic transmission/spec
-    tokens are skipped so they never trigger a false variant match."""
+    tokens are skipped so they never trigger a false variant match.
+
+    Both sides are tokenised the same way and compared as tokens: a substring test
+    on the raw query missed the model whenever punctuation touched it, because the
+    padded needle needs a space on BOTH sides. Real customers write "saya minat
+    Xforce, saya di Wamena" -- " xforce " is not in " ... xforce, ... ", so ranking
+    silently fell back to catalog order and turn 1 offered Destinator (D sorts
+    before X) to a lead who had just asked for an Xforce."""
     if not query:
         return []
-    q = f" {query.lower()} "
+    q_toks = {tk.strip(".,;:!?'\"") for tk in re.split(r"[\s/()-]+", query.lower())}
     hits = []
     for r in rows:
         name = " ".join(x for x in (r["variant_name"], r["item_name"]) if x).strip().lower()
         toks = [tk for tk in re.split(r"[\s/()-]+", name)
                 if len(tk) >= 2 and tk not in _GENERIC_VARIANT_TOKENS]
-        if any(f" {tk} " in q for tk in toks):
+        if any(tk in q_toks for tk in toks):
             hits.append(r)
     return hits
 
