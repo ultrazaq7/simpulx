@@ -43,8 +43,9 @@ func localizeNotif(notifType, title, body, locale string) (string, string) {
 	}
 	switch notifType {
 	case "ai_handoff":
+		// Lead-temperature words (cold/warm/hot) are product terms — never translate.
 		return "Prospek siap untuk Anda",
-			"Asisten AI sudah mengumpulkan detailnya - prospek ini sudah hangat dan siap ditangani."
+			"Asisten AI sudah mengumpulkan detailnya - prospek ini sudah warm dan siap ditangani."
 	case "snooze_due":
 		name := strings.TrimPrefix(body, "Follow up with ")
 		return "Penundaan berakhir", "Tindak lanjuti dengan " + name

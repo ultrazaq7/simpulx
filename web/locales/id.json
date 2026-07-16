@@ -2072,7 +2072,7 @@
   },
   "notifications": {
     "leadReadyTitle": "Prospek siap untuk Anda",
-    "leadReadyBody": "Asisten AI sudah mengumpulkan detailnya - prospek ini sudah hangat dan siap ditangani.",
+    "leadReadyBody": "Asisten AI sudah mengumpulkan detailnya - prospek ini sudah warm dan siap ditangani.",
     "snoozeEndedTitle": "Penundaan berakhir",
     "followUpWith": "Tindak lanjuti dengan {{name}}",
     "snoozeEndingSoon": "Penundaan untuk {{name}} akan segera berakhir",
