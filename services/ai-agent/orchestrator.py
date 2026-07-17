@@ -515,9 +515,10 @@ async def _generate_and_send_reply(broker, pool, conn, org_id: str, conv_id: str
     # tracking keyword is not a question. Whatever is left after stripping it IS.
     lead_words = _lead_words(body, row["keywords"], row["genuine"])
 
+    import finance_rag
     finance_ctx = ""
+    recent_text = ""  # recent inbound text; also drives the cross-turn promo/price gate
     if row["campaign_id"] and lead_words:
-        import finance_rag
         # Campaign-scoped catalog first (falls back to global finance_packages).
         _lf = _lead_fields(row["metadata"])
         # A price question doesn't repeat on every turn: a lead asks "berapa termurah",
@@ -572,6 +573,36 @@ async def _generate_and_send_reply(broker, pool, conn, org_id: str, conv_id: str
             "\n\nCATATAN: kota/domisili customer belum diketahui. Tanyakan domisili lebih awal "
             "supaya area layanan bisa dipastikan, TAPI jawab dulu pertanyaan customer bila ada "
             "-- selipkan pertanyaan domisili di balasan yang sama, jangan mengabaikan pertanyaannya.\n")
+
+    # Promo from the ad creative. A lead often arrives from a Meta/TikTok ad whose promo
+    # (DP promo, bunga 0%, cashback) is burned into the IMAGE -- which the bot never sees
+    # -- and asks to confirm it ("DP 10jt bener? bunga 0% bener?"). The catalog has only
+    # STANDARD OTR/tenor, never promo terms, so letting the bot answer from catalog risks
+    # fabricating a promo, or worse DENYING a real one. Same rule as the price-anchoring
+    # fix: never state an ungrounded figure. So acknowledge the promo topic (quoting the
+    # ad's own text when we captured it), refuse to confirm/deny specific promo numbers,
+    # defer to the team, and hand off (below) so a human quotes the real terms.
+    asks_promo = bool(lead_words) and (finance_rag._asks_promo(lead_words) or finance_rag._asks_promo(recent_text))
+    if asks_promo:
+        ad = await conn.fetchrow(
+            """SELECT referral_headline, referral_body FROM conversation_attributions
+                WHERE conversation_id = $1
+                  AND (referral_headline IS NOT NULL OR referral_body IS NOT NULL)
+                ORDER BY created_at DESC LIMIT 1""", conv_id)
+        ad_text = ""
+        if ad:
+            parts = [p.strip() for p in (ad["referral_headline"], ad["referral_body"]) if p and p.strip()]
+            if parts:
+                ad_text = (" Teks iklan yang diklik customer: \"" + " | ".join(parts) + "\". Kamu BOLEH "
+                           "menyebut apa yang tertulis di teks itu, tapi TETAP tidak boleh mengkonfirmasi "
+                           "angka/syarat promo yang tidak tertulis di sana.")
+        finance_ctx += (
+            "\n\nCATATAN PROMO: customer menyinggung promo/penawaran (mis. DP promo, bunga 0%, cashback, "
+            "diskon). Kamu TIDAK punya data promo yang terverifikasi -- katalog hanya berisi harga/cicilan "
+            "STANDAR, BUKAN syarat promo. AKUI topik promonya dengan sopan, TAPI JANGAN mengkonfirmasi, "
+            "menyangkal, atau mengarang angka/syarat promo spesifik (DP, bunga, cashback, periode). Katakan "
+            "untuk kepastian promo & syaratnya kamu akan konfirmasi langsung ke tim. JANGAN memakai angka "
+            "cicilan/DP standar dari katalog seolah-olah itu promo." + ad_text + "\n")
 
     system_prompt = (row["system_prompt"] or "You are a helpful sales assistant.") + ctx + "\n\n" + lang_rule + finance_ctx
     history = await _load_history(pool, conv_id, message_id, conn=conn)
@@ -628,9 +659,13 @@ async def _generate_and_send_reply(broker, pool, conn, org_id: str, conv_id: str
     # note carries whatever product interest was already captured -- we don't wait to
     # collect more. In-area leads still require all qualifiers, so agents aren't
     # flooded with context-less leads.
-    if ooa_city or result.get("ready_for_handoff") or fields_done:
+    # A promo question also hands off: the bot just told the customer a teammate will
+    # confirm the real promo terms (it must not quote them itself), so a human has to
+    # actually pick it up -- otherwise that promise stalls the same way out-of-area did.
+    if ooa_city or asks_promo or result.get("ready_for_handoff") or fields_done:
         await _ai_handoff(broker, pool, org_id, conv_id, row["agent_id"], log, conn=conn,
-                          out_of_area_city=ooa_city, product=lf.get("model") or lf.get("brand"))
+                          out_of_area_city=ooa_city, product=lf.get("model") or lf.get("brand"),
+                          promo=asks_promo)
 
 
 def _out_of_area_city(city, covered_cities) -> str | None:
@@ -676,7 +711,8 @@ def _lead_words(body: str, keywords, genuine: bool) -> str:
 
 
 async def _ai_handoff(broker, pool, org_id: str, conv_id: str, agent_id, log, conn=None,
-                      out_of_area_city: str | None = None, product: str | None = None) -> None:
+                      out_of_area_city: str | None = None, product: str | None = None,
+                      promo: bool = False) -> None:
     """Stand the bot down and notify a human that a nurtured lead is ready. `conn`
     reuses the caller's connection (e.g. the advisory-lock one) when provided.
 
@@ -685,7 +721,9 @@ async def _ai_handoff(broker, pool, org_id: str, conv_id: str, agent_id, log, co
     thing the bot cannot decide -- an out-of-town KTP living in the covered city is a
     common, real lead, and only a human can confirm serviceability. `product` is the
     lead's captured interest (model/brand) folded into that note when known, so an
-    out-of-area lead handed off early still arrives with context, not just a city."""
+    out-of-area lead handed off early still arrives with context, not just a city.
+    `promo` marks a lead asking about an ad promo the bot can't verify: the human must
+    quote the real promo terms, since the bot was told not to."""
     await _publish_activity(broker, org_id, conv_id, "handoff", log)
     async with _conn_or(pool, conn) as conn:
         reason = None
@@ -693,6 +731,12 @@ async def _ai_handoff(broker, pool, org_id: str, conv_id: str, agent_id, log, co
             reason = f"luar area ({out_of_area_city})"
             if product:
                 reason += f" - minat {product}"
+            if promo:
+                reason += " + tanya promo"
+        elif promo:
+            reason = "tanya promo iklan - perlu konfirmasi tim"
+            if product:
+                reason += f" ({product})"
         await conn.execute(
             """UPDATE conversations SET is_bot_active = false, handoff_at = now(),
                  handoff_reason = COALESCE($2, handoff_reason), updated_at = now()
@@ -706,9 +750,16 @@ async def _ai_handoff(broker, pool, org_id: str, conv_id: str, agent_id, log, co
         if out_of_area_city:
             title = f"Lead luar area ({out_of_area_city})"
             minat = f" Minat: {product}." if product else ""
+            promo_note = " Lead juga menanyakan promo iklan -- konfirmasi syarat promonya juga." if promo else ""
             bodytext = (f"Domisili lead ({out_of_area_city}) di luar area campaign ini.{minat} "
                         "Cek domisili & serviceability -- KTP luar kota tapi tinggal di area "
-                        "layanan itu lead beneran.")
+                        f"layanan itu lead beneran.{promo_note}")
+        elif promo:
+            title = "Lead tanya promo iklan"
+            minat = f" ({product})" if product else ""
+            bodytext = (f"Lead menanyakan promo dari iklan{minat}. Bot TIDAK punya data promo "
+                        "terverifikasi, jadi cuma mengakui topiknya tanpa menyebut angka. Konfirmasi "
+                        "syarat/angka promo (DP, bunga, cashback, periode) langsung ke lead.")
         else:
             title = "Lead ready for you"
             bodytext = "The AI assistant collected the details - this lead is warmed up and ready to handle."

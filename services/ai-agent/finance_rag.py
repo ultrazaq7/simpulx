@@ -110,6 +110,26 @@ def _asks_price(query: str) -> bool:
     return bool(query and _PRICE_INTENT.search(query))
 
 
+# Promo/incentive language the catalog CANNOT ground (the catalog only has standard
+# OTR/tenor/installment, never promo terms). Deliberately NARROWER than _PRICE_INTENT:
+# it must NOT catch a normal financing question ("bunga berapa", "DP-nya berapa",
+# "cicilan"), only deal/incentive framing (bunga 0%, tanpa DP, cashback, diskon...).
+# A promo mention is handled specially -- acknowledged but never confirmed/denied from
+# catalog data -- and handed off, so over-matching here would hand off normal price
+# questions the bot can answer.
+_PROMO_INTENT = re.compile(
+    r"(promo|cash\s*back|cashback|diskon|potongan\s*harga|\bgratis\b|\bfree\b|bonus|"
+    r"hadiah|voucher|subsidi|giveaway|bunga\s*0|0\s*%|nol\s*persen|tanpa\s*bunga|"
+    r"tanpa\s*dp|dp\s*0\b|dp\s*nol|dp\s*ringan|dp\s*murah)", re.I)
+
+
+def _asks_promo(query: str) -> bool:
+    """True when the customer references a promo/incentive the catalog can't verify.
+    Narrow on purpose (see _PROMO_INTENT): a false positive hands off a normal price
+    question, so this matches only deal framing, not standard finance terms."""
+    return bool(query and _PROMO_INTENT.search(query))
+
+
 def _variant_hits(query: str, rows) -> list:
     """Rows whose variant/item the customer explicitly named. Matches on each
     significant TRIM token of variant_name (e.g. 'ultimate', 'exceed', 'gls', 'gl')
