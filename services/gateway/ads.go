@@ -351,6 +351,38 @@ func (s *server) handleAdPerformance(w http.ResponseWriter, r *http.Request) {
 		}
 	}
 
+	// Classified-source filter (meta_ads|tiktok_ads|google_ads|website|direct) — the
+	// same taxonomy the Source performance table shows, so the dropdown and the table
+	// agree. Leads/funnel/latest-leads are filtered by the lead-source classifier
+	// (applied to each conversation query below); ad spend/delivery is platform-keyed,
+	// so we DERIVE the ad platforms these sources imply. A source with no ad spend
+	// (direct/website) contributes no platform, so a direct-only filter zeroes ad
+	// spend via a sentinel that matches nothing -- leads still come through.
+	srcFilter := []string{}
+	for _, s := range strings.Split(r.URL.Query().Get("source"), ",") {
+		if s = strings.TrimSpace(strings.ToLower(s)); s != "" {
+			srcFilter = append(srcFilter, s)
+		}
+	}
+	if len(srcFilter) > 0 {
+		platforms = platforms[:0]
+		hasMeta = false
+		for _, s := range srcFilter {
+			switch s {
+			case "meta_ads":
+				platforms = append(platforms, "meta")
+				hasMeta = true
+			case "tiktok_ads":
+				platforms = append(platforms, "tiktok")
+			case "google_ads":
+				platforms = append(platforms, "google")
+			}
+		}
+		if len(platforms) == 0 {
+			platforms = []string{"__none__"} // selected source(s) have no ad spend
+		}
+	}
+
 	// Role scope: admin/owner see every campaign; manager/agent are limited to the
 	// campaigns they're assigned to (campaign_agents), intersected with any filter.
 	// Applied by narrowing campIDs, which every query below already respects.
@@ -384,8 +416,16 @@ func (s *server) handleAdPerformance(w http.ResponseWriter, r *http.Request) {
 	// Per-campaign: ad spend joined to OUR leads + sales (sale = reached the final
 	// stage). Spend is joined through ad_campaign_campaigns, so an ad campaign
 	// mapped to several campaigns shows its full spend under each (Option A).
+	// Source filter is classified per-conversation, so it only narrows the LEAD side
+	// ($7, applied to the l-subquery). Spend already reflects the derived platforms.
+	campArgs := []any{a.OrgID, from, to, platforms, accountIDs, campIDs}
+	campSrc := ""
+	if len(srcFilter) > 0 {
+		campArgs = append(campArgs, srcFilter)
+		campSrc = " AND " + sourceClassifyExpr("cv") + fmt.Sprintf(" = ANY($%d::text[])", len(campArgs))
+	}
 	campRows, err := s.queryMaps(r.Context(),
-		`SELECT c.id::text AS campaign_id, c.name AS campaign_name,
+		fmt.Sprintf(`SELECT c.id::text AS campaign_id, c.name AS campaign_name,
 		        COALESCE(m.spend,0)::float8 AS spend, COALESCE(m.impressions,0)::bigint AS impressions,
 		        COALESCE(m.reach,0)::bigint AS reach, COALESCE(m.clicks,0)::bigint AS clicks, COALESCE(m.results,0)::bigint AS results,
 		        COALESCE(l.leads,0) AS leads, COALESCE(l.sales,0) AS sales
@@ -407,14 +447,14 @@ func (s *server) handleAdPerformance(w http.ResponseWriter, r *http.Request) {
 		            count(*) leads,
 		            count(*) FILTER (WHERE st.sort_order = (SELECT max(sort_order) FROM stages WHERE organization_id=$1)) sales
 		       FROM conversations cv LEFT JOIN stages st ON st.id = cv.stage_id
-		      WHERE cv.organization_id = $1 AND cv.created_at::date BETWEEN $2 AND $3 AND cv.campaign_id IS NOT NULL
+		      WHERE cv.organization_id = $1 AND cv.created_at::date BETWEEN $2 AND $3 AND cv.campaign_id IS NOT NULL%s
 		      GROUP BY cv.campaign_id
 		   ) l ON l.campaign_id = c.id
 		  WHERE c.organization_id = $1
 		    AND (cardinality($6::uuid[]) = 0 OR c.id = ANY($6::uuid[]))
 		    AND (m.campaign_id IS NOT NULL OR l.leads > 0)
-		  ORDER BY spend DESC, leads DESC, c.name`,
-		a.OrgID, from, to, platforms, accountIDs, campIDs)
+		  ORDER BY spend DESC, leads DESC, c.name`, campSrc),
+		campArgs...)
 	if err != nil {
 		http.Error(w, err.Error(), http.StatusInternalServerError)
 		return
@@ -459,6 +499,10 @@ func (s *server) handleAdPerformance(w http.ResponseWriter, r *http.Request) {
 		largs = append(largs, campIDs)
 		lq += fmt.Sprintf(" AND cv.campaign_id = ANY($%d::uuid[])", len(largs))
 	}
+	if len(srcFilter) > 0 {
+		largs = append(largs, srcFilter)
+		lq += fmt.Sprintf(" AND %s = ANY($%d::text[])", sourceClassifyExpr("cv"), len(largs))
+	}
 	lq += " GROUP BY 1"
 	leadRows, _ := s.queryMaps(r.Context(), lq, largs...)
 	leadsByDate := map[string]int64{}
@@ -496,6 +540,10 @@ func (s *server) handleAdPerformance(w http.ResponseWriter, r *http.Request) {
 	if len(campIDs) > 0 {
 		rlargs = append(rlargs, campIDs)
 		rlq += fmt.Sprintf(" AND cv.campaign_id = ANY($%d::uuid[])", len(rlargs))
+	}
+	if len(srcFilter) > 0 {
+		rlargs = append(rlargs, srcFilter)
+		rlq += fmt.Sprintf(" AND %s = ANY($%d::text[])", sourceClassifyExpr("cv"), len(rlargs))
 	}
 	rlq += " ORDER BY cv.created_at DESC LIMIT 10"
 	recentLeads, rlErr := s.queryMaps(r.Context(), rlq, rlargs...)

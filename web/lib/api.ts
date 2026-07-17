@@ -571,11 +571,13 @@ export const api = {
   listAdCampaigns: () => req<import("./types").AdCampaignRow[]>("/api/ad-campaigns"),
   mapAdCampaign: (id: string, campaign_ids: string[]) =>
     req<{ ok: boolean }>(`/api/ad-campaigns/${id}`, { method: "PATCH", body: JSON.stringify({ campaign_ids }) }),
-  adPerformance: (from?: string, to?: string, campaign_ids?: string[], platforms?: string[], account_ids?: string[]) => {
+  adPerformance: (from?: string, to?: string, campaign_ids?: string[], sources?: string[], account_ids?: string[]) => {
     const q = new URLSearchParams();
     if (from) q.set("from", from); if (to) q.set("to", to);
     if (campaign_ids && campaign_ids.length) q.set("campaign_id", campaign_ids.join(","));
-    if (platforms && platforms.length) q.set("platform", platforms.join(","));
+    // Classified lead source (meta_ads|tiktok_ads|google_ads|website|direct); the
+    // backend derives ad platforms from it for spend, and filters leads by source.
+    if (sources && sources.length) q.set("source", sources.join(","));
     if (account_ids && account_ids.length) q.set("account_id", account_ids.join(","));
     const qs = q.toString();
     return req<import("./types").AdPerformance>(`/api/ad-performance${qs ? "?" + qs : ""}`);

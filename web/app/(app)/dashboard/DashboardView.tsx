@@ -1215,15 +1215,14 @@ function MarketingAnalytics() {
   }, [dateRange, fFrom, fTo, campaignFilter, sourceFilter, accountFilter]);
 
   const PLATFORM_LABELS: Record<string, string> = { meta: "Meta Ads", google: "Google Ads", tiktok: "TikTok Ads" };
-  // Source options come from connected platforms AND any ad platform actually
-  // present in the report (so the filter shows even with a single account).
+  // Source options use the SAME classified keys the Source performance table shows
+  // (meta_ads|tiktok_ads|google_ads|website|direct), so the filter and the table
+  // agree -- e.g. "Langsung"/Direct is filterable, not just ad platforms. Connected
+  // ad platforms are added too so they show even before any lead comes in.
   const sourceOptions = useMemo(() => {
     const set = new Map<string, string>();
-    platforms.forEach((p) => set.set(p, PLATFORM_LABELS[p] || p));
-    (perf?.sources || []).forEach((s) => {
-      const p = s.source.replace(/_ads$/, "");
-      if (p === "meta" || p === "tiktok" || p === "google") set.set(p, s.label);
-    });
+    platforms.forEach((p) => set.set(`${p}_ads`, PLATFORM_LABELS[p] || p));
+    (perf?.sources || []).forEach((s) => set.set(s.source, s.label));
     return Array.from(set, ([value, label]) => ({ value, label }));
   }, [platforms, perf]);
 
