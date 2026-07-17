@@ -383,6 +383,7 @@ async def maybe_nurture(broker, pool, org_id: str, conv_id: str, message_id, bod
                       cmp.ai_auto_reply, cmp.segment, cmp.brand, cmp.ai_language,
                       cmp.ai_dynamic_language, cmp.intake_form_id::text AS intake_form_id,
                       cmp.name AS campaign_name, cmp.dealer_name,
+                      cmp.keywords, cmp.covered_cities,
                       -- An ad opener (CTWA referral, or a wa.me link pre-filled with the
                       -- campaign keyword) is NOT the lead's own words. messaging already
                       -- flags those genuine=false; without reading it here the catalog
@@ -524,6 +525,17 @@ async def _generate_and_send_reply(broker, pool, conn, org_id: str, conv_id: str
         if fc:
             finance_ctx = f"\n\n{fc}\n"
 
+    # A bare ad opener ("pajero1") is a click, not a question: nothing was asked, so
+    # answering it with the catalog is the bot talking first. Withhold the catalog
+    # entirely and just greet. Only when the body is NOTHING BUT the keyword --
+    # keyword matching is substring-based, so "pajero1 harganya berapa" also arrives
+    # genuine=false and DOES carry a real question; that one keeps its grounding.
+    if _is_bare_ad_opener(body, row["keywords"], row["genuine"]):
+        finance_ctx = ("\n\nPENTING: Pesan customer di atas BUKAN ketikan dia -- itu kata kunci "
+                       "otomatis dari iklan yang dia klik. Dia BELUM menanyakan apa pun. "
+                       "JANGAN menyodorkan katalog, daftar varian, atau harga. Sapa dengan hangat, "
+                       "perkenalkan diri singkat, lalu tanyakan apa yang bisa dibantu.\n")
+
     system_prompt = (row["system_prompt"] or "You are a helpful sales assistant.") + ctx + "\n\n" + lang_rule + finance_ctx
     history = await _load_history(pool, conv_id, message_id, conn=conn)
     await _publish_activity(broker, org_id, conv_id, "thinking", log)
@@ -570,23 +582,82 @@ async def _generate_and_send_reply(broker, pool, conn, org_id: str, conv_id: str
     lf = _lead_fields(row["metadata"])
     fields_done = bool(req) and all(lf.get(k) for k in req)
     if result.get("ready_for_handoff") or fields_done:
-        await _ai_handoff(broker, pool, org_id, conv_id, row["agent_id"], log, conn=conn)
+        # An out-of-area lead is handed over at the SAME point as any other (once the
+        # qualifiers are in) -- handing off the moment the city is known would flood
+        # agents with context-less leads. Only the note differs, because whether an
+        # out-of-town KTP living in the covered city can be served is a human call.
+        await _ai_handoff(broker, pool, org_id, conv_id, row["agent_id"], log, conn=conn,
+                          out_of_area_city=_out_of_area_city(lf.get("city"), row["covered_cities"]))
 
 
-async def _ai_handoff(broker, pool, org_id: str, conv_id: str, agent_id, log, conn=None) -> None:
+def _out_of_area_city(city, covered_cities) -> str | None:
+    """The lead's city when it is OUTSIDE the campaign's declared service area, else None.
+
+    Fails OPEN on purpose: unknown city, or a campaign that never declared a service
+    area, is NOT out-of-area. Flagging leads because nobody filled the field in would
+    push work at agents for a config gap, which is worse than missing the flag.
+
+    Matched loosely (substring, both ways) because a covered city is written "Jakarta
+    Barat" while a lead types "jakbar"/"Jakarta" -- an exact compare would call half
+    the service area out-of-area."""
+    c = (city or "").strip().lower()
+    if not c or not covered_cities:
+        return None
+    for cc in covered_cities:
+        cc = (cc or "").strip().lower()
+        if cc and (cc in c or c in cc):
+            return None
+    return city.strip()
+
+
+def _is_bare_ad_opener(body: str, keywords, genuine: bool) -> bool:
+    """True when the message is ONLY the campaign's ad keyword -- a click, not a question.
+
+    `genuine` is false for every ad-sourced opener (CTWA referral or a keyword-routed
+    wa.me pre-fill), but that alone is too blunt to withhold the catalog on: keyword
+    routing matches on SUBSTRING, so "pajero1 harganya berapa" is also genuine=false
+    while carrying a real question. Strip the keywords and see if anything the lead
+    actually wrote is left."""
+    if genuine or not body:
+        return False
+    residual = body
+    for k in (keywords or []):
+        k = (k or "").strip()
+        if k:
+            residual = re.sub(re.escape(k), " ", residual, flags=re.IGNORECASE)
+    return not residual.strip(" \t\n-_.,!?()[]{}:;\"'")
+
+
+async def _ai_handoff(broker, pool, org_id: str, conv_id: str, agent_id, log, conn=None,
+                      out_of_area_city: str | None = None) -> None:
     """Stand the bot down and notify a human that a nurtured lead is ready. `conn`
-    reuses the caller's connection (e.g. the advisory-lock one) when provided."""
+    reuses the caller's connection (e.g. the advisory-lock one) when provided.
+
+    `out_of_area_city` marks a lead whose city sits outside the campaign's service
+    area. It only changes the note: an agent picking this up needs to know the one
+    thing the bot cannot decide -- an out-of-town KTP living in the covered city is a
+    common, real lead, and only a human can confirm serviceability."""
     await _publish_activity(broker, org_id, conv_id, "handoff", log)
     async with _conn_or(pool, conn) as conn:
-        await conn.execute("UPDATE conversations SET is_bot_active = false, updated_at = now() WHERE id = $1", conv_id)
+        reason = f"luar area ({out_of_area_city})" if out_of_area_city else None
+        await conn.execute(
+            """UPDATE conversations SET is_bot_active = false, handoff_at = now(),
+                 handoff_reason = COALESCE($2, handoff_reason), updated_at = now()
+               WHERE id = $1""", conv_id, reason)
         recipients = [agent_id] if agent_id else [
             r["id"] for r in await conn.fetch(
                 "SELECT id::text AS id FROM users WHERE organization_id = $1 AND status = 'active' AND role IN ('admin','owner','manager')",
                 org_id,
             )
         ]
-        title = "Lead ready for you"
-        bodytext = "The AI assistant collected the details - this lead is warmed up and ready to handle."
+        if out_of_area_city:
+            title = f"Lead luar area ({out_of_area_city})"
+            bodytext = (f"Detail sudah dikumpulkan AI, tapi domisili lead ({out_of_area_city}) "
+                        "di luar area campaign ini. Cek domisili & serviceability -- KTP luar kota "
+                        "tapi tinggal di area layanan itu lead beneran.")
+        else:
+            title = "Lead ready for you"
+            bodytext = "The AI assistant collected the details - this lead is warmed up and ready to handle."
         for uid in recipients:
             if not uid:
                 continue
