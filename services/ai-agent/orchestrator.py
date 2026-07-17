@@ -839,6 +839,12 @@ async def classify_and_update(pool, org_id: str, conv_id: str, log) -> Optional[
     # disposition above, move it straight to the Lost stage so it leaves the active
     # funnel, and stand the bot down (handled in the UPDATE below).
     stage_key = "lost_not_purchase" if is_junk else c["stage_key"]
+    # A COLD lead is ambiguous, so the AI must not auto-advance it past "contacted".
+    # Otherwise the funnel reports an out-of-area / far-horizon / incomplete lead as
+    # "qualified" (Memenuhi Syarat) -- a lead the bot itself judged not ready. The AI
+    # ceiling stays "qualified" for warm/hot; cold is pulled back to "contacted".
+    if not is_junk and interest == "cold" and stage_key == "qualified":
+        stage_key = "contacted"
 
     # Diff vs stored classification -> drives the LLM gate.
     prev_cats = _as_list(prev["cats"]) if prev else []
