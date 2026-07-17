@@ -945,7 +945,7 @@
     "callDuration": "Durasi panggilan",
     "updated": "Diperbarui",
     "pctUpdated": "% Diperbarui",
-    "contacted": "Dihubungi",
+    "contacted": "Terhubung",
     "qualified": "Memenuhi syarat",
     "appointment": "Janji temu",
     "negotiation": "Negosiasi",
@@ -1189,7 +1189,7 @@
   },
   "stages": {
     "new": "Prospek Baru",
-    "contacted": "Dihubungi",
+    "contacted": "Terhubung",
     "qualified": "Memenuhi Syarat",
     "appointment": "Janji Temu",
     "test_drive": "Negosiasi",

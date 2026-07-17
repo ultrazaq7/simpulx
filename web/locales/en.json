@@ -945,7 +945,7 @@
     "callDuration": "Call duration",
     "updated": "Updated",
     "pctUpdated": "% Updated",
-    "contacted": "Contacted",
+    "contacted": "Connected",
     "qualified": "Qualified",
     "appointment": "Appointment",
     "negotiation": "Negotiation",
@@ -1189,7 +1189,7 @@
   },
   "stages": {
     "new": "New Lead",
-    "contacted": "Contacted",
+    "contacted": "Connected",
     "qualified": "Qualified",
     "appointment": "Appointment",
     "test_drive": "Negotiation",
