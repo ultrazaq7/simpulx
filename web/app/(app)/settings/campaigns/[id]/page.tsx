@@ -84,7 +84,7 @@ export default function CampaignDetailPage() {
   return (
     <PageBody wide>
       {ToastHost}
-      <div className="max-w-[1040px]">
+      <div className="w-full">
         <button onClick={() => router.push("/settings/campaigns")} className="inline-flex items-center gap-1.5 text-[13px] text-muted-foreground hover:text-foreground mb-3 outline-none">
           <ArrowLeft className="w-4 h-4" /> {t("settings.campaigns")}
         </button>
@@ -156,8 +156,13 @@ function CreditsTab({ id, notify }: { id: string; notify: (m: string, s?: "succe
   // per-feature counts for a stacked bar per day.
   const chartData = useMemo(() => {
     const days: string[] = [];
-    const d = new Date(from + "T00:00:00"); const end = new Date(to + "T00:00:00");
-    for (; d <= end; d.setDate(d.getDate() + 1)) days.push(d.toISOString().slice(0, 10));
+    // Iterate in UTC so the day keys match the server's date_trunc('day', ...)
+    // UTC output. Using local-midnight Dates + toISOString() shifted every key
+    // back a day in +UTC timezones (e.g. Jakarta), which dropped the most recent
+    // days off the axis — so a campaign whose usage was all today rendered an
+    // empty chart despite the "N operations" count being non-zero.
+    const d = new Date(from + "T00:00:00Z"); const end = new Date(to + "T00:00:00Z");
+    for (; d <= end; d.setUTCDate(d.getUTCDate() + 1)) days.push(d.toISOString().slice(0, 10));
     type FKey = "nurture" | "followup" | "extract" | "summary";
     const FKEYS: readonly FKey[] = ["nurture", "followup", "extract", "summary"];
     const byDay: Record<string, { day: string; nurture: number; followup: number; extract: number; summary: number }> = {};
@@ -340,6 +345,8 @@ function AIStyleSection({ campaignId, initial, onSaved, onError }: {
         </button>
       </div>
 
+      <div className="grid xl:grid-cols-2 gap-4 items-start">
+      <div className="space-y-4">
       <div>
         <FieldLabel>Nada bicara</FieldLabel>
         <div className="flex flex-wrap gap-2">
@@ -367,6 +374,8 @@ function AIStyleSection({ campaignId, initial, onSaved, onError }: {
       <div><FieldLabel hint="Do & don't khusus campaign ini">Aturan khusus</FieldLabel>
         <textarea value={rules} onChange={(e) => setRules(e.target.value)} rows={3} placeholder="mis. Selalu tawarkan simulasi cicilan. Jangan sebut brand kompetitor. Selalu tanya domisili." className={cn(INPUT_CLASS, "resize-y")} /></div>
 
+      </div>
+
       <div className="rounded-lg bg-muted/40 p-3 space-y-2">
         <p className="text-[12px] font-semibold text-foreground">Coba balasan</p>
         <div className="flex gap-2">
@@ -375,6 +384,7 @@ function AIStyleSection({ campaignId, initial, onSaved, onError }: {
             {previewing ? <Loader2 className="w-3.5 h-3.5 animate-spin" /> : "Coba"}</button>
         </div>
         {previewReply && <div className="rounded-lg bg-primary/10 text-foreground text-[13px] px-3 py-2 whitespace-pre-wrap">{previewReply}</div>}
+      </div>
       </div>
 
       {changed && (

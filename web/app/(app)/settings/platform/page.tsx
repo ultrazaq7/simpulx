@@ -43,7 +43,7 @@ export default function PlatformPage() {
   return (
     <>
       {ToastHost}
-      <div className="px-6 pt-6 pb-6 max-w-[1180px] mx-auto w-full h-full flex flex-col min-h-0">
+      <div className="px-6 pt-6 pb-6 w-full h-full flex flex-col min-h-0">
         <div className="bg-card rounded-lg border border-border shadow-xs overflow-hidden flex-1 min-h-0 flex flex-col">
           <div className="p-3 flex items-center justify-end border-b border-border shrink-0">
             <button onClick={() => setPanel({ mode: "create" })}
