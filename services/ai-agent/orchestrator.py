@@ -545,6 +545,25 @@ async def _generate_and_send_reply(broker, pool, conn, org_id: str, conv_id: str
                        "JANGAN menyodorkan katalog, daftar varian, atau harga. Sapa dengan hangat, "
                        "perkenalkan diri singkat, lalu tanyakan apa yang bisa dibantu.\n")
 
+    # Out-of-area is a fact the bot must OWN, not hide behind "cek ke tim". Once the
+    # lead's city is known to sit outside the service area, running a normal in-area
+    # price funnel is what makes the bot look broken (it happened: a Jombang lead got
+    # four turns of dodging on a Jakarta-only campaign). Tell the customer plainly,
+    # keep collecting the qualifiers (a human still decides serviceability -- an
+    # out-of-town KTP living in the area is a real lead), and set expectations that a
+    # teammate will follow up. The deterministic handoff still fires once qualifiers
+    # are complete; this only governs what the bot SAYS meanwhile.
+    _city = _lead_fields(row["metadata"]).get("city")
+    ooa_city = _out_of_area_city(_city, row["covered_cities"])
+    if ooa_city:
+        finance_ctx += (
+            f"\n\nCATATAN AREA LAYANAN: domisili customer ({ooa_city}) DI LUAR area layanan "
+            "campaign ini. WAJIB sampaikan dengan jujur dan sopan bahwa area itu di luar "
+            "jangkauan reguler, JANGAN pura-pura seperti area normal. Tetap kumpulkan info "
+            "kebutuhan seperti biasa, tapi jelaskan bahwa ketersediaan/serviceability untuk "
+            "area itu akan dicek dan dibantu oleh tim -- jangan menjanjikan harga/pengiriman "
+            "seolah pasti tersedia di sana.\n")
+
     system_prompt = (row["system_prompt"] or "You are a helpful sales assistant.") + ctx + "\n\n" + lang_rule + finance_ctx
     history = await _load_history(pool, conv_id, message_id, conn=conn)
     await _publish_activity(broker, org_id, conv_id, "thinking", log)
