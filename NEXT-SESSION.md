@@ -42,25 +42,55 @@ Sekarang kedua sisi di-tokenize sama lalu dibandingin sebagai token.
 
 ---
 
+## LANJUTAN SESI 2026-07-17 — SELESAI + TERVERIFIKASI
+
+| Commit | Apa | Bukti (jalur asli `/debug/reply`) |
+|---|---|---|
+| `3c8356e` | **AI gak boleh nembak model + gak nyodorin katalog kalau gak ditanya** | `pajero1` — **sebelum**: *"katalog yang tersedia di sistem kami **adalah** Mitsubishi Destinator"* (BOHONG — katalog juga jual Pajero/Xpander/Xforce); **sesudah**: *"Pajero Sport kami ada varian GLX, Exceed, Dakar, Dakar Ultimate"* + nol angka. `Wamena` → *"dicatat domisili di Wamena ya. Cash atau kredit?"* — **nol angka** (sebelumnya nyodorin 3 harga sekaligus). |
+| `9c926a4` | **Keyword ads gak lagi dibaca sebagai ucapan customer** | `promo-dp-ringan-pajero1` (genuine=false, ngandung "promo"+"dp") → **nol angka**. Customer asli `Dakar Ultimate 4x2 harganya berapa` (genuine=true) → OTR Rp 723.450.000 + cicilan 12-60 bln. **Dua sisi lulus.** |
+
+### Akar masalah "AI nembak model" (temuan besar)
+`_catalog_from_table` nge-collapse baris per **(item, variant, LOCATION)** — kotanya ikut jadi
+kunci. Jadi 20 varian × 5 kota = **100 grup**, lalu `rows[:14]` cuma muat **Destinator doang**
+(3 varian × 5 kota = 15, kepotong di 14). Urutan alfabetis bikin Pajero/Xpander/Xforce **gak
+pernah nyampe prompt sama sekali**. Terus `CATATAN VARIAN` negesin daftar itu *"SEMUA varian
+yang tersedia"* → model gak halusinasi, dia **percaya prompt**.
+
+**Desain sekarang (sekalian ngerjain SEBAGIAN tugas 3):**
+- **Nama varian → SELALU lengkap**, dedupe lintas kota/tenor, gak pernah dipotong (~20 baris).
+  Model selalu bisa jawab "kalian jual apa aja?" dan gak pernah perlu nebak.
+- **Harga → cuma kalau customer BENERAN nanya** (`_asks_price` atas kata-katanya sendiri), dan
+  cuma varian relevan. Kalau gak nanya, harga **gak diinjeksi sama sekali** → hemat ~2.600
+  token/balasan di kasus paling umum.
+
+### Keyword ads — klarifikasi user (Claude sempat salah 2×)
+`campaigns.keywords` (mis. `{Xforce1}`, `{pajero1}`) itu **param tracking iklan** yang dateng
+sebagai pre-fill wa.me — **BUKAN ketikan lead**. Claude sempat ngira itu artifact tes user.
+Formatnya bebas dan **gak selalu ngandung nama model**.
+- `messaging/main.go` udah nandain CTWA referral opener `genuine=false`, **tapi body yang
+  ke-rute lewat KEYWORD dateng tanpa referral** → dulu kehitung `genuine=true`.
+- ai-agent **gak pernah dikasih tau** genuine-nya.
+- Sekarang: `genuine := e.Referral == "" && !keywordRouted && type != "unsupported"`, dan
+  `maybe_nurture` baca `messages.genuine` (COALESCE default true) → cuma kata-kata lead
+  sendiri yang boleh nge-rank varian / buka gate harga.
+- **Efek samping disengaja & disetujui user:** lead classifier sekarang juga ngindahin pesan
+  keyword-routed — konsisten sama alasan asli kolom itu ("avoid biasing every ad lead").
+
+---
+
 ## TEMUAN TERBUKA (belum digarap, urut prioritas)
 
-### 1. `CATATAN AREA` telat 1-2 turn — anchoring turn-1 BELUM tertutup
-**Terverifikasi di kode** (`orchestrator.py:87-96`): nurture jalan **SEBELUM** ekstraksi
-(sengaja, biar balasan gak ke-block). Akibatnya `lead_fields` selalu telat 1 turn:
-- Turn 1: `lead_fields` kosong → `city=None` → **blok `if city_mismatch` gak pernah jalan**
-  → `CATATAN AREA` gak ada di prompt sama sekali.
-- Turn 2 (customer baru bilang "Wamena"): city masih belum keekstrak → tetap gak ada.
-- Turn 3+: baru aktif.
-
-Artinya fix anchoring cuma jalan di **turn 3+**. Di turn 1-2 katalog (yang tiap barisnya
-ada "(Jakarta)") tetap diinjeksi dengan header *"Tawarkan Jika Relevan"* tanpa rem apa pun.
-**Catatan jujur:** premis handover ("anchoring kebukti 3/4 run di turn 1") **gak bisa gua
-verifikasi ulang** — gak ada pesan `426.850.000` tersimpan di `messages` prod (kemungkinan
-hasil tes yang gak dipersist). Di 3 run turn-1 sesi ini model **gak** anchoring, tapi itu
-bukan karena fix — kebetulan aja. Jadi risikonya masih ada, cuma belum kepegang remnya.
-**Opsi:** kasih rem harga yang gak bergantung `city` (mis. selalu larang nyodorin angka
-kalau gak ditanya), ATAU pindahin ekstraksi city ke depan nurture khusus turn 1.
-**Ini keputusan desain — OBROLIN dulu sama user.**
+### ~~1. `CATATAN AREA` telat 1-2 turn~~ — **SELESAI di `3c8356e`**
+Sempat kebukti live lewat screenshot WA user: lead ngetik `Wamena` doang (gak nanya harga)
+dan bot nyodorin **3 harga sekaligus**. Sebabnya nurture jalan **SEBELUM** ekstraksi
+(`orchestrator.py:87-96`, sengaja biar balasan gak ke-block), jadi `lead_fields` telat 1 turn
+→ turn 1-2 `city=None` → blok `if city_mismatch` gak pernah jalan → `CATATAN AREA` gak ada di
+prompt → gak ada rem sama sekali.
+**Ketutup** karena gate harga yang baru (`_asks_price`) **gak gantung ke `city` sama sekali**:
+gak ditanya = harga gak diinjeksi, turn berapa pun. Terverifikasi: `Wamena` → *"dicatat
+domisili di Wamena ya. Cash atau kredit?"* — nol angka.
+*Catatan: `lead_fields` telat 1 turn itu masih fakta, cuma sekarang gak berbahaya lagi buat
+anchoring. Kalau nanti ada fitur lain yang gantung ke `lead_fields` di turn 1, inget ini.*
 
 ### 2. Upload katalog: reload page = job yatim (user nanya sesi ini)
 **Terverifikasi:** ekstraksi **gak** ke-terminate kalau koneksi putus/reload —
@@ -106,10 +136,16 @@ dan masalah margin itu di pricing/metering — bukan "Claude mahal".
 | extract, summary, catalog (backend) | Sonnet 5 | **Haiku 4.5** (3×) |
 | lead scoring | CatBoost | tetap (gratis) |
 
-Lever kedua: **kecilin injeksi katalog** (14 baris → varian yang ditanya + 3-4).
-`cache_write` katalog ~2.600 token = biaya per-credit terbesar di traffic sepi — ini lever
-paling gede, lebih gede dari Haiku. Dua-duanya: argo worst-case Rp 320 → ~Rp 200.
-**Catatan:** injeksi dibatasi di `finance_rag.py` `rows = rows[:14]` (~baris 210).
+Lever kedua: **kecilin injeksi katalog** — **SEBAGIAN UDAH JALAN di `3c8356e`.**
+Sekarang: kalau customer **gak nanya harga**, yang diinjeksi cuma **daftar nama varian**
+(~20 baris, tanpa harga/tenor) → hemat ~2.600 token di kasus paling umum. Blok harga
+(`rows[:14]`) cuma muncul kalau `_asks_price(query)` true.
+**Sisa kerjaan:** pas customer NANYA harga, blok harganya masih 14 baris — kecilin ke varian
+yang ditanya + 3-4. Ingat `rows[:14]` itu ngitung **(varian × kota)**, bukan varian doang
+(lihat akar masalah di atas) — jadi kalau mau dikecilin, dedupe kota dulu atau angkanya
+nyesatin.
+Sisa lever: **Haiku 4.5** buat extract/summary/catalog. Dua-duanya: argo worst-case
+Rp 320 → ~Rp 200.
 
 ## P6 billing per-seat (tugas 4) — BUTUH SESI UTUH
 Butuh ledger membership append-only (kolom `users` sekarang state, bukan history;
