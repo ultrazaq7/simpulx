@@ -89,6 +89,23 @@ Dipicu 2 screenshot WA user (bot beneran ngaco di prod):
 | `0d4b9bc` | **Gate harga persisten** (bukan cuma pesan saat itu) | Lead nanya *"berapa termurah"*, lalu jawab *"yang ultimate CVT"* (tanpa kata harga) → tetep dapet OTR. Sebelumnya: 4 turn *"cek ke tim"* buat model yang ADA di katalog. |
 | `37091ea` | **Bot akui out-of-area, bukan ngeles** | Lead Jombang (campaign Jakarta-only) + varian → *"OTR di Jakarta Pusat Rp 342.800.000 … untuk Jombang belum tersedia karena di luar area layanan reguler kami, bisa saya bantu cek ke tim."* Sebelumnya: nol angka, nol pengakuan area. |
 
+## SESI 2026-07-17 (bagian 4) — Smart Reply gate + CLASSIFIER STRICT — SELESAI + TERVERIFIKASI
+
+| Commit | Apa | Bukti (jalur asli prod) |
+|---|---|---|
+| `a398d8e` | **Smart Reply pakai `recent_text`** (tugas 3a beres). Draft `/reply/stream` dulu cuma gate di pesan terakhir → dodge kayak `0d4b9bc`. | Histori sama persis, last inbound "oh yang 4x2 aja deh kak": **before** *"boleh info nama, cash/kredit?"* (nol harga) → **after** *"cicilan Rp 50.311.000 ... Rp 13.972.000, TDP Rp 109.9 jutaan"*. |
+| `907c6ac` | **Classifier temperature STRICT** (hot/warm/cold). Dulu over-promote via volume/klik: `reply_count>=5` atau `ad_clicks>=3` → hot; `>=2`/`>=1` → warm. Chatter tanpa intent / klik iklan doang bisa hot/warm. | 6 tes prod (pre-seed `lead_fields`): OOA+testdrive→**cold**, lengkap+"masih survei"→**cold**, lengkap+"bulan depan"+harga→**warm**, harga+info kurang→**cold**, booking/visit/closing→**hot**, no-reply opener→**NULL/New Leads**. |
+
+**Keputusan user (classifier) — kekunci:**
+- **Intent-only, buang total shortcut volume + `ad_clicks`** (genuine-only). `classify()` gak lagi terima `ad_clicks`.
+- **HOT** = Booking/Order, Test Drive, Visit/Showroom, Strong/Closing (komit/visit/closing). Murni intent, gak butuh info lengkap.
+- **WARM** = ada intent lain (Price/Promo/Specs/Docs/Stock/Trade-in/Model) DAN `fields_done` lengkap DAN in-area DAN horizon jelas ≤3 bulan. Documents/Process = warm (bukan hot).
+- **COLD** = default ambigu. Filter bisnis (di `classify_and_update`, butuh `lead_fields`+`covered_cities`): **(1) out-of-area di-filter PERTAMA** (gak pernah hot/warm), (2) horizon >3 bulan / non-komit ("masih survei, gatau kapan") → cold, (3) warm wajib lengkap+soon.
+- **No-reply setelah iklan → stage TETEP New Leads** (udah kejaga: `classify_and_update` early-return kalau gak ada pesan genuine).
+- `buy_within_3mo(str)` helper baru di `classifier.py`: True(≤3bln)/False(>3bln atau vague)/None(unknown). FAR dicek sebelum SOON.
+- **Stage = axis TERPISAH dari temperature** (sengaja tak diubah): `STRONG_INTENT` masih nyetir stage=qualified + LLM gate. Jadi bisa stage=qualified tapi interest=cold. Kalau user mau stage ikut temperature, itu ask terpisah.
+- **CatBoost `lead_score` (features.py/lead_score.py) TETAP pakai `ad_clicks`** sebagai fitur — itu axis buy-potential yang beda, jangan disamain sama interest classifier.
+
 ## SESI 2026-07-17 (bagian 3) — TUGAS 1 handoff OOA stall — SELESAI + TERVERIFIKASI
 
 Keputusan user (diobrolin dulu): **C = A + B**, plus refinement "OOA handoff instan, bawa
@@ -159,9 +176,8 @@ fitur rutin. Tapi ini keputusan user.
 - ~~**Handoff out-of-area bisa NGE-STALL.**~~ — **SELESAI + TERVERIFIKASI di `eb84ca8`** (lihat
   di bawah). Keputusan user: A + B (ekstraksi timeframe difix DAN out-of-area handoff tanpa
   nunggu semua qualifier), OOA handoff instan bawa produk kalau ada.
-- **Smart Reply (`main.py`) belum pakai `recent_text`** buat gate harga — cuma baca pesan
-  terakhir. Jadi draft Smart Reply masih bisa dodge kayak bug `0d4b9bc` yang udah difix di
-  jalur nurture. Konsisten-in.
+- ~~**Smart Reply (`main.py`) belum pakai `recent_text`**~~ — **SELESAI + TERVERIFIKASI `a398d8e`**
+  (lihat bagian 4 di atas).
 - **Konfirmasi Meta CTWA opener beneran `genuine=false`.** Diverifikasi buat keyword-routed
   (`main.go` `!keywordRouted`), tapi buat referral opener asli dari Meta belum dites end-to-end
   (butuh webhook beneran, bukan `/debug/reply`).
