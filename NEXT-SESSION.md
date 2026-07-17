@@ -89,6 +89,26 @@ Dipicu 2 screenshot WA user (bot beneran ngaco di prod):
 | `0d4b9bc` | **Gate harga persisten** (bukan cuma pesan saat itu) | Lead nanya *"berapa termurah"*, lalu jawab *"yang ultimate CVT"* (tanpa kata harga) → tetep dapet OTR. Sebelumnya: 4 turn *"cek ke tim"* buat model yang ADA di katalog. |
 | `37091ea` | **Bot akui out-of-area, bukan ngeles** | Lead Jombang (campaign Jakarta-only) + varian → *"OTR di Jakarta Pusat Rp 342.800.000 … untuk Jombang belum tersedia karena di luar area layanan reguler kami, bisa saya bantu cek ke tim."* Sebelumnya: nol angka, nol pengakuan area. |
 
+## SESI 2026-07-17 (bagian 3) — TUGAS 1 handoff OOA stall — SELESAI + TERVERIFIKASI
+
+Keputusan user (diobrolin dulu): **C = A + B**, plus refinement "OOA handoff instan, bawa
+produk kalau udah kesebut". Root cause & fix:
+
+**Stall (reproduce di prod, before):** lead Jombang + "masih survei sih kak, gatau kapan belinya"
+→ `lead_fields={city:Jombang, brand:Mitsubishi, model:Pajero Sport}` tanpa `purchase_timeframe`
+→ `fields_done` gak pernah true, `ready_for_handoff` juga gak (cuma nyala kalau lead minta
+manusia/komit) → `is_bot_active=t`, `handoff_at=NULL` selamanya. Bot tiap turn **janji** "tim akan
+cek serviceability" tapi handoff-nya gak pernah jalan (ngutang janji).
+
+| Commit | Apa | Bukti (jalur asli `/debug/reply`) |
+|---|---|---|
+| `eb84ca8` | **A: ekstraksi timeframe** — jawaban non-komit ("masih survei/belum tahu/gatau kapan") jadi nilai sah, bukan null (`llm.py _extra_fields_instruction`). **B: OOA handoff instan** — begitu `_out_of_area_city` balikin kota, handoff SAAT ITU (bypass `fields_done`), gak nunggu qualifier lain. Note bawa produk (`- minat {model/brand}`). Plus nudge tanya domisili lebih awal (cuma kalau campaign punya `covered_cities` & city belum diketahui) TANPA ngedodge pertanyaan lead. | **Tes1 OOA:** Jombang+"gatau kapan" → `is_bot_active=f`, handoff jalan, reason *"luar area (Jombang) - minat Pajero Sport"*. **Tes2 in-area vague:** Jakarta Selatan + "belum tau kapan, masih lihat2" → timeframe keekstrak → `fields_done` → handoff (lag 1 turn, arsitektural krn nurture jalan sebelum ekstraksi). **Tes3 in-area no-timeframe:** cuma nanya harga → timeframe tetep null, **gak** handoff, harga **dijawab** (OTR Rp 670.300.000) → nudge domisili gak ngedodge & fix A gak over-fire. |
+
+**Catatan lag 1 turn (bukan bug, tapi inget):** handoff (OOA maupun fields_done) mengevaluasi
+`row["metadata"]` yang di-load SEBELUM ekstraksi turn ini (nurture jalan duluan, sengaja biar
+balasan gak ke-block, `orchestrator.py` step 2 vs 3). Jadi OOA ke-handoff di turn SETELAH city
+keekstrak, bukan turn city pertama disebut. Tetap terminasi (vs infinite loop), cukup buat kasus ini.
+
 ### UNTUK DIOBROLIN — promo dari kreatif iklan (referral Meta/TikTok Ads)
 Lead yang dateng dari iklan sering nanya nyocokin promo di GAMBAR iklannya:
 *"promonya bener? DP 10jt beneran? bunga 0% bener?"*. Sekarang bot **gak bisa jawab
@@ -118,11 +138,9 @@ Rekomendasi awal Claude: **(D) sekarang** (aman, cepat), **(B) nanti** kalau pro
 fitur rutin. Tapi ini keputusan user.
 
 ### Yang belum kelar dari tugas 2
-- **Handoff out-of-area bisa NGE-STALL.** Handoff cuma jalan pas `fields_done` (semua qualifier
-  lengkap: brand, model, city, **purchase_timeframe**). Di kasus Jombang, `purchase_timeframe`
-  gak keekstrak ("survei, gatau kapan" gak kebaca) → `fields_done` gak pernah true → handoff
-  gak pernah jalan, bot muter terus. Perlu: entah ekstraksi timeframe diperbaiki, atau
-  out-of-area lead boleh handoff tanpa nunggu SEMUA qualifier. **Keputusan desain — obrolin.**
+- ~~**Handoff out-of-area bisa NGE-STALL.**~~ — **SELESAI + TERVERIFIKASI di `eb84ca8`** (lihat
+  di bawah). Keputusan user: A + B (ekstraksi timeframe difix DAN out-of-area handoff tanpa
+  nunggu semua qualifier), OOA handoff instan bawa produk kalau ada.
 - **Smart Reply (`main.py`) belum pakai `recent_text`** buat gate harga — cuma baca pesan
   terakhir. Jadi draft Smart Reply masih bisa dodge kayak bug `0d4b9bc` yang udah difix di
   jalur nurture. Konsisten-in.
