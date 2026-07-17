@@ -1039,7 +1039,7 @@ func (s *server) handleStats(w http.ResponseWriter, r *http.Request) {
 		   (SELECT count(*) FROM conversations WHERE organization_id=$1%s AND is_bot_active) AS bot_active,
 		   (SELECT count(*) FROM messages WHERE organization_id=$1) AS messages,
 		   (SELECT count(*) FROM contacts WHERE organization_id=$1) AS contacts,
-		   (SELECT count(*) FROM users WHERE organization_id=$1 AND role IN ('agent','admin', 'manager')) AS team,
+		   (SELECT count(*) FROM users WHERE organization_id=$1 AND role IN ('agent','admin', 'manager') AND is_deleted=false) AS team,
 		   (SELECT count(*) FROM ai_runs WHERE organization_id=$1 AND decision='reply') AS ai_replies,
 		   (SELECT count(*) FROM ai_runs WHERE organization_id=$1 AND decision='handoff') AS handoffs,
 		   (SELECT count(*) FROM broadcasts WHERE organization_id=$1) AS broadcasts`, campFilter, campFilter, campFilter)
@@ -1284,7 +1284,7 @@ func (s *server) handleAnalytics(w http.ResponseWriter, r *http.Request) {
 		    WHERE sender_type='agent' AND prev_type='contact' AND gap >= 0
 		    GROUP BY conversation_id)
 		 SELECT u.full_name AS agent,
-		        COALESCE(b.name, cmp.name, 'Unassigned') AS branch,
+		        string_agg(DISTINCT COALESCE(b.name, cmp.name, 'Unassigned'), ', ') AS branch,
 		        count(DISTINCT cv.contact_id) AS leads,
 		        count(cv.id) AS total_chat,
 		        count(cv.id) FILTER (WHERE cv.last_agent_message_at IS NOT NULL) AS replied,
@@ -1310,8 +1310,8 @@ func (s *server) handleAnalytics(w http.ResponseWriter, r *http.Request) {
 		   LEFT JOIN campaigns cmp ON cmp.id=cv.campaign_id
 		   LEFT JOIN rt ON rt.conversation_id=cv.id
 		   LEFT JOIN ar ON ar.conversation_id=cv.id
-		  WHERE u.organization_id=$1 AND u.role IN ('agent','admin','manager')%s
-		  GROUP BY u.id, u.full_name, COALESCE(b.name, cmp.name, 'Unassigned')
+		  WHERE u.organization_id=$1 AND u.role IN ('agent','admin','manager') AND u.is_deleted=false%s
+		  GROUP BY u.id, u.full_name
 		  HAVING (u.role = 'agent' OR count(DISTINCT cv.contact_id) > 0)
 		  ORDER BY leads DESC`, campFilterCv, agentScope), args...)
 
