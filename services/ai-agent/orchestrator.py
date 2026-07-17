@@ -373,6 +373,20 @@ async def _conn_or(pool, conn):
             yield c
 
 
+async def _human_took_over(conn, conv_id: str) -> bool:
+    """True when an agent pressed Take over and has not handed the conversation
+    back yet. The bot being off is not enough to tell: the AI stands itself down
+    on handoff too, and that case is allowed to re-engage. Only the timeline says
+    which one it was, so read the latest of the two toggle events."""
+    last = await conn.fetchval(
+        """SELECT type FROM conversation_events
+            WHERE conversation_id = $1 AND type IN ('bot_takeover', 'bot_released')
+            ORDER BY created_at DESC LIMIT 1""",
+        conv_id,
+    )
+    return last == "bot_takeover"
+
+
 async def maybe_nurture(broker, pool, org_id: str, conv_id: str, message_id, body: str, cr, log) -> None:
     """Entry point for the AI auto-reply. NEVER replies inline: it debounces.
 
@@ -432,6 +446,8 @@ async def _nurture_now(broker, pool, org_id: str, conv_id: str, message_id, body
         if row["classification_locked"]:
             return  # terminal/spam lead - stay down
         async with pool.acquire() as conn:
+            if await _human_took_over(conn, conv_id):
+                return  # an agent explicitly took over - only they can hand back
             human = await conn.fetchval(
                 """SELECT count(*) FROM messages
                     WHERE conversation_id = $1 AND direction = 'outbound'
@@ -465,6 +481,14 @@ async def _generate_and_send_reply(broker, pool, conn, org_id: str, conv_id: str
     held so it can never race a second inbound handler into a duplicate send. `conn`
     is that lock connection, reused for every query here so the section holds one."""
     async with _conn_or(pool, conn) as conn:
+        # Explicit takeover: an agent may have pressed Take over after `row` was
+        # read - while this reply was deferred behind the burst window or the
+        # lock, or while the model was generating. Re-read it here, under the
+        # lock, so the in-flight reply is dropped instead of landing on top of
+        # the agent who just claimed the conversation.
+        if await _human_took_over(conn, conv_id):
+            log.info("nurture stand down (agent took over)", extra={"conv": conv_id})
+            return
         # Human takeover: if a human (agent/user) already replied, stand down.
         human = await conn.fetchval(
             """SELECT count(*) FROM messages
