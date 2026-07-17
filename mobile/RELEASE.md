@@ -26,9 +26,14 @@ Always build prod with `--dart-define=FLAVOR=prod`.
 cd mobile
 flutter clean
 flutter pub get
-flutter build appbundle --release --dart-define=FLAVOR=prod
+flutter build appbundle --release --flavor prod --dart-define=FLAVOR=prod
+# (APK: flutter build apk --release --flavor prod --dart-define=FLAVOR=prod)
 ```
-Output: `build/app/outputs/bundle/release/app-release.aab`
+Output: `build/app/outputs/bundle/prodRelease/app-prod-release.aab`
+
+NOTE: `--flavor prod` is REQUIRED. Without it Gradle builds the `dev` flavor
+(applicationId `com.simpulx.app.dev`), which fails Google Services (no matching
+client in google-services.json) and would point the app at the dev backend.
 
 The release build is **signed**, **R8-minified**, and **resource-shrunk**
 (keep rules in `android/app/proguard-rules.pro` cover WebRTC, Firebase, and

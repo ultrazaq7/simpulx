@@ -14,7 +14,7 @@ class DioClient {
   DioClient({
     required AppConfig config,
     required SecureStore secureStore,
-    required TokenRefresher refresher,
+    TokenRefresher? refresher,
     FutureOr<void> Function()? onSessionExpired,
   }) {
     final baseOptions = BaseOptions(
@@ -30,11 +30,18 @@ class DioClient {
       validateStatus: (status) => status != null && status < 400,
     );
 
+    // Prefer the SHARED refresher (single-flight with the WebSocket, so token
+    // rotation never races). A standalone caller (e.g. a background isolate that
+    // has no provider container — see local_notifications) may omit it; we then
+    // build a private one so refresh still works there.
+    final tokenRefresher = refresher ??
+        TokenRefresher(secureStore: secureStore, refreshDio: Dio(baseOptions));
+
     dio = Dio(baseOptions);
     dio.interceptors.add(
       AuthInterceptor(
         secureStore: secureStore,
-        refresher: refresher,
+        refresher: tokenRefresher,
         onSessionExpired: onSessionExpired,
       ),
     );
