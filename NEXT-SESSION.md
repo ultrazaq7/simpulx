@@ -109,7 +109,24 @@ cek serviceability" tapi handoff-nya gak pernah jalan (ngutang janji).
 balasan gak ke-block, `orchestrator.py` step 2 vs 3). Jadi OOA ke-handoff di turn SETELAH city
 keekstrak, bukan turn city pertama disebut. Tetap terminasi (vs infinite loop), cukup buat kasus ini.
 
-### UNTUK DIOBROLIN — promo dari kreatif iklan (referral Meta/TikTok Ads)
+### ~~UNTUK DIOBROLIN — promo dari kreatif iklan~~ — TUGAS 2 SELESAI + TERVERIFIKASI (`13bbe10`)
+Keputusan user: **D + sedikit A**. Root cause dulu (verified prod): bot **defer** "perlu dicek
+ke tim" TAPI `is_bot_active` tetep true = janji tanpa handoff (kelas bug sama kayak OOA), dan
+gak manfaatin teks iklan yang udah disimpen. Fix:
+- `_asks_promo` baru (`finance_rag`): detektor promo SEMPIT, sengaja gak nangkep finance normal
+  ("bunga berapa", "DP-nya berapa") biar gak nge-handoff pertanyaan harga yang bisa dijawab.
+- Pas promo kesinggung: prompt nyuruh bot **akui** topik promo (ngutip `referral_headline/body`
+  kalau ada), **gak boleh** konfirmasi/nyangkal/ngarang angka promo, defer ke tim, lalu
+  **handoff deterministik** (note `tanya promo iklan - perlu konfirmasi tim`, komposabel sama OOA).
+- Bukti: (1) promo+teks iklan → *"iklan Promo Pajero Sport Akhir Tahun memang tertulis DP mulai
+  10 juta dan bunga 0 persen, tapi untuk kepastian... konfirmasi ke tim"* + handoff. (2) promo
+  tanpa teks → akui generik + defer + handoff. (3) regresi "DP berapa? bunga cicilannya berapa?"
+  → **gak** kena promo, dijawab OTR/TDP/cicilan katalog normal.
+
+Catatan lanjut kalau promo jadi rutin: **B** (field promo terstruktur di campaign + UI) biar bot
+bisa konfirm dari data beneran. Belum dibangun (keputusan komersial, tunggu ada kebutuhan).
+
+<details><summary>Konteks opsi lama (arsip)</summary>
 Lead yang dateng dari iklan sering nanya nyocokin promo di GAMBAR iklannya:
 *"promonya bener? DP 10jt beneran? bunga 0% bener?"*. Sekarang bot **gak bisa jawab
 akurat** dan risikonya gede: bisa ngarang syarat, nyangkal promo yang beneran ada, atau
@@ -136,6 +153,7 @@ ngiyain promo yang gak bisa dia verifikasi (kelas bug yang sama kayak anchoring 
   konfirmasi dulu ke tim"* + handoff. Gak pernah ngarang/nyangkal. Bisa jalan tanpa data promo.
 Rekomendasi awal Claude: **(D) sekarang** (aman, cepat), **(B) nanti** kalau promo jadi
 fitur rutin. Tapi ini keputusan user.
+</details>
 
 ### Yang belum kelar dari tugas 2
 - ~~**Handoff out-of-area bisa NGE-STALL.**~~ — **SELESAI + TERVERIFIKASI di `eb84ca8`** (lihat
