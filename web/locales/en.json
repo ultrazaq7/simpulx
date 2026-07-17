@@ -845,7 +845,9 @@
     "deactivateMsg": "{{x}} will lose access until reactivated. Their leads and history stay intact.",
     "never2": "Never",
     "justNow": "Just now",
-    "pickCityBeforeUpload": "Pick at least one city first — it sets this campaign's service area and tags every row in the pricelist."
+    "pickCityBeforeUpload": "Pick at least one city first. It sets the campaign's service area and tags every row in the pricelist.",
+    "clearAllCities": "Clear all",
+    "citiesSelected": "{{n}} selected"
   },
   "common": {
     "save": "Save",

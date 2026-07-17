@@ -845,7 +845,9 @@
     "deactivateMsg": "{{x}} akan kehilangan akses sampai diaktifkan kembali. Prospek dan riwayatnya tetap tersimpan.",
     "never2": "Tidak pernah",
     "justNow": "Baru saja",
-    "pickCityBeforeUpload": "Pilih minimal satu kota dulu — ini yang menentukan area layanan campaign dan menandai setiap baris di pricelist."
+    "pickCityBeforeUpload": "Pilih minimal satu kota dulu. Ini menentukan area layanan campaign dan menandai tiap baris di pricelist.",
+    "clearAllCities": "Hapus semua",
+    "citiesSelected": "{{n}} dipilih"
   },
   "common": {
     "save": "Simpan",

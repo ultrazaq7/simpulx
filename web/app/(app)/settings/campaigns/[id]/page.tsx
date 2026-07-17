@@ -4,7 +4,7 @@ import { useI18n } from "@/lib/i18n";
 // lives on the Dashboard, so this page has no report/PDF anymore.
 import { useEffect, useRef, useState } from "react";
 import { useParams, useRouter, useSearchParams } from "next/navigation";
-import { ArrowLeft, Loader2, Coins, Sparkles, Database, Upload, Trash2, X, MapPin, Search, AlertTriangle } from "lucide-react";
+import { ArrowLeft, Loader2, Coins, Sparkles, Database, Upload, Trash2, X, MapPin, Search } from "lucide-react";
 import * as XLSX from "xlsx";
 import { api } from "@/lib/api";
 import { ID_CITIES, ID_CITY_GROUPS } from "@/lib/idCities";
@@ -12,6 +12,7 @@ import { Select } from "@/components/Select";
 import { cn } from "@/lib/utils";
 import type { CampaignDetail, CatalogItem, Template } from "@/lib/types";
 import { useToast, PageBody, FieldLabel, INPUT_CLASS } from "../../_shared";
+import { Tip } from "@/components/ui/tooltip";
 import { useConfirm } from "@/components/ConfirmDialog";
 import UnsavedBar from "@/components/UnsavedBar";
 
@@ -399,19 +400,36 @@ function CatalogTab({ id, segment, notify }: { id: string; segment?: string; not
           group to add its cities at once, or type a city (with suggestions) and press
           Enter to add a chip. Applied to rows without a location; multiple cities
           duplicate each row per city. */}
-      <div className="rounded-lg border border-border p-3.5">
-        <FieldLabel hint={t("settings.rowsWithoutALocationColumn")}>{t("settings.locationSForThisPricelist")}</FieldLabel>
+      <div className={cn("rounded-lg border p-3.5 transition-colors", needsCity ? "border-amber-500/40 bg-amber-500/[0.04]" : "border-border")}>
+        <div className="flex items-center justify-between gap-2 mb-1">
+          <FieldLabel hint={t("settings.rowsWithoutALocationColumn")}>{t("settings.locationSForThisPricelist")}</FieldLabel>
+          <div className="flex items-center gap-2 shrink-0">
+            {locations.length > 0 && (
+              <span className="text-[11px] font-medium tabular-nums text-muted-foreground">{t("settings.citiesSelected", { n: locations.length })}</span>
+            )}
+            {locations.length > 0 && (
+              <button type="button" onClick={() => setLocations([])} disabled={busy}
+                className="inline-flex items-center gap-1 rounded-md px-2 py-1 text-[11.5px] font-semibold text-muted-foreground hover:text-red-500 hover:bg-red-500/10 transition-colors outline-none disabled:opacity-50">
+                <X className="w-3 h-3" />{t("settings.clearAllCities")}
+              </button>
+            )}
+          </div>
+        </div>
 
         {/* One-click metro-area presets (Jakarta / Jadetabek / Jabodetabek, …). */}
         <div className="flex flex-wrap gap-1.5 mt-1 mb-2">
-          {ID_CITY_GROUPS.map((g) => (
-            <button key={g.label} type="button" onClick={() => addLocs(g.cities)} disabled={busy}
-              title={g.cities.join(", ")}
-              className="inline-flex items-center gap-1 rounded-full border border-border bg-muted/40 hover:bg-primary/10 hover:border-primary/40 hover:text-primary text-[12px] font-medium text-muted-foreground px-2.5 py-1 transition-colors outline-none disabled:opacity-50">
-              <MapPin className="w-3 h-3" />{g.label}
-              <span className="text-[10px] tabular-nums opacity-60">{g.cities.length}</span>
-            </button>
-          ))}
+          {ID_CITY_GROUPS.map((g) => {
+            const active = g.cities.every((c) => locations.includes(c));
+            return (
+              <button key={g.label} type="button" onClick={() => active ? setLocations((ls) => ls.filter((l) => !g.cities.includes(l))) : addLocs(g.cities)} disabled={busy}
+                title={g.cities.join(", ")}
+                className={cn("inline-flex items-center gap-1 rounded-full border text-[12px] font-medium px-2.5 py-1 transition-colors outline-none disabled:opacity-50",
+                  active ? "border-primary/50 bg-primary/10 text-primary" : "border-border bg-muted/40 text-muted-foreground hover:bg-primary/10 hover:border-primary/40 hover:text-primary")}>
+                <MapPin className="w-3 h-3" />{g.label}
+                <span className="text-[10px] tabular-nums opacity-60">{g.cities.length}</span>
+              </button>
+            );
+          })}
         </div>
 
         <div className="relative">
@@ -455,30 +473,33 @@ function CatalogTab({ id, segment, notify }: { id: string; segment?: string; not
           a Jakarta one, and out-of-area never reaches a human. Blocked at the button
           rather than at submit, so the fix is obvious before picking a file. */}
       {rows.length === 0 ? (
-        <div className="rounded-lg border border-dashed border-border p-5 text-center">
+        <div className="rounded-lg border border-dashed border-border p-6 text-center">
           <div className="w-11 h-11 rounded-xl bg-primary/10 text-primary grid place-items-center mx-auto mb-3"><Upload className="w-5 h-5" /></div>
-          <p className="text-[13.5px] font-semibold text-foreground mb-3">{t("settings.uploadAPricelistCsvExcel")}</p>
-          {needsCity && (
-            <div className="flex items-start gap-2 text-left mx-auto max-w-md mb-1 rounded-md border border-amber-500/30 bg-amber-500/[0.08] px-3 py-2">
-              <AlertTriangle className="w-4 h-4 shrink-0 mt-[1px] text-amber-600" />
-              <p className="text-[12.5px] text-amber-700 dark:text-amber-500">{t("settings.pickCityBeforeUpload")}</p>
-            </div>
-          )}
-          <button onClick={() => fileRef.current?.click()} disabled={busy || needsCity}
-            title={needsCity ? t("settings.pickCityBeforeUpload") : undefined}
-            className="inline-flex items-center gap-2 px-3.5 h-9 mt-3 bg-primary text-white rounded-md text-sm font-semibold hover:bg-primary-dark shadow-sm transition-all outline-none disabled:opacity-50 disabled:cursor-not-allowed">
-            {busy ? <Loader2 className="w-4 h-4 animate-spin" /> : <Upload className="w-4 h-4" />}{t("settings.chooseFile")}
-          </button>
+          <p className="text-[13.5px] font-semibold text-foreground">{t("settings.uploadAPricelistCsvExcel")}</p>
+          {/* Tip only renders its popup while needsCity (empty label => passthrough). A
+              disabled button suppresses hover, so the button stays enabled and guards
+              the click itself; the tooltip explains why nothing happens. */}
+          <Tip label={needsCity ? t("settings.pickCityBeforeUpload") : ""}>
+            <button onClick={() => { if (!needsCity) fileRef.current?.click(); }} disabled={busy}
+              aria-disabled={needsCity}
+              className={cn("inline-flex items-center gap-2 px-3.5 h-9 mt-4 rounded-md text-sm font-semibold shadow-sm transition-all outline-none disabled:opacity-50",
+                needsCity ? "bg-muted text-muted-foreground cursor-not-allowed" : "bg-primary text-white hover:bg-primary-dark")}>
+              {busy ? <Loader2 className="w-4 h-4 animate-spin" /> : <Upload className="w-4 h-4" />}{t("settings.chooseFile")}
+            </button>
+          </Tip>
         </div>
       ) : (
         <div className="flex items-center justify-between flex-wrap gap-2">
           <p className="text-[13px] text-muted-foreground"><span className="font-semibold text-foreground tabular-nums">{rows.length}</span> item{rows.length === 1 ? "" : "s"} {t("settings.inThisCampaignSCatalog")}</p>
           <div className="flex items-center gap-2">
-            <button onClick={() => fileRef.current?.click()} disabled={busy || needsCity}
-              title={needsCity ? t("settings.pickCityBeforeUpload") : undefined}
-              className="inline-flex items-center gap-1.5 h-9 px-3 rounded-md border border-border bg-background text-[12.5px] font-semibold text-foreground hover:bg-muted outline-none disabled:opacity-50 disabled:cursor-not-allowed">
+            <Tip label={needsCity ? t("settings.pickCityBeforeUpload") : ""}>
+            <button onClick={() => { if (!needsCity) fileRef.current?.click(); }} disabled={busy}
+              aria-disabled={needsCity}
+              className={cn("inline-flex items-center gap-1.5 h-9 px-3 rounded-md border border-border text-[12.5px] font-semibold outline-none disabled:opacity-50",
+                needsCity ? "bg-muted text-muted-foreground cursor-not-allowed" : "bg-background text-foreground hover:bg-muted")}>
               {busy ? <Loader2 className="w-4 h-4 animate-spin" /> : <Upload className="w-4 h-4" />}{t("settings.replacePricelist")}
             </button>
+            </Tip>
             <button onClick={clearAll} disabled={busy} className="inline-flex items-center gap-1.5 h-9 px-3 rounded-md text-[12.5px] font-semibold text-red-500 hover:bg-red-50 outline-none disabled:opacity-50">
               <Trash2 className="w-4 h-4" />{t("components.clearAll")}
             </button>
