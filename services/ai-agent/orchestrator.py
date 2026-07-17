@@ -520,9 +520,19 @@ async def _generate_and_send_reply(broker, pool, conn, org_id: str, conv_id: str
         import finance_rag
         # Campaign-scoped catalog first (falls back to global finance_packages).
         _lf = _lead_fields(row["metadata"])
+        # A price question doesn't repeat on every turn: a lead asks "berapa termurah",
+        # then answers the bot's follow-ups ("Xpander Ultimate", "CVT") with no price
+        # word -- but they're still owed the number. The gate opens on price intent in
+        # the recent conversation, not only this message. Once asked, a price is no
+        # longer anchoring, so keeping it available for a few turns is exactly right.
+        recent = await conn.fetch(
+            """SELECT body FROM messages
+                WHERE conversation_id = $1 AND direction = 'inbound' AND genuine
+                ORDER BY created_at DESC LIMIT 8""", conv_id)
+        recent_text = " ".join(r["body"] or "" for r in recent)
         fc = await finance_rag.get_catalog_context(
             pool, row["campaign_id"], (_lf.get("brand") or row["brand"]), _lf.get("model"),
-            _lf.get("city"), row["segment"], query=lead_words, conn=conn)
+            _lf.get("city"), row["segment"], query=lead_words, recent_text=recent_text, conn=conn)
         if fc:
             finance_ctx = f"\n\n{fc}\n"
 

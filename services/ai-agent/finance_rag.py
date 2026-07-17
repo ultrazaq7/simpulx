@@ -38,7 +38,8 @@ async def _acquire(pool, conn):
 
 async def get_catalog_context(pool, campaign_id, brand: str, model: str,
                               city: str = None, segment: str = None,
-                              query: str = None, conn=None) -> str | None:
+                              query: str = None, recent_text: str = None,
+                              conn=None) -> str | None:
     """Segment-generic, CAMPAIGN-SCOPED catalog lookup (WS-A).
 
     Tries the per-campaign campaign_catalog first so one campaign never grounds
@@ -54,7 +55,8 @@ async def get_catalog_context(pool, campaign_id, brand: str, model: str,
     """
     if campaign_id:
         try:
-            ctx = await _catalog_from_table(pool, campaign_id, model, city, query, conn=conn)
+            ctx = await _catalog_from_table(pool, campaign_id, model, city, query,
+                                            recent_text=recent_text, conn=conn)
             if ctx:
                 return ctx
             # No row matched. If this campaign HAS a catalog, its own pricelist is the
@@ -135,7 +137,8 @@ def _variant_hits(query: str, rows) -> list:
 
 
 async def _catalog_from_table(pool, campaign_id, model: str,
-                              city: str = None, query: str = None, conn=None) -> str | None:
+                              city: str = None, query: str = None,
+                              recent_text: str = None, conn=None) -> str | None:
     """Query campaign_catalog for one campaign, matching item/variant on the
     lead's brand/model. Formats rows segment-agnostically (spine columns +
     whatever segment-specific keys sit in the attributes jsonb).
@@ -252,7 +255,10 @@ async def _catalog_from_table(pool, campaign_id, model: str,
 
     # Prices are the expensive AND the risky part: quoting a number nobody asked for is
     # anchoring. Until the customer actually asks, the catalog ships as names only.
-    if not _asks_price(query):
+    # `recent_text` carries their last few messages so a price question asked one or two
+    # turns ago (before they answered the bot's variant/city follow-ups) still counts --
+    # once asked, a price is no longer anchoring.
+    if not (_asks_price(query) or _asks_price(recent_text)):
         catalog_lines.append(
             "CATATAN HARGA: customer BELUM menanyakan harga. Data harga sengaja TIDAK "
             "disertakan. JANGAN sebut angka harga/DP/cicilan sama sekali dan JANGAN memancing "
