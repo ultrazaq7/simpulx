@@ -4,6 +4,7 @@
 package main
 
 import (
+	"bytes"
 	"context"
 	"encoding/json"
 	"errors"
@@ -239,8 +240,21 @@ func readPump(h *hub, c *client) {
 		return nil
 	})
 	for {
-		if _, _, err := c.conn.ReadMessage(); err != nil {
+		_, data, err := c.conn.ReadMessage()
+		if err != nil {
 			return
+		}
+		// App-level heartbeat: mobile clients send `{"type":"ping"}` on a timer to
+		// prove the link is alive (a silently-dead TCP socket otherwise goes
+		// unnoticed until the 60s read deadline). Reply with a pong through the
+		// write pump so the client can reconnect FAST when we stop answering. Any
+		// inbound frame also refreshes the read deadline, keeping live clients up.
+		c.conn.SetReadDeadline(time.Now().Add(60 * time.Second))
+		if bytes.Equal(bytes.TrimSpace(data), []byte(`{"type":"ping"}`)) {
+			select {
+			case c.send <- []byte(`{"type":"pong"}`):
+			default: // send buffer full; a real event will carry liveness anyway
+			}
 		}
 	}
 }

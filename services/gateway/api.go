@@ -134,6 +134,18 @@ func (s *server) handleListConversations(w http.ResponseWriter, r *http.Request)
 		scopeFilter += fmt.Sprintf(" AND cv.contact_id = $%d::uuid", len(args))
 	}
 
+	// Inbox size. Historically hard-capped at 100, which silently hid every
+	// conversation past the 100 most-recent once an org grew — the app looked like
+	// it had "lost" older chats. Honor an optional ?limit (like the messages
+	// endpoint) and default to a much larger cap so a busy inbox loads whole. The
+	// client windows the render, so a bigger list stays cheap to show.
+	limit := 500
+	if l, err := strconv.Atoi(r.URL.Query().Get("limit")); err == nil && l > 0 && l <= 1000 {
+		limit = l
+	}
+	args = append(args, limit)
+	limitClause := fmt.Sprintf(" LIMIT $%d", len(args))
+
 	rows, err := s.queryMaps(r.Context(),
 		`SELECT cv.id::text AS id, cv.status, cv.channel, cv.is_bot_active,
 		        cv.unread_count, cv.last_message_at, cv.last_contact_message_at, cv.last_message_preview,
@@ -173,8 +185,7 @@ func (s *server) handleListConversations(w http.ResponseWriter, r *http.Request)
 		   LEFT JOIN channels ch ON ch.id = cmp.channel_id
 		  WHERE cv.organization_id = $1
 		    AND ($2 = '' OR cv.status = $2)`+qFilter+visibility+scopeFilter+`
-		  ORDER BY cv.last_message_at DESC NULLS LAST
-		  LIMIT 100`,
+		  ORDER BY cv.last_message_at DESC NULLS LAST`+limitClause,
 		args...,
 	)
 	if err != nil {

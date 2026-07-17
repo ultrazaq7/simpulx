@@ -90,17 +90,32 @@ class PushService {
     // Route a tapped notification exactly ONCE. onMessageOpenedApp and
     // getInitialMessage can BOTH deliver the same message on a cold start, which
     // pushed the chat route twice — the thread ended up stacked on itself, so
-    // backing out of a chat opened from a notification showed it a second time.
-    final handledTaps = <String>{};
+    // backing out of a chat opened from a notification showed it a second time
+    // (had to press Back twice to reach the inbox).
+    final handledIds = <String>{};
+    String? lastRoute;
+    var lastRouteAt = DateTime.fromMillisecondsSinceEpoch(0);
     void routeOnce(RemoteMessage message, String source) {
+      final route = NotificationPayload.fromData(message.data).route;
       final id = message.messageId ?? '';
-      if (id.isNotEmpty && !handledTaps.add(id)) {
-        debugPrint('[PushService] $source: tap already routed ($id), skipping');
+      final now = DateTime.now();
+      // Dedup by messageId when present. On iOS the notification is rendered
+      // NATIVELY from the aps alert, so `messageId` is frequently EMPTY — the old
+      // id-only guard then let both deliveries through and double-pushed the chat.
+      // Fall back to a short-window same-route guard: it swallows the cold-start
+      // double-delivery without permanently blocking a later intentional re-tap.
+      final dupById = id.isNotEmpty && !handledIds.add(id);
+      final dupByRoute = route == lastRoute &&
+          now.difference(lastRouteAt) < const Duration(seconds: 5);
+      if (dupById || dupByRoute) {
+        debugPrint('[PushService] $source: tap already routed, skipping ($route)');
         return;
       }
-      if (handledTaps.length > 50) handledTaps.clear();
+      if (handledIds.length > 50) handledIds.clear();
+      lastRoute = route;
+      lastRouteAt = now;
       debugPrint('[PushService] $source: ${message.data}');
-      onTapRoute(NotificationPayload.fromData(message.data).route);
+      onTapRoute(route);
     }
 
     FirebaseMessaging.onMessageOpenedApp.listen(

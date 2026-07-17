@@ -203,7 +203,6 @@ func main() {
 	mux.HandleFunc("GET /api/calls/{id}", s.requireAuth(s.handleGetCall))
 	mux.HandleFunc("POST /api/calls/{id}/recording", s.requireAuth(s.handleSaveCallRecording))
 	mux.HandleFunc("POST /api/conversations/{id}/summary", s.requireAuth(s.handleSummaryStream))
-	mux.HandleFunc("POST /api/conversations/{id}/draft-reply", s.requireAuth(s.handleDraftReplyStream))
 	mux.HandleFunc("GET /api/stages", s.requireAuth(s.handleListStages))
 	mux.HandleFunc("POST /api/stages", s.requireAuth(s.handleCreateStage))
 	mux.HandleFunc("POST /api/stages/reorder", s.requireAuth(s.handleReorderStages))

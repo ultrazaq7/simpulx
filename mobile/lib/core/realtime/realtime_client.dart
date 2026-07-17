@@ -20,12 +20,25 @@ enum RealtimeStatus { disconnected, connecting, connected }
 /// - Re-reads the access token on each (re)connect, so a token refreshed by the
 ///   REST layer is picked up automatically.
 class RealtimeClient {
-  RealtimeClient({required AppConfig config, required SecureStore secureStore})
-      : _config = config,
-        _secureStore = secureStore;
+  RealtimeClient({
+    required AppConfig config,
+    required SecureStore secureStore,
+    Future<String?> Function()? refreshToken,
+  })  : _config = config,
+        _secureStore = secureStore,
+        _refreshToken = refreshToken;
 
   final AppConfig _config;
   final SecureStore _secureStore;
+
+  /// Forces a token refresh (shared single-flight with the REST layer). The WS
+  /// doesn't go through Dio, so without this an expired access token left the
+  /// socket permanently rejected ("token is expired") until some REST call
+  /// happened to refresh it — realtime silently died every ~15 min.
+  final Future<String?> Function()? _refreshToken;
+  // One refresh attempt per connect chain, so a genuinely dead session can't
+  // spin the refresh endpoint. Reset on every successful connect.
+  bool _authRetried = false;
 
   final _events = StreamController<RealtimeEvent>.broadcast();
   final _status = StreamController<RealtimeStatus>.broadcast();
@@ -42,6 +55,17 @@ class RealtimeClient {
   /// Highest per-org sequence seen on this connection; 0 = no baseline yet.
   int _lastSeq = 0;
   int _gapCount = 0;
+
+  // App-level heartbeat. A mobile TCP socket frequently dies SILENTLY (WiFi<->cell
+  // handoff, carrier NAT timeout) with no close frame, so `onDone` never fires and
+  // the client keeps believing it's connected — the UI then sits stale until the
+  // server's 60s read deadline reaps it, which is exactly what makes users
+  // pull-to-refresh. We ping on an interval and reconnect the moment we've heard
+  // nothing back within the liveness window, so a dead link self-heals in seconds.
+  Timer? _heartbeat;
+  DateTime _lastActivity = DateTime.now();
+  static const _pingInterval = Duration(seconds: 15);
+  static const _livenessTimeout = Duration(seconds: 35); // ~2 missed pings
 
   Stream<RealtimeEvent> get events => _events.stream;
   Stream<RealtimeStatus> get status => _status.stream;
@@ -81,26 +105,32 @@ class RealtimeClient {
     if (!_active || _disposed) return;
     _setStatus(RealtimeStatus.connecting);
 
-    final token = await _secureStore.readAccessToken();
+    var token = await _secureStore.readAccessToken();
     if (token == null || token.isEmpty) {
-      // No session yet; retry shortly in case login is in flight.
-      _scheduleReconnect();
-      return;
+      // No/blank access token: try a refresh (we may still hold a valid refresh
+      // token) before giving up and backing off.
+      token = await _maybeRefresh();
+      if (token == null || token.isEmpty) {
+        _scheduleReconnect();
+        return;
+      }
     }
 
     try {
       final channel = WebSocketChannel.connect(_config.wsUri(token));
       _channel = channel;
-      await channel.ready; // throws on handshake failure (e.g. 401)
+      await channel.ready; // throws on handshake failure (e.g. 401 expired token)
       if (!_active || _disposed) {
         await _teardownSocket();
         return;
       }
       _attempt = 0;
+      _authRetried = false; // healthy connection: allow a fresh refresh next time
       // New connection -> the old sequence is meaningless (events during the gap
       // are gone for good). Re-baseline on the next event; the refetch that the
       // reconnect already triggers is what covers the missed window.
       _lastSeq = 0;
+      _lastActivity = DateTime.now();
       _setStatus(RealtimeStatus.connected);
       _sub = channel.stream.listen(
         _onData,
@@ -108,14 +138,42 @@ class RealtimeClient {
         onDone: _onClosed,
         cancelOnError: true,
       );
+      _startHeartbeat();
     } catch (e) {
       if (kDebugMode) debugPrint('[realtime] connect failed: $e');
+      // The #1 handshake failure in prod is an EXPIRED access token — the WS
+      // doesn't go through Dio, so nothing refreshed it. Refresh once and retry
+      // immediately before falling back to backoff; this is what stops realtime
+      // from dying every ~15 min until the user pulls to refresh.
+      if (!_authRetried) {
+        final fresh = await _maybeRefresh();
+        if (fresh != null && fresh.isNotEmpty) {
+          _authRetried = true;
+          await _teardownSocket();
+          _connect();
+          return;
+        }
+      }
       _scheduleReconnect();
     }
   }
 
+  Future<String?> _maybeRefresh() async {
+    final cb = _refreshToken;
+    if (cb == null) return null;
+    try {
+      return await cb();
+    } catch (_) {
+      return null;
+    }
+  }
+
   void _onData(dynamic raw) {
+    // ANY frame proves the link is alive — feed the liveness watchdog.
+    _lastActivity = DateTime.now();
     if (raw is! String) return;
+    // Heartbeat reply: liveness only, never a real event.
+    if (raw.contains('"type":"pong"')) return;
     try {
       final decoded = jsonDecode(raw);
       if (decoded is! Map<String, dynamic>) return;
@@ -154,6 +212,28 @@ class RealtimeClient {
     _scheduleReconnect();
   }
 
+  void _startHeartbeat() {
+    _heartbeat?.cancel();
+    _heartbeat = Timer.periodic(_pingInterval, (_) {
+      if (!_active || _disposed) return;
+      // Heard nothing back within the window -> the socket is silently dead.
+      // Reconnect now (which re-baselines + triggers the catch-up refetch), so a
+      // dead link self-heals in seconds instead of leaving the UI stale.
+      if (DateTime.now().difference(_lastActivity) > _livenessTimeout) {
+        if (kDebugMode) {
+          debugPrint('[realtime] liveness timeout -> forcing reconnect');
+        }
+        reconnectNow();
+        return;
+      }
+      try {
+        _channel?.sink.add('{"type":"ping"}');
+      } catch (_) {
+        // Sink already broken; onDone/onError will drive the reconnect.
+      }
+    });
+  }
+
   void _scheduleReconnect() {
     if (!_active || _disposed) return;
     _teardownSocket();
@@ -168,6 +248,8 @@ class RealtimeClient {
   }
 
   Future<void> _teardownSocket() async {
+    _heartbeat?.cancel();
+    _heartbeat = null;
     await _sub?.cancel();
     _sub = null;
     await _channel?.sink.close();

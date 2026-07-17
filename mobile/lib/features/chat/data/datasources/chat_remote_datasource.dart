@@ -16,7 +16,10 @@ class ChatRemoteDataSource {
   ChatRemoteDataSource(this._dio);
   final Dio _dio;
 
-  /// GET /api/conversations[?status=] -> bare JSON array (max 100).
+  /// GET /api/conversations[?status=&limit=] -> bare JSON array. The server
+  /// defaults to 500 (was a silent hard cap of 100 that hid older chats once an
+  /// org grew); ask for the full 1000 cap so a busy inbox loads whole. The list
+  /// page windows the render, so a longer list stays cheap.
   Future<List<Conversation>> listConversations({String? status, String? q}) async {
     try {
       final res = await _dio.get(
@@ -24,6 +27,7 @@ class ChatRemoteDataSource {
         queryParameters: {
           if (status != null && status.isNotEmpty) 'status': status,
           if (q != null && q.isNotEmpty) 'q': q,
+          'limit': 1000,
         },
       );
       final data = res.data;
@@ -287,10 +291,6 @@ class ChatRemoteDataSource {
   /// `{"done": true}`, throws on `{"error": ...}`.
   Stream<String> streamSummary(String conversationId, {String lang = 'en'}) =>
       _sseText(ApiEndpoints.summary(conversationId), lang);
-
-  /// Stream a suggested customer-facing reply draft (SSE).
-  Stream<String> streamDraftReply(String conversationId, {String lang = 'en'}) =>
-      _sseText(ApiEndpoints.draftReply(conversationId), lang);
 
   /// POSTs to an SSE endpoint and yields `text` deltas (see [decodeSseText]).
   Stream<String> _sseText(String path, String lang) async* {

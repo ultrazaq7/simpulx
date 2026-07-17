@@ -67,7 +67,12 @@ async def latest_sonnet_model() -> str:
 async def _resolve_model(model: Optional[str]) -> str:
     """Resolve the model to call. Empty, or ANY Sonnet id (e.g. a per-agent pin left
     at an older Sonnet), maps to the LATEST Sonnet — so every agent auto-upgrades. A
-    deliberate non-Sonnet pin (e.g. an Opus id) is respected as chosen."""
+    deliberate non-Sonnet pin (e.g. an Opus id) is respected as chosen.
+
+    All AI features run on Sonnet by design: the AI's response quality (nurture,
+    extract, reply) is a product selling point that drives per-campaign lead
+    conversion, so it is deliberately NOT downgraded to a cheaper model to shave
+    token cost — the credit pricing funds the Sonnet spend."""
     if model and not model.startswith("claude-sonnet"):
         return model
     return await latest_sonnet_model()
@@ -139,27 +144,6 @@ _MOCK_SUMMARY = (
     "- Customer is exploring options and has shared only partial details so far.\n"
     "- Car preference, budget, and purchase timeframe are not captured yet.\n"
     "- Next: reach out with a direct, friendly question to qualify intent and fill the gaps."
-)
-
-# On-demand draft of the next reply to SEND to the customer (composer 'AI Smart
-# Reply'). Plain message text, customer's language, no JSON/labels.
-REPLY_INSTRUCTION = (
-    "Tugasmu: tulis SATU balasan WhatsApp berikutnya untuk DIKIRIM ke customer "
-    "(ini balasan ke pelanggan, BUKAN ringkasan untuk sales). Tulis dalam BAHASA "
-    "YANG SAMA dengan yang dipakai customer di percakapan (deteksi otomatis: "
-    "Indonesia/Inggris/dll).\n"
-    "Gaya: natural, ramah, profesional, singkat (1-3 kalimat). Jawab pertanyaan "
-    "customer yang belum terjawab dan teruskan percakapan secara relevan; bila "
-    "perlu ajukan satu pertanyaan kualifikasi yang wajar.\n"
-    "JANGAN pakai placeholder seperti [nama] atau tanda kurung siku. JANGAN bungkus "
-    "dengan tanda kutip. JANGAN pakai em dash (—) atau en dash (–). Tulis HANYA "
-    "teks balasannya, tanpa label, tanpa penjelasan."
-    + NO_EMOJI_RULE
-)
-
-_MOCK_REPLY = (
-    "Halo kak, terima kasih sudah menghubungi kami. Boleh dibantu, untuk unit yang "
-    "mana yang sedang kakak pertimbangkan? Nanti saya bantu siapkan detail dan simulasinya."
 )
 
 # App UI language -> human name used as the summary's fallback language (when the
@@ -634,80 +618,6 @@ async def stream_summary(system_prompt: str, history: Optional[List[dict]],
                 log.error("summary stream http %s: %s", resp.status_code, body[:300])
                 raise httpx.HTTPStatusError(
                     f"summary stream {resp.status_code}", request=resp.request, response=resp)
-            async for line in resp.aiter_lines():
-                if not line.startswith("data:"):
-                    continue
-                data = line[len("data:"):].strip()
-                if not data:
-                    continue
-                try:
-                    evt = json.loads(data)
-                except Exception:  # noqa: BLE001
-                    continue
-                _accum_usage(usage_out, evt)
-                etype = evt.get("type")
-                if etype == "content_block_delta":
-                    delta = evt.get("delta") or {}
-                    if delta.get("type") == "text_delta":
-                        text = delta.get("text") or ""
-                        if text:
-                            # Best-effort per chunk; a dash is one codepoint so it's
-                            # rarely split. The instruction also forbids it upstream.
-                            yield _normalize_dashes(text)
-                elif etype == "message_stop":
-                    break
-
-
-async def stream_reply(system_prompt: str, history: Optional[List[dict]],
-                       model: Optional[str] = None,
-                       app_lang: Optional[str] = None,
-                       usage_out: Optional[dict] = None) -> AsyncIterator[str]:
-    """Stream a suggested next reply to SEND to the customer, chunk by chunk.
-    One-shot suggestion for the composer's 'AI Smart Reply' (not persisted).
-    Language follows the conversation; fallback follows app_lang. Mock without a
-    live LLM.
-    usage_out: optional dict filled with this call's token usage (feature 'reply');
-    only complete once the generator has been fully consumed."""
-    if not (settings.llm_provider == "anthropic" and settings.anthropic_api_key):
-        for word in _MOCK_REPLY.split(" "):
-            yield word + " "
-            await asyncio.sleep(0.03)
-        return
-
-    fallback_rule = (
-        f"\nJika bahasa percakapan tidak jelas atau tidak ada teks dari customer, "
-        f"tulis dalam {_lang_name(app_lang)}."
-    )
-    system = [{
-        "type": "text",
-        "text": (system_prompt or "You are a helpful sales assistant.") + "\n\n" + REPLY_INSTRUCTION + fallback_rule,
-        "cache_control": {"type": "ephemeral"},
-    }]
-    # When the last turn is the customer's, let the model reply directly; otherwise
-    # nudge it (avoids two consecutive user turns, which the API rejects).
-    msgs = list(history or [])
-    if not msgs or msgs[-1].get("role") != "user":
-        msgs.append({"role": "user", "content": "Write the next reply to send now."})
-    payload = {
-        "model": await _resolve_model(model),
-        "max_tokens": 400,
-        "thinking": {"type": "disabled"},
-        "system": system,
-        "messages": msgs,
-        "stream": True,
-    }
-    headers = {
-        "x-api-key": settings.anthropic_api_key,
-        "anthropic-version": _HEADERS_VERSION,
-        "content-type": "application/json",
-    }
-    async with httpx.AsyncClient(timeout=120) as client:
-        async with client.stream("POST", _URL, headers=headers, json=payload) as resp:
-            if resp.status_code >= 400:
-                body = (await resp.aread()).decode("utf-8", "ignore")
-                log.error("reply stream http %s: %s", resp.status_code, body[:300])
-                raise httpx.HTTPStatusError(
-                    f"reply stream {resp.status_code}", request=resp.request, response=resp)
             async for line in resp.aiter_lines():
                 if not line.startswith("data:"):
                     continue

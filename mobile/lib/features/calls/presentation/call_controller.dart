@@ -150,6 +150,33 @@ class CallController extends Notifier<CallSession?> {
   // call would be duplicated).
   bool _ongoingShown = false;
 
+  // True when the current inbound call reached us through PushKit/CallKit (the
+  // notification path), so the OS ALREADY has a CallKit call for it. A ring that
+  // arrives over the websocket while the app is in the foreground has no such
+  // system call — see _syncOngoingCall.
+  bool _inboundHasSystemCall = false;
+
+  /// Report a foreground-arrived inbound ring to CallKit (iOS) so it shows the
+  /// native incoming-call UI on the lock screen / Dynamic Island. Marks the
+  /// session as system-call-backed so answering flips the SAME CallKit call to
+  /// connected instead of reporting a second one (see [_syncOngoingCall]).
+  void _presentIncomingCallKitIfIOS(CallUpdatedPayload p) {
+    if (!Platform.isIOS || p.callId.isEmpty) return;
+    _inboundHasSystemCall = true;
+    FlutterCallkitIncoming.showCallkitIncoming(CallKitParams(
+      id: p.callId,
+      nameCaller: p.contactName ?? 'Unknown',
+      handle: p.contactPhone ?? '',
+      type: 0, // audio
+      appName: 'Simpulx',
+      extra: {
+        'conversationId': p.conversationId,
+        'callId': p.callId,
+        'handle': p.contactPhone ?? '',
+      },
+    )).catchError((_) {});
+  }
+
   void _syncOngoingCall(String statusText) {
     final s = state;
     if (s == null) return;
@@ -166,9 +193,25 @@ class CallController extends Notifier<CallSession?> {
     }
 
     if (Platform.isIOS) {
-      // Inbound is already a CallKit call (PushKit) — don't double-report it.
-      if (s.inbound || _ongoingShown || s.callId.isEmpty) return;
+      if (_ongoingShown || s.callId.isEmpty) return;
       _ongoingShown = true;
+
+      // Inbound answered in-app. Previously we skipped CallKit entirely for
+      // inbound, assuming every inbound call came via PushKit (which already has
+      // a CallKit call). But a ring that arrives over the websocket while the app
+      // is FOREGROUND has no system call — so once the agent backgrounds or locks
+      // the phone mid-call, nothing shows in the Dynamic Island / lock screen. Fix:
+      //   - PushKit-originated: the call already exists → just mark it connected.
+      //   - Foreground websocket ring: report an ongoing call now so a minimised
+      //     live call stays visible like WhatsApp. (Direction is cosmetic — the
+      //     ongoing-call pill looks the same either way.)
+      if (s.inbound) {
+        if (_inboundHasSystemCall) {
+          FlutterCallkitIncoming.setCallConnected(s.callId).catchError((_) {});
+          return;
+        }
+      }
+
       FlutterCallkitIncoming.startCall(CallKitParams(
         id: s.callId,
         nameCaller: s.contactName,
@@ -180,7 +223,13 @@ class CallController extends Notifier<CallSession?> {
           'callId': s.callId,
           'handle': s.contactPhone,
         },
-      )).catchError((_) {});
+      )).then((_) {
+        // An answered call is connected immediately; tell CallKit so it shows the
+        // live-call state (and duration) instead of "calling…".
+        if (s.inbound) {
+          FlutterCallkitIncoming.setCallConnected(s.callId).catchError((_) {});
+        }
+      }).catchError((_) {});
     }
   }
 
@@ -194,13 +243,20 @@ class CallController extends Notifier<CallSession?> {
   }
 
   void _stopOngoingCall() {
-    if (!_ongoingShown) return;
+    final hadSystemCall = _inboundHasSystemCall; // a CallKit ring we surfaced
+    final wasShown = _ongoingShown;
+    _inboundHasSystemCall = false;
     _ongoingShown = false;
-    if (Platform.isAndroid) {
+    if (Platform.isIOS) {
+      // Dismiss ANY CallKit call we surfaced: an answered ongoing call OR a still-
+      // ringing inbound one reported for the lock screen that gets rejected/cancelled
+      // BEFORE it was answered (without this, that ring would linger on screen).
+      // Harmless no-op when there's no active CallKit call.
+      if (wasShown || hadSystemCall) {
+        FlutterCallkitIncoming.endAllCalls().catchError((_) {});
+      }
+    } else if (Platform.isAndroid && wasShown) {
       _channel.invokeMethod('stopOngoingCall').catchError((_) {});
-    } else if (Platform.isIOS) {
-      // Clears the CallKit call we reported for this outbound call.
-      FlutterCallkitIncoming.endAllCalls().catchError((_) {});
     }
   }
 
@@ -371,6 +427,12 @@ class CallController extends Notifier<CallSession?> {
     String? sdpOffer,
   }) async {
     if (state != null) return; // a call is already in progress
+
+    // This path is ONLY entered from PushKit/CallKit (a VoIP push or a
+    // notification), so the OS already holds a CallKit call for this ring. Flag it
+    // so _syncOngoingCall marks that existing call connected instead of reporting
+    // a second one.
+    _inboundHasSystemCall = true;
 
     // If we don't have callId/sdpOffer, try to fetch from backend
     String? resolvedCallId = callId;
@@ -543,6 +605,13 @@ class CallController extends Notifier<CallSession?> {
         // Poll as a safety net so a caller-cancel can never leave the incoming
         // overlay stuck if the ended event is missed.
         _startIncomingPoll();
+        // iOS, WhatsApp-style: present the ring through CallKit too, so an incoming
+        // call shows the native full-screen UI on the LOCK SCREEN (and Dynamic
+        // Island). A killed/backgrounded app already gets this from the VoIP push;
+        // this covers the FOREGROUND case (ring arrives over the websocket), where
+        // there was no CallKit call and locking the phone showed nothing. Same
+        // callId as the VoIP push, so if both arrive it's a no-op, not a double ring.
+        _presentIncomingCallKitIfIOS(p);
       }
       return;
     }

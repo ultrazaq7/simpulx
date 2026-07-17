@@ -4,6 +4,7 @@ import 'package:dio/dio.dart';
 
 import '../storage/secure_store.dart';
 import 'api_endpoints.dart';
+import 'token_refresher.dart';
 
 /// Attaches the JWT access token and transparently refreshes it on 401.
 ///
@@ -20,16 +21,14 @@ import 'api_endpoints.dart';
 class AuthInterceptor extends Interceptor {
   AuthInterceptor({
     required SecureStore secureStore,
-    required Dio refreshDio,
+    required TokenRefresher refresher,
     this.onSessionExpired,
   })  : _secureStore = secureStore,
-        _refreshDio = refreshDio;
+        _refresher = refresher;
 
   final SecureStore _secureStore;
-  final Dio _refreshDio;
+  final TokenRefresher _refresher;
   final FutureOr<void> Function()? onSessionExpired;
-
-  Completer<String?>? _refreshCompleter;
 
   static const _retriedFlag = 'x-retried';
 
@@ -61,7 +60,7 @@ class AuthInterceptor extends Interceptor {
       return handler.next(err);
     }
 
-    final newToken = await _refreshToken();
+    final newToken = await _refresher.refresh();
     if (newToken == null) {
       await _secureStore.clear();
       await onSessionExpired?.call();
@@ -76,56 +75,14 @@ class AuthInterceptor extends Interceptor {
     }
   }
 
-  /// Single-flight refresh: concurrent callers await the same result.
-  Future<String?> _refreshToken() {
-    final existing = _refreshCompleter;
-    if (existing != null) return existing.future;
-
-    final completer = Completer<String?>();
-    _refreshCompleter = completer;
-
-    _performRefresh().then((token) {
-      completer.complete(token);
-    }).catchError((_) {
-      completer.complete(null);
-    }).whenComplete(() {
-      _refreshCompleter = null;
-    });
-
-    return completer.future;
-  }
-
-  Future<String?> _performRefresh() async {
-    final refreshToken = await _secureStore.readRefreshToken();
-    if (refreshToken == null || refreshToken.isEmpty) return null;
-
-    final res = await _refreshDio.post(
-      ApiEndpoints.refresh,
-      data: {'refresh_token': refreshToken},
-    );
-
-    final data = res.data;
-    if (data is! Map) return null;
-    final access = data['token'] as String?;
-    final newRefresh = data['refresh_token'] as String?;
-    if (access == null || access.isEmpty) return null;
-
-    await _secureStore.saveTokens(
-      accessToken: access,
-      refreshToken: (newRefresh != null && newRefresh.isNotEmpty)
-          ? newRefresh
-          : refreshToken,
-    );
-    return access;
-  }
-
   Future<Response<dynamic>> _retry(
     RequestOptions options,
     String accessToken,
   ) {
     final headers = Map<String, dynamic>.from(options.headers)
       ..['Authorization'] = 'Bearer $accessToken';
-    return _refreshDio.fetch(
+    // Retry on the bare Dio (no AuthInterceptor -> no refresh loop).
+    return _refresher.dio.fetch(
       options.copyWith(
         headers: headers,
         extra: {...options.extra, _retriedFlag: true},

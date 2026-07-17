@@ -181,10 +181,6 @@ class ChatRepositoryImpl implements ChatRepository {
   Stream<String> streamSummary(String conversationId, {String lang = 'en'}) =>
       _remote.streamSummary(conversationId, lang: lang);
 
-  @override
-  Stream<String> streamDraftReply(String conversationId, {String lang = 'en'}) =>
-      _remote.streamDraftReply(conversationId, lang: lang);
-
   /// Wraps a datasource call, mapping exceptions to a [Failure].
   Future<Result<T>> _guard<T>(Future<T> Function() call) async {
     try {

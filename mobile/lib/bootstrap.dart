@@ -3,6 +3,7 @@ import 'dart:io' show Platform;
 import 'package:firebase_core/firebase_core.dart';
 import 'package:firebase_messaging/firebase_messaging.dart';
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import 'app/app.dart';
@@ -18,6 +19,21 @@ import 'features/auth/presentation/controllers/auth_controller.dart';
 /// the native config files) so the foundation runs without them.
 Future<void> bootstrap() async {
   WidgetsFlutterBinding.ensureInitialized();
+
+  // Android 15 (SDK 35) draws every app edge-to-edge by default and DEPRECATES
+  // the old opaque status/nav-bar-color APIs. Opt in explicitly and paint both
+  // system bars fully transparent so our UI extends under them (Scaffold/SafeArea
+  // already inset the content) — this is exactly what the Play Console
+  // "edge-to-edge" + "deprecated window APIs" warnings ask for. iOS is unaffected.
+  SystemChrome.setEnabledSystemUIMode(SystemUiMode.edgeToEdge);
+  SystemChrome.setSystemUIOverlayStyle(const SystemUiOverlayStyle(
+    statusBarColor: Colors.transparent,
+    systemNavigationBarColor: Colors.transparent,
+    systemNavigationBarDividerColor: Colors.transparent,
+    // Let the OS pick icon contrast against our content instead of us forcing a
+    // (now-deprecated) opaque bar colour.
+    systemNavigationBarContrastEnforced: false,
+  ));
 
   // Firebase + background push handler. Wrapped so a missing/instrumented
   // config never blocks startup (e.g. running without google-services).

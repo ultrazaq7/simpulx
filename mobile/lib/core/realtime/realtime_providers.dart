@@ -12,6 +12,9 @@ final realtimeClientProvider = Provider<RealtimeClient>((ref) {
   final client = RealtimeClient(
     config: ref.watch(appConfigProvider),
     secureStore: ref.watch(secureStoreProvider),
+    // Shared with the REST layer so an expired access token gets refreshed for
+    // the socket too (single-flight — no refresh-token rotation race).
+    refreshToken: ref.watch(tokenRefresherProvider).refresh,
   );
   ref.onDispose(client.dispose);
 

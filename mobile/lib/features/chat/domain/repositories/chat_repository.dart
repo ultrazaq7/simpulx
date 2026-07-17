@@ -77,7 +77,4 @@ abstract class ChatRepository {
 
   /// Stream the AI lead summary (SSE text deltas).
   Stream<String> streamSummary(String conversationId, {String lang});
-
-  /// Stream a suggested reply draft (SSE text deltas).
-  Stream<String> streamDraftReply(String conversationId, {String lang});
 }

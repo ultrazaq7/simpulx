@@ -58,3 +58,13 @@ Thumbs.db
 
 # ── Mobile (Flutter) artifacts ──
 *.apk
+
+# compiled Go service binaries (go build output; never commit)
+/gateway
+/messaging
+/realtime
+/conversation
+services/*/gateway
+services/*/messaging
+services/*/realtime
+services/*/conversation

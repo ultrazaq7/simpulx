@@ -17,7 +17,7 @@ from typing import Optional
 # (scheduled auto follow-up) is a different call from llm.nurture (live auto-reply)
 # — different instruction, different max_tokens (256 vs 400). Merging them into
 # 'nurture' would be unrecoverable once rows are written, so they stay separate.
-FEATURES = ("extract", "nurture", "followup", "summary", "reply", "catalog")
+FEATURES = ("extract", "nurture", "followup", "summary", "catalog")
 
 # USD per 1M tokens: model id prefix -> (input, output). Longest prefix wins, so a
 # dated id ('claude-sonnet-5-20260514') resolves via its family prefix.

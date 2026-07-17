@@ -6,6 +6,7 @@ import 'package:flutter/foundation.dart';
 import '../config/app_config.dart';
 import '../storage/secure_store.dart';
 import 'auth_interceptor.dart';
+import 'token_refresher.dart';
 
 /// Configures the app-wide [Dio] instance: base URL from [AppConfig], JWT auth
 /// + refresh via [AuthInterceptor], and dev-only request logging.
@@ -13,6 +14,7 @@ class DioClient {
   DioClient({
     required AppConfig config,
     required SecureStore secureStore,
+    required TokenRefresher refresher,
     FutureOr<void> Function()? onSessionExpired,
   }) {
     final baseOptions = BaseOptions(
@@ -28,14 +30,11 @@ class DioClient {
       validateStatus: (status) => status != null && status < 400,
     );
 
-    // Plain Dio used for token refresh + retry (no AuthInterceptor -> no loop).
-    final refreshDio = Dio(baseOptions);
-
     dio = Dio(baseOptions);
     dio.interceptors.add(
       AuthInterceptor(
         secureStore: secureStore,
-        refreshDio: refreshDio,
+        refresher: refresher,
         onSessionExpired: onSessionExpired,
       ),
     );

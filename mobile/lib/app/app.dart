@@ -39,6 +39,14 @@ class _SimpulxAppState extends ConsumerState<SimpulxApp>
   bool _pushInited = false;
   static const _channel = MethodChannel('simpulx_notification');
 
+  /// Notification replies we've taken ownership of but haven't managed to send
+  /// yet (send failed, or the native buffer was consumed before we were
+  /// authenticated). The native buffer can only be drained ONCE, so once a reply
+  /// is pulled the responsibility is entirely ours — losing it here is the
+  /// "reply never actually sent" bug. Kept in memory and retried on the next
+  /// drain / app resume until it lands.
+  final List<Map<String, String>> _replyRetryQueue = [];
+
   @override
   void initState() {
     super.initState();
@@ -54,14 +62,11 @@ class _SimpulxAppState extends ConsumerState<SimpulxApp>
         final chatId = data['chatId'] as String;
         final replyText = data['replyText'] as String;
         debugPrint('[Push] onInlineReply for $chatId: $replyText');
-
-        try {
-          final chatRepo = ref.read(chatRepositoryProvider);
-          await chatRepo.sendMessage(chatId, body: replyText);
-          debugPrint('[Push] Inline reply sent successfully');
-        } catch (e) {
-          debugPrint('[Push] Error sending inline reply: $e');
-        }
+        // Queue + attempt. sendMessage returns Result (it never throws), so the
+        // old try/catch always "succeeded" even when the send failed — the reply
+        // silently vanished. Queueing means a failed send is retried, not lost.
+        _replyRetryQueue.add({'chatId': chatId, 'replyText': replyText});
+        await _flushReplyQueue();
       } else if (call.method == 'onNotificationTap') {
         final route = call.arguments as String;
         debugPrint('[Push] onNotificationTap route: $route');
@@ -111,8 +116,19 @@ class _SimpulxAppState extends ConsumerState<SimpulxApp>
     }
     final auth = ref.read(authControllerProvider.notifier);
     if (state == AppLifecycleState.resumed) {
+      // Refetch the inbox IMMEDIATELY, in parallel with the socket reconnect —
+      // don't gate the catch-up on the WebSocket handshake. Previously the resume
+      // refetch only fired after the socket RE-connected (via the status listener
+      // in ConversationListController), so every foreground had a visible ~500ms+
+      // "catching up" beat while the handshake completed. Firing the HTTP refetch
+      // now makes the list current in one round-trip; the reconnect then just
+      // restores the live stream for subsequent events.
+      ref.read(conversationListProvider.notifier).refresh();
       ref.read(realtimeClientProvider).reconnectNow();
       auth.setPresence(true);
+      // Retry any notification reply that couldn't be sent earlier (e.g. it was
+      // typed while the app was launching and not yet authenticated).
+      _flushReplyQueue();
     } else if (state == AppLifecycleState.paused ||
         state == AppLifecycleState.detached) {
       auth.setPresence(false);
@@ -140,24 +156,54 @@ class _SimpulxAppState extends ConsumerState<SimpulxApp>
   /// session) exists; consuming clears the buffer, so this can't double-send.
   Future<void> _drainPendingReplies() async {
     if (!Platform.isIOS) return;
+    // Sending needs an authenticated session (and its auth token). Draining the
+    // native buffer before the session is restored means every send fails and the
+    // reply is gone for good — exactly the killed-app case where replying from a
+    // notification matters most. Wait: _initPush calls this again right after
+    // authenticating, and so does app-resume.
+    if (ref.read(sessionControllerProvider).status !=
+        SessionStatus.authenticated) {
+      return;
+    }
     try {
-      final raw = await _channel.invokeMethod<List<dynamic>>('consumePendingReplies');
-      if (raw == null || raw.isEmpty) return;
-      final chatRepo = ref.read(chatRepositoryProvider);
-      for (final item in raw) {
-        final m = (item as Map).cast<String, dynamic>();
-        final chatId = (m['chatId'] ?? '') as String;
-        final text = (m['replyText'] ?? '') as String;
-        if (chatId.isEmpty || text.isEmpty) continue;
-        try {
-          await chatRepo.sendMessage(chatId, body: text);
-          debugPrint('[Push] pending notification reply sent for $chatId');
-        } catch (e) {
-          debugPrint('[Push] pending reply send failed: $e');
+      final raw =
+          await _channel.invokeMethod<List<dynamic>>('consumePendingReplies');
+      if (raw != null) {
+        for (final item in raw) {
+          final m = (item as Map).cast<String, dynamic>();
+          final chatId = (m['chatId'] ?? '') as String;
+          final text = (m['replyText'] ?? '') as String;
+          if (chatId.isEmpty || text.isEmpty) continue;
+          _replyRetryQueue.add({'chatId': chatId, 'replyText': text});
         }
       }
     } catch (_) {
       // No native buffer (Android) or nothing pending.
+    }
+    await _flushReplyQueue();
+  }
+
+  /// Send everything queued, keeping anything that fails for the next attempt.
+  /// A queued reply survives until it actually lands on the backend.
+  Future<void> _flushReplyQueue() async {
+    if (_replyRetryQueue.isEmpty) return;
+    if (ref.read(sessionControllerProvider).status !=
+        SessionStatus.authenticated) {
+      return; // Not authenticated yet — retry on resume / after _initPush.
+    }
+    final chatRepo = ref.read(chatRepositoryProvider);
+    final batch = List<Map<String, String>>.from(_replyRetryQueue);
+    _replyRetryQueue.clear();
+    for (final r in batch) {
+      final result = await chatRepo.sendMessage(r['chatId']!, body: r['replyText']!);
+      if (result.isErr) {
+        // sendMessage swallows errors into Result — the old code's try/catch never
+        // saw them and reported success. Re-queue so it's retried, not dropped.
+        debugPrint('[Push] reply send failed, will retry: ${result.failureOrNull}');
+        _replyRetryQueue.add(r);
+      } else {
+        debugPrint('[Push] notification reply sent for ${r['chatId']}');
+      }
     }
   }
 

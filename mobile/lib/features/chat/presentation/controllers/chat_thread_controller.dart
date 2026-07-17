@@ -4,6 +4,7 @@ import 'package:flutter/foundation.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import '../../../../core/error/failure.dart';
+import '../../../../core/realtime/realtime_client.dart';
 import '../../../../core/realtime/realtime_event.dart';
 import '../../../../core/realtime/realtime_providers.dart';
 import '../../domain/entities/message.dart';
@@ -38,13 +39,25 @@ class ThreadUiState {
 /// family so leaving the screen frees it.
 class ChatThreadController extends ChangeNotifier {
   ChatThreadController({required this.ref, required this.conversationId}) {
-    _sub = ref.read(realtimeClientProvider).events.listen(_onEvent);
+    final client = ref.read(realtimeClientProvider);
+    _sub = client.events.listen(_onEvent);
+    // The open thread stayed live ONLY off the socket's event stream, so any
+    // message that landed while the socket was down (app backgrounded, signal
+    // blip) was simply absent from the thread until you left and reopened it —
+    // the inbox refetches on reconnect but the thread never did. Reconcile the
+    // thread too, on both a reconnect and a proven sequence gap.
+    _statusSub = client.status.listen(_onStatus);
+    _gapSub = client.gaps.listen((_) => _reconcile());
     load();
   }
 
   final Ref ref;
   final String conversationId;
   late final StreamSubscription<RealtimeEvent> _sub;
+  late final StreamSubscription<RealtimeStatus> _statusSub;
+  late final StreamSubscription<int> _gapSub;
+  // Only reconcile on a RE-connect, not the first connect (load() covers that).
+  bool _everConnected = false;
 
   ThreadUiState _state = const ThreadUiState();
   ThreadUiState get state => _state;
@@ -192,6 +205,44 @@ class ChatThreadController extends ChangeNotifier {
     );
   }
 
+  void _onStatus(RealtimeStatus s) {
+    if (s != RealtimeStatus.connected) return;
+    if (_everConnected) {
+      _reconcile(); // catch up anything missed while the socket was down
+    } else {
+      _everConnected = true;
+    }
+  }
+
+  /// Pull the latest page and merge in anything the live stream missed. Preserves
+  /// already-loaded older history AND local pending (optimistic) bubbles, and
+  /// won't duplicate an outbound message that still has a pending local twin
+  /// (its status event reconciles that bubble). Cheap: a no-op when nothing's new.
+  Future<void> _reconcile() async {
+    final page = (await _repo.getMessages(conversationId, limit: 50)).valueOrNull;
+    if (page == null) return;
+    final existingIds = _state.messages.map((m) => m.id).toSet();
+    final pendingBodies = _state.messages
+        .where((m) => m.pending && m.direction == MessageDirection.outbound)
+        .map((m) => m.body.trim().toLowerCase())
+        .toSet();
+    final toAdd = <Message>[];
+    for (final m in page.messages) {
+      if (existingIds.contains(m.id)) continue;
+      if (m.direction == MessageDirection.outbound &&
+          pendingBodies.contains(m.body.trim().toLowerCase())) {
+        continue; // still-pending local twin; _onEvent will fold it in
+      }
+      toAdd.add(m);
+    }
+    if (toAdd.isEmpty) return;
+    final merged = [..._state.messages, ...toAdd]
+      ..sort((a, b) => a.createdAt.compareTo(b.createdAt));
+    _emit(_withMessages(merged));
+    // A caught-up inbound clears the inbox badge for this thread.
+    ref.read(conversationListProvider.notifier).markRead(conversationId);
+  }
+
   /// Reconcile optimistic bubbles and append inbound/other messages.
   void _onEvent(RealtimeEvent event) {
     // Delivery/read receipt: advance the exact bubble's tick live (WhatsApp
@@ -291,6 +342,8 @@ class ChatThreadController extends ChangeNotifier {
   @override
   void dispose() {
     _sub.cancel();
+    _statusSub.cancel();
+    _gapSub.cancel();
     super.dispose();
   }
 }

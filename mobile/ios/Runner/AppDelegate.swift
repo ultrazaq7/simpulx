@@ -121,9 +121,13 @@ import flutter_callkit_incoming
     SwiftFlutterCallkitIncomingPlugin.sharedInstance?.setDevicePushTokenVoIP("")
   }
 
-  // A VoIP push arrived. For "incoming" we MUST report a CallKit call before the
-  // completion handler runs (iOS kills the app otherwise). For "ended" we end the
-  // matching CallKit call instead of ringing.
+  // A VoIP push arrived. iOS 13+ HARD RULE: EVERY VoIP push must report a CallKit
+  // incoming call (reportNewIncomingCall) before this returns, or the OS kills the
+  // app — `PKPushRegistry _terminateAppIfThereAreUnhandledVoIPPushes`. That rule
+  // applies to the "ended" push too, so we ALWAYS report the call first; for
+  // "ended" we then immediately end it, which dismisses the ring without ever
+  // leaving the push unhandled. (The old code called endCall on "ended" WITHOUT
+  // reporting first — that was the SIGABRT crash on both build 23 and 24.)
   func pushRegistry(_ registry: PKPushRegistry,
                     didReceiveIncomingPushWith payload: PKPushPayload,
                     for type: PKPushType,
@@ -135,15 +139,8 @@ import flutter_callkit_incoming
     // to a fresh UUID so a malformed id still produces a valid report.
     let uuid = UUID(uuidString: callId) ?? UUID()
 
-    if event == "ended" {
-      // endCall takes a Data object (not an id string) in this plugin version.
-      let endData = flutter_callkit_incoming.Data(id: uuid.uuidString, nameCaller: "", handle: "", type: 0)
-      SwiftFlutterCallkitIncomingPlugin.sharedInstance?.endCall(endData)
-      completion()
-      return
-    }
-
-    let nameCaller = dict["nameCaller"] as? String ?? "Unknown"
+    let isEnded = event == "ended"
+    let nameCaller = isEnded ? "" : (dict["nameCaller"] as? String ?? "Unknown")
     let handle = dict["handle"] as? String ?? ""
     let conversationId = dict["conversationId"] as? String ?? ""
 
@@ -160,7 +157,19 @@ import flutter_callkit_incoming
       "callId": callId,
       "handle": handle,
     ]
-    SwiftFlutterCallkitIncomingPlugin.sharedInstance?.showCallkitIncoming(data, fromPushKit: true)
+
+    let plugin = SwiftFlutterCallkitIncomingPlugin.sharedInstance
+    // Satisfy the OS requirement first, for every push. If a call with this UUID
+    // is already ringing (the "ended" arrives while it's still up), this report is
+    // a no-op but the existing active call still counts as "handled", so the app
+    // survives either way.
+    plugin?.showCallkitIncoming(data, fromPushKit: true)
+
+    if isEnded {
+      // Now tear the ring down. Reported-then-ended in the same run loop is what
+      // WhatsApp does for a call that ends before you pick up.
+      plugin?.endCall(data)
+    }
     completion()
   }
 }

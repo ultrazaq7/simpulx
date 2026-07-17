@@ -84,8 +84,25 @@ class ConversationListController extends AsyncNotifier<List<Conversation>> {
     throw result.failureOrNull!;
   }
 
-  Future<void> refresh() async {
-    state = await AsyncValue.guard(_fetch);
+  Future<void>? _refreshInFlight;
+
+  /// Refetch the inbox, coalescing concurrent callers into ONE request. On resume
+  /// several triggers fire almost together — the immediate resume refetch, the
+  /// reconnect's catch-up refetch, and possibly a sequence-gap refetch — so
+  /// without this a single foreground hit the API 2-3x. One fetch serves them all,
+  /// which matters once there are hundreds of agents doing it at once.
+  Future<void> refresh() {
+    final existing = _refreshInFlight;
+    if (existing != null) return existing;
+    final future = () async {
+      try {
+        state = await AsyncValue.guard(_fetch);
+      } finally {
+        _refreshInFlight = null;
+      }
+    }();
+    _refreshInFlight = future;
+    return future;
   }
 
   /// Optimistically apply a lead change (stage/interest/status) so the inbox,

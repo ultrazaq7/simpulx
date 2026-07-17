@@ -44,8 +44,6 @@ class ApiEndpoints {
   static String callEnd(String id) => '/api/calls/$id/end';
   static String callInfo(String id) => '/api/calls/$id';
   static String summary(String id) => '/api/conversations/$id/summary'; // SSE
-  static String draftReply(String id) =>
-      '/api/conversations/$id/draft-reply'; // SSE
 
   // ── Pipeline ───────────────────────────────────────────
   static const stages = '/api/stages';
