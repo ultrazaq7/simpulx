@@ -1,6 +1,7 @@
 import 'dart:io';
 
 import 'package:flutter/material.dart';
+import 'package:video_player/video_player.dart';
 
 import '../../../../app/theme/app_colors.dart';
 import '../../../../core/i18n/i18n.dart';
@@ -186,7 +187,8 @@ class _MediaPreviewPageState extends State<MediaPreviewPage> {
         return InteractiveViewer(
             child: Image.file(File(item.path), fit: BoxFit.contain));
       case MessageType.video:
-        return _iconPreview(Icons.play_circle_outline, item.name);
+        // Key by path so switching thumbnails rebuilds a fresh player.
+        return _VideoPreview(key: ValueKey(item.path), path: item.path);
       default:
         return _iconPreview(Icons.insert_drive_file_outlined, item.name);
     }
@@ -207,4 +209,96 @@ class _MediaPreviewPageState extends State<MediaPreviewPage> {
           ),
         ],
       );
+}
+
+/// Plays a locally-picked video in the pre-send preview: shows the first frame
+/// once initialized, tap to play/pause, with a spinner while it loads and a
+/// clear error state instead of a blank screen if the file can't be decoded.
+class _VideoPreview extends StatefulWidget {
+  const _VideoPreview({super.key, required this.path});
+  final String path;
+
+  @override
+  State<_VideoPreview> createState() => _VideoPreviewState();
+}
+
+class _VideoPreviewState extends State<_VideoPreview> {
+  late final VideoPlayerController _controller;
+  bool _ready = false;
+  bool _failed = false;
+
+  @override
+  void initState() {
+    super.initState();
+    _controller = VideoPlayerController.file(File(widget.path))
+      ..initialize().then((_) {
+        if (mounted) setState(() => _ready = true);
+      }).catchError((_) {
+        if (mounted) setState(() => _failed = true);
+      });
+    _controller.addListener(() {
+      if (mounted) setState(() {}); // reflect play/pause on the overlay
+    });
+  }
+
+  @override
+  void dispose() {
+    _controller.dispose();
+    super.dispose();
+  }
+
+  void _toggle() {
+    if (!_ready) return;
+    setState(() {
+      _controller.value.isPlaying ? _controller.pause() : _controller.play();
+    });
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    if (_failed) {
+      return const Column(
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          Icon(Icons.videocam_off_outlined, color: Colors.white70, size: 72),
+          SizedBox(height: 12),
+          Text('Preview unavailable',
+              style: TextStyle(color: Colors.white70, fontSize: 14)),
+        ],
+      );
+    }
+    if (!_ready) {
+      return const SizedBox(
+        height: 64,
+        width: 64,
+        child: CircularProgressIndicator(color: Colors.white70, strokeWidth: 2),
+      );
+    }
+    final playing = _controller.value.isPlaying;
+    return GestureDetector(
+      onTap: _toggle,
+      child: Stack(
+        alignment: Alignment.center,
+        children: [
+          AspectRatio(
+            aspectRatio: _controller.value.aspectRatio == 0
+                ? 16 / 9
+                : _controller.value.aspectRatio,
+            child: VideoPlayer(_controller),
+          ),
+          AnimatedOpacity(
+            opacity: playing ? 0 : 1,
+            duration: const Duration(milliseconds: 150),
+            child: Container(
+              decoration: const BoxDecoration(
+                  color: Colors.black38, shape: BoxShape.circle),
+              padding: const EdgeInsets.all(12),
+              child: const Icon(Icons.play_arrow_rounded,
+                  color: Colors.white, size: 44),
+            ),
+          ),
+        ],
+      ),
+    );
+  }
 }

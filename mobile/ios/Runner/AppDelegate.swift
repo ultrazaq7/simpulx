@@ -42,6 +42,16 @@ import flutter_callkit_incoming
 
   func didInitializeImplicitFlutterEngine(_ engineBridge: FlutterImplicitEngineBridge) {
     GeneratedPluginRegistrant.register(with: engineBridge.pluginRegistry)
+
+    // Reclaim the notification-center delegate AFTER plugin registration. Both
+    // firebase_messaging and flutter_local_notifications set themselves as the
+    // UNUserNotificationCenter delegate during registration, and last-writer-wins
+    // meant our `didReceive response` override (which reads the typed reply text)
+    // never fired — so notification replies were silently dropped. Taking it back
+    // here makes us the final delegate; we handle the text reply and forward every
+    // other response to the plugins via `super`, so tap-to-open still works.
+    UNUserNotificationCenter.current().delegate = self
+
     notificationMessenger = engineBridge.pluginRegistry
       .registrar(forPlugin: "SimpulxNotificationReply")?
       .messenger()

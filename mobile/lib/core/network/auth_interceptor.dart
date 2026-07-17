@@ -81,10 +81,19 @@ class AuthInterceptor extends Interceptor {
   ) {
     final headers = Map<String, dynamic>.from(options.headers)
       ..['Authorization'] = 'Bearer $accessToken';
+    // A multipart body is a one-shot stream: the first (401'd) attempt already
+    // drained the file bytes, so replaying the same FormData would send an empty
+    // body and the server rejects it with "file required". Clone it so the retry
+    // carries a fresh stream. This is what made gallery/media uploads fail
+    // whenever the access token had expired at send time.
+    final data = options.data is FormData
+        ? (options.data as FormData).clone()
+        : options.data;
     // Retry on the bare Dio (no AuthInterceptor -> no refresh loop).
     return _refresher.dio.fetch(
       options.copyWith(
         headers: headers,
+        data: data,
         extra: {...options.extra, _retriedFlag: true},
       ),
     );

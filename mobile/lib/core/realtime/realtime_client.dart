@@ -64,8 +64,12 @@ class RealtimeClient {
   // nothing back within the liveness window, so a dead link self-heals in seconds.
   Timer? _heartbeat;
   DateTime _lastActivity = DateTime.now();
-  static const _pingInterval = Duration(seconds: 15);
-  static const _livenessTimeout = Duration(seconds: 35); // ~2 missed pings
+  // Tightened from 15s/35s: a silently-dead socket now self-heals in ~24s worst
+  // case instead of 35s, cutting the window where every event sits stale. Kept at
+  // ~2.4 missed pings of tolerance so a brief network stall (tunnel, elevator)
+  // doesn't cause a false reconnect + refetch churn.
+  static const _pingInterval = Duration(seconds: 10);
+  static const _livenessTimeout = Duration(seconds: 24);
 
   Stream<RealtimeEvent> get events => _events.stream;
   Stream<RealtimeStatus> get status => _status.stream;

@@ -308,10 +308,28 @@ class ChatRemoteDataSource {
   /// POST /api/uploads (multipart "file") -> {url, type, name}.
   Future<UploadedMedia> uploadFile(String path, {String? filename}) async {
     try {
+      // Dio does NOT auto-detect a multipart part's content type; without this
+      // the server sees application/octet-stream and files (esp. video) get
+      // stored as "document" instead of "video"/"image", so the bubble never
+      // renders a player. Set it explicitly from the extension.
+      final ct = _contentTypeFor(filename ?? path);
       final form = FormData.fromMap({
-        'file': await MultipartFile.fromFile(path, filename: filename),
+        'file': await MultipartFile.fromFile(
+          path,
+          filename: filename,
+          contentType: DioMediaType.parse(ct),
+        ),
       });
-      final res = await _dio.post(ApiEndpoints.uploads, data: form);
+      final res = await _dio.post(
+        ApiEndpoints.uploads,
+        data: form,
+        // Media (up to ~100MB video) can far outlast the default 60s send window
+        // on mobile data; give large uploads room so they don't false-fail.
+        options: Options(
+          sendTimeout: const Duration(minutes: 5),
+          receiveTimeout: const Duration(minutes: 5),
+        ),
+      );
       final m = (res.data as Map).cast<String, dynamic>();
       return UploadedMedia(
         url: asString(m['url']),
@@ -320,6 +338,49 @@ class ChatRemoteDataSource {
       );
     } on DioException catch (e) {
       throw ErrorMapper.fromDio(e);
+    }
+  }
+
+  /// Best-effort MIME from a filename/path extension. Covers the media the app
+  /// actually sends (image_picker JPGs, iOS .mov/.mp4 video, voice notes, common
+  /// documents); anything unknown falls back to octet-stream (-> "document").
+  static String _contentTypeFor(String name) {
+    final i = name.lastIndexOf('.');
+    final ext = i >= 0 ? name.substring(i + 1).toLowerCase() : '';
+    switch (ext) {
+      case 'jpg':
+      case 'jpeg':
+        return 'image/jpeg';
+      case 'png':
+        return 'image/png';
+      case 'gif':
+        return 'image/gif';
+      case 'webp':
+        return 'image/webp';
+      case 'heic':
+        return 'image/heic';
+      case 'mp4':
+        return 'video/mp4';
+      case 'mov':
+        return 'video/quicktime';
+      case 'm4v':
+        return 'video/x-m4v';
+      case '3gp':
+        return 'video/3gpp';
+      case 'm4a':
+        return 'audio/mp4';
+      case 'mp3':
+        return 'audio/mpeg';
+      case 'ogg':
+        return 'audio/ogg';
+      case 'aac':
+        return 'audio/aac';
+      case 'wav':
+        return 'audio/wav';
+      case 'pdf':
+        return 'application/pdf';
+      default:
+        return 'application/octet-stream';
     }
   }
 }

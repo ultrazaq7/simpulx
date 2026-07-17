@@ -860,6 +860,12 @@ class _VideoThumbnailState extends State<_VideoThumbnail> {
         height: 180,
         width: double.infinity,
         color: Colors.black26,
+        alignment: Alignment.center,
+        child: const SizedBox(
+          width: 24,
+          height: 24,
+          child: CircularProgressIndicator(strokeWidth: 2, color: Colors.white70),
+        ),
       );
     }
     return AspectRatio(

@@ -47,6 +47,15 @@ class _SimpulxAppState extends ConsumerState<SimpulxApp>
   /// drain / app resume until it lands.
   final List<Map<String, String>> _replyRetryQueue = [];
 
+  /// A single notification tap can arrive through two channels at nearly the
+  /// same time (the native `onNotificationTap` MethodChannel AND the
+  /// flutter_local_notifications `onTapRoute` callback). Because navigation is
+  /// async, the second call can read the old current-location and slip past the
+  /// same-route guard, pushing the same chat twice (the "Back twice" duplicate).
+  /// We dedup by remembering the last route + when we navigated to it.
+  String? _lastNavRoute;
+  DateTime? _lastNavAt;
+
   @override
   void initState() {
     super.initState();
@@ -227,15 +236,25 @@ class _SimpulxAppState extends ConsumerState<SimpulxApp>
     // Stable per-device id so the server keeps ONE token row per device
     // (reinstall/refresh replaces it) — kills duplicate push notifications.
     final deviceId = await ref.read(secureStoreProvider).deviceId();
-    final token = await push.getToken();
-    if (token != null) {
-      await repo.registerPushToken(token: token, platform: push.platform, deviceId: deviceId);
+    // Isolate FCM token acquisition: on iOS `getToken()` can throw/hang when the
+    // APNS token isn't ready yet, and it used to abort the rest of _initPush —
+    // so CallKitService.init() below never ran and the VoIP token was NEVER
+    // registered (prod had zero ios_voip tokens, so background/lockscreen calls
+    // never rang). Never let the FCM path block VoIP registration.
+    try {
+      final token = await push.getToken();
+      if (token != null) {
+        await repo.registerPushToken(token: token, platform: push.platform, deviceId: deviceId);
+      }
+      push.onTokenRefresh.listen(
+        (t) => repo.registerPushToken(token: t, platform: push.platform, deviceId: deviceId),
+      );
+    } catch (e) {
+      debugPrint('[Push] FCM token registration failed (continuing): $e');
     }
-    push.onTokenRefresh.listen(
-      (t) => repo.registerPushToken(token: t, platform: push.platform, deviceId: deviceId),
-    );
     // iOS: register the PushKit VoIP token + bridge CallKit actions to the call
-    // controller (Android uses FCM + full-screen intent instead).
+    // controller (Android uses FCM + full-screen intent instead). This is the
+    // path that actually rings incoming calls on a locked/backgrounded iPhone.
     if (Platform.isIOS) {
       await CallKitService(ref, (route) => _navigateToRoute(router, route)).init();
     }
@@ -254,6 +273,23 @@ class _SimpulxAppState extends ConsumerState<SimpulxApp>
     // lets a tap push the same thread twice, so Back lands on a duplicate).
     final currentLoc = router.routerDelegate.currentConfiguration.uri.toString();
     debugPrint('[Push] Current route: $currentLoc, navigating to: $route');
+
+    // Collapse a double-delivered tap: the same route requested again within a
+    // short window is the second channel firing, not a real second intent. This
+    // catches the race the `currentLoc` guard below can miss (navigation hasn't
+    // committed yet when the duplicate arrives). Callbacks/calls are excluded —
+    // those are intentional actions, not navigations, and are idempotent enough.
+    if (!route.startsWith('/callback/')) {
+      final now = DateTime.now();
+      if (_lastNavRoute == route &&
+          _lastNavAt != null &&
+          now.difference(_lastNavAt!) < const Duration(milliseconds: 1800)) {
+        debugPrint('[Push] Duplicate tap for $route within window, skipping');
+        return;
+      }
+      _lastNavRoute = route;
+      _lastNavAt = now;
+    }
 
     // "Call back" from a missed-call notification: start an outbound call to the
     // contact rather than navigating. The CallOverlay renders the call UI.
