@@ -103,9 +103,16 @@ LOST_REASONS = [
 ]
 
 # Conservative (high-precision) profanity — a customer being abusive, word-boundary.
+# Includes common chat abbreviations (kntl, anjg, jnck...) so an abusive troll is
+# caught deterministically and the bot stands down instead of burning a credit per
+# reply. Kept tight to unambiguous abuse; softer gibberish/trolling is handled by the
+# nurture LLM's stand_down decision, not here.
 _ABUSIVE = [r"\banjing\b", r"\bbangsat\b", r"\bkontol\b", r"\bmemek\b", r"\bgoblok\b",
             r"\btolol\b", r"\bbabi\b", r"\bngentot\b", r"\basu\b", r"\bjancok\b",
-            r"\bkampret\b", r"\bbrengsek\b", r"\bbgst\b", r"\bbangke\b"]
+            r"\bkampret\b", r"\bbrengsek\b", r"\bbgst\b", r"\bbangke\b",
+            r"\bkntl\b", r"\banjg\b", r"\bjnck\b", r"\bjancuk\b",
+            r"\bbgsd\b", r"\bbangsad\b", r"\bgblk\b", r"\bngentod\b",
+            r"\bkampang\b", r"\bkontl\b", r"\bkntol\b"]
 # Obscene / lewd (sexual) content — "konten senonoh". High-precision, word-boundary
 # so ordinary product chat is never caught. Bucketed the same as abusive (spam).
 _OBSCENE = [r"\bngewe\b", r"\bngentod\b", r"\bcoli\b", r"\bcolmek\b", r"\bsange\b",

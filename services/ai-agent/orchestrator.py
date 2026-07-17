@@ -637,6 +637,13 @@ async def _generate_and_send_reply(broker, pool, conn, org_id: str, conv_id: str
         )
     log.info("nurture replied", extra={"conv": conv_id, "handoff": result.get("ready_for_handoff")})
 
+    # Spammer/troll: the reply just sent was the closing line, so stop here. Every
+    # reply costs the customer a credit, and a lead with zero buying interest was
+    # getting one per "gkgkgk". No intake form, no handoff -- there's nobody to hand.
+    if result.get("stand_down"):
+        await _ai_stand_down_spam(pool, org_id, conv_id, log, conn=conn)
+        return
+
     # First turn: auto-send the campaign's intake form to collect full details.
     if first_turn and row["intake_form_id"]:
         await broker.publish(SUBJECT_SEND_FORM, org_id, {
@@ -708,6 +715,37 @@ def _lead_words(body: str, keywords, genuine: bool) -> str:
         if k:
             residual = re.sub(re.escape(k), " ", residual, flags=re.IGNORECASE)
     return "" if not residual.strip(_AD_RESIDUE) else residual
+
+
+async def _ai_stand_down_spam(pool, org_id: str, conv_id: str, log, conn=None) -> None:
+    """Stop serving a spammer/troll the nurture model flagged (stand_down): park the
+    lead as lost/spam and stand the bot down, so it never spends another credit on
+    someone with zero buying interest (a real case burned one reply per "gkgkgk").
+
+    Also clears unread_count: this lead is junk, so it must not sit in the agent's
+    inbox wearing an unread badge. Mirrors the rules-based junk disposition in
+    classify_and_update -- this catches what the high-precision rules can't (gibberish,
+    trolling, non-answers), which is why the model's guardrail is deliberately strict.
+    No notification: there is nothing here worth handing to a human."""
+    async with _conn_or(pool, conn) as conn:
+        stage_id = await conn.fetchval(
+            "SELECT id FROM stages WHERE organization_id = $1 AND system_key = $2",
+            org_id, "lost_not_purchase")
+        disp_id = await conn.fetchval(
+            "SELECT id FROM dispositions WHERE organization_id = $1 AND system_key = $2",
+            org_id, "spam")
+        await conn.execute(
+            """UPDATE conversations SET
+                 is_bot_active = false, classification_locked = true,
+                 interest_level = 'cold', ai_stage = 'lost_not_purchase',
+                 stage_id = COALESCE($2, stage_id),
+                 disposition_id = COALESCE(disposition_id, $3),  -- keep human-set
+                 lost_reason = COALESCE(lost_reason, 'spam_junk'),
+                 ai_reason = 'Spam/troll: tidak ada minat beli sama sekali, bot dihentikan.',
+                 unread_count = 0,
+                 updated_at = now()
+               WHERE id = $1""", conv_id, stage_id, disp_id)
+    log.info("nurture stand down (spam/troll)", extra={"conv": conv_id})
 
 
 async def _ai_handoff(broker, pool, org_id: str, conv_id: str, agent_id, log, conn=None,
@@ -878,8 +916,10 @@ async def classify_and_update(pool, org_id: str, conv_id: str, log) -> Optional[
                      WHEN $2 IN ('warm', 'hot') THEN false -- unlock if there is real buying intent
                      ELSE classification_locked
                  END,
-                 -- Junk stands the bot down immediately (no reply, no follow-up).
+                 -- Junk stands the bot down immediately (no reply, no follow-up), and
+                 -- clears the unread badge so spam never clutters the agent's inbox.
                  is_bot_active = CASE WHEN $10 = true THEN false ELSE is_bot_active END,
+                 unread_count = CASE WHEN $10 = true THEN 0 ELSE unread_count END,
                  updated_at = now()
                WHERE id = $1 AND (classification_locked = false OR $2 IN ('warm', 'hot'))""",
             conv_id, interest, stage_key, stage_id, disp_id,
