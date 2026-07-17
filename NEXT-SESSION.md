@@ -78,6 +78,32 @@ Formatnya bebas dan **gak selalu ngandung nama model**.
 
 ---
 
+## LANJUTAN SESI 2026-07-17 (bagian 2) — SELESAI + TERVERIFIKASI
+
+Dipicu 2 screenshot WA user (bot beneran ngaco di prod):
+
+| Commit | Apa | Bukti (jalur asli `/debug/reply`) |
+|---|---|---|
+| `2bcdf09` | **Opener iklan disapa, bukan dipitching** + **covered_cities** (service area campaign) | `Xforce1` (opener murni) → *"Halo, selamat datang… ada yang bisa saya bantu?"* nol varian. Sebelumnya nyodorin 6 varian ke orang yang belum ngetik apa-apa. |
+| `07458a5` | **Guard UI: gak bisa upload katalog sebelum pilih kota** + Replace nyinkron `covered_cities` + **fix regresi** | Regresi dari 2bcdf09: `genuine=false` juga nge-null-in query → gate harga ketutup → `Xforce1 Ultimate DS harganya berapa` malah *"cek ke tim"*. Fix: buang keyword, sisanya kata lead → gate kebuka. |
+| `0d4b9bc` | **Gate harga persisten** (bukan cuma pesan saat itu) | Lead nanya *"berapa termurah"*, lalu jawab *"yang ultimate CVT"* (tanpa kata harga) → tetep dapet OTR. Sebelumnya: 4 turn *"cek ke tim"* buat model yang ADA di katalog. |
+| `37091ea` | **Bot akui out-of-area, bukan ngeles** | Lead Jombang (campaign Jakarta-only) + varian → *"OTR di Jakarta Pusat Rp 342.800.000 … untuk Jombang belum tersedia karena di luar area layanan reguler kami, bisa saya bantu cek ke tim."* Sebelumnya: nol angka, nol pengakuan area. |
+
+### Yang belum kelar dari tugas 2
+- **Handoff out-of-area bisa NGE-STALL.** Handoff cuma jalan pas `fields_done` (semua qualifier
+  lengkap: brand, model, city, **purchase_timeframe**). Di kasus Jombang, `purchase_timeframe`
+  gak keekstrak ("survei, gatau kapan" gak kebaca) → `fields_done` gak pernah true → handoff
+  gak pernah jalan, bot muter terus. Perlu: entah ekstraksi timeframe diperbaiki, atau
+  out-of-area lead boleh handoff tanpa nunggu SEMUA qualifier. **Keputusan desain — obrolin.**
+- **Smart Reply (`main.py`) belum pakai `recent_text`** buat gate harga — cuma baca pesan
+  terakhir. Jadi draft Smart Reply masih bisa dodge kayak bug `0d4b9bc` yang udah difix di
+  jalur nurture. Konsisten-in.
+- **Konfirmasi Meta CTWA opener beneran `genuine=false`.** Diverifikasi buat keyword-routed
+  (`main.go` `!keywordRouted`), tapi buat referral opener asli dari Meta belum dites end-to-end
+  (butuh webhook beneran, bukan `/debug/reply`).
+
+---
+
 ## TEMUAN TERBUKA (belum digarap, urut prioritas)
 
 ### ~~1. `CATATAN AREA` telat 1-2 turn~~ — **SELESAI di `3c8356e`**
