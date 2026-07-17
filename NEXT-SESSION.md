@@ -89,6 +89,34 @@ Dipicu 2 screenshot WA user (bot beneran ngaco di prod):
 | `0d4b9bc` | **Gate harga persisten** (bukan cuma pesan saat itu) | Lead nanya *"berapa termurah"*, lalu jawab *"yang ultimate CVT"* (tanpa kata harga) → tetep dapet OTR. Sebelumnya: 4 turn *"cek ke tim"* buat model yang ADA di katalog. |
 | `37091ea` | **Bot akui out-of-area, bukan ngeles** | Lead Jombang (campaign Jakarta-only) + varian → *"OTR di Jakarta Pusat Rp 342.800.000 … untuk Jombang belum tersedia karena di luar area layanan reguler kami, bisa saya bantu cek ke tim."* Sebelumnya: nol angka, nol pengakuan area. |
 
+### UNTUK DIOBROLIN — promo dari kreatif iklan (referral Meta/TikTok Ads)
+Lead yang dateng dari iklan sering nanya nyocokin promo di GAMBAR iklannya:
+*"promonya bener? DP 10jt beneran? bunga 0% bener?"*. Sekarang bot **gak bisa jawab
+akurat** dan risikonya gede: bisa ngarang syarat, nyangkal promo yang beneran ada, atau
+ngiyain promo yang gak bisa dia verifikasi (kelas bug yang sama kayak anchoring harga).
+
+**Terverifikasi 2026-07-17:**
+- Kreatif iklan (headline, body, **image_url**, media_type) DISIMPAN di
+  `conversation_attributions` (`store.go:497`, lewat `recordAttribution`).
+- ai-agent cuma baca **COUNT** attribution buat lead scoring (`orchestrator.py:726`),
+  **gak pernah baca isi kreatifnya** ke prompt nurture. Jadi bot buta soal promo yang diiklanin.
+- Promo (DP/bunga 0%) biasanya **kebakar di GAMBAR**, bukan teks, jadi `referral_headline`/
+  `referral_body` pun sering kosong dari angka promonya.
+- Katalog punya OTR/tenor/cicilan asli, tapi **belum tentu** punya syarat promo (DP promo,
+  bunga 0%, periode) sebagai data terstruktur.
+
+**Opsi buat diobrolin (jangan langsung bangun):**
+- (A) Suapin teks kreatif (`referral_headline`/`body`) ke prompt biar bot bisa MENGAKUI apa
+  yang diiklanin, TAPI dilarang keras konfirm/nyangkal angka spesifik yang gak bisa
+  diverifikasi. Murah, tapi kalau promonya di gambar doang teksnya kosong.
+- (B) Tambah field promo terstruktur di campaign/katalog (DP promo, bunga, periode, syarat)
+  biar bot bisa konfirm dari data beneran. Paling akurat, tapi butuh input manual + UI.
+- (C) OCR/vision baca gambar iklan buat ekstrak teks promo. Paling berat.
+- (D) Default paling aman: begitu lead nyinggung promo, bot AKUI + *"biar akurat saya
+  konfirmasi dulu ke tim"* + handoff. Gak pernah ngarang/nyangkal. Bisa jalan tanpa data promo.
+Rekomendasi awal Claude: **(D) sekarang** (aman, cepat), **(B) nanti** kalau promo jadi
+fitur rutin. Tapi ini keputusan user.
+
 ### Yang belum kelar dari tugas 2
 - **Handoff out-of-area bisa NGE-STALL.** Handoff cuma jalan pas `fields_done` (semua qualifier
   lengkap: brand, model, city, **purchase_timeframe**). Di kasus Jombang, `purchase_timeframe`
