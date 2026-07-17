@@ -281,10 +281,20 @@ async def reply_stream(req: SummaryReq):
         # The customer's last message drives both variant ranking and the price gate --
         # without it every draft counts as "didn't ask", so a real price question would
         # get a draft with no price in it.
+        # recent_text mirrors the nurture path (orchestrator): a price asked one or two
+        # turns ago (before the customer answered the bot's variant/city follow-ups)
+        # still opens the gate, so a Smart Reply draft doesn't dodge a real price
+        # question just because the LAST message had no price word (bug class 0d4b9bc).
+        async with pool.acquire() as rconn:
+            recent = await rconn.fetch(
+                """SELECT body FROM messages
+                    WHERE conversation_id = $1 AND direction = 'inbound' AND genuine
+                    ORDER BY created_at DESC LIMIT 8""", req.conversation_id)
+        recent_text = " ".join(r["body"] or "" for r in recent)
         ctx = await finance_rag.get_catalog_context(
             pool, conv["campaign_id"], (_lf.get("brand") or conv["campaign_brand"]),
             _lf.get("model"), _lf.get("city"), conv["segment"],
-            query=conv["last_inbound"])
+            query=conv["last_inbound"], recent_text=recent_text)
         if ctx:
             finance_ctx = f"\n\n{ctx}\n"
 
