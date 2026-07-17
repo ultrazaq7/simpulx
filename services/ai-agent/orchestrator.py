@@ -15,7 +15,7 @@ from typing import List, Optional
 
 from simpulx_common import llm
 
-from classifier import classify, is_trivial, STRONG_INTENT, detect_junk
+from classifier import classify, is_trivial, STRONG_INTENT, detect_junk, buy_within_3mo
 import lead_score
 import llm_usage
 import segments
@@ -795,23 +795,44 @@ async def classify_and_update(pool, org_id: str, conv_id: str, log) -> Optional[
         return None
 
     async with pool.acquire() as conn:
-        ad_clicks = await conn.fetchval(
-            "SELECT count(*) FROM conversation_attributions WHERE conversation_id = $1", conv_id
-        )
         prev = await conn.fetchrow(
-            "SELECT interest_level, ai_stage, (metadata->'intent_categories') AS cats "
-            "FROM conversations WHERE id = $1", conv_id,
+            """SELECT cv.interest_level, cv.ai_stage, (cv.metadata->'intent_categories') AS cats,
+                      cv.metadata AS metadata, cmp.covered_cities, cmp.segment
+                 FROM conversations cv
+                 LEFT JOIN campaigns cmp ON cmp.id = cv.campaign_id
+                WHERE cv.id = $1""", conv_id,
         )
 
-    c = classify(msgs, ad_clicks)
+    c = classify(msgs)
     junk = detect_junk(msgs)
     is_junk = junk["is_junk"] and junk["confidence"] >= JUNK_CONF
 
     # Junk override (FR-34/BR-44): high-precision rules -> cold + spam disposition +
     # lost_reason. COALESCE keeps any human-set disposition/lost_reason; reversible via UI.
     interest = "cold" if is_junk else c["interest"]
+    # Business filters on the temperature (needs lead_fields + service area, which the
+    # pure-text classifier can't see). Order matters: out-of-area is filtered FIRST -- an
+    # out-of-area lead is never hot/warm, only a human can judge serviceability. Then buy
+    # horizon: planning to buy >3 months out (or non-committal "masih survei") is cold.
+    # HOT survives on strong intent alone (no completeness needed); WARM additionally
+    # requires the full qualifier set AND a clearly-soon horizon, so an agent only ever
+    # gets a warm lead that is genuinely ready to handle. lead_fields lags one turn (the
+    # LLM extract runs after this), which is fine: the temperature settles next turn.
+    filter_reason = None
+    if not is_junk and interest in ("hot", "warm") and prev is not None:
+        lf = _lead_fields(prev["metadata"])
+        ooa = _out_of_area_city(lf.get("city"), prev["covered_cities"])
+        horizon = buy_within_3mo(lf.get("purchase_timeframe"))
+        req = segments.required_keys(prev["segment"])
+        fields_done = bool(req) and all(lf.get(k) for k in req)
+        if ooa:
+            interest, filter_reason = "cold", f"Luar area layanan ({ooa}); serviceability perlu dicek tim."
+        elif horizon is False:
+            interest, filter_reason = "cold", "Rencana pembelian >3 bulan atau belum pasti; belum prioritas."
+        elif interest == "warm" and not (fields_done and horizon is True):
+            interest, filter_reason = "cold", "Ada minat tapi info belum lengkap / timeframe belum pasti."
     disp_key = "spam" if is_junk else c["disposition_key"]
-    reason = junk["reason"] if is_junk else c["reason"]
+    reason = junk["reason"] if is_junk else (filter_reason or c["reason"])
     confidence = junk["confidence"] if is_junk else c["confidence"]
     lost_reason = junk["lost_reason"] if is_junk else None
     # Junk (abusive / obscene / repeated spam) is terminal: alongside the 'spam'

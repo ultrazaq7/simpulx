@@ -50,6 +50,16 @@ STRONG_INTENT = {"Booking/Order", "Test Drive", "Visit/Showroom", "Strong/Closin
 # Considering-tier intent (shopping, not yet committing).
 CONSIDERING_INTENT = {"Stock/Availability", "Trade-in", "Model/Brand Interest"}
 
+# Interest TEMPERATURE tiers (a different axis from STRONG_INTENT, which drives the
+# funnel STAGE + the LLM gate). "Hot" is deliberately narrow: only commitment / visit /
+# closing signals -- someone truly ready for sales, not merely asking a price. Asking
+# price/specs/promo/docs is genuine buying interest but still shopping, so it is WARM,
+# never hot. Everything with no intent category is COLD (ambiguous). Volume (reply count)
+# and ad-clicks are NOT signals here: a chatty lead with no intent, or a bare ad click,
+# is cold. The final hot/warm/cold also passes business filters (out-of-area, buy
+# horizon, qualifier completeness) applied in the orchestrator where lead_fields live.
+HOT_INTEREST = {"Booking/Order", "Test Drive", "Visit/Showroom", "Strong/Closing"}
+
 # Off-topic: job-seekers replying to driver-recruitment ads (NOT buyers).
 OFF_TOPIC = [r"\bjadi driver\b", r"\bjadi sopir\b", r"\bmau jadi driver\b", r"\bsyarat driver\b",
              r"\blamar driver\b", r"\brekrut\b", r"\blowongan\b"]
@@ -143,7 +153,40 @@ class Classification(TypedDict):
     reason: str
 
 
-def classify(customer_messages: List[str], ad_clicks: int = 0) -> Classification:
+# Buy horizon buckets, read off the free-text purchase_timeframe the extractor stores.
+# A lead planning to buy MORE than 3 months out (or with no committed timing -- "masih
+# survei", "belum tahu") is not warm/hot yet, so the orchestrator demotes it to cold.
+# Conservative on purpose: only clear signals move the needle; anything unrecognised
+# returns None (unknown) so a strong-intent lead isn't punished for vague phrasing.
+_TF_FAR_RE = re.compile(
+    r"(survei|surve|lihat.?lihat|liat.?liat|belum\s*(tau|tahu|pasti|ada|kepikiran|kepikir)|"
+    r"ga+\s*tau|gak\s*tau|ngga?k?\s*tau|nanti|tahun\s*depan|thn\s*depan|taun\s*depan|"
+    r"akhir\s*tahun|se\s*tahun|setahun|satu\s*tahun|1\s*tahun|12\s*bulan|jangka\s*panjang|"
+    r"lebih\s*dari\s*3|>\s*3|\b([4-9]|1[0-2])\s*(bulan|bln))", re.I)
+_TF_SOON_RE = re.compile(
+    r"(secepat|segera|\basap\b|dalam\s*waktu\s*dekat|minggu\s*ini|minggu\s*depan|"
+    r"bulan\s*ini|bulan\s*depan|bln\s*ini|bln\s*depan|hari\s*ini|sekarang|"
+    r"\b([1-3])\s*(bulan|bln)\b|sebulan|dua\s*bulan|tiga\s*bulan)", re.I)
+
+
+def buy_within_3mo(timeframe) -> bool | None:
+    """True if the timeframe clearly means WITHIN ~3 months, False if it clearly means
+    beyond 3 months / non-committal, None if unknown/unrecognised. FAR is checked before
+    SOON so a mixed phrase ('mau bulan depan tapi masih survei') stays cautious."""
+    s = (timeframe or "").strip().lower()
+    if not s:
+        return None
+    if _TF_FAR_RE.search(s):
+        return False
+    if _TF_SOON_RE.search(s):
+        return True
+    return None
+
+
+def classify(customer_messages: List[str]) -> Classification:
+    # customer_messages is GENUINE-only (the caller filters ad/keyword openers), so
+    # every signal here is something the lead actually typed. Ad clicks and raw message
+    # volume are intentionally NOT inputs: neither is buying intent.
     reply_count = len(customer_messages)
     blob = "\n".join(customer_messages).lower()
 
@@ -168,12 +211,18 @@ def classify(customer_messages: List[str], ad_clicks: int = 0) -> Classification
     else:
         stage_key, confidence = "new", 0.30
 
-    # ---- interest level ----
+    # ---- interest level (temperature) ----
+    # Intent-only and strict. HOT is just the commitment/visit/closing categories;
+    # any other intent (price/specs/promo/docs/stock/trade-in/model) is WARM shopping;
+    # replied-but-no-intent is COLD (ambiguous). No volume/ad-click shortcuts. The
+    # orchestrator then applies business filters (out-of-area, buy horizon >3mo, and
+    # WARM's requirement that the qualifiers be complete) before this is stored.
+    has_hot = any(c in HOT_INTEREST for c in categories)
     if off_topic:
         interest = "cold"
-    elif has_strong or reply_count >= 5 or ad_clicks >= 3:
+    elif has_hot:
         interest = "hot"
-    elif has_intent or reply_count >= 2 or ad_clicks >= 1:
+    elif has_intent:
         interest = "warm"
     elif reply_count >= 1:
         interest = "cold"
