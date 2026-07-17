@@ -542,20 +542,27 @@ func (a *app) triggerFollowUps(ctx context.Context) {
 	//     need an approved WhatsApp template (configured per campaign). Until one
 	//     exists the ai-agent skips the send, but the count still advances so the
 	//     lead is closed out on schedule (see autoMarkNoResponseLost).
+	// The cadence above is the 'normal' baseline; each campaign scales it via
+	// campaigns.followup_frequency (off = never, low = ~1.8x slower, high = ~0.5x
+	// faster). f.factor multiplies every interval threshold.
 	rows, err := a.st.pool.Query(ctx, `
-		SELECT id::text, organization_id::text
-		FROM conversations
-		WHERE is_bot_active = true
-		  AND status = 'open'
-		  AND NOT classification_locked
-		  AND last_contact_message_at IS NOT NULL
-		  AND followup_count < 5
+		SELECT cv.id::text, cv.organization_id::text
+		FROM conversations cv
+		LEFT JOIN campaigns cmp ON cmp.id = cv.campaign_id
+		CROSS JOIN LATERAL (SELECT CASE COALESCE(cmp.followup_frequency, 'normal')
+		                             WHEN 'high' THEN 0.5 WHEN 'low' THEN 1.8 ELSE 1.0 END AS factor) f
+		WHERE cv.is_bot_active = true
+		  AND cv.status = 'open'
+		  AND NOT cv.classification_locked
+		  AND cv.last_contact_message_at IS NOT NULL
+		  AND cv.followup_count < 5
+		  AND COALESCE(cmp.followup_frequency, 'normal') <> 'off'
 		  AND (
-		    (followup_count = 0 AND last_contact_message_at < NOW() - INTERVAL '12 hours')
-		    OR (followup_count = 1 AND last_contact_message_at < NOW() - INTERVAL '20 hours')
-		    OR (followup_count = 2 AND last_contact_message_at < NOW() - INTERVAL '24 hours')
-		    OR (followup_count = 3 AND last_contact_message_at < NOW() - INTERVAL '3 days')
-		    OR (followup_count = 4 AND last_contact_message_at < NOW() - INTERVAL '7 days')
+		    (cv.followup_count = 0 AND cv.last_contact_message_at < NOW() - (INTERVAL '12 hours' * f.factor))
+		    OR (cv.followup_count = 1 AND cv.last_contact_message_at < NOW() - (INTERVAL '20 hours' * f.factor))
+		    OR (cv.followup_count = 2 AND cv.last_contact_message_at < NOW() - (INTERVAL '24 hours' * f.factor))
+		    OR (cv.followup_count = 3 AND cv.last_contact_message_at < NOW() - (INTERVAL '3 days' * f.factor))
+		    OR (cv.followup_count = 4 AND cv.last_contact_message_at < NOW() - (INTERVAL '7 days' * f.factor))
 		  )
 	`)
 	if err != nil {

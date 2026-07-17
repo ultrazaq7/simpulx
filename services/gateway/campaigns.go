@@ -103,6 +103,7 @@ func (s *server) handleGetCampaign(w http.ResponseWriter, r *http.Request) {
 		        c.lead_count, c.channel_id::text AS channel_id, c.calling_enabled,
 		        c.segment, c.brand, c.ai_auto_reply, c.ai_language, c.ai_dynamic_language, c.ai_smart_summary,
 		        c.intake_form_id::text AS intake_form_id, c.followup_template_id::text AS followup_template_id, c.monthly_budget,
+		        c.ai_style, c.followup_frequency,
 		        COALESCE((SELECT jsonb_agg(ca.user_id::text) FROM campaign_agents ca WHERE ca.campaign_id = c.id AND ca.in_rotation), '[]'::jsonb) AS agent_ids,
 		        COALESCE((SELECT jsonb_agg(ca.user_id::text) FROM campaign_agents ca WHERE ca.campaign_id = c.id AND NOT ca.in_rotation), '[]'::jsonb) AS supervisor_ids
 		   FROM campaigns c WHERE c.id = $1 AND c.organization_id = $2`,
@@ -140,6 +141,12 @@ type campaignInput struct {
 	IntakeFormID      string   `json:"intake_form_id"`
 	FollowupTemplateID string  `json:"followup_template_id"` // approved template for out-of-window follow-ups ('' keep, 'none' clear)
 	MonthlyBudget     *float64 `json:"monthly_budget"` // optional user-set monthly ad budget
+	// Per-campaign AI response tuning (persona/tone/length/goal/custom_rules). Raw
+	// JSON so the gateway just stores/forwards it; the ai-agent interprets it.
+	// nil = not sent (keep existing); {} = reset to defaults.
+	AIStyle json.RawMessage `json:"ai_style"`
+	// Auto follow-up cadence: off | low | normal | high ('' = keep existing).
+	FollowupFrequency string `json:"followup_frequency"`
 }
 
 // keywordsConflict returns the first keyword already claimed by ANOTHER campaign
@@ -236,12 +243,14 @@ func (s *server) handleUpdateCampaign(w http.ResponseWriter, r *http.Request) {
 		   ai_smart_summary = COALESCE($17, ai_smart_summary),
 		   monthly_budget = COALESCE($18, monthly_budget),
 		   followup_template_id = CASE WHEN $19 = '' THEN followup_template_id WHEN $19 = 'none' THEN NULL ELSE $19::uuid END,
+		   ai_style = COALESCE($20::jsonb, ai_style),
+		   followup_frequency = COALESCE(NULLIF($21,''), followup_frequency),
 		   updated_at = now()
 		 WHERE id=$1 AND organization_id=$2`,
 		r.PathValue("id"), a.OrgID, b.Name, b.DealerName, b.Status, b.RoutingStrategy,
 		nilIfEmptySlice(b.AdSourceIDs), nilIfEmptySlice(b.Keywords), b.ChannelID, b.CallingEnabled,
 		b.Segment, b.Brand, b.AIAutoReply, b.AILanguage, b.AIDynamicLanguage, b.IntakeFormID, b.AISmartSummary,
-		b.MonthlyBudget, b.FollowupTemplateID,
+		b.MonthlyBudget, b.FollowupTemplateID, nilIfEmptyJSON(b.AIStyle), b.FollowupFrequency,
 	)
 	if err != nil {
 		http.Error(w, err.Error(), http.StatusInternalServerError)
@@ -318,6 +327,15 @@ func nilIfEmptySlice(s []string) any {
 		return nil
 	}
 	return s
+}
+
+// nilIfEmptyJSON returns nil for an absent/empty raw JSON body (so a COALESCE keeps
+// the existing column), else the JSON string for a ::jsonb cast.
+func nilIfEmptyJSON(j json.RawMessage) any {
+	if len(j) == 0 {
+		return nil
+	}
+	return string(j)
 }
 
 // routeToCampaign attributes a conversation to a campaign and assigns the

@@ -495,6 +495,15 @@ export interface CampaignDetail extends Campaign {
   intake_form_id?: string | null;
   followup_template_id?: string | null; // approved template for out-of-window follow-ups
   monthly_budget?: number | null;      // optional user-set monthly ad budget
+  ai_style?: AIStyle | null;           // per-campaign AI response tuning
+  followup_frequency?: string;         // off | low | normal | high
+}
+export interface AIStyle {
+  persona?: string;
+  tone?: "friendly" | "professional" | "consultative" | "";
+  length?: "short" | "medium" | "";
+  goal?: string;
+  custom_rules?: string;
 }
 export interface CampaignAnalyticsRow {
   id: string;
@@ -550,6 +559,7 @@ export interface OrgRow {
   users_total: number;
   campaigns: number;
   credits_used_month: number;
+  owner_email: string | null;
 }
 
 // Platform vocabulary shared with AdAccount.platform - keep these in sync.

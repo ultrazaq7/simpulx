@@ -141,7 +141,7 @@ function OrgPanel({ mode, org, onClose, onDone, onError }: {
   const { confirm, ConfirmHost } = useConfirm();
   const [name, setName] = useState(org?.name ?? "");
   const [ownerName, setOwnerName] = useState("");
-  const [ownerEmail, setOwnerEmail] = useState("");
+  const [ownerEmail, setOwnerEmail] = useState(org?.owner_email ?? "");
   const [ownerPassword, setOwnerPassword] = useState("");
   const [pkg, setPkg] = useState(org?.package_name ?? "starter");
   const [status, setStatus] = useState(org?.status ?? "active");
@@ -157,7 +157,7 @@ function OrgPanel({ mode, org, onClose, onDone, onError }: {
     try {
       const quotas = { users: Number(users) || 0, simpuler_credits: Number(credits) || 0, custom_fields: Number(fields) || 0 };
       if (isEdit && org) {
-        await api.updateOrg(org.id, { name: name.trim(), package_name: pkg, status, quotas });
+        await api.updateOrg(org.id, { name: name.trim(), package_name: pkg, status, quotas, owner_email: ownerEmail.trim() });
         onDone("Organization updated");
       } else {
         await api.createOrg({ name: name.trim(), owner_name: ownerName.trim(), owner_email: ownerEmail.trim(), owner_password: ownerPassword, package_name: pkg, users: quotas.users, simpuler_credits: quotas.simpuler_credits, custom_fields: quotas.custom_fields });
@@ -172,6 +172,11 @@ function OrgPanel({ mode, org, onClose, onDone, onError }: {
       onApply={submit} applyLabel={isEdit ? "Save" : "Create"} applyDisabled={!canSubmit}>
       <div className="space-y-4">
         <div><FieldLabel>{t("settings.companyName")}</FieldLabel><input value={name} onChange={(e) => setName(e.target.value)} placeholder={t("settings.acmeMotors")} className={INPUT_CLASS} /></div>
+
+        {isEdit && (
+          <div><FieldLabel hint="Credit alerts & login untuk org ini dikirim ke sini">{t("settings.ownerEmail")}</FieldLabel>
+            <input type="email" value={ownerEmail} onChange={(e) => setOwnerEmail(e.target.value)} placeholder="owner@company.com" className={INPUT_CLASS} /></div>
+        )}
 
         {!isEdit && (
           <div className="rounded-lg border border-border p-3 space-y-3">

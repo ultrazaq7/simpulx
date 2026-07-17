@@ -41,6 +41,16 @@ def _lead_fields(metadata) -> dict:
             return {}
     return lf if isinstance(lf, dict) else {}
 
+
+def _ai_style(v) -> dict:
+    """Campaign ai_style jsonb -> dict (asyncpg hands jsonb back as a string)."""
+    if isinstance(v, str):
+        try:
+            v = json.loads(v)
+        except Exception:
+            return {}
+    return v if isinstance(v, dict) else {}
+
 SUBJECT_OUTBOUND = "events.message.outbound"
 SUBJECT_AI_ACTIVITY = "events.ai.activity"  # live Simpuler phase for the inbox (WS-C)
 
@@ -99,7 +109,7 @@ async def handle_inbound(broker, pool, env: dict, data: dict, log) -> None:
         conv = await conn.fetchrow(
             """SELECT cv.ai_agent_id, cv.ai_extracted_at,
                       COALESCE(cv.metadata, '{}'::jsonb) AS metadata,
-                      cmp.segment, cmp.brand AS campaign_brand,
+                      cmp.segment, cmp.brand AS campaign_brand, cmp.ai_style,
                       a.system_prompt, a.model
                  FROM conversations cv
                  LEFT JOIN ai_agents a ON a.id = cv.ai_agent_id
@@ -117,7 +127,7 @@ async def handle_inbound(broker, pool, env: dict, data: dict, log) -> None:
         await broker.publish("events.conversation.updated", org_id, {"conversation_id": conv_id})
         return
 
-    system_prompt = conv["system_prompt"] or "You are a helpful sales assistant."
+    system_prompt = (conv["system_prompt"] or "You are a helpful sales assistant.") + llm.build_style_addendum(_ai_style(conv["ai_style"]))
     history = await _load_history(pool, conv_id, message_id)
     # Every segment extracts its own qualifier fields into lead_fields, and the
     # lost_reason enum is constrained to what makes sense for this segment.
@@ -417,7 +427,7 @@ async def _nurture_now(broker, pool, org_id: str, conv_id: str, message_id, body
                       cv.campaign_id::text AS campaign_id, cv.classification_locked,
                       COALESCE(cv.metadata, '{}'::jsonb) AS metadata,
                       a.system_prompt, a.model,
-                      cmp.ai_auto_reply, cmp.segment, cmp.brand, cmp.ai_language,
+                      cmp.ai_auto_reply, cmp.segment, cmp.brand, cmp.ai_language, cmp.ai_style,
                       cmp.ai_dynamic_language, cmp.intake_form_id::text AS intake_form_id,
                       cmp.name AS campaign_name, cmp.dealer_name,
                       cmp.keywords, cmp.covered_cities,
@@ -652,7 +662,7 @@ async def _generate_and_send_reply(broker, pool, conn, org_id: str, conv_id: str
             "untuk kepastian promo & syaratnya kamu akan konfirmasi langsung ke tim. JANGAN memakai angka "
             "cicilan/DP standar dari katalog seolah-olah itu promo." + ad_text + "\n")
 
-    system_prompt = (row["system_prompt"] or "You are a helpful sales assistant.") + ctx + "\n\n" + lang_rule + finance_ctx
+    system_prompt = (row["system_prompt"] or "You are a helpful sales assistant.") + llm.build_style_addendum(_ai_style(row["ai_style"])) + ctx + "\n\n" + lang_rule + finance_ctx
     history = await _load_history(pool, conv_id, message_id, conn=conn)
     await _publish_activity(broker, org_id, conv_id, "thinking", log)
     usage: dict = {}

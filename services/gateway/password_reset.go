@@ -1,6 +1,7 @@
 package main
 
 import (
+	"context"
 	"crypto/rand"
 	"crypto/sha256"
 	"encoding/base64"
@@ -18,6 +19,46 @@ const resetTokenTTL = time.Hour
 func hashResetToken(token string) string {
 	sum := sha256.Sum256([]byte(token))
 	return hex.EncodeToString(sum[:])
+}
+
+// appBaseURL returns the public web base URL (no trailing slash) used to build
+// links in outbound emails.
+func appBaseURL() string {
+	return strings.TrimRight(config.Get("APP_BASE_URL", "http://localhost:3000"), "/")
+}
+
+// randomPassword returns a high-entropy url-safe string, used as the throwaway
+// initial password for admin-created users who will set their own via the
+// welcome link. Avoids shipping a known shared default like "changeme123".
+func randomPassword() string {
+	raw := make([]byte, 24)
+	if _, err := rand.Read(raw); err != nil {
+		// crypto/rand failure is effectively impossible; fall back to a value
+		// that is still unique per call so no two accounts share a password.
+		return base64.RawURLEncoding.EncodeToString([]byte(time.Now().Format(time.RFC3339Nano)))
+	}
+	return base64.RawURLEncoding.EncodeToString(raw)
+}
+
+// issueSetupLink mints a single-use password_reset token for a user and returns
+// the full /reset-password URL. Shared by the forgot-password flow (1h TTL) and
+// the new-user welcome flow (longer TTL, since a fresh user may not open the
+// email immediately). Only the token hash is stored; the raw token lives only in
+// the returned link.
+func (s *server) issueSetupLink(ctx context.Context, userID string, ttl time.Duration) (string, error) {
+	raw := make([]byte, 32)
+	if _, err := rand.Read(raw); err != nil {
+		return "", err
+	}
+	token := base64.RawURLEncoding.EncodeToString(raw)
+	if _, err := s.pool.Exec(ctx,
+		`INSERT INTO password_reset_tokens (user_id, token_hash, expires_at)
+		 VALUES ($1, $2, now() + $3::interval)`,
+		userID, hashResetToken(token), ttl.String(),
+	); err != nil {
+		return "", err
+	}
+	return appBaseURL() + "/reset-password?token=" + token, nil
 }
 
 // handleForgotPassword issues a single-use reset token and emails the link.
@@ -43,26 +84,12 @@ func (s *server) handleForgotPassword(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	// Random url-safe token; store only its hash.
-	raw := make([]byte, 32)
-	if _, err := rand.Read(raw); err != nil {
-		http.Error(w, "server error", http.StatusInternalServerError)
-		return
-	}
-	token := base64.RawURLEncoding.EncodeToString(raw)
-
-	if _, err := s.pool.Exec(r.Context(),
-		`INSERT INTO password_reset_tokens (user_id, token_hash, expires_at)
-		 VALUES ($1, $2, now() + $3::interval)`,
-		userID, hashResetToken(token), resetTokenTTL.String(),
-	); err != nil {
+	link, err := s.issueSetupLink(r.Context(), userID, resetTokenTTL)
+	if err != nil {
 		s.log.Error("reset token insert failed", "err", err)
 		http.Error(w, "server error", http.StatusInternalServerError)
 		return
 	}
-
-	base := strings.TrimRight(config.Get("APP_BASE_URL", "http://localhost:3000"), "/")
-	link := base + "/reset-password?token=" + token
 
 	sent, mailErr := s.sendMail(body.Email, "Reset your Simpulx password", resetEmailHTML(name, link))
 	if mailErr != nil {

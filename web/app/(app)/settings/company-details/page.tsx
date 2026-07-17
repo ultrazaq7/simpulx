@@ -117,7 +117,7 @@ function QuotaRow({ label, used, limit }: { label: string; used: number; limit?:
   );
 }
 
-type Form = { name: string; industry: string; company_size: string; website: string; support_email: string; locale: string; timezone: string; country_code: string; date_format: string; working_hours: string };
+type Form = { name: string; industry: string; company_size: string; website: string; locale: string; timezone: string; country_code: string; date_format: string; working_hours: string };
 
 export default function GeneralSettingsPage() {
   const { t } = useI18n();
@@ -141,7 +141,7 @@ export default function GeneralSettingsPage() {
   const browserTz = Intl.DateTimeFormat().resolvedOptions().timeZone;
   const tzOptions = useMemo(() => getTimezones().map((tz) => { const off = tzOffset(tz); return { value: tz, label: off ? `${tz} (${off})` : tz }; }), []);
 
-  const [form, setForm] = useState<Form>({ name: "", industry: "", company_size: "", website: "", support_email: "", locale: "en", timezone: browserTz, country_code: "62", date_format: "MM/DD/YYYY", working_hours: JSON.stringify(normalizeWH(undefined)) });
+  const [form, setForm] = useState<Form>({ name: "", industry: "", company_size: "", website: "", locale: "en", timezone: browserTz, country_code: "62", date_format: "MM/DD/YYYY", working_hours: JSON.stringify(normalizeWH(undefined)) });
   const [orig, setOrig] = useState<Form>(form);
   const set = <K extends keyof Form>(k: K, v: Form[K]) => setForm((f) => ({ ...f, [k]: v }));
   const wh = useMemo<WorkHours>(() => { try { return JSON.parse(form.working_hours); } catch { return normalizeWH(undefined); } }, [form.working_hours]);
@@ -152,7 +152,7 @@ export default function GeneralSettingsPage() {
       const s = (o.settings ?? {}) as Record<string, string>;
       const next: Form = {
         name: o.name || "", industry: s.industry || "", company_size: s.company_size || "",
-        website: s.website || "", support_email: s.support_email || "",
+        website: s.website || "",
         locale: s.locale || "en", timezone: s.timezone || browserTz, country_code: s.country_code || "62",
         date_format: s.date_format || "MM/DD/YYYY",
         working_hours: JSON.stringify(normalizeWH((o.settings as Record<string, unknown> | undefined)?.working_hours)),
@@ -168,7 +168,7 @@ export default function GeneralSettingsPage() {
     if (!form.name.trim()) { notify(t("settings.companyNameIsRequired"), "error"); return; }
     setSaving(true);
     try {
-      const next = { ...settings, industry: form.industry.trim(), company_size: form.company_size, website: form.website.trim(), support_email: form.support_email.trim(), locale: form.locale, timezone: form.timezone, country_code: form.country_code, date_format: form.date_format, working_hours: JSON.parse(form.working_hours) };
+      const next = { ...settings, industry: form.industry.trim(), company_size: form.company_size, website: form.website.trim(), locale: form.locale, timezone: form.timezone, country_code: form.country_code, date_format: form.date_format, working_hours: JSON.parse(form.working_hours) };
       await api.updateOrganization({ name: form.name.trim(), settings: next });
       setSettings(next); setOrig(form); setLang(form.locale);
       try { localStorage.setItem("simpulx_date_format", form.date_format); } catch { /* ignore */ }
@@ -198,7 +198,6 @@ export default function GeneralSettingsPage() {
             <div><label className={LBL}>{t("settings.industry")}</label><input value={form.industry} onChange={(e) => set("industry", e.target.value)} placeholder={t("settings.eGAutomotive")} className={INPUT} /></div>
             <div><label className={LBL}>{t("settings.companySize")}</label><Select value={form.company_size} onChange={(v) => set("company_size", v)} options={COMPANY_SIZES} searchable={false} /></div>
             <div><label className={LBL}>{t("dashboard.website")}</label><input type="url" value={form.website} onChange={(e) => set("website", e.target.value)} placeholder="https://example.com" className={INPUT} /></div>
-            <div><label className={LBL}>{t("settings.supportEmail")}</label><input type="email" value={form.support_email} onChange={(e) => set("support_email", e.target.value)} placeholder="support@example.com" className={INPUT} /></div>
           </div>
         </Section>
 

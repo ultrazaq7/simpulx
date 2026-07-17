@@ -485,10 +485,22 @@ export const api = {
   listCampaigns: () => req<Campaign[]>("/api/campaigns"),
   getCampaignAnalytics: () => req<CampaignAnalyticsRow[]>("/api/analytics/campaigns"),
   getCampaign: (id: string) => req<CampaignDetail>(`/api/campaigns/${id}`),
-  getCampaignCredits: (id: string) => req<{ allocated_credits: number; used_credits: number; low_balance_threshold: number; remaining_credits: number }>(`/api/campaigns/${id}/credits`),
+  getCampaignCredits: (id: string) => req<{ allocated_credits: number; used_credits: number; low_balance_threshold: number; remaining_credits: number; org_total_credits: number; allocated_elsewhere: number }>(`/api/campaigns/${id}/credits`),
   allocateCampaignCredits: (id: string, input: { allocated_credits?: number; low_balance_threshold?: number }) =>
     req(`/api/campaigns/${id}/credits/allocate`, { method: "POST", body: JSON.stringify(input) }),
-  getCampaignUsage: (id: string) => req<{ day: string; credits: number }[]>(`/api/campaigns/${id}/usage`),
+  getCampaignUsage: (id: string, range?: { from?: string; to?: string }) => {
+    const q = new URLSearchParams();
+    if (range?.from) q.set("from", range.from);
+    if (range?.to) q.set("to", range.to);
+    const qs = q.toString();
+    return req<{ from: string; to: string; rows: { day: string; feature: string; count: number; cost_usd: string }[] }>(
+      `/api/campaigns/${id}/usage${qs ? "?" + qs : ""}`,
+    );
+  },
+  // ── Per-campaign AI response tuning (ai_style) ──
+  suggestAIStyle: (id: string) => req<{ style: Record<string, string> }>(`/api/campaigns/${id}/ai-style/suggest`, { method: "POST" }),
+  previewAIStyle: (id: string, style: Record<string, string>, message: string) =>
+    req<{ reply: string }>(`/api/campaigns/${id}/ai-style/preview`, { method: "POST", body: JSON.stringify({ style, message }) }),
   // ── Segment-generic campaign catalog / KB (per-campaign pricing) ──
   getCampaignCatalog: (id: string) => req<CatalogItem[]>(`/api/campaigns/${id}/catalog`),
   uploadCampaignCatalog: (id: string, input: { effective_month?: string; source_ref?: string; segment?: string; replace?: boolean; rows: { item_name: string; variant_name?: string; location_name?: string; category_type?: string; headline_price?: number | null; attributes?: Record<string, unknown> }[] }) =>
@@ -520,12 +532,12 @@ export const api = {
   listOrgs: () => req<OrgRow[]>("/api/platform/orgs"),
   createOrg: (input: { name: string; owner_name?: string; owner_email: string; owner_password: string; package_name?: string; users?: number; simpuler_credits?: number; custom_fields?: number }) =>
     req<{ id: string; slug: string; owner_id: string }>("/api/platform/orgs", { method: "POST", body: JSON.stringify(input) }),
-  updateOrg: (id: string, patch: { name?: string; package_name?: string; status?: string; renewal_date?: string; quotas?: Record<string, number> }) =>
+  updateOrg: (id: string, patch: { name?: string; package_name?: string; status?: string; renewal_date?: string; quotas?: Record<string, number>; owner_email?: string }) =>
     req(`/api/platform/orgs/${id}`, { method: "PATCH", body: JSON.stringify(patch) }),
   deleteOrg: (id: string) => req(`/api/platform/orgs/${id}`, { method: "DELETE" }),
   createCampaign: (input: { name: string; dealer_name?: string; routing_strategy?: string; channel_id?: string; ad_source_ids?: string[]; keywords?: string[]; agent_ids?: string[]; supervisor_ids?: string[]; calling_enabled?: boolean }) =>
     req<{ id: string }>("/api/campaigns", { method: "POST", body: JSON.stringify(input) }),
-  updateCampaign: (id: string, patch: { name?: string; dealer_name?: string; status?: string; routing_strategy?: string; channel_id?: string; ad_source_ids?: string[]; keywords?: string[]; agent_ids?: string[]; supervisor_ids?: string[]; calling_enabled?: boolean; segment?: string; brand?: string; ai_auto_reply?: boolean; ai_language?: string; ai_dynamic_language?: boolean; ai_smart_summary?: boolean; intake_form_id?: string; followup_template_id?: string; monthly_budget?: number | null }) =>
+  updateCampaign: (id: string, patch: { name?: string; dealer_name?: string; status?: string; routing_strategy?: string; channel_id?: string; ad_source_ids?: string[]; keywords?: string[]; agent_ids?: string[]; supervisor_ids?: string[]; calling_enabled?: boolean; segment?: string; brand?: string; ai_auto_reply?: boolean; ai_language?: string; ai_dynamic_language?: boolean; ai_smart_summary?: boolean; intake_form_id?: string; followup_template_id?: string; monthly_budget?: number | null; ai_style?: import("./types").AIStyle; followup_frequency?: string }) =>
     req(`/api/campaigns/${id}`, { method: "PATCH", body: JSON.stringify(patch) }),
   deleteCampaign: (id: string) => req(`/api/campaigns/${id}`, { method: "DELETE" }),
   // ── Branches (sub-units of a campaign) ──

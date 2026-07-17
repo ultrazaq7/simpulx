@@ -91,7 +91,9 @@ func (s *server) handleListOrgs(w http.ResponseWriter, r *http.Request) {
 		        (SELECT count(*) FROM users u     WHERE u.organization_id=o.id)                        AS users_total,
 		        (SELECT count(*) FROM campaigns c WHERE c.organization_id=o.id)                        AS campaigns,
 		        (SELECT count(*) FROM messages m  WHERE m.organization_id=o.id AND m.sender_type='bot'
-		            AND m.created_at >= date_trunc('month', now()))                                    AS credits_used_month
+		            AND m.created_at >= date_trunc('month', now()))                                    AS credits_used_month,
+		        (SELECT u.email FROM users u WHERE u.organization_id=o.id AND u.role='owner'
+		            ORDER BY u.created_at LIMIT 1)                                                      AS owner_email
 		   FROM organizations o
 		   LEFT JOIN org_subscriptions os ON os.organization_id=o.id
 		  ORDER BY o.created_at DESC`)
@@ -219,10 +221,21 @@ func (s *server) handleUpdateOrg(w http.ResponseWriter, r *http.Request) {
 		Status      string          `json:"status"`
 		RenewalDate string          `json:"renewal_date"`
 		Quotas      json.RawMessage `json:"quotas"`
+		OwnerEmail  string          `json:"owner_email"`
 	}
 	if err := json.NewDecoder(r.Body).Decode(&b); err != nil {
 		http.Error(w, "bad request", http.StatusBadRequest)
 		return
+	}
+	// Owner email (credit alerts + login) is editable here so a superadmin can fix a
+	// typo or hand an org over. Updates the org's owner user in place.
+	if e := strings.TrimSpace(b.OwnerEmail); e != "" {
+		if _, err := s.pool.Exec(r.Context(),
+			`UPDATE users SET email=lower($2), updated_at=now()
+			  WHERE organization_id=$1::uuid AND role='owner'`, orgID, e); err != nil {
+			http.Error(w, "owner email: "+err.Error(), http.StatusBadRequest)
+			return
+		}
 	}
 	if strings.TrimSpace(b.Name) != "" {
 		if _, err := s.pool.Exec(r.Context(),

@@ -744,3 +744,88 @@ async def nurture(system_prompt: str, history: Optional[List[dict]],
     reply = (obj.get("reply") or "").strip() or _salvage_reply(text)
     return {"reply": _normalize_dashes(reply), "ready_for_handoff": bool(obj.get("ready_for_handoff")),
             "stand_down": bool(obj.get("stand_down"))}
+
+
+# ── Per-campaign AI response tuning (ai_style) ─────────────────────────────────
+# A campaign's ai_style JSON (persona/tone/length/goal/custom_rules) is folded into
+# the nurture + analyze system prompt so each campaign sounds distinct and on-brief.
+
+_TONE_LABELS = {
+    "friendly": "ramah, hangat, santai tapi tetap sopan dan profesional",
+    "professional": "profesional, ringkas, langsung ke inti, tepercaya",
+    "consultative": "konsultatif: menggali kebutuhan lead, mengedukasi, membimbing ke keputusan",
+}
+_LENGTH_LABELS = {
+    "short": "sangat singkat (1-2 kalimat)",
+    "medium": "singkat-sedang (2-4 kalimat)",
+}
+
+
+def build_style_addendum(ai_style: Optional[dict]) -> str:
+    """Turn a campaign's ai_style JSON into a system-prompt block. Empty/None -> ''
+    (no behaviour change). Only non-empty, known fields are emitted."""
+    if not isinstance(ai_style, dict) or not ai_style:
+        return ""
+    parts: list[str] = []
+    persona = str(ai_style.get("persona") or "").strip()
+    tone = str(ai_style.get("tone") or "").strip()
+    length = str(ai_style.get("length") or "").strip()
+    goal = str(ai_style.get("goal") or "").strip()
+    rules = str(ai_style.get("custom_rules") or "").strip()
+    if persona:
+        parts.append(f"- Persona kamu: {persona}")
+    if tone in _TONE_LABELS:
+        parts.append(f"- Nada bicara: {_TONE_LABELS[tone]}")
+    if length in _LENGTH_LABELS:
+        parts.append(f"- Panjang balasan: {_LENGTH_LABELS[length]}")
+    if goal:
+        parts.append(f"- Tujuan utama percakapan: {goal}")
+    if rules:
+        parts.append(f"- Aturan khusus campaign ini (WAJIB diikuti): {rules}")
+    if not parts:
+        return ""
+    return "\n\nGAYA RESPON UNTUK CAMPAIGN INI (prioritaskan ini di atas gaya default):\n" + "\n".join(parts)
+
+
+STYLE_SUGGEST_INSTRUCTION = (
+    "Kamu konsultan yang menyetel asisten AI penjualan WhatsApp untuk satu campaign. "
+    "Dari setup campaign (segmen bisnis, brand, dealer, contoh katalog), rekomendasikan "
+    "GAYA RESPON AI TERBAIK untuk memaksimalkan konversi lead.\n"
+    "persona: 1-2 kalimat, siapa si AI (mis. 'Sales consultant Mitsubishi yang paham produk & pembiayaan'). "
+    "tone: pilih SATU dari friendly|professional|consultative. "
+    "length: pilih SATU dari short|medium. "
+    "goal: 1 kalimat tujuan utama percakapan yang paling relevan (mis. 'Ajak lead simulasi kredit lalu jadwalkan test drive'). "
+    "custom_rules: 2-4 aturan do/don't spesifik segmen/brand ini, satu kalimat masing-masing, digabung jadi satu string.\n"
+    "Bahasa Indonesia, padat & actionable. "
+    'Balas HANYA JSON: {"persona": string, "tone": string, "length": string, "goal": string, "custom_rules": string}.'
+)
+
+
+async def suggest_style(context: str, model: Optional[str] = None,
+                        usage_out: Optional[dict] = None) -> dict:
+    """Sonnet proposes a recommended ai_style from the campaign setup `context`.
+    Returns a dict with persona/tone/length/goal/custom_rules (or {} without a live LLM)."""
+    if not (settings.llm_provider == "anthropic" and settings.anthropic_api_key):
+        return {}
+    system = [{"type": "text", "text": STYLE_SUGGEST_INSTRUCTION, "cache_control": {"type": "ephemeral"}}]
+    text = await _anthropic_raw(system, [], context, await _resolve_model(model), 700, usage_out)
+    obj = _parse_json(text)
+    if not isinstance(obj, dict):
+        return {}
+    out = {k: str(obj.get(k) or "").strip() for k in ("persona", "tone", "length", "goal", "custom_rules")}
+    if out.get("tone") not in _TONE_LABELS:
+        out["tone"] = "consultative"
+    if out.get("length") not in _LENGTH_LABELS:
+        out["length"] = "medium"
+    return out
+
+
+async def preview_reply(system_prompt: str, ai_style: Optional[dict], message: str,
+                        segment_guidance: str = "", model: Optional[str] = None,
+                        usage_out: Optional[dict] = None) -> str:
+    """Generate ONE sample nurture reply to `message` applying the draft `ai_style`,
+    so the user can tune before saving. Reuses the real nurture path so the preview
+    reflects live behaviour."""
+    sp = (system_prompt or "You are a helpful sales assistant.") + build_style_addendum(ai_style)
+    res = await nurture(sp, [], message, model=model, segment_guidance=segment_guidance, usage_out=usage_out)
+    return res.get("reply") or ""

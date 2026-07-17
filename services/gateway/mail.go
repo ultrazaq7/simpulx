@@ -65,6 +65,23 @@ func resetEmailHTML(name, link string) string {
 </div>`, name, link, link, link)
 }
 
+// welcomeEmailHTML greets a freshly created user and points them at a
+// set-password link so they choose their own credentials on first sign-in.
+func welcomeEmailHTML(name, link, email string) string {
+	if name == "" {
+		name = "there"
+	}
+	return fmt.Sprintf(`<div style="font-family:Arial,Helvetica,sans-serif;max-width:480px;margin:0 auto;padding:24px;color:#1a1a1a">
+  <h2 style="margin:0 0 8px">Welcome to Simpulx</h2>
+  <p style="color:#555;font-size:14px;line-height:1.6">Hi %s, an account has been created for you on Simpulx with the email <b>%s</b>. Click the button below to set your password and sign in. This link expires in 7 days.</p>
+  <p style="margin:24px 0">
+    <a href="%s" style="background:#2D8B73;color:#fff;text-decoration:none;padding:12px 24px;border-radius:8px;font-weight:600;display:inline-block">Set your password</a>
+  </p>
+  <p style="color:#888;font-size:12px;line-height:1.6">If the button does not work, copy this link into your browser:<br><a href="%s" style="color:#2D8B73">%s</a></p>
+  <p style="color:#888;font-size:12px;margin-top:24px">If you were not expecting this, you can safely ignore this email.</p>
+</div>`, name, email, link, link, link)
+}
+
 func emailChangeHTML(name, link, newEmail string) string {
 	if name == "" {
 		name = "there"

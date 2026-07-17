@@ -21,6 +21,7 @@ from simpulx_common.settings import settings
 
 import llm_usage
 import orchestrator
+import segments
 
 logging.basicConfig(level=logging.INFO, format="%(asctime)s %(levelname)s %(message)s")
 log = logging.getLogger("ai-agent")
@@ -166,6 +167,73 @@ async def extract_catalog(req: ExtractCatalogReq):
         await flush_usage()
 
     return StreamingResponse(gen(), media_type="text/event-stream")
+
+
+# ── AI response tuning (per-campaign ai_style) ─────────────────────────────────
+
+class StyleSuggestReq(BaseModel):
+    org_id: str
+    campaign_id: str
+
+
+@app.post("/style/suggest")
+async def style_suggest(req: StyleSuggestReq):
+    """Sonnet reads the campaign setup + a catalog sample and proposes a recommended
+    ai_style {persona, tone, length, goal, custom_rules} the user can review + apply."""
+    pool = state["pool"]
+    async with pool.acquire() as conn:
+        c = await conn.fetchrow(
+            """SELECT c.name, c.segment, c.brand, c.dealer_name
+                 FROM campaigns c WHERE c.id=$1::uuid AND c.organization_id=$2""",
+            req.campaign_id, req.org_id)
+        cat = await conn.fetch(
+            """SELECT item_name, variant_name FROM campaign_catalog
+                WHERE campaign_id=$1::uuid ORDER BY created_at LIMIT 12""", req.campaign_id)
+    if c is None:
+        return {"style": {}}
+    lines = [f"Nama campaign: {c['name'] or '-'}"]
+    if c["segment"]:
+        lines.append(f"Segmen bisnis: {c['segment']}")
+    if c["brand"]:
+        lines.append(f"Brand/produk: {c['brand']}")
+    if c["dealer_name"]:
+        lines.append(f"Dealer/bisnis: {c['dealer_name']}")
+    if cat:
+        items = "; ".join(
+            (r["item_name"] or "") + ((" " + r["variant_name"]) if r["variant_name"] else "")
+            for r in cat if r["item_name"])
+        if items:
+            lines.append(f"Contoh item katalog: {items}")
+    style = await llm.suggest_style("\n".join(lines))
+    return {"style": style}
+
+
+class StylePreviewReq(BaseModel):
+    org_id: str
+    campaign_id: str
+    style: dict | None = None
+    message: str = ""
+
+
+@app.post("/style/preview")
+async def style_preview(req: StylePreviewReq):
+    """Generate ONE sample nurture reply to `message` applying the DRAFT `style`, so
+    the user can tune before saving."""
+    pool = state["pool"]
+    async with pool.acquire() as conn:
+        c = await conn.fetchrow(
+            """SELECT c.segment,
+                      (SELECT a.system_prompt FROM ai_agents a
+                        WHERE a.organization_id=$2 ORDER BY a.created_at LIMIT 1) AS system_prompt
+                 FROM campaigns c WHERE c.id=$1::uuid AND c.organization_id=$2""",
+            req.campaign_id, req.org_id)
+    segment = c["segment"] if c else None
+    sp = (c["system_prompt"] if c and c["system_prompt"] else "You are a helpful sales assistant.")
+    guidance = segments.nurture_guidance(segment) if segment else ""
+    reply = await llm.preview_reply(
+        sp, req.style, req.message or "Halo, saya tertarik. Boleh info harganya?",
+        segment_guidance=guidance)
+    return {"reply": reply}
 
 
 class SummaryReq(BaseModel):

@@ -1,8 +1,11 @@
 package main
 
 import (
+	"encoding/csv"
 	"encoding/json"
+	"fmt"
 	"net/http"
+	"time"
 )
 
 // ── Simpuler credits: org subscription pool + per-campaign allocation (WS-F / Phase 10) ──
@@ -77,7 +80,15 @@ func (s *server) handleGetCampaignCredits(w http.ResponseWriter, r *http.Request
 		 ON CONFLICT (campaign_id) DO NOTHING`, cid, a.OrgID)
 	rows, err := s.queryMaps(r.Context(),
 		`SELECT cc.allocated_credits, cc.used_credits, cc.low_balance_threshold,
-		        (cc.allocated_credits - cc.used_credits) AS remaining_credits
+		        (cc.allocated_credits - cc.used_credits) AS remaining_credits,
+		        -- Org-wide monthly Simpuler-credit pool (subscription quota) and how
+		        -- much is already allocated to OTHER campaigns, so a campaign can never
+		        -- be given more than the org actually has left to hand out.
+		        COALESCE((SELECT (quotas->>'simpuler_credits')::int
+		                    FROM org_subscriptions WHERE organization_id=$2), 0) AS org_total_credits,
+		        COALESCE((SELECT sum(cc2.allocated_credits)::int
+		                    FROM campaign_credits cc2 JOIN campaigns c2 ON c2.id=cc2.campaign_id
+		                   WHERE c2.organization_id=$2 AND cc2.campaign_id <> $1::uuid), 0) AS allocated_elsewhere
 		   FROM campaign_credits cc JOIN campaigns c ON c.id=cc.campaign_id
 		  WHERE cc.campaign_id=$1::uuid AND c.organization_id=$2`, cid, a.OrgID)
 	if err != nil {
@@ -103,6 +114,24 @@ func (s *server) handleAllocateCampaignCredits(w http.ResponseWriter, r *http.Re
 		http.Error(w, "bad request", http.StatusBadRequest)
 		return
 	}
+	// Cap: a campaign can't be allocated more than the org's remaining pool
+	// (org total Simpuler credits minus what's already allocated to OTHER
+	// campaigns). Without this the sum of allocations could exceed the pool the
+	// org actually pays for.
+	if b.AllocatedCredits != nil {
+		var orgTotal, allocElsewhere int
+		_ = s.pool.QueryRow(r.Context(),
+			`SELECT COALESCE((SELECT (quotas->>'simpuler_credits')::int
+			                    FROM org_subscriptions WHERE organization_id=$1), 0),
+			        COALESCE((SELECT sum(cc2.allocated_credits)::int
+			                    FROM campaign_credits cc2 JOIN campaigns c2 ON c2.id=cc2.campaign_id
+			                   WHERE c2.organization_id=$1 AND cc2.campaign_id <> $2::uuid), 0)`,
+			a.OrgID, cid).Scan(&orgTotal, &allocElsewhere)
+		if avail := orgTotal - allocElsewhere; *b.AllocatedCredits > avail {
+			http.Error(w, fmt.Sprintf("allocation exceeds org credit pool: only %d of %d credits available (rest allocated to other campaigns)", avail, orgTotal), http.StatusBadRequest)
+			return
+		}
+	}
 	tag, err := s.pool.Exec(r.Context(),
 		`INSERT INTO campaign_credits (campaign_id, allocated_credits, low_balance_threshold)
 		   SELECT id, COALESCE($3,0), COALESCE($4,50) FROM campaigns WHERE id=$1::uuid AND organization_id=$2
@@ -122,19 +151,71 @@ func (s *server) handleAllocateCampaignCredits(w http.ResponseWriter, r *http.Re
 	writeJSON(w, map[string]any{"status": "updated"})
 }
 
-// GET /api/campaigns/{id}/usage — daily Simpuler-reply counts (last 30 days) for the chart.
+// usageRange resolves the ?from=&to= (YYYY-MM-DD, workspace-local) window for the
+// usage endpoints, defaulting to the last 30 days. `to` is inclusive (we add a day
+// in the query). Both are returned as date strings for the SQL casts.
+func usageRange(r *http.Request) (from, to string) {
+	to = r.URL.Query().Get("to")
+	from = r.URL.Query().Get("from")
+	if to == "" {
+		to = time.Now().Format("2006-01-02")
+	}
+	if from == "" {
+		from = time.Now().AddDate(0, 0, -30).Format("2006-01-02")
+	}
+	return from, to
+}
+
+// campaignUsageRows returns per-day, per-feature AI usage for one campaign, joined
+// from the llm_usage ledger via conversations. Feature ∈ nurture/followup/extract/
+// summary; nurture+followup are the credit-consuming customer replies. Catalog has
+// no conversation so it never maps to a campaign here (it's a one-off setup cost).
+func (s *server) campaignUsageRows(r *http.Request, orgID, cid, from, to string) ([]map[string]any, error) {
+	return s.queryMaps(r.Context(),
+		`SELECT to_char(date_trunc('day', lu.created_at), 'YYYY-MM-DD') AS day,
+		        lu.feature,
+		        count(*)::int AS count,
+		        COALESCE(sum(lu.cost_usd), 0)::numeric(12,4) AS cost_usd
+		   FROM llm_usage lu
+		   JOIN conversations cv ON cv.id = lu.conversation_id
+		  WHERE lu.organization_id = $1 AND cv.campaign_id = $2::uuid
+		    AND lu.created_at >= $3::date AND lu.created_at < ($4::date + 1)
+		  GROUP BY 1, 2 ORDER BY 1, 2`, orgID, cid, from, to)
+}
+
+// GET /api/campaigns/{id}/usage?from=&to= — daily per-feature AI usage for the chart.
 func (s *server) handleCampaignUsage(w http.ResponseWriter, r *http.Request) {
 	a, _ := authFrom(r.Context())
 	cid := r.PathValue("id")
-	rows, err := s.queryMaps(r.Context(),
-		`SELECT to_char(date_trunc('day', m.created_at), 'YYYY-MM-DD') AS day, count(*)::int AS credits
-		   FROM messages m JOIN conversations cv ON cv.id=m.conversation_id
-		  WHERE m.organization_id=$1 AND m.sender_type='bot' AND cv.campaign_id=$2::uuid
-		    AND m.created_at >= now() - interval '30 days'
-		  GROUP BY 1 ORDER BY 1`, a.OrgID, cid)
+	from, to := usageRange(r)
+	rows, err := s.campaignUsageRows(r, a.OrgID, cid, from, to)
 	if err != nil {
 		http.Error(w, err.Error(), http.StatusInternalServerError)
 		return
 	}
-	writeJSON(w, rows)
+	writeJSON(w, map[string]any{"from": from, "to": to, "rows": rows})
+}
+
+// GET /api/campaigns/{id}/usage.csv?from=&to= — same data as a CSV download.
+func (s *server) handleCampaignUsageCSV(w http.ResponseWriter, r *http.Request) {
+	a, _ := authFrom(r.Context())
+	cid := r.PathValue("id")
+	from, to := usageRange(r)
+	rows, err := s.campaignUsageRows(r, a.OrgID, cid, from, to)
+	if err != nil {
+		http.Error(w, err.Error(), http.StatusInternalServerError)
+		return
+	}
+	w.Header().Set("Content-Type", "text/csv; charset=utf-8")
+	w.Header().Set("Content-Disposition",
+		fmt.Sprintf("attachment; filename=\"usage_%s_%s_to_%s.csv\"", cid[:8], from, to))
+	cw := csv.NewWriter(w)
+	_ = cw.Write([]string{"date", "feature", "count", "cost_usd"})
+	for _, m := range rows {
+		cw.Write([]string{
+			fmt.Sprint(m["day"]), fmt.Sprint(m["feature"]),
+			fmt.Sprint(m["count"]), fmt.Sprint(m["cost_usd"]),
+		})
+	}
+	cw.Flush()
 }

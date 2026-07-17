@@ -2,15 +2,16 @@
 import { useI18n } from "@/lib/i18n";
 // Campaign detail = SETUP only (Credits, AI Assistant, Catalog). All reporting
 // lives on the Dashboard, so this page has no report/PDF anymore.
-import { useEffect, useRef, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import { useParams, useRouter, useSearchParams } from "next/navigation";
-import { ArrowLeft, Loader2, Coins, Sparkles, Database, Upload, Trash2, X, MapPin, Search } from "lucide-react";
+import { ArrowLeft, Loader2, Coins, Sparkles, Database, Upload, Trash2, X, MapPin, Search, Download } from "lucide-react";
 import * as XLSX from "xlsx";
+import { BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip as RTooltip, ResponsiveContainer } from "recharts";
 import { api } from "@/lib/api";
 import { ID_CITIES, ID_CITY_GROUPS } from "@/lib/idCities";
 import { Select } from "@/components/Select";
 import { cn } from "@/lib/utils";
-import type { CampaignDetail, CatalogItem, Template } from "@/lib/types";
+import type { CampaignDetail, CatalogItem, Template, AIStyle } from "@/lib/types";
 import { useToast, PageBody, FieldLabel, INPUT_CLASS } from "../../_shared";
 import { Tip } from "@/components/ui/tooltip";
 import { useConfirm } from "@/components/ConfirmDialog";
@@ -18,6 +19,40 @@ import UnsavedBar from "@/components/UnsavedBar";
 
 const SEGMENTS = ["Automotive", "Property / Real Estate", "Finance", "Insurance", "Retail / FMCG", "Education", "Healthcare", "Travel & Hospitality", "Food & Beverage", "Services", "Other"];
 type Tab = "credits" | "ai" | "catalog";
+
+// AI usage features in FIXED order (= stack order + legend order + color order).
+// Palette validated with the dataviz skill: CVD-safe adjacency + >=3:1 contrast on
+// BOTH the light and dark chart surface. nurture/followup are the credit-consuming
+// customer replies; extract/summary are internal AI work (not billed to credits).
+const USAGE_FEATURES = [
+  { key: "nurture", label: "Nurture", color: "#0E9E70" },
+  { key: "followup", label: "Follow-up", color: "#2563EB" },
+  { key: "extract", label: "Extract", color: "#B8730E" },
+  { key: "summary", label: "Summary", color: "#7C3AED" },
+] as const;
+
+// Custom chart tooltip: the day + per-feature counts + total, in text tokens (never
+// the series colour) with a coloured swatch carrying identity.
+function UsageTooltip({ active, payload, label }: { active?: boolean; payload?: { name: string; value: number; color: string }[]; label?: string }) {
+  if (!active || !payload?.length) return null;
+  const total = payload.reduce((s, p) => s + (p.value || 0), 0);
+  return (
+    <div className="rounded-lg border border-border bg-popover px-3 py-2 shadow-md text-[12px]">
+      <p className="font-semibold text-foreground mb-1">{label}</p>
+      {payload.filter((p) => p.value > 0).map((p) => (
+        <div key={p.name} className="flex items-center gap-2">
+          <span className="inline-block w-2.5 h-2.5 rounded-sm" style={{ background: p.color }} />
+          <span className="text-muted-foreground">{p.name}</span>
+          <span className="ml-auto font-medium tabular-nums text-foreground">{p.value}</span>
+        </div>
+      ))}
+      <div className="mt-1 pt-1 border-t border-border flex justify-between gap-6">
+        <span className="text-muted-foreground">Total</span>
+        <span className="font-semibold tabular-nums text-foreground">{total}</span>
+      </div>
+    </div>
+  );
+}
 
 export default function CampaignDetailPage() {
   const { t } = useI18n();
@@ -93,28 +128,64 @@ function Stat({ label, value, accent }: { label: string; value: string | number;
 
 function CreditsTab({ id, notify }: { id: string; notify: (m: string, s?: "success" | "error") => void }) {
   const { t } = useI18n();
-  const [credits, setCredits] = useState<{ allocated_credits: number; used_credits: number; remaining_credits: number; low_balance_threshold: number } | null>(null);
-  const [usage, setUsage] = useState<{ day: string; credits: number }[]>([]);
+  const [credits, setCredits] = useState<{ allocated_credits: number; used_credits: number; remaining_credits: number; low_balance_threshold: number; org_total_credits: number; allocated_elsewhere: number } | null>(null);
+  const [usageRows, setUsageRows] = useState<{ day: string; feature: string; count: number; cost_usd: string }[]>([]);
+  const [rangeDays, setRangeDays] = useState<7 | 30 | 90>(30);
   const [alloc, setAlloc] = useState("");
   const [threshold, setThreshold] = useState("");
   const [saving, setSaving] = useState(false);
-  function load() {
+
+  const to = useMemo(() => new Date().toISOString().slice(0, 10), []);
+  const from = useMemo(() => { const d = new Date(); d.setDate(d.getDate() - (rangeDays - 1)); return d.toISOString().slice(0, 10); }, [rangeDays]);
+
+  function loadCredits() {
     api.getCampaignCredits(id).then((c) => { setCredits(c); setAlloc(String(c.allocated_credits)); setThreshold(String(c.low_balance_threshold)); }).catch(() => {});
-    api.getCampaignUsage(id).then(setUsage).catch(() => {});
   }
-  useEffect(load, [id]); // eslint-disable-line react-hooks/exhaustive-deps
+  useEffect(loadCredits, [id]); // eslint-disable-line react-hooks/exhaustive-deps
+  useEffect(() => { api.getCampaignUsage(id, { from, to }).then((r) => setUsageRows(r.rows || [])).catch(() => setUsageRows([])); }, [id, from, to]);
+
   async function save() {
     setSaving(true);
     try {
       await api.allocateCampaignCredits(id, { allocated_credits: Number(alloc) || 0, low_balance_threshold: Number(threshold) || 0 });
-      notify(t("settings.creditsUpdated")); load();
+      notify(t("settings.creditsUpdated")); loadCredits();
     } catch (e) { notify(String(e), "error"); } finally { setSaving(false); }
   }
+
+  // Fill every day in [from,to] so the time axis is continuous, then fold in the
+  // per-feature counts for a stacked bar per day.
+  const chartData = useMemo(() => {
+    const days: string[] = [];
+    const d = new Date(from + "T00:00:00"); const end = new Date(to + "T00:00:00");
+    for (; d <= end; d.setDate(d.getDate() + 1)) days.push(d.toISOString().slice(0, 10));
+    type FKey = "nurture" | "followup" | "extract" | "summary";
+    const FKEYS: readonly FKey[] = ["nurture", "followup", "extract", "summary"];
+    const byDay: Record<string, { day: string; nurture: number; followup: number; extract: number; summary: number }> = {};
+    for (const day of days) byDay[day] = { day, nurture: 0, followup: 0, extract: 0, summary: 0 };
+    for (const r of usageRows) {
+      const row = byDay[r.day];
+      if (row && (FKEYS as readonly string[]).includes(r.feature)) row[r.feature as FKey] += r.count || 0;
+    }
+    return days.map((day) => byDay[day]);
+  }, [usageRows, from, to]);
+  const periodTotal = usageRows.reduce((s, r) => s + (r.count || 0), 0);
+
+  function exportCsv() {
+    const head = ["date", "feature", "count", "cost_usd"];
+    const lines = usageRows.map((r) => [r.day, r.feature, r.count, r.cost_usd].join(","));
+    const blob = new Blob(["﻿" + [head.join(","), ...lines].join("\n")], { type: "text/csv;charset=utf-8" });
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement("a"); a.href = url; a.download = `usage_${from}_to_${to}.csv`; a.click(); URL.revokeObjectURL(url);
+  }
+
   if (!credits) return <Loader2 className="w-5 h-5 animate-spin text-muted-foreground" />;
-  const allocChangedCount = (Number(alloc) !== credits.allocated_credits ? 1 : 0) + (Number(threshold) !== credits.low_balance_threshold ? 1 : 0);
+  // A campaign can only be allocated what the ORG pool still has free.
+  const available = Math.max(0, credits.org_total_credits - credits.allocated_elsewhere);
+  const overCap = (Number(alloc) || 0) > available;
+  const allocChangedCount = ((Number(alloc) !== credits.allocated_credits ? 1 : 0) + (Number(threshold) !== credits.low_balance_threshold ? 1 : 0)) && !overCap ? 1 : 0;
   const resetAlloc = () => { setAlloc(String(credits.allocated_credits)); setThreshold(String(credits.low_balance_threshold)); };
   const low = credits.allocated_credits > 0 && credits.remaining_credits <= credits.low_balance_threshold;
-  const maxUsage = Math.max(1, ...usage.map((u) => u.credits));
+
   return (
     <div className="space-y-5">
       <div className="grid grid-cols-3 gap-3">
@@ -127,21 +198,68 @@ function CreditsTab({ id, notify }: { id: string; notify: (m: string, s?: "succe
 
       <div className="rounded-lg border border-border p-4 space-y-3">
         <p className="text-[13px] font-semibold text-foreground">{t("settings.allocation")}</p>
+        <p className="text-[12px] text-muted-foreground">
+          Org pool: <span className="font-medium text-foreground tabular-nums">{available}</span> of {credits.org_total_credits} credits free
+          {credits.allocated_elsewhere > 0 && <> · {credits.allocated_elsewhere} allocated to other campaigns</>}
+        </p>
         <div className="grid grid-cols-2 gap-3">
-          <div><FieldLabel>{t("settings.allocatedCredits")}</FieldLabel><input type="number" min={0} value={alloc} onChange={(e) => setAlloc(e.target.value)} className={INPUT_CLASS} /></div>
+          <div>
+            <FieldLabel>{t("settings.allocatedCredits")}</FieldLabel>
+            <input type="number" min={0} max={available} value={alloc} onChange={(e) => setAlloc(e.target.value)} className={cn(INPUT_CLASS, overCap && "border-red-500 focus:border-red-500")} />
+            {overCap && <p className="text-[11.5px] text-red-500 mt-1">Max {available} (org pool limit). Naikin pool di Superadmin dulu.</p>}
+          </div>
           <div><FieldLabel>{t("settings.lowBalanceAlertAt")}</FieldLabel><input type="number" min={0} value={threshold} onChange={(e) => setThreshold(e.target.value)} className={INPUT_CLASS} /></div>
         </div>
       </div>
       <UnsavedBar count={allocChangedCount} saving={saving} onSave={save} onCancel={resetAlloc} saveLabel="Save allocation" />
 
+      {/* Usage — stacked by AI feature, with date range + CSV export */}
       <div className="rounded-lg border border-border p-4">
-        <p className="text-[13px] font-semibold text-foreground mb-3">{t("settings.usageLast30Days")}</p>
-        {usage.length === 0 ? <p className="text-[13px] text-muted-foreground">{t("settings.noAiRepliesYet")}</p> : (
-          <div className="flex items-end gap-1 h-24">
-            {usage.map((u) => (
-              <div key={u.day} className="flex-1 min-w-[3px] rounded-t bg-primary/70" style={{ height: `${Math.max(4, (u.credits / maxUsage) * 100)}%` }} title={`${u.day}: ${u.credits}`} />
-            ))}
+        <div className="flex items-center justify-between gap-3 mb-3 flex-wrap">
+          <div>
+            <p className="text-[13px] font-semibold text-foreground">AI Usage</p>
+            <p className="text-[11.5px] text-muted-foreground tabular-nums">{periodTotal} operations · {from} → {to}</p>
           </div>
+          <div className="flex items-center gap-1.5">
+            <div className="flex rounded-md border border-border overflow-hidden">
+              {[7, 30, 90].map((n) => (
+                <button key={n} onClick={() => setRangeDays(n as 7 | 30 | 90)}
+                  className={cn("px-2.5 py-1 text-[12px] font-medium", rangeDays === n ? "bg-primary text-primary-foreground" : "text-muted-foreground hover:text-foreground")}>
+                  {n}d
+                </button>
+              ))}
+            </div>
+            <button onClick={exportCsv} disabled={usageRows.length === 0}
+              className="flex items-center gap-1.5 px-2.5 py-1 rounded-md border border-border text-[12px] font-medium text-muted-foreground hover:text-foreground disabled:opacity-40">
+              <Download className="w-3.5 h-3.5" /> CSV
+            </button>
+          </div>
+        </div>
+
+        {/* legend — identity is never colour-alone */}
+        <div className="flex flex-wrap gap-x-4 gap-y-1 mb-2">
+          {USAGE_FEATURES.map((f) => (
+            <div key={f.key} className="flex items-center gap-1.5 text-[11.5px] text-muted-foreground">
+              <span className="inline-block w-2.5 h-2.5 rounded-sm" style={{ background: f.color }} /> {f.label}
+            </div>
+          ))}
+        </div>
+
+        {periodTotal === 0 ? (
+          <p className="text-[13px] text-muted-foreground py-10 text-center">{t("settings.noAiRepliesYet")}</p>
+        ) : (
+          <ResponsiveContainer width="100%" height={220}>
+            <BarChart data={chartData} margin={{ top: 4, right: 8, left: -18, bottom: 0 }} barCategoryGap="18%">
+              <CartesianGrid strokeDasharray="3 3" vertical={false} stroke="hsl(var(--border))" />
+              <XAxis dataKey="day" tickFormatter={(d: string) => d.slice(5)} tick={{ fontSize: 11 }} tickLine={false} axisLine={false} minTickGap={22} interval="preserveStartEnd" />
+              <YAxis allowDecimals={false} tick={{ fontSize: 11 }} tickLine={false} axisLine={false} width={28} />
+              <RTooltip cursor={{ fill: "hsl(var(--muted))" }} content={<UsageTooltip />} />
+              {USAGE_FEATURES.map((f, i) => (
+                <Bar key={f.key} dataKey={f.key} stackId="u" fill={f.color} name={f.label}
+                  radius={i === USAGE_FEATURES.length - 1 ? [3, 3, 0, 0] : 0} maxBarSize={26} />
+              ))}
+            </BarChart>
+          </ResponsiveContainer>
         )}
       </div>
     </div>
@@ -157,6 +275,116 @@ function Toggle({ on, onToggle }: { on: boolean; onToggle: () => void }) {
   );
 }
 
+const TONE_OPTS = [
+  { value: "friendly", label: "Ramah & santai" },
+  { value: "professional", label: "Profesional" },
+  { value: "consultative", label: "Konsultatif" },
+] as const;
+const LEN_OPTS = [
+  { value: "short", label: "Pendek" },
+  { value: "medium", label: "Sedang" },
+] as const;
+
+// Per-campaign AI response tuning. Self-contained (own state + save) so it doesn't
+// tangle with the AI-settings form's save. Auto-generate asks Sonnet for a
+// recommended style from the campaign setup; the preview runs the real nurture path.
+function AIStyleSection({ campaignId, initial, onSaved, onError }: {
+  campaignId: string; initial: AIStyle | null | undefined;
+  onSaved: (s: AIStyle) => void; onError: (m: string) => void;
+}) {
+  const init: AIStyle = { persona: "", tone: "", length: "", goal: "", custom_rules: "", ...(initial || {}) };
+  const [persona, setPersona] = useState(init.persona || "");
+  const [tone, setTone] = useState<string>(init.tone || "");
+  const [length, setLength] = useState<string>(init.length || "");
+  const [goal, setGoal] = useState(init.goal || "");
+  const [rules, setRules] = useState(init.custom_rules || "");
+  const [saving, setSaving] = useState(false);
+  const [generating, setGenerating] = useState(false);
+  const [previewMsg, setPreviewMsg] = useState("");
+  const [previewReply, setPreviewReply] = useState("");
+  const [previewing, setPreviewing] = useState(false);
+
+  const buildStyle = (): AIStyle => ({ persona: persona.trim(), tone: tone as AIStyle["tone"], length: length as AIStyle["length"], goal: goal.trim(), custom_rules: rules.trim() });
+  const changed = persona.trim() !== (init.persona || "") || tone !== (init.tone || "") || length !== (init.length || "") || goal.trim() !== (init.goal || "") || rules.trim() !== (init.custom_rules || "");
+
+  async function generate() {
+    setGenerating(true);
+    try {
+      const { style: s } = await api.suggestAIStyle(campaignId);
+      setPersona(s.persona || ""); setTone(s.tone || ""); setLength(s.length || ""); setGoal(s.goal || ""); setRules(s.custom_rules || "");
+    } catch (e) { onError(String(e)); } finally { setGenerating(false); }
+  }
+  async function preview() {
+    setPreviewing(true); setPreviewReply("");
+    try {
+      const { reply } = await api.previewAIStyle(campaignId, buildStyle() as Record<string, string>, previewMsg);
+      setPreviewReply(reply || "(kosong)");
+    } catch (e) { onError(String(e)); } finally { setPreviewing(false); }
+  }
+  async function save() {
+    setSaving(true);
+    try { const s = buildStyle(); await api.updateCampaign(campaignId, { ai_style: s }); onSaved(s); }
+    catch (e) { onError(String(e)); } finally { setSaving(false); }
+  }
+
+  return (
+    <div className="rounded-lg border border-border p-4 space-y-4">
+      <div className="flex items-start justify-between gap-3">
+        <div>
+          <p className="text-[13.5px] font-semibold text-foreground flex items-center gap-1.5"><Sparkles className="w-4 h-4 text-primary" /> AI Response Style</p>
+          <p className="text-[12px] text-muted-foreground mt-0.5">Atur cara AI membalas lead di campaign ini. Makin spesifik, makin bagus konversinya.</p>
+        </div>
+        <button onClick={generate} disabled={generating}
+          className="shrink-0 flex items-center gap-1.5 px-3 py-1.5 rounded-lg bg-primary/10 text-primary text-[12.5px] font-semibold hover:bg-primary/15 disabled:opacity-50">
+          {generating ? <Loader2 className="w-3.5 h-3.5 animate-spin" /> : <Sparkles className="w-3.5 h-3.5" />} Auto-generate
+        </button>
+      </div>
+
+      <div>
+        <FieldLabel>Nada bicara</FieldLabel>
+        <div className="flex flex-wrap gap-2">
+          {TONE_OPTS.map((o) => (
+            <button key={o.value} onClick={() => setTone(tone === o.value ? "" : o.value)}
+              className={cn("px-3 py-1.5 rounded-full text-[12.5px] font-medium border", tone === o.value ? "bg-primary text-primary-foreground border-primary" : "border-border text-muted-foreground hover:text-foreground")}>{o.label}</button>
+          ))}
+        </div>
+      </div>
+
+      <div>
+        <FieldLabel>Panjang balasan</FieldLabel>
+        <div className="inline-flex rounded-lg border border-border overflow-hidden">
+          {LEN_OPTS.map((o) => (
+            <button key={o.value} onClick={() => setLength(length === o.value ? "" : o.value)}
+              className={cn("px-4 py-1.5 text-[12.5px] font-medium", length === o.value ? "bg-primary text-primary-foreground" : "text-muted-foreground hover:text-foreground")}>{o.label}</button>
+          ))}
+        </div>
+      </div>
+
+      <div><FieldLabel hint="Siapa si AI di campaign ini">Persona</FieldLabel>
+        <textarea value={persona} onChange={(e) => setPersona(e.target.value)} rows={2} placeholder="mis. Sales consultant Mitsubishi yang paham produk & simulasi kredit" className={cn(INPUT_CLASS, "resize-y")} /></div>
+      <div><FieldLabel hint="Tujuan utama percakapan">Goal</FieldLabel>
+        <input value={goal} onChange={(e) => setGoal(e.target.value)} placeholder="mis. Ajak lead simulasi kredit lalu jadwalkan test drive" className={INPUT_CLASS} /></div>
+      <div><FieldLabel hint="Do & don't khusus campaign ini">Aturan khusus</FieldLabel>
+        <textarea value={rules} onChange={(e) => setRules(e.target.value)} rows={3} placeholder="mis. Selalu tawarkan simulasi cicilan. Jangan sebut brand kompetitor. Selalu tanya domisili." className={cn(INPUT_CLASS, "resize-y")} /></div>
+
+      <div className="rounded-lg bg-muted/40 p-3 space-y-2">
+        <p className="text-[12px] font-semibold text-foreground">Coba balasan</p>
+        <div className="flex gap-2">
+          <input value={previewMsg} onChange={(e) => setPreviewMsg(e.target.value)} placeholder="Ketik pesan customer... (mis. Harga Xforce berapa?)" className={cn(INPUT_CLASS, "flex-1")} />
+          <button onClick={preview} disabled={previewing} className="shrink-0 px-3 py-1.5 rounded-lg border border-border text-[12.5px] font-medium text-foreground hover:bg-background disabled:opacity-50">
+            {previewing ? <Loader2 className="w-3.5 h-3.5 animate-spin" /> : "Coba"}</button>
+        </div>
+        {previewReply && <div className="rounded-lg bg-primary/10 text-foreground text-[13px] px-3 py-2 whitespace-pre-wrap">{previewReply}</div>}
+      </div>
+
+      {changed && (
+        <button onClick={save} disabled={saving} className="px-4 py-1.5 rounded-lg bg-primary text-primary-foreground text-[13px] font-semibold hover:opacity-90 disabled:opacity-50 flex items-center gap-1.5">
+          {saving && <Loader2 className="w-3.5 h-3.5 animate-spin" />} Save style</button>
+      )}
+    </div>
+  );
+}
+
 function AITab({ campaign, onSaved, onError }: { campaign: CampaignDetail; onSaved: (c: CampaignDetail) => void; onError: (m: string) => void }) {
   const { t } = useI18n();
   const init = {
@@ -165,6 +393,7 @@ function AITab({ campaign, onSaved, onError }: { campaign: CampaignDetail; onSav
     dynLang: campaign.ai_dynamic_language ?? true, smartSummary: campaign.ai_smart_summary ?? true,
     followupTpl: campaign.followup_template_id ?? "", intakeForm: campaign.intake_form_id ?? "",
     budget: campaign.monthly_budget != null ? String(campaign.monthly_budget) : "",
+    followupFreq: campaign.followup_frequency ?? "normal",
   };
   const [segment, setSegment] = useState(init.segment);
   const [brand, setBrand] = useState(init.brand);
@@ -175,6 +404,7 @@ function AITab({ campaign, onSaved, onError }: { campaign: CampaignDetail; onSav
   const [followupTpl, setFollowupTpl] = useState(init.followupTpl);
   const [intakeForm, setIntakeForm] = useState(init.intakeForm);
   const [budget, setBudget] = useState(init.budget);
+  const [followupFreq, setFollowupFreq] = useState(init.followupFreq);
   const [templates, setTemplates] = useState<Template[]>([]);
   const [forms, setForms] = useState<{ id: string; name: string }[]>([]);
   const [saving, setSaving] = useState(false);
@@ -187,20 +417,22 @@ function AITab({ campaign, onSaved, onError }: { campaign: CampaignDetail; onSav
     api.listFlows().then((fs) => setForms((fs || []).map((f) => ({ id: f.id, name: f.name })))).catch(() => setForms([]));
   }, [campaign.id]);
 
-  const changedCount = [segment !== init.segment, brand.trim() !== init.brand, autoReply !== init.autoReply, lang !== init.lang, dynLang !== init.dynLang, smartSummary !== init.smartSummary, followupTpl !== init.followupTpl, intakeForm !== init.intakeForm, budget.trim() !== init.budget].filter(Boolean).length;
-  function reset() { setSegment(init.segment); setBrand(init.brand); setAutoReply(init.autoReply); setLang(init.lang); setDynLang(init.dynLang); setSmartSummary(init.smartSummary); setFollowupTpl(init.followupTpl); setIntakeForm(init.intakeForm); setBudget(init.budget); }
+  const changedCount = [segment !== init.segment, brand.trim() !== init.brand, autoReply !== init.autoReply, lang !== init.lang, dynLang !== init.dynLang, smartSummary !== init.smartSummary, followupTpl !== init.followupTpl, intakeForm !== init.intakeForm, budget.trim() !== init.budget, followupFreq !== init.followupFreq].filter(Boolean).length;
+  function reset() { setSegment(init.segment); setBrand(init.brand); setAutoReply(init.autoReply); setLang(init.lang); setDynLang(init.dynLang); setSmartSummary(init.smartSummary); setFollowupTpl(init.followupTpl); setIntakeForm(init.intakeForm); setBudget(init.budget); setFollowupFreq(init.followupFreq); }
 
   async function save() {
     setSaving(true);
     try {
       const mb = budget.trim() === "" ? null : Number(budget.replace(/[^0-9.]/g, ""));
-      const patch = { segment, brand: brand.trim(), ai_auto_reply: autoReply, ai_language: lang, ai_dynamic_language: dynLang, ai_smart_summary: smartSummary, followup_template_id: followupTpl || "none", intake_form_id: intakeForm || "none", monthly_budget: mb };
+      const patch = { segment, brand: brand.trim(), ai_auto_reply: autoReply, ai_language: lang, ai_dynamic_language: dynLang, ai_smart_summary: smartSummary, followup_template_id: followupTpl || "none", intake_form_id: intakeForm || "none", monthly_budget: mb, followup_frequency: followupFreq };
       await api.updateCampaign(campaign.id, patch);
-      onSaved({ ...campaign, segment, brand: brand.trim(), ai_auto_reply: autoReply, ai_language: lang, ai_dynamic_language: dynLang, ai_smart_summary: smartSummary, followup_template_id: followupTpl || null, intake_form_id: intakeForm || null, monthly_budget: mb });
+      onSaved({ ...campaign, segment, brand: brand.trim(), ai_auto_reply: autoReply, ai_language: lang, ai_dynamic_language: dynLang, ai_smart_summary: smartSummary, followup_template_id: followupTpl || null, intake_form_id: intakeForm || null, monthly_budget: mb, followup_frequency: followupFreq });
     } catch (e) { onError(String(e)); } finally { setSaving(false); }
   }
   return (
     <div className="space-y-4 max-w-[560px]">
+      <AIStyleSection campaignId={campaign.id} initial={campaign.ai_style}
+        onSaved={(s) => onSaved({ ...campaign, ai_style: s })} onError={onError} />
       <div className="flex items-center justify-between rounded-lg border border-border p-3">
         <p className="text-[13.5px] font-semibold text-foreground">{t("settings.autoReply")}</p>
         <Toggle on={autoReply} onToggle={() => setAutoReply((v) => !v)} />
@@ -224,6 +456,16 @@ function AITab({ campaign, onSaved, onError }: { campaign: CampaignDetail; onSav
             <Toggle on={dynLang} onToggle={() => setDynLang((v) => !v)} />
           </div>
         </div>
+      </div>
+      <div>
+        <FieldLabel hint="Seberapa sering AI nge-follow-up lead yang diam">Follow-up frequency</FieldLabel>
+        <Select value={followupFreq} onChange={setFollowupFreq} searchable={false}
+          options={[
+            { value: "off", label: "Off (tanpa follow-up)" },
+            { value: "low", label: "Jarang (interval lebih panjang)" },
+            { value: "normal", label: "Normal" },
+            { value: "high", label: "Sering (nge-follow-up lebih cepat)" },
+          ]} />
       </div>
       <div>
         <FieldLabel hint={t("settings.autoFollowUpNudgesA")}>{t("settings.followUpTemplate")}</FieldLabel>

@@ -83,7 +83,7 @@ func (s *server) handleCreateUser(w http.ResponseWriter, r *http.Request) {
 		b.Role = "agent"
 	}
 	if b.Password == "" {
-		b.Password = "changeme123" // dev default; real invite flow sends a set-password link
+		b.Password = randomPassword() // throwaway; user sets their own via the welcome link below
 	}
 	hash, err := hashPassword(b.Password)
 	if err != nil {
@@ -101,6 +101,18 @@ func (s *server) handleCreateUser(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	s.audit(r.Context(), a, "created", "user", id, map[string]any{"email": b.Email, "role": b.Role})
+
+	// Welcome email with a set-password link so the new user picks their own
+	// password (the INSERT above stored only a throwaway default). Best-effort:
+	// user creation must succeed even if SMTP is down or unconfigured.
+	if link, lerr := s.issueSetupLink(r.Context(), id, 7*24*time.Hour); lerr != nil {
+		s.log.Error("welcome setup link failed", "err", lerr)
+	} else if sent, mailErr := s.sendMail(b.Email, "Welcome to Simpulx - set your password", welcomeEmailHTML(b.FullName, link, b.Email)); mailErr != nil {
+		s.log.Error("welcome email send failed", "err", mailErr)
+	} else if !sent {
+		s.log.Info("welcome set-password link (email not sent)", "email", b.Email, "link", link)
+	}
+
 	writeJSON(w, map[string]any{"id": id})
 }
 

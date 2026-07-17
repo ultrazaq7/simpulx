@@ -356,6 +356,9 @@ func main() {
 	mux.HandleFunc("GET /api/campaigns/{id}/credits", s.requireAuth(s.handleGetCampaignCredits))
 	mux.HandleFunc("POST /api/campaigns/{id}/credits/allocate", s.requireAuth(s.gate("manage_campaigns", s.handleAllocateCampaignCredits)))
 	mux.HandleFunc("GET /api/campaigns/{id}/usage", s.requireAuth(s.handleCampaignUsage))
+	mux.HandleFunc("GET /api/campaigns/{id}/usage.csv", s.requireAuth(s.handleCampaignUsageCSV))
+	mux.HandleFunc("POST /api/campaigns/{id}/ai-style/suggest", s.requireAuth(s.gate("manage_campaigns", s.handleSuggestAIStyle)))
+	mux.HandleFunc("POST /api/campaigns/{id}/ai-style/preview", s.requireAuth(s.gate("manage_campaigns", s.handlePreviewAIStyle)))
 	// Segment-generic campaign catalog / KB (per-campaign pricing the bot grounds on).
 	mux.HandleFunc("GET /api/campaigns/{id}/catalog", s.requireAuth(s.handleListCatalog))
 	mux.HandleFunc("POST /api/campaigns/{id}/catalog", s.requireAuth(s.gate("manage_campaigns", s.handleUploadCatalog)))
@@ -406,6 +409,7 @@ func main() {
 	initAdsTokenKey(log)     // load AES key for ad-account OAuth token encryption
 	s.backfillAdTokenEncryption(ctx) // encrypt any plaintext tokens still at rest
 	s.startAdSyncCron(ctx)   // daily ad metrics refresh (Meta/TikTok/Google)
+	s.startCreditAlertCron(ctx) // low-credit email alerts to org owners
 
 	// graceful shutdown
 	stop := make(chan os.Signal, 1)
