@@ -4,7 +4,7 @@ import { useI18n } from "@/lib/i18n";
 // lives on the Dashboard, so this page has no report/PDF anymore.
 import { useEffect, useRef, useState } from "react";
 import { useParams, useRouter, useSearchParams } from "next/navigation";
-import { ArrowLeft, Loader2, Coins, Sparkles, Database, Upload, Trash2, X, MapPin, Search } from "lucide-react";
+import { ArrowLeft, Loader2, Coins, Sparkles, Database, Upload, Trash2, X, MapPin, Search, AlertTriangle } from "lucide-react";
 import * as XLSX from "xlsx";
 import { api } from "@/lib/api";
 import { ID_CITIES, ID_CITY_GROUPS } from "@/lib/idCities";
@@ -259,6 +259,10 @@ function CatalogTab({ id, segment, notify }: { id: string; segment?: string; not
   const [editing, setEditing] = useState<CatalogItem | null>(null); // row open in the edit drawer
   const [catQuery, setCatQuery] = useState(""); // client-side filter over the catalog table
   const [locations, setLocations] = useState<string[]>([]); // apply these location(s) to the uploaded rows
+  // The chips are the campaign's service area, not just a convenience: with none
+  // picked every uploaded row lands with location NULL, and out-of-area detection
+  // has nothing to compare a lead's city against.
+  const needsCity = locations.length === 0;
   const [locInput, setLocInput] = useState("");
   const [locFocus, setLocFocus] = useState(false); // controls the type-ahead suggestion dropdown
   // Add one or many cities, case-insensitively deduped against what's already chosen.
@@ -445,13 +449,24 @@ function CatalogTab({ id, segment, notify }: { id: string; segment?: string; not
         </div>
       </div>
 
-      {/* Upload dropzone only shows for an empty catalog; once populated it's replaced by a compact Replace/Clear header. */}
+      {/* No city chosen => no upload. The chips are the ONLY source of the campaign's
+          service area (they also fan each product out per city), so uploading without
+          them leaves every row's location NULL: the bot can't tell a Wamena lead from
+          a Jakarta one, and out-of-area never reaches a human. Blocked at the button
+          rather than at submit, so the fix is obvious before picking a file. */}
       {rows.length === 0 ? (
         <div className="rounded-lg border border-dashed border-border p-5 text-center">
           <div className="w-11 h-11 rounded-xl bg-primary/10 text-primary grid place-items-center mx-auto mb-3"><Upload className="w-5 h-5" /></div>
           <p className="text-[13.5px] font-semibold text-foreground mb-3">{t("settings.uploadAPricelistCsvExcel")}</p>
-          <button onClick={() => fileRef.current?.click()} disabled={busy}
-            className="inline-flex items-center gap-2 px-3.5 h-9 mt-3 bg-primary text-white rounded-md text-sm font-semibold hover:bg-primary-dark shadow-sm transition-all outline-none disabled:opacity-50">
+          {needsCity && (
+            <div className="flex items-start gap-2 text-left mx-auto max-w-md mb-1 rounded-md border border-amber-500/30 bg-amber-500/[0.08] px-3 py-2">
+              <AlertTriangle className="w-4 h-4 shrink-0 mt-[1px] text-amber-600" />
+              <p className="text-[12.5px] text-amber-700 dark:text-amber-500">{t("settings.pickCityBeforeUpload")}</p>
+            </div>
+          )}
+          <button onClick={() => fileRef.current?.click()} disabled={busy || needsCity}
+            title={needsCity ? t("settings.pickCityBeforeUpload") : undefined}
+            className="inline-flex items-center gap-2 px-3.5 h-9 mt-3 bg-primary text-white rounded-md text-sm font-semibold hover:bg-primary-dark shadow-sm transition-all outline-none disabled:opacity-50 disabled:cursor-not-allowed">
             {busy ? <Loader2 className="w-4 h-4 animate-spin" /> : <Upload className="w-4 h-4" />}{t("settings.chooseFile")}
           </button>
         </div>
@@ -459,7 +474,9 @@ function CatalogTab({ id, segment, notify }: { id: string; segment?: string; not
         <div className="flex items-center justify-between flex-wrap gap-2">
           <p className="text-[13px] text-muted-foreground"><span className="font-semibold text-foreground tabular-nums">{rows.length}</span> item{rows.length === 1 ? "" : "s"} {t("settings.inThisCampaignSCatalog")}</p>
           <div className="flex items-center gap-2">
-            <button onClick={() => fileRef.current?.click()} disabled={busy} className="inline-flex items-center gap-1.5 h-9 px-3 rounded-md border border-border bg-background text-[12.5px] font-semibold text-foreground hover:bg-muted outline-none disabled:opacity-50">
+            <button onClick={() => fileRef.current?.click()} disabled={busy || needsCity}
+              title={needsCity ? t("settings.pickCityBeforeUpload") : undefined}
+              className="inline-flex items-center gap-1.5 h-9 px-3 rounded-md border border-border bg-background text-[12.5px] font-semibold text-foreground hover:bg-muted outline-none disabled:opacity-50 disabled:cursor-not-allowed">
               {busy ? <Loader2 className="w-4 h-4 animate-spin" /> : <Upload className="w-4 h-4" />}{t("settings.replacePricelist")}
             </button>
             <button onClick={clearAll} disabled={busy} className="inline-flex items-center gap-1.5 h-9 px-3 rounded-md text-[12.5px] font-semibold text-red-500 hover:bg-red-50 outline-none disabled:opacity-50">

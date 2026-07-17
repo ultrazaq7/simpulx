@@ -128,6 +128,25 @@ func (s *server) handleUploadCatalog(w http.ResponseWriter, r *http.Request) {
 		}
 		inserted++
 	}
+	// Keep the campaign's declared service area in step with the pricelist it just got.
+	// The upload UI blocks until at least one city is chosen, so a Replace always carries
+	// them; without this, covered_cities would keep whatever the migration backfilled and
+	// a lead from a newly-added city would be read as out-of-area. Only on Replace: a
+	// partial append must never shrink the area. Not derived at read time on purpose —
+	// serving a city and pricing it are different claims, and an owner may widen this
+	// beyond the pricelist later.
+	if b.Replace {
+		if _, err := tx.Exec(r.Context(),
+			`UPDATE campaigns c SET covered_cities = COALESCE(sub.cities, '{}'), updated_at = now()
+			   FROM (SELECT array_agg(DISTINCT location_name ORDER BY location_name) AS cities
+			           FROM campaign_catalog
+			          WHERE campaign_id=$1::uuid
+			            AND location_name IS NOT NULL AND btrim(location_name) <> '') sub
+			  WHERE c.id=$1::uuid`, cid); err != nil {
+			http.Error(w, err.Error(), http.StatusInternalServerError)
+			return
+		}
+	}
 	if err := tx.Commit(r.Context()); err != nil {
 		http.Error(w, err.Error(), http.StatusInternalServerError)
 		return

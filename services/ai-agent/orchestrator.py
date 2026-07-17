@@ -511,26 +511,25 @@ async def _generate_and_send_reply(broker, pool, conn, org_id: str, conv_id: str
     # Catalog grounding on EVERY turn (not only once brand+model are extracted, which
     # is throttled) so early price questions are grounded too. Falls back to the
     # campaign's own brand, and passes the customer's message so a named trim leads.
+    # Only the lead's OWN words may rank variants or open the price gate -- an ad's
+    # tracking keyword is not a question. Whatever is left after stripping it IS.
+    lead_words = _lead_words(body, row["keywords"], row["genuine"])
+
     finance_ctx = ""
-    if row["campaign_id"]:
+    if row["campaign_id"] and lead_words:
         import finance_rag
         # Campaign-scoped catalog first (falls back to global finance_packages).
         _lf = _lead_fields(row["metadata"])
-        # Only the lead's OWN words may rank variants or open the price gate; an ad
-        # opener is a tracking param, not a question.
         fc = await finance_rag.get_catalog_context(
             pool, row["campaign_id"], (_lf.get("brand") or row["brand"]), _lf.get("model"),
-            _lf.get("city"), row["segment"],
-            query=(body if row["genuine"] else None), conn=conn)
+            _lf.get("city"), row["segment"], query=lead_words, conn=conn)
         if fc:
             finance_ctx = f"\n\n{fc}\n"
 
-    # A bare ad opener ("pajero1") is a click, not a question: nothing was asked, so
-    # answering it with the catalog is the bot talking first. Withhold the catalog
-    # entirely and just greet. Only when the body is NOTHING BUT the keyword --
-    # keyword matching is substring-based, so "pajero1 harganya berapa" also arrives
-    # genuine=false and DOES carry a real question; that one keeps its grounding.
-    if _is_bare_ad_opener(body, row["keywords"], row["genuine"]):
+    # Nothing left after the keyword => a bare ad opener ("Xforce1"): a click, not a
+    # question. Answering it with the catalog is the bot talking first, so withhold it
+    # and just greet.
+    if not lead_words:
         finance_ctx = ("\n\nPENTING: Pesan customer di atas BUKAN ketikan dia -- itu kata kunci "
                        "otomatis dari iklan yang dia klik. Dia BELUM menanyakan apa pun. "
                        "JANGAN menyodorkan katalog, daftar varian, atau harga. Sapa dengan hangat, "
@@ -610,22 +609,26 @@ def _out_of_area_city(city, covered_cities) -> str | None:
     return city.strip()
 
 
-def _is_bare_ad_opener(body: str, keywords, genuine: bool) -> bool:
-    """True when the message is ONLY the campaign's ad keyword -- a click, not a question.
+_AD_RESIDUE = " \t\n-_.,!?()[]{}:;\"'"
 
-    `genuine` is false for every ad-sourced opener (CTWA referral or a keyword-routed
-    wa.me pre-fill), but that alone is too blunt to withhold the catalog on: keyword
-    routing matches on SUBSTRING, so "pajero1 harganya berapa" is also genuine=false
-    while carrying a real question. Strip the keywords and see if anything the lead
-    actually wrote is left."""
-    if genuine or not body:
-        return False
-    residual = body
+
+def _lead_words(body: str, keywords, genuine: bool) -> str:
+    """What the LEAD actually wrote, with the ad's tracking keyword taken out.
+
+    `genuine` is false for every ad-sourced message (CTWA referral or a keyword-routed
+    wa.me pre-fill), but it is too blunt to act on alone: keyword routing matches on
+    SUBSTRING, so "Xforce1 Ultimate DS harganya berapa" is genuine=false too — yet the
+    lead plainly asked something. Treating the whole body as not-the-lead's-words made
+    the bot answer a real price question with "let me check with the team".
+    So: strip the keywords, and whatever remains is theirs."""
+    if genuine:
+        return body or ""
+    residual = body or ""
     for k in (keywords or []):
         k = (k or "").strip()
         if k:
             residual = re.sub(re.escape(k), " ", residual, flags=re.IGNORECASE)
-    return not residual.strip(" \t\n-_.,!?()[]{}:;\"'")
+    return "" if not residual.strip(_AD_RESIDUE) else residual
 
 
 async def _ai_handoff(broker, pool, org_id: str, conv_id: str, agent_id, log, conn=None,
