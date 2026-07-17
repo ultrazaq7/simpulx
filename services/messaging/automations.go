@@ -1276,8 +1276,15 @@ func (s *store) contactSheetRow(ctx context.Context, contactID string, keys []st
 }
 
 func (s *store) closeConversation(ctx context.Context, convID string) error {
+	// Must stamp closed_at (and a reason): the lead re-entry / revive logic in
+	// getOrCreateThread only revives a thread whose closed_at is within the reopen
+	// window. Closing without closed_at left it NULL, so a returning contact never
+	// reopened this thread and instead spawned a brand-new conversation every time
+	// (one contact -> several duplicate threads in the same campaign).
 	_, err := s.pool.Exec(ctx,
-		`UPDATE conversations SET status='closed', updated_at=now() WHERE id=$1`, convID)
+		`UPDATE conversations SET status='closed', closed_at=now(),
+		        closed_reason=COALESCE(NULLIF(closed_reason,''),'automation'), updated_at=now()
+		  WHERE id=$1 AND status <> 'closed'`, convID)
 	return err
 }
 

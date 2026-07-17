@@ -164,7 +164,7 @@ func (s *store) getOrCreateConversation(ctx context.Context, orgID, contactID, c
 		      SELECT id FROM conversations
 		       WHERE organization_id=$1 AND contact_id=$2 AND status='closed'
 		         AND closed_reason IS DISTINCT FROM 'dormant_30d'
-		         AND closed_at > now() - $3::interval
+		         AND (closed_at IS NULL OR closed_at > now() - $3::interval)
 		       ORDER BY last_message_at DESC NULLS LAST LIMIT 1)
 		  RETURNING id, is_bot_active, ai_agent_id`,
 		orgID, contactID, reopenWindow,
@@ -441,7 +441,7 @@ func (s *store) getOrCreateThread(ctx context.Context, orgID, contactID, channel
 		      SELECT id FROM conversations
 		       WHERE organization_id=$1 AND contact_id=$2 AND status='closed'
 		         AND closed_reason IS DISTINCT FROM 'dormant_30d'
-		         AND closed_at > now() - $5::interval
+		         AND (closed_at IS NULL OR closed_at > now() - $5::interval)
 		         AND CASE WHEN $4 <> '' THEN branch_id = NULLIF($4,'')::uuid ELSE campaign_id = $3 END
 		       ORDER BY last_message_at DESC NULLS LAST LIMIT 1)
 		  RETURNING id, is_bot_active, ai_agent_id`,
