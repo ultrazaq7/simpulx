@@ -486,7 +486,11 @@ def _extra_fields_instruction(extra_fields: List[dict]) -> str:
     return (
         "\nTAMBAHAN EKSTRAKSI: selain field di atas, ekstrak juga data prospek berikut "
         f"({labels}). Sertakan sebagai objek \"fields\" pada JSON, berisi key: {keys}. "
-        "Nilai = string ringkas apa adanya dari percakapan, atau null bila tak disebut."
+        "Nilai = string ringkas apa adanya dari percakapan, atau null bila tak disebut. "
+        "PENTING soal timeframe/rencana waktu: jawaban yang tidak pasti pun TETAP dicatat, "
+        "BUKAN null -- mis. 'masih survei', 'lihat-lihat dulu', 'belum tahu', 'gatau kapan', "
+        "'belum ada rencana pasti' adalah nilai timeframe yang sah (catat apa adanya). null "
+        "HANYA jika lead sama sekali tidak menyinggung kapan/rencana waktunya."
     )
 
 

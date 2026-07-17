@@ -548,21 +548,30 @@ async def _generate_and_send_reply(broker, pool, conn, org_id: str, conv_id: str
     # Out-of-area is a fact the bot must OWN, not hide behind "cek ke tim". Once the
     # lead's city is known to sit outside the service area, running a normal in-area
     # price funnel is what makes the bot look broken (it happened: a Jombang lead got
-    # four turns of dodging on a Jakarta-only campaign). Tell the customer plainly,
-    # keep collecting the qualifiers (a human still decides serviceability -- an
-    # out-of-town KTP living in the area is a real lead), and set expectations that a
-    # teammate will follow up. The deterministic handoff still fires once qualifiers
-    # are complete; this only governs what the bot SAYS meanwhile.
+    # four turns of dodging on a Jakarta-only campaign). Tell the customer plainly and
+    # set expectations that a teammate will follow up -- which is now TRUE, because
+    # this reply is the last one before the deterministic out-of-area handoff below
+    # (it no longer waits for the full qualifier set). So this governs the bot's final
+    # message: own the area, promise the handoff, don't fake availability.
     _city = _lead_fields(row["metadata"]).get("city")
     ooa_city = _out_of_area_city(_city, row["covered_cities"])
     if ooa_city:
         finance_ctx += (
             f"\n\nCATATAN AREA LAYANAN: domisili customer ({ooa_city}) DI LUAR area layanan "
             "campaign ini. WAJIB sampaikan dengan jujur dan sopan bahwa area itu di luar "
-            "jangkauan reguler, JANGAN pura-pura seperti area normal. Tetap kumpulkan info "
-            "kebutuhan seperti biasa, tapi jelaskan bahwa ketersediaan/serviceability untuk "
-            "area itu akan dicek dan dibantu oleh tim -- jangan menjanjikan harga/pengiriman "
-            "seolah pasti tersedia di sana.\n")
+            "jangkauan reguler, JANGAN pura-pura seperti area normal, dan JANGAN menjanjikan "
+            "harga/pengiriman seolah pasti tersedia di sana. Jelaskan bahwa ketersediaan/"
+            "serviceability untuk area itu akan dicek dan dibantu langsung oleh tim.\n")
+    elif row["covered_cities"] and not _city:
+        # Domicile is the one qualifier that decides service area, and an out-of-area
+        # lead is escalated the moment it is known -- so ask it EARLY to catch those
+        # leads before burning nurture turns. Never at the cost of dodging: a lead who
+        # opened with a price question gets answered first (that was bug 0d4b9bc); the
+        # domicile question rides along in the same reply.
+        finance_ctx += (
+            "\n\nCATATAN: kota/domisili customer belum diketahui. Tanyakan domisili lebih awal "
+            "supaya area layanan bisa dipastikan, TAPI jawab dulu pertanyaan customer bila ada "
+            "-- selipkan pertanyaan domisili di balasan yang sama, jangan mengabaikan pertanyaannya.\n")
 
     system_prompt = (row["system_prompt"] or "You are a helpful sales assistant.") + ctx + "\n\n" + lang_rule + finance_ctx
     history = await _load_history(pool, conv_id, message_id, conn=conn)
@@ -609,13 +618,19 @@ async def _generate_and_send_reply(broker, pool, conn, org_id: str, conv_id: str
     req = segments.required_keys(row["segment"])
     lf = _lead_fields(row["metadata"])
     fields_done = bool(req) and all(lf.get(k) for k in req)
-    if result.get("ready_for_handoff") or fields_done:
-        # An out-of-area lead is handed over at the SAME point as any other (once the
-        # qualifiers are in) -- handing off the moment the city is known would flood
-        # agents with context-less leads. Only the note differs, because whether an
-        # out-of-town KTP living in the covered city can be served is a human call.
+    # An out-of-area lead hands off the MOMENT its city is known to sit outside the
+    # service area -- it does NOT wait for the full qualifier set the way an in-area
+    # lead does. The bot cannot decide serviceability (only a human can, e.g. an
+    # out-of-town KTP living in the covered city), so nurturing it for the remaining
+    # qualifiers is pure friction: purchase_timeframe in particular often stays null
+    # on "masih survei, gatau kapan", which left these leads looping forever while
+    # the reply kept promising a teammate would follow up (verified in prod). The
+    # note carries whatever product interest was already captured -- we don't wait to
+    # collect more. In-area leads still require all qualifiers, so agents aren't
+    # flooded with context-less leads.
+    if ooa_city or result.get("ready_for_handoff") or fields_done:
         await _ai_handoff(broker, pool, org_id, conv_id, row["agent_id"], log, conn=conn,
-                          out_of_area_city=_out_of_area_city(lf.get("city"), row["covered_cities"]))
+                          out_of_area_city=ooa_city, product=lf.get("model") or lf.get("brand"))
 
 
 def _out_of_area_city(city, covered_cities) -> str | None:
@@ -661,17 +676,23 @@ def _lead_words(body: str, keywords, genuine: bool) -> str:
 
 
 async def _ai_handoff(broker, pool, org_id: str, conv_id: str, agent_id, log, conn=None,
-                      out_of_area_city: str | None = None) -> None:
+                      out_of_area_city: str | None = None, product: str | None = None) -> None:
     """Stand the bot down and notify a human that a nurtured lead is ready. `conn`
     reuses the caller's connection (e.g. the advisory-lock one) when provided.
 
     `out_of_area_city` marks a lead whose city sits outside the campaign's service
     area. It only changes the note: an agent picking this up needs to know the one
     thing the bot cannot decide -- an out-of-town KTP living in the covered city is a
-    common, real lead, and only a human can confirm serviceability."""
+    common, real lead, and only a human can confirm serviceability. `product` is the
+    lead's captured interest (model/brand) folded into that note when known, so an
+    out-of-area lead handed off early still arrives with context, not just a city."""
     await _publish_activity(broker, org_id, conv_id, "handoff", log)
     async with _conn_or(pool, conn) as conn:
-        reason = f"luar area ({out_of_area_city})" if out_of_area_city else None
+        reason = None
+        if out_of_area_city:
+            reason = f"luar area ({out_of_area_city})"
+            if product:
+                reason += f" - minat {product}"
         await conn.execute(
             """UPDATE conversations SET is_bot_active = false, handoff_at = now(),
                  handoff_reason = COALESCE($2, handoff_reason), updated_at = now()
@@ -684,9 +705,10 @@ async def _ai_handoff(broker, pool, org_id: str, conv_id: str, agent_id, log, co
         ]
         if out_of_area_city:
             title = f"Lead luar area ({out_of_area_city})"
-            bodytext = (f"Detail sudah dikumpulkan AI, tapi domisili lead ({out_of_area_city}) "
-                        "di luar area campaign ini. Cek domisili & serviceability -- KTP luar kota "
-                        "tapi tinggal di area layanan itu lead beneran.")
+            minat = f" Minat: {product}." if product else ""
+            bodytext = (f"Domisili lead ({out_of_area_city}) di luar area campaign ini.{minat} "
+                        "Cek domisili & serviceability -- KTP luar kota tapi tinggal di area "
+                        "layanan itu lead beneran.")
         else:
             title = "Lead ready for you"
             bodytext = "The AI assistant collected the details - this lead is warmed up and ready to handle."
