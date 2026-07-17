@@ -307,7 +307,8 @@ async def handle_followup(broker, pool, org_id: str, conv_id: str, log) -> None:
 _LANG_NAMES = {"id": "Bahasa Indonesia", "en": "English"}
 SUBJECT_NOTIFICATION = "events.notification.created"
 SUBJECT_SEND_FORM = "events.cmd.send_form"
-NURTURE_BURST_SEC = 20  # skip a fresh auto-reply if the bot just replied < this ago
+NURTURE_SETTLE_SEC = 10  # debounce: wait this long for a burst of inbounds to settle,
+                         # then send ONE reply covering all of it (1 burst = 1 credit)
 
 # One pending settle-then-reply task per conversation (in-memory dedupe), plus a
 # strong ref set so the background tasks aren't garbage-collected mid-flight.
@@ -321,17 +322,20 @@ def _spawn_bg(coro) -> None:
     t.add_done_callback(_BG_TASKS.discard)
 
 
-async def _deferred_nurture(broker, pool, org_id: str, conv_id: str, message_id, body: str, log) -> None:
-    """Let the burst window settle OFF the message-ack path, then reply once.
-    Running this inline (via asyncio.sleep inside handle_inbound) held the
-    JetStream ack past ack_wait and got the message redelivered/dropped -> no
-    reply. maybe_nurture's own recent-bot / human-replied guards stop duplicates."""
+async def _settle_then_reply(broker, pool, org_id: str, conv_id: str, message_id, body: str, log) -> None:
+    """Let the burst settle OFF the message-ack path, then reply exactly once.
+    Running this inline (via asyncio.sleep inside handle_inbound) held the JetStream
+    ack past ack_wait and got the message redelivered/dropped -> no reply.
+
+    The pending flag is released when the WINDOW ends, not when the reply lands: a
+    message that arrives while the reply is being generated must start a new burst
+    (and get its own answer) rather than be silently dropped."""
     try:
-        await asyncio.sleep(NURTURE_BURST_SEC)
+        await asyncio.sleep(NURTURE_SETTLE_SEC)
     finally:
         _PENDING_NURTURE.discard(conv_id)
     try:
-        await maybe_nurture(broker, pool, org_id, conv_id, message_id, body, None, log)
+        await _nurture_now(broker, pool, org_id, conv_id, message_id, body, None, log)
     except Exception:  # noqa: BLE001
         log.exception("deferred nurture failed", extra={"conv": conv_id})
 
@@ -370,10 +374,29 @@ async def _conn_or(pool, conn):
 
 
 async def maybe_nurture(broker, pool, org_id: str, conv_id: str, message_id, body: str, cr, log) -> None:
-    """AI auto-reply nurture. Gated by the conversation's campaign (ai_auto_reply).
-    Generates a context-aware reply, sends it, auto-sends the intake form on the
-    first turn, and hands off to a human (stand down + notify) once the lead's key
-    details are collected or the lead asks for a person / is ready to transact."""
+    """Entry point for the AI auto-reply. NEVER replies inline: it debounces.
+
+    A lead usually fires several messages in a row ("harga?", "yang dakar", "di
+    jakarta pusat"), and every reply costs the customer a credit. The old flow
+    answered the first message immediately and then scheduled a second, deferred
+    reply for the rest of the burst -- so one burst always cost TWO credits (seen
+    live: two bot messages in the same minute). Now a burst schedules ONE settle
+    task, and the reply that fires after the window has the whole burst in context.
+    Also keeps the reply off the JetStream ack path (sleeping in the handler held
+    the ack past ack_wait -> redelivery -> the message was dropped, i.e. no reply)."""
+    if cr and (cr.get("is_junk") or cr.get("off_topic")):
+        return  # never reply to (or re-engage) spam / off-topic
+    if conv_id in _PENDING_NURTURE:
+        return  # a settle task already owns this conversation's next reply
+    _PENDING_NURTURE.add(conv_id)
+    _spawn_bg(_settle_then_reply(broker, pool, org_id, conv_id, message_id, body, log))
+
+
+async def _nurture_now(broker, pool, org_id: str, conv_id: str, message_id, body: str, cr, log) -> None:
+    """Generate + send ONE reply for this conversation (called by the settle task).
+    Gated by the conversation's campaign (ai_auto_reply); auto-sends the intake form
+    on the first turn, and hands off to a human (stand down + notify) once the lead's
+    key details are collected or the lead asks for a person / is ready to transact."""
     async with pool.acquire() as conn:
         row = await conn.fetchrow(
             """SELECT cv.is_bot_active, cv.assigned_agent_id::text AS agent_id,
@@ -423,14 +446,14 @@ async def maybe_nurture(broker, pool, org_id: str, conv_id: str, message_id, bod
         log.info("nurture re-engaged (handoff, no human pickup)", extra={"conv": conv_id})
 
     # Serialize reply generation per conversation with a Postgres advisory lock so
-    # two concurrent inbound handlers can't both generate+send (double-reply). If
-    # another handler already holds it, DEFER (never drop) so this message still
-    # gets a reply once that one lands.
+    # two concurrent handlers can't both generate+send (double-reply). If another
+    # already holds it, that one is producing the reply for this conversation right
+    # now: drop out instead of queueing a second settle task. Nothing is lost -- the
+    # holder answers whatever has arrived, and anything that lands after its reply
+    # starts a fresh burst (the has_new guard decides whether a reply is owed).
     async with _conv_reply_lock(pool, conv_id) as (got_lock, lock_conn):
         if not got_lock:
-            if conv_id not in _PENDING_NURTURE:
-                _PENDING_NURTURE.add(conv_id)
-                _spawn_bg(_deferred_nurture(broker, pool, org_id, conv_id, message_id, body, log))
+            log.info("nurture skipped: another reply in flight", extra={"conv": conv_id})
             return
         await _generate_and_send_reply(broker, pool, lock_conn, org_id, conv_id, message_id, body, row, log)
 
@@ -453,23 +476,24 @@ async def _generate_and_send_reply(broker, pool, conn, org_id: str, conv_id: str
             await conn.execute("UPDATE conversations SET is_bot_active = false WHERE id = $1", conv_id)
             log.info("nurture stand down (human replied)", extra={"conv": conv_id})
             return
-        # Burst guard: don't fire again if the bot just replied moments ago.
-        recent_bot = await conn.fetchval(
-            """SELECT count(*) FROM messages
-                WHERE conversation_id = $1 AND direction = 'outbound' AND sender_type = 'bot'
-                  AND created_at > now() - ($2 || ' seconds')::interval""",
-            conv_id, str(NURTURE_BURST_SEC),
+        # Only reply when the customer has actually said something SINCE our last
+        # reply. Every reply costs the customer a credit, so answering when nothing
+        # new arrived is money for nothing. This is the guard that makes a burst cost
+        # exactly ONE reply (the settle task already collapsed the burst), and it also
+        # makes a redelivered/duplicated inbound harmless instead of a second charge.
+        has_new = await conn.fetchval(
+            """SELECT EXISTS (
+                 SELECT 1 FROM messages m
+                  WHERE m.conversation_id = $1 AND m.direction = 'inbound'
+                    AND m.sender_type = 'contact'
+                    AND m.created_at > COALESCE((
+                          SELECT max(b.created_at) FROM messages b
+                           WHERE b.conversation_id = $1 AND b.direction = 'outbound'
+                             AND b.sender_type = 'bot'), '-infinity'::timestamptz))""",
+            conv_id,
         )
-    if recent_bot and recent_bot > 0:
-        # Bot replied moments ago. DEFER, but never by blocking here: sleeping in
-        # the handler holds the JetStream ack past ack_wait -> redelivery -> the
-        # message gets dropped after max_deliver (i.e. no reply at all). Schedule
-        # ONE settle-then-reply task per conversation off the ack path instead;
-        # when it re-runs after the window, recent_bot is clear so it replies once
-        # (a burst of inbounds collapses to a single task via _PENDING_NURTURE).
-        if conv_id not in _PENDING_NURTURE:
-            _PENDING_NURTURE.add(conv_id)
-            _spawn_bg(_deferred_nurture(broker, pool, org_id, conv_id, message_id, body, log))
+    if not has_new:
+        log.info("nurture skipped: nothing new since last reply", extra={"conv": conv_id})
         return
 
     # Credit gate (WS-F): if the campaign has a credit allocation and it's used up,
