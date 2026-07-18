@@ -42,11 +42,14 @@ import flutter_callkit_incoming
     _ application: UIApplication,
     didFinishLaunchingWithOptions launchOptions: [UIApplication.LaunchOptionsKey: Any]?
   ) -> Bool {
-    // Register for PushKit VoIP pushes so incoming calls wake the app (even when
-    // killed) and can be reported to CallKit immediately, as iOS 13+ requires.
+    // Create the PushKit registry + delegate now, but DEFER desiredPushTypes (which
+    // triggers the OS to issue the VoIP token) until AFTER the Flutter engine
+    // registers the CallKit plugin — see didInitializeImplicitFlutterEngine. This
+    // eliminates the race where the token arrives before the plugin exists, its
+    // setDevicePushTokenVoIP is a no-op, and no ios_voip token ever reaches the
+    // backend (so calls never rang on a locked/backgrounded phone).
     let registry = PKPushRegistry(queue: DispatchQueue.main)
     registry.delegate = self
-    registry.desiredPushTypes = [.voIP]
     voipRegistry = registry
     return super.application(application, didFinishLaunchingWithOptions: launchOptions)
   }
@@ -62,6 +65,10 @@ import flutter_callkit_incoming
     if let token = pendingVoipToken {
       SwiftFlutterCallkitIncomingPlugin.sharedInstance?.setDevicePushTokenVoIP(token)
     }
+    // Now that the plugin (and its sharedInstance) exists, ask the OS for the VoIP
+    // token. didUpdate will fire with sharedInstance already set, so the token is
+    // persisted + emitted to Dart, which registers it with the backend.
+    voipRegistry?.desiredPushTypes = [.voIP]
 
     // Reclaim the notification-center delegate AFTER plugin registration. Both
     // firebase_messaging and flutter_local_notifications set themselves as the
