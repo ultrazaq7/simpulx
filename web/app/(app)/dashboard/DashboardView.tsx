@@ -846,7 +846,7 @@ function ManagerDashboard({ initialTab }: { initialTab: ReportTab }) {
         </div>
 
         {/* â”€â”€ Metric Strip â”€â”€ */}
-        <div className="grid grid-cols-2 md:grid-cols-3 xl:grid-cols-6 gap-3 mb-5">
+        <div className="grid grid-cols-2 md:grid-cols-4 gap-3 mb-5">
           {METRICS.map((m) => {
             let val: number;
             if (m.key === "total_leads") val = analytics?.funnel?.total ?? 0;
