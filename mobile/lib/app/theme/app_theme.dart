@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
 
 import 'app_colors.dart';
 import 'app_spacing.dart';
@@ -67,6 +68,14 @@ class AppTheme {
         centerTitle: false,
         titleTextStyle: AppText.title.copyWith(color: scheme.onSurface),
         iconTheme: IconThemeData(color: scheme.onSurface),
+        // Per-route system-bar icon contrast (edge-to-edge). Icon brightness only —
+        // NO bar colours — so it uses the non-deprecated WindowInsetsController API
+        // and never trips the Android 15 "deprecated edge-to-edge APIs" warning.
+        systemOverlayStyle: SystemUiOverlayStyle(
+          statusBarIconBrightness: isDark ? Brightness.light : Brightness.dark,
+          statusBarBrightness: isDark ? Brightness.dark : Brightness.light, // iOS
+          systemNavigationBarIconBrightness: isDark ? Brightness.light : Brightness.dark,
+        ),
       ),
       cardTheme: CardThemeData(
         color: surface,

@@ -26,13 +26,17 @@ Future<void> bootstrap() async {
   // already inset the content) — this is exactly what the Play Console
   // "edge-to-edge" + "deprecated window APIs" warnings ask for. iOS is unaffected.
   SystemChrome.setEnabledSystemUIMode(SystemUiMode.edgeToEdge);
+  // In edge-to-edge mode Android already paints the system bars transparent. We set
+  // NO bar colours (statusBarColor / systemNavigationBarColor / dividerColor /
+  // contrastEnforced) on purpose: those map to the Window setters that Android 15
+  // deprecated and that the Play Console "deprecated APIs for edge-to-edge" warning
+  // flags. Only icon brightness is set here, which uses the non-deprecated
+  // WindowInsetsController API. The AppBarTheme refines it per light/dark route;
+  // this is just the pre-first-frame default (app opens on a light surface).
   SystemChrome.setSystemUIOverlayStyle(const SystemUiOverlayStyle(
-    statusBarColor: Colors.transparent,
-    systemNavigationBarColor: Colors.transparent,
-    systemNavigationBarDividerColor: Colors.transparent,
-    // Let the OS pick icon contrast against our content instead of us forcing a
-    // (now-deprecated) opaque bar colour.
-    systemNavigationBarContrastEnforced: false,
+    statusBarIconBrightness: Brightness.dark,
+    statusBarBrightness: Brightness.light, // iOS
+    systemNavigationBarIconBrightness: Brightness.dark,
   ));
 
   // Firebase + background push handler. Wrapped so a missing/instrumented
