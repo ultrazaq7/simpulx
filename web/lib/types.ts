@@ -92,6 +92,10 @@ export interface Analytics {
   junk: number;
   lost?: number;
   lost_reasons?: { reason: string; count: number }[];
+  // P4 revenue-impact: revenue_influenced = deal value of AI-touched bookings
+  // (catalog OTR or campaign avg fallback); ai_saved_leads = leads AI advanced to
+  // qualified-or-beyond.
+  revenue?: { revenue_influenced: number; ai_saved_leads: number };
 }
 
 export interface AppNotification {
@@ -496,6 +500,7 @@ export interface CampaignDetail extends Campaign {
   intake_form_id?: string | null;
   followup_template_id?: string | null; // approved template for out-of-window follow-ups
   monthly_budget?: number | null;      // optional user-set monthly ad budget
+  avg_deal_value?: number | null;      // fallback deal value for revenue-influenced
   ai_style?: AIStyle | null;           // per-campaign AI response tuning
   followup_frequency?: string;         // off | low | normal | high
 }

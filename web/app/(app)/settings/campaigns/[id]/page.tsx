@@ -403,6 +403,7 @@ function AITab({ campaign, onSaved, onError }: { campaign: CampaignDetail; onSav
     dynLang: campaign.ai_dynamic_language ?? true, smartSummary: campaign.ai_smart_summary ?? true,
     followupTpl: campaign.followup_template_id ?? "", intakeForm: campaign.intake_form_id ?? "",
     budget: campaign.monthly_budget != null ? String(campaign.monthly_budget) : "",
+    avgDeal: campaign.avg_deal_value != null ? String(campaign.avg_deal_value) : "",
     followupFreq: campaign.followup_frequency ?? "normal",
   };
   const [segment, setSegment] = useState(init.segment);
@@ -414,6 +415,7 @@ function AITab({ campaign, onSaved, onError }: { campaign: CampaignDetail; onSav
   const [followupTpl, setFollowupTpl] = useState(init.followupTpl);
   const [intakeForm, setIntakeForm] = useState(init.intakeForm);
   const [budget, setBudget] = useState(init.budget);
+  const [avgDeal, setAvgDeal] = useState(init.avgDeal);
   const [followupFreq, setFollowupFreq] = useState(init.followupFreq);
   const [templates, setTemplates] = useState<Template[]>([]);
   const [forms, setForms] = useState<{ id: string; name: string }[]>([]);
@@ -427,16 +429,17 @@ function AITab({ campaign, onSaved, onError }: { campaign: CampaignDetail; onSav
     api.listFlows().then((fs) => setForms((fs || []).map((f) => ({ id: f.id, name: f.name })))).catch(() => setForms([]));
   }, [campaign.id]);
 
-  const changedCount = [segment !== init.segment, brand.trim() !== init.brand, autoReply !== init.autoReply, lang !== init.lang, dynLang !== init.dynLang, smartSummary !== init.smartSummary, followupTpl !== init.followupTpl, intakeForm !== init.intakeForm, budget.trim() !== init.budget, followupFreq !== init.followupFreq].filter(Boolean).length;
-  function reset() { setSegment(init.segment); setBrand(init.brand); setAutoReply(init.autoReply); setLang(init.lang); setDynLang(init.dynLang); setSmartSummary(init.smartSummary); setFollowupTpl(init.followupTpl); setIntakeForm(init.intakeForm); setBudget(init.budget); setFollowupFreq(init.followupFreq); }
+  const changedCount = [segment !== init.segment, brand.trim() !== init.brand, autoReply !== init.autoReply, lang !== init.lang, dynLang !== init.dynLang, smartSummary !== init.smartSummary, followupTpl !== init.followupTpl, intakeForm !== init.intakeForm, budget.trim() !== init.budget, avgDeal.trim() !== init.avgDeal, followupFreq !== init.followupFreq].filter(Boolean).length;
+  function reset() { setSegment(init.segment); setBrand(init.brand); setAutoReply(init.autoReply); setLang(init.lang); setDynLang(init.dynLang); setSmartSummary(init.smartSummary); setFollowupTpl(init.followupTpl); setIntakeForm(init.intakeForm); setBudget(init.budget); setAvgDeal(init.avgDeal); setFollowupFreq(init.followupFreq); }
 
   async function save() {
     setSaving(true);
     try {
       const mb = budget.trim() === "" ? null : Number(budget.replace(/[^0-9.]/g, ""));
-      const patch = { segment, brand: brand.trim(), ai_auto_reply: autoReply, ai_language: lang, ai_dynamic_language: dynLang, ai_smart_summary: smartSummary, followup_template_id: followupTpl || "none", intake_form_id: intakeForm || "none", monthly_budget: mb, followup_frequency: followupFreq };
+      const adv = avgDeal.trim() === "" ? null : Number(avgDeal.replace(/[^0-9.]/g, ""));
+      const patch = { segment, brand: brand.trim(), ai_auto_reply: autoReply, ai_language: lang, ai_dynamic_language: dynLang, ai_smart_summary: smartSummary, followup_template_id: followupTpl || "none", intake_form_id: intakeForm || "none", monthly_budget: mb, avg_deal_value: adv, followup_frequency: followupFreq };
       await api.updateCampaign(campaign.id, patch);
-      onSaved({ ...campaign, segment, brand: brand.trim(), ai_auto_reply: autoReply, ai_language: lang, ai_dynamic_language: dynLang, ai_smart_summary: smartSummary, followup_template_id: followupTpl || null, intake_form_id: intakeForm || null, monthly_budget: mb, followup_frequency: followupFreq });
+      onSaved({ ...campaign, segment, brand: brand.trim(), ai_auto_reply: autoReply, ai_language: lang, ai_dynamic_language: dynLang, ai_smart_summary: smartSummary, followup_template_id: followupTpl || null, intake_form_id: intakeForm || null, monthly_budget: mb, avg_deal_value: adv, followup_frequency: followupFreq });
     } catch (e) { onError(String(e)); } finally { setSaving(false); }
   }
   return (
@@ -493,6 +496,10 @@ function AITab({ campaign, onSaved, onError }: { campaign: CampaignDetail; onSav
       <div>
         <FieldLabel hint={t("settings.totalAdBudgetForThis")}>{t("settings.totalBudgetRp")}</FieldLabel>
         <input value={budget} onChange={(e) => setBudget(e.target.value.replace(/[^0-9.]/g, ""))} placeholder="200000000" className={INPUT_CLASS} />
+      </div>
+      <div>
+        <FieldLabel hint="Nilai deal rata-rata, dipakai buat Revenue Influenced kalau harga OTR katalog gak ke-match">Avg deal value (Rp)</FieldLabel>
+        <input value={avgDeal} onChange={(e) => setAvgDeal(e.target.value.replace(/[^0-9.]/g, ""))} placeholder="350000000" className={INPUT_CLASS} />
       </div>
       <UnsavedBar count={changedCount} saving={saving} onSave={save} onCancel={reset} saveLabel="Save AI settings" />
       </div>

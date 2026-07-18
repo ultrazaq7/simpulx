@@ -36,6 +36,9 @@ type Metric = {
 
 // Accurate, unambiguous: Replied = AGENT replied; Won = disposition won; Avg first
 // response = first agent reply after the customer's first message (bot excluded).
+// Compact Rupiah for the revenue-impact card (module scope so METRICS can use it).
+const fmtIDR = (n: number) => "Rp " + Math.round(n || 0).toLocaleString("id-ID");
+
 const METRICS: Metric[] = [
   { key: "total_leads", label: "Leads", Icon: BarChart3, color: "#2E7CE4", href: "/inbox" },
   { key: "active", label: "Active", Icon: MessageSquare, color: "#0E5B54", href: "/inbox?status=open" },
@@ -45,6 +48,9 @@ const METRICS: Metric[] = [
   { key: "replied", label: "Handled", Icon: Reply, color: "#0284C7" },
   { key: "won", label: "Purchase", Icon: Trophy, color: "#16A34A" },
   { key: "avg_rt", label: "Avg response time", Icon: Timer, color: "#7C3AED", fmt: fmtDuration },
+  // P4 revenue-impact: the two "how much revenue did AI generate" cards.
+  { key: "revenue_influenced", label: "Revenue influenced", Icon: CircleDollarSign, color: "#059669", fmt: fmtIDR },
+  { key: "ai_saved_leads", label: "AI saved leads", Icon: Sparkles, color: "#7C3AED" },
 ];
 
 // Same canonical keys used everywhere else (contacts, exports, logs).
@@ -847,6 +853,8 @@ function ManagerDashboard({ initialTab }: { initialTab: ReportTab }) {
             else if (m.key === "replied") val = analytics?.funnel?.replied ?? 0;
             else if (m.key === "won") val = analytics?.funnel?.won ?? 0;
             else if (m.key === "avg_rt") val = analytics?.response_time?.avg_min ?? 0;
+            else if (m.key === "revenue_influenced") val = analytics?.revenue?.revenue_influenced ?? 0;
+            else if (m.key === "ai_saved_leads") val = analytics?.revenue?.ai_saved_leads ?? 0;
             else val = (stats as any)[m.key] ?? 0;
             const Icon = m.Icon;
 

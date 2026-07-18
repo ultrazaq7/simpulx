@@ -19,7 +19,7 @@ func (s *server) handleListCampaigns(w http.ResponseWriter, r *http.Request) {
 	rows, err := s.queryMaps(r.Context(),
 		`SELECT c.id::text AS id, c.name, c.dealer_name, c.status, c.routing_strategy,
 		        to_jsonb(c.ad_source_ids) AS ad_source_ids, to_jsonb(c.keywords) AS keywords,
-		        c.lead_count, c.monthly_budget, c.created_at, c.updated_at,
+		        c.lead_count, c.monthly_budget, c.avg_deal_value, c.created_at, c.updated_at,
 		        c.channel_id::text AS channel_id, ch.name AS channel_name, c.calling_enabled,
 		        (SELECT count(*) FROM campaign_agents ca WHERE ca.campaign_id = c.id) AS agent_count,
 		        COALESCE((SELECT jsonb_agg(u.full_name ORDER BY u.full_name)
@@ -102,7 +102,7 @@ func (s *server) handleGetCampaign(w http.ResponseWriter, r *http.Request) {
 		        to_jsonb(c.ad_source_ids) AS ad_source_ids, to_jsonb(c.keywords) AS keywords,
 		        c.lead_count, c.channel_id::text AS channel_id, c.calling_enabled,
 		        c.segment, c.brand, c.ai_auto_reply, c.ai_language, c.ai_dynamic_language, c.ai_smart_summary,
-		        c.intake_form_id::text AS intake_form_id, c.followup_template_id::text AS followup_template_id, c.monthly_budget,
+		        c.intake_form_id::text AS intake_form_id, c.followup_template_id::text AS followup_template_id, c.monthly_budget, c.avg_deal_value,
 		        c.ai_style, c.followup_frequency,
 		        COALESCE((SELECT jsonb_agg(ca.user_id::text) FROM campaign_agents ca WHERE ca.campaign_id = c.id AND ca.in_rotation), '[]'::jsonb) AS agent_ids,
 		        COALESCE((SELECT jsonb_agg(ca.user_id::text) FROM campaign_agents ca WHERE ca.campaign_id = c.id AND NOT ca.in_rotation), '[]'::jsonb) AS supervisor_ids
@@ -141,6 +141,7 @@ type campaignInput struct {
 	IntakeFormID      string   `json:"intake_form_id"`
 	FollowupTemplateID string  `json:"followup_template_id"` // approved template for out-of-window follow-ups ('' keep, 'none' clear)
 	MonthlyBudget     *float64 `json:"monthly_budget"` // optional user-set monthly ad budget
+	AvgDealValue      *float64 `json:"avg_deal_value"` // fallback deal value for revenue-influenced (when no catalog OTR match)
 	// Per-campaign AI response tuning (persona/tone/length/goal/custom_rules). Raw
 	// JSON so the gateway just stores/forwards it; the ai-agent interprets it.
 	// nil = not sent (keep existing); {} = reset to defaults.
@@ -245,12 +246,13 @@ func (s *server) handleUpdateCampaign(w http.ResponseWriter, r *http.Request) {
 		   followup_template_id = CASE WHEN $19 = '' THEN followup_template_id WHEN $19 = 'none' THEN NULL ELSE $19::uuid END,
 		   ai_style = COALESCE($20::jsonb, ai_style),
 		   followup_frequency = COALESCE(NULLIF($21,''), followup_frequency),
+		   avg_deal_value = COALESCE($22, avg_deal_value),
 		   updated_at = now()
 		 WHERE id=$1 AND organization_id=$2`,
 		r.PathValue("id"), a.OrgID, b.Name, b.DealerName, b.Status, b.RoutingStrategy,
 		nilIfEmptySlice(b.AdSourceIDs), nilIfEmptySlice(b.Keywords), b.ChannelID, b.CallingEnabled,
 		b.Segment, b.Brand, b.AIAutoReply, b.AILanguage, b.AIDynamicLanguage, b.IntakeFormID, b.AISmartSummary,
-		b.MonthlyBudget, b.FollowupTemplateID, nilIfEmptyJSON(b.AIStyle), b.FollowupFrequency,
+		b.MonthlyBudget, b.FollowupTemplateID, nilIfEmptyJSON(b.AIStyle), b.FollowupFrequency, b.AvgDealValue,
 	)
 	if err != nil {
 		http.Error(w, err.Error(), http.StatusInternalServerError)
