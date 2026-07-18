@@ -557,6 +557,12 @@ func (a *app) triggerFollowUps(ctx context.Context) {
 		  AND cv.last_contact_message_at IS NOT NULL
 		  AND cv.followup_count < 5
 		  AND COALESCE(cmp.followup_frequency, 'normal') <> 'off'
+		  -- Best follow-up TIME: only fire during local daytime (WIB 08:00-20:59).
+		  -- The interval thresholds decide when a nudge becomes DUE; this holds a
+		  -- due nudge until a good hour so it never lands at 3am (kills reply rate
+		  -- and reads as spam). A nudge due at night simply goes out next morning;
+		  -- the count still advances then, so the 7-day close-out is unaffected.
+		  AND EXTRACT(hour FROM NOW() AT TIME ZONE 'Asia/Jakarta') BETWEEN 8 AND 20
 		  AND (
 		    (cv.followup_count = 0 AND cv.last_contact_message_at < NOW() - (INTERVAL '12 hours' * f.factor))
 		    OR (cv.followup_count = 1 AND cv.last_contact_message_at < NOW() - (INTERVAL '20 hours' * f.factor))
