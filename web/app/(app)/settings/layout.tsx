@@ -116,7 +116,10 @@ export default function SettingsLayout({ children }: { children: ReactNode }) {
     ...GROUPS
       .map((g) => ({ ...g, items: g.items.filter((i) => can(i.perm)) }))
       .filter((g) => g.items.length > 0),
-    ...(isSuper ? [{ titleKey: "Platform", flat: true, items: [{ key: "platform", labelKey: "Platform", icon: Boxes, href: "/settings/platform", perm: "" }] }] : []),
+    ...(isSuper ? [{ titleKey: "Platform", items: [
+      { key: "client-management", labelKey: "Client Management", icon: Building2, href: "/settings/client-management", perm: "" },
+      { key: "ai-ml-monitor", labelKey: "AI & ML Monitor", icon: Boxes, href: "/settings/ai-ml-monitor", perm: "" },
+    ] }] : []),
   ];
 
   const navCount = groups.reduce((n, g) => n + g.items.length, 0);

@@ -143,8 +143,49 @@ func (s *server) handleMlMonitor(w http.ResponseWriter, r *http.Request) {
 	if len(scores) > 0 {
 		first = scores[0]
 	}
-	writeJSON(w, map[string]any{"scores": first, "versions": versions, "nba": nba})
+
+	// AI usage: token + cost totals (all-time + last 30d) from the llm_usage ledger.
+	usage, _ := s.queryMaps(r.Context(),
+		`SELECT
+		   COALESCE(sum(cost_usd),0)::float8                                          AS cost_usd_all,
+		   COALESCE(sum(cost_usd) FILTER (WHERE created_at >= now()-interval '30 days'),0)::float8 AS cost_usd_30d,
+		   COALESCE(sum(tokens_in),0)::bigint                                         AS tokens_in,
+		   COALESCE(sum(tokens_out),0)::bigint                                        AS tokens_out,
+		   count(*)::bigint                                                           AS calls_all,
+		   count(*) FILTER (WHERE created_at >= now()-interval '30 days')::bigint     AS calls_30d
+		 FROM llm_usage`)
+	byFeature, _ := s.queryMaps(r.Context(),
+		`SELECT feature, count(*) AS calls, COALESCE(sum(cost_usd),0)::float8 AS cost_usd
+		   FROM llm_usage GROUP BY feature ORDER BY cost_usd DESC`)
+	byModel, _ := s.queryMaps(r.Context(),
+		`SELECT model, count(*) AS calls, COALESCE(sum(cost_usd),0)::float8 AS cost_usd
+		   FROM llm_usage GROUP BY model ORDER BY cost_usd DESC`)
+
+	// Profit monitor (ESTIMATE). Revenue = billable AI replies (nurture/reply/
+	// followup = "1 credit = 1 AI reply") x charge price; cost = real cost_usd. Both
+	// per org, this billing month. Constants are estimates a founder can eyeball.
+	profit, _ := s.queryMaps(r.Context(),
+		`SELECT o.name AS org,
+		        count(*) FILTER (WHERE u.feature IN ('nurture','reply','followup'))::bigint AS credits,
+		        COALESCE(sum(u.cost_usd),0)::float8 AS cost_usd,
+		        (count(*) FILTER (WHERE u.feature IN ('nurture','reply','followup')) * `+capiCreditPriceIDR+`
+		           - COALESCE(sum(u.cost_usd),0) * `+capiUSDIDR+`)::float8 AS profit_idr
+		   FROM llm_usage u JOIN organizations o ON o.id = u.organization_id
+		  WHERE u.created_at >= date_trunc('month', now())
+		  GROUP BY o.name ORDER BY profit_idr DESC`)
+
+	writeJSON(w, map[string]any{
+		"scores": first, "versions": versions, "nba": nba,
+		"usage": func() map[string]any { if len(usage) > 0 { return usage[0] }; return map[string]any{} }(),
+		"byFeature": byFeature, "byModel": byModel, "profit": profit,
+		"creditPriceIdr": capiCreditPriceIDR, "usdIdr": capiUSDIDR,
+	})
 }
+
+// Estimate constants for the profit monitor (documented, easy to tune). Charge
+// price per AI credit (what customers pay) and USD->IDR for converting cost_usd.
+const capiCreditPriceIDR = "200"
+const capiUSDIDR = "16000"
 
 // GET /api/platform/campaigns — every campaign across all orgs (for the clone +
 // prompt-history tools). Lightweight: id, name, org, catalog size.
@@ -176,63 +217,6 @@ func (s *server) handleCampaignAIHistory(w http.ResponseWriter, r *http.Request)
 		return
 	}
 	writeJSON(w, rows)
-}
-
-// POST /api/platform/campaigns/{id}/clone — duplicate a campaign's full AI config
-// (P7 internal tool). Copies the config columns + catalog + agent rotation into a
-// new campaign in the SAME org. keywords + ad_source_ids are deliberately left
-// empty: they are unique per-org routing/tracking params, so copying them would
-// make two campaigns fight over the same leads. The clone lands inactive-safe (no
-// keywords => routes nothing) until the operator wires its own keywords.
-func (s *server) handleCloneCampaign(w http.ResponseWriter, r *http.Request) {
-	a, _ := authFrom(r.Context())
-	src := r.PathValue("id")
-	tx, err := s.pool.Begin(r.Context())
-	if err != nil {
-		http.Error(w, err.Error(), http.StatusInternalServerError)
-		return
-	}
-	defer tx.Rollback(r.Context())
-
-	var newID string
-	err = tx.QueryRow(r.Context(),
-		`INSERT INTO campaigns
-		   (organization_id, name, dealer_name, routing_strategy, channel_id, calling_enabled,
-		    segment, brand, ai_auto_reply, ai_language, ai_dynamic_language, intake_form_id, ai_smart_summary,
-		    ai_style, covered_cities, followup_template_id, followup_frequency, monthly_budget, avg_deal_value,
-		    keywords, ad_source_ids)
-		 SELECT organization_id, left(name || ' (copy)', 200), dealer_name, routing_strategy, channel_id, calling_enabled,
-		    segment, brand, ai_auto_reply, ai_language, ai_dynamic_language, intake_form_id, ai_smart_summary,
-		    ai_style, covered_cities, followup_template_id, followup_frequency, monthly_budget, avg_deal_value,
-		    '{}'::text[], '{}'::text[]
-		   FROM campaigns WHERE id=$1
-		 RETURNING id::text`, src).Scan(&newID)
-	if err != nil {
-		http.Error(w, "clone failed: "+err.Error(), http.StatusInternalServerError)
-		return
-	}
-	// Catalog (the campaign's grounded pricelist) and agent rotation come along so
-	// the clone is usable immediately, not an empty shell.
-	if _, err := tx.Exec(r.Context(),
-		`INSERT INTO campaign_catalog (campaign_id, segment, item_name, variant_name, location_name, category_type, headline_price, attributes)
-		 SELECT $1, segment, item_name, variant_name, location_name, category_type, headline_price, attributes
-		   FROM campaign_catalog WHERE campaign_id=$2`, newID, src); err != nil {
-		http.Error(w, "clone catalog failed: "+err.Error(), http.StatusInternalServerError)
-		return
-	}
-	if _, err := tx.Exec(r.Context(),
-		`INSERT INTO campaign_agents (campaign_id, user_id, in_rotation)
-		 SELECT $1, user_id, in_rotation FROM campaign_agents WHERE campaign_id=$2
-		 ON CONFLICT DO NOTHING`, newID, src); err != nil {
-		http.Error(w, "clone agents failed: "+err.Error(), http.StatusInternalServerError)
-		return
-	}
-	if err := tx.Commit(r.Context()); err != nil {
-		http.Error(w, err.Error(), http.StatusInternalServerError)
-		return
-	}
-	s.audit(r.Context(), a, "cloned", "campaign", newID, map[string]any{"source": src})
-	writeJSON(w, map[string]any{"id": newID})
 }
 
 // POST /api/platform/orgs — create an org, its owner user, and its credit pool.

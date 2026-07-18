@@ -2,7 +2,7 @@
 import { useI18n } from "@/lib/i18n";
 import { useEffect, useState } from "react";
 import { useRouter } from "next/navigation";
-import { Search, Plus, Pencil, Trash2, Megaphone, Loader2, X } from "lucide-react";
+import { Search, Plus, Pencil, Trash2, Megaphone, Loader2, X, Copy } from "lucide-react";
 import { api } from "@/lib/api";
 import { cn, fmtDateTimeShort } from "@/lib/utils";
 import { Tip } from "@/components/ui/tooltip";
@@ -29,7 +29,9 @@ export default function CampaignsPage() {
   const [toast, setToast] = useState<Toast>(null);
   const { confirm, ConfirmHost } = useConfirm();
   const router = useRouter();
-
+  // Clone is a superadmin-only action, so the button only renders for them.
+  const [isSuper, setIsSuper] = useState(false);
+  useEffect(() => { api.platformAccess().then((r) => setIsSuper(!!r.super_admin)).catch(() => {}); }, []);
 
   async function load() {
     setLoading(true);
@@ -43,6 +45,11 @@ export default function CampaignsPage() {
   async function remove(c: Campaign) {
     if (!(await confirm({ title: "Delete campaign?", message: `Delete "${c.name}"? Conversations stay but lose their campaign tag.`, danger: true, confirmLabel: "Delete" }))) return;
     try { await api.deleteCampaign(c.id); setToast({ msg: "Campaign deleted", sev: "success" }); load(); }
+    catch (e) { setToast({ msg: String(e), sev: "error" }); }
+  }
+
+  async function clone(c: Campaign) {
+    try { await api.cloneCampaign(c.id); setToast({ msg: `Cloned "${c.name}"`, sev: "success" }); load(); }
     catch (e) { setToast({ msg: String(e), sev: "error" }); }
   }
 
@@ -109,6 +116,7 @@ export default function CampaignsPage() {
                   <td className="px-4 py-2.5 text-[12.5px] text-muted-foreground whitespace-nowrap">{fmtDateTimeShort(c.updated_at)}</td>
                   <td className="px-4 py-2.5 text-right whitespace-nowrap">
                     <Tip label={t("common.edit")}><button onClick={() => setDlg({ open: true, id: c.id })} className="p-1.5 rounded-md hover:bg-muted outline-none transition-colors text-muted-foreground hover:text-foreground"><Pencil className="w-[17px] h-[17px]" /></button></Tip>
+                    {isSuper && <Tip label="Clone"><button onClick={() => clone(c)} className="p-1.5 rounded-md hover:bg-muted outline-none transition-colors text-muted-foreground hover:text-foreground"><Copy className="w-[17px] h-[17px]" /></button></Tip>}
                     <Tip label={t("common.delete")}><button onClick={() => remove(c)} className="p-1.5 rounded-md hover:bg-red-50 outline-none transition-colors text-red-500"><Trash2 className="w-[17px] h-[17px]" /></button></Tip>
                   </td>
                 </tr>

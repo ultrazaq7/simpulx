@@ -2,7 +2,7 @@
 import { useI18n } from "@/lib/i18n";
 import { useEffect, useMemo, useRef, useState } from "react";
 import {
-  MessageSquare, X, Filter, User, Phone, ChevronDown, Check, ArrowUpDown, Rows3,
+  MessageSquare, X, Filter, User, Phone, ChevronDown, Check, ArrowUpDown,
 } from "lucide-react";
 
 import { type FilterOption } from "./MultiSelectFilter";
@@ -192,7 +192,7 @@ export default function ConversationList({
   const { t } = useI18n();
   const [filterOpen, setFilterOpen] = useState(false);
   const [searchMode, setSearchMode] = useState<SearchMode>("name");
-  const [dense, setDense] = useState(false);
+  const dense = false; // comfortable rows (the density toggle was removed)
   // Inbox-local quick toggles (not threaded through the parent).
   const [responded, setResponded] = useState(false);
   const [unresponded, setUnresponded] = useState(false);
@@ -204,8 +204,6 @@ export default function ConversationList({
   const searchInputRef = useRef<HTMLInputElement>(null);
   const shownRef = useRef<Conversation[]>([]);
 
-  useEffect(() => { setDense(localStorage.getItem("inboxDense") === "1"); }, []);
-  const toggleDense = () => setDense((d) => { localStorage.setItem("inboxDense", d ? "0" : "1"); return !d; });
 
   const stageOptions: FilterOption[] = useMemo(
     () => stages.map((s) => ({ value: s.id, label: s.name })),
@@ -451,19 +449,6 @@ export default function ConversationList({
             )}
           </div>
 
-          <Tip label={dense ? t("inbox.comfortableRows") : t("inbox.compactRows")} side="bottom">
-            <button
-              type="button"
-              aria-label={dense ? t("inbox.comfortableRowDensity") : t("inbox.compactRowDensity")}
-              onClick={toggleDense}
-              className={cn(
-                "shrink-0 w-8 h-9 rounded-md grid place-items-center border transition-colors outline-none",
-                dense ? "bg-primary/10 text-primary border-primary/40" : "bg-background text-muted-foreground border-input hover:bg-muted hover:text-foreground",
-              )}
-            >
-              <Rows3 className="w-4 h-4" />
-            </button>
-          </Tip>
         </div>
       </div>
 

@@ -533,11 +533,17 @@ export const api = {
     scores: Record<string, number>;
     versions: { model: string; version: string; n: number }[];
     nba: { action: string; n: number }[];
+    usage: Record<string, number>;
+    byFeature: { feature: string; calls: number; cost_usd: number }[];
+    byModel: { model: string; calls: number; cost_usd: number }[];
+    profit: { org: string; credits: number; cost_usd: number; profit_idr: number }[];
+    creditPriceIdr: string;
+    usdIdr: string;
   }>("/api/platform/ml-monitor"),
   listOrgs: () => req<OrgRow[]>("/api/platform/orgs"),
   listAllCampaigns: () => req<{ id: string; name: string; org_name: string; status: string; catalog_rows: number }[]>("/api/platform/campaigns"),
   campaignAIHistory: (id: string) => req<{ id: string; ai_style: unknown; changed_at: string; changed_by: string }[]>(`/api/platform/campaigns/${id}/ai-history`),
-  cloneCampaign: (id: string) => req<{ id: string }>(`/api/platform/campaigns/${id}/clone`, { method: "POST" }),
+  cloneCampaign: (id: string) => req<{ id: string }>(`/api/campaigns/${id}/clone`, { method: "POST" }),
   createOrg: (input: { name: string; owner_name?: string; owner_email: string; owner_password: string; package_name?: string; users?: number; simpuler_credits?: number; custom_fields?: number }) =>
     req<{ id: string; slug: string; owner_id: string }>("/api/platform/orgs", { method: "POST", body: JSON.stringify(input) }),
   updateOrg: (id: string, patch: { name?: string; package_name?: string; status?: string; renewal_date?: string; quotas?: Record<string, number>; owner_email?: string }) =>
@@ -645,6 +651,7 @@ export const api = {
     actions?: AutomationAction[]; flow?: AutomationFlow; is_active?: boolean;
   }) => req(`/api/automations/${id}`, { method: "PATCH", body: JSON.stringify(patch) }),
   deleteAutomation: (id: string) => req(`/api/automations/${id}`, { method: "DELETE" }),
+  cloneAutomation: (id: string) => req<{ id: string }>(`/api/automations/${id}/clone`, { method: "POST" }),
   // ── WhatsApp Forms (native Meta Flows) ──
   listFlows: (channelId?: string) =>
     req<WaFlow[]>(`/api/wa-flows${channelId ? `?channel_id=${channelId}` : ""}`),

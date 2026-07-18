@@ -5,7 +5,7 @@ import { useRouter } from "next/navigation";
 import {
   Search, UserPlus, Download, Pencil, ChevronsLeft, ChevronsRight, ChevronLeft, ChevronRight,
   Users, User, X, XCircle, Loader2, Tag as TagIcon, MoreVertical, MessageSquare, Trash2, Upload, ChevronDown, Eye, Ban, Copy, Check, SlidersHorizontal, Send,
-  Infinity as InfinityIcon, Music2, Globe, MessageCircle, AlignJustify,
+  Infinity as InfinityIcon, Music2, Globe, MessageCircle,
 } from "lucide-react";
 
 import { api, getUser } from "@/lib/api";
@@ -135,8 +135,7 @@ export default function ContactsPage() {
   const [tplOpen, setTplOpen] = useState(false);
   const [visibleCols, setVisibleCols] = useState<Set<string>>(() => new Set(DEFAULT_COLS));
   const [colsMenuOpen, setColsMenuOpen] = useState(false);
-  const [compact, setCompact] = useState(true); // dense rows by default; toggle to comfortable
-  const toggleCompact = () => setCompact((c) => { const n = !c; try { localStorage.setItem("simpulx_contact_compact", n ? "1" : "0"); } catch { /* ignore */ } return n; });
+  const compact = true; // dense rows (the compact toggle was removed)
   const [filterOpen, setFilterOpen] = useState(false);
   const importRef = useRef<HTMLInputElement>(null);
   const show = (k: ColKey) => visibleCols.has(k);
@@ -264,8 +263,6 @@ export default function ContactsPage() {
         const keys = (JSON.parse(raw) as string[]).filter((k) => CONTACT_COLUMNS.some((c) => c.key === k));
         setVisibleCols(new Set(keys));
       }
-      const dens = localStorage.getItem("simpulx_contact_compact");
-      if (dens !== null) setCompact(dens === "1");
     } catch { /* ignore */ }
   }, []);
 
@@ -449,11 +446,6 @@ export default function ContactsPage() {
           </button>
           {activeFilters > 0 && <button onClick={clearFilters} className="text-[11px] font-semibold text-primary hover:underline outline-none">{t("common.clear")}</button>}
           <div className="flex-1" />
-          <button onClick={toggleCompact}
-            className={cn("inline-flex items-center gap-1.5 px-3 h-8 rounded-md border text-[13px] font-medium outline-none transition-colors",
-              compact ? "border-primary/40 bg-primary/[0.06] text-primary" : "border-border bg-background text-foreground hover:bg-muted")}>
-            <AlignJustify className="w-4 h-4" />{t("contacts.compact")}
-          </button>
           <div className="relative inline-flex" onClick={(e) => e.stopPropagation()}>
             <button onClick={() => setColsMenuOpen((o) => !o)} className="inline-flex items-center gap-1.5 px-3 h-8 rounded-md border border-border bg-background text-[13px] font-medium text-foreground hover:bg-muted outline-none transition-colors">
               <SlidersHorizontal className="w-4 h-4 text-muted-foreground" />{t("contacts.columns")}

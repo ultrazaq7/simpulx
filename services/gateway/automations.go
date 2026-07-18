@@ -59,6 +59,27 @@ type automationInput struct {
 	IsActive      *bool           `json:"is_active"`
 }
 
+// POST /api/automations/{id}/clone — duplicate an automation (trigger + actions +
+// visual flow) into a new one in the same org. Org-scoped. The clone starts
+// INACTIVE (is_active=false) so it never fires until reviewed and toggled on.
+func (s *server) handleCloneAutomation(w http.ResponseWriter, r *http.Request) {
+	a, _ := authFrom(r.Context())
+	src := r.PathValue("id")
+	var newID string
+	err := s.pool.QueryRow(r.Context(),
+		`INSERT INTO automations
+		   (organization_id, name, description, trigger_type, trigger_config, channel_id, actions, flow, is_active, created_by)
+		 SELECT organization_id, left(name || ' (copy)', 160), description, trigger_type, trigger_config, channel_id, actions, flow, false, $3
+		   FROM automations WHERE id=$1 AND organization_id=$2
+		 RETURNING id::text`, src, a.OrgID, a.UserID).Scan(&newID)
+	if err != nil {
+		http.Error(w, "clone failed: "+err.Error(), http.StatusInternalServerError)
+		return
+	}
+	s.audit(r.Context(), a, "cloned", "automation", newID, map[string]any{"source": src})
+	writeJSON(w, map[string]any{"id": newID})
+}
+
 // POST /api/automations
 func (s *server) handleCreateAutomation(w http.ResponseWriter, r *http.Request) {
 	a, _ := authFrom(r.Context())

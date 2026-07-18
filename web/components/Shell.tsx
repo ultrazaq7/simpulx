@@ -148,6 +148,8 @@ const PAGE_TITLES: Record<string, { category: string; title: string; icon?: any 
   "/settings/web-api": { category: "CHANNEL & INTEGRATIONS", title: "Web API" },
   "/settings/ads-analytics": { category: "CHANNEL & INTEGRATIONS", title: "Ads & Analytics" },
   "/settings/platform": { category: "PLATFORM", title: "Platform", icon: Boxes },
+  "/settings/client-management": { category: "PLATFORM", title: "Client Management", icon: Boxes },
+  "/settings/ai-ml-monitor": { category: "PLATFORM", title: "AI & ML Monitor", icon: Boxes },
   "/settings/ads": { category: "ANALYTICS", title: "Ad Performance" },
   "/settings/integrations": { category: "INTEGRATIONS", title: "Web API Sources" },
   "/settings/audit": { category: "LOGS", title: "Logs" },

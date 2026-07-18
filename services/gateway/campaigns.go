@@ -173,6 +173,60 @@ func (s *server) keywordsConflict(ctx context.Context, orgID, selfCampaignID str
 }
 
 // POST /api/campaigns
+// POST /api/campaigns/{id}/clone — duplicate a campaign's full AI config + catalog
+// + agent rotation into a new campaign in the SAME org. keywords + ad_source_ids
+// are left empty (unique per-org routing/tracking params, so copying them would
+// make two campaigns fight over the same leads); the clone routes nothing until
+// its own keywords are set. Org-scoped: only clones a campaign the caller owns.
+func (s *server) handleCloneCampaign(w http.ResponseWriter, r *http.Request) {
+	a, _ := authFrom(r.Context())
+	src := r.PathValue("id")
+	tx, err := s.pool.Begin(r.Context())
+	if err != nil {
+		http.Error(w, err.Error(), http.StatusInternalServerError)
+		return
+	}
+	defer tx.Rollback(r.Context())
+
+	var newID string
+	err = tx.QueryRow(r.Context(),
+		`INSERT INTO campaigns
+		   (organization_id, name, dealer_name, routing_strategy, channel_id, calling_enabled,
+		    segment, brand, ai_auto_reply, ai_language, ai_dynamic_language, intake_form_id, ai_smart_summary,
+		    ai_style, covered_cities, followup_template_id, followup_frequency, monthly_budget, avg_deal_value,
+		    keywords, ad_source_ids)
+		 SELECT organization_id, left(name || ' (copy)', 200), dealer_name, routing_strategy, channel_id, calling_enabled,
+		    segment, brand, ai_auto_reply, ai_language, ai_dynamic_language, intake_form_id, ai_smart_summary,
+		    ai_style, covered_cities, followup_template_id, followup_frequency, monthly_budget, avg_deal_value,
+		    '{}'::text[], '{}'::text[]
+		   FROM campaigns WHERE id=$1 AND organization_id=$2
+		 RETURNING id::text`, src, a.OrgID).Scan(&newID)
+	if err != nil {
+		http.Error(w, "clone failed: "+err.Error(), http.StatusInternalServerError)
+		return
+	}
+	if _, err := tx.Exec(r.Context(),
+		`INSERT INTO campaign_catalog (campaign_id, segment, item_name, variant_name, location_name, category_type, headline_price, attributes)
+		 SELECT $1, segment, item_name, variant_name, location_name, category_type, headline_price, attributes
+		   FROM campaign_catalog WHERE campaign_id=$2`, newID, src); err != nil {
+		http.Error(w, "clone catalog failed: "+err.Error(), http.StatusInternalServerError)
+		return
+	}
+	if _, err := tx.Exec(r.Context(),
+		`INSERT INTO campaign_agents (campaign_id, user_id, in_rotation)
+		 SELECT $1, user_id, in_rotation FROM campaign_agents WHERE campaign_id=$2
+		 ON CONFLICT DO NOTHING`, newID, src); err != nil {
+		http.Error(w, "clone agents failed: "+err.Error(), http.StatusInternalServerError)
+		return
+	}
+	if err := tx.Commit(r.Context()); err != nil {
+		http.Error(w, err.Error(), http.StatusInternalServerError)
+		return
+	}
+	s.audit(r.Context(), a, "cloned", "campaign", newID, map[string]any{"source": src})
+	writeJSON(w, map[string]any{"id": newID})
+}
+
 func (s *server) handleCreateCampaign(w http.ResponseWriter, r *http.Request) {
 	a, _ := authFrom(r.Context())
 	var b campaignInput

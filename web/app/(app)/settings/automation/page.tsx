@@ -2,7 +2,7 @@
 import { useI18n } from "@/lib/i18n";
 import { useEffect, useMemo, useState } from "react";
 import { useRouter } from "next/navigation";
-import { Search, Plus, RefreshCw, GitBranch, Pencil, Trash2, Zap, Sparkles } from "lucide-react";
+import { Search, Plus, RefreshCw, GitBranch, Pencil, Trash2, Zap, Sparkles, Copy } from "lucide-react";
 import { api } from "@/lib/api";
 import { Select } from "@/components/Select";
 import { MultiSelect } from "@/components/ui/multi-select";
@@ -48,6 +48,10 @@ export default function AutomationPage() {
 
   async function toggle(r: Automation) {
     try { await api.updateAutomation(r.id, { is_active: !r.is_active }); load(); }
+    catch (e) { notify(String(e), "error"); }
+  }
+  async function clone(r: Automation) {
+    try { await api.cloneAutomation(r.id); notify(`Cloned "${r.name}"`); load(); }
     catch (e) { notify(String(e), "error"); }
   }
   async function remove(r: Automation) {
@@ -123,6 +127,7 @@ export default function AutomationPage() {
                       </label>
                     </Tip>
                     <Tip label={t("common.edit")}><button onClick={() => { setEditing(r); setDialogOpen(true); }} className="p-1 rounded-md hover:bg-muted outline-none transition-colors"><Pencil className="w-[18px] h-[18px] text-muted-foreground" /></button></Tip>
+                    <Tip label="Clone"><button onClick={() => clone(r)} className="p-1 rounded-md hover:bg-muted outline-none transition-colors"><Copy className="w-[18px] h-[18px] text-muted-foreground" /></button></Tip>
                     <Tip label={t("common.delete")}><button onClick={() => remove(r)} className="p-1 rounded-md hover:bg-muted outline-none transition-colors"><Trash2 className="w-[18px] h-[18px] text-destructive" /></button></Tip>
                   </div>
                 )}

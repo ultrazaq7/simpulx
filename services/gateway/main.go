@@ -294,6 +294,7 @@ func main() {
 	mux.HandleFunc("GET /api/automations/{id}", s.requireAuth(s.gate("view_automation", s.handleGetAutomation)))
 	mux.HandleFunc("PATCH /api/automations/{id}", s.requireAuth(s.gate("manage_automation", s.handleUpdateAutomation)))
 	mux.HandleFunc("DELETE /api/automations/{id}", s.requireAuth(s.gate("manage_automation", s.handleDeleteAutomation)))
+	mux.HandleFunc("POST /api/automations/{id}/clone", s.requireAuth(s.gate("manage_automation", s.handleCloneAutomation)))
 
 	// WhatsApp Forms (native Meta Flows). /responses is more specific than /{id}
 	// so Go's mux routes it first.
@@ -343,6 +344,7 @@ func main() {
 	mux.HandleFunc("GET /api/campaigns/{id}", s.requireAuth(s.handleGetCampaign))
 	mux.HandleFunc("PATCH /api/campaigns/{id}", s.requireAuth(s.gate("manage_campaigns", s.handleUpdateCampaign)))
 	mux.HandleFunc("DELETE /api/campaigns/{id}", s.requireAuth(s.gate("manage_campaigns", s.handleDeleteCampaign)))
+	mux.HandleFunc("POST /api/campaigns/{id}/clone", s.requireAuth(s.gate("manage_campaigns", s.handleCloneCampaign)))
 	// Branches (sub-units of a campaign / branch-group).
 	mux.HandleFunc("GET /api/campaigns/{id}/ga4", s.requireAuth(s.handleCampaignGa4Report))
 	mux.HandleFunc("GET /api/ga4/report", s.requireAuth(s.handleOrgGa4Report))
@@ -373,7 +375,6 @@ func main() {
 	mux.HandleFunc("GET /api/platform/ml-monitor", s.requireSuperAdmin(s.handleMlMonitor))
 	mux.HandleFunc("GET /api/platform/campaigns", s.requireSuperAdmin(s.handleListAllCampaigns))
 	mux.HandleFunc("GET /api/platform/campaigns/{id}/ai-history", s.requireSuperAdmin(s.handleCampaignAIHistory))
-	mux.HandleFunc("POST /api/platform/campaigns/{id}/clone", s.requireSuperAdmin(s.handleCloneCampaign))
 	mux.HandleFunc("POST /api/platform/orgs", s.requireSuperAdmin(s.handleCreateOrg))
 	mux.HandleFunc("PATCH /api/platform/orgs/{id}", s.requireSuperAdmin(s.handleUpdateOrg))
 	mux.HandleFunc("DELETE /api/platform/orgs/{id}", s.requireSuperAdmin(s.handleDeleteOrg))
