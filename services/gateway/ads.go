@@ -34,6 +34,7 @@ func (s *server) handleListAdAccounts(w http.ResponseWriter, r *http.Request) {
 	rows, err := s.queryMaps(r.Context(),
 		`SELECT id::text AS id, platform, external_account_id, name, status, currency,
 		        (access_token IS NOT NULL AND access_token <> '') AS has_token,
+		        capi_dataset_id,
 		        last_synced_at, last_error, created_at, updated_at,
 		        (SELECT count(*) FROM ad_campaigns ac WHERE ac.ad_account_id = aa.id) AS campaign_count
 		   FROM ad_accounts aa
@@ -133,6 +134,9 @@ func (s *server) handlePatchAdAccount(w http.ResponseWriter, r *http.Request) {
 		Name              *string `json:"name"`
 		ExternalAccountID *string `json:"external_account_id"`
 		AccessToken       *string `json:"access_token"`
+		// Meta Conversions API dataset id. Present+value => enable CAPI for this
+		// account; present+empty => disable; absent => keep as-is.
+		CapiDatasetID *string `json:"capi_dataset_id"`
 	}
 	if err := json.NewDecoder(r.Body).Decode(&b); err != nil {
 		http.Error(w, "bad request", http.StatusBadRequest)
@@ -155,9 +159,10 @@ func (s *server) handlePatchAdAccount(w http.ResponseWriter, r *http.Request) {
 		   external_account_id = COALESCE(NULLIF($4,''), external_account_id),
 		   access_token = COALESCE(NULLIF($5,''), access_token),
 		   status     = CASE WHEN NULLIF($5,'') IS NOT NULL THEN 'connected' ELSE status END,
-		   last_error = CASE WHEN NULLIF($5,'') IS NOT NULL THEN NULL ELSE last_error END
+		   last_error = CASE WHEN NULLIF($5,'') IS NOT NULL THEN NULL ELSE last_error END,
+		   capi_dataset_id = CASE WHEN $6 THEN NULLIF(trim($7),'') ELSE capi_dataset_id END
 		 WHERE id=$1 AND organization_id=$2`,
-		id, a.OrgID, derefStr(b.Name), extID, encToken)
+		id, a.OrgID, derefStr(b.Name), extID, encToken, b.CapiDatasetID != nil, derefStr(b.CapiDatasetID))
 	if err != nil {
 		http.Error(w, err.Error(), http.StatusInternalServerError)
 		return

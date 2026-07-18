@@ -167,7 +167,9 @@ export function AdAccountDialog({ account, adCampaigns, ourCampaigns, onMap, onS
   const [name, setName] = useState(account.name || "");
   const [extId, setExtId] = useState(account.external_account_id || "");
   const [token, setToken] = useState("");
+  const [capiDatasetId, setCapiDatasetId] = useState(account.capi_dataset_id || "");
   const [saving, setSaving] = useState(false);
+  const isMeta = account.platform === "meta";
 
   const ourCampOptions = useMemo(() => ourCampaigns.map((c) => ({ value: c.id, label: c.name })), [ourCampaigns]);
 
@@ -178,6 +180,8 @@ export function AdAccountDialog({ account, adCampaigns, ourCampaigns, onMap, onS
         name: name.trim() || undefined,
         external_account_id: extId.trim() || undefined,
         access_token: token.trim() || undefined,
+        // Meta only: send the field (even empty) so clearing it turns CAPI off.
+        capi_dataset_id: isMeta ? capiDatasetId.trim() : undefined,
       });
       onSaved(token.trim() ? t("settings.connectionUpdatedSyncing") : t("settings.connectionUpdated"));
       if (token.trim()) onSync();
@@ -220,6 +224,20 @@ export function AdAccountDialog({ account, adCampaigns, ourCampaigns, onMap, onS
             </div>
           </div>
         </div>
+
+        {/* Meta Conversions API (CTWA). Enter the dataset id to send funnel
+            conversions (Qualified Lead / Appointment / Booking) back to Meta so ad
+            delivery optimizes toward leads that convert. Blank = off. */}
+        {isMeta && (
+          <div className="flex flex-col gap-2 border-t border-border pt-4">
+            <p className="text-[11px] font-bold uppercase tracking-wider text-muted-foreground">{t("settings.metaCapi")}</p>
+            <div>
+              <label className={L}>{t("settings.capiDatasetId")}</label>
+              <input value={capiDatasetId} onChange={(e) => setCapiDatasetId(e.target.value)} placeholder="e.g. 1234567890123456" className={F} inputMode="numeric" />
+              <p className="text-[11.5px] text-muted-foreground mt-1.5">{t("settings.capiDatasetHelp")}</p>
+            </div>
+          </div>
+        )}
 
         {/* Campaign mapping */}
         <div className="flex flex-col gap-2 border-t border-border pt-4">

@@ -440,9 +440,9 @@ function AITab({ campaign, onSaved, onError }: { campaign: CampaignDetail; onSav
     } catch (e) { onError(String(e)); } finally { setSaving(false); }
   }
   return (
-    <div className="space-y-4 max-w-[560px]">
-      <AIStyleSection campaignId={campaign.id} initial={campaign.ai_style}
-        onSaved={(s) => onSaved({ ...campaign, ai_style: s })} onError={onError} />
+    <div className="grid grid-cols-1 lg:grid-cols-[minmax(0,560px)_minmax(0,1fr)] gap-6 items-start">
+      {/* Left column: AI settings fields */}
+      <div className="space-y-4">
       <div className="flex items-center justify-between rounded-lg border border-border p-3">
         <p className="text-[13.5px] font-semibold text-foreground">{t("settings.autoReply")}</p>
         <Toggle on={autoReply} onToggle={() => setAutoReply((v) => !v)} />
@@ -495,6 +495,12 @@ function AITab({ campaign, onSaved, onError }: { campaign: CampaignDetail; onSav
         <input value={budget} onChange={(e) => setBudget(e.target.value.replace(/[^0-9.]/g, ""))} placeholder="200000000" className={INPUT_CLASS} />
       </div>
       <UnsavedBar count={changedCount} saving={saving} onSave={save} onCancel={reset} saveLabel="Save AI settings" />
+      </div>
+      {/* Right column: AI response style (moved here from the top) */}
+      <div className="lg:sticky lg:top-4">
+        <AIStyleSection campaignId={campaign.id} initial={campaign.ai_style}
+          onSaved={(s) => onSaved({ ...campaign, ai_style: s })} onError={onError} />
+      </div>
     </div>
   );
 }
