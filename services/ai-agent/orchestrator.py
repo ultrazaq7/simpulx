@@ -23,6 +23,14 @@ import llm_usage
 import segments
 
 
+def _titlecase(v):
+    """Capitalize the first letter of each word, leaving the rest untouched so model
+    names keep their casing (XForce, CR-V). Non-strings / blanks pass through."""
+    if not isinstance(v, str) or not v.strip():
+        return v
+    return re.sub(r"\b\w", lambda m: m.group().upper(), v)
+
+
 def _lead_fields(metadata) -> dict:
     """Extract metadata.lead_fields as a dict. asyncpg may hand back jsonb as a
     string (no codec registered), and lead_fields itself may be nested-stringified,
@@ -177,6 +185,13 @@ async def handle_inbound(broker, pool, env: dict, data: dict, log) -> None:
     # the model. Brand-agnostic campaigns (no brand set) keep the extracted value.
     if lead_fields and conv["campaign_brand"]:
         lead_fields["brand"] = conv["campaign_brand"]
+    if lead_fields:
+        # Proper-case the qualifier values so the sales team never sees lowercase
+        # ("rumah" -> "Rumah", "jakarta selatan" -> "Jakarta Selatan"). Only the
+        # first letter of each word is uppercased; the rest is left as-is so model
+        # names keep their casing (XForce, CR-V). CatBoost re-lowercases via its
+        # gazetteer at serve time, so this doesn't affect scoring.
+        lead_fields = {k: _titlecase(v) for k, v in lead_fields.items()}
     if lead_fields:
         try:
             async with pool.acquire() as conn:

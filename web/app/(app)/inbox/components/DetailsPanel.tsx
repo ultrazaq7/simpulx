@@ -346,7 +346,7 @@ export default function DetailsPanel({ active, onClose, copyText, notes, onAddNo
               )}
               {active.interest_level && <DetailRow icon={Hash} label={t("dashboard.interestLevel")} value={humanize(active.interest_level)} />}
               {segmentFields(active.campaign_segment).map((f) => (
-                active.lead_fields?.[f.key] ? <DetailRow key={f.key} icon={Hash} label={t(f.label)} value={active.lead_fields[f.key]} /> : null
+                active.lead_fields?.[f.key] ? <DetailRow key={f.key} icon={Hash} label={t(f.label)} value={humanize(String(active.lead_fields[f.key]))} /> : null
               ))}
             </div>
           </div>
