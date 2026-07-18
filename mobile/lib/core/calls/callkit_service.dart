@@ -1,3 +1,4 @@
+import 'dart:async';
 import 'dart:io';
 
 import 'package:flutter/foundation.dart';
@@ -31,14 +32,8 @@ class CallKitService {
     if (_started || !Platform.isIOS) return;
     _started = true;
 
-    // Register the VoIP token now (if the OS already issued one) and on refresh.
-    try {
-      final tok = await FlutterCallkitIncoming.getDevicePushTokenVoIP();
-      if (tok is String && tok.isNotEmpty) await _registerVoipToken(tok);
-    } catch (e) {
-      debugPrint('[CallKit] VoIP token fetch failed: $e');
-    }
-
+    // 1) Attach the event listener FIRST, so a token-update event that fires while
+    //    we poll below is never missed (the plugin emits it exactly once).
     FlutterCallkitIncoming.onEvent.listen((event) async {
       if (event == null) return;
       final body = (event.body is Map) ? Map<String, dynamic>.from(event.body as Map) : <String, dynamic>{};
@@ -59,6 +54,28 @@ class CallKitService {
           break;
       }
     });
+
+    // 2) Poll for the VoIP token until the plugin has it. It can be empty at this
+    //    instant (issued shortly after launch), so retry instead of checking once.
+    //    This is independent of any native callback/registration timing, so the
+    //    ios_voip token gets registered even if the one-time event was missed.
+    unawaited(_pollVoipToken());
+  }
+
+  Future<void> _pollVoipToken() async {
+    for (var i = 0; i < 20; i++) {
+      try {
+        final tok = await FlutterCallkitIncoming.getDevicePushTokenVoIP();
+        if (tok is String && tok.isNotEmpty) {
+          await _registerVoipToken(tok);
+          return;
+        }
+      } catch (e) {
+        debugPrint('[CallKit] VoIP token fetch failed: $e');
+      }
+      await Future<void>.delayed(const Duration(seconds: 2));
+    }
+    debugPrint('[CallKit] VoIP token still empty after polling');
   }
 
   Future<void> _registerVoipToken(String token) async {
