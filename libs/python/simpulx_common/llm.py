@@ -15,6 +15,7 @@ from __future__ import annotations
 import asyncio
 import json
 import logging
+import random
 import re
 import time
 from typing import AsyncIterator, List, Optional
@@ -291,24 +292,84 @@ def _accum_usage(usage_out: Optional[dict], evt: dict) -> None:
             usage_out["output_tokens"] = out
 
 
+# --- transient-failure retry ---------------------------------------------------
+# Anthropic (and any gateway in front of it) can return 429/500/502/503/529 or
+# drop the connection under load. Without a retry these bubble up as an exception
+# to the nurture/reply worker and the lead is silently NOT answered — seen live in
+# prod as "nurture failed ... 529". Every dropped reply is a lead that never hears
+# back (a direct hit to response rate), so the customer-facing call path retries a
+# few times with exponential backoff + jitter before giving up. Streaming paths
+# (summary, catalog) are agent-initiated and left as-is: retrying a half-emitted
+# stream would need partial-output handling, and the agent can just click again.
+_RETRY_STATUSES = frozenset({429, 500, 502, 503, 504, 529})
+_RETRY_MAX_ATTEMPTS = 4  # 1 initial try + 3 retries
+_RETRY_BASE_DELAY = 0.5  # seconds; doubles each attempt (0.5, 1, 2)
+_RETRY_MAX_DELAY = 8.0
+
+
+def _retry_after_seconds(resp: httpx.Response) -> Optional[float]:
+    """Honour a numeric Retry-After header (seconds) when the server sends one.
+    The HTTP-date form is ignored on purpose — these calls want a short bounded
+    backoff, not a wait until some absolute wall-clock time."""
+    ra = resp.headers.get("retry-after")
+    if not ra:
+        return None
+    try:
+        return max(0.0, float(ra))
+    except ValueError:
+        return None
+
+
+async def _post_messages(payload: dict, timeout: float = 60.0) -> dict:
+    """POST one /v1/messages request, retrying on transient failures (overload,
+    5xx, rate limit, dropped connection). Returns the parsed JSON body, or raises
+    the last error once retries are exhausted — the caller then records nothing,
+    which is correct: nothing was billed."""
+    headers = {"x-api-key": settings.anthropic_api_key,
+               "anthropic-version": _HEADERS_VERSION, "content-type": "application/json"}
+    last_exc: Optional[Exception] = None
+    for attempt in range(_RETRY_MAX_ATTEMPTS):
+        is_last = attempt == _RETRY_MAX_ATTEMPTS - 1
+        try:
+            async with httpx.AsyncClient(timeout=timeout) as client:
+                resp = await client.post(_URL, headers=headers, json=payload)
+            if resp.status_code in _RETRY_STATUSES and not is_last:
+                delay = _retry_after_seconds(resp) or min(
+                    _RETRY_MAX_DELAY, _RETRY_BASE_DELAY * (2 ** attempt))
+                delay += random.uniform(0, delay / 2)  # jitter to de-sync bursts
+                log.warning("llm http %s (attempt %d/%d), retry in %.1fs",
+                            resp.status_code, attempt + 1, _RETRY_MAX_ATTEMPTS, delay)
+                await asyncio.sleep(delay)
+                continue
+            resp.raise_for_status()
+            return resp.json()
+        except httpx.TransportError as e:  # connect/read/timeout — network-level
+            last_exc = e
+            if is_last:
+                break
+            delay = min(_RETRY_MAX_DELAY, _RETRY_BASE_DELAY * (2 ** attempt))
+            delay += random.uniform(0, delay / 2)
+            log.warning("llm transport error %s (attempt %d/%d), retry in %.1fs",
+                        e.__class__.__name__, attempt + 1, _RETRY_MAX_ATTEMPTS, delay)
+            await asyncio.sleep(delay)
+    # Only reached when the last attempt was a transport error (a transient HTTP
+    # status on the last attempt raises HTTPStatusError from inside the loop). Same
+    # failure semantics as before the retry wrapper: the real error propagates.
+    raise last_exc  # type: ignore[misc]  # non-None here by construction
+
+
 async def _anthropic_raw(system_blocks: list, history: List[dict],
                          user_message: str, model: str, max_tokens: int,
                          usage_out: Optional[dict] = None) -> str:
     """One Claude call -> raw response text. thinking is DISABLED: these are short,
     structured calls with a small max_tokens, and Sonnet 5 runs adaptive thinking by
     default when the field is omitted — which would eat the budget and truncate or
-    empty the reply."""
+    empty the reply. Retries transient failures (see _post_messages) so a transient
+    Anthropic overload doesn't drop a customer-facing reply."""
     messages = list(history) + [{"role": "user", "content": user_message}]
-    async with httpx.AsyncClient(timeout=60) as client:
-        resp = await client.post(
-            _URL,
-            headers={"x-api-key": settings.anthropic_api_key,
-                     "anthropic-version": _HEADERS_VERSION, "content-type": "application/json"},
-            json={"model": model, "max_tokens": max_tokens, "thinking": {"type": "disabled"},
-                  "system": system_blocks, "messages": messages},
-        )
-        resp.raise_for_status()
-        data = resp.json()
+    data = await _post_messages(
+        {"model": model, "max_tokens": max_tokens, "thinking": {"type": "disabled"},
+         "system": system_blocks, "messages": messages})
     u = data.get("usage", {})
     _fill_usage(usage_out, data.get("model") or model, u)
     log.info("llm usage model=%s in=%s out=%s cache_read=%s cache_write=%s",

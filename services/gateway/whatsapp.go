@@ -245,6 +245,15 @@ func (m waMessage) referralSourceURL() string {
 	return ""
 }
 
+// referralCtwaClid returns Meta's click-to-WhatsApp click id (the CAPI join key)
+// when present. Empty for non-CTWA messages.
+func (m waMessage) referralCtwaClid() string {
+	if m.Referral != nil {
+		return m.Referral.CtwaClid
+	}
+	return ""
+}
+
 // referralImageURL returns the CTWA ad creative image (or video thumbnail) when
 // Meta includes it in the referral object. Empty for text-only ads.
 func (m waMessage) referralImageURL() string {

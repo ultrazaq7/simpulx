@@ -166,7 +166,8 @@ func (s *server) handleListConversations(w http.ResponseWriter, r *http.Request)
 		        cmp.segment AS campaign_segment, COALESCE(cmp.ai_smart_summary, true) AS campaign_smart_summary, COALESCE(cmp.ai_auto_reply, false) AS campaign_auto_reply, cv.metadata->'lead_fields' AS lead_fields,
 		        cv.lost_reason,
 		        cv.lead_summary, cv.suggested_action, cv.suggested_action_reason,
-		        cv.suggested_action_confidence, cv.lead_score, cv.call_attempts,
+		        cv.suggested_action_confidence, cv.lead_score, cv.closing_probability,
+		        cv.next_best_action, cv.nba_reason, cv.nba_priority, cv.call_attempts,
 		        ct.full_name AS contact_name, ct.phone AS contact_phone, ct.email AS contact_email,
 		        cv.assigned_agent_id::text AS assigned_agent_id,
 		        u.full_name AS agent_name,
@@ -226,7 +227,8 @@ func (s *server) handleGetConversation(w http.ResponseWriter, r *http.Request) {
 		        cmp.segment AS campaign_segment, COALESCE(cmp.ai_smart_summary, true) AS campaign_smart_summary, COALESCE(cmp.ai_auto_reply, false) AS campaign_auto_reply, cv.metadata->'lead_fields' AS lead_fields,
 		        cv.lost_reason,
 		        cv.lead_summary, cv.suggested_action, cv.suggested_action_reason,
-		        cv.suggested_action_confidence, cv.lead_score, cv.call_attempts,
+		        cv.suggested_action_confidence, cv.lead_score, cv.closing_probability,
+		        cv.next_best_action, cv.nba_reason, cv.nba_priority, cv.call_attempts,
 		        ct.full_name AS contact_name, ct.phone AS contact_phone, ct.email AS contact_email,
 		        cv.assigned_agent_id::text AS assigned_agent_id,
 		        u.full_name AS agent_name,
@@ -1391,6 +1393,39 @@ func (s *server) handleAnalytics(w http.ResponseWriter, r *http.Request) {
 		    AND lower(COALESCE(cv.lost_reason,'')) <> 'spam'
 		  GROUP BY 1 ORDER BY 2 DESC LIMIT 8`, campFilterCv), args...)
 
+	// P4 revenue-impact. Two business-KPI cards the vision asks for ("how much
+	// revenue did AI generate", not "how many messages did AI send"):
+	//  revenue_influenced = SUM over BOOKED (booking stage) leads the AI touched of
+	//    the deal value, HYBRID: catalog OTR matched to the lead's model, else the
+	//    campaign's avg_deal_value fallback (user decision 2026-07-18).
+	//  ai_saved_leads     = leads the AI advanced to qualified-or-beyond (AI did the
+	//    qualifying work a human would otherwise have to).
+	revenue, revErr := s.queryMaps(ctx,
+		fmt.Sprintf(`WITH qual AS (
+		   SELECT COALESCE(min(sort_order), 3) AS so FROM stages
+		    WHERE organization_id=$1 AND system_key='qualified'),
+		 booked AS (
+		   SELECT cv.campaign_id,
+		          cv.metadata->'lead_fields'->>'model' AS model,
+		          (cv.ai_agent_id IS NOT NULL) AS ai_touched
+		     FROM conversations cv LEFT JOIN stages st ON st.id=cv.stage_id
+		    WHERE cv.organization_id=$1 AND st.system_key='booking'%s)
+		 SELECT
+		   COALESCE(SUM(CASE WHEN b.ai_touched THEN COALESCE(
+		     (SELECT max(cc.headline_price) FROM campaign_catalog cc
+		       WHERE cc.campaign_id=b.campaign_id AND b.model IS NOT NULL
+		         AND position(lower(b.model) in lower(COALESCE(cc.item_name,'')||' '||COALESCE(cc.variant_name,''))) > 0),
+		     cmp.avg_deal_value, 0) ELSE 0 END), 0)::float8 AS revenue_influenced,
+		   (SELECT count(*) FROM conversations cv2 LEFT JOIN stages st2 ON st2.id=cv2.stage_id
+		     WHERE cv2.organization_id=$1 AND cv2.ai_agent_id IS NOT NULL
+		       AND st2.sort_order >= (SELECT so FROM qual)
+		       AND st2.system_key NOT LIKE 'lost%%'%s)::int AS ai_saved_leads
+		   FROM booked b LEFT JOIN campaigns cmp ON cmp.id=b.campaign_id`,
+			campFilterCv, campFilterCv), args...)
+	if revErr != nil {
+		s.log.Warn("analytics revenue query failed", "org", org, "err", revErr)
+	}
+
 	// A secondary query failing must not take down the whole dashboard. Log it and
 	// fall back to an empty object so the primary funnel/stages still render.
 	first := func(rows []map[string]any) map[string]any {
@@ -1415,6 +1450,7 @@ func (s *server) handleAnalytics(w http.ResponseWriter, r *http.Request) {
 		"agents":        agents,
 		"daily":         daily,
 		"response_time": first(rt),
+		"revenue":       first(revenue),
 		"junk":          junk,
 		"lost":          fn["lost"],
 		"lost_reasons":  lostReasons,

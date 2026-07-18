@@ -112,6 +112,11 @@ type MessageReceived struct {
 	ReferralHeadline  string          `json:"referral_headline,omitempty"`
 	ReferralBody      string          `json:"referral_body,omitempty"`
 	ReferralMediaType string          `json:"referral_media_type,omitempty"`
+	// ReferralCtwaClid is Meta's click-to-WhatsApp click id. It is the join key
+	// that lets a downstream conversion event (Qualified Lead / Appointment /
+	// Booking / Closing) be sent back to Meta's Conversions API and attributed to
+	// the ad click. Empty for non-CTWA / organic conversations.
+	ReferralCtwaClid  string          `json:"referral_ctwa_clid,omitempty"`
 	Message           InboundMessage  `json:"message"`
 	Raw               json.RawMessage `json:"raw,omitempty"`
 }

@@ -16,7 +16,9 @@ from typing import List, Optional
 from simpulx_common import llm
 
 from classifier import classify, is_trivial, STRONG_INTENT, detect_junk, buy_within_3mo
+import closing_score
 import lead_score
+import nba
 import llm_usage
 import segments
 
@@ -104,6 +106,11 @@ async def handle_inbound(broker, pool, env: dict, data: dict, log) -> None:
     # (3) Buy-potential score (CatBoost) — AFTER the reply so it never adds latency
     # to it, but still keeps the CRM live even when the LLM extraction is skipped.
     await lead_score.score_and_update(pool, conv_id, log)
+    # (3b) Closing probability (CatBoost, sales-outcome). Same anti-skew feature
+    # build; silent no-op until a closing model is trained. Feeds Next Best Action.
+    await closing_score.score_and_update(pool, conv_id, log)
+    # (3c) Next Best Action (deterministic decision engine over the fresh signals).
+    await nba.score_and_update(pool, conv_id, log)
 
     async with pool.acquire() as conn:
         conv = await conn.fetchrow(

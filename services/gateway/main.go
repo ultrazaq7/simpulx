@@ -410,6 +410,7 @@ func main() {
 	s.backfillAdTokenEncryption(ctx) // encrypt any plaintext tokens still at rest
 	s.startAdSyncCron(ctx)   // daily ad metrics refresh (Meta/TikTok/Google)
 	s.startCreditAlertCron(ctx) // low-credit email alerts to org owners
+	s.startCapiDrainCron(ctx)   // send CTWA funnel conversions back to Meta CAPI
 
 	// graceful shutdown
 	stop := make(chan os.Signal, 1)
@@ -625,6 +626,7 @@ func (s *server) ingest(ctx context.Context, p waWebhook) {
 					ReferralHeadline:  m.referralHeadline(),
 					ReferralBody:      m.referralBody(),
 					ReferralMediaType: m.referralMediaType(),
+					ReferralCtwaClid:  m.referralCtwaClid(),
 					Message: events.InboundMessage{
 						ExternalID:    m.ID,
 						Type:          m.Type,
