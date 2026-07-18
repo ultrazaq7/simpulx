@@ -1,4 +1,6 @@
 import 'package:dio/dio.dart';
+import 'package:flutter/foundation.dart';
+import 'package:video_compress/video_compress.dart';
 
 import '../../../../core/network/api_endpoints.dart';
 import '../../../../core/network/error_mapper.dart';
@@ -307,6 +309,17 @@ class ChatRemoteDataSource {
 
   /// POST /api/uploads (multipart "file") -> {url, type, name}.
   Future<UploadedMedia> uploadFile(String path, {String? filename}) async {
+    // Videos: iPhone records QuickTime .mov / HEVC, which WhatsApp rejects, and any
+    // clip over 16MB fails to send. Transcode to H.264 MP4 and shrink first so the
+    // send succeeds. Best-effort: on any failure we fall back to the original file.
+    final srcName = filename ?? path;
+    if (_isVideo(srcName)) {
+      final compressed = await _compressVideo(path);
+      if (compressed != null) {
+        path = compressed;
+        filename = _mp4Name(srcName);
+      }
+    }
     try {
       // Dio does NOT auto-detect a multipart part's content type; without this
       // the server sees application/octet-stream and files (esp. video) get
@@ -344,6 +357,37 @@ class ChatRemoteDataSource {
   /// Best-effort MIME from a filename/path extension. Covers the media the app
   /// actually sends (image_picker JPGs, iOS .mov/.mp4 video, voice notes, common
   /// documents); anything unknown falls back to octet-stream (-> "document").
+  static bool _isVideo(String name) {
+    final i = name.lastIndexOf('.');
+    final ext = i >= 0 ? name.substring(i + 1).toLowerCase() : '';
+    return ext == 'mov' || ext == 'mp4' || ext == 'm4v' || ext == '3gp';
+  }
+
+  static String _mp4Name(String name) {
+    final slash = name.replaceAll('\\', '/').lastIndexOf('/');
+    final base = slash >= 0 ? name.substring(slash + 1) : name;
+    final dot = base.lastIndexOf('.');
+    return '${dot >= 0 ? base.substring(0, dot) : base}.mp4';
+  }
+
+  // Transcode a video to H.264 MP4 and downscale it under WhatsApp's 16MB limit.
+  // MediumQuality gives a good size/quality trade-off; returns the compressed file
+  // path, or null (caller falls back to the original) on any error.
+  Future<String?> _compressVideo(String path) async {
+    try {
+      final info = await VideoCompress.compressVideo(
+        path,
+        quality: VideoQuality.MediumQuality,
+        deleteOrigin: false,
+        includeAudio: true,
+      );
+      return info?.file?.path;
+    } catch (e) {
+      debugPrint('[upload] video compress failed, sending original: $e');
+      return null;
+    }
+  }
+
   static String _contentTypeFor(String name) {
     final i = name.lastIndexOf('.');
     final ext = i >= 0 ? name.substring(i + 1).toLowerCase() : '';
