@@ -1197,9 +1197,7 @@ func (s *server) handleAnalytics(w http.ResponseWriter, r *http.Request) {
 		        count(*) FILTER (WHERE cv.interest_level='cold') AS cold,
 		        count(*) FILTER (WHERE cv.interest_level IS NULL) AS unknown,
 		        count(*) FILTER (WHERE st.sort_order = (SELECT max(sort_order) FROM stages WHERE organization_id=$1)) AS won,
-		        count(*) FILTER (WHERE st.system_key LIKE 'lost%%'
-		            AND COALESCE(d.category,'') <> 'spam'
-		            AND lower(COALESCE(cv.lost_reason,'')) <> 'spam') AS lost,
+		        count(*) FILTER (WHERE st.system_key LIKE 'lost%%') AS lost,
 		        COALESCE(sum(cv.followup_count), 0)::int AS followups,
 		        COALESCE(sum(cv.call_attempts), 0)::int AS call_attempts,
 		        COALESCE(sum(cv.total_call_duration), 0)::int AS call_duration_sec
@@ -1216,10 +1214,9 @@ func (s *server) handleAnalytics(w http.ResponseWriter, r *http.Request) {
 	// count there like any other stage. Order keeps Lost last in the list.
 	stages, _ := s.queryMaps(ctx,
 		fmt.Sprintf(`SELECT s.name, s.system_key, s.sort_order,
-		        count(cv.id) FILTER (WHERE COALESCE(d.category,'') <> 'spam') AS count
+		        count(cv.id) AS count
 		   FROM stages s
 		   LEFT JOIN conversations cv ON cv.stage_id = s.id%s
-		   LEFT JOIN dispositions d ON d.id = cv.disposition_id
 		  WHERE s.organization_id=$1
 		  GROUP BY s.id
 		  ORDER BY (s.system_key LIKE 'lost%%'), s.sort_order, s.name`, campFilterCv), args...)
@@ -1389,8 +1386,6 @@ func (s *server) handleAnalytics(w http.ResponseWriter, r *http.Request) {
 		   LEFT JOIN dispositions d ON d.id = cv.disposition_id
 		  WHERE cv.organization_id=$1%s
 		    AND st.system_key LIKE 'lost%%'
-		    AND COALESCE(d.category,'') <> 'spam'
-		    AND lower(COALESCE(cv.lost_reason,'')) <> 'spam'
 		  GROUP BY 1 ORDER BY 2 DESC LIMIT 8`, campFilterCv), args...)
 
 	// P4 revenue-impact. Two business-KPI cards the vision asks for ("how much

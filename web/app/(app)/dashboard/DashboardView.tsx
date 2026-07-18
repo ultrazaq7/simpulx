@@ -8,7 +8,7 @@ import {
 } from "recharts";
 import {
   BarChart3, MessageSquare, Inbox, Flame, Timer,
-  TrendingDown, TrendingUp, ChevronRight, ChevronsLeft, Zap, Mail, Reply, Trophy, Ban,
+  TrendingDown, TrendingUp, ChevronRight, ChevronsLeft, Zap, Mail, Reply, Trophy,
   CircleDollarSign, MousePointerClick, Spotlight, Target, Eye, Filter as FilterIcon,
   Image as ImageIcon, MapPin, Percent,
   Download, FileText, FileSpreadsheet, ChevronDown,
@@ -609,11 +609,6 @@ function AgentDashboard() {
             <div className="flex items-baseline gap-2 mb-4">
               <span className="text-4xl font-extrabold text-[#DC2626] leading-none tabular-nums">{analytics?.lost ?? 0}</span>
               <span className="text-sm text-muted-foreground font-medium">{t("dashboard.totalLostLeads")}</span>
-              {(analytics?.junk ?? 0) > 0 && (
-                <span className="ml-auto inline-flex items-center gap-1 px-2 py-0.5 rounded-md bg-amber-50 text-amber-700 text-[11px] font-semibold tabular-nums">
-                  <Ban className="w-3 h-3" />{analytics!.junk} spam
-                </span>
-              )}
             </div>
             {funnel && (
               <div className="flex gap-3">
@@ -918,11 +913,6 @@ function ManagerDashboard({ initialTab }: { initialTab: ReportTab }) {
                   {analytics?.lost ?? stats?.lost ?? 0}
                 </span>
                 <span className="text-sm text-muted-foreground font-medium">{t("dashboard.totalLostLeads")}</span>
-                {(analytics?.junk ?? 0) > 0 && (
-                  <span title={t("dashboard.spamJunkLeadsCountedSeparately")} className="ml-auto inline-flex items-center gap-1 px-2 py-0.5 rounded-md bg-amber-50 text-amber-700 text-[11px] font-semibold tabular-nums">
-                    <Ban className="w-3 h-3" />{analytics!.junk} spam
-                  </span>
-                )}
               </div>
               {funnel && (
                 <div className="flex gap-3">
