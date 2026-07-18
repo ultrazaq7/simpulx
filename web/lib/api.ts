@@ -529,6 +529,11 @@ export const api = {
   getSubscription: () => req<{ package_name: string; status: string; renewal_date: string | null; quotas: Record<string, number>; used_users: number; used_simpuler_credits: number; used_custom_fields: number }>("/api/subscription"),
   // ── Platform super admin (email-gated, not a role) ──
   platformAccess: () => req<{ super_admin: boolean }>("/api/platform/access"),
+  mlMonitor: () => req<{
+    scores: Record<string, number>;
+    versions: { model: string; version: string; n: number }[];
+    nba: { action: string; n: number }[];
+  }>("/api/platform/ml-monitor"),
   listOrgs: () => req<OrgRow[]>("/api/platform/orgs"),
   createOrg: (input: { name: string; owner_name?: string; owner_email: string; owner_password: string; package_name?: string; users?: number; simpuler_credits?: number; custom_fields?: number }) =>
     req<{ id: string; slug: string; owner_id: string }>("/api/platform/orgs", { method: "POST", body: JSON.stringify(input) }),

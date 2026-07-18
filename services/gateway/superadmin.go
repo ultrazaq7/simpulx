@@ -104,6 +104,105 @@ func (s *server) handleListOrgs(w http.ResponseWriter, r *http.Request) {
 	writeJSON(w, rows)
 }
 
+// GET /api/platform/ml-monitor — model health for the founders (P7 internal tool).
+// Aggregates purely from Postgres (no ai-agent file access needed): score coverage,
+// distribution, the model versions actually in use, and the Next Best Action mix.
+// Lets a founder see "is the decision engine live and sane" at a glance.
+func (s *server) handleMlMonitor(w http.ResponseWriter, r *http.Request) {
+	scores, err := s.queryMaps(r.Context(),
+		`SELECT
+		   count(*) FILTER (WHERE lead_score IS NOT NULL)                 AS lead_scored,
+		   count(*) FILTER (WHERE closing_probability IS NOT NULL)        AS closing_scored,
+		   count(*) FILTER (WHERE next_best_action IS NOT NULL)           AS nba_set,
+		   count(*)                                                       AS total_convs,
+		   COALESCE(round(avg(lead_score)::numeric,1),0)::float8          AS lead_score_avg,
+		   COALESCE(round(avg(closing_probability)::numeric,1),0)::float8 AS closing_avg,
+		   count(*) FILTER (WHERE lead_score >= 75)                       AS lead_hot,
+		   count(*) FILTER (WHERE lead_score >= 50 AND lead_score < 75)   AS lead_mid,
+		   count(*) FILTER (WHERE lead_score < 50)                        AS lead_low,
+		   count(*) FILTER (WHERE closing_probability >= 70)              AS closing_hot,
+		   count(*) FILTER (WHERE closing_probability >= 40 AND closing_probability < 70) AS closing_mid,
+		   count(*) FILTER (WHERE closing_probability < 40)               AS closing_low
+		 FROM conversations`)
+	if err != nil {
+		http.Error(w, err.Error(), http.StatusInternalServerError)
+		return
+	}
+	versions, _ := s.queryMaps(r.Context(),
+		`SELECT 'lead_score' AS model, COALESCE(lead_score_model_version,'(none)') AS version, count(*) AS n
+		   FROM conversations WHERE lead_score IS NOT NULL GROUP BY 2
+		 UNION ALL
+		 SELECT 'closing', COALESCE(closing_prob_model_version,'(none)'), count(*)
+		   FROM conversations WHERE closing_probability IS NOT NULL GROUP BY 2
+		 ORDER BY 1, 3 DESC`)
+	nba, _ := s.queryMaps(r.Context(),
+		`SELECT next_best_action AS action, count(*) AS n
+		   FROM conversations WHERE next_best_action IS NOT NULL
+		  GROUP BY 1 ORDER BY 2 DESC`)
+	first := map[string]any{}
+	if len(scores) > 0 {
+		first = scores[0]
+	}
+	writeJSON(w, map[string]any{"scores": first, "versions": versions, "nba": nba})
+}
+
+// POST /api/platform/campaigns/{id}/clone — duplicate a campaign's full AI config
+// (P7 internal tool). Copies the config columns + catalog + agent rotation into a
+// new campaign in the SAME org. keywords + ad_source_ids are deliberately left
+// empty: they are unique per-org routing/tracking params, so copying them would
+// make two campaigns fight over the same leads. The clone lands inactive-safe (no
+// keywords => routes nothing) until the operator wires its own keywords.
+func (s *server) handleCloneCampaign(w http.ResponseWriter, r *http.Request) {
+	a, _ := authFrom(r.Context())
+	src := r.PathValue("id")
+	tx, err := s.pool.Begin(r.Context())
+	if err != nil {
+		http.Error(w, err.Error(), http.StatusInternalServerError)
+		return
+	}
+	defer tx.Rollback(r.Context())
+
+	var newID string
+	err = tx.QueryRow(r.Context(),
+		`INSERT INTO campaigns
+		   (organization_id, name, dealer_name, routing_strategy, channel_id, calling_enabled,
+		    segment, brand, ai_auto_reply, ai_language, ai_dynamic_language, intake_form_id, ai_smart_summary,
+		    ai_style, covered_cities, followup_template_id, followup_frequency, monthly_budget, avg_deal_value,
+		    keywords, ad_source_ids)
+		 SELECT organization_id, left(name || ' (copy)', 200), dealer_name, routing_strategy, channel_id, calling_enabled,
+		    segment, brand, ai_auto_reply, ai_language, ai_dynamic_language, intake_form_id, ai_smart_summary,
+		    ai_style, covered_cities, followup_template_id, followup_frequency, monthly_budget, avg_deal_value,
+		    '{}'::text[], '{}'::text[]
+		   FROM campaigns WHERE id=$1
+		 RETURNING id::text`, src).Scan(&newID)
+	if err != nil {
+		http.Error(w, "clone failed: "+err.Error(), http.StatusInternalServerError)
+		return
+	}
+	// Catalog (the campaign's grounded pricelist) and agent rotation come along so
+	// the clone is usable immediately, not an empty shell.
+	if _, err := tx.Exec(r.Context(),
+		`INSERT INTO campaign_catalog (campaign_id, segment, item_name, variant_name, location_name, category_type, headline_price, attributes)
+		 SELECT $1, segment, item_name, variant_name, location_name, category_type, headline_price, attributes
+		   FROM campaign_catalog WHERE campaign_id=$2`, newID, src); err != nil {
+		http.Error(w, "clone catalog failed: "+err.Error(), http.StatusInternalServerError)
+		return
+	}
+	if _, err := tx.Exec(r.Context(),
+		`INSERT INTO campaign_agents (campaign_id, user_id, in_rotation)
+		 SELECT $1, user_id, in_rotation FROM campaign_agents WHERE campaign_id=$2
+		 ON CONFLICT DO NOTHING`, newID, src); err != nil {
+		http.Error(w, "clone agents failed: "+err.Error(), http.StatusInternalServerError)
+		return
+	}
+	if err := tx.Commit(r.Context()); err != nil {
+		http.Error(w, err.Error(), http.StatusInternalServerError)
+		return
+	}
+	s.audit(r.Context(), a, "cloned", "campaign", newID, map[string]any{"source": src})
+	writeJSON(w, map[string]any{"id": newID})
+}
+
 // POST /api/platform/orgs — create an org, its owner user, and its credit pool.
 func (s *server) handleCreateOrg(w http.ResponseWriter, r *http.Request) {
 	var b struct {

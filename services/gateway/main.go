@@ -370,6 +370,8 @@ func main() {
 	// Platform super admin (email-gated, NOT a role): manage every org + credit pool.
 	mux.HandleFunc("GET /api/platform/access", s.requireAuth(s.handlePlatformAccess))
 	mux.HandleFunc("GET /api/platform/orgs", s.requireSuperAdmin(s.handleListOrgs))
+	mux.HandleFunc("GET /api/platform/ml-monitor", s.requireSuperAdmin(s.handleMlMonitor))
+	mux.HandleFunc("POST /api/platform/campaigns/{id}/clone", s.requireSuperAdmin(s.handleCloneCampaign))
 	mux.HandleFunc("POST /api/platform/orgs", s.requireSuperAdmin(s.handleCreateOrg))
 	mux.HandleFunc("PATCH /api/platform/orgs/{id}", s.requireSuperAdmin(s.handleUpdateOrg))
 	mux.HandleFunc("DELETE /api/platform/orgs/{id}", s.requireSuperAdmin(s.handleDeleteOrg))

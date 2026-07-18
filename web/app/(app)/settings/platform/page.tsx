@@ -24,9 +24,11 @@ export default function PlatformPage() {
   const [rows, setRows] = useState<OrgRow[] | null>(null);
   const [denied, setDenied] = useState(false);
   const [panel, setPanel] = useState<{ mode: "create" | "edit"; org?: OrgRow } | null>(null);
+  const [ml, setMl] = useState<Awaited<ReturnType<typeof api.mlMonitor>> | null>(null);
 
   function load() {
     api.listOrgs().then(setRows).catch(() => { setDenied(true); setRows([]); });
+    api.mlMonitor().then(setMl).catch(() => {});
   }
   useEffect(() => {
     // Bounce non-super-admins before they see the table shell.
@@ -43,7 +45,37 @@ export default function PlatformPage() {
   return (
     <>
       {ToastHost}
-      <div className="px-6 pt-6 pb-6 w-full h-full flex flex-col min-h-0">
+      <div className="px-6 pt-6 pb-6 w-full h-full flex flex-col min-h-0 gap-4">
+        {ml && (
+          <div className="bg-card rounded-lg border border-border shadow-xs p-4 shrink-0">
+            <p className="text-[11px] font-bold uppercase tracking-wider text-muted-foreground mb-3">ML Model Monitor</p>
+            <div className="grid grid-cols-2 md:grid-cols-4 gap-3">
+              {[
+                { label: "Lead scored", v: `${ml.scores.lead_scored ?? 0} / ${ml.scores.total_convs ?? 0}`, sub: `avg ${ml.scores.lead_score_avg ?? 0}` },
+                { label: "Closing scored", v: `${ml.scores.closing_scored ?? 0} / ${ml.scores.total_convs ?? 0}`, sub: `avg ${ml.scores.closing_avg ?? 0}` },
+                { label: "NBA set", v: `${ml.scores.nba_set ?? 0}`, sub: "conversations" },
+                { label: "Lead hot / mid / low", v: `${ml.scores.lead_hot ?? 0} / ${ml.scores.lead_mid ?? 0} / ${ml.scores.lead_low ?? 0}`, sub: "≥75 / 50-74 / <50" },
+              ].map((c) => (
+                <div key={c.label} className="rounded-md border border-border p-3">
+                  <p className="text-[10px] font-semibold uppercase tracking-wide text-muted-foreground truncate">{c.label}</p>
+                  <p className="text-[18px] font-bold text-foreground tabular-nums mt-1">{c.v}</p>
+                  <p className="text-[11px] text-muted-foreground">{c.sub}</p>
+                </div>
+              ))}
+            </div>
+            <div className="flex flex-wrap gap-x-6 gap-y-1 mt-3 text-[11.5px] text-muted-foreground">
+              <span className="font-semibold text-foreground">Models:</span>
+              {ml.versions.length === 0 ? <span>none scored yet</span>
+                : ml.versions.map((v, i) => <span key={i}>{v.model} <span className="font-mono">{v.version}</span> ({v.n})</span>)}
+            </div>
+            {ml.nba.length > 0 && (
+              <div className="flex flex-wrap gap-x-6 gap-y-1 mt-1 text-[11.5px] text-muted-foreground">
+                <span className="font-semibold text-foreground">Next Best Action:</span>
+                {ml.nba.map((a) => <span key={a.action}>{a.action} ({a.n})</span>)}
+              </div>
+            )}
+          </div>
+        )}
         <div className="bg-card rounded-lg border border-border shadow-xs overflow-hidden flex-1 min-h-0 flex flex-col">
           <div className="p-3 flex items-center justify-end border-b border-border shrink-0">
             <button onClick={() => setPanel({ mode: "create" })}
