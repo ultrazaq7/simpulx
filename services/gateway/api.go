@@ -1416,10 +1416,10 @@ func (s *server) handleAnalytics(w http.ResponseWriter, r *http.Request) {
 		       WHERE cc.campaign_id=b.campaign_id AND b.model IS NOT NULL
 		         AND position(lower(b.model) in lower(COALESCE(cc.item_name,'')||' '||COALESCE(cc.variant_name,''))) > 0),
 		     cmp.avg_deal_value, 0) ELSE 0 END), 0)::float8 AS revenue_influenced,
-		   (SELECT count(*) FROM conversations cv2 LEFT JOIN stages st2 ON st2.id=cv2.stage_id
-		     WHERE cv2.organization_id=$1 AND cv2.ai_agent_id IS NOT NULL
-		       AND st2.sort_order >= (SELECT so FROM qual)
-		       AND st2.system_key NOT LIKE 'lost%%'%s)::int AS ai_saved_leads
+		   (SELECT count(*) FROM conversations cv LEFT JOIN stages st ON st.id=cv.stage_id
+		     WHERE cv.organization_id=$1 AND cv.ai_agent_id IS NOT NULL
+		       AND st.sort_order >= (SELECT so FROM qual)
+		       AND st.system_key NOT LIKE 'lost%%'%s)::int AS ai_saved_leads
 		   FROM booked b LEFT JOIN campaigns cmp ON cmp.id=b.campaign_id`,
 			campFilterCv, campFilterCv), args...)
 	if revErr != nil {
