@@ -20,6 +20,17 @@ import flutter_callkit_incoming
   // Used to hand a notification reply back to Dart (see userNotificationCenter).
   private var notificationMessenger: FlutterBinaryMessenger?
 
+  // The VoIP push token can arrive (pushRegistry didUpdate) BEFORE the Flutter
+  // engine registers the CallKit plugin — desiredPushTypes=[.voIP] in
+  // didFinishLaunching makes iOS issue the (cached) token almost immediately,
+  // while plugin registration happens later in didInitializeImplicitFlutterEngine.
+  // When that race loses, sharedInstance is nil, setDevicePushTokenVoIP is a no-op,
+  // UserDefaults is never written, getDevicePushTokenVoIP() returns "" forever, and
+  // Dart registers NO ios_voip token — so the backend has nowhere to send the call
+  // push and calls never ring on a locked/backgrounded phone (prod: 0 ios_voip
+  // tokens). Fix: stash the token here and flush it to the plugin once it exists.
+  private var pendingVoipToken: String?
+
   // Replies typed into a notification while the app was killed arrive BEFORE the
   // Flutter engine exists (and before Dart installs its channel handler), so
   // firing them at Dart immediately dropped them silently — the reply just never
@@ -42,6 +53,15 @@ import flutter_callkit_incoming
 
   func didInitializeImplicitFlutterEngine(_ engineBridge: FlutterImplicitEngineBridge) {
     GeneratedPluginRegistrant.register(with: engineBridge.pluginRegistry)
+
+    // The CallKit plugin (and its sharedInstance) exists now. If the VoIP token
+    // arrived before this ran, flush it so setDevicePushTokenVoIP writes it to
+    // UserDefaults and emits the update event — which is what makes Dart register
+    // the ios_voip token with the backend. Without this the token is lost on any
+    // launch where the push callback beat plugin registration.
+    if let token = pendingVoipToken {
+      SwiftFlutterCallkitIncomingPlugin.sharedInstance?.setDevicePushTokenVoIP(token)
+    }
 
     // Reclaim the notification-center delegate AFTER plugin registration. Both
     // firebase_messaging and flutter_local_notifications set themselves as the
@@ -124,6 +144,10 @@ import flutter_callkit_incoming
   // (Event.actionDidUpdateDevicePushTokenVoip) so we register it with the server.
   func pushRegistry(_ registry: PKPushRegistry, didUpdate pushCredentials: PKPushCredentials, for type: PKPushType) {
     let token = pushCredentials.token.map { String(format: "%02x", $0) }.joined()
+    // Stash it so a token that beat plugin registration is not lost — it gets
+    // flushed in didInitializeImplicitFlutterEngine. Also set it now for the
+    // common case where the plugin is already up.
+    pendingVoipToken = token
     SwiftFlutterCallkitIncomingPlugin.sharedInstance?.setDevicePushTokenVoIP(token)
   }
 
