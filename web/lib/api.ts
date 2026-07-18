@@ -535,6 +535,9 @@ export const api = {
     nba: { action: string; n: number }[];
   }>("/api/platform/ml-monitor"),
   listOrgs: () => req<OrgRow[]>("/api/platform/orgs"),
+  listAllCampaigns: () => req<{ id: string; name: string; org_name: string; status: string; catalog_rows: number }[]>("/api/platform/campaigns"),
+  campaignAIHistory: (id: string) => req<{ id: string; ai_style: unknown; changed_at: string; changed_by: string }[]>(`/api/platform/campaigns/${id}/ai-history`),
+  cloneCampaign: (id: string) => req<{ id: string }>(`/api/platform/campaigns/${id}/clone`, { method: "POST" }),
   createOrg: (input: { name: string; owner_name?: string; owner_email: string; owner_password: string; package_name?: string; users?: number; simpuler_credits?: number; custom_fields?: number }) =>
     req<{ id: string; slug: string; owner_id: string }>("/api/platform/orgs", { method: "POST", body: JSON.stringify(input) }),
   updateOrg: (id: string, patch: { name?: string; package_name?: string; status?: string; renewal_date?: string; quotas?: Record<string, number>; owner_email?: string }) =>

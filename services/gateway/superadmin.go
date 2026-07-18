@@ -146,6 +146,38 @@ func (s *server) handleMlMonitor(w http.ResponseWriter, r *http.Request) {
 	writeJSON(w, map[string]any{"scores": first, "versions": versions, "nba": nba})
 }
 
+// GET /api/platform/campaigns — every campaign across all orgs (for the clone +
+// prompt-history tools). Lightweight: id, name, org, catalog size.
+func (s *server) handleListAllCampaigns(w http.ResponseWriter, r *http.Request) {
+	rows, err := s.queryMaps(r.Context(),
+		`SELECT c.id::text AS id, c.name, o.name AS org_name, c.status,
+		        (SELECT count(*) FROM campaign_catalog cc WHERE cc.campaign_id=c.id) AS catalog_rows
+		   FROM campaigns c JOIN organizations o ON o.id=c.organization_id
+		  ORDER BY o.name, c.name`)
+	if err != nil {
+		http.Error(w, err.Error(), http.StatusInternalServerError)
+		return
+	}
+	writeJSON(w, rows)
+}
+
+// GET /api/platform/campaigns/{id}/ai-history — the AI style/prompt version history
+// for a campaign (P7 prompt versioning), newest first.
+func (s *server) handleCampaignAIHistory(w http.ResponseWriter, r *http.Request) {
+	rows, err := s.queryMaps(r.Context(),
+		`SELECT h.id::text AS id, h.ai_style, h.changed_at,
+		        COALESCE(u.full_name, u.email, '') AS changed_by
+		   FROM campaign_ai_history h
+		   LEFT JOIN users u ON u.id = h.changed_by
+		  WHERE h.campaign_id = $1
+		  ORDER BY h.changed_at DESC LIMIT 50`, r.PathValue("id"))
+	if err != nil {
+		http.Error(w, err.Error(), http.StatusInternalServerError)
+		return
+	}
+	writeJSON(w, rows)
+}
+
 // POST /api/platform/campaigns/{id}/clone — duplicate a campaign's full AI config
 // (P7 internal tool). Copies the config columns + catalog + agent rotation into a
 // new campaign in the SAME org. keywords + ad_source_ids are deliberately left

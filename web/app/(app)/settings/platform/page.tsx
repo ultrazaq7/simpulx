@@ -25,10 +25,26 @@ export default function PlatformPage() {
   const [denied, setDenied] = useState(false);
   const [panel, setPanel] = useState<{ mode: "create" | "edit"; org?: OrgRow } | null>(null);
   const [ml, setMl] = useState<Awaited<ReturnType<typeof api.mlMonitor>> | null>(null);
+  const [camps, setCamps] = useState<Awaited<ReturnType<typeof api.listAllCampaigns>>>([]);
+  const [selCamp, setSelCamp] = useState("");
+  const [history, setHistory] = useState<Awaited<ReturnType<typeof api.campaignAIHistory>>>([]);
+  const [cloning, setCloning] = useState(false);
 
   function load() {
     api.listOrgs().then(setRows).catch(() => { setDenied(true); setRows([]); });
     api.mlMonitor().then(setMl).catch(() => {});
+    api.listAllCampaigns().then(setCamps).catch(() => {});
+  }
+  useEffect(() => {
+    if (!selCamp) { setHistory([]); return; }
+    api.campaignAIHistory(selCamp).then(setHistory).catch(() => setHistory([]));
+  }, [selCamp]);
+  async function doClone() {
+    if (!selCamp) return;
+    setCloning(true);
+    try { const r = await api.cloneCampaign(selCamp); notify("Campaign cloned", "success"); api.listAllCampaigns().then(setCamps).catch(() => {}); setSelCamp(r.id); }
+    catch (e) { notify(String(e), "error"); }
+    finally { setCloning(false); }
   }
   useEffect(() => {
     // Bounce non-super-admins before they see the table shell.
@@ -76,6 +92,43 @@ export default function PlatformPage() {
             )}
           </div>
         )}
+        <div className="bg-card rounded-lg border border-border shadow-xs p-4 shrink-0">
+          <p className="text-[11px] font-bold uppercase tracking-wider text-muted-foreground mb-3">Campaign Tools</p>
+          <div className="flex flex-wrap items-end gap-3">
+            <div className="min-w-[280px] flex-1">
+              <label className="block text-[11px] font-bold uppercase tracking-wider text-muted-foreground mb-1.5">Campaign</label>
+              <select value={selCamp} onChange={(e) => setSelCamp(e.target.value)}
+                className="w-full h-10 px-3 rounded-md border border-input bg-background text-[13.5px] text-foreground outline-none focus:border-primary focus:ring-2 focus:ring-primary/20">
+                <option value="">Select a campaign...</option>
+                {camps.map((c) => <option key={c.id} value={c.id}>{c.org_name} — {c.name} ({c.catalog_rows} catalog)</option>)}
+              </select>
+            </div>
+            <button onClick={doClone} disabled={!selCamp || cloning}
+              className="inline-flex items-center gap-2 px-3.5 h-10 bg-primary text-white rounded-md text-sm font-semibold hover:bg-primary-dark shadow-sm transition-all outline-none disabled:opacity-50">
+              {cloning ? "Cloning..." : "Clone campaign"}
+            </button>
+          </div>
+          {selCamp && (
+            <div className="mt-4">
+              <p className="text-[11px] font-bold uppercase tracking-wider text-muted-foreground mb-2">Prompt / AI style history</p>
+              {history.length === 0 ? (
+                <p className="text-[12.5px] text-muted-foreground">No AI style changes recorded yet. History starts logging on the next save.</p>
+              ) : (
+                <div className="flex flex-col divide-y divide-border/60 rounded-md border border-border overflow-hidden max-h-[220px] overflow-y-auto">
+                  {history.map((h) => (
+                    <div key={h.id} className="px-3 py-2 text-[12px]">
+                      <div className="flex items-center justify-between text-muted-foreground">
+                        <span>{new Date(h.changed_at).toLocaleString("id-ID")}</span>
+                        <span className="truncate ml-2">{h.changed_by || "system"}</span>
+                      </div>
+                      <pre className="mt-1 text-[11px] text-foreground whitespace-pre-wrap break-words font-mono bg-muted/40 rounded p-2 max-h-[120px] overflow-y-auto">{JSON.stringify(h.ai_style, null, 2)}</pre>
+                    </div>
+                  ))}
+                </div>
+              )}
+            </div>
+          )}
+        </div>
         <div className="bg-card rounded-lg border border-border shadow-xs overflow-hidden flex-1 min-h-0 flex flex-col">
           <div className="p-3 flex items-center justify-end border-b border-border shrink-0">
             <button onClick={() => setPanel({ mode: "create" })}

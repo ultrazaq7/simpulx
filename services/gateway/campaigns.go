@@ -262,6 +262,14 @@ func (s *server) handleUpdateCampaign(w http.ResponseWriter, r *http.Request) {
 		http.Error(w, "not found", http.StatusNotFound)
 		return
 	}
+	// Prompt versioning (P7): snapshot the AI style whenever it is changed, so its
+	// evolution is auditable and an older version can be copied back. Best-effort.
+	if b.AIStyle != nil {
+		_, _ = s.pool.Exec(r.Context(),
+			`INSERT INTO campaign_ai_history (campaign_id, ai_style, changed_by)
+			 VALUES ($1, $2::jsonb, NULLIF($3,'')::uuid)`,
+			r.PathValue("id"), nilIfEmptyJSON(b.AIStyle), a.UserID)
+	}
 	if b.AgentIDs != nil || b.SupervisorIDs != nil {
 		if err := s.syncCampaignAgents(r.Context(), r.PathValue("id"), b.AgentIDs, b.SupervisorIDs); err != nil {
 			http.Error(w, err.Error(), http.StatusInternalServerError)

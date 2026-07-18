@@ -371,6 +371,8 @@ func main() {
 	mux.HandleFunc("GET /api/platform/access", s.requireAuth(s.handlePlatformAccess))
 	mux.HandleFunc("GET /api/platform/orgs", s.requireSuperAdmin(s.handleListOrgs))
 	mux.HandleFunc("GET /api/platform/ml-monitor", s.requireSuperAdmin(s.handleMlMonitor))
+	mux.HandleFunc("GET /api/platform/campaigns", s.requireSuperAdmin(s.handleListAllCampaigns))
+	mux.HandleFunc("GET /api/platform/campaigns/{id}/ai-history", s.requireSuperAdmin(s.handleCampaignAIHistory))
 	mux.HandleFunc("POST /api/platform/campaigns/{id}/clone", s.requireSuperAdmin(s.handleCloneCampaign))
 	mux.HandleFunc("POST /api/platform/orgs", s.requireSuperAdmin(s.handleCreateOrg))
 	mux.HandleFunc("PATCH /api/platform/orgs/{id}", s.requireSuperAdmin(s.handleUpdateOrg))
