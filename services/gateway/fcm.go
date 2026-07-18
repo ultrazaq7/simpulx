@@ -178,7 +178,7 @@ func (s *server) initFCMPush(ctx context.Context) {
 				// native path; web ignores APNS). The Flutter client no longer draws a
 				// local notification on iOS, so there is exactly one, no duplicate.
 				// Category "message" surfaces the inline Reply action on long-press.
-				APNS: apnsAlert(contactName, bodyText, "message", badge),
+				APNS: apnsAlert(contactName, bodyText, "message", badge, msg.ConversationID),
 			}
 			resp, err := fcmClient.SendEachForMulticast(ctx, pushMsg)
 			if err != nil {
@@ -229,7 +229,7 @@ func (s *server) initFCMPush(ctx context.Context) {
 			// Bell notifications have no inline actions (no reply category).
 			// badge=-1 omits it: a bell alert (snooze due, assignment) is not an
 			// unread chat, so it must not overwrite the icon's unread count.
-			APNS: apnsAlert(title, bodyText, "", -1),
+			APNS: apnsAlert(title, bodyText, "", -1, n.ConversationID),
 		})
 		if err != nil {
 			s.log.Error("FCM notification send error", "err", err)

@@ -24,10 +24,12 @@ func (s *server) unreadBadgeFor(ctx context.Context, userID string) int {
 		return -1
 	}
 	var n int
+	// Total unread MESSAGES across the agent's open chats (WhatsApp-style), not the
+	// number of chats: sending 5 messages in one chat should show 5 on the icon, not
+	// 1. Reset to 0 per conversation when the agent reads it, so SUM stays accurate.
 	if err := s.pool.QueryRow(ctx,
-		`SELECT count(*) FROM conversations
+		`SELECT COALESCE(SUM(unread_count), 0)::int FROM conversations
 		  WHERE assigned_agent_id = $1::uuid
-		    AND COALESCE(unread_count, 0) > 0
 		    AND status <> 'closed'`, userID).Scan(&n); err != nil {
 		s.log.Warn("unread badge count failed", "err", err, "user", userID)
 		return -1
@@ -38,12 +40,15 @@ func (s *server) unreadBadgeFor(ctx context.Context, userID string) int {
 // apnsAlert builds the iOS payload. badge is the recipient's unread-chat count:
 // iOS can NOT compute an icon badge itself (Android does), so if the server never
 // sends one the app icon simply never shows a number. Pass -1 to omit it.
-func apnsAlert(title, body, category string, badge int) *messaging.APNSConfig {
+func apnsAlert(title, body, category string, badge int, threadID string) *messaging.APNSConfig {
 	aps := &messaging.Aps{
 		Alert:          &messaging.ApsAlert{Title: title, Body: body},
 		Sound:          "default",
 		MutableContent: true,
 		Category:       category,
+		// Group notifications per chat (iOS stacks by thread-id), so multiple chats
+		// show as separate threads instead of one merged pile.
+		ThreadID: threadID,
 	}
 	if badge >= 0 {
 		aps.Badge = &badge
