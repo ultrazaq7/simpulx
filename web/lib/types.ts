@@ -8,6 +8,8 @@ export interface User {
   is_online?: boolean;
   avatar?: string;
   is_super_admin?: boolean; // platform super admin (display label, not a role)
+  industry?: string;        // org segment, set at creation / Client Management
+  is_property?: boolean;    // industry is property -> Listings e-catalog is available
 }
 
 export interface Conversation {
@@ -556,6 +558,7 @@ export interface OrgRow {
   id: string;
   name: string;
   slug: string;
+  industry: string;   // org segment; gates segment-only surfaces (property e-catalog)
   created_at: string;
   package_name: string;
   status: string;
@@ -797,4 +800,34 @@ export interface ContactActivity {
   detail: Record<string, unknown>;
   created_at: string;
   actor_name?: string;
+}
+
+// Property e-catalog row. Backed by the `listings` table (0107_listings.sql) and
+// rendered both in the admin panel and on the public per-client listing site.
+export interface ListingPhoto { url: string; name?: string }
+export interface Listing {
+  id: string;
+  campaign_id: string | null;
+  slug: string;
+  title: string;
+  property_type: string | null;
+  status: string;                 // draft | published | sold | archived
+  price: number | null;
+  location_area: string | null;
+  city: string | null;
+  address: string | null;
+  latitude: number | null;
+  longitude: number | null;
+  bedrooms: number | null;
+  bathrooms: number | null;
+  land_area: number | null;       // LT (m2)
+  building_area: number | null;   // LB (m2)
+  certificate: string | null;
+  description: string | null;
+  photos: ListingPhoto[];         // ordered; first entry is the cover
+  attributes: Record<string, unknown>;
+  sort_order: number;
+  published_at: string | null;
+  created_at: string;
+  updated_at: string;
 }

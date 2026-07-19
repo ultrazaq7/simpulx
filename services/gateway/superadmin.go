@@ -83,6 +83,7 @@ func (s *server) handlePlatformAccess(w http.ResponseWriter, r *http.Request) {
 func (s *server) handleListOrgs(w http.ResponseWriter, r *http.Request) {
 	rows, err := s.queryMaps(r.Context(),
 		`SELECT o.id::text AS id, o.name, o.slug, o.created_at,
+		        COALESCE(o.settings->>'industry','') AS industry,
 		        COALESCE(os.package_name,'starter') AS package_name,
 		        COALESCE(os.status,'active')        AS status,
 		        os.renewal_date,
@@ -223,6 +224,7 @@ func (s *server) handleCampaignAIHistory(w http.ResponseWriter, r *http.Request)
 func (s *server) handleCreateOrg(w http.ResponseWriter, r *http.Request) {
 	var b struct {
 		Name            string `json:"name"`
+		Industry        string `json:"industry"` // segment vocabulary (see segments.py)
 		OwnerName       string `json:"owner_name"`
 		OwnerEmail      string `json:"owner_email"`
 		OwnerPassword   string `json:"owner_password"`
@@ -291,9 +293,14 @@ func (s *server) handleCreateOrg(w http.ResponseWriter, r *http.Request) {
 	}
 	defer tx.Rollback(r.Context())
 
+	// Industry is the org's SEGMENT (same vocabulary campaigns use). It is set here
+	// and in Client Management only -- Company Details renders it read-only -- because
+	// it gates segment-specific surfaces (e.g. the property e-catalog/Listings).
 	var orgID string
 	if err := tx.QueryRow(r.Context(),
-		`INSERT INTO organizations (name, slug) VALUES ($1,$2) RETURNING id::text`, b.Name, slug).Scan(&orgID); err != nil {
+		`INSERT INTO organizations (name, slug, settings)
+		 VALUES ($1,$2, jsonb_build_object('industry', $3::text)) RETURNING id::text`,
+		b.Name, slug, strings.TrimSpace(b.Industry)).Scan(&orgID); err != nil {
 		http.Error(w, err.Error(), http.StatusInternalServerError)
 		return
 	}
@@ -332,6 +339,7 @@ func (s *server) handleUpdateOrg(w http.ResponseWriter, r *http.Request) {
 	orgID := r.PathValue("id")
 	var b struct {
 		Name        string          `json:"name"`
+		Industry    *string         `json:"industry"` // org segment; gates segment-only surfaces
 		PackageName string          `json:"package_name"`
 		Status      string          `json:"status"`
 		RenewalDate string          `json:"renewal_date"`
@@ -349,6 +357,18 @@ func (s *server) handleUpdateOrg(w http.ResponseWriter, r *http.Request) {
 			`UPDATE users SET email=lower($2), updated_at=now()
 			  WHERE organization_id=$1::uuid AND role='owner'`, orgID, e); err != nil {
 			http.Error(w, "owner email: "+err.Error(), http.StatusBadRequest)
+			return
+		}
+	}
+	// Industry (org segment) is owned by this panel; merged into settings so the rest
+	// of the settings bag (locale, working hours, ...) is preserved.
+	if b.Industry != nil {
+		if _, err := s.pool.Exec(r.Context(),
+			`UPDATE organizations
+			    SET settings = COALESCE(settings,'{}'::jsonb) || jsonb_build_object('industry', $2::text),
+			        updated_at = now()
+			  WHERE id=$1::uuid`, orgID, strings.TrimSpace(*b.Industry)); err != nil {
+			http.Error(w, err.Error(), http.StatusInternalServerError)
 			return
 		}
 	}

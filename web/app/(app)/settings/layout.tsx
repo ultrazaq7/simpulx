@@ -9,7 +9,7 @@ import Link from "next/link";
 import { usePathname, useSearchParams } from "next/navigation";
 import {
   Settings, FormInput, Bell, User, ShieldCheck, ListOrdered,
-  Building2, Building, FileText, GitBranch, RadioTower, Clock, ClipboardList,
+  Building2, Building, FileText, GitBranch, RadioTower, Clock, ClipboardList, Home,
   ChevronsLeft, Boxes, Zap, SlidersHorizontal, ChevronRight, Plug, Megaphone, ScrollText,
 } from "lucide-react";
 import { cn } from "@/lib/utils";
@@ -20,7 +20,10 @@ import { Tip } from "@/components/ui/tooltip";
 
 // perm = permission key gating this section. Items without a dedicated perm in
 // the matrix fall back to "view_settings" (anyone who can open Settings).
-type NavItem = { key: string; labelKey: string; icon: any; href: string; perm: string };
+// propertyOnly: segment-gated surface. The property e-catalog (Listings) is
+// meaningless for an automotive/finance tenant, so it is hidden unless the ORG's
+// industry is property (set at onboarding / Client Management, read-only to tenants).
+type NavItem = { key: string; labelKey: string; icon: any; href: string; perm: string; propertyOnly?: boolean };
 
 // flat: render as a single top-level nav link (no collapsible section header),
 // using the item's label. Used for standalone destinations like Logs / Platform.
@@ -38,6 +41,7 @@ const GROUPS: { titleKey: string; flat?: boolean; items: NavItem[] }[] = [
       { key: "user-management", labelKey: "settings.user_management", icon: User, href: "/settings/user-management", perm: "manage_team" },
       { key: "roles", labelKey: "settings.roles", icon: ShieldCheck, href: "/settings/roles", perm: "manage_roles" },
       { key: "campaigns", labelKey: "settings.campaigns", icon: Building2, href: "/settings/campaigns", perm: "manage_campaigns" },
+      { key: "listings", labelKey: "settings.listings", icon: Home, href: "/settings/listings", perm: "manage_campaigns", propertyOnly: true },
     ],
   },
   {
@@ -108,13 +112,18 @@ export default function SettingsLayout({ children }: { children: ReactNode }) {
   const [isSuper, setIsSuper] = useState<boolean>(() => typeof window !== "undefined" && !!getUser()?.is_super_admin);
   useEffect(() => { api.platformAccess().then((r) => setIsSuper(r.super_admin)).catch(() => {}); }, []);
 
+  // Same lazy-init-then-reconcile pattern as isSuper, so a property tenant sees
+  // Listings on first paint instead of it popping in after the /api/me round-trip.
+  const [isProperty, setIsProperty] = useState<boolean>(() => typeof window !== "undefined" && !!getUser()?.is_property);
+  useEffect(() => { api.me().then((u) => setIsProperty(!!u.is_property)).catch(() => {}); }, []);
+
   const navScrollRef = useRef<HTMLDivElement | null>(null);
   const activeItemRef = useRef<HTMLAnchorElement | null>(null);
 
   // Hide sections the role can't access; drop groups that become empty.
   const groups = [
     ...GROUPS
-      .map((g) => ({ ...g, items: g.items.filter((i) => can(i.perm)) }))
+      .map((g) => ({ ...g, items: g.items.filter((i) => can(i.perm) && (!i.propertyOnly || isProperty)) }))
       .filter((g) => g.items.length > 0),
     ...(isSuper ? [{ titleKey: "Platform", items: [
       { key: "client-management", labelKey: "Client Management", icon: Building2, href: "/settings/client-management", perm: "" },

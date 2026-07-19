@@ -1,4 +1,4 @@
-import type { Agent, AIAgent, Analytics, AppNotification, AuditEntry, Automation, AutomationAction, AutomationDetail, AutomationFlow, Broadcast, Campaign, CampaignAnalyticsRow, CampaignDetail, Channel, Contact, Conversation, InternalNote, KnowledgeSource, Message, Organization, OrgSettings, QuickReply, RolePermissions, Stats, DashboardCards, Template, TemplateButton, TemplateComponents, User, UserAccount, UserActivity, WebApiSource, SourcePlatform, WaFlow, WaFlowDetail, WaFlowResponse, FlowDefinition, GoogleSheetsInfo, OrgRow, CatalogItem } from "./types";
+import type { Agent, AIAgent, Analytics, AppNotification, AuditEntry, Automation, AutomationAction, AutomationDetail, AutomationFlow, Broadcast, Campaign, CampaignAnalyticsRow, CampaignDetail, Channel, Contact, Conversation, InternalNote, KnowledgeSource, Message, Organization, OrgSettings, QuickReply, RolePermissions, Stats, DashboardCards, Template, TemplateButton, TemplateComponents, User, UserAccount, UserActivity, WebApiSource, SourcePlatform, WaFlow, WaFlowDetail, WaFlowResponse, FlowDefinition, GoogleSheetsInfo, OrgRow, CatalogItem, Listing } from "./types";
 
 const API = process.env.NEXT_PUBLIC_API_URL || "http://localhost:8080";
 export const WS_URL = process.env.NEXT_PUBLIC_WS_URL || "ws://localhost:8082";
@@ -483,6 +483,11 @@ export const api = {
   deleteWebApiSource: (id: string) => req(`/api/web-api-sources/${id}`, { method: "DELETE" }),
   // ── Campaigns ──
   listCampaigns: () => req<Campaign[]>("/api/campaigns"),
+  // Property e-catalog (org-scoped; the public site reads its own endpoint).
+  listListings: () => req<Listing[]>("/api/listings"),
+  createListing: (input: Partial<Listing>) => req<{ id: string; slug: string }>("/api/listings", { method: "POST", body: JSON.stringify(input) }),
+  updateListing: (id: string, patch: Partial<Listing>) => req(`/api/listings/${id}`, { method: "PATCH", body: JSON.stringify(patch) }),
+  deleteListing: (id: string) => req(`/api/listings/${id}`, { method: "DELETE" }),
   getCampaignAnalytics: () => req<CampaignAnalyticsRow[]>("/api/analytics/campaigns"),
   getCampaign: (id: string) => req<CampaignDetail>(`/api/campaigns/${id}`),
   getCampaignCredits: (id: string) => req<{ allocated_credits: number; used_credits: number; low_balance_threshold: number; remaining_credits: number; org_total_credits: number; allocated_elsewhere: number }>(`/api/campaigns/${id}/credits`),
@@ -544,9 +549,9 @@ export const api = {
   listAllCampaigns: () => req<{ id: string; name: string; org_name: string; status: string; catalog_rows: number }[]>("/api/platform/campaigns"),
   campaignAIHistory: (id: string) => req<{ id: string; ai_style: unknown; changed_at: string; changed_by: string }[]>(`/api/platform/campaigns/${id}/ai-history`),
   cloneCampaign: (id: string) => req<{ id: string }>(`/api/campaigns/${id}/clone`, { method: "POST" }),
-  createOrg: (input: { name: string; owner_name?: string; owner_email: string; owner_password: string; package_name?: string; users?: number; simpuler_credits?: number; custom_fields?: number }) =>
+  createOrg: (input: { name: string; industry?: string; owner_name?: string; owner_email: string; owner_password: string; package_name?: string; users?: number; simpuler_credits?: number; custom_fields?: number }) =>
     req<{ id: string; slug: string; owner_id: string }>("/api/platform/orgs", { method: "POST", body: JSON.stringify(input) }),
-  updateOrg: (id: string, patch: { name?: string; package_name?: string; status?: string; renewal_date?: string; quotas?: Record<string, number>; owner_email?: string }) =>
+  updateOrg: (id: string, patch: { name?: string; industry?: string; package_name?: string; status?: string; renewal_date?: string; quotas?: Record<string, number>; owner_email?: string }) =>
     req(`/api/platform/orgs/${id}`, { method: "PATCH", body: JSON.stringify(patch) }),
   deleteOrg: (id: string) => req(`/api/platform/orgs/${id}`, { method: "DELETE" }),
   createCampaign: (input: { name: string; dealer_name?: string; routing_strategy?: string; channel_id?: string; ad_source_ids?: string[]; keywords?: string[]; agent_ids?: string[]; supervisor_ids?: string[]; calling_enabled?: boolean }) =>

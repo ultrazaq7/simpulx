@@ -7,6 +7,7 @@ import { api } from "@/lib/api";
 import { cn, fmtDateTimeShort } from "@/lib/utils";
 import type { OrgRow } from "@/lib/types";
 import { Select } from "@/components/Select";
+import { SEGMENT_OPTIONS } from "@/lib/segments";
 import SidePanel from "@/components/SidePanel";
 import { useToast, FieldLabel, INPUT_CLASS, initials } from "../_shared";
 import { useConfirm } from "@/components/ConfirmDialog";
@@ -139,6 +140,7 @@ function OrgPanel({ mode, org, onClose, onDone, onError }: {
   const isEdit = mode === "edit";
   const { confirm, ConfirmHost } = useConfirm();
   const [name, setName] = useState(org?.name ?? "");
+  const [industry, setIndustry] = useState(org?.industry ?? "");
   const [ownerName, setOwnerName] = useState("");
   const [ownerEmail, setOwnerEmail] = useState(org?.owner_email ?? "");
   const [ownerPassword, setOwnerPassword] = useState("");
@@ -156,10 +158,10 @@ function OrgPanel({ mode, org, onClose, onDone, onError }: {
     try {
       const quotas = { users: Number(users) || 0, simpuler_credits: Number(credits) || 0, custom_fields: Number(fields) || 0 };
       if (isEdit && org) {
-        await api.updateOrg(org.id, { name: name.trim(), package_name: pkg, status, quotas, owner_email: ownerEmail.trim() });
+        await api.updateOrg(org.id, { name: name.trim(), industry, package_name: pkg, status, quotas, owner_email: ownerEmail.trim() });
         onDone("Organization updated");
       } else {
-        await api.createOrg({ name: name.trim(), owner_name: ownerName.trim(), owner_email: ownerEmail.trim(), owner_password: ownerPassword, package_name: pkg, users: quotas.users, simpuler_credits: quotas.simpuler_credits, custom_fields: quotas.custom_fields });
+        await api.createOrg({ name: name.trim(), industry, owner_name: ownerName.trim(), owner_email: ownerEmail.trim(), owner_password: ownerPassword, package_name: pkg, users: quotas.users, simpuler_credits: quotas.simpuler_credits, custom_fields: quotas.custom_fields });
         onDone("Organization created");
       }
     } catch (e) { onError(String(e)); } finally { setBusy(false); }
@@ -171,6 +173,15 @@ function OrgPanel({ mode, org, onClose, onDone, onError }: {
       onApply={submit} applyLabel={isEdit ? "Save" : "Create"} applyDisabled={!canSubmit}>
       <div className="space-y-4">
         <div><FieldLabel>{t("settings.companyName")}</FieldLabel><input value={name} onChange={(e) => setName(e.target.value)} placeholder={t("settings.acmeMotors")} className={INPUT_CLASS} /></div>
+
+        {/* Industry = the org's SEGMENT. Owned here (and at creation) because it
+            gates segment-only surfaces such as the property e-catalog; Company
+            Details shows it read-only so a tenant can't switch it on themselves. */}
+        <div>
+          <FieldLabel hint="Menentukan fitur khusus segmen (mis. e-catalog properti) dan cara AI mengkualifikasi lead">{t("settings.industry")}</FieldLabel>
+          <Select value={industry} onChange={setIndustry} searchable={false}
+            options={[{ value: "", label: "Not set" }, ...SEGMENT_OPTIONS.map((s) => ({ value: s, label: s }))]} />
+        </div>
 
         {isEdit && (
           <div><FieldLabel hint="Credit alerts & login untuk org ini dikirim ke sini">{t("settings.ownerEmail")}</FieldLabel>

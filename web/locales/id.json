@@ -850,7 +850,9 @@
     "justNow": "Baru saja",
     "pickCityBeforeUpload": "Pilih minimal satu kota dulu. Ini menentukan area layanan campaign dan menandai tiap baris di pricelist.",
     "clearAllCities": "Hapus semua",
-    "citiesSelected": "{{n}} dipilih"
+    "citiesSelected": "{{n}} dipilih",
+    "listings": "Listing Properti",
+    "industryLocked": "Ditetapkan Simpulx saat onboarding. Hubungi support untuk mengubahnya."
   },
   "common": {
     "save": "Simpan",

@@ -63,7 +63,22 @@ export const SEGMENT_SCHEMAS: Record<string, SegmentField[]> = {
   ],
 };
 
+// The one segment vocabulary: campaign segment AND organisation industry pick from
+// this list (stored as the display string; matching always goes through norm()).
+export const SEGMENT_OPTIONS = [
+  "Automotive", "Property / Real Estate", "Finance", "Insurance", "Retail / FMCG",
+  "Education", "Healthcare", "Travel & Hospitality", "Food & Beverage", "Services", "Other",
+];
+
 const norm = (segment?: string | null) => (segment || "").trim().toLowerCase();
+
+// Property unlocks the listings e-catalog. Matched loosely so orgs whose industry
+// was typed freehand before it became a dropdown ("Property", "Real Estate") keep
+// the feature. Mirrors isPropertyIndustry() in services/gateway/listings.go.
+export function isPropertySegment(segment?: string | null): boolean {
+  const s = norm(segment);
+  return s === "property / real estate" || s.includes("propert") || s.includes("real estate");
+}
 
 // Unset/empty behaves as automotive (the prior, native behaviour).
 export function isAutomotive(segment?: string | null): boolean {

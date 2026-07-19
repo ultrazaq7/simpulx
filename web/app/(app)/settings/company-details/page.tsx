@@ -1,7 +1,7 @@
 "use client";
 import { useEffect, useMemo, useState } from "react";
 import { useRouter } from "next/navigation";
-import { Loader2, Building2 } from "lucide-react";
+import { Loader2, Building2, Lock } from "lucide-react";
 import { api, getUser } from "@/lib/api";
 import { loadPermissions, canWith } from "@/lib/permissions";
 import { Select } from "@/components/Select";
@@ -168,7 +168,7 @@ export default function GeneralSettingsPage() {
     if (!form.name.trim()) { notify(t("settings.companyNameIsRequired"), "error"); return; }
     setSaving(true);
     try {
-      const next = { ...settings, industry: form.industry.trim(), company_size: form.company_size, website: form.website.trim(), locale: form.locale, timezone: form.timezone, country_code: form.country_code, date_format: form.date_format, working_hours: JSON.parse(form.working_hours) };
+      const next = { ...settings, company_size: form.company_size, website: form.website.trim(), locale: form.locale, timezone: form.timezone, country_code: form.country_code, date_format: form.date_format, working_hours: JSON.parse(form.working_hours) };
       await api.updateOrganization({ name: form.name.trim(), settings: next });
       setSettings(next); setOrig(form); setLang(form.locale);
       try { localStorage.setItem("simpulx_date_format", form.date_format); } catch { /* ignore */ }
@@ -195,7 +195,19 @@ export default function GeneralSettingsPage() {
             </div>
           </div>
           <div className="grid grid-cols-1 sm:grid-cols-2 gap-5">
-            <div><label className={LBL}>{t("settings.industry")}</label><input value={form.industry} onChange={(e) => set("industry", e.target.value)} placeholder={t("settings.eGAutomotive")} className={INPUT} /></div>
+            {/* Industry is READ-ONLY here on purpose: it is the org's segment, set by
+                Simpulx at onboarding / in Client Management, and it gates
+                segment-specific features (e.g. the property e-catalog). A tenant
+                editing it themselves would silently switch those features on/off. */}
+            <div>
+              <label className={LBL}>{t("settings.industry")}</label>
+              <div className={cn(INPUT, "flex items-center justify-between gap-2 bg-muted/50 text-muted-foreground cursor-not-allowed")}
+                title={t("settings.industryLocked")}>
+                <span className="truncate">{form.industry || t("settings.notSet")}</span>
+                <Lock className="w-3.5 h-3.5 shrink-0 opacity-60" />
+              </div>
+              <p className="text-[11px] text-muted-foreground mt-1">{t("settings.industryLocked")}</p>
+            </div>
             <div><label className={LBL}>{t("settings.companySize")}</label><Select value={form.company_size} onChange={(v) => set("company_size", v)} options={COMPANY_SIZES} searchable={false} /></div>
             <div><label className={LBL}>{t("dashboard.website")}</label><input type="url" value={form.website} onChange={(e) => set("website", e.target.value)} placeholder="https://example.com" className={INPUT} /></div>
           </div>

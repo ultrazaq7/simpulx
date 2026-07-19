@@ -140,6 +140,7 @@ const PAGE_TITLES: Record<string, { category: string; title: string; icon?: any 
   "/settings/user-management": { category: "COMPANY SETTINGS", title: "User Management", icon: UserIcon },
   "/settings/roles": { category: "COMPANY SETTINGS", title: "Roles & Permissions", icon: ShieldCheck },
   "/settings/campaigns": { category: "CHANNELS", title: "Campaigns", icon: Building2 },
+  "/settings/listings": { category: "CHANNELS", title: "Listing Properti", icon: Building2 },
   "/settings/templates": { category: "CUSTOMIZATIONS", title: "Message Templates", icon: FileText },
   "/settings/automation": { category: "CUSTOMIZATIONS", title: "Automation", icon: GitBranch },
   "/settings/wa-forms": { category: "CUSTOMIZATIONS", title: "WhatsApp Forms", icon: ClipboardList },

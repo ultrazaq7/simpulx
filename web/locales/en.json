@@ -850,7 +850,9 @@
     "justNow": "Just now",
     "pickCityBeforeUpload": "Pick at least one city first. It sets the campaign's service area and tags every row in the pricelist.",
     "clearAllCities": "Clear all",
-    "citiesSelected": "{{n}} selected"
+    "citiesSelected": "{{n}} selected",
+    "listings": "Listings",
+    "industryLocked": "Set by Simpulx at onboarding. Contact support to change it."
   },
   "common": {
     "save": "Save",

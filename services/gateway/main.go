@@ -369,6 +369,11 @@ func main() {
 	mux.HandleFunc("PATCH /api/campaigns/{id}/catalog/{row}", s.requireAuth(s.gate("manage_campaigns", s.handleUpdateCatalogRow)))
 	mux.HandleFunc("DELETE /api/campaigns/{id}/catalog/{row}", s.requireAuth(s.gate("manage_campaigns", s.handleDeleteCatalogRow)))
 	mux.HandleFunc("DELETE /api/campaigns/{id}/catalog", s.requireAuth(s.gate("manage_campaigns", s.handleClearCatalog)))
+	// Property e-catalog: org-scoped listings behind the public listing site.
+	mux.HandleFunc("GET /api/listings", s.requireAuth(s.handleListListings))
+	mux.HandleFunc("POST /api/listings", s.requireAuth(s.gate("manage_campaigns", s.handleCreateListing)))
+	mux.HandleFunc("PATCH /api/listings/{id}", s.requireAuth(s.gate("manage_campaigns", s.handleUpdateListing)))
+	mux.HandleFunc("DELETE /api/listings/{id}", s.requireAuth(s.gate("manage_campaigns", s.handleDeleteListing)))
 	// Platform super admin (email-gated, NOT a role): manage every org + credit pool.
 	mux.HandleFunc("GET /api/platform/access", s.requireAuth(s.handlePlatformAccess))
 	mux.HandleFunc("GET /api/platform/orgs", s.requireSuperAdmin(s.handleListOrgs))
