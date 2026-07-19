@@ -1,49 +1,152 @@
 """AI lead classifier - infers interest level, pipeline stage, and off-topic
 disposition from the customer's chat messages.
 
-Intent keyword categories are ported from the team-validated OTO Lead Quality
-framework (Indonesian car-buying signals). Rules-first: deterministic, instant,
-and free - the LLM can refine later. Track intent per-lead (any customer message
-contains a keyword), never per-message.
+Intent keyword categories started from the team-validated OTO Lead Quality
+framework (Indonesian car-buying signals) and were expanded to cover every
+segment Simpulx sells into: automotive (mobil + motor), property (rumah tapak,
+apartemen, ruko/kavling), and general B2C retail, plus the English phrases
+Meta's click-to-WhatsApp ads inject ("Can I get more info on this?"). Sources:
+real prod inbound chats + Indonesian property/credit glossaries (UTJ/NUP/PPJB/
+AJB, TDP/ADDM/ADDB) + online-selling slang (COD/PO/nego/nett). Rules-first:
+deterministic, instant, and free - the LLM can refine later. Track intent
+per-lead (any customer message contains a keyword), never per-message.
+
+Category names are FROZEN: they feed feature names in features.py (lead-score
+model input) - add patterns inside a category, never rename/remove categories.
 """
 from __future__ import annotations
 
 import re
 from typing import Dict, List, TypedDict
 
-# 10 validated intent categories (Indonesian car-buying signals).
+# 11 intent categories; patterns grouped per segment (umum / otomotif /
+# properti / retail / english) so per-vertical additions stay reviewable.
 INTENT_CATEGORIES: Dict[str, List[str]] = {
-    "Price/Financing": [r"\bdp\b", r"\bcicilan\b", r"\bangsuran\b", r"\bharga\b", r"\botr\b",
-                        r"\bkredit\b", r"\btunai\b", r"\bbunga\b", r"\btenor\b", r"\bleasing\b",
-                        r"\bberapa\b", r"\bbrp\b", r"\bjuta\b", r"\bjt\b", r"\bsimulasi\b", r"\bacc\b", r"\btaf\b"],
-    "Promo/Deal": [r"\bpromo\b", r"\bdiskon\b", r"\bpenawaran\b", r"\bbonus\b", r"\bcashback\b",
-                   r"\bsubsidi\b", r"\bgratis\b"],
-    "Test Drive": [r"\btest drive\b", r"\btest-drive\b", r"\btestdrive\b", r"\buji coba\b",
-                   r"\bcoba mobil\b", r"\bcoba unit\b", r"\bcoba dulu\b"],
-    "Booking/Order": [r"\bbooking\b", r"\bspk\b", r"\binden\b", r"\bindent\b", r"\btanda jadi\b",
-                      r"\bpesan unit\b", r"\bambil unit\b", r"\bambil mobil\b", r"\bdelivery order\b"],
-    "Visit/Showroom": [r"\bshowroom\b", r"\bdealer\b", r"\bketemu\b", r"\bdatang\b", r"\bberkunjung\b",
-                       r"\balamat\b", r"\blokasi\b", r"\bmampir\b", r"\bsurvey\b", r"\bkunjung\b"],
-    "Stock/Availability": [r"\bstok\b", r"\bstock\b", r"\bready\b", r"\btersedia\b", r"\bada unit\b",
-                           r"\bunit ready\b", r"\bready stock\b"],
-    "Specs/Variant": [r"\bvarian\b", r"\bvariant\b", r"\btipe\b", r"\bspek\b", r"\bspesifikasi\b",
-                      r"\bwarna\b", r"\btransmisi\b", r"\bmatic\b", r"\bmanual\b", r"\bcvt\b",
-                      r"\bbrosur\b", r"\bkatalog\b"],
-    "Trade-in": [r"\btukar tambah\b", r"\btrade.?in\b", r"\bover kredit\b", r"\bover credit\b"],
-    "Documents/Process": [r"\bktp\b", r"\bnpwp\b", r"\bslip gaji\b", r"\bsyarat\b", r"\bpersyaratan\b",
-                          r"\bbpkb\b", r"\bstnk\b", r"\bdokumen\b"],
-    "Strong/Closing": [r"\bdeal\b", r"\boke deal\b", r"\boke jadi\b", r"\bsiap order\b",
-                       r"\bkapan bisa diambil\b", r"\bkapan ready\b", r"\btransfer\b", r"\bbayar\b"],
-    # Explicit product/model interest. Mined from real SmartKonek chat data
-    # (top inbound terms: tertarik + vehicle brand/model names). Per-industry:
-    # this category is vehicle-specific — swap the brand list for other verticals.
-    "Model/Brand Interest": [r"\btertarik\b", r"\bminat\b", r"\bnaksir\b", r"\bpengen\b", r"\bmau beli\b",
-                             r"\bbajaj\b", r"\bcreta\b", r"\bbrio\b", r"\bsuzuki\b", r"\btoyota\b",
-                             r"\bhonda\b", r"\bhyundai\b", r"\bxpeng\b", r"\bdaihatsu\b", r"\bmitsubishi\b",
-                             r"\bwuling\b", r"\bnissan\b", r"\bmazda\b", r"\bkia\b", r"\bavanza\b",
-                             r"\bxenia\b", r"\bertiga\b", r"\brush\b", r"\bterios\b", r"\braize\b",
-                             r"\bfortuner\b", r"\bpajero\b", r"\binnova\b", r"\bhrv\b", r"\bbrv\b",
-                             r"\bmobilio\b", r"\bbr-v\b", r"\bhr-v\b"],
+    "Price/Financing": [
+        # umum
+        r"\bdp\b", r"\bcicilan\b", r"\bangsuran\b", r"\bharga\b", r"\bkredit\b",
+        r"\btunai\b", r"\bcash\b", r"\bbunga\b", r"\btenor\b", r"\bberapa\b", r"\bbrp\b",
+        r"\bjuta\b", r"\bjt\b", r"\bsimulasi\b", r"\bacc\b", r"\bbudget\b", r"\bdana\b",
+        r"\bnego\b", r"\bnett\b", r"\bbisa kurang\b", r"\bkurangin\b", r"\bmurahin\b",
+        r"\bpricelist\b", r"\bprice list\b", r"\bharga pas\b", r"\btermurah\b",
+        # format angka harga khas chat: 800jt / 1,5m / 1.2m / 900juta (nempel atau spasi)
+        r"\b\d+(?:[.,]\d+)?\s*(?:jt|juta|miliar|milyar)\b", r"\b\d+(?:[.,]\d+)?m\b",
+        # otomotif
+        r"\botr\b", r"\bleasing\b", r"\btaf\b", r"\btdp\b", r"\baddm\b", r"\baddb\b",
+        # properti
+        r"\bkpr\b", r"\bkpa\b", r"\bcash bertahap\b", r"\bcash keras\b",
+        r"\bin.?house\b", r"\btake.?over\b", r"\bfix rate\b", r"\bfloating\b",
+        # english (CTWA / expat)
+        r"\bprice\b", r"\bhow much\b", r"\binstallment\b", r"\bdown payment\b",
+    ],
+    "Promo/Deal": [
+        r"\bpromo\b", r"\bdiskon\b", r"\bpenawaran\b", r"\bbonus\b", r"\bcashback\b",
+        r"\bsubsidi\b", r"\bgratis\b", r"\bvoucher\b", r"\bfree biaya\b", r"\bdp 0\b",
+        r"\bfree ongkir\b", r"\bdiscount\b",
+    ],
+    "Test Drive": [
+        r"\btest drive\b", r"\btest-drive\b", r"\btestdrive\b", r"\btest ride\b",
+        r"\buji coba\b", r"\bcoba mobil\b", r"\bcoba unit\b", r"\bcoba dulu\b", r"\bjajal\b",
+    ],
+    "Booking/Order": [
+        # umum
+        r"\bbooking\b", r"\binden\b", r"\bindent\b", r"\btanda jadi\b", r"\bpesan unit\b",
+        r"\bmau pesan\b", r"\bpesan sekarang\b", r"\bamankan unit\b",
+        # otomotif
+        r"\bspk\b", r"\bambil unit\b", r"\bambil mobil\b", r"\bambil motor\b", r"\bdelivery order\b",
+        # properti
+        r"\bbooking fee\b", r"\butj\b", r"\bnup\b", r"\buang tanda jadi\b",
+        # retail
+        r"\bpre.?order\b", r"\bpo\b", r"\bcod\b", r"\bmau order\b", r"\border sekarang\b",
+        # english
+        r"\breserve\b", r"\bbook now\b",
+    ],
+    "Visit/Showroom": [
+        # umum
+        r"\bketemu\b", r"\bketemuan\b", r"\bjanjian\b", r"\bjanji temu\b", r"\bdatang\b",
+        r"\bberkunjung\b", r"\balamat\b", r"\blokasi\b", r"\bmampir\b", r"\bkunjung\b",
+        r"\bmaps\b", r"\bshare.?loc\b", r"\bshare lokasi\b", r"\bjadwal ketemu\b",
+        # otomotif
+        r"\bshowroom\b", r"\bdealer\b",
+        # properti
+        r"\bsurvey\b", r"\bsurvei\b", r"\bsite visit\b", r"\bshow unit\b",
+        r"\brumah contoh\b", r"\bunit contoh\b", r"\bmarketing gallery\b",
+        r"\bkantor pemasaran\b", r"\bli(?:h?)at unit\b", r"\bli(?:h?)at rumah\b",
+        r"\bli(?:h?)at lokasi\b",
+        # english
+        r"\bvisit\b", r"\bcome by\b",
+    ],
+    "Stock/Availability": [
+        r"\bstok\b", r"\bstock\b", r"\bready\b", r"\btersedia\b", r"\bada unit\b",
+        r"\bunit ready\b", r"\bready stock\b", r"\bmasih ada\b", r"\bsisa unit\b",
+        r"\bsisa berapa\b", r"\bmasih kosong\b", r"\bavailable\b",
+    ],
+    "Specs/Variant": [
+        # umum
+        r"\bvarian\b", r"\bvariant\b", r"\btipe\b", r"\bspek\b", r"\bspesifikasi\b",
+        r"\bwarna\b", r"\bbrosur\b", r"\bkatalog\b", r"\be-?brosur\b", r"\be-?katalog\b",
+        # otomotif
+        r"\btransmisi\b", r"\bmatic\b", r"\bmanual\b", r"\bcvt\b",
+        # properti
+        r"\bdenah\b", r"\bsite.?plan\b", r"\bluas tanah\b", r"\bluas bangunan\b",
+        r"\bkamar tidur\b", r"\bcarport\b", r"\bfasilitas\b", r"\bspesifikasi bangunan\b",
+        # english
+        r"\bspecs\b", r"\bbrochure\b", r"\bfloor.?plan\b",
+    ],
+    "Trade-in": [
+        r"\btukar tambah\b", r"\btrade.?in\b", r"\bover kredit\b", r"\bover credit\b",
+    ],
+    "Documents/Process": [
+        # umum
+        r"\bktp\b", r"\bnpwp\b", r"\bslip gaji\b", r"\bsyarat\b", r"\bpersyaratan\b",
+        r"\bdokumen\b", r"\bberkas\b", r"\bbi checking\b", r"\bslik\b",
+        # otomotif
+        r"\bbpkb\b", r"\bstnk\b",
+        # properti
+        r"\bshm\b", r"\bhgb\b", r"\bajb\b", r"\bppjb\b", r"\bimb\b", r"\bpbg\b",
+        r"\bbphtb\b", r"\bsertifikat\b", r"\bbalik nama\b", r"\bnotaris\b",
+        r"\bproses kpr\b", r"\bakad\b",
+        # english
+        r"\brequirements\b",
+    ],
+    "Strong/Closing": [
+        # umum
+        r"\bdeal\b", r"\boke deal\b", r"\boke jadi\b", r"\bsiap order\b", r"\bsepakat\b",
+        r"\bjadi ambil\b", r"\bfix ambil\b", r"\bsaya ambil\b", r"\blanjut proses\b",
+        r"\bgaskeun\b", r"\bgaskan\b", r"\btransfer\b", r"\bbayar\b", r"\bkirim rekening\b",
+        r"\bno.?rek\b", r"\brekening berapa\b",
+        # otomotif
+        r"\bkapan bisa diambil\b", r"\bkapan ready\b",
+        # properti
+        r"\bkapan akad\b", r"\bkapan serah terima\b", r"\bkapan bisa ditempati\b",
+    ],
+    # Explicit product interest: generic interest verbs + per-segment product nouns.
+    # Mined from real SmartKonek + Simpulx prod chats (incl. CTWA ad templates).
+    "Model/Brand Interest": [
+        # umum
+        r"\btertarik\b", r"\bminat\b", r"\bnaksir\b", r"\bpengen\b", r"\bmau beli\b",
+        # english - Meta CTWA default greeting is "Hello! Can I get more info on this?"
+        r"\binterested\b", r"\bmore info\b",
+        # otomotif - mobil
+        r"\bbajaj\b", r"\bcreta\b", r"\bbrio\b", r"\bsuzuki\b", r"\btoyota\b",
+        r"\bhonda\b", r"\bhyundai\b", r"\bxpeng\b", r"\bdaihatsu\b", r"\bmitsubishi\b",
+        r"\bwuling\b", r"\bnissan\b", r"\bmazda\b", r"\bkia\b", r"\bavanza\b",
+        r"\bxenia\b", r"\bertiga\b", r"\brush\b", r"\bterios\b", r"\braize\b",
+        r"\bfortuner\b", r"\bpajero\b", r"\binnova\b", r"\bhrv\b", r"\bbrv\b",
+        r"\bmobilio\b", r"\bbr-v\b", r"\bhr-v\b", r"\bxforce\b", r"\bx-force\b",
+        r"\bxpander\b", r"\bveloz\b", r"\bstargazer\b", r"\bseltos\b", r"\bsonet\b",
+        r"\byaris\b", r"\bagya\b", r"\bcalya\b", r"\bsigra\b", r"\bayla\b", r"\brocky\b",
+        r"\bwr-v\b", r"\bjazz\b", r"\bcivic\b", r"\bcrv\b", r"\bcr-v\b", r"\balmaz\b",
+        r"\balvez\b", r"\bbyd\b", r"\bseal\b", r"\batto\b", r"\bdolphin\b", r"\bomoda\b",
+        r"\bchery\b", r"\btiggo\b", r"\bzenix\b", r"\balphard\b",
+        # otomotif - motor
+        r"\byamaha\b", r"\bvespa\b", r"\bkawasaki\b", r"\bnmax\b", r"\bpcx\b",
+        r"\baerox\b", r"\bbeat\b", r"\bvario\b", r"\bscoopy\b",
+        # properti
+        r"\brumah\b", r"\bruko\b", r"\bapartemen?t?\b", r"\bkavling\b", r"\bcluster\b",
+        r"\btownhouse\b", r"\bvilla\b", r"\bkost\b", r"\bgudang\b", r"\brumah subsidi\b",
+        r"\b[23]br\b", r"\bstudio\b", r"\bbeli tanah\b",
+    ],
 }
 
 STRONG_INTENT = {"Booking/Order", "Test Drive", "Visit/Showroom", "Strong/Closing", "Promo/Deal", "Price/Financing", "Specs/Variant", "Documents/Process"}
