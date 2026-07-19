@@ -349,9 +349,17 @@ export default function DetailsPanel({ active, onClose, copyText, notes, onAddNo
                 active.lead_fields?.[f.key] ? <DetailRow key={f.key} icon={Hash} label={t(f.label)} value={humanize(String(active.lead_fields[f.key]))} /> : null
               ))}
               {/* AI-written recap of the lead (lead_summary), shown last as free-text
-                  remarks so nuance that doesn't fit a qualifier field lives here. */}
+                  remarks so nuance that doesn't fit a qualifier field lives here.
+                  NOT a DetailRow: that truncates to one line, which cuts a 1-3 sentence
+                  summary mid-word. Free text wraps instead. */}
               {active.lead_summary && (
-                <DetailRow icon={StickyNote} label={t("contacts.aiNotes")} value={active.lead_summary} />
+                <div className="flex gap-3 py-2">
+                  <StickyNote className="w-4 h-4 text-muted-foreground/60 mt-0.5 shrink-0" />
+                  <div className="flex-1 min-w-0">
+                    <p className="text-[10px] font-bold uppercase tracking-wider text-muted-foreground mb-0.5">{t("contacts.aiNotes")}</p>
+                    <p className="text-xs text-foreground/90 leading-relaxed whitespace-pre-line break-words">{active.lead_summary}</p>
+                  </div>
+                </div>
               )}
             </div>
           </div>
