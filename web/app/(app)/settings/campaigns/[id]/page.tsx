@@ -368,11 +368,14 @@ function AIStyleSection({ campaignId, initial, onSaved, onError }: {
       </div>
 
       <div><FieldLabel hint="Siapa si AI di campaign ini">Persona</FieldLabel>
-        <textarea value={persona} onChange={(e) => setPersona(e.target.value)} rows={2} placeholder="mis. Sales consultant Mitsubishi yang paham produk & simulasi kredit" className={cn(INPUT_CLASS, "resize-y")} /></div>
+        <textarea value={persona} onChange={(e) => setPersona(e.target.value)} rows={2} placeholder="mis. Sales consultant Mitsubishi yang paham produk & simulasi kredit" className={cn(INPUT_CLASS, "h-auto py-2 leading-snug resize-y")} /></div>
       <div><FieldLabel hint="Tujuan utama percakapan">Goal</FieldLabel>
-        <input value={goal} onChange={(e) => setGoal(e.target.value)} placeholder="mis. Ajak lead simulasi kredit lalu jadwalkan test drive" className={INPUT_CLASS} /></div>
+        {/* Textarea, not an input: a goal is often two clauses ("ajak simulasi
+            kredit LALU jadwalkan test drive") and was being typed into a box that
+            hid half of it. Resizable like Persona / Aturan khusus. */}
+        <textarea value={goal} onChange={(e) => setGoal(e.target.value)} rows={2} placeholder="mis. Ajak lead simulasi kredit lalu jadwalkan test drive" className={cn(INPUT_CLASS, "h-auto py-2 leading-snug resize-y")} /></div>
       <div><FieldLabel hint="Do & don't khusus campaign ini">Aturan khusus</FieldLabel>
-        <textarea value={rules} onChange={(e) => setRules(e.target.value)} rows={3} placeholder="mis. Selalu tawarkan simulasi cicilan. Jangan sebut brand kompetitor. Selalu tanya domisili." className={cn(INPUT_CLASS, "resize-y")} /></div>
+        <textarea value={rules} onChange={(e) => setRules(e.target.value)} rows={3} placeholder="mis. Selalu tawarkan simulasi cicilan. Jangan sebut brand kompetitor. Selalu tanya domisili." className={cn(INPUT_CLASS, "h-auto py-2 leading-snug resize-y")} /></div>
 
       </div>
 
