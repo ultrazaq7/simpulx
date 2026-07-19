@@ -2,7 +2,7 @@
 import { useEffect, useRef, useState } from "react";
 import { useRouter } from "next/navigation";
 import Image from "next/image";
-import { Loader2, Plus, Pencil, Home, Trash2, Star, X, Upload, MapPin } from "lucide-react";
+import { Loader2, Plus, Pencil, Home, Trash2, Star, X, Upload, MapPin, Link as LinkIcon, ExternalLink } from "lucide-react";
 import { api, getUser } from "@/lib/api";
 import { cn } from "@/lib/utils";
 import type { Listing, ListingPhoto, Campaign, OrgSettings } from "@/lib/types";
@@ -35,6 +35,7 @@ export default function ListingsPage() {
   const { confirm, ConfirmHost } = useConfirm();
   const [rows, setRows] = useState<Listing[] | null>(null);
   const [campaigns, setCampaigns] = useState<Campaign[]>([]);
+  const [orgSlug, setOrgSlug] = useState("");
   const [panel, setPanel] = useState<{ listing?: Listing } | null>(null);
 
   function load() {
@@ -42,9 +43,14 @@ export default function ListingsPage() {
   }
   useEffect(() => {
     // Backstop for a hand-typed URL: the nav already hides this for non-property orgs.
-    api.me().then((u) => { if (!u.is_property) router.replace("/settings"); else load(); }).catch(() => router.replace("/settings"));
+    api.me().then((u) => { if (!u.is_property) { router.replace("/settings"); return; } setOrgSlug(u.org_slug ?? ""); load(); }).catch(() => router.replace("/settings"));
     api.listCampaigns().then(setCampaigns).catch(() => {});
   }, [router]);
+
+  // Public URL of one unit (empty until it is published + we know the org slug).
+  const publicUrl = (l: Listing) =>
+    orgSlug && l.status === "published" && typeof window !== "undefined"
+      ? `${window.location.origin}/listing/${orgSlug}/${l.slug}` : "";
 
   const all = rows ?? [];
 
@@ -112,7 +118,16 @@ export default function ListingsPage() {
                         {STATUS_KEY[l.status] ? t(STATUS_KEY[l.status]) : l.status}
                       </span>
                     </td>
-                    <td className="px-4 py-2.5 text-right">
+                    <td className="px-4 py-2.5 text-right whitespace-nowrap">
+                      {publicUrl(l) && (
+                        <>
+                          <button title={t("settings.listingCopyLink")}
+                            onClick={() => { navigator.clipboard?.writeText(publicUrl(l)); notify(t("settings.listingLinkCopied")); }}
+                            className="p-1.5 rounded-md hover:bg-muted outline-none transition-colors text-muted-foreground hover:text-foreground"><LinkIcon className="w-[16px] h-[16px]" /></button>
+                          <a href={publicUrl(l)} target="_blank" rel="noopener noreferrer" title={t("settings.listingOpen")}
+                            className="inline-grid place-items-center p-1.5 rounded-md hover:bg-muted transition-colors text-muted-foreground hover:text-foreground"><ExternalLink className="w-[16px] h-[16px]" /></a>
+                        </>
+                      )}
                       <button onClick={() => setPanel({ listing: l })} className="p-1.5 rounded-md hover:bg-muted outline-none transition-colors text-muted-foreground hover:text-foreground"><Pencil className="w-[17px] h-[17px]" /></button>
                     </td>
                   </tr>
@@ -124,7 +139,7 @@ export default function ListingsPage() {
       </div>
 
       {panel && (
-        <ListingPanel listing={panel.listing} campaigns={campaigns}
+        <ListingPanel listing={panel.listing} campaigns={campaigns} publicUrl={panel.listing ? publicUrl(panel.listing) : ""} notify={notify}
           onClose={() => setPanel(null)}
           onDone={(msg) => { setPanel(null); notify(msg); load(); }}
           onError={(e) => notify(e, "error")}
@@ -305,8 +320,8 @@ function MapLocation({ lat, lng, setLat, setLng, onError }: {
   );
 }
 
-function ListingPanel({ listing, campaigns, onClose, onDone, onError, confirm }: {
-  listing?: Listing; campaigns: Campaign[];
+function ListingPanel({ listing, campaigns, publicUrl, notify, onClose, onDone, onError, confirm }: {
+  listing?: Listing; campaigns: Campaign[]; publicUrl: string; notify: (m: string) => void;
   onClose: () => void; onDone: (msg: string) => void; onError: (e: string) => void;
   confirm: (o: { title: string; message: string; danger?: boolean; confirmLabel?: string }) => Promise<boolean>;
 }) {
@@ -380,6 +395,21 @@ function ListingPanel({ listing, campaigns, onClose, onDone, onError, confirm }:
       <div className="space-y-4">
         <div><FieldLabel>{t("settings.listingUnitName")}</FieldLabel>
           <input value={title} onChange={(e) => setTitle(e.target.value)} placeholder={t("settings.listingUnitNamePh")} className={INPUT_CLASS} /></div>
+
+        {/* Public URL of this unit -- shown once it is published, so the admin can
+            grab the direct link to share or paste into an ad. */}
+        {publicUrl && (
+          <div>
+            <FieldLabel hint={t("settings.listingUnitUrlHint")}>{t("settings.listingUnitUrl")}</FieldLabel>
+            <div className="flex items-center gap-2">
+              <input readOnly value={publicUrl} className={cn(INPUT_CLASS, "bg-muted/50 text-muted-foreground")} />
+              <button type="button" onClick={() => { navigator.clipboard?.writeText(publicUrl); notify(t("settings.listingLinkCopied")); }}
+                className="h-9 px-3 rounded-md border border-input text-[13px] font-semibold hover:bg-muted transition-colors outline-none shrink-0">{t("settings.listingCopy")}</button>
+              <a href={publicUrl} target="_blank" rel="noopener noreferrer"
+                className="h-9 px-3 rounded-md border border-input text-[13px] font-semibold hover:bg-muted transition-colors outline-none shrink-0 inline-flex items-center">{t("settings.listingOpen")}</a>
+            </div>
+          </div>
+        )}
 
         <div className="grid grid-cols-2 gap-4">
           <div><FieldLabel>{t("settings.listingPropertyType")}</FieldLabel>

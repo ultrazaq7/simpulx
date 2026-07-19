@@ -930,7 +930,10 @@
     "listingMapManual": "Enter coordinates manually",
     "listingMapHideManual": "Hide manual coordinates",
     "listingMapResolveFailed": "Could not read that Maps link. Try opening it and copying the full URL.",
-    "listingMapInvalid": "That doesn't look like a Google Maps link."
+    "listingMapInvalid": "That doesn't look like a Google Maps link.",
+    "listingCopyLink": "Copy public link",
+    "listingUnitUrl": "Public link for this unit",
+    "listingUnitUrlHint": "Direct link to this unit's page. Share it or paste it into an ad."
   },
   "common": {
     "save": "Save",

@@ -23,11 +23,14 @@ ARG NEXT_PUBLIC_META_CONFIG_ID
 # Display-only: shown in the Direct Cloud API path so users can configure Meta's
 # webhook. Must equal META_VERIFY_TOKEN on the gateway.
 ARG NEXT_PUBLIC_META_VERIFY_TOKEN
+# Google Maps Embed API key (browser key, referrer-restricted to our domains).
+ARG NEXT_PUBLIC_MAPS_KEY
 ENV NEXT_PUBLIC_API_URL=$NEXT_PUBLIC_API_URL \
     NEXT_PUBLIC_WS_URL=$NEXT_PUBLIC_WS_URL \
     NEXT_PUBLIC_META_APP_ID=$NEXT_PUBLIC_META_APP_ID \
     NEXT_PUBLIC_META_CONFIG_ID=$NEXT_PUBLIC_META_CONFIG_ID \
     NEXT_PUBLIC_META_VERIFY_TOKEN=$NEXT_PUBLIC_META_VERIFY_TOKEN \
+    NEXT_PUBLIC_MAPS_KEY=$NEXT_PUBLIC_MAPS_KEY \
     NEXT_TELEMETRY_DISABLED=1
 RUN --mount=type=cache,target=/app/.next/cache npm run build
 

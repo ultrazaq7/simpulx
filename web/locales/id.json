@@ -930,7 +930,10 @@
     "listingMapManual": "Isi koordinat manual",
     "listingMapHideManual": "Sembunyikan koordinat manual",
     "listingMapResolveFailed": "Gagal membaca link Maps itu. Coba buka linknya lalu salin URL lengkapnya.",
-    "listingMapInvalid": "Itu sepertinya bukan link Google Maps."
+    "listingMapInvalid": "Itu sepertinya bukan link Google Maps.",
+    "listingCopyLink": "Salin link publik",
+    "listingUnitUrl": "Link publik unit ini",
+    "listingUnitUrlHint": "Link langsung ke halaman unit ini. Bagikan atau tempel ke iklan."
   },
   "common": {
     "save": "Simpan",
