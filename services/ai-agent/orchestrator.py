@@ -476,6 +476,8 @@ async def _nurture_now(broker, pool, org_id: str, conv_id: str, message_id, body
         # when the customer messages again, the lead isn't locked (spam), and no
         # human reply exists - so a genuine, still-waiting lead is never left dead.
         if row["classification_locked"]:
+            log.info("nurture blocked: classification locked (human override)",
+                     extra={"conv": conv_id})
             return  # terminal/spam lead - stay down
         async with pool.acquire() as conn:
             if await _human_took_over(conn, conv_id):
@@ -684,6 +686,24 @@ async def _generate_and_send_reply(broker, pool, conn, org_id: str, conv_id: str
             "untuk kepastian promo & syaratnya kamu akan konfirmasi langsung ke tim. JANGAN memakai angka "
             "cicilan/DP standar dari katalog seolah-olah itu promo." + ad_text + "\n")
 
+    # Same principle as the out-of-area note above: when this reply is the LAST one
+    # before a deterministic handoff (all required qualifiers already collected),
+    # the reply itself must own the transition. Without this the bot ended its final
+    # turn with an engagement question ("ada waktu luang minggu ini?"), handed off
+    # silently, and the customer's answer landed in a void until a human showed up
+    # (verified in prod on a live property lead).
+    req = segments.required_keys(row["segment"])
+    lf = _lead_fields(row["metadata"])
+    fields_done = bool(req) and all(lf.get(k) for k in req)
+    if fields_done and not ooa_city:
+        finance_ctx += (
+            "\n\nCATATAN HANDOFF: semua data penting customer sudah lengkap dan SETELAH balasan ini "
+            "percakapan dialihkan ke tim sales (manusia). Ini balasan TERAKHIR kamu: jawab dulu "
+            "pertanyaan customer bila ada, rangkum singkat kebutuhannya, lalu sampaikan bahwa tim "
+            "kami yang akan menghubungi dia untuk langkah berikutnya (jadwal, detail, dst). "
+            "JANGAN mengajukan pertanyaan baru dan JANGAN membuat janji yang mengharuskan kamu "
+            "membalas lagi.\n")
+
     system_prompt = (row["system_prompt"] or "You are a helpful sales assistant.") + llm.build_style_addendum(_ai_style(row["ai_style"])) + ctx + "\n\n" + lang_rule + finance_ctx
     history = await _load_history(pool, conv_id, message_id, conn=conn)
     await _publish_activity(broker, org_id, conv_id, "thinking", log)
@@ -732,10 +752,8 @@ async def _generate_and_send_reply(broker, pool, conn, org_id: str, conv_id: str
 
     # Hand off once info is complete OR the model flagged readiness. "Complete" is
     # segment-agnostic now: every segment (automotive included) checks its required
-    # qualifier keys in metadata.lead_fields.
-    req = segments.required_keys(row["segment"])
-    lf = _lead_fields(row["metadata"])
-    fields_done = bool(req) and all(lf.get(k) for k in req)
+    # qualifier keys in metadata.lead_fields. (req/lf/fields_done were computed
+    # above, before the prompt, so the final reply could own the transition.)
     # An out-of-area lead hands off the MOMENT its city is known to sit outside the
     # service area -- it does NOT wait for the full qualifier set the way an in-area
     # lead does. The bot cannot decide serviceability (only a human can, e.g. an

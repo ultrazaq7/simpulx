@@ -792,6 +792,13 @@ func (s *server) handlePatchConversation(w http.ResponseWriter, r *http.Request)
 	if !s.guardConversation(w, r, convID) {
 		return
 	}
+	// Lock the AI classification ONLY when a human actually overrides a
+	// classification field. The inbox also PATCHes {unread_count: 0} on every
+	// chat open (mark-as-read) - locking on that froze every opened conversation:
+	// the classifier couldn't move stages and the post-handoff re-engage went
+	// silent, leaving customers unanswered (verified in prod on a live lead).
+	humanOverride := b.StageID != nil || b.DispositionID != nil ||
+		b.InterestLevel != nil || b.Status != nil || b.LostReason != nil
 	_, err := s.pool.Exec(r.Context(),
 		`UPDATE conversations SET
 		   stage_id = COALESCE(NULLIF($3,'')::uuid, stage_id),
@@ -800,10 +807,10 @@ func (s *server) handlePatchConversation(w http.ResponseWriter, r *http.Request)
 		   status = COALESCE(NULLIF($6,''), status),
 		   lost_reason = COALESCE(NULLIF($7,''), lost_reason),
 		   unread_count = COALESCE($8, unread_count),
-		   classification_locked = true,
+		   classification_locked = classification_locked OR $9,
 		   updated_at = now()
 		 WHERE id=$1 AND organization_id=$2`,
-		convID, a.OrgID, derefStr(b.StageID), derefStr(b.DispositionID), derefStr(b.InterestLevel), derefStr(b.Status), derefStr(b.LostReason), b.UnreadCount)
+		convID, a.OrgID, derefStr(b.StageID), derefStr(b.DispositionID), derefStr(b.InterestLevel), derefStr(b.Status), derefStr(b.LostReason), b.UnreadCount, humanOverride)
 	if err != nil {
 		http.Error(w, err.Error(), http.StatusInternalServerError)
 		return
