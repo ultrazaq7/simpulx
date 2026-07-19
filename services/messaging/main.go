@@ -243,8 +243,10 @@ func (a *app) onReceived(env events.Envelope) error {
 		// here rather than through the AI: the customer asked for one specific,
 		// already-known unit, so a deterministic card is instant, always correct,
 		// and costs the tenant no AI credit.
-		if slug, ok := strings.CutPrefix(e.Message.ButtonPayload, "unit:"); ok && slug != "" {
-			a.sendListingCard(ctx, env.OrgID, conv.ID, slug)
+		if slug, ok := strings.CutPrefix(e.Message.ButtonPayload, "unit:"); ok {
+			if slug = strings.TrimSpace(slug); slug != "" {
+				a.sendListingCard(ctx, env.OrgID, conv.ID, slug)
+			}
 		}
 	}
 
