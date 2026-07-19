@@ -41,7 +41,7 @@ export default async function OrgListingPage({ params }: Props) {
   return (
     <main className="min-h-screen bg-[#FAFAF8] text-[#12211F]">
       <header className="border-b border-black/[0.06] bg-white/80 backdrop-blur sticky top-0 z-20">
-        <div className="mx-auto max-w-6xl px-5 py-4 flex items-center justify-between gap-4">
+        <div className="mx-auto max-w-[1440px] px-5 py-4 flex items-center justify-between gap-4">
           <div className="min-w-0 flex items-center gap-3">
             {data.org.logo && (
               // eslint-disable-next-line @next/next/no-img-element
@@ -63,7 +63,7 @@ export default async function OrgListingPage({ params }: Props) {
         </div>
       </header>
 
-      <section className="mx-auto max-w-6xl px-5 pt-10 pb-6">
+      <section className="mx-auto max-w-[1440px] px-5 pt-10 pb-6">
         <h1 className="text-[28px] sm:text-[36px] font-bold tracking-tight leading-[1.15] max-w-2xl">
           Temukan properti yang pas untuk Anda
         </h1>
@@ -76,7 +76,7 @@ export default async function OrgListingPage({ params }: Props) {
       <ListingBrowser data={data} />
 
       <footer className="mt-16 border-t border-black/[0.06] py-8">
-        <div className="mx-auto max-w-6xl px-5 text-[12px] text-black/40">
+        <div className="mx-auto max-w-[1440px] px-5 text-[12px] text-black/40">
           &copy; {new Date().getFullYear()} {data.org.name}
         </div>
       </footer>

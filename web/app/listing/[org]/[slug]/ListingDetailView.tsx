@@ -34,11 +34,11 @@ export default function ListingDetailView({ data, orgSlug }: { data: ListingDeta
 
   return (
     <>
-      <section className="mx-auto max-w-5xl px-5 pt-6">
+      <section className="mx-auto max-w-[1200px] px-5 pt-6">
         {/* Gallery: one big cover + thumbnails, tap to open full screen. */}
         <div className="rounded-2xl overflow-hidden bg-black/[0.04] relative aspect-[16/10]">
           {photos[active]?.url ? (
-            <Image src={photos[active].url} alt={l.title} fill sizes="(max-width:1024px) 100vw, 960px"
+            <Image src={photos[active].url} alt={l.title} fill sizes="(max-width:1024px) 100vw, 840px"
               className="object-cover" priority unoptimized />
           ) : (
             <div className="absolute inset-0 grid place-items-center text-black/25">Tanpa foto</div>
@@ -62,7 +62,7 @@ export default function ListingDetailView({ data, orgSlug }: { data: ListingDeta
         )}
       </section>
 
-      <section className="mx-auto max-w-5xl px-5 pt-8 grid grid-cols-1 lg:grid-cols-[1fr_320px] gap-8 items-start">
+      <section className="mx-auto max-w-[1200px] px-5 pt-8 grid grid-cols-1 lg:grid-cols-[1fr_320px] gap-8 items-start">
         <div>
           <div className="flex items-start justify-between gap-4">
             <div className="min-w-0">

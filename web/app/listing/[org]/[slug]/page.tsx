@@ -63,7 +63,7 @@ export default async function ListingDetailPage({ params }: Props) {
     <main className="min-h-screen bg-[#FAFAF8] text-[#12211F]">
       <script type="application/ld+json" dangerouslySetInnerHTML={{ __html: JSON.stringify(jsonLd) }} />
       <header className="border-b border-black/[0.06] bg-white/80 backdrop-blur sticky top-0 z-20">
-        <div className="mx-auto max-w-5xl px-5 py-4 flex items-center justify-between gap-4">
+        <div className="mx-auto max-w-[1200px] px-5 py-4 flex items-center justify-between gap-4">
           <Link href={`/listing/${org}`} className="text-[13px] font-semibold text-black/60 hover:text-black transition-colors">
             &larr; Semua unit
           </Link>
@@ -74,7 +74,7 @@ export default async function ListingDetailPage({ params }: Props) {
       <ListingDetailView data={data} orgSlug={org} />
 
       {data.related.length > 0 && (
-        <section className="mx-auto max-w-5xl px-5 pb-16">
+        <section className="mx-auto max-w-[1200px] px-5 pb-16">
           <h2 className="text-[18px] font-bold mb-4">Unit lain yang mungkin cocok</h2>
           <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
             {data.related.map((r) => (

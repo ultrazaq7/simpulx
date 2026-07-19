@@ -18,5 +18,7 @@ export const metadata: Metadata = {
 };
 
 export default function ListingLayout({ children }: { children: React.ReactNode }) {
-  return <div className="font-sans antialiased">{children}</div>;
+  // data-public-site re-enables document scrolling (globals.css pins the app
+  // shell's body to overflow:hidden, which would otherwise freeze these pages).
+  return <div data-public-site className="font-sans antialiased">{children}</div>;
 }

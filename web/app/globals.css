@@ -120,6 +120,14 @@
     line-height: 1.45;
     overflow: hidden;
   }
+  /* The CRM shell is a fixed-height app whose panes scroll internally, hence the
+     `overflow: hidden` on body above. The public listing microsites are ordinary
+     documents that live OUTSIDE that shell, so they must scroll normally --
+     without this they render fully but the page is frozen. Scoped by the marker
+     attribute the microsite layout sets, so the app shell is untouched. */
+  body:has([data-public-site]) {
+    overflow: auto;
+  }
   ::selection {
     background-color: hsl(var(--primary) / 0.18);
     color: hsl(var(--primary-dark));

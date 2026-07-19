@@ -48,7 +48,7 @@ export default function ListingBrowser({ data }: { data: ListingIndex }) {
   const reset = () => { setQ(""); setType(""); setCity(""); setBeds(0); setPriceIdx(0); setOnlyFav(false); };
 
   return (
-    <section className="mx-auto max-w-6xl px-5">
+    <section className="mx-auto max-w-[1440px] px-5">
       {/* Search + filter bar */}
       <div className="sticky top-[65px] z-10 -mx-5 px-5 py-3 bg-[#FAFAF8]/95 backdrop-blur border-b border-black/[0.06]">
         <div className="flex items-center gap-2">
@@ -106,7 +106,7 @@ export default function ListingBrowser({ data }: { data: ListingIndex }) {
           <p className="text-[13px] text-black/50 mt-1">Coba longgarkan filter atau hubungi kami untuk pilihan lain.</p>
         </div>
       ) : (
-        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-5 pb-4">
+        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-5 pb-4">
           {filtered.map((l) => (
             <Card key={l.id} org={data.org.slug} l={l} fav={isFav(l.slug)} onFav={() => toggle(l.slug)} />
           ))}
@@ -124,7 +124,7 @@ function Card({ org, l, fav, onFav }: { org: string; l: PublicListing; fav: bool
     <article className="group relative rounded-2xl bg-white border border-black/[0.06] overflow-hidden hover:shadow-[0_8px_30px_rgba(0,0,0,0.08)] transition-shadow">
       <Link href={`/listing/${org}/${l.slug}`} className="block relative aspect-[4/3] bg-black/[0.04]">
         {cover ? (
-          <Image src={cover} alt={l.title} fill sizes="(max-width:640px) 100vw, (max-width:1024px) 50vw, 33vw"
+          <Image src={cover} alt={l.title} fill sizes="(max-width:640px) 100vw, (max-width:1024px) 50vw, (max-width:1280px) 33vw, 25vw"
             className="object-cover group-hover:scale-[1.02] transition-transform duration-300" unoptimized />
         ) : (
           <div className="absolute inset-0 grid place-items-center text-black/20 text-[13px]">Tanpa foto</div>
