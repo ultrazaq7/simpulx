@@ -89,6 +89,18 @@ def _app_base_url() -> str:
     return os.getenv("APP_BASE_URL", "http://localhost:3000").rstrip("/")
 
 
+# Follow-up phrases a property buyer uses to ask for more units/photos without
+# repeating a catalog keyword, e.g. "fotonya?", "opsi lain", "list dong".
+_WANTS_LISTINGS_RE = re.compile(
+    r"\b(foto|gambar|unit|list|daftar|pilihan|opsi|brosur|katalog|lihat|"
+    r"semua|contoh)(nya|in|kan|nya\w*)?\b|"
+    r"\b(yang lain|lainnya|ada lagi|lagi dong)\b", re.I)
+
+
+def _wants_listings(text: str) -> bool:
+    return bool(_WANTS_LISTINGS_RE.search(text or ""))
+
+
 def _wa_safe_image(url):
     """Return `url` if WhatsApp can actually render it as an image, else None.
 
@@ -730,8 +742,18 @@ async def _generate_and_send_reply(broker, pool, conn, org_id: str, conv_id: str
     recent_text = ""  # recent inbound text; also drives the cross-turn promo/price gate
     listing_units: list[dict] = []  # units the model may turn into photo cards
     is_property = segments.is_property(row["segment"])
-    if lead_words:
-        _lf = _lead_fields(row["metadata"])
+    _lf = _lead_fields(row["metadata"])
+
+    # Property keeps surfacing units across follow-up turns, not only when the
+    # message itself carries a catalog keyword. A buyer who already told us their
+    # budget/area, or who now asks "fotonya?", "opsi lain", "list dong", "yang
+    # lain", owes cards on THIS turn -- the old lead_words-only gate left those
+    # replies ungrounded, so the bot improvised and claimed it couldn't send photos.
+    property_trigger = is_property and (
+        bool(lead_words) or _wants_listings(body)
+        or any(_lf.get(k) for k in ("budget", "location", "property_type"))
+    )
+    if lead_words or property_trigger:
         # A price question doesn't repeat on every turn: a lead asks "berapa termurah",
         # then answers the bot's follow-ups ("Xpander Ultimate", "CVT") with no price
         # word -- but they're still owed the number. The gate opens on price intent in
@@ -747,12 +769,13 @@ async def _generate_and_send_reply(broker, pool, conn, org_id: str, conv_id: str
             # pricelist -- and it is ORG-scoped on purpose: a buyer asking about
             # Depok should hear about every Depok unit the org sells, not only the
             # ones tagged to the ad they happened to click (that campaign's stock
-            # is merely ranked first).
+            # is merely ranked first). query falls back to the raw message so a
+            # keyword-less follow-up ("opsi lain") still ranks against lead_fields.
             lc, listing_units = await listings_rag.get_listing_context(
-                pool, org_id, row["campaign_id"], _lf, query=lead_words, conn=conn)
+                pool, org_id, row["campaign_id"], _lf, query=(lead_words or body), conn=conn)
             if lc:
                 finance_ctx = lc
-        elif row["campaign_id"]:
+        elif lead_words and row["campaign_id"]:
             # Campaign-scoped catalog first (falls back to global finance_packages).
             fc = await finance_rag.get_catalog_context(
                 pool, row["campaign_id"], (_lf.get("brand") or row["brand"]), _lf.get("model"),
