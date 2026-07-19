@@ -42,14 +42,17 @@ export default async function OrgListingPage({ params }: Props) {
     <main className="min-h-screen bg-[#FAFAF8] text-[#12211F]">
       <header className="border-b border-black/[0.06] bg-white/80 backdrop-blur sticky top-0 z-20">
         <div className="mx-auto max-w-[1440px] px-5 py-4 flex items-center justify-between gap-4">
-          <div className="min-w-0 flex items-center gap-3">
+          {/* The client's logo is the site's identity, so it is sized to lead the
+              header rather than sit as a favicon next to the name. */}
+          <div className="min-w-0 flex items-center gap-3.5">
             {data.org.logo && (
               // eslint-disable-next-line @next/next/no-img-element
-              <img src={data.org.logo} alt={data.org.name} className="h-9 w-auto max-w-[140px] object-contain" />
+              <img src={data.org.logo} alt={data.org.name}
+                className="h-11 sm:h-14 w-auto max-w-[200px] object-contain shrink-0" />
             )}
             <div className="min-w-0">
-              <p className="text-[15px] font-bold tracking-tight truncate">{data.org.name}</p>
-              <p className="text-[12px] text-black/50 truncate">{data.org.tagline || "Katalog properti"}</p>
+              <p className="text-[16px] sm:text-[18px] font-bold tracking-tight truncate">{data.org.name}</p>
+              <p className="text-[12px] sm:text-[13px] text-black/50 truncate">{data.org.tagline || "Katalog properti"}</p>
             </div>
           </div>
           {data.org.whatsapp && (

@@ -64,10 +64,18 @@ export default async function ListingDetailPage({ params }: Props) {
       <script type="application/ld+json" dangerouslySetInnerHTML={{ __html: JSON.stringify(jsonLd) }} />
       <header className="border-b border-black/[0.06] bg-white/80 backdrop-blur sticky top-0 z-20">
         <div className="mx-auto max-w-[1200px] px-5 py-4 flex items-center justify-between gap-4">
-          <Link href={`/listing/${org}`} className="text-[13px] font-semibold text-black/60 hover:text-black transition-colors">
+          <Link href={`/listing/${org}`} className="text-[13px] font-semibold text-black/60 hover:text-black transition-colors shrink-0">
             &larr; Semua unit
           </Link>
-          <p className="text-[14px] font-bold truncate">{data.org.name}</p>
+          {/* Same identity as the index header, so the client's branding follows
+              the visitor through to the unit page. */}
+          <Link href={`/listing/${org}`} className="min-w-0 flex items-center gap-2.5">
+            {data.org.logo && (
+              // eslint-disable-next-line @next/next/no-img-element
+              <img src={data.org.logo} alt={data.org.name} className="h-9 sm:h-11 w-auto max-w-[160px] object-contain shrink-0" />
+            )}
+            <p className="text-[15px] font-bold truncate">{data.org.name}</p>
+          </Link>
         </div>
       </header>
 
