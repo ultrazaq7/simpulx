@@ -89,6 +89,28 @@ def _app_base_url() -> str:
     return os.getenv("APP_BASE_URL", "http://localhost:3000").rstrip("/")
 
 
+def _wa_safe_image(url):
+    """Return `url` if WhatsApp can actually render it as an image, else None.
+
+    WhatsApp accepts ONLY JPEG and PNG for image messages -- WebP is stickers-only
+    and Meta fails the send outright. This bit us live: a CDN that content-negotiates
+    (`auto=format`) served Meta a WebP even though a browser got a JPEG, so the card
+    was accepted (a wamid came back) and then silently failed, and the customer asked
+    "gaada gambarnya?". Pin the format where the CDN supports it, and drop the image
+    (falling back to a text card, which still carries the price and the link) rather
+    than emit a send we know Meta will reject.
+    """
+    if not url:
+        return None
+    u = str(url)
+    if "auto=format" in u:                      # let the CDN pick -> it may pick WebP
+        u = u.replace("auto=format", "fm=jpg")
+    low = u.split("?", 1)[0].lower()
+    if low.endswith((".webp", ".gif", ".svg", ".avif", ".heic", ".heif")):
+        return None
+    return u
+
+
 async def _send_listing_card(broker, pool, org_id: str, conv_id: str, unit: dict, conn=None) -> None:
     """Send ONE property unit as a photo card: cover image + a caption carrying the
     facts and the public listing link.
@@ -136,6 +158,7 @@ async def _send_listing_card(broker, pool, org_id: str, conv_id: str, unit: dict
     if org_slug and slug:
         caption += f"\n\nDetail & foto lengkap:\n{_app_base_url()}/listing/{org_slug}/{slug}"
 
+    cover = _wa_safe_image(cover)
     payload = {"conversation_id": conv_id, "sender_type": "bot", "body": caption}
     payload.update({"type": "image", "media_url": cover} if cover else {"type": "text"})
     await broker.publish(SUBJECT_OUTBOUND, org_id, payload)

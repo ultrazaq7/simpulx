@@ -231,6 +231,11 @@ async def get_listing_context(pool, org_id: str, campaign_id, lead_fields: dict,
           "sebelum nama unit; penanda itu otomatis diganti sistem menjadi kartu foto unit, jadi "
           "jangan menjelaskan penanda itu ke customer. Cukup tawarkan maksimal 2 unit paling "
           "cocok dalam satu balasan supaya tidak membanjiri customer.\n"
+        "FOTO: setiap unit yang kamu tandai OTOMATIS dikirim sistem sebagai kartu foto "
+        "(gambar + harga + link) tepat setelah balasanmu. Jadi kamu MEMANG bisa mengirim "
+        "foto: cukup pakai penandanya. DILARANG mengatakan kamu tidak bisa mengirim gambar, "
+        "atau menyuruh customer membuka link hanya untuk melihat foto. Kalau customer minta "
+        "foto unit tertentu, jawab singkat lalu tandai unit itu supaya kartunya terkirim.\n"
     )
     return block, ranked
 

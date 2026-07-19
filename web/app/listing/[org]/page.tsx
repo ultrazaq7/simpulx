@@ -71,7 +71,7 @@ export default async function OrgListingPage({ params }: Props) {
           Temukan properti yang pas untuk Anda
         </h1>
         <p className="mt-3 text-[15px] text-black/60 max-w-xl">
-          {data.listings.length} unit tersedia. Saring sesuai kebutuhan, lalu hubungi kami
+          {data.listings.length} unit tersedia. Pilih sesuai kebutuhan, lalu hubungi kami
           langsung lewat WhatsApp untuk info lengkap dan jadwal survei.
         </p>
       </section>
