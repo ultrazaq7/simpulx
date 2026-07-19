@@ -164,6 +164,52 @@ async def _send_listing_card(broker, pool, org_id: str, conv_id: str, unit: dict
     await broker.publish(SUBJECT_OUTBOUND, org_id, payload)
 
 
+async def _send_listing_list(broker, org_id: str, conv_id: str, units: list[dict]) -> None:
+    """Offer more matching units as a tappable WhatsApp list.
+
+    This is as close to a carousel as WhatsApp allows inside the 24h window: a real
+    image carousel exists only as a pre-approved marketing TEMPLATE (paid, and not
+    sendable in-session). A list message is free, interactive, and the tap comes back
+    as a callback id we resolve to that unit's photo card -- so the customer browses
+    the catalogue without leaving the chat.
+
+    Meta's limits are hard: <=10 rows, row title <=24 chars, description <=72,
+    button label <=20. Exceeding any of them makes the whole send fail, so every
+    field is truncated here rather than trusted.
+    """
+    import listings_rag
+    rows = []
+    for u in units[:10]:
+        slug = str(u.get("slug") or "")
+        if not slug:
+            continue
+        bits = [listings_rag._rupiah(u.get("price"))]
+        loc = u.get("location_area") or u.get("city")
+        if loc:
+            bits.append(str(loc))
+        beds = listings_rag._num(u.get("bedrooms"))
+        if beds:
+            bits.append(f"{int(beds)} KT")
+        rows.append({
+            "id": f"unit:{slug}"[:200],
+            "title": str(u.get("title") or "Unit")[:24],
+            "description": " · ".join(bits)[:72],
+        })
+    if not rows:
+        return
+    await broker.publish(SUBJECT_OUTBOUND, org_id, {
+        "conversation_id": conv_id, "sender_type": "bot", "type": "interactive",
+        "body": "Pilihan lain yang cocok dengan kebutuhan Anda:",
+        "interactive": {
+            "type": "list",
+            "body": "Pilihan lain yang cocok dengan kebutuhan Anda:",
+            "footer": "Ketuk unit untuk melihat foto & detail",
+            "button_text": "Lihat unit",
+            "sections": [{"title": "Unit tersedia", "rows": rows}],
+        },
+    })
+
+
 async def _publish_activity(broker, org_id: str, conv_id: str, phase: str, log) -> None:
     """Emit a live Simpuler phase (thinking|replied|handoff) for the inbox. Best
     effort: a transient indicator must never break the reply flow."""
@@ -834,11 +880,21 @@ async def _generate_and_send_reply(broker, pool, conn, org_id: str, conv_id: str
     # Then the unit cards: cover photo + a caption carrying the facts (price, size,
     # location) and the public listing link. Capped at 2 so a reply never spams the
     # chat. Best-effort: a card failing must not fail the reply that already landed.
+    sent_slugs = set()
     for unit in cards[:2]:
         try:
             await _send_listing_card(broker, pool, org_id, conv_id, unit, conn=conn)
+            sent_slugs.add(str(unit.get("slug")))
         except Exception:  # noqa: BLE001
             log.exception("listing card failed", extra={"conv": conv_id})
+    # Anything else that matched becomes a tappable list, so the customer can browse
+    # the rest without the bot dumping four more photos into the chat.
+    rest = [u for u in listing_units if str(u.get("slug")) not in sent_slugs]
+    if sent_slugs and rest:
+        try:
+            await _send_listing_list(broker, org_id, conv_id, rest)
+        except Exception:  # noqa: BLE001
+            log.exception("listing list failed", extra={"conv": conv_id})
     await _publish_activity(broker, org_id, conv_id, "replied", log)
     async with _conn_or(pool, conn) as conn:
         await conn.execute(

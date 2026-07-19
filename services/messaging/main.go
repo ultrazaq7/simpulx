@@ -10,6 +10,7 @@ import (
 	"net/http"
 	"os"
 	"os/signal"
+	"strings"
 	"syscall"
 	"time"
 
@@ -153,8 +154,6 @@ func (a *app) onReceived(env events.Envelope) error {
 	} else if cID, ok := a.st.resolveCampaignByReferral(ctx, env.OrgID, e.Referral); ok {
 		campaignID, matched = cID, true
 	}
-	// Tracked because a keyword-routed body is an ad/link template pre-fill ("pajero1"),
-	// not something the lead typed -> it must not count as genuine below.
 	// Property e-catalog: a lead arriving from the public microsite carries that
 	// unit's own link in the prefilled message. Resolving it is more precise than a
 	// keyword (it identifies the exact unit, not just a campaign), so it is checked
@@ -169,6 +168,8 @@ func (a *app) onReceived(env events.Envelope) error {
 			}
 		}
 	}
+	// Tracked because a keyword-routed body is an ad/link template pre-fill ("pajero1"),
+	// not something the lead typed -> it must not count as genuine below.
 	keywordRouted := false
 	if !matched {
 		if cID, ok := a.st.resolveCampaignByKeyword(ctx, env.OrgID, body); ok {
@@ -238,6 +239,13 @@ func (a *app) onReceived(env events.Envelope) error {
 	// payload -> mark that broadcast recipient as clicked (report conversions).
 	if e.Message.ButtonPayload != "" {
 		a.trackBroadcastClick(ctx, e.Message.ButtonPayload)
+		// A tapped unit from the AI's listing list ("unit:<slug>"). Answered right
+		// here rather than through the AI: the customer asked for one specific,
+		// already-known unit, so a deterministic card is instant, always correct,
+		// and costs the tenant no AI credit.
+		if slug, ok := strings.CutPrefix(e.Message.ButtonPayload, "unit:"); ok && slug != "" {
+			a.sendListingCard(ctx, env.OrgID, conv.ID, slug)
+		}
 	}
 
 	// Run user-configured automations (keyword reply, auto-tag, auto-assign,
