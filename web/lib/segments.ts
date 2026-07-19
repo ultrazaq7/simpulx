@@ -16,6 +16,8 @@ export const SEGMENT_SCHEMAS: Record<string, SegmentField[]> = {
     { key: "property_type", label: "Property type" },
     { key: "location", label: "Preferred location" },
     { key: "budget", label: "Budget" },
+    { key: "land_area", label: "Land area (LT)" },
+    { key: "building_area", label: "Building area (LB)" },
     { key: "purchase_timeframe", label: "Timeframe" },
   ],
   "finance": [

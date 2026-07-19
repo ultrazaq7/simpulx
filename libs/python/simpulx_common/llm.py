@@ -543,18 +543,30 @@ def _as_float(v):
 
 
 def _extra_fields_instruction(extra_fields: List[dict]) -> str:
-    """Appended ONLY for non-automotive segments (WS-B). Automotive passes no
-    extra_fields, so the base instruction (and its cache prefix) is unchanged."""
+    """Per-segment qualifier extraction (WS-B), injected here so the cached base
+    prefix stays stable. Each field may carry a 'hint' with normalization rules
+    (e.g. property_type = category only; LT/LB in m2)."""
     labels = "; ".join(f'{f["key"]} = {f["label"]}' for f in extra_fields)
     keys = ", ".join(f'"{f["key"]}"' for f in extra_fields)
+    hints = [f'- {f["key"]}: {f["hint"]}' for f in extra_fields if f.get("hint")]
+    hint_block = ("\nATURAN per field:\n" + "\n".join(hints)) if hints else ""
+    has_tf = any(f["key"] == "purchase_timeframe" for f in extra_fields)
+    # Timeframe must be a CONSISTENT bucket, not free text, and non-committal answers
+    # ('masih survei', 'belum tahu') are set to null so the UI hides them -- that nuance
+    # belongs in `summary`, not as a qualifier value. (A far horizon no longer demotes
+    # the lead's temperature, so nulling it here doesn't cost the classifier anything.)
+    tf_block = (
+        "\nPENTING soal purchase_timeframe: WAJIB normalkan ke SATU dari nilai berikut saja: "
+        "\"Secepatnya\" | \"1-3 bulan\" | \"3-6 bulan\" | \"Lebih dari 6 bulan\". "
+        "Jika lead BELUM pasti / masih survei / lihat-lihat / belum tahu kapan, set "
+        "purchase_timeframe = null (JANGAN tulis 'belum tahu' sebagai nilai); tuangkan konteks "
+        "itu ke 'summary' saja. Jangan mengarang timeframe kalau lead tidak menyinggung waktu."
+    ) if has_tf else ""
     return (
         "\nTAMBAHAN EKSTRAKSI: selain field di atas, ekstrak juga data prospek berikut "
         f"({labels}). Sertakan sebagai objek \"fields\" pada JSON, berisi key: {keys}. "
-        "Nilai = string ringkas apa adanya dari percakapan, atau null bila tak disebut. "
-        "PENTING soal timeframe/rencana waktu: jawaban yang tidak pasti pun TETAP dicatat, "
-        "BUKAN null -- mis. 'masih survei', 'lihat-lihat dulu', 'belum tahu', 'gatau kapan', "
-        "'belum ada rencana pasti' adalah nilai timeframe yang sah (catat apa adanya). null "
-        "HANYA jika lead sama sekali tidak menyinggung kapan/rencana waktunya."
+        "Nilai = string ringkas apa adanya dari percakapan, atau null bila tak disebut."
+        + hint_block + tf_block
     )
 
 

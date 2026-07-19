@@ -86,7 +86,7 @@ export interface Analytics {
   agents: { agent: string; branch: string; leads: number; total_chat: number; replied: number; hot: number; won: number; avg_rt_min: number; avg_resp_min: number; within_5_pct: number; call_attempts: number; call_duration_sec: number; updated: number; contacted: number; qualified: number; appointment: number; negotiation: number; purchase: number; lost: number }[];
   daily: { day: string; leads: number; replied: number }[];
   response_time: {
-    median_min: number; avg_min: number; within_5_min_pct: number; within_1_hr_pct: number; leads_with_rt: number;
+    median_min: number; avg_min: number; ai_avg_min: number; within_5_min_pct: number; within_1_hr_pct: number; leads_with_rt: number;
     d_lt1: number; d_1_5: number; d_5_15: number; d_15_60: number; d_1_4h: number; d_4_24h: number; d_gt24h: number;
   };
   junk: number;

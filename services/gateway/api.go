@@ -1359,9 +1359,17 @@ func (s *server) handleAnalytics(w http.ResponseWriter, r *http.Request) {
 		     FROM fr JOIN messages m ON m.conversation_id=fr.conversation_id
 		            AND m.direction='outbound' AND m.sender_type='agent' AND m.created_at > fr.t_c
 		    WHERE m.organization_id=$1
+		    GROUP BY fr.conversation_id, fr.t_c),
+		 rt_ai AS (
+		   SELECT fr.conversation_id,
+		          EXTRACT(EPOCH FROM (min(m.created_at) - fr.t_c))/60.0 AS rt_min
+		     FROM fr JOIN messages m ON m.conversation_id=fr.conversation_id
+		            AND m.direction='outbound' AND m.sender_type='bot' AND m.created_at > fr.t_c
+		    WHERE m.organization_id=$1
 		    GROUP BY fr.conversation_id, fr.t_c)
 		 SELECT COALESCE(percentile_cont(0.5) WITHIN GROUP (ORDER BY rt_min),0)::float8 AS median_min,
 		        COALESCE(avg(rt_min),0)::float8 AS avg_min,
+		        (SELECT COALESCE(avg(rt_min),0) FROM rt_ai)::float8 AS ai_avg_min,
 		        COALESCE(avg(CASE WHEN rt_min<=5  THEN 100.0 ELSE 0 END),0)::float8 AS within_5_min_pct,
 		        COALESCE(avg(CASE WHEN rt_min<=60 THEN 100.0 ELSE 0 END),0)::float8 AS within_1_hr_pct,
 		        count(*) AS leads_with_rt,

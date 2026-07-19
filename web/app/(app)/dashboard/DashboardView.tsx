@@ -47,10 +47,11 @@ const METRICS: Metric[] = [
   // "Replied", which counts customers who replied back).
   { key: "replied", label: "Handled", Icon: Reply, color: "#0284C7" },
   { key: "won", label: "Purchase", Icon: Trophy, color: "#16A34A" },
+  // Combined card: renders human vs AI first-response time side by side (see render).
   { key: "avg_rt", label: "Avg response time", Icon: Timer, color: "#7C3AED", fmt: fmtDuration },
-  // P4 revenue-impact: the two "how much revenue did AI generate" cards.
-  { key: "revenue_influenced", label: "Revenue influenced", Icon: CircleDollarSign, color: "#059669", fmt: fmtIDR },
-  { key: "ai_saved_leads", label: "AI saved leads", Icon: Sparkles, color: "#7C3AED" },
+  // P4 revenue-impact: the two "how much did AI move the needle" cards.
+  { key: "revenue_influenced", label: "Revenue Influenced", Icon: CircleDollarSign, color: "#059669", fmt: fmtIDR },
+  { key: "ai_saved_leads", label: "AI-Qualified Leads", Icon: Sparkles, color: "#7C3AED" },
 ];
 
 // Same canonical keys used everywhere else (contacts, exports, logs).
@@ -864,7 +865,22 @@ function ManagerDashboard({ initialTab }: { initialTab: ReportTab }) {
                     {m.href && <ChevronRight className="w-3 h-3 opacity-0 group-hover/metric:opacity-100 transition-opacity shrink-0" />}
                   </p>
                 </div>
-                <p className="font-mono text-[22px] font-semibold text-foreground leading-none tracking-tight tabular-nums truncate">{m.fmt ? m.fmt(val) : val}</p>
+                {m.key === "avg_rt" ? (
+                  // Human vs AI first-response time, side by side: the clearest proof
+                  // of how much faster the AI answers than a human agent.
+                  <div className="flex flex-col gap-1">
+                    <div className="flex items-baseline justify-between gap-2">
+                      <span className="text-[10px] font-semibold text-muted-foreground uppercase tracking-wide">{t("dashboard.human")}</span>
+                      <span className="font-mono text-[17px] font-semibold text-foreground leading-none tabular-nums truncate">{fmtDuration(val)}</span>
+                    </div>
+                    <div className="flex items-baseline justify-between gap-2">
+                      <span className="text-[10px] font-semibold uppercase tracking-wide" style={{ color: "#7C3AED" }}>AI</span>
+                      <span className="font-mono text-[17px] font-semibold leading-none tabular-nums truncate" style={{ color: "#7C3AED" }}>{fmtDuration(analytics?.response_time?.ai_avg_min ?? 0)}</span>
+                    </div>
+                  </div>
+                ) : (
+                  <p className="font-mono text-[22px] font-semibold text-foreground leading-none tracking-tight tabular-nums truncate">{m.fmt ? m.fmt(val) : val}</p>
+                )}
               </>
             );
 

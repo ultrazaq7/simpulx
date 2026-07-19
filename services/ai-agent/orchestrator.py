@@ -15,7 +15,7 @@ from typing import List, Optional
 
 from simpulx_common import llm
 
-from classifier import classify, is_trivial, STRONG_INTENT, detect_junk, buy_within_3mo
+from classifier import classify, is_trivial, STRONG_INTENT, detect_junk
 import closing_score
 import lead_score
 import nba
@@ -958,15 +958,19 @@ async def classify_and_update(pool, org_id: str, conv_id: str, log) -> Optional[
     if not is_junk and interest in ("hot", "warm") and prev is not None:
         lf = _lead_fields(prev["metadata"])
         ooa = _out_of_area_city(lf.get("city"), prev["covered_cities"])
-        horizon = buy_within_3mo(lf.get("purchase_timeframe"))
         req = segments.required_keys(prev["segment"])
         fields_done = bool(req) and all(lf.get(k) for k in req)
+        # Buy horizon no longer demotes: a lead who gave budget/location/type and asks
+        # price+specs is a strong prospect even when the purchase is months out ("masih
+        # survei, anak kuliah tahun depan"). Forcing those to cold buried lead_score-90+
+        # leads next to one-word "ok" replies. Horizon is a NURTURE-TIMING axis, not a
+        # quality axis -- it belongs in the AI summary, not the temperature. Only two
+        # filters remain: out-of-area (serviceability the bot can't judge -> cold) and
+        # WARM needing the full qualifier set (so agents get complete leads, not stubs).
         if ooa:
             interest, filter_reason = "cold", f"Luar area layanan ({ooa}); serviceability perlu dicek tim."
-        elif horizon is False:
-            interest, filter_reason = "cold", "Rencana pembelian >3 bulan atau belum pasti; belum prioritas."
-        elif interest == "warm" and not (fields_done and horizon is True):
-            interest, filter_reason = "cold", "Ada minat tapi info belum lengkap / timeframe belum pasti."
+        elif interest == "warm" and not fields_done:
+            interest, filter_reason = "cold", "Ada minat tapi info kualifikasi belum lengkap."
     disp_key = "spam" if is_junk else c["disposition_key"]
     reason = junk["reason"] if is_junk else (filter_reason or c["reason"])
     confidence = junk["confidence"] if is_junk else c["confidence"]

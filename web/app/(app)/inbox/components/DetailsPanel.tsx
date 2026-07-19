@@ -348,6 +348,11 @@ export default function DetailsPanel({ active, onClose, copyText, notes, onAddNo
               {segmentFields(active.campaign_segment).map((f) => (
                 active.lead_fields?.[f.key] ? <DetailRow key={f.key} icon={Hash} label={t(f.label)} value={humanize(String(active.lead_fields[f.key]))} /> : null
               ))}
+              {/* AI-written recap of the lead (lead_summary), shown last as free-text
+                  remarks so nuance that doesn't fit a qualifier field lives here. */}
+              {active.lead_summary && (
+                <DetailRow icon={StickyNote} label={t("contacts.aiNotes")} value={active.lead_summary} />
+              )}
             </div>
           </div>
         )}

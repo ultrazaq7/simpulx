@@ -25,9 +25,16 @@ SEGMENT_SCHEMAS: dict[str, list[dict]] = {
         {"key": "purchase_timeframe", "label": "Timeframe"},
     ],
     "property / real estate": [
-        {"key": "property_type", "label": "Property type"},
+        {"key": "property_type", "label": "Property type",
+         "hint": "HANYA kategori propertinya: Rumah / Ruko / Apartemen / Tanah / Kavling / "
+                 "Gudang / Villa / Kost. JANGAN gabungkan jumlah kamar atau luas ke sini "
+                 "(mis. 'Rumah', BUKAN 'Rumah 2 kamar 70m2')."},
         {"key": "location", "label": "Preferred location"},
         {"key": "budget", "label": "Budget"},
+        {"key": "land_area", "label": "Land area (LT)", "required": False,
+         "hint": "luas TANAH dalam m2 bila lead menyebutnya (mis. '72 m2', 'LT 90'); null bila tidak disebut."},
+        {"key": "building_area", "label": "Building area (LB)", "required": False,
+         "hint": "luas BANGUNAN dalam m2 bila lead menyebutnya (mis. 'LB 45'); null bila tidak disebut."},
         {"key": "purchase_timeframe", "label": "Timeframe"},
     ],
     "finance": [
@@ -174,8 +181,10 @@ def extra_fields_for(segment) -> list[dict]:
 
 
 def required_keys(segment) -> list[str]:
-    """Keys that mark a non-auto lead 'qualified' (all present -> ready to hand off)."""
-    return [f["key"] for f in fields_for(segment)]
+    """Keys that mark a lead 'qualified' (all present -> ready to hand off). Fields
+    flagged required=False (e.g. property LT/LB) are extracted+displayed when present
+    but never gate the handoff -- most leads never mention land/building area."""
+    return [f["key"] for f in fields_for(segment) if f.get("required", True)]
 
 
 # ── Lost-reason taxonomy (segment-aware) ──────────────────────────────────
