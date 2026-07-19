@@ -176,12 +176,12 @@ export default function ListingBrowser({ data }: { data: ListingIndex }) {
           <button onClick={reset} className="mt-4 h-10 px-5 rounded-full text-white text-[13.5px] font-semibold" style={{ backgroundColor: accent }}>Hapus semua filter</button>
         </div>
       ) : view === "grid" ? (
-        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-5 pb-4">
-          {filtered.map((l) => <Card key={l.id} org={data.org.slug} l={l} fav={isFav(l.slug)} onFav={() => toggle(l.slug)} accent={accent} />)}
+        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-5 pb-8">
+          {filtered.map((l, i) => <Card key={l.id} org={data.org.slug} l={l} fav={isFav(l.slug)} onFav={() => toggle(l.slug)} accent={accent} idx={i} />)}
         </div>
       ) : (
-        <div className="flex flex-col gap-3 pb-4">
-          {filtered.map((l) => <Row key={l.id} org={data.org.slug} l={l} fav={isFav(l.slug)} onFav={() => toggle(l.slug)} accent={accent} />)}
+        <div className="flex flex-col gap-3 pb-8">
+          {filtered.map((l, i) => <Row key={l.id} org={data.org.slug} l={l} fav={isFav(l.slug)} onFav={() => toggle(l.slug)} accent={accent} idx={i} />)}
         </div>
       )}
     </section>
@@ -236,10 +236,11 @@ function FavButton({ fav, onFav }: { fav: boolean; onFav: () => void }) {
   );
 }
 
-function Card({ org, l, fav, onFav, accent }: { org: string; l: PublicListing; fav: boolean; onFav: () => void; accent: string }) {
+function Card({ org, l, fav, onFav, accent, idx = 0 }: { org: string; l: PublicListing; fav: boolean; onFav: () => void; accent: string; idx?: number }) {
   const cover = l.photos?.[0]?.url;
   return (
-    <article className="group relative rounded-2xl bg-white border border-black/[0.06] overflow-hidden hover:shadow-[0_8px_30px_rgba(0,0,0,0.08)] transition-shadow">
+    <article className="lst-card group relative rounded-2xl bg-white border border-black/[0.06] overflow-hidden transition-[transform,box-shadow] duration-300 hover:-translate-y-1 hover:shadow-[0_14px_40px_rgba(0,0,0,0.10)]"
+      style={{ animation: "lstFadeUp .5s cubic-bezier(.16,1,.3,1) both", animationDelay: `${Math.min(idx, 11) * 45}ms` }}>
       <Link href={`/listing/${org}/${l.slug}`} className="block relative aspect-[4/3] bg-black/[0.04]">
         {cover ? (
           <Image src={cover} alt={l.title} fill sizes="(max-width:640px) 100vw, (max-width:1024px) 50vw, (max-width:1280px) 33vw, 25vw"
@@ -270,10 +271,11 @@ function Card({ org, l, fav, onFav, accent }: { org: string; l: PublicListing; f
   );
 }
 
-function Row({ org, l, fav, onFav, accent }: { org: string; l: PublicListing; fav: boolean; onFav: () => void; accent: string }) {
+function Row({ org, l, fav, onFav, accent, idx = 0 }: { org: string; l: PublicListing; fav: boolean; onFav: () => void; accent: string; idx?: number }) {
   const cover = l.photos?.[0]?.url;
   return (
-    <article className="relative flex gap-4 rounded-2xl bg-white border border-black/[0.06] overflow-hidden hover:shadow-[0_6px_24px_rgba(0,0,0,0.07)] transition-shadow">
+    <article className="lst-card relative flex gap-4 rounded-2xl bg-white border border-black/[0.06] overflow-hidden transition-[transform,box-shadow] duration-300 hover:-translate-y-0.5 hover:shadow-[0_10px_30px_rgba(0,0,0,0.08)]"
+      style={{ animation: "lstFadeUp .5s cubic-bezier(.16,1,.3,1) both", animationDelay: `${Math.min(idx, 11) * 40}ms` }}>
       <Link href={`/listing/${org}/${l.slug}`} className="relative w-[180px] sm:w-[260px] shrink-0 aspect-[4/3] bg-black/[0.04]">
         {cover && <Image src={cover} alt={l.title} fill sizes="260px" className="object-cover" unoptimized />}
         {l.property_type && <span className="absolute top-2.5 left-2.5 px-2 py-0.5 rounded-full bg-white/95 text-[10.5px] font-bold">{l.property_type}</span>}

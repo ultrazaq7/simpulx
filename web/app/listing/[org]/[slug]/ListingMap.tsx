@@ -2,14 +2,10 @@
 import { useState } from "react";
 import { MapPin, ExternalLink } from "lucide-react";
 
-// Google Maps costs money PER MAP LOAD, and most visitors never scroll to the map
-// at all. So nothing is requested until the visitor asks for it: until then this
-// renders a static placeholder. One tap swaps in the embed (a single load), and
-// "Buka di Google Maps" leaves for the app without costing a load at all.
-//
-// `apiKey` is passed in from the server page (which reads process.env.MAPS_KEY at
-// request time) rather than a NEXT_PUBLIC build-time var, so the key can be set in
-// the server .env without a rebuild. Empty key -> the "open in Maps" fallback.
+// The map stays behind a "Tampilkan peta" tap: a static placeholder until then,
+// the embed after. "Buka di Google Maps" leaves for the app. `apiKey` comes from
+// the server page (process.env.MAPS_KEY) so it can be set in the server .env with
+// no rebuild; without a key we degrade to the plain "open in Maps" link.
 
 export default function ListingMap({ lat, lng, title, apiKey }: { lat: number; lng: number; title: string; apiKey?: string }) {
   const [shown, setShown] = useState(false);
@@ -40,9 +36,7 @@ export default function ListingMap({ lat, lng, title, apiKey }: { lat: number; l
         <div className="text-center px-6">
           <MapPin className="w-6 h-6 mx-auto text-black/30" />
           <p className="mt-2 text-[13.5px] font-semibold text-black/70">Lihat lokasi di peta</p>
-          <p className="text-[12px] text-black/45 mt-0.5">
-            {lat.toFixed(5)}, {lng.toFixed(5)}
-          </p>
+          <p className="text-[12px] text-black/45 mt-0.5">{lat.toFixed(5)}, {lng.toFixed(5)}</p>
           <div className="mt-3 flex items-center justify-center gap-2">
             {key && (
               <button onClick={() => setShown(true)}

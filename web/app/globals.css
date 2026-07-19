@@ -443,3 +443,9 @@ a:focus:not(:focus-visible) { outline: none; }
   .print-avoid-break { break-inside: avoid; page-break-inside: avoid; }
   @page { size: A4; margin: 12mm; }
 }
+
+/* Public listing microsite: card entrance (staggered by index via inline delay). */
+@keyframes lstFadeUp { from { opacity: 0; transform: translateY(14px); } to { opacity: 1; transform: none; } }
+@media (prefers-reduced-motion: reduce) {
+  .lst-card { animation: none !important; opacity: 1 !important; transform: none !important; }
+}

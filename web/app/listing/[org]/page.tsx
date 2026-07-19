@@ -2,6 +2,7 @@ import type { Metadata } from "next";
 import { notFound } from "next/navigation";
 import { fetchIndex } from "@/lib/public-listings";
 import ListingBrowser from "./ListingBrowser";
+import Reveal from "./Reveal";
 
 // Public, indexable listing site for one client organisation.
 // Server-rendered so the inventory is in the HTML for crawlers and the first
@@ -70,33 +71,30 @@ export default async function OrgListingPage({ params }: Props) {
           with quick stats that make a small catalogue still feel substantial. */}
       <section className="relative overflow-hidden border-b border-black/[0.06]"
         style={{ background: `linear-gradient(135deg, ${accent}14, ${accent}05 60%, transparent)` }}>
-        <div className="mx-auto max-w-[1440px] px-5 pt-12 pb-10">
-          <span className="inline-flex items-center gap-1.5 px-3 py-1 rounded-full bg-white/70 border border-black/[0.06] text-[12px] font-semibold" style={{ color: accent }}>
-            {data.org.tagline || "Katalog properti pilihan"}
-          </span>
-          <h1 className="mt-4 text-[30px] sm:text-[44px] font-bold tracking-tight leading-[1.1] text-balance max-w-3xl">
-            Temukan properti yang pas untuk Anda
-          </h1>
-          <p className="mt-3 text-[15.5px] text-black/60 max-w-xl leading-relaxed">
-            Pilih sesuai kebutuhan, lalu hubungi kami langsung lewat WhatsApp untuk info
-            lengkap dan jadwal survei.
-          </p>
-          <div className="mt-6 flex flex-wrap gap-2.5">
-            <Stat value={String(data.listings.length)} label="unit tersedia" accent={accent} />
-            {data.facets.cities.length > 0 && <Stat value={String(data.facets.cities.length)} label={data.facets.cities.length > 1 ? "kota" : "lokasi"} accent={accent} />}
-            {data.facets.types.length > 0 && <Stat value={String(data.facets.types.length)} label="tipe properti" accent={accent} />}
-          </div>
+        <div className="mx-auto max-w-[1440px] px-5 pt-8 pb-6">
+          <Reveal>
+            <h1 className="text-[28px] sm:text-[38px] font-bold tracking-tight leading-[1.1] text-balance max-w-3xl">
+              Temukan properti yang pas untuk Anda
+            </h1>
+          </Reveal>
+          <Reveal delay={80} className="mt-2.5 flex flex-wrap items-center gap-x-5 gap-y-2">
+            <p className="text-[14.5px] text-black/60 max-w-lg leading-relaxed">
+              Pilih sesuai kebutuhan, lalu hubungi kami langsung lewat WhatsApp untuk info lengkap dan jadwal survei.
+            </p>
+            <div className="flex flex-wrap gap-2">
+              <Stat value={String(data.listings.length)} label="unit" accent={accent} />
+              {data.facets.cities.length > 0 && <Stat value={String(data.facets.cities.length)} label={data.facets.cities.length > 1 ? "kota" : "lokasi"} accent={accent} />}
+              {data.facets.types.length > 0 && <Stat value={String(data.facets.types.length)} label="tipe" accent={accent} />}
+            </div>
+          </Reveal>
         </div>
       </section>
 
-      <div className="pt-2">
-        <ListingBrowser data={data} />
-      </div>
+      <ListingBrowser data={data} />
 
       <footer className="mt-16 border-t border-black/[0.06] py-8">
-        <div className="mx-auto max-w-[1440px] px-5 flex flex-wrap items-center justify-between gap-3 text-[12px] text-black/40">
-          <span>&copy; {new Date().getFullYear()} {data.org.name}</span>
-          <span className="inline-flex items-center gap-1">Didukung oleh <b className="text-black/55">Simpulx</b></span>
+        <div className="mx-auto max-w-[1440px] px-5 text-[12px] text-black/40">
+          &copy; {new Date().getFullYear()} {data.org.name}
         </div>
       </footer>
     </main>
