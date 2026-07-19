@@ -22,7 +22,11 @@ SEGMENT_SCHEMAS: dict[str, list[dict]] = {
         {"key": "brand", "label": "Brand"},
         {"key": "model", "label": "Model"},
         {"key": "city", "label": "City"},
-        {"key": "purchase_timeframe", "label": "Timeframe"},
+        # Timeframe is captured + displayed but does NOT gate 'qualified': a lead who
+        # gave brand+model+city is qualified even if they haven't committed to a date
+        # (and non-committal timeframes are nulled at extract, so requiring it here
+        # would wrongly hold back exactly those leads).
+        {"key": "purchase_timeframe", "label": "Timeframe", "required": False},
     ],
     "property / real estate": [
         {"key": "property_type", "label": "Property type",
@@ -35,7 +39,9 @@ SEGMENT_SCHEMAS: dict[str, list[dict]] = {
          "hint": "luas TANAH dalam m2 bila lead menyebutnya (mis. '72 m2', 'LT 90'); null bila tidak disebut."},
         {"key": "building_area", "label": "Building area (LB)", "required": False,
          "hint": "luas BANGUNAN dalam m2 bila lead menyebutnya (mis. 'LB 45'); null bila tidak disebut."},
-        {"key": "purchase_timeframe", "label": "Timeframe"},
+        # Not required to qualify (see automotive note): property_type + location +
+        # budget are the real qualifiers; timeframe is nurture timing, often null.
+        {"key": "purchase_timeframe", "label": "Timeframe", "required": False},
     ],
     "finance": [
         {"key": "product", "label": "Product"},
