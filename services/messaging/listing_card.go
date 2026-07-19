@@ -116,10 +116,6 @@ func (a *app) sendListingCard(ctx context.Context, orgID, convID, slug string) {
 	if c.Certificate != nil && *c.Certificate != "" {
 		lines = append(lines, *c.Certificate)
 	}
-	base := strings.TrimRight(config.Get("APP_BASE_URL", "http://localhost:3000"), "/")
-	lines = append(lines, "", "Detail & foto lengkap:",
-		fmt.Sprintf("%s/listing/%s/%s", base, c.OrgSlug, c.Slug))
-
 	out := events.MessageOutbound{
 		ConversationID: convID, SenderType: "bot", Type: "text",
 		Body: strings.Join(lines, "\n"),
@@ -128,6 +124,15 @@ func (a *app) sendListingCard(ctx context.Context, orgID, convID, slug string) {
 		out.Type, out.MediaURL = "image", cover
 	}
 	_ = a.bus.Publish(events.SubjectMessageOutbound, orgID, out)
+
+	// Link goes in a SEPARATE text after the image (mirrors the Python card): a long
+	// URL in the caption forces the bubble wider than the photo, leaving an empty
+	// band beside it. On its own line the image bubble hugs the picture.
+	base := strings.TrimRight(config.Get("APP_BASE_URL", "http://localhost:3000"), "/")
+	_ = a.bus.Publish(events.SubjectMessageOutbound, orgID, events.MessageOutbound{
+		ConversationID: convID, SenderType: "bot", Type: "text",
+		Body: fmt.Sprintf("Foto & detail lengkap:\n%s/listing/%s/%s", base, c.OrgSlug, c.Slug),
+	})
 }
 
 // Price/spec card for one campaign_catalog variant, sent when a customer taps it
