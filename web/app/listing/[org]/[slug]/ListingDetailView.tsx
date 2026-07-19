@@ -11,7 +11,7 @@ import ListingMap from "./ListingMap";
 
 const DESC_CLAMP = 420; // chars before the "Muat lebih banyak" fold
 
-export default function ListingDetailView({ data, orgSlug }: { data: ListingDetail; orgSlug: string }) {
+export default function ListingDetailView({ data, orgSlug, mapKey }: { data: ListingDetail; orgSlug: string; mapKey?: string }) {
   const l = data.listing;
   const photos = l.photos ?? [];
   const [active, setActive] = useState(0);
@@ -181,7 +181,7 @@ export default function ListingDetailView({ data, orgSlug }: { data: ListingDeta
           {l.latitude && l.longitude && (
             <div className="mt-8">
               <h2 className="text-[17px] font-bold mb-3">Lokasi</h2>
-              <ListingMap lat={l.latitude} lng={l.longitude} title={l.title} />
+              <ListingMap lat={l.latitude} lng={l.longitude} title={l.title} apiKey={mapKey} />
             </div>
           )}
         </div>

@@ -44,6 +44,11 @@ services:
     restart: unless-stopped
     depends_on: [gateway]
     networks: [simpulx]
+    # Runtime env for the Next server. MAPS_KEY (Google Maps Embed) is read at
+    # request time on the property listing pages, so it lives here rather than as a
+    # NEXT_PUBLIC build arg -- set it in /opt/simpulx/.env, no rebuild needed.
+    environment:
+      MAPS_KEY: ${MAPS_KEY:-}
 
   # Edge: TLS termination (Cloudflare Origin Cert) + routing.
   caddy:

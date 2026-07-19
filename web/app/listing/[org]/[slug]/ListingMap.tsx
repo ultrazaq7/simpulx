@@ -7,12 +7,13 @@ import { MapPin, ExternalLink } from "lucide-react";
 // renders a static placeholder. One tap swaps in the embed (a single load), and
 // "Buka di Google Maps" leaves for the app without costing a load at all.
 //
-// The key must be an HTTP-referrer-restricted browser key (NEXT_PUBLIC_MAPS_KEY);
-// without one we degrade to the plain "open in Maps" link rather than break.
+// `apiKey` is passed in from the server page (which reads process.env.MAPS_KEY at
+// request time) rather than a NEXT_PUBLIC build-time var, so the key can be set in
+// the server .env without a rebuild. Empty key -> the "open in Maps" fallback.
 
-export default function ListingMap({ lat, lng, title }: { lat: number; lng: number; title: string }) {
+export default function ListingMap({ lat, lng, title, apiKey }: { lat: number; lng: number; title: string; apiKey?: string }) {
   const [shown, setShown] = useState(false);
-  const key = process.env.NEXT_PUBLIC_MAPS_KEY;
+  const key = apiKey;
   const external = `https://www.google.com/maps/search/?api=1&query=${lat},${lng}`;
 
   if (shown && key) {

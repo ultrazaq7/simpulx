@@ -79,7 +79,7 @@ export default async function ListingDetailPage({ params }: Props) {
         </div>
       </header>
 
-      <ListingDetailView data={data} orgSlug={org} />
+      <ListingDetailView data={data} orgSlug={org} mapKey={process.env.MAPS_KEY} />
 
       {data.related.length > 0 && (
         <section className="mx-auto max-w-[1200px] px-5 pb-16">

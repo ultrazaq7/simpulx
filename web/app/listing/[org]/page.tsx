@@ -66,23 +66,48 @@ export default async function OrgListingPage({ params }: Props) {
         </div>
       </header>
 
-      <section className="mx-auto max-w-[1440px] px-5 pt-10 pb-6">
-        <h1 className="text-[28px] sm:text-[36px] font-bold tracking-tight leading-[1.15] max-w-2xl">
-          Temukan properti yang pas untuk Anda
-        </h1>
-        <p className="mt-3 text-[15px] text-black/60 max-w-xl">
-          {data.listings.length} unit tersedia. Pilih sesuai kebutuhan, lalu hubungi kami
-          langsung lewat WhatsApp untuk info lengkap dan jadwal survei.
-        </p>
+      {/* Hero: an accent-tinted band so the site reads as the client's own brand,
+          with quick stats that make a small catalogue still feel substantial. */}
+      <section className="relative overflow-hidden border-b border-black/[0.06]"
+        style={{ background: `linear-gradient(135deg, ${accent}14, ${accent}05 60%, transparent)` }}>
+        <div className="mx-auto max-w-[1440px] px-5 pt-12 pb-10">
+          <span className="inline-flex items-center gap-1.5 px-3 py-1 rounded-full bg-white/70 border border-black/[0.06] text-[12px] font-semibold" style={{ color: accent }}>
+            {data.org.tagline || "Katalog properti pilihan"}
+          </span>
+          <h1 className="mt-4 text-[30px] sm:text-[44px] font-bold tracking-tight leading-[1.1] text-balance max-w-3xl">
+            Temukan properti yang pas untuk Anda
+          </h1>
+          <p className="mt-3 text-[15.5px] text-black/60 max-w-xl leading-relaxed">
+            Pilih sesuai kebutuhan, lalu hubungi kami langsung lewat WhatsApp untuk info
+            lengkap dan jadwal survei.
+          </p>
+          <div className="mt-6 flex flex-wrap gap-2.5">
+            <Stat value={String(data.listings.length)} label="unit tersedia" accent={accent} />
+            {data.facets.cities.length > 0 && <Stat value={String(data.facets.cities.length)} label={data.facets.cities.length > 1 ? "kota" : "lokasi"} accent={accent} />}
+            {data.facets.types.length > 0 && <Stat value={String(data.facets.types.length)} label="tipe properti" accent={accent} />}
+          </div>
+        </div>
       </section>
 
-      <ListingBrowser data={data} />
+      <div className="pt-2">
+        <ListingBrowser data={data} />
+      </div>
 
       <footer className="mt-16 border-t border-black/[0.06] py-8">
-        <div className="mx-auto max-w-[1440px] px-5 text-[12px] text-black/40">
-          &copy; {new Date().getFullYear()} {data.org.name}
+        <div className="mx-auto max-w-[1440px] px-5 flex flex-wrap items-center justify-between gap-3 text-[12px] text-black/40">
+          <span>&copy; {new Date().getFullYear()} {data.org.name}</span>
+          <span className="inline-flex items-center gap-1">Didukung oleh <b className="text-black/55">Simpulx</b></span>
         </div>
       </footer>
     </main>
+  );
+}
+
+function Stat({ value, label, accent }: { value: string; label: string; accent: string }) {
+  return (
+    <div className="inline-flex items-baseline gap-1.5 px-3.5 py-2 rounded-xl bg-white/80 border border-black/[0.06] shadow-[0_1px_2px_rgba(0,0,0,0.03)]">
+      <span className="text-[18px] font-bold" style={{ color: accent }}>{value}</span>
+      <span className="text-[12.5px] text-black/55">{label}</span>
+    </div>
   );
 }
