@@ -918,7 +918,12 @@
     "listingSaved": "Listing saved",
     "listingCreated": "Listing created",
     "listingEditUnit": "Edit unit",
-    "listingNewUnitTitle": "New unit"
+    "listingNewUnitTitle": "New unit",
+    "listingFeatures": "Highlights",
+    "listingFeaturesHint": "Comma-separated, shown as badges on the listing site (e.g. Bisa Nego, Full Furnished, Siap Huni)",
+    "listingFeaturesPh": "Bisa Nego, Full Furnished, Siap Huni, Bebas Banjir",
+    "listingPreview": "Preview photo",
+    "listingClose": "Close"
   },
   "common": {
     "save": "Save",

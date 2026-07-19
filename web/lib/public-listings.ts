@@ -25,6 +25,9 @@ export type PublicListing = {
   certificate: string | null;
   description: string | null;
   photos: ListingPhoto[];
+  // Free-form extras the admin adds. `features` is a string list rendered as the
+  // Overview badges (Bisa Nego, Full Furnished, Siap Huni, ...).
+  attributes?: { features?: string[]; [k: string]: unknown } | null;
 };
 
 // Branding makes each client's microsite look like THEIR site (own logo, colour

@@ -918,7 +918,12 @@
     "listingSaved": "Listing tersimpan",
     "listingCreated": "Listing dibuat",
     "listingEditUnit": "Edit unit",
-    "listingNewUnitTitle": "Unit baru"
+    "listingNewUnitTitle": "Unit baru",
+    "listingFeatures": "Sorotan / Fasilitas",
+    "listingFeaturesHint": "Pisahkan dengan koma, tampil sebagai badge di situs listing (mis. Bisa Nego, Full Furnished, Siap Huni)",
+    "listingFeaturesPh": "Bisa Nego, Full Furnished, Siap Huni, Bebas Banjir",
+    "listingPreview": "Pratinjau foto",
+    "listingClose": "Tutup"
   },
   "common": {
     "save": "Simpan",

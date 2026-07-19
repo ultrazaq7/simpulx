@@ -268,6 +268,10 @@ function ListingPanel({ listing, campaigns, onClose, onDone, onError, confirm }:
   const [desc, setDesc] = useState(listing?.description ?? "");
   const [campaignId, setCampaignId] = useState(listing?.campaign_id ?? "");
   const [photos, setPhotos] = useState<ListingPhoto[]>(listing?.photos ?? []);
+  const [features, setFeatures] = useState(
+    (Array.isArray(listing?.attributes?.features) ? (listing!.attributes!.features as string[]) : []).join(", "),
+  );
+  const [preview, setPreview] = useState<number | null>(null);
   const [busy, setBusy] = useState(false);
   const [uploading, setUploading] = useState(0);
   const fileRef = useRef<HTMLInputElement | null>(null);
@@ -300,6 +304,7 @@ function ListingPanel({ listing, campaigns, onClose, onDone, onError, confirm }:
       land_area: num(lt), building_area: num(lb),
       certificate: cert, description: desc.trim(),
       campaign_id: campaignId, photos,
+      attributes: { features: features.split(",").map((f) => f.trim()).filter(Boolean) },
     } as Partial<Listing>;
     try {
       if (isEdit && listing) { await api.updateListing(listing.id, payload); onDone(t("settings.listingSaved")); }
@@ -333,13 +338,17 @@ function ListingPanel({ listing, campaigns, onClose, onDone, onError, confirm }:
           <div className="flex flex-wrap gap-2">
             {photos.map((p, i) => (
               <div key={p.url + i} className="relative w-[92px] h-[70px] rounded-md overflow-hidden border border-border group">
-                <Image src={p.url} alt="" width={92} height={70} className="w-full h-full object-cover" unoptimized />
-                {i === 0 && <span className="absolute top-1 left-1 inline-flex items-center gap-0.5 px-1 py-0.5 rounded bg-black/60 text-white text-[9px] font-bold"><Star className="w-2.5 h-2.5" />{t("settings.listingCover")}</span>}
+                {/* Click the image to preview it full size (admins asked to confirm
+                    the right photo before saving). Controls stay separate buttons. */}
+                <button type="button" onClick={() => setPreview(i)} className="block w-full h-full outline-none" title={t("settings.listingPreview")}>
+                  <Image src={p.url} alt="" width={92} height={70} className="w-full h-full object-cover" unoptimized />
+                </button>
+                {i === 0 && <span className="absolute top-1 left-1 inline-flex items-center gap-0.5 px-1 py-0.5 rounded bg-black/60 text-white text-[9px] font-bold pointer-events-none"><Star className="w-2.5 h-2.5" />{t("settings.listingCover")}</span>}
                 <div className="absolute inset-x-0 bottom-0 flex opacity-0 group-hover:opacity-100 transition-opacity">
                   {i > 0 && (
                     <button type="button" title={t("settings.listingMakeCover")}
                       onClick={() => setPhotos((ps) => [ps[i], ...ps.filter((_, k) => k !== i)])}
-                      className="flex-1 bg-black/70 text-white text-[10px] py-0.5 hover:bg-black/85"><GripVertical className="w-3 h-3 mx-auto" /></button>
+                      className="flex-1 bg-black/70 text-white text-[10px] py-0.5 hover:bg-black/85"><Star className="w-3 h-3 mx-auto" /></button>
                   )}
                   <button type="button" title={t("settings.listingRemove")}
                     onClick={() => setPhotos((ps) => ps.filter((_, k) => k !== i))}
@@ -388,6 +397,10 @@ function ListingPanel({ listing, campaigns, onClose, onDone, onError, confirm }:
             placeholder={t("settings.listingDescriptionPh")}
             className={cn(INPUT_CLASS, "h-auto py-2 resize-y")} /></div>
 
+        <div><FieldLabel hint={t("settings.listingFeaturesHint")}>{t("settings.listingFeatures")}</FieldLabel>
+          <input value={features} onChange={(e) => setFeatures(e.target.value)}
+            placeholder={t("settings.listingFeaturesPh")} className={INPUT_CLASS} /></div>
+
         <div className="grid grid-cols-2 gap-4">
           <div><FieldLabel hint={t("settings.listingLatHint")}>Latitude</FieldLabel>
             <input value={lat} onChange={(e) => setLat(e.target.value)} placeholder="-6.4025" className={INPUT_CLASS} /></div>
@@ -410,6 +423,28 @@ function ListingPanel({ listing, campaigns, onClose, onDone, onError, confirm }:
           </div>
         )}
       </div>
+
+      {/* Full-size preview of an uploaded photo (click a thumbnail to open). */}
+      {preview != null && photos[preview] && (
+        <div className="fixed inset-0 z-[60] bg-black/80 grid place-items-center p-6" onClick={() => setPreview(null)}>
+          <button type="button" aria-label={t("settings.listingClose")} className="absolute top-4 right-4 text-white/80 hover:text-white"><X className="w-6 h-6" /></button>
+          <div className="max-w-3xl max-h-[85vh]" onClick={(e) => e.stopPropagation()}>
+            {/* eslint-disable-next-line @next/next/no-img-element */}
+            <img src={photos[preview].url} alt="" className="max-w-full max-h-[85vh] rounded-lg object-contain" />
+            {photos.length > 1 && (
+              <div className="mt-3 flex gap-1.5 justify-center flex-wrap">
+                {photos.map((p, i) => (
+                  <button key={i} type="button" onClick={() => setPreview(i)}
+                    className={cn("w-14 h-10 rounded overflow-hidden shrink-0", i === preview ? "ring-2 ring-white" : "opacity-60 hover:opacity-100")}>
+                    {/* eslint-disable-next-line @next/next/no-img-element */}
+                    <img src={p.url} alt="" className="w-full h-full object-cover" />
+                  </button>
+                ))}
+              </div>
+            )}
+          </div>
+        </div>
+      )}
     </SidePanel>
   );
 }
