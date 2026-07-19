@@ -8,6 +8,7 @@ export interface User {
   is_online?: boolean;
   avatar?: string;
   is_super_admin?: boolean; // platform super admin (display label, not a role)
+  org_slug?: string;        // used to build the public microsite URL
   industry?: string;        // org segment, set at creation / Client Management
   is_property?: boolean;    // industry is property -> Listings e-catalog is available
 }
@@ -533,7 +534,13 @@ export interface CampaignAnalyticsRow {
   purchase: number;
 }
 
-export interface OrgBranding { page_title?: string; meta_title?: string; }
+// page_title/meta_title drive the app shell; logo_url/accent/tagline drive the
+// PUBLIC property microsite (/listing/{org-slug}) so each client's site carries
+// their own identity instead of looking like a shared template.
+export interface OrgBranding {
+  page_title?: string; meta_title?: string;
+  logo_url?: string; accent?: string; tagline?: string;
+}
 export interface OrgNotifications { newMessages?: boolean; newConversations?: boolean; emailDigest?: boolean; sound?: boolean; }
 export interface OrgSettings { notifications?: OrgNotifications; branding?: OrgBranding; [k: string]: unknown; }
 export interface Organization { id: string; name: string; settings: OrgSettings | null; }

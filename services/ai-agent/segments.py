@@ -173,6 +173,17 @@ def is_automotive(segment) -> bool:
     return s == "" or s == AUTOMOTIVE
 
 
+PROPERTY = "property / real estate"
+
+
+def is_property(segment) -> bool:
+    """True for the property segment, which grounds on `listings` (the e-catalog)
+    instead of campaign_catalog. Matched loosely for the same reason the Go and TS
+    sides do it: some orgs carry a freehand industry from before it was a dropdown."""
+    s = _norm(segment)
+    return s == PROPERTY or "propert" in s or "real estate" in s
+
+
 def fields_for(segment) -> list[dict]:
     # Empty/unset segment behaves as automotive (the historical default).
     key = _norm(segment) or AUTOMOTIVE

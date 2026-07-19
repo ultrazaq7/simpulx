@@ -62,11 +62,11 @@ func (s *server) handleMe(w http.ResponseWriter, r *http.Request) {
 	// e-catalog (Listings) is hidden for every other industry. It is set at org
 	// creation / Client Management and is read-only in Company Details, so it is a
 	// stable tenant property rather than something derived from campaigns.
-	var industry string
+	var industry, orgSlug string
 	_ = s.pool.QueryRow(r.Context(),
-		`SELECT COALESCE(settings->>'industry','') FROM organizations WHERE id=$1`,
-		a.OrgID).Scan(&industry)
-	writeJSON(w, map[string]any{"id": a.UserID, "org_id": a.OrgID, "role": a.Role, "name": name, "email": email, "avatar": derefStr(avatar), "is_super_admin": s.superAdminByEmail(email, a.Role), "industry": industry, "is_property": isPropertyIndustry(industry)})
+		`SELECT COALESCE(settings->>'industry',''), slug FROM organizations WHERE id=$1`,
+		a.OrgID).Scan(&industry, &orgSlug)
+	writeJSON(w, map[string]any{"id": a.UserID, "org_id": a.OrgID, "role": a.Role, "name": name, "email": email, "avatar": derefStr(avatar), "is_super_admin": s.superAdminByEmail(email, a.Role), "industry": industry, "is_property": isPropertyIndustry(industry), "org_slug": orgSlug})
 }
 
 // ── GET /api/conversations?status= ──────────────────────────

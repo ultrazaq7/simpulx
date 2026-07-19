@@ -8,6 +8,7 @@ from __future__ import annotations
 
 import asyncio
 import json
+import os
 import re
 from contextlib import asynccontextmanager
 from datetime import datetime, timezone
@@ -81,6 +82,63 @@ def _template_body_params(body: str, ctx_values: List[str]) -> List[str]:
     nums = [int(n) for n in _TPL_PLACEHOLDER_RE.findall(body or "")]
     n = max(nums) if nums else 0
     return [(ctx_values[i] if i < len(ctx_values) else "") for i in range(n)]
+
+
+def _app_base_url() -> str:
+    """Public web base, same env var the gateway uses for reset/welcome links."""
+    return os.getenv("APP_BASE_URL", "http://localhost:3000").rstrip("/")
+
+
+async def _send_listing_card(broker, pool, org_id: str, conv_id: str, unit: dict, conn=None) -> None:
+    """Send ONE property unit as a photo card: cover image + a caption carrying the
+    facts and the public listing link.
+
+    A picture with the price beats a paragraph describing it, and the link lands the
+    lead on the org's listing site where every other unit is one tap away. Falls back
+    to a text-only card when the unit has no photo, so a unit is never silently skipped.
+    """
+    slug = unit.get("slug")
+    photos = unit.get("photos") or []
+    if isinstance(photos, str):
+        try:
+            photos = json.loads(photos)
+        except Exception:  # noqa: BLE001
+            photos = []
+    cover = (photos[0] or {}).get("url") if photos else None
+
+    sql = "SELECT slug FROM organizations WHERE id = $1"
+    if conn is not None:
+        org_slug = await conn.fetchval(sql, org_id)
+    else:
+        async with pool.acquire() as c:
+            org_slug = await c.fetchval(sql, org_id)
+
+    import listings_rag
+    bits = [unit.get("title") or "Unit"]
+    price = listings_rag._rupiah(unit.get("price"))
+    if price != "-":
+        bits.append(price)
+    loc = unit.get("location_area") or unit.get("city")
+    if loc:
+        bits.append(str(loc))
+    spec = []
+    for key, label in (("bedrooms", "KT"), ("bathrooms", "KM")):
+        v = listings_rag._num(unit.get(key))
+        if v:
+            spec.append(f"{int(v)} {label}")
+    for key, label in (("land_area", "LT"), ("building_area", "LB")):
+        v = listings_rag._num(unit.get(key))
+        if v:
+            spec.append(f"{label} {int(v)}m2")
+    if spec:
+        bits.append(", ".join(spec))
+    caption = "\n".join(bits)
+    if org_slug and slug:
+        caption += f"\n\nDetail & foto lengkap:\n{_app_base_url()}/listing/{org_slug}/{slug}"
+
+    payload = {"conversation_id": conv_id, "sender_type": "bot", "body": caption}
+    payload.update({"type": "image", "media_url": cover} if cover else {"type": "text"})
+    await broker.publish(SUBJECT_OUTBOUND, org_id, payload)
 
 
 async def _publish_activity(broker, org_id: str, conv_id: str, phase: str, log) -> None:
@@ -598,10 +656,12 @@ async def _generate_and_send_reply(broker, pool, conn, org_id: str, conv_id: str
     lead_words = _lead_words(body, row["keywords"], row["genuine"])
 
     import finance_rag
+    import listings_rag
     finance_ctx = ""
     recent_text = ""  # recent inbound text; also drives the cross-turn promo/price gate
-    if row["campaign_id"] and lead_words:
-        # Campaign-scoped catalog first (falls back to global finance_packages).
+    listing_units: list[dict] = []  # units the model may turn into photo cards
+    is_property = segments.is_property(row["segment"])
+    if lead_words:
         _lf = _lead_fields(row["metadata"])
         # A price question doesn't repeat on every turn: a lead asks "berapa termurah",
         # then answers the bot's follow-ups ("Xpander Ultimate", "CVT") with no price
@@ -613,11 +673,23 @@ async def _generate_and_send_reply(broker, pool, conn, org_id: str, conv_id: str
                 WHERE conversation_id = $1 AND direction = 'inbound' AND genuine
                 ORDER BY created_at DESC LIMIT 8""", conv_id)
         recent_text = " ".join(r["body"] or "" for r in recent)
-        fc = await finance_rag.get_catalog_context(
-            pool, row["campaign_id"], (_lf.get("brand") or row["brand"]), _lf.get("model"),
-            _lf.get("city"), row["segment"], query=lead_words, recent_text=recent_text, conn=conn)
-        if fc:
-            finance_ctx = f"\n\n{fc}\n"
+        if is_property:
+            # Property grounds on the org's published listings, not a campaign
+            # pricelist -- and it is ORG-scoped on purpose: a buyer asking about
+            # Depok should hear about every Depok unit the org sells, not only the
+            # ones tagged to the ad they happened to click (that campaign's stock
+            # is merely ranked first).
+            lc, listing_units = await listings_rag.get_listing_context(
+                pool, org_id, row["campaign_id"], _lf, query=lead_words, conn=conn)
+            if lc:
+                finance_ctx = lc
+        elif row["campaign_id"]:
+            # Campaign-scoped catalog first (falls back to global finance_packages).
+            fc = await finance_rag.get_catalog_context(
+                pool, row["campaign_id"], (_lf.get("brand") or row["brand"]), _lf.get("model"),
+                _lf.get("city"), row["segment"], query=lead_words, recent_text=recent_text, conn=conn)
+            if fc:
+                finance_ctx = f"\n\n{fc}\n"
 
     # Nothing left after the keyword => a bare ad opener ("Xforce1"): a click, not a
     # question. Answering it with the catalog is the bot talking first, so withhold it
@@ -723,10 +795,27 @@ async def _generate_and_send_reply(broker, pool, conn, org_id: str, conv_id: str
     meta = row["metadata"] if isinstance(row["metadata"], dict) else json.loads(row["metadata"] or "{}")
     first_turn = not meta.get("ai_nurture_started")
 
+    # Property: the model tags recommended units [[unit:slug]]. Strip the markers
+    # from what the customer reads and turn them into photo cards below. Unknown
+    # slugs are dropped by extract_units, so a hallucinated tag can never send.
+    cards: list[dict] = []
+    if listing_units:
+        reply, cards = listings_rag.extract_units(reply, listing_units)
+        if not reply:  # marker-only reply: nothing left to say, so don't send an empty text
+            reply = "Berikut unit yang paling sesuai dengan kebutuhan Bapak/Ibu."
+
     # Send the reply.
     await broker.publish(SUBJECT_OUTBOUND, org_id, {
         "conversation_id": conv_id, "sender_type": "bot", "type": "text", "body": reply,
     })
+    # Then the unit cards: cover photo + a caption carrying the facts (price, size,
+    # location) and the public listing link. Capped at 2 so a reply never spams the
+    # chat. Best-effort: a card failing must not fail the reply that already landed.
+    for unit in cards[:2]:
+        try:
+            await _send_listing_card(broker, pool, org_id, conv_id, unit, conn=conn)
+        except Exception:  # noqa: BLE001
+            log.exception("listing card failed", extra={"conv": conv_id})
     await _publish_activity(broker, org_id, conv_id, "replied", log)
     async with _conn_or(pool, conn) as conn:
         await conn.execute(

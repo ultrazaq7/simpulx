@@ -5,7 +5,7 @@ import Image from "next/image";
 import { Loader2, Plus, Pencil, Home, Trash2, GripVertical, Star, X, Upload } from "lucide-react";
 import { api, getUser } from "@/lib/api";
 import { cn } from "@/lib/utils";
-import type { Listing, ListingPhoto, Campaign } from "@/lib/types";
+import type { Listing, ListingPhoto, Campaign, OrgSettings } from "@/lib/types";
 import { Select } from "@/components/Select";
 import SidePanel from "@/components/SidePanel";
 import { useToast, FieldLabel, INPUT_CLASS } from "../_shared";
@@ -52,6 +52,7 @@ export default function ListingsPage() {
     <>
       {ToastHost}{ConfirmHost}
       <div className="px-6 pt-6 pb-6 w-full h-full flex flex-col min-h-0">
+        <MicrositeCard notify={notify} onError={(e) => notify(e, "error")} />
         <div className="bg-card rounded-lg border border-border shadow-xs overflow-hidden flex-1 min-h-0 flex flex-col">
           <div className="p-3 flex items-center justify-between border-b border-border shrink-0">
             <p className="text-[13px] text-muted-foreground pl-1">
@@ -130,6 +131,116 @@ export default function ListingsPage() {
           confirm={confirm} />
       )}
     </>
+  );
+}
+
+// Microsite identity. Each client's listing site lives at its own URL and renders
+// with its own logo/colour/tagline, so it reads as THEIR site rather than a shared
+// Simpulx template. Stored in organizations.settings.branding.
+function MicrositeCard({ notify, onError }: { notify: (m: string) => void; onError: (e: string) => void }) {
+  const [slug, setSlug] = useState("");
+  const [settings, setSettings] = useState<OrgSettings | null>(null);
+  const [logo, setLogo] = useState("");
+  const [accent, setAccent] = useState("#0E5B54");
+  const [tagline, setTagline] = useState("");
+  const [busy, setBusy] = useState(false);
+  const [open, setOpen] = useState(false);
+  const logoRef = useRef<HTMLInputElement | null>(null);
+
+  useEffect(() => {
+    api.getOrganization().then((o) => {
+      const s = (o.settings ?? {}) as OrgSettings;
+      setSettings(s);
+      const b = s.branding ?? {};
+      setLogo(b.logo_url ?? "");
+      setAccent(b.accent || "#0E5B54");
+      setTagline(b.tagline ?? "");
+    }).catch(() => {});
+    api.me().then((u) => setSlug(u.org_slug ?? "")).catch(() => {});
+  }, []);
+
+  async function save() {
+    if (!settings) return;
+    setBusy(true);
+    try {
+      await api.updateOrganization({
+        settings: { ...settings, branding: { ...(settings.branding ?? {}), logo_url: logo.trim(), accent, tagline: tagline.trim() } },
+      });
+      notify("Tampilan microsite tersimpan");
+    } catch (e) { onError(String(e)); } finally { setBusy(false); }
+  }
+
+  async function pickLogo(f: File | undefined) {
+    if (!f) return;
+    setBusy(true);
+    try { const up = await api.uploadFile(f); setLogo(up.url); }
+    catch (e) { onError(String(e)); } finally { setBusy(false); }
+  }
+
+  const publicPath = `/listing/${slug || "<slug-organisasi>"}`;
+  const publicUrl = typeof window !== "undefined" ? `${window.location.origin}${publicPath}` : publicPath;
+
+  return (
+    <div className="bg-card rounded-lg border border-border shadow-xs mb-4 shrink-0">
+      <button onClick={() => setOpen((v) => !v)} className="w-full px-4 py-3 flex items-center justify-between outline-none">
+        <div className="text-left">
+          <p className="text-[13px] font-semibold text-foreground">Situs listing publik</p>
+          <p className="text-[11.5px] text-muted-foreground">Alamat, logo, warna, dan tagline microsite Anda</p>
+        </div>
+        <span className="text-[12px] font-semibold text-primary">{open ? "Tutup" : "Atur"}</span>
+      </button>
+
+      {open && (
+        <div className="px-4 pb-4 border-t border-border pt-4 space-y-4">
+          <div>
+            <FieldLabel hint="Bagikan tautan ini ke calon pembeli; AI juga mengirimkannya saat merekomendasikan unit">Alamat situs</FieldLabel>
+            <div className="flex items-center gap-2">
+              <input readOnly value={publicUrl} className={cn(INPUT_CLASS, "bg-muted/50 text-muted-foreground")} />
+              <button type="button" onClick={() => { navigator.clipboard?.writeText(publicUrl); notify("Tautan disalin"); }}
+                className="h-9 px-3 rounded-md border border-input text-[13px] font-semibold hover:bg-muted transition-colors outline-none shrink-0">Salin</button>
+              <a href={publicPath} target="_blank" rel="noopener noreferrer"
+                className="h-9 px-3 rounded-md border border-input text-[13px] font-semibold hover:bg-muted transition-colors outline-none shrink-0 inline-flex items-center">Buka</a>
+            </div>
+          </div>
+
+          <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
+            <div>
+              <FieldLabel>Logo</FieldLabel>
+              <div className="flex items-center gap-2">
+                <div className="w-16 h-10 rounded-md border border-border bg-muted/40 overflow-hidden grid place-items-center shrink-0">
+                  {logo ? <Image src={logo} alt="" width={64} height={40} className="w-full h-full object-contain" unoptimized />
+                        : <Home className="w-4 h-4 text-muted-foreground/50" />}
+                </div>
+                <button type="button" onClick={() => logoRef.current?.click()} disabled={busy}
+                  className="h-9 px-3 rounded-md border border-input text-[13px] font-semibold hover:bg-muted transition-colors outline-none disabled:opacity-50">Unggah</button>
+                {logo && <button type="button" onClick={() => setLogo("")} className="text-[12px] text-red-600 font-semibold outline-none">Hapus</button>}
+              </div>
+              <input ref={logoRef} type="file" accept="image/*" hidden onChange={(e) => { pickLogo(e.target.files?.[0]); e.target.value = ""; }} />
+            </div>
+            <div>
+              <FieldLabel hint="Dipakai untuk tombol dan aksen di situs listing">Warna utama</FieldLabel>
+              <div className="flex items-center gap-2">
+                <input type="color" value={accent} onChange={(e) => setAccent(e.target.value)}
+                  className="h-9 w-12 rounded-md border border-input bg-background p-1 cursor-pointer" />
+                <input value={accent} onChange={(e) => setAccent(e.target.value)} className={INPUT_CLASS} />
+              </div>
+            </div>
+            <div>
+              <FieldLabel>Tagline</FieldLabel>
+              <input value={tagline} onChange={(e) => setTagline(e.target.value)}
+                placeholder="Hunian nyaman di jantung kota" className={INPUT_CLASS} />
+            </div>
+          </div>
+
+          <div className="flex justify-end">
+            <button type="button" onClick={save} disabled={busy || !settings}
+              className="inline-flex items-center gap-2 px-4 h-9 bg-primary text-white rounded-md text-sm font-semibold hover:bg-primary-dark transition-all outline-none disabled:opacity-50">
+              {busy && <Loader2 className="w-4 h-4 animate-spin" />}Simpan
+            </button>
+          </div>
+        </div>
+      )}
+    </div>
   );
 }
 

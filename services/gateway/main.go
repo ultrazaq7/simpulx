@@ -370,6 +370,9 @@ func main() {
 	mux.HandleFunc("DELETE /api/campaigns/{id}/catalog/{row}", s.requireAuth(s.gate("manage_campaigns", s.handleDeleteCatalogRow)))
 	mux.HandleFunc("DELETE /api/campaigns/{id}/catalog", s.requireAuth(s.gate("manage_campaigns", s.handleClearCatalog)))
 	// Property e-catalog: org-scoped listings behind the public listing site.
+	// Public listing site (no auth): org-slug scoped, published rows only.
+	mux.HandleFunc("GET /api/public/listings/{org}", s.handlePublicListings)
+	mux.HandleFunc("GET /api/public/listings/{org}/{slug}", s.handlePublicListing)
 	mux.HandleFunc("GET /api/listings", s.requireAuth(s.handleListListings))
 	mux.HandleFunc("POST /api/listings", s.requireAuth(s.gate("manage_campaigns", s.handleCreateListing)))
 	mux.HandleFunc("PATCH /api/listings/{id}", s.requireAuth(s.gate("manage_campaigns", s.handleUpdateListing)))

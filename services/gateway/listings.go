@@ -3,6 +3,7 @@ package main
 import (
 	"encoding/json"
 	"net/http"
+	"sort"
 	"strconv"
 	"strings"
 )
@@ -183,6 +184,161 @@ func (s *server) handleUpdateListing(w http.ResponseWriter, r *http.Request) {
 	}
 	s.audit(r.Context(), a, "updated", "listing", r.PathValue("id"), nil)
 	w.WriteHeader(http.StatusNoContent)
+}
+
+// ── Public reader (no auth) ─────────────────────────────────
+// Serves the per-client listing site. Everything here is scoped by the org SLUG
+// from the URL and hard-filtered to status='published', so an unauthenticated
+// caller can never see drafts, another org's stock, or any internal column.
+
+// publicOrgInfo is the tenant identity the microsite renders. Every client gets
+// their OWN site (own URL, own inventory, own WhatsApp), and branding lets it
+// carry their own logo/colour instead of looking like a shared template.
+type publicOrgInfo struct {
+	ID       string `json:"-"`
+	Name     string `json:"name"`
+	Slug     string `json:"slug"`
+	WhatsApp string `json:"whatsapp"`
+	Logo     string `json:"logo"`
+	Accent   string `json:"accent"`
+	Tagline  string `json:"tagline"`
+}
+
+// publicOrg resolves an org slug to its id + public profile, or 404s.
+func (s *server) publicOrg(w http.ResponseWriter, r *http.Request, slug string) (publicOrgInfo, bool) {
+	var o publicOrgInfo
+	o.Slug = slug
+	// display_id is the channel's human-facing identifier; for WhatsApp that is the
+	// phone number, which is what a wa.me deep link needs.
+	err := s.pool.QueryRow(r.Context(),
+		`SELECT o.id::text, o.name,
+		        COALESCE((SELECT c.display_id FROM channels c
+		                   WHERE c.organization_id=o.id AND c.type='whatsapp' AND c.is_active
+		                   ORDER BY c.created_at LIMIT 1), ''),
+		        COALESCE(o.settings->'branding'->>'logo_url',''),
+		        COALESCE(o.settings->'branding'->>'accent',''),
+		        COALESCE(o.settings->'branding'->>'tagline','')
+		   FROM organizations o WHERE o.slug=$1`, slug).
+		Scan(&o.ID, &o.Name, &o.WhatsApp, &o.Logo, &o.Accent, &o.Tagline)
+	if err != nil {
+		http.Error(w, "not found", http.StatusNotFound)
+		return o, false
+	}
+	return o, true
+}
+
+// GET /api/public/listings/{org} — published inventory + the filter facets the
+// site needs. Filters are applied server-side so a large catalogue never ships
+// in full to the browser.
+func (s *server) handlePublicListings(w http.ResponseWriter, r *http.Request) {
+	org, ok := s.publicOrg(w, r, r.PathValue("org"))
+	if !ok {
+		return
+	}
+	q := r.URL.Query()
+	args := []any{org.ID}
+	where := ""
+	// bind appends a value and returns its placeholder ($2, $3, ...), so a clause
+	// can reference the same bound value more than once (city matches two columns).
+	bind := func(val any) string {
+		args = append(args, val)
+		return "$" + strconv.Itoa(len(args))
+	}
+	if v := strings.TrimSpace(q.Get("type")); v != "" {
+		where += " AND property_type = " + bind(v)
+	}
+	if v := strings.TrimSpace(q.Get("city")); v != "" {
+		p := bind(v)
+		where += " AND (city ILIKE '%' || " + p + " || '%' OR location_area ILIKE '%' || " + p + " || '%')"
+	}
+	if v := q.Get("min_price"); v != "" {
+		if n, err := strconv.ParseFloat(v, 64); err == nil {
+			where += " AND price >= " + bind(n)
+		}
+	}
+	if v := q.Get("max_price"); v != "" {
+		if n, err := strconv.ParseFloat(v, 64); err == nil {
+			where += " AND price <= " + bind(n)
+		}
+	}
+	if v := q.Get("beds"); v != "" {
+		if n, err := strconv.Atoi(v); err == nil {
+			where += " AND bedrooms >= " + bind(n)
+		}
+	}
+	if v := strings.TrimSpace(q.Get("q")); v != "" {
+		p := bind(v)
+		where += " AND (title ILIKE '%' || " + p + " || '%' OR description ILIKE '%' || " + p + " || '%')"
+	}
+	rows, err := s.queryMaps(r.Context(),
+		`SELECT `+listingCols+` FROM listings
+		  WHERE organization_id=$1 AND status='published'`+where+`
+		  ORDER BY sort_order, published_at DESC NULLS LAST, created_at DESC
+		  LIMIT 200`, args...)
+	if err != nil {
+		http.Error(w, err.Error(), http.StatusInternalServerError)
+		return
+	}
+	// Facets come from the org's whole published set (not the filtered slice) so the
+	// filter options don't vanish as the visitor narrows things down.
+	facets, _ := s.queryMaps(r.Context(),
+		`SELECT COALESCE(property_type,'') AS property_type, COALESCE(city,'') AS city
+		   FROM listings WHERE organization_id=$1 AND status='published'`, org.ID)
+	types, cities := map[string]bool{}, map[string]bool{}
+	for _, f := range facets {
+		if v, _ := f["property_type"].(string); v != "" {
+			types[v] = true
+		}
+		if v, _ := f["city"].(string); v != "" {
+			cities[v] = true
+		}
+	}
+	writeJSON(w, map[string]any{
+		"org":      org,
+		"listings": rows,
+		"facets":   map[string]any{"types": keysOf(types), "cities": keysOf(cities)},
+	})
+}
+
+// GET /api/public/listings/{org}/{slug} — one published unit (404 while draft).
+func (s *server) handlePublicListing(w http.ResponseWriter, r *http.Request) {
+	org, ok := s.publicOrg(w, r, r.PathValue("org"))
+	if !ok {
+		return
+	}
+	rows, err := s.queryMaps(r.Context(),
+		`SELECT `+listingCols+` FROM listings
+		  WHERE organization_id=$1 AND slug=$2 AND status='published' LIMIT 1`,
+		org.ID, r.PathValue("slug"))
+	if err != nil {
+		http.Error(w, err.Error(), http.StatusInternalServerError)
+		return
+	}
+	if len(rows) == 0 {
+		http.Error(w, "not found", http.StatusNotFound)
+		return
+	}
+	// A few nearby units keep the visitor browsing instead of bouncing.
+	related, _ := s.queryMaps(r.Context(),
+		`SELECT `+listingCols+` FROM listings
+		  WHERE organization_id=$1 AND status='published' AND slug <> $2
+		  ORDER BY (city IS NOT DISTINCT FROM (SELECT city FROM listings WHERE organization_id=$1 AND slug=$2)) DESC,
+		           sort_order, created_at DESC
+		  LIMIT 3`, org.ID, r.PathValue("slug"))
+	writeJSON(w, map[string]any{
+		"org":     org,
+		"listing": rows[0],
+		"related": related,
+	})
+}
+
+func keysOf(m map[string]bool) []string {
+	out := make([]string, 0, len(m))
+	for k := range m {
+		out = append(out, k)
+	}
+	sort.Strings(out)
+	return out
 }
 
 // DELETE /api/listings/{id}
