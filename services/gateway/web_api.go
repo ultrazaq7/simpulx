@@ -289,8 +289,10 @@ func (s *server) handleIngestLead(w http.ResponseWriter, r *http.Request) {
 	if convID == "" {
 		// Branch/campaign routing below assigns the agent; no department step.
 		_ = s.pool.QueryRow(ctx,
-			`INSERT INTO conversations (organization_id, contact_id, channel, status, is_bot_active)
-			 VALUES ($1,$2,'web_api','open',true) RETURNING id::text`,
+			`INSERT INTO conversations (organization_id, contact_id, channel, status, is_bot_active, stage_id)
+			 VALUES ($1,$2,'web_api','open',true,
+			         (SELECT id FROM stages WHERE organization_id=$1 AND system_key='new' LIMIT 1))
+			 RETURNING id::text`,
 			orgID, contactID).Scan(&convID)
 	}
 	msg := message

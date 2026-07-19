@@ -179,9 +179,10 @@ func (s *store) getOrCreateConversation(ctx context.Context, orgID, contactID, c
 	}
 	// buat baru (lead no-signal baru, belum ter-attribute ke campaign manapun)
 	err = tx.QueryRow(ctx,
-		`INSERT INTO conversations (organization_id, contact_id, channel, channel_id, status, is_bot_active, ai_agent_id)
+		`INSERT INTO conversations (organization_id, contact_id, channel, channel_id, status, is_bot_active, ai_agent_id, stage_id)
 		 VALUES ($1, $2, $3, NULLIF($4,'')::uuid, 'open', true,
-		         (SELECT id FROM ai_agents WHERE organization_id = $1 AND is_active ORDER BY created_at LIMIT 1))
+		         (SELECT id FROM ai_agents WHERE organization_id = $1 AND is_active ORDER BY created_at LIMIT 1),
+		         (SELECT id FROM stages WHERE organization_id = $1 AND system_key = 'new' LIMIT 1))
 		 RETURNING id, is_bot_active, ai_agent_id`,
 		orgID, contactID, channel, channelID,
 	).Scan(&ci.ID, &ci.IsBotActive, &ci.AIAgentID)
@@ -455,9 +456,10 @@ func (s *store) getOrCreateThread(ctx context.Context, orgID, contactID, channel
 	}
 	// 3) No reusable thread -> create a fresh one for this campaign.
 	err = tx.QueryRow(ctx,
-		`INSERT INTO conversations (organization_id, contact_id, channel, channel_id, status, is_bot_active, ai_agent_id)
+		`INSERT INTO conversations (organization_id, contact_id, channel, channel_id, status, is_bot_active, ai_agent_id, stage_id)
 		 VALUES ($1, $2, $3, NULLIF($4,'')::uuid, 'open', true,
-		         (SELECT id FROM ai_agents WHERE organization_id = $1 AND is_active ORDER BY created_at LIMIT 1))
+		         (SELECT id FROM ai_agents WHERE organization_id = $1 AND is_active ORDER BY created_at LIMIT 1),
+		         (SELECT id FROM stages WHERE organization_id = $1 AND system_key = 'new' LIMIT 1))
 		 RETURNING id, is_bot_active, ai_agent_id`,
 		orgID, contactID, channel, channelID).Scan(&ci.ID, &ci.IsBotActive, &ci.AIAgentID)
 	if err != nil {
