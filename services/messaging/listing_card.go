@@ -129,3 +129,52 @@ func (a *app) sendListingCard(ctx context.Context, orgID, convID, slug string) {
 	}
 	_ = a.bus.Publish(events.SubjectMessageOutbound, orgID, out)
 }
+
+// Price/spec card for one campaign_catalog variant, sent when a customer taps it
+// in the AI's "pilih varian" list. Deterministic and credit-free, mirroring the
+// property card -- but the catalog has no photos, so this is a text card carrying
+// the variant name, OTR, location, and whatever segment-specific spec keys sit in
+// the attributes jsonb (dp, tenor, cicilan, transmisi, ...).
+func (a *app) sendCatalogCard(ctx context.Context, orgID, convID, rowID string) {
+	var (
+		item, variant, location string
+		price                   *float64
+		attrs                   []byte
+	)
+	err := a.st.pool.QueryRow(ctx,
+		`SELECT COALESCE(item_name,''), COALESCE(variant_name,''), COALESCE(location_name,''),
+		        headline_price, COALESCE(attributes,'{}'::jsonb)
+		   FROM campaign_catalog WHERE id = $1::uuid
+		     AND campaign_id = (SELECT campaign_id FROM conversations WHERE id = $2) LIMIT 1`,
+		rowID, convID).Scan(&item, &variant, &location, &price, &attrs)
+	if err != nil {
+		a.log.Warn("catalog card lookup failed", "row", rowID, "err", err)
+		return
+	}
+
+	title := strings.TrimSpace(item + " " + variant)
+	if title == "" {
+		title = "Varian"
+	}
+	lines := []string{title}
+	if p := rupiahShort(price); p != "" {
+		lines = append(lines, "Harga: "+p)
+	}
+	if location != "" {
+		lines = append(lines, location)
+	}
+	// Surface a few common spec keys if present, in a stable order, so the card is
+	// useful without dumping the whole attribute bag.
+	var bag map[string]any
+	_ = json.Unmarshal(attrs, &bag)
+	for _, k := range []string{"dp", "tdp", "tenor", "cicilan", "angsuran", "transmisi", "warna"} {
+		if v, ok := bag[k]; ok && v != nil && fmt.Sprintf("%v", v) != "" {
+			lines = append(lines, strings.Title(k)+": "+fmt.Sprintf("%v", v))
+		}
+	}
+	lines = append(lines, "", "Mau saya bantu simulasi cicilan atau jadwalkan test drive?")
+
+	_ = a.bus.Publish(events.SubjectMessageOutbound, orgID, events.MessageOutbound{
+		ConversationID: convID, SenderType: "bot", Type: "text", Body: strings.Join(lines, "\n"),
+	})
+}

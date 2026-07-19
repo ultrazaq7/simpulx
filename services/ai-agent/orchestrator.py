@@ -222,6 +222,38 @@ async def _send_listing_list(broker, org_id: str, conv_id: str, units: list[dict
     })
 
 
+async def _send_catalog_list(broker, org_id: str, conv_id: str, rows: list[dict]) -> None:
+    """Tappable WhatsApp list of catalog VARIANTS (automotive etc). Mirrors the
+    property listing list, but rows come from campaign_catalog and carry no photos,
+    so a tap ("cat:<id>") is answered with a price/spec text card in messaging.
+    Meta's hard limits (<=10 rows, title <=24, desc <=72, button <=20) are enforced.
+    """
+    import listings_rag
+    items = []
+    for r in rows[:10]:
+        rid = str(r.get("id") or "")
+        if not rid:
+            continue
+        title = " ".join(x for x in (r.get("item_name"), r.get("variant_name")) if x).strip() or "Varian"
+        bits = [listings_rag._rupiah(r.get("headline_price"))] if r.get("headline_price") else []
+        if r.get("location_name"):
+            bits.append(str(r["location_name"]))
+        items.append({"id": f"cat:{rid}"[:200], "title": title[:24], "description": " · ".join(bits)[:72]})
+    if not items:
+        return
+    await broker.publish(SUBJECT_OUTBOUND, org_id, {
+        "conversation_id": conv_id, "sender_type": "bot", "type": "interactive",
+        "body": "Pilihan varian yang tersedia:",
+        "interactive": {
+            "type": "list",
+            "body": "Pilihan varian yang tersedia:",
+            "footer": "Ketuk varian untuk melihat harga & detail",
+            "button_text": "Lihat varian",
+            "sections": [{"title": "Varian tersedia", "rows": items}],
+        },
+    })
+
+
 async def _publish_activity(broker, org_id: str, conv_id: str, phase: str, log) -> None:
     """Emit a live Simpuler phase (thinking|replied|handoff) for the inbox. Best
     effort: a transient indicator must never break the reply flow."""
@@ -783,6 +815,16 @@ async def _generate_and_send_reply(broker, pool, conn, org_id: str, conv_id: str
             if fc:
                 finance_ctx = f"\n\n{fc}\n"
 
+    # Catalog segments (automotive, etc.) get the same tappable list as property, but
+    # from campaign_catalog (variant x tenor pricelist, no photos). Gathered ONLY when
+    # the customer asks for options ("varian lain", "list") so a normal reply is never
+    # spammed with a variant list. The grounding above is untouched -- this is purely
+    # additive, and tapping a variant is answered deterministically in messaging.
+    catalog_units: list[dict] = []
+    if not is_property and row["campaign_id"] and _wants_listings(body):
+        catalog_units = await finance_rag.get_catalog_rows(
+            pool, row["campaign_id"], query=(lead_words or body), conn=conn)
+
     # Nothing left after the keyword => a bare ad opener ("Xforce1"): a click, not a
     # question. Answering it with the catalog is the bot talking first, so withhold it
     # and just greet.
@@ -918,6 +960,14 @@ async def _generate_and_send_reply(broker, pool, conn, org_id: str, conv_id: str
             await _send_listing_list(broker, org_id, conv_id, rest)
         except Exception:  # noqa: BLE001
             log.exception("listing list failed", extra={"conv": conv_id})
+    # Catalog segments (automotive, etc): the customer asked for options, so offer the
+    # variants as a tappable list. No photos in the catalog, so there is no card first
+    # -- the tap itself returns a price/spec card (handled deterministically in messaging).
+    elif catalog_units:
+        try:
+            await _send_catalog_list(broker, org_id, conv_id, catalog_units)
+        except Exception:  # noqa: BLE001
+            log.exception("catalog list failed", extra={"conv": conv_id})
     await _publish_activity(broker, org_id, conv_id, "replied", log)
     async with _conn_or(pool, conn) as conn:
         await conn.execute(

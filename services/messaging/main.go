@@ -248,6 +248,14 @@ func (a *app) onReceived(env events.Envelope) error {
 				a.sendListingCard(ctx, env.OrgID, conv.ID, slug)
 			}
 		}
+		// A tapped catalog variant from the automotive/segment "pilih varian" list.
+		// Same deterministic, credit-free answer as the property card, but from
+		// campaign_catalog (a price/spec text card -- the catalog has no photos).
+		if id, ok := strings.CutPrefix(e.Message.ButtonPayload, "cat:"); ok {
+			if id = strings.TrimSpace(id); id != "" {
+				a.sendCatalogCard(ctx, env.OrgID, conv.ID, id)
+			}
+		}
 	}
 
 	// Run user-configured automations (keyword reply, auto-tag, auto-assign,

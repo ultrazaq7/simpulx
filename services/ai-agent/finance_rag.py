@@ -156,6 +156,42 @@ def _variant_hits(query: str, rows) -> list:
     return hits
 
 
+async def get_catalog_rows(pool, campaign_id, query: str = None, conn=None) -> list[dict]:
+    """Distinct catalog VARIANTS for the interactive "pilih varian" list, one row
+    per (item, variant) with a representative row id + its OTR. Automotive catalog
+    is variant x tenor, so many rows collapse to one entry here; the cheapest
+    (headline_price ASC) row is kept as the representative for the tap lookup.
+
+    Ranked so a named model/trim in `query` floats to the top (same intent as the
+    grounding path), then by price. Returns [] when the campaign has no catalog.
+    """
+    if not campaign_id:
+        return []
+    try:
+        async with _acquire(pool, conn) as conn:
+            rows = await conn.fetch(
+                """SELECT DISTINCT ON (lower(coalesce(item_name,'')), lower(coalesce(variant_name,'')))
+                          id::text AS id, item_name, variant_name, location_name, headline_price
+                     FROM campaign_catalog
+                    WHERE campaign_id = $1::uuid AND headline_price IS NOT NULL
+                    ORDER BY lower(coalesce(item_name,'')), lower(coalesce(variant_name,'')),
+                             headline_price ASC NULLS LAST""",
+                campaign_id)
+    except Exception as e:  # never let this break the reply
+        log.warning(f"catalog rows lookup failed: {e}")
+        return []
+    items = [dict(r) for r in rows]
+    q = (query or "").lower()
+    hits = [t for t in re.split(r"[^a-z0-9]+", q) if len(t) > 2]
+
+    def score(r):
+        hay = f"{r.get('item_name') or ''} {r.get('variant_name') or ''}".lower()
+        return sum(1 for h in hits if h in hay)
+
+    items.sort(key=lambda r: (-score(r), float(r.get("headline_price") or 1e18)))
+    return items
+
+
 async def _catalog_from_table(pool, campaign_id, model: str,
                               city: str = None, query: str = None,
                               recent_text: str = None, conn=None) -> str | None:
