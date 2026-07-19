@@ -4,6 +4,7 @@ import (
 	"context"
 	"encoding/json"
 	"errors"
+	"regexp"
 	"strings"
 
 	"github.com/jackc/pgx/v5"
@@ -505,6 +506,59 @@ func (s *store) recordAttribution(ctx context.Context, orgID, convID, campaignID
 		cr.ImageURL, cr.Headline, cr.Body, cr.MediaType, ctwaClid,
 	)
 	return err
+}
+
+// listingURLRe matches a unit link from a property microsite: /listing/{org}/{unit}.
+// Host-agnostic on purpose (custom domains are planned) -- the two slugs are the
+// identifying part, and both are scoped to the org before anything is trusted.
+var listingURLRe = regexp.MustCompile(`/listing/([a-z0-9\-]+)/([a-z0-9\-]+)`)
+
+// resolveListingByURL maps an inbound message that carries a microsite unit link
+// back to that listing, and to the campaign the unit belongs to.
+//
+// This is the attribution path for the property e-catalog. The microsite's
+// WhatsApp button prefills the message with the unit's own link, so the signal is
+// already there in what the buyer sends -- nothing artificial (a tracking keyword
+// or code) has to be injected into their text. It is also strictly better than a
+// campaign keyword: it identifies the exact UNIT, so the sales team sees which
+// property the buyer was looking at, not just which campaign.
+//
+// The org slug in the URL must match the receiving org, so a link pasted from a
+// different tenant's site can never route a lead into this one.
+func (s *store) resolveListingByURL(ctx context.Context, orgID, text string) (listingID, campaignID, title string, ok bool) {
+	m := listingURLRe.FindStringSubmatch(strings.ToLower(text))
+	if m == nil {
+		return "", "", "", false
+	}
+	var cid *string
+	err := s.pool.QueryRow(ctx,
+		`SELECT l.id::text, l.campaign_id::text, l.title
+		   FROM listings l JOIN organizations o ON o.id = l.organization_id
+		  WHERE o.id = $1 AND o.slug = $2 AND l.slug = $3 AND l.status = 'published'
+		  LIMIT 1`, orgID, m[1], m[2]).Scan(&listingID, &cid, &title)
+	if err != nil {
+		return "", "", "", false
+	}
+	if cid != nil {
+		campaignID = *cid
+	}
+	return listingID, campaignID, title, true
+}
+
+// attachListing records the microsite unit a lead arrived from on the conversation.
+// Only ever set once (the FIRST unit that produced the contact), because that is the
+// attribution fact; a buyer who later asks about other units is normal browsing and
+// must not overwrite where the lead actually came from. Best-effort: attribution is
+// never worth failing an inbound message over.
+func (s *store) attachListing(ctx context.Context, convID, listingID, title string) {
+	_, _ = s.pool.Exec(ctx,
+		`UPDATE conversations
+		    SET metadata = COALESCE(metadata,'{}'::jsonb)
+		                 || jsonb_build_object('source_listing',
+		                      jsonb_build_object('id', $2::text, 'title', $3::text)),
+		        updated_at = now()
+		  WHERE id = $1 AND metadata->'source_listing' IS NULL`,
+		convID, listingID, title)
 }
 
 // resolveCampaignByKeyword: cocokkan keyword campaign aktif yang terkandung di

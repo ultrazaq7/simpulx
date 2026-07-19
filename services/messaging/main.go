@@ -155,6 +155,20 @@ func (a *app) onReceived(env events.Envelope) error {
 	}
 	// Tracked because a keyword-routed body is an ad/link template pre-fill ("pajero1"),
 	// not something the lead typed -> it must not count as genuine below.
+	// Property e-catalog: a lead arriving from the public microsite carries that
+	// unit's own link in the prefilled message. Resolving it is more precise than a
+	// keyword (it identifies the exact unit, not just a campaign), so it is checked
+	// first; the unit is remembered on the conversation below so the agent opens the
+	// chat already knowing which property the buyer was looking at.
+	listingID, listingTitle := "", ""
+	if !matched {
+		if lID, cID, title, ok := a.st.resolveListingByURL(ctx, env.OrgID, body); ok {
+			listingID, listingTitle = lID, title
+			if cID != "" {
+				campaignID, matched = cID, true
+			}
+		}
+	}
 	keywordRouted := false
 	if !matched {
 		if cID, ok := a.st.resolveCampaignByKeyword(ctx, env.OrgID, body); ok {
@@ -169,6 +183,11 @@ func (a *app) onReceived(env events.Envelope) error {
 	if err != nil {
 		a.log.Error("getOrCreateConversation failed", "org", env.OrgID, "contact", contactID, "err", err)
 		return err
+	}
+	// Remember the exact unit the buyer arrived from, so the agent opens the chat
+	// already knowing which property is in play and the AI can ground on it.
+	if listingID != "" {
+		a.st.attachListing(ctx, conv.ID, listingID, listingTitle)
 	}
 
 	// A revived (previously-closed) thread: broadcast the status flip so clients

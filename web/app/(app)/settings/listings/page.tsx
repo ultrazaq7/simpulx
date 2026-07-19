@@ -18,12 +18,11 @@ import { useI18n } from "@/lib/i18n";
 
 const PROPERTY_TYPES = ["Rumah", "Ruko", "Apartemen", "Tanah", "Kavling", "Gudang", "Villa", "Kost"];
 const CERTIFICATES = ["SHM", "HGB", "PPJB", "AJB", "Girik", "Strata Title"];
-const STATUSES = [
-  { value: "draft", label: "Draft" },
-  { value: "published", label: "Terbit" },
-  { value: "sold", label: "Terjual" },
-  { value: "archived", label: "Arsip" },
-];
+const STATUS_VALUES = ["draft", "published", "sold", "archived"] as const;
+const STATUS_KEY: Record<string, string> = {
+  draft: "settings.listingStatusDraft", published: "settings.listingStatusPublished",
+  sold: "settings.listingStatusSold", archived: "settings.listingStatusArchived",
+};
 const MAX_PHOTOS = 15;
 
 const fmtIDR = (n: number | null) => (n == null ? "-" : "Rp " + Math.round(n).toLocaleString("id-ID"));
@@ -56,11 +55,11 @@ export default function ListingsPage() {
         <div className="bg-card rounded-lg border border-border shadow-xs overflow-hidden flex-1 min-h-0 flex flex-col">
           <div className="p-3 flex items-center justify-between border-b border-border shrink-0">
             <p className="text-[13px] text-muted-foreground pl-1">
-              {all.length} unit &middot; {all.filter((l) => l.status === "published").length} terbit
+              {t("settings.listingCountSummary", { total: all.length, live: all.filter((l) => l.status === "published").length })}
             </p>
             <button onClick={() => setPanel({})}
               className="inline-flex items-center gap-2 px-3.5 h-9 bg-primary text-white rounded-md text-sm font-semibold hover:bg-primary-dark shadow-sm transition-all outline-none">
-              <Plus className="w-4 h-4" />Unit Baru
+              <Plus className="w-4 h-4" />{t("settings.listingNewUnit")}
             </button>
           </div>
 
@@ -68,9 +67,9 @@ export default function ListingsPage() {
             <table className="w-full text-sm min-w-[880px] whitespace-nowrap">
               <thead className="sticky top-0 z-10">
                 <tr className="border-b border-border bg-muted/40 backdrop-blur">
-                  {["Unit", "Tipe", "Harga", "Lokasi", "LT / LB", "Status", ""].map((h) => (
+                  {[t("settings.listingUnit"), t("settings.listingType"), t("settings.listingPrice"), t("settings.listingLocation"), t("settings.listingLandBuilding"), t("automation.status"), ""].map((h) => (
                     <th key={h} className={cn("px-4 py-2.5 text-[11px] font-bold uppercase tracking-wider text-muted-foreground",
-                      h === "Harga" || h === "LT / LB" ? "text-right" : h === "" ? "text-right w-16" : "text-left")}>{h}</th>
+                      h === t("settings.listingPrice") || h === t("settings.listingLandBuilding") ? "text-right" : h === "" ? "text-right w-16" : "text-left")}>{h}</th>
                   ))}
                 </tr>
               </thead>
@@ -80,8 +79,8 @@ export default function ListingsPage() {
                 ) : all.length === 0 ? (
                   <tr><td colSpan={7} className="text-center py-16">
                     <div className="w-12 h-12 rounded-xl bg-muted grid place-items-center mx-auto mb-3"><Home className="w-6 h-6 text-muted-foreground/50" /></div>
-                    <p className="font-semibold text-foreground mb-0.5">Belum ada listing</p>
-                    <p className="text-[13px] text-muted-foreground">Tambahkan unit pertama agar AI bisa merekomendasikannya ke calon pembeli.</p>
+                    <p className="font-semibold text-foreground mb-0.5">{t("settings.listingEmptyTitle")}</p>
+                    <p className="text-[13px] text-muted-foreground">{t("settings.listingEmptyBody")}</p>
                   </td></tr>
                 ) : all.map((l) => (
                   <tr key={l.id} className="border-b border-border/60 hover:bg-muted/50 transition-colors">
@@ -94,7 +93,7 @@ export default function ListingsPage() {
                         </div>
                         <div className="min-w-0">
                           <p className="text-[13px] font-semibold text-foreground truncate max-w-[260px]">{l.title}</p>
-                          <p className="text-[11px] text-muted-foreground truncate">{l.photos?.length || 0} foto</p>
+                          <p className="text-[11px] text-muted-foreground truncate">{t("settings.listingPhotosCount", { n: l.photos?.length || 0 })}</p>
                         </div>
                       </div>
                     </td>
@@ -109,7 +108,7 @@ export default function ListingsPage() {
                         l.status === "published" ? "bg-success/10 text-success"
                           : l.status === "sold" ? "bg-amber-500/10 text-amber-600"
                             : "bg-muted text-muted-foreground")}>
-                        {STATUSES.find((s) => s.value === l.status)?.label ?? l.status}
+                        {STATUS_KEY[l.status] ? t(STATUS_KEY[l.status]) : l.status}
                       </span>
                     </td>
                     <td className="px-4 py-2.5 text-right">
@@ -138,6 +137,7 @@ export default function ListingsPage() {
 // with its own logo/colour/tagline, so it reads as THEIR site rather than a shared
 // Simpulx template. Stored in organizations.settings.branding.
 function MicrositeCard({ notify, onError }: { notify: (m: string) => void; onError: (e: string) => void }) {
+  const { t } = useI18n();
   const [slug, setSlug] = useState("");
   const [settings, setSettings] = useState<OrgSettings | null>(null);
   const [logo, setLogo] = useState("");
@@ -166,7 +166,7 @@ function MicrositeCard({ notify, onError }: { notify: (m: string) => void; onErr
       await api.updateOrganization({
         settings: { ...settings, branding: { ...(settings.branding ?? {}), logo_url: logo.trim(), accent, tagline: tagline.trim() } },
       });
-      notify("Tampilan microsite tersimpan");
+      notify(t("settings.listingSiteSaved"));
     } catch (e) { onError(String(e)); } finally { setBusy(false); }
   }
 
@@ -184,41 +184,41 @@ function MicrositeCard({ notify, onError }: { notify: (m: string) => void; onErr
     <div className="bg-card rounded-lg border border-border shadow-xs mb-4 shrink-0">
       <button onClick={() => setOpen((v) => !v)} className="w-full px-4 py-3 flex items-center justify-between outline-none">
         <div className="text-left">
-          <p className="text-[13px] font-semibold text-foreground">Situs listing publik</p>
-          <p className="text-[11.5px] text-muted-foreground">Alamat, logo, warna, dan tagline microsite Anda</p>
+          <p className="text-[13px] font-semibold text-foreground">{t("settings.listingSiteTitle")}</p>
+          <p className="text-[11.5px] text-muted-foreground">{t("settings.listingSiteSubtitle")}</p>
         </div>
-        <span className="text-[12px] font-semibold text-primary">{open ? "Tutup" : "Atur"}</span>
+        <span className="text-[12px] font-semibold text-primary">{open ? t("settings.listingSiteClosePanel") : t("settings.listingSiteOpenPanel")}</span>
       </button>
 
       {open && (
         <div className="px-4 pb-4 border-t border-border pt-4 space-y-4">
           <div>
-            <FieldLabel hint="Bagikan tautan ini ke calon pembeli; AI juga mengirimkannya saat merekomendasikan unit">Alamat situs</FieldLabel>
+            <FieldLabel hint={t("settings.listingSiteUrlHint")}>{t("settings.listingSiteUrl")}</FieldLabel>
             <div className="flex items-center gap-2">
               <input readOnly value={publicUrl} className={cn(INPUT_CLASS, "bg-muted/50 text-muted-foreground")} />
-              <button type="button" onClick={() => { navigator.clipboard?.writeText(publicUrl); notify("Tautan disalin"); }}
-                className="h-9 px-3 rounded-md border border-input text-[13px] font-semibold hover:bg-muted transition-colors outline-none shrink-0">Salin</button>
+              <button type="button" onClick={() => { navigator.clipboard?.writeText(publicUrl); notify(t("settings.listingLinkCopied")); }}
+                className="h-9 px-3 rounded-md border border-input text-[13px] font-semibold hover:bg-muted transition-colors outline-none shrink-0">{t("settings.listingCopy")}</button>
               <a href={publicPath} target="_blank" rel="noopener noreferrer"
-                className="h-9 px-3 rounded-md border border-input text-[13px] font-semibold hover:bg-muted transition-colors outline-none shrink-0 inline-flex items-center">Buka</a>
+                className="h-9 px-3 rounded-md border border-input text-[13px] font-semibold hover:bg-muted transition-colors outline-none shrink-0 inline-flex items-center">{t("settings.listingOpen")}</a>
             </div>
           </div>
 
           <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
             <div>
-              <FieldLabel>Logo</FieldLabel>
+              <FieldLabel>{t("settings.listingLogo")}</FieldLabel>
               <div className="flex items-center gap-2">
                 <div className="w-16 h-10 rounded-md border border-border bg-muted/40 overflow-hidden grid place-items-center shrink-0">
                   {logo ? <Image src={logo} alt="" width={64} height={40} className="w-full h-full object-contain" unoptimized />
                         : <Home className="w-4 h-4 text-muted-foreground/50" />}
                 </div>
                 <button type="button" onClick={() => logoRef.current?.click()} disabled={busy}
-                  className="h-9 px-3 rounded-md border border-input text-[13px] font-semibold hover:bg-muted transition-colors outline-none disabled:opacity-50">Unggah</button>
-                {logo && <button type="button" onClick={() => setLogo("")} className="text-[12px] text-red-600 font-semibold outline-none">Hapus</button>}
+                  className="h-9 px-3 rounded-md border border-input text-[13px] font-semibold hover:bg-muted transition-colors outline-none disabled:opacity-50">{t("settings.listingUpload")}</button>
+                {logo && <button type="button" onClick={() => setLogo("")} className="text-[12px] text-red-600 font-semibold outline-none">{t("settings.listingRemove")}</button>}
               </div>
               <input ref={logoRef} type="file" accept="image/*" hidden onChange={(e) => { pickLogo(e.target.files?.[0]); e.target.value = ""; }} />
             </div>
             <div>
-              <FieldLabel hint="Dipakai untuk tombol dan aksen di situs listing">Warna utama</FieldLabel>
+              <FieldLabel hint={t("settings.listingAccentHint")}>{t("settings.listingAccent")}</FieldLabel>
               <div className="flex items-center gap-2">
                 <input type="color" value={accent} onChange={(e) => setAccent(e.target.value)}
                   className="h-9 w-12 rounded-md border border-input bg-background p-1 cursor-pointer" />
@@ -226,16 +226,16 @@ function MicrositeCard({ notify, onError }: { notify: (m: string) => void; onErr
               </div>
             </div>
             <div>
-              <FieldLabel>Tagline</FieldLabel>
+              <FieldLabel>{t("settings.listingTagline")}</FieldLabel>
               <input value={tagline} onChange={(e) => setTagline(e.target.value)}
-                placeholder="Hunian nyaman di jantung kota" className={INPUT_CLASS} />
+                placeholder={t("settings.listingTaglinePh")} className={INPUT_CLASS} />
             </div>
           </div>
 
           <div className="flex justify-end">
             <button type="button" onClick={save} disabled={busy || !settings}
               className="inline-flex items-center gap-2 px-4 h-9 bg-primary text-white rounded-md text-sm font-semibold hover:bg-primary-dark transition-all outline-none disabled:opacity-50">
-              {busy && <Loader2 className="w-4 h-4 animate-spin" />}Simpan
+              {busy && <Loader2 className="w-4 h-4 animate-spin" />}{t("settings.listingSave")}
             </button>
           </div>
         </div>
@@ -249,6 +249,7 @@ function ListingPanel({ listing, campaigns, onClose, onDone, onError, confirm }:
   onClose: () => void; onDone: (msg: string) => void; onError: (e: string) => void;
   confirm: (o: { title: string; message: string; danger?: boolean; confirmLabel?: string }) => Promise<boolean>;
 }) {
+  const { t } = useI18n();
   const isEdit = !!listing;
   const [title, setTitle] = useState(listing?.title ?? "");
   const [ptype, setPtype] = useState(listing?.property_type ?? "Rumah");
@@ -276,7 +277,7 @@ function ListingPanel({ listing, campaigns, onClose, onDone, onError, confirm }:
   async function addFiles(files: FileList | null) {
     if (!files?.length) return;
     const room = MAX_PHOTOS - photos.length;
-    if (room <= 0) { onError(`Maksimal ${MAX_PHOTOS} foto per unit`); return; }
+    if (room <= 0) { onError(t("settings.listingPhotosMax", { max: MAX_PHOTOS })); return; }
     const picked = Array.from(files).slice(0, room);
     setUploading(picked.length);
     try {
@@ -301,46 +302,46 @@ function ListingPanel({ listing, campaigns, onClose, onDone, onError, confirm }:
       campaign_id: campaignId, photos,
     } as Partial<Listing>;
     try {
-      if (isEdit && listing) { await api.updateListing(listing.id, payload); onDone("Listing tersimpan"); }
-      else { await api.createListing(payload); onDone("Listing dibuat"); }
+      if (isEdit && listing) { await api.updateListing(listing.id, payload); onDone(t("settings.listingSaved")); }
+      else { await api.createListing(payload); onDone(t("settings.listingCreated")); }
     } catch (e) { onError(String(e)); } finally { setBusy(false); }
   }
 
   return (
     <SidePanel open onClose={onClose} width="lg" busy={busy}
-      title={isEdit ? (listing?.title || "Edit unit") : "Unit baru"}
-      onApply={submit} applyLabel={isEdit ? "Simpan" : "Buat"} applyDisabled={!title.trim()}>
+      title={isEdit ? (listing?.title || t("settings.listingEditUnit")) : t("settings.listingNewUnitTitle")}
+      onApply={submit} applyLabel={isEdit ? t("settings.listingSave") : t("settings.listingCreate")} applyDisabled={!title.trim()}>
       <div className="space-y-4">
-        <div><FieldLabel>Nama unit</FieldLabel>
-          <input value={title} onChange={(e) => setTitle(e.target.value)} placeholder="Cluster Harmoni Tipe 45" className={INPUT_CLASS} /></div>
+        <div><FieldLabel>{t("settings.listingUnitName")}</FieldLabel>
+          <input value={title} onChange={(e) => setTitle(e.target.value)} placeholder={t("settings.listingUnitNamePh")} className={INPUT_CLASS} /></div>
 
         <div className="grid grid-cols-2 gap-4">
-          <div><FieldLabel>Tipe properti</FieldLabel>
+          <div><FieldLabel>{t("settings.listingPropertyType")}</FieldLabel>
             <Select value={ptype} onChange={setPtype} searchable={false} options={PROPERTY_TYPES.map((p) => ({ value: p, label: p }))} /></div>
-          <div><FieldLabel>Status</FieldLabel>
-            <Select value={status} onChange={setStatus} searchable={false} options={STATUSES} /></div>
+          <div><FieldLabel>{t("automation.status")}</FieldLabel>
+            <Select value={status} onChange={setStatus} searchable={false} options={STATUS_VALUES.map((v) => ({ value: v, label: t(STATUS_KEY[v]) }))} /></div>
         </div>
 
-        <div><FieldLabel hint="Tampil di situs listing publik dan dipakai AI saat mencocokkan budget lead">Harga (Rp)</FieldLabel>
+        <div><FieldLabel hint={t("settings.listingPriceHint")}>{t("settings.listingPrice")} (Rp)</FieldLabel>
           <input inputMode="numeric" value={price} onChange={(e) => setPrice(e.target.value.replace(/[^\d]/g, ""))} placeholder="800000000" className={INPUT_CLASS} />
           {price && <p className="text-[11px] text-muted-foreground mt-1">{fmtIDR(Number(price))}</p>}</div>
 
         {/* Photos: ordered, first = cover. Upload goes through the shared
             /api/uploads endpoint (MinIO), same as chat media. */}
         <div>
-          <FieldLabel hint={`Foto pertama jadi sampul. Maksimal ${MAX_PHOTOS} foto.`}>Foto</FieldLabel>
+          <FieldLabel hint={t("settings.listingPhotosHint", { max: MAX_PHOTOS })}>{t("settings.listingPhotos")}</FieldLabel>
           <div className="flex flex-wrap gap-2">
             {photos.map((p, i) => (
               <div key={p.url + i} className="relative w-[92px] h-[70px] rounded-md overflow-hidden border border-border group">
                 <Image src={p.url} alt="" width={92} height={70} className="w-full h-full object-cover" unoptimized />
-                {i === 0 && <span className="absolute top-1 left-1 inline-flex items-center gap-0.5 px-1 py-0.5 rounded bg-black/60 text-white text-[9px] font-bold"><Star className="w-2.5 h-2.5" />Sampul</span>}
+                {i === 0 && <span className="absolute top-1 left-1 inline-flex items-center gap-0.5 px-1 py-0.5 rounded bg-black/60 text-white text-[9px] font-bold"><Star className="w-2.5 h-2.5" />{t("settings.listingCover")}</span>}
                 <div className="absolute inset-x-0 bottom-0 flex opacity-0 group-hover:opacity-100 transition-opacity">
                   {i > 0 && (
-                    <button type="button" title="Jadikan sampul"
+                    <button type="button" title={t("settings.listingMakeCover")}
                       onClick={() => setPhotos((ps) => [ps[i], ...ps.filter((_, k) => k !== i)])}
                       className="flex-1 bg-black/70 text-white text-[10px] py-0.5 hover:bg-black/85"><GripVertical className="w-3 h-3 mx-auto" /></button>
                   )}
-                  <button type="button" title="Hapus"
+                  <button type="button" title={t("settings.listingRemove")}
                     onClick={() => setPhotos((ps) => ps.filter((_, k) => k !== i))}
                     className="flex-1 bg-red-600/80 text-white text-[10px] py-0.5 hover:bg-red-600"><X className="w-3 h-3 mx-auto" /></button>
                 </div>
@@ -357,38 +358,38 @@ function ListingPanel({ listing, campaigns, onClose, onDone, onError, confirm }:
         </div>
 
         <div className="grid grid-cols-2 gap-4">
-          <div><FieldLabel>Area / lokasi</FieldLabel>
+          <div><FieldLabel>{t("settings.listingArea")}</FieldLabel>
             <input value={area} onChange={(e) => setArea(e.target.value)} placeholder="Sawangan" className={INPUT_CLASS} /></div>
-          <div><FieldLabel>Kota</FieldLabel>
+          <div><FieldLabel>{t("settings.listingCity")}</FieldLabel>
             <input value={city} onChange={(e) => setCity(e.target.value)} placeholder="Depok" className={INPUT_CLASS} /></div>
         </div>
 
-        <div><FieldLabel>Alamat lengkap</FieldLabel>
+        <div><FieldLabel>{t("settings.listingAddress")}</FieldLabel>
           <input value={address} onChange={(e) => setAddress(e.target.value)} placeholder="Jl. Raya Sawangan No. 12" className={INPUT_CLASS} /></div>
 
         <div className="grid grid-cols-4 gap-3">
-          <div><FieldLabel>Kamar</FieldLabel><input inputMode="numeric" value={beds} onChange={(e) => setBeds(e.target.value.replace(/[^\d]/g, ""))} placeholder="2" className={INPUT_CLASS} /></div>
-          <div><FieldLabel>Mandi</FieldLabel><input inputMode="numeric" value={baths} onChange={(e) => setBaths(e.target.value.replace(/[^\d]/g, ""))} placeholder="1" className={INPUT_CLASS} /></div>
-          <div><FieldLabel>LT (m2)</FieldLabel><input inputMode="numeric" value={lt} onChange={(e) => setLt(e.target.value.replace(/[^\d.]/g, ""))} placeholder="72" className={INPUT_CLASS} /></div>
-          <div><FieldLabel>LB (m2)</FieldLabel><input inputMode="numeric" value={lb} onChange={(e) => setLb(e.target.value.replace(/[^\d.]/g, ""))} placeholder="45" className={INPUT_CLASS} /></div>
+          <div><FieldLabel>{t("settings.listingBedrooms")}</FieldLabel><input inputMode="numeric" value={beds} onChange={(e) => setBeds(e.target.value.replace(/[^\d]/g, ""))} placeholder="2" className={INPUT_CLASS} /></div>
+          <div><FieldLabel>{t("settings.listingBathrooms")}</FieldLabel><input inputMode="numeric" value={baths} onChange={(e) => setBaths(e.target.value.replace(/[^\d]/g, ""))} placeholder="1" className={INPUT_CLASS} /></div>
+          <div><FieldLabel>{t("settings.listingLandArea")}</FieldLabel><input inputMode="numeric" value={lt} onChange={(e) => setLt(e.target.value.replace(/[^\d.]/g, ""))} placeholder="72" className={INPUT_CLASS} /></div>
+          <div><FieldLabel>{t("settings.listingBuildingArea")}</FieldLabel><input inputMode="numeric" value={lb} onChange={(e) => setLb(e.target.value.replace(/[^\d.]/g, ""))} placeholder="45" className={INPUT_CLASS} /></div>
         </div>
 
         <div className="grid grid-cols-2 gap-4">
-          <div><FieldLabel>Sertifikat</FieldLabel>
+          <div><FieldLabel>{t("settings.listingCertificate")}</FieldLabel>
             <Select value={cert} onChange={setCert} searchable={false}
-              options={[{ value: "", label: "Tidak diisi" }, ...CERTIFICATES.map((c) => ({ value: c, label: c }))]} /></div>
-          <div><FieldLabel hint="Membatasi unit ini ke satu campaign agar AI memprioritaskannya untuk lead dari campaign tersebut">Campaign (opsional)</FieldLabel>
+              options={[{ value: "", label: t("settings.listingNotSet") }, ...CERTIFICATES.map((c) => ({ value: c, label: c }))]} /></div>
+          <div><FieldLabel hint={t("settings.listingCampaignHint")}>{t("settings.listingCampaignOpt")}</FieldLabel>
             <Select value={campaignId} onChange={setCampaignId}
-              options={[{ value: "", label: "Semua campaign" }, ...campaigns.map((c) => ({ value: c.id, label: c.name }))]} /></div>
+              options={[{ value: "", label: t("settings.listingAllCampaigns") }, ...campaigns.map((c) => ({ value: c.id, label: c.name }))]} /></div>
         </div>
 
-        <div><FieldLabel hint="Dipakai AI sebagai bahan menjelaskan unit ke calon pembeli">Deskripsi</FieldLabel>
+        <div><FieldLabel hint={t("settings.listingDescriptionHint")}>{t("settings.listingDescription")}</FieldLabel>
           <textarea value={desc} onChange={(e) => setDesc(e.target.value)} rows={4}
-            placeholder="Rumah 2 lantai dekat stasiun, hook, siap huni..."
+            placeholder={t("settings.listingDescriptionPh")}
             className={cn(INPUT_CLASS, "h-auto py-2 resize-y")} /></div>
 
         <div className="grid grid-cols-2 gap-4">
-          <div><FieldLabel hint="Untuk pin peta di situs listing">Latitude</FieldLabel>
+          <div><FieldLabel hint={t("settings.listingLatHint")}>Latitude</FieldLabel>
             <input value={lat} onChange={(e) => setLat(e.target.value)} placeholder="-6.4025" className={INPUT_CLASS} /></div>
           <div><FieldLabel>Longitude</FieldLabel>
             <input value={lng} onChange={(e) => setLng(e.target.value)} placeholder="106.7942" className={INPUT_CLASS} /></div>
@@ -398,13 +399,13 @@ function ListingPanel({ listing, campaigns, onClose, onDone, onError, confirm }:
           <div className="pt-3 border-t border-border">
             <button type="button" disabled={busy}
               onClick={async () => {
-                if (!(await confirm({ title: "Hapus unit?", message: `Hapus "${listing.title}" dari listing? Tindakan ini permanen.`, danger: true, confirmLabel: "Hapus" }))) return;
+                if (!(await confirm({ title: t("settings.listingDeleteTitle"), message: t("settings.listingDeleteBody", { title: listing.title }), danger: true, confirmLabel: t("settings.listingRemove") }))) return;
                 setBusy(true);
-                try { await api.deleteListing(listing.id); onDone("Listing dihapus"); }
+                try { await api.deleteListing(listing.id); onDone(t("settings.listingDeleted")); }
                 catch (e) { onError(String(e)); } finally { setBusy(false); }
               }}
               className="inline-flex items-center gap-1.5 text-[13px] font-semibold text-red-600 hover:text-red-700 outline-none disabled:opacity-50">
-              <Trash2 className="w-4 h-4" />Hapus unit
+              <Trash2 className="w-4 h-4" />{t("settings.listingDeleteUnit")}
             </button>
           </div>
         )}

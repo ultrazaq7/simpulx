@@ -106,6 +106,9 @@ export function specLine(l: PublicListing): string {
 // That is why there is no separate lead form: the conversation IS the conversion.
 export function waLink(org: PublicOrg, listing?: PublicListing, pageUrl?: string): string {
   const phone = (org.whatsapp || "").replace(/[^\d]/g, "");
+  // The unit link below is the attribution signal: messaging resolves it back to the
+  // listing (and therefore the campaign) on arrival, so nothing artificial has to be
+  // stuffed into the customer's message. See resolveCampaignByListingURL.
   const lines = listing
     ? [`Halo ${org.name}, saya tertarik dengan unit "${listing.title}".`,
        listing.price ? `Harga: ${rupiah(listing.price)}` : "",
