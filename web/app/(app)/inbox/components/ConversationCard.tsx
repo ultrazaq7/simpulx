@@ -6,6 +6,7 @@ import {
   Check, CheckCheck, AlertCircle,
 } from "lucide-react";
 import { initials, channelColor, avatarColor, cn } from "@/lib/utils";
+import { channelMeta } from "@/components/ChannelIcon";
 import { WindowTime, WindowCountdownBadge } from "./WindowTime";
 import { Tip } from "@/components/ui/tooltip";
 import type { Conversation } from "@/lib/types";
@@ -92,12 +93,20 @@ const ConversationCard = memo(function ConversationCard({
         >
           {initials(c.contact_name || c.contact_phone)}
         </div>
-        <Tip label={channelName || c.channel} side="top">
-          <span
-            className="absolute -bottom-0.5 -right-0.5 w-[12px] h-[12px] rounded-full ring-[2.5px] ring-card"
-            style={{ backgroundColor: cc }}
-          />
-        </Tip>
+        {(() => {
+          const m = channelMeta(c.channel);
+          const CIcon = m.icon;
+          return (
+            <Tip label={channelName || m.name} side="top">
+              <span
+                className="absolute -bottom-1 -right-1 w-[17px] h-[17px] rounded-full ring-2 ring-card grid place-items-center text-white"
+                style={{ background: m.gradient ?? m.color }}
+              >
+                <CIcon className="w-[10px] h-[10px]" />
+              </span>
+            </Tip>
+          );
+        })()}
       </div>
 
       {/* Text */}

@@ -5,6 +5,7 @@ import Link from "next/link";
 import { X, Copy, User, Phone, Hash, MessageSquare, Clock, StickyNote, Tag as TagIcon, Plus, Paperclip, Download, FileText, Image as ImageIcon, Video, Mic, Trash2, Check, ChevronDown, Search, XCircle } from "lucide-react";
 import { api } from "@/lib/api";
 import { initials, channelColor, channelTextColor, channelLabel, fmtDate, fmtTime, fmtDateTimeShort, cn } from "@/lib/utils";
+import { channelMeta } from "@/components/ChannelIcon";
 import { ScoreBadge } from "@/components/ScoreBadge";
 import { Tip } from "@/components/ui/tooltip";
 import { segmentFields } from "@/lib/segments";
@@ -327,7 +328,23 @@ export default function DetailsPanel({ active, onClose, copyText, notes, onAddNo
             <div className="mb-5">
               <DetailRow icon={User} label={t("account.name")} value={active.contact_name || "Unknown"} />
               <DetailRow icon={Phone} label={t("contacts.phone")} value={active.contact_phone || "None"} copyable={!!active.contact_phone} onCopy={() => active.contact_phone && copyText(active.contact_phone)} />
-              <DetailRow icon={Hash} label={t("components.channel")} value={channelName || channelLabel(active.channel)} />
+              {/* Channel row leads with the brand badge (icon + colour) instead of a
+                  generic hash, so WhatsApp/IG/Messenger/etc are recognisable at a glance. */}
+              <div className="flex gap-3 py-2 border-b border-border/50">
+                {(() => {
+                  const m = channelMeta(active.channel);
+                  const CIcon = m.icon;
+                  return (
+                    <span className="w-4 h-4 mt-0.5 rounded-full grid place-items-center text-white shrink-0" style={{ background: m.gradient ?? m.color }}>
+                      <CIcon className="w-2.5 h-2.5" />
+                    </span>
+                  );
+                })()}
+                <div className="flex-1 min-w-0">
+                  <p className="text-[10px] font-bold uppercase tracking-wider text-muted-foreground mb-0.5">{t("components.channel")}</p>
+                  <p className="text-xs font-semibold text-foreground truncate">{channelName || channelLabel(active.channel)}</p>
+                </div>
+              </div>
               {active.campaign_name && <DetailRow icon={Hash} label={t("automation.campaign")} value={active.campaign_name} />}
               <DetailRow icon={MessageSquare} label={t("automation.status")} value={humanize(active.status)} />
               <DetailRow icon={Clock} label={t("components.lastMessage")} value={active.last_message_at ? fmtDateTimeShort(active.last_message_at) : "No messages"} />
