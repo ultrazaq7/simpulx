@@ -2,55 +2,62 @@
 import { useState } from "react";
 import { MapPin, ExternalLink } from "lucide-react";
 
-// The map stays behind a "Tampilkan peta" tap: a static placeholder until then,
-// the embed after. "Buka di Google Maps" leaves for the app. `apiKey` comes from
-// the server page (process.env.MAPS_KEY) so it can be set in the server .env with
-// no rebuild; without a key we degrade to the plain "open in Maps" link.
+// Google Maps EMBED API is free and unlimited (unlike the JS/Static APIs that bill
+// per load), so the placeholder is the REAL map, blurred, with the actions over it
+// -- a proper snapshot instead of a hatch pattern. "Tampilkan peta" un-blurs and
+// makes it interactive; "Google Maps" opens the app. `apiKey` comes from the
+// server page (process.env.MAPS_KEY), so it is set in the server .env with no
+// rebuild; without a key we degrade to a plain "open in Maps" card.
 
 export default function ListingMap({ lat, lng, title, apiKey }: { lat: number; lng: number; title: string; apiKey?: string }) {
   const [shown, setShown] = useState(false);
-  const key = apiKey;
   const external = `https://www.google.com/maps/search/?api=1&query=${lat},${lng}`;
 
-  if (shown && key) {
+  if (!apiKey) {
     return (
-      <div className="space-y-2">
-        <div className="rounded-2xl overflow-hidden border border-black/[0.06] aspect-[16/9] bg-black/[0.04]">
-          <iframe
-            title={`Peta lokasi ${title}`}
-            src={`https://www.google.com/maps/embed/v1/place?key=${key}&q=${lat},${lng}&zoom=16`}
-            className="w-full h-full" loading="lazy" referrerPolicy="no-referrer-when-downgrade"
-            allowFullScreen />
-        </div>
+      <a href={external} target="_blank" rel="noopener noreferrer"
+        className="flex items-center justify-between gap-3 rounded-2xl border border-black/[0.06] bg-white px-5 py-4 hover:border-black/20 transition-colors">
+        <span className="inline-flex items-center gap-2 text-[14px] font-semibold"><MapPin className="w-4 h-4 text-black/40" />Lihat lokasi di Google Maps</span>
+        <ExternalLink className="w-4 h-4 text-black/40" />
+      </a>
+    );
+  }
+
+  const src = `https://www.google.com/maps/embed/v1/place?key=${apiKey}&q=${lat},${lng}&zoom=16`;
+
+  return (
+    <div className="space-y-2">
+      <div className="relative rounded-2xl overflow-hidden border border-black/[0.06] aspect-[16/9] bg-black/[0.04]">
+        <iframe
+          title={`Peta lokasi ${title}`}
+          src={src}
+          className="w-full h-full transition-[filter] duration-500"
+          style={{ filter: shown ? "none" : "blur(7px)", pointerEvents: shown ? "auto" : "none" }}
+          loading="lazy" referrerPolicy="no-referrer-when-downgrade" allowFullScreen />
+        {!shown && (
+          <div className="absolute inset-0 grid place-items-center bg-white/5">
+            <div className="text-center">
+              <p className="text-[12.5px] font-semibold text-black/70 mb-2.5 drop-shadow-sm">Perkiraan lokasi</p>
+              <div className="flex items-center justify-center gap-2">
+                <button onClick={() => setShown(true)}
+                  className="h-10 px-5 rounded-full bg-[#12211F] text-white text-[13.5px] font-semibold shadow-[0_4px_16px_rgba(0,0,0,0.18)] hover:opacity-90 transition-opacity">
+                  Tampilkan peta
+                </button>
+                <a href={external} target="_blank" rel="noopener noreferrer"
+                  className="h-10 px-4 rounded-full border border-black/15 bg-white text-[13.5px] font-semibold inline-flex items-center gap-1.5 shadow-sm hover:border-black/30 transition-colors">
+                  Google Maps <ExternalLink className="w-3.5 h-3.5" />
+                </a>
+              </div>
+            </div>
+          </div>
+        )}
+      </div>
+      {shown && (
         <a href={external} target="_blank" rel="noopener noreferrer"
           className="inline-flex items-center gap-1.5 text-[13px] font-semibold text-black/60 hover:text-black transition-colors">
           Buka di Google Maps <ExternalLink className="w-3.5 h-3.5" />
         </a>
-      </div>
-    );
-  }
-
-  return (
-    <div className="rounded-2xl border border-black/[0.06] bg-white overflow-hidden">
-      <div className="aspect-[16/9] relative grid place-items-center bg-[repeating-linear-gradient(45deg,#F3F4F1_0px,#F3F4F1_12px,#EDEEEA_12px,#EDEEEA_24px)]">
-        <div className="text-center px-6">
-          <MapPin className="w-6 h-6 mx-auto text-black/30" />
-          <p className="mt-2 text-[13.5px] font-semibold text-black/70">Lihat lokasi di peta</p>
-          <p className="text-[12px] text-black/45 mt-0.5">{lat.toFixed(5)}, {lng.toFixed(5)}</p>
-          <div className="mt-3 flex items-center justify-center gap-2">
-            {key && (
-              <button onClick={() => setShown(true)}
-                className="h-9 px-4 rounded-full bg-[#12211F] text-white text-[13px] font-semibold hover:opacity-90 transition-opacity">
-                Tampilkan peta
-              </button>
-            )}
-            <a href={external} target="_blank" rel="noopener noreferrer"
-              className="h-9 px-4 rounded-full border border-black/15 bg-white text-[13px] font-semibold inline-flex items-center gap-1.5 hover:border-black/30 transition-colors">
-              Google Maps <ExternalLink className="w-3.5 h-3.5" />
-            </a>
-          </div>
-        </div>
-      </div>
+      )}
     </div>
   );
 }
