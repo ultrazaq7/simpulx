@@ -488,6 +488,8 @@ export const api = {
   createListing: (input: Partial<Listing>) => req<{ id: string; slug: string }>("/api/listings", { method: "POST", body: JSON.stringify(input) }),
   updateListing: (id: string, patch: Partial<Listing>) => req(`/api/listings/${id}`, { method: "PATCH", body: JSON.stringify(patch) }),
   deleteListing: (id: string) => req(`/api/listings/${id}`, { method: "DELETE" }),
+  // Resolve a Google Maps share link (incl. short maps.app.goo.gl) to coordinates.
+  resolveMapsLink: (url: string) => req<{ lat: number; lng: number }>(`/api/geo/resolve?url=${encodeURIComponent(url)}`),
   getCampaignAnalytics: () => req<CampaignAnalyticsRow[]>("/api/analytics/campaigns"),
   getCampaign: (id: string) => req<CampaignDetail>(`/api/campaigns/${id}`),
   getCampaignCredits: (id: string) => req<{ allocated_credits: number; used_credits: number; low_balance_threshold: number; remaining_credits: number; org_total_credits: number; allocated_elsewhere: number }>(`/api/campaigns/${id}/credits`),

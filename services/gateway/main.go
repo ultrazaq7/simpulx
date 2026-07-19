@@ -192,6 +192,7 @@ func main() {
 	mux.HandleFunc("GET /api/conversations/{id}/messages", s.requireAuth(s.handleGetMessages))
 	mux.HandleFunc("GET /api/conversations/{id}/messages/search", s.requireAuth(s.handleSearchMessages))
 	mux.HandleFunc("GET /api/link-preview", s.requireAuth(s.handleLinkPreview))
+	mux.HandleFunc("GET /api/geo/resolve", s.requireAuth(s.gate("manage_campaigns", s.handleResolveMapsLink)))
 	mux.HandleFunc("PATCH /api/conversations/{id}", s.requireAuth(s.handlePatchConversation))
 	mux.HandleFunc("POST /api/conversations/{id}/calls", s.requireAuth(s.handleTrackCall))
 	mux.HandleFunc("POST /api/calls/request-permission", s.requireAuth(s.handleRequestCallPermission))

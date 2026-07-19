@@ -919,11 +919,18 @@
     "listingCreated": "Listing created",
     "listingEditUnit": "Edit unit",
     "listingNewUnitTitle": "New unit",
-    "listingFeatures": "Highlights",
+    "listingFeatures": "Highlights / Facilities",
     "listingFeaturesHint": "Comma-separated, shown as badges on the listing site (e.g. Bisa Nego, Full Furnished, Siap Huni)",
     "listingFeaturesPh": "Bisa Nego, Full Furnished, Siap Huni, Bebas Banjir",
     "listingPreview": "Preview photo",
-    "listingClose": "Close"
+    "listingClose": "Close",
+    "listingMapLink": "Google Maps link",
+    "listingMapHint": "Paste a Google Maps share link and the map pin fills itself. No need to find latitude/longitude.",
+    "listingMapDetected": "Location detected",
+    "listingMapManual": "Enter coordinates manually",
+    "listingMapHideManual": "Hide manual coordinates",
+    "listingMapResolveFailed": "Could not read that Maps link. Try opening it and copying the full URL.",
+    "listingMapInvalid": "That doesn't look like a Google Maps link."
   },
   "common": {
     "save": "Save",

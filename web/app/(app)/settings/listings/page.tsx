@@ -2,7 +2,7 @@
 import { useEffect, useRef, useState } from "react";
 import { useRouter } from "next/navigation";
 import Image from "next/image";
-import { Loader2, Plus, Pencil, Home, Trash2, GripVertical, Star, X, Upload } from "lucide-react";
+import { Loader2, Plus, Pencil, Home, Trash2, Star, X, Upload, MapPin } from "lucide-react";
 import { api, getUser } from "@/lib/api";
 import { cn } from "@/lib/utils";
 import type { Listing, ListingPhoto, Campaign, OrgSettings } from "@/lib/types";
@@ -10,6 +10,7 @@ import { Select } from "@/components/Select";
 import SidePanel from "@/components/SidePanel";
 import { useToast, FieldLabel, INPUT_CLASS } from "../_shared";
 import { useConfirm } from "@/components/ConfirmDialog";
+import { parseGoogleMapsCoords, isShortMapsLink, looksLikeMapsLink } from "@/lib/geo";
 import { useI18n } from "@/lib/i18n";
 
 // Property e-catalog admin. Org-scoped inventory behind the public listing site
@@ -244,6 +245,66 @@ function MicrositeCard({ notify, onError }: { notify: (m: string) => void; onErr
   );
 }
 
+// Location input: paste a Google Maps link and coordinates fill themselves. Full
+// map URLs are parsed in the browser; short share links (maps.app.goo.gl) are
+// resolved server-side. Manual lat/lng stays available behind a toggle for the
+// rare case someone already has the numbers.
+function MapLocation({ lat, lng, setLat, setLng, onError }: {
+  lat: string; lng: string; setLat: (v: string) => void; setLng: (v: string) => void; onError: (e: string) => void;
+}) {
+  const { t } = useI18n();
+  const [link, setLink] = useState("");
+  const [busy, setBusy] = useState(false);
+  const [manual, setManual] = useState(false);
+  const done = !!(lat && lng);
+
+  async function apply(value: string) {
+    setLink(value);
+    const v = value.trim();
+    if (!v) return;
+    const local = parseGoogleMapsCoords(v);
+    if (local) { setLat(String(local.lat)); setLng(String(local.lng)); return; }
+    if (looksLikeMapsLink(v) || isShortMapsLink(v)) {
+      setBusy(true);
+      try {
+        const r = await api.resolveMapsLink(v);
+        setLat(String(r.lat)); setLng(String(r.lng));
+      } catch { onError(t("settings.listingMapResolveFailed")); }
+      finally { setBusy(false); }
+    } else {
+      onError(t("settings.listingMapInvalid"));
+    }
+  }
+
+  return (
+    <div>
+      <FieldLabel hint={t("settings.listingMapHint")}>{t("settings.listingMapLink")}</FieldLabel>
+      <div className="flex gap-2">
+        <input value={link} onChange={(e) => setLink(e.target.value)}
+          onBlur={(e) => apply(e.target.value)}
+          onPaste={(e) => { const txt = e.clipboardData.getData("text"); setTimeout(() => apply(txt), 0); }}
+          placeholder="https://maps.app.goo.gl/..." className={INPUT_CLASS} />
+        {busy && <div className="grid place-items-center px-2"><Loader2 className="w-4 h-4 animate-spin text-muted-foreground" /></div>}
+      </div>
+      {done && (
+        <p className="mt-1.5 inline-flex items-center gap-1.5 text-[12px] text-success font-medium">
+          <MapPin className="w-3.5 h-3.5" />{t("settings.listingMapDetected")}: {Number(lat).toFixed(5)}, {Number(lng).toFixed(5)}
+          <a href={`https://www.google.com/maps?q=${lat},${lng}`} target="_blank" rel="noopener noreferrer" className="text-primary hover:underline ml-1">{t("settings.listingOpen")}</a>
+        </p>
+      )}
+      <button type="button" onClick={() => setManual((v) => !v)} className="mt-1.5 block text-[11.5px] text-muted-foreground hover:text-foreground">
+        {manual ? t("settings.listingMapHideManual") : t("settings.listingMapManual")}
+      </button>
+      {manual && (
+        <div className="grid grid-cols-2 gap-4 mt-2">
+          <div><FieldLabel>Latitude</FieldLabel><input value={lat} onChange={(e) => setLat(e.target.value)} placeholder="-6.4025" className={INPUT_CLASS} /></div>
+          <div><FieldLabel>Longitude</FieldLabel><input value={lng} onChange={(e) => setLng(e.target.value)} placeholder="106.7942" className={INPUT_CLASS} /></div>
+        </div>
+      )}
+    </div>
+  );
+}
+
 function ListingPanel({ listing, campaigns, onClose, onDone, onError, confirm }: {
   listing?: Listing; campaigns: Campaign[];
   onClose: () => void; onDone: (msg: string) => void; onError: (e: string) => void;
@@ -401,12 +462,7 @@ function ListingPanel({ listing, campaigns, onClose, onDone, onError, confirm }:
           <input value={features} onChange={(e) => setFeatures(e.target.value)}
             placeholder={t("settings.listingFeaturesPh")} className={INPUT_CLASS} /></div>
 
-        <div className="grid grid-cols-2 gap-4">
-          <div><FieldLabel hint={t("settings.listingLatHint")}>Latitude</FieldLabel>
-            <input value={lat} onChange={(e) => setLat(e.target.value)} placeholder="-6.4025" className={INPUT_CLASS} /></div>
-          <div><FieldLabel>Longitude</FieldLabel>
-            <input value={lng} onChange={(e) => setLng(e.target.value)} placeholder="106.7942" className={INPUT_CLASS} /></div>
-        </div>
+        <MapLocation lat={lat} lng={lng} setLat={setLat} setLng={setLng} onError={onError} />
 
         {isEdit && listing && (
           <div className="pt-3 border-t border-border">

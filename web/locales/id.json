@@ -919,11 +919,18 @@
     "listingCreated": "Listing dibuat",
     "listingEditUnit": "Edit unit",
     "listingNewUnitTitle": "Unit baru",
-    "listingFeatures": "Sorotan / Fasilitas",
+    "listingFeatures": "Keunggulan / Fasilitas",
     "listingFeaturesHint": "Pisahkan dengan koma, tampil sebagai badge di situs listing (mis. Bisa Nego, Full Furnished, Siap Huni)",
     "listingFeaturesPh": "Bisa Nego, Full Furnished, Siap Huni, Bebas Banjir",
     "listingPreview": "Pratinjau foto",
-    "listingClose": "Tutup"
+    "listingClose": "Tutup",
+    "listingMapLink": "Link Google Maps",
+    "listingMapHint": "Tempel link Google Maps, titik peta terisi otomatis. Tidak perlu cari latitude/longitude.",
+    "listingMapDetected": "Lokasi terdeteksi",
+    "listingMapManual": "Isi koordinat manual",
+    "listingMapHideManual": "Sembunyikan koordinat manual",
+    "listingMapResolveFailed": "Gagal membaca link Maps itu. Coba buka linknya lalu salin URL lengkapnya.",
+    "listingMapInvalid": "Itu sepertinya bukan link Google Maps."
   },
   "common": {
     "save": "Simpan",

@@ -1,9 +1,9 @@
 "use client";
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import Image from "next/image";
 import {
-  Bath, BedDouble, Check, FileText, Heart, LandPlot, MapPin, Maximize2, Phone,
-  Ruler, Share2, ShieldCheck, X,
+  Bath, BedDouble, Check, ChevronLeft, ChevronRight, FileText, Heart, LandPlot,
+  MapPin, Maximize2, Phone, Ruler, Share2, ShieldCheck, X,
 } from "lucide-react";
 import { rupiah, waLink, type ListingDetail } from "@/lib/public-listings";
 import { useFavourites } from "../useFavourites";
@@ -46,6 +46,17 @@ export default function ListingDetailView({ data, orgSlug }: { data: ListingDeta
     l.location_area ? ["Area", l.location_area] : null,
     l.city ? ["Kota", l.city] : null,
   ].filter(Boolean) as [string, string][];
+
+  useEffect(() => {
+    if (!lightbox) return;
+    const onKey = (e: KeyboardEvent) => {
+      if (e.key === "ArrowRight") setActive((i) => (i + 1) % photos.length);
+      else if (e.key === "ArrowLeft") setActive((i) => (i - 1 + photos.length) % photos.length);
+      else if (e.key === "Escape") setLightbox(false);
+    };
+    window.addEventListener("keydown", onKey);
+    return () => window.removeEventListener("keydown", onKey);
+  }, [lightbox, photos.length]);
 
   const longDesc = (l.description ?? "").length > DESC_CLAMP;
   const descShown = descOpen || !longDesc ? l.description : l.description!.slice(0, DESC_CLAMP) + "…";
@@ -130,7 +141,7 @@ export default function ListingDetailView({ data, orgSlug }: { data: ListingDeta
 
           {features.length > 0 && (
             <div className="mt-8">
-              <h2 className="text-[17px] font-bold mb-3">Sorotan</h2>
+              <h2 className="text-[17px] font-bold mb-3">Overview</h2>
               <div className="flex flex-wrap gap-2">
                 {features.map((f) => (
                   <span key={f} className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg bg-black/[0.04] text-[13px] font-medium">
@@ -237,6 +248,18 @@ export default function ListingDetailView({ data, orgSlug }: { data: ListingDeta
           </div>
           <div className="relative flex-1" onClick={(e) => e.stopPropagation()}>
             <Image src={photos[active].url} alt={l.title} fill sizes="100vw" className="object-contain" unoptimized />
+            {photos.length > 1 && (
+              <>
+                <button aria-label="Sebelumnya" onClick={() => setActive((i) => (i - 1 + photos.length) % photos.length)}
+                  className="absolute left-2 top-1/2 -translate-y-1/2 grid place-items-center w-11 h-11 rounded-full bg-white/15 hover:bg-white/30 text-white transition-colors">
+                  <ChevronLeft className="w-6 h-6" />
+                </button>
+                <button aria-label="Berikutnya" onClick={() => setActive((i) => (i + 1) % photos.length)}
+                  className="absolute right-2 top-1/2 -translate-y-1/2 grid place-items-center w-11 h-11 rounded-full bg-white/15 hover:bg-white/30 text-white transition-colors">
+                  <ChevronRight className="w-6 h-6" />
+                </button>
+              </>
+            )}
           </div>
           {photos.length > 1 && (
             <div className="mt-3 flex gap-2 justify-center overflow-x-auto no-scrollbar" onClick={(e) => e.stopPropagation()}>
