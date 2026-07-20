@@ -42,15 +42,25 @@ ALTER TABLE campaigns
 -- Guard the two fields a typo can silently ruin: an inverted age band or an
 -- unexpected gender string is accepted by Postgres but REJECTED by Meta, and the
 -- failure would surface much later as a failed launch with an opaque message.
+-- The StatementBegin/End markers are REQUIRED, not decoration: goose splits a
+-- migration on semicolons with its own parser, which does not understand
+-- dollar-quoting, so a DO block containing semicolons gets cut in half and fails
+-- with "unterminated dollar-quoted string". psql parses it fine, so this only
+-- ever shows up at deploy time. See 0102, which wraps its function body for the
+-- same reason.
+-- +goose StatementBegin
 DO $$ BEGIN
     ALTER TABLE campaigns ADD CONSTRAINT chk_campaigns_target_age
         CHECK (target_age_min >= 13 AND target_age_max <= 65 AND target_age_min <= target_age_max);
 EXCEPTION WHEN duplicate_object THEN NULL; END $$;
+-- +goose StatementEnd
 
+-- +goose StatementBegin
 DO $$ BEGIN
     ALTER TABLE campaigns ADD CONSTRAINT chk_campaigns_target_gender
         CHECK (target_gender IN ('all','male','female'));
 EXCEPTION WHEN duplicate_object THEN NULL; END $$;
+-- +goose StatementEnd
 
 -- ── Creative -> Meta ad link ────────────────────────────────────────────────
 --
