@@ -836,6 +836,10 @@ type metaInsight struct {
 	Reach        string `json:"reach"`
 	Clicks       string `json:"clicks"`
 	Spend        string `json:"spend"`
+	// Frequency = impressions/reach, already averaged by Meta over the row's
+	// window. Drives the ads-management fatigue rule (migration 0108); absent
+	// from every sync before that, so historical rows read 0.
+	Frequency string `json:"frequency"`
 	DateStart    string `json:"date_start"`
 	Age          string `json:"age"`    // present on age-breakdown rows
 	Gender       string `json:"gender"` // present on gender-breakdown rows
@@ -876,7 +880,7 @@ func (s *server) syncMetaAccount(ctx context.Context, accountID, orgID string) e
 	q := url.Values{}
 	q.Set("level", "campaign")
 	q.Set("time_increment", "1")
-	q.Set("fields", "campaign_id,campaign_name,impressions,reach,clicks,spend,actions")
+	q.Set("fields", "campaign_id,campaign_name,impressions,reach,frequency,clicks,spend,actions")
 	q.Set("time_range", string(tr))
 	q.Set("limit", "500")
 	q.Set("access_token", token)
@@ -987,7 +991,7 @@ func (s *server) syncMetaAds(ctx context.Context, accountID, orgID, extID, token
 	q := url.Values{}
 	q.Set("level", "ad")
 	q.Set("time_increment", "1")
-	q.Set("fields", "ad_id,ad_name,impressions,reach,clicks,spend")
+	q.Set("fields", "ad_id,ad_name,impressions,reach,frequency,clicks,spend")
 	q.Set("time_range", string(tr))
 	q.Set("limit", "500")
 	q.Set("access_token", token)
@@ -1020,13 +1024,14 @@ func (s *server) syncMetaAds(ctx context.Context, accountID, orgID, extID, token
 
 func (s *server) upsertAdAdMetric(ctx context.Context, orgID, accountID string, in metaInsight, currency string) {
 	_, _ = s.pool.Exec(ctx,
-		`INSERT INTO ad_ad_metrics (organization_id, ad_account_id, ad_external_id, ad_name, date, impressions, reach, clicks, spend, currency)
-		 VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,NULLIF($10,''))
+		`INSERT INTO ad_ad_metrics (organization_id, ad_account_id, ad_external_id, ad_name, date, impressions, reach, frequency, clicks, spend, currency)
+		 VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,NULLIF($11,''))
 		 ON CONFLICT (organization_id, ad_external_id, date)
 		 DO UPDATE SET ad_name=EXCLUDED.ad_name, impressions=EXCLUDED.impressions, reach=EXCLUDED.reach,
-		               clicks=EXCLUDED.clicks, spend=EXCLUDED.spend, currency=EXCLUDED.currency`,
+		               frequency=EXCLUDED.frequency, clicks=EXCLUDED.clicks, spend=EXCLUDED.spend,
+		               currency=EXCLUDED.currency`,
 		orgID, accountID, in.AdID, in.AdName, in.DateStart,
-		atoiSafe(in.Impressions), atoiSafe(in.Reach), atoiSafe(in.Clicks), atofSafe(in.Spend), currency)
+		atoiSafe(in.Impressions), atoiSafe(in.Reach), atofSafe(in.Frequency), atoiSafe(in.Clicks), atofSafe(in.Spend), currency)
 }
 
 // metaAd is one row from GET /act_{id}/ads?fields=id,creative{...}.
@@ -1140,13 +1145,14 @@ func (s *server) upsertAdCampaign(ctx context.Context, orgID, accountID, extID, 
 
 func (s *server) upsertAdMetric(ctx context.Context, orgID, accountID, adCampaignID string, in metaInsight, currency string) {
 	_, _ = s.pool.Exec(ctx,
-		`INSERT INTO ad_metrics (organization_id, ad_account_id, ad_campaign_id, date, impressions, reach, clicks, results, spend, currency)
-		 VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,NULLIF($10,''))
+		`INSERT INTO ad_metrics (organization_id, ad_account_id, ad_campaign_id, date, impressions, reach, frequency, clicks, results, spend, currency)
+		 VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,NULLIF($11,''))
 		 ON CONFLICT (ad_campaign_id, date)
-		 DO UPDATE SET impressions=EXCLUDED.impressions, reach=EXCLUDED.reach, clicks=EXCLUDED.clicks,
-		               results=EXCLUDED.results, spend=EXCLUDED.spend, currency=EXCLUDED.currency`,
+		 DO UPDATE SET impressions=EXCLUDED.impressions, reach=EXCLUDED.reach, frequency=EXCLUDED.frequency,
+		               clicks=EXCLUDED.clicks, results=EXCLUDED.results, spend=EXCLUDED.spend,
+		               currency=EXCLUDED.currency`,
 		orgID, accountID, adCampaignID, in.DateStart,
-		atoiSafe(in.Impressions), atoiSafe(in.Reach), atoiSafe(in.Clicks), metaResults(in), atofSafe(in.Spend), currency)
+		atoiSafe(in.Impressions), atoiSafe(in.Reach), atofSafe(in.Frequency), atoiSafe(in.Clicks), metaResults(in), atofSafe(in.Spend), currency)
 }
 
 // metaResults derives a representative "results" count: prefer messaging
@@ -1790,16 +1796,27 @@ func (s *server) handleMetaAdsConnect(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
+	clientID, _, redirectURI, err := metaOAuthConfig()
+	if err != nil {
+		s.log.Error("meta ads connect blocked", "err", err)
+		http.Error(w, err.Error(), http.StatusServiceUnavailable)
+		return
+	}
+
 	stateID := uuid.New().String()
 	b, _ := json.Marshal(oauthState{OrgID: a.OrgID, UserID: a.UserID, CustomerID: body.AccountID, Name: body.Name})
 	s.rdb.Set(r.Context(), "oauth:metaads:"+stateID, b, 15*time.Minute)
 
-	clientID := os.Getenv("META_CLIENT_ID")
-	redirectURI := os.Getenv("META_REDIRECT_URL")
+	// ads_management (not just ads_read) is what lets Simpulx MANAGE a client's
+	// campaigns, not only report on them. Meta grants it per app-review status:
+	// while the permission is in "Ready for testing" it is granted to users with
+	// a role on the app and silently withheld from everyone else, who then still
+	// get ads_read. Requesting it therefore never breaks the reporting-only case.
+	scope := "ads_read,ads_management,leads_retrieval,pages_show_list,pages_manage_ads"
 
 	// Graph API OAuth URL
 	url := fmt.Sprintf("https://www.facebook.com/v19.0/dialog/oauth?client_id=%s&redirect_uri=%s&state=%s&scope=%s",
-		clientID, url.QueryEscape(redirectURI), stateID, url.QueryEscape("ads_read,leads_retrieval,pages_show_list,pages_manage_ads"))
+		clientID, url.QueryEscape(redirectURI), stateID, url.QueryEscape(scope))
 
 	writeJSON(w, map[string]string{"url": url})
 }
@@ -1820,9 +1837,12 @@ func (s *server) handleMetaAdsCallback(w http.ResponseWriter, r *http.Request) {
 	var state oauthState
 	json.Unmarshal(b, &state)
 
-	clientID := os.Getenv("META_CLIENT_ID")
-	clientSecret := os.Getenv("META_APP_SECRET")
-	redirectURI := os.Getenv("META_REDIRECT_URL")
+	clientID, clientSecret, redirectURI, err := metaOAuthConfig()
+	if err != nil {
+		s.log.Error("meta ads callback blocked", "err", err)
+		http.Error(w, err.Error(), http.StatusServiceUnavailable)
+		return
+	}
 
 	// 1. Exchange code for short-lived token
 	tokenURL := fmt.Sprintf("https://graph.facebook.com/v19.0/oauth/access_token?client_id=%s&redirect_uri=%s&client_secret=%s&code=%s",
@@ -1884,6 +1904,53 @@ func (s *server) handleMetaAdsCallback(w http.ResponseWriter, r *http.Request) {
 
 	appBase := config.Get("APP_BASE_URL", "http://localhost:3000")
 	http.Redirect(w, r, appBase+"/settings/channels?connected=meta", http.StatusTemporaryRedirect)
+}
+
+// metaOAuthConfig resolves the app credentials + redirect URI used by the Meta
+// Ads OAuth dance.
+//
+// Both call sites used to read META_CLIENT_ID and META_REDIRECT_URL directly.
+// Neither is set anywhere: .env.example never had them, and prod only carries
+// META_APP_ID / META_APP_SECRET / META_VERIFY_TOKEN / ADS_TOKEN_ENC_KEY
+// (verified against /opt/simpulx/.env, 2026-07-21). So the authorize URL was
+// built with client_id= and redirect_uri= EMPTY and Facebook rejected the whole
+// flow — the "Connect Meta Ads" button could never have worked in prod. The one
+// connected account was created through the manual-token path instead.
+//
+// META_APP_ID is the same Meta app id (WhatsApp Embedded Signup already uses
+// it), so the old names stay supported as aliases but fall back to it rather
+// than requiring a second copy of the same value under a different name.
+// The redirect URI defaults to this gateway's own callback route, derived from
+// PUBLIC_API_URL — which prod already sets and Caddy already proxies.
+//
+// Returns an error instead of a half-built URL on purpose: a missing credential
+// must fail loudly at the click, where the message is actionable, rather than
+// silently at Facebook. That silent-failure shape is exactly what hid this bug.
+func metaOAuthConfig() (clientID, clientSecret, redirectURI string, err error) {
+	clientID = firstNonEmpty(os.Getenv("META_CLIENT_ID"), os.Getenv("META_APP_ID"))
+	clientSecret = os.Getenv("META_APP_SECRET")
+
+	redirectURI = os.Getenv("META_REDIRECT_URL")
+	if redirectURI == "" {
+		if base := strings.TrimRight(config.Get("PUBLIC_API_URL", ""), "/"); base != "" {
+			redirectURI = base + "/api/auth/meta-ads/callback"
+		}
+	}
+
+	var missing []string
+	if clientID == "" {
+		missing = append(missing, "META_APP_ID")
+	}
+	if clientSecret == "" {
+		missing = append(missing, "META_APP_SECRET")
+	}
+	if redirectURI == "" {
+		missing = append(missing, "PUBLIC_API_URL (or META_REDIRECT_URL)")
+	}
+	if len(missing) > 0 {
+		return "", "", "", fmt.Errorf("meta ads oauth is not configured: missing %s", strings.Join(missing, ", "))
+	}
+	return clientID, clientSecret, redirectURI, nil
 }
 
 // -- TikTok Ads OAuth ---------------------------------------
