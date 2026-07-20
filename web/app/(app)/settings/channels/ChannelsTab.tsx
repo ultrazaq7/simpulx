@@ -15,6 +15,7 @@ import { cn, fmtDateTimeShort } from "@/lib/utils";
 import { Tip } from "@/components/ui/tooltip";
 import type { Channel } from "@/lib/types";
 import { useToast, FieldLabel, INPUT_CLASS, PrimaryButton, GhostButton } from "../_shared";
+import { usePermissions } from "@/lib/permissions";
 import { ChannelWizard } from "./ChannelWizard";
 
 const STATUS: Record<string, { label: string; color: string; bg: string }> = {
@@ -49,6 +50,12 @@ function Toggle({ checked, onChange }: { checked: boolean; onChange: () => void 
 export function ChannelsTab() {
   const { t } = useI18n();
   const { notify, confirm, ToastHost } = useToast();
+  // Every channel mutation is gated server-side on manage_channels, so without it
+  // the API answers 403. Hiding the controls is what makes that legible: before,
+  // the buttons rendered for everyone and a manager could open the wizard, fill
+  // it in and only discover on save that they were never allowed.
+  const { can } = usePermissions();
+  const canManage = can("manage_channels");
   const [channels, setChannels] = useState<Channel[]>([]);
   const [loading, setLoading] = useState(true);
   const [query, setQuery] = useState("");
@@ -113,9 +120,11 @@ export function ChannelsTab() {
             <RefreshCw className="w-[18px] h-[18px] text-muted-foreground" />
           </button></Tip>
           <div className="flex-1" />
-          <PrimaryButton onClick={() => setWizardOpen(true)}>
-            <Plus className="w-4 h-4" />{t("settings.createChannel")}
-          </PrimaryButton>
+          {canManage && (
+            <PrimaryButton onClick={() => setWizardOpen(true)}>
+              <Plus className="w-4 h-4" />{t("settings.createChannel")}
+            </PrimaryButton>
+          )}
         </div>
 
         {/* Platform filter chips */}
@@ -137,12 +146,12 @@ export function ChannelsTab() {
               <div className="inline-flex mb-3 opacity-80"><ChannelIcon type="whatsapp" size={56} radius={16} /></div>
               <p className="font-bold text-foreground mb-1">{channels.length === 0 ? t("settings.noChannelsConnectedYet") : t("settings.noChannelsMatchYourFilters")}</p>
               <p className="text-[13px] text-muted-foreground mb-4">{channels.length === 0 ? t("settings.connectWhatsappMessengerInstagramViber") : t("settings.tryADifferentSearchOr")}</p>
-              {channels.length === 0 && <PrimaryButton onClick={() => setWizardOpen(true)}><Plus className="w-4 h-4" />{t("settings.createChannel")}</PrimaryButton>}
+              {channels.length === 0 && canManage && <PrimaryButton onClick={() => setWizardOpen(true)}><Plus className="w-4 h-4" />{t("settings.createChannel")}</PrimaryButton>}
             </div>
           ) : (
             <div className="divide-y divide-border">
               {paged.map((c) => (
-                <ChannelRow key={c.id} c={c} onTest={test} onToggle={toggleActive} onEdit={setEditing} onDelete={remove} />
+                <ChannelRow key={c.id} c={c} canManage={canManage} onTest={test} onToggle={toggleActive} onEdit={setEditing} onDelete={remove} />
               ))}
             </div>
           )}
@@ -192,8 +201,8 @@ function Chip({ label, active, onClick }: { label: string; active: boolean; onCl
 }
 
 // ── Enterprise channel row ─────────────────────────────────────────────────
-function ChannelRow({ c, onTest, onToggle, onEdit, onDelete }: {
-  c: Channel; onTest: (c: Channel) => void; onToggle: (c: Channel) => void; onEdit: (c: Channel) => void; onDelete: (c: Channel) => void;
+function ChannelRow({ c, canManage, onTest, onToggle, onEdit, onDelete }: {
+  c: Channel; canManage: boolean; onTest: (c: Channel) => void; onToggle: (c: Channel) => void; onEdit: (c: Channel) => void; onDelete: (c: Channel) => void;
 }) {
   const { t } = useI18n();
   const sandbox = isSandbox(c);
@@ -218,10 +227,14 @@ function ChannelRow({ c, onTest, onToggle, onEdit, onDelete }: {
         {c.connected_at && <span className="text-[11.5px] text-muted-foreground shrink-0">{t("contacts.created")} {fmtDateTimeShort(c.connected_at)}</span>}
       </div>
       <div className="w-[120px] shrink-0 hidden sm:block"><StatusDot status={c.status} /></div>
-      <Tip label={c.is_active ? t("dashboard.active") : t("settings.disabled")}><span className="shrink-0"><Toggle checked={c.is_active} onChange={() => onToggle(c)} /></span></Tip>
-      <button onClick={() => onTest(c)} className="inline-flex items-center gap-1.5 px-2.5 h-8 rounded-md border border-border text-[12.5px] font-semibold text-foreground hover:bg-muted transition-colors outline-none shrink-0">
-        <CheckCircle className="w-3.5 h-3.5" />{t("settings.test")}
-      </button>
+      {canManage && (
+        <>
+          <Tip label={c.is_active ? t("dashboard.active") : t("settings.disabled")}><span className="shrink-0"><Toggle checked={c.is_active} onChange={() => onToggle(c)} /></span></Tip>
+          <button onClick={() => onTest(c)} className="inline-flex items-center gap-1.5 px-2.5 h-8 rounded-md border border-border text-[12.5px] font-semibold text-foreground hover:bg-muted transition-colors outline-none shrink-0">
+            <CheckCircle className="w-3.5 h-3.5" />{t("settings.test")}
+          </button>
+        </>
+      )}
       <div className="relative shrink-0">
         <button onClick={() => setMenu((m) => !m)} className="p-1.5 rounded-md hover:bg-muted outline-none transition-colors">
           <MoreVertical className="w-[18px] h-[18px] text-muted-foreground" />
@@ -230,11 +243,15 @@ function ChannelRow({ c, onTest, onToggle, onEdit, onDelete }: {
           <>
             <div className="fixed inset-0 z-10" onClick={() => setMenu(false)} />
             <div className="absolute right-0 top-9 z-20 w-40 rounded-lg border border-border bg-card shadow-xl py-1 animate-scale-in">
-              <MenuItem icon={Pencil} label={t("common.edit")} onClick={() => { setMenu(false); onEdit(c); }} />
+              {canManage && <MenuItem icon={Pencil} label={t("common.edit")} onClick={() => { setMenu(false); onEdit(c); }} />}
               <LinkMenuItem icon={FileText} label={t("settings.templates")} href="/settings/templates" onClick={() => setMenu(false)} />
-              <MenuItem icon={Power} label={c.is_active ? t("settings.disable") : t("settings.enable")} onClick={() => { setMenu(false); onToggle(c); }} />
-              <div className="my-1 border-t border-border/60" />
-              <MenuItem icon={Trash2} label={t("common.delete")} danger onClick={() => { setMenu(false); onDelete(c); }} />
+              {canManage && (
+                <>
+                  <MenuItem icon={Power} label={c.is_active ? t("settings.disable") : t("settings.enable")} onClick={() => { setMenu(false); onToggle(c); }} />
+                  <div className="my-1 border-t border-border/60" />
+                  <MenuItem icon={Trash2} label={t("common.delete")} danger onClick={() => { setMenu(false); onDelete(c); }} />
+                </>
+              )}
             </div>
           </>
         )}

@@ -7,6 +7,7 @@ import { useEffect, useMemo, useState } from "react";
 import {
   Plus, RefreshCw, Trash2, Loader2, BarChart3, AlertTriangle, Link2, Search, Pencil, KeyRound,
 } from "lucide-react";
+import { usePermissions } from "@/lib/permissions";
 import { api } from "@/lib/api";
 import { MultiSelect } from "@/components/ui/multi-select";
 import SidePanel from "@/components/SidePanel";
@@ -34,6 +35,10 @@ export function AdvertisingTab({ embedded }: { embedded?: boolean } = {}) {
   const [toast, setToast] = useState<string | null>(null);
   const { confirm, ConfirmHost } = useConfirm();
   const [search, setSearch] = useState("");
+  // Connect / sync / disconnect all hit endpoints gated server-side on
+  // manage_channels, so render them only for callers who hold it.
+  const { can } = usePermissions();
+  const canManage = can("manage_channels");
 
   async function loadAll() {
     const [acc, adc, oc] = await Promise.all([
@@ -82,9 +87,11 @@ export function AdvertisingTab({ embedded }: { embedded?: boolean } = {}) {
               className="w-full h-9 pl-9 pr-3 rounded-md border border-input bg-muted text-sm text-foreground placeholder:text-muted-foreground/70 outline-none transition-shadow focus:border-primary focus:ring-2 focus:ring-primary/20" />
           </div>
           <div className="flex-1" />
-          <button onClick={() => setConnectOpen(true)} className="inline-flex items-center gap-2 px-3.5 h-9 bg-primary text-white rounded-md text-sm font-semibold hover:bg-primary-dark shadow-sm transition-all outline-none">
-            <Plus className="w-4 h-4" />{t("settings.connectAdAccount")}
-          </button>
+          {canManage && (
+            <button onClick={() => setConnectOpen(true)} className="inline-flex items-center gap-2 px-3.5 h-9 bg-primary text-white rounded-md text-sm font-semibold hover:bg-primary-dark shadow-sm transition-all outline-none">
+              <Plus className="w-4 h-4" />{t("settings.connectAdAccount")}
+            </button>
+          )}
         </div>
 
         <div className={cn("p-4", !embedded && "overflow-auto flex-1 min-h-0")}>
@@ -95,7 +102,7 @@ export function AdvertisingTab({ embedded }: { embedded?: boolean } = {}) {
             <div className="w-12 h-12 rounded-xl bg-muted grid place-items-center mx-auto mb-3"><BarChart3 className="w-6 h-6 text-muted-foreground/50" /></div>
             <p className="font-semibold text-foreground mb-0.5">{t("settings.noAdAccountConnected")}</p>
             <p className="text-sm text-muted-foreground mb-4">{t("settings.connectAMetaAdAccount")}</p>
-            <button onClick={() => setConnectOpen(true)} className="inline-flex items-center gap-2 px-4 h-9 bg-primary text-white rounded-md text-sm font-semibold hover:bg-primary-dark shadow-sm outline-none"><Plus className="w-4 h-4" />{t("settings.connectAdAccount")}</button>
+            {canManage && <button onClick={() => setConnectOpen(true)} className="inline-flex items-center gap-2 px-4 h-9 bg-primary text-white rounded-md text-sm font-semibold hover:bg-primary-dark shadow-sm outline-none"><Plus className="w-4 h-4" />{t("settings.connectAdAccount")}</button>}
           </div>
         ) : (
           <div className="rounded-lg border border-border divide-y divide-border overflow-hidden">
@@ -125,8 +132,12 @@ export function AdvertisingTab({ embedded }: { embedded?: boolean } = {}) {
                   <span className={cn("px-2 py-0.5 rounded-md text-[11px] font-semibold shrink-0", a.status === "error" ? "bg-red-50 text-red-600" : "bg-emerald-50 text-emerald-600")}>{a.status}</span>
                   <div className="flex items-center gap-0.5 shrink-0">
                     <button onClick={() => setManageId(a.id)} className="p-1.5 rounded-md hover:bg-muted text-muted-foreground hover:text-foreground outline-none transition-colors" title={t("settings.editMap")}><Pencil className="w-4 h-4" /></button>
-                    <button onClick={() => sync(a.id)} disabled={syncing === a.id} className="p-1.5 rounded-md hover:bg-muted text-primary outline-none disabled:opacity-50 transition-colors" title={t("settings.syncNow")}><RefreshCw className={cn("w-4 h-4", syncing === a.id && "animate-spin")} /></button>
-                    <button onClick={() => remove(a)} className="p-1.5 rounded-md hover:bg-muted text-destructive outline-none transition-colors" title={t("settings.disconnect")}><Trash2 className="w-4 h-4" /></button>
+                    {canManage && (
+                      <>
+                        <button onClick={() => sync(a.id)} disabled={syncing === a.id} className="p-1.5 rounded-md hover:bg-muted text-primary outline-none disabled:opacity-50 transition-colors" title={t("settings.syncNow")}><RefreshCw className={cn("w-4 h-4", syncing === a.id && "animate-spin")} /></button>
+                        <button onClick={() => remove(a)} className="p-1.5 rounded-md hover:bg-muted text-destructive outline-none transition-colors" title={t("settings.disconnect")}><Trash2 className="w-4 h-4" /></button>
+                      </>
+                    )}
                   </div>
                 </div>
               );

@@ -11,6 +11,7 @@ import SidePanel from "@/components/SidePanel";
 import { cn, fmtDateTimeShort } from "@/lib/utils";
 import { Tip } from "@/components/ui/tooltip";
 import type { WebApiSource, Campaign, SourcePlatform } from "@/lib/types";
+import { usePermissions } from "@/lib/permissions";
 import { useToast, FieldLabel, INPUT_CLASS, PrimaryButton } from "../_shared";
 import { WebApiWizard } from "./WebApiWizard";
 
@@ -28,6 +29,10 @@ const PLATFORM_COLORS: Record<SourcePlatform, string> = {
 export function WebApiTab() {
   const { t } = useI18n();
   const { notify, confirm, ToastHost } = useToast();
+  // POST/PATCH/DELETE on web-api-sources are gated server-side on
+  // manage_channels, so show the controls only to callers who actually have it.
+  const { can } = usePermissions();
+  const canManage = can("manage_channels");
   const [rows, setRows] = useState<WebApiSource[]>([]);
   const [campaigns, setCampaigns] = useState<Campaign[]>([]);
   const [loading, setLoading] = useState(true);
@@ -74,9 +79,11 @@ export function WebApiTab() {
             <RefreshCw className="w-[18px] h-[18px] text-muted-foreground" />
           </button></Tip>
           <div className="flex-1" />
-          <PrimaryButton onClick={() => setWizardOpen(true)}>
-            <Plus className="w-4 h-4" />{t("settings.addApiSource")}
-          </PrimaryButton>
+          {canManage && (
+            <PrimaryButton onClick={() => setWizardOpen(true)}>
+              <Plus className="w-4 h-4" />{t("settings.addApiSource")}
+            </PrimaryButton>
+          )}
         </div>
 
         <div className="overflow-auto flex-1 min-h-0 p-4">
@@ -90,9 +97,11 @@ export function WebApiTab() {
               <Plug className="w-11 h-11 text-muted-foreground/30 mx-auto mb-2" />
               <p className="font-bold text-foreground mb-1">{t("settings.noApiSourcesYet")}</p>
               <p className="text-[13px] text-muted-foreground mb-4">{t("settings.connectAnAdPlatformOr")}</p>
-              <PrimaryButton onClick={() => setWizardOpen(true)}>
-                <Plus className="w-4 h-4" />{t("settings.addApiSource")}
-              </PrimaryButton>
+              {canManage && (
+                <PrimaryButton onClick={() => setWizardOpen(true)}>
+                  <Plus className="w-4 h-4" />{t("settings.addApiSource")}
+                </PrimaryButton>
+              )}
             </div>
           ) : (
             <div className="rounded-lg border border-border divide-y divide-border overflow-hidden">
@@ -119,14 +128,18 @@ export function WebApiTab() {
                     <span>{t("contacts.created")} {fmtDateTimeShort(p.created_at)}</span>
                     {p.updated_at && <span>{t("dashboard.updated")} {fmtDateTimeShort(p.updated_at)}</span>}
                   </div>
-                  <Tip label={p.is_active ? t("dashboard.active") : t("settings.disabled")}>
-                    <label className="relative inline-flex items-center cursor-pointer shrink-0">
-                      <input type="checkbox" checked={p.is_active} onChange={() => toggle(p)} className="sr-only peer" />
-                      <div className="w-9 h-5 bg-muted rounded-full peer peer-checked:bg-primary after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:rounded-full after:h-4 after:w-4 after:transition-all peer-checked:after:translate-x-full" />
-                    </label>
-                  </Tip>
-                  <Tip label={t("common.edit")}><button onClick={() => setDlg({ open: true, editing: p })} className="p-1.5 rounded-md hover:bg-muted outline-none transition-colors shrink-0"><Pencil className="w-[18px] h-[18px] text-muted-foreground" /></button></Tip>
-                  <Tip label={t("common.delete")}><button onClick={() => remove(p)} className="p-1.5 rounded-md hover:bg-muted outline-none transition-colors shrink-0"><Trash2 className="w-[18px] h-[18px] text-destructive" /></button></Tip>
+                  {canManage && (
+                    <>
+                      <Tip label={p.is_active ? t("dashboard.active") : t("settings.disabled")}>
+                        <label className="relative inline-flex items-center cursor-pointer shrink-0">
+                          <input type="checkbox" checked={p.is_active} onChange={() => toggle(p)} className="sr-only peer" />
+                          <div className="w-9 h-5 bg-muted rounded-full peer peer-checked:bg-primary after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:rounded-full after:h-4 after:w-4 after:transition-all peer-checked:after:translate-x-full" />
+                        </label>
+                      </Tip>
+                      <Tip label={t("common.edit")}><button onClick={() => setDlg({ open: true, editing: p })} className="p-1.5 rounded-md hover:bg-muted outline-none transition-colors shrink-0"><Pencil className="w-[18px] h-[18px] text-muted-foreground" /></button></Tip>
+                      <Tip label={t("common.delete")}><button onClick={() => remove(p)} className="p-1.5 rounded-md hover:bg-muted outline-none transition-colors shrink-0"><Trash2 className="w-[18px] h-[18px] text-destructive" /></button></Tip>
+                    </>
+                  )}
                 </div>
               ))}
             </div>
