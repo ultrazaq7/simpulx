@@ -82,7 +82,7 @@ export default async function ListingDetailPage({ params }: Props) {
       <ListingDetailView data={data} orgSlug={org} mapKey={process.env.MAPS_KEY} />
 
       {data.related.length > 0 && (
-        <section className="mx-auto max-w-[1200px] px-5 pb-16">
+        <section className="mx-auto max-w-[1200px] px-5 pt-10 sm:pt-14 pb-16">
           <h2 className="text-[18px] font-bold mb-4">Unit lain yang mungkin cocok</h2>
           <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
             {data.related.map((r) => (
