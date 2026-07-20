@@ -5,6 +5,7 @@ import (
 	"encoding/json"
 	"fmt"
 	"math"
+	"strconv"
 	"strings"
 
 	"github.com/simpulx/v2/libs/go/config"
@@ -140,6 +141,56 @@ func (a *app) sendListingCard(ctx context.Context, orgID, convID, slug string) {
 // property card -- but the catalog has no photos, so this is a text card carrying
 // the variant name, OTR, location, and whatever segment-specific spec keys sit in
 // the attributes jsonb (dp, tenor, cicilan, transmisi, ...).
+// fmtAttrValue renders a catalog attribute value for the card. Numbers come out of
+// jsonb as float64, which "%v" prints in scientific notation for large values; this
+// formats money as "Rp 57.547.844", tenor as "12 bulan", and leaves text as-is.
+func fmtAttrValue(key string, v any, money bool) string {
+	var n float64
+	isNum := false
+	switch t := v.(type) {
+	case float64:
+		n, isNum = t, true
+	case json.Number:
+		if f, err := t.Float64(); err == nil {
+			n, isNum = f, true
+		}
+	case string:
+		s := strings.TrimSpace(t)
+		if f, err := strconv.ParseFloat(s, 64); err == nil {
+			n, isNum = f, true
+		} else {
+			return s // already a formatted string ("CVT", "Putih")
+		}
+	}
+	if !isNum {
+		return strings.TrimSpace(fmt.Sprintf("%v", v))
+	}
+	if key == "tenor" {
+		return fmt.Sprintf("%d bulan", int64(n))
+	}
+	if money {
+		return "Rp " + groupThousands(int64(n))
+	}
+	return strconv.FormatInt(int64(n), 10)
+}
+
+// groupThousands formats an integer with dot separators, Indonesian style.
+func groupThousands(n int64) string {
+	s := strconv.FormatInt(n, 10)
+	neg := ""
+	if strings.HasPrefix(s, "-") {
+		neg, s = "-", s[1:]
+	}
+	var out []byte
+	for i, c := range []byte(s) {
+		if i > 0 && (len(s)-i)%3 == 0 {
+			out = append(out, '.')
+		}
+		out = append(out, c)
+	}
+	return neg + string(out)
+}
+
 func (a *app) sendCatalogCard(ctx context.Context, orgID, convID, rowID string) {
 	var (
 		item, variant, location string
@@ -157,7 +208,13 @@ func (a *app) sendCatalogCard(ctx context.Context, orgID, convID, rowID string) 
 		return
 	}
 
-	title := strings.TrimSpace(item + " " + variant)
+	// item_name often already contains the variant ("NEW XPANDER CROSS 4X2 MT"),
+	// so blindly appending variant_name produced "... Cross 4X2 MT" duplication.
+	// Only add the variant when the item doesn't already include it.
+	title := strings.TrimSpace(item)
+	if v := strings.TrimSpace(variant); v != "" && !strings.Contains(strings.ToLower(title), strings.ToLower(v)) {
+		title = strings.TrimSpace(title + " " + v)
+	}
 	if title == "" {
 		title = "Varian"
 	}
@@ -168,13 +225,22 @@ func (a *app) sendCatalogCard(ctx context.Context, orgID, convID, rowID string) 
 	if location != "" {
 		lines = append(lines, location)
 	}
-	// Surface a few common spec keys if present, in a stable order, so the card is
-	// useful without dumping the whole attribute bag.
+	// Surface a few common spec keys if present, in a stable order. Money fields are
+	// formatted as Rupiah and tenor as months -- catalog stores them as raw numbers,
+	// so %v rendered them in scientific notation ("Tdp: 5.75e+07"), which is the bug.
 	var bag map[string]any
 	_ = json.Unmarshal(attrs, &bag)
+	labels := map[string]string{"dp": "DP", "tdp": "TDP", "tenor": "Tenor", "cicilan": "Cicilan",
+		"angsuran": "Angsuran", "transmisi": "Transmisi", "warna": "Warna"}
+	money := map[string]bool{"dp": true, "tdp": true, "cicilan": true, "angsuran": true, "otr": true}
 	for _, k := range []string{"dp", "tdp", "tenor", "cicilan", "angsuran", "transmisi", "warna"} {
-		if v, ok := bag[k]; ok && v != nil && fmt.Sprintf("%v", v) != "" {
-			lines = append(lines, strings.Title(k)+": "+fmt.Sprintf("%v", v))
+		v, ok := bag[k]
+		if !ok || v == nil {
+			continue
+		}
+		s := fmtAttrValue(k, v, money[k])
+		if s != "" {
+			lines = append(lines, labels[k]+": "+s)
 		}
 	}
 	lines = append(lines, "", "Mau saya bantu simulasi cicilan atau jadwalkan test drive?")
