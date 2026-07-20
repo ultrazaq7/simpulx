@@ -61,8 +61,29 @@ def _load(log=None):
     return m
 
 
-async def score_and_update(pool, conv_id: str, log=None) -> Optional[float]:
-    """Compute the 0-100 buy-potential score for a conversation and persist it."""
+async def score_and_update(pool, conv_id: str, log=None, force_zero: bool = False) -> Optional[float]:
+    """Compute the 0-100 buy-potential score for a conversation and persist it.
+
+    force_zero: the classifier just flagged this lead junk (abusive / spam). Buy
+    potential is then zero by definition -- a lead who turns abusive must fall to the
+    bottom of the "call first" ranking, not keep the high score the behavioral model
+    gave it a turn earlier. We write 0 directly and skip the model (the CatBoost
+    features don't see profanity, so it would otherwise leave the old score standing).
+    """
+    if force_zero:
+        async with pool.acquire() as conn:
+            await conn.execute(
+                """UPDATE conversations SET
+                     lead_score = 0,
+                     lead_score_model_version = COALESCE(lead_score_model_version, 'junk'),
+                     lead_score_at = now()
+                   WHERE id = $1""",
+                conv_id,
+            )
+        if log:
+            log.info("lead score forced to 0 (junk)", extra={"conv": conv_id})
+        return 0.0
+
     model = _load(log)
     if model is None:
         return None

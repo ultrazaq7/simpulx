@@ -293,7 +293,10 @@ async def handle_inbound(broker, pool, env: dict, data: dict, log) -> None:
 
     # (3) Buy-potential score (CatBoost) — AFTER the reply so it never adds latency
     # to it, but still keeps the CRM live even when the LLM extraction is skipped.
-    await lead_score.score_and_update(pool, conv_id, log)
+    # A lead the classifier just flagged junk (abusive/spam) is forced to 0: buy
+    # potential collapses the moment someone turns abusive, so they drop out of the
+    # "call first" ranking instead of keeping a stale high score from earlier turns.
+    await lead_score.score_and_update(pool, conv_id, log, force_zero=bool(cr and cr.get("is_junk")))
     # (3b) Closing probability (CatBoost, sales-outcome). Same anti-skew feature
     # build; silent no-op until a closing model is trained. Feeds Next Best Action.
     await closing_score.score_and_update(pool, conv_id, log)
