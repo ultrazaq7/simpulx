@@ -188,7 +188,12 @@ async def get_catalog_rows(pool, campaign_id, query: str = None, conn=None) -> l
         hay = f"{r.get('item_name') or ''} {r.get('variant_name') or ''}".lower()
         return sum(1 for h in hits if h in hay)
 
-    items.sort(key=lambda r: (-score(r), float(r.get("headline_price") or 1e18)))
+    # Keep the hit count on each row: the caller decides between "send the list" and
+    # "ask a narrowing question first", and that turns on whether the customer actually
+    # named something (any row with _score > 0) or is just browsing a wide catalog.
+    for r in items:
+        r["_score"] = score(r)
+    items.sort(key=lambda r: (-r["_score"], float(r.get("headline_price") or 1e18)))
     return items
 
 

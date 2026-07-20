@@ -101,6 +101,20 @@ def _wants_listings(text: str) -> bool:
     return bool(_WANTS_LISTINGS_RE.search(text or ""))
 
 
+# WhatsApp caps a native interactive list at 10 rows -- Meta rejects the send above it.
+WA_LIST_MAX = 10
+
+# "Give me everything" (as opposed to "show me options"), which is the one case where
+# the customer has asked to be handed the whole catalog instead of being qualified.
+_WANTS_ALL_RE = re.compile(
+    r"\b(semua|semuanya|seluruh|lengkap|komplit|apa\s*(aja|saja)|semua\s*(varian|tipe|model|unit))\b",
+    re.I)
+
+
+def _wants_all_catalog(text: str) -> bool:
+    return bool(_WANTS_ALL_RE.search(text or ""))
+
+
 def _wa_safe_image(url):
     """Return `url` if WhatsApp can actually render it as an image, else None.
 
@@ -239,7 +253,7 @@ async def _send_catalog_list(broker, org_id: str, conv_id: str, rows: list[dict]
     """
     import listings_rag
     items = []
-    for r in rows[:10]:
+    for r in rows[:WA_LIST_MAX]:
         rid = str(r.get("id") or "")
         if not rid:
             continue
@@ -845,6 +859,41 @@ async def _generate_and_send_reply(broker, pool, conn, org_id: str, conv_id: str
                        "otomatis dari iklan yang dia klik. Dia BELUM menanyakan apa pun. "
                        "JANGAN menyodorkan katalog, daftar varian, atau harga. Sapa dengan hangat, "
                        "perkenalkan diri singkat, lalu tanyakan apa yang bisa dibantu.\n")
+        catalog_units = []
+
+    # A wide catalog does not fit WhatsApp's 10-row list, and dumping 10 arbitrary
+    # variants at a customer who is still browsing converts worse than ONE qualifying
+    # question -- which also captures budget/type into lead_fields and feeds scoring.
+    # So the list is planned, never truncated blindly:
+    #   named a variant        -> show only what they named
+    #   fits in one list       -> send it (the common case)
+    #   asked for everything   -> the model reads out every name (the grounding above
+    #                             carries the FULL name list, uncapped) and the 10 most
+    #                             relevant stay tappable, so nothing is hidden
+    #   just browsing wide     -> withhold the list, ask one narrowing question instead
+    if catalog_units:
+        named = [r for r in catalog_units if r.get("_score", 0) > 0]
+        if named:
+            catalog_units = named
+        total = len(catalog_units)
+        if total > WA_LIST_MAX:
+            if _wants_all_catalog(body):
+                finance_ctx += (
+                    f"\n\nCATATAN KATALOG: customer minta daftar LENGKAP dan ada {total} varian, "
+                    f"lebih banyak dari yang muat di list WhatsApp (maks {WA_LIST_MAX}). Sebutkan "
+                    "SEMUA nama varian dari DAFTAR LENGKAP di atas dalam balasan teks (nama saja, "
+                    "ringkas, tanpa harga kalau customer belum menanyakan harga), lalu beri tahu "
+                    f"bahwa {WA_LIST_MAX} varian paling relevan bisa langsung diketuk di list "
+                    "di bawah untuk lihat harga & detail.\n")
+            else:
+                catalog_units = []
+                finance_ctx += (
+                    f"\n\nCATATAN KATALOG: ada {total} varian yang cocok, terlalu banyak untuk "
+                    "disodorkan sekaligus. JANGAN mengirim daftar panjang. Ajukan SATU pertanyaan "
+                    "penyempit yang paling berguna (misalnya kisaran budget, tipe/transmisi, atau "
+                    "kebutuhan pemakaian), sebutkan singkat bahwa pilihannya cukup banyak supaya "
+                    "customer paham kenapa ditanya. Setelah dia menjawab, barulah tawarkan varian "
+                    "yang sesuai.\n")
 
     # Out-of-area is a fact the bot must OWN, not hide behind "cek ke tim". Once the
     # lead's city is known to sit outside the service area, running a normal in-area
