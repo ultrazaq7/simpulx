@@ -123,11 +123,14 @@ func (s *server) handleExportConversation(w http.ResponseWriter, r *http.Request
 		http.Error(w, "conversation id required", http.StatusBadRequest)
 		return
 	}
-	// Ownership guard: only export a conversation in the caller's org.
-	var exists bool
-	if err := s.pool.QueryRow(r.Context(),
-		`SELECT true FROM conversations WHERE id=$1 AND organization_id=$2`, id, a.OrgID).Scan(&exists); err != nil || !exists {
-		http.Error(w, "not found", http.StatusNotFound)
+	// Access guard. The org check alone was NOT enough: this endpoint returns the
+	// full transcript (every message body, plus contact name and phone), so an org
+	// check let any campaign-bound role dump the conversations of campaigns they
+	// are not a member of just by knowing an id. guardConversation applies the same
+	// campaign/branch membership rule as the inbox and 404s rather than 403s, so an
+	// id outside the caller's scope stays indistinguishable from one that does not
+	// exist.
+	if !s.guardConversation(w, r, id) {
 		return
 	}
 
