@@ -322,6 +322,42 @@ func managerScope(alias string, idx int) string {
 		" OR %sbranch_id IN (SELECT branch_id FROM branch_agents WHERE user_id = $%d))", p, idx, p, idx)
 }
 
+// managerCampaignScope is managerScope for queries over the CAMPAIGNS table itself,
+// which keys on the campaign's OWN id rather than a conversation's campaign_id. A
+// manager belongs to a campaign directly (campaign_agents) or through one of its
+// branches (branch_agents -> campaign_branches.campaign_id). alias is the campaigns
+// table alias ("" for none, e.g. "c"); idx holds the manager's user id (used twice).
+func managerCampaignScope(alias string, idx int) string {
+	p := ""
+	if alias != "" {
+		p = alias + "."
+	}
+	return fmt.Sprintf(
+		"(%sid IN (SELECT campaign_id FROM campaign_agents WHERE user_id = $%d)"+
+			" OR %sid IN (SELECT campaign_id FROM campaign_branches"+
+			" WHERE id IN (SELECT branch_id FROM branch_agents WHERE user_id = $%d)))",
+		p, idx, p, idx)
+}
+
+// canAccessCampaign reports whether the caller may read/act on one campaign. Org
+// membership is the outer boundary for everyone; a manager is additionally limited to
+// the campaigns they belong to, matching the list/inbox scoping. Owner/admin (and any
+// other role, which the feature gate has already vetted) only need the org check.
+func (s *server) canAccessCampaign(ctx context.Context, a authInfo, campaignID string) bool {
+	q := `SELECT EXISTS(SELECT 1 FROM campaigns c WHERE c.id = $1::uuid AND c.organization_id = $2`
+	args := []any{campaignID, a.OrgID}
+	if a.Role == "manager" {
+		q += " AND " + managerCampaignScope("c", 3)
+		args = append(args, a.UserID)
+	}
+	q += ")"
+	var ok bool
+	if err := s.pool.QueryRow(ctx, q, args...).Scan(&ok); err != nil {
+		return false
+	}
+	return ok
+}
+
 // sourceClassifyExpr returns a SQL CASE expression classifying a conversation's
 // lead source into the same canonical keys shown everywhere else (contacts
 // table, CSV exports): meta_ads | tiktok_ads | google_ads | website | direct.

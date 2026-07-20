@@ -16,6 +16,13 @@ import (
 // GET /api/campaigns
 func (s *server) handleListCampaigns(w http.ResponseWriter, r *http.Request) {
 	a, _ := authFrom(r.Context())
+	// A manager sees only the campaigns they belong to, exactly as their inbox and
+	// dashboard are already scoped; owner/admin see the whole org.
+	mgrFilter, args := "", []any{a.OrgID}
+	if a.Role == "manager" {
+		mgrFilter = " AND " + managerCampaignScope("c", 2)
+		args = append(args, a.UserID)
+	}
 	rows, err := s.queryMaps(r.Context(),
 		`SELECT c.id::text AS id, c.name, c.dealer_name, c.status, c.routing_strategy,
 		        to_jsonb(c.ad_source_ids) AS ad_source_ids, to_jsonb(c.keywords) AS keywords,
@@ -28,9 +35,9 @@ func (s *server) handleListCampaigns(w http.ResponseWriter, r *http.Request) {
 		        (SELECT count(*) FROM conversations cv WHERE cv.campaign_id = c.id) AS conversations
 		   FROM campaigns c
 		   LEFT JOIN channels ch ON ch.id = c.channel_id
-		  WHERE c.organization_id = $1
+		  WHERE c.organization_id = $1`+mgrFilter+`
 		  ORDER BY c.created_at DESC`,
-		a.OrgID,
+		args...,
 	)
 	if err != nil {
 		http.Error(w, err.Error(), http.StatusInternalServerError)
@@ -42,6 +49,12 @@ func (s *server) handleListCampaigns(w http.ResponseWriter, r *http.Request) {
 // GET /api/analytics/campaigns — per-campaign performance for the dashboard sub-tab.
 func (s *server) handleCampaignAnalytics(w http.ResponseWriter, r *http.Request) {
 	a, _ := authFrom(r.Context())
+	// Same scoping as the campaign list: a manager's numbers cover their campaigns only.
+	mgrFilter, args := "", []any{a.OrgID}
+	if a.Role == "manager" {
+		mgrFilter = " AND " + managerCampaignScope("c", 2)
+		args = append(args, a.UserID)
+	}
 	rows, err := s.queryMaps(r.Context(),
 		`WITH fr AS (
 		   SELECT conversation_id, min(created_at) AS t_c FROM messages
@@ -82,10 +95,10 @@ func (s *server) handleCampaignAnalytics(w http.ResponseWriter, r *http.Request)
 		   LEFT JOIN stages st ON st.id=cv.stage_id
 		   LEFT JOIN rt ON rt.conversation_id=cv.id
 		   LEFT JOIN ar ON ar.conversation_id=cv.id
-		  WHERE c.organization_id = $1
+		  WHERE c.organization_id = $1`+mgrFilter+`
 		  GROUP BY c.id, c.name
 		  ORDER BY leads DESC, c.created_at DESC`,
-		a.OrgID,
+		args...,
 	)
 	if err != nil {
 		http.Error(w, err.Error(), http.StatusInternalServerError)
@@ -132,16 +145,16 @@ type campaignInput struct {
 	SupervisorIDs   []string `json:"supervisor_ids"` // members for oversight only (no round-robin)
 	CallingEnabled  *bool    `json:"calling_enabled"`
 	// AI assistant config.
-	Segment           string `json:"segment"`
-	Brand             string `json:"brand"`
-	AIAutoReply       *bool  `json:"ai_auto_reply"`
-	AILanguage        string `json:"ai_language"`         // id | en
-	AIDynamicLanguage *bool  `json:"ai_dynamic_language"` // match the contact's language
-	AISmartSummary    *bool    `json:"ai_smart_summary"`    // show the composer Smart Summary button
-	IntakeFormID      string   `json:"intake_form_id"`
-	FollowupTemplateID string  `json:"followup_template_id"` // approved template for out-of-window follow-ups ('' keep, 'none' clear)
-	MonthlyBudget     *float64 `json:"monthly_budget"` // optional user-set monthly ad budget
-	AvgDealValue      *float64 `json:"avg_deal_value"` // fallback deal value for revenue-influenced (when no catalog OTR match)
+	Segment            string   `json:"segment"`
+	Brand              string   `json:"brand"`
+	AIAutoReply        *bool    `json:"ai_auto_reply"`
+	AILanguage         string   `json:"ai_language"`         // id | en
+	AIDynamicLanguage  *bool    `json:"ai_dynamic_language"` // match the contact's language
+	AISmartSummary     *bool    `json:"ai_smart_summary"`    // show the composer Smart Summary button
+	IntakeFormID       string   `json:"intake_form_id"`
+	FollowupTemplateID string   `json:"followup_template_id"` // approved template for out-of-window follow-ups ('' keep, 'none' clear)
+	MonthlyBudget      *float64 `json:"monthly_budget"`       // optional user-set monthly ad budget
+	AvgDealValue       *float64 `json:"avg_deal_value"`       // fallback deal value for revenue-influenced (when no catalog OTR match)
 	// Per-campaign AI response tuning (persona/tone/length/goal/custom_rules). Raw
 	// JSON so the gateway just stores/forwards it; the ai-agent interprets it.
 	// nil = not sent (keep existing); {} = reset to defaults.
