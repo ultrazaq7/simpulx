@@ -322,12 +322,18 @@ func managerScope(alias string, idx int) string {
 		" OR %sbranch_id IN (SELECT branch_id FROM branch_agents WHERE user_id = $%d))", p, idx, p, idx)
 }
 
-// managerCampaignScope is managerScope for queries over the CAMPAIGNS table itself,
-// which keys on the campaign's OWN id rather than a conversation's campaign_id. A
-// manager belongs to a campaign directly (campaign_agents) or through one of its
-// branches (branch_agents -> campaign_branches.campaign_id). alias is the campaigns
-// table alias ("" for none, e.g. "c"); idx holds the manager's user id (used twice).
-func managerCampaignScope(alias string, idx int) string {
+// orgWideCampaignView reports whether the caller sees EVERY campaign in the org.
+// Only owner/admin do. Every other role -- manager, agent, and any custom role -- is
+// limited to the campaigns they belong to, so the default for an unrecognised role is
+// the restrictive one.
+func orgWideCampaignView(a authInfo) bool { return lockedRoles[a.Role] }
+
+// campaignMembershipScope is managerScope for queries over the CAMPAIGNS table itself,
+// which keys on the campaign's OWN id rather than a conversation's campaign_id. A user
+// belongs to a campaign directly (campaign_agents) or through one of its branches
+// (branch_agents -> campaign_branches.campaign_id). alias is the campaigns table alias
+// ("" for none, e.g. "c"); idx holds the caller's user id (referenced twice).
+func campaignMembershipScope(alias string, idx int) string {
 	p := ""
 	if alias != "" {
 		p = alias + "."
@@ -340,14 +346,15 @@ func managerCampaignScope(alias string, idx int) string {
 }
 
 // canAccessCampaign reports whether the caller may read/act on one campaign. Org
-// membership is the outer boundary for everyone; a manager is additionally limited to
-// the campaigns they belong to, matching the list/inbox scoping. Owner/admin (and any
-// other role, which the feature gate has already vetted) only need the org check.
+// membership is the outer boundary for everyone; everyone below owner/admin is
+// additionally limited to the campaigns they belong to, matching the list and inbox
+// scoping. Note this answers "which campaign", not "may this role do this" -- the
+// feature gate answers that separately.
 func (s *server) canAccessCampaign(ctx context.Context, a authInfo, campaignID string) bool {
 	q := `SELECT EXISTS(SELECT 1 FROM campaigns c WHERE c.id = $1::uuid AND c.organization_id = $2`
 	args := []any{campaignID, a.OrgID}
-	if a.Role == "manager" {
-		q += " AND " + managerCampaignScope("c", 3)
+	if !orgWideCampaignView(a) {
+		q += " AND " + campaignMembershipScope("c", 3)
 		args = append(args, a.UserID)
 	}
 	q += ")"

@@ -16,11 +16,11 @@ import (
 // GET /api/campaigns
 func (s *server) handleListCampaigns(w http.ResponseWriter, r *http.Request) {
 	a, _ := authFrom(r.Context())
-	// A manager sees only the campaigns they belong to, exactly as their inbox and
-	// dashboard are already scoped; owner/admin see the whole org.
-	mgrFilter, args := "", []any{a.OrgID}
-	if a.Role == "manager" {
-		mgrFilter = " AND " + managerCampaignScope("c", 2)
+	// Everyone below owner/admin sees only the campaigns they belong to, exactly as
+	// their inbox and dashboard are already scoped.
+	scopeFilter, args := "", []any{a.OrgID}
+	if !orgWideCampaignView(a) {
+		scopeFilter = " AND " + campaignMembershipScope("c", 2)
 		args = append(args, a.UserID)
 	}
 	rows, err := s.queryMaps(r.Context(),
@@ -35,7 +35,7 @@ func (s *server) handleListCampaigns(w http.ResponseWriter, r *http.Request) {
 		        (SELECT count(*) FROM conversations cv WHERE cv.campaign_id = c.id) AS conversations
 		   FROM campaigns c
 		   LEFT JOIN channels ch ON ch.id = c.channel_id
-		  WHERE c.organization_id = $1`+mgrFilter+`
+		  WHERE c.organization_id = $1`+scopeFilter+`
 		  ORDER BY c.created_at DESC`,
 		args...,
 	)
@@ -49,10 +49,10 @@ func (s *server) handleListCampaigns(w http.ResponseWriter, r *http.Request) {
 // GET /api/analytics/campaigns — per-campaign performance for the dashboard sub-tab.
 func (s *server) handleCampaignAnalytics(w http.ResponseWriter, r *http.Request) {
 	a, _ := authFrom(r.Context())
-	// Same scoping as the campaign list: a manager's numbers cover their campaigns only.
-	mgrFilter, args := "", []any{a.OrgID}
-	if a.Role == "manager" {
-		mgrFilter = " AND " + managerCampaignScope("c", 2)
+	// Same scoping as the campaign list: the numbers cover the caller's campaigns only.
+	scopeFilter, args := "", []any{a.OrgID}
+	if !orgWideCampaignView(a) {
+		scopeFilter = " AND " + campaignMembershipScope("c", 2)
 		args = append(args, a.UserID)
 	}
 	rows, err := s.queryMaps(r.Context(),
@@ -95,7 +95,7 @@ func (s *server) handleCampaignAnalytics(w http.ResponseWriter, r *http.Request)
 		   LEFT JOIN stages st ON st.id=cv.stage_id
 		   LEFT JOIN rt ON rt.conversation_id=cv.id
 		   LEFT JOIN ar ON ar.conversation_id=cv.id
-		  WHERE c.organization_id = $1`+mgrFilter+`
+		  WHERE c.organization_id = $1`+scopeFilter+`
 		  GROUP BY c.id, c.name
 		  ORDER BY leads DESC, c.created_at DESC`,
 		args...,

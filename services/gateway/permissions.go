@@ -79,7 +79,7 @@ func (s *server) hasPerm(ctx context.Context, a authInfo, key string) bool {
 // two are independent: `gate` answers "may this role touch campaigns at all", this
 // answers "which ones". Applied as middleware rather than per-handler because the
 // check is identical for all 20+ campaign routes and a new route must not be able to
-// forget it. 404 rather than 403: a manager should not learn that a campaign outside
+// forget it. 404 rather than 403: the caller should not learn that a campaign outside
 // their scope exists. MUST be used inside requireAuth (it reads the auth context).
 func (s *server) campaignScoped(next http.HandlerFunc) http.HandlerFunc {
 	return func(w http.ResponseWriter, r *http.Request) {
@@ -97,8 +97,8 @@ func (s *server) campaignScoped(next http.HandlerFunc) http.HandlerFunc {
 }
 
 // branchScoped is campaignScoped for /api/branches/{id}: a branch inherits the
-// visibility of the campaign that owns it, so a manager may only touch branches of
-// their own campaigns. Kept separate because {id} here is a branch id, not a campaign.
+// visibility of the campaign that owns it, so a caller may only touch branches of
+// campaigns they can see. Kept separate because {id} here is a branch id, not a campaign.
 func (s *server) branchScoped(next http.HandlerFunc) http.HandlerFunc {
 	return func(w http.ResponseWriter, r *http.Request) {
 		a, ok := authFrom(r.Context())
@@ -109,8 +109,8 @@ func (s *server) branchScoped(next http.HandlerFunc) http.HandlerFunc {
 		q := `SELECT EXISTS(SELECT 1 FROM campaign_branches b JOIN campaigns c ON c.id = b.campaign_id
 		       WHERE b.id = $1::uuid AND b.organization_id = $2`
 		args := []any{r.PathValue("id"), a.OrgID}
-		if a.Role == "manager" {
-			q += " AND " + managerCampaignScope("c", 3)
+		if !orgWideCampaignView(a) {
+			q += " AND " + campaignMembershipScope("c", 3)
 			args = append(args, a.UserID)
 		}
 		q += ")"
