@@ -1,195 +1,184 @@
 <!DOCTYPE html>
-<html lang="en">
+<html lang="id">
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Simpulx - WhatsApp Customer Engagement Platform</title>
-    <meta name="description" content="Simpulx is a WhatsApp customer engagement platform: a shared team inbox, WhatsApp voice calling, broadcasts, message templates, automation, lead scoring and analytics in one dashboard.">
+    <title>Simpulx - Platform AI Sales Execution untuk WhatsApp</title>
+    <meta name="description" content="Simpulx mengubah WhatsApp jadi mesin penjualan: AI yang membalas, mengkualifikasi, dan follow-up lead otomatis, inbox tim, panggilan WhatsApp, e-catalog properti, broadcast, dan analitik revenue dalam satu dashboard.">
     <link rel="canonical" href="https://simpulx.com/">
     <link rel="icon" type="image/png" href="/favicon.png">
     <link rel="apple-touch-icon" href="/favicon.png">
     <meta property="og:type" content="website">
     <meta property="og:url" content="https://simpulx.com/">
-    <meta property="og:title" content="Simpulx - WhatsApp Customer Engagement Platform">
-    <meta property="og:description" content="Team inbox, WhatsApp calling, broadcasts, templates, automation and analytics in one dashboard.">
-    <meta property="og:image" content="https://simpulx.com/favicon.png">
+    <meta property="og:title" content="Simpulx - Platform AI Sales Execution untuk WhatsApp">
+    <meta property="og:description" content="AI yang membalas, mengkualifikasi, dan follow-up lead otomatis. Inbox tim, panggilan WhatsApp, e-catalog properti, broadcast, dan analitik revenue dalam satu dashboard.">
+    <meta property="og:image" content="https://simpulx.com/img/dashboard.jpg">
     <link rel="preconnect" href="https://fonts.googleapis.com">
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
     <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800;900&display=swap" rel="stylesheet">
     <style>
         *, *::before, *::after { margin: 0; padding: 0; box-sizing: border-box; }
         :root {
-            --bg: #07120F;
-            --bg-2: #0A1A16;
-            --card: #0F2420;
-            --card-hover: #143230;
-            --green: #2D8B73;
-            --green-light: #3FBE9E;
-            --amber: #F5A623;
-            --amber-light: #FFC95C;
-            --text: #EAF2F0;
-            --muted: #8FA8A4;
-            --border: #1B342F;
-            --radius: 14px;
+            --bg: #F6F8F7;
+            --surface: #FFFFFF;
+            --ink: #0C1614;
+            --ink-soft: #26332F;
+            --muted: #5C6B67;
+            --brand: #0E5B54;
+            --brand-light: #1C8C7D;
+            --brand-tint: #E6F1EE;
+            --amber: #C9871F;
+            --border: #E5E9E7;
+            --radius: 16px;
         }
-        html { scroll-behavior: smooth; }
-        body {
-            font-family: 'Inter', -apple-system, sans-serif;
-            background: var(--bg); color: var(--text); line-height: 1.6;
-            -webkit-font-smoothing: antialiased; overflow-x: hidden;
-        }
+        html { scroll-behavior: smooth; -webkit-text-size-adjust: 100%; }
+        body { font-family: 'Inter', -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
+            background: var(--bg); color: var(--ink); line-height: 1.6; -webkit-font-smoothing: antialiased; overflow-x: hidden; }
         a { text-decoration: none; color: inherit; }
-        .container { max-width: 1120px; margin: 0 auto; padding: 0 24px; }
+        img { max-width: 100%; display: block; }
+        .container { max-width: 1160px; margin: 0 auto; padding: 0 24px; }
         .accent { color: var(--amber); }
-        .grad-text {
-            background: linear-gradient(120deg, var(--green-light), var(--amber-light));
-            -webkit-background-clip: text; background-clip: text; -webkit-text-fill-color: transparent;
-        }
+        .grad-text { background: linear-gradient(115deg, var(--brand), var(--brand-light) 70%, var(--amber));
+            -webkit-background-clip: text; background-clip: text; -webkit-text-fill-color: transparent; }
         #typed { white-space: nowrap; }
-        .type-cursor { color: var(--amber); font-weight: 400; animation: blink .8s step-end infinite; }
+        .type-cursor { color: var(--amber); font-weight: 400; animation: blink .9s step-end infinite; }
         @keyframes blink { 50% { opacity: 0; } }
 
-        .glow { position: absolute; border-radius: 50%; filter: blur(120px); opacity: 0.5; z-index: 0; pointer-events: none; }
-        .glow.g1 { width: 520px; height: 520px; background: rgba(45,139,115,0.4); top: -180px; left: 50%; transform: translateX(-60%); }
-        .glow.g2 { width: 380px; height: 380px; background: rgba(245,166,35,0.18); top: 120px; right: -120px; }
-
-        nav { position: fixed; top: 0; left: 0; right: 0; z-index: 100; padding: 14px 0;
-            background: rgba(7,18,15,0.7); backdrop-filter: blur(14px); border-bottom: 1px solid transparent; transition: border-color .3s, background .3s; }
-        nav.scrolled { border-bottom-color: var(--border); background: rgba(7,18,15,0.9); }
-        .nav-inner { display: flex; align-items: center; justify-content: space-between; max-width: 1120px; margin: 0 auto; padding: 0 24px; }
+        nav { position: fixed; inset: 0 0 auto 0; z-index: 100; padding: 12px 0;
+            background: rgba(246,248,247,0.72); backdrop-filter: blur(14px); border-bottom: 1px solid transparent; transition: border-color .3s, background .3s; }
+        nav.scrolled { border-bottom-color: var(--border); background: rgba(255,255,255,0.85); }
+        .nav-inner { display: flex; align-items: center; justify-content: space-between; max-width: 1160px; margin: 0 auto; padding: 0 24px; }
         .nav-brand { display: flex; align-items: center; gap: 10px; font-weight: 800; font-size: 20px; letter-spacing: -0.02em; }
         .nav-brand img { width: 30px; height: 30px; border-radius: 8px; }
         .nav-links { display: flex; align-items: center; gap: 30px; }
         .nav-links a { font-size: 14px; color: var(--muted); font-weight: 500; transition: color .2s; }
-        .nav-links a:hover { color: var(--text); }
-        .btn { display: inline-flex; align-items: center; justify-content: center; gap: 8px; font-weight: 600; cursor: pointer; transition: all .2s; border: none; border-radius: 10px; }
-        .btn-primary { background: var(--green); color: #fff; padding: 13px 26px; font-size: 15px; box-shadow: 0 8px 24px rgba(45,139,115,0.25); }
-        .btn-primary:hover { background: var(--green-light); transform: translateY(-1px); box-shadow: 0 12px 30px rgba(45,139,115,0.35); }
-        .btn-ghost { background: rgba(255,255,255,0.04); color: var(--text); padding: 13px 26px; font-size: 15px; border: 1px solid var(--border); }
-        .btn-ghost:hover { border-color: var(--green-light); background: rgba(255,255,255,0.07); }
+        .nav-links a:hover { color: var(--ink); }
+        .btn { display: inline-flex; align-items: center; justify-content: center; gap: 8px; font-weight: 600; cursor: pointer; transition: all .2s; border: none; border-radius: 11px; }
+        .btn-primary { background: var(--brand); color: #fff; padding: 13px 26px; font-size: 15px; box-shadow: 0 10px 24px rgba(14,91,84,0.22); }
+        .btn-primary:hover { background: var(--brand-light); transform: translateY(-1px); box-shadow: 0 14px 30px rgba(14,91,84,0.3); }
+        .btn-ghost { background: #fff; color: var(--ink); padding: 13px 26px; font-size: 15px; border: 1px solid var(--border); }
+        .btn-ghost:hover { border-color: var(--brand-light); }
         .btn-sm { padding: 9px 18px; font-size: 14px; }
         .menu-toggle { display: none; background: none; border: none; cursor: pointer; padding: 6px; }
-        .menu-toggle span { display: block; width: 22px; height: 2px; background: var(--text); margin: 5px 0; border-radius: 2px; transition: .3s; }
+        .menu-toggle span { display: block; width: 22px; height: 2px; background: var(--ink); margin: 5px 0; border-radius: 2px; transition: .3s; }
 
-        .hero { position: relative; padding: 160px 0 90px; text-align: center; overflow: hidden; }
+        .hero { position: relative; padding: 150px 0 70px; text-align: center; overflow: hidden; }
+        .hero::before { content: ''; position: absolute; top: -120px; left: 50%; transform: translateX(-50%);
+            width: 900px; height: 560px; background: radial-gradient(closest-side, rgba(28,140,125,0.16), transparent 70%); z-index: 0; }
         .hero .container { position: relative; z-index: 1; }
-        .badge { display: inline-flex; align-items: center; gap: 8px; padding: 7px 16px; background: rgba(45,139,115,0.12);
-            border: 1px solid rgba(63,190,158,0.28); border-radius: 30px; font-size: 13px; font-weight: 600; color: var(--green-light); margin-bottom: 26px; }
-        .badge .dot { width: 7px; height: 7px; background: var(--green-light); border-radius: 50%; box-shadow: 0 0 0 4px rgba(63,190,158,0.18); }
-        .hero h1 { font-size: clamp(36px, 6vw, 64px); font-weight: 900; line-height: 1.05; letter-spacing: -0.03em; margin-bottom: 22px; }
-        .hero p.sub { font-size: clamp(16px, 2vw, 19px); color: var(--muted); max-width: 600px; margin: 0 auto 36px; }
+        .badge { display: inline-flex; align-items: center; gap: 8px; padding: 7px 15px; background: var(--brand-tint);
+            border: 1px solid rgba(28,140,125,0.25); border-radius: 30px; font-size: 13px; font-weight: 600; color: var(--brand); margin-bottom: 24px; }
+        .badge .dot { width: 7px; height: 7px; background: var(--brand-light); border-radius: 50%; box-shadow: 0 0 0 4px rgba(28,140,125,0.15); }
+        .hero h1 { font-size: clamp(34px, 5.6vw, 62px); font-weight: 900; line-height: 1.04; letter-spacing: -0.03em; margin-bottom: 20px; }
+        .hero p.sub { font-size: clamp(16px, 2vw, 19px); color: var(--muted); max-width: 620px; margin: 0 auto 32px; }
         .hero-actions { display: flex; gap: 14px; justify-content: center; flex-wrap: wrap; }
-        .hero-note { margin-top: 18px; font-size: 13px; color: var(--muted); }
+        .hero-note { margin-top: 16px; font-size: 13px; color: var(--muted); }
 
-        .mock { position: relative; z-index: 1; max-width: 980px; margin: 64px auto 0; border-radius: 16px; border: 1px solid var(--border);
-            background: linear-gradient(180deg, var(--card), var(--bg-2)); box-shadow: 0 40px 120px rgba(0,0,0,0.6); overflow: hidden; }
-        .mock-bar { display: flex; align-items: center; gap: 7px; padding: 13px 16px; border-bottom: 1px solid var(--border); }
-        .mock-bar i { width: 11px; height: 11px; border-radius: 50%; background: #2a3b38; display: inline-block; }
-        .mock-bar i:nth-child(1){ background:#ff5f57; } .mock-bar i:nth-child(2){ background:#febc2e; } .mock-bar i:nth-child(3){ background:#28c840; }
-        .mock-body { display: grid; grid-template-columns: 200px 1fr 230px; min-height: 360px; }
-        .mock-col { padding: 16px; }
-        .mock-col.mid { border-left: 1px solid var(--border); border-right: 1px solid var(--border); background: rgba(0,0,0,0.15); }
-        .mrow { height: 34px; border-radius: 8px; background: rgba(255,255,255,0.04); margin-bottom: 10px; }
-        .mrow.active { background: rgba(45,139,115,0.18); border: 1px solid rgba(63,190,158,0.3); }
-        .bub { max-width: 75%; padding: 10px 12px; border-radius: 12px; font-size: 12.5px; margin-bottom: 10px; line-height: 1.4; }
-        .bub.in { background: var(--card); border: 1px solid var(--border); border-bottom-left-radius: 4px; }
-        .bub.out { background: var(--green); color: #fff; margin-left: auto; border-bottom-right-radius: 4px; }
-        .callcard { display: flex; align-items: center; gap: 10px; background: var(--card); border: 1px solid var(--border); border-radius: 12px; padding: 10px 12px; font-size: 12.5px; }
-        .callcard .ico { width: 30px; height: 30px; border-radius: 50%; background: rgba(63,190,158,0.16); color: var(--green-light); display: grid; place-items: center; }
-        .pill { font-size: 11px; color: var(--muted); margin: 14px 0 8px; text-transform: uppercase; letter-spacing: .08em; }
-        .stat { background: var(--card); border: 1px solid var(--border); border-radius: 10px; padding: 12px; margin-bottom: 10px; }
-        .stat b { display: block; font-size: 20px; }
-        .stat span { font-size: 11.5px; color: var(--muted); }
+        .shot { border-radius: 16px; border: 1px solid var(--border); background: #fff; box-shadow: 0 40px 90px rgba(12,22,20,0.14); overflow: hidden; }
+        .shot-bar { display: flex; align-items: center; gap: 7px; padding: 11px 14px; border-bottom: 1px solid var(--border); background: #fbfcfb; }
+        .shot-bar i { width: 11px; height: 11px; border-radius: 50%; display: inline-block; background: #d7dcda; }
+        .shot-bar i:nth-child(1){ background:#ff5f57; } .shot-bar i:nth-child(2){ background:#febc2e; } .shot-bar i:nth-child(3){ background:#28c840; }
+        .shot-bar .url { margin-left: 10px; font-size: 11.5px; color: var(--muted); background: #eef1f0; padding: 3px 12px; border-radius: 20px; }
+        .shot img { width: 100%; }
+        .hero-shot { max-width: 1000px; margin: 56px auto 0; position: relative; z-index: 1; }
 
-        section { padding: 88px 0; position: relative; }
-        .section-head { text-align: center; max-width: 600px; margin: 0 auto 52px; }
-        .label { font-size: 12.5px; font-weight: 700; color: var(--green-light); text-transform: uppercase; letter-spacing: 0.1em; margin-bottom: 12px; }
+        section { padding: 80px 0; position: relative; }
+        .section-head { text-align: center; max-width: 640px; margin: 0 auto 48px; }
+        .label { font-size: 12.5px; font-weight: 700; color: var(--brand-light); text-transform: uppercase; letter-spacing: 0.1em; margin-bottom: 12px; }
         .section-head h2 { font-size: clamp(26px, 3.6vw, 40px); font-weight: 800; letter-spacing: -0.02em; margin-bottom: 14px; }
         .section-head p { font-size: 16.5px; color: var(--muted); }
 
+        .stats { display: grid; grid-template-columns: repeat(4, 1fr); gap: 18px; }
+        .stat { background: var(--surface); border: 1px solid var(--border); border-radius: var(--radius); padding: 24px; text-align: center; }
+        .stat b { display: block; font-size: clamp(26px, 3vw, 34px); font-weight: 800; letter-spacing: -0.02em; color: var(--brand); }
+        .stat span { font-size: 13.5px; color: var(--muted); }
+
         .grid3 { display: grid; grid-template-columns: repeat(3, 1fr); gap: 18px; }
-        .card { background: var(--card); border: 1px solid var(--border); border-radius: var(--radius); padding: 26px; transition: all .25s; position: relative; }
-        .card:hover { border-color: rgba(63,190,158,0.45); background: var(--card-hover); transform: translateY(-3px); }
+        .card { background: var(--surface); border: 1px solid var(--border); border-radius: var(--radius); padding: 26px; transition: all .25s; position: relative; }
+        .card:hover { border-color: rgba(28,140,125,0.4); transform: translateY(-3px); box-shadow: 0 16px 40px rgba(12,22,20,0.08); }
         .card .ic { width: 46px; height: 46px; display: grid; place-items: center; border-radius: 12px;
-            background: linear-gradient(135deg, rgba(45,139,115,0.2), rgba(245,166,35,0.12)); margin-bottom: 16px; }
-        .card .ic svg { width: 22px; height: 22px; stroke: var(--green-light); }
+            background: linear-gradient(135deg, var(--brand-tint), rgba(201,135,31,0.12)); margin-bottom: 16px; }
+        .card .ic svg { width: 22px; height: 22px; stroke: var(--brand); fill: none; stroke-width: 2; }
         .card h3 { font-size: 16.5px; font-weight: 700; margin-bottom: 8px; display: flex; align-items: center; gap: 8px; }
-        .tag-new { font-size: 10px; font-weight: 800; color: #07120F; background: var(--amber); padding: 2px 7px; border-radius: 5px; letter-spacing: .03em; }
+        .tag-new { font-size: 10px; font-weight: 800; color: #fff; background: var(--amber); padding: 2px 7px; border-radius: 5px; letter-spacing: .03em; }
         .card p { font-size: 14px; color: var(--muted); }
 
-        .band { background: linear-gradient(135deg, rgba(45,139,115,0.1), rgba(245,166,35,0.06)); border: 1px solid var(--border); border-radius: 22px; padding: 48px; display: grid; grid-template-columns: 1.1fr 1fr; gap: 40px; align-items: center; }
+        .band { display: grid; grid-template-columns: 1fr 1.15fr; gap: 48px; align-items: center; }
+        .band.rev { grid-template-columns: 1.15fr 1fr; }
+        .band.rev .band-text { order: 2; }
         .band h2 { font-size: clamp(24px, 3vw, 34px); font-weight: 800; letter-spacing: -0.02em; margin-bottom: 14px; }
-        .band p { color: var(--muted); font-size: 16px; margin-bottom: 22px; }
+        .band > .band-text > p { color: var(--muted); font-size: 16.5px; margin-bottom: 22px; }
         .band ul { list-style: none; display: grid; gap: 12px; }
         .band li { display: flex; gap: 10px; font-size: 15px; align-items: flex-start; }
-        .band li svg { width: 20px; height: 20px; stroke: var(--green-light); flex-shrink: 0; margin-top: 2px; }
-        .phone { justify-self: center; width: 240px; border-radius: 30px; border: 8px solid #0c0c0e; background: #0b1512; box-shadow: 0 30px 80px rgba(0,0,0,0.5); overflow: hidden; }
-        .phone-top { height: 30px; background: #075E54; }
-        .phone-body { padding: 14px; min-height: 320px; background-color: #0b1512; background-image: radial-gradient(rgba(255,255,255,0.03) 1px, transparent 1px); background-size: 14px 14px; }
-        .oncall { background: #1c2622; border: 1px solid var(--border); border-radius: 16px; padding: 18px; text-align: center; margin-top: 60px; }
-        .oncall .av { width: 64px; height: 64px; border-radius: 50%; background: var(--green); display: grid; place-items: center; margin: 0 auto 10px; color: #fff; font-weight: 800; font-size: 20px; }
-        .oncall .nm { font-weight: 700; font-size: 15px; }
-        .oncall .tm { color: var(--green-light); font-size: 13px; margin-top: 2px; }
-        .oncall .btns { display: flex; justify-content: center; gap: 16px; margin-top: 16px; }
-        .oncall .btns i { width: 44px; height: 44px; border-radius: 50%; display: grid; place-items: center; font-style: normal; }
-        .oncall .btns i.mute { background: rgba(255,255,255,0.1); } .oncall .btns i.end { background: #ef4444; }
+        .band li svg { width: 20px; height: 20px; stroke: var(--brand-light); fill: none; stroke-width: 2.4; flex-shrink: 0; margin-top: 2px; }
+        .band-media { position: relative; }
+
+        .phones { display: flex; gap: 18px; justify-content: center; align-items: flex-end; }
+        .phone { width: 230px; border-radius: 34px; border: 9px solid #10201C; background: #10201C; box-shadow: 0 30px 70px rgba(12,22,20,0.28); overflow: hidden; }
+        .phone img { width: 100%; display: block; }
 
         .steps { display: grid; grid-template-columns: repeat(3, 1fr); gap: 28px; counter-reset: s; }
-        .step { position: relative; padding-top: 8px; }
+        .step { position: relative; padding-top: 6px; }
         .step::before { counter-increment: s; content: counter(s); display: grid; place-items: center; width: 38px; height: 38px;
-            background: linear-gradient(135deg, var(--green), var(--green-light)); color: #fff; font-weight: 800; border-radius: 11px; margin-bottom: 16px; }
+            background: linear-gradient(135deg, var(--brand), var(--brand-light)); color: #fff; font-weight: 800; border-radius: 11px; margin-bottom: 16px; }
         .step h3 { font-size: 16.5px; font-weight: 700; margin-bottom: 8px; }
         .step p { font-size: 14px; color: var(--muted); }
 
         .grid3.plans { align-items: stretch; }
-        .plan { display: flex; flex-direction: column; }
-        .plan.popular { border-color: var(--green); box-shadow: 0 0 40px rgba(45,139,115,0.16); }
-        .plan .pn { font-size: 14px; font-weight: 700; color: var(--green-light); margin-bottom: 6px; }
-        .plan .pp { font-size: 26px; font-weight: 800; margin-bottom: 4px; }
+        .plan { display: flex; flex-direction: column; background: var(--surface); }
+        .plan.popular { border-color: var(--brand); box-shadow: 0 20px 50px rgba(14,91,84,0.12); }
+        .plan .pn { font-size: 14px; font-weight: 700; color: var(--brand-light); margin-bottom: 6px; }
+        .plan .pp { font-size: 26px; font-weight: 800; letter-spacing: -0.02em; margin-bottom: 2px; }
+        .plan .pp small { font-size: 14px; font-weight: 500; color: var(--muted); }
         .plan .pd { font-size: 13.5px; color: var(--muted); margin-bottom: 20px; }
         .plan ul { list-style: none; display: grid; gap: 9px; margin-bottom: 24px; flex: 1; }
-        .plan li { font-size: 14px; color: var(--muted); display: flex; gap: 9px; align-items: flex-start; }
-        .plan li svg { width: 18px; height: 18px; stroke: var(--green-light); flex-shrink: 0; margin-top: 2px; }
-        .plan .badge-pop { position: absolute; top: -12px; right: 22px; background: var(--amber); color: #07120F; font-size: 11px; font-weight: 800; padding: 4px 12px; border-radius: 6px; }
+        .plan li { font-size: 14px; color: var(--ink-soft); display: flex; gap: 9px; align-items: flex-start; }
+        .plan li svg { width: 18px; height: 18px; stroke: var(--brand-light); fill: none; stroke-width: 2.4; flex-shrink: 0; margin-top: 2px; }
+        .plan .badge-pop { position: absolute; top: -12px; right: 22px; background: var(--amber); color: #fff; font-size: 11px; font-weight: 800; padding: 4px 12px; border-radius: 6px; }
+        .plan-note { text-align: center; font-size: 13.5px; color: var(--muted); margin-top: 22px; max-width: 720px; margin-left: auto; margin-right: auto; }
 
-        .faq { max-width: 720px; margin: 0 auto; }
+        .faq { max-width: 760px; margin: 0 auto; }
         .faq details { border-bottom: 1px solid var(--border); }
-        .faq summary { display: flex; justify-content: space-between; align-items: center; padding: 20px 0; cursor: pointer; font-size: 15.5px; font-weight: 600; list-style: none; }
+        .faq summary { display: flex; justify-content: space-between; align-items: center; gap: 16px; padding: 20px 0; cursor: pointer; font-size: 15.5px; font-weight: 600; list-style: none; }
         .faq summary::-webkit-details-marker { display: none; }
-        .faq summary::after { content: '+'; font-size: 22px; color: var(--muted); transition: transform .2s; }
+        .faq summary::after { content: '+'; font-size: 22px; color: var(--muted); }
         .faq details[open] summary::after { content: '\2212'; }
         .faq .ans { padding-bottom: 20px; font-size: 14.5px; color: var(--muted); }
 
-        .cta-box { text-align: center; background: linear-gradient(135deg, var(--card), var(--bg-2)); border: 1px solid var(--border); border-radius: 22px; padding: 60px 40px; position: relative; overflow: hidden; }
-        .cta-box h2 { font-size: clamp(26px, 3vw, 36px); font-weight: 800; letter-spacing: -0.02em; margin-bottom: 14px; position: relative; z-index: 1; }
-        .cta-box p { color: var(--muted); font-size: 16.5px; margin-bottom: 28px; max-width: 460px; margin-left: auto; margin-right: auto; position: relative; z-index: 1; }
-        .cta-box .btn { position: relative; z-index: 1; }
+        .cta-box { text-align: center; background: linear-gradient(135deg, var(--brand), #0a3f3a); color: #fff; border-radius: 24px; padding: 62px 40px; position: relative; overflow: hidden; }
+        .cta-box::before { content:''; position:absolute; top:-80px; right:-60px; width:340px; height:340px; background: radial-gradient(closest-side, rgba(201,135,31,0.3), transparent 70%); }
+        .cta-box h2 { font-size: clamp(26px, 3vw, 38px); font-weight: 800; letter-spacing: -0.02em; margin-bottom: 14px; position: relative; }
+        .cta-box p { color: rgba(255,255,255,0.82); font-size: 16.5px; margin: 0 auto 28px; max-width: 480px; position: relative; }
+        .cta-box .btn-primary { background: #fff; color: var(--brand); box-shadow: 0 12px 30px rgba(0,0,0,0.2); position: relative; }
+        .cta-box .btn-primary:hover { background: #f2f2f2; }
 
-        footer { border-top: 1px solid var(--border); padding: 40px 0; }
+        footer { border-top: 1px solid var(--border); padding: 40px 0; background: var(--surface); }
         .foot { display: flex; justify-content: space-between; align-items: center; gap: 20px; flex-wrap: wrap; }
         .foot-brand { display: flex; align-items: center; gap: 9px; font-weight: 800; }
         .foot-brand img { width: 24px; height: 24px; border-radius: 6px; }
         .foot-links { display: flex; gap: 22px; flex-wrap: wrap; }
         .foot-links a { font-size: 13.5px; color: var(--muted); transition: color .2s; }
-        .foot-links a:hover { color: var(--text); }
+        .foot-links a:hover { color: var(--ink); }
         .foot-copy { font-size: 13px; color: var(--muted); }
 
-        .reveal { opacity: 0; transform: translateY(16px); transition: opacity .6s ease, transform .6s ease; }
+        .reveal { opacity: 0; transform: translateY(18px); transition: opacity .6s cubic-bezier(.16,1,.3,1), transform .6s cubic-bezier(.16,1,.3,1); }
         .reveal.in { opacity: 1; transform: none; }
+        @media (prefers-reduced-motion: reduce) { .reveal { opacity: 1; transform: none; } }
 
-        @media (max-width: 860px) {
+        @media (max-width: 900px) {
+            .stats { grid-template-columns: repeat(2, 1fr); }
             .grid3, .steps { grid-template-columns: 1fr; }
-            .band { grid-template-columns: 1fr; text-align: center; }
-            .band ul { text-align: left; max-width: 360px; margin: 0 auto; }
-            .mock-body { grid-template-columns: 1fr; } .mock-col.side, .mock-col.right { display: none; }
+            .band, .band.rev { grid-template-columns: 1fr; text-align: center; gap: 32px; }
+            .band.rev .band-text { order: 0; }
+            .band ul { text-align: left; max-width: 380px; margin: 0 auto; }
         }
         @media (max-width: 768px) {
-            .nav-links { display: none; flex-direction: column; gap: 18px; position: absolute; top: 58px; left: 0; right: 0;
-                background: var(--bg-2); border-bottom: 1px solid var(--border); padding: 24px; }
+            .nav-links { display: none; flex-direction: column; gap: 18px; position: absolute; top: 56px; left: 0; right: 0;
+                background: #fff; border-bottom: 1px solid var(--border); padding: 24px; }
             .nav-links.open { display: flex; } .menu-toggle { display: block; }
             .foot { flex-direction: column; text-align: center; }
         }
-        @media (max-width: 480px) { .hero-actions { flex-direction: column; } .hero-actions .btn { width: 100%; } .cta-box, .band { padding: 36px 22px; } }
+        @media (max-width: 480px) { .hero-actions { flex-direction: column; } .hero-actions .btn { width: 100%; } .cta-box { padding: 40px 22px; } .phone { width: 190px; } }
     </style>
 </head>
 <body>
@@ -199,195 +188,240 @@
         <a href="#" class="nav-brand"><img src="/favicon.png" alt="Simpulx"><span>Simpul<span class="accent">x</span></span></a>
         <button class="menu-toggle" id="menuToggle" aria-label="Menu"><span></span><span></span><span></span></button>
         <div class="nav-links" id="navLinks">
-            <a href="#features">Features</a>
-            <a href="#calling">Calling</a>
-            <a href="#how">How it works</a>
-            <a href="#plans">Plans</a>
-            <a href="mailto:admin@simpulx.com">Contact</a>
-            <a href="https://app.simpulx.com" class="btn btn-primary btn-sm">Sign in</a>
+            <a href="#ai">AI</a>
+            <a href="#fitur">Fitur</a>
+            <a href="#properti">Properti</a>
+            <a href="#harga">Harga</a>
+            <a href="https://app.simpulx.com" class="btn btn-primary btn-sm">Masuk</a>
         </div>
     </div>
 </nav>
 
 <main>
 <section class="hero">
-    <div class="glow g1"></div><div class="glow g2"></div>
     <div class="container">
-        <div class="badge"><span class="dot"></span>WhatsApp Business Platform</div>
-        <h1>One inbox for<br>every <span class="grad-text" id="typed">conversation</span><span class="type-cursor" aria-hidden="true">|</span></h1>
-        <p class="sub">Simpulx turns WhatsApp into your sales and support engine - a shared team inbox, in-app voice calling, broadcasts, templates, automation and analytics, all in one place.</p>
+        <div class="badge"><span class="dot"></span>AI Sales Execution Platform</div>
+        <h1>AI yang menutup <span class="grad-text" id="typed">lead</span><span class="type-cursor" aria-hidden="true">|</span><br>di WhatsApp, otomatis</h1>
+        <p class="sub">Simpulx bukan sekadar inbox. AI-nya membalas, mengkualifikasi, dan follow-up setiap lead 24 jam, lalu menyerahkan yang sudah panas ke tim sales Anda. Lengkap dengan panggilan WhatsApp, e-catalog, broadcast, dan analitik revenue.</p>
         <div class="hero-actions">
-            <a href="https://app.simpulx.com" class="btn btn-primary">Sign in to dashboard</a>
-            <a href="https://wa.me/6285121500035?text=Hi%20Simpulx%2C%20I%20would%20like%20a%20demo" class="btn btn-ghost">Contact us</a>
+            <a href="https://wa.me/6285121500035?text=Halo%20Simpulx%2C%20saya%20mau%20demo" class="btn btn-primary">Minta demo</a>
+            <a href="https://app.simpulx.com" class="btn btn-ghost">Masuk ke dashboard</a>
         </div>
-        <p class="hero-note">No credit card. Talk to us for a tailored setup.</p>
+        <p class="hero-note">Setup dibantu tim kami. Tanpa kartu kredit.</p>
     </div>
-
-    <div class="mock reveal">
-        <div class="mock-bar"><i></i><i></i><i></i></div>
-        <div class="mock-body">
-            <div class="mock-col side">
-                <div class="mrow active"></div><div class="mrow"></div><div class="mrow"></div><div class="mrow"></div><div class="mrow"></div>
-            </div>
-            <div class="mock-col mid">
-                <div class="bub in">Hi, is the Honda Brio still available?</div>
-                <div class="bub out">Yes! Want a quick call to go through it?</div>
-                <div class="bub in">Sure</div>
-                <div class="callcard"><span class="ico">&#9742;</span><div><b>Voice call</b><div style="color:var(--muted)">2:14 - connected</div></div></div>
-            </div>
-            <div class="mock-col right">
-                <div class="pill">Today</div>
-                <div class="stat"><b>2m 04s</b><span>Avg. response</span></div>
-                <div class="stat"><b>87%</b><span>Resolved</span></div>
-                <div class="stat"><b>+34%</b><span>Lead conversion</span></div>
-            </div>
-        </div>
-    </div>
-</section>
-
-<section id="features">
     <div class="container">
-        <div class="section-head reveal">
-            <div class="label">Features</div>
-            <h2>Everything your team needs on WhatsApp</h2>
-            <p>One platform to capture, qualify, talk to and convert customers.</p>
-        </div>
-        <div class="grid3">
-            <div class="card reveal"><div class="ic"><svg fill="none" stroke-width="2" viewBox="0 0 24 24"><path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z"/></svg></div><h3>Team inbox</h3><p>One shared inbox for every agent. Assign, transfer and collaborate in real time without losing context.</p></div>
-            <div class="card reveal"><div class="ic"><svg fill="none" stroke-width="2" viewBox="0 0 24 24"><path d="M22 16.92v3a2 2 0 0 1-2.18 2 19.79 19.79 0 0 1-8.63-3.07 19.5 19.5 0 0 1-6-6 19.79 19.79 0 0 1-3.07-8.67A2 2 0 0 1 4.11 2h3a2 2 0 0 1 2 1.72c.13 1 .37 1.96.72 2.88a2 2 0 0 1-.45 2.11L8.09 9.91a16 16 0 0 0 6 6l1.2-1.2a2 2 0 0 1 2.11-.45c.92.35 1.88.59 2.88.72A2 2 0 0 1 22 16.92z"/></svg></div><h3>WhatsApp calling <span class="tag-new">NEW</span></h3><p>Place and receive real WhatsApp voice calls right from the browser. Permission requests, live timer and accurate call duration logged to the chat.</p></div>
-            <div class="card reveal"><div class="ic"><svg fill="none" stroke-width="2" viewBox="0 0 24 24"><path d="M3 11l19-9-9 19-2-8-8-2z"/></svg></div><h3>Broadcasts &amp; templates</h3><p>Send approved WhatsApp message templates to thousands of contacts, with a Meta-style template builder and library.</p></div>
-            <div class="card reveal"><div class="ic"><svg fill="none" stroke-width="2" viewBox="0 0 24 24"><path d="M13 2L3 14h9l-1 8 10-12h-9l1-8z"/></svg></div><h3>Automation</h3><p>Auto-replies, flows and routing rules that qualify leads and assign them to the right agent automatically.</p></div>
-            <div class="card reveal"><div class="ic"><svg fill="none" stroke-width="2" viewBox="0 0 24 24"><path d="M12 20v-6M6 20V10M18 20V4"/></svg></div><h3>Lead scoring &amp; follow-up</h3><p>Score buying intent and trigger smart, timely follow-ups so no warm lead goes cold.</p></div>
-            <div class="card reveal"><div class="ic"><svg fill="none" stroke-width="2" viewBox="0 0 24 24"><path d="M3 3v18h18"/><path d="M7 14l3-3 3 3 5-5"/></svg></div><h3>Analytics</h3><p>Real-time dashboards for response time, resolution rate, call activity and team productivity.</p></div>
+        <div class="shot hero-shot reveal">
+            <div class="shot-bar"><i></i><i></i><i></i><span class="url">app.simpulx.com/dashboard</span></div>
+            <img src="/img/dashboard.jpg" alt="Dashboard Simpulx: leads, revenue, funnel, waktu respons" loading="lazy">
         </div>
     </div>
 </section>
 
-<section id="calling">
+<section style="padding-top: 20px;">
+    <div class="container">
+        <div class="stats reveal">
+            <div class="stat"><b>&lt;15 dtk</b><span>AI balas lead pertama</span></div>
+            <div class="stat"><b>24/7</b><span>Nurture &amp; follow-up otomatis</span></div>
+            <div class="stat"><b>1 inbox</b><span>WhatsApp, IG, Messenger, Telegram</span></div>
+            <div class="stat"><b>Revenue</b><span>Terlacak per lead yang closing</span></div>
+        </div>
+    </div>
+</section>
+
+<section id="ai">
     <div class="container">
         <div class="band reveal">
-            <div>
-                <div class="label">WhatsApp Business Calling</div>
-                <h2>Talk to customers without leaving the chat</h2>
-                <p>Move from messaging to a real voice call in one tap - powered by the official WhatsApp Business Calling API.</p>
+            <div class="band-text">
+                <div class="label">AI Sales Assistant</div>
+                <h2>Setiap lead dibalas, dikualifikasi, dan di-follow up. Otomatis.</h2>
+                <p>AI Simpulx (Simpuler) memahami pesan customer, mengekstrak kebutuhan (produk, budget, lokasi, rencana beli), lalu membalas dengan gaya brand Anda. Lead yang panas diserahkan ke sales lengkap dengan rangkuman.</p>
                 <ul>
-                    <li><svg fill="none" stroke-width="2" viewBox="0 0 24 24"><path d="M20 6L9 17l-5-5"/></svg> In-browser calling, no softphone needed</li>
-                    <li><svg fill="none" stroke-width="2" viewBox="0 0 24 24"><path d="M20 6L9 17l-5-5"/></svg> Customer call-permission flow built in</li>
-                    <li><svg fill="none" stroke-width="2" viewBox="0 0 24 24"><path d="M20 6L9 17l-5-5"/></svg> Inbound calls ring the assigned agent</li>
-                    <li><svg fill="none" stroke-width="2" viewBox="0 0 24 24"><path d="M20 6L9 17l-5-5"/></svg> Accurate call duration saved to the conversation</li>
+                    <li><svg viewBox="0 0 24 24"><path d="M20 6L9 17l-5-5"/></svg> Balas chat masuk dalam hitungan detik, 24 jam</li>
+                    <li><svg viewBox="0 0 24 24"><path d="M20 6L9 17l-5-5"/></svg> Lead scoring 0-100 buat "hubungi siapa duluan"</li>
+                    <li><svg viewBox="0 0 24 24"><path d="M20 6L9 17l-5-5"/></svg> Follow-up terjadwal biar lead hangat gak keburu dingin</li>
+                    <li><svg viewBox="0 0 24 24"><path d="M20 6L9 17l-5-5"/></svg> Anti-spam: emoji &amp; "ok" gak buang kuota AI</li>
                 </ul>
             </div>
-            <div class="phone">
-                <div class="phone-top"></div>
-                <div class="phone-body">
-                    <div class="oncall">
-                        <div class="av">IP</div>
-                        <div class="nm">Indah Permata</div>
-                        <div class="tm">On call &middot; 02:30</div>
-                        <div class="btns"><i class="mute">&#127908;</i><i class="end">&#9742;</i></div>
-                    </div>
+            <div class="band-media">
+                <div class="shot">
+                    <div class="shot-bar"><i></i><i></i><i></i><span class="url">app.simpulx.com/inbox</span></div>
+                    <img src="/img/inbox.jpg" alt="Inbox tim Simpulx dengan balasan AI" loading="lazy">
                 </div>
             </div>
         </div>
     </div>
 </section>
 
-<section id="how">
+<section id="fitur">
     <div class="container">
         <div class="section-head reveal">
-            <div class="label">How it works</div>
-            <h2>Live in minutes, not days</h2>
+            <div class="label">Fitur</div>
+            <h2>Satu platform, seluruh siklus penjualan</h2>
+            <p>Menangkap, mengkualifikasi, mengobrol, dan menutup customer, semua di satu tempat.</p>
         </div>
-        <div class="steps">
-            <div class="step reveal"><h3>Connect WhatsApp</h3><p>Link your WhatsApp Business number through the official Meta Cloud API.</p></div>
-            <div class="step reveal"><h3>Invite your team</h3><p>Add agents, set roles and create campaigns with automatic round-robin routing.</p></div>
-            <div class="step reveal"><h3>Start engaging</h3><p>Chat, call, broadcast and follow up - all from one dashboard, from anywhere.</p></div>
+        <div class="grid3">
+            <div class="card reveal"><div class="ic"><svg viewBox="0 0 24 24"><path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z"/></svg></div><h3>Inbox tim</h3><p>Satu inbox bersama untuk semua agent. Assign, transfer, dan kolaborasi real-time tanpa kehilangan konteks.</p></div>
+            <div class="card reveal"><div class="ic"><svg viewBox="0 0 24 24"><path d="M22 16.92v3a2 2 0 0 1-2.18 2 19.8 19.8 0 0 1-8.63-3.07 19.5 19.5 0 0 1-6-6A19.8 19.8 0 0 1 2.12 4.2 2 2 0 0 1 4.11 2h3a2 2 0 0 1 2 1.72c.13 1 .37 1.96.72 2.88a2 2 0 0 1-.45 2.11L8.09 9.91a16 16 0 0 0 6 6l1.2-1.2a2 2 0 0 1 2.11-.45c.92.35 1.88.59 2.88.72A2 2 0 0 1 22 16.92z"/></svg></div><h3>Panggilan WhatsApp <span class="tag-new">BARU</span></h3><p>Telepon dan terima panggilan suara WhatsApp langsung dari browser. Izin panggilan, timer live, dan durasi tercatat ke chat.</p></div>
+            <div class="card reveal"><div class="ic"><svg viewBox="0 0 24 24"><path d="M3 3h18v13H7l-4 4z"/><path d="M8 9h8M8 12h5"/></svg></div><h3>E-catalog &amp; microsite <span class="tag-new">BARU</span></h3><p>Situs listing properti sendiri per klien. AI kirim rekomendasi unit + kartu foto langsung di chat.</p></div>
+            <div class="card reveal"><div class="ic"><svg viewBox="0 0 24 24"><path d="M3 11l19-9-9 19-2-8-8-2z"/></svg></div><h3>Broadcast &amp; template</h3><p>Kirim template WhatsApp resmi ke ribuan kontak dengan builder ala Meta dan pustaka template.</p></div>
+            <div class="card reveal"><div class="ic"><svg viewBox="0 0 24 24"><path d="M13 2L3 14h9l-1 8 10-12h-9l1-8z"/></svg></div><h3>Automation</h3><p>Auto-reply, flow, dan aturan routing yang mengkualifikasi lead dan assign ke agent yang tepat otomatis.</p></div>
+            <div class="card reveal"><div class="ic"><svg viewBox="0 0 24 24"><path d="M3 3v18h18"/><path d="M7 14l3-3 3 3 5-5"/></svg></div><h3>Analitik &amp; revenue</h3><p>Dashboard real-time: waktu respons, funnel, dan revenue yang dipengaruhi AI, per lead yang closing.</p></div>
         </div>
     </div>
 </section>
 
-<section id="plans">
+<section id="properti" style="background: var(--surface); border-top: 1px solid var(--border); border-bottom: 1px solid var(--border);">
     <div class="container">
-        <div class="section-head reveal">
-            <div class="label">Plans</div>
-            <h2>Pricing tailored to your business</h2>
-            <p>Every business is different. Tell us your team size and volume and we will put together the right plan.</p>
-        </div>
-        <div class="grid3 plans">
-            <div class="card plan reveal">
-                <div class="pn">Starter</div><div class="pp">Contact us</div>
-                <div class="pd">For small teams getting started on WhatsApp.</div>
-                <ul>
-                    <li><svg fill="none" stroke-width="2" viewBox="0 0 24 24"><path d="M20 6L9 17l-5-5"/></svg> Shared team inbox</li>
-                    <li><svg fill="none" stroke-width="2" viewBox="0 0 24 24"><path d="M20 6L9 17l-5-5"/></svg> Quick replies &amp; templates</li>
-                    <li><svg fill="none" stroke-width="2" viewBox="0 0 24 24"><path d="M20 6L9 17l-5-5"/></svg> Basic analytics</li>
-                </ul>
-                <a href="https://wa.me/6285121500035?text=Hi%20Simpulx%2C%20I%20am%20interested%20in%20the%20Starter%20plan" class="btn btn-ghost">Contact us</a>
+        <div class="band rev reveal">
+            <div class="band-media">
+                <div class="phones">
+                    <div class="phone"><img src="/img/microsite_mobile.jpg" alt="Microsite properti di mobile" loading="lazy"></div>
+                </div>
             </div>
-            <div class="card plan popular reveal">
-                <div class="badge-pop">Popular</div>
-                <div class="pn">Business</div><div class="pp">Contact us</div>
-                <div class="pd">For growing sales &amp; support teams.</div>
+            <div class="band-text">
+                <div class="label">E-catalog Properti</div>
+                <h2>Situs listing sendiri, plus AI yang merekomendasikan unit</h2>
+                <p>Khusus segmen properti: tiap klien dapat microsite sendiri berisi listing berfoto, filter, dan tombol WhatsApp. Saat lead cari "budget 400jt, Depok, 2 kamar", AI langsung menawarkan unit yang cocok, lengkap dengan kartu foto dan link ke halaman detail.</p>
                 <ul>
-                    <li><svg fill="none" stroke-width="2" viewBox="0 0 24 24"><path d="M20 6L9 17l-5-5"/></svg> Everything in Starter</li>
-                    <li><svg fill="none" stroke-width="2" viewBox="0 0 24 24"><path d="M20 6L9 17l-5-5"/></svg> WhatsApp voice calling</li>
-                    <li><svg fill="none" stroke-width="2" viewBox="0 0 24 24"><path d="M20 6L9 17l-5-5"/></svg> Broadcasts &amp; automation</li>
-                    <li><svg fill="none" stroke-width="2" viewBox="0 0 24 24"><path d="M20 6L9 17l-5-5"/></svg> Lead scoring &amp; follow-ups</li>
+                    <li><svg viewBox="0 0 24 24"><path d="M20 6L9 17l-5-5"/></svg> Microsite per klien dengan logo &amp; warna sendiri</li>
+                    <li><svg viewBox="0 0 24 24"><path d="M20 6L9 17l-5-5"/></svg> AI kirim kartu foto unit + daftar varian yang bisa di-tap</li>
+                    <li><svg viewBox="0 0 24 24"><path d="M20 6L9 17l-5-5"/></svg> Lead dari microsite otomatis masuk ke campaign yang tepat</li>
+                    <li><svg viewBox="0 0 24 24"><path d="M20 6L9 17l-5-5"/></svg> Katalog harga juga untuk otomotif &amp; segmen lain</li>
                 </ul>
-                <a href="https://wa.me/6285121500035?text=Hi%20Simpulx%2C%20I%20am%20interested%20in%20the%20Business%20plan" class="btn btn-primary">Contact us</a>
-            </div>
-            <div class="card plan reveal">
-                <div class="pn">Enterprise</div><div class="pp">Custom</div>
-                <div class="pd">For larger organisations with custom needs.</div>
-                <ul>
-                    <li><svg fill="none" stroke-width="2" viewBox="0 0 24 24"><path d="M20 6L9 17l-5-5"/></svg> Everything in Business</li>
-                    <li><svg fill="none" stroke-width="2" viewBox="0 0 24 24"><path d="M20 6L9 17l-5-5"/></svg> Multiple numbers &amp; API access</li>
-                    <li><svg fill="none" stroke-width="2" viewBox="0 0 24 24"><path d="M20 6L9 17l-5-5"/></svg> Dedicated support &amp; SLA</li>
-                </ul>
-                <a href="https://wa.me/6285121500035?text=Hi%20Simpulx%2C%20I%20am%20interested%20in%20the%20Enterprise%20plan" class="btn btn-ghost">Contact us</a>
             </div>
         </div>
-    </div>
-</section>
-
-<section id="faq">
-    <div class="container">
-        <div class="section-head reveal"><div class="label">FAQ</div><h2>Frequently asked questions</h2></div>
-        <div class="faq reveal">
-            <details><summary>Do I need the WhatsApp Business API?</summary><div class="ans">Yes. Simpulx connects to your WhatsApp Business number through the official Meta Cloud API, so your number stays compliant and verified.</div></details>
-            <details><summary>Can I make and receive calls?</summary><div class="ans">Yes. Simpulx supports the WhatsApp Business Calling API - agents can place outbound calls (with customer permission) and answer inbound calls directly in the browser.</div></details>
-            <details><summary>How long does setup take?</summary><div class="ans">Most teams are live within a day. Connect your number, invite your team, and you are ready to go.</div></details>
-            <details><summary>How is my data handled?</summary><div class="ans">Your data is encrypted in transit, stored securely, and never sold. See our <a href="/privacy.html" style="color:var(--green-light)">Privacy Policy</a> for details.</div></details>
-            <details><summary>How much does it cost?</summary><div class="ans">Pricing depends on your team size and message volume. <a href="https://wa.me/6285121500035?text=Hi%20Simpulx%2C%20what%20are%20your%20plans" style="color:var(--green-light)">Contact us</a> and we will tailor a plan for you.</div></details>
+        <div class="shot reveal" style="margin-top: 44px; max-width: 1000px; margin-left:auto; margin-right:auto;">
+            <div class="shot-bar"><i></i><i></i><i></i><span class="url">app.simpulx.com/listing/nusa-property</span></div>
+            <img src="/img/microsite_index.jpg" alt="Situs listing properti publik" loading="lazy">
         </div>
     </div>
 </section>
 
 <section>
     <div class="container">
+        <div class="band reveal">
+            <div class="band-text">
+                <div class="label">Analitik Revenue</div>
+                <h2>Bukan "berapa pesan dikirim". Tapi "berapa revenue dihasilkan".</h2>
+                <p>Dashboard Simpulx menjawab pertanyaan yang benar-benar penting: funnel dari lead sampai closing, waktu respons manusia vs AI, dan revenue yang dipengaruhi AI, ter-atribusi ke tiap lead yang benar-benar deal.</p>
+                <ul>
+                    <li><svg viewBox="0 0 24 24"><path d="M20 6L9 17l-5-5"/></svg> Funnel pipeline real-time per tahap</li>
+                    <li><svg viewBox="0 0 24 24"><path d="M20 6L9 17l-5-5"/></svg> Waktu respons Manusia vs AI, berdampingan</li>
+                    <li><svg viewBox="0 0 24 24"><path d="M20 6L9 17l-5-5"/></svg> Revenue Dipengaruhi AI &amp; Lead Dikualifikasi AI</li>
+                    <li><svg viewBox="0 0 24 24"><path d="M20 6L9 17l-5-5"/></svg> Performa per agent &amp; per campaign</li>
+                </ul>
+            </div>
+            <div class="band-media">
+                <div class="shot">
+                    <div class="shot-bar"><i></i><i></i><i></i><span class="url">app.simpulx.com/dashboard</span></div>
+                    <img src="/img/dashboard.jpg" alt="Dashboard analitik revenue" loading="lazy">
+                </div>
+            </div>
+        </div>
+    </div>
+</section>
+
+<section style="background: var(--surface); border-top: 1px solid var(--border); border-bottom: 1px solid var(--border);">
+    <div class="container">
+        <div class="section-head reveal">
+            <div class="label">Cara kerja</div>
+            <h2>Live dalam hitungan menit</h2>
+        </div>
+        <div class="steps">
+            <div class="step reveal"><h3>Hubungkan WhatsApp</h3><p>Sambungkan nomor WhatsApp Business Anda lewat WhatsApp Cloud API resmi dari Meta.</p></div>
+            <div class="step reveal"><h3>Atur AI &amp; tim</h3><p>Tentukan gaya bicara AI, tambah agent, dan buat campaign dengan routing round-robin otomatis.</p></div>
+            <div class="step reveal"><h3>Mulai closing</h3><p>AI membalas, mengkualifikasi, dan follow-up. Tim Anda fokus menutup lead yang sudah panas.</p></div>
+        </div>
+    </div>
+</section>
+
+<section id="harga">
+    <div class="container">
+        <div class="section-head reveal">
+            <div class="label">Harga</div>
+            <h2>Harga per pengguna, makin besar tim makin hemat</h2>
+            <p>Setiap lisensi menyumbang 200 Kredit AI ke kuota gabungan organisasi Anda tiap bulan.</p>
+        </div>
+        <div class="grid3 plans">
+            <div class="card plan reveal">
+                <div class="pn">Tim Kecil</div>
+                <div class="pp">Rp 200rb<small> /pengguna/bln</small></div>
+                <div class="pd">1 - 10 pengguna</div>
+                <ul>
+                    <li><svg viewBox="0 0 24 24"><path d="M20 6L9 17l-5-5"/></svg> 200 Kredit AI / pengguna</li>
+                    <li><svg viewBox="0 0 24 24"><path d="M20 6L9 17l-5-5"/></svg> Inbox tim + AI nurture</li>
+                    <li><svg viewBox="0 0 24 24"><path d="M20 6L9 17l-5-5"/></svg> Panggilan WhatsApp</li>
+                    <li><svg viewBox="0 0 24 24"><path d="M20 6L9 17l-5-5"/></svg> E-catalog &amp; broadcast</li>
+                </ul>
+                <a href="https://wa.me/6285121500035?text=Halo%20Simpulx%2C%20saya%20mau%20tanya%20paket" class="btn btn-ghost">Hubungi kami</a>
+            </div>
+            <div class="card plan popular reveal">
+                <span class="badge-pop">Populer</span>
+                <div class="pn">Tim Menengah</div>
+                <div class="pp">Rp 150rb<small> /pengguna/bln</small></div>
+                <div class="pd">11 - 50 pengguna</div>
+                <ul>
+                    <li><svg viewBox="0 0 24 24"><path d="M20 6L9 17l-5-5"/></svg> 200 Kredit AI / pengguna</li>
+                    <li><svg viewBox="0 0 24 24"><path d="M20 6L9 17l-5-5"/></svg> Semua fitur Tim Kecil</li>
+                    <li><svg viewBox="0 0 24 24"><path d="M20 6L9 17l-5-5"/></svg> Automation &amp; lead scoring</li>
+                    <li><svg viewBox="0 0 24 24"><path d="M20 6L9 17l-5-5"/></svg> Analitik revenue lengkap</li>
+                </ul>
+                <a href="https://wa.me/6285121500035?text=Halo%20Simpulx%2C%20saya%20mau%20tanya%20paket" class="btn btn-primary">Hubungi kami</a>
+            </div>
+            <div class="card plan reveal">
+                <div class="pn">Grup / Enterprise</div>
+                <div class="pp">Rp 100rb<small> /pengguna/bln</small></div>
+                <div class="pd">&gt; 50 pengguna</div>
+                <ul>
+                    <li><svg viewBox="0 0 24 24"><path d="M20 6L9 17l-5-5"/></svg> 200 Kredit AI / pengguna</li>
+                    <li><svg viewBox="0 0 24 24"><path d="M20 6L9 17l-5-5"/></svg> Semua fitur Tim Menengah</li>
+                    <li><svg viewBox="0 0 24 24"><path d="M20 6L9 17l-5-5"/></svg> Onboarding &amp; prioritas support</li>
+                    <li><svg viewBox="0 0 24 24"><path d="M20 6L9 17l-5-5"/></svg> Top-up Kredit AI fleksibel</li>
+                </ul>
+                <a href="https://wa.me/6285121500035?text=Halo%20Simpulx%2C%20saya%20mau%20tanya%20paket" class="btn btn-ghost">Hubungi kami</a>
+            </div>
+        </div>
+        <p class="plan-note">Harga belum termasuk PPN 11% dan biaya template WhatsApp resmi dari Meta (untuk pesan di luar 24 jam). Kredit AI habis? Fitur AI dijeda, dashboard CRM tetap jalan.</p>
+    </div>
+</section>
+
+<section>
+    <div class="container">
+        <div class="section-head reveal"><div class="label">FAQ</div><h2>Pertanyaan yang sering ditanya</h2></div>
+        <div class="faq reveal">
+            <details><summary>Apa bedanya Simpulx dengan inbox WhatsApp biasa?</summary><div class="ans">Inbox biasa cuma menampung pesan. Simpulx menambahkan AI yang benar-benar mengeksekusi penjualan: membalas, mengkualifikasi, follow-up, dan menyerahkan lead panas ke sales, lengkap dengan skor dan rangkuman.</div></details>
+            <details><summary>Nomor WhatsApp saya aman?</summary><div class="ans">Ya. Simpulx tersambung lewat WhatsApp Cloud API resmi dari Meta. Nomor bisnis Anda tetap milik Anda, dan semua percakapan tersimpan di infrastruktur cloud wilayah Indonesia (Jakarta).</div></details>
+            <details><summary>Apakah cocok untuk selain properti?</summary><div class="ans">Ya. AI dan katalognya multi-segmen: otomotif, properti, dan retail. E-catalog microsite khusus properti, sedangkan katalog harga (pilih varian) tersedia untuk otomotif dan segmen lain.</div></details>
+            <details><summary>Berapa lama setup-nya?</summary><div class="ans">Bisa live dalam hitungan menit setelah nomor tersambung. Tim kami bantu onboarding, atur gaya AI, campaign, dan routing agent.</div></details>
+            <details><summary>Bagaimana perhitungan Kredit AI?</summary><div class="ans">1 Kredit dipotong tiap AI membalas atau merangkum data lead. Emoji dan pesan sepele tidak memotong kredit. Kalau kuota habis, Anda bisa top-up dan fitur AI aktif lagi.</div></details>
+        </div>
+    </div>
+</section>
+
+<section style="padding-top: 20px;">
+    <div class="container">
         <div class="cta-box reveal">
-            <div class="glow g1" style="opacity:.22"></div>
-            <h2>Ready to grow on WhatsApp?</h2>
-            <p>Let us set up Simpulx for your team - inbox, calling, broadcasts and automation.</p>
-            <a href="https://wa.me/6285121500035?text=Hi%20Simpulx%2C%20I%20want%20to%20get%20started" class="btn btn-primary">Contact us</a>
+            <h2>Siap ubah WhatsApp jadi mesin closing?</h2>
+            <p>Lihat sendiri bagaimana AI Simpulx membalas, mengkualifikasi, dan follow-up lead Anda otomatis.</p>
+            <a href="https://wa.me/6285121500035?text=Halo%20Simpulx%2C%20saya%20mau%20demo" class="btn btn-primary">Minta demo lewat WhatsApp</a>
         </div>
     </div>
 </section>
 </main>
 
 <footer>
-    <div class="container">
-        <div class="foot">
-            <a href="#" class="foot-brand"><img src="/favicon.png" alt="Simpulx"><span>Simpul<span class="accent">x</span></span></a>
-            <div class="foot-links">
-                <a href="#features">Features</a>
-                <a href="#plans">Plans</a>
-                <a href="/privacy.html">Privacy Policy</a>
-                <a href="mailto:admin@simpulx.com">Contact</a>
-                <a href="https://app.simpulx.com">Sign in</a>
-            </div>
-            <div class="foot-copy">&copy; 2026 Simpulx. All rights reserved.</div>
+    <div class="container foot">
+        <div class="foot-brand"><img src="/favicon.png" alt="Simpulx"><span>Simpul<span class="accent">x</span></span></div>
+        <div class="foot-links">
+            <a href="#ai">AI</a>
+            <a href="#fitur">Fitur</a>
+            <a href="#properti">Properti</a>
+            <a href="#harga">Harga</a>
+            <a href="/privacy.html">Privasi</a>
+            <a href="/terms.html">Ketentuan</a>
+            <a href="https://app.simpulx.com">Masuk</a>
         </div>
+        <div class="foot-copy">&copy; <span id="yr"></span> Simpulx</div>
     </div>
 </footer>
 
@@ -397,23 +431,18 @@
     nl.querySelectorAll('a').forEach(function(a){ a.addEventListener('click', function(){ nl.classList.remove('open'); }); });
     var nav = document.getElementById('nav');
     window.addEventListener('scroll', function(){ nav.classList.toggle('scrolled', window.scrollY > 10); });
-    var io = new IntersectionObserver(function(es){ es.forEach(function(e){ if(e.isIntersecting){ e.target.classList.add('in'); io.unobserve(e.target); } }); }, { threshold: 0.12 });
+    var io = new IntersectionObserver(function(es){ es.forEach(function(e){ if(e.isIntersecting){ e.target.classList.add('in'); io.unobserve(e.target); } }); }, { threshold: 0.1 });
     document.querySelectorAll('.reveal').forEach(function(el){ io.observe(el); });
+    document.getElementById('yr').textContent = new Date().getFullYear();
 
-    // Hero typewriter: type/delete the highlighted word.
     (function(){
         var el = document.getElementById('typed'); if(!el) return;
-        var words = ['conversation','call','chat','broadcast','follow-up'];
+        var words = ['lead','chat','deal','follow-up'];
         var wi = 0, ci = words[0].length, deleting = false;
         function tick(){
             var w = words[wi];
-            if(!deleting){
-                ci++;
-                if(ci >= w.length){ el.textContent = w; deleting = true; setTimeout(tick, 1500); return; }
-            } else {
-                ci--;
-                if(ci <= 0){ ci = 0; deleting = false; wi = (wi + 1) % words.length; }
-            }
+            if(!deleting){ ci++; if(ci >= w.length){ el.textContent = w; deleting = true; setTimeout(tick, 1600); return; } }
+            else { ci--; if(ci <= 0){ ci = 0; deleting = false; wi = (wi + 1) % words.length; } }
             el.textContent = words[wi].substring(0, ci);
             setTimeout(tick, deleting ? 55 : 110);
         }
