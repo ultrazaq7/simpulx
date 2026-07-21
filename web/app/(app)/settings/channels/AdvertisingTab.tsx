@@ -9,7 +9,7 @@ import {
 } from "lucide-react";
 import { usePermissions } from "@/lib/permissions";
 import { api } from "@/lib/api";
-import { MultiSelect } from "@/components/ui/multi-select";
+import { Select } from "@/components/Select";
 import SidePanel from "@/components/SidePanel";
 import { Toast } from "@/components/Toast";
 import { useConfirm } from "@/components/ConfirmDialog";
@@ -275,10 +275,17 @@ export function AdAccountDialog({ account, adCampaigns, ourCampaigns, onMap, onS
                 <div key={ac.id} className="flex items-center gap-2 px-3 py-2.5">
                   <Link2 className="w-3.5 h-3.5 text-muted-foreground shrink-0" />
                   <span className="text-[13px] font-medium text-foreground flex-1 truncate">{ac.name}</span>
-                  <MultiSelect
-                    value={ac.campaign_ids || (ac.campaign_id ? [ac.campaign_id] : [])}
-                    onChange={(v) => onMap(ac.id, v)}
-                    options={ourCampOptions}
+                  {/* Single-select, not multi. One ad campaign feeding several of
+                      ours DUPLICATES its spend rather than splitting it: the same
+                      Rp 112k showed under four campaigns and summed to Rp 449k
+                      org-wide. The honest answer for a genuinely shared ad is an
+                      allocation percentage, which does not exist yet, so until it
+                      does the mapping stays one-to-one. The join table is
+                      unchanged, so adding allocation later needs no migration. */}
+                  <Select
+                    value={(ac.campaign_ids || [])[0] || ac.campaign_id || ""}
+                    onChange={(v) => onMap(ac.id, v ? [v] : [])}
+                    options={[{ value: "", label: t("settings.notMapped") }, ...ourCampOptions]}
                     placeholder={t("settings.notMapped")}
                     className="w-[220px]"
                   />
