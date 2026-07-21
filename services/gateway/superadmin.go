@@ -98,6 +98,13 @@ func (s *server) handleListOrgs(w http.ResponseWriter, r *http.Request) {
 		            ORDER BY u.created_at LIMIT 1)                                                      AS owner_email
 		   FROM organizations o
 		   LEFT JOIN org_subscriptions os ON os.organization_id=o.id
+		  -- The platform's own org is not a client. It exists only because
+		  -- users.organization_id is NOT NULL and the super admin needs a home
+		  -- outside any tenant; listing it here would put Simpulx in its own
+		  -- customer list and, once P6 billing sweeps orgs, invoice itself.
+		  -- Flagged in settings rather than matched on slug so renaming the org
+		  -- cannot quietly turn it back into a "client".
+		  WHERE COALESCE(o.settings->>'is_platform','') <> 'true'
 		  ORDER BY o.created_at DESC`)
 	if err != nil {
 		http.Error(w, err.Error(), http.StatusInternalServerError)
