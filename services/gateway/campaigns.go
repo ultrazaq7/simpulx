@@ -116,6 +116,7 @@ func (s *server) handleGetCampaign(w http.ResponseWriter, r *http.Request) {
 		        c.lead_count, c.channel_id::text AS channel_id, c.calling_enabled,
 		        c.segment, c.brand, c.ai_auto_reply, c.ai_language, c.ai_dynamic_language, c.ai_smart_summary,
 		        c.intake_form_id::text AS intake_form_id, c.followup_template_id::text AS followup_template_id, c.monthly_budget, c.avg_deal_value,
+		        c.covered_cities,
 		        c.ai_style, c.followup_frequency,
 		        COALESCE((SELECT jsonb_agg(ca.user_id::text) FROM campaign_agents ca WHERE ca.campaign_id = c.id AND ca.in_rotation), '[]'::jsonb) AS agent_ids,
 		        COALESCE((SELECT jsonb_agg(ca.user_id::text) FROM campaign_agents ca WHERE ca.campaign_id = c.id AND NOT ca.in_rotation), '[]'::jsonb) AS supervisor_ids

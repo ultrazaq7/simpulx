@@ -32,8 +32,18 @@ export function CityMultiSelect({
     const onDoc = (e: MouseEvent) => {
       if (boxRef.current && !boxRef.current.contains(e.target as Node)) setOpen(false);
     };
+    // Escape closes the dropdown. Listened for on the document rather than on the
+    // search input so it works wherever focus sits inside the panel, and stopped
+    // from bubbling so it does not also close the surrounding wizard modal.
+    const onKey = (e: KeyboardEvent) => {
+      if (e.key === "Escape") { e.stopPropagation(); setOpen(false); setQ(""); }
+    };
     document.addEventListener("mousedown", onDoc);
-    return () => document.removeEventListener("mousedown", onDoc);
+    document.addEventListener("keydown", onKey, true);
+    return () => {
+      document.removeEventListener("mousedown", onDoc);
+      document.removeEventListener("keydown", onKey, true);
+    };
   }, [open]);
 
   const selected = useMemo(() => new Set(value), [value]);

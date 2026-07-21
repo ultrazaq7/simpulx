@@ -56,6 +56,11 @@ export function CampaignWizard({ campaignId, users, channels, onClose, onDone, o
   // Service area. Owned by the campaign (not by the pricelist) because it drives
   // out-of-area handoff and ad geo targeting, both of which must work with no catalog.
   const [coveredCities, setCoveredCities] = useState<string[]>([]);
+  // Guard against a load that never delivered the field: sending [] means "clear",
+  // so a wizard that opened before covered_cities was loaded would silently wipe an
+  // existing service area on the next Save. Only send the field once we know we
+  // actually have the campaign's current value (or we are creating a new one).
+  const [citiesReady, setCitiesReady] = useState(false);
   const [followupTpl, setFollowupTpl] = useState(""); // approved template for out-of-window follow-ups
   const [templates, setTemplates] = useState<{ id: string; name: string; language: string }[]>([]);
 
@@ -91,6 +96,7 @@ export function CampaignWizard({ campaignId, users, channels, onClose, onDone, o
           setAiLanguage(c.ai_language ?? "id"); setAiDynamicLanguage(c.ai_dynamic_language ?? true); setIntakeFormId(c.intake_form_id ?? "");
           setMonthlyBudget(c.monthly_budget != null ? String(c.monthly_budget) : "");
           setCoveredCities(c.covered_cities ?? []);
+          setCitiesReady(true);
           setFollowupTpl(c.followup_template_id ?? "");
           setBranches((brs as any[]).map((b) => ({
             key: `b${++keySeq}`, id: b.id, name: b.name,
@@ -132,7 +138,7 @@ export function CampaignWizard({ campaignId, users, channels, onClose, onDone, o
         segment, brand: brand.trim(), ai_auto_reply: aiAutoReply, ai_language: aiLanguage,
         ai_dynamic_language: aiDynamicLanguage, intake_form_id: intakeFormId || "none",
         monthly_budget: monthlyBudget.trim() === "" ? null : Number(monthlyBudget.replace(/[^0-9.]/g, "")),
-        covered_cities: coveredCities,
+        ...(citiesReady || !isEdit ? { covered_cities: coveredCities } : {}),
         followup_template_id: followupTpl || "none",
       };
       let cid = campaignId;
