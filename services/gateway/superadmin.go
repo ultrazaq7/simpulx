@@ -7,6 +7,7 @@ import (
 	"net/http"
 	"regexp"
 	"strings"
+	"time"
 )
 
 // ── Platform super admin ────────────────────────────────────────────────────
@@ -382,6 +383,18 @@ func (s *server) handleUpdateOrg(w http.ResponseWriter, r *http.Request) {
 			http.Error(w, "owner email: could not read the owner account", http.StatusInternalServerError)
 			return
 		}
+		// Lockout guard. The platform panel can rename the very account that grants
+		// access to the platform panel: superadmin identity is resolved from the
+		// EMAIL (hardcoded, or SUPER_ADMIN_EMAIL), so renaming it away silently
+		// removes the only way back in. That is not hypothetical -- it happened on
+		// 2026-07-21 and had to be undone from the server.
+		if !strings.EqualFold(currentEmail, e) &&
+			s.superAdminByEmail(currentEmail, "") && !s.superAdminByEmail(e, "") {
+			http.Error(w, "owner email: "+currentEmail+" is the platform super admin. "+
+				"Renaming it to an address that is not recognised as super admin would lock you out. "+
+				"Point SUPER_ADMIN_EMAIL at the new address first.", http.StatusConflict)
+			return
+		}
 		if !strings.EqualFold(currentEmail, e) {
 			// Someone else in this org may already hold the address; say so plainly
 			// rather than letting the unique index answer.
@@ -457,4 +470,77 @@ func (s *server) handleDeleteOrg(w http.ResponseWriter, r *http.Request) {
 	}
 	s.log.Info("platform: org deleted", "org", orgID)
 	writeJSON(w, map[string]any{"status": "deleted"})
+}
+
+// ── Impersonation ("view as") ───────────────────────────────────────────────
+//
+// A superadmin belongs to ONE organisation, and every tenant endpoint scopes on
+// the org id carried in the JWT. So the Platform panel could list every org but
+// never open one: the inbox, campaigns and dashboards always resolved back to the
+// superadmin's own tenant. This mints a token for the target org instead, which
+// is the only way that scoping can be redirected without weakening it everywhere.
+//
+// Sessions are FULL ACCESS on purpose: support has to be able to finish a
+// customer's setup, not just look at it. The safeguards are therefore attribution
+// and time rather than permission: the token is short-lived, it is never
+// refreshable, each issue is audited, and every action taken during the session is
+// recorded against the SUPERADMIN (see audit) instead of the borrowed account.
+
+// impersonationTTL is short on purpose: a forgotten tab must stop working.
+const impersonationTTL = 30 * time.Minute
+
+// POST /api/platform/orgs/{id}/impersonate
+func (s *server) handleImpersonateOrg(w http.ResponseWriter, r *http.Request) {
+	a, _ := authFrom(r.Context())
+	orgID := r.PathValue("id")
+
+	// Refuse to nest: an impersonated session must not be able to hop onward into
+	// a third org, which would make the audit trail meaningless.
+	if a.ImpersonatedBy != "" {
+		http.Error(w, "already impersonating", http.StatusConflict)
+		return
+	}
+
+	var orgName string
+	if err := s.pool.QueryRow(r.Context(),
+		`SELECT name FROM organizations WHERE id=$1::uuid`, orgID).Scan(&orgName); err != nil {
+		http.Error(w, "not found", http.StatusNotFound)
+		return
+	}
+
+	// Borrow the org's owner: it is the account with the widest view, so the
+	// superadmin sees what the customer sees rather than a partial picture.
+	var targetID, targetName, targetRole string
+	if err := s.pool.QueryRow(r.Context(),
+		`SELECT id::text, full_name, role FROM users
+		  WHERE organization_id=$1::uuid AND NOT is_deleted AND status='active'
+		  ORDER BY CASE role WHEN 'owner' THEN 0 WHEN 'admin' THEN 1 ELSE 2 END, created_at
+		  LIMIT 1`, orgID).Scan(&targetID, &targetName, &targetRole); err != nil {
+		http.Error(w, "this organisation has no active account to view as", http.StatusConflict)
+		return
+	}
+
+	token, err := s.issueImpersonationToken(a.UserID, targetID, orgID, targetRole, targetName, impersonationTTL)
+	if err != nil {
+		http.Error(w, "could not issue token", http.StatusInternalServerError)
+		return
+	}
+
+	// Audit BEFORE handing the token over, so the record exists even if the
+	// response never reaches the browser.
+	s.audit(r.Context(), a, "impersonated", "organization", orgID, map[string]any{
+		"org_name":    orgName,
+		"viewed_as":   targetName,
+		"target_role": targetRole,
+		"expires_in": impersonationTTL.String(),
+	})
+	s.log.Info("superadmin impersonation issued",
+		"superadmin", a.UserID, "org", orgID, "org_name", orgName, "as", targetID)
+
+	writeJSON(w, map[string]any{
+		"token":      token,
+		"expires_in": int(impersonationTTL.Seconds()),
+		"org":        map[string]any{"id": orgID, "name": orgName},
+		"viewing_as": map[string]any{"id": targetID, "name": targetName, "role": targetRole},
+	})
 }

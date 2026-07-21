@@ -9,6 +9,19 @@ import (
 // audit records a workspace action. Best-effort: a failed audit write
 // must never break the underlying operation, so errors are only logged.
 func (s *server) audit(ctx context.Context, a authInfo, action, entityType, entityID string, detail map[string]any) {
+	// During impersonation a.UserID/a.Name are the BORROWED account, so an
+	// unmodified entry would record support's changes as the customer's own. Say
+	// plainly who acted, in the customer's own audit log: they are entitled to see
+	// that Simpulx support touched their data, and support is entitled to not be
+	// blamed for changes they did not make.
+	actorName := a.Name
+	if a.ImpersonatedBy != "" {
+		actorName = a.Name + " (via Simpulx support)"
+		if detail == nil {
+			detail = map[string]any{}
+		}
+		detail["impersonated_by"] = a.ImpersonatedBy
+	}
 	d, err := json.Marshal(detail)
 	if err != nil || d == nil {
 		d = []byte("{}")
@@ -16,7 +29,7 @@ func (s *server) audit(ctx context.Context, a authInfo, action, entityType, enti
 	if _, err := s.pool.Exec(ctx,
 		`INSERT INTO audit_log (organization_id, actor_id, actor_name, action, entity_type, entity_id, detail)
 		 VALUES ($1, NULLIF($2,'')::uuid, $3, $4, $5, NULLIF($6,''), $7::jsonb)`,
-		a.OrgID, a.UserID, a.Name, action, entityType, entityID, string(d),
+		a.OrgID, a.UserID, actorName, action, entityType, entityID, string(d),
 	); err != nil {
 		s.log.Warn("audit write failed", "action", action, "err", err)
 	}

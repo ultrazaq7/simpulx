@@ -68,6 +68,12 @@ type claims struct {
 	OrgID string `json:"org"`
 	Role  string `json:"role"`
 	Name  string `json:"name"`
+	// Impersonation (superadmin "act as"). ImpBy is the SUPERADMIN's own user id.
+	// It is what the audit log must name: Subject is the borrowed account, so
+	// without this every change support makes would be recorded as the customer's
+	// own. Sessions are full-access on purpose -- support has to be able to finish
+	// a setup, not just look at it -- which is exactly why attribution matters.
+	ImpBy string `json:"imp_by,omitempty"`
 	jwt.RegisteredClaims
 }
 
@@ -77,6 +83,26 @@ func (s *server) issueToken(userID, orgID, role, name string) (string, error) {
 		RegisteredClaims: jwt.RegisteredClaims{
 			Subject:   userID,
 			ExpiresAt: jwt.NewNumericDate(time.Now().Add(s.jwtTTL)),
+			IssuedAt:  jwt.NewNumericDate(time.Now()),
+		},
+	}
+	return jwt.NewWithClaims(jwt.SigningMethodHS256, c).SignedString([]byte(s.jwtSecret))
+}
+
+// issueImpersonationToken mints a SHORT-LIVED token for another org.
+//
+// Full access on purpose: support needs to finish a customer's setup, not just
+// look at it. The safeguards are therefore attribution and time, not permission:
+// every audited action names the superadmin (see audit), the token expires on its
+// own so a forgotten tab stops working, and it is never refreshable -- no
+// refresh_tokens row is written, so it cannot quietly become a permanent session.
+func (s *server) issueImpersonationToken(superAdminID, targetUserID, orgID, role, name string, ttl time.Duration) (string, error) {
+	c := claims{
+		OrgID: orgID, Role: role, Name: name,
+		ImpBy: superAdminID,
+		RegisteredClaims: jwt.RegisteredClaims{
+			Subject:   targetUserID,
+			ExpiresAt: jwt.NewNumericDate(time.Now().Add(ttl)),
 			IssuedAt:  jwt.NewNumericDate(time.Now()),
 		},
 	}
@@ -105,6 +131,9 @@ const authCtxKey ctxKey = "auth"
 
 type authInfo struct {
 	UserID, OrgID, Role, Name string
+	// ImpersonatedBy is empty for a normal session. When set, the caller is a
+	// superadmin acting inside another tenant.
+	ImpersonatedBy string
 }
 
 func authFrom(ctx context.Context) (authInfo, bool) {
@@ -131,7 +160,7 @@ func (s *server) requireAuth(next http.HandlerFunc) http.HandlerFunc {
 			http.Error(w, "invalid token", http.StatusUnauthorized)
 			return
 		}
-		ai := authInfo{UserID: c.Subject, OrgID: c.OrgID, Role: c.Role, Name: c.Name}
+		ai := authInfo{UserID: c.Subject, OrgID: c.OrgID, Role: c.Role, Name: c.Name, ImpersonatedBy: c.ImpBy}
 		next(w, r.WithContext(context.WithValue(r.Context(), authCtxKey, ai)))
 	}
 }

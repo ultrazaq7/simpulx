@@ -2,10 +2,11 @@
 import { useI18n } from "@/lib/i18n";
 import { useEffect, useState } from "react";
 import { useRouter } from "next/navigation";
-import { Loader2, Plus, Pencil, Building2, Trash2 } from "lucide-react";
+import { Loader2, Plus, Pencil, Building2, Trash2, Eye } from "lucide-react";
 import { api } from "@/lib/api";
 import { cn, fmtDateTimeShort } from "@/lib/utils";
 import type { OrgRow } from "@/lib/types";
+import { startImpersonation } from "@/lib/impersonation";
 import { Select } from "@/components/Select";
 import { SEGMENT_OPTIONS } from "@/lib/segments";
 import SidePanel from "@/components/SidePanel";
@@ -96,6 +97,17 @@ export default function ClientManagementPage() {
                       <td className={cn("px-4 py-2.5 text-right tabular-nums text-[13px] font-semibold", near ? "text-amber-600" : "text-foreground")}>{o.credits_used_month}<span className="text-muted-foreground font-normal"> / {pool}</span></td>
                       <td className="px-4 py-2.5 text-[12.5px] text-muted-foreground">{fmtDateTimeShort(o.created_at)}</td>
                       <td className="px-4 py-2.5 text-right">
+                        <button title={t("settings.viewAsOrg")}
+                          onClick={async () => {
+                            try {
+                              const r = await api.impersonateOrg(o.id);
+                              startImpersonation({ token: r.token, expiresIn: r.expires_in, org: r.org, viewingAs: r.viewing_as });
+                              // Full reload, not a router push: every cached query and
+                              // the socket were opened with the old token.
+                              window.location.href = "/dashboard";
+                            } catch (e) { notify(String(e), "error"); }
+                          }}
+                          className="p-1.5 rounded-md hover:bg-muted outline-none transition-colors text-muted-foreground hover:text-primary"><Eye className="w-[17px] h-[17px]" /></button>
                         <button onClick={() => setPanel({ mode: "edit", org: o })} className="p-1.5 rounded-md hover:bg-muted outline-none transition-colors text-muted-foreground hover:text-foreground"><Pencil className="w-[17px] h-[17px]" /></button>
                       </td>
                     </tr>

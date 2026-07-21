@@ -15,6 +15,7 @@ import { Tip } from "@/components/ui/tooltip";
 import { usePermissions } from "@/lib/permissions";
 import type { AppNotification, User } from "@/lib/types";
 import { useI18n } from "@/lib/i18n";
+import ImpersonationBanner from "@/components/ImpersonationBanner";
 import { useEscClose } from "@/lib/useEscClose";
 import IncomingCallListener from "@/components/IncomingCallListener";
 import CommandPalette from "@/components/CommandPalette";
@@ -614,7 +615,11 @@ export function Shell({ children }: { children: ReactNode }) {
   }
 
   return (
-    <div className="flex h-dvh overflow-hidden bg-background text-foreground">
+    // Column, so the impersonation banner sits ABOVE the whole app frame rather
+    // than inside a scrolling pane where it could be scrolled out of sight.
+    <div className="flex flex-col h-dvh overflow-hidden bg-background text-foreground">
+      <ImpersonationBanner />
+      <div className="flex flex-1 min-h-0 overflow-hidden">
       {/* Mobile drawer backdrop */}
       {isMobile && mobileNavOpen && (
         <div className="fixed inset-0 bg-black/40 z-[55] lg:hidden" onClick={() => setMobileNavOpen(false)} aria-hidden />
@@ -905,6 +910,7 @@ export function Shell({ children }: { children: ReactNode }) {
       <CommandPalette open={cmdOpen} onClose={() => setCmdOpen(false)} />
       <KeyboardHelp open={helpOpen} onClose={() => setHelpOpen(false)} />
     </div>
+      </div>
   );
 }
 

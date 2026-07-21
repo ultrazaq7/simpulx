@@ -548,6 +548,12 @@ export const api = {
     usdIdr: string;
   }>("/api/platform/ml-monitor"),
   listOrgs: () => req<OrgRow[]>("/api/platform/orgs"),
+  impersonateOrg: (id: string) =>
+    req<{
+      token: string; expires_in: number;
+      org: { id: string; name: string };
+      viewing_as: { id: string; name: string; role: string };
+    }>(`/api/platform/orgs/${id}/impersonate`, { method: "POST" }),
   listAllCampaigns: () => req<{ id: string; name: string; org_name: string; status: string; catalog_rows: number }[]>("/api/platform/campaigns"),
   campaignAIHistory: (id: string) => req<{ id: string; ai_style: unknown; changed_at: string; changed_by: string }[]>(`/api/platform/campaigns/${id}/ai-history`),
   cloneCampaign: (id: string) => req<{ id: string }>(`/api/campaigns/${id}/clone`, { method: "POST" }),
