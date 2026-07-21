@@ -16,9 +16,16 @@ const AGENT_PERMS = new Set([
   "edit_contacts", "close_chats", "view_settings", "initiate_chats",
 ]);
 
+const MANAGER_DENIED = new Set([
+  "manage_roles", "manage_channels", "manage_ai", "manage_organization",
+]);
+
 export function defaultFor(role: string, key: string): boolean {
   if (LOCKED_ROLES.includes(role)) return true;
-  if (role === "manager") return key !== "manage_roles" && key !== "manage_channels";
+  // Mirrors defaultPerm in services/gateway/permissions.go. Managers get
+  // everything except role + channel management and the org-wide switches
+  // (AI/knowledge configuration, the organisation record itself).
+  if (role === "manager") return !MANAGER_DENIED.has(key);
   if (role === "agent") return AGENT_PERMS.has(key);
   return false; // unknown custom role with no saved entry
 }

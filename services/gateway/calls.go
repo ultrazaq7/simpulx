@@ -176,6 +176,13 @@ func (s *server) handleRequestCallPermission(w http.ResponseWriter, r *http.Requ
 		http.Error(w, "conversation_id required", http.StatusBadRequest)
 		return
 	}
+	// The conversation id comes from the request body, so it must be checked like
+	// any other caller-supplied id: without this, an org check alone let anyone ask
+	// WhatsApp for call permission on a conversation they cannot open, which also
+	// reaches the customer.
+	if !s.guardConversation(w, r, body.ConversationID) {
+		return
+	}
 
 	// Resolve conversation → channel + contact phone
 	var channelID, phoneNumberID, accessToken, contactPhone string
@@ -345,6 +352,20 @@ func (s *server) handleInitiateCall(w http.ResponseWriter, r *http.Request) {
 	if err := json.NewDecoder(r.Body).Decode(&body); err != nil || body.CallID == "" || body.SDPOffer == "" {
 		http.Error(w, "call_id and sdp_offer required", http.StatusBadRequest)
 		return
+	}
+	// call_id is body-supplied here (not a path value), so callScoped cannot cover
+	// it: resolve the call's conversation and apply the same visibility rule.
+	{
+		var convID string
+		if err := s.pool.QueryRow(r.Context(),
+			`SELECT conversation_id::text FROM calls WHERE id=$1 AND organization_id=$2`,
+			body.CallID, a.OrgID).Scan(&convID); err != nil {
+			http.Error(w, "not found", http.StatusNotFound)
+			return
+		}
+		if !s.guardConversation(w, r, convID) {
+			return
+		}
 	}
 
 	var phoneNumberID, accessToken, contactPhone, permStatus string

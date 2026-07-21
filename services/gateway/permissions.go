@@ -23,8 +23,14 @@ func defaultPerm(role, key string) bool {
 	}
 	switch role {
 	case "manager":
-		// Managers get everything except role + channel management.
-		return key != "manage_roles" && key != "manage_channels"
+		// Managers get everything except role + channel management, and except the
+		// org-wide switches that are not theirs to flip: the AI agent + knowledge
+		// base configuration, and the organisation record itself.
+		switch key {
+		case "manage_roles", "manage_channels", "manage_ai", "manage_organization":
+			return false
+		}
+		return true
 	case "agent":
 		switch key {
 		case "menu_dashboard", "menu_chats", "menu_contacts", "menu_settings",
@@ -116,6 +122,35 @@ func (s *server) branchScoped(next http.HandlerFunc) http.HandlerFunc {
 		q += ")"
 		var allowed bool
 		if err := s.pool.QueryRow(r.Context(), q, args...).Scan(&allowed); err != nil || !allowed {
+			http.Error(w, "not found", http.StatusNotFound)
+			return
+		}
+		next(w, r)
+	}
+}
+
+// callScoped is campaignScoped for /api/calls/{id}/...: a call belongs to a
+// conversation, so it inherits that conversation's visibility. Every one of these
+// handlers took a call id straight from the path and looked it up by org alone,
+// which meant anyone in the org could accept, reject, end or attach a recording to
+// a call in a conversation they cannot even open, just by knowing an id.
+// 404 rather than 403, matching guardConversation: the caller should not learn the
+// call exists. MUST be used inside requireAuth.
+func (s *server) callScoped(next http.HandlerFunc) http.HandlerFunc {
+	return func(w http.ResponseWriter, r *http.Request) {
+		a, ok := authFrom(r.Context())
+		if !ok {
+			http.Error(w, "unauthorized", http.StatusUnauthorized)
+			return
+		}
+		var convID string
+		if err := s.pool.QueryRow(r.Context(),
+			`SELECT conversation_id::text FROM calls WHERE id=$1 AND organization_id=$2`,
+			r.PathValue("id"), a.OrgID).Scan(&convID); err != nil {
+			http.Error(w, "not found", http.StatusNotFound)
+			return
+		}
+		if allowed, _ := s.canAccessConversation(r.Context(), a, convID); !allowed {
 			http.Error(w, "not found", http.StatusNotFound)
 			return
 		}

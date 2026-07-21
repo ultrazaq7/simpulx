@@ -3,6 +3,9 @@ import { useI18n } from "@/lib/i18n";
 import { useEffect, useMemo, useState } from "react";
 import { Plus, Lock, Loader2, ChevronLeft, ChevronDown, Pencil, Trash2 } from "lucide-react";
 import { api, getUser } from "@/lib/api";
+// Single source of truth for the built-in defaults. This page used to keep its
+// OWN copy, which is precisely how the three definitions drifted apart.
+import { defaultFor } from "@/lib/permissions";
 import { cn } from "@/lib/utils";
 import SidePanel from "@/components/SidePanel";
 import { useToast, PageBody, SettingsCard, FieldLabel, INPUT_CLASS, PrimaryButton, GhostButton, ROLE_PERMS } from "../_shared";
@@ -53,6 +56,9 @@ const GROUPS: { group: string; perms: Perm[] }[] = [
     { key: "manage_roles", label: "Manage Roles & Permissions" },
     { key: "manage_campaigns", label: "Manage Campaigns" },
     { key: "manage_quick_replies", label: "Manage Quick Replies" },
+    { key: "manage_templates", label: "Manage Message Templates" },
+    { key: "manage_ai", label: "Manage AI & Knowledge Base" },
+    { key: "manage_organization", label: "Manage Company Profile & Branding" },
   ] },
 ];
 
@@ -60,17 +66,6 @@ const BUILT_IN = ["owner", "admin", "manager", "agent"];
 const LOCKED = ["owner", "admin"];
 const ALL_PERM_KEYS = GROUPS.flatMap((g) => g.perms.map((p) => p.key));
 
-function defaultFor(role: string, key: string): boolean {
-  if (LOCKED.includes(role)) return true;
-  if (role === "manager") return key !== "manage_roles" && key !== "manage_channels";
-  if (role === "agent") {
-    // Mirrors web/lib/permissions.ts AGENT_PERMS and services/gateway/permissions.go.
-    return ["menu_dashboard", "menu_chats", "menu_contacts", "menu_settings",
-      "view_dashboard", "view_team_chats", "view_contacts", "create_contacts",
-      "edit_contacts", "close_chats", "view_settings", "initiate_chats"].includes(key);
-  }
-  return false;
-}
 
 export default function RolesSettingsPage() {
   const { t } = useI18n();
