@@ -503,6 +503,7 @@ export interface CampaignDetail extends Campaign {
   intake_form_id?: string | null;
   followup_template_id?: string | null; // approved template for out-of-window follow-ups
   monthly_budget?: number | null;      // optional user-set monthly ad budget
+  covered_cities?: string[] | null;    // service area; drives out-of-area handoff + ad geo targeting
   avg_deal_value?: number | null;      // fallback deal value for revenue-influenced
   ai_style?: AIStyle | null;           // per-campaign AI response tuning
   followup_frequency?: string;         // off | low | normal | high

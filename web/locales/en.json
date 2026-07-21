@@ -2196,5 +2196,10 @@
     "priorityLeadBody": "Priority lead waiting for your reply. Follow up now.",
     "leadDetailsReadyTitle": "Lead details ready",
     "formCompletedBody": "{{name}} completed {{form}}"
-  }
+  },
+  "settings.serviceArea": "Service area (cities you serve)",
+  "settings.selectCitiesYouServe": "Select cities you serve",
+  "settings.serviceAreaHint": "Used to spot out-of-area leads and to target ads. Works without a catalog.",
+  "settings.noServiceAreaYet": "No service area set yet. Add the cities this campaign serves before uploading a pricelist.",
+  "settings.pickCityBeforeUpload": "Set the campaign's service area first."
 }

@@ -161,6 +161,13 @@ type campaignInput struct {
 	AIStyle json.RawMessage `json:"ai_style"`
 	// Auto follow-up cadence: off | low | normal | high ('' = keep existing).
 	FollowupFrequency string `json:"followup_frequency"`
+	// Service area. Owned by the CAMPAIGN, not by the pricelist: it decides
+	// out-of-area handoff and ad geo targeting, both of which must work for
+	// campaigns that have no catalog at all (a lender, a clinic, a course). It used
+	// to be writable only as a side effect of a catalog Replace, which left those
+	// campaigns permanently empty with no way to fix it from the UI.
+	// nil = not sent (keep existing); [] = explicitly clear.
+	CoveredCities *[]string `json:"covered_cities"`
 }
 
 // keywordsConflict returns the first keyword already claimed by ANOTHER campaign
@@ -314,12 +321,14 @@ func (s *server) handleUpdateCampaign(w http.ResponseWriter, r *http.Request) {
 		   ai_style = COALESCE($20::jsonb, ai_style),
 		   followup_frequency = COALESCE(NULLIF($21,''), followup_frequency),
 		   avg_deal_value = COALESCE($22, avg_deal_value),
+		   covered_cities = COALESCE($23, covered_cities),
 		   updated_at = now()
 		 WHERE id=$1 AND organization_id=$2`,
 		r.PathValue("id"), a.OrgID, b.Name, b.DealerName, b.Status, b.RoutingStrategy,
 		nilIfEmptySlice(b.AdSourceIDs), nilIfEmptySlice(b.Keywords), b.ChannelID, b.CallingEnabled,
 		b.Segment, b.Brand, b.AIAutoReply, b.AILanguage, b.AIDynamicLanguage, b.IntakeFormID, b.AISmartSummary,
 		b.MonthlyBudget, b.FollowupTemplateID, nilIfEmptyJSON(b.AIStyle), b.FollowupFrequency, b.AvgDealValue,
+		b.CoveredCities,
 	)
 	if err != nil {
 		http.Error(w, err.Error(), http.StatusInternalServerError)

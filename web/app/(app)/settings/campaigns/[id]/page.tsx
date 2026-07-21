@@ -3,12 +3,12 @@ import { useI18n } from "@/lib/i18n";
 // Campaign detail = SETUP only (Credits, AI Assistant, Catalog). All reporting
 // lives on the Dashboard, so this page has no report/PDF anymore.
 import { useEffect, useMemo, useRef, useState } from "react";
+import Link from "next/link";
 import { useParams, useRouter, useSearchParams } from "next/navigation";
 import { ArrowLeft, Loader2, Coins, Sparkles, Database, Upload, Trash2, X, MapPin, Search, Download } from "lucide-react";
 import * as XLSX from "xlsx";
 import { BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip as RTooltip, ResponsiveContainer } from "recharts";
 import { api } from "@/lib/api";
-import { ID_CITIES, ID_CITY_GROUPS } from "@/lib/idCities";
 import { Select } from "@/components/Select";
 import { cn } from "@/lib/utils";
 import type { CampaignDetail, CatalogItem, Template, AIStyle } from "@/lib/types";
@@ -108,7 +108,7 @@ export default function CampaignDetailPage() {
             <div className="mt-6">
               {tab === "credits" && <CreditsTab id={id} notify={notify} />}
               {tab === "ai" && <AITab campaign={campaign} onSaved={(c) => { setCampaign(c); notify(t("settings.aiSettingsSaved")); }} onError={(m) => notify(m, "error")} />}
-              {tab === "catalog" && <CatalogTab id={id} segment={campaign.segment ?? undefined} notify={notify} />}
+              {tab === "catalog" && <CatalogTab id={id} segment={campaign.segment ?? undefined} cities={campaign.covered_cities ?? []} notify={notify} />}
             </div>
           </div>
         )}
@@ -521,26 +521,19 @@ function AITab({ campaign, onSaved, onError }: { campaign: CampaignDetail; onSav
 // rest land in each row's attributes. A new upload replaces the campaign's rows.
 type CatalogRowInput = { item_name: string; variant_name?: string; location_name?: string; category_type?: string; headline_price?: number | null; attributes?: Record<string, unknown> };
 
-function CatalogTab({ id, segment, notify }: { id: string; segment?: string; notify: (m: string, s?: "success" | "error") => void }) {
+function CatalogTab({ id, segment, cities, notify }: { id: string; segment?: string; cities: string[]; notify: (m: string, s?: "success" | "error") => void }) {
   const { t } = useI18n();
   const [rows, setRows] = useState<CatalogItem[] | null>(null);
   const [busy, setBusy] = useState(false);
   const [editing, setEditing] = useState<CatalogItem | null>(null); // row open in the edit drawer
   const [catQuery, setCatQuery] = useState(""); // client-side filter over the catalog table
-  const [locations, setLocations] = useState<string[]>([]); // apply these location(s) to the uploaded rows
-  // The chips are the campaign's service area, not just a convenience: with none
-  // picked every uploaded row lands with location NULL, and out-of-area detection
-  // has nothing to compare a lead's city against.
+  // Service area comes from the CAMPAIGN now, not from chips living on this tab.
+  // It used to be picked here per upload, which made the pricelist the de-facto
+  // owner of the area: a campaign with no catalog could never have one, and a
+  // re-upload silently rewrote it. Cities are edited once in campaign settings and
+  // this tab just applies them.
+  const locations = cities;
   const needsCity = locations.length === 0;
-  const [locInput, setLocInput] = useState("");
-  const [locFocus, setLocFocus] = useState(false); // controls the type-ahead suggestion dropdown
-  // Add one or many cities, case-insensitively deduped against what's already chosen.
-  const addLocs = (cities: string[]) => setLocations((ls) => {
-    const have = new Set(ls.map((l) => l.toLowerCase()));
-    const add = cities.map((c) => c.trim()).filter((c) => c && !have.has(c.toLowerCase()));
-    return add.length ? [...ls, ...add] : ls;
-  });
-  const addLoc = (v: string) => { addLocs([v]); setLocInput(""); };
   const fileRef = useRef<HTMLInputElement>(null);
   const { confirm, ConfirmHost } = useConfirm();
   // Live upload progress so the user sees WHAT the system is doing (not a blind spinner).
@@ -620,20 +613,6 @@ function CatalogTab({ id, segment, notify }: { id: string; segment?: string; not
   if (rows === null) return <Loader2 className="w-5 h-5 animate-spin text-muted-foreground" />;
   const fmtPrice = (v: number | null) => v == null ? "" : "Rp " + Math.round(v).toLocaleString("id-ID");
 
-  // Type-ahead: cities matching what's typed, not already chosen, best match first
-  // (exact > prefix > substring). Empty query -> no dropdown.
-  const q = locInput.trim().toLowerCase();
-  const suggestions = q
-    ? ID_CITIES
-        .filter((c) => c.toLowerCase().includes(q) && !locations.some((l) => l.toLowerCase() === c.toLowerCase()))
-        .sort((a, b) => {
-          const al = a.toLowerCase(), bl = b.toLowerCase();
-          const ar = al === q ? 0 : al.startsWith(q) ? 1 : 2;
-          const br = bl === q ? 0 : bl.startsWith(q) ? 1 : 2;
-          return ar - br || a.localeCompare(b);
-        })
-        .slice(0, 8)
-    : [];
 
   // Client-side filter so a specific item stays findable in a big catalog: the table
   // only renders a slice and rows are alphabetical, so late letters (e.g. "X" for
@@ -664,82 +643,33 @@ function CatalogTab({ id, segment, notify }: { id: string; segment?: string; not
       )}
       <input ref={fileRef} type="file" accept=".csv,text/csv,.pdf,application/pdf,.xlsx,.xls,application/vnd.openxmlformats-officedocument.spreadsheetml.sheet" className="hidden" onChange={onFile} />
 
-      {/* Ask which location(s) this pricelist is for BEFORE uploading. Click a metro
-          group to add its cities at once, or type a city (with suggestions) and press
-          Enter to add a chip. Applied to rows without a location; multiple cities
-          duplicate each row per city. */}
+      {/* Service area is read-only here: it belongs to the campaign, is edited once
+          in campaign settings, and every uploaded row is fanned out across it. Shown
+          rather than hidden because it silently multiplies the row count. */}
       <div className={cn("rounded-lg border p-3.5 transition-colors", needsCity ? "border-amber-500/40 bg-amber-500/[0.04]" : "border-border")}>
-        <div className="flex items-center justify-between gap-2 mb-1">
-          <FieldLabel hint={t("settings.rowsWithoutALocationColumn")}>{t("settings.locationSForThisPricelist")}</FieldLabel>
-          <div className="flex items-center gap-2 shrink-0">
-            {locations.length > 0 && (
-              <span className="text-[11px] font-medium tabular-nums text-muted-foreground">{t("settings.citiesSelected", { n: locations.length })}</span>
-            )}
-            {locations.length > 0 && (
-              <button type="button" onClick={() => setLocations([])} disabled={busy}
-                className="inline-flex items-center gap-1 rounded-md px-2 py-1 text-[11.5px] font-semibold text-muted-foreground hover:text-red-500 hover:bg-red-500/10 transition-colors outline-none disabled:opacity-50">
-                <X className="w-3 h-3" />{t("settings.clearAllCities")}
-              </button>
-            )}
-          </div>
+        <div className="flex items-center justify-between gap-2 mb-1.5">
+          <FieldLabel hint={t("settings.serviceAreaHint")}>{t("settings.serviceArea")}</FieldLabel>
+          <Link href={`/settings/campaigns/${id}?tab=general`} className="text-[12.5px] font-semibold text-primary hover:underline shrink-0">
+            {t("common.edit")}
+          </Link>
         </div>
-
-        {/* One-click metro-area presets (Jakarta / Jadetabek / Jabodetabek, …). */}
-        <div className="flex flex-wrap gap-1.5 mt-1 mb-2">
-          {ID_CITY_GROUPS.map((g) => {
-            const active = g.cities.every((c) => locations.includes(c));
-            return (
-              <button key={g.label} type="button" onClick={() => active ? setLocations((ls) => ls.filter((l) => !g.cities.includes(l))) : addLocs(g.cities)} disabled={busy}
-                title={g.cities.join(", ")}
-                className={cn("inline-flex items-center gap-1 rounded-full border text-[12px] font-medium px-2.5 py-1 transition-colors outline-none disabled:opacity-50",
-                  active ? "border-primary/50 bg-primary/10 text-primary" : "border-border bg-muted/40 text-muted-foreground hover:bg-primary/10 hover:border-primary/40 hover:text-primary")}>
-                <MapPin className="w-3 h-3" />{g.label}
-                <span className="text-[10px] tabular-nums opacity-60">{g.cities.length}</span>
-              </button>
-            );
-          })}
-        </div>
-
-        <div className="relative">
-          <div className="flex flex-wrap items-center gap-1.5 rounded-md border border-input bg-background px-2 py-1.5 focus-within:border-primary focus-within:ring-2 focus-within:ring-primary/20">
+        {needsCity ? (
+          <p className="text-[13px] text-amber-700 dark:text-amber-500">{t("settings.noServiceAreaYet")}</p>
+        ) : (
+          <div className="flex flex-wrap gap-1.5">
             {locations.map((loc) => (
-              <span key={loc} className="inline-flex items-center gap-1 rounded-md bg-primary/[0.12] text-primary text-[12.5px] font-medium pl-2 pr-1 py-0.5">
-                {loc}
-                <button onClick={() => setLocations((ls) => ls.filter((l) => l !== loc))} className="rounded hover:bg-primary/20 outline-none"><X className="w-3 h-3" /></button>
+              <span key={loc} className="inline-flex items-center gap-1 px-2.5 h-7 rounded-full border border-primary/30 bg-primary/[0.07] text-[12.5px] font-medium text-primary">
+                <MapPin className="w-3 h-3" />{loc}
               </span>
             ))}
-            <input value={locInput} onChange={(e) => setLocInput(e.target.value)}
-              onFocus={() => setLocFocus(true)}
-              onKeyDown={(e) => {
-                // Enter/comma commits the top suggestion if any, else the raw text.
-                if (e.key === "Enter" || e.key === ",") { e.preventDefault(); addLoc(suggestions[0] ?? locInput); }
-                else if (e.key === "Backspace" && !locInput && locations.length) setLocations((ls) => ls.slice(0, -1));
-                else if (e.key === "Escape") setLocFocus(false);
-              }}
-              onBlur={() => { setLocFocus(false); if (locInput.trim()) addLoc(locInput); }}
-              placeholder={locations.length ? t("settings.addAnotherCity") : t("settings.eGJakartaThenEnter")}
-              className="flex-1 min-w-[140px] bg-transparent text-[13px] text-foreground outline-none py-0.5" />
           </div>
-          {locFocus && suggestions.length > 0 && (
-            <div className="absolute left-0 right-0 z-20 mt-1 rounded-md border border-border bg-card shadow-lg max-h-56 overflow-auto py-1">
-              {suggestions.map((c) => (
-                // onMouseDown (not onClick) + preventDefault fires before the input's
-                // blur, so picking a suggestion doesn't also commit the partial text.
-                <button key={c} type="button" onMouseDown={(e) => { e.preventDefault(); addLoc(c); }}
-                  className="flex w-full items-center gap-2 px-3 py-1.5 text-left text-[13px] text-foreground hover:bg-primary/10 outline-none">
-                  <MapPin className="w-3 h-3 shrink-0 text-muted-foreground" />{c}
-                </button>
-              ))}
-            </div>
-          )}
-        </div>
+        )}
       </div>
 
-      {/* No city chosen => no upload. The chips are the ONLY source of the campaign's
-          service area (they also fan each product out per city), so uploading without
-          them leaves every row's location NULL: the bot can't tell a Wamena lead from
-          a Jakarta one, and out-of-area never reaches a human. Blocked at the button
-          rather than at submit, so the fix is obvious before picking a file. */}
+      {/* No service area => no upload. Every row is fanned out per city, so with an
+          empty area each row lands with location NULL: the bot cannot tell a Wamena
+          lead from a Jakarta one and out-of-area never reaches a human. Blocked at the
+          button rather than at submit, so the fix is obvious before picking a file. */}
       {rows.length === 0 ? (
         <div className="rounded-lg border border-dashed border-border p-6 text-center">
           <div className="w-11 h-11 rounded-xl bg-primary/10 text-primary grid place-items-center mx-auto mb-3"><Upload className="w-5 h-5" /></div>

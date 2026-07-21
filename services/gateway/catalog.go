@@ -128,25 +128,16 @@ func (s *server) handleUploadCatalog(w http.ResponseWriter, r *http.Request) {
 		}
 		inserted++
 	}
-	// Keep the campaign's declared service area in step with the pricelist it just got.
-	// The upload UI blocks until at least one city is chosen, so a Replace always carries
-	// them; without this, covered_cities would keep whatever the migration backfilled and
-	// a lead from a newly-added city would be read as out-of-area. Only on Replace: a
-	// partial append must never shrink the area. Not derived at read time on purpose —
-	// serving a city and pricing it are different claims, and an owner may widen this
-	// beyond the pricelist later.
-	if b.Replace {
-		if _, err := tx.Exec(r.Context(),
-			`UPDATE campaigns c SET covered_cities = COALESCE(sub.cities, '{}'), updated_at = now()
-			   FROM (SELECT array_agg(DISTINCT location_name ORDER BY location_name) AS cities
-			           FROM campaign_catalog
-			          WHERE campaign_id=$1::uuid
-			            AND location_name IS NOT NULL AND btrim(location_name) <> '') sub
-			  WHERE c.id=$1::uuid`, cid); err != nil {
-			http.Error(w, err.Error(), http.StatusInternalServerError)
-			return
-		}
-	}
+	// NOTE: the catalog no longer writes campaigns.covered_cities. It used to
+	// overwrite it on every Replace, which made the pricelist the de-facto owner of
+	// the service area, with two bad consequences: a campaign with no catalog (a
+	// lender, a clinic, a course) could never have an area at all, and a Replace
+	// whose rows carried no location wiped it to '{}' silently, turning every later
+	// lead into an out-of-area handoff.
+	//
+	// The area is now a campaign field, edited directly (PATCH /api/campaigns/{id}),
+	// and the upload READS it to fan each product out per city. Pricing a city and
+	// serving it are separate claims, so the flow no longer conflates them.
 	if err := tx.Commit(r.Context()); err != nil {
 		http.Error(w, err.Error(), http.StatusInternalServerError)
 		return

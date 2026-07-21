@@ -2196,5 +2196,10 @@
     "priorityLeadBody": "Prospek prioritas menunggu balasan Anda. Tindak lanjuti sekarang.",
     "leadDetailsReadyTitle": "Detail prospek siap",
     "formCompletedBody": "{{name}} menyelesaikan {{form}}"
-  }
+  },
+  "settings.serviceArea": "Area layanan (kota yang dilayani)",
+  "settings.selectCitiesYouServe": "Pilih kota yang dilayani",
+  "settings.serviceAreaHint": "Dipakai untuk mengenali lead di luar area dan menargetkan iklan. Tetap jalan tanpa katalog.",
+  "settings.noServiceAreaYet": "Area layanan belum diisi. Tambahkan kota yang dilayani campaign ini sebelum upload pricelist.",
+  "settings.pickCityBeforeUpload": "Isi dulu area layanan campaign."
 }

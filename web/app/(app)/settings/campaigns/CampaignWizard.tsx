@@ -10,6 +10,7 @@ import { api } from "@/lib/api";
 import type { UserAccount, Channel, WebApiSource } from "@/lib/types";
 import { Select } from "@/components/Select";
 import { AgentMultiSelect } from "@/components/AgentMultiSelect";
+import { CityMultiSelect } from "@/components/CityMultiSelect";
 import MultiSelectFilter from "@/app/(app)/inbox/components/MultiSelectFilter";
 import { WizardModal, WizardField, BackButton, ContinueButton } from "../channels/WizardModal";
 import { FieldLabel, PrimaryButton, InfoHint } from "../_shared";
@@ -52,6 +53,9 @@ export function CampaignWizard({ campaignId, users, channels, onClose, onDone, o
   const [adSources, setAdSources] = useState("");
   const [keywords, setKeywords] = useState("");
   const [monthlyBudget, setMonthlyBudget] = useState(""); // monthly ad budget (Rp) for budget utilization
+  // Service area. Owned by the campaign (not by the pricelist) because it drives
+  // out-of-area handoff and ad geo targeting, both of which must work with no catalog.
+  const [coveredCities, setCoveredCities] = useState<string[]>([]);
   const [followupTpl, setFollowupTpl] = useState(""); // approved template for out-of-window follow-ups
   const [templates, setTemplates] = useState<{ id: string; name: string; language: string }[]>([]);
 
@@ -86,6 +90,7 @@ export function CampaignWizard({ campaignId, users, channels, onClose, onDone, o
           setSegment(c.segment ?? ""); setBrand(c.brand ?? ""); setAiAutoReply(c.ai_auto_reply ?? false);
           setAiLanguage(c.ai_language ?? "id"); setAiDynamicLanguage(c.ai_dynamic_language ?? true); setIntakeFormId(c.intake_form_id ?? "");
           setMonthlyBudget(c.monthly_budget != null ? String(c.monthly_budget) : "");
+          setCoveredCities(c.covered_cities ?? []);
           setFollowupTpl(c.followup_template_id ?? "");
           setBranches((brs as any[]).map((b) => ({
             key: `b${++keySeq}`, id: b.id, name: b.name,
@@ -127,6 +132,7 @@ export function CampaignWizard({ campaignId, users, channels, onClose, onDone, o
         segment, brand: brand.trim(), ai_auto_reply: aiAutoReply, ai_language: aiLanguage,
         ai_dynamic_language: aiDynamicLanguage, intake_form_id: intakeFormId || "none",
         monthly_budget: monthlyBudget.trim() === "" ? null : Number(monthlyBudget.replace(/[^0-9.]/g, "")),
+        covered_cities: coveredCities,
         followup_template_id: followupTpl || "none",
       };
       let cid = campaignId;
@@ -189,6 +195,11 @@ export function CampaignWizard({ campaignId, users, channels, onClose, onDone, o
           </div>
           <WizardField label={t("settings.ctwaAdSourceIdsUsed")} value={adSources} onChange={setAdSources} placeholder="ad_honda_brio_2026" hint={t("settings.perBranchAdSourcesAre")} />
           <WizardField label={t("settings.keywordsInFirstMessageComma")} value={keywords} onChange={setKeywords} placeholder={t("settings.brioHonda")} />
+          <div>
+            <FieldLabel>{t("settings.serviceArea")}</FieldLabel>
+            <CityMultiSelect value={coveredCities} onChange={setCoveredCities} placeholder={t("settings.selectCitiesYouServe")} />
+            <p className="mt-1.5 text-[12px] text-muted-foreground">{t("settings.serviceAreaHint")}</p>
+          </div>
           <WizardField label={t("settings.totalBudgetRpOptional")} value={monthlyBudget} onChange={(v) => setMonthlyBudget(v.replace(/[^0-9.]/g, ""))} placeholder="200000000" hint={t("settings.totalAdBudgetForThis")} />
 
           {/* AI Assistant */}
