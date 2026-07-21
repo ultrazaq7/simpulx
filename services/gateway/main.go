@@ -425,6 +425,7 @@ func main() {
 	s.startAdSyncCron(ctx)   // daily ad metrics refresh (Meta/TikTok/Google)
 	s.startCreditAlertCron(ctx) // low-credit email alerts to org owners
 	s.startCapiDrainCron(ctx)   // send CTWA funnel conversions back to Meta CAPI
+	s.startAdsMonitorCron(ctx)  // rule-based ads monitoring + alerts (managed campaigns)
 
 	// graceful shutdown
 	stop := make(chan os.Signal, 1)

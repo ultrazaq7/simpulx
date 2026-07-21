@@ -36,3 +36,15 @@ func GetBool(key string, fallback bool) bool {
 		return fallback
 	}
 }
+
+// GetFloat mengembalikan env var sebagai float64 atau fallback. Dipakai untuk
+// ambang monitoring iklan (frequency, CTR, pengali CPL/overspend) yang memang
+// pecahan, jadi GetInt akan membulatkannya diam-diam.
+func GetFloat(key string, fallback float64) float64 {
+	if v := os.Getenv(key); v != "" {
+		if f, err := strconv.ParseFloat(v, 64); err == nil {
+			return f
+		}
+	}
+	return fallback
+}

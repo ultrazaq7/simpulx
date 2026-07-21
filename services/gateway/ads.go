@@ -1272,6 +1272,42 @@ func metaAccountInfo(ctx context.Context, extID, token string) (currency, name s
 	return out.Currency, out.Name, nil
 }
 
+// metaPostForm is the WRITE counterpart to metaGet: everything before the ads
+// management work only ever read from Meta. Graph accepts form-encoded bodies for
+// object updates, and returns errors with HTTP 200 in some cases, so the body is
+// inspected rather than trusting the status code alone.
+func metaPostForm(ctx context.Context, u string, form url.Values) error {
+	reqCtx, cancel := context.WithTimeout(ctx, 30*time.Second)
+	defer cancel()
+	req, err := http.NewRequestWithContext(reqCtx, http.MethodPost, u, strings.NewReader(form.Encode()))
+	if err != nil {
+		return err
+	}
+	req.Header.Set("Content-Type", "application/x-www-form-urlencoded")
+	resp, err := adHTTP.Do(req)
+	if err != nil {
+		return err
+	}
+	defer resp.Body.Close()
+	var out struct {
+		Success bool `json:"success"`
+		Error   *struct {
+			Message string `json:"message"`
+			Type    string `json:"type"`
+			Code    int    `json:"code"`
+		} `json:"error"`
+	}
+	dec := json.NewDecoder(resp.Body)
+	_ = dec.Decode(&out) // an empty body on 200 is a success for some endpoints
+	if out.Error != nil {
+		return fmt.Errorf("meta %s (%d): %s", out.Error.Type, out.Error.Code, out.Error.Message)
+	}
+	if resp.StatusCode/100 != 2 {
+		return fmt.Errorf("meta http %d", resp.StatusCode)
+	}
+	return nil
+}
+
 func metaGet(ctx context.Context, u string, out any) error {
 	req, err := http.NewRequestWithContext(ctx, http.MethodGet, u, nil)
 	if err != nil {
