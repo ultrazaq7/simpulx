@@ -10,7 +10,7 @@
 // Free text is allowed on purpose: ID_CITIES is explicitly not exhaustive, so a
 // user must be able to type a kecamatan or a city we did not list and press Enter.
 import { useEffect, useMemo, useRef, useState } from "react";
-import { ChevronDown, Search, X, Check, MapPin } from "lucide-react";
+import { ChevronDown, Search, Check, MapPin } from "lucide-react";
 import { ID_CITIES, ID_CITY_GROUPS } from "@/lib/idCities";
 import { cn } from "@/lib/utils";
 
@@ -96,26 +96,14 @@ export function CityMultiSelect({
         <ChevronDown className={cn("w-4 h-4 text-muted-foreground shrink-0 transition-transform", open && "rotate-180")} />
       </button>
 
-      {value.length > 0 && (
-        <div className="flex flex-wrap gap-1.5 mt-2">
-          {value.map((c) => (
-            <span key={c} className="inline-flex items-center gap-1 pl-2.5 pr-1.5 h-7 rounded-full border border-border bg-card text-[12.5px] font-medium text-foreground">
-              {c}
-              <button type="button" onClick={() => toggle(c)} className="p-0.5 rounded-full hover:bg-muted outline-none" aria-label={`Remove ${c}`}>
-                <X className="w-3.5 h-3.5 text-muted-foreground" />
-              </button>
-            </span>
-          ))}
-          <button type="button" onClick={() => onChange([])} className="inline-flex items-center h-7 px-2 text-[12.5px] font-semibold text-muted-foreground hover:text-foreground outline-none">
-            Clear all
-          </button>
-        </div>
-      )}
-
+      {/* No chip list under the trigger on purpose: a real service area runs to
+          dozens of cities, and rendering them all pushes the rest of the form off
+          screen. What is selected is visible (and removable) inside the dropdown,
+          which scrolls; the trigger carries the count. */}
       {open && (
         <div className="absolute z-30 mt-1.5 w-full rounded-lg border border-border bg-card shadow-xl overflow-hidden animate-scale-in">
-          <div className="p-2 border-b border-border">
-            <div className="relative">
+          <div className="p-2 border-b border-border flex items-center gap-2">
+            <div className="relative flex-1">
               <Search className="absolute left-2.5 top-1/2 -translate-y-1/2 w-4 h-4 text-muted-foreground pointer-events-none" />
               <input
                 autoFocus
@@ -128,6 +116,11 @@ export function CityMultiSelect({
                 className="w-full h-9 pl-8 pr-3 rounded-md border border-input bg-muted text-sm outline-none focus:border-primary"
               />
             </div>
+            {value.length > 0 && (
+              <button type="button" onClick={() => onChange([])} className="shrink-0 h-9 px-2 text-[12.5px] font-semibold text-muted-foreground hover:text-foreground outline-none">
+                Clear all
+              </button>
+            )}
           </div>
 
           {/* Presets first: picking a metro area is the common case, and doing it
