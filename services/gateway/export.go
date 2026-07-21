@@ -11,6 +11,17 @@ import (
 func (s *server) handleExportCampaigns(w http.ResponseWriter, r *http.Request) {
 	a, _ := authFrom(r.Context())
 
+	// Campaign isolation applies to exports too: a CSV is just another read, and it
+	// leaves the product. Narrow both the stats CTE and the campaign list, or a
+	// scoped caller downloads every campaign in the org.
+	args := []any{a.OrgID}
+	convScope, campScope := "", ""
+	if !orgWideCampaignView(a) {
+		args = append(args, a.UserID)
+		i := len(args)
+		convScope = " AND " + managerScope("", i)
+		campScope = " AND " + campaignMembershipScope("c", i)
+	}
 	rows, err := s.queryMaps(r.Context(),
 		`WITH stats AS (
 		   SELECT campaign_id,
@@ -19,7 +30,7 @@ func (s *server) handleExportCampaigns(w http.ResponseWriter, r *http.Request) {
 		          count(*) FILTER (WHERE last_contact_message_at IS NOT NULL) AS replied,
 		          count(*) FILTER (WHERE ai_stage IN ('high_intent','closing')) AS strong,
 		          count(*) FILTER (WHERE ai_stage = 'won') AS won
-		     FROM conversations WHERE organization_id=$1 GROUP BY campaign_id
+		     FROM conversations WHERE organization_id=$1`+convScope+` GROUP BY campaign_id
 		 )
 		 SELECT c.name, c.status,
 		        COALESCE(s.lead_count, 0) AS leads,
@@ -30,8 +41,8 @@ func (s *server) handleExportCampaigns(w http.ResponseWriter, r *http.Request) {
 		        to_char(c.created_at, 'YYYY-MM-DD HH24:MI:SS') AS created_at
 		   FROM campaigns c
 		   LEFT JOIN stats s ON s.campaign_id = c.id
-		  WHERE c.organization_id=$1 ORDER BY c.created_at DESC`,
-		a.OrgID,
+		  WHERE c.organization_id=$1`+campScope+` ORDER BY c.created_at DESC`,
+		args...,
 	)
 	if err != nil {
 		http.Error(w, err.Error(), http.StatusInternalServerError)
@@ -178,6 +189,14 @@ func (s *server) handleExportConversation(w http.ResponseWriter, r *http.Request
 func (s *server) handleExportChats(w http.ResponseWriter, r *http.Request) {
 	a, _ := authFrom(r.Context())
 
+	// Same rule as the campaign export: a chat CSV is a bulk read of lead data, so
+	// a campaign-bound caller gets only their own conversations.
+	args := []any{a.OrgID}
+	chatScope := ""
+	if !orgWideCampaignView(a) {
+		args = append(args, a.UserID)
+		chatScope = " AND " + managerScope("cv", len(args))
+	}
 	// Fetch conversation history with SLA metrics
 	rows, err := s.queryMaps(r.Context(),
 		`WITH fr AS (
@@ -202,8 +221,8 @@ func (s *server) handleExportChats(w http.ResponseWriter, r *http.Request) {
 		   LEFT JOIN stages st ON st.id = cv.stage_id
 		   LEFT JOIN dispositions dp ON dp.id = cv.disposition_id
 		   LEFT JOIN rt ON rt.conversation_id = cv.id
-		  WHERE cv.organization_id=$1 ORDER BY cv.created_at DESC`,
-		a.OrgID,
+		  WHERE cv.organization_id=$1`+chatScope+` ORDER BY cv.created_at DESC`,
+		args...,
 	)
 	if err != nil {
 		http.Error(w, err.Error(), http.StatusInternalServerError)

@@ -29,18 +29,51 @@ const metaGraphVersion = "v21.0"
 var adHTTP = &http.Client{Timeout: 30 * time.Second}
 
 // GET /api/ad-accounts
+// adCampaignMine is the predicate "this ad campaign feeds a campaign the caller
+// belongs to". Ad spend is campaign data, so it inherits campaign isolation: a
+// manager bound to one campaign must not see the ad accounts, ad campaigns or
+// spend of another. handleAdPerformance already scoped its numbers this way; the
+// two list endpoints did not, so the Advertising tab still showed every account
+// and every ad campaign in the org.
+//
+// idx is the placeholder holding the caller's user id (campaignMembershipScope
+// references it twice).
+func adCampaignMine(adCampaignAlias string, idx int) string {
+	return fmt.Sprintf(
+		`EXISTS (SELECT 1 FROM ad_campaign_campaigns m
+		           JOIN campaigns cm ON cm.id = m.campaign_id
+		          WHERE m.ad_campaign_id = %s.id AND %s)`,
+		adCampaignAlias, campaignMembershipScope("cm", idx))
+}
+
 func (s *server) handleListAdAccounts(w http.ResponseWriter, r *http.Request) {
 	a, _ := authFrom(r.Context())
+	args := []any{a.OrgID}
+	// Everyone below owner/admin sees an account only if it carries at least one ad
+	// campaign feeding one of theirs, or it is the account managing one of theirs.
+	// The campaign_count they see is narrowed the same way, so the number cannot
+	// hint at ad campaigns they are not allowed to open.
+	scope, countScope := "", ""
+	if !orgWideCampaignView(a) {
+		args = append(args, a.UserID)
+		i := len(args)
+		countScope = " AND " + adCampaignMine("ac", i)
+		scope = fmt.Sprintf(` AND (EXISTS (SELECT 1 FROM ad_campaigns ac
+		                                    WHERE ac.ad_account_id = aa.id AND %s)
+		                          OR EXISTS (SELECT 1 FROM campaigns cm2
+		                                      WHERE cm2.managed_ad_account_id = aa.id AND %s))`,
+			adCampaignMine("ac", i), campaignMembershipScope("cm2", i))
+	}
 	rows, err := s.queryMaps(r.Context(),
 		`SELECT id::text AS id, platform, external_account_id, name, status, currency,
 		        (access_token IS NOT NULL AND access_token <> '') AS has_token,
 		        capi_dataset_id,
 		        last_synced_at, last_error, created_at, updated_at,
-		        (SELECT count(*) FROM ad_campaigns ac WHERE ac.ad_account_id = aa.id) AS campaign_count
+		        (SELECT count(*) FROM ad_campaigns ac WHERE ac.ad_account_id = aa.id`+countScope+`) AS campaign_count
 		   FROM ad_accounts aa
-		  WHERE organization_id = $1
+		  WHERE organization_id = $1`+scope+`
 		  ORDER BY created_at`,
-		a.OrgID)
+		args...)
 	if err != nil {
 		http.Error(w, err.Error(), http.StatusInternalServerError)
 		return
@@ -213,24 +246,37 @@ func (s *server) handleSyncAdAccount(w http.ResponseWriter, r *http.Request) {
 // GET /api/ad-campaigns — discovered ad campaigns + their mapping.
 func (s *server) handleListAdCampaigns(w http.ResponseWriter, r *http.Request) {
 	a, _ := authFrom(r.Context())
+	args := []any{a.OrgID}
+	// Two separate narrowings, both required. `scope` hides ad campaigns that feed
+	// nothing of the caller's. `mapScope` narrows the mapping columns themselves:
+	// without it a visible ad campaign would still list the NAMES of every other
+	// campaign it feeds, and the multi-select would render those as selected values
+	// the caller cannot see in its options -- so saving would silently drop them.
+	scope, mapScope := "", ""
+	if !orgWideCampaignView(a) {
+		args = append(args, a.UserID)
+		i := len(args)
+		scope = " AND " + adCampaignMine("ac", i)
+		mapScope = " AND " + campaignMembershipScope("cc", i)
+	}
 	rows, err := s.queryMaps(r.Context(),
 		`SELECT ac.id::text AS id, ac.platform, ac.external_id, ac.name,
 		        ac.campaign_id::text AS campaign_id, c.name AS campaign_name,
 		        aa.name AS account_name, ac.ad_account_id::text AS ad_account_id,
 		        COALESCE((SELECT array_agg(m.campaign_id::text ORDER BY cc.name)
 		                    FROM ad_campaign_campaigns m JOIN campaigns cc ON cc.id = m.campaign_id
-		                   WHERE m.ad_campaign_id = ac.id), '{}') AS campaign_ids,
+		                   WHERE m.ad_campaign_id = ac.id`+mapScope+`), '{}') AS campaign_ids,
 		        COALESCE((SELECT string_agg(cc.name, ', ' ORDER BY cc.name)
 		                    FROM ad_campaign_campaigns m JOIN campaigns cc ON cc.id = m.campaign_id
-		                   WHERE m.ad_campaign_id = ac.id), '') AS campaign_names,
+		                   WHERE m.ad_campaign_id = ac.id`+mapScope+`), '') AS campaign_names,
 		        COALESCE((SELECT sum(spend) FROM ad_metrics m WHERE m.ad_campaign_id = ac.id),0)::float8 AS spend,
 		        COALESCE((SELECT sum(impressions) FROM ad_metrics m WHERE m.ad_campaign_id = ac.id),0)::bigint AS impressions
 		   FROM ad_campaigns ac
 		   JOIN ad_accounts aa ON aa.id = ac.ad_account_id
 		   LEFT JOIN campaigns c ON c.id = ac.campaign_id
-		  WHERE ac.organization_id = $1
+		  WHERE ac.organization_id = $1`+scope+`
 		  ORDER BY spend DESC, ac.name`,
-		a.OrgID)
+		args...)
 	if err != nil {
 		http.Error(w, err.Error(), http.StatusInternalServerError)
 		return
@@ -283,7 +329,33 @@ func (s *server) handlePatchAdCampaign(w http.ResponseWriter, r *http.Request) {
 		http.Error(w, "not found", http.StatusNotFound)
 		return
 	}
-	if _, err := tx.Exec(r.Context(), `DELETE FROM ad_campaign_campaigns WHERE ad_campaign_id=$1`, id); err != nil {
+
+	orgWide := orgWideCampaignView(a)
+
+	// A scoped caller may only map campaigns they belong to. Without this, the id
+	// list is caller-supplied, so a manager could attach an ad campaign (and its
+	// spend) to a campaign they cannot even see.
+	if !orgWide {
+		for _, cid := range clean {
+			if !s.canAccessCampaign(r.Context(), a, cid) {
+				http.Error(w, "not found", http.StatusNotFound)
+				return
+			}
+		}
+	}
+
+	// This endpoint REPLACES the mapping set, and a scoped caller is only shown the
+	// part of that set they may see (see handleListAdCampaigns). Replacing blindly
+	// would therefore delete every mapping to a campaign outside their scope --
+	// silent data loss caused purely by opening the panel and pressing save. So the
+	// delete is itself scoped: a manager can only remove what they could see.
+	delQ := `DELETE FROM ad_campaign_campaigns WHERE ad_campaign_id=$1`
+	delArgs := []any{id}
+	if !orgWide {
+		delArgs = append(delArgs, a.UserID)
+		delQ += ` AND campaign_id IN (SELECT id FROM campaigns c WHERE ` + campaignMembershipScope("c", 2) + `)`
+	}
+	if _, err := tx.Exec(r.Context(), delQ, delArgs...); err != nil {
 		http.Error(w, err.Error(), http.StatusInternalServerError)
 		return
 	}
@@ -295,13 +367,16 @@ func (s *server) handlePatchAdCampaign(w http.ResponseWriter, r *http.Request) {
 			return
 		}
 	}
-	first := ""
-	if len(clean) > 0 {
-		first = clean[0]
-	}
+	// Keep the legacy single-column pointer in step with what SURVIVED, not with
+	// what this request happened to send: for a scoped caller those differ, and
+	// taking clean[0] would point the column at a subset view of the truth.
 	if _, err := tx.Exec(r.Context(),
-		`UPDATE ad_campaigns SET campaign_id = NULLIF($3,'')::uuid WHERE id=$1 AND organization_id=$2`,
-		id, a.OrgID, first); err != nil {
+		`UPDATE ad_campaigns ac SET campaign_id = (
+		     SELECT m.campaign_id FROM ad_campaign_campaigns m
+		      JOIN campaigns cc ON cc.id = m.campaign_id
+		     WHERE m.ad_campaign_id = ac.id ORDER BY cc.name LIMIT 1)
+		  WHERE ac.id=$1 AND ac.organization_id=$2`,
+		id, a.OrgID); err != nil {
 		http.Error(w, err.Error(), http.StatusInternalServerError)
 		return
 	}

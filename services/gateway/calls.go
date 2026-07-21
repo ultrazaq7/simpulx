@@ -638,11 +638,22 @@ func (s *server) postMetaCallTerminate(ctx context.Context, phoneNumberID, token
 func (s *server) handleGetCall(w http.ResponseWriter, r *http.Request) {
 	a := r.Context().Value(authCtxKey).(authInfo)
 	callID := r.PathValue("id")
+	// A call belongs to a conversation, so it inherits that conversation's campaign
+	// scope. Without this an org check alone let a campaign-bound caller read the
+	// call record (and its SDP) of any conversation in the org by id.
+	args := []any{callID, a.OrgID}
+	scope := ""
+	if !orgWideCampaignView(a) {
+		args = append(args, a.UserID)
+		scope = fmt.Sprintf(` AND EXISTS (SELECT 1 FROM conversations cv
+		                                   WHERE cv.id = calls.conversation_id AND %s)`,
+			managerScope("cv", len(args)))
+	}
 	rows, err := s.queryMaps(r.Context(),
 		`SELECT id::text, conversation_id::text, direction, permission_status, call_status,
 		        external_call_id, duration_seconds, end_reason, created_at, sdp_offer
-		   FROM calls WHERE id = $1 AND organization_id = $2`,
-		callID, a.OrgID)
+		   FROM calls WHERE id = $1 AND organization_id = $2`+scope,
+		args...)
 	if err != nil || len(rows) == 0 {
 		http.Error(w, "call not found", http.StatusNotFound)
 		return
