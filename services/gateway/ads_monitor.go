@@ -85,6 +85,7 @@ const adsMonitorLockKey = 0x5ADC0DE1
 // here, because this cron PAUSES things and sends mail. A session-level lock that
 // is simply not taken by the losers is the cheapest correct answer.
 func (s *server) runAdsMonitor(ctx context.Context) {
+	started := time.Now()
 	conn, err := s.pool.Acquire(ctx)
 	if err != nil {
 		s.log.Warn("ads monitor: acquire failed", "err", err)
@@ -111,15 +112,23 @@ func (s *server) runAdsMonitor(ctx context.Context) {
 		return
 	}
 	if len(camps) == 0 {
+		s.log.Info("ads monitor: no managed campaigns, nothing to sweep")
 		return
 	}
+	fired := 0
 	for _, c := range camps {
 		alerts := s.evaluateCampaign(ctx, c)
 		if len(alerts) == 0 {
 			continue
 		}
+		fired += len(alerts)
 		s.recordAndNotify(ctx, c, alerts)
 	}
+	// Always log the sweep, including the quiet case. A cron that is silent when it
+	// works cannot be told apart from one that never ran, which is precisely the
+	// question asked first when an alert does not arrive.
+	s.log.Info("ads monitor: sweep done", "campaigns", len(camps), "alerts", fired,
+		"autopause", autopauseEnabled(), "took", time.Since(started).Round(time.Millisecond).String())
 }
 
 func (s *server) loadManagedCampaigns(ctx context.Context) ([]managedCampaign, error) {
