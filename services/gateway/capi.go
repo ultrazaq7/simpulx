@@ -107,9 +107,13 @@ func (s *server) sendCapiEvent(ctx context.Context, p capiPending) {
 	}
 
 	// Org's Meta ad account with CAPI configured. NULL dataset => dormant => skip.
+	// Prefer the dedicated CAPI token; fall back to the ad-account token for
+	// accounts where one credential covers both (migration 0110). The two are
+	// issued separately in practice: CAPI tokens come from Events Manager scoped
+	// to the dataset, ads tokens from the ad-account OAuth flow.
 	var datasetID, encToken string
 	err := s.pool.QueryRow(ctx,
-		`SELECT capi_dataset_id, COALESCE(access_token,'')
+		`SELECT capi_dataset_id, COALESCE(NULLIF(capi_access_token,''), access_token, '')
 		   FROM ad_accounts
 		  WHERE organization_id=$1 AND platform='meta'
 		    AND capi_dataset_id IS NOT NULL AND capi_dataset_id <> ''

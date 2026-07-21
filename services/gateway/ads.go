@@ -68,6 +68,7 @@ func (s *server) handleListAdAccounts(w http.ResponseWriter, r *http.Request) {
 		`SELECT id::text AS id, platform, external_account_id, name, status, currency,
 		        (access_token IS NOT NULL AND access_token <> '') AS has_token,
 		        capi_dataset_id,
+		        (capi_access_token IS NOT NULL AND capi_access_token <> '') AS has_capi_token,
 		        last_synced_at, last_error, created_at, updated_at,
 		        (SELECT count(*) FROM ad_campaigns ac WHERE ac.ad_account_id = aa.id`+countScope+`) AS campaign_count
 		   FROM ad_accounts aa
@@ -170,6 +171,10 @@ func (s *server) handlePatchAdAccount(w http.ResponseWriter, r *http.Request) {
 		// Meta Conversions API dataset id. Present+value => enable CAPI for this
 		// account; present+empty => disable; absent => keep as-is.
 		CapiDatasetID *string `json:"capi_dataset_id"`
+		// Dedicated CAPI token (Events Manager). Kept separate from AccessToken so
+		// setting one cannot clobber the other: they are different credentials and
+		// overwriting the ads token would silently stop the metrics sync.
+		CapiAccessToken *string `json:"capi_access_token"`
 	}
 	if err := json.NewDecoder(r.Body).Decode(&b); err != nil {
 		http.Error(w, "bad request", http.StatusBadRequest)
@@ -186,6 +191,11 @@ func (s *server) handlePatchAdAccount(w http.ResponseWriter, r *http.Request) {
 		http.Error(w, "could not secure access token", http.StatusInternalServerError)
 		return
 	}
+	encCapiToken, err := encryptAdToken(derefStr(b.CapiAccessToken))
+	if err != nil {
+		http.Error(w, "could not secure CAPI token", http.StatusInternalServerError)
+		return
+	}
 	tag, err := s.pool.Exec(r.Context(),
 		`UPDATE ad_accounts SET
 		   name = COALESCE(NULLIF($3,''), name),
@@ -193,9 +203,10 @@ func (s *server) handlePatchAdAccount(w http.ResponseWriter, r *http.Request) {
 		   access_token = COALESCE(NULLIF($5,''), access_token),
 		   status     = CASE WHEN NULLIF($5,'') IS NOT NULL THEN 'connected' ELSE status END,
 		   last_error = CASE WHEN NULLIF($5,'') IS NOT NULL THEN NULL ELSE last_error END,
-		   capi_dataset_id = CASE WHEN $6 THEN NULLIF(trim($7),'') ELSE capi_dataset_id END
+		   capi_dataset_id = CASE WHEN $6 THEN NULLIF(trim($7),'') ELSE capi_dataset_id END,
+		   capi_access_token = COALESCE(NULLIF($8,''), capi_access_token)
 		 WHERE id=$1 AND organization_id=$2`,
-		id, a.OrgID, derefStr(b.Name), extID, encToken, b.CapiDatasetID != nil, derefStr(b.CapiDatasetID))
+		id, a.OrgID, derefStr(b.Name), extID, encToken, b.CapiDatasetID != nil, derefStr(b.CapiDatasetID), encCapiToken)
 	if err != nil {
 		http.Error(w, err.Error(), http.StatusInternalServerError)
 		return
