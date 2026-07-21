@@ -2,52 +2,26 @@ package main
 
 import (
 	"fmt"
-	"net/smtp"
-	"strings"
 
-	"github.com/simpulx/v2/libs/go/config"
+	"github.com/simpulx/v2/libs/go/mailer"
 )
 
-// sendMail sends a simple HTML email via SMTP. Configuration is read from env:
+// sendMail delegates to libs/go/mailer, which sends through the Amazon SES v2
+// API.
 //
-//	SMTP_HOST, SMTP_PORT (default 587), SMTP_USER, SMTP_PASS,
-//	SMTP_FROM (default SMTP_USER), SMTP_FROM_NAME (default "Simpulx").
+// It used to speak SMTP here directly, with its own net/smtp copy. That path was
+// DEAD in production: AWS exposes no SMTP endpoint in ap-southeast-3, so every
+// send failed at "lookup email-smtp.ap-southeast-3.amazonaws.com: no such host".
+// libs/go/mailer was moved to the SES API for exactly that reason back in 7b3ee00,
+// but this copy was never pointed at it, so password resets, welcome mails, credit
+// alerts and ads alerts all kept using the broken route while the shared library
+// looked fixed.
 //
-// When SMTP_HOST is empty (e.g. local dev) the email is not sent; the caller is
-// told so via the returned bool=false and should fall back to logging the link.
+// Contract is unchanged: sent=false with a nil error means "not configured"
+// (local dev), and callers must check `sent` rather than only `err` before
+// recording anything as delivered.
 func (s *server) sendMail(to, subject, htmlBody string) (sent bool, err error) {
-	host := config.Get("SMTP_HOST", "")
-	if host == "" {
-		return false, nil // not configured -> caller logs the link instead
-	}
-	port := config.Get("SMTP_PORT", "587")
-	user := config.Get("SMTP_USER", "")
-	pass := config.Get("SMTP_PASS", "")
-	from := config.Get("SMTP_FROM", user)
-	fromName := config.Get("SMTP_FROM_NAME", "Simpulx")
-
-	headers := map[string]string{
-		"From":         fmt.Sprintf("%s <%s>", fromName, from),
-		"To":           to,
-		"Subject":      subject,
-		"MIME-Version": "1.0",
-		"Content-Type": `text/html; charset="UTF-8"`,
-	}
-	var msg strings.Builder
-	for k, v := range headers {
-		msg.WriteString(k + ": " + v + "\r\n")
-	}
-	msg.WriteString("\r\n" + htmlBody)
-
-	addr := host + ":" + port
-	var auth smtp.Auth
-	if user != "" {
-		auth = smtp.PlainAuth("", user, pass, host)
-	}
-	if err := smtp.SendMail(addr, auth, from, []string{to}, []byte(msg.String())); err != nil {
-		return false, err
-	}
-	return true, nil
+	return mailer.Send(to, subject, htmlBody, true)
 }
 
 func resetEmailHTML(name, link string) string {

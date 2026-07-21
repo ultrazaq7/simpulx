@@ -352,12 +352,53 @@ func (s *server) handleUpdateOrg(w http.ResponseWriter, r *http.Request) {
 	}
 	// Owner email (credit alerts + login) is editable here so a superadmin can fix a
 	// typo or hand an org over. Updates the org's owner user in place.
-	if e := strings.TrimSpace(b.OwnerEmail); e != "" {
-		if _, err := s.pool.Exec(r.Context(),
-			`UPDATE users SET email=lower($2), updated_at=now()
-			  WHERE organization_id=$1::uuid AND role='owner'`, orgID, e); err != nil {
-			http.Error(w, "owner email: "+err.Error(), http.StatusBadRequest)
+	//
+	// This used to be a bare UPDATE ... WHERE role='owner', which assumed an org has
+	// exactly one owner. Nothing enforces that, and an org with two owners made the
+	// statement try to give BOTH rows the same address -- so it collided with itself
+	// on UNIQUE (organization_id, email) and surfaced a raw Postgres error to the
+	// superadmin. Resolve the target row first, and fail with a sentence a human can
+	// act on instead of a SQLSTATE.
+	if e := strings.ToLower(strings.TrimSpace(b.OwnerEmail)); e != "" {
+		var ownerID, currentEmail string
+		var owners int
+		if err := s.pool.QueryRow(r.Context(),
+			`SELECT count(*) FROM users
+			  WHERE organization_id=$1::uuid AND role='owner' AND NOT is_deleted`, orgID).Scan(&owners); err != nil {
+			http.Error(w, "owner email: could not read the organisation's owners", http.StatusInternalServerError)
 			return
+		}
+		switch {
+		case owners == 0:
+			http.Error(w, "owner email: this organisation has no active owner account to update", http.StatusConflict)
+			return
+		case owners > 1:
+			http.Error(w, "owner email: this organisation has more than one owner, so it is ambiguous which one to rename. Fix the duplicate owner in Team first.", http.StatusConflict)
+			return
+		}
+		if err := s.pool.QueryRow(r.Context(),
+			`SELECT id::text, email FROM users
+			  WHERE organization_id=$1::uuid AND role='owner' AND NOT is_deleted LIMIT 1`, orgID).Scan(&ownerID, &currentEmail); err != nil {
+			http.Error(w, "owner email: could not read the owner account", http.StatusInternalServerError)
+			return
+		}
+		if !strings.EqualFold(currentEmail, e) {
+			// Someone else in this org may already hold the address; say so plainly
+			// rather than letting the unique index answer.
+			var taken bool
+			if err := s.pool.QueryRow(r.Context(),
+				`SELECT EXISTS(SELECT 1 FROM users
+				                WHERE organization_id=$1::uuid AND lower(email)=$2 AND id <> $3::uuid)`,
+				orgID, e, ownerID).Scan(&taken); err == nil && taken {
+				http.Error(w, "owner email: another user in this organisation already uses "+e, http.StatusConflict)
+				return
+			}
+			if _, err := s.pool.Exec(r.Context(),
+				`UPDATE users SET email=$2, updated_at=now() WHERE id=$1::uuid`, ownerID, e); err != nil {
+				s.log.Warn("superadmin: owner email update failed", "org", orgID, "err", err)
+				http.Error(w, "owner email: could not be updated", http.StatusBadRequest)
+				return
+			}
 		}
 	}
 	// Industry (org segment) is owned by this panel; merged into settings so the rest
