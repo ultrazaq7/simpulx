@@ -131,7 +131,7 @@ export function AdvertisingTab({ embedded }: { embedded?: boolean } = {}) {
                   </div>
                   <span className={cn("px-2 py-0.5 rounded-md text-[11px] font-semibold shrink-0", a.status === "error" ? "bg-red-50 text-red-600" : "bg-emerald-50 text-emerald-600")}>{a.status}</span>
                   <div className="flex items-center gap-0.5 shrink-0">
-                    <button onClick={() => setManageId(a.id)} className="p-1.5 rounded-md hover:bg-muted text-muted-foreground hover:text-foreground outline-none transition-colors" title={t("settings.editMap")}><Pencil className="w-4 h-4" /></button>
+                    {canManage && <button onClick={() => setManageId(a.id)} className="p-1.5 rounded-md hover:bg-muted text-muted-foreground hover:text-foreground outline-none transition-colors" title={t("settings.editMap")}><Pencil className="w-4 h-4" /></button>}
                     {canManage && (
                       <>
                         <button onClick={() => sync(a.id)} disabled={syncing === a.id} className="p-1.5 rounded-md hover:bg-muted text-primary outline-none disabled:opacity-50 transition-colors" title={t("settings.syncNow")}><RefreshCw className={cn("w-4 h-4", syncing === a.id && "animate-spin")} /></button>

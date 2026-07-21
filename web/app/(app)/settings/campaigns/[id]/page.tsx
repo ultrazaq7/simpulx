@@ -3,9 +3,8 @@ import { useI18n } from "@/lib/i18n";
 // Campaign detail = SETUP only (Credits, AI Assistant, Catalog). All reporting
 // lives on the Dashboard, so this page has no report/PDF anymore.
 import { useEffect, useMemo, useRef, useState } from "react";
-import Link from "next/link";
 import { useParams, useRouter, useSearchParams } from "next/navigation";
-import { ArrowLeft, Loader2, Coins, Sparkles, Database, Upload, Trash2, X, MapPin, Search, Download } from "lucide-react";
+import { ArrowLeft, Loader2, Coins, Sparkles, Database, Upload, Trash2, X, Search, Download } from "lucide-react";
 import * as XLSX from "xlsx";
 import { BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip as RTooltip, ResponsiveContainer } from "recharts";
 import { api } from "@/lib/api";
@@ -642,29 +641,6 @@ function CatalogTab({ id, segment, cities, notify }: { id: string; segment?: str
         </div>
       )}
       <input ref={fileRef} type="file" accept=".csv,text/csv,.pdf,application/pdf,.xlsx,.xls,application/vnd.openxmlformats-officedocument.spreadsheetml.sheet" className="hidden" onChange={onFile} />
-
-      {/* Service area is read-only here: it belongs to the campaign, is edited once
-          in campaign settings, and every uploaded row is fanned out across it. Shown
-          rather than hidden because it silently multiplies the row count. */}
-      <div className={cn("rounded-lg border p-3.5 transition-colors", needsCity ? "border-amber-500/40 bg-amber-500/[0.04]" : "border-border")}>
-        <div className="flex items-center justify-between gap-2 mb-1.5">
-          <FieldLabel hint={t("settings.serviceAreaHint")}>{t("settings.serviceArea")}</FieldLabel>
-          <Link href={`/settings/campaigns/${id}?tab=general`} className="text-[12.5px] font-semibold text-primary hover:underline shrink-0">
-            {t("common.edit")}
-          </Link>
-        </div>
-        {needsCity ? (
-          <p className="text-[13px] text-amber-700 dark:text-amber-500">{t("settings.noServiceAreaYet")}</p>
-        ) : (
-          <div className="flex flex-wrap gap-1.5">
-            {locations.map((loc) => (
-              <span key={loc} className="inline-flex items-center gap-1 px-2.5 h-7 rounded-full border border-primary/30 bg-primary/[0.07] text-[12.5px] font-medium text-primary">
-                <MapPin className="w-3 h-3" />{loc}
-              </span>
-            ))}
-          </div>
-        )}
-      </div>
 
       {/* No service area => no upload. Every row is fanned out per city, so with an
           empty area each row lands with location NULL: the bot cannot tell a Wamena
