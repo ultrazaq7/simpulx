@@ -2201,5 +2201,8 @@
   "settings.selectCitiesYouServe": "Pilih kota yang dilayani",
   "settings.serviceAreaHint": "Dipakai untuk mengenali lead di luar area dan menargetkan iklan. Tetap jalan tanpa katalog.",
   "settings.noServiceAreaYet": "Area layanan belum diisi. Tambahkan kota yang dilayani campaign ini sebelum upload pricelist.",
-  "settings.pickCityBeforeUpload": "Isi dulu area layanan campaign."
+  "settings.pickCityBeforeUpload": "Isi dulu area layanan campaign.",
+  "settings.capiToken": "Token akses CAPI",
+  "settings.capiTokenHelp": "Dari Events Manager. Disimpan terpisah dari token ads supaya mengisi salah satu tidak menimpa yang lain.",
+  "settings.tokenStoredLeaveBlank": "Tersimpan - kosongkan untuk tetap pakai yang lama"
 }

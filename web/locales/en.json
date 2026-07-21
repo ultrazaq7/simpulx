@@ -2201,5 +2201,8 @@
   "settings.selectCitiesYouServe": "Select cities you serve",
   "settings.serviceAreaHint": "Used to spot out-of-area leads and to target ads. Works without a catalog.",
   "settings.noServiceAreaYet": "No service area set yet. Add the cities this campaign serves before uploading a pricelist.",
-  "settings.pickCityBeforeUpload": "Set the campaign's service area first."
+  "settings.pickCityBeforeUpload": "Set the campaign's service area first.",
+  "settings.capiToken": "CAPI access token",
+  "settings.capiTokenHelp": "From Events Manager. Kept separate from the ads token so setting one never overwrites the other.",
+  "settings.tokenStoredLeaveBlank": "Stored - leave blank to keep"
 }

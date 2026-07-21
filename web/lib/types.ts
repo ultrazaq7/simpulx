@@ -326,7 +326,8 @@ export interface AdAccount {
   status: string;                      // connected | error
   currency: string | null;
   has_token: boolean;
-  capi_dataset_id?: string | null;     // Meta Conversions API dataset id (null = CAPI off)
+  capi_dataset_id?: string | null;
+  has_capi_token?: boolean;     // Meta Conversions API dataset id (null = CAPI off)
   last_synced_at: string | null;
   last_error: string | null;
   campaign_count: number;

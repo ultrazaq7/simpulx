@@ -179,6 +179,8 @@ export function AdAccountDialog({ account, adCampaigns, ourCampaigns, onMap, onS
   const [extId, setExtId] = useState(account.external_account_id || "");
   const [token, setToken] = useState("");
   const [capiDatasetId, setCapiDatasetId] = useState(account.capi_dataset_id || "");
+  // Write-only, like the ads token: never rendered back, empty means "keep".
+  const [capiToken, setCapiToken] = useState("");
   const [saving, setSaving] = useState(false);
   const isMeta = account.platform === "meta";
 
@@ -193,6 +195,7 @@ export function AdAccountDialog({ account, adCampaigns, ourCampaigns, onMap, onS
         access_token: token.trim() || undefined,
         // Meta only: send the field (even empty) so clearing it turns CAPI off.
         capi_dataset_id: isMeta ? capiDatasetId.trim() : undefined,
+        capi_access_token: isMeta && capiToken.trim() ? capiToken.trim() : undefined,
       });
       onSaved(token.trim() ? t("settings.connectionUpdatedSyncing") : t("settings.connectionUpdated"));
       if (token.trim()) onSync();
@@ -246,6 +249,12 @@ export function AdAccountDialog({ account, adCampaigns, ourCampaigns, onMap, onS
               <label className={L}>{t("settings.capiDatasetId")}</label>
               <input value={capiDatasetId} onChange={(e) => setCapiDatasetId(e.target.value)} placeholder="e.g. 1234567890123456" className={F} inputMode="numeric" />
               <p className="text-[11.5px] text-muted-foreground mt-1.5">{t("settings.capiDatasetHelp")}</p>
+            </div>
+            <div>
+              <label className={L}>{t("settings.capiToken")}</label>
+              <input value={capiToken} onChange={(e) => setCapiToken(e.target.value)} type="password" autoComplete="off"
+                placeholder={account.has_capi_token ? t("settings.tokenStoredLeaveBlank") : "EAA..."} className={F} />
+              <p className="text-[11.5px] text-muted-foreground mt-1.5">{t("settings.capiTokenHelp")}</p>
             </div>
           </div>
         )}
