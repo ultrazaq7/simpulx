@@ -132,16 +132,18 @@ func (s *server) handlePublicRegister(w http.ResponseWriter, r *http.Request) {
 		    package_name, seats, credits, amount, note)
 		 SELECT $1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11
 		  WHERE NOT EXISTS (SELECT 1 FROM platform_transactions
-		                     -- The explicit casts are load-bearing: $1/$5/$7 also feed the
-		                     -- INSERT columns above, and reusing a parameter in two spots
-		                     -- with different inferred types makes Postgres refuse the whole
-		                     -- statement ("inconsistent types deduced", 42P08). psql never
-		                     -- shows this because literals carry their own type.
-		                     WHERE type=$1::text AND contact_email=$5::text AND package_name=$7::text
+		                     -- $12..$14 repeat $1/$5/$7 ON PURPOSE. Reusing one parameter
+		                     -- in the insert list (varchar column) AND a comparison makes
+		                     -- Postgres deduce two types for it and refuse the statement
+		                     -- ("inconsistent types deduced", 42P08); a one-sided cast just
+		                     -- moves the mismatch. Separate parameters end the tug-of-war.
+		                     -- psql never shows this because literals carry their own type.
+		                     WHERE type=$12 AND contact_email=$13 AND package_name=$14
 		                       AND status='pending' AND created_at > now() - interval '1 hour')
 		 RETURNING id::text`,
 		b.Type, b.OrgName, b.Industry, b.Name, b.Email, b.Phone,
-		b.Package, seats, credits, amount, b.Note).Scan(&id)
+		b.Package, seats, credits, amount, b.Note,
+		b.Type, b.Email, b.Package).Scan(&id)
 	if errors.Is(err, pgx.ErrNoRows) {
 		// The WHERE NOT EXISTS filtered it: an identical request is already in the
 		// queue, and "already received" is the truthful success for a double-click.
