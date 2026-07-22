@@ -1,101 +1,121 @@
-// Package mailer sends email via the Amazon SES v2 API, shared by the gateway
-// (password reset / welcome / credit alerts) and the messaging automation
-// executor (Send Email Notification node).
+// Package mailer sends email via SMTP, shared by the gateway (password reset /
+// welcome / credit alerts) and the messaging automation executor (Send Email
+// Notification node).
 //
-// Why the SES API and not SMTP: AWS does NOT expose an SMTP endpoint in the
-// ap-southeast-3 (Jakarta) region — email-smtp.ap-southeast-3.amazonaws.com has no
-// DNS record, so the old net/smtp path failed at "no such host" on every send and
-// no email was ever delivered. The SES *API* endpoint (email.ap-southeast-3...)
-// does resolve and the domain (simpulx.com) is already DKIM-verified there, so we
-// send through the API with the EC2 instance-role credentials (default chain).
+// Production uses Google Workspace SMTP relay (smtp-relay.gmail.com) with
+// IP-based authentication — the EC2 Elastic IP is whitelisted in Google Admin
+// so no username/password is needed. The relay accepts mail from any
+// @simpulx.com sender and delivers to any recipient.
+//
+// When SMTP_HOST is set to a server that requires authentication (e.g.
+// smtp.gmail.com with an App Password), the mailer uses PLAIN auth over TLS.
+//
+// History: this package originally used the Amazon SES v2 API because AWS does
+// not expose an SMTP endpoint in ap-southeast-3 (Jakarta). SES worked but
+// remained stuck in sandbox mode (production access denied), limiting delivery
+// to verified addresses only. Switched to Google Workspace SMTP relay to
+// remove that restriction.
 package mailer
 
 import (
-	"context"
+	"crypto/tls"
 	"fmt"
+	"mime"
+	"net"
+	"net/smtp"
 	"strings"
-	"sync"
 	"time"
-
-	"github.com/aws/aws-sdk-go-v2/aws"
-	awsconfig "github.com/aws/aws-sdk-go-v2/config"
-	"github.com/aws/aws-sdk-go-v2/service/sesv2"
-	"github.com/aws/aws-sdk-go-v2/service/sesv2/types"
 
 	"github.com/simpulx/v2/libs/go/config"
 )
 
-var (
-	clientOnce sync.Once
-	sesClient  *sesv2.Client
-	clientErr  error
-)
-
-// sesRegion is where SES + the verified domain live. SES_REGION overrides it;
-// falls back to AWS_REGION, then the Jakarta default.
-func sesRegion() string {
-	if r := config.Get("SES_REGION", ""); r != "" {
-		return r
-	}
-	if r := config.Get("AWS_REGION", ""); r != "" {
-		return r
-	}
-	return "ap-southeast-3"
-}
-
-func client() (*sesv2.Client, error) {
-	clientOnce.Do(func() {
-		ctx, cancel := context.WithTimeout(context.Background(), 10*time.Second)
-		defer cancel()
-		cfg, err := awsconfig.LoadDefaultConfig(ctx, awsconfig.WithRegion(sesRegion()))
-		if err != nil {
-			clientErr = err
-			return
-		}
-		sesClient = sesv2.NewFromConfig(cfg)
-	})
-	return sesClient, clientErr
-}
-
-// Send sends an email via the SES v2 API. From address comes from SMTP_FROM (the
-// verified sender), display name from SMTP_FROM_NAME ("Simpulx"). Returns
-// sent=false with no error when no sender is configured (local/dev) so callers can
-// treat it as a no-op; a real send failure returns err so the caller can retry or
-// alert (never mark an email "sent" on sent=false).
+// Send sends an email via SMTP. From address comes from SMTP_FROM (falls back
+// to SMTP_USER), display name from SMTP_FROM_NAME ("Simpulx"). Returns
+// sent=false with no error when no sender is configured (local/dev) so callers
+// can treat it as a no-op; a real send failure returns err so the caller can
+// retry or alert (never mark an email "sent" on sent=false).
 func Send(to, subject, body string, html bool) (sent bool, err error) {
 	from := config.Get("SMTP_FROM", config.Get("SMTP_USER", ""))
 	if from == "" || strings.TrimSpace(to) == "" {
 		return false, nil
 	}
+
+	host := config.Get("SMTP_HOST", "smtp-relay.gmail.com")
+	port := config.Get("SMTP_PORT", "587")
+	user := config.Get("SMTP_USER", "")
+	pass := config.Get("SMTP_PASS", "")
 	fromName := config.Get("SMTP_FROM_NAME", "Simpulx")
 
-	c, err := client()
-	if err != nil {
-		return false, fmt.Errorf("ses config: %w", err)
-	}
+	addr := net.JoinHostPort(host, port)
 
-	content := &types.Content{Data: aws.String(body), Charset: aws.String("UTF-8")}
-	bodyBlock := &types.Body{}
+	// Build the RFC 2822 message.
+	contentType := "text/plain; charset=UTF-8"
 	if html {
-		bodyBlock.Html = content
-	} else {
-		bodyBlock.Text = content
+		contentType = "text/html; charset=UTF-8"
+	}
+	encodedName := mime.QEncoding.Encode("UTF-8", fromName)
+	msg := fmt.Sprintf("From: %s <%s>\r\n"+
+		"To: %s\r\n"+
+		"Subject: %s\r\n"+
+		"MIME-Version: 1.0\r\n"+
+		"Content-Type: %s\r\n"+
+		"\r\n"+
+		"%s",
+		encodedName, from, to,
+		mime.QEncoding.Encode("UTF-8", subject),
+		contentType, body,
+	)
+
+	// Dial with a timeout so a DNS/network issue doesn't hang the caller.
+	dialer := &net.Dialer{Timeout: 10 * time.Second}
+	conn, err := dialer.Dial("tcp", addr)
+	if err != nil {
+		return false, fmt.Errorf("smtp dial %s: %w", addr, err)
+	}
+	defer conn.Close()
+
+	c, err := smtp.NewClient(conn, host)
+	if err != nil {
+		return false, fmt.Errorf("smtp client: %w", err)
+	}
+	defer c.Close()
+
+	// STARTTLS — required by the Google SMTP relay and good practice everywhere.
+	if ok, _ := c.Extension("STARTTLS"); ok {
+		if err = c.StartTLS(&tls.Config{ServerName: host}); err != nil {
+			return false, fmt.Errorf("smtp starttls: %w", err)
+		}
 	}
 
-	ctx, cancel := context.WithTimeout(context.Background(), 15*time.Second)
-	defer cancel()
-	_, err = c.SendEmail(ctx, &sesv2.SendEmailInput{
-		FromEmailAddress: aws.String(fmt.Sprintf("%s <%s>", fromName, from)),
-		Destination:      &types.Destination{ToAddresses: []string{to}},
-		Content: &types.EmailContent{
-			Simple: &types.Message{
-				Subject: &types.Content{Data: aws.String(subject), Charset: aws.String("UTF-8")},
-				Body:    bodyBlock,
-			},
-		},
-	})
-	if err != nil {
-		return false, err
+	// Authenticate only when credentials are provided. Google Workspace SMTP
+	// relay with IP-based auth does not need (and rejects) LOGIN/PLAIN.
+	if user != "" && pass != "" {
+		auth := smtp.PlainAuth("", user, pass, host)
+		if err = c.Auth(auth); err != nil {
+			return false, fmt.Errorf("smtp auth: %w", err)
+		}
 	}
+
+	// Envelope.
+	if err = c.Mail(from); err != nil {
+		return false, fmt.Errorf("smtp MAIL FROM: %w", err)
+	}
+	if err = c.Rcpt(to); err != nil {
+		return false, fmt.Errorf("smtp RCPT TO: %w", err)
+	}
+
+	// Data.
+	w, err := c.Data()
+	if err != nil {
+		return false, fmt.Errorf("smtp DATA: %w", err)
+	}
+	if _, err = w.Write([]byte(msg)); err != nil {
+		return false, fmt.Errorf("smtp write: %w", err)
+	}
+	if err = w.Close(); err != nil {
+		return false, fmt.Errorf("smtp close data: %w", err)
+	}
+
+	c.Quit()
 	return true, nil
 }

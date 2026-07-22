@@ -6,20 +6,12 @@ import (
 	"github.com/simpulx/v2/libs/go/mailer"
 )
 
-// sendMail delegates to libs/go/mailer, which sends through the Amazon SES v2
-// API.
+// sendMail delegates to libs/go/mailer, which sends through Google Workspace
+// SMTP relay (smtp-relay.gmail.com, IP-based auth).
 //
-// It used to speak SMTP here directly, with its own net/smtp copy. That path was
-// DEAD in production: AWS exposes no SMTP endpoint in ap-southeast-3, so every
-// send failed at "lookup email-smtp.ap-southeast-3.amazonaws.com: no such host".
-// libs/go/mailer was moved to the SES API for exactly that reason back in 7b3ee00,
-// but this copy was never pointed at it, so password resets, welcome mails, credit
-// alerts and ads alerts all kept using the broken route while the shared library
-// looked fixed.
-//
-// Contract is unchanged: sent=false with a nil error means "not configured"
-// (local dev), and callers must check `sent` rather than only `err` before
-// recording anything as delivered.
+// Contract: sent=false with a nil error means "not configured" (local dev),
+// and callers must check `sent` rather than only `err` before recording
+// anything as delivered.
 func (s *server) sendMail(to, subject, htmlBody string) (sent bool, err error) {
 	return mailer.Send(to, subject, htmlBody, true)
 }
