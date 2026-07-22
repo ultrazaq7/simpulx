@@ -7,8 +7,8 @@
 // Nothing here activates anything. Submitting creates a pending request and the
 // operator activates it from the platform panel, so the page can be public
 // without letting anyone provision themselves.
-import { useMemo, useState, useRef } from "react";
-import { Check, Loader2, Sparkles, Zap, Building2 } from "lucide-react";
+import { useMemo, useState } from "react";
+import { ArrowLeft, Check, Loader2, Sparkles, Zap, Building2 } from "lucide-react";
 
 const SIGNUP_TIERS = [
   {
@@ -52,8 +52,8 @@ const rp = (v: number) => "Rp " + v.toLocaleString("id-ID");
 
 export default function RegisterPage() {
   const [menu, setMenu] = useState<"signup" | "topup">("signup");
-  const [pkg, setPkg] = useState("");  // kosong = belum pilih; form muncul setelah pilih card
-  const formRef = useRef<HTMLDivElement>(null);
+  // Wizard dua layar: layar 1 pilih paket, layar 2 isi data. pkg kosong = layar 1.
+  const [pkg, setPkg] = useState("");
   const [seats, setSeats] = useState(3);
   const [form, setForm] = useState({ org_name: "", industry: "", name: "", email: "", phone: "", note: "" });
   const [busy, setBusy] = useState(false);
@@ -71,12 +71,17 @@ export default function RegisterPage() {
   }, [menu, tier, pack, seats, isTrial]);
 
   function set<K extends keyof typeof form>(k: K, v: string) { setForm((f) => ({ ...f, [k]: v })); }
-  // Form muncul SETELAH paket dipilih, lalu halaman turun ke form: satu keputusan
-  // dulu (paket mana), baru isi data. Semua card + form sekaligus bikin halaman
-  // terasa seperti formulir pajak.
+  // Wizard per layar, bukan form yang muncul di bawah: memilih paket MENGGANTI
+  // tampilan ke layar isian (dengan tombol kembali), sehingga tidak ada urusan
+  // scroll sama sekali. scrollTo(0,0) supaya layar baru mulai dari atas.
   function choose(key: string) {
     setPkg(key);
-    setTimeout(() => formRef.current?.scrollIntoView({ behavior: "smooth", block: "start" }), 60);
+    window.scrollTo({ top: 0 });
+  }
+  function back() {
+    setPkg("");
+    setErr("");
+    window.scrollTo({ top: 0 });
   }
 
   async function submit() {
@@ -124,7 +129,8 @@ export default function RegisterPage() {
         </p>
       </div>
 
-      {/* Dua menu: daftar & top up. */}
+      {!pkg && (<>
+      {/* Layar 1: pilih menu + paket. */}
       <div className="flex items-center justify-center gap-1 p-1 bg-gray-100 rounded-xl w-fit mx-auto mb-8">
         {([["signup", "Daftar", Building2], ["topup", "Top Up Kredit", Zap]] as const).map(([k, label, Icon]) => (
           <button key={k} onClick={() => { setMenu(k); setPkg(""); setDone(false); }}
@@ -175,12 +181,34 @@ export default function RegisterPage() {
         </div>
       )}
 
-      {/* Form: baru muncul setelah paket dipilih */}
-      {!pkg && (
-        <p className="text-center text-[13.5px] text-gray-400">Pilih paket di atas untuk lanjut.</p>
-      )}
+      <p className="text-center text-[13.5px] text-gray-400">Pilih paket untuk lanjut ke pengisian data.</p>
+      </>)}
+
+      {/* Layar 2: ringkasan paket + form, dengan tombol kembali. */}
       {pkg && (
-      <div ref={formRef} className="max-w-lg mx-auto bg-white rounded-2xl border border-gray-200 shadow-sm p-5 scroll-mt-6">
+      <div className="max-w-lg mx-auto">
+        <button onClick={back}
+          className="inline-flex items-center gap-1.5 text-[13px] font-semibold text-gray-500 hover:text-gray-900 mb-4 outline-none">
+          <ArrowLeft className="w-4 h-4" /> Ganti paket
+        </button>
+
+        {/* Ringkasan pilihan, supaya layar ini berdiri sendiri tanpa harus ingat
+            card yang tadi diklik. */}
+        <div className="rounded-2xl border-2 border-emerald-600 bg-emerald-50/40 p-4 mb-4 flex items-center justify-between gap-3">
+          <div>
+            <p className="text-[14px] font-extrabold text-gray-900">
+              {menu === "signup" ? tier?.name : `Top Up ${pack?.name}`}
+            </p>
+            <p className="text-[12px] text-gray-500">
+              {menu === "signup"
+                ? (isTrial ? "7 hari, 50 kredit, 1 seat" : `${rp(tier?.price || 0)} /seat /bulan, bonus ${tier?.credits} kredit`)
+                : `${(pack?.credits || 0).toLocaleString("id-ID")} kredit, ${rp(pack?.perCredit || 0)} /kredit`}
+            </p>
+          </div>
+          <p className="text-[17px] font-extrabold text-gray-900 shrink-0">{total === 0 ? "Gratis" : rp(total)}</p>
+        </div>
+
+      <div className="bg-white rounded-2xl border border-gray-200 shadow-sm p-5">
         <div className="grid gap-3">
           {menu === "signup" && (
             <>
@@ -226,6 +254,7 @@ export default function RegisterPage() {
         <p className="text-[11.5px] text-gray-400 mt-4">
           Aktivasi dikonfirmasi manual oleh tim Simpulx, biasanya kurang dari 1 hari kerja. Tidak ada pembayaran otomatis dari halaman ini.
         </p>
+      </div>
       </div>
       )}
     </Shell>
