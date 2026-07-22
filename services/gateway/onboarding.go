@@ -2,12 +2,14 @@ package main
 
 import (
 	"encoding/json"
+	"errors"
 	"fmt"
 	"html"
 	"net/http"
 	"strings"
 	"time"
 
+	"github.com/jackc/pgx/v5"
 	"github.com/simpulx/v2/libs/go/config"
 )
 
@@ -135,10 +137,19 @@ func (s *server) handlePublicRegister(w http.ResponseWriter, r *http.Request) {
 		 RETURNING id::text`,
 		b.Type, b.OrgName, b.Industry, b.Name, b.Email, b.Phone,
 		b.Package, seats, credits, amount, b.Note).Scan(&id)
-	if err != nil {
-		// The WHERE NOT EXISTS made this a duplicate, and telling the requester
-		// "already received" is the truthful success, not an error.
+	if errors.Is(err, pgx.ErrNoRows) {
+		// The WHERE NOT EXISTS filtered it: an identical request is already in the
+		// queue, and "already received" is the truthful success for a double-click.
 		writeJSON(w, map[string]any{"status": "received"})
+		return
+	}
+	if err != nil {
+		// The first version of this handler treated EVERY error as the duplicate
+		// case and answered "received" while inserting nothing -- a lost sales lead
+		// with a success screen on top, found because verification counted the rows
+		// (0) after the endpoint said yes. Real failures must fail visibly.
+		s.log.Error("register: insert failed", "type", b.Type, "email", b.Email, "err", err)
+		http.Error(w, "gagal menyimpan permintaan, coba lagi sebentar lagi", http.StatusInternalServerError)
 		return
 	}
 
