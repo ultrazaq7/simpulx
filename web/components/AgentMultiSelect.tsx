@@ -3,7 +3,7 @@ import { useI18n } from "@/lib/i18n";
 // Polished agent multi-select: avatar chips, search, select-all, removable pills.
 // Used in the campaign wizard (per branch) and anywhere agents are picked.
 import { useState, useMemo, useRef, useEffect } from "react";
-import { Search, Check, ChevronDown, X, Users } from "lucide-react";
+import { Search, Check, ChevronDown, Users } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { useEscClose } from "@/lib/useEscClose";
 
@@ -48,7 +48,6 @@ export function AgentMultiSelect({ options, selected, onChange, placeholder = "S
   const filtered = useMemo(() => (q ? options.filter((o) => o.name.toLowerCase().includes(q.toLowerCase())) : options), [options, q]);
   const toggle = (id: string) => onChange(selected.includes(id) ? selected.filter((x) => x !== id) : [...selected, id]);
   const allSel = options.length > 0 && selected.length === options.length;
-  const byId = (id: string) => options.find((o) => o.id === id);
 
   return (
     <div ref={ref} className="relative">
@@ -96,20 +95,10 @@ export function AgentMultiSelect({ options, selected, onChange, placeholder = "S
         </div>
       )}
 
-      {selected.length > 0 && (
-        <div className="flex flex-wrap gap-1.5 mt-2">
-          {selected.map((id) => {
-            const u = byId(id);
-            if (!u) return null;
-            return (
-              <span key={id} className="inline-flex items-center gap-1.5 pl-1 pr-2 py-0.5 rounded-full bg-primary/10 text-primary text-[12px] font-medium">
-                <Avatar id={id} name={u.name} size={18} />{u.name}
-                <button type="button" onClick={() => toggle(id)} className="hover:text-primary-dark outline-none"><X className="w-3 h-3" /></button>
-              </span>
-            );
-          })}
-        </div>
-      )}
+      {/* No chip list under the trigger: a real team wraps it over several rows and
+          pushes the rest of the form down. The trigger carries the count, and the
+          dropdown shows and removes each selection in a list that scrolls. Same
+          reasoning as the service-area picker. */}
     </div>
   );
 }
