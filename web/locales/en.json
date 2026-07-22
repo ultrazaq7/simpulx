@@ -2254,8 +2254,8 @@
   "tx.prev": "Prev",
   "tx.next": "Next",
   "tx.pageOf": "Page {{a}} of {{b}}",
-  "reg.headline": "Every customer chat answered, none slip through",
-  "reg.sub": "One WhatsApp inbox for your whole sales team. AI replies first and follows up, then hands over to your team at the right moment.",
+  "reg.headline": "Pick the plan that fits your team",
+  "reg.sub": "Every plan has the same features; only the number of seats differs. Start free for 7 days, upgrade anytime.",
   "reg.topupHeadline": "Top up AI credits",
   "reg.topupSub": "1 credit = 1 AI reply to a customer. Credits are valid for the current billing month; unused credits expire and do not roll over.",
   "reg.menuSignup": "Sign up",
@@ -2301,10 +2301,6 @@
   "tx.delete": "Delete",
   "tx.deleteMsg": "The record is removed permanently. Approved changes (org/credits) are NOT undone.",
   "tx.deleted": "Deleted",
-  "tx.allDates": "All dates",
-  "tx.last7": "Last 7 days",
-  "tx.last30": "Last 30 days",
-  "tx.thisMonth": "This month",
   "reg.annual": "Annual",
   "reg.monthly": "Monthly",
   "reg.annualSave": "2 months free",
@@ -2314,5 +2310,9 @@
   "login.noAccount": "Don't have an account?",
   "login.signUp": "Sign up",
   "reg.perSeatYear": "seat / year",
-  "reg.saved": "saved"
+  "reg.saved": "saved",
+  "tx.invoiceCol": "Invoice",
+  "tx.actionCol": "Action",
+  "tx.view": "View details",
+  "tx.viewProof": "View proof"
 }

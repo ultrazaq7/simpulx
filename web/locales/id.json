@@ -2254,8 +2254,8 @@
   "tx.prev": "Sebelumnya",
   "tx.next": "Berikutnya",
   "tx.pageOf": "Halaman {{a}} dari {{b}}",
-  "reg.headline": "Semua chat customer terbalas, tidak ada yang kelewat",
-  "reg.sub": "Satu inbox WhatsApp untuk seluruh tim sales. AI bantu balas duluan dan follow-up, lalu oper ke tim kamu di momen yang pas.",
+  "reg.headline": "Pilih paket yang pas untuk tim kamu",
+  "reg.sub": "Semua paket fiturnya sama, bedanya cuma jumlah seat. Mulai gratis 7 hari, upgrade kapan saja.",
   "reg.topupHeadline": "Top up kredit AI",
   "reg.topupSub": "1 kredit = 1 balasan AI ke customer. Kredit berlaku untuk bulan berjalan, sisa kredit hangus dan tidak rollover ke bulan berikutnya.",
   "reg.menuSignup": "Daftar",
@@ -2301,10 +2301,6 @@
   "tx.delete": "Hapus",
   "tx.deleteMsg": "Catatan dihapus permanen. Perubahan yang sudah di-approve (org/kredit) TIDAK ikut dibatalkan.",
   "tx.deleted": "Terhapus",
-  "tx.allDates": "Semua tanggal",
-  "tx.last7": "7 hari terakhir",
-  "tx.last30": "30 hari terakhir",
-  "tx.thisMonth": "Bulan ini",
   "reg.annual": "Tahunan",
   "reg.monthly": "Bulanan",
   "reg.annualSave": "Gratis 2 bulan",
@@ -2314,5 +2310,9 @@
   "login.noAccount": "Belum punya akun?",
   "login.signUp": "Daftar",
   "reg.perSeatYear": "seat / tahun",
-  "reg.saved": "hemat"
+  "reg.saved": "hemat",
+  "tx.invoiceCol": "Invoice",
+  "tx.actionCol": "Aksi",
+  "tx.view": "Lihat detail",
+  "tx.viewProof": "Lihat bukti"
 }

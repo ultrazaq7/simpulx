@@ -4,12 +4,14 @@
 // effect spelled out, the transfer receipt beside it, and for approved rows an
 // inline invoice preview with a download button. All copy goes through i18n; an
 // operator page is still an app page, not a place to hardcode one language.
-import { useEffect, useMemo, useState } from "react";
-import { Loader2, Check, X, FileText, Clock, Building2, Zap, Wallet, ExternalLink } from "lucide-react";
+import { useEffect, useMemo, useRef, useState } from "react";
+import { createPortal } from "react-dom";
+import { Loader2, Check, X, Eye, FileText, Clock, Zap, Wallet, ExternalLink, MoreHorizontal } from "lucide-react";
 import { useI18n } from "@/lib/i18n";
 import { api, getToken } from "@/lib/api";
 import { Select } from "@/components/Select";
 import SidePanel from "@/components/SidePanel";
+import DateRangeFilter, { type DateRangeValue } from "@/components/DateRangeFilter";
 import { useToast, PageBody, SettingsCard } from "../_shared";
 import { cn, fmtDateTimeShort } from "@/lib/utils";
 import type { OrgRow, PlatformTransaction } from "@/lib/types";
@@ -28,7 +30,9 @@ export default function TransactionsPage() {
   const [openId, setOpenId] = useState<string | null>(null);
   const [topupOrg, setTopupOrg] = useState("");
   const [invoiceHTML, setInvoiceHTML] = useState<string | null>(null);
-  const [dateRange, setDateRange] = useState<"all" | "7d" | "30d" | "month">("all");
+  const [menuId, setMenuId] = useState<string | null>(null);
+  // Filter tanggal yang sama dengan dashboard: preset + calendar range.
+  const [range, setRange] = useState<DateRangeValue>({ preset: "all", from: "", to: "" });
 
   function load() {
     api.listTransactions().then((r) => { setRows(r.rows); setSummary(r.summary as Record<string, number>); }).catch(() => setRows([]));
@@ -39,13 +43,13 @@ export default function TransactionsPage() {
   const orgOptions = useMemo(() => orgs.map((o) => ({ value: o.id, label: o.name })), [orgs]);
   const filtered = useMemo(() => {
     if (!rows) return [];
-    if (dateRange === "all") return rows;
-    const now = Date.now();
-    const from = dateRange === "7d" ? now - 7 * 864e5
-      : dateRange === "30d" ? now - 30 * 864e5
-      : new Date(new Date().getFullYear(), new Date().getMonth(), 1).getTime();
-    return rows.filter((r) => new Date(r.created_at).getTime() >= from);
-  }, [rows, dateRange]);
+    if (!range.from) return rows; // "all"
+    return rows.filter((r) => {
+      const d = new Date(r.created_at);
+      const s = `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, "0")}-${String(d.getDate()).padStart(2, "0")}`;
+      return s >= range.from && (!range.to || s <= range.to);
+    });
+  }, [rows, range]);
   const totalPages = Math.max(1, Math.ceil(filtered.length / PER_PAGE));
   const paged = filtered.slice(page * PER_PAGE, (page + 1) * PER_PAGE);
   const open = rows?.find((r) => r.id === openId) || null;
@@ -124,13 +128,7 @@ export default function TransactionsPage() {
             <p className="text-[15px] font-bold text-foreground">{t("tx.title")}</p>
             <p className="text-[12.5px] text-muted-foreground">{t("tx.subtitle")}</p>
           </div>
-          <Select value={dateRange} onChange={(v) => { setDateRange(v as typeof dateRange); setPage(0); }}
-            options={[
-              { value: "all", label: t("tx.allDates") },
-              { value: "7d", label: t("tx.last7") },
-              { value: "30d", label: t("tx.last30") },
-              { value: "month", label: t("tx.thisMonth") },
-            ]} className="w-[170px]" searchable={false} />
+          <DateRangeFilter value={range} onChange={(v) => { setRange(v); setPage(0); }} align="right" />
         </div>
         {rows === null ? (
           <div className="h-32 grid place-items-center"><Loader2 className="w-5 h-5 animate-spin text-muted-foreground" /></div>
@@ -144,10 +142,12 @@ export default function TransactionsPage() {
                   <tr className="text-left text-[11.5px] uppercase tracking-wide text-muted-foreground border-y border-border bg-muted/30">
                     <th className="px-4 py-2 w-[52px]">{t("tx.no")}</th>
                     <th className="px-3 py-2">{t("tx.request")}</th>
+                    <th className="px-3 py-2 hidden lg:table-cell">{t("tx.invoiceCol")}</th>
                     <th className="px-3 py-2 hidden md:table-cell">{t("tx.contact")}</th>
                     <th className="px-3 py-2 text-right">{t("tx.amount")}</th>
                     <th className="px-3 py-2">{t("tx.statusCol")}</th>
                     <th className="px-3 py-2 hidden sm:table-cell">{t("tx.date")}</th>
+                    <th className="px-3 py-2 text-right">{t("tx.actionCol")}</th>
                   </tr>
                 </thead>
                 <tbody className="divide-y divide-border/60">
@@ -157,15 +157,14 @@ export default function TransactionsPage() {
                       <td className="px-4 py-2.5 tabular-nums text-muted-foreground">{page * PER_PAGE + i + 1}</td>
                       <td className="px-3 py-2.5">
                         <div className="flex items-center gap-2 min-w-0">
-                          {tx.type === "signup"
-                            ? <Building2 className="w-4 h-4 text-primary shrink-0" />
-                            : <Zap className="w-4 h-4 text-amber-500 shrink-0" />}
                           <span className="font-semibold text-foreground truncate">
                             {tx.type === "signup" ? (tx.org_name || t("tx.noName")) : t("tx.topupCredits", { n: tx.credits })}
                           </span>
                           <span className="text-[10.5px] font-bold uppercase text-muted-foreground shrink-0">{tx.package_name}</span>
-                          {tx.invoice_no ? <span className="text-[11px] text-muted-foreground shrink-0">INV-{tx.invoice_no}</span> : null}
                         </div>
+                      </td>
+                      <td className="px-3 py-2.5 hidden lg:table-cell tabular-nums text-muted-foreground whitespace-nowrap">
+                        {tx.invoice_no ? `INV-${tx.invoice_no}` : "-"}
                       </td>
                       <td className="px-3 py-2.5 hidden md:table-cell text-muted-foreground truncate max-w-[220px]">{tx.contact_email}</td>
                       <td className="px-3 py-2.5 text-right tabular-nums font-semibold">{tx.amount > 0 ? rp(tx.amount) : t("tx.free")}</td>
@@ -177,6 +176,32 @@ export default function TransactionsPage() {
                         </span>
                       </td>
                       <td className="px-3 py-2.5 hidden sm:table-cell text-muted-foreground whitespace-nowrap">{fmtDateTimeShort(tx.created_at)}</td>
+                      {/* Aksi: approve ceklis langsung di row (permintaan eksplisit),
+                          sisanya (view / bukti / delete) di menu 3-dot. stopPropagation
+                          supaya klik aksi tidak ikut membuka panel detail. */}
+                      <td className="px-3 py-2.5 text-right" onClick={(e) => e.stopPropagation()}>
+                        <div className="inline-flex items-center gap-1.5">
+                          {tx.status === "pending" && (
+                            <button title={t("tx.approve")} disabled={busy}
+                              onClick={() => {
+                                // Top-up butuh pilih organisasi dulu, jadi buka panelnya.
+                                if (tx.type === "topup" && !tx.organization_id) { setOpenId(tx.id); setTopupOrg(""); return; }
+                                setTopupOrg(tx.organization_id || ""); approve(tx);
+                              }}
+                              className="p-1 rounded-md border border-emerald-600/40 text-emerald-600 hover:bg-emerald-500/10 outline-none transition-colors disabled:opacity-40">
+                              <Check className="w-[16px] h-[16px]" />
+                            </button>
+                          )}
+                          <TxRowMenu
+                            isOpen={menuId === tx.id}
+                            onToggle={() => setMenuId(menuId === tx.id ? null : tx.id)}
+                            onClose={() => setMenuId(null)}
+                            onView={() => { setMenuId(null); setOpenId(tx.id); setTopupOrg(tx.organization_id || ""); }}
+                            proofUrl={tx.payment_proof_url || ""}
+                            onDelete={() => { setMenuId(null); removeTx(tx); }}
+                          />
+                        </div>
+                      </td>
                     </tr>
                   ))}
                 </tbody>
@@ -294,6 +319,57 @@ export default function TransactionsPage() {
         </SidePanel>
       )}
     </PageBody>
+  );
+}
+
+// Menu 3-dot per row, portal ke body seperti UserRowMenu di user-management:
+// tabel di-overflow container, popover biasa bakal kepotong.
+function TxRowMenu({ isOpen, onToggle, onClose, onView, proofUrl, onDelete }: {
+  isOpen: boolean; onToggle: () => void; onClose: () => void;
+  onView: () => void; proofUrl: string; onDelete: () => void;
+}) {
+  const { t } = useI18n();
+  const btnRef = useRef<HTMLButtonElement>(null);
+  const [pos, setPos] = useState<{ top: number; left: number; flipUp: boolean }>({ top: 0, left: 0, flipUp: false });
+
+  const handleToggle = () => {
+    if (!isOpen && btnRef.current) {
+      const rect = btnRef.current.getBoundingClientRect();
+      const flipUp = window.innerHeight - rect.bottom < 140;
+      setPos({ top: flipUp ? rect.top : rect.bottom + 4, left: rect.right - 176, flipUp });
+    }
+    onToggle();
+  };
+
+  return (
+    <>
+      <button ref={btnRef} aria-label={t("tx.actionCol")} onClick={handleToggle}
+        className="p-1 border border-border rounded-md hover:bg-muted transition-colors outline-none">
+        <MoreHorizontal className="w-[16px] h-[16px] text-muted-foreground" />
+      </button>
+      {isOpen && typeof document !== "undefined" && createPortal(
+        <>
+          <div className="fixed inset-0 z-[60]" onClick={onClose} />
+          <div className="fixed z-[70] w-44 bg-card rounded-lg border border-border shadow-lg py-1 animate-scale-in"
+            style={pos.flipUp ? { bottom: window.innerHeight - pos.top, left: pos.left } : { top: pos.top, left: pos.left }}>
+            <button onClick={onView} className="w-full flex items-center gap-2 px-3 py-2 text-left text-[13px] text-foreground hover:bg-muted outline-none transition-colors">
+              <Eye className="w-3.5 h-3.5 text-muted-foreground" />{t("tx.view")}
+            </button>
+            {proofUrl && (
+              <button onClick={() => { onClose(); window.open(proofUrl, "_blank", "noreferrer"); }}
+                className="w-full flex items-center gap-2 px-3 py-2 text-left text-[13px] text-foreground hover:bg-muted outline-none transition-colors">
+                <ExternalLink className="w-3.5 h-3.5 text-muted-foreground" />{t("tx.viewProof")}
+              </button>
+            )}
+            <div className="border-t border-border my-0.5" />
+            <button onClick={onDelete} className="w-full px-3 py-2 text-left text-[13px] text-destructive hover:bg-muted outline-none transition-colors">
+              {t("tx.delete")}
+            </button>
+          </div>
+        </>,
+        document.body,
+      )}
+    </>
   );
 }
 

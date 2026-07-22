@@ -1,6 +1,6 @@
 "use client";
 import { useI18n } from "@/lib/i18n";
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import { useRouter } from "next/navigation";
 import { Mail, ArrowLeft, MailCheck, Loader2 } from "lucide-react";
 import { api } from "@/lib/api";
@@ -12,6 +12,7 @@ export default function ForgotPasswordPage() {
   const [error, setError] = useState("");
   const [loading, setLoading] = useState(false);
   const [sent, setSent] = useState(false);
+  useEffect(() => { document.title = "Forgot Password - Simpulx"; }, []);
 
   async function submit(e: React.FormEvent) {
     e.preventDefault();
