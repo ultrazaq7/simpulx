@@ -452,8 +452,10 @@ a:focus:not(:focus-visible) { outline: none; }
 
 /* Di halaman login gelap, warna ::selection global (primary tint + teks
    primary-dark) nyaris tak terbaca: teks yang diblok "menghilang". Scoped di
-   sini saja: blok terang, teks putih. Autofill dibiarkan default browser. */
-[data-login-dark] ::selection {
-  background-color: rgba(255, 255, 255, 0.28);
-  color: #fff;
+   sini saja: blok putih terang, teks gelap -- kontras maksimal di bg gelap,
+   dan berlaku juga untuk titik-titik password. Autofill dibiarkan default. */
+[data-login-dark] ::selection,
+[data-login-dark]::selection {
+  background-color: rgba(255, 255, 255, 0.92);
+  color: #0c1f1b;
 }

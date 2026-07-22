@@ -41,7 +41,7 @@ export default function LoginPage() {
   useEffect(() => { document.title = "Login - Simpulx"; }, []);
 
   return (
-    <div className="relative min-h-screen w-full flex flex-col items-center justify-center px-6 py-10 overflow-hidden bg-[#0d0f13]">
+    <div data-login-dark className="relative min-h-screen w-full flex flex-col items-center justify-center px-6 py-10 overflow-hidden bg-[#0d0f13]">
       {/* Ambient brand glow */}
       <div className="pointer-events-none absolute inset-0">
         <div className="absolute -top-40 left-1/2 -translate-x-1/2 w-[640px] h-[640px] rounded-full bg-primary/20 blur-[140px]" />

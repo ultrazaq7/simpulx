@@ -63,11 +63,11 @@ const rp = (v: number) => "Rp " + v.toLocaleString("id-ID");
 export default function RegisterPage() {
   const { t, lang, setLang } = useI18n();
   const i18n = t;
-  // Halaman publik untuk pasar Indonesia: pengunjung baru (belum pernah memilih
-  // bahasa) mendapat ID, bukan default "en" milik aplikasi. Preferensi eksplisit
-  // pengguna tetap dihormati.
+  // Halaman publik untuk pasar Indonesia: SELALU Bahasa Indonesia, apa pun
+  // preferensi bahasa aplikasi. Keputusan eksplisit setelah teks Inggris tetap
+  // muncul untuk pengunjung yang pernah menyimpan "en".
   useEffect(() => {
-    if (typeof window !== "undefined" && !localStorage.getItem("simpulx_lang") && lang !== "id") setLang("id");
+    if (lang !== "id") setLang("id");
   }, [lang, setLang]); // alias: di dalam .map((t) => ...) variabel tier menutupi `t`
   const [menu, setMenu] = useState<"signup" | "topup">("signup");
   // Wizard dua layar: layar 1 pilih paket, layar 2 isi data. pkg kosong = layar 1.
@@ -85,7 +85,6 @@ export default function RegisterPage() {
     fetch("/api/public/payment-info").then((r) => r.json()).then(setPayInfo).catch(() => setPayInfo(null));
   }, []);
   const [err, setErr] = useState("");
-  const [adsManaged, setAdsManaged] = useState(false);
   const [billing, setBilling] = useState<"monthly" | "annual">("monthly");
 
   const tier = SIGNUP_TIERS.find((t) => t.key === pkg);
@@ -126,8 +125,7 @@ export default function RegisterPage() {
       const r = await fetch("/api/public/register", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ type: menu, package: pkg, seats, billing, ...form,
-          note: adsManaged ? `[Add-on: ads dikelola Simpulx] ${form.note}`.trim() : form.note }),
+        body: JSON.stringify({ type: menu, package: pkg, seats, billing, ...form }),
       });
       if (!r.ok) throw new Error(await r.text());
       const data = await r.json().catch(() => ({}));
@@ -358,15 +356,6 @@ export default function RegisterPage() {
           <Field label={t("reg.phone")} value={form.phone} onChange={(v) => set("phone", v)} placeholder="08xxxxxxxxxx" />
           {menu === "topup" && (
             <Field label={t("reg.orgNameRegistered")} value={form.org_name} onChange={(v) => set("org_name", v)} placeholder={t("reg.orgNameRegisteredPh")} />
-          )}
-          {menu === "signup" && !isTrial && (
-            <label className="flex items-start gap-2.5 p-3 rounded-lg border border-gray-200 cursor-pointer hover:border-emerald-600/50">
-              <input type="checkbox" checked={adsManaged} onChange={(e) => setAdsManaged(e.target.checked)} className="mt-0.5 accent-emerald-600" />
-              <span className="text-[12.5px] text-gray-600">
-                <span className="block font-semibold text-gray-900">{t("reg.adsAddon")}</span>
-                {t("reg.adsAddonDesc")}
-              </span>
-            </label>
           )}
           <Field label={t("reg.note")} value={form.note} onChange={(v) => set("note", v)} placeholder="" />
         </div>
