@@ -25,12 +25,33 @@ app.simpulx.com {
 	}
 }
 
-# ── Landing (slot ready; drop your HTML into deploy/docker/landing/) ──
+# ── Landing (static) + the self-serve register flow on the APEX ──
+# The marketing site is static files, but /register is the Next app: the signup
+# lives on simpulx.com (where ads and the landing point), while the product
+# stays on app.simpulx.com. The app paths are proxied narrowly -- the page, its
+# build assets, the logo, the deck, and the PUBLIC api only -- so the apex can
+# never reach authenticated app surface by accident.
 simpulx.com {
 	tls /etc/caddy/certs/origin.pem /etc/caddy/certs/origin.key
-	root * /srv/landing
-	file_server
-	try_files {path} {path}.html /index.html
+
+	@publicApi path /api/public/*
+	handle @publicApi {
+		reverse_proxy gateway:8080
+	}
+
+	@appPages path /register /register/* /_next/* /simpulx_logo.png /onboarding.html
+	handle @appPages {
+		reverse_proxy web:3000
+	}
+
+	# Anyone landing on /login on the apex meant the app.
+	redir /login https://app.simpulx.com/login permanent
+
+	handle {
+		root * /srv/landing
+		file_server
+		try_files {path} {path}.html /index.html
+	}
 }
 
 # www -> apex
