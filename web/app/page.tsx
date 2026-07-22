@@ -45,7 +45,7 @@ export default function LandingPage() {
           </nav>
           <div className="flex-1" />
           <a href="/login" className="text-[13.5px] font-semibold text-gray-600 hover:text-gray-900">{t("land.navLogin")}</a>
-          <a href="/register" className="inline-flex items-center gap-1.5 px-4 h-9 rounded-lg bg-emerald-700 text-white text-[13.5px] font-bold hover:bg-emerald-800 transition-colors">
+          <a href="https://simpulx.com/register" className="inline-flex items-center gap-1.5 px-4 h-9 rounded-lg bg-emerald-700 text-white text-[13.5px] font-bold hover:bg-emerald-800 transition-colors">
             {t("land.navCta")}
           </a>
         </div>
@@ -67,7 +67,7 @@ export default function LandingPage() {
             </h1>
             <p className="mt-5 text-[16px] leading-relaxed text-gray-600 max-w-[52ch]">{t("land.heroSub")}</p>
             <div className="mt-7 flex items-center gap-3 flex-wrap">
-              <a href="/register" className="inline-flex items-center gap-2 px-5 h-12 rounded-xl bg-emerald-700 text-white text-[15px] font-bold hover:bg-emerald-800 transition-colors shadow-lg shadow-emerald-700/20">
+              <a href="https://simpulx.com/register" className="inline-flex items-center gap-2 px-5 h-12 rounded-xl bg-emerald-700 text-white text-[15px] font-bold hover:bg-emerald-800 transition-colors shadow-lg shadow-emerald-700/20">
                 {t("land.heroCta")}<ArrowRight className="w-4 h-4" />
               </a>
               <a href="#harga" className="inline-flex items-center px-5 h-12 rounded-xl border border-gray-200 text-[15px] font-bold text-gray-700 hover:bg-gray-50 transition-colors">
@@ -203,7 +203,7 @@ export default function LandingPage() {
             <p className="text-[15px] font-extrabold text-emerald-900">{t("land.trialCard")}</p>
             <p className="text-[12.5px] text-emerald-800/70">{t("land.trialCardSub")}</p>
           </div>
-          <a href="/register" className="inline-flex items-center gap-1.5 px-4 h-10 rounded-xl bg-emerald-700 text-white text-[13.5px] font-bold hover:bg-emerald-800 transition-colors">
+          <a href="https://simpulx.com/register" className="inline-flex items-center gap-1.5 px-4 h-10 rounded-xl bg-emerald-700 text-white text-[13.5px] font-bold hover:bg-emerald-800 transition-colors">
             {t("land.priceCta")}<ArrowRight className="w-4 h-4" />
           </a>
         </div>
@@ -215,7 +215,7 @@ export default function LandingPage() {
           <div className="absolute -top-20 right-10 w-64 h-64 rounded-full bg-amber-400/10 blur-3xl" aria-hidden />
           <h2 className="font-display text-[clamp(24px,3.5vw,36px)] font-extrabold tracking-tight [text-wrap:balance]">{t("land.ctaTitle")}</h2>
           <p className="mt-2 text-[14.5px] text-emerald-100/70">{t("land.ctaSub")}</p>
-          <a href="/register" className="mt-6 inline-flex items-center gap-2 px-6 h-12 rounded-xl bg-amber-400 text-emerald-950 text-[15px] font-extrabold hover:bg-amber-300 transition-colors">
+          <a href="https://simpulx.com/register" className="mt-6 inline-flex items-center gap-2 px-6 h-12 rounded-xl bg-amber-400 text-emerald-950 text-[15px] font-extrabold hover:bg-amber-300 transition-colors">
             {t("land.ctaBtn")}<ArrowRight className="w-4 h-4" />
           </a>
         </div>

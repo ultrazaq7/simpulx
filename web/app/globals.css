@@ -449,3 +449,16 @@ a:focus:not(:focus-visible) { outline: none; }
 @media (prefers-reduced-motion: reduce) {
   .lst-card { animation: none !important; opacity: 1 !important; transform: none !important; }
 }
+
+/* Chrome autofill memaksa latar terang + teks gelap sendiri, yang di halaman
+   login gelap membuat email yang terisi TIDAK terbaca sama sekali. Latarnya
+   ditimpa lewat inner box-shadow (satu-satunya cara menang dari autofill) dan
+   warna teksnya dipaksa putih. Scoped ke halaman login gelap saja. */
+[data-login-dark] input:-webkit-autofill,
+[data-login-dark] input:-webkit-autofill:hover,
+[data-login-dark] input:-webkit-autofill:focus {
+  -webkit-text-fill-color: #fff;
+  caret-color: #fff;
+  -webkit-box-shadow: 0 0 0 1000px #142320 inset;
+  transition: background-color 9999s ease-in-out 0s;
+}

@@ -19,6 +19,14 @@ app.simpulx.com {
 		reverse_proxy realtime:8082
 	}
 
+	# Signup lives on the APEX only. The route must remain in the Next app
+	# because simpulx.com proxies to it, but on the app host it does not exist:
+	# a plain 404, not a redirect, per the explicit decision to remove
+	# app.simpulx.com/register entirely.
+	handle /register* {
+		respond "not found" 404
+	}
+
 	# Everything else -> Next.js web app
 	handle {
 		reverse_proxy web:3000

@@ -38,6 +38,8 @@ export default function LoginPage() {
     } finally { setLoading(false); }
   }
 
+  useEffect(() => { document.title = "Login - Simpulx"; }, []);
+
   return (
     <div className="relative min-h-screen w-full flex flex-col items-center justify-center px-6 py-10 overflow-hidden bg-[#0d0f13]">
       {/* Ambient brand glow */}
@@ -55,7 +57,6 @@ export default function LoginPage() {
           <h1 className="text-[26px] font-extrabold tracking-tight text-white leading-none">
             {t("auth.simpul")}<span className="text-amber">x</span>
           </h1>
-          <p className="mt-2 text-[13.5px] text-white/60 max-w-[300px]">{t("login.tagline")}</p>
         </div>
       </div>
 
@@ -153,7 +154,7 @@ export default function LoginPage() {
           tombol daftar harus kelihatan tanpa nyari-nyari. */}
       <p className="relative z-10 mt-5 text-[13px] text-white/50">
         {t("login.noAccount")}{" "}
-        <a href="/register" className="font-bold text-amber hover:underline">{t("login.signUp")}</a>
+        <a href="https://simpulx.com/register" className="font-bold text-amber hover:underline">{t("login.signUp")}</a>
       </p>
 
       <p className="relative z-10 mt-4 text-[11px] text-white/30 font-medium tracking-wide">
