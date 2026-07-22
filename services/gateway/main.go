@@ -277,6 +277,15 @@ func main() {
 	mux.HandleFunc("GET /api/campaigns/{id}/ads-status", s.requireAuth(s.campaignScoped(s.handleCampaignAdsStatus)))
 	mux.HandleFunc("POST /api/campaigns/{id}/ads/pause", s.requireAuth(s.gate("manage_campaigns", s.campaignScoped(s.handlePauseAds))))
 	mux.HandleFunc("POST /api/campaigns/{id}/ads/resume", s.requireAuth(s.gate("manage_campaigns", s.campaignScoped(s.handleResumeAds))))
+
+	// Launch prerequisites: resolve geo, draft copy, suggest audience, preview.
+	mux.HandleFunc("GET /api/campaigns/{id}/ads/preview", s.requireAuth(s.campaignScoped(s.handleCampaignAdsPreview)))
+	mux.HandleFunc("GET /api/campaigns/{id}/ads/geo", s.requireAuth(s.gate("manage_campaigns", s.campaignScoped(s.handleCampaignAdsGeo))))
+	mux.HandleFunc("POST /api/campaigns/{id}/ads/geo", s.requireAuth(s.gate("manage_campaigns", s.campaignScoped(s.handleCampaignAdsGeoChoose))))
+	mux.HandleFunc("GET /api/campaigns/{id}/ads/copy", s.requireAuth(s.campaignScoped(s.handleListAdCopy)))
+	mux.HandleFunc("POST /api/campaigns/{id}/ads/generate-copy", s.requireAuth(s.gate("manage_campaigns", s.campaignScoped(s.handleGenerateAdCopy))))
+	mux.HandleFunc("POST /api/campaigns/{id}/ads/copy/{copyId}/approve", s.requireAuth(s.gate("manage_campaigns", s.campaignScoped(s.handleApproveAdCopy))))
+	mux.HandleFunc("POST /api/campaigns/{id}/ads/suggest-audience", s.requireAuth(s.gate("manage_campaigns", s.campaignScoped(s.handleSuggestAdAudience))))
 	mux.HandleFunc("POST /api/ad-accounts", s.requireAuth(s.gate("manage_channels", s.handleCreateAdAccount)))
 	mux.HandleFunc("POST /api/auth/google-ads/connect", s.requireAuth(s.gate("manage_channels", s.handleGoogleAdsConnect)))
 	mux.HandleFunc("GET /api/auth/google-ads/callback", s.handleGoogleAdsCallback)

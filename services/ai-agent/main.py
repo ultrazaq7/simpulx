@@ -208,6 +208,101 @@ async def style_suggest(req: StyleSuggestReq):
     return {"style": style}
 
 
+class AdsGenerateReq(BaseModel):
+    org_id: str
+    campaign_id: str
+
+
+async def _campaign_ads_context(pool, org_id: str, campaign_id: str) -> str | None:
+    """Build the prompt context from what the campaign ALREADY holds.
+
+    Nothing here is industry specific, and that is deliberate: a lender, a clinic
+    and a course all travel this same path and differ only by their own rows. The
+    moment this function grows a branch on segment, every new vertical needs a code
+    change instead of just data.
+    """
+    async with pool.acquire() as conn:
+        c = await conn.fetchrow(
+            """SELECT c.name, c.segment, c.brand, c.dealer_name, c.covered_cities
+                 FROM campaigns c WHERE c.id=$1::uuid AND c.organization_id=$2""",
+            campaign_id, org_id)
+        cat = await conn.fetch(
+            """SELECT item_name, variant_name, headline_price
+                 FROM campaign_catalog WHERE campaign_id=$1::uuid
+                ORDER BY created_at LIMIT 20""", campaign_id)
+    if c is None:
+        return None
+    lines = [f"Nama campaign: {c['name'] or '-'}"]
+    if c["segment"]:
+        lines.append(f"Segmen bisnis: {c['segment']}")
+    if c["brand"]:
+        lines.append(f"Brand/produk: {c['brand']}")
+    if c["dealer_name"]:
+        lines.append(f"Nama bisnis: {c['dealer_name']}")
+    cities = list(c["covered_cities"] or [])
+    if cities:
+        lines.append(f"Kota yang dilayani: {', '.join(cities)}")
+    if cat:
+        # Prices are included so the copy can be concrete, but ONLY the ones on
+        # file: the prompt forbids inventing any number, because an ad promising a
+        # price the business does not honour is a legal problem, not a typo.
+        items = []
+        for r in cat:
+            nm = (r["item_name"] or "").strip()
+            if not nm:
+                continue
+            if r["variant_name"]:
+                nm += " " + r["variant_name"]
+            if r["headline_price"]:
+                nm += f" (Rp {int(r['headline_price']):,})".replace(",", ".")
+            items.append(nm)
+        if items:
+            lines.append("Item katalog: " + "; ".join(items))
+    else:
+        lines.append("Katalog belum diisi, jadi JANGAN sebut produk, varian, atau angka apa pun.")
+    return "\n".join(lines)
+
+
+@app.post("/ads/copy")
+async def ads_copy(req: AdsGenerateReq):
+    """Generate Meta ad copy variants for one campaign.
+
+    Sonnet rather than Haiku: this text is read by prospective customers and is the
+    first impression of the client's business, the same reason nurture and reply
+    stayed on Sonnet. It runs once per campaign, so the cost is negligible next to
+    the ad spend it introduces.
+    """
+    ctx = await _campaign_ads_context(state["pool"], req.org_id, req.campaign_id)
+    if ctx is None:
+        return {"copy": {}}
+    usage: dict = {}
+    try:
+        copy = await llm.generate_ad_copy(ctx, usage_out=usage)
+    finally:
+        # Record even on failure: a call that blew up halfway still burned tokens,
+        # and that is exactly the spend worth seeing in the ledger.
+        await llm_usage.record(state["pool"], req.org_id, None, "ads_copy", usage, log)
+    return {"copy": copy}
+
+
+@app.post("/ads/audience")
+async def ads_audience(req: AdsGenerateReq):
+    """Suggest Meta interest targeting from the campaign's own catalogue/segment.
+
+    Returns interest NAMES only. Meta's interest ids must come from its own search
+    endpoint; inventing them would point real spend at whatever happened to match.
+    """
+    ctx = await _campaign_ads_context(state["pool"], req.org_id, req.campaign_id)
+    if ctx is None:
+        return {"audience": {}}
+    usage: dict = {}
+    try:
+        aud = await llm.suggest_ad_audience(ctx, usage_out=usage)
+    finally:
+        await llm_usage.record(state["pool"], req.org_id, None, "ads_audience", usage, log)
+    return {"audience": aud}
+
+
 class StylePreviewReq(BaseModel):
     org_id: str
     campaign_id: str

@@ -893,6 +893,109 @@ async def suggest_style(context: str, model: Optional[str] = None,
     return out
 
 
+ADS_COPY_INSTRUCTION = (
+    "Kamu copywriter iklan Meta (Facebook/Instagram) untuk bisnis Indonesia yang "
+    "jualan lewat WhatsApp. Dari setup campaign di bawah, tulis materi iklan "
+    "Click-to-WhatsApp.\n"
+    "Aturan: Bahasa Indonesia santai tapi sopan, langsung ke manfaat, TIDAK lebay, "
+    "tidak menjanjikan apa pun yang tidak ada di data. Setiap primary_text diakhiri "
+    "ajakan chat WhatsApp. JANGAN mengarang angka (harga, bunga, DP, diskon, tenor) "
+    "yang tidak ada di katalog: iklan yang menjanjikan angka salah adalah masalah "
+    "hukum, bukan sekadar salah tulis.\n"
+    "primary_texts: 5 variasi, 1-2 kalimat. "
+    "headlines: 5 variasi, MAKSIMAL 40 karakter. "
+    "descriptions: 3 variasi, MAKSIMAL 30 karakter.\n"
+    "Semua variasi dikirim ke Meta sekaligus supaya Advantage+ yang menguji mana "
+    "yang menang, jadi bikin variasi yang BENAR-BENAR berbeda sudut pandangnya, "
+    "bukan parafrase satu sama lain.\n"
+    'Balas HANYA JSON: {"primary_texts": [string], "headlines": [string], "descriptions": [string]}.'
+)
+
+# Meta's own limits. Enforced in code as well as asked for in the prompt, because
+# an over-long headline is rejected by Meta at create time -- long after the user
+# approved the copy and with an error that does not name the offending variant.
+ADS_HEADLINE_MAX = 40
+ADS_DESCRIPTION_MAX = 30
+
+
+async def generate_ad_copy(context: str, model: Optional[str] = None,
+                           usage_out: Optional[dict] = None) -> dict:
+    """Generate Meta ad copy variants from a campaign's own setup `context`.
+
+    Sonnet, not Haiku: this text is read by prospective customers and is the first
+    thing they see of the client's business, which is the same reason nurture and
+    reply stayed on Sonnet. It runs once per campaign, so the cost is a rounding
+    error against the ad spend it introduces.
+
+    Returns {} without a live LLM so callers can degrade instead of failing.
+    """
+    if not (settings.llm_provider == "anthropic" and settings.anthropic_api_key):
+        return {}
+    system = [{"type": "text", "text": ADS_COPY_INSTRUCTION + NO_EMDASH_RULE,
+               "cache_control": {"type": "ephemeral"}}]
+    text = await _anthropic_raw(system, [], context, await _resolve_model(model), 1400, usage_out)
+    obj = _parse_json(text)
+    if not isinstance(obj, dict):
+        return {}
+
+    def clean(key: str, limit: int, want: int) -> list:
+        vals = obj.get(key) or []
+        if not isinstance(vals, list):
+            return []
+        out, seen = [], set()
+        for v in vals:
+            t = _normalize_dashes(str(v or "").strip())
+            # Drop rather than truncate: a headline cut mid-word reads as a bug to
+            # the customer, and Meta would reject the original anyway.
+            if not t or len(t) > limit or t.lower() in seen:
+                continue
+            seen.add(t.lower())
+            out.append(t)
+        return out[:want]
+
+    return {
+        "primary_texts": clean("primary_texts", 600, 5),
+        "headlines": clean("headlines", ADS_HEADLINE_MAX, 5),
+        "descriptions": clean("descriptions", ADS_DESCRIPTION_MAX, 3),
+    }
+
+
+ADS_AUDIENCE_INSTRUCTION = (
+    "Kamu ahli targeting iklan Meta. Dari setup campaign di bawah (segmen bisnis, "
+    "brand, contoh produk di katalog), usulkan minat (interest) Meta yang relevan "
+    "untuk menjangkau calon pembeli produk itu.\n"
+    "PENTING: pikirkan siapa yang BUTUH produknya, bukan sekadar kata benda di nama "
+    "produk. Contoh: produk pembiayaan dengan jaminan kendaraan menyasar orang yang "
+    "butuh dana tunai, BUKAN penggemar otomotif.\n"
+    "Beri 5-10 usulan, nama minat dalam bahasa Inggris (Meta menamai interest dalam "
+    "bahasa Inggris), plus satu kalimat alasan singkat per usulan dalam bahasa "
+    "Indonesia.\n"
+    'Balas HANYA JSON: {"interests": [{"name": string, "why": string}]}.'
+)
+
+
+async def suggest_ad_audience(context: str, model: Optional[str] = None,
+                              usage_out: Optional[dict] = None) -> dict:
+    """Suggest Meta interest targeting from the campaign's own catalogue/segment.
+
+    Returns NAMES only. They are suggestions for a human to confirm, not targeting
+    ids: Meta's interest ids must come from its own search endpoint, and inventing
+    them would point spend at whatever happens to match.
+    """
+    if not (settings.llm_provider == "anthropic" and settings.anthropic_api_key):
+        return {}
+    system = [{"type": "text", "text": ADS_AUDIENCE_INSTRUCTION, "cache_control": {"type": "ephemeral"}}]
+    text = await _anthropic_raw(system, [], context, await _resolve_model(model), 900, usage_out)
+    obj = _parse_json(text)
+    if not isinstance(obj, dict):
+        return {}
+    out = []
+    for it in (obj.get("interests") or [])[:10]:
+        if isinstance(it, dict) and str(it.get("name") or "").strip():
+            out.append({"name": str(it["name"]).strip(), "why": str(it.get("why") or "").strip()})
+    return {"interests": out}
+
+
 async def preview_reply(system_prompt: str, ai_style: Optional[dict], message: str,
                         segment_guidance: str = "", model: Optional[str] = None,
                         usage_out: Optional[dict] = None) -> str:
