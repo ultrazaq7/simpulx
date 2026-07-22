@@ -231,7 +231,7 @@ export default function LandingPage() {
             <span>&middot; {t("land.footerTag")}</span>
           </div>
           <div className="flex items-center gap-4">
-            <a href="/onboarding.html" className="hover:text-gray-600">Panduan</a>
+            <a href="https://simpulx.com/onboarding.html" className="hover:text-gray-600">Panduan</a>
             <a href="/login" className="hover:text-gray-600">{t("land.navLogin")}</a>
             <span>© {new Date().getFullYear()} Simpulx</span>
           </div>

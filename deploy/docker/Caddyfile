@@ -26,6 +26,9 @@ app.simpulx.com {
 	handle /register* {
 		respond "not found" 404
 	}
+	handle /onboarding.html {
+		respond "not found" 404
+	}
 
 	# Everything else -> Next.js web app
 	handle {
