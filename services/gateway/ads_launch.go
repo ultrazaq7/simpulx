@@ -7,6 +7,7 @@ import (
 	"fmt"
 	"net/http"
 	"net/url"
+	"sort"
 	"strings"
 	"time"
 
@@ -40,7 +41,12 @@ func metaGeoSearch(ctx context.Context, token, query, country string) ([]metaGeo
 	q := url.Values{}
 	q.Set("type", "adgeolocation")
 	q.Set("q", query)
-	q.Set("location_types", `["city","region"]`)
+	// subcity is REQUIRED, not optional. Indonesia's kota administrasi are subcities
+	// in Meta's taxonomy, not cities: with ["city","region"] alone, "Jakarta
+	// Selatan" and "Tangerang Selatan" return ZERO matches (verified against the
+	// live API), which would leave five of one campaign's nine cities permanently
+	// unresolvable and Launch permanently blocked.
+	q.Set("location_types", `["city","subcity","region"]`)
 	q.Set("country_code", country)
 	q.Set("limit", "25")
 	q.Set("access_token", token)
@@ -66,7 +72,43 @@ func metaGeoSearch(ctx context.Context, token, query, country string) ([]metaGeo
 			out = append(out, c)
 		}
 	}
+	// Rank before returning. A search for "Jakarta Selatan" comes back with 22
+	// matches, mostly neighbourhoods that merely contain "Selatan", and the one
+	// the user means ("South Jakarta", a subcity) is not first. Making a human
+	// hunt for it through an unsorted list is how the wrong one gets picked, which
+	// is the exact failure this whole flow exists to prevent.
+	rankGeo(out, query)
 	return out, nil
+}
+
+// rankGeo sorts candidates so the intended place is at the top: closest name
+// match first, then broader administrative units before neighbourhoods.
+func rankGeo(cands []metaGeoCandidate, query string) {
+	q := strings.ToLower(strings.TrimSpace(query))
+	typeRank := map[string]int{"region": 0, "city": 1, "subcity": 1, "neighborhood": 3}
+	score := func(c metaGeoCandidate) int {
+		n := strings.ToLower(c.Name)
+		switch {
+		case n == q:
+			return 0
+		case strings.HasPrefix(n, q):
+			return 1
+		case strings.Contains(n, q):
+			return 2
+		default:
+			// No name overlap at all: Meta returned it as a fuzzy match (a search
+			// for "Bogor" also returns "Cibinong"), so it goes last.
+			return 4
+		}
+	}
+	sort.SliceStable(cands, func(i, j int) bool {
+		si, sj := score(cands[i]), score(cands[j])
+		if si != sj {
+			return si < sj
+		}
+		ti, tj := typeRank[strings.ToLower(cands[i].Type)], typeRank[strings.ToLower(cands[j].Type)]
+		return ti < tj
+	})
 }
 
 // GET /api/campaigns/{id}/ads/geo — resolve covered_cities to Meta targeting keys.
