@@ -870,3 +870,30 @@ export interface AdsAlertRow {
   ad_title?: string | null;
   ad_image?: string | null;
 }
+
+export interface GeoCandidate { key: string; name: string; type: string; region: string; }
+export interface GeoCityResult {
+  query: string; resolved: boolean;
+  chosen?: GeoCandidate; candidates?: GeoCandidate[]; error?: string;
+}
+export interface AdCopyRow {
+  id: string; primary_texts: string[]; headlines: string[]; descriptions: string[];
+  status: string; model?: string; generated_at: string; approved_at?: string | null;
+}
+export interface CreativeRow {
+  id: string; file_url: string; media_type: string; file_name?: string; status: string;
+  meta_ad_id?: string | null; created_at: string;
+  spend: number; impressions: number; clicks: number; ctr: number;
+}
+export interface AdsPreview {
+  campaign: { name: string; ads_status: string };
+  account: { name: string; access_mode: string | null };
+  budget: { monthly: number | null; daily: number; target_cpl: number | null };
+  geo: { query: string; meta_key: string; display_name: string; region: string; meta_type: string }[];
+  audience: { age_min: number; age_max: number; gender: string; advantage_plus: boolean };
+  copy: { id: string; primary_texts: string[]; headlines: string[]; descriptions: string[] }[];
+  creatives: { id: string; file_url: string; media_type: string; file_name?: string; on_meta: boolean }[];
+  blockers: string[];
+  can_launch: boolean;
+  creates_paused: boolean;
+}

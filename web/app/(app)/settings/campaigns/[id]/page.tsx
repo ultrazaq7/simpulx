@@ -887,10 +887,15 @@ function AdsTab({ id, notify }: { id: string; notify: (m: string, s?: "success" 
   const [rows, setRows] = useState<AdsMetricRow[] | null>(null);
   const [alerts, setAlerts] = useState<AdsAlertRow[]>([]);
   const [busy, setBusy] = useState(false);
+  const [view, setView] = useState<"performance" | "setup">("performance");
   const { confirm, ConfirmHost } = useConfirm();
 
   function load() {
-    api.campaignAdsStatus(id).then(setStatus).catch(() => setStatus(null));
+    api.campaignAdsStatus(id).then((st) => {
+      setStatus(st);
+      // Land on setup when there is nothing to report yet, on performance once live.
+      if (st && st.linked_ad_count === 0 && st.ads_status !== "active") setView("setup");
+    }).catch(() => setStatus(null));
     api.campaignAdsMetrics(id).then((r) => setRows(r.rows)).catch(() => setRows([]));
     api.campaignAdsAlerts(id).then(setAlerts).catch(() => setAlerts([]));
   }

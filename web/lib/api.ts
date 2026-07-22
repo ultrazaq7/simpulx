@@ -548,6 +548,26 @@ export const api = {
     usdIdr: string;
   }>("/api/platform/ml-monitor"),
   listOrgs: () => req<OrgRow[]>("/api/platform/orgs"),
+  campaignAdsPreview: (id: string) =>
+    req<import("./types").AdsPreview>(`/api/campaigns/${id}/ads/preview`),
+  campaignAdsGeo: (id: string) =>
+    req<{ cities: import("./types").GeoCityResult[]; unresolved: number }>(`/api/campaigns/${id}/ads/geo`),
+  chooseCampaignGeo: (id: string, body: { query: string; meta_key: string; meta_type?: string; display_name?: string; region?: string }) =>
+    req(`/api/campaigns/${id}/ads/geo`, { method: "POST", body: JSON.stringify(body) }),
+  generateAdCopy: (id: string) =>
+    req<{ id: string; status: string; primary_texts: string[]; headlines: string[]; descriptions: string[] }>(
+      `/api/campaigns/${id}/ads/generate-copy`, { method: "POST" }),
+  listAdCopy: (id: string) =>
+    req<import("./types").AdCopyRow[]>(`/api/campaigns/${id}/ads/copy`),
+  approveAdCopy: (id: string, copyId: string) =>
+    req(`/api/campaigns/${id}/ads/copy/${copyId}/approve`, { method: "POST" }),
+  suggestAdAudience: (id: string) =>
+    req<{ interests: { name: string; why: string }[] }>(`/api/campaigns/${id}/ads/suggest-audience`, { method: "POST" }),
+  listCreatives: (id: string) =>
+    req<import("./types").CreativeRow[]>(`/api/campaigns/${id}/creatives`),
+  deleteCreative: (id: string, creativeId: string) =>
+    req(`/api/campaigns/${id}/creatives/${creativeId}`, { method: "DELETE" }),
+
   campaignAdsStatus: (id: string) =>
     req<{
       managed: boolean; account_name: string; access_mode: string;
