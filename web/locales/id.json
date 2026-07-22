@@ -2254,8 +2254,8 @@
   "tx.prev": "Sebelumnya",
   "tx.next": "Berikutnya",
   "tx.pageOf": "Halaman {a} dari {b}",
-  "reg.headline": "Mulai jualan lebih pintar di WhatsApp",
-  "reg.sub": "Satu inbox untuk semua sales, AI yang bantu balas dan follow-up lead, laporan iklan sampai closing.",
+  "reg.headline": "Semua lead WhatsApp kebalas, gak ada yang lolos",
+  "reg.sub": "Satu inbox bersama untuk seluruh tim sales. AI balas duluan, follow-up, lalu oper ke manusia di momen yang pas.",
   "reg.topupHeadline": "Top up kredit AI",
   "reg.topupSub": "1 kredit = 1 balasan AI ke customer. Kredit tidak hangus selama langganan aktif.",
   "reg.menuSignup": "Daftar",
@@ -2297,5 +2297,7 @@
   "reg.proofLater": "Kirim nanti lewat email",
   "reg.finish": "Selesai",
   "reg.proofHint": "Foto atau PDF, maksimal 8MB.",
-  "reg.paymentInfoByEmail": "Instruksi pembayaran akan dikirim ke email kamu."
+  "reg.paymentInfoByEmail": "Instruksi pembayaran akan dikirim ke email kamu.",
+  "reg.adsAddon": "Tertarik ads dikelola Simpulx (add-on opsional)",
+  "reg.adsAddonDesc": "Tim kami yang jalankan iklan Meta kamu dari awal sampai laporan. Kami hubungi untuk detailnya."
 }

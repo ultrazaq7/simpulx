@@ -2254,8 +2254,8 @@
   "tx.prev": "Prev",
   "tx.next": "Next",
   "tx.pageOf": "Page {a} of {b}",
-  "reg.headline": "Sell smarter on WhatsApp",
-  "reg.sub": "One inbox for the whole sales team, AI that replies and follows up, ad reporting down to closing.",
+  "reg.headline": "Every WhatsApp lead, answered",
+  "reg.sub": "One shared inbox for the whole sales team. AI replies first, follows up, and hands over to a human at the right moment.",
   "reg.topupHeadline": "Top up AI credits",
   "reg.topupSub": "1 credit = 1 AI reply to a customer. Credits never expire while your subscription is active.",
   "reg.menuSignup": "Sign up",
@@ -2297,5 +2297,7 @@
   "reg.proofLater": "Send later via email",
   "reg.finish": "Finish",
   "reg.proofHint": "Photo or PDF, max 8MB.",
-  "reg.paymentInfoByEmail": "Payment instructions will be sent to your email."
+  "reg.paymentInfoByEmail": "Payment instructions will be sent to your email.",
+  "reg.adsAddon": "I'm interested in Simpulx-managed ads (optional add-on)",
+  "reg.adsAddonDesc": "Our team runs your Meta ads end to end. We'll contact you with details."
 }

@@ -29,15 +29,20 @@ type signupPackage struct {
 	PerSeat      float64 // Rp / seat / month
 	BonusCredits int
 	TrialDays    int // >0 = trial package
+	MinSeats     int // volume bracket floor; enforced server-side
 }
 
+// Every paid tier has the SAME features; the tiers are seat-volume brackets and
+// the per-seat price FALLS as the team grows (a volume discount), it does not
+// rise. MinSeats is enforced server-side so a 2-seat request cannot claim the
+// 10-seat price. Managed ads is an optional add-on conversation, not a tier gate.
 var signupPackages = map[string]signupPackage{
 	// 7 days, 50 credits, no charge. Long enough to feel the product on real
 	// leads, short enough that "we'll decide later" has a date attached.
 	"trial":    {Label: "Free Trial", PerSeat: 0, BonusCredits: 50, TrialDays: 7},
-	"starter":  {Label: "Starter", PerSeat: 100_000, BonusCredits: 200},
-	"growth":   {Label: "Growth", PerSeat: 150_000, BonusCredits: 200},
-	"business": {Label: "Business", PerSeat: 200_000, BonusCredits: 200},
+	"starter":  {Label: "Starter", PerSeat: 200_000, BonusCredits: 200, MinSeats: 1},
+	"growth":   {Label: "Growth", PerSeat: 150_000, BonusCredits: 200, MinSeats: 5},
+	"business": {Label: "Business", PerSeat: 100_000, BonusCredits: 200, MinSeats: 10},
 }
 
 type topupPackage struct {
@@ -104,6 +109,11 @@ func (s *server) handlePublicRegister(w http.ResponseWriter, r *http.Request) {
 		}
 		if seats > 100 {
 			seats = 100
+		}
+		// The bracket floor is what makes the volume discount honest: without it a
+		// 2-seat request could claim the 10-seat price.
+		if pkg.MinSeats > 0 && seats < pkg.MinSeats {
+			seats = pkg.MinSeats
 		}
 		if pkg.TrialDays > 0 {
 			seats = 1 // a trial is one seat; more is a sales conversation

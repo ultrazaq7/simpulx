@@ -11,30 +11,39 @@ import { useEffect, useMemo, useRef, useState } from "react";
 import { useI18n } from "@/lib/i18n";
 import { ArrowLeft, Check, Loader2, Sparkles, Zap, Building2 } from "lucide-react";
 
+// Semua paket berbayar fiturnya SAMA. Bedanya cuma jumlah seat: makin banyak
+// seat, harga per seat makin murah (volume discount). "Ads dikelola Simpulx"
+// itu add-on opsional, bukan pembeda paket.
+const ALL_FEATURES = [
+  "Semua fitur: inbox, AI, campaign, laporan",
+  "Bonus 200 kredit AI",
+  "AI nurture + follow-up penuh",
+  "Laporan iklan (Meta/TikTok/Google)",
+];
 const SIGNUP_TIERS = [
   {
     key: "trial", name: "Free Trial", price: 0, per: "7 hari",
-    credits: 50, highlight: false,
+    credits: 50, highlight: false, minSeats: 1,
     tagline: "Coba dulu, tanpa kartu, tanpa komitmen",
     features: ["7 hari akses penuh", "50 kredit balasan AI", "1 seat", "Semua fitur inbox + AI"],
   },
   {
-    key: "starter", name: "Starter", price: 100_000, per: "seat / bulan",
-    credits: 200, highlight: false,
-    tagline: "Untuk tim kecil yang mulai serius",
-    features: ["Bonus 200 kredit AI", "Inbox WhatsApp bersama", "Round-robin antar sales", "Laporan performa dasar"],
+    key: "starter", name: "Starter", price: 200_000, per: "seat / bulan",
+    credits: 200, highlight: false, minSeats: 1,
+    tagline: "1 sampai 4 seat",
+    features: ALL_FEATURES,
   },
   {
     key: "growth", name: "Growth", price: 150_000, per: "seat / bulan",
-    credits: 200, highlight: true,
-    tagline: "Paling banyak dipilih",
-    features: ["Semua fitur Starter", "AI nurture + follow-up penuh", "Campaign & broadcast", "Laporan iklan (Meta/TikTok/Google)"],
+    credits: 200, highlight: true, minSeats: 5,
+    tagline: "5 sampai 9 seat, paling banyak dipilih",
+    features: ALL_FEATURES,
   },
   {
-    key: "business", name: "Business", price: 200_000, per: "seat / bulan",
-    credits: 200, highlight: false,
-    tagline: "Untuk tim besar + ads dikelola",
-    features: ["Semua fitur Growth", "Ads dikelola Simpulx", "Monitoring & alert otomatis", "Dukungan prioritas"],
+    key: "business", name: "Business", price: 100_000, per: "seat / bulan",
+    credits: 200, highlight: false, minSeats: 10,
+    tagline: "10 seat ke atas, termurah per seat",
+    features: ALL_FEATURES,
   },
 ];
 
@@ -70,6 +79,7 @@ export default function RegisterPage() {
     fetch("/api/public/payment-info").then((r) => r.json()).then(setPayInfo).catch(() => setPayInfo(null));
   }, []);
   const [err, setErr] = useState("");
+  const [adsManaged, setAdsManaged] = useState(false);
 
   const tier = SIGNUP_TIERS.find((t) => t.key === pkg);
   const pack = TOPUP_PACKS.find((t) => t.key === pkg);
@@ -87,6 +97,8 @@ export default function RegisterPage() {
   // scroll sama sekali. scrollTo(0,0) supaya layar baru mulai dari atas.
   function choose(key: string) {
     setPkg(key);
+    const tr = SIGNUP_TIERS.find((x) => x.key === key);
+    if (tr && tr.minSeats > 1) setSeats((sv) => Math.max(sv, tr.minSeats));
     window.scrollTo({ top: 0 });
   }
   function back() {
@@ -104,7 +116,8 @@ export default function RegisterPage() {
       const r = await fetch("/api/public/register", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ type: menu, package: pkg, seats, ...form }),
+        body: JSON.stringify({ type: menu, package: pkg, seats, ...form,
+          note: adsManaged ? `[Add-on: ads dikelola Simpulx] ${form.note}`.trim() : form.note }),
       });
       if (!r.ok) throw new Error(await r.text());
       const data = await r.json().catch(() => ({}));
@@ -319,6 +332,15 @@ export default function RegisterPage() {
           <Field label={t("reg.phone")} value={form.phone} onChange={(v) => set("phone", v)} placeholder="08xxxxxxxxxx" />
           {menu === "topup" && (
             <Field label={t("reg.orgNameRegistered")} value={form.org_name} onChange={(v) => set("org_name", v)} placeholder={t("reg.orgNameRegisteredPh")} />
+          )}
+          {menu === "signup" && !isTrial && (
+            <label className="flex items-start gap-2.5 p-3 rounded-lg border border-gray-200 cursor-pointer hover:border-emerald-600/50">
+              <input type="checkbox" checked={adsManaged} onChange={(e) => setAdsManaged(e.target.checked)} className="mt-0.5 accent-emerald-600" />
+              <span className="text-[12.5px] text-gray-600">
+                <span className="block font-semibold text-gray-900">{t("reg.adsAddon")}</span>
+                {t("reg.adsAddonDesc")}
+              </span>
+            </label>
           )}
           <Field label={t("reg.note")} value={form.note} onChange={(v) => set("note", v)} placeholder="" />
         </div>
