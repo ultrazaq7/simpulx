@@ -8,8 +8,16 @@
 // operator activates it from the platform panel, so the page can be public
 // without letting anyone provision themselves.
 import { useEffect, useMemo, useRef, useState } from "react";
-import { useI18n } from "@/lib/i18n";
+import { fixedT } from "@/lib/i18n";
 import { ArrowLeft, Check, Loader2, Sparkles } from "lucide-react";
+
+// Halaman publik untuk pasar Indonesia: SELALU Bahasa Indonesia, apa pun
+// preferensi bahasa aplikasi. Terikat di module scope (bukan setLang di effect)
+// supaya SSR dan paint pertama sudah ID — tanpa flash teks Inggris — dan
+// preferensi bahasa user di aplikasi tidak ikut berubah.
+// Alias i18n: di dalam .map((t) => ...) variabel tier menutupi `t`.
+const t = fixedT("id");
+const i18n = t;
 
 // Semua paket berbayar fiturnya SAMA. Bedanya cuma jumlah seat: makin banyak
 // seat, harga per seat makin murah (volume discount). "Ads dikelola Simpulx"
@@ -61,14 +69,6 @@ const INDUSTRIES = [
 const rp = (v: number) => "Rp " + v.toLocaleString("id-ID");
 
 export default function RegisterPage() {
-  const { t, lang, setLang } = useI18n();
-  const i18n = t;
-  // Halaman publik untuk pasar Indonesia: SELALU Bahasa Indonesia, apa pun
-  // preferensi bahasa aplikasi. Keputusan eksplisit setelah teks Inggris tetap
-  // muncul untuk pengunjung yang pernah menyimpan "en".
-  useEffect(() => {
-    if (lang !== "id") setLang("id");
-  }, [lang, setLang]); // alias: di dalam .map((t) => ...) variabel tier menutupi `t`
   const [menu, setMenu] = useState<"signup" | "topup">("signup");
   // Wizard dua layar: layar 1 pilih paket, layar 2 isi data. pkg kosong = layar 1.
   const [pkg, setPkg] = useState("");
@@ -388,7 +388,6 @@ export default function RegisterPage() {
 }
 
 function Shell({ children }: { children: React.ReactNode }) {
-  const { t } = useI18n();
   return (
     // data-public-site melepas overflow:hidden milik shell app (globals.css),
     // tanpa itu halaman render penuh tapi TIDAK BISA discroll.

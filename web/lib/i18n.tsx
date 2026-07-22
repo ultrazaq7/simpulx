@@ -109,6 +109,17 @@ export function I18nProvider({ children }: { children: ReactNode }) {
   return <I18nContext.Provider value={ctx}>{children}</I18nContext.Provider>;
 }
 
+/**
+ * Translator terikat SATU bahasa, untuk halaman publik yang bahasanya
+ * ditetapkan (mis. /register selalu Indonesia). Tidak lewat context, jadi
+ * identik di SSR dan client — tidak ada flash bahasa lain sebelum hydration,
+ * dan tidak menyentuh preferensi bahasa aplikasi di localStorage.
+ */
+export function fixedT(lang: string) {
+  return (key: string, vars?: Record<string, string | number>) =>
+    translate(key, lang, vars);
+}
+
 /** Hook — returns { t, lang, setLang } */
 export function useI18n() {
   return useContext(I18nContext);
