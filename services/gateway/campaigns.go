@@ -4,6 +4,7 @@ import (
 	"context"
 	"encoding/json"
 	"net/http"
+	"strings"
 
 	"github.com/simpulx/v2/libs/go/events"
 )
@@ -117,6 +118,8 @@ func (s *server) handleGetCampaign(w http.ResponseWriter, r *http.Request) {
 		        c.segment, c.brand, c.ai_auto_reply, c.ai_language, c.ai_dynamic_language, c.ai_smart_summary,
 		        c.intake_form_id::text AS intake_form_id, c.followup_template_id::text AS followup_template_id, c.monthly_budget, c.avg_deal_value,
 		        c.covered_cities,
+		        COALESCE((SELECT jsonb_agg(m.ad_campaign_id::text)
+		                    FROM ad_campaign_campaigns m WHERE m.campaign_id = c.id), '[]'::jsonb) AS ad_campaign_ids,
 		        c.ai_style, c.followup_frequency,
 		        COALESCE((SELECT jsonb_agg(ca.user_id::text) FROM campaign_agents ca WHERE ca.campaign_id = c.id AND ca.in_rotation), '[]'::jsonb) AS agent_ids,
 		        COALESCE((SELECT jsonb_agg(ca.user_id::text) FROM campaign_agents ca WHERE ca.campaign_id = c.id AND NOT ca.in_rotation), '[]'::jsonb) AS supervisor_ids
@@ -169,6 +172,12 @@ type campaignInput struct {
 	// campaigns permanently empty with no way to fix it from the UI.
 	// nil = not sent (keep existing); [] = explicitly clear.
 	CoveredCities *[]string `json:"covered_cities"`
+	// Meta/TikTok/Google ad campaigns whose spend belongs to THIS campaign.
+	// Owned from this side on purpose: one ad campaign may feed only one of ours
+	// (feeding several duplicates its spend instead of splitting it), while one of
+	// ours may legitimately be fed by several ad campaigns, which merely sums.
+	// nil = not sent (keep existing); [] = unmap everything.
+	AdCampaignIDs *[]string `json:"ad_campaign_ids"`
 }
 
 // keywordsConflict returns the first keyword already claimed by ANOTHER campaign
@@ -339,6 +348,13 @@ func (s *server) handleUpdateCampaign(w http.ResponseWriter, r *http.Request) {
 		http.Error(w, "not found", http.StatusNotFound)
 		return
 	}
+	// Ad-campaign mapping, owned from the campaign side (see AdCampaignIDs).
+	if b.AdCampaignIDs != nil {
+		if err := s.syncCampaignAdCampaigns(r.Context(), a.OrgID, r.PathValue("id"), *b.AdCampaignIDs); err != nil {
+			http.Error(w, err.Error(), http.StatusInternalServerError)
+			return
+		}
+	}
 	// Prompt versioning (P7): snapshot the AI style whenever it is changed, so its
 	// evolution is auditable and an older version can be copied back. Best-effort.
 	if b.AIStyle != nil {
@@ -460,4 +476,57 @@ func (s *server) routeToBranch(ctx context.Context, branchID, convID string) {
 		  WHERE id=$2 AND campaign_id IS NULL`,
 		branchID, convID)
 	_, _ = s.pool.Exec(ctx, `UPDATE campaign_branches SET rr_cursor=rr_cursor+1, lead_count=lead_count+1 WHERE id=$1`, branchID)
+}
+
+// syncCampaignAdCampaigns makes `ids` the complete set of ad campaigns feeding
+// this campaign.
+//
+// Claiming an ad campaign also releases it from any OTHER campaign, which is what
+// keeps spend from being counted twice: an ad campaign has exactly one owner, so
+// summing per campaign can never exceed what was actually spent. Runs in one
+// transaction so a half-applied change cannot leave an ad campaign owned by two.
+func (s *server) syncCampaignAdCampaigns(ctx context.Context, orgID, campaignID string, ids []string) error {
+	tx, err := s.pool.Begin(ctx)
+	if err != nil {
+		return err
+	}
+	defer tx.Rollback(ctx)
+
+	if _, err := tx.Exec(ctx,
+		`DELETE FROM ad_campaign_campaigns WHERE campaign_id=$1::uuid`, campaignID); err != nil {
+		return err
+	}
+	for _, id := range ids {
+		if strings.TrimSpace(id) == "" {
+			continue
+		}
+		// Release it from whoever held it before.
+		if _, err := tx.Exec(ctx,
+			`DELETE FROM ad_campaign_campaigns WHERE ad_campaign_id=$1::uuid`, id); err != nil {
+			return err
+		}
+		if _, err := tx.Exec(ctx,
+			`INSERT INTO ad_campaign_campaigns (ad_campaign_id, campaign_id, organization_id)
+			 SELECT $1::uuid, $2::uuid, $3
+			  WHERE EXISTS (SELECT 1 FROM ad_campaigns WHERE id=$1::uuid AND organization_id=$3)
+			 ON CONFLICT DO NOTHING`, id, campaignID, orgID); err != nil {
+			return err
+		}
+		// Keep the legacy single-column pointer in step.
+		if _, err := tx.Exec(ctx,
+			`UPDATE ad_campaigns SET campaign_id=$2::uuid WHERE id=$1::uuid AND organization_id=$3`,
+			id, campaignID, orgID); err != nil {
+			return err
+		}
+	}
+	// Ad campaigns this one no longer owns must not keep pointing at it.
+	if _, err := tx.Exec(ctx,
+		`UPDATE ad_campaigns ac SET campaign_id = NULL
+		  WHERE ac.organization_id=$1 AND ac.campaign_id=$2::uuid
+		    AND NOT EXISTS (SELECT 1 FROM ad_campaign_campaigns m
+		                     WHERE m.ad_campaign_id=ac.id AND m.campaign_id=$2::uuid)`,
+		orgID, campaignID); err != nil {
+		return err
+	}
+	return tx.Commit(ctx)
 }

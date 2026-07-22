@@ -129,6 +129,13 @@ export function AdvertisingTab({ embedded }: { embedded?: boolean } = {}) {
                     <span>{t("contacts.created")} {fmtDateTimeShort(a.created_at)}</span>
                     {a.updated_at && <span>{t("dashboard.updated")} {fmtDateTimeShort(a.updated_at)}</span>}
                   </div>
+                  {/* Say plainly what Simpulx may do here. An account connected for
+                      reporting only looks identical to a managed one otherwise, and
+                      that is the difference between reading spend and spending money. */}
+                  <span className={cn("px-2 py-0.5 rounded-md text-[11px] font-semibold shrink-0",
+                    a.access_mode === "manage" ? "bg-primary/10 text-primary" : "bg-muted text-muted-foreground")}>
+                    {a.access_mode === "manage" ? t("settings.accessManageBadge") : t("settings.accessReadBadge")}
+                  </span>
                   <span className={cn("px-2 py-0.5 rounded-md text-[11px] font-semibold shrink-0", a.status === "error" ? "bg-red-50 text-red-600" : "bg-emerald-50 text-emerald-600")}>{a.status}</span>
                   <div className="flex items-center gap-0.5 shrink-0">
                     {canManage && <button onClick={() => setManageId(a.id)} className="p-1.5 rounded-md hover:bg-muted text-muted-foreground hover:text-foreground outline-none transition-colors" title={t("settings.editMap")}><Pencil className="w-4 h-4" /></button>}
@@ -181,6 +188,9 @@ export function AdAccountDialog({ account, adCampaigns, ourCampaigns, onMap, onS
   const [capiDatasetId, setCapiDatasetId] = useState(account.capi_dataset_id || "");
   // Write-only, like the ads token: never rendered back, empty means "keep".
   const [capiToken, setCapiToken] = useState("");
+  // What the client agreed to let Simpulx do with this account. Defaults to
+  // read for every account connected before the distinction existed.
+  const [accessMode, setAccessMode] = useState(account.access_mode || "read");
   const [saving, setSaving] = useState(false);
   const isMeta = account.platform === "meta";
 
@@ -196,6 +206,7 @@ export function AdAccountDialog({ account, adCampaigns, ourCampaigns, onMap, onS
         // Meta only: send the field (even empty) so clearing it turns CAPI off.
         capi_dataset_id: isMeta ? capiDatasetId.trim() : undefined,
         capi_access_token: isMeta && capiToken.trim() ? capiToken.trim() : undefined,
+        access_mode: accessMode,
       });
       onSaved(token.trim() ? t("settings.connectionUpdatedSyncing") : t("settings.connectionUpdated"));
       if (token.trim()) onSync();
@@ -258,6 +269,27 @@ export function AdAccountDialog({ account, adCampaigns, ourCampaigns, onMap, onS
             </div>
           </div>
         )}
+
+        {/* What Simpulx may do with this account. Explicit because the ads work
+            now includes actions that spend or stop spending the client's money,
+            and "whatever the token permits" is not consent. */}
+        <div className="flex flex-col gap-2 border-t border-border pt-4">
+          <p className="text-[11px] font-bold uppercase tracking-wider text-muted-foreground">{t("settings.simpulxAccess")}</p>
+          {([
+            { v: "read", label: t("settings.accessReadLabel"), desc: t("settings.accessReadDesc") },
+            { v: "manage", label: t("settings.accessManageLabel"), desc: t("settings.accessManageDesc") },
+          ] as const).map((o) => (
+            <label key={o.v} className={cn("flex items-start gap-2.5 p-2.5 rounded-md border cursor-pointer transition-colors",
+              accessMode === o.v ? "border-primary bg-primary/[0.05]" : "border-border hover:bg-muted/50")}>
+              <input type="radio" name="access_mode" checked={accessMode === o.v}
+                onChange={() => setAccessMode(o.v)} className="mt-0.5 accent-primary" />
+              <span className="min-w-0">
+                <span className="block text-[13px] font-semibold text-foreground">{o.label}</span>
+                <span className="block text-[11.5px] text-muted-foreground">{o.desc}</span>
+              </span>
+            </label>
+          ))}
+        </div>
 
         {/* Campaign mapping */}
         <div className="flex flex-col gap-2 border-t border-border pt-4">

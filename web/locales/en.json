@@ -2205,5 +2205,12 @@
   "settings.capiToken": "CAPI access token",
   "settings.capiTokenHelp": "From Events Manager. Kept separate from the ads token so setting one never overwrites the other.",
   "settings.tokenStoredLeaveBlank": "Stored - leave blank to keep",
-  "settings.viewAsOrg": "View as this organisation (read-only)"
+  "settings.viewAsOrg": "View as this organisation (read-only)",
+  "settings.simpulxAccess": "What Simpulx may do",
+  "settings.accessReadLabel": "Reporting only",
+  "settings.accessReadDesc": "Read spend and results. Simpulx never changes anything in this ad account.",
+  "settings.accessManageLabel": "Manage ads",
+  "settings.accessManageDesc": "Simpulx may create, pause and resume campaigns and upload creatives.",
+  "settings.accessReadBadge": "Read-only",
+  "settings.accessManageBadge": "Managed"
 }

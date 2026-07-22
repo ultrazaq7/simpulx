@@ -69,6 +69,7 @@ func (s *server) handleListAdAccounts(w http.ResponseWriter, r *http.Request) {
 		        (access_token IS NOT NULL AND access_token <> '') AS has_token,
 		        capi_dataset_id,
 		        (capi_access_token IS NOT NULL AND capi_access_token <> '') AS has_capi_token,
+		        access_mode,
 		        last_synced_at, last_error, created_at, updated_at,
 		        (SELECT count(*) FROM ad_campaigns ac WHERE ac.ad_account_id = aa.id`+countScope+`) AS campaign_count
 		   FROM ad_accounts aa
@@ -175,6 +176,8 @@ func (s *server) handlePatchAdAccount(w http.ResponseWriter, r *http.Request) {
 		// setting one cannot clobber the other: they are different credentials and
 		// overwriting the ads token would silently stop the metrics sync.
 		CapiAccessToken *string `json:"capi_access_token"`
+		// What the client agreed to: read | manage. Absent = keep as-is.
+		AccessMode *string `json:"access_mode"`
 	}
 	if err := json.NewDecoder(r.Body).Decode(&b); err != nil {
 		http.Error(w, "bad request", http.StatusBadRequest)
@@ -204,9 +207,11 @@ func (s *server) handlePatchAdAccount(w http.ResponseWriter, r *http.Request) {
 		   status     = CASE WHEN NULLIF($5,'') IS NOT NULL THEN 'connected' ELSE status END,
 		   last_error = CASE WHEN NULLIF($5,'') IS NOT NULL THEN NULL ELSE last_error END,
 		   capi_dataset_id = CASE WHEN $6 THEN NULLIF(trim($7),'') ELSE capi_dataset_id END,
-		   capi_access_token = COALESCE(NULLIF($8,''), capi_access_token)
+		   capi_access_token = COALESCE(NULLIF($8,''), capi_access_token),
+		   access_mode = CASE WHEN $9 IN ('read','manage') THEN $9 ELSE access_mode END
 		 WHERE id=$1 AND organization_id=$2`,
-		id, a.OrgID, derefStr(b.Name), extID, encToken, b.CapiDatasetID != nil, derefStr(b.CapiDatasetID), encCapiToken)
+		id, a.OrgID, derefStr(b.Name), extID, encToken, b.CapiDatasetID != nil, derefStr(b.CapiDatasetID), encCapiToken,
+		derefStr(b.AccessMode))
 	if err != nil {
 		http.Error(w, err.Error(), http.StatusInternalServerError)
 		return
@@ -1122,7 +1127,11 @@ func (s *server) upsertAdAdMetric(ctx context.Context, orgID, accountID string, 
 
 // metaAd is one row from GET /act_{id}/ads?fields=id,creative{...}.
 type metaAd struct {
-	ID       string `json:"id"`
+	ID string `json:"id"`
+	// Parent Meta campaign. Lets a CTWA referral be routed through the campaign
+	// MAPPING when the ad id was never typed into campaigns.ad_source_ids, which
+	// is what stops every newly created ad from becoming a routing gap.
+	CampaignID string `json:"campaign_id"`
 	Creative struct {
 		ThumbnailURL string `json:"thumbnail_url"`
 		ImageURL     string `json:"image_url"`
@@ -1156,7 +1165,7 @@ type metaAd struct {
 // upserts ad_creatives (keyed by ad_id). One paginated call per account.
 func (s *server) syncMetaAdCreatives(ctx context.Context, accountID, orgID, extID, token string) {
 	q := url.Values{}
-	q.Set("fields", "id,creative{thumbnail_url,image_url,title,body,object_story_spec{link_data{message,name,picture},video_data{image_url,message,title}},asset_feed_spec{titles,bodies}}")
+	q.Set("fields", "id,campaign_id,creative{thumbnail_url,image_url,title,body,object_story_spec{link_data{message,name,picture},video_data{image_url,message,title}},asset_feed_spec{titles,bodies}}")
 	q.Set("limit", "200")
 	q.Set("access_token", token)
 	next := fmt.Sprintf("https://graph.facebook.com/%s/act_%s/ads?%s", metaGraphVersion, extID, q.Encode())
@@ -1191,11 +1200,13 @@ func (s *server) syncMetaAdCreatives(ctx context.Context, accountID, orgID, extI
 				continue
 			}
 			_, _ = s.pool.Exec(ctx,
-				`INSERT INTO ad_creatives (organization_id, ad_account_id, ad_external_id, image_url, title, body)
-				 VALUES ($1,$2,$3,NULLIF($4,''),NULLIF($5,''),NULLIF($6,''))
+				`INSERT INTO ad_creatives (organization_id, ad_account_id, ad_external_id, image_url, title, body, campaign_external_id)
+				 VALUES ($1,$2,$3,NULLIF($4,''),NULLIF($5,''),NULLIF($6,''),NULLIF($7,''))
 				 ON CONFLICT (organization_id, ad_external_id)
-				 DO UPDATE SET image_url=EXCLUDED.image_url, title=EXCLUDED.title, body=EXCLUDED.body, synced_at=now()`,
-				orgID, accountID, ad.ID, img, title, body)
+				 DO UPDATE SET image_url=EXCLUDED.image_url, title=EXCLUDED.title, body=EXCLUDED.body,
+				               campaign_external_id=COALESCE(EXCLUDED.campaign_external_id, ad_creatives.campaign_external_id),
+				               synced_at=now()`,
+				orgID, accountID, ad.ID, img, title, body, ad.CampaignID)
 		}
 		next = payload.Paging.Next
 	}
@@ -2183,4 +2194,34 @@ func (s *server) handleTikTokAdsCallback(w http.ResponseWriter, r *http.Request)
 
 	s.rdb.Del(r.Context(), "oauth:tiktokads:"+stateID)
 	http.Redirect(w, r, "https://app.simpulx.com/settings/channels?success=tiktok_ads_connected", http.StatusTemporaryRedirect)
+}
+
+// GET /api/known-ads — every ad we have synced from the connected ad accounts,
+// for the CTWA source picker.
+//
+// Users used to type these ids by hand, comma separated, after copying them out
+// of Ads Manager. That is both tedious and silently wrong when it goes wrong: a
+// mistyped id matches no ad, so the campaign simply never receives those leads
+// and nothing reports a problem. Test Campaign 3 carried exactly such an orphan
+// id (1233822846479521, matching nothing) when this was written.
+//
+// Sourced from ad_creatives, which is filled from /act_{id}/ads (the real ad
+// list), NOT from insights: an ad with no delivery yet still needs to be
+// pickable, and insights only returns ads that have already spent.
+func (s *server) handleListKnownAds(w http.ResponseWriter, r *http.Request) {
+	a, _ := authFrom(r.Context())
+	rows, err := s.queryMaps(r.Context(),
+		`SELECT cr.ad_external_id AS id,
+		        COALESCE(NULLIF(cr.title,''), NULLIF(cr.body,''), cr.ad_external_id) AS name,
+		        cr.image_url,
+		        aa.name AS account_name
+		   FROM ad_creatives cr
+		   JOIN ad_accounts aa ON aa.id = cr.ad_account_id
+		  WHERE cr.organization_id = $1
+		  ORDER BY name`, a.OrgID)
+	if err != nil {
+		http.Error(w, err.Error(), http.StatusInternalServerError)
+		return
+	}
+	writeJSON(w, rows)
 }

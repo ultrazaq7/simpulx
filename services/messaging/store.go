@@ -477,9 +477,35 @@ func (s *store) resolveCampaignByReferral(ctx context.Context, orgID, referral s
 		return "", false
 	}
 	var id string
+	// 1) Explicit override: the ad id was typed into the campaign.
 	err := s.pool.QueryRow(ctx,
 		`SELECT id::text FROM campaigns
 		  WHERE organization_id=$1 AND status='active' AND $2 = ANY(ad_source_ids) LIMIT 1`,
+		orgID, referral).Scan(&id)
+	if err == nil {
+		return id, true
+	}
+	// 2) Otherwise route through the MAPPING: this ad belongs to a Meta campaign,
+	// and that Meta campaign is already mapped to one of ours.
+	//
+	// Without this, every ad created in Ads Manager is a routing gap until someone
+	// remembers to paste its id into the campaign. Such a lead is not lost, but it
+	// arrives with no campaign -- no catalogue grounding, no service area, no AI
+	// style, no round-robin -- and waits unassigned in the admin queue. Deriving it
+	// closes the gap the moment the ad is synced, with nobody typing anything.
+	err = s.pool.QueryRow(ctx,
+		`SELECT c.id::text
+		   FROM ad_creatives cr
+		   JOIN ad_campaigns ac
+		     ON ac.organization_id = cr.organization_id
+		    AND ac.external_id = cr.campaign_external_id
+		   JOIN ad_campaign_campaigns m ON m.ad_campaign_id = ac.id
+		   JOIN campaigns c ON c.id = m.campaign_id
+		  WHERE cr.organization_id = $1
+		    AND cr.ad_external_id = $2
+		    AND cr.campaign_external_id IS NOT NULL
+		    AND c.status = 'active'
+		  LIMIT 1`,
 		orgID, referral).Scan(&id)
 	return id, err == nil
 }

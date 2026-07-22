@@ -38,7 +38,11 @@ type managedCampaign struct {
 	token           string
 	targetCPL       *float64
 	monthlyBudget   *float64
-	th              adsThresholds
+	// accessMode is what the CLIENT agreed to: 'read' means report only, never
+	// write to their account. Checked before any pause even when ADS_AUTOPAUSE is
+	// on, because the global switch is ours and this permission is theirs.
+	accessMode string
+	th         adsThresholds
 }
 
 // alert is one rule firing, before it is written or sent.
@@ -134,7 +138,7 @@ func (s *server) runAdsMonitor(ctx context.Context) {
 func (s *server) loadManagedCampaigns(ctx context.Context) ([]managedCampaign, error) {
 	rows, err := s.pool.Query(ctx,
 		`SELECT c.id::text, c.organization_id::text, c.name,
-		        aa.id::text, aa.external_account_id, COALESCE(aa.access_token,''),
+		        aa.id::text, aa.external_account_id, COALESCE(aa.access_token,''), aa.access_mode,
 		        c.target_cpl, c.monthly_budget,
 		        c.ads_fatigue_freq, c.ads_min_ctr, c.ads_cpl_multiplier, c.ads_overspend_multiplier
 		   FROM campaigns c
@@ -158,7 +162,7 @@ func (s *server) loadManagedCampaigns(ctx context.Context) ([]managedCampaign, e
 		var c managedCampaign
 		var encToken string
 		var freq, ctr, cplMul, overMul *float64
-		if err := rows.Scan(&c.id, &c.orgID, &c.name, &c.accountID, &c.extAccountID, &encToken,
+		if err := rows.Scan(&c.id, &c.orgID, &c.name, &c.accountID, &c.extAccountID, &encToken, &c.accessMode,
 			&c.targetCPL, &c.monthlyBudget, &freq, &ctr, &cplMul, &overMul); err != nil {
 			continue
 		}
@@ -382,8 +386,14 @@ func (s *server) yesterdaySpend(ctx context.Context, campaignID string) (float64
 
 func autopauseEnabled() bool { return config.GetBool("ADS_AUTOPAUSE", false) }
 
+// canWrite reports whether the CLIENT granted Simpulx permission to change this
+// account. Separate from ADS_AUTOPAUSE on purpose: that switch is ours (is the
+// rule engine trusted yet), this one is theirs (may we touch your ads at all).
+// Both must be true, and the narrower always wins.
+func (c managedCampaign) canWrite() bool { return c.accessMode == "manage" }
+
 func (s *server) pauseAdIfEnabled(ctx context.Context, c managedCampaign, adID string) bool {
-	if !autopauseEnabled() {
+	if !autopauseEnabled() || !c.canWrite() {
 		return false
 	}
 	if err := metaSetStatus(ctx, adID, c.token, "PAUSED"); err != nil {
@@ -395,7 +405,7 @@ func (s *server) pauseAdIfEnabled(ctx context.Context, c managedCampaign, adID s
 }
 
 func (s *server) pauseCampaignIfEnabled(ctx context.Context, c managedCampaign) bool {
-	if !autopauseEnabled() {
+	if !autopauseEnabled() || !c.canWrite() {
 		return false
 	}
 	var metaCampaignID string
