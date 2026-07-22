@@ -229,6 +229,8 @@ func (s *server) handleCampaignAIHistory(w http.ResponseWriter, r *http.Request)
 }
 
 // POST /api/platform/orgs — create an org, its owner user, and its credit pool.
+// Thin wrapper over createOrganization so the wizard and signup approval create
+// orgs through one path instead of two copies that drift.
 func (s *server) handleCreateOrg(w http.ResponseWriter, r *http.Request) {
 	var b struct {
 		Name            string `json:"name"`
@@ -245,100 +247,35 @@ func (s *server) handleCreateOrg(w http.ResponseWriter, r *http.Request) {
 		http.Error(w, "bad request", http.StatusBadRequest)
 		return
 	}
-	b.Name = strings.TrimSpace(b.Name)
-	b.OwnerEmail = strings.TrimSpace(b.OwnerEmail)
-	b.OwnerName = strings.TrimSpace(b.OwnerName)
-	if b.Name == "" || b.OwnerEmail == "" || !strings.Contains(b.OwnerEmail, "@") {
-		http.Error(w, "company name and a valid owner email are required", http.StatusBadRequest)
-		return
-	}
-	if b.OwnerName == "" {
-		b.OwnerName = "Owner"
-	}
-	if len(b.OwnerPassword) < 8 {
+	if len(b.OwnerPassword) > 0 && len(b.OwnerPassword) < 8 {
 		http.Error(w, "owner password must be at least 8 characters", http.StatusBadRequest)
 		return
 	}
-	hash, err := hashPassword(b.OwnerPassword)
-	if err != nil {
-		http.Error(w, "hash error", http.StatusInternalServerError)
-		return
+	in := createOrgInput{
+		Name: b.Name, Industry: b.Industry,
+		OwnerName: b.OwnerName, OwnerEmail: b.OwnerEmail, OwnerPassword: b.OwnerPassword,
+		PackageName: b.PackageName,
+		Users: 10, SimpulerCredits: 1000, CustomFields: 20,
+		// No explicit password = the owner sets their own via the welcome link.
+		SendWelcome: b.OwnerPassword == "",
 	}
-	if b.PackageName == "" {
-		b.PackageName = "starter"
-	}
-	users, credits, fields := 10, 1000, 20
 	if b.Users != nil {
-		users = *b.Users
+		in.Users = *b.Users
 	}
 	if b.SimpulerCredits != nil {
-		credits = *b.SimpulerCredits
+		in.SimpulerCredits = *b.SimpulerCredits
 	}
 	if b.CustomFields != nil {
-		fields = *b.CustomFields
+		in.CustomFields = *b.CustomFields
 	}
-	quotas := fmt.Sprintf(`{"users":%d,"simpuler_credits":%d,"custom_fields":%d}`, users, credits, fields)
-
-	// Find a free slug (append -2, -3, ... on collision).
-	base := slugify(b.Name)
-	slug := base
-	for i := 2; i < 200; i++ {
-		var exists bool
-		if err := s.pool.QueryRow(r.Context(), `SELECT EXISTS(SELECT 1 FROM organizations WHERE slug=$1)`, slug).Scan(&exists); err != nil {
-			http.Error(w, err.Error(), http.StatusInternalServerError)
-			return
-		}
-		if !exists {
-			break
-		}
-		slug = fmt.Sprintf("%s-%d", base, i)
-	}
-
-	tx, err := s.pool.Begin(r.Context())
+	orgID, ownerID, err := s.createOrganization(r.Context(), in)
 	if err != nil {
-		http.Error(w, err.Error(), http.StatusInternalServerError)
+		http.Error(w, err.Error(), http.StatusBadRequest)
 		return
 	}
-	defer tx.Rollback(r.Context())
-
-	// Industry is the org's SEGMENT (same vocabulary campaigns use). It is set here
-	// and in Client Management only -- Company Details renders it read-only -- because
-	// it gates segment-specific surfaces (e.g. the property e-catalog/Listings).
-	var orgID string
-	if err := tx.QueryRow(r.Context(),
-		`INSERT INTO organizations (name, slug, settings)
-		 VALUES ($1,$2, jsonb_build_object('industry', $3::text)) RETURNING id::text`,
-		b.Name, slug, strings.TrimSpace(b.Industry)).Scan(&orgID); err != nil {
-		http.Error(w, err.Error(), http.StatusInternalServerError)
-		return
-	}
-	if _, err := tx.Exec(r.Context(),
-		`INSERT INTO org_subscriptions (organization_id, package_name, quotas)
-		 VALUES ($1,$2,$3::jsonb)
-		 ON CONFLICT (organization_id) DO UPDATE SET package_name=EXCLUDED.package_name, quotas=EXCLUDED.quotas, updated_at=now()`,
-		orgID, b.PackageName, quotas); err != nil {
-		http.Error(w, err.Error(), http.StatusInternalServerError)
-		return
-	}
-	var ownerID string
-	if err := tx.QueryRow(r.Context(),
-		`INSERT INTO users (organization_id, email, password_hash, full_name, role, status)
-		 VALUES ($1,$2,$3,$4,'owner','active') RETURNING id::text`,
-		orgID, b.OwnerEmail, hash, b.OwnerName).Scan(&ownerID); err != nil {
-		http.Error(w, "could not create owner (email may already be in use): "+err.Error(), http.StatusBadRequest)
-		return
-	}
-	// Seed the default pipeline + outcome dispositions so the new org has a
-	// working inbox/CRM from the first login (see migration 0086).
-	if _, err := tx.Exec(r.Context(), `SELECT seed_org_pipeline($1::uuid)`, orgID); err != nil {
-		http.Error(w, "could not seed pipeline: "+err.Error(), http.StatusInternalServerError)
-		return
-	}
-	if err := tx.Commit(r.Context()); err != nil {
-		http.Error(w, err.Error(), http.StatusInternalServerError)
-		return
-	}
-	s.log.Info("platform: org created", "org", orgID, "slug", slug, "owner", b.OwnerEmail)
+	var slug string
+	_ = s.pool.QueryRow(r.Context(), `SELECT slug FROM organizations WHERE id=$1::uuid`, orgID).Scan(&slug)
+	s.log.Info("platform: org created", "org", orgID, "slug", slug)
 	writeJSON(w, map[string]any{"id": orgID, "slug": slug, "owner_id": ownerID})
 }
 
@@ -550,4 +487,122 @@ func (s *server) handleImpersonateOrg(w http.ResponseWriter, r *http.Request) {
 		"org":        map[string]any{"id": orgID, "name": orgName},
 		"viewing_as": map[string]any{"id": targetID, "name": targetName, "role": targetRole},
 	})
+}
+
+// createOrgInput / createOrganization is handleCreateOrg's body, extracted so
+// signup approval can create an organisation through the exact same path the
+// platform wizard uses -- same slug logic, same subscription upsert, same
+// pipeline seeding -- instead of a second, slightly different copy that drifts.
+type createOrgInput struct {
+	Name, Industry         string
+	OwnerName, OwnerEmail  string
+	OwnerPassword          string // empty = throwaway; owner sets one via welcome link
+	PackageName            string
+	Users, SimpulerCredits int
+	CustomFields           int
+	SubscriptionStatus     string // "" = column default; signup approval sets active|trial
+	RenewalDate            string // YYYY-MM-DD; trial end for trials
+	SendWelcome            bool
+}
+
+func (s *server) createOrganization(ctx context.Context, in createOrgInput) (orgID, ownerID string, err error) {
+	in.Name = strings.TrimSpace(in.Name)
+	in.OwnerEmail = strings.ToLower(strings.TrimSpace(in.OwnerEmail))
+	if in.Name == "" || !strings.Contains(in.OwnerEmail, "@") {
+		return "", "", fmt.Errorf("company name and a valid owner email are required")
+	}
+	if in.OwnerName == "" {
+		in.OwnerName = "Owner"
+	}
+	if in.OwnerPassword == "" {
+		in.OwnerPassword = randomPassword()
+	}
+	hash, err := hashPassword(in.OwnerPassword)
+	if err != nil {
+		return "", "", err
+	}
+	if in.PackageName == "" {
+		in.PackageName = "starter"
+	}
+	if in.Users <= 0 {
+		in.Users = 10
+	}
+	if in.SimpulerCredits < 0 {
+		in.SimpulerCredits = 0
+	}
+	if in.CustomFields <= 0 {
+		in.CustomFields = 20
+	}
+	// A user with this email anywhere blocks creation: login matches on email
+	// ALONE (no org scoping), so a cross-org duplicate would make sign-in pick a
+	// row arbitrarily. Refusing here keeps that invariant true.
+	var taken bool
+	if err := s.pool.QueryRow(ctx,
+		`SELECT EXISTS(SELECT 1 FROM users WHERE lower(email)=$1 AND NOT is_deleted)`,
+		in.OwnerEmail).Scan(&taken); err == nil && taken {
+		return "", "", fmt.Errorf("email %s is already in use", in.OwnerEmail)
+	}
+
+	quotas := fmt.Sprintf(`{"users":%d,"simpuler_credits":%d,"custom_fields":%d}`,
+		in.Users, in.SimpulerCredits, in.CustomFields)
+
+	base := slugify(in.Name)
+	slug := base
+	for i := 2; i < 200; i++ {
+		var exists bool
+		if err := s.pool.QueryRow(ctx, `SELECT EXISTS(SELECT 1 FROM organizations WHERE slug=$1)`, slug).Scan(&exists); err != nil {
+			return "", "", err
+		}
+		if !exists {
+			break
+		}
+		slug = fmt.Sprintf("%s-%d", base, i)
+	}
+
+	tx, err := s.pool.Begin(ctx)
+	if err != nil {
+		return "", "", err
+	}
+	defer tx.Rollback(ctx)
+
+	if err := tx.QueryRow(ctx,
+		`INSERT INTO organizations (name, slug, settings)
+		 VALUES ($1,$2, jsonb_build_object('industry', $3::text)) RETURNING id::text`,
+		in.Name, slug, strings.TrimSpace(in.Industry)).Scan(&orgID); err != nil {
+		return "", "", err
+	}
+	if _, err := tx.Exec(ctx,
+		`INSERT INTO org_subscriptions (organization_id, package_name, quotas, status, renewal_date)
+		 VALUES ($1,$2,$3::jsonb, COALESCE(NULLIF($4,''),'active'), NULLIF($5,'')::date)
+		 ON CONFLICT (organization_id) DO UPDATE
+		   SET package_name=EXCLUDED.package_name, quotas=EXCLUDED.quotas,
+		       status=EXCLUDED.status, renewal_date=EXCLUDED.renewal_date, updated_at=now()`,
+		orgID, in.PackageName, quotas, in.SubscriptionStatus, in.RenewalDate); err != nil {
+		return "", "", err
+	}
+	if err := tx.QueryRow(ctx,
+		`INSERT INTO users (organization_id, email, password_hash, full_name, role, status)
+		 VALUES ($1,$2,$3,$4,'owner','active') RETURNING id::text`,
+		orgID, in.OwnerEmail, hash, in.OwnerName).Scan(&ownerID); err != nil {
+		return "", "", fmt.Errorf("could not create owner (email may already be in use): %w", err)
+	}
+	if _, err := tx.Exec(ctx, `SELECT seed_org_pipeline($1::uuid)`, orgID); err != nil {
+		return "", "", fmt.Errorf("could not seed pipeline: %w", err)
+	}
+	if err := tx.Commit(ctx); err != nil {
+		return "", "", err
+	}
+
+	if in.SendWelcome {
+		// Same welcome flow team invites use: a set-password link, so no password
+		// ever travels through email, chat or an operator's clipboard.
+		if link, lerr := s.issueSetupLink(ctx, ownerID, 7*24*time.Hour); lerr != nil {
+			s.log.Error("welcome setup link failed", "err", lerr)
+		} else if sent, mailErr := s.sendMail(in.OwnerEmail, "Welcome to Simpulx - set your password",
+			welcomeEmailHTML(in.OwnerName, link, in.OwnerEmail)); mailErr != nil || !sent {
+			s.log.Warn("welcome email not delivered", "email", in.OwnerEmail, "sent", sent, "err", mailErr)
+		}
+	}
+	s.log.Info("organization created", "org", orgID, "slug", slug, "owner", in.OwnerEmail)
+	return orgID, ownerID, nil
 }

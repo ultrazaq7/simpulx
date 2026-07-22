@@ -897,3 +897,25 @@ export interface AdsPreview {
   can_launch: boolean;
   creates_paused: boolean;
 }
+
+export interface PlatformTransaction {
+  id: string;
+  type: "signup" | "topup";
+  status: "pending" | "approved" | "rejected";
+  org_name?: string | null;
+  industry?: string | null;
+  contact_name: string;
+  contact_email: string;
+  contact_phone?: string | null;
+  package_name: string;
+  seats?: number | null;
+  credits: number;
+  amount: number;
+  organization_id?: string | null;
+  org_linked_name?: string | null;
+  note?: string | null;
+  decision_note?: string | null;
+  invoice_no?: number | null;
+  created_at: string;
+  decided_at?: string | null;
+}

@@ -884,6 +884,7 @@ function parseCatalogCsv(text: string): CatalogRowInput[] { return parseCatalogR
 // than not offering one.
 function AdsTab({ id, notify }: { id: string; notify: (m: string, s?: "success" | "error") => void }) {
   const [status, setStatus] = useState<Awaited<ReturnType<typeof api.campaignAdsStatus>> | null>(null);
+  const [loadErr, setLoadErr] = useState<string | null>(null);
   const [rows, setRows] = useState<AdsMetricRow[] | null>(null);
   const [alerts, setAlerts] = useState<AdsAlertRow[]>([]);
   const [busy, setBusy] = useState(false);
@@ -891,11 +892,12 @@ function AdsTab({ id, notify }: { id: string; notify: (m: string, s?: "success" 
   const { confirm, ConfirmHost } = useConfirm();
 
   function load() {
+    setLoadErr(null);
     api.campaignAdsStatus(id).then((st) => {
       setStatus(st);
       // Land on setup when there is nothing to report yet, on performance once live.
       if (st && st.linked_ad_count === 0 && st.ads_status !== "active") setView("setup");
-    }).catch(() => setStatus(null));
+    }).catch((e) => { setStatus(null); setLoadErr(String(e)); });
     api.campaignAdsMetrics(id).then((r) => setRows(r.rows)).catch(() => setRows([]));
     api.campaignAdsAlerts(id).then(setAlerts).catch(() => setAlerts([]));
   }
@@ -924,6 +926,17 @@ function AdsTab({ id, notify }: { id: string; notify: (m: string, s?: "success" 
     finally { setBusy(false); }
   }
 
+  // An eternal spinner on failure is indistinguishable from loading, and that is
+  // exactly how this surfaced: an expired session 401'd and the page just spun.
+  if (loadErr) {
+    return (
+      <div className="rounded-lg border border-border p-6 text-center">
+        <p className="text-[13px] text-foreground mb-1 font-semibold">Could not load ads status</p>
+        <p className="text-[12.5px] text-muted-foreground mb-3 break-all">{loadErr}</p>
+        <button onClick={load} className="px-3 h-8 rounded-md border border-border text-[12.5px] font-semibold hover:bg-muted outline-none">Retry</button>
+      </div>
+    );
+  }
   if (!status) return <div className="h-40 grid place-items-center"><Loader2 className="w-5 h-5 animate-spin text-muted-foreground" /></div>;
 
   if (!status.managed) {

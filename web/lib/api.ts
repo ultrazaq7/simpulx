@@ -589,6 +589,13 @@ export const api = {
     req<{ status: string; applied: number; total: number; failed: string[] }>(
       `/api/campaigns/${id}/ads/resume`, { method: "POST" }),
 
+  listTransactions: () =>
+    req<{ rows: import("./types").PlatformTransaction[]; summary: Record<string, number> }>("/api/platform/transactions"),
+  approveTransaction: (id: string, body: { organization_id?: string; note?: string }) =>
+    req(`/api/platform/transactions/${id}/approve`, { method: "POST", body: JSON.stringify(body) }),
+  rejectTransaction: (id: string, note?: string) =>
+    req(`/api/platform/transactions/${id}/reject`, { method: "POST", body: JSON.stringify({ note }) }),
+
   impersonateOrg: (id: string) =>
     req<{
       token: string; expires_in: number;
