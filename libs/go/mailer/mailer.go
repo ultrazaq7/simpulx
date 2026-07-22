@@ -80,6 +80,16 @@ func Send(to, subject, body string, html bool) (sent bool, err error) {
 	}
 	defer c.Close()
 
+	// Go's smtp client EHLOs as "localhost" unless told otherwise, and Google's
+	// relay answers that with 421 4.7.0 and DROPS the connection -- which then
+	// surfaces as an unexplained EOF on the next command (MAIL FROM). Proven by
+	// replaying the dialogue from this host: EHLO localhost -> 421 + close,
+	// EHLO simpulx.com -> everything through MAIL FROM answers 250. Must be the
+	// first command on the connection.
+	if err = c.Hello(config.Get("SMTP_EHLO", "simpulx.com")); err != nil {
+		return false, fmt.Errorf("smtp ehlo: %w", err)
+	}
+
 	// STARTTLS — required by the Google SMTP relay and good practice everywhere.
 	if ok, _ := c.Extension("STARTTLS"); ok {
 		if err = c.StartTLS(&tls.Config{ServerName: host}); err != nil {
