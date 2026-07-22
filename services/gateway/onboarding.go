@@ -132,7 +132,12 @@ func (s *server) handlePublicRegister(w http.ResponseWriter, r *http.Request) {
 		    package_name, seats, credits, amount, note)
 		 SELECT $1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11
 		  WHERE NOT EXISTS (SELECT 1 FROM platform_transactions
-		                     WHERE type=$1 AND contact_email=$5 AND package_name=$7
+		                     -- The explicit casts are load-bearing: $1/$5/$7 also feed the
+		                     -- INSERT columns above, and reusing a parameter in two spots
+		                     -- with different inferred types makes Postgres refuse the whole
+		                     -- statement ("inconsistent types deduced", 42P08). psql never
+		                     -- shows this because literals carry their own type.
+		                     WHERE type=$1::text AND contact_email=$5::text AND package_name=$7::text
 		                       AND status='pending' AND created_at > now() - interval '1 hour')
 		 RETURNING id::text`,
 		b.Type, b.OrgName, b.Industry, b.Name, b.Email, b.Phone,
