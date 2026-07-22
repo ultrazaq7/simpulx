@@ -411,6 +411,8 @@ func main() {
 	mux.HandleFunc("DELETE /api/platform/orgs/{id}", s.requireSuperAdmin(s.handleDeleteOrg))
 	mux.HandleFunc("POST /api/platform/orgs/{id}/impersonate", s.requireSuperAdmin(s.handleImpersonateOrg))
 	mux.HandleFunc("POST /api/public/register", s.handlePublicRegister)
+	mux.HandleFunc("POST /api/public/register/{id}/proof", s.handleRegisterProof)
+	mux.HandleFunc("GET /api/public/payment-info", s.handlePaymentInfo)
 	mux.HandleFunc("GET /api/platform/transactions", s.requireSuperAdmin(s.handleListTransactions))
 	mux.HandleFunc("POST /api/platform/transactions/{id}/approve", s.requireSuperAdmin(s.handleApproveTransaction))
 	mux.HandleFunc("POST /api/platform/transactions/{id}/reject", s.requireSuperAdmin(s.handleRejectTransaction))

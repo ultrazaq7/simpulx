@@ -918,4 +918,6 @@ export interface PlatformTransaction {
   invoice_no?: number | null;
   created_at: string;
   decided_at?: string | null;
+  payment_proof_url?: string | null;
+  proof_uploaded_at?: string | null;
 }

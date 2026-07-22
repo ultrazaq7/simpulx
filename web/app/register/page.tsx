@@ -7,7 +7,8 @@
 // Nothing here activates anything. Submitting creates a pending request and the
 // operator activates it from the platform panel, so the page can be public
 // without letting anyone provision themselves.
-import { useMemo, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
+import { useI18n } from "@/lib/i18n";
 import { ArrowLeft, Check, Loader2, Sparkles, Zap, Building2 } from "lucide-react";
 
 const SIGNUP_TIERS = [
@@ -51,6 +52,8 @@ const INDUSTRIES = [
 const rp = (v: number) => "Rp " + v.toLocaleString("id-ID");
 
 export default function RegisterPage() {
+  const { t } = useI18n();
+  const i18n = t; // alias: di dalam .map((t) => ...) variabel tier menutupi `t`
   const [menu, setMenu] = useState<"signup" | "topup">("signup");
   // Wizard dua layar: layar 1 pilih paket, layar 2 isi data. pkg kosong = layar 1.
   const [pkg, setPkg] = useState("");
@@ -58,6 +61,14 @@ export default function RegisterPage() {
   const [form, setForm] = useState({ org_name: "", industry: "", name: "", email: "", phone: "", note: "" });
   const [busy, setBusy] = useState(false);
   const [done, setDone] = useState(false);
+  // Step bukti transfer (khusus permintaan berbayar): id request + status upload.
+  const [proofFor, setProofFor] = useState<string | null>(null);
+  const [proofSent, setProofSent] = useState(false);
+  const [payInfo, setPayInfo] = useState<{ bank: string; account: string; holder: string } | null>(null);
+  const proofFileRef = useRef<HTMLInputElement>(null);
+  useEffect(() => {
+    fetch("/api/public/payment-info").then((r) => r.json()).then(setPayInfo).catch(() => setPayInfo(null));
+  }, []);
   const [err, setErr] = useState("");
 
   const tier = SIGNUP_TIERS.find((t) => t.key === pkg);
@@ -86,8 +97,8 @@ export default function RegisterPage() {
 
   async function submit() {
     setErr("");
-    if (!form.name.trim() || !form.email.includes("@")) { setErr("Nama dan email yang valid wajib diisi."); return; }
-    if (menu === "signup" && !form.org_name.trim()) { setErr("Nama bisnis wajib diisi."); return; }
+    if (!form.name.trim() || !form.email.includes("@")) { setErr(t("reg.errNameEmail")); return; }
+    if (menu === "signup" && !form.org_name.trim()) { setErr(t("reg.errOrg")); return; }
     setBusy(true);
     try {
       const r = await fetch("/api/public/register", {
@@ -96,9 +107,84 @@ export default function RegisterPage() {
         body: JSON.stringify({ type: menu, package: pkg, seats, ...form }),
       });
       if (!r.ok) throw new Error(await r.text());
-      setDone(true);
+      const data = await r.json().catch(() => ({}));
+      // Berbayar (total > 0): lanjut ke layar pembayaran + upload bukti.
+      // Gratis (trial): tidak ada yang perlu dibayar, langsung selesai.
+      if (total > 0 && data.id) {
+        setProofFor(data.id);
+        window.scrollTo({ top: 0 });
+      } else {
+        setDone(true);
+      }
     } catch (e) { setErr(String(e)); }
     finally { setBusy(false); }
+  }
+
+  async function uploadProof(f: File) {
+    if (!proofFor) return;
+    setBusy(true); setErr("");
+    try {
+      const fd = new FormData(); fd.append("file", f);
+      const r = await fetch(`/api/public/register/${proofFor}/proof`, { method: "POST", body: fd });
+      if (!r.ok) throw new Error(await r.text());
+      setProofSent(true);
+    } catch (e) { setErr(String(e)); }
+    finally { setBusy(false); }
+  }
+
+  if (proofFor && !done) {
+    return (
+      <Shell>
+        <div className="max-w-md mx-auto py-10">
+          <h1 className="text-[22px] font-extrabold text-gray-900 mb-1">{t("reg.proofTitle")}</h1>
+          <p className="text-[13.5px] text-gray-500 mb-5">{t("reg.proofSub")}</p>
+
+          <div className="rounded-2xl border-2 border-emerald-600 bg-emerald-50/40 p-4 mb-4">
+            <p className="text-[11.5px] text-gray-500">{t("reg.total")}</p>
+            <p className="text-[24px] font-extrabold text-gray-900">{rp(total)}</p>
+            {/* Rekening dari server (env), BUKAN hardcode: nomor rekening itu data
+                operasional, dan nomor salah yang tertanam di kode mengirim uang
+                customer ke antah berantah. */}
+            {payInfo && payInfo.account ? (
+              <div className="mt-3 pt-3 border-t border-emerald-600/20 text-[13.5px]">
+                <p className="text-[11.5px] text-gray-500 mb-0.5">{t("reg.transferTo")}</p>
+                <p className="font-bold text-gray-900">{payInfo.bank} {payInfo.account}</p>
+                <p className="text-gray-600">a.n. {payInfo.holder}</p>
+              </div>
+            ) : (
+              <p className="mt-3 pt-3 border-t border-emerald-600/20 text-[12.5px] text-gray-500">{t("reg.paymentInfoByEmail")}</p>
+            )}
+          </div>
+
+          <input ref={proofFileRef} type="file" accept="image/*,application/pdf" className="hidden"
+            onChange={(e) => { const f = e.target.files?.[0]; if (f) uploadProof(f); e.target.value = ""; }} />
+          {proofSent ? (
+            <p className="inline-flex items-center gap-2 text-[14px] font-semibold text-emerald-700 mb-4">
+              <Check className="w-4 h-4" />{t("reg.proofUploaded")}
+            </p>
+          ) : (
+            <button onClick={() => proofFileRef.current?.click()} disabled={busy}
+              className="w-full inline-flex items-center justify-center gap-2 h-11 rounded-xl border-2 border-dashed border-gray-300 text-[13.5px] font-bold text-gray-700 hover:border-emerald-600 hover:text-emerald-700 outline-none disabled:opacity-60 mb-2">
+              {busy ? <Loader2 className="w-4 h-4 animate-spin" /> : null}{t("reg.uploadProof")}
+            </button>
+          )}
+          {!proofSent && <p className="text-[11.5px] text-gray-400 mb-4">{t("reg.proofHint")}</p>}
+          {err && <p className="text-[12.5px] text-red-600 mb-3">{err}</p>}
+
+          <div className="flex items-center gap-3">
+            <button onClick={() => setDone(true)}
+              className="flex-1 h-11 rounded-xl bg-emerald-600 text-white text-[14px] font-bold hover:bg-emerald-700 outline-none">
+              {t("reg.finish")}
+            </button>
+            {!proofSent && (
+              <button onClick={() => setDone(true)} className="text-[12.5px] font-semibold text-gray-400 hover:text-gray-600 outline-none">
+                {t("reg.proofLater")}
+              </button>
+            )}
+          </div>
+        </div>
+      </Shell>
+    );
   }
 
   if (done) {
@@ -106,10 +192,9 @@ export default function RegisterPage() {
       <Shell>
         <div className="max-w-md mx-auto text-center py-20">
           <div className="w-14 h-14 rounded-2xl bg-emerald-100 text-emerald-600 grid place-items-center mx-auto mb-4"><Check className="w-7 h-7" /></div>
-          <h1 className="text-[22px] font-extrabold text-gray-900 mb-2">Permintaan diterima</h1>
+          <h1 className="text-[22px] font-extrabold text-gray-900 mb-2">{t("reg.doneTitle")}</h1>
           <p className="text-[14px] text-gray-500 leading-relaxed">
-            Tim Simpulx akan memproses {menu === "signup" ? "pendaftaran" : "top up"} kamu dan menghubungi lewat email
-            {" "}<strong className="text-gray-800">{form.email}</strong> begitu aktif. Biasanya kurang dari 1 hari kerja.
+            {t("reg.doneBody", { kind: menu === "signup" ? t("reg.kindSignup") : t("reg.kindTopup"), email: form.email })}
           </p>
         </div>
       </Shell>
@@ -120,19 +205,19 @@ export default function RegisterPage() {
     <Shell>
       <div className="text-center mb-8">
         <h1 className="text-[26px] sm:text-[32px] font-extrabold text-gray-900 tracking-tight">
-          {menu === "signup" ? "Mulai jualan lebih pintar di WhatsApp" : "Top up kredit AI"}
+          {menu === "signup" ? t("reg.headline") : t("reg.topupHeadline")}
         </h1>
         <p className="text-[14.5px] text-gray-500 mt-2 max-w-xl mx-auto">
           {menu === "signup"
-            ? "Satu inbox untuk semua sales, AI yang bantu balas dan follow-up lead, laporan iklan sampai closing."
-            : "1 kredit = 1 balasan AI ke customer. Kredit tidak hangus selama langganan aktif."}
+            ? t("reg.sub")
+            : t("reg.topupSub")}
         </p>
       </div>
 
       {!pkg && (<>
       {/* Layar 1: pilih menu + paket. */}
       <div className="flex items-center justify-center gap-1 p-1 bg-gray-100 rounded-xl w-fit mx-auto mb-8">
-        {([["signup", "Daftar", Building2], ["topup", "Top Up Kredit", Zap]] as const).map(([k, label, Icon]) => (
+        {([["signup", t("reg.menuSignup"), Building2], ["topup", t("reg.menuTopup"), Zap]] as const).map(([k, label, Icon]) => (
           <button key={k} onClick={() => { setMenu(k); setPkg(""); setDone(false); }}
             className={`inline-flex items-center gap-1.5 px-4 h-9 rounded-lg text-[13.5px] font-semibold transition-colors outline-none ${
               menu === k ? "bg-white text-gray-900 shadow-sm" : "text-gray-500 hover:text-gray-800"}`}>
@@ -148,12 +233,12 @@ export default function RegisterPage() {
               className={`relative text-left rounded-2xl border-2 p-4 transition-all outline-none ${
                 pkg === t.key ? "border-emerald-600 bg-emerald-50/40 shadow-md" : "border-gray-200 bg-white hover:border-gray-300"}`}>
               {t.highlight && (
-                <span className="absolute -top-2.5 left-4 px-2 py-0.5 rounded-full bg-emerald-600 text-white text-[10.5px] font-bold">POPULER</span>
+                <span className="absolute -top-2.5 left-4 px-2 py-0.5 rounded-full bg-emerald-600 text-white text-[10.5px] font-bold">{i18n("reg.popular")}</span>
               )}
               <p className="text-[14px] font-extrabold text-gray-900">{t.name}</p>
               <p className="text-[11.5px] text-gray-500 mb-2">{t.tagline}</p>
               <p className="text-[20px] font-extrabold text-gray-900">
-                {t.price === 0 ? "Gratis" : rp(t.price)}
+                {t.price === 0 ? i18n("reg.free") : rp(t.price)}
                 <span className="text-[11px] font-medium text-gray-400"> /{t.per}</span>
               </p>
               <ul className="mt-3 space-y-1.5">
@@ -181,7 +266,7 @@ export default function RegisterPage() {
         </div>
       )}
 
-      <p className="text-center text-[13.5px] text-gray-400">Pilih paket untuk lanjut ke pengisian data.</p>
+      <p className="text-center text-[13.5px] text-gray-400">{t("reg.pickHint")}</p>
       </>)}
 
       {/* Layar 2: ringkasan paket + form, dengan tombol kembali. */}
@@ -189,7 +274,7 @@ export default function RegisterPage() {
       <div className="max-w-lg mx-auto">
         <button onClick={back}
           className="inline-flex items-center gap-1.5 text-[13px] font-semibold text-gray-500 hover:text-gray-900 mb-4 outline-none">
-          <ArrowLeft className="w-4 h-4" /> Ganti paket
+          <ArrowLeft className="w-4 h-4" /> {t("reg.changePkg")}
         </button>
 
         {/* Ringkasan pilihan, supaya layar ini berdiri sendiri tanpa harus ingat
@@ -205,54 +290,54 @@ export default function RegisterPage() {
                 : `${(pack?.credits || 0).toLocaleString("id-ID")} kredit, ${rp(pack?.perCredit || 0)} /kredit`}
             </p>
           </div>
-          <p className="text-[17px] font-extrabold text-gray-900 shrink-0">{total === 0 ? "Gratis" : rp(total)}</p>
+          <p className="text-[17px] font-extrabold text-gray-900 shrink-0">{total === 0 ? t("reg.free") : rp(total)}</p>
         </div>
 
       <div className="bg-white rounded-2xl border border-gray-200 shadow-sm p-5">
         <div className="grid gap-3">
           {menu === "signup" && (
             <>
-              <Field label="Nama bisnis" value={form.org_name} onChange={(v) => set("org_name", v)} placeholder="cth. Danafin" />
+              <Field label={t("reg.orgName")} value={form.org_name} onChange={(v) => set("org_name", v)} placeholder="PT Maju Jaya" />
               <div>
-                <Label>Industri</Label>
+                <Label>{t("reg.industry")}</Label>
                 <select value={form.industry} onChange={(e) => set("industry", e.target.value)} className={INPUT}>
-                  <option value="">Pilih industri</option>
+                  <option value="">{t("reg.pickIndustry")}</option>
                   {INDUSTRIES.map((i) => <option key={i} value={i}>{i}</option>)}
                 </select>
               </div>
               {!isTrial && (
                 <div>
-                  <Label>Jumlah seat (sales/agent)</Label>
+                  <Label>{t("reg.seats")}</Label>
                   <input type="number" min={1} max={100} value={seats}
                     onChange={(e) => setSeats(Math.max(1, Math.min(100, Number(e.target.value) || 1)))} className={INPUT} />
                 </div>
               )}
             </>
           )}
-          <Field label="Nama kamu" value={form.name} onChange={(v) => set("name", v)} placeholder="Nama lengkap" />
-          <Field label="Email" value={form.email} onChange={(v) => set("email", v)} placeholder="nama@bisnis.com" type="email" />
-          <Field label="No. WhatsApp" value={form.phone} onChange={(v) => set("phone", v)} placeholder="08xxxxxxxxxx" />
+          <Field label={t("reg.yourName")} value={form.name} onChange={(v) => set("name", v)} placeholder={t("reg.fullName")} />
+          <Field label={t("reg.email")} value={form.email} onChange={(v) => set("email", v)} placeholder="nama@bisnis.com" type="email" />
+          <Field label={t("reg.phone")} value={form.phone} onChange={(v) => set("phone", v)} placeholder="08xxxxxxxxxx" />
           {menu === "topup" && (
-            <Field label="Nama bisnis terdaftar" value={form.org_name} onChange={(v) => set("org_name", v)} placeholder="Nama bisnis di akun Simpulx kamu" />
+            <Field label={t("reg.orgNameRegistered")} value={form.org_name} onChange={(v) => set("org_name", v)} placeholder={t("reg.orgNameRegisteredPh")} />
           )}
-          <Field label="Catatan (opsional)" value={form.note} onChange={(v) => set("note", v)} placeholder="" />
+          <Field label={t("reg.note")} value={form.note} onChange={(v) => set("note", v)} placeholder="" />
         </div>
 
         <div className="flex items-center justify-between mt-5 pt-4 border-t border-gray-100">
           <div>
-            <p className="text-[11.5px] text-gray-500">Total</p>
+            <p className="text-[11.5px] text-gray-500">{t("reg.total")}</p>
             <p className="text-[18px] font-extrabold text-gray-900">{total === 0 ? "Gratis" : rp(total)}</p>
             {menu === "signup" && !isTrial && <p className="text-[11px] text-gray-400">{seats} seat &times; {rp(tier?.price || 0)} /bulan</p>}
           </div>
           <button onClick={submit} disabled={busy}
             className="inline-flex items-center gap-2 px-5 h-11 rounded-xl bg-emerald-600 text-white text-[14px] font-bold hover:bg-emerald-700 transition-colors outline-none disabled:opacity-60">
             {busy ? <Loader2 className="w-4 h-4 animate-spin" /> : <Sparkles className="w-4 h-4" />}
-            {menu === "signup" ? (isTrial ? "Mulai Free Trial" : "Daftar sekarang") : "Kirim permintaan"}
+            {menu === "signup" ? (isTrial ? t("reg.startTrial") : t("reg.signupNow")) : t("reg.sendRequest")}
           </button>
         </div>
         {err && <p className="text-[12.5px] text-red-600 mt-3">{err}</p>}
         <p className="text-[11.5px] text-gray-400 mt-4">
-          Aktivasi dikonfirmasi manual oleh tim Simpulx, biasanya kurang dari 1 hari kerja. Tidak ada pembayaran otomatis dari halaman ini.
+          {t("reg.disclaimer")}
         </p>
       </div>
       </div>
@@ -262,6 +347,7 @@ export default function RegisterPage() {
 }
 
 function Shell({ children }: { children: React.ReactNode }) {
+  const { t } = useI18n();
   return (
     <div className="min-h-screen bg-gray-50 text-gray-900">
       <header className="max-w-5xl mx-auto flex items-center justify-between px-5 py-5">
@@ -272,7 +358,7 @@ function Shell({ children }: { children: React.ReactNode }) {
           </div>
           <span className="text-[19px] font-extrabold tracking-tight">Simpul<span className="text-amber-500">x</span></span>
         </div>
-        <a href="/login" className="text-[13px] font-semibold text-gray-600 hover:text-gray-900">Sudah punya akun? Masuk</a>
+        <a href="/login" className="text-[13px] font-semibold text-gray-600 hover:text-gray-900">{t("reg.login")}</a>
       </header>
       <main className="max-w-5xl mx-auto px-5 pb-20">{children}</main>
     </div>

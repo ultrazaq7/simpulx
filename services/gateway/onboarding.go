@@ -195,7 +195,8 @@ func (s *server) handleListTransactions(w http.ResponseWriter, r *http.Request) 
 		        t.contact_name, t.contact_email, t.contact_phone,
 		        t.package_name, t.seats, t.credits, t.amount::float8 AS amount,
 		        t.organization_id::text AS organization_id, o.name AS org_linked_name,
-		        t.note, t.decision_note, t.invoice_no, t.created_at, t.decided_at
+		        t.note, t.decision_note, t.invoice_no, t.created_at, t.decided_at,
+		        t.payment_proof_url, t.proof_uploaded_at
 		   FROM platform_transactions t
 		   LEFT JOIN organizations o ON o.id = t.organization_id
 		  ORDER BY (t.status='pending') DESC, t.created_at DESC
@@ -410,4 +411,70 @@ func strAt(m map[string]any, k string) string {
 		return v
 	}
 	return ""
+}
+
+// POST /api/public/register/{id}/proof — attach a transfer receipt to a PENDING
+// request. Public like the register endpoint itself, and bounded the same way:
+// it can only attach an image/PDF to a request that is still pending, sized and
+// typed strictly, and re-uploading replaces the previous file. The worst an
+// abuser can do is decorate their own pending row.
+func (s *server) handleRegisterProof(w http.ResponseWriter, r *http.Request) {
+	if s.storage == nil {
+		http.Error(w, "storage not configured", http.StatusServiceUnavailable)
+		return
+	}
+	id := r.PathValue("id")
+	var exists bool
+	if err := s.pool.QueryRow(r.Context(),
+		`SELECT EXISTS(SELECT 1 FROM platform_transactions WHERE id=$1::uuid AND status='pending')`,
+		id).Scan(&exists); err != nil || !exists {
+		http.Error(w, "not found", http.StatusNotFound)
+		return
+	}
+
+	// 8MB is plenty for a receipt photo; anything bigger is a mistake or abuse.
+	r.Body = http.MaxBytesReader(w, r.Body, 8<<20)
+	if err := r.ParseMultipartForm(8 << 20); err != nil {
+		http.Error(w, "file terlalu besar (maks 8MB)", http.StatusRequestEntityTooLarge)
+		return
+	}
+	file, hdr, err := r.FormFile("file")
+	if err != nil {
+		http.Error(w, "file required", http.StatusBadRequest)
+		return
+	}
+	defer file.Close()
+	ct := hdr.Header.Get("Content-Type")
+	if !strings.HasPrefix(ct, "image/") && ct != "application/pdf" {
+		http.Error(w, "bukti transfer harus berupa foto atau PDF", http.StatusBadRequest)
+		return
+	}
+
+	key := "transfer-proofs/" + id + "/" + strings.ReplaceAll(hdr.Filename, " ", "-")
+	urlStr, err := s.storage.put(r.Context(), key, ct, file, hdr.Size)
+	if err != nil {
+		http.Error(w, err.Error(), http.StatusInternalServerError)
+		return
+	}
+	if _, err := s.pool.Exec(r.Context(),
+		`UPDATE platform_transactions
+		    SET payment_proof_url=$2, proof_uploaded_at=now()
+		  WHERE id=$1::uuid AND status='pending'`, id, urlStr); err != nil {
+		http.Error(w, err.Error(), http.StatusInternalServerError)
+		return
+	}
+	writeJSON(w, map[string]any{"status": "uploaded"})
+}
+
+// GET /api/public/payment-info — the transfer instructions the register wizard
+// shows before the proof upload. Comes from env, NOT code: the account number is
+// operational data the operator owns, and a wrong hardcoded account number would
+// send customer money to the void. Empty = the UI says instructions follow by
+// email instead of inventing any.
+func (s *server) handlePaymentInfo(w http.ResponseWriter, r *http.Request) {
+	writeJSON(w, map[string]any{
+		"bank":    config.Get("PAYMENT_BANK_NAME", ""),
+		"account": config.Get("PAYMENT_BANK_ACCOUNT", ""),
+		"holder":  config.Get("PAYMENT_BANK_HOLDER", ""),
+	})
 }

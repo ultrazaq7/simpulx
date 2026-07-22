@@ -37,6 +37,7 @@ var unguardedByDesign = map[string]string{
 	"POST /v1/leads":                    "public ingest, authenticated by web-api key",
 	"POST /api/public/account-deletion": "public form, no session",
 	"POST /api/public/register":         "public lead form; creates only a pending row a human approves",
+	"POST /api/public/register/{id}/proof": "public: attaches a receipt to own pending request only, size/type bounded",
 
 	// Self-service: the caller acts on their own account only.
 	"POST /api/account/password":     "self",
