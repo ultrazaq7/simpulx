@@ -82,13 +82,15 @@ func (s *server) handleListConversations(w http.ResponseWriter, r *http.Request)
 	//                  campaign/branch) are admin/owner only.
 	//  - agent       : only conversations assigned to them.
 	// $1=org, $2=status, $3=user id (used by manager/agent filters).
+	// Same resolver the per-conversation guard uses, so the list and the detail
+	// can never disagree about what the caller may see.
 	visibility := ""
-	switch a.Role {
-	case "admin", "owner":
+	switch s.conversationVisibility(r.Context(), a) {
+	case visOrg:
 		// no extra filter
-	case "manager":
+	case visCampaign:
 		visibility = " AND " + managerScope("cv", 3)
-	default: // agent (and any unknown role) -> own conversations only
+	default:
 		visibility = ` AND cv.assigned_agent_id = $3`
 	}
 
@@ -290,11 +292,11 @@ func (s *server) canAccessConversation(ctx context.Context, a authInfo, convID s
 	if err != nil {
 		return false, false // not found in this org
 	}
-	switch a.Role {
-	case "admin", "owner":
+	switch s.conversationVisibility(ctx, a) {
+	case visOrg:
 		return true, true
-	case "manager":
-		// Visible only if the manager belongs to the conversation's campaign or branch.
+	case visCampaign:
+		// Visible only if the caller belongs to the conversation's campaign or branch.
 		// An unassigned lead in their scope still carries campaign_id/branch_id, so it
 		// matches; an unrouted lead (no campaign/branch) does not.
 		var ok bool
@@ -304,9 +306,64 @@ func (s *server) canAccessConversation(ctx context.Context, a authInfo, convID s
 			a.UserID, campaignID, branchID,
 		).Scan(&ok)
 		return ok, true
-	default: // agent
+	default:
 		return assignedAgent != nil && *assignedAgent == a.UserID, true
 	}
+}
+
+// convVisibility is how much of the inbox a caller sees.
+type convVisibility int
+
+const (
+	visAssignedOnly convVisibility = iota // only conversations assigned to them
+	visCampaign                           // everything in their campaigns/branches
+	visOrg                                // everything in the organisation
+)
+
+// conversationVisibility binds view_all_chats / view_team_chats, which the roles
+// matrix has always offered and the backend never consulted.
+//
+// The rule differs by role kind ON PURPOSE. For BUILT-IN roles permissions may
+// only NARROW what the role already allows, never widen it. That asymmetry is not
+// tidiness: manager currently defaults to true for every key it is not explicitly
+// denied, and the saved prod matrix has view_all_chats=true for manager, so
+// treating the key as a grant would instantly hand every manager the whole org's
+// inbox and undo the campaign isolation. A permission that silently widens access
+// the moment it is wired up is a security regression, not a feature.
+//
+// CUSTOM roles have no inherent meaning, so for them the matrix decides outright:
+// nothing else could, and they default closed.
+func (s *server) conversationVisibility(ctx context.Context, a authInfo) convVisibility {
+	builtIn := true
+	base := visAssignedOnly
+	switch a.Role {
+	case "admin", "owner":
+		base = visOrg
+	case "manager":
+		base = visCampaign
+	case "agent":
+		base = visAssignedOnly
+	default:
+		builtIn = false
+	}
+
+	if !builtIn {
+		if s.hasPerm(ctx, a, "view_all_chats") {
+			return visOrg
+		}
+		if s.hasPerm(ctx, a, "view_team_chats") {
+			return visCampaign
+		}
+		return visAssignedOnly
+	}
+	// Built-in: narrow only.
+	if base == visOrg && !s.hasPerm(ctx, a, "view_all_chats") {
+		base = visCampaign
+	}
+	if base == visCampaign && !s.hasPerm(ctx, a, "view_team_chats") {
+		base = visAssignedOnly
+	}
+	return base
 }
 
 // managerScope returns the SQL predicate limiting a manager to conversations in
@@ -842,6 +899,16 @@ func (s *server) handlePatchConversation(w http.ResponseWriter, r *http.Request)
 	}
 	if !s.guardConversation(w, r, convID) {
 		return
+	}
+	// close_chats is checked on the ACTION, not on the route. This same endpoint
+	// carries mark-as-read and stage changes, so gating the whole handler would
+	// block edits the role is allowed to make; gating the whole route would break
+	// the inbox for anyone without the permission.
+	if b.Status != nil && strings.EqualFold(strings.TrimSpace(*b.Status), "closed") {
+		if !s.hasPerm(r.Context(), a, "close_chats") {
+			http.Error(w, "forbidden: missing permission 'close_chats'", http.StatusForbidden)
+			return
+		}
 	}
 	// Lock the AI classification ONLY when a human actually overrides a
 	// classification field. The inbox also PATCHes {unread_count: 0} on every
