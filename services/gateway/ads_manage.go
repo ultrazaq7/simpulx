@@ -252,7 +252,7 @@ func (s *server) handleCampaignAdsStatus(w http.ResponseWriter, r *http.Request)
 	var accountName, accessMode, adsStatus, metaCampaign string
 	var accountID *string
 	err := s.pool.QueryRow(r.Context(),
-		`SELECT aa.id::text, aa.name, aa.access_mode,
+		`SELECT aa.id::text, COALESCE(aa.name,''), COALESCE(aa.access_mode,''),
 		        COALESCE(c.ads_status,''), COALESCE(c.meta_campaign_id,'')
 		   FROM campaigns c
 		   LEFT JOIN ad_accounts aa ON aa.id = c.managed_ad_account_id

@@ -7,8 +7,8 @@
 // Nothing here activates anything. Submitting creates a pending request and the
 // operator activates it from the platform panel, so the page can be public
 // without letting anyone provision themselves.
-import { useMemo, useState } from "react";
-import { Check, Loader2, MessageCircle, Sparkles, Zap, Building2 } from "lucide-react";
+import { useMemo, useState, useRef } from "react";
+import { Check, Loader2, Sparkles, Zap, Building2 } from "lucide-react";
 
 const SIGNUP_TIERS = [
   {
@@ -52,7 +52,8 @@ const rp = (v: number) => "Rp " + v.toLocaleString("id-ID");
 
 export default function RegisterPage() {
   const [menu, setMenu] = useState<"signup" | "topup">("signup");
-  const [pkg, setPkg] = useState("trial");
+  const [pkg, setPkg] = useState("");  // kosong = belum pilih; form muncul setelah pilih card
+  const formRef = useRef<HTMLDivElement>(null);
   const [seats, setSeats] = useState(3);
   const [form, setForm] = useState({ org_name: "", industry: "", name: "", email: "", phone: "", note: "" });
   const [busy, setBusy] = useState(false);
@@ -70,6 +71,13 @@ export default function RegisterPage() {
   }, [menu, tier, pack, seats, isTrial]);
 
   function set<K extends keyof typeof form>(k: K, v: string) { setForm((f) => ({ ...f, [k]: v })); }
+  // Form muncul SETELAH paket dipilih, lalu halaman turun ke form: satu keputusan
+  // dulu (paket mana), baru isi data. Semua card + form sekaligus bikin halaman
+  // terasa seperti formulir pajak.
+  function choose(key: string) {
+    setPkg(key);
+    setTimeout(() => formRef.current?.scrollIntoView({ behavior: "smooth", block: "start" }), 60);
+  }
 
   async function submit() {
     setErr("");
@@ -119,7 +127,7 @@ export default function RegisterPage() {
       {/* Dua menu: daftar & top up. */}
       <div className="flex items-center justify-center gap-1 p-1 bg-gray-100 rounded-xl w-fit mx-auto mb-8">
         {([["signup", "Daftar", Building2], ["topup", "Top Up Kredit", Zap]] as const).map(([k, label, Icon]) => (
-          <button key={k} onClick={() => { setMenu(k); setPkg(k === "signup" ? "trial" : "pro"); setDone(false); }}
+          <button key={k} onClick={() => { setMenu(k); setPkg(""); setDone(false); }}
             className={`inline-flex items-center gap-1.5 px-4 h-9 rounded-lg text-[13.5px] font-semibold transition-colors outline-none ${
               menu === k ? "bg-white text-gray-900 shadow-sm" : "text-gray-500 hover:text-gray-800"}`}>
             <Icon className="w-4 h-4" />{label}
@@ -130,7 +138,7 @@ export default function RegisterPage() {
       {menu === "signup" ? (
         <div className="grid sm:grid-cols-2 lg:grid-cols-4 gap-3 mb-8">
           {SIGNUP_TIERS.map((t) => (
-            <button key={t.key} onClick={() => setPkg(t.key)}
+            <button key={t.key} onClick={() => choose(t.key)}
               className={`relative text-left rounded-2xl border-2 p-4 transition-all outline-none ${
                 pkg === t.key ? "border-emerald-600 bg-emerald-50/40 shadow-md" : "border-gray-200 bg-white hover:border-gray-300"}`}>
               {t.highlight && (
@@ -155,7 +163,7 @@ export default function RegisterPage() {
       ) : (
         <div className="grid sm:grid-cols-3 gap-3 mb-8 max-w-2xl mx-auto">
           {TOPUP_PACKS.map((t) => (
-            <button key={t.key} onClick={() => setPkg(t.key)}
+            <button key={t.key} onClick={() => choose(t.key)}
               className={`text-left rounded-2xl border-2 p-4 transition-all outline-none ${
                 pkg === t.key ? "border-emerald-600 bg-emerald-50/40 shadow-md" : "border-gray-200 bg-white hover:border-gray-300"}`}>
               <p className="text-[14px] font-extrabold text-gray-900">{t.name}</p>
@@ -167,8 +175,12 @@ export default function RegisterPage() {
         </div>
       )}
 
-      {/* Form */}
-      <div className="max-w-lg mx-auto bg-white rounded-2xl border border-gray-200 shadow-sm p-5">
+      {/* Form: baru muncul setelah paket dipilih */}
+      {!pkg && (
+        <p className="text-center text-[13.5px] text-gray-400">Pilih paket di atas untuk lanjut.</p>
+      )}
+      {pkg && (
+      <div ref={formRef} className="max-w-lg mx-auto bg-white rounded-2xl border border-gray-200 shadow-sm p-5 scroll-mt-6">
         <div className="grid gap-3">
           {menu === "signup" && (
             <>
@@ -215,6 +227,7 @@ export default function RegisterPage() {
           Aktivasi dikonfirmasi manual oleh tim Simpulx, biasanya kurang dari 1 hari kerja. Tidak ada pembayaran otomatis dari halaman ini.
         </p>
       </div>
+      )}
     </Shell>
   );
 }
@@ -223,9 +236,12 @@ function Shell({ children }: { children: React.ReactNode }) {
   return (
     <div className="min-h-screen bg-gray-50 text-gray-900">
       <header className="max-w-5xl mx-auto flex items-center justify-between px-5 py-5">
-        <div className="flex items-center gap-2">
-          <div className="w-8 h-8 rounded-lg bg-emerald-700 grid place-items-center"><MessageCircle className="w-4.5 h-4.5 text-white" /></div>
-          <span className="text-[17px] font-extrabold tracking-tight">Simpulx</span>
+        <div className="flex items-center gap-2.5">
+          <div className="w-9 h-9 rounded-lg overflow-hidden shadow-md">
+            {/* eslint-disable-next-line @next/next/no-img-element */}
+            <img src="/simpulx_logo.png" alt="Simpulx" className="w-full h-full object-cover" />
+          </div>
+          <span className="text-[19px] font-extrabold tracking-tight">Simpul<span className="text-amber-500">x</span></span>
         </div>
         <a href="/login" className="text-[13px] font-semibold text-gray-600 hover:text-gray-900">Sudah punya akun? Masuk</a>
       </header>
