@@ -56,7 +56,7 @@ export default function ClientManagementPage() {
             <table className="w-full text-sm min-w-[920px] whitespace-nowrap">
               <thead className="sticky top-0 z-10">
                 <tr className="border-b border-border bg-muted/40 backdrop-blur">
-                  {["Organization", "Package", "Status", "Users", "Campaigns", "Simpuler credits (mo)", "Created", ""].map((h) => (
+                  {["Organization", "Package", "Status", "Expiry", "Users", "Campaigns", "Simpuler credits (mo)", "Created", ""].map((h) => (
                     <th key={h} className={cn("px-4 py-2.5 text-[11px] font-bold uppercase tracking-wider text-muted-foreground",
                       ["Users", "Campaigns", "Simpuler credits (mo)"].includes(h) ? "text-right" : h === "" ? "text-right w-16" : "text-left")}>{t(h)}</th>
                   ))}
@@ -91,6 +91,13 @@ export default function ClientManagementPage() {
                       <td className="px-4 py-2.5">
                         <span className={cn("inline-flex px-2 py-0.5 rounded-md text-[10px] font-bold capitalize",
                           o.status === "active" ? "bg-success/10 text-success" : o.status === "trial" ? "bg-amber-500/10 text-amber-600" : "bg-muted text-muted-foreground")}>{o.status}</span>
+                      </td>
+                      {/* Expiry = renewal_date: akhir trial untuk trial, perpanjangan
+                          berikutnya untuk paket berbayar. Merah kalau sudah lewat. */}
+                      <td className="px-4 py-2.5 text-[12.5px] tabular-nums">
+                        {o.renewal_date
+                          ? <span className={new Date(o.renewal_date) < new Date() ? "text-red-600 font-semibold" : "text-foreground"}>{String(o.renewal_date).slice(0, 10)}</span>
+                          : <span className="text-muted-foreground">-</span>}
                       </td>
                       <td className="px-4 py-2.5 text-right tabular-nums text-[13px] text-foreground">{o.users_active}<span className="text-muted-foreground"> / {o.quotas?.users ?? 0}</span></td>
                       <td className="px-4 py-2.5 text-right tabular-nums text-[13px] text-foreground">{o.campaigns}</td>

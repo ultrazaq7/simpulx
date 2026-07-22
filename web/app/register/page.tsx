@@ -9,7 +9,7 @@
 // without letting anyone provision themselves.
 import { useEffect, useMemo, useRef, useState } from "react";
 import { useI18n } from "@/lib/i18n";
-import { ArrowLeft, Check, Loader2, Sparkles, Zap, Building2 } from "lucide-react";
+import { ArrowLeft, Check, Loader2, Sparkles } from "lucide-react";
 
 // Semua paket berbayar fiturnya SAMA. Bedanya cuma jumlah seat: makin banyak
 // seat, harga per seat makin murah (volume discount). "Ads dikelola Simpulx"
@@ -30,19 +30,19 @@ const SIGNUP_TIERS = [
   {
     key: "starter", name: "Starter", price: 200_000, per: "seat / bulan",
     credits: 200, highlight: false, minSeats: 1,
-    tagline: "1 sampai 4 seat",
+    tagline: "1 sampai 10 seat",
     features: ALL_FEATURES,
   },
   {
     key: "growth", name: "Growth", price: 150_000, per: "seat / bulan",
-    credits: 200, highlight: true, minSeats: 5,
-    tagline: "5 sampai 9 seat, paling banyak dipilih",
+    credits: 200, highlight: true, minSeats: 11,
+    tagline: "11 sampai 50 seat, paling banyak dipilih",
     features: ALL_FEATURES,
   },
   {
     key: "business", name: "Business", price: 100_000, per: "seat / bulan",
-    credits: 200, highlight: false, minSeats: 10,
-    tagline: "10 seat ke atas, termurah per seat",
+    credits: 200, highlight: false, minSeats: 51,
+    tagline: "51 sampai 100 seat, termurah per seat",
     features: ALL_FEATURES,
   },
 ];
@@ -80,6 +80,7 @@ export default function RegisterPage() {
   }, []);
   const [err, setErr] = useState("");
   const [adsManaged, setAdsManaged] = useState(false);
+  const [billing, setBilling] = useState<"monthly" | "annual">("monthly");
 
   const tier = SIGNUP_TIERS.find((t) => t.key === pkg);
   const pack = TOPUP_PACKS.find((t) => t.key === pkg);
@@ -88,8 +89,11 @@ export default function RegisterPage() {
   const total = useMemo(() => {
     if (menu === "topup") return pack ? pack.credits * pack.perCredit : 0;
     if (!tier) return 0;
-    return tier.price * (isTrial ? 1 : seats);
-  }, [menu, tier, pack, seats, isTrial]);
+    const monthly = tier.price * (isTrial ? 1 : seats);
+    // Tahunan = bayar 10 bulan untuk 12 (gratis 2 bulan). Angka finalnya tetap
+    // dihitung ulang server, ini cuma tampilan.
+    return billing === "annual" && !isTrial ? monthly * 10 : monthly;
+  }, [menu, tier, pack, seats, isTrial, billing]);
 
   function set<K extends keyof typeof form>(k: K, v: string) { setForm((f) => ({ ...f, [k]: v })); }
   // Wizard per layar, bukan form yang muncul di bawah: memilih paket MENGGANTI
@@ -116,7 +120,7 @@ export default function RegisterPage() {
       const r = await fetch("/api/public/register", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ type: menu, package: pkg, seats, ...form,
+        body: JSON.stringify({ type: menu, package: pkg, seats, billing, ...form,
           note: adsManaged ? `[Add-on: ads dikelola Simpulx] ${form.note}`.trim() : form.note }),
       });
       if (!r.ok) throw new Error(await r.text());
@@ -230,14 +234,27 @@ export default function RegisterPage() {
       {!pkg && (<>
       {/* Layar 1: pilih menu + paket. */}
       <div className="flex items-center justify-center gap-1 p-1 bg-gray-100 rounded-xl w-fit mx-auto mb-8">
-        {([["signup", t("reg.menuSignup"), Building2], ["topup", t("reg.menuTopup"), Zap]] as const).map(([k, label, Icon]) => (
+        {([["signup", t("reg.menuSignup")], ["topup", t("reg.menuTopup")]] as const).map(([k, label]) => (
           <button key={k} onClick={() => { setMenu(k); setPkg(""); setDone(false); }}
-            className={`inline-flex items-center gap-1.5 px-4 h-9 rounded-lg text-[13.5px] font-semibold transition-colors outline-none ${
+            className={`px-4 h-9 rounded-lg text-[13.5px] font-semibold transition-colors outline-none ${
               menu === k ? "bg-white text-gray-900 shadow-sm" : "text-gray-500 hover:text-gray-800"}`}>
-            <Icon className="w-4 h-4" />{label}
+            {label}
           </button>
         ))}
       </div>
+
+      {menu === "signup" && (
+        <div className="flex items-center justify-center gap-2 mb-6 text-[13px] font-semibold">
+          <span className={billing === "monthly" ? "text-gray-900" : "text-gray-400"}>{t("reg.monthly")}</span>
+          <button onClick={() => setBilling(billing === "monthly" ? "annual" : "monthly")}
+            aria-label="annual switch"
+            className={`relative w-11 h-6 rounded-full transition-colors outline-none ${billing === "annual" ? "bg-emerald-600" : "bg-gray-300"}`}>
+            <span className={`absolute top-0.5 w-5 h-5 rounded-full bg-white shadow transition-all ${billing === "annual" ? "left-[22px]" : "left-0.5"}`} />
+          </button>
+          <span className={billing === "annual" ? "text-gray-900" : "text-gray-400"}>{t("reg.annual")}</span>
+          {billing === "annual" && <span className="px-2 py-0.5 rounded-full bg-emerald-100 text-emerald-700 text-[11px] font-bold">{t("reg.annualSave")}</span>}
+        </div>
+      )}
 
       {menu === "signup" ? (
         <div className="grid sm:grid-cols-2 lg:grid-cols-4 gap-3 mb-8">
@@ -349,7 +366,11 @@ export default function RegisterPage() {
           <div>
             <p className="text-[11.5px] text-gray-500">{t("reg.total")}</p>
             <p className="text-[18px] font-extrabold text-gray-900">{total === 0 ? "Gratis" : rp(total)}</p>
-            {menu === "signup" && !isTrial && <p className="text-[11px] text-gray-400">{seats} seat &times; {rp(tier?.price || 0)} /bulan</p>}
+            {menu === "signup" && !isTrial && (
+              <p className="text-[11px] text-gray-400">
+                {seats} seat &times; {rp(tier?.price || 0)}{billing === "annual" ? ` × 10 (${t("reg.billedAnnually")})` : " /bulan"}
+              </p>
+            )}
           </div>
           <button onClick={submit} disabled={busy}
             className="inline-flex items-center gap-2 px-5 h-11 rounded-xl bg-emerald-600 text-white text-[14px] font-bold hover:bg-emerald-700 transition-colors outline-none disabled:opacity-60">
@@ -371,15 +392,17 @@ export default function RegisterPage() {
 function Shell({ children }: { children: React.ReactNode }) {
   const { t } = useI18n();
   return (
-    <div className="min-h-screen bg-gray-50 text-gray-900">
+    // data-public-site melepas overflow:hidden milik shell app (globals.css),
+    // tanpa itu halaman render penuh tapi TIDAK BISA discroll.
+    <div data-public-site className="min-h-screen bg-gray-50 text-gray-900">
       <header className="max-w-5xl mx-auto flex items-center justify-between px-5 py-5">
-        <div className="flex items-center gap-2.5">
+        <a href="/" className="flex items-center gap-2.5">
           <div className="w-9 h-9 rounded-lg overflow-hidden shadow-md">
             {/* eslint-disable-next-line @next/next/no-img-element */}
             <img src="/simpulx_logo.png" alt="Simpulx" className="w-full h-full object-cover" />
           </div>
           <span className="text-[19px] font-extrabold tracking-tight">Simpul<span className="text-amber-500">x</span></span>
-        </div>
+        </a>
         <a href="/login" className="text-[13px] font-semibold text-gray-600 hover:text-gray-900">{t("reg.login")}</a>
       </header>
       <main className="max-w-5xl mx-auto px-5 pb-20">{children}</main>

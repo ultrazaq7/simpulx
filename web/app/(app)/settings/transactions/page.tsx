@@ -28,6 +28,7 @@ export default function TransactionsPage() {
   const [openId, setOpenId] = useState<string | null>(null);
   const [topupOrg, setTopupOrg] = useState("");
   const [invoiceHTML, setInvoiceHTML] = useState<string | null>(null);
+  const [dateRange, setDateRange] = useState<"all" | "7d" | "30d" | "month">("all");
 
   function load() {
     api.listTransactions().then((r) => { setRows(r.rows); setSummary(r.summary as Record<string, number>); }).catch(() => setRows([]));
@@ -36,8 +37,17 @@ export default function TransactionsPage() {
   useEffect(load, []);
 
   const orgOptions = useMemo(() => orgs.map((o) => ({ value: o.id, label: o.name })), [orgs]);
-  const totalPages = Math.max(1, Math.ceil((rows?.length || 0) / PER_PAGE));
-  const paged = (rows || []).slice(page * PER_PAGE, (page + 1) * PER_PAGE);
+  const filtered = useMemo(() => {
+    if (!rows) return [];
+    if (dateRange === "all") return rows;
+    const now = Date.now();
+    const from = dateRange === "7d" ? now - 7 * 864e5
+      : dateRange === "30d" ? now - 30 * 864e5
+      : new Date(new Date().getFullYear(), new Date().getMonth(), 1).getTime();
+    return rows.filter((r) => new Date(r.created_at).getTime() >= from);
+  }, [rows, dateRange]);
+  const totalPages = Math.max(1, Math.ceil(filtered.length / PER_PAGE));
+  const paged = filtered.slice(page * PER_PAGE, (page + 1) * PER_PAGE);
   const open = rows?.find((r) => r.id === openId) || null;
 
   // The invoice endpoint needs the JWT, so it is fetched with auth and shown
@@ -70,6 +80,16 @@ export default function TransactionsPage() {
     catch (e) { notify(String(e), "error"); }
     finally { setBusy(false); }
   }
+  async function removeTx(tx: PlatformTransaction) {
+    if (!(await confirm({ title: t("tx.delete") + "?", message: t("tx.deleteMsg"), danger: true, confirmLabel: t("tx.delete") }))) return;
+    setBusy(true);
+    try {
+      await fetch(`/api/platform/transactions/${tx.id}`, { method: "DELETE", headers: { Authorization: `Bearer ${getToken()}` } })
+        .then((r) => { if (!r.ok) throw new Error(r.statusText); });
+      notify(t("tx.deleted")); setOpenId(null); load();
+    } catch (e) { notify(String(e), "error"); }
+    finally { setBusy(false); }
+  }
   async function downloadInvoice(tx: PlatformTransaction) {
     try {
       const r = await fetch(`/api/platform/transactions/${tx.id}/invoice`, { headers: { Authorization: `Bearer ${getToken()}` } });
@@ -87,7 +107,7 @@ export default function TransactionsPage() {
   ];
 
   return (
-    <PageBody wide>
+    <PageBody wide fill>
       {ToastHost}
       <div className="grid grid-cols-2 lg:grid-cols-4 gap-3 mb-4">
         {cards.map((c) => (
@@ -98,10 +118,19 @@ export default function TransactionsPage() {
         ))}
       </div>
 
-      <SettingsCard>
-        <div className="px-4 pt-4 pb-3">
-          <p className="text-[15px] font-bold text-foreground">{t("tx.title")}</p>
-          <p className="text-[12.5px] text-muted-foreground">{t("tx.subtitle")}</p>
+      <SettingsCard className="flex flex-col flex-1 min-h-0">
+        <div className="px-4 pt-4 pb-3 flex items-start justify-between gap-3 flex-wrap">
+          <div>
+            <p className="text-[15px] font-bold text-foreground">{t("tx.title")}</p>
+            <p className="text-[12.5px] text-muted-foreground">{t("tx.subtitle")}</p>
+          </div>
+          <Select value={dateRange} onChange={(v) => { setDateRange(v as typeof dateRange); setPage(0); }}
+            options={[
+              { value: "all", label: t("tx.allDates") },
+              { value: "7d", label: t("tx.last7") },
+              { value: "30d", label: t("tx.last30") },
+              { value: "month", label: t("tx.thisMonth") },
+            ]} className="w-[170px]" searchable={false} />
         </div>
         {rows === null ? (
           <div className="h-32 grid place-items-center"><Loader2 className="w-5 h-5 animate-spin text-muted-foreground" /></div>
@@ -109,7 +138,7 @@ export default function TransactionsPage() {
           <p className="text-[13px] text-muted-foreground text-center py-10">{t("tx.empty")}</p>
         ) : (
           <>
-            <div className="overflow-x-auto">
+            <div className="overflow-x-auto flex-1 min-h-0">
               <table className="w-full text-[13px]">
                 <thead>
                   <tr className="text-left text-[11.5px] uppercase tracking-wide text-muted-foreground border-y border-border bg-muted/30">
@@ -154,12 +183,29 @@ export default function TransactionsPage() {
               </table>
             </div>
             <div className="flex items-center justify-between px-4 py-2.5 border-t border-border text-[12.5px] text-muted-foreground">
-              <span>{t("tx.pageOf", { a: page + 1, b: totalPages })}</span>
-              <div className="flex gap-2">
+              <span className="tabular-nums">{t("tx.pageOf", { a: page + 1, b: totalPages })}</span>
+              {/* Nomor halaman eksplisit, bukan cuma Prev/Next: operator lompat
+                  langsung ke halaman yang dia mau. Maks 7 tombol, sisanya elipsis. */}
+              <div className="flex items-center gap-1">
                 <button disabled={page <= 0} onClick={() => setPage(page - 1)}
-                  className="px-2.5 h-7 rounded-md border border-border font-semibold disabled:opacity-30 hover:bg-muted outline-none">{t("tx.prev")}</button>
+                  className="px-2 h-7 rounded-md border border-border font-semibold disabled:opacity-30 hover:bg-muted outline-none">&lsaquo;</button>
+                {Array.from({ length: totalPages }, (_, i) => i)
+                  .filter((i) => totalPages <= 7 || i === 0 || i === totalPages - 1 || Math.abs(i - page) <= 1)
+                  .reduce<(number | "gap")[]>((acc, i, idx, arr) => {
+                    if (idx > 0 && i - (arr[idx - 1] as number) > 1) acc.push("gap");
+                    acc.push(i); return acc;
+                  }, [])
+                  .map((i, idx) => i === "gap"
+                    ? <span key={`g${idx}`} className="px-1">&hellip;</span>
+                    : (
+                      <button key={i} onClick={() => setPage(i)}
+                        className={cn("min-w-7 h-7 px-1.5 rounded-md border text-[12px] font-semibold tabular-nums outline-none",
+                          i === page ? "border-primary bg-primary text-white" : "border-border hover:bg-muted")}>
+                        {i + 1}
+                      </button>
+                    ))}
                 <button disabled={page >= totalPages - 1} onClick={() => setPage(page + 1)}
-                  className="px-2.5 h-7 rounded-md border border-border font-semibold disabled:opacity-30 hover:bg-muted outline-none">{t("tx.next")}</button>
+                  className="px-2 h-7 rounded-md border border-border font-semibold disabled:opacity-30 hover:bg-muted outline-none">&rsaquo;</button>
               </div>
             </div>
           </>
@@ -221,6 +267,11 @@ export default function TransactionsPage() {
                 <p className="text-[12.5px] text-muted-foreground">{t("tx.invoiceAfterApprove")}</p>
               )}
             </div>
+
+            <button onClick={() => removeTx(open)} disabled={busy}
+              className="self-start text-[12.5px] font-semibold text-destructive hover:underline outline-none">
+              {t("tx.delete")}
+            </button>
 
             {open.status === "pending" && (
               <div className="flex flex-col gap-2 pt-2 border-t border-border">

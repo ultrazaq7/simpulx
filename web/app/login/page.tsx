@@ -55,6 +55,7 @@ export default function LoginPage() {
           <h1 className="text-[26px] font-extrabold tracking-tight text-white leading-none">
             {t("auth.simpul")}<span className="text-amber">x</span>
           </h1>
+          <p className="mt-2 text-[13.5px] text-white/60 max-w-[300px]">{t("login.tagline")}</p>
         </div>
       </div>
 
@@ -148,7 +149,14 @@ export default function LoginPage() {
         </div>
       </div>
 
-      <p className="relative z-10 mt-6 text-[11px] text-white/30 font-medium tracking-wide">
+      {/* Jalur masuk buat yang belum punya akun: landing = halaman ini, jadi
+          tombol daftar harus kelihatan tanpa nyari-nyari. */}
+      <p className="relative z-10 mt-5 text-[13px] text-white/50">
+        {t("login.noAccount")}{" "}
+        <a href="/register" className="font-bold text-amber hover:underline">{t("login.signUp")}</a>
+      </p>
+
+      <p className="relative z-10 mt-4 text-[11px] text-white/30 font-medium tracking-wide">
         © {new Date().getFullYear()} {t("login.simpulx")} {t("login.allRightsReserved")}
       </p>
     </div>

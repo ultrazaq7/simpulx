@@ -417,6 +417,7 @@ func main() {
 	mux.HandleFunc("POST /api/platform/transactions/{id}/approve", s.requireSuperAdmin(s.handleApproveTransaction))
 	mux.HandleFunc("POST /api/platform/transactions/{id}/reject", s.requireSuperAdmin(s.handleRejectTransaction))
 	mux.HandleFunc("GET /api/platform/transactions/{id}/invoice", s.requireSuperAdmin(s.handleTransactionInvoice))
+	mux.HandleFunc("DELETE /api/platform/transactions/{id}", s.requireSuperAdmin(s.handleDeleteTransaction))
 	mux.HandleFunc("POST /api/uploads", s.requireAuth(s.handleUpload))
 
 	// Proxy media directly to minio

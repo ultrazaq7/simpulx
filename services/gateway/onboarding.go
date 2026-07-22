@@ -40,9 +40,9 @@ var signupPackages = map[string]signupPackage{
 	// 7 days, 50 credits, no charge. Long enough to feel the product on real
 	// leads, short enough that "we'll decide later" has a date attached.
 	"trial":    {Label: "Free Trial", PerSeat: 0, BonusCredits: 50, TrialDays: 7},
-	"starter":  {Label: "Starter", PerSeat: 200_000, BonusCredits: 200, MinSeats: 1},
-	"growth":   {Label: "Growth", PerSeat: 150_000, BonusCredits: 200, MinSeats: 5},
-	"business": {Label: "Business", PerSeat: 100_000, BonusCredits: 200, MinSeats: 10},
+	"starter":  {Label: "Starter", PerSeat: 200_000, BonusCredits: 200, MinSeats: 1},   // 1-10 seat
+	"growth":   {Label: "Growth", PerSeat: 150_000, BonusCredits: 200, MinSeats: 11},  // 11-50 seat
+	"business": {Label: "Business", PerSeat: 100_000, BonusCredits: 200, MinSeats: 51}, // 51-100 seat
 }
 
 type topupPackage struct {
@@ -69,6 +69,7 @@ func (s *server) handlePublicRegister(w http.ResponseWriter, r *http.Request) {
 		Phone    string `json:"phone"`
 		Package  string `json:"package"`
 		Seats    int    `json:"seats"`
+		Billing  string `json:"billing"` // monthly | annual (signup saja)
 		Note     string `json:"note"`
 	}
 	if err := json.NewDecoder(r.Body).Decode(&b); err != nil {
@@ -118,8 +119,26 @@ func (s *server) handlePublicRegister(w http.ResponseWriter, r *http.Request) {
 		if pkg.TrialDays > 0 {
 			seats = 1 // a trial is one seat; more is a sales conversation
 		}
+		// An email that already has an account cannot sign up again: login matches
+		// on email alone, so a second account would make sign-in ambiguous. Said
+		// plainly to the requester instead of surfacing later as a failed approval.
+		var taken bool
+		if err := s.pool.QueryRow(r.Context(),
+			`SELECT EXISTS(SELECT 1 FROM users WHERE lower(email)=$1 AND NOT is_deleted)`,
+			b.Email).Scan(&taken); err == nil && taken {
+			http.Error(w, "email ini sudah terdaftar. Silakan masuk lewat halaman login, atau pakai email lain.", http.StatusConflict)
+			return
+		}
 		credits = pkg.BonusCredits
 		amount = pkg.PerSeat * float64(seats)
+		if b.Billing != "annual" {
+			b.Billing = "monthly"
+		}
+		// Annual = prepay 10 months for 12 (two free). Computed HERE so the client
+		// cannot send its own idea of the discount.
+		if b.Billing == "annual" && pkg.TrialDays == 0 {
+			amount = amount * 10
+		}
 	case "topup":
 		pkg, ok := topupPackages[b.Package]
 		if !ok {
@@ -128,6 +147,7 @@ func (s *server) handlePublicRegister(w http.ResponseWriter, r *http.Request) {
 		}
 		credits = pkg.Credits
 		amount = pkg.PerCredit * float64(pkg.Credits)
+		b.Billing = "monthly"
 	default:
 		http.Error(w, "type must be signup or topup", http.StatusBadRequest)
 		return
@@ -139,8 +159,8 @@ func (s *server) handlePublicRegister(w http.ResponseWriter, r *http.Request) {
 	err := s.pool.QueryRow(r.Context(),
 		`INSERT INTO platform_transactions
 		   (type, org_name, industry, contact_name, contact_email, contact_phone,
-		    package_name, seats, credits, amount, note)
-		 SELECT $1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11
+		    package_name, seats, credits, amount, note, billing)
+		 SELECT $1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$15
 		  WHERE NOT EXISTS (SELECT 1 FROM platform_transactions
 		                     -- $12..$14 repeat $1/$5/$7 ON PURPOSE. Reusing one parameter
 		                     -- in the insert list (varchar column) AND a comparison makes
@@ -153,7 +173,7 @@ func (s *server) handlePublicRegister(w http.ResponseWriter, r *http.Request) {
 		 RETURNING id::text`,
 		b.Type, b.OrgName, b.Industry, b.Name, b.Email, b.Phone,
 		b.Package, seats, credits, amount, b.Note,
-		b.Type, b.Email, b.Package).Scan(&id)
+		b.Type, b.Email, b.Package, b.Billing).Scan(&id)
 	if errors.Is(err, pgx.ErrNoRows) {
 		// The WHERE NOT EXISTS filtered it: an identical request is already in the
 		// queue, and "already received" is the truthful success for a double-click.
@@ -206,7 +226,7 @@ func (s *server) handleListTransactions(w http.ResponseWriter, r *http.Request) 
 		        t.package_name, t.seats, t.credits, t.amount::float8 AS amount,
 		        t.organization_id::text AS organization_id, o.name AS org_linked_name,
 		        t.note, t.decision_note, t.invoice_no, t.created_at, t.decided_at,
-		        t.payment_proof_url, t.proof_uploaded_at
+		        t.payment_proof_url, t.proof_uploaded_at, t.billing
 		   FROM platform_transactions t
 		   LEFT JOIN organizations o ON o.id = t.organization_id
 		  ORDER BY (t.status='pending') DESC, t.created_at DESC
@@ -487,4 +507,21 @@ func (s *server) handlePaymentInfo(w http.ResponseWriter, r *http.Request) {
 		"account": config.Get("PAYMENT_BANK_ACCOUNT", ""),
 		"holder":  config.Get("PAYMENT_BANK_HOLDER", ""),
 	})
+}
+
+// DELETE /api/platform/transactions/{id} — remove a record from the queue.
+//
+// Deliberately does NOT undo what an approval did: deleting a row must never
+// silently delete an organisation or claw back credits. It is bookkeeping
+// removal only, and the confirm dialog says so.
+func (s *server) handleDeleteTransaction(w http.ResponseWriter, r *http.Request) {
+	a, _ := authFrom(r.Context())
+	tag, err := s.pool.Exec(r.Context(),
+		`DELETE FROM platform_transactions WHERE id=$1::uuid`, r.PathValue("id"))
+	if err != nil || tag.RowsAffected() == 0 {
+		http.Error(w, "not found", http.StatusNotFound)
+		return
+	}
+	s.audit(r.Context(), a, "deleted", "platform_transaction", r.PathValue("id"), nil)
+	writeJSON(w, map[string]any{"deleted": true})
 }
