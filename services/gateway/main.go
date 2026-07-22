@@ -268,6 +268,15 @@ func main() {
 	// Ad performance (Meta live; TikTok + Google share the same model).
 	mux.HandleFunc("GET /api/ad-accounts", s.requireAuth(s.handleListAdAccounts))
 	mux.HandleFunc("GET /api/known-ads", s.requireAuth(s.handleListKnownAds))
+
+	// Ads control + reporting for one campaign. campaignScoped so a caller can only
+	// act on campaigns they belong to; the write pair additionally requires
+	// manage_campaigns and the account's own access_mode (checked in the handler).
+	mux.HandleFunc("GET /api/campaigns/{id}/ads-metrics", s.requireAuth(s.campaignScoped(s.handleCampaignAdsMetrics)))
+	mux.HandleFunc("GET /api/campaigns/{id}/ads-alerts", s.requireAuth(s.campaignScoped(s.handleCampaignAdsAlerts)))
+	mux.HandleFunc("GET /api/campaigns/{id}/ads-status", s.requireAuth(s.campaignScoped(s.handleCampaignAdsStatus)))
+	mux.HandleFunc("POST /api/campaigns/{id}/ads/pause", s.requireAuth(s.gate("manage_campaigns", s.campaignScoped(s.handlePauseAds))))
+	mux.HandleFunc("POST /api/campaigns/{id}/ads/resume", s.requireAuth(s.gate("manage_campaigns", s.campaignScoped(s.handleResumeAds))))
 	mux.HandleFunc("POST /api/ad-accounts", s.requireAuth(s.gate("manage_channels", s.handleCreateAdAccount)))
 	mux.HandleFunc("POST /api/auth/google-ads/connect", s.requireAuth(s.gate("manage_channels", s.handleGoogleAdsConnect)))
 	mux.HandleFunc("GET /api/auth/google-ads/callback", s.handleGoogleAdsCallback)
