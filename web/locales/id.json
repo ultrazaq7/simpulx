@@ -2254,8 +2254,8 @@
   "tx.prev": "Sebelumnya",
   "tx.next": "Berikutnya",
   "tx.pageOf": "Halaman {{a}} dari {{b}}",
-  "reg.headline": "Semua lead WhatsApp kebalas, gak ada yang lolos",
-  "reg.sub": "Satu inbox bersama untuk seluruh tim sales. AI balas duluan, follow-up, lalu oper ke manusia di momen yang pas.",
+  "reg.headline": "Semua chat customer terbalas, tidak ada yang kelewat",
+  "reg.sub": "Satu inbox WhatsApp untuk seluruh tim sales. AI bantu balas duluan dan follow-up, lalu oper ke tim kamu di momen yang pas.",
   "reg.topupHeadline": "Top up kredit AI",
   "reg.topupSub": "1 kredit = 1 balasan AI ke customer. Kredit tidak hangus selama langganan aktif.",
   "reg.menuSignup": "Daftar",
@@ -2361,5 +2361,7 @@
   "land.perSeat": "seat / bulan",
   "land.seatRange1": "1-10 seat",
   "land.seatRange2": "11-50 seat",
-  "land.seatRange3": "51-100 seat"
+  "land.seatRange3": "51-100 seat",
+  "reg.perSeatYear": "seat / tahun",
+  "reg.saved": "hemat"
 }

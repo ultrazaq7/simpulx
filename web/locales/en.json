@@ -2254,8 +2254,8 @@
   "tx.prev": "Prev",
   "tx.next": "Next",
   "tx.pageOf": "Page {{a}} of {{b}}",
-  "reg.headline": "Every WhatsApp lead, answered",
-  "reg.sub": "One shared inbox for the whole sales team. AI replies first, follows up, and hands over to a human at the right moment.",
+  "reg.headline": "Every customer chat answered, none slip through",
+  "reg.sub": "One WhatsApp inbox for your whole sales team. AI replies first and follows up, then hands over to your team at the right moment.",
   "reg.topupHeadline": "Top up AI credits",
   "reg.topupSub": "1 credit = 1 AI reply to a customer. Credits never expire while your subscription is active.",
   "reg.menuSignup": "Sign up",
@@ -2361,5 +2361,7 @@
   "land.perSeat": "seat / month",
   "land.seatRange1": "1-10 seats",
   "land.seatRange2": "11-50 seats",
-  "land.seatRange3": "51-100 seats"
+  "land.seatRange3": "51-100 seats",
+  "reg.perSeatYear": "seat / year",
+  "reg.saved": "saved"
 }

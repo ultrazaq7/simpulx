@@ -61,8 +61,14 @@ const INDUSTRIES = [
 const rp = (v: number) => "Rp " + v.toLocaleString("id-ID");
 
 export default function RegisterPage() {
-  const { t } = useI18n();
-  const i18n = t; // alias: di dalam .map((t) => ...) variabel tier menutupi `t`
+  const { t, lang, setLang } = useI18n();
+  const i18n = t;
+  // Halaman publik untuk pasar Indonesia: pengunjung baru (belum pernah memilih
+  // bahasa) mendapat ID, bukan default "en" milik aplikasi. Preferensi eksplisit
+  // pengguna tetap dihormati.
+  useEffect(() => {
+    if (typeof window !== "undefined" && !localStorage.getItem("simpulx_lang") && lang !== "id") setLang("id");
+  }, [lang, setLang]); // alias: di dalam .map((t) => ...) variabel tier menutupi `t`
   const [menu, setMenu] = useState<"signup" | "topup">("signup");
   // Wizard dua layar: layar 1 pilih paket, layar 2 isi data. pkg kosong = layar 1.
   const [pkg, setPkg] = useState("");
@@ -268,9 +274,12 @@ export default function RegisterPage() {
               <p className="text-[14px] font-extrabold text-gray-900">{t.name}</p>
               <p className="text-[11.5px] text-gray-500 mb-2">{t.tagline}</p>
               <p className="text-[20px] font-extrabold text-gray-900">
-                {t.price === 0 ? i18n("reg.free") : rp(t.price)}
-                <span className="text-[11px] font-medium text-gray-400"> /{t.per}</span>
+                {t.price === 0 ? i18n("reg.free") : rp(billing === "annual" ? t.price * 10 : t.price)}
+                <span className="text-[11px] font-medium text-gray-400"> /{billing === "annual" && t.price > 0 ? i18n("reg.perSeatYear") : t.per}</span>
               </p>
+              {billing === "annual" && t.price > 0 && (
+                <p className="mt-0.5 text-[11px] font-bold text-emerald-700">{i18n("reg.annualSave")} &middot; {rp(t.price * 2)} {i18n("reg.saved")}</p>
+              )}
               <ul className="mt-3 space-y-1.5">
                 {t.features.map((f) => (
                   <li key={f} className="flex gap-1.5 text-[12px] text-gray-600">
