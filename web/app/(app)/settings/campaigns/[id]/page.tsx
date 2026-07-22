@@ -4,20 +4,20 @@ import { useI18n } from "@/lib/i18n";
 // lives on the Dashboard, so this page has no report/PDF anymore.
 import { useEffect, useMemo, useRef, useState } from "react";
 import { useParams, useRouter, useSearchParams } from "next/navigation";
-import { ArrowLeft, Loader2, Coins, Sparkles, Database, Upload, Trash2, X, Search, Download } from "lucide-react";
+import { ArrowLeft, Loader2, Coins, Sparkles, Database, Upload, Trash2, X, Search, Download, Megaphone, Pause, Play, AlertTriangle } from "lucide-react";
 import * as XLSX from "xlsx";
 import { BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip as RTooltip, ResponsiveContainer } from "recharts";
 import { api } from "@/lib/api";
 import { Select } from "@/components/Select";
-import { cn } from "@/lib/utils";
-import type { CampaignDetail, CatalogItem, Template, AIStyle } from "@/lib/types";
+import { cn, fmtDateTimeShort } from "@/lib/utils";
+import type { CampaignDetail, CatalogItem, Template, AIStyle, AdsMetricRow, AdsAlertRow } from "@/lib/types";
 import { useToast, PageBody, FieldLabel, INPUT_CLASS } from "../../_shared";
 import { Tip } from "@/components/ui/tooltip";
 import { useConfirm } from "@/components/ConfirmDialog";
 import UnsavedBar from "@/components/UnsavedBar";
 
 const SEGMENTS = ["Automotive", "Property / Real Estate", "Finance", "Insurance", "Retail / FMCG", "Education", "Healthcare", "Travel & Hospitality", "Food & Beverage", "Services", "Other"];
-type Tab = "credits" | "ai" | "catalog";
+type Tab = "credits" | "ai" | "catalog" | "ads";
 
 // AI usage features in FIXED order (= stack order + legend order + color order).
 // Palette validated with the dataviz skill: CVD-safe adjacency + >=3:1 contrast on
@@ -60,7 +60,7 @@ export default function CampaignDetailPage() {
   const searchParams = useSearchParams();
   const { notify, ToastHost } = useToast();
   // Persist the active tab in the URL so a refresh keeps you on the same page.
-  const TAB_KEYS: Tab[] = ["credits", "ai", "catalog"];
+  const TAB_KEYS: Tab[] = ["credits", "ai", "catalog", "ads"];
   const urlTab = searchParams.get("tab") as Tab | null;
   const [tab, setTabState] = useState<Tab>(urlTab && TAB_KEYS.includes(urlTab) ? urlTab : "credits");
   const setTab = (t: Tab) => {
@@ -78,6 +78,7 @@ export default function CampaignDetailPage() {
     { key: "credits", label: "Credits & Usage", Icon: Coins },
     { key: "ai", label: "AI Assistant", Icon: Sparkles },
     { key: "catalog", label: "Catalog & Pricing", Icon: Database },
+    { key: "ads", label: "Ads", Icon: Megaphone },
   ];
 
   return (
@@ -108,6 +109,7 @@ export default function CampaignDetailPage() {
               {tab === "credits" && <CreditsTab id={id} notify={notify} />}
               {tab === "ai" && <AITab campaign={campaign} onSaved={(c) => { setCampaign(c); notify(t("settings.aiSettingsSaved")); }} onError={(m) => notify(m, "error")} />}
               {tab === "catalog" && <CatalogTab id={id} segment={campaign.segment ?? undefined} cities={campaign.covered_cities ?? []} notify={notify} />}
+              {tab === "ads" && <AdsTab id={id} notify={notify} />}
             </div>
           </div>
         )}
@@ -873,3 +875,154 @@ function parseCatalogRows(grid: (string | number | null | undefined)[][]): Catal
 }
 
 function parseCatalogCsv(text: string): CatalogRowInput[] { return parseCatalogRows(csvToRows(text)); }
+
+// ── Ads ─────────────────────────────────────────────────────────────────────
+// Delivery for this campaign plus the controls that act on it. Everything here
+// is driven by ads-status rather than guessed client-side: whether an ad account
+// is connected, what the client agreed to (read vs manage), and whether anything
+// is actually linked. Offering a Pause button the API is going to refuse is worse
+// than not offering one.
+function AdsTab({ id, notify }: { id: string; notify: (m: string, s?: "success" | "error") => void }) {
+  const [status, setStatus] = useState<Awaited<ReturnType<typeof api.campaignAdsStatus>> | null>(null);
+  const [rows, setRows] = useState<AdsMetricRow[] | null>(null);
+  const [alerts, setAlerts] = useState<AdsAlertRow[]>([]);
+  const [busy, setBusy] = useState(false);
+  const { confirm, ConfirmHost } = useConfirm();
+
+  function load() {
+    api.campaignAdsStatus(id).then(setStatus).catch(() => setStatus(null));
+    api.campaignAdsMetrics(id).then((r) => setRows(r.rows)).catch(() => setRows([]));
+    api.campaignAdsAlerts(id).then(setAlerts).catch(() => setAlerts([]));
+  }
+  useEffect(load, [id]); // eslint-disable-line react-hooks/exhaustive-deps
+
+  async function control(action: "pause" | "resume") {
+    const pausing = action === "pause";
+    if (!(await confirm({
+      title: pausing ? "Pause ads?" : "Resume ads?",
+      message: pausing
+        ? "Delivery stops immediately in Meta and this campaign stops spending."
+        : "Delivery restarts in Meta and this campaign starts spending again.",
+      danger: pausing,
+      confirmLabel: pausing ? "Pause" : "Resume",
+    }))) return;
+    setBusy(true);
+    try {
+      const r = pausing ? await api.pauseCampaignAds(id) : await api.resumeCampaignAds(id);
+      // Report the partial case honestly: with several linked ad campaigns some
+      // can fail while others succeed, and "done" would be a lie.
+      notify(r.failed?.length
+        ? `${r.applied}/${r.total} applied — ${r.failed.join("; ")}`
+        : `Ads ${r.status}`, r.failed?.length ? "error" : "success");
+      load();
+    } catch (e) { notify(String(e), "error"); }
+    finally { setBusy(false); }
+  }
+
+  if (!status) return <div className="h-40 grid place-items-center"><Loader2 className="w-5 h-5 animate-spin text-muted-foreground" /></div>;
+
+  if (!status.managed) {
+    return (
+      <div className="rounded-lg border border-dashed border-border p-8 text-center">
+        <Megaphone className="w-9 h-9 text-muted-foreground/30 mx-auto mb-3" />
+        <p className="font-semibold text-foreground mb-1">No ad account for this campaign</p>
+        <p className="text-[13px] text-muted-foreground">
+          Connect one in Settings &rarr; Channel &amp; Integrations &rarr; Advertising, then map its campaign here.
+        </p>
+      </div>
+    );
+  }
+
+  const tot = (rows || []).reduce((a, r) => ({
+    spend: a.spend + r.spend, leads: a.leads + r.leads,
+    clicks: a.clicks + r.clicks, impressions: a.impressions + r.impressions,
+  }), { spend: 0, leads: 0, clicks: 0, impressions: 0 });
+  const cpl = tot.leads > 0 ? tot.spend / tot.leads : 0;
+  const ctr = tot.impressions > 0 ? (tot.clicks / tot.impressions) * 100 : 0;
+  const money = (v: number) => "Rp " + Math.round(v).toLocaleString("id-ID");
+
+  return (
+    <div className="flex flex-col gap-4">
+      {ConfirmHost}
+
+      <div className="flex items-center gap-3 flex-wrap">
+        <span className="text-[13px] text-muted-foreground">
+          {status.account_name} &middot; {status.linked_ad_count} linked ad campaign{status.linked_ad_count === 1 ? "" : "s"}
+        </span>
+        <div className="flex-1" />
+        {status.can_control ? (
+          <div className="flex items-center gap-2">
+            <button disabled={busy} onClick={() => control("pause")}
+              className="inline-flex items-center gap-1.5 px-3 h-9 rounded-md border border-border text-[13px] font-semibold hover:bg-muted outline-none disabled:opacity-50">
+              <Pause className="w-3.5 h-3.5" />Pause ads
+            </button>
+            <button disabled={busy} onClick={() => control("resume")}
+              className="inline-flex items-center gap-1.5 px-3 h-9 rounded-md bg-primary text-white text-[13px] font-semibold hover:bg-primary-dark outline-none disabled:opacity-50">
+              <Play className="w-3.5 h-3.5" />Resume
+            </button>
+          </div>
+        ) : (
+          // Say WHY rather than hiding the controls with no explanation.
+          <span className="inline-flex items-center gap-1.5 text-[12.5px] text-muted-foreground">
+            <AlertTriangle className="w-3.5 h-3.5" />
+            {status.access_mode !== "manage"
+              ? "This ad account is connected for reporting only"
+              : "No Meta campaign linked yet"}
+          </span>
+        )}
+      </div>
+
+      <div className="grid grid-cols-2 lg:grid-cols-4 gap-3">
+        {[
+          { label: "Spend (30d)", value: money(tot.spend) },
+          { label: "Leads", value: String(tot.leads) },
+          { label: "Cost per lead", value: tot.leads ? money(cpl) : "-" },
+          { label: "CTR", value: ctr ? ctr.toFixed(2) + "%" : "-" },
+        ].map((c) => (
+          <div key={c.label} className="rounded-lg border border-border p-3">
+            <p className="text-[11.5px] text-muted-foreground mb-0.5">{c.label}</p>
+            <p className="text-[18px] font-bold tabular-nums text-foreground">{c.value}</p>
+          </div>
+        ))}
+      </div>
+
+      {rows && rows.length > 0 && (
+        <div className="rounded-lg border border-border p-3">
+          <p className="text-[12.5px] font-semibold text-foreground mb-2">Daily spend</p>
+          <ResponsiveContainer width="100%" height={180}>
+            <BarChart data={rows} margin={{ top: 4, right: 8, left: -18, bottom: 0 }}>
+              <CartesianGrid strokeDasharray="3 3" vertical={false} stroke="#eee" />
+              <XAxis dataKey="date" tick={{ fontSize: 10 }} tickFormatter={(d: string) => d.slice(5)} />
+              <YAxis tick={{ fontSize: 10 }} />
+              <RTooltip formatter={(v) => money(Number(v))} />
+              <Bar dataKey="spend" fill="#0E5B54" radius={[3, 3, 0, 0]} />
+            </BarChart>
+          </ResponsiveContainer>
+        </div>
+      )}
+
+      <div className="rounded-lg border border-border">
+        <p className="text-[12.5px] font-semibold text-foreground px-3 py-2 border-b border-border">Alert history</p>
+        {alerts.length === 0 ? (
+          <p className="text-[13px] text-muted-foreground text-center py-6">
+            No alerts yet. The monitor sweeps every few hours and records anything it finds here.
+          </p>
+        ) : (
+          <div className="divide-y divide-border/60 max-h-[320px] overflow-auto">
+            {alerts.map((al) => (
+              <div key={al.id} className="flex items-start gap-2.5 px-3 py-2.5">
+                <span className="text-[15px] leading-none mt-0.5">
+                  {al.action_taken === "flagged" || al.action_taken === "none" ? "\u{1F7E1}" : "\u{1F534}"}
+                </span>
+                <div className="min-w-0 flex-1">
+                  <p className="text-[13px] text-foreground">{al.detail || al.alert_type}</p>
+                  <p className="text-[11.5px] text-muted-foreground">{fmtDateTimeShort(al.created_at)}</p>
+                </div>
+              </div>
+            ))}
+          </div>
+        )}
+      </div>
+    </div>
+  );
+}

@@ -548,6 +548,27 @@ export const api = {
     usdIdr: string;
   }>("/api/platform/ml-monitor"),
   listOrgs: () => req<OrgRow[]>("/api/platform/orgs"),
+  campaignAdsStatus: (id: string) =>
+    req<{
+      managed: boolean; account_name: string; access_mode: string;
+      can_control: boolean; ads_status: string; linked_ad_count: number;
+    }>(`/api/campaigns/${id}/ads-status`),
+  campaignAdsMetrics: (id: string, from?: string, to?: string) => {
+    const qs = new URLSearchParams();
+    if (from) qs.set("from", from);
+    if (to) qs.set("to", to);
+    return req<{ rows: import("./types").AdsMetricRow[]; from: string; to: string }>(
+      `/api/campaigns/${id}/ads-metrics${qs.toString() ? "?" + qs : ""}`);
+  },
+  campaignAdsAlerts: (id: string) =>
+    req<import("./types").AdsAlertRow[]>(`/api/campaigns/${id}/ads-alerts`),
+  pauseCampaignAds: (id: string) =>
+    req<{ status: string; applied: number; total: number; failed: string[] }>(
+      `/api/campaigns/${id}/ads/pause`, { method: "POST" }),
+  resumeCampaignAds: (id: string) =>
+    req<{ status: string; applied: number; total: number; failed: string[] }>(
+      `/api/campaigns/${id}/ads/resume`, { method: "POST" }),
+
   impersonateOrg: (id: string) =>
     req<{
       token: string; expires_in: number;

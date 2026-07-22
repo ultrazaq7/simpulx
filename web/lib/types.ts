@@ -841,3 +841,32 @@ export interface Listing {
   created_at: string;
   updated_at: string;
 }
+
+// One day of ad delivery for a campaign. CTR/CPC/CPL are computed server-side
+// from the same counts they appear beside, so they cannot disagree with them.
+export interface AdsMetricRow {
+  date: string;
+  impressions: number;
+  reach: number;
+  clicks: number;
+  leads: number;
+  spend: number;
+  frequency: number;
+  ctr: number;
+  cpc: number;
+  cpl: number;
+}
+
+export interface AdsAlertRow {
+  id: string;
+  alert_type: string;          // fatigue | low_ctr | high_cpl | overspend | manual_control
+  ad_external_id?: string | null;
+  metric_value?: number | null;
+  threshold_value?: number | null;
+  action_taken: string;        // none | flagged | paused_ad | paused_campaign | resumed_campaign
+  detail?: string | null;
+  notified_at?: string | null;
+  created_at: string;
+  ad_title?: string | null;
+  ad_image?: string | null;
+}
