@@ -11,6 +11,7 @@ import (
 	"strings"
 	"time"
 
+	"github.com/google/uuid"
 	"github.com/simpulx/v2/libs/go/config"
 )
 
@@ -499,4 +500,102 @@ func (s *server) handleCampaignAdsPreview(w http.ResponseWriter, r *http.Request
 		// nobody discovers spend starting from a button labelled "Launch".
 		"creates_paused": true,
 	})
+}
+
+// ── Creatives ───────────────────────────────────────────────────────────────
+//
+// Client-supplied product photos/videos. Stored in our own MinIO/S3 first (the
+// source of truth we control), then pushed to Meta on launch. We never generate
+// creative: the client sends real photos and Advantage+ makes the variations.
+
+// POST /api/campaigns/{id}/creatives — multipart upload of one asset.
+func (s *server) handleUploadCreative(w http.ResponseWriter, r *http.Request) {
+	a, _ := authFrom(r.Context())
+	campaignID := r.PathValue("id")
+	if s.storage == nil {
+		http.Error(w, "storage not configured", http.StatusServiceUnavailable)
+		return
+	}
+	const maxUpload = 110 << 20
+	r.Body = http.MaxBytesReader(w, r.Body, maxUpload)
+	if err := r.ParseMultipartForm(25 << 20); err != nil {
+		http.Error(w, "upload too large or malformed", http.StatusBadRequest)
+		return
+	}
+	file, hdr, err := r.FormFile("file")
+	if err != nil {
+		http.Error(w, "file required", http.StatusBadRequest)
+		return
+	}
+	defer file.Close()
+	ct := hdr.Header.Get("Content-Type")
+	mediaType := mediaCategory(ct)
+	// Meta ads take images and videos only; a PDF or audio file here is a mistake
+	// worth catching now rather than at create time.
+	if mediaType != "image" && mediaType != "video" {
+		http.Error(w, "only image or video files can be used as ad creative", http.StatusBadRequest)
+		return
+	}
+
+	key := "creatives/" + campaignID + "/" + uuid.NewString() + "-" + strings.ReplaceAll(hdr.Filename, " ", "-")
+	urlStr, err := s.storage.put(r.Context(), key, ct, file, hdr.Size)
+	if err != nil {
+		http.Error(w, err.Error(), http.StatusInternalServerError)
+		return
+	}
+	var id string
+	if err := s.pool.QueryRow(r.Context(),
+		`INSERT INTO campaign_creatives (organization_id, campaign_id, file_url, media_type, file_name, file_size, uploaded_by)
+		 VALUES ($1::uuid,$2::uuid,$3,$4,$5,$6,$7::uuid) RETURNING id::text`,
+		a.OrgID, campaignID, urlStr, mediaType, hdr.Filename, hdr.Size, a.UserID).Scan(&id); err != nil {
+		http.Error(w, err.Error(), http.StatusInternalServerError)
+		return
+	}
+	writeJSON(w, map[string]any{"id": id, "file_url": urlStr, "media_type": mediaType, "file_name": hdr.Filename})
+}
+
+// GET /api/campaigns/{id}/creatives — gallery, with per-creative performance
+// joined from ad_ad_metrics once the creative has a Meta ad id (0109).
+func (s *server) handleListCreatives(w http.ResponseWriter, r *http.Request) {
+	a, _ := authFrom(r.Context())
+	rows, err := s.queryMaps(r.Context(),
+		`SELECT cc.id::text AS id, cc.file_url, cc.media_type, cc.file_name, cc.status,
+		        cc.meta_ad_id, cc.created_at,
+		        COALESCE(m.spend,0)::float8 AS spend,
+		        COALESCE(m.impressions,0)::bigint AS impressions,
+		        COALESCE(m.clicks,0)::bigint AS clicks,
+		        CASE WHEN COALESCE(m.impressions,0) > 0
+		             THEN (m.clicks::numeric / m.impressions)::float8 ELSE 0 END AS ctr
+		   FROM campaign_creatives cc
+		   LEFT JOIN LATERAL (
+		     SELECT sum(spend) AS spend, sum(impressions) AS impressions, sum(clicks) AS clicks
+		       FROM ad_ad_metrics aam
+		      WHERE aam.organization_id = cc.organization_id
+		        AND aam.ad_external_id = cc.meta_ad_id
+		   ) m ON true
+		  WHERE cc.campaign_id=$1::uuid AND cc.organization_id=$2
+		  ORDER BY cc.created_at`,
+		r.PathValue("id"), a.OrgID)
+	if err != nil {
+		http.Error(w, err.Error(), http.StatusInternalServerError)
+		return
+	}
+	writeJSON(w, rows)
+}
+
+// DELETE /api/campaigns/{id}/creatives/{creativeId}
+func (s *server) handleDeleteCreative(w http.ResponseWriter, r *http.Request) {
+	a, _ := authFrom(r.Context())
+	tag, err := s.pool.Exec(r.Context(),
+		`DELETE FROM campaign_creatives WHERE id=$1::uuid AND campaign_id=$2::uuid AND organization_id=$3`,
+		r.PathValue("creativeId"), r.PathValue("id"), a.OrgID)
+	if err != nil {
+		http.Error(w, err.Error(), http.StatusInternalServerError)
+		return
+	}
+	if tag.RowsAffected() == 0 {
+		http.Error(w, "not found", http.StatusNotFound)
+		return
+	}
+	writeJSON(w, map[string]any{"deleted": true})
 }
