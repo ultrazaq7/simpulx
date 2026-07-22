@@ -39,12 +39,28 @@ type adsTarget struct {
 func (s *server) resolveAdsTarget(ctx context.Context, orgID, campaignID string) (adsTarget, string, int) {
 	var t adsTarget
 	var encToken string
+	// The account is resolved through EITHER link, in priority order: the explicit
+	// managed_ad_account_id when set, else the account of whatever Meta campaign is
+	// MAPPED to this campaign. Requiring the explicit column alone made the Ads tab
+	// claim "no ad account" for a campaign whose Meta campaign was plainly mapped —
+	// the mapping already names an account, and asking the user to say it twice is
+	// how the two answers drift apart.
 	err := s.pool.QueryRow(ctx,
 		`SELECT c.id::text, c.name, c.organization_id::text,
 		        aa.external_account_id, COALESCE(aa.access_token,''), aa.access_mode,
 		        COALESCE(c.meta_campaign_id,'')
 		   FROM campaigns c
-		   JOIN ad_accounts aa ON aa.id = c.managed_ad_account_id
+		   JOIN LATERAL (
+		     SELECT a1.external_account_id, a1.access_token, a1.access_mode, 0 AS prio
+		       FROM ad_accounts a1 WHERE a1.id = c.managed_ad_account_id
+		     UNION ALL
+		     SELECT a2.external_account_id, a2.access_token, a2.access_mode, 1
+		       FROM ad_campaign_campaigns m
+		       JOIN ad_campaigns ac ON ac.id = m.ad_campaign_id
+		       JOIN ad_accounts a2 ON a2.id = ac.ad_account_id
+		      WHERE m.campaign_id = c.id
+		      ORDER BY prio LIMIT 1
+		   ) aa ON true
 		  WHERE c.id = $1::uuid AND c.organization_id = $2`,
 		campaignID, orgID).Scan(&t.campaignID, &t.campaignName, &t.orgID,
 		&t.extAccountID, &encToken, &t.accessMode, &t.metaCampaign)
@@ -251,11 +267,23 @@ func (s *server) handleCampaignAdsStatus(w http.ResponseWriter, r *http.Request)
 	a, _ := authFrom(r.Context())
 	var accountName, accessMode, adsStatus, metaCampaign string
 	var accountID *string
+	// Same two-path resolution as resolveAdsTarget: explicit managed account first,
+	// else the account of the mapped Meta campaign(s).
 	err := s.pool.QueryRow(r.Context(),
-		`SELECT aa.id::text, COALESCE(aa.name,''), COALESCE(aa.access_mode,''),
+		`SELECT aa.id, COALESCE(aa.name,''), COALESCE(aa.access_mode,''),
 		        COALESCE(c.ads_status,''), COALESCE(c.meta_campaign_id,'')
 		   FROM campaigns c
-		   LEFT JOIN ad_accounts aa ON aa.id = c.managed_ad_account_id
+		   LEFT JOIN LATERAL (
+		     SELECT a1.id::text AS id, a1.name, a1.access_mode, 0 AS prio
+		       FROM ad_accounts a1 WHERE a1.id = c.managed_ad_account_id
+		     UNION ALL
+		     SELECT a2.id::text, a2.name, a2.access_mode, 1
+		       FROM ad_campaign_campaigns m
+		       JOIN ad_campaigns ac ON ac.id = m.ad_campaign_id
+		       JOIN ad_accounts a2 ON a2.id = ac.ad_account_id
+		      WHERE m.campaign_id = c.id
+		      ORDER BY prio LIMIT 1
+		   ) aa ON true
 		  WHERE c.id = $1::uuid AND c.organization_id = $2`,
 		r.PathValue("id"), a.OrgID).Scan(&accountID, &accountName, &accessMode, &adsStatus, &metaCampaign)
 	if err != nil {

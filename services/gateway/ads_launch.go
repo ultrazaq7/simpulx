@@ -429,7 +429,17 @@ func (s *server) handleCampaignAdsPreview(w http.ResponseWriter, r *http.Request
 		        c.target_gender, c.advantage_audience_enabled,
 		        COALESCE(aa.name,''), aa.access_mode
 		   FROM campaigns c
-		   LEFT JOIN ad_accounts aa ON aa.id = c.managed_ad_account_id
+		   LEFT JOIN LATERAL (
+		     SELECT a1.name, a1.access_mode, 0 AS prio
+		       FROM ad_accounts a1 WHERE a1.id = c.managed_ad_account_id
+		     UNION ALL
+		     SELECT a2.name, a2.access_mode, 1
+		       FROM ad_campaign_campaigns m
+		       JOIN ad_campaigns ac2 ON ac2.id = m.ad_campaign_id
+		       JOIN ad_accounts a2 ON a2.id = ac2.ad_account_id
+		      WHERE m.campaign_id = c.id
+		      ORDER BY prio LIMIT 1
+		   ) aa ON true
 		  WHERE c.id=$1::uuid AND c.organization_id=$2`,
 		campaignID, a.OrgID).Scan(&name, &adsStatus, &monthlyBudget, &targetCPL,
 		&cities, &ageMin, &ageMax, &gender, &advantage, &accountName, &accessMode)
