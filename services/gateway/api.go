@@ -2498,7 +2498,9 @@ func (s *server) handleSetConversationCampaign(w http.ResponseWriter, r *http.Re
 		   campaign_id = NULLIF($3,'')::uuid,
 		   branch_id = NULL,
 		   assigned_agent_id = CASE
-		     WHEN $3 = '' THEN c.assigned_agent_id
+		     -- Detach = lepas semuanya: campaign hilang, agent (yang dulu dipilih
+		     -- karena campaign itu) ikut dilepas. Permintaan eksplisit.
+		     WHEN $3 = '' THEN NULL
 		     WHEN c.assigned_agent_id IS NOT NULL AND EXISTS (
 		            SELECT 1 FROM campaign_agents ca
 		             WHERE ca.campaign_id=$3::uuid AND ca.user_id=c.assigned_agent_id AND ca.in_rotation)

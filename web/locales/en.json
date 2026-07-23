@@ -2322,5 +2322,9 @@
   "settings.remaining": "Remaining",
   "settings.creditsUsed": "Credits used",
   "settings.expires": "Expires",
-  "settings.listingViews": "Views"
+  "settings.listingViews": "Views",
+  "inbox.searchCampaign": "Search campaign",
+  "inbox.noCampaign": "No campaign",
+  "inbox.noCampaigns": "No campaigns",
+  "inbox.removeFromCampaign": "Remove from campaign"
 }

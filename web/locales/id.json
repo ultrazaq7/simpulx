@@ -2322,5 +2322,9 @@
   "settings.remaining": "Sisa",
   "settings.creditsUsed": "Kredit terpakai",
   "settings.expires": "Berakhir",
-  "settings.listingViews": "Views"
+  "settings.listingViews": "Views",
+  "inbox.searchCampaign": "Cari campaign",
+  "inbox.noCampaign": "Tanpa campaign",
+  "inbox.noCampaigns": "Tidak ada campaign",
+  "inbox.removeFromCampaign": "Lepas dari campaign"
 }
