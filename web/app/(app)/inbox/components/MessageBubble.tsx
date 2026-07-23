@@ -417,6 +417,10 @@ const MessageBubble = memo(function MessageBubble({ m, active, grouped, onPrevie
   const msgLink = conversationId && typeof window !== "undefined" ? `${window.location.origin}/inbox?c=${conversationId}` : undefined;
   const out = m.direction === "outbound";
   const bot = m.sender_type === "bot";
+  // Bubble Simpuler kini TERANG (tint gunmetal, teks gelap) sedangkan agent
+  // tetap petrol gelap. Semua keputusan warna "di atas background gelap" pakai
+  // darkBub; `out` tetap untuk alignment, menu, dan gating status ticks.
+  const darkBub = out && m.sender_type !== "bot";
   // Broadcasts are stored as sender_type 'system' (outbound). Show them as a sent
   // message on the right, marked as a Broadcast · not a centered system pill.
   const broadcast = m.sender_type === "system";
@@ -430,7 +434,7 @@ const MessageBubble = memo(function MessageBubble({ m, active, grouped, onPrevie
   const isDoc = url && !isImage && !isVideo && !isAudio && !isSticker;
 
   const fname = url ? filenameFromUrl(url) : "";
-  const ds = isDoc ? docStyle(ext, out) : null;
+  const ds = isDoc ? docStyle(ext, darkBub) : null;
 
   // Rich WhatsApp-style content from the message metadata.
   const meta = m.metadata;
@@ -500,7 +504,7 @@ const MessageBubble = memo(function MessageBubble({ m, active, grouped, onPrevie
             // Signature colour rule: an AI (Simpuler) reply is indigo, a human
             // agent reply is petrol · so a reviewer sees at a glance who sent what.
             isSticker ? "" : (out
-              ? (bot ? "bg-ai text-ai-foreground selection:bg-white/30 selection:text-white rounded-br-[4px]" : "bg-primary text-primary-foreground selection:bg-white/30 selection:text-white rounded-br-[4px]")
+              ? (bot ? "bg-ai-bg text-foreground border border-ai/20 rounded-br-[4px]" : "bg-primary text-primary-foreground selection:bg-white/30 selection:text-white rounded-br-[4px]")
               : "bg-card text-foreground border border-border rounded-bl-[4px]"),
             // No padding when media-only (image/video fill the bubble)
             (isImage || isVideo) && !m.body && !isSticker ? "" : "",
@@ -514,7 +518,7 @@ const MessageBubble = memo(function MessageBubble({ m, active, grouped, onPrevie
               rel="noopener noreferrer"
               className={cn(
                 "block m-1 rounded-lg overflow-hidden border no-underline",
-                out ? "border-white/25 bg-white/10" : "border-border bg-muted/40 hover:bg-muted/70",
+                darkBub ? "border-white/25 bg-white/10" : "border-border bg-muted/40 hover:bg-muted/70",
               )}
             >
               {referral!.image_url && (
@@ -522,12 +526,12 @@ const MessageBubble = memo(function MessageBubble({ m, active, grouped, onPrevie
               )}
               <div className="px-2.5 py-2">
                 {referral!.headline && (
-                  <p className={cn("text-[13px] font-bold leading-tight line-clamp-2", out ? "text-white" : "text-foreground")}>{referral!.headline}</p>
+                  <p className={cn("text-[13px] font-bold leading-tight line-clamp-2", darkBub ? "text-white" : "text-foreground")}>{referral!.headline}</p>
                 )}
                 {referral!.body && (
-                  <p className={cn("text-[12px] leading-snug line-clamp-2 mt-0.5", out ? "text-white/80" : "text-muted-foreground")}>{referral!.body}</p>
+                  <p className={cn("text-[12px] leading-snug line-clamp-2 mt-0.5", darkBub ? "text-white/80" : "text-muted-foreground")}>{referral!.body}</p>
                 )}
-                <span className={cn("mt-1 inline-flex items-center gap-1 text-[11px] font-semibold", out ? "text-white/90" : "text-primary")}>
+                <span className={cn("mt-1 inline-flex items-center gap-1 text-[11px] font-semibold", darkBub ? "text-white/90" : "text-primary")}>
                   <ExternalLink className="w-3 h-3" /> {t("inbox.viewAd")}
                 </span>
               </div>
@@ -538,13 +542,13 @@ const MessageBubble = memo(function MessageBubble({ m, active, grouped, onPrevie
           {contacts && contacts.length > 0 && (
             <div className="m-1 flex flex-col gap-1 min-w-[220px]">
               {contacts.map((c, i) => (
-                <div key={i} className={cn("flex items-center gap-2.5 px-2.5 py-2 rounded-lg", out ? "bg-white/10" : "bg-muted/50")}>
-                  <div className={cn("w-9 h-9 rounded-full grid place-items-center text-[13px] font-bold shrink-0", out ? "bg-white/20 text-white" : "bg-primary/15 text-primary")}>
+                <div key={i} className={cn("flex items-center gap-2.5 px-2.5 py-2 rounded-lg", darkBub ? "bg-white/10" : "bg-muted/50")}>
+                  <div className={cn("w-9 h-9 rounded-full grid place-items-center text-[13px] font-bold shrink-0", darkBub ? "bg-white/20 text-white" : "bg-primary/15 text-primary")}>
                     {initials(c.name || "?")}
                   </div>
                   <div className="min-w-0">
-                    <p className={cn("text-[13px] font-semibold truncate", out ? "text-white" : "text-foreground")}>{c.name || t("broadcasts.contact")}</p>
-                    <p className={cn("text-[11px] truncate inline-flex items-center gap-1", out ? "text-white/70" : "text-muted-foreground")}>
+                    <p className={cn("text-[13px] font-semibold truncate", darkBub ? "text-white" : "text-foreground")}>{c.name || t("broadcasts.contact")}</p>
+                    <p className={cn("text-[11px] truncate inline-flex items-center gap-1", darkBub ? "text-white/70" : "text-muted-foreground")}>
                       <Phone className="w-3 h-3" />{c.phone || c.org || t("inbox.contactCard")}
                     </p>
                   </div>
@@ -559,7 +563,7 @@ const MessageBubble = memo(function MessageBubble({ m, active, grouped, onPrevie
               href={mapsUrl}
               target="_blank"
               rel="noopener noreferrer"
-              className={cn("block m-1 rounded-lg overflow-hidden no-underline w-[260px] border", out ? "border-white/25 bg-white/10 hover:bg-white/15" : "border-border bg-muted/40 hover:bg-muted/70")}
+              className={cn("block m-1 rounded-lg overflow-hidden no-underline w-[260px] border", darkBub ? "border-white/25 bg-white/10 hover:bg-white/15" : "border-border bg-muted/40 hover:bg-muted/70")}
             >
               <div className="relative h-28 bg-muted">
                 <img
@@ -572,8 +576,8 @@ const MessageBubble = memo(function MessageBubble({ m, active, grouped, onPrevie
                 <span className="absolute bottom-0.5 right-1 text-[8px] text-black/50 bg-white/60 px-0.5 rounded-sm">{t("inbox.openstreetmap")}</span>
               </div>
               <div className="px-2.5 py-2">
-                <p className={cn("text-[13px] font-semibold truncate", out ? "text-white" : "text-foreground")}>{location.name || t("components.location")}</p>
-                <p className={cn("text-[11px] truncate", out ? "text-white/70" : "text-muted-foreground")}>{location.address || `${location.latitude.toFixed(5)}, ${location.longitude.toFixed(5)}`}</p>
+                <p className={cn("text-[13px] font-semibold truncate", darkBub ? "text-white" : "text-foreground")}>{location.name || t("components.location")}</p>
+                <p className={cn("text-[11px] truncate", darkBub ? "text-white/70" : "text-muted-foreground")}>{location.address || `${location.latitude.toFixed(5)}, ${location.longitude.toFixed(5)}`}</p>
               </div>
             </a>
           )}
@@ -645,41 +649,41 @@ const MessageBubble = memo(function MessageBubble({ m, active, grouped, onPrevie
 
           {/* ── Audio ── */}
           {url && isAudio && (
-            <CustomAudioPlayer url={url} out={out} />
+            <CustomAudioPlayer url={url} out={darkBub} />
           )}
 
           {/* ── Document card (WhatsApp style) ── */}
           {isDoc && ds && (
             <div
-              className={cn("flex items-center gap-3 mx-1 my-1 px-3 py-2.5 rounded-lg cursor-pointer transition-colors", ds.bg, out ? "hover:bg-white/20" : "hover:bg-black/[0.06]")}
+              className={cn("flex items-center gap-3 mx-1 my-1 px-3 py-2.5 rounded-lg cursor-pointer transition-colors", ds.bg, darkBub ? "hover:bg-white/20" : "hover:bg-black/[0.06]")}
               onClick={() => onPreviewMedia(m.id)}
             >
               {/* File type icon */}
               {ds.icon}
               {/* File info */}
               <div className="flex-1 min-w-0">
-                <p className={cn("text-[13px] font-semibold truncate", out ? "text-white" : "text-slate-900")}>
+                <p className={cn("text-[13px] font-semibold truncate", darkBub ? "text-white" : "text-slate-900")}>
                   {fname}
                 </p>
-                <p className={cn("text-[11px]", out ? "text-white/60" : "text-muted-foreground")}>
+                <p className={cn("text-[11px]", darkBub ? "text-white/60" : "text-muted-foreground")}>
                   {ds.label}
                 </p>
               </div>
               {/* Download indicator */}
-              <Download className={cn("w-4 h-4 shrink-0", out ? "text-white/50" : "text-slate-400")} />
+              <Download className={cn("w-4 h-4 shrink-0", darkBub ? "text-white/50" : "text-slate-400")} />
             </div>
           )}
 
           {/* ── OG link preview above the text (WhatsApp style) ── */}
-          {firstUrl && <LinkPreviewCard url={firstUrl} out={out} />}
+          {firstUrl && <LinkPreviewCard url={firstUrl} out={darkBub} />}
 
           {/* ── Media still downloading server-side ── */}
           {mediaPending && (
             <div className="px-2.5 py-2 flex items-center gap-2">
               {m.type === "sticker"
-                ? <StickerIcon className={cn("w-5 h-5", out ? "text-white/70" : "text-muted-foreground")} />
-                : <Loader2 className={cn("w-4 h-4 animate-spin", out ? "text-white/60" : "text-muted-foreground")} />}
-              <span className={cn("text-[13px]", out ? "text-white/70" : "text-muted-foreground")}>
+                ? <StickerIcon className={cn("w-5 h-5", darkBub ? "text-white/70" : "text-muted-foreground")} />
+                : <Loader2 className={cn("w-4 h-4 animate-spin", darkBub ? "text-white/60" : "text-muted-foreground")} />}
+              <span className={cn("text-[13px]", darkBub ? "text-white/70" : "text-muted-foreground")}>
                 {m.type === "sticker" ? t("components.sticker") : m.type === "video" ? t("components.video") : m.type === "audio" ? t("components.voiceMessage") : m.type === "image" ? t("components.photo") : t("components.document")}
               </span>
             </div>
@@ -688,7 +692,7 @@ const MessageBubble = memo(function MessageBubble({ m, active, grouped, onPrevie
           {/* ── Fallback: never render an empty bubble ── */}
           {isBlank && (
             <div className="px-2.5 py-1.5">
-              <span className={cn("text-[13px] italic", out ? "text-white/70" : "text-muted-foreground")}>
+              <span className={cn("text-[13px] italic", darkBub ? "text-white/70" : "text-muted-foreground")}>
                 {m.type === "unsupported" ? t("inbox.thisMessageCanTBe") : m.type === "order" ? t("inbox.order") : t("inbox.unsupportedMessage")}
               </span>
             </div>
@@ -697,9 +701,9 @@ const MessageBubble = memo(function MessageBubble({ m, active, grouped, onPrevie
           {/* ── Text body ── */}
           {m.body && (
             <div className="px-2.5 py-1.5 pb-2">
-              <span className="whitespace-pre-wrap break-words text-[13px] leading-[1.4] text-inherit align-top"><LinkifiedText text={m.body} out={out} /></span>
+              <span className="whitespace-pre-wrap break-words text-[13px] leading-[1.4] text-inherit align-top"><LinkifiedText text={m.body} out={darkBub} /></span>
               <span className="inline-flex items-center gap-1 ml-5 float-right translate-y-[5px]">
-                <span className={cn("text-[10px]", out ? "text-white/70" : "text-muted-foreground")}>{fmtTime(m.created_at)}</span>
+                <span className={cn("text-[10px]", darkBub ? "text-white/70" : "text-muted-foreground")}>{fmtTime(m.created_at)}</span>
                 {out && <StatusIcon status={m.status} />}
               </span>
               {/* Clearfix for the float */}
@@ -710,7 +714,7 @@ const MessageBubble = memo(function MessageBubble({ m, active, grouped, onPrevie
           {/* ── Time/status when there is media but NO body ── */}
           {(!m.body && (isAudio || isDoc)) && (
             <div className={cn("flex items-center justify-end gap-1 pb-1.5 pr-2 pt-0 mt-[-4px]")}>
-              <span className={cn("text-[10px]", out ? "text-white/70" : "text-muted-foreground")}>{fmtTime(m.created_at)}</span>
+              <span className={cn("text-[10px]", darkBub ? "text-white/70" : "text-muted-foreground")}>{fmtTime(m.created_at)}</span>
               {out && <StatusIcon status={m.status} />}
             </div>
           )}
