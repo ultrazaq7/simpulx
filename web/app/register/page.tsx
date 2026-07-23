@@ -62,6 +62,65 @@ const INDUSTRIES = [
 
 const rp = (v: number) => "Rp " + v.toLocaleString("id-ID");
 
+// Preview produk yang hidup, bukan gambar: chat masuk, Simpuler mengetik,
+// balasan AI, skor lead terisi, lalu serah terima. Loop pelan, hormat
+// prefers-reduced-motion (langsung tampil keadaan akhir).
+function LiveDemo() {
+  const [step, setStep] = useState(0);
+  useEffect(() => {
+    if (typeof window !== "undefined" && window.matchMedia("(prefers-reduced-motion: reduce)").matches) {
+      setStep(5); return;
+    }
+    let alive = true;
+    const seq = [400, 1200, 2600, 4200, 5400];
+    let timers: ReturnType<typeof setTimeout>[] = [];
+    const run = () => {
+      if (!alive) return;
+      setStep(0);
+      seq.forEach((ms, i) => timers.push(setTimeout(() => alive && setStep(i + 1), ms)));
+    };
+    run();
+    const loop = setInterval(run, 9000);
+    return () => { alive = false; clearInterval(loop); timers.forEach(clearTimeout); };
+  }, []);
+  const show = (n: number) => step >= n;
+  return (
+    <div className="max-w-xl mx-auto mb-8 rounded-2xl border border-gray-200 bg-white shadow-sm overflow-hidden text-left">
+      <div className="flex items-center gap-1.5 px-3.5 py-2.5 border-b border-gray-100 bg-gray-50">
+        <span className="w-2.5 h-2.5 rounded-full bg-red-400" /><span className="w-2.5 h-2.5 rounded-full bg-amber-400" /><span className="w-2.5 h-2.5 rounded-full bg-green-400" />
+        <span className="ml-2 text-[11px] text-gray-400 bg-gray-100 rounded-full px-3 py-0.5">app.simpulx.com/inbox</span>
+      </div>
+      <div className="p-4 space-y-2.5 min-h-[240px]">
+        <div className={`max-w-[80%] rounded-xl rounded-tl-sm bg-gray-100 px-3 py-2 text-[12.5px] text-gray-800 transition-all duration-500 ${show(1) ? "opacity-100 translate-y-0" : "opacity-0 translate-y-2"}`}>
+          Halo, saya lihat iklannya. Unit yang DP 20 juta masih ada?
+        </div>
+        {show(2) && !show(3) && (
+          <div className="flex items-center gap-1.5 justify-end text-[11px] text-gray-400">
+            Simpuler sedang mengetik
+            <span className="flex gap-0.5">{[0, 1, 2].map((i) => (
+              <span key={i} className="w-1 h-1 rounded-full bg-emerald-500 animate-pulse" style={{ animationDelay: `${i * 150}ms` }} />))}
+            </span>
+          </div>
+        )}
+        <div className={`ml-auto max-w-[80%] rounded-xl rounded-tr-sm bg-emerald-700 px-3 py-2 text-[12.5px] text-white transition-all duration-500 ${show(3) ? "opacity-100 translate-y-0" : "opacity-0 translate-y-2"}`}>
+          <span className="inline-block text-[9px] font-bold bg-white/20 rounded px-1.5 mb-1">AI</span><br />
+          Masih ada, Kak. DP mulai 20 juta, cicilan mulai Rp7,5 jt per bulan. Rencananya untuk keluarga atau usaha?
+        </div>
+        <div className={`flex items-center gap-2.5 pt-1 transition-opacity duration-500 ${show(4) ? "opacity-100" : "opacity-0"}`}>
+          <span className="text-[10.5px] text-gray-400">Lead score</span>
+          <span className="flex-1 h-2 rounded-full bg-gray-100 overflow-hidden">
+            <span className="block h-full rounded-full bg-gradient-to-r from-emerald-500 to-amber-400 transition-all duration-1000" style={{ width: show(4) ? "82%" : "0%" }} />
+          </span>
+          <b className="text-[13px] text-gray-900 tabular-nums">82</b>
+        </div>
+        <div className={`inline-block rounded-lg bg-emerald-50 text-emerald-700 text-[11.5px] font-bold px-3 py-1.5 transition-all duration-500 ${show(5) ? "opacity-100 translate-y-0" : "opacity-0 translate-y-1"}`}>
+          Diserahkan ke Agent Satu
+        </div>
+      </div>
+    </div>
+  );
+}
+
 export default function RegisterPage() {
   const [menu, setMenu] = useState<"signup" | "topup">("signup");
   // Wizard dua layar: layar 1 pilih paket, layar 2 isi data. pkg kosong = layar 1.
@@ -218,13 +277,14 @@ export default function RegisterPage() {
 
   return (
     <Shell>
-      <div className="text-center mb-8 animate-fade-in">
+      <div className="text-center mb-8">
         <h1 className="text-[26px] sm:text-[32px] font-extrabold text-gray-900 tracking-tight">
           {menu === "signup" ? t("reg.headline") : t("reg.topupHeadline")}
         </h1>
       </div>
 
       {!pkg && (<>
+      <LiveDemo />
       {/* Layar 1: pilih menu + paket. */}
       <div className="flex items-center justify-center gap-1 p-1 bg-gray-100 rounded-xl w-fit mx-auto mb-8">
         {([["signup", t("reg.menuSignup")], ["topup", t("reg.menuTopup")]] as const).map(([k, label]) => (
@@ -252,8 +312,7 @@ export default function RegisterPage() {
         <div className="grid sm:grid-cols-2 lg:grid-cols-4 gap-3 mb-8">
           {SIGNUP_TIERS.map((t, ti) => (
             <button key={t.key} onClick={() => choose(t.key)}
-              style={{ animationDelay: `${ti * 70}ms` }}
-              className={`relative text-left rounded-2xl border-2 p-4 transition-all outline-none animate-fade-in opacity-0 [animation-fill-mode:forwards] hover:-translate-y-1 hover:shadow-lg ${
+              className={`relative text-left rounded-2xl border-2 p-4 transition-all outline-none hover:-translate-y-1 hover:shadow-lg ${
                 pkg === t.key ? "border-emerald-600 bg-emerald-50/40 shadow-md" : "border-gray-200 bg-white hover:border-emerald-600/40"}`}>
               {t.highlight && (
                 <span className="absolute -top-2.5 left-4 px-2 py-0.5 rounded-full bg-emerald-600 text-white text-[10.5px] font-bold">{i18n("reg.popular")}</span>
@@ -279,8 +338,7 @@ export default function RegisterPage() {
         <div className="grid sm:grid-cols-3 gap-3 mb-8 max-w-2xl mx-auto">
           {TOPUP_PACKS.map((t, ti) => (
             <button key={t.key} onClick={() => choose(t.key)}
-              style={{ animationDelay: `${ti * 70}ms` }}
-              className={`text-left rounded-2xl border-2 p-4 transition-all outline-none animate-fade-in opacity-0 [animation-fill-mode:forwards] hover:-translate-y-1 hover:shadow-lg ${
+              className={`text-left rounded-2xl border-2 p-4 transition-all outline-none hover:-translate-y-1 hover:shadow-lg ${
                 pkg === t.key ? "border-emerald-600 bg-emerald-50/40 shadow-md" : "border-gray-200 bg-white hover:border-emerald-600/40"}`}>
               <p className="text-[14px] font-extrabold text-gray-900">{t.name}</p>
               <p className="text-[20px] font-extrabold text-gray-900 mt-1">{t.credits.toLocaleString("id-ID")} <span className="text-[11px] font-medium text-gray-400">kredit</span></p>
@@ -296,7 +354,7 @@ export default function RegisterPage() {
 
       {/* Layar 2: ringkasan paket + form, dengan tombol kembali. */}
       {pkg && (
-      <div key={pkg} className="max-w-lg mx-auto animate-fade-in">
+      <div key={pkg} className="max-w-lg mx-auto">
         <button onClick={back}
           className="inline-flex items-center gap-1.5 text-[13px] font-semibold text-gray-500 hover:text-gray-900 mb-4 outline-none">
           <ArrowLeft className="w-4 h-4" /> {t("reg.changePkg")}

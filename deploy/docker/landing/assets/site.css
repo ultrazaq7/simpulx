@@ -334,3 +334,20 @@ footer.site { border-top: 1px solid var(--border); background: var(--surface); p
 .fd-ch.s1 .fd-bars i:nth-child(6){height:83%;transition-delay:.55s}
 .fd-ch.s1 .fd-bars i:nth-child(7){height:74%;transition-delay:.65s}
 @media (prefers-reduced-motion: reduce) { .fdemo *, .fd-av::before, .fd-av::after { transition: none !important; animation: none !important; } }
+
+/* Entrance fade dimatikan: konten langsung tampil, yang bergerak cukup
+   demo UI-nya. Fade-up massal terasa template, bukan professional. */
+.reveal { opacity: 1 !important; transform: none !important; transition: none !important; }
+
+/* Mobile: demo tetap rapi di layar sempit */
+@media (max-width: 640px) {
+  .fd-ls { grid-template-columns: 1fr 1fr; }
+  .fd-ls .fd-card:nth-child(3) { display: none; }
+  .fd-bc .nums { grid-template-columns: repeat(3, 1fr); gap: 6px; }
+  .fd-bc .nums b { font-size: 15px; }
+  .fdemo { min-height: 0; }
+  .page-hero { padding: 120px 0 36px; }
+  .f-grid { grid-template-columns: 1fr; gap: 18px; }
+}
+.lang-sw { font-size: 12px; font-weight: 800; letter-spacing: .06em; border: 1px solid var(--border); border-radius: 8px; padding: 4px 9px; color: var(--muted) !important; }
+.lang-sw:hover { color: var(--brand) !important; border-color: var(--brand-light); }
