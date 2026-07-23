@@ -911,8 +911,11 @@ function AdsTab({ id, notify }: { id: string; notify: (m: string, s?: "success" 
       if (st && st.linked_ad_count === 0 && st.ads_status !== "active") setView("setup");
     }).catch((e) => { setStatus(null); setLoadErr(String(e)); });
     // Live per-ad state from Meta: drives the single pause/resume toggle and the
-    // creative previews. Failure keeps it null and the UI falls back gracefully.
-    api.campaignAdsLive(id).then(setLive).catch(() => setLive(null));
+    // creative previews. null strictly means "still loading" — a FAILED fetch
+    // resolves to an empty result so the UI can distinguish the two (during
+    // load: one disabled button; truly unknown: the two-button fallback).
+    api.campaignAdsLive(id).then(setLive)
+      .catch((e) => setLive({ status: "", ads: [], error: String(e) }));
     api.campaignAdsMetrics(id).then((r) => setRows(r.rows)).catch(() => setRows([]));
     api.campaignAdsAlerts(id).then(setAlerts).catch(() => setAlerts([]));
   }
@@ -1000,10 +1003,16 @@ function AdsTab({ id, notify }: { id: string; notify: (m: string, s?: "success" 
         <div className="flex-1" />
         {status.can_control ? (
           // ONE toggle that mirrors the live state, not two permanent buttons the
-          // user has to disambiguate. Unknown state (Meta unreachable, nothing
-          // delivering yet) falls back to showing both, because guessing wrong
-          // on a spend control is worse than asking.
-          live?.status === "active" ? (
+          // user has to disambiguate. While the live state is still LOADING show
+          // one disabled placeholder (both buttons flashing during load was a
+          // reported bug); only a truly unknown state falls back to showing both,
+          // because guessing wrong on a spend control is worse than asking.
+          live === null ? (
+            <button disabled
+              className="inline-flex items-center gap-1.5 px-3 h-9 rounded-md border border-border text-[13px] font-semibold opacity-50 outline-none">
+              <Loader2 className="w-3.5 h-3.5 animate-spin" />Ads
+            </button>
+          ) : live?.status === "active" ? (
             <button disabled={busy} onClick={() => control("pause")}
               className="inline-flex items-center gap-1.5 px-3 h-9 rounded-md border border-border text-[13px] font-semibold hover:bg-muted outline-none disabled:opacity-50">
               <Pause className="w-3.5 h-3.5" />Pause ads
