@@ -146,12 +146,19 @@ def _variant_hits(query: str, rows) -> list:
     if not query:
         return []
     q_toks = {tk.strip(".,;:!?'\"") for tk in re.split(r"[\s/()-]+", query.lower())}
+
+    def _tok_match(a: str, b: str) -> bool:
+        # Exact, plus prefix untuk token >= 4 huruf: "destinator" tetap kena kalau
+        # customer menulis "destinators"/"destina" dst. Batas 4 mencegah prefix
+        # pendek ("gl" vs "gls") saling nyamber.
+        return a == b or (len(a) >= 4 and len(b) >= 4 and (a.startswith(b) or b.startswith(a)))
+
     hits = []
     for r in rows:
         name = " ".join(x for x in (r["variant_name"], r["item_name"]) if x).strip().lower()
         toks = [tk for tk in re.split(r"[\s/()-]+", name)
                 if len(tk) >= 2 and tk not in _GENERIC_VARIANT_TOKENS]
-        if any(tk in q_toks for tk in toks):
+        if any(_tok_match(tk, qt) for tk in toks for qt in q_toks):
             hits.append(r)
     return hits
 
@@ -235,6 +242,22 @@ async def _catalog_from_table(pool, campaign_id, model: str,
                 LIMIT 3000""",
             campaign_id, like, needle,
         )
+        if not rows and needle:
+            # Needle model yang stale/naratif ("Triton Varian Tertinggi, Destinator,
+            # Sempat Tanya Xpander") tidak boleh membutakan bot: kalau filter model
+            # tidak kena satu row pun, ambil SELURUH katalog campaign dan biarkan
+            # ranking query di bawah mengangkat model yang benar. Return None di
+            # sini membuat bot MENYANGKAL produk yang ada (kasus live: "Destinator
+            # belum ada di katalog kami" padahal 3 tipe Destinator ada di katalog).
+            rows = await conn.fetch(
+                """SELECT item_name, variant_name, location_name, category_type,
+                          headline_price, attributes
+                     FROM campaign_catalog
+                    WHERE campaign_id = $1::uuid
+                    ORDER BY item_name NULLS LAST, variant_name NULLS LAST, headline_price ASC NULLS LAST
+                    LIMIT 3000""",
+                campaign_id,
+            )
     if not rows:
         return None
     rows = list(rows)
@@ -272,6 +295,10 @@ async def _catalog_from_table(pool, campaign_id, model: str,
     # lead's own price.
     city_mismatch = False
     hits = _variant_hits(query, rows)
+    if not hits and recent_text:
+        # Pesan terakhir sering cuma "yang tertinggi" / "simulasi lengkap" tanpa
+        # nama model; model yang dimaksud ada di pesan-pesan sebelumnya.
+        hits = _variant_hits(recent_text, rows)
     if hits:
         if city:
             cl = city.strip().lower()
