@@ -617,6 +617,21 @@ export const api = {
     req<{ status: string; applied: number; total: number; failed: string[] }>(
       `/api/campaigns/${id}/ads/resume`, { method: "POST" }),
 
+  // ── Manage Ads: Meta-like per-entity tree + edits ──
+  adsManageTree: (id: string) =>
+    req<import("./types").AdsManageTree>(`/api/campaigns/${id}/ads/manage`),
+  setAdsEntityStatus: (id: string, level: "campaign" | "adset" | "ad", entityId: string, status: "ACTIVE" | "PAUSED") =>
+    req<{ ok: boolean; status: string }>(`/api/campaigns/${id}/ads/${level}/${entityId}/status`,
+      { method: "POST", body: JSON.stringify({ status }) }),
+  renameAdsEntity: (id: string, level: "campaign" | "adset" | "ad", entityId: string, name: string) =>
+    req<{ ok: boolean; name: string }>(`/api/campaigns/${id}/ads/${level}/${entityId}/name`,
+      { method: "POST", body: JSON.stringify({ name }) }),
+  updateAdsetSettings: (id: string, adsetId: string, body: { daily_budget?: number; start_time?: string; end_time?: string; clear_end_time?: boolean }) =>
+    req<{ ok: boolean }>(`/api/campaigns/${id}/ads/adset/${adsetId}/settings`,
+      { method: "POST", body: JSON.stringify(body) }),
+  deleteMetaAd: (id: string, adId: string) =>
+    req<{ deleted: boolean }>(`/api/campaigns/${id}/ads/ad/${adId}`, { method: "DELETE" }),
+
   listTransactions: () =>
     req<{ rows: import("./types").PlatformTransaction[]; summary: Record<string, number> }>("/api/platform/transactions"),
   approveTransaction: (id: string, body: { organization_id?: string; note?: string }) =>

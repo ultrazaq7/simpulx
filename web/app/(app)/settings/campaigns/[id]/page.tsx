@@ -10,6 +10,7 @@ import { BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip as RTooltip, Respon
 import { api } from "@/lib/api";
 import { Select } from "@/components/Select";
 import LaunchAdsPanel from "./LaunchAdsPanel";
+import ManageAdsPanel from "./ManageAdsPanel";
 import { cn, fmtDateTimeShort } from "@/lib/utils";
 import type { CampaignDetail, CatalogItem, Template, AIStyle, AdsMetricRow, AdsAlertRow } from "@/lib/types";
 import { useToast, PageBody, FieldLabel, INPUT_CLASS } from "../../_shared";
@@ -884,13 +885,14 @@ function parseCatalogCsv(text: string): CatalogRowInput[] { return parseCatalogR
 // is actually linked. Offering a Pause button the API is going to refuse is worse
 // than not offering one.
 function AdsTab({ id, notify }: { id: string; notify: (m: string, s?: "success" | "error") => void }) {
+  const { t } = useI18n();
   const [status, setStatus] = useState<Awaited<ReturnType<typeof api.campaignAdsStatus>> | null>(null);
   const [live, setLive] = useState<Awaited<ReturnType<typeof api.campaignAdsLive>> | null>(null);
   const [loadErr, setLoadErr] = useState<string | null>(null);
   const [rows, setRows] = useState<AdsMetricRow[] | null>(null);
   const [alerts, setAlerts] = useState<AdsAlertRow[]>([]);
   const [busy, setBusy] = useState(false);
-  const [view, setView] = useState<"performance" | "setup">("performance");
+  const [view, setView] = useState<"performance" | "manage" | "setup">("performance");
   // Modal preview iklan: pakai render resmi Meta (iframe), bukan thumbnail.
   // Gagal fetch = modal TETAP terbuka menampilkan errornya; menutup diam-diam
   // membuat "diklik gak muncul apa-apa" yang tidak bisa didebug siapa pun.
@@ -973,11 +975,11 @@ function AdsTab({ id, notify }: { id: string; notify: (m: string, s?: "success" 
     <div className="flex flex-col gap-4">
       {ConfirmHost}
 
-      {/* Dua sisi tab Ads: Performance (laporan + kontrol iklan yang jalan) dan
-          Launch ads (workspace bikin campaign baru di Meta). Tanpa toggle ini
-          LaunchAdsPanel tidak tercapai dari UI sama sekali. */}
+      {/* Tiga sisi tab Ads: Performance (laporan), Manage (surface ala Meta Ads
+          Manager: tree campaign > ad set > ad dengan edit per baris), dan Launch
+          ads (workspace bikin campaign baru di Meta). */}
       <div className="flex items-center gap-1 rounded-lg border border-border p-0.5 w-fit">
-        {([["performance", "Performance"], ["setup", "Launch ads"]] as const).map(([v, label]) => (
+        {([["performance", t("ads.tabPerformance")], ["manage", t("ads.tabManage")], ["setup", t("ads.tabLaunch")]] as const).map(([v, label]) => (
           <button key={v} onClick={() => setView(v)}
             className={cn("px-3 h-7 rounded-md text-[12.5px] font-semibold outline-none transition-colors",
               view === v ? "bg-primary text-white" : "text-muted-foreground hover:text-foreground")}>
@@ -986,7 +988,8 @@ function AdsTab({ id, notify }: { id: string; notify: (m: string, s?: "success" 
         ))}
       </div>
 
-      {view === "setup" ? <LaunchAdsPanel id={id} notify={notify} /> : (<>
+      {view === "setup" ? <LaunchAdsPanel id={id} notify={notify} />
+        : view === "manage" ? <ManageAdsPanel id={id} notify={notify} /> : (<>
 
       <div className="flex items-center gap-3 flex-wrap">
         <span className="text-[13px] text-muted-foreground">

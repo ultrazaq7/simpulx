@@ -902,6 +902,32 @@ export interface AdsPreview {
   can_launch: boolean;
   creates_paused: boolean;
 }
+// ── Manage Ads: Meta-like per-entity tree ──
+export interface ManageMetrics {
+  spend: number; impressions: number; reach: number; clicks: number;
+  leads: number; ctr: number; cpl: number;
+}
+export interface ManageAd {
+  id: string; name: string; status: string; effective_status: string;
+  created_time: string; thumbnail: string; image: string; metrics: ManageMetrics;
+}
+export interface ManageAdset {
+  id: string; name: string; status: string; effective_status: string;
+  daily_budget: number; budget_remaining: number;
+  start_time: string; end_time: string; created_time: string;
+  optimization_goal: string; destination_type: string;
+  metrics: ManageMetrics; ads: ManageAd[];
+}
+export interface ManageCampaign {
+  id: string; name: string; status: string; effective_status: string;
+  objective: string; created_time: string;
+  daily_budget: number; // >0 = CBO, adset budget locked
+  is_own: boolean; metrics: ManageMetrics; adsets: ManageAdset[];
+}
+export interface AdsManageTree {
+  account_name: string; access_mode: string; can_edit: boolean;
+  window_days: number; campaigns: ManageCampaign[]; error?: string;
+}
 export interface AdLaunchResult {
   meta_campaign_id: string;
   meta_adset_id: string;

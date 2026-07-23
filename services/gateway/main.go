@@ -294,6 +294,13 @@ func main() {
 	mux.HandleFunc("POST /api/campaigns/{id}/ads/launch", s.requireAuth(s.gate("manage_campaigns", s.campaignScoped(s.handleLaunchAds))))
 	mux.HandleFunc("POST /api/campaigns/{id}/ads/account", s.requireAuth(s.gate("manage_campaigns", s.campaignScoped(s.handleSetCampaignAdAccount))))
 	mux.HandleFunc("POST /api/campaigns/{id}/ads/format", s.requireAuth(s.gate("manage_campaigns", s.campaignScoped(s.handleSetAdsFormat))))
+	// Manage Ads: Meta-like per-entity surface (tree + status/rename/settings/delete).
+	// Literal segments (copy, adset, ad) win over the {level} wildcard in Go 1.22 mux.
+	mux.HandleFunc("GET /api/campaigns/{id}/ads/manage", s.requireAuth(s.campaignScoped(s.handleAdsManageTree)))
+	mux.HandleFunc("POST /api/campaigns/{id}/ads/{level}/{entityId}/status", s.requireAuth(s.gate("manage_campaigns", s.campaignScoped(s.handleAdsEntityStatus))))
+	mux.HandleFunc("POST /api/campaigns/{id}/ads/{level}/{entityId}/name", s.requireAuth(s.gate("manage_campaigns", s.campaignScoped(s.handleAdsEntityRename))))
+	mux.HandleFunc("POST /api/campaigns/{id}/ads/adset/{entityId}/settings", s.requireAuth(s.gate("manage_campaigns", s.campaignScoped(s.handleAdsetSettings))))
+	mux.HandleFunc("DELETE /api/campaigns/{id}/ads/ad/{entityId}", s.requireAuth(s.gate("manage_campaigns", s.campaignScoped(s.handleAdsAdDelete))))
 	mux.HandleFunc("GET /api/campaigns/{id}/creatives", s.requireAuth(s.campaignScoped(s.handleListCreatives)))
 	mux.HandleFunc("POST /api/campaigns/{id}/creatives", s.requireAuth(s.gate("manage_campaigns", s.campaignScoped(s.handleUploadCreative))))
 	mux.HandleFunc("DELETE /api/campaigns/{id}/creatives/{creativeId}", s.requireAuth(s.gate("manage_campaigns", s.campaignScoped(s.handleDeleteCreative))))

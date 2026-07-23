@@ -1313,11 +1313,58 @@ func metaPostForm(ctx context.Context, u string, form url.Values) error {
 			Message string `json:"message"`
 			Type    string `json:"type"`
 			Code    int    `json:"code"`
+			// Meta's human-readable rejection, when present ("Your budget is
+			// too low", review-policy notes). Far more actionable than the
+			// generic developer message, so it wins.
+			UserTitle string `json:"error_user_title"`
+			UserMsg   string `json:"error_user_msg"`
 		} `json:"error"`
 	}
 	dec := json.NewDecoder(resp.Body)
 	_ = dec.Decode(&out) // an empty body on 200 is a success for some endpoints
 	if out.Error != nil {
+		if out.Error.UserMsg != "" {
+			return fmt.Errorf("meta %s (%d): %s", out.Error.Type, out.Error.Code, strings.TrimSpace(out.Error.UserTitle+" "+out.Error.UserMsg))
+		}
+		return fmt.Errorf("meta %s (%d): %s", out.Error.Type, out.Error.Code, out.Error.Message)
+	}
+	if resp.StatusCode/100 != 2 {
+		return fmt.Errorf("meta http %d", resp.StatusCode)
+	}
+	return nil
+}
+
+// metaDelete issues DELETE /{objectID} on the Graph API (used to remove an ad;
+// Meta treats it as status=DELETED: the object stays readable in history but
+// stops delivering and disappears from /ads listings).
+func metaDelete(ctx context.Context, objectID, token string) error {
+	reqCtx, cancel := context.WithTimeout(ctx, 30*time.Second)
+	defer cancel()
+	u := fmt.Sprintf("https://graph.facebook.com/%s/%s?access_token=%s", metaGraphVersion, objectID, url.QueryEscape(token))
+	req, err := http.NewRequestWithContext(reqCtx, http.MethodDelete, u, nil)
+	if err != nil {
+		return err
+	}
+	resp, err := adHTTP.Do(req)
+	if err != nil {
+		return err
+	}
+	defer resp.Body.Close()
+	var out struct {
+		Success bool `json:"success"`
+		Error   *struct {
+			Message   string `json:"message"`
+			Type      string `json:"type"`
+			Code      int    `json:"code"`
+			UserTitle string `json:"error_user_title"`
+			UserMsg   string `json:"error_user_msg"`
+		} `json:"error"`
+	}
+	_ = json.NewDecoder(resp.Body).Decode(&out)
+	if out.Error != nil {
+		if out.Error.UserMsg != "" {
+			return fmt.Errorf("meta %s (%d): %s", out.Error.Type, out.Error.Code, strings.TrimSpace(out.Error.UserTitle+" "+out.Error.UserMsg))
+		}
 		return fmt.Errorf("meta %s (%d): %s", out.Error.Type, out.Error.Code, out.Error.Message)
 	}
 	if resp.StatusCode/100 != 2 {
