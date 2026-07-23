@@ -134,10 +134,11 @@ func (s *server) handlePublicRegister(w http.ResponseWriter, r *http.Request) {
 		if b.Billing != "annual" {
 			b.Billing = "monthly"
 		}
-		// Annual = prepay 10 months for 12 (two free). Computed HERE so the client
-		// cannot send its own idea of the discount.
+		// Annual = plain 12 months prepaid, full price. There is NO two-months-free
+		// promo (explicit product decision). Computed HERE so the client cannot
+		// send its own idea of the amount.
 		if b.Billing == "annual" && pkg.TrialDays == 0 {
-			amount = amount * 10
+			amount = amount * 12
 		}
 	case "topup":
 		pkg, ok := topupPackages[b.Package]

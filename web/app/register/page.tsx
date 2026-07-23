@@ -89,9 +89,9 @@ export default function RegisterPage() {
     if (menu === "topup") return pack ? pack.credits * pack.perCredit : 0;
     if (!tier) return 0;
     const monthly = tier.price * (isTrial ? 1 : seats);
-    // Tahunan = bayar 10 bulan untuk 12 (gratis 2 bulan). Angka finalnya tetap
+    // Tahunan = 12 bulan harga penuh, tanpa promo. Angka finalnya tetap
     // dihitung ulang server, ini cuma tampilan.
-    return billing === "annual" && !isTrial ? monthly * 10 : monthly;
+    return billing === "annual" && !isTrial ? monthly * 12 : monthly;
   }, [menu, tier, pack, seats, isTrial, billing]);
 
   function set<K extends keyof typeof form>(k: K, v: string) { setForm((f) => ({ ...f, [k]: v })); }
@@ -245,7 +245,6 @@ export default function RegisterPage() {
             <span className={`absolute top-0.5 w-5 h-5 rounded-full bg-white shadow transition-all ${billing === "annual" ? "left-[22px]" : "left-0.5"}`} />
           </button>
           <span className={billing === "annual" ? "text-gray-900" : "text-gray-400"}>{t("reg.annual")}</span>
-          {billing === "annual" && <span className="px-2 py-0.5 rounded-full bg-emerald-100 text-emerald-700 text-[11px] font-bold">{t("reg.annualSave")}</span>}
         </div>
       )}
 
@@ -261,12 +260,10 @@ export default function RegisterPage() {
               <p className="text-[14px] font-extrabold text-gray-900">{t.name}</p>
               <p className="text-[11.5px] text-gray-500 mb-2">{t.tagline}</p>
               <p className="text-[20px] font-extrabold text-gray-900">
-                {t.price === 0 ? i18n("reg.free") : rp(billing === "annual" ? t.price * 10 : t.price)}
+                {/* Tahunan = 12 bulan harga penuh, TANPA promo gratis 2 bulan. */}
+                {t.price === 0 ? i18n("reg.free") : rp(billing === "annual" ? t.price * 12 : t.price)}
                 <span className="text-[11px] font-medium text-gray-400"> /{billing === "annual" && t.price > 0 ? i18n("reg.perSeatYear") : t.per}</span>
               </p>
-              {billing === "annual" && t.price > 0 && (
-                <p className="mt-0.5 text-[11px] font-bold text-emerald-700">{i18n("reg.annualSave")} &middot; {rp(t.price * 2)} {i18n("reg.saved")}</p>
-              )}
               <ul className="mt-3 space-y-1.5">
                 {t.features.map((f) => (
                   <li key={f} className="flex gap-1.5 text-[12px] text-gray-600">
