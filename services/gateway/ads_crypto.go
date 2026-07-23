@@ -57,7 +57,7 @@ func initAdsTokenKey(log *slog.Logger) {
 }
 
 // encryptAdToken wraps a plaintext token for storage. Empty stays empty (a NULL
-// or '' token is legitimate and used by NULLIF(...) guards). When no key is
+// or ” token is legitimate and used by NULLIF(...) guards). When no key is
 // configured, or the value is already encrypted, it is returned unchanged.
 func encryptAdToken(plain string) (string, error) {
 	if plain == "" || adsTokenKey == nil || strings.HasPrefix(plain, adsTokenPrefix) {

@@ -15,10 +15,11 @@ import (
 
 // GET /api/templates
 // Optional query filters:
-//   ?channel_id=<uuid>   templates bound to that channel (plus channel-agnostic ones)
-//   ?campaign_id=<uuid>  templates VISIBLE to that campaign:
-//                          - explicitly linked to it, OR
-//                          - unlinked (= all campaigns) and on a matching/any channel.
+//
+//	?channel_id=<uuid>   templates bound to that channel (plus channel-agnostic ones)
+//	?campaign_id=<uuid>  templates VISIBLE to that campaign:
+//	                       - explicitly linked to it, OR
+//	                       - unlinked (= all campaigns) and on a matching/any channel.
 func (s *server) handleListTemplates(w http.ResponseWriter, r *http.Request) {
 	a, _ := authFrom(r.Context())
 	channelID := r.URL.Query().Get("channel_id")

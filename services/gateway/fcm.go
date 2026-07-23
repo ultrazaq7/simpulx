@@ -381,7 +381,7 @@ func (s *server) initFCMPush(ctx context.Context) {
 			ev := map[string]any{
 				"aps":            map[string]any{"content-available": 1},
 				"event":          c.CallStatus, // "incoming" | "ended"
-				"id":             c.CallID,      // CallKit call UUID (see AppDelegate glue)
+				"id":             c.CallID,     // CallKit call UUID (see AppDelegate glue)
 				"callId":         c.CallID,
 				"conversationId": c.ConversationID,
 				"nameCaller":     callerDisplay,

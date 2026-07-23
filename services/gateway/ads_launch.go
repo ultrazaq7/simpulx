@@ -283,7 +283,7 @@ func (s *server) handleGenerateAdCopy(w http.ResponseWriter, r *http.Request) {
 	if err := s.callAIAgent(r.Context(), "/ads/copy", map[string]string{
 		"org_id": a.OrgID, "campaign_id": campaignID,
 	}, &out); err != nil {
-		http.Error(w, "could not generate copy: "+err.Error(), http.StatusBadGateway)
+		http.Error(w, "could not generate copy: "+err.Error(), http.StatusUnprocessableEntity)
 		return
 	}
 	if len(out.Copy.PrimaryTexts) == 0 && len(out.Copy.Headlines) == 0 {
@@ -364,7 +364,7 @@ func (s *server) handleSuggestAdAudience(w http.ResponseWriter, r *http.Request)
 	if err := s.callAIAgent(r.Context(), "/ads/audience", map[string]string{
 		"org_id": a.OrgID, "campaign_id": r.PathValue("id"),
 	}, &out); err != nil {
-		http.Error(w, "could not suggest an audience: "+err.Error(), http.StatusBadGateway)
+		http.Error(w, "could not suggest an audience: "+err.Error(), http.StatusUnprocessableEntity)
 		return
 	}
 	writeJSON(w, map[string]any{"interests": out.Audience.Interests})

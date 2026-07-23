@@ -80,4 +80,3 @@ func (s *server) handleSummaryStream(w http.ResponseWriter, r *http.Request) {
 		}
 	}
 }
-

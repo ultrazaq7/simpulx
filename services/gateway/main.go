@@ -458,13 +458,13 @@ func main() {
 	// start background jobs
 
 	s.initFCMPush(ctx)
-	s.subscribeSendForm(ctx) // AI nurture -> auto-send intake form
-	initAdsTokenKey(log)     // load AES key for ad-account OAuth token encryption
+	s.subscribeSendForm(ctx)         // AI nurture -> auto-send intake form
+	initAdsTokenKey(log)             // load AES key for ad-account OAuth token encryption
 	s.backfillAdTokenEncryption(ctx) // encrypt any plaintext tokens still at rest
-	s.startAdSyncCron(ctx)   // daily ad metrics refresh (Meta/TikTok/Google)
-	s.startCreditAlertCron(ctx) // low-credit email alerts to org owners
-	s.startCapiDrainCron(ctx)   // send CTWA funnel conversions back to Meta CAPI
-	s.startAdsMonitorCron(ctx)  // rule-based ads monitoring + alerts (managed campaigns)
+	s.startAdSyncCron(ctx)           // daily ad metrics refresh (Meta/TikTok/Google)
+	s.startCreditAlertCron(ctx)      // low-credit email alerts to org owners
+	s.startCapiDrainCron(ctx)        // send CTWA funnel conversions back to Meta CAPI
+	s.startAdsMonitorCron(ctx)       // rule-based ads monitoring + alerts (managed campaigns)
 
 	// graceful shutdown
 	stop := make(chan os.Signal, 1)

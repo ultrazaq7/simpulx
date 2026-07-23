@@ -78,7 +78,7 @@ func (s *server) handleResolveMapsLink(w http.ResponseWriter, r *http.Request) {
 	req.Header.Set("User-Agent", "Mozilla/5.0 (compatible; SimpulxBot/1.0)")
 	resp, err := client.Do(req)
 	if err != nil {
-		http.Error(w, "could not resolve the link", http.StatusBadGateway)
+		http.Error(w, "could not resolve the link", http.StatusUnprocessableEntity)
 		return
 	}
 	defer resp.Body.Close()

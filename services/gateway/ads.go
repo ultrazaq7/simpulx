@@ -253,7 +253,7 @@ func (s *server) handleSyncAdAccount(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	if err := s.syncAccount(r.Context(), id, a.OrgID, platform); err != nil {
-		http.Error(w, err.Error(), http.StatusBadGateway)
+		http.Error(w, err.Error(), http.StatusUnprocessableEntity)
 		return
 	}
 	writeJSON(w, map[string]any{"ok": true})

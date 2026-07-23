@@ -230,7 +230,7 @@ func (s *server) handleEmbeddedSignup(w http.ResponseWriter, r *http.Request) {
 		// 1) Exchange the code for a business integration system-user token.
 		tok, err := s.metaExchangeCode(r.Context(), appID, appSecret, b.Code)
 		if err != nil {
-			http.Error(w, "code exchange failed: "+err.Error(), http.StatusBadGateway)
+			http.Error(w, "code exchange failed: "+err.Error(), http.StatusUnprocessableEntity)
 			return
 		}
 		token = tok
@@ -321,7 +321,7 @@ func (s *server) handleConnectViber(w http.ResponseWriter, r *http.Request) {
 	// 1) Verify the token + read the account identity (real Viber call).
 	info, err := viberGetAccountInfo(r.Context(), token)
 	if err != nil {
-		http.Error(w, "Viber rejected the token: "+err.Error(), http.StatusBadGateway)
+		http.Error(w, "Viber rejected the token: "+err.Error(), http.StatusUnprocessableEntity)
 		return
 	}
 	name := strings.TrimSpace(b.Name)

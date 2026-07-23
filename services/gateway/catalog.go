@@ -295,12 +295,12 @@ func (s *server) handleUpdateCatalogRow(w http.ResponseWriter, r *http.Request) 
 	cid := r.PathValue("id")
 	rowID := r.PathValue("row")
 	var b struct {
-		ItemName     string          `json:"item_name"`
-		VariantName  string          `json:"variant_name"`
-		LocationName string          `json:"location_name"`
-		CategoryType string          `json:"category_type"`
-		HeadlinePrice *float64       `json:"headline_price"`
-		Attributes   json.RawMessage `json:"attributes"`
+		ItemName      string          `json:"item_name"`
+		VariantName   string          `json:"variant_name"`
+		LocationName  string          `json:"location_name"`
+		CategoryType  string          `json:"category_type"`
+		HeadlinePrice *float64        `json:"headline_price"`
+		Attributes    json.RawMessage `json:"attributes"`
 	}
 	if err := json.NewDecoder(r.Body).Decode(&b); err != nil {
 		http.Error(w, "bad request", http.StatusBadRequest)

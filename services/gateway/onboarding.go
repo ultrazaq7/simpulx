@@ -41,7 +41,7 @@ var signupPackages = map[string]signupPackage{
 	// leads, short enough that "we'll decide later" has a date attached.
 	"trial":    {Label: "Free Trial", PerSeat: 0, BonusCredits: 50, TrialDays: 7},
 	"starter":  {Label: "Starter", PerSeat: 200_000, BonusCredits: 200, MinSeats: 1},   // 1-10 seat
-	"growth":   {Label: "Growth", PerSeat: 150_000, BonusCredits: 200, MinSeats: 11},  // 11-50 seat
+	"growth":   {Label: "Growth", PerSeat: 150_000, BonusCredits: 200, MinSeats: 11},   // 11-50 seat
 	"business": {Label: "Business", PerSeat: 100_000, BonusCredits: 200, MinSeats: 51}, // 51-100 seat
 }
 

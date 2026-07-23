@@ -26,7 +26,7 @@ func (s *server) postAIAgent(w http.ResponseWriter, r *http.Request, path string
 	upReq.Header.Set("Content-Type", "application/json")
 	resp, err := http.DefaultClient.Do(upReq)
 	if err != nil {
-		http.Error(w, "ai-agent unreachable", http.StatusBadGateway)
+		http.Error(w, "ai-agent unreachable", http.StatusUnprocessableEntity)
 		return
 	}
 	defer resp.Body.Close()

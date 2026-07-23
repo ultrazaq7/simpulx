@@ -185,7 +185,12 @@ func (s *server) handleMlMonitor(w http.ResponseWriter, r *http.Request) {
 
 	writeJSON(w, map[string]any{
 		"scores": first, "versions": versions, "nba": nba,
-		"usage": func() map[string]any { if len(usage) > 0 { return usage[0] }; return map[string]any{} }(),
+		"usage": func() map[string]any {
+			if len(usage) > 0 {
+				return usage[0]
+			}
+			return map[string]any{}
+		}(),
 		"byFeature": byFeature, "byModel": byModel, "profit": profit,
 		"creditPriceIdr": capiCreditPriceIDR, "usdIdr": capiUSDIDR,
 	})
@@ -255,7 +260,7 @@ func (s *server) handleCreateOrg(w http.ResponseWriter, r *http.Request) {
 		Name: b.Name, Industry: b.Industry,
 		OwnerName: b.OwnerName, OwnerEmail: b.OwnerEmail, OwnerPassword: b.OwnerPassword,
 		PackageName: b.PackageName,
-		Users: 10, SimpulerCredits: 1000, CustomFields: 20,
+		Users:       10, SimpulerCredits: 1000, CustomFields: 20,
 		// No explicit password = the owner sets their own via the welcome link.
 		SendWelcome: b.OwnerPassword == "",
 	}
@@ -476,7 +481,7 @@ func (s *server) handleImpersonateOrg(w http.ResponseWriter, r *http.Request) {
 		"org_name":    orgName,
 		"viewed_as":   targetName,
 		"target_role": targetRole,
-		"expires_in": impersonationTTL.String(),
+		"expires_in":  impersonationTTL.String(),
 	})
 	s.log.Info("superadmin impersonation issued",
 		"superadmin", a.UserID, "org", orgID, "org_name", orgName, "as", targetID)

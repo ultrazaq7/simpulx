@@ -2549,7 +2549,7 @@ func (s *server) proxyJSON(w http.ResponseWriter, ctx context.Context, method, u
 	req.Header.Set("Content-Type", "application/json")
 	resp, err := s.httpClient.Do(req)
 	if err != nil {
-		http.Error(w, "upstream error: "+err.Error(), http.StatusBadGateway)
+		http.Error(w, "upstream error: "+err.Error(), http.StatusUnprocessableEntity)
 		return
 	}
 	defer resp.Body.Close()
@@ -2577,7 +2577,7 @@ func (s *server) handleListLLMModels(w http.ResponseWriter, r *http.Request) {
 	client := &http.Client{Timeout: 10 * time.Second}
 	resp, err := client.Do(req)
 	if err != nil {
-		http.Error(w, "Failed to fetch models from OpenAI: "+err.Error(), http.StatusBadGateway)
+		http.Error(w, "Failed to fetch models from OpenAI: "+err.Error(), http.StatusUnprocessableEntity)
 		return
 	}
 	defer resp.Body.Close()

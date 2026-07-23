@@ -51,11 +51,11 @@ func (s *server) handleListAdPages(w http.ResponseWriter, r *http.Request) {
 	u := fmt.Sprintf("https://graph.facebook.com/%s/me/accounts?fields=id,name&limit=100&access_token=%s",
 		metaGraphVersion, url.QueryEscape(t.token))
 	if err := metaGet(r.Context(), u, &payload); err != nil {
-		http.Error(w, "could not list Pages: "+err.Error(), http.StatusBadGateway)
+		http.Error(w, "could not list Pages: "+err.Error(), http.StatusUnprocessableEntity)
 		return
 	}
 	if payload.Error != nil {
-		http.Error(w, "Meta refused to list Pages: "+payload.Error.Message, http.StatusBadGateway)
+		http.Error(w, "Meta refused to list Pages: "+payload.Error.Message, http.StatusUnprocessableEntity)
 		return
 	}
 
@@ -373,7 +373,7 @@ func (s *server) handleLaunchAds(w http.ResponseWriter, r *http.Request) {
 		_, _ = s.pool.Exec(context.Background(),
 			`UPDATE campaigns SET ads_status='error', ads_last_error=$2 WHERE id=$1::uuid`,
 			campaignID, step+": "+err.Error())
-		http.Error(w, "Meta refused at "+step+": "+err.Error(), http.StatusBadGateway)
+		http.Error(w, "Meta refused at "+step+": "+err.Error(), http.StatusUnprocessableEntity)
 	}
 	base := fmt.Sprintf("https://graph.facebook.com/%s/act_%s", metaGraphVersion, t.extAccountID)
 
@@ -385,6 +385,9 @@ func (s *server) handleLaunchAds(w http.ResponseWriter, r *http.Request) {
 		form.Set("objective", "OUTCOME_ENGAGEMENT")
 		form.Set("status", "PAUSED")
 		form.Set("special_ad_categories", "[]")
+		// Wajib eksplisit sejak rollout Advantage campaign budget: tanpa field ini
+		// Meta menolak dengan (100/4834011). false = budget diatur per ad set.
+		form.Set("is_adset_budget_sharing_enabled", "false")
 		form.Set("access_token", t.token)
 		id, err := metaPostID(ctx, base+"/campaigns", form)
 		if err != nil {

@@ -184,7 +184,7 @@ func (s *server) setAdsStatus(w http.ResponseWriter, r *http.Request, status str
 	})
 
 	if applied == 0 {
-		http.Error(w, "Meta rejected the change: "+strings.Join(failed, "; "), http.StatusBadGateway)
+		http.Error(w, "Meta rejected the change: "+strings.Join(failed, "; "), http.StatusUnprocessableEntity)
 		return
 	}
 	// Reflect the new state locally so the dashboard does not have to wait for the
@@ -509,12 +509,12 @@ func (s *server) handleAdPreviewHTML(w http.ResponseWriter, r *http.Request) {
 		metaGraphVersion, r.PathValue("adId"), url.QueryEscape(t.token))
 	if err := metaGet(r.Context(), u, &payload); err != nil {
 		s.log.Warn("ad preview fetch failed", "ad", r.PathValue("adId"), "err", err)
-		http.Error(w, "could not load the ad preview: "+err.Error(), http.StatusBadGateway)
+		http.Error(w, "could not load the ad preview: "+err.Error(), http.StatusUnprocessableEntity)
 		return
 	}
 	if payload.Error != nil {
 		s.log.Warn("ad preview refused", "ad", r.PathValue("adId"), "err", payload.Error.Message)
-		http.Error(w, "Meta refused the preview: "+payload.Error.Message, http.StatusBadGateway)
+		http.Error(w, "Meta refused the preview: "+payload.Error.Message, http.StatusUnprocessableEntity)
 		return
 	}
 	if len(payload.Data) == 0 {
