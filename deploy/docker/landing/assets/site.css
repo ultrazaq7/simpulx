@@ -361,3 +361,18 @@ footer.site { border-top: 1px solid var(--border); background: var(--surface); p
 .phone .fd-lsbub { font-size: 11px; padding: 8px 10px; margin-top: 10px; max-width: none; }
 .fd-card .bd b { white-space: nowrap; }
 .fd-views { white-space: nowrap; }
+
+/* ── Footer v2: dark premium ── */
+footer.site { background: #0B2622; border-top: none; padding: 60px 0 0; }
+footer.site .f-grid { grid-template-columns: 2fr 1fr 1fr 1fr 1fr; gap: 40px; margin-bottom: 44px; }
+.f-brandrow { display: flex; align-items: center; gap: 11px; }
+.f-brandrow img { width: 36px; height: 36px; border-radius: 10px; display: block; }
+footer.site .f-brand .wm { font-size: 19px; font-weight: 800; color: #fff; margin-left: 0; }
+footer.site .f-brand p { color: rgba(255,255,255,.55); margin-top: 14px; max-width: 260px; }
+.f-mail { display: inline-block; margin-top: 12px; font-size: 13px; font-weight: 700; color: var(--amber) !important; }
+footer.site .f-col h4 { color: rgba(255,255,255,.4); }
+footer.site .f-col a { color: rgba(255,255,255,.78); opacity: 1; }
+footer.site .f-col a:hover { color: #fff; }
+footer.site .f-bottom { border-top: 1px solid rgba(255,255,255,.08); padding: 22px 0 26px; color: rgba(255,255,255,.45); }
+@media (max-width: 900px) { footer.site .f-grid { grid-template-columns: 1fr 1fr; gap: 26px; } }
+@media (max-width: 640px) { footer.site .f-grid { grid-template-columns: 1fr; } }
