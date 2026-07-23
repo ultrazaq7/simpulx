@@ -2065,7 +2065,8 @@ func (s *server) handleListNotes(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	rows, err := s.queryMaps(r.Context(),
-		`SELECT n.id::text AS id, n.body, n.created_at, u.full_name AS author
+		`SELECT n.id::text AS id, n.body, n.created_at,
+		        COALESCE(u.full_name, CASE WHEN n.user_id IS NULL THEN 'Simpuler AI' END) AS author
 		   FROM internal_notes n LEFT JOIN users u ON u.id=n.user_id
 		  WHERE n.conversation_id=$1 AND n.organization_id=$2
 		  ORDER BY n.created_at`, convID, a.OrgID)

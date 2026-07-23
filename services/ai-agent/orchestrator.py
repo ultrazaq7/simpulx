@@ -538,6 +538,10 @@ SUBJECT_NOTIFICATION = "events.notification.created"
 SUBJECT_SEND_FORM = "events.cmd.send_form"
 NURTURE_SETTLE_SEC = 10  # debounce: wait this long for a burst of inbounds to settle,
                          # then send ONE reply covering all of it (1 burst = 1 credit)
+FIRST_TOUCH_SETTLE_SEC = 2  # speed-to-lead: the FIRST inbound of a conversation (CTWA
+                            # click / greeting) is almost always a single self-contained
+                            # message, and reply speed sells; near-instant, with just
+                            # enough window to coalesce an accidental double-send
 
 # One pending settle-then-reply task per conversation (in-memory dedupe), plus a
 # strong ref set so the background tasks aren't garbage-collected mid-flight.
@@ -551,7 +555,8 @@ def _spawn_bg(coro) -> None:
     t.add_done_callback(_BG_TASKS.discard)
 
 
-async def _settle_then_reply(broker, pool, org_id: str, conv_id: str, message_id, body: str, log) -> None:
+async def _settle_then_reply(broker, pool, org_id: str, conv_id: str, message_id, body: str, log,
+                             settle_sec: float = NURTURE_SETTLE_SEC) -> None:
     """Let the burst settle OFF the message-ack path, then reply exactly once.
     Running this inline (via asyncio.sleep inside handle_inbound) held the JetStream
     ack past ack_wait and got the message redelivered/dropped -> no reply.
@@ -560,7 +565,7 @@ async def _settle_then_reply(broker, pool, org_id: str, conv_id: str, message_id
     message that arrives while the reply is being generated must start a new burst
     (and get its own answer) rather than be silently dropped."""
     try:
-        await asyncio.sleep(NURTURE_SETTLE_SEC)
+        await asyncio.sleep(settle_sec)
     finally:
         _PENDING_NURTURE.discard(conv_id)
     try:
@@ -631,8 +636,21 @@ async def maybe_nurture(broker, pool, org_id: str, conv_id: str, message_id, bod
         return  # never reply to (or re-engage) spam / off-topic
     if conv_id in _PENDING_NURTURE:
         return  # a settle task already owns this conversation's next reply
+    # First inbound of the conversation -> near-instant reply (speed-to-lead).
+    # Later messages keep the full settle window so a typed burst costs 1 credit.
+    settle = NURTURE_SETTLE_SEC
+    try:
+        async with pool.acquire() as conn:
+            n = await conn.fetchval(
+                """SELECT count(*) FROM (SELECT 1 FROM messages
+                     WHERE conversation_id = $1 AND direction = 'inbound' LIMIT 2) s""",
+                conv_id)
+        if (n or 0) <= 1:
+            settle = FIRST_TOUCH_SETTLE_SEC
+    except Exception:  # noqa: BLE001
+        pass  # never let the fast path break the reply path
     _PENDING_NURTURE.add(conv_id)
-    _spawn_bg(_settle_then_reply(broker, pool, org_id, conv_id, message_id, body, log))
+    _spawn_bg(_settle_then_reply(broker, pool, org_id, conv_id, message_id, body, log, settle))
 
 
 async def _nurture_now(broker, pool, org_id: str, conv_id: str, message_id, body: str, cr, log) -> None:
@@ -1193,6 +1211,42 @@ async def _ai_handoff(broker, pool, org_id: str, conv_id: str, agent_id, log, co
             """UPDATE conversations SET is_bot_active = false, handoff_at = now(),
                  handoff_reason = COALESCE($2, handoff_reason), updated_at = now()
                WHERE id = $1""", conv_id, reason)
+
+        # Konteks terakhir sebagai INTERNAL NOTE (user_id NULL = ditulis AI).
+        # Notes tampil di thread + panel, jadi agent yang menerima handoff langsung
+        # membaca ringkasan, data lead, skor, dan alasan handoff di tempat kerjanya,
+        # tanpa harus scroll riwayat bot vs customer.
+        try:
+            snap = await conn.fetchrow(
+                """SELECT lead_summary, lead_score, lead_priority, suggested_action,
+                          suggested_action_reason, handoff_reason,
+                          COALESCE(metadata->'lead_fields', '{}'::jsonb) AS lead_fields
+                     FROM conversations WHERE id = $1""", conv_id)
+            if snap:
+                lines = ["[AI] Konteks handoff"]
+                if snap["lead_summary"]:
+                    lines.append(f"Ringkasan: {snap['lead_summary']}")
+                try:
+                    lf = json.loads(snap["lead_fields"]) if isinstance(snap["lead_fields"], str) else dict(snap["lead_fields"] or {})
+                except Exception:  # noqa: BLE001
+                    lf = {}
+                filled = [f"{k}: {v}" for k, v in lf.items() if v not in (None, "", [])]
+                if filled:
+                    lines.append("Data lead: " + ", ".join(filled))
+                if snap["lead_score"] is not None:
+                    prio = f" ({snap['lead_priority']})" if snap["lead_priority"] else ""
+                    lines.append(f"Skor: {round(float(snap['lead_score']))}{prio}")
+                if snap["suggested_action"]:
+                    why = f" - {snap['suggested_action_reason']}" if snap["suggested_action_reason"] else ""
+                    lines.append(f"Saran: {snap['suggested_action']}{why}")
+                if snap["handoff_reason"]:
+                    lines.append(f"Alasan handoff: {snap['handoff_reason']}")
+                await conn.execute(
+                    """INSERT INTO internal_notes (organization_id, conversation_id, user_id, body)
+                       VALUES ($1, $2, NULL, $3)""", org_id, conv_id, "\n".join(lines))
+        except Exception:  # noqa: BLE001
+            log.exception("handoff note failed", extra={"conv": conv_id})
+
         recipients = [agent_id] if agent_id else [
             r["id"] for r in await conn.fetch(
                 "SELECT id::text AS id FROM users WHERE organization_id = $1 AND status = 'active' AND role IN ('admin','owner','manager')",

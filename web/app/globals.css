@@ -44,10 +44,13 @@
 
     /* --- AI / automation (Simpuler). Reserved indigo — NEVER a status. The
        simple rule across the app: AI = indigo, human/agent = petrol. --- */
-    --ai: 233 64% 54%;                  /* #4E5CD6 — "Auto" badge, AI thread */
+    /* Gunmetal, not indigo: a cool graphite with the app's teal cast. Reads as
+       "machine, calm, premium" and is instantly distinct from petrol (human),
+       amber (broadcast) and white (customer). */
+    --ai: 199 21% 32%;                  /* #405663 gunmetal — "Auto" badge, AI thread */
     --ai-foreground: 0 0% 100%;
-    --ai-bg: 233 72% 95%;               /* tint #E7E9FB */
-    --ai-text: 233 52% 48%;             /* AI as text on light (AA) */
+    --ai-bg: 199 24% 94%;               /* tint #E9EEF1 */
+    --ai-text: 199 24% 33%;             /* AI as text on light (AA) */
 
     /* --- Brand seasoning: brass "x" in Simpul(x) + a few brand highlights.
        NOT a status color (warm heat uses --warm). --- */
