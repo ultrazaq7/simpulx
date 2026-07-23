@@ -142,12 +142,14 @@ export default function TransactionsPage() {
                   <tr className="text-left text-[11.5px] uppercase tracking-wide text-muted-foreground border-y border-border bg-muted/30">
                     <th className="px-4 py-2 w-[52px]">{t("tx.no")}</th>
                     <th className="px-3 py-2">{t("tx.request")}</th>
+                    <th className="px-3 py-2">{t("tx.type")}</th>
                     <th className="px-3 py-2">{t("tx.package")}</th>
                     <th className="px-3 py-2 hidden lg:table-cell">{t("tx.invoiceCol")}</th>
                     <th className="px-3 py-2 hidden md:table-cell">{t("tx.contact")}</th>
                     <th className="px-3 py-2 text-right">{t("tx.amount")}</th>
                     <th className="px-3 py-2">{t("tx.statusCol")}</th>
                     <th className="px-3 py-2 hidden sm:table-cell">{t("tx.date")}</th>
+                    <th className="px-3 py-2 hidden sm:table-cell">{t("tx.expiry")}</th>
                     <th className="px-3 py-2 text-right">{t("tx.actionCol")}</th>
                   </tr>
                 </thead>
@@ -160,6 +162,17 @@ export default function TransactionsPage() {
                         <span className="font-semibold text-foreground truncate block max-w-[240px]">
                           {tx.type === "signup" ? (tx.org_name || t("tx.noName")) : t("tx.topupCredits", { n: tx.credits })}
                         </span>
+                      </td>
+                      <td className="px-3 py-2.5">
+                        {(() => {
+                          const isCredit = tx.type === "topup";
+                          return (
+                            <span className={cn("inline-flex px-1.5 py-0.5 rounded text-[10.5px] font-bold uppercase whitespace-nowrap",
+                              isCredit ? "bg-violet-500/10 text-violet-600" : "bg-primary/10 text-primary")}>
+                              {isCredit ? t("tx.typeAiCredit") : t("tx.typeBundle")}
+                            </span>
+                          );
+                        })()}
                       </td>
                       <td className="px-3 py-2.5">
                         <span className="inline-flex px-1.5 py-0.5 rounded bg-muted text-[10.5px] font-bold uppercase text-muted-foreground whitespace-nowrap">
@@ -179,6 +192,11 @@ export default function TransactionsPage() {
                         </span>
                       </td>
                       <td className="px-3 py-2.5 hidden sm:table-cell text-muted-foreground whitespace-nowrap">{fmtDateTimeShort(tx.created_at)}</td>
+                      <td className="px-3 py-2.5 hidden sm:table-cell whitespace-nowrap tabular-nums">
+                        {tx.expiry_date
+                          ? <span className={cn(new Date(tx.expiry_date) < new Date() ? "text-rose-600 font-semibold" : "text-muted-foreground")}>{new Date(tx.expiry_date).toLocaleDateString("id-ID", { day: "2-digit", month: "short", year: "numeric" })}</span>
+                          : <span className="text-muted-foreground/50">-</span>}
+                      </td>
                       {/* Aksi: approve ceklis langsung di row (permintaan eksplisit),
                           sisanya (view / bukti / delete) di menu 3-dot. stopPropagation
                           supaya klik aksi tidak ikut membuka panel detail. */}

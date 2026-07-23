@@ -1171,6 +1171,7 @@
     "creditsUsed": "Kredit terpakai",
     "allocated": "Dialokasikan",
     "remaining": "Sisa",
+    "totalCredits": "Total kredit",
     "repliesThisMonth": "Balasan bulan ini"
   },
   "contacts": {
@@ -2244,6 +2245,11 @@
   "tx.detail": "Detail permintaan",
   "tx.close": "Tutup",
   "tx.package": "Paket",
+  "tx.type": "Tipe",
+  "tx.expiry": "Kedaluwarsa",
+  "tx.typeBundle": "Bundle",
+  "tx.typeAiCredit": "AI Kredit",
+  "tx.typeAccount": "Akun",
   "tx.seats": "Seat",
   "tx.credits": "Kredit",
   "tx.orgCreated": "Organisasi",

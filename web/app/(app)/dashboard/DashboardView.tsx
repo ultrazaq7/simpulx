@@ -2129,6 +2129,8 @@ function AiUsageReport() {
   if (!data) return <div className="p-4"><div className="h-40 grid place-items-center"><Loader2 className="w-5 h-5 animate-spin text-muted-foreground" /></div></div>;
 
   const totalUsed = data.by_campaign.reduce((sum, c) => sum + c.used_credits, 0);
+  const totalAllocated = data.by_campaign.reduce((sum, c) => sum + c.allocated_credits, 0);
+  const totalRemaining = data.by_campaign.reduce((sum, c) => sum + c.remaining, 0);
   const features = (data.by_feature || []).map((f) => f.feature);
   const dailyPivot = (() => {
     const byDate = new Map<string, Record<string, number | string>>();
@@ -2146,9 +2148,21 @@ function AiUsageReport() {
         <p className="text-[12.5px] text-muted-foreground">{t("dashboard.aiUsageSub")}</p>
       </div>
 
-      <div className="rounded-xl border border-border bg-card p-3">
-        <p className="text-[11px] uppercase tracking-wide text-muted-foreground mb-2">{t("dashboard.aiCreditsUsedAllTime")}</p>
-        <p className="text-[26px] font-extrabold tabular-nums text-foreground">{totalUsed.toLocaleString("id-ID")}</p>
+      {/* Credit summary: total (allocated), used, and remaining side by side —
+          the plain "used" number alone never told owners how much was left. */}
+      <div className="rounded-xl border border-border bg-card grid grid-cols-3 divide-x divide-border">
+        <div className="p-3">
+          <p className="text-[11px] uppercase tracking-wide text-muted-foreground mb-1">{t("dashboard.totalCredits")}</p>
+          <p className="text-[24px] font-extrabold tabular-nums text-foreground">{totalAllocated.toLocaleString("id-ID")}</p>
+        </div>
+        <div className="p-3">
+          <p className="text-[11px] uppercase tracking-wide text-muted-foreground mb-1">{t("dashboard.creditsUsed")}</p>
+          <p className="text-[24px] font-extrabold tabular-nums text-foreground">{totalUsed.toLocaleString("id-ID")}</p>
+        </div>
+        <div className="p-3">
+          <p className="text-[11px] uppercase tracking-wide text-muted-foreground mb-1">{t("dashboard.remaining")}</p>
+          <p className="text-[24px] font-extrabold tabular-nums text-primary">{totalRemaining.toLocaleString("id-ID")}</p>
+        </div>
       </div>
 
       {(data.by_feature || []).length > 0 && (
@@ -2183,7 +2197,7 @@ function AiUsageReport() {
       )}
 
       {data.by_campaign.length > 0 && (
-        <div className="rounded-xl border border-border overflow-hidden">
+        <div className="rounded-xl border border-border overflow-hidden bg-card">
           <p className="text-[12.5px] font-semibold text-foreground px-3 py-2 border-b border-border">
             {t("dashboard.aiUsageByCampaign")}
           </p>
@@ -2194,8 +2208,7 @@ function AiUsageReport() {
                   <th className="px-3 py-1.5">{t("dashboard.campaign")}</th>
                   <th className="px-3 py-1.5 text-right">{t("dashboard.creditsUsed")}</th>
                   <th className="px-3 py-1.5 text-right hidden sm:table-cell">{t("dashboard.allocated")}</th>
-                  <th className="px-3 py-1.5 text-right hidden sm:table-cell">{t("dashboard.remaining")}</th>
-                  <th className="px-3 py-1.5 text-right hidden md:table-cell">{t("dashboard.repliesThisMonth")}</th>
+                  <th className="px-3 py-1.5 text-right">{t("dashboard.remaining")}</th>
                 </tr>
               </thead>
               <tbody className="divide-y divide-border/60">
@@ -2208,8 +2221,7 @@ function AiUsageReport() {
                       </td>
                       <td className="px-3 py-2 text-right tabular-nums font-semibold">{c.used_credits}</td>
                       <td className="px-3 py-2 text-right tabular-nums hidden sm:table-cell text-muted-foreground">{c.allocated_credits}</td>
-                      <td className="px-3 py-2 text-right tabular-nums hidden sm:table-cell text-muted-foreground">{c.remaining}</td>
-                      <td className="px-3 py-2 text-right tabular-nums hidden md:table-cell text-muted-foreground">{c.replies}</td>
+                      <td className="px-3 py-2 text-right tabular-nums font-medium text-primary">{c.remaining}</td>
                     </tr>
                   );
                 })}

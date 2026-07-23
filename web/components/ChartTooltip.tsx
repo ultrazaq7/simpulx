@@ -24,24 +24,26 @@ export function ChartTooltip({
   if (!rows.length) return null;
   const fmt = valueFormat || ((v: number) => v.toLocaleString("id-ID"));
   const total = rows.reduce((s, p) => s + (p.value || 0), 0);
+  // Branded dark-teal surface so every chart tooltip (AI usage, campaign details)
+  // matches the general report's tooltip instead of a light popover box.
   return (
-    <div className={cn("rounded-lg border border-border bg-popover px-3 py-2 shadow-lg text-[12px] min-w-[140px]", className)}>
-      <p className="font-semibold text-foreground mb-1.5">
+    <div className={cn("rounded-md bg-[#0E5B54]/95 backdrop-blur-sm px-3 py-2 shadow-md text-[12px] min-w-[140px]", className)}>
+      <p className="font-semibold text-white/70 mb-1.5">
         {labelFormat ? labelFormat(label ?? "") : String(label ?? "")}
       </p>
       <div className="space-y-1">
         {rows.map((p) => (
           <div key={p.dataKey || p.name} className="flex items-center gap-2">
-            <span className="inline-block w-2.5 h-2.5 rounded-sm shrink-0" style={{ background: p.color }} />
-            <span className="text-muted-foreground capitalize">{(p.name || "").replaceAll("_", " ")}</span>
-            <span className="ml-auto font-medium tabular-nums text-foreground">{fmt(p.value || 0)}</span>
+            <span className="inline-block w-2.5 h-2.5 rounded-sm shrink-0 ring-1 ring-white/40" style={{ background: p.color }} />
+            <span className="text-white/80 capitalize">{(p.name || "").replaceAll("_", " ")}</span>
+            <span className="ml-auto font-bold tabular-nums text-white">{fmt(p.value || 0)}</span>
           </div>
         ))}
       </div>
       {showTotal && rows.length > 1 && (
-        <div className="mt-1.5 pt-1.5 border-t border-border flex justify-between gap-6">
-          <span className="text-muted-foreground">Total</span>
-          <span className="font-semibold tabular-nums text-foreground">{fmt(total)}</span>
+        <div className="mt-1.5 pt-1.5 border-t border-white/15 flex justify-between gap-6">
+          <span className="text-white/70">Total</span>
+          <span className="font-semibold tabular-nums text-white">{fmt(total)}</span>
         </div>
       )}
     </div>

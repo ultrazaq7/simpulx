@@ -1171,6 +1171,7 @@
     "creditsUsed": "Credits used",
     "allocated": "Allocated",
     "remaining": "Remaining",
+    "totalCredits": "Total credits",
     "repliesThisMonth": "Replies this month"
   },
   "contacts": {
@@ -2244,6 +2245,11 @@
   "tx.detail": "Request detail",
   "tx.close": "Close",
   "tx.package": "Package",
+  "tx.type": "Type",
+  "tx.expiry": "Expiry",
+  "tx.typeBundle": "Bundle",
+  "tx.typeAiCredit": "AI Credit",
+  "tx.typeAccount": "Account",
   "tx.seats": "Seats",
   "tx.credits": "Credits",
   "tx.orgCreated": "Organisation",

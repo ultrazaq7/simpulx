@@ -962,4 +962,22 @@ export interface PlatformTransaction {
   decided_at?: string | null;
   payment_proof_url?: string | null;
   proof_uploaded_at?: string | null;
+  billing?: string | null;
+  // Credit/subscription expiry (credits don't roll over): a Bundle uses the
+  // subscription renewal date, an AI Kredit top-up its validity window.
+  expiry_date?: string | null;
 }
+
+export type RevenueReport = {
+  from: string;
+  to: string;
+  kpi: {
+    revenue: number; revenue_bundle: number; revenue_ai_credit: number;
+    bundles: number; ai_credits: number; paid_signups: number;
+    trials_started: number; credits_sold: number;
+  };
+  trend: { month: string; bundle: number; ai_credit: number; total: number }[];
+  health: { active: number; trial: number; expired: number; expiring_soon: number };
+  churn: { lapsed: number; rejected: number };
+  top_orgs: { org: string; revenue: number; deals: number }[];
+};

@@ -10,7 +10,7 @@ import { usePathname, useSearchParams } from "next/navigation";
 import {
   Settings, FormInput, Bell, User, ShieldCheck, ListOrdered,
   Building2, Building, FileText, GitBranch, RadioTower, Clock, ClipboardList, Home,
-  ChevronsLeft, Boxes, Zap, SlidersHorizontal, ChevronRight, Plug, Megaphone, ScrollText, ReceiptText } from "lucide-react";
+  ChevronsLeft, Boxes, Zap, SlidersHorizontal, ChevronRight, Plug, Megaphone, ScrollText, ReceiptText, TrendingUp } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { api, getUser } from "@/lib/api";
 import { usePermissions } from "@/lib/permissions";
@@ -126,6 +126,7 @@ export default function SettingsLayout({ children }: { children: ReactNode }) {
       .filter((g) => g.items.length > 0),
     ...(isSuper ? [{ titleKey: "Platform", items: [
       { key: "client-management", labelKey: "Client Management", icon: Building2, href: "/settings/client-management", perm: "" },
+      { key: "revenue", labelKey: "Revenue", icon: TrendingUp, href: "/settings/revenue", perm: "" },
       { key: "transactions", labelKey: "Transactions", icon: ReceiptText, href: "/settings/transactions", perm: "" },
       { key: "ai-ml-monitor", labelKey: "AI & ML Monitor", icon: Boxes, href: "/settings/ai-ml-monitor", perm: "" },
     ] }] : []),
