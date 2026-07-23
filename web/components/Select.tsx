@@ -7,7 +7,7 @@ import { cn } from "@/lib/utils";
 import { useEscClose } from "@/lib/useEscClose";
 
 // `dot` is an optional CSS color rendered as a small leading status dot (used for
-// e.g. lead interest hot/warm/cold) — a clean, professional alternative to emoji.
+// e.g. lead interest hot/warm/cold) · a clean, professional alternative to emoji.
 export interface SelectOption { value: string; label: string; disabled?: boolean; dot?: string }
 
 interface MenuPos { left: number; width: number; maxH: number; up: boolean; top?: number; bottom?: number }

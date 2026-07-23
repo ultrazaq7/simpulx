@@ -293,7 +293,7 @@ export default function GeneralSettingsPage() {
 // hari (chart) + split per campaign bulan berjalan, dihitung backend dari
 // SUMBER YANG SAMA dengan angka headernya supaya tidak pernah beda cerita.
 // Kolom alokasi (Credits & Usage per campaign) ditampilkan bersandingan.
-// Warna per fitur AI — nurture/followup (pemakan kredit) dapat warna brand,
+// Warna per fitur AI · nurture/followup (pemakan kredit) dapat warna brand,
 // fitur pendukung dapat warna netral/aksen.
 const FEATURE_COLORS: Record<string, string> = {
   nurture: "#0E5B54", followup: "#1C8C7D", extract: "#94A3B8",

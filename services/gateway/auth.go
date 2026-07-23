@@ -221,7 +221,7 @@ func (s *server) handleLogin(w http.ResponseWriter, r *http.Request) {
 // The access JWT stays short-lived; the client silently exchanges this refresh
 // token at /auth/refresh for a new access token, so a session never ends mid-use.
 // Only the SHA-256 hash is stored (a DB leak can't replay it), and tokens are
-// revocable — logout, rotation, or an inactive account all invalidate them.
+// revocable - logout, rotation, or an inactive account all invalidate them.
 
 func hashToken(raw string) string {
 	sum := sha256.Sum256([]byte(raw))

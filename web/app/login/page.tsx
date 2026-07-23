@@ -18,7 +18,7 @@ export default function LoginPage() {
   const [remember, setRemember] = useState(true);
 
   // Prefill the last-used email when "Remember me" was on. We deliberately only
-  // remember the email (never the password/token) — a safe, honest convenience.
+  // remember the email (never the password/token) · a safe, honest convenience.
   useEffect(() => {
     const saved = typeof window !== "undefined" ? localStorage.getItem(REMEMBER_KEY) : null;
     if (saved) { setEmail(saved); setRemember(true); }

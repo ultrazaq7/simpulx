@@ -2,7 +2,7 @@
 //
 // Impersonation swaps the stored token for a short-lived, read-only one issued
 // for another organisation. The PREVIOUS session is stashed so leaving restores
-// it exactly, rather than forcing a re-login — losing your own session because
+// it exactly, rather than forcing a re-login · losing your own session because
 // you glanced at a customer's inbox would make the feature unusable in practice.
 //
 // Everything here is client-side convenience. The real guarantees are in the

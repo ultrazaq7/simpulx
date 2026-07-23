@@ -149,7 +149,7 @@ export default function AiMlMonitorPage() {
           <select value={selCamp} onChange={(e) => setSelCamp(e.target.value)}
             className="w-full h-10 px-3 rounded-md border border-input bg-background text-[13.5px] text-foreground outline-none focus:border-primary focus:ring-2 focus:ring-primary/20">
             <option value="">Select a campaign...</option>
-            {camps.map((c) => <option key={c.id} value={c.id}>{c.org_name} — {c.name} ({c.catalog_rows} catalog)</option>)}
+            {camps.map((c) => <option key={c.id} value={c.id}>{c.org_name} · {c.name} ({c.catalog_rows} catalog)</option>)}
           </select>
         </div>
         {selCamp && (

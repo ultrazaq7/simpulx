@@ -65,7 +65,7 @@ function TooltipContent({
 
 /**
  * Drop-in replacement for the native `title=""` tooltip.
- * Renders the SAME child element (Base UI `render` merges props/ref — no extra
+ * Renders the SAME child element (Base UI `render` merges props/ref · no extra
  * DOM, no layout shift), adds a polished portaled tooltip. Hover/focus managed
  * by Base UI with proper cleanup, so it can never get stuck on screen.
  */

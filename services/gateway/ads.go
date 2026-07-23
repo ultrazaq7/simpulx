@@ -83,7 +83,7 @@ func (s *server) handleListAdAccounts(w http.ResponseWriter, r *http.Request) {
 	writeJSON(w, rows)
 }
 
-// POST /api/ad-accounts  — connect an ad account (manual token for now).
+// POST /api/ad-accounts  - connect an ad account (manual token for now).
 func (s *server) handleCreateAdAccount(w http.ResponseWriter, r *http.Request) {
 	a, _ := authFrom(r.Context())
 	var b struct {
@@ -160,7 +160,7 @@ func (s *server) syncAccount(ctx context.Context, accountID, orgID, platform str
 	}
 }
 
-// PATCH /api/ad-accounts/{id} — edit the connection (name, account id, access
+// PATCH /api/ad-accounts/{id} - edit the connection (name, account id, access
 // token). Supplying a new token clears the error state so the next sync re-validates.
 func (s *server) handlePatchAdAccount(w http.ResponseWriter, r *http.Request) {
 	a, _ := authFrom(r.Context())
@@ -242,7 +242,7 @@ func (s *server) handleDeleteAdAccount(w http.ResponseWriter, r *http.Request) {
 	w.WriteHeader(http.StatusNoContent)
 }
 
-// POST /api/ad-accounts/{id}/sync — pull the latest metrics now.
+// POST /api/ad-accounts/{id}/sync - pull the latest metrics now.
 func (s *server) handleSyncAdAccount(w http.ResponseWriter, r *http.Request) {
 	a, _ := authFrom(r.Context())
 	id := r.PathValue("id")
@@ -259,7 +259,7 @@ func (s *server) handleSyncAdAccount(w http.ResponseWriter, r *http.Request) {
 	writeJSON(w, map[string]any{"ok": true})
 }
 
-// GET /api/ad-campaigns — discovered ad campaigns + their mapping.
+// GET /api/ad-campaigns - discovered ad campaigns + their mapping.
 func (s *server) handleListAdCampaigns(w http.ResponseWriter, r *http.Request) {
 	a, _ := authFrom(r.Context())
 	args := []any{a.OrgID}
@@ -300,7 +300,7 @@ func (s *server) handleListAdCampaigns(w http.ResponseWriter, r *http.Request) {
 	writeJSON(w, rows)
 }
 
-// PATCH /api/ad-campaigns/{id} — map an ad campaign to one or more of OUR
+// PATCH /api/ad-campaigns/{id} - map an ad campaign to one or more of OUR
 // campaigns. Accepts `campaign_ids` (the new many-to-many form) or a single
 // legacy `campaign_id`. The join table is the source of truth; the legacy
 // ad_campaigns.campaign_id column is kept in sync with the first mapping.
@@ -429,7 +429,7 @@ func (s *server) handleAdPerformance(w http.ResponseWriter, r *http.Request) {
 			accountIDs = append(accountIDs, c)
 		}
 	}
-	// platform (ad source) filter — meta | google | tiktok. A single OUR campaign
+	// platform (ad source) filter - meta | google | tiktok. A single OUR campaign
 	// can aggregate several sources, so this slices spend by source. Empty = all.
 	platforms := []string{}
 	hasMeta := true
@@ -447,7 +447,7 @@ func (s *server) handleAdPerformance(w http.ResponseWriter, r *http.Request) {
 		}
 	}
 
-	// Classified-source filter (meta_ads|tiktok_ads|google_ads|website|direct) — the
+	// Classified-source filter (meta_ads|tiktok_ads|google_ads|website|direct) - the
 	// same taxonomy the Source performance table shows, so the dropdown and the table
 	// agree. Leads/funnel/latest-leads are filtered by the lead-source classifier
 	// (applied to each conversation query below); ad spend/delivery is platform-keyed,
@@ -582,7 +582,7 @@ func (s *server) handleAdPerformance(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	// Daily leads (chats) attributed to a campaign — the real conversion signal
+	// Daily leads (chats) attributed to a campaign - the real conversion signal
 	// (Meta "results" is often 0 for click/reach-optimised ads). Merged into the
 	// daily rows so the Timeline can show leads instead of Meta results. Leads are
 	// WhatsApp conversations (source-agnostic), so only the campaign filter applies.
@@ -1012,15 +1012,15 @@ func (s *server) syncMetaAccount(ctx context.Context, accountID, orgID string) e
 		next = payload.Paging.Next
 	}
 
-	// Ad-level (per creative) daily insights — powers the "Per ad / creative"
+	// Ad-level (per creative) daily insights - powers the "Per ad / creative"
 	// table's Spend / Cost-per-lead columns. Best-effort (never fails the sync).
 	s.syncMetaAds(ctx, accountID, orgID, extID, token, currency)
 
-	// Ad creative previews (thumbnail + copy), keyed by ad_id — so the creative
+	// Ad creative previews (thumbnail + copy), keyed by ad_id - so the creative
 	// column shows an image even for historical CTWA leads. Best-effort.
 	s.syncMetaAdCreatives(ctx, accountID, orgID, extID, token)
 
-	// Demographic breakdowns (age + gender) — account-level snapshot over the
+	// Demographic breakdowns (age + gender) - account-level snapshot over the
 	// same window, best-effort (never fails the sync).
 	s.syncMetaBreakdowns(ctx, accountID, orgID, extID, token)
 
@@ -1554,7 +1554,7 @@ func (s *server) syncGoogleAccount(ctx context.Context, accountID, orgID string)
 }
 
 // ── Google Ads: top keywords (for the ads report) ────────────
-// GET /api/ads/keywords?from&to — reuses the connected Google ad account's
+// GET /api/ads/keywords?from&to - reuses the connected Google ad account's
 // OAuth to run a keyword_view GAQL query. Account-level (all Google campaigns).
 // Degrades to an empty list (not an error) when no Google account is connected
 // or the call fails, so the report panel simply hides.
@@ -2053,14 +2053,14 @@ func (s *server) handleMetaAdsCallback(w http.ResponseWriter, r *http.Request) {
 // META_APP_ID / META_APP_SECRET / META_VERIFY_TOKEN / ADS_TOKEN_ENC_KEY
 // (verified against /opt/simpulx/.env, 2026-07-21). So the authorize URL was
 // built with client_id= and redirect_uri= EMPTY and Facebook rejected the whole
-// flow — the "Connect Meta Ads" button could never have worked in prod. The one
+// flow - the "Connect Meta Ads" button could never have worked in prod. The one
 // connected account was created through the manual-token path instead.
 //
 // META_APP_ID is the same Meta app id (WhatsApp Embedded Signup already uses
 // it), so the old names stay supported as aliases but fall back to it rather
 // than requiring a second copy of the same value under a different name.
 // The redirect URI defaults to this gateway's own callback route, derived from
-// PUBLIC_API_URL — which prod already sets and Caddy already proxies.
+// PUBLIC_API_URL - which prod already sets and Caddy already proxies.
 //
 // Returns an error instead of a half-built URL on purpose: a missing credential
 // must fail loudly at the click, where the message is actionable, rather than
@@ -2202,7 +2202,7 @@ func (s *server) handleTikTokAdsCallback(w http.ResponseWriter, r *http.Request)
 	http.Redirect(w, r, "https://app.simpulx.com/settings/channels?success=tiktok_ads_connected", http.StatusTemporaryRedirect)
 }
 
-// GET /api/known-ads — every ad we have synced from the connected ad accounts,
+// GET /api/known-ads - every ad we have synced from the connected ad accounts,
 // for the CTWA source picker.
 //
 // Users used to type these ids by hand, comma separated, after copying them out

@@ -1,6 +1,6 @@
 "use client";
 import { useI18n } from "@/lib/i18n";
-// Channels tab — the enterprise card list of connected messaging accounts plus
+// Channels tab · the enterprise card list of connected messaging accounts plus
 // the Create Channel wizard. Platform selection lives inside the wizard (Step 1),
 // so this view is a clean, searchable, filterable list of real connections.
 import { useEffect, useMemo, useState } from "react";
@@ -79,7 +79,7 @@ export function ChannelsTab() {
       const r = await api.testChannel(c.id);
       // Warning = connected locally but a Meta step failed (e.g. webhook
       // subscribe); hiding it would leave an inbox that silently receives nothing.
-      if (r.warning) notify(`${t("settings.connectionVerified")} — ${r.warning}`, "error");
+      if (r.warning) notify(`${t("settings.connectionVerified")} · ${r.warning}`, "error");
       else notify(t("settings.connectionVerified"));
       load();
     }

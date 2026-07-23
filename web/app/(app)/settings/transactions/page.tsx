@@ -1,6 +1,6 @@
 "use client";
 // Platform transactions: numbered table + pagination, and a detail drawer per
-// row. The drawer is where decisions happen — approve/reject with the concrete
+// row. The drawer is where decisions happen · approve/reject with the concrete
 // effect spelled out, the transfer receipt beside it, and for approved rows an
 // inline invoice preview with a download button. All copy goes through i18n; an
 // operator page is still an app page, not a place to hardcode one language.

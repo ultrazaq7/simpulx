@@ -14,7 +14,7 @@ import (
 // Viber Public Account webhook. Inbound messages arrive here after a channel is
 // connected via handleConnectViber, which registers /webhook/viber/{id} with
 // Viber. The channel id in the path identifies which Public Account (and org)
-// the event belongs to — Viber's payload doesn't carry the PA id itself.
+// the event belongs to - Viber's payload doesn't carry the PA id itself.
 
 type viberWebhook struct {
 	Event  string `json:"event"` // message | conversation_started | subscribed | webhook | ...

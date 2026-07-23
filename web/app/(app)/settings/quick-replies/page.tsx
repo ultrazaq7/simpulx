@@ -1,6 +1,6 @@
 "use client";
 import { useI18n } from "@/lib/i18n";
-// Quick Replies — saved /shortcut snippets agents insert in the composer. Managed
+// Quick Replies · saved /shortcut snippets agents insert in the composer. Managed
 // here (list) and used from the inbox composer's quick-reply picker.
 import { useEffect, useState } from "react";
 import { Plus, Trash2, Loader2 } from "lucide-react";

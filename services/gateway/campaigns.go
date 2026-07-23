@@ -52,7 +52,7 @@ func (s *server) handleListCampaigns(w http.ResponseWriter, r *http.Request) {
 	writeJSON(w, rows)
 }
 
-// GET /api/analytics/campaigns — per-campaign performance for the dashboard sub-tab.
+// GET /api/analytics/campaigns - per-campaign performance for the dashboard sub-tab.
 func (s *server) handleCampaignAnalytics(w http.ResponseWriter, r *http.Request) {
 	a, _ := authFrom(r.Context())
 	// Same scoping as the campaign list: the numbers cover the caller's campaigns only.
@@ -113,7 +113,7 @@ func (s *server) handleCampaignAnalytics(w http.ResponseWriter, r *http.Request)
 	writeJSON(w, rows)
 }
 
-// GET /api/campaigns/{id} — includes assigned agent ids for editing.
+// GET /api/campaigns/{id} - includes assigned agent ids for editing.
 func (s *server) handleGetCampaign(w http.ResponseWriter, r *http.Request) {
 	a, _ := authFrom(r.Context())
 	rows, err := s.queryMaps(r.Context(),
@@ -185,8 +185,14 @@ type campaignInput struct {
 	AdCampaignIDs *[]string `json:"ad_campaign_ids"`
 	// Ad account the Ads tab reports/launches against, pickable from the wizard.
 	// '' = keep existing, 'none' = detach, else ad_accounts.id (must belong to
-	// this org — the FK alone would accept another tenant's account).
+	// this org - the FK alone would accept another tenant's account).
 	ManagedAdAccountID string `json:"managed_ad_account_id"`
+	// Ads audience (0109): editable from the Launch panel so "ubah umur lalu
+	// Apply" benar-benar punya tempat mengubah umurnya. nil = keep.
+	TargetAgeMin      *int   `json:"target_age_min"`
+	TargetAgeMax      *int   `json:"target_age_max"`
+	TargetGender      string `json:"target_gender"` // '' keep | all | male | female
+	AdvantageAudience *bool  `json:"advantage_audience_enabled"`
 }
 
 // keywordsConflict returns the first keyword already claimed by ANOTHER campaign
@@ -212,7 +218,7 @@ func (s *server) keywordsConflict(ctx context.Context, orgID, selfCampaignID str
 }
 
 // POST /api/campaigns
-// POST /api/campaigns/{id}/clone — duplicate a campaign's full AI config + catalog
+// POST /api/campaigns/{id}/clone - duplicate a campaign's full AI config + catalog
 // + agent rotation into a new campaign in the SAME org. keywords + ad_source_ids
 // are left empty (unique per-org routing/tracking params, so copying them would
 // make two campaigns fight over the same leads); the clone routes nothing until
@@ -353,6 +359,10 @@ func (s *server) handleUpdateCampaign(w http.ResponseWriter, r *http.Request) {
 		   covered_cities = COALESCE($23, covered_cities),
 		   managed_ad_account_id = CASE WHEN $24 = '' THEN managed_ad_account_id
 		                                WHEN $24 = 'none' THEN NULL ELSE $24::uuid END,
+		   target_age_min = COALESCE($25, target_age_min),
+		   target_age_max = COALESCE($26, target_age_max),
+		   target_gender = COALESCE(NULLIF($27,''), target_gender),
+		   advantage_audience_enabled = COALESCE($28, advantage_audience_enabled),
 		   updated_at = now()
 		 WHERE id=$1 AND organization_id=$2`,
 		r.PathValue("id"), a.OrgID, b.Name, b.DealerName, b.Status, b.RoutingStrategy,
@@ -360,6 +370,7 @@ func (s *server) handleUpdateCampaign(w http.ResponseWriter, r *http.Request) {
 		b.Segment, b.Brand, b.AIAutoReply, b.AILanguage, b.AIDynamicLanguage, b.IntakeFormID, b.AISmartSummary,
 		b.MonthlyBudget, b.FollowupTemplateID, nilIfEmptyJSON(b.AIStyle), b.FollowupFrequency, b.AvgDealValue,
 		b.CoveredCities, b.ManagedAdAccountID,
+		b.TargetAgeMin, b.TargetAgeMax, b.TargetGender, b.AdvantageAudience,
 	)
 	if err != nil {
 		http.Error(w, err.Error(), http.StatusInternalServerError)

@@ -1,6 +1,6 @@
 "use client";
 import { useI18n } from "@/lib/i18n";
-// Create Channel — a real 3-step wizard (Select channel > Channel details >
+// Create Channel · a real 3-step wizard (Select channel > Channel details >
 // Setting up channel). Each platform connects through its actual backend:
 //   - WhatsApp: Meta Embedded Signup (real FB popup -> auto-provision) OR Direct
 //     Cloud API (manual credentials).

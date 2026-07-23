@@ -1,6 +1,6 @@
 "use client";
 import { useI18n } from "@/lib/i18n";
-// Connect a data source — ONE wizard for ad accounts AND Google Analytics.
+// Connect a data source · ONE wizard for ad accounts AND Google Analytics.
 // Step 0 picks the source (Meta / TikTok / Google Ads / GA4); the rest of the flow
 // adapts. Ad platforms: Credentials > Map campaigns. GA4: Sign in > Pick property.
 import { useEffect, useMemo, useState } from "react";

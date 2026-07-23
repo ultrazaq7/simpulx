@@ -715,7 +715,7 @@ function ManagerDashboard({ initialTab }: { initialTab: ReportTab }) {
   }, []);
 
   // Overview-only data: the other report routes must not wait on (or refetch)
-  // the overview stats/analytics — that double fetch was the page-switch lag.
+  // the overview stats/analytics · that double fetch was the page-switch lag.
   useEffect(() => {
     if (tab !== "overview") return;
     reloadReports();
@@ -730,7 +730,7 @@ function ManagerDashboard({ initialTab }: { initialTab: ReportTab }) {
     return () => { window.removeEventListener("ws_message", handler); clearTimeout(timer); };
   }, [tab, reloadReports]);
 
-  // Shift+C hides/shows the reports rail (unless typing in a field) — same as Settings.
+  // Shift+C hides/shows the reports rail (unless typing in a field) · same as Settings.
   useEffect(() => {
     const onKey = (e: KeyboardEvent) => {
       const el = document.activeElement as HTMLElement | null;
@@ -1272,7 +1272,7 @@ function MarketingAnalytics() {
 
   // Empty only when there is neither ad spend data nor any ad-attributed lead
   // for the selected range. Rendered INLINE (below the toolbar) so the date
-  // filter stays reachable — picking an empty range must not trap the user.
+  // filter stays reachable · picking an empty range must not trap the user.
   const isEmpty = !hasSpend && creatives.length === 0;
 
   const ctrPct = tot.impressions > 0 ? (tot.clicks / tot.impressions) * 100 : 0;
@@ -1529,7 +1529,7 @@ function MarketingAnalytics() {
         </div>
       )}
       {toast && <Toast msg={toast.msg} severity={toast.severity} onClose={() => setToast(null)} />}
-      {/* Toolbar — left-aligned with a filter icon, matching the Overview tab. */}
+      {/* Toolbar · left-aligned with a filter icon, matching the Overview tab. */}
       <div className="no-print flex items-center gap-2 mb-4 flex-wrap">
         <FilterIcon className="w-4 h-4 text-muted-foreground" />
         {accountOptions.length > 1 && (
@@ -1568,7 +1568,7 @@ function MarketingAnalytics() {
       ) : (<>
       {hasSpend ? (
       <>
-      {/* KPI cards — value + trend vs the prior window + sparkline */}
+      {/* KPI cards · value + trend vs the prior window + sparkline */}
       <div className="grid grid-cols-2 md:grid-cols-3 xl:grid-cols-6 gap-3 mb-5">
         {roiCards.map((c) => (
           <div key={c.label} className="bg-card rounded-xl border border-border shadow-xs p-5 flex flex-col">
@@ -2101,7 +2101,7 @@ function MarketingAnalytics() {
   );
 }
 
-// Per-creative report — its own page so creative-level insight has room to grow.
+// Per-creative report · its own page so creative-level insight has room to grow.
 // Which click-to-WhatsApp ad drove leads + conversions, with its own date +
 // campaign filters (independent of the Ads Report).
 function CreativeReport() {
@@ -2192,7 +2192,7 @@ function CreativeReport() {
         </div>
       ) : (
       <>
-        {/* KPI summary — same card anatomy as the Ads Report KPI row */}
+        {/* KPI summary · same card anatomy as the Ads Report KPI row */}
         <div className="grid grid-cols-2 md:grid-cols-3 xl:grid-cols-6 gap-3 mb-5">
           {kpis.map((k) => (
             <div key={k.label} className="bg-card rounded-xl border border-border shadow-xs p-5 flex flex-col">

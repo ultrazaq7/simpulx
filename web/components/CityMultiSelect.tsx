@@ -3,7 +3,7 @@
 //
 // The campaign's service area used to be settable ONLY as a side effect of
 // uploading a pricelist, which left catalog-less campaigns (a lender, a clinic, a
-// course) permanently empty — and empty means the assistant can never recognise
+// course) permanently empty · and empty means the assistant can never recognise
 // an out-of-area lead, and ads have no geo target to derive. This is the direct
 // editor for it, so pricing a city and serving it stay separate claims.
 //

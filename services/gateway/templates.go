@@ -89,7 +89,7 @@ type templateInput struct {
 	CampaignIDs *[]string `json:"campaign_ids"`
 }
 
-// POST /api/templates — saved as DRAFT until submitted.
+// POST /api/templates - saved as DRAFT until submitted.
 func (s *server) handleCreateTemplate(w http.ResponseWriter, r *http.Request) {
 	a, _ := authFrom(r.Context())
 	var b templateInput
@@ -136,7 +136,7 @@ func (s *server) handleCreateTemplate(w http.ResponseWriter, r *http.Request) {
 	writeJSON(w, map[string]any{"id": id, "status": "DRAFT"})
 }
 
-// PATCH /api/templates/{id} — editing resets status to DRAFT.
+// PATCH /api/templates/{id} - editing resets status to DRAFT.
 func (s *server) handleUpdateTemplate(w http.ResponseWriter, r *http.Request) {
 	a, _ := authFrom(r.Context())
 	var b templateInput
@@ -229,7 +229,7 @@ func (s *server) handleDeleteTemplate(w http.ResponseWriter, r *http.Request) {
 	writeJSON(w, resp)
 }
 
-// POST /api/templates/{id}/submit — submit to Meta for approval.
+// POST /api/templates/{id}/submit - submit to Meta for approval.
 // Real WABA: POST to Graph API /{waba_id}/message_templates -> PENDING, then the
 // message_template_status_update webhook flips APPROVED/REJECTED. In mock mode we
 // auto-approve.

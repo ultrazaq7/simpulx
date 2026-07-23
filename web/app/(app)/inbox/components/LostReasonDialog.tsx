@@ -8,7 +8,7 @@ type Cat = "lost" | "spam";
 interface Reason { value: string; label: string; }
 interface Group { key: string; title: string; subtitle: string; cat: Cat; reasons: Reason[]; }
 
-// ── Segment-aware lost-reason taxonomy — MIRRORS services/ai-agent/segments.py ──
+// ── Segment-aware lost-reason taxonomy · MIRRORS services/ai-agent/segments.py ──
 // Each reason has a `group`: "bought" => did_purchase=true (lead bought, just not
 // from us), "nobuy" => did_purchase=false. Generic reasons apply to EVERY segment;
 // segment-specific extras are appended for the matching segment. Segment keys are
@@ -87,7 +87,7 @@ function lostReasonsForSegment(segment?: string | null): LostReasonDef[] {
   return [...LOST_GENERIC, ...(SEGMENT_LOST_EXTRA[key] || [])];
 }
 
-// Spam/invalid group — UNIVERSAL, identical for every segment.
+// Spam/invalid group · UNIVERSAL, identical for every segment.
 const SPAM_GROUP: Group = {
   key: "spam", cat: "spam", title: "Spam", subtitle: "Spam / invalid",
   reasons: [
@@ -134,7 +134,7 @@ interface LostReasonDialogProps {
   // didPurchase is derived from the reason group ("bought" => true), so the
   // caller can route to the "Lost Purchase" vs "Lost Not Purchase" stage.
   onSubmit: (reason: string, category: Cat, didPurchase: boolean) => void;
-  // Campaign segment of the active conversation — drives which business
+  // Campaign segment of the active conversation · drives which business
   // lost-reasons are offered. Empty/unset => automotive (historical default).
   segment?: string | null;
 }

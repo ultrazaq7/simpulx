@@ -1,6 +1,6 @@
 "use client";
 import { useI18n } from "@/lib/i18n";
-// Web API lead sources — folded into Channel & Integrations as the "Web API" tab.
+// Web API lead sources · folded into Channel & Integrations as the "Web API" tab.
 // Captures leads from ad platforms / external systems via an API key; each lead
 // opens a conversation in the inbox attributed to its source.
 import { useEffect, useState } from "react";
@@ -120,7 +120,7 @@ export function WebApiTab() {
                   <div className="min-w-0 flex-1 hidden md:flex items-center gap-2 px-2.5 py-1.5 rounded-lg bg-muted/50">
                     <Key className="w-[15px] h-[15px] text-muted-foreground shrink-0" />
                     {/* The key is stored hashed and shown in full only once at
-                        create/regenerate — here we can only show its masked hint. */}
+                        create/regenerate · here we can only show its masked hint. */}
                     <span className="text-xs text-muted-foreground flex-1 truncate">{p.key_hint || `pk_${"•".repeat(14)}`}</span>
                     <Tip label={t("settings.regenerateKey")}><button onClick={() => regen(p)} className="p-1 outline-none text-muted-foreground hover:text-foreground transition-colors"><RotateCw className="w-[15px] h-[15px]" /></button></Tip>
                   </div>

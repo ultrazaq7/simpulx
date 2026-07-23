@@ -81,7 +81,7 @@ function StatusBadge({ status }: { status: string }) {
   );
 }
 
-// Interest pill — Hot/Warm/Cold kept in English by product decision.
+// Interest pill · Hot/Warm/Cold kept in English by product decision.
 function InterestPill({ level }: { level?: string | null }) {
   const lv = (level || "").toLowerCase();
   const c = lv === "hot" ? "#EF4444" : lv === "warm" ? "#F59E0B" : lv === "cold" ? "#3B82F6" : null;
@@ -195,7 +195,7 @@ export default function SystemLogsView({ tab }: { tab: TabKey }) {
 
   return (
     <div className="h-full flex flex-col px-6 py-5 min-h-0 overflow-hidden">
-      {/* Tabs — each a standalone route */}
+      {/* Tabs · each a standalone route */}
       <div className="flex items-center border-b border-border shrink-0 overflow-x-auto">
         {TABS.map((tb) => (
           <Link key={tb.key} href={`/settings/logs/${TAB_SLUG[tb.key]}`}
@@ -395,7 +395,7 @@ export default function SystemLogsView({ tab }: { tab: TabKey }) {
           </div>
         )}
 
-        {/* Pagination — log tabs */}
+        {/* Pagination · log tabs */}
         {tab !== "downloads" && (
           <div className="flex items-center justify-between px-4 py-2.5 border-t border-border text-sm shrink-0">
             <span className="text-muted-foreground tabular-nums">{total} total</span>
@@ -407,7 +407,7 @@ export default function SystemLogsView({ tab }: { tab: TabKey }) {
           </div>
         )}
 
-        {/* Pagination — downloads list */}
+        {/* Pagination · downloads list */}
         {tab === "downloads" && exports.length > 0 && (
           <div className="flex items-center justify-between px-4 py-2.5 border-t border-border text-sm shrink-0">
             <span className="text-muted-foreground tabular-nums">{exports.length} total</span>

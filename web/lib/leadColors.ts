@@ -1,5 +1,5 @@
 // ============================================================================
-// Pipeline stage colors — SINGLE SOURCE OF TRUTH.
+// Pipeline stage colors · SINGLE SOURCE OF TRUTH.
 //
 // Before this file, stage colors were hardcoded as ad-hoc hex maps in several
 // components (ChatHeader, DashboardView, StageMenu, ...), so the same stage
@@ -8,25 +8,25 @@
 //
 // The ramp is an ORDERED categorical set that reads as progress toward a sale,
 // and it is deliberately distinct from:
-//   - the brand axis (petrol / deep-teal — buttons, nav), and
-//   - the AI axis (indigo — Simpuler / automation), and
-//   - the lead-heat axis (hot/warm/cold — see interestColor in utils).
+//   - the brand axis (petrol / deep-teal · buttons, nav), and
+//   - the AI axis (indigo · Simpuler / automation), and
+//   - the lead-heat axis (hot/warm/cold · see interestColor in utils).
 // so a pipeline stage never reads as the brand, an AI badge, or a heat chip.
 // ============================================================================
 
 // Ordered ramp used both for the known stages below and, by index, for any
 // custom stages an org defines (deterministic so a stage keeps its color).
 export const STAGE_RAMP = [
-  "#7C8AA0", // 0 slate      — unworked / new
-  "#2E7CE4", // 1 blue       — reached
-  "#0891B2", // 2 cyan       — qualified
-  "#7C3AED", // 3 violet     — appointment (kept clear of AI indigo)
-  "#F59E0B", // 4 amber      — negotiation
-  "#16A34A", // 5 green      — won / purchase
-  "#DC2626", // 6 red        — lost
-  "#0D9488", // 7 teal       — spare for custom stages
-  "#DB2777", // 8 pink       — spare
-  "#65A30D", // 9 lime       — spare
+  "#7C8AA0", // 0 slate      · unworked / new
+  "#2E7CE4", // 1 blue       · reached
+  "#0891B2", // 2 cyan       · qualified
+  "#7C3AED", // 3 violet     · appointment (kept clear of AI indigo)
+  "#F59E0B", // 4 amber      · negotiation
+  "#16A34A", // 5 green      · won / purchase
+  "#DC2626", // 6 red        · lost
+  "#0D9488", // 7 teal       · spare for custom stages
+  "#DB2777", // 8 pink       · spare
+  "#65A30D", // 9 lime       · spare
 ];
 
 // Known stage slugs -> a fixed ramp index, so the standard funnel is always the

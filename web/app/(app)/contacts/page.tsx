@@ -227,7 +227,7 @@ export default function ContactsPage() {
       setToast(t("contacts.couldNotReassign"));
     }
   }
-  // Pindah campaign dari tabel — server sekalian menjalankan distribusi agent
+  // Pindah campaign dari tabel · server sekalian menjalankan distribusi agent
   // (workload-aware) persis seperti lead masuk, lalu baris di-reload.
   async function setCampaignFor(c: Contact, campaignId: string) {
     if (!c.conversation_id) { setToast(t("contacts.noConversationYetForThis")); return; }
@@ -348,7 +348,7 @@ export default function ContactsPage() {
 
   async function remove(c: Contact) {
     if (!(await confirm({ title: "Delete contact?", message: `This removes "${c.full_name || c.phone}" and its conversations. This cannot be undone.`, danger: true, confirmLabel: "Delete" }))) return;
-    // In the leads view `id` is the conversation id — delete must target the real
+    // In the leads view `id` is the conversation id · delete must target the real
     // contact id (contact_id), else the request 404s and the row silently stays.
     const contactId = c.contact_id || c.id;
     try { await api.deleteContact(contactId); setContacts((p) => p.filter((x) => (x.contact_id || x.id) !== contactId)); setToast(t("contacts.contactDeleted")); }
@@ -361,7 +361,7 @@ export default function ContactsPage() {
   async function bulkDelete() {
     if (!(await confirm({ title: `Delete ${selected.size} contact(s)?`, message: "This also removes their conversations. This cannot be undone.", danger: true, confirmLabel: "Delete" }))) return;
     setBulkBusy(true);
-    // selected holds row keys (conversation ids in the leads view) — map to the
+    // selected holds row keys (conversation ids in the leads view) · map to the
     // real contact ids so the contact-delete calls actually hit a contact.
     const rows = contacts.filter((c) => selected.has(rowKey(c)));
     const contactIds = [...new Set(rows.map((c) => c.contact_id || c.id))];
@@ -504,7 +504,7 @@ export default function ContactsPage() {
           <input ref={importRef} type="file" accept=".csv,text/csv" className="hidden" onChange={(e) => { const f = e.target.files?.[0]; if (f) importCsv(f); e.target.value = ""; }} />
         </div>
 
-        {/* Bulk action bar — floating, sticky at the bottom-center */}
+        {/* Bulk action bar · floating, sticky at the bottom-center */}
         {selected.size > 0 && (
           <div className="pointer-events-none fixed inset-x-0 z-40 flex justify-center px-4 bottom-16">
             <div className="pointer-events-auto flex items-center gap-1 max-w-[calc(100vw-2rem)] overflow-x-auto rounded-xl border border-border bg-popover/95 backdrop-blur px-2 py-2 shadow-2xl ring-1 ring-black/5 animate-toast-in">
@@ -738,7 +738,7 @@ export default function ContactsPage() {
         onSubmit={(reason, category) => { if (outcomeFor) markOutcome(outcomeFor, reason, category); setOutcomeFor(null); }}
       />
 
-      {/* Bulk edit: a compact popover above the Edit button — Stage / Interest /
+      {/* Bulk edit: a compact popover above the Edit button · Stage / Interest /
           Agent dropdowns + Apply. */}
       {bulkEditOpen && editRect && createPortal(
         <>
@@ -918,7 +918,7 @@ function ContactModal({ state, allTags, onClose, onSaved }: {
                   <label className="text-[12px] font-bold text-foreground/80">{t(f.label)}</label>
                   {f.type === "select" ? (
                     <select value={attrs[f.key] ?? ""} onChange={(e) => setAttrs((p) => ({ ...p, [f.key]: e.target.value }))} className={INPUT_CLS}>
-                      <option value="">—</option>
+                      <option value="">-</option>
                       {(f.options ?? []).map((o) => <option key={o} value={o}>{o}</option>)}
                     </select>
                   ) : (
@@ -934,7 +934,7 @@ function ContactModal({ state, allTags, onClose, onSaved }: {
   );
 }
 
-// ── Inline campaign assign dropdown — kembaran AgentAssignCell, supaya dua
+// ── Inline campaign assign dropdown · kembaran AgentAssignCell, supaya dua
 // kolom bersebelahan itu terasa satu bahasa UI (permintaan eksplisit). ──
 function CampaignAssignCell({ campaignName, campaignId, campaigns, onPick, onRemove }: {
   campaignName: string | null;

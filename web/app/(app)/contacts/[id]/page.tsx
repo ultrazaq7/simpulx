@@ -15,7 +15,7 @@ import { StageMenu } from "../../inbox/components/StageMenu";
 import { InterestMenu } from "../../inbox/components/InterestMenu";
 import LostReasonDialog from "../../inbox/components/LostReasonDialog";
 
-// Stage chip colors — mirror the inbox/dashboard funnel palette.
+// Stage chip colors · mirror the inbox/dashboard funnel palette.
 const STAGE_COLORS: Record<string, string> = {
   new_lead: "#6366F1", "new lead": "#6366F1", contacted: "#0EA5E9", qualified: "#14B8A6",
   appointment: "#8B5CF6", negotiation: "#F59E0B", purchase: "#16A34A",
@@ -47,14 +47,14 @@ function activityLabel(ev: import("@/lib/types").ContactActivity): string {
   const d = (ev.detail || {}) as Record<string, unknown>;
   const s = (k: string) => String(d[k] ?? "");
   switch (ev.type) {
-    case "stage_changed": return `Stage changed to ${s("stage_name") || s("stage_id") || "—"}`;
-    case "status_changed": return `Status set to ${s("status") || "—"}`;
-    case "interest_changed": return `Interest set to ${s("interest_level") || "—"}`;
+    case "stage_changed": return `Stage changed to ${s("stage_name") || s("stage_id") || "-"}`;
+    case "status_changed": return `Status set to ${s("status") || "-"}`;
+    case "interest_changed": return `Interest set to ${s("interest_level") || "-"}`;
     case "assigned": return `Assigned${s("agent_name") ? ` to ${s("agent_name")}` : ""}`;
     case "closed": return "Conversation closed";
     case "reopened": return "Conversation reopened";
     case "handoff": return "Handed off to a human agent";
-    // Explicit labels for the AI takeover/release entries and contact edits —
+    // Explicit labels for the AI takeover/release entries and contact edits -
     // these used to fall through to the raw enum and render lowercase
     // ("bot takeover") next to properly-cased rows.
     case "bot_takeover": return "Bot Takeover";
@@ -77,7 +77,7 @@ export default function ContactDetailsPage() {
   const router = useRouter();
   const [contact, setContact] = useState<Contact | null>(null);
   // Full history: every thread this contact has had (incl. closed), oldest first,
-  // each with its own messages — not just the latest conversation.
+  // each with its own messages · not just the latest conversation.
   const [threads, setThreads] = useState<{ conv: Conversation; msgs: Message[] }[]>([]);
   const [notes, setNotes] = useState<InternalNote[]>([]);
   const [loading, setLoading] = useState(true);
@@ -104,7 +104,7 @@ export default function ContactDetailsPage() {
 
   useEffect(() => { if (id) api.getContactActivity(id).then(setActivity).catch(() => {}); }, [id]);
   // Keep History live. It was fetched ONCE on mount, so it went stale the moment
-  // anything changed — including edits made right here in this tab. Stage /
+  // anything changed · including edits made right here in this tab. Stage /
   // interest / assignment / takeover changes are exactly what this timeline is
   // built from, so refetch when one lands (from this tab, another agent, or the
   // mobile app). A read (conversation.updated carrying only unread_count) creates
@@ -309,7 +309,7 @@ export default function ContactDetailsPage() {
                 <div className="space-y-2 max-w-[760px]">
                   {threads.map((th) => (
                     <div key={th.conv.id} className="space-y-2">
-                      {/* Thread separator — each is a distinct conversation instance. */}
+                      {/* Thread separator · each is a distinct conversation instance. */}
                       <div className="flex items-center gap-2 pt-3 pb-1">
                         <div className="flex-1 h-px bg-border" />
                         <span className="text-[11px] text-muted-foreground whitespace-nowrap px-1">

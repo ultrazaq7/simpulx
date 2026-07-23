@@ -8,8 +8,9 @@
 // campaign gets created half-formed, or fails at Meta with a code nobody can
 // read. Each blocker names what to fix, so the panel is a checklist, not a wall.
 import { useEffect, useRef, useState } from "react";
-import { Loader2, MapPin, Sparkles, Upload, Trash2, Check, AlertTriangle, Users, Image as ImageIcon, Flag, Rocket } from "lucide-react";
+import { Loader2, MapPin, Sparkles, Upload, Trash2, Check, AlertTriangle, Users, Image as ImageIcon, Flag, Rocket, Wallet } from "lucide-react";
 import { api } from "@/lib/api";
+import { useI18n } from "@/lib/i18n";
 import type { AdsPreview, GeoCityResult, AdCopyRow, CreativeRow, GeoCandidate } from "@/lib/types";
 
 export default function LaunchAdsPanel({ id, notify }: { id: string; notify: (m: string, s?: "success" | "error") => void }) {
@@ -27,6 +28,7 @@ export default function LaunchAdsPanel({ id, notify }: { id: string; notify: (m:
   return (
     <div className="flex flex-col gap-4">
       <BlockerList preview={preview} />
+      <BudgetAudienceSection id={id} preview={preview} notify={notify} onChange={reload} />
       <GeoSection id={id} notify={notify} onChange={reload} />
       <CopySection id={id} notify={notify} onChange={reload} />
       <AudienceSection id={id} notify={notify} />
@@ -38,27 +40,97 @@ export default function LaunchAdsPanel({ id, notify }: { id: string; notify: (m:
 }
 
 function BlockerList({ preview }: { preview: AdsPreview }) {
+  const { t } = useI18n();
   if (preview.can_launch) {
     return (
       <div className="rounded-lg border border-primary/30 bg-primary/[0.05] p-3 flex items-start gap-2.5">
         <Check className="w-4 h-4 text-primary mt-0.5 shrink-0" />
-        <p className="text-[13px] text-foreground">
-          Everything is ready. The campaign will be created <strong>paused</strong> in Meta so you can review it there before it spends.
-        </p>
+        <p className="text-[13px] text-foreground">{t("ads.readyBanner")}</p>
       </div>
     );
   }
   return (
     <div className="rounded-lg border border-amber-500/40 bg-amber-500/[0.05] p-3">
       <p className="text-[12.5px] font-semibold text-amber-700 dark:text-amber-500 mb-1.5 flex items-center gap-1.5">
-        <AlertTriangle className="w-3.5 h-3.5" /> {preview.blockers.length} thing{preview.blockers.length === 1 ? "" : "s"} left before launch
+        <AlertTriangle className="w-3.5 h-3.5" /> {t("ads.blockersLeft", { n: preview.blockers.length })}
       </p>
       <ul className="space-y-1">
         {preview.blockers.map((b, i) => (
-          <li key={i} className="text-[13px] text-foreground flex gap-2"><span className="text-muted-foreground">&middot;</span>{b}</li>
+          // t(b): teks blocker dari server berbahasa Inggris; reverse-index i18n
+          // menerjemahkannya bila ada entri dengan nilai EN yang sama persis.
+          <li key={i} className="text-[13px] text-foreground flex gap-2"><span className="text-muted-foreground">&middot;</span>{t(b)}</li>
         ))}
       </ul>
     </div>
+  );
+}
+
+// Budget bulanan + umur + gender + Advantage+, langsung dari panel ini: banner
+// "ubah budget/umur lalu Apply" harus punya tempat mengubahnya di halaman yang
+// sama, bukan menyuruh user berburu ke wizard.
+function BudgetAudienceSection({ id, preview, notify, onChange }: {
+  id: string; preview: AdsPreview; notify: (m: string, s?: "success" | "error") => void; onChange: () => void;
+}) {
+  const { t } = useI18n();
+  const [budget, setBudget] = useState(preview.budget.monthly != null ? String(preview.budget.monthly) : "");
+  const [ageMin, setAgeMin] = useState(String(preview.audience.age_min || 18));
+  const [ageMax, setAgeMax] = useState(String(preview.audience.age_max || 65));
+  const [gender, setGender] = useState(preview.audience.gender || "all");
+  const [advantage, setAdvantage] = useState(!!preview.audience.advantage_plus);
+  const [busy, setBusy] = useState(false);
+
+  async function save() {
+    setBusy(true);
+    try {
+      await api.updateCampaign(id, {
+        monthly_budget: budget.trim() === "" ? null : Number(budget.replace(/[^0-9.]/g, "")),
+        target_age_min: Math.max(13, Number(ageMin) || 18),
+        target_age_max: Math.min(65, Number(ageMax) || 65),
+        target_gender: gender,
+        advantage_audience_enabled: advantage,
+      } as never);
+      notify(t("ads.budgetSaved"));
+      onChange();
+    } catch (e) { notify(String(e), "error"); }
+    finally { setBusy(false); }
+  }
+
+  const INPUT = "h-9 px-3 rounded-md border border-input bg-background text-[13px] outline-none focus:border-primary";
+  return (
+    <Section icon={Wallet} title={t("ads.budgetAudience")}>
+      <div className="flex flex-wrap items-end gap-3">
+        <div>
+          <p className="text-[11px] font-semibold text-muted-foreground mb-1">{t("ads.monthlyBudget")}</p>
+          <input value={budget} onChange={(e) => setBudget(e.target.value.replace(/[^0-9]/g, ""))}
+            placeholder="500000" className={`${INPUT} w-36 tabular-nums`} />
+        </div>
+        <div>
+          <p className="text-[11px] font-semibold text-muted-foreground mb-1">{t("ads.ageRange")}</p>
+          <div className="flex items-center gap-1.5">
+            <input value={ageMin} onChange={(e) => setAgeMin(e.target.value.replace(/[^0-9]/g, ""))} className={`${INPUT} w-16 tabular-nums`} />
+            <span className="text-muted-foreground text-[12px]">s/d</span>
+            <input value={ageMax} onChange={(e) => setAgeMax(e.target.value.replace(/[^0-9]/g, ""))} className={`${INPUT} w-16 tabular-nums`} />
+          </div>
+        </div>
+        <div>
+          <p className="text-[11px] font-semibold text-muted-foreground mb-1">{t("ads.gender")}</p>
+          <select value={gender} onChange={(e) => setGender(e.target.value)} className={`${INPUT} w-28`}>
+            <option value="all">{t("ads.genderAll")}</option>
+            <option value="male">{t("ads.genderMale")}</option>
+            <option value="female">{t("ads.genderFemale")}</option>
+          </select>
+        </div>
+        <label className="flex items-center gap-2 h-9 cursor-pointer select-none">
+          <input type="checkbox" checked={advantage} onChange={(e) => setAdvantage(e.target.checked)} className="accent-emerald-600" />
+          <span className="text-[12.5px] text-foreground">Advantage+</span>
+        </label>
+        <button onClick={save} disabled={busy}
+          className="inline-flex items-center gap-1.5 px-3 h-9 rounded-md bg-primary text-white text-[12.5px] font-semibold hover:bg-primary-dark outline-none disabled:opacity-50">
+          {busy ? <Loader2 className="w-3.5 h-3.5 animate-spin" /> : <Check className="w-3.5 h-3.5" />}{t("common.save")}
+        </button>
+      </div>
+      {advantage && <p className="mt-2 text-[11.5px] text-muted-foreground">{t("ads.advantageAgeNote")}</p>}
+    </Section>
   );
 }
 
@@ -74,6 +146,7 @@ function Section({ icon: Icon, title, children }: { icon: typeof MapPin; title: 
 }
 
 function GeoSection({ id, notify, onChange }: { id: string; notify: (m: string, s?: "success" | "error") => void; onChange: () => void }) {
+  const { t } = useI18n();
   const [rows, setRows] = useState<GeoCityResult[] | null>(null);
   const [busy, setBusy] = useState(false);
 
@@ -91,12 +164,12 @@ function GeoSection({ id, notify, onChange }: { id: string; notify: (m: string, 
   }
 
   return (
-    <Section icon={MapPin} title="Locations">
+    <Section icon={MapPin} title={t("ads.locations")}>
       {!rows ? (
         <button onClick={resolve} disabled={busy}
           className="inline-flex items-center gap-1.5 px-3 h-9 rounded-md border border-border text-[13px] font-semibold hover:bg-muted outline-none disabled:opacity-50">
           {busy ? <Loader2 className="w-3.5 h-3.5 animate-spin" /> : <MapPin className="w-3.5 h-3.5" />}
-          Match cities to Meta locations
+          {t("ads.matchCities")}
         </button>
       ) : (
         <div className="space-y-2">
@@ -114,7 +187,7 @@ function GeoSection({ id, notify, onChange }: { id: string; notify: (m: string, 
                       human pick rather than guessing and aiming spend wrong. */}
                   <div className="flex items-center gap-1.5 text-amber-700 dark:text-amber-500 mb-1">
                     <AlertTriangle className="w-3.5 h-3.5" /><span className="font-medium">{r.query}</span>
-                    <span className="text-muted-foreground">— which one?</span>
+                    <span className="text-muted-foreground">{t("ads.whichOne")}</span>
                   </div>
                   <div className="flex flex-wrap gap-1.5 pl-5">
                     {(r.candidates || []).slice(0, 6).map((c) => (
@@ -123,7 +196,7 @@ function GeoSection({ id, notify, onChange }: { id: string; notify: (m: string, 
                         {c.name}{c.region ? ` · ${c.region}` : ""} <span className="text-muted-foreground">({c.type})</span>
                       </button>
                     ))}
-                    {(!r.candidates || r.candidates.length === 0) && <span className="text-[12px] text-muted-foreground">{r.error || "No match from Meta."}</span>}
+                    {(!r.candidates || r.candidates.length === 0) && <span className="text-[12px] text-muted-foreground">{r.error || t("ads.noMatch")}</span>}
                   </div>
                 </div>
               )}
@@ -136,6 +209,7 @@ function GeoSection({ id, notify, onChange }: { id: string; notify: (m: string, 
 }
 
 function CopySection({ id, notify, onChange }: { id: string; notify: (m: string, s?: "success" | "error") => void; onChange: () => void }) {
+  const { t } = useI18n();
   const [copies, setCopies] = useState<AdCopyRow[]>([]);
   const [busy, setBusy] = useState(false);
 
@@ -144,12 +218,12 @@ function CopySection({ id, notify, onChange }: { id: string; notify: (m: string,
 
   async function generate() {
     setBusy(true);
-    try { await api.generateAdCopy(id); load(); notify("Draft copy generated — read it before approving"); }
+    try { await api.generateAdCopy(id); load(); notify(t("ads.draftGenerated")); }
     catch (e) { notify(String(e), "error"); }
     finally { setBusy(false); }
   }
   async function approve(copyId: string) {
-    try { await api.approveAdCopy(id, copyId); load(); onChange(); notify("Copy approved"); }
+    try { await api.approveAdCopy(id, copyId); load(); onChange(); notify(t("ads.copyApproved")); }
     catch (e) { notify(String(e), "error"); }
   }
 
@@ -157,26 +231,26 @@ function CopySection({ id, notify, onChange }: { id: string; notify: (m: string,
   const approved = copies.find((c) => c.status === "approved");
 
   return (
-    <Section icon={Sparkles} title="Ad copy">
+    <Section icon={Sparkles} title={t("ads.adCopy")}>
       <button onClick={generate} disabled={busy}
         className="inline-flex items-center gap-1.5 px-3 h-9 rounded-md border border-border text-[13px] font-semibold hover:bg-muted outline-none disabled:opacity-50 mb-3">
         {busy ? <Loader2 className="w-3.5 h-3.5 animate-spin" /> : <Sparkles className="w-3.5 h-3.5" />}
-        {copies.length ? "Regenerate" : "Generate copy"}
+        {copies.length ? t("ads.regenerate") : t("ads.generateCopy")}
       </button>
       {latest && (
         <div className="space-y-2">
           {/* All variants are shown and all are sent to Meta: Advantage+ tests them
               against real traffic, so picking a winner here would just duplicate
               what Meta already does better. */}
-          <CopyBlock label="Primary text" items={latest.primary_texts} />
-          <CopyBlock label="Headlines" items={latest.headlines} />
-          <CopyBlock label="Descriptions" items={latest.descriptions} />
+          <CopyBlock label={t("ads.primaryText")} items={latest.primary_texts} />
+          <CopyBlock label={t("ads.headlines")} items={latest.headlines} />
+          <CopyBlock label={t("ads.descriptions")} items={latest.descriptions} />
           {approved ? (
-            <p className="text-[12.5px] text-primary flex items-center gap-1.5"><Check className="w-3.5 h-3.5" />Approved</p>
+            <p className="text-[12.5px] text-primary flex items-center gap-1.5"><Check className="w-3.5 h-3.5" />{t("ads.approved")}</p>
           ) : (
             <button onClick={() => approve(latest.id)}
               className="inline-flex items-center gap-1.5 px-3 h-8 rounded-md bg-primary text-white text-[12.5px] font-semibold hover:bg-primary-dark outline-none">
-              <Check className="w-3.5 h-3.5" />Approve this copy
+              <Check className="w-3.5 h-3.5" />{t("ads.approveThisCopy")}
             </button>
           )}
         </div>
@@ -198,6 +272,7 @@ function CopyBlock({ label, items }: { label: string; items: string[] }) {
 }
 
 function AudienceSection({ id, notify }: { id: string; notify: (m: string, s?: "success" | "error") => void }) {
+  const { t } = useI18n();
   const [interests, setInterests] = useState<{ name: string; why: string }[] | null>(null);
   const [busy, setBusy] = useState(false);
   async function suggest() {
@@ -207,19 +282,19 @@ function AudienceSection({ id, notify }: { id: string; notify: (m: string, s?: "
     finally { setBusy(false); }
   }
   return (
-    <Section icon={Users} title="Audience suggestions">
+    <Section icon={Users} title={t("ads.audienceSuggestions")}>
       <button onClick={suggest} disabled={busy}
         className="inline-flex items-center gap-1.5 px-3 h-9 rounded-md border border-border text-[13px] font-semibold hover:bg-muted outline-none disabled:opacity-50">
         {busy ? <Loader2 className="w-3.5 h-3.5 animate-spin" /> : <Users className="w-3.5 h-3.5" />}
-        Suggest interests
+        {t("ads.suggestInterests")}
       </button>
       {interests && (
         <div className="mt-3 space-y-1.5">
-          {interests.length === 0 && <p className="text-[13px] text-muted-foreground">No suggestions. Advantage+ audience still works without them.</p>}
+          {interests.length === 0 && <p className="text-[13px] text-muted-foreground">{t("ads.noSuggestions")}</p>}
           {interests.map((it, i) => (
             <div key={i} className="text-[13px]">
               <span className="font-medium text-foreground">{it.name}</span>
-              {it.why && <span className="text-muted-foreground"> — {it.why}</span>}
+              {it.why && <span className="text-muted-foreground">: {it.why}</span>}
             </div>
           ))}
         </div>
@@ -229,6 +304,7 @@ function AudienceSection({ id, notify }: { id: string; notify: (m: string, s?: "
 }
 
 function CreativeSection({ id, preview, notify, onChange }: { id: string; preview: AdsPreview; notify: (m: string, s?: "success" | "error") => void; onChange: () => void }) {
+  const { t } = useI18n();
   const format = preview.format === "carousel" ? "carousel" : "single";
   async function setFormat(f: "single" | "carousel") {
     if (f === format) return;
@@ -259,7 +335,7 @@ function CreativeSection({ id, preview, notify, onChange }: { id: string; previe
   }
 
   return (
-    <Section icon={ImageIcon} title="Creatives">
+    <Section icon={ImageIcon} title={t("ads.creatives")}>
       {/* Bentuk iklan: Single = satu iklan per creative; Carousel = semua gambar
           jadi kartu geser dari SATU iklan (2-10 kartu, video tidak ikut). */}
       <div className="flex items-center gap-2 mb-3">
@@ -273,8 +349,7 @@ function CreativeSection({ id, preview, notify, onChange }: { id: string; previe
         </div>
         <span className="text-[11.5px] text-muted-foreground">
           {format === "carousel"
-            ? "Semua gambar jadi kartu geser satu iklan (min 2, maks 10)."
-            : "Satu iklan per foto/video."}
+? t("ads.carouselHint") : t("ads.singleHint")}
         </span>
       </div>
       <input ref={fileRef} type="file" accept="image/*,video/*" className="hidden"
@@ -282,7 +357,7 @@ function CreativeSection({ id, preview, notify, onChange }: { id: string; previe
       <button onClick={() => fileRef.current?.click()} disabled={busy}
         className="inline-flex items-center gap-1.5 px-3 h-9 rounded-md border border-border text-[13px] font-semibold hover:bg-muted outline-none disabled:opacity-50 mb-3">
         {busy ? <Loader2 className="w-3.5 h-3.5 animate-spin" /> : <Upload className="w-3.5 h-3.5" />}
-        Upload photo or video
+        {t("ads.uploadCreative")}
       </button>
       {items.length > 0 && (
         <div className="grid grid-cols-2 sm:grid-cols-4 gap-2">
@@ -311,6 +386,7 @@ function CreativeSection({ id, preview, notify, onChange }: { id: string; previe
 function PageSection({ id, preview, notify, onChange }: {
   id: string; preview: AdsPreview; notify: (m: string, s?: "success" | "error") => void; onChange: () => void;
 }) {
+  const { t } = useI18n();
   const [pages, setPages] = useState<{ id: string; name: string }[] | null>(null);
   const [busy, setBusy] = useState(false);
   const [manualId, setManualId] = useState("");
@@ -323,31 +399,30 @@ function PageSection({ id, preview, notify, onChange }: {
     finally { setBusy(false); }
   }
   async function choose(p: { id: string; name: string }) {
-    try { await api.chooseAdPage(id, { page_id: p.id, page_name: p.name }); onChange(); notify("Page set"); }
+    try { await api.chooseAdPage(id, { page_id: p.id, page_name: p.name }); onChange(); notify(t("ads.pageSet")); }
     catch (e) { notify(String(e), "error"); }
   }
 
   return (
-    <Section icon={Flag} title="Facebook Page">
+    <Section icon={Flag} title={t("ads.facebookPage")}>
       {chosen && (
         <p className="text-[13px] text-foreground mb-2 flex items-center gap-2">
           <Check className="w-3.5 h-3.5 text-primary" />
           <span className="font-medium">{chosen.name || chosen.id}</span>
-          <span className="text-muted-foreground">— the ad runs as this Page. Its WhatsApp must be connected in Meta.</span>
+          <span className="text-muted-foreground">{t("ads.pageRunsAs")}</span>
         </p>
       )}
       {!pages ? (
         <button onClick={load} disabled={busy}
           className="inline-flex items-center gap-1.5 px-3 h-9 rounded-md border border-border text-[13px] font-semibold hover:bg-muted outline-none disabled:opacity-50">
           {busy ? <Loader2 className="w-3.5 h-3.5 animate-spin" /> : <Flag className="w-3.5 h-3.5" />}
-          {chosen ? "Change Page" : "Pick a Page"}
+          {chosen ? t("ads.changePage") : t("ads.pickPage")}
         </button>
       ) : (
         <div className="space-y-3">
           {pages.length === 0 ? (
             <p className="text-[13px] text-muted-foreground">
-              The connected token cannot see any Page (grant it Page access in Meta Business or reconnect via the
-              Connect button). You can also enter the Page ID directly below.
+{t("ads.noPagesVisible")}
             </p>
           ) : (
             <div className="flex flex-wrap gap-1.5">
@@ -365,12 +440,12 @@ function PageSection({ id, preview, notify, onChange }: {
               Page → About, atau URL page). CTWA tetap butuh Page apa pun caranya. */}
           <div className="flex items-center gap-2">
             <input value={manualId} onChange={(e) => setManualId(e.target.value.replace(/[^0-9]/g, ""))}
-              placeholder="Page ID (angka)"
+              placeholder={t("ads.pageIdPlaceholder")}
               className="h-9 px-3 w-56 rounded-md border border-input bg-background text-[13px] outline-none focus:border-primary" />
             <button disabled={!manualId.trim() || busy}
               onClick={() => { choose({ id: manualId.trim(), name: "" }); setManualId(""); }}
               className="px-3 h-9 rounded-md border border-border text-[12.5px] font-semibold hover:bg-muted outline-none disabled:opacity-50">
-              Use this Page ID
+              {t("ads.usePageId")}
             </button>
           </div>
         </div>
@@ -382,6 +457,7 @@ function PageSection({ id, preview, notify, onChange }: {
 function LaunchBar({ id, preview, notify, onRefresh }: {
   id: string; preview: AdsPreview; notify: (m: string, s?: "success" | "error") => void; onRefresh: () => void;
 }) {
+  const { t } = useI18n();
   const [busy, setBusy] = useState(false);
   const [confirming, setConfirming] = useState(false);
 
@@ -393,14 +469,14 @@ function LaunchBar({ id, preview, notify, onRefresh }: {
       const r = await api.launchAds(id);
       const failed = r.ads.filter((x) => x.error);
       const parts: string[] = [];
-      if (r.updated_adset) parts.push("budget & targeting updated");
-      if (r.created > 0) parts.push(`${r.created} ad(s) on Meta`);
+      if (r.updated_adset) parts.push(t("ads.budgetTargetingUpdated"));
+      if (r.created > 0) parts.push(t("ads.nAdsOnMeta", { n: r.created }));
       if (r.warning) parts.push(r.warning);
       notify(failed.length
-        ? `${parts.join(", ") || "Partial"}; ${failed.length} creative(s) failed: ${failed[0].error}`
+        ? `${parts.join(", ")}; ${t("ads.nCreativesFailed", { n: failed.length })}: ${failed[0].error}`
         : launched
-          ? `Applied to Meta: ${parts.join(", ") || "no changes needed"}.`
-          : `Created in Meta, paused: ${parts.join(", ")}. Review & activate in Ads Manager.`,
+          ? `${t("ads.appliedToMeta")}: ${parts.join(", ") || t("ads.noChanges")}.`
+          : `${t("ads.createdPausedToast")}: ${parts.join(", ")}.`,
         failed.length ? "error" : "success");
       onRefresh();
     } catch (e) { notify(String(e), "error"); }
@@ -413,7 +489,7 @@ function LaunchBar({ id, preview, notify, onRefresh }: {
         <div className="rounded-lg border border-primary/30 bg-primary/[0.05] p-3 flex items-start gap-2.5">
           <Rocket className="w-4 h-4 text-primary mt-0.5 shrink-0" />
           <div className="text-[13px] text-foreground">
-            <p className="font-semibold">Live di Meta. Ubah budget, area, umur, atau tambah creative di atas, lalu Apply.</p>
+            <p className="font-semibold">{t("ads.liveBanner")}</p>
             <p className="text-muted-foreground tabular-nums">
               Campaign {preview.meta_ids?.campaign} &middot; Ad set {preview.meta_ids?.adset}
             </p>
@@ -421,7 +497,7 @@ function LaunchBar({ id, preview, notify, onRefresh }: {
         </div>
       )}
       <div className="flex items-center gap-3">
-        <button onClick={onRefresh} className="text-[12.5px] text-muted-foreground hover:text-foreground outline-none">Refresh</button>
+        <button onClick={onRefresh} className="text-[12.5px] text-muted-foreground hover:text-foreground outline-none">{t("common.refresh")}</button>
         <div className="flex-1" />
         {/* Two-step confirm instead of a modal: the second click states exactly
             what happens. First run creates everything PAUSED; after that the
@@ -429,22 +505,20 @@ function LaunchBar({ id, preview, notify, onRefresh }: {
         {confirming ? (
           <div className="flex items-center gap-2">
             <span className="text-[12.5px] text-muted-foreground">
-              {launched
-                ? "Updates budget & targeting on the ad set; new creatives become paused ads."
-                : `Creates campaign + ad set + ${preview.creatives.length} ad(s) in Meta, all paused.`}
+{launched ? t("ads.confirmApply") : t("ads.confirmLaunch", { n: preview.creatives.length })}
             </span>
             <button onClick={launch} disabled={busy}
               className="inline-flex items-center gap-1.5 px-4 h-10 rounded-md bg-primary text-white text-[13px] font-semibold hover:bg-primary-dark outline-none disabled:opacity-50">
-              {busy ? <Loader2 className="w-4 h-4 animate-spin" /> : <Rocket className="w-4 h-4" />}Confirm
+              {busy ? <Loader2 className="w-4 h-4 animate-spin" /> : <Rocket className="w-4 h-4" />}{t("common.confirm")}
             </button>
-            <button onClick={() => setConfirming(false)} className="text-[12.5px] text-muted-foreground hover:text-foreground outline-none">Cancel</button>
+            <button onClick={() => setConfirming(false)} className="text-[12.5px] text-muted-foreground hover:text-foreground outline-none">{t("common.cancel")}</button>
           </div>
         ) : (
           <button onClick={() => setConfirming(true)} disabled={!preview.can_launch || busy}
-            title={preview.can_launch ? "" : "Resolve the items above first"}
+            title={preview.can_launch ? "" : t("ads.resolveFirst")}
             className="inline-flex items-center gap-1.5 px-4 h-10 rounded-md bg-primary text-white text-[13px] font-semibold hover:bg-primary-dark outline-none disabled:opacity-50 disabled:cursor-not-allowed">
             {busy ? <Loader2 className="w-4 h-4 animate-spin" /> : <Rocket className="w-4 h-4" />}
-            {launched ? "Apply changes to Meta" : "Launch ads (creates paused)"}
+            {launched ? t("ads.applyChanges") : t("ads.launchPaused")}
           </button>
         )}
       </div>

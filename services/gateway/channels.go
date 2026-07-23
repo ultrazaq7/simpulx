@@ -49,7 +49,7 @@ type channelInput struct {
 	Config        map[string]any `json:"config"`
 }
 
-// POST /api/channels — manual connect (real Meta OAuth is added later).
+// POST /api/channels - manual connect (real Meta OAuth is added later).
 func (s *server) handleCreateChannel(w http.ResponseWriter, r *http.Request) {
 	a, _ := authFrom(r.Context())
 	var b channelInput
@@ -141,12 +141,12 @@ func (s *server) handleDeleteChannel(w http.ResponseWriter, r *http.Request) {
 	writeJSON(w, map[string]any{"status": "deleted"})
 }
 
-// POST /api/channels/{id}/test — verify the connection.
+// POST /api/channels/{id}/test - verify the connection.
 //
 // For a WhatsApp channel with real credentials this is also the step that makes
 // the MANUAL path actually receive messages: it subscribes our app to the WABA
 // (`subscribed_apps`). Embedded signup does that during provisioning, but a
-// manually entered channel had no step that did — so it could sit "connected"
+// manually entered channel had no step that did - so it could sit "connected"
 // while inbound webhooks never arrived. Best-effort: a failure surfaces as a
 // warning, it does not block marking the channel connected (dev/mock has no
 // credentials at all).
@@ -222,7 +222,7 @@ func (s *server) handleEmbeddedSignup(w http.ResponseWriter, r *http.Request) {
 	token := ""
 
 	if appID == "" || appSecret == "" {
-		// No credentials on the server — store what the popup gave us and let the
+		// No credentials on the server - store what the popup gave us and let the
 		// agent finish via Test once env is configured.
 		status = "pending"
 		warning = "META_APP_ID / META_APP_SECRET not configured on the server; channel saved as pending."
@@ -238,7 +238,7 @@ func (s *server) handleEmbeddedSignup(w http.ResponseWriter, r *http.Request) {
 		if _, err := s.metaPost(r.Context(), fmt.Sprintf("%s/%s/subscribed_apps", graphBase, b.WabaID), token, map[string]any{}); err != nil {
 			warning = "subscribed_apps: " + err.Error()
 		}
-		// 3) Register the phone number (best-effort — may already be registered).
+		// 3) Register the phone number (best-effort - may already be registered).
 		pin := randomPIN()
 		if _, err := s.metaPost(r.Context(), fmt.Sprintf("%s/%s/register", graphBase, b.PhoneNumberID), token,
 			map[string]any{"messaging_product": "whatsapp", "pin": pin}); err != nil {
@@ -348,7 +348,7 @@ func (s *server) handleConnectViber(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	// 3) Register the inbound webhook (best-effort — localhost won't be reachable in dev).
+	// 3) Register the inbound webhook (best-effort - localhost won't be reachable in dev).
 	warning := ""
 	hook := strings.TrimRight(config.Get("PUBLIC_API_URL", "http://localhost:8080"), "/") + "/webhook/viber/" + id
 	if err := viberSetWebhook(r.Context(), token, hook); err != nil {

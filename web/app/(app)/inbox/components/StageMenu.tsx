@@ -19,7 +19,7 @@ export const stageColorMap: Record<string, string> = new Proxy({}, {
 }) as Record<string, string>;
 
 // Pipeline stages = progress (New ... Purchase). Lost/Spam are terminal OUTCOMES
-// (dispositions + reason), not stages — so they live in their own section here.
+// (dispositions + reason), not stages · so they live in their own section here.
 // Shared by the inbox chat header and the Contacts table so both behave identically.
 // The menu renders in a portal so it never gets clipped by a scrolling table.
 export function StageMenu({

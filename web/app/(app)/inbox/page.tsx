@@ -97,7 +97,7 @@ export default function InboxPage() {
     if (c) setActiveId(c); // deep-link to a conversation (Copy link to message)
   }, []);
   // Resolve ?stage=<name> once stages load (dashboard "Your stages" deep-link).
-  // Accepts one or more comma-separated names — the "Lost" row can map to several
+  // Accepts one or more comma-separated names · the "Lost" row can map to several
   // lost-keyed stages, so we match them all instead of a single literal "Lost".
   useEffect(() => {
     const raw = pendingStageRef.current;
@@ -109,7 +109,7 @@ export default function InboxPage() {
   }, [stages]);
 
   // Open a conversation from anywhere (notification click) even while already on
-  // this page — router.push to the same route doesn't re-run the mount effect.
+  // this page · router.push to the same route doesn't re-run the mount effect.
   useEffect(() => {
     const onOpen = (e: Event) => { const id = (e as CustomEvent).detail as string; if (id) setActiveId(id); };
     window.addEventListener("inbox:open", onOpen as EventListener);
@@ -277,7 +277,7 @@ export default function InboxPage() {
 
       // Newer realtime subjects are consumed by the mobile app (live delivery ticks,
       // contact edits, notes, stage config, presence, call counters). The web inbox
-      // doesn't apply them inline yet, so ignore them here — otherwise the generic
+      // doesn't apply them inline yet, so ignore them here · otherwise the generic
       // loadConvs() fallback below would fire a full conversation refetch on every
       // delivery receipt (which streams constantly). Prevents a refetch storm.
       if (
@@ -316,7 +316,7 @@ export default function InboxPage() {
       }
 
       // Delivery/read receipt: advance the exact bubble's tick in the open thread
-      // and the row's last-outbound status — never regress, no refetch.
+      // and the row's last-outbound status · never regress, no refetch.
       if (ev.type === "message.status.updated") {
         const cid: string | undefined = data?.conversation_id;
         const mid: string | undefined = data?.message_id;
@@ -340,7 +340,7 @@ export default function InboxPage() {
         return;
       }
 
-      // Transient Simpuler phase — drives the "typing" indicator; never touches the list.
+      // Transient Simpuler phase · drives the "typing" indicator; never touches the list.
       if (ev.type === "ai.activity" && data?.conversation_id) {
         const cid: string = data.conversation_id;
         const clearAi = () => { setAiActivity((m) => { if (!(cid in m)) return m; const n = { ...m }; delete n[cid]; return n; }); if (aiTimers.current[cid]) { clearTimeout(aiTimers.current[cid]); delete aiTimers.current[cid]; } };
@@ -354,7 +354,7 @@ export default function InboxPage() {
 
       // Conversation-level change: merge the payload straight into the matching row
       // so bot takeover ("Manual · {name}"), assignee, stage, status, interest and
-      // snooze update INSTANTLY — no full-list refetch (the old takeover lag). Only
+      // snooze update INSTANTLY · no full-list refetch (the old takeover lag). Only
       // an assignment (which can move a chat in/out of this agent's scope) still
       // reconciles the list.
       if (ev.type === "conversation.updated" || ev.type === "conversation.assigned" || ev.type === "conversation.closed") {

@@ -1,5 +1,5 @@
 "use client";
-// Pipeline Stages — owner/admin manage the sales pipeline: rename, reorder, add
+// Pipeline Stages · owner/admin manage the sales pipeline: rename, reorder, add
 // custom stages, delete custom ones. Default (system) stages are translated
 // automatically per language; renaming one turns it into a fixed custom name.
 import { useEffect, useMemo, useState } from "react";

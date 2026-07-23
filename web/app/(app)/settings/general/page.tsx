@@ -75,7 +75,7 @@ export default function AccountPage() {
 
   // Profile data
   const user = getUser();
-  const roleLabel = user?.is_super_admin ? "Super Admin" : (user?.role || "—");
+  const roleLabel = user?.is_super_admin ? "Super Admin" : (user?.role || "-");
   const [name, setName] = useState(user?.name || "");
   const [origName, setOrigName] = useState(user?.name || "");
   const [saving, setSaving] = useState(false);
@@ -148,7 +148,7 @@ export default function AccountPage() {
   }
 
   // One save for the editable profile fields (name + timezone), driven by the
-  // sticky UnsavedBar — no inline per-field save buttons. Email (needs
+  // sticky UnsavedBar · no inline per-field save buttons. Email (needs
   // verification) and password (a security action) keep their own flows.
   async function saveAll() {
     if (!name.trim()) { notify(tr("account.name_required"), false); return; }
@@ -258,7 +258,7 @@ export default function AccountPage() {
               </button>
               <input ref={avatarInputRef} type="file" accept="image/*" className="hidden" onChange={(e) => { const f = e.target.files?.[0]; if (f) uploadAvatar(f); e.target.value = ""; }} />
               <div>
-                <p className="text-[18px] font-bold text-foreground">{user?.name || "—"}</p>
+                <p className="text-[18px] font-bold text-foreground">{user?.name || "-"}</p>
                 <p className="text-[13px] text-muted-foreground capitalize">{roleLabel}</p>
               </div>
             </div>

@@ -144,7 +144,7 @@ func (a *app) onReceived(env events.Envelope) error {
 	// campaign). If NOT matched -> attach to the contact's latest active lead
 	// instance (decision #1); a brand-new no-signal contact gets a fresh
 	// unassigned conversation that waits quietly in the manager/admin queue for a
-	// human to pick up (decision #2 — no auto bot prompt).
+	// human to pick up (decision #2 - no auto bot prompt).
 	var conv convInfo
 	// Branch's ad source is more specific than a campaign's -> check it first.
 	campaignID, branchID := "", ""
@@ -192,7 +192,7 @@ func (a *app) onReceived(env events.Envelope) error {
 	}
 
 	// A revived (previously-closed) thread: broadcast the status flip so clients
-	// still showing it as closed correct it live — the inbound message.persisted
+	// still showing it as closed correct it live - the inbound message.persisted
 	// alone doesn't carry a status change.
 	if conv.Reopened {
 		_ = a.bus.Publish(events.SubjectConversationUpdated, env.OrgID, events.ConversationUpdated{
@@ -266,7 +266,7 @@ func (a *app) onReceived(env events.Envelope) error {
 	// Decision #2: a brand-new contact whose first message carried no campaign
 	// signal (no CTWA referral, no keyword) is left UNASSIGNED in the manager/admin
 	// queue for a human to pick up. We deliberately do NOT auto-reply with a bot
-	// prompt — new leads land quietly (no AI auto-chat).
+	// prompt - new leads land quietly (no AI auto-chat).
 	return nil
 }
 
@@ -361,7 +361,7 @@ func (a *app) onStatusUpdated(env events.Envelope) error {
 	a.log.Info("message status updated", "conv", convID, "ext_id", e.ExternalID, "status", e.Status)
 	// Re-broadcast the status carrying the resolved conversation + message id so
 	// clients patch the exact bubble's tick (sent→delivered→read) and the inbox
-	// row's last-outbound status live — WhatsApp-style receipts, no refetch.
+	// row's last-outbound status live - WhatsApp-style receipts, no refetch.
 	return a.bus.Publish(events.SubjectMessageStatusUpdated, env.OrgID, events.MessageStatusUpdated{
 		ExternalID:     e.ExternalID,
 		Status:         e.Status,

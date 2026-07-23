@@ -6,7 +6,7 @@ import (
 	"strings"
 )
 
-// POST /public/account-deletion — unauthenticated account/data-deletion request
+// POST /public/account-deletion - unauthenticated account/data-deletion request
 // from the public /delete-account page (Google Play requirement). Records the
 // request so the team can process it within the stated window. No auth: a
 // signed-out (or already-locked-out) user must still be able to submit.

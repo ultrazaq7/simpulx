@@ -16,7 +16,7 @@ import (
 )
 
 // sender mengirim pesan ke WhatsApp Cloud API. Saat mock=true (dev), tidak
-// benar-benar memanggil Meta — mengembalikan wamid palsu agar slice bisa diuji.
+// benar-benar memanggil Meta - mengembalikan wamid palsu agar slice bisa diuji.
 type sender struct {
 	mock     bool
 	graphURL string
@@ -42,7 +42,7 @@ func (s *sender) sendText(ctx context.Context, t sendTarget, body string) (strin
 }
 
 // sendTemplate mengirim pesan template WhatsApp (name + language). Dipakai node
-// automation "Send template" — juga satu-satunya cara mengirim di luar 24 jam.
+// automation "Send template" - juga satu-satunya cara mengirim di luar 24 jam.
 func (s *sender) sendTemplate(ctx context.Context, t sendTarget, name, lang string) (string, error) {
 	return s.sendTemplateParams(ctx, t, &events.TemplateOutbound{Name: name, Language: lang})
 }

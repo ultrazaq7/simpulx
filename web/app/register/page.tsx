@@ -1,7 +1,7 @@
 "use client";
 // Public onboarding page: register a new business, or top up credits for an
-// existing one. Two menus on one page because both end in the same place — a
-// request a human approves — and a returning customer should not have to hunt
+// existing one. Two menus on one page because both end in the same place · a
+// request a human approves · and a returning customer should not have to hunt
 // for a different URL to buy more credits.
 //
 // Nothing here activates anything. Submitting creates a pending request and the
@@ -13,7 +13,7 @@ import { ArrowLeft, Check, Loader2, Sparkles } from "lucide-react";
 
 // Halaman publik untuk pasar Indonesia: SELALU Bahasa Indonesia, apa pun
 // preferensi bahasa aplikasi. Terikat di module scope (bukan setLang di effect)
-// supaya SSR dan paint pertama sudah ID — tanpa flash teks Inggris — dan
+// supaya SSR dan paint pertama sudah ID · tanpa flash teks Inggris · dan
 // preferensi bahasa user di aplikasi tidak ikut berubah.
 // Alias i18n: di dalam .map((t) => ...) variabel tier menutupi `t`.
 const t = fixedT("id");

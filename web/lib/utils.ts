@@ -195,7 +195,7 @@ export function channelColor(channel: string | undefined | null): string {
   return map[channel.toLowerCase()] || "#9CA3AF";
 }
 
-// Lead heat (temperature) — its own semantic axis, kept in sync with the --hot /
+// Lead heat (temperature) · its own semantic axis, kept in sync with the --hot /
 // --warm / --cold design tokens. Distinct from brand (petrol) and pipeline stage.
 export function interestColor(val: string | undefined | null): string {
   if (!val) return "#64748B";

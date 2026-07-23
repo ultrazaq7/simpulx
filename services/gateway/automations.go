@@ -28,7 +28,7 @@ func (s *server) handleListAutomations(w http.ResponseWriter, r *http.Request) {
 	writeJSON(w, rows)
 }
 
-// GET /api/automations/{id} — includes the flow graph for the builder.
+// GET /api/automations/{id} - includes the flow graph for the builder.
 func (s *server) handleGetAutomation(w http.ResponseWriter, r *http.Request) {
 	a, _ := authFrom(r.Context())
 	rows, err := s.queryMaps(r.Context(),
@@ -59,7 +59,7 @@ type automationInput struct {
 	IsActive      *bool           `json:"is_active"`
 }
 
-// POST /api/automations/{id}/clone — duplicate an automation (trigger + actions +
+// POST /api/automations/{id}/clone - duplicate an automation (trigger + actions +
 // visual flow) into a new one in the same org. Org-scoped. The clone starts
 // INACTIVE (is_active=false) so it never fires until reviewed and toggled on.
 func (s *server) handleCloneAutomation(w http.ResponseWriter, r *http.Request) {
@@ -112,7 +112,7 @@ func (s *server) handleCreateAutomation(w http.ResponseWriter, r *http.Request) 
 	writeJSON(w, map[string]any{"id": id})
 }
 
-// PATCH /api/automations/{id} — partial update incl. flow graph & toggle.
+// PATCH /api/automations/{id} - partial update incl. flow graph & toggle.
 func (s *server) handleUpdateAutomation(w http.ResponseWriter, r *http.Request) {
 	a, _ := authFrom(r.Context())
 	var b automationInput

@@ -73,14 +73,14 @@ func (s *server) requireSuperAdmin(next http.HandlerFunc) http.HandlerFunc {
 	})
 }
 
-// GET /api/platform/access — any authed user; tells the UI whether to render the
+// GET /api/platform/access - any authed user; tells the UI whether to render the
 // Platform surface. The real gate is requireSuperAdmin on every read/write.
 func (s *server) handlePlatformAccess(w http.ResponseWriter, r *http.Request) {
 	a, _ := authFrom(r.Context())
 	writeJSON(w, map[string]any{"super_admin": s.isSuperAdmin(r.Context(), a)})
 }
 
-// GET /api/platform/orgs — every org with its full column set.
+// GET /api/platform/orgs - every org with its full column set.
 func (s *server) handleListOrgs(w http.ResponseWriter, r *http.Request) {
 	rows, err := s.queryMaps(r.Context(),
 		`SELECT o.id::text AS id, o.name, o.slug, o.created_at,
@@ -113,7 +113,7 @@ func (s *server) handleListOrgs(w http.ResponseWriter, r *http.Request) {
 	writeJSON(w, rows)
 }
 
-// GET /api/platform/ml-monitor — model health for the founders (P7 internal tool).
+// GET /api/platform/ml-monitor - model health for the founders (P7 internal tool).
 // Aggregates purely from Postgres (no ai-agent file access needed): score coverage,
 // distribution, the model versions actually in use, and the Next Best Action mix.
 // Lets a founder see "is the decision engine live and sane" at a glance.
@@ -201,7 +201,7 @@ func (s *server) handleMlMonitor(w http.ResponseWriter, r *http.Request) {
 const capiCreditPriceIDR = "200"
 const capiUSDIDR = "16000"
 
-// GET /api/platform/campaigns — every campaign across all orgs (for the clone +
+// GET /api/platform/campaigns - every campaign across all orgs (for the clone +
 // prompt-history tools). Lightweight: id, name, org, catalog size.
 func (s *server) handleListAllCampaigns(w http.ResponseWriter, r *http.Request) {
 	rows, err := s.queryMaps(r.Context(),
@@ -216,7 +216,7 @@ func (s *server) handleListAllCampaigns(w http.ResponseWriter, r *http.Request) 
 	writeJSON(w, rows)
 }
 
-// GET /api/platform/campaigns/{id}/ai-history — the AI style/prompt version history
+// GET /api/platform/campaigns/{id}/ai-history - the AI style/prompt version history
 // for a campaign (P7 prompt versioning), newest first.
 func (s *server) handleCampaignAIHistory(w http.ResponseWriter, r *http.Request) {
 	rows, err := s.queryMaps(r.Context(),
@@ -233,7 +233,7 @@ func (s *server) handleCampaignAIHistory(w http.ResponseWriter, r *http.Request)
 	writeJSON(w, rows)
 }
 
-// POST /api/platform/orgs — create an org, its owner user, and its credit pool.
+// POST /api/platform/orgs - create an org, its owner user, and its credit pool.
 // Thin wrapper over createOrganization so the wizard and signup approval create
 // orgs through one path instead of two copies that drift.
 func (s *server) handleCreateOrg(w http.ResponseWriter, r *http.Request) {
@@ -284,7 +284,7 @@ func (s *server) handleCreateOrg(w http.ResponseWriter, r *http.Request) {
 	writeJSON(w, map[string]any{"id": orgID, "slug": slug, "owner_id": ownerID})
 }
 
-// PATCH /api/platform/orgs/{id} — rename + set package/status/renewal/credit pool.
+// PATCH /api/platform/orgs/{id} - rename + set package/status/renewal/credit pool.
 func (s *server) handleUpdateOrg(w http.ResponseWriter, r *http.Request) {
 	orgID := r.PathValue("id")
 	var b struct {
@@ -399,7 +399,7 @@ func (s *server) handleUpdateOrg(w http.ResponseWriter, r *http.Request) {
 	writeJSON(w, map[string]any{"status": "updated"})
 }
 
-// DELETE /api/platform/orgs/{id} — permanently remove an org and everything under
+// DELETE /api/platform/orgs/{id} - permanently remove an org and everything under
 // it (cascades). Super admin only; you cannot delete your own organization.
 func (s *server) handleDeleteOrg(w http.ResponseWriter, r *http.Request) {
 	a, _ := authFrom(r.Context())

@@ -1,6 +1,6 @@
 "use client";
 import { useI18n } from "@/lib/i18n";
-// Ads & Analytics — ONE page, ONE connect wizard. Ad accounts (Meta/TikTok/Google Ads)
+// Ads & Analytics · ONE page, ONE connect wizard. Ad accounts (Meta/TikTok/Google Ads)
 // and Google Analytics 4 live in a single list; the "Connect" button opens the shared
 // AdWizard, whose first step picks the source. Reporting stays on the Dashboard.
 import { useCallback, useEffect, useMemo, useState } from "react";

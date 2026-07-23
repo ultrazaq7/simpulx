@@ -1,6 +1,6 @@
 "use client";
 // Route-level error boundary. Without this, any unhandled render exception is a
-// blank page saying "see the browser console" — useless to the person looking
+// blank page saying "see the browser console" · useless to the person looking
 // at it and to whoever they report it to. Show the actual message and a retry,
 // so a screenshot of the failure IS the bug report.
 import { useEffect } from "react";

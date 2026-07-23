@@ -32,12 +32,12 @@ type catalogRow struct {
 	Attributes    json.RawMessage `json:"attributes"`
 }
 
-// GET /api/campaigns/{id}/catalog — list a campaign's catalog rows.
+// GET /api/campaigns/{id}/catalog - list a campaign's catalog rows.
 func (s *server) handleListCatalog(w http.ResponseWriter, r *http.Request) {
 	a, _ := authFrom(r.Context())
 	cid := r.PathValue("id")
 	// Default high enough to show a whole pricelist: one upload is (items x tenors x
-	// locations) rows, which easily tops 500 — and because rows are ORDER BY item_name,
+	// locations) rows, which easily tops 500 - and because rows are ORDER BY item_name,
 	// a 500 cap silently hid everything late in the alphabet (e.g. XForce under "X").
 	limit := 20000
 	if v := r.URL.Query().Get("limit"); v != "" {
@@ -60,7 +60,7 @@ func (s *server) handleListCatalog(w http.ResponseWriter, r *http.Request) {
 	writeJSON(w, rows)
 }
 
-// POST /api/campaigns/{id}/catalog — bulk upload rows.
+// POST /api/campaigns/{id}/catalog - bulk upload rows.
 // {effective_month, source_ref, segment, replace, rows:[...]}. replace=true clears
 // the campaign's existing catalog first (a fresh pricelist supersedes the old one).
 func (s *server) handleUploadCatalog(w http.ResponseWriter, r *http.Request) {
@@ -105,7 +105,7 @@ func (s *server) handleUploadCatalog(w http.ResponseWriter, r *http.Request) {
 	inserted, skipped := 0, 0
 	for _, row := range b.Rows {
 		if strings.TrimSpace(row.ItemName) == "" {
-			skipped++ // a nameless row (e.g. a mis-extracted PDF cell) — count it so the caller sees it, don't just vanish it
+			skipped++ // a nameless row (e.g. a mis-extracted PDF cell) - count it so the caller sees it, don't just vanish it
 			continue
 		}
 		attrs := row.Attributes
@@ -145,7 +145,7 @@ func (s *server) handleUploadCatalog(w http.ResponseWriter, r *http.Request) {
 	writeJSON(w, map[string]any{"inserted": inserted, "skipped": skipped, "replaced": b.Replace})
 }
 
-// POST /api/campaigns/{id}/catalog/extract {pdf_base64, segment?} — kick off an
+// POST /api/campaigns/{id}/catalog/extract {pdf_base64, segment?} - kick off an
 // ASYNC LLM extraction (WS-A). LLM PDF extraction can take minutes, which blows
 // past the edge proxy's ~100s timeout (a 502). So this returns a job id
 // immediately and runs the extraction in the background (server-to-server, no
@@ -178,7 +178,7 @@ func (s *server) handleExtractCatalog(w http.ResponseWriter, r *http.Request) {
 	sum := sha256.Sum256([]byte(b.PDFBase64))
 	cacheKey := "catalog_extract_cache:" + a.OrgID + ":" + hex.EncodeToString(sum[:]) + ":" + b.Segment
 	// Skip the cache on an explicit re-extract: re-uploading the same pricelist means
-	// the caller wants a fresh read (the cached result may be stale or partial — e.g. a
+	// the caller wants a fresh read (the cached result may be stale or partial - e.g. a
 	// prior run that missed a model), not a 30-day-old echo. A fresh run still repopulates
 	// the cache below, so cross-campaign re-use of a good extraction is preserved.
 	if !b.Force {
@@ -193,7 +193,7 @@ func (s *server) handleExtractCatalog(w http.ResponseWriter, r *http.Request) {
 	// Mark pending, then run the extraction detached from the request.
 	_ = s.rdb.Set(r.Context(), key, `{"status":"pending"}`, 20*time.Minute).Err()
 	// organization_id is forwarded so the ai-agent can attribute the extraction's
-	// token spend in llm_usage — it is the only place the org is known on this path
+	// token spend in llm_usage - it is the only place the org is known on this path
 	// (the ai-agent has no auth context of its own). A cache hit returns above and
 	// spends no tokens, so it correctly records nothing.
 	payload, _ := json.Marshal(map[string]any{
@@ -275,7 +275,7 @@ func (s *server) runCatalogExtract(key, cacheKey string, payload []byte) {
 	store(map[string]any{"status": "error", "error": "extraction ended unexpectedly"})
 }
 
-// GET /api/campaigns/{id}/catalog/extract/{job} — poll an extraction job. Returns
+// GET /api/campaigns/{id}/catalog/extract/{job} - poll an extraction job. Returns
 // {status:"pending"|"done"|"error"|"expired", rows?, warning?, error?}.
 func (s *server) handleExtractCatalogStatus(w http.ResponseWriter, r *http.Request) {
 	a, _ := authFrom(r.Context())
@@ -289,7 +289,7 @@ func (s *server) handleExtractCatalogStatus(w http.ResponseWriter, r *http.Reque
 	_, _ = w.Write([]byte(val))
 }
 
-// PATCH /api/campaigns/{id}/catalog/{row} — edit one catalog row in place.
+// PATCH /api/campaigns/{id}/catalog/{row} - edit one catalog row in place.
 func (s *server) handleUpdateCatalogRow(w http.ResponseWriter, r *http.Request) {
 	a, _ := authFrom(r.Context())
 	cid := r.PathValue("id")
@@ -334,7 +334,7 @@ func (s *server) handleUpdateCatalogRow(w http.ResponseWriter, r *http.Request) 
 	writeJSON(w, map[string]any{"updated": true})
 }
 
-// DELETE /api/campaigns/{id}/catalog/{row} — delete one catalog row.
+// DELETE /api/campaigns/{id}/catalog/{row} - delete one catalog row.
 func (s *server) handleDeleteCatalogRow(w http.ResponseWriter, r *http.Request) {
 	a, _ := authFrom(r.Context())
 	cid := r.PathValue("id")
@@ -355,7 +355,7 @@ func (s *server) handleDeleteCatalogRow(w http.ResponseWriter, r *http.Request) 
 	writeJSON(w, map[string]any{"deleted": true})
 }
 
-// DELETE /api/campaigns/{id}/catalog — clear a campaign's catalog.
+// DELETE /api/campaigns/{id}/catalog - clear a campaign's catalog.
 func (s *server) handleClearCatalog(w http.ResponseWriter, r *http.Request) {
 	a, _ := authFrom(r.Context())
 	cid := r.PathValue("id")

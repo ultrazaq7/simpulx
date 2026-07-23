@@ -21,9 +21,9 @@ func (s *server) sendMail(to, subject, htmlBody string) (sent bool, err error) {
 	return mailer.Send(to, subject, brandWrap(htmlBody), true)
 }
 
-// brandWrap frames an email body with the Simpulx brand header — logo + the
+// brandWrap frames an email body with the Simpulx brand header - logo + the
 // landing-page wordmark (dark "Simpul", amber "x", #C9871F from the landing
-// palette) — a white card around the content, and a one-line footer. Inline
+// palette) - a white card around the content, and a one-line footer. Inline
 // styles only and the logo by absolute URL: email clients ignore stylesheets
 // and strip everything else.
 func brandWrap(inner string) string {

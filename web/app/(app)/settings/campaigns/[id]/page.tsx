@@ -161,7 +161,7 @@ function CreditsTab({ id, notify }: { id: string; notify: (m: string, s?: "succe
     // Iterate in UTC so the day keys match the server's date_trunc('day', ...)
     // UTC output. Using local-midnight Dates + toISOString() shifted every key
     // back a day in +UTC timezones (e.g. Jakarta), which dropped the most recent
-    // days off the axis — so a campaign whose usage was all today rendered an
+    // days off the axis · so a campaign whose usage was all today rendered an
     // empty chart despite the "N operations" count being non-zero.
     const d = new Date(from + "T00:00:00Z"); const end = new Date(to + "T00:00:00Z");
     for (; d <= end; d.setUTCDate(d.getUTCDate() + 1)) days.push(d.toISOString().slice(0, 10));
@@ -220,7 +220,7 @@ function CreditsTab({ id, notify }: { id: string; notify: (m: string, s?: "succe
       </div>
       <UnsavedBar count={allocChangedCount} saving={saving} onSave={save} onCancel={resetAlloc} saveLabel="Save allocation" />
 
-      {/* Usage — stacked by AI feature, with date range + CSV export */}
+      {/* Usage · stacked by AI feature, with date range + CSV export */}
       <div className="rounded-lg border border-border p-4">
         <div className="flex items-center justify-between gap-3 mb-3 flex-wrap">
           <div>
@@ -243,7 +243,7 @@ function CreditsTab({ id, notify }: { id: string; notify: (m: string, s?: "succe
           </div>
         </div>
 
-        {/* legend — identity is never colour-alone */}
+        {/* legend · identity is never colour-alone */}
         <div className="flex flex-wrap gap-x-4 gap-y-1 mb-2">
           {USAGE_FEATURES.map((f) => (
             <div key={f.key} className="flex items-center gap-1.5 text-[11.5px] text-muted-foreground">
@@ -599,7 +599,7 @@ function CatalogTab({ id, segment, cities, notify }: { id: string; segment?: str
       const res = await api.uploadCampaignCatalog(id, { replace: true, segment, source_ref: file.name, effective_month: month, rows: finalRows });
       // Surface rows the server dropped for a missing name so a short/partial extraction
       // is visible instead of silently ending up with fewer items than the file had.
-      const skippedNote = res.skipped > 0 ? ` (${res.skipped} skipped — missing name)` : "";
+      const skippedNote = res.skipped > 0 ? ` (${res.skipped} skipped · missing name)` : "";
       notify(`Imported ${res.inserted} item${res.inserted === 1 ? "" : "s"}${isPdf ? " from PDF" : ""}${skippedNote}`, res.skipped > 0 ? "error" : "success");
       load();
     } catch (err) { notify(String(err), "error"); } finally { setBusy(false); setProgress(null); }
@@ -911,7 +911,7 @@ function AdsTab({ id, notify }: { id: string; notify: (m: string, s?: "success" 
       if (st && st.linked_ad_count === 0 && st.ads_status !== "active") setView("setup");
     }).catch((e) => { setStatus(null); setLoadErr(String(e)); });
     // Live per-ad state from Meta: drives the single pause/resume toggle and the
-    // creative previews. null strictly means "still loading" — a FAILED fetch
+    // creative previews. null strictly means "still loading" · a FAILED fetch
     // resolves to an empty result so the UI can distinguish the two (during
     // load: one disabled button; truly unknown: the two-button fallback).
     api.campaignAdsLive(id).then(setLive)
@@ -937,7 +937,7 @@ function AdsTab({ id, notify }: { id: string; notify: (m: string, s?: "success" 
       // Report the partial case honestly: with several linked ad campaigns some
       // can fail while others succeed, and "done" would be a lie.
       notify(r.failed?.length
-        ? `${r.applied}/${r.total} applied — ${r.failed.join("; ")}`
+        ? `${r.applied}/${r.total} applied · ${r.failed.join("; ")}`
         : `Ads ${r.status}`, r.failed?.length ? "error" : "success");
       load();
     } catch (e) { notify(String(e), "error"); }
@@ -1028,7 +1028,7 @@ function AdsTab({ id, notify }: { id: string; notify: (m: string, s?: "success" 
             <span className="text-[12.5px] text-muted-foreground">No ads yet</span>
           ) : (
             // Status tidak kebaca (Meta error): dua tombol tebak-tebakan tidak
-            // membantu siapa pun — tawarkan retry, errornya tampil di grid.
+            // membantu siapa pun · tawarkan retry, errornya tampil di grid.
             <button onClick={load}
               className="inline-flex items-center gap-1.5 px-3 h-9 rounded-md border border-border text-[12.5px] font-semibold text-muted-foreground hover:bg-muted outline-none">
               Status unavailable &middot; Retry
@@ -1064,7 +1064,7 @@ function AdsTab({ id, notify }: { id: string; notify: (m: string, s?: "success" 
       {live && (live.ads?.length ?? 0) > 0 && (
         <div className="rounded-lg border border-border p-3">
           <p className="text-[12.5px] font-semibold text-foreground mb-2">
-            Ads &amp; creatives <span className="font-normal text-muted-foreground">— live from Meta</span>
+            Ads &amp; creatives <span className="font-normal text-muted-foreground">- live from Meta</span>
           </p>
           {/* Hierarki Meta yang bisa dibaca: campaign mana, ad set mana. Tanpa
               ini yang tampil cuma ID angka dan orang harus buka Ads Manager
@@ -1178,7 +1178,7 @@ function AdsTab({ id, notify }: { id: string; notify: (m: string, s?: "success" 
 }
 
 // Empty state tab Ads yang bisa langsung beres: kalau org sudah punya ad account
-// yang connect, pilih di sini — tanpa ini satu-satunya jalan adalah dialog
+// yang connect, pilih di sini · tanpa ini satu-satunya jalan adalah dialog
 // mapping, yang buntu untuk campaign baru (belum ada apa pun untuk di-map).
 // Akun juga bisa dipilih sejak wizard New Campaign.
 function AdsAccountPicker({ id, notify, onAttached }: {

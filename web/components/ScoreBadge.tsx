@@ -1,7 +1,7 @@
 import { scoreColor } from "@/lib/utils";
 
-// Lead score as a radial progress ring — the arc fills proportionally to the
-// 0–100 score so low scores (0, 1) look intentionally empty and high scores
+// Lead score as a radial progress ring · the arc fills proportionally to the
+// 0-100 score so low scores (0, 1) look intentionally empty and high scores
 // (92) look nearly complete. Matches the mobile app's _ScoreCircle aesthetic.
 export function ScoreBadge({ score, size = 32 }: { score: number; size?: number }) {
   const col = scoreColor(score);

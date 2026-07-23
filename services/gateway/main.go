@@ -1,6 +1,6 @@
 // gateway: gerbang masuk publik. Menerima webhook WhatsApp, meng-ACK cepat
 // (<2 dtk) lalu mem-publish event message.received ke NATS. Tidak melakukan
-// pekerjaan berat secara sinkron — itu tugas service downstream.
+// pekerjaan berat secara sinkron - itu tugas service downstream.
 package main
 
 import (
@@ -482,7 +482,7 @@ func main() {
 // check is skipped. GET requests (verification challenge) are always passed through.
 func (s *server) verifyWebhookSignature(next http.HandlerFunc) http.HandlerFunc {
 	return func(w http.ResponseWriter, r *http.Request) {
-		// GET requests are webhook verification challenges — no signature needed
+		// GET requests are webhook verification challenges - no signature needed
 		if r.Method == http.MethodGet || s.appSecret == "" {
 			next(w, r)
 			return
@@ -527,7 +527,7 @@ func (s *server) handleWhatsApp(w http.ResponseWriter, r *http.Request) {
 		http.Error(w, "forbidden", http.StatusForbidden)
 	case http.MethodPost:
 		// ACK cepat: baca body, proses, balas 200. (Pemrosesan ringan,
-		// hanya publish ke NATS — tetap di bawah batas waktu Meta.)
+		// hanya publish ke NATS - tetap di bawah batas waktu Meta.)
 		var payload waWebhook
 		if err := json.NewDecoder(r.Body).Decode(&payload); err != nil {
 			s.log.Warn("bad webhook payload", "err", err)
@@ -630,7 +630,7 @@ func (s *server) ingest(ctx context.Context, p waWebhook) {
 					s.captureFlowResponse(ctx, orgID, m.From, contactName, m.Interactive.NFMReply.ResponseJSON)
 				}
 
-				// JSON asli pesan apa adanya (tidak lossy) — penting untuk
+				// JSON asli pesan apa adanya (tidak lossy) - penting untuk
 				// inspeksi pesan "unsupported" yang field-nya di luar struct.
 				raw := m.rawJSON()
 				if m.Type == "unsupported" {

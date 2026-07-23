@@ -118,7 +118,7 @@ func (s *server) applyCallPermissionReply(ctx context.Context, orgID, fromPhone,
 		granted = false
 	}
 	if !granted && !denied {
-		return // unknown response — leave it as a displayed message only
+		return // unknown response - leave it as a displayed message only
 	}
 	var callID, convID string
 
@@ -233,7 +233,7 @@ func (s *server) handleRequestCallPermission(w http.ResponseWriter, r *http.Requ
 	}
 
 	// Rate limit: max 1 permission request per 24h per conversation.
-	// Only count requests that are still pending/active — failed attempts
+	// Only count requests that are still pending/active - failed attempts
 	// should not block retries (e.g. transient errors, 138017 before fix).
 	var recentCount int
 	_ = s.pool.QueryRow(r.Context(),
@@ -760,7 +760,7 @@ func (s *server) processCallWebhook(ctx context.Context, orgID, phoneNumberID st
 			s.handleInboundCall(ctx, orgID, phoneNumberID, ce)
 			continue
 		}
-		// Permission grant/deny carries no call_context — match the most recent
+		// Permission grant/deny carries no call_context - match the most recent
 		// pending outbound permission request for that customer's number.
 		if callID == "" && strings.Contains(ce.Event, "permission") && ce.From != "" {
 			_ = s.pool.QueryRow(ctx,

@@ -13,7 +13,7 @@ import (
 // Each branch is a routing unit: its own coverage, ad sources and agents. Leads
 // are matched to a branch by ad source, then round-robin assigned among the
 // branch's agents (see routeToBranch). Branches are optional and backward
-// compatible — a campaign with no branches routes at the campaign level.
+// compatible - a campaign with no branches routes at the campaign level.
 
 // GET /api/campaigns/{id}/branches
 func (s *server) handleListBranches(w http.ResponseWriter, r *http.Request) {

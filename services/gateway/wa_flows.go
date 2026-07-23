@@ -20,7 +20,7 @@ import (
 )
 
 // ============================================================
-// WhatsApp Forms — native Meta WhatsApp Flows.
+// WhatsApp Forms - native Meta WhatsApp Flows.
 // Author a form in the builder (`definition`: screens + components), compile to
 // Meta Flow JSON, publish to a WABA, send it as an interactive flow message, and
 // capture nfm_reply submissions into wa_flow_responses.
@@ -54,7 +54,7 @@ func nz(a, b string) string {
 }
 
 // letters maps an index to A, B, ... Z, AA, ... Meta requires screen ids (and
-// we keep form names) to be alphabets + underscores only — no digits.
+// we keep form names) to be alphabets + underscores only - no digits.
 func letters(i int) string {
 	s := ""
 	i++
@@ -195,7 +195,7 @@ func (s *server) handleListFlows(w http.ResponseWriter, r *http.Request) {
 	writeJSON(w, rows)
 }
 
-// GET /api/wa-flows/{id} — includes the builder definition + compiled JSON.
+// GET /api/wa-flows/{id} - includes the builder definition + compiled JSON.
 func (s *server) handleGetFlow(w http.ResponseWriter, r *http.Request) {
 	a, _ := authFrom(r.Context())
 	rows, err := s.queryMaps(r.Context(),
@@ -249,7 +249,7 @@ func (s *server) handleCreateFlow(w http.ResponseWriter, r *http.Request) {
 	writeJSON(w, map[string]any{"id": id})
 }
 
-// PATCH /api/wa-flows/{id} — save the builder definition / rename. Editing a
+// PATCH /api/wa-flows/{id} - save the builder definition / rename. Editing a
 // published form drops it back to draft until re-published.
 func (s *server) handleUpdateFlow(w http.ResponseWriter, r *http.Request) {
 	a, _ := authFrom(r.Context())
@@ -391,7 +391,7 @@ func (s *server) metaUploadFlowAsset(ctx context.Context, flowID, token string, 
 	return nil
 }
 
-// POST /api/wa-flows/{id}/publish — compile, push to Meta, publish, persist state.
+// POST /api/wa-flows/{id}/publish - compile, push to Meta, publish, persist state.
 func (s *server) handlePublishFlow(w http.ResponseWriter, r *http.Request) {
 	a, _ := authFrom(r.Context())
 	id := r.PathValue("id")
@@ -619,7 +619,7 @@ func (s *server) handleListFlowResponses(w http.ResponseWriter, r *http.Request)
 	writeJSON(w, rows)
 }
 
-// GET /api/wa-flows/responses/export?flow_id= — CSV download.
+// GET /api/wa-flows/responses/export?flow_id= - CSV download.
 func (s *server) handleExportFlowResponses(w http.ResponseWriter, r *http.Request) {
 	a, _ := authFrom(r.Context())
 	args := []any{a.OrgID}

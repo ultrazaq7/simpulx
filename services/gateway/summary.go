@@ -9,7 +9,7 @@ import (
 	"time"
 )
 
-// ── POST /api/conversations/{id}/summary — stream an on-demand AI briefing (SSE) ──
+// ── POST /api/conversations/{id}/summary - stream an on-demand AI briefing (SSE) ──
 // Proxies the ai-agent's SSE stream straight through to the inbox composer so it
 // can render "AI Smart Summary" token-by-token. The ai-agent persists the final
 // text to conversations.lead_summary.
@@ -36,7 +36,7 @@ func (s *server) handleSummaryStream(w http.ResponseWriter, r *http.Request) {
 		"app_lang":        lang,
 	})
 
-	// The LLM stream can run for many seconds — don't use the short-lived shared
+	// The LLM stream can run for many seconds - don't use the short-lived shared
 	// httpClient; bound it with our own context instead.
 	ctx, cancel := context.WithTimeout(r.Context(), 120*time.Second)
 	defer cancel()

@@ -87,19 +87,19 @@ function summary(kind: string, c: Record<string, unknown>, triggerType?: string)
       if (inter === "list") { const s0 = (Array.isArray(c.sections) ? c.sections[0] : undefined) as { rows?: unknown[] } | undefined; parts.push(`list: ${(Array.isArray(s0?.rows) ? s0!.rows!.length : 0)} item(s)`); }
       return parts.join(" · ") || "No message set";
     }
-    case "send_template": return `Template: ${c.template_name || "—"}`;
-    case "send_form": return `Form: ${c.form_name || "—"}`;
-    case "assign_agent": return `Agent: ${c.agent_name || c.agent_id || "—"}`;
-    case "assign_campaign": return `Campaign: ${c.campaign_name || "—"}`;
+    case "send_template": return `Template: ${c.template_name || "-"}`;
+    case "send_form": return `Form: ${c.form_name || "-"}`;
+    case "assign_agent": return `Agent: ${c.agent_name || c.agent_id || "-"}`;
+    case "assign_campaign": return `Campaign: ${c.campaign_name || "-"}`;
     case "unassign_team": return "Clear assigned agent";
     case "remove_campaign": return "Clear campaign";
     case "blacklist": return "Block from outreach";
-    case "send_email": return `Email to: ${c.to || "—"}`;
+    case "send_email": return `Email to: ${c.to || "-"}`;
     case "set_contact_attribute": return `${(Array.isArray(c.mappings) ? c.mappings.length : (c.key ? 1 : 0))} attribute(s)`;
-    case "add_tag": case "remove_tag": return `Tags: ${(Array.isArray(c.tags) ? (c.tags as string[]).join(", ") : "") || "—"}`;
-    case "set_conversation_status": return `Status: ${c.status || "—"}`;
-    case "set_stage": return `Stage: ${c.stage_name || "—"}`;
-    case "set_interest": return `Interest: ${c.interest_level || "—"}`;
+    case "add_tag": case "remove_tag": return `Tags: ${(Array.isArray(c.tags) ? (c.tags as string[]).join(", ") : "") || "-"}`;
+    case "set_conversation_status": return `Status: ${c.status || "-"}`;
+    case "set_stage": return `Stage: ${c.stage_name || "-"}`;
+    case "set_interest": return `Interest: ${c.interest_level || "-"}`;
     case "google_sheet": return c.sheet_url ? "Append to sheet" : "No sheet set";
     case "set_priority": return `Priority: ${c.priority || "normal"}`;
     case "webhook_notify": return String(c.url || "No URL set");
@@ -513,7 +513,7 @@ type ReplyBtn = { title?: string; id?: string };
 type ReplyRow = { title?: string; description?: string; id?: string };
 
 // Auto-generate a WhatsApp button callback id (payload). 16-char url-safe token
-// (matches the SmartKonek style). The user can edit or regenerate it — the
+// (matches the SmartKonek style). The user can edit or regenerate it · the
 // button_click trigger matches on this id.
 function genCallbackId(): string {
   const chars = "ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789";
@@ -570,10 +570,10 @@ function AutoReplyConfig({ c, set, forms }: { c: Record<string, unknown>; set: (
 
   return (
     <>
-      {/* Body — works standalone or combined with an image / buttons / list. */}
+      {/* Body · works standalone or combined with an image / buttons / list. */}
       <Field label={t("automation.message")}><textarea value={bodyVal} onChange={(e) => set("body", e.target.value)} rows={4} placeholder={t("automation.typeTheAutoReply")} className={cn(INP, "resize-none h-auto py-2")} /></Field>
 
-      {/* Optional image — becomes the header image when combined with buttons. */}
+      {/* Optional image · becomes the header image when combined with buttons. */}
       <Field label={t("automation.imageOptional")}><ImageUpload url={String(c.media_url ?? "")} onChange={(u) => set("media_url", u)} /></Field>
 
       {/* Optional interactive: reply buttons or a list menu. */}

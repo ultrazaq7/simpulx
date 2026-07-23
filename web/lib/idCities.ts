@@ -25,7 +25,7 @@ export const ID_CITY_GROUPS: CityGroup[] = [
 ];
 
 // Flat, deduped city list for type-ahead. Jakarta admin cities + Jabodetabek
-// satellites + provincial capitals + major second-tier cities. Not exhaustive —
+// satellites + provincial capitals + major second-tier cities. Not exhaustive -
 // users can still type any custom city and press Enter.
 export const ID_CITIES: string[] = Array.from(
   new Set([

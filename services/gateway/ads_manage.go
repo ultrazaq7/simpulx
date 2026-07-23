@@ -28,7 +28,7 @@ type adsTarget struct {
 	campaignID   string
 	campaignName string
 	orgID        string
-	accountID    string // ad_accounts.id — needed when launch registers the created Meta campaign
+	accountID    string // ad_accounts.id - needed when launch registers the created Meta campaign
 	extAccountID string
 	token        string
 	accessMode   string
@@ -60,7 +60,7 @@ func (s *server) resolveAdsAny(ctx context.Context, orgID, campaignID string) (a
 	// The account is resolved through EITHER link, in priority order: the explicit
 	// managed_ad_account_id when set, else the account of whatever Meta campaign is
 	// MAPPED to this campaign. Requiring the explicit column alone made the Ads tab
-	// claim "no ad account" for a campaign whose Meta campaign was plainly mapped —
+	// claim "no ad account" for a campaign whose Meta campaign was plainly mapped -
 	// the mapping already names an account, and asking the user to say it twice is
 	// how the two answers drift apart.
 	err := s.pool.QueryRow(ctx,
@@ -155,7 +155,7 @@ func (s *server) setAdsStatus(w http.ResponseWriter, r *http.Request, status str
 		}
 		applied++
 		// Pause is asymmetric on Meta: pausing the campaign stops everything under
-		// it, but resuming the campaign only clears the CAMPAIGN-level pause — an
+		// it, but resuming the campaign only clears the CAMPAIGN-level pause - an
 		// ad set or ad that is itself PAUSED stays off (and our own launch creates
 		// all three levels PAUSED). Without this cascade, Resume reported success
 		// while not a single ad delivered. Child failures are reported but do not
@@ -285,7 +285,7 @@ func (s *server) handleCampaignAdsAlerts(w http.ResponseWriter, r *http.Request)
 	writeJSON(w, rows)
 }
 
-// GET /api/campaigns/{id}/ads-status — what the dashboard needs to decide which
+// GET /api/campaigns/{id}/ads-status - what the dashboard needs to decide which
 // controls to show, in one call: is this campaign managed, what did the client
 // agree to, and what is linked.
 func (s *server) handleCampaignAdsStatus(w http.ResponseWriter, r *http.Request) {
@@ -330,13 +330,13 @@ func (s *server) handleCampaignAdsStatus(w http.ResponseWriter, r *http.Request)
 	})
 }
 
-// GET /api/campaigns/{id}/ads/live — the linked ads as Meta sees them RIGHT NOW:
+// GET /api/campaigns/{id}/ads/live - the linked ads as Meta sees them RIGHT NOW:
 // per-ad delivery status and creative thumbnail, plus one derived overall status.
 //
 // This is what makes the pause/resume control honest. Showing both buttons at
 // once forces the user to remember which state the ads are in; the button should
 // reflect Meta's live state, not the last thing we happened to write. Works for
-// "read" accounts too — seeing what runs is reporting, which they agreed to.
+// "read" accounts too - seeing what runs is reporting, which they agreed to.
 func (s *server) handleCampaignAdsLive(w http.ResponseWriter, r *http.Request) {
 	a, _ := authFrom(r.Context())
 	t, msg, code := s.resolveAdsAny(r.Context(), a.OrgID, r.PathValue("id"))
@@ -360,7 +360,7 @@ func (s *server) handleCampaignAdsLive(w http.ResponseWriter, r *http.Request) {
 		AdsetName    string `json:"adset_name"`
 	}
 	// Non-nil ON PURPOSE: a nil slice marshals as JSON null, and the UI calling
-	// live.ads.length on null is exactly the crash this fixes — it fired for
+	// live.ads.length on null is exactly the crash this fixes - it fired for
 	// every campaign whose account had no ads yet.
 	ads := []liveAd{}
 	var firstErr string
@@ -391,7 +391,7 @@ func (s *server) handleCampaignAdsLive(w http.ResponseWriter, r *http.Request) {
 		// 512px thumbnail: the default 64px crop made creatives unrecognizable.
 		// image_url is the uncropped original when the creative has one. If Meta
 		// rejects the richer expansion for any reason, retry once with the plain
-		// shape that predates it — a smaller thumbnail beats an empty grid.
+		// shape that predates it - a smaller thumbnail beats an empty grid.
 		fetch := func(fields string) error {
 			payload.Data = nil
 			payload.Error = nil
@@ -498,7 +498,7 @@ func resumeChildren(ctx context.Context, campaignExtID, token string) []string {
 	return failed
 }
 
-// GET /api/campaigns/{id}/ads/{adId}/preview — Meta's own rendered preview of
+// GET /api/campaigns/{id}/ads/{adId}/preview - Meta's own rendered preview of
 // one ad (iframe HTML), the same thing Ads Manager shows. A thumbnail crops the
 // creative and drops the copy; the real preview is the only honest answer to
 // "what does this ad actually look like".

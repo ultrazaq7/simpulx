@@ -7,10 +7,10 @@ import "./globals.css";
 import { cn } from "@/lib/utils";
 
 // Simpulx type system:
-//   Body/UI + Display — Geist Sans: dense CRM UI text AND titles/KPIs. One
+//   Body/UI + Display · Geist Sans: dense CRM UI text AND titles/KPIs. One
 //              clean face everywhere; the quirky display font (Bricolage
 //              Grotesque) read as unprofessional on dashboards and was removed.
-//   Data     — Geist Mono: metrics, %, phone numbers, timestamps, IDs (tabular),
+//   Data     · Geist Mono: metrics, %, phone numbers, timestamps, IDs (tabular),
 //              giving the "engineered / precise" feel of a working tool.
 
 

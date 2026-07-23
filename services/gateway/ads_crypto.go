@@ -15,7 +15,7 @@ import (
 )
 
 // Ad-account OAuth tokens (Meta/TikTok access tokens, Google refresh tokens) are
-// stored in ad_accounts.access_token. They used to be PLAINTEXT — anyone with DB
+// stored in ad_accounts.access_token. They used to be PLAINTEXT - anyone with DB
 // read (or a copy of the nightly S3 dump) could take over a customer's ad
 // account. These helpers wrap the token in AES-256-GCM at the DB boundary:
 // encrypt just before write, decrypt just after read. Runtime use is unchanged.
@@ -28,7 +28,7 @@ import (
 const adsTokenPrefix = "enc:v1:"
 
 // adsTokenKey is the 32-byte AES key, or nil when ADS_TOKEN_ENC_KEY is unset. A
-// nil key means encryption is DISABLED (tokens stay plaintext) — the feature
+// nil key means encryption is DISABLED (tokens stay plaintext) - the feature
 // keeps working, but at-rest protection is off. initAdsTokenKey logs loudly so
 // this is never a silent surprise in prod.
 var adsTokenKey []byte
@@ -40,16 +40,16 @@ var adsTokenKey []byte
 func initAdsTokenKey(log *slog.Logger) {
 	raw := strings.TrimSpace(os.Getenv("ADS_TOKEN_ENC_KEY"))
 	if raw == "" {
-		log.Warn("ADS_TOKEN_ENC_KEY is not set — ad-account OAuth tokens will be stored PLAINTEXT. Set a base64-encoded 32-byte key to enable encryption at rest.")
+		log.Warn("ADS_TOKEN_ENC_KEY is not set - ad-account OAuth tokens will be stored PLAINTEXT. Set a base64-encoded 32-byte key to enable encryption at rest.")
 		return
 	}
 	key, err := base64.StdEncoding.DecodeString(raw)
 	if err != nil {
-		log.Error("ADS_TOKEN_ENC_KEY is not valid base64 — refusing to start", "err", err)
+		log.Error("ADS_TOKEN_ENC_KEY is not valid base64 - refusing to start", "err", err)
 		os.Exit(1)
 	}
 	if len(key) != 32 {
-		log.Error("ADS_TOKEN_ENC_KEY must decode to exactly 32 bytes (AES-256) — refusing to start", "bytes", len(key))
+		log.Error("ADS_TOKEN_ENC_KEY must decode to exactly 32 bytes (AES-256) - refusing to start", "bytes", len(key))
 		os.Exit(1)
 	}
 	adsTokenKey = key

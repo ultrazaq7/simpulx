@@ -1,7 +1,7 @@
 "use client";
 // Persistent settings layout: renders Shell + the settings sidebar ONCE. Next.js
 // keeps a layout mounted across child route navigations, so the sidebar (and its
-// scroll position) never remounts — fixing the scroll-jump that the old per-page
+// scroll position) never remounts · fixing the scroll-jump that the old per-page
 // SettingsLayout had. Active section is derived from the pathname, so the URL is
 // always the source of truth (no more ?section= facade).
 import { type ReactNode, useState, useEffect, useLayoutEffect, useRef } from "react";
@@ -102,7 +102,7 @@ export default function SettingsLayout({ children }: { children: ReactNode }) {
     window.addEventListener("keydown", onKey);
     return () => window.removeEventListener("keydown", onKey);
   }, []);
-  // Esc intentionally does NOT collapse the settings sidebar — only Shift+C toggles it.
+  // Esc intentionally does NOT collapse the settings sidebar · only Shift+C toggles it.
 
   // Platform is visible only to the super admin (a configured email, not a role).
   // Lazy-init from the cached session so the Platform item renders immediately on
@@ -158,7 +158,7 @@ export default function SettingsLayout({ children }: { children: ReactNode }) {
 
   // Bring the active section into view on load / route change. Deterministic
   // (center the active item in the nav viewport) rather than restoring a saved
-  // pixel offset — so a reload deep in the list (e.g. Platform at the bottom)
+  // pixel offset · so a reload deep in the list (e.g. Platform at the bottom)
   // always shows where you are instead of pinning to the top. Re-applies on a
   // rAF because the async nav content (permissions + Platform) renders late.
   useIsoLayoutEffect(() => {
@@ -202,7 +202,7 @@ export default function SettingsLayout({ children }: { children: ReactNode }) {
         </div>
       </div>
 
-      {/* Settings sidebar — the WIDTH animates so it slides open/closed; collapsed
+      {/* Settings sidebar · the WIDTH animates so it slides open/closed; collapsed
           leaves a thin bordered strip, and a floating tab fades in to reopen it. */}
       <div className={cn(
         "max-lg:hidden shrink-0 border-r border-border bg-card overflow-hidden transition-[width] duration-300 ease-in-out",
@@ -269,7 +269,7 @@ export default function SettingsLayout({ children }: { children: ReactNode }) {
             })}
           </div>
 
-          {/* Collapse toggle — pinned at the bottom */}
+          {/* Collapse toggle · pinned at the bottom */}
           <div className="shrink-0 border-t border-border p-2 flex justify-end">
             <Tip label={t("settings.viewLessShiftC")} side="top">
               <button onClick={toggle} aria-label={t("settings.collapseSettingsMenu")}
@@ -281,7 +281,7 @@ export default function SettingsLayout({ children }: { children: ReactNode }) {
         </div>
       </div>
 
-      {/* Floating tab attached to the strip (layer 2) — fades in when hidden. */}
+      {/* Floating tab attached to the strip (layer 2) · fades in when hidden. */}
       <div className={cn("max-lg:hidden absolute left-4 bottom-3 z-20 transition-opacity duration-200",
         collapsed ? "opacity-100" : "opacity-0 pointer-events-none")}>
         <Tip label={t("settings.viewMoreShiftC")} side="right">
@@ -292,7 +292,7 @@ export default function SettingsLayout({ children }: { children: ReactNode }) {
         </Tip>
       </div>
 
-      {/* Page content — only this remounts on navigation. overflow-hidden so the
+      {/* Page content · only this remounts on navigation. overflow-hidden so the
           area never shows its own scrollbar; each page scrolls internally. */}
       <div className="flex-1 min-w-0 overflow-hidden bg-background">
         <div className="animate-fade-in h-full">

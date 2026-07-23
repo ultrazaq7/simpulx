@@ -1,11 +1,11 @@
-// Simpul signature glyphs — custom marks Lucide doesn't have, used for the
+// Simpul signature glyphs · custom marks Lucide doesn't have, used for the
 // "Simpul thread" identity (the product name means "knot / node"). Outline,
 // currentColor, sized to sit alongside the Lucide icon set (stroke 1.75).
 import React from "react";
 
 type GlyphProps = { size?: number; className?: string; strokeWidth?: number };
 
-/** The Simpul knot — two interlocking loops (a woven overhand knot). Brand mark
+/** The Simpul knot · two interlocking loops (a woven overhand knot). Brand mark
  *  for empty states, loading and signature moments. */
 export function KnotMark({ size = 24, className, strokeWidth = 1.75 }: GlyphProps) {
   return (
@@ -18,7 +18,7 @@ export function KnotMark({ size = 24, className, strokeWidth = 1.75 }: GlyphProp
   );
 }
 
-/** A node strung on a thread — the pipeline "knot on a rail" motif. */
+/** A node strung on a thread · the pipeline "knot on a rail" motif. */
 export function ThreadNode({ size = 24, className, strokeWidth = 1.75 }: GlyphProps) {
   return (
     <svg width={size} height={size} viewBox="0 0 24 24" fill="none" stroke="currentColor"
@@ -31,7 +31,7 @@ export function ThreadNode({ size = 24, className, strokeWidth = 1.75 }: GlyphPr
   );
 }
 
-/** Handoff — a thread that changes hands at a knot (AI <-> human alih tangan). */
+/** Handoff · a thread that changes hands at a knot (AI <-> human alih tangan). */
 export function HandoffMark({ size = 24, className, strokeWidth = 1.75 }: GlyphProps) {
   return (
     <svg width={size} height={size} viewBox="0 0 24 24" fill="none" stroke="currentColor"

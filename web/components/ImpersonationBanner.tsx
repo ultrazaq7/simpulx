@@ -3,7 +3,7 @@
 //
 // Not decoration, and more important now that these sessions can WRITE. Without
 // it the app looks identical to a normal session, and the whole surface (inbox,
-// campaigns, dashboards) silently belongs to someone else's business — with edits
+// campaigns, dashboards) silently belongs to someone else's business · with edits
 // landing in their data. It also carries the countdown, because the token expires
 // on its own and a page that starts 401-ing with no explanation is worse than one
 // that said the session was ending.
@@ -41,7 +41,7 @@ export default function ImpersonationBanner() {
       <div className="flex items-center gap-3 px-4 py-1.5 text-[13px] font-semibold">
         <Eye className="w-4 h-4 shrink-0" />
         <span className="truncate">
-          Acting inside <strong>{st.orgName}</strong> as {st.viewingAs} — every change is logged as you
+          Acting inside <strong>{st.orgName}</strong> as {st.viewingAs} · every change is logged as you
         </span>
         <span className="ml-auto tabular-nums shrink-0 opacity-80">{mm}:{ss}</span>
         <button

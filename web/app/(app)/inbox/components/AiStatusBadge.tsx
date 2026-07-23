@@ -21,7 +21,7 @@ export function AiStatusBadge({
   compact?: boolean;
   // Once an agent has replied in the thread, the AI stands down permanently for
   // that conversation (orchestrator human-takeover guard), so handing back would
-  // do nothing — the button is hidden in that case.
+  // do nothing · the button is hidden in that case.
   canHandBack?: boolean;
   onTakeOver: () => void;
   onRelease: () => void;

@@ -148,7 +148,7 @@ export default function DetailsPanel({ active, onClose, copyText, notes, onAddNo
 
   return (
     <>
-      {/* Mobile backdrop — the panel is an overlay below lg */}
+      {/* Mobile backdrop · the panel is an overlay below lg */}
       <div className="lg:hidden fixed inset-0 bg-black/40 z-40" onClick={onClose} aria-hidden />
       <div className="w-80 shrink-0 flex flex-col border-l border-border bg-card max-lg:fixed max-lg:inset-y-0 max-lg:right-0 max-lg:z-50 max-lg:w-[85vw] max-lg:max-w-sm max-lg:shadow-2xl">
       {/* Header */}
@@ -253,7 +253,7 @@ export default function DetailsPanel({ active, onClose, copyText, notes, onAddNo
               )}
             </div>
 
-            {/* Assigned agent (manager/admin can reassign) — compact DetailRow style */}
+            {/* Assigned agent (manager/admin can reassign) · compact DetailRow style */}
             {showAgent && (
               <div className="mb-5">
                 <div className="flex gap-3 py-2 border-b border-border/50">
@@ -334,7 +334,7 @@ export default function DetailsPanel({ active, onClose, copyText, notes, onAddNo
               </div>
             )}
 
-            {/* Campaign — persis di bawah Assigned agent, gaya dropdown yang sama:
+            {/* Campaign · persis di bawah Assigned agent, gaya dropdown yang sama:
                 admin/owner (assign_chats) bisa mindahin lead ke campaign lain. */}
             {showAgent && (
               <div className="mb-5 -mt-5">
@@ -430,7 +430,7 @@ export default function DetailsPanel({ active, onClose, copyText, notes, onAddNo
             </div>
 
             <p className="text-[10px] font-bold uppercase tracking-wider text-muted-foreground mb-1">{t("contacts.leadQualification")}</p>
-            {/* Only render fields the AI has actually captured — empty ones are hidden. */}
+            {/* Only render fields the AI has actually captured · empty ones are hidden. */}
             <div>
               {active.stage_name && <DetailRow icon={Hash} label={t("contacts.stage")} value={active.stage_name} />}
               {/* Lost reason sits directly under the stage while the lead is Lost. */}

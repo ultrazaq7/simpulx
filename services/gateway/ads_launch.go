@@ -112,7 +112,7 @@ func rankGeo(cands []metaGeoCandidate, query string) {
 	})
 }
 
-// GET /api/campaigns/{id}/ads/geo — resolve covered_cities to Meta targeting keys.
+// GET /api/campaigns/{id}/ads/geo - resolve covered_cities to Meta targeting keys.
 //
 // The ambiguity guard is the point of this endpoint. "Depok" is a city in Jawa
 // Barat and a kecamatan in Sleman; picking the first match silently aims the
@@ -229,7 +229,7 @@ func (s *server) cachedGeoSearch(ctx context.Context, token, q, country string) 
 	return cands, nil
 }
 
-// POST /api/campaigns/{id}/ads/geo — record the human's choice for one city.
+// POST /api/campaigns/{id}/ads/geo - record the human's choice for one city.
 func (s *server) handleCampaignAdsGeoChoose(w http.ResponseWriter, r *http.Request) {
 	a, _ := authFrom(r.Context())
 	var b struct {
@@ -333,7 +333,7 @@ func (s *server) handleApproveAdCopy(w http.ResponseWriter, r *http.Request) {
 	writeJSON(w, map[string]any{"status": "approved"})
 }
 
-// GET /api/campaigns/{id}/ads/copy — latest drafts + the approved set.
+// GET /api/campaigns/{id}/ads/copy - latest drafts + the approved set.
 func (s *server) handleListAdCopy(w http.ResponseWriter, r *http.Request) {
 	a, _ := authFrom(r.Context())
 	rows, err := s.queryMaps(r.Context(),
@@ -350,7 +350,7 @@ func (s *server) handleListAdCopy(w http.ResponseWriter, r *http.Request) {
 	writeJSON(w, rows)
 }
 
-// POST /api/campaigns/{id}/ads/suggest-audience — interest NAMES to review.
+// POST /api/campaigns/{id}/ads/suggest-audience - interest NAMES to review.
 func (s *server) handleSuggestAdAudience(w http.ResponseWriter, r *http.Request) {
 	a, _ := authFrom(r.Context())
 	var out struct {
@@ -546,7 +546,7 @@ func (s *server) handleCampaignAdsPreview(w http.ResponseWriter, r *http.Request
 // source of truth we control), then pushed to Meta on launch. We never generate
 // creative: the client sends real photos and Advantage+ makes the variations.
 
-// POST /api/campaigns/{id}/creatives — multipart upload of one asset.
+// POST /api/campaigns/{id}/creatives - multipart upload of one asset.
 func (s *server) handleUploadCreative(w http.ResponseWriter, r *http.Request) {
 	a, _ := authFrom(r.Context())
 	campaignID := r.PathValue("id")
@@ -592,7 +592,7 @@ func (s *server) handleUploadCreative(w http.ResponseWriter, r *http.Request) {
 	writeJSON(w, map[string]any{"id": id, "file_url": urlStr, "media_type": mediaType, "file_name": hdr.Filename})
 }
 
-// GET /api/campaigns/{id}/creatives — gallery, with per-creative performance
+// GET /api/campaigns/{id}/creatives - gallery, with per-creative performance
 // joined from ad_ad_metrics once the creative has a Meta ad id (0109).
 func (s *server) handleListCreatives(w http.ResponseWriter, r *http.Request) {
 	a, _ := authFrom(r.Context())

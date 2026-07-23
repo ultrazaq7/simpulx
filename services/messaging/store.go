@@ -60,7 +60,7 @@ func (s *store) upsertContact(ctx context.Context, orgID, phone, name, channel s
 }
 
 // upsertContactExternal membuat/menemukan contact berdasarkan external id
-// (PSID Messenger / IGSID Instagram) — kontak Meta tidak punya nomor telепon.
+// (PSID Messenger / IGSID Instagram) - kontak Meta tidak punya nomor telепon.
 func (s *store) upsertContactExternal(ctx context.Context, orgID, externalID, name, channel string) (string, error) {
 	var id string
 	err := s.pool.QueryRow(ctx,
@@ -118,7 +118,7 @@ func (s *store) getOrCreateConversation(ctx context.Context, orgID, contactID, c
 	}
 	defer tx.Rollback(ctx)
 
-	// Advisory lock on hash of orgID+contactID — serializes concurrent webhooks
+	// Advisory lock on hash of orgID+contactID - serializes concurrent webhooks
 	// for the same contact. Released automatically on tx.Commit/Rollback.
 	_, err = tx.Exec(ctx, `SELECT pg_advisory_xact_lock(hashtext($1 || $2))`, orgID, contactID)
 	if err != nil {
@@ -369,7 +369,7 @@ func (s *store) linkBroadcastRecipient(ctx context.Context, recipID, msgID strin
 
 // getOrCreateThread mendukung MULTI-THREAD: satu contact bisa punya beberapa
 // percakapan paralel, satu per campaign. Dipakai saat ada CTWA ad click yang
-// memetakan ke campaign — buka/lanjutkan thread khusus campaign itu (tidak
+// memetakan ke campaign - buka/lanjutkan thread khusus campaign itu (tidak
 // menimpa thread campaign lain milik contact yang sama). Thread baru langsung
 // di-assign round-robin ke agent campaign.
 //
@@ -382,7 +382,7 @@ func (s *store) getOrCreateThread(ctx context.Context, orgID, contactID, channel
 	}
 	defer tx.Rollback(ctx)
 
-	// Advisory lock on hash of orgID+contactID — deliberately the SAME key as
+	// Advisory lock on hash of orgID+contactID - deliberately the SAME key as
 	// getOrCreateConversation, and deliberately NOT including campaignID. The
 	// unique indexes from 0023 guard per-CONTACT invariants, so the no-signal
 	// path and the campaign path must serialize against each other, not only
@@ -637,7 +637,7 @@ func (s *store) announceAssigned(ctx context.Context, orgID, convID, agentID str
 // attributed lead never sits waiting when no agent was eligible at first touch.
 //
 // Un-attributed leads (no campaign, no branch) are intentionally LEFT unassigned
-// in the manager/admin queue until a keyword routes them into a campaign — see
+// in the manager/admin queue until a keyword routes them into a campaign - see
 // 14-fair-distribution-engine, decision #2. There is deliberately NO org-wide
 // fallback: assignment happens only through campaign/branch round-robin, never by
 // silently handing a no-signal lead to the least-loaded agent.

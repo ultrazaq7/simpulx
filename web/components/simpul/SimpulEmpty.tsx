@@ -1,4 +1,4 @@
-// Signature empty state — the "Simpul thread": a woven thread strung with
+// Signature empty state · the "Simpul thread": a woven thread strung with
 // knot-nodes, the active one tied in brand petrol. Replaces the generic
 // chat-bubble / lucide-icon-in-a-circle placeholders app-wide so every empty
 // state reads as one identity. Motion is functional and subtle (a single soft
@@ -14,7 +14,7 @@ export function ThreadArt({ tone = "brand", className }: { tone?: "brand" | "ai"
     <svg width="188" height="96" viewBox="0 0 188 96" fill="none" className={className} aria-hidden="true">
       {/* soft halo behind the active knot */}
       <circle cx="140" cy="48" r="34" fill={soft} />
-      {/* the thread — a gentle woven line through the nodes */}
+      {/* the thread · a gentle woven line through the nodes */}
       <path d="M8 48 C 34 30, 46 30, 70 48 S 116 66, 140 48 S 176 34, 180 48"
         stroke="hsl(var(--primary) / 0.28)" strokeWidth="2" strokeLinecap="round" />
       {/* passive knot-nodes (leads waiting on the line) */}
@@ -22,7 +22,7 @@ export function ThreadArt({ tone = "brand", className }: { tone?: "brand" | "ai"
         <circle key={i} cx={cx} cy={cy} r="5" fill="hsl(var(--card))"
           stroke="hsl(var(--primary) / 0.45)" strokeWidth="2" />
       ))}
-      {/* the active knot — tied, in the accent, with a soft pulse */}
+      {/* the active knot · tied, in the accent, with a soft pulse */}
       <g>
         <circle cx="140" cy="48" r="13" fill="hsl(var(--card))" stroke={accent} strokeWidth="2.5" />
         {/* interlocking loops = the Simpul knot */}

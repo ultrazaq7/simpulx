@@ -14,7 +14,7 @@ import (
 // web ignore this block entirely.
 // `category` maps to aps.category so iOS shows that category's actions on
 // long-press (e.g. the "message" category's inline Reply). Empty = no actions.
-// unreadBadgeFor counts the chats waiting on this user — the same thing Android's
+// unreadBadgeFor counts the chats waiting on this user - the same thing Android's
 // launcher badge reflects (one notification per unread conversation), so iOS shows
 // a matching number. Scoped to conversations ASSIGNED to them: admins/managers
 // don't get a badge for leads that aren't theirs. Returns -1 on error so the push
@@ -75,7 +75,7 @@ func localizeNotif(notifType, title, body, locale string) (string, string) {
 	}
 	switch notifType {
 	case "ai_handoff":
-		// Lead-temperature words (cold/warm/hot) are product terms — never translate.
+		// Lead-temperature words (cold/warm/hot) are product terms - never translate.
 		return "Prospek siap untuk Anda",
 			"Asisten AI sudah mengumpulkan detailnya - prospek ini sudah warm dan siap ditangani."
 	case "snooze_due":

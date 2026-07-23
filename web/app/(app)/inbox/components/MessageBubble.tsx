@@ -185,7 +185,7 @@ function formatDuration(sec: number) {
 
 const waveCache = new Map<string, number[]>();
 
-// Deterministic, natural-looking waveform from the URL — used as the initial render
+// Deterministic, natural-looking waveform from the URL · used as the initial render
 // and the fallback when decodeAudioData fails (opus/CORS), so it NEVER shows flat dots.
 function pseudoWave(seed: string, n = 40): number[] {
   let h = 2166136261;
@@ -418,7 +418,7 @@ const MessageBubble = memo(function MessageBubble({ m, active, grouped, onPrevie
   const out = m.direction === "outbound";
   const bot = m.sender_type === "bot";
   // Broadcasts are stored as sender_type 'system' (outbound). Show them as a sent
-  // message on the right, marked as a Broadcast — not a centered system pill.
+  // message on the right, marked as a Broadcast · not a centered system pill.
   const broadcast = m.sender_type === "system";
   const who = !out ? (active.contact_name || "Customer") : broadcast ? "Broadcast" : bot ? "Simpuler" : (active.agent_name || "Agent");
   const url = m.media_url ? rewriteLocalMedia(m.media_url) : "";
@@ -498,7 +498,7 @@ const MessageBubble = memo(function MessageBubble({ m, active, grouped, onPrevie
           className={cn(
             isSticker ? "" : "rounded-lg overflow-hidden shadow-sm",
             // Signature colour rule: an AI (Simpuler) reply is indigo, a human
-            // agent reply is petrol — so a reviewer sees at a glance who sent what.
+            // agent reply is petrol · so a reviewer sees at a glance who sent what.
             isSticker ? "" : (out
               ? (bot ? "bg-ai text-ai-foreground selection:bg-white/30 selection:text-white rounded-br-[4px]" : "bg-primary text-primary-foreground selection:bg-white/30 selection:text-white rounded-br-[4px]")
               : "bg-card text-foreground border border-border rounded-bl-[4px]"),

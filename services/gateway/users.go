@@ -34,7 +34,7 @@ func (s *server) logUserActivity(ctx context.Context, orgID, userID, actorID, ki
 // (owner|admin|manager|agent); per-campaign agent assignment is
 // handled separately at the campaign level.
 
-// GET /api/users — enriched for the People table: campaign names, last login,
+// GET /api/users - enriched for the People table: campaign names, last login,
 // and open-chat load. Aggregated via subqueries so a user with no campaigns
 // still returns one row.
 func (s *server) handleListUsers(w http.ResponseWriter, r *http.Request) {
@@ -328,7 +328,7 @@ func (s *server) handleSetPresence(w http.ResponseWriter, r *http.Request) {
 // DELETE /api/users/{id}
 // Soft delete: we never physically remove the row, so historical attribution
 // (audit actor, who handled past conversations, created_by, etc.) is preserved.
-// Instead we tombstone it — set deleted_at, force the account inactive (keeps
+// Instead we tombstone it - set deleted_at, force the account inactive (keeps
 // them out of login + lead routing), drop presence, and free the email for
 // reuse by suffixing it. Active leads are reassigned with an audit event and a
 // realtime kick, mirroring deactivation.

@@ -84,7 +84,7 @@ export async function fetchListing(org: string, slug: string): Promise<ListingDe
   }
 }
 
-// "Rp 1,25 M" / "Rp 850 juta" — how prices are actually spoken in Indonesian
+// "Rp 1,25 M" / "Rp 850 juta" · how prices are actually spoken in Indonesian
 // property listings; full digits are unreadable at a glance in a card grid.
 export function rupiah(n: number | null | undefined): string {
   if (n == null || n <= 0) return "Harga sesuai permintaan";

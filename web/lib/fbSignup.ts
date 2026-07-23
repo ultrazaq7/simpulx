@@ -1,4 +1,4 @@
-// WhatsApp Embedded Signup — thin wrapper over Meta's Facebook JS SDK.
+// WhatsApp Embedded Signup · thin wrapper over Meta's Facebook JS SDK.
 //
 // launchWhatsAppSignup() loads the SDK, opens Meta's real Embedded Signup popup,
 // and resolves with the OAuth `code` plus the selected `waba_id` /
@@ -7,7 +7,7 @@
 //
 // Reads NEXT_PUBLIC_META_APP_ID and NEXT_PUBLIC_META_CONFIG_ID (baked at build
 // time). When unset, isMetaSignupConfigured() is false and the UI hides the
-// Facebook button — the Direct Cloud API path still works.
+// Facebook button · the Direct Cloud API path still works.
 
 const SDK_SRC = "https://connect.facebook.net/en_US/sdk.js";
 const GRAPH_VERSION = "v21.0";

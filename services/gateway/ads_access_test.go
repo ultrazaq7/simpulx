@@ -4,7 +4,7 @@ import "testing"
 
 // The client's permission and our own kill switch answer different questions, and
 // the narrower must always win. These pin that, because the tempting "fix" later
-// is to check only ADS_AUTOPAUSE — which would let the rule engine write to an
+// is to check only ADS_AUTOPAUSE - which would let the rule engine write to an
 // account whose owner only ever agreed to reporting.
 func TestCanWriteRequiresClientConsent(t *testing.T) {
 	if (managedCampaign{accessMode: "read"}).canWrite() {

@@ -1,6 +1,6 @@
 "use client";
 import { useI18n } from "@/lib/i18n";
-// Custom Fields — org-defined typed contact fields (text / number / date /
+// Custom Fields · org-defined typed contact fields (text / number / date /
 // dropdown). Values attach to each contact (contact.attributes) and power the
 // contact form, contact detail and automations.
 import { useEffect, useState } from "react";

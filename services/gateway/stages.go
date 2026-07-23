@@ -10,7 +10,7 @@ import (
 )
 
 // publishStagesUpdated tells every client the org's pipeline stage config changed
-// (add/rename/reorder/delete) so they refetch the stage list — cached stage
+// (add/rename/reorder/delete) so they refetch the stage list - cached stage
 // names/orders stay correct without an app reload.
 func (s *server) publishStagesUpdated(ctx context.Context, orgID string) {
 	if err := s.bus.Publish(events.SubjectStagesUpdated, orgID, events.StagesUpdated{OrgID: orgID}); err != nil {
@@ -19,7 +19,7 @@ func (s *server) publishStagesUpdated(ctx context.Context, orgID string) {
 }
 
 // Pipeline stage management (Settings > Pipeline Stages). Owner/admin only.
-// System stages (system_key set) can be renamed and reordered but not deleted —
+// System stages (system_key set) can be renamed and reordered but not deleted -
 // the classifier/orchestrator map to them by system_key. Custom stages (no
 // system_key) are fully editable. Localization: the UI shows t("stages.<key>")
 // for a pristine system stage and the stored name once it's been renamed.
@@ -32,7 +32,7 @@ func ownerOrAdmin(w http.ResponseWriter, a authInfo) bool {
 	return true
 }
 
-// POST /api/stages {name, sort_order?} — create a custom stage.
+// POST /api/stages {name, sort_order?} - create a custom stage.
 func (s *server) handleCreateStage(w http.ResponseWriter, r *http.Request) {
 	a, _ := authFrom(r.Context())
 	if !ownerOrAdmin(w, a) {
@@ -76,7 +76,7 @@ func (s *server) handleCreateStage(w http.ResponseWriter, r *http.Request) {
 	writeJSON(w, map[string]any{"id": id})
 }
 
-// PATCH /api/stages/{id} {name?, sort_order?} — rename / reorder any stage.
+// PATCH /api/stages/{id} {name?, sort_order?} - rename / reorder any stage.
 func (s *server) handleUpdateStage(w http.ResponseWriter, r *http.Request) {
 	a, _ := authFrom(r.Context())
 	if !ownerOrAdmin(w, a) {
@@ -116,7 +116,7 @@ func (s *server) handleUpdateStage(w http.ResponseWriter, r *http.Request) {
 	writeJSON(w, map[string]any{"status": "updated"})
 }
 
-// DELETE /api/stages/{id} — remove a custom stage. System stages are protected.
+// DELETE /api/stages/{id} - remove a custom stage. System stages are protected.
 // Conversations/contacts at this stage fall back to no stage (FK ON DELETE SET NULL).
 func (s *server) handleDeleteStage(w http.ResponseWriter, r *http.Request) {
 	a, _ := authFrom(r.Context())
@@ -144,7 +144,7 @@ func (s *server) handleDeleteStage(w http.ResponseWriter, r *http.Request) {
 	writeJSON(w, map[string]any{"status": "deleted"})
 }
 
-// POST /api/stages/reorder {ids:[...]} — set sort_order by position (1..N) for the
+// POST /api/stages/reorder {ids:[...]} - set sort_order by position (1..N) for the
 // listed pipeline stages. Lost stages (sort_order 0) are left out by the client.
 func (s *server) handleReorderStages(w http.ResponseWriter, r *http.Request) {
 	a, _ := authFrom(r.Context())

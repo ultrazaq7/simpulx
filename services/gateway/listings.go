@@ -65,7 +65,7 @@ type listingInput struct {
 	SortOrder    *int            `json:"sort_order"`
 }
 
-// GET /api/listings — every listing in the org (any status), newest first.
+// GET /api/listings - every listing in the org (any status), newest first.
 func (s *server) handleListListings(w http.ResponseWriter, r *http.Request) {
 	a, _ := authFrom(r.Context())
 	rows, err := s.queryMaps(r.Context(),
@@ -134,7 +134,7 @@ func (s *server) handleCreateListing(w http.ResponseWriter, r *http.Request) {
 	writeJSON(w, map[string]any{"id": id, "slug": slug})
 }
 
-// PATCH /api/listings/{id} — partial update. Only fields present in the body
+// PATCH /api/listings/{id} - partial update. Only fields present in the body
 // change; published_at is stamped the first time a listing goes public.
 func (s *server) handleUpdateListing(w http.ResponseWriter, r *http.Request) {
 	a, _ := authFrom(r.Context())
@@ -234,7 +234,7 @@ func (s *server) publicOrg(w http.ResponseWriter, r *http.Request, slug string) 
 	return o, true
 }
 
-// GET /api/public/listings/{org} — published inventory + the filter facets the
+// GET /api/public/listings/{org} - published inventory + the filter facets the
 // site needs. Filters are applied server-side so a large catalogue never ships
 // in full to the browser.
 func (s *server) handlePublicListings(w http.ResponseWriter, r *http.Request) {
@@ -307,7 +307,7 @@ func (s *server) handlePublicListings(w http.ResponseWriter, r *http.Request) {
 	})
 }
 
-// GET /api/public/listings/{org}/{slug} — one published unit (404 while draft).
+// GET /api/public/listings/{org}/{slug} - one published unit (404 while draft).
 func (s *server) handlePublicListing(w http.ResponseWriter, r *http.Request) {
 	org, ok := s.publicOrg(w, r, r.PathValue("org"))
 	if !ok {

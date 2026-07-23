@@ -83,7 +83,7 @@ func (s *server) initFCMPush(ctx context.Context) {
 		var contactName, contactPhone string
 
 		// Resolve via the conversation (its contact), not the event's ContactID which
-		// can be empty — otherwise the title falls back to a generic "New Contact".
+		// can be empty - otherwise the title falls back to a generic "New Contact".
 		_ = s.pool.QueryRow(ctx,
 			`SELECT cv.assigned_agent_id::text, cv.campaign_id::text, cv.branch_id::text,
 			        COALESCE(ct.full_name,''), COALESCE(ct.phone,'')
@@ -104,7 +104,7 @@ func (s *server) initFCMPush(ctx context.Context) {
 		if assignedAgentID != nil {
 			rows, _ = s.queryMaps(ctx, `SELECT DISTINCT token, user_id::text AS user_id FROM fcm_tokens WHERE user_id=$1`, *assignedAgentID)
 		} else {
-			// Unassigned: only notify users who can actually SEE the lead (RBAC) —
+			// Unassigned: only notify users who can actually SEE the lead (RBAC) -
 			// admins/owners (all) + managers of the conversation's campaign/branch.
 			// Previously this blasted EVERY active user, so agents got pushes for
 			// leads that were never (or no longer) routed to them.
@@ -247,7 +247,7 @@ func (s *server) initFCMPush(ctx context.Context) {
 	//   - "incoming": ring the assigned agent (full-screen call notification).
 	//   - "ended":    DISMISS the ring. A call broadcasts `ended` more than once
 	//                 (agent hangup + Meta's `terminate` webhook; decline), so the
-	//                 device MUST treat this as "cancel", never as a fresh ring —
+	//                 device MUST treat this as "cancel", never as a fresh ring -
 	//                 otherwise declining/ending re-opens the call notification.
 	// The `missed` flag lets the device surface a lightweight "missed call" note
 	// (auto-cancel, no ringtone) only when the call was never answered.

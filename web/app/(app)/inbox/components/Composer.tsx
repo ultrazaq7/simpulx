@@ -31,7 +31,7 @@ interface ComposerProps {
   conversationId?: string | null; // For call tracking API
   callingEnabled?: boolean;    // channel has WhatsApp calling enabled -> show call button
   onRequestCall?: () => void;  // WhatsApp Business Calling API: request call permission
-  // Simpuler (AI) briefing — last persisted text seeds the summary; regenerated on demand.
+  // Simpuler (AI) briefing · last persisted text seeds the summary; regenerated on demand.
   aiSummary?: string | null;
   uploadProgress?: number | null; // 0-100 while an attachment uploads
   onAddNote?: (body: string) => Promise<void>; // AI Smart Summary -> Confirm posts a note
@@ -149,7 +149,7 @@ export default function Composer({
   };
 
   const summaryBullets = (t: string) => t
-    .replace(/\s*[—–]\s*/g, ", ")
+    .replace(/\s*[--]\s*/g, ", ")
     .split("\n")
     .map((l) => l.replace(/^\s*[-•*]\s*/, "").trim())
     .filter(Boolean);
@@ -428,7 +428,7 @@ export default function Composer({
             </div>
           )}
 
-          {/* Smart Summary — Internal note tab only, and only if the campaign enables it */}
+          {/* Smart Summary · Internal note tab only, and only if the campaign enables it */}
           {note && smartSummaryEnabled && (
             <button
               type="button"

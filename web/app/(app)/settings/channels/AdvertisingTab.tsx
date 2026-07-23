@@ -1,6 +1,6 @@
 "use client";
 import { useI18n } from "@/lib/i18n";
-// Advertising — folded into Channel & Integrations as the "Advertising" tab.
+// Advertising · folded into Channel & Integrations as the "Advertising" tab.
 // SETUP ONLY: connect Meta / TikTok / Google ad accounts, edit a connection, and
 // map its ad campaigns to ours. Reporting (spend, cost-per-lead) lives on the Dashboard.
 import { useEffect, useMemo, useState } from "react";

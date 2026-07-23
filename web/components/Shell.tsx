@@ -48,14 +48,14 @@ function localizeNotif(n: AppNotification, t: TFn): { title: string; body: strin
     case "snooze_reminder": {
       const m = body.match(/^Snooze for (.*) is ending soon$/);
       return {
-        title: n.title, // contact name — never translated
+        title: n.title, // contact name · never translated
         body: m ? t("notifications.snoozeEndingSoon", { name: m[1] })
                 : (body === "Snooze ending soon. Get ready to follow up." ? t("notifications.snoozeReadyBody") : body),
       };
     }
     case "follow_up":
       return {
-        title: n.title, // contact name — never translated
+        title: n.title, // contact name · never translated
         body: body === "Priority lead waiting for your reply. Follow up now."
           ? t("notifications.priorityLeadBody")
           : body === "Lead is waiting for your follow-up"
@@ -216,11 +216,11 @@ export function Shell({ children }: { children: ReactNode }) {
   const notifiedRef = useRef<Set<string>>(new Set());
   // Per-conversation unread counts, kept in sync by patching from live events
   // instead of refetching the whole list on every message (that was O(agents ×
-  // messages) full list queries — the pattern that melted Postgres at scale).
+  // messages) full list queries · the pattern that melted Postgres at scale).
   // The badge is the sum; a full refetch only reseeds this or reconciles a gap.
   const convUnreadRef = useRef<Map<string, number>>(new Map());
   // Last per-org event seq seen; a jump (48 -> 50) means we missed 49 and must
-  // reconcile. 0 = "unknown" (event never went through the relay) — skip.
+  // reconcile. 0 = "unknown" (event never went through the relay) · skip.
   const lastSeqRef = useRef<number>(0);
   
   const [unreadCount, setUnreadCount] = useState(0);
@@ -301,7 +301,7 @@ export function Shell({ children }: { children: ReactNode }) {
     window.addEventListener("keydown", onKey);
     return () => window.removeEventListener("keydown", onKey);
   }, [mobileNavOpen]);
-  // Esc collapses the desktop sidebar — registered on the shared LIFO stack as
+  // Esc collapses the desktop sidebar · registered on the shared LIFO stack as
   // the LOWEST-priority overlay (it mounts first), so Esc only reaches it after
   // every dropdown, the inbox conversation, and the settings sidebar have closed.
   useEscClose(!isMobile && sidebarOpen, () => setSidebarOpen(false), -3);
@@ -375,7 +375,7 @@ export function Shell({ children }: { children: ReactNode }) {
   };
 
   // Patch one conversation's unread count from a live event (authoritative value
-  // carried by message.persisted / conversation.updated) — no network call.
+  // carried by message.persisted / conversation.updated) · no network call.
   const setConvUnread = (convId: string | undefined, count: number) => {
     if (!convId) return;
     convUnreadRef.current.set(convId, Math.max(0, count));
@@ -383,7 +383,7 @@ export function Shell({ children }: { children: ReactNode }) {
   };
 
   // Full reconcile: refetch the list and rebuild the map. Runs only on mount, on
-  // a manual refreshUnread event, on reconnect, and on a detected seq gap — NOT
+  // a manual refreshUnread event, on reconnect, and on a detected seq gap · NOT
   // per message.
   const refreshUnread = () => {
     api.listConversations().then((convs) => {
@@ -432,7 +432,7 @@ export function Shell({ children }: { children: ReactNode }) {
 
           // Gap detection: the relay stamps a per-org monotonic seq. If it jumps
           // (e.g. 48 -> 50) we lost an event (Redis pub/sub is fire-and-forget)
-          // and our locally-patched unread counts may be stale — reconcile ONCE
+          // and our locally-patched unread counts may be stale · reconcile ONCE
           // with a full refetch. seq 0 = event never went through the relay; skip.
           const seq: number = typeof ev.seq === "number" ? ev.seq : 0;
           if (seq > 0) {
@@ -495,7 +495,7 @@ export function Shell({ children }: { children: ReactNode }) {
             ev.type === "conversation.closed"
           ) {
             // Reading a chat zeroes its unread_count and emits conversation.updated
-            // carrying the authoritative 0 — patch it directly (no refetch). This
+            // carrying the authoritative 0 · patch it directly (no refetch). This
             // is what clears the badge that message.persisted raised. Events with
             // no unread_count don't change the count; a seq gap reconciles the rest.
             if (typeof payload.unread_count === "number") {
@@ -540,7 +540,7 @@ export function Shell({ children }: { children: ReactNode }) {
 
   // Optimistic logout: clear the session + redirect IMMEDIATELY so it feels
   // instant. The server-side token revoke + FCM cleanup are slow (the FCM token
-  // dance can take seconds), so fire them in the background — never awaited.
+  // dance can take seconds), so fire them in the background · never awaited.
   // api.logout() reads the refresh token synchronously before the session clears.
   function logout() {
     // Capture the JWT BEFORE clearing the session: unregisterPush runs its async
@@ -609,7 +609,7 @@ export function Shell({ children }: { children: ReactNode }) {
         </div>
       </Link>
     );
-    // Collapsed rail shows the label as a portaled tooltip (managed by Base UI —
+    // Collapsed rail shows the label as a portaled tooltip (managed by Base UI -
     // closes on click/navigation, so it never gets stuck).
     return expanded ? item : <Tip side="right" label={label}>{item}</Tip>;
   }
@@ -624,7 +624,7 @@ export function Shell({ children }: { children: ReactNode }) {
       {isMobile && mobileNavOpen && (
         <div className="fixed inset-0 bg-black/40 z-[55] lg:hidden" onClick={() => setMobileNavOpen(false)} aria-hidden />
       )}
-      {/* Sidebar — in-flow rail on desktop, off-canvas drawer on mobile */}
+      {/* Sidebar · in-flow rail on desktop, off-canvas drawer on mobile */}
       <div
         role="navigation"
         aria-label={t("components.main")}
@@ -654,7 +654,7 @@ export function Shell({ children }: { children: ReactNode }) {
         {NAV_TOP.filter((n) => can(n.perm)).map((n) => <NavItem key={n.href} href={n.href} icon={n.icon} label={t(n.labelKey)} cutout={(n as any).cutout} noFill={(n as any).noFill} />)}
         <div className="flex-1" />
 
-        {/* Collapse rail toggle — desktop only (mobile uses the drawer). */}
+        {/* Collapse rail toggle · desktop only (mobile uses the drawer). */}
         <div className={cn("px-4 pb-4 max-lg:hidden", sidebarOpen ? "flex justify-end" : "flex justify-center")}>
           <button
             aria-label={sidebarOpen ? t("components.collapseSidebar") : t("components.expandSidebar")}
@@ -671,7 +671,7 @@ export function Shell({ children }: { children: ReactNode }) {
       <div className="flex-1 flex flex-col min-w-0 min-h-0 bg-background">
         {/* Top Header */}
         <div role="banner" className="h-16 shrink-0 flex items-center px-4 sm:px-5 gap-2 sm:gap-3 bg-card border-b border-border">
-          {/* Hamburger — mobile only, opens the nav drawer */}
+          {/* Hamburger · mobile only, opens the nav drawer */}
           <button
             aria-label={t("components.openMenu")}
             onClick={() => setMobileNavOpen(true)}
@@ -728,7 +728,7 @@ export function Shell({ children }: { children: ReactNode }) {
           </button>
         </div>
 
-        {/* Content — instant page switches (no fade/slide), matching enterprise apps */}
+        {/* Content · instant page switches (no fade/slide), matching enterprise apps */}
         <main role="main" className="flex-1 min-h-0 relative overflow-y-auto overflow-x-hidden">
           <div className="h-full">
             {children}
@@ -770,7 +770,7 @@ export function Shell({ children }: { children: ReactNode }) {
             {/* PREFERENCES section */}
             <div className="py-2 border-b border-border">
               <p className="px-4 pt-1 pb-2 text-[10px] font-bold uppercase tracking-wider text-muted-foreground">{t("menu.preferences")}</p>
-              {/* Presence — current state + toggle switch */}
+              {/* Presence · current state + toggle switch */}
               <button
                 type="button"
                 onClick={() => {
@@ -798,7 +798,7 @@ export function Shell({ children }: { children: ReactNode }) {
                 </span>
               </button>
 
-              {/* Language — inline expand on click */}
+              {/* Language · inline expand on click */}
               <button
                 type="button"
                 onClick={() => setLangOpen((v) => !v)}

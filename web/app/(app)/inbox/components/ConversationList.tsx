@@ -393,7 +393,7 @@ export default function ConversationList({
 
   return (
     <div className={cn("w-full lg:w-[276px] shrink-0 flex flex-col border-r border-border bg-card relative", className)}>
-      {/* Header: search + sort + filter (SleekFlow layout) — height matches the chat header */}
+      {/* Header: search + sort + filter (SleekFlow layout) · height matches the chat header */}
       <div className="shrink-0 h-14 px-1.5 flex items-center border-b border-border">
         <div className="flex items-center gap-1 w-full min-w-0">
           <div className="relative flex-1 min-w-0 flex items-center h-9 rounded-md border border-input bg-background overflow-visible">
@@ -452,7 +452,7 @@ export default function ConversationList({
         </div>
       </div>
 
-      {/* Active-filter strip — only appears when something is narrowing the list */}
+      {/* Active-filter strip · only appears when something is narrowing the list */}
       {activeFiltersCount > 0 && (
         <div className="shrink-0 h-8 px-3.5 flex items-center justify-between bg-muted/40 border-b border-border/60">
           <span className="text-[11px] font-semibold text-muted-foreground tabular-nums">

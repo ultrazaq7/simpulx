@@ -5,7 +5,7 @@ import { getMessagingClient, getToken, deleteToken, onMessage, VAPID_KEY } from 
 let registered = false;
 
 // Stable per-browser id sent with the FCM token so the server keeps ONE token
-// row per browser (a token refresh replaces it) — prevents duplicate web push.
+// row per browser (a token refresh replaces it) · prevents duplicate web push.
 function browserDeviceId(): string {
   try {
     let id = localStorage.getItem("simpulx_device_id");
@@ -46,7 +46,7 @@ export async function registerPush(onForeground?: () => void) {
       if (convId && document.visibilityState === "visible" && window.location.search.includes(`c=${convId}`)) return;
       if (Notification.permission !== "granted") return;
       try {
-        // Show via the service worker registration, not `new Notification()` —
+        // Show via the service worker registration, not `new Notification()` -
         // the latter is unreliable/blocked when a service worker controls the page.
         // The SW's notificationclick handles the click (focus tab + open chat).
         const reg = await navigator.serviceWorker.ready;
@@ -58,8 +58,8 @@ export async function registerPush(onForeground?: () => void) {
   } catch { /* best effort */ }
 }
 
-// unregisterPush removes this browser's FCM token on logout — both server-side
-// (so the gateway stops pushing) and client-side (invalidate the token) — so a
+// unregisterPush removes this browser's FCM token on logout · both server-side
+// (so the gateway stops pushing) and client-side (invalidate the token) · so a
 // logged-out tab never receives notifications. Best-effort.
 // authToken: JWT captured by logout() before the session is cleared, so the
 // server-side token removal authenticates despite running after clearSession.

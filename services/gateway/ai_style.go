@@ -35,7 +35,7 @@ func (s *server) postAIAgent(w http.ResponseWriter, r *http.Request, path string
 	_, _ = io.Copy(w, resp.Body)
 }
 
-// POST /api/campaigns/{id}/ai-style/suggest — Sonnet reads the campaign setup
+// POST /api/campaigns/{id}/ai-style/suggest - Sonnet reads the campaign setup
 // (segment, brand, dealer, catalog) and proposes a recommended ai_style the user can
 // review + apply. No body needed; the ai-agent fetches the campaign context itself.
 func (s *server) handleSuggestAIStyle(w http.ResponseWriter, r *http.Request) {
@@ -46,7 +46,7 @@ func (s *server) handleSuggestAIStyle(w http.ResponseWriter, r *http.Request) {
 	})
 }
 
-// POST /api/campaigns/{id}/ai-style/preview {style, message} — generate one sample
+// POST /api/campaigns/{id}/ai-style/preview {style, message} - generate one sample
 // nurture reply to `message` using the DRAFT style, so the user can tune before saving.
 func (s *server) handlePreviewAIStyle(w http.ResponseWriter, r *http.Request) {
 	a, _ := authFrom(r.Context())

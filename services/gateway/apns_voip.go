@@ -20,7 +20,7 @@ import (
 	"github.com/simpulx/v2/libs/go/config"
 )
 
-// APNs VoIP push (PushKit) — the ONLY way to wake a killed iOS app and present a
+// APNs VoIP push (PushKit) - the ONLY way to wake a killed iOS app and present a
 // full-screen CallKit call. Firebase/FCM can't send VoIP pushes, so incoming
 // WhatsApp calls reach iOS through this direct APNs channel instead. Android
 // keeps its FCM + fullScreenIntent path; web is unaffected.
@@ -53,7 +53,7 @@ type apnsVoIP struct {
 }
 
 // newAPNSVoIP builds the sender from env, or returns nil when not configured (the
-// feature simply stays off — iOS calls fall back to whatever the client can do).
+// feature simply stays off - iOS calls fall back to whatever the client can do).
 //
 //	APNS_AUTH_KEY_P8   PEM contents of the .p8   (preferred for a .env deploy)
 //	APNS_AUTH_KEY_B64  base64 of the .p8         (alt)

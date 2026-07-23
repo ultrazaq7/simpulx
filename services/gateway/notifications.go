@@ -27,7 +27,7 @@ func (s *server) handleSnooze(w http.ResponseWriter, r *http.Request) {
 	s.proxyJSON(w, r.Context(), http.MethodPost, s.conversationURL+"/conversations/"+convID+"/snooze", bodyBytes)
 }
 
-// GET /api/notifications — the signed-in user's bell list + unread count.
+// GET /api/notifications - the signed-in user's bell list + unread count.
 func (s *server) handleListNotifications(w http.ResponseWriter, r *http.Request) {
 	a, _ := authFrom(r.Context())
 	rows, err := s.queryMaps(r.Context(),
@@ -43,7 +43,7 @@ func (s *server) handleListNotifications(w http.ResponseWriter, r *http.Request)
 	writeJSON(w, map[string]any{"notifications": rows, "unread": unread})
 }
 
-// POST /api/notifications/read {id?} — mark one (id) or all unread as read.
+// POST /api/notifications/read {id?} - mark one (id) or all unread as read.
 func (s *server) handleMarkNotificationsRead(w http.ResponseWriter, r *http.Request) {
 	a, _ := authFrom(r.Context())
 	var b struct {

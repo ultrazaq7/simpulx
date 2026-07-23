@@ -25,7 +25,7 @@ const GREEN_DK = "#1E5C4C";     // deep green: chart "clicks" line/bars
 const NAVY = "#0b1220";          // header / chart "impressions" line
 const MAGENTA = "#FF1E6F";       // gender: female
 const BLUE = "#1565D8";          // gender: male
-// On-brand green funnel ramp (dark -> light as it narrows) — same ramp as the
+// On-brand green funnel ramp (dark -> light as it narrows) · same ramp as the
 // dashboard Marketing funnel; the last (mint) step takes dark text.
 const FUNNEL = ["#1E5C4C", "#26735F", "#2D8B73", "#4DA184", "#CBE7DB"];
 const CANVAS = "#eceff3";
@@ -53,7 +53,7 @@ export function AdsReportView({ perf, keywords, ga4, camps, campaigns, rangeLabe
     spend: a.spend + s.spend, impressions: a.impressions + s.impressions, clicks: a.clicks + s.clicks, leads: a.leads + s.leads,
   }), { spend: 0, impressions: 0, clicks: 0, leads: 0 });
   // Purchases = campaign-rollup sales (stage-based), the same figure the
-  // dashboard funnel shows — sources.purchases counts dispositions instead
+  // dashboard funnel shows · sources.purchases counts dispositions instead
   // and diverges (0 vs 1) when a won lead has no disposition set.
   const purchases = (perf?.campaigns ?? [])
     .filter((c) => campaigns.length === 0 || campaigns.includes(c.campaign_id))
@@ -64,7 +64,7 @@ export function AdsReportView({ perf, keywords, ga4, camps, campaigns, rangeLabe
   const overallConv = tot.impressions > 0 ? (purchases / tot.impressions) * 100 : 0;
 
   // Skip all-zero days so the axes only span dates that actually have activity,
-  // and sort ascending — the API returns newest-first, charts read left->right.
+  // and sort ascending · the API returns newest-first, charts read left->right.
   const activeDaily = (perf?.daily ?? [])
     .filter((d) => (d.impressions || 0) + (d.clicks || 0) + (d.spend || 0) + (d.leads || 0) > 0)
     .sort((a, b) => (a.date || "").localeCompare(b.date || ""));
@@ -117,7 +117,7 @@ export function AdsReportView({ perf, keywords, ga4, camps, campaigns, rangeLabe
 
   return (
     <div style={{ width, maxWidth: "100%", margin: "0 auto", background: CANVAS, color: "#0f172a", fontFamily: "Inter, Arial, sans-serif", padding: 14, borderRadius: 12 }}>
-      {/* Header — deep brand green (matches the funnel top / app theme) */}
+      {/* Header · deep brand green (matches the funnel top / app theme) */}
       <div style={{ background: GREEN_DK, color: "#fff", padding: "16px 22px", display: "grid", gridTemplateColumns: "1fr auto 1fr", alignItems: "center", borderRadius: 10, boxShadow: PANEL }}>
         <div style={{ display: "flex", alignItems: "center", gap: 9 }}>
           {/* eslint-disable-next-line @next/next/no-img-element */}
@@ -131,7 +131,7 @@ export function AdsReportView({ perf, keywords, ga4, camps, campaigns, rangeLabe
         <div style={{ justifySelf: "end", fontSize: 12, background: "rgba(255,255,255,.1)", border: "1px solid rgba(255,255,255,.2)", padding: "6px 12px", borderRadius: 6, whiteSpace: "nowrap" }}>{rangeLabel}</div>
       </div>
 
-      {/* KPI summary — mirrors the dashboard Ads Report KPI row */}
+      {/* KPI summary · mirrors the dashboard Ads Report KPI row */}
       <div className="print-avoid-break" style={{ display: "grid", gridTemplateColumns: "repeat(6,1fr)", gap: 12, paddingTop: 14 }}>
         {([["Ad spend", money(tot.spend)], ["Impressions", num(tot.impressions)], ["Clicks", num(tot.clicks)],
           ["Leads", num(tot.leads)], ["Cost / lead", tot.leads > 0 ? money(cpl) : "-"], ["Purchases", num(purchases)]] as [string, string][]).map(([l, v]) => (

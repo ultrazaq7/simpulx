@@ -57,7 +57,7 @@ var topupPackages = map[string]topupPackage{
 	"enterprise": {Label: "Enterprise", Credits: 2000, PerCredit: 350},
 }
 
-// POST /api/public/register — the one public entry for both request kinds.
+// POST /api/public/register - the one public entry for both request kinds.
 func (s *server) handlePublicRegister(w http.ResponseWriter, r *http.Request) {
 	var b struct {
 		Type    string `json:"type"` // signup | topup
@@ -219,7 +219,7 @@ func (s *server) handlePublicRegister(w http.ResponseWriter, r *http.Request) {
 	writeJSON(w, map[string]any{"status": "received", "id": id})
 }
 
-// GET /api/platform/transactions — the queue + the dashboard numbers in one call.
+// GET /api/platform/transactions - the queue + the dashboard numbers in one call.
 func (s *server) handleListTransactions(w http.ResponseWriter, r *http.Request) {
 	rows, err := s.queryMaps(r.Context(),
 		`SELECT t.id::text AS id, t.type, t.status, t.org_name, t.industry,
@@ -361,7 +361,7 @@ func (s *server) handleRejectTransaction(w http.ResponseWriter, r *http.Request)
 	writeJSON(w, map[string]any{"status": "rejected"})
 }
 
-// GET /api/platform/transactions/{id}/invoice — printable invoice.
+// GET /api/platform/transactions/{id}/invoice - printable invoice.
 //
 // HTML on purpose, not PDF: the browser's print-to-PDF does the rendering, which
 // keeps the gateway free of a PDF dependency the P6 billing epic may replace
@@ -444,7 +444,7 @@ func strAt(m map[string]any, k string) string {
 	return ""
 }
 
-// POST /api/public/register/{id}/proof — attach a transfer receipt to a PENDING
+// POST /api/public/register/{id}/proof - attach a transfer receipt to a PENDING
 // request. Public like the register endpoint itself, and bounded the same way:
 // it can only attach an image/PDF to a request that is still pending, sized and
 // typed strictly, and re-uploading replaces the previous file. The worst an
@@ -497,7 +497,7 @@ func (s *server) handleRegisterProof(w http.ResponseWriter, r *http.Request) {
 	writeJSON(w, map[string]any{"status": "uploaded"})
 }
 
-// GET /api/public/payment-info — the transfer instructions the register wizard
+// GET /api/public/payment-info - the transfer instructions the register wizard
 // shows before the proof upload. Comes from env, NOT code: the account number is
 // operational data the operator owns, and a wrong hardcoded account number would
 // send customer money to the void. Empty = the UI says instructions follow by
@@ -510,7 +510,7 @@ func (s *server) handlePaymentInfo(w http.ResponseWriter, r *http.Request) {
 	})
 }
 
-// DELETE /api/platform/transactions/{id} — remove a record from the queue.
+// DELETE /api/platform/transactions/{id} - remove a record from the queue.
 //
 // Deliberately does NOT undo what an approval did: deleting a row must never
 // silently delete an organisation or claw back credits. It is bookkeeping

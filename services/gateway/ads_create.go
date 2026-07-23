@@ -2,8 +2,8 @@ package main
 
 // The launch CREATE step: everything 0109's prerequisites were building toward.
 // Takes the settled inputs (geo choices, approved copy, uploaded creatives, the
-// chosen Facebook Page) and assembles real Meta objects — campaign, ad set, one
-// ad per creative — every one of them PAUSED. Nothing spends until a human
+// chosen Facebook Page) and assembles real Meta objects - campaign, ad set, one
+// ad per creative - every one of them PAUSED. Nothing spends until a human
 // reviews it in Ads Manager and turns it on; "Launch" here means "hand Meta a
 // finished draft", never "start spending".
 //
@@ -26,7 +26,7 @@ import (
 
 // ── Facebook Page selection ─────────────────────────────────────────────────
 
-// GET /api/campaigns/{id}/ads/pages — Pages the connected token can publish as.
+// GET /api/campaigns/{id}/ads/pages - Pages the connected token can publish as.
 // A CTWA ad runs "as" a Page (and that Page must have WhatsApp connected), so
 // the human picks one here rather than us guessing from the account.
 func (s *server) handleListAdPages(w http.ResponseWriter, r *http.Request) {
@@ -74,7 +74,7 @@ func (s *server) handleListAdPages(w http.ResponseWriter, r *http.Request) {
 	})
 }
 
-// POST /api/campaigns/{id}/ads/page — record the chosen Page for this campaign.
+// POST /api/campaigns/{id}/ads/page - record the chosen Page for this campaign.
 func (s *server) handleChooseAdPage(w http.ResponseWriter, r *http.Request) {
 	a, _ := authFrom(r.Context())
 	var b struct {
@@ -189,7 +189,7 @@ func metaUploadImage(ctx context.Context, actID, token string, img []byte) (stri
 }
 
 // metaVideoThumbnail polls a freshly uploaded video for a generated thumbnail.
-// video_data requires one, and Meta generates them asynchronously — usually
+// video_data requires one, and Meta generates them asynchronously - usually
 // within seconds, so a short bounded poll covers the common case.
 func metaVideoThumbnail(ctx context.Context, videoID, token string) (string, error) {
 	u := fmt.Sprintf("https://graph.facebook.com/%s/%s/thumbnails?access_token=%s",
@@ -215,7 +215,7 @@ func metaVideoThumbnail(ctx context.Context, videoID, token string) (string, err
 		case <-time.After(3 * time.Second):
 		}
 	}
-	return "", fmt.Errorf("no thumbnail generated yet — try Launch again in a minute")
+	return "", fmt.Errorf("no thumbnail generated yet - try Launch again in a minute")
 }
 
 // fetchCreativeBytes loads a stored creative. MinIO objects are public, but the
@@ -367,7 +367,7 @@ func (s *server) handleLaunchAds(w http.ResponseWriter, r *http.Request) {
 	}
 
 	// A failure at any step records WHERE it failed, sets ads_status='error',
-	// and leaves the ids created so far in place — retry resumes, not restarts.
+	// and leaves the ids created so far in place - retry resumes, not restarts.
 	fail := func(step string, err error) {
 		_, _ = s.pool.Exec(context.Background(),
 			`UPDATE campaigns SET ads_status='error', ads_last_error=$2 WHERE id=$1::uuid`,
@@ -416,7 +416,7 @@ func (s *server) handleLaunchAds(w http.ResponseWriter, r *http.Request) {
 		}
 	}
 
-	// ── 2. Ad set: create when missing, UPDATE when it exists — a re-run of
+	// ── 2. Ad set: create when missing, UPDATE when it exists - a re-run of
 	// Launch after the first success is "apply changes" (budget, geo, umur),
 	// bukan error. Learning phase Meta di-reset saat targeting berubah; itu
 	// konsekuensi yang memang dipilih user dengan menekan Apply. ──
@@ -493,7 +493,7 @@ func (s *server) handleLaunchAds(w http.ResponseWriter, r *http.Request) {
 			`UPDATE campaigns SET meta_adset_id=$2, ads_last_error=NULL WHERE id=$1::uuid`, campaignID, id)
 	} else {
 		// Apply changes: hanya field yang aman diubah (budget + targeting).
-		// Status TIDAK dikirim — iklan yang sedang jalan tidak boleh ke-pause
+		// Status TIDAK dikirim - iklan yang sedang jalan tidak boleh ke-pause
 		// diam-diam oleh sebuah update. targeting_automation juga TIDAK ikut:
 		// flag Advantage+ ditetapkan saat create dan Meta menolak update yang
 		// menyentuhnya dengan (100) "Invalid parameter" polos.
@@ -844,7 +844,7 @@ func (s *server) checkAdAccountOwned(ctx context.Context, orgID, adAccountID str
 	return "", 0
 }
 
-// POST /api/campaigns/{id}/ads/account — attach a connected ad account to this
+// POST /api/campaigns/{id}/ads/account - attach a connected ad account to this
 // campaign (campaigns.managed_ad_account_id). A freshly created campaign has no
 // Meta campaign to map yet, so the mapping dialog cannot be the only way to an
 // account: this is the step that gives Launch an account to create into.
@@ -876,7 +876,7 @@ func (s *server) handleSetCampaignAdAccount(w http.ResponseWriter, r *http.Reque
 	writeJSON(w, map[string]any{"ok": true})
 }
 
-// POST /api/campaigns/{id}/ads/format — pilih bentuk creative: 'single' (satu
+// POST /api/campaigns/{id}/ads/format - pilih bentuk creative: 'single' (satu
 // iklan per gambar/video) atau 'carousel' (semua gambar jadi kartu satu iklan).
 func (s *server) handleSetAdsFormat(w http.ResponseWriter, r *http.Request) {
 	a, _ := authFrom(r.Context())

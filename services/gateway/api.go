@@ -145,7 +145,7 @@ func (s *server) handleListConversations(w http.ResponseWriter, r *http.Request)
 	}
 
 	// Inbox size. Historically hard-capped at 100, which silently hid every
-	// conversation past the 100 most-recent once an org grew — the app looked like
+	// conversation past the 100 most-recent once an org grew - the app looked like
 	// it had "lost" older chats. Honor an optional ?limit (like the messages
 	// endpoint) and default to a much larger cap so a busy inbox loads whole. The
 	// client windows the render, so a bigger list stays cheap to show.
@@ -206,7 +206,7 @@ func (s *server) handleListConversations(w http.ResponseWriter, r *http.Request)
 	writeJSON(w, rows)
 }
 
-// ── GET /api/conversations/{id} — a single conversation, same row shape as the
+// ── GET /api/conversations/{id} - a single conversation, same row shape as the
 // list. Opened when a client has no cached copy yet, e.g. tapping a push
 // notification for a brand-new lead before the inbox list has synced (which
 // otherwise renders a blank/nameless header). RBAC via guardConversation.
@@ -555,7 +555,7 @@ func (s *server) handleGetMessages(w http.ResponseWriter, r *http.Request) {
 		// Announce the read. This used to be silent, which broke the badge two ways:
 		// the web/other devices never learned the chat was read at all, and on the
 		// device that opened it a list refetch (resume/reconnect triggers one) could
-		// land AFTER this reset but return the pre-reset count — resurrecting the
+		// land AFTER this reset but return the pre-reset count - resurrecting the
 		// badge the user had just cleared. Emitting the authoritative 0 removes the
 		// race and syncs every client.
 		if err == nil && tag.RowsAffected() > 0 {
@@ -609,11 +609,11 @@ func (s *server) handleSearchMessages(w http.ResponseWriter, r *http.Request) {
 // customer directly (sent a message, or placed a call). Claims the thread for the
 // acting agent when unassigned, records the takeover on the timeline, and
 // broadcasts conversation.updated so every client drops the "Hand to Simpuler"
-// button live — same shape handleToggleBot emits, so clients need no new handling.
+// button live - same shape handleToggleBot emits, so clients need no new handling.
 //
 // Without this the bot stayed "active" after an agent had already replied: the
 // takeover button never disappeared on its own and the bot could keep answering
-// on top of the human. Best-effort — never fail the send/call because of it.
+// on top of the human. Best-effort - never fail the send/call because of it.
 func (s *server) standDownBot(ctx context.Context, orgID, userID, convID string) {
 	tag, err := s.pool.Exec(ctx,
 		`UPDATE conversations
@@ -682,7 +682,7 @@ func (s *server) handleSendMessage(w http.ResponseWriter, r *http.Request) {
 		http.Error(w, err.Error(), http.StatusInternalServerError)
 		return
 	}
-	// A human just replied — the bot must stand down (and the takeover button
+	// A human just replied - the bot must stand down (and the takeover button
 	// disappear everywhere) instead of continuing to answer alongside the agent.
 	s.standDownBot(r.Context(), a.OrgID, a.UserID, convID)
 	writeJSON(w, map[string]any{"status": "queued"})
@@ -791,7 +791,7 @@ func (s *server) handleToggleBot(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	// On takeover (bot off), claim the conversation for the acting agent when it
-	// is not already assigned — so "Manual · {name}" has a name to show.
+	// is not already assigned - so "Manual · {name}" has a name to show.
 	if !body.Active {
 		_, err := s.pool.Exec(r.Context(),
 			`UPDATE conversations
@@ -822,7 +822,7 @@ func (s *server) handleToggleBot(w http.ResponseWriter, r *http.Request) {
 		 VALUES ($1, $2, $3, 'agent', $4::uuid, '{}'::jsonb)`,
 		a.OrgID, convID, evtType, a.UserID)
 	// Read back the (possibly just-claimed) assignee + name so the event can carry
-	// "Manual · {name}" and clients render it INSTANTLY — no follow-up fetch, which
+	// "Manual · {name}" and clients render it INSTANTLY - no follow-up fetch, which
 	// was the source of the takeover lag.
 	var agentID, agentName string
 	_ = s.pool.QueryRow(r.Context(),
@@ -1013,7 +1013,7 @@ func (s *server) handlePatchConversation(w http.ResponseWriter, r *http.Request)
 	writeJSON(w, map[string]any{"status": "updated", "locked": true})
 }
 
-// GET /api/contacts/{id}/activity — timeline of stage / interest / status /
+// GET /api/contacts/{id}/activity - timeline of stage / interest / status /
 // assignment changes across the contact's conversations (contact detail).
 func (s *server) handleContactActivity(w http.ResponseWriter, r *http.Request) {
 	a, _ := authFrom(r.Context())
@@ -1302,7 +1302,7 @@ func (s *server) handleAnalytics(w http.ResponseWriter, r *http.Request) {
 		campFilterCv += fmt.Sprintf(" AND cv.assigned_agent_id = ANY($%d)", len(args))
 		campFilter += fmt.Sprintf(" AND assigned_agent_id = ANY($%d)", len(args))
 	}
-	// Source filter — append the value ONCE and reference it from both the cv and
+	// Source filter - append the value ONCE and reference it from both the cv and
 	// no-alias filter strings (same param index), so every query below binds
 	// exactly the params it references. Appending twice (the old applySourceFilter
 	// x2) left one arg unreferenced by the cv-only funnel query -> bind-parameter
@@ -2190,7 +2190,7 @@ func (s *server) handleListContacts(w http.ResponseWriter, r *http.Request) {
 	writeJSON(w, rows)
 }
 
-// ── GET /api/contacts/{id} — one contact (tenant + role scoped) ──
+// ── GET /api/contacts/{id} - one contact (tenant + role scoped) ──
 // Lets the contact-details page fetch a single contact directly instead of
 // pulling the whole /contacts list and .find()-ing it client-side. A contact the
 // caller isn't allowed to see returns 404 (IDOR guard), same as the inbox.
@@ -2220,7 +2220,7 @@ func (s *server) handleGetContact(w http.ResponseWriter, r *http.Request) {
 	writeJSON(w, rows[0])
 }
 
-// ── POST /api/contacts — manually create a contact ──────────
+// ── POST /api/contacts - manually create a contact ──────────
 func (s *server) handleCreateContact(w http.ResponseWriter, r *http.Request) {
 	a, _ := authFrom(r.Context())
 	var body struct {
@@ -2269,7 +2269,7 @@ func (s *server) handleCreateContact(w http.ResponseWriter, r *http.Request) {
 	writeJSON(w, rows[0])
 }
 
-// ── PATCH /api/contacts/{id} — edit name/phone (tenant-scoped) ──
+// ── PATCH /api/contacts/{id} - edit name/phone (tenant-scoped) ──
 func (s *server) handleUpdateContact(w http.ResponseWriter, r *http.Request) {
 	a, _ := authFrom(r.Context())
 	id := r.PathValue("id")
@@ -2323,7 +2323,7 @@ func (s *server) handleUpdateContact(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	// Realtime: read back the current fields and broadcast so every client patches
-	// the contact (and the inbox row's name) live — no refetch.
+	// the contact (and the inbox row's name) live - no refetch.
 	var cName, cPhone string
 	var cTags []string
 	var cBlack bool
@@ -2335,7 +2335,7 @@ func (s *server) handleUpdateContact(w http.ResponseWriter, r *http.Request) {
 	}); err != nil {
 		s.log.Warn("publish contact.updated failed", "err", err)
 	}
-	// History: a field edit left NO trace before — the contact History timeline
+	// History: a field edit left NO trace before - the contact History timeline
 	// reads conversation_events, and only stage/interest/assignment changes were
 	// ever logged. Record the edit (once, on the contact's most recent thread so
 	// it isn't duplicated per conversation) so "Contact updated · {who}" shows up.
@@ -2343,7 +2343,7 @@ func (s *server) handleUpdateContact(w http.ResponseWriter, r *http.Request) {
 		d, _ := json.Marshal(map[string]any{"fields": changed, "name": cName})
 		// Casts are explicit: inside an INSERT..SELECT, Postgres can't infer a bare
 		// parameter's type from the target column and errors out. Errors are logged,
-		// never swallowed — a silent failure here is exactly why History stayed empty.
+		// never swallowed - a silent failure here is exactly why History stayed empty.
 		if _, err := s.pool.Exec(r.Context(),
 			`INSERT INTO conversation_events (organization_id, conversation_id, type, actor_type, actor_id, detail)
 			 SELECT $1::uuid, cv.id, 'contact_updated', 'agent', $2::uuid, $3::jsonb
@@ -2380,7 +2380,7 @@ func changedContactFields(name, phone *string, tags *[]string, blacklisted *bool
 	return changed
 }
 
-// ── DELETE /api/contacts/{id} — remove a contact + its conversations ──
+// ── DELETE /api/contacts/{id} - remove a contact + its conversations ──
 func (s *server) handleDeleteContact(w http.ResponseWriter, r *http.Request) {
 	a, _ := authFrom(r.Context())
 	id := r.PathValue("id")
@@ -2447,7 +2447,7 @@ func (s *server) handleAssign(w http.ResponseWriter, r *http.Request) {
 	s.proxyJSON(w, r.Context(), http.MethodPost, s.conversationURL+"/conversations/"+convID+"/assign", bodyBytes)
 }
 
-// POST /api/conversations/{id}/campaign — move this conversation (lead
+// POST /api/conversations/{id}/campaign - move this conversation (lead
 // instance) to another campaign, or detach it (” / 'none'). A supervisory
 // action exactly like reassigning the agent, so it shares the assign_chats
 // gate. branch_id is cleared: a branch belongs to the previous campaign and
@@ -2477,7 +2477,7 @@ func (s *server) handleSetConversationCampaign(w http.ResponseWriter, r *http.Re
 			http.Error(w, "campaign not found", http.StatusNotFound)
 			return
 		}
-		// One active conversation per (contact, campaign) — 0023. Pre-check so the
+		// One active conversation per (contact, campaign) - 0023. Pre-check so the
 		// user gets a sentence instead of a constraint name.
 		var clash bool
 		_ = s.pool.QueryRow(r.Context(),
@@ -2503,7 +2503,7 @@ func (s *server) handleSetConversationCampaign(w http.ResponseWriter, r *http.Re
 			return
 		}
 	}
-	// Distribution on move — same workload-aware pick as the messaging service's
+	// Distribution on move - same workload-aware pick as the messaging service's
 	// routeToCampaign (fewest open chats among active rotation agents), so a
 	// manual move behaves like an inbound lead landing on the campaign. The
 	// current agent is KEPT when they are in the target campaign's rotation
@@ -2625,7 +2625,7 @@ func (s *server) handleListLLMModels(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	// Transform to a simpler structure for frontend — filter to chat models only
+	// Transform to a simpler structure for frontend - filter to chat models only
 	type ModelItem struct {
 		ID   string `json:"id"`
 		Name string `json:"name"`
@@ -2672,7 +2672,7 @@ const leadSelectSQL = `SELECT cv.id::text AS conversation_id, ct.id::text AS id,
 		   ) att ON true
 		  %s`
 
-// GET /api/leads — conversation-centric contact list (1 row per conversation).
+// GET /api/leads - conversation-centric contact list (1 row per conversation).
 func (s *server) handleListLeads(w http.ResponseWriter, r *http.Request) {
 	a, _ := authFrom(r.Context())
 

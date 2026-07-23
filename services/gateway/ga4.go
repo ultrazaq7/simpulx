@@ -89,7 +89,7 @@ func (s *server) handleDeleteGa4Connection(w http.ResponseWriter, r *http.Reques
 	writeJSON(w, map[string]any{"ok": true})
 }
 
-// GET /api/campaigns/{id}/ga4?from&to — landing-page performance from GA4 for
+// GET /api/campaigns/{id}/ga4?from&to - landing-page performance from GA4 for
 // the connection mapped to this campaign (falls back to an org-wide, unmapped
 // connection). Fetched live from the GA4 Data API; empty (not an error) when no
 // connection exists so the panel can prompt the user to connect one.
@@ -137,7 +137,7 @@ func (s *server) handleCampaignGa4Report(w http.ResponseWriter, r *http.Request)
 	writeJSON(w, report)
 }
 
-// GET /api/ga4/report?from&to — org-wide landing-page performance for the Ads
+// GET /api/ga4/report?from&to - org-wide landing-page performance for the Ads
 // Report PDF (not scoped to a campaign): uses the unmapped (org-wide) GA4
 // connection if present, else the most recent one.
 func (s *server) handleOrgGa4Report(w http.ResponseWriter, r *http.Request) {
@@ -242,7 +242,7 @@ func (s *server) handleGa4OAuthStart(w http.ResponseWriter, r *http.Request) {
 	writeJSON(w, map[string]string{"url": authURL})
 }
 
-// GET /api/auth/ga4/callback — Google redirects here with ?code&state. Always
+// GET /api/auth/ga4/callback - Google redirects here with ?code&state. Always
 // redirects back to the Analytics page (with ?ga4=connected or ?ga4_error=...).
 func (s *server) handleGa4Callback(w http.ResponseWriter, r *http.Request) {
 	appBase := config.Get("APP_BASE_URL", "http://localhost:3000")
@@ -289,7 +289,7 @@ func (s *server) handleGa4Callback(w http.ResponseWriter, r *http.Request) {
 	http.Redirect(w, r, appBase+"/settings/ads-analytics?ga4=connected", http.StatusTemporaryRedirect)
 }
 
-// GET /api/ga4/properties — after Google sign-in, list the account's GA4
+// GET /api/ga4/properties - after Google sign-in, list the account's GA4
 // properties so the user can pick which to connect.
 func (s *server) handleGa4PendingProperties(w http.ResponseWriter, r *http.Request) {
 	a, _ := authFrom(r.Context())
@@ -306,7 +306,7 @@ func (s *server) handleGa4PendingProperties(w http.ResponseWriter, r *http.Reque
 	writeJSON(w, map[string]any{"pending": true, "properties": props})
 }
 
-// POST /api/ga4/finish {property_id, name?, campaign_id?} — persist the connection
+// POST /api/ga4/finish {property_id, name?, campaign_id?} - persist the connection
 // using the pending refresh token from the Google sign-in.
 func (s *server) handleGa4Finish(w http.ResponseWriter, r *http.Request) {
 	a, _ := authFrom(r.Context())

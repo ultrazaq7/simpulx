@@ -173,7 +173,7 @@ export function CampaignWizard({ campaignId, users, channels, onClose, onDone, o
 
   return (
     <WizardModal title={isEdit ? t("settings.editCampaign") : t("settings.newCampaign")} icon={<Building2 className="w-5 h-5" />} steps={STEPS} step={step} onClose={onClose} footer={footer} maxWidth={820}>
-      {/* Step 0 — Campaign */}
+      {/* Step 0 · Campaign */}
       {step === 0 && (
         <div className="flex flex-col gap-4">
           <div className="grid grid-cols-2 gap-4">
@@ -276,7 +276,7 @@ export function CampaignWizard({ campaignId, users, channels, onClose, onDone, o
         </div>
       )}
 
-      {/* Step 1 — Branches */}
+      {/* Step 1 · Branches */}
       {step === 1 && (
         <div className="flex flex-col gap-3">
           <p className="text-[13px] text-muted-foreground">
@@ -316,7 +316,7 @@ export function CampaignWizard({ campaignId, users, channels, onClose, onDone, o
         </div>
       )}
 
-      {/* Step 2 — Review */}
+      {/* Step 2 · Review */}
       {step === 2 && (
         <div className="flex flex-col gap-4">
           <div className="rounded-lg border border-border p-4">

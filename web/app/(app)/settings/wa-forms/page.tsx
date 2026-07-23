@@ -331,8 +331,8 @@ function ResponsesTable({ responses, onView }: { responses: WaFlowResponse[]; on
       <tbody className="divide-y divide-border">
         {responses.map((r) => (
           <tr key={r.id} className="hover:bg-muted/30">
-            <td className="px-4 py-3 font-medium text-foreground">{r.flow_name || "—"}</td>
-            <td className="px-4 py-3">{r.contact_name || "—"}</td>
+            <td className="px-4 py-3 font-medium text-foreground">{r.flow_name || "-"}</td>
+            <td className="px-4 py-3">{r.contact_name || "-"}</td>
             <td className="px-4 py-3 tabular-nums text-muted-foreground">{r.contact_phone}</td>
             <td className="px-4 py-3 text-muted-foreground">{fmtDateTimeShort(r.received_at)}</td>
             <td className="px-4 py-3 text-right">
@@ -587,7 +587,7 @@ function FlowBuilder({ flow, channels, onClose, onSaved, onFlash }: {
                     <span className={cn("absolute top-0.5 w-5 h-5 rounded-full bg-white shadow transition-all", sheetEnabled ? "left-[18px]" : "left-0.5")} />
                   </button>
                 </div>
-                {/* Service-account email — always visible so the user knows who to share the sheet with. */}
+                {/* Service-account email · always visible so the user knows who to share the sheet with. */}
                 {saEmail ? (
                   <div className="mt-3 rounded-md border border-border bg-muted/40 p-2.5">
                     <p className="text-[11px] font-semibold text-muted-foreground mb-1">{t("automation.shareYourGoogleSheetEditor")}</p>

@@ -181,7 +181,7 @@ func (s *server) handleLogConversations(w http.ResponseWriter, r *http.Request) 
 	             cv.closed_at AS closing_at, cv.status, cv.id::text AS id
 	      ` + joins + where
 	q := sel + fmt.Sprintf(" ORDER BY cv.created_at DESC LIMIT %d OFFSET %d", p.limit, p.offset)
-	// Count on a lean FROM (no LATERALs — they don't change the row count).
+	// Count on a lean FROM (no LATERALs - they don't change the row count).
 	countBase := `FROM conversations cv WHERE cv.organization_id = $1` + df + cf + sc
 
 	rows, err := s.queryMaps(r.Context(), q, args...)
@@ -192,7 +192,7 @@ func (s *server) handleLogConversations(w http.ResponseWriter, r *http.Request) 
 	s.countAndRespond(w, r, "SELECT count(*) "+countBase, rows, args)
 }
 
-// GET /api/system-logs/activity — agent presence / lifecycle events.
+// GET /api/system-logs/activity - agent presence / lifecycle events.
 func (s *server) handleLogActivity(w http.ResponseWriter, r *http.Request) {
 	a, _ := authFrom(r.Context())
 	p := parseLogParams(r)

@@ -16,17 +16,17 @@ import (
 // drive / booking / won) AND it originated from a CTWA ad click, migration 0102's
 // DB trigger enqueues a row in capi_events. This drainer picks those rows up and
 // POSTs a conversion event back to Meta so ad delivery optimizes toward leads that
-// actually convert — the core growth lever for CTWA customers (lower cost per
+// actually convert - the core growth lever for CTWA customers (lower cost per
 // qualified lead, higher lead quality).
 //
 // Dormant until an org configures ad_accounts.capi_dataset_id: rows for orgs with
 // no dataset are marked 'skipped', so the whole feature is a no-op until switched
-// on. Single-instance like startAdSyncCron (no leader election yet — see P7).
+// on. Single-instance like startAdSyncCron (no leader election yet - see P7).
 
 // capiEventName maps our funnel stage system_key to a Meta standard conversion
 // event. Verified against prod stages (2026-07-18): the funnel is
 // qualified -> appointment -> test_drive(display "Negotiation") -> booking(display
-// "Purchase"); there is NO "won" stage — `booking` IS the closing/sale. Kept in
+// "Purchase"); there is NO "won" stage - `booking` IS the closing/sale. Kept in
 // code (not the DB) so the mapping can be tuned without a migration.
 // User decision (2026-07-18): optimize delivery on "Lead" (qualified). All events
 // are still sent so Meta has the full funnel; the optimization event is chosen in
@@ -39,7 +39,7 @@ func capiEventName(stageKey string) string {
 		return "Schedule"
 	case "test_drive": // "Negotiation" in the UI
 		return "InitiateCheckout"
-	case "booking": // "Purchase" in the UI — the actual sale/closing
+	case "booking": // "Purchase" in the UI - the actual sale/closing
 		return "Purchase"
 	default:
 		return ""
@@ -120,7 +120,7 @@ func (s *server) sendCapiEvent(ctx context.Context, p capiPending) {
 		    AND status='connected'
 		  ORDER BY created_at LIMIT 1`, p.org).Scan(&datasetID, &encToken)
 	if err != nil {
-		// No configured Meta CAPI account for this org — feature off. Don't retry.
+		// No configured Meta CAPI account for this org - feature off. Don't retry.
 		s.markCapi(ctx, p.id, "skipped", "no capi_dataset_id configured")
 		return
 	}

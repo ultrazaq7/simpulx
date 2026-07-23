@@ -86,7 +86,7 @@ export default function DateRangeFilter({ value, onChange, align = "left" }: {
   // While picking the second date, preview the range against the hovered day.
   const selecting = !!pick.start && !pick.end;
   // Only surface a range for a real custom pick (or while actively picking). A
-  // preset like "Last 30 days" must NOT pre-fill the DATE RANGE field/calendar —
+  // preset like "Last 30 days" must NOT pre-fill the DATE RANGE field/calendar -
   // the field stays a placeholder until the user picks a custom range.
   const active = value.preset === "custom" || selecting;
   const lo = !active ? "" : (selecting && hover ? (hover < pick.start ? hover : pick.start) : pick.start);
@@ -120,7 +120,7 @@ export default function DateRangeFilter({ value, onChange, align = "left" }: {
               className={cn("w-full flex items-center gap-2 px-2 h-9 rounded-md border bg-background text-[12px] outline-none transition-colors overflow-hidden", showCal ? "border-primary ring-2 ring-primary/20" : "border-input hover:border-muted-foreground/40")}>
               <Calendar className="w-3.5 h-3.5 text-muted-foreground shrink-0" />
               <span className={cn("truncate min-w-0 tabular-nums", lo ? "text-foreground" : "text-muted-foreground/60")}>
-                {lo ? us(lo) : t("components.mmDdYyyy")} <span className="text-muted-foreground/50">–</span> {hi ? us(hi) : t("components.mmDdYyyy")}
+                {lo ? us(lo) : t("components.mmDdYyyy")} <span className="text-muted-foreground/50">-</span> {hi ? us(hi) : t("components.mmDdYyyy")}
               </span>
             </button>
             {showCal && (<div className="mt-2">

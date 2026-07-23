@@ -35,7 +35,7 @@ export function getAppLang(): string {
 
 // Single-flight access-token refresh: when the short-lived access token expires
 // many in-flight requests can 401 at once; they all await the same /auth/refresh
-// call (rotating the refresh token), then retry — so the user is never bounced
+// call (rotating the refresh token), then retry · so the user is never bounced
 // to /login mid-session. Only a hard refresh failure clears the session.
 let refreshing: Promise<boolean> | null = null;
 
@@ -78,7 +78,7 @@ async function req<T>(path: string, opts: RequestInit = {}, retried = false): Pr
     },
   });
   if (res.status === 401) {
-    // Access token likely expired — try one silent refresh + retry before giving up.
+    // Access token likely expired · try one silent refresh + retry before giving up.
     if (!retried && (await refreshAccessToken())) {
       return req<T>(path, opts, true);
     }
@@ -357,7 +357,7 @@ export const api = {
   sendTemplateToContacts: (body: { contact_ids: string[]; channel_id?: string; template_id: string; variables: string[] }) =>
     req<{ queued: number; skipped: { contact_id: string; reason: string }[] }>("/api/contacts/send-template", { method: "POST", body: JSON.stringify(body) }),
 
-  // Custom (typed) contact fields — org-defined schema; values live in contact.attributes.
+  // Custom (typed) contact fields · org-defined schema; values live in contact.attributes.
   listCustomFields: () => req<import("./types").CustomField[]>("/api/custom-fields"),
   createCustomField: (body: { key?: string; label: string; type: string; options?: string[]; sort_order?: number }) =>
     req<{ id: string; key: string }>("/api/custom-fields", { method: "POST", body: JSON.stringify(body) }),
@@ -441,7 +441,7 @@ export const api = {
     if (p.channel_id) q.set("channel_id", p.channel_id);
     if (p.label) q.set("label", p.label);
     const qs = q.toString();
-    // NOTE: no type arg on req() here on purpose — a nested generic type arg
+    // NOTE: no type arg on req() here on purpose · a nested generic type arg
     // (LogPage<Record<...>>) mis-transpiled in the prod build ("Record is not
     // defined"). Cast the result instead.
     return req(`/api/system-logs/${kind}${qs ? "?" + qs : ""}`) as Promise<{ rows: unknown[]; total: number }>;

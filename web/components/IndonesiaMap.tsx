@@ -28,7 +28,7 @@ const ID_TO_EN: Record<string, string> = {
 
 // Normalize a Meta region name to the canonical english key.
 function normEn(name: string): string {
-  let s = (name || "").toLowerCase().trim().replace(/[–—]/g, "-").replace(/-/g, " ").replace(/\s+/g, " ");
+  let s = (name || "").toLowerCase().trim().replace(/[--]/g, "-").replace(/-/g, " ").replace(/\s+/g, " ");
   s = s.replace(/^dki\s+/, "").replace(/^di\s+/, "").replace(/^d\.i\.?\s+/, "")
     .replace("special region of ", "").replace(" special region", "");
   if (s === "bangka belitung") s = "bangka belitung islands";

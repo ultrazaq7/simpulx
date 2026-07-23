@@ -2,7 +2,7 @@ package main
 
 // ── Automation executor ─────────────────────────────────────
 // Evaluates active automations on each inbound message and runs the matching
-// ones. These are deterministic, user-configured rules (NOT the AI assistant) —
+// ones. These are deterministic, user-configured rules (NOT the AI assistant) -
 // keyword auto-reply, auto-tag, auto-assign, etc. Best-effort: it never blocks
 // or fails ingest.
 //
@@ -474,7 +474,7 @@ func (a *app) evalCondition(ctx context.Context, orgID, contactID string, cfg ma
 
 func (a *app) execStep(ctx context.Context, orgID, convID, contactID string, s autoStep) {
 	// Never auto-send a customer-facing message to a lead nobody owns yet. An
-	// unassigned lead must be handled by a human, not an automation — auto-send is
+	// unassigned lead must be handled by a human, not an automation - auto-send is
 	// fine, but not for unassigned leads. Routing/tagging/notification actions are
 	// unaffected (they help get the lead owned or logged).
 	switch s.Type {
@@ -485,7 +485,7 @@ func (a *app) execStep(ctx context.Context, orgID, convID, contactID string, s a
 		}
 		// AI/automation non-collision (WS-H): when the conversation's campaign has
 		// AI auto-reply on AND the bot is still actively handling this conversation,
-		// the AI owns customer messaging — an automation must NOT also send (double
+		// the AI owns customer messaging - an automation must NOT also send (double
 		// reply). Non-messaging actions (tag/assign/close/webhook) are unaffected.
 		if a.st.isBotHandling(ctx, convID) {
 			a.log.Info("automation send skipped: AI bot handling conversation", "type", s.Type, "conv", convID)

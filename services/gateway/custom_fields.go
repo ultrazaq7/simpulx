@@ -10,7 +10,7 @@ import (
 // contacts.attributes (keyed by `key`); this endpoint manages the schema/labels
 // so the contact form can render typed inputs and attribution stays consistent.
 
-// GET /api/custom-fields — list (readable by anyone who can add/edit contacts).
+// GET /api/custom-fields - list (readable by anyone who can add/edit contacts).
 func (s *server) handleListCustomFields(w http.ResponseWriter, r *http.Request) {
 	a, _ := authFrom(r.Context())
 	rows, err := s.queryMaps(r.Context(),
@@ -65,7 +65,7 @@ func (s *server) handleCreateCustomField(w http.ResponseWriter, r *http.Request)
 	writeJSON(w, map[string]any{"id": id, "key": b.Key})
 }
 
-// PATCH /api/custom-fields/{id} — label/type/options/order (key is immutable so
+// PATCH /api/custom-fields/{id} - label/type/options/order (key is immutable so
 // existing stored attribute values stay linked).
 func (s *server) handleUpdateCustomField(w http.ResponseWriter, r *http.Request) {
 	a, _ := authFrom(r.Context())
@@ -104,7 +104,7 @@ func (s *server) handleUpdateCustomField(w http.ResponseWriter, r *http.Request)
 	writeJSON(w, map[string]any{"status": "updated"})
 }
 
-// DELETE /api/custom-fields/{id} — removes the field definition (stored values
+// DELETE /api/custom-fields/{id} - removes the field definition (stored values
 // in contacts.attributes are left untouched but no longer surfaced).
 func (s *server) handleDeleteCustomField(w http.ResponseWriter, r *http.Request) {
 	a, _ := authFrom(r.Context())

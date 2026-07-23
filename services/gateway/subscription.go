@@ -11,14 +11,14 @@ import (
 // ── Simpuler credits: org subscription pool + per-campaign allocation (WS-F / Phase 10) ──
 // 1 credit = 1 Simpuler (AI) reply. Broadcasts/agent sends are a separate cost line.
 
-// GET /api/subscription — the org's package + quotas + real used counts.
+// GET /api/subscription - the org's package + quotas + real used counts.
 func (s *server) handleGetSubscription(w http.ResponseWriter, r *http.Request) {
 	a, _ := authFrom(r.Context())
 	// Lazy-ensure a row for orgs created after the migration.
 	_, _ = s.pool.Exec(r.Context(),
 		`INSERT INTO org_subscriptions (organization_id) VALUES ($1) ON CONFLICT (organization_id) DO NOTHING`, a.OrgID)
 	// used_simpuler_credits comes from the DEBIT LEDGER (campaign_credits), the
-	// same numbers the per-campaign Credits & Usage tab shows — it used to count
+	// same numbers the per-campaign Credits & Usage tab shows - it used to count
 	// bot messages this month instead, so the org header and the per-campaign
 	// tabs told different stories about the same thing.
 	rows, err := s.queryMaps(r.Context(),
@@ -40,7 +40,7 @@ func (s *server) handleGetSubscription(w http.ResponseWriter, r *http.Request) {
 	writeJSON(w, rows[0])
 }
 
-// PATCH /api/subscription — owner updates package/status/renewal/quotas.
+// PATCH /api/subscription - owner updates package/status/renewal/quotas.
 func (s *server) handleUpdateSubscription(w http.ResponseWriter, r *http.Request) {
 	a, _ := authFrom(r.Context())
 	if a.Role != "owner" {
@@ -75,7 +75,7 @@ func (s *server) handleUpdateSubscription(w http.ResponseWriter, r *http.Request
 	writeJSON(w, map[string]any{"status": "updated"})
 }
 
-// GET /api/campaigns/{id}/credits — allocation + usage for one campaign.
+// GET /api/campaigns/{id}/credits - allocation + usage for one campaign.
 func (s *server) handleGetCampaignCredits(w http.ResponseWriter, r *http.Request) {
 	a, _ := authFrom(r.Context())
 	cid := r.PathValue("id")
@@ -188,7 +188,7 @@ func (s *server) campaignUsageRows(r *http.Request, orgID, cid, from, to string)
 		  GROUP BY 1, 2 ORDER BY 1, 2`, orgID, cid, from, to)
 }
 
-// GET /api/campaigns/{id}/usage?from=&to= — daily per-feature AI usage for the chart.
+// GET /api/campaigns/{id}/usage?from=&to= - daily per-feature AI usage for the chart.
 func (s *server) handleCampaignUsage(w http.ResponseWriter, r *http.Request) {
 	a, _ := authFrom(r.Context())
 	cid := r.PathValue("id")
@@ -201,7 +201,7 @@ func (s *server) handleCampaignUsage(w http.ResponseWriter, r *http.Request) {
 	writeJSON(w, map[string]any{"from": from, "to": to, "rows": rows})
 }
 
-// GET /api/campaigns/{id}/usage.csv?from=&to= — same data as a CSV download.
+// GET /api/campaigns/{id}/usage.csv?from=&to= - same data as a CSV download.
 func (s *server) handleCampaignUsageCSV(w http.ResponseWriter, r *http.Request) {
 	a, _ := authFrom(r.Context())
 	cid := r.PathValue("id")
@@ -225,7 +225,7 @@ func (s *server) handleCampaignUsageCSV(w http.ResponseWriter, r *http.Request) 
 	cw.Flush()
 }
 
-// GET /api/subscription/usage — the detail behind the one-line quota bar: AI
+// GET /api/subscription/usage - the detail behind the one-line quota bar: AI
 // replies per day (last 30) and the split per campaign this month. Deliberately
 // computed from the SAME source as used_simpuler_credits (bot messages), so
 // this page and the header can never disagree; the per-campaign allocation
@@ -233,7 +233,7 @@ func (s *server) handleCampaignUsageCSV(w http.ResponseWriter, r *http.Request) 
 func (s *server) handleSubscriptionUsage(w http.ResponseWriter, r *http.Request) {
 	a, _ := authFrom(r.Context())
 	// All time, per hari, PER FITUR (nurture/followup/extract/summary/dst) dari
-	// ledger llm_usage — sumber yang sama dengan tab Credits & Usage per
+	// ledger llm_usage - sumber yang sama dengan tab Credits & Usage per
 	// campaign, jadi angkanya tidak pernah beda cerita. Zero-filled via
 	// generate_series x daftar fitur supaya timeline kontinu.
 	// HANYA fitur yang benar-benar memotong kredit (1 kredit = 1 balasan ke
@@ -258,7 +258,7 @@ func (s *server) handleSubscriptionUsage(w http.ResponseWriter, r *http.Request)
 		return
 	}
 	// One row per campaign with BOTH facts side by side: the credit ledger
-	// (used/allocated/remaining — the billing truth, identical to each
+	// (used/allocated/remaining - the billing truth, identical to each
 	// campaign's Credits & Usage tab) and this month's AI replies (activity).
 	byCampaign, err := s.queryMaps(r.Context(),
 		`SELECT c.id::text AS campaign_id, c.name AS campaign,
@@ -280,7 +280,7 @@ func (s *server) handleSubscriptionUsage(w http.ResponseWriter, r *http.Request)
 		http.Error(w, err.Error(), http.StatusInternalServerError)
 		return
 	}
-	// Total per fitur, all time — kartu ringkas di atas chart.
+	// Total per fitur, all time - kartu ringkas di atas chart.
 	byFeature, _ := s.queryMaps(r.Context(),
 		`SELECT feature, count(*)::int AS count
 		   FROM llm_usage WHERE organization_id=$1 AND feature IN ('nurture','followup')

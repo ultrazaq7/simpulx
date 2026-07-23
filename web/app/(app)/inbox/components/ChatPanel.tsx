@@ -236,7 +236,7 @@ export default function ChatPanel({
 
   // Has a human agent replied in this thread? Once they have, Simpuler stands
   // down permanently (orchestrator human-takeover guard), so handing back is a
-  // no-op — the "Hand to Simpuler" button is hidden in that case.
+  // no-op · the "Hand to Simpuler" button is hidden in that case.
   const agentReplied = useMemo(
     () => timeline.some((it) => it.kind === "msg" && it.m.direction === "outbound"
       && it.m.sender_type !== "bot" && it.m.sender_type !== "system"),
@@ -291,7 +291,7 @@ export default function ChatPanel({
   const [searchTerm, setSearchTerm] = useState("");
   const [searchIdx, setSearchIdx] = useState(0);
   // Register search on the shared ESC stack so it closes BEFORE the conversation
-  // (which sits on the stack at priority -1) — a raw handler lost that race.
+  // (which sits on the stack at priority -1) · a raw handler lost that race.
   useEscClose(searchOpen, () => { setSearchOpen(false); setSearchTerm(""); });
 
   const searchMatches = searchTerm.length >= 2
@@ -337,7 +337,7 @@ export default function ChatPanel({
     <>
       <div className={cn("flex-1 flex flex-col min-w-0 bg-background", className)}>
         {!active ? (
-          /* Signature empty state — the Simpul thread (knot motif), not a generic
+          /* Signature empty state · the Simpul thread (knot motif), not a generic
              chat-bubble placeholder. */
           <SimpulEmpty
             title={t("inbox.pickAConversation")}
@@ -354,7 +354,7 @@ export default function ChatPanel({
             {/* Wraps to a second row on mobile (too many controls to fit one
                 narrow row); stays a single fixed-height row on desktop. */}
             <div className="shrink-0 flex flex-wrap lg:flex-nowrap items-center px-3 gap-2 py-2 lg:py-0 min-h-14 lg:h-14 border-b border-border bg-card">
-              {/* Back to list — mobile only */}
+              {/* Back to list · mobile only */}
               {onBack && (
                 <button aria-label={t("inbox.backToConversations")} onClick={onBack} className="lg:hidden -ml-1 p-1 rounded-md text-muted-foreground hover:bg-muted hover:text-foreground outline-none shrink-0">
                   <ChevronLeft className="w-5 h-5" />
@@ -411,7 +411,7 @@ export default function ChatPanel({
                 </Tip>
               </div>
 
-              {/* Interest (temperature) pill — the one place to set it by hand */}
+              {/* Interest (temperature) pill · the one place to set it by hand */}
               <div className="ml-2 shrink-0">
                 <InterestMenu
                   value={active.interest_level || null}

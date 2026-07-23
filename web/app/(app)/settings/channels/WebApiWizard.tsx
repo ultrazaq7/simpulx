@@ -1,6 +1,6 @@
 "use client";
 import { useI18n } from "@/lib/i18n";
-// Add API Source — 3-step wizard (Source type > Details > Done). The final step
+// Add API Source · 3-step wizard (Source type > Details > Done). The final step
 // reveals the generated API key + a ready-to-copy curl snippet, so connecting an
 // external lead source feels like a guided enterprise onboarding.
 import { useState } from "react";
@@ -77,7 +77,7 @@ export function WebApiWizard({ campaigns, onClose, onCreated }: {
         campaign_id: campaignId || undefined, platform,
       });
       // The full key is returned by create exactly once and never stored in
-      // readable form again — capture it here to show on the final step.
+      // readable form again · capture it here to show on the final step.
       setCreated({ apiKey: r.api_key });
       setStep(2);
     } catch (e) { setErr(String(e)); }

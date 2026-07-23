@@ -39,7 +39,7 @@ func newAPIKey() string {
 	return "pk_" + strings.ReplaceAll(uuid.NewString(), "-", "")
 }
 
-// hashAPIKey is what we store and match on. SHA-256 (hex, lowercase) — the key
+// hashAPIKey is what we store and match on. SHA-256 (hex, lowercase) - the key
 // is high-entropy so no bcrypt work factor is needed, and inbound auth runs per
 // request. Must stay identical to the SQL backfill:
 // encode(digest(key,'sha256'),'hex').
@@ -101,7 +101,7 @@ func (s *server) handleCreateWebAPISource(w http.ResponseWriter, r *http.Request
 		return
 	}
 	s.audit(r.Context(), a, "created", "web_api_source", id, map[string]any{"name": b.Name, "platform": b.Platform})
-	// The plaintext key is returned exactly once — it is not recoverable later.
+	// The plaintext key is returned exactly once - it is not recoverable later.
 	writeJSON(w, map[string]any{"id": id, "api_key": key})
 }
 
@@ -183,7 +183,7 @@ func (s *server) handleDeleteWebAPISource(w http.ResponseWriter, r *http.Request
 	writeJSON(w, map[string]any{"status": "deleted"})
 }
 
-// POST /v1/leads  (PUBLIC — authenticated by X-API-Key)
+// POST /v1/leads  (PUBLIC - authenticated by X-API-Key)
 // External systems / ad platforms push leads here. Creates/updates the
 // contact, attributes it to the source, opens a conversation, and (if the
 // source is mapped to a campaign) routes round-robin to a campaign agent.
@@ -330,7 +330,7 @@ func (s *server) handleIngestLead(w http.ResponseWriter, r *http.Request) {
 	}
 
 	// Broadcast the inbound lead message AFTER routing so every open inbox pulls in
-	// the new conversation (already assigned) live — no manual refresh. This is the
+	// the new conversation (already assigned) live - no manual refresh. This is the
 	// only realtime signal this path had been missing.
 	if convID != "" {
 		if err := s.bus.Publish(events.SubjectMessagePersisted, orgID, events.MessagePersisted{
