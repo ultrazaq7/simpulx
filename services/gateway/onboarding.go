@@ -334,12 +334,13 @@ func (s *server) handleApproveTransaction(w http.ResponseWriter, r *http.Request
 
 	var typ, pkgName, orgName, industry, contactName, contactEmail string
 	var seats, credits int
+	var billing string
 	var amount float64
 	err := s.pool.QueryRow(r.Context(),
 		`SELECT type, package_name, COALESCE(org_name,''), COALESCE(industry,''),
-		        contact_name, contact_email, COALESCE(seats,1), credits, amount::float8
+		        contact_name, contact_email, COALESCE(seats,1), credits, amount::float8, COALESCE(billing,'monthly')
 		   FROM platform_transactions WHERE id=$1::uuid AND status='pending'`, id).
-		Scan(&typ, &pkgName, &orgName, &industry, &contactName, &contactEmail, &seats, &credits, &amount)
+		Scan(&typ, &pkgName, &orgName, &industry, &contactName, &contactEmail, &seats, &credits, &amount, &billing)
 	if err != nil {
 		http.Error(w, "not found or already decided", http.StatusNotFound)
 		return
@@ -353,6 +354,14 @@ func (s *server) handleApproveTransaction(w http.ResponseWriter, r *http.Request
 		if pkg.TrialDays > 0 {
 			subStatus = "trial"
 			renewal = time.Now().AddDate(0, 0, pkg.TrialDays).Format("2006-01-02")
+		} else {
+			// Paid packages get a real expiry so the subscription card shows one:
+			// annual = +12 months, monthly = +1 month from activation.
+			months := 1
+			if billing == "annual" {
+				months = 12
+			}
+			renewal = time.Now().AddDate(0, months, 0).Format("2006-01-02")
 		}
 		newOrgID, _, err := s.createOrganization(r.Context(), createOrgInput{
 			Name: orgName, Industry: industry,
