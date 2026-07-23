@@ -4,6 +4,9 @@ import (
 	"bytes"
 	"context"
 	"encoding/json"
+	"fmt"
+	"io"
+	"math"
 	"net/http"
 	"strconv"
 
@@ -113,6 +116,61 @@ func (s *server) handlePlacesNearby(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	writeJSON(w, results)
+}
+
+// GET /api/places/staticmap?lat=&lng=&z= — Google Static Maps thumbnail for a
+// shared-location bubble, proxied so the key stays server-side (the app's Maps
+// keys are package-restricted and can't call a web service). Falls back to an
+// OpenStreetMap tile when there's no key or Static Maps refuses, so the bubble
+// always renders something rather than a broken image.
+func (s *server) handleStaticMap(w http.ResponseWriter, r *http.Request) {
+	lat, lng := parseFloatParam(r, "lat"), parseFloatParam(r, "lng")
+	if lat == 0 && lng == 0 {
+		http.Error(w, "lat and lng required", http.StatusBadRequest)
+		return
+	}
+	zoom := r.URL.Query().Get("z")
+	if zoom == "" {
+		zoom = "16"
+	}
+	apiKey := config.Get("GOOGLE_MAPS_API_KEY", "")
+	pos := strconv.FormatFloat(lat, 'f', 6, 64) + "," + strconv.FormatFloat(lng, 'f', 6, 64)
+	if apiKey == "" {
+		http.Redirect(w, r, osmTileURL(lat, lng), http.StatusFound)
+		return
+	}
+	u := "https://maps.googleapis.com/maps/api/staticmap?center=" + pos +
+		"&zoom=" + zoom + "&size=480x260&scale=2&maptype=roadmap" +
+		"&markers=color:red%7C" + pos + "&key=" + apiKey
+	req, err := http.NewRequestWithContext(r.Context(), http.MethodGet, u, nil)
+	if err != nil {
+		http.Error(w, "bad request", http.StatusBadRequest)
+		return
+	}
+	resp, err := s.httpClient.Do(req)
+	if err != nil {
+		http.Redirect(w, r, osmTileURL(lat, lng), http.StatusFound)
+		return
+	}
+	defer resp.Body.Close()
+	if resp.StatusCode != http.StatusOK {
+		http.Redirect(w, r, osmTileURL(lat, lng), http.StatusFound)
+		return
+	}
+	w.Header().Set("Content-Type", "image/png")
+	// A pinned location never moves, so let clients cache the thumbnail hard.
+	w.Header().Set("Cache-Control", "public, max-age=604800")
+	_, _ = io.Copy(w, resp.Body)
+}
+
+// osmTileURL is the keyless fallback: the single OSM tile containing the point.
+func osmTileURL(lat, lng float64) string {
+	const z = 15
+	n := math.Pow(2, z)
+	x := int((lng + 180) / 360 * n)
+	latRad := lat * math.Pi / 180
+	y := int((1 - math.Log(math.Tan(latRad)+1/math.Cos(latRad))/math.Pi) / 2 * n)
+	return fmt.Sprintf("https://tile.openstreetmap.org/%d/%d/%d.png", z, x, y)
 }
 
 // GET /api/places/search?q=&lat=&lng= — text search for a place, biased to the

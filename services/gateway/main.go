@@ -197,6 +197,10 @@ func main() {
 	// Any authenticated agent can share a location, so no extra capability gate.
 	mux.HandleFunc("GET /api/places/nearby", s.requireAuth(s.handlePlacesNearby))
 	mux.HandleFunc("GET /api/places/search", s.requireAuth(s.handlePlacesSearch))
+	// Static map thumbnail for shared-location bubbles. Public: it's rendered by
+	// <img>/CachedNetworkImage which can't attach the bearer token, and it leaks
+	// nothing — the caller already knows the coordinates it's asking about.
+	mux.HandleFunc("GET /api/places/staticmap", s.handleStaticMap)
 	mux.HandleFunc("PATCH /api/conversations/{id}", s.requireAuth(s.handlePatchConversation))
 	mux.HandleFunc("POST /api/conversations/{id}/calls", s.requireAuth(s.handleTrackCall))
 	mux.HandleFunc("POST /api/calls/request-permission", s.requireAuth(s.handleRequestCallPermission))

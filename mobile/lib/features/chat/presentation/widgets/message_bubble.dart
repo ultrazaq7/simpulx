@@ -1,5 +1,4 @@
 import 'dart:io';
-import 'dart:math' as math;
 
 import 'package:cached_network_image/cached_network_image.dart';
 import 'package:flutter/gestures.dart' show TapGestureRecognizer;
@@ -26,20 +25,11 @@ import 'media_viewer.dart';
 /// Shared URL matcher for linkified text + OG preview.
 final _kUrlRe = RegExp(r'(https?:\/\/[^\s]+|www\.[^\s]+)', caseSensitive: false);
 
-/// Single OSM tile centered on the location (WhatsApp-style map thumbnail).
-String _osmTileUrl(double lat, double lng, {int z = 15}) {
-  final n = 1 << z;
-  final x = (((lng + 180) / 360) * n).floor().clamp(0, n - 1);
-  final latRad = lat * 3.141592653589793 / 180;
-  final y = ((1 -
-              (math.log(math.tan(latRad) + 1 / math.cos(latRad)) /
-                  3.141592653589793)) /
-          2 *
-          n)
-      .floor()
-      .clamp(0, n - 1);
-  return 'https://tile.openstreetmap.org/$z/$x/$y.png';
-}
+/// Static map thumbnail for a shared location, proxied by the gateway so it uses
+/// Google Maps with the key held server-side (falls back to OpenStreetMap when no
+/// key is configured).
+String _staticMapUrl(String apiBase, double lat, double lng) =>
+    '$apiBase/api/places/staticmap?lat=$lat&lng=$lng';
 
 /// A single chat bubble. Outbound (mine) right-aligned in brand tint; inbound
 /// left in a neutral surface. Renders text, images, and document attachments.
@@ -1117,13 +1107,13 @@ class _LinkifiedBodyState extends State<_LinkifiedBody> {
 
 /// Shared pinned location: map thumbnail (OSM tile) + name/address, opens the
 /// maps app on tap.
-class _LocationCard extends StatelessWidget {
+class _LocationCard extends ConsumerWidget {
   const _LocationCard({required this.location, required this.fg});
   final Map<String, dynamic> location;
   final Color fg;
 
   @override
-  Widget build(BuildContext context) {
+  Widget build(BuildContext context, WidgetRef ref) {
     final lat = (location['latitude'] as num?)?.toDouble() ?? 0;
     final lng = (location['longitude'] as num?)?.toDouble() ?? 0;
     final name = (location['name'] as String?)?.trim() ?? '';
@@ -1150,7 +1140,7 @@ class _LocationCard extends StatelessWidget {
                 fit: StackFit.expand,
                 children: [
                   CachedNetworkImage(
-                    imageUrl: _osmTileUrl(lat, lng),
+                    imageUrl: _staticMapUrl(ref.watch(appConfigProvider).apiBaseUrl, lat, lng),
                     fit: BoxFit.cover,
                     placeholder: (_, _) => Container(color: Colors.black12),
                     errorWidget: (_, _, _) => Container(
@@ -1172,7 +1162,7 @@ class _LocationCard extends StatelessWidget {
                     child: Container(
                       padding: const EdgeInsets.symmetric(horizontal: 2),
                       color: Colors.white.withValues(alpha: 0.6),
-                      child: Text('© OpenStreetMap'.tr(context),
+                      child: Text('Google'.tr(context),
                           style: TextStyle(fontSize: 7, color: Colors.black54)),
                     ),
                   ),

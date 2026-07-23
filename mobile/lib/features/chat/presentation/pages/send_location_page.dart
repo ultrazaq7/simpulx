@@ -35,6 +35,7 @@ class _SendLocationPageState extends ConsumerState<SendLocationPage> {
   List<PlaceResult> _nearby = const [];
   bool _loadingNearby = false;
   bool _moved = false; // user dragged the map away from their GPS fix
+  Timer? _nearbyDebounce;
 
   final _searchCtrl = TextEditingController();
   Timer? _searchDebounce;
@@ -53,6 +54,7 @@ class _SendLocationPageState extends ConsumerState<SendLocationPage> {
   @override
   void dispose() {
     _searchDebounce?.cancel();
+    _nearbyDebounce?.cancel();
     _searchCtrl.dispose();
     _map?.dispose();
     super.dispose();
@@ -239,6 +241,13 @@ class _SendLocationPageState extends ConsumerState<SendLocationPage> {
                     if (!_moved) setState(() => _moved = true);
                   },
                   onCameraMove: (pos) => _target = pos.target,
+                  // Nearby follows the pin: it used to be fetched once at open, so
+                  // panning the map left a list describing where you started.
+                  onCameraIdle: () {
+                    _nearbyDebounce?.cancel();
+                    _nearbyDebounce = Timer(const Duration(milliseconds: 600),
+                        () => _fetchNearby(_target));
+                  },
                   myLocationEnabled: true,
                   myLocationButtonEnabled: false,
                   zoomControlsEnabled: false,

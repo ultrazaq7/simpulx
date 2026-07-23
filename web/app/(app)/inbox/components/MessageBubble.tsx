@@ -12,14 +12,14 @@ import { initials, fmtTime, channelColor, channelTextColor, cn } from "@/lib/uti
 import { api } from "@/lib/api";
 import type { Conversation, Message } from "@/lib/types";
 
-/* ── URL helpers: first URL in a text + OSM map tile ───────── */
+/* ── URL helpers: first URL in a text + static map thumbnail ── */
 const FIRST_URL_RE = /(?:https?:\/\/|www\.)[^\s<>"']+/i;
 
-function osmTileUrl(lat: number, lng: number, z = 15): string {
-  const x = Math.floor(((lng + 180) / 360) * 2 ** z);
-  const latRad = (lat * Math.PI) / 180;
-  const y = Math.floor(((1 - Math.log(Math.tan(latRad) + 1 / Math.cos(latRad)) / Math.PI) / 2) * 2 ** z);
-  return `https://tile.openstreetmap.org/${z}/${x}/${y}.png`;
+// Google Static Maps via the gateway, which holds the key (falls back to an
+// OpenStreetMap tile server-side when no key is configured).
+function staticMapUrl(lat: number, lng: number): string {
+  const base = process.env.NEXT_PUBLIC_API_URL || "";
+  return `${base}/api/places/staticmap?lat=${lat}&lng=${lng}`;
 }
 
 /* ── Open Graph link preview card (WhatsApp style) ─────────── */
@@ -567,13 +567,13 @@ const MessageBubble = memo(function MessageBubble({ m, active, grouped, onPrevie
             >
               <div className="relative h-28 bg-muted">
                 <img
-                  src={osmTileUrl(location.latitude, location.longitude)}
+                  src={staticMapUrl(location.latitude, location.longitude)}
                   className="w-full h-full object-cover block"
                   loading="lazy"
                   onError={(e) => { (e.target as HTMLImageElement).style.display = "none"; }}
                 />
                 <MapPin className="absolute left-1/2 top-1/2 -translate-x-1/2 -translate-y-full w-6 h-6 text-[#EF4444] drop-shadow" fill="#EF4444" strokeWidth={1.5} />
-                <span className="absolute bottom-0.5 right-1 text-[8px] text-black/50 bg-white/60 px-0.5 rounded-sm">{t("inbox.openstreetmap")}</span>
+                <span className="absolute bottom-0.5 right-1 text-[8px] text-black/50 bg-white/60 px-0.5 rounded-sm">Google</span>
               </div>
               <div className="px-2.5 py-2">
                 <p className={cn("text-[13px] font-semibold truncate", darkBub ? "text-white" : "text-foreground")}>{location.name || t("components.location")}</p>
