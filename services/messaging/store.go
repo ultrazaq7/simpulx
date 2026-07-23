@@ -382,9 +382,15 @@ func (s *store) getOrCreateThread(ctx context.Context, orgID, contactID, channel
 	}
 	defer tx.Rollback(ctx)
 
-	// Advisory lock on hash of orgID+contactID+campaignID — serializes concurrent
-	// webhooks for the same contact+campaign. Released on tx.Commit/Rollback.
-	_, err = tx.Exec(ctx, `SELECT pg_advisory_xact_lock(hashtext($1 || $2 || $3))`, orgID, contactID, campaignID)
+	// Advisory lock on hash of orgID+contactID — deliberately the SAME key as
+	// getOrCreateConversation, and deliberately NOT including campaignID. The
+	// unique indexes from 0023 guard per-CONTACT invariants, so the no-signal
+	// path and the campaign path must serialize against each other, not only
+	// against themselves. With campaignID in the key the two paths raced: both
+	// passed their SELECTs and both inserted a campaign-NULL row (the campaign
+	// tag lands post-commit in routeThread), and the second insert died on
+	// idx_conv_active_contact_no_campaign with SQLSTATE 23505.
+	_, err = tx.Exec(ctx, `SELECT pg_advisory_xact_lock(hashtext($1 || $2))`, orgID, contactID)
 	if err != nil {
 		return convInfo{}, err
 	}

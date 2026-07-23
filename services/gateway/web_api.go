@@ -280,20 +280,29 @@ func (s *server) handleIngestLead(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	// Open a conversation if none, and log the lead message.
+	// Open a conversation if none, and log the lead message. Select+insert runs
+	// under the SAME per-contact advisory lock the messaging store uses: a form
+	// submission racing an inbound webhook (or a double-click double submit)
+	// otherwise both pass the SELECT and both INSERT a campaign-NULL row, which
+	// idx_conv_active_contact_no_campaign rejects with SQLSTATE 23505.
 	var convID string
-	_ = s.pool.QueryRow(ctx,
-		`SELECT id::text FROM conversations
-		  WHERE organization_id=$1 AND contact_id=$2 AND status<>'closed'
-		  ORDER BY last_message_at DESC NULLS LAST LIMIT 1`, orgID, contactID).Scan(&convID)
-	if convID == "" {
-		// Branch/campaign routing below assigns the agent; no department step.
-		_ = s.pool.QueryRow(ctx,
-			`INSERT INTO conversations (organization_id, contact_id, channel, status, is_bot_active, stage_id)
-			 VALUES ($1,$2,'web_api','open',true,
-			         (SELECT id FROM stages WHERE organization_id=$1 AND system_key='new' LIMIT 1))
-			 RETURNING id::text`,
-			orgID, contactID).Scan(&convID)
+	if tx, txErr := s.pool.Begin(ctx); txErr == nil {
+		defer tx.Rollback(ctx)
+		_, _ = tx.Exec(ctx, `SELECT pg_advisory_xact_lock(hashtext($1 || $2))`, orgID, contactID)
+		_ = tx.QueryRow(ctx,
+			`SELECT id::text FROM conversations
+			  WHERE organization_id=$1 AND contact_id=$2 AND status<>'closed'
+			  ORDER BY last_message_at DESC NULLS LAST LIMIT 1`, orgID, contactID).Scan(&convID)
+		if convID == "" {
+			// Branch/campaign routing below assigns the agent; no department step.
+			_ = tx.QueryRow(ctx,
+				`INSERT INTO conversations (organization_id, contact_id, channel, status, is_bot_active, stage_id)
+				 VALUES ($1,$2,'web_api','open',true,
+				         (SELECT id FROM stages WHERE organization_id=$1 AND system_key='new' LIMIT 1))
+				 RETURNING id::text`,
+				orgID, contactID).Scan(&convID)
+		}
+		_ = tx.Commit(ctx)
 	}
 	msg := message
 	if msg == "" {
