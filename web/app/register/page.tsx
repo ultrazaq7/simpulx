@@ -278,7 +278,7 @@ export default function RegisterPage() {
   return (
     <Shell>
       <div className="text-center mb-8">
-        <h1 className="text-[26px] sm:text-[32px] font-extrabold text-gray-900 tracking-tight">
+        <h1 className="text-[30px] sm:text-[42px] font-extrabold text-gray-900 tracking-tight leading-tight">
           {menu === "signup" ? t("reg.headline") : t("reg.topupHeadline")}
         </h1>
       </div>
@@ -309,17 +309,17 @@ export default function RegisterPage() {
       )}
 
       {menu === "signup" ? (
-        <div className="grid sm:grid-cols-2 lg:grid-cols-4 gap-3 mb-8">
+        <div className="grid sm:grid-cols-2 lg:grid-cols-4 gap-4 mb-10 max-w-6xl mx-auto">
           {SIGNUP_TIERS.map((t, ti) => (
             <button key={t.key} onClick={() => choose(t.key)}
-              className={`relative text-left rounded-2xl border-2 p-4 transition-all outline-none hover:-translate-y-1 hover:shadow-lg ${
+              className={`relative text-left rounded-2xl border-2 p-5 transition-all outline-none hover:-translate-y-1.5 hover:shadow-xl ${
                 pkg === t.key ? "border-emerald-600 bg-emerald-50/40 shadow-md" : "border-gray-200 bg-white hover:border-emerald-600/40"}`}>
               {t.highlight && (
                 <span className="absolute -top-2.5 left-4 px-2 py-0.5 rounded-full bg-emerald-600 text-white text-[10.5px] font-bold">{i18n("reg.popular")}</span>
               )}
-              <p className="text-[14px] font-extrabold text-gray-900">{t.name}</p>
-              <p className="text-[11.5px] text-gray-500 mb-2">{t.tagline}</p>
-              <p className="text-[20px] font-extrabold text-gray-900">
+              <p className="text-[16px] font-extrabold text-gray-900">{t.name}</p>
+              <p className="text-[12px] text-gray-500 mb-3">{t.tagline}</p>
+              <p className="text-[24px] font-extrabold text-gray-900">
                 {/* Tahunan = 12 bulan harga penuh, TANPA promo gratis 2 bulan. */}
                 {t.price === 0 ? i18n("reg.free") : rp(billing === "annual" ? t.price * 12 : t.price)}
                 <span className="text-[11px] font-medium text-gray-400"> /{billing === "annual" && t.price > 0 ? i18n("reg.perSeatYear") : t.per}</span>
@@ -335,7 +335,7 @@ export default function RegisterPage() {
           ))}
         </div>
       ) : (
-        <div className="grid sm:grid-cols-3 gap-3 mb-8 max-w-2xl mx-auto">
+        <div className="grid sm:grid-cols-3 gap-4 mb-10 max-w-3xl mx-auto">
           {TOPUP_PACKS.map((t, ti) => (
             <button key={t.key} onClick={() => choose(t.key)}
               className={`text-left rounded-2xl border-2 p-4 transition-all outline-none hover:-translate-y-1 hover:shadow-lg ${

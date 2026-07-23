@@ -351,3 +351,13 @@ footer.site { border-top: 1px solid var(--border); background: var(--surface); p
 }
 .lang-sw { font-size: 12px; font-weight: 800; letter-spacing: .06em; border: 1px solid var(--border); border-radius: 8px; padding: 4px 9px; color: var(--muted) !important; }
 .lang-sw:hover { color: var(--brand) !important; border-color: var(--brand-light); }
+
+/* Demo di dalam frame .phone (index #properti): kompak 1 kolom */
+.phone .fdemo { padding: 10px; min-height: 0; }
+.phone .fd-ls { grid-template-columns: 1fr; gap: 8px; }
+.phone .fd-ls .fd-card:nth-child(n+2) { display: none; }
+.phone .fd-card .ph { height: 64px; }
+.phone .fd-card .bd b { font-size: 12.5px; }
+.phone .fd-lsbub { font-size: 11px; padding: 8px 10px; margin-top: 10px; max-width: none; }
+.fd-card .bd b { white-space: nowrap; }
+.fd-views { white-space: nowrap; }

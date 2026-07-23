@@ -60,6 +60,11 @@ simpulx.com {
 
 	handle {
 		root * /srv/landing
+		# HTML selalu divalidasi ulang (update landing langsung kelihatan, tanpa
+		# "kok masih versi lama"); asset pakai ?v= jadi boleh dicache setahun.
+		@assets path /assets/* /img/* /favicon.png /favicon.svg
+		header @assets Cache-Control "public, max-age=31536000, immutable"
+		header not @assets Cache-Control "no-cache"
 		file_server
 		try_files {path} {path}.html /index.html
 	}
