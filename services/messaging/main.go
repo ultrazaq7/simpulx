@@ -339,7 +339,16 @@ func (a *app) onOutbound(env events.Envelope) error {
 			a.log.Info("duplicate outbound message dropped", "ext", externalID)
 			return nil
 		}
-		return err2
+		// NEVER redeliver once the message has already left for the channel. The
+		// send happens BEFORE this insert, so returning an error here makes NATS
+		// redeliver the event and send the SAME message to the customer again —
+		// which is exactly how a failing insert turned into a WhatsApp flood
+		// (same text dozens of times, until Meta rate-limited the number).
+		// Losing the local row is bad; spamming a real customer is far worse, so
+		// ack and shout instead.
+		a.log.Error("outbound persisted FAILED after send - acking to avoid resend",
+			"conv", convID, "ext", externalID, "status", status, "err", err2)
+		return nil
 	}
 	a.kickOutbox() // deliver realtime immediately, don't wait for the poll tick
 

@@ -302,8 +302,13 @@ func (s *store) insertOutbound(ctx context.Context, orgID, convID, senderType, s
 	}
 
 	err = tx.QueryRow(ctx,
+		// $10 is cast to text EXPLICITLY: in NULLIF($10,'')::jsonb Postgres cannot
+		// infer the parameter's type (both sides are unknown, and the ::jsonb cast
+		// applies after), so it errors with "could not determine data type" — which
+		// failed every outbound insert, NAK'd the event, and made NATS redeliver it,
+		// re-sending the SAME WhatsApp message over and over.
 		`INSERT INTO messages (organization_id, conversation_id, direction, sender_type, sender_id, type, body, media_url, external_id, status, metadata)
-		 VALUES ($1, $2, 'outbound', $3, $4, $5, $6, NULLIF($7,''), NULLIF($8,''), $9, NULLIF($10,'')::jsonb)
+		 VALUES ($1, $2, 'outbound', $3, $4, $5, $6, NULLIF($7,''), NULLIF($8,''), $9, NULLIF($10::text,'')::jsonb)
 		 RETURNING id`,
 		orgID, convID, senderType, sid, msgType, body, mediaURL, externalID, status, metadataJSON,
 	).Scan(&msgID)

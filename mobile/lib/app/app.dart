@@ -246,16 +246,18 @@ class _SimpulxAppState extends ConsumerState<SimpulxApp>
     // so CallKitService.init() below never ran and the VoIP token was NEVER
     // registered (prod had zero ios_voip tokens, so background/lockscreen calls
     // never rang). Never let the FCM path block VoIP registration.
+    // Register the FCM token, retrying a few times. This used to be a single
+    // best-effort attempt whose failure was swallowed, so a token that didn't
+    // register (getToken() not ready yet, or the POST failing) left the device
+    // permanently unreachable by push with nothing in the logs to show for it —
+    // prod had no new token rows for days while pushes went to dead ones.
+    unawaited(_registerPushToken());
     try {
-      final token = await push.getToken();
-      if (token != null) {
-        await repo.registerPushToken(token: token, platform: push.platform, deviceId: deviceId);
-      }
       push.onTokenRefresh.listen(
         (t) => repo.registerPushToken(token: t, platform: push.platform, deviceId: deviceId),
       );
     } catch (e) {
-      debugPrint('[Push] FCM token registration failed (continuing): $e');
+      debugPrint('[Push] onTokenRefresh subscribe failed: $e');
     }
     // iOS: register the PushKit VoIP token + bridge CallKit actions to the call
     // controller (Android uses FCM + full-screen intent instead). This is the
@@ -268,6 +270,39 @@ class _SimpulxAppState extends ConsumerState<SimpulxApp>
     // Now that we're authenticated we can actually send: flush any reply typed
     // into a notification while the app was killed.
     await _drainPendingReplies();
+  }
+
+  /// Register this device's FCM token with the backend, retrying on failure.
+  ///
+  /// A device whose token never lands server-side is simply unreachable by push,
+  /// and the old single best-effort attempt failed silently — so this retries a
+  /// few times with backoff, logs loudly, and is safe to call again (the server
+  /// keys rows by device id, so re-registering replaces rather than duplicates).
+  Future<void> _registerPushToken() async {
+    if (ref.read(sessionControllerProvider).status !=
+        SessionStatus.authenticated) {
+      return; // no session to attach the token to; resume will retry
+    }
+    final push = ref.read(pushServiceProvider);
+    final repo = ref.read(authRepositoryProvider);
+    final deviceId = await ref.read(secureStoreProvider).deviceId();
+    for (var attempt = 0; attempt < 3; attempt++) {
+      try {
+        final token = await push.getToken();
+        if (token == null || token.isEmpty) {
+          debugPrint('[Push] no FCM token yet (attempt ${attempt + 1})');
+        } else {
+          await repo.registerPushToken(
+              token: token, platform: push.platform, deviceId: deviceId);
+          debugPrint('[Push] FCM token registered (${push.platform})');
+          return;
+        }
+      } catch (e) {
+        debugPrint('[Push] token registration failed (attempt ${attempt + 1}): $e');
+      }
+      await Future<void>.delayed(Duration(seconds: 2 * (attempt + 1)));
+    }
+    debugPrint('[Push] FCM token registration gave up; will retry on resume');
   }
 
   /// Smart navigation that avoids duplicate routes.
