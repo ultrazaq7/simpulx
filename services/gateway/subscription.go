@@ -232,12 +232,20 @@ func (s *server) handleCampaignUsageCSV(w http.ResponseWriter, r *http.Request) 
 // (campaign_credits) is joined alongside as its own columns, clearly separate.
 func (s *server) handleSubscriptionUsage(w http.ResponseWriter, r *http.Request) {
 	a, _ := authFrom(r.Context())
-	// All time, per hari (permintaan eksplisit: bukan jendela 30 hari).
+	// All time, per hari, ZERO-FILLED: tanpa generate_series hari yang sepi
+	// hilang dari sumbu X dan timeline-nya tampak bolong.
 	daily, err := s.queryMaps(r.Context(),
-		`SELECT to_char(m.created_at::date, 'YYYY-MM-DD') AS date, count(*)::int AS replies
-		   FROM messages m
-		  WHERE m.organization_id=$1 AND m.sender_type='bot'
-		  GROUP BY 1 ORDER BY 1`, a.OrgID)
+		`SELECT to_char(d::date, 'YYYY-MM-DD') AS date, COALESCE(x.replies, 0) AS replies
+		   FROM generate_series(
+		          (SELECT min(created_at)::date FROM messages
+		            WHERE organization_id=$1 AND sender_type='bot'),
+		          current_date, interval '1 day') d
+		   LEFT JOIN (
+		     SELECT created_at::date AS day, count(*)::int AS replies
+		       FROM messages WHERE organization_id=$1 AND sender_type='bot'
+		      GROUP BY 1
+		   ) x ON x.day = d::date
+		  ORDER BY 1`, a.OrgID)
 	if err != nil {
 		http.Error(w, err.Error(), http.StatusInternalServerError)
 		return
