@@ -424,6 +424,7 @@ func (s *server) handleCampaignAdsPreview(w http.ResponseWriter, r *http.Request
 		accessMode                  *string
 		pageID, pageName            string
 		metaCampaignID, metaAdsetID string
+		creativeFormat              string
 	)
 	err := s.pool.QueryRow(ctx,
 		`SELECT c.name, COALESCE(c.ads_status,''), c.monthly_budget, c.target_cpl,
@@ -431,6 +432,7 @@ func (s *server) handleCampaignAdsPreview(w http.ResponseWriter, r *http.Request
 		        c.target_gender, c.advantage_audience_enabled,
 		        COALESCE(c.meta_page_id,''), COALESCE(c.meta_page_name,''),
 		        COALESCE(c.meta_campaign_id,''), COALESCE(c.meta_adset_id,''),
+		        COALESCE(c.ads_creative_format,'single'),
 		        COALESCE(aa.name,''), aa.access_mode
 		   FROM campaigns c
 		   LEFT JOIN LATERAL (
@@ -447,7 +449,7 @@ func (s *server) handleCampaignAdsPreview(w http.ResponseWriter, r *http.Request
 		  WHERE c.id=$1::uuid AND c.organization_id=$2`,
 		campaignID, a.OrgID).Scan(&name, &adsStatus, &monthlyBudget, &targetCPL,
 		&cities, &ageMin, &ageMax, &gender, &advantage,
-		&pageID, &pageName, &metaCampaignID, &metaAdsetID, &accountName, &accessMode)
+		&pageID, &pageName, &metaCampaignID, &metaAdsetID, &creativeFormat, &accountName, &accessMode)
 	if err != nil {
 		http.Error(w, "not found", http.StatusNotFound)
 		return
@@ -501,6 +503,17 @@ func (s *server) handleCampaignAdsPreview(w http.ResponseWriter, r *http.Request
 	if pageID == "" {
 		blockers = append(blockers, "No Facebook Page chosen. Pick the Page the ad runs as (it must have WhatsApp connected).")
 	}
+	if creativeFormat == "carousel" {
+		imgs := 0
+		for _, cr := range creativeRows {
+			if fmt.Sprint(cr["media_type"]) == "image" {
+				imgs++
+			}
+		}
+		if imgs < 2 {
+			blockers = append(blockers, "Carousel needs at least 2 images (videos are not carousel cards).")
+		}
+	}
 
 	daily := 0.0
 	if monthlyBudget != nil {
@@ -516,6 +529,7 @@ func (s *server) handleCampaignAdsPreview(w http.ResponseWriter, r *http.Request
 		"copy":       copyRows,
 		"creatives":  creativeRows,
 		"page":       map[string]any{"id": pageID, "name": pageName},
+		"format":     creativeFormat,
 		"launched":   metaAdsetID != "",
 		"meta_ids":   map[string]any{"campaign": metaCampaignID, "adset": metaAdsetID},
 		"blockers":   blockers,

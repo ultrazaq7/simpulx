@@ -262,15 +262,17 @@ func (s *server) handleLaunchAds(w http.ResponseWriter, r *http.Request) {
 		advantage                   bool
 		pageID, pageName            string
 		metaCampaignID, metaAdsetID string
+		creativeFormat              string
 	)
 	if err := s.pool.QueryRow(ctx,
 		`SELECT monthly_budget, COALESCE(covered_cities,'{}'), target_age_min, target_age_max,
 		        target_gender, advantage_audience_enabled,
 		        COALESCE(meta_page_id,''), COALESCE(meta_page_name,''),
-		        COALESCE(meta_campaign_id,''), COALESCE(meta_adset_id,'')
+		        COALESCE(meta_campaign_id,''), COALESCE(meta_adset_id,''),
+		        COALESCE(ads_creative_format,'single')
 		   FROM campaigns WHERE id=$1::uuid AND organization_id=$2`,
 		campaignID, a.OrgID).Scan(&monthlyBudget, &cities, &ageMin, &ageMax,
-		&gender, &advantage, &pageID, &pageName, &metaCampaignID, &metaAdsetID); err != nil {
+		&gender, &advantage, &pageID, &pageName, &metaCampaignID, &metaAdsetID, &creativeFormat); err != nil {
 		http.Error(w, "not found", http.StatusNotFound)
 		return
 	}
@@ -345,6 +347,17 @@ func (s *server) handleLaunchAds(w http.ResponseWriter, r *http.Request) {
 	}
 	if pageID == "" {
 		blockers = append(blockers, "No Facebook Page chosen. Pick the Page the ad runs as (it must have WhatsApp connected).")
+	}
+	if creativeFormat == "carousel" {
+		imgs := 0
+		for _, c := range creatives {
+			if c.mediaType == "image" {
+				imgs++
+			}
+		}
+		if imgs < 2 {
+			blockers = append(blockers, "Carousel needs at least 2 images (videos are not carousel cards).")
+		}
 	}
 	if len(blockers) > 0 {
 		w.Header().Set("Content-Type", "application/json")
@@ -494,12 +507,19 @@ func (s *server) handleLaunchAds(w http.ResponseWriter, r *http.Request) {
 		adsetUpdated = true
 	}
 
-	// ── 3. One ad per creative (PAUSED) ──
+	// ── 3. Ads (PAUSED): single = satu iklan per creative; carousel = SEMUA
+	// gambar jadi kartu dari SATU iklan (child_attachments). ──
 	first := func(xs []string) string {
 		if len(xs) > 0 {
 			return xs[0]
 		}
 		return ""
+	}
+	pick := func(xs []string, i int) string {
+		if len(xs) == 0 {
+			return ""
+		}
+		return xs[i%len(xs)]
 	}
 	message, headline, desc := first(primaryTexts), first(headlines), first(descriptions)
 
@@ -511,108 +531,206 @@ func (s *server) handleLaunchAds(w http.ResponseWriter, r *http.Request) {
 	}
 	var results []adResult
 	created := 0
-	for _, c := range creatives {
-		res := adResult{CreativeID: c.id, FileName: c.fileName}
-		if c.metaAdID != "" { // resume: already done in a previous attempt
-			res.MetaAdID = c.metaAdID
-			results = append(results, res)
-			created++
-			continue
-		}
 
-		// 3a. Get the asset onto Meta.
-		storySpec := map[string]any{"page_id": pageID}
-		cta := map[string]any{"type": "WHATSAPP_MESSAGE", "value": map[string]string{"app_destination": "WHATSAPP"}}
-		switch c.mediaType {
-		case "image":
+	if creativeFormat == "carousel" {
+		// 3a-carousel. Pastikan semua gambar punya hash (upload yang belum).
+		cards := []map[string]any{}
+		carouselAdID := ""
+		var memberIDs []string
+		for i := range creatives {
+			c := &creatives[i]
+			if c.mediaType != "image" {
+				results = append(results, adResult{CreativeID: c.id, FileName: c.fileName,
+					Error: "video is not a carousel card; switch to Single for videos"})
+				continue
+			}
 			if c.imageHash == "" {
 				img, err := fetchCreativeBytes(ctx, c.fileURL)
 				if err == nil {
 					c.imageHash, err = metaUploadImage(ctx, t.extAccountID, t.token, img)
 				}
 				if err != nil {
-					res.Error = "upload image: " + err.Error()
-					results = append(results, res)
+					results = append(results, adResult{CreativeID: c.id, FileName: c.fileName, Error: "upload image: " + err.Error()})
 					continue
 				}
 				_, _ = s.pool.Exec(ctx,
 					`UPDATE campaign_creatives SET meta_image_hash=$2 WHERE id=$1::uuid`, c.id, c.imageHash)
 			}
-			storySpec["link_data"] = map[string]any{
-				"message":        message,
-				"name":           headline,
-				"description":    desc,
+			if c.metaAdID != "" {
+				carouselAdID = c.metaAdID
+			}
+			// Variasi copy antar kartu: headline/desc dirotasi dari set yang
+			// di-approve, jadi tiap kartu tidak mengulang teks yang sama persis.
+			cards = append(cards, map[string]any{
+				"name":           pick(headlines, len(cards)),
+				"description":    pick(descriptions, len(cards)),
 				"link":           "https://api.whatsapp.com/send",
 				"image_hash":     c.imageHash,
-				"call_to_action": cta,
-			}
-		case "video":
-			if c.videoID == "" {
-				form := url.Values{}
-				form.Set("file_url", c.fileURL) // MinIO objects are public; Meta pulls the file itself
-				form.Set("access_token", t.token)
-				vid, err := metaPostID(ctx, base+"/advideos", form)
-				if err != nil {
-					res.Error = "upload video: " + err.Error()
-					results = append(results, res)
-					continue
-				}
-				c.videoID = vid
-				_, _ = s.pool.Exec(ctx,
-					`UPDATE campaign_creatives SET meta_video_id=$2 WHERE id=$1::uuid`, c.id, vid)
-			}
-			thumb, err := metaVideoThumbnail(ctx, c.videoID, t.token)
-			if err != nil {
-				res.Error = "video thumbnail: " + err.Error()
-				results = append(results, res)
-				continue
-			}
-			storySpec["video_data"] = map[string]any{
-				"video_id":       c.videoID,
-				"message":        message,
-				"title":          headline,
-				"image_url":      thumb,
-				"call_to_action": cta,
-			}
-		default:
-			res.Error = "unsupported media type " + c.mediaType
-			results = append(results, res)
-			continue
+				"call_to_action": map[string]any{"type": "WHATSAPP_MESSAGE", "value": map[string]string{"app_destination": "WHATSAPP"}},
+			})
+			memberIDs = append(memberIDs, c.id)
 		}
-
-		// 3b. Creative, then the ad itself.
+		if len(cards) < 2 {
+			fail("build carousel", fmt.Errorf("need at least 2 usable images"))
+			return
+		}
+		if len(cards) > 10 {
+			cards = cards[:10] // batas Meta
+		}
+		storySpec := map[string]any{
+			"page_id": pageID,
+			"link_data": map[string]any{
+				"message":               message,
+				"link":                  "https://api.whatsapp.com/send",
+				"child_attachments":     cards,
+				"multi_share_optimized": true,
+				"call_to_action":        map[string]any{"type": "WHATSAPP_MESSAGE", "value": map[string]string{"app_destination": "WHATSAPP"}},
+			},
+		}
 		ss, _ := json.Marshal(storySpec)
 		form := url.Values{}
-		form.Set("name", t.campaignName+" - "+c.fileName)
+		form.Set("name", t.campaignName+" - Carousel")
 		form.Set("object_story_spec", string(ss))
 		form.Set("access_token", t.token)
 		creativeID, err := metaPostID(ctx, base+"/adcreatives", form)
 		if err != nil {
-			res.Error = "create creative: " + err.Error()
-			results = append(results, res)
-			continue
+			fail("create carousel creative", err)
+			return
 		}
+		if carouselAdID == "" {
+			form = url.Values{}
+			form.Set("name", t.campaignName+" - Carousel")
+			form.Set("adset_id", metaAdsetID)
+			form.Set("creative", `{"creative_id":"`+creativeID+`"}`)
+			form.Set("status", "PAUSED")
+			form.Set("access_token", t.token)
+			carouselAdID, err = metaPostID(ctx, base+"/ads", form)
+			if err != nil {
+				fail("create carousel ad", err)
+				return
+			}
+			created++
+		} else {
+			// Apply changes: kartu dibangun ulang dari SEMUA gambar sekarang,
+			// lalu creative iklan yang ada ditukar in place.
+			form = url.Values{}
+			form.Set("creative", `{"creative_id":"`+creativeID+`"}`)
+			form.Set("access_token", t.token)
+			if err := metaPostForm(ctx, fmt.Sprintf("https://graph.facebook.com/%s/%s", metaGraphVersion, carouselAdID), form); err != nil {
+				fail("update carousel ad", err)
+				return
+			}
+			adsetUpdated = true
+		}
+		for _, cid2 := range memberIDs {
+			_, _ = s.pool.Exec(ctx,
+				`UPDATE campaign_creatives SET meta_ad_id=$2, status='paused' WHERE id=$1::uuid`, cid2, carouselAdID)
+			results = append(results, adResult{CreativeID: cid2, MetaAdID: carouselAdID})
+		}
+	} else {
+		for _, c := range creatives {
+			res := adResult{CreativeID: c.id, FileName: c.fileName}
+			if c.metaAdID != "" { // resume: already done in a previous attempt
+				res.MetaAdID = c.metaAdID
+				results = append(results, res)
+				created++
+				continue
+			}
 
-		form = url.Values{}
-		form.Set("name", t.campaignName+" - "+c.fileName)
-		form.Set("adset_id", metaAdsetID)
-		form.Set("creative", `{"creative_id":"`+creativeID+`"}`)
-		form.Set("status", "PAUSED")
-		form.Set("access_token", t.token)
-		adID, err := metaPostID(ctx, base+"/ads", form)
-		if err != nil {
-			res.Error = "create ad: " + err.Error()
+			// 3a. Get the asset onto Meta.
+			storySpec := map[string]any{"page_id": pageID}
+			cta := map[string]any{"type": "WHATSAPP_MESSAGE", "value": map[string]string{"app_destination": "WHATSAPP"}}
+			switch c.mediaType {
+			case "image":
+				if c.imageHash == "" {
+					img, err := fetchCreativeBytes(ctx, c.fileURL)
+					if err == nil {
+						c.imageHash, err = metaUploadImage(ctx, t.extAccountID, t.token, img)
+					}
+					if err != nil {
+						res.Error = "upload image: " + err.Error()
+						results = append(results, res)
+						continue
+					}
+					_, _ = s.pool.Exec(ctx,
+						`UPDATE campaign_creatives SET meta_image_hash=$2 WHERE id=$1::uuid`, c.id, c.imageHash)
+				}
+				storySpec["link_data"] = map[string]any{
+					"message":        message,
+					"name":           headline,
+					"description":    desc,
+					"link":           "https://api.whatsapp.com/send",
+					"image_hash":     c.imageHash,
+					"call_to_action": cta,
+				}
+			case "video":
+				if c.videoID == "" {
+					form := url.Values{}
+					form.Set("file_url", c.fileURL) // MinIO objects are public; Meta pulls the file itself
+					form.Set("access_token", t.token)
+					vid, err := metaPostID(ctx, base+"/advideos", form)
+					if err != nil {
+						res.Error = "upload video: " + err.Error()
+						results = append(results, res)
+						continue
+					}
+					c.videoID = vid
+					_, _ = s.pool.Exec(ctx,
+						`UPDATE campaign_creatives SET meta_video_id=$2 WHERE id=$1::uuid`, c.id, vid)
+				}
+				thumb, err := metaVideoThumbnail(ctx, c.videoID, t.token)
+				if err != nil {
+					res.Error = "video thumbnail: " + err.Error()
+					results = append(results, res)
+					continue
+				}
+				storySpec["video_data"] = map[string]any{
+					"video_id":       c.videoID,
+					"message":        message,
+					"title":          headline,
+					"image_url":      thumb,
+					"call_to_action": cta,
+				}
+			default:
+				res.Error = "unsupported media type " + c.mediaType
+				results = append(results, res)
+				continue
+			}
+
+			// 3b. Creative, then the ad itself.
+			ss, _ := json.Marshal(storySpec)
+			form := url.Values{}
+			form.Set("name", t.campaignName+" - "+c.fileName)
+			form.Set("object_story_spec", string(ss))
+			form.Set("access_token", t.token)
+			creativeID, err := metaPostID(ctx, base+"/adcreatives", form)
+			if err != nil {
+				res.Error = "create creative: " + err.Error()
+				results = append(results, res)
+				continue
+			}
+
+			form = url.Values{}
+			form.Set("name", t.campaignName+" - "+c.fileName)
+			form.Set("adset_id", metaAdsetID)
+			form.Set("creative", `{"creative_id":"`+creativeID+`"}`)
+			form.Set("status", "PAUSED")
+			form.Set("access_token", t.token)
+			adID, err := metaPostID(ctx, base+"/ads", form)
+			if err != nil {
+				res.Error = "create ad: " + err.Error()
+				results = append(results, res)
+				continue
+			}
+			res.MetaAdID = adID
+			created++
+			_, _ = s.pool.Exec(ctx,
+				`UPDATE campaign_creatives SET meta_ad_id=$2, status='paused' WHERE id=$1::uuid`, c.id, adID)
 			results = append(results, res)
-			continue
 		}
-		res.MetaAdID = adID
-		created++
-		_, _ = s.pool.Exec(ctx,
-			`UPDATE campaign_creatives SET meta_ad_id=$2, status='paused' WHERE id=$1::uuid`, c.id, adID)
-		results = append(results, res)
 	}
 
-	if created == 0 {
+	if created == 0 && !adsetUpdated {
 		// Campaign + ad set exist but not a single ad made it: that is a failed
 		// launch, and ads_status must say so rather than pretending.
 		firstErr := "no ad could be created"
@@ -701,4 +819,30 @@ func (s *server) handleSetCampaignAdAccount(w http.ResponseWriter, r *http.Reque
 	}
 	s.audit(r.Context(), a, "attached", "campaign_ad_account", r.PathValue("id"), map[string]any{"ad_account_id": b.AdAccountID})
 	writeJSON(w, map[string]any{"ok": true})
+}
+
+// POST /api/campaigns/{id}/ads/format — pilih bentuk creative: 'single' (satu
+// iklan per gambar/video) atau 'carousel' (semua gambar jadi kartu satu iklan).
+func (s *server) handleSetAdsFormat(w http.ResponseWriter, r *http.Request) {
+	a, _ := authFrom(r.Context())
+	var b struct {
+		Format string `json:"format"`
+	}
+	if err := json.NewDecoder(r.Body).Decode(&b); err != nil || (b.Format != "single" && b.Format != "carousel") {
+		http.Error(w, "format must be 'single' or 'carousel'", http.StatusBadRequest)
+		return
+	}
+	tag, err := s.pool.Exec(r.Context(),
+		`UPDATE campaigns SET ads_creative_format=$3 WHERE id=$1::uuid AND organization_id=$2`,
+		r.PathValue("id"), a.OrgID, b.Format)
+	if err != nil {
+		http.Error(w, err.Error(), http.StatusInternalServerError)
+		return
+	}
+	if tag.RowsAffected() == 0 {
+		http.Error(w, "not found", http.StatusNotFound)
+		return
+	}
+	s.audit(r.Context(), a, "set", "ads_format", r.PathValue("id"), map[string]any{"format": b.Format})
+	writeJSON(w, map[string]any{"ok": true, "format": b.Format})
 }

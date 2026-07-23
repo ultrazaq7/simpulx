@@ -895,6 +895,7 @@ export interface AdsPreview {
   copy: { id: string; primary_texts: string[]; headlines: string[]; descriptions: string[] }[];
   creatives: { id: string; file_url: string; media_type: string; file_name?: string; on_meta: boolean }[];
   page: { id: string; name: string };
+  format?: string; // 'single' | 'carousel'
   launched: boolean;
   meta_ids: { campaign: string; adset: string };
   blockers: string[];

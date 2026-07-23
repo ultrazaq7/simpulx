@@ -587,6 +587,8 @@ export const api = {
       `/api/campaigns/${id}/ads/pages`),
   chooseAdPage: (id: string, body: { page_id: string; page_name?: string }) =>
     req(`/api/campaigns/${id}/ads/page`, { method: "POST", body: JSON.stringify(body) }),
+  setAdsFormat: (id: string, format: "single" | "carousel") =>
+    req(`/api/campaigns/${id}/ads/format`, { method: "POST", body: JSON.stringify({ format }) }),
   launchAds: (id: string) =>
     req<import("./types").AdLaunchResult>(`/api/campaigns/${id}/ads/launch`, { method: "POST" }),
   listCreatives: (id: string) =>

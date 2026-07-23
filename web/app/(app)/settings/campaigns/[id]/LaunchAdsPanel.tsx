@@ -30,7 +30,7 @@ export default function LaunchAdsPanel({ id, notify }: { id: string; notify: (m:
       <GeoSection id={id} notify={notify} onChange={reload} />
       <CopySection id={id} notify={notify} onChange={reload} />
       <AudienceSection id={id} notify={notify} />
-      <CreativeSection id={id} notify={notify} onChange={reload} />
+      <CreativeSection id={id} preview={preview} notify={notify} onChange={reload} />
       <PageSection id={id} preview={preview} notify={notify} onChange={reload} />
       <LaunchBar id={id} preview={preview} notify={notify} onRefresh={reload} />
     </div>
@@ -228,7 +228,13 @@ function AudienceSection({ id, notify }: { id: string; notify: (m: string, s?: "
   );
 }
 
-function CreativeSection({ id, notify, onChange }: { id: string; notify: (m: string, s?: "success" | "error") => void; onChange: () => void }) {
+function CreativeSection({ id, preview, notify, onChange }: { id: string; preview: AdsPreview; notify: (m: string, s?: "success" | "error") => void; onChange: () => void }) {
+  const format = preview.format === "carousel" ? "carousel" : "single";
+  async function setFormat(f: "single" | "carousel") {
+    if (f === format) return;
+    try { await api.setAdsFormat(id, f); onChange(); }
+    catch (e) { notify(String(e), "error"); }
+  }
   const [items, setItems] = useState<CreativeRow[]>([]);
   const [busy, setBusy] = useState(false);
   const fileRef = useRef<HTMLInputElement>(null);
@@ -254,6 +260,23 @@ function CreativeSection({ id, notify, onChange }: { id: string; notify: (m: str
 
   return (
     <Section icon={ImageIcon} title="Creatives">
+      {/* Bentuk iklan: Single = satu iklan per creative; Carousel = semua gambar
+          jadi kartu geser dari SATU iklan (2-10 kartu, video tidak ikut). */}
+      <div className="flex items-center gap-2 mb-3">
+        <div className="flex items-center gap-1 rounded-lg border border-border p-0.5">
+          {([["single", "Single"], ["carousel", "Carousel"]] as const).map(([v, label]) => (
+            <button key={v} onClick={() => setFormat(v)}
+              className={`px-3 h-7 rounded-md text-[12px] font-semibold outline-none transition-colors ${format === v ? "bg-primary text-white" : "text-muted-foreground hover:text-foreground"}`}>
+              {label}
+            </button>
+          ))}
+        </div>
+        <span className="text-[11.5px] text-muted-foreground">
+          {format === "carousel"
+            ? "Semua gambar jadi kartu geser satu iklan (min 2, maks 10)."
+            : "Satu iklan per foto/video."}
+        </span>
+      </div>
       <input ref={fileRef} type="file" accept="image/*,video/*" className="hidden"
         onChange={(e) => { const f = e.target.files?.[0]; if (f) upload(f); e.target.value = ""; }} />
       <button onClick={() => fileRef.current?.click()} disabled={busy}

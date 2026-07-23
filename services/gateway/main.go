@@ -293,6 +293,7 @@ func main() {
 	mux.HandleFunc("POST /api/campaigns/{id}/ads/page", s.requireAuth(s.gate("manage_campaigns", s.campaignScoped(s.handleChooseAdPage))))
 	mux.HandleFunc("POST /api/campaigns/{id}/ads/launch", s.requireAuth(s.gate("manage_campaigns", s.campaignScoped(s.handleLaunchAds))))
 	mux.HandleFunc("POST /api/campaigns/{id}/ads/account", s.requireAuth(s.gate("manage_campaigns", s.campaignScoped(s.handleSetCampaignAdAccount))))
+	mux.HandleFunc("POST /api/campaigns/{id}/ads/format", s.requireAuth(s.gate("manage_campaigns", s.campaignScoped(s.handleSetAdsFormat))))
 	mux.HandleFunc("GET /api/campaigns/{id}/creatives", s.requireAuth(s.campaignScoped(s.handleListCreatives)))
 	mux.HandleFunc("POST /api/campaigns/{id}/creatives", s.requireAuth(s.gate("manage_campaigns", s.campaignScoped(s.handleUploadCreative))))
 	mux.HandleFunc("DELETE /api/campaigns/{id}/creatives/{creativeId}", s.requireAuth(s.gate("manage_campaigns", s.campaignScoped(s.handleDeleteCreative))))
