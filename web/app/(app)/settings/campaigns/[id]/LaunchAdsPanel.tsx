@@ -600,7 +600,7 @@ function LaunchBar({ id, preview, notify, onRefresh, createLabel }: {
       )}
       {launched && createLabel && (
         <p className="text-[12px] text-muted-foreground">
-          {t("ads.createFreshHint", { n: preview.creatives.filter((c) => !c.on_meta).length })}
+          {t("ads.createFreshHint", { n: preview.creatives.filter((c) => !c.is_ad).length })}
         </p>
       )}
       <div className="flex items-center gap-3">
@@ -622,7 +622,7 @@ function LaunchBar({ id, preview, notify, onRefresh, createLabel }: {
           </div>
         ) : (
           <button onClick={() => setConfirming(true)}
-            disabled={!preview.can_launch || busy || (createLabel && preview.creatives.filter((c) => !c.on_meta).length === 0)}
+            disabled={!preview.can_launch || busy || (createLabel && preview.creatives.filter((c) => !c.is_ad).length === 0)}
             title={preview.can_launch ? "" : t("ads.resolveFirst")}
             className="inline-flex items-center gap-1.5 px-4 h-10 rounded-md bg-primary text-white text-[13px] font-semibold hover:bg-primary-dark outline-none disabled:opacity-50 disabled:cursor-not-allowed">
             {busy ? <Loader2 className="w-4 h-4 animate-spin" /> : <Rocket className="w-4 h-4" />}

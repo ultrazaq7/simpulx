@@ -893,7 +893,7 @@ export interface AdsPreview {
   geo: { query: string; meta_key: string; display_name: string; region: string; meta_type: string }[];
   audience: { age_min: number; age_max: number; gender: string; advantage_plus: boolean };
   copy: { id: string; primary_texts: string[]; headlines: string[]; descriptions: string[] }[];
-  creatives: { id: string; file_url: string; media_type: string; file_name?: string; on_meta: boolean }[];
+  creatives: { id: string; file_url: string; media_type: string; file_name?: string; on_meta: boolean; is_ad?: boolean }[];
   page: { id: string; name: string };
   format?: string; // 'single' | 'carousel'
   launched: boolean;

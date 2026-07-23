@@ -497,7 +497,12 @@ func (s *server) handleCampaignAdsPreview(w http.ResponseWriter, r *http.Request
 
 	creativeRows, _ := s.queryMaps(ctx,
 		`SELECT id::text AS id, file_url, media_type, file_name,
-		        (meta_image_hash IS NOT NULL OR meta_video_id IS NOT NULL) AS on_meta
+		        (meta_image_hash IS NOT NULL OR meta_video_id IS NOT NULL) AS on_meta,
+		        -- is_ad = already a LIVE ad on Meta (not just an uploaded asset).
+		        -- The Create-ads wizard counts FRESH creatives (no live ad yet), so
+		        -- on_meta (asset uploaded) is the wrong signal: an asset can be on
+		        -- Meta as an image but not yet an ad.
+		        (meta_ad_id IS NOT NULL) AS is_ad
 		   FROM campaign_creatives WHERE campaign_id=$1::uuid ORDER BY created_at`, campaignID)
 	if len(creativeRows) == 0 {
 		blockers = append(blockers, "No creative uploaded. Add at least one product photo or video.")
