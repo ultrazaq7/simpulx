@@ -22,6 +22,7 @@ export default function LaunchAdsPanel({ id, notify, createOnly }: {
 }) {
   const [preview, setPreview] = useState<AdsPreview | null>(null);
   const [loading, setLoading] = useState(true);
+  const [sessionCreativeIds, setSessionCreativeIds] = useState<string[]>([]);
 
   function reload() {
     api.campaignAdsPreview(id).then(setPreview).catch((e) => notify(String(e), "error")).finally(() => setLoading(false));
@@ -32,6 +33,8 @@ export default function LaunchAdsPanel({ id, notify, createOnly }: {
   if (!preview) return null;
 
   const slim = !!createOnly && preview.launched;
+  // Sesi Create ads: id materi yang di-upload DI SESI INI. Hanya ini yang jadi
+  // iklan baru (samain Meta: bikin iklan = kanvas kosong, upload sekarang).
   return (
     <div className="flex flex-col gap-4">
       <BlockerList preview={preview} />
@@ -39,10 +42,12 @@ export default function LaunchAdsPanel({ id, notify, createOnly }: {
       {!slim && <GeoSection id={id} notify={notify} onChange={reload} />}
       <CopySection id={id} notify={notify} onChange={reload} />
       {!slim && <AudienceSection id={id} notify={notify} />}
-      <CreativeSection id={id} preview={preview} notify={notify} onChange={reload} freshOnly={slim} />
+      <CreativeSection id={id} preview={preview} notify={notify} onChange={reload}
+        freshOnly={slim} onSessionChange={slim ? setSessionCreativeIds : undefined} />
       {!slim && <PageSection id={id} preview={preview} notify={notify} onChange={reload} />}
       <PartnershipSection id={id} notify={notify} />
-      <LaunchBar id={id} preview={preview} notify={notify} onRefresh={reload} createLabel={slim} />
+      <LaunchBar id={id} preview={preview} notify={notify} onRefresh={reload}
+        createLabel={slim} createIds={slim ? sessionCreativeIds : undefined} />
     </div>
   );
 }
@@ -398,7 +403,7 @@ function AudienceSection({ id, notify }: { id: string; notify: (m: string, s?: "
   );
 }
 
-function CreativeSection({ id, preview, notify, onChange, freshOnly }: { id: string; preview: AdsPreview; notify: (m: string, s?: "success" | "error") => void; onChange: () => void; freshOnly?: boolean }) {
+function CreativeSection({ id, preview, notify, onChange, freshOnly, onSessionChange }: { id: string; preview: AdsPreview; notify: (m: string, s?: "success" | "error") => void; onChange: () => void; freshOnly?: boolean; onSessionChange?: (ids: string[]) => void }) {
   const { t } = useI18n();
   const format = preview.format === "carousel" ? "carousel" : "single";
   async function setFormat(f: "single" | "carousel") {
@@ -410,12 +415,13 @@ function CreativeSection({ id, preview, notify, onChange, freshOnly }: { id: str
   const [busy, setBusy] = useState(false);
   const fileRef = useRef<HTMLInputElement>(null);
 
-  // freshOnly (wizard Buat iklan setelah launched): tampilkan HANYA materi yang
-  // belum jadi iklan - itulah yang akan dibuat. Materi lama dikelola di Manage.
+  // freshOnly (wizard Buat iklan, campaign sudah live): KANVAS KOSONG seperti
+  // Meta. Tidak preload materi lama; hanya yang di-upload di sesi ini yang
+  // ditampilkan dan menjadi iklan baru. Materi lama yang menganggur tetap ada
+  // (dikelola/dipakai lewat Manage), tidak ikut ke sini.
   function load() {
-    api.listCreatives(id)
-      .then((rows) => setItems(freshOnly ? rows.filter((r) => !r.meta_ad_id) : rows))
-      .catch(() => setItems([]));
+    if (freshOnly) return; // sesi-only: mulai kosong, tidak menarik dari DB
+    api.listCreatives(id).then(setItems).catch(() => setItems([]));
   }
   useEffect(load, [id]); // eslint-disable-line react-hooks/exhaustive-deps
 
@@ -427,12 +433,29 @@ function CreativeSection({ id, preview, notify, onChange, freshOnly }: { id: str
         method: "POST", headers: { Authorization: `Bearer ${localStorage.getItem("simpulx_token")}` }, body: fd,
       });
       if (!r.ok) throw new Error(await r.text());
-      load(); onChange();
+      if (freshOnly) {
+        const d = await r.json();
+        const next = [...items, { id: d.id, file_url: d.file_url, media_type: d.media_type, file_name: d.file_name, status: "uploaded", created_at: "", spend: 0, impressions: 0, clicks: 0, ctr: 0 } as CreativeRow];
+        setItems(next);
+        onSessionChange?.(next.map((c) => c.id));
+      } else {
+        load();
+      }
+      onChange();
     } catch (e) { notify(String(e), "error"); }
     finally { setBusy(false); }
   }
   async function remove(cid: string) {
-    try { await api.deleteCreative(id, cid); load(); onChange(); } catch (e) { notify(String(e), "error"); }
+    try {
+      await api.deleteCreative(id, cid);
+      if (freshOnly) {
+        const next = items.filter((c) => c.id !== cid);
+        setItems(next); onSessionChange?.(next.map((c) => c.id));
+      } else {
+        load();
+      }
+      onChange();
+    } catch (e) { notify(String(e), "error"); }
   }
 
   return (
@@ -555,9 +578,10 @@ function PageSection({ id, preview, notify, onChange }: {
   );
 }
 
-function LaunchBar({ id, preview, notify, onRefresh, createLabel }: {
+function LaunchBar({ id, preview, notify, onRefresh, createLabel, createIds }: {
   id: string; preview: AdsPreview; notify: (m: string, s?: "success" | "error") => void; onRefresh: () => void;
   createLabel?: boolean; // wizard "+ Buat iklan": tombol bunyinya membuat, bukan apply
+  createIds?: string[];  // materi sesi ini; hanya ini yang jadi iklan baru
 }) {
   const { t } = useI18n();
   const [busy, setBusy] = useState(false);
@@ -568,7 +592,7 @@ function LaunchBar({ id, preview, notify, onRefresh, createLabel }: {
   async function launch() {
     setConfirming(false); setBusy(true);
     try {
-      const r = await api.launchAds(id);
+      const r = await api.launchAds(id, createLabel ? createIds : undefined);
       const failed = r.ads.filter((x) => x.error);
       const parts: string[] = [];
       if (r.updated_adset) parts.push(t("ads.budgetTargetingUpdated"));
@@ -600,7 +624,7 @@ function LaunchBar({ id, preview, notify, onRefresh, createLabel }: {
       )}
       {launched && createLabel && (
         <p className="text-[12px] text-muted-foreground">
-          {t("ads.createFreshHint", { n: preview.creatives.filter((c) => !c.is_ad).length })}
+          {t("ads.createFreshHint", { n: createIds?.length || 0 })}
         </p>
       )}
       <div className="flex items-center gap-3">
@@ -622,7 +646,7 @@ function LaunchBar({ id, preview, notify, onRefresh, createLabel }: {
           </div>
         ) : (
           <button onClick={() => setConfirming(true)}
-            disabled={!preview.can_launch || busy || (createLabel && preview.creatives.filter((c) => !c.is_ad).length === 0)}
+            disabled={busy || (createLabel ? (createIds?.length || 0) === 0 : !preview.can_launch)}
             title={preview.can_launch ? "" : t("ads.resolveFirst")}
             className="inline-flex items-center gap-1.5 px-4 h-10 rounded-md bg-primary text-white text-[13px] font-semibold hover:bg-primary-dark outline-none disabled:opacity-50 disabled:cursor-not-allowed">
             {busy ? <Loader2 className="w-4 h-4 animate-spin" /> : <Rocket className="w-4 h-4" />}

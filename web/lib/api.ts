@@ -589,8 +589,9 @@ export const api = {
     req(`/api/campaigns/${id}/ads/page`, { method: "POST", body: JSON.stringify(body) }),
   setAdsFormat: (id: string, format: "single" | "carousel") =>
     req(`/api/campaigns/${id}/ads/format`, { method: "POST", body: JSON.stringify({ format }) }),
-  launchAds: (id: string) =>
-    req<import("./types").AdLaunchResult>(`/api/campaigns/${id}/ads/launch`, { method: "POST" }),
+  launchAds: (id: string, creativeIds?: string[]) =>
+    req<import("./types").AdLaunchResult>(`/api/campaigns/${id}/ads/launch`,
+      { method: "POST", body: JSON.stringify(creativeIds?.length ? { creative_ids: creativeIds } : {}) }),
   listCreatives: (id: string) =>
     req<import("./types").CreativeRow[]>(`/api/campaigns/${id}/creatives`),
   deleteCreative: (id: string, creativeId: string) =>

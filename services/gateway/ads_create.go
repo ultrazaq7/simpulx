@@ -253,6 +253,21 @@ func (s *server) handleLaunchAds(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
+	// Optional creative scoping. The "Create ads" wizard sends the ids uploaded in
+	// THIS session so ONLY those become ads; a stray orphan creative left in the
+	// campaign from a past session is never swept into a new ad. Empty/absent =
+	// the original full-launch behaviour (every creative without a live ad).
+	var body struct {
+		CreativeIDs []string `json:"creative_ids"`
+	}
+	_ = json.NewDecoder(r.Body).Decode(&body)
+	onlyCreatives := map[string]bool{}
+	for _, id := range body.CreativeIDs {
+		if id != "" {
+			onlyCreatives[id] = true
+		}
+	}
+
 	// ── Load the settled inputs ──
 	var (
 		monthlyBudget               *float64
@@ -317,6 +332,11 @@ func (s *server) handleLaunchAds(w http.ResponseWriter, r *http.Request) {
 		for rows.Next() {
 			var c creativeRow
 			if rows.Scan(&c.id, &c.fileURL, &c.mediaType, &c.fileName, &c.imageHash, &c.videoID, &c.metaAdID) == nil {
+				// Scoped create: skip anything not in this session's set (but keep
+				// already-launched rows so carousel apply still sees the full set).
+				if len(onlyCreatives) > 0 && !onlyCreatives[c.id] && c.metaAdID == "" {
+					continue
+				}
 				creatives = append(creatives, c)
 			}
 		}
