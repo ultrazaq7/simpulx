@@ -20,6 +20,18 @@ import type { AdsManageTree, ManageAdset, ManageMetrics, CreativeRow } from "@/l
 
 type Level = "campaign" | "adset" | "ad";
 
+// Esc menutup overlay teratas. `enabled` mematikan listener saat ada overlay
+// lain yang numpang di atasnya (mis. picker materi di atas drawer Edit ad),
+// supaya satu Esc menutup SATU lapis, bukan semuanya sekaligus.
+export function useEscClose(onClose: () => void, enabled = true) {
+  useEffect(() => {
+    if (!enabled) return;
+    const h = (e: KeyboardEvent) => { if (e.key === "Escape") onClose(); };
+    window.addEventListener("keydown", h);
+    return () => window.removeEventListener("keydown", h);
+  }, [onClose, enabled]);
+}
+
 const rp = (v: number) => "Rp " + Math.round(v).toLocaleString("id-ID");
 const nf = (v: number) => v.toLocaleString("id-ID");
 
@@ -87,6 +99,7 @@ export default function ManageAdsPanel({ id, notify }: {
   const [addIdOpen, setAddIdOpen] = useState(false);
 
   const canEdit = !!tree?.can_edit;
+  useEscClose(() => setAdPreview(null), !!adPreview);
 
   function load(silent = false) {
     if (!silent) setRefreshing(true);
@@ -436,6 +449,7 @@ function CreateAdsDrawer({ id, notify, onClose }: {
   id: string; notify: (m: string, s?: "success" | "error") => void; onClose: () => void;
 }) {
   const { t } = useI18n();
+  useEscClose(onClose);
   return (
     <div className="fixed inset-0 z-[70]" role="dialog" aria-modal>
       <div className="absolute inset-0 bg-black/30" onClick={onClose} />
@@ -459,6 +473,7 @@ function AddAdIdModal({ campaignId, notify, onClose }: {
   campaignId: string; notify: (m: string, s?: "success" | "error") => void; onClose: () => void;
 }) {
   const { t } = useI18n();
+  useEscClose(onClose);
   const [idStr, setIdStr] = useState("");
   const [busy, setBusy] = useState(false);
   async function save() {
@@ -511,6 +526,7 @@ function CampaignDrawer({ campaignId, c, notify, onClose, onSaved }: {
   onClose: () => void; onSaved: () => void;
 }) {
   const { t } = useI18n();
+  useEscClose(onClose);
   const [name, setName] = useState(c.name);
   const [budgetStr, setBudgetStr] = useState(c.daily_budget > 0 ? String(c.daily_budget) : "");
   const [busy, setBusy] = useState(false);
@@ -585,6 +601,7 @@ function EditAdDrawer({ campaignId, ad, notify, onClose, onSaved }: {
   const [creativeId, setCreativeId] = useState("");
   const [pickOpen, setPickOpen] = useState(false);
   const [busy, setBusy] = useState(false);
+  useEscClose(onClose, !pickOpen);
   // Saran AI: varian copy dari generator campaign (segment/brand/kota/katalog),
   // klik chip = isi field. Generate on demand supaya tidak ada token terbuang.
   const [sug, setSug] = useState<{ primary_texts: string[]; headlines: string[]; descriptions: string[] } | null>(null);
@@ -742,6 +759,7 @@ function CreativePicker({ campaignId, adName, onPick, onClose }: {
   const { t } = useI18n();
   const [rows, setRows] = useState<CreativeRow[] | null>(null);
   const [uploading, setUploading] = useState(false);
+  useEscClose(onClose);
   useEffect(() => {
     api.listCreatives(campaignId).then(setRows).catch(() => setRows([]));
   }, [campaignId]);
@@ -822,6 +840,7 @@ function AdsetDrawer({ campaignId, adset, cboLocked, notify, onClose, onSaved }:
   const [end, setEnd] = useState(toLocal(adset.end_time));
   const [noEnd, setNoEnd] = useState(!adset.end_time);
   const [name, setName] = useState(adset.name);
+  useEscClose(onClose);
   const [ageMin, setAgeMin] = useState("");
   const [ageMax, setAgeMax] = useState("");
   const [gender, setGender] = useState("");

@@ -9,7 +9,7 @@ import * as XLSX from "xlsx";
 import { BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip as RTooltip, ResponsiveContainer } from "recharts";
 import { api } from "@/lib/api";
 import { Select } from "@/components/Select";
-import ManageAdsPanel from "./ManageAdsPanel";
+import ManageAdsPanel, { useEscClose } from "./ManageAdsPanel";
 import { cn, fmtDateTimeShort } from "@/lib/utils";
 import type { CampaignDetail, CatalogItem, Template, AIStyle, AdsMetricRow, AdsAlertRow } from "@/lib/types";
 import { useToast, PageBody, FieldLabel, INPUT_CLASS } from "../../_shared";
@@ -896,6 +896,7 @@ function AdsTab({ id, notify }: { id: string; notify: (m: string, s?: "success" 
   // Gagal fetch = modal TETAP terbuka menampilkan errornya; menutup diam-diam
   // membuat "diklik gak muncul apa-apa" yang tidak bisa didebug siapa pun.
   const [adPreview, setAdPreview] = useState<{ adId: string; html?: string; error?: string } | null>(null);
+  useEscClose(() => setAdPreview(null), !!adPreview);
   const { confirm, ConfirmHost } = useConfirm();
 
   async function openAdPreview(adId: string) {
