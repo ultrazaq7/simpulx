@@ -494,13 +494,33 @@ func (s *server) handleLaunchAds(w http.ResponseWriter, r *http.Request) {
 	} else {
 		// Apply changes: hanya field yang aman diubah (budget + targeting).
 		// Status TIDAK dikirim — iklan yang sedang jalan tidak boleh ke-pause
-		// diam-diam oleh sebuah update.
-		tj, _ := json.Marshal(targeting)
+		// diam-diam oleh sebuah update. targeting_automation juga TIDAK ikut:
+		// flag Advantage+ ditetapkan saat create dan Meta menolak update yang
+		// menyentuhnya dengan (100) "Invalid parameter" polos.
+		updTargeting := map[string]any{}
+		for k, v := range targeting {
+			if k != "targeting_automation" {
+				updTargeting[k] = v
+			}
+		}
+		tj, _ := json.Marshal(updTargeting)
 		form := url.Values{}
 		form.Set("daily_budget", strconv.Itoa(int(*monthlyBudget/30.0)))
 		form.Set("targeting", string(tj))
 		form.Set("access_token", t.token)
-		if err := metaPostForm(ctx, fmt.Sprintf("https://graph.facebook.com/%s/%s", metaGraphVersion, metaAdsetID), form); err != nil {
+		err := metaPostForm(ctx, fmt.Sprintf("https://graph.facebook.com/%s/%s", metaGraphVersion, metaAdsetID), form)
+		if err != nil && strings.Contains(err.Error(), "Invalid parameter") {
+			// Fallback terakhir: update budget saja, supaya perubahan budget tidak
+			// ikut tersandera kalau Meta menolak bentuk targeting-nya.
+			form = url.Values{}
+			form.Set("daily_budget", strconv.Itoa(int(*monthlyBudget/30.0)))
+			form.Set("access_token", t.token)
+			if err2 := metaPostForm(ctx, fmt.Sprintf("https://graph.facebook.com/%s/%s", metaGraphVersion, metaAdsetID), form); err2 == nil {
+				s.log.Warn("adset targeting update rejected; budget-only applied", "adset", metaAdsetID, "err", err)
+				err = nil
+			}
+		}
+		if err != nil {
 			fail("update ad set", err)
 			return
 		}
