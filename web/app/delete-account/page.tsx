@@ -39,7 +39,8 @@ export default function DeleteAccountPage() {
         display: "flex",
         alignItems: "center",
         justifyContent: "center",
-        background: "linear-gradient(135deg, #0B1413 0%, #1a2f2b 100%)",
+        background: "#F7FAF9",
+        colorScheme: "only light",
         fontFamily: "'Inter', sans-serif",
         padding: "20px",
       }}
@@ -49,9 +50,10 @@ export default function DeleteAccountPage() {
           maxWidth: 520,
           width: "100%",
           background: "#fff",
+          border: "1px solid #e2e8e6",
           borderRadius: 16,
           padding: "48px 40px",
-          boxShadow: "0 25px 50px rgba(0,0,0,0.25)",
+          boxShadow: "0 18px 44px rgba(12,22,20,0.10)",
         }}
       >
         {/* Logo */}
@@ -61,7 +63,7 @@ export default function DeleteAccountPage() {
               width: 48,
               height: 48,
               borderRadius: 12,
-              background: "#2D8B73",
+              background: "#0E5B54",
               display: "inline-flex",
               alignItems: "center",
               justifyContent: "center",
@@ -198,7 +200,7 @@ export default function DeleteAccountPage() {
               }}
             >
               {t("delete-account.yourDeletionRequestWillBe")}{" "}
-              <a href="mailto:support@simpulx.com" style={{ color: "#2D8B73" }}>
+              <a href="mailto:support@simpulx.com" style={{ color: "#0E5B54" }}>
                 support@simpulx.com
               </a>{" "}
               {t("delete-account.toCancelTheRequest")}
@@ -265,7 +267,7 @@ export default function DeleteAccountPage() {
         >
           <p style={{ fontSize: 12, color: "#9CA3AF", margin: 0 }}>
             © {new Date().getFullYear()} {t("delete-account.simpulxAllRightsReserved")}{" "}
-            <a href="https://simpulx.com/privacy.html" style={{ color: "#2D8B73" }}>
+            <a href="https://simpulx.com/privacy.html" style={{ color: "#0E5B54" }}>
               {t("delete-account.privacyPolicy")}
             </a>
           </p>
