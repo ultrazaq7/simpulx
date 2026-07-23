@@ -16,8 +16,47 @@ import { ArrowLeft, Check, Loader2, Sparkles } from "lucide-react";
 // supaya SSR dan paint pertama sudah ID · tanpa flash teks Inggris · dan
 // preferensi bahasa user di aplikasi tidak ikut berubah.
 // Alias i18n: di dalam .map((t) => ...) variabel tier menutupi `t`.
+type Lang = "id" | "en";
+// Default Indonesia (identik di SSR dan client), tapi user bisa switch ke EN;
+// pilihan disimpan supaya refresh/balik tetap konsisten.
 const t = fixedT("id");
 const i18n = t;
+
+// Terjemahan display-only kartu paket. Kunci = SIGNUP_TIERS[].key; logika
+// (harga, minSeats) tetap satu sumber di SIGNUP_TIERS.
+const TIER_EN: Record<string, { per: string; tagline: string; features: string[] }> = {
+  trial: {
+    per: "7 days", tagline: "Try it first, no card, no commitment",
+    features: ["7 days of full access", "50 AI reply credits", "1 seat", "All inbox + AI features"],
+  },
+  starter: {
+    per: "seat / month", tagline: "1 to 10 seats",
+    features: ["200 AI credits / user", "Team inbox + AI nurture", "WhatsApp calls", "E-catalog & broadcast"],
+  },
+  growth: {
+    per: "seat / month", tagline: "11 to 50 seats, most popular",
+    features: ["200 AI credits / user", "Everything in Starter", "Automation & lead scoring", "Full revenue analytics"],
+  },
+  business: {
+    per: "seat / month", tagline: "51 to 100 seats, cheapest per seat",
+    features: ["200 AI credits / user", "Everything in Growth", "Onboarding & priority support", "Flexible AI credit top-ups"],
+  },
+};
+
+const DEMO_COPY: Record<Lang, { m1: string; typing: string; m2: string; hand: string }> = {
+  id: {
+    m1: "Halo, saya lihat iklannya. Unit yang DP 20 juta masih ada?",
+    typing: "Simpuler sedang mengetik",
+    m2: "Masih ada, Kak. DP mulai 20 juta, cicilan mulai Rp7,5 jt per bulan. Rencananya untuk keluarga atau usaha?",
+    hand: "Diserahkan ke Agent Satu",
+  },
+  en: {
+    m1: "Hi, I saw your ad. Is the unit with a 20 million down payment still available?",
+    typing: "Simpuler is typing",
+    m2: "Yes it is! Down payment starts at 20 million, installments from Rp7.5M per month. Is this for family use or business?",
+    hand: "Handed to Agent One",
+  },
+};
 
 // Bullet kartu mengikuti kartu pricing di landing (apex): kumulatif per tier.
 // Harga per seat tetap volume discount; "Ads dikelola Simpulx" itu add-on
@@ -65,7 +104,8 @@ const rp = (v: number) => "Rp " + v.toLocaleString("id-ID");
 // Preview produk yang hidup, bukan gambar: chat masuk, Simpuler mengetik,
 // balasan AI, skor lead terisi, lalu serah terima. Loop pelan, hormat
 // prefers-reduced-motion (langsung tampil keadaan akhir).
-function LiveDemo() {
+function LiveDemo({ lang }: { lang: Lang }) {
+  const d = DEMO_COPY[lang];
   const [step, setStep] = useState(0);
   useEffect(() => {
     if (typeof window !== "undefined" && window.matchMedia("(prefers-reduced-motion: reduce)").matches) {
@@ -92,11 +132,11 @@ function LiveDemo() {
       </div>
       <div className="p-4 space-y-2.5 min-h-[240px]">
         <div className={`max-w-[80%] rounded-xl rounded-tl-sm bg-gray-100 px-3 py-2 text-[12.5px] text-gray-800 transition-all duration-500 ${show(1) ? "opacity-100 translate-y-0" : "opacity-0 translate-y-2"}`}>
-          Halo, saya lihat iklannya. Unit yang DP 20 juta masih ada?
+          {d.m1}
         </div>
         {show(2) && !show(3) && (
           <div className="flex items-center gap-1.5 justify-end text-[11px] text-gray-400">
-            Simpuler sedang mengetik
+            {d.typing}
             <span className="flex gap-0.5">{[0, 1, 2].map((i) => (
               <span key={i} className="w-1 h-1 rounded-full bg-emerald-500 animate-pulse" style={{ animationDelay: `${i * 150}ms` }} />))}
             </span>
@@ -104,7 +144,7 @@ function LiveDemo() {
         )}
         <div className={`ml-auto max-w-[80%] rounded-xl rounded-tr-sm bg-emerald-700 px-3 py-2 text-[12.5px] text-white transition-all duration-500 ${show(3) ? "opacity-100 translate-y-0" : "opacity-0 translate-y-2"}`}>
           <span className="inline-block text-[9px] font-bold bg-white/20 rounded px-1.5 mb-1">AI</span><br />
-          Masih ada, Kak. DP mulai 20 juta, cicilan mulai Rp7,5 jt per bulan. Rencananya untuk keluarga atau usaha?
+          {d.m2}
         </div>
         <div className={`flex items-center gap-2.5 pt-1 transition-opacity duration-500 ${show(4) ? "opacity-100" : "opacity-0"}`}>
           <span className="text-[10.5px] text-gray-400">Lead score</span>
@@ -114,7 +154,7 @@ function LiveDemo() {
           <b className="text-[13px] text-gray-900 tabular-nums">82</b>
         </div>
         <div className={`inline-block rounded-lg bg-emerald-50 text-emerald-700 text-[11.5px] font-bold px-3 py-1.5 transition-all duration-500 ${show(5) ? "opacity-100 translate-y-0" : "opacity-0 translate-y-1"}`}>
-          Diserahkan ke Agent Satu
+          {d.hand}
         </div>
       </div>
     </div>
@@ -122,6 +162,22 @@ function LiveDemo() {
 }
 
 export default function RegisterPage() {
+  // SSR selalu ID (tidak ada flash); pilihan user / ?lang=en diterapkan
+  // setelah mount dan disimpan supaya konsisten antar kunjungan.
+  const [lang, setLangState] = useState<Lang>("id");
+  useEffect(() => {
+    const q = new URLSearchParams(window.location.search).get("lang");
+    const saved = localStorage.getItem("public_lang");
+    const v = q === "en" || q === "id" ? q : saved === "en" || saved === "id" ? saved : null;
+    if (v) setLangState(v as Lang);
+  }, []);
+  const setLang = (v: Lang) => { setLangState(v); try { localStorage.setItem("public_lang", v); } catch {} };
+  const t = fixedT(lang);
+  const i18n = t;
+  const tiers = lang === "en"
+    ? SIGNUP_TIERS.map((x) => ({ ...x, ...TIER_EN[x.key] }))
+    : SIGNUP_TIERS;
+
   const [menu, setMenu] = useState<"signup" | "topup">("signup");
   // Wizard dua layar: layar 1 pilih paket, layar 2 isi data. pkg kosong = layar 1.
   const [pkg, setPkg] = useState("");
@@ -144,7 +200,7 @@ export default function RegisterPage() {
   const [err, setErr] = useState("");
   const [billing, setBilling] = useState<"monthly" | "annual">("monthly");
 
-  const tier = SIGNUP_TIERS.find((t) => t.key === pkg);
+  const tier = tiers.find((t) => t.key === pkg);
   const pack = TOPUP_PACKS.find((t) => t.key === pkg);
   const isTrial = menu === "signup" && pkg === "trial";
 
@@ -212,7 +268,7 @@ export default function RegisterPage() {
 
   if (proofFor && !done) {
     return (
-      <Shell>
+      <Shell lang={lang} onLang={setLang}>
         <div className="max-w-md mx-auto py-10">
           <h1 className="text-[22px] font-extrabold text-gray-900 mb-1">{t("reg.proofTitle")}</h1>
           <p className="text-[13.5px] text-gray-500 mb-5">{t("reg.proofSub")}</p>
@@ -267,7 +323,7 @@ export default function RegisterPage() {
 
   if (done) {
     return (
-      <Shell>
+      <Shell lang={lang} onLang={setLang}>
         <div className="max-w-md mx-auto text-center py-20">
           <div className="w-14 h-14 rounded-2xl bg-emerald-100 text-emerald-600 grid place-items-center mx-auto mb-4"><Check className="w-7 h-7" /></div>
           <h1 className="text-[22px] font-extrabold text-gray-900 mb-2">{t("reg.doneTitle")}</h1>
@@ -280,7 +336,7 @@ export default function RegisterPage() {
   }
 
   return (
-    <Shell>
+    <Shell lang={lang} onLang={setLang}>
       <div className="text-center mb-8">
         <h1 className="text-[30px] sm:text-[42px] font-extrabold text-gray-900 tracking-tight leading-tight">
           {menu === "signup" ? t("reg.headline") : t("reg.topupHeadline")}
@@ -288,7 +344,7 @@ export default function RegisterPage() {
       </div>
 
       {!pkg && (<>
-      <LiveDemo />
+      <LiveDemo lang={lang} />
       {/* Layar 1: pilih menu + paket. */}
       <div className="flex items-center justify-center gap-1 p-1 bg-gray-100 rounded-xl w-fit mx-auto mb-8">
         {([["signup", t("reg.menuSignup")], ["topup", t("reg.menuTopup")]] as const).map(([k, label]) => (
@@ -314,7 +370,7 @@ export default function RegisterPage() {
 
       {menu === "signup" ? (
         <div className="grid sm:grid-cols-2 lg:grid-cols-4 gap-4 mb-10 max-w-6xl mx-auto">
-          {SIGNUP_TIERS.map((t, ti) => (
+          {tiers.map((t, ti) => (
             <button key={t.key} onClick={() => choose(t.key)}
               className={`relative text-left rounded-2xl border-2 p-5 transition-all outline-none hover:-translate-y-1.5 hover:shadow-xl ${
                 pkg === t.key ? "border-emerald-600 bg-emerald-50/40 shadow-md" : "border-gray-200 bg-white hover:border-emerald-600/40"}`}>
@@ -439,7 +495,8 @@ export default function RegisterPage() {
   );
 }
 
-function Shell({ children }: { children: React.ReactNode }) {
+function Shell({ children, lang, onLang }: { children: React.ReactNode; lang: Lang; onLang: (v: Lang) => void }) {
+  const t = fixedT(lang);
   return (
     // data-public-site melepas overflow:hidden milik shell app (globals.css),
     // tanpa itu halaman render penuh tapi TIDAK BISA discroll.
@@ -452,7 +509,15 @@ function Shell({ children }: { children: React.ReactNode }) {
           </div>
           <span className="text-[19px] font-extrabold tracking-tight">Simpul<span className="text-amber-500">x</span></span>
         </a>
-        <a href="/login" className="text-[13px] font-semibold text-gray-600 hover:text-gray-900">{t("reg.login")}</a>
+        <div className="flex items-center gap-3.5">
+          <button type="button" onClick={() => onLang(lang === "id" ? "en" : "id")}
+            aria-label={lang === "id" ? "Switch to English" : "Ganti ke Bahasa Indonesia"}
+            className="flex items-center rounded-[10px] border border-gray-200 bg-white p-0.5 outline-none">
+            <span className={`px-2.5 py-1 rounded-lg text-[11px] font-extrabold tracking-wide ${lang === "id" ? "bg-emerald-700 text-white" : "text-gray-400"}`}>ID</span>
+            <span className={`px-2.5 py-1 rounded-lg text-[11px] font-extrabold tracking-wide ${lang === "en" ? "bg-emerald-700 text-white" : "text-gray-400"}`}>EN</span>
+          </button>
+          <a href="/login" className="text-[13px] font-semibold text-gray-600 hover:text-gray-900">{t("reg.login")}</a>
+        </div>
       </header>
       <main className="max-w-5xl mx-auto px-5 pb-20">{children}</main>
     </div>
