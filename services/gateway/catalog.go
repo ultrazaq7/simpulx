@@ -190,6 +190,14 @@ func (s *server) handleExtractCatalog(w http.ResponseWriter, r *http.Request) {
 		}
 	}
 
+	// AI credit: a real LLM PDF extraction (10 credits, the priciest single AI
+	// action). Cache hits above return before here and cost nothing, so they are
+	// never charged. Refuse before spending tokens when credits are used up.
+	if s.creditsExhausted(r.Context(), cid) {
+		http.Error(w, "AI credits for this campaign are used up. Top up to extract a catalogue.", http.StatusPaymentRequired)
+		return
+	}
+
 	// Mark pending, then run the extraction detached from the request.
 	_ = s.rdb.Set(r.Context(), key, `{"status":"pending"}`, 20*time.Minute).Err()
 	// organization_id is forwarded so the ai-agent can attribute the extraction's
@@ -199,13 +207,13 @@ func (s *server) handleExtractCatalog(w http.ResponseWriter, r *http.Request) {
 	payload, _ := json.Marshal(map[string]any{
 		"pdf_base64": b.PDFBase64, "segment": b.Segment, "organization_id": a.OrgID,
 	})
-	go s.runCatalogExtract(key, cacheKey, payload)
+	go s.runCatalogExtract(key, cacheKey, cid, payload)
 	writeJSON(w, map[string]any{"job_id": jobID, "status": "pending"})
 }
 
 // runCatalogExtract performs the ai-agent call in the background and writes the
 // terminal state ({status:"done", rows,...} or {status:"error", error}) to Redis.
-func (s *server) runCatalogExtract(key, cacheKey string, payload []byte) {
+func (s *server) runCatalogExtract(key, cacheKey, campaignID string, payload []byte) {
 	ctx, cancel := context.WithTimeout(context.Background(), 10*time.Minute)
 	defer cancel()
 	store := func(v any) {
@@ -261,6 +269,9 @@ func (s *server) runCatalogExtract(key, cacheKey string, payload []byte) {
 				if rb, err := json.Marshal(rows); err == nil {
 					_ = s.rdb.Set(context.Background(), cacheKey, string(rb), 30*24*time.Hour).Err()
 				}
+				// Charge 10 credits only for a real, successful extraction (a
+				// failed/empty run and a cache hit are never charged).
+				s.debitCredits(context.Background(), campaignID, 10)
 			}
 			return
 		case "error":
@@ -367,4 +378,30 @@ func (s *server) handleClearCatalog(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	writeJSON(w, map[string]any{"deleted": tag.RowsAffected()})
+}
+
+// ── AI credit metering for user-triggered generations ──────────────────────
+// The auto chat loop (nurture) is metered in services/messaging/store.go. These
+// helpers meter the DISCRETE, user-triggered AI actions that were previously
+// free (ad copy, catalogue extraction, summary): each is a real Sonnet call, so
+// leaving them unmetered leaked margin. Credits are per campaign_credits.
+
+// creditsExhausted reports whether a campaign has spent its whole allotment. A
+// campaign with no credit row (legacy/demo) is treated as NOT exhausted so it
+// keeps working; the charge below simply no-ops there.
+func (s *server) creditsExhausted(ctx context.Context, campaignID string) bool {
+	var allocated, used int
+	if err := s.pool.QueryRow(ctx,
+		`SELECT COALESCE(allocated_credits,0), COALESCE(used_credits,0)
+		   FROM campaign_credits WHERE campaign_id=$1::uuid`, campaignID).Scan(&allocated, &used); err != nil {
+		return false
+	}
+	return allocated > 0 && used >= allocated
+}
+
+// debitCredits charges n credits to a campaign (no-op when it has no credit row).
+func (s *server) debitCredits(ctx context.Context, campaignID string, n int) {
+	_, _ = s.pool.Exec(ctx,
+		`UPDATE campaign_credits SET used_credits = used_credits + $2, updated_at = now()
+		   WHERE campaign_id=$1::uuid`, campaignID, n)
 }

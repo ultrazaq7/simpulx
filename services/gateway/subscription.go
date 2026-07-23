@@ -239,17 +239,22 @@ func (s *server) handleSubscriptionUsage(w http.ResponseWriter, r *http.Request)
 	// HANYA fitur yang benar-benar memotong kredit (1 kredit = 1 balasan ke
 	// customer): nurture + followup. extract/summary/ads_copy dst adalah biaya
 	// internal, menampilkannya di sini membuat angka usage != angka kredit.
+	// Fitur yang MEMOTONG kredit dan BOBOT kreditnya. count di sini = KREDIT
+	// (bukan jumlah call), karena 1 upload katalog = 10 kredit; menghitung call
+	// akan membuat total di chart != angka kredit di ledger.
+	const creditFeatures = "'nurture','followup','transcribe','ads_copy','summary','catalog'"
+	const creditWeight = "sum(CASE WHEN feature='catalog' THEN 10 ELSE 1 END)::int"
 	daily, err := s.queryMaps(r.Context(),
 		`SELECT to_char(d::date, 'YYYY-MM-DD') AS date, f.feature, COALESCE(x.count, 0) AS count
 		   FROM generate_series(
 		          (SELECT min(created_at)::date FROM llm_usage
-		            WHERE organization_id=$1 AND feature IN ('nurture','followup')),
+		            WHERE organization_id=$1 AND feature IN (`+creditFeatures+`)),
 		          current_date, interval '1 day') d
 		   CROSS JOIN (SELECT DISTINCT feature FROM llm_usage
-		                WHERE organization_id=$1 AND feature IN ('nurture','followup')) f
+		                WHERE organization_id=$1 AND feature IN (`+creditFeatures+`)) f
 		   LEFT JOIN (
-		     SELECT created_at::date AS day, feature, count(*)::int AS count
-		       FROM llm_usage WHERE organization_id=$1 AND feature IN ('nurture','followup')
+		     SELECT created_at::date AS day, feature, `+creditWeight+` AS count
+		       FROM llm_usage WHERE organization_id=$1 AND feature IN (`+creditFeatures+`)
 		      GROUP BY 1, 2
 		   ) x ON x.day = d::date AND x.feature = f.feature
 		  ORDER BY 1, 2`, a.OrgID)
@@ -282,8 +287,8 @@ func (s *server) handleSubscriptionUsage(w http.ResponseWriter, r *http.Request)
 	}
 	// Total per fitur, all time - kartu ringkas di atas chart.
 	byFeature, _ := s.queryMaps(r.Context(),
-		`SELECT feature, count(*)::int AS count
-		   FROM llm_usage WHERE organization_id=$1 AND feature IN ('nurture','followup')
-		  GROUP BY 1 ORDER BY count(*) DESC`, a.OrgID)
+		`SELECT feature, `+creditWeight+` AS count
+		   FROM llm_usage WHERE organization_id=$1 AND feature IN (`+creditFeatures+`)
+		  GROUP BY 1 ORDER BY 2 DESC`, a.OrgID)
 	writeJSON(w, map[string]any{"daily": daily, "by_feature": byFeature, "by_campaign": byCampaign})
 }

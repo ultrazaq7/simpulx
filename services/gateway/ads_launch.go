@@ -273,6 +273,13 @@ func (s *server) handleGenerateAdCopy(w http.ResponseWriter, r *http.Request) {
 	a, _ := authFrom(r.Context())
 	campaignID := r.PathValue("id")
 
+	// AI credit: generating ad copy is a real Sonnet call (1 credit). Refuse
+	// before spending tokens when the campaign's credits are used up.
+	if s.creditsExhausted(r.Context(), campaignID) {
+		http.Error(w, "AI credits for this campaign are used up. Top up to keep generating ad copy.", http.StatusPaymentRequired)
+		return
+	}
+
 	var out struct {
 		Copy struct {
 			PrimaryTexts []string `json:"primary_texts"`
@@ -303,6 +310,7 @@ func (s *server) handleGenerateAdCopy(w http.ResponseWriter, r *http.Request) {
 		http.Error(w, err.Error(), http.StatusInternalServerError)
 		return
 	}
+	s.debitCredits(r.Context(), campaignID, 1) // charged only on a successful generation
 	s.audit(r.Context(), a, "generated", "ad_copy", id, nil)
 	writeJSON(w, map[string]any{
 		"id": id, "status": "draft",

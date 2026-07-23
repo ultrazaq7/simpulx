@@ -296,8 +296,9 @@ export default function GeneralSettingsPage() {
 // Warna per fitur AI · nurture/followup (pemakan kredit) dapat warna brand,
 // fitur pendukung dapat warna netral/aksen.
 const FEATURE_COLORS: Record<string, string> = {
-  nurture: "#0E5B54", followup: "#1C8C7D", extract: "#94A3B8",
-  summary: "#C9871F", ads_copy: "#5B8DEF", ads_audience: "#9C6BCE",
+  nurture: "#0E5B54", followup: "#1C8C7D", transcribe: "#3FA796",
+  summary: "#C9871F", ads_copy: "#5B8DEF", catalog: "#9C6BCE",
+  extract: "#94A3B8", ads_audience: "#B0BEC5",
 };
 const featureColor = (f: string, i: number) =>
   FEATURE_COLORS[f] || ["#0E5B54", "#1C8C7D", "#C9871F", "#5B8DEF", "#9C6BCE", "#94A3B8"][i % 6];

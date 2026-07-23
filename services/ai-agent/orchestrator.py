@@ -62,6 +62,13 @@ def _ai_style(v) -> dict:
             return {}
     return v if isinstance(v, dict) else {}
 
+# Haiku 4.5 untuk kerjaan INTERNAL/struktural (extract field CRM). Diverifikasi
+# A/B vs Sonnet di percakapan prod: field extraction cocok 100%, action match,
+# summary setara. Customer-facing (nurture/reply) TETAP Sonnet - kualitas =
+# konversi = selling point. Ini invisible ke user & tidak dipotong kredit
+# terpisah (sudah tercakup di kredit balasan), jadi murni cushion margin.
+INTERNAL_MODEL = "claude-haiku-4-5-20251001"
+
 SUBJECT_OUTBOUND = "events.message.outbound"
 SUBJECT_AI_ACTIVITY = "events.ai.activity"  # live Simpuler phase for the inbox (WS-C)
 
@@ -395,7 +402,7 @@ async def handle_inbound(broker, pool, env: dict, data: dict, log) -> None:
     extra_fields = segments.extra_fields_for(conv["segment"])
     lost_reasons = segments.lost_reason_values(conv["segment"])
     usage: dict = {}
-    result = await llm.analyze(system_prompt, history, body, model=conv["model"],
+    result = await llm.analyze(system_prompt, history, body, model=INTERNAL_MODEL,
                                extra_fields=extra_fields, lost_reasons=lost_reasons,
                                usage_out=usage)
     await llm_usage.record(pool, org_id, conv_id, "extract", usage, log)

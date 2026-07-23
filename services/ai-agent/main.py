@@ -355,6 +355,28 @@ async def summary_stream(req: SummaryReq):
                 WHERE cv.id = $1""",
             req.conversation_id,
         )
+    # AI credit: a summary is a real Sonnet call (1 credit), but CACHED 15 minutes
+    # so an agent re-opening the same lead is not re-charged for viewing - only a
+    # genuinely new generation costs. Exhausted campaigns are blocked (unless a
+    # cached summary already exists, which is free to re-serve).
+    cid = conv["campaign_id"] if conv else None
+    charge_summary = False
+    if cid:
+        async with pool.acquire() as conn:
+            recent = await conn.fetchval(
+                """SELECT EXISTS(SELECT 1 FROM llm_usage
+                     WHERE conversation_id = $1 AND feature = 'summary'
+                       AND created_at > now() - interval '15 minutes')""",
+                req.conversation_id)
+            if not recent:
+                cc = await conn.fetchrow(
+                    """SELECT COALESCE(allocated_credits,0) alloc, COALESCE(used_credits,0) used
+                         FROM campaign_credits WHERE campaign_id = $1""", cid)
+                if cc and cc["alloc"] > 0 and cc["used"] >= cc["alloc"]:
+                    return StreamingResponse(
+                        iter([f"data: {json.dumps({'error': 'AI credits used up. Top up to generate a summary.'})}\n\n"]),
+                        media_type="text/event-stream")
+                charge_summary = True
 
     finance_ctx = ""
     _lf = _lead_fields(conv["metadata"]) if conv else {}
@@ -402,6 +424,11 @@ async def summary_stream(req: SummaryReq):
                         "UPDATE conversations SET lead_summary = $2, ai_extracted_at = now() WHERE id = $1",
                         req.conversation_id, full,
                     )
+                    # Charge 1 credit only for a genuinely new (non-cached) summary.
+                    if charge_summary and cid:
+                        await conn.execute(
+                            """UPDATE campaign_credits SET used_credits = used_credits + 1, updated_at = now()
+                               WHERE campaign_id = $1""", cid)
             except Exception:  # noqa: BLE001
                 log.exception("persist summary failed")
         yield f"data: {json.dumps({'done': True})}\n\n"
