@@ -15,7 +15,6 @@ import '../../../chat/presentation/controllers/inbox_filter.dart';
 import '../../domain/dashboard_cards.dart';
 import '../../domain/manager_analytics.dart';
 import '../dashboard_providers.dart';
-import '../widgets/dashboard_reports.dart';
 
 /// Agent-first dashboard: a greeting + actionable counts. Each card drills into
 /// the filtered inbox. Built for <=5s comprehension.
@@ -29,50 +28,15 @@ class DashboardPage extends ConsumerWidget {
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {
-    final tab = ref.watch(dashboardTabProvider);
-    final isManager =
-        ref.watch(sessionControllerProvider).user?.role.isManagerTier ?? false;
+    // One screen: the agent/manager report. Campaign Performance and AI Usage
+    // were removed from mobile — they belong on the web dashboard, where there's
+    // room to make them readable.
     return Scaffold(
       appBar: AppBar(
         titleSpacing: 16,
         title: const _SimpulxWordmark(),
       ),
-      body: SafeArea(
-        top: false,
-        child: Column(
-          children: [
-            Padding(
-              padding: const EdgeInsets.fromLTRB(16, 12, 16, 8),
-              child: const DashboardSwitcher(),
-            ),
-            Expanded(
-              child: switch (tab) {
-                // 1 = Campaigns (manager+ only; agents never reach it because the
-                // switcher hides the tab, but guard here too so a stale index falls
-                // back to Overview instead of showing scoped-empty campaign data).
-                1 when isManager => RefreshIndicator(
-                    onRefresh: () async {
-                      ref.invalidate(campaignsSummaryProvider);
-                      ref.invalidate(aiUsageProvider);
-                    },
-                    child: ListView(
-                      padding: const EdgeInsets.fromLTRB(16, 8, 16, 24),
-                      children: const [CampaignsView()],
-                    ),
-                  ),
-                2 => RefreshIndicator(
-                    onRefresh: () async => ref.invalidate(aiUsageProvider),
-                    child: ListView(
-                      padding: const EdgeInsets.fromLTRB(16, 8, 16, 24),
-                      children: const [AiUsageView()],
-                    ),
-                  ),
-                _ => _overview(context, ref),
-              },
-            ),
-          ],
-        ),
-      ),
+      body: SafeArea(top: false, child: _overview(context, ref)),
     );
   }
 

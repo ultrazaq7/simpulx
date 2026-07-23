@@ -1,3 +1,4 @@
+import 'dart:async';
 import 'dart:io';
 
 import 'package:flutter/material.dart';
@@ -140,6 +141,11 @@ class _SimpulxAppState extends ConsumerState<SimpulxApp>
       // screen waiting on the WS handshake to catch up.
       ref.read(appResumeTickProvider.notifier).bump();
       auth.setPresence(true);
+      // Self-heal push: if the token never landed server-side (getToken not ready
+      // at launch, or the POST failed), this device is unreachable by push until
+      // something retries. Re-registering is idempotent — the server keys rows by
+      // device id — so every foreground is a free second chance.
+      unawaited(_registerPushToken());
       // Retry any notification reply that couldn't be sent earlier (e.g. it was
       // typed while the app was launching and not yet authenticated).
       _flushReplyQueue();

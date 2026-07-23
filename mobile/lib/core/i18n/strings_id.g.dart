@@ -232,7 +232,7 @@ const Map<String, String> kStringsId = {
   'Log out': 'Keluar',
   'Loss rate': 'Tingkat gagal',
   'Lost': 'Hilang',
-  'Lost Analysis': 'Analisis Kehilangan',
+  'Lost Analysis': 'Analisis Gagal',
   'Lost reason': 'Alasan gagal',
   'Lost Reasons': 'Alasan Gagal',
   'Mark as Lost': 'Tandai Gagal',

@@ -74,9 +74,6 @@ class ApiEndpoints {
   static const stats = '/api/stats';
   static const dashboardCards = '/api/dashboard/cards';
   static const analytics = '/api/analytics';
-  static const subscriptionUsage = '/api/subscription/usage'; // AI usage (role-scoped)
-  static const subscription = '/api/subscription'; // plan: total credits, expiry
-  static const adPerformance = '/api/ad-performance'; // ?from=&to= campaign performance
 
   // ── Media ──────────────────────────────────────────────
   static const uploads = '/api/uploads'; // multipart
