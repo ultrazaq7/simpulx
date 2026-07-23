@@ -215,7 +215,7 @@ export default function RegisterPage() {
 
           <div className="rounded-2xl border-2 border-emerald-600 bg-emerald-50/40 p-4 mb-4">
             <p className="text-[11.5px] text-gray-500">{t("reg.total")}</p>
-            <p className="text-[24px] font-extrabold text-gray-900">{rp(total)}</p>
+            <p className="text-[24px] font-extrabold text-gray-900 leading-tight break-words">{rp(total)}</p>
             {/* Rekening dari server (env), BUKAN hardcode: nomor rekening itu data
                 operasional, dan nomor salah yang tertanam di kode mengirim uang
                 customer ke antah berantah. */}
@@ -362,7 +362,7 @@ export default function RegisterPage() {
 
         {/* Ringkasan pilihan, supaya layar ini berdiri sendiri tanpa harus ingat
             card yang tadi diklik. */}
-        <div className="rounded-2xl border-2 border-emerald-600 bg-emerald-50/40 p-4 mb-4 flex items-center justify-between gap-3">
+        <div className="rounded-2xl border-2 border-emerald-600 bg-emerald-50/40 p-4 mb-4 flex flex-wrap items-center justify-between gap-3">
           <div>
             <p className="text-[14px] font-extrabold text-gray-900">
               {menu === "signup" ? tier?.name : `Top Up ${pack?.name}`}
@@ -406,13 +406,13 @@ export default function RegisterPage() {
           <Field label={t("reg.note")} value={form.note} onChange={(v) => set("note", v)} placeholder="" />
         </div>
 
-        <div className="flex items-center justify-between mt-5 pt-4 border-t border-gray-100">
+        <div className="flex flex-wrap items-center justify-between gap-3 mt-5 pt-4 border-t border-gray-100">
           <div>
             <p className="text-[11.5px] text-gray-500">{t("reg.total")}</p>
             <p className="text-[18px] font-extrabold text-gray-900">{total === 0 ? "Gratis" : rp(total)}</p>
             {menu === "signup" && !isTrial && (
               <p className="text-[11px] text-gray-400">
-                {seats} seat &times; {rp(tier?.price || 0)}{billing === "annual" ? ` × 10 (${t("reg.billedAnnually")})` : " /bulan"}
+                {seats} seat &times; {rp(tier?.price || 0)}{billing === "annual" ? ` × 12 (${t("reg.billedAnnually")})` : " /bulan"}
               </p>
             )}
           </div>
