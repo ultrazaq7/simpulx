@@ -1,26 +1,17 @@
 "use client";
 import { useState } from "react";
-import { Bricolage_Grotesque } from "next/font/google";
 import { GeistSans } from "geist/font/sans";
 import { GeistMono } from "geist/font/mono";
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import "./globals.css";
 import { cn } from "@/lib/utils";
 
-// Simpulx type system (three intentional faces, not a single default):
-//   Display  — Bricolage Grotesque: page titles, KPI numbers, empty-state headlines.
-//              A humanist grotesque with real character, still serious.
-//   Body/UI  — Geist Sans: dense CRM UI text. Technical, highly legible, not Inter.
+// Simpulx type system:
+//   Body/UI + Display — Geist Sans: dense CRM UI text AND titles/KPIs. One
+//              clean face everywhere; the quirky display font (Bricolage
+//              Grotesque) read as unprofessional on dashboards and was removed.
 //   Data     — Geist Mono: metrics, %, phone numbers, timestamps, IDs (tabular),
 //              giving the "engineered / precise" feel of a working tool.
-// Exposed as CSS variables (--font-display, --font-geist-sans, --font-geist-mono)
-// consumed by the Tailwind fontFamily config.
-const display = Bricolage_Grotesque({
-  subsets: ["latin"],
-  variable: "--font-display",
-  display: "swap",
-  weight: ["500", "600", "700", "800"],
-});
 
 
 import { TooltipProvider } from "@/components/ui/tooltip";
@@ -33,7 +24,7 @@ export default function RootLayout({ children }: { children: React.ReactNode }) 
   }));
 
   return (
-    <html lang="en" className={cn(display.variable, GeistSans.variable, GeistMono.variable, "font-sans")}>
+    <html lang="en" className={cn(GeistSans.variable, GeistMono.variable, "font-sans")}>
       <head>
         <meta charSet="utf-8" />
         {/* NOTE: no static <title> here on purpose. A declarative <title> in this

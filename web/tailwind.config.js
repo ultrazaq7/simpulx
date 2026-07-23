@@ -12,7 +12,7 @@ module.exports = {
         // Body / UI — Geist Sans (via geist/font/sans -> --font-geist-sans).
         sans: ["var(--font-geist-sans)", "system-ui", "-apple-system", "BlinkMacSystemFont", "Segoe UI", "Roboto", "Helvetica", "Arial", "sans-serif", "Apple Color Emoji", "Segoe UI Emoji", "Segoe UI Symbol", "Noto Color Emoji"],
         // Display — Bricolage Grotesque (page titles, KPI numbers, empty-state headlines).
-        display: ["var(--font-display)", "var(--font-geist-sans)", "system-ui", "sans-serif"],
+        display: ["var(--font-geist-sans)", "system-ui", "sans-serif"], // display = body face; Bricolage removed
         // Data / utility — Geist Mono (metrics, %, phone, timestamps, IDs). Tabular.
         mono: ["var(--font-geist-mono)", "ui-monospace", "SFMono-Regular", "Menlo", "Consolas", "monospace"],
       },

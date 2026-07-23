@@ -88,6 +88,56 @@
         .shot img { width: 100%; }
         .hero-shot { max-width: 1000px; margin: 56px auto 0; position: relative; z-index: 1; }
 
+        /* ── Hero live demo: mockup inbox yang "jalan" ── */
+        .demo { display: grid; grid-template-columns: 250px 1fr 240px; text-align: left; background: #fff; min-height: 430px; }
+        .demo * { box-sizing: border-box; }
+        .d-pane { border-right: 1px solid var(--border); min-width: 0; }
+        .d-pane:last-child { border-right: none; }
+        .d-head { padding: 12px 14px; border-bottom: 1px solid var(--border); font-size: 12.5px; font-weight: 700; color: var(--ink); display: flex; align-items: center; justify-content: space-between; }
+        .d-conv { display: flex; gap: 10px; padding: 11px 14px; border-bottom: 1px solid #f1f4f3; align-items: center; }
+        .d-av { width: 34px; height: 34px; border-radius: 50%; display: grid; place-items: center; font-size: 12px; font-weight: 800; color: #fff; flex-shrink: 0; }
+        .d-cname { font-size: 12.5px; font-weight: 700; color: var(--ink); display: flex; justify-content: space-between; gap: 6px; }
+        .d-cname time { font-weight: 500; font-size: 10.5px; color: var(--muted); }
+        .d-csnip { font-size: 11.5px; color: var(--muted); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; max-width: 150px; }
+        .d-conv > div { min-width: 0; flex: 1; }
+        .d-new { background: var(--brand-tint); opacity: 0; transform: translateY(-8px); transition: all .45s ease; }
+        .demo.s1 .d-new { opacity: 1; transform: none; }
+        .d-badge { font-size: 9px; font-weight: 800; background: var(--amber); color: #fff; border-radius: 8px; padding: 2px 7px; }
+        .d-chat { display: flex; flex-direction: column; }
+        .d-msgs { padding: 16px; display: flex; flex-direction: column; gap: 10px; flex: 1; }
+        .d-bub { max-width: 78%; padding: 9px 13px; border-radius: 14px; font-size: 12.5px; line-height: 1.5; opacity: 0; transform: translateY(8px); transition: all .4s ease; }
+        .d-in { background: #f1f4f3; color: var(--ink); border-top-left-radius: 4px; align-self: flex-start; }
+        .d-ai { background: var(--brand); color: #fff; border-top-right-radius: 4px; align-self: flex-end; }
+        .d-ai .d-tag-ai { display: inline-block; font-size: 9px; font-weight: 800; background: rgba(255,255,255,.22); padding: 1px 7px; border-radius: 8px; margin-bottom: 4px; }
+        .demo.s2 .d-m1, .demo.s4 .d-m2, .demo.s6 .d-m3 { opacity: 1; transform: none; }
+        .d-typing { align-self: flex-end; display: none; align-items: center; gap: 4px; font-size: 11px; color: var(--muted); padding: 4px 2px; }
+        .demo.s3:not(.s4) .d-typing { display: flex; }
+        .d-typing i { width: 5px; height: 5px; border-radius: 50%; background: var(--brand-light); animation: dblink 1s infinite; }
+        .d-typing i:nth-child(2) { animation-delay: .18s; } .d-typing i:nth-child(3) { animation-delay: .36s; }
+        @keyframes dblink { 0%,100%{opacity:.25} 50%{opacity:1} }
+        .d-comp { border-top: 1px solid var(--border); margin-top: auto; padding: 10px 14px; font-size: 12px; color: var(--muted); display: flex; justify-content: space-between; align-items: center; }
+        .d-send { width: 26px; height: 26px; border-radius: 8px; background: var(--brand); display: grid; place-items: center; }
+        .d-send svg { width: 13px; height: 13px; stroke: #fff; fill: none; stroke-width: 2; }
+        .d-sec { padding: 12px 14px; border-bottom: 1px solid #f1f4f3; }
+        .d-sec h5 { font-size: 9.5px; font-weight: 800; letter-spacing: .08em; text-transform: uppercase; color: var(--muted); margin: 0 0 8px; }
+        .d-score { display: flex; align-items: center; gap: 12px; }
+        .d-ring { width: 52px; height: 52px; transform: rotate(-90deg); }
+        .d-ring .bg { fill: none; stroke: #eef1f0; stroke-width: 5; }
+        .d-ring .fg { fill: none; stroke: var(--brand-light); stroke-width: 5; stroke-linecap: round; stroke-dasharray: 138; stroke-dashoffset: 138; transition: stroke-dashoffset 1.1s ease; }
+        .demo.s5 .d-ring .fg { stroke-dashoffset: 25; }
+        .d-score b { font-size: 20px; color: var(--ink); opacity: 0; transition: opacity .5s ease .4s; }
+        .demo.s5 .d-score b { opacity: 1; }
+        .d-chip { display: inline-block; font-size: 10.5px; font-weight: 700; padding: 3px 10px; border-radius: 10px; background: #f1f4f3; color: var(--muted); }
+        .d-chip.hot { background: rgba(201,135,31,.14); color: var(--amber); opacity: 0; transform: scale(.85); transition: all .35s ease; }
+        .demo.s5 .d-chip.hot { opacity: 1; transform: none; }
+        .d-tags span { display: inline-block; font-size: 10.5px; font-weight: 600; background: var(--brand-tint); color: var(--brand); border-radius: 9px; padding: 3px 9px; margin: 0 4px 4px 0; opacity: 0; transform: translateY(5px); transition: all .35s ease; }
+        .demo.s5 .d-tags span { opacity: 1; transform: none; }
+        .demo.s5 .d-tags span:nth-child(2) { transition-delay: .15s; }
+        .d-hand { margin: 12px 14px 0; padding: 8px 12px; border-radius: 10px; background: var(--brand-tint); color: var(--brand); font-size: 11.5px; font-weight: 700; display: flex; align-items: center; gap: 7px; opacity: 0; transform: translateY(6px); transition: all .45s ease; }
+        .demo.s6 .d-hand { opacity: 1; transform: none; }
+        .d-hand .dot2 { width: 7px; height: 7px; border-radius: 50%; background: var(--brand-light); }
+        @media (max-width: 860px) { .demo { grid-template-columns: 1fr; } .d-pane.d-list, .d-pane.d-info { display: none; } }
+        @media (prefers-reduced-motion: reduce) { .demo * { transition: none !important; animation: none !important; } }
         section { padding: 80px 0; position: relative; }
         .section-head { text-align: center; max-width: 640px; margin: 0 auto 48px; }
         .label { font-size: 12.5px; font-weight: 700; color: var(--brand-light); text-transform: uppercase; letter-spacing: 0.1em; margin-bottom: 12px; }
@@ -215,8 +265,38 @@
     </div>
     <div class="container">
         <div class="shot hero-shot reveal">
-            <div class="shot-bar"><i></i><i></i><i></i><span class="url">app.simpulx.com/dashboard</span></div>
-            <img src="/img/dashboard.jpg" alt="Dashboard Simpulx: leads, revenue, funnel, waktu respons" loading="lazy">
+            <div class="shot-bar"><i></i><i></i><i></i><span class="url">app.simpulx.com/inbox</span></div>
+            <div class="demo" id="heroDemo" aria-label="Demo alur kerja Simpulx">
+                <div class="d-pane d-list">
+                    <div class="d-head">Inbox <span class="d-chip">Semua channel</span></div>
+                    <div class="d-conv d-new"><span class="d-av" style="background:var(--amber)">RA</span><div><div class="d-cname">Rani Amelia <time>baru saja</time></div><div class="d-csnip">Halo, saya lihat iklannya. DP 20 juta bisa?</div></div><span class="d-badge">BARU</span></div>
+                    <div class="d-conv"><span class="d-av" style="background:#5b8def">BS</span><div><div class="d-cname">Budi Santoso <time>10.02</time></div><div class="d-csnip">Oke, saya tunggu penawarannya ya</div></div></div>
+                    <div class="d-conv"><span class="d-av" style="background:#9c6bce">DW</span><div><div class="d-cname">Dewi W <time>09.41</time></div><div class="d-csnip">Bisa jadwalkan test drive Sabtu?</div></div></div>
+                    <div class="d-conv"><span class="d-av" style="background:#4aa88b">HP</span><div><div class="d-cname">Hendra P <time>09.15</time></div><div class="d-csnip">Terima kasih infonya</div></div></div>
+                </div>
+                <div class="d-pane d-chat">
+                    <div class="d-head">Rani Amelia <span class="d-chip" style="background:var(--brand-tint);color:var(--brand)">AI aktif</span></div>
+                    <div class="d-msgs">
+                        <div class="d-bub d-in d-m1">Halo, saya lihat iklannya. Unit yang DP 20 juta masih ada? Cicilannya berapa ya?</div>
+                        <div class="d-typing"><i></i><i></i><i></i> Simpuler sedang mengetik</div>
+                        <div class="d-bub d-ai d-m2"><span class="d-tag-ai">AI</span><br>Masih ada, Kak Rani. DP mulai 20 juta dengan cicilan mulai Rp7,5 jt/bulan tenor 5 tahun. Rencana pemakaian untuk keluarga atau usaha?</div>
+                        <div class="d-bub d-in d-m3">Keluarga, Kak. Kalau weekend bisa lihat unitnya?</div>
+                    </div>
+                    <div class="d-comp">Tulis balasan&hellip; <span class="d-send"><svg viewBox="0 0 24 24"><path d="M22 2L11 13M22 2l-7 20-4-9-9-4 20-7z"/></svg></span></div>
+                </div>
+                <div class="d-pane d-info">
+                    <div class="d-head">Info Lead</div>
+                    <div class="d-sec"><h5>Lead score</h5>
+                        <div class="d-score">
+                            <svg class="d-ring" viewBox="0 0 52 52"><circle class="bg" cx="26" cy="26" r="22"/><circle class="fg" cx="26" cy="26" r="22"/></svg>
+                            <b>82</b>
+                        </div>
+                    </div>
+                    <div class="d-sec"><h5>Stage</h5><span class="d-chip hot">Hot lead</span></div>
+                    <div class="d-sec d-tags"><h5>Kebutuhan</h5><span>DP 20 jt</span><span>Test drive weekend</span></div>
+                    <div class="d-hand"><span class="dot2"></span> Diserahkan ke Agent Satu</div>
+                </div>
+            </div>
         </div>
     </div>
 </section>
@@ -452,6 +532,20 @@
         }
         setTimeout(tick, 1600);
     })();
+</script>
+<script>
+(function(){
+    var d = document.getElementById('heroDemo'); if(!d) return;
+    if (window.matchMedia && window.matchMedia('(prefers-reduced-motion: reduce)').matches) {
+        d.classList.add('s1','s2','s3','s4','s5','s6'); return;
+    }
+    var steps = [['s1',600],['s2',1500],['s3',2300],['s4',4100],['s5',5400],['s6',6800]];
+    function run(){
+        d.classList.remove('s1','s2','s3','s4','s5','s6');
+        steps.forEach(function(st){ setTimeout(function(){ d.classList.add(st[0]); }, st[1]); });
+    }
+    run(); setInterval(run, 11500);
+})();
 </script>
 </body>
 </html>
