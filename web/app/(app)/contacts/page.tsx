@@ -227,6 +227,18 @@ export default function ContactsPage() {
       setToast(t("contacts.couldNotReassign"));
     }
   }
+  // Pindah campaign dari tabel — server sekalian menjalankan distribusi agent
+  // (workload-aware) persis seperti lead masuk, lalu baris di-reload.
+  async function setCampaignFor(c: Contact, campaignId: string) {
+    if (!c.conversation_id) { setToast(t("contacts.noConversationYetForThis")); return; }
+    try {
+      const r = await api.setConversationCampaign(c.conversation_id, campaignId || "none");
+      setToast(r.campaign_name
+        ? `${r.campaign_name}${r.agent_name ? ` · ${r.agent_name}` : ""}`
+        : "Campaign updated");
+      reload();
+    } catch (e) { setToast(String(e)); }
+  }
   // Lost / Spam are terminal outcomes (dispositions), mirroring the inbox stage menu.
   async function markOutcome(c: Contact, reason: string, category: "lost" | "spam", didPurchase = false) {
     if (!c.conversation_id) { setToast(t("contacts.noConversationYetForThis")); return; }
@@ -611,7 +623,15 @@ export default function ContactsPage() {
                     ) : (c.agent_name || <span className="text-muted-foreground">{t("common.unassigned")}</span>)}
                   </td>
                   )}
-                  {show("campaign") && <td className="px-3 py-2 text-foreground/80 whitespace-nowrap">{c.campaign_name || <span className="text-muted-foreground">-</span>}</td>}
+                  {show("campaign") && (
+                  <td className="px-3 py-2 text-foreground/80 whitespace-nowrap">
+                    {canEdit && c.conversation_id ? (
+                      <Select value={(c as any).campaign_id || ""} size="sm" className="w-[160px]"
+                        onChange={(v) => setCampaignFor(c, v)}
+                        options={[{ value: "", label: "-" }, ...campaignOptions]} />
+                    ) : (c.campaign_name || <span className="text-muted-foreground">-</span>)}
+                  </td>
+                  )}
                   {show("source") && <td className="px-3 py-2 whitespace-nowrap"><SourceCell label={sourceLabel(c)} /></td>}
                   {show("source_id") && (
                   <td className="px-3 py-2 whitespace-nowrap">

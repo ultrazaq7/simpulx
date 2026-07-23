@@ -74,7 +74,7 @@ export default function ListingsPage() {
             <table className="w-full text-sm min-w-[880px] whitespace-nowrap">
               <thead className="sticky top-0 z-10">
                 <tr className="border-b border-border bg-muted/40 backdrop-blur">
-                  {[t("settings.listingUnit"), t("settings.listingType"), t("settings.listingPrice"), t("settings.listingLocation"), t("settings.listingLandBuilding"), t("automation.status"), ""].map((h) => (
+                  {[t("settings.listingUnit"), t("settings.listingType"), t("settings.listingPrice"), t("settings.listingLocation"), t("settings.listingLandBuilding"), t("settings.listingViews"), t("automation.status"), ""].map((h) => (
                     <th key={h} className={cn("px-4 py-2.5 text-[11px] font-bold uppercase tracking-wider text-muted-foreground",
                       h === t("settings.listingPrice") || h === t("settings.listingLandBuilding") ? "text-right" : h === "" ? "text-right w-16" : "text-left")}>{h}</th>
                   ))}
@@ -109,6 +109,9 @@ export default function ListingsPage() {
                     <td className="px-4 py-2.5 text-[13px] text-muted-foreground truncate max-w-[200px]">{l.location_area || l.city || "-"}</td>
                     <td className="px-4 py-2.5 text-right tabular-nums text-[12.5px] text-muted-foreground">
                       {l.land_area || l.building_area ? `${l.land_area ?? "-"} / ${l.building_area ?? "-"}` : "-"}
+                    </td>
+                    <td className="px-4 py-2.5 text-right tabular-nums text-[13px] text-foreground">
+                      {Number((l as any).view_count ?? 0).toLocaleString("id-ID")}
                     </td>
                     <td className="px-4 py-2.5">
                       <span className={cn("inline-flex px-2 py-0.5 rounded-md text-[10px] font-bold",

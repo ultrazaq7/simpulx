@@ -2424,7 +2424,7 @@ func (s *server) handleAssign(w http.ResponseWriter, r *http.Request) {
 }
 
 // POST /api/conversations/{id}/campaign — move this conversation (lead
-// instance) to another campaign, or detach it ('' / 'none'). A supervisory
+// instance) to another campaign, or detach it (” / 'none'). A supervisory
 // action exactly like reassigning the agent, so it shares the assign_chats
 // gate. branch_id is cleared: a branch belongs to the previous campaign and
 // keeping it would leave the thread pointing into the wrong routing table.
@@ -2479,10 +2479,35 @@ func (s *server) handleSetConversationCampaign(w http.ResponseWriter, r *http.Re
 			return
 		}
 	}
+	// Distribution on move — same workload-aware pick as the messaging service's
+	// routeToCampaign (fewest open chats among active rotation agents), so a
+	// manual move behaves like an inbound lead landing on the campaign. The
+	// current agent is KEPT when they are in the target campaign's rotation
+	// (no pointless churn); with no eligible agents the assignment is untouched.
+	var pickedAgent *string
+	if cid != "" {
+		_ = s.pool.QueryRow(r.Context(),
+			`SELECT ca.user_id::text FROM campaign_agents ca JOIN users u ON u.id = ca.user_id
+			  WHERE ca.campaign_id=$1::uuid AND ca.in_rotation AND u.is_deleted=false AND u.status='active'
+			  ORDER BY (SELECT count(*) FROM conversations cc
+			             WHERE cc.assigned_agent_id=ca.user_id AND cc.status<>'closed') ASC, ca.user_id
+			  LIMIT 1`, cid).Scan(&pickedAgent)
+	}
 	tag, err := s.pool.Exec(r.Context(),
-		`UPDATE conversations SET campaign_id = NULLIF($3,'')::uuid, branch_id = NULL, updated_at = now()
-		  WHERE id=$1::uuid AND organization_id=$2`,
-		convID, a.OrgID, cid)
+		`UPDATE conversations c SET
+		   campaign_id = NULLIF($3,'')::uuid,
+		   branch_id = NULL,
+		   assigned_agent_id = CASE
+		     WHEN $3 = '' THEN c.assigned_agent_id
+		     WHEN c.assigned_agent_id IS NOT NULL AND EXISTS (
+		            SELECT 1 FROM campaign_agents ca
+		             WHERE ca.campaign_id=$3::uuid AND ca.user_id=c.assigned_agent_id AND ca.in_rotation)
+		       THEN c.assigned_agent_id
+		     ELSE COALESCE($4::uuid, c.assigned_agent_id)
+		   END,
+		   updated_at = now()
+		  WHERE c.id=$1::uuid AND c.organization_id=$2`,
+		convID, a.OrgID, cid, pickedAgent)
 	if err != nil {
 		http.Error(w, err.Error(), http.StatusInternalServerError)
 		return
@@ -2491,8 +2516,14 @@ func (s *server) handleSetConversationCampaign(w http.ResponseWriter, r *http.Re
 		http.Error(w, "not found", http.StatusNotFound)
 		return
 	}
-	s.audit(r.Context(), a, "moved_campaign", "conversation", convID, map[string]any{"campaign_id": cid, "campaign_name": campaignName})
-	writeJSON(w, map[string]any{"ok": true, "campaign_id": cid, "campaign_name": campaignName})
+	var agentName string
+	_ = s.pool.QueryRow(r.Context(),
+		`SELECT COALESCE(u.full_name,'') FROM conversations c LEFT JOIN users u ON u.id=c.assigned_agent_id
+		  WHERE c.id=$1::uuid`, convID).Scan(&agentName)
+	s.audit(r.Context(), a, "moved_campaign", "conversation", convID, map[string]any{
+		"campaign_id": cid, "campaign_name": campaignName, "assigned_agent": agentName,
+	})
+	writeJSON(w, map[string]any{"ok": true, "campaign_id": cid, "campaign_name": campaignName, "agent_name": agentName})
 }
 
 func (s *server) handleClose(w http.ResponseWriter, r *http.Request) {

@@ -2314,12 +2314,13 @@
   "settings.adAccountOptional": "Ad account (opsional)",
   "settings.adAccountHint": "Dipakai tab Ads untuk laporan dan launch iklan campaign ini.",
   "settings.noAdAccount": "Tanpa ad account",
-  "settings.aiRepliesPerDay": "Balasan AI per hari (30 hari terakhir)",
+  "settings.aiRepliesPerDay": "Balasan AI per hari (semua waktu)",
   "settings.usageByCampaign": "Pemakaian per campaign (bulan ini)",
   "settings.campaign": "Campaign",
   "settings.repliesThisMonth": "Balasan AI",
   "settings.allocated": "Alokasi (terpakai/total)",
   "settings.remaining": "Sisa",
   "settings.creditsUsed": "Kredit terpakai",
-  "settings.expires": "Berakhir"
+  "settings.expires": "Berakhir",
+  "settings.listingViews": "Views"
 }

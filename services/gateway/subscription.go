@@ -232,11 +232,11 @@ func (s *server) handleCampaignUsageCSV(w http.ResponseWriter, r *http.Request) 
 // (campaign_credits) is joined alongside as its own columns, clearly separate.
 func (s *server) handleSubscriptionUsage(w http.ResponseWriter, r *http.Request) {
 	a, _ := authFrom(r.Context())
+	// All time, per hari (permintaan eksplisit: bukan jendela 30 hari).
 	daily, err := s.queryMaps(r.Context(),
 		`SELECT to_char(m.created_at::date, 'YYYY-MM-DD') AS date, count(*)::int AS replies
 		   FROM messages m
 		  WHERE m.organization_id=$1 AND m.sender_type='bot'
-		    AND m.created_at >= now() - interval '30 days'
 		  GROUP BY 1 ORDER BY 1`, a.OrgID)
 	if err != nil {
 		http.Error(w, err.Error(), http.StatusInternalServerError)

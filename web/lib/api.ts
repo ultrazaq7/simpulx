@@ -571,7 +571,7 @@ export const api = {
   setCampaignAdAccount: (id: string, adAccountId: string) =>
     req(`/api/campaigns/${id}/ads/account`, { method: "POST", body: JSON.stringify({ ad_account_id: adAccountId }) }),
   setConversationCampaign: (id: string, campaignId: string) =>
-    req<{ ok: boolean; campaign_id: string; campaign_name: string }>(
+    req<{ ok: boolean; campaign_id: string; campaign_name: string; agent_name?: string }>(
       `/api/conversations/${id}/campaign`, { method: "POST", body: JSON.stringify({ campaign_id: campaignId }) }),
   subscriptionUsage: () =>
     req<{

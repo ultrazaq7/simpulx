@@ -2,7 +2,7 @@
 import { useI18n } from "@/lib/i18n";
 import { useEffect, useState } from "react";
 import Link from "next/link";
-import { X, Copy, User, Phone, Hash, MessageSquare, Clock, StickyNote, Tag as TagIcon, Plus, Paperclip, Download, FileText, Image as ImageIcon, Video, Mic, Trash2, Check, ChevronDown, Search, XCircle } from "lucide-react";
+import { X, Copy, User, Phone, Hash, Building2, MessageSquare, Clock, StickyNote, Tag as TagIcon, Plus, Paperclip, Download, FileText, Image as ImageIcon, Video, Mic, Trash2, Check, ChevronDown, Search, XCircle } from "lucide-react";
 import { api } from "@/lib/api";
 import { initials, channelColor, channelTextColor, channelLabel, fmtDate, fmtTime, fmtDateTimeShort, cn } from "@/lib/utils";
 import { channelMeta } from "@/components/ChannelIcon";
@@ -333,7 +333,7 @@ export default function DetailsPanel({ active, onClose, copyText, notes, onAddNo
             {showAgent && (
               <div className="mb-5 -mt-5">
                 <div className="flex gap-3 py-2 border-b border-border/50">
-                  <Hash className="w-4 h-4 text-muted-foreground/60 mt-0.5 shrink-0" />
+                  <Building2 className="w-4 h-4 text-muted-foreground/60 mt-0.5 shrink-0" />
                   <div className="flex-1 min-w-0">
                     <p className="text-[10px] font-bold uppercase tracking-wider text-muted-foreground mb-0.5">{t("automation.campaign")}</p>
                     {canAssign && onSetCampaign ? (
@@ -364,7 +364,7 @@ export default function DetailsPanel({ active, onClose, copyText, notes, onAddNo
                                     <button key={c.id} type="button"
                                       onClick={() => { onSetCampaign(c.id); setCampOpen(false); setCampQuery(""); }}
                                       className={cn("w-full flex items-center gap-2.5 px-3 py-1.5 text-left hover:bg-muted outline-none", c.id === active.campaign_id ? "bg-primary/[0.04]" : "")}>
-                                      <Hash className={cn("w-3.5 h-3.5 shrink-0", c.id === active.campaign_id ? "text-primary" : "opacity-70")} />
+                                      <Building2 className={cn("w-3.5 h-3.5 shrink-0", c.id === active.campaign_id ? "text-primary" : "opacity-70")} />
                                       <p className={cn("text-[13px] truncate flex-1", c.id === active.campaign_id ? "text-primary font-semibold" : "text-foreground/90")}>{c.name}</p>
                                       {c.id === active.campaign_id && <Check className="w-3.5 h-3.5 shrink-0 text-primary" />}
                                     </button>

@@ -26,6 +26,13 @@ const PropertyIndustry = "property / real estate"
 // ("Property", "Real Estate"), and those should not silently lose the feature.
 func isPropertyIndustry(industry string) bool {
 	s := strings.ToLower(strings.TrimSpace(industry))
+	// Unset industry counts as property-capable ON PURPOSE: hiding Listings from
+	// an org whose industry simply was not filled in at onboarding reads as a
+	// missing feature, not as segmentation. Only a filled-in non-property
+	// industry hides the menu.
+	if s == "" {
+		return true
+	}
 	return s == PropertyIndustry || strings.Contains(s, "propert") || strings.Contains(s, "real estate")
 }
 
@@ -33,29 +40,29 @@ func isPropertyIndustry(industry string) bool {
 const listingCols = `id::text AS id, campaign_id::text AS campaign_id, slug, title,
 	property_type, status, price, location_area, city, address, latitude, longitude,
 	bedrooms, bathrooms, land_area, building_area, certificate, description,
-	photos, attributes, sort_order, published_at, created_at, updated_at`
+	photos, attributes, sort_order, published_at, created_at, updated_at, view_count`
 
 type listingInput struct {
-	CampaignID   *string          `json:"campaign_id"`
-	Slug         *string          `json:"slug"`
-	Title        *string          `json:"title"`
-	PropertyType *string          `json:"property_type"`
-	Status       *string          `json:"status"`
-	Price        *float64         `json:"price"`
-	LocationArea *string          `json:"location_area"`
-	City         *string          `json:"city"`
-	Address      *string          `json:"address"`
-	Latitude     *float64         `json:"latitude"`
-	Longitude    *float64         `json:"longitude"`
-	Bedrooms     *int             `json:"bedrooms"`
-	Bathrooms    *int             `json:"bathrooms"`
-	LandArea     *float64         `json:"land_area"`
-	BuildingArea *float64         `json:"building_area"`
-	Certificate  *string          `json:"certificate"`
-	Description  *string          `json:"description"`
-	Photos       json.RawMessage  `json:"photos"`
-	Attributes   json.RawMessage  `json:"attributes"`
-	SortOrder    *int             `json:"sort_order"`
+	CampaignID   *string         `json:"campaign_id"`
+	Slug         *string         `json:"slug"`
+	Title        *string         `json:"title"`
+	PropertyType *string         `json:"property_type"`
+	Status       *string         `json:"status"`
+	Price        *float64        `json:"price"`
+	LocationArea *string         `json:"location_area"`
+	City         *string         `json:"city"`
+	Address      *string         `json:"address"`
+	Latitude     *float64        `json:"latitude"`
+	Longitude    *float64        `json:"longitude"`
+	Bedrooms     *int            `json:"bedrooms"`
+	Bathrooms    *int            `json:"bathrooms"`
+	LandArea     *float64        `json:"land_area"`
+	BuildingArea *float64        `json:"building_area"`
+	Certificate  *string         `json:"certificate"`
+	Description  *string         `json:"description"`
+	Photos       json.RawMessage `json:"photos"`
+	Attributes   json.RawMessage `json:"attributes"`
+	SortOrder    *int            `json:"sort_order"`
 }
 
 // GET /api/listings — every listing in the org (any status), newest first.
@@ -318,6 +325,11 @@ func (s *server) handlePublicListing(w http.ResponseWriter, r *http.Request) {
 		http.Error(w, "not found", http.StatusNotFound)
 		return
 	}
+	// One public detail hit = one view. Best-effort and fire-and-forget: a
+	// counter update must never slow down or fail the page itself.
+	_, _ = s.pool.Exec(r.Context(),
+		`UPDATE listings SET view_count = view_count + 1 WHERE organization_id=$1 AND slug=$2`,
+		org.ID, r.PathValue("slug"))
 	// A few nearby units keep the visitor browsing instead of bouncing.
 	related, _ := s.queryMaps(r.Context(),
 		`SELECT `+listingCols+` FROM listings
