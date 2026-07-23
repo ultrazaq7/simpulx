@@ -155,7 +155,8 @@ function GeneralTab({ d, cost, responseRate, isTemplate }: { d: BroadcastDetail;
     ["Created by", d.created_by_name ?? "-"],
   ];
   return (
-    <div className="space-y-4 max-w-[1100px]">
+    {/* Full width: the 1100px cap left a dead right half on wide screens. */}
+    <div className="space-y-4">
       {/* Stat cards */}
       <div className="grid grid-cols-2 md:grid-cols-4 xl:grid-cols-7 gap-3">
         <StatCard Icon={Users} label={t("broadcasts.recipients")} value={String(d.total_recipients)} accent="text-info" />
