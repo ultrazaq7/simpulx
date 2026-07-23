@@ -2314,7 +2314,7 @@
   "settings.adAccountOptional": "Ad account (opsional)",
   "settings.adAccountHint": "Dipakai tab Ads untuk laporan dan launch iklan campaign ini.",
   "settings.noAdAccount": "Tanpa ad account",
-  "settings.aiRepliesPerDay": "Balasan AI per hari (semua waktu)",
+  "settings.aiRepliesPerDay": "Pemakaian AI per hari, per fitur (semua waktu)",
   "settings.usageByCampaign": "Pemakaian per campaign (bulan ini)",
   "settings.campaign": "Campaign",
   "settings.repliesThisMonth": "Balasan AI",

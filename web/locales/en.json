@@ -2314,7 +2314,7 @@
   "settings.adAccountOptional": "Ad account (optional)",
   "settings.adAccountHint": "Used by the Ads tab to report on and launch ads for this campaign.",
   "settings.noAdAccount": "No ad account",
-  "settings.aiRepliesPerDay": "AI replies per day (all time)",
+  "settings.aiRepliesPerDay": "AI usage per day, by feature (all time)",
   "settings.usageByCampaign": "Usage by campaign (this month)",
   "settings.campaign": "Campaign",
   "settings.repliesThisMonth": "AI replies",

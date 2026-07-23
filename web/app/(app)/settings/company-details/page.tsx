@@ -293,10 +293,20 @@ export default function GeneralSettingsPage() {
 // hari (chart) + split per campaign bulan berjalan, dihitung backend dari
 // SUMBER YANG SAMA dengan angka headernya supaya tidak pernah beda cerita.
 // Kolom alokasi (Credits & Usage per campaign) ditampilkan bersandingan.
+// Warna per fitur AI — nurture/followup (pemakan kredit) dapat warna brand,
+// fitur pendukung dapat warna netral/aksen.
+const FEATURE_COLORS: Record<string, string> = {
+  nurture: "#0E5B54", followup: "#1C8C7D", extract: "#94A3B8",
+  summary: "#C9871F", ads_copy: "#5B8DEF", ads_audience: "#9C6BCE",
+};
+const featureColor = (f: string, i: number) =>
+  FEATURE_COLORS[f] || ["#0E5B54", "#1C8C7D", "#C9871F", "#5B8DEF", "#9C6BCE", "#94A3B8"][i % 6];
+
 function UsageDetail() {
   const { t } = useI18n();
   const [data, setData] = useState<{
-    daily: { date: string; replies: number }[];
+    daily: { date: string; feature: string; count: number }[];
+    by_feature: { feature: string; count: number }[];
     by_campaign: { campaign: string; campaign_id: string; allocated_credits: number; used_credits: number; remaining: number; replies: number }[];
   } | null>(null);
   useEffect(() => { api.subscriptionUsage().then(setData).catch(() => setData(null)); }, []);
@@ -305,20 +315,44 @@ function UsageDetail() {
   // Share dihitung dari LEDGER kredit (angka yang sama dengan header dan tab
   // Credits & Usage per campaign), bukan dari hitungan pesan.
   const totalUsed = data.by_campaign.reduce((s, c) => s + c.used_credits, 0);
+  // Pivot {date, feature, count} -> satu baris per tanggal untuk stacked bars.
+  const features = (data.by_feature || []).map((f) => f.feature);
+  const dailyPivot = (() => {
+    const byDate = new Map<string, Record<string, number | string>>();
+    for (const r of data.daily || []) {
+      if (!byDate.has(r.date)) byDate.set(r.date, { date: r.date });
+      (byDate.get(r.date) as Record<string, number>)[r.feature] = r.count;
+    }
+    return Array.from(byDate.values());
+  })();
 
   return (
     <div className="space-y-4">
-      {data.daily.length > 0 && (
+      {(data.by_feature || []).length > 0 && (
+        <div className="flex flex-wrap gap-2">
+          {data.by_feature.map((f, i) => (
+            <span key={f.feature} className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-md border border-border text-[12px]">
+              <span className="w-2.5 h-2.5 rounded-sm" style={{ background: featureColor(f.feature, i) }} />
+              <span className="capitalize text-foreground">{f.feature.replaceAll("_", " ")}</span>
+              <b className="tabular-nums">{f.count.toLocaleString("id-ID")}</b>
+            </span>
+          ))}
+        </div>
+      )}
+      {dailyPivot.length > 0 && (
         <div className="rounded-lg border border-border p-3">
           <p className="text-[12.5px] font-semibold text-foreground mb-2">{t("settings.aiRepliesPerDay")}</p>
-          <ResponsiveContainer width="100%" height={160}>
-            <BarChart data={data.daily} margin={{ top: 4, right: 8, left: -22, bottom: 0 }}>
+          <ResponsiveContainer width="100%" height={180}>
+            <BarChart data={dailyPivot} margin={{ top: 4, right: 8, left: -22, bottom: 0 }}>
               <CartesianGrid strokeDasharray="3 3" vertical={false} stroke="#eee" />
               <XAxis dataKey="date" tick={{ fontSize: 10 }}
                 tickFormatter={(d: string) => `${String(d).slice(8, 10)}/${String(d).slice(5, 7)}`} />
               <YAxis tick={{ fontSize: 10 }} allowDecimals={false} />
               <RTooltip labelFormatter={(d) => String(d).slice(0, 10)} />
-              <Bar dataKey="replies" fill="#0E5B54" radius={[3, 3, 0, 0]} />
+              {features.map((f, i) => (
+                <Bar key={f} dataKey={f} stackId="u" fill={featureColor(f, i)}
+                  radius={i === features.length - 1 ? [3, 3, 0, 0] : [0, 0, 0, 0]} />
+              ))}
             </BarChart>
           </ResponsiveContainer>
         </div>

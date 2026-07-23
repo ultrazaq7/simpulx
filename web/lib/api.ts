@@ -575,7 +575,8 @@ export const api = {
       `/api/conversations/${id}/campaign`, { method: "POST", body: JSON.stringify({ campaign_id: campaignId }) }),
   subscriptionUsage: () =>
     req<{
-      daily: { date: string; replies: number }[];
+      daily: { date: string; feature: string; count: number }[];
+      by_feature: { feature: string; count: number }[];
       by_campaign: {
         campaign: string; campaign_id: string;
         allocated_credits: number; used_credits: number; remaining: number; replies: number;

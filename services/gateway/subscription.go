@@ -232,20 +232,21 @@ func (s *server) handleCampaignUsageCSV(w http.ResponseWriter, r *http.Request) 
 // (campaign_credits) is joined alongside as its own columns, clearly separate.
 func (s *server) handleSubscriptionUsage(w http.ResponseWriter, r *http.Request) {
 	a, _ := authFrom(r.Context())
-	// All time, per hari, ZERO-FILLED: tanpa generate_series hari yang sepi
-	// hilang dari sumbu X dan timeline-nya tampak bolong.
+	// All time, per hari, PER FITUR (nurture/followup/extract/summary/dst) dari
+	// ledger llm_usage — sumber yang sama dengan tab Credits & Usage per
+	// campaign, jadi angkanya tidak pernah beda cerita. Zero-filled via
+	// generate_series x daftar fitur supaya timeline kontinu.
 	daily, err := s.queryMaps(r.Context(),
-		`SELECT to_char(d::date, 'YYYY-MM-DD') AS date, COALESCE(x.replies, 0) AS replies
+		`SELECT to_char(d::date, 'YYYY-MM-DD') AS date, f.feature, COALESCE(x.count, 0) AS count
 		   FROM generate_series(
-		          (SELECT min(created_at)::date FROM messages
-		            WHERE organization_id=$1 AND sender_type='bot'),
+		          (SELECT min(created_at)::date FROM llm_usage WHERE organization_id=$1),
 		          current_date, interval '1 day') d
+		   CROSS JOIN (SELECT DISTINCT feature FROM llm_usage WHERE organization_id=$1) f
 		   LEFT JOIN (
-		     SELECT created_at::date AS day, count(*)::int AS replies
-		       FROM messages WHERE organization_id=$1 AND sender_type='bot'
-		      GROUP BY 1
-		   ) x ON x.day = d::date
-		  ORDER BY 1`, a.OrgID)
+		     SELECT created_at::date AS day, feature, count(*)::int AS count
+		       FROM llm_usage WHERE organization_id=$1 GROUP BY 1, 2
+		   ) x ON x.day = d::date AND x.feature = f.feature
+		  ORDER BY 1, 2`, a.OrgID)
 	if err != nil {
 		http.Error(w, err.Error(), http.StatusInternalServerError)
 		return
@@ -273,5 +274,10 @@ func (s *server) handleSubscriptionUsage(w http.ResponseWriter, r *http.Request)
 		http.Error(w, err.Error(), http.StatusInternalServerError)
 		return
 	}
-	writeJSON(w, map[string]any{"daily": daily, "by_campaign": byCampaign})
+	// Total per fitur, all time — kartu ringkas di atas chart.
+	byFeature, _ := s.queryMaps(r.Context(),
+		`SELECT feature, count(*)::int AS count
+		   FROM llm_usage WHERE organization_id=$1
+		  GROUP BY 1 ORDER BY count(*) DESC`, a.OrgID)
+	writeJSON(w, map[string]any{"daily": daily, "by_feature": byFeature, "by_campaign": byCampaign})
 }
