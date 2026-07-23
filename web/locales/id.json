@@ -2426,5 +2426,9 @@
   "ads.retry": "Coba lagi",
   "ads.preview": "Pratinjau",
   "ads.adPreview": "Pratinjau iklan",
-  "ads.reportingOnly": "Hanya pelaporan"
+  "ads.reportingOnly": "Hanya pelaporan",
+  "ads.swapCreative": "Ganti materi",
+  "ads.swapPick": "Pilih materi baru untuk iklan ini. Penggantian terjadi langsung di Meta, iklan tetap menyimpan riwayatnya.",
+  "ads.swapNone": "Belum ada materi yang diupload. Tambahkan dulu lewat Pasang iklan.",
+  "ads.swapped": "Materi diganti"
 }

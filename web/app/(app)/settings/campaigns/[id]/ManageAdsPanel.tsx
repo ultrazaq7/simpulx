@@ -15,7 +15,7 @@ import { api } from "@/lib/api";
 import { useI18n } from "@/lib/i18n";
 import { cn } from "@/lib/utils";
 import { useConfirm } from "@/components/ConfirmDialog";
-import type { AdsManageTree, ManageAdset, ManageMetrics } from "@/lib/types";
+import type { AdsManageTree, ManageAdset, ManageMetrics, CreativeRow } from "@/lib/types";
 
 type Level = "campaign" | "adset" | "ad";
 
@@ -78,6 +78,7 @@ export default function ManageAdsPanel({ id, notify }: {
   const [editing, setEditing] = useState<{ level: Level; id: string; name: string } | null>(null);
   const [drawer, setDrawer] = useState<{ adset: ManageAdset; cboLocked: boolean } | null>(null);
   const [adPreview, setAdPreview] = useState<{ adId: string; html?: string; error?: string } | null>(null);
+  const [swapFor, setSwapFor] = useState<{ adId: string; name: string } | null>(null);
 
   const canEdit = !!tree?.can_edit;
 
@@ -329,6 +330,9 @@ export default function ManageAdsPanel({ id, notify }: {
                               <button onClick={() => openAdPreview(ad.id)} className="p-0.5 rounded hover:bg-muted outline-none" aria-label={t("ads.preview")}>
                                 <Eye className="w-3 h-3 text-muted-foreground" />
                               </button>
+                              <button onClick={() => setSwapFor({ adId: ad.id, name: ad.name })} className="p-0.5 rounded hover:bg-muted outline-none" aria-label={t("ads.swapCreative")}>
+                                <RefreshCw className="w-3 h-3 text-muted-foreground" />
+                              </button>
                               <button onClick={() => deleteAd(ad.id, ad.name)} className="p-0.5 rounded hover:bg-muted outline-none" aria-label={t("common.delete")}>
                                 <Trash2 className="w-3 h-3 text-destructive" />
                               </button>
@@ -353,6 +357,26 @@ export default function ManageAdsPanel({ id, notify }: {
           notify={notify} onClose={() => setDrawer(null)} onSaved={() => { setDrawer(null); load(true); }} />
       )}
 
+      {/* ── Swap creative picker ── */}
+      {swapFor && (
+        <CreativePicker campaignId={id} adName={swapFor.name}
+          onPick={async (creativeId) => {
+            const adId = swapFor.adId;
+            setSwapFor(null);
+            setPending((p) => ({ ...p, [adId]: true }));
+            try {
+              await api.swapAdCreative(id, adId, creativeId);
+              notify(t("ads.swapped"), "success");
+              load(true);
+            } catch (e) {
+              notify(String(e), "error");
+            } finally {
+              setPending((p) => { const n = { ...p }; delete n[adId]; return n; });
+            }
+          }}
+          onClose={() => setSwapFor(null)} />
+      )}
+
       {/* ── Meta official ad preview ── */}
       {adPreview && (
         <div className="fixed inset-0 z-[80] bg-black/50 grid place-items-center p-4" onClick={() => setAdPreview(null)}>
@@ -371,6 +395,49 @@ export default function ManageAdsPanel({ id, notify }: {
           </div>
         </div>
       )}
+    </div>
+  );
+}
+
+// Picker modal: choose which uploaded campaign creative replaces the ad's
+// current one. The swap happens in place on Meta (same ad id, history kept).
+function CreativePicker({ campaignId, adName, onPick, onClose }: {
+  campaignId: string; adName: string; onPick: (creativeId: string) => void; onClose: () => void;
+}) {
+  const { t } = useI18n();
+  const [rows, setRows] = useState<CreativeRow[] | null>(null);
+  useEffect(() => {
+    api.listCreatives(campaignId).then(setRows).catch(() => setRows([]));
+  }, [campaignId]);
+  return (
+    <div className="fixed inset-0 z-[80] bg-black/50 grid place-items-center p-4" onClick={onClose}>
+      <div className="bg-card rounded-xl border border-border p-4 w-full max-w-md max-h-[85vh] overflow-auto" onClick={(e) => e.stopPropagation()}>
+        <div className="flex items-center justify-between mb-1">
+          <p className="text-[13px] font-semibold text-foreground">{t("ads.swapCreative")}</p>
+          <button onClick={onClose} className="p-1 rounded-md hover:bg-muted outline-none"><X className="w-4 h-4" /></button>
+        </div>
+        <p className="text-[11.5px] text-muted-foreground mb-3 truncate">{adName} · {t("ads.swapPick")}</p>
+        {!rows ? (
+          <div className="h-32 grid place-items-center"><Loader2 className="w-5 h-5 animate-spin text-muted-foreground" /></div>
+        ) : rows.length === 0 ? (
+          <p className="text-[12.5px] text-muted-foreground py-6 text-center">{t("ads.swapNone")}</p>
+        ) : (
+          <div className="grid grid-cols-3 gap-2">
+            {rows.map((c) => (
+              <button key={c.id} onClick={() => onPick(c.id)}
+                className="rounded-lg border border-border overflow-hidden hover:border-primary transition-colors outline-none text-left">
+                {c.media_type === "image" ? (
+                  // eslint-disable-next-line @next/next/no-img-element
+                  <img src={c.file_url} alt="" className="w-full h-20 object-cover" />
+                ) : (
+                  <video src={c.file_url} className="w-full h-20 object-cover" muted />
+                )}
+                <p className="px-1.5 py-1 text-[10.5px] text-muted-foreground truncate">{c.file_name || c.media_type}</p>
+              </button>
+            ))}
+          </div>
+        )}
+      </div>
     </div>
   );
 }

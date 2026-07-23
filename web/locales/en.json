@@ -2426,5 +2426,9 @@
   "ads.retry": "Retry",
   "ads.preview": "Preview",
   "ads.adPreview": "Ad preview",
-  "ads.reportingOnly": "Reporting only"
+  "ads.reportingOnly": "Reporting only",
+  "ads.swapCreative": "Swap creative",
+  "ads.swapPick": "Choose the new creative for this ad. The swap happens in place on Meta, the ad keeps its history.",
+  "ads.swapNone": "No uploaded creatives yet. Add them in Launch ads first.",
+  "ads.swapped": "Creative swapped"
 }

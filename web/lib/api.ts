@@ -631,6 +631,9 @@ export const api = {
       { method: "POST", body: JSON.stringify(body) }),
   deleteMetaAd: (id: string, adId: string) =>
     req<{ deleted: boolean }>(`/api/campaigns/${id}/ads/ad/${adId}`, { method: "DELETE" }),
+  swapAdCreative: (id: string, adId: string, creativeId: string) =>
+    req<{ ok: boolean }>(`/api/campaigns/${id}/ads/ad/${adId}/creative`,
+      { method: "POST", body: JSON.stringify({ creative_id: creativeId }) }),
 
   listTransactions: () =>
     req<{ rows: import("./types").PlatformTransaction[]; summary: Record<string, number> }>("/api/platform/transactions"),

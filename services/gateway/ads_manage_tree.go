@@ -603,6 +603,157 @@ func (s *server) handleAdsetSettings(w http.ResponseWriter, r *http.Request) {
 	writeJSON(w, map[string]any{"ok": true})
 }
 
+// POST /api/campaigns/{id}/ads/ad/{entityId}/creative  {"creative_id":"<uuid>"}
+// Swaps a LIVE single-format ad's creative in place (the same mechanism the
+// carousel apply path uses): build a new adcreative from one of the campaign's
+// uploaded assets + the approved copy, then point the existing ad at it. The
+// ad keeps its id, learning and metrics history.
+func (s *server) handleAdsAdSwapCreative(w http.ResponseWriter, r *http.Request) {
+	a, _ := authFrom(r.Context())
+	var b struct {
+		CreativeID string `json:"creative_id"`
+	}
+	if err := json.NewDecoder(r.Body).Decode(&b); err != nil || strings.TrimSpace(b.CreativeID) == "" {
+		http.Error(w, "creative_id required", http.StatusBadRequest)
+		return
+	}
+	t, msg, code := s.resolveAdsTarget(r.Context(), a.OrgID, r.PathValue("id"))
+	if msg != "" {
+		http.Error(w, msg, code)
+		return
+	}
+	adID := r.PathValue("entityId")
+	if _, msg, code := s.verifyAdsEntity(r.Context(), t, "ad", adID); msg != "" {
+		http.Error(w, msg, code)
+		return
+	}
+
+	// The asset: must be this campaign's own uploaded creative.
+	var fileURL, mediaType, fileName, imageHash, videoID string
+	err := s.pool.QueryRow(r.Context(),
+		`SELECT file_url, media_type, COALESCE(file_name,''), COALESCE(meta_image_hash,''), COALESCE(meta_video_id,'')
+		   FROM campaign_creatives
+		  WHERE id = $1::uuid AND campaign_id = $2::uuid AND organization_id = $3::uuid`,
+		b.CreativeID, t.campaignID, t.orgID).Scan(&fileURL, &mediaType, &fileName, &imageHash, &videoID)
+	if err != nil {
+		http.Error(w, "not found", http.StatusNotFound)
+		return
+	}
+
+	// Approved copy + Page: the creative must say something and run as someone.
+	var ptJSON, hlJSON, dsJSON []byte
+	err = s.pool.QueryRow(r.Context(),
+		`SELECT primary_texts, headlines, descriptions FROM campaign_ad_copy
+		  WHERE campaign_id = $1::uuid AND status = 'approved' LIMIT 1`, t.campaignID).Scan(&ptJSON, &hlJSON, &dsJSON)
+	if err != nil {
+		http.Error(w, "no approved ad copy for this campaign yet", http.StatusConflict)
+		return
+	}
+	var primaryTexts, headlines, descriptions []string
+	_ = json.Unmarshal(ptJSON, &primaryTexts)
+	_ = json.Unmarshal(hlJSON, &headlines)
+	_ = json.Unmarshal(dsJSON, &descriptions)
+	firstOf := func(v []string) string {
+		if len(v) > 0 {
+			return v[0]
+		}
+		return ""
+	}
+	var pageID string
+	_ = s.pool.QueryRow(r.Context(),
+		`SELECT COALESCE(meta_page_id,'') FROM campaigns WHERE id = $1::uuid`, t.campaignID).Scan(&pageID)
+	if pageID == "" {
+		http.Error(w, "no Facebook Page chosen for this campaign yet", http.StatusConflict)
+		return
+	}
+
+	base := fmt.Sprintf("https://graph.facebook.com/%s/act_%s", metaGraphVersion, t.extAccountID)
+	storySpec := map[string]any{"page_id": pageID}
+	cta := map[string]any{"type": "WHATSAPP_MESSAGE", "value": map[string]string{"app_destination": "WHATSAPP"}}
+	switch mediaType {
+	case "image":
+		if imageHash == "" {
+			img, err := fetchCreativeBytes(r.Context(), fileURL)
+			if err == nil {
+				imageHash, err = metaUploadImage(r.Context(), t.extAccountID, t.token, img)
+			}
+			if err != nil {
+				http.Error(w, "Meta rejected the change: upload image: "+err.Error(), http.StatusUnprocessableEntity)
+				return
+			}
+			_, _ = s.pool.Exec(r.Context(),
+				`UPDATE campaign_creatives SET meta_image_hash=$2 WHERE id=$1::uuid`, b.CreativeID, imageHash)
+		}
+		storySpec["link_data"] = map[string]any{
+			"message":        firstOf(primaryTexts),
+			"name":           firstOf(headlines),
+			"description":    firstOf(descriptions),
+			"link":           "https://api.whatsapp.com/send",
+			"image_hash":     imageHash,
+			"call_to_action": cta,
+		}
+	case "video":
+		if videoID == "" {
+			form := url.Values{}
+			form.Set("file_url", fileURL) // MinIO objects are public; Meta pulls the file itself
+			form.Set("access_token", t.token)
+			vid, err := metaPostID(r.Context(), base+"/advideos", form)
+			if err != nil {
+				http.Error(w, "Meta rejected the change: upload video: "+err.Error(), http.StatusUnprocessableEntity)
+				return
+			}
+			videoID = vid
+			_, _ = s.pool.Exec(r.Context(),
+				`UPDATE campaign_creatives SET meta_video_id=$2 WHERE id=$1::uuid`, b.CreativeID, vid)
+		}
+		thumb, err := metaVideoThumbnail(r.Context(), videoID, t.token)
+		if err != nil {
+			http.Error(w, "Meta rejected the change: video thumbnail: "+err.Error(), http.StatusUnprocessableEntity)
+			return
+		}
+		storySpec["video_data"] = map[string]any{
+			"video_id":       videoID,
+			"message":        firstOf(primaryTexts),
+			"title":          firstOf(headlines),
+			"image_url":      thumb,
+			"call_to_action": cta,
+		}
+	default:
+		http.Error(w, "unsupported media type "+mediaType, http.StatusBadRequest)
+		return
+	}
+
+	ss, _ := json.Marshal(storySpec)
+	form := url.Values{}
+	form.Set("name", t.campaignName+" - "+fileName)
+	form.Set("object_story_spec", string(ss))
+	form.Set("access_token", t.token)
+	creativeID, err := metaPostID(r.Context(), base+"/adcreatives", form)
+	if err != nil {
+		http.Error(w, "Meta rejected the change: create creative: "+err.Error(), http.StatusUnprocessableEntity)
+		return
+	}
+	form = url.Values{}
+	form.Set("creative", `{"creative_id":"`+creativeID+`"}`)
+	form.Set("access_token", t.token)
+	if err := metaPostForm(r.Context(), fmt.Sprintf("https://graph.facebook.com/%s/%s", metaGraphVersion, adID), form); err != nil {
+		http.Error(w, "Meta rejected the change: update ad: "+err.Error(), http.StatusUnprocessableEntity)
+		return
+	}
+
+	// Remap: the old asset rows lose the ad link (they are no longer what runs),
+	// the chosen asset now carries it.
+	_, _ = s.pool.Exec(r.Context(),
+		`UPDATE campaign_creatives SET meta_ad_id = NULL, status = 'uploaded'
+		  WHERE campaign_id = $1::uuid AND meta_ad_id = $2 AND id <> $3::uuid`,
+		t.campaignID, adID, b.CreativeID)
+	_, _ = s.pool.Exec(r.Context(),
+		`UPDATE campaign_creatives SET meta_ad_id = $2 WHERE id = $1::uuid`, b.CreativeID, adID)
+	s.logAdsManage(r.Context(), a, t, "swapped_ad_creative", "ad", adID,
+		fmt.Sprintf("Swapped creative of ad %s to %q by %s", adID, fileName, a.Name))
+	writeJSON(w, map[string]any{"ok": true, "ad_id": adID, "creative_id": b.CreativeID})
+}
+
 // DELETE /api/campaigns/{id}/ads/ad/{entityId} — removes the ad on Meta
 // (irreversible there); the Simpulx creative row is unlinked, not deleted, so a
 // relaunch can recreate the ad without re-uploading the asset.
