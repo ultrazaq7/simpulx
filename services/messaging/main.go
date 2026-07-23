@@ -433,6 +433,9 @@ func buildMessageMeta(e events.MessageReceived) string {
 			"body":       e.ReferralBody,
 			"source_url": e.ReferralURL,
 			"media_type": e.ReferralMediaType,
+			// Disimpan supaya pembaca bisa join ke ad_creatives per-ad; URL gambar
+			// referral sendiri expired cepat (fbcdn bertanda tangan).
+			"source_id": e.Referral,
 		}
 	}
 	if len(e.Message.Contacts) > 0 {

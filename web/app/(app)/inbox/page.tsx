@@ -50,7 +50,7 @@ export default function InboxPage() {
   const [stages, setStages] = useState<Stage[]>([]);
   const [dispositions, setDispositions] = useState<Disposition[]>([]);
   const [agents, setAgents] = useState<Agent[]>([]);
-  const [campaignOpts, setCampaignOpts] = useState<{ id: string; name: string }[]>([]);
+  const [campaignOpts, setCampaignOpts] = useState<{ id: string; name: string; agent_ids?: string[] }[]>([]);
   const [toast, setToast] = useState<Toast | null>(null);
   const [showDetails, setShowDetails] = useState(false);
   const [forwardText, setForwardText] = useState<string | null>(null);
@@ -239,7 +239,7 @@ export default function InboxPage() {
     api.listDispositions().then(res => setDispositions(res || [])).catch(() => { });
     api.listAgents().then(res => setAgents(res || [])).catch(() => { });
     api.listChannels().then(res => setChannels(res || [])).catch(() => { });
-    api.listCampaigns().then(res => setCampaignOpts((res || []).map((c: { id: string; name: string }) => ({ id: c.id, name: c.name })))).catch(() => { });
+    api.listCampaigns().then(res => setCampaignOpts((res || []).map((c: any) => ({ id: c.id, name: c.name, agent_ids: c.agent_ids || [] })))).catch(() => { });
   }, []);
 
   // Tab title (with unread count) is owned solely by Shell to avoid two effects

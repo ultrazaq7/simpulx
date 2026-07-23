@@ -33,6 +33,11 @@ func (s *server) handleListCampaigns(w http.ResponseWriter, r *http.Request) {
 		        COALESCE((SELECT jsonb_agg(u.full_name ORDER BY u.full_name)
 		                    FROM campaign_agents ca JOIN users u ON u.id = ca.user_id
 		                   WHERE ca.campaign_id = c.id), '[]'::jsonb) AS agent_names,
+		        -- Rotation member ids: the assign dropdowns filter their agent list
+		        -- to THIS campaign's members instead of everyone in the org.
+		        COALESCE((SELECT jsonb_agg(ca.user_id::text)
+		                    FROM campaign_agents ca
+		                   WHERE ca.campaign_id = c.id AND ca.in_rotation), '[]'::jsonb) AS agent_ids,
 		        (SELECT count(*) FROM conversations cv WHERE cv.campaign_id = c.id) AS conversations
 		   FROM campaigns c
 		   LEFT JOIN channels ch ON ch.id = c.channel_id

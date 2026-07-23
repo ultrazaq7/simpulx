@@ -487,6 +487,7 @@ export interface Campaign {
   lead_count: number;
   agent_count: number;
   agent_names: string[] | null;
+  agent_ids?: string[]; // rotation members; assign dropdowns filter to these
   conversations: number;
   channel_id: string | null;
   channel_name?: string | null;

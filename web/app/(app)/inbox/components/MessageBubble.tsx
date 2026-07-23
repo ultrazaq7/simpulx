@@ -518,7 +518,7 @@ const MessageBubble = memo(function MessageBubble({ m, active, grouped, onPrevie
               )}
             >
               {referral!.image_url && (
-                <img src={rewriteLocalMedia(referral!.image_url)} className="w-full max-w-[300px] max-h-[200px] object-cover block" loading="lazy" />
+                <img src={rewriteLocalMedia(referral!.image_url)} onError={(e) => { e.currentTarget.style.display = "none"; }} className="w-full max-w-[300px] max-h-[200px] object-cover block" loading="lazy" />
               )}
               <div className="px-2.5 py-2">
                 {referral!.headline && (

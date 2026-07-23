@@ -616,7 +616,12 @@ export default function ContactsPage() {
                       <AgentAssignCell
                         agentName={c.agent_name || null}
                         assignedAgentId={c.assigned_agent_id || null}
-                        agents={agents}
+                        agents={(() => {
+                          // Dependency campaign: baris yang punya campaign hanya boleh
+                          // di-assign ke anggota rotasi campaign itu.
+                          const m = campaigns.find((cp) => cp.id === (c as any).campaign_id)?.agent_ids;
+                          return m && m.length > 0 ? agents.filter((a) => m.includes(a.id)) : agents;
+                        })()}
                         onReassign={(agentId) => reassignAgent(c, agentId)}
                         onUnassign={() => reassignAgent(c, null)}
                       />
@@ -628,7 +633,12 @@ export default function ContactsPage() {
                     {canEdit && c.conversation_id ? (
                       <Select value={(c as any).campaign_id || ""} size="sm" className="w-[160px]"
                         onChange={(v) => setCampaignFor(c, v)}
-                        options={[{ value: "", label: "-" }, ...campaignOptions]} />
+                        options={[
+                          // Konsisten dengan dropdown di chat: opsi lepas hanya muncul
+                          // saat memang lagi ter-assign ke campaign, dengan label jelas.
+                          ...((c as any).campaign_id ? [{ value: "", label: t("inbox.removeFromCampaign") }] : []),
+                          ...campaignOptions,
+                        ]} />
                     ) : (c.campaign_name || <span className="text-muted-foreground">-</span>)}
                   </td>
                   )}

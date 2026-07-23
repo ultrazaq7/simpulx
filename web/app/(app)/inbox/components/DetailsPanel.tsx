@@ -101,7 +101,7 @@ interface DetailsPanelProps {
   messages?: Message[];
   channelName?: string; // real channel name (e.g. "Testing Channel"), not the type
   showAgent?: boolean;
-  campaigns?: { id: string; name: string }[];
+  campaigns?: { id: string; name: string; agent_ids?: string[] }[];
   onSetCampaign?: (campaignId: string) => void;
   agents?: Agent[];
   canAssign?: boolean;
@@ -285,7 +285,13 @@ export default function DetailsPanel({ active, onClose, copyText, notes, onAddNo
                                 <p className="px-3 py-1 text-[10px] font-bold uppercase tracking-wider text-muted-foreground">{t("contacts.assignTo")}</p>
                                 {(() => {
                                   const q = assignQuery.trim().toLowerCase();
-                                  const matches = (agents || []).filter((ag) => ag.full_name.toLowerCase().includes(q) || (ag.email || "").toLowerCase().includes(q));
+                                  // Dependency campaign: kalau percakapan ini punya campaign
+                                  // dengan anggota rotasi, hanya mereka yang bisa dipilih.
+                                  const members = campaigns?.find((c) => c.id === active.campaign_id)?.agent_ids;
+                                  const pool = members && members.length > 0
+                                    ? (agents || []).filter((ag) => members.includes(ag.id))
+                                    : (agents || []);
+                                  const matches = pool.filter((ag) => ag.full_name.toLowerCase().includes(q) || (ag.email || "").toLowerCase().includes(q));
                                   if (matches.length === 0) return <p className="text-center text-xs text-muted-foreground py-3">{t("components.noAgents")}</p>;
                                   return matches.map((ag) => (
                                     <button

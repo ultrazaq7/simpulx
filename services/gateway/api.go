@@ -490,18 +490,42 @@ func (s *server) handleGetMessages(w http.ResponseWriter, r *http.Request) {
 	var query string
 	var args []any
 	if cursor == "" {
-		query = `SELECT id::text AS id, direction, sender_type, type, body, media_url, metadata, status, created_at
-		           FROM messages
-		          WHERE conversation_id = $1 AND organization_id = $2
-		          ORDER BY created_at DESC, id DESC LIMIT $3`
+		query = `SELECT m.id::text AS id, m.direction, m.sender_type, m.type, m.body, m.media_url,
+		               CASE WHEN m.metadata ? 'referral' AND fresh.image_url IS NOT NULL
+		                  THEN jsonb_set(m.metadata, '{referral,image_url}', to_jsonb(fresh.image_url))
+		                  ELSE m.metadata END AS metadata,
+		               m.status, m.created_at
+		           FROM messages m
+		           LEFT JOIN LATERAL (
+		             SELECT acr.image_url
+		               FROM conversation_attributions att
+		               JOIN ad_creatives acr ON acr.organization_id = m.organization_id
+		                AND acr.ad_external_id = att.referral_source
+		              WHERE att.conversation_id = m.conversation_id AND acr.image_url IS NOT NULL
+		              ORDER BY att.created_at DESC LIMIT 1
+		           ) fresh ON true
+		          WHERE m.conversation_id = $1 AND m.organization_id = $2
+		          ORDER BY m.created_at DESC, m.id DESC LIMIT $3`
 		args = []any{convID, a.OrgID, limit}
 	} else {
-		query = `SELECT id::text AS id, direction, sender_type, type, body, media_url, metadata, status, created_at
-		           FROM messages
-		          WHERE conversation_id = $1 AND organization_id = $2
-		            AND created_at <= (SELECT created_at FROM messages WHERE id = $3)
-		            AND id != $3
-		          ORDER BY created_at DESC, id DESC LIMIT $4`
+		query = `SELECT m.id::text AS id, m.direction, m.sender_type, m.type, m.body, m.media_url,
+		               CASE WHEN m.metadata ? 'referral' AND fresh.image_url IS NOT NULL
+		                  THEN jsonb_set(m.metadata, '{referral,image_url}', to_jsonb(fresh.image_url))
+		                  ELSE m.metadata END AS metadata,
+		               m.status, m.created_at
+		           FROM messages m
+		           LEFT JOIN LATERAL (
+		             SELECT acr.image_url
+		               FROM conversation_attributions att
+		               JOIN ad_creatives acr ON acr.organization_id = m.organization_id
+		                AND acr.ad_external_id = att.referral_source
+		              WHERE att.conversation_id = m.conversation_id AND acr.image_url IS NOT NULL
+		              ORDER BY att.created_at DESC LIMIT 1
+		           ) fresh ON true
+		          WHERE m.conversation_id = $1 AND m.organization_id = $2
+		            AND m.created_at <= (SELECT created_at FROM messages WHERE id = $3)
+		            AND m.id != $3
+		          ORDER BY m.created_at DESC, m.id DESC LIMIT $4`
 		args = []any{convID, a.OrgID, cursor, limit}
 	}
 
