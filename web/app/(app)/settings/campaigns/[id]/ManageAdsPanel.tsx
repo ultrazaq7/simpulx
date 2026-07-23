@@ -223,7 +223,7 @@ export default function ManageAdsPanel({ id, notify }: {
             : <Icon className="w-3.5 h-3.5 text-muted-foreground shrink-0" />}
           <span className="text-[12px] font-medium text-foreground truncate" title={name}>{name}</span>
           {canEdit && (
-            <span className="opacity-0 group-hover:opacity-100 transition-opacity flex items-center gap-0.5 shrink-0">
+            <span className="opacity-100 md:opacity-0 md:group-hover:opacity-100 transition-opacity flex items-center gap-0.5 shrink-0">
               {extraActions}
             </span>
           )}
