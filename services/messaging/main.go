@@ -560,7 +560,10 @@ func (a *app) processOutbox(ctx context.Context) {
 // ── Background Cron Workers ──
 
 func (a *app) runFollowUpCron(ctx context.Context) {
-	ticker := time.NewTicker(15 * time.Minute)
+	// 5 minutes (was 15) so the early ~10-minute nudge lands at 10-15 minutes of
+	// silence instead of drifting to 25; the long-cadence thresholds are hours to
+	// days, so the tighter tick costs nothing there.
+	ticker := time.NewTicker(5 * time.Minute)
 	defer ticker.Stop()
 	for {
 		select {
@@ -638,7 +641,71 @@ func (a *app) triggerFollowUps(ctx context.Context) {
 		}
 	}
 
+	a.triggerEarlyNudges(ctx)
 	a.autoMarkNoResponseLost(ctx)
+}
+
+// triggerEarlyNudges sends ONE extra soft follow-up ~10 minutes after a lead
+// goes quiet mid-chat, while they are still in-session (reviewed on a live
+// property lead: bot asked a question at 13:12, lead stayed silent, and the
+// first cadence touch would only fire 12 HOURS later). Rules that keep it from
+// ever feeling spammy:
+//   - only when the BOT spoke last (its question is what went unanswered);
+//   - once per conversation (early_nudged), and only before the cadence starts
+//     (followup_count = 0) so it never stacks on the 12h/20h/1d/3d/7d touches;
+//   - only within a 10-60 minute window: any older and the lead has left the
+//     session, so the normal cadence handles it instead;
+//   - no daytime gate: the lead was active minutes ago, so they are awake.
+//
+// followup_count is NOT advanced: the long cadence still runs on schedule.
+func (a *app) triggerEarlyNudges(ctx context.Context) {
+	rows, err := a.st.pool.Query(ctx, `
+		SELECT cv.id::text, cv.organization_id::text
+		FROM conversations cv
+		LEFT JOIN campaigns cmp ON cmp.id = cv.campaign_id
+		WHERE cv.is_bot_active = true
+		  AND cv.status = 'open'
+		  AND NOT cv.classification_locked
+		  AND NOT cv.early_nudged
+		  AND cv.followup_count = 0
+		  AND COALESCE(cmp.followup_frequency, 'normal') <> 'off'
+		  AND cv.last_contact_message_at < NOW() - INTERVAL '10 minutes'
+		  AND cv.last_contact_message_at > NOW() - INTERVAL '60 minutes'
+		  AND EXISTS (
+		    SELECT 1 FROM messages m
+		     WHERE m.conversation_id = cv.id
+		       AND m.created_at > cv.last_contact_message_at
+		       AND m.direction = 'outbound' AND m.sender_type = 'bot'
+		  )
+	`)
+	if err != nil {
+		a.log.Warn("failed to fetch early nudges", "err", err)
+		return
+	}
+	defer rows.Close()
+
+	var toNudge []struct{ convID, orgID string }
+	for rows.Next() {
+		var c, o string
+		if err := rows.Scan(&c, &o); err == nil {
+			toNudge = append(toNudge, struct{ convID, orgID string }{c, o})
+		}
+	}
+	rows.Close()
+
+	for _, t := range toNudge {
+		if _, err := a.st.pool.Exec(ctx,
+			`UPDATE conversations SET early_nudged = true WHERE id = $1`, t.convID); err != nil {
+			continue
+		}
+		payload := events.CmdAIDraftFollowup{ConversationID: t.convID}
+		if err := a.bus.Publish(events.SubjectCmdAIDraftFollowup, t.orgID, payload); err != nil {
+			a.log.Warn("failed to trigger early nudge", "err", err, "conv", t.convID)
+		}
+	}
+	if len(toNudge) > 0 {
+		a.log.Info("early nudges sent", "count", len(toNudge))
+	}
 }
 
 // autoMarkNoResponseLost closes out leads that ran the full follow-up cadence
