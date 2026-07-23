@@ -357,7 +357,10 @@ func (s *server) handleCampaignAdsLive(w http.ResponseWriter, r *http.Request) {
 		Thumbnail string `json:"thumbnail"`
 		Image     string `json:"image"` // full-size creative image when Meta exposes one
 	}
-	var ads []liveAd
+	// Non-nil ON PURPOSE: a nil slice marshals as JSON null, and the UI calling
+	// live.ads.length on null is exactly the crash this fixes — it fired for
+	// every campaign whose account had no ads yet.
+	ads := []liveAd{}
 	var firstErr string
 	if len(ids) > 5 {
 		ids = ids[:5] // one Graph call per linked Meta campaign; cap the fan-out

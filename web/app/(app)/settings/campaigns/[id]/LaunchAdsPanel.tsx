@@ -290,11 +290,12 @@ function PageSection({ id, preview, notify, onChange }: {
 }) {
   const [pages, setPages] = useState<{ id: string; name: string }[] | null>(null);
   const [busy, setBusy] = useState(false);
+  const [manualId, setManualId] = useState("");
   const chosen = preview.page?.id ? preview.page : null;
 
   async function load() {
     setBusy(true);
-    try { const r = await api.listAdPages(id); setPages(r.pages); }
+    try { const r = await api.listAdPages(id); setPages(r.pages || []); }
     catch (e) { notify(String(e), "error"); }
     finally { setBusy(false); }
   }
@@ -318,18 +319,37 @@ function PageSection({ id, preview, notify, onChange }: {
           {busy ? <Loader2 className="w-3.5 h-3.5 animate-spin" /> : <Flag className="w-3.5 h-3.5" />}
           {chosen ? "Change Page" : "Pick a Page"}
         </button>
-      ) : pages.length === 0 ? (
-        <p className="text-[13px] text-muted-foreground">The connected token cannot see any Page. Grant it Page access in Meta Business, then reconnect.</p>
       ) : (
-        <div className="flex flex-wrap gap-1.5">
-          {pages.map((p) => (
-            <button key={p.id} onClick={() => choose(p)}
-              className={`px-2.5 h-7 rounded-full border text-[12px] outline-none ${chosen?.id === p.id
-                ? "border-primary text-primary font-semibold"
-                : "border-border hover:border-primary hover:text-primary"}`}>
-              {p.name}
+        <div className="space-y-3">
+          {pages.length === 0 ? (
+            <p className="text-[13px] text-muted-foreground">
+              The connected token cannot see any Page (grant it Page access in Meta Business or reconnect via the
+              Connect button). You can also enter the Page ID directly below.
+            </p>
+          ) : (
+            <div className="flex flex-wrap gap-1.5">
+              {pages.map((p) => (
+                <button key={p.id} onClick={() => choose(p)}
+                  className={`px-2.5 h-7 rounded-full border text-[12px] outline-none ${chosen?.id === p.id
+                    ? "border-primary text-primary font-semibold"
+                    : "border-border hover:border-primary hover:text-primary"}`}>
+                  {p.name}
+                </button>
+              ))}
+            </div>
+          )}
+          {/* Jalan keluar saat listing kosong: Page ID manual (Meta Business →
+              Page → About, atau URL page). CTWA tetap butuh Page apa pun caranya. */}
+          <div className="flex items-center gap-2">
+            <input value={manualId} onChange={(e) => setManualId(e.target.value.replace(/[^0-9]/g, ""))}
+              placeholder="Page ID (angka)"
+              className="h-9 px-3 w-56 rounded-md border border-input bg-background text-[13px] outline-none focus:border-primary" />
+            <button disabled={!manualId.trim() || busy}
+              onClick={() => { choose({ id: manualId.trim(), name: "" }); setManualId(""); }}
+              className="px-3 h-9 rounded-md border border-border text-[12.5px] font-semibold hover:bg-muted outline-none disabled:opacity-50">
+              Use this Page ID
             </button>
-          ))}
+          </div>
         </div>
       )}
     </Section>

@@ -1052,7 +1052,7 @@ function AdsTab({ id, notify }: { id: string; notify: (m: string, s?: "success" 
 
       {/* The creatives as they run on Meta right now: thumbnail + per-ad state.
           Sebelum ini user cuma lihat angka agregat tanpa pernah lihat iklannya. */}
-      {live && live.ads.length > 0 && (
+      {live && (live.ads?.length ?? 0) > 0 && (
         <div className="rounded-lg border border-border p-3">
           <p className="text-[12.5px] font-semibold text-foreground mb-2">
             Ads &amp; creatives <span className="font-normal text-muted-foreground">— live from Meta</span>
