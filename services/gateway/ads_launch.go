@@ -287,7 +287,7 @@ func (s *server) handleGenerateAdCopy(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	if len(out.Copy.PrimaryTexts) == 0 && len(out.Copy.Headlines) == 0 {
-		http.Error(w, "the model returned no usable copy. Check the campaign has a segment, brand or catalogue to work from.", http.StatusConflict)
+		http.Error(w, "copy generation is busy right now. Please press Regenerate again in a moment.", http.StatusServiceUnavailable)
 		return
 	}
 

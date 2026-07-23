@@ -286,6 +286,49 @@ async def _publish_activity(broker, org_id: str, conv_id: str, phase: str, log) 
         log.debug("ai activity publish failed", extra={"conv": conv_id})
 
 
+async def _transcribe_inbound(pool, org_id: str, conv_id: str, message_id, media_url: str, log) -> str:
+    """Transcribe an inbound WhatsApp voice note and store the text on the message.
+    Idempotent (safe across JetStream redelivery): if the message already has a
+    body, that transcript is returned without re-charging. Charges 1 credit per VN
+    (same meter as an AI reply) and records the usage under feature 'transcribe'.
+    Returns '' on any failure so the caller degrades to silence, never a crash."""
+    if not message_id or not media_url:
+        return ""
+    async with pool.acquire() as conn:
+        existing = await conn.fetchval("SELECT body FROM messages WHERE id = $1", message_id)
+    if existing and existing.strip():
+        return existing.strip()
+
+    try:
+        # media_url is the stored public URL; the ai-agent fetches it directly (same
+        # object Meta downloads from). httpx follows the gateway media proxy to MinIO.
+        async with __import__("httpx").AsyncClient(timeout=60, follow_redirects=True) as client:
+            r = await client.get(media_url)
+            r.raise_for_status()
+            audio = r.content
+    except Exception:  # noqa: BLE001
+        log.warning("transcribe: media fetch failed", extra={"conv": conv_id})
+        return ""
+
+    usage: dict = {}
+    text = await llm.transcribe_audio(audio, usage_out=usage)
+    if not text:
+        return ""
+    async with pool.acquire() as conn:
+        async with conn.transaction():
+            await conn.execute(
+                "UPDATE messages SET body = $2 WHERE id = $1 AND (body IS NULL OR body = '')",
+                message_id, text)
+            # 1 VN = 1 credit, same meter as a reply (services/messaging/store.go).
+            await conn.execute(
+                """UPDATE campaign_credits SET used_credits = used_credits + 1, updated_at = now()
+                   WHERE campaign_id = (SELECT campaign_id FROM conversations WHERE id = $1)""",
+                conv_id)
+    await llm_usage.record(pool, org_id, conv_id, "transcribe", usage, log)
+    log.info("voice note transcribed", extra={"conv": conv_id, "chars": len(text)})
+    return text
+
+
 async def handle_inbound(broker, pool, env: dict, data: dict, log) -> None:
     """Proses satu pesan masuk. Raise pada error transien (agar di-redeliver)."""
     org_id = env["org_id"]
@@ -293,7 +336,13 @@ async def handle_inbound(broker, pool, env: dict, data: dict, log) -> None:
     message_id = data.get("message_id")
     body = (data.get("body") or "").strip()
     if not body:
-        return  # no text to process (e.g. media without caption)
+        # Voice notes: transcribe so the bot can "hear" them instead of ghosting a
+        # lead whose first message is a VN (common in Indonesia). Only fires on the
+        # media-resolved event (media_url present); text stored back on the message.
+        if data.get("type") == "audio" and data.get("media_url"):
+            body = await _transcribe_inbound(pool, org_id, conv_id, message_id, data.get("media_url"), log)
+        if not body:
+            return  # no text to process (e.g. media without caption, or transcribe off/failed)
 
     # (1) Rules classifier (0 token) — fast, and needed by the auto-reply gate.
     cr = await classify_and_update(pool, org_id, conv_id, log)
@@ -1375,7 +1424,6 @@ async def classify_and_update(pool, org_id: str, conv_id: str, log) -> Optional[
         lf = _lead_fields(prev["metadata"])
         ooa = _out_of_area_city(lf.get("city"), prev["covered_cities"])
         req = segments.required_keys(prev["segment"])
-        fields_done = bool(req) and all(lf.get(k) for k in req)
         # Buy horizon no longer demotes: a lead who gave budget/location/type and asks
         # price+specs is a strong prospect even when the purchase is months out ("masih
         # survei, anak kuliah tahun depan"). Forcing those to cold buried lead_score-90+

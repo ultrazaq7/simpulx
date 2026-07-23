@@ -2098,7 +2098,8 @@
     "modePhone": "phone",
     "stOpen": "open",
     "stSnoozed": "snoozed",
-    "stClosed": "closed"
+    "stClosed": "closed",
+    "transcript": "Transcript"
   },
   "page": {
     "memuatData": "Memuat data..."

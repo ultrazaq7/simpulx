@@ -938,9 +938,21 @@ async def generate_ad_copy(context: str, model: Optional[str] = None,
         return {}
     system = [{"type": "text", "text": ADS_COPY_INSTRUCTION + NO_EMDASH_RULE,
                "cache_control": {"type": "ephemeral"}}]
-    text = await _anthropic_raw(system, [], context, await _resolve_model(model), 1400, usage_out)
-    obj = _parse_json(text)
-    if not isinstance(obj, dict):
+    # Retry on an empty/unparseable result: a single Sonnet call occasionally
+    # returns malformed JSON or gets rate-limited, and the caller surfaced that as
+    # "no usable copy - check the campaign has a segment/brand" - misleading when
+    # the campaign is fully set up. Two extra attempts make Regenerate reliable.
+    obj = {}
+    for attempt in range(3):
+        mdl = await _resolve_model(model)
+        text = await _anthropic_raw(system, [], context, mdl, 1400, usage_out)
+        parsed = _parse_json(text)
+        if isinstance(parsed, dict) and (parsed.get("primary_texts") or parsed.get("headlines")):
+            obj = parsed
+            break
+        if attempt < 2:
+            await asyncio.sleep(0.6 * (attempt + 1))
+    if not obj:
         return {}
 
     def clean(key: str, limit: int, want: int) -> list:
@@ -1010,3 +1022,37 @@ async def preview_reply(system_prompt: str, ai_style: Optional[dict], message: s
     sp = (system_prompt or "You are a helpful sales assistant.") + build_style_addendum(ai_style)
     res = await nurture(sp, [], message, model=model, segment_guidance=segment_guidance, usage_out=usage_out)
     return res.get("reply") or ""
+
+
+# ── Speech-to-text (WhatsApp voice notes) ──────────────────────────────────
+# OpenAI gpt-4o-transcribe: WA VN sering menyebut angka/model ("Xforce Ultimate,
+# DP 20 juta"), jadi akurasi > harga. Bahasa default Indonesia. Mengembalikan
+# transkrip string (kosong kalau gagal/nonaktif) + mengisi usage_out['seconds'].
+_TRANSCRIBE_MODEL = "gpt-4o-transcribe"
+
+
+async def transcribe_audio(audio_bytes: bytes, filename: str = "voice.ogg",
+                           language: str = "id", usage_out: Optional[dict] = None) -> str:
+    """Transcribe one audio clip via OpenAI. Empty string on any failure so the
+    caller degrades gracefully (never raises into the reply path)."""
+    if not settings.openai_api_key or not audio_bytes:
+        return ""
+    try:
+        async with httpx.AsyncClient(timeout=90) as client:
+            resp = await client.post(
+                "https://api.openai.com/v1/audio/transcriptions",
+                headers={"Authorization": f"Bearer {settings.openai_api_key}"},
+                files={"file": (filename, audio_bytes, "application/octet-stream")},
+                data={"model": _TRANSCRIBE_MODEL, "language": language,
+                      "prompt": "Percakapan sales via WhatsApp dalam Bahasa Indonesia."},
+            )
+        if resp.status_code >= 400:
+            log.warning("transcribe http %s: %s", resp.status_code, resp.text[:200])
+            return ""
+        text = (resp.json().get("text") or "").strip()
+        if usage_out is not None:
+            usage_out["model"] = _TRANSCRIBE_MODEL
+        return _normalize_dashes(text) or ""
+    except Exception:  # noqa: BLE001
+        log.exception("transcribe failed")
+        return ""

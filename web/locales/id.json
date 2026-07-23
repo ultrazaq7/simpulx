@@ -2098,7 +2098,8 @@
     "modePhone": "telepon",
     "stOpen": "buka",
     "stSnoozed": "ditunda",
-    "stClosed": "ditutup"
+    "stClosed": "ditutup",
+    "transcript": "Transkrip"
   },
   "page": {
     "memuatData": "Memuat data..."

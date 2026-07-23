@@ -701,6 +701,13 @@ const MessageBubble = memo(function MessageBubble({ m, active, grouped, onPrevie
           {/* ── Text body ── */}
           {m.body && (
             <div className="px-2.5 py-1.5 pb-2">
+              {/* Voice note: the body is an auto-transcript, not typed text. Label it
+                  so the agent knows it was machine-transcribed. */}
+              {isAudio && (
+                <span className={cn("flex items-center gap-1 text-[10px] font-semibold mb-0.5 uppercase tracking-wide", darkBub ? "text-white/60" : "text-muted-foreground")}>
+                  <Mic className="w-2.5 h-2.5" /> {t("inbox.transcript")}
+                </span>
+              )}
               <span className="whitespace-pre-wrap break-words text-[13px] leading-[1.4] text-inherit align-top"><LinkifiedText text={m.body} out={darkBub} /></span>
               <span className="inline-flex items-center gap-1 ml-5 float-right translate-y-[5px]">
                 <span className={cn("text-[10px]", darkBub ? "text-white/70" : "text-muted-foreground")}>{fmtTime(m.created_at)}</span>
