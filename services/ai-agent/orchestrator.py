@@ -784,8 +784,22 @@ async def _generate_and_send_reply(broker, pool, conn, org_id: str, conv_id: str
             ctx += f", product/brand: {row['brand']}"
         if row["segment"]:
             ctx += f" (industry: {row['segment']})"
-        ctx += (f", on campaign '{row['campaign_name']}'. Only discuss what this business sells; "
-                f"politely decline and refocus if asked about competitors.")
+        # Scope = the CAMPAIGN (this lead clicked THIS campaign's ad), not the whole
+        # business. Verified in prod (Xforce campaign, lead asked about an Avanza):
+        # the old wording made the model claim "we only sell Xforce" (false for a
+        # dealer) and send the lead to "another dealer" (throwing the lead away).
+        ctx += (f", on campaign '{row['campaign_name']}'. This lead came in through THIS campaign's ad, so "
+                f"the campaign's product/promo is the scope of this chat. If the lead asks about a product "
+                f"outside that scope, say this program/promo is specifically for the campaign's product; do "
+                f"NOT claim the business sells nothing else, and NEVER refer the lead to another dealer, "
+                f"store, or competitor. Keep the lead engaged: offer the campaign product as an alternative "
+                f"or offer to have the team help with their other need.")
+        if row["segment"] == "automotive":
+            # An ad-click lead asking about another (often used/older) car usually
+            # means a trade-in, not the wrong dealer. Probe it instead of bouncing.
+            ctx += (" If the lead mentions another or older vehicle, or asks the price of a USED unit of a "
+                    "different brand, they may mean a TRADE-IN (tukar tambah): ask whether they want to trade "
+                    "it in toward the campaign product, and offer a valuation by the team.")
 
     # Catalog grounding on EVERY turn (not only once brand+model are extracted, which
     # is throttled) so early price questions are grounded too. Falls back to the
