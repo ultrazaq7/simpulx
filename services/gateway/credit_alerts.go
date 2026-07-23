@@ -180,24 +180,24 @@ func orgCreditAlertHTML(orgName string, used, quota, remaining int) string {
 	if quota > 0 {
 		pct = used * 100 / quota
 	}
-	return fmt.Sprintf(`<div style="font-family:Arial,Helvetica,sans-serif;max-width:480px;margin:0 auto;padding:24px;color:#1a1a1a">
+	return fmt.Sprintf(`<div style="font-family:Arial,Helvetica,sans-serif;padding:28px;color:#1a1a1a">
   <h2 style="margin:0 0 8px">AI credits running low</h2>
   <p style="color:#555;font-size:14px;line-height:1.6"><b>%s</b> has used <b>%d</b> of <b>%d</b> AI reply credits this month (%d%%). About <b>%d</b> credits remain.</p>
   <p style="color:#555;font-size:14px;line-height:1.6">When the pool runs out, the AI assistant stops replying and conversations fall back to your human agents. Top up or raise the quota to keep the assistant running.</p>
   <p style="margin:24px 0">
-    <a href="%s/settings/billing" style="background:#2D8B73;color:#fff;text-decoration:none;padding:12px 24px;border-radius:8px;font-weight:600;display:inline-block">Review credits</a>
+    <a href="%s/settings/billing" style="background:#0E5B54;color:#fff;text-decoration:none;padding:12px 24px;border-radius:8px;font-weight:600;display:inline-block">Review credits</a>
   </p>
   <p style="color:#888;font-size:12px;margin-top:24px">You are receiving this because you are the account owner.</p>
 </div>`, orgName, used, quota, pct, remaining, appBaseURL())
 }
 
 func campaignCreditAlertHTML(campaignName string, remaining, threshold int) string {
-	return fmt.Sprintf(`<div style="font-family:Arial,Helvetica,sans-serif;max-width:480px;margin:0 auto;padding:24px;color:#1a1a1a">
+	return fmt.Sprintf(`<div style="font-family:Arial,Helvetica,sans-serif;padding:28px;color:#1a1a1a">
   <h2 style="margin:0 0 8px">Campaign AI credits running low</h2>
   <p style="color:#555;font-size:14px;line-height:1.6">The campaign <b>%s</b> has only <b>%d</b> AI reply credits left (alert threshold: %d).</p>
   <p style="color:#555;font-size:14px;line-height:1.6">When this campaign's allocation hits zero, its AI assistant stops replying and leads fall back to human agents. Allocate more credits to keep it running.</p>
   <p style="margin:24px 0">
-    <a href="%s/settings/campaigns" style="background:#2D8B73;color:#fff;text-decoration:none;padding:12px 24px;border-radius:8px;font-weight:600;display:inline-block">Manage campaign credits</a>
+    <a href="%s/settings/campaigns" style="background:#0E5B54;color:#fff;text-decoration:none;padding:12px 24px;border-radius:8px;font-weight:600;display:inline-block">Manage campaign credits</a>
   </p>
   <p style="color:#888;font-size:12px;margin-top:24px">You are receiving this because you are the account owner.</p>
 </div>`, campaignName, remaining, threshold, appBaseURL())

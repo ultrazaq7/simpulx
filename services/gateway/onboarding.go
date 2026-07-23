@@ -11,6 +11,7 @@ import (
 
 	"github.com/jackc/pgx/v5"
 	"github.com/simpulx/v2/libs/go/config"
+	"github.com/simpulx/v2/libs/go/events"
 )
 
 // ── Self-serve onboarding + top-ups (manually approved) ─────────────────────
@@ -193,28 +194,52 @@ func (s *server) handlePublicRegister(w http.ResponseWriter, r *http.Request) {
 
 	// Tell the operator NOW, not whenever they next open the panel: a signup is a
 	// sales lead, and lead response time is the product's own pitch.
+	kind := "Pendaftaran baru"
+	if b.Type == "topup" {
+		kind = "Permintaan top up"
+	}
 	if to := strings.TrimSpace(config.Get("ADS_ALERT_EMAIL", "")); to != "" {
-		kind := "Pendaftaran baru"
-		if b.Type == "topup" {
-			kind = "Permintaan top up"
-		}
 		subj := fmt.Sprintf("[Simpulx] %s: %s (%s)", kind, firstNonEmpty(b.OrgName, b.Name), b.Package)
-		body := fmt.Sprintf(
-			`<div style="font-family:system-ui,sans-serif;font-size:14px"><p>%s</p>
-			 <table cellpadding="4">
-			 <tr><td>Nama</td><td><strong>%s</strong></td></tr>
-			 <tr><td>Email</td><td>%s</td></tr>
-			 <tr><td>Telepon</td><td>%s</td></tr>
-			 <tr><td>Bisnis</td><td>%s (%s)</td></tr>
-			 <tr><td>Paket</td><td>%s, %d kredit, %s</td></tr>
-			 </table>
-			 <p>Approve di Settings &rarr; Transactions.</p></div>`,
-			kind, html.EscapeString(b.Name), html.EscapeString(b.Email), html.EscapeString(b.Phone),
-			html.EscapeString(b.OrgName), html.EscapeString(b.Industry),
-			html.EscapeString(b.Package), credits, rupiah(amount))
+		row := func(k, v string) string {
+			return `<tr><td style="padding:7px 14px 7px 0;color:#5b6b67;font-size:13px;white-space:nowrap">` + k +
+				`</td><td style="padding:7px 0;font-size:13.5px;color:#10201d;font-weight:600">` + v + `</td></tr>`
+		}
+		body := `<div style="font-family:Arial,Helvetica,sans-serif;padding:28px;color:#1a1a1a">
+  <h2 style="margin:0 0 4px;font-size:19px">` + kind + `</h2>
+  <p style="margin:0 0 16px;color:#5b6b67;font-size:13.5px">Perlu direview dan di-approve manual.</p>
+  <table cellpadding="0" cellspacing="0" style="border-collapse:collapse">` +
+			row("Nama", html.EscapeString(b.Name)) +
+			row("Email", html.EscapeString(b.Email)) +
+			row("Telepon", html.EscapeString(firstNonEmpty(b.Phone, "-"))) +
+			row("Bisnis", html.EscapeString(firstNonEmpty(b.OrgName, "-"))+" ("+html.EscapeString(firstNonEmpty(b.Industry, "-"))+")") +
+			row("Paket", html.EscapeString(b.Package)+fmt.Sprintf(", %d kredit", credits)) +
+			row("Nilai", rupiah(amount)) + `
+  </table>
+  <p style="margin:20px 0 0">
+    <a href="https://app.simpulx.com/settings/transactions" style="background:#0E5B54;color:#fff;text-decoration:none;padding:11px 22px;border-radius:8px;font-weight:600;display:inline-block;font-size:13.5px">Buka Transactions</a>
+  </p>
+</div>`
 		if sent, err := s.sendMail(to, subj, body); err != nil || !sent {
 			s.log.Warn("register: operator notification not delivered", "sent", sent, "err", err)
 		}
+	}
+
+	// Bell notification untuk super admin (klien membunyikan suara saat event
+	// notification.created miliknya tiba): transaksi baru tidak boleh menunggu
+	// email dibuka dulu.
+	var saUser, saOrg string
+	if err := s.pool.QueryRow(r.Context(),
+		`SELECT id::text, organization_id::text FROM users
+		  WHERE lower(email) = lower($1) AND NOT is_deleted LIMIT 1`,
+		s.superAdminEmail).Scan(&saUser, &saOrg); err == nil {
+		title := kind + ": " + firstNonEmpty(b.OrgName, b.Name)
+		nbody := fmt.Sprintf("%s · %s", b.Package, rupiah(amount))
+		_, _ = s.pool.Exec(r.Context(),
+			`INSERT INTO notifications (organization_id, user_id, type, title, body)
+			 VALUES ($1,$2::uuid,'transaction',$3,$4)`, saOrg, saUser, title, nbody)
+		_ = s.bus.Publish(events.SubjectNotificationCreated, saOrg, events.NotificationCreated{
+			UserID: saUser, Type: "transaction", Title: title, Body: nbody,
+		})
 	}
 	writeJSON(w, map[string]any{"status": "received", "id": id})
 }

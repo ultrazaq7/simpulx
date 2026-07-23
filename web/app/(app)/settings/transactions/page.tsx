@@ -142,6 +142,7 @@ export default function TransactionsPage() {
                   <tr className="text-left text-[11.5px] uppercase tracking-wide text-muted-foreground border-y border-border bg-muted/30">
                     <th className="px-4 py-2 w-[52px]">{t("tx.no")}</th>
                     <th className="px-3 py-2">{t("tx.request")}</th>
+                    <th className="px-3 py-2">{t("tx.package")}</th>
                     <th className="px-3 py-2 hidden lg:table-cell">{t("tx.invoiceCol")}</th>
                     <th className="px-3 py-2 hidden md:table-cell">{t("tx.contact")}</th>
                     <th className="px-3 py-2 text-right">{t("tx.amount")}</th>
@@ -156,12 +157,14 @@ export default function TransactionsPage() {
                       className="cursor-pointer hover:bg-muted/40 transition-colors">
                       <td className="px-4 py-2.5 tabular-nums text-muted-foreground">{page * PER_PAGE + i + 1}</td>
                       <td className="px-3 py-2.5">
-                        <div className="flex items-center gap-2 min-w-0">
-                          <span className="font-semibold text-foreground truncate">
-                            {tx.type === "signup" ? (tx.org_name || t("tx.noName")) : t("tx.topupCredits", { n: tx.credits })}
-                          </span>
-                          <span className="text-[10.5px] font-bold uppercase text-muted-foreground shrink-0">{tx.package_name}</span>
-                        </div>
+                        <span className="font-semibold text-foreground truncate block max-w-[240px]">
+                          {tx.type === "signup" ? (tx.org_name || t("tx.noName")) : t("tx.topupCredits", { n: tx.credits })}
+                        </span>
+                      </td>
+                      <td className="px-3 py-2.5">
+                        <span className="inline-flex px-1.5 py-0.5 rounded bg-muted text-[10.5px] font-bold uppercase text-muted-foreground whitespace-nowrap">
+                          {tx.package_name || "-"}
+                        </span>
                       </td>
                       <td className="px-3 py-2.5 hidden lg:table-cell tabular-nums text-muted-foreground whitespace-nowrap">
                         {tx.invoice_no ? `INV-${tx.invoice_no}` : "-"}

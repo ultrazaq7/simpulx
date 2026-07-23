@@ -462,6 +462,15 @@ export function Shell({ children }: { children: ReactNode }) {
             showNotif(payload.title || "Alert", payload.body || "You have a new notification");
             setAlerts(prev => [{ id: Math.random().toString(), title: payload.title || "Alert", body: payload.body || "You have a new notification", time: new Date() }, ...prev]);
             setHasNotifs(true);
+          } else if (ev.type === "notification.created" && payload.type === "transaction") {
+            // New signup/top-up transaction: bell + sound for the super admin.
+            // Scoped to the target user so other sessions in the org stay quiet.
+            if (!payload.user_id || payload.user_id === u.id) {
+              if (prefs.sound !== false) playBeep(1100, 0.25);
+              showNotif(payload.title || "Transaksi baru", payload.body || "");
+              setHasNotifs(true);
+              loadNotifs();
+            }
           } else if (ev.type === "audit.created" && payload.type === "snooze_due") {
             // Snooze reopened: beep + bell. The OS popup is owned by FCM (push.ts
             // foreground / service worker background) to avoid a duplicate.

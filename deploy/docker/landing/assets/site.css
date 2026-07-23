@@ -377,11 +377,11 @@ footer.site .f-bottom { border-top: 1px solid rgba(255,255,255,.08); padding: 22
 @media (max-width: 900px) { footer.site .f-grid { grid-template-columns: 1fr 1fr; gap: 26px; } }
 @media (max-width: 640px) { footer.site .f-grid { grid-template-columns: 1fr; } }
 
-/* ── Language toggle switch ── */
-.lang-tg { display: inline-flex; border: 1px solid var(--border); border-radius: 10px; padding: 2px; background: var(--surface); }
-.lang-tg a { font-size: 11.5px; font-weight: 800; letter-spacing: .05em; padding: 4px 10px; border-radius: 8px; color: var(--muted); }
-.lang-tg a.on { background: var(--brand); color: #fff; }
-.lang-tg a:not(.on):hover { color: var(--ink); }
+/* ── Language toggle switch: satu link utuh, klik di mana pun = ganti bahasa ── */
+.lang-tg { display: inline-flex; border: 1px solid var(--border); border-radius: 10px; padding: 2px; background: var(--surface); cursor: pointer; }
+.lang-tg .sg { font-size: 11.5px; font-weight: 800; letter-spacing: .05em; padding: 5px 12px; border-radius: 8px; color: var(--muted); transition: color .15s, background .15s; }
+.lang-tg .sg.on { background: var(--brand); color: #fff; }
+.lang-tg:hover .sg:not(.on) { color: var(--ink); }
 /* ── Mobile menu overhaul ── */
 @media (max-width: 860px) {
   .nav-links { position: absolute; top: 60px; left: 10px; right: 10px; background: #fff; border: 1px solid var(--border); border-radius: 16px; box-shadow: 0 24px 60px -18px rgba(10,40,36,.28); padding: 12px; gap: 2px; }
@@ -394,7 +394,7 @@ footer.site .f-bottom { border-top: 1px solid rgba(255,255,255,.08); padding: 22
   .dd-item .ic2 { width: 30px; height: 30px; }
   .nav-links .btn { width: 100%; justify-content: center; margin-top: 6px; }
   .lang-tg { align-self: stretch; justify-content: center; margin-top: 8px; }
-  .lang-tg a { flex: 1; text-align: center; }
+  .lang-tg .sg { flex: 1; text-align: center; padding: 10px 12px; font-size: 13px; }
 }
 
 /* ── Dropdown panel: jangkar kiri + clamp viewport (menghindari kepotong) ── */
