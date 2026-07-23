@@ -3,6 +3,7 @@ import { useEffect, useMemo, useState } from "react";
 import { useRouter } from "next/navigation";
 import { Loader2, Building2, Lock } from "lucide-react";
 import { BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip as RTooltip, ResponsiveContainer } from "recharts";
+import { ChartTooltip } from "@/components/ChartTooltip";
 import { api, getUser } from "@/lib/api";
 import { loadPermissions, canWith } from "@/lib/permissions";
 import { Select } from "@/components/Select";
@@ -349,7 +350,7 @@ function UsageDetail() {
               <XAxis dataKey="date" tick={{ fontSize: 10 }}
                 tickFormatter={(d: string) => `${String(d).slice(8, 10)}/${String(d).slice(5, 7)}`} />
               <YAxis tick={{ fontSize: 10 }} allowDecimals={false} />
-              <RTooltip labelFormatter={(d) => String(d).slice(0, 10)} />
+              <RTooltip cursor={{ fill: "hsl(var(--muted))" }} content={<ChartTooltip showTotal labelFormat={(d) => String(d).slice(0, 10)} />} />
               {features.map((f, i) => (
                 <Bar key={f} dataKey={f} stackId="u" fill={featureColor(f, i)}
                   radius={i === features.length - 1 ? [3, 3, 0, 0] : [0, 0, 0, 0]} />

@@ -176,6 +176,12 @@ func usageRange(r *http.Request) (from, to string) {
 // summary; nurture+followup are the credit-consuming customer replies. Catalog has
 // no conversation so it never maps to a campaign here (it's a one-off setup cost).
 func (s *server) campaignUsageRows(r *http.Request, orgID, cid, from, to string) ([]map[string]any, error) {
+	// Only the features that actually DEBIT the customer's credits, so the chart
+	// matches the credit ledger. extract/ads_audience are internal (not charged),
+	// so including them would make the user think they cost credits. count is the
+	// CREDIT count (weighted), not raw calls; per-conversation features are all 1
+	// credit each here (catalog/ad-copy carry no conversation and appear only in
+	// the org-level Company Details view).
 	return s.queryMaps(r.Context(),
 		`SELECT to_char(date_trunc('day', lu.created_at), 'YYYY-MM-DD') AS day,
 		        lu.feature,
@@ -184,6 +190,7 @@ func (s *server) campaignUsageRows(r *http.Request, orgID, cid, from, to string)
 		   FROM llm_usage lu
 		   JOIN conversations cv ON cv.id = lu.conversation_id
 		  WHERE lu.organization_id = $1 AND cv.campaign_id = $2::uuid
+		    AND lu.feature IN ('nurture','followup','summary','transcribe')
 		    AND lu.created_at >= $3::date AND lu.created_at < ($4::date + 1)
 		  GROUP BY 1, 2 ORDER BY 1, 2`, orgID, cid, from, to)
 }

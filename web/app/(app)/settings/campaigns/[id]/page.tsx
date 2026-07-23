@@ -7,6 +7,7 @@ import { useParams, useRouter, useSearchParams } from "next/navigation";
 import { ArrowLeft, Loader2, Coins, Sparkles, Database, Upload, Trash2, X, Search, Download, Megaphone, Pause, Play, AlertTriangle } from "lucide-react";
 import * as XLSX from "xlsx";
 import { BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip as RTooltip, ResponsiveContainer } from "recharts";
+import { ChartTooltip } from "@/components/ChartTooltip";
 import { api } from "@/lib/api";
 import { Select } from "@/components/Select";
 import ManageAdsPanel, { useEscClose } from "./ManageAdsPanel";
@@ -27,32 +28,9 @@ type Tab = "credits" | "ai" | "catalog" | "ads";
 const USAGE_FEATURES = [
   { key: "nurture", label: "Nurture", color: "#0E9E70" },
   { key: "followup", label: "Follow-up", color: "#2563EB" },
-  { key: "extract", label: "Extract", color: "#B8730E" },
   { key: "summary", label: "Summary", color: "#7C3AED" },
 ] as const;
 
-// Custom chart tooltip: the day + per-feature counts + total, in text tokens (never
-// the series colour) with a coloured swatch carrying identity.
-function UsageTooltip({ active, payload, label }: { active?: boolean; payload?: { name: string; value: number; color: string }[]; label?: string }) {
-  if (!active || !payload?.length) return null;
-  const total = payload.reduce((s, p) => s + (p.value || 0), 0);
-  return (
-    <div className="rounded-lg border border-border bg-popover px-3 py-2 shadow-md text-[12px]">
-      <p className="font-semibold text-foreground mb-1">{label}</p>
-      {payload.filter((p) => p.value > 0).map((p) => (
-        <div key={p.name} className="flex items-center gap-2">
-          <span className="inline-block w-2.5 h-2.5 rounded-sm" style={{ background: p.color }} />
-          <span className="text-muted-foreground">{p.name}</span>
-          <span className="ml-auto font-medium tabular-nums text-foreground">{p.value}</span>
-        </div>
-      ))}
-      <div className="mt-1 pt-1 border-t border-border flex justify-between gap-6">
-        <span className="text-muted-foreground">Total</span>
-        <span className="font-semibold tabular-nums text-foreground">{total}</span>
-      </div>
-    </div>
-  );
-}
 
 export default function CampaignDetailPage() {
   const { t } = useI18n();
@@ -260,7 +238,7 @@ function CreditsTab({ id, notify }: { id: string; notify: (m: string, s?: "succe
               <CartesianGrid strokeDasharray="3 3" vertical={false} stroke="hsl(var(--border))" />
               <XAxis dataKey="day" tickFormatter={(d: string) => d.slice(5)} tick={{ fontSize: 11 }} tickLine={false} axisLine={false} minTickGap={22} interval="preserveStartEnd" />
               <YAxis allowDecimals={false} tick={{ fontSize: 11 }} tickLine={false} axisLine={false} width={28} />
-              <RTooltip cursor={{ fill: "hsl(var(--muted))" }} content={<UsageTooltip />} />
+              <RTooltip cursor={{ fill: "hsl(var(--muted))" }} content={<ChartTooltip showTotal />} />
               {USAGE_FEATURES.map((f, i) => (
                 <Bar key={f.key} dataKey={f.key} stackId="u" fill={f.color} name={f.label}
                   radius={i === USAGE_FEATURES.length - 1 ? [3, 3, 0, 0] : 0} maxBarSize={26} />
@@ -1128,8 +1106,7 @@ function AdsTab({ id, notify }: { id: string; notify: (m: string, s?: "success" 
               <XAxis dataKey="date" tick={{ fontSize: 10 }}
                 tickFormatter={(d: string) => `${String(d).slice(8, 10)}/${String(d).slice(5, 7)}`} />
               <YAxis tick={{ fontSize: 10 }} />
-              <RTooltip formatter={(v) => money(Number(v))}
-                labelFormatter={(d) => String(d).slice(0, 10)} />
+<RTooltip cursor={{ fill: "hsl(var(--muted))" }} content={<ChartTooltip valueFormat={(v) => money(v)} labelFormat={(d) => String(d).slice(0, 10)} />} />
               <Bar dataKey="spend" fill="#0E5B54" radius={[3, 3, 0, 0]} />
             </BarChart>
           </ResponsiveContainer>
