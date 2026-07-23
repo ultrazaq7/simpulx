@@ -123,6 +123,7 @@ func (s *server) handleGetCampaign(w http.ResponseWriter, r *http.Request) {
 		        c.segment, c.brand, c.ai_auto_reply, c.ai_language, c.ai_dynamic_language, c.ai_smart_summary,
 		        c.intake_form_id::text AS intake_form_id, c.followup_template_id::text AS followup_template_id, c.monthly_budget, c.avg_deal_value,
 		        c.covered_cities, c.managed_ad_account_id::text AS managed_ad_account_id,
+		        c.partnership_enabled, c.partnership_ig_user_id, c.partnership_ig_media_id, c.partnership_ad_code,
 		        COALESCE((SELECT jsonb_agg(m.ad_campaign_id::text)
 		                    FROM ad_campaign_campaigns m WHERE m.campaign_id = c.id), '[]'::jsonb) AS ad_campaign_ids,
 		        c.ai_style, c.followup_frequency,
@@ -193,6 +194,11 @@ type campaignInput struct {
 	TargetAgeMax      *int   `json:"target_age_max"`
 	TargetGender      string `json:"target_gender"` // '' keep | all | male | female
 	AdvantageAudience *bool  `json:"advantage_audience_enabled"`
+	// Partnership ads (branded content): run the ad from the partner's IG handle.
+	PartnershipEnabled   *bool   `json:"partnership_enabled"`
+	PartnershipIGUserID  *string `json:"partnership_ig_user_id"`
+	PartnershipIGMediaID *string `json:"partnership_ig_media_id"`
+	PartnershipAdCode    *string `json:"partnership_ad_code"`
 }
 
 // keywordsConflict returns the first keyword already claimed by ANOTHER campaign
@@ -363,6 +369,10 @@ func (s *server) handleUpdateCampaign(w http.ResponseWriter, r *http.Request) {
 		   target_age_max = COALESCE($26, target_age_max),
 		   target_gender = COALESCE(NULLIF($27,''), target_gender),
 		   advantage_audience_enabled = COALESCE($28, advantage_audience_enabled),
+		   partnership_enabled = COALESCE($29, partnership_enabled),
+		   partnership_ig_user_id = COALESCE($30, partnership_ig_user_id),
+		   partnership_ig_media_id = COALESCE($31, partnership_ig_media_id),
+		   partnership_ad_code = COALESCE($32, partnership_ad_code),
 		   updated_at = now()
 		 WHERE id=$1 AND organization_id=$2`,
 		r.PathValue("id"), a.OrgID, b.Name, b.DealerName, b.Status, b.RoutingStrategy,
@@ -371,6 +381,7 @@ func (s *server) handleUpdateCampaign(w http.ResponseWriter, r *http.Request) {
 		b.MonthlyBudget, b.FollowupTemplateID, nilIfEmptyJSON(b.AIStyle), b.FollowupFrequency, b.AvgDealValue,
 		b.CoveredCities, b.ManagedAdAccountID,
 		b.TargetAgeMin, b.TargetAgeMax, b.TargetGender, b.AdvantageAudience,
+		b.PartnershipEnabled, b.PartnershipIGUserID, b.PartnershipIGMediaID, b.PartnershipAdCode,
 	)
 	if err != nil {
 		http.Error(w, err.Error(), http.StatusInternalServerError)

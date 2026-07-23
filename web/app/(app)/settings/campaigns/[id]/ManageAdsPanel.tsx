@@ -76,8 +76,9 @@ export default function ManageAdsPanel({ id, notify }: {
   const [collapsed, setCollapsed] = useState<Set<string>>(new Set());
   // Optimistic per-row state: authoritative until the background refetch lands.
   const [pending, setPending] = useState<Record<string, boolean>>({});
-  const [editing, setEditing] = useState<{ level: Level; id: string; name: string } | null>(null);
   const [drawer, setDrawer] = useState<{ adset: ManageAdset; cboLocked: boolean } | null>(null);
+  const [campDrawer, setCampDrawer] = useState<import("@/lib/types").ManageCampaign | null>(null);
+  const [adDrawer, setAdDrawer] = useState<import("@/lib/types").ManageAd | null>(null);
   const [adPreview, setAdPreview] = useState<{ adId: string; html?: string; error?: string } | null>(null);
   const [swapFor, setSwapFor] = useState<{ adId: string; name: string } | null>(null);
   // Wizard "+ Create ads": the whole launch workspace lives in this drawer, so
@@ -144,23 +145,6 @@ export default function ManageAdsPanel({ id, notify }: {
     }
   }
 
-  async function saveRename() {
-    if (!editing) return;
-    const { level, id: entityId, name } = editing;
-    if (!name.trim()) { setEditing(null); return; }
-    setPending((p) => ({ ...p, [entityId]: true }));
-    try {
-      await api.renameAdsEntity(id, level, entityId, name.trim());
-      notify(t("ads.renamed"), "success");
-      setEditing(null);
-      load(true);
-    } catch (e) {
-      notify(String(e), "error");
-    } finally {
-      setPending((p) => { const n = { ...p }; delete n[entityId]; return n; });
-    }
-  }
-
   async function deleteAd(adId: string, name: string) {
     const okd = await confirm({
       title: t("ads.deleteAdTitle"),
@@ -186,14 +170,14 @@ export default function ManageAdsPanel({ id, notify }: {
     catch (e) { setAdPreview({ adId, error: String(e) }); }
   }
 
-  // Name cell: chevron + type icon + name (inline editable) + hover actions.
-  function NameCell({ level, entityId, name, depth, hasChildren, childKey, thumb, extraActions }: {
-    level: Level; entityId: string; name: string; depth: number;
+  // Name cell: chevron + type icon + name + hover actions. Semua editing lewat
+  // drawer per layer (klik pencil), bukan inline: full manage, satu pola.
+  function NameCell({ level, name, depth, hasChildren, childKey, thumb, extraActions }: {
+    level: Level; name: string; depth: number;
     hasChildren?: boolean; childKey?: string; thumb?: string;
     extraActions?: React.ReactNode;
   }) {
     const Icon = level === "campaign" ? Megaphone : level === "adset" ? Layers : ImageIcon;
-    const isEditing = editing?.id === entityId;
     return (
       <td className="px-2 py-1.5">
         <div className="flex items-center gap-1.5 min-w-0 group" style={{ paddingLeft: depth * 18 }}>
@@ -205,21 +189,9 @@ export default function ManageAdsPanel({ id, notify }: {
           {thumb
             ? <img src={thumb} alt="" className="w-6 h-6 rounded object-cover shrink-0" />
             : <Icon className="w-3.5 h-3.5 text-muted-foreground shrink-0" />}
-          {isEditing ? (
-            <input autoFocus value={editing.name}
-              onChange={(e) => setEditing({ ...editing, name: e.target.value })}
-              onKeyDown={(e) => { if (e.key === "Enter") saveRename(); if (e.key === "Escape") setEditing(null); }}
-              onBlur={() => setEditing(null)}
-              className="h-6 px-1.5 rounded border border-input bg-background text-[12px] outline-none focus:border-primary min-w-0 w-full max-w-[260px]" />
-          ) : (
-            <span className="text-[12px] font-medium text-foreground truncate" title={name}>{name}</span>
-          )}
-          {canEdit && !isEditing && (
+          <span className="text-[12px] font-medium text-foreground truncate" title={name}>{name}</span>
+          {canEdit && (
             <span className="opacity-0 group-hover:opacity-100 transition-opacity flex items-center gap-0.5 shrink-0">
-              <button onClick={() => setEditing({ level, id: entityId, name })}
-                className="p-0.5 rounded hover:bg-muted outline-none" aria-label="Rename">
-                <Pencil className="w-3 h-3 text-muted-foreground" />
-              </button>
               {extraActions}
             </span>
           )}
@@ -317,8 +289,13 @@ export default function ManageAdsPanel({ id, notify }: {
                     <StatusToggle on={c.status === "ACTIVE"} busy={!!pending[c.id]} disabled={!canEdit}
                       onFlip={() => toggle("campaign", c.id, c.name, c.status)} />
                   </td>
-                  <NameCell level="campaign" entityId={c.id} name={c.name} depth={0}
-                    hasChildren childKey={`c:${c.id}`} />
+                  <NameCell level="campaign" name={c.name} depth={0}
+                    hasChildren childKey={`c:${c.id}`}
+                    extraActions={
+                      <button onClick={() => setCampDrawer(c)} className="p-0.5 rounded hover:bg-muted outline-none" aria-label={t("ads.editCampaignMeta")}>
+                        <Pencil className="w-3 h-3 text-muted-foreground" />
+                      </button>
+                    } />
                   <td className="px-2 py-1.5"><DeliveryChip status={c.effective_status} /></td>
                   <td className="px-2 py-1.5 text-[11.5px] text-muted-foreground">
                     {c.daily_budget > 0 ? `${rp(c.daily_budget)}${t("ads.perDay")} · ${t("ads.cboBudget")}` : "-"}
@@ -332,12 +309,12 @@ export default function ManageAdsPanel({ id, notify }: {
                         <StatusToggle on={s.status === "ACTIVE"} busy={!!pending[s.id]} disabled={!canEdit}
                           onFlip={() => toggle("adset", s.id, s.name, s.status)} />
                       </td>
-                      <NameCell level="adset" entityId={s.id} name={s.name} depth={1}
+                      <NameCell level="adset" name={s.name} depth={1}
                         hasChildren childKey={`s:${s.id}`}
                         extraActions={
                           <button onClick={() => setDrawer({ adset: s, cboLocked: c.daily_budget > 0 })}
                             className="p-0.5 rounded hover:bg-muted outline-none" aria-label={t("ads.editAdset")}>
-                            <Wallet className="w-3 h-3 text-muted-foreground" />
+                            <Pencil className="w-3 h-3 text-muted-foreground" />
                           </button>
                         } />
                       <td className="px-2 py-1.5"><DeliveryChip status={s.effective_status} /></td>
@@ -353,14 +330,14 @@ export default function ManageAdsPanel({ id, notify }: {
                           <StatusToggle on={ad.status === "ACTIVE"} busy={!!pending[ad.id]} disabled={!canEdit}
                             onFlip={() => toggle("ad", ad.id, ad.name, ad.status)} />
                         </td>
-                        <NameCell level="ad" entityId={ad.id} name={ad.name} depth={2} thumb={ad.thumbnail}
+                        <NameCell level="ad" name={ad.name} depth={2} thumb={ad.thumbnail}
                           extraActions={
                             <>
+                              <button onClick={() => setAdDrawer(ad)} className="p-0.5 rounded hover:bg-muted outline-none" aria-label={t("ads.editAd")}>
+                                <Pencil className="w-3 h-3 text-muted-foreground" />
+                              </button>
                               <button onClick={() => openAdPreview(ad.id)} className="p-0.5 rounded hover:bg-muted outline-none" aria-label={t("ads.preview")}>
                                 <Eye className="w-3 h-3 text-muted-foreground" />
-                              </button>
-                              <button onClick={() => setSwapFor({ adId: ad.id, name: ad.name })} className="p-0.5 rounded hover:bg-muted outline-none" aria-label={t("ads.swapCreative")}>
-                                <RefreshCw className="w-3 h-3 text-muted-foreground" />
                               </button>
                               <button onClick={() => deleteAd(ad.id, ad.name)} className="p-0.5 rounded hover:bg-muted outline-none" aria-label={t("common.delete")}>
                                 <Trash2 className="w-3 h-3 text-destructive" />
@@ -380,10 +357,18 @@ export default function ManageAdsPanel({ id, notify }: {
         </table>
       </div>
 
-      {/* ── Ad set drawer: budget + schedule ── */}
+      {/* ── Drawer edit per layer ── */}
       {drawer && (
         <AdsetDrawer campaignId={id} adset={drawer.adset} cboLocked={drawer.cboLocked}
           notify={notify} onClose={() => setDrawer(null)} onSaved={() => { setDrawer(null); load(true); }} />
+      )}
+      {campDrawer && (
+        <CampaignDrawer campaignId={id} c={campDrawer}
+          notify={notify} onClose={() => setCampDrawer(null)} onSaved={() => { setCampDrawer(null); load(true); }} />
+      )}
+      {adDrawer && (
+        <EditAdDrawer campaignId={id} ad={adDrawer}
+          notify={notify} onClose={() => setAdDrawer(null)} onSaved={() => { setAdDrawer(null); load(true); }} />
       )}
 
       {/* ── "+ Create ads": the launch workspace as a right-side wizard ── */}
@@ -396,26 +381,6 @@ export default function ManageAdsPanel({ id, notify }: {
       {addIdOpen && (
         <AddAdIdModal campaignId={id} notify={notify}
           onClose={() => setAddIdOpen(false)} />
-      )}
-
-      {/* ── Swap creative picker ── */}
-      {swapFor && (
-        <CreativePicker campaignId={id} adName={swapFor.name}
-          onPick={async (creativeId) => {
-            const adId = swapFor.adId;
-            setSwapFor(null);
-            setPending((p) => ({ ...p, [adId]: true }));
-            try {
-              await api.swapAdCreative(id, adId, creativeId);
-              notify(t("ads.swapped"), "success");
-              load(true);
-            } catch (e) {
-              notify(String(e), "error");
-            } finally {
-              setPending((p) => { const n = { ...p }; delete n[adId]; return n; });
-            }
-          }}
-          onClose={() => setSwapFor(null)} />
       )}
 
       {/* ── Meta official ad preview ── */}
@@ -456,7 +421,7 @@ function CreateAdsDrawer({ id, notify, onClose }: {
           <button onClick={onClose} className="p-1.5 rounded-md hover:bg-muted outline-none"><X className="w-4 h-4" /></button>
         </div>
         <div className="p-5">
-          <LaunchAdsPanel id={id} notify={notify} />
+          <LaunchAdsPanel id={id} notify={notify} createOnly />
         </div>
       </div>
     </div>
@@ -511,6 +476,168 @@ function AddAdIdModal({ campaignId, notify, onClose }: {
           </button>
         </div>
       </div>
+    </div>
+  );
+}
+
+// Campaign layer: nama + budget CBO (kalau campaign-nya Advantage budget).
+function CampaignDrawer({ campaignId, c, notify, onClose, onSaved }: {
+  campaignId: string; c: import("@/lib/types").ManageCampaign;
+  notify: (m: string, s?: "success" | "error") => void;
+  onClose: () => void; onSaved: () => void;
+}) {
+  const { t } = useI18n();
+  const [name, setName] = useState(c.name);
+  const [budgetStr, setBudgetStr] = useState(c.daily_budget > 0 ? String(c.daily_budget) : "");
+  const [busy, setBusy] = useState(false);
+  async function save() {
+    const body: { name?: string; daily_budget?: number } = {};
+    if (name.trim() && name.trim() !== c.name) body.name = name.trim();
+    const budget = parseInt(budgetStr, 10);
+    if (c.daily_budget > 0 && budget > 0 && budget !== c.daily_budget) body.daily_budget = budget;
+    if (Object.keys(body).length === 0) { onClose(); return; }
+    setBusy(true);
+    try {
+      await api.updateAdsCampaignSettings(campaignId, c.id, body);
+      notify(t("ads.settingsSaved"), "success");
+      onSaved();
+    } catch (e) {
+      notify(String(e), "error");
+    } finally { setBusy(false); }
+  }
+  return (
+    <div className="fixed inset-0 z-[70]" role="dialog" aria-modal>
+      <div className="absolute inset-0 bg-black/30" onClick={onClose} />
+      <div className="absolute right-0 top-0 h-full w-full max-w-md bg-card border-l border-border shadow-xl p-5 overflow-y-auto animate-slide-in-right">
+        <div className="flex items-center justify-between mb-4">
+          <div className="min-w-0">
+            <p className="text-[14px] font-bold text-foreground truncate">{t("ads.editCampaignMeta")}</p>
+            <p className="text-[11.5px] text-muted-foreground truncate">{c.objective}</p>
+          </div>
+          <button onClick={onClose} className="p-1.5 rounded-md hover:bg-muted outline-none"><X className="w-4 h-4" /></button>
+        </div>
+        <div className="space-y-4">
+          <div>
+            <label className="block text-[12px] font-semibold text-muted-foreground mb-1">{t("ads.colName")}</label>
+            <input value={name} onChange={(e) => setName(e.target.value)}
+              className="w-full h-9 px-3 rounded-lg border border-input bg-background text-[13px] outline-none focus:border-primary" />
+          </div>
+          {c.daily_budget > 0 ? (
+            <div>
+              <label className="block text-[12px] font-semibold text-muted-foreground mb-1">{t("ads.dailyBudget")}</label>
+              <input type="text" inputMode="numeric" value={budgetStr}
+                onChange={(e) => setBudgetStr(e.target.value.replace(/[^0-9]/g, "").slice(0, 12))}
+                className="w-full h-9 px-3 rounded-lg border border-input bg-background text-[13px] outline-none focus:border-primary" />
+              <p className="mt-1 text-[11px] text-muted-foreground">{t("ads.cboBudget")}</p>
+            </div>
+          ) : (
+            <p className="text-[11.5px] text-muted-foreground">{t("ads.budgetOnAdset")}</p>
+          )}
+        </div>
+        <div className="flex items-center justify-end gap-2 mt-6 pt-4 border-t border-border">
+          <button onClick={onClose} className="px-3 h-9 rounded-lg border border-border text-[12.5px] font-semibold hover:bg-muted outline-none">{t("common.cancel")}</button>
+          <button onClick={save} disabled={busy}
+            className="inline-flex items-center gap-1.5 px-4 h-9 rounded-lg bg-primary text-primary-foreground text-[12.5px] font-semibold hover:opacity-90 outline-none disabled:opacity-60">
+            {busy && <Loader2 className="w-3.5 h-3.5 animate-spin" />} {t("common.save")}
+          </button>
+        </div>
+      </div>
+    </div>
+  );
+}
+
+// Ad layer: nama, teks (utama/judul/deskripsi), dan ganti materi. Menyimpan
+// membangun creative baru di Meta lalu menukar in place: ad id + riwayat tetap.
+function EditAdDrawer({ campaignId, ad, notify, onClose, onSaved }: {
+  campaignId: string; ad: import("@/lib/types").ManageAd;
+  notify: (m: string, s?: "success" | "error") => void;
+  onClose: () => void; onSaved: () => void;
+}) {
+  const { t } = useI18n();
+  const [name, setName] = useState(ad.name);
+  const [message, setMessage] = useState(ad.body || "");
+  const [headline, setHeadline] = useState(ad.title || "");
+  const [desc, setDesc] = useState("");
+  const [creativeId, setCreativeId] = useState("");
+  const [pickOpen, setPickOpen] = useState(false);
+  const [busy, setBusy] = useState(false);
+
+  async function save() {
+    setBusy(true);
+    try {
+      if (name.trim() && name.trim() !== ad.name) {
+        await api.renameAdsEntity(campaignId, "ad", ad.id, name.trim());
+      }
+      const textChanged = message.trim() !== (ad.body || "").trim()
+        || headline.trim() !== (ad.title || "").trim() || desc.trim() !== "";
+      if (creativeId || textChanged) {
+        await api.editAdCreative(campaignId, ad.id, {
+          creative_id: creativeId || undefined,
+          message: message.trim() || undefined,
+          headline: headline.trim() || undefined,
+          description: desc.trim() || undefined,
+        });
+      }
+      notify(t("ads.adUpdated"), "success");
+      onSaved();
+    } catch (e) {
+      notify(String(e), "error");
+    } finally { setBusy(false); }
+  }
+
+  return (
+    <div className="fixed inset-0 z-[70]" role="dialog" aria-modal>
+      <div className="absolute inset-0 bg-black/30" onClick={onClose} />
+      <div className="absolute right-0 top-0 h-full w-full max-w-md bg-card border-l border-border shadow-xl p-5 overflow-y-auto animate-slide-in-right">
+        <div className="flex items-center justify-between mb-4">
+          <p className="text-[14px] font-bold text-foreground truncate">{t("ads.editAd")}</p>
+          <button onClick={onClose} className="p-1.5 rounded-md hover:bg-muted outline-none"><X className="w-4 h-4" /></button>
+        </div>
+        <div className="space-y-4">
+          <div className="flex items-center gap-3">
+            {ad.thumbnail && <img src={creativeId ? undefined : ad.thumbnail} alt="" className="w-14 h-14 rounded-lg object-cover border border-border" style={creativeId ? { display: "none" } : undefined} />}
+            <button onClick={() => setPickOpen(true)}
+              className="inline-flex items-center gap-1.5 px-3 h-8 rounded-lg border border-border text-[12.5px] font-semibold hover:bg-muted outline-none">
+              <RefreshCw className="w-3.5 h-3.5" /> {creativeId ? t("ads.swapped") : t("ads.swapCreative")}
+            </button>
+          </div>
+          <div>
+            <label className="block text-[12px] font-semibold text-muted-foreground mb-1">{t("ads.colName")}</label>
+            <input value={name} onChange={(e) => setName(e.target.value)}
+              className="w-full h-9 px-3 rounded-lg border border-input bg-background text-[13px] outline-none focus:border-primary" />
+          </div>
+          <div>
+            <label className="block text-[12px] font-semibold text-muted-foreground mb-1">{t("ads.primaryTextField")}</label>
+            <textarea value={message} onChange={(e) => setMessage(e.target.value)} rows={3}
+              className="w-full px-3 py-2 rounded-lg border border-input bg-background text-[13px] outline-none focus:border-primary resize-y" />
+          </div>
+          <div className="grid grid-cols-2 gap-3">
+            <div>
+              <label className="block text-[12px] font-semibold text-muted-foreground mb-1">{t("ads.headlineField")}</label>
+              <input value={headline} onChange={(e) => setHeadline(e.target.value)}
+                className="w-full h-9 px-3 rounded-lg border border-input bg-background text-[13px] outline-none focus:border-primary" />
+            </div>
+            <div>
+              <label className="block text-[12px] font-semibold text-muted-foreground mb-1">{t("ads.descriptionField")}</label>
+              <input value={desc} onChange={(e) => setDesc(e.target.value)}
+                className="w-full h-9 px-3 rounded-lg border border-input bg-background text-[13px] outline-none focus:border-primary" />
+            </div>
+          </div>
+          <p className="text-[11.5px] text-muted-foreground">{t("ads.editAdNote")}</p>
+        </div>
+        <div className="flex items-center justify-end gap-2 mt-6 pt-4 border-t border-border">
+          <button onClick={onClose} className="px-3 h-9 rounded-lg border border-border text-[12.5px] font-semibold hover:bg-muted outline-none">{t("common.cancel")}</button>
+          <button onClick={save} disabled={busy}
+            className="inline-flex items-center gap-1.5 px-4 h-9 rounded-lg bg-primary text-primary-foreground text-[12.5px] font-semibold hover:opacity-90 outline-none disabled:opacity-60">
+            {busy && <Loader2 className="w-3.5 h-3.5 animate-spin" />} {t("common.save")}
+          </button>
+        </div>
+      </div>
+      {pickOpen && (
+        <CreativePicker campaignId={campaignId} adName={ad.name}
+          onPick={(cid) => { setCreativeId(cid); setPickOpen(false); }}
+          onClose={() => setPickOpen(false)} />
+      )}
     </div>
   );
 }
@@ -577,10 +704,15 @@ function AdsetDrawer({ campaignId, adset, cboLocked, notify, onClose, onSaved }:
   const [start, setStart] = useState(toLocal(adset.start_time));
   const [end, setEnd] = useState(toLocal(adset.end_time));
   const [noEnd, setNoEnd] = useState(!adset.end_time);
+  const [name, setName] = useState(adset.name);
+  const [ageMin, setAgeMin] = useState("");
+  const [ageMax, setAgeMax] = useState("");
+  const [gender, setGender] = useState("");
   const [busy, setBusy] = useState(false);
 
   async function save() {
-    const body: { daily_budget?: number; start_time?: string; end_time?: string; clear_end_time?: boolean } = {};
+    const body: { name?: string; daily_budget?: number; start_time?: string; end_time?: string; clear_end_time?: boolean; age_min?: number; age_max?: number; gender?: string } = {};
+    if (name.trim() && name.trim() !== adset.name) body.name = name.trim();
     const budget = parseInt(budgetStr, 10);
     if (!cboLocked && budget > 0 && budget !== adset.daily_budget) body.daily_budget = budget;
     if (start && toLocal(adset.start_time) !== start) body.start_time = new Date(start).toISOString();
@@ -589,6 +721,9 @@ function AdsetDrawer({ campaignId, adset, cboLocked, notify, onClose, onSaved }:
     } else if (end && toLocal(adset.end_time) !== end) {
       body.end_time = new Date(end).toISOString();
     }
+    if (parseInt(ageMin, 10) >= 13) body.age_min = parseInt(ageMin, 10);
+    if (parseInt(ageMax, 10) > 0) body.age_max = parseInt(ageMax, 10);
+    if (gender) body.gender = gender;
     if (Object.keys(body).length === 0) { onClose(); return; }
     setBusy(true);
     try {
@@ -616,6 +751,11 @@ function AdsetDrawer({ campaignId, adset, cboLocked, notify, onClose, onSaved }:
 
         <div className="space-y-4">
           <div>
+            <label className="block text-[12px] font-semibold text-muted-foreground mb-1">{t("ads.colName")}</label>
+            <input value={name} onChange={(e) => setName(e.target.value)}
+              className="w-full h-9 px-3 rounded-lg border border-input bg-background text-[13px] outline-none focus:border-primary" />
+          </div>
+          <div>
             <label className="block text-[12px] font-semibold text-muted-foreground mb-1">{t("ads.dailyBudget")}</label>
             <input type="text" inputMode="numeric" value={budgetStr} disabled={cboLocked}
               onChange={(e) => setBudgetStr(e.target.value.replace(/[^0-9]/g, "").slice(0, 12))}
@@ -638,6 +778,32 @@ function AdsetDrawer({ campaignId, adset, cboLocked, notify, onClose, onSaved }:
             <input type="checkbox" checked={noEnd} onChange={(e) => setNoEnd(e.target.checked)} className="rounded border-input accent-primary" />
             {t("ads.noEndDate")}
           </label>
+          {/* Audience: kosong = tidak diubah; backend mem-patch targeting yang ada,
+              geo dan placement tidak tersentuh. */}
+          <div className="grid grid-cols-3 gap-3">
+            <div>
+              <label className="block text-[12px] font-semibold text-muted-foreground mb-1">{t("ads.ageRange")} min</label>
+              <input type="text" inputMode="numeric" value={ageMin} placeholder="-"
+                onChange={(e) => setAgeMin(e.target.value.replace(/[^0-9]/g, "").slice(0, 2))}
+                className="w-full h-9 px-2 rounded-lg border border-input bg-background text-[12.5px] outline-none focus:border-primary" />
+            </div>
+            <div>
+              <label className="block text-[12px] font-semibold text-muted-foreground mb-1">{t("ads.ageRange")} max</label>
+              <input type="text" inputMode="numeric" value={ageMax} placeholder="-"
+                onChange={(e) => setAgeMax(e.target.value.replace(/[^0-9]/g, "").slice(0, 2))}
+                className="w-full h-9 px-2 rounded-lg border border-input bg-background text-[12.5px] outline-none focus:border-primary" />
+            </div>
+            <div>
+              <label className="block text-[12px] font-semibold text-muted-foreground mb-1">{t("ads.gender")}</label>
+              <select value={gender} onChange={(e) => setGender(e.target.value)}
+                className="w-full h-9 px-2 rounded-lg border border-input bg-background text-[12.5px] outline-none focus:border-primary">
+                <option value="">-</option>
+                <option value="all">{t("ads.genderAll")}</option>
+                <option value="male">{t("ads.genderMale")}</option>
+                <option value="female">{t("ads.genderFemale")}</option>
+              </select>
+            </div>
+          </div>
           <p className="text-[11.5px] text-muted-foreground">{t("ads.learningNote")}</p>
         </div>
 

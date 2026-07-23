@@ -109,6 +109,8 @@ type manageAd struct {
 	CreatedTime     string        `json:"created_time"`
 	Thumbnail       string        `json:"thumbnail"`
 	Image           string        `json:"image"`
+	Body            string        `json:"body"`  // creative primary text (for the editor prefill)
+	Title           string        `json:"title"` // creative headline
 	Metrics         manageMetrics `json:"metrics"`
 }
 
@@ -262,6 +264,8 @@ func (s *server) handleAdsManageTree(w http.ResponseWriter, r *http.Request) {
 				Creative        *struct {
 					ThumbnailURL string `json:"thumbnail_url"`
 					ImageURL     string `json:"image_url"`
+					Body         string `json:"body"`
+					Title        string `json:"title"`
 				} `json:"creative"`
 			} `json:"data"`
 			Error *struct {
@@ -281,10 +285,10 @@ func (s *server) handleAdsManageTree(w http.ResponseWriter, r *http.Request) {
 			}
 			return nil
 		}
-		err := fetch("id,name,status,effective_status,adset_id,created_time,creative.thumbnail_width(512).thumbnail_height(512){thumbnail_url,image_url}")
+		err := fetch("id,name,status,effective_status,adset_id,created_time,creative.thumbnail_width(512).thumbnail_height(512){thumbnail_url,image_url,body,title}")
 		if err != nil {
 			s.log.Warn("ads manage rich fetch failed, retrying plain", "campaign", cid, "err", err)
-			err = fetch("id,name,status,effective_status,adset_id,created_time,creative{thumbnail_url}")
+			err = fetch("id,name,status,effective_status,adset_id,created_time,creative{thumbnail_url,body,title}")
 		}
 		if err != nil {
 			if firstErr == "" {
@@ -302,6 +306,8 @@ func (s *server) handleAdsManageTree(w http.ResponseWriter, r *http.Request) {
 			if ad.Creative != nil {
 				ma.Thumbnail = ad.Creative.ThumbnailURL
 				ma.Image = ad.Creative.ImageURL
+				ma.Body = ad.Creative.Body
+				ma.Title = ad.Creative.Title
 			}
 			adIDs = append(adIDs, ad.ID)
 			if ix, ok := adsetByID[ad.AdsetID]; ok {
@@ -512,16 +518,24 @@ func (s *server) handleAdsEntityRename(w http.ResponseWriter, r *http.Request) {
 func (s *server) handleAdsetSettings(w http.ResponseWriter, r *http.Request) {
 	a, _ := authFrom(r.Context())
 	var b struct {
+		Name         *string `json:"name"`
 		DailyBudget  *int64  `json:"daily_budget"`
 		StartTime    *string `json:"start_time"`
 		EndTime      *string `json:"end_time"`
 		ClearEndTime bool    `json:"clear_end_time"`
+		// Audience: patched via read-modify-write of the CURRENT targeting so geo
+		// and placements survive untouched; targeting_automation is stripped
+		// because Meta rejects it on update (learned in prod on the apply path).
+		AgeMin *int    `json:"age_min"`
+		AgeMax *int    `json:"age_max"`
+		Gender *string `json:"gender"` // all | male | female
 	}
 	if err := json.NewDecoder(r.Body).Decode(&b); err != nil {
 		http.Error(w, "invalid body", http.StatusBadRequest)
 		return
 	}
-	if b.DailyBudget == nil && b.StartTime == nil && b.EndTime == nil && !b.ClearEndTime {
+	if b.Name == nil && b.DailyBudget == nil && b.StartTime == nil && b.EndTime == nil && !b.ClearEndTime &&
+		b.AgeMin == nil && b.AgeMax == nil && b.Gender == nil {
 		http.Error(w, "nothing to update", http.StatusBadRequest)
 		return
 	}
@@ -539,6 +553,39 @@ func (s *server) handleAdsetSettings(w http.ResponseWriter, r *http.Request) {
 
 	form := url.Values{}
 	form.Set("access_token", t.token)
+	if b.Name != nil && strings.TrimSpace(*b.Name) != "" {
+		form.Set("name", strings.TrimSpace(*b.Name))
+	}
+	if b.AgeMin != nil || b.AgeMax != nil || b.Gender != nil {
+		var cur struct {
+			Targeting map[string]any `json:"targeting"`
+		}
+		u := fmt.Sprintf("https://graph.facebook.com/%s/%s?fields=targeting&access_token=%s",
+			metaGraphVersion, adsetID, url.QueryEscape(t.token))
+		if err := metaGet(r.Context(), u, &cur); err != nil || cur.Targeting == nil {
+			http.Error(w, "could not read the ad set's current targeting from Meta", http.StatusUnprocessableEntity)
+			return
+		}
+		if b.AgeMin != nil && *b.AgeMin >= 13 {
+			cur.Targeting["age_min"] = *b.AgeMin
+		}
+		if b.AgeMax != nil && *b.AgeMax > 0 {
+			cur.Targeting["age_max"] = *b.AgeMax
+		}
+		if b.Gender != nil {
+			switch *b.Gender {
+			case "male":
+				cur.Targeting["genders"] = []int{1}
+			case "female":
+				cur.Targeting["genders"] = []int{2}
+			default:
+				delete(cur.Targeting, "genders")
+			}
+		}
+		delete(cur.Targeting, "targeting_automation") // rejected on update
+		tj, _ := json.Marshal(cur.Targeting)
+		form.Set("targeting", string(tj))
+	}
 	if b.DailyBudget != nil {
 		// IDR offset-1: Graph budgets are whole rupiah. NO scaling — one stray
 		// *100 turns Rp 20.000/day into Rp 2.000.000/day.
@@ -611,12 +658,16 @@ func (s *server) handleAdsetSettings(w http.ResponseWriter, r *http.Request) {
 func (s *server) handleAdsAdSwapCreative(w http.ResponseWriter, r *http.Request) {
 	a, _ := authFrom(r.Context())
 	var b struct {
-		CreativeID string `json:"creative_id"`
+		CreativeID  string `json:"creative_id"` // optional: empty = keep the ad's current asset
+		Message     string `json:"message"`     // optional overrides; empty = approved copy default
+		Headline    string `json:"headline"`
+		Description string `json:"description"`
 	}
-	if err := json.NewDecoder(r.Body).Decode(&b); err != nil || strings.TrimSpace(b.CreativeID) == "" {
-		http.Error(w, "creative_id required", http.StatusBadRequest)
+	if err := json.NewDecoder(r.Body).Decode(&b); err != nil {
+		http.Error(w, "invalid body", http.StatusBadRequest)
 		return
 	}
+	b.CreativeID = strings.TrimSpace(b.CreativeID)
 	t, msg, code := s.resolveAdsTarget(r.Context(), a.OrgID, r.PathValue("id"))
 	if msg != "" {
 		http.Error(w, msg, code)
@@ -628,13 +679,24 @@ func (s *server) handleAdsAdSwapCreative(w http.ResponseWriter, r *http.Request)
 		return
 	}
 
-	// The asset: must be this campaign's own uploaded creative.
+	// The asset: the chosen campaign creative, or (creative_id empty = text-only
+	// edit) whatever asset row is currently linked to this ad.
 	var fileURL, mediaType, fileName, imageHash, videoID string
-	err := s.pool.QueryRow(r.Context(),
-		`SELECT file_url, media_type, COALESCE(file_name,''), COALESCE(meta_image_hash,''), COALESCE(meta_video_id,'')
-		   FROM campaign_creatives
-		  WHERE id = $1::uuid AND campaign_id = $2::uuid AND organization_id = $3::uuid`,
-		b.CreativeID, t.campaignID, t.orgID).Scan(&fileURL, &mediaType, &fileName, &imageHash, &videoID)
+	var err error
+	if b.CreativeID != "" {
+		err = s.pool.QueryRow(r.Context(),
+			`SELECT id::text, file_url, media_type, COALESCE(file_name,''), COALESCE(meta_image_hash,''), COALESCE(meta_video_id,'')
+			   FROM campaign_creatives
+			  WHERE id = $1::uuid AND campaign_id = $2::uuid AND organization_id = $3::uuid`,
+			b.CreativeID, t.campaignID, t.orgID).Scan(&b.CreativeID, &fileURL, &mediaType, &fileName, &imageHash, &videoID)
+	} else {
+		err = s.pool.QueryRow(r.Context(),
+			`SELECT id::text, file_url, media_type, COALESCE(file_name,''), COALESCE(meta_image_hash,''), COALESCE(meta_video_id,'')
+			   FROM campaign_creatives
+			  WHERE meta_ad_id = $1 AND campaign_id = $2::uuid AND organization_id = $3::uuid
+			  ORDER BY created_at LIMIT 1`,
+			adID, t.campaignID, t.orgID).Scan(&b.CreativeID, &fileURL, &mediaType, &fileName, &imageHash, &videoID)
+	}
 	if err != nil {
 		http.Error(w, "not found", http.StatusNotFound)
 		return
@@ -658,6 +720,19 @@ func (s *server) handleAdsAdSwapCreative(w http.ResponseWriter, r *http.Request)
 			return v[0]
 		}
 		return ""
+	}
+	// Per-ad overrides win over the campaign's approved copy.
+	message := strings.TrimSpace(b.Message)
+	if message == "" {
+		message = firstOf(primaryTexts)
+	}
+	headline := strings.TrimSpace(b.Headline)
+	if headline == "" {
+		headline = firstOf(headlines)
+	}
+	desc := strings.TrimSpace(b.Description)
+	if desc == "" {
+		desc = firstOf(descriptions)
 	}
 	var pageID string
 	_ = s.pool.QueryRow(r.Context(),
@@ -685,9 +760,9 @@ func (s *server) handleAdsAdSwapCreative(w http.ResponseWriter, r *http.Request)
 				`UPDATE campaign_creatives SET meta_image_hash=$2 WHERE id=$1::uuid`, b.CreativeID, imageHash)
 		}
 		storySpec["link_data"] = map[string]any{
-			"message":        firstOf(primaryTexts),
-			"name":           firstOf(headlines),
-			"description":    firstOf(descriptions),
+			"message":        message,
+			"name":           headline,
+			"description":    desc,
 			"link":           "https://api.whatsapp.com/send",
 			"image_hash":     imageHash,
 			"call_to_action": cta,
@@ -713,8 +788,8 @@ func (s *server) handleAdsAdSwapCreative(w http.ResponseWriter, r *http.Request)
 		}
 		storySpec["video_data"] = map[string]any{
 			"video_id":       videoID,
-			"message":        firstOf(primaryTexts),
-			"title":          firstOf(headlines),
+			"message":        message,
+			"title":          headline,
 			"image_url":      thumb,
 			"call_to_action": cta,
 		}
@@ -758,6 +833,60 @@ func (s *server) handleAdsAdSwapCreative(w http.ResponseWriter, r *http.Request)
 	s.logAdsManage(r.Context(), a, t, "swapped_ad_creative", "ad", adID,
 		fmt.Sprintf("Swapped creative of ad %s to %q by %s", adID, fileName, a.Name))
 	writeJSON(w, map[string]any{"ok": true, "ad_id": adID, "creative_id": b.CreativeID})
+}
+
+// POST /api/campaigns/{id}/ads/campaign/{entityId}/settings {"name"?, "daily_budget"?}
+// Campaign-level editing: rename, and daily budget when the campaign is CBO
+// (mapped external campaigns); non-CBO campaigns keep budget on the ad set.
+func (s *server) handleAdsCampaignSettings(w http.ResponseWriter, r *http.Request) {
+	a, _ := authFrom(r.Context())
+	var b struct {
+		Name        *string `json:"name"`
+		DailyBudget *int64  `json:"daily_budget"`
+	}
+	if err := json.NewDecoder(r.Body).Decode(&b); err != nil || (b.Name == nil && b.DailyBudget == nil) {
+		http.Error(w, "nothing to update", http.StatusBadRequest)
+		return
+	}
+	t, msg, code := s.resolveAdsTarget(r.Context(), a.OrgID, r.PathValue("id"))
+	if msg != "" {
+		http.Error(w, msg, code)
+		return
+	}
+	cid := r.PathValue("entityId")
+	if _, msg, code := s.verifyAdsEntity(r.Context(), t, "campaign", cid); msg != "" {
+		http.Error(w, msg, code)
+		return
+	}
+	form := url.Values{}
+	form.Set("access_token", t.token)
+	if b.Name != nil && strings.TrimSpace(*b.Name) != "" {
+		form.Set("name", strings.TrimSpace(*b.Name))
+	}
+	if b.DailyBudget != nil {
+		var cur struct {
+			DailyBudget string `json:"daily_budget"`
+		}
+		u := fmt.Sprintf("https://graph.facebook.com/%s/%s?fields=daily_budget&access_token=%s",
+			metaGraphVersion, cid, url.QueryEscape(t.token))
+		if metaGet(r.Context(), u, &cur) != nil || atoiSafe(cur.DailyBudget) == 0 {
+			http.Error(w, "this campaign's budget lives on the ad set (it is not an Advantage campaign budget)", http.StatusConflict)
+			return
+		}
+		if *b.DailyBudget < 10000 {
+			http.Error(w, "daily budget looks too low for IDR (min about Rp 10.000)", http.StatusBadRequest)
+			return
+		}
+		form.Set("daily_budget", fmt.Sprintf("%d", *b.DailyBudget))
+	}
+	u := fmt.Sprintf("https://graph.facebook.com/%s/%s", metaGraphVersion, cid)
+	if err := metaPostForm(r.Context(), u, form); err != nil {
+		http.Error(w, "Meta rejected the change: "+err.Error(), http.StatusUnprocessableEntity)
+		return
+	}
+	s.logAdsManage(r.Context(), a, t, "updated_campaign_settings", "campaign", cid,
+		fmt.Sprintf("Updated Meta campaign %s settings by %s", cid, a.Name))
+	writeJSON(w, map[string]any{"ok": true})
 }
 
 // DELETE /api/campaigns/{id}/ads/ad/{entityId} — removes the ad on Meta

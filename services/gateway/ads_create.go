@@ -826,6 +826,57 @@ func (s *server) handleLaunchAds(w http.ResponseWriter, r *http.Request) {
 		}
 	}
 
+	// ── Partnership ad (branded content): one EXTRA ad from the partner's own
+	// IG post, running from THEIR handle ("Paid partnership"), so the client
+	// earns awareness from spend we manage. Uses the documented creative trio
+	// object_id + instagram_user_id + source_instagram_media_id; needs the app
+	// permission instagram_branded_content_ads_brand, so until App Review grants
+	// it Meta will refuse here and the exact reason lands in the warning (the
+	// normal ads above are NOT blocked by this failing).
+	{
+		var pEnabled bool
+		var pUser, pMedia, pExisting string
+		_ = s.pool.QueryRow(ctx,
+			`SELECT partnership_enabled, COALESCE(partnership_ig_user_id,''),
+			        COALESCE(partnership_ig_media_id,''), COALESCE(partnership_meta_ad_id,'')
+			   FROM campaigns WHERE id=$1::uuid`, campaignID).Scan(&pEnabled, &pUser, &pMedia, &pExisting)
+		if pEnabled && pExisting == "" && adsEntityIDRe.MatchString(pUser) && adsEntityIDRe.MatchString(pMedia) {
+			form := url.Values{}
+			form.Set("name", t.campaignName+" - Partnership")
+			form.Set("object_id", pageID)
+			form.Set("instagram_user_id", pUser)
+			form.Set("source_instagram_media_id", pMedia)
+			form.Set("call_to_action", `{"type":"WHATSAPP_MESSAGE","value":{"app_destination":"WHATSAPP"}}`)
+			form.Set("access_token", t.token)
+			pcID, err := metaPostID(ctx, base+"/adcreatives", form)
+			if err == nil {
+				form = url.Values{}
+				form.Set("name", t.campaignName+" - Partnership")
+				form.Set("adset_id", metaAdsetID)
+				form.Set("creative", `{"creative_id":"`+pcID+`"}`)
+				form.Set("status", "PAUSED")
+				form.Set("access_token", t.token)
+				var pAdID string
+				pAdID, err = metaPostID(ctx, base+"/ads", form)
+				if err == nil {
+					_, _ = s.pool.Exec(ctx,
+						`UPDATE campaigns SET partnership_meta_ad_id=$2 WHERE id=$1::uuid`, campaignID, pAdID)
+					registerAdSource(pAdID)
+					created++
+				}
+			}
+			if err != nil {
+				w2 := "partnership ad failed: " + err.Error()
+				if igWarning == "" {
+					igWarning = w2
+				} else {
+					igWarning += "; " + w2
+				}
+				s.log.Warn("ads launch: partnership ad failed", "campaign", campaignID, "err", err)
+			}
+		}
+	}
+
 	if created == 0 && !adsetUpdated {
 		// Campaign + ad set exist but not a single ad made it: that is a failed
 		// launch, and ads_status must say so rather than pretending.

@@ -909,7 +909,9 @@ export interface ManageMetrics {
 }
 export interface ManageAd {
   id: string; name: string; status: string; effective_status: string;
-  created_time: string; thumbnail: string; image: string; metrics: ManageMetrics;
+  created_time: string; thumbnail: string; image: string;
+  body: string; title: string; // creative text, editor prefill
+  metrics: ManageMetrics;
 }
 export interface ManageAdset {
   id: string; name: string; status: string; effective_status: string;

@@ -13,7 +13,13 @@ import { api } from "@/lib/api";
 import { useI18n } from "@/lib/i18n";
 import type { AdsPreview, GeoCityResult, AdCopyRow, CreativeRow, GeoCandidate } from "@/lib/types";
 
-export default function LaunchAdsPanel({ id, notify }: { id: string; notify: (m: string, s?: "success" | "error") => void }) {
+export default function LaunchAdsPanel({ id, notify, createOnly }: {
+  id: string; notify: (m: string, s?: "success" | "error") => void;
+  // createOnly + sudah launched: wizard "+ Buat iklan" MURNI membuat ads/creative
+  // baru. Setting yang sudah hidup (budget, audience, geo, Page) diedit lewat
+  // drawer per layer di Manage, jadi section-nya disembunyikan di sini.
+  createOnly?: boolean;
+}) {
   const [preview, setPreview] = useState<AdsPreview | null>(null);
   const [loading, setLoading] = useState(true);
 
@@ -25,17 +31,106 @@ export default function LaunchAdsPanel({ id, notify }: { id: string; notify: (m:
   if (loading) return <div className="h-40 grid place-items-center"><Loader2 className="w-5 h-5 animate-spin text-muted-foreground" /></div>;
   if (!preview) return null;
 
+  const slim = !!createOnly && preview.launched;
   return (
     <div className="flex flex-col gap-4">
       <BlockerList preview={preview} />
-      <BudgetAudienceSection id={id} preview={preview} notify={notify} onChange={reload} />
-      <GeoSection id={id} notify={notify} onChange={reload} />
+      {!slim && <BudgetAudienceSection id={id} preview={preview} notify={notify} onChange={reload} />}
+      {!slim && <GeoSection id={id} notify={notify} onChange={reload} />}
       <CopySection id={id} notify={notify} onChange={reload} />
-      <AudienceSection id={id} notify={notify} />
+      {!slim && <AudienceSection id={id} notify={notify} />}
       <CreativeSection id={id} preview={preview} notify={notify} onChange={reload} />
-      <PageSection id={id} preview={preview} notify={notify} onChange={reload} />
-      <LaunchBar id={id} preview={preview} notify={notify} onRefresh={reload} />
+      {!slim && <PageSection id={id} preview={preview} notify={notify} onChange={reload} />}
+      <PartnershipSection id={id} notify={notify} />
+      <LaunchBar id={id} preview={preview} notify={notify} onRefresh={reload} createLabel={slim} />
     </div>
+  );
+}
+
+// ── Partnership ad (branded content): iklan tampil dari handle IG klien ──
+// Data partner disimpan di campaign; saat Launch/Buat iklan, satu ad ekstra
+// dibuat dari post IG partner. Butuh permission instagram_branded_content_ads_brand
+// (App Review); sampai granted, Meta menolak dan alasannya muncul sebagai warning.
+function PartnershipSection({ id, notify }: { id: string; notify: (m: string, s?: "success" | "error") => void }) {
+  const { t } = useI18n();
+  const [enabled, setEnabled] = useState(false);
+  const [igUser, setIgUser] = useState("");
+  const [igMedia, setIgMedia] = useState("");
+  const [adCode, setAdCode] = useState("");
+  const [loaded, setLoaded] = useState(false);
+  const [busy, setBusy] = useState(false);
+
+  useEffect(() => {
+    api.getCampaign(id).then((c: any) => {
+      setEnabled(!!c.partnership_enabled);
+      setIgUser(c.partnership_ig_user_id || "");
+      setIgMedia(c.partnership_ig_media_id || "");
+      setAdCode(c.partnership_ad_code || "");
+      setLoaded(true);
+    }).catch(() => setLoaded(true));
+  }, [id]);
+
+  async function save() {
+    setBusy(true);
+    try {
+      await api.updateCampaign(id, {
+        partnership_enabled: enabled,
+        partnership_ig_user_id: igUser.trim(),
+        partnership_ig_media_id: igMedia.trim(),
+        partnership_ad_code: adCode.trim(),
+      });
+      notify(t("ads.partnershipSaved"), "success");
+    } catch (e) {
+      notify(String(e), "error");
+    } finally {
+      setBusy(false);
+    }
+  }
+
+  if (!loaded) return null;
+  return (
+    <section className="rounded-xl border border-border bg-card p-4">
+      <div className="flex items-center justify-between gap-3">
+        <div className="flex items-center gap-2">
+          <Users className="w-4 h-4 text-primary" />
+          <h3 className="text-[13.5px] font-bold text-foreground">{t("ads.partnershipTitle")}</h3>
+        </div>
+        <button onClick={() => setEnabled(!enabled)} aria-label="partnership toggle"
+          className={`relative w-9 h-5 rounded-full transition-colors outline-none ${enabled ? "bg-primary" : "bg-gray-300"}`}>
+          <span className={`absolute top-0.5 w-4 h-4 rounded-full bg-white shadow transition-all ${enabled ? "left-[18px]" : "left-0.5"}`} />
+        </button>
+      </div>
+      <p className="text-[12px] text-muted-foreground mt-1">{t("ads.partnershipDesc")}</p>
+      {enabled && (
+        <div className="mt-3 space-y-3">
+          <div className="grid sm:grid-cols-2 gap-3">
+            <div>
+              <label className="block text-[11.5px] font-semibold text-muted-foreground mb-1">{t("ads.partnershipIgUser")}</label>
+              <input value={igUser} onChange={(e) => setIgUser(e.target.value.replace(/[^0-9]/g, ""))}
+                placeholder="17841400000000000"
+                className="w-full h-9 px-3 rounded-lg border border-input bg-background text-[12.5px] outline-none focus:border-primary" />
+            </div>
+            <div>
+              <label className="block text-[11.5px] font-semibold text-muted-foreground mb-1">{t("ads.partnershipIgMedia")}</label>
+              <input value={igMedia} onChange={(e) => setIgMedia(e.target.value.replace(/[^0-9]/g, ""))}
+                placeholder="17900000000000000"
+                className="w-full h-9 px-3 rounded-lg border border-input bg-background text-[12.5px] outline-none focus:border-primary" />
+            </div>
+          </div>
+          <div>
+            <label className="block text-[11.5px] font-semibold text-muted-foreground mb-1">{t("ads.partnershipCode")}</label>
+            <input value={adCode} onChange={(e) => setAdCode(e.target.value)}
+              placeholder="adcode-..."
+              className="w-full h-9 px-3 rounded-lg border border-input bg-background text-[12.5px] outline-none focus:border-primary" />
+          </div>
+          <p className="text-[11.5px] text-muted-foreground">{t("ads.partnershipNote")}</p>
+          <button onClick={save} disabled={busy}
+            className="inline-flex items-center gap-1.5 px-4 h-8 rounded-lg bg-primary text-primary-foreground text-[12.5px] font-semibold hover:opacity-90 outline-none disabled:opacity-60">
+            {busy && <Loader2 className="w-3.5 h-3.5 animate-spin" />} {t("common.save")}
+          </button>
+        </div>
+      )}
+    </section>
   );
 }
 
@@ -454,8 +549,9 @@ function PageSection({ id, preview, notify, onChange }: {
   );
 }
 
-function LaunchBar({ id, preview, notify, onRefresh }: {
+function LaunchBar({ id, preview, notify, onRefresh, createLabel }: {
   id: string; preview: AdsPreview; notify: (m: string, s?: "success" | "error") => void; onRefresh: () => void;
+  createLabel?: boolean; // wizard "+ Buat iklan": tombol bunyinya membuat, bukan apply
 }) {
   const { t } = useI18n();
   const [busy, setBusy] = useState(false);
@@ -518,7 +614,7 @@ function LaunchBar({ id, preview, notify, onRefresh }: {
             title={preview.can_launch ? "" : t("ads.resolveFirst")}
             className="inline-flex items-center gap-1.5 px-4 h-10 rounded-md bg-primary text-white text-[13px] font-semibold hover:bg-primary-dark outline-none disabled:opacity-50 disabled:cursor-not-allowed">
             {busy ? <Loader2 className="w-4 h-4 animate-spin" /> : <Rocket className="w-4 h-4" />}
-            {launched ? t("ads.applyChanges") : t("ads.launchPaused")}
+            {launched ? (createLabel ? t("ads.createAdsAction") : t("ads.applyChanges")) : t("ads.launchPaused")}
           </button>
         )}
       </div>

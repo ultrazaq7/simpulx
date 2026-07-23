@@ -2435,5 +2435,21 @@
   "ads.addAdId": "Tambah ID iklan",
   "ads.addAdIdHint": "Daftarkan ID iklan Meta yang dibuat di luar Simpulx supaya leads WhatsApp-nya masuk ke campaign ini. Iklan yang dibuat di sini terdaftar otomatis.",
   "ads.adIdAdded": "ID iklan ditambahkan",
-  "ads.adIdInvalid": "Masukkan ID iklan Meta berupa angka"
+  "ads.adIdInvalid": "Masukkan ID iklan Meta berupa angka",
+  "ads.editCampaignMeta": "Ubah campaign Meta",
+  "ads.editAd": "Ubah iklan",
+  "ads.primaryTextField": "Teks utama",
+  "ads.headlineField": "Judul",
+  "ads.descriptionField": "Deskripsi",
+  "ads.editAdNote": "Menyimpan membuat creative baru di Meta lalu menukarnya di tempat. ID iklan dan riwayatnya tetap.",
+  "ads.adUpdated": "Iklan diperbarui",
+  "ads.budgetOnAdset": "Budget ada di ad set. Ubah dari baris ad set.",
+  "ads.createAdsAction": "Buat iklan baru (paused)",
+  "ads.partnershipTitle": "Partnership ad",
+  "ads.partnershipDesc": "Jalankan satu iklan ekstra dari handle Instagram klien kamu (Paid partnership) supaya mereka dapat awareness dari campaign ini.",
+  "ads.partnershipIgUser": "ID akun IG partner",
+  "ads.partnershipIgMedia": "ID media IG partner",
+  "ads.partnershipCode": "Kode partnership ad (opsional, dari aplikasi IG partner)",
+  "ads.partnershipNote": "Butuh permission app instagram_branded_content_ads_brand (Meta App Review). Sebelum di-approve, Meta menolak iklan partnership saat launch dan alasannya tampil sebagai warning; iklan biasa tidak terpengaruh.",
+  "ads.partnershipSaved": "Pengaturan partnership disimpan"
 }

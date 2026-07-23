@@ -2435,5 +2435,21 @@
   "ads.addAdId": "Add ad ID",
   "ads.addAdIdHint": "Register the Meta ad ID of an ad created outside Simpulx so its WhatsApp leads route to this campaign. Ads created here register themselves.",
   "ads.adIdAdded": "Ad ID added",
-  "ads.adIdInvalid": "Enter a numeric Meta ad ID"
+  "ads.adIdInvalid": "Enter a numeric Meta ad ID",
+  "ads.editCampaignMeta": "Edit Meta campaign",
+  "ads.editAd": "Edit ad",
+  "ads.primaryTextField": "Primary text",
+  "ads.headlineField": "Headline",
+  "ads.descriptionField": "Description",
+  "ads.editAdNote": "Saving builds a new creative on Meta and swaps it in place. The ad ID and its history stay.",
+  "ads.adUpdated": "Ad updated",
+  "ads.budgetOnAdset": "Budget lives on the ad set. Edit it from the ad set row.",
+  "ads.createAdsAction": "Create new ads (paused)",
+  "ads.partnershipTitle": "Partnership ad",
+  "ads.partnershipDesc": "Run one extra ad from your client's Instagram handle (Paid partnership) so they earn awareness from this campaign.",
+  "ads.partnershipIgUser": "Partner IG account ID",
+  "ads.partnershipIgMedia": "Partner IG media ID",
+  "ads.partnershipCode": "Partnership ad code (optional, from the partner's IG app)",
+  "ads.partnershipNote": "Needs the app permission instagram_branded_content_ads_brand (Meta App Review). Until it is granted, Meta refuses the partnership ad at launch and the reason shows as a warning; regular ads are not affected.",
+  "ads.partnershipSaved": "Partnership settings saved"
 }

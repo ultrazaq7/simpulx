@@ -626,14 +626,17 @@ export const api = {
   renameAdsEntity: (id: string, level: "campaign" | "adset" | "ad", entityId: string, name: string) =>
     req<{ ok: boolean; name: string }>(`/api/campaigns/${id}/ads/${level}/${entityId}/name`,
       { method: "POST", body: JSON.stringify({ name }) }),
-  updateAdsetSettings: (id: string, adsetId: string, body: { daily_budget?: number; start_time?: string; end_time?: string; clear_end_time?: boolean }) =>
+  updateAdsetSettings: (id: string, adsetId: string, body: { name?: string; daily_budget?: number; start_time?: string; end_time?: string; clear_end_time?: boolean; age_min?: number; age_max?: number; gender?: string }) =>
     req<{ ok: boolean }>(`/api/campaigns/${id}/ads/adset/${adsetId}/settings`,
+      { method: "POST", body: JSON.stringify(body) }),
+  updateAdsCampaignSettings: (id: string, metaCampaignId: string, body: { name?: string; daily_budget?: number }) =>
+    req<{ ok: boolean }>(`/api/campaigns/${id}/ads/campaign/${metaCampaignId}/settings`,
       { method: "POST", body: JSON.stringify(body) }),
   deleteMetaAd: (id: string, adId: string) =>
     req<{ deleted: boolean }>(`/api/campaigns/${id}/ads/ad/${adId}`, { method: "DELETE" }),
-  swapAdCreative: (id: string, adId: string, creativeId: string) =>
+  editAdCreative: (id: string, adId: string, body: { creative_id?: string; message?: string; headline?: string; description?: string }) =>
     req<{ ok: boolean }>(`/api/campaigns/${id}/ads/ad/${adId}/creative`,
-      { method: "POST", body: JSON.stringify({ creative_id: creativeId }) }),
+      { method: "POST", body: JSON.stringify(body) }),
 
   listTransactions: () =>
     req<{ rows: import("./types").PlatformTransaction[]; summary: Record<string, number> }>("/api/platform/transactions"),
@@ -658,7 +661,7 @@ export const api = {
   deleteOrg: (id: string) => req(`/api/platform/orgs/${id}`, { method: "DELETE" }),
   createCampaign: (input: { name: string; dealer_name?: string; routing_strategy?: string; channel_id?: string; ad_source_ids?: string[]; keywords?: string[]; agent_ids?: string[]; supervisor_ids?: string[]; calling_enabled?: boolean }) =>
     req<{ id: string }>("/api/campaigns", { method: "POST", body: JSON.stringify(input) }),
-  updateCampaign: (id: string, patch: { name?: string; dealer_name?: string; status?: string; routing_strategy?: string; channel_id?: string; ad_source_ids?: string[]; keywords?: string[]; agent_ids?: string[]; supervisor_ids?: string[]; calling_enabled?: boolean; segment?: string; brand?: string; ai_auto_reply?: boolean; ai_language?: string; ai_dynamic_language?: boolean; ai_smart_summary?: boolean; intake_form_id?: string; followup_template_id?: string; monthly_budget?: number | null; avg_deal_value?: number | null; ai_style?: import("./types").AIStyle; followup_frequency?: string; covered_cities?: string[] }) =>
+  updateCampaign: (id: string, patch: { name?: string; dealer_name?: string; status?: string; routing_strategy?: string; channel_id?: string; ad_source_ids?: string[]; keywords?: string[]; agent_ids?: string[]; supervisor_ids?: string[]; calling_enabled?: boolean; segment?: string; brand?: string; ai_auto_reply?: boolean; ai_language?: string; ai_dynamic_language?: boolean; ai_smart_summary?: boolean; intake_form_id?: string; followup_template_id?: string; monthly_budget?: number | null; avg_deal_value?: number | null; ai_style?: import("./types").AIStyle; followup_frequency?: string; covered_cities?: string[]; partnership_enabled?: boolean; partnership_ig_user_id?: string; partnership_ig_media_id?: string; partnership_ad_code?: string }) =>
     req(`/api/campaigns/${id}`, { method: "PATCH", body: JSON.stringify(patch) }),
   deleteCampaign: (id: string) => req(`/api/campaigns/${id}`, { method: "DELETE" }),
   // ── Branches (sub-units of a campaign) ──
