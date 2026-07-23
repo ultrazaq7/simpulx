@@ -184,7 +184,7 @@ export default function GeneralSettingsPage() {
   return (
     <PageBody wide>
       {ToastHost}
-      <div className="bg-card border border-border rounded-xl shadow-xs p-6 sm:p-8 mb-24 space-y-9 max-w-[1040px]">
+      <div className="bg-card border border-border rounded-xl shadow-xs p-6 sm:p-8 mb-24 space-y-9">
         <Section title={t("settings.company")}>
           <div className="flex items-center gap-4">
             <div className="w-14 h-14 rounded-full bg-primary/10 text-primary-text grid place-items-center text-lg font-bold shrink-0">

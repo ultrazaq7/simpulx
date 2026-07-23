@@ -215,7 +215,7 @@ export default function AccountPage() {
   return (
     <div className="h-full overflow-y-auto bg-background">
       {Host}
-      <div className="max-w-5xl px-8 py-8">
+      <div className="px-8 py-8">
 
 
         {/* Tabs */}
@@ -264,7 +264,7 @@ export default function AccountPage() {
             </div>
 
             {/* Single stacked column: Profile -> Password -> System preference. */}
-            <div className="max-w-2xl space-y-8">
+            <div className="space-y-8">
             <div>
             <h3 className="text-[16px] font-bold text-foreground mb-5">{tr("account.tab_profile")}</h3>
 
@@ -339,7 +339,7 @@ export default function AccountPage() {
         {/* ── PASSWORD TAB ── */}
         {tab === "password" && (
           <div>
-            <div className="max-w-2xl space-y-8">
+            <div className="space-y-8">
             {/* Password */}
             <div>
             <h3 className="text-[16px] font-bold text-foreground mb-5">{tr("settings.changePassword")}</h3>

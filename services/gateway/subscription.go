@@ -236,15 +236,21 @@ func (s *server) handleSubscriptionUsage(w http.ResponseWriter, r *http.Request)
 	// ledger llm_usage — sumber yang sama dengan tab Credits & Usage per
 	// campaign, jadi angkanya tidak pernah beda cerita. Zero-filled via
 	// generate_series x daftar fitur supaya timeline kontinu.
+	// HANYA fitur yang benar-benar memotong kredit (1 kredit = 1 balasan ke
+	// customer): nurture + followup. extract/summary/ads_copy dst adalah biaya
+	// internal, menampilkannya di sini membuat angka usage != angka kredit.
 	daily, err := s.queryMaps(r.Context(),
 		`SELECT to_char(d::date, 'YYYY-MM-DD') AS date, f.feature, COALESCE(x.count, 0) AS count
 		   FROM generate_series(
-		          (SELECT min(created_at)::date FROM llm_usage WHERE organization_id=$1),
+		          (SELECT min(created_at)::date FROM llm_usage
+		            WHERE organization_id=$1 AND feature IN ('nurture','followup')),
 		          current_date, interval '1 day') d
-		   CROSS JOIN (SELECT DISTINCT feature FROM llm_usage WHERE organization_id=$1) f
+		   CROSS JOIN (SELECT DISTINCT feature FROM llm_usage
+		                WHERE organization_id=$1 AND feature IN ('nurture','followup')) f
 		   LEFT JOIN (
 		     SELECT created_at::date AS day, feature, count(*)::int AS count
-		       FROM llm_usage WHERE organization_id=$1 GROUP BY 1, 2
+		       FROM llm_usage WHERE organization_id=$1 AND feature IN ('nurture','followup')
+		      GROUP BY 1, 2
 		   ) x ON x.day = d::date AND x.feature = f.feature
 		  ORDER BY 1, 2`, a.OrgID)
 	if err != nil {
@@ -277,7 +283,7 @@ func (s *server) handleSubscriptionUsage(w http.ResponseWriter, r *http.Request)
 	// Total per fitur, all time — kartu ringkas di atas chart.
 	byFeature, _ := s.queryMaps(r.Context(),
 		`SELECT feature, count(*)::int AS count
-		   FROM llm_usage WHERE organization_id=$1
+		   FROM llm_usage WHERE organization_id=$1 AND feature IN ('nurture','followup')
 		  GROUP BY 1 ORDER BY count(*) DESC`, a.OrgID)
 	writeJSON(w, map[string]any{"daily": daily, "by_feature": byFeature, "by_campaign": byCampaign})
 }
