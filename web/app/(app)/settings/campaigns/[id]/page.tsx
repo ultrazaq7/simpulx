@@ -1066,6 +1066,19 @@ function AdsTab({ id, notify }: { id: string; notify: (m: string, s?: "success" 
           <p className="text-[12.5px] font-semibold text-foreground mb-2">
             Ads &amp; creatives <span className="font-normal text-muted-foreground">— live from Meta</span>
           </p>
+          {/* Hierarki Meta yang bisa dibaca: campaign mana, ad set mana. Tanpa
+              ini yang tampil cuma ID angka dan orang harus buka Ads Manager
+              untuk tahu struktur apa yang barusan dibuat. */}
+          {(() => {
+            const groups = Array.from(new Set(live.ads.map((a) => `${a.campaign_name || "?"} › ${a.adset_name || "?"}`)));
+            return groups.length > 0 && groups[0] !== "? › ?" ? (
+              <div className="mb-2 flex flex-wrap gap-1.5">
+                {groups.map((g) => (
+                  <span key={g} className="inline-flex px-2 py-0.5 rounded-md bg-muted text-[11px] font-medium text-muted-foreground">{g}</span>
+                ))}
+              </div>
+            ) : null;
+          })()}
           {live.error && (
             <p className="mb-2 text-[12px] text-amber-700 break-words">
               <AlertTriangle className="inline w-3.5 h-3.5 mr-1 -mt-0.5" />Sebagian data gagal diambil dari Meta: {live.error}

@@ -351,11 +351,13 @@ func (s *server) handleCampaignAdsLive(w http.ResponseWriter, r *http.Request) {
 	}
 
 	type liveAd struct {
-		ID        string `json:"id"`
-		Name      string `json:"name"`
-		Status    string `json:"status"`
-		Thumbnail string `json:"thumbnail"`
-		Image     string `json:"image"` // full-size creative image when Meta exposes one
+		ID           string `json:"id"`
+		Name         string `json:"name"`
+		Status       string `json:"status"`
+		Thumbnail    string `json:"thumbnail"`
+		Image        string `json:"image"` // full-size creative image when Meta exposes one
+		CampaignName string `json:"campaign_name"`
+		AdsetName    string `json:"adset_name"`
 	}
 	// Non-nil ON PURPOSE: a nil slice marshals as JSON null, and the UI calling
 	// live.ads.length on null is exactly the crash this fixes — it fired for
@@ -371,7 +373,13 @@ func (s *server) handleCampaignAdsLive(w http.ResponseWriter, r *http.Request) {
 				ID              string `json:"id"`
 				Name            string `json:"name"`
 				EffectiveStatus string `json:"effective_status"`
-				Creative        *struct {
+				Campaign        *struct {
+					Name string `json:"name"`
+				} `json:"campaign"`
+				Adset *struct {
+					Name string `json:"name"`
+				} `json:"adset"`
+				Creative *struct {
 					ThumbnailURL string `json:"thumbnail_url"`
 					ImageURL     string `json:"image_url"`
 				} `json:"creative"`
@@ -397,10 +405,10 @@ func (s *server) handleCampaignAdsLive(w http.ResponseWriter, r *http.Request) {
 			}
 			return nil
 		}
-		err := fetch("name,effective_status,creative.thumbnail_width(512).thumbnail_height(512){thumbnail_url,image_url}")
+		err := fetch("name,effective_status,campaign{name},adset{name},creative.thumbnail_width(512).thumbnail_height(512){thumbnail_url,image_url}")
 		if err != nil {
 			s.log.Warn("ads live rich fetch failed, retrying plain", "campaign", cid, "err", err)
-			err = fetch("name,effective_status,creative{thumbnail_url}")
+			err = fetch("name,effective_status,campaign{name},adset{name},creative{thumbnail_url}")
 		}
 		if err != nil {
 			if firstErr == "" {
@@ -413,6 +421,12 @@ func (s *server) handleCampaignAdsLive(w http.ResponseWriter, r *http.Request) {
 				continue
 			}
 			la := liveAd{ID: ad.ID, Name: ad.Name, Status: ad.EffectiveStatus}
+			if ad.Campaign != nil {
+				la.CampaignName = ad.Campaign.Name
+			}
+			if ad.Adset != nil {
+				la.AdsetName = ad.Adset.Name
+			}
 			if ad.Creative != nil {
 				la.Thumbnail = ad.Creative.ThumbnailURL
 				la.Image = ad.Creative.ImageURL
