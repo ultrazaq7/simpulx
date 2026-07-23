@@ -1024,19 +1024,15 @@ function AdsTab({ id, notify }: { id: string; notify: (m: string, s?: "success" 
             </button>
           ) : (live.ads?.length ?? 0) === 0 && !live.error ? (
             // Meta kebaca tapi memang belum ada iklan (mis. launch belum selesai):
-            // tidak ada yang bisa di-pause/resume, jadi jangan tampilkan tombol.
+            // tidak ada yang bisa di-pause/resume, jadi tidak ada tombol.
             <span className="text-[12.5px] text-muted-foreground">No ads yet</span>
           ) : (
-            <div className="flex items-center gap-2">
-              <button disabled={busy} onClick={() => control("pause")}
-                className="inline-flex items-center gap-1.5 px-3 h-9 rounded-md border border-border text-[13px] font-semibold hover:bg-muted outline-none disabled:opacity-50">
-                <Pause className="w-3.5 h-3.5" />Pause ads
-              </button>
-              <button disabled={busy} onClick={() => control("resume")}
-                className="inline-flex items-center gap-1.5 px-3 h-9 rounded-md bg-primary text-white text-[13px] font-semibold hover:bg-primary-dark outline-none disabled:opacity-50">
-                <Play className="w-3.5 h-3.5" />Resume
-              </button>
-            </div>
+            // Status tidak kebaca (Meta error): dua tombol tebak-tebakan tidak
+            // membantu siapa pun — tawarkan retry, errornya tampil di grid.
+            <button onClick={load}
+              className="inline-flex items-center gap-1.5 px-3 h-9 rounded-md border border-border text-[12.5px] font-semibold text-muted-foreground hover:bg-muted outline-none">
+              Status unavailable &middot; Retry
+            </button>
           )
         ) : (
           // Say WHY rather than hiding the controls with no explanation.
