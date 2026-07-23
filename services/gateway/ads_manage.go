@@ -27,6 +27,7 @@ type adsTarget struct {
 	campaignID   string
 	campaignName string
 	orgID        string
+	accountID    string // ad_accounts.id — needed when launch registers the created Meta campaign
 	extAccountID string
 	token        string
 	accessMode   string
@@ -46,15 +47,15 @@ func (s *server) resolveAdsTarget(ctx context.Context, orgID, campaignID string)
 	// the mapping already names an account, and asking the user to say it twice is
 	// how the two answers drift apart.
 	err := s.pool.QueryRow(ctx,
-		`SELECT c.id::text, c.name, c.organization_id::text,
+		`SELECT c.id::text, c.name, c.organization_id::text, aa.account_id::text,
 		        aa.external_account_id, COALESCE(aa.access_token,''), aa.access_mode,
 		        COALESCE(c.meta_campaign_id,'')
 		   FROM campaigns c
 		   JOIN LATERAL (
-		     SELECT a1.external_account_id, a1.access_token, a1.access_mode, 0 AS prio
+		     SELECT a1.id AS account_id, a1.external_account_id, a1.access_token, a1.access_mode, 0 AS prio
 		       FROM ad_accounts a1 WHERE a1.id = c.managed_ad_account_id
 		     UNION ALL
-		     SELECT a2.external_account_id, a2.access_token, a2.access_mode, 1
+		     SELECT a2.id, a2.external_account_id, a2.access_token, a2.access_mode, 1
 		       FROM ad_campaign_campaigns m
 		       JOIN ad_campaigns ac ON ac.id = m.ad_campaign_id
 		       JOIN ad_accounts a2 ON a2.id = ac.ad_account_id
@@ -62,7 +63,7 @@ func (s *server) resolveAdsTarget(ctx context.Context, orgID, campaignID string)
 		      ORDER BY prio LIMIT 1
 		   ) aa ON true
 		  WHERE c.id = $1::uuid AND c.organization_id = $2`,
-		campaignID, orgID).Scan(&t.campaignID, &t.campaignName, &t.orgID,
+		campaignID, orgID).Scan(&t.campaignID, &t.campaignName, &t.orgID, &t.accountID,
 		&t.extAccountID, &encToken, &t.accessMode, &t.metaCampaign)
 	if err != nil {
 		return t, "this campaign has no ad account connected for ads management", http.StatusConflict

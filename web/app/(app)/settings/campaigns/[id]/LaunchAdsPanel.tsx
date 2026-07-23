@@ -8,7 +8,7 @@
 // campaign gets created half-formed, or fails at Meta with a code nobody can
 // read. Each blocker names what to fix, so the panel is a checklist, not a wall.
 import { useEffect, useRef, useState } from "react";
-import { Loader2, MapPin, Sparkles, Upload, Trash2, Check, AlertTriangle, Users, Image as ImageIcon } from "lucide-react";
+import { Loader2, MapPin, Sparkles, Upload, Trash2, Check, AlertTriangle, Users, Image as ImageIcon, Flag, Rocket } from "lucide-react";
 import { api } from "@/lib/api";
 import type { AdsPreview, GeoCityResult, AdCopyRow, CreativeRow, GeoCandidate } from "@/lib/types";
 
@@ -31,7 +31,8 @@ export default function LaunchAdsPanel({ id, notify }: { id: string; notify: (m:
       <CopySection id={id} notify={notify} onChange={reload} />
       <AudienceSection id={id} notify={notify} />
       <CreativeSection id={id} notify={notify} onChange={reload} />
-      <LaunchBar preview={preview} onRefresh={reload} />
+      <PageSection id={id} preview={preview} notify={notify} onChange={reload} />
+      <LaunchBar id={id} preview={preview} notify={notify} onRefresh={reload} />
     </div>
   );
 }
@@ -282,18 +283,117 @@ function CreativeSection({ id, notify, onChange }: { id: string; notify: (m: str
   );
 }
 
-function LaunchBar({ preview, onRefresh }: { preview: AdsPreview; onRefresh: () => void }) {
+// The Facebook Page a CTWA ad runs "as". Loaded on demand: listing Pages is a
+// live Meta call, so it only happens when the user opens the picker.
+function PageSection({ id, preview, notify, onChange }: {
+  id: string; preview: AdsPreview; notify: (m: string, s?: "success" | "error") => void; onChange: () => void;
+}) {
+  const [pages, setPages] = useState<{ id: string; name: string }[] | null>(null);
+  const [busy, setBusy] = useState(false);
+  const chosen = preview.page?.id ? preview.page : null;
+
+  async function load() {
+    setBusy(true);
+    try { const r = await api.listAdPages(id); setPages(r.pages); }
+    catch (e) { notify(String(e), "error"); }
+    finally { setBusy(false); }
+  }
+  async function choose(p: { id: string; name: string }) {
+    try { await api.chooseAdPage(id, { page_id: p.id, page_name: p.name }); onChange(); notify("Page set"); }
+    catch (e) { notify(String(e), "error"); }
+  }
+
+  return (
+    <Section icon={Flag} title="Facebook Page">
+      {chosen && (
+        <p className="text-[13px] text-foreground mb-2 flex items-center gap-2">
+          <Check className="w-3.5 h-3.5 text-primary" />
+          <span className="font-medium">{chosen.name || chosen.id}</span>
+          <span className="text-muted-foreground">— the ad runs as this Page. Its WhatsApp must be connected in Meta.</span>
+        </p>
+      )}
+      {!pages ? (
+        <button onClick={load} disabled={busy}
+          className="inline-flex items-center gap-1.5 px-3 h-9 rounded-md border border-border text-[13px] font-semibold hover:bg-muted outline-none disabled:opacity-50">
+          {busy ? <Loader2 className="w-3.5 h-3.5 animate-spin" /> : <Flag className="w-3.5 h-3.5" />}
+          {chosen ? "Change Page" : "Pick a Page"}
+        </button>
+      ) : pages.length === 0 ? (
+        <p className="text-[13px] text-muted-foreground">The connected token cannot see any Page. Grant it Page access in Meta Business, then reconnect.</p>
+      ) : (
+        <div className="flex flex-wrap gap-1.5">
+          {pages.map((p) => (
+            <button key={p.id} onClick={() => choose(p)}
+              className={`px-2.5 h-7 rounded-full border text-[12px] outline-none ${chosen?.id === p.id
+                ? "border-primary text-primary font-semibold"
+                : "border-border hover:border-primary hover:text-primary"}`}>
+              {p.name}
+            </button>
+          ))}
+        </div>
+      )}
+    </Section>
+  );
+}
+
+function LaunchBar({ id, preview, notify, onRefresh }: {
+  id: string; preview: AdsPreview; notify: (m: string, s?: "success" | "error") => void; onRefresh: () => void;
+}) {
+  const [busy, setBusy] = useState(false);
+  const [confirming, setConfirming] = useState(false);
+
+  async function launch() {
+    setConfirming(false); setBusy(true);
+    try {
+      const r = await api.launchAds(id);
+      const failed = r.ads.filter((x) => x.error);
+      notify(failed.length
+        ? `Created paused with ${r.created} ad(s); ${failed.length} creative(s) failed: ${failed[0].error}`
+        : `Created in Meta, paused: campaign ${r.meta_campaign_id}, ${r.created} ad(s). Review & activate in Ads Manager.`,
+        failed.length ? "error" : "success");
+      onRefresh();
+    } catch (e) { notify(String(e), "error"); }
+    finally { setBusy(false); }
+  }
+
+  if (preview.launched) {
+    return (
+      <div className="rounded-lg border border-primary/30 bg-primary/[0.05] p-3 flex items-start gap-2.5">
+        <Rocket className="w-4 h-4 text-primary mt-0.5 shrink-0" />
+        <div className="text-[13px] text-foreground">
+          <p className="font-semibold">Created in Meta — paused, waiting for review in Ads Manager.</p>
+          <p className="text-muted-foreground tabular-nums">
+            Campaign {preview.meta_ids?.campaign} &middot; Ad set {preview.meta_ids?.adset}
+          </p>
+        </div>
+      </div>
+    );
+  }
+
   return (
     <div className="flex items-center gap-3 pt-1">
       <button onClick={onRefresh} className="text-[12.5px] text-muted-foreground hover:text-foreground outline-none">Refresh</button>
       <div className="flex-1" />
-      {/* Create is a later pass. The button is present but disabled so the flow
-          reads as complete and it is obvious where launch will live, without
-          pretending an action exists that does not yet. */}
-      <button disabled title={preview.can_launch ? "Coming soon" : "Resolve the items above first"}
-        className="inline-flex items-center gap-1.5 px-4 h-10 rounded-md bg-primary text-white text-[13px] font-semibold opacity-50 cursor-not-allowed outline-none">
-        Launch ads (creates paused)
-      </button>
+      {/* Two-step confirm instead of a modal: the second click states exactly what
+          will exist afterwards. Everything is created PAUSED, so the worst case
+          of a mis-click is a draft in Ads Manager, never spend. */}
+      {confirming ? (
+        <div className="flex items-center gap-2">
+          <span className="text-[12.5px] text-muted-foreground">Creates campaign + ad set + {preview.creatives.length} ad(s) in Meta, all paused.</span>
+          <button onClick={launch} disabled={busy}
+            className="inline-flex items-center gap-1.5 px-4 h-10 rounded-md bg-primary text-white text-[13px] font-semibold hover:bg-primary-dark outline-none disabled:opacity-50">
+            {busy ? <Loader2 className="w-4 h-4 animate-spin" /> : <Rocket className="w-4 h-4" />}Confirm
+          </button>
+          <button onClick={() => setConfirming(false)} className="text-[12.5px] text-muted-foreground hover:text-foreground outline-none">Cancel</button>
+        </div>
+      ) : (
+        <button onClick={() => setConfirming(true)} disabled={!preview.can_launch || busy}
+          title={preview.can_launch ? "" : "Resolve the items above first"}
+          className="inline-flex items-center gap-1.5 px-4 h-10 rounded-md bg-primary text-white text-[13px] font-semibold hover:bg-primary-dark outline-none disabled:opacity-50 disabled:cursor-not-allowed">
+          {busy ? <Loader2 className="w-4 h-4 animate-spin" /> : <Rocket className="w-4 h-4" />}
+          Launch ads (creates paused)
+        </button>
+      )}
     </div>
   );
 }

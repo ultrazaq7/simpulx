@@ -563,6 +563,13 @@ export const api = {
     req(`/api/campaigns/${id}/ads/copy/${copyId}/approve`, { method: "POST" }),
   suggestAdAudience: (id: string) =>
     req<{ interests: { name: string; why: string }[] }>(`/api/campaigns/${id}/ads/suggest-audience`, { method: "POST" }),
+  listAdPages: (id: string) =>
+    req<{ pages: { id: string; name: string }[]; chosen: { id: string; name: string } }>(
+      `/api/campaigns/${id}/ads/pages`),
+  chooseAdPage: (id: string, body: { page_id: string; page_name?: string }) =>
+    req(`/api/campaigns/${id}/ads/page`, { method: "POST", body: JSON.stringify(body) }),
+  launchAds: (id: string) =>
+    req<import("./types").AdLaunchResult>(`/api/campaigns/${id}/ads/launch`, { method: "POST" }),
   listCreatives: (id: string) =>
     req<import("./types").CreativeRow[]>(`/api/campaigns/${id}/creatives`),
   deleteCreative: (id: string, creativeId: string) =>

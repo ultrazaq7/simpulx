@@ -414,19 +414,23 @@ func (s *server) handleCampaignAdsPreview(w http.ResponseWriter, r *http.Request
 	ctx := r.Context()
 
 	var (
-		name, adsStatus          string
-		monthlyBudget, targetCPL *float64
-		cities                   []string
-		ageMin, ageMax           int
-		gender                   string
-		advantage                bool
-		accountName              string
-		accessMode               *string
+		name, adsStatus             string
+		monthlyBudget, targetCPL    *float64
+		cities                      []string
+		ageMin, ageMax              int
+		gender                      string
+		advantage                   bool
+		accountName                 string
+		accessMode                  *string
+		pageID, pageName            string
+		metaCampaignID, metaAdsetID string
 	)
 	err := s.pool.QueryRow(ctx,
 		`SELECT c.name, COALESCE(c.ads_status,''), c.monthly_budget, c.target_cpl,
 		        COALESCE(c.covered_cities,'{}'), c.target_age_min, c.target_age_max,
 		        c.target_gender, c.advantage_audience_enabled,
+		        COALESCE(c.meta_page_id,''), COALESCE(c.meta_page_name,''),
+		        COALESCE(c.meta_campaign_id,''), COALESCE(c.meta_adset_id,''),
 		        COALESCE(aa.name,''), aa.access_mode
 		   FROM campaigns c
 		   LEFT JOIN LATERAL (
@@ -442,7 +446,8 @@ func (s *server) handleCampaignAdsPreview(w http.ResponseWriter, r *http.Request
 		   ) aa ON true
 		  WHERE c.id=$1::uuid AND c.organization_id=$2`,
 		campaignID, a.OrgID).Scan(&name, &adsStatus, &monthlyBudget, &targetCPL,
-		&cities, &ageMin, &ageMax, &gender, &advantage, &accountName, &accessMode)
+		&cities, &ageMin, &ageMax, &gender, &advantage,
+		&pageID, &pageName, &metaCampaignID, &metaAdsetID, &accountName, &accessMode)
 	if err != nil {
 		http.Error(w, "not found", http.StatusNotFound)
 		return
@@ -491,6 +496,12 @@ func (s *server) handleCampaignAdsPreview(w http.ResponseWriter, r *http.Request
 		blockers = append(blockers, "No creative uploaded. Add at least one product photo or video.")
 	}
 
+	// A CTWA ad runs "as" a Facebook Page; without one there is nothing to
+	// attach the WhatsApp destination to. Keep wording in sync with launch.
+	if pageID == "" {
+		blockers = append(blockers, "No Facebook Page chosen. Pick the Page the ad runs as (it must have WhatsApp connected).")
+	}
+
 	daily := 0.0
 	if monthlyBudget != nil {
 		daily = *monthlyBudget / 30.0
@@ -504,6 +515,9 @@ func (s *server) handleCampaignAdsPreview(w http.ResponseWriter, r *http.Request
 		"audience":   map[string]any{"age_min": ageMin, "age_max": ageMax, "gender": gender, "advantage_plus": advantage},
 		"copy":       copyRows,
 		"creatives":  creativeRows,
+		"page":       map[string]any{"id": pageID, "name": pageName},
+		"launched":   metaAdsetID != "",
+		"meta_ids":   map[string]any{"campaign": metaCampaignID, "adset": metaAdsetID},
 		"blockers":   blockers,
 		"can_launch": len(blockers) == 0,
 		// Stated rather than implied: a campaign is always created stopped, so

@@ -893,9 +893,19 @@ export interface AdsPreview {
   audience: { age_min: number; age_max: number; gender: string; advantage_plus: boolean };
   copy: { id: string; primary_texts: string[]; headlines: string[]; descriptions: string[] }[];
   creatives: { id: string; file_url: string; media_type: string; file_name?: string; on_meta: boolean }[];
+  page: { id: string; name: string };
+  launched: boolean;
+  meta_ids: { campaign: string; adset: string };
   blockers: string[];
   can_launch: boolean;
   creates_paused: boolean;
+}
+export interface AdLaunchResult {
+  meta_campaign_id: string;
+  meta_adset_id: string;
+  ads: { creative_id: string; file_name: string; meta_ad_id?: string; error?: string }[];
+  created: number;
+  status: string;
 }
 
 export interface PlatformTransaction {
