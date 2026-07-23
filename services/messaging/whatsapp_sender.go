@@ -101,6 +101,27 @@ func (s *sender) sendTemplateParams(ctx context.Context, t sendTarget, tpl *even
 	})
 }
 
+// sendLocation mengirim pin lokasi (type == "location") ke WhatsApp Cloud API.
+// name/address opsional; keduanya ditampilkan di kartu lokasi WhatsApp.
+func (s *sender) sendLocation(ctx context.Context, t sendTarget, lat, lng float64, name, address string) (string, error) {
+	loc := map[string]any{
+		"latitude":  lat,
+		"longitude": lng,
+	}
+	if name != "" {
+		loc["name"] = name
+	}
+	if address != "" {
+		loc["address"] = address
+	}
+	return s.post(ctx, t, map[string]any{
+		"messaging_product": "whatsapp",
+		"to":                t.ContactPhone,
+		"type":              "location",
+		"location":          loc,
+	})
+}
+
 // sendMedia mengirim pesan media (image/audio/video/document) via link.
 // WhatsApp Cloud API menerima media dengan URL publik (atau media id upload).
 func (s *sender) sendMedia(ctx context.Context, t sendTarget, msgType, mediaURL, caption string) (string, error) {

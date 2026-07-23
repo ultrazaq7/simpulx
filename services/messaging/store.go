@@ -278,7 +278,7 @@ func (s *store) insertInbound(ctx context.Context, orgID, convID, msgType, body,
 }
 
 // insertOutbound menyimpan pesan keluar (bot/agent).
-func (s *store) insertOutbound(ctx context.Context, orgID, convID, senderType, senderID, msgType, body, mediaURL, externalID, status string, previewText string) (string, error) {
+func (s *store) insertOutbound(ctx context.Context, orgID, convID, senderType, senderID, msgType, body, mediaURL, externalID, status string, previewText string, metadataJSON string) (string, error) {
 	tx, err := s.pool.Begin(ctx)
 	if err != nil {
 		return "", err
@@ -302,10 +302,10 @@ func (s *store) insertOutbound(ctx context.Context, orgID, convID, senderType, s
 	}
 
 	err = tx.QueryRow(ctx,
-		`INSERT INTO messages (organization_id, conversation_id, direction, sender_type, sender_id, type, body, media_url, external_id, status)
-		 VALUES ($1, $2, 'outbound', $3, $4, $5, $6, NULLIF($7,''), NULLIF($8,''), $9)
+		`INSERT INTO messages (organization_id, conversation_id, direction, sender_type, sender_id, type, body, media_url, external_id, status, metadata)
+		 VALUES ($1, $2, 'outbound', $3, $4, $5, $6, NULLIF($7,''), NULLIF($8,''), $9, NULLIF($10,'')::jsonb)
 		 RETURNING id`,
-		orgID, convID, senderType, sid, msgType, body, mediaURL, externalID, status,
+		orgID, convID, senderType, sid, msgType, body, mediaURL, externalID, status, metadataJSON,
 	).Scan(&msgID)
 
 	if err != nil {
@@ -345,6 +345,11 @@ func (s *store) insertOutbound(ctx context.Context, orgID, convID, senderType, s
 		"media_url":         mediaURL,
 		"preview":           previewText,
 		"assigned_agent_id": assignedAgentID,
+	}
+	// Carry the rich payload (e.g. a shared location pin) so the realtime-appended
+	// bubble renders the same map card as a reloaded thread, no refetch.
+	if metadataJSON != "" {
+		payload["metadata"] = json.RawMessage(metadataJSON)
 	}
 	payloadBytes, _ := json.Marshal(payload)
 	_, err = tx.Exec(ctx,

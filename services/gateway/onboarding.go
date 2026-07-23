@@ -54,18 +54,21 @@ type topupPackage struct {
 	Label     string
 	Credits   int
 	PerCredit float64 // floor Rp 350 per the pricing decision; cheaper only with volume
+	// Validity window in months from approval. Credits do NOT roll over, so a
+	// bigger pack buys a longer runway: Lite 1mo, Plus 3mo, Max 6mo.
+	ValidityMonths int
 }
 
 var topupPackages = map[string]topupPackage{
-	"lite": {Label: "Lite", Credits: 500, PerCredit: 400},
-	"plus": {Label: "Plus", Credits: 1000, PerCredit: 375},
-	"max":  {Label: "Max", Credits: 2000, PerCredit: 350},
+	"lite": {Label: "Lite", Credits: 500, PerCredit: 400, ValidityMonths: 1},
+	"plus": {Label: "Plus", Credits: 1000, PerCredit: 375, ValidityMonths: 3},
+	"max":  {Label: "Max", Credits: 2000, PerCredit: 350, ValidityMonths: 6},
 	// Legacy keys from before the 2026-07 rename; old pending rows still
 	// approve. NOTE "pro" here is the old TOPUP pack, distinct from the
 	// signup tier "pro" (different map, rows carry type signup|topup).
-	"booster":    {Label: "Lite", Credits: 500, PerCredit: 400},
-	"pro":        {Label: "Plus", Credits: 1000, PerCredit: 375},
-	"enterprise": {Label: "Max", Credits: 2000, PerCredit: 350},
+	"booster":    {Label: "Lite", Credits: 500, PerCredit: 400, ValidityMonths: 1},
+	"pro":        {Label: "Plus", Credits: 1000, PerCredit: 375, ValidityMonths: 3},
+	"enterprise": {Label: "Max", Credits: 2000, PerCredit: 350, ValidityMonths: 6},
 }
 
 // GET /api/public/org-search?q= - typeahead for the top-up form, so the
@@ -288,7 +291,7 @@ func (s *server) handleListTransactions(w http.ResponseWriter, r *http.Request) 
 		        t.package_name, t.seats, t.credits, t.amount::float8 AS amount,
 		        t.organization_id::text AS organization_id, o.name AS org_linked_name,
 		        t.note, t.decision_note, t.invoice_no, t.created_at, t.decided_at,
-		        t.payment_proof_url, t.proof_uploaded_at, t.billing
+		        t.payment_proof_url, t.proof_uploaded_at, t.billing, t.expiry_date
 		   FROM platform_transactions t
 		   LEFT JOIN organizations o ON o.id = t.organization_id
 		  ORDER BY (t.status='pending') DESC, t.created_at DESC
@@ -347,6 +350,10 @@ func (s *server) handleApproveTransaction(w http.ResponseWriter, r *http.Request
 	}
 
 	var orgID string
+	// Expiry recorded on the transaction row (credits do NOT roll over): a signup
+	// Bundle uses the subscription renewal date; an AI Kredit top-up uses the
+	// pack's validity window. Empty = no expiry (shouldn't happen for these types).
+	var expiry string
 	switch typ {
 	case "signup":
 		pkg := signupPackages[pkgName]
@@ -363,6 +370,7 @@ func (s *server) handleApproveTransaction(w http.ResponseWriter, r *http.Request
 			}
 			renewal = time.Now().AddDate(0, months, 0).Format("2006-01-02")
 		}
+		expiry = renewal
 		newOrgID, _, err := s.createOrganization(r.Context(), createOrgInput{
 			Name: orgName, Industry: industry,
 			OwnerName: contactName, OwnerEmail: contactEmail,
@@ -393,14 +401,21 @@ func (s *server) handleApproveTransaction(w http.ResponseWriter, r *http.Request
 			http.Error(w, "that organisation has no subscription row to credit", http.StatusConflict)
 			return
 		}
+		// Top-up validity: Lite +1mo, Plus +3mo, Max +6mo from approval.
+		months := topupPackages[pkgName].ValidityMonths
+		if months <= 0 {
+			months = 1
+		}
+		expiry = time.Now().AddDate(0, months, 0).Format("2006-01-02")
 	}
 
 	if _, err := s.pool.Exec(r.Context(),
 		`UPDATE platform_transactions
 		    SET status='approved', decided_by=$2::uuid, decided_at=now(),
 		        decision_note=NULLIF($3,''), organization_id=$4::uuid,
+		        expiry_date=NULLIF($5,'')::date,
 		        invoice_no = CASE WHEN amount > 0 THEN nextval('platform_invoice_seq') ELSE NULL END
-		  WHERE id=$1::uuid`, id, a.UserID, b.Note, orgID); err != nil {
+		  WHERE id=$1::uuid`, id, a.UserID, b.Note, orgID, expiry); err != nil {
 		// The side effect already happened; say so plainly instead of implying a
 		// clean failure. This row can be re-approved manually.
 		http.Error(w, "the change was applied but recording the approval failed: "+err.Error(), http.StatusInternalServerError)

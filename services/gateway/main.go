@@ -193,6 +193,10 @@ func main() {
 	mux.HandleFunc("GET /api/conversations/{id}/messages/search", s.requireAuth(s.handleSearchMessages))
 	mux.HandleFunc("GET /api/link-preview", s.requireAuth(s.handleLinkPreview))
 	mux.HandleFunc("GET /api/geo/resolve", s.requireAuth(s.gate("manage_campaigns", s.handleResolveMapsLink)))
+	// Send-location picker: nearby places + place search (Google Places proxy).
+	// Any authenticated agent can share a location, so no extra capability gate.
+	mux.HandleFunc("GET /api/places/nearby", s.requireAuth(s.handlePlacesNearby))
+	mux.HandleFunc("GET /api/places/search", s.requireAuth(s.handlePlacesSearch))
 	mux.HandleFunc("PATCH /api/conversations/{id}", s.requireAuth(s.handlePatchConversation))
 	mux.HandleFunc("POST /api/conversations/{id}/calls", s.requireAuth(s.handleTrackCall))
 	mux.HandleFunc("POST /api/calls/request-permission", s.requireAuth(s.handleRequestCallPermission))
@@ -433,6 +437,7 @@ func main() {
 	mux.HandleFunc("POST /api/public/register", s.handlePublicRegister)
 	mux.HandleFunc("POST /api/public/register/{id}/proof", s.handleRegisterProof)
 	mux.HandleFunc("GET /api/public/payment-info", s.handlePaymentInfo)
+	mux.HandleFunc("GET /api/platform/revenue", s.requireSuperAdmin(s.handleRevenue))
 	mux.HandleFunc("GET /api/platform/transactions", s.requireSuperAdmin(s.handleListTransactions))
 	mux.HandleFunc("POST /api/platform/transactions/{id}/approve", s.requireSuperAdmin(s.handleApproveTransaction))
 	mux.HandleFunc("POST /api/platform/transactions/{id}/reject", s.requireSuperAdmin(s.handleRejectTransaction))
@@ -475,6 +480,7 @@ func main() {
 	s.backfillAdTokenEncryption(ctx) // encrypt any plaintext tokens still at rest
 	s.startAdSyncCron(ctx)           // daily ad metrics refresh (Meta/TikTok/Google)
 	s.startCreditAlertCron(ctx)      // low-credit email alerts to org owners
+	s.startCreditRefillCron(ctx)     // monthly base-credit refill (non-rollover floor)
 	s.startCapiDrainCron(ctx)        // send CTWA funnel conversions back to Meta CAPI
 	s.startAdsMonitorCron(ctx)       // rule-based ads monitoring + alerts (managed campaigns)
 

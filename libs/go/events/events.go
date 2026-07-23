@@ -187,6 +187,13 @@ type MessageOutbound struct {
 	// substitution). Used to (re)open a conversation with a contact. Type should
 	// be "template"; Body carries a rendered preview for persistence/inbox.
 	Template *TemplateOutbound `json:"template,omitempty"`
+	// Location: set when Type == "location" (agent shares a pin from the composer).
+	// Sent to WhatsApp as a location message and stored in the message metadata so
+	// the inbox renders the same map card as an inbound shared location.
+	Latitude        float64 `json:"latitude,omitempty"`
+	Longitude       float64 `json:"longitude,omitempty"`
+	LocationName    string  `json:"location_name,omitempty"`
+	LocationAddress string  `json:"location_address,omitempty"`
 }
 
 // ── Template (WhatsApp HSM) outbound payload ────────────────

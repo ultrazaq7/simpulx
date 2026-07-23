@@ -548,8 +548,13 @@ func (s *server) createOrganization(ctx context.Context, in createOrgInput) (org
 		return "", "", fmt.Errorf("email %s is already in use", in.OwnerEmail)
 	}
 
-	quotas := fmt.Sprintf(`{"users":%d,"simpuler_credits":%d,"custom_fields":%d}`,
-		in.Users, in.SimpulerCredits, in.CustomFields)
+	// base_credits = the monthly base allowance (the signup grant). Credits do NOT
+	// roll over, so the monthly refill cron tops the org back up to this floor each
+	// month for active paid subs — an annual (prepaid) org gets its base every
+	// month automatically instead of a manual re-credit. Top-ups sit ON TOP and
+	// keep remaining above the floor until they run out (then the floor kicks in).
+	quotas := fmt.Sprintf(`{"users":%d,"simpuler_credits":%d,"custom_fields":%d,"base_credits":%d}`,
+		in.Users, in.SimpulerCredits, in.CustomFields, in.SimpulerCredits)
 
 	base := slugify(in.Name)
 	slug := base

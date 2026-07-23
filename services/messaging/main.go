@@ -308,15 +308,32 @@ func (a *app) onOutbound(env events.Envelope) error {
 		externalID, err = a.snd.sendInteractive(ctx, target, e.Interactive)
 	case e.MediaURL != "" && (e.Type == "image" || e.Type == "audio" || e.Type == "video" || e.Type == "document"):
 		externalID, err = a.snd.sendMedia(ctx, target, e.Type, e.MediaURL, e.Body)
+	case e.Type == "location":
+		externalID, err = a.snd.sendLocation(ctx, target, e.Latitude, e.Longitude, e.LocationName, e.LocationAddress)
 	default:
 		externalID, err = a.snd.sendText(ctx, target, e.Body)
+	}
+	// A shared location is stored in the message metadata so the inbox renders the
+	// same map card it shows for an inbound pin (see buildMessageMeta / _LocationCard).
+	var metaJSON string
+	if e.Type == "location" {
+		if b, mErr := json.Marshal(map[string]any{
+			"location": map[string]any{
+				"latitude":  e.Latitude,
+				"longitude": e.Longitude,
+				"name":      e.LocationName,
+				"address":   e.LocationAddress,
+			},
+		}); mErr == nil {
+			metaJSON = string(b)
+		}
 	}
 	status := "sent"
 	if err != nil {
 		a.log.Error("outbound send failed", "channel", target.ChannelType, "err", err)
 		status = "failed"
 	}
-	msgID, err2 := a.st.insertOutbound(ctx, env.OrgID, convID, e.SenderType, e.SenderID, e.Type, e.Body, e.MediaURL, externalID, status, mediaPreview(e.Type, e.Body))
+	msgID, err2 := a.st.insertOutbound(ctx, env.OrgID, convID, e.SenderType, e.SenderID, e.Type, e.Body, e.MediaURL, externalID, status, mediaPreview(e.Type, e.Body), metaJSON)
 	if err2 != nil {
 		if err2.Error() == "duplicate message" {
 			a.log.Info("duplicate outbound message dropped", "ext", externalID)

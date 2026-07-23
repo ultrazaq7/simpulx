@@ -655,12 +655,23 @@ func (s *server) handleSendMessage(w http.ResponseWriter, r *http.Request) {
 	a, _ := authFrom(r.Context())
 	convID := r.PathValue("id")
 	var body struct {
-		Body     string `json:"body"`
-		Type     string `json:"type"`
-		MediaURL string `json:"media_url"`
+		Body      string  `json:"body"`
+		Type      string  `json:"type"`
+		MediaURL  string  `json:"media_url"`
+		Latitude  float64 `json:"latitude"`
+		Longitude float64 `json:"longitude"`
+		Name      string  `json:"name"`
+		Address   string  `json:"address"`
 	}
-	if err := json.NewDecoder(r.Body).Decode(&body); err != nil || (body.Body == "" && body.MediaURL == "") {
-		http.Error(w, "body or media_url required", http.StatusBadRequest)
+	if err := json.NewDecoder(r.Body).Decode(&body); err != nil {
+		http.Error(w, "invalid body", http.StatusBadRequest)
+		return
+	}
+	isLocation := body.Type == "location"
+	// A location pin needs coordinates, not a body/media_url.
+	if (isLocation && body.Latitude == 0 && body.Longitude == 0) ||
+		(!isLocation && body.Body == "" && body.MediaURL == "") {
+		http.Error(w, "body, media_url, or location required", http.StatusBadRequest)
 		return
 	}
 	msgType := body.Type
@@ -671,12 +682,16 @@ func (s *server) handleSendMessage(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	err := s.bus.Publish(events.SubjectMessageOutbound, a.OrgID, events.MessageOutbound{
-		ConversationID: convID,
-		SenderType:     "agent",
-		SenderID:       a.UserID,
-		Type:           msgType,
-		Body:           body.Body,
-		MediaURL:       body.MediaURL,
+		ConversationID:  convID,
+		SenderType:      "agent",
+		SenderID:        a.UserID,
+		Type:            msgType,
+		Body:            body.Body,
+		MediaURL:        body.MediaURL,
+		Latitude:        body.Latitude,
+		Longitude:       body.Longitude,
+		LocationName:    body.Name,
+		LocationAddress: body.Address,
 	})
 	if err != nil {
 		http.Error(w, err.Error(), http.StatusInternalServerError)
@@ -2148,7 +2163,7 @@ const contactSelectSQL = `SELECT ct.id::text AS id, ct.full_name, ct.phone, ct.e
 		        att.referral_source AS source_id, att.referral_url AS source_url
 		   FROM contacts ct
 		   LEFT JOIN LATERAL (
-		     SELECT id AS conversation_id, interest_level, stage_id, last_message_at, ai_reason AS ai_summary,
+		     SELECT id AS conversation_id, interest_level, stage_id, last_message_at, lead_summary AS ai_summary,
 		            lead_score, lost_reason,
 		            assigned_agent_id, campaign_id, channel_id, branch_id, metadata
 		       FROM conversations WHERE contact_id=ct.id
@@ -2652,7 +2667,7 @@ const leadSelectSQL = `SELECT cv.id::text AS conversation_id, ct.id::text AS id,
 		        ct.updated_at, ct.blacklisted, ct.web_api_source_id::text AS web_api_source_id,
 		        COALESCE(ct.tags, '{}') AS tags, COALESCE(ct.attributes, '{}'::jsonb) AS attributes,
 		        cv.interest_level,
-		        cv.stage_id::text AS stage_id, ls.name AS stage_name, cv.last_message_at, cv.ai_reason AS ai_summary,
+		        cv.stage_id::text AS stage_id, ls.name AS stage_name, cv.last_message_at, cv.lead_summary AS ai_summary,
 		        cv.lead_score, cv.lost_reason,
 		        cv.assigned_agent_id::text AS assigned_agent_id, lu.full_name AS agent_name,
 		        cv.campaign_id::text AS campaign_id, lcmp.name AS campaign_name,
