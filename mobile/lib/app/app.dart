@@ -134,6 +134,11 @@ class _SimpulxAppState extends ConsumerState<SimpulxApp>
       // restores the live stream for subsequent events.
       ref.read(conversationListProvider.notifier).refresh();
       ref.read(realtimeClientProvider).reconnectNow();
+      // Tell every OTHER alive screen (open thread, dashboard, contacts, contact
+      // details) to refetch now too, in parallel with the reconnect, so the whole
+      // app is current the instant it opens — not just the inbox — instead of each
+      // screen waiting on the WS handshake to catch up.
+      ref.read(appResumeTickProvider.notifier).bump();
       auth.setPresence(true);
       // Retry any notification reply that couldn't be sent earlier (e.g. it was
       // typed while the app was launching and not yet authenticated).

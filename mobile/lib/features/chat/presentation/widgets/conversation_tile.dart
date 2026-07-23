@@ -6,6 +6,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import '../../../../app/theme/app_colors.dart';
 import '../../../../core/i18n/i18n.dart';
 import '../../../../core/session/session_controller.dart';
+import '../../../../core/utils/channel_meta.dart';
 import '../../../../core/utils/time_format.dart';
 import '../../domain/entities/conversation.dart';
 
@@ -217,18 +218,13 @@ class _Avatar extends StatelessWidget {
               ),
             ),
           ),
+          // Channel logo (WhatsApp / Messenger / Instagram / ...) pinned to the
+          // avatar corner, mirroring the web inbox indicator instead of a plain
+          // colour dot.
           Positioned(
-            right: 0,
-            bottom: 0,
-            child: Container(
-              width: 13,
-              height: 13,
-              decoration: BoxDecoration(
-                color: AppColors.forChannel(channel),
-                shape: BoxShape.circle,
-                border: Border.all(color: Colors.white, width: 2),
-              ),
-            ),
+            right: -1,
+            bottom: -1,
+            child: ChannelCornerBadge(channel: channel, size: 18),
           ),
         ],
       ),

@@ -74,6 +74,10 @@ dependencies:
   flutter_callkit_incoming: ^2.0.4  # iOS CallKit + PushKit VoIP (full-screen incoming calls)
 
   path: any
+  google_maps_flutter: ^2.18.0
+  geolocator: ^14.0.2
+  geocoding: ^5.0.0
+  font_awesome_flutter: ^11.0.0
 dev_dependencies:
   flutter_test:
     sdk: flutter

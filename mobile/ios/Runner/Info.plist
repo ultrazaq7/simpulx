@@ -36,6 +36,8 @@
 	<string>Simpulx uses the microphone for voice messages and calls.</string>
 	<key>NSPhotoLibraryUsageDescription</key>
 	<string>Simpulx needs photo access to attach images to your chats.</string>
+	<key>NSLocationWhenInUseUsageDescription</key>
+	<string>Simpulx uses your location to share your current position with customers.</string>
 	<key>UIApplicationSceneManifest</key>
 	<dict>
 		<key>UIApplicationSupportsMultipleScenes</key>

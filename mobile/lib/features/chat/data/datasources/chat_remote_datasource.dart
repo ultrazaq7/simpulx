@@ -10,6 +10,7 @@ import '../../domain/entities/conversation.dart';
 import '../../domain/entities/lead_lookups.dart';
 import '../../domain/entities/message.dart';
 import '../../domain/entities/messages_page.dart';
+import '../../domain/entities/place_result.dart';
 import '../../domain/entities/uploaded_media.dart';
 import '../models/conversation_model.dart';
 import '../models/message_model.dart';
@@ -22,13 +23,18 @@ class ChatRemoteDataSource {
   /// defaults to 500 (was a silent hard cap of 100 that hid older chats once an
   /// org grew); ask for the full 1000 cap so a busy inbox loads whole. The list
   /// page windows the render, so a longer list stays cheap.
-  Future<List<Conversation>> listConversations({String? status, String? q}) async {
+  Future<List<Conversation>> listConversations(
+      {String? status, String? q, String? contact}) async {
     try {
       final res = await _dio.get(
         ApiEndpoints.conversations,
         queryParameters: {
           if (status != null && status.isNotEmpty) 'status': status,
           if (q != null && q.isNotEmpty) 'q': q,
+          // Server-scoped to one contact's threads (all campaigns), mirroring
+          // the web contact-details fetch, so a lead in >1 campaign shows every
+          // thread instead of just the latest.
+          if (contact != null && contact.isNotEmpty) 'contact': contact,
           'limit': 1000,
         },
       );
@@ -129,6 +135,59 @@ class ChatRemoteDataSource {
           if (mediaUrl != null && mediaUrl.isNotEmpty) 'media_url': mediaUrl,
         },
       );
+    } on DioException catch (e) {
+      throw ErrorMapper.fromDio(e);
+    }
+  }
+
+  /// POST a shared location (type=location). The persisted message arrives over
+  /// the WebSocket and renders the same map card as an inbound pin.
+  Future<void> sendLocation(
+    String conversationId, {
+    required double latitude,
+    required double longitude,
+    String? name,
+    String? address,
+  }) async {
+    try {
+      await _dio.post(
+        ApiEndpoints.messages(conversationId),
+        data: {
+          'type': 'location',
+          'latitude': latitude,
+          'longitude': longitude,
+          if (name != null && name.isNotEmpty) 'name': name,
+          if (address != null && address.isNotEmpty) 'address': address,
+        },
+      );
+    } on DioException catch (e) {
+      throw ErrorMapper.fromDio(e);
+    }
+  }
+
+  /// Nearby places for the send-location sheet (WhatsApp-style list).
+  Future<List<PlaceResult>> nearbyPlaces(double lat, double lng) =>
+      _places(ApiEndpoints.placesNearby, {'lat': lat, 'lng': lng});
+
+  /// Text search for a place, biased to the caller's current location.
+  Future<List<PlaceResult>> searchPlaces(String q,
+          {double? lat, double? lng}) =>
+      _places(ApiEndpoints.placesSearch, {
+        'q': q,
+        if (lat != null) 'lat': lat,
+        if (lng != null) 'lng': lng,
+      });
+
+  Future<List<PlaceResult>> _places(
+      String path, Map<String, dynamic> query) async {
+    try {
+      final res = await _dio.get(path, queryParameters: query);
+      final data = res.data;
+      final list = data is List ? data : const [];
+      return list
+          .whereType<Map>()
+          .map((e) => PlaceResult.fromJson(e.cast<String, dynamic>()))
+          .toList();
     } on DioException catch (e) {
       throw ErrorMapper.fromDio(e);
     }

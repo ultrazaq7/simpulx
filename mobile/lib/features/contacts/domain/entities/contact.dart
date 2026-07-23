@@ -1,5 +1,7 @@
 import 'package:equatable/equatable.dart';
 
+import '../../../../core/utils/channel_meta.dart';
+
 /// A lead/contact row from `GET /api/contacts`. The backend LATERAL-joins the
 /// contact's most recent conversation, so a contact carries lead context
 /// (stage, interest, assigned agent, conversation_id) alongside identity.
@@ -106,7 +108,9 @@ class Contact extends Equatable {
       return webApiSourceName!;
     }
     if (sourceChannel != null && sourceChannel!.isNotEmpty) {
-      return sourceChannel!;
+      // Humanize the raw channel key ("whatsapp" -> "WhatsApp") so it never
+      // leaks lowercase to the UI, matching the web `channelLabel`.
+      return channelLabel(sourceChannel);
     }
     return 'Direct';
   }

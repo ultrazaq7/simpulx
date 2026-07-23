@@ -11,11 +11,12 @@ class ContactsRemoteDataSource {
   ContactsRemoteDataSource(this._dio);
   final Dio _dio;
 
-  /// GET /api/contacts -> bare array (role-scoped, max 500). Search/filter is
-  /// applied client-side (the endpoint has no query params).
+  /// GET /api/leads -> bare array (role-scoped, max 500), ONE row per
+  /// conversation so a contact in two campaigns appears as two leads (matches
+  /// the web Contacts view). Search/filter is applied client-side.
   Future<List<Contact>> list() async {
     try {
-      final res = await _dio.get(ApiEndpoints.contacts);
+      final res = await _dio.get(ApiEndpoints.leads);
       final data = res.data;
       final rows = data is List
           ? data

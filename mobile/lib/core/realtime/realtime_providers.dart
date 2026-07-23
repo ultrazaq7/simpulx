@@ -50,3 +50,21 @@ final realtimeGapProvider = StreamProvider<int>((ref) {
 final realtimeStatusProvider = StreamProvider<RealtimeStatus>((ref) {
   return ref.watch(realtimeClientProvider).status;
 });
+
+/// Bumped once every time the app returns to the foreground (see app.dart's
+/// lifecycle observer). Kept-alive controllers watch this to refetch IMMEDIATELY
+/// on resume — in parallel with the socket reconnect rather than waiting on the
+/// WS handshake — so every screen (thread, dashboard, contacts), not just the
+/// inbox, is current the instant the app opens, WhatsApp-style. The `ref.listen`
+/// lives inside each controller's build(), so it only fires for screens that are
+/// actually alive; refresh() coalescing keeps it from racing the reconnect path.
+class AppResumeTick extends Notifier<int> {
+  @override
+  int build() => 0;
+
+  /// Called on every foreground resume to notify listening screens.
+  void bump() => state++;
+}
+
+final appResumeTickProvider =
+    NotifierProvider<AppResumeTick, int>(AppResumeTick.new);

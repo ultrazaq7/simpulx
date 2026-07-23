@@ -13,9 +13,11 @@ class ChatRepositoryImpl implements ChatRepository {
   final ChatRemoteDataSource _remote;
 
   @override
-  Future<Result<List<Conversation>>> listConversations({String? status, String? q}) async {
+  Future<Result<List<Conversation>>> listConversations(
+      {String? status, String? q, String? contact}) async {
     try {
-      final list = await _remote.listConversations(status: status, q: q);
+      final list =
+          await _remote.listConversations(status: status, q: q, contact: contact);
       return Result.ok(list);
     } catch (e) {
       return Result.err(ErrorMapper.toFailure(e));

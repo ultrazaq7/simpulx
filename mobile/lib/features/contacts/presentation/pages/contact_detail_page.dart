@@ -209,7 +209,14 @@ class _ContactDetailPageState extends ConsumerState<ContactDetailPage>
                 SingleChildScrollView(
                   padding: const EdgeInsets.fromLTRB(
                       AppSpacing.lg, 0, AppSpacing.lg, AppSpacing.lg),
-                  child: _LeadContextCard(contact: c),
+                  child: Column(
+                    children: [
+                      _LeadContextCard(contact: c),
+                      // AI-written recap of the lead (matches web's "AI Notes").
+                      if ((c.aiSummary ?? '').trim().isNotEmpty)
+                        _AiNotesCard(summary: c.aiSummary!.trim()),
+                    ],
+                  ),
                 ),
                 // History tab
                 SingleChildScrollView(
@@ -365,6 +372,50 @@ class _ActionButton extends StatelessWidget {
               ],
             ),
           ),
+        ),
+      ),
+    );
+  }
+}
+
+/// AI-written recap of the lead (conversation lead_summary), shown as free-text
+/// remarks under an "AI Notes" label — the mobile mirror of the web details
+/// panel. Wraps (not a one-line row) so a 1-3 sentence summary isn't cut off.
+class _AiNotesCard extends StatelessWidget {
+  const _AiNotesCard({required this.summary});
+  final String summary;
+
+  @override
+  Widget build(BuildContext context) {
+    final theme = Theme.of(context);
+    return Padding(
+      padding: const EdgeInsets.only(top: AppSpacing.md),
+      child: _Card(
+        child: Row(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Icon(Icons.auto_awesome, size: 16, color: AppColors.ai),
+            const SizedBox(width: 10),
+            Expanded(
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Text('AI Notes'.tr(context).toUpperCase(),
+                      style: TextStyle(
+                          fontSize: 10,
+                          fontWeight: FontWeight.w700,
+                          letterSpacing: 0.5,
+                          color: theme.colorScheme.onSurfaceVariant)),
+                  const SizedBox(height: 4),
+                  Text(summary,
+                      style: TextStyle(
+                          fontSize: 13,
+                          height: 1.45,
+                          color: theme.colorScheme.onSurface.withValues(alpha: 0.9))),
+                ],
+              ),
+            ),
+          ],
         ),
       ),
     );

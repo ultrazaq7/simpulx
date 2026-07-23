@@ -7,8 +7,12 @@ import '../../../core/realtime/realtime_client.dart';
 import '../../../core/realtime/realtime_providers.dart';
 import '../../../core/storage/app_cache.dart';
 import '../data/dashboard_remote_datasource.dart';
+import '../domain/ad_performance.dart';
+import '../domain/ai_usage.dart';
+import '../domain/campaign_summary.dart';
 import '../domain/dashboard_cards.dart';
 import '../domain/manager_analytics.dart';
+import '../domain/subscription_info.dart';
 
 final _dashboardDataSourceProvider = Provider<DashboardRemoteDataSource>(
   (ref) => DashboardRemoteDataSource(ref.watch(dioProvider)),
@@ -23,6 +27,52 @@ final dashboardStatsProvider = FutureProvider<DashboardStats>(
 final managerAnalyticsProvider = FutureProvider<ManagerAnalytics>(
   (ref) => ref.read(_dashboardDataSourceProvider).getAnalytics(),
 );
+
+/// AI credit usage (role-scoped) for the mobile AI Usage screen.
+final aiUsageProvider = FutureProvider<AiUsage>(
+  (ref) => ref.read(_dashboardDataSourceProvider).getAiUsage(),
+);
+
+/// Campaign list (role-scoped) for the mobile Campaigns performance screen.
+final campaignsSummaryProvider = FutureProvider<List<CampaignSummary>>(
+  (ref) => ref.read(_dashboardDataSourceProvider).getCampaigns(),
+);
+
+/// Plan quota + expiry for the AI Usage header (credits don't roll over, so the
+/// expiry date matters). Nullable-friendly: the UI falls back to usage totals if
+/// the subscription can't be read.
+final subscriptionProvider = FutureProvider<SubscriptionInfo>(
+  (ref) => ref.read(_dashboardDataSourceProvider).getSubscription(),
+);
+
+/// Selected dashboard view: 0 = General Report, 1 = Campaign Performance,
+/// 2 = AI Usage.
+class DashboardTab extends Notifier<int> {
+  @override
+  int build() => 0;
+  void set(int v) => state = v;
+}
+
+final dashboardTabProvider = NotifierProvider<DashboardTab, int>(DashboardTab.new);
+
+/// Date window (days) for Campaign Performance: 7 / 30 / 90. Default 30, like web.
+class CampaignRange extends Notifier<int> {
+  @override
+  int build() => 30;
+  void set(int v) => state = v;
+}
+
+final campaignRangeProvider =
+    NotifierProvider<CampaignRange, int>(CampaignRange.new);
+
+/// Per-campaign ad performance for the selected window (role-scoped).
+final adPerformanceProvider = FutureProvider<AdPerformance>((ref) {
+  final days = ref.watch(campaignRangeProvider);
+  final to = DateTime.now();
+  final from = to.subtract(Duration(days: days - 1));
+  String f(DateTime d) => d.toIso8601String().substring(0, 10);
+  return ref.read(_dashboardDataSourceProvider).getAdPerformance(f(from), f(to));
+});
 
 /// Agent action-center counts. Refreshable (pull-to-refresh / on resume) and
 /// kept live: any message / stage / status / assignment change refreshes the
@@ -41,7 +91,11 @@ class DashboardController extends AsyncNotifier<DashboardCards> {
       if (e.isMessagePersisted ||
           e.isConversationUpdated ||
           e.isConversationClosed ||
-          e.isConversationAssigned) {
+          e.isConversationAssigned ||
+          // A new lead (contact) and a pipeline-config change both move the
+          // funnel / lead totals, so refresh the manager snapshot for those too.
+          e.isContactCreated ||
+          e.isStagesUpdated) {
         _scheduleRefresh();
       }
     });
@@ -54,6 +108,17 @@ class DashboardController extends AsyncNotifier<DashboardCards> {
       } else {
         _hasConnected = true;
       }
+    });
+    // App returned to the foreground: refetch the cards + manager snapshot NOW so
+    // the dashboard is current the instant it's shown, without waiting on the
+    // socket handshake.
+    ref.listen(appResumeTickProvider, (_, _) {
+      refresh();
+      ref.invalidate(dashboardStatsProvider);
+      ref.invalidate(managerAnalyticsProvider);
+      ref.invalidate(aiUsageProvider);
+      ref.invalidate(subscriptionProvider);
+      ref.invalidate(campaignsSummaryProvider);
     });
     ref.onDispose(() => _debounce?.cancel());
     // Cache-first: paint the last counts instantly, then refresh in the
@@ -79,6 +144,9 @@ class DashboardController extends AsyncNotifier<DashboardCards> {
       refresh();
       ref.invalidate(dashboardStatsProvider);
       ref.invalidate(managerAnalyticsProvider);
+      ref.invalidate(aiUsageProvider);
+      ref.invalidate(subscriptionProvider);
+      ref.invalidate(campaignsSummaryProvider);
     });
   }
 

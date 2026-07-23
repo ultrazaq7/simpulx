@@ -14,6 +14,7 @@ import '../../data/repositories/contacts_repository_impl.dart';
 import '../../domain/entities/contact.dart';
 import '../../domain/entities/contact_activity.dart';
 import '../../domain/repositories/contacts_repository.dart';
+import '../../../chat/presentation/controllers/chat_providers.dart';
 import '../../../chat/presentation/controllers/inbox_filter.dart';
 
 final contactsRemoteDataSourceProvider = Provider<ContactsRemoteDataSource>(
@@ -53,6 +54,12 @@ class ContactsController extends AsyncNotifier<List<Contact>> {
       if (next.value != null) {
         _scheduleRefresh(const Duration(milliseconds: 300), priority: true);
       }
+    });
+    // App resumed: refetch the leads list NOW (and the open contact's threads) so
+    // Contacts is current the instant it's shown, not after the WS handshake.
+    ref.listen(appResumeTickProvider, (_, _) {
+      _scheduleRefresh(Duration.zero, priority: true);
+      ref.invalidate(contactThreadsProvider);
     });
     // Stay live with the backend: any message / stage / status / assignment
     // change (from this device, another agent, or the web) refreshes the leads
@@ -100,8 +107,13 @@ class ContactsController extends AsyncNotifier<List<Contact>> {
         // you just made until the screen was reopened. Invalidating the family is
         // cheap: only a contact currently on screen refetches.
         ref.invalidate(contactActivityProvider);
+        // The open contact-details threads card is a per-contact cache too, so
+        // refresh it live for the same status/stage/assignment/close changes.
+        ref.invalidate(contactThreadsProvider);
       } else if (e.isMessagePersisted) {
         _scheduleRefresh(const Duration(seconds: 2));
+        // Keep the open contact's thread list previews live on new messages.
+        ref.invalidate(contactThreadsProvider);
       }
     });
     ref.onDispose(() => _debounce?.cancel());

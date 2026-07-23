@@ -3,6 +3,7 @@ import UIKit
 import PushKit
 import CallKit
 import flutter_callkit_incoming
+import GoogleMaps
 
 // NOTE: the `flutter_callkit_incoming` symbols below resolve only AFTER
 // `cd ios && pod install`. Class/initializer names track the installed plugin
@@ -51,6 +52,9 @@ import flutter_callkit_incoming
     let registry = PKPushRegistry(queue: DispatchQueue.main)
     registry.delegate = self
     voipRegistry = registry
+    // Google Maps SDK (iOS) key — powers the Send Location map picker. Restrict
+    // this key to this app's bundle id + Maps SDK for iOS + Places API in GCP.
+    GMSServices.provideAPIKey("AIzaSyDBY24biVwjMHZXKxPyQ2OO6AS-OBk_ids")
     return super.application(application, didFinishLaunchingWithOptions: launchOptions)
   }
 

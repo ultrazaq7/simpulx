@@ -62,12 +62,18 @@ class MessageBubble extends StatelessWidget {
     // Simpuler (AI) authored this outbound message — canonical violet mark,
     // matching the web inbox bubble.
     final isBot = message.senderType == MessageSenderType.bot;
-    final simpulerColor = isDark ? const Color(0xFFC4B5FD) : const Color(0xFF7C3AED);
+    // Simpuler (AI) authored this reply: gunmetal label on a LIGHT gunmetal
+    // bubble, mirroring the web "light Simpuler bubble" so an AI reply reads
+    // apart from the green human-agent bubble.
+    final simpulerColor = isDark ? const Color(0xFF9DB4C0) : const Color(0xFF405663);
     // Real WhatsApp uses a solid, non-transparent bubble fill and the SAME
     // text colour for both outgoing and incoming bubbles (only the bg hue
-    // differs) — that's why fg no longer branches on `mine`.
+    // differs) — that's why fg no longer branches on `mine`. An AI reply is the
+    // exception: its own light gunmetal fill.
     final bg = mine
-        ? (isDark ? AppColors.bubbleOutgoingDark : AppColors.bubbleOutgoingLight)
+        ? (isBot
+            ? (isDark ? AppColors.bubbleSimpulerDark : AppColors.bubbleSimpulerLight)
+            : (isDark ? AppColors.bubbleOutgoingDark : AppColors.bubbleOutgoingLight))
         : (isDark ? AppColors.bubbleIncomingDark : AppColors.bubbleIncomingLight);
     final fg = isDark ? AppColors.darkTextPrimary : AppColors.textPrimary;
 
@@ -131,6 +137,10 @@ class MessageBubble extends StatelessWidget {
         padding: const EdgeInsets.fromLTRB(6, 6, 6, 6),
         decoration: BoxDecoration(
           color: bg,
+          // Subtle gunmetal hairline on the light Simpuler bubble (web's ai/20).
+          border: isBot
+              ? Border.all(color: simpulerColor.withValues(alpha: 0.25))
+              : null,
           borderRadius: BorderRadius.only(
             topLeft: const Radius.circular(14),
             topRight: const Radius.circular(14),
@@ -204,6 +214,28 @@ class MessageBubble extends StatelessWidget {
                 crossAxisAlignment: CrossAxisAlignment.start,
                 mainAxisSize: MainAxisSize.min,
                 children: [
+                  // Voice note: the body is a machine transcript, not typed text.
+                  // Label it (mic + "Transcript") so the agent knows, matching web.
+                  if (message.type == MessageType.audio && message.body.isNotEmpty)
+                    Padding(
+                      padding: const EdgeInsets.only(bottom: 2),
+                      child: Row(
+                        mainAxisSize: MainAxisSize.min,
+                        children: [
+                          Icon(Icons.mic_rounded,
+                              size: 11, color: fg.withValues(alpha: 0.6)),
+                          const SizedBox(width: 3),
+                          Text(
+                            'Transcript'.tr(context).toUpperCase(),
+                            style: TextStyle(
+                                fontSize: 10,
+                                fontWeight: FontWeight.w700,
+                                letterSpacing: 0.3,
+                                color: fg.withValues(alpha: 0.6)),
+                          ),
+                        ],
+                      ),
+                    ),
                   if (message.type == MessageType.call)
                     _callBubble(context, fg)
                   else if (message.body.isNotEmpty)

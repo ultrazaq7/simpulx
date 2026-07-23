@@ -48,6 +48,10 @@ class ChatThreadController extends ChangeNotifier {
     // thread too, on both a reconnect and a proven sequence gap.
     _statusSub = client.status.listen(_onStatus);
     _gapSub = client.gaps.listen((_) => _reconcile());
+    // App resumed from background: reconcile the OPEN thread NOW (in parallel with
+    // the socket reconnect) so any message that landed while backgrounded appears
+    // the instant the app opens, without waiting on the WS handshake.
+    ref.listen(appResumeTickProvider, (_, _) => _reconcile());
     load();
   }
 
@@ -203,6 +207,19 @@ class ChatThreadController extends ChangeNotifier {
       (_) => _replace(tempId, (m) => m.copyWith(status: MessageStatus.failed)),
       (_) => _replace(tempId, (m) => m.copyWith(status: MessageStatus.queued)),
     );
+  }
+
+  /// Share a pinned location (type=location). No optimistic bubble: the persisted
+  /// message arrives over the socket and renders the map card in place.
+  Future<void> sendLocation(double latitude, double longitude,
+      {String? name, String? address}) async {
+    await ref.read(chatRemoteDataSourceProvider).sendLocation(
+          conversationId,
+          latitude: latitude,
+          longitude: longitude,
+          name: name,
+          address: address,
+        );
   }
 
   void _onStatus(RealtimeStatus s) {

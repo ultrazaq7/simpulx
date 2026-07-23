@@ -20,6 +20,7 @@ import '../../../../core/widgets/app_snackbar.dart';
 import '../../../calls/presentation/call_controller.dart';
 import '../../domain/entities/conversation.dart';
 import '../../domain/entities/message.dart';
+import '../../domain/entities/place_result.dart';
 import '../controllers/chat_actions_providers.dart';
 import '../controllers/chat_providers.dart';
 import '../controllers/chat_thread_controller.dart';
@@ -31,6 +32,7 @@ import '../widgets/message_search_delegate.dart';
 import '../widgets/template_picker_sheet.dart';
 import 'custom_camera_page.dart';
 import 'media_preview_page.dart';
+import 'send_location_page.dart';
 
 /// Full-screen conversation thread (no bottom nav). Optimistic send + realtime
 /// append; scroll up to load older history.
@@ -223,6 +225,11 @@ class _ChatThreadPageState extends ConsumerState<ChatThreadPage>
               title: Text('Document'.tr(context)),
               onTap: () => Navigator.of(context).pop('file'),
             ),
+            ListTile(
+              leading: const Icon(Icons.location_on_outlined),
+              title: Text('Location'.tr(context)),
+              onTap: () => Navigator.of(context).pop('location'),
+            ),
           ],
         ),
       ),
@@ -231,6 +238,11 @@ class _ChatThreadPageState extends ConsumerState<ChatThreadPage>
 
     if (choice == 'camera') {
       await _openCustomCamera();
+      return;
+    }
+
+    if (choice == 'location') {
+      await _shareLocation();
       return;
     }
 
@@ -279,6 +291,19 @@ class _ChatThreadPageState extends ConsumerState<ChatThreadPage>
           previewType: it.type,
           caption: i == 0 ? result.caption : null);
     }
+  }
+
+  /// Open the WhatsApp-style location picker; send the chosen pin as a location
+  /// message (rendered as a map card by the realtime-appended bubble).
+  Future<void> _shareLocation() async {
+    final place = await Navigator.of(context).push<PlaceResult>(
+      MaterialPageRoute(builder: (_) => const SendLocationPage()),
+    );
+    if (place == null || !mounted) return;
+    await ref
+        .read(chatThreadControllerProvider(widget.conversationId))
+        .sendLocation(place.latitude, place.longitude,
+            name: place.name, address: place.address);
   }
 
   Future<void> _openCustomCamera() async {

@@ -17,12 +17,21 @@
     <uses-permission android:name="android.permission.FOREGROUND_SERVICE_MICROPHONE"/>
     <uses-permission android:name="android.permission.WRITE_EXTERNAL_STORAGE" android:maxSdkVersion="29" tools:replace="android:maxSdkVersion" />
     <uses-permission android:name="android.permission.READ_EXTERNAL_STORAGE" />
+    <!-- Share-location composer: pin the agent's current position on the map. -->
+    <uses-permission android:name="android.permission.ACCESS_FINE_LOCATION" />
+    <uses-permission android:name="android.permission.ACCESS_COARSE_LOCATION" />
 
     <application
         android:label="Simpulx"
         android:name=".SimpulxApplication"
         android:icon="@mipmap/ic_launcher"
         android:networkSecurityConfig="@xml/network_security_config">
+        <!-- Google Maps SDK (Android) key — powers the Send Location map picker.
+             Restrict this key to this app's package + SHA-1 and the Maps SDK for
+             Android + Places API in the Google Cloud console. -->
+        <meta-data
+            android:name="com.google.android.geo.API_KEY"
+            android:value="AIzaSyCD19fHacXP4HkP9fDfRzibwRbnx4hPXNs" />
         <activity
             android:name=".MainActivity"
             android:exported="true"

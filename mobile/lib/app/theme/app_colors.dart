@@ -38,6 +38,8 @@ class AppColors {
   static const Color whatsapp = Color(0xFF25D366);
   static const Color messenger = Color(0xFF0084FF);
   static const Color instagram = Color(0xFFE4405F);
+  static const Color telegram = Color(0xFF229ED9);
+  static const Color viber = Color(0xFF7360F2);
   static const Color tiktok = Color(0xFF000000);
   static const Color google = Color(0xFFEA4335);
 
@@ -88,6 +90,11 @@ class AppColors {
   static const Color bubbleOutgoingLight = Color(0xFFD9FDD3);
   static const Color bubbleIncomingDark = Color(0xFF0E3636); // Teal-tinted dark grey to match background
   static const Color bubbleOutgoingDark = Color(0xFF005C4B);
+  // Simpuler (AI) outgoing bubble — a LIGHT gunmetal tint (web's --ai-bg #E0E9EE)
+  // so an AI reply reads apart from the green human-agent bubble. The dark-mode
+  // variant is a muted gunmetal that sits on the navy canvas.
+  static const Color bubbleSimpulerLight = Color(0xFFE0E9EE);
+  static const Color bubbleSimpulerDark = Color(0xFF213540);
 
   /// Brand colour for a given channel string (whatsapp/messenger/...).
   static Color forChannel(String? channel) {
@@ -98,6 +105,10 @@ class AppColors {
         return messenger;
       case 'instagram':
         return instagram;
+      case 'telegram':
+        return telegram;
+      case 'viber':
+        return viber;
       case 'tiktok':
         return tiktok;
       case 'google':

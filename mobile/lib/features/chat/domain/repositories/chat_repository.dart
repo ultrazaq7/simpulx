@@ -7,7 +7,8 @@ import '../entities/uploaded_media.dart';
 
 abstract class ChatRepository {
   /// Inbox list, optionally filtered by status (open/pending/closed) and search query [q].
-  Future<Result<List<Conversation>>> listConversations({String? status, String? q});
+  Future<Result<List<Conversation>>> listConversations(
+      {String? status, String? q, String? contact});
 
   /// A single conversation by id (used when opened without a cached copy, e.g.
   /// from a push notification before the inbox list has synced).

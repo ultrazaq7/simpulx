@@ -29,6 +29,9 @@ class ApiEndpoints {
       '/api/conversations/$id/messages/search';
   // OG preview for a URL in a chat message (server-side fetch).
   static const linkPreview = '/api/link-preview';
+  // Send-location picker (Google Places proxy).
+  static const placesNearby = '/api/places/nearby'; // ?lat=&lng=
+  static const placesSearch = '/api/places/search'; // ?q=&lat=&lng=
   static String assign(String id) => '/api/conversations/$id/assign';
   static String close(String id) => '/api/conversations/$id/close';
   static String snooze(String id) => '/api/conversations/$id/snooze';
@@ -55,6 +58,9 @@ class ApiEndpoints {
 
   // ── Contacts / leads ───────────────────────────────────
   static const contacts = '/api/contacts';
+  // Conversation-centric leads list: 1 row per conversation, so a contact enrolled
+  // in two campaigns shows as two rows (matches the web Contacts/leads view).
+  static const leads = '/api/leads';
   static String contact(String id) => '/api/contacts/$id';
   static String contactActivity(String id) => '/api/contacts/$id/activity';
 
@@ -68,7 +74,9 @@ class ApiEndpoints {
   static const stats = '/api/stats';
   static const dashboardCards = '/api/dashboard/cards';
   static const analytics = '/api/analytics';
-  static const adPerformance = '/api/ad-performance';
+  static const subscriptionUsage = '/api/subscription/usage'; // AI usage (role-scoped)
+  static const subscription = '/api/subscription'; // plan: total credits, expiry
+  static const adPerformance = '/api/ad-performance'; // ?from=&to= campaign performance
 
   // ── Media ──────────────────────────────────────────────
   static const uploads = '/api/uploads'; // multipart

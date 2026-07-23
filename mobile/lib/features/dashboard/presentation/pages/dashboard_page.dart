@@ -15,6 +15,7 @@ import '../../../chat/presentation/controllers/inbox_filter.dart';
 import '../../domain/dashboard_cards.dart';
 import '../../domain/manager_analytics.dart';
 import '../dashboard_providers.dart';
+import '../widgets/dashboard_reports.dart';
 
 /// Agent-first dashboard: a greeting + actionable counts. Each card drills into
 /// the filtered inbox. Built for <=5s comprehension.
@@ -28,32 +29,73 @@ class DashboardPage extends ConsumerWidget {
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {
-    final async = ref.watch(dashboardProvider);
-    final user = ref.watch(sessionControllerProvider).user;
-    final firstName = (user?.name ?? '').split(' ').first;
-
+    final tab = ref.watch(dashboardTabProvider);
+    final isManager =
+        ref.watch(sessionControllerProvider).user?.role.isManagerTier ?? false;
     return Scaffold(
       appBar: AppBar(
         titleSpacing: 16,
         title: const _SimpulxWordmark(),
       ),
-      body: RefreshIndicator(
-        onRefresh: () => ref.read(dashboardProvider.notifier).refresh(),
-        child: async.when(
-          loading: () => const AppLoader(),
-          error: (e, _) => ListView(children: [
-            SizedBox(height: MediaQuery.of(context).size.height * 0.25),
-            AppErrorView(
-              failure: e is Failure ? e : null,
-              onRetry: () => ref.read(dashboardProvider.notifier).refresh(),
+      body: SafeArea(
+        top: false,
+        child: Column(
+          children: [
+            Padding(
+              padding: const EdgeInsets.fromLTRB(16, 12, 16, 8),
+              child: const DashboardSwitcher(),
             ),
-          ]),
-          data: (cards) => _DashboardBody(
-            firstName: firstName,
-            cards: cards,
-            showManager: user?.role.isManagerTier ?? false,
-            onDrillChat: (filter) => _drillChat(ref, context, filter),
+            Expanded(
+              child: switch (tab) {
+                // 1 = Campaigns (manager+ only; agents never reach it because the
+                // switcher hides the tab, but guard here too so a stale index falls
+                // back to Overview instead of showing scoped-empty campaign data).
+                1 when isManager => RefreshIndicator(
+                    onRefresh: () async {
+                      ref.invalidate(campaignsSummaryProvider);
+                      ref.invalidate(aiUsageProvider);
+                    },
+                    child: ListView(
+                      padding: const EdgeInsets.fromLTRB(16, 8, 16, 24),
+                      children: const [CampaignsView()],
+                    ),
+                  ),
+                2 => RefreshIndicator(
+                    onRefresh: () async => ref.invalidate(aiUsageProvider),
+                    child: ListView(
+                      padding: const EdgeInsets.fromLTRB(16, 8, 16, 24),
+                      children: const [AiUsageView()],
+                    ),
+                  ),
+                _ => _overview(context, ref),
+              },
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+
+  Widget _overview(BuildContext context, WidgetRef ref) {
+    final async = ref.watch(dashboardProvider);
+    final user = ref.watch(sessionControllerProvider).user;
+    final firstName = (user?.name ?? '').split(' ').first;
+    return RefreshIndicator(
+      onRefresh: () => ref.read(dashboardProvider.notifier).refresh(),
+      child: async.when(
+        loading: () => const AppLoader(),
+        error: (e, _) => ListView(children: [
+          SizedBox(height: MediaQuery.of(context).size.height * 0.25),
+          AppErrorView(
+            failure: e is Failure ? e : null,
+            onRetry: () => ref.read(dashboardProvider.notifier).refresh(),
           ),
+        ]),
+        data: (cards) => _DashboardBody(
+          firstName: firstName,
+          cards: cards,
+          showManager: user?.role.isManagerTier ?? false,
+          onDrillChat: (filter) => _drillChat(ref, context, filter),
         ),
       ),
     );
@@ -114,7 +156,6 @@ class _DashboardBody extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final theme = Theme.of(context);
     final items = <_CardData>[
       _CardData('Active', cards.open, Icons.inbox_rounded,
           AppColors.primary, InboxFilter.open),
@@ -127,25 +168,8 @@ class _DashboardBody extends StatelessWidget {
     ];
 
     return ListView(
-      padding: const EdgeInsets.all(16),
+      padding: const EdgeInsets.fromLTRB(16, 4, 16, 16),
       children: [
-        Text(
-          _dateLine(context),
-          style: theme.textTheme.labelMedium?.copyWith(
-            color: AppColors.textMuted,
-            fontWeight: FontWeight.w600,
-            letterSpacing: 0.2,
-          ),
-        ),
-        const SizedBox(height: 2),
-        Text(
-          firstName.isEmpty
-              ? 'Hi'.tr(context)
-              : 'Hi {name}'.trp(context, {'name': firstName}),
-          style: theme.textTheme.headlineSmall
-              ?.copyWith(fontWeight: FontWeight.w800),
-        ),
-        const SizedBox(height: 18),
         EntranceFade(
           delay: const Duration(milliseconds: 40),
           child: GridView.count(
@@ -171,20 +195,6 @@ class _DashboardBody extends StatelessWidget {
     );
   }
 
-  String _dateLine(BuildContext context) {
-    const days = [
-      'Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday', 'Saturday',
-      'Sunday'
-    ];
-    const months = [
-      'Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct',
-      'Nov', 'Dec'
-    ];
-    final now = DateTime.now();
-    final day = days[now.weekday - 1].tr(context);
-    final mon = months[now.month - 1].tr(context);
-    return '$day, ${now.day} $mon'.toUpperCase();
-  }
 }
 
 class _CardData {

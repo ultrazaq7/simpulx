@@ -25,6 +25,26 @@ final conversationByIdProvider =
   return res.valueOrNull!;
 });
 
+/// Every thread this contact has, across all campaigns (server-scoped by
+/// `?contact=`), newest first. A lead enrolled in more than one campaign has a
+/// separate conversation per campaign, so the contact-details screen lists them
+/// all instead of only the most-recent one (mirrors the web contact page).
+final contactThreadsProvider =
+    FutureProvider.autoDispose.family<List<Conversation>, String>((ref, contactId) async {
+  final repo = ref.watch(chatRepositoryProvider);
+  final res = await repo.listConversations(contact: contactId);
+  if (res.isErr) throw res.failureOrNull!;
+  final list = res.valueOrNull!;
+  list.sort((a, b) {
+    final at = a.lastMessageAt, bt = b.lastMessageAt;
+    if (at == null && bt == null) return 0;
+    if (at == null) return 1;
+    if (bt == null) return -1;
+    return bt.compareTo(at);
+  });
+  return list;
+});
+
 final messageSearchProvider = FutureProvider.family<List<Conversation>, String>((ref, q) async {
   if (q.trim().isEmpty) return [];
   final repo = ref.watch(chatRepositoryProvider);
