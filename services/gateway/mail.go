@@ -12,8 +12,31 @@ import (
 // Contract: sent=false with a nil error means "not configured" (local dev),
 // and callers must check `sent` rather than only `err` before recording
 // anything as delivered.
+//
+// Every system email goes out inside brandWrap, so the header exists in ONE
+// place instead of being copy-pasted into each body builder (and inevitably
+// drifting). Automation-node emails (messaging service) are deliberately NOT
+// wrapped: that is the client's own content to their customers, not ours.
 func (s *server) sendMail(to, subject, htmlBody string) (sent bool, err error) {
-	return mailer.Send(to, subject, htmlBody, true)
+	return mailer.Send(to, subject, brandWrap(htmlBody), true)
+}
+
+// brandWrap frames an email body with the Simpulx brand header — logo + the
+// landing-page wordmark (dark "Simpul", amber "x", #C9871F from the landing
+// palette) — a white card around the content, and a one-line footer. Inline
+// styles only and the logo by absolute URL: email clients ignore stylesheets
+// and strip everything else.
+func brandWrap(inner string) string {
+	return `<div style="background:#f4f6f5;padding:24px 12px;font-family:Arial,Helvetica,sans-serif">
+  <div style="max-width:520px;margin:0 auto">
+    <div style="padding:4px 8px 14px">
+      <img src="https://simpulx.com/favicon.png" width="34" height="34" alt="Simpulx" style="vertical-align:middle;border-radius:9px">
+      <span style="font-size:20px;font-weight:800;color:#10201d;vertical-align:middle;margin-left:9px;letter-spacing:-0.3px">Simpul<span style="color:#C9871F">x</span></span>
+    </div>
+    <div style="background:#ffffff;border:1px solid #e5e8e7;border-radius:12px;overflow:hidden">` + inner + `</div>
+    <p style="text-align:center;color:#9aa3a0;font-size:11px;margin:14px 0 0">Simpulx &middot; Inbox WhatsApp + AI untuk tim sales &middot; <a href="https://simpulx.com" style="color:#9aa3a0">simpulx.com</a></p>
+  </div>
+</div>`
 }
 
 func resetEmailHTML(name, link string) string {
