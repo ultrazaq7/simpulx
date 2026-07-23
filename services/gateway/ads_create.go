@@ -431,7 +431,6 @@ func (s *server) handleLaunchAds(w http.ResponseWriter, r *http.Request) {
 		targeting := map[string]any{
 			"geo_locations": geoLoc,
 			"age_min":       ageMin,
-			"age_max":       ageMax,
 		}
 		switch gender {
 		case "male":
@@ -440,7 +439,13 @@ func (s *server) handleLaunchAds(w http.ResponseWriter, r *http.Request) {
 			targeting["genders"] = []int{2}
 		}
 		if advantage {
+			// Advantage+ audience: age_max menjadi HARD control dan Meta menolak
+			// nilai < 65 dengan (100/1870189) -- batas atas hanya boleh jadi
+			// "saran", bukan control. Jadi dengan Advantage+ aktif age_max tidak
+			// dikirim; age_min tetap sah sebagai control.
 			targeting["targeting_automation"] = map[string]int{"advantage_audience": 1}
+		} else if ageMax > 0 {
+			targeting["age_max"] = ageMax
 		}
 
 		buildForm := func(tgt map[string]any) url.Values {
