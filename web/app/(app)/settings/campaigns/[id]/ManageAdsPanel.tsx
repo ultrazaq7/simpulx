@@ -9,12 +9,13 @@
 import { Fragment, useEffect, useState } from "react";
 import {
   Loader2, ChevronDown, ChevronRight, Megaphone, Layers, Image as ImageIcon,
-  Pencil, Trash2, Eye, X, RefreshCw, Wallet, AlertTriangle,
+  Pencil, Trash2, Eye, X, RefreshCw, Wallet, AlertTriangle, Plus, Link2,
 } from "lucide-react";
 import { api } from "@/lib/api";
 import { useI18n } from "@/lib/i18n";
 import { cn } from "@/lib/utils";
 import { useConfirm } from "@/components/ConfirmDialog";
+import LaunchAdsPanel from "./LaunchAdsPanel";
 import type { AdsManageTree, ManageAdset, ManageMetrics, CreativeRow } from "@/lib/types";
 
 type Level = "campaign" | "adset" | "ad";
@@ -79,6 +80,10 @@ export default function ManageAdsPanel({ id, notify }: {
   const [drawer, setDrawer] = useState<{ adset: ManageAdset; cboLocked: boolean } | null>(null);
   const [adPreview, setAdPreview] = useState<{ adId: string; html?: string; error?: string } | null>(null);
   const [swapFor, setSwapFor] = useState<{ adId: string; name: string } | null>(null);
+  // Wizard "+ Create ads": the whole launch workspace lives in this drawer, so
+  // creating and managing ads share ONE home instead of two confusing tabs.
+  const [createOpen, setCreateOpen] = useState(false);
+  const [addIdOpen, setAddIdOpen] = useState(false);
 
   const canEdit = !!tree?.can_edit;
 
@@ -236,10 +241,20 @@ export default function ManageAdsPanel({ id, notify }: {
   }
   if (tree.campaigns.length === 0) {
     return (
-      <div className="rounded-xl border border-border bg-card p-8 text-center">
-        <Megaphone className="w-8 h-8 mx-auto mb-2 text-muted-foreground/40" />
-        <p className="text-[13px] text-muted-foreground">{t("ads.manageEmpty")}</p>
-      </div>
+      <>
+        <div className="rounded-xl border border-border bg-card p-8 text-center">
+          <Megaphone className="w-8 h-8 mx-auto mb-2 text-muted-foreground/40" />
+          <p className="text-[13px] text-muted-foreground mb-4">{t("ads.manageEmpty")}</p>
+          <button onClick={() => setCreateOpen(true)}
+            className="inline-flex items-center gap-1.5 px-4 h-9 rounded-lg bg-primary text-primary-foreground text-[12.5px] font-semibold hover:opacity-90 outline-none">
+            <Plus className="w-3.5 h-3.5" /> {t("ads.createAds")}
+          </button>
+        </div>
+        {createOpen && (
+          <CreateAdsDrawer id={id} notify={notify}
+            onClose={() => { setCreateOpen(false); load(true); }} />
+        )}
+      </>
     );
   }
 
@@ -251,10 +266,24 @@ export default function ManageAdsPanel({ id, notify }: {
           <p className="text-[13px] font-semibold text-foreground truncate">{tree.account_name}</p>
           <p className="text-[11.5px] text-muted-foreground">{t("ads.manageWindowNote")}{!canEdit && ` · ${t("ads.reportingOnly")}`}</p>
         </div>
-        <button onClick={() => load()} disabled={refreshing}
-          className="inline-flex items-center gap-1.5 px-3 h-8 rounded-lg border border-border text-[12.5px] font-semibold hover:bg-muted outline-none disabled:opacity-60">
-          <RefreshCw className={cn("w-3.5 h-3.5", refreshing && "animate-spin")} /> {t("common.refresh")}
-        </button>
+        <div className="flex items-center gap-2">
+          <button onClick={() => load()} disabled={refreshing}
+            className="inline-flex items-center gap-1.5 px-3 h-8 rounded-lg border border-border text-[12.5px] font-semibold hover:bg-muted outline-none disabled:opacity-60">
+            <RefreshCw className={cn("w-3.5 h-3.5", refreshing && "animate-spin")} /> {t("common.refresh")}
+          </button>
+          {canEdit && (
+            <>
+              <button onClick={() => setAddIdOpen(true)}
+                className="inline-flex items-center gap-1.5 px-3 h-8 rounded-lg border border-border text-[12.5px] font-semibold hover:bg-muted outline-none">
+                <Link2 className="w-3.5 h-3.5" /> {t("ads.addAdId")}
+              </button>
+              <button onClick={() => setCreateOpen(true)}
+                className="inline-flex items-center gap-1.5 px-3.5 h-8 rounded-lg bg-primary text-primary-foreground text-[12.5px] font-semibold hover:opacity-90 outline-none">
+                <Plus className="w-3.5 h-3.5" /> {t("ads.createAds")}
+              </button>
+            </>
+          )}
+        </div>
       </div>
 
       {tree.error && (
@@ -357,6 +386,18 @@ export default function ManageAdsPanel({ id, notify }: {
           notify={notify} onClose={() => setDrawer(null)} onSaved={() => { setDrawer(null); load(true); }} />
       )}
 
+      {/* ── "+ Create ads": the launch workspace as a right-side wizard ── */}
+      {createOpen && (
+        <CreateAdsDrawer id={id} notify={notify}
+          onClose={() => { setCreateOpen(false); load(true); }} />
+      )}
+
+      {/* ── "+ Ad ID": register an externally created Meta ad for lead routing ── */}
+      {addIdOpen && (
+        <AddAdIdModal campaignId={id} notify={notify}
+          onClose={() => setAddIdOpen(false)} />
+      )}
+
       {/* ── Swap creative picker ── */}
       {swapFor && (
         <CreativePicker campaignId={id} adName={swapFor.name}
@@ -395,6 +436,81 @@ export default function ManageAdsPanel({ id, notify }: {
           </div>
         </div>
       )}
+    </div>
+  );
+}
+
+// The launch workspace, rehomed as a right-side wizard drawer: geo, copy,
+// audience, creatives, page, then Launch/Apply. Same component, one entry
+// point, no separate tab to get lost in.
+function CreateAdsDrawer({ id, notify, onClose }: {
+  id: string; notify: (m: string, s?: "success" | "error") => void; onClose: () => void;
+}) {
+  const { t } = useI18n();
+  return (
+    <div className="fixed inset-0 z-[70]" role="dialog" aria-modal>
+      <div className="absolute inset-0 bg-black/30" onClick={onClose} />
+      <div className="absolute right-0 top-0 h-full w-full max-w-2xl bg-background border-l border-border shadow-xl overflow-y-auto animate-slide-in-right">
+        <div className="sticky top-0 z-10 flex items-center justify-between px-5 py-3 bg-background/95 backdrop-blur border-b border-border">
+          <p className="text-[14px] font-bold text-foreground">{t("ads.createAds")}</p>
+          <button onClick={onClose} className="p-1.5 rounded-md hover:bg-muted outline-none"><X className="w-4 h-4" /></button>
+        </div>
+        <div className="p-5">
+          <LaunchAdsPanel id={id} notify={notify} />
+        </div>
+      </div>
+    </div>
+  );
+}
+
+// Small modal to register the Meta ad ID of an ad created OUTSIDE Simpulx, so
+// its click-to-WhatsApp leads route into this campaign. Ads created through
+// Simpulx register themselves automatically.
+function AddAdIdModal({ campaignId, notify, onClose }: {
+  campaignId: string; notify: (m: string, s?: "success" | "error") => void; onClose: () => void;
+}) {
+  const { t } = useI18n();
+  const [idStr, setIdStr] = useState("");
+  const [busy, setBusy] = useState(false);
+  async function save() {
+    const adId = idStr.trim();
+    if (!/^[0-9]{5,25}$/.test(adId)) { notify(t("ads.adIdInvalid"), "error"); return; }
+    setBusy(true);
+    try {
+      const c = await api.getCampaign(campaignId);
+      const cur = (c.ad_source_ids || []).filter(Boolean);
+      if (!cur.includes(adId)) {
+        await api.updateCampaign(campaignId, { ad_source_ids: [...cur, adId] });
+      }
+      notify(t("ads.adIdAdded"), "success");
+      onClose();
+    } catch (e) {
+      notify(String(e), "error");
+    } finally {
+      setBusy(false);
+    }
+  }
+  return (
+    <div className="fixed inset-0 z-[80] bg-black/50 grid place-items-center p-4" onClick={onClose}>
+      <div className="bg-card rounded-xl border border-border p-4 w-full max-w-sm" onClick={(e) => e.stopPropagation()}>
+        <div className="flex items-center justify-between mb-1">
+          <p className="text-[13px] font-semibold text-foreground">{t("ads.addAdId")}</p>
+          <button onClick={onClose} className="p-1 rounded-md hover:bg-muted outline-none"><X className="w-4 h-4" /></button>
+        </div>
+        <p className="text-[11.5px] text-muted-foreground mb-3">{t("ads.addAdIdHint")}</p>
+        <input type="text" inputMode="numeric" value={idStr} autoFocus
+          onChange={(e) => setIdStr(e.target.value.replace(/[^0-9]/g, "").slice(0, 25))}
+          onKeyDown={(e) => { if (e.key === "Enter") save(); }}
+          placeholder="120212345678900000"
+          className="w-full h-9 px-3 rounded-lg border border-input bg-background text-[13px] outline-none focus:border-primary" />
+        <div className="flex items-center justify-end gap-2 mt-4">
+          <button onClick={onClose} className="px-3 h-8 rounded-lg border border-border text-[12.5px] font-semibold hover:bg-muted outline-none">{t("common.cancel")}</button>
+          <button onClick={save} disabled={busy}
+            className="inline-flex items-center gap-1.5 px-4 h-8 rounded-lg bg-primary text-primary-foreground text-[12.5px] font-semibold hover:opacity-90 outline-none disabled:opacity-60">
+            {busy && <Loader2 className="w-3.5 h-3.5 animate-spin" />} {t("common.save")}
+          </button>
+        </div>
+      </div>
     </div>
   );
 }

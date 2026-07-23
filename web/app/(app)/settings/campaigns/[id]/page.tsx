@@ -9,7 +9,6 @@ import * as XLSX from "xlsx";
 import { BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip as RTooltip, ResponsiveContainer } from "recharts";
 import { api } from "@/lib/api";
 import { Select } from "@/components/Select";
-import LaunchAdsPanel from "./LaunchAdsPanel";
 import ManageAdsPanel from "./ManageAdsPanel";
 import { cn, fmtDateTimeShort } from "@/lib/utils";
 import type { CampaignDetail, CatalogItem, Template, AIStyle, AdsMetricRow, AdsAlertRow } from "@/lib/types";
@@ -892,7 +891,7 @@ function AdsTab({ id, notify }: { id: string; notify: (m: string, s?: "success" 
   const [rows, setRows] = useState<AdsMetricRow[] | null>(null);
   const [alerts, setAlerts] = useState<AdsAlertRow[]>([]);
   const [busy, setBusy] = useState(false);
-  const [view, setView] = useState<"performance" | "manage" | "setup">("performance");
+  const [view, setView] = useState<"performance" | "manage">("performance");
   // Modal preview iklan: pakai render resmi Meta (iframe), bukan thumbnail.
   // Gagal fetch = modal TETAP terbuka menampilkan errornya; menutup diam-diam
   // membuat "diklik gak muncul apa-apa" yang tidak bisa didebug siapa pun.
@@ -910,7 +909,9 @@ function AdsTab({ id, notify }: { id: string; notify: (m: string, s?: "success" 
     api.campaignAdsStatus(id).then((st) => {
       setStatus(st);
       // Land on setup when there is nothing to report yet, on performance once live.
-      if (st && st.linked_ad_count === 0 && st.ads_status !== "active") setView("setup");
+      // Land on Manage when there is nothing to report yet: its empty state
+      // carries the "+ Create ads" wizard.
+      if (st && st.linked_ad_count === 0 && st.ads_status !== "active") setView("manage");
     }).catch((e) => { setStatus(null); setLoadErr(String(e)); });
     // Live per-ad state from Meta: drives the single pause/resume toggle and the
     // creative previews. null strictly means "still loading" · a FAILED fetch
@@ -975,11 +976,12 @@ function AdsTab({ id, notify }: { id: string; notify: (m: string, s?: "success" 
     <div className="flex flex-col gap-4">
       {ConfirmHost}
 
-      {/* Tiga sisi tab Ads: Performance (laporan), Manage (surface ala Meta Ads
-          Manager: tree campaign > ad set > ad dengan edit per baris), dan Launch
-          ads (workspace bikin campaign baru di Meta). */}
+      {/* Dua sisi tab Ads: Performance (laporan) dan Manage (surface ala Meta
+          Ads Manager). Membuat iklan baru = wizard drawer "+ Create ads" DI DALAM
+          Manage, bukan tab terpisah: satu tempat untuk semua CRUD iklan, supaya
+          "launch" vs "apply changes" vs "manage" tidak membingungkan user. */}
       <div className="flex items-center gap-1 rounded-lg border border-border p-0.5 w-fit">
-        {([["performance", t("ads.tabPerformance")], ["manage", t("ads.tabManage")], ["setup", t("ads.tabLaunch")]] as const).map(([v, label]) => (
+        {([["performance", t("ads.tabPerformance")], ["manage", t("ads.tabManage")]] as const).map(([v, label]) => (
           <button key={v} onClick={() => setView(v)}
             className={cn("px-3 h-7 rounded-md text-[12.5px] font-semibold outline-none transition-colors",
               view === v ? "bg-primary text-white" : "text-muted-foreground hover:text-foreground")}>
@@ -988,8 +990,7 @@ function AdsTab({ id, notify }: { id: string; notify: (m: string, s?: "success" 
         ))}
       </div>
 
-      {view === "setup" ? <LaunchAdsPanel id={id} notify={notify} />
-        : view === "manage" ? <ManageAdsPanel id={id} notify={notify} /> : (<>
+      {view === "manage" ? <ManageAdsPanel id={id} notify={notify} /> : (<>
 
       <div className="flex items-center gap-3 flex-wrap">
         <span className="text-[13px] text-muted-foreground">

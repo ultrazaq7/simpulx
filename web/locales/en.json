@@ -2393,7 +2393,7 @@
   "ads.tabManage": "Manage",
   "ads.tabLaunch": "Launch ads",
   "ads.manageWindowNote": "Live from Meta. Metrics: last 30 days",
-  "ads.manageEmpty": "No live ads yet. Use Launch ads to create the campaign first.",
+  "ads.manageEmpty": "No live ads yet. Create your first ad below.",
   "ads.colName": "Name",
   "ads.colDelivery": "Delivery",
   "ads.colBudget": "Budget",
@@ -2429,6 +2429,11 @@
   "ads.reportingOnly": "Reporting only",
   "ads.swapCreative": "Swap creative",
   "ads.swapPick": "Choose the new creative for this ad. The swap happens in place on Meta, the ad keeps its history.",
-  "ads.swapNone": "No uploaded creatives yet. Add them in Launch ads first.",
-  "ads.swapped": "Creative swapped"
+  "ads.swapNone": "No uploaded creatives yet. Add them via Create ads first.",
+  "ads.swapped": "Creative swapped",
+  "ads.createAds": "Create ads",
+  "ads.addAdId": "Add ad ID",
+  "ads.addAdIdHint": "Register the Meta ad ID of an ad created outside Simpulx so its WhatsApp leads route to this campaign. Ads created here register themselves.",
+  "ads.adIdAdded": "Ad ID added",
+  "ads.adIdInvalid": "Enter a numeric Meta ad ID"
 }

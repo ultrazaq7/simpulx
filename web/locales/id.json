@@ -2393,7 +2393,7 @@
   "ads.tabManage": "Kelola",
   "ads.tabLaunch": "Pasang iklan",
   "ads.manageWindowNote": "Live dari Meta. Metrik: 30 hari terakhir",
-  "ads.manageEmpty": "Belum ada iklan live. Buat dulu lewat Pasang iklan.",
+  "ads.manageEmpty": "Belum ada iklan live. Buat iklan pertama kamu di bawah.",
   "ads.colName": "Nama",
   "ads.colDelivery": "Penayangan",
   "ads.colBudget": "Budget",
@@ -2429,6 +2429,11 @@
   "ads.reportingOnly": "Hanya pelaporan",
   "ads.swapCreative": "Ganti materi",
   "ads.swapPick": "Pilih materi baru untuk iklan ini. Penggantian terjadi langsung di Meta, iklan tetap menyimpan riwayatnya.",
-  "ads.swapNone": "Belum ada materi yang diupload. Tambahkan dulu lewat Pasang iklan.",
-  "ads.swapped": "Materi diganti"
+  "ads.swapNone": "Belum ada materi yang diupload. Tambahkan dulu lewat Buat iklan.",
+  "ads.swapped": "Materi diganti",
+  "ads.createAds": "Buat iklan",
+  "ads.addAdId": "Tambah ID iklan",
+  "ads.addAdIdHint": "Daftarkan ID iklan Meta yang dibuat di luar Simpulx supaya leads WhatsApp-nya masuk ke campaign ini. Iklan yang dibuat di sini terdaftar otomatis.",
+  "ads.adIdAdded": "ID iklan ditambahkan",
+  "ads.adIdInvalid": "Masukkan ID iklan Meta berupa angka"
 }
