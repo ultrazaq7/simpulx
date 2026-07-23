@@ -1022,6 +1022,10 @@ function AdsTab({ id, notify }: { id: string; notify: (m: string, s?: "success" 
               className="inline-flex items-center gap-1.5 px-3 h-9 rounded-md bg-primary text-white text-[13px] font-semibold hover:bg-primary-dark outline-none disabled:opacity-50">
               <Play className="w-3.5 h-3.5" />Resume
             </button>
+          ) : (live.ads?.length ?? 0) === 0 && !live.error ? (
+            // Meta kebaca tapi memang belum ada iklan (mis. launch belum selesai):
+            // tidak ada yang bisa di-pause/resume, jadi jangan tampilkan tombol.
+            <span className="text-[12.5px] text-muted-foreground">No ads yet</span>
           ) : (
             <div className="flex items-center gap-2">
               <button disabled={busy} onClick={() => control("pause")}
