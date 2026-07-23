@@ -1427,6 +1427,9 @@ function MarketingAnalytics() {
   const ageClkShare = (b: AdBreakdown) => (b.clicks / ageTotClk) * 100;
   const ageMaxShare = Math.max(1, ...ageRows.map(ageImprShare), ...ageRows.map(ageClkShare));
   const gt = ga4?.totals;
+  // Hide (bukan tampilkan empty-state) Google keywords & GA4 kalau tidak ada data.
+  const hasKw = kw.length > 0;
+  const hasGa4 = !!(ga4?.connected && gt);
 
   // Full raw analytics export (same shape as the old campaign report): summary +
   // per-source + daily timeline + age/gender/region demographics, each a labelled
@@ -1803,21 +1806,12 @@ function MarketingAnalytics() {
         </div>
       </Card>
 
-      {/* Google Top 10 Keywords (left) + Facebook Age Demography (right) */}
-      <div className="grid grid-cols-1 lg:grid-cols-2 gap-4 mb-5 items-stretch">
+      {/* Google Top 10 Keywords (left, hidden when empty) + Facebook Age Demography (right) */}
+      <div className={cn("grid grid-cols-1 gap-4 mb-5 items-stretch", hasKw ? "lg:grid-cols-2" : "")}>
+        {hasKw && (
         <Card title={t("dashboard.googleTop10SearchKeywords")} subtitle={t("dashboard.clicksVsImpressions")}>
           <div className="p-4">
-            {kw.length === 0 ? (
-              <div className="py-12 flex flex-col items-center justify-center text-center">
-                <div className="w-12 h-12 rounded-full bg-muted grid place-items-center mb-3"><Search className="w-5 h-5 text-muted-foreground/60" /></div>
-                <p className="text-[13px] font-semibold text-foreground">{t("dashboard.noSearchKeywordsYet")}</p>
-                <p className="text-xs text-muted-foreground mt-0.5 max-w-[240px]">{t("dashboard.googleSearchConsoleHasnT")}</p>
-                <button onClick={refreshKeywords} disabled={kwRefreshing}
-                  className="mt-4 inline-flex items-center gap-1.5 h-8 px-3 rounded-md border border-border bg-background text-[12px] font-medium text-foreground hover:bg-muted disabled:opacity-50 outline-none transition-colors">
-                  <RefreshCw className={cn("w-3.5 h-3.5", kwRefreshing && "animate-spin")} /> {t("broadcasts.refresh")}
-                </button>
-              </div>
-            ) : (
+            {(
               <div className="flex flex-col gap-2.5">
                 {kw.map((k, i) => (
                   <div key={k.keyword + i} className="grid grid-cols-[130px_1fr] gap-2 items-center">
@@ -1832,6 +1826,7 @@ function MarketingAnalytics() {
             )}
           </div>
         </Card>
+        )}
         <div className="bg-card rounded-lg border border-border shadow-xs overflow-hidden">
           <div className="px-4 py-3 border-b border-border flex items-center justify-between gap-2">
             <div>
@@ -2053,13 +2048,12 @@ function MarketingAnalytics() {
         ))}
       </div>
 
-      {/* Landing Page Performance (left) + Top Locations map (right) */}
-      <div className="grid grid-cols-1 lg:grid-cols-2 gap-4 mb-5 items-stretch">
+      {/* Landing Page Performance (left, hidden when GA4 not connected/empty) + Top Locations map (right) */}
+      <div className={cn("grid grid-cols-1 gap-4 mb-5 items-stretch", hasGa4 ? "lg:grid-cols-2" : "")}>
+        {hasGa4 && gt && (
         <Card title={t("dashboard.landingPagePerformance")} subtitle={t("dashboard.ga4SessionsAndEngagement")}>
           <div className="p-4">
-            {!(ga4?.connected && gt) ? (
-              <div className="py-10 text-center text-sm text-muted-foreground">{t("components.noData")}{ga4 && !ga4.connected ? t("dashboard.connectGa4InChannelIntegrations") : ""}</div>
-            ) : (
+            {(
               <>
                 <div className="grid grid-cols-2 sm:grid-cols-4 gap-2.5">
                   {([["Total users", fmtInt(gt.total_users)], ["Sessions", fmtInt(gt.sessions)], ["Views", fmtInt(gt.views)], ["New users", fmtInt(gt.new_users)], ["Engaged", fmtInt(gt.engaged_sessions)], ["Engagement", `${(gt.engagement_rate * 100).toFixed(1)}%`], ["Avg time", `${Math.floor(gt.avg_engagement_sec / 60)}:${String(Math.round(gt.avg_engagement_sec % 60)).padStart(2, "0")}`], ["Active users", fmtInt(gt.active_users)]] as [string, string][]).map(([l, v]) => (
@@ -2079,6 +2073,7 @@ function MarketingAnalytics() {
             )}
           </div>
         </Card>
+        )}
         <Card title={t("dashboard.topLocations2")} subtitle={t("dashboard.adReachByProvince")}>
           <div className="p-4">
             {(perf?.region || []).filter((b) => (b.value || "").toLowerCase() !== "unknown").length === 0 ? (

@@ -111,6 +111,10 @@ export function AdsReportView({ perf, keywords, ga4, camps, campaigns, rangeLabe
   const budgetLeft = budget - tot.spend;
   const util = budget > 0 ? (tot.spend / budget) * 100 : 0;
   const gt = ga4?.totals;
+  // Sembunyikan section Google keywords & GA4 di PDF kalau tidak ada data
+  // (bukan cetak kartu kosong), sama seperti dashboard.
+  const hasKw = kw.length > 0;
+  const hasGa4 = !!(ga4?.connected && gt);
 
   const td = { padding: "8px 10px", textAlign: "right" as const };
   const tdL = { padding: "8px 10px", textAlign: "left" as const };
@@ -212,9 +216,10 @@ export function AdsReportView({ perf, keywords, ga4, camps, campaigns, rangeLabe
       </Section>
 
       {/* Google top keywords + Age demography */}
-      <div className="print-avoid-break" style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 14, paddingTop: 12 }}>
+      <div className="print-avoid-break" style={{ display: "grid", gridTemplateColumns: hasKw ? "1fr 1fr" : "1fr", gap: 14, paddingTop: 12 }}>
+        {hasKw && (
         <Section title={t("dashboard.googleTop10SearchKeywords")} legend={[[GREEN_DK, "Clicks"], [NAVY, "Impressions"]]}>
-          {kw.length === 0 ? <EmptyNote text={t("report.noGoogleKeywordDataIn")} /> : (
+          {(
             <div style={{ display: "flex", flexDirection: "column", gap: 7 }}>
               {kw.map((k, i) => (
                 <div key={k.keyword + i} style={{ display: "grid", gridTemplateColumns: "110px 1fr", gap: 8, alignItems: "center" }}>
@@ -228,6 +233,7 @@ export function AdsReportView({ perf, keywords, ga4, camps, campaigns, rangeLabe
             </div>
           )}
         </Section>
+        )}
         <Section title={t("dashboard.ageDemography")} legend={[[NAVY, "Impressions"], [GREEN_DK, "Clicks"]]}>
           {age.length === 0 ? <EmptyNote text={t("report.noAgeBreakdownInThis")} /> : (() => {
             // Shares (%) on one comparable scale, matching the dashboard: raw
@@ -365,9 +371,10 @@ export function AdsReportView({ perf, keywords, ga4, camps, campaigns, rangeLabe
 
       {/* Landing Page Performance (GA4, left) + Top locations (right) in one row.
           Both always present so the report structure stays consistent. */}
-      <div className="print-avoid-break" style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 14, paddingTop: 12, alignItems: "start" }}>
+      <div className="print-avoid-break" style={{ display: "grid", gridTemplateColumns: hasGa4 ? "1fr 1fr" : "1fr", gap: 14, paddingTop: 12, alignItems: "start" }}>
+      {hasGa4 && gt && (
       <Section title={t("dashboard.landingPagePerformance")}>
-        {!ga4?.connected ? <EmptyNote text={t("report.googleAnalyticsIsNotConnected")} /> : !gt ? <EmptyNote text={t("report.noLandingPageDataIn")} /> : (<>
+        {(<>
           <div style={{ display: "grid", gridTemplateColumns: "repeat(2,1fr)", gap: 10, marginBottom: 12 }}>
             {([["Total users", num(gt.total_users)], ["Active users", num(gt.active_users)], ["New users", num(gt.new_users)], ["Sessions", num(gt.sessions)],
               ["Engaged sessions", num(gt.engaged_sessions)], ["Engagement rate", (gt.engagement_rate * 100).toFixed(1) + "%"], ["Avg engagement", fmtSec(gt.avg_engagement_sec)], ["Views", num(gt.views)]] as [string, string][]).map(([l, v]) => (
@@ -399,7 +406,7 @@ export function AdsReportView({ perf, keywords, ga4, camps, campaigns, rangeLabe
           )}
         </>)}
       </Section>
-
+      )}
       {/* Top locations (province) */}
       <Section title={regionBySpend ? t("report.topLocationsAdSpendBy") : t("report.topLocationsReach")}>
         {mapPoints.length === 0 ? <EmptyNote text={t("report.noLocationDataInThis")} /> : (
