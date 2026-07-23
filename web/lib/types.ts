@@ -908,6 +908,7 @@ export interface AdLaunchResult {
   ads: { creative_id: string; file_name: string; meta_ad_id?: string; error?: string }[];
   created: number;
   updated_adset?: boolean; // rerun after launch = apply changes
+  warning?: string; // e.g. IG placement disabled (account not authorized)
   status: string;
 }
 

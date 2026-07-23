@@ -395,6 +395,7 @@ function LaunchBar({ id, preview, notify, onRefresh }: {
       const parts: string[] = [];
       if (r.updated_adset) parts.push("budget & targeting updated");
       if (r.created > 0) parts.push(`${r.created} ad(s) on Meta`);
+      if (r.warning) parts.push(r.warning);
       notify(failed.length
         ? `${parts.join(", ") || "Partial"}; ${failed.length} creative(s) failed: ${failed[0].error}`
         : launched

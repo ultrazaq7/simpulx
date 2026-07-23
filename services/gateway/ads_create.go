@@ -552,6 +552,34 @@ func (s *server) handleLaunchAds(w http.ResponseWriter, r *http.Request) {
 	var results []adResult
 	created := 0
 
+	// (200/1815199): Page-nya punya akun Instagram yang belum di-assign ke ad
+	// account, dan placement default mengikutkan Instagram. Daripada launch
+	// buntu, placement dibatasi ke Facebook+Messenger SEKALI lalu dicoba ulang;
+	// warning-nya dibawa ke UI supaya user tahu IG sedang tidak ikut tayang.
+	igWarning := ""
+	restrictIGOnce := func(err error) bool {
+		if err == nil || !strings.Contains(err.Error(), "1815199") || igWarning != "" {
+			return false
+		}
+		upd := map[string]any{}
+		for k, v := range targeting {
+			if k != "targeting_automation" {
+				upd[k] = v
+			}
+		}
+		upd["publisher_platforms"] = []string{"facebook", "messenger"}
+		tj, _ := json.Marshal(upd)
+		form := url.Values{}
+		form.Set("targeting", string(tj))
+		form.Set("access_token", t.token)
+		if e2 := metaPostForm(ctx, fmt.Sprintf("https://graph.facebook.com/%s/%s", metaGraphVersion, metaAdsetID), form); e2 != nil {
+			return false
+		}
+		igWarning = "Instagram placement dimatikan: akun Instagram Page ini belum di-assign ke ad account. Assign di Business Settings > Instagram accounts untuk ikut tayang di IG."
+		s.log.Warn("ads launch: IG not authorized, placements restricted to facebook+messenger", "campaign", campaignID)
+		return true
+	}
+
 	if creativeFormat == "carousel" {
 		// 3a-carousel. Pastikan semua gambar punya hash (upload yang belum).
 		cards := []map[string]any{}
@@ -613,6 +641,9 @@ func (s *server) handleLaunchAds(w http.ResponseWriter, r *http.Request) {
 		form.Set("object_story_spec", string(ss))
 		form.Set("access_token", t.token)
 		creativeID, err := metaPostID(ctx, base+"/adcreatives", form)
+		if err != nil && restrictIGOnce(err) {
+			creativeID, err = metaPostID(ctx, base+"/adcreatives", form)
+		}
 		if err != nil {
 			fail("create carousel creative", err)
 			return
@@ -724,6 +755,9 @@ func (s *server) handleLaunchAds(w http.ResponseWriter, r *http.Request) {
 			form.Set("object_story_spec", string(ss))
 			form.Set("access_token", t.token)
 			creativeID, err := metaPostID(ctx, base+"/adcreatives", form)
+			if err != nil && restrictIGOnce(err) {
+				creativeID, err = metaPostID(ctx, base+"/adcreatives", form)
+			}
 			if err != nil {
 				res.Error = "create creative: " + err.Error()
 				results = append(results, res)
@@ -789,6 +823,7 @@ func (s *server) handleLaunchAds(w http.ResponseWriter, r *http.Request) {
 		"ads":              results,
 		"created":          created,
 		"updated_adset":    adsetUpdated,
+		"warning":          igWarning,
 		"status":           "paused",
 	})
 }
